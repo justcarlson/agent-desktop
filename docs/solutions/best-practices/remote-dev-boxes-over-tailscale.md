@@ -1,8 +1,8 @@
 ---
-title: Develop the Linux adapter against a remote Ubuntu box over Tailscale
+title: Develop platform adapters against remote boxes over Tailscale
 date: 2026-08-31
 category: best-practices
-module: crates/linux, scripts/remote-linux.sh, scripts/session-env.sh
+module: crates/linux, crates/windows, scripts/remote-linux.sh, scripts/session-env.sh
 problem_type: best_practice
 component: tooling
 symptoms:
@@ -11,15 +11,18 @@ symptoms:
   - "AnyDesk closes with 'Status: display_server_not_supported'."
   - "cargo is not found when a command runs through ssh without a login shell."
   - "Tailscale refuses to authorize with 'device with nodekey ... already exists'."
+  - "Tailscale reaches a Windows box but port 22 is closed."
+  - "Key auth to a Windows admin account keeps asking for a password."
+  - "Get-LocalGroupMember reports 'Group Administrators was not found'."
 severity: high
-tags: [linux, at-spi, tailscale, remote-development, phase-3, x11, wayland]
+tags: [linux, windows, at-spi, uia, tailscale, remote-development, phase-2, phase-3, x11, wayland, openssh]
 ---
 
-# Develop the Linux adapter against a remote Ubuntu box over Tailscale
+# Develop platform adapters against remote boxes over Tailscale
 
 ## Problem
 
-Phase 3 needs a real Ubuntu desktop. AT-SPI2 is a D-Bus protocol, so the tree exists only
+Phase 2 needs a real Windows desktop and Phase 3 needs a real Ubuntu desktop. AT-SPI2 is a D-Bus protocol, so the tree exists only
 inside a logged-in graphical session. A macOS workstation cannot host one, and a container
 cannot either.
 
@@ -126,6 +129,57 @@ Host linuxbox
   ServerAliveCountMax 3
 ```
 
+## Setup — the Windows box
+
+Windows runs no SSH server by default, so Tailscale alone reaches the host and finds
+nothing on port 22. WinRM answers on 5985, which proves the route works and the listener is
+the missing piece. Enable the built-in OpenSSH Server rather than a third-party stack. It
+speaks the same protocol as the Linux box, so one key and one `~/.ssh/config` cover both.
+
+Tailscale SSH is not an option here. It serves Linux nodes only.
+
+Run this in an Administrator PowerShell on the box:
+
+```powershell
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Set-Service -Name sshd -StartupType Automatic
+Start-Service sshd
+```
+
+Leave the default shell as `cmd`. A PowerShell default shell breaks `scp` and `sftp`. Call
+`powershell -NoProfile -c "..."` per command instead.
+
+Install the key. For an administrator account, `sshd` reads one shared file and ignores the
+home folder, so `ssh-copy-id` appears to succeed while login still asks for a password:
+
+```powershell
+$key = 'ssh-ed25519 AAAA... user@workstation'
+$f = "$env:ProgramData\ssh\administrators_authorized_keys"
+Set-Content -Path $f -Value $key -Encoding ascii
+icacls $f /inheritance:r /grant "*S-1-5-32-544:F" /grant "*S-1-5-18:F"
+Restart-Service sshd
+```
+
+Use the SIDs, not the group names. `S-1-5-32-544` is Administrators and `S-1-5-18` is
+SYSTEM on every install. Group names are localized: on a Spanish install
+`Get-LocalGroupMember -Group Administrators` fails with "Group Administrators was not
+found", and a script that branches on it silently takes the wrong path.
+
+Windows ships no `rsync`. Use the bundled `tar.exe`, which exists since Windows 10 1803:
+
+```bash
+tar czf - --exclude .git --exclude target . | ssh winbox "cd C:\dev\proj && tar xzf -"
+```
+
+UIA needs an interactive session, the same way AT-SPI needs a live X session. Check it:
+
+```bash
+ssh winbox 'query session'
+```
+
+The console session must read `Active`. If you connect by RDP and then disconnect instead
+of logging out, it drops to `Disc` and UIA calls start to fail.
+
 ## Verify
 
 ```bash
@@ -148,6 +202,9 @@ env-steal is load-bearing.
   the roundtrip; a type error does not.
 - Leave `target/` on the box and exclude it from `rsync`. A full rebuild per sync makes the
   loop useless.
+- On Windows, branch on SIDs, never on localized group names.
+- Keep the Windows console session `Active` for the whole of Phase 2. Log out, never
+  disconnect.
 
 ## Gotchas that cost time
 
@@ -158,3 +215,7 @@ env-steal is load-bearing.
 | `/usr/local/bin/tailscale` is a broken stub on macOS | The cask ships the CLI as `Tailscale` with a capital T. Repoint the stub. |
 | `sudo: a terminal is required to read the password` | A non-TTY shell. Run the command on the box console, or add a `sudoers.d` entry. |
 | Empty AT-SPI tree, no error | The command ran without `session-env.sh`. |
+| Windows: port 22 closed while 5985 answers | Tailscale routes packets, but Windows runs no SSH server by default. |
+| Windows: key auth still prompts for a password | The account is an administrator. `sshd` reads `administrators_authorized_keys`, not the home folder. |
+| `Group Administrators was not found` | The Windows locale is not English. Use SIDs, never group names. |
+| Windows: `rsync` not found | Windows ships no `rsync`. Use the bundled `tar.exe` or `git`. |
