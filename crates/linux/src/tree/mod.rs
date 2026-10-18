@@ -1,4 +1,5 @@
 mod element;
+mod expansion;
 mod extents;
 mod field;
 mod node_properties;
@@ -22,10 +23,19 @@ mod live_launch;
 mod live_qt;
 
 #[cfg(test)]
+mod live_timeout;
+
+#[cfg(test)]
+mod live_tree;
+
+#[cfg(test)]
 #[path = "walker_live_tests.rs"]
 mod walker_live_tests;
 
-pub(crate) use element::{AtspiElement, atspi_element};
+pub(crate) use element::AtspiElement;
+#[allow(unused_imports)]
+pub(crate) use element::atspi_element;
+pub(crate) use expansion::Expansion;
 pub(crate) use extents::Extents;
 pub(crate) use field::Field;
 pub(crate) use node_properties::NodeProperties;
@@ -34,4 +44,5 @@ pub(crate) use raw_node::{ChildAddress, RawNode};
 pub(crate) use walk::Walk;
 pub(crate) use walk_limits::WalkLimits;
 pub(crate) use walked_node::WalkedNode;
+#[allow(unused_imports)]
 pub(crate) use walker::walk_tree;

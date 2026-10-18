@@ -31,11 +31,13 @@ impl AtspiElement {
         self.pid
     }
 
+    #[allow(dead_code)]
     pub(crate) fn into_native_handle(self) -> NativeHandle {
         NativeHandle::new(self)
     }
 }
 
+#[allow(dead_code)]
 /// Borrows the element carried by a core `NativeHandle`. A handle built by
 /// another platform, or an empty one, is rejected rather than reinterpreted.
 pub(crate) fn atspi_element(handle: &NativeHandle) -> Result<&AtspiElement, AdapterError> {

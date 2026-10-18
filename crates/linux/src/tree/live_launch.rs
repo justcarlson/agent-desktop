@@ -3,7 +3,6 @@ use std::process::{Child, Command, Stdio};
 
 pub(super) struct Launched {
     children: Vec<Child>,
-    pub(super) extra_pids: Vec<u32>,
     pub(super) scratch: Vec<PathBuf>,
 }
 
@@ -11,7 +10,6 @@ impl Launched {
     pub(super) fn new() -> Self {
         Self {
             children: Vec::new(),
-            extra_pids: Vec::new(),
             scratch: Vec::new(),
         }
     }
@@ -49,11 +47,6 @@ impl Launched {
             let _ = child.wait();
         }
         self.children.clear();
-        for pid in self.extra_pids.drain(..) {
-            let _ = Command::new("kill")
-                .args(["-KILL", &pid.to_string()])
-                .status();
-        }
         for path in self.scratch.drain(..) {
             let _ = std::fs::remove_dir_all(path);
         }
@@ -71,17 +64,6 @@ pub(super) fn nonce(label: &str) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_nanos());
     format!("ad-live-{label}-{}-{nanos}", std::process::id())
-}
-
-pub(super) fn processes_named(program: &str) -> Vec<u32> {
-    let Ok(entries) = std::fs::read_dir("/proc") else {
-        return Vec::new();
-    };
-    entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
-        .filter(|pid| program_of(*pid).as_deref() == Some(program))
-        .collect()
 }
 
 pub(super) fn program_of(pid: u32) -> Option<String> {

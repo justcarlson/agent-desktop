@@ -31,24 +31,39 @@ impl RawNode {
         }
     }
 
-    /// The number of fields whose read failed.
-    pub(crate) fn failed_reads(&self) -> usize {
+    /// The name and failure detail of every field whose read failed.
+    #[cfg(test)]
+    pub(crate) fn failures(&self) -> Vec<(&'static str, &str)> {
         [
-            self.properties.name.is_failed(),
-            self.properties.description.is_failed(),
-            self.properties.child_count.is_failed(),
-            self.properties.accessible_id.is_failed(),
-            self.traits.role.is_failed(),
-            self.traits.role_name.is_failed(),
-            self.traits.states.is_failed(),
-            self.traits.interfaces.is_failed(),
-            self.attributes.is_failed(),
-            self.extents.is_failed(),
-            self.actions.is_failed(),
-            self.children.is_failed(),
+            failure("name", &self.properties.name),
+            failure("description", &self.properties.description),
+            failure("child_count", &self.properties.child_count),
+            failure("accessible_id", &self.properties.accessible_id),
+            failure("role", &self.traits.role),
+            failure("role_name", &self.traits.role_name),
+            failure("states", &self.traits.states),
+            failure("interfaces", &self.traits.interfaces),
+            failure("attributes", &self.attributes),
+            failure("extents", &self.extents),
+            failure("actions", &self.actions),
+            failure("children", &self.children),
         ]
         .into_iter()
-        .filter(|failed| *failed)
-        .count()
+        .flatten()
+        .collect()
+    }
+
+    /// The number of fields whose read failed.
+    #[cfg(test)]
+    pub(crate) fn failed_reads(&self) -> usize {
+        self.failures().len()
+    }
+}
+
+#[cfg(test)]
+fn failure<'a, T>(name: &'static str, field: &'a Field<T>) -> Option<(&'static str, &'a str)> {
+    match field {
+        Field::Failed(detail) => Some((name, detail.as_str())),
+        Field::Present(_) | Field::Absent => None,
     }
 }

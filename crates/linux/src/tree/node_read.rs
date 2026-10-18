@@ -192,10 +192,17 @@ fn read_children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError>
     }))
 }
 
-fn advertises(interfaces: &Field<Vec<String>>, name: &str) -> bool {
-    interfaces
-        .present()
-        .is_some_and(|list| list.iter().any(|entry| entry == name))
+/// `None` when the interface is advertised and its reads should go ahead.
+/// When the interface list itself could not be read, nothing is known about
+/// the interface, so the dependent field is a failure and not an absence.
+pub(super) fn skipped_without<T>(interfaces: &Field<Vec<String>>, name: &str) -> Option<Field<T>> {
+    match interfaces {
+        Field::Present(list) if list.iter().any(|entry| entry == name) => None,
+        Field::Present(_) | Field::Absent => Some(Field::Absent),
+        Field::Failed(detail) => Some(Field::Failed(format!(
+            "interface list unavailable, {name} not checked: {detail}"
+        ))),
+    }
 }
 
 async fn read_extents(
@@ -203,8 +210,8 @@ async fn read_extents(
     element: &AtspiElement,
     interfaces: &Field<Vec<String>>,
 ) -> Result<Field<Extents>, AdapterError> {
-    if !advertises(interfaces, COMPONENT_INTERFACE) {
-        return Ok(Field::Absent);
+    if let Some(skipped) = skipped_without(interfaces, COMPONENT_INTERFACE) {
+        return Ok(skipped);
     }
     let reply = call(
         connection,
@@ -251,8 +258,8 @@ async fn read_actions(
     element: &AtspiElement,
     interfaces: &Field<Vec<String>>,
 ) -> Result<Field<Vec<String>>, AdapterError> {
-    if !advertises(interfaces, ACTION_INTERFACE) {
-        return Ok(Field::Absent);
+    if let Some(skipped) = skipped_without(interfaces, ACTION_INTERFACE) {
+        return Ok(skipped);
     }
     let reply = call(connection, element, ACTION_INTERFACE, "GetActions", &()).await;
     let listed = field(
@@ -373,3 +380,7 @@ pub(crate) async fn read_node(
         children: read_children(child_reply)?,
     })
 }
+
+#[cfg(test)]
+#[path = "node_read_tests.rs"]
+mod tests;

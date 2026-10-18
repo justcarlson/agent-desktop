@@ -1,16 +1,17 @@
-use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{Deadline, ErrorCode, NativeHandle};
 use zbus::blocking::Connection;
 
-use super::live_launch::{Launched, nonce, processes_named, program_of};
+use super::live_launch::{Launched, nonce, program_of};
 use super::live_qt;
+use super::live_tree::{
+    action_summary, count_failed, dump, failure_kinds, find_node, frames_where, pid_frame,
+};
 use super::walker::walk_tree;
-use super::{AtspiElement, Field, RawNode, Walk, WalkLimits, WalkedNode, atspi_element};
-use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus};
+use super::{AtspiElement, RawNode, Walk, WalkLimits, atspi_element};
+use crate::system::SharedBus;
 
-const BUS_DAEMON: &str = "org.freedesktop.DBus";
 const SETTLE_LIMIT: Duration = Duration::from_secs(40);
 const POLL: Duration = Duration::from_millis(100);
 const STABLE_POLLS: usize = 3;
@@ -18,116 +19,12 @@ const TIMED_RUNS: usize = 7;
 const PUSH_BUTTON_ROLE: u32 = 43;
 const TERMINAL_SERVER: &str = "gnome-terminal-server";
 
-fn children_of(connection: &Connection, bus: &str, path: &str) -> Vec<(String, String)> {
-    let Ok(reply) = connection.call_method(
-        Some(bus),
-        path,
-        Some(ACCESSIBLE_INTERFACE),
-        "GetChildren",
-        &(),
-    ) else {
-        return Vec::new();
-    };
-    reply
-        .body()
-        .deserialize::<Vec<(String, zbus::zvariant::OwnedObjectPath)>>()
-        .map(|entries| {
-            entries
-                .into_iter()
-                .map(|(bus, path)| (bus, path.to_string()))
-                .collect()
-        })
-        .unwrap_or_default()
+pub(super) struct Settled {
+    pub(super) frame: AtspiElement,
+    pub(super) walk: Walk<RawNode>,
 }
 
-fn pid_of(connection: &Connection, bus: &str) -> Option<u32> {
-    connection
-        .call_method(
-            Some(BUS_DAEMON),
-            "/org/freedesktop/DBus",
-            Some(BUS_DAEMON),
-            "GetConnectionUnixProcessID",
-            &(bus,),
-        )
-        .ok()?
-        .body()
-        .deserialize::<u32>()
-        .ok()
-}
-
-fn frames_where(connection: &Connection, wanted: impl Fn(u32) -> bool) -> Vec<AtspiElement> {
-    let mut frames = Vec::new();
-    for (app_bus, _) in children_of(connection, REGISTRY_SERVICE, REGISTRY_ROOT_PATH) {
-        let Some(pid) = pid_of(connection, &app_bus) else {
-            continue;
-        };
-        if !wanted(pid) {
-            continue;
-        }
-        for (frame_bus, frame_path) in children_of(connection, &app_bus, REGISTRY_ROOT_PATH) {
-            frames.push(AtspiElement::new(frame_bus, frame_path, pid));
-        }
-    }
-    frames
-}
-
-fn count_failed(node: &WalkedNode<RawNode>) -> usize {
-    node.payload.failed_reads() + node.children.iter().map(count_failed).sum::<usize>()
-}
-
-fn dump(node: &WalkedNode<RawNode>, depth: usize, out: &mut String) {
-    let payload = &node.payload;
-    let role = payload
-        .traits
-        .role_name
-        .present()
-        .map_or("?", String::as_str);
-    let name = payload.properties.name.present().map_or("", String::as_str);
-    let _ = writeln!(
-        out,
-        "{}{role} {name:?} failed={} truncated={}",
-        "  ".repeat(depth),
-        payload.failed_reads(),
-        node.truncated
-    );
-    for child in &node.children {
-        dump(child, depth + 1, out);
-    }
-}
-
-fn find_node<'a>(
-    node: &'a WalkedNode<RawNode>,
-    wanted: &impl Fn(&RawNode) -> bool,
-) -> Option<&'a RawNode> {
-    if wanted(&node.payload) {
-        return Some(&node.payload);
-    }
-    node.children
-        .iter()
-        .find_map(|child| find_node(child, wanted))
-}
-
-fn action_summary(node: &WalkedNode<RawNode>) -> String {
-    let mut found = Vec::new();
-    collect_actions(node, &mut found);
-    format!("{} nodes with an action field: {found:?}", found.len())
-}
-
-fn collect_actions(node: &WalkedNode<RawNode>, found: &mut Vec<String>) {
-    if !matches!(node.payload.actions, Field::Absent) {
-        found.push(format!("{:?}", node.payload.actions));
-    }
-    for child in &node.children {
-        collect_actions(child, found);
-    }
-}
-
-struct Settled {
-    frame: AtspiElement,
-    walk: Walk<RawNode>,
-}
-
-fn settle(
+pub(super) fn settle(
     bus: &SharedBus,
     min_nodes: usize,
     mut find_frame: impl FnMut() -> Option<AtspiElement>,
@@ -172,7 +69,15 @@ fn timed_walks(bus: &SharedBus, frame: &AtspiElement) -> Result<Timing, String> 
     for run in 0..=TIMED_RUNS {
         let deadline = Deadline::standard().map_err(|error| error.message)?;
         let started = Instant::now();
-        walk_tree(bus, frame, &WalkLimits::default(), deadline).map_err(|error| error.message)?;
+        let walk = walk_tree(bus, frame, &WalkLimits::default(), deadline)
+            .map_err(|error| error.message)?;
+        if !walk.complete {
+            return Err(format!(
+                "timed run {run} was incomplete after {} ms with {} nodes",
+                started.elapsed().as_millis(),
+                walk.node_count
+            ));
+        }
         if run > 0 {
             millis.push(started.elapsed().as_millis());
         }
@@ -215,19 +120,16 @@ fn walk_app(
     }
     if failed > 0 {
         problems.push(format!("{failed} read errors"));
+        for kind in failure_kinds(&settled.walk.root) {
+            println!("walker_live {label} read error: {kind}");
+        }
     }
-    if problems.is_empty() || label == "vscode" && settled.walk.complete {
+    if problems.is_empty() {
         return Ok(settled);
     }
     let mut tree = String::new();
     dump(&settled.walk.root, 0, &mut tree);
     Err(format!("{label}: {}\n{tree}", problems.join(", ")))
-}
-
-fn pid_frame(connection: &Connection, pid: u32) -> Option<AtspiElement> {
-    frames_where(connection, |candidate| candidate == pid)
-        .into_iter()
-        .next()
 }
 
 fn check_handles(frame: &AtspiElement) -> Result<(), String> {
@@ -276,12 +178,17 @@ fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let is_server = |pid: u32| program_of(pid).as_deref() == Some(TERMINAL_SERVER);
     let known: Vec<AtspiElement> = frames_where(connection, is_server);
-    let servers_before = processes_named(TERMINAL_SERVER);
-    let marker = nonce("terminal");
     let mut launched = Launched::new();
-    let script = format!("exec -a {marker} sleep 3600");
+    let guard = std::env::temp_dir().join(nonce("terminal"));
+    std::fs::create_dir_all(&guard).map_err(|error| error.to_string())?;
+    launched.scratch.push(guard.clone());
+    let script = format!(
+        "while [ -d '{}' ] && kill -0 {} 2>/dev/null; do sleep 0.5; done",
+        guard.display(),
+        std::process::id()
+    );
     launched.spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script]);
-    let result = walk_app(bus, "terminal", 20, || {
+    walk_app(bus, "terminal", 20, || {
         frames_where(connection, is_server)
             .into_iter()
             .find(|frame| {
@@ -289,12 +196,8 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
                     .iter()
                     .any(|old| old.path() == frame.path() && old.bus_name() == frame.bus_name())
             })
-    });
-    launched.extra_pids.extend(processes_named(&marker));
-    if servers_before.is_empty() {
-        launched.extra_pids.extend(processes_named(TERMINAL_SERVER));
-    }
-    result.map(|_| ())
+    })
+    .map(|_| ())
 }
 
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {

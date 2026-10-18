@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::walker_expand::expand_level;
-use super::{AtspiElement, RawNode, Walk, WalkLimits, WalkedNode};
+use super::{AtspiElement, Expansion, RawNode, Walk, WalkLimits, WalkedNode};
 use crate::system::SharedBus;
 
 struct Pending<K> {
@@ -84,12 +84,14 @@ fn assemble<K, P>(slots: Vec<Slot<K, P>>) -> Option<WalkedNode<P>> {
 
 /// Breadth-first walk. `expand` reads a whole level at once and returns, for
 /// each key in order, its payload and its children. Stops descending when
-/// the deadline has passed, marking the parents of the unread level.
+/// the deadline has passed, marking the parents of the unread level. A node
+/// whose child list could not be read, or that vanished, is kept and marked
+/// truncated, and the walk is incomplete.
 pub(crate) fn walk_levels<K, P>(
     root: K,
     limits: &WalkLimits,
     deadline: Deadline,
-    mut expand: impl FnMut(&[K]) -> Result<Vec<(P, Vec<K>)>, AdapterError>,
+    mut expand: impl FnMut(&[K]) -> Result<Vec<Expansion<P, K>>, AdapterError>,
 ) -> Result<Walk<P>, AdapterError>
 where
     K: Clone + PartialEq,
@@ -119,7 +121,13 @@ where
             Err(error) => return Err(error),
         };
         let mut next = Vec::new();
-        for (pending, (payload, children)) in frontier.into_iter().zip(reads) {
+        for (pending, read) in frontier.into_iter().zip(reads) {
+            let Expansion {
+                payload,
+                children,
+                children_unread,
+                gone,
+            } = read;
             let index = slots.len();
             if let Some(parent) = pending.parent {
                 slots[parent].children.push(index);
@@ -129,9 +137,15 @@ where
                 payload,
                 parent: pending.parent,
                 children: Vec::new(),
-                truncated: false,
+                truncated: children_unread || gone,
                 depth: pending.depth,
             });
+            if children_unread || gone {
+                complete = false;
+            }
+            if gone && let Some(parent) = pending.parent {
+                slots[parent].truncated = true;
+            }
             let (taken, truncated) = if children.is_empty() {
                 (Vec::new(), false)
             } else {
@@ -165,6 +179,7 @@ where
 }
 
 /// Walks the tree under `root` on the shared accessibility connection.
+#[allow(dead_code)]
 pub(crate) fn walk_tree(
     bus: &SharedBus,
     root: &AtspiElement,
