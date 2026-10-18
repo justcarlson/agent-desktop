@@ -144,10 +144,14 @@ mod tests {
                     "list-apps returns an apps array on Linux"
                 );
             } else {
+                assert_eq!(
+                    json["error"]["code"], "PLATFORM_NOT_SUPPORTED",
+                    "the only failure a session without a bus may report: {json}"
+                );
                 let message = json["error"]["message"].as_str().unwrap_or_default();
                 assert!(
-                    !message.contains("is not supported on this platform"),
-                    "list-apps is implemented on Linux: {json}"
+                    message.contains("AT-SPI accessibility bus is not available"),
+                    "the failure names the missing bus: {json}"
                 );
             }
         }
