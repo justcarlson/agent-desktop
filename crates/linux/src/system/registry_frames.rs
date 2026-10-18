@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline};
@@ -8,8 +9,32 @@ use super::{SharedBus, within};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
 
 const CHILDREN_SLICE: Duration = Duration::from_millis(300);
+const FRAME_SLICE: Duration = Duration::from_millis(300);
 const APPS_IN_FLIGHT: usize = 16;
 const FRAMES_IN_FLIGHT: usize = 8;
+
+/// Reads every frame of one application, each within its own slice. A frame
+/// that does not answer in time or fails is left out, so one stalled frame
+/// costs one slice and never the whole inventory.
+async fn collect_frames<T, F, Fut>(
+    children: Vec<(String, String)>,
+    slice: Duration,
+    read: F,
+) -> Vec<T>
+where
+    F: Fn((String, String)) -> Fut,
+    Fut: Future<Output = Option<T>>,
+{
+    stream::iter(
+        children
+            .into_iter()
+            .map(|child| within_slice(slice, read(child))),
+    )
+    .buffered(FRAMES_IN_FLIGHT)
+    .filter_map(|node| async move { node.flatten() })
+    .collect::<Vec<_>>()
+    .await
+}
 
 /// Reads the children of each application root in full. An application that
 /// does not list its children in time, or whose frame is gone, contributes
@@ -27,13 +52,10 @@ pub(crate) fn read_frames(
             let Some(Ok(children)) = listed else {
                 return Vec::new();
             };
-            stream::iter(children.into_iter().map(|(bus_name, path)| async move {
+            collect_frames(children, FRAME_SLICE, |(bus_name, path)| async move {
                 let frame = AtspiElement::new(bus_name, path, root.pid());
                 read_node(connection, &frame).await.ok()
-            }))
-            .buffered(FRAMES_IN_FLIGHT)
-            .filter_map(|node| async move { node })
-            .collect::<Vec<_>>()
+            })
             .await
         });
         Ok(stream::iter(reads)
@@ -42,3 +64,7 @@ pub(crate) fn read_frames(
             .await)
     })
 }
+
+#[cfg(test)]
+#[path = "registry_frames_tests.rs"]
+mod tests;
