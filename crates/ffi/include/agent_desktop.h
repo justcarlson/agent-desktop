@@ -1204,9 +1204,9 @@ AdResult ad_check_permissions(const struct AdAdapter *adapter);
  * Closes the application identified by `id` (bundle id on macOS,
  * executable path on other platforms). `force = true` skips the
  * graceful-shutdown path, terminates matching app processes, and escalates
- * survivors when the platform supports it. Session-critical
- * processes (for example loginwindow and Dock on macOS, csrss.exe and winlogon.exe on Windows) are
- * refused with `AD_RESULT_ERR_INVALID_ARGS` — the protected-process
+ * survivors when the platform supports it. Session-critical processes
+ * (for example loginwindow and Dock on macOS, csrss.exe and winlogon.exe
+ * on Windows) are refused with `AD_RESULT_ERR_INVALID_ARGS` — the protected-process
  * guard is enforced inside the adapter, so FFI and CLI behave
  * identically.
  *
@@ -1349,8 +1349,8 @@ AdResult ad_execute_by_ref_timeout(const struct AdAdapter *adapter,
 
 /**
  * Takes a full CLI-format snapshot of the target application window,
- * allocates snapshot-qualified refs (`@<snapshot_id>:eN`) for all interactive elements, persists the refmap
- * to disk, and writes the JSON envelope into `*out`.
+ * allocates snapshot-qualified refs (`@<snapshot_id>:eN`) for all
+ * interactive elements, persists the refmap to disk, and writes the JSON envelope into `*out`.
  *
  * The JSON shape matches `agent-desktop snapshot`:
  * `{"version":"2.4","ok":true,"command":"snapshot","data":{"app":"...","window":{...},"ref_count":N,"snapshot_id":"...","complete":true,"tree":{...}}}`.
