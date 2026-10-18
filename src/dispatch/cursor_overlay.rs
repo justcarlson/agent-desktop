@@ -74,8 +74,6 @@ pub(crate) fn dispatch(
     Ok(value)
 }
 
-/// An adapter without a cursor overlay never drew one, so a disable it cannot
-/// perform leaves nothing on screen.
 fn nothing_to_tear_down(error: &agent_desktop_core::AdapterError) -> bool {
     error.code == agent_desktop_core::ErrorCode::PlatformNotSupported
 }
