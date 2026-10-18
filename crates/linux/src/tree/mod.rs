@@ -1,4 +1,5 @@
 mod bounded;
+mod attributes;
 mod element;
 mod expansion;
 mod extents;
@@ -8,6 +9,8 @@ mod node_read;
 mod node_traits;
 mod raw_node;
 mod role_numbers;
+mod role_table;
+mod roles;
 mod state_bits;
 mod states;
 mod walk;
