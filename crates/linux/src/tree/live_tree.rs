@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use zbus::blocking::Connection;
 
-use super::{AtspiElement, Field, ObservedRead, RawNode, WalkedNode};
+use super::{AtspiElement, Field, LabelOutcome, ObservedRead, RawNode, WalkedNode};
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
 
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
@@ -64,7 +64,11 @@ pub(super) fn frames_where(
 }
 
 pub(super) fn count_failed(node: &WalkedNode<ObservedRead>) -> usize {
-    node.payload.node.failed_reads() + node.children.iter().map(count_failed).sum::<usize>()
+    let payload = &node.payload;
+    payload.node.failed_reads()
+        + usize::from(payload.value.value.is_failed())
+        + usize::from(payload.label == LabelOutcome::Failed)
+        + node.children.iter().map(count_failed).sum::<usize>()
 }
 
 pub(super) fn collect_failures(node: &WalkedNode<ObservedRead>, found: &mut Vec<String>) {
@@ -77,6 +81,12 @@ pub(super) fn collect_failures(node: &WalkedNode<ObservedRead>, found: &mut Vec<
             .present()
             .map_or("?", String::as_str);
         found.push(format!("{role}.{field}: {detail}"));
+    }
+    if let Field::Failed(detail) = &node.payload.value.value {
+        found.push(format!("value: {detail}"));
+    }
+    if node.payload.label == LabelOutcome::Failed {
+        found.push("label: relation or target name unreadable".to_owned());
     }
     for child in &node.children {
         collect_failures(child, found);
