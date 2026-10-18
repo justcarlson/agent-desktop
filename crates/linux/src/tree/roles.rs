@@ -1,6 +1,7 @@
 use agent_desktop_core::{LocatorField, Role};
 
 use super::attributes::{AttributeRead, first_xml_role};
+use super::gtk_switch::is_gtk_switch;
 use super::role_numbers::{LANDMARK, LIST, PUSH_BUTTON, TERMINAL, TEXT};
 use super::role_table::base_role;
 use super::state_bits::{EDITABLE, HAS_POPUP, StateBits};
@@ -75,19 +76,21 @@ pub(crate) fn role_of(
 }
 
 /// The role token of a node, or unknown when the role read failed. That is
-/// not the canonical `unknown` role: it says nothing was read.
+/// not the canonical `unknown` role: it says nothing was read. A GTK switch
+/// is a check box by number but a `switch` by role, as on macOS and Windows.
 pub(crate) fn resolve_role(
     traits: &NodeTraits,
     attributes: &AttributeRead,
 ) -> LocatorField<String> {
-    match traits.role.present() {
-        Some(number) => LocatorField::Known(
-            role_of(*number, &traits.states, &traits.interfaces, attributes)
-                .as_str()
-                .to_owned(),
-        ),
-        None => LocatorField::Unknown,
-    }
+    let Some(number) = traits.role.present() else {
+        return LocatorField::Unknown;
+    };
+    let role = if is_gtk_switch(&traits.role, &traits.role_name, attributes) {
+        Role::Switch
+    } else {
+        role_of(*number, &traits.states, &traits.interfaces, attributes)
+    };
+    LocatorField::Known(role.as_str().to_owned())
 }
 
 #[cfg(test)]

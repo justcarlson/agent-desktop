@@ -5,6 +5,7 @@ mod element;
 mod expansion;
 mod extents;
 mod field;
+mod gtk_switch;
 mod identity;
 mod label_outcome;
 mod label_read;

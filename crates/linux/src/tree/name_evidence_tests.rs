@@ -169,3 +169,14 @@ fn a_failed_attribute_read_keeps_description_as_is_and_clouds_the_placeholder() 
     );
     assert_eq!(silent, LocatorField::Unknown);
 }
+
+#[test]
+fn a_failed_name_read_is_not_overridden_by_a_readable_label() {
+    let (name, _) = name_fields(
+        &properties(Field::Failed("gone".to_owned()), text("")),
+        &Field::Present(PUSH_BUTTON),
+        &attributes(&[("toolkit", "GTK")]),
+        &LabelOutcome::Text("Other".to_owned()),
+    );
+    assert_eq!(name, LocatorField::Unknown);
+}

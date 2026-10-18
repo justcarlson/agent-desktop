@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use agent_desktop_core::{Deadline, IdentifierKind, LocatorField};
 use zbus::Connection as AsyncConnection;
 use zbus::blocking::Connection;
@@ -20,6 +22,7 @@ fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let pid = launched.spawn("nautilus", &["--new-window"]);
     let (_, analysis) = walk(bus, "files", 30, || pid_frame(connection, pid))?;
     root_is_window(&analysis)?;
+    blank_labelled_nodes("files", &analysis)?;
     let enabled_buttons = analysis
         .entries
         .iter()
@@ -62,11 +65,70 @@ async fn has_label_target(connection: &AsyncConnection, element: &AtspiElement) 
         .is_ok_and(|target| target.is_some())
 }
 
+fn blank_labelled_nodes(app: &str, analysis: &Analysis) -> Result<usize, String> {
+    let mut found = 0;
+    for entry in &analysis.entries {
+        if let LabelOutcome::Text(text) = &entry.label {
+            found += 1;
+            if entry.vocabulary.name != LocatorField::Known(text.clone()) {
+                return Err(format!(
+                    "{app}: blank-name node read label {text:?} and resolved {:?}",
+                    entry.vocabulary.name
+                ));
+            }
+        }
+    }
+    println!("vocabulary_live {app} blank-name nodes resolved from a LabelledBy target: {found}");
+    Ok(found)
+}
+
+fn firefox(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
+    let program = "/snap/firefox/current/usr/lib/firefox/firefox";
+    if !std::path::Path::new(program).exists() {
+        return Err(format!(
+            "firefox is required and was not found at {program}"
+        ));
+    }
+    let mut launched = Launched::new();
+    let root = std::env::var("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let profile = root.join(nonce("vocabulary-firefox"));
+    std::fs::create_dir_all(&profile).map_err(|error| error.to_string())?;
+    launched.scratch.push(profile.clone());
+    let snap = "/snap/firefox/current";
+    let library_path = format!(
+        "{snap}/usr/lib/firefox:{snap}/usr/lib/x86_64-linux-gnu:{snap}/gnome-platform/usr/lib/x86_64-linux-gnu"
+    );
+    let profile_arg = profile.to_string_lossy().into_owned();
+    let pid = launched.spawn_with_env(
+        program,
+        &[
+            "--no-remote",
+            "--profile",
+            &profile_arg,
+            "--new-window",
+            "about:blank",
+        ],
+        &[
+            ("LD_LIBRARY_PATH", library_path),
+            ("GTK_A11Y", "atspi".to_owned()),
+            ("MOZ_ENABLE_WAYLAND", "0".to_owned()),
+        ],
+    );
+    let (_, analysis) = walk(bus, "firefox", 100, || pid_frame(connection, pid))?;
+    if blank_labelled_nodes("firefox", &analysis)? == 0 {
+        return Err("firefox: no blank-name node resolved from a LabelledBy target".to_owned());
+    }
+    Ok(())
+}
+
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
     let pid = launched.spawn("gnome-calculator", &[]);
     let (_, analysis) = walk(bus, "calculator", 30, || pid_frame(connection, pid))?;
     root_is_window(&analysis)?;
+    blank_labelled_nodes("calculator", &analysis)?;
     let enabled = analysis
         .entries
         .iter()
@@ -78,7 +140,7 @@ fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         .filter(|entry| token(&entry.vocabulary.role) == "button" && is_disabled(entry))
         .map(|entry| token(&entry.vocabulary.name))
         .collect();
-    if enabled < 20 || disabled.iter().any(|name| name != "Undo") {
+    if enabled < 20 || disabled != ["Undo"] {
         return Err(format!(
             "calculator: {enabled} enabled buttons, disabled buttons {disabled:?}"
         ));
@@ -119,6 +181,7 @@ fn qt(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
     let pid = live_qt::launch(&mut launched)?;
     let (_, analysis) = walk(bus, "qt", 15, || pid_frame(connection, pid))?;
+    blank_labelled_nodes("qt", &analysis)?;
     let button = analysis
         .entries
         .iter()
@@ -231,6 +294,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         "vocabulary_live vscode pass over {} nodes: us min/median/max={min}/{median}/{max}",
         analysis.entries.len()
     );
+    blank_labelled_nodes("vscode", &analysis)?;
     vscode_attribute_checks(&analysis)
 }
 
@@ -247,6 +311,7 @@ fn vocabulary_live_real_apps() {
         ("calculator", calculator(&bus, &connection)),
         ("qt", qt(&bus, &connection)),
         ("vscode", vscode(&bus, &connection)),
+        ("firefox", firefox(&bus, &connection)),
     ];
     let failures: Vec<String> = outcomes
         .into_iter()

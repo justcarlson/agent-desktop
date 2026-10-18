@@ -219,3 +219,39 @@ fn a_failed_role_read_is_unknown_not_the_unknown_role() {
         LocatorField::Known("unknown".to_owned())
     );
 }
+
+fn traits_of(number: u32, role_name: &str) -> NodeTraits {
+    NodeTraits {
+        role: Field::Present(number),
+        role_name: Field::Present(role_name.to_owned()),
+        states: states(&[SENSITIVE]),
+        interfaces: interfaces(&[]),
+    }
+}
+
+fn role_token(traits: &NodeTraits, pairs: &[(&str, &str)]) -> LocatorField<String> {
+    resolve_role(traits, &attributes(pairs))
+}
+
+#[test]
+fn a_gtk_switch_resolves_switch_and_every_other_check_box_stays_checkbox() {
+    let switch = LocatorField::Known("switch".to_owned());
+    let checkbox = LocatorField::Known("checkbox".to_owned());
+    assert_eq!(
+        role_token(&traits_of(7, "switch"), &[("toolkit", "GTK")]),
+        switch
+    );
+    assert_eq!(
+        role_token(&traits_of(7, "switch"), &[("toolkit", "Qt")]),
+        checkbox
+    );
+    assert_eq!(role_token(&traits_of(7, "switch"), &[]), checkbox);
+    assert_eq!(
+        role_token(&traits_of(7, "check box"), &[("toolkit", "GTK")]),
+        checkbox
+    );
+    assert_eq!(
+        role_token(&traits_of(43, "switch"), &[("toolkit", "GTK")]),
+        LocatorField::Known("button".to_owned())
+    );
+}

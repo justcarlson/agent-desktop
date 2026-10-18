@@ -19,6 +19,9 @@ fn label_slot(name: &Field<String>, label: &LabelOutcome) -> SlotStatus {
     if name.non_blank().is_some() {
         return SlotStatus::Suppressed;
     }
+    if name.is_failed() {
+        return SlotStatus::Uncertain;
+    }
     match label {
         LabelOutcome::Text(_) => SlotStatus::Certain,
         LabelOutcome::Unlabelled => SlotStatus::Suppressed,

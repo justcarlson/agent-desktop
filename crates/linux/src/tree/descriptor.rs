@@ -2,17 +2,8 @@ use agent_desktop_core::NodeDescriptor;
 
 use super::Field;
 use super::attributes::{AttributeRead, first_xml_role, non_blank};
+use super::gtk_switch::{GTK_SWITCH_ROLE_NAME, is_gtk_switch};
 use super::placeholder::PlaceholderRead;
-use super::role_numbers::CHECK_BOX;
-
-const GTK_TOOLKIT: &str = "GTK";
-const GTK_SWITCH_ROLE_NAME: &str = "switch";
-
-fn gtk_switch(role: &Field<u32>, role_name: &Field<String>, attributes: &AttributeRead) -> bool {
-    role.present() == Some(&CHECK_BOX)
-        && role_name.present().map(String::as_str) == Some(GTK_SWITCH_ROLE_NAME)
-        && non_blank(attributes, "toolkit") == Some(GTK_TOOLKIT)
-}
 
 fn subrole(
     role: &Field<u32>,
@@ -20,7 +11,7 @@ fn subrole(
     attributes: &AttributeRead,
 ) -> Option<String> {
     first_xml_role(attributes).or_else(|| {
-        gtk_switch(role, role_name, attributes).then(|| GTK_SWITCH_ROLE_NAME.to_owned())
+        is_gtk_switch(role, role_name, attributes).then(|| GTK_SWITCH_ROLE_NAME.to_owned())
     })
 }
 
