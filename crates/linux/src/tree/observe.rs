@@ -5,6 +5,7 @@ use agent_desktop_core::{
     ObservedTree, SnapshotSurface,
 };
 
+use super::ancestry;
 use super::projection::project;
 use super::settle::{Settle, Step, has_web_document};
 use super::walker::walk_tree;
@@ -19,7 +20,9 @@ fn root_element(root: &ObservationRoot<'_>) -> Result<AtspiElement, AdapterError
     match root {
         ObservationRoot::Window(window) => {
             let (bus, path) = window_id::decode(&window.id)?;
-            Ok(AtspiElement::new(bus, path, window.pid.get()))
+            let mut element = AtspiElement::new(bus, path, window.pid.get());
+            element.set_ancestry(ancestry::of_root(&element));
+            Ok(element)
         }
         ObservationRoot::Element { handle, .. } => atspi_element(handle).cloned(),
     }

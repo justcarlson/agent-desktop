@@ -5,6 +5,7 @@ use futures_util::future::join;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
 
+use super::ancestry;
 use super::bounded::collect_bounded;
 use super::label_read::read_label_if_needed;
 use super::node_read::read_node;
@@ -58,13 +59,16 @@ pub(super) fn record_pids(
 }
 
 pub(super) fn child_elements(node: &RawNode, pids: &HashMap<String, u32>) -> Vec<AtspiElement> {
+    let ancestry = ancestry::child(&node.element, node.traits.role.present().copied());
     node.children
         .present()
         .into_iter()
         .flatten()
         .map(|(bus, path)| {
             let pid = pids.get(bus).copied().unwrap_or(UNKNOWN_PID);
-            AtspiElement::new(bus.as_str(), path.as_str(), pid)
+            let mut element = AtspiElement::new(bus.as_str(), path.as_str(), pid);
+            element.set_ancestry(ancestry.clone());
+            element
         })
         .collect()
 }

@@ -1,14 +1,26 @@
 use agent_desktop_core::{AdapterError, ErrorCode, NativeHandle};
 
+use super::ancestry::Ancestry;
+
 /// Identifies one accessible object on the accessibility bus: the unique bus
 /// name of the owning application, the object path, and that application's
-/// process id.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// process id. The ancestry the walk recorded for it rides along so later
+/// code never climbs `Parent`; equality is the address alone.
+#[derive(Debug, Clone)]
 pub(crate) struct AtspiElement {
     bus_name: String,
     path: String,
     pid: u32,
+    ancestry: Ancestry,
 }
+
+impl PartialEq for AtspiElement {
+    fn eq(&self, other: &Self) -> bool {
+        self.bus_name == other.bus_name && self.path == other.path && self.pid == other.pid
+    }
+}
+
+impl Eq for AtspiElement {}
 
 impl AtspiElement {
     pub(crate) fn new(bus_name: impl Into<String>, path: impl Into<String>, pid: u32) -> Self {
@@ -16,6 +28,7 @@ impl AtspiElement {
             bus_name: bus_name.into(),
             path: path.into(),
             pid,
+            ancestry: Ancestry::default(),
         }
     }
 
@@ -29,6 +42,31 @@ impl AtspiElement {
 
     pub(crate) fn pid(&self) -> u32 {
         self.pid
+    }
+
+    /// The same element without its ancestry: what gets stored inside another
+    /// element's ancestry, which never nests ancestry of its own.
+    pub(crate) fn address(&self) -> Self {
+        Self {
+            bus_name: self.bus_name.clone(),
+            path: self.path.clone(),
+            pid: self.pid,
+            ancestry: Ancestry::default(),
+        }
+    }
+
+    /// The window root the walk this element came from descended under.
+    pub(crate) fn frame(&self) -> Option<&AtspiElement> {
+        self.ancestry.frame()
+    }
+
+    /// The nearest scroll pane or viewport ancestor the walk passed through.
+    pub(crate) fn scroll_container(&self) -> Option<&AtspiElement> {
+        self.ancestry.scroll_container()
+    }
+
+    pub(crate) fn set_ancestry(&mut self, ancestry: Ancestry) {
+        self.ancestry = ancestry;
     }
 
     #[allow(dead_code)]

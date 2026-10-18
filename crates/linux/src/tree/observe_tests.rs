@@ -80,14 +80,12 @@ fn a_window_id_decodes_to_the_element_the_walk_starts_from() {
     )
     .expect("observes");
     assert!(tree.is_complete());
+    let walked = seen.expect("the walk saw the root");
     assert_eq!(
-        seen,
-        Some(AtspiElement::new(
-            ":1.7",
-            "/org/a11y/atspi/accessible/1",
-            77
-        ))
+        walked,
+        AtspiElement::new(":1.7", "/org/a11y/atspi/accessible/1", 77)
     );
+    assert_eq!(walked.frame(), Some(&walked.address()));
 }
 
 #[test]
