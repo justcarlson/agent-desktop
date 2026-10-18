@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ponytail: steal the live desktop env from a running session process.
+# Read the live desktop env from a running session process.
 # Guessing DISPLAY=:0 breaks under AnyDesk/CRD, which run their own X display.
 for proc in gnome-shell xfce4-session plasmashell mate-session cinnamon-session lxqt-session; do
   pid=$(pgrep -u "$(id -un)" -x "$proc" | head -1)

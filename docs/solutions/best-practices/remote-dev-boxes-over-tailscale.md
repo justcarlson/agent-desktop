@@ -54,11 +54,22 @@ eval "$(tr '\0' '\n' < "/proc/$pid/environ" | grep -E '^(DISPLAY|...)=' | sed 's
 ```
 
 `scripts/remote-linux.sh` syncs the tree, then runs a command inside that environment.
-`target/` stays on the box, so builds stay incremental.
+Each worktree syncs to its own `~/ad-wt/<worktree>` folder, so parallel worktrees do not
+overwrite each other. All of them build into one shared `~/ad-target`, so builds stay
+incremental and the box disk holds one set of dependencies.
+
+The script is the only sanctioned way to run on the box:
+
+- Gitignored files (`.env`, `.claude/`, `target/`) are never synced.
+- Arguments pass through quoted one by one; `-c` runs a single string under `bash`.
+- A command that contains `sudo` is refused. The box is shared and runs unattended.
+- `AGENT_DESKTOP_REMOTE_TIMEOUT` (default 3600 s) stops a command that hangs.
+- Every command is appended to the local `.claude/remote-linux.log`.
 
 ```bash
 scripts/remote-linux.sh                                  # cargo test -p agent-desktop-linux
 scripts/remote-linux.sh cargo clippy -p agent-desktop-linux --all-targets
+scripts/remote-linux.sh -c 'busctl --user list | grep a11y'
 ```
 
 ## Setup — on the Ubuntu box
