@@ -65,6 +65,8 @@ name = "agent-desktop-linux"
 version = "0.10.1"
 dependencies = [
  "agent-desktop-core",
+ "async-io",
+ "futures-lite",
  "thiserror",
  "zbus",
 ]

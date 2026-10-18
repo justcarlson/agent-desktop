@@ -3,8 +3,11 @@ use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, DEFAULT_OPERATION_TIMEOUT_MS, Deadline, ErrorCode};
+use zbus::Connection as AsyncConnection;
 use zbus::blocking::Connection;
-use zbus::blocking::connection::Builder;
+use zbus::connection::Builder;
+
+use super::bus_deadline::within;
 
 const BUS_SERVICE: &str = "org.a11y.Bus";
 const BUS_PATH: &str = "/org/a11y/bus";
@@ -68,35 +71,42 @@ fn unreachable_bus(error: &zbus::Error) -> AdapterError {
 }
 
 fn discover_address(deadline: Deadline) -> Result<String, AdapterError> {
-    let session = Builder::session()
-        .map_err(|error| classify(&error))?
-        .method_timeout(deadline.remaining_slice(Duration::MAX)?)
-        .build()
-        .map_err(|error| classify(&error))?;
-    let reply = session
-        .call_method(
-            Some(BUS_SERVICE),
-            BUS_PATH,
-            Some(BUS_SERVICE),
-            "GetAddress",
-            &(),
-        )
-        .map_err(|error| classify(&error))?;
-    reply
-        .body()
-        .deserialize::<String>()
-        .map_err(|error| classify(&error))
+    within(deadline, async {
+        let session = Builder::session()
+            .map_err(|error| classify(&error))?
+            .build()
+            .await
+            .map_err(|error| classify(&error))?;
+        let reply = session
+            .call_method(
+                Some(BUS_SERVICE),
+                BUS_PATH,
+                Some(BUS_SERVICE),
+                "GetAddress",
+                &(),
+            )
+            .await
+            .map_err(|error| classify(&error))?;
+        reply
+            .body()
+            .deserialize::<String>()
+            .map_err(|error| classify(&error))
+    })
 }
 
 fn connect(deadline: Deadline) -> Result<Connection, AdapterError> {
     ensure_budget(deadline)?;
     let address = discover_address(deadline)?;
     ensure_budget(deadline)?;
-    Builder::address(address.as_str())
-        .map_err(|error| classify(&error))?
-        .method_timeout(Duration::from_millis(DEFAULT_OPERATION_TIMEOUT_MS))
-        .build()
-        .map_err(|error| classify(&error))
+    let connection: AsyncConnection = within(deadline, async {
+        Builder::address(address.as_str())
+            .map_err(|error| classify(&error))?
+            .method_timeout(Duration::from_millis(DEFAULT_OPERATION_TIMEOUT_MS))
+            .build()
+            .await
+            .map_err(|error| classify(&error))
+    })?;
+    Ok(connection.into())
 }
 
 /// Reads `ChildCount` from the AT-SPI registry root, which answers even when
@@ -106,16 +116,21 @@ pub(crate) fn probe_registry(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     ensure_budget(deadline)?;
-    connection
-        .call_method(
-            Some(REGISTRY_SERVICE),
-            REGISTRY_ROOT_PATH,
-            Some(PROPERTIES_INTERFACE),
-            "Get",
-            &(ACCESSIBLE_INTERFACE, "ChildCount"),
-        )
-        .map(|_| ())
-        .map_err(|error| classify(&error))
+    within(deadline, async {
+        connection
+            .inner()
+            .call_method(
+                Some(REGISTRY_SERVICE),
+                REGISTRY_ROOT_PATH,
+                Some(PROPERTIES_INTERFACE),
+                "Get",
+                &(ACCESSIBLE_INTERFACE, "ChildCount"),
+            )
+            .await
+            .map(|_| ())
+            .map_err(|error| classify(&error))
+    })?;
+    ensure_budget(deadline)
 }
 
 /// The process-wide accessibility connection, opened on first use. A success
@@ -129,6 +144,7 @@ impl SharedBus {
     pub(crate) fn get(&self, deadline: Deadline) -> Result<Connection, AdapterError> {
         ensure_budget(deadline)?;
         let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
+        ensure_budget(deadline)?;
         if let Some(connection) = slot.as_ref() {
             return Ok(connection.clone());
         }
