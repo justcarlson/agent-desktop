@@ -9,7 +9,7 @@ use super::live_tree::{
     action_summary, count_failed, dump, failure_kinds, find_node, frames_where, pid_frame,
 };
 use super::walker::walk_tree;
-use super::{AtspiElement, RawNode, Walk, WalkLimits, atspi_element};
+use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
 use crate::system::SharedBus;
 
 const SETTLE_LIMIT: Duration = Duration::from_secs(40);
@@ -21,7 +21,7 @@ const TERMINAL_SERVER: &str = "gnome-terminal-server";
 
 pub(super) struct Settled {
     pub(super) frame: AtspiElement,
-    pub(super) walk: Walk<RawNode>,
+    pub(super) walk: Walk<ObservedRead>,
 }
 
 pub(super) fn settle(

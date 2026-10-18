@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use zbus::blocking::Connection;
 
-use super::{AtspiElement, Field, RawNode, WalkedNode};
+use super::{AtspiElement, Field, ObservedRead, RawNode, WalkedNode};
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
 
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
@@ -63,14 +63,15 @@ pub(super) fn frames_where(
     frames
 }
 
-pub(super) fn count_failed(node: &WalkedNode<RawNode>) -> usize {
-    node.payload.failed_reads() + node.children.iter().map(count_failed).sum::<usize>()
+pub(super) fn count_failed(node: &WalkedNode<ObservedRead>) -> usize {
+    node.payload.node.failed_reads() + node.children.iter().map(count_failed).sum::<usize>()
 }
 
-pub(super) fn collect_failures(node: &WalkedNode<RawNode>, found: &mut Vec<String>) {
-    for (field, detail) in node.payload.failures() {
+pub(super) fn collect_failures(node: &WalkedNode<ObservedRead>, found: &mut Vec<String>) {
+    for (field, detail) in node.payload.node.failures() {
         let role = node
             .payload
+            .node
             .traits
             .role_name
             .present()
@@ -82,7 +83,7 @@ pub(super) fn collect_failures(node: &WalkedNode<RawNode>, found: &mut Vec<Strin
     }
 }
 
-pub(super) fn failure_kinds(node: &WalkedNode<RawNode>) -> Vec<String> {
+pub(super) fn failure_kinds(node: &WalkedNode<ObservedRead>) -> Vec<String> {
     let mut found = Vec::new();
     collect_failures(node, &mut found);
     found.sort();
@@ -90,8 +91,8 @@ pub(super) fn failure_kinds(node: &WalkedNode<RawNode>) -> Vec<String> {
     found
 }
 
-pub(super) fn dump(node: &WalkedNode<RawNode>, depth: usize, out: &mut String) {
-    let payload = &node.payload;
+pub(super) fn dump(node: &WalkedNode<ObservedRead>, depth: usize, out: &mut String) {
+    let payload = &node.payload.node;
     let role = payload
         .traits
         .role_name
@@ -111,26 +112,26 @@ pub(super) fn dump(node: &WalkedNode<RawNode>, depth: usize, out: &mut String) {
 }
 
 pub(super) fn find_node<'a>(
-    node: &'a WalkedNode<RawNode>,
+    node: &'a WalkedNode<ObservedRead>,
     wanted: &impl Fn(&RawNode) -> bool,
 ) -> Option<&'a RawNode> {
-    if wanted(&node.payload) {
-        return Some(&node.payload);
+    if wanted(&node.payload.node) {
+        return Some(&node.payload.node);
     }
     node.children
         .iter()
         .find_map(|child| find_node(child, wanted))
 }
 
-pub(super) fn action_summary(node: &WalkedNode<RawNode>) -> String {
+pub(super) fn action_summary(node: &WalkedNode<ObservedRead>) -> String {
     let mut found = Vec::new();
     collect_actions(node, &mut found);
     format!("{} nodes with an action field: {found:?}", found.len())
 }
 
-pub(super) fn collect_actions(node: &WalkedNode<RawNode>, found: &mut Vec<String>) {
-    if !matches!(node.payload.actions, Field::Absent) {
-        found.push(format!("{:?}", node.payload.actions));
+pub(super) fn collect_actions(node: &WalkedNode<ObservedRead>, found: &mut Vec<String>) {
+    if !matches!(node.payload.node.actions, Field::Absent) {
+        found.push(format!("{:?}", node.payload.node.actions));
     }
     for child in &node.children {
         collect_actions(child, found);

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use super::Field;
+use super::{AtspiElement, Extents, Field, NodeProperties, NodeTraits, ObservedRead, RawNode};
 
 pub(super) fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
     Field::Present(
@@ -17,4 +17,34 @@ pub(super) fn words(bits: &[u32]) -> Vec<u32> {
         words[(*bit / 32) as usize] |= 1 << (*bit % 32);
     }
     words
+}
+
+/// A fully read node: every field present, so a test changes only what it
+/// is about.
+pub(super) fn read_of(role: u32, name: &str, actions: &[&str]) -> ObservedRead {
+    let node = RawNode {
+        element: AtspiElement::new(":1.1", "/p", 1),
+        properties: NodeProperties {
+            name: Field::Present(name.to_owned()),
+            description: Field::Present(String::new()),
+            child_count: Field::Present(0),
+            accessible_id: Field::Present(String::new()),
+        },
+        traits: NodeTraits {
+            role: Field::Present(role),
+            role_name: Field::Present("role".to_owned()),
+            states: Field::Present(words(&[8, 25])),
+            interfaces: Field::Present(Vec::new()),
+        },
+        attributes: attributes(&[]),
+        extents: Field::Present(Extents {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        }),
+        actions: Field::Present(actions.iter().map(|name| (*name).to_owned()).collect()),
+        children: Field::Present(Vec::new()),
+    };
+    ObservedRead::plain(node)
 }

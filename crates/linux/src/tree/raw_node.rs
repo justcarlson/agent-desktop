@@ -32,7 +32,6 @@ impl RawNode {
     }
 
     /// The name and failure detail of every field whose read failed.
-    #[cfg(test)]
     pub(crate) fn failures(&self) -> Vec<(&'static str, &str)> {
         [
             failure("name", &self.properties.name),
@@ -54,13 +53,11 @@ impl RawNode {
     }
 
     /// The number of fields whose read failed.
-    #[cfg(test)]
     pub(crate) fn failed_reads(&self) -> usize {
         self.failures().len()
     }
 }
 
-#[cfg(test)]
 fn failure<'a, T>(name: &'static str, field: &'a Field<T>) -> Option<(&'static str, &'a str)> {
     match field {
         Field::Failed(detail) => Some((name, detail.as_str())),

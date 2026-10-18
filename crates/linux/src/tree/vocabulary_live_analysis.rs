@@ -8,7 +8,7 @@ use super::live_tree::{count_failed, failure_kinds};
 use super::role_numbers::{DOCUMENT_FRAME, DOCUMENT_WEB};
 use super::walker_live_tests::{Settled, settle};
 use super::{
-    AtspiElement, LabelOutcome, RawNode, ResolvedVocabulary, WalkedNode, read_label,
+    AtspiElement, LabelOutcome, ObservedRead, RawNode, ResolvedVocabulary, WalkedNode, read_label,
     resolve_vocabulary,
 };
 use crate::system::SharedBus;
@@ -29,9 +29,9 @@ pub(super) struct Analysis {
     pub(super) label_millis: u128,
 }
 
-fn flatten(node: &WalkedNode<RawNode>, in_web: bool, out: &mut Vec<(RawNode, bool)>) {
-    out.push((node.payload.clone(), in_web));
-    let role = node.payload.traits.role.present().copied();
+fn flatten(node: &WalkedNode<ObservedRead>, in_web: bool, out: &mut Vec<(RawNode, bool)>) {
+    out.push((node.payload.node.clone(), in_web));
+    let role = node.payload.node.traits.role.present().copied();
     let below = in_web || matches!(role, Some(DOCUMENT_WEB | DOCUMENT_FRAME));
     for child in &node.children {
         flatten(child, below, out);

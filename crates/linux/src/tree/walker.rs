@@ -1,50 +1,28 @@
-use std::collections::HashMap;
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
-use super::walker_expand::expand_level;
-use super::{AtspiElement, Expansion, RawNode, Walk, WalkLimits, WalkedNode};
+use super::admit::admit_children;
+use super::walker_expand::LevelReader;
+use super::{
+    AtspiElement, Expansion, NodeClass, ObservedRead, Walk, WalkCounts, WalkLimits, WalkedNode,
+};
 use crate::system::SharedBus;
 
 struct Pending<K> {
     key: K,
     parent: Option<usize>,
-    depth: usize,
+    raw: usize,
+    logical: usize,
+    index: usize,
+    in_web: bool,
 }
 
 struct Slot<K, P> {
     key: K,
-    payload: P,
     parent: Option<usize>,
     children: Vec<usize>,
-    truncated: bool,
-    depth: usize,
-}
-
-/// Decides which of a node's children the walk may descend into. Returns the
-/// indices admitted, in order, and whether any child was left out by a limit.
-/// A child already on the path from the root is skipped as a cycle; that is
-/// not a truncation. A child shared by two siblings' subtrees is not on the
-/// path and is admitted under both.
-fn admit_children<K: PartialEq>(
-    children: &[K],
-    ancestors: &[&K],
-    depth: usize,
-    admitted: usize,
-    limits: &WalkLimits,
-) -> (Vec<usize>, bool) {
-    if children.is_empty() {
-        return (Vec::new(), false);
-    }
-    if depth >= limits.max_depth {
-        return (Vec::new(), true);
-    }
-    let room = limits.max_nodes.saturating_sub(admitted);
-    let eligible: Vec<usize> = (0..children.len())
-        .filter(|index| !ancestors.contains(&&children[*index]))
-        .collect();
-    let truncated = eligible.len() > room;
-    (eligible.into_iter().take(room).collect(), truncated)
+    listed: Option<u32>,
+    raw: usize,
+    node: WalkedNode<P>,
 }
 
 fn ancestor_path<K, P>(slots: &[Slot<K, P>], index: usize) -> Vec<&K> {
@@ -60,7 +38,9 @@ fn ancestor_path<K, P>(slots: &[Slot<K, P>], index: usize) -> Vec<&K> {
 fn mark_parents_truncated<K, P>(slots: &mut [Slot<K, P>], frontier: &[Pending<K>]) {
     for pending in frontier {
         if let Some(parent) = pending.parent {
-            slots[parent].truncated = true;
+            let slot = &mut slots[parent];
+            slot.node.truncated = true;
+            slot.node.child_count = slot.listed;
         }
     }
 }
@@ -68,30 +48,39 @@ fn mark_parents_truncated<K, P>(slots: &mut [Slot<K, P>], frontier: &[Pending<K>
 fn assemble<K, P>(slots: Vec<Slot<K, P>>) -> Option<WalkedNode<P>> {
     let mut built: Vec<Option<WalkedNode<P>>> = (0..slots.len()).map(|_| None).collect();
     for (index, slot) in slots.into_iter().enumerate().rev() {
-        let children = slot
+        let mut node = slot.node;
+        node.children = slot
             .children
             .iter()
             .filter_map(|child| built[*child].take())
             .collect();
-        built[index] = Some(WalkedNode {
-            payload: slot.payload,
-            children,
-            truncated: slot.truncated,
-        });
+        built[index] = Some(node);
     }
     built.first_mut().and_then(Option::take)
 }
 
+fn listed_count<K>(children: &[K], unreadable: bool) -> Option<u32> {
+    (!unreadable && !children.is_empty()).then(|| u32::try_from(children.len()).unwrap_or(u32::MAX))
+}
+
 /// Breadth-first walk. `expand` reads a whole level at once and returns, for
-/// each key in order, its payload and its children. Stops descending when
-/// the deadline has passed, marking the parents of the unread level. A node
-/// whose child list could not be read, or that vanished, is kept and marked
-/// truncated, and the walk is incomplete.
+/// each key in order, its payload and its children; `classify` says, from a
+/// node's payload, whether it is a wrapper that costs no logical depth and
+/// whether it opens a web document. Stops descending when the deadline has
+/// passed, marking the parents of the unread level.
+///
+/// A node whose children would sit below the logical depth limit keeps none
+/// and stays complete: the omission is the request's, and it carries the
+/// length of its child list. A node at the raw depth limit, or cut short by
+/// the deadline or a budget, is incomplete and carries that length too when
+/// the list was read. A node whose child list could not be read, or that
+/// vanished, is kept without a count and the walk is incomplete.
 pub(crate) fn walk_levels<K, P>(
     root: K,
     limits: &WalkLimits,
     deadline: Deadline,
     mut expand: impl FnMut(&[K]) -> Result<Vec<Expansion<P, K>>, AdapterError>,
+    classify: impl Fn(&P) -> NodeClass,
 ) -> Result<Walk<P>, AdapterError>
 where
     K: Clone + PartialEq,
@@ -100,10 +89,14 @@ where
     let mut frontier = vec![Pending {
         key: root,
         parent: None,
-        depth: 0,
+        raw: 0,
+        logical: 0,
+        index: 0,
+        in_web: false,
     }];
-    let mut admitted = 1;
+    let (mut admitted, mut edges) = (1, 0);
     let mut complete = true;
+    let mut counts = WalkCounts::default();
     while !frontier.is_empty() {
         if deadline.is_expired() {
             mark_parents_truncated(&mut slots, &frontier);
@@ -128,40 +121,70 @@ where
                 children_unread,
                 gone,
             } = read;
+            let class = classify(&payload);
+            counts.note_node(class, pending.logical);
+            let unreadable = children_unread || gone;
             let index = slots.len();
             if let Some(parent) = pending.parent {
                 slots[parent].children.push(index);
+                if gone {
+                    let slot = &mut slots[parent];
+                    slot.node.truncated = true;
+                    slot.node.child_count = slot.listed;
+                }
             }
             slots.push(Slot {
                 key: pending.key,
-                payload,
                 parent: pending.parent,
                 children: Vec::new(),
-                truncated: children_unread || gone,
-                depth: pending.depth,
+                listed: listed_count(&children, unreadable),
+                raw: pending.raw,
+                node: WalkedNode {
+                    payload,
+                    children: Vec::new(),
+                    truncated: unreadable,
+                    child_count: None,
+                    source_index: pending.index,
+                    in_web_document: pending.in_web,
+                    wrapper: class.wrapper,
+                },
             });
-            if children_unread || gone {
+            complete &= !unreadable;
+            if children.is_empty() {
+                continue;
+            }
+            let child_logical = pending.logical + usize::from(!class.wrapper);
+            if pending.raw >= limits.max_raw_depth {
+                counts.limits.depth_hits += 1;
+                let slot = &mut slots[index];
+                slot.node.truncated = true;
+                slot.node.child_count = slot.listed;
                 complete = false;
-            }
-            if gone && let Some(parent) = pending.parent {
-                slots[parent].truncated = true;
-            }
-            let (taken, truncated) = if children.is_empty() {
-                (Vec::new(), false)
+            } else if child_logical > limits.max_logical_depth {
+                let slot = &mut slots[index];
+                slot.node.child_count = slot.listed;
             } else {
                 let path = ancestor_path(&slots, index);
-                admit_children(&children, &path, pending.depth, admitted, limits)
-            };
-            admitted += taken.len();
-            if truncated {
-                slots[index].truncated = true;
-                complete = false;
+                let admission = admit_children(&children, &path, admitted, edges, limits);
+                counts.note_hits(&admission.hits, admission.cycles);
+                edges += admission.considered;
+                admitted += admission.indices.len();
+                if admission.truncated {
+                    let slot = &mut slots[index];
+                    slot.node.truncated = true;
+                    slot.node.child_count = slot.listed;
+                    complete = false;
+                }
+                let child_in_web = pending.in_web || class.web_document;
+                next.extend(admission.indices.into_iter().map(|child| Pending {
+                    key: children[child].clone(),
+                    parent: Some(index),
+                    raw: pending.raw + 1,
+                    logical: child_logical,
+                    index: child,
+                    in_web: child_in_web,
+                }));
             }
-            next.extend(taken.into_iter().map(|child| Pending {
-                key: children[child].clone(),
-                parent: Some(index),
-                depth: pending.depth + 1,
-            }));
         }
         frontier = next;
     }
@@ -169,7 +192,7 @@ where
         return Err(deadline.timeout_error());
     }
     let node_count = slots.len();
-    let max_depth = slots.iter().map(|slot| slot.depth).max().unwrap_or(0);
+    let max_depth = slots.iter().map(|slot| slot.raw).max().unwrap_or(0);
     let root = assemble(slots).ok_or_else(|| {
         AdapterError::new(ErrorCode::Internal, "The accessibility walk read no nodes")
     })?;
@@ -178,23 +201,24 @@ where
         complete,
         node_count,
         max_depth,
+        counts,
     })
 }
 
 /// Walks the tree under `root` on the shared accessibility connection.
-#[allow(dead_code)]
 pub(crate) fn walk_tree(
     bus: &SharedBus,
     root: &AtspiElement,
     limits: &WalkLimits,
     deadline: Deadline,
-) -> Result<Walk<RawNode>, AdapterError> {
+) -> Result<Walk<ObservedRead>, AdapterError> {
     let connection = bus.get(deadline)?;
-    let mut pids = HashMap::from([(root.bus_name().to_owned(), root.pid())]);
-    let mut at_root = true;
-    walk_levels(root.clone(), limits, deadline, |level| {
-        let reads = expand_level(connection.inner(), &mut pids, level, at_root, deadline);
-        at_root = false;
-        reads
-    })
+    let mut reader = LevelReader::new(connection.inner(), root, limits, deadline);
+    walk_levels(
+        root.clone(),
+        limits,
+        deadline,
+        |level| reader.expand(level),
+        super::wrapper::classify,
+    )
 }

@@ -1,12 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use futures_util::future::join;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
 
 use super::bounded::collect_bounded;
+use super::label_read::read_label_if_needed;
 use super::node_read::read_node;
-use super::{AtspiElement, Expansion, RawNode};
+use super::value_read::read_value;
+use super::{AtspiElement, Expansion, ObservedRead, RawNode, WalkLimits};
 use crate::system::{classify, within};
 
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
@@ -86,51 +89,93 @@ pub(super) fn child_elements(node: &RawNode, pids: &HashMap<String, u32>) -> Vec
         .collect()
 }
 
-/// Reads one level of the tree with at most `NODES_IN_FLIGHT` nodes (about
-/// sixty calls) outstanding at a time. Only the root being gone fails the
-/// walk. Below the root a node that is gone, or whose process id could not be
-/// found, is kept as an unreadable node marked gone.
-pub(super) fn expand_level(
-    connection: &Connection,
-    pids: &mut HashMap<String, u32>,
-    level: &[AtspiElement],
-    at_root: bool,
+/// Reads the levels of one walk: the shared connection, the process ids
+/// learned so far, and what a node read must carry.
+pub(super) struct LevelReader<'a> {
+    connection: &'a Connection,
+    pids: HashMap<String, u32>,
+    max_field_bytes: usize,
     deadline: Deadline,
-) -> Result<Vec<Expansion<RawNode, AtspiElement>>, AdapterError> {
-    within(deadline, async {
-        let reads: Vec<Result<RawNode, AdapterError>> =
-            stream::iter(level.iter().map(|element| async move {
-                if !at_root && element.pid() == UNKNOWN_PID {
-                    Err(AdapterError::new(ErrorCode::ElementNotFound, UNIDENTIFIED))
-                } else {
-                    read_node(connection, element).await
-                }
-            }))
-            .buffered(NODES_IN_FLIGHT)
-            .collect()
-            .await;
-        let mut nodes = Vec::with_capacity(reads.len());
-        for (element, read) in level.iter().zip(reads) {
-            match read {
-                Ok(node) => nodes.push((node, false)),
-                Err(error) if at_root => return Err(error),
-                Err(error) => {
-                    nodes.push((RawNode::unreadable(element.clone(), &error.message), true))
+    at_root: bool,
+}
+
+impl<'a> LevelReader<'a> {
+    pub(super) fn new(
+        connection: &'a Connection,
+        root: &AtspiElement,
+        limits: &WalkLimits,
+        deadline: Deadline,
+    ) -> Self {
+        Self {
+            connection,
+            pids: HashMap::from([(root.bus_name().to_owned(), root.pid())]),
+            max_field_bytes: limits.max_field_bytes,
+            deadline,
+            at_root: true,
+        }
+    }
+
+    /// Reads one level of the tree with at most `NODES_IN_FLIGHT` nodes (about
+    /// sixty calls) outstanding at a time. Only the root being gone fails the
+    /// walk. Below the root a node that is gone, or whose process id could not
+    /// be found, is kept as an unreadable node marked gone.
+    pub(super) fn expand(
+        &mut self,
+        level: &[AtspiElement],
+    ) -> Result<Vec<Expansion<ObservedRead, AtspiElement>>, AdapterError> {
+        let at_root = std::mem::replace(&mut self.at_root, false);
+        let (connection, max_bytes) = (self.connection, self.max_field_bytes);
+        let pids = &mut self.pids;
+        within(self.deadline, async {
+            let reads: Vec<Result<ObservedRead, AdapterError>> =
+                stream::iter(level.iter().map(|element| async move {
+                    if !at_root && element.pid() == UNKNOWN_PID {
+                        Err(AdapterError::new(ErrorCode::ElementNotFound, UNIDENTIFIED))
+                    } else {
+                        read_observed(connection, element, max_bytes).await
+                    }
+                }))
+                .buffered(NODES_IN_FLIGHT)
+                .collect()
+                .await;
+            let mut nodes = Vec::with_capacity(reads.len());
+            for (element, read) in level.iter().zip(reads) {
+                match read {
+                    Ok(read) => nodes.push((read, false)),
+                    Err(error) if at_root => return Err(error),
+                    Err(error) => nodes.push((
+                        ObservedRead::unreadable(element.clone(), &error.message),
+                        true,
+                    )),
                 }
             }
-        }
-        learn_pids(connection, pids, nodes.iter().map(|(node, _)| node)).await?;
-        Ok(nodes
-            .into_iter()
-            .map(|(node, gone)| {
-                let children = child_elements(&node, pids);
-                Expansion {
-                    children_unread: node.children.is_failed(),
-                    payload: node,
-                    children,
-                    gone,
-                }
-            })
-            .collect())
-    })
+            learn_pids(connection, pids, nodes.iter().map(|(read, _)| &read.node)).await?;
+            Ok(nodes
+                .into_iter()
+                .map(|(read, gone)| {
+                    let children = child_elements(&read.node, pids);
+                    Expansion {
+                        children_unread: read.node.children.is_failed(),
+                        payload: read,
+                        children,
+                        gone,
+                    }
+                })
+                .collect())
+        })
+    }
+}
+
+async fn read_observed(
+    connection: &Connection,
+    element: &AtspiElement,
+    max_field_bytes: usize,
+) -> Result<ObservedRead, AdapterError> {
+    let node = read_node(connection, element).await?;
+    let (label, value) = join(
+        read_label_if_needed(connection, &node),
+        read_value(connection, &node, max_field_bytes),
+    )
+    .await;
+    Ok(ObservedRead { node, label, value })
 }

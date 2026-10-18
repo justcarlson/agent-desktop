@@ -1,5 +1,5 @@
-#[allow(dead_code)]
 mod action_names;
+mod admit;
 mod attributes;
 mod bounded;
 mod descriptor;
@@ -12,25 +12,31 @@ mod identity;
 mod label_outcome;
 mod label_read;
 mod name_evidence;
+mod node_class;
 mod node_properties;
 mod node_read;
 mod node_traits;
+mod observed_read;
 mod placeholder;
 mod raw_node;
-#[allow(dead_code)]
 mod role_numbers;
 mod role_table;
 mod roles;
 mod state_bits;
 mod states;
-#[allow(dead_code)]
 mod value_read;
 mod vocabulary;
 mod walk;
+mod walk_counts;
 mod walk_limits;
 mod walked_node;
 mod walker;
 mod walker_expand;
+mod wrapper;
+
+#[cfg(test)]
+#[path = "walker_depth_tests.rs"]
+mod walker_depth_tests;
 
 #[cfg(test)]
 #[path = "walker_tests.rs"]
@@ -72,12 +78,15 @@ pub(crate) use field::Field;
 pub(crate) use label_outcome::LabelOutcome;
 #[allow(unused_imports)]
 pub(crate) use label_read::read_label;
+pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
 pub(crate) use node_traits::NodeTraits;
+pub(crate) use observed_read::ObservedRead;
 pub(crate) use raw_node::{ChildAddress, RawNode};
 #[allow(unused_imports)]
 pub(crate) use vocabulary::{ResolvedVocabulary, resolve_vocabulary};
 pub(crate) use walk::Walk;
+pub(crate) use walk_counts::WalkCounts;
 pub(crate) use walk_limits::WalkLimits;
 pub(crate) use walked_node::WalkedNode;
 #[allow(unused_imports)]

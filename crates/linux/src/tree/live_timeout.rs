@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
@@ -7,7 +6,7 @@ use agent_desktop_core::Deadline;
 use super::live_launch::Launched;
 use super::live_tree::pid_frame;
 use super::walker::walk_levels;
-use super::walker_expand::expand_level;
+use super::walker_expand::LevelReader;
 use super::walker_live_tests::settle;
 use super::{WalkLimits, WalkedNode};
 use crate::system::SharedBus;
@@ -46,22 +45,26 @@ fn walker_live_stopped_app_returns_a_partial_walk_at_the_deadline() {
 
     let deadline = Deadline::after(DEADLINE_MS).expect("the deadline builds");
     let started = Instant::now();
-    let mut pids = HashMap::from([(settled.frame.bus_name().to_owned(), pid)]);
-    let mut at_root = true;
+    let mut reader = LevelReader::new(
+        connection.inner(),
+        &settled.frame,
+        &WalkLimits::default(),
+        deadline,
+    );
     let mut levels_read = 0;
     let outcome = walk_levels(
         settled.frame.clone(),
         &WalkLimits::default(),
         deadline,
         |level| {
-            let reads = expand_level(connection.inner(), &mut pids, level, at_root, deadline);
+            let reads = reader.expand(level);
             levels_read += 1;
             if levels_read == LEVELS_READ_BEFORE_STOP {
                 signal("-STOP", pid);
             }
-            at_root = false;
             reads
         },
+        super::wrapper::classify,
     );
     let elapsed = started.elapsed();
     signal("-CONT", pid);
