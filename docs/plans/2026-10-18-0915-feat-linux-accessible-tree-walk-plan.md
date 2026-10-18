@@ -184,6 +184,7 @@ U1 → U2 → U3 → U4; U5 after U3.
 - `crates/core` diff is empty.
 - Every ledger row naming 3.2 is disposed of in the PR description.
 - No abandoned experiment code remains.
+- The judged live report `docs/dogfood-reports/2026-10-18-002-feat-linux-3-2-tree-walk-dogfood.md` is committed, with every finding dispositioned.
 
 ## Risks & Dependencies
 
