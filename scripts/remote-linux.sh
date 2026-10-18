@@ -8,7 +8,9 @@
 # the box disk cannot hold a target dir per worktree, and cargo's build lock serializes them.
 # Gitignored files (.env, .claude/, target/) never leave this machine.
 # One lock serializes every run, because two runs driving the same X display corrupt
-# each other's input, focus and hit-test results.
+# each other's input, focus and hit-test results. AGENT_DESKTOP_REMOTE_LOCK=0 skips the lock;
+# use it only for read-only commands that touch no display, input or app state. -o keeps the
+# lock out of children that outlive the command, such as xclip serving a selection.
 set -euo pipefail
 HOST=${AGENT_DESKTOP_REMOTE:-linuxbox}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -29,8 +31,10 @@ mkdir -p "$ROOT/.claude"
 printf '%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$DIR" "$cmd" >> "$ROOT/.claude/remote-linux.log"
 
 qdir=$(printf '%q' "$DIR")
+lock="flock -o \$HOME/ad-wt/.box.lock"
+[ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p $qdir"
 rsync -az --delete --exclude .git/ --filter=':- .gitignore' "$ROOT/" "$HOST:$DIR/"
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
   && export CARGO_TARGET_DIR=\$HOME/ad-target && . ./scripts/session-env.sh \
-  && flock \$HOME/ad-wt/.box.lock timeout $TIMEOUT $cmd"
+  && $lock timeout $TIMEOUT $cmd"
