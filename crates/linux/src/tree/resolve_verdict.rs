@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code))]
-
 use agent_desktop_core::Rect;
 
 use super::resolve_match::{same_size, usable_size};

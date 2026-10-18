@@ -26,8 +26,14 @@ mod path_descent;
 mod placeholder;
 mod projection;
 mod raw_node;
+mod resolve;
 mod resolve_errors;
+#[cfg(test)]
+mod resolve_fake;
+mod resolve_gate;
 mod resolve_match;
+mod resolve_search;
+mod resolve_source;
 mod resolve_verdict;
 pub(crate) mod role_numbers;
 mod role_table;
@@ -85,6 +91,14 @@ mod vocabulary_live_tests;
 #[path = "walker_live_tests.rs"]
 mod walker_live_tests;
 
+#[cfg(test)]
+#[path = "resolve_live_tests.rs"]
+mod resolve_live_tests;
+
+#[cfg(test)]
+#[path = "resolve_twin_live_tests.rs"]
+mod resolve_twin_live_tests;
+
 pub(crate) use child_list::list_children;
 pub(crate) use element::AtspiElement;
 pub(crate) use element::atspi_element;
@@ -101,6 +115,7 @@ pub(crate) use node_traits::NodeTraits;
 pub(crate) use observe::observe_tree;
 pub(crate) use observed_read::ObservedRead;
 pub(crate) use raw_node::{ChildAddress, RawNode};
+pub(crate) use resolve_source::resolve_element_strict;
 #[cfg(test)]
 pub(crate) use vocabulary::{ResolvedVocabulary, resolve_vocabulary};
 pub(crate) use walk::Walk;

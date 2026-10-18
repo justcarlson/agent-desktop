@@ -75,7 +75,6 @@ impl AtspiElement {
         self.ancestry = ancestry;
     }
 
-    #[cfg(test)]
     pub(crate) fn into_native_handle(self) -> NativeHandle {
         NativeHandle::new(self)
     }

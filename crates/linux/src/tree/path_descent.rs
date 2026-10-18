@@ -1,5 +1,3 @@
-#![expect(dead_code)]
-
 use std::collections::HashMap;
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
@@ -105,19 +103,15 @@ fn is_web_process(pid: u32) -> bool {
 
 /// Reads levels on the shared accessibility connection with the walk's own
 /// node read, learning the owner process of each bus name once.
-pub(crate) struct Levels<'a> {
-    connection: &'a Connection,
+pub(crate) struct Levels {
+    connection: Connection,
     pids: HashMap<String, u32>,
     web: HashMap<u32, bool>,
     deadline: Deadline,
 }
 
-impl<'a> Levels<'a> {
-    pub(crate) fn new(
-        connection: &'a Connection,
-        frame: &AtspiElement,
-        deadline: Deadline,
-    ) -> Self {
+impl Levels {
+    pub(crate) fn new(connection: Connection, frame: &AtspiElement, deadline: Deadline) -> Self {
         Self {
             connection,
             pids: HashMap::from([(frame.bus_name().to_owned(), frame.pid())]),
@@ -137,7 +131,7 @@ impl<'a> Levels<'a> {
             .web
             .entry(element.pid())
             .or_insert_with(|| is_web_process(element.pid()));
-        let (connection, pids) = (self.connection, &mut self.pids);
+        let (connection, pids) = (&self.connection, &mut self.pids);
         within(self.deadline, async {
             let (node, _) = read_node_with_liveness(connection, element).await?;
             learn_pids(connection, pids, std::iter::once(&node)).await?;

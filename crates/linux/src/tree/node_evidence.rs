@@ -1,5 +1,3 @@
-#![expect(dead_code)]
-
 use agent_desktop_core::{AdapterError, ErrorCode, LocatorEvidence};
 use zbus::Connection;
 
@@ -12,6 +10,10 @@ use super::{AtspiElement, ObservedRead, WalkLimits};
 /// whether the node's role call answered in time.
 #[derive(Debug, Clone)]
 pub(crate) struct NodeEvidence {
+    #[expect(
+        dead_code,
+        reason = "the live reads project state, value and actions from this same read"
+    )]
     pub(crate) read: ObservedRead,
     pub(crate) evidence: LocatorEvidence,
     pub(crate) liveness: Liveness,
@@ -46,10 +48,10 @@ pub(crate) async fn read_evidence(
     element: &AtspiElement,
 ) -> Result<NodeEvidence, AdapterError> {
     require_ancestry(element)?;
-    let limits = WalkLimits::default();
     let (read, liveness) =
-        read_observed_with_liveness(connection, element, limits.max_field_bytes).await?;
-    let evidence = project_node(&read, element.in_web_document(), &limits);
+        read_observed_with_liveness(connection, element, WalkLimits::default().max_field_bytes)
+            .await?;
+    let evidence = evidence_for(&read, element);
     Ok(NodeEvidence {
         read,
         evidence,

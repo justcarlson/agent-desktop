@@ -1,7 +1,7 @@
 use agent_desktop_core::{
     AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, InputOps,
-    ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, ProcessIdentity,
-    SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
+    NativeHandle, ObservationOps, ObservationRequest, ObservationRoot, ObservedTree,
+    ProcessIdentity, RefEntry, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -35,6 +35,14 @@ impl ObservationOps for LinuxAdapter {
         request: &ObservationRequest,
     ) -> Result<ObservedTree, AdapterError> {
         crate::tree::observe_tree(self.bus(), root, request)
+    }
+
+    fn resolve_element_strict(
+        &self,
+        entry: &RefEntry,
+        deadline: Deadline,
+    ) -> Result<NativeHandle, AdapterError> {
+        crate::tree::resolve_element_strict(self.bus(), entry, deadline)
     }
 
     fn list_windows(

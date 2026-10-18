@@ -37,7 +37,7 @@ pub(crate) use bus::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, clas
 pub(crate) use bus::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
 pub(crate) use bus_deadline::within;
 pub(crate) use bus_fault::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN};
-pub(crate) use bus_process::process_id;
+pub(crate) use bus_process::{owner_process_id, process_id};
 
 pub(crate) use app_ops::{inventory as app_inventory, scoped as apps_scoped};
 pub(crate) use display::list_displays;

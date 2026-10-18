@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code))]
-
 use agent_desktop_core::{
     IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry,
     ref_identity::{

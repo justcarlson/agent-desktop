@@ -30,11 +30,38 @@ w.show()
 sys.exit(app.exec())
 "#;
 
+const TWINS_SCRIPT: &str = r#"
+import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton
+app = QApplication(sys.argv)
+w = QMainWindow()
+w.setWindowTitle("adq-" + sys.argv[1])
+c = QWidget()
+lay = QHBoxLayout(c)
+for width in (80, 140):
+    b = QPushButton("Twin")
+    b.setFixedWidth(width)
+    lay.addWidget(b)
+w.setCentralWidget(c)
+w.show()
+sys.exit(app.exec())
+"#;
+
 pub(super) const BUTTON_LABEL: &str = "Press";
 
 /// Starts a small Qt 6 window with accessibility forced on and returns its
 /// process id.
 pub(super) fn launch(launched: &mut Launched) -> Result<u32, String> {
+    launch_script(launched, QT_SCRIPT)
+}
+
+/// Starts a Qt 6 window holding two buttons with the same name and different
+/// widths, and returns its process id.
+pub(super) fn launch_twins(launched: &mut Launched) -> Result<u32, String> {
+    launch_script(launched, TWINS_SCRIPT)
+}
+
+fn launch_script(launched: &mut Launched, source: &str) -> Result<u32, String> {
     let home = std::env::var("HOME").map_err(|error| error.to_string())?;
     let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
     if !std::path::Path::new(&python).exists() {
@@ -46,7 +73,7 @@ pub(super) fn launch(launched: &mut Launched) -> Result<u32, String> {
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     launched.scratch.push(dir.clone());
     let script = dir.join("app.py");
-    std::fs::write(&script, QT_SCRIPT).map_err(|error| error.to_string())?;
+    std::fs::write(&script, source).map_err(|error| error.to_string())?;
     let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
     let library_path = match std::env::var("LD_LIBRARY_PATH") {
         Ok(existing) if !existing.is_empty() => format!("{libraries}:{existing}"),
