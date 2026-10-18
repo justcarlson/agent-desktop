@@ -1507,7 +1507,7 @@ promotion, and it is written to be executable without reading any sub-phase plan
 The promotion is **one release-noted `feat!` merge of the whole integration
 branch**, not a series of sub-phase merges, and it is what closes Phase 2.
 
-1. **Confirm the branch is complete.** Every sub-phase 2.0 through 2.16 has merged
+1. **Confirm the branch is complete.** Every sub-phase 2.0 through 2.17 has merged
    into `feat/windows-adapter`, and the branch is even with or ahead of `main` with
    no sub-phase work outstanding. A sub-phase still open means the promotion waits.
 2. **Merge `main` into `feat/windows-adapter`** — never the reverse, and never a
