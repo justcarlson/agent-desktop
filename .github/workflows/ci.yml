@@ -35,6 +35,7 @@ jobs:
           shellcheck -x -e SC2034,SC2154 tests/e2e/run.sh tests/e2e/electron-live.sh tests/e2e/permission-contract.sh tests/e2e/guard-command.sh scripts/*.sh .githooks/pre-commit
           PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m py_compile tests/e2e/*.py
           PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m unittest discover -s tests/e2e -p 'test_*.py'
+          python3 scripts/check-linux-findings.py
       - name: Validate GitHub Actions workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
 
