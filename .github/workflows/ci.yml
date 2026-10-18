@@ -231,14 +231,21 @@ jobs:
   test-linux:
     name: Test (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        run: rustup show
+        run: |
+          rustup show
+          rustup component add clippy
+
+      - name: Install AT-SPI bus and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends at-spi2-core dbus-x11 xvfb
 
       - name: Cache cargo registry
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -250,8 +257,79 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Core and Linux unit tests
-        run: scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-core -p agent-desktop-linux --lib
+      - name: Cache build artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: ${{ runner.os }}-build-ci-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-${{ hashFiles('crates/**/*.rs', 'src/**/*.rs', 'tests/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-build-ci-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}-
+            ${{ runner.os }}-build-ci-
+
+      - name: Check dependency isolation
+        run: |
+          PATTERN='agent-desktop-(macos|windows|linux)|\bzbus\b|\bzvariant\b|\basync-io\b|\btokio\b'
+          for TARGET in "" "x86_64-unknown-linux-gnu"; do
+            if [ -n "$TARGET" ]; then
+              TREE=$(cargo tree --locked -p agent-desktop-core --edges normal,build,dev --target "$TARGET")
+            else
+              TREE=$(cargo tree --locked -p agent-desktop-core --edges normal,build,dev)
+            fi
+            if printf '%s\n' "$TREE" | grep -E "$PATTERN"; then
+              echo "FAIL: core crate pulls platform or async-bus crates (target: '$TARGET')"
+              exit 1
+            fi
+          done
+          echo "OK: core crate has no platform or async-bus dependencies on normal, build, or dev edges"
+
+      - name: Clippy
+        run: cargo clippy --locked -p agent-desktop-core -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi --all-targets -- -D warnings
+
+      - name: Core, Linux, binary and FFI tests on a real session bus
+        run: dbus-run-session -- xvfb-run -a scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-core -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi
+
+      - name: Build stripped release binary
+        run: cargo build --locked --release -p agent-desktop
+
+      - name: Check shipped binary size
+        run: |
+          SIZE=$(stat -c%s target/release/agent-desktop)
+          LIMIT=$((15 * 1024 * 1024))
+          echo "Binary size: $(du -sh target/release/agent-desktop | cut -f1)"
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            echo "FAIL: shipped executable exceeds 15MB limit (binary=${SIZE} bytes)"
+            exit 1
+          fi
+          echo "OK: shipped executable is within the 15MB per-file limit"
+
+      - name: Status reports accessibility granted on a live bus
+        run: |
+          cat > "$RUNNER_TEMP/status-granted.sh" <<'SCRIPT'
+          set -u
+          JSON=$(target/release/agent-desktop status) || true
+          printf '%s\n' "$JSON"
+          printf '%s' "$JSON" | python3 -c '
+          import json, sys
+          doc = json.load(sys.stdin)
+          assert doc.get("ok") is True, "status did not succeed"
+          state = doc["data"]["permissions"]["accessibility"]["state"]
+          assert state == "granted", "accessibility state is " + state
+          '
+          SCRIPT
+          dbus-run-session -- xvfb-run -a bash "$RUNNER_TEMP/status-granted.sh"
+
+      - name: Status fails closed with an actionable error when no bus exists
+        run: |
+          JSON=$(env DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent XDG_RUNTIME_DIR="$(mktemp -d)" target/release/agent-desktop status) || true
+          printf '%s\n' "$JSON"
+          printf '%s' "$JSON" | python3 -c '
+          import json, sys
+          doc = json.load(sys.stdin)
+          assert doc.get("ok") is False, "status unexpectedly succeeded without a bus"
+          error = doc["error"]
+          assert error["code"] == "PLATFORM_NOT_SUPPORTED", "unexpected code " + str(error["code"])
+          assert error.get("suggestion"), "error carries no suggestion"
+          '
 
   test-windows:
     name: Test (Windows)
