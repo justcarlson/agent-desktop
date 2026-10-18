@@ -5,8 +5,8 @@ use serde_json::json;
 
 use super::bus_stage::Stage;
 
-const SERVICE_UNKNOWN: &str = "org.freedesktop.DBus.Error.ServiceUnknown";
-const NAME_HAS_NO_OWNER: &str = "org.freedesktop.DBus.Error.NameHasNoOwner";
+pub(crate) const SERVICE_UNKNOWN: &str = "org.freedesktop.DBus.Error.ServiceUnknown";
+pub(crate) const NAME_HAS_NO_OWNER: &str = "org.freedesktop.DBus.Error.NameHasNoOwner";
 const SPAWN_ERROR_PREFIX: &str = "org.freedesktop.DBus.Error.Spawn.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

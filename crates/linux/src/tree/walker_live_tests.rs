@@ -8,11 +8,8 @@ use super::live_launch::{Launched, nonce, processes_named, program_of};
 use super::live_qt;
 use super::walker::walk_tree;
 use super::{AtspiElement, Field, RawNode, Walk, WalkLimits, WalkedNode, atspi_element};
-use crate::system::SharedBus;
+use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus};
 
-const REGISTRY_SERVICE: &str = "org.a11y.atspi.Registry";
-const REGISTRY_ROOT: &str = "/org/a11y/atspi/accessible/root";
-const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
 const SETTLE_LIMIT: Duration = Duration::from_secs(40);
 const POLL: Duration = Duration::from_millis(100);
@@ -22,8 +19,13 @@ const PUSH_BUTTON_ROLE: u32 = 43;
 const TERMINAL_SERVER: &str = "gnome-terminal-server";
 
 fn children_of(connection: &Connection, bus: &str, path: &str) -> Vec<(String, String)> {
-    let Ok(reply) = connection.call_method(Some(bus), path, Some(ACCESSIBLE), "GetChildren", &())
-    else {
+    let Ok(reply) = connection.call_method(
+        Some(bus),
+        path,
+        Some(ACCESSIBLE_INTERFACE),
+        "GetChildren",
+        &(),
+    ) else {
         return Vec::new();
     };
     reply
@@ -55,14 +57,14 @@ fn pid_of(connection: &Connection, bus: &str) -> Option<u32> {
 
 fn frames_where(connection: &Connection, wanted: impl Fn(u32) -> bool) -> Vec<AtspiElement> {
     let mut frames = Vec::new();
-    for (app_bus, _) in children_of(connection, REGISTRY_SERVICE, REGISTRY_ROOT) {
+    for (app_bus, _) in children_of(connection, REGISTRY_SERVICE, REGISTRY_ROOT_PATH) {
         let Some(pid) = pid_of(connection, &app_bus) else {
             continue;
         };
         if !wanted(pid) {
             continue;
         }
-        for (frame_bus, frame_path) in children_of(connection, &app_bus, REGISTRY_ROOT) {
+        for (frame_bus, frame_path) in children_of(connection, &app_bus, REGISTRY_ROOT_PATH) {
             frames.push(AtspiElement::new(frame_bus, frame_path, pid));
         }
     }

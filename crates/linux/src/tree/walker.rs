@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::walker_expand::expand_level;
@@ -24,7 +26,7 @@ struct Slot<K, P> {
 /// A child already on the path from the root is skipped as a cycle; that is
 /// not a truncation. A child shared by two siblings' subtrees is not on the
 /// path and is admitted under both.
-pub(crate) fn admit_children<K: PartialEq>(
+fn admit_children<K: PartialEq>(
     children: &[K],
     ancestors: &[&K],
     depth: usize,
@@ -53,6 +55,14 @@ fn ancestor_path<K, P>(slots: &[Slot<K, P>], index: usize) -> Vec<&K> {
         cursor = slots[current].parent;
     }
     path
+}
+
+fn mark_parents_truncated<K, P>(slots: &mut [Slot<K, P>], frontier: &[Pending<K>]) {
+    for pending in frontier {
+        if let Some(parent) = pending.parent {
+            slots[parent].truncated = true;
+        }
+    }
 }
 
 fn assemble<K, P>(slots: Vec<Slot<K, P>>) -> Option<WalkedNode<P>> {
@@ -94,11 +104,7 @@ where
     let mut complete = true;
     while !frontier.is_empty() {
         if deadline.is_expired() {
-            for pending in &frontier {
-                if let Some(parent) = pending.parent {
-                    slots[parent].truncated = true;
-                }
-            }
+            mark_parents_truncated(&mut slots, &frontier);
             complete = false;
             break;
         }
@@ -106,11 +112,7 @@ where
         let reads = match expand(&keys) {
             Ok(reads) => reads,
             Err(error) if error.code == ErrorCode::Timeout && !slots.is_empty() => {
-                for pending in &frontier {
-                    if let Some(parent) = pending.parent {
-                        slots[parent].truncated = true;
-                    }
-                }
+                mark_parents_truncated(&mut slots, &frontier);
                 complete = false;
                 break;
             }
@@ -130,7 +132,9 @@ where
                 truncated: false,
                 depth: pending.depth,
             });
-            let (taken, truncated) = {
+            let (taken, truncated) = if children.is_empty() {
+                (Vec::new(), false)
+            } else {
                 let path = ancestor_path(&slots, index);
                 admit_children(&children, &path, pending.depth, admitted, limits)
             };
@@ -168,7 +172,7 @@ pub(crate) fn walk_tree(
     deadline: Deadline,
 ) -> Result<Walk<RawNode>, AdapterError> {
     let connection = bus.get(deadline)?;
-    let mut pids = std::collections::HashMap::from([(root.bus_name().to_owned(), root.pid())]);
+    let mut pids = HashMap::from([(root.bus_name().to_owned(), root.pid())]);
     let mut at_root = true;
     walk_levels(root.clone(), limits, deadline, |level| {
         let reads = expand_level(connection.inner(), &mut pids, level, at_root, deadline);

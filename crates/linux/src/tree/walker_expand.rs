@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use futures_util::future::join_all;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
@@ -85,9 +85,7 @@ pub(super) fn expand_level(
         for (element, read) in level.iter().zip(reads) {
             match read {
                 Ok(node) => nodes.push(node),
-                Err(error)
-                    if at_root || error.code == agent_desktop_core::ErrorCode::AppNotFound =>
-                {
+                Err(error) if at_root || error.code == ErrorCode::AppNotFound => {
                     return Err(error);
                 }
                 Err(error) => nodes.push(RawNode::unreadable(element.clone(), &error.message)),

@@ -13,10 +13,10 @@ use super::bus_stage::Stage;
 
 const BUS_SERVICE: &str = "org.a11y.Bus";
 const BUS_PATH: &str = "/org/a11y/bus";
-const REGISTRY_SERVICE: &str = "org.a11y.atspi.Registry";
-const REGISTRY_ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
-const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
-const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
+pub(crate) const REGISTRY_SERVICE: &str = "org.a11y.atspi.Registry";
+pub(crate) const REGISTRY_ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
+pub(crate) const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
+pub(crate) const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 
 pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
     if deadline.is_expired() {

@@ -2,61 +2,45 @@ use std::collections::{BTreeMap, HashMap};
 
 use agent_desktop_core::{AdapterError, ErrorCode};
 use futures_util::future::{join, join_all, join3, join4};
-use zbus::zvariant::OwnedValue;
+use zbus::export::serde::Serialize;
+use zbus::zvariant::{DynamicType, OwnedValue};
 use zbus::{Connection, Message};
 
 use super::{AtspiElement, ChildAddress, Extents, Field, NodeProperties, NodeTraits, RawNode};
+use crate::system::{
+    ACCESSIBLE_INTERFACE, NAME_HAS_NO_OWNER, PROPERTIES_INTERFACE, SERVICE_UNKNOWN,
+};
 
-const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
-const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 const COMPONENT_INTERFACE: &str = "org.a11y.atspi.Component";
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
 const UNKNOWN_OBJECT: &str = "org.freedesktop.DBus.Error.UnknownObject";
 const UNKNOWN_METHOD: &str = "org.freedesktop.DBus.Error.UnknownMethod";
-const SERVICE_UNKNOWN: &str = "org.freedesktop.DBus.Error.ServiceUnknown";
-const NAME_HAS_NO_OWNER: &str = "org.freedesktop.DBus.Error.NameHasNoOwner";
+const NAME: &str = "Name";
+const DESCRIPTION: &str = "Description";
+const CHILD_COUNT: &str = "ChildCount";
+const ACCESSIBLE_ID: &str = "AccessibleId";
 const NULL_PATH: &str = "/org/a11y/atspi/null";
 const SCREEN_COORDINATES: u32 = 0;
 
 type Reply = Result<Message, zbus::Error>;
 
-async fn call(
+async fn call<B>(
     connection: &Connection,
     element: &AtspiElement,
-    interface: &'static str,
-    method: &'static str,
-) -> Reply {
+    interface: &str,
+    method: &str,
+    body: &B,
+) -> Reply
+where
+    B: Serialize + DynamicType,
+{
     connection
         .call_method(
             Some(element.bus_name()),
             element.path(),
             Some(interface),
             method,
-            &(),
-        )
-        .await
-}
-
-async fn call_get_all(connection: &Connection, element: &AtspiElement) -> Reply {
-    connection
-        .call_method(
-            Some(element.bus_name()),
-            element.path(),
-            Some(PROPERTIES_INTERFACE),
-            "GetAll",
-            &(ACCESSIBLE_INTERFACE,),
-        )
-        .await
-}
-
-async fn call_get_extents(connection: &Connection, element: &AtspiElement) -> Reply {
-    connection
-        .call_method(
-            Some(element.bus_name()),
-            element.path(),
-            Some(COMPONENT_INTERFACE),
-            "GetExtents",
-            &(SCREEN_COORDINATES,),
+            body,
         )
         .await
 }
@@ -99,62 +83,58 @@ fn field<T>(result: Result<T, zbus::Error>, required: bool) -> Result<Field<T>, 
     }
 }
 
-fn property_string(map: &HashMap<String, OwnedValue>, key: &str) -> Field<String> {
-    match map.get(key) {
-        None => Field::Absent,
-        Some(value) => match value.downcast_ref::<&str>() {
-            Ok(text) => Field::Present(text.to_owned()),
-            Err(error) => Field::Failed(error.to_string()),
-        },
+fn string_value(value: &OwnedValue) -> Field<String> {
+    match value.downcast_ref::<&str>() {
+        Ok(text) => Field::Present(text.to_owned()),
+        Err(error) => Field::Failed(error.to_string()),
     }
 }
 
-fn property_count(map: &HashMap<String, OwnedValue>, key: &str) -> Field<i32> {
-    match map.get(key) {
-        None => Field::Absent,
-        Some(value) => match value.downcast_ref::<i32>() {
-            Ok(count) => Field::Present(count),
-            Err(error) => Field::Failed(error.to_string()),
-        },
+fn count_value(value: &OwnedValue) -> Field<i32> {
+    match value.downcast_ref::<i32>() {
+        Ok(count) => Field::Present(count),
+        Err(error) => Field::Failed(error.to_string()),
     }
+}
+
+fn property<T>(
+    map: &HashMap<String, OwnedValue>,
+    key: &str,
+    convert: fn(&OwnedValue) -> Field<T>,
+) -> Field<T> {
+    map.get(key).map_or(Field::Absent, convert)
 }
 
 fn from_map(map: &HashMap<String, OwnedValue>) -> NodeProperties {
     NodeProperties {
-        name: property_string(map, "Name"),
-        description: property_string(map, "Description"),
-        child_count: property_count(map, "ChildCount"),
-        accessible_id: property_string(map, "AccessibleId"),
+        name: property(map, NAME, string_value),
+        description: property(map, DESCRIPTION, string_value),
+        child_count: property(map, CHILD_COUNT, count_value),
+        accessible_id: property(map, ACCESSIBLE_ID, string_value),
     }
 }
 
-async fn call_get_property(
+async fn get_one<T>(
     connection: &Connection,
     element: &AtspiElement,
-    property: &'static str,
-) -> Result<OwnedValue, zbus::Error> {
-    connection
-        .call_method(
-            Some(element.bus_name()),
-            element.path(),
-            Some(PROPERTIES_INTERFACE),
-            "Get",
-            &(ACCESSIBLE_INTERFACE, property),
-        )
-        .await?
-        .body()
-        .deserialize::<OwnedValue>()
-}
-
-async fn get_one(
-    connection: &Connection,
-    element: &AtspiElement,
-    property: &'static str,
-) -> Result<HashMap<String, OwnedValue>, AdapterError> {
-    let read = field(call_get_property(connection, element, property).await, true)?;
+    key: &'static str,
+    convert: fn(&OwnedValue) -> Field<T>,
+) -> Result<Field<T>, AdapterError> {
+    let reply = call(
+        connection,
+        element,
+        PROPERTIES_INTERFACE,
+        "Get",
+        &(ACCESSIBLE_INTERFACE, key),
+    )
+    .await;
+    let read = field(
+        reply.and_then(|message| message.body().deserialize::<OwnedValue>()),
+        true,
+    )?;
     Ok(match read {
-        Field::Present(value) => HashMap::from([(property.to_owned(), value)]),
-        Field::Absent | Field::Failed(_) => HashMap::new(),
+        Field::Present(value) => convert(&value),
+        Field::Absent | Field::Failed(_) => Field::Failed(format!("Properties.Get({key}) failed")),
     })
 }
 
@@ -164,40 +144,22 @@ async fn properties_one_by_one(
     connection: &Connection,
     element: &AtspiElement,
 ) -> Result<NodeProperties, AdapterError> {
-    let (name, description, count, id) = join4(
-        get_one(connection, element, "Name"),
-        get_one(connection, element, "Description"),
-        get_one(connection, element, "ChildCount"),
-        get_one(connection, element, "AccessibleId"),
+    let (name, description, child_count, accessible_id) = join4(
+        get_one(connection, element, NAME, string_value),
+        get_one(connection, element, DESCRIPTION, string_value),
+        get_one(connection, element, CHILD_COUNT, count_value),
+        get_one(connection, element, ACCESSIBLE_ID, string_value),
     )
     .await;
-    let mut merged = HashMap::new();
-    let mut failed = Vec::new();
-    for (key, answer) in [
-        ("Name", name?),
-        ("Description", description?),
-        ("ChildCount", count?),
-        ("AccessibleId", id?),
-    ] {
-        if answer.is_empty() {
-            failed.push(key);
-        }
-        merged.extend(answer);
-    }
-    let mut properties = from_map(&merged);
-    for key in failed {
-        let detail = format!("Properties.Get({key}) failed");
-        match key {
-            "Name" => properties.name = Field::Failed(detail),
-            "Description" => properties.description = Field::Failed(detail),
-            "ChildCount" => properties.child_count = Field::Failed(detail),
-            _ => properties.accessible_id = Field::Failed(detail),
-        }
-    }
-    Ok(properties)
+    Ok(NodeProperties {
+        name: name?,
+        description: description?,
+        child_count: child_count?,
+        accessible_id: accessible_id?,
+    })
 }
 
-async fn properties(
+async fn read_properties(
     connection: &Connection,
     element: &AtspiElement,
     reply: Reply,
@@ -212,7 +174,7 @@ async fn properties(
     }
 }
 
-fn children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
+fn read_children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
     let raw = field(
         reply.and_then(|message| {
             message
@@ -221,17 +183,13 @@ fn children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
         }),
         true,
     )?;
-    Ok(match raw {
-        Field::Present(entries) => Field::Present(
-            entries
-                .into_iter()
-                .filter(|(bus, path)| !bus.is_empty() && path.as_str() != NULL_PATH)
-                .map(|(bus, path)| (bus, path.to_string()))
-                .collect(),
-        ),
-        Field::Absent => Field::Absent,
-        Field::Failed(detail) => Field::Failed(detail),
-    })
+    Ok(raw.map(|entries| {
+        entries
+            .into_iter()
+            .filter(|(bus, path)| !bus.is_empty() && path.as_str() != NULL_PATH)
+            .map(|(bus, path)| (bus, path.to_string()))
+            .collect()
+    }))
 }
 
 fn advertises(interfaces: &Field<Vec<String>>, name: &str) -> bool {
@@ -248,20 +206,25 @@ async fn read_extents(
     if !advertises(interfaces, COMPONENT_INTERFACE) {
         return Ok(Field::Absent);
     }
-    let reply = call_get_extents(connection, element).await;
+    let reply = call(
+        connection,
+        element,
+        COMPONENT_INTERFACE,
+        "GetExtents",
+        &(SCREEN_COORDINATES,),
+    )
+    .await;
     field(
         reply.and_then(|message| message.body().deserialize::<(i32, i32, i32, i32)>()),
         false,
     )
-    .map(|read| match read {
-        Field::Present((x, y, width, height)) => Field::Present(Extents {
+    .map(|read| {
+        read.map(|(x, y, width, height)| Extents {
             x,
             y,
             width,
             height,
-        }),
-        Field::Absent => Field::Absent,
-        Field::Failed(detail) => Field::Failed(detail),
+        })
     })
 }
 
@@ -271,15 +234,7 @@ async fn action_name(
     index: i32,
     listed: String,
 ) -> String {
-    let reply = connection
-        .call_method(
-            Some(element.bus_name()),
-            element.path(),
-            Some(ACTION_INTERFACE),
-            "GetName",
-            &(index,),
-        )
-        .await;
+    let reply = call(connection, element, ACTION_INTERFACE, "GetName", &(index,)).await;
     reply
         .and_then(|message| message.body().deserialize::<String>())
         .ok()
@@ -299,7 +254,7 @@ async fn read_actions(
     if !advertises(interfaces, ACTION_INTERFACE) {
         return Ok(Field::Absent);
     }
-    let reply = call(connection, element, ACTION_INTERFACE, "GetActions").await;
+    let reply = call(connection, element, ACTION_INTERFACE, "GetActions", &()).await;
     let listed = field(
         reply.and_then(|message| {
             message
@@ -335,22 +290,52 @@ pub(crate) async fn read_node(
 ) -> Result<RawNode, AdapterError> {
     let (first, second) = join(
         join4(
-            call_get_all(connection, element),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetRole"),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetRoleName"),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetState"),
+            call(
+                connection,
+                element,
+                PROPERTIES_INTERFACE,
+                "GetAll",
+                &(ACCESSIBLE_INTERFACE,),
+            ),
+            call(connection, element, ACCESSIBLE_INTERFACE, "GetRole", &()),
+            call(
+                connection,
+                element,
+                ACCESSIBLE_INTERFACE,
+                "GetRoleName",
+                &(),
+            ),
+            call(connection, element, ACCESSIBLE_INTERFACE, "GetState", &()),
         ),
         join3(
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetInterfaces"),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetAttributes"),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetChildren"),
+            call(
+                connection,
+                element,
+                ACCESSIBLE_INTERFACE,
+                "GetInterfaces",
+                &(),
+            ),
+            call(
+                connection,
+                element,
+                ACCESSIBLE_INTERFACE,
+                "GetAttributes",
+                &(),
+            ),
+            call(
+                connection,
+                element,
+                ACCESSIBLE_INTERFACE,
+                "GetChildren",
+                &(),
+            ),
         ),
     )
     .await;
     let (all, role, role_name, state) = first;
     let (interfaces, attributes, child_reply) = second;
 
-    let properties = properties(connection, element, all).await?;
+    let properties = read_properties(connection, element, all).await?;
     let interfaces = field(
         interfaces.and_then(|message| message.body().deserialize::<Vec<String>>()),
         true,
@@ -385,6 +370,6 @@ pub(crate) async fn read_node(
         )?,
         extents: extents?,
         actions: actions?,
-        children: children(child_reply)?,
+        children: read_children(child_reply)?,
     })
 }
