@@ -1,24 +1,37 @@
 mod bounded;
+#[allow(dead_code)]
 mod attributes;
+#[allow(dead_code)]
 mod descriptor;
 mod element;
 mod expansion;
 mod extents;
 mod field;
+#[allow(dead_code)]
 mod identity;
+#[allow(dead_code)]
 mod label_outcome;
+#[allow(dead_code)]
 mod label_read;
+#[allow(dead_code)]
 mod name_evidence;
 mod node_properties;
 mod node_read;
 mod node_traits;
+#[allow(dead_code)]
 mod placeholder;
 mod raw_node;
+#[allow(dead_code)]
 mod role_numbers;
+#[allow(dead_code)]
 mod role_table;
+#[allow(dead_code)]
 mod roles;
+#[allow(dead_code)]
 mod state_bits;
+#[allow(dead_code)]
 mod states;
+#[allow(dead_code)]
 mod vocabulary;
 mod walk;
 mod walk_limits;
@@ -61,10 +74,12 @@ pub(crate) use expansion::Expansion;
 pub(crate) use extents::Extents;
 pub(crate) use field::Field;
 pub(crate) use label_outcome::LabelOutcome;
+#[allow(unused_imports)]
 pub(crate) use label_read::read_label;
 pub(crate) use node_properties::NodeProperties;
 pub(crate) use node_traits::NodeTraits;
 pub(crate) use raw_node::{ChildAddress, RawNode};
+#[allow(unused_imports)]
 pub(crate) use vocabulary::{ResolvedVocabulary, resolve_vocabulary};
 pub(crate) use walk::Walk;
 pub(crate) use walk_limits::WalkLimits;
