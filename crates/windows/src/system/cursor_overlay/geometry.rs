@@ -1,6 +1,6 @@
 //! The overlay's shape, in the numbers the macOS renderer already uses.
 //!
-//! Pure. R16 claims Windows draws the same visual vocabulary as macOS, and a
+//! Pure. The overlay claims Windows draws the same visual vocabulary as macOS, and a
 //! claim like that needs numbers to fail against — core shares the motion,
 //! the style and the label placement, but none of these dimensions. They are
 //! carried across rather than invented, and scaled by the session's style

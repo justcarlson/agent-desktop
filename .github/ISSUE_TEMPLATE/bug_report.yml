@@ -15,7 +15,7 @@ body:
     attributes:
       label: agent-desktop version
       description: Paste the output of `agent-desktop --version`
-      placeholder: "agent-desktop 0.1.8"
+      placeholder: "agent-desktop 0.10.1"
     validations:
       required: true
 
@@ -57,7 +57,7 @@ body:
       render: shell
       placeholder: |
         $ agent-desktop snapshot --app Finder
-        {"version":"2.2","ok":false,"command":"snapshot","error":{"code":"APP_NOT_FOUND",...}}
+        {"version":"2.4","ok":false,"command":"snapshot","error":{"code":"APP_NOT_FOUND",...}}
     validations:
       required: true
 

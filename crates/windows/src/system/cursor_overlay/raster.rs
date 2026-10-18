@@ -96,7 +96,7 @@ const SAMPLES: i32 = 3;
 
 /// A pixel that its own corners and centre all agree about is not on an
 /// edge, so its coverage is already known and the sampling grid would spend
-/// sixteen polygon walks confirming it.
+/// SAMPLES x SAMPLES polygon walks confirming it.
 ///
 /// This matters because the interior of a shape dwarfs its outline: the
 /// probe of the busiest frame spent most of a display frame supersampling

@@ -216,7 +216,7 @@ fn action_request(policy: AdPolicyKind, action: Action) -> ActionRequest {
         AdPolicyKind::FocusFallback => ActionRequest::focus_fallback(action),
         AdPolicyKind::Headed => ActionRequest::headed(action),
     }
-    .with_timeout_ms(Some(5000))
+    .with_timeout_ms(Some(crate::operation::DEFAULT_FFI_TIMEOUT_MS))
 }
 
 #[cfg(test)]

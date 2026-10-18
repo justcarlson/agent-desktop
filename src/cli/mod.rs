@@ -92,9 +92,13 @@ pub(crate) enum Commands {
     MouseMove(MouseMoveArgs),
     #[command(about = "Click at absolute screen coordinates (requires --headed)")]
     MouseClick(MouseClickArgs),
-    #[command(about = "Press mouse button at coordinates (requires --headed)")]
+    #[command(
+        about = "Press mouse button at coordinates (fails closed in stateless mode; use mouse-click or drag)"
+    )]
     MouseDown(MousePointArgs),
-    #[command(about = "Release mouse button at coordinates (requires --headed)")]
+    #[command(
+        about = "Release mouse button at coordinates (fails closed in stateless mode; use mouse-click or drag)"
+    )]
     MouseUp(MousePointArgs),
     #[command(about = "Scroll the mouse wheel at absolute coordinates (requires --headed)")]
     MouseWheel(MouseWheelArgs),

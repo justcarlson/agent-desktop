@@ -13,7 +13,7 @@ fn root() -> &'static Path {
 
 const SESSION: &str = "s0000001";
 
-/// The protocol has never been bumped, so there is no earlier renderer to
+/// While the ledger holds only the live generation, there is no earlier renderer to
 /// clear and the sweep costs an enable nothing.
 #[test]
 fn the_shipped_ledger_gives_the_sweep_nothing_to_do() {

@@ -23,7 +23,7 @@ pub const CURSOR_REST_FADE_MS: u64 = 156;
 
 /// How long the label card takes to appear once its text changes.
 ///
-/// macOS reveals it with an ease-out opacity ramp over 0.18s, so a card that
+/// macOS reveals it with a 0.18s opacity fade and an ease-out scale pop, so a card that
 /// arrives does not simply blink into place. The same caveat applies: the
 /// bridge holds its own copy for now.
 pub const CURSOR_LABEL_REVEAL_MS: u64 = 180;

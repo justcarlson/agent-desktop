@@ -61,8 +61,7 @@ fn prepare_probe(
 }
 
 /// `kill(pid, 0)`-style liveness check: signal 0 sends no actual signal, the
-/// kernel only validates the target exists and is reachable. Mirrors the
-/// convention already used by `system::force_close::signal_result`.
+/// kernel only validates the target exists and is reachable.
 #[cfg(all(test, target_os = "macos"))]
 fn pid_is_alive(pid: i32) -> bool {
     const POSIX_ESRCH: i32 = 3;

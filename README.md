@@ -1,8 +1,4 @@
-<h1 align="center">AGENT DESKTOP</h1>
-
-<p align="center">
-  <strong>OBSERVE. DECIDE. ACT.</strong>
-</p>
+<h1 align="center">agent-desktop</h1>
 
 <p align="center">
   <a href="https://github.com/lahfir/agent-desktop/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/lahfir/agent-desktop/ci.yml?branch=main&style=for-the-badge" alt="CI status"></a>
@@ -17,520 +13,98 @@
   <video src="https://github.com/user-attachments/assets/9b2c9f8c-a49d-4b69-b6cf-11d9e0d40ceb" controls width="800"></video>
 </p>
 
-**agent-desktop** gives any agent reliable computer use on the desktop. Built with Rust, it sees any app's real UI structure through OS accessibility trees and operates it — refs stay stable and actions stay safe to retry, instead of guessing from pixels.
+agent-desktop is a command-line tool and C library that lets an AI agent read and operate desktop apps on macOS and Windows through the operating system's accessibility tree. It prints JSON. Each element the agent can act on gets a ref such as `@s8f3k2p9:e3`, which names the snapshot it came from. Linux is planned.
 
-## Architecture
-
-<p align="center">
-  <img src="docs/architecture.png" alt="agent-desktop architecture diagram" width="900" />
-</p>
-
-<p align="center">
-  <img src="docs/slack-example.png" alt="Slack accessibility snapshots: 30,743 tokens for a regular snapshot versus 383 for a skeleton overview, with focused drilling for controls" width="900" />
-</p>
-
-<a href="https://star-history.com/#lahfir/agent-desktop&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lahfir/agent-desktop&type=Date&theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lahfir/agent-desktop&type=Date">
-    <img alt="Star history for lahfir/agent-desktop" src="https://api.star-history.com/svg?repos=lahfir/agent-desktop&type=Date">
-  </picture>
-</a>
-
-## Key Features
-
-- **Native Rust CLI**: Fast, single binary, no runtime dependencies
-- **C-ABI cdylib** (`libagent_desktop_ffi`): Load once from Python / Swift / Go / Ruby / Node / C instead of forking the CLI per call
-- **60 command names, 56 operational commands**: Observation, interaction, keyboard, mouse, notifications, shell surfaces, clipboard, window management, session lifecycle, trace read/export, plus a bundled `skills` doc loader. The four held-input names are reserved for a stateful daemon and fail closed in the stateless CLI.
-- **Progressive skeleton traversal**: 78–96% token reduction on dense apps via shallow overview + targeted drill-down
-- **Snapshot & refs**: AI-optimized workflow using compact snapshot IDs and qualified element references (`@s8f3k2p9:e1`, `@s8f3k2p9:e2`)
-- **Headless-by-default interactions**: Ref actions use accessibility APIs and block silent focus, cursor, keyboard, or pasteboard side effects
-- **Structured JSON output**: Machine-readable responses with error codes and recovery hints
-- **Works with any app**: Finder, Safari, System Settings, Xcode, Slack — anything with an accessibility tree
-- **Chromium-app interop via CDP**: `launch --cdp` opens a verified DevTools port so any framework that speaks CDP — Playwright, Puppeteer, `chrome-remote-interface`, agent-browser — can drive the web contents, while native menus, dialogs, and windows stay on the accessibility path
+It ships 60 command names, 56 operational commands. The other four (`key-down`, `key-up`, `mouse-down`, `mouse-up`) refuse to run until a daemon can release a held key or button.
 
 ## Installation
 
-### npm (recommended)
-
 ```bash
-npm install -g agent-desktop        # downloads prebuilt binary automatically
+npm install -g agent-desktop
 ```
 
-The same command installs on macOS (ARM64, x64) and Windows (x64, ARM64). The installer downloads a `.tar.gz` release asset, verifies its SHA-256 against the release's `checksums.txt`, and places the native binary beside the `agent-desktop` launcher.
-
-Recent npm versions block install scripts by default, which prevents the wrapper from fetching its binary and produces a loud binary-not-found failure on first run. To permit this package's install script, add the `allowScripts` configuration to your `package.json` (or npm config):
-
-```json
-{
-  "allowScripts": {
-    "agent-desktop": true
-  }
-}
-```
-
-Or via npm config:
+This works on macOS (ARM64, x64) and Windows (x64, ARM64). The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256 against the release's `checksums.txt`. npm 11 runs that script but warns that it is not covered by `allowScripts`. An npm that blocks install scripts leaves no binary, and the first run fails with binary-not-found. To allow the script:
 
 ```bash
-npm config set allowScripts.agent-desktop true
+npm install -g --allow-scripts=agent-desktop agent-desktop
+npm config set allow-scripts=agent-desktop --location=user
 ```
 
-Or without installing:
+Release archives are also on the [releases page](https://github.com/lahfir/agent-desktop/releases). The checksums come from the same release as the archives, so they catch corruption but do not prove origin. Check origin with:
 
 ```bash
-npx agent-desktop snapshot --app Finder -i
-```
-
-### Direct download
-
-Windows binaries are also published as GitHub Release assets:
-
-- `agent-desktop-v<version>-x86_64-pc-windows-msvc.tar.gz`
-- `agent-desktop-v<version>-aarch64-pc-windows-msvc.tar.gz`
-
-Each archive contains one entry, `agent-desktop.exe`. Verify a manual download before running it:
-
-```bash
-curl -fsSL https://github.com/lahfir/agent-desktop/releases/download/v<version>/checksums.txt
-sha256sum <downloaded-archive>   # compare with the matching checksums.txt line
 gh attestation verify <downloaded-archive> --repo lahfir/agent-desktop
 ```
 
-The checksums published beside a release come from the same release as the artifact they describe, so they detect corruption rather than proving provenance. A reader who downloads an artifact manually can verify provenance with `gh attestation verify <file> --repo lahfir/agent-desktop`.
-
-### From source
+To build from source you need Rust 1.89 or later, plus the Xcode command-line tools on macOS 13+ or the MSVC build tools on Windows:
 
 ```bash
-git clone https://github.com/lahfir/agent-desktop
-cd agent-desktop
-cargo build --release
-cp target/release/agent-desktop /usr/local/bin/
+git clone https://github.com/lahfir/agent-desktop && cd agent-desktop
+cargo build --release -p agent-desktop
 ```
-
-Requires Rust 1.89+. On macOS this means macOS 13.0+ with the Xcode command-line tools; on Windows it requires the MSVC toolchain (Visual Studio Build Tools with the "Desktop development with C++" workload).
-
-On macOS, application names use AppKit's localized display name. If it is unavailable, the inventory uses the executable name, then the bundle identifier, while retaining the application's process identity.
 
 ### Permissions
 
-macOS requires Accessibility permission. Screenshots also require Screen Recording permission, and the Notification Center opener requires Automation permission for System Events. Plain permission checks never prompt. Request missing permissions in a bounded isolated helper with:
+macOS needs Accessibility permission. Screenshots also need Screen Recording, and opening Notification Center needs Automation permission for System Events. `agent-desktop permissions` reports the state without prompting; `agent-desktop permissions --request` asks for what is missing.
 
-```bash
-agent-desktop permissions --request   # request missing permissions in an isolated helper
-```
+Windows needs no grant for apps at your terminal's integrity level. An app running as administrator can be read, but only an elevated agent can send it input. The binary is unsigned, so SmartScreen may warn on a browser download, antivirus may quarantine it, and Smart App Control on a clean Windows 11 install blocks it. The npm install path does not trigger SmartScreen.
 
-Windows needs no permission grant for reading or acting on applications at the same integrity level as your terminal: UI Automation requires no TCC-style consent. An elevated target (an app running as administrator) can only be driven by an elevated agent, because UIPI blocks synthesized input across that boundary while reads still succeed. Because the shipped binary is unsigned, three Windows execution controls may still intervene: a browser-downloaded copy shows the SmartScreen warning on first GUI launch (the npm install path attaches no Mark-of-the-Web, so no prompt fires there), antivirus software may quarantine a freshly downloaded unsigned executable, and Smart App Control on a clean Windows 11 install blocks unknown unsigned executables at process creation regardless of launch mode.
+## Language bindings
 
-Permission fields are explicit objects, for example:
-
-```json
-{
-  "accessibility": { "state": "granted" },
-  "screen_recording": { "state": "denied", "suggestion": "Grant Screen Recording permission" },
-  "automation": { "state": "unknown" }
-}
-```
-
-Automation reports `granted`, `denied`, or `unknown`; `unknown` means macOS would need to prompt or System Events could not be probed without prompting.
-
-## Language bindings (FFI)
-
-Every GitHub Release ships a prebuilt C-ABI cdylib (`libagent_desktop_ffi`) for macOS, Linux, and Windows alongside the CLI tarballs. `dlopen` it and call the functions declared in `agent_desktop.h` for in-process calls instead of fork-exec per command.
+Each release also ships `libagent_desktop_ffi` for macOS, Linux and Windows, so a program can call the tool in process instead of starting the CLI for each command.
 
 ```python
 import ctypes
 lib = ctypes.CDLL("./lib/libagent_desktop_ffi.dylib")
-lib.ad_init(4)  # verify ABI major (AD_ABI_VERSION_MAJOR) before any call
+lib.ad_init(5)  # checks the header's AD_ABI_VERSION_MAJOR against the library
 adapter = lib.ad_adapter_create()
-# observe -> act: ad_snapshot -> parse a qualified ref -> ad_execute_by_ref ...
 lib.ad_adapter_destroy(adapter)
 ```
 
-Full consumer guide — entrypoints, ownership, threading, error-handling, build/link, release archives, and verification: **[`skills/agent-desktop-ffi/`](skills/agent-desktop-ffi/)**.
+See [`skills/agent-desktop-ffi/`](skills/agent-desktop-ffi/) for the entry points, memory ownership and threading rules.
 
-## Core Workflow for AI
+## Usage
 
-> **Shell syntax.** The examples below are POSIX shell (zsh, bash). In Windows
-> PowerShell, quote every ref (`'@s8f3k2p9:e1'`) — a bare `@token` is the
-> splatting operator and the argument disappears — use `$env:NAME = 'value'`
-> instead of `export`, and `$r = agent-desktop ... | ConvertFrom-Json` instead
-> of `$(...)` and `jq`.
-
-For dense apps (Slack, VS Code, Notion), use **progressive skeleton traversal** to minimize token usage:
+Take a snapshot, act on a ref from it, then snapshot again to check the result:
 
 ```bash
-# 1. Shallow overview — depth-3 map, truncated containers show children_count
+agent-desktop snapshot --app Finder -i            # interactive elements with refs
+agent-desktop click @s8f3k2p9:e3
+agent-desktop type @s8f3k2p9:e5 "quarterly report"
+agent-desktop press cmd+s
+agent-desktop snapshot --app Finder -i
+```
+
+For a dense app, start with a shallow map and expand only the part you need. On Slack this cut one snapshot from 30,743 tokens to 383:
+
+```bash
 agent-desktop snapshot --skeleton --app Slack -i --compact
-# Refs are qualified with their snapshot ID, for example @s8f3k2p9:e3
-
-# 2. Drill into a region of interest (each truncated branch exposes a safe drill ref)
-agent-desktop snapshot --root @s8f3k2p9:e3 -i --compact
-
-# 3. Act on an element found in the drill-down
-agent-desktop click @s8f3k2p9:e12
-
-# 4. Re-drill the same region to verify the state change
 agent-desktop snapshot --root @s8f3k2p9:e3 -i --compact
 ```
 
-For simple apps, a full snapshot is fine:
+A ref belongs to the snapshot that printed it. A bare `@e3` is rejected with `INVALID_ARGS`. If the UI changes, an action returns `STALE_REF` or `AMBIGUOUS_TARGET`; take a new snapshot and use its refs.
 
-```bash
-agent-desktop snapshot --app Finder -i   # get interactive elements with qualified refs
-agent-desktop click @s8f3k2p9:e3  # click a button by ref
-agent-desktop type @s8f3k2p9:e5 "quarterly report"  # insert text into a field
-agent-desktop press cmd+s               # keyboard shortcut
-agent-desktop snapshot -i               # re-observe after UI changes
-```
+Ref actions run headless by default, through the accessibility API, without moving the pointer or taking focus. `--headed` allows physical input. In PowerShell, quote every ref (`'@s8f3k2p9:e1'`), because a bare `@token` is the splatting operator and the argument disappears.
 
-```
-Agent loop:  snapshot → decide → act → snapshot → decide → act → ...
-```
+### Commands
 
-### Trace viewer (read back a session)
+| Group | Commands |
+|---|---|
+| Observe | `snapshot`, `find`, `get`, `is`, `screenshot`, `list-surfaces` |
+| Act on a ref | `click`, `double-click`, `triple-click`, `right-click`, `type`, `set-value`, `clear`, `focus`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll`, `scroll-to` |
+| Keyboard and mouse | `press`, `hover`, `drag`, `mouse-move`, `mouse-click`, `mouse-wheel`, `key-down`, `key-up`, `mouse-down`, `mouse-up` |
+| Apps and windows | `launch`, `close-app`, `list-apps`, `list-windows`, `list-displays`, `focus-window`, `resize-window`, `move-window`, `minimize`, `maximize`, `restore`, `open-system-surface` |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` |
+| Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` |
+| Wait | `wait` |
+| Sessions | `session`, `trace`, `cursor-overlay` |
+| System | `status`, `permissions`, `version`, `batch`, `skills` |
 
-```bash
-session_id=$(agent-desktop session start --screenshots | jq -r '.data.session_id')
-export AGENT_DESKTOP_SESSION="$session_id"
-agent-desktop snapshot --app Finder -i       # work inside the explicit session scope
-agent-desktop click @s8f3k2p9:e5
-agent-desktop trace show --limit 500         # bounded JSON timeline for agents
-agent-desktop trace export --out run.html    # single-file HTML viewer (works from file://)
-```
+`agent-desktop <command> --help` lists a command's flags. The JSON envelope, error codes and exit codes are in [docs/json-output.md](docs/json-output.md).
 
-`trace show` merges all segment files deterministically and requires no permissions. `trace export` embeds the timeline plus screenshots as base64 in one static HTML file. Without `--out`, the HTML is written to the session directory (`~/.agent-desktop/sessions/<id>/trace-<id>.html`), not the current directory; `--out` overrides the path. Treat exported HTML like a screenshot when `artifacts: full` was enabled.
+The skills are bundled in the binary and match its version. `agent-desktop skills get desktop` prints the core guide, and `agent-desktop skills get platform` prints the guide for the OS you run on. They cover sessions and traces, the agent cursor overlay, multi-agent sessions and Chromium apps through `launch --cdp`.
 
-### Shared sessions for multi-agent workflows
-
-Run `session start` once per agent run to create a trace-enabled session (manifest `trace: on` by default), then pass the returned ID with global `--session <id>` or `AGENT_DESKTOP_SESSION=<id>`. Commands in that explicit scope get automatic JSONL segments under `~/.agent-desktop/sessions/<id>/trace/` and share the session's latest-snapshot namespace — no `--trace` on every call.
-
-For concurrent **independent** agents, set `AGENT_DESKTOP_SESSION=<id>` per process. When multiple agents share one session ID, each agent should act on the qualified refs from its own `snapshot` call rather than assuming the namespace's latest snapshot is unchanged.
-
-Bare `--session <id>` without a manifest (no `session start`) still scopes the snapshot namespace only and writes no trace files. Snapshot IDs resolve only inside the selected session namespace; they never trigger a cross-session search.
-
-```bash
-agent-desktop session start --name release-fix          # note data.session_id
-export AGENT_DESKTOP_SESSION=<session_id>
-agent-desktop snapshot --app Xcode -i --compact          # uses selected session + tracing
-agent-desktop wait --element @s8f3k2p9:e9 --predicate actionable --timeout 5000
-agent-desktop click @s8f3k2p9:e9
-agent-desktop session end "$AGENT_DESKTOP_SESSION"
-agent-desktop session gc
-```
-
-### Agent cursor overlay
-
-A presentation-only cursor that shows what the agent is about to do. Off by
-default. Renders on macOS and Windows; other platforms record the setting
-without drawing.
-
-On macOS agent cursors work in both headless and headed mode, including
-physical pointer commands. Drags follow the cursor's curved motion and draw an
-accent-colored trail while held, then fade after release. Each agent retains
-its own cursor; the existing interaction lease coordinates the shared OS
-pointer.
-
-On Windows the overlay draws only for headless semantic actions — a `--headed`
-command sends real pointer input and the overlay is suppressed for that
-command only — and it does not collapse under the OS's reduce-motion
-accessibility preference the way macOS does, a deliberate difference documented
-with its cost in `skills/agent-desktop-windows/SKILL.md`.
-
-```bash
-session_id=$(agent-desktop session start --cursor | jq -r '.data.session_id')
-export AGENT_DESKTOP_SESSION="$session_id"
-agent-desktop snapshot --app Finder -i
-agent-desktop click <qualified-ref-from-snapshot>
-agent-desktop cursor-overlay disable
-```
-
-`session start --cursor` turns it on with the default look. `cursor-overlay enable` does the same for a session that already exists.
-
-**Style defaults belong to the session.** Set them once; later commands inherit them. Named agents can save their own style using global `--agent-id`.
-
-```bash
-agent-desktop --session "$session_id" cursor-overlay enable --label "Opening the menu"
-export AGENT_DESKTOP_SESSION="$session_id"
-```
-
-For harness subagents on macOS, start one shared session and give each worker a stable ID:
-
-```bash
-session_id=$(agent-desktop session start --cursor --multi-agent | jq -r '.data.session_id')
-export AGENT_DESKTOP_SESSION="$session_id"
-# Set a different ID in each subagent's environment:
-export AGENT_DESKTOP_AGENT_ID=researcher
-agent-desktop cursor-overlay enable --label "Checking details" --accent "#FF3B7B"
-agent-desktop snapshot --app Finder -i
-agent-desktop click <qualified-ref-from-snapshot>
-```
-
-The style command is optional and saves settings for the next presentation without creating a cursor. Each distinct agent ID gets its own cursor on first presentation; three IDs produce three cursors, with no extra coordinator cursor. IDs use 1–64 letters, digits, `-` or `_`. Global `--agent-id` overrides the environment. In multi-agent mode, desktop UI actions require an ID; observations, clipboard operations, and session administration do not. Snapshots remain shared by session, so pin qualified refs and coordinate actions on shared UI. `cursor-overlay disable` or `session end` stops every cursor, even when an agent ID is set. To enable this mode on an existing session, run `cursor-overlay enable --multi-agent` without an agent ID.
-
-| Flag | Meaning | Default |
-|---|---|---|
-| `--label TEXT` | Intent text beside the cursor | none |
-| `--max-words N` | Label word limit, 1–12 | 6 |
-| `--fill HEX` | Cursor body | `#FFFFFF` |
-| `--rim HEX` | Cursor outline | `#111318` |
-| `--accent HEX` | Ripple and element outline | `#4299FF` |
-| `--size N` | Size multiplier, 0.5–4.0 | 1.0 |
-| `--no-ripple` | No ripple on click | ripple on |
-| `--no-highlight` | No element outline on click | outline on |
-| `--image PATH` | PNG drawn instead of the arrow, scaled by `--size` | arrow |
-| `--hotspot X,Y` | Click point in the image, points from its top-left | `0,0` |
-| `--pointer-image PATH` | Image shown on arrival over buttons, links and other pressable controls | arrow |
-| `--pointer-hotspot X,Y` | Click point in the pointer image | `0,0` |
-
-`cursor-overlay enable` also accepts `--travel-ms`, `--bow`, `--overshoot`, `--tremor`, `--dwell-ms` and `--motion-seed` for session or per-agent motion profiles; see the [system command reference](skills/agent-desktop/references/commands-system.md#cursor-overlay).
-
-**Behaviour**
-
-- The cursor travels a human path in 90–320 ms. It never rotates or resizes.
-- `--image` swaps the arrow for your PNG (≤ 2 MiB). Fill and rim do not apply; accent still drives the ripple, outline and trail. Oversized images are scaled down to fit the cursor stage, and a missing file falls back to the arrow. `--pointer-image` adds a second image, such as a pointing hand, shown when a ref action lands on a button, link or other pressable control, and on coordinate clicks.
-- The action waits up to 900 ms for cursor arrival confirmation. If the renderer does not confirm in time, a warning is reported and the action proceeds.
-- A click plays a ripple, then flashes an accent outline around the element for 0.9 s. Both draw below the cursor.
-- Idle for 6 s, it fades out. The next command brings it back.
-- `cursor-overlay disable` removes it now and stops the renderer. You do not
-  have to end the session. If a session ends without a `disable` — a crash,
-  `session gc` — the renderer reclaims itself within a few seconds regardless.
-- Headed actions retain it on macOS and hide it on Windows. It never moves or
-  intercepts the OS pointer on either.
-- Overhead is about 150–300 ms per action, all of it the visible travel. On
-  Windows the control-pipe roundtrip itself measures a fraction of a
-  millisecond; the travel animation is the cost.
-
-macOS and Windows render it natively — on Windows it also draws above the
-shell's own topmost chrome, including the taskbar. Linux inherits the
-adapter's no-op and needs its own renderer against the same core contract.
-
-## Driving Chromium apps (CDP)
-
-For a Chromium-based app (Slack, VS Code, Discord, Obsidian, Notion), `launch --cdp` opens a verified Chrome DevTools Protocol endpoint on the web contents. Any framework that speaks CDP can connect — Playwright, Puppeteer, `chrome-remote-interface`, agent-browser — with agent-browser preferred for its ref-based agent workflow and bundled `electron` skill. Native surfaces (menus, dialogs, windows, screenshots) stay on the accessibility path either way.
-
-```bash
-agent-desktop launch "Obsidian" --cdp
-```
-
-```json
-{ "app": "Obsidian", "pid": 4821, "cdp": {
-  "port": 9229,
-  "http_endpoint": "http://127.0.0.1:9229",
-  "websocket_url": "ws://127.0.0.1:9229/devtools/browser/<id>",
-  "product": "Chrome/142.0.7444.265"
-},
-  "suggestion": "Next: run `agent-browser connect 9229` (preferred) or connect any CDP client such as Playwright or Puppeteer. ..." }
-```
-
-`--cdp` needs a fresh launch — an already-running target returns `ACTION_FAILED`. Run `close-app` first, confirm the process exited, then `launch --cdp` again.
-
-The endpoint is pinned to `127.0.0.1`. Any local process running as your user can still reach it while it stays open; `close-app` ends the exposure along with the app.
-
-## Commands
-
-### Observation
-
-```bash
-agent-desktop snapshot --app Safari -i           # accessibility tree with refs
-agent-desktop snapshot --surface menu            # capture open menu
-agent-desktop screenshot --app Finder            # PNG screenshot
-agent-desktop find --role button --app TextEdit  # search by role, name, value, text
-agent-desktop get @s8f3k2p9:e3 --property value  # read element property
-agent-desktop is @s8f3k2p9:e7 --property checked # check boolean state
-agent-desktop list-surfaces --app Notes          # list menus, sheets, popovers, alerts
-```
-
-`get` and `is` resolve the ref once, prefer live platform reads when available, and fall back only when that live read is unsupported by the adapter.
-
-### Interaction
-
-```bash
-agent-desktop click @s8f3k2p9:e3                  # strict headless AX click
-agent-desktop --headed click @s8f3k2p9:e3         # physical click, focus/cursor allowed
-agent-desktop --headed double-click @s8f3k2p9:e3  # physical double-click
-agent-desktop --headed triple-click @s8f3k2p9:e3  # physical triple-click
-agent-desktop right-click @s8f3k2p9:e3            # open context menu; inspect effect before retrying
-agent-desktop type @s8f3k2p9:e5 "hello world"     # insert text into element
-agent-desktop set-value @s8f3k2p9:e5 "new value"  # set value directly via AX
-agent-desktop clear @s8f3k2p9:e5                  # clear element value
-agent-desktop focus @s8f3k2p9:e5                  # set keyboard focus
-agent-desktop select @s8f3k2p9:e9 "Option B"      # select verified dropdown/list option
-agent-desktop toggle @s8f3k2p9:e12                # flip checkbox or switch
-agent-desktop check @s8f3k2p9:e12                 # idempotent check
-agent-desktop uncheck @s8f3k2p9:e12               # idempotent uncheck
-agent-desktop expand @s8f3k2p9:e15                # expand disclosure/tree item
-agent-desktop collapse @s8f3k2p9:e15              # collapse disclosure/tree item
-agent-desktop scroll @s8f3k2p9:e1 --direction down --amount 3  # strict headless AX scroll
-agent-desktop scroll-to @s8f3k2p9:e20             # scroll element into view
-```
-
-> **(macOS, Phase 1)** Default ref actions are strict headless semantic operations. In headed mode, core focuses the exact ref window before dispatch; pointer commands additionally require a verified target point, while the adapter owns physical delivery. `click`, `right-click`, `type`, `clear`, and `scroll` are physical-first; double/triple-click, hover, and drag are physical-only; expand/collapse and other semantic commands remain semantic. Raw coordinates never imply a target window and therefore never steal focus. See `skills/agent-desktop/references/commands-interaction.md`.
-
-### Keyboard
-
-```bash
-agent-desktop press cmd+s               # key combo
-agent-desktop press cmd+shift+z          # multi-modifier
-agent-desktop press escape               # single key
-```
-
-`key-down` and `key-up` are reserved command names and return `ACTION_NOT_SUPPORTED` until a stateful daemon can own the held-key lifetime.
-
-### Mouse
-
-```bash
-agent-desktop --headed hover @s8f3k2p9:e3                  # move cursor to element
-agent-desktop --headed hover --xy 500,300         # move cursor to coordinates
-agent-desktop --headed drag --from @s8f3k2p9:e3 --to @s8f3k2p9:e8   # drag between elements
-agent-desktop --headed drag --from-xy 100,200 --to-xy 400,200  # drag between coordinates
-agent-desktop --headed mouse-click --xy 500,300   # click at coordinates
-```
-
-`mouse-down` and `mouse-up` are likewise reserved; use the atomic `mouse-click` or `drag` commands.
-
-### App & Window Management
-
-```bash
-agent-desktop launch Safari              # launch app by name
-agent-desktop launch com.apple.Safari    # launch by bundle ID
-agent-desktop launch "Obsidian" --cdp    # fresh launch + verified CDP port for web contents
-agent-desktop close-app Safari           # quit app
-agent-desktop close-app Safari --force   # force quit (SIGTERM, then SIGKILL if needed)
-agent-desktop list-apps                  # list running GUI apps
-agent-desktop list-windows               # list visible windows
-agent-desktop list-windows --app Finder  # windows for specific app
-agent-desktop focus-window --window-id w-4521  # bring exact window to front
-agent-desktop resize-window --window-id w-4521 --width 800 --height 600
-agent-desktop move-window --window-id w-4521 --x 100 --y 100
-agent-desktop minimize --window-id w-4521
-agent-desktop maximize --window-id w-4521
-agent-desktop restore --window-id w-4521
-agent-desktop --headed open-system-surface --surface action-center  # raise a shell surface (Windows), returns the window it presents
-```
-
-### Notifications *(macOS, Windows)*
-
-```bash
-agent-desktop --headed list-notifications              # open Notification Center if needed, then list
-agent-desktop --headed list-notifications --app "Slack"         # filter by app
-agent-desktop --headed list-notifications --text "deploy" --limit 5  # filter by text
-agent-desktop --headed dismiss-notification 1 --expected-app "Slack" --expected-title "Deploy complete"
-agent-desktop --headed dismiss-all-notifications                # dismiss all
-agent-desktop --headed dismiss-all-notifications --app "Slack"  # dismiss all from app
-agent-desktop --headed notification-action 1 "Reply" --expected-app "Slack" --expected-title "Deploy complete"
-```
-
-Single-notification mutations require an app or title fingerprint from the
-same listing. Every mutation requires `--headed` because it opens and focuses
-the system notification surface. Headless listing can only observe an
-already-open center; headed listing may open it and restore the prior
-frontmost app afterward. On Windows these commands drive the Action Center
-over UI Automation under the same foreground floor.
-
-### Clipboard
-
-```bash
-agent-desktop clipboard-get              # read clipboard text
-agent-desktop clipboard-set "copied"     # write to clipboard
-agent-desktop clipboard-clear            # clear clipboard
-```
-
-### Wait
-
-```bash
-agent-desktop wait 500                                       # sleep 500ms
-agent-desktop wait --element @s8f3k2p9:e3 --timeout 5000              # wait for element
-agent-desktop wait --element @s8f3k2p9:e3 --predicate actionable      # wait until safe to act
-agent-desktop wait --element @s8f3k2p9:e5 --predicate value --value ready
-agent-desktop wait --window "Save" --timeout 10000           # wait for window
-agent-desktop wait --text "Loading complete" --app Safari    # wait for text
-agent-desktop wait --text "Done" --count 1 --app Xcode       # wait for exact match count
-agent-desktop wait --notification --text "Build Succeeded"   # wait for new matching notification
-agent-desktop wait --menu --timeout 3000                     # wait for menu
-```
-
-### Batch
-
-```bash
-agent-desktop batch '[
-  {"command": "click", "args": {"ref_id": "@<snapshot_id>:e2"}},
-  {"command": "type", "args": {"ref_id": "@<snapshot_id>:e5", "text": "hello"}},
-  {"command": "press", "args": {"combo": "return"}}
-]' --stop-on-error
-
-agent-desktop --session run-a batch '[
-  {"command": "snapshot", "args": {"app": "Finder", "interactive_only": true}},
-  {"command": "status", "session": "run-b", "args": {}}
-]'
-```
-
-### System
-
-```bash
-agent-desktop session start [--name LABEL] [--no-trace] [--cursor [--multi-agent]]  # create session; pass returned ID explicitly
-agent-desktop session end [id]
-agent-desktop session list
-agent-desktop session gc [--older-than SECS] [--ended]
-agent-desktop --session <id> [--agent-id ID] cursor-overlay enable [--multi-agent] [--label TEXT] [--max-words N] [--fill HEX] [--rim HEX] [--accent HEX] [--size N] [--no-ripple] [--no-highlight] [--image PATH [--hotspot X,Y]] [--pointer-image PATH [--pointer-hotspot X,Y]]
-export AGENT_DESKTOP_SESSION=<id>
-agent-desktop cursor-overlay disable
-agent-desktop status                     # platform, permissions, session_id, tracing, latest snapshot
-agent-desktop permissions                # check accessibility/screen-recording/automation
-agent-desktop permissions --request      # request in the bounded isolated helper
-agent-desktop version                    # version string
-agent-desktop skills get desktop         # core skill: the observe, act, verify loop
-agent-desktop skills get platform        # skill for the OS this binary runs on
-```
-
-## Snapshot Options
-
-```bash
-agent-desktop snapshot [OPTIONS]
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--app <NAME>` | focused app | Filter to a specific application |
-| `--window-id <ID>` | - | Filter to a specific window |
-| `-i` / `--interactive-only` | off | Only include interactive elements |
-| `--compact` | off | Omit empty structural nodes |
-| `--include-bounds` | off | Include pixel bounds (x, y, width, height) |
-| `--max-depth <N>` | 10 | Maximum tree depth |
-| `--skeleton` | off | Shallow 3-level overview; truncated containers show `children_count` and get refs as drill targets |
-| `--root <REF>` | - | Start traversal from this ref; merges into existing refmap with scoped invalidation |
-| `--surface <TYPE>` | window | `window`, `focused`, `menu`, `menubar`, `sheet`, `popover`, `alert`; Windows also serves the shell kinds `taskbar`, `system-tray`, `system-tray-overflow`, `start-menu`, `action-center` |
-
-## JSON Output
-
-See the [versioned JSON envelope, error-code, and exit-code contract](docs/json-output.md).
-
-## Ref System
-
-`snapshot` assigns local positions in depth-first order and emits qualified refs such as `@s8f3k2p9:e1`, `@s8f3k2p9:e2`, and `@s8f3k2p9:e3`. A qualified ref embeds the exact snapshot ID. Bare refs such as `@e3` are rejected with `INVALID_ARGS`. Snapshot lookup stays inside the selected session namespace.
-
-Interactive roles that receive refs: `button`, `textfield`, `checkbox`, `link`, `menuitem`, `tab`, `slider`, `combobox`, `treeitem`, `cell`, `radiobutton`, `incrementor`, `menubutton`, `switch`, `colorwell`, `dockitem`.
-
-Static elements (labels, groups, containers) appear in the tree for context but have no ref.
-
-Reliability contract:
-
-- `session start` creates and returns a manifest-gated session with automatic trace segments. It does not activate later processes. Activation resolves explicit `--session` first, then `AGENT_DESKTOP_SESSION`; otherwise the command uses the global, non-session namespace.
-- Bare `--session <id>` without a manifest scopes snapshots only — no surprise trace files for existing callers.
-- Snapshot lookup is confined to the selected namespace. A session-owned snapshot requires the same explicit `--session` or `AGENT_DESKTOP_SESSION` scope.
-- Ref actions re-identify targets at action time: a moved unique target can proceed, while missing or changed stable identity returns `STALE_REF`.
-- Mutable value text is not treated as stable identity, so text fields and timers can keep resolving when the saved window, path, role, and bounds evidence still identify the same element.
-- Multiple plausible targets return `AMBIGUOUS_TARGET` instead of choosing arbitrarily.
-- Actions run an actionability preflight before dispatch: visibility, stability, enabled state, supported action, policy, and editability.
-- `wait --element @s8f3k2p9:e3 --predicate actionable` polls until the target can be acted on.
-- With an active trace-enabled session, JSONL segments land under `sessions/<id>/trace/<pid>-*.jsonl` automatically. `--trace <path>` overrides to one file; `--trace-strict` fails on setup and pre-action writes (post-action traces are best-effort).
-
-Stale ref recovery:
-
-```
-snapshot → act → STALE_REF or AMBIGUOUS_TARGET? → wait/snapshot again → retry with the new ref
-```
-
-## Platform Support
+## Platform support
 
 | | macOS | Windows | Linux |
 |---|:---:|:---:|:---:|
@@ -543,27 +117,20 @@ snapshot → act → STALE_REF or AMBIGUOUS_TARGET? → wait/snapshot again → 
 | Notifications | **Yes** | **Yes** | Planned |
 | Shell surfaces (`open-system-surface`) | Planned | **Yes** | Planned |
 
-\* On Windows, `list-surfaces` inventories each process's `window` / `focused` / `sheet` / `menu` surfaces, and `snapshot --surface` additionally resolves the shell kinds (`taskbar`, `system-tray`, `system-tray-overflow`, `start-menu`, `action-center`) with no `--app`; `quick-settings` refuses on pre-Windows-11 builds with the surface that carries the capability named instead.
-\*\* `launch` on Windows resolves an absolute path or a bare name found under System32 or the Windows directory — it cannot resolve display names such as "Google Chrome".
+\* On Windows, `list-surfaces` lists each process's `window`, `focused`, `sheet` and `menu` surfaces. `snapshot --surface` also reads the shell surfaces `taskbar`, `system-tray`, `system-tray-overflow`, `start-menu` and `action-center` without `--app`. `quick-settings` returns `PLATFORM_NOT_SUPPORTED` on every Windows build and names `action-center`, which carries those controls.
+\*\* `launch` on Windows takes an absolute path, or a bare name under System32 or the Windows directory, with or without `.exe`. It cannot resolve a display name such as "Google Chrome".
 
 ## Development
 
-Every platform adapter compiles on its own OS only, so unscoped workspace commands fail on every host. Scope cargo to the host package set (this is the macOS set):
+Each platform adapter builds only on its own OS, so scope cargo to the host's packages. On macOS:
 
 ```bash
 HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi"
-
-cargo build $HOST_PKGS                          # debug build
-cargo build --release -p agent-desktop          # optimized (<15MB)
-cargo test $HOST_PKGS --lib                     # library tests
-cargo clippy $HOST_PKGS --all-targets -- -D warnings  # lint (must pass with zero warnings)
+cargo test $HOST_PKGS
+cargo clippy $HOST_PKGS --all-targets -- -D warnings
 ```
 
-On Windows the set is `-p agent-desktop-core -p agent-desktop-windows -p agent-desktop -p agent-desktop-ffi`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full gates.
-
-## FAQ
-
-See the [complete FAQ](docs/faq.md) for architecture, platform support, installation, refs, licensing, and support links.
+On Windows the set is `-p agent-desktop-core -p agent-desktop-windows -p agent-desktop -p agent-desktop-ffi`. [CONTRIBUTING.md](CONTRIBUTING.md) lists every gate, and [docs/faq.md](docs/faq.md) answers common questions.
 
 ## License
 

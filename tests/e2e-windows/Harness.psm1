@@ -240,8 +240,9 @@ function ConvertFrom-AgentJson {
         The one JSON parser this harness ever calls, built on
         System.Web.Script.Serialization.JavaScriptSerializer with
         RecursionLimit and MaxJsonLength raised past its 100/2,097,152
-        defaults. ConvertFrom-Json is never called anywhere else in this
-        suite (enforced by U8's structural gate) because it measures a
+        defaults. ConvertFrom-Json is never called anywhere else in the
+        non-selftest harness (enforced by rule 11 of
+        scripts/check-e2e-windows-contract.ps1) because it measures a
         RecursionLimit of 101 nesting levels on this host - a 102-deep
         document throws - and a snapshot contributes two nesting levels per
         UI level on top of the envelope, which a content-staged web tree

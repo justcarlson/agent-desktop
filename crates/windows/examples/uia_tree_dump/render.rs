@@ -194,8 +194,8 @@ pub fn dump(
     serde_json::to_string_pretty(&document).map_err(|error| error.to_string())
 }
 
-/// The RawView-versus-ControlView delta is left unreconciled: the code opens
-/// the raw view walker while the document mandates the control view.
+/// The RawView-versus-ControlView delta is reported rather than reconciled:
+/// the raw-view and control-view counts are emitted side by side.
 ///
 /// A15-10 measured them identical on a Win32 fixture and five nodes apart on
 /// WPF, so the delta is provider-dependent. Reporting it per real target is

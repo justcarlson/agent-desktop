@@ -10,6 +10,7 @@ Proves the C ABI works from a non-Rust host (Python ctypes) and gates it in CI.
 | 2 | Every `ad_*_size()` getter equals the corresponding `AD_*_SIZE` macro (catches struct layout drift) |
 | 3 | `ad_version()` returns `ok:true` JSON with `data.version` (basic command pipeline) |
 | 4 | `ad_adapter_create` → `ad_snapshot` → `ad_free_string` → `ad_adapter_destroy` without crash or leak; stub adapter yields a clean `PLATFORM_NOT_SUPPORTED` envelope |
+| 5 | Opt-in (`AD_EXPECT_MACOS_HELPER=1`, run by `scripts/ci-ffi-helper-discovery-smoke.sh`): macOS helper discovery |
 
 ## Building the dylib
 
@@ -56,7 +57,7 @@ stub-only gate.
 
 ## Dependencies
 
-`smoke.py` uses only the Python standard library (`ctypes`, `json`, `re`,
+`smoke.py` uses only the Python standard library (`ctypes`, `json`, `os`, `re`,
 `pathlib`, `sys`). No `pip install` required.
 
 ## Real-adapter happy path

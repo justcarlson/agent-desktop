@@ -140,7 +140,7 @@ fn validate_drag(params: &DragParams) -> Result<(), AdapterError> {
     if params.duration_ms.is_some_and(|value| value > MAX_DRAG_MS) {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
-            "Drag duration must not exceed 60000ms",
+            format!("Drag duration must not exceed {MAX_DRAG_MS}ms"),
         ));
     }
     if params
@@ -149,7 +149,7 @@ fn validate_drag(params: &DragParams) -> Result<(), AdapterError> {
     {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
-            "Drag drop delay must not exceed 30000ms",
+            format!("Drag drop delay must not exceed {MAX_DROP_DELAY_MS}ms"),
         ));
     }
     Ok(())

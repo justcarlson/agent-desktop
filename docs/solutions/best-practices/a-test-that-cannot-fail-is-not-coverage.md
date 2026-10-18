@@ -122,7 +122,7 @@ None of the fixes were "delete the test":
    should say that, distinct from the genuinely falsifiable precedence tests
    beside it.
 2. **Cover the reachable shape, and keep the unreachable one as a named
-   regression test.** `pressed_is_unproduced_for_a_button_role_at_any_toggle_state`
+   regression test.** `button_role_with_toggle_state_but_no_pressed_bit_emits_no_pressed`
    stays, with a doc comment stating its input is unreachable and pointing at
    `toggle_state_on_a_switch_role_emits_checked_and_indeterminate`, which opens
    by asserting `is_toggleable_role("switch")` so the reachable case is pinned

@@ -157,7 +157,7 @@ fn fixture_covered_and_uncovered_roles_union_to_the_map_producible_set() {
 
 /// [`producible_cases`] cannot be derived mechanically from `roles.rs`
 /// without parsing Rust source, so this is the honest fallback the fixture
-/// coverage plan calls for instead: a textual count of every
+/// instead: a textual count of every
 /// `properties.is_true(TreeProperty::` and `properties.gated_flag(TreeProperty::`
 /// call in `roles.rs`'s own source, pinned against the number of flags
 /// [`producible_cases`] threads through [`role_of`] above.

@@ -45,7 +45,7 @@
         all three read back the control's true 1x1 geometry - so what
         ships is a real 1x1 button, not a 0x0 one.
         `crates/core/src/actionability/gates.rs::bounds_are_visible` only
-        fails on `width == 0 || height == 0`; a 1x1 rectangle passes.
+        fails on absent, invalid, or zero-width/height bounds; a 1x1 rectangle passes.
         Measured live: `is --property visible` on `zero-bounds-button`
         answers `applicable: true, result: true`, not `false`. The leg
         below asserts the measured, falsifiable-both-ways truth instead:

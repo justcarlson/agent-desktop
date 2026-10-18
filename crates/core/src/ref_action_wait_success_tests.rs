@@ -7,10 +7,7 @@ use crate::{
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
-/// Covers the branch where a successful action must never be rewritten into a
-/// failure by process-state enrichment, split out of
-/// `ref_action_wait_process_state_tests.rs` to keep both files under the
-/// repo's 400 LOC hard limit.
+/// Fixture ref entry for a button with known bounds.
 fn entry() -> RefEntry {
     let bounds = crate::Rect {
         x: 1.0,

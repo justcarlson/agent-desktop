@@ -9,9 +9,10 @@
 //! `delivered_unverified` before it leaves this function — the code,
 //! message, suggestion and platform detail are left untouched. Only a clean
 //! not-delivered outcome advances to the next rung. Policy-disallowed rungs
-//! are skipped with no step recorded (the hook later physical rungs will
-//! use). Mechanism is always `semantic_api` for every rung this adapter
-//! ships.
+//! are skipped with no step recorded. Physical legs are built outside this
+//! engine in `physical_click` and `physical_keyboard`, which record
+//! `PhysicalSynthetic` steps. Every rung this engine runs uses the
+//! `semantic_api` mechanism.
 
 use agent_desktop_core::{
     ActionStep, ActionStepOutcome, AdapterError, Deadline, DeliverySemantics, ErrorCode,

@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 
 pub(crate) fn decode_ref_action_timeout(timeout_ms: i64) -> Result<u64, AdapterError> {
     match timeout_ms {
-        -1 => Ok(5_000),
+        -1 => Ok(crate::operation::DEFAULT_FFI_TIMEOUT_MS),
         0.. => Ok(timeout_ms as u64),
         _ => Err(AdapterError::new(
             ErrorCode::InvalidArgs,

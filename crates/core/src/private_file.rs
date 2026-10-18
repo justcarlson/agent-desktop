@@ -77,8 +77,9 @@ pub(crate) fn write_atomic_portable(path: &Path, bytes: &[u8]) -> std::io::Resul
 /// Writes user-requested output, deliberately bypassing the `PrivateFileOps`
 /// seam that `write_atomic` routes through.
 ///
-/// Its two callers — `commands::screenshot` and `commands::clipboard_get`, via
-/// `crate::refs::write_user_file` — write to a destination the user named, so
+/// Its callers — `commands::screenshot`, `commands::clipboard_get` and the
+/// trace HTML export in `trace_read::html`, via `crate::refs::write_user_file` —
+/// write to a destination the user named, so
 /// it must tolerate network shares, reparse-traversing paths such as OneDrive
 /// or mapped folders, and directories owned by another principal. A platform
 /// implementation of the seam refuses all three, which is right for private

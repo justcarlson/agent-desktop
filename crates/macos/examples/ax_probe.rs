@@ -1,6 +1,6 @@
 //! Direct probe of macOS AX APIs with raw API output and click validation.
 //!
-//!   cargo run -p agent-desktop-macos --example ax_probe -- <AppName>
+//!   cargo run -p agent-desktop-macos --features dev-tools --example ax_probe -- <AppName>
 
 #[cfg(target_os = "macos")]
 fn main() {
@@ -73,7 +73,7 @@ fn probe_app(pid: i32) {
 
             let ax_err = ax_press(*child);
             println!(
-                "                 kAXPressAction → err={} (0=ok, -25200=fail, -25205=not_supported)",
+                "                 kAXPressAction → err={} (0=ok, -25200=fail, -25206=action_unsupported)",
                 ax_err
             );
 

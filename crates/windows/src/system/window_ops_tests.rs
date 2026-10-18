@@ -55,7 +55,7 @@ mod windows_only {
 
     /// How many times a live listing is re-attempted before its
     /// mid-walk identity refusal is accepted as the desktop's answer.
-    const LISTING_RACE_ATTEMPTS: u32 = 5;
+    use crate::system::listing_retry::LISTING_RACE_ATTEMPTS;
 
     /// The live half of the census: a hosted fixture window appears in
     /// `list_windows` with a parseable id, the fixture's pid, and a

@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 
 <#
-    Run-E2E.ps1 - the single process-terminating call in the whole harness
+    Run-E2E.ps1 - the single process-terminating call in the scenario run
     tree. Scenario files return; only this script exits, and Write-Verdict
     never performs cleanup and never decides the exit code by itself - this
     script reads its boolean result and is the one place that turns it into
@@ -10,10 +10,12 @@
     Sequencing: isolated environment -> hashed read-only staged binary
     (R11) -> desktop lease (adopted or acquired, R15b) -> fixture launched
     detached and waited for by observation, never by a fixed sleep ->
-    Preconditions -> Observation -> NonInterference -> Interaction, with the
+    Preconditions -> Observation -> NonInterference -> Interaction ->
+    Acceptance -> Reliability -> Surfaces -> ShellSurfaces ->
+    TracePerformance -> Chromium -> SplitIntegrity -> CursorOverlay, with the
     fixture's process identity re-checked between each -> teardown ->
-    Write-Verdict. Later units append further scenarios to the sequence
-    array below; nothing about the sequencing loop itself is unit-specific.
+    Write-Verdict. The sequence array in Invoke-ScenarioSequence is the
+    single source for the order.
 #>
 [CmdletBinding()]
 param(

@@ -29,7 +29,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(50);
 /// when it is handed one.
 ///
 /// Core makes exactly one call here and owns no retry of its own
-/// (`crates/core/src/commands/wait.rs:123-129`), so every condition this
+/// (`crates/core/src/commands/wait.rs:118-123`), so every condition this
 /// loop can absorb - the 50ms poll interval, the identity re-checks, and a
 /// predicate read that itself times out mid-poll - is absorbed here rather
 /// than propagated raw: a `Timeout` from the predicate falls through to this

@@ -163,7 +163,7 @@ mod windows_only {
         }
     }
 
-    /// Reproduces `crates/core/src/commands/wait_event.rs:158-196`'s own
+    /// Reproduces `crates/core/src/commands/wait_event.rs:257-296`'s own
     /// predicate rather than paraphrasing it: for a process-filtered wait,
     /// every observed pid and process instance across windows, apps, and
     /// surfaces must equal the expected one exactly.

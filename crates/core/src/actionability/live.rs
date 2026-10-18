@@ -162,7 +162,7 @@ fn validate_live_identity(entry: &RefEntry, live: &LiveElement) -> Result<(), Ad
 fn stale_live_element(message: &'static str) -> AdapterError {
     AdapterError::new(ErrorCode::StaleRef, message)
         .with_suggestion(
-            "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot; FFI: ad_snapshot then ad_execute_by_ref with the returned snapshot_id)",
+            "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot; FFI: ad_snapshot then ad_execute_by_ref with the returned qualified @<snapshot_id>:eN ref)",
         )
         .with_details(serde_json::json!({ "retryable": true }))
         .with_disposition(DeliverySemantics::not_delivered())

@@ -228,7 +228,7 @@ fn raw_xy_input_never_calls_hit_test() {
         PointResolveArgs {
             ref_id: None,
             xy: Some((5.0, 6.0)),
-            missing_input_message: "Provide a ref (@e1) or --xy x,y",
+            missing_input_message: "Provide a ref (@<snapshot_id>:e1) or --xy x,y",
             headed_requirement: crate::HeadedRequirement::None,
         },
         &adapter,

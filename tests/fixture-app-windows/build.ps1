@@ -49,7 +49,7 @@ if (-not (Test-Path -LiteralPath $csc)) {
 
 <#
     UIAutomationProvider.dll and UIAutomationTypes.dll (needed by the
-    zero-bounds and cell-role WM_GETOBJECT providers, A24-9) ship only in
+    cell-role and the other UiaProviderHost-based WM_GETOBJECT providers, A24-9) ship only in
     the GAC on this toolchain, not alongside csc.exe itself - a plain
     /reference:UIAutomationProvider.dll fails with CS0006 because the
     legacy pre-Roslyn compiler does not search the GAC for a bare filename.
@@ -75,10 +75,8 @@ $uiaProvider = Resolve-GacAssembly -AssemblyName 'UIAutomationProvider'
 $uiaTypes = Resolve-GacAssembly -AssemblyName 'UIAutomationTypes'
 
 <#
-    WindowsBase.dll supplies System.Windows.Rect, the boxed type the
-    zero-bounds WM_GETOBJECT provider (FixtureCards.cs) returns from
-    IRawElementProviderFragment.BoundingRectangle - the UIA property is typed
-    System.Windows.Rect, not a WinForms Rectangle, and that type lives outside
+    WindowsBase.dll supplies System.Windows.Rect and the other System.Windows
+    types the UIAutomation assemblies depend on; it lives outside
     System.Windows.Forms.dll. Resolved through the same GAC lookup as the two
     UIAutomation assemblies above rather than hardcoded, for the same reason.
 #>

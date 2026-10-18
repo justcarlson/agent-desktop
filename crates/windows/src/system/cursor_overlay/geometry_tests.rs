@@ -127,7 +127,7 @@ fn the_follower_surface_stays_far_smaller_than_a_screen() {
 /// Kept here rather than imported so the two spaces stay visibly distinct.
 const MACOS_DART: [(f64, f64); 4] = [(1.0, 35.0), (29.6, 17.5), (12.7, 16.3), (4.2, 1.6)];
 
-/// R16 claims Windows draws the same visual vocabulary as macOS, so the dart
+/// The overlay claims Windows draws the same visual vocabulary as macOS, so the dart
 /// is that path and not a redrawing of it — but expressed in this surface's
 /// space. Copying the coordinates across unchanged is the mistake this pins:
 /// it satisfies "same numbers" while drawing the pointer upside down.

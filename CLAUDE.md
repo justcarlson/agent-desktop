@@ -87,12 +87,11 @@ When something is deferred — at planning time or at implementation time — th
 
 ## Git & Commits
 
-### Branching during a platform phase (Phase 2 = Windows, in progress)
+### Branching
 
-- **`feat/windows-adapter` is the base branch for all Windows work**, not `main`. Every sub-phase (2.0 → 2.16) is cut from it and merges back into it.
-- Sub-phase branches: `feat/windows-<n.n>-<slug>` (e.g. `feat/windows-2.0-probes`), PR'd into `feat/windows-adapter`.
-- **Never branch Windows work off `main`, never PR a sub-phase into `main`, never rebase a sub-phase onto `main`.**
-- `main` is the macOS-GA line for the whole phase. It gains Windows exactly once, at the end, when the adapter is production-solid as a whole — one release-noted `feat!` promotion after full-branch review, live e2e, and a perf baseline. Phase 3 repeats this with `feat/linux-adapter`.
+- **`main` carries macOS and Windows.** Windows reached `main` in v0.10.0 as one `feat!` promotion of `feat/windows-adapter`, which is merged. Fixes and features for either platform branch off `main` and PR into `main`.
+- **A platform phase works on its own integration branch.** Phase 3 (Linux) uses `feat/linux-adapter`: every sub-phase is cut from it as `feat/linux-<n.n>-<slug>` and merges back into it, never into `main`, and never rebases onto `main`.
+- The integration branch reaches `main` exactly once, at the end, when the adapter is production-solid as a whole — one release-noted `feat!` promotion after full-branch review, live e2e, and a perf baseline.
 - Plan docs: historical plans and brainstorms are tracked on `main`. Every sub-phase's plan doc lands on
   its own sub-phase branch, so each sub-phase PR reviews as one self-contained unit.
 - See `docs/phases.md` §Platform Delivery Model for the full rule.
@@ -151,8 +150,7 @@ agent-desktop/
 ├── docs/
 │   └── solutions/          # documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (module, tags, problem_type); relevant when implementing or debugging in documented areas
 └── tests/
-    ├── fixtures/           # golden JSON snapshots
-    └── integration/        # macOS CI integration tests
+    └── fixtures/           # golden JSON snapshots
 ```
 
 ### Dependency Inversion (Non-Negotiable)
@@ -222,7 +220,7 @@ Batch is not a second dispatcher. `src/batch/mod.rs` deserializes JSON entries i
 Numbering follows `docs/phases.md` (the source of truth for phase scope):
 
 - **Phase 1 / 1.5 / 1.6 (completed):** Foundation + macOS MVP, FFI cdylib distribution, and the Playwright-grade foundation contract (capability supertraits, auto-wait, occlusion gate, live locator, ProcessState, envelope 2.1)
-- **Phase 2:** Windows adapter — delivered as sub-phases 2.0–2.17, beginning with a raw-script platform exploration phase, each a <=2,000-LOC PR into the `feat/windows-adapter` integration branch
+- **Phase 2 (completed, v0.10.0):** Windows adapter — delivered as sub-phases 2.0–2.17, beginning with a raw-script platform exploration phase, each a <=2,000-LOC PR into the `feat/windows-adapter` integration branch
 - **Phase 3:** Linux adapter — same sub-phase template onto `feat/linux-adapter`
 - **Phase 4:** MCP server mode via `--mcp` flag — wraps existing commands
 - **Phase 5:** Daemon, sessions, enterprise quality gates
@@ -285,7 +283,7 @@ All platform crates (`macos`, `windows`, `linux`) share the same top-level subfo
 ```
 crates/{macos,windows,linux}/src/
 ├── lib.rs              # mod declarations + re-exports only
-├── adapter.rs          # PlatformAdapter trait impl (~175 LOC)
+├── adapter.rs          # PlatformAdapter trait impl
 ├── tree/               # Reading & understanding the UI
 │   ├── mod.rs          # re-exports
 │   ├── element.rs      # AXElement struct + attribute readers
@@ -307,7 +305,7 @@ crates/{macos,windows,linux}/src/
 │   ├── scroll_ladder.rs # ancestor ScrollPattern ladder
 │   ├── scroll_into_view.rs
 │   ├── focus.rs        # headed SetFocus + verification
-│   └── post_state.rs   # post-action state for ActionResult
+│   └── post_state.rs   # post-action state for ActionResult (macOS only)
 ├── input/              # Low-level OS input synthesis
 │   ├── mod.rs          # re-exports
 │   ├── keyboard.rs     # Key synthesis, text typing (+ keyboard_event/map/send/text on Windows)
@@ -416,7 +414,7 @@ The `error` object may also carry optional `details` and `recovery` objects. Ver
 - All persisted state lives under one state root, default `~/.agent-desktop`. `AGENT_DESKTOP_HOME` relocates it (the env value is the root itself, no suffix appended); resolution lives in `crates/core/src/state_root.rs` with precedence test override > env > default, and `status` reports the resolved root as `state_root`
 - Snapshot refs are stored by snapshot ID under `<state root>/snapshots/{snapshot_id}/refmap.json`, with a `latest_snapshot_id` pointer that `status` reports
 - Retention keeps the newest 128 snapshots per namespace and evicts down to 96, so the sort-and-stat pass is amortised instead of running on every save. Refs are invalidated by the next UI change, so retention only has to cover one interaction's drill-downs. Per R7/KTD5 of the session-first trace plan, a `snapshot_id` referenced by an *older* trace event may therefore no longer resolve to a full tree; `ArtifactsMode::Full` is the recorded mitigation because it copies each refmap into `<session>/trace/refmaps/`
-- `~/.agent-desktop/last_refmap.json` is written only as a latest-snapshot inspection artifact; command code must use `RefStore`
+- `~/.agent-desktop/last_refmap.json` is a legacy file that is no longer written; `RefStore` reads it only to migrate an existing one into the default namespace; command code must use `RefStore`
 - Action commands use strict re-identification from platform-neutral `RefEntry` evidence: pid, role, path/source surface, role-conditional stable text identity, and bounds hash. Mutable control values are volatile and must not be treated as stable text identity. Return `STALE_REF` on mismatch and `AMBIGUOUS_TARGET` when multiple plausible live candidates remain.
 - Progressive traversal: `--skeleton` clamps depth to 3, annotates truncated containers with `children_count`. Named/described containers at boundary receive refs as drill-down targets
 - Drill-down: `--root @ref` starts from a previously-discovered ref with scoped invalidation (only that ref's subtree refs are replaced on re-drill)
@@ -478,7 +476,7 @@ contact with Windows and was deleted. See
 60 commands spanning App/Window, Observation, Interaction, Scroll, Keyboard,
 Mouse, Notifications, Clipboard, Wait, System (including `session`), and
 Batch. The core skill (`skills/agent-desktop/`) covers the loop on every OS; the platform skills (`skills/agent-desktop-macos/`, `skills/agent-desktop-windows/`) cover what differs. `agent-desktop skills get platform` serves the one for the running OS.
-All 60 are implemented on macOS (Phase 1). Windows ships the same surface,
+56 of the 60 command names are operational on macOS; the four held-input names (key-down, key-up, mouse-down, mouse-up) fail closed. Windows ships the same surface,
 including event waits, shell surfaces and Action Center notifications, with the
 per-platform limits stated in `skills/agent-desktop-windows/`. Linux (Phase 3)
 targets the same surface. Adding a command: see the Extensibility Pattern above.
@@ -488,7 +486,7 @@ targets the same surface. Adding a command: see the Extensibility Pattern above.
 - Does NOT embed or invoke LLMs
 - Does NOT provide a GUI, TUI, or interactive prompt — machine-facing only
 - Does NOT automate web browsers (use agent-browser for that)
-- Does NOT record or replay macros (stateless per invocation until Phase 4 daemon)
+- Does NOT record or replay macros (stateless per invocation until Phase 5 daemon)
 - Does NOT work with custom-rendered or game-engine UIs lacking accessibility exposure
 
 ## Reference Documents

@@ -262,9 +262,9 @@ struct ScanLimits<'a> {
 /// Every resolver test that needs to locate one fixture node by predicate
 /// re-implemented this recursion by hand; only the predicate and the value
 /// built on a match differ between them, so both live here once. A child
-/// enumeration failure anywhere aborts the whole search, matching the
-/// fail-fast contract `resolve_search::enumerate_children` documents for the
-/// production search this mirrors.
+/// enumeration failure anywhere aborts the whole search, as it does in the
+/// production search this mirrors (`resolve_search::enumerate_children`
+/// propagates the error with `?`).
 #[cfg(target_os = "windows")]
 pub(crate) fn scan_subtree<T>(
     source: &UiaTreeSource,

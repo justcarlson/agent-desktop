@@ -47,8 +47,8 @@ that gets RDP'd into and left locked.
 
 ## Trigger policy - `workflow_dispatch` and branch-scoped `push` only, never `pull_request`
 
-`windows-e2e.yml` triggers on `workflow_dispatch` and on `push` to
-`feat/windows-adapter`. It never triggers on `pull_request`:
+A `windows-e2e.yml` workflow, if one is ever restored, must trigger only on `workflow_dispatch` and on `push` to
+`feat/windows-adapter`, and never on `pull_request`:
 
 - **`pull_request` on a public repository is exactly the exposure GitHub's
   own self-hosted-runner guidance warns against.** A fork's PR would run
@@ -134,8 +134,8 @@ leaking into the next run's observations.
 
 ## Labels
 
-`[self-hosted, Windows, agent-desktop-e2e]` - already named by the
-committed `windows-e2e.yml`. §2.15's registration allocates exactly these
+`[self-hosted, Windows, agent-desktop-e2e]` - the labels the retired
+`windows-e2e.yml` named. §2.15's registration allocates exactly these
 labels to the interactive box; no other label is required or expected.
 
 ## Capture upload is gated before it runs

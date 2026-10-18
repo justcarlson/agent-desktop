@@ -133,7 +133,7 @@ fn stale_ref_returns_ok_false_error_envelope() {
 /// available on generic headless CI.
 ///
 /// **Deferred CI proof**: the full-loop proof — real `ad_snapshot` producing
-/// `@e` refs consumed by `ad_execute_by_ref` against a live app at the C
+/// `@<snapshot_id>:e<N>` refs consumed by `ad_execute_by_ref` against a live app at the C
 /// boundary — is deferred to an external-consumer smoke harness (Python
 /// ctypes) that runs in the macOS E2E environment.
 ///
@@ -169,7 +169,7 @@ fn snapshot_execute_by_ref_live_roundtrip() {
         );
 
         let ref_id = find_first_ref_in_tree(&snap_val)
-            .expect("snapshot must contain at least one @e ref in the tree");
+            .expect("snapshot must contain at least one @<snapshot_id>:e<N> ref in the tree");
 
         ad_free_string(snap_out);
 
@@ -210,7 +210,7 @@ fn find_first_ref_in_tree(snap: &serde_json::Value) -> Option<String> {
     let mut searched = 0usize;
     common::find_ref_in_tree(snap, &mut searched, &|value| {
         let s = value.get("ref")?.as_str()?;
-        (s.starts_with("@e") || (s.starts_with("@s") && s.contains(":e"))).then(|| s.to_owned())
+        (s.starts_with("@s") && s.contains(":e")).then(|| s.to_owned())
     })
 }
 

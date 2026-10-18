@@ -36,7 +36,7 @@ adapter-provided refs.
 | Batch item session overrides inherited session | Required | Required | Required |
 | FFI `AdRefEntry` preserves full identity envelope | Required | Required | Required |
 
-## Adding Windows or Linux
+## Adding a Platform
 
 Add adapter-specific integration fixtures, but keep expected errors and JSON
 shapes identical. Prefer semantic platform actions first (`AXPress`, UIA

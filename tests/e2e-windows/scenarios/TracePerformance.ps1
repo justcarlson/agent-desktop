@@ -13,7 +13,7 @@
 
     `--session <id>` is set through `$env:AGENT_DESKTOP_SESSION` for the
     duration of each leg's Enter-Stage body rather than threaded through a
-    new Lib.psm1 parameter: Lib.psm1 sits exactly at the 400-line cap
+    new Lib.psm1 parameter: Lib.psm1 sits just under the 400-line cap
     (LibEnvelope.psm1 already grew for this same reason), and
     `AGENT_DESKTOP_SESSION` is not one of rule07's five protected identity
     variables - CONCEPTS.md's own activation order is

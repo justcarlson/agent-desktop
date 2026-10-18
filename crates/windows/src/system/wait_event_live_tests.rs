@@ -17,14 +17,14 @@
 //! `capture_signal_baseline` already scoped to this fixture's own
 //! `(pid, process_instance)` (`context::with_event_baseline`); core's
 //! `signal_filter` resolves `--app` from that seed via `process_from_baseline`
-//! rather than calling `resolve_app` (`wait_event.rs:120-131`), and a
+//! rather than calling `resolve_app` (`wait_event.rs:224`), and a
 //! process-filtered capture can only ever contain this fixture, so the
 //! ambiguity class does not arise regardless of what else is running.
 //! `window-closed` and `focus-changed` narrow by the fixture's own
 //! `--window-id` instead and never resolve `--app` at all. `app-launched`
 //! has no seed to resolve against - the process does not exist yet - so its
 //! filter always scans by name across the whole population
-//! (`wait_event.rs:113-118`); it cannot itself raise `AMBIGUOUS_TARGET` (that
+//! (`wait_event.rs:210-212`); it cannot itself raise `AMBIGUOUS_TARGET` (that
 //! branch never calls `resolve_app`), but an unrelated same-named fixture
 //! launching or exiting during its poll window could produce a same-shaped
 //! match, so it still holds `test_support::FIXTURE_APP_NAME_LOCK` to bound

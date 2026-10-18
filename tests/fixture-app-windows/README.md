@@ -116,7 +116,8 @@ override provider (`UiaProviderHost` and its subclasses in
 `FixtureProviderHost.cs`, `FixtureToggleHost.cs`,
 `FixtureExpandCollapseHost.cs` and `FixtureControlTypeOverrideHost.cs`) -
 `menu-disclosure`, `menu-fire-item`, `outline-tree`,
-`outline-parent`, `outline-child-a`, `outline-child-b`. `outline-tree` is
+`outline-parent`, `outline-child-a`, `outline-child-b`, `cell-griditem`,
+`cell-custom`, `row-plain`. `outline-tree` is
 therefore not a real `System.Windows.Forms.TreeView`: it is a `Panel`
 holding three `Label`s arranged with indentation, each independently
 overriding its own `ControlType`.

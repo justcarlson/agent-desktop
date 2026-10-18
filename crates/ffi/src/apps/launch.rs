@@ -14,7 +14,7 @@ fn launched_window(launched: LaunchResult) -> Result<WindowInfo, AdapterError> {
             ErrorCode::WindowNotFound,
             "Application is running, but it has presented no window",
         )
-        .with_suggestion("Launch with activation, or wait for the window before reading it.")
+        .with_suggestion("Wait for the window before reading it.")
     })
 }
 

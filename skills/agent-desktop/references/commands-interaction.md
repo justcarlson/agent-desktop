@@ -99,7 +99,7 @@ agent-desktop clear @s8f3k2p9:e2
 agent-desktop focus @s8f3k2p9:e2
 ```
 
-- `type` inserts text. When value and selection are readable it checks the result. A mismatch or unreadable result returns `ACTION_FAILED`. Inspect the current value before you write again. Headed typing can change the selection when it focuses an inactive field. In that case the result stays unverified.
+- `type` inserts text. When value and selection are readable it checks the result. A readable mismatch returns `ACTION_FAILED`; an unreadable result succeeds as `delivered_unverified`. Inspect the current value before you write again. Headed typing can change the selection when it focuses an inactive field. In that case the result stays unverified.
 - `set-value` writes the value directly through the semantic value path. It is faster than `type`, but it may not fire every UI callback. Use it for text fields, text areas and sliders.
 - A cell that exposes no value write is not directly editable. Activate it, take a fresh snapshot, and target the editor that appears. Some apps expose no editor and accept only keyboard input.
 - `clear` empties the element. `focus` sets keyboard focus without clicking.

@@ -245,7 +245,7 @@ test('recoverable cleanup retains artifacts and warns when trash is unavailable 
   }
 });
 
-// Cleanup can't fail on Windows (unconditional rm); covered by planted-survivor test.
+// Windows staging cleanup uses a direct rmSync that logs and retains on failure; this test exercises the trash path only.
 test('cleanup failure does not mask a successful archive install', { skip: POSIX_CLEANUP_ONLY }, () => {
   const payload = archive({
     'agent-desktop': 'cli-build-v2',

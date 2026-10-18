@@ -45,7 +45,7 @@ namespace AgentDeskFixtureApp
         /// target to a ListBox; see probes/windows/FINDINGS.md). Counting
         /// <see cref="Control.Click"/> events instead works for any control
         /// that raises Click, a Button included, and resets the counter once
-        /// the system double-click interval has elapsed since the run's
+        /// twice the system double-click interval has elapsed since the run's
         /// first click - a click arriving after that window starts a fresh
         /// count of one rather than accumulating forever.
         /// </summary>

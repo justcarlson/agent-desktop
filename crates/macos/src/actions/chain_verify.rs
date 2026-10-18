@@ -4,7 +4,7 @@ pub(crate) fn increment_deadline_error(start: f64, current: f64, target: f64) ->
     partial_mutation_disposition(
         AdapterError::timeout("Chain deadline expired while stepping the value toward the target")
         .with_suggestion(
-            "Re-read the element value before retrying; increase the timeout or AGENT_DESKTOP_CHAIN_TIMEOUT_MS for slow controls.",
+            "Re-read the element value before retrying; increase --timeout-ms for slow controls.",
         )
         .with_details(serde_json::json!({
             "kind": "chain_deadline",

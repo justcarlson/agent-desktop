@@ -194,7 +194,7 @@ mod imp {
                         label
                     ),
                 )
-                .with_suggestion("Use the top-level command (e.g. 'hover', 'drag', 'key-down') instead of targeting an element."));
+                .with_suggestion("Use the top-level command (e.g. 'hover', 'drag', 'press') instead of targeting an element."));
             }
         }
 
