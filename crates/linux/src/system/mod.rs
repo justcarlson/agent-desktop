@@ -45,6 +45,8 @@ pub(crate) use window_ops::{focused_window, list_windows};
 pub(crate) use window_resolve::resolve_window_strict;
 
 #[cfg(test)]
+mod display_live_tests;
+#[cfg(test)]
 mod registry_live_tests;
 #[cfg(test)]
 mod stopped_live_tests;

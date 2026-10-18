@@ -1,7 +1,58 @@
+#[cfg(target_os = "linux")]
 use std::os::unix::net::UnixListener;
 
-use super::{SocketProbe, local_number};
+use super::{SocketProbe, local_number, reach_from};
 use crate::system::display_server::{Probe, Reach};
+
+const HEADER: &str = "Num       RefCount Protocol Flags    Type St Inode Path\n";
+
+fn table(rows: &[&str]) -> String {
+    format!("{HEADER}{}", rows.join("\n"))
+}
+
+#[test]
+fn a_listening_file_socket_is_reachable() {
+    let rows = table(&[
+        "0000000000000000: 00000002 00000000 00010000 0001 01 4242 /run/user/1000/wayland-0",
+    ]);
+    assert_eq!(
+        reach_from(&rows, "/run/user/1000/wayland-0", true),
+        Reach::Connected
+    );
+}
+
+#[test]
+fn a_listening_abstract_socket_is_reachable_without_a_file() {
+    let rows =
+        table(&["0000000000000000: 00000002 00000000 00010000 0001 01 7 @/tmp/.X11-unix/X1"]);
+    assert_eq!(
+        reach_from(&rows, "/tmp/.X11-unix/X1", false),
+        Reach::Connected
+    );
+}
+
+#[test]
+fn a_socket_file_nobody_listens_on_is_refused() {
+    let connected_client =
+        table(&["0000000000000000: 00000003 00000000 00000000 0001 03 9 /run/user/1000/wayland-0"]);
+    assert_eq!(
+        reach_from(&connected_client, "/run/user/1000/wayland-0", true),
+        Reach::Refused
+    );
+    assert_eq!(
+        reach_from(&table(&[]), "/run/user/1000/wayland-0", true),
+        Reach::Refused
+    );
+}
+
+#[test]
+fn a_path_with_no_file_and_no_listener_is_missing() {
+    let rows = table(&["0000000000000000: 00000002 00000000 00010000 0001 01 4242 /run/other"]);
+    assert_eq!(
+        reach_from(&rows, "/run/user/1000/wayland-9", false),
+        Reach::Missing
+    );
+}
 
 #[test]
 fn only_local_display_names_have_a_number() {
@@ -18,8 +69,9 @@ fn a_remote_display_is_assumed_reachable_because_it_is_not_probed() {
     assert_eq!(SocketProbe.x11("host:0"), Reach::Connected);
 }
 
+#[cfg(target_os = "linux")]
 #[test]
-fn a_listening_socket_connects_a_stale_file_is_refused_and_an_absent_one_is_missing() {
+fn the_kernel_table_sees_a_real_listener_and_then_its_stale_file() {
     let dir = std::env::temp_dir().join(format!("ad-probe-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("scratch dir");
     let live = dir.join("live");
