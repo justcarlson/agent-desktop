@@ -67,6 +67,7 @@ dependencies = [
  "agent-desktop-core",
  "async-io",
  "futures-lite",
+ "futures-util",
  "serde_json",
  "thiserror",
  "zbus",

@@ -7,4 +7,4 @@ mod interaction_lease;
 mod permissions;
 mod session;
 
-pub(crate) use bus::SharedBus;
+pub(crate) use bus::{SharedBus, classify};

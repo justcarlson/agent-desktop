@@ -12,6 +12,7 @@ thiserror.workspace          = true
 async-io                     = "=2.6.0"
 futures-lite                 = "=2.6.1"
 zbus                         = "=5.19.0"
+futures-util                 = { version = "=0.3.33", default-features = false, features = ["alloc"] }
 
 [lints]
 workspace = true
