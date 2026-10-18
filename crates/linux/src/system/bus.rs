@@ -8,7 +8,8 @@ use zbus::blocking::Connection;
 use zbus::connection::Builder;
 
 use super::bus_deadline::within;
-use super::bus_fault::{BusFault, Stage};
+use super::bus_fault::BusFault;
+use super::bus_stage::Stage;
 
 const BUS_SERVICE: &str = "org.a11y.Bus";
 const BUS_PATH: &str = "/org/a11y/bus";

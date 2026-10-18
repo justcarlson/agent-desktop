@@ -48,7 +48,7 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 
 **Reporting and session**
 
-- R8. `permission_report` returns `accessibility: Granted` when the a11y bus answers, `screen_recording: Unknown` until capture lands, and `automation: NotRequired`; when the bus is missing it returns the R5 error.
+- R8. `permission_report` returns `accessibility: Granted` when the a11y bus answers, `screen_recording: Unknown` until capture lands, and `automation: NotRequired`; when the bus is missing it returns a successful report with `accessibility: Denied` carrying the R5 suggestion for the detected fault. Timeouts and unexpected bus errors remain errors.
 - R9. `docs/phases.md` states what 3.0 and the dependency research measured: no `tokio` in Phase 3 (zbus blocking API), detection by `GetAddress` on first use, the snap guidance, and verification by real runs. `tokio` is introduced by Phase 4 instead.
 - R10. `open_session` returns a Linux session that holds the shared a11y connection and releases it on `close`; it holds no element handles.
 

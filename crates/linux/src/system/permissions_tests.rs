@@ -1,5 +1,6 @@
 use super::*;
-use crate::system::bus_fault::{BusFault, Stage};
+use crate::system::bus_fault::BusFault;
+use crate::system::bus_stage::Stage;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use zbus::Message;
