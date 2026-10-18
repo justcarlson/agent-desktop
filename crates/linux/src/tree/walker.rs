@@ -25,6 +25,13 @@ struct Slot<K, P> {
     node: WalkedNode<P>,
 }
 
+impl<K, P> Slot<K, P> {
+    fn cut_short(&mut self) {
+        self.node.truncated = true;
+        self.node.child_count = self.listed;
+    }
+}
+
 fn ancestor_path<K, P>(slots: &[Slot<K, P>], index: usize) -> Vec<&K> {
     let mut path = Vec::new();
     let mut cursor = Some(index);
@@ -38,9 +45,7 @@ fn ancestor_path<K, P>(slots: &[Slot<K, P>], index: usize) -> Vec<&K> {
 fn mark_parents_truncated<K, P>(slots: &mut [Slot<K, P>], frontier: &[Pending<K>]) {
     for pending in frontier {
         if let Some(parent) = pending.parent {
-            let slot = &mut slots[parent];
-            slot.node.truncated = true;
-            slot.node.child_count = slot.listed;
+            slots[parent].cut_short();
         }
     }
 }
@@ -128,9 +133,7 @@ where
             if let Some(parent) = pending.parent {
                 slots[parent].children.push(index);
                 if gone {
-                    let slot = &mut slots[parent];
-                    slot.node.truncated = true;
-                    slot.node.child_count = slot.listed;
+                    slots[parent].cut_short();
                 }
             }
             slots.push(Slot {
@@ -146,7 +149,6 @@ where
                     child_count: None,
                     source_index: pending.index,
                     in_web_document: pending.in_web,
-                    wrapper: class.wrapper,
                 },
             });
             complete &= !unreadable;
@@ -156,9 +158,7 @@ where
             let child_logical = pending.logical + usize::from(!class.wrapper);
             if pending.raw >= limits.max_raw_depth {
                 counts.limits.depth_hits += 1;
-                let slot = &mut slots[index];
-                slot.node.truncated = true;
-                slot.node.child_count = slot.listed;
+                slots[index].cut_short();
                 complete = false;
             } else if child_logical > limits.max_logical_depth {
                 let slot = &mut slots[index];
@@ -170,9 +170,7 @@ where
                 edges += admission.considered;
                 admitted += admission.indices.len();
                 if admission.truncated {
-                    let slot = &mut slots[index];
-                    slot.node.truncated = true;
-                    slot.node.child_count = slot.listed;
+                    slots[index].cut_short();
                     complete = false;
                 }
                 let child_in_web = pending.in_web || class.web_document;

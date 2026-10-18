@@ -31,7 +31,6 @@ fn node_of(read: ObservedRead) -> WalkedNode<ObservedRead> {
         child_count: None,
         source_index: 0,
         in_web_document: false,
-        wrapper: false,
     }
 }
 

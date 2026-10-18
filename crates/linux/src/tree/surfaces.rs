@@ -1,7 +1,6 @@
 use super::RawNode;
+use super::role_numbers::DIALOG;
 use super::state_bits::{MODAL, SHOWING, StateBits};
-
-const DIALOG: u32 = 16;
 
 /// Whether the window root is a sheet: a dialog that is showing, or any
 /// top-level that carries `MODAL`. GTK 3 presents its About window as a

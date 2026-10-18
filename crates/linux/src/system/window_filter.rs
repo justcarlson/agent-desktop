@@ -1,10 +1,7 @@
+use crate::tree::role_numbers::{DIALOG, FRAME, PANEL, WINDOW};
 use crate::tree::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits};
 use crate::tree::{COMPONENT_INTERFACE, Field};
 
-const FRAME: u32 = 23;
-const DIALOG: u32 = 16;
-const WINDOW: u32 = 69;
-const PANEL: u32 = 39;
 const HELPER_PROCESSES: [&str; 2] = ["gnome-shell", "mutter-x11-frames"];
 const BUBBLE_CLASS: &str = "RootView";
 

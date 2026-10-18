@@ -72,7 +72,6 @@ fn node(role: u32, children: Vec<WalkedNode<ObservedRead>>) -> WalkedNode<Observ
         child_count: None,
         source_index: 0,
         in_web_document: false,
-        wrapper: false,
     }
 }
 

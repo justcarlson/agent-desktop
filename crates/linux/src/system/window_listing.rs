@@ -9,12 +9,7 @@ use super::x11::FrameFacts;
 use crate::tree::RawNode;
 
 fn rect(node: &RawNode) -> Option<Rect> {
-    node.extents.present().map(|extents| Rect {
-        x: f64::from(extents.x),
-        y: f64::from(extents.y),
-        width: f64::from(extents.width),
-        height: f64::from(extents.height),
-    })
+    node.extents.present().map(|extents| Rect::from(*extents))
 }
 
 fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindow> {

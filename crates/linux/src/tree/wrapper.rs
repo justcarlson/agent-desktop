@@ -6,14 +6,6 @@ use super::role_numbers::{FILLER, PANEL, SECTION, is_web_document};
 use super::value_read::ValueRead;
 use super::{Field, NodeClass, NodeProperties, ObservedRead};
 
-fn is_blank(field: &Field<String>) -> bool {
-    match field {
-        Field::Present(text) => text.trim().is_empty(),
-        Field::Absent => true,
-        Field::Failed(_) => false,
-    }
-}
-
 /// Whether a node is a wrapper: a panel, section or filler with no name,
 /// description, identifier or value and no primary action. It is a pure
 /// layout node, so it costs raw depth and no logical depth. A read that
@@ -31,10 +23,10 @@ pub(crate) fn is_wrapper_shape(
         return false;
     };
     layout_role
-        && is_blank(&properties.name)
-        && is_blank(&properties.description)
-        && is_blank(&properties.accessible_id)
-        && is_blank(&value.value)
+        && properties.name.is_blank()
+        && properties.description.is_blank()
+        && properties.accessible_id.is_blank()
+        && value.value.is_blank()
         && !is_ref_able_role_actions(Role::Group.as_str(), tokens)
 }
 

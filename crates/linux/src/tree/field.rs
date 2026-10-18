@@ -29,6 +29,15 @@ impl<T> Field<T> {
 }
 
 impl Field<String> {
+    /// Whether the text is empty or absent; a failed read is not blank.
+    pub(crate) fn is_blank(&self) -> bool {
+        match self {
+            Self::Present(text) => text.trim().is_empty(),
+            Self::Absent => true,
+            Self::Failed(_) => false,
+        }
+    }
+
     /// The text when the read succeeded and it is not blank.
     pub(crate) fn non_blank(&self) -> Option<&String> {
         self.present().filter(|text| !text.trim().is_empty())

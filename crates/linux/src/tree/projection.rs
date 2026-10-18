@@ -9,12 +9,7 @@ use super::{Extents, Field, ObservedRead, Walk, WalkLimits, WalkedNode};
 
 fn bounds_of(extents: &Field<Extents>) -> LocatorField<Rect> {
     match extents {
-        Field::Present(extents) => LocatorField::Known(Rect {
-            x: f64::from(extents.x),
-            y: f64::from(extents.y),
-            width: f64::from(extents.width),
-            height: f64::from(extents.height),
-        }),
+        Field::Present(extents) => LocatorField::Known(Rect::from(*extents)),
         Field::Absent => LocatorField::Absent,
         Field::Failed(_) => LocatorField::Unknown,
     }

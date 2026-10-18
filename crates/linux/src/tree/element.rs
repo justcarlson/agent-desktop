@@ -75,7 +75,7 @@ impl AtspiElement {
         self.ancestry = ancestry;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn into_native_handle(self) -> NativeHandle {
         NativeHandle::new(self)
     }

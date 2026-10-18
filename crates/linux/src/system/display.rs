@@ -77,12 +77,7 @@ fn assemble(monitors: Vec<X11Monitor>, logical: &[LogicalMonitor]) -> Vec<Displa
             let scale = scale_of(&monitor, logical);
             DisplayInfo {
                 id: monitor.name,
-                bounds: Rect {
-                    x: f64::from(monitor.bounds.x),
-                    y: f64::from(monitor.bounds.y),
-                    width: f64::from(monitor.bounds.width),
-                    height: f64::from(monitor.bounds.height),
-                },
+                bounds: Rect::from(monitor.bounds),
                 is_primary: monitor.primary,
                 scale,
             }

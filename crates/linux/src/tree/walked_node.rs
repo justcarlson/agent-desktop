@@ -11,5 +11,4 @@ pub(crate) struct WalkedNode<P> {
     pub(crate) child_count: Option<u32>,
     pub(crate) source_index: usize,
     pub(crate) in_web_document: bool,
-    pub(crate) wrapper: bool,
 }

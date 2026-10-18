@@ -44,11 +44,7 @@ async fn name_of(
 /// canonical role is one a ref can point at. A blank container is never read,
 /// so a tree full of unnamed panels costs no relation reads.
 pub(crate) fn needs_label(node: &RawNode) -> bool {
-    let blank = match &node.properties.name {
-        Field::Present(name) => name.trim().is_empty(),
-        Field::Absent => true,
-        Field::Failed(_) => false,
-    };
+    let blank = node.properties.name.is_blank();
     let Some(number) = node.traits.role.present() else {
         return false;
     };
