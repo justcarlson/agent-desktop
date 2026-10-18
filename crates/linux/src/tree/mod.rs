@@ -1,9 +1,11 @@
 mod bounded;
 mod attributes;
+mod descriptor;
 mod element;
 mod expansion;
 mod extents;
 mod field;
+mod identity;
 mod label_outcome;
 mod label_read;
 mod name_evidence;
