@@ -6,6 +6,7 @@ use super::node_evidence::read_evidence;
 use super::node_read::read_node_with_liveness;
 use super::path_descent::{Level, Levels};
 use super::resolve::{Source, resolve};
+use super::resolve_anchor::resolve_anchor;
 use super::resolve_errors::{settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
 use super::resolve_search::{Searched, evaluate};
@@ -98,4 +99,16 @@ pub(crate) fn resolve_element_strict(
 ) -> Result<NativeHandle, AdapterError> {
     let mut source = BusSource::open(bus, deadline)?;
     resolve(&mut source, entry, deadline).map(AtspiElement::into_native_handle)
+}
+
+/// Lands the element a locator match names by its stored path, gated by the
+/// window it was taken in. The handle carries the same ancestry a strict
+/// resolution gives, so the observation of the element seeds from it.
+pub(crate) fn resolve_locator_anchor(
+    bus: &SharedBus,
+    entry: &RefEntry,
+    deadline: Deadline,
+) -> Result<NativeHandle, AdapterError> {
+    let mut source = BusSource::open(bus, deadline)?;
+    resolve_anchor(&mut source, entry, deadline).map(AtspiElement::into_native_handle)
 }

@@ -63,8 +63,10 @@ fn sheet_absent() -> AdapterError {
 type Walker<'a> = dyn FnMut(&AtspiElement, &WalkLimits, Deadline) -> Result<Walk<ObservedRead>, AdapterError>
     + 'a;
 
-/// Walks until the tree has stopped growing when the process is a web
-/// engine, otherwise once. The second value is false when the wait ended on
+/// Walks until the tree has stopped growing when the window of a web engine
+/// is observed, otherwise once. An element a ref already names sits in a tree
+/// that has filled, and a small subtree of it never exceeds the size of an
+/// empty browser shell, so waiting for it to grow would spend the whole budget. The second value is false when the wait ended on
 /// its budget with the tree still changing. A later read that fails because
 /// the budget ran out returns the walk before it; any other failure is the
 /// failure of the observation.
@@ -91,7 +93,9 @@ fn settled_walk(
         {
             return Err(sheet_absent());
         }
-        if !walk.complete || !(web_process || has_web_document(&walk.root)) {
+        let waits = matches!(root, ObservationRoot::Window(_))
+            && (web_process || has_web_document(&walk.root));
+        if !walk.complete || !waits {
             return Ok((walk, true));
         }
         let (settle, since) = tracker

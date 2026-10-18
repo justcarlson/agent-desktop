@@ -27,6 +27,7 @@ mod placeholder;
 mod projection;
 mod raw_node;
 mod resolve;
+mod resolve_anchor;
 mod resolve_errors;
 #[cfg(test)]
 mod resolve_fake;
@@ -68,6 +69,9 @@ mod walker_tests;
 pub(crate) mod test_support;
 
 #[cfg(test)]
+mod live_apps;
+
+#[cfg(test)]
 pub(crate) mod live_launch;
 
 #[cfg(test)]
@@ -90,6 +94,10 @@ mod vocabulary_live_tests;
 #[cfg(test)]
 #[path = "walker_live_tests.rs"]
 mod walker_live_tests;
+
+#[cfg(test)]
+#[path = "find_live_tests.rs"]
+mod find_live_tests;
 
 #[cfg(test)]
 #[path = "resolve_live_tests.rs"]
@@ -115,7 +123,7 @@ pub(crate) use node_traits::NodeTraits;
 pub(crate) use observe::observe_tree;
 pub(crate) use observed_read::ObservedRead;
 pub(crate) use raw_node::{ChildAddress, RawNode};
-pub(crate) use resolve_source::resolve_element_strict;
+pub(crate) use resolve_source::{resolve_element_strict, resolve_locator_anchor};
 #[cfg(test)]
 pub(crate) use vocabulary::{ResolvedVocabulary, resolve_vocabulary};
 pub(crate) use walk::Walk;

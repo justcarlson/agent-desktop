@@ -7,9 +7,19 @@ use super::value_read::truncate_to_boundary;
 use super::vocabulary::resolve_vocabulary;
 use super::{Extents, Field, ObservedRead, Walk, WalkLimits, WalkedNode};
 
+/// The extents as evidence a ref can hold. A rectangle core cannot store (a
+/// negative size, or the `INT32_MIN` a toolkit reports for a node off every
+/// screen) is the node having no usable extents, not a failed read.
 fn bounds_of(extents: &Field<Extents>) -> LocatorField<Rect> {
     match extents {
-        Field::Present(extents) => LocatorField::Known(Rect::from(*extents)),
+        Field::Present(extents) => {
+            let rect = Rect::from(*extents);
+            if rect.validate().is_ok() {
+                LocatorField::Known(rect)
+            } else {
+                LocatorField::Absent
+            }
+        }
         Field::Absent => LocatorField::Absent,
         Field::Failed(_) => LocatorField::Unknown,
     }

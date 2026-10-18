@@ -2,16 +2,11 @@ use agent_desktop_core::{
     AdapterError, Deadline, ObservationOps, RefEntry, TreeOptions, WindowFilter, snapshot,
 };
 
-use super::live_launch::{Launched, nonce, program_of, vscode_arguments};
-use super::live_qt;
-use super::live_tree::{frames_where, pid_frame};
+use super::live_apps::each_app;
 use super::node_read::read_node;
-use super::walker_live_tests::settle;
 use super::{AtspiElement, LabelOutcome, atspi_element, resolve_vocabulary};
 use crate::LinuxAdapter;
 use crate::system::{SharedBus, window_id, within};
-
-const TERMINAL_SERVER: &str = "gnome-terminal-server";
 
 #[derive(Default)]
 struct Tally {
@@ -48,7 +43,7 @@ fn entries(result: &snapshot::SnapshotResult) -> Vec<(String, RefEntry)> {
     found
 }
 
-fn independent_read_disagrees(
+pub(super) fn independent_read_disagrees(
     bus: &SharedBus,
     handle: &AtspiElement,
     entry: &RefEntry,
@@ -177,114 +172,12 @@ fn check(
     }
 }
 
-fn app(
-    label: &str,
-    program: &str,
-    arguments: &[&str],
-    min_nodes: usize,
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-) -> Result<(), String> {
-    let connection = bus
-        .get(Deadline::standard().map_err(|error| error.message)?)
-        .map_err(|error| error.message)?;
-    let mut launched = Launched::new();
-    let pid = launched.spawn(program, arguments);
-    let settled = settle(bus, min_nodes, || pid_frame(&connection, pid))
-        .map_err(|error| format!("[{label}] {error}"))?;
-    check(label, adapter, bus, &settled.frame)
-}
-
-fn terminal(adapter: &LinuxAdapter, bus: &SharedBus) -> Result<(), String> {
-    let connection = bus
-        .get(Deadline::standard().map_err(|error| error.message)?)
-        .map_err(|error| error.message)?;
-    let is_server = |pid: u32| program_of(pid).as_deref() == Some(TERMINAL_SERVER);
-    let known = frames_where(&connection, is_server);
-    let mut launched = Launched::new();
-    let guard = std::env::temp_dir().join(nonce("resolve-terminal"));
-    std::fs::create_dir_all(&guard).map_err(|error| error.to_string())?;
-    launched.scratch.push(guard.clone());
-    let script = format!(
-        "while [ -d '{}' ] && kill -0 {} 2>/dev/null; do sleep 0.5; done",
-        guard.display(),
-        std::process::id()
-    );
-    launched.spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script]);
-    let settled = settle(bus, 20, || {
-        frames_where(&connection, is_server)
-            .into_iter()
-            .find(|frame| {
-                !known
-                    .iter()
-                    .any(|old| old.path() == frame.path() && old.bus_name() == frame.bus_name())
-            })
-    })
-    .map_err(|error| format!("[terminal] {error}"))?;
-    check("terminal", adapter, bus, &settled.frame)
-}
-
-fn qt(adapter: &LinuxAdapter, bus: &SharedBus) -> Result<(), String> {
-    let connection = bus
-        .get(Deadline::standard().map_err(|error| error.message)?)
-        .map_err(|error| error.message)?;
-    let mut launched = Launched::new();
-    let pid = live_qt::launch(&mut launched)?;
-    let settled =
-        settle(bus, 15, || pid_frame(&connection, pid)).map_err(|error| format!("[qt] {error}"))?;
-    check("qt", adapter, bus, &settled.frame)
-}
-
-fn vscode(adapter: &LinuxAdapter, bus: &SharedBus) -> Result<(), String> {
-    let home = std::env::var("HOME").map_err(|error| error.to_string())?;
-    let program = format!("{home}/.local/ad-tools/vscode/app/code");
-    if !std::path::Path::new(&program).exists() {
-        return Err(format!("vscode is required and was not found at {program}"));
-    }
-    let data = std::env::temp_dir().join(nonce("resolve-vscode"));
-    let data_arg = data.to_string_lossy().into_owned();
-    let result = app(
-        "vscode",
-        &program,
-        &vscode_arguments(&data_arg),
-        200,
-        adapter,
-        bus,
-    );
-    let _ = std::fs::remove_dir_all(data);
-    result
-}
-
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
 fn resolve_live_every_snapshot_ref_resolves_to_the_node_it_was_taken_from() {
     let adapter = LinuxAdapter::new();
     let bus = SharedBus::default();
-    let outcomes = [
-        (
-            "files",
-            app("files", "nautilus", &["--new-window"], 30, &adapter, &bus),
-        ),
-        (
-            "calculator",
-            app("calculator", "gnome-calculator", &[], 30, &adapter, &bus),
-        ),
-        (
-            "text-editor",
-            app(
-                "text-editor",
-                "gnome-text-editor",
-                &["--new-window"],
-                15,
-                &adapter,
-                &bus,
-            ),
-        ),
-        ("terminal", terminal(&adapter, &bus)),
-        ("qt", qt(&adapter, &bus)),
-        ("vscode", vscode(&adapter, &bus)),
-    ];
-    let failures: Vec<String> = outcomes
+    let failures: Vec<String> = each_app(&adapter, &bus, check)
         .into_iter()
         .filter_map(|(label, outcome)| outcome.err().map(|error| format!("[{label}] {error}")))
         .collect();

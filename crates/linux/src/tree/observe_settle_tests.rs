@@ -139,6 +139,35 @@ fn observe(web: bool, document: bool, ms: u64, curve: &[Result<usize, AdapterErr
     }
 }
 
+fn observe_element(web: bool, curve: &[Result<usize, AdapterError>]) -> usize {
+    let calls = Cell::new(0usize);
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+        let index = calls.get().min(curve.len() - 1);
+        calls.set(calls.get() + 1);
+        curve[index].clone().and_then(|nodes| walk_of(nodes, true))
+    };
+    let mut pause = |gap: Duration| std::thread::sleep(gap);
+    let mut handle = AtspiElement::new(":1.7", "/org/a11y/atspi/accessible/9", 77);
+    handle.set_ancestry(crate::tree::ancestry::of_root(&handle.clone()));
+    let handle = handle.into_native_handle();
+    let entry = crate::tree::test_support::ref_entry("button");
+    observe_with(
+        ObservationRoot::Element {
+            handle: &handle,
+            entry: &entry,
+            root_ref: None,
+        },
+        &request(60_000),
+        SettleHost {
+            walker: &mut walker,
+            is_web_process: &|_| web,
+            pause: &mut pause,
+        },
+    )
+    .expect("observes");
+    calls.get()
+}
+
 fn counts(values: &[usize]) -> Vec<Result<usize, AdapterError>> {
     values.iter().map(|count| Ok(*count)).collect()
 }
@@ -268,4 +297,9 @@ fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
     .expect("observes");
     assert_eq!(calls.get(), 3);
     assert!(tree.is_complete());
+}
+
+#[test]
+fn an_element_in_a_web_process_is_read_once_however_small_its_subtree_is() {
+    assert_eq!(observe_element(true, &counts(&[3, 3, 3, 3, 3])), 1);
 }

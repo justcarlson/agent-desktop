@@ -116,7 +116,19 @@ pub(crate) fn resolve<S: Source>(
     entry: &RefEntry,
     deadline: Deadline,
 ) -> Result<AtspiElement, AdapterError> {
-    attempt(source, entry, deadline).map_err(|error| {
+    let outcome = attempt(source, entry, deadline);
+    settle_outcome(source, entry, outcome)
+}
+
+/// Maps the end of one attempt to the answer the caller gets: an application
+/// that left and a destroyed object are settled refusals, and a timeout on a
+/// stopped process is `APP_UNRESPONSIVE`.
+pub(super) fn settle_outcome<S: Source>(
+    source: &mut S,
+    entry: &RefEntry,
+    outcome: Result<AtspiElement, AdapterError>,
+) -> Result<AtspiElement, AdapterError> {
+    outcome.map_err(|error| {
         let error = settle_gone(error);
         if error.code == ErrorCode::Timeout {
             let stopped = source.stopped_app(entry.process.pid.get());

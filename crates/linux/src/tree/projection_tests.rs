@@ -146,7 +146,7 @@ fn a_failed_action_read_is_unknown_capabilities() {
 }
 
 #[test]
-fn zero_and_negative_extents_are_known_bounds_and_a_failed_read_is_unknown() {
+fn zero_extents_are_known_bounds_rects_core_cannot_hold_are_absent_and_a_failed_read_is_unknown() {
     let rect = |width, height| {
         LocatorField::Known(Rect {
             x: 0.0,
@@ -170,7 +170,21 @@ fn zero_and_negative_extents_are_known_bounds_and_a_failed_read_is_unknown() {
         width: -1,
         height: -1,
     });
-    assert_eq!(evidence_of(negative).ref_evidence.bounds, rect(-1.0, -1.0));
+    assert_eq!(
+        evidence_of(negative).ref_evidence.bounds,
+        LocatorField::Absent
+    );
+    let mut sentinel = read_of(PUSH_BUTTON, "s", &["click"]);
+    sentinel.node.extents = Field::Present(Extents {
+        x: i32::MIN,
+        y: i32::MIN,
+        width: i32::MIN,
+        height: i32::MIN,
+    });
+    assert_eq!(
+        evidence_of(sentinel).ref_evidence.bounds,
+        LocatorField::Absent
+    );
     let mut failed = read_of(PUSH_BUTTON, "f", &["click"]);
     failed.node.extents = Field::Failed("x".to_owned());
     assert_eq!(

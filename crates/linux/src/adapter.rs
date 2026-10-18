@@ -45,6 +45,14 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::resolve_element_strict(self.bus(), entry, deadline)
     }
 
+    fn resolve_locator_anchor(
+        &self,
+        entry: &RefEntry,
+        deadline: Deadline,
+    ) -> Result<NativeHandle, AdapterError> {
+        crate::tree::resolve_locator_anchor(self.bus(), entry, deadline)
+    }
+
     fn list_windows(
         &self,
         filter: &WindowFilter,
