@@ -6,7 +6,6 @@ use agent_desktop_core::{
 use serde_json::json;
 
 use super::SharedBus;
-use super::app_name::name_matches;
 use super::proc_scan::find_running;
 use super::registry::{Registry, read_registry};
 use super::registry_app::RegistryApp;
@@ -97,12 +96,7 @@ pub(crate) fn scoped(
         return Ok(Vec::new());
     }
     let registry = read_registry(bus, deadline)?;
-    let matched = infos(
-        bus,
-        &registry,
-        |app| name_matches(name, &app.name, &app.facts),
-        deadline,
-    )?;
+    let matched = infos(bus, &registry, |app| app.matches(name), deadline)?;
     scoped_outcome(matched, name, find_running)
 }
 

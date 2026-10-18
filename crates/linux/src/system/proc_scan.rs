@@ -10,6 +10,6 @@ pub(crate) fn find_running(query: &str) -> Option<(u32, String)> {
         .filter_map(|entry| entry.file_name().to_string_lossy().parse::<u32>().ok())
         .find_map(|pid| {
             let facts = process_facts::read(pid)?;
-            name_matches(query, &facts.comm, &facts).then(|| (pid, facts.comm.clone()))
+            name_matches(query, &facts.comm, None, &facts).then(|| (pid, facts.comm.clone()))
         })
 }

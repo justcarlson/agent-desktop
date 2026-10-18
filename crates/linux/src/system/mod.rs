@@ -24,6 +24,7 @@ mod session;
 mod surfaces;
 mod toolkit;
 mod toolkit_id;
+mod unresponsive;
 mod window_filter;
 pub(crate) mod window_id;
 mod window_listing;
@@ -45,3 +46,5 @@ pub(crate) use window_resolve::resolve_window_strict;
 
 #[cfg(test)]
 mod registry_live_tests;
+#[cfg(test)]
+mod stopped_live_tests;

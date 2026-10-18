@@ -1,18 +1,21 @@
 use agent_desktop_core::{AdapterError, Deadline, WindowFilter, WindowInfo};
 
 use super::SharedBus;
-use super::app_name::name_matches;
 use super::focus::decide_focus;
 use super::listed_window::ListedWindow;
 use super::registry::{Registry, read_registry};
 use super::registry_app::RegistryApp;
 use super::registry_frames::read_frames;
+use super::unresponsive::scoped_windows_of;
 use super::window_filter::is_helper_app;
 use super::window_listing::collect;
 use super::x11::{self, DisplayReader, FrameFacts, X11Source, X11State};
 
-fn is_listable(app: &RegistryApp) -> bool {
-    !is_helper_app(&app.name, app.facts.exe_basename.as_deref())
+pub(super) fn is_listable(app: &RegistryApp) -> bool {
+    !is_helper_app(
+        app.registry_name.as_deref().unwrap_or(&app.name),
+        app.facts.exe_basename.as_deref(),
+    )
 }
 
 /// The windows of the applications `select` accepts, in registry order.
@@ -55,17 +58,12 @@ pub(crate) fn list_windows(
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     let pending = x11::start(|| DisplayReader.read());
     let registry = read_registry(bus, deadline)?;
-    let mut listed = windows_of(
-        bus,
-        &registry,
-        |app| {
-            filter
-                .app
-                .as_deref()
-                .is_none_or(|query| name_matches(query, &app.name, &app.facts))
-        },
-        deadline,
-    )?;
+    let select = |app: &RegistryApp| filter.app.as_deref().is_none_or(|query| app.matches(query));
+    let mut listed = if filter.app.is_some() {
+        scoped_windows_of(bus, &registry, select, deadline)?
+    } else {
+        windows_of(bus, &registry, select, deadline)?
+    };
     let state = if listed.iter().any(|window| window.active) {
         pending.finish(deadline).unwrap_or(X11State::Unavailable)
     } else {

@@ -1,4 +1,4 @@
-use super::{WebFamily, classify_web, parse_start_time, process_instance, read};
+use super::{WebFamily, classify_web, parse_start_time, parse_stopped, process_instance, read};
 
 fn stat_with(comm: &str, start_time: u64) -> String {
     let after_state: Vec<String> = (4..=52)
@@ -106,4 +106,13 @@ fn the_current_process_reads_a_stable_token() {
     let second = read(std::process::id()).expect("the test process is running");
     assert_eq!(first.instance, second.instance);
     assert!(!first.comm.is_empty());
+}
+
+#[test]
+fn a_stopped_state_letter_is_read_after_the_last_parenthesis() {
+    assert!(parse_stopped("42 (calc (x) y) T 1 2 3"));
+    assert!(parse_stopped("42 (calc) t 1 2 3"));
+    assert!(!parse_stopped("42 (calc) S 1 2 3"));
+    assert!(!parse_stopped("42 (T) S 1 2 3"));
+    assert!(!parse_stopped("not a stat line"));
 }

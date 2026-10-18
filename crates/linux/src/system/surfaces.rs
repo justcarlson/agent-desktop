@@ -4,7 +4,7 @@ use super::SharedBus;
 use super::listed_window::ListedWindow;
 use super::process_facts;
 use super::registry::read_registry;
-use super::window_ops::windows_of;
+use super::unresponsive::scoped_windows_of;
 
 fn require_same_process(process: &ProcessIdentity) -> Result<(), AdapterError> {
     let Some(facts) = process_facts::read(process.pid.get()) else {
@@ -60,7 +60,7 @@ pub(crate) fn list_surfaces(
     require_same_process(process)?;
     let registry = read_registry(bus, deadline)?;
     let pid = process.pid.get();
-    let windows = windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
+    let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
     Ok(surfaces_of(&windows))
 }
 

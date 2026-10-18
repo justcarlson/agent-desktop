@@ -4,23 +4,29 @@ fn non_blank(text: Option<&str>) -> Option<&str> {
     text.filter(|text| !text.trim().is_empty())
 }
 
-/// The name an application is listed under: the accessibility root's `Name`
-/// when it answered with a non-blank one, otherwise what `/proc` says. The
-/// executable's basename comes before `comm`, which the kernel cuts at 15
-/// characters. An application that did not answer is still named, so a
-/// stopped process stays in the inventory.
-pub(crate) fn app_name(root_name: Option<&str>, facts: &ProcessFacts) -> String {
-    non_blank(root_name)
-        .or(non_blank(facts.exe_basename.as_deref()))
+/// The name an application is listed under: the executable's basename,
+/// then `comm`, which the kernel cuts at 15 characters. It comes from `/proc`
+/// alone, never from the accessibility root, so an application keeps one name
+/// whether it answers or is stopped: core upgrades a stale reference to an
+/// unresponsive application only when the listed name is unchanged.
+pub(crate) fn app_name(facts: &ProcessFacts) -> String {
+    non_blank(facts.exe_basename.as_deref())
         .unwrap_or(&facts.comm)
         .to_owned()
 }
 
 /// Whether `query` names this application: exactly, ignoring case, its
-/// listed name, its `comm` or its executable basename.
-pub(crate) fn name_matches(query: &str, name: &str, facts: &ProcessFacts) -> bool {
+/// listed name, the accessibility root's registry name while the root
+/// answered, its `comm` or its executable basename.
+pub(crate) fn name_matches(
+    query: &str,
+    name: &str,
+    registry_name: Option<&str>,
+    facts: &ProcessFacts,
+) -> bool {
     [
         Some(name),
+        non_blank(registry_name),
         Some(facts.comm.as_str()),
         facts.exe_basename.as_deref(),
     ]

@@ -41,6 +41,21 @@ pub(crate) fn parse_start_time(stat: &str) -> Option<u64> {
         .ok()
 }
 
+/// Whether the state letter of `/proc/<pid>/stat` says the process is
+/// stopped by a signal (`T`) or by a tracer (`t`). The state follows the last
+/// closing parenthesis, like the start time.
+pub(crate) fn parse_stopped(stat: &str) -> bool {
+    stat.rfind(')')
+        .and_then(|close| stat[close + 1..].split_whitespace().next())
+        .is_some_and(|state| state == "T" || state == "t")
+}
+
+/// Whether the process is stopped right now. A process that cannot be read is
+/// not reported as stopped.
+pub(crate) fn is_stopped(pid: u32) -> bool {
+    std::fs::read_to_string(format!("/proc/{pid}/stat")).is_ok_and(|stat| parse_stopped(&stat))
+}
+
 /// The token that tells two runs of one process id apart: a prefix of the
 /// boot id, so it differs across reboots, and the start time.
 pub(crate) fn process_instance(boot_id: &str, start_time: u64) -> String {

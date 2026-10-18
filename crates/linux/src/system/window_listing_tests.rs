@@ -39,7 +39,7 @@ fn a_shown_active_frame_becomes_a_window_with_the_process_instance() {
         panic!("one window")
     };
     assert_eq!(window.info.title, "Doc");
-    assert_eq!(window.info.app, "App");
+    assert_eq!(window.info.app, "x");
     assert_eq!(window.info.process_instance.as_deref(), Some("boot:42"));
     assert_eq!(window.info.state.visible, Some(true));
     assert!(window.active);
