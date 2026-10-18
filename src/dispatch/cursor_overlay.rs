@@ -60,7 +60,7 @@ pub(crate) fn dispatch(
         let rendered = match adapter.update_cursor_overlay(&control) {
             Ok(()) => true,
             Err(error) => {
-                if control.is_disable() {
+                if control.is_disable() && !nothing_to_tear_down(&error) {
                     return Err(teardown_error(error));
                 }
                 tracing::warn!(code = %error.code.as_str(), "cursor overlay lifecycle update was skipped");
@@ -72,6 +72,22 @@ pub(crate) fn dispatch(
         }
     }
     Ok(value)
+}
+
+/// An adapter without a cursor overlay never drew one, so a disable it cannot
+/// perform leaves nothing on screen.
+fn nothing_to_tear_down(error: &agent_desktop_core::AdapterError) -> bool {
+    error.code == agent_desktop_core::ErrorCode::PlatformNotSupported
+}
+
+pub(super) fn tear_down(
+    adapter: &dyn PlatformAdapter,
+    control: &CursorOverlayControl,
+) -> Result<(), AppError> {
+    match adapter.update_cursor_overlay(control) {
+        Err(error) if !nothing_to_tear_down(&error) => Err(teardown_error(error)),
+        _ => Ok(()),
+    }
 }
 
 pub(super) fn teardown_error(mut error: agent_desktop_core::AdapterError) -> AppError {

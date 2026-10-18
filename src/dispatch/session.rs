@@ -33,9 +33,7 @@ pub(crate) fn dispatch(
                 ));
             }
             let value = session::execute(session::SessionAction::End { id: id.clone() })?;
-            adapter
-                .update_cursor_overlay(&CursorOverlayControl::disable(id))
-                .map_err(super::cursor_overlay::teardown_error)?;
+            super::cursor_overlay::tear_down(adapter, &CursorOverlayControl::disable(id))?;
             Ok(value)
         }
         SessionAction::List => session::execute(session::SessionAction::List),
