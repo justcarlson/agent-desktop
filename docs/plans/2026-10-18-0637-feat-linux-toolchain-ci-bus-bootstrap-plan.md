@@ -15,7 +15,7 @@ execution: code
 - **Objective:** an agent that runs agent-desktop on a Linux desktop gets a truthful answer about whether accessibility works there, with instructions it can act on when it does not, and every Linux change from here on is held to the same CI gates as macOS and Windows.
 - **Means:** a synchronous D-Bus connection through `zbus::blocking` that detects the AT-SPI bus on first use and is shared for the process, a Linux permission report built on it, and a Linux CI lane with lint, full tests, isolation, size and a real AT-SPI smoke (KTD1–KTD5).
 - **Authority:** `docs/phases.md` §3.1 is the contract, corrected in this PR where 3.0 evidence and the dependency research disproved it (R9). The probe rows `L1-5`, `L1-9`, `L12-2`–`L12-7` settle bus behaviour.
-- **Stop conditions:** stop if `zbus` 5.19 cannot build at the 1.89 toolchain on Linux, or if `cargo deny` rejects the graph for a reason other than the two documented unmaintained advisories.
+- **Stop conditions:** stop if `zbus` 5.19 cannot build at the 1.89 toolchain on Linux, or if `cargo deny` rejects the graph for a reason other than the three documented unmaintained advisories.
 - **Execution profile:** U1 first; U2 and U4 in parallel after it; U3 after U2; U5 last.
 - **Finishes and ships:** the orchestrating session runs the box verification, commits, and opens the PR stacked on `feat/linux-3.0-probes`.
 
@@ -37,7 +37,7 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 
 - R1. `crates/linux` depends on `zbus` at an exact version; no `tokio`, `async-std` or `smol` enters the workspace, and zbus's default `async-io` backend is accepted (KTD1).
 - R2. `agent-desktop-core` gains no dependency, no Linux name and no `#[cfg]` branch; `cargo tree -p agent-desktop-core` lists no platform crate and no D-Bus crate.
-- R3. `cargo deny` passes; the two zbus 5 unmaintained advisories are ignored by id with a written reason and the condition that removes the ignore.
+- R3. `cargo deny` passes; the three zbus 5 unmaintained advisories are ignored by id with a written reason and the condition that removes the ignore.
 
 **Bus detection**
 
@@ -81,7 +81,7 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 - KTD1. **`zbus =5.19.0`, default features, `zbus::blocking` only; no `tokio`, no `atspi`.** zbus 5's default `async-io` backend runs the blocking API with no runtime thread pool; the `tokio` feature would start a hidden multi-thread runtime inside zbus (`.claude` dependency research, scratch crates a–f). zbus 6.0.0 has no blocking API and `atspi` 0.30 requires zbus ^5.5. All transitive licences are on the `deny.toml` allow-list. Exact pin per the supply-chain policy.
 - KTD2. **The dependency is unconditional in `crates/linux`.** zbus compiles on macOS, so macOS hosts keep checking and linting the real Linux code, which the pre-commit hook already includes in the macOS package set. Only the binary and FFI crates gate the Linux crate by target, as today. No non-Linux stubs are written.
 - KTD3. **Detect on first use and share one connection per process.** The adapter holds a lazily filled slot for the a11y connection behind a mutex; the first method that needs the bus connects, a success is kept, a failure is returned and not kept (Scope Boundaries). This replaces §3.1's "detection at adapter construction", which would make every command, including `version`, pay a D-Bus round trip.
-- KTD4. **Deadline-bounded calls.** zbus fixes a connection's method timeout at build time. The one-shot session-bus connection that calls `GetAddress` takes its timeout from the remaining deadline. The kept a11y connection is built with the standard operation timeout (`DEFAULT_OPERATION_TIMEOUT_MS`), and every call on it checks the caller's `Deadline` first, mapping an elapsed deadline to `TIMEOUT`. Ceiling: one call can overrun the caller's deadline by up to the standard timeout; 3.2 bounds each tree read by its own deadline if that overrun matters for walks.
+- KTD4. **Deadline-bounded calls.** Every bus wait (session connect, `GetAddress`, the a11y handshake, the registry read) is raced against the caller's remaining deadline by `within`, so a wait never outlives the caller's deadline and an elapsed deadline maps to `TIMEOUT`. The kept a11y connection is built with the standard operation timeout (`DEFAULT_OPERATION_TIMEOUT_MS`) only as the per-call ceiling for later callers of the shared connection. The shared slot is not locked across a connect, so a short-deadline caller never waits behind another caller's connect; a failure is not stored and a connection-level failure on a call drops the cached connection so the next call reconnects.
 - KTD5. **Error classification is one pure function over `zbus::Error`.** `Error::MethodError` whose name is `org.freedesktop.DBus.Error.ServiceUnknown` or `NameHasNoOwner` maps to `PLATFORM_NOT_SUPPORTED` with the install-`at-spi2-core` suggestion. `Error::InputOutput` of kind `NotFound` or `ConnectionRefused` maps to `PLATFORM_NOT_SUPPORTED` with the display-session suggestion; zbus falls back to `$XDG_RUNTIME_DIR/bus` when `DBUS_SESSION_BUS_ADDRESS` is unset, so a missing session bus surfaces as this socket error, not as a missing variable. `TimedOut` and an elapsed deadline map to `TIMEOUT`. Anything else maps to `INTERNAL` with the error text in `platform_detail`. This function is the one place with branching logic, so it carries the one unit test.
 - KTD6. **One combined suggestion text.** The `PLATFORM_NOT_SUPPORTED` suggestion names every fix in one string: on GNOME `gsettings set org.gnome.desktop.interface toolkit-accessibility true`; elsewhere install `at-spi2-core` and run `at-spi-bus-launcher`; for Flatpak `--talk-name=org.a11y.Bus`; for snap the `desktop-legacy` and `unity7` interfaces (L12-2, L12-3).
 - KTD7. **The CI smoke uses the runner's own packages.** The smoke job installs `at-spi2-core`, `dbus-x11` and `xvfb` with apt on `ubuntu-latest`, starts `dbus-run-session -- xvfb-run -a`, and runs the release binary. Its no-bus run sets `DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent` and points `XDG_RUNTIME_DIR` at an empty directory, because zbus otherwise falls back to `$XDG_RUNTIME_DIR/bus`. If the runner cannot host the a11y bus, that is measured in the job log and the job's assertion is reduced to the no-bus case with the reason written into §3.1 (R9).
@@ -95,7 +95,7 @@ flowchart TB
   P --> S{shared a11y connection present}
   S -->|yes| U[use it]
   S -->|no| G[session bus: org.a11y.Bus.GetAddress]
-  G -->|address| A[connect to a11y bus, method timeout from deadline]
+  G -->|address| A[connect to a11y bus, raced against the deadline]
   A -->|ok| K[keep connection] --> U
   G -->|ServiceUnknown / no session bus| E[PLATFORM_NOT_SUPPORTED + suggestion]
   A -->|socket missing / refused| E
@@ -121,7 +121,7 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - **Requirements:** R1, R2, R3.
 - **Dependencies:** none.
 - **Files:** `crates/linux/Cargo.toml`, `Cargo.lock`, `deny.toml`.
-- **Approach:** add `zbus = "=5.19.0"` to `crates/linux` dependencies (KTD1, KTD2). Add `[advisories] ignore` entries for RUSTSEC-2026-0370 and RUSTSEC-2026-0371, each with a reason naming zbus 5.19 as the only version `atspi` and the blocking API allow and the condition that removes the entry (moving to zbus 6).
+- **Approach:** add `zbus = "=5.19.0"` to `crates/linux` dependencies (KTD1, KTD2). Add `[advisories] ignore` entries for RUSTSEC-2026-0370, RUSTSEC-2026-0371 and RUSTSEC-2026-0372, each with a reason naming zbus 5.19 as the only version `atspi` and the blocking API allow and the condition that removes the entry (moving to zbus 6).
 - **Test expectation:** none -- dependency change; proved by `cargo deny` and the isolation check.
 - **Verification:** `cargo tree -p agent-desktop-core` is unchanged; `cargo deny check` passes; `cargo +1.89.0 check -p agent-desktop-linux` passes on the box.
 
@@ -132,7 +132,7 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - **Dependencies:** U1.
 - **Files:** `crates/linux/src/system/bus.rs`, `crates/linux/src/system/bus_tests.rs`, `crates/linux/src/system/mod.rs`, `crates/linux/src/adapter.rs`.
 - **Approach:**
-  1. Build the session-bus connection with `zbus::blocking::connection::Builder::session()` and a deadline-derived `method_timeout`, call `GetAddress`, then build the a11y connection with `Builder::address(..)` and the standard timeout (KTD4).
+  1. Build the session-bus connection with `zbus::blocking::connection::Builder::session()` and `within` the caller's deadline, call `GetAddress` under the same `within`, then build the a11y connection with `Builder::address(..)` and the standard timeout as its per-call ceiling (KTD4).
   2. Classify failures with one pure function (KTD5) and the combined suggestion (KTD6).
   3. Store the connection in a lazily filled, mutex-guarded slot on `LinuxAdapter` (KTD3).
 - **Patterns to follow:** `crates/windows/src/system/permissions.rs` (`ensure_budget`, error shape with suggestion and `platform_detail`); `crates/windows/src/system/hresult.rs` for detail formatting.
