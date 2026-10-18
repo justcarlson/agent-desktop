@@ -71,3 +71,34 @@ pub(super) fn program_of(pid: u32) -> Option<String> {
     let argv0 = String::from_utf8_lossy(bytes.split(|byte| *byte == 0).next()?).into_owned();
     argv0.rsplit('/').next().map(str::to_owned)
 }
+
+/// Box facts that decide whether a tree that never filled is the application's fault
+/// or the machine's: load average and memory and swap headroom.
+pub(super) fn environment_note() -> String {
+    let load = std::fs::read_to_string("/proc/loadavg")
+        .ok()
+        .and_then(|text| {
+            text.split_whitespace()
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ")
+                .into()
+        })
+        .unwrap_or_else(|| "unreadable".to_owned());
+    let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let kib = |key: &str| {
+        meminfo
+            .lines()
+            .find_map(|line| line.strip_prefix(key))
+            .and_then(|rest| rest.trim_start_matches(':').split_whitespace().next())
+            .map_or_else(
+                || "?".to_owned(),
+                |value| format!("{} MiB", value.parse::<u64>().map_or(0, |kib| kib / 1024)),
+            )
+    };
+    format!(
+        "box load {load}, MemAvailable {}, SwapFree {}",
+        kib("MemAvailable"),
+        kib("SwapFree")
+    )
+}

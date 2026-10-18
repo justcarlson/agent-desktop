@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, ErrorCode, NativeHandle};
 use zbus::blocking::Connection;
 
-use super::live_launch::{Launched, nonce, program_of};
+use super::live_launch::{Launched, environment_note, nonce, program_of};
 use super::live_qt;
 use super::live_tree::{
     action_summary, count_failed, dump, failure_kinds, find_node, frames_where, pid_frame,
@@ -54,7 +54,8 @@ pub(super) fn settle(
         }
     }
     Err(format!(
-        "tree did not settle within the limit: {last_state}"
+        "tree did not settle within the limit: {last_state}; {}",
+        environment_note()
     ))
 }
 
