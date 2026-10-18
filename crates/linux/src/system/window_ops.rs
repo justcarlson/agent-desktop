@@ -9,7 +9,7 @@ use super::registry_app::RegistryApp;
 use super::registry_frames::read_frames;
 use super::window_filter::is_helper_app;
 use super::window_listing::collect;
-use super::x11::{self, DisplayReader, FrameFacts, X11State};
+use super::x11::{self, DisplayReader, FrameFacts, X11Source, X11State};
 
 fn is_listable(app: &RegistryApp) -> bool {
     !is_helper_app(&app.name, app.facts.exe_basename.as_deref())
@@ -53,7 +53,7 @@ pub(crate) fn list_windows(
     filter: &WindowFilter,
     deadline: Deadline,
 ) -> Result<Vec<WindowInfo>, AdapterError> {
-    let pending = x11::start(DisplayReader);
+    let pending = x11::start(|| DisplayReader.read());
     let registry = read_registry(bus, deadline)?;
     let mut listed = windows_of(
         bus,
@@ -67,7 +67,7 @@ pub(crate) fn list_windows(
         deadline,
     )?;
     let state = if listed.iter().any(|window| window.active) {
-        pending.finish(deadline)
+        pending.finish(deadline).unwrap_or(X11State::Unavailable)
     } else {
         X11State::Unavailable
     };

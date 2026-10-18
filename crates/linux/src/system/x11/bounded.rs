@@ -3,36 +3,36 @@ use std::thread;
 
 use agent_desktop_core::Deadline;
 
-use super::{X11Source, X11State};
-
-/// A read that is already running on its own thread. A blocking round trip to
-/// the display server ignores a deadline, so the caller waits for the answer
-/// instead of making the call; a server that never answers leaves one parked
-/// thread behind and the caller gets "unavailable".
-pub(crate) struct PendingRead {
-    receiver: Option<Receiver<X11State>>,
+/// A display-server read running on its own thread: X11 property and RandR
+/// replies are synchronous round trips to a display server that cannot be
+/// allowed to stall the caller, so the caller bounds every read by
+/// `Deadline`.
+pub(crate) struct PendingRead<T> {
+    receiver: Option<Receiver<T>>,
 }
 
-/// Starts reading at once, so the wait overlaps the caller's other work.
-pub(crate) fn start(source: impl X11Source) -> PendingRead {
+/// Starts one read on a dedicated thread. When the thread cannot even be
+/// spawned the pending answer reads as absent.
+pub(crate) fn start<T: Send + 'static>(
+    read: impl FnOnce() -> T + Send + 'static,
+) -> PendingRead<T> {
     let (sender, receiver) = channel();
     let spawned = thread::Builder::new()
         .name("x11-read".to_owned())
         .spawn(move || {
-            let _ = sender.send(source.read());
+            let _ = sender.send(read());
         });
     PendingRead {
         receiver: spawned.ok().map(|_| receiver),
     }
 }
 
-impl PendingRead {
-    /// The answer, or `Unavailable` when the deadline passes first or the read
-    /// panicked.
-    pub(crate) fn finish(self, deadline: Deadline) -> X11State {
+impl<T> PendingRead<T> {
+    /// The answer, or `None` when the deadline passes first, the thread
+    /// panicked, or the thread was never spawned.
+    pub(crate) fn finish(self, deadline: Deadline) -> Option<T> {
         self.receiver
             .and_then(|receiver| receiver.recv_timeout(deadline.remaining()).ok())
-            .unwrap_or(X11State::Unavailable)
     }
 }
 

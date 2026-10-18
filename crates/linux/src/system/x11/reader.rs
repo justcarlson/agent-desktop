@@ -26,13 +26,10 @@ struct Atoms {
 }
 
 fn display_to_read() -> Option<String> {
-    let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some_and(|value| !value.is_empty());
-    if wayland {
-        return None;
+    match super::session_server() {
+        super::DisplayServer::X11(display) => Some(display),
+        _ => None,
     }
-    std::env::var("DISPLAY")
-        .ok()
-        .filter(|display| !display.is_empty())
 }
 
 fn atom(connection: &RustConnection, name: &[u8]) -> Option<Atom> {

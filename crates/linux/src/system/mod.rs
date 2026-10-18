@@ -7,6 +7,8 @@ mod bus_fault;
 mod bus_process;
 mod bus_slice;
 mod bus_stage;
+mod display;
+mod display_mutter;
 mod focus;
 mod interaction_lease;
 mod listed_window;
@@ -33,6 +35,7 @@ pub(crate) use bus_fault::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN};
 pub(crate) use bus_process::process_id;
 
 pub(crate) use app_ops::{inventory as app_inventory, scoped as apps_scoped};
+pub(crate) use display::list_displays;
 pub(crate) use window_ops::{focused_window, list_windows};
 pub(crate) use window_resolve::resolve_window_strict;
 
