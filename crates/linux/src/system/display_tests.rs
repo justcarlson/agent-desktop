@@ -92,6 +92,18 @@ fn the_primary_monitor_sorts_first_even_when_listed_last() {
 }
 
 #[test]
+fn a_server_that_flags_no_primary_makes_its_first_monitor_primary() {
+    let monitors = vec![
+        monitor("screen", &["screen"], 0, 1280, false),
+        monitor("HDMI-1", &["HDMI-1"], 1280, 1920, false),
+    ];
+    let displays = decide(x11(), Some(monitors), None).expect("read");
+    assert_eq!(displays.iter().filter(|d| d.is_primary).count(), 1);
+    assert_eq!(displays[0].id, "screen");
+    assert!(displays[0].is_primary);
+}
+
+#[test]
 fn an_x11_read_failure_is_an_error_not_an_empty_list() {
     let error = decide(x11(), None, None).expect_err("unreadable");
     assert_eq!(error.code, ErrorCode::Internal);

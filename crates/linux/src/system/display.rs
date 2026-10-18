@@ -88,6 +88,11 @@ fn assemble(monitors: Vec<X11Monitor>, logical: &[LogicalMonitor]) -> Vec<Displa
             }
         })
         .collect();
+    if !displays.iter().any(|display| display.is_primary)
+        && let Some(first) = displays.first_mut()
+    {
+        first.is_primary = true;
+    }
     primaries_first(&mut displays);
     displays
 }
