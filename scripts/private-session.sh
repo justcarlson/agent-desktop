@@ -63,7 +63,7 @@ cleanup() {
   for mount in "$rt/doc" "$rt/gvfs"; do
     fusermount -u "$mount" 2>/dev/null || true
   done
-  rm -rf "$rt"
+  find "$rt" -delete 2>/dev/null || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT
