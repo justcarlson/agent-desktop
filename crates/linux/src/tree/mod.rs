@@ -25,6 +25,8 @@ mod placeholder;
 mod projection;
 mod raw_node;
 mod resolve_errors;
+mod resolve_match;
+mod resolve_verdict;
 pub(crate) mod role_numbers;
 mod role_table;
 mod roles;

@@ -1,5 +1,10 @@
 use std::collections::BTreeMap;
 
+use agent_desktop_core::{
+    ElementIdentifier, IdentifierEvidence, IdentifierKind, LocatorEvidence, LocatorField,
+    LocatorRefEvidence, NodeDescriptor, ProcessId, Rect, RefEntry,
+};
+
 use super::{AtspiElement, Extents, Field, NodeProperties, NodeTraits, ObservedRead, RawNode};
 
 pub(crate) fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
@@ -63,4 +68,91 @@ pub(crate) fn client_timeout() -> zbus::Error {
     zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
         std::io::ErrorKind::TimedOut,
     )))
+}
+
+pub(crate) fn ref_entry(role: &str) -> RefEntry {
+    RefEntry {
+        process: agent_desktop_core::RefProcess {
+            pid: ProcessId::new(1),
+            process_instance: None,
+        },
+        identity: agent_desktop_core::RefEntryIdentity {
+            retained_object: None,
+            role: role.to_owned(),
+            name: None,
+            value: None,
+            description: None,
+            native_id: None,
+        },
+        geometry: agent_desktop_core::RefGeometry {
+            bounds: None,
+            bounds_hash: None,
+        },
+        capabilities: agent_desktop_core::RefCapabilities {
+            states: Vec::new(),
+            available_actions: Vec::new(),
+        },
+        source: agent_desktop_core::RefSource {
+            source_app: None,
+            source_window_id: None,
+            source_window_title: None,
+            source_window_bounds_hash: None,
+            source_surface: agent_desktop_core::SnapshotSurface::Window,
+        },
+        scope: agent_desktop_core::RefScope {
+            root_ref: None,
+            path_is_absolute: false,
+            path: agent_desktop_core::refs::RefPath::default(),
+        },
+    }
+}
+
+pub(crate) fn with_identifier(mut entry: RefEntry, value: &str) -> RefEntry {
+    entry.identity.native_id = Some(ElementIdentifier {
+        kind: IdentifierKind::AxIdentifier,
+        value: value.to_owned(),
+    });
+    entry
+}
+
+pub(crate) fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
+}
+
+/// Evidence for a node with the given role, name, identifier and rectangle;
+/// a missing name or rectangle is known absent and the identifiers are
+/// complete.
+pub(crate) fn evidence(
+    role: &str,
+    name: Option<&str>,
+    identifier: Option<&str>,
+    bounds: Option<Rect>,
+) -> LocatorEvidence {
+    LocatorEvidence {
+        role: LocatorField::Known(role.to_owned()),
+        name: name.map_or(LocatorField::Absent, |text| {
+            LocatorField::Known(text.to_owned())
+        }),
+        description: LocatorField::Absent,
+        value: LocatorField::Absent,
+        identifiers: IdentifierEvidence::typed(
+            identifier.map(|value| ElementIdentifier {
+                kind: IdentifierKind::AxIdentifier,
+                value: value.to_owned(),
+            }),
+            None,
+            true,
+        ),
+        states: LocatorField::Absent,
+        ref_evidence: LocatorRefEvidence {
+            bounds: bounds.map_or(LocatorField::Absent, LocatorField::Known),
+            available_actions: LocatorField::Absent,
+            descriptors: NodeDescriptor::default(),
+        },
+    }
 }

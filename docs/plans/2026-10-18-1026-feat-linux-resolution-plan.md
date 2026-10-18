@@ -233,7 +233,7 @@ Size: Windows' resolver and live-read code is about 2.3k non-test lines across n
 - **Requirements:** R2, R3, R4, R5, R6.
 - **Dependencies:** U1.
 - **Files:** `crates/linux/src/tree/resolve_match.rs`, `crates/linux/src/tree/resolve_verdict.rs`, `crates/linux/src/tree/resolve_match_tests.rs`, `crates/linux/src/tree/resolve_verdict_tests.rs`, `crates/linux/src/tree/mod.rs`.
-- **Approach:** KTD6. `resolve_match.rs` has the role gate, the composed identity rule with the corroboration tier, geometry promotion, `size_contradicts`, and `entry_is_unverifiable`. `resolve_verdict.rs` has `select_by_stored_size` and the classification over candidate sizes and an unread flag. Both take `RefEntry` and `LocatorEvidence`; neither touches the bus; neither reads a position or a bounds hash.
+- **Approach:** KTD6. `resolve_match.rs` has the role gate, the composed identity rule with the corroboration tier, geometry promotion, `size_contradicts`, and `entry_is_unverifiable`. `resolve_match.rs` also holds `accepts_landing` (the path tier's rule: no size contradiction, then admission). `resolve_verdict.rs` has `select_by_stored_size` and the classification over candidate rectangles, the stored rectangle and an unread flag; it compares widths and heights only. Both take `RefEntry` and `LocatorEvidence`; neither touches the bus; neither reads a position or a bounds hash.
 - **Patterns to follow:** `crates/windows/src/tree/resolve_match.rs`, `resolve_search.rs` (`admit_node`, `provisional_geometry_candidate`, `geometry_contradicts`, `entry_is_unverifiable`), `resolve_ambiguity_tests.rs`, `resolve_tie_break_tests.rs`.
 - **Test scenarios:**
   - Role gate: an unreadable role is unread and withholds the verdict, a different role is rejected, an equal role proceeds.
