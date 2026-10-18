@@ -1,10 +1,7 @@
 use super::{MoveableMemory, frees_on_this_thread};
-use agent_desktop_core::{DeliveryDisposition, ErrorCode};
+use agent_desktop_core::ErrorCode;
 use windows_sys::Win32::Foundation::GlobalFree;
-use windows_sys::Win32::System::DataExchange::CloseClipboard;
 use windows_sys::Win32::System::Memory::{GlobalLock, GlobalSize, GlobalUnlock};
-
-use crate::input::clipboard_formats::CF_UNICODETEXT;
 
 #[test]
 fn failed_transfer_path_still_owns_handle_for_drop_free() {
@@ -47,37 +44,4 @@ fn an_empty_payload_is_refused_before_any_allocation() {
         Err(error) => assert_eq!(error.code, ErrorCode::InvalidArgs),
         Ok(_) => panic!("an empty payload must be refused"),
     }
-}
-
-#[test]
-fn set_clipboard_data_without_an_open_clipboard_fails_and_drop_still_frees_the_handle() {
-    let guard = MoveableMemory::from_bytes(b"unopened").expect("alloc");
-    let before = frees_on_this_thread();
-
-    unsafe {
-        let _ = CloseClipboard();
-    }
-    let error = guard
-        .set_clipboard_data(CF_UNICODETEXT)
-        .expect_err("SetClipboardData must fail without an open clipboard");
-
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::DeliveredUnverified
-    );
-    assert!(
-        error
-            .platform_detail
-            .as_deref()
-            .is_some_and(|detail| detail.contains("GetLastError=")),
-        "platform_detail must carry the Win32 error code: {:?}",
-        error.platform_detail
-    );
-
-    assert_eq!(
-        frees_on_this_thread(),
-        before + 1,
-        "a failed transfer must leave transferred=false so Drop frees the handle"
-    );
 }

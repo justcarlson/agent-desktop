@@ -8,9 +8,7 @@
 //! windows for a `Menu`/`MenuItem` element whose `FrameworkId` is the
 //! Chromium framework's - a framework-family gate, not an application name,
 //! and the measured reason it exists is that a classic Win32 menu bar lives
-//! under exactly the same candidate pool at rest with framework `Win32`
-//! (inverted by
-//! `a_permanent_win32_menu_bar_never_fires_the_chromium_source`). A
+//! under exactly the same candidate pool at rest with framework `Win32`. A
 //! persistent Chromium-framework menu bar would carry this framework id too;
 //! that shape was not measurable on the host the source was measured on (its
 //! own menubar exposes no menu-family elements at rest), so it stays an
