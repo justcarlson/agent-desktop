@@ -17,7 +17,7 @@ const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
 const UNKNOWN_OBJECT: &str = "org.freedesktop.DBus.Error.UnknownObject";
 const UNKNOWN_METHOD: &str = "org.freedesktop.DBus.Error.UnknownMethod";
 const ACTION_NAMES_IN_FLIGHT: usize = 4;
-const NAME: &str = "Name";
+pub(super) const NAME: &str = "Name";
 const DESCRIPTION: &str = "Description";
 const CHILD_COUNT: &str = "ChildCount";
 const ACCESSIBLE_ID: &str = "AccessibleId";
@@ -26,7 +26,7 @@ const SCREEN_COORDINATES: u32 = 0;
 
 type Reply = Result<Message, zbus::Error>;
 
-async fn call<B>(
+pub(super) async fn call<B>(
     connection: &Connection,
     element: &AtspiElement,
     interface: &str,
@@ -85,7 +85,7 @@ fn field<T>(result: Result<T, zbus::Error>, required: bool) -> Result<Field<T>, 
     }
 }
 
-fn string_value(value: &OwnedValue) -> Field<String> {
+pub(super) fn string_value(value: &OwnedValue) -> Field<String> {
     match value.downcast_ref::<&str>() {
         Ok(text) => Field::Present(text.to_owned()),
         Err(error) => Field::Failed(error.to_string()),
@@ -116,7 +116,7 @@ fn from_map(map: &HashMap<String, OwnedValue>) -> NodeProperties {
     }
 }
 
-async fn get_one<T>(
+pub(super) async fn get_one<T>(
     connection: &Connection,
     element: &AtspiElement,
     key: &'static str,
