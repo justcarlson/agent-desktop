@@ -290,3 +290,18 @@ fn a_web_document_marks_every_node_below_it() {
         .collect();
     assert_eq!(flags, [false, false, true, true]);
 }
+
+#[test]
+fn a_walk_rooted_below_a_web_document_marks_every_node_from_its_root() {
+    let edges: Edges = HashMap::from([(0, vec![1])]);
+    let nodes = |_: u32| read_of(PUSH_BUTTON, "b", &["click"]);
+    let limits = WalkLimits {
+        root_in_web: true,
+        ..WalkLimits::default()
+    };
+    let result = walk(&edges, nodes, &limits);
+    assert!(result.root.in_web_document);
+    assert!(result.root.children[0].in_web_document);
+    let outside = walk(&edges, nodes, &WalkLimits::default());
+    assert!(!outside.root.in_web_document);
+}

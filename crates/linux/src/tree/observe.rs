@@ -123,7 +123,10 @@ fn observe_with(
     let request = (*request).validate()?;
     require_surface(request.surface)?;
     let element = root_element(&root)?;
-    let limits = WalkLimits::for_request(&request);
+    let limits = WalkLimits {
+        root_in_web: element.in_web_document(),
+        ..WalkLimits::for_request(&request)
+    };
     let started = Instant::now();
     let (walk, settled) = settled_walk(&root, &element, &limits, &request, &mut host)?;
     let complete = walk.complete && settled;

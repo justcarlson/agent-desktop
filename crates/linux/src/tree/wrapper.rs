@@ -2,7 +2,7 @@ use agent_desktop_core::ref_alloc::is_ref_able_role_actions;
 use agent_desktop_core::{LocatorField, Role};
 
 use super::action_names::capabilities;
-use super::role_numbers::{DOCUMENT_FRAME, DOCUMENT_WEB, FILLER, PANEL, SECTION};
+use super::role_numbers::{FILLER, PANEL, SECTION, is_web_document};
 use super::value_read::ValueRead;
 use super::{Field, NodeClass, NodeProperties, ObservedRead};
 
@@ -44,10 +44,7 @@ pub(crate) fn classify(read: &ObservedRead) -> NodeClass {
     let caps = capabilities(&node.actions, &node.traits.role, &node.traits.states);
     NodeClass {
         wrapper: is_wrapper_shape(&node.traits.role, &node.properties, &read.value, &caps),
-        web_document: matches!(
-            node.traits.role.present(),
-            Some(&(DOCUMENT_WEB | DOCUMENT_FRAME))
-        ),
+        web_document: is_web_document(node.traits.role.present().copied()),
     }
 }
 

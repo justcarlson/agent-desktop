@@ -6,8 +6,9 @@ const DEFAULT_MAX_EDGES: usize = 100_000;
 const DEFAULT_MAX_CHILDREN: usize = 4_096;
 const DEFAULT_MAX_FIELD_BYTES: usize = 64 * 1024;
 
-/// How far a walk may go before it marks the rest truncated. Raw depth counts
-/// every node on the path; logical depth skips wrapper nodes.
+/// How far a walk may go before it marks the rest truncated, and whether its
+/// root already sits below a web document. Raw depth counts every node on the
+/// path; logical depth skips wrapper nodes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WalkLimits {
     pub(crate) max_raw_depth: usize,
@@ -16,6 +17,7 @@ pub(crate) struct WalkLimits {
     pub(crate) max_edges: usize,
     pub(crate) max_children: usize,
     pub(crate) max_field_bytes: usize,
+    pub(crate) root_in_web: bool,
 }
 
 impl Default for WalkLimits {
@@ -27,6 +29,7 @@ impl Default for WalkLimits {
             max_edges: DEFAULT_MAX_EDGES,
             max_children: DEFAULT_MAX_CHILDREN,
             max_field_bytes: DEFAULT_MAX_FIELD_BYTES,
+            root_in_web: false,
         }
     }
 }
@@ -41,6 +44,7 @@ impl WalkLimits {
             max_edges: request.budget.max_edges,
             max_children: request.budget.max_children_per_node,
             max_field_bytes: request.budget.max_field_bytes,
+            root_in_web: false,
         }
     }
 }

@@ -92,7 +92,7 @@ where
         raw: 0,
         logical: 0,
         index: 0,
-        in_web: false,
+        in_web: limits.root_in_web,
     }];
     let (mut admitted, mut edges) = (1, 0);
     let mut complete = true;

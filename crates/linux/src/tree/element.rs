@@ -65,6 +65,12 @@ impl AtspiElement {
         self.ancestry.scroll_container()
     }
 
+    /// Whether the walk this element came from passed through a web document
+    /// on the way down, which decides if DOM identifiers are read below it.
+    pub(crate) fn in_web_document(&self) -> bool {
+        self.ancestry.in_web_document()
+    }
+
     pub(crate) fn set_ancestry(&mut self, ancestry: Ancestry) {
         self.ancestry = ancestry;
     }

@@ -223,3 +223,82 @@ fn a_request_deeper_than_the_raw_limit_is_rejected_before_any_walk() {
     .expect_err("rejected");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
 }
+
+fn element_entry() -> agent_desktop_core::RefEntry {
+    agent_desktop_core::RefEntry {
+        process: agent_desktop_core::RefProcess {
+            pid: agent_desktop_core::ProcessId::new(77),
+            process_instance: Some("i".into()),
+        },
+        identity: agent_desktop_core::RefEntryIdentity {
+            retained_object: None,
+            role: "button".into(),
+            name: None,
+            value: None,
+            description: None,
+            native_id: None,
+        },
+        geometry: agent_desktop_core::RefGeometry {
+            bounds: None,
+            bounds_hash: None,
+        },
+        capabilities: agent_desktop_core::RefCapabilities {
+            states: Vec::new(),
+            available_actions: Vec::new(),
+        },
+        source: agent_desktop_core::RefSource {
+            source_app: None,
+            source_window_id: None,
+            source_window_title: None,
+            source_window_bounds_hash: None,
+            source_surface: SnapshotSurface::Window,
+        },
+        scope: agent_desktop_core::RefScope {
+            root_ref: None,
+            path_is_absolute: false,
+            path: Default::default(),
+        },
+    }
+}
+
+fn seed_seen_by_an_element_root(in_web: bool) -> bool {
+    let mut element = AtspiElement::new(":1.7", "/org/a11y/atspi/accessible/9", 77);
+    element.set_ancestry(crate::tree::ancestry::Ancestry::of(None, None, in_web));
+    let handle = element.into_native_handle();
+    let entry = element_entry();
+    let root = ObservationRoot::Element {
+        handle: &handle,
+        entry: &entry,
+        root_ref: None,
+    };
+    let mut seed = None;
+    observe_plain(root, &request(), |_, limits, _| {
+        seed = Some(limits.root_in_web);
+        one_node_walk(limits)
+    })
+    .expect("the element root observes");
+    seed.expect("the walk ran")
+}
+
+#[test]
+fn an_element_root_seeds_the_walk_from_the_web_context_its_handle_carries() {
+    assert!(seed_seen_by_an_element_root(true));
+    assert!(!seed_seen_by_an_element_root(false));
+}
+
+#[test]
+fn a_window_root_never_seeds_the_walk_inside_a_web_document() {
+    let id = window_id::encode(":1.7", "/a").expect("encodes");
+    let window = window(id);
+    let mut seed = None;
+    observe_plain(
+        ObservationRoot::Window(&window),
+        &request(),
+        |_, limits, _| {
+            seed = Some(limits.root_in_web);
+            one_node_walk(limits)
+        },
+    )
+    .expect("observes");
+    assert_eq!(seed, Some(false));
+}
