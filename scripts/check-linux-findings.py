@@ -12,6 +12,7 @@ SCOPES = {"api-contract", "app", "box"}
 VERDICT = re.compile(r"(CONFIRMS|CONTRADICTS|NEW-EDGE|DEFERRED)(?: \([^()]*\))?")
 ROW = re.compile(r"^\|\s*(L\d+-\d+)\s*\|")
 ID = re.compile(r"\bL\d+-\d+\b")
+SEPARATOR = re.compile(r"^\|[\s:|-]*-[\s:|-]*\|?\s*$")
 CLOSURE = re.compile(r"closure:\s*3\.(?:1[0-5]|[0-9])(?:\.\d+)?(?!\d)")
 IDENTITY = [
     (re.compile(r"/home/\w+"), "home path"),
@@ -59,6 +60,22 @@ def check_row(cells):
     return problems
 
 
+def table_rows(text):
+    rows, invalid, in_table, header = [], [], False, ""
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.startswith("|"):
+            in_table, header = False, ""
+        elif SEPARATOR.match(line):
+            in_table = split_cells(header)[:1] == ["id"]
+        elif not in_table:
+            header = line
+        elif match := ROW.match(line):
+            rows.append((match.group(1), split_cells(line)))
+        else:
+            invalid.append((f"line {number}", "findings row without a valid L<n>-<n> id"))
+    return rows, invalid
+
+
 def identity_problems(text):
     patterns = list(IDENTITY)
     for token in filter(None, (t.strip() for t in os.environ.get("AGENT_DESKTOP_BOX_IDENTITY", "").split(","))):
@@ -80,14 +97,14 @@ def main():
         print("check-linux-findings: no Linux ledger and no citations, nothing to check")
         return 0
     text = args.ledger.read_text()
-    rows = [(m.group(1), split_cells(line)) for line in text.splitlines() if (m := ROW.match(line))]
+    rows, invalid = table_rows(text)
     if args.sub_phase:
         named = re.compile(re.escape(args.sub_phase) + r"(?!\d|\.\d)")
         for row_id, cells in rows:
             if len(cells) == 8 and named.search(cells[7]):
                 print(f"{row_id}\t{cells[6]}\t{cells[7]}")
         return 0
-    violations, seen = [], set()
+    violations, seen = list(invalid), set()
     for row_id, cells in rows:
         if row_id in seen:
             violations.append((row_id, "duplicate id"))
