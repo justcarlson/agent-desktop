@@ -30,6 +30,11 @@ class Action(Structure):
                 ("key", Key), ("drag", Drag)]
 
 
+EXECUTE_ARGS = [c_void_p, c_char_p, POINTER(Action), c_int32, POINTER(c_char_p)]
+EXECUTE_TIMEOUT_ARGS = [c_void_p, c_char_p, POINTER(Action), c_int32, c_int64,
+                        POINTER(c_char_p)]
+
+
 def bind(lib, name, result, args):
     function = getattr(lib, name)
     function.restype = result
@@ -76,11 +81,8 @@ def main():
     action_size = bind(lib, "ad_action_size", ctypes.c_size_t, [])
     snapshot = bind(lib, "ad_snapshot", c_int32,
                     [c_void_p, c_char_p, c_int32, c_uint8, c_bool, c_bool, POINTER(c_char_p)])
-    execute = bind(lib, "ad_execute_by_ref", c_int32,
-                   [c_void_p, c_char_p, c_char_p, POINTER(Action), c_int32, POINTER(c_char_p)])
-    execute_timeout = bind(lib, "ad_execute_by_ref_timeout", c_int32,
-                           [c_void_p, c_char_p, c_char_p, POINTER(Action), c_int32,
-                            c_int64, POINTER(c_char_p)])
+    execute = bind(lib, "ad_execute_by_ref", c_int32, EXECUTE_ARGS)
+    execute_timeout = bind(lib, "ad_execute_by_ref_timeout", c_int32, EXECUTE_TIMEOUT_ARGS)
     if action_size() != ctypes.sizeof(Action):
         raise RuntimeError("AdAction ctypes layout does not match the loaded release dylib")
 
@@ -104,9 +106,9 @@ def main():
         out = c_char_p()
         started = time.monotonic()
         if timeout is None:
-            rc = execute(adapter, ref_id.encode(), None, byref(click), 0, byref(out))
+            rc = execute(adapter, ref_id.encode(), byref(click), 0, byref(out))
         else:
-            rc = execute_timeout(adapter, ref_id.encode(), None, byref(click), 0,
+            rc = execute_timeout(adapter, ref_id.encode(), byref(click), 0,
                                  timeout, byref(out))
         elapsed = round((time.monotonic() - started) * 1000)
         return rc, take_json(out, free_string), elapsed
