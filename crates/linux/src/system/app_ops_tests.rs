@@ -1,6 +1,6 @@
-use agent_desktop_core::{AppInfo, ErrorCode};
+use agent_desktop_core::{AppInfo, AppPresentation, ErrorCode};
 
-use super::scoped_outcome;
+use super::{one_entry_per_process, scoped_outcome};
 
 fn app() -> AppInfo {
     AppInfo {
@@ -36,4 +36,33 @@ fn a_running_process_off_the_bus_is_app_not_found_naming_the_connection() {
 fn a_name_nothing_matches_is_the_ordinary_empty_answer() {
     let found = scoped_outcome(Vec::new(), "nothing", |_| None).expect("empty");
     assert!(found.is_empty());
+}
+
+fn entry(pid: u32, instance: &str, presentation: AppPresentation) -> AppInfo {
+    AppInfo {
+        pid: pid.into(),
+        process_instance: Some(instance.to_owned()),
+        presentation: Some(presentation),
+        ..app()
+    }
+}
+
+#[test]
+fn two_connections_of_one_process_list_once_as_foreground_when_either_has_windows() {
+    let merged = one_entry_per_process(vec![
+        entry(9, "b:1", AppPresentation::Background),
+        entry(9, "b:1", AppPresentation::Foreground),
+    ]);
+    assert_eq!(merged.len(), 1);
+    assert_eq!(merged[0].presentation, Some(AppPresentation::Foreground));
+}
+
+#[test]
+fn processes_that_differ_in_pid_or_start_time_stay_separate() {
+    let merged = one_entry_per_process(vec![
+        entry(9, "b:1", AppPresentation::Foreground),
+        entry(10, "b:1", AppPresentation::Foreground),
+        entry(9, "b:2", AppPresentation::Foreground),
+    ]);
+    assert_eq!(merged.len(), 3);
 }

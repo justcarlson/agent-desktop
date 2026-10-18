@@ -37,13 +37,38 @@ fn infos(
         .into_iter()
         .map(|window| window.app)
         .collect();
-    Ok(registry
-        .apps
-        .iter()
-        .enumerate()
-        .filter(|(_, app)| select(app))
-        .map(|(index, app)| info(app, windowed.contains(&index)))
-        .collect())
+    Ok(one_entry_per_process(
+        registry
+            .apps
+            .iter()
+            .enumerate()
+            .filter(|(_, app)| select(app))
+            .map(|(index, app)| info(app, windowed.contains(&index)))
+            .collect(),
+    ))
+}
+
+/// Collapses the entries one process has on the registry into one. A Qt
+/// application opens two accessibility connections, only one of which owns
+/// the windows, and listing both would show a single process twice and make
+/// its own name ambiguous. The entry that presents windows decides the
+/// presentation.
+pub(crate) fn one_entry_per_process(apps: Vec<AppInfo>) -> Vec<AppInfo> {
+    let mut merged: Vec<AppInfo> = Vec::with_capacity(apps.len());
+    for app in apps {
+        match merged
+            .iter_mut()
+            .find(|seen| seen.pid == app.pid && seen.process_instance == app.process_instance)
+        {
+            Some(seen) => {
+                if app.presentation == Some(AppPresentation::Foreground) {
+                    seen.presentation = app.presentation;
+                }
+            }
+            None => merged.push(app),
+        }
+    }
+    merged
 }
 
 pub(crate) fn inventory(bus: &SharedBus, deadline: Deadline) -> Result<AppInventory, AdapterError> {
