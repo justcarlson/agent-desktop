@@ -1827,6 +1827,16 @@ The 3.1 stranger dogfood (`docs/dogfood-reports/2026-10-18-001-feat-linux-3-1-to
 - `snapshot` without `--app` under a session where no frame carries `ACTIVE` ends in the generic `No focused window found` (a headless Wayland session never sets `ACTIVE`, L13-5); a Linux-specific hint would be a core change.
 - The Linux platform skill is §3.13, which gains the stranger dogfood's skill findings (F7, J6).
 
+The 3.4 stranger dogfood (`docs/dogfood-reports/2026-10-18-004-feat-linux-3-4-observation-dogfood.md`) adds these cross-platform core and core-skill items. Phase 3 changes none of them; each is an owner decision, listed with its evidence:
+
+- The private-file-parent error (`crates/core/src/private_file_parent.rs:22-26`) names no directory and gives no `chmod 700 <dir>` suggestion, so a state root created group-writable by the operator's environment ends a default-namespace `snapshot` in an unactionable `INTERNAL` (F1).
+- Trait-default `not_supported()` errors name internal methods (`resolve_element_strict`, `capture_signal_baseline`) and carry `retry: safe` (`crates/core/src/adapter_error.rs:137-146`), which tells an agent to retry a permanent condition (F8).
+- `--compact` is a no-op on every platform whenever bounds are collected, because `is_collapsible` (`crates/core/src/ref_alloc.rs:94-123`) runs before the bounds strip (~277-283); it should be evaluated after the strip, or ignore bounds when `include_bounds` is false (F10).
+- The core skill says observation commands carry no `disposition` (`skills/agent-desktop/SKILL.md:60`) but core attaches one to their errors (F12).
+- The `SNAPSHOT_NOT_FOUND` suggestion is FFI-flavoured (`crates/core/src/adapter_error.rs:80,217`, `crates/core/src/actionability/live.rs:165`), and an unknown `--role` lists no valid roles (`crates/core/src/live_locator/validate.rs:46`) (F15).
+- The core `APP_NOT_FOUND` suggestion text is Windows-flavoured (`.exe` suffix, `crates/core/src/app_lookup.rs:80-82`) and reaches Linux callers (F3).
+- The core skill should state that `--max-depth` and `--skeleton` count semantic levels, so output nesting can exceed the number because empty layout wrappers are skipped (F5, F6), and should document the `available_actions` node field and the `process_instance` field on apps and windows (F11).
+
 ### Objectives
 
 Linux parity (original scope):
@@ -1988,7 +1998,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Depends on:** 3.4
 
-**Exit criteria:** `find`/`get`/`is` are live on Linux; `STALE_REF`/`AMBIGUOUS_TARGET` semantics proven with committed probe evidence.
+**Exit criteria:** `find`/`get`/`is` are live on Linux; `STALE_REF`/`AMBIGUOUS_TARGET` semantics proven with committed probe evidence; `snapshot --root @ref`, `get` and `is` run end to end on GNOME apps (the 3.4 stranger dogfood met `PLATFORM_NOT_SUPPORTED` on each, F2, J8, J9).
 
 **Est. PR size:** ~2k LOC
 
@@ -2089,6 +2099,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 - `ProcessState` probes: `/proc/<pid>/stat` state (`T` → `Unresponsive` after a bounded AT-SPI timeout, `Z`/missing → exited). Every AT-SPI read made for liveness carries an explicit short timeout because the default is 25 s (L11-15); a timeout alone is `TIMEOUT`. Exit status (`Exited { code }` vs `Crashed`) is available only for a process the adapter spawned itself; apps started through `gio launch`, `gtk-launch` or a desktop-id API are reparented to the user service manager and leave `/proc` without a recoverable status, so they report `Exited { code: None }` (L11-13)
 - `is_protected_process` — the protected-process list is decided from the input results of 3.8 (L11-28)
 - `press_key_for_app` under the same focus policy
+- `desktop_entry.rs` also reads `Name`; `--app` accepts it as a match alias for a process whose exe basename equals the entry's Exec program basename; the listed name is unchanged (ledger L19-1). The 3.4 stranger dogfood found that `Calculator`, `Files` and `Text Editor` match nothing while `gnome-calculator`, `nautilus` and `gnome-text-editor` do (F3, J10)
 
 **Key APIs:** `std::process::Command`, `gio launch`/`gtk-launch`, `_NET_CLOSE_WINDOW`, `xdotool`/`wmctrl`, `/proc/<pid>/stat`
 
@@ -2175,6 +2186,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 - Release matrix: CLI binary added for `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`, reusing the runners Phase 1.5 already builds the FFI cdylib on
 - `skills/agent-desktop-linux/SKILL.md` — see Skill Update below
 - `skills get platform` returns the Linux skill on Linux and `skills` marks it `current`. The selection table is in `crates/core/src/commands/skills.rs` and has no Linux arm, so this needs the cross-platform core change listed in the Phase 3 introduction (`docs/dogfood-reports/2026-10-18-001-feat-linux-3-1-toolchain-bus-dogfood.md` F7, J6); the skill text carries the bus bootstrap, which commands work, and what an empty `supported_surfaces` means
+- The Linux skill states what a Linux caller meets, as measured by the 3.4 stranger dogfood: `--app` takes the process name `list-apps` shows (gnome-calculator, nautilus, gnome-text-editor) or the registry name (org.gnome.Nautilus); display names such as Calculator or Files are accepted only once the desktop-entry alias lands (3.9, F3); `--max-depth` and `--skeleton` count semantic levels, and empty layout wrappers do not count, so output nesting can exceed the number (F5, F6); the Linux skill lists the commands that are not available yet, so an agent does not discover them by failure (F9); window ids are opaque addresses (34-70 characters) valid for the life of the window's process, so re-run `list-windows` after a restart (F13); `bundle_id` is omitted on Linux (F11)
 - README platform table: Linux column → **Yes**; minimum glibc (2.35, Ubuntu 22.04 baseline) documented
 
 **Key APIs:** none new — packaging only
