@@ -314,7 +314,8 @@ jobs:
 
       - name: Status and permissions report the missing bus as denied accessibility
         run: |
-          export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent XDG_RUNTIME_DIR="$(mktemp -d)"
+          XDG_RUNTIME_DIR=$(mktemp -d)
+          export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent XDG_RUNTIME_DIR
           for command in status permissions; do
             JSON=$(target/release/agent-desktop "$command") || true
             printf '%s\n' "$JSON"
