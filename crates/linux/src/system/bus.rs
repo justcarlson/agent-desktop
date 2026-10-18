@@ -110,8 +110,10 @@ fn connect(deadline: Deadline) -> Result<Connection, AdapterError> {
 }
 
 /// Reads `ChildCount` from the AT-SPI registry root, which answers even when
-/// no application is registered.
+/// no application is registered. A connection-level failure drops `connection`
+/// from `bus` so the next call reconnects.
 pub(crate) fn probe_registry(
+    bus: &SharedBus,
     connection: &Connection,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
@@ -128,9 +130,22 @@ pub(crate) fn probe_registry(
             )
             .await
             .map(|_| ())
-            .map_err(|error| classify(&error))
+            .map_err(|error| {
+                if is_connection_failure(&error) {
+                    bus.forget(connection);
+                }
+                classify(&error)
+            })
     })?;
     ensure_budget(deadline)
+}
+
+pub(crate) fn is_connection_failure(error: &zbus::Error) -> bool {
+    match error {
+        zbus::Error::InputOutput(io) => io.kind() != ErrorKind::TimedOut,
+        zbus::Error::MethodError(..) => false,
+        _ => false,
+    }
 }
 
 /// The process-wide accessibility connection, opened on first use. A success
@@ -141,16 +156,31 @@ pub(crate) struct SharedBus {
 }
 
 impl SharedBus {
+    fn cached(&self) -> Option<Connection> {
+        self.slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
     pub(crate) fn get(&self, deadline: Deadline) -> Result<Connection, AdapterError> {
         ensure_budget(deadline)?;
-        let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
-        ensure_budget(deadline)?;
-        if let Some(connection) = slot.as_ref() {
-            return Ok(connection.clone());
+        if let Some(connection) = self.cached() {
+            return Ok(connection);
         }
         let connection = connect(deadline)?;
-        *slot = Some(connection.clone());
-        Ok(connection)
+        let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
+        Ok(slot.get_or_insert(connection).clone())
+    }
+
+    pub(crate) fn forget(&self, connection: &Connection) {
+        let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
+        let same = slot
+            .as_ref()
+            .is_some_and(|held| held.inner().unique_name() == connection.inner().unique_name());
+        if same {
+            *slot = None;
+        }
     }
 }
 

@@ -8,7 +8,7 @@ pub(crate) fn report(
     deadline: Deadline,
 ) -> Result<PermissionReport, AdapterError> {
     let connection = bus.get(deadline)?;
-    probe_registry(&connection, deadline)?;
+    probe_registry(bus, &connection, deadline)?;
     ensure_budget(deadline)?;
     Ok(PermissionReport {
         accessibility: PermissionState::Granted,

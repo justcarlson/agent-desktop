@@ -35,3 +35,18 @@ fn an_unrecognised_method_error_is_internal_and_names_the_error() {
             .is_some_and(|detail| detail.contains("org.example.Error.Unheard"))
     );
 }
+
+#[test]
+fn only_a_transport_failure_drops_the_cached_connection() {
+    let broken = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
+        ErrorKind::BrokenPipe,
+    )));
+    let slow = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
+        ErrorKind::TimedOut,
+    )));
+    assert!(is_connection_failure(&broken));
+    assert!(!is_connection_failure(&slow));
+    assert!(!is_connection_failure(&method_error(
+        "org.example.Error.Unheard"
+    )));
+}
