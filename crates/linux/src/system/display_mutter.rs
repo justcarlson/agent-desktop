@@ -1,15 +1,20 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline};
 use zbus::connection::Builder;
 use zbus::zvariant::OwnedValue;
 
 use super::bus_deadline::within;
+use super::bus_slice::within_slice;
 
 const SERVICE: &str = "org.gnome.Mutter.DisplayConfig";
 const PATH: &str = "/org/gnome/Mutter/DisplayConfig";
 const INTERFACE: &str = "org.gnome.Mutter.DisplayConfig";
 const LOGICAL_LAYOUT: u32 = 1;
+
+/// The share of an X11 listing Mutter may take to supply scales.
+pub(crate) const OPTIONAL_SLICE: Duration = Duration::from_millis(500);
 
 /// One logical monitor as Mutter reports it. The reply carries position,
 /// scale, the primary flag and the connectors driving it, but no size; the
@@ -103,4 +108,15 @@ pub(crate) fn logical_monitors(
     deadline: Deadline,
 ) -> Result<Option<Vec<LogicalMonitor>>, AdapterError> {
     within(deadline, async { Ok(get_current_state().await) })
+}
+
+/// Like `logical_monitors`, but a Mutter that does not answer within `slice`
+/// is reported as absent instead of spending the caller's budget.
+pub(crate) fn logical_monitors_within(
+    deadline: Deadline,
+    slice: Duration,
+) -> Result<Option<Vec<LogicalMonitor>>, AdapterError> {
+    within(deadline, async {
+        Ok(within_slice(slice, get_current_state()).await.flatten())
+    })
 }

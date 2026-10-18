@@ -351,6 +351,7 @@ Size: `docs/phases.md` estimates about 2k LOC; this plan is roughly 3.3-4k lines
 - **Test scenarios:**
   - Two RandR monitors, one primary, return the primary first with each id, bounds and `is_primary` as given.
   - A Mutter monitor with scale 2.0 matched by connector sets that display's scale; a monitor Mutter does not list keeps scale 1.0 on X11.
+  - On X11 a Mutter that errors or does not answer within 500 ms leaves every scale at 1.0 and the RandR monitors are still listed; an unreadable RandR stays an error.
   - The single measured case (`Virtual1 1280x800`, scale 1.0, primary) reproduces from its values.
   - A Wayland session without Mutter returns `PLATFORM_NOT_SUPPORTED` whether or not `DISPLAY` is set; a Wayland session with Mutter lists its monitors from Mutter alone.
 - **Verification:** the scenarios pass; live: the private Xvfb with virtual monitors defined through `xrandr --setmonitor` lists them all, and the live GNOME session shows the Mutter scale.

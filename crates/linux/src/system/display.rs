@@ -131,6 +131,17 @@ pub(crate) fn decide(
     }
 }
 
+/// The X11 answer. Mutter only supplies scales there, so a Mutter that
+/// failed or ran out of time leaves every scale at one, and the RandR
+/// monitors are still reported.
+pub(crate) fn decide_x11(
+    server: DisplayServer,
+    monitors: Option<Vec<X11Monitor>>,
+    mutter: Result<Option<Vec<LogicalMonitor>>, AdapterError>,
+) -> Result<Vec<DisplayInfo>, AdapterError> {
+    decide(server, monitors, mutter.unwrap_or(None))
+}
+
 /// Lists the session's displays. On X11 the monitor list comes from RandR
 /// and Mutter's `DisplayConfig` supplies each monitor's scale where it
 /// answers; on Wayland Mutter is the only measured source and a session
@@ -144,8 +155,9 @@ pub(crate) fn list_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, Adap
         ),
         server @ DisplayServer::X11(_) => {
             let pending = x11::start(|| MonitorReader.read());
-            let mutter = display_mutter::logical_monitors(deadline)?;
-            decide(server, pending.finish(deadline).flatten(), mutter)
+            let mutter =
+                display_mutter::logical_monitors_within(deadline, display_mutter::OPTIONAL_SLICE);
+            decide_x11(server, pending.finish(deadline).flatten(), mutter)
         }
         server @ DisplayServer::Unavailable(_) => decide(server, None, None),
     }

@@ -1,6 +1,6 @@
 use agent_desktop_core::ErrorCode;
 
-use super::decide;
+use super::{decide, decide_x11};
 use crate::system::display_mutter::LogicalMonitor;
 use crate::system::display_server::{Cause, DisplayServer, Unavailable};
 use crate::system::x11::X11Monitor;
@@ -173,4 +173,36 @@ fn a_missing_display_and_a_refused_one_say_why() {
     };
     assert_eq!(cause(&missing).as_deref(), Some("missing"));
     assert_eq!(cause(&refused).as_deref(), Some("refused"));
+}
+
+#[test]
+fn a_mutter_that_timed_out_still_reports_the_randr_monitors_at_scale_one() {
+    let monitors = vec![monitor("DP-1", &["DP-1"], 0, 1920, true)];
+    let displays = decide_x11(
+        x11(),
+        Some(monitors),
+        Err(agent_desktop_core::AdapterError::timeout("mutter")),
+    )
+    .expect("randr answered");
+    assert_eq!(displays.len(), 1);
+    assert_eq!(displays[0].scale, 1.0);
+}
+
+#[test]
+fn a_mutter_that_answers_still_supplies_the_scale_on_x11() {
+    let monitors = vec![monitor("DP-1", &["DP-1"], 0, 1920, true)];
+    let displays = decide_x11(
+        x11(),
+        Some(monitors),
+        Ok(Some(vec![logical(&["DP-1"], 2.0, true)])),
+    )
+    .expect("read");
+    assert_eq!(displays[0].scale, 2.0);
+}
+
+#[test]
+fn an_unreadable_randr_stays_an_error_whatever_mutter_says() {
+    let error = decide_x11(x11(), None, Ok(Some(vec![logical(&["DP-1"], 2.0, true)])))
+        .expect_err("unreadable");
+    assert_eq!(error.code, ErrorCode::Internal);
 }
