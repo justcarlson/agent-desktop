@@ -231,6 +231,9 @@ mod windows_capability_claims;
 #[path = "install_doc_claims_tests.rs"]
 mod install_doc_claims;
 
+#[path = "doc_literal_drift_tests.rs"]
+mod doc_literal_drift;
+
 #[test]
 fn listing_timeout_is_accepted_in_cli_and_batch() {
     use clap::Parser;
