@@ -263,7 +263,7 @@ fn a_four_hundred_node_tree_behind_a_wrapper_chain_refs_exactly_its_addressable_
             0 => read_of(PUSH_BUTTON, "b", &["click"]),
             1 => read_of(LABEL, "text", &["menu.popup"]),
             2 => read_of(PANEL, "", &["showContextMenu", "scrollTo"]),
-            _ => read_of(PANEL, "x", &["doDefault"]),
+            _ => read_of(PANEL, "x", &["press"]),
         },
     };
     let expected = (16..400).filter(|key| matches!(key % 4, 0 | 3)).count();

@@ -31,7 +31,8 @@ fn every_recorded_name_maps_as_the_table_states() {
         ("click", Some("Click")),
         ("press", Some("Click")),
         ("activate", Some("Click")),
-        ("doDefault", Some("Click")),
+        ("doDefault", None),
+        ("select", Some("Select")),
         ("open", Some("Click")),
         ("jump", Some("Click")),
         ("Toggle", Some("Toggle")),
@@ -57,7 +58,7 @@ fn every_recorded_name_maps_as_the_table_states() {
 #[test]
 fn names_match_without_regard_to_case() {
     assert_eq!(capability_of("Activate"), capability_of("activate"));
-    assert_eq!(capability_of("DODEFAULT"), Some("Click"));
+    assert_eq!(capability_of("PRESS"), Some("Click"));
 }
 
 #[test]

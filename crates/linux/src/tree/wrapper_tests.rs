@@ -114,8 +114,13 @@ fn read_with(role: u32, actions: Field<Vec<String>>) -> ObservedRead {
 fn classify_reads_the_wrapper_shape_from_the_advertised_actions() {
     let context_menu_only = read_with(PANEL, Field::Present(vec!["showContextMenu".to_owned()]));
     assert!(classify(&context_menu_only).wrapper);
-    let default_action = read_with(PANEL, Field::Present(vec!["doDefault".to_owned()]));
-    assert!(!classify(&default_action).wrapper);
+    let clickable = read_with(PANEL, Field::Present(vec!["click".to_owned()]));
+    assert!(!classify(&clickable).wrapper);
+    let chromium_noise = read_with(
+        PANEL,
+        Field::Present(vec!["doDefault".to_owned(), "showContextMenu".to_owned()]),
+    );
+    assert!(classify(&chromium_noise).wrapper);
     let unreadable_actions = read_with(PANEL, Field::Failed("x".to_owned()));
     assert!(!classify(&unreadable_actions).wrapper);
 }

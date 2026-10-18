@@ -8,9 +8,9 @@ const TABLE: [(&str, &str); 15] = [
     ("click", capability::CLICK),
     ("press", capability::CLICK),
     ("activate", capability::CLICK),
-    ("dodefault", capability::CLICK),
     ("open", capability::CLICK),
     ("jump", capability::CLICK),
+    ("select", capability::SELECT),
     ("check", capability::TOGGLE),
     ("uncheck", capability::TOGGLE),
     ("toggle", capability::TOGGLE),
@@ -27,9 +27,11 @@ fn is_text_entry(role: u32) -> bool {
 }
 
 /// The core capability an advertised action name stands for, if any. Names
-/// match case-insensitively. A delegating name such as `clickAncestor` and a
-/// GAction name such as `clipboard.copy` or `window.close` stand for nothing:
-/// they are not an affordance of the node itself.
+/// match case-insensitively. A delegating name such as `clickAncestor`, a
+/// GAction name such as `clipboard.copy` or `window.close`, and `doDefault`
+/// stand for nothing: the first two are not an affordance of the node itself,
+/// and Chromium advertises `doDefault` on every node, static text included,
+/// so it says nothing about whether the node can be acted on.
 pub(crate) fn capability_of(name: &str) -> Option<&'static str> {
     let lowered = name.to_ascii_lowercase();
     TABLE
