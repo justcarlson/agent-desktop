@@ -103,7 +103,19 @@ where
             break;
         }
         let keys: Vec<K> = frontier.iter().map(|pending| pending.key.clone()).collect();
-        let reads = expand(&keys)?;
+        let reads = match expand(&keys) {
+            Ok(reads) => reads,
+            Err(error) if error.code == ErrorCode::Timeout && !slots.is_empty() => {
+                for pending in &frontier {
+                    if let Some(parent) = pending.parent {
+                        slots[parent].truncated = true;
+                    }
+                }
+                complete = false;
+                break;
+            }
+            Err(error) => return Err(error),
+        };
         let mut next = Vec::new();
         for (pending, (payload, children)) in frontier.into_iter().zip(reads) {
             let index = slots.len();
@@ -159,7 +171,7 @@ pub(crate) fn walk_tree(
     let mut pids = std::collections::HashMap::from([(root.bus_name().to_owned(), root.pid())]);
     let mut at_root = true;
     walk_levels(root.clone(), limits, deadline, |level| {
-        let reads = expand_level(connection.inner(), &mut pids, level, at_root);
+        let reads = expand_level(connection.inner(), &mut pids, level, at_root, deadline);
         at_root = false;
         reads
     })

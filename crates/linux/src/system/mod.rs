@@ -8,3 +8,4 @@ mod permissions;
 mod session;
 
 pub(crate) use bus::{SharedBus, classify};
+pub(crate) use bus_deadline::within;

@@ -1,13 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
-use agent_desktop_core::AdapterError;
+use agent_desktop_core::{AdapterError, Deadline};
 use futures_util::future::join_all;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
 
 use super::node_read::read_node;
 use super::{AtspiElement, RawNode};
-use crate::system::classify;
+use crate::system::{classify, within};
 
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
 const BUS_DAEMON_PATH: &str = "/org/freedesktop/DBus";
@@ -73,8 +73,9 @@ pub(super) fn expand_level(
     pids: &mut HashMap<String, u32>,
     level: &[AtspiElement],
     at_root: bool,
+    deadline: Deadline,
 ) -> Result<Vec<(RawNode, Vec<AtspiElement>)>, AdapterError> {
-    zbus::block_on(async {
+    within(deadline, async {
         let reads: Vec<Result<RawNode, AdapterError>> =
             stream::iter(level.iter().map(|element| read_node(connection, element)))
                 .buffered(NODES_IN_FLIGHT)
