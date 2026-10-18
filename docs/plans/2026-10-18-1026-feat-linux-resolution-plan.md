@@ -331,7 +331,7 @@ Size: Windows' resolver and live-read code is about 2.3k non-test lines across n
 - **Goal:** prove the requirements on real apps in a private session now, re-run them on the live session later, and measure cost; close the three deferred L17 rows.
 - **Requirements:** R1-R11, R12, R15.
 - **Dependencies:** U6, U7, U8.
-- **Files:** `crates/linux/src/tree/resolve_live_tests.rs`, `crates/linux/src/tree/live_read_live_tests.rs`, `crates/linux/src/tree/absence_live_tests.rs` (all `#[ignore]`, in the style of 3.2's live walk, reusing `live_launch.rs`; `find_live_tests.rs` is U7's).
+- **Files:** `crates/linux/src/tree/resolve_live_tests.rs` and `resolve_twin_live_tests.rs` (extended: U6 created them), `crates/linux/src/tree/live_read_live_tests.rs`, `crates/linux/src/tree/absence_live_tests.rs` (all `#[ignore]`, in the style of 3.2's live walk, reusing `live_launch.rs`; `find_live_tests.rs` is U7's).
 - **Approach:** the tests launch their own apps, take a snapshot through core, drive the resolver and live reads through the real adapter, change or destroy the UI by the means U1 found, and stop only the processes they launched, by pid. No capture or probe output is committed or read by a test, and no test waives an error wholesale: each asserts the specific outcome. Terminal is launched with `DISPLAY` and `XAUTHORITY` pushed into the bus activation environment (`L17-26`). VS Code is launched with `--disable-gpu --password-store=basic` through `vscode_arguments`.
 - **Test scenarios:**
   - Covers R1. For Files, Calculator, Settings, Text Editor, Terminal, the Qt window and VS Code, every ref of a snapshot at the default depth resolves, and the resolved element's role, name and bounds equal an independent second read of the same node.
@@ -382,8 +382,8 @@ Size: Windows' resolver and live-read code is about 2.3k non-test lines across n
 | Check | Command or method | Proves |
 |---|---|---|
 | Lint | `cargo clippy --locked -p agent-desktop-core -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi --all-targets -- -D warnings` on the box | quality gate |
-| Unit | `scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-linux` | U3-U8 pure behavior, on every host |
-| Live, private session | through `scripts/remote-linux.sh`: `R=$(mktemp -d $HOME/ad-wt/rt.XXXXXX); chmod 700 $R; XDG_RUNTIME_DIR=$R dbus-run-session -- xvfb-run -a cargo test --locked -p agent-desktop-linux -- --ignored resolve_live live_read_live absence_live`, apps launched inside it | R1-R11 on real apps without the broken live bus |
+| Unit | `cargo test --locked -p agent-desktop-linux --lib` on the box and locally | U3-U8 pure behavior, on every host |
+| Live, private session | through `scripts/remote-linux.sh`: `bash scripts/private-session.sh --wm -- cargo test --locked -p agent-desktop-linux -- --include-ignored --test-threads=1`, apps launched inside it | R1-R11 on real apps without the broken live bus |
 | Live, live session | the same ignored tests on the live session once the owner restores its bus | the legs the private session cannot show |
 | Invert | break each named rule (the `GetRole` corroboration requirement, the timeout branch, the stopped-process mapping, the positional acceptance, the stored-size tie-break and position-blindness, the unread-region rule and empty-web-frame rule, the process-instance check in the gate, the filtered-index rule, the web-flag carry and its handoff to the Element-root walk, the frame-pid separation on the handle, the `hidden` rule (both `VISIBLE` and `SHOWING` absent), the secure withholding, the sentinel rule), watch its test fail, restore | the tests guard what they name |
 | MSRV | `cargo +1.89.0 check --locked -p agent-desktop-linux --all-targets` | toolchain floor |
