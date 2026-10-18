@@ -312,17 +312,30 @@ jobs:
           SCRIPT
           dbus-run-session -- xvfb-run -a bash "$RUNNER_TEMP/status-granted.sh"
 
-      - name: Status fails closed with an actionable error when no bus exists
+      - name: Status and permissions report the missing bus as denied accessibility
         run: |
-          JSON=$(env DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent XDG_RUNTIME_DIR="$(mktemp -d)" target/release/agent-desktop status) || true
+          export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent XDG_RUNTIME_DIR="$(mktemp -d)"
+          for command in status permissions; do
+            JSON=$(target/release/agent-desktop "$command") || true
+            printf '%s\n' "$JSON"
+            printf '%s' "$JSON" | python3 -c '
+          import json, sys
+          doc = json.load(sys.stdin)
+          assert doc.get("ok") is True, "the diagnostic failed instead of reporting the bus"
+          data = doc["data"]
+          access = (data.get("permissions") or data)["accessibility"]
+          assert access["state"] == "denied", "accessibility state is " + access["state"]
+          assert "session bus" in access["suggestion"], "suggestion does not name the session bus"
+          '
+          done
+          JSON=$(target/release/agent-desktop click @s8f3k2p9:e1) || true
           printf '%s\n' "$JSON"
           printf '%s' "$JSON" | python3 -c '
           import json, sys
           doc = json.load(sys.stdin)
-          assert doc.get("ok") is False, "status unexpectedly succeeded without a bus"
-          error = doc["error"]
-          assert error["code"] == "PLATFORM_NOT_SUPPORTED", "unexpected code " + str(error["code"])
-          assert error.get("suggestion"), "error carries no suggestion"
+          assert doc.get("ok") is False, "click unexpectedly succeeded without a bus"
+          assert doc["error"]["code"] == "PERM_DENIED", "unexpected code " + doc["error"]["code"]
+          assert "session bus" in doc["error"]["suggestion"], "error does not carry the recovery step"
           '
 
   test-windows:

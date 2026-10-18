@@ -1,11 +1,19 @@
 use agent_desktop_core::{
-    AdapterError, AdapterSession, Deadline, PermissionReport, SessionAffinity, SystemOps,
+    AdapterError, AdapterSession, Deadline, InteractionLease, PermissionReport, SessionAffinity,
+    SystemOps,
 };
 
 use crate::adapter::LinuxAdapter;
-use crate::system::{permissions, session};
+use crate::system::{interaction_lease, permissions, session};
 
 impl SystemOps for LinuxAdapter {
+    fn acquire_interaction_lease(
+        &self,
+        deadline: Deadline,
+    ) -> Result<InteractionLease, AdapterError> {
+        interaction_lease::acquire(deadline)
+    }
+
     fn permission_report(&self, deadline: Deadline) -> Result<PermissionReport, AdapterError> {
         permissions::report(self.bus(), deadline)
     }

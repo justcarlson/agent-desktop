@@ -8,6 +8,7 @@ use zbus::blocking::Connection;
 use zbus::connection::Builder;
 
 use super::bus_deadline::within;
+use super::bus_fault::{BusFault, Stage};
 
 const BUS_SERVICE: &str = "org.a11y.Bus";
 const BUS_PATH: &str = "/org/a11y/bus";
@@ -15,11 +16,6 @@ const REGISTRY_SERVICE: &str = "org.a11y.atspi.Registry";
 const REGISTRY_ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
 const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
 const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
-const SERVICE_UNKNOWN: &str = "org.freedesktop.DBus.Error.ServiceUnknown";
-const NAME_HAS_NO_OWNER: &str = "org.freedesktop.DBus.Error.NameHasNoOwner";
-const SPAWN_ERROR_PREFIX: &str = "org.freedesktop.DBus.Error.Spawn.";
-
-const UNREACHABLE_SUGGESTION: &str = "No AT-SPI accessibility bus is reachable. Run inside a desktop session with a D-Bus session bus. On GNOME run 'gsettings set org.gnome.desktop.interface toolkit-accessibility true'. Elsewhere install at-spi2-core and run at-spi-bus-launcher. In Flatpak add '--talk-name=org.a11y.Bus'. In snap connect the 'desktop-legacy' and 'unity7' interfaces.";
 
 pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
     if deadline.is_expired() {
@@ -30,29 +26,19 @@ pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
 }
 
 pub(crate) fn classify(error: &zbus::Error) -> AdapterError {
-    match error {
-        zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _)
-            if io.kind() == ErrorKind::TimedOut =>
-        {
-            AdapterError::timeout("The accessibility bus did not answer in time")
-                .with_platform_detail(error.to_string())
-        }
-        zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _)
-            if matches!(
-                io.kind(),
-                ErrorKind::NotFound | ErrorKind::ConnectionRefused
-            ) =>
-        {
-            unreachable_bus(error)
-        }
-        zbus::Error::Address(_) => unreachable_bus(error),
-        zbus::Error::MethodError(name, _, _)
-            if matches!(name.as_str(), SERVICE_UNKNOWN | NAME_HAS_NO_OWNER)
-                || name.as_str().starts_with(SPAWN_ERROR_PREFIX) =>
-        {
-            unreachable_bus(error)
-        }
-        _ => AdapterError::new(
+    classify_at(Stage::AccessibilityBus, error)
+}
+
+pub(crate) fn classify_at(stage: Stage, error: &zbus::Error) -> AdapterError {
+    if let zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _) = error
+        && io.kind() == ErrorKind::TimedOut
+    {
+        return AdapterError::timeout("The accessibility bus did not answer in time")
+            .with_platform_detail(error.to_string());
+    }
+    match BusFault::of(stage, error) {
+        Some(fault) => fault.into_error(error),
+        None => AdapterError::new(
             ErrorCode::Internal,
             "The accessibility bus returned an unexpected error",
         )
@@ -61,22 +47,13 @@ pub(crate) fn classify(error: &zbus::Error) -> AdapterError {
     }
 }
 
-fn unreachable_bus(error: &zbus::Error) -> AdapterError {
-    AdapterError::new(
-        ErrorCode::PlatformNotSupported,
-        "The AT-SPI accessibility bus is not available in this session",
-    )
-    .with_suggestion(UNREACHABLE_SUGGESTION)
-    .with_platform_detail(error.to_string())
-}
-
 fn discover_address(deadline: Deadline) -> Result<String, AdapterError> {
     within(deadline, async {
         let session = Builder::session()
-            .map_err(|error| classify(&error))?
+            .map_err(|error| classify_at(Stage::SessionBus, &error))?
             .build()
             .await
-            .map_err(|error| classify(&error))?;
+            .map_err(|error| classify_at(Stage::SessionBus, &error))?;
         let reply = session
             .call_method(
                 Some(BUS_SERVICE),
@@ -86,11 +63,11 @@ fn discover_address(deadline: Deadline) -> Result<String, AdapterError> {
                 &(),
             )
             .await
-            .map_err(|error| classify(&error))?;
+            .map_err(|error| classify_at(Stage::SessionBus, &error))?;
         reply
             .body()
             .deserialize::<String>()
-            .map_err(|error| classify(&error))
+            .map_err(|error| classify_at(Stage::SessionBus, &error))
     })
 }
 
