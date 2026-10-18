@@ -6,7 +6,9 @@
 #        stdin reaches the remote command: scripts/remote-linux.sh python3 - < probe.py > capture.json
 # Each worktree syncs to its own remote dir. All of them share one remote CARGO_TARGET_DIR:
 # the box disk cannot hold a target dir per worktree, and cargo's build lock serializes them.
-# Gitignored files (.env, .claude/, target/) never leave this machine.
+# Only files git tracks or would add are synced (git ls-files), so gitignored files such as .env,
+# .claude/ and target/ never leave this machine; rsync cannot read .gitignore itself, since a
+# leading ! re-includes in git but clears the rule list in rsync.
 # After every run it warns if the live AT-SPI bus socket is gone: a second bus launcher sharing
 # XDG_RUNTIME_DIR removes it on exit, and every later AT-SPI client then fails.
 # One lock serializes every run, because two runs driving the same X display corrupt
@@ -36,7 +38,10 @@ qdir=$(printf '%q' "$DIR")
 lock="flock -o \$HOME/ad-wt/.box.lock"
 [ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p $qdir"
-rsync -az --delete --exclude .git/ --filter=':- .gitignore' "$ROOT/" "$HOST:$DIR/"
+filter=$(mktemp)
+trap 'rm -f "$filter"' EXIT
+git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ '{p=""; for(i=1;i<NF;i++){p=p $i "/"; if(!(p in d)){d[p]=1; print "+ /" p}} print "+ /" $0} END{print "- *"}' > "$filter"
+rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
   && export CARGO_TARGET_DIR=\$HOME/ad-target && . ./scripts/session-env.sh \
   && { $lock timeout $TIMEOUT $cmd; rc=\$?; \
