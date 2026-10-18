@@ -15,7 +15,9 @@ status=$?
 verdict=ok
 { [ "$status" -ne 0 ] && [ ! -e "$marker" ]; } || verdict=bad
 check "a missing openbox fails and never runs the payload" "$verdict"
-find "$marker" -delete 2>/dev/null || true
+case "$marker" in
+  "${TMPDIR:-/tmp}"/tmp.?*) rm -f -- "$marker" ;;
+esac
 
 # shellcheck disable=SC2016
 seen=$(AT_SPI_BUS_ADDRESS=unix:path=/nonexistent/sentinel NO_AT_BRIDGE=1 GTK_A11Y=none \

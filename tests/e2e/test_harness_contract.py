@@ -12,6 +12,11 @@ SOURCED_SUITE_FILES = [
     *sorted((E2E_ROOT / "scenarios").glob("*.sh")),
 ]
 
+SCRATCH_CLEANUP_EXEMPTIONS = {
+    "private-session.sh": "removes only the private runtime directory it created; it holds sockets and logs, never artifacts",
+    "test-private-session.sh": "removes only the marker file it created; it is a sentinel, never an artifact",
+}
+
 
 class HarnessContractTests(unittest.TestCase):
     def test_sourced_suite_has_one_canonical_exit_path(self):
@@ -41,8 +46,12 @@ class HarnessContractTests(unittest.TestCase):
         self.assertNotIn("abort_suite", finish.group("body"))
 
     def test_shell_harness_never_permanently_removes_artifacts(self):
-        permanent_delete = re.compile(r"(?m)(?:^|[;&|({])\s*rm(?:\s|$)")
+        permanent_delete = re.compile(r"(?m)(?:^|[;&|(){])\s*rm(?:\s|$)")
         offenders = []
+        exempt = set(SCRATCH_CLEANUP_EXEMPTIONS)
+        scripts_dir = E2E_ROOT.parent.parent / "scripts"
+        stale = sorted(name for name in exempt if not (scripts_dir / name).is_file())
+        self.assertEqual(stale, [])
         shell_paths = [
             *E2E_ROOT.glob("*.sh"),
             *(E2E_ROOT / "scenarios").glob("*.sh"),
@@ -50,6 +59,8 @@ class HarnessContractTests(unittest.TestCase):
             *(E2E_ROOT.parent.parent / "scripts").glob("*.sh"),
         ]
         for path in sorted(shell_paths):
+            if path.parent == scripts_dir and path.name in exempt:
+                continue
             if permanent_delete.search(path.read_text()):
                 offenders.append(path.name)
 
