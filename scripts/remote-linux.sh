@@ -14,12 +14,16 @@
 # One lock serializes every run, because two runs driving the same X display corrupt
 # each other's input, focus and hit-test results. AGENT_DESKTOP_REMOTE_LOCK=0 skips the lock;
 # use it only for read-only commands that touch no display, input or app state. -o keeps the
-# lock out of children that outlive the command, such as xclip serving a selection.
+# lock out of children that outlive the command, such as xclip serving a selection, and -w
+# bounds the wait for the lock by the same timeout as the command.
+# Two runs from the same worktree share one remote folder, and the sync happens before the lock,
+# so runs from one worktree must not overlap.
 set -euo pipefail
 HOST=${AGENT_DESKTOP_REMOTE:-linuxbox}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DIR=${AGENT_DESKTOP_REMOTE_DIR:-ad-wt/$(basename "$ROOT")}
 TIMEOUT=${AGENT_DESKTOP_REMOTE_TIMEOUT:-3600}
+case "$TIMEOUT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_TIMEOUT must be whole seconds" >&2; exit 2 ;; esac
 
 if [ "${1:-}" = "-c" ]; then
   [ $# -eq 2 ] || { echo "remote-linux: -c takes exactly one string" >&2; exit 2; }
@@ -35,12 +39,12 @@ mkdir -p "$ROOT/.claude"
 printf '%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$DIR" "$cmd" >> "$ROOT/.claude/remote-linux.log"
 
 qdir=$(printf '%q' "$DIR")
-lock="flock -o \$HOME/ad-wt/.box.lock"
+lock="flock -o -w $TIMEOUT \$HOME/ad-wt/.box.lock"
 [ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p $qdir"
 filter=$(mktemp)
 trap 'rm -f "$filter"' EXIT
-git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ '{p=""; for(i=1;i<NF;i++){p=p $i "/"; if(!(p in d)){d[p]=1; print "+ /" p}} print "+ /" $0} END{print "- *"}' > "$filter"
+git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ 'function esc(s){gsub(/[][*?\\]/, "\\\\&", s); return s} {p=""; for(i=1;i<NF;i++){p=p $i "/"; if(!(p in d)){d[p]=1; print "+ /" esc(p)}} print "+ /" esc($0)} END{print "- *"}' > "$filter"
 rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
   && export CARGO_TARGET_DIR=\$HOME/ad-target && . ./scripts/session-env.sh \

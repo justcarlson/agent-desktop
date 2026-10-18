@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 STACKS = {"dbus", "gi-atspi", "tool"}
 SCOPES = {"api-contract", "app", "box"}
-VERDICTS = {"CONFIRMS", "CONTRADICTS", "NEW-EDGE", "DEFERRED"}
+VERDICT = re.compile(r"(CONFIRMS|CONTRADICTS|NEW-EDGE|DEFERRED)(?: \([^()]*\))?")
 ROW = re.compile(r"^\|\s*(L\d+-\d+)\s*\|")
 ID = re.compile(r"\bL\d+-\d+\b")
 CLOSURE = re.compile(r"closure:\s*3\.(?:1[0-5]|[0-9])(?:\.\d+)?(?!\d)")
@@ -51,10 +51,10 @@ def check_row(cells):
         problems.append(f"stack {stack!r} is not dbus, gi-atspi, tool or a ' + ' combination")
     if scope not in SCOPES:
         problems.append(f"scope {scope!r} is not api-contract, app or box")
-    word = verdict.split()[0] if verdict.split() else ""
-    if word not in VERDICTS:
-        problems.append(f"verdict {verdict!r} is not CONFIRMS, CONTRADICTS, NEW-EDGE or DEFERRED")
-    if word == "DEFERRED" and not ("needs:" in action and CLOSURE.search(action)):
+    match = VERDICT.fullmatch(verdict)
+    if not match:
+        problems.append(f"verdict {verdict!r} is not CONFIRMS, CONTRADICTS, NEW-EDGE or DEFERRED, optionally with one parenthetical note")
+    if match and match.group(1) == "DEFERRED" and not ("needs:" in action and CLOSURE.search(action)):
         problems.append("DEFERRED action needs 'needs:' and 'closure: 3.<n>'")
     return problems
 
@@ -73,10 +73,14 @@ def main():
     parser.add_argument("--sub-phase")
     args = parser.parse_args()
     if not args.ledger.exists():
-        print("check-linux-findings: no Linux ledger, nothing to check")
+        cited = args.phases.exists() and ID.search(args.phases.read_text())
+        if cited:
+            print(f"check-linux-findings: {args.phases.name} cites {cited.group(0)} but {args.ledger} is missing")
+            return 1
+        print("check-linux-findings: no Linux ledger and no citations, nothing to check")
         return 0
     text = args.ledger.read_text()
-    rows = [(ROW.match(line).group(1), split_cells(line)) for line in text.splitlines() if ROW.match(line)]
+    rows = [(m.group(1), split_cells(line)) for line in text.splitlines() if (m := ROW.match(line))]
     if args.sub_phase:
         named = re.compile(re.escape(args.sub_phase) + r"(?!\d|\.\d)")
         for row_id, cells in rows:
