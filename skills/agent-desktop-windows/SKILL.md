@@ -37,7 +37,7 @@ observation, actions and capture there fail or return nothing.
 | Multi-click and focus | `double-click`, `triple-click`, `focus` | Works with global `--headed`; focus is headed-required (A3-4, A19-5) |
 | Keyboard and mouse | `press`, `hover`, `drag`, `mouse-click`, `mouse-move`, `mouse-wheel` | Works; cursor-moving input requires `--headed`; `press --app` synthesizes into the foreground queue after verification (fails closed headless if not already frontmost; non-interactive callers report `delivered_unverified`) |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fails closed with `ACTION_NOT_SUPPORTED` on every platform until a daemon owns held-input lifetime |
-| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `resize-window`, `move-window`, `minimize`, `maximize`, `restore` | Works; `launch` resolves an absolute path or a bare name under System32 or the Windows directory (A21-1), not display names |
+| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `resize-window`, `move-window`, `minimize`, `maximize`, `restore` | Works; `launch` resolves an absolute path or a bare name, with or without `.exe`, under System32 or the Windows directory (A21-1), not display names |
 | Displays | `list-displays` | Works |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; typed text and image content |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`, and `--notification` predicates |
@@ -71,7 +71,7 @@ observation, actions and capture there fail or return nothing.
   non-interactive caller (service, scheduled task, CI job) gets
   `delivered_unverified`.
 - **`launch` needs an absolute path** or a bare name under System32 or the
-  Windows directory, not a display name. Use `list-apps` to find a running app.
+  Windows directory (`notepad` or `notepad.exe`), not a display name. Use `list-apps` to find a running app.
 - **Notifications:** `list-notifications` with the Action Center closed needs
   `--headed`. Single-item `dismiss-notification` and `notification-action` need
   `--headed` and `--expected-app` or `--expected-title` for the entry at INDEX.
@@ -91,7 +91,7 @@ observation, actions and capture there fail or return nothing.
 - Ref actions are semantic UI Automation calls, in headless and `--headed` mode.
 - Notifications work over the Action Center and need `--headed`.
 - `launch` takes an absolute path or a bare name under System32 or the Windows
-  directory, not a display name.
+  directory, with or without `.exe`, not a display name.
 - Held-input commands fail closed on every platform.
 - The cursor overlay renders only for headless semantic actions.
 - In key combos, `cmd` and `meta` are the Windows key, so `meta+c` is a shell
