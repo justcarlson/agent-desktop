@@ -5,7 +5,7 @@ use zbus::Connection as AsyncConnection;
 use zbus::blocking::Connection;
 
 use super::label_read::first_label_target;
-use super::live_launch::{Launched, nonce, program_of};
+use super::live_launch::{Launched, nonce, program_of, vscode_arguments};
 use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
 use super::role_numbers::{NOTIFICATION, TEXT};
@@ -275,16 +275,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let data = std::env::temp_dir().join(nonce("vocabulary-vscode"));
     launched.scratch.push(data.clone());
     let data_arg = data.to_string_lossy().into_owned();
-    let pid = launched.spawn(
-        &program,
-        &[
-            "--no-sandbox",
-            "--user-data-dir",
-            &data_arg,
-            "--disable-extensions",
-            "--new-window",
-        ],
-    );
+    let pid = launched.spawn(&program, &vscode_arguments(&data_arg));
     let (settled, analysis) = walk(bus, "vscode", 200, || pid_frame(connection, pid))?;
     if !settled.walk.complete {
         return Err("vscode: walk incomplete".to_owned());

@@ -67,6 +67,22 @@ impl Drop for Launched {
     }
 }
 
+/// The command line the live tests give VS Code. `--password-store=basic` is
+/// required in a private session: its keyring starts empty, so the first
+/// secrets request makes the keyring daemon open a password prompt nobody
+/// answers, and the browser's UI thread, which also serves the accessibility
+/// bus, blocks on that request and its frame leaves the registry (`L19-4`).
+pub(crate) fn vscode_arguments(user_data_dir: &str) -> [&str; 6] {
+    [
+        "--no-sandbox",
+        "--password-store=basic",
+        "--user-data-dir",
+        user_data_dir,
+        "--disable-extensions",
+        "--new-window",
+    ]
+}
+
 pub(crate) fn nonce(label: &str) -> String {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

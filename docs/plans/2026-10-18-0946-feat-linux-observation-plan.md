@@ -394,7 +394,7 @@ Size: `docs/phases.md` estimates about 2k LOC; this plan is roughly 3.3-4k lines
 - **Requirements:** R1-R14, R16, R20.
 - **Dependencies:** U6, U8, U10, U11, U12.
 - **Files:** `crates/linux/src/tree/observe_live_tests.rs`, `crates/linux/src/system/inventory_live_tests.rs`, `crates/linux/src/system/x11/reader_live_tests.rs` (all `#[ignore]`, in the style of 3.2's live walk and reusing its launch helpers).
-- **Approach:** the tests launch their own Files, Terminal, Settings, Calculator, Text Editor, the Qt window, VS Code, Chrome (fresh profile) and the snap Firefox, drive core's snapshot and list commands through the real adapter, and stop everything they launched. No capture or probe output is committed or read by a test.
+- **Approach:** the tests launch their own Files, Terminal, Settings, Calculator, Text Editor, the Qt window, VS Code, Chrome (fresh profile) and the snap Firefox, drive core's snapshot and list commands through the real adapter, and stop everything they launched. No capture or probe output is committed or read by a test. VS Code is launched with `--password-store=basic`: in a private session its first keyring request opens a prompt nobody answers and its accessibility service stops answering about 3 s later (`L19-4`).
 - **Test scenarios:**
   - Files, Terminal, Settings, Calculator and Text Editor each return a reffed tree, with zero failed reads, whose window id equals the one `list_windows` reports and whose app name equals the one `list_apps` reports (`docs/solutions/best-practices/real-app-tests-are-the-platform-adapter-gate.md`).
   - Files and Calculator at the default depth: the ref count with the wrapper skip against without it is printed, and the controls U1 named are reached.

@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, ErrorCode, NativeHandle};
 use zbus::blocking::Connection;
 
-use super::live_launch::{Launched, environment_note, nonce, program_of};
+use super::live_launch::{Launched, environment_note, nonce, program_of, vscode_arguments};
 use super::live_qt;
 use super::live_tree::{
     action_summary, count_failed, dump, failure_kinds, find_node, frames_where, pid_frame,
@@ -261,16 +261,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let data = std::env::temp_dir().join(nonce("vscode"));
     launched.scratch.push(data.clone());
     let data_arg = data.to_string_lossy().into_owned();
-    let pid = launched.spawn(
-        &program,
-        &[
-            "--no-sandbox",
-            "--user-data-dir",
-            &data_arg,
-            "--disable-extensions",
-            "--new-window",
-        ],
-    );
+    let pid = launched.spawn(&program, &vscode_arguments(&data_arg));
     walk_app(bus, "vscode", 200, || pid_frame(connection, pid)).map(|_| ())
 }
 
