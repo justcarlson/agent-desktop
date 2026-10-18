@@ -6,7 +6,7 @@ mod bus_stage;
 mod interaction_lease;
 mod permissions;
 #[allow(dead_code)]
-mod process_facts;
+pub(crate) mod process_facts;
 mod session;
 pub(crate) mod window_id;
 #[allow(dead_code, unused_imports)]

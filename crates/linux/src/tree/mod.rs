@@ -24,6 +24,7 @@ mod raw_node;
 mod role_numbers;
 mod role_table;
 mod roles;
+mod settle;
 mod state_bits;
 mod states;
 mod value_read;

@@ -260,13 +260,13 @@ Size: `docs/phases.md` estimates about 2k LOC; this plan is roughly 3.3-4k lines
 - **Requirements:** R5, R6.
 - **Dependencies:** U1, U2, U5.
 - **Files:** `crates/linux/src/tree/settle.rs`, `crates/linux/src/tree/settle_tests.rs`, `crates/linux/src/tree/observe.rs`.
-- **Approach:** KTD7, KTD8. `settle.rs` is a pure tracker fed (node count, elapsed, process age, web family, budget left) per walk and returning settled, wait for a delay, or give up; `observe.rs` loops walk and tracker. The parameters are U1's. On give-up the last tree is returned with `structurally_complete=false` and the node count in the stats. The no-connection guidance of KTD8 attaches here only if U1's false-direction measurement calls for it.
+- **Approach:** KTD7, KTD8. `settle.rs` is a pure tracker fed (node count, time waited) per walk, built after the first walk with 70% of the deadline's remaining time, and returning settled (three consecutive equal counts above 32), wait 200 ms, or give up; `observe.rs` loops walk and tracker inside `observe_with`, which takes the walker, the web-process test and the pause as a host so the loop is tested without a bus. A process is web when `process_facts` classifies it or the walked tree holds a numeric-role-95 `document web` node (the 3.3 web-document flag also covers role 82, which every native text editor has, so it is not the trigger). A walk that is already incomplete is returned without polling. A poll that fails with the deadline's timeout returns the walk before it as incomplete; any other failure (the VS Code frame leaving the registry, `L16-9`) is the observation's failure, as a window id root becomes `WINDOW_NOT_FOUND`. On give-up the last tree is returned with `structurally_complete=false`. The no-connection guidance of KTD8 attaches here only if U1's false-direction measurement calls for it.
 - **Execution note:** replay U1's measured curves as plain sequences in the tracker tests, so the rule is checked against the shapes that motivated it.
 - **Test scenarios:**
   - A curve of 18, 18, 18, 18, 370, 380, 386, 386, 386 does not settle at the first plateau (below the ceiling) and settles after the last three equal counts.
   - A curve of 66, 120, 226, 247, 247, 247 settles at 247.
   - A native GTK app (not web family, no `document web`) never waits: one walk, settled.
-  - A warm web process with two equal counts above the ceiling settles without a third poll.
+  - Two equal counts above the ceiling are not enough; a third is needed.
   - A budget smaller than one poll gives up at once with the incomplete flag.
   - The wait never consumes more than its share of the remaining budget.
 - **Verification:** the scenarios pass; inverting the ceiling check or the share cap fails its test; the live run in U14 shows the VS Code and Firefox tree before and after.

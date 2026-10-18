@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, ObservationRequest, ObservationRoot, ObservationSource,
@@ -6,9 +6,14 @@ use agent_desktop_core::{
 };
 
 use super::projection::project;
+use super::settle::{Settle, Step, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
-use crate::system::{SharedBus, window_id};
+use crate::system::{SharedBus, process_facts, window_id};
+
+fn is_web_process(pid: u32) -> bool {
+    process_facts::read(pid).is_some_and(|facts| facts.web_family.is_some())
+}
 
 fn root_element(root: &ObservationRoot<'_>) -> Result<AtspiElement, AdapterError> {
     match root {
@@ -44,23 +49,68 @@ fn require_window_surface(surface: SnapshotSurface) -> Result<(), AdapterError> 
     }
 }
 
+type Walker<'a> = dyn FnMut(&AtspiElement, &WalkLimits, Deadline) -> Result<Walk<ObservedRead>, AdapterError>
+    + 'a;
+
+/// Walks until the tree has stopped growing when the process is a web
+/// engine, otherwise once. The second value is false when the wait ended on
+/// its budget with the tree still changing. A later read that fails because
+/// the budget ran out returns the walk before it; any other failure is the
+/// failure of the observation.
+fn settled_walk(
+    root: &ObservationRoot<'_>,
+    element: &AtspiElement,
+    limits: &WalkLimits,
+    request: &ObservationRequest,
+    host: &mut SettleHost<'_>,
+) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
+    let web_process = (host.is_web_process)(element.pid());
+    let mut tracker: Option<(Settle, Instant)> = None;
+    let mut previous: Option<Walk<ObservedRead>> = None;
+    loop {
+        let walk = match (host.walker)(element, limits, request.deadline) {
+            Ok(walk) => walk,
+            Err(error) if error.code == ErrorCode::Timeout && previous.is_some() => {
+                return previous.map(|walk| (walk, false)).ok_or(error);
+            }
+            Err(error) => return Err(window_gone(root, error)),
+        };
+        if !walk.complete || !(web_process || has_web_document(&walk.root)) {
+            return Ok((walk, true));
+        }
+        let (settle, since) = tracker
+            .get_or_insert_with(|| (Settle::new(request.deadline.remaining()), Instant::now()));
+        match settle.after_walk(walk.node_count, since.elapsed()) {
+            Step::Settled => return Ok((walk, true)),
+            Step::GiveUp => return Ok((walk, false)),
+            Step::Wait(gap) => {
+                (host.pause)(gap);
+                previous = Some(walk);
+            }
+        }
+    }
+}
+
+/// What the settle loop needs from outside the tree: the walk itself, whether
+/// a process is a web engine, and how to wait.
+struct SettleHost<'a> {
+    walker: &'a mut Walker<'a>,
+    is_web_process: &'a dyn Fn(u32) -> bool,
+    pause: &'a mut dyn FnMut(Duration),
+}
+
 fn observe_with(
     root: ObservationRoot<'_>,
     request: &ObservationRequest,
-    walker: impl FnOnce(
-        &AtspiElement,
-        &WalkLimits,
-        Deadline,
-    ) -> Result<Walk<ObservedRead>, AdapterError>,
+    mut host: SettleHost<'_>,
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
     require_window_surface(request.surface)?;
     let element = root_element(&root)?;
     let limits = WalkLimits::for_request(&request);
     let started = Instant::now();
-    let walk =
-        walker(&element, &limits, request.deadline).map_err(|error| window_gone(&root, error))?;
-    let complete = walk.complete;
+    let (walk, settled) = settled_walk(&root, &element, &limits, &request, &mut host)?;
+    let complete = walk.complete && settled;
     let (subtree, mut stats) = project(walk, &limits);
     stats.reads.health.deadline_exhausted += u64::from(!complete && request.deadline.is_expired());
     stats.elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
@@ -80,11 +130,25 @@ pub(crate) fn observe_tree(
     root: ObservationRoot<'_>,
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
-    observe_with(root, request, |element, limits, deadline| {
+    let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline| {
         walk_tree(bus, element, limits, deadline)
-    })
+    };
+    let mut pause = std::thread::sleep;
+    observe_with(
+        root,
+        request,
+        SettleHost {
+            walker: &mut walker,
+            is_web_process: &is_web_process,
+            pause: &mut pause,
+        },
+    )
 }
 
 #[cfg(test)]
 #[path = "observe_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "observe_settle_tests.rs"]
+mod settle_tests;
