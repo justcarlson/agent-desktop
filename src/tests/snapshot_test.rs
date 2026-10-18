@@ -138,8 +138,18 @@ mod tests {
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
             let json = run(&["list-apps"]);
-            assert_eq!(json["ok"], false);
-            assert_eq!(json["error"]["code"], "PLATFORM_NOT_SUPPORTED");
+            if json["ok"] == true {
+                assert!(
+                    json["data"]["apps"].is_array(),
+                    "list-apps returns an apps array on Linux"
+                );
+            } else {
+                let message = json["error"]["message"].as_str().unwrap_or_default();
+                assert!(
+                    !message.contains("is not supported on this platform"),
+                    "list-apps is implemented on Linux: {json}"
+                );
+            }
         }
     }
 }
