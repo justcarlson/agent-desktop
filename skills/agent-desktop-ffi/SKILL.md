@@ -1,6 +1,6 @@
 ---
 name: agent-desktop-ffi
-version: 0.4.1
+version: 0.10.1 # x-release-please-version
 tags: ffi, c-bindings, cdylib, python, swift, node, go, rust-ffi
 requirements:
   - agent-desktop-ffi
@@ -167,14 +167,14 @@ to drive the pipeline
      redacted fields. Requires `session start` (or equivalent manifest on disk)
      before creating the adapter; plain session-id adapters write nothing to disk.
 
-  2. **`ad_set_log_callback(cb)`** — installs a `tracing` subscriber layer that
+  2. **`ad_set_log_callback(cb)`** — registers a callback that receives events as
      delivers events as JSON to your callback. `cb` receives an int32_t level
      (1=ERROR … 5=TRACE) and a `const char *msg` valid only for the duration of
      the call. Pass `NULL` to unregister. The layer is installed on the first
      non-null call; if a foreign global subscriber already owns the process at
-     that point, the install fails with `AD_RESULT_ERR_INTERNAL` and no events are
+
      ever delivered. Sensitive field values (password, token, text, …) are
-     replaced with `{"redacted":true}` before formatting. A panicking callback is
+     replaced with `{"redacted":true}` before formatting. The callback must not unwind across the C ABI: catch C++ exceptions and Rust panics inside it, because a violation may abort the host. It is
      caught and silently discarded. The callback may fire from threads other than
      the registering thread, and may still fire briefly after a `NULL` unregister
      — keep the callback and any data it captures valid for the process lifetime.

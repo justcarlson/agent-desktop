@@ -17,6 +17,22 @@
           "type": "json",
           "path": "npm/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "generic",
+          "path": "skills/agent-desktop/SKILL.md"
+        },
+        {
+          "type": "generic",
+          "path": "skills/agent-desktop-ffi/SKILL.md"
+        },
+        {
+          "type": "generic",
+          "path": "skills/agent-desktop-macos/SKILL.md"
+        },
+        {
+          "type": "generic",
+          "path": "skills/agent-desktop-windows/SKILL.md"
         }
       ]
     }

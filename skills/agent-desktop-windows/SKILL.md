@@ -1,6 +1,6 @@
 ---
 name: agent-desktop-windows
-version: 0.8.4
+version: 0.10.1 # x-release-please-version
 tags: windows-automation, accessibility, uia, ai-agent, gui-automation, cli
 requirements:
   - agent-desktop
@@ -42,7 +42,7 @@ observation, actions and capture there fail or return nothing.
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; typed text and image content |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`, and `--notification` predicates |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Works over the Action Center; the commands that raise shell chrome take the foreground, so pass `--headed` when the center is closed |
-| Cursor overlay | `cursor-overlay` | Works; `enable` renders a click-through overlay and `data.rendered` is the renderer's own pipe acknowledgement, not merely a spawned process. `disable` carries no `rendered` field. See Cursor Overlay below |
+| Cursor overlay | `cursor-overlay` | Works; `enable` renders a click-through overlay and `data.rendered` is the renderer's own pipe acknowledgement, not merely a spawned process. `disable` carries no `rendered` field. See `references/shell-and-overlay.md` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
 ## First Contact
@@ -61,11 +61,13 @@ observation, actions and capture there fail or return nothing.
   `--timeout-ms` to `snapshot` instead of concluding the tree is empty.
 - **Headless by default.** Ref actions stay semantic. Only `--headed` commands
   verify exact-window focus and synthesize physical input. `alt+f4`, `win+l`,
-  `win+d`, `alt+tab` and modifier supersets are refused without `--force`.
+  `win+d`, `alt+tab`, `win+r`, `win+x`, `win+e`, `ctrl+shift+esc` and modifier
+  supersets are refused without `--force`.
 - **`type` needs focus permission.** It is physical keystroke synthesis, so a
-  strict-headless `type` returns `POLICY_DENIED`. It always ends
-  `delivered_unverified` (`verification_scope: "unavailable"`): confirm with a
-  fresh `get`.
+  strict-headless `type` returns `POLICY_DENIED`. It ends
+  `delivered_unverified` (`verification_scope: "unavailable"`) when the field
+  exposes no readable Text selection, and can verify when one is readable:
+  confirm with a fresh `get`.
 - **`press --app` writes to the foreground queue** with no per-process
   targeting. A headless press to a non-frontmost app fails closed. A
   non-interactive caller (service, scheduled task, CI job) gets
@@ -88,7 +90,7 @@ observation, actions and capture there fail or return nothing.
 
 ## What differs on Windows
 
-- Ref actions are semantic UI Automation calls, in headless and `--headed` mode.
+- Ref actions are semantic UI Automation calls, in headless and `--headed` mode, except `right-click`, `double-click`, `triple-click`, `type` and `focus`, which are physical or focus-stealing and need `--headed`.
 - Notifications work over the Action Center and need `--headed`.
 - `launch` takes an absolute path or a bare name under System32 or the Windows
   directory, with or without `.exe`, not a display name.
