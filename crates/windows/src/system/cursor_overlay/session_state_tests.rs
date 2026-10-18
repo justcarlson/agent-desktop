@@ -57,7 +57,7 @@ fn a_session_whose_overlay_is_switched_off_reads_finished() {
 /// serialized, so switching it off **removes** the key — the manifest never
 /// contains `"enabled": false` at all. The hand-written fixture above is a
 /// shape the product does not produce, which is why it passed for a condition
-/// that could not fire. `manifest_omits_a_disabled_cursor_overlay` in core
+/// that could not fire. `the_manifest_omits_a_disabled_cursor_overlay_rather_than_writing_it_false` in core
 /// pins the serialization this relies on.
 #[test]
 fn a_manifest_with_the_overlay_key_removed_reads_finished() {

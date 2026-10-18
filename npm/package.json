@@ -30,6 +30,7 @@
     "cli",
     "agent",
     "macos",
+    "windows",
     "a11y"
   ]
 }

@@ -18,8 +18,9 @@
  *  3. Observe via ad_snapshot().  The returned JSON envelope contains the
  *     accessibility tree with snapshot-qualified ref IDs (for example,
  *     "@s8f3k2p9:e5") that address
- *     individual interactive elements.  A refmap is written under
- *     ~/.agent-desktop/ and is keyed to the session.  The envelope carries
+ *     individual interactive elements.  A refmap is written under the state
+ *     root (default ~/.agent-desktop, or AGENT_DESKTOP_HOME) and is keyed to
+ *     the snapshot ID.  The envelope carries
  *     data.snapshot_id. Qualified refs already pin the exact snapshot.
  *
  *  4. Act via ad_execute_by_ref(a, "@s8f3k2p9:e5", &action, policy, &out).
@@ -1204,7 +1205,7 @@ AdResult ad_check_permissions(const struct AdAdapter *adapter);
  * executable path on other platforms). `force = true` skips the
  * graceful-shutdown path, terminates matching app processes, and escalates
  * survivors when the platform supports it. Session-critical
- * processes (loginwindow, WindowServer, Dock, Finder, launchd) are
+ * processes (for example loginwindow and Dock on macOS, csrss.exe and winlogon.exe on Windows) are
  * refused with `AD_RESULT_ERR_INVALID_ARGS` — the protected-process
  * guard is enforced inside the adapter, so FFI and CLI behave
  * identically.
@@ -1348,7 +1349,7 @@ AdResult ad_execute_by_ref_timeout(const struct AdAdapter *adapter,
 
 /**
  * Takes a full CLI-format snapshot of the target application window,
- * allocates `@e` refs for all interactive elements, persists the refmap
+ * allocates snapshot-qualified refs (`@<snapshot_id>:eN`) for all interactive elements, persists the refmap
  * to disk, and writes the JSON envelope into `*out`.
  *
  * The JSON shape matches `agent-desktop snapshot`:

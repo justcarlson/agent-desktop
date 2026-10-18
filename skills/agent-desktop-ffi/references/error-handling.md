@@ -24,7 +24,7 @@ ad_release_exact_window_fields(&win);
 
 ## Last-error accessors
 
-Four accessors share the same per-thread lifetime contract:
+Five accessors share the same per-thread lifetime contract:
 
 | Accessor                        | Returns                                                        |
 |---------------------------------|----------------------------------------------------------------|
@@ -92,7 +92,7 @@ releases may add codes.
 | `AD_RESULT_ERR_TIMEOUT`               |  -9   | Wait exceeded deadline                     |
 | `AD_RESULT_ERR_INVALID_ARGS`          | -10   | Null pointer, bad enum, invalid UTF-8      |
 | `AD_RESULT_ERR_NOTIFICATION_NOT_FOUND`| -11   | Notification index out of range or reordered |
-| `AD_RESULT_ERR_INTERNAL`              | -12   | Internal failure or foreign-subscriber conflict |
+| `AD_RESULT_ERR_INTERNAL`              | -12   | Internal failure or caught Rust panic      |
 | `AD_RESULT_ERR_SNAPSHOT_NOT_FOUND`    | -13   | Requested snapshot ref store is missing    |
 | `AD_RESULT_ERR_POLICY_DENIED`         | -14   | Current action policy blocks this fallback |
 | `AD_RESULT_ERR_AMBIGUOUS_TARGET`      | -15   | Strict re-identification found multiple candidates; re-snapshot |

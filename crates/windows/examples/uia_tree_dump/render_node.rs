@@ -39,9 +39,12 @@ pub(crate) struct NodeFields {
 /// Renders one node's JSON from already-resolved evidence.
 ///
 /// COM-free by construction, which is what makes the marker test possible:
-/// every value-bearing property must go through a withholding renderer here,
-/// and `render_node_tests.rs` fails if any one of them is switched back to a
-/// verbatim `slot()`.
+/// every free-text property (name, description, automation id, help text, full
+/// description, legacy default action, subrole, role description, placeholder)
+/// goes through a withholding renderer here, and `render_node_tests.rs` fails
+/// if any one of them is switched back to a verbatim `slot()`. `class_name` and
+/// `provider_description` are emitted verbatim because they identify the
+/// control class and UIA provider rather than carry user content.
 pub(crate) fn render_node(fields: &NodeFields) -> Value {
     json!({
         "parent_index": fields.position.parent,

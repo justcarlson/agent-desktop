@@ -81,9 +81,9 @@ function Get-NativeTopLevelWindows {
 function Get-NativeGuiThreadInfo {
     <#
     .SYNOPSIS
-        GUITHREADINFO for the foreground thread (idThread 0), read only for
-        its own live-invocation proof today; a later focus-contest scenario
-        is the production consumer.
+        GUITHREADINFO for the given thread id (0 means the foreground
+        thread). The focus oracle in scenarios/Interaction.ps1 calls it with
+        the fixture window's owning thread id.
     #>
     [CmdletBinding()]
     param([uint32]$ThreadId = 0)

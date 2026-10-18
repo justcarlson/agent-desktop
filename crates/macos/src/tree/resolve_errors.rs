@@ -16,7 +16,7 @@ pub(super) fn native_identifier_role_reuse(entry: &RefEntry) -> AdapterError {
 }
 
 /// Core owns the payload (`agent_desktop_core::resolve_errors::identity_unknown_error`)
-/// because it is byte-identical to Windows's copy: an unreadable candidate
+/// so both adapters share one definition: an unreadable candidate
 /// means the same thing whichever adapter's search produced it.
 pub(super) use agent_desktop_core::resolve_errors::identity_unknown_error as identity_unknown;
 

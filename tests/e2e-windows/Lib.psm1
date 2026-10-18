@@ -5,7 +5,8 @@
     always carry their snapshot, independent-observation assertions, and a
     thin snapshot/find/list-windows wrapper keeping tree/envelope reads
     inside this file or sibling LibEnvelope.psm1 - no other harness file
-    touches .ok/.error/.disposition/.data, and this file never calls `exit`;
+    uses dotted .ok/.error/.disposition/.data access (rule 5 does not gate
+    bracket indexing), and this file never calls `exit`;
     only Run-E2E.ps1 does. Lock ordering/leg ledger/Require-Target live in
     LibVerdict.psm1; batch/occluder assertions live in LibEnvelope.psm1 -
     both re-exported below, both split out for the 400-line cap. #>

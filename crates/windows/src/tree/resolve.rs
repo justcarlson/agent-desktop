@@ -267,7 +267,7 @@ pub(crate) fn retry_incomplete_until(
 /// `Timeout` and is one of those - it is a per-call transport timeout inside
 /// the operation's budget, not the budget running out. Deadline exhaustion
 /// carries no retryable stamp, so it still falls through to the caller. Mirrors macOS
-/// (`resolve.rs:275-277`); the granularity split between adapter-loop-settled
+/// (`is_retryable_resolution_error` in `crates/macos/src/tree/resolve.rs`); the granularity split between adapter-loop-settled
 /// and incomplete lives in the `complete`/`retryable` details every resolver
 /// error carries.
 #[cfg(target_os = "windows")]
@@ -280,7 +280,7 @@ pub(crate) fn is_retryable_resolution_error(error: &AdapterError) -> bool {
 /// caller sees why the retries ran out, preserving the incomplete's own
 /// details rather than discarding them for a bare `TIMEOUT`. Core owns the
 /// payload (`agent_desktop_core::resolve_errors::mark_deadline_elapsed`)
-/// because it is line-for-line identical to macOS's copy.
+/// so every platform stamps the same shape.
 #[cfg(target_os = "windows")]
 pub(crate) use agent_desktop_core::resolve_errors::mark_deadline_elapsed;
 

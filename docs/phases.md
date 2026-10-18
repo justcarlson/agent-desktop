@@ -6,40 +6,14 @@
 
 ## Release Tracker
 
-Most recent shipments against this roadmap:
-
-| Version | Date | What shipped |
-|---------|------|---------------|
-| v0.6.0 | 2026-07-25 | **Breaking:** removed the speculative Win32 private-file layer from core (six `private_file_windows*` files, `windows-sys` dropped from core and the workspace — Windows now uses the same portable `std::fs` path as every other non-unix target) and added real `test-windows` / `test-linux` CI lanes that execute core's platform-conditional code on every PR instead of only type-checking it. Windows private-file hardening becomes from-scratch Phase 2.1 work behind the adapter boundary. See [2.1](#21--toolchain-ci--com-bootstrap) and `docs/solutions/best-practices/never-ship-platform-code-that-ci-cannot-execute.md` |
-| v0.5.0 | 2026-07-24 | Foundation reliability contract (Playwright-grade, U0–U19) — capability-supertrait `PlatformAdapter` split, canonical role/state vocabulary, live `is --property visible`, `list-displays` + honest `--screen` + scale factor, truthful Automation permission, `native_id` identity spine, window-id-first resolution, `LocatorQuery` + live `find`, default-on auto-wait, three-way occlusion gate, `scroll_into_view`, core accname computation, `supported_surfaces` introspection, typed `ActionStep` delivery tier, `ProcessState` + `APP_UNRESPONSIVE`, `LaunchOptions`, `SignalBaseline` + `wait --event`, typed clipboard, mouse modifiers/wheel, FFI ABI major 3, envelope 2.1. See [Phase 1.6](#phase-16--playwright-grade-foundation-contract-completed). |
-| v0.4.7 | 2026-07-02 | Trace viewer and replay artifacts |
-| v0.4.6 | 2026-07-02 | Sessions promoted to the first-class trace container: `session start/end/list/gc`, manifest-gated automatic JSONL segments under `sessions/<id>/trace/` |
-| v0.4.5 | 2026-06-30 | `--wait-for` selector polling flags |
-| v0.4.4 | 2026-06-29 | macOS + core adapter hardening with caller-controllable guardrails |
-| v0.4.3 | 2026-06-28 | macOS `retained_handle` null-guard hardening against release-only `CFRetain(null)` |
-| v0.4.2 | 2026-06-27 | FFI Phase B and C: Python smoke harness, parity gates, command-wrapper groundwork |
-| v0.4.1 | 2026-06-26 | FFI C-ABI surface complete (Phase A): load-time ABI handshake, session-scoped adapter, JSON-envelope command entrypoints (version, status, snapshot, wait, execute-by-ref), tracing log callback |
-| v0.4.0 | 2026-06-24 | **Breaking:** `version` command always emits the JSON envelope (drops `--json`); over-engineering cleanup |
-| v0.3.1 | 2026-06-21 | macOS stale-ref resolution hardening |
-| v0.3.0 | 2026-06-20 | Playwright-grade reliability hardening on the Phase 1 contracts: session-scoped latest snapshot pointers, qualified snapshot refs within explicit namespaces, actionability checks, headed/headless policy, JSONL `--trace`, stale-ref diagnostics, and refstore symlink hardening |
-| v0.2.3 | 2026-06-06 | macOS AX window fallback hardening and fullscreen AX tree retrieval fixes |
-| v0.2.2 | 2026-06-02 | macOS CFArray type-safety fix for Mail.app snapshot stability |
-| v0.2.1 | 2026-05-23 | Empty accessibility-identity ref stability fix |
-| v0.2.0 | 2026-05-20 | Unified command execution contracts; chain deadlines now return structured `TIMEOUT` instead of `ACTION_FAILED` |
-| v0.1.14 | 2026-05 | Phase 1 unified core: typed batch/CLI path, `CommandPolicy`, `PermissionReport`, snapshot-scoped `RefStore`, headless `ActionRequest`, macOS screenshot backend boundary |
-| v0.1.13 | 2026-04-17 | FFI cdylib on 5 platforms (aarch64/x86_64 macOS + Linux, x86_64 Windows MSVC), Sigstore build-provenance attestations, FFI review fixes (#26 — 66 commits) |
-| v0.1.12 | 2026-03–04 | Progressive skeleton traversal + ref-rooted drill-down (#20) |
-| v0.1.11 | 2026-02–03 | Skill-install prompt fix on all success paths |
-| v0.1.9  | 2026-01–02 | Scalable skill architecture + ClawHub auto-publish (#14) |
-| v0.1.8  | 2026-01    | `--compact` flag to collapse single-child unnamed nodes |
-| v0.1.7  | 2025-12    | Electron / web app accessibility-tree compatibility |
+Every release, with its date and changes, is listed in [`CHANGELOG.md`](../CHANGELOG.md). Phase milestones:
 
 - Phase 1 completion: incremental across v0.1.0 – v0.1.14 (macOS MVP, 58 shipped command names — 54 operational, 4 fail-closed pending daemon-owned held input — unified core engine).
 - v0.2.0 – v0.3.1 unify command execution contracts and harden Playwright-grade ref reliability on top of the Phase 1 contracts.
 - v0.4.0 – v0.4.7 complete the FFI C-ABI surface (load-time handshake, session-scoped adapter, JSON-envelope entrypoints), then land session-first tracing and a trace viewer.
-- Foundation reliability contract (Playwright-grade, U0–U19) completed on `feat/foundation-playwright-grade-contract` — see [Phase 1.6](#phase-16--playwright-grade-foundation-contract-completed).
+- Foundation reliability contract (Playwright-grade, U0–U19) completed in v0.5.0 (PR #93) — see [Phase 1.6](#phase-16--playwright-grade-foundation-contract-completed).
 - Phase 1.5 completion: v0.1.13 (FFI cdylib on 5 platforms); the FFI C-ABI surface itself (`ad_snapshot` / `ad_execute_by_ref` / `ad_wait` / `ad_version` / `ad_status` / `ad_init` / `ad_abi_version`) completed in v0.4.1.
-- Phase 2: in progress. The entire Windows implementation lands here as dependency-ordered sub-phases 2.0–2.17 into the `feat/windows-adapter` integration branch — nothing Windows defers to a later phase (see the no-convenience-deferral rule in the [Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches)). v0.6.0 already put a real Windows test lane in place; 2.0 (probe corpus) is the first sub-phase PR.
+- Phase 2 completion: v0.10.0 (2026-10-18). The Windows adapter was delivered as dependency-ordered sub-phases 2.0–2.17 on the `feat/windows-adapter` integration branch and promoted to `main` as one `feat!` merge (see the [Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches)).
 - Phase 3+: planned. See each phase section below for the additive platform work and trait defaults that later phases backfill.
 
 ---
@@ -51,7 +25,7 @@ Most recent shipments against this roadmap:
 | 1 | Foundation + macOS MVP | **Completed** (v0.1.0 – v0.1.14) | macOS |
 | 1.5 | FFI Distribution (C-ABI cdylib) | **Completed** (v0.1.13; C-ABI surface completed v0.4.1) | macOS, Windows, Linux |
 | 1.6 | Playwright-grade Foundation Contract | **Completed** (PR #93) | macOS (contract in core) |
-| 2 | Windows Adapter | **In progress** — sub-phases 2.0–2.17; all Windows scope lands here | macOS, Windows |
+| 2 | Windows Adapter | **Completed** — v0.10.0, sub-phases 2.0–2.17 | macOS, Windows |
 | 3 | Linux Adapter | Planned — sub-phases 3.0–3.15 | macOS, Windows, Linux |
 | 4 | MCP Server Mode | Planned | All |
 | 5 | Production Readiness | Planned | All |
@@ -117,7 +91,7 @@ Phase 1 is the load-bearing phase. It establishes the shared command path, trait
 | P1-O2 | Platform adapter trait | Trait compiles with mock adapter; macOS adapter satisfies all trait methods |
 | P1-O3 | Ref-based interaction | `click @s8f3k2p9:e3` successfully invokes AXPress on the resolved element |
 | P1-O4 | Context efficiency | Typical Finder snapshot < 500 tokens (measured via tiktoken) |
-| P1-O5 | Typed JSON contract | Output envelope carries `version: "2.2"`. **Partial**: dedicated standalone JSON-Schema files were never delivered — deferred to later quality gates. |
+| P1-O5 | Typed JSON contract | Output envelope carries `version: "2.4"`. **Partial**: dedicated standalone JSON-Schema files were never delivered — deferred to later quality gates. |
 | P1-O6 | Permission detection | Permission report covers Accessibility, Screen Recording, and Automation with recovery suggestions |
 | P1-O7 | Command extensibility | Adding a new command follows the current shared path: `commands/{name}.rs` + `commands/mod.rs` + `src/cli_args/` + `src/cli/mod.rs` + `src/dispatch/mod.rs` + `src/command_policy/mod.rs` |
 | P1-O8 | 58 shipped command names (54 operational) | All commands pass integration tests; `key-down` / `key-up` / `mouse-down` / `mouse-up` fail closed pending daemon-owned held input |
@@ -166,15 +140,15 @@ agent-desktop/
 │   │       ├── snapshot_surface.rs # SnapshotSurface (predeclared cross-platform surface vocabulary)
 │   │       ├── snapshot.rs      # SnapshotEngine (filter, allocate, serialize)
 │   │       ├── session/         # session start/end/list/gc, manifest, liveness
-│   │       ├── private_file*.rs # 0600-equivalent private artifact writing (portable std::fs on every target; Windows ACL hardening not yet built, see Phase 2.1)
+│   │       ├── private_file*.rs # 0600-equivalent private artifact writing (portable std::fs in core; the Windows implementation lives in crates/windows/src/system/private_file/)
 │   │       ├── trace.rs / trace_read/ # JSONL reliability trace, segment merge, HTML viewer
 │   │       ├── error_code.rs    # ErrorCode enum
 │   │       ├── adapter_error.rs / app_error.rs # AdapterError, AppError
-│   │       ├── output.rs        # ENVELOPE_VERSION ("2.2") + envelope builders
+│   │       ├── output.rs        # ENVELOPE_VERSION ("2.4") + envelope builders
 │   │       ├── notification.rs  # NotificationInfo, NotificationFilter, NotificationIdentity
 │   │       └── commands/        # one file per command (direct match, no Command trait)
 │   ├── macos/              # agent-desktop-macos (Phase 1, shipped)
-│   ├── windows/            # agent-desktop-windows (stub → Phase 2)
+│   ├── windows/            # agent-desktop-windows (Phase 2)
 │   ├── linux/              # agent-desktop-linux (stub → Phase 3)
 │   └── ffi/                # agent-desktop-ffi (cdylib, shipped v0.1.13; C-ABI surface completed v0.4.1; see Phase 1.5)
 ├── src/                    # agent-desktop binary (entry point)
@@ -193,7 +167,7 @@ agent-desktop/
     └── integration/
 ```
 
-This tree is representative, not exhaustive — `crates/core/src/` alone holds roughly 200 files (one struct/enum/fn-group per file) plus the subdirectories named above.
+This tree is representative, not exhaustive — `crates/core/src/` holds hundreds of files (one struct/enum/fn-group per file) plus the subdirectories named above.
 
 ### PlatformAdapter Trait
 
@@ -298,7 +272,7 @@ fn notification_action(&self, request: NotificationActionRequest<'_>, lease: &In
 
 ### macOS Adapter Implementation
 
-Located in `crates/macos/src/` following the platform crate folder structure (49 files under `tree/`, 31 under `actions/`, 30 under `input/`, 47 under `system/`, 12 under `notifications/` — the listing below is a representative subset):
+Located in `crates/macos/src/` following the platform crate folder structure (`tree/`, `actions/`, `input/`, `system/`, `notifications/` — the listing below is a representative subset):
 
 ```
 crates/macos/src/
@@ -393,7 +367,7 @@ Platform-agnostic, lives in `agent-desktop-core`:
 4. Serialize: Omit null fields. Omit empty arrays. Omit bounds in compact mode
 5. Estimate tokens: Optionally warn if exceeding threshold
 
-Snapshot refs persist through `RefStore`. The default namespace stores snapshots under `~/.agent-desktop/snapshots/{snapshot_id}/refmap.json`; `--session <id>` stores the same shape under `~/.agent-desktop/sessions/{id}/snapshots/{snapshot_id}/refmap.json`. Each namespace owns one `latest_snapshot_id` pointer, which `status` reports and pruning protects; no ref action resolves through it. A ref is accepted only in its qualified form `@<snapshot_id>:eN`, which identifies the snapshot within the selected namespace; session-owned snapshots still require the matching `--session` or `AGENT_DESKTOP_SESSION` scope, and lookup never searches another namespace. `~/.agent-desktop/last_refmap.json` remains only as a latest-snapshot inspection artifact. Action commands resolve through `RefStore` using strict re-identification from platform-neutral `RefEntry` evidence — pid, role, path/source surface, role-conditional stable text identity, and bounds hash; mutable control values are volatile and are never treated as stable text identity. Return `STALE_REF` on 0 live candidates and `AMBIGUOUS_TARGET` on 2+ plausible live candidates.
+Snapshot refs persist through `RefStore`. The default namespace stores snapshots under `~/.agent-desktop/snapshots/{snapshot_id}/refmap.json`; `--session <id>` stores the same shape under `~/.agent-desktop/sessions/{id}/snapshots/{snapshot_id}/refmap.json`. Each namespace owns one `latest_snapshot_id` pointer, which `status` reports and pruning protects; no ref action resolves through it. A ref is accepted only in its qualified form `@<snapshot_id>:eN`, which identifies the snapshot within the selected namespace; session-owned snapshots still require the matching `--session` or `AGENT_DESKTOP_SESSION` scope, and lookup never searches another namespace. `~/.agent-desktop/last_refmap.json` is a legacy file that is no longer written; the default namespace reads it once, only to migrate it into a snapshot when no `latest_snapshot_id` exists. Action commands resolve through `RefStore` using strict re-identification from platform-neutral `RefEntry` evidence — pid, role, path/source surface, role-conditional stable text identity, and bounds hash; mutable control values are volatile and are never treated as stable text identity. Return `STALE_REF` on 0 live candidates and `AMBIGUOUS_TARGET` on 2+ plausible live candidates.
 
 **Progressive Skeleton Traversal:**
 - `--skeleton` flag clamps depth to `min(max_depth, 3)`, annotates truncated containers with `children_count` for agent discovery
@@ -436,7 +410,7 @@ The `wait` command has been extended with notification, menu, event-diff, and se
 - `wait --event <kind> [--app ...] [--window-id ...]` — Wait for a `SignalBaseline` diff event (window-opened/closed, app-launched/terminated, focus-changed, surface-appeared); see [Phase 1.6](#phase-16--playwright-grade-foundation-contract-completed)
 - `--wait-for <selector>` — Poll a `LocatorQuery`-shaped selector until it matches (v0.4.5)
 
-### Commands Shipped (58 names — 54 operational, 4 fail closed)
+### Commands Shipped in Phase 1 (58 names — 54 operational, 4 fail closed)
 
 | Category | Commands | Count |
 |----------|----------|-------|
@@ -460,12 +434,12 @@ The `wait` command has been extended with notification, menu, event-diff, and se
 
 ### JSON Output Contract
 
-All commands produce a response envelope with `version: "2.2"`. Standalone schema files are still deferred; the current contract is enforced by Rust serde types, CLI conformance tests, and documented examples.
+All commands produce a response envelope with `version: "2.4"`. Standalone schema files are still deferred; the current contract is enforced by Rust serde types, CLI conformance tests, and documented examples.
 
 Success:
 ```json
 {
-  "version": "2.2",
+  "version": "2.4",
   "ok": true,
   "command": "snapshot",
   "data": {
@@ -484,7 +458,7 @@ Success:
 Error:
 ```json
 {
-  "version": "2.2",
+  "version": "2.4",
   "ok": false,
   "command": "click",
   "error": {
@@ -522,7 +496,7 @@ The `ErrorCode` enum in `crates/core/src/error_code.rs` (`AdapterError` lives in
 | `STALE_REF` | Ref | Element could not be re-identified from the requested snapshot | Run 'snapshot' (or `snapshot --skeleton`) to refresh |
 | `AMBIGUOUS_TARGET` | Ref | Ref identity maps to more than one live candidate | Run 'snapshot' to refresh, then retry with a more specific ref |
 | `WINDOW_NOT_FOUND` | Window | --window w-999 does not exist | Run 'list-windows' to see available windows |
-| `PLATFORM_NOT_SUPPORTED` | Platform | Windows/Linux adapter not yet shipped | This platform ships in Phase 2/3 |
+| `PLATFORM_NOT_SUPPORTED` | Platform | Desktop command on the Linux stub adapter, or an adapter method the platform does not implement | Use macOS or Windows; the Linux adapter ships in Phase 3 |
 | `TIMEOUT` | Wait / Traversal / Auto-wait | wait --element exceeded timeout; auto-wait exceeded 5000ms without the target becoming actionable | Increase --timeout or --timeout-ms, or check app state |
 | `INVALID_ARGS` | Input | Bad CLI argument, unknown ref format, or protected-process close refusal | Fix the argument per CLI help; target a regular application when closing |
 | `NOTIFICATION_NOT_FOUND` | Notification | Notification ID not found / NC reordered | Run 'list-notifications' to see current notifications |
@@ -582,13 +556,13 @@ Current `.github/workflows/ci.yml` runs on push to main/master, pull_request, an
 | `fmt` | ubuntu-latest | `cargo fmt --all -- --check`; shellcheck + bash3-compat on e2e scripts; `py_compile` + unittest on `tests/e2e/*.py`; actionlint on workflow files |
 | `msrv` | ubuntu-latest | `cargo +1.89.0 check` (pinned MSRV) on core, linux, and the binary crate |
 | `platform-check` | matrix: Linux / Windows / macOS | `cargo check --all-targets` per platform crate + binary — proves every crate compiles on its target |
-| `test-windows` | windows-latest | `cargo test -p agent-desktop-core -p agent-desktop-windows --lib` — added in v0.6.0; the first lane that ever executed core's `#[cfg(windows)]` code. Phase 2.1 extends it to clippy, binary-crate tests, the core-isolation check, and the size check |
+| `test-windows` | windows-latest | Dependency and Win32-leak isolation checks, clippy, core and Windows unit tests, Windows example tests, binary command tests, FFI integration tests, the Windows e2e contract gate, the release binary size check — added in v0.6.0 as the first lane that ever executed core's `#[cfg(windows)]` code; `test-windows-arm` runs the core and Windows unit tests, a release build and the packed npm package through its shim on windows-11-arm |
 | `test-linux` | ubuntu-latest | `cargo test -p agent-desktop-core -p agent-desktop-linux --lib` — added in v0.6.0; Phase 3.1 extends it the same way |
 | `test` | macos-latest | Dependency isolation check (`cargo tree -p agent-desktop-core` has zero platform crate names), release-consistency check, file-size rule check, `cargo clippy --all-targets -- -D warnings`, core+macos unit tests, `locator_benchmark` example, `permission-contract.sh`, binary command tests, FFI integration tests, release binary build + version-flag check + 15MB size check, FFI cdylib build (`release-ffi` profile), FFI helper-discovery smoke, npm package tests + wrapper smoke |
 | `ffi-python-smoke` | macos-latest | Builds the FFI dylib with the `stub-adapter` feature, runs `tests/ffi-python/smoke.py` against it |
 | `ffi-header-drift` | macos-latest | `cbindgen 0.29.4 --verify` against the committed `crates/ffi/include/agent_desktop.h` |
 | `ffi-panic-guard` | macos-latest | Asserts `profile.release-ffi` keeps `panic = "unwind"`; runs `crates/ffi/tests/run_cdylib_panic_probe.sh` |
-| `ffi-passthrough` | ubuntu-latest | `cargo test -p agent-desktop-ffi --features stub-adapter --test c_abi_passthrough` — Family-B entrypoints (`ad_snapshot` / `ad_status` / `ad_wait` / `ad_execute_by_ref` / `ad_version` + `ad_init` / `ad_destroy` / `ad_check_permissions`) against the stub adapter |
+| `ffi-passthrough` | ubuntu-latest | `cargo test -p agent-desktop-ffi --features stub-adapter --test c_abi_passthrough` — Family-B entrypoints (`ad_snapshot` / `ad_status` / `ad_wait` / `ad_execute_by_ref` / `ad_version` + `ad_init` / `ad_adapter_destroy` / `ad_check_permissions`) against the stub adapter |
 
 Three more workflows run outside `ci.yml`: `native-e2e.yml` (workflow_dispatch only, self-hosted `[self-hosted, macOS, agent-desktop-e2e]` — builds and runs the exclusive native E2E suite via `scripts/run-native-e2e-ci.sh`), `codeql.yml` (pull_request + push to main/master + weekly cron + workflow_dispatch — CodeQL analysis for GitHub Actions/JS-TS and Rust), and `supply-chain.yml` (pull_request + push to main/master + weekly cron + workflow_dispatch — release-metadata consistency, npm package/publish policy, `cargo-deny`, `zizmor` workflow security audit). `release.yml` (push to main + workflow_dispatch) runs `release-please`, the per-target `build` and `build-ffi` matrices, `ffi-release-gates`, and the `publish-github` / `publish-npm` / `publish-skills` jobs.
 
@@ -632,7 +606,7 @@ Phase 1.5 ships `crates/ffi/` as a first-class distribution target. The CLI stay
 | P1.5-O1 | Stable C-ABI surface | `crates/ffi/include/agent_desktop.h` compiled in CI as the committed ABI contract |
 | P1.5-O2 | 5-platform release | Tarballs for aarch64/x86_64 apple-darwin, aarch64/x86_64 unknown-linux-gnu, and x86_64 pc-windows-msvc on every tagged release |
 | P1.5-O3 | Panic safety | Dedicated `release-ffi` profile overrides `panic = "abort"` → `"unwind"`; `catch_unwind` wraps every `extern "C"` boundary via `trap_panic` / `trap_panic_ptr` / `trap_panic_const_ptr` / `trap_panic_void` |
-| P1.5-O4 | Main-thread safety (macOS) | `require_main_thread()` guard in every build profile; worker-thread call returns `AD_RESULT_ERR_INTERNAL` with a static `'static CStr` message |
+| P1.5-O4 | Main-thread safety (macOS) | No main-thread guard at the FFI boundary: AppKit-backed implementations stay callable from worker threads and the macOS adapter supplies its own autorelease pools |
 | P1.5-O5 | Enum UB immunity | Public ABI struct fields store raw `i32`; every entry validates discriminants at the boundary via `try_from_c_enum!` |
 | P1.5-O6 | Out-param zeroing before any guard | Every fallible entry zeroes `*out` before pointer / UTF-8 / main-thread checks, so a worker-thread early return never leaves a stale caller buffer |
 | P1.5-O7 | Sigstore build-provenance | `actions/attest-build-provenance@v4.1.0` signs every release artifact; consumers verify with `gh attestation verify <file> --repo <owner>/agent-desktop` |
@@ -650,7 +624,7 @@ crates/ffi/
 ├── include/
 │   └── agent_desktop.h  # committed, drift-checked against the OUT_DIR output; AD_ABI_VERSION_MAJOR = 5
 ├── src/                 # ad_* extern "C" entrypoints, organized by domain
-│   ├── types/           # 34 one-type-per-file modules (AdAction, AdRect, AdExactWindowList, ...)
+│   ├── types/           # one-type-per-file modules (AdAction, AdRect, AdExactWindowList, ...)
 │   ├── convert/         # string / rect / window / app / surface / notification helpers
 │   ├── tree/            # BFS flat-tree layout (flatten.rs, get.rs, free.rs)
 │   ├── actions/         # conversion, resolve, execute, result, native_handle
@@ -658,15 +632,13 @@ crates/ffi/
 │   ├── apps/ windows/ input/ screenshot/ surfaces/ notifications/ observation/
 │   ├── error.rs         # AdResult, errno-style TLS last-error (message/suggestion/platform_detail)
 │   ├── ffi_try.rs       # panic boundary helpers (trap_panic_*)
-│   ├── enum_validation.rs # try_from_c_enum! macro, fuzz tests
-│   └── main_thread.rs   # require_main_thread() guard
+│   └── enum_validation.rs # try_from_c_enum! macro, fuzz tests
 ├── tests/
-│   ├── c_abi_harness.rs    # raw extern "C" decls, enum fuzzing, out-param zeroing, null tolerance
+│   ├── c_abi_layout.rs     # struct layout and ABI constants
 │   ├── c_header_compile.rs # shells out to `cc` to verify every AD_* constant is usable from C
 │   ├── c_abi_passthrough.rs # Family-B command entrypoints vs stub adapter (ffi-passthrough CI job)
+│   ├── cdylib_panic_probe.rs # panic boundary on the release-ffi profile
 │   └── error_lifetime.rs   # last-error pointer stability across successful follow-up calls
-└── examples/
-    └── panic_spike.rs   # demonstrates panic boundary on the release-ffi profile
 ```
 
 **Command-backed entrypoints** (`crates/ffi/src/commands/`, all 8 hand-written today):
@@ -682,7 +654,7 @@ crates/ffi/
 | `version.rs` | `ad_version` |
 | `wait.rs` | `ad_wait` |
 
-`envelope_out.rs` and `timeout.rs` in the same directory are shared helpers, not entrypoints; `mod.rs` is module glue. The `ffi-passthrough` CI job exercises the original five Family-B entrypoints (`ad_snapshot`, `ad_status`, `ad_wait`, `ad_execute_by_ref`, `ad_version`) plus `ad_init` / `ad_destroy` / `ad_check_permissions` against the stub adapter; `ad_execute_by_ref_timeout`, `ad_trace_export`, and `ad_trace_show` joined the entrypoint set afterward.
+`envelope_out.rs` and `timeout.rs` in the same directory are shared helpers, not entrypoints; `mod.rs` is module glue. The `ffi-passthrough` CI job exercises the original five Family-B entrypoints (`ad_snapshot`, `ad_status`, `ad_wait`, `ad_execute_by_ref`, `ad_version`) plus `ad_init` / `ad_adapter_destroy` / `ad_check_permissions` against the stub adapter; `ad_execute_by_ref_timeout`, `ad_trace_export`, and `ad_trace_show` joined the entrypoint set afterward.
 
 `wait`'s core event-wait mode (`--event` / `--window-id`) is intentionally **not** exposed over FFI in this release — `wait_args_from_ffi` (`crates/ffi/src/types/wait_args.rs`) always forwards `event: None` and `window_id: None` to core, documented inline.
 
@@ -714,10 +686,10 @@ Regular `release` profile keeps `panic = "abort"` for the CLI binary, so a panic
 
 Current gates in `.github/workflows/ci.yml`:
 
-- `cargo build --profile release-ffi -p agent-desktop-ffi` + FFI integration suites (`c_abi_harness`, `c_header_compile`, `error_lifetime`) inside the main `test` job (macos-latest)
+- `cargo build --profile release-ffi -p agent-desktop-ffi` + FFI integration suites (`c_abi_layout`, `c_header_compile`, `error_lifetime`) inside the main `test` job (macos-latest)
 - `ffi-python-smoke` (macos-latest) — Python ctypes smoke harness (`tests/ffi-python/smoke.py`) against a dylib built with the `stub-adapter` feature
 - `ffi-header-drift` (macos-latest) — `cbindgen --verify` (pinned 0.29.4) against the committed header; exits non-zero on any diff
-- `ffi-panic-guard` (macos-latest) — asserts `panic = "unwind"` in `Cargo.toml` and runs the `panic_spike` example to prove `catch_unwind` survives the `release-ffi` profile
+- `ffi-panic-guard` (macos-latest) — asserts `panic = "unwind"` in `Cargo.toml` and runs `crates/ffi/tests/run_cdylib_panic_probe.sh` to prove `catch_unwind` survives the `release-ffi` profile
 - `ffi-passthrough` (ubuntu-latest) — `--test c_abi_passthrough --features stub-adapter` confirms the command entrypoints round-trip against the stub adapter
 
 There is no `ffi-codegen-drift` job. An earlier draft of this document described one; it does not exist because there is no codegen step to drift-check yet — see Gap Status below.
@@ -754,7 +726,7 @@ There is no `ffi-codegen-drift` job. An earlier draft of this document described
 
 ## Phase 1.6 — Playwright-grade Foundation Contract (Completed)
 
-**Status: Completed** — unreleased on `feat/foundation-playwright-grade-contract` (PR #93, `feat!`); will cut the next minor per the pre-1.0 versioning policy in `CLAUDE.md`.
+**Status: Completed** — shipped in v0.5.0 (PR #93, `feat!`).
 
 Phase 1.6 is a breaking hardening pass over the Phase 1 contracts, modeled on Playwright's actionability/auto-wait discipline. It does not add a platform or a command surface — every change lands in `crates/core/` (plus the macOS backfill in the same PR) and tightens what the existing 58 command names guarantee. Twenty units (U0–U19) shipped; Windows and Linux (Phase 2/3) inherit this contract rather than re-deriving it.
 
@@ -799,16 +771,16 @@ Every command that emits or accepts a ref now uses the snapshot-qualified form `
 
 Phase 2 (Windows) and Phase 3 (Linux) do not ship as one monolithic implementation PR. Each platform ships as a sequence of dependency-ordered sub-phases against its own integration branch.
 
-- One integration branch per platform: `feat/windows-adapter`, later `feat/linux-adapter`. **The integration branch is the base for everything that platform does.** Every sub-phase branch is cut from it and merges back into it — never from or into `main`. `main` stays the macOS-GA line for the entire duration of the platform's phase; it receives the platform only once, at the end, as the single promotion described below. Rebasing a sub-phase onto `main` mid-phase, or opening a sub-phase PR against `main`, is a process error.
+- One integration branch per platform: `feat/windows-adapter`, promoted to `main` in v0.10.0, then `feat/linux-adapter`. **The integration branch is the base for everything that platform does.** Every sub-phase branch is cut from it and merges back into it — never from or into `main`. `main` stays the released line for the entire duration of the platform's phase; it receives the platform only once, at the end, as the single promotion described below. Rebasing a sub-phase onto `main` mid-phase, or opening a sub-phase PR against `main`, is a process error.
 - Each sub-phase is one PR into the integration branch, sized at or under 2,000 changed lines of hand-written product code (excluding `Cargo.lock`, the generated FFI header, vendored fixtures, and committed evidence artifacts — probe corpora and their captures, tree-dump censuses, and dogfood reports), reviewed on its own. The evidence exclusion states what practice already applies: 2.0 landed 21,048 insertions, 2.1 landed 4,921 against a ~1.3k estimate, and 2.2 landed 8,244, each overwhelmingly evidence rather than product code. A sub-phase whose *product code* exceeds the cap says so in its plan with the reason, rather than the cap being quietly ignored. Sub-phase branches are named `feat/windows-<sub-phase>-<slug>` after the sub-phase's own number (e.g. `feat/windows-2.0-probes`, `feat/windows-2.12.1-window-identity`) so the base relationship is legible from the branch name alone. A sub-phase inserted between two existing numbers takes a third component rather than renumbering its successors, which would silently change what an already-referenced number means — the same move Phase 1.5 and Phase 1.6 made at phase level.
 - **Lifecycle per sub-phase:** plan (via `ce-plan`, written to `docs/plans/`) → implement → per-sub-phase review → merge to the integration branch. There is explicitly **no brainstorming stage** — this document is the finalized product contract; sub-phase planning documents implementation, not product scope.
 - **The workspace stays green at every merge.** Unimplemented capabilities return `not_supported()`; the CLI ships honest `PLATFORM_NOT_SUPPORTED` envelopes on the target OS until the capability lands. No sub-phase merge may regress `main`'s CI.
 - **Evidence-first rule:** adapter decisions are anchored in committed probe outputs — raw UIA / AT-SPI dumps checked in alongside the sub-phase plan — never docs-only assumptions about how a platform API behaves. The exploration sub-phases (2.0, 3.0) build the initial corpus; later sub-phases extend it.
 - **Source-of-truth feedback rule:** this document was authored from documentation research in a single pass; the exploration sub-phases (2.0, 3.0) exist because platform reality outranks documentation. When a committed probe proves a documented approach behaves differently on the real platform — an API that answers differently, a pattern that is unavailable, an event that never fires — the finding ledger entry and the amendment to this document land **in the same PR**. The source of truth tracks proven platform behavior; it is never defended against evidence.
 - **No convenience deferral.** The whole platform implementation lands inside its own phase's sub-phases — Windows under Phase 2, Linux under Phase 3. Scope may move *between* sub-phases of that phase; it may not move out of the phase because it is hard, large, or late. The only sanctioned deferral is **proven impossibility**: the platform genuinely cannot do it, evidenced by a probe row in that platform's findings ledger, and the command then ships an honest structured `PLATFORM_NOT_SUPPORTED` (or the applicable code) with `platform_detail` rather than a silent gap. Core features — observation, interaction, input, lifecycle, capture, clipboard, waits, and the shell surfaces the OS does expose — are a must, never a stretch.
-- **Integration branch → main:** only after every sub-phase for that platform has merged **and the platform is production-solid as a whole** — not sub-phase-by-sub-phase, and not early because the branch has grown long-lived. Promotion to `main` runs a full multi-agent review of the whole branch, live e2e (both headless and headed) on the platform runner, a performance-baseline comparison against `main`, and the standard verification contract. It lands as one release-noted `feat!` merge — the same conventional-commit discipline as PR #93. Until that merge, `main` ships macOS only and makes no Windows claim.
-- **The promotion's release note must carry one behavioural change core already made.** `AppError::code` now answers `PERM_DENIED` for an io error whose kind is `PermissionDenied`; on `main` today every io error still answers `INTERNAL`. The new code is the honest one — `INTERNAL` says the tool broke and carries no action — but a consumer branching on `INTERNAL` to catch a permission failure stops matching the moment Windows lands. `main` has never shipped the new mapping, so there is nothing to deprecate and no alias to add; what is required is that the `feat!` promotion says so in its release note rather than letting a caller discover it. Introduced by `07ccbddc`.
-- **Windows first.** Phase 2 (2.x) completes before Phase 3 (3.x) starts; Linux reuses the same sub-phase template with AT-SPI2/D-Bus substituted for UIA.
+- **Integration branch → main:** only after every sub-phase for that platform has merged **and the platform is production-solid as a whole** — not sub-phase-by-sub-phase, and not early because the branch has grown long-lived. Promotion to `main` runs a full multi-agent review of the whole branch, live e2e (both headless and headed) on the platform runner, a performance-baseline comparison against `main`, and the standard verification contract. It lands as one release-noted `feat!` merge — the same conventional-commit discipline as PR #93. Until that merge, `main` makes no claim for that platform.
+- **The Windows promotion's release note carried one behavioural change core had already made.** `AppError::code` answers `PERM_DENIED` for an io error whose kind is `PermissionDenied`, where every io error used to answer `INTERNAL`; the FFI return code and `ad_last_error` answer the same. v0.10.0 lists it under `BREAKING CHANGE`, because a consumer branching on `INTERNAL` to catch a permission failure stops matching. Introduced by `07ccbddc`.
+- **Windows first.** Phase 2 (2.x) is complete; Phase 3 (3.x) starts after it, and Linux reuses the same sub-phase template with AT-SPI2/D-Bus substituted for UIA.
 
 Every sub-phase below follows the same rendering shape: **Goal** (one or two sentences), **Scope** (what lands), **Key APIs** (platform surface touched), **Depends on** (prior sub-phase), **Exit criteria** (what proves it's done), **Est. PR size**.
 
@@ -816,7 +788,7 @@ Every sub-phase below follows the same rendering shape: **Goal** (one or two sen
 
 ## Phase 2 — Windows Adapter
 
-**Status: In progress** — the entire Windows implementation is delivered as sub-phases 2.0–2.17 into the `feat/windows-adapter` integration branch per the [Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches), under its no-convenience-deferral rule: scope moves between these sub-phases, never out of Phase 2. v0.6.0 landed the prerequisite Windows test lane and removed core's unexecutable Win32 layer. This section is the public objective catalogue, the sub-phase implementation contract, and the preserved research (API mappings, capability maps, notification/tray approaches, Electron guidance) that grounds it.
+**Status: Completed** — v0.10.0 (2026-10-18). The entire Windows implementation was delivered as sub-phases 2.0–2.17 into the `feat/windows-adapter` integration branch per the [Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches), under its no-convenience-deferral rule, and promoted to `main` as one `feat!` merge. v0.6.0 landed the prerequisite Windows test lane and removed core's unexecutable Win32 layer. This section is the public objective catalogue, the sub-phase implementation contract, and the preserved research (API mappings, capability maps, notification/tray approaches, Electron guidance) that grounds it.
 
 ### Core invariants (research-driven — from the Phase 2 plan's Headless-First Invariant)
 
@@ -1502,10 +1474,10 @@ System tray interaction is built from scratch here.
 
 **Promotion checklist — the ordered steps that merge `feat/windows-adapter` into `main`.**
 
-This is not run by this sub-phase. It is run once, later, by whoever carries the
-promotion, and it is written to be executable without reading any sub-phase plan.
-The promotion is **one release-noted `feat!` merge of the whole integration
-branch**, not a series of sub-phase merges, and it is what closes Phase 2.
+This is not run by this sub-phase. It ran once, for the v0.10.0 promotion
+(`483a31d0`), and it is written to be executable without reading any sub-phase
+plan. The promotion is **one release-noted `feat!` merge of the whole integration
+branch**, not a series of sub-phase merges, and it closed Phase 2.
 
 1. **Confirm the branch is complete.** Every sub-phase 2.0 through 2.17 has merged
    into `feat/windows-adapter`, and the branch is even with or ahead of `main` with
@@ -1580,7 +1552,7 @@ branch**, not a series of sub-phase merges, and it is what closes Phase 2.
     before writing the message. There are three:
     - `get --property text` became role-conditional, returning the element's value
       for `textfield`, `combobox`, `listbox`, `datefield` and `timefield` and its
-      accessible name for every other role, where it previously returned the value
+      accessible name for every other role, each falling back to the other when empty, where it previously returned the value
       for all of them. It is a core change with no platform branch, so it lands on
       macOS too.
     - The FFI ABI major is 5. The legacy entrypoints that each have an `*_exact`
@@ -1748,6 +1720,7 @@ windows-sys = { version = "0.61", features = [
   "Win32_Security_Authorization",
   "Win32_System_ApplicationInstallationAndServicing",
   "Win32_System_LibraryLoader",
+  "Win32_System_SystemInformation",
   "Win32_System_Threading",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_DataExchange",
@@ -1784,7 +1757,7 @@ screencapturekit = "1.5"
 - Automation permission: `permissions` reports `granted`, `denied`, or `unknown` without prompting; explicit requests run in the bounded isolated helper, while native `close-app` needs no Apple Event authorization
 
 **FFI parity tests (P2-O16):**
-- `ad_abi_version()` returns a packed `u32` matching the Cargo version; a consumer built against an older ABI major refuses to load a newer one
+- `ad_abi_version()` returns `AD_ABI_VERSION_MAJOR` (the ABI major, currently 5), which is independent of the Cargo version; `ad_init(expected_major)` returns `ErrInvalidArgs` when the consumer's expected major differs from the dylib's, older or newer
 - `ad_snapshot` writes a refmap and the same qualified ref resolves via `ad_execute_by_ref` without a prior CLI snapshot on disk
 - `ad_execute_by_ref(adapter, "@s8f3k2p9:e5", &action, policy, &out)` with a click action produces identical `AdActionResult` to `ad_resolve_element_exact` + `ad_execute_action`
 - `ad_set_log_callback` receives at least one `tracing::debug!` event during an `ad_get_tree_exact` call
@@ -1803,7 +1776,7 @@ Integration-level tests (Explorer/Notepad/Settings snapshots, click/type/clipboa
 - [ ] GitHub Release notes document Windows support and installation
 
 **Skill Update:**
-- [x] Create `skills/agent-desktop-windows/`: SKILL.md plus permissions-and-elevation, chromium-and-electron, and troubleshooting references; capability claims are enforced against the adapter by a binary-crate test, and a core-crate coverage test fails when any `.md` under `skills/` is not served from the embedded skills table
+- [x] Create `skills/agent-desktop-windows/`: SKILL.md plus permissions-and-elevation, chromium-and-electron, shell-and-overlay, and troubleshooting references; capability claims are enforced against the adapter by a binary-crate test, and a core-crate coverage test fails when any `.md` under `skills/` is not served from the embedded skills table
 - [x] Core `SKILL.md` routes to the platform skill for the running OS through `agent-desktop skills get platform`; `skills list` marks each platform skill with `platform` and `current`
 - [x] Update `workflows.md`: First-Time Setup covers both platforms; one Windows-specific workflow example added
 
@@ -1818,7 +1791,7 @@ Integration-level tests (Explorer/Notepad/Settings snapshots, click/type/clipboa
 
 **Goal:** Bring the Windows adapter to the multi-agent cursor contract macOS now ships, and close the one session hazard that contract exposes.
 
-**Status:** the identity model and the macOS implementation shipped on `main` in the 0.8.5 line; the Windows port ships on this branch. The session hazard in the last bullet is closed in core, for both adapters, by mandatory qualified refs.
+**Status:** the identity model and the macOS implementation shipped on `main` in the 0.8.5 line; the Windows port shipped in v0.10.0. The session hazard in the last bullet is closed in core, for both adapters, by mandatory qualified refs.
 
 **The identity axis is settled and it is `(session, agent)`.** Agents share a session — its snapshot namespace, its trace, its manifest — and each carries a stable id supplied by the harness through the global `--agent-id` flag or `AGENT_DESKTOP_AGENT_ID`. `session start --cursor --multi-agent` turns the mode on. A per-agent `cursor-overlay enable` saves a presentation profile for that agent and starts nothing; an agent with no profile inherits the session's. Desktop UI actions require the id in this mode; observation, clipboard and administration do not.
 
@@ -1837,7 +1810,7 @@ Integration-level tests (Explorer/Notepad/Settings snapshots, click/type/clipboa
 
 ## Phase 3 — Linux Adapter
 
-**Status: Planned** — delivered as sub-phases 3.0–3.15 into the `feat/linux-adapter` integration branch, mirroring the Windows sub-phase template ([Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches)) numbered slot for numbered slot, with AT-SPI2/D-Bus specifics substituted for UIA. Windows's §2.12.1 has no Linux counterpart in the mirror: it answers a Win32 handle-table hazard, and Linux gains an equivalent only if the same recycled-identifier hazard is measured on X11 or Wayland. Phase 3 begins only after Phase 2 (2.0–2.15) has merged to `main`.
+**Status: Planned** — delivered as sub-phases 3.0–3.15 into the `feat/linux-adapter` integration branch, mirroring the Windows sub-phase template ([Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches)) numbered slot for numbered slot, with AT-SPI2/D-Bus specifics substituted for UIA. Windows's §2.12.1 has no Linux counterpart in the mirror: it answers a Win32 handle-table hazard, and Linux gains an equivalent only if the same recycled-identifier hazard is measured on X11 or Wayland. Phase 3 begins only after Phase 2 (2.0–2.17) has merged to `main`; that precondition is met (v0.10.0).
 
 Phase 3 completes the three-platform story. The Linux adapter implements the original adapter surface **plus** every cross-platform extension landed in Phase 2 (event subscriptions via `watch`, text ranges, modern screenshot, stable-selector fields, the predeclared toolbar and shell-surface vocabulary, new Action variants, new ErrorCode variants). Each has a canonical AT-SPI2 / D-Bus / Wayland-portal implementation. Core engine, trait contract, command-registry, CLI dispatch, FFI wrappers, and MCP transport are all untouched — per the [Command Surface Architecture](#command-surface-architecture-dry-invariant) invariant, Phase 3 is **pure `PlatformAdapter` trait implementation code**, nothing else. No new command files, no CLI dispatch changes, no FFI wrappers, no MCP tool registrations. "Foundation contract" below means Phase 1 + Phase 1.6 + whatever Phase 2 landed on the trait — Phase 3 implements against that settled contract, it does not renegotiate it.
 
@@ -2144,7 +2117,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Scope:**
 - FFI real-adapter path validated on Linux (non-stub tests) for both x86_64 and aarch64
-- npm `postinstall.js` gains `linux-x64`/`linux-arm64` branches
+- npm `PLATFORMS` entries `linux-x64`/`linux-arm64` in `npm/lib/platform.js` flip from `released: false` to `released: true` (postinstall and the wrapper already consume the table; the Linux entries and target triples already exist)
 - Release matrix: CLI binary added for `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`, reusing the runners Phase 1.5 already builds the FFI cdylib on
 - `skills/agent-desktop-linux/SKILL.md` — see Skill Update below
 - README platform table: Linux column → **Yes**; minimum glibc (2.35, Ubuntu 22.04 baseline) documented
@@ -2282,7 +2255,7 @@ Integration-level tests (Files/Terminal/Settings snapshots, click/type/clipboard
 
 **Release:**
 - [ ] Prebuilt Linux CLI binary added to `.github/workflows/release.yml` matrix for `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu` (Phase 1.5 already builds the FFI cdylib for both triples on the same runners — Phase 3 reuses those runners)
-- [ ] npm `postinstall.js` gains `linux-x64` / `linux-arm64` branches
+- [ ] npm `PLATFORMS` entries `linux-x64` / `linux-arm64` in `npm/lib/platform.js` flip to `released: true`, with `scripts/check-npm-package.js` agreeing with the release build matrix
 - [ ] Every new `ad_*` Linux implementation from P3-O9 / O10 / O11 is covered by the existing FFI drift check + Sigstore attestation pipeline
 - [ ] GitHub Release notes document Linux support, minimum glibc (2.35, Ubuntu 22.04 baseline), display-server requirements, and Flatpak/Snap compatibility
 
@@ -2313,7 +2286,7 @@ By Phase 4 the CLI already covers the shared command surface on three platforms,
 | ID | Objective | Metric |
 |----|-----------|--------|
 | P4-O1 | MCP server mode via `--mcp` | Responds to MCP `initialize` handshake, reports capabilities, per-host hello-world passes |
-| P4-O2 | All commands as MCP tools | `tools/list` returns all 58 shipped command names as tools (54 operational + 4 fail-closed, matching the CLI surface 1:1) with JSON Schemas generated from the CLI arg structs via `schemars`; tool names prefixed `desktop_` |
+| P4-O2 | All commands as MCP tools | `tools/list` returns every shipped command name as a tool (operational and fail-closed alike, matching the CLI surface 1:1) with JSON Schemas generated from the CLI arg structs via `schemars`; tool names prefixed `desktop_` |
 | P4-O3 | Claude Desktop + Cursor + VS Code + Gemini CLI + MS Agent Framework validated | Each host invokes tools to control a desktop app end-to-end on all three platforms; repo ships `mcp.json` / `claude_desktop_config.json` / `.cursor/mcp.json` examples per host |
 | P4-O4 | Tool annotations | `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` on every tool; Claude Desktop surfaces destructive tools with a confirmation prompt |
 | P4-O5 | Ref-based MCP tool shape (Playwright-MCP idiom) | Tools take `{ref: "@s8f3k2p9:e5"}` (the qualified snapshot-ref form) not raw `element_handle`, matching Playwright MCP's ref idiom so agents can swap between the two without relearning selectors. Tree snapshots return as MCP resources with refs inline |
@@ -2755,7 +2728,7 @@ Phase 5 spans are OpenTelemetry-compliant so `agent-desktop trace export <uuid> 
 | Compatibility | Tested against target app matrix: Finder, TextEdit, Xcode, VS Code, Chrome, Slack (macOS); Explorer, Notepad, Settings, VS Code, Edge (Windows); Nautilus, Terminal, Firefox, VS Code (Linux). |
 | Distribution | Single binary per platform. No runtime dependencies for the CLI. FFI cdylib tarballs signed via Sigstore (already shipping as of Phase 1.5). Formula / manifest verify Sigstore attestation before installing (P5-O10). |
 | Documentation | README, CLI reference, MCP reference, per-platform setup guides, troubleshooting, audit-log format reference, policy-file reference, OpenTelemetry trace schema. |
-| FFI stability | Header drift check green on every PR. ABI version exported via `ad_abi_version()` (major currently 4, append-only since Phase 1.6). Pre-1.0: minor version bump for any public struct field add; major version bump for any removed or changed signature. |
+| FFI stability | Header drift check green on every PR. ABI version exported via `ad_abi_version()` (major currently 5, append-only between majors). Pre-1.0: minor version bump for any public struct field add; major version bump for any removed or changed signature. |
 
 ### Performance Optimizations
 
@@ -2929,7 +2902,7 @@ A rule this document presents as core-owned is canonical only if a production pa
 | Phase 1 | `macos-latest` (tests + CLI build) + `ubuntu-latest` (`fmt` job) |
 | Phase 1.5 | Same as Phase 1 on PRs; release workflow fans out to `macos-latest` × 2 darwin arches + `ubuntu-22.04` + `ubuntu-22.04-arm` + `windows-latest` for the FFI matrix |
 | Phase 1.6 | `ci.yml`: `fmt` (ubuntu-latest), `msrv` (ubuntu-latest, Rust 1.89.0), `platform-check` (matrix Linux/Windows/macOS, `cargo check` only), `test` (macos-latest, full suite), `ffi-python-smoke`, `ffi-header-drift`, `ffi-panic-guard`, `ffi-passthrough` (ubuntu-latest). Outside `ci.yml`: `native-e2e.yml` (self-hosted macOS, workflow_dispatch), `codeql.yml`, `supply-chain.yml` |
-| v0.6.0 (current) | Real `test-windows` (`windows-latest`) and `test-linux` (`ubuntu-latest`) lanes execute `cargo test -p agent-desktop-core -p agent-desktop-{windows,linux} --lib` on every PR, alongside the macOS `test` job — core's platform-conditional code is now executed, not merely type-checked, on all three OSes. Hot-path performance baseline remains a per-PR Definition-of-Done review step (macOS: `scripts/perf-baseline-compare.sh`; Windows: probe corpus cost methodology, A15-13 / A18-7), not a blocking job |
+| v0.6.0 (landed) | Real `test-windows` (`windows-latest`) and `test-linux` (`ubuntu-latest`) lanes execute `cargo test -p agent-desktop-core -p agent-desktop-{windows,linux} --lib` on every PR, alongside the macOS `test` job — core's platform-conditional code is now executed, not merely type-checked, on all three OSes. Hot-path performance baseline remains a per-PR Definition-of-Done review step (macOS: `scripts/perf-baseline-compare.sh`; Windows: probe corpus cost methodology, A15-13 / A18-7), not a blocking job |
 | Phase 2 | The Windows test lane already exists as of v0.6.0; sub-phase 2.1 extends it to the adapter surface (clippy over `agent-desktop-windows`, binary-crate tests, size check); the self-hosted interactive Windows runner is registered at 2.15, the branch-final gate — the owner declined registration at 2.12 on a public-repository security ground (§2.12 Key Decisions), so 2.12's own live gate runs locally under its new `DesktopLease` instead |
 | Phase 3 | The Linux test lane already exists as of v0.6.0; sub-phase 3.1 extends it to the adapter surface; an interactive Ubuntu GNOME runner is added for AT-SPI2/shell integration tests at 3.12 |
 | Phase 4 | macOS + Windows + Ubuntu (+ MCP protocol tests) |

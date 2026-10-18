@@ -14,4 +14,4 @@ No npm dependencies or global tools are needed. The bridge opens a localhost URL
 This is a tool for human developers working on agent-desktop. It is not part of
 the agent-facing command surface, and an AI agent driving the CLI has no use for
 it. The agent-invocable equivalent is `snapshot --debug --screenshot PATH.html`,
-documented in `skills/agent-desktop/references/commands-observation.md`.
+documented in `docs/solutions/developer-experience/visual-debug-snapshot-and-click-artifacts.md`.

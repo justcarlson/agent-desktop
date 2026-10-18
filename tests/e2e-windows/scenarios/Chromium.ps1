@@ -236,7 +236,7 @@ function Invoke-ChromiumSemanticLeg {
             <# `A24-11`: this box's staged content has no accessible-name
                checkbox, so strict resolution fails closed before any
                candidate search runs - a real, reproducible, documented
-               adapter identity gap (deferred to §2.14, docs/phases.md),
+               adapter identity gap (closed, docs/phases.md),
                not an unbounded failure. TIMEOUT wrapping a STALE_REF
                `last_report` and a bare STALE_REF are both the honest
                negative this leg's own disposition already accounts for. #>

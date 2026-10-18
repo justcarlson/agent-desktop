@@ -37,7 +37,7 @@ fn inventory(windows: Vec<WindowInfo>, apps: Vec<AppInfo>) -> SignalWindowInvent
     }
 }
 
-/// Reproduces `crates/core/src/commands/wait_event.rs:158-196`'s own
+/// Reproduces `validate_signal_scope` in `crates/core/src/commands/wait_event.rs`, its own
 /// predicate rather than paraphrasing it: for a filtered wait, every
 /// observed pid and process instance must equal the expected one exactly.
 fn satisfies_validate_signal_scope(

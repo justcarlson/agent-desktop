@@ -265,7 +265,7 @@ mod imp {
                 value.chars().count()
             ),
         )
-        .with_suggestion("Pass a numeric value, e.g. set-value @e1 50"))
+        .with_suggestion("Pass a numeric value, e.g. set-value @s8f3k2p9:e1 50"))
     }
 
     pub(crate) fn element_role(

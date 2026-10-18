@@ -28,12 +28,12 @@ Every GitHub release ships prebuilt archives for:
 
 - macOS arm64 and x86_64
 - Linux x64 and arm64 (glibc)
-- Windows x64 MSVC
+- Windows x64 and ARM64 MSVC
 
-Each archive contains the dylib/so/dll, `include/agent_desktop.h`, and
+Each archive contains the dylib/so/dll (plus `lib/agent-desktop-macos-helper` on macOS and the `lib/agent_desktop_ffi.dll.lib` import library on Windows), `include/agent_desktop.h`, and
 `LICENSE`. Integrity: compare against `checksums.txt` in the release
 assets. Supply-chain verification: each release is signed via Sigstore
-attestation — verify with `cosign verify-blob` before deploying.
+attestation — verify with `gh attestation verify <file> --repo lahfir/agent-desktop` before deploying.
 
 ## ABI handshake (do this first)
 

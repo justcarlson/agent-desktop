@@ -7,7 +7,7 @@
 //! The generation is not decoration. A renderer left running by an earlier
 //! build keeps serving a rebuilt binary's controls if the name it answers on
 //! does not change when the protocol does — which happens on any rebuild
-//! during a live session, this branch's own end-to-end runs included. macOS
+//! during a live session, every end-to-end run of the overlay included. macOS
 //! hashes its protocol version into the socket path for the same reason.
 
 use std::path::Path;
@@ -21,7 +21,7 @@ use std::path::Path;
 /// the generation without also handing the previous one to the retirement
 /// sweep, so a renderer still drawing under it cannot be forgotten.
 ///
-/// One element today, so the retired set is empty and the sweep is a no-op.
+/// With only the live generation in the ledger, the retired set is empty and the sweep is a no-op.
 /// That is the correct state for a protocol that has never changed, and it is
 /// said out loud rather than left to be discovered: the sweep costs nothing
 /// until the first append and does its work from the moment there is one.
@@ -100,7 +100,7 @@ pub(crate) fn session_prefix(root: &Path, session_id: &str) -> String {
 ///
 /// Takes the ledger rather than reading the shipped one, so the promotion rule
 /// — appending retires the entry it displaces — is provable against a ledger
-/// with more than one generation in it, which the shipped one does not yet
+/// with more than one generation in it, which the shipped one need not
 /// have.
 pub(crate) fn retired_generations<'a>(ledger: &'a [&'static str]) -> &'a [&'static str] {
     ledger.split_last().map_or(&[], |(_, earlier)| earlier)

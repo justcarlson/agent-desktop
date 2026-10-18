@@ -199,7 +199,7 @@ mod imp {
         if amount == 0 || amount > MAX_SCROLL_AMOUNT {
             return Err(AdapterError::new(
                 ErrorCode::InvalidArgs,
-                "Scroll amount must be between 1 and 1000",
+                format!("Scroll amount must be between 1 and {MAX_SCROLL_AMOUNT}"),
             ));
         }
         Ok(())

@@ -9,9 +9,8 @@ use std::time::{Duration, Instant};
 /// Baseline-diff event wait: captures a `SignalBaseline` at wait start, polls
 /// for a fresh one, and matches the first `diff_signals` event whose kind
 /// matches the requested `--event` token. `window_id`/`window_title` are
-/// optional narrowing filters, never requirements — the whole point of R16
-/// is that a caller who does not yet know a new window's id or title can
-/// still wait for it to appear.
+/// optional narrowing filters, never requirements, so a caller who does not
+/// yet know a new window's id or title can still wait for it to appear.
 pub(crate) fn wait_for_event(
     input: EventWaitInput,
     adapter: &dyn PlatformAdapter,

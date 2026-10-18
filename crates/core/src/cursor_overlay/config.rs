@@ -75,7 +75,7 @@ impl CursorOverlayConfig {
         if !self.enabled && self.label.is_some() {
             return Err(AdapterError::new(
                 ErrorCode::InvalidArgs,
-                "Agent cursor label requires agent cursor mode 'on'",
+                "Agent cursor label requires the agent cursor overlay to be enabled",
             ));
         }
         if self.label.as_deref().is_some_and(|label| {

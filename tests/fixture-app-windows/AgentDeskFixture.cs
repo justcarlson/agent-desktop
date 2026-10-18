@@ -34,17 +34,12 @@ namespace AgentDeskFixtureApp
 
         /// <summary>
         /// Same contract as <see cref="Assign(Control,string)"/> for a
-        /// <see cref="ToolStripItem"/> - <c>menu-fire-item</c> and the
-        /// candidate <c>ToolStripSplitButton</c> shape for
-        /// <c>menu-disclosure</c> are items on a <see cref="MenuStrip"/> /
-        /// <see cref="ToolStrip"/>, not <see cref="Control"/>s in their own
-        /// right, so they cannot go through the <c>Control</c> overload.
-        /// Whether <c>ToolStripItem.Name</c> surfaces as UIA
-        /// <c>AutomationId</c> the same way <c>Control.Name</c> does is
-        /// unmeasured (A24-2 covered real <c>Control</c>s only) - that is
-        /// exactly what the read-back-while-building loop this fixture is
-        /// built under has to confirm for each item that goes through this
-        /// overload.
+        /// <see cref="ToolStripItem"/>. Neither <c>menu-fire-item</c> nor
+        /// <c>menu-disclosure</c> uses it: both shipped as real Buttons
+        /// wearing override hosts, because <c>ToolStripItem.Name</c> does not
+        /// surface as <c>AutomationId</c> the way <c>Control.Name</c> does (see
+        /// README.md). Nothing in this fixture relies on this overload for
+        /// resolvability.
         /// </summary>
         public static void Assign(ToolStripItem item, string automationId)
         {

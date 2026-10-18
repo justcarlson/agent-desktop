@@ -16,7 +16,7 @@ safety envelope) and `docs/phases.md` Phase 2 (the contract these rows are grade
 | `stack` | `managed` (.NET `System.Windows.Automation`), `uia3-com` (hand-declared `CUIAutomation8` shim), or `n/a` (toolchain and session-evidence rows) |
 | `scope` | `api-contract` = product-wide under KTD2's forward-compatibility rule. `app/provider` = specific to this environment and these app versions. Downstream sub-phases read this column to know what generalizes |
 | `verdict` | `CONFIRMS`, `CONTRADICTS`, `NEW-EDGE`, `DEFERRED`. There are no `UNKNOWN` rows (R5) |
-| `action` | what the finding obliges. `DEFERRED` rows carry `closure: 2.<n>` - the Phase 2 sub-phase that closes them |
+| `action` | what the finding obliges. `DEFERRED` rows carry `closure: 2.<n>` - the Phase 2 sub-phase that closes them - or `closure: post-phase-2` for work measured out of Phase 2's reach |
 
 KTD1 governs stack authority: where a `managed` row and a `uia3-com` row disagree, the COM
 row is the product-relevant one, because the Rust adapter wraps a UIA3 COM client. Managed
@@ -734,7 +734,7 @@ The five `CONTRADICTS` rows are A1-5, A6-1, A8-3, A11-1 and A11-3; each appears 
 `13-ledger-check.ps1` parses this file and fails loud with a nonzero exit unless: every
 evidence area that carries a `## Area` heading carries at least one row; no verdict is
 `UNKNOWN` or otherwise outside the four-value vocabulary; every `DEFERRED` row names a
-Phase 2 closure sub-phase as `closure: 2.<n>`; every row carries a non-empty `stack` and
+Phase 2 closure sub-phase as `closure: 2.<n>` or `closure: post-phase-2`; every row carries a non-empty `stack` and
 `scope` drawn from the allowed sets; every row id is unique; and every hunk this file's
 index names still exists in the live `git diff -U0 main -- docs/phases.md`. The reverse
 direction - every live hunk being named here - is measured and reported, not enforced. It runs as part of `run-all.ps1`

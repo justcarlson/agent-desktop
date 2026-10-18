@@ -1,6 +1,6 @@
 //! Windows-only: drives `agent_desktop_core::commands::open_system_surface`
 //! end to end - through the real adapter, the real kind table, the real
-//! interaction lease - and proves the R1 round trip with the crate's own
+//! interaction lease - and proves the open-to-observation round trip with the crate's own
 //! command functions: the window identity the open returns is the identity
 //! the observation stack consumes, with no second lookup in between.
 //!

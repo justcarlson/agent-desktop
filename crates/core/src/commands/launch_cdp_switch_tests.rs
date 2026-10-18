@@ -95,8 +95,8 @@ fn cdp_launch_rejects_a_conflicting_remote_allow_origins_switch() {
 }
 
 /// The running-app precheck must also catch a match by bundle id, not only
-/// by display name — a later agent narrows this precheck to workspace
-/// -registered apps, so `presentation` is set here rather than left absent.
+/// by display name. Only workspace-registered apps (those with a
+/// `presentation`) count as running instances, so `presentation` is set here.
 #[test]
 fn cdp_launch_rejects_an_already_running_instance_matched_by_bundle_id() {
     let adapter = CdpAdapter {

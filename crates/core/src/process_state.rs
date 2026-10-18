@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// macOS can only emit `Running`, `Exited { code: None }`, and
 /// `Unresponsive` — it has no way to read the exit code of a detached
-/// process (apps launched via `open -g -a` are not children of this
+/// process (apps launched through NSWorkspace are not children of this
 /// process). `Crashed` stays in the contract for adapters with real crash
 /// evidence (e.g. Windows `GetExitCodeProcess`).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

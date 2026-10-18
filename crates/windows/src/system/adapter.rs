@@ -141,7 +141,7 @@ impl SystemOps for WindowsAdapter {
 
     /// The focused window is the focused-only filter's first result, composed
     /// from `list_windows` rather than a second native path (mirroring
-    /// `crates/macos/src/system/adapter.rs:142-149`). Whatever HWND-shape a
+    /// `focused_window` in `crates/macos/src/system/adapter.rs`). Whatever HWND-shape a
     /// host presents, it maps to the same identity `list_windows` reports.
     fn focused_window(&self, deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError> {
         let filter = WindowFilter {

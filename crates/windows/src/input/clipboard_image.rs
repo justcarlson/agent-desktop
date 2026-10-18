@@ -275,9 +275,15 @@ fn validate_png_payload(png: &[u8], argument: bool) -> Result<(u32, u32), Adapte
     }
     if png.len() > MAX_PNG_INPUT_BYTES {
         return Err(if argument {
-            argument_error("Image exceeds the 64 MiB encoded-data budget")
+            argument_error(&format!(
+                "Image exceeds the {} MiB encoded-data budget",
+                MAX_PNG_INPUT_BYTES / (1024 * 1024)
+            ))
         } else {
-            payload_error("Clipboard image exceeds the 64 MiB encoded-data budget")
+            payload_error(&format!(
+                "Clipboard image exceeds the {} MiB encoded-data budget",
+                MAX_PNG_INPUT_BYTES / (1024 * 1024)
+            ))
         });
     }
     let dimensions = parse_png_dimensions(png).ok_or_else(|| {

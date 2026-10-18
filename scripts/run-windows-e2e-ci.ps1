@@ -1,8 +1,9 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    The Windows analog of scripts/run-native-e2e-ci.sh: the one CI entry
-    point that builds and runs the exclusive tests/e2e-windows suite.
+    The Windows analog of scripts/run-native-e2e-ci.sh: the operator-run
+    entry point that builds and runs the exclusive tests/e2e-windows suite
+    on a box holding the interactive session. No CI workflow invokes it.
 
 .DESCRIPTION
     Mirrors run-native-e2e-ci.sh line for line in intent, including the

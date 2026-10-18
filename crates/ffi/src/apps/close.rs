@@ -7,7 +7,7 @@ use std::os::raw::c_char;
 /// executable path on other platforms). `force = true` skips the
 /// graceful-shutdown path, terminates matching app processes, and escalates
 /// survivors when the platform supports it. Session-critical
-/// processes (loginwindow, WindowServer, Dock, Finder, launchd) are
+/// processes (for example loginwindow and Dock on macOS, csrss.exe and winlogon.exe on Windows) are
 /// refused with `AD_RESULT_ERR_INVALID_ARGS` — the protected-process
 /// guard is enforced inside the adapter, so FFI and CLI behave
 /// identically.

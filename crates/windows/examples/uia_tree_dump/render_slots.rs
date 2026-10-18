@@ -99,11 +99,12 @@ pub fn slot(outcome: &PropertyOutcome) -> Value {
 
 /// Records a text slot as presence and length only, never its content.
 ///
-/// **Every value-bearing property gets this treatment, not only `Name`.** The
-/// rule previously named `Name` alone, and `slot()` renders any other
-/// `Known(Text(..))` verbatim - so `HelpText`, `FullDescription` and any
-/// `LegacyIAccessible` string would have landed in a committed capture as
-/// literal text read out of somebody's real application.
+/// **Every free-text property is rendered through this, not only `Name`.**
+/// `slot()` renders any `Known(Text(..))` verbatim, so `HelpText`,
+/// `FullDescription` and any `LegacyIAccessible` string would land in a
+/// committed capture as literal text read out of somebody's real application.
+/// Only `ClassName` and the provider description are deliberately rendered
+/// verbatim through `slot()`.
 pub fn text_presence(outcome: &PropertyOutcome) -> Value {
     match text_of(outcome) {
         Some(value) => json!({ "present": true, "chars": value.chars().count() }),

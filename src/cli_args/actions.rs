@@ -142,7 +142,7 @@ pub(crate) struct PressArgs {
 pub(crate) struct KeyComboArgs {
     #[arg(
         value_name = "COMBO",
-        help = "Key or modifier to hold/release: shift, meta, ctrl ... (cmd is accepted)"
+        help = "Key or modifier to hold/release: shift, meta, ctrl ... (cmd is accepted); the command is rejected in stateless mode, use press instead"
     )]
     pub combo: String,
     #[arg(

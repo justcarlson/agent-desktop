@@ -9,8 +9,7 @@
 //! stop it: it is to refuse the next clipboard operation instead of letting it
 //! contend with a worker nothing can reclaim, and to say so.
 //!
-//! The reach of that refusal is exactly one process, and the shipped docs say
-//! so. An abandoned worker dies with the process that spawned it and Windows
+//! The reach of that refusal is exactly one process. An abandoned worker dies with the process that spawned it and Windows
 //! releases the clipboard on exit, so a retry from a fresh invocation neither
 //! needs this guard nor is affected by it. What it governs is a second
 //! clipboard operation inside one invocation — a batch entry, or a command

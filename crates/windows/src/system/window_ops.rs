@@ -131,7 +131,7 @@ fn is_window_identity_race(error: &AdapterError) -> bool {
 /// One single-shot walk of the live top-level window inventory.
 ///
 /// Verification re-runs on both sides of the read (the two-sided rule macOS's
-/// `window_inventory.rs:91-155` carries): the owning process is re-checked
+/// `windows_from_records_with_focus` in `window_inventory.rs` carries): the owning process is re-checked
 /// after assembly, and a window whose process changed mid-listing fails the
 /// whole walk rather than emitting a half-identified entry - the race
 /// `list_windows_live` retries this whole function for.

@@ -252,7 +252,7 @@ fn sleep_before_retry(deadline: Instant) {
 }
 
 /// Core owns the payload (`agent_desktop_core::resolve_errors::mark_deadline_elapsed`)
-/// because it is line-for-line identical to Windows's copy.
+/// so both adapters share one definition.
 #[cfg(target_os = "macos")]
 use agent_desktop_core::resolve_errors::mark_deadline_elapsed;
 

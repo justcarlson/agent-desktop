@@ -37,7 +37,7 @@ Use this when changing `src/visual_debug/` or the window-frame screenshot adapte
 
 ## Examples
 
-See [Visual debug usage](../../../skills/agent-desktop/references/commands-observation.md#visual-debug) for capture commands and viewer controls.
+See the Guidance section above for capture commands and viewer controls.
 
 ```bash
 cargo test -p agent-desktop --bin agent-desktop visual_debug

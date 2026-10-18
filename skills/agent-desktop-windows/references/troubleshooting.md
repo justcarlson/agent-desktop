@@ -71,10 +71,11 @@ differently:
 - **SmartScreen (browser downloads):** a browser attaches Mark-of-the-Web, so
   double-clicking a downloaded binary can show the "Windows protected your
   PC" warning — choose More info → Run anyway. The npm install path is
-  different by measurement: System32 curl writes with plain file I/O and
-  attaches **no** mark (a real HTTP fetch landed with
-  `zone_identifier_present: false`, A25-5), so no mark-gated prompt can fire
-  during npm installation.
+  different by measurement: curl writes with plain file I/O and attaches
+  **no** mark (a real HTTP fetch by System32 curl landed with
+  `zone_identifier_present: false`, A25-5; the installer runs whichever `curl`
+  PATH resolves first), so no mark-gated prompt can fire during npm
+  installation.
 - **Antivirus quarantine:** Defender or third-party scanners may quarantine a
   freshly downloaded unsigned executable regardless of how it was obtained.
   Restore/allow-list it or verify the published SHA-256 checksum and rebuild
@@ -135,7 +136,9 @@ returns. When the app is live, the documented shape is a deliberate split:
 ```json
 "code": "INTERNAL",
 "message": "private file parent is owned by a foreign principal, not this
-process's token owner"
+process's token user, token owner, or an owner-eligible token group; if a
+different principal owns this path intentionally, relocate the state root with
+AGENT_DESKTOP_HOME instead of reusing it"
 ```
 
 Cause: the data directory under your home (`~/.agent-desktop`) was created by
@@ -175,11 +178,12 @@ Three outcomes, and they are not interchangeable:
   This is not a failure and not proof the change did not happen — it means the
   UIA property the verifier needs was not readable on that element. A control
   whose TogglePattern or ExpandCollapsePattern is absent, or whose property
-  read failed, reports this rather than a false verdict. **`type` always lands
-  here on Windows today**: deriving what a field should contain after an
-  insertion needs the selection range, and the adapter does not yet read one.
-  A `type` is therefore correct and unverified, never falsely failed — confirm
-  it with a fresh `get` if the value matters.
+  read failed, reports this rather than a false verdict. **`type` is verified
+  only when the focused field exposes a readable Text pattern selection**: the
+  adapter reads that selection to predict the post-insertion value. Without a
+  readable selection (no Text pattern, no selection, or a failed read) `type`
+  lands here as correct and unverified, never falsely failed — confirm it with
+  a fresh `get` if the value matters.
 
 **A `set-value` that the application reshapes is reported as failed.** If the
 app trims whitespace, reformats a date, or normalizes a number, the readback no

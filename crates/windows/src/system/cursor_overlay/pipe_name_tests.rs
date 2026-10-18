@@ -91,7 +91,7 @@ fn a_command_line_that_is_not_ours_parses_to_nothing() {
     );
 }
 
-/// The shipped ledger has never been appended to, so nothing is retired and
+/// A ledger holding only the live generation retires nothing, so
 /// the sweep has nothing to do. Asserted rather than assumed, because a sweep
 /// that quietly targeted the live generation would disable the renderer it
 /// just started.

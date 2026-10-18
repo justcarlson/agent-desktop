@@ -48,7 +48,7 @@ path prefix, then updates only that root's descendants in the stored map.
 one case the Prevention rule below admits: its output contract genuinely
 differs, and its rustdoc says so. It applies bounds omission, compact collapse,
 and interactive-only pruning to a raw adapter tree and never allocates a ref,
-because the FFI `ad_get_tree` path (`crates/ffi/src/tree/get.rs`) exposes raw
+because the FFI `ad_get_tree_exact` path (`crates/ffi/src/tree/get.rs`) exposes raw
 trees with no ref pipeline — there is no `ref_id` for it to consult and no map
 for it to write. Its pruning decision is therefore role-based where the
 allocator's is ref-based.

@@ -11,7 +11,7 @@ use std::ffi::c_char;
 use std::ptr;
 
 /// Takes a full CLI-format snapshot of the target application window,
-/// allocates `@e` refs for all interactive elements, persists the refmap
+/// allocates snapshot-qualified refs (`@<snapshot_id>:eN`) for all interactive elements, persists the refmap
 /// to disk, and writes the JSON envelope into `*out`.
 ///
 /// The JSON shape matches `agent-desktop snapshot`:

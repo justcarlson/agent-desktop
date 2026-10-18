@@ -64,7 +64,7 @@ fn selector_matches(
     resolution.meta.selection_complete && resolution.meta.total_matches > 0
 }
 
-/// `wait --selector` has no Windows-side evidence anywhere in this branch.
+/// `wait --selector` depends on Windows observing a late-appearing control.
 /// Its poll condition is `resolve_query` in this exact shape - if that call
 /// cannot observe a control that starts unmatched and becomes matched by a
 /// real mutation made after the first poll, `wait --selector` can never

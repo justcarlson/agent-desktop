@@ -59,20 +59,11 @@ npm install -g agent-desktop        # downloads prebuilt binary automatically
 
 The same command installs on macOS (ARM64, x64) and Windows (x64, ARM64). The installer downloads a `.tar.gz` release asset, verifies its SHA-256 against the release's `checksums.txt`, and places the native binary beside the `agent-desktop` launcher.
 
-Recent npm versions block install scripts by default, which prevents the wrapper from fetching its binary and produces a loud binary-not-found failure on first run. To permit this package's install script, add the `allowScripts` configuration to your `package.json` (or npm config):
-
-```json
-{
-  "allowScripts": {
-    "agent-desktop": true
-  }
-}
-```
-
-Or via npm config:
+The binary arrives through the package's `postinstall` script. npm 11 still runs it but warns that the script is not yet covered by `allowScripts`; an npm that blocks install scripts leaves the launcher without its binary, and the first run fails with a binary-not-found error. Allow this package's script once, or for every global install:
 
 ```bash
-npm config set allowScripts.agent-desktop true
+npm install -g --allow-scripts=agent-desktop agent-desktop
+npm config set allow-scripts=agent-desktop --location=user
 ```
 
 Or without installing:
@@ -140,7 +131,7 @@ Every GitHub Release ships a prebuilt C-ABI cdylib (`libagent_desktop_ffi`) for 
 ```python
 import ctypes
 lib = ctypes.CDLL("./lib/libagent_desktop_ffi.dylib")
-lib.ad_init(4)  # verify ABI major (AD_ABI_VERSION_MAJOR) before any call
+lib.ad_init(5)  # verify ABI major (AD_ABI_VERSION_MAJOR) before any call
 adapter = lib.ad_adapter_create()
 # observe -> act: ad_snapshot -> parse a qualified ref -> ad_execute_by_ref ...
 lib.ad_adapter_destroy(adapter)
@@ -234,7 +225,7 @@ On Windows the overlay draws only for headless semantic actions — a `--headed`
 command sends real pointer input and the overlay is suppressed for that
 command only — and it does not collapse under the OS's reduce-motion
 accessibility preference the way macOS does, a deliberate difference documented
-with its cost in `skills/agent-desktop-windows/SKILL.md`.
+with its cost in `skills/agent-desktop-windows/references/shell-and-overlay.md`.
 
 ```bash
 session_id=$(agent-desktop session start --cursor | jq -r '.data.session_id')
@@ -296,7 +287,7 @@ The style command is optional and saves settings for the next presentation witho
   `session gc` — the renderer reclaims itself within a few seconds regardless.
 - Headed actions retain it on macOS and hide it on Windows. It never moves or
   intercepts the OS pointer on either.
-- Overhead is about 150–300 ms per action, all of it the visible travel. On
+- Overhead is about 150–300 ms per action on macOS and about 355 ms on Windows, all of it the visible travel. On
   Windows the control-pipe roundtrip itself measures a fraction of a
   millisecond; the travel animation is the cost.
 
@@ -364,7 +355,7 @@ agent-desktop scroll @s8f3k2p9:e1 --direction down --amount 3  # strict headless
 agent-desktop scroll-to @s8f3k2p9:e20             # scroll element into view
 ```
 
-> **(macOS, Phase 1)** Default ref actions are strict headless semantic operations. In headed mode, core focuses the exact ref window before dispatch; pointer commands additionally require a verified target point, while the adapter owns physical delivery. `click`, `right-click`, `type`, `clear`, and `scroll` are physical-first; double/triple-click, hover, and drag are physical-only; expand/collapse and other semantic commands remain semantic. Raw coordinates never imply a target window and therefore never steal focus. See `skills/agent-desktop/references/commands-interaction.md`.
+> **(macOS)** Default ref actions are strict headless semantic operations. In headed mode, core focuses the exact ref window before dispatch; pointer commands additionally require a verified target point, while the adapter owns physical delivery. `click`, `right-click`, `type`, `clear`, and `scroll` are physical-first; double/triple-click, hover, and drag are physical-only; expand/collapse and other semantic commands remain semantic. Raw coordinates never imply a target window and therefore never steal focus. See `skills/agent-desktop/references/commands-interaction.md`.
 
 ### Keyboard
 
@@ -543,8 +534,8 @@ snapshot → act → STALE_REF or AMBIGUOUS_TARGET? → wait/snapshot again → 
 | Notifications | **Yes** | **Yes** | Planned |
 | Shell surfaces (`open-system-surface`) | Planned | **Yes** | Planned |
 
-\* On Windows, `list-surfaces` inventories each process's `window` / `focused` / `sheet` / `menu` surfaces, and `snapshot --surface` additionally resolves the shell kinds (`taskbar`, `system-tray`, `system-tray-overflow`, `start-menu`, `action-center`) with no `--app`; `quick-settings` refuses on pre-Windows-11 builds with the surface that carries the capability named instead.
-\*\* `launch` on Windows resolves an absolute path or a bare name found under System32 or the Windows directory — it cannot resolve display names such as "Google Chrome".
+\* On Windows, `list-surfaces` inventories each process's `window` / `focused` / `sheet` / `menu` surfaces, and `snapshot --surface` additionally resolves the shell kinds (`taskbar`, `system-tray`, `system-tray-overflow`, `start-menu`, `action-center`) with no `--app`; `quick-settings` refuses on every Windows build with `PLATFORM_NOT_SUPPORTED`, naming `action-center`, the surface that carries the capability.
+\*\* `launch` on Windows resolves an absolute path or a bare name found under System32 or the Windows directory, with or without `.exe` — it cannot resolve display names such as "Google Chrome".
 
 ## Development
 

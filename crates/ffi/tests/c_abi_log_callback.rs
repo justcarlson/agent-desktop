@@ -60,7 +60,7 @@ fn log_callback_register_delivers_event() {
     let deliveries = drain_recorder();
     assert!(
         !deliveries.is_empty(),
-        "at least one delivery expected after tracing::error!"
+        "at least one delivery expected after the snapshot tree debug event"
     );
     let d = deliveries
         .iter()

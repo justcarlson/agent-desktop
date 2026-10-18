@@ -140,7 +140,7 @@ Retiring both through one arm is how a hung or faulting target becomes a truncat
 ## Coordination
 
 ### State Root
-The single on-disk directory that owns everything the CLI persists: sessions, snapshot refmaps and their locks, trace segments, and the latest-snapshot inspection artifact. Default is `~/.agent-desktop`.
+The single on-disk directory that owns everything the CLI persists: sessions, snapshot refmaps and their locks, trace segments, and the `latest_snapshot_id` pointer. Default is `~/.agent-desktop`.
 
 `AGENT_DESKTOP_HOME` relocates the state root; the env value is the root itself, with no `.agent-desktop` suffix appended. Resolution lives in core and is identical across platforms. Explicit user-given output paths (`screenshot --out`, `--trace <path>`) are not re-rooted.
 
@@ -225,7 +225,7 @@ Core owns the precondition each action declares — a focused window for keyboar
 
 ### Agent Cursor Overlay
 
-An optional presentation-only cursor driven by verified action destinations. Its whole configuration — label, colours, size, and click effects — is set once per session with `session start --cursor` or `cursor-overlay enable`; action and batch commands inherit it and take no cursor flags. Motion models a human hand and the cursor never rotates or resizes. The renderer acknowledges arrival before the action dispatches, under a bounded timeout, so the picture and the real effect stay in step. A click plays a ripple and flashes an outline around the element. Headed mode retains the overlay. It never moves or replaces the OS pointer and never changes Interaction Policy, action delivery, or response semantics. Configuration, motion, and effect timing live in `agent-desktop-core`; macOS supplies the native renderer while other platforms inherit the adapter's default no-op.
+An optional presentation-only cursor driven by verified action destinations. Its whole configuration — label, colours, size, and click effects — is set once per session with `session start --cursor` or `cursor-overlay enable`; action and batch commands inherit it and take no cursor flags. Motion models a human hand and the cursor never rotates or resizes. The renderer acknowledges arrival before the action dispatches, under a bounded timeout, so the picture and the real effect stay in step. A click plays a ripple and flashes an outline around the element. On macOS, headed mode retains the overlay; on Windows a `--headed` command sends real pointer input and suppresses the overlay for that command. It never moves or replaces the OS pointer and never changes Interaction Policy, action delivery, or response semantics. Configuration, motion, and effect timing live in `agent-desktop-core`; macOS supplies the native renderer while other platforms inherit the adapter's default no-op.
 
 For macOS harness subagents, `session start --cursor --multi-agent` enables a cursor per `(session-id, agent-id)`. The harness assigns each subagent a stable global `--agent-id` or `AGENT_DESKTOP_AGENT_ID`. The CLI requires this identity for desktop UI actions in that mode. Headless and headed actions share the same cursor presentation, including raw physical pointer commands. The interaction lease still serializes physical input on the shared OS pointer. Each cursor reuses the same rendering and fade behavior; snapshots remain shared by session. Optional agent profiles override presentation only, and session disable/end removes every cursor.
 

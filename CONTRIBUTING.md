@@ -6,7 +6,7 @@ agent-desktop is a native Rust CLI and FFI library that gives AI agents structur
 
 - **Bug fixes** — wrong JSON output, incorrect ref resolution, `STALE_REF` on a stable target, etc.
 - **New commands** — additions to the 60-command surface (56 operational, four held-input names fail closed) (follow the Extensibility Pattern below)
-- **Platform adapters** — the Windows adapter (in progress) and the Linux adapter (planned), both implementing `PlatformAdapter`
+- **Platform adapters** — the Windows adapter (shipped in v0.10.0, open to fixes and features) and the Linux adapter (planned), both implementing `PlatformAdapter`
 - **App-specific quirks** — documented edge cases for specific apps (Electron, game engines, etc.) under `skills/`
 - **Docs and skill files** — keeping `skills/agent-desktop*/` accurate when behaviour changes
 
@@ -20,7 +20,7 @@ This project follows the guidelines in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 | Requirement | Notes |
 |---|---|
-| **Rust toolchain** | Pinned to `stable` via `rust-toolchain.toml` (`rust-version` 1.89). `rustup` picks the correct channel automatically. |
+| **Rust toolchain** | Pinned to 1.89.0 via `rust-toolchain.toml` (`rust-version` 1.89 is the MSRV). `rustup` picks the correct channel automatically. |
 | **macOS 13.0+** | Required to build and run the macOS adapter (`crates/macos/`). The Windows adapter (`crates/windows/`) builds on Windows only. The Linux crate is still a stub and compiles anywhere. |
 | **Accessibility permission** | Required for integration and E2E tests against real apps. Grant it in **System Settings > Privacy & Security > Accessibility** by adding the terminal you run tests from. |
 | **Screen Recording permission** | Required only for `screenshot` tests. Same path in System Settings. |
@@ -80,7 +80,7 @@ bash tests/e2e/run.sh
 
 The E2E harness drives the release binary against a real SwiftUI/AppKit fixture and asserts every effect by independent observation — never by trusting `ok: true`. See `tests/e2e/README.md` for what it covers and how to add a scenario.
 
-CI additionally checks that the release binary stays under 15 MB and that `crates/ffi/src/commands/generated.rs` is not out of sync with `build.rs`.
+CI additionally checks that the release binary stays under 15 MB and that the committed C header `crates/ffi/include/agent_desktop.h` has not drifted from the Rust ABI declarations (the `ffi-header-drift` job).
 
 ## Pre-commit hook
 
@@ -167,7 +167,7 @@ No existing files are modified beyond these six registration points.
 
 ## Submitting a pull request
 
-1. **Pick the right base branch.** Branch from `main` for macOS and core work. Windows adapter work branches from `feat/windows-adapter` (as `feat/windows-<n.n>-<slug>`) and opens its PR into `feat/windows-adapter`, never into `main`.
+1. **Pick the right base branch.** Branch from `main` for macOS, Windows and core work and open the PR into `main`. A platform phase still in progress (Linux) works on its own integration branch, `feat/linux-adapter`, with sub-phase branches `feat/linux-<n.n>-<slug>` that merge back into it, never into `main`.
 2. **Keep PRs focused.** One logical change per PR; separate refactors from features.
 3. **Make sure all quality gates pass** locally before pushing (see Dev workflow above).
 4. **Use a Conventional Commit title** for the PR title — it becomes the squash-merge commit message.

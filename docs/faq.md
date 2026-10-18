@@ -30,18 +30,19 @@ No. The core workflow reads native accessibility trees and assigns refs to inter
 
 ## Which platforms are supported?
 
-| Feature | macOS | Windows | Linux |
-|---------|:-----:|:-------:|:-----:|
-| Accessibility tree | **Yes** | Yes* | Planned |
-| Click/type/keyboard | **Yes** | **Yes** | Planned |
+| | macOS | Windows | Linux |
+|---|:---:|:---:|:---:|
+| Accessibility tree | **Yes** | Yes\* | Planned |
+| Click / type / keyboard | **Yes** | **Yes** | Planned |
 | Mouse input | **Yes** | **Yes** | Planned |
 | Screenshot | **Yes** | **Yes** | Planned |
 | Clipboard | **Yes** | **Yes** | Planned |
-| App/window management | **Yes** | Yes** | Planned |
-| Notifications | **Yes** | **Yes** (Action Center) | Planned |
+| App & window management | **Yes** | Yes\*\* | Planned |
+| Notifications | **Yes** | **Yes** | Planned |
+| Shell surfaces (`open-system-surface`) | Planned | **Yes** | Planned |
 
-\* On Windows, `list-surfaces` inventories each process's `window`, `focused`, `sheet` and `menu` surfaces.
-\*\* `launch` on Windows resolves an absolute path or a bare name found under System32 or the Windows directory, not display names.
+\* On Windows, `list-surfaces` inventories each process's `window` / `focused` / `sheet` / `menu` surfaces, and `snapshot --surface` additionally resolves the shell kinds (`taskbar`, `system-tray`, `system-tray-overflow`, `start-menu`, `action-center`) with no `--app`; `quick-settings` refuses on every Windows build with `PLATFORM_NOT_SUPPORTED`, naming `action-center`, the surface that carries the capability.
+\*\* `launch` on Windows resolves an absolute path or a bare name found under System32 or the Windows directory, with or without `.exe` — it cannot resolve display names such as "Google Chrome".
 
 ## How do I install agent-desktop?
 
@@ -65,7 +66,7 @@ cargo build --profile release-ffi -p agent-desktop-ffi
 
 Interactive roles that receive refs:
 
-`button`, `textfield`, `checkbox`, `link`, `menuitem`, `tab`, `slider`, `combobox`, `treeitem`, `cell`, `radiobutton`, `incrementor`, `menubutton`, `switch`, `colorwell`, `dockitem`.
+`button`, `textfield`, `checkbox`, `link`, `menuitem`, `tab`, `slider`, `combobox`, `treeitem`, `cell`, `radiobutton`, `incrementor`, `menubutton`, `switch`, `colorwell`, `dockitem`, `listbox`, `option`.
 
 Stale ref recovery:
 

@@ -175,7 +175,7 @@ mod imp {
             format!("{label} requires adapter-level handling, not element action"),
         )
         .with_suggestion(
-            "Use the top-level command (e.g. 'hover', 'drag', 'key-down') instead of targeting an element.",
+            "Use the top-level command (e.g. 'hover', 'drag', 'press') instead of targeting an element.",
         ))
     }
 

@@ -3,9 +3,8 @@ const README: &str = include_str!("../../README.md");
 const INSTALL_HEADING: &str = "## Installation";
 const NEXT_TOP_HEADING: &str = "## Language bindings";
 
-/// The README is committed with CRLF endings, so the section is bounded by
-/// heading text alone rather than by a line terminator the working tree may
-/// rewrite.
+/// The section is bounded by heading text alone, so the test does not depend
+/// on the README's line terminators.
 fn install_section() -> &'static str {
     let start = README
         .find(INSTALL_HEADING)

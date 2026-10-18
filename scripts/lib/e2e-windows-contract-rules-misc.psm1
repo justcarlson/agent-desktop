@@ -2,11 +2,12 @@
 
 <#
     e2e-windows-contract-rules-misc.psm1 - contract-gate rules 6, 7, 8, 11,
-    12 and 14: Write-Verdict reachability, environment-identity protection,
-    scenario leg/skip declarations, the ConvertFrom-Json ban, the
-    --property text|name / stub-reachability pair, and the automatic-
-    variable-assignment ban. Rule 13 (the 400-line cap) needs no AST and is
-    a file-length check the orchestrator applies directly. Split from the
+    12, 14 and 15: Write-Verdict reachability, environment-identity
+    protection, scenario leg/skip declarations, the ConvertFrom-Json ban, the
+    --property text|name / stub-reachability pair, the automatic-
+    variable-assignment ban, and the measured-and-discarded leg ban. Rule 13
+    (the 400-line cap) needs no AST and is a file-length check the
+    orchestrator applies directly. Split from the
     other rule groups purely to keep every gate module under the 400-line
     cap.
 #>

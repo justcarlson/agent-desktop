@@ -95,6 +95,9 @@ to `role` or `value`.
 | `PLATFORM_NOT_SUPPORTED` | Adapter method not implemented on this platform |
 | `TIMEOUT` | Wait condition expired |
 | `INVALID_ARGS` | Invalid argument values |
+| `WINDOW_NOT_FOUND` | The requested window does not exist |
+| `NOTIFICATION_NOT_FOUND` | The notification ID was not found |
+| `INTERNAL` | Unexpected error or caught panic |
 
 ## Exit codes
 

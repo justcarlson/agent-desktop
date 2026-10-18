@@ -32,7 +32,7 @@ fn an_in_process_client_side_provider_skips_the_cache() {
 /// module is the client-side proxy library, but whose `Main` layer is
 /// `Nested` into the target application's own process id - measured live
 /// against `tests/fixture-app-windows`, a 176-node broad-search walk cost
-/// ~840ms read live (exceeding the 750ms per-attempt resolve budget in
+/// ~840ms read live (against the 4s per-attempt resolve budget in
 /// `crates/core/src/ref_resolve_deadline.rs`) against ~310ms forced-batched.
 /// The module-name check alone reads this as client-side and picks `Skip`;
 /// the target-pid check must override it to `Batch`.

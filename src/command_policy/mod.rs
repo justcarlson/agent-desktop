@@ -115,8 +115,7 @@ pub(crate) fn preflight_context(
     cmd: &Commands,
     context: &agent_desktop_core::context::CommandContext,
 ) -> Result<(), AppError> {
-    if cfg!(target_os = "macos")
-        && context.multi_agent()
+    if context.multi_agent()
         && context.agent_id().is_none()
         && cmd.is_mutating()
         && policy_for(cmd) == PermissionNeed::Accessibility

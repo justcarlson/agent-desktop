@@ -23,12 +23,11 @@
 ///
 /// # Exception — `ad_check_permissions`
 ///
-/// The stub's `permission_report()` returns `PermissionState::Denied` (the
-/// trait default), not `Unknown`. The FFI maps `Denied` to `ErrPermDenied
-/// (-1)`, not `ErrPlatformNotSupported (-8)`. This is the documented signal
-/// that permissions are unavailable on the platform; callers should treat
-/// both `ErrPermDenied` and `ErrPlatformNotSupported` as "adapter not
-/// operational here".
+/// The stub's `permission_report()` returns `PermissionState::Unknown` (the
+/// trait default), not `Denied`. The FFI maps `Unknown` to
+/// `ErrPlatformNotSupported (-8)`, not `ErrPermDenied (-1)`, because an
+/// adapter that never probed permissions has not been denied anything;
+/// `ErrPermDenied` is reserved for an explicit `Denied` state.
 ///
 /// Commands gated by `#[cfg(feature = "stub-adapter")]` so they compile only
 /// when the feature is active. The normal test build (`cargo test -p

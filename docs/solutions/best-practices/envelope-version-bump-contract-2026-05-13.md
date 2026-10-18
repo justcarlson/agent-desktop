@@ -71,9 +71,7 @@ is checked and, where it is wrong, corrected in the same change:
 - `CLAUDE.md` — success and error envelope examples and the error-object prose
 - `docs/phases.md` — the typed-contract objective row, the `output.rs` line in
   the source-tree map, the envelope examples, and the error-object prose
-- `skills/agent-desktop/SKILL.md` — the success and error envelope one-liners
-- `skills/agent-desktop/references/commands-observation.md` and
-  `commands-system.md` — the snapshot and status envelope examples
+- `skills/agent-desktop/references/commands-observation.md` — the snapshot output-shape example (carries no `version` literal today; check its prose only)
 - `crates/ffi/src/commands/snapshot.rs` — the rustdoc envelope example, and
   `crates/ffi/include/agent_desktop.h`, which carries the same example and is
   regenerated rather than hand-edited

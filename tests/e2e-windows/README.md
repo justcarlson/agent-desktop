@@ -16,6 +16,15 @@ own `ok:true`.
 | `Harness.psm1` | Isolated environment (`HOME`/`TEMP`/`CARGO_TARGET_DIR` redirection), recoverable delete, immutable binary staging + hash re-verification, fixture process identity, and `ConvertFrom-AgentJson`. |
 | `DesktopLease.psm1` | The desktop-exclusivity lease and its CI adoption protocol, and the two guarded spawn entry points (`Invoke-Guarded`, `Invoke-GuardedAgent`). |
 | `Lib.psm1` | Target objects that always carry their snapshot (`Find-Target`, `Get-Target`, `Test-Target`, `Wait-Target`, `Invoke-Target`), the independent-observation assertions (`Assert-Effect`, `Assert-NoEffect`, `Assert-Envelope`), lock ordering (`Enter-Stage`), and the verdict/skip ledger (`Register-Legs`, `Add-Pass`/`Add-Fail`/`Add-Skip`, `Write-Verdict`). |
+| `NativeToken.psm1` | Process-token and integrity-level reads. |
+| `StagedProcess.psm1` | Staged-process spawn and own-handle reporting helpers. |
+| `StagedProcessHandleStability.psm1` | Handle-count stability checks for staged processes. |
+| `LibEnvelope.psm1` | Envelope, batch and occluder assertions re-exported by `Lib.psm1`. |
+| `LibVerdict.psm1` | Lock ordering, the leg ledger and `Require-Target`, re-exported by `Lib.psm1`. |
+| `LibShell.psm1` | Shell-surface helpers used by the shell scenarios. |
+| `ChromiumNative.psm1` | Native reads for the Chromium scenario. |
+| `ChromiumStage.psm1` | Chromium content staging. |
+| `CursorOverlaySupport.psm1` | Support helpers for the cursor-overlay scenario. |
 | `Run-E2E.ps1` | The one process-terminating call in the whole tree. Scenario files (`scenarios/*.ps1`) return; only this script exits. |
 
 `Harness.psm1`/`Native.psm1` and their self-tests were split (and `DesktopLease.psm1`/`NativeTypes.psm1`/`NativeDesktop.psm1` introduced) purely to keep every file under the 400-line structural cap `scripts/check-e2e-windows-contract.ps1` enforces (rule 13); no exported function moved, only which file owns it. Every `selftest/*.ps1` entry point is likewise paired with a `*Cases*.ps1` file it dot-sources for the same reason.
@@ -26,8 +35,10 @@ own `ok:true`.
   `Add-Skip`, with a reason. An undeclared token fails the run (a skip must
   never read as a pass).
 - `latency-baseline.psd1` - the committed per-leg p99 store `Assert-NoEffect`'s
-  window is derived from. Starts with only a conservative bootstrap value;
-  the cost run appends one entry per positive `Assert-Effect` leg.
+  window is derived from. Starts with four whole-CLI cost entries taken from
+  `probes/windows/24-fixture-e2e/captures/cost-baseline-devbox.json` and a
+  conservative `BootstrapP99Ms` fallback; the per-leg cost run replaces them
+  with one entry per positive `Assert-Effect` leg.
 
 ## Running
 
@@ -52,9 +63,9 @@ powershell -NoProfile -File tests\e2e-windows\Run-E2E.ps1
 - Every ref is a target object from `Find-Target`/`Find-TargetById`, carrying
   both `RefId` and `SnapshotId`. No helper accepts or returns a bare `@eN`.
 - Effect assertions go through `Assert-Effect`/`Assert-NoEffect`; envelope
-  assertions go through `Assert-Envelope`. Touching `.ok`/`.error`/
-  `.disposition`/`.data` on a command result directly is a `Lib.psm1`-only
-  privilege.
+  assertions go through `Assert-Envelope`. Dotted access to `.ok`/`.error`/
+  `.disposition`/`.data` on a command result is a `Lib.psm1`/`LibEnvelope.psm1`-only
+  privilege (rule 5 gates dotted member access only; bracket indexing is not gated).
 - Every desktop-touching leg is lexically wrapped in `Enter-Stage`, declaring
   locks in the fixed order `DesktopLease` -> `ForegroundStage` -> `MenuStage`.
 - Every scenario calls `Register-Legs` with its leg names up front; every

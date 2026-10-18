@@ -748,7 +748,7 @@ jobs:
 
   # Gate 3 — Stub-adapter passthrough tests: the Family-B command-backed
   # entrypoints (ad_snapshot, ad_status, ad_wait, ad_execute_by_ref,
-  # ad_version) plus adapter lifecycle (ad_init / ad_destroy) and
+  # ad_version) plus adapter lifecycle (ad_init / ad_adapter_destroy) and
   # ad_check_permissions are exercised against the stub adapter. Each must
   # return a structured PLATFORM_NOT_SUPPORTED envelope — or, for
   # ad_check_permissions, the documented ErrPermDenied result. These tests are
@@ -763,7 +763,7 @@ jobs:
   #     assert PLATFORM_NOT_SUPPORTED for every covered entrypoint, proving the
   #     non-macOS parity U10 targets.
   #   - Release: release.yml build-ffi matrix covers macOS×2 + Linux×2 +
-  #     Windows×1 for the real cdylib. PR builds do not duplicate that
+  #     Windows×2 for the real cdylib. PR builds do not duplicate that
   #     cross-compile matrix to avoid bloating CI on every push.
   ffi-passthrough:
     name: FFI Stub-Adapter Passthrough

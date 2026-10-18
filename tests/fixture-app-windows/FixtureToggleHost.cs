@@ -9,8 +9,8 @@ namespace AgentDeskFixtureApp
     /// Backs <c>switch-button</c>: a plain WinForms <see cref="Button"/> has
     /// no toggling shape at all, so <c>roles.rs</c>'s <c>button_role</c> never
     /// takes the <c>ToggleAvailable</c> arm against one. This host answers
-    /// <c>IsTogglePatternAvailableProperty</c> and <see cref="ITogglePattern"/>
-    /// - err, <see cref="IToggleProvider"/> - itself and leaves every other
+    /// <c>IsTogglePatternAvailableProperty</c> and <see cref="IToggleProvider"/>
+    /// itself and leaves every other
     /// property (bounds, enabled, offscreen, name) to the host provider via
     /// <see cref="IRawElementProviderSimple.HostRawElementProvider"/>, so the
     /// control stays a fully functional, boundable, clickable Button that

@@ -31,7 +31,8 @@ function main() {
     console.error(`Error: Native binary not found for ${platform()}-${arch()}`);
     console.error(`Expected: ${binaryPath}`);
     console.error('');
-    console.error('This usually means the install ran with --ignore-scripts');
+    console.error('This usually means the install ran with --ignore-scripts,');
+    console.error('the package manager blocked the postinstall script (npm: allow-scripts=agent-desktop),');
     console.error('or its postinstall download step failed.');
     console.error('Try reinstalling:');
     console.error('  npm install -g agent-desktop');

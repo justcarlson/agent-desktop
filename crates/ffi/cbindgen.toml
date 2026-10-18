@@ -23,8 +23,9 @@ after_includes = """
  *  3. Observe via ad_snapshot().  The returned JSON envelope contains the
  *     accessibility tree with snapshot-qualified ref IDs (for example,
  *     "@s8f3k2p9:e5") that address
- *     individual interactive elements.  A refmap is written under
- *     ~/.agent-desktop/ and is keyed to the session.  The envelope carries
+ *     individual interactive elements.  A refmap is written under the state
+ *     root (default ~/.agent-desktop, or AGENT_DESKTOP_HOME) and is keyed to
+ *     the snapshot ID.  The envelope carries
  *     data.snapshot_id. Qualified refs already pin the exact snapshot.
  *
  *  4. Act via ad_execute_by_ref(a, "@s8f3k2p9:e5", &action, policy, &out).

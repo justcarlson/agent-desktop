@@ -1,9 +1,9 @@
 //! Windows-dangerous key combos.
 //!
 //! `is_blocked_combo`'s core default blocks nothing
-//! (`crates/core/src/adapter/system.rs`); until this module is wired in,
-//! Windows advertises a dangerous-shortcut guard in the skill docs that it
-//! never enforced. The list is reasoned from Windows semantics, not
+//! (`crates/core/src/adapter/system.rs`); the Windows adapter's
+//! `is_blocked_combo` override calls this module to supply the list. The list
+//! is reasoned from Windows semantics, not
 //! translated from macOS's `cmd+q`-shaped set, which has no Windows meaning.
 //! One question decides membership: does the shortcut take the foreground
 //! away from the run, or change the session out from under it? `alt+f4`

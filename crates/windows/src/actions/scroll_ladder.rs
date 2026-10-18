@@ -26,7 +26,7 @@ pub(crate) const LADDER_SCROLL_LABEL: &str = SCROLL_LABEL;
 /// real distance to cover exhausted every rung and still reported
 /// `ACTION_FAILED` on a target that was never occluded, only never reached.
 /// `LargeIncrement`/`LargeDecrement` map to a page-sized native scroll step,
-/// so the same 10-rung budget covers a page's multiple.
+/// so the same MAX_ANCESTOR_SCROLLS budget covers a page's multiple.
 #[cfg(target_os = "windows")]
 pub(crate) fn ladder_scroll_amounts(
     direction: &Direction,

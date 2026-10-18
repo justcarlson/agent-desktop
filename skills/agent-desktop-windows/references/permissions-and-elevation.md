@@ -68,6 +68,10 @@ key alias (`meta`/`cmd`/`super` → `win`), and modifier superset is caught:
 | `win+l` | locks the session |
 | `win+d` | shows the desktop |
 | `alt+tab` | steals the foreground mid-run |
+| `win+r` | opens Run over the target |
+| `win+x` | opens the Quick Link menu over the target |
+| `win+e` | opens File Explorer over the target |
+| `ctrl+shift+esc` | opens Task Manager over the target |
 
 Supersets like `alt+shift+tab` are blocked too. `--force` overrides the guard;
 the calling agent keeps control.

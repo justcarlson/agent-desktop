@@ -190,14 +190,9 @@ fn diff_surfaces(baseline: &SignalBaseline, current: &SignalBaseline, events: &m
 }
 
 /// Grows `seen` with any entry from `current` not already present, keyed by
-/// the same identity `diff_signals` uses. Nothing already in `seen` is ever
-/// removed: this is the running union a disappearance-class wait diffs
-/// against, so an entity that both appeared and disappeared within one wait
-/// is still detected even though it never appears in the wait's original
-/// fixed baseline.
-/// Grows `seen` with any entry from `current` not already present, keyed by
-/// `identity`. The shared body behind [`merge_signal_baseline`]'s three
-/// fields, which differ only in their entity type and identity function.
+/// `identity`. Nothing already in `seen` is ever removed. The shared body
+/// behind [`merge_signal_baseline`]'s three fields, which differ only in their
+/// entity type and identity function.
 fn grow_with_new<'a, T: Clone, K: Eq + Hash>(
     seen: &'a [T],
     current: &'a [T],

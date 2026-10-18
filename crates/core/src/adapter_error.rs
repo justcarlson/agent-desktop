@@ -77,7 +77,7 @@ impl AdapterError {
         )
         .with_suggestion(
             "Re-run a snapshot to obtain fresh refs, then retry with the new ref \
-             (CLI: snapshot [--skeleton]; FFI: ad_snapshot then ad_execute_by_ref with the returned snapshot_id)",
+             (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
         )
         .with_disposition(DeliverySemantics::not_delivered())
     }

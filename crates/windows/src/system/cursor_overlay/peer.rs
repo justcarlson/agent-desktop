@@ -1,8 +1,8 @@
 //! Who is on the other end of the control pipe.
 //!
 //! The pipe carries no security descriptor. This crate deliberately does not
-//! author one — the module that would know how records descriptor authoring
-//! and DACL validation as absent, after an earlier attempt sank on `AceSize`
+//! author one — `private_file` records descriptor authoring
+//! and DACL validation as deliberately absent, after an earlier attempt sank on `AceSize`
 //! handling, and a test pins the ACL/ACE symbol family out of it. So the peer
 //! is authenticated instead, with the token APIs the crate already calls.
 //!

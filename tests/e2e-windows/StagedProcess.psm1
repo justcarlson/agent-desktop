@@ -317,14 +317,10 @@ function Start-StagedIntegrityProcess {
 
         $childReportedHandles = $null
         if ($ReportOwnHandles) {
-            <# ConvertFrom-Json returns its whole result as ONE pipeline
-               object; wrapping that call in @(...) then collects it as a
-               single-element array whose one element is the real array -
-               measured live, this silently defeated every leak comparison
-               downstream (a real leaked handle would never be found
-               "-contains" a 1-element array of arrays). The parsed value is
-               used as-is; a scalar JSON result (an empty array or one bare
-               number) is still normalized to an array with ,@(). #>
+            <# ConvertFrom-AgentJson returns an array as-is and a bare scalar
+               as a scalar. The parsed value is used unwrapped so a real
+               leaked handle is found by -contains; a null result becomes an
+               empty array and a scalar is normalized to a one-element array. #>
             try {
                 $parsed = ConvertFrom-AgentJson -Json $stdoutText
                 if ($null -eq $parsed) { $childReportedHandles = @() }
