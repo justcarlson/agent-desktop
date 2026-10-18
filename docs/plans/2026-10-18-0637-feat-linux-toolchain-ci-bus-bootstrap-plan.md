@@ -42,7 +42,7 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 **Bus detection**
 
 - R4. The adapter finds the AT-SPI bus by calling `org.a11y.Bus.GetAddress` on the session bus, which activates the service when it is cold, then connects to the returned address.
-- R5. A missing session bus, a missing `org.a11y.Bus` service, and an unreachable a11y address each produce `PLATFORM_NOT_SUPPORTED` with a `platform_detail` naming the D-Bus error and a suggestion that names the fix: GNOME `toolkit-accessibility`, installing `at-spi2-core`, the Flatpak `--talk-name=org.a11y.Bus` override, and the snap `desktop-legacy`/`unity7` interfaces (L12-2, L12-3).
+- R5. A missing session bus, a missing or unstartable `org.a11y.Bus` service, and an unreachable a11y socket each produce a bus error with a `platform_detail` naming the D-Bus error and a suggestion chosen from the classified fault (L12-2, L12-3): no session bus means run inside a desktop session; `ServiceUnknown`/`NameHasNoOwner` means install `at-spi2-core` (with the Flatpak `--talk-name=org.a11y.Bus` override and the snap `desktop-legacy`/`unity7` interfaces); `Spawn.*` means the launcher is installed but cannot start; a missing or refusing a11y socket means restart `at-spi-dbus-bus.service` or log out and back in. The GNOME `toolkit-accessibility` setting is not offered for any of them: with it false detection still succeeds (L1-16).
 - R6. A bus call that outlives the command deadline returns `TIMEOUT`, not a hang.
 - R7. Detection succeeds at most once per process and runs only for commands that need it; a failed detection is retried by the next call (KTD3). Commands that never touch the desktop (for example `version`) open no D-Bus connection.
 
@@ -55,7 +55,7 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 **CI**
 
 - R11. The Linux CI lane runs clippy with `-D warnings`, the full test suites of core, linux, the binary crate and the FFI crate, the core isolation check, and the 15 MiB release size check.
-- R12. A Linux CI job runs the built binary inside a real D-Bus + Xvfb + AT-SPI session and fails unless `status` reports accessibility granted; the same job runs it with no session bus and fails unless the answer is `PLATFORM_NOT_SUPPORTED` with a suggestion.
+- R12. A Linux CI job runs the built binary inside a real D-Bus + Xvfb + AT-SPI session and fails unless `status` reports accessibility granted; the same job runs it with no session bus and fails unless `status` and `permissions` succeed reporting accessibility `denied` with the session-bus suggestion, and a ref command answers `PERM_DENIED` carrying that suggestion.
 
 ### Key Decisions
 
@@ -70,7 +70,7 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 - No change to what any command does on macOS or Windows.
 - Not built: caching a failed detection. A cold bus activates on the first call and succeeds on the next, so a failure is retried on the next command rather than remembered.
 - Not built: a mock D-Bus server for tests (KD2).
-- Not built: reading `org.a11y.Status.IsEnabled` to tailor the suggestion. One combined suggestion carries every fix (KTD6); tailoring adds a call and a failure mode for wording only.
+- Not built: reading `org.a11y.Status.IsEnabled` to tailor the suggestion. The suggestion is chosen from the classified D-Bus fault (KTD6); `IsEnabled` adds a call and a failure mode and does not change detection (L1-16).
 
 ---
 
@@ -82,8 +82,8 @@ Today the Linux adapter is an empty stub: it reports accessibility as `Unknown`,
 - KTD2. **The dependency is unconditional in `crates/linux`.** zbus compiles on macOS, so macOS hosts keep checking and linting the real Linux code, which the pre-commit hook already includes in the macOS package set. Only the binary and FFI crates gate the Linux crate by target, as today. No non-Linux stubs are written.
 - KTD3. **Detect on first use and share one connection per process.** The adapter holds a lazily filled slot for the a11y connection behind a mutex; the first method that needs the bus connects, a success is kept, a failure is returned and not kept (Scope Boundaries). This replaces §3.1's "detection at adapter construction", which would make every command, including `version`, pay a D-Bus round trip.
 - KTD4. **Deadline-bounded calls.** Every bus wait (session connect, `GetAddress`, the a11y handshake, the registry read) is raced against the caller's remaining deadline by `within`, so a wait never outlives the caller's deadline and an elapsed deadline maps to `TIMEOUT`. The kept a11y connection is built with the standard operation timeout (`DEFAULT_OPERATION_TIMEOUT_MS`) only as the per-call ceiling for later callers of the shared connection. The shared slot is not locked across a connect, so a short-deadline caller never waits behind another caller's connect; a failure is not stored and a connection-level failure on a call drops the cached connection so the next call reconnects.
-- KTD5. **Error classification is one pure function over `zbus::Error`.** `Error::MethodError` whose name is `org.freedesktop.DBus.Error.ServiceUnknown` or `NameHasNoOwner` maps to `PLATFORM_NOT_SUPPORTED` with the install-`at-spi2-core` suggestion. `Error::InputOutput` of kind `NotFound` or `ConnectionRefused` maps to `PLATFORM_NOT_SUPPORTED` with the display-session suggestion; zbus falls back to `$XDG_RUNTIME_DIR/bus` when `DBUS_SESSION_BUS_ADDRESS` is unset, so a missing session bus surfaces as this socket error, not as a missing variable. `TimedOut` and an elapsed deadline map to `TIMEOUT`. Anything else maps to `INTERNAL` with the error text in `platform_detail`. This function is the one place with branching logic, so it carries the one unit test.
-- KTD6. **One combined suggestion text.** The `PLATFORM_NOT_SUPPORTED` suggestion names every fix in one string: on GNOME `gsettings set org.gnome.desktop.interface toolkit-accessibility true`; elsewhere install `at-spi2-core` and run `at-spi-bus-launcher`; for Flatpak `--talk-name=org.a11y.Bus`; for snap the `desktop-legacy` and `unity7` interfaces (L12-2, L12-3).
+- KTD5. **Error classification is one pure function over `zbus::Error`.** `Error::MethodError` whose name is `org.freedesktop.DBus.Error.ServiceUnknown` or `NameHasNoOwner` maps to `PLATFORM_NOT_SUPPORTED` with the install-`at-spi2-core` suggestion, and a `Spawn.*` name to the cannot-start suggestion. `Error::InputOutput` of kind `NotFound` or `ConnectionRefused`, and `Error::Address`, map to `PLATFORM_NOT_SUPPORTED` with the session-bus suggestion when raised while resolving the session bus and with the restart-the-bus-daemon suggestion when raised on the a11y address; zbus falls back to `$XDG_RUNTIME_DIR/bus` when `DBUS_SESSION_BUS_ADDRESS` is unset, so a missing session bus surfaces as this socket error, not as a missing variable. `TimedOut` and an elapsed deadline map to `TIMEOUT`. Anything else maps to `INTERNAL` with the error text in `platform_detail`. This function is the one place with branching logic, so it carries the one unit test.
+- KTD6. **The suggestion is chosen from the classified fault, and the fault is reported as a permission state.** Four faults exist (`crates/linux/src/system/bus_fault.rs`): no session bus (run inside a desktop session), service absent (install `at-spi2-core`; Flatpak `--talk-name=org.a11y.Bus`; snap `desktop-legacy`/`unity7`), launcher cannot start (read `systemctl --user status at-spi-dbus-bus.service`), and a11y socket gone (`systemctl --user restart at-spi-dbus-bus.service` or log out and back in). The bus error carries explicit non-retryable evidence (`retryable: false`). `permission_report` converts any of these into `PermissionState::Denied` carrying the same suggestion, so `status` and `permissions` succeed and report the condition, and every command that needs accessibility fails with `PERM_DENIED` and that suggestion, exactly as on macOS. A timeout or an unexpected bus error stays an error. `acquire_interaction_lease` uses core's shared Unix lease, as macOS does, so `permissions --request` returns the current report: Linux has no permission prompt.
 - KTD7. **The CI smoke uses the runner's own packages.** The smoke job installs `at-spi2-core`, `dbus-x11` and `xvfb` with apt on `ubuntu-latest`, starts `dbus-run-session -- xvfb-run -a`, and runs the release binary. Its no-bus run sets `DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent` and points `XDG_RUNTIME_DIR` at an empty directory, because zbus otherwise falls back to `$XDG_RUNTIME_DIR/bus`. If the runner cannot host the a11y bus, that is measured in the job log and the job's assertion is reduced to the no-bus case with the reason written into §3.1 (R9).
 - KTD8. **Layout follows the shared platform layout.** `system/bus.rs` (connection and detection), `system/permissions.rs`, `system/session.rs`, and `system/adapter.rs` for the `SystemOps` impl, mirroring `crates/windows/src/system/`.
 
@@ -97,7 +97,7 @@ flowchart TB
   S -->|no| G[session bus: org.a11y.Bus.GetAddress]
   G -->|address| A[connect to a11y bus, raced against the deadline]
   A -->|ok| K[keep connection] --> U
-  G -->|ServiceUnknown / no session bus| E[PLATFORM_NOT_SUPPORTED + suggestion]
+  G -->|ServiceUnknown / no session bus| E[Denied permission state + cause-specific suggestion]
   A -->|socket missing / refused| E
   G -->|deadline elapsed| T[TIMEOUT]
 ```
@@ -133,7 +133,7 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - **Files:** `crates/linux/src/system/bus.rs`, `crates/linux/src/system/bus_tests.rs`, `crates/linux/src/system/mod.rs`, `crates/linux/src/adapter.rs`.
 - **Approach:**
   1. Build the session-bus connection with `zbus::blocking::connection::Builder::session()` and `within` the caller's deadline, call `GetAddress` under the same `within`, then build the a11y connection with `Builder::address(..)` and the standard timeout as its per-call ceiling (KTD4).
-  2. Classify failures with one pure function (KTD5) and the combined suggestion (KTD6).
+  2. Classify failures with one pure function (KTD5) and the per-fault suggestion (KTD6).
   3. Store the connection in a lazily filled, mutex-guarded slot on `LinuxAdapter` (KTD3).
 - **Patterns to follow:** `crates/windows/src/system/permissions.rs` (`ensure_budget`, error shape with suggestion and `platform_detail`); `crates/windows/src/system/hresult.rs` for detail formatting.
 - **Test scenarios:**
@@ -174,8 +174,8 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - **Files:** `docs/phases.md`.
 - **Approach:**
   1. Rewrite §3.1 (scope bullets on dependencies, `tokio`, detection timing, the exit criterion's test method), the AT-SPI2 Bus Detection list (GetAddress, snap guidance), the Phase 3 New Dependencies table and text, the Phase 4 New Dependencies note that `tokio` enters "no later than Phase 3", and the Dependency Introduction Schedule row for `tokio`.
-  2. On the box through `scripts/remote-linux.sh`, run the release binary's `status` in four conditions and record the JSON in the PR: the live GNOME session (granted); a private `dbus-run-session` whose config has no service directories (no a11y service → `PLATFORM_NOT_SUPPORTED`); no session bus (`DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent` and `XDG_RUNTIME_DIR` set to an empty temp dir → `PLATFORM_NOT_SUPPORTED`); and a private session whose own `at-spi-bus-launcher` is stopped with `SIGSTOP` (→ `TIMEOUT` within the deadline, R6). Every private session uses its own `XDG_RUNTIME_DIR`.
-  3. Close ledger row `L1-16`: in a private session with `GSETTINGS_BACKEND=memory` and `toolkit-accessibility` set to false there, launch a probe-owned GTK4 app and record whether it registers on the a11y bus and what `status` answers, so the GNOME suggestion in KTD6 is measured in both directions; correct §3.1's GNOME hint to the result.
+  2. On the box through `scripts/remote-linux.sh`, run the release binary's `status` in four conditions and record the JSON in the PR: the live GNOME session (granted); a private `dbus-run-session` whose config has no service directories (no a11y service → accessibility `denied`); no session bus (`DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent` and `XDG_RUNTIME_DIR` set to an empty temp dir → accessibility `denied`); and a private session whose own `at-spi-bus-launcher` is stopped with `SIGSTOP` (→ `TIMEOUT` within the deadline, R6). Every private session uses its own `XDG_RUNTIME_DIR`.
+  3. Close ledger row `L1-16`: in a private session with `GSETTINGS_BACKEND=memory` and `toolkit-accessibility` set to false there, launch a probe-owned GTK4 app and record whether it registers on the a11y bus and what `status` answers, so the claim that the GNOME setting is not the fix for a missing bus (KTD6) is measured in both directions; correct §3.1's GNOME hint to the result.
 - **Test expectation:** none -- documentation and manual real-run verification.
 - **Verification:** the three answers match R8 and R5; the 3.0 ledger gate passes on the corrected `docs/phases.md`.
 
@@ -198,11 +198,12 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 ## Definition of Done
 
 - Every row of the Verification Contract passes, in CI and on the box where named.
-- `status` on the GNOME box answers granted; the two failure conditions answer `PLATFORM_NOT_SUPPORTED` with an actionable suggestion.
+- `status` on the GNOME box answers granted; the failure conditions answer `status` and `permissions` ok with accessibility `denied` and a cause-specific suggestion, and a ref command answers `PERM_DENIED` with that suggestion.
 - `crates/core` diff is empty.
 - `docs/phases.md` contains no claim that `tokio` is required in Phase 3, and §3.1 describes detection as implemented.
 - `python3 scripts/check-linux-findings.py --sub-phase 3.1` lists no row this sub-phase leaves undisposed.
 - No experimental or abandoned code remains in the diff.
+- The stranger dogfood report `docs/dogfood-reports/2026-10-18-001-feat-linux-3-1-toolchain-bus-dogfood.md` is committed with a disposition for every finding.
 
 ## Risks & Dependencies
 
@@ -218,4 +219,4 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - `.claude` dependency dossier for 3.1 (zbus/atspi/tokio versions, features, licences, sizes, advisories) — evidence summarised in KTD1.
 - `probes/linux/FINDINGS.md` rows `L1-5` (owner check fails cold), `L1-9` (empty registry is success), `L1-10` (`IsEnabled`), `L12-2`–`L12-3` (snap interfaces), `L12-4`–`L12-7` (dead and missing buses).
 - `crates/windows/src/system/permissions.rs`, `session.rs`, `adapter.rs` — patterns.
-- `src/main.rs` `execute_with_adapter` — a `permission_report` error becomes the pre-dispatch envelope with its suggestion.
+- `src/main.rs` `execute_with_adapter` — a `permission_report` error becomes the pre-dispatch envelope with its suggestion; a `Denied` report instead reaches `command_policy::preflight`, which validates arguments first and then refuses accessibility-gated commands with `PERM_DENIED`.
