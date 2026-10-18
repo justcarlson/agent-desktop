@@ -138,7 +138,7 @@ Rows land with the area's probe.
 | L8-6 | X11 window properties | tool | box | §3.4 "falling back to wmctrl" | `xprop` gives `_NET_WM_PID`, `_NET_WM_NAME`, `_NET_WM_WINDOW_TYPE` (NORMAL vs DIALOG), `_NET_WM_STATE`, `_NET_FRAME_EXTENTS`, `WM_TRANSIENT_FOR`, `WM_CLIENT_MACHINE`. `_NET_CLIENT_LIST` read costs min 1.94 ms. `wmctrl.present: false` on this box (not installed). `xwininfo` gives absolute geometry. | CONTRADICTS | 3.4: the fallback must not depend on wmctrl. Use xprop/_NET_CLIENT_LIST (or Gdk/x11 reads) directly. |
 | L8-7 | XID reuse risk | tool | box | §3.12 intro: "Linux gains an equivalent only if the same recycled-identifier hazard is measured on X11 or Wayland" | Same process, 150 create/destroy cycles: `same_process.reused_ids: 0`, ids step by 4 (`0x4000003, 0x4000007, ...`). Fresh process per window, 40 spawns: `fresh_process_per_window.distinct_xids: 1, reused: 39`, every first window is `0x4000003`. Overlapping live processes got different bases. | NEW-EDGE | 3.12: the hazard is measured on X11, across processes not within one process. An XID is not a stable window identity across a process restart. Any stored window identity must pair the XID with pid and the process start time. 3.12 owns the field. |
 | L8-8 | Window ops with xdotool | tool | box | API Mapping "Window ops": `xdotool` / `wmctrl` for resize, move, minimize, maximize, restore | `xdotool` move+resize read back `{x:150,y:197,w:410,h:260}` (`took_effect: true`, rc 0). `xdotool windowminimize` sets `_NET_WM_STATE_HIDDEN` and WM_STATE Iconic, and AT-SPI shows `ICONIFIED` on the frame. xdotool on a nonexistent id: rc 1 with `BadWindow`. AT-SPI `Component.SetExtents` with signature `(iiiiu)` was rejected with `InvalidArgs` (`took_effect: false`); other signatures not tried. | CONFIRMS (partial) | 3.4: keep xdotool for move, resize and minimize, and read back through X11 state. Do not use SetExtents on a GTK3 frame. |
-| L8-9 | wmctrl and maximize/restore | tool | box | API Mapping "Window ops" | `wmctrl` is not installed (rc 127). Every wmctrl step records `rc: 127` and `took_effect: false` (maximize, restore, activate-from-minimize). Maximize, restore and unminimize were not measured. | DEFERRED | needs: wmctrl (or another EWMH client-message sender) extracted into the user-space tool root, then measure maximize, restore, unminimize in both directions; closure: 3.4 |
+| L8-9 | wmctrl and maximize/restore | tool | box | API Mapping "Window ops" | `wmctrl` is not installed (rc 127). Every wmctrl step records `rc: 127` and `took_effect: false` (maximize, restore, activate-from-minimize). Maximize, restore and unminimize were not measured. | DEFERRED | needs: wmctrl (or another EWMH client-message sender) extracted into the user-space tool root, then measure maximize, restore, unminimize in both directions; closure: 3.9 (maximize, restore and unminimize measured in L11-20 and L11-22) |
 | L8-10 | Display geometry and scale | tool + dbus | box | §3.4: "list_displays via XRandR (X11) / the Wayland portal's equivalent + per-monitor scale" | `xrandr --listmonitors`: 1 monitor `Virtual1 1280/339x800/212+0+0`. `xrandr --query` shows 0mm x 0mm. Mutter `GetCurrentState`: one logical monitor `scale: 1.0`, `primary: true`, props `layout-mode: 2`, `global-scale-required: True`, `legacy-ui-scaling-factor: 1`. Mutter supports per-mode `supported_scales` ([1.0], [1.0,2.0,3.0], ...). Gdk `scale_factor: 1`, workarea `[66,32,1214,768]`. `Xft.dpi: 96`. Timing: Mutter min 0.529 ms, median 0.635, max 1.879; `xrandr --query` subprocess min 3.02 ms, median 3.09, max 4.92. Single display only, so multi-monitor and mixed scale are unmeasured. | CONFIRMS | 3.4: list_displays from XRandR/Mutter works. Prefer the Mutter DisplayConfig `scale` for the per-display `scale`. xrandr gives no scale. Report workarea separately from monitor geometry. |
 | L8-11 | Wayland-side window listing fallbacks | dbus | box | §3.4: "falling back to wmctrl/xdg-desktop-portal introspection" | `portal_has_window_listing: false`: no `org.freedesktop.portal.*` interface name contains window or toplevel (`portal_interfaces` lists 31 names: Inhibit, Screenshot, ScreenCast, RemoteDesktop, Clipboard, ...). `org.gnome.Shell.Introspect.GetWindows` returns `AccessDenied`: "GetWindows is not allowed". | CONTRADICTS | 3.4 (Wayland path): there is no portal or shell route to enumerate windows. Window enumeration under Wayland must come from AT-SPI alone. |
 | L8-12 | Display Server Detection | tool | box | "Display Server Detection": WAYLAND_DISPLAY then DISPLAY then PLATFORM_NOT_SUPPORTED | On this X11 session `WAYLAND_DISPLAY` is unset, `DISPLAY=:0`, rule yields x11 (`env.display_server_detection.phases_rule_result: x11`). The ssh environment reports `XDG_SESSION_TYPE: tty`, so that variable is not a usable signal. Wayland and Xwayland cases not measured. | CONFIRMS (X11 branch only) | 3.x: do not use XDG_SESSION_TYPE. The Wayland-with-Xwayland case (both variables set) belongs to the Wayland probe area. |
@@ -246,22 +246,22 @@ Rows land with the area's probe.
 
 | row | phases.md section contradicted | phases.md correction |
 | --- | --- | --- |
-| `L1-5` | §3.1 AT-SPI2 Bus Detection | |
-| `L2-6` | §3.2 Scope, Batched-fetch strategy | |
-| `L2-7` | §3.2 Scope, Batched-fetch strategy | |
-| `L2-16` | P3-O8 row and §3.3 native_id bullet | |
-| `L6-1` | §3.6 Key APIs and Scope hit_test | |
-| `L6-11` | §3.6 Scope, scroll_into_view | |
-| `L7-6` | P3-O9 (Phase 3 objectives table) | |
-| `L8-2` | §3.4 Scope, list_windows/list_apps/focused_window | |
-| `L8-6` | §3.4 Scope (fallback clause) and API Mapping Window ops | |
-| `L8-11` | §3.4 Scope (fallback clause) and API Mapping Window ops | |
-| `L9-10` | §3.10 Scope bullet 1, P3-O4, API Mapping Screenshot row | |
-| `L10-2` | §3.14 Notification Management list bullet and exit criteria | |
-| `L10-10` | §3.14 System Tray list bullet | |
-| `L10-11` | §3.14 System Tray activate and context-menu bullets | |
-| `L10-13` | §3.14 System Tray legacy bullet | |
-| `L11-8` | §3.9 close_app and API Mapping App close | |
-| `L11-13` | §3.9 ProcessState bullet | |
-| `L11-22` | §3.9 window_op bullet and API Mapping Window ops | |
-| `L12-2` | P3-O15 and matching exit-criteria / skill bullet | |
+| `L1-5` | §3.1 AT-SPI2 Bus Detection | §3.1 Scope, Key APIs, Exit criteria, AT-SPI2 Bus Detection; Linux API Mapping Permissions row; Key Risks table |
+| `L2-6` | §3.2 Scope, Batched-fetch strategy | §3.2 Scope (Batched-fetch strategy) and Key APIs |
+| `L2-7` | §3.2 Scope, Batched-fetch strategy | §3.2 Scope (Batched-fetch strategy) and Key APIs |
+| `L2-16` | P3-O8 row and §3.3 native_id bullet | P3-O8; §3.3 Scope; Cross-platform capability map (native_id, dom_id / dom_classes); Platform API Quick Reference Stable ID; Testing |
+| `L6-1` | §3.6 Key APIs and Scope hit_test | §3.6 Scope (hit_test) and Key APIs |
+| `L6-11` | §3.6 Scope, scroll_into_view | §3.6 Scope (scroll_into_view); Linux API Mapping Scroll row |
+| `L7-6` | P3-O9 (Phase 3 objectives table) | P3-O9 |
+| `L8-2` | §3.4 Scope, list_windows/list_apps/focused_window | §3.4 Scope (list_windows/list_apps/focused_window) and Key APIs |
+| `L8-6` | §3.4 Scope (fallback clause) and API Mapping Window ops | §3.4 Scope and Key APIs; Linux API Mapping Window ops row; capability map WindowRaise; Minimum OS Requirements |
+| `L8-11` | §3.4 Scope (fallback clause) and API Mapping Window ops | §3.4 Scope (Wayland enumeration) |
+| `L9-10` | §3.10 Scope bullet 1, P3-O4, API Mapping Screenshot row | P3-O4; P3-O11; §3.10 Scope; Linux API Mapping Screenshot row; Platform API Quick Reference Screenshot; Skill Update |
+| `L10-2` | §3.14 Notification Management list bullet and exit criteria | §3.14 Notification Management list bullet and Exit criteria; Platform API Quick Reference Notifications |
+| `L10-10` | §3.14 System Tray list bullet | §3.14 System Tray list bullet |
+| `L10-11` | §3.14 System Tray activate and context-menu bullets | §3.14 System Tray activate / context-menu bullet |
+| `L10-13` | §3.14 System Tray legacy bullet | §3.14 System Tray legacy bullet; Platform API Quick Reference System tray |
+| `L11-8` | §3.9 close_app and API Mapping App close | §3.9 Scope (close_app) and Key APIs; Linux API Mapping App close row |
+| `L11-13` | §3.9 ProcessState bullet | §3.9 Scope (ProcessState) |
+| `L11-22` | §3.9 window_op bullet and API Mapping Window ops | §3.9 Scope (window_op); Linux API Mapping Window ops row |
+| `L12-2` | P3-O15 and matching exit-criteria / skill bullet | P3-O15; §3.1 AT-SPI2 Bus Detection; §3.14 Sandbox access; Testing (Flatpak/Snap); Skill Update |

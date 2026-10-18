@@ -841,7 +841,7 @@ Cross-platform core extensions (new, landed alongside Windows — each restated 
 
 | ID | Objective | Metric | Shipped in 1.6 / Remaining |
 |----|-----------|--------|------------------------------|
-| P2-O8 | Stable-selector expansion | `AccessibilityNode.native_id` remains the portable stable-ID field. Platform adapters preserve their strongest developer ID there (Windows UIA `AutomationId`, macOS `AXIdentifier` or `AXDOMIdentifier`, Linux AT-SPI `accessible-id`), while live locator traversal may retain both native IDs internally for strict matching. Phase 2 may add separately named `subrole`, `role_description`, `placeholder`, and `dom_classes` evidence without renaming or duplicating `native_id`. Resolver tests require controls with explicit IDs to survive re-drills; controls without one continue through the fingerprint fallback | Core contract + macOS `native_id` (`AXIdentifier`) shipped (U5). Windows `AutomationId` → `IdentifierEvidence` shipped in **2.2**, ahead of its nominal sub-phase: `crates/windows/src/tree/element_properties.rs` builds it typed as `IdentifierKind::AutomationId`, filters blank values, and reports a failed read as incomplete evidence rather than an absent identifier. Sub-phase 2.3 verifies and pins that behaviour and measures real coverage; it does not re-implement it. **Remaining:** `subrole`, `role_description`, `placeholder` and `dom_classes`, all assigned to sub-phase 2.4 |
+| P2-O8 | Stable-selector expansion | `AccessibilityNode.native_id` remains the portable stable-ID field. Platform adapters preserve their strongest developer ID there (Windows UIA `AutomationId`, macOS `AXIdentifier` or `AXDOMIdentifier`, Linux: AT-SPI `AccessibleId` is empty on GNOME 46 GTK3, GTK4 and Chromium, so the Chromium `id` object attribute is the Linux source where present, L2-16), while live locator traversal may retain both native IDs internally for strict matching. Phase 2 may add separately named `subrole`, `role_description`, `placeholder`, and `dom_classes` evidence without renaming or duplicating `native_id`. Resolver tests require controls with explicit IDs to survive re-drills; controls without one continue through the fingerprint fallback | Core contract + macOS `native_id` (`AXIdentifier`) shipped (U5). Windows `AutomationId` → `IdentifierEvidence` shipped in **2.2**, ahead of its nominal sub-phase: `crates/windows/src/tree/element_properties.rs` builds it typed as `IdentifierKind::AutomationId`, filters blank values, and reports a failed read as incomplete evidence rather than an absent identifier. Sub-phase 2.3 verifies and pins that behaviour and measures real coverage; it does not re-implement it. **Remaining:** `subrole`, `role_description`, `placeholder` and `dom_classes`, all assigned to sub-phase 2.4 |
 | P2-O9 | `Action` enum expansion for 2026 agent workloads | New variants: `LongPress { duration_ms }`, `ForceClick`, `ShowMenu`, `DeliverFiles(Vec<PathBuf>)` (renamed from `FileDrop` — the original name implied `NSDraggingSession` which is not headless-compatible on macOS; see Core invariant 6), `WindowRaise`, `Cancel`, `SelectRange { start, len }`, `InsertAtCaret(String)`. `watch` is a new **command**, not an `Action` variant. Each has a macOS AX API mapping (all AX calls on main thread), a Windows UIA pattern mapping, a new CLI subcommand, FFI conversion coverage where applicable, and exhaustive platform-dispatch tests in the same change | **Remaining in full** — none of these variants exist yet; still Phase 2 scope |
 | P2-O10 | `ErrorCode` expansion | Consider `PermissionRevoked` (distinct from `PermDenied` — TCC yanked mid-session) and `ResourceExhausted` (refmap >1 MB, tree node-count cap) | `APP_UNRESPONSIVE` shipped (U14) — a failed read-only liveness probe upgrades a hang to `APP_UNRESPONSIVE`; ordinary AX messaging exhaustion still reports plain `TIMEOUT`. **Remaining:** `PermissionRevoked`, `ResourceExhausted` |
 | P2-O11 | Event-subscription primitive (push, not poll) | New **command** `watch --event <kind> --ref @s8f3k2p9:e5 --timeout 3000`, backed by a new adapter method distinct from `capture_signal_baseline`. macOS: `AXObserverCreate` + `AXObserverAddNotification` + `CFRunLoopSource`. Windows: `IUIAutomation.AddAutomationEventHandler` + `AddFocusChangedEventHandler` + `AddPropertyChangedEventHandler`. Linux mirrors in Phase 3 via AT-SPI2 D-Bus signals | `wait --event <kind>` (baseline-diff desktop-signal wait, U17) shipped and is **not** this objective — see the naming note under sub-phase 2.11. **Remaining in full:** the push `watch` command itself |
@@ -896,11 +896,11 @@ New supporting types (land in `crates/core/src/`):
 
 | Capability | macOS API | Windows API | Linux API (Phase 3) |
 |------------|-----------|-------------|----------------------|
-| Stable `native_id` — **shipped on macOS (U5)** | `kAXIdentifierAttribute` / `AXDOMIdentifier` | UIA `AutomationId` | AT-SPI2 `accessible-id` + GTK `gtk-id` |
+| Stable `native_id` — **shipped on macOS (U5)** | `kAXIdentifierAttribute` / `AXDOMIdentifier` | UIA `AutomationId` | AT-SPI2 `accessible-id`, empty on GNOME 46 GTK3, GTK4 and Chromium apps (no `gtk-id` attribute); Chromium `id` object-attribute where present (L2-16) |
 | `subrole` | `kAXSubroleAttribute` | UIA `LocalizedControlType` + pattern-based heuristic | AT-SPI2 `role-name` + `state-set` |
 | `role_description` | `kAXRoleDescriptionAttribute` | UIA `LocalizedControlType` | AT-SPI2 `role-description` |
 | `placeholder` | `kAXPlaceholderValueAttribute` | UIA `HelpText` + `IsTextEditPatternAvailable` placeholder | AT-SPI2 `description` + HTML `placeholder` via `object-attributes` |
-| `dom_id` / `dom_classes` | `kAXDOMIdentifierAttribute` / `kAXDOMClassListAttribute` | Windows: no producer — `uiautomation` 0.25.0 exposes no UIA `HtmlClass`/`HtmlId`, and A16-6 measured `AriaProperties` carrying no DOM class tokens; schema ships unproduced until a stack presents one | AT-SPI2 `object-attributes` HTML keys |
+| `dom_id` / `dom_classes` | `kAXDOMIdentifierAttribute` / `kAXDOMClassListAttribute` | Windows: no producer — `uiautomation` 0.25.0 exposes no UIA `HtmlClass`/`HtmlId`, and A16-6 measured `AriaProperties` carrying no DOM class tokens; schema ships unproduced until a stack presents one | AT-SPI2 `object-attributes` `id` / `class` keys on Chromium (L2-16) |
 | Event subscription (`watch`) | `AXObserverCreate` + `AXObserverAddNotification` on `CFRunLoop` | `IUIAutomation.AddAutomationEventHandler` + `AddFocusChangedEventHandler` + `AddPropertyChangedEventHandler` | AT-SPI2 D-Bus signals via `zbus::StreamFactory` |
 | Text range read | `AXStringForRangeParameterizedAttribute` + `AXSelectedTextRangeAttribute` | `TextPattern.GetSelection`, `TextPattern.DocumentRange.GetText` | AT-SPI2 `Text.GetText(start, end)` + `Text.GetCaretOffset` |
 | Text range write | `AXSelectedTextRange = AXValueCreate(kAXValueCFRangeType, …)` | `TextRange.Select` + `TextRange.Move` | AT-SPI2 `EditableText.InsertText` + `Text.SetCaretOffset` |
@@ -911,10 +911,10 @@ New supporting types (land in `crates/core/src/`):
 | `LongPress` | `CGEventCreateMouseEvent(…Down…)` + sleep + `…Up` | `SendInput` hold + release | Coordinate via `ydotool/xdotool` |
 | `ForceClick` | `CGEventSetIntegerValueField(kCGMouseEventPressure, …)` + `kCGEventMouseSubtypeTabletPoint` | Pen input `SendInput` with `PEN_FLAGS_BARREL` | Not natively supported — return `ActionNotSupported` |
 | `ShowMenu` action | `AXPerformAction(kAXShowMenuAction)` | `ExpandCollapsePattern.Expand` + UIA right-click fallback | AT-SPI2 `Action.DoAction("popup")` |
-| `WindowRaise` | `AXUIElementSetAttributeValue(kAXRaiseAction)` | `SetForegroundWindow` + `SetWindowPos(HWND_TOP)` only under explicit focus/window policy | `wmctrl -a` / `xdotool windowactivate` only under explicit focus/window policy |
+| `WindowRaise` | `AXUIElementSetAttributeValue(kAXRaiseAction)` | `SetForegroundWindow` + `SetWindowPos(HWND_TOP)` only under explicit focus/window policy | `xdotool windowactivate` only under explicit focus/window policy (`wmctrl` is not installed by default, L8-6) |
 | `Cancel` | `AXPerformAction(kAXCancelAction)` | UIA `WindowPattern.Close` on dialog or `InvokePattern` on cancel button | AT-SPI2 `Action.DoAction("cancel")` or synthesize Escape |
 | `DeliverFiles(Vec<PathBuf>)` | 4-tier headless fallback: (1) app-native URL scheme, (2) `NSWorkspace.open(urls:withApplicationAt:configuration:)` with `activates: false`, (3) `NSPasteboard.public.file-url` + `CGEventPostToPid(cmd+v)`, (4) `osascript open`. NEVER `NSDraggingSession` (not headless-compatible — Core invariant 6) | App/shell delivery first: app URI handlers, `ShellExecuteEx`, `IFileOperation` for filesystem destinations, and `CF_HDROP` clipboard paste where accepted. `IDataObject + DoDragDrop` is policy-gated fallback/spike only | Portal/native file-transfer path where available; XDND is Phase 3 research, not default |
-| Screen Recording permission | `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess` | No macOS-style TCC field. Use `GraphicsCaptureSession::IsSupported` / capture API failures to report `not_required`, `unknown`, `PERM_DENIED`, or `PLATFORM_NOT_SUPPORTED` with `platform_detail` | PipeWire portal permission dialog |
+| Screen Recording permission | `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess` | No macOS-style TCC field. Use `GraphicsCaptureSession::IsSupported` / capture API failures to report `not_required`, `unknown`, `PERM_DENIED`, or `PLATFORM_NOT_SUPPORTED` with `platform_detail` | PipeWire portal permission dialog; no preflight exists, so it is inferred from a request outcome (L9-16) |
 | Automation permission — **shipped, truthful (U4)** | Nonprompting System Events probe; explicit request uses the bounded isolated helper | N/A (no equivalent restriction) | N/A |
 
 ### Cross-cutting sub-phase DoD
@@ -1810,9 +1810,9 @@ Integration-level tests (Explorer/Notepad/Settings snapshots, click/type/clipboa
 
 ## Phase 3 — Linux Adapter
 
-**Status: Planned** — delivered as sub-phases 3.0–3.15 into the `feat/linux-adapter` integration branch, mirroring the Windows sub-phase template ([Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches)) numbered slot for numbered slot, with AT-SPI2/D-Bus specifics substituted for UIA. Windows's §2.12.1 has no Linux counterpart in the mirror: it answers a Win32 handle-table hazard, and Linux gains an equivalent only if the same recycled-identifier hazard is measured on X11 or Wayland. Phase 3 begins only after Phase 2 (2.0–2.17) has merged to `main`; that precondition is met (v0.10.0).
+**Status: Planned** — delivered as sub-phases 3.0–3.15 into the `feat/linux-adapter` integration branch, mirroring the Windows sub-phase template ([Platform Delivery Model](#platform-delivery-model--sub-phases-and-integration-branches)) numbered slot for numbered slot, with AT-SPI2/D-Bus specifics substituted for UIA. Windows's §2.12.1 has no Linux counterpart in the mirror: it answers a Win32 handle-table hazard. The same recycled-identifier hazard is measured on X11 across processes (a fresh process per window receives the same XID every time, L8-7), so a Linux window identity pairs the XID with the pid and the process start time (3.4) instead of a separate sub-phase. Phase 3 begins only after Phase 2 (2.0–2.17) has merged to `main`; that precondition is met (v0.10.0).
 
-Phase 3 completes the three-platform story. The Linux adapter implements the original adapter surface **plus** every cross-platform extension landed in Phase 2 (event subscriptions via `watch`, text ranges, modern screenshot, stable-selector fields, the predeclared toolbar and shell-surface vocabulary, new Action variants, new ErrorCode variants). Each has a canonical AT-SPI2 / D-Bus / Wayland-portal implementation. Core engine, trait contract, command-registry, CLI dispatch, FFI wrappers, and MCP transport are all untouched — per the [Command Surface Architecture](#command-surface-architecture-dry-invariant) invariant, Phase 3 is **pure `PlatformAdapter` trait implementation code**, nothing else. No new command files, no CLI dispatch changes, no FFI wrappers, no MCP tool registrations. "Foundation contract" below means Phase 1 + Phase 1.6 + whatever Phase 2 landed on the trait — Phase 3 implements against that settled contract, it does not renegotiate it.
+Phase 3 completes the three-platform story. The Linux adapter implements the original adapter surface **plus** every cross-platform extension that Phase 2 landed in core: stable-selector fields, `get_text_selection`, per-window screenshot targeting, the predeclared toolbar and shell-surface vocabulary, and the error codes as they stand. Phase 2's `watch` command (P2-O11), text-range commands beyond `get_text_selection` (P2-O12) and new `Action` variants (P2-O9) did not ship in core, so Phase 3 has no surface to implement for them; P3-O9, P3-O10 and P3-O13 record the measured Linux mappings for when core adds them. Core engine, trait contract, command-registry, CLI dispatch, FFI wrappers, and MCP transport are all untouched — per the [Command Surface Architecture](#command-surface-architecture-dry-invariant) invariant, Phase 3 is **pure `PlatformAdapter` trait implementation code**, nothing else. No new command files, no CLI dispatch changes, no FFI wrappers, no MCP tool registrations. "Foundation contract" below means Phase 1 + Phase 1.6 + whatever Phase 2 landed on the trait — Phase 3 implements against that settled contract, it does not renegotiate it.
 
 ### Objectives
 
@@ -1823,7 +1823,7 @@ Linux parity (original scope):
 | P3-O1 | Linux adapter | `snapshot` on Ubuntu GNOME returns valid tree for Files, Terminal, Settings |
 | P3-O2 | All commands cross-platform | Identical JSON contract output on all 3 platforms for every command |
 | P3-O3 | Linux input synthesis | `click`, `type`, `press`, all mouse commands via AT-SPI actions + xdotool/ydotool |
-| P3-O4 | Linux screenshot | `screenshot` produces PNG via PipeWire ScreenCast portal (Wayland) / XGetImage (X11) |
+| P3-O4 | Linux screenshot | `screenshot` produces PNG via PipeWire ScreenCast portal (Wayland) / per-window `XGetImage` of each window's own drawable (X11); a root-window grab does not reflect mapped windows on composited GNOME X11, so full-screen capture composes per-window grabs or uses the portal (L9-10) |
 | P3-O5 | Linux clipboard | `clipboard-get` / `clipboard-set` / `clipboard-clear` via `wl-clipboard` (Wayland) / `xclip` (X11), marshaled through typed `ClipboardContent` |
 | P3-O6 | Cross-platform CI | GitHub Actions matrix: macOS + Windows + Ubuntu |
 | P3-O7 | Linux binary release | Prebuilt CLI binary added to the release pipeline (Phase 1.5 already ships the Linux FFI cdylib) |
@@ -1832,14 +1832,14 @@ Cross-platform extensions (Linux implementations of Phase 2 primitives):
 
 | ID | Objective | Metric |
 |----|-----------|--------|
-| P3-O8 | Stable-selector fields on Linux | `AccessibilityNode.native_id` populated from AT-SPI2 `accessible-id` (standard since AT-SPI 2.18) with GTK `gtk-id` / Qt `objectName` fallback; `dom_classes` may be populated from AT-SPI2 `object-attributes` HTML keys on `WebKitGTK` / `Chromium-Content` embeds |
-| P3-O9 | AT-SPI2 event subscriptions (`watch`, P2-O11 parity) | `watch_element` implemented via `zbus::Proxy::receive_signal` on AT-SPI2 signals: `org.a11y.atspi.Event.Object.PropertyChange`, `ChildrenChanged`, `StateChanged:focused`, `Window:Create`, `Window:Destroy`. Same `watch --event` CLI shape as macOS/Windows (see the `wait --event` vs `watch` naming note carried over from sub-phase 2.11). Replaces polling in `crates/linux/src/system/wait.rs` before it's even written |
-| P3-O10 | AT-SPI2 Text interface (P2-O12 parity) | Text range primitives via `org.a11y.atspi.Text` D-Bus methods: `GetText(start, end)`, `GetCaretOffset`, `SetCaretOffset`, `GetNSelections`, `GetSelection(n)`, `AddSelection(start, end)`, `RemoveSelection(n)`. `InsertAtCaret` uses `org.a11y.atspi.EditableText.InsertText(position, text, length)` |
-| P3-O11 | PipeWire modern screenshot (P2-O13 parity) | `screenshot --window <id>` via `org.freedesktop.portal.ScreenCast` (Wayland) + `org.freedesktop.portal.RemoteDesktop` for capture permission flow. XDG desktop portal handles the user consent dialog exactly like `SCScreenshotManager` does on macOS. X11 fallback uses `XGetImage` for the lowest-permission path |
+| P3-O8 | Stable-selector fields on Linux | `AccessibilityNode.native_id` populated from AT-SPI2 `accessible-id` where the toolkit supplies one. `AccessibleId` is empty on every node of GNOME 46 GTK3, GTK4 and Chromium apps and GTK exposes no `gtk-id` attribute (L2-16), so GTK identity rests on role, name and path evidence; on Chromium the `id` object-attribute (the DOM id, present on a minority of nodes) is the source, and Qt `objectName` coverage is measured in 3.3 (L1-18). `dom_classes` is populated from the AT-SPI2 `class` object-attribute on Chromium nodes (L2-16) |
+| P3-O9 | AT-SPI2 event subscriptions (`watch`, P2-O11 parity) | `watch_element` implemented via `zbus::Proxy::receive_signal` on `org.a11y.atspi.Event.Object` signals (`PropertyChange` with `accessible-value`/`accessible-name`, `TextChanged`, `ChildrenChanged`, `StateChanged`), after adding a bus match rule per event interface; a GTK4 app emits them without `Registry.RegisterEvent` (L7-1). `TextChanged` arrives twice per change and is de-duplicated (L7-4). GTK4 emits no `Window:create` or `Window:destroy` (it emits `Window:activate` and `Window:deactivate`, lowercase, when the active toplevel changes, L7-7): a new window arrives as `ChildrenChanged:add` on the application root with `StateChanged:showing`, and a closed one as `StateChanged:defunct` (L7-6). Core exposes no `watch` command and no `watch_element` adapter method: P2-O11 did not ship in Phase 2, and Phase 3 adds no commands, so these measurements feed the Linux implementation that lands with the core command. Until then Linux waits through the `wait --event` baseline diff (3.11) |
+| P3-O10 | AT-SPI2 Text interface (P2-O12 parity) | Core exposes `get_text_selection` only; P2-O12's range read and write commands did not ship in Phase 2. Phase 3 implements `get_text_selection`, in core's UTF-16 offsets. The remaining primitives map, when core adds them, to `org.a11y.atspi.Text` D-Bus methods: `GetText(start, end)`, `GetCaretOffset`, `SetCaretOffset`, `GetNSelections`, `GetSelection(n)`, `AddSelection(start, end)`, `RemoveSelection(n)`. `InsertAtCaret` uses `org.a11y.atspi.EditableText.InsertText(position, text, length)` |
+| P3-O11 | PipeWire modern screenshot (P2-O13 parity) | `screenshot --window <id>` via `org.freedesktop.portal.ScreenCast` (Wayland) + `org.freedesktop.portal.RemoteDesktop` for capture permission flow. XDG desktop portal handles the user consent dialog exactly like `SCScreenshotManager` does on macOS. X11 fallback uses per-window `XGetImage` of the window's own drawable for the lowest-permission path (no prompt, works covered and minimised); a root-window grab does not reflect mapped windows on composited GNOME X11 (L9-10) |
 | P3-O12 | Toolbar + surfaces (P2-O14 parity) | `SnapshotSurface::Toolbar` via AT-SPI2 `Role::ToolBar` — already predeclared core-side (U12), same as Windows. Dock / taskbar surface via per-DE panel process walk (GNOME Shell process for gnome-shell extensions, Plasma `plasmashell` for KDE). StatusNotifierWatcher already scoped in the original Phase 3 tray spec (3.14) |
-| P3-O13 | Action variants on Linux (P2-O9 parity) | `Action::LongPress` via timed `xdotool/ydotool` button-hold; `Action::ShowMenu` via `org.a11y.atspi.Action.DoAction("popup")`; `Action::Cancel` via `Action.DoAction("cancel")` or Escape synthesis; `Action::DeliverFiles` via portal/native file-transfer where available with XDND as a researched fallback; `Action::ForceClick` returns `ActionNotSupported` on Linux (no pressure input primitive) |
+| P3-O13 | Action variants on Linux (P2-O9 parity) | Core's `Action` enum has none of P2-O9's variants; they did not ship in Phase 2, so Phase 3 implements the existing variants. When core adds them, the Linux mappings are: `Action::LongPress` via timed `xdotool/ydotool` button-hold; `Action::ShowMenu` via `org.a11y.atspi.Action.DoAction("popup")`; `Action::Cancel` via `Action.DoAction("cancel")` or Escape synthesis; `Action::DeliverFiles` via portal/native file-transfer where available with XDND as a researched fallback; `Action::ForceClick` returns `ActionNotSupported` on Linux (no pressure input primitive) |
 | P3-O14 | FFI cdylib continues to ship | Phase 1.5 already publishes Linux FFI for x86_64 + aarch64; Phase 3 adds each new `ad_*` entrypoint's Linux implementation and extends the header drift check. No new FFI bindings to design — implementations only; the same P2-O16 registry migration applies once it lands |
-| P3-O15 | Flatpak / Snap compatibility note | AT-SPI2 requires `--talk-name=org.a11y.Bus` permission inside sandboxed runtimes. Skill docs include the exact Flatpak override and Snap plug grants, so sandboxed consumers aren't silently empty-tree |
+| P3-O15 | Flatpak / Snap compatibility note | A Flatpak app needs `--talk-name=org.a11y.Bus` (unmeasured, L12-9). A snap app has no a11y interface or plug: AT-SPI is reachable through the `unity7` and `desktop-legacy` interfaces, and the snap Firefox tree was non-empty with them connected (L12-1, L12-2, L12-3). An app without access starts normally and appears as an empty registry, not an error (L12-5). Skill docs include the exact Flatpak override and the snap interfaces to connect, and the adapter reports an app-not-found diagnostic naming the missing a11y connection, so sandboxed consumers aren't silently empty-tree |
 
 ### Sub-phase decomposition (3.0–3.15, mirrors Phase 2's numbered slots)
 
@@ -1865,26 +1865,29 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Scope:**
 - `ubuntu-latest` CI job promoted to a real Linux test lane (build + clippy + lib tests, core-isolation, size), mirroring 2.1's Windows promotion
-- AT-SPI2 `org.a11y.Bus` session-bus availability detection at adapter construction
+- AT-SPI2 bus availability detection at adapter construction through an auto-starting `org.a11y.Bus.GetAddress` call (L1-5)
+- Bus resolution: the adapter takes the a11y bus address from `GetAddress` per session. The X11 root `_AT_SPI_BUS` property is absent on GNOME 46 (L1-15), and an app started before the bus existed registers on a different bus (L1-13). An answered `ChildCount 0` registry is "bus up, no apps", not a bus fault (L1-9), and `org.a11y.Status.IsEnabled` is the first diagnostic (L1-10)
+- Measure the `toolkit-accessibility=false` direction on a disposable session with an in-memory settings backend before the GNOME hint is finalised (L1-16), and measure Flatpak sandbox guidance once a flatpak install is available (L1-18)
 - `zbus` (5.x) / `atspi` (0.28+) / `tokio` (1.x) dependency pins re-verified against crates.io + supply-chain policy (pinned at 2026-04 research time, same policy as Windows)
 - `LinuxAdapterSession` implementing `AdapterSession` via `open_session` — owns the D-Bus connection state so later sub-phases share one connection rather than reconnecting per call
 - **`tokio` enters the workspace here for the first time.** The workspace is synchronous through Phase 2 (Windows adds no async runtime — UIA is a synchronous COM API); Linux is the first platform requiring async D-Bus calls via `zbus`/`atspi`
 
-**Key APIs:** `org.a11y.Bus` presence check, `zbus::Connection`
+**Key APIs:** `org.a11y.Bus.GetAddress` (auto-start), `org.a11y.Status`, `zbus::Connection`
 
 **Depends on:** Phase 2 fully merged to `main`
 
-**Exit criteria:** workspace green on Ubuntu CI; `LinuxAdapter` constructs and satisfies the trait; every command returns honest `PLATFORM_NOT_SUPPORTED` on Linux; missing-bus case returns `PLATFORM_NOT_SUPPORTED` with distro/DE-specific enable instructions (see AT-SPI2 Bus Detection below); bus-availability detection is unit-tested against mocked D-Bus responses.
+**Exit criteria:** workspace green on Ubuntu CI; `LinuxAdapter` constructs and satisfies the trait; every command returns honest `PLATFORM_NOT_SUPPORTED` on Linux; missing-bus case returns `PLATFORM_NOT_SUPPORTED` with distro/DE-specific enable instructions (see AT-SPI2 Bus Detection below); bus-availability detection is verified against real buses, in CI and on the GNOME box: the live session, a cold session where the name has no owner yet `GetAddress` succeeds (L1-5), a session with no a11y service (`ServiceUnknown`) and a failed launcher spawn (`Spawn.ExecFailed`, L1-7).
 
 **Est. PR size:** ~0.8k LOC
 
 #### AT-SPI2 Bus Detection
 
-- Check for `org.a11y.Bus` presence on the D-Bus session bus
-- If the bus is not running, return `PLATFORM_NOT_SUPPORTED` with instructions:
+- Detect the bus by calling `org.a11y.Bus.GetAddress` on the session bus with auto-start enabled. `org.a11y.Bus` is activated on first use, so on a healthy session that has not yet touched accessibility the name has no owner and `NameHasOwner` (or a no-auto-start call) reports it missing even though the call succeeds (L1-5)
+- If the call fails, return `PLATFORM_NOT_SUPPORTED` with instructions and a distinct `platform_detail`: `ServiceUnknown` means the package is not installed, `Spawn.ExecFailed` means it is installed but cannot start (L1-7):
   - GNOME: "AT-SPI2 should be enabled by default. Check `gsettings get org.gnome.desktop.interface toolkit-accessibility`"
   - Other DEs: "Install `at-spi2-core` and ensure `at-spi-bus-launcher` is running"
-  - Flatpak/Snap: "Ensure the app has `--talk-name=org.a11y.Bus` permission" (P3-O15)
+  - Flatpak: "Ensure the app has `--talk-name=org.a11y.Bus` permission"; Snap: connect the `unity7` or `desktop-legacy` interface, since snap has no a11y plug (P3-O15, L12-2)
+- `GetAddress` succeeding while the registry lists no such app is the signature of an app without bus access: an answered-empty result, never `PLATFORM_NOT_SUPPORTED` (L12-5)
 
 ### 3.2 — Accessible Wrapper & Tree Walk
 
@@ -1892,10 +1895,11 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Scope:**
 - `Accessible` D-Bus proxy wrapper (async, via `zbus`) with the same cycle-guard discipline as macOS/Windows (ancestor-path set, not a global visited set)
-- Batched-fetch strategy — AT-SPI2 has no single "copy multiple attributes" call like `AXUIElementCopyMultipleAttributeValues`/`CacheRequest`, so this sub-phase designs the concurrent-D-Bus-call batching strategy (e.g. `futures::join_all` over property-get calls) that stands in for it
+- Batched-fetch strategy — AT-SPI2 has no cross-interface copy-multiple call like `AXUIElementCopyMultipleAttributeValues`/`CacheRequest`, but `org.freedesktop.DBus.Properties.GetAll` returns the Accessible property group in one call (L2-6), and `org.a11y.atspi.Cache.GetItems` returns role, name, interfaces, states, child count and parent for a whole GTK4 app in one call (L2-7); it answers `UnknownMethod` on GTK3 and Chromium/Electron apps and carries no extents, attributes or relations. This sub-phase designs the batching strategy as `GetAll` per node plus concurrent calls (2.5-3.5x faster than sequential, L2-5) for the remaining reads, with `Cache.GetItems` as the GTK4 fast path
+- Cache items parented under a frame that `GetChildren` did not return are unreachable by a children walk and must not become refs (L2-8); the `Parent` property disagreed with the walked parent on some nodes and is not used for re-identification (L2-2)
 - Committed probe examples: raw AT-SPI2 D-Bus introspection dumps (`busctl --user introspect` or the `atspi` crate's own dump) of GNOME Files / GNOME Terminal, checked in as evidence
 
-**Key APIs:** `org.a11y.atspi.Accessible.GetChildren`, `atspi` crate (v0.28+) + `zbus` (5.x) — pure Rust, no libatspi/GLib dependency
+**Key APIs:** `org.a11y.atspi.Accessible.GetChildren`, `org.freedesktop.DBus.Properties.GetAll`, `org.a11y.atspi.Cache.GetItems`, `atspi` crate (v0.28+) + `zbus` (5.x) — pure Rust, no libatspi/GLib dependency
 
 **Depends on:** 3.1
 
@@ -1910,7 +1914,8 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 **Scope:**
 - AT-SPI `Role` enum → unified role enum in `tree/roles.rs`
 - AT-SPI `StateSet` → canonical state vocabulary — same conformance tests U1/U2 already run, parameterized over `LinuxAdapter`
-- `accessible-id` (standard since AT-SPI 2.18) → `native_id`, with GTK `gtk-id` / Qt `objectName` fallback (P3-O8)
+- `accessible-id` → `native_id` where non-empty. It is empty on every measured GNOME 46 GTK3, GTK4 and Chromium node and GTK exposes no `gtk-id` attribute; Chromium's `id` object-attribute supplies the DOM id where present, and `class` feeds `dom_classes` (P3-O8, L2-16). Qt `objectName` coverage is measured here once a Qt binding is available (L1-18)
+- A GTK4 `ApplicationWindow` reports the role `application` through `GetRoleName`, not `frame` or `window`, so the role map assumes no window role from GTK4 (L1-12)
 - `NameEvidence` supplier feeding core `accname.rs` (AT-SPI `Name`, `LabelledBy` relation, `Description`)
 
 **Key APIs:** AT-SPI `Role` enum, `StateSet`, `accessible-id`, `Name`/`LabelledBy`/`Description`
@@ -1927,14 +1932,20 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Scope:**
 - `get_tree`/`get_subtree` wired to the shared `SnapshotEngine` via async D-Bus `GetChildren` walks
-- `list_windows`/`list_apps`/`focused_window` via the window-manager-neutral AT-SPI2 `Window` interface where available, falling back to `wmctrl`/`xdg-desktop-portal` introspection
+- `list_windows`/`list_apps`/`focused_window` from the AT-SPI2 registry: each app's top-level accessibles with role `frame`, `dialog` or `window` (GTK3 exposes only the Accessible, Component and Collection interfaces on them, with no `Window` interface; L8-2), the `ACTIVE` state for focus, and X11 `_NET_CLIENT_LIST`/`_NET_ACTIVE_WINDOW` read through xprop-equivalent calls as the X11 fallback. wmctrl is not installed on the reference box (L8-6). No xdg-desktop-portal interface and no `org.gnome.Shell.Introspect.GetWindows` call (AccessDenied) enumerates windows, so on Wayland AT-SPI is the only source (L8-11)
+- Focus: pick `ACTIVE` among `frame`/`dialog` roles only and ignore children of the `mutter-x11-frames` helper app, which also report `ACTIVE`; cross-check with `_NET_ACTIVE_WINDOW` on X11 (L8-3)
+- Window mapping: no AT-SPI field carries the X11 window id (L8-4), so AT-SPI to X11 mapping is by pid plus title plus extents, converting with `_NET_FRAME_EXTENTS` (AT-SPI frame extents include the title bar) and disambiguating same-title windows by extents or child order (L8-5). A stored window identity pairs the XID with the pid and the process start time, because a fresh process per window receives the same XID (L8-7)
+- A target app that started with no a11y access is absent from the registry although `GetAddress` succeeds; `snapshot` returns an app-not-found diagnostic that names the missing a11y connection (L12-5, P3-O15)
+- Window state operations (maximize, restore, unminimize) are measured and implemented in 3.9 (L8-9, L11-20, L11-22)
 - `list_displays` via XRandR (X11) / the Wayland portal's equivalent query + per-monitor scale
 - **Web-wrapper depth-skip:** non-semantic wrapper elements with AT-SPI roles `ROLE_PANEL`, `ROLE_SECTION`, or `ROLE_FILLER` that have empty `Name` AND empty `Value` do not consume depth budget — the AT-SPI equivalent of macOS `AXGroup`/`AXGenericElement` and Windows `UIA_GroupControlTypeId` skipping. Implement in `crates/linux/src/tree/builder.rs` as `is_web_wrapper`
-- **Chromium detection:** process name matching (electron, chrome, chromium, code); Linux Chromium additionally respects `ACCESSIBILITY_ENABLED=1` as an alternative to `--force-renderer-accessibility`
+- **Web-wrapper scope:** GTK4 apps expose `generic` nodes and never `ROLE_PANEL`/`ROLE_SECTION`/`ROLE_FILLER`, so `is_web_wrapper` as specified skips nothing there (L2-9); on GTK3 the same rule moves every node of a Terminal tree inside depth 3 (89 against 28, L2-12). This sub-phase states whether the skip is limited to Chromium/WebKit subtrees or global, and whether empty-name `generic` joins the skip set
+- **Chromium detection:** process name matching (electron, chrome, chromium, code); Linux Chromium additionally respects `ACCESSIBILITY_ENABLED=1` as an alternative to `--force-renderer-accessibility`. The failing direction (a11y bus with `IsEnabled` false) is measured on a private bus with a private runtime dir (L2-14), and Chromium detection is re-measured against Google Chrome registering on the current bus (L2-17; VS Code is the only Chromium evidence so far)
+- **Electron population:** a snapshot right after launch sees 18-23 nodes in Electron, so observation uses a stable-count wait with a deadline, not a single read (L2-15). Zero-size and `-1` extents stay distinct from read errors (L2-18)
 - **Resolver depth:** element re-identification searches to `ABSOLUTE_MAX_DEPTH` (50), matching macOS/Windows; implement in `crates/linux/src/tree/resolve.rs`
 - **Surface detection for Electron:** an Electron modal may report as the active window itself rather than a child; check both `Role` and `RelationSet`/`RELATION_EMBEDS` (analogous to macOS AXRole + AXSubrole); implement in `crates/linux/src/tree/surfaces.rs`
 
-**Key APIs:** `org.a11y.atspi.Window`, XRandR / portal display enumeration, `wmctrl` (fallback)
+**Key APIs:** AT-SPI registry top-level accessibles (`frame`/`dialog`/`window`), `_NET_CLIENT_LIST`/`_NET_ACTIVE_WINDOW`/`_NET_FRAME_EXTENTS`, XRandR / portal display enumeration
 
 **Depends on:** 3.3
 
@@ -1965,12 +1976,14 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 **Goal:** Port the auto-wait/occlusion gate (U8/U9) onto Linux using AT-SPI2's `Component` interface.
 
 **Scope:**
-- `hit_test` three-way result via `Component.ContainsPoint` + bounds corroboration — `Unknown` on probe failure, never a false negative
+- `hit_test` three-way result via `Component.Contains` (geometry only, so never a negative on its own; L6-1, L6-2) + bounds corroboration + X11 stacking for occlusion — `Unknown` on probe failure, never a false negative. Occlusion is the windows above the target's toplevel in `_NET_CLIENT_LIST_STACKING` whose frame rectangle (client geometry plus `_NET_FRAME_EXTENTS`) contains the point (L6-3); `GetMDIZOrder`/`GetLayer` carry no z-order (L6-14). The topmost element at a point comes from descending `GetAccessibleAtPoint` from the topmost window until a null ref, comparing bus name and path to the target (L6-4). Wayland has no measured occlusion source; it needs a Wayland session (L6-3)
+- GTK4 4.14 geometry is not usable as truth under X11 (screen extents ignore the window position and `Contains` disagrees with `GetExtents`), so every GTK4 `Contains`/extents hit-test is `Unknown` unless corroborated from X11 geometry (L6-6); a 0x0 rectangle is `Unknown` whatever `Contains` answers (L6-8)
 - `receives_events` evidence
-- Visibility/enabled/offscreen evidence feeding the core auto-wait gate — no Linux-specific auto-wait logic, core drives the loop
-- `scroll_into_view` — AT-SPI2 has no native scroll-into-view primitive; implement via `Component.GetPosition` + coordinate-based scroll synthesis, following the same policy gating as the Phase 1 scroll command
+- Visibility/enabled/offscreen evidence feeding the core auto-wait gate — no Linux-specific auto-wait logic, core drives the loop. GTK3 offscreen is `SHOWING` absent with `VISIBLE` present and INT32_MIN extents, and the sentinel is unknown bounds, never fed to `Contains` or overlap math; GTK4 keeps `SHOWING` for an item thousands of pixels outside the viewport, so GTK4 offscreen is derived by comparing window-coordinate extents to the scroll container (L6-9). Covered and minimized do not clear `SHOWING`; minimized is `ICONIFIED` on a GTK3 frame or `_NET_WM_STATE_HIDDEN` on X11 (the only source on GTK4); enabled is `ENABLED`, or `SENSITIVE` where `ENABLED` is never emitted (GTK4 4.14) (L6-10)
+- `scroll_into_view` — `Component.ScrollTo` and `ScrollToPoint` exist on the interface but GTK3 3.24.41 returns `false` and GTK4 4.14.5 returns `NotSupported` for every scroll type and leaves the scroll adjustment unchanged (L6-11, L6-12); implement via coordinate-based scroll synthesis aimed from a visible neighbour's extents (GTK3 offscreen items report INT32_MIN positions, L6-9, L6-13), following the same policy gating as the Phase 1 scroll command, and verify by `SHOWING` (GTK3) or window-coordinate extents inside the container (GTK4). `ScrollTo` on Qt and Electron targets is measured here (L6-12)
+- The zero-bounds e2e target is a GTK4 `generic` node in a real app, since a GTK3 widget cannot present 0x0 extents (L6-7, L6-8)
 
-**Key APIs:** `org.a11y.atspi.Component.ContainsPoint`, `Component.GetExtents`
+**Key APIs:** `org.a11y.atspi.Component.Contains`, `Component.GetAccessibleAtPoint`, `Component.GetExtents`, `_NET_CLIENT_LIST_STACKING`
 
 **Depends on:** 3.5
 
@@ -2007,15 +2020,15 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 | Expand/Collapse | `Action.DoAction("expand")` / `Action.DoAction("collapse")` | Action name-based dispatch |
 | Select | `org.a11y.atspi.Selection.SelectChild` | For combobox, listbox, tab items |
 | Toggle | `Action.DoAction("toggle")` or `Action.DoAction("click")` | For checkboxes, switches |
-| Scroll | Coordinate-based scroll events via xdotool/ydotool | AT-SPI has no native scroll pattern |
+| Scroll | Coordinate-based scroll events via xdotool/ydotool | `Component.ScrollTo`/`ScrollToPoint` exist but GTK3 returns `false` and GTK4 `NotSupported`, leaving the adjustment unchanged (L6-11, L6-12) |
 | Keyboard | `xdotool key` (X11) / `ydotool key` (Wayland) | Shelling out for input synthesis |
 | Mouse | `xdotool mousemove/click` (X11) / `ydotool mousemove/click` (Wayland) | Display server detected at runtime |
 | Clipboard | `wl-copy` / `wl-paste` (Wayland) / `xclip` (X11) | Shelling out; display server detected at runtime; marshaled through typed `ClipboardContent` |
-| Screenshot | PipeWire ScreenCast portal (Wayland) / `XGetImage` (X11) | Or the `xcap` crate for consistency |
-| App launch | `xdg-open` / direct process spawn | Launch by `.desktop` file or command name, via `LaunchOptions` |
-| App close | `SIGTERM` / `SIGKILL` | Graceful close first, force with `--force`; verified via `ProcessState` |
-| Window ops | `xdotool` / `wmctrl` | Window resize, move, minimize, maximize, restore |
-| Permissions | AT-SPI2 bus availability | Check for `org.a11y.Bus` on the D-Bus session bus. Return `PLATFORM_NOT_SUPPORTED` with enable instructions if missing |
+| Screenshot | PipeWire ScreenCast portal (Wayland) / per-window `XGetImage` (X11) | A root-window grab does not reflect mapped windows on composited GNOME X11 (L9-10); or the `xcap` crate for consistency |
+| App launch | Direct process spawn / `gio launch` / `gtk-launch` | Launch by desktop id or command name, via `LaunchOptions`; the launcher's pid is not the app's (L11-2), and `xdg-open` opens documents and blocks while the app lives (L11-3) |
+| App close | `_NET_CLOSE_WINDOW` / `SIGTERM` / `SIGKILL` | Graceful close first, force with `--force`; verified via `ProcessState` (L11-8) |
+| Window ops | `xdotool` / raw EWMH client messages (`wmctrl` is not installed by default) | Window resize, move, minimize, maximize, restore from maximized; restoring a minimized window is not achievable on GNOME/X11 (L8-6, L11-22) |
+| Permissions | AT-SPI2 bus availability | Call `org.a11y.Bus.GetAddress` on the D-Bus session bus with auto-start (L1-5). Return `PLATFORM_NOT_SUPPORTED` with enable instructions if it fails |
 | Notifications | D-Bus `org.freedesktop.Notifications` | See Notification Management approach under 3.14 |
 | System tray | D-Bus `org.kde.StatusNotifierWatcher` | See System Tray approach under 3.14 |
 
@@ -2027,6 +2040,8 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 - Display-server-detected keyboard synthesis: `xdotool key` (X11) / `ydotool key` (Wayland)
 - Mouse events + modifier chords + wheel via the same detected tool
 - Drag with delivery tracking + release guard
+- Focus cannot move through `Component.GrabFocus` on GTK4 (`NotSupported`), so focus uses an action or the adapter's focus path (L7-8)
+- Wayland input through `ydotool` is unmeasured; it needs a started nested or headless Wayland shell and write access to `/dev/uinput` (L1-17)
 - Headed/headless policy parity — raw cursor commands require `--headed`, same as macOS/Windows
 - **`libei`** (the newer input-emulation portal API) is documented here as a researched future alternative to shelling out to xdotool/ydotool, not adopted as a dependency in this sub-phase — it would remove the subprocess dependency but isn't mature enough across desktop environments yet to be the default
 
@@ -2043,14 +2058,14 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 **Goal:** Land process/window lifecycle with the same `ProcessState` liveness contract.
 
 **Scope:**
-- `launch_app` with `LaunchOptions` (spawn via `xdg-open` or direct `Command::spawn`, args/env/cwd, attach-vs-fail policy)
-- `close_app` with verified termination (`SIGTERM` then `SIGKILL` under `--force`, confirmed via a follow-up liveness probe, not assumed)
-- `window_op` via `xdotool`/`wmctrl` for resize/move/minimize/maximize/restore
-- `ProcessState` probes: `/proc/<pid>/stat` state character for hung detection where meaningful, exit-code inspection → `Exited`/`Crashed`
-- `is_protected_process`
+- `launch_app` with `LaunchOptions` (direct `Command::spawn` for a command name, `gio launch`/`gtk-launch` for a desktop id, args/env/cwd, attach-vs-fail policy). The launcher's pid is never the app's for desktop-id launches, so the app pid is resolved after launch from the bus-name owner or a launch pid callback and `LaunchResult` never reports the launcher pid (L11-2). `xdg-open` opens a document with the default handler and blocks while that app lives, so it is not a launcher (L11-3). A single-instance app attaches silently (the spawned pid exits 0 and no window appears), so the attach decision is made before spawning from the bus-name owner or an existing pid, and the returned pid is the existing owner's (L11-4); args reach the existing instance but env and cwd of a handed-off launch are discarded (L11-5), and whether a second launch attaches is per app (L11-6). Spawn ENOENT and `gtk-launch` rc 2 map to `APP_NOT_FOUND` (L11-7)
+- `close_app` closes gracefully by sending `_NET_CLOSE_WINDOW` to each window of the process and waiting for exit (the process may stay alive while other windows remain; L11-10); `--force` sends `SIGTERM`, which GTK4 apps do not handle (they die immediately with signal status), then `SIGKILL`; a stopped app goes straight to `SIGKILL` or `SIGCONT` first, since `SIGTERM` stays pending (L11-17). Every outcome is confirmed by reading `/proc/<pid>/stat` (state `Z` or entry gone counts as exited), because `kill(pid, 0)` succeeds on an unreaped zombie (L11-8, L11-9). `xdotool windowclose`/`windowkill` are never used as a close (L11-12)
+- `window_op` via `xdotool`/`wmctrl` (or raw EWMH client messages) covers move, resize, minimize, maximize and restore from maximized on GNOME/X11 (L11-18, L11-20); the distro `xdotool` has no `windowstate` (L11-25). Restoring a minimized window is not achievable through `_NET_ACTIVE_WINDOW`, `WM_CHANGE_STATE`, `_NET_WM_STATE` or map requests (12 methods tried, all rejected by the shell), so un-minimize is `ACTION_NOT_SUPPORTED` on this stack until another mechanism is measured (L11-22). Minimized state is read from `_NET_WM_STATE_HIDDEN`, and every effect is verified by readback, never by exit code, because wmctrl reports success for dead window ids (L11-21, L11-24). Wayland window operations are unmeasured and need a Wayland session (L11-27)
+- `ProcessState` probes: `/proc/<pid>/stat` state (`T` → `Unresponsive` after a bounded AT-SPI timeout, `Z`/missing → exited). Every AT-SPI read made for liveness carries an explicit short timeout because the default is 25 s (L11-15); a timeout alone is `TIMEOUT`. Exit status (`Exited { code }` vs `Crashed`) is available only for a process the adapter spawned itself; apps started through `gio launch`, `gtk-launch` or a desktop-id API are reparented to the user service manager and leave `/proc` without a recoverable status, so they report `Exited { code: None }` (L11-13)
+- `is_protected_process` — the protected-process list is decided from the input results of 3.8 (L11-28)
 - `press_key_for_app` under the same focus policy
 
-**Key APIs:** `xdg-open`, `std::process::Command`, `xdotool`/`wmctrl`, `/proc/<pid>/stat`
+**Key APIs:** `std::process::Command`, `gio launch`/`gtk-launch`, `_NET_CLOSE_WINDOW`, `xdotool`/`wmctrl`, `/proc/<pid>/stat`
 
 **Depends on:** 3.4 (window identity), 3.8 (input for `press_key_for_app`)
 
@@ -2063,9 +2078,11 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 **Goal:** Ship screenshot and typed clipboard across the Wayland-portal / X11 split.
 
 **Scope:**
-- `screenshot` via `org.freedesktop.portal.ScreenCast` (Wayland, P3-O11) with `org.freedesktop.portal.RemoteDesktop` for the permission flow, falling back to `XGetImage` (X11) for the lowest-permission path
+- `screenshot` via `org.freedesktop.portal.ScreenCast` (Wayland, P3-O11) with `org.freedesktop.portal.RemoteDesktop` for the permission flow, falling back, on X11, to per-window `XGetImage` of each window's own drawable (works covered and minimised, no prompt); a root-window grab does not show mapped windows on a compositing session such as GNOME X11, so full-screen and `--screen` capture on X11 composes per-window grabs or uses the portal (L9-10; a non-compositing X11 session is unmeasured). `org.gnome.Shell.Screenshot` answers `AccessDenied` to unlisted clients and is not planned on (L9-12)
+- Consent and permission: a host caller still goes through the shell access dialog for a non-interactive portal request (L9-13), and shell-drawn dialogs are invisible to AT-SPI, so consent detection comes from the portal `Response` code and `Request` lifecycle (L9-14). `PermissionReport.screen_recording` on Linux is inferred from a request outcome because no preflight exists (L9-16). The first-grant flow, "remembers a grant" and the Wayland capture and clipboard paths are measured here, which needs a Wayland session and a cleared pending access dialog (L9-17)
 - `screenshot --screen` honest display targeting (pairs with `list_displays` from 3.4)
 - Typed clipboard: `wl-clipboard` (Wayland) / `xclip` (X11) subprocess calls, marshaled into `ClipboardContent::Text`/`Image`/`FileUrls`, written through 0600-equivalent private files
+- `xclip` setter spawn shape: the serving child re-parents and inherits the caller's stdio, so the server is spawned with all stdio on `/dev/null` and a new session, its pid recorded, and its pipes never waited on (L9-1, L9-2). Non-text targets (`FileUrls`, custom targets) are readable only while that server lives, so `clipboard-set` leaves a tracked server whose lifetime has a stated owner (L9-4); GNOME's shell keeps text and image selections after the owner exits, which is not relied on (L9-3). One `xclip` serves one target, so a payload offered as several formats needs one owner serving several targets rather than sequential calls (L9-5). An empty successful read (rc 0) and "target not available" (rc 1) are distinct, the second mapping to absent (L9-7)
 
 **Key APIs:** `org.freedesktop.portal.ScreenCast`, `org.freedesktop.portal.RemoteDesktop`, `XGetImage`, `wl-clipboard`/`xclip`
 
@@ -2082,7 +2099,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 **Scope:**
 - Linux `SignalBaseline` producers: windows/apps/focus/surfaces via AT-SPI2 polling snapshots
 - `wait --event` parity including `surface-appeared`
-- Wait utilities operating within `Deadline` budgets
+- Wait utilities operating within `Deadline` budgets; action-driven changes arrive in bimodal bursts (about 1 ms, 50 ms and 254 ms after the call), so a post-action settle budgets at least 300 ms (L7-5)
 
 **Key APIs:** AT-SPI2 property snapshots for baseline capture (no signal subscription yet — that's `watch`, P3-O9; sub-phase 3.2's D-Bus infrastructure feeds it but the command itself is still future scope beyond this sub-phase's baseline-diff wait)
 
@@ -2138,9 +2155,11 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Key APIs:** see the two subsections immediately below.
 
+**Sandbox access (P3-O15):** the snap leg is measured with `unity7` and `desktop-legacy` disconnected, which needs root, and checks the app falls into the empty-registry shape or a denied `GetAddress` (L12-8); the Flatpak leg, with and without `--talk-name=org.a11y.Bus` and the exact override text, needs a flatpak system install (L12-9).
+
 **Depends on:** 3.4 (observation), 3.7 (semantic actions)
 
-**Exit criteria:** notification list/dismiss/action work on at least GNOME via `org.gnome.Shell.Notifications`; tray list/click work via `StatusNotifierWatcher` on a DE that supports SNI (KDE, or GNOME + AppIndicator extension); unsupported DEs assert `PLATFORM_NOT_SUPPORTED` with daemon/DE-specific guidance rather than silently passing.
+**Exit criteria:** notification list/dismiss/action work on at least GNOME via the gnome-shell AT-SPI tree and `CloseNotification` (L10-2); tray list/click work via `StatusNotifierWatcher` on a DE that supports SNI (KDE, or GNOME + AppIndicator extension); unsupported DEs assert `PLATFORM_NOT_SUPPORTED` with daemon/DE-specific guidance rather than silently passing.
 
 **Est. PR size:** ~2k LOC
 
@@ -2149,10 +2168,10 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 Linux notification management is built from scratch here. The macOS (completed) and Windows (Phase 2) implementations are the reference patterns — same trait methods, same JSON output contract, same 1-based indexing.
 
 - **List notifications:** the standard `org.freedesktop.Notifications` D-Bus interface does NOT provide a "list current notifications" method; the approach varies by desktop environment:
-  - GNOME: `org.gnome.Shell` exposes `org.gnome.Shell.Notifications` with `GetNotifications()` (returns an array of notification dicts)
+  - GNOME: no D-Bus method lists notifications (measured on GNOME Shell 46: `org.gnome.Shell` and `org.gnome.Shell.Notifications` expose no `GetNotifications`); list by walking the gnome-shell AT-SPI tree for `notification` nodes (L10-2, L10-3). Hidden-list nodes carry no usable extents, so index by tree order, not coordinates, and match a posted notification by summary text because a baseline banner node already exists (L10-3, L10-16)
   - KDE Plasma: `org.freedesktop.Notifications` with a `GetNotifications()` extension, or the `org.kde.notificationmanager` D-Bus interface
   - Other DEs: monitor `Notify` D-Bus signals to maintain an in-memory notification history within the daemon session
-- **Dismiss:** `org.freedesktop.Notifications.CloseNotification(id)` — works across all notification daemons
+- **Dismiss:** `org.freedesktop.Notifications.CloseNotification(id)` — works across all notification daemons; it is the only per-notification dismissal on GNOME, and "clear all" needs a coordinate click on the open list (L10-6)
 - **Interact with actions:** listen for user-triggered actions, or programmatically invoke via the `ActionInvoked` signal; the D-Bus spec does not define a method to trigger actions programmatically — coordinate-based click on the notification popup via AT-SPI may be needed as a fallback
 - **Do Not Disturb:** GNOME `gsettings get org.gnome.desktop.notifications show-banners`; KDE `org.kde.notificationmanager`'s `inhibited` property
 - **Edge case:** notification daemon varies by DE — detect via `GetServerInformation()`; return `PLATFORM_NOT_SUPPORTED` with daemon-specific guidance if the notification interface is unreachable
@@ -2162,11 +2181,10 @@ Linux notification management is built from scratch here. The macOS (completed) 
 System tray interaction is built from scratch here.
 
 - **Modern tray (SNI):** most modern Linux apps use the `StatusNotifierItem` D-Bus protocol; discover items via `org.kde.StatusNotifierWatcher.RegisteredStatusNotifierItems`
-- **Legacy tray (XEmbed):** older apps use the XEmbed protocol; access via the AT-SPI tree of the tray window, or coordinate-based interaction
-- **List items:** query `StatusNotifierWatcher` for registered items — `Title`, `IconName`, `ToolTip`, `Menu` (D-Bus menu path) properties
-- **Activate:** call `Activate(x, y)` on the `StatusNotifierItem` D-Bus interface
-- **Context menu:** call `ContextMenu(x, y)`, or read the `Menu` property to get the `com.canonical.dbusmenu` path and traverse the menu tree
-- **Edge case:** GNOME does not natively support SNI (requires the AppIndicator extension); detect and report via an error suggestion if no tray is available
+- **Legacy tray (XEmbed):** GNOME owns no `_NET_SYSTEM_TRAY_S0` tray window; legacy icons surface only as panel nodes in the gnome-shell AT-SPI tree, if at all (L10-13). The watcher's list and the panel tree differ, passive items carry invalid extents, so show both and mark hidden items by `Status` or invalid extents (L10-12)
+- **List items:** query `StatusNotifierWatcher` for registered items, which are `service@path` strings (split on `@`, fall back to the `/` form and to the default path `/StatusNotifierItem`; L10-9) — `Title`, `IconName`, `Menu` (D-Bus menu path) and, when the item provides it, `ToolTip`; AppIndicator items on GNOME do not expose `ToolTip` (L10-10)
+- **Activate / context menu:** call `Activate(x, y)` / `ContextMenu(x, y)` when the item's introspection lists them; AppIndicator items on GNOME expose only `Scroll`, `SecondaryActivate` and `XAyatanaSecondaryActivate`, so use `SecondaryActivate` or read the `Menu` property to get the `com.canonical.dbusmenu` path and traverse the menu tree with `GetLayout` (L10-10, L10-11)
+- **Edge case:** GNOME does not natively support SNI (requires the AppIndicator extension); detect the AppIndicator extension via `ListExtensions` on `org.gnome.Shell` (L10-17) and report via an error suggestion if no tray is available
 
 ### 3.15 — Hardening & Integration Review
 
@@ -2204,13 +2222,14 @@ Runtime detection required for input, clipboard, and screenshot since Linux runs
 - GNOME 42+ (primary target), KDE Plasma 5.24+ (secondary)
 - `at-spi2-core` package installed (default on GNOME)
 - X11: `xdotool` installed. Wayland: `ydotool` installed
+- `wmctrl` is optional: it is absent from the base install, and `xdotool` plus direct EWMH property reads and client messages cover window operations (L8-6)
 
 ### Key Risks and Mitigations (Linux-specific — folds into the Risk Register)
 
 | Risk | Mitigation |
 |------|------------|
 | Wayland a11y gaps | Focus on GNOME (best AT-SPI2 support). Prefer AT-SPI actions over coordinate input. Document known gaps clearly in skill and README. |
-| AT-SPI2 bus not running | Detect on first command. Return clear enable instructions specific to the detected distro/DE. |
+| AT-SPI2 bus not running | Detect on first command with an auto-starting `org.a11y.Bus.GetAddress` call (L1-5). Return clear enable instructions specific to the detected distro/DE. |
 | Display server fragmentation | Runtime detection (X11 vs Wayland). Separate code paths for input/clipboard/screenshot. Test both. |
 | Rust a11y crate maintenance stalls | Pin `atspi` and `zbus` versions. `atspi` crate backed by the Odilia accessibility project. Maintain patches if upstream stalls. |
 | Input tool availability | Check for xdotool/ydotool on first use. Provide package manager install commands in the error suggestion. |
@@ -2242,12 +2261,12 @@ agent-desktop-linux = { path = "crates/linux" }
 - Tray / StatusNotifierItem commands return identical JSON envelope structure across all 3 platforms
 
 **Extension tests for P3-O8 through O15 (Linux-specific parity):**
-- AT-SPI `accessible-id` populated for every interactive node in GNOME Calculator, GNOME Files, Firefox (with `ACCESSIBILITY_ENABLED=1`)
+- `native_id` is asserted from measured coverage: GNOME Calculator and GNOME Files leave `AccessibleId` empty on every node, so those nodes carry no `native_id`, while the Chromium `id` object-attribute produces one where present (L2-16)
 - `watch --event value-changed` via `zbus` signal subscription delivers an event within 500 ms for a programmatic value change in a test harness app (GTK4 + pygobject)
 - `text select-range` / `get-selection` / `insert-at-caret` round-trips correctly in GNOME Text Editor via `org.a11y.atspi.Text` + `EditableText`
 - PipeWire portal screenshot flow: the user approves via the XDG portal dialog, subsequent calls bypass the dialog within the session grant window; screenshot matches reference
 - Toolbar surface: Firefox toolbar + GNOME Files toolbar both enumerate via `Role::ToolBar`
-- Flatpak compatibility: a Flatpak-packaged GNOME Text Editor snapshot is non-empty when `--talk-name=org.a11y.Bus` is granted; returns a clear diagnostic otherwise
+- Flatpak compatibility: a Flatpak-packaged GNOME Text Editor snapshot is non-empty when `--talk-name=org.a11y.Bus` is granted; returns a clear diagnostic otherwise (unmeasured until a flatpak install exists, L12-9). Snap compatibility: the snap Firefox snapshot is non-empty with `unity7`/`desktop-legacy` connected (L12-1)
 
 Integration-level tests (Files/Terminal/Settings snapshots, click/type/clipboard/wait/lifecycle round-trips, bus-not-running error path, notification/tray list-and-act) are covered as exit criteria on their owning sub-phase above (3.4, 3.5, 3.7, 3.9, 3.10, 3.11, 3.14) rather than repeated here.
 
@@ -2260,7 +2279,7 @@ Integration-level tests (Files/Terminal/Settings snapshots, click/type/clipboard
 - [ ] GitHub Release notes document Linux support, minimum glibc (2.35, Ubuntu 22.04 baseline), display-server requirements, and Flatpak/Snap compatibility
 
 **Skill Update:**
-- [ ] Create `skills/agent-desktop-linux/SKILL.md`: AT-SPI2/D-Bus setup and bus detection; Wayland vs X11 differences (input via xdotool/ydotool, clipboard via wl-clipboard/xclip, screenshot via PipeWire/XGetImage); required system tools (`xdotool` or `ydotool`, `xclip` or `wl-clipboard`); Linux error codes and `platform_detail` examples (D-Bus errors, bus not found); troubleshooting guide (bus not running, empty trees, missing tools, Flatpak/Snap permissions)
+- [ ] Create `skills/agent-desktop-linux/SKILL.md`: AT-SPI2/D-Bus setup and bus detection; Wayland vs X11 differences (input via xdotool/ydotool, clipboard via wl-clipboard/xclip, screenshot via PipeWire / per-window XGetImage); required system tools (`xdotool` or `ydotool`, `xclip` or `wl-clipboard`); Linux error codes and `platform_detail` examples (D-Bus errors, bus not found); troubleshooting guide (bus not running, empty trees, missing tools, the Flatpak `--talk-name=org.a11y.Bus` override and the snap `unity7`/`desktop-legacy` interfaces, L12-2)
 - [ ] Register the Linux skill in `crates/core/src/commands/skills.rs` with `platform: Some("linux")` so `skills get platform` serves it on Linux, and advertise it from npm postinstall on linux
 - [ ] Update `workflows.md`: add cross-platform patterns noting Linux-specific differences; add Linux-specific workflow examples (e.g., GNOME app automation); document display server detection behavior
 
@@ -2781,7 +2800,7 @@ Each package manager distribution includes:
 **Package tests:**
 - brew formula installs and runs on macOS; `brew reinstall --debug agent-desktop` shows Sigstore verification log
 - winget/scoop manifest installs and runs on Windows; manifest's `InstallerSuccessExitCodes` includes 0; Sigstore check in install script
-- snap package installs and runs on Ubuntu; `--talk-name=org.a11y.Bus` permission requested
+- snap package installs and runs on Ubuntu; its AT-SPI access comes through the `unity7` and `desktop-legacy` interfaces, since snap has no a11y plug (L12-2)
 - apt `.deb` installs and runs on Ubuntu via PPA; `debsign` signature verified
 - `cargo install agent-desktop` succeeds from crates.io with provenance attestation
 - All packages produce correct `version` output including the ABI version
@@ -2945,15 +2964,15 @@ All Phase 2/3 pins above were recorded at 2026-04 research time; re-verify again
 |------------|-------|---------|-------|
 | Tree root | `AXUIElementCreateApp(pid)` | `IUIAutomation.ElementFromHandle()` | `atspi Accessible` on bus |
 | Children | `kAXChildrenAttribute` | `TreeWalker.GetFirstChild` | `GetChildren` D-Bus |
-| Stable ID | `AXIdentifier` / `AXDOMIdentifier` (shipped, U5) | UIA `AutomationId` (Phase 2, sub-phase 2.3) | AT-SPI2 `accessible-id` (Phase 3, sub-phase 3.3) |
+| Stable ID | `AXIdentifier` / `AXDOMIdentifier` (shipped, U5) | UIA `AutomationId` (Phase 2, sub-phase 2.3) | AT-SPI2 `accessible-id`, empty on GNOME 46 GTK and Chromium apps (Phase 3, sub-phase 3.3; L2-16) |
 | Click | `AXPress` | `InvokePattern.Invoke()` | `Action.DoAction(0)` |
 | Set text | `AXValue = val` | `ValuePattern.SetValue()` | `Text.InsertText` |
 | Keyboard | `CGEventCreateKeyboard` | `SendInput` | `xdotool` / `ydotool` |
 | Clipboard | `NSPasteboard`, typed `ClipboardContent` (shipped, U18) | Win32 Clipboard API, typed (shipped in 2.10; save/restore + lock hermeticity, A22-5) | `wl-clipboard` / `xclip`, typed (Phase 3) |
-| Screenshot | `ScreenshotBackend` over secure `screencapture` path today; ScreenCaptureKit planned (P2-O13) | Direct `Windows.Graphics.Capture` with silent `BitBlt` / `PrintWindow` Legacy fallback (shipped in 2.10; A22-1) | `PipeWire` / `XGetImage` (P3-O11) |
+| Screenshot | `ScreenshotBackend` over secure `screencapture` path today; ScreenCaptureKit planned (P2-O13) | Direct `Windows.Graphics.Capture` with silent `BitBlt` / `PrintWindow` Legacy fallback (shipped in 2.10; A22-1) | `PipeWire` / per-window `XGetImage` (P3-O11, L9-10) |
 | Permissions | `AXIsProcessTrusted()` | COM security / UAC | Bus availability |
-| Notifications | Notification Center AX tree (`com.apple.notificationcenterui`) | UIA tree of Action Center / Toast Manager | D-Bus `org.freedesktop.Notifications` + daemon-specific history |
-| System tray | `SystemUIServer` AX tree + `ControlCenter` AX tree | UIA tree of `Shell_TrayWnd` + overflow window | D-Bus `StatusNotifierWatcher` + XEmbed fallback |
+| Notifications | Notification Center AX tree (`com.apple.notificationcenterui`) | UIA tree of Action Center / Toast Manager | D-Bus `org.freedesktop.Notifications` + daemon-specific history; on GNOME the list comes from the gnome-shell AT-SPI tree (L10-2) |
+| System tray | `SystemUIServer` AX tree + `ControlCenter` AX tree | UIA tree of `Shell_TrayWnd` + overflow window | D-Bus `StatusNotifierWatcher`; legacy icons only as gnome-shell panel nodes (L10-13) |
 
 ---
 
