@@ -1,4 +1,7 @@
-use agent_desktop_core::{ActionOps, InputOps, ObservationOps};
+use agent_desktop_core::{
+    AccessibilityNode, ActionOps, AdapterError, Deadline, InputOps, ObservationOps,
+    ObservationRequest, ObservationRoot, ObservedTree, TreeOptions, WindowInfo,
+};
 
 use crate::system::SharedBus;
 
@@ -24,7 +27,28 @@ impl Default for LinuxAdapter {
     }
 }
 
-impl ObservationOps for LinuxAdapter {}
+impl ObservationOps for LinuxAdapter {
+    fn observe_tree(
+        &self,
+        root: ObservationRoot<'_>,
+        request: &ObservationRequest,
+    ) -> Result<ObservedTree, AdapterError> {
+        crate::tree::observe_tree(self.bus(), root, request)
+    }
+
+    fn get_tree(
+        &self,
+        window: &WindowInfo,
+        options: &TreeOptions,
+        deadline: Deadline,
+    ) -> Result<AccessibilityNode, AdapterError> {
+        self.observe_tree(
+            ObservationRoot::Window(window),
+            &ObservationRequest::snapshot(options, deadline),
+        )?
+        .into_accessibility_tree()
+    }
+}
 impl ActionOps for LinuxAdapter {}
 impl InputOps for LinuxAdapter {}
 

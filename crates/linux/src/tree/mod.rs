@@ -16,8 +16,10 @@ mod node_class;
 mod node_properties;
 mod node_read;
 mod node_traits;
+mod observe;
 mod observed_read;
 mod placeholder;
+mod projection;
 mod raw_node;
 mod role_numbers;
 mod role_table;
@@ -33,6 +35,10 @@ mod walked_node;
 mod walker;
 mod walker_expand;
 mod wrapper;
+
+#[cfg(test)]
+#[path = "observe_live_tests.rs"]
+mod observe_live_tests;
 
 #[cfg(test)]
 #[path = "walker_depth_tests.rs"]
@@ -70,24 +76,22 @@ mod vocabulary_live_tests;
 mod walker_live_tests;
 
 pub(crate) use element::AtspiElement;
-#[allow(unused_imports)]
 pub(crate) use element::atspi_element;
 pub(crate) use expansion::Expansion;
 pub(crate) use extents::Extents;
 pub(crate) use field::Field;
 pub(crate) use label_outcome::LabelOutcome;
-#[allow(unused_imports)]
+#[cfg(test)]
 pub(crate) use label_read::read_label;
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
 pub(crate) use node_traits::NodeTraits;
+pub(crate) use observe::observe_tree;
 pub(crate) use observed_read::ObservedRead;
 pub(crate) use raw_node::{ChildAddress, RawNode};
-#[allow(unused_imports)]
+#[cfg(test)]
 pub(crate) use vocabulary::{ResolvedVocabulary, resolve_vocabulary};
 pub(crate) use walk::Walk;
 pub(crate) use walk_counts::WalkCounts;
 pub(crate) use walk_limits::WalkLimits;
 pub(crate) use walked_node::WalkedNode;
-#[allow(unused_imports)]
-pub(crate) use walker::walk_tree;

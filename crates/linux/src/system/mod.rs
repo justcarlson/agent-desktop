@@ -8,6 +8,7 @@ mod permissions;
 #[allow(dead_code)]
 mod process_facts;
 mod session;
+pub(crate) mod window_id;
 
 pub(crate) use bus::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, classify};
 #[cfg(test)]

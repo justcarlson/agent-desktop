@@ -37,7 +37,6 @@ impl AtspiElement {
     }
 }
 
-#[allow(dead_code)]
 /// Borrows the element carried by a core `NativeHandle`. A handle built by
 /// another platform, or an empty one, is rejected rather than reinterpreted.
 pub(crate) fn atspi_element(handle: &NativeHandle) -> Result<&AtspiElement, AdapterError> {

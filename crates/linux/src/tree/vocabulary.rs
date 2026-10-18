@@ -10,7 +10,6 @@ use super::roles::resolve_role;
 use super::states::resolve_states;
 
 /// What a node means, in core's own types.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ResolvedVocabulary {
     pub(crate) role: LocatorField<String>,
@@ -23,7 +22,6 @@ pub(crate) struct ResolvedVocabulary {
 
 /// Resolves the vocabulary of one raw node. `in_web_document` is true when
 /// the node sits below a web document, which the walk knows from its path.
-#[allow(dead_code)]
 pub(crate) fn resolve_vocabulary(
     node: &RawNode,
     label: &LabelOutcome,
