@@ -5,28 +5,60 @@ fn component() -> Field<Vec<String>> {
     Field::Present(vec![COMPONENT_INTERFACE.to_owned()])
 }
 
+fn no_states() -> Field<Vec<u32>> {
+    Field::Present(words(&[]))
+}
+
+fn modal() -> Field<Vec<u32>> {
+    Field::Present(words(&[16]))
+}
+
 #[test]
 fn frame_dialog_and_window_roles_with_a_component_are_windows() {
     for role in [23, 16, 69] {
         assert!(
-            is_window_shape(&Field::Present(role), &component()),
+            is_window_shape(&Field::Present(role), &component(), &no_states()),
             "{role}"
         );
     }
 }
 
 #[test]
-fn other_roles_and_frames_without_a_component_are_not() {
-    assert!(!is_window_shape(&Field::Present(75), &component()));
+fn a_modal_panel_is_a_window_and_a_plain_panel_is_not() {
+    let panel = Field::Present(39);
+    assert!(is_window_shape(&panel, &component(), &modal()));
+    assert!(!is_window_shape(&panel, &component(), &no_states()));
     assert!(!is_window_shape(
-        &Field::Present(23),
-        &Field::Present(vec![])
-    ));
-    assert!(!is_window_shape(
-        &Field::Present(23),
+        &panel,
+        &component(),
         &Field::Failed("x".into())
     ));
-    assert!(!is_window_shape(&Field::Failed("x".into()), &component()));
+    assert!(!is_window_shape(&panel, &Field::Present(vec![]), &modal()));
+}
+
+#[test]
+fn other_roles_and_frames_without_a_component_are_not() {
+    let none = no_states();
+    assert!(!is_window_shape(
+        &Field::Present(75),
+        &component(),
+        &modal()
+    ));
+    assert!(!is_window_shape(
+        &Field::Present(23),
+        &Field::Present(vec![]),
+        &none
+    ));
+    assert!(!is_window_shape(
+        &Field::Present(23),
+        &Field::Failed("x".into()),
+        &none
+    ));
+    assert!(!is_window_shape(
+        &Field::Failed("x".into()),
+        &component(),
+        &none
+    ));
 }
 
 #[test]

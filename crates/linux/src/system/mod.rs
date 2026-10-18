@@ -49,4 +49,6 @@ mod display_live_tests;
 #[cfg(test)]
 mod registry_live_tests;
 #[cfg(test)]
+mod sheet_live_tests;
+#[cfg(test)]
 mod stopped_live_tests;

@@ -1,18 +1,32 @@
-use crate::tree::state_bits::{ACTIVE, ICONIFIED, SHOWING, StateBits};
+use crate::tree::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits};
 use crate::tree::{COMPONENT_INTERFACE, Field};
 
 const FRAME: u32 = 23;
 const DIALOG: u32 = 16;
 const WINDOW: u32 = 69;
+const PANEL: u32 = 39;
 const HELPER_PROCESSES: [&str; 2] = ["gnome-shell", "mutter-x11-frames"];
 const BUBBLE_CLASS: &str = "RootView";
 
 /// Whether a child of an application root is a top-level window: a frame,
-/// dialog or window role that implements the component interface. GTK 3
-/// names the frame `frame` and GTK 4 names the same numeric role
-/// `application`, so only the number is read.
-pub(crate) fn is_window_shape(role: &Field<u32>, interfaces: &Field<Vec<String>>) -> bool {
-    matches!(role.present(), Some(&(FRAME | DIALOG | WINDOW)))
+/// dialog or window role that implements the component interface, or a panel
+/// that carries `MODAL` (GTK 4 presents its shortcuts window that way, and an
+/// application root has no panel child otherwise). GTK 3 names the frame `frame` and
+/// GTK 4 names the same numeric role `application`, so only the number is
+/// read.
+pub(crate) fn is_window_shape(
+    role: &Field<u32>,
+    interfaces: &Field<Vec<String>>,
+    states: &Field<Vec<u32>>,
+) -> bool {
+    let shaped = match role.present() {
+        Some(&(FRAME | DIALOG | WINDOW)) => true,
+        Some(&PANEL) => states
+            .present()
+            .is_some_and(|words| StateBits::new(words).has(MODAL)),
+        _ => false,
+    };
+    shaped
         && interfaces
             .present()
             .is_some_and(|list| list.iter().any(|name| name == COMPONENT_INTERFACE))

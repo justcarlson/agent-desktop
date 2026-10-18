@@ -99,3 +99,18 @@ fn a_frame_address_the_bus_could_not_have_issued_is_not_listed() {
     node.element = AtspiElement::new("not-a-bus-name", "/p", 321);
     assert!(collect(&[(0, &app)], &[vec![node]]).is_empty());
 }
+
+#[test]
+fn the_measured_about_and_shortcuts_shapes_are_listed_sheets() {
+    let app = app(Some(("gtk", "4.14")));
+    let nodes = vec![
+        frame(23, "About", "/org/a11y/atspi/accessible/1", &[25, 16]),
+        frame(16, "About Terminal", "/org/a11y/atspi/accessible/2", &[25]),
+        frame(39, "", "/org/a11y/atspi/accessible/3", &[25, 16]),
+        frame(39, "", "/org/a11y/atspi/accessible/4", &[25]),
+        frame(23, "Doc", "/org/a11y/atspi/accessible/5", &[25]),
+    ];
+    let windows = collect(&[(0, &app)], &[nodes]);
+    let sheets: Vec<bool> = windows.iter().map(|window| window.sheet).collect();
+    assert_eq!(sheets, [true, true, true, false]);
+}

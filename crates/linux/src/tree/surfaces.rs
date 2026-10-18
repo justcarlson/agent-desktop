@@ -1,18 +1,20 @@
 use super::RawNode;
-use super::state_bits::{MODAL, StateBits};
+use super::state_bits::{MODAL, SHOWING, StateBits};
 
 const DIALOG: u32 = 16;
 
-/// Whether the window root is a modal dialog, which this platform presents
-/// as the sheet surface. A role or a state set that never read is not a
-/// sheet: absent evidence stays absent.
+/// Whether the window root is a sheet: a dialog that is showing, or any
+/// top-level that carries `MODAL`. GTK 3 presents its About window as a
+/// showing dialog with no `MODAL`; GTK 4 presents the same window as a modal
+/// frame. A role or a state set that never read is not a sheet: absent
+/// evidence stays absent.
 pub(crate) fn is_sheet(node: &RawNode) -> bool {
-    node.traits.role.present() == Some(&DIALOG)
-        && node
-            .traits
-            .states
-            .present()
-            .is_some_and(|words| StateBits::new(words).has(MODAL))
+    let (Some(&role), Some(words)) = (node.traits.role.present(), node.traits.states.present())
+    else {
+        return false;
+    };
+    let bits = StateBits::new(words);
+    bits.has(MODAL) || (role == DIALOG && bits.has(SHOWING))
 }
 
 #[cfg(test)]

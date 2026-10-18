@@ -18,7 +18,11 @@ fn rect(node: &RawNode) -> Option<Rect> {
 }
 
 fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindow> {
-    if !is_window_shape(&node.traits.role, &node.traits.interfaces) {
+    if !is_window_shape(
+        &node.traits.role,
+        &node.traits.interfaces,
+        &node.traits.states,
+    ) {
         return None;
     }
     let title = node.properties.name.present().cloned().unwrap_or_default();
