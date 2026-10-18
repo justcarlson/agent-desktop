@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 use zbus::Connection;
 
+use super::absence::Liveness;
 use super::node_read::{call, read_children};
 use super::{AtspiElement, ChildAddress, Field};
 use crate::system::ACCESSIBLE_INTERFACE;
@@ -19,7 +20,7 @@ pub(crate) async fn list_children(
         &(),
     )
     .await;
-    match read_children(reply)? {
+    match read_children(reply, Liveness::Alive)? {
         Field::Present(children) => Ok(children),
         Field::Absent => Ok(Vec::new()),
         Field::Failed(detail) => Err(AdapterError::new(

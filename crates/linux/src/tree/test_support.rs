@@ -48,3 +48,19 @@ pub(crate) fn read_of(role: u32, name: &str, actions: &[&str]) -> ObservedRead {
     };
     ObservedRead::plain(node)
 }
+
+pub(crate) fn method_error(name: &str) -> zbus::Error {
+    let call = zbus::Message::method_call("/probe", "Probe")
+        .and_then(|builder| builder.build(&()))
+        .expect("a method call message must build");
+    let reply = zbus::Message::error(&call.header(), name)
+        .and_then(|builder| builder.build(&()))
+        .expect("an error reply must build");
+    zbus::Error::MethodError(name.try_into().expect("a valid error name"), None, reply)
+}
+
+pub(crate) fn client_timeout() -> zbus::Error {
+    zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
+        std::io::ErrorKind::TimedOut,
+    )))
+}

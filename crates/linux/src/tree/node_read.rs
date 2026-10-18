@@ -1,21 +1,18 @@
 use std::collections::{BTreeMap, HashMap};
 
-use agent_desktop_core::{AdapterError, ErrorCode};
+use agent_desktop_core::AdapterError;
 use futures_util::future::{join, join3, join4};
 use zbus::export::serde::Serialize;
 use zbus::zvariant::{DynamicType, OwnedValue};
 use zbus::{Connection, Message};
 
+use super::absence::{Liveness, gone_error};
 use super::bounded::collect_bounded;
 use super::{AtspiElement, ChildAddress, Extents, Field, NodeProperties, NodeTraits, RawNode};
-use crate::system::{
-    ACCESSIBLE_INTERFACE, NAME_HAS_NO_OWNER, PROPERTIES_INTERFACE, SERVICE_UNKNOWN,
-};
+use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE};
 
 pub(crate) const COMPONENT_INTERFACE: &str = "org.a11y.atspi.Component";
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
-const UNKNOWN_OBJECT: &str = "org.freedesktop.DBus.Error.UnknownObject";
-const UNKNOWN_METHOD: &str = "org.freedesktop.DBus.Error.UnknownMethod";
 const ACTION_NAMES_IN_FLIGHT: usize = 4;
 pub(super) const NAME: &str = "Name";
 const DESCRIPTION: &str = "Description";
@@ -47,38 +44,13 @@ where
         .await
 }
 
-/// Errors that mean the object or its application no longer exists, as
-/// opposed to a read that failed on a node that is still there.
-fn gone(error: &zbus::Error, required: bool) -> Option<AdapterError> {
-    let zbus::Error::MethodError(name, _, _) = error else {
-        return None;
-    };
-    match name.as_str() {
-        SERVICE_UNKNOWN | NAME_HAS_NO_OWNER => Some(
-            AdapterError::new(
-                ErrorCode::AppNotFound,
-                "The application left the accessibility bus",
-            )
-            .with_platform_detail(error.to_string()),
-        ),
-        UNKNOWN_OBJECT => Some(element_gone(error)),
-        UNKNOWN_METHOD if required => Some(element_gone(error)),
-        _ => None,
-    }
-}
-
-fn element_gone(error: &zbus::Error) -> AdapterError {
-    AdapterError::new(
-        ErrorCode::ElementNotFound,
-        "The accessible object no longer exists",
-    )
-    .with_platform_detail(error.to_string())
-}
-
-fn field<T>(result: Result<T, zbus::Error>, required: bool) -> Result<Field<T>, AdapterError> {
+/// A read's outcome as a field. An error that shows the application or the
+/// object gone fails the node read; any other failure, including a name from
+/// the suspect family on a node that still answers, stays on its field.
+fn field<T>(result: Result<T, zbus::Error>, liveness: Liveness) -> Result<Field<T>, AdapterError> {
     match result {
         Ok(value) => Ok(Field::Present(value)),
-        Err(error) => match gone(&error, required) {
+        Err(error) => match gone_error(&error, liveness) {
             Some(gone) => Err(gone),
             None => Ok(Field::Failed(error.to_string())),
         },
@@ -121,6 +93,7 @@ pub(super) async fn get_one<T>(
     element: &AtspiElement,
     key: &'static str,
     convert: fn(&OwnedValue) -> Field<T>,
+    liveness: Liveness,
 ) -> Result<Field<T>, AdapterError> {
     let reply = call(
         connection,
@@ -132,7 +105,7 @@ pub(super) async fn get_one<T>(
     .await;
     let read = field(
         reply.and_then(|message| message.body().deserialize::<OwnedValue>()),
-        true,
+        liveness,
     )?;
     Ok(match read {
         Field::Present(value) => convert(&value),
@@ -146,12 +119,13 @@ pub(super) async fn get_one<T>(
 async fn properties_one_by_one(
     connection: &Connection,
     element: &AtspiElement,
+    liveness: Liveness,
 ) -> Result<NodeProperties, AdapterError> {
     let (name, description, child_count, accessible_id) = join4(
-        get_one(connection, element, NAME, string_value),
-        get_one(connection, element, DESCRIPTION, string_value),
-        get_one(connection, element, CHILD_COUNT, count_value),
-        get_one(connection, element, ACCESSIBLE_ID, string_value),
+        get_one(connection, element, NAME, string_value, liveness),
+        get_one(connection, element, DESCRIPTION, string_value, liveness),
+        get_one(connection, element, CHILD_COUNT, count_value, liveness),
+        get_one(connection, element, ACCESSIBLE_ID, string_value, liveness),
     )
     .await;
     Ok(NodeProperties {
@@ -166,25 +140,31 @@ async fn read_properties(
     connection: &Connection,
     element: &AtspiElement,
     reply: Reply,
+    liveness: Liveness,
 ) -> Result<NodeProperties, AdapterError> {
     let map = field(
         reply.and_then(|message| message.body().deserialize::<HashMap<String, OwnedValue>>()),
-        false,
+        liveness,
     )?;
     match map {
         Field::Present(map) => Ok(from_map(&map)),
-        Field::Absent | Field::Failed(_) => properties_one_by_one(connection, element).await,
+        Field::Absent | Field::Failed(_) => {
+            properties_one_by_one(connection, element, liveness).await
+        }
     }
 }
 
-pub(super) fn read_children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
+pub(super) fn read_children(
+    reply: Reply,
+    liveness: Liveness,
+) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
     let raw = field(
         reply.and_then(|message| {
             message
                 .body()
                 .deserialize::<Vec<(String, zbus::zvariant::OwnedObjectPath)>>()
         }),
-        true,
+        liveness,
     )?;
     Ok(raw.map(|entries| {
         entries
@@ -212,6 +192,7 @@ async fn read_extents(
     connection: &Connection,
     element: &AtspiElement,
     interfaces: &Field<Vec<String>>,
+    liveness: Liveness,
 ) -> Result<Field<Extents>, AdapterError> {
     if let Some(skipped) = skipped_without(interfaces, COMPONENT_INTERFACE) {
         return Ok(skipped);
@@ -226,7 +207,7 @@ async fn read_extents(
     .await;
     field(
         reply.and_then(|message| message.body().deserialize::<(i32, i32, i32, i32)>()),
-        false,
+        liveness,
     )
     .map(|read| {
         read.map(|(x, y, width, height)| Extents {
@@ -260,6 +241,7 @@ async fn read_actions(
     connection: &Connection,
     element: &AtspiElement,
     interfaces: &Field<Vec<String>>,
+    liveness: Liveness,
 ) -> Result<Field<Vec<String>>, AdapterError> {
     if let Some(skipped) = skipped_without(interfaces, ACTION_INTERFACE) {
         return Ok(skipped);
@@ -271,7 +253,7 @@ async fn read_actions(
                 .body()
                 .deserialize::<Vec<(String, String, String)>>()
         }),
-        false,
+        liveness,
     )?;
     Ok(match listed {
         Field::Present(entries) => Field::Present(
@@ -292,13 +274,16 @@ async fn read_actions(
 }
 
 /// Reads one node. All fixed calls are in flight together; extents and
-/// actions follow only when the interface list names them. An error that
-/// means the object or its application is gone fails the read; any other
-/// failure stays on the field it hit.
-pub(crate) async fn read_node(
+/// actions follow only when the interface list names them. The node's own
+/// `GetRole` outcome, which every live node answers, decides what a failure
+/// of any other call means: an error that shows the application or the object
+/// gone fails the read; any other failure stays on the field it hit. The
+/// second value is `Alive`, or `TimedOut` when the role call did not answer
+/// in time, which says nothing about the object.
+pub(crate) async fn read_node_with_liveness(
     connection: &Connection,
     element: &AtspiElement,
-) -> Result<RawNode, AdapterError> {
+) -> Result<(RawNode, Liveness), AdapterError> {
     let (first, second) = join(
         join4(
             call(
@@ -346,43 +331,53 @@ pub(crate) async fn read_node(
     let (all, role, role_name, state) = first;
     let (interfaces, attributes, child_reply) = second;
 
-    let properties = read_properties(connection, element, all).await?;
+    let role = role.and_then(|message| message.body().deserialize::<u32>());
+    let liveness = Liveness::of(role.as_ref().err());
+    let role = field(role, liveness)?;
+    let properties = read_properties(connection, element, all, liveness).await?;
     let interfaces = field(
         interfaces.and_then(|message| message.body().deserialize::<Vec<String>>()),
-        true,
+        liveness,
     )?;
     let (extents, actions) = join(
-        read_extents(connection, element, &interfaces),
-        read_actions(connection, element, &interfaces),
+        read_extents(connection, element, &interfaces, liveness),
+        read_actions(connection, element, &interfaces, liveness),
     )
     .await;
 
-    Ok(RawNode {
+    let node = RawNode {
         element: element.clone(),
         properties,
         traits: NodeTraits {
-            role: field(
-                role.and_then(|message| message.body().deserialize::<u32>()),
-                true,
-            )?,
+            role,
             role_name: field(
                 role_name.and_then(|message| message.body().deserialize::<String>()),
-                false,
+                liveness,
             )?,
             states: field(
                 state.and_then(|message| message.body().deserialize::<Vec<u32>>()),
-                true,
+                liveness,
             )?,
             interfaces,
         },
         attributes: field(
             attributes.and_then(|message| message.body().deserialize::<BTreeMap<String, String>>()),
-            false,
+            liveness,
         )?,
         extents: extents?,
         actions: actions?,
-        children: read_children(child_reply)?,
-    })
+        children: read_children(child_reply, liveness)?,
+    };
+    Ok((node, liveness))
+}
+
+pub(crate) async fn read_node(
+    connection: &Connection,
+    element: &AtspiElement,
+) -> Result<RawNode, AdapterError> {
+    read_node_with_liveness(connection, element)
+        .await
+        .map(|(node, _)| node)
 }
 
 #[cfg(test)]

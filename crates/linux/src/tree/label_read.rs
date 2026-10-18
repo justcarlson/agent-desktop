@@ -1,6 +1,7 @@
 use zbus::Connection;
 use zbus::zvariant::OwnedObjectPath;
 
+use super::absence::Liveness;
 use super::node_read::{NAME, call, get_one, string_value};
 use super::roles::role_of;
 use super::{AtspiElement, Field, LabelOutcome, RawNode};
@@ -37,7 +38,7 @@ async fn name_of(
     connection: &Connection,
     target: &AtspiElement,
 ) -> Result<Field<String>, AdapterError> {
-    get_one(connection, target, NAME, string_value).await
+    get_one(connection, target, NAME, string_value, Liveness::Alive).await
 }
 
 /// Whether the node's label is worth reading: its own `Name` is blank, and its
