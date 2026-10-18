@@ -56,6 +56,49 @@ fn walk_of(nodes: usize, document: bool) -> Result<Walk<ObservedRead>, AdapterEr
     )
 }
 
+fn walk_with(limits: &WalkLimits, nodes: u32) -> Result<Walk<ObservedRead>, AdapterError> {
+    walk_levels(
+        0u32,
+        limits,
+        Deadline::after(5_000).expect("deadline"),
+        |level| {
+            Ok(level
+                .iter()
+                .map(|key| {
+                    let children = if *key + 1 < nodes {
+                        vec![*key + 1]
+                    } else {
+                        Vec::new()
+                    };
+                    Expansion::read(read_of(DOCUMENT_WEB, "n", &[]), children)
+                })
+                .collect())
+        },
+        classify,
+    )
+}
+
+fn observe_limited(limits: &WalkLimits, ms: u64, pause_ms: u64) -> (usize, bool) {
+    let calls = Cell::new(0usize);
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+        calls.set(calls.get() + 1);
+        walk_with(limits, 1 + u32::try_from(calls.get()).unwrap_or(1) * 3)
+    };
+    let mut pause = |_: Duration| std::thread::sleep(Duration::from_millis(pause_ms));
+    let window = window();
+    let tree = observe_with(
+        ObservationRoot::Window(&window),
+        &request(ms),
+        SettleHost {
+            walker: &mut walker,
+            is_web_process: &|_| true,
+            pause: &mut pause,
+        },
+    )
+    .expect("observes");
+    (calls.get(), tree.is_complete())
+}
+
 struct Run {
     walks: usize,
     waited: Duration,
@@ -177,4 +220,52 @@ fn a_poll_that_finds_the_window_gone_is_window_not_found() {
     )
     .expect_err("gone");
     assert_eq!(error.code, agent_desktop_core::ErrorCode::WindowNotFound);
+}
+
+#[test]
+fn a_walk_cut_by_the_node_budget_is_returned_without_polling() {
+    let limits = WalkLimits {
+        max_nodes: 2,
+        ..WalkLimits::default()
+    };
+    assert!(!walk_with(&limits, 6).expect("walks").complete);
+    let (walks, complete) = observe_limited(&limits, 60_000, 0);
+    assert_eq!(walks, 1);
+    assert!(!complete);
+}
+
+#[test]
+fn a_tree_that_keeps_growing_past_the_deadline_is_returned_incomplete() {
+    let (walks, complete) = observe_limited(&WalkLimits::default(), 300, 400);
+    assert!(walks >= 2);
+    assert!(!complete);
+}
+
+#[test]
+fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
+    let limits = WalkLimits {
+        max_logical_depth: 1,
+        ..WalkLimits::default()
+    };
+    let cut = walk_with(&limits, 6).expect("walks");
+    assert!(cut.complete);
+    assert!(cut.root.children[0].child_count.is_some());
+    let calls = Cell::new(0usize);
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+        calls.set(calls.get() + 1);
+        walk_with(&limits, 6)
+    };
+    let window = window();
+    let tree = observe_with(
+        ObservationRoot::Window(&window),
+        &request(60_000),
+        SettleHost {
+            walker: &mut walker,
+            is_web_process: &|_| true,
+            pause: &mut |_| {},
+        },
+    )
+    .expect("observes");
+    assert_eq!(calls.get(), 3);
+    assert!(tree.is_complete());
 }

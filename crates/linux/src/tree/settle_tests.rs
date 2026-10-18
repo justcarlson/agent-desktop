@@ -11,7 +11,7 @@ fn run(curve: &[usize], remaining: Duration) -> Vec<Step> {
     let mut steps = Vec::new();
     let mut waited = Duration::ZERO;
     for nodes in curve {
-        let step = settle.after_walk(*nodes, waited);
+        let step = settle.after_walk(*nodes, waited, false);
         steps.push(step);
         match step {
             Step::Wait(gap) => waited += gap,
@@ -85,4 +85,31 @@ fn a_web_document_below_the_root_marks_a_web_tree() {
 fn a_native_document_frame_is_not_a_web_document() {
     let tree = node(PANEL, vec![node(DOCUMENT_FRAME, vec![])]);
     assert!(!has_web_document(&tree));
+}
+
+#[test]
+fn a_stable_depth_cut_walk_below_the_shell_ceiling_settles() {
+    let mut settle = Settle::new(MS(60_000));
+    let steps: Vec<Step> = (0..3)
+        .map(|_| settle.after_walk(2, Duration::ZERO, true))
+        .collect();
+    assert_eq!(steps[2], Step::Settled);
+}
+
+#[test]
+fn an_uncut_walk_below_the_shell_ceiling_keeps_waiting() {
+    let mut settle = Settle::new(MS(60_000));
+    let steps: Vec<Step> = (0..3)
+        .map(|_| settle.after_walk(2, Duration::ZERO, false))
+        .collect();
+    assert_eq!(steps[2], Step::Wait(POLL));
+}
+
+#[test]
+fn a_child_count_anywhere_marks_a_depth_cut() {
+    let mut cut = node(PANEL, vec![]);
+    cut.child_count = Some(3);
+    let tree = node(PANEL, vec![node(PANEL, vec![cut])]);
+    assert!(has_depth_cut(&tree));
+    assert!(!has_depth_cut(&node(PANEL, vec![node(PANEL, vec![])])));
 }

@@ -7,7 +7,7 @@ use agent_desktop_core::{
 
 use super::ancestry;
 use super::projection::project;
-use super::settle::{Settle, Step, has_web_document};
+use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
 use crate::system::{SharedBus, process_facts, window_id};
@@ -96,7 +96,7 @@ fn settled_walk(
         }
         let (settle, since) = tracker
             .get_or_insert_with(|| (Settle::new(request.deadline.remaining()), Instant::now()));
-        match settle.after_walk(walk.node_count, since.elapsed()) {
+        match settle.after_walk(walk.node_count, since.elapsed(), has_depth_cut(&walk.root)) {
             Step::Settled => return Ok((walk, true)),
             Step::GiveUp => return Ok((walk, false)),
             Step::Wait(gap) => {
