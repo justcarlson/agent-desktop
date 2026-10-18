@@ -27,3 +27,10 @@ impl<T> Field<T> {
         }
     }
 }
+
+impl Field<String> {
+    /// The text when the read succeeded and it is not blank.
+    pub(crate) fn non_blank(&self) -> Option<&String> {
+        self.present().filter(|text| !text.trim().is_empty())
+    }
+}

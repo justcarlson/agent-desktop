@@ -40,12 +40,13 @@ fn description_as_placeholder(properties: &NodeProperties, role: &Field<u32>) ->
     if !text_input {
         return PlaceholderRead::Absent;
     }
-    match &properties.description {
-        Field::Present(text) if !text.trim().is_empty() => {
-            PlaceholderRead::Description(text.clone())
-        }
-        Field::Failed(_) => PlaceholderRead::Uncertain,
-        Field::Present(_) | Field::Absent => PlaceholderRead::Absent,
+    if let Some(text) = properties.description.non_blank() {
+        return PlaceholderRead::Description(text.clone());
+    }
+    if properties.description.is_failed() {
+        PlaceholderRead::Uncertain
+    } else {
+        PlaceholderRead::Absent
     }
 }
 

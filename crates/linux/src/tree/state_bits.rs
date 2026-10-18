@@ -9,6 +9,7 @@ pub(crate) const MULTISELECTABLE: u32 = 18;
 pub(crate) const PRESSED: u32 = 20;
 pub(crate) const SELECTED: u32 = 23;
 pub(crate) const SENSITIVE: u32 = 24;
+#[cfg(test)]
 pub(crate) const SHOWING: u32 = 25;
 pub(crate) const INDETERMINATE: u32 = 32;
 pub(crate) const REQUIRED: u32 = 33;
@@ -30,9 +31,5 @@ impl<'a> StateBits<'a> {
         self.0
             .get((bit / 32) as usize)
             .is_some_and(|word| word & (1 << (bit % 32)) != 0)
-    }
-
-    pub(crate) fn showing(&self) -> bool {
-        self.has(SHOWING)
     }
 }

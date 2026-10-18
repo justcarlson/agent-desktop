@@ -1,18 +1,8 @@
-use std::collections::BTreeMap;
-
 use agent_desktop_core::{ElementIdentifier, IdentifierKind};
 
 use super::identifier_evidence;
 use crate::tree::Field;
-
-fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
-    Field::Present(
-        pairs
-            .iter()
-            .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
-            .collect(),
-    )
-}
+use crate::tree::test_support::attributes;
 
 fn id(value: &str) -> Field<String> {
     Field::Present(value.to_owned())

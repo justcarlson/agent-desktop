@@ -1,37 +1,24 @@
-mod bounded;
-#[allow(dead_code)]
 mod attributes;
-#[allow(dead_code)]
+mod bounded;
 mod descriptor;
 mod element;
 mod expansion;
 mod extents;
 mod field;
-#[allow(dead_code)]
 mod identity;
-#[allow(dead_code)]
 mod label_outcome;
-#[allow(dead_code)]
 mod label_read;
-#[allow(dead_code)]
 mod name_evidence;
 mod node_properties;
 mod node_read;
 mod node_traits;
-#[allow(dead_code)]
 mod placeholder;
 mod raw_node;
-#[allow(dead_code)]
 mod role_numbers;
-#[allow(dead_code)]
 mod role_table;
-#[allow(dead_code)]
 mod roles;
-#[allow(dead_code)]
 mod state_bits;
-#[allow(dead_code)]
 mod states;
-#[allow(dead_code)]
 mod vocabulary;
 mod walk;
 mod walk_limits;
@@ -42,6 +29,9 @@ mod walker_expand;
 #[cfg(test)]
 #[path = "walker_tests.rs"]
 mod walker_tests;
+
+#[cfg(test)]
+mod test_support;
 
 #[cfg(test)]
 mod live_launch;

@@ -5,6 +5,7 @@ use agent_desktop_core::{Deadline, LocatorField, state};
 use zbus::Connection as AsyncConnection;
 
 use super::live_tree::{count_failed, failure_kinds};
+use super::role_numbers::{DOCUMENT_FRAME, DOCUMENT_WEB};
 use super::walker_live_tests::{Settled, settle};
 use super::{
     AtspiElement, LabelOutcome, RawNode, ResolvedVocabulary, WalkedNode, read_label,
@@ -12,8 +13,6 @@ use super::{
 };
 use crate::system::SharedBus;
 
-const DOCUMENT_WEB: u32 = 95;
-const DOCUMENT_FRAME: u32 = 82;
 const TIMED_RUNS: usize = 7;
 
 pub(super) struct Entry {

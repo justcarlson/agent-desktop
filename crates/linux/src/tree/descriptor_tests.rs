@@ -2,18 +2,35 @@ use std::collections::BTreeMap;
 
 use agent_desktop_core::NodeDescriptor;
 
-use super::descriptors;
-use crate::tree::name_evidence::name_fields;
+use super::descriptors as describe_with;
+use crate::tree::name_evidence::name_fields as resolve_names;
+use crate::tree::placeholder::read_placeholder;
 use crate::tree::role_numbers::{CHECK_BOX, ENTRY, PUSH_BUTTON, TEXT};
+use crate::tree::test_support::attributes;
 use crate::tree::{Field, LabelOutcome, NodeProperties};
 
-fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
-    Field::Present(
-        pairs
-            .iter()
-            .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
-            .collect(),
-    )
+fn descriptors(
+    role: &Field<u32>,
+    role_name: &Field<String>,
+    properties: &NodeProperties,
+    attributes: &Field<BTreeMap<String, String>>,
+    in_web_document: bool,
+) -> NodeDescriptor {
+    let placeholder = read_placeholder(properties, role, attributes);
+    describe_with(role, role_name, &placeholder, attributes, in_web_document)
+}
+
+fn name_fields(
+    properties: &NodeProperties,
+    role: &Field<u32>,
+    attributes: &Field<BTreeMap<String, String>>,
+    label: &LabelOutcome,
+) -> (
+    agent_desktop_core::LocatorField<String>,
+    agent_desktop_core::LocatorField<String>,
+) {
+    let placeholder = read_placeholder(properties, role, attributes);
+    resolve_names(properties, role, &placeholder, label)
 }
 
 fn properties(name: &str, description: &str) -> NodeProperties {

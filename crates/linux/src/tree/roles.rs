@@ -17,12 +17,14 @@ const LANDMARK_TOKENS: [&str; 7] = [
     "form",
 ];
 
-fn state_set(states: &Field<Vec<u32>>) -> Option<StateBits<'_>> {
-    states.present().map(|words| StateBits::new(words))
+fn has_state(states: &Field<Vec<u32>>, bit: u32) -> bool {
+    states
+        .present()
+        .is_some_and(|words| StateBits::new(words).has(bit))
 }
 
 fn text_role(states: &Field<Vec<u32>>) -> Role {
-    if state_set(states).is_some_and(|bits| bits.has(EDITABLE)) {
+    if has_state(states, EDITABLE) {
         Role::TextField
     } else {
         Role::Document
@@ -30,7 +32,7 @@ fn text_role(states: &Field<Vec<u32>>) -> Role {
 }
 
 fn push_button_role(states: &Field<Vec<u32>>) -> Role {
-    if state_set(states).is_some_and(|bits| bits.has(HAS_POPUP)) {
+    if has_state(states, HAS_POPUP) {
         Role::MenuButton
     } else {
         Role::Button

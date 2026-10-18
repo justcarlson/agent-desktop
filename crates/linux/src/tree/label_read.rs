@@ -10,7 +10,7 @@ const LABELLED_BY: u32 = 2;
 
 type RelationSet = Vec<(u32, Vec<(String, OwnedObjectPath)>)>;
 
-async fn first_label_target(
+pub(super) async fn first_label_target(
     connection: &Connection,
     element: &AtspiElement,
 ) -> Result<Option<AtspiElement>, zbus::Error> {
@@ -40,6 +40,7 @@ async fn name_of(
 
 /// Reads the text of the node's `LabelledBy` target. Meant for a node whose
 /// own `Name` is blank: it costs one relation read and one name read.
+#[allow(dead_code)]
 pub(crate) async fn read_label(connection: &Connection, element: &AtspiElement) -> LabelOutcome {
     let target = match first_label_target(connection, element).await {
         Ok(Some(target)) => target,
@@ -47,9 +48,9 @@ pub(crate) async fn read_label(connection: &Connection, element: &AtspiElement) 
         Err(_) => return LabelOutcome::Failed,
     };
     match name_of(connection, &target).await {
-        Ok(Field::Present(text)) if text.trim().is_empty() => LabelOutcome::Unlabelled,
-        Ok(Field::Present(text)) => LabelOutcome::Text(text),
-        Ok(Field::Absent) => LabelOutcome::Unlabelled,
         Ok(Field::Failed(_)) | Err(_) => LabelOutcome::Failed,
+        Ok(field) => field.non_blank().map_or(LabelOutcome::Unlabelled, |text| {
+            LabelOutcome::Text(text.clone())
+        }),
     }
 }

@@ -2,17 +2,13 @@ use agent_desktop_core::{
     LocatorField, NameEvidence, NameSlotStatus, SlotStatus, resolve_description, resolve_name,
 };
 
-use super::attributes::AttributeRead;
 use super::label_outcome::LabelOutcome;
-use super::placeholder::{PlaceholderRead, read_placeholder};
+use super::placeholder::PlaceholderRead;
 use super::role_numbers::APPLICATION;
 use super::{Field, NodeProperties};
 
 fn text_of(field: &Field<String>) -> Option<String> {
-    field
-        .present()
-        .filter(|text| !text.trim().is_empty())
-        .cloned()
+    field.non_blank().cloned()
 }
 
 fn slot_of<T>(field: &Field<T>) -> SlotStatus {
@@ -20,7 +16,7 @@ fn slot_of<T>(field: &Field<T>) -> SlotStatus {
 }
 
 fn label_slot(name: &Field<String>, label: &LabelOutcome) -> SlotStatus {
-    if text_of(name).is_some() {
+    if name.non_blank().is_some() {
         return SlotStatus::Suppressed;
     }
     match label {
@@ -61,11 +57,10 @@ fn placeholder_slot(placeholder: &PlaceholderRead) -> SlotStatus {
 pub(crate) fn name_fields(
     properties: &NodeProperties,
     role: &Field<u32>,
-    attributes: &AttributeRead,
+    placeholder: &PlaceholderRead,
     label: &LabelOutcome,
 ) -> (LocatorField<String>, LocatorField<String>) {
-    let placeholder = read_placeholder(properties, role, attributes);
-    let (description, description_status) = description_of(properties, role, &placeholder);
+    let (description, description_status) = description_of(properties, role, placeholder);
     let evidence = NameEvidence {
         native_title: text_of(&properties.name),
         labelled_by_text: match label {
@@ -82,7 +77,7 @@ pub(crate) fn name_fields(
         native_title: slot_of(&properties.name),
         labelled_by_text: label_slot(&properties.name, label),
         description: description_status,
-        placeholder: placeholder_slot(&placeholder),
+        placeholder: placeholder_slot(placeholder),
         explicit_label: SlotStatus::Suppressed,
         static_value: SlotStatus::Suppressed,
         child_label: SlotStatus::Suppressed,

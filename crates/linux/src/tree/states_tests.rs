@@ -10,16 +10,9 @@ use crate::tree::state_bits::{
     CHECKED, ENABLED, FOCUSED, INDETERMINATE, INVALID_ENTRY, PRESSED, READ_ONLY, REQUIRED,
     SENSITIVE, SHOWING,
 };
+use crate::tree::test_support::words;
 
 const GROUP: u32 = 39;
-
-fn words(bits: &[u32]) -> Vec<u32> {
-    let mut words = vec![0u32; 2];
-    for bit in bits {
-        words[(*bit / 32) as usize] |= 1 << (*bit % 32);
-    }
-    words
-}
 
 fn tokens(role: u32, bits: &[u32]) -> Vec<String> {
     match resolve_states(&Field::Present(role), &Field::Present(words(bits))) {

@@ -2,20 +2,18 @@ use agent_desktop_core::{Deadline, IdentifierKind, LocatorField};
 use zbus::Connection as AsyncConnection;
 use zbus::blocking::Connection;
 
+use super::label_read::first_label_target;
 use super::live_launch::{Launched, nonce, program_of};
 use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
-use super::node_read::call;
+use super::role_numbers::{NOTIFICATION, TEXT};
 use super::vocabulary_live_analysis::{
     Analysis, is_disabled, name_is_blank, root_is_window, time_pass, token, walk,
 };
 use super::{AtspiElement, LabelOutcome, read_label, resolve_vocabulary};
-use crate::system::{ACCESSIBLE_INTERFACE, SharedBus};
+use crate::system::SharedBus;
 
 const TERMINAL_SERVER: &str = "gnome-terminal-server";
-const NOTIFICATION: u32 = 101;
-const TEXT: u32 = 61;
-const LABELLED_BY: u32 = 2;
 
 fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
@@ -59,25 +57,9 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 }
 
 async fn has_label_target(connection: &AsyncConnection, element: &AtspiElement) -> bool {
-    let Ok(reply) = call(
-        connection,
-        element,
-        ACCESSIBLE_INTERFACE,
-        "GetRelationSet",
-        &(),
-    )
-    .await
-    else {
-        return false;
-    };
-    reply
-        .body()
-        .deserialize::<Vec<(u32, Vec<(String, zbus::zvariant::OwnedObjectPath)>)>>()
-        .is_ok_and(|relations| {
-            relations
-                .iter()
-                .any(|(kind, targets)| *kind == LABELLED_BY && !targets.is_empty())
-        })
+    first_label_target(connection, element)
+        .await
+        .is_ok_and(|target| target.is_some())
 }
 
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {

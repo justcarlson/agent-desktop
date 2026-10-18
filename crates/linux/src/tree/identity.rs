@@ -12,20 +12,24 @@ fn looks_like_a_qt_class(segment: &str) -> bool {
 }
 
 fn is_identifying(accessible_id: &str) -> bool {
-    let last = accessible_id.rsplit('.').next().unwrap_or(accessible_id);
+    let last = accessible_id
+        .rsplit_once('.')
+        .map_or(accessible_id, |(_, last)| last);
     !looks_like_a_qt_class(last)
 }
 
 fn native_identifier(accessible_id: &Field<String>) -> (Option<ElementIdentifier>, bool) {
     match accessible_id {
-        Field::Present(value) if !value.trim().is_empty() && is_identifying(value.trim()) => (
-            Some(ElementIdentifier {
-                kind: IdentifierKind::AxIdentifier,
-                value: value.trim().to_owned(),
-            }),
-            true,
-        ),
-        Field::Present(_) | Field::Absent => (None, true),
+        Field::Present(value) => {
+            let value = value.trim();
+            let identifier =
+                (!value.is_empty() && is_identifying(value)).then(|| ElementIdentifier {
+                    kind: IdentifierKind::AxIdentifier,
+                    value: value.to_owned(),
+                });
+            (identifier, true)
+        }
+        Field::Absent => (None, true),
         Field::Failed(_) => (None, false),
     }
 }

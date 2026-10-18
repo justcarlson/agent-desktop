@@ -1,11 +1,10 @@
-use std::collections::BTreeMap;
-
 use agent_desktop_core::roles::INTERACTIVE_ROLES;
 use agent_desktop_core::{LocatorField, Role};
 
 use super::{resolve_role, role_of};
 use crate::tree::role_table::{ROLE_COUNT, ROLE_TABLE};
 use crate::tree::state_bits::{EDITABLE, HAS_POPUP, SENSITIVE};
+use crate::tree::test_support::{attributes, words};
 use crate::tree::{Field, NodeTraits};
 
 const UNPRODUCED_INTERACTIVE_ROLES: [&str; 1] = ["colorwell"];
@@ -77,24 +76,11 @@ const NUMBERS_BY_ROLE: &[(&str, &[u32])] = &[
 ];
 
 fn states(bits: &[u32]) -> Field<Vec<u32>> {
-    let mut words = vec![0u32; 2];
-    for bit in bits {
-        words[(*bit / 32) as usize] |= 1 << (*bit % 32);
-    }
-    Field::Present(words)
+    Field::Present(words(bits))
 }
 
 fn interfaces(names: &[&str]) -> Field<Vec<String>> {
     Field::Present(names.iter().map(|name| (*name).to_owned()).collect())
-}
-
-fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
-    Field::Present(
-        pairs
-            .iter()
-            .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
-            .collect(),
-    )
 }
 
 fn plain(number: u32) -> Role {

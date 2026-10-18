@@ -1,10 +1,20 @@
-use std::collections::BTreeMap;
-
 use agent_desktop_core::LocatorField;
 
-use super::name_fields;
+use super::name_fields as resolve_names;
+use crate::tree::placeholder::read_placeholder;
 use crate::tree::role_numbers::{APPLICATION, ENTRY, PUSH_BUTTON, TEXT};
+use crate::tree::test_support::attributes;
 use crate::tree::{Field, LabelOutcome, NodeProperties};
+
+fn name_fields(
+    properties: &NodeProperties,
+    role: &Field<u32>,
+    attributes: &Field<std::collections::BTreeMap<String, String>>,
+    label: &LabelOutcome,
+) -> (LocatorField<String>, LocatorField<String>) {
+    let placeholder = read_placeholder(properties, role, attributes);
+    resolve_names(properties, role, &placeholder, label)
+}
 
 fn properties(name: Field<String>, description: Field<String>) -> NodeProperties {
     NodeProperties {
@@ -17,15 +27,6 @@ fn properties(name: Field<String>, description: Field<String>) -> NodeProperties
 
 fn text(value: &str) -> Field<String> {
     Field::Present(value.to_owned())
-}
-
-fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
-    Field::Present(
-        pairs
-            .iter()
-            .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
-            .collect(),
-    )
 }
 
 fn known(value: &str) -> LocatorField<String> {

@@ -10,5 +10,11 @@ pub(crate) const TEXT: u32 = 61;
 pub(crate) const TOGGLE_BUTTON: u32 = 62;
 pub(crate) const APPLICATION: u32 = 75;
 pub(crate) const ENTRY: u32 = 79;
+#[cfg(test)]
+pub(crate) const DOCUMENT_FRAME: u32 = 82;
+#[cfg(test)]
+pub(crate) const DOCUMENT_WEB: u32 = 95;
+#[cfg(test)]
+pub(crate) const NOTIFICATION: u32 = 101;
 pub(crate) const LANDMARK: u32 = 110;
 pub(crate) const PUSH_BUTTON_MENU: u32 = 129;

@@ -1,9 +1,9 @@
 use agent_desktop_core::NodeDescriptor;
 
+use super::Field;
 use super::attributes::{AttributeRead, first_xml_role, non_blank};
-use super::placeholder::read_placeholder;
+use super::placeholder::PlaceholderRead;
 use super::role_numbers::CHECK_BOX;
-use super::{Field, NodeProperties};
 
 const GTK_TOOLKIT: &str = "GTK";
 const GTK_SWITCH_ROLE_NAME: &str = "switch";
@@ -39,16 +39,14 @@ fn classes(attributes: &AttributeRead, in_web_document: bool) -> Vec<String> {
 pub(crate) fn descriptors(
     role: &Field<u32>,
     role_name: &Field<String>,
-    properties: &NodeProperties,
+    placeholder: &PlaceholderRead,
     attributes: &AttributeRead,
     in_web_document: bool,
 ) -> NodeDescriptor {
     NodeDescriptor {
         subrole: subrole(role, role_name, attributes),
         role_description: non_blank(attributes, "roledescription").map(str::to_owned),
-        placeholder: read_placeholder(properties, role, attributes)
-            .text()
-            .map(str::to_owned),
+        placeholder: placeholder.text().map(str::to_owned),
         dom_classes: classes(attributes, in_web_document),
     }
 }
