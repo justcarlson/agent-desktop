@@ -156,3 +156,18 @@ pub(crate) fn evidence(
         },
     }
 }
+
+/// A successful `GetChildren` reply listing the given bus name and path pairs.
+pub(crate) fn children_reply(entries: &[(&str, &str)]) -> Result<zbus::Message, zbus::Error> {
+    let call = zbus::Message::method_call("/probe", "GetChildren")?.build(&())?;
+    let body: Vec<(String, zbus::zvariant::OwnedObjectPath)> = entries
+        .iter()
+        .map(|(bus, path)| {
+            Ok((
+                (*bus).to_owned(),
+                zbus::zvariant::OwnedObjectPath::try_from(*path)?,
+            ))
+        })
+        .collect::<Result<_, zbus::zvariant::Error>>()?;
+    zbus::Message::method_return(&call.header())?.build(&body)
+}

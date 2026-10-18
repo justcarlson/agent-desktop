@@ -47,8 +47,11 @@ impl Projector<'_> {
     }
 
     fn evidence(&mut self, node: &WalkedNode<ObservedRead>) -> LocatorEvidence {
-        let read = &node.payload;
-        let vocabulary = resolve_vocabulary(&read.node, &read.label, node.in_web_document);
+        self.evidence_of(&node.payload, node.in_web_document)
+    }
+
+    fn evidence_of(&mut self, read: &ObservedRead, in_web_document: bool) -> LocatorEvidence {
+        let vocabulary = resolve_vocabulary(&read.node, &read.label, in_web_document);
         let truncated_value = u64::from(read.value.truncated);
         self.stats.traversal.limits.text_hits += truncated_value;
         let identifiers = vocabulary.identifiers.identifiers().len() as u64;
@@ -92,6 +95,21 @@ impl Projector<'_> {
         ObservedSubtree::new(evidence, children, !truncated, child_count)
             .with_source_child_index(source_index)
     }
+}
+
+/// The evidence of one node read, exactly as a walk projects it: a ref taken
+/// from a snapshot and a node read later through this function agree on every
+/// field the node's own reads decide.
+pub(crate) fn project_node(
+    read: &ObservedRead,
+    in_web_document: bool,
+    limits: &WalkLimits,
+) -> LocatorEvidence {
+    Projector {
+        limits,
+        stats: LocatorStats::default(),
+    }
+    .evidence_of(read, in_web_document)
 }
 
 /// Turns a finished walk into core's observed subtree and the statistics of

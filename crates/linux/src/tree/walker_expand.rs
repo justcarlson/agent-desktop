@@ -5,10 +5,11 @@ use futures_util::future::join;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
 
+use super::absence::Liveness;
 use super::ancestry;
 use super::bounded::collect_bounded;
 use super::label_read::read_label_if_needed;
-use super::node_read::read_node;
+use super::node_read::read_node_with_liveness;
 use super::value_read::read_value;
 use super::{AtspiElement, Expansion, ObservedRead, RawNode, WalkLimits};
 use crate::system::{process_id, within};
@@ -22,7 +23,7 @@ const PID_LOOKUPS_IN_FLIGHT: usize = 64;
 pub(super) const UNKNOWN_PID: u32 = 0;
 const UNIDENTIFIED: &str = "The owning process of the bus name could not be identified";
 
-async fn learn_pids<'a>(
+pub(super) async fn learn_pids<'a>(
     connection: &Connection,
     pids: &mut HashMap<String, u32>,
     reads: impl Iterator<Item = &'a RawNode>,
@@ -150,16 +151,27 @@ impl<'a> LevelReader<'a> {
     }
 }
 
-async fn read_observed(
+pub(super) async fn read_observed(
     connection: &Connection,
     element: &AtspiElement,
     max_field_bytes: usize,
 ) -> Result<ObservedRead, AdapterError> {
-    let node = read_node(connection, element).await?;
+    read_observed_with_liveness(connection, element, max_field_bytes)
+        .await
+        .map(|(read, _)| read)
+}
+
+/// The walk's own per-node read, with the liveness the node's `GetRole` showed.
+pub(super) async fn read_observed_with_liveness(
+    connection: &Connection,
+    element: &AtspiElement,
+    max_field_bytes: usize,
+) -> Result<(ObservedRead, Liveness), AdapterError> {
+    let (node, liveness) = read_node_with_liveness(connection, element).await?;
     let (label, value) = join(
         read_label_if_needed(connection, &node),
         read_value(connection, &node, max_field_bytes),
     )
     .await;
-    Ok(ObservedRead { node, label, value })
+    Ok((ObservedRead { node, label, value }, liveness))
 }

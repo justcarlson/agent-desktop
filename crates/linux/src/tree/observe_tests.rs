@@ -264,6 +264,10 @@ fn element_entry() -> agent_desktop_core::RefEntry {
 fn seed_seen_by_an_element_root(in_web: bool) -> bool {
     let mut element = AtspiElement::new(":1.7", "/org/a11y/atspi/accessible/9", 77);
     element.set_ancestry(crate::tree::ancestry::Ancestry::of(None, None, in_web));
+    seed_seen_for(element)
+}
+
+fn seed_seen_for(element: AtspiElement) -> bool {
     let handle = element.into_native_handle();
     let entry = element_entry();
     let root = ObservationRoot::Element {
@@ -301,4 +305,32 @@ fn a_window_root_never_seeds_the_walk_inside_a_web_document() {
     )
     .expect("observes");
     assert_eq!(seed, Some(false));
+}
+
+fn handle_below_a_web_document() -> AtspiElement {
+    use crate::tree::path_descent::level_of;
+    use crate::tree::role_numbers::DOCUMENT_WEB;
+    use crate::tree::test_support::read_of;
+
+    let mut frame = AtspiElement::new(":1.7", "/frame", 77);
+    frame.set_ancestry(crate::tree::ancestry::of_root(&frame.clone()));
+    let mut document = read_of(DOCUMENT_WEB, "page", &[]).node;
+    document.element = frame;
+    document.children = Field::Present(vec![(":1.7".to_owned(), "/button".to_owned())]);
+    let pids = std::collections::HashMap::from([(":1.7".to_owned(), 77)]);
+    level_of(&document, &pids, true).children.remove(0)
+}
+
+#[test]
+fn a_handle_a_descent_landed_on_below_a_web_document_seeds_the_walk_in_a_web_context() {
+    let landed = handle_below_a_web_document();
+    assert!(seed_seen_for(landed.clone()));
+
+    let mut flattened = landed.clone();
+    flattened.set_ancestry(crate::tree::ancestry::Ancestry::of(
+        landed.frame().cloned(),
+        None,
+        false,
+    ));
+    assert!(!seed_seen_for(flattened));
 }
