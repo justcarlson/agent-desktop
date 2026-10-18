@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+mod action_names;
 mod attributes;
 mod bounded;
 mod descriptor;
@@ -15,11 +17,14 @@ mod node_read;
 mod node_traits;
 mod placeholder;
 mod raw_node;
+#[allow(dead_code)]
 mod role_numbers;
 mod role_table;
 mod roles;
 mod state_bits;
 mod states;
+#[allow(dead_code)]
+mod value_read;
 mod vocabulary;
 mod walk;
 mod walk_limits;
