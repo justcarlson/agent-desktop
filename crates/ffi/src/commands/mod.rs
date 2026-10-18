@@ -12,11 +12,16 @@ pub(crate) mod wait;
 use agent_desktop_core::{AdapterError, AppError, ErrorCode};
 
 /// Converts a core `AppError` into an `AdapterError` for use with
-/// `set_last_error`. `AppError::Adapter` is already an `AdapterError`;
-/// the other variants wrap their payload as `ErrorCode::Internal`.
+/// `set_last_error`. `AppError::Adapter` is already an `AdapterError`; a
+/// permission-denied io error keeps `ErrorCode::PermDenied`, the code the
+/// JSON envelope reports for it, and every other variant wraps its payload as
+/// `ErrorCode::Internal`.
 pub(crate) fn app_error_to_adapter(err: AppError) -> AdapterError {
     match err {
         AppError::Adapter(e) => e,
+        AppError::Io(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            AdapterError::new(ErrorCode::PermDenied, e.to_string())
+        }
         AppError::Io(e) => AdapterError::new(ErrorCode::Internal, e.to_string()),
         AppError::Json(e) => AdapterError::new(ErrorCode::Internal, e.to_string()),
         AppError::Internal(msg) => AdapterError::new(ErrorCode::Internal, msg),
@@ -87,6 +92,18 @@ mod tests {
             "IO message must be forwarded; got: {:?}",
             result.message
         );
+    }
+
+    #[test]
+    fn permission_denied_io_error_keeps_the_code_the_envelope_reports() {
+        let error = AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "denied",
+        ));
+        let envelope_code = error.code().to_owned();
+        let result = app_error_to_adapter(error);
+        assert_eq!(result.code, ErrorCode::PermDenied);
+        assert_eq!(result.code.as_str(), envelope_code);
     }
 
     #[test]
