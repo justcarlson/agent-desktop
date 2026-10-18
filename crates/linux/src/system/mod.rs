@@ -9,6 +9,8 @@ mod permissions;
 mod process_facts;
 mod session;
 pub(crate) mod window_id;
+#[allow(dead_code, unused_imports)]
+mod x11;
 
 pub(crate) use bus::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, classify};
 #[cfg(test)]
