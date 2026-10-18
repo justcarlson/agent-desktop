@@ -3,6 +3,7 @@
 # Usage: scripts/remote-linux.sh [cmd args...]    argv runs verbatim, quoted per argument
 #        scripts/remote-linux.sh -c 'shell string'  the string runs under bash (pipes, globs)
 #        default command: cargo test -p agent-desktop-linux
+#        stdin reaches the remote command: scripts/remote-linux.sh python3 - < probe.py > capture.json
 # Each worktree syncs to its own remote dir. All of them share one remote CARGO_TARGET_DIR:
 # the box disk cannot hold a target dir per worktree, and cargo's build lock serializes them.
 # Gitignored files (.env, .claude/, target/) never leave this machine.
@@ -28,7 +29,7 @@ mkdir -p "$ROOT/.claude"
 printf '%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$DIR" "$cmd" >> "$ROOT/.claude/remote-linux.log"
 
 qdir=$(printf '%q' "$DIR")
-ssh -o BatchMode=yes "$HOST" "mkdir -p $qdir"
+ssh -n -o BatchMode=yes "$HOST" "mkdir -p $qdir"
 rsync -az --delete --exclude .git/ --filter=':- .gitignore' "$ROOT/" "$HOST:$DIR/"
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
   && export CARGO_TARGET_DIR=\$HOME/ad-target && . ./scripts/session-env.sh \
