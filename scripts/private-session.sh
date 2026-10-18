@@ -69,7 +69,10 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
-unset DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS
+# AT_SPI_BUS_ADDRESS points a toolkit straight at an accessibility bus (ledger L12-4), and
+# NO_AT_BRIDGE / GTK_A11Y switch the bridge off: any of them inherited would put apps on the
+# owner's bus, or on none, while the adapter reads the private one.
+unset DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS AT_SPI_BUS_ADDRESS NO_AT_BRIDGE GTK_A11Y
 export XDG_RUNTIME_DIR=$rt
 export XDG_CONFIG_HOME=$rt/cfg
 export XDG_DATA_HOME=$rt/data
@@ -98,19 +101,35 @@ done
 display_number=$(head -n 1 "$rt/displayfd")
 export DISPLAY=":$display_number"
 
-dbus-update-activation-environment DISPLAY
+dbus-update-activation-environment DISPLAY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_DATA_HOME \
+  XDG_CACHE_HOME GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION
 
 if [ "$wm" = 1 ]; then
   wm_root=${AGENT_DESKTOP_WM_ROOT:-$HOME/ad-wt/wm-pkgs/root}
+  [ -x "$wm_root/usr/bin/openbox" ] || {
+    echo "private-session: --wm needs openbox at $wm_root/usr/bin/openbox" >&2
+    exit 1
+  }
   XDG_DATA_DIRS="$wm_root/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
     LD_LIBRARY_PATH="$wm_root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
     "$wm_root/usr/bin/openbox" --config-file "$wm_root/etc/xdg/openbox/rc.xml" \
     > "$rt/openbox.log" 2>&1 &
-  pids+=("$!")
+  wm_pid=$!
+  pids+=("$wm_pid")
+  wm_ready=0
   for _ in $(seq 1 100); do
-    xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id' && break
+    kill -0 "$wm_pid" 2>/dev/null || break
+    if xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id'; then
+      wm_ready=1
+      break
+    fi
     sleep 0.1
   done
+  if [ "$wm_ready" != 1 ]; then
+    echo "private-session: openbox did not become ready; its log follows" >&2
+    cat "$rt/openbox.log" >&2 || true
+    exit 1
+  fi
 fi
 
 status=0
