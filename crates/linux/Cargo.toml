@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 agent-desktop-core.workspace = true
 thiserror.workspace          = true
+zbus                         = "=5.19.0"
 
 [lints]
 workspace = true

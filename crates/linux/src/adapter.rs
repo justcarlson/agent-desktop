@@ -1,10 +1,20 @@
-use agent_desktop_core::{ActionOps, InputOps, ObservationOps, SystemOps};
+use agent_desktop_core::{ActionOps, InputOps, ObservationOps};
 
-pub struct LinuxAdapter;
+use crate::system::SharedBus;
+
+pub struct LinuxAdapter {
+    bus: SharedBus,
+}
 
 impl LinuxAdapter {
     pub fn new() -> Self {
-        Self
+        Self {
+            bus: SharedBus::default(),
+        }
+    }
+
+    pub(crate) fn bus(&self) -> &SharedBus {
+        &self.bus
     }
 }
 
@@ -17,12 +27,11 @@ impl Default for LinuxAdapter {
 impl ObservationOps for LinuxAdapter {}
 impl ActionOps for LinuxAdapter {}
 impl InputOps for LinuxAdapter {}
-impl SystemOps for LinuxAdapter {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface};
+    use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface, SystemOps};
 
     #[test]
     fn snapshot_surfaces_fail_closed_until_linux_implements_them() {
