@@ -1,11 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
 use agent_desktop_core::{AdapterError, ErrorCode};
-use futures_util::future::{join, join_all, join3, join4};
+use futures_util::future::{join, join3, join4};
 use zbus::export::serde::Serialize;
 use zbus::zvariant::{DynamicType, OwnedValue};
 use zbus::{Connection, Message};
 
+use super::bounded::collect_bounded;
 use super::{AtspiElement, ChildAddress, Extents, Field, NodeProperties, NodeTraits, RawNode};
 use crate::system::{
     ACCESSIBLE_INTERFACE, NAME_HAS_NO_OWNER, PROPERTIES_INTERFACE, SERVICE_UNKNOWN,
@@ -15,6 +16,7 @@ const COMPONENT_INTERFACE: &str = "org.a11y.atspi.Component";
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
 const UNKNOWN_OBJECT: &str = "org.freedesktop.DBus.Error.UnknownObject";
 const UNKNOWN_METHOD: &str = "org.freedesktop.DBus.Error.UnknownMethod";
+const ACTION_NAMES_IN_FLIGHT: usize = 4;
 const NAME: &str = "Name";
 const DESCRIPTION: &str = "Description";
 const CHILD_COUNT: &str = "ChildCount";
@@ -134,7 +136,8 @@ async fn get_one<T>(
     )?;
     Ok(match read {
         Field::Present(value) => convert(&value),
-        Field::Absent | Field::Failed(_) => Field::Failed(format!("Properties.Get({key}) failed")),
+        Field::Absent => Field::Failed(format!("Properties.Get({key}) failed")),
+        Field::Failed(detail) => Field::Failed(format!("Properties.Get({key}) failed: {detail}")),
     })
 }
 
@@ -272,7 +275,8 @@ async fn read_actions(
     )?;
     Ok(match listed {
         Field::Present(entries) => Field::Present(
-            join_all(
+            collect_bounded(
+                ACTION_NAMES_IN_FLIGHT,
                 entries
                     .into_iter()
                     .enumerate()

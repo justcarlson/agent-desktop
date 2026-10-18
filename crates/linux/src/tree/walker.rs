@@ -165,6 +165,9 @@ where
         }
         frontier = next;
     }
+    if slots.is_empty() {
+        return Err(deadline.timeout_error());
+    }
     let node_count = slots.len();
     let max_depth = slots.iter().map(|slot| slot.depth).max().unwrap_or(0);
     let root = assemble(slots).ok_or_else(|| {

@@ -217,3 +217,14 @@ fn a_child_on_a_bus_with_no_known_process_is_still_listed() {
     assert_eq!(children[1].bus_name(), ":1.2");
     assert_ne!(children[1].pid(), 7);
 }
+
+#[test]
+fn a_deadline_that_expired_before_the_first_level_is_a_timeout() {
+    let deadline = Deadline::after(1).expect("a one millisecond deadline builds");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let error = walk_levels("a", &WalkLimits::default(), deadline, |_| {
+        Ok(vec![Expansion::read("a", Vec::new())])
+    })
+    .expect_err("an expired deadline reads nothing");
+    assert_eq!(error.code, ErrorCode::Timeout);
+}

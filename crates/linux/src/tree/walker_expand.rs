@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
-use futures_util::future::join_all;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
 
+use super::bounded::collect_bounded;
 use super::node_read::read_node;
 use super::{AtspiElement, Expansion, RawNode};
 use crate::system::{classify, within};
@@ -12,6 +12,7 @@ use crate::system::{classify, within};
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
 const BUS_DAEMON_PATH: &str = "/org/freedesktop/DBus";
 const NODES_IN_FLIGHT: usize = 8;
+const PID_LOOKUPS_IN_FLIGHT: usize = 64;
 
 /// Stands in for the process id of a bus name whose lookup failed. Process
 /// id 0 is never an application, so a child carrying it is recorded as
@@ -51,7 +52,7 @@ async fn learn_pids<'a>(
     let lookups = unseen
         .into_iter()
         .map(|bus| process_id(connection, bus.to_owned()));
-    record_pids(pids, join_all(lookups).await)
+    record_pids(pids, collect_bounded(PID_LOOKUPS_IN_FLIGHT, lookups).await)
 }
 
 /// Stores each resolved process id. A lookup that failed because the bus

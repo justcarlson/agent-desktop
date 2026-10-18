@@ -1,3 +1,4 @@
+mod bounded;
 mod element;
 mod expansion;
 mod extents;
