@@ -175,6 +175,7 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - **Approach:**
   1. Rewrite §3.1 (scope bullets on dependencies, `tokio`, detection timing, the exit criterion's test method), the AT-SPI2 Bus Detection list (GetAddress, snap guidance), the Phase 3 New Dependencies table and text, the Phase 4 New Dependencies note that `tokio` enters "no later than Phase 3", and the Dependency Introduction Schedule row for `tokio`.
   2. On the box through `scripts/remote-linux.sh`, run the release binary's `status` in four conditions and record the JSON in the PR: the live GNOME session (granted); a private `dbus-run-session` whose config has no service directories (no a11y service → `PLATFORM_NOT_SUPPORTED`); no session bus (`DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent` and `XDG_RUNTIME_DIR` set to an empty temp dir → `PLATFORM_NOT_SUPPORTED`); and a private session whose own `at-spi-bus-launcher` is stopped with `SIGSTOP` (→ `TIMEOUT` within the deadline, R6). Every private session uses its own `XDG_RUNTIME_DIR`.
+  3. Close ledger row `L1-16`: in a private session with `GSETTINGS_BACKEND=memory` and `toolkit-accessibility` set to false there, launch a probe-owned GTK4 app and record whether it registers on the a11y bus and what `status` answers, so the GNOME suggestion in KTD6 is measured in both directions; correct §3.1's GNOME hint to the result.
 - **Test expectation:** none -- documentation and manual real-run verification.
 - **Verification:** the three answers match R8 and R5; the 3.0 ledger gate passes on the corrected `docs/phases.md`.
 
