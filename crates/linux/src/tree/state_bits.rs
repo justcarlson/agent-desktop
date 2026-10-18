@@ -1,15 +1,16 @@
+pub(crate) const ACTIVE: u32 = 1;
 pub(crate) const BUSY: u32 = 3;
 pub(crate) const CHECKED: u32 = 4;
 pub(crate) const EDITABLE: u32 = 7;
 pub(crate) const ENABLED: u32 = 8;
 pub(crate) const EXPANDED: u32 = 10;
 pub(crate) const FOCUSED: u32 = 12;
+pub(crate) const ICONIFIED: u32 = 15;
 pub(crate) const MODAL: u32 = 16;
 pub(crate) const MULTISELECTABLE: u32 = 18;
 pub(crate) const PRESSED: u32 = 20;
 pub(crate) const SELECTED: u32 = 23;
 pub(crate) const SENSITIVE: u32 = 24;
-#[cfg(test)]
 pub(crate) const SHOWING: u32 = 25;
 pub(crate) const INDETERMINATE: u32 = 32;
 pub(crate) const REQUIRED: u32 = 33;

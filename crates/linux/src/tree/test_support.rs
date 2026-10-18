@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use super::{AtspiElement, Extents, Field, NodeProperties, NodeTraits, ObservedRead, RawNode};
 
-pub(super) fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
+pub(crate) fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
     Field::Present(
         pairs
             .iter()
@@ -11,7 +11,7 @@ pub(super) fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, Strin
     )
 }
 
-pub(super) fn words(bits: &[u32]) -> Vec<u32> {
+pub(crate) fn words(bits: &[u32]) -> Vec<u32> {
     let mut words = vec![0u32; 2];
     for bit in bits {
         words[(*bit / 32) as usize] |= 1 << (*bit % 32);
@@ -21,7 +21,7 @@ pub(super) fn words(bits: &[u32]) -> Vec<u32> {
 
 /// A fully read node: every field present, so a test changes only what it
 /// is about.
-pub(super) fn read_of(role: u32, name: &str, actions: &[&str]) -> ObservedRead {
+pub(crate) fn read_of(role: u32, name: &str, actions: &[&str]) -> ObservedRead {
     let node = RawNode {
         element: AtspiElement::new(":1.1", "/p", 1),
         properties: NodeProperties {

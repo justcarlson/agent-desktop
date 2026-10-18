@@ -1,6 +1,7 @@
 use agent_desktop_core::{
-    AccessibilityNode, ActionOps, AdapterError, Deadline, InputOps, ObservationOps,
-    ObservationRequest, ObservationRoot, ObservedTree, TreeOptions, WindowInfo,
+    AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, InputOps,
+    ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, TreeOptions, WindowFilter,
+    WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -34,6 +35,31 @@ impl ObservationOps for LinuxAdapter {
         request: &ObservationRequest,
     ) -> Result<ObservedTree, AdapterError> {
         crate::tree::observe_tree(self.bus(), root, request)
+    }
+
+    fn list_windows(
+        &self,
+        filter: &WindowFilter,
+        deadline: Deadline,
+    ) -> Result<Vec<WindowInfo>, AdapterError> {
+        crate::system::list_windows(self.bus(), filter, deadline)
+    }
+
+    fn list_apps(&self, deadline: Deadline) -> Result<Vec<AppInfo>, AdapterError> {
+        Ok(self.list_apps_inventory(deadline)?.apps)
+    }
+
+    fn list_apps_inventory(&self, deadline: Deadline) -> Result<AppInventory, AdapterError> {
+        crate::system::app_inventory(self.bus(), deadline)
+    }
+
+    fn list_apps_scoped(
+        &self,
+        name: &str,
+        bundle_id: Option<&str>,
+        deadline: Deadline,
+    ) -> Result<Vec<AppInfo>, AdapterError> {
+        crate::system::apps_scoped(self.bus(), name, bundle_id, deadline)
     }
 
     fn get_tree(

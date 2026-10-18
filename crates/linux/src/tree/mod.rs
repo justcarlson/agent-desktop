@@ -2,6 +2,7 @@ mod action_names;
 mod admit;
 mod attributes;
 mod bounded;
+mod child_list;
 mod descriptor;
 mod element;
 mod expansion;
@@ -21,11 +22,11 @@ mod observed_read;
 mod placeholder;
 mod projection;
 mod raw_node;
-mod role_numbers;
+pub(crate) mod role_numbers;
 mod role_table;
 mod roles;
 mod settle;
-mod state_bits;
+pub(crate) mod state_bits;
 mod states;
 mod value_read;
 mod vocabulary;
@@ -50,10 +51,10 @@ mod walker_depth_tests;
 mod walker_tests;
 
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;
 
 #[cfg(test)]
-mod live_launch;
+pub(crate) mod live_launch;
 
 #[cfg(test)]
 mod live_qt;
@@ -76,6 +77,7 @@ mod vocabulary_live_tests;
 #[path = "walker_live_tests.rs"]
 mod walker_live_tests;
 
+pub(crate) use child_list::list_children;
 pub(crate) use element::AtspiElement;
 pub(crate) use element::atspi_element;
 pub(crate) use expansion::Expansion;
@@ -86,6 +88,7 @@ pub(crate) use label_outcome::LabelOutcome;
 pub(crate) use label_read::read_label;
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
+pub(crate) use node_read::{COMPONENT_INTERFACE, read_node};
 pub(crate) use node_traits::NodeTraits;
 pub(crate) use observe::observe_tree;
 pub(crate) use observed_read::ObservedRead;

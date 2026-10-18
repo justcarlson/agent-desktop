@@ -1,24 +1,24 @@
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
-pub(super) struct Launched {
+pub(crate) struct Launched {
     children: Vec<Child>,
-    pub(super) scratch: Vec<PathBuf>,
+    pub(crate) scratch: Vec<PathBuf>,
 }
 
 impl Launched {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             children: Vec::new(),
             scratch: Vec::new(),
         }
     }
 
-    pub(super) fn spawn(&mut self, program: &str, args: &[&str]) -> u32 {
+    pub(crate) fn spawn(&mut self, program: &str, args: &[&str]) -> u32 {
         self.spawn_with_env(program, args, &[])
     }
 
-    pub(super) fn spawn_with_env(
+    pub(crate) fn spawn_with_env(
         &mut self,
         program: &str,
         args: &[&str],
@@ -39,7 +39,7 @@ impl Launched {
         pid
     }
 
-    pub(super) fn stop(&mut self) {
+    pub(crate) fn stop(&mut self) {
         for child in &mut self.children {
             let group = format!("-{}", child.id());
             let _ = Command::new("kill").args(["-KILL", "--", &group]).status();
@@ -59,14 +59,14 @@ impl Drop for Launched {
     }
 }
 
-pub(super) fn nonce(label: &str) -> String {
+pub(crate) fn nonce(label: &str) -> String {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_nanos());
     format!("ad-live-{label}-{}-{nanos}", std::process::id())
 }
 
-pub(super) fn program_of(pid: u32) -> Option<String> {
+pub(crate) fn program_of(pid: u32) -> Option<String> {
     let bytes = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
     let argv0 = String::from_utf8_lossy(bytes.split(|byte| *byte == 0).next()?).into_owned();
     argv0.rsplit('/').next().map(str::to_owned)
@@ -74,7 +74,7 @@ pub(super) fn program_of(pid: u32) -> Option<String> {
 
 /// Box facts that decide whether a tree that never filled is the application's fault
 /// or the machine's: load average and memory and swap headroom.
-pub(super) fn environment_note() -> String {
+pub(crate) fn environment_note() -> String {
     let load = std::fs::read_to_string("/proc/loadavg")
         .ok()
         .and_then(|text| {

@@ -1,0 +1,78 @@
+use agent_desktop_core::{Rect, WindowInfo, WindowState};
+
+use super::listed_window::ListedWindow;
+use super::registry_app::RegistryApp;
+use super::toolkit::reports_global_position;
+use super::window_filter::{frame_state, is_bubble, is_window_shape};
+use super::window_id;
+use super::x11::FrameFacts;
+use crate::tree::RawNode;
+
+fn rect(node: &RawNode) -> Option<Rect> {
+    node.extents.present().map(|extents| Rect {
+        x: f64::from(extents.x),
+        y: f64::from(extents.y),
+        width: f64::from(extents.width),
+        height: f64::from(extents.height),
+    })
+}
+
+fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindow> {
+    if !is_window_shape(&node.traits.role, &node.traits.interfaces) {
+        return None;
+    }
+    let title = node.properties.name.present().cloned().unwrap_or_default();
+    let class = node
+        .attributes
+        .present()
+        .and_then(|attributes| attributes.get("class"))
+        .map(String::as_str);
+    if is_bubble(class, &title) {
+        return None;
+    }
+    let id = window_id::encode(node.element.bus_name(), node.element.path())?;
+    let state = frame_state(&node.traits.states);
+    let global_position =
+        reports_global_position(app.toolkit.name.as_deref(), app.toolkit.version.as_deref());
+    Some(ListedWindow {
+        app: index,
+        info: WindowInfo {
+            id,
+            title: title.clone(),
+            app: app.name.clone(),
+            pid: app.root.pid().into(),
+            process_instance: Some(app.facts.instance.clone()),
+            bounds: rect(node),
+            state: WindowState {
+                is_focused: false,
+                accessible: true,
+                minimized: state.minimized,
+                visible: state.visible,
+            },
+        },
+        active: state.active == Some(true),
+        frame: FrameFacts {
+            pid: app.root.pid(),
+            title,
+            extents: node.extents.present().copied(),
+            global_position,
+        },
+    })
+}
+
+/// The windows among the frames read for each selected application. `apps`
+/// pairs a position in the caller's list with the application, in the order
+/// `frames` was read.
+pub(crate) fn collect(
+    apps: &[(usize, &RegistryApp)],
+    frames: &[Vec<RawNode>],
+) -> Vec<ListedWindow> {
+    apps.iter()
+        .zip(frames)
+        .flat_map(|((index, app), nodes)| nodes.iter().filter_map(|node| listed(*index, app, node)))
+        .collect()
+}
+
+#[cfg(test)]
+#[path = "window_listing_tests.rs"]
+mod tests;

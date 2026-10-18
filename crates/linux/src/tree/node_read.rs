@@ -12,7 +12,7 @@ use crate::system::{
     ACCESSIBLE_INTERFACE, NAME_HAS_NO_OWNER, PROPERTIES_INTERFACE, SERVICE_UNKNOWN,
 };
 
-const COMPONENT_INTERFACE: &str = "org.a11y.atspi.Component";
+pub(crate) const COMPONENT_INTERFACE: &str = "org.a11y.atspi.Component";
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
 const UNKNOWN_OBJECT: &str = "org.freedesktop.DBus.Error.UnknownObject";
 const UNKNOWN_METHOD: &str = "org.freedesktop.DBus.Error.UnknownMethod";
@@ -24,7 +24,7 @@ const ACCESSIBLE_ID: &str = "AccessibleId";
 const NULL_PATH: &str = "/org/a11y/atspi/null";
 const SCREEN_COORDINATES: u32 = 0;
 
-type Reply = Result<Message, zbus::Error>;
+pub(super) type Reply = Result<Message, zbus::Error>;
 
 pub(super) async fn call<B>(
     connection: &Connection,
@@ -177,7 +177,7 @@ async fn read_properties(
     }
 }
 
-fn read_children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
+pub(super) fn read_children(reply: Reply) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
     let raw = field(
         reply.and_then(|message| {
             message

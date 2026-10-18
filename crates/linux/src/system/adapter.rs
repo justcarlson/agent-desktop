@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, AdapterSession, Deadline, InteractionLease, PermissionReport, SessionAffinity,
-    SystemOps,
+    SystemOps, WindowInfo,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -16,6 +16,18 @@ impl SystemOps for LinuxAdapter {
 
     fn permission_report(&self, deadline: Deadline) -> Result<PermissionReport, AdapterError> {
         permissions::report(self.bus(), deadline)
+    }
+
+    fn focused_window(&self, deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError> {
+        crate::system::focused_window(self.bus(), deadline)
+    }
+
+    fn resolve_window_strict(
+        &self,
+        win: &WindowInfo,
+        deadline: Deadline,
+    ) -> Result<WindowInfo, AdapterError> {
+        crate::system::resolve_window_strict(self.bus(), win, deadline)
     }
 
     fn open_session(

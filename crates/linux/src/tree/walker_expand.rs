@@ -10,10 +10,8 @@ use super::label_read::read_label_if_needed;
 use super::node_read::read_node;
 use super::value_read::read_value;
 use super::{AtspiElement, Expansion, ObservedRead, RawNode, WalkLimits};
-use crate::system::{classify, within};
+use crate::system::{process_id, within};
 
-const BUS_DAEMON: &str = "org.freedesktop.DBus";
-const BUS_DAEMON_PATH: &str = "/org/freedesktop/DBus";
 const NODES_IN_FLIGHT: usize = 8;
 const PID_LOOKUPS_IN_FLIGHT: usize = 64;
 
@@ -22,24 +20,6 @@ const PID_LOOKUPS_IN_FLIGHT: usize = 64;
 /// unreadable instead of being read.
 pub(super) const UNKNOWN_PID: u32 = 0;
 const UNIDENTIFIED: &str = "The owning process of the bus name could not be identified";
-
-async fn process_id(
-    connection: &Connection,
-    bus_name: String,
-) -> (String, Result<u32, AdapterError>) {
-    let pid = connection
-        .call_method(
-            Some(BUS_DAEMON),
-            BUS_DAEMON_PATH,
-            Some(BUS_DAEMON),
-            "GetConnectionUnixProcessID",
-            &(bus_name.as_str(),),
-        )
-        .await
-        .and_then(|reply| reply.body().deserialize::<u32>())
-        .map_err(|error| classify(&error));
-    (bus_name, pid)
-}
 
 async fn learn_pids<'a>(
     connection: &Connection,

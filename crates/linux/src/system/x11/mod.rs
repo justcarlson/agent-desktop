@@ -1,14 +1,20 @@
 mod bounded;
 mod client;
+mod evidence;
 mod frame_extents;
+mod frame_facts;
+mod map;
 mod reader;
 mod snapshot;
 mod source;
 mod state;
 
-pub(crate) use bounded::{PendingRead, start};
+pub(crate) use bounded::start;
 pub(crate) use client::X11Client;
+pub(crate) use evidence::X11Evidence;
 pub(crate) use frame_extents::FrameExtents;
+pub(crate) use frame_facts::FrameFacts;
+pub(crate) use map::evidence;
 pub(crate) use reader::DisplayReader;
 pub(crate) use source::X11Source;
 pub(crate) use state::X11State;
