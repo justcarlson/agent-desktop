@@ -1,7 +1,8 @@
 use agent_desktop_core::{
-    AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, InputOps,
-    NativeHandle, ObservationOps, ObservationRequest, ObservationRoot, ObservedTree,
-    ProcessIdentity, RefEntry, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
+    AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, ElementState,
+    InputOps, LiveElement, NativeHandle, ObservationOps, ObservationRequest, ObservationRoot,
+    ObservedTree, ProcessIdentity, Rect, RefEntry, SurfaceInfo, TreeOptions, WindowFilter,
+    WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -51,6 +52,46 @@ impl ObservationOps for LinuxAdapter {
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
         crate::tree::resolve_locator_anchor(self.bus(), entry, deadline)
+    }
+
+    fn get_live_value(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<Option<String>, AdapterError> {
+        crate::tree::get_live_value(self.bus(), handle, deadline)
+    }
+
+    fn get_live_state(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<Option<ElementState>, AdapterError> {
+        crate::tree::get_live_state(self.bus(), handle, deadline)
+    }
+
+    fn get_live_actions(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<Option<Vec<String>>, AdapterError> {
+        crate::tree::get_live_actions(self.bus(), handle, deadline)
+    }
+
+    fn get_live_element(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<LiveElement, AdapterError> {
+        crate::tree::get_live_element(self.bus(), handle, deadline)
+    }
+
+    fn get_element_bounds(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<Option<Rect>, AdapterError> {
+        crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
 
     fn list_windows(

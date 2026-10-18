@@ -14,6 +14,8 @@ mod gtk_switch;
 mod identity;
 mod label_outcome;
 mod label_read;
+mod live_project;
+mod live_read;
 mod name_evidence;
 mod node_class;
 mod node_evidence;
@@ -116,6 +118,9 @@ pub(crate) use field::Field;
 pub(crate) use label_outcome::LabelOutcome;
 #[cfg(test)]
 pub(crate) use label_read::read_label;
+pub(crate) use live_read::{
+    get_element_bounds, get_live_actions, get_live_element, get_live_state, get_live_value,
+};
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
 pub(crate) use node_read::{COMPONENT_INTERFACE, read_node};

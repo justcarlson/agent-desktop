@@ -12,6 +12,7 @@ pub(crate) const PRESSED: u32 = 20;
 pub(crate) const SELECTED: u32 = 23;
 pub(crate) const SENSITIVE: u32 = 24;
 pub(crate) const SHOWING: u32 = 25;
+pub(crate) const VISIBLE: u32 = 30;
 pub(crate) const INDETERMINATE: u32 = 32;
 pub(crate) const REQUIRED: u32 = 33;
 pub(crate) const INVALID_ENTRY: u32 = 36;

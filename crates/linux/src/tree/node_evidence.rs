@@ -10,10 +10,6 @@ use super::{AtspiElement, ObservedRead, WalkLimits};
 /// whether the node's role call answered in time.
 #[derive(Debug, Clone)]
 pub(crate) struct NodeEvidence {
-    #[expect(
-        dead_code,
-        reason = "the live reads project state, value and actions from this same read"
-    )]
     pub(crate) read: ObservedRead,
     pub(crate) evidence: LocatorEvidence,
     pub(crate) liveness: Liveness,
