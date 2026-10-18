@@ -1861,22 +1861,22 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 ### 3.1 — Toolchain, CI & Bus Bootstrap
 
-**Goal:** Stand up the Linux build/CI/session substrate, including the async runtime the rest of Phase 3 depends on.
+**Goal:** Stand up the Linux build/CI/session substrate: the real Linux test lane, the shared AT-SPI2 bus connection, and honest bus-availability detection.
 
 **Scope:**
 - `ubuntu-latest` CI job promoted to a real Linux test lane (build + clippy + lib tests, core-isolation, size), mirroring 2.1's Windows promotion
-- AT-SPI2 bus availability detection at adapter construction through an auto-starting `org.a11y.Bus.GetAddress` call (L1-5)
-- Bus resolution: the adapter takes the a11y bus address from `GetAddress` per session. The X11 root `_AT_SPI_BUS` property is absent on GNOME 46 (L1-15), and an app started before the bus existed registers on a different bus (L1-13). An answered `ChildCount 0` registry is "bus up, no apps", not a bus fault (L1-9), and `org.a11y.Status.IsEnabled` is the first diagnostic (L1-10)
-- Measure the `toolkit-accessibility=false` direction on a disposable session with an in-memory settings backend before the GNOME hint is finalised (L1-16), and measure Flatpak sandbox guidance once a flatpak install is available (L1-18)
-- `zbus` (5.x) / `atspi` (0.28+) / `tokio` (1.x) dependency pins re-verified against crates.io + supply-chain policy (pinned at 2026-04 research time, same policy as Windows)
-- `LinuxAdapterSession` implementing `AdapterSession` via `open_session` — owns the D-Bus connection state so later sub-phases share one connection rather than reconnecting per call
-- **`tokio` enters the workspace here for the first time.** The workspace is synchronous through Phase 2 (Windows adds no async runtime — UIA is a synchronous COM API); Linux is the first platform requiring async D-Bus calls via `zbus`/`atspi`
+- AT-SPI2 bus availability detection on first use of the adapter, not at construction, through an auto-starting `org.a11y.Bus.GetAddress` call (L1-5); the connection is kept for the process and shared by the adapter session
+- Bus resolution: the adapter takes the a11y bus address from `GetAddress` per session. The X11 root `_AT_SPI_BUS` property is absent on GNOME 46 (L1-15), and an app started before the bus existed registers on a different bus (L1-13). An answered `ChildCount 0` registry is "bus up, no apps", not a bus fault (L1-9). An `org.a11y.Status.IsEnabled` read is not part of detection: `GetAddress` succeeds, apps register and the registry answers with `IsEnabled` false (L1-16), so the one combined suggestion names every fix instead of branching on it
+- The `toolkit-accessibility=false` direction is measured (L1-16): on a private session with a file-backed settings store the launcher reports `IsEnabled` false, yet `GetAddress` succeeds, a GTK4 app registers and `status` reads `granted`. Flatpak sandbox guidance is measured once a flatpak install is available (L1-18)
+- `zbus` is pinned to exactly `=5.19.0` with its default `async-io` backend and used through `zbus::blocking`; no `atspi` crate and no `tokio`. zbus 6.0.0 has no blocking API and `atspi` 0.30 requires zbus 5, so the three RUSTSEC unmaintained advisories on zbus 5 transitive crates (RUSTSEC-2026-0370 `zvariant`, RUSTSEC-2026-0371 `zbus_names`, RUSTSEC-2026-0372 `zvariant_derive`) are ignored in `deny.toml` until a zbus 6 release ships a blocking API that `atspi` accepts
+- `LinuxAdapterSession` implementing `AdapterSession` via `open_session` — holds a clone of the process-wide shared connection, so later sub-phases share one connection rather than reconnecting per call
+- **No async runtime enters the workspace.** zbus 5.19 with its default `async-io` backend provides a blocking API that needs no runtime, so the workspace stays synchronous on every platform through Phase 3; `tokio` enters with Phase 4's `rmcp`
 
-**Key APIs:** `org.a11y.Bus.GetAddress` (auto-start), `org.a11y.Status`, `zbus::Connection`
+**Key APIs:** `org.a11y.Bus.GetAddress` (auto-start), `zbus::blocking::Connection`
 
 **Depends on:** Phase 2 fully merged to `main`
 
-**Exit criteria:** workspace green on Ubuntu CI; `LinuxAdapter` constructs and satisfies the trait; every command returns honest `PLATFORM_NOT_SUPPORTED` on Linux; missing-bus case returns `PLATFORM_NOT_SUPPORTED` with distro/DE-specific enable instructions (see AT-SPI2 Bus Detection below); bus-availability detection is verified against real buses, in CI and on the GNOME box: the live session, a cold session where the name has no owner yet `GetAddress` succeeds (L1-5), a session with no a11y service (`ServiceUnknown`) and a failed launcher spawn (`Spawn.ExecFailed`, L1-7).
+**Exit criteria:** workspace green on Ubuntu CI; `LinuxAdapter` constructs and satisfies the trait; every command returns honest `PLATFORM_NOT_SUPPORTED` on Linux; missing-bus case returns `PLATFORM_NOT_SUPPORTED` with distro/DE-specific enable instructions (see AT-SPI2 Bus Detection below); bus-availability detection is verified against real buses: CI job `test-linux` runs the binary inside `dbus-run-session` plus `xvfb` and asserts `status` reads `granted` and, with no session bus, `PLATFORM_NOT_SUPPORTED`; on the GNOME box: the live session, a cold session where the name has no owner yet `GetAddress` succeeds (L1-5), a session with no a11y service (`ServiceUnknown`) and a failed launcher spawn (`Spawn.ExecFailed`, L1-7).
 
 **Est. PR size:** ~0.8k LOC
 
@@ -1884,26 +1884,26 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 - Detect the bus by calling `org.a11y.Bus.GetAddress` on the session bus with auto-start enabled. `org.a11y.Bus` is activated on first use, so on a healthy session that has not yet touched accessibility the name has no owner and `NameHasOwner` (or a no-auto-start call) reports it missing even though the call succeeds (L1-5)
 - If the call fails, return `PLATFORM_NOT_SUPPORTED` with instructions and a distinct `platform_detail`: `ServiceUnknown` means the package is not installed, `Spawn.ExecFailed` means it is installed but cannot start (L1-7):
-  - GNOME: "AT-SPI2 should be enabled by default. Check `gsettings get org.gnome.desktop.interface toolkit-accessibility`"
+  - GNOME: run `gsettings set org.gnome.desktop.interface toolkit-accessibility true`. The setting is not a diagnostic: with it false `GetAddress` still succeeds and a GTK4 app still registers (L1-16)
   - Other DEs: "Install `at-spi2-core` and ensure `at-spi-bus-launcher` is running"
   - Flatpak: "Ensure the app has `--talk-name=org.a11y.Bus` permission"; Snap: connect the `unity7` or `desktop-legacy` interface, since snap has no a11y plug (P3-O15, L12-2)
 - `GetAddress` succeeding while the registry lists no such app is the signature of an app without bus access: an answered-empty result, never `PLATFORM_NOT_SUPPORTED` (L12-5)
 
 ### 3.2 — Accessible Wrapper & Tree Walk
 
-**Goal:** Own an `AXElement`-equivalent async wrapper for AT-SPI2 `Accessible` objects and prove raw tree traversal against a real Linux app.
+**Goal:** Own an `AXElement`-equivalent wrapper for AT-SPI2 `Accessible` objects and prove raw tree traversal against a real Linux app.
 
 **Scope:**
-- `Accessible` D-Bus proxy wrapper (async, via `zbus`) with the same cycle-guard discipline as macOS/Windows (ancestor-path set, not a global visited set)
+- `Accessible` D-Bus proxy wrapper (zbus 5.19 used directly, no `atspi` crate; concurrent calls driven with `futures-util`) with the same cycle-guard discipline as macOS/Windows (ancestor-path set, not a global visited set)
 - Batched-fetch strategy — AT-SPI2 has no cross-interface copy-multiple call like `AXUIElementCopyMultipleAttributeValues`/`CacheRequest`, but `org.freedesktop.DBus.Properties.GetAll` returns the Accessible property group in one call (L2-6), and `org.a11y.atspi.Cache.GetItems` returns role, name, interfaces, states, child count and parent for a whole GTK4 app in one call (L2-7); it answers `UnknownMethod` on GTK3 and Chromium/Electron apps and carries no extents, attributes or relations. This sub-phase designs the batching strategy as `GetAll` per node plus concurrent calls (2.5-3.5x faster than sequential, L2-5) for the remaining reads, with `Cache.GetItems` as the GTK4 fast path. Qt answers `org.freedesktop.DBus.Error.UnknownInterface` to `GetAll(org.a11y.atspi.Accessible)` on every node, while individual `Properties.Get` of `Name`, `Description`, `AccessibleId`, `HelpText` and `Locale` answers on every one, so the wrapper falls back to per-property `Get` when `GetAll` fails; a walk that assumes `GetAll` reads every Qt name as empty (L3-21)
 - Cache items parented under a frame that `GetChildren` did not return are unreachable by a children walk and must not become refs (L2-8); the `Parent` property disagreed with the walked parent on some nodes and is not used for re-identification (L2-2)
 - Probe evidence for this sub-phase is the ledger rows whose action column names 3.2 (`scripts/check-linux-findings.py --sub-phase 3.2`); raw introspection dumps stay outside the repository
 
-**Key APIs:** `org.a11y.atspi.Accessible.GetChildren`, `org.freedesktop.DBus.Properties.GetAll`, `org.a11y.atspi.Cache.GetItems`, `atspi` crate (v0.28+) + `zbus` (5.x) — pure Rust, no libatspi/GLib dependency
+**Key APIs:** `org.a11y.atspi.Accessible.GetChildren`, `org.freedesktop.DBus.Properties.GetAll`, `org.a11y.atspi.Cache.GetItems`, `zbus` =5.19.0 used directly with `futures-util` for concurrent calls — pure Rust, no libatspi/GLib dependency, no `atspi` crate
 
 **Depends on:** 3.1
 
-**Exit criteria:** an internal async tree-dump binary prints GNOME Files and Terminal trees with the batching strategy in place.
+**Exit criteria:** an internal tree-dump binary prints GNOME Files and Terminal trees with the batching strategy in place.
 
 **Est. PR size:** ~2k LOC
 
@@ -1931,7 +1931,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 **Goal:** Land the full read path via portals/randr and the web-wrapper depth-skip for Electron/WebKitGTK content.
 
 **Scope:**
-- `get_tree`/`get_subtree` wired to the shared `SnapshotEngine` via async D-Bus `GetChildren` walks
+- `get_tree`/`get_subtree` wired to the shared `SnapshotEngine` via concurrent D-Bus `GetChildren` walks
 - `list_windows`/`list_apps`/`focused_window` from the AT-SPI2 registry: each app's top-level accessibles, matched by numeric role frame (23), dialog (16) or window (69). GTK3 names them `frame` and `dialog`; a GTK4 window is numeric role 23 whose `GetRoleName` is `application`, the single child of the app root, carrying the Accessible, Component and Action interfaces (L13-5, L3-2). Neither exposes a `Window` interface (L8-2, L13-5), so enumeration uses the role and the Accessible/Component interfaces. The `ACTIVE` state marks focus on X11, with `_NET_CLIENT_LIST`/`_NET_ACTIVE_WINDOW` read through xprop-equivalent calls as the X11 fallback; a headless Wayland session never set `ACTIVE` on a GTK4 window, even after a click delivered through the compositor, so on Wayland focus is not derivable from `ACTIVE` alone (L13-5). wmctrl is not installed on the reference box (L8-6). No xdg-desktop-portal interface and no `org.gnome.Shell.Introspect.GetWindows` call (AccessDenied) enumerates windows, so on Wayland AT-SPI is the only source (L8-11, L13-17)
 - Focus: pick `ACTIVE` among nodes of numeric role frame/dialog only and ignore children of the `mutter-x11-frames` helper app, which also report `ACTIVE`; cross-check with `_NET_ACTIVE_WINDOW` on X11 (L8-3). The helper's child reports `GetRoleName` `application` and its numeric role was not recorded, so 3.4 reads that number before relying on the role filter alone
 - Window mapping: no AT-SPI field carries the X11 window id (L8-4), so AT-SPI to X11 mapping is by pid plus title plus extents, converting with `_NET_FRAME_EXTENTS` (AT-SPI frame extents include the title bar) and disambiguating same-title windows by extents or child order (L8-5). A stored window identity pairs the XID with the pid and the process start time, because a fresh process per window receives the same XID (L8-7). GTK4 reports no global position on Wayland (screen and window extents are both `[0,0,w,h]`) and none on X11 either (L13-6, L6-6), so the extents leg of this mapping is X11-only and a Wayland window is identified by its registry app and frame
@@ -1961,7 +1961,7 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Scope:**
 - `resolve_element_strict*` from `RefEntry` evidence — `native_id` first where the toolkit supplies one (Qt `AccessibleId`, the Chromium and Gecko DOM `id`), otherwise the fingerprint of role, name and path, which is reproducible across a restart on GTK4 (Calculator 98 of 98, Files 201 of 201, L3-10) and not on Electron (L3-24); 0/1/N classification. GNOME Files' toolbar holds two sibling `button`s named "View Options" with no identifier that tells them apart, so that pair resolves to `AMBIGUOUS_TARGET` (L14-5)
-- `get_live_value`/`get_live_state`/`get_live_actions`/`get_live_element`/`get_element_bounds` via async D-Bus property reads
+- `get_live_value`/`get_live_state`/`get_live_actions`/`get_live_element`/`get_element_bounds` via concurrent D-Bus property reads
 - `resolve_query` — `LocatorQuery` evaluator backing live `find`
 - `resolve_locator_anchor` + selected-hydration completeness — the same definitive-absence-vs-transport-failure classification ported from macOS's `is_definitive_absence`, this time distinguishing "object no longer on the bus" (D-Bus `UnknownObject`/`UnknownMethod` errors) from a genuine timeout
 
@@ -2016,8 +2016,8 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 | Capability | Technology | Details |
 |------------|-----------|---------|
-| Tree root | `atspi Accessible` on bus | Via `atspi` crate (v0.28+) + `zbus` (5.x) — pure Rust, no libatspi/GLib dependency |
-| Children | `org.a11y.atspi.Accessible.GetChildren` | Async D-Bus calls to the AT-SPI2 registry daemon |
+| Tree root | `atspi Accessible` on bus | Via `zbus` =5.19.0 used directly — pure Rust, no `atspi` crate, no libatspi/GLib dependency |
+| Children | `org.a11y.atspi.Accessible.GetChildren` | Concurrent D-Bus calls to the AT-SPI2 registry daemon |
 | Role mapping | AT-SPI `Role` enum | Map to unified role enum in `tree/roles.rs` — e.g. `Role::PushButton` → `button` |
 | Click | `org.a11y.atspi.Action.DoAction(i)`, `i` chosen from `GetName(i)` (`click`, `doDefault`, `press`, `Press`, `activate`) | AT-SPI actions preferred over coordinate-based input; they work on Wayland with no input device (L3-19, L3-20, L13-8) |
 | Set text | `org.a11y.atspi.EditableText.InsertText(position, text, length)` / `SetTextContents` | `Text` has no `InsertText`; `length` counts UTF-8 bytes and a value cutting a character returns `true` with nothing inserted, so the result is read back (L4-10, L4-13); falls back to clipboard paste (L13-9) |
@@ -2247,18 +2247,17 @@ Runtime detection required for input, clipboard, and screenshot since Linux runs
 | Wayland a11y gaps | Focus on GNOME (best AT-SPI2 support). Prefer AT-SPI actions over coordinate input. Measured on GNOME 46: the GTK4 tree matches X11 and AT-SPI actions and `EditableText` work with no input device (L13-4, L13-8, L13-9); the gaps are coordinate input, window operations and focus (L13-17, L13-22, L13-24). Document known gaps clearly in skill and README. |
 | AT-SPI2 bus not running | Detect on first command with an auto-starting `org.a11y.Bus.GetAddress` call (L1-5). Return clear enable instructions specific to the detected distro/DE. |
 | Display server fragmentation | Runtime detection (X11 vs Wayland). Separate code paths for input/clipboard/screenshot. Test both. |
-| Rust a11y crate maintenance stalls | Pin `atspi` and `zbus` versions. `atspi` crate backed by the Odilia accessibility project. Maintain patches if upstream stalls. |
+| Rust a11y crate maintenance stalls | `zbus` is pinned exactly (`=5.19.0`) and the `atspi` crate is not used. Maintain patches if upstream stalls. |
 | Input tool availability | Check for xdotool/ydotool on first use. Provide package manager install commands in the error suggestion. |
 
 ### New Dependencies
 
 | Crate | Version | Purpose | License |
 |-------|---------|---------|---------|
-| `atspi` | 0.28+ | Linux AT-SPI2 client | MIT/Apache-2.0 |
-| `zbus` | 5.x | D-Bus connection | MIT/Apache-2.0 |
-| `tokio` | 1.x | Async runtime (required by atspi/zbus for async D-Bus) | MIT |
+| `zbus` | `=5.19.0` | D-Bus connection through `zbus::blocking`, default `async-io` backend | MIT |
+| `futures-util` | pinned at 3.2 | Concurrent D-Bus calls in the tree walk | MIT/Apache-2.0 |
 
-All three pins above were recorded at research time (2026-04); re-verify against crates.io and the repository's supply-chain policy at sub-phase 3.1 before adding them to `Cargo.toml` — same policy as the Windows dependency pins.
+The `zbus` pin is exact and was verified against crates.io, the advisory database and the repository's supply-chain policy at sub-phase 3.1. zbus 6.0.0 has no blocking API and `atspi` 0.30 requires zbus 5, so the `atspi` crate is not used and `deny.toml` ignores the three RUSTSEC unmaintained advisories on zbus 5 transitive crates (zvariant, zbus_names, zvariant_derive) until zbus 6 ships a blocking API that `atspi` accepts.
 
 Added to `Cargo.toml` as a target-gated dependency:
 ```toml
@@ -2266,7 +2265,7 @@ Added to `Cargo.toml` as a target-gated dependency:
 agent-desktop-linux = { path = "crates/linux" }
 ```
 
-`tokio` is introduced here for the first time. The workspace is synchronous through Phase 2 — Windows adds no async runtime, since UIA's COM APIs are synchronous. Linux is the first platform requiring async D-Bus calls via `zbus`/`atspi`.
+No async runtime is introduced. The workspace is synchronous on every platform through Phase 3: Windows UIA is a synchronous COM API, and zbus's default `async-io` backend provides a blocking API that needs no runtime.
 
 ### Testing (cross-platform validation, beyond each sub-phase's own exit criteria)
 
@@ -2501,7 +2500,7 @@ On receiving MCP `initialize`:
 | `schemars` | 1.2+ | JSON Schema generation for tool parameter definitions | MIT/Apache-2.0 |
 | `tokio` | 1.x | Async runtime (required by rmcp for MCP server event loop) | MIT |
 
-`tokio` enters the workspace no later than Phase 3 (Linux, sub-phase 3.1); by Phase 4 it is already available.
+`tokio` enters the workspace here, with `rmcp`; no earlier phase adds an async runtime.
 
 ### Binary Crate Changes
 
@@ -2770,7 +2769,7 @@ Phase 5 spans are OpenTelemetry-compliant so `agent-desktop trace export <uuid> 
 | Optimization | Platform | Details |
 |-------------|----------|---------|
 | CacheRequest batching | Windows | Batch UIA attribute fetches via CacheRequest — reduces COM round-trips |
-| Async tree walking | Linux | Parallel D-Bus calls for tree traversal — concurrent child fetching |
+| Concurrent tree walking | Linux | Parallel D-Bus calls for tree traversal — concurrent child fetching |
 | Cached subtrees | All (daemon) | Reuse unchanged subtrees between snapshots in same session — skip re-traversal of stable UI regions |
 | Warm adapter | All (daemon) | Adapter stays initialized between commands — skip COM init (Win), D-Bus connect (Linux), AX bootstrap (macOS) |
 | Progressive skeleton drill | All | Skeleton overview + targeted drill-down reduces token consumption 78-96% for dense apps — fewer tokens per snapshot means more budget for actions |
@@ -2958,8 +2957,8 @@ Every runner runs the tests for the packages that build on that OS (`cargo test 
 | `windows` 0.62.2 | Phase 2 | Win32 / WinRT bindings including direct WGC / D3D11 / WIC (`uiautomation 0.25` pins `^0.62.2`) |
 | `objc2` 0.6 | Phase 2 | macOS safe Objective-C bridging (scoped to `system/screenshot.rs` + `system/permissions.rs`; CI grep guard) |
 | `screencapturekit` 1.5 (crates.io) | Phase 2 | ScreenCaptureKit wrapper — published canonical crate, not a git fork |
-| `atspi` 0.28+ + `zbus` 5.x | Phase 3 | Linux AT-SPI2 client via D-Bus |
-| `tokio` 1.x | Phase 3 | Async runtime (required by atspi/zbus) — the first async runtime in the workspace; the codebase is synchronous through Phase 2 |
+| `zbus` =5.19.0 | Phase 3 | Linux AT-SPI2 client via D-Bus through `zbus::blocking`; no `atspi` crate |
+| `tokio` 1.x | Phase 4 | Async runtime (required by rmcp) — the first async runtime in the workspace; the codebase is synchronous through Phase 3 |
 | `rmcp` 0.15.0+ | Phase 4 | Official MCP Rust SDK |
 | `schemars` 1.2 | Phase 4 | JSON Schema generation for MCP tool parameters (deferred from Phase 2 per plan §KD15 — no Phase 2 consumer) |
 
@@ -3000,7 +2999,7 @@ All Phase 2/3 pins above were recorded at 2026-04 research time; re-verify again
 | R2 | Electron/Chromium a11y tree gaps on legacy builds | Medium | Medium | Chromium 138+ (Aug 2025) auto-enables native UIA for UIA clients. Detect Chromium windows; re-read past a settle before judging a tree thin, since a first read lands on the pre-activation shell; print `--force-renderer-accessibility` guidance for pre-138/pinned builds or trees still thin afterwards. |
 | R3 | Custom-rendered UIs invisible to a11y | Medium | High | Phase 5 stretch: vision fallback. Short-term: document limitation in README and skills. |
 | R4 | Wayland a11y gaps | Medium | Medium | Focus on GNOME (best AT-SPI2 support). Prefer AT-SPI actions over coordinate input. Document gaps. |
-| R5 | Rust a11y crate maintenance stalls | Low | High | Pin versions, maintain patches. `atspi` backed by the Odilia project. Fork-ready. |
+| R5 | Rust a11y crate maintenance stalls | Low | High | Pin `zbus` exactly, maintain patches. Fork-ready. |
 | R6 | MCP spec changes break compat | Low | Medium | Pin `rmcp` version. Monitor spec under Linux Foundation governance. |
 | R7 | Tree traversal too slow (>5s) | Medium | Medium | Depth limiting via `--max-depth`. Focused-window-only. Cached subtrees in Phase 5 daemon. Progressive skeleton traversal (`--skeleton` + `--root`) reduces token consumption 78-96% for dense apps. |
 | R8 | Ref instability confuses agents | Medium | High | Clear docs: refs are snapshot-scoped and snapshot-qualified (`@<snapshot_id>:e<n>`). `STALE_REF` error with recovery hint. Progressive skeleton traversal with scoped invalidation provides a stable drill-down workflow. Stable `native_id` evidence (shipped on macOS; Windows/Linux land it in their own vocabulary sub-phase) reduces stale-resolution failures on Electron and localized apps. |
