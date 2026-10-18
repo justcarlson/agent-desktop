@@ -74,4 +74,6 @@ xdotool key XF86LogGrabInfo
 grep -A3 'Active grab' "$log" | tail -8
 ```
 
+`scripts/private-session.sh [--wm] -- <command>` is the one way to run bus, display or app commands on the box: it builds the 0700 runtime dir, starts the private bus and Xvfb (and openbox with `--wm`), pushes `DISPLAY` into the bus activation environment once Xvfb answers and before any app starts, then unmounts the doc and gvfs mounts and removes the dir. The order matters: a bus that starts before Xvfb hands D-Bus-activated apps such as `gnome-terminal-server` whatever display the caller carried, and they map their windows on the owner's real screen while the private AT-SPI tree still reports `SHOWING` (ledger L18-17). The live-test launcher refuses to start without the helper's `AGENT_DESKTOP_PRIVATE_SESSION` marker.
+
 Related: `docs/solutions/best-practices/remote-dev-boxes-over-tailscale.md` (box setup and the remote loop), `docs/solutions/best-practices/a-test-that-acts-on-its-own-runner-acts-on-every-other-test.md` (the same class of hazard inside one test process).

@@ -7,7 +7,15 @@ pub(crate) struct Launched {
 }
 
 impl Launched {
+    /// A launcher for apps in a private session. Apps that D-Bus activates
+    /// take their display from the bus's activation environment, not from this
+    /// process, so a launcher outside the session helper could map windows on
+    /// the owner's screen; it refuses to start there.
     pub(crate) fn new() -> Self {
+        assert!(
+            std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
+            "live launches must run inside scripts/private-session.sh"
+        );
         Self {
             children: Vec::new(),
             scratch: Vec::new(),

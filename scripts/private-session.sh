@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Run a command inside a private desktop session: its own 0700 runtime dir, session bus,
+# Xvfb display and (with --wm) openbox. Nothing here touches the owner's desktop or the live
+# AT-SPI bus.
+# Usage: scripts/private-session.sh [--wm] [--screen WxHxD] -- command [args...]
+#
+# The bus starts before Xvfb exists, so bus-activated apps (gnome-terminal-server, nautilus)
+# would otherwise inherit whatever display the caller carried and map their windows on the
+# owner's real screen (ledger L18-17). The bus therefore starts with no display variable at
+# all, and DISPLAY is pushed into its activation environment as soon as Xvfb answers and
+# before the window manager or any app starts.
+set -euo pipefail
+
+wm=0
+screen=1280x800x24
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --wm) wm=1; shift ;;
+    --screen) screen=${2:?--screen needs WxHxD}; shift 2 ;;
+    --) shift; break ;;
+    *) break ;;
+  esac
+done
+if [ $# -eq 0 ]; then
+  echo "usage: private-session.sh [--wm] [--screen WxHxD] -- command [args...]" >&2
+  exit 2
+fi
+
+base=${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}
+mkdir -p "$base"
+rt=$(mktemp -d "$base/rt.XXXXXX")
+chmod 700 "$rt"
+mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache"
+printf '[org/gnome/desktop/interface]\ntoolkit-accessibility=true\n' > "$rt/cfg/glib-2.0/settings/keyfile"
+
+pids=()
+# shellcheck disable=SC2329
+session_members() {
+  local environ pid
+  for environ in /proc/[0-9]*/environ; do
+    pid=${environ#/proc/}
+    pid=${pid%/environ}
+    [ "$pid" != "$$" ] || continue
+    if grep -qzF "XDG_RUNTIME_DIR=$rt" "$environ" 2>/dev/null; then
+      echo "$pid"
+    fi
+  done
+}
+# shellcheck disable=SC2329
+cleanup() {
+  local pid mount
+  trap '' INT TERM HUP
+  for pid in "${pids[@]}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+  for pid in $(session_members); do
+    kill "$pid" 2>/dev/null || true
+  done
+  sleep 1
+  for pid in $(session_members); do
+    kill -KILL "$pid" 2>/dev/null || true
+  done
+  for mount in "$rt/doc" "$rt/gvfs"; do
+    fusermount -u "$mount" 2>/dev/null || true
+  done
+  rm -rf "$rt"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
+
+unset DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS
+export XDG_RUNTIME_DIR=$rt
+export XDG_CONFIG_HOME=$rt/cfg
+export XDG_DATA_HOME=$rt/data
+export XDG_CACHE_HOME=$rt/cache
+export GSETTINGS_BACKEND=keyfile
+export XDG_CURRENT_DESKTOP=GNOME
+export AGENT_DESKTOP_PRIVATE_SESSION=$rt
+
+bus_address="unix:path=$rt/bus"
+dbus-daemon --session --nofork --address="$bus_address" 2> "$rt/bus.log" &
+pids+=("$!")
+export DBUS_SESSION_BUS_ADDRESS=$bus_address
+for _ in $(seq 1 100); do
+  [ -S "$rt/bus" ] && break
+  sleep 0.1
+done
+[ -S "$rt/bus" ] || { echo "private-session: the session bus did not start" >&2; exit 1; }
+
+Xvfb -displayfd 9 -screen 0 "$screen" -nolisten tcp 9> "$rt/displayfd" 2> "$rt/xvfb.log" &
+pids+=("$!")
+for _ in $(seq 1 100); do
+  [ -s "$rt/displayfd" ] && break
+  sleep 0.1
+done
+[ -s "$rt/displayfd" ] || { echo "private-session: Xvfb did not start" >&2; exit 1; }
+display_number=$(head -n 1 "$rt/displayfd")
+export DISPLAY=":$display_number"
+
+dbus-update-activation-environment DISPLAY
+
+if [ "$wm" = 1 ]; then
+  wm_root=${AGENT_DESKTOP_WM_ROOT:-$HOME/ad-wt/wm-pkgs/root}
+  XDG_DATA_DIRS="$wm_root/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
+    LD_LIBRARY_PATH="$wm_root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$wm_root/usr/bin/openbox" --config-file "$wm_root/etc/xdg/openbox/rc.xml" \
+    > "$rt/openbox.log" 2>&1 &
+  pids+=("$!")
+  for _ in $(seq 1 100); do
+    xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id' && break
+    sleep 0.1
+  done
+fi
+
+status=0
+"$@" || status=$?
+exit "$status"
