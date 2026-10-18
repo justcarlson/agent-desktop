@@ -9,6 +9,8 @@ mod bus_slice;
 mod bus_stage;
 mod display;
 mod display_mutter;
+mod display_probe;
+mod display_server;
 mod focus;
 mod interaction_lease;
 mod listed_window;

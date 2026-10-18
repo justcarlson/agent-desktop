@@ -2,7 +2,8 @@ use agent_desktop_core::ErrorCode;
 
 use super::decide;
 use crate::system::display_mutter::LogicalMonitor;
-use crate::system::x11::{DisplayServer, X11Monitor};
+use crate::system::display_server::{Cause, DisplayServer, Unavailable};
+use crate::system::x11::X11Monitor;
 use crate::tree::Extents;
 
 fn monitor(name: &str, connectors: &[&str], x: i32, w: i32, primary: bool) -> X11Monitor {
@@ -118,8 +119,46 @@ fn a_wayland_session_uses_the_mutter_list_alone() {
     assert_eq!(display.bounds.width, 1920.0);
 }
 
+fn unavailable(cause: Cause, detail: &str) -> DisplayServer {
+    DisplayServer::Unavailable(Unavailable {
+        cause,
+        detail: detail.to_owned(),
+    })
+}
+
 #[test]
 fn a_session_without_a_display_server_is_platform_not_supported() {
-    let error = decide(DisplayServer::None, None, None).expect_err("headless");
+    let error = decide(unavailable(Cause::NotConfigured, ""), None, None).expect_err("headless");
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+}
+
+#[test]
+fn a_missing_display_and_a_refused_one_say_why() {
+    let missing = decide(
+        unavailable(
+            Cause::Missing,
+            "DISPLAY=:9 names a server that is not running",
+        ),
+        None,
+        None,
+    )
+    .expect_err("missing");
+    let refused = decide(
+        unavailable(Cause::Refused, "DISPLAY=:9 refused the connection"),
+        None,
+        None,
+    )
+    .expect_err("refused");
+    assert!(missing.message.contains("not running"));
+    assert!(refused.message.contains("refused"));
+    let cause = |error: &agent_desktop_core::AdapterError| {
+        error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("display_unavailable"))
+            .and_then(|value| value.as_str())
+            .map(str::to_owned)
+    };
+    assert_eq!(cause(&missing).as_deref(), Some("missing"));
+    assert_eq!(cause(&refused).as_deref(), Some("refused"));
 }

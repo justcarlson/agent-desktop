@@ -26,8 +26,8 @@ struct Atoms {
 }
 
 fn display_to_read() -> Option<String> {
-    match super::session_server() {
-        super::DisplayServer::X11(display) => Some(display),
+    match crate::system::display_server::session_server() {
+        crate::system::display_server::DisplayServer::X11(display) => Some(display),
         _ => None,
     }
 }

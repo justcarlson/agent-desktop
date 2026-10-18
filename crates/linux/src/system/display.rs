@@ -1,7 +1,8 @@
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, Rect};
 
 use super::display_mutter::{self, LogicalMonitor};
-use super::x11::{self, DisplayServer, MonitorReader, MonitorSource, X11Monitor, session_server};
+use super::display_server::{Cause, DisplayServer, Unavailable, session_server};
+use super::x11::{self, MonitorReader, MonitorSource, X11Monitor};
 
 fn wayland_missing() -> AdapterError {
     AdapterError::new(
@@ -14,12 +15,33 @@ fn wayland_missing() -> AdapterError {
     )
 }
 
-fn headless() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::PlatformNotSupported,
-        "No display server is running in this session",
-    )
-    .with_suggestion("Run inside a desktop session with DISPLAY or WAYLAND_DISPLAY set")
+fn unreachable(why: Unavailable) -> AdapterError {
+    let (message, suggestion) = match why.cause {
+        Cause::NotConfigured => (
+            "No display server is configured in this session".to_owned(),
+            "Run inside a desktop session with DISPLAY or WAYLAND_DISPLAY set",
+        ),
+        Cause::Missing => (
+            format!(
+                "The session's display server is not running: {}",
+                why.detail
+            ),
+            "Start the display server, or correct DISPLAY and WAYLAND_DISPLAY",
+        ),
+        Cause::Refused => (
+            format!(
+                "The session's display server refused the connection: {}",
+                why.detail
+            ),
+            "Check that the display server accepts this user, or correct DISPLAY and WAYLAND_DISPLAY",
+        ),
+    };
+    AdapterError::new(ErrorCode::PlatformNotSupported, message)
+        .with_suggestion(suggestion)
+        .with_details(serde_json::json!({
+            "display_unavailable": why.cause.as_str(),
+            "detail": why.detail,
+        }))
 }
 
 fn unreadable() -> AdapterError {
@@ -105,7 +127,7 @@ pub(crate) fn decide(
             Some(list) => Ok(assemble(list, mutter.as_deref().unwrap_or_default())),
             None => Err(unreadable()),
         },
-        DisplayServer::None => Err(headless()),
+        DisplayServer::Unavailable(why) => Err(unreachable(why)),
     }
 }
 
@@ -125,7 +147,7 @@ pub(crate) fn list_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, Adap
             let mutter = display_mutter::logical_monitors(deadline)?;
             decide(server, pending.finish(deadline).flatten(), mutter)
         }
-        DisplayServer::None => decide(DisplayServer::None, None, None),
+        server @ DisplayServer::Unavailable(_) => decide(server, None, None),
     }
 }
 

@@ -3,7 +3,8 @@ use x11rb::protocol::randr::ConnectionExt as RandrExt;
 use x11rb::protocol::xproto::ConnectionExt as XprotoExt;
 use x11rb::rust_connection::RustConnection;
 
-use super::{DisplayServer, MonitorSource, X11Monitor, session_server};
+use super::{MonitorSource, X11Monitor};
+use crate::system::display_server::{DisplayServer, session_server};
 use crate::tree::Extents;
 
 /// Reads the RandR monitor list off the display named by `DISPLAY`, one
