@@ -95,7 +95,7 @@ Add the vocabulary layer of the Linux adapter: one function turns a raw node int
   - 31 list whose interface list includes `Selection` → `listbox`, else `list`; a failed interface read gives `list`.
   - 110 landmark → `region`, refined by the first `xml-roles` token when it is one of banner, main, navigation, complementary, contentinfo, search, form.
   - 101 notification → `alert`; Chromium reports 49 of them in VS Code and U1 reads their `xml-roles` and `live` attributes to confirm the source role, and the map changes if they show another role.
-  - 7 check box on GTK4 stays `checkbox` whatever `GetRoleName` says; the switch distinction is carried by `subrole` (KTD8).
+  - 7 check box is `checkbox`, except the one GTK pair (role 7, role name `switch`, `toolkit` `GTK`), which is `switch`: macOS and Windows both emit `switch` for a switch control and agents filter on role, so a GTK switch must not read as a checkbox. `subrole` stays `switch` there (KTD8). Role 7 on Qt, GTK3 and Chromium stays `checkbox` whatever `GetRoleName` says, because the name is a toolkit-local string and means nothing outside GTK.
   - 40 password text → `textfield` with `secure`.
   Governs R1, R2.
 - KTD4. **State derivation.** Bit n of the state set is `word[n / 32]` bit `n % 32`, low word first; U1 confirms the word order against a known bit before any mapping is trusted. Mapping: `focused`←12, `selected`←23, `expanded`←10, `required`←33, `readonly`←43, `modal`←16, `busy`←3, `multiselectable`←18, `haspopup`←42, `invalid`←36, `secure`←role 40. `checked`←4, `indeterminate`←32 and `pressed`←20 are gated by role number: check box 7, radio button 44, check and radio menu items 8 and 45, toggle button 62 for `checked` and `indeterminate`; push buttons 43 and 129 for `pressed`. `disabled` when neither 8 nor 24 is set. A state field is unknown when the state read or the role read failed (the role decides `secure`, and a password field must not be reported as plain). Applies the positive-claim rule of `docs/solutions/logic-errors/emit-state-on-a-positive-claim-never-on-a-default.md` and the failed-read rule of `docs/solutions/logic-errors/tri-state-evidence-collapses-under-negation.md`. Governs R4, R5.
@@ -224,7 +224,7 @@ U1 → U2, U3, U4, U5 → U6 → U7; U8 after U1 and U6.
   - Both an `AccessibleId` and a DOM id present: the DOM id is preferred and the other is kept.
   - An answered-blank id yields answered-absent; a failed id read yields unknown.
   - `class` `"btn  primary"` yields two classes under the flag and none without it.
-  - `subrole` is the first `xml-roles` token on web content; the GTK pair (role 7, name `switch`, `toolkit` `GTK`) yields `switch` and any other pair yields nothing.
+  - `subrole` is the first `xml-roles` token on web content; the GTK pair (role 7, name `switch`, `toolkit` `GTK`) yields subrole `switch` and role `switch`, and any other pair yields nothing and role `checkbox`.
   - `role_description` is the `roledescription` attribute when present.
   - The descriptor placeholder equals the name-evidence placeholder for the Chromium attribute, the Gecko attribute and the Qt text-input `Description` cases.
 - **Verification:** the scenarios pass.
@@ -249,10 +249,10 @@ U1 → U2, U3, U4, U5 → U6 → U7; U8 after U1 and U6.
 - **Approach:** an `#[ignore]` test in the style of the 3.2 live walk: it launches its own Files, Terminal, Calculator, the Qt window and VS Code, walks each, resolves every node, and prints a role and state histogram, the nodes that resolved unknown, and the minimum of seven timings of the vocabulary pass over the VS Code tree. It stops every process it launched.
 - **Test scenarios:**
   - Every node of Files, Terminal, Calculator, the Qt window and (after its tree has settled) VS Code resolves a role, states, name and identifier evidence with no failed read.
-  - No button in Calculator or Files resolves `disabled`, and every state token is in the core vocabulary.
+  - No button in Files resolves `disabled`, and Calculator's disabled buttons are exactly {Undo} with at least 20 enabled, and every state token is in the core vocabulary.
   - The Files and Calculator top-level frames resolve `window`.
   - The Qt window's named button resolves a native id ending in its object name with the accessibility identifier kind, and its line edit resolves the placeholder `Type name` in both the name evidence and the descriptor, with no description. The output also lists every node that resolved `disabled` in the GTK4 apps and VS Code, so an over-claim on a non-sensitive root is seen.
-  - In Calculator, a node with a non-blank `Name` and a `LabelledBy` target resolves its own `Name` and performs no label read. The lazy label read is proved on the blank-name, labelled node `L3-14` found in Firefox; if no such node exists in the run, the read is recorded as unproved on a real app, with the reason, in the PR description.
+  - In Calculator, a node with a non-blank `Name` and a `LabelledBy` target resolves its own `Name` and performs no label read. Every app walked in the run is scanned for a blank-name node whose label resolved, and each one found must resolve that label as its name. Files, Calculator, the Qt window and VS Code have none; Firefox, launched from `/snap/firefox/current` in the private session with the snap library path and a throwaway profile, has two, and the test requires at least one, so the lazy label read is proved on a real node. The Calculator check that a named, labelled node performs no label read stays.
   - In VS Code, `id` and `class` become DOM id and classes only under a web document, and none appears on browser-chrome nodes outside it.
   - A VS Code notification node's resolved role agrees with U1's reading of its `xml-roles`.
 - **Verification:** the run passes on the box; its output (counts, unknowns, timing) goes in the PR description and any surprise becomes a ledger row with a disposition.
