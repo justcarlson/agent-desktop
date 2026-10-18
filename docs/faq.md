@@ -41,8 +41,8 @@ No. The core workflow reads native accessibility trees and assigns refs to inter
 | Notifications | **Yes** | **Yes** | Planned |
 | Shell surfaces (`open-system-surface`) | Planned | **Yes** | Planned |
 
-\* On Windows, `list-surfaces` inventories each process's `window` / `focused` / `sheet` / `menu` surfaces, and `snapshot --surface` additionally resolves the shell kinds (`taskbar`, `system-tray`, `system-tray-overflow`, `start-menu`, `action-center`) with no `--app`; `quick-settings` refuses on every Windows build with `PLATFORM_NOT_SUPPORTED`, naming `action-center`, the surface that carries the capability.
-\*\* `launch` on Windows resolves an absolute path or a bare name found under System32 or the Windows directory, with or without `.exe` — it cannot resolve display names such as "Google Chrome".
+\* On Windows, `list-surfaces` lists each process's `window`, `focused`, `sheet` and `menu` surfaces. `snapshot --surface` also reads the shell surfaces `taskbar`, `system-tray`, `system-tray-overflow`, `start-menu` and `action-center` without `--app`. `quick-settings` returns `PLATFORM_NOT_SUPPORTED` on every Windows build and names `action-center`, which carries those controls.
+\*\* `launch` on Windows takes an absolute path, or a bare name under System32 or the Windows directory, with or without `.exe`. It cannot resolve a display name such as "Google Chrome".
 
 ## How do I install agent-desktop?
 

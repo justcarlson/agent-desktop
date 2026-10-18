@@ -100,7 +100,7 @@ fn documented_command_counts_match_the_cli() {
     let operational = total - HELD_INPUT_COMMANDS.len();
     assert!(
         README.contains(&format!(
-            "**{total} command names, {operational} operational commands**"
+            "{total} command names, {operational} operational commands"
         )),
         "README.md must state {total} command names and {operational} operational commands"
     );
