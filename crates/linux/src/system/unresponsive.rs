@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::SharedBus;
 use super::listed_window::ListedWindow;
@@ -41,6 +41,27 @@ pub(crate) fn scoped_windows_of(
         return Err(error);
     }
     Ok(windows)
+}
+
+/// A named target that no registry application and no running process
+/// matches is `APP_NOT_FOUND`, the answer `snapshot` and `list-surfaces` give
+/// for the same name. A name that only a bus-less process matches stays an
+/// empty list, and an application that is registered but shows no window
+/// does too.
+pub(crate) fn require_known_target(
+    registry: &Registry,
+    select: impl Fn(&RegistryApp) -> bool,
+    query: &str,
+    running: impl FnOnce(&str) -> Option<(u32, String)>,
+) -> Result<(), AdapterError> {
+    if registry.apps.iter().any(select) || running(query).is_some() {
+        return Ok(());
+    }
+    Err(AdapterError::new(
+        ErrorCode::AppNotFound,
+        format!("No running application matches '{query}'"),
+    )
+    .with_suggestion("Run 'list-apps' to see running applications, or launch the app first."))
 }
 
 #[cfg(test)]

@@ -3,10 +3,11 @@ use agent_desktop_core::{AdapterError, Deadline, WindowFilter, WindowInfo};
 use super::SharedBus;
 use super::focus::decide_focus;
 use super::listed_window::ListedWindow;
+use super::proc_scan::find_running;
 use super::registry::{Registry, read_registry};
 use super::registry_app::RegistryApp;
 use super::registry_frames::read_frames;
-use super::unresponsive::scoped_windows_of;
+use super::unresponsive::{require_known_target, scoped_windows_of};
 use super::window_filter::is_helper_app;
 use super::window_listing::collect;
 use super::x11::{self, DisplayReader, FrameFacts, X11Source, X11State};
@@ -59,7 +60,8 @@ pub(crate) fn list_windows(
     let pending = x11::start(|| DisplayReader.read());
     let registry = read_registry(bus, deadline)?;
     let select = |app: &RegistryApp| filter.app.as_deref().is_none_or(|query| app.matches(query));
-    let mut listed = if filter.app.is_some() {
+    let mut listed = if let Some(query) = filter.app.as_deref() {
+        require_known_target(&registry, select, query, find_running)?;
         scoped_windows_of(bus, &registry, select, deadline)?
     } else {
         windows_of(bus, &registry, select, deadline)?
