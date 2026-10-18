@@ -72,7 +72,7 @@ Build the Linux evidence base that sub-phases 3.1–3.15 implement against. Prob
 
 - No Rust and no change under `crates/` or `src/`.
 - No change to the shared box beyond `~/ad-wt/`, `~/ad-target/` and `~/.local/ad-tools/`. No root, no reboot, no `gsettings` change that outlives the probe that made it.
-- Not built: a CI workflow that runs probes. KD1 keeps the probes out of the repository, so there is nothing for a workflow to run. Whether `ubuntu-latest` can host AT-SPI under `xvfb-run` and `dbus-run-session` is a CI-lane question that 3.1 measures when it builds the Linux test lane (R19).
+- Not built: a CI workflow that runs probes. KD1 keeps the probes out of the repository, so there is nothing for a workflow to run. Whether `ubuntu-latest` can host AT-SPI under `xvfb-run` and `dbus-run-session` is a CI-lane question that 3.1 measures when it builds the Linux test lane; U15 writes that item into §3.1.
 - Not built: tests for the ledger gate beyond one invert check during this PR. The gate is a short shape-and-citation check; a corrupted ledger fails it visibly in the next sub-phase that cites a row.
 
 ---
@@ -87,7 +87,7 @@ Build the Linux evidence base that sub-phases 3.1–3.15 implement against. Prob
 - KTD4. **Probes act only on what they launched.** A probe launches its own target app, records its pid, acts on that process only, and closes it in a `finally` block. It never kills by name, never types into a window it has not verified is its own target, and releases every held key and button on exit. The user's own running apps, including Google Chrome and AnyDesk, are read-only.
 - KTD5. **Wayland evidence comes from a nested or headless `gnome-shell --wayland` when it runs without root.** The box login is X11 by design (`docs/solutions/best-practices/remote-dev-boxes-over-tailscale.md`). If neither mode starts, every Wayland row is DEFERRED with `needs: Wayland login session` and closes in the sub-phase that owns the capability (3.8 input, 3.10 capture and clipboard).
 - KTD6. **Missing tools come from user-space package extraction.** xdotool, xclip, wl-clipboard, wmctrl and pyatspi are unpacked with `apt-get download` and `dpkg -x` into `~/.local/ad-tools`, sourced through its `env.sh`. ydotool needs `/dev/uinput`, and flatpak needs a system install; both are root-only on this box, so their rows are DEFERRED with that cause. The snap-confined Firefox is measured as the available sandboxed app.
-- KTD7. **The ledger gate is one stdlib Python script.** `scripts/check-linux-findings.py` checks the eight-cell shape, unique ids, the verdict and stack vocabularies, the `needs:` and `closure:` fields on DEFERRED rows, that every `L<n>-<m>` cited in `docs/phases.md` exists in the ledger, and that the ledger carries no box identity. With `--sub-phase 3.<n>` it lists the rows whose action names that sub-phase, which each later sub-phase uses at close (the cross-cutting DoD's ledger-disposal rule). The `L` prefix keeps these ids out of the Windows `A<n>-<m>` citation gate.
+- KTD7. **The ledger gate is one stdlib Python script.** `scripts/check-linux-findings.py` checks the eight-cell shape, unique ids, the verdict and stack vocabularies, the `needs:` and `closure:` fields on DEFERRED rows, that every `L<n>-<m>` cited in `docs/phases.md` exists in the ledger, and that the ledger carries no box identity. Identity is checked two ways so the gate never embeds what it guards: in CI by patterns (`/home/<name>` paths, the Tailscale range 100.64.0.0/10, `*.ts.net` names, 32-hex machine ids), and locally also against literal tokens read from the untracked `AGENT_DESKTOP_BOX_IDENTITY` variable. With `--sub-phase 3.<n>` it lists the rows whose action names that sub-phase, which each later sub-phase uses at close (the cross-cutting DoD's ledger-disposal rule). The `L` prefix keeps these ids out of the Windows `A<n>-<m>` citation gate.
 - KTD8. **The dogfood gate does not apply to 3.0.** The cross-cutting DoD's dogfood drives a shipped surface with the shipped skill; 3.0 ships neither a binary change nor a skill. The probes themselves are the confrontation with real software.
 
 ### High-Level Technical Design
@@ -113,7 +113,7 @@ flowchart TB
 
 ### Sequencing
 
-U1 runs first. U2–U14 are authored in parallel; each runs on the box when it takes the lock. U15 starts when every area has returned its rows.
+U1 runs first. U2 and U4–U13 are authored in parallel; U3 and U14 start once U2's walker exists; U9, U11 and U5 run their Wayland halves after U13 proves a session. Each runs on the box when it takes the lock. U15 starts when every area has returned its rows.
 
 ---
 
@@ -125,13 +125,13 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 | U2 | Tree dumps and read cost | local `02-tree.py` | U1 |
 | U3 | Interface, state and identity census | local `03-census.py` | U2 |
 | U4 | Raw interactions | local `04-interactions.py` | U1 |
-| U5 | Input synthesis | local `05-input.py` | U1 |
+| U5 | Input synthesis | local `05-input.py` | U1, U13 (Wayland half) |
 | U6 | Hit-testing, extents and occlusion | local `06-hittest.py` | U1 |
 | U7 | Event signals | local `07-events.py` | U1 |
 | U8 | Windows, apps and displays | local `08-windows.py` | U1 |
-| U9 | Capture and clipboard | local `09-capture-clipboard.py` | U1 |
+| U9 | Capture and clipboard | local `09-capture-clipboard.py` | U1, U13 (Wayland half) |
 | U10 | Shell surfaces, notifications and tray | local `10-shell.py` | U1 |
-| U11 | Process and window lifecycle | local `11-lifecycle.py` | U1 |
+| U11 | Process and window lifecycle | local `11-lifecycle.py` | U1, U13 (Wayland half) |
 | U12 | Sandboxed app access | local `12-sandbox.py` | U1 |
 | U13 | Wayland session evidence | local `13-wayland.py` | U1 |
 | U14 | Edge-case targets in real apps | local `14-edge-targets.py` | U2 |
@@ -161,7 +161,7 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 - **Approach:**
   1. Dump GNOME Files, Terminal, Text Editor, Calculator, Settings, VS Code and the user's running Google Chrome (read-only) with role, role name, name, description, states, interfaces, attributes, `AccessibleId`, child count, extents and relations per node.
   2. Track an ancestor-path set to detect cycles, and record depth, node count and any node whose child count disagrees with `GetChildren`.
-  3. Time a full walk three ways over Gio D-Bus: sequential property gets, concurrent property gets, and `org.a11y.atspi.Cache.GetItems` where the app exposes it. §3.2 assumes AT-SPI has no batch read; this measurement decides that claim.
+  3. Time a full walk three ways over Gio D-Bus: sequential property gets, concurrent property gets (async `Gio.DBusConnection.call` under one main loop, which is what concurrent zbus calls do; `call_sync` cannot measure concurrency), and `org.a11y.atspi.Cache.GetItems` where the app exposes it. §3.2 assumes AT-SPI has no batch read; this measurement decides that claim.
   4. Record the Chromium and Electron tree before and after accessibility activation, and whether `ACCESSIBILITY_ENABLED=1` or the a11y bus alone activates it.
 - **Test expectation:** none -- evidence.
 - **Verification:** each app has a capture with timing per KTD3 and a cycle verdict.
@@ -173,7 +173,7 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 - **Dependencies:** U2 (reuses its walker).
 - **Files:** local `03-census.py`, `captures/03-census.json`.
 - **Approach:**
-  1. Over the U2 apps plus Firefox and one Qt app (PyQt6 installed with `pip --user`, if it installs), count per role the interfaces present, the states seen, the action names, and the attribute keys.
+  1. Over the U2 apps plus Firefox and one Qt app (PyQt6 in a venv under `~/.local/ad-tools`, launched with `QT_ACCESSIBILITY=1`; if it cannot be installed, a DEFERRED row with `needs: Qt toolkit install`), count per role the interfaces present, the states seen, the action names, and the attribute keys.
   2. Report `AccessibleId` and toolkit id attributes (`id`, `gtk-id`, Qt `objectName` equivalents) as tri-state: present, absent-answered, read-failed.
   3. Restart two apps and compare identifiers to measure stability.
 - **Test expectation:** none -- evidence.
@@ -249,6 +249,7 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 - **Goal:** know the lowest-permission capture path and how clipboard ownership behaves.
 - **Requirements:** R13.
 - **Dependencies:** U1.
+- **Dependencies note:** the wl-clipboard step runs in the U13 session.
 - **Files:** local `09-capture-clipboard.py`, `captures/09-capture-clipboard.json`.
 - **Approach:**
   1. Call `org.freedesktop.portal.Screenshot` non-interactive and interactive, and record whether GNOME 46 shows a dialog, remembers a grant, or refuses. Record whether `org.gnome.Shell.Screenshot` is callable from an unlisted client.
@@ -275,6 +276,7 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 - **Goal:** know how launch, attach, close and window operations behave on GNOME.
 - **Requirements:** R14.
 - **Dependencies:** U1.
+- **Dependencies note:** the Wayland window-operation step runs in the U13 session.
 - **Files:** local `11-lifecycle.py`, `captures/11-lifecycle.json`.
 - **Approach:**
   1. Launch by desktop id (`gio launch`, `gtk-launch`) and by command, and measure whether a single-instance GApplication hands the launch to an existing process so the spawned pid exits.
@@ -292,14 +294,15 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 - **Files:** local `12-sandbox.py`, `captures/12-sandbox.json`.
 - **Approach:**
   1. Dump the snap-confined Firefox tree and record its `a11y` plug state.
-  2. Flatpak rows are DEFERRED per KTD6 with `needs: flatpak system install`.
+  2. Measure the without-access case without root: inside a private `dbus-run-session`, launch a probe-owned GTK4 app with `AT_SPI_BUS_ADDRESS` pointing at a socket that does not exist, and with no a11y bus at all, then record what the app logs, whether it blocks, and what the registry shows.
+  3. Disconnecting the snap `a11y` plug needs root, so that row is DEFERRED with `needs: root to run snap disconnect`. Flatpak rows are DEFERRED per KTD6 with `needs: flatpak system install`.
 - **Test expectation:** none -- evidence.
-- **Verification:** the confined app has a capture, and the Flatpak rows carry their cause.
+- **Verification:** both halves of R16, with and without bus access, have a measured row or a DEFERRED row with its cause.
 
 ### U13. Wayland session evidence
 
 - **Goal:** know which tree, extents, input and capture behaviour changes under Wayland.
-- **Requirements:** R5, R9, R10, R13 (their Wayland halves).
+- **Requirements:** R5, R9, R10, R13, R14 (their Wayland halves).
 - **Dependencies:** U1 and the box-preparation result.
 - **Files:** local `13-wayland.py`, `captures/13-wayland.json`.
 - **Approach:** in the nested or headless `gnome-shell --wayland` the box-preparation task proved, launch Text Editor with `GDK_BACKEND=wayland`, then repeat the tree, extents, `GetAccessibleAtPoint`, clipboard and portal reads. If no mode starts, write DEFERRED rows per KTD5.
@@ -321,16 +324,16 @@ U1 runs first. U2–U14 are authored in parallel; each runs on the box when it t
 - **Goal:** turn the captures into the committed ledger and a `docs/phases.md` that matches them.
 - **Requirements:** R2, R3, R4, R17, R18, R19.
 - **Dependencies:** U2–U14.
-- **Files:** `probes/linux/FINDINGS.md`, `scripts/check-linux-findings.py`, `docs/phases.md`, `.github/workflows/ci.yml` (one lint step).
+- **Files:** `probes/linux/FINDINGS.md`, `scripts/check-linux-findings.py`, `docs/phases.md`, `.github/workflows/ci.yml` (one step in the `fmt` job).
 - **Approach:**
   1. Assemble area tables in Unit Index order. Each row quotes the capture field it rests on, written with the capture open.
   2. Write a CONTRADICTS index mapping each row to its `docs/phases.md` hunk, then make each correction in place.
   3. Rewrite §3.0, the Phase 3 DoD evidence line and §3.12 per R18, and write each DEFERRED closure into its receiving sub-phase per R19.
-  4. Add the gate (KTD7) and run it from the existing `lint` job in `.github/workflows/ci.yml`.
+  4. Add the gate (KTD7) as a `python3 scripts/check-linux-findings.py` step in the existing `fmt` job of `.github/workflows/ci.yml`, which already runs on `ubuntu-latest` with Python.
 - **Patterns to follow:** `probes/windows/FINDINGS.md` (row shape, verdicts, closure field).
 - **Test scenarios:**
   - The gate passes on the finished ledger and `docs/phases.md`.
-  - Invert check, run once and recorded in the PR: a row with seven cells, a duplicate id, a DEFERRED row with no `closure:`, an `L` id cited in `docs/phases.md` but absent from the ledger, and the box user name pasted into a row each make the gate fail.
+  - Invert check, run once and recorded in the PR: a row with seven cells, a duplicate id, a DEFERRED row with no `closure:`, an `L` id cited in `docs/phases.md` but absent from the ledger, and the box user name pasted into a row (with `AGENT_DESKTOP_BOX_IDENTITY` set) each make the gate fail.
   - `--sub-phase 3.4` lists exactly the rows whose action names 3.4.
 - **Verification:** the gate passes in CI, and a reader of `docs/phases.md` §3.x finds no statement a ledger row contradicts.
 
