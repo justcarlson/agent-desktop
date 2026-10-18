@@ -10,7 +10,7 @@ applies_when:
   - "Changing a platform adapter's tree, resolution, window, input, or accessibility code"
   - "Changing release-binary integration behavior"
   - "Fixing a bug that a mock adapter could not expose"
-tags: [e2e, fixture-app, accessibility, macos, windows, regression, adapters]
+tags: [e2e, fixture-app, accessibility, macos, windows, linux, regression, adapters]
 ---
 
 # Make permissioned fixture and real-app checks the adapter gate
@@ -124,6 +124,10 @@ defect share one. Report:
 A run substitutes for the fixture app only while it keeps the fixture app's discipline — real
 software, effects verified independently, skips recorded honestly, and raw captures kept out of
 the repository while the judgement drawn from them is kept in it.
+
+## Standing practice on Linux
+
+The Linux adapter has no fixture app; its gate is live tests and dogfood reports against off-the-shelf software (GNOME apps, VS Code) on the remote box. Live tests run only inside `scripts/private-session.sh`, which gives them a private bus, Xvfb display and runtime directory: the launcher in `crates/linux/src/tree/live_launch.rs` asserts the `AGENT_DESKTOP_PRIVATE_SESSION` marker and refuses to start without it, so a live test cannot map windows on the owner's screen or touch the live AT-SPI bus. Box setup and the remote loop are in [remote-dev-boxes-over-tailscale.md](remote-dev-boxes-over-tailscale.md); the hazards of the shared session are in [a-shared-live-desktop-is-shared-state.md](a-shared-live-desktop-is-shared-state.md). Measurements are recorded as rows in `probes/linux/FINDINGS.md`, and the committed reports in `docs/dogfood-reports/` are the per-sub-phase record.
 
 ## Related
 

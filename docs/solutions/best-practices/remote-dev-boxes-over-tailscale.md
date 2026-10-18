@@ -40,7 +40,7 @@ Three constraints break the obvious setups:
 ## Resolution
 
 Tailscale for transport, `rsync` + `ssh` for the loop, and a stolen session environment for
-AT-SPI. Two scripts, 23 lines total.
+AT-SPI. Two scripts: `scripts/session-env.sh` and `scripts/remote-linux.sh`.
 
 `scripts/session-env.sh` reads the graphical environment from the running session process
 instead of a guess:
@@ -60,11 +60,15 @@ incremental and the box disk holds one set of dependencies.
 
 The script is the only sanctioned way to run on the box:
 
-- Gitignored files (`.env`, `.claude/`, `target/`) are never synced.
-- Arguments pass through quoted one by one; `-c` runs a single string under `bash`.
+- Only files git tracks or would add (`git ls-files -co --exclude-standard`) are synced, so gitignored files (`.env`, `.claude/`, `target/`) never leave the workstation.
+- Arguments pass through quoted one by one; `-c` runs a single string under `bash`; stdin reaches the remote command.
 - A command that contains `sudo` is refused. The box is shared and runs unattended.
-- `AGENT_DESKTOP_REMOTE_TIMEOUT` (default 3600 s) stops a command that hangs.
+- A command that starts `dbus-run-session` without setting `XDG_RUNTIME_DIR` is refused, and a warning prints after every run if the live AT-SPI bus socket is gone.
+- One `flock` on the box serializes every run, because two runs on one X display corrupt each other's input and focus. `AGENT_DESKTOP_REMOTE_LOCK=0` skips it for read-only commands.
+- `AGENT_DESKTOP_REMOTE_TIMEOUT` (default 3600 s) stops a command that hangs and bounds the wait for the lock.
 - Every command is appended to the local `.claude/remote-linux.log`.
+
+Commands that start a bus, a display or an app run through `scripts/private-session.sh`, never against the live session. See [a shared live desktop is shared state](a-shared-live-desktop-is-shared-state.md).
 
 ```bash
 scripts/remote-linux.sh                                  # cargo test -p agent-desktop-linux
