@@ -111,15 +111,18 @@ pub(crate) fn preflight(cmd: &Commands, report: &PermissionReport) -> Result<(),
     Ok(())
 }
 
+fn agent_id_missing(cmd: &Commands, multi_agent: bool, agent_id: Option<&str>) -> bool {
+    multi_agent
+        && agent_id.is_none()
+        && cmd.is_mutating()
+        && policy_for(cmd) == PermissionNeed::Accessibility
+}
+
 pub(crate) fn preflight_context(
     cmd: &Commands,
     context: &agent_desktop_core::context::CommandContext,
 ) -> Result<(), AppError> {
-    if context.multi_agent()
-        && context.agent_id().is_none()
-        && cmd.is_mutating()
-        && policy_for(cmd) == PermissionNeed::Accessibility
-    {
+    if agent_id_missing(cmd, context.multi_agent(), context.agent_id()) {
         return Err(AppError::invalid_input_with_suggestion(
             "Multi-agent sessions require --agent-id for desktop actions",
             "Set --agent-id or AGENT_DESKTOP_AGENT_ID before running the command.",

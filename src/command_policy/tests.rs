@@ -205,3 +205,16 @@ fn trace_show_passes_preflight_with_permissions_denied() {
     });
     assert!(preflight(&command, &report).is_ok());
 }
+
+#[test]
+fn a_multi_agent_desktop_action_needs_an_agent_id_on_every_platform() {
+    let click = Commands::Click(RefArgs {
+        ref_id: VALID_REF_ID.into(),
+        timeout_ms: 5000,
+    });
+
+    assert!(agent_id_missing(&click, true, None));
+    assert!(!agent_id_missing(&click, true, Some("agent-a")));
+    assert!(!agent_id_missing(&click, false, None));
+    assert!(!agent_id_missing(&Commands::Status, true, None));
+}
