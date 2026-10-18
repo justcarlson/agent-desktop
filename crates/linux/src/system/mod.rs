@@ -5,6 +5,8 @@ mod bus_fault;
 mod bus_stage;
 mod interaction_lease;
 mod permissions;
+#[allow(dead_code)]
+mod process_facts;
 mod session;
 
 pub(crate) use bus::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, classify};
