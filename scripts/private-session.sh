@@ -34,7 +34,7 @@ mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache"
 printf '[org/gnome/desktop/interface]\ntoolkit-accessibility=true\n' > "$rt/cfg/glib-2.0/settings/keyfile"
 
 pids=()
-# shellcheck disable=SC2329
+# shellcheck disable=SC2317,SC2329
 session_members() {
   local environ pid
   for environ in /proc/[0-9]*/environ; do
@@ -46,7 +46,7 @@ session_members() {
     fi
   done
 }
-# shellcheck disable=SC2329
+# shellcheck disable=SC2317,SC2329
 cleanup() {
   local pid mount
   trap '' INT TERM HUP
