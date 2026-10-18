@@ -43,6 +43,14 @@ mod live_timeout;
 mod live_tree;
 
 #[cfg(test)]
+#[path = "vocabulary_live_analysis.rs"]
+mod vocabulary_live_analysis;
+
+#[cfg(test)]
+#[path = "vocabulary_live_tests.rs"]
+mod vocabulary_live_tests;
+
+#[cfg(test)]
 #[path = "walker_live_tests.rs"]
 mod walker_live_tests;
 
