@@ -357,8 +357,8 @@ Size: `docs/phases.md` estimates about 2k LOC; this plan is roughly 3.3-4k lines
 - **Goal:** `--surface sheet` and `list_surfaces` work, and the advertised list is true.
 - **Requirements:** R7.
 - **Dependencies:** U5, U7.
-- **Files:** `crates/linux/src/tree/surfaces.rs`, `crates/linux/src/tree/surfaces_tests.rs`, `crates/linux/src/system/adapter.rs`, `crates/linux/src/adapter.rs`.
-- **Approach:** KTD15, KTD17. A pure predicate over role number, state bits and (from U1's probe) relation facts classifies a sheet; `observe.rs` applies it for `--surface sheet`; `list_surfaces` builds its entries from the same window inventory. Replace the lib test that pins an empty advertised list with one that pins Window and Sheet and the fail-closed answer for a menu surface.
+- **Files:** `crates/linux/src/tree/surfaces.rs`, `crates/linux/src/tree/surfaces_tests.rs`, `crates/linux/src/system/surfaces.rs`, `crates/linux/src/system/surfaces_tests.rs`, `crates/linux/src/system/listed_window.rs`, `crates/linux/src/system/window_listing.rs`, `crates/linux/src/system/adapter.rs`, `crates/linux/src/adapter.rs`, `crates/linux/src/tree/observe.rs`, `crates/linux/src/tree/observe_tests.rs`.
+- **Approach:** KTD15, KTD17. A pure predicate over role number, state bits and (from U1's probe) relation facts classifies a sheet; `observe.rs` applies it for `--surface sheet`; `system/surfaces.rs` builds `list_surfaces` entries from the same window inventory via `window_listing.rs`. Replace the lib test that pins an empty advertised list with one that pins Window and Sheet and the fail-closed answer for a menu surface.
 - **Patterns to follow:** `crates/windows/src/tree/surface_inventory.rs`, `surfaces.rs`.
 - **Test scenarios:**
   - A dialog role with `MODAL` is a sheet; a frame role with `MODAL`, a dialog without it and an unreadable state set are not.

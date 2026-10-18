@@ -19,6 +19,7 @@ mod registry;
 mod registry_app;
 mod registry_frames;
 mod session;
+mod surfaces;
 mod toolkit;
 mod toolkit_id;
 mod window_filter;
@@ -36,6 +37,7 @@ pub(crate) use bus_process::process_id;
 
 pub(crate) use app_ops::{inventory as app_inventory, scoped as apps_scoped};
 pub(crate) use display::list_displays;
+pub(crate) use surfaces::list_surfaces;
 pub(crate) use window_ops::{focused_window, list_windows};
 pub(crate) use window_resolve::resolve_window_strict;
 

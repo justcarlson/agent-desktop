@@ -57,6 +57,7 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
             extents: node.extents.present().copied(),
             global_position,
         },
+        sheet: crate::tree::surfaces::is_sheet(node),
     })
 }
 

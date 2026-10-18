@@ -1,7 +1,7 @@
 use agent_desktop_core::{
     AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, InputOps,
-    ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, TreeOptions, WindowFilter,
-    WindowInfo,
+    ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, ProcessIdentity,
+    SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -62,6 +62,14 @@ impl ObservationOps for LinuxAdapter {
         crate::system::apps_scoped(self.bus(), name, bundle_id, deadline)
     }
 
+    fn list_surfaces(
+        &self,
+        process: ProcessIdentity,
+        deadline: Deadline,
+    ) -> Result<Vec<SurfaceInfo>, AdapterError> {
+        crate::system::list_surfaces(self.bus(), &process, deadline)
+    }
+
     fn get_tree(
         &self,
         window: &WindowInfo,
@@ -83,41 +91,74 @@ mod tests {
     use super::*;
     use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface, SystemOps};
 
+    fn snapshot_args(
+        surface: SnapshotSurface,
+    ) -> agent_desktop_core::commands::snapshot::SnapshotArgs {
+        agent_desktop_core::commands::snapshot::SnapshotArgs {
+            app: None,
+            window_id: None,
+            max_depth: 1,
+            include_bounds: false,
+            interactive_only: false,
+            compact: true,
+            surface,
+            skeleton: false,
+            root_ref: None,
+            timeout_ms: None,
+            force_electron_a11y: false,
+        }
+    }
+
     #[test]
-    fn snapshot_surfaces_fail_closed_until_linux_implements_them() {
+    fn supported_surfaces_advertises_window_and_sheet_and_rejects_the_rest() {
         let adapter = LinuxAdapter::new();
-        assert!(adapter.supported_surfaces().is_empty());
+        assert_eq!(
+            adapter.supported_surfaces(),
+            vec![SnapshotSurface::Window, SnapshotSurface::Sheet]
+        );
 
         let error = agent_desktop_core::commands::snapshot::execute(
-            agent_desktop_core::commands::snapshot::SnapshotArgs {
-                app: None,
-                window_id: None,
-                max_depth: 1,
-                include_bounds: false,
-                interactive_only: false,
-                compact: true,
-                surface: SnapshotSurface::Window,
-                skeleton: false,
-                root_ref: None,
-                timeout_ms: None,
-                force_electron_a11y: false,
-            },
+            snapshot_args(SnapshotSurface::Menu),
             &adapter,
             &CommandContext::default(),
         )
-        .expect_err("an unimplemented surface must fail at validation");
+        .expect_err("an unsupported surface must fail at validation");
 
         let AppError::Adapter(error) = error else {
             panic!("surface validation must return an adapter error")
         };
         assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-        assert!(
+        assert_eq!(
             error
                 .details
                 .as_ref()
                 .and_then(|details| details.get("supported_surfaces"))
                 .and_then(|surfaces| surfaces.as_array())
-                .is_some_and(Vec::is_empty)
+                .map(Vec::len),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn a_window_surface_passes_validation_and_reaches_the_adapter() {
+        let adapter = LinuxAdapter::new();
+        let error = agent_desktop_core::commands::snapshot::execute(
+            snapshot_args(SnapshotSurface::Window),
+            &adapter,
+            &CommandContext::default(),
+        )
+        .expect_err("no session can answer in a unit test");
+
+        let AppError::Adapter(error) = error else {
+            panic!("the observation must fail as an adapter error")
+        };
+        assert!(
+            error
+                .details
+                .as_ref()
+                .and_then(|details| details.get("requested_surface"))
+                .is_none(),
+            "the failure must come from the adapter, not surface validation: {error:?}"
         );
     }
 }

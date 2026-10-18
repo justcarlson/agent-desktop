@@ -42,11 +42,19 @@ fn window_gone(root: &ObservationRoot<'_>, error: AdapterError) -> AdapterError 
     error
 }
 
-fn require_window_surface(surface: SnapshotSurface) -> Result<(), AdapterError> {
+fn require_surface(surface: SnapshotSurface) -> Result<(), AdapterError> {
     match surface {
-        SnapshotSurface::Window => Ok(()),
+        SnapshotSurface::Window | SnapshotSurface::Sheet => Ok(()),
         _ => Err(AdapterError::not_supported("observe_tree for this surface")),
     }
+}
+
+fn sheet_absent() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ElementNotFound,
+        "The window does not present a sheet surface",
+    )
+    .with_suggestion("Open a modal dialog, or snapshot the window surface")
 }
 
 type Walker<'a> = dyn FnMut(&AtspiElement, &WalkLimits, Deadline) -> Result<Walk<ObservedRead>, AdapterError>
@@ -75,6 +83,11 @@ fn settled_walk(
             }
             Err(error) => return Err(window_gone(root, error)),
         };
+        if request.surface == SnapshotSurface::Sheet
+            && !super::surfaces::is_sheet(&walk.root.payload.node)
+        {
+            return Err(sheet_absent());
+        }
         if !walk.complete || !(web_process || has_web_document(&walk.root)) {
             return Ok((walk, true));
         }
@@ -105,7 +118,7 @@ fn observe_with(
     mut host: SettleHost<'_>,
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
-    require_window_surface(request.surface)?;
+    require_surface(request.surface)?;
     let element = root_element(&root)?;
     let limits = WalkLimits::for_request(&request);
     let started = Instant::now();

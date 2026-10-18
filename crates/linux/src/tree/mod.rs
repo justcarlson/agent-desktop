@@ -28,6 +28,7 @@ mod roles;
 mod settle;
 pub(crate) mod state_bits;
 mod states;
+pub(crate) mod surfaces;
 mod value_read;
 mod vocabulary;
 mod walk;

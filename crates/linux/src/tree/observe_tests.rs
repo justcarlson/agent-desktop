@@ -6,10 +6,10 @@ use agent_desktop_core::{
 use super::{SettleHost, observe_with};
 use crate::system::window_id;
 use crate::tree::role_numbers::PUSH_BUTTON;
-use crate::tree::test_support::read_of;
+use crate::tree::test_support::{read_of, words};
 use crate::tree::walker::walk_levels;
 use crate::tree::wrapper::classify;
-use crate::tree::{AtspiElement, Expansion, ObservedRead, Walk, WalkLimits};
+use crate::tree::{AtspiElement, Expansion, Field, ObservedRead, Walk, WalkLimits};
 
 pub(super) fn observe_plain(
     root: ObservationRoot<'_>,
@@ -111,6 +111,60 @@ fn a_surface_this_adapter_does_not_walk_is_not_supported() {
     })
     .expect_err("rejected");
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+}
+
+fn rooted_walk(
+    role: u32,
+    state_bits: &[u32],
+) -> impl Fn(&WalkLimits) -> Result<Walk<ObservedRead>, AdapterError> {
+    let state_bits = state_bits.to_vec();
+    move |limits| {
+        let bits = state_bits.clone();
+        walk_levels(
+            0u32,
+            limits,
+            Deadline::after(5_000).expect("deadline"),
+            |level| {
+                Ok(level
+                    .iter()
+                    .map(|_| {
+                        let mut read = read_of(role, "d", &[]);
+                        read.node.traits.states = Field::Present(words(&bits));
+                        Expansion::read(read, Vec::new())
+                    })
+                    .collect())
+            },
+            classify,
+        )
+    }
+}
+
+#[test]
+fn a_sheet_surface_observes_a_modal_dialog() {
+    let id = window_id::encode(":1.7", "/a").expect("encodes");
+    let window = window(id);
+    let mut sheet = request();
+    sheet.surface = SnapshotSurface::Sheet;
+    let walk = rooted_walk(16, &[25, 16]);
+    let tree = observe_plain(ObservationRoot::Window(&window), &sheet, |_, limits, _| {
+        walk(limits)
+    })
+    .expect("a modal dialog observes as the sheet");
+    assert!(tree.is_complete());
+}
+
+#[test]
+fn a_sheet_surface_against_a_plain_window_is_element_not_found() {
+    let id = window_id::encode(":1.7", "/a").expect("encodes");
+    let window = window(id);
+    let mut sheet = request();
+    sheet.surface = SnapshotSurface::Sheet;
+    let walk = rooted_walk(23, &[25]);
+    let error = observe_plain(ObservationRoot::Window(&window), &sheet, |_, limits, _| {
+        walk(limits)
+    })
+    .expect_err("not a sheet");
+    assert_eq!(error.code, ErrorCode::ElementNotFound);
 }
 
 #[test]

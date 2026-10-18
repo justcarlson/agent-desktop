@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, AdapterSession, Deadline, DisplayInfo, InteractionLease, PermissionReport,
-    SessionAffinity, SystemOps, WindowInfo,
+    SessionAffinity, SnapshotSurface, SystemOps, WindowInfo,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -32,6 +32,10 @@ impl SystemOps for LinuxAdapter {
 
     fn list_displays(&self, deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
         crate::system::list_displays(deadline)
+    }
+
+    fn supported_surfaces(&self) -> Vec<SnapshotSurface> {
+        vec![SnapshotSurface::Window, SnapshotSurface::Sheet]
     }
 
     fn open_session(
