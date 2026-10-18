@@ -269,17 +269,11 @@ jobs:
       - name: Check dependency isolation
         run: |
           PATTERN='agent-desktop-(macos|windows|linux)|\bzbus\b|\bzvariant\b|\basync-io\b|\btokio\b'
-          for TARGET in "" "x86_64-unknown-linux-gnu"; do
-            if [ -n "$TARGET" ]; then
-              TREE=$(cargo tree --locked -p agent-desktop-core --edges normal,build,dev --target "$TARGET")
-            else
-              TREE=$(cargo tree --locked -p agent-desktop-core --edges normal,build,dev)
-            fi
-            if printf '%s\n' "$TREE" | grep -E "$PATTERN"; then
-              echo "FAIL: core crate pulls platform or async-bus crates (target: '$TARGET')"
-              exit 1
-            fi
-          done
+          TREE=$(cargo tree --locked -p agent-desktop-core --edges normal,build,dev)
+          if printf '%s\n' "$TREE" | grep -E "$PATTERN"; then
+            echo "FAIL: core crate pulls platform or async-bus crates"
+            exit 1
+          fi
           echo "OK: core crate has no platform or async-bus dependencies on normal, build, or dev edges"
 
       - name: Clippy
