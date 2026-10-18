@@ -11,7 +11,7 @@ use super::app_ops::{ProcessRow, process_snapshot};
 #[cfg(target_os = "windows")]
 use super::hresult::win32_last_error;
 use super::launch_path::{
-    child_environment_block, image_file_name, resolve_executable, validate_app_identifier,
+    child_environment_block, image_file_name, launch_identifier, resolve_executable,
     validate_launch_options,
 };
 use super::permissions::ensure_budget;
@@ -23,7 +23,7 @@ pub(crate) fn launch_app_impl(
     options: &LaunchOptions,
     parent_deadline: Deadline,
 ) -> Result<LaunchResult, AdapterError> {
-    validate_app_identifier(id).map_err(before_launch)?;
+    let id = &launch_identifier(id).map_err(before_launch)?;
     validate_launch_options(options).map_err(before_launch)?;
     let deadline = if options.timeout_ms == 0 {
         parent_deadline

@@ -6,12 +6,18 @@ const MAX_ARGUMENT_COUNT: usize = 256;
 const MAX_ENVIRONMENT_COUNT: usize = 256;
 const MAX_LAUNCH_TEXT_BYTES: usize = 1024 * 1024;
 
-pub(super) fn validate_app_identifier(id: &str) -> Result<(), AdapterError> {
+pub(super) fn launch_identifier(id: &str) -> Result<String, AdapterError> {
     if id.is_empty() || id.contains("..") || id.chars().any(char::is_control) {
         return Err(invalid_identifier(id));
     }
-    if is_absolute_launch_path(id) || is_bare_name(id) {
-        return Ok(());
+    if is_absolute_launch_path(id) {
+        return Ok(id.to_owned());
+    }
+    if is_bare_name(id) {
+        if std::path::Path::new(id).extension().is_some() {
+            return Ok(id.to_owned());
+        }
+        return Ok(format!("{id}.exe"));
     }
     Err(invalid_identifier(id))
 }
@@ -216,10 +222,18 @@ mod tests {
 
     #[test]
     fn absolute_and_bare_names_are_accepted() {
-        assert!(validate_app_identifier(r"C:\Windows\System32\notepad.exe").is_ok());
-        assert!(validate_app_identifier(r"\\?\C:\Windows\notepad.exe").is_ok());
-        assert!(validate_app_identifier(r"\\server\share\app.exe").is_ok());
-        assert!(validate_app_identifier("notepad.exe").is_ok());
+        assert!(launch_identifier(r"C:\Windows\System32\notepad.exe").is_ok());
+        assert!(launch_identifier(r"\\?\C:\Windows\notepad.exe").is_ok());
+        assert!(launch_identifier(r"\\server\share\app.exe").is_ok());
+        assert!(launch_identifier("notepad.exe").is_ok());
+    }
+
+    #[test]
+    fn a_bare_name_without_an_extension_names_its_exe_image() {
+        assert_eq!(launch_identifier("notepad").unwrap(), "notepad.exe");
+        assert_eq!(launch_identifier("notepad.exe").unwrap(), "notepad.exe");
+        assert_eq!(launch_identifier("mmc.msc").unwrap(), "mmc.msc");
+        assert_eq!(launch_identifier(r"C:\Tools\app").unwrap(), r"C:\Tools\app");
     }
 
     #[test]
@@ -234,7 +248,7 @@ mod tests {
             "bad\0name",
             "bad\nname",
         ] {
-            let error = validate_app_identifier(identifier).expect_err("unsafe identifier");
+            let error = launch_identifier(identifier).expect_err("unsafe identifier");
             assert_eq!(error.code, ErrorCode::InvalidArgs);
         }
     }
