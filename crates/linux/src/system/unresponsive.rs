@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, AppInfo, Deadline, ErrorCode};
 
 use super::SharedBus;
 use super::listed_window::ListedWindow;
@@ -36,6 +36,25 @@ pub(crate) fn settle_scoped<T>(
     match stopped {
         Some(error) => Err(error),
         None => Ok(windows),
+    }
+}
+
+/// The applications a name matched, unless several matched and one of them is
+/// stopped. A stopped application cannot be told from its running same-name
+/// twin by anything it answers, so the name is not ambiguous: the stopped one
+/// is the thing to tell the caller, as a scoped window listing tells it. A
+/// single match is returned whatever its state, so a command on a stopped
+/// application still reaches the application.
+pub(crate) fn settle_matches(
+    matched: Vec<AppInfo>,
+    stopped: impl FnOnce() -> Option<AdapterError>,
+) -> Result<Vec<AppInfo>, AdapterError> {
+    if matched.len() < 2 {
+        return Ok(matched);
+    }
+    match stopped() {
+        Some(error) => Err(error),
+        None => Ok(matched),
     }
 }
 

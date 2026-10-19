@@ -7,8 +7,10 @@ use serde_json::json;
 
 use super::SharedBus;
 use super::proc_scan::find_running;
+use super::process_facts;
 use super::registry::{Registry, read_registry};
 use super::registry_app::RegistryApp;
+use super::unresponsive::{settle_matches, stopped_target};
 use super::window_ops::windows_of;
 
 const MISSING_CONNECTION: &str = "The process is running but is not on the accessibility bus. Sandboxed apps (snap, Flatpak) cannot reach it unless the bus is shared. A Chromium browser (Chrome, Chromium) needs --force-renderer-accessibility on its command line: ACCESSIBILITY_ENABLED=1 alone puts it on the bus with no windows. An Electron app needs no accessibility flag, but needs --no-sandbox where its chrome-sandbox is not setuid. A Qt app needs QT_ACCESSIBILITY=1. The registry was read once, so an app launched a moment ago may need a retry.";
@@ -122,6 +124,13 @@ pub(crate) fn scoped(
     }
     let registry = read_registry(bus, deadline)?;
     let matched = infos(bus, &registry, |app| app.matches(name), deadline)?;
+    let matched = settle_matches(matched, || {
+        stopped_target(
+            &registry,
+            |app| app.matches(name),
+            process_facts::is_stopped,
+        )
+    })?;
     scoped_outcome(matched, name, find_running)
 }
 

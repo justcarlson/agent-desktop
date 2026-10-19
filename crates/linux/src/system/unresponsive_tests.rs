@@ -1,10 +1,10 @@
-use super::{require_known_target, settle_scoped, stopped_target};
+use super::{require_known_target, settle_matches, settle_scoped, stopped_target};
 use crate::system::process_facts::ProcessFacts;
 use crate::system::registry::Registry;
 use crate::system::registry_app::{RegistryApp, assemble};
 use crate::system::toolkit_id::ToolkitId;
 use crate::tree::AtspiElement;
-use agent_desktop_core::ErrorCode;
+use agent_desktop_core::{AppInfo, ErrorCode};
 
 fn app(pid: u32, exe: &str, answered: bool) -> RegistryApp {
     assemble(
@@ -105,4 +105,38 @@ fn windows_are_returned_when_no_selected_app_is_stopped() {
             .expect("empty")
             .is_empty()
     );
+}
+
+fn listed(pid: u32) -> AppInfo {
+    AppInfo {
+        name: "chrome".to_owned(),
+        pid: pid.into(),
+        bundle_id: None,
+        process_instance: Some("boot:1".to_owned()),
+        presentation: None,
+    }
+}
+
+#[test]
+fn a_name_two_apps_share_is_unresponsive_when_one_of_them_is_stopped() {
+    let registry = registry(vec![app(7, "chrome", false), app(8, "chrome", true)]);
+    let error = settle_matches(vec![listed(7), listed(8)], || {
+        stopped_target(&registry, |_| true, |pid| pid == 7)
+    })
+    .expect_err("a stopped twin");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains("chrome"));
+}
+
+#[test]
+fn a_name_two_running_apps_share_is_left_for_the_caller_to_call_ambiguous() {
+    let kept = settle_matches(vec![listed(7), listed(8)], || None).expect("both run");
+    assert_eq!(kept.len(), 2);
+}
+
+#[test]
+fn a_single_stopped_match_is_returned_without_asking_what_is_stopped() {
+    let kept = settle_matches(vec![listed(7)], || panic!("one match needs no twin check"))
+        .expect("one match");
+    assert_eq!(kept.len(), 1);
 }

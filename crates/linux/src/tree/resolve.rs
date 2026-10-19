@@ -86,6 +86,18 @@ fn sole_at_stored_depth<'a>(
     at_depth.next().is_none().then_some(first)
 }
 
+/// The verified window frame, when the ref stored an empty path and the frame
+/// answers to the stored evidence. The gate has proved the process and the
+/// window, and exactly one node sits at depth zero, so no twin can exist
+/// elsewhere in the tree and an unread region below it (a background tab's
+/// document lists no children) cannot change the answer.
+fn frame_candidate<'a>(candidates: &'a [Candidate], entry: &RefEntry) -> Option<&'a Candidate> {
+    if !window_rooted(entry) || !entry.scope.path.is_empty() {
+        return None;
+    }
+    candidates.iter().find(|candidate| candidate.depth == 0)
+}
+
 fn accepts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
     if entry_is_unverifiable(entry) {
         accepts_identityless_landing(entry, evidence)
@@ -129,6 +141,9 @@ fn attempt<S: Source>(
         .iter()
         .map(|candidate| candidate.bounds)
         .collect();
+    if let Some(frame) = frame_candidate(&searched.candidates, entry) {
+        return Ok(frame.element.clone());
+    }
     let unread = path_unread || searched.unread_region;
     if window_rooted(entry)
         && !unread

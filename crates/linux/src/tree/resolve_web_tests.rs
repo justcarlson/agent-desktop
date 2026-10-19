@@ -127,3 +127,31 @@ fn a_child_whose_owner_cannot_be_looked_up_is_retried_and_never_stale() {
     let error = resolve(&mut fake, &entry, deadline()).expect_err("unreadable");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
 }
+
+fn window_with_background_tab() -> Fake {
+    let mut fake = Fake::new();
+    fake.web_process = true;
+    fake.add(FRAME_PATH, "/tab", node(DOCUMENT_WEB, "", 800, 500));
+    fake.add(FRAME_PATH, "/save", node(PUSH_BUTTON, "Save", 60, 24));
+    fake
+}
+
+#[test]
+fn the_window_frame_resolves_though_a_background_tab_document_lists_no_children() {
+    let mut fake = window_with_background_tab();
+    let entry = fake.entry_of(FRAME_PATH, true);
+    assert!(entry.scope.path.is_empty());
+    let found = resolve(&mut fake, &entry, deadline()).expect("the frame resolves");
+    assert_eq!(found.path(), FRAME_PATH);
+    assert_eq!(fake.reads.searches, 1);
+}
+
+#[test]
+fn a_pathless_element_stays_retried_while_a_web_document_lists_no_children() {
+    let mut fake = window_with_background_tab();
+    let mut entry = fake.entry_of("/save", true);
+    entry.scope.path.clear();
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("a region is unread");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.is_explicitly_retryable());
+}
