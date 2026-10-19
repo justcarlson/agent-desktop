@@ -20,7 +20,7 @@ fn entry_named(entries: &[(String, RefEntry)], role: &str, name: Option<&str>) -
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
 fn navigate_live_a_settings_panel_ref_is_stale_after_another_panel_replaces_it() {
     let mut rig = rig();
-    let pid = rig.launched.spawn("gnome-control-center", &[]);
+    let pid = rig.launched.spawn("gnome-control-center", &["network"]);
     let settled = rig.settled(pid, 20);
     let entries = rig.entries(&settled.frame, true);
     let panel_a = entry_named(&entries, "button", Some("Add Ethernet Connection"));
