@@ -140,6 +140,7 @@ fn an_incr_transfer_over_the_cap_stops_reading_early() {
     fake.chunks = (0..6).map(|_| Ok(big.clone())).collect();
     let error = read(&mut fake, ClipboardFormat::Text).expect_err("over the cap");
     assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert!(error.message.contains("cap"), "{}", error.message);
     assert_eq!(fake.chunks.len(), 1, "reading must stop at the cap");
 }
 
