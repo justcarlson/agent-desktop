@@ -52,7 +52,7 @@ pub(crate) async fn toolkit(connection: &Connection, root: &AtspiElement) -> Too
     read_toolkit(connection, root).await
 }
 
-pub(super) trait AppReads {
+trait AppReads {
     fn facts(&self, pid: u32) -> Option<ProcessFacts>;
     async fn name(&self, root: &AtspiElement) -> Option<Option<String>>;
     async fn toolkit(&self, root: &AtspiElement) -> ToolkitId;
@@ -78,11 +78,7 @@ impl AppReads for BusReads<'_> {
     }
 }
 
-pub(super) async fn read_known(
-    reads: &impl AppReads,
-    root: AtspiElement,
-    only: Option<u32>,
-) -> AppRead {
+async fn read_known(reads: &impl AppReads, root: AtspiElement, only: Option<u32>) -> AppRead {
     let pid = root.pid();
     if only.is_some_and(|wanted| wanted != pid) {
         return AppRead::Excluded;

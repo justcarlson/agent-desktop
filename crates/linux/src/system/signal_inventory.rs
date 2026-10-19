@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
+#![expect(dead_code, reason = "stub the owning lane replaces")]
 
 use agent_desktop_core::{AdapterError, Deadline};
 
@@ -34,11 +34,11 @@ pub(crate) struct Pass {
 /// The applications whose frames a pass reads, with their position in the
 /// registry. An application that did not answer and is stopped is left out:
 /// reading it costs a full slice and can only time out.
-fn chosen_apps<'a>(
-    registry: &'a Registry,
+fn chosen_apps(
+    registry: &Registry,
     select: impl Fn(&RegistryApp) -> bool,
     is_stopped: impl Fn(u32) -> bool,
-) -> Vec<(usize, &'a RegistryApp)> {
+) -> Vec<(usize, &RegistryApp)> {
     registry
         .apps
         .iter()
