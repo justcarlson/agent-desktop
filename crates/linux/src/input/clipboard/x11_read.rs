@@ -1,14 +1,163 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use agent_desktop_core::{
+    AdapterError, ClipboardContent, ClipboardFormat, Deadline, DeliverySemantics, ErrorCode,
+    MAX_PNG_INPUT_BYTES,
+};
+use serde_json::json;
 
-use agent_desktop_core::{AdapterError, ClipboardContent, ClipboardFormat, Deadline, ErrorCode};
+use super::formats::PNG;
+use super::incr::{IncrReceiver, Push};
+use super::targets::{Wanted, choose_target, content_of};
+use super::x11_requestor::X11Requestor;
+use crate::system::x11::{self, MonitorFault};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Fault {
+    Timeout,
+    Connect(MonitorFault),
+    Protocol(String),
+    OverCap,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Converted {
+    Refused,
+    Value(Vec<u8>),
+    Incr,
+}
+
+pub(crate) trait Requestor {
+    fn offered(&mut self, deadline: Deadline) -> Result<Option<Vec<String>>, Fault>;
+    fn request(&mut self, target: &str, deadline: Deadline) -> Result<Converted, Fault>;
+    fn next_chunk(&mut self, deadline: Deadline) -> Result<Vec<u8>, Fault>;
+    fn owner_pid(&mut self) -> Option<u32>;
+}
+
+const INNER_DEADLINE_SHARE: u32 = 10;
+
+pub(crate) fn fault_error(fault: Fault, owner_pid: Option<u32>) -> AdapterError {
+    let error = match fault {
+        Fault::Timeout => {
+            let error = AdapterError::timeout("The clipboard owner did not answer in time");
+            match owner_pid {
+                Some(pid) => error.with_details(json!({ "owner_pid": pid })),
+                None => error,
+            }
+        }
+        Fault::Connect(MonitorFault::Unreadable) => AdapterError::new(
+            ErrorCode::ActionFailed,
+            "The display server's replies could not be used",
+        ),
+        Fault::Connect(MonitorFault::Denied(reason)) => AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!("The display server refused this client: {reason}"),
+        ),
+        Fault::Connect(MonitorFault::Unreachable(reason)) => AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!("The display server is not reachable: {reason}"),
+        ),
+        Fault::Protocol(message) => AdapterError::new(ErrorCode::ActionFailed, message),
+        Fault::OverCap => AdapterError::new(
+            ErrorCode::ActionFailed,
+            format!(
+                "The clipboard holds more than the {} MiB cap",
+                MAX_PNG_INPUT_BYTES / (1024 * 1024)
+            ),
+        ),
+    };
+    error.with_disposition(DeliverySemantics::not_delivered())
+}
+
+fn target_name(wanted: &Wanted) -> &'static str {
+    match wanted {
+        Wanted::FileUrls(name) | Wanted::Text(name) => name,
+        Wanted::Image => PNG,
+    }
+}
+
+fn collect_incr(requestor: &mut dyn Requestor, deadline: Deadline) -> Result<Vec<u8>, Fault> {
+    let mut receiver = IncrReceiver::new(MAX_PNG_INPUT_BYTES);
+    loop {
+        let chunk = requestor.next_chunk(deadline)?;
+        match receiver.push(&chunk) {
+            Ok(Push::More) => {}
+            Ok(Push::Complete) => break,
+            Err(_) => return Err(Fault::OverCap),
+        }
+    }
+    receiver
+        .into_bytes()
+        .ok_or_else(|| Fault::Protocol("The INCR transfer ended without its final chunk".into()))
+}
+
+fn fetch(
+    requestor: &mut dyn Requestor,
+    format: ClipboardFormat,
+    deadline: Deadline,
+) -> Result<Option<(Wanted, Vec<u8>)>, Fault> {
+    let Some(offered) = requestor.offered(deadline)? else {
+        return Ok(None);
+    };
+    let Some(wanted) = choose_target(&offered, format) else {
+        return Ok(None);
+    };
+    let bytes = match requestor.request(target_name(&wanted), deadline)? {
+        Converted::Refused => return Ok(None),
+        Converted::Value(bytes) => bytes,
+        Converted::Incr => collect_incr(requestor, deadline)?,
+    };
+    Ok(Some((wanted, bytes)))
+}
+
+/// Reads what the selection owner holds, in the shape `format` asks for.
+/// No owner, a target the owner does not offer and a refused conversion all
+/// read as absent; an empty text is a value.
+pub(crate) fn read_with(
+    requestor: &mut dyn Requestor,
+    format: ClipboardFormat,
+    deadline: Deadline,
+) -> Result<Option<ClipboardContent>, AdapterError> {
+    let fetched = match fetch(requestor, format, deadline) {
+        Ok(fetched) => fetched,
+        Err(fault) => {
+            let pid = matches!(fault, Fault::Timeout)
+                .then(|| requestor.owner_pid())
+                .flatten();
+            return Err(fault_error(fault, pid));
+        }
+    };
+    let Some((wanted, bytes)) = fetched else {
+        return Ok(None);
+    };
+    match content_of(&wanted, bytes)
+        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?
+    {
+        ClipboardContent::FileUrls(paths) if paths.is_empty() => Ok(None),
+        content => Ok(Some(content)),
+    }
+}
+
+fn read_on_connection(
+    display: &str,
+    format: ClipboardFormat,
+    deadline: Deadline,
+) -> Result<Option<ClipboardContent>, AdapterError> {
+    let mut requestor = X11Requestor::connect(display).map_err(|fault| fault_error(fault, None))?;
+    read_with(&mut requestor, format, deadline)
+}
 
 pub(crate) fn read_x11(
-    _display: &str,
-    _format: ClipboardFormat,
-    _deadline: Deadline,
+    display: &str,
+    format: ClipboardFormat,
+    deadline: Deadline,
 ) -> Result<Option<ClipboardContent>, AdapterError> {
-    Err(AdapterError::new(
-        ErrorCode::PlatformNotSupported,
-        "The X11 clipboard read is not built yet",
-    ))
+    let remaining = deadline.remaining();
+    let inner = deadline.capped(remaining - remaining / INNER_DEADLINE_SHARE);
+    let display_name = display.to_owned();
+    x11::start(move || read_on_connection(&display_name, format, inner))
+        .finish(deadline)
+        .unwrap_or_else(|| Err(fault_error(Fault::Timeout, None)))
 }
+
+#[cfg(test)]
+#[path = "x11_read_tests.rs"]
+mod tests;

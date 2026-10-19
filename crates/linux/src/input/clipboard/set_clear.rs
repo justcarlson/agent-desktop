@@ -1,42 +1,271 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use std::os::fd::AsRawFd;
+use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{
-    AdapterError, ClipboardContent, ClipboardFormat, Deadline, ErrorCode, InteractionLease,
+    AdapterError, ClipboardContent, ClipboardFormat, Deadline, DeliverySemantics, ErrorCode,
+    InteractionLease,
 };
 
-fn not_built() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::PlatformNotSupported,
-        "The Linux clipboard is not built yet",
-    )
+use super::owner_locate::locate_helper;
+use super::owner_record::{self, OwnerRecord};
+use super::owner_signal::{PidfdSignaller, Signaller};
+use super::owner_spawn::{
+    ChildProbe, Handshake, await_handshake, kill_and_reap, new_nonce, payload_file, reap_when_done,
+};
+use super::owner_spawn_spec::{SpawnRequest, build_spec, protect_lease_descriptor};
+use super::payload::{Payload, payload_of};
+use super::wayland::{clear_wayland, read_wayland, set_wayland};
+use super::x11_read::{fault_error, read_x11};
+use super::x11_requestor::{SelectionServer, X11Server};
+use crate::system::route::{self, Route};
+
+const VERIFY_GRACE_MS: u64 = 1_000;
+
+pub(crate) struct Env<'a> {
+    pub(crate) helper: &'a Path,
+    pub(crate) record_dir: &'a Path,
+    pub(crate) server: &'a dyn SelectionServer,
+    pub(crate) signaller: &'a dyn Signaller,
+    pub(crate) parent_env: &'a dyn Fn(&str) -> Option<String>,
+    pub(crate) nonce: &'a str,
 }
 
-pub(crate) fn get_clipboard(
-    _format: ClipboardFormat,
-    _deadline: Deadline,
-) -> Result<Option<ClipboardContent>, AdapterError> {
-    Err(not_built())
+fn not_delivered(error: AdapterError) -> AdapterError {
+    error.with_disposition(DeliverySemantics::not_delivered())
 }
 
-pub(crate) fn set_clipboard(
-    _content: &ClipboardContent,
-    _lease: &InteractionLease,
+fn failed(message: impl Into<String>, disposition: DeliverySemantics) -> AdapterError {
+    AdapterError::new(ErrorCode::ActionFailed, message).with_disposition(disposition)
+}
+
+fn unresponsive(message: &str) -> AdapterError {
+    AdapterError::new(ErrorCode::AppUnresponsive, message)
+        .with_disposition(DeliverySemantics::delivered_unverified())
+}
+
+fn fresh_deadline(fallback: Deadline) -> Deadline {
+    Deadline::after(VERIFY_GRACE_MS).unwrap_or(fallback)
+}
+
+fn discard(dir: &Path, display: &str, nonce: &str) {
+    if let Some(name) = owner_record::file_name(display, nonce) {
+        let _ = super::owner_files::remove(dir, &name);
+    }
+}
+
+fn retire(env: &Env<'_>, display: &str, record: &OwnerRecord) {
+    env.signaller.stop(record);
+    discard(env.record_dir, display, &record.nonce);
+}
+
+fn after_abort(
+    env: &Env<'_>,
+    display: &str,
+    prior: Option<u32>,
+    deadline: Deadline,
+) -> DeliverySemantics {
+    let unchanged =
+        prior.is_some() && env.server.owner(display, fresh_deadline(deadline)).ok() == Some(prior);
+    if unchanged {
+        DeliverySemantics::not_delivered()
+    } else {
+        DeliverySemantics::uncertain()
+    }
+}
+
+fn verified(
+    env: &Env<'_>,
+    display: &str,
+    record: &OwnerRecord,
+    payload: &Payload,
+    deadline: Deadline,
+) -> bool {
+    let grace = fresh_deadline(deadline);
+    let holder = env.server.owner(display, grace);
+    let targets = env.server.targets(display, grace);
+    matches!(holder, Ok(Some(window)) if window == record.window)
+        && targets.is_ok_and(|offered| {
+            payload
+                .targets
+                .iter()
+                .all(|target| offered.contains(&target.name))
+        })
+}
+
+fn start_owner(
+    env: &Env<'_>,
+    display: &str,
+    payload: &Payload,
+) -> Result<std::process::Child, AdapterError> {
+    let descriptor = payload_file(payload, env.nonce)?;
+    protect_lease_descriptor(env.parent_env);
+    let request = SpawnRequest {
+        helper: env.helper,
+        display,
+        nonce: env.nonce,
+        payload_fd: descriptor.as_raw_fd(),
+    };
+    let spawned = build_spec(&request, env.parent_env).command().spawn();
+    drop(descriptor);
+    spawned.map_err(|error| {
+        failed(
+            format!("The clipboard owner could not start: {error}"),
+            DeliverySemantics::not_delivered(),
+        )
+    })
+}
+
+/// Hands the payload to a detached owner and returns once a fresh
+/// connection sees that owner serving every target. Only a failure before
+/// the owner claims the selection leaves the earlier clipboard intact.
+pub(crate) fn set_with(
+    env: &Env<'_>,
+    display: &str,
+    content: &ClipboardContent,
+    lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
-    Err(not_built())
+    let deadline = lease.deadline();
+    let payload = payload_of(content).map_err(not_delivered)?;
+    let prior = env
+        .server
+        .owner(display, deadline)
+        .map_err(|fault| fault_error(fault, None))?;
+    let earlier = owner_record::records_in(env.record_dir, display);
+    let mut child = start_owner(env, display, &payload)?;
+    let mut probe = ChildProbe {
+        child: &mut child,
+        dir: env.record_dir,
+        display,
+        nonce: env.nonce,
+    };
+    let handshake = await_handshake(&mut probe, deadline);
+    let record = match handshake {
+        Handshake::Ready(record) => record,
+        Handshake::Failed(message) | Handshake::Exited(message) => {
+            kill_and_reap(&mut child);
+            discard(env.record_dir, display, env.nonce);
+            return Err(failed(
+                format!("The clipboard owner stopped before it held the selection: {message}"),
+                DeliverySemantics::not_delivered(),
+            ));
+        }
+        Handshake::TimedOut => {
+            kill_and_reap(&mut child);
+            discard(env.record_dir, display, env.nonce);
+            let disposition = after_abort(env, display, prior, deadline);
+            return Err(
+                AdapterError::timeout("The clipboard owner did not report in time")
+                    .with_disposition(disposition),
+            );
+        }
+    };
+    reap_when_done(child);
+    if !verified(env, display, &record, &payload, deadline) {
+        return Err(unresponsive(
+            "The clipboard owner was not seen serving every target",
+        ));
+    }
+    for old in &earlier {
+        retire(env, display, old);
+    }
+    Ok(())
 }
 
-pub(crate) fn clear_clipboard(_lease: &InteractionLease) -> Result<(), AdapterError> {
-    Err(not_built())
+/// Leaves `CLIPBOARD` unowned, then ends every recorded owner of this
+/// display by identity.
+pub(crate) fn clear_with(
+    env: &Env<'_>,
+    display: &str,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
+    let deadline = lease.deadline();
+    env.server
+        .release(display, deadline)
+        .map_err(|fault| fault_error(fault, None))?;
+    for record in owner_record::records_in(env.record_dir, display) {
+        retire(env, display, &record);
+    }
+    match env.server.owner(display, fresh_deadline(deadline)) {
+        Ok(None) => Ok(()),
+        Ok(Some(_)) => Err(unresponsive(
+            "Another client took the clipboard again before the clear finished",
+        )),
+        Err(_) => Err(unresponsive(
+            "The clipboard could not be checked after the clear",
+        )),
+    }
+}
+
+fn process_env(name: &str) -> Option<String> {
+    std::env::var(name).ok()
+}
+
+fn with_env<T>(
+    helper: PathBuf,
+    work: impl FnOnce(&Env<'_>) -> Result<T, AdapterError>,
+) -> Result<T, AdapterError> {
+    let dir = owner_record::record_dir().ok_or_else(|| {
+        failed(
+            "The state directory for the clipboard owner is not available",
+            DeliverySemantics::not_delivered(),
+        )
+    })?;
+    let nonce = new_nonce();
+    work(&Env {
+        helper: &helper,
+        record_dir: &dir,
+        server: &X11Server,
+        signaller: &PidfdSignaller,
+        parent_env: &process_env,
+        nonce: &nonce,
+    })
 }
 
 pub(crate) fn set_x11(
-    _display: &str,
-    _content: &ClipboardContent,
-    _lease: &InteractionLease,
+    display: &str,
+    content: &ClipboardContent,
+    lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
-    Err(not_built())
+    with_env(locate_helper()?, |env| {
+        set_with(env, display, content, lease)
+    })
 }
 
-pub(crate) fn clear_x11(_display: &str, _lease: &InteractionLease) -> Result<(), AdapterError> {
-    Err(not_built())
+pub(crate) fn clear_x11(display: &str, lease: &InteractionLease) -> Result<(), AdapterError> {
+    with_env(PathBuf::new(), |env| clear_with(env, display, lease))
 }
+
+pub(crate) fn get_clipboard(
+    format: ClipboardFormat,
+    deadline: Deadline,
+) -> Result<Option<ClipboardContent>, AdapterError> {
+    match route::current()? {
+        Route::X11(display) => read_x11(&display, format, deadline),
+        Route::Wayland => read_wayland(format, deadline),
+    }
+}
+
+pub(crate) fn set_clipboard(
+    content: &ClipboardContent,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
+    match route::current()? {
+        Route::X11(display) => set_x11(&display, content, lease),
+        Route::Wayland => set_wayland(content, lease),
+    }
+}
+
+pub(crate) fn clear_clipboard(lease: &InteractionLease) -> Result<(), AdapterError> {
+    match route::current()? {
+        Route::X11(display) => clear_x11(&display, lease),
+        Route::Wayland => clear_wayland(lease),
+    }
+}
+
+#[cfg(test)]
+#[path = "set_clear_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "set_clear_live_tests.rs"]
+mod live_tests;
