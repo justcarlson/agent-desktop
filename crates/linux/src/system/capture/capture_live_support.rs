@@ -62,7 +62,7 @@ pub(super) fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("a deadline builds")
 }
 
-pub(super) fn assert_private_display() -> std::sync::MutexGuard<'static, ()> {
+pub(super) fn assert_private_display() -> crate::system::x11::live_display::Exclusive {
     let guard = crate::system::x11::live_display::exclusive();
     let display = std::env::var("DISPLAY").expect("a private display");
     assert!(

@@ -53,6 +53,13 @@ struct Flat {
     window: u32,
 }
 
+impl Drop for Flat {
+    fn drop(&mut self) {
+        let _ = self.connection.destroy_window(self.window);
+        let _ = self.connection.sync();
+    }
+}
+
 impl Flat {
     fn new(display: &str) -> Self {
         Self::at(display, ORIGIN, SIZE, FILL, true)
@@ -79,7 +86,9 @@ impl Flat {
                     .background_pixel(pixel)
                     .override_redirect(u32::from(bare)),
             )
-            .expect("create");
+            .expect("create")
+            .check()
+            .expect("the window is created");
         Self { connection, window }
     }
 
