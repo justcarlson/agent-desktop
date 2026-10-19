@@ -149,3 +149,22 @@ fn no_daemon_id_call_exists_in_the_notification_sources() {
         }
     }
 }
+
+#[test]
+fn an_entry_whose_labels_have_not_filled_in_yet_is_read_again() {
+    let mut half = reading(&[spec("Mail", "hello")], true);
+    half.nodes.retain(|node| node.name != "hello");
+    let good = reading(&[spec("Mail", "hello")], true);
+    let world = FakeWorld::new(&log(), vec![half, good]).staged_by_reads();
+    let listed = list_in(&world, &NotificationFilter::default(), deadline()).expect("listed");
+    assert_eq!(listed[0].title, "hello");
+}
+
+#[test]
+fn an_entry_that_stays_unreadable_is_an_error_after_the_retries() {
+    let mut half = reading(&[spec("Mail", "hello")], true);
+    half.nodes.retain(|node| node.name != "hello");
+    let world = FakeWorld::new(&log(), vec![half]);
+    let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);
+}

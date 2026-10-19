@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, NotificationFilter,
     NotificationInfo,
@@ -8,6 +10,10 @@ use super::landmark::{ContainerState, classify, labels_of};
 use super::world::{LiveWorld, Node, Role, ShellWorld};
 use crate::system::SharedBus;
 use crate::system::shell::container::Landmark;
+
+const UNREADABLE_ENTRY: &str = "A notification in the message list has no readable title";
+const LABEL_RETRIES: usize = 12;
+const LABEL_RETRY_GAP: Duration = Duration::from_millis(100);
 
 /// What one read of the message list found: its entries in tree order, with
 /// indices over the unfiltered list, and the clear-all control outside them.
@@ -51,6 +57,22 @@ pub(crate) fn read_listing(
     world: &dyn ShellWorld,
     deadline: Deadline,
 ) -> Result<Listing, AdapterError> {
+    let mut tries = 0;
+    loop {
+        match read_listing_once(world, deadline) {
+            Err(error) if error.message == UNREADABLE_ENTRY && tries < LABEL_RETRIES => {
+                tries += 1;
+                if deadline.is_expired() {
+                    return Err(error);
+                }
+                std::thread::sleep(LABEL_RETRY_GAP);
+            }
+            other => return other,
+        }
+    }
+}
+
+fn read_listing_once(world: &dyn ShellWorld, deadline: Deadline) -> Result<Listing, AdapterError> {
     let container = world.locate(Landmark::MessageList, deadline)?;
     let reading = world.read(&container, deadline)?;
     if !reading.complete {
@@ -110,11 +132,8 @@ fn unrecognised_container() -> AdapterError {
 }
 
 fn unreadable_entry() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::Internal,
-        "A notification in the message list has no readable title",
-    )
-    .with_suggestion("Retry the command; report the platform detail if it persists")
+    AdapterError::new(ErrorCode::Internal, UNREADABLE_ENTRY)
+        .with_suggestion("Retry the command; report the platform detail if it persists")
 }
 
 /// Filters keep the indices the unfiltered read assigned, then apply the
