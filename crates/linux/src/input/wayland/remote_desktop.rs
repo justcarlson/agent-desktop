@@ -70,28 +70,50 @@ impl RemoteDesktop {
 }
 
 impl RemoteDesktop {
-    #[expect(dead_code, reason = "stub the owning lane replaces")]
     pub(crate) fn pointer_motion_relative(
         &mut self,
-        _dx: f64,
-        _dy: f64,
-        _deadline: Deadline,
+        dx: f64,
+        dy: f64,
+        deadline: Deadline,
     ) -> Result<(), AdapterError> {
-        Err(AdapterError::not_supported(
-            "pointer motion through the compositor",
-        ))
+        let path = self.session_path()?;
+        within(deadline, async {
+            self.connection
+                .call_method(
+                    Some(SERVICE),
+                    path,
+                    Some(SESSION_INTERFACE),
+                    "NotifyPointerMotionRelative",
+                    &(dx, dy),
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| classify_call(&error))
+        })
     }
 
-    #[expect(dead_code, reason = "stub the owning lane replaces")]
     pub(crate) fn pointer_button(
         &mut self,
-        _button: u32,
-        _down: bool,
-        _deadline: Deadline,
+        button: u32,
+        down: bool,
+        deadline: Deadline,
     ) -> Result<(), AdapterError> {
-        Err(AdapterError::not_supported(
-            "pointer button through the compositor",
-        ))
+        let path = self.session_path()?;
+        let code = i32::try_from(button)
+            .map_err(|_| AdapterError::internal("The pointer button code is out of range"))?;
+        within(deadline, async {
+            self.connection
+                .call_method(
+                    Some(SERVICE),
+                    path,
+                    Some(SESSION_INTERFACE),
+                    "NotifyPointerButton",
+                    &(code, down),
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| classify_call(&error))
+        })
     }
 }
 
