@@ -60,6 +60,26 @@ fn name_stopped_target(
     error
 }
 
+fn falls_back_to_semantic(error: &AdapterError) -> bool {
+    let unaimable = error
+        .details
+        .as_ref()
+        .and_then(|details| details.get("check"))
+        .is_some_and(|check| check == "geometry");
+    error.disposition == DeliverySemantics::not_delivered()
+        && (error.code == ErrorCode::ActionNotSupported || unaimable)
+}
+
+pub(crate) fn physical_first(
+    physical: impl FnOnce() -> Result<ActionResult, AdapterError>,
+    semantic: impl FnOnce() -> Result<ActionResult, AdapterError>,
+) -> Result<ActionResult, AdapterError> {
+    match physical() {
+        Err(error) if falls_back_to_semantic(&error) => semantic(),
+        other => other,
+    }
+}
+
 pub(crate) fn execute_action(
     bus: &SharedBus,
     handle: &NativeHandle,
@@ -80,6 +100,10 @@ pub(crate) fn execute_action(
         deadline,
     };
     let semantic = match &request.action {
+        Action::Click if request.policy.is_headed() => physical_first(
+            || physical_delivery(bus, &request.action, Some(element), &request, lease),
+            || click(&target),
+        ),
         Action::Click => click(&target),
         Action::RightClick => right_click(&target),
         Action::Toggle => toggle(&target, None),

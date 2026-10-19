@@ -60,3 +60,58 @@ fn a_sent_timeout_with_a_running_target_carries_no_details() {
     let sent = timeout(agent_desktop_core::DeliverySemantics::uncertain());
     assert!(name_stopped_target(sent, 7, |_| false).details.is_none());
 }
+
+fn done(label: &'static str) -> agent_desktop_core::ActionResult {
+    agent_desktop_core::ActionResult::from_execution(
+        &Action::Click,
+        vec![agent_desktop_core::ActionStep::succeeded(label)],
+    )
+}
+
+fn refusal(code: ErrorCode, check: Option<&str>) -> agent_desktop_core::AdapterError {
+    let error = agent_desktop_core::AdapterError::new(code, "refused")
+        .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered());
+    match check {
+        Some(check) => error.with_details(serde_json::json!({ "check": check })),
+        None => error,
+    }
+}
+
+#[test]
+fn a_headed_click_that_the_pointer_delivers_never_runs_the_semantic_call() {
+    use super::physical_first;
+    let result = physical_first(
+        || Ok(done("XTEST.click")),
+        || panic!("the semantic call must not run"),
+    )
+    .expect("delivered");
+    assert_eq!(result.steps[0].label(), "XTEST.click");
+}
+
+#[test]
+fn an_unaimable_or_unsupported_pointer_falls_back_to_the_semantic_call() {
+    use super::physical_first;
+    for error in [
+        refusal(ErrorCode::ActionNotSupported, None),
+        refusal(ErrorCode::ActionFailed, Some("geometry")),
+    ] {
+        let result =
+            physical_first(|| Err(error), || Ok(done("Action.DoAction"))).expect("falls back");
+        assert_eq!(result.steps[0].label(), "Action.DoAction");
+    }
+}
+
+#[test]
+fn any_other_pointer_refusal_is_returned_and_the_semantic_call_stays_unused() {
+    use super::physical_first;
+    for error in [
+        refusal(ErrorCode::ActionFailed, Some("window_active")),
+        refusal(ErrorCode::PolicyDenied, None),
+        agent_desktop_core::AdapterError::new(ErrorCode::ActionNotSupported, "sent")
+            .with_disposition(agent_desktop_core::DeliverySemantics::uncertain()),
+    ] {
+        let kept = error.code.clone();
+        let outcome = physical_first(|| Err(error), || panic!("the semantic call must not run"));
+        assert_eq!(outcome.expect_err("refused").code, kept);
+    }
+}
