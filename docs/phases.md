@@ -1859,6 +1859,7 @@ The 3.6 stranger dogfood adds these cross-platform core items. Phase 3 changes n
 - The `stable` check reports `fail` with `samples: 1` next to a terminal failure of another check, which reads as a stability measurement that was never taken (3.6 stranger dogfood).
 - The `--headed` hint of a `POLICY_DENIED` repeats the flag the command already carried (3.6 stranger dogfood).
 - `wait --predicate actionable` (with or without `--action click`, headed) does not run `receives_events`, so it reports a covered target actionable while the headed click refuses it (3.6 E2E).
+- Headed `hover` and `drag` on a covered target retry the centre point until the deadline, because `pointer_action.rs` `is_retryable_point_error` treats `ActionFailed` as retryable, and they surface the process-lease timeout (`contention_count` 0) with no checks or occluder; `click` refuses at once because `receives_events` tries five points (3.6 E2E).
 
 ### Objectives
 
