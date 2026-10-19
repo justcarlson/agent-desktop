@@ -177,8 +177,14 @@ impl ActionOps for LinuxAdapter {
         request: ActionRequest,
         lease: &InteractionLease,
     ) -> Result<ActionResult, AdapterError> {
+        let target = crate::tree::atspi_element(handle)
+            .ok()
+            .map(|element| element.pid());
         let result = self.deliver(handle, request, lease);
-        crate::system::action_clock::mark();
+        match target {
+            Some(pid) => crate::system::action_clock::mark_process(pid),
+            None => crate::system::action_clock::mark(),
+        }
         result
     }
 

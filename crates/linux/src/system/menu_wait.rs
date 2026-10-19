@@ -53,7 +53,7 @@ impl MenuWorld for BusWorld<'_> {
     }
 
     fn recent_action(&self) -> bool {
-        action_clock::settles(true)
+        action_clock::recent_for(self.process.pid.get()) || action_clock::settles(true)
     }
 }
 
