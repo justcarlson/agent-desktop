@@ -93,14 +93,27 @@ for _ in $(seq 1 100); do
 done
 [ -S "$rt/bus" ] || { echo "private-session: the session bus did not start" >&2; exit 1; }
 
-Xvfb -displayfd 9 -screen 0 "$screen" -nolisten tcp 9> "$rt/displayfd" 2> "$rt/xvfb.log" &
-pids+=("$!")
-for _ in $(seq 1 100); do
-  [ -s "$rt/displayfd" ] && break
-  sleep 0.1
+# The display number is chosen from :100 up, never by Xvfb's own lowest-free search: a low number can
+# be the owner's live display or another session's, and the live tests refuse :0, :1 and :99.
+display_number=
+for candidate in $(seq 100 149); do
+  [ -e "/tmp/.X11-unix/X$candidate" ] || [ -e "/tmp/.X$candidate-lock" ] && continue
+  Xvfb ":$candidate" -screen 0 "$screen" -nolisten tcp 2> "$rt/xvfb.log" &
+  xvfb_pid=$!
+  for _ in $(seq 1 50); do
+    [ -S "/tmp/.X11-unix/X$candidate" ] && break
+    kill -0 "$xvfb_pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  if [ -S "/tmp/.X11-unix/X$candidate" ] && kill -0 "$xvfb_pid" 2>/dev/null; then
+    pids+=("$xvfb_pid")
+    display_number=$candidate
+    echo "$candidate" > "$rt/displayfd"
+    break
+  fi
+  kill "$xvfb_pid" 2>/dev/null || true
 done
-[ -s "$rt/displayfd" ] || { echo "private-session: Xvfb did not start" >&2; exit 1; }
-display_number=$(head -n 1 "$rt/displayfd")
+[ -n "$display_number" ] || { echo "private-session: Xvfb did not start" >&2; exit 1; }
 export DISPLAY=":$display_number"
 
 dbus-update-activation-environment DISPLAY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_DATA_HOME \

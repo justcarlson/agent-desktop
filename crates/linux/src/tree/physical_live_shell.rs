@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use crate::input::x11::live_tests::refuse_live_display;
 use crate::system::overview::overview_open;
 
-const FIRST_DISPLAY: u32 = 100;
+const FIRST_DISPLAY: u32 = 150;
 const LAST_DISPLAY: u32 = 199;
 const ATTEMPTS: u32 = 5;
 const XVFB_WAIT: Duration = Duration::from_secs(10);
