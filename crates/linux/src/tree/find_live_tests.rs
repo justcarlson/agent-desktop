@@ -74,7 +74,7 @@ fn ref_back_to_its_node(
     found: &Value,
 ) -> Result<(), String> {
     let Some(ref_id) = found["ref_id"].as_str() else {
-        return Ok(());
+        return Err(format!("a match carries no ref: {found}"));
     };
     let entry = RefStore::new()
         .and_then(|store| store.load_ref(ref_id))

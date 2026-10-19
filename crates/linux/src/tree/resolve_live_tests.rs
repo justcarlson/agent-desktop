@@ -4,7 +4,7 @@ use agent_desktop_core::{
 
 use super::live_apps::each_app;
 use super::node_read::read_node;
-use super::{AtspiElement, LabelOutcome, atspi_element, resolve_vocabulary};
+use super::{AtspiElement, LabelOutcome, RawNode, atspi_element, resolve_vocabulary};
 use crate::LinuxAdapter;
 use crate::system::{SharedBus, window_id, within};
 
@@ -51,9 +51,18 @@ pub(super) fn independent_read_disagrees(
     let deadline = Deadline::after(5_000).expect("the deadline builds");
     let connection = bus.get(deadline).expect("the bus is reachable");
     let fresh = AtspiElement::new(handle.bus_name(), handle.path(), handle.pid());
-    let raw = within(deadline, read_node(connection.inner(), &fresh))
-        .map_err(|error| format!("second read failed: {}", error.message))
-        .ok()?;
+    let raw =
+        within(deadline, read_node(connection.inner(), &fresh)).map_err(|error| error.message);
+    disagreement(raw, entry)
+}
+
+/// How an independent read of the resolved node differs from the stored
+/// entry. A read that failed is a difference: it cannot vouch for the node.
+pub(super) fn disagreement(raw: Result<RawNode, String>, entry: &RefEntry) -> Option<String> {
+    let raw = match raw {
+        Ok(raw) => raw,
+        Err(message) => return Some(format!("second read failed: {message}")),
+    };
     let vocabulary = resolve_vocabulary(&raw, &LabelOutcome::Unlabelled, false);
     if let Some(role) = vocabulary.role.known()
         && role != &entry.identity.role
@@ -182,4 +191,11 @@ fn resolve_live_every_snapshot_ref_resolves_to_the_node_it_was_taken_from() {
         .filter_map(|(label, outcome)| outcome.err().map(|error| format!("[{label}] {error}")))
         .collect();
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+#[test]
+fn an_independent_read_that_failed_is_a_disagreement_and_not_an_agreement() {
+    let entry = super::test_support::ref_entry("button");
+    let difference = disagreement(Err("bus gone".to_owned()), &entry);
+    assert_eq!(difference.as_deref(), Some("second read failed: bus gone"));
 }
