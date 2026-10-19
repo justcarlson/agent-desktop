@@ -43,6 +43,7 @@ fn hover_and_drag_are_rejected_at_the_adapter_with_nothing_sent() {
         let world = FakeWorld::x11();
         let error = run(&world, action, true).unwrap_err();
         assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert!(error.message.contains("adapter-level handling"));
         assert!(not_delivered(&error));
         assert!(world.sent_nothing());
         assert!(world.entries().is_empty());
