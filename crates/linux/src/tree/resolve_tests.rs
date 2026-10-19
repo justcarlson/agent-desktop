@@ -224,12 +224,31 @@ fn a_nameless_ref_whose_element_changed_size_is_a_settled_miss_and_not_a_retry()
         x: 0,
         y: 0,
         width: 690,
-        height: 463,
+        height: 440,
     });
     let error = refusal(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind(&error), "resolve_no_candidate");
     assert!(!error.is_explicitly_retryable());
+}
+
+#[test]
+fn a_nameless_ref_whose_element_shrank_by_one_pixel_still_resolves_by_its_path() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/editor", node(PANEL, "", 690, 464));
+    let entry = fake.entry_of("/editor", true);
+    fake.nodes
+        .get_mut("/editor")
+        .expect("editor")
+        .read
+        .node
+        .extents = crate::tree::Field::Present(crate::tree::Extents {
+        x: 0,
+        y: 1,
+        width: 690,
+        height: 463,
+    });
+    assert_eq!(resolved(&mut fake, &entry), "/editor");
 }
 
 #[test]

@@ -24,8 +24,21 @@ pub(crate) fn usable_size(rect: &Rect) -> Option<(f64, f64)> {
     (rect.width > 0.0 && rect.height > 0.0).then_some((rect.width, rect.height))
 }
 
+/// How far a node's size may drift between a snapshot and a landing on its
+/// stored path before the landing is a different element. A toolkit lays a
+/// text view out one pixel shorter once its first text lands (Text Editor,
+/// 690x464 to 690x463), and the path, the role and the window already say
+/// which element it is.
+const LAYOUT_JITTER_PX: f64 = 2.0;
+
+const SAME_SIZE_PX: f64 = 0.5;
+
+fn sizes_within(left: (f64, f64), right: (f64, f64), tolerance: f64) -> bool {
+    (left.0 - right.0).abs() < tolerance && (left.1 - right.1).abs() < tolerance
+}
+
 pub(crate) fn same_size(left: (f64, f64), right: (f64, f64)) -> bool {
-    (left.0 - right.0).abs() < 0.5 && (left.1 - right.1).abs() < 0.5
+    sizes_within(left, right, SAME_SIZE_PX)
 }
 
 fn live_size(evidence: &LocatorEvidence) -> Option<(f64, f64)> {
@@ -79,19 +92,20 @@ pub(crate) fn provisional_geometry_candidate(entry: &RefEntry) -> bool {
 
 /// Whether the candidate's size equals the stored one under the promotion's
 /// eligibility rule.
-pub(crate) fn geometry_matches(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
+fn geometry_matches_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> bool {
     provisional_geometry_candidate(entry)
         && stored_size(entry)
             .zip(live_size(evidence))
-            .is_some_and(|(stored, live)| same_size(stored, live))
+            .is_some_and(|(stored, live)| sizes_within(stored, live, tolerance))
 }
 
-/// Whether the stored size and the live size are both known and differ. An
-/// unknown size on either side, or a different position, refutes nothing.
+/// Whether the stored size and the live size are both known and differ by
+/// more than a layout jitter. An unknown size on either side, or a different
+/// position, refutes nothing.
 pub(crate) fn size_contradicts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
     stored_size(entry)
         .zip(live_size(evidence))
-        .is_some_and(|(stored, live)| !same_size(stored, live))
+        .is_some_and(|(stored, live)| !sizes_within(stored, live, LAYOUT_JITTER_PX))
 }
 
 /// Whether nothing any tier could verify a live node against is stored: no
@@ -107,6 +121,10 @@ pub(crate) fn entry_is_unverifiable(entry: &RefEntry) -> bool {
 /// node whose size was read and differs: it is not unread, since nothing more
 /// could be learned about that node.
 pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admission {
+    admit_node_within(entry, evidence, SAME_SIZE_PX)
+}
+
+fn admit_node_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> Admission {
     match evidence.role.known() {
         None if evidence.role.is_unknown() => return Admission::Unread,
         Some(role) if role == &entry.identity.role => {}
@@ -114,7 +132,9 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
     }
     match identity_verdict(entry, evidence) {
         IdentityMatch::Match => Admission::Collect,
-        IdentityMatch::Unknown if geometry_matches(entry, evidence) => Admission::Collect,
+        IdentityMatch::Unknown if geometry_matches_within(entry, evidence, tolerance) => {
+            Admission::Collect
+        }
         IdentityMatch::Unknown
             if provisional_geometry_candidate(entry)
                 && !evidence.ref_evidence.bounds.is_unknown() =>
@@ -131,7 +151,8 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
 /// still answers to the stored identity and has not changed size. It is not a
 /// claim that no twin exists elsewhere.
 pub(crate) fn accepts_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    !size_contradicts(entry, evidence) && admit_node(entry, evidence) == Admission::Collect
+    !size_contradicts(entry, evidence)
+        && admit_node_within(entry, evidence, LAYOUT_JITTER_PX) == Admission::Collect
 }
 
 fn no_text(field: &LocatorField<String>) -> bool {

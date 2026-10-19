@@ -211,3 +211,34 @@ fn a_ref_known_only_by_its_size_is_refuted_by_a_node_whose_size_was_read_and_dif
     resized.ref_evidence.bounds = LocatorField::Absent;
     assert_eq!(admit_node(&entry, &resized), Admission::Reject);
 }
+
+#[test]
+fn a_nameless_ref_known_by_its_size_still_lands_after_a_one_pixel_layout_shift() {
+    let entry = sized(ref_entry("textfield"), rect(290.0, 186.0, 690.0, 464.0));
+    let shifted = evidence(
+        "textfield",
+        None,
+        None,
+        Some(rect(290.0, 187.0, 690.0, 463.0)),
+    );
+    let resized = evidence(
+        "textfield",
+        None,
+        None,
+        Some(rect(290.0, 186.0, 690.0, 440.0)),
+    );
+    assert!(accepts_landing(&entry, &shifted));
+    assert!(!accepts_landing(&entry, &resized));
+}
+
+#[test]
+fn a_one_pixel_shift_is_not_enough_for_a_search_to_collect_a_nameless_node() {
+    let entry = sized(ref_entry("textfield"), rect(290.0, 186.0, 690.0, 464.0));
+    let shifted = evidence(
+        "textfield",
+        None,
+        None,
+        Some(rect(290.0, 187.0, 690.0, 463.0)),
+    );
+    assert_eq!(admit_node(&entry, &shifted), Admission::Reject);
+}
