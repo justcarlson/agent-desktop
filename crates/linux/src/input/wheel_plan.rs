@@ -20,9 +20,8 @@ pub(crate) const BUTTON_WHEEL_DOWN: u8 = 5;
 pub(crate) const BUTTON_WHEEL_LEFT: u8 = 6;
 pub(crate) const BUTTON_WHEEL_RIGHT: u8 = 7;
 
-pub(crate) const WHEEL_CLICKS_PER_ROW: u32 = 1;
 pub(crate) const MAX_CLICKS_PER_EVENT: u32 = 10;
-pub(crate) const MAX_ROWS_PER_AXIS: u32 = 1_000;
+pub(crate) const MAX_CLICKS_PER_AXIS: u32 = 1_000;
 pub(crate) const WHEEL_CLICK_GAP: Duration = Duration::from_millis(2);
 
 pub(crate) fn plan_wheel(
@@ -33,8 +32,8 @@ pub(crate) fn plan_wheel(
     mods: &[Modifier],
 ) -> Result<Vec<Plan>, AdapterError> {
     let (x, y) = point_xy(&at)?;
-    let vertical = rows(dy)?;
-    let horizontal = rows(dx)?;
+    let vertical = clicks(dy)?;
+    let horizontal = clicks(dx)?;
     if vertical == 0 && horizontal == 0 {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
@@ -47,13 +46,13 @@ pub(crate) fn plan_wheel(
         (horizontal, BUTTON_WHEEL_RIGHT, BUTTON_WHEEL_LEFT),
     ];
     let mut plans = Vec::new();
-    for (rows, positive, negative) in axes {
-        let code = if rows >= 0 { positive } else { negative };
-        let mut remaining = rows.unsigned_abs() * WHEEL_CLICKS_PER_ROW;
+    for (clicks, positive, negative) in axes {
+        let code = if clicks >= 0 { positive } else { negative };
+        let mut remaining = clicks.unsigned_abs();
         while remaining > 0 {
-            let clicks = remaining.min(MAX_CLICKS_PER_EVENT);
-            plans.push(event_plan(&held, (x, y), code, clicks));
-            remaining -= clicks;
+            let burst = remaining.min(MAX_CLICKS_PER_EVENT);
+            plans.push(event_plan(&held, (x, y), code, burst));
+            remaining -= burst;
         }
     }
     Ok(plans)
@@ -76,11 +75,11 @@ fn event_plan(held: &[(Modifier, u8)], (x, y): (i32, i32), code: u8, clicks: u32
     }
 }
 
-fn rows(delta: f64) -> Result<i32, AdapterError> {
-    if !delta.is_finite() || delta.abs() > f64::from(MAX_ROWS_PER_AXIS) + 0.5 {
+fn clicks(delta: f64) -> Result<i32, AdapterError> {
+    if !delta.is_finite() || delta.abs() > f64::from(MAX_CLICKS_PER_AXIS) + 0.5 {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
-            "Wheel delta must be finite and within -1000..=1000 rows per axis",
+            "Wheel delta must be finite and within -1000..=1000 clicks per axis",
         ));
     }
     let rounded = delta.round();

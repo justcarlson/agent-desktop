@@ -104,6 +104,7 @@ fn the_remap_route_edits_the_spare_keycode_settles_types_and_restores() {
             Step::Pause(REMAP_SETTLE),
             key(14, true),
             key(14, false),
+            Step::Pause(REMAP_RESTORE_HOLD),
             Step::Keymap(KeymapEdit {
                 keycode: 14,
                 keysyms: vec![0; 4]
@@ -150,7 +151,7 @@ fn a_shifted_character_without_a_shift_key_is_not_supported() {
 
 #[test]
 fn the_shipped_route_is_the_one_the_probes_settled() {
-    assert_eq!(UNMAPPED_ROUTE, UnmappedRoute::Refuse);
+    assert_eq!(UNMAPPED_ROUTE, UnmappedRoute::Remap);
 }
 
 #[test]
@@ -180,4 +181,38 @@ fn keysym_text_uses_keysyms_directly_with_no_remap_and_chunks_by_character() {
     );
     assert_eq!(plan_text_keysyms(&"a".repeat(65)).len(), 3);
     assert!(plan_text_keysyms("").is_empty());
+}
+
+#[test]
+fn every_restore_waits_at_least_fifty_milliseconds_after_the_last_key_up() {
+    let plans = plan_text_with(&Keymap::sample(), "你😀é€", UnmappedRoute::Remap).unwrap();
+    for plan in &plans {
+        let restore = plan.steps.len() - 1;
+        assert!(matches!(plan.steps[restore], Step::Keymap(_)));
+        let mut held = Duration::ZERO;
+        let mut index = restore;
+        while index > 0 {
+            index -= 1;
+            match &plan.steps[index] {
+                Step::Pause(duration) => held += *duration,
+                _ => break,
+            }
+        }
+        assert_eq!(plan.steps[index], key(14, false));
+        assert!(held >= Duration::from_millis(50), "{held:?}");
+    }
+}
+
+#[test]
+fn each_remapped_character_is_held_before_the_next_remap_edit() {
+    let plans = plan_text_with(&Keymap::sample(), "你好", UnmappedRoute::Remap).unwrap();
+    let steps = &plans[0].steps;
+    let second_edit = steps
+        .iter()
+        .enumerate()
+        .filter(|(_, step)| matches!(step, Step::Keymap(_)))
+        .nth(1)
+        .unwrap()
+        .0;
+    assert_eq!(steps[second_edit - 1], Step::Pause(REMAP_RESTORE_HOLD));
 }

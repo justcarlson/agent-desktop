@@ -16,6 +16,7 @@ use super::step::{KeysymStep, Plan, Step};
 
 pub(crate) const CHUNK_CHARS: usize = 32;
 const REMAP_SETTLE: Duration = Duration::from_millis(30);
+pub(crate) const REMAP_RESTORE_HOLD: Duration = Duration::from_millis(50);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum UnmappedRoute {
@@ -23,7 +24,7 @@ pub(crate) enum UnmappedRoute {
     Refuse,
 }
 
-pub(crate) const UNMAPPED_ROUTE: UnmappedRoute = UnmappedRoute::Refuse;
+pub(crate) const UNMAPPED_ROUTE: UnmappedRoute = UnmappedRoute::Remap;
 
 #[derive(Clone, Copy)]
 enum Typing {
@@ -122,6 +123,7 @@ fn chunk_plan(map: &Keymap, chunk: &[Typing], remap: Option<&Remap>) -> Result<P
                     code: remap.keycode,
                     down: false,
                 });
+                steps.push(Step::Pause(REMAP_RESTORE_HOLD));
             }
         }
     }
