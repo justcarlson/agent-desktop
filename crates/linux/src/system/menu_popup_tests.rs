@@ -1,0 +1,156 @@
+use super::{MenuFamily, in_window, top_level};
+use crate::system::menu_fixture::*;
+
+fn families(found: &[super::Found<'_>]) -> Vec<MenuFamily> {
+    found.iter().map(|popup| popup.family).collect()
+}
+
+#[test]
+fn a_gtk4_popover_inside_the_frame_is_one_popup_rooted_at_its_menu() {
+    let frame = frame_with(vec![node(PANEL, "", &[SHOWING], vec![gtk4_popover(true)])]);
+    let found = in_window(&frame);
+    assert_eq!(families(&found), [MenuFamily::Gtk4Popover]);
+    assert_eq!(found[0].items, 2);
+    assert_eq!(
+        found[0]
+            .root
+            .payload
+            .node
+            .properties
+            .name
+            .present()
+            .map(String::as_str),
+        Some("Main Menu")
+    );
+}
+
+#[test]
+fn a_gtk3_menu_bar_whose_items_show_is_open_and_one_whose_items_do_not_is_not() {
+    let open = frame_with(vec![gtk3_bar(true)]);
+    assert_eq!(families(&in_window(&open)), [MenuFamily::Gtk3Bar]);
+    let idle = frame_with(vec![gtk3_bar(false)]);
+    assert!(in_window(&idle).is_empty());
+}
+
+#[test]
+fn a_qt_popup_is_open_only_while_its_items_show() {
+    let open = frame_with(vec![qt_bar(true)]);
+    let found = in_window(&open);
+    assert_eq!(families(&found), [MenuFamily::Qt]);
+    assert_eq!(found[0].items, 2);
+    let closed = frame_with(vec![qt_bar(false)]);
+    assert!(in_window(&closed).is_empty());
+}
+
+#[test]
+fn menu_bar_items_that_always_show_are_not_a_popup() {
+    let bar_only = node(
+        MENU_BAR,
+        "",
+        &[SHOWING],
+        vec![item("File", true), item("Edit", true)],
+    );
+    assert!(in_window(&frame_with(vec![bar_only])).is_empty());
+}
+
+#[test]
+fn a_button_that_advertises_a_popup_is_not_a_popup() {
+    let button = node(BUTTON, "Menu", &[SHOWING, HAS_POPUP], Vec::new());
+    assert!(in_window(&frame_with(vec![button])).is_empty());
+}
+
+#[test]
+fn a_menu_inside_a_web_document_is_not_a_popup() {
+    let mut aria = gtk4_popover(true);
+    aria.in_web_document = true;
+    assert!(in_window(&frame_with(vec![aria])).is_empty());
+    let document = node(DOCUMENT_WEB, "page", &[SHOWING], vec![gtk4_popover(true)]);
+    assert!(in_window(&frame_with(vec![document])).is_empty());
+}
+
+#[test]
+fn a_submenu_chain_lists_the_outer_popup_first() {
+    let inner = node(MENU, "More", &[SHOWING], items(true));
+    let more = node(ITEM, "More", &[SHOWING], vec![inner]);
+    let outer = node(MENU, "File", &[SHOWING], vec![item("Open", true), more]);
+    let bar = node(MENU_BAR, "", &[SHOWING], vec![outer]);
+    let frame = frame_with(vec![bar]);
+    let found = in_window(&frame);
+    let names: Vec<&str> = found
+        .iter()
+        .filter_map(|popup| popup.root.payload.node.properties.name.present())
+        .map(String::as_str)
+        .collect();
+    assert_eq!(names, ["File", "More"]);
+}
+
+#[test]
+fn check_menu_items_count_toward_the_items_of_a_popup() {
+    let checks = node(
+        MENU,
+        "View",
+        &[SHOWING],
+        vec![
+            node(CHECK_ITEM, "Wrap", &[SHOWING], Vec::new()),
+            node(SEPARATOR, "", &[SHOWING], Vec::new()),
+        ],
+    );
+    let frame = frame_with(vec![checks]);
+    let found = in_window(&frame);
+    assert_eq!(found[0].items, 1);
+}
+
+#[test]
+fn a_nameless_top_level_window_holding_a_menu_is_a_gtk3_context_popup() {
+    let window = gtk3_context_window();
+    let found = top_level(&window).expect("a popup");
+    assert_eq!(found.family, MenuFamily::Gtk3Context);
+    assert_eq!(found.root.payload.node.traits.role.present(), Some(&MENU));
+    assert_eq!(found.items, 2);
+}
+
+#[test]
+fn a_nameless_top_level_frame_holding_a_menu_bar_menu_is_a_chromium_popup() {
+    let frame = chromium_frame();
+    let found = top_level(&frame).expect("a popup");
+    assert_eq!(found.family, MenuFamily::Chromium);
+    assert_eq!(found.root.payload.node.traits.role.present(), Some(&MENU));
+}
+
+#[test]
+fn a_titled_window_or_one_with_other_content_is_not_a_popup() {
+    let mut named = gtk3_context_window();
+    named.payload.node.properties.name = crate::tree::Field::Present("Settings".to_owned());
+    assert!(top_level(&named).is_none());
+    let with_label = node(
+        WINDOW,
+        "",
+        &[SHOWING],
+        vec![
+            gtk4_popover(true),
+            node(LABEL, "hello", &[SHOWING], Vec::new()),
+        ],
+    );
+    assert!(top_level(&with_label).is_none());
+}
+
+#[test]
+fn a_hidden_top_level_window_or_one_with_closed_items_is_not_a_popup() {
+    let mut hidden = gtk3_context_window();
+    hidden.payload.node.traits.states =
+        crate::tree::Field::Present(crate::tree::test_support::words(&[]));
+    assert!(top_level(&hidden).is_none());
+    let closed = node(
+        WINDOW,
+        "",
+        &[SHOWING],
+        vec![node(MENU, "", &[SHOWING], items(false))],
+    );
+    assert!(top_level(&closed).is_none());
+}
+
+#[test]
+fn a_menu_that_does_not_show_is_not_open_though_its_items_do() {
+    let menu = node(MENU, "File", &[], items(true));
+    assert!(in_window(&frame_with(vec![menu])).is_empty());
+}

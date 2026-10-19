@@ -8,10 +8,25 @@ use super::bus_slice::within_slice;
 use super::{SharedBus, within};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
 
-const CHILDREN_SLICE: Duration = Duration::from_millis(300);
-const FRAME_SLICE: Duration = Duration::from_millis(300);
+pub(crate) const CHILDREN_SLICE: Duration = Duration::from_millis(300);
+pub(crate) const FRAME_SLICE: Duration = Duration::from_millis(300);
 const APPS_IN_FLIGHT: usize = 16;
 const FRAMES_IN_FLIGHT: usize = 8;
+
+/// Whether an application's frames were read to the end.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RootRead {
+    Read,
+    #[expect(dead_code, reason = "stub the owning lane replaces")]
+    TimedOut,
+}
+
+/// The frames read for one application root and how far the read got.
+pub(crate) struct FrameRead {
+    pub(crate) nodes: Vec<RawNode>,
+    #[expect(dead_code, reason = "stub the owning lane replaces")]
+    pub(crate) read: RootRead,
+}
 
 /// Reads every frame of one application, each within its own slice. A frame
 /// that does not answer in time or fails is left out, so one stalled frame
@@ -43,20 +58,27 @@ pub(crate) fn read_frames(
     bus: &SharedBus,
     roots: &[AtspiElement],
     deadline: Deadline,
-) -> Result<Vec<Vec<RawNode>>, AdapterError> {
+) -> Result<Vec<FrameRead>, AdapterError> {
     let shared = bus.get(deadline)?;
     within(deadline, async {
         let connection = shared.inner();
         let reads = roots.iter().map(|root| async move {
             let listed = within_slice(CHILDREN_SLICE, list_children(connection, root)).await;
             let Some(Ok(children)) = listed else {
-                return Vec::new();
+                return FrameRead {
+                    nodes: Vec::new(),
+                    read: RootRead::Read,
+                };
             };
-            collect_frames(children, FRAME_SLICE, |(bus_name, path)| async move {
+            let nodes = collect_frames(children, FRAME_SLICE, |(bus_name, path)| async move {
                 let frame = AtspiElement::new(bus_name, path, root.pid());
                 read_node(connection, &frame).await.ok()
             })
-            .await
+            .await;
+            FrameRead {
+                nodes,
+                read: RootRead::Read,
+            }
         });
         Ok(stream::iter(reads)
             .buffered(APPS_IN_FLIGHT)

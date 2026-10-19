@@ -42,7 +42,8 @@ pub(crate) fn windows_of(
         .collect();
     let roots: Vec<_> = chosen.iter().map(|(_, app)| app.root.clone()).collect();
     let frames = read_frames(bus, &roots, deadline)?;
-    Ok(collect(&chosen, &frames))
+    let nodes: Vec<_> = frames.into_iter().map(|frame| frame.nodes).collect();
+    Ok(collect(&chosen, &nodes))
 }
 
 /// Keeps the id of each listed window against its X11 client, for the day its

@@ -15,6 +15,11 @@ pub(crate) fn decide_focus(candidates: &[usize], evidence: X11Evidence) -> Optio
     }
 }
 
+#[expect(dead_code, reason = "stub the owning lane replaces")]
+pub(crate) fn focus_is_indeterminate(_candidates: &[usize], _decided: Option<usize>) -> bool {
+    false
+}
+
 #[cfg(test)]
 #[path = "focus_tests.rs"]
 mod tests;

@@ -35,6 +35,7 @@ mod node_properties;
 mod node_read;
 mod node_traits;
 mod observe;
+pub(crate) mod observe_menu;
 mod observed_read;
 pub(crate) mod offscreen;
 mod path_descent;

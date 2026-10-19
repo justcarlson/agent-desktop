@@ -19,7 +19,7 @@ use super::{
 use crate::tree::toolkit_trust::read_toolkit;
 use crate::tree::{AtspiElement, list_children};
 
-const ROOT_SLICE: Duration = Duration::from_millis(300);
+pub(crate) const ROOT_SLICE: Duration = Duration::from_millis(300);
 const APPS_IN_FLIGHT: usize = 32;
 
 /// Every application on the registry, and those that could not be read.
@@ -106,4 +106,15 @@ pub(crate) fn read_registry(bus: &SharedBus, deadline: Deadline) -> Result<Regis
         }
         Ok(listed)
     })
+}
+
+/// One pass over the registry for one process, or for every process when
+/// `pid` is `None`.
+#[expect(dead_code, reason = "stub the owning lane replaces")]
+pub(crate) fn read_registry_for(
+    bus: &SharedBus,
+    _pid: Option<u32>,
+    deadline: Deadline,
+) -> Result<Registry, AdapterError> {
+    read_registry(bus, deadline)
 }

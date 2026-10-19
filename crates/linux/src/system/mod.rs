@@ -30,6 +30,11 @@ mod launch_observe;
 mod launch_target;
 mod listed_window;
 mod liveness;
+mod menu_anchor;
+mod menu_popup;
+mod menu_reader;
+pub(crate) mod menu_surface;
+mod menu_wait;
 pub(crate) mod overview;
 mod permissions;
 mod proc_scan;
@@ -48,6 +53,11 @@ mod screenshot;
 mod session;
 pub(crate) mod session_bus;
 mod signal;
+mod signal_boundary;
+mod signal_capture;
+mod signal_inventory;
+mod signal_population;
+mod signal_surfaces;
 mod stopped_windows;
 mod surfaces;
 mod toolkit;
@@ -97,11 +107,21 @@ mod key_dispatch_live_tests;
 #[cfg(test)]
 mod launch_live_tests;
 #[cfg(test)]
+mod menu_fixture;
+#[cfg(test)]
+mod menu_wait_live_tests;
+#[cfg(test)]
 mod process_state_live_tests;
 #[cfg(test)]
 mod registry_live_tests;
 #[cfg(test)]
 mod sheet_live_tests;
+#[cfg(test)]
+mod signal_live_apps;
+#[cfg(test)]
+mod signal_live_surfaces_tests;
+#[cfg(test)]
+mod signal_live_tests;
 #[cfg(test)]
 mod stopped_live_tests;
 #[cfg(test)]

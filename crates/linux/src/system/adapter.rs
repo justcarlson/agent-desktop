@@ -4,13 +4,14 @@ use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DisplayInfo, ImageBuffer,
     InteractionLease, InteractionPolicy, KeyCombo, PermissionReport, ProcessIdentity,
-    ScreenshotTarget, SessionAffinity, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    ScreenshotTarget, SessionAffinity, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps,
+    WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
 use crate::system::{
-    close, interaction_lease, key_dispatch, launch, permissions, process_state, protected, session,
-    window_op,
+    close, interaction_lease, key_dispatch, launch, menu_wait, permissions, process_state,
+    protected, session, signal_capture, window_op,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -112,6 +113,23 @@ impl SystemOps for LinuxAdapter {
         deadline: Deadline,
     ) -> Result<ImageBuffer, AdapterError> {
         crate::system::screenshot::screenshot_window_frame(self.bus(), window, deadline)
+    }
+
+    fn capture_signal_baseline(
+        &self,
+        filter: &SignalFilter,
+        deadline: Deadline,
+    ) -> Result<SignalBaseline, AdapterError> {
+        signal_capture::capture_signal_baseline(self.bus(), filter, deadline)
+    }
+
+    fn wait_for_menu(
+        &self,
+        process: ProcessIdentity,
+        open: bool,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        menu_wait::wait_for_menu(self.bus(), process, open, deadline)
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {
