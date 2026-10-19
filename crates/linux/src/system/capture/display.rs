@@ -143,7 +143,7 @@ pub(crate) fn capture(
     let compositing = env
         .grabber
         .compositing(deadline)
-        .map_err(|error| grab_failure(env, error, deadline))?;
+        .map_err(|error| grab_failure(error, deadline))?;
     let painted = paint(env, choose(compositing), area, deadline)?;
     ensure_budget(deadline)?;
     let after = env.lookup.displays(deadline)?;

@@ -20,13 +20,44 @@ fn reason_of(error: &AdapterError) -> Option<&str> {
 }
 
 #[test]
-fn a_cover_on_a_non_compositing_session_refuses_and_issues_no_grab() {
+fn a_cover_without_a_redirect_route_refuses_and_issues_no_plain_grab() {
     let rig = Rig::standard();
     rig.stacking.reads.set(vec![covering()]);
     let error = capture(&rig.env(), &target(), false, deadline()).expect_err("covered");
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(reason_of(&error), Some("covered"));
     assert_eq!(rig.grabber.grab_count(), 0);
+    assert_eq!(rig.grabber.redirect_count(), 1);
+}
+
+#[test]
+fn a_cover_is_read_through_the_redirect_and_never_by_a_plain_grab() {
+    let rig = Rig::standard();
+    rig.grabber.redirect_works();
+    rig.stacking.reads.set(vec![covering()]);
+    let image = capture(&rig.env(), &target(), false, deadline()).expect("captured");
+    assert_eq!(rig.grabber.grab_count(), 0);
+    assert_eq!(rig.grabber.redirect_count(), 1);
+    assert_eq!(image.width, 1002);
+}
+
+#[test]
+fn a_clear_window_is_a_plain_grab_and_never_a_redirect() {
+    let rig = Rig::standard();
+    rig.grabber.redirect_works();
+    capture(&rig.env(), &target(), false, deadline()).expect("captured");
+    assert_eq!(rig.grabber.grab_count(), 1);
+    assert_eq!(rig.grabber.redirect_count(), 0);
+}
+
+#[test]
+fn a_redirect_that_times_out_keeps_its_timeout_code() {
+    let rig = Rig::standard();
+    rig.stacking.reads.set(vec![covering()]);
+    *rig.grabber.redirect_with.lock().expect("redirect lock") =
+        Box::new(|_, _| Err(crate::system::x11::grab_error::GrabError::Timeout));
+    let error = capture(&rig.env(), &target(), false, deadline()).expect_err("timeout");
+    assert_eq!(error.code, ErrorCode::Timeout);
 }
 
 #[test]
@@ -36,6 +67,7 @@ fn the_same_cover_on_a_compositing_session_still_grabs() {
     rig.stacking.reads.set(vec![covering()]);
     capture(&rig.env(), &target(), false, deadline()).expect("captured");
     assert_eq!(rig.grabber.grab_count(), 1);
+    assert_eq!(rig.grabber.redirect_count(), 0);
 }
 
 #[test]
@@ -48,12 +80,17 @@ fn a_cover_that_appears_after_the_grab_discards_the_bytes() {
 }
 
 #[test]
-fn unknown_stacking_on_a_non_compositing_session_refuses() {
+fn unknown_stacking_takes_the_redirect_route_and_refuses_without_one() {
     let rig = Rig::standard();
     rig.stacking.reads.set(vec![StackingRead::Unavailable]);
     let error = capture(&rig.env(), &target(), false, deadline()).expect_err("unknown");
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(rig.grabber.grab_count(), 0);
+    let working = Rig::standard();
+    working.grabber.redirect_works();
+    working.stacking.reads.set(vec![StackingRead::Unavailable]);
+    capture(&working.env(), &target(), false, deadline()).expect("captured");
+    assert_eq!(working.grabber.redirect_count(), 1);
 }
 
 #[test]

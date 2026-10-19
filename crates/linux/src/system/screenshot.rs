@@ -62,19 +62,13 @@ pub(crate) fn capture_frame_with(
 
 fn with_env<T>(
     bus: &SharedBus,
-    route: &Route,
     run: impl FnOnce(&CaptureEnv) -> Result<T, AdapterError>,
 ) -> Result<T, AdapterError> {
     let lookup = BusLookup { bus };
-    let display = match route {
-        Route::X11(name) => name.as_str(),
-        Route::Wayland => "",
-    };
     let env = CaptureEnv {
         grabber: &DisplayGrabber,
         stacking: &DisplayReader,
         lookup: &lookup,
-        display,
         decode: real_decode,
         encode: encode_png,
     };
@@ -87,9 +81,7 @@ pub(crate) fn screenshot(
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
     let route = current().map_err(not_delivered)?;
-    with_env(bus, &route, |env| {
-        capture_with(env, &route, target, deadline)
-    })
+    with_env(bus, |env| capture_with(env, &route, target, deadline))
 }
 
 pub(crate) fn screenshot_window_frame(
@@ -98,9 +90,7 @@ pub(crate) fn screenshot_window_frame(
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
     let route = current().map_err(not_delivered)?;
-    with_env(bus, &route, |env| {
-        capture_frame_with(env, &route, window, deadline)
-    })
+    with_env(bus, |env| capture_frame_with(env, &route, window, deadline))
 }
 
 #[cfg(test)]

@@ -73,3 +73,31 @@ fn a_plain_screenshot_falls_back_to_the_frame_then_the_client() {
     assert_eq!(for_screenshot(Unit::Unproven, false), Unit::Client);
     assert_eq!(for_screenshot(Unit::Client, true), Unit::Client);
 }
+
+#[test]
+fn the_measured_toolkits_pick_the_measured_unit() {
+    let gtk3_openbox = choose(size(300, 300), Some(size(302, 327)), bounds(302.0, 327.0));
+    assert_eq!(gtk3_openbox, Unit::Frame);
+    let gtk4_openbox = choose(size(890, 550), Some(size(890, 550)), bounds(890.0, 550.0));
+    assert_eq!(gtk4_openbox, Unit::Frame);
+    let chromium_openbox = choose(
+        size(1050, 773),
+        Some(size(1052, 800)),
+        bounds(1050.0, 773.0),
+    );
+    assert_eq!(chromium_openbox, Unit::Client);
+    let chromium_mutter = choose(
+        size(1280, 731),
+        Some(size(1280, 768)),
+        bounds(1280.0, 731.0),
+    );
+    assert_eq!(chromium_mutter, Unit::Client);
+}
+
+#[test]
+fn gtk_under_mutter_matches_no_drawable() {
+    let gtk3 = choose(size(300, 300), Some(size(328, 366)), bounds(300.0, 337.0));
+    assert_eq!(gtk3, Unit::Unproven);
+    let gtk4 = choose(size(1012, 672), None, bounds(890.0, 550.0));
+    assert_eq!(gtk4, Unit::Unproven);
+}

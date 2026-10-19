@@ -3,15 +3,14 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DisplayInfo, ErrorCode, ImageBuffer, ImageFormat, ProcessId, Rect,
-    WindowInfo, WindowState,
+    AdapterError, Deadline, DisplayInfo, ImageBuffer, ImageFormat, ProcessId, Rect, WindowInfo,
+    WindowState,
 };
 
+pub(crate) use super::world::*;
 use super::*;
 use crate::system::capture::pixels::VisualFormat;
-use crate::system::capture::window_context::WindowLookup;
 use crate::system::capture::window_xid::XidOutcome;
-use crate::system::x11::FrameExtents;
 use crate::system::x11::X11State;
 use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::drawable_info::DrawableInfo;
@@ -20,35 +19,12 @@ use crate::system::x11::grab_error::GrabError;
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
-use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::window_flags::WindowFlags;
 use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::{FrameExtents, MonitorFault};
 
 pub(crate) const CLIENT: u32 = 10;
 pub(crate) const FRAME: u32 = 20;
-
-pub(crate) struct Seq<T> {
-    items: Mutex<(Vec<T>, usize)>,
-}
-
-impl<T: Clone> Seq<T> {
-    pub(crate) fn of(items: Vec<T>) -> Self {
-        Self {
-            items: Mutex::new((items, 0)),
-        }
-    }
-
-    pub(crate) fn next(&self) -> T {
-        let mut guard = self.items.lock().expect("sequence lock");
-        let at = guard.1.min(guard.0.len() - 1);
-        guard.1 += 1;
-        guard.0[at].clone()
-    }
-
-    pub(crate) fn set(&self, items: Vec<T>) {
-        *self.items.lock().expect("sequence lock") = (items, 0);
-    }
-}
 
 #[derive(Clone)]
 pub(crate) struct Drawn {
@@ -74,6 +50,8 @@ pub(crate) struct FakeGrabber {
     pub(crate) drawn: Mutex<HashMap<u32, Seq<Drawn>>>,
     pub(crate) compositing: Mutex<Result<bool, fn() -> GrabError>>,
     pub(crate) grab_with: Mutex<GrabFn>,
+    pub(crate) redirect_with: Mutex<GrabFn>,
+    pub(crate) redirects: Mutex<Vec<GrabLog>>,
     pub(crate) calls: AtomicUsize,
     pub(crate) grabs: Mutex<Vec<GrabLog>>,
 }
@@ -103,6 +81,14 @@ impl FakeGrabber {
             .lock()
             .expect("drawn lock")
             .insert(id, Seq::of(items));
+    }
+
+    pub(crate) fn redirect_count(&self) -> usize {
+        self.redirects.lock().expect("redirects lock").len()
+    }
+
+    pub(crate) fn redirect_works(&self) {
+        *self.redirect_with.lock().expect("redirect lock") = Box::new(|_, rect| Ok(raw_of(rect)));
     }
 
     pub(crate) fn grab_count(&self) -> usize {
@@ -147,70 +133,26 @@ impl Grabber for FakeGrabber {
         (self.grab_with.lock().expect("grab lock"))(drawable, rect)
     }
 
+    fn grab_redirected(
+        &self,
+        window: u32,
+        rect: GrabRect,
+        _deadline: Deadline,
+    ) -> Result<Raw, GrabError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        self.redirects
+            .lock()
+            .expect("redirects lock")
+            .push((window, (rect.x, rect.y, rect.width, rect.height)));
+        (self.redirect_with.lock().expect("redirect lock"))(window, rect)
+    }
+
     fn compositing(&self, _deadline: Deadline) -> Result<bool, GrabError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.compositing
             .lock()
             .expect("compositing lock")
             .map_err(|make| make())
-    }
-}
-
-pub(crate) struct FakeStacking {
-    pub(crate) reads: Seq<StackingRead>,
-    pub(crate) per_target: Mutex<HashMap<u32, StackingRead>>,
-    pub(crate) clients: Mutex<X11State>,
-    pub(crate) read_count: AtomicUsize,
-}
-
-impl StackingSource for FakeStacking {
-    fn read_within(&self, target_client: u32, _deadline: Deadline) -> StackingRead {
-        self.read_count.fetch_add(1, Ordering::SeqCst);
-        match self
-            .per_target
-            .lock()
-            .expect("per target lock")
-            .get(&target_client)
-        {
-            Some(read) => read.clone(),
-            None => self.reads.next(),
-        }
-    }
-
-    fn clients_within(&self, _deadline: Deadline) -> X11State {
-        self.clients.lock().expect("clients lock").clone()
-    }
-}
-
-pub(crate) struct FakeLookup {
-    pub(crate) resolved: Seq<Option<WindowInfo>>,
-    pub(crate) xids: Seq<XidOutcome>,
-    pub(crate) displays: Seq<Option<Vec<DisplayInfo>>>,
-    pub(crate) calls: AtomicUsize,
-}
-
-impl WindowLookup for FakeLookup {
-    fn resolve(
-        &self,
-        _window: &WindowInfo,
-        _deadline: Deadline,
-    ) -> Result<WindowInfo, AdapterError> {
-        self.calls.fetch_add(1, Ordering::SeqCst);
-        self.resolved
-            .next()
-            .ok_or_else(|| AdapterError::new(ErrorCode::WindowNotFound, "The window is gone"))
-    }
-
-    fn xid(&self, _window: &WindowInfo, _deadline: Deadline) -> XidOutcome {
-        self.calls.fetch_add(1, Ordering::SeqCst);
-        self.xids.next()
-    }
-
-    fn displays(&self, _deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
-        self.calls.fetch_add(1, Ordering::SeqCst);
-        self.displays
-            .next()
-            .ok_or_else(|| AdapterError::internal("displays unavailable"))
     }
 }
 
@@ -321,6 +263,10 @@ impl Rig {
             drawn: Mutex::new(HashMap::new()),
             compositing: Mutex::new(Ok(false)),
             grab_with: Mutex::new(Box::new(|_, rect| Ok(raw_of(rect)))),
+            redirect_with: Mutex::new(Box::new(|_, _| {
+                Err(GrabError::Fault(MonitorFault::Unreadable))
+            })),
+            redirects: Mutex::new(Vec::new()),
             calls: AtomicUsize::new(0),
             grabs: Mutex::new(Vec::new()),
         };
@@ -362,7 +308,6 @@ impl Rig {
             grabber: &self.grabber,
             stacking: &self.stacking,
             lookup: &self.lookup,
-            display: ":0",
             decode,
             encode,
         }

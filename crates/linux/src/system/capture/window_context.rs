@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, ImageBuffer, WindowInfo};
+use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ImageBuffer, WindowInfo};
 
 use super::window_xid::{XidOutcome, window_xid};
 use crate::system::SharedBus;
@@ -41,7 +41,6 @@ pub(crate) struct CaptureEnv<'a> {
     pub(crate) grabber: &'a dyn Grabber,
     pub(crate) stacking: &'a dyn StackingSource,
     pub(crate) lookup: &'a dyn WindowLookup,
-    pub(crate) display: &'a str,
     pub(crate) decode: Decode,
     pub(crate) encode: Encode,
 }
@@ -60,30 +59,18 @@ pub(crate) struct WindowContext<'a> {
     pub(crate) deadline: Deadline,
 }
 
-/// The adapter error of a failed grab or drawable read.
-pub(crate) fn grab_failure(env: &CaptureEnv, error: GrabError, deadline: Deadline) -> AdapterError {
+/// The adapter error of a failed grab or drawable read. A window that goes
+/// away mid-capture is a stale target, not a missing one.
+pub(crate) fn grab_failure(error: GrabError, deadline: Deadline) -> AdapterError {
     match error {
-        GrabError::Gone => AdapterError::new(
-            ErrorCode::StaleRef,
-            "The window closed while it was being captured",
-        )
-        .with_suggestion("Run 'list-windows' to refresh window identifiers, then retry"),
-        GrabError::Unviewable => AdapterError::new(
-            ErrorCode::InvalidArgs,
-            "The window is minimised or not shown, so it has no pixels to capture",
-        )
-        .with_suggestion("Restore the window, then retry"),
-        GrabError::OffScreen => AdapterError::new(
-            ErrorCode::ActionFailed,
-            "The window is not wholly on the screen, so the display server cannot return it",
-        )
-        .with_suggestion("Move the window fully onto the screen, then retry")
-        .with_details(serde_json::json!({ "reason": "off_screen" })),
-        GrabError::Resource => AdapterError::new(
-            ErrorCode::ActionFailed,
-            "The display server could not return an image of this size",
-        ),
-        GrabError::Fault(fault) => crate::system::display::fault_error(env.display, Some(fault)),
+        GrabError::Gone => {
+            AdapterError::stale_ref_because("The window closed while it was being captured")
+                .with_suggestion("Run 'list-windows' to refresh window identifiers, then retry")
+        }
+        GrabError::OffScreen => AdapterError::from(GrabError::OffScreen)
+            .with_suggestion("Move the window fully onto the screen, then retry")
+            .with_details(serde_json::json!({ "reason": "off_screen" })),
         GrabError::Timeout => deadline.timeout_error(),
+        other => other.into(),
     }
 }

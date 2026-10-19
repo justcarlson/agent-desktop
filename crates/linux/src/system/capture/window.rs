@@ -7,6 +7,7 @@ use super::window_obstruction::{Cover, cover};
 use super::window_unit::{Unit, choose, for_screenshot};
 use super::window_xid::xid_or_error;
 use crate::system::bus::ensure_budget;
+use crate::system::x11::grab_error::GrabError;
 use crate::system::x11::grab_rect::GrabRect;
 use crate::system::x11::map_state::MapState;
 use crate::tree::Extents;
@@ -22,28 +23,20 @@ fn refusal(code: ErrorCode, message: &str, suggestion: &str) -> AdapterError {
     AdapterError::new(code, message).with_suggestion(suggestion)
 }
 
-fn covered(known: bool) -> AdapterError {
-    let (message, reason) = if known {
-        ("Another window is drawn over this window", "covered")
-    } else {
-        (
-            "Whether another window is drawn over this window could not be read",
-            "covered_unknown",
-        )
-    };
+fn covered() -> AdapterError {
     refusal(
         ErrorCode::ActionFailed,
-        message,
+        "Another window is drawn over this window and its own pixels could not be read",
         "Raise the window or move what covers it, then retry",
     )
-    .with_details(serde_json::json!({ "reason": reason }))
+    .with_details(serde_json::json!({ "reason": "covered" }))
 }
 
 fn survey(ctx: &WindowContext) -> Result<Geometry, AdapterError> {
     let grabber = ctx.env.grabber;
     let client = grabber
         .describe(ctx.xid, ctx.deadline)
-        .map_err(|error| grab_failure(ctx.env, error, ctx.deadline))?;
+        .map_err(|error| grab_failure(error, ctx.deadline))?;
     if !matches!(client.map_state, MapState::Viewable) {
         return Err(refusal(
             ErrorCode::InvalidArgs,
@@ -55,7 +48,7 @@ fn survey(ctx: &WindowContext) -> Result<Geometry, AdapterError> {
         Some(parent) => {
             let described = grabber
                 .describe(parent, ctx.deadline)
-                .map_err(|error| grab_failure(ctx.env, error, ctx.deadline))?;
+                .map_err(|error| grab_failure(error, ctx.deadline))?;
             Some((parent, described.rect))
         }
         None => None,
@@ -107,15 +100,19 @@ fn grab_rect_of(rect: Extents) -> Result<GrabRect, AdapterError> {
     })
 }
 
-fn require_clear(ctx: &WindowContext, rect: Extents) -> Result<(), AdapterError> {
+enum Clearance {
+    Clear,
+    Hidden,
+}
+
+fn clearance(ctx: &WindowContext, rect: Extents) -> Clearance {
     if ctx.compositing {
-        return Ok(());
+        return Clearance::Clear;
     }
     let read = ctx.env.stacking.read_within(ctx.xid, ctx.deadline);
     match cover(&read, ctx.xid, rect) {
-        Cover::Clear => Ok(()),
-        Cover::Covered => Err(covered(true)),
-        Cover::Unknown => Err(covered(false)),
+        Cover::Clear => Clearance::Clear,
+        Cover::Covered | Cover::Unknown => Clearance::Hidden,
     }
 }
 
@@ -124,7 +121,11 @@ fn changed() -> AdapterError {
         .with_suggestion("Run 'list-windows' to refresh window identifiers, then retry")
 }
 
-fn recheck(ctx: &WindowContext, before: &Geometry, rect: Extents) -> Result<(), AdapterError> {
+fn recheck(
+    ctx: &WindowContext,
+    before: &Geometry,
+    plain_over: Option<Extents>,
+) -> Result<(), AdapterError> {
     ensure_budget(ctx.deadline)?;
     ctx.env.lookup.resolve(&ctx.window, ctx.deadline)?;
     let xid = xid_or_error(ctx.env.lookup.xid(&ctx.window, ctx.deadline))?;
@@ -137,7 +138,13 @@ fn recheck(ctx: &WindowContext, before: &Geometry, rect: Extents) -> Result<(), 
         Err(error) if error.code == ErrorCode::InvalidArgs => return Err(changed()),
         Err(error) => return Err(error),
     }
-    require_clear(ctx, rect)
+    let Some(rect) = plain_over else {
+        return Ok(());
+    };
+    match clearance(ctx, rect) {
+        Clearance::Clear => Ok(()),
+        Clearance::Hidden => Err(covered()),
+    }
 }
 
 /// Captures one window's own drawable. The window is resolved strictly and
@@ -164,7 +171,7 @@ pub(crate) fn capture(
     let compositing = env
         .grabber
         .compositing(deadline)
-        .map_err(|error| grab_failure(env, error, deadline))?;
+        .map_err(|error| grab_failure(error, deadline))?;
     let ctx = WindowContext {
         env,
         window: resolved,
@@ -176,18 +183,30 @@ pub(crate) fn capture(
     let unit = unit_of(&before, ctx.window.bounds, strict_unit)?;
     let (drawable, rect) = target_of(&before, unit, xid);
     let area = grab_rect_of(rect)?;
-    require_clear(&ctx, rect)?;
     ensure_budget(deadline)?;
-    let raw = env
-        .grabber
-        .grab(drawable, area, deadline)
-        .map_err(|error| grab_failure(env, error, deadline))?;
-    recheck(&ctx, &before, rect)?;
+    let plain = matches!(clearance(&ctx, rect), Clearance::Clear);
+    let raw = if plain {
+        env.grabber.grab(drawable, area, deadline)
+    } else {
+        env.grabber.grab_redirected(drawable, area, deadline)
+    }
+    .map_err(|error| {
+        if plain || error == GrabError::Timeout || error == GrabError::Gone {
+            grab_failure(error, deadline)
+        } else {
+            covered()
+        }
+    })?;
+    recheck(&ctx, &before, plain.then_some(rect))?;
     let displays = env.lookup.displays(deadline).unwrap_or_default();
     let scale = scale_for(&displays, ctx.window.bounds.unwrap_or_else(|| rect.into()));
     let rgb = (env.decode)(&raw)?;
     (env.encode)(&rgb, raw.width, raw.height, scale)
 }
+
+#[cfg(test)]
+#[path = "window_world_tests.rs"]
+mod world;
 
 #[cfg(test)]
 #[path = "window_fakes_tests.rs"]

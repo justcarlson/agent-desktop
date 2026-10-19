@@ -53,7 +53,7 @@ pub(crate) fn paint(
             let raw = env
                 .grabber
                 .grab(ROOT_DRAWABLE, grab_rect(area)?, deadline)
-                .map_err(|error| grab_failure(env, error, deadline))?;
+                .map_err(|error| grab_failure(error, deadline))?;
             Ok(Painted {
                 rgb: (env.decode)(&raw)?,
                 width: raw.width,
