@@ -31,6 +31,10 @@ mod world;
 #[cfg(test)]
 mod fit_tests;
 #[cfg(test)]
+mod live_rig;
+#[cfg(test)]
+mod live_scripts;
+#[cfg(test)]
 mod live_tests;
 
 pub(crate) fn read(deadline: Deadline) -> Result<view::TrayView, AdapterError> {
