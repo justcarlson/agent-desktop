@@ -12,7 +12,7 @@ use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
 use crate::system::{SharedBus, process_facts, window_id};
 
-fn is_web_process(pid: u32) -> bool {
+pub(super) fn is_web_process(pid: u32) -> bool {
     process_facts::read(pid).is_some_and(|facts| facts.web_family.is_some())
 }
 
@@ -66,10 +66,11 @@ type Walker<'a> = dyn FnMut(&AtspiElement, &WalkLimits, Deadline) -> Result<Walk
 /// Walks until the tree has stopped growing when the window of a web engine
 /// is observed, otherwise once. An element a ref already names sits in a tree
 /// that has filled, and a small subtree of it never exceeds the size of an
-/// empty browser shell, so waiting for it to grow would spend the whole budget. The second value is false when the wait ended on
-/// its budget with the tree still changing. A later read that fails because
-/// the budget ran out returns the walk before it; any other failure is the
-/// failure of the observation.
+/// empty browser shell, so waiting for it to grow would spend the whole
+/// budget. The second value is false when the wait ended on its budget with
+/// the tree still changing. A later read that fails because the budget ran
+/// out returns the walk before it; any other failure is the failure of the
+/// observation.
 fn settled_walk(
     root: &ObservationRoot<'_>,
     element: &AtspiElement,

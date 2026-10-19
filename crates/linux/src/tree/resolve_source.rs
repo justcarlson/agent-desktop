@@ -4,6 +4,7 @@ use zbus::Connection;
 use super::absence::Liveness;
 use super::node_evidence::read_evidence;
 use super::node_read::read_node_with_liveness;
+use super::observe::is_web_process;
 use super::path_descent::{Level, Levels};
 use super::resolve::{Source, resolve};
 use super::resolve_anchor::resolve_anchor;
@@ -80,8 +81,7 @@ impl Source for BusSource<'_> {
 
     fn search(&mut self, frame: &AtspiElement, entry: &RefEntry) -> Result<Searched, AdapterError> {
         let walk = walk_tree(self.bus, frame, &WalkLimits::default(), self.deadline)?;
-        let web = process_facts::read(frame.pid()).is_some_and(|facts| facts.web_family.is_some());
-        Ok(evaluate(&walk, entry, web))
+        Ok(evaluate(&walk, entry, is_web_process(frame.pid())))
     }
 
     fn stopped_app(&mut self, pid: u32) -> Option<String> {

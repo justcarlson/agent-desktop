@@ -4,9 +4,10 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use zbus::Connection;
 
 use super::node_read::read_node_with_liveness;
+use super::observe::is_web_process;
 use super::walker_expand::{UNKNOWN_PID, child_elements, learn_pids};
 use super::{AtspiElement, RawNode};
-use crate::system::{process_facts, within};
+use crate::system::within;
 
 const UNIDENTIFIED: &str = "The owning process of the bus name could not be identified";
 
@@ -95,10 +96,6 @@ pub(crate) fn level_of(
         children_unread: node.children.is_failed(),
         empty_means_unread: web_process,
     }
-}
-
-fn is_web_process(pid: u32) -> bool {
-    process_facts::read(pid).is_some_and(|facts| facts.web_family.is_some())
 }
 
 /// Reads levels on the shared accessibility connection with the walk's own
