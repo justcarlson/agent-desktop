@@ -160,29 +160,42 @@ fn wayland_keys_go_through_the_keysym_sender_and_are_gated_after_the_lead_key() 
 }
 
 #[test]
-fn an_unreadable_frame_on_wayland_still_types_and_an_inactive_one_does_not() {
-    let unreadable = FakeWorld::wayland().active_script(&[None]);
-    type_text_steps(
-        &unreadable,
-        &element(),
-        "hi",
-        InteractionPolicy::focus_fallback(),
-        deadline(),
-    )
-    .unwrap();
-    assert_eq!(unreadable.count("sent"), 1);
+fn an_unreadable_frame_on_wayland_refuses_an_element_addressed_call_and_an_inactive_one_too() {
+    for read in [None, Some(false)] {
+        let world = FakeWorld::wayland().active_script(&[read]);
+        let error = type_text_steps(
+            &world,
+            &element(),
+            "hi",
+            InteractionPolicy::focus_fallback(),
+            deadline(),
+        )
+        .unwrap_err();
+        assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+        assert!(not_delivered(&error));
+        assert!(world.sent_nothing());
 
-    let inactive = FakeWorld::wayland().active_script(&[Some(false)]);
-    let error = type_text_steps(
-        &inactive,
-        &element(),
-        "hi",
-        InteractionPolicy::focus_fallback(),
-        deadline(),
-    )
-    .unwrap_err();
-    assert_eq!(check_of(&error).as_deref(), Some("window_active"));
-    assert!(inactive.sent_nothing());
+        let press = FakeWorld::wayland().active_script(&[read]);
+        press_key_element_steps(
+            &press,
+            &element(),
+            &combo(),
+            InteractionPolicy::focus_fallback(),
+            deadline(),
+        )
+        .unwrap_err();
+        assert!(press.sent_nothing());
+    }
+}
+
+#[test]
+fn a_global_press_on_wayland_sends_with_no_frame_read_and_is_marked_unverified() {
+    let world = FakeWorld::wayland().active_script(&[None]);
+    let steps = press_key_global_steps(&world, &combo(), deadline()).unwrap();
+    assert_eq!(steps[0].label(), "RemoteDesktop.press_key");
+    assert_eq!(steps[0].verified(), Some(false));
+    assert_eq!(world.count("read_active"), 0);
+    assert_eq!(world.count("sent"), 1);
 }
 
 #[test]

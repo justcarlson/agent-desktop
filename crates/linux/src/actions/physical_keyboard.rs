@@ -20,7 +20,7 @@ pub(crate) fn type_text_steps(
     ensure_keyboard_policy(policy)?;
     ensure_budget(deadline)?;
     let backend = world.backend()?;
-    let mut gate = ActiveGate::new(world, element, deadline, backend == Backend::Wayland);
+    let mut gate = ActiveGate::new(world, element, deadline);
     match &backend {
         Backend::X11(_) => {
             let map = world.keymap(deadline)?;
@@ -46,7 +46,7 @@ pub(crate) fn press_key_element_steps(
     ensure_keyboard_policy(policy)?;
     ensure_budget(deadline)?;
     let backend = world.backend()?;
-    let mut gate = ActiveGate::new(world, element, deadline, backend == Backend::Wayland);
+    let mut gate = ActiveGate::new(world, element, deadline);
     if matches!(backend, Backend::X11(_)) {
         gate.check()?;
     }

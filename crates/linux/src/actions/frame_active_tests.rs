@@ -59,7 +59,7 @@ fn a_zero_budget_reads_once_and_never_pauses() {
 fn the_first_check_of_an_inactive_frame_refuses_before_any_key() {
     let world = FakeWorld::x11().active_script(&[Some(false)]);
     let target = element();
-    let error = ActiveGate::new(&world, &target, deadline(), false)
+    let error = ActiveGate::new(&world, &target, deadline())
         .check()
         .unwrap_err();
     assert_eq!(check_of(&error).as_deref(), Some("window_active"));
@@ -71,7 +71,7 @@ fn the_first_check_of_an_inactive_frame_refuses_before_any_key() {
 fn a_later_check_that_finds_the_frame_inactive_does_not_claim_nothing_was_sent() {
     let world = FakeWorld::x11().active_script(&[Some(true), Some(false)]);
     let target = element();
-    let mut gate = ActiveGate::new(&world, &target, deadline(), false);
+    let mut gate = ActiveGate::new(&world, &target, deadline());
     gate.check().unwrap();
     let error = gate.check().unwrap_err();
     assert_eq!(check_of(&error).as_deref(), Some("window_active"));
@@ -80,14 +80,13 @@ fn a_later_check_that_finds_the_frame_inactive_does_not_claim_nothing_was_sent()
 }
 
 #[test]
-fn an_unreadable_frame_refuses_on_x11_and_passes_where_it_is_allowed_to() {
+fn an_unreadable_frame_refuses_with_its_cause_before_any_key() {
     let world = FakeWorld::x11().active_script(&[None]);
     let target = element();
-    let strict = ActiveGate::new(&world, &target, deadline(), false).check();
-    assert_eq!(
-        check_of(&strict.unwrap_err()).as_deref(),
-        Some("window_active")
-    );
-    let lenient = ActiveGate::new(&world, &target, deadline(), true).check();
-    assert!(lenient.is_ok());
+    let error = ActiveGate::new(&world, &target, deadline())
+        .check()
+        .unwrap_err();
+    assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+    assert!(not_delivered(&error));
+    assert_eq!(error.details.expect("details")["cause"], "unreadable");
 }

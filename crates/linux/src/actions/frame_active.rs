@@ -58,22 +58,15 @@ pub(crate) struct ActiveGate<'a, W: PhysicalWorld> {
     world: &'a W,
     element: &'a AtspiElement,
     deadline: Deadline,
-    unreadable_passes: bool,
     checked: bool,
 }
 
 impl<'a, W: PhysicalWorld> ActiveGate<'a, W> {
-    pub(crate) fn new(
-        world: &'a W,
-        element: &'a AtspiElement,
-        deadline: Deadline,
-        unreadable_passes: bool,
-    ) -> Self {
+    pub(crate) fn new(world: &'a W, element: &'a AtspiElement, deadline: Deadline) -> Self {
         Self {
             world,
             element,
             deadline,
-            unreadable_passes,
             checked: false,
         }
     }
@@ -84,7 +77,6 @@ impl<'a, W: PhysicalWorld> ActiveGate<'a, W> {
         let budget = if first { ACTIVE_BUDGET } else { Duration::ZERO };
         match poll_active(self.world, self.element, budget, self.deadline)? {
             Some(true) => Ok(()),
-            None if self.unreadable_passes => Ok(()),
             read if first => Err(window_inactive(read)),
             _ => Err(window_lost()),
         }
