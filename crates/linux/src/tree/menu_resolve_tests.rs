@@ -1,6 +1,6 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{choose, menu_closed};
+use super::{choose, is_menu_entry, menu_closed};
 use crate::tree::AtspiElement;
 
 fn element(path: &str) -> AtspiElement {
@@ -47,4 +47,13 @@ fn a_landing_beats_a_refusal_from_another_popup() {
     let refusal = agent_desktop_core::AdapterError::timeout("slow");
     let landed = choose(vec![element("/item")], Some(refusal)).expect("a landing");
     assert_eq!(landed.path(), "/item");
+}
+
+#[test]
+fn a_ref_taken_on_the_menu_surface_is_a_menu_entry_and_a_window_ref_is_not() {
+    let mut entry = crate::tree::test_support::ref_entry("menuitem");
+    entry.source.source_surface = agent_desktop_core::SnapshotSurface::Menu;
+    assert!(is_menu_entry(&entry));
+    entry.source.source_surface = agent_desktop_core::SnapshotSurface::Window;
+    assert!(!is_menu_entry(&entry));
 }

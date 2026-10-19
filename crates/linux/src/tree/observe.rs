@@ -173,11 +173,11 @@ fn observe_decorated(
     decorate: &mut dyn Decorate,
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
-    require_surface(request.surface)?;
-    if let ObservationRoot::Window(window) = &root
-        && (host.stopped)(window.pid.get())
-    {
-        return Err(AdapterError::app_unresponsive(&window.app));
+    if let ObservationRoot::Window(window) = &root {
+        require_surface(request.surface)?;
+        if (host.stopped)(window.pid.get()) {
+            return Err(AdapterError::app_unresponsive(&window.app));
+        }
     }
     let element = root_element(&root)?;
     let limits = WalkLimits {

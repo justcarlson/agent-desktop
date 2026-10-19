@@ -62,6 +62,9 @@ impl ObservationOps for LinuxAdapter {
         if crate::tray::owns(entry) {
             return crate::tray::resolve(entry, deadline);
         }
+        if crate::tree::is_menu_entry(entry) {
+            return crate::tree::resolve_element_strict(self.bus(), entry, deadline);
+        }
         crate::tree::resolve_locator_anchor(self.bus(), entry, deadline)
     }
 

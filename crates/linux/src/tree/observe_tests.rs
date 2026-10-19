@@ -187,6 +187,26 @@ fn an_element_inside_a_sheet_observes_though_the_element_is_not_itself_a_sheet()
 }
 
 #[test]
+fn an_element_inside_a_menu_observes_from_its_own_root() {
+    let mut element = AtspiElement::new(":1.7", "/org/a11y/atspi/accessible/9", 77);
+    element.set_ancestry(crate::tree::ancestry::Ancestry::of(None, None, false));
+    let handle = element.into_native_handle();
+    let mut entry = element_entry();
+    entry.source.source_surface = SnapshotSurface::Menu;
+    let root = ObservationRoot::Element {
+        handle: &handle,
+        entry: &entry,
+        root_ref: None,
+    };
+    let mut menu = request();
+    menu.surface = SnapshotSurface::Menu;
+    let walk = rooted_walk(PUSH_BUTTON, &[]);
+    let tree = observe_plain(root, &menu, |_, limits, _| walk(limits))
+        .expect("a menu item is observed from its own root");
+    assert!(tree.is_complete());
+}
+
+#[test]
 fn a_window_that_left_the_bus_is_window_not_found() {
     let id = window_id::encode(":1.7", "/a").expect("encodes");
     let window = window(id);

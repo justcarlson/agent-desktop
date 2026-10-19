@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, LocatorEvidence, NativeHandle, RefEntry,
+    AdapterError, Deadline, ErrorCode, LocatorEvidence, NativeHandle, RefEntry, SnapshotSurface,
 };
 use serde_json::json;
 use zbus::Connection;
@@ -16,6 +16,10 @@ use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits};
 use crate::system::menu_surface::popups_at;
 use crate::system::{SharedBus, owner_process_id, process_facts, within};
+
+pub(crate) fn is_menu_entry(entry: &RefEntry) -> bool {
+    entry.source.source_surface == SnapshotSurface::Menu
+}
 
 fn unanswered() -> AdapterError {
     AdapterError::timeout("The accessible object did not answer in time")

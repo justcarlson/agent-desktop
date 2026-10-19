@@ -211,6 +211,7 @@ pub(crate) use label_read::read_label;
 pub(crate) use live_read::{
     get_element_bounds, get_live_actions, get_live_element, get_live_state, get_live_value,
 };
+pub(crate) use menu_resolve::is_menu_entry;
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
 pub(crate) use node_read::{COMPONENT_INTERFACE, read_node};
