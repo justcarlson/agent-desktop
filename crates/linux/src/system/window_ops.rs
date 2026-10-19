@@ -4,7 +4,7 @@ use super::SharedBus;
 use super::listed_window::ListedWindow;
 use super::proc_scan::find_running;
 use super::proc_stat;
-use super::registry::{Registry, read_registry};
+use super::registry::{Registry, read_registry, read_registry_for};
 use super::registry_app::RegistryApp;
 use super::signal_inventory::{Pass, read_selected, run_pass_with};
 use super::unresponsive::{require_known_target, settle_scoped, stopped_target};
@@ -76,6 +76,27 @@ pub(crate) fn list_windows(
         .filter(|(index, _)| !filter.focused_only || Some(*index) == focused)
         .map(|(_, window)| window.info)
         .collect())
+}
+
+/// The windows of one process, placed as `list_windows` places them. Only
+/// that process is read, so an unrelated stopped application costs nothing.
+pub(crate) fn windows_of_process(
+    bus: &SharedBus,
+    pid: u32,
+    deadline: Deadline,
+) -> Result<Vec<WindowInfo>, AdapterError> {
+    let pending = x11::start(|| DisplayReader.read());
+    let desktops = x11::start(desktops::read);
+    let registry = read_registry_for(bus, Some(pid), deadline)?;
+    let select = |app: &RegistryApp| app.root.pid() == pid;
+    let finish = |deadline| pending.finish(deadline).unwrap_or(X11State::Unavailable);
+    let (mut pass, state) = run_pass_with(bus, &registry, select, finish, deadline)?;
+    finish_listing(
+        &mut pass,
+        &state,
+        desktops.finish(deadline).flatten().as_ref(),
+    );
+    Ok(pass.windows.into_iter().map(|window| window.info).collect())
 }
 
 /// The focused window, or none when the available sources do not agree.

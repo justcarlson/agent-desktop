@@ -1,6 +1,6 @@
 use agent_desktop_core::{ErrorCode, WindowInfo, WindowState};
 
-use super::verify;
+use super::{Liveness, verify};
 
 fn window(id: &str, pid: u32, instance: Option<&str>, title: &str) -> WindowInfo {
     WindowInfo {
@@ -18,7 +18,12 @@ fn window(id: &str, pid: u32, instance: Option<&str>, title: &str) -> WindowInfo
 fn a_live_window_with_the_same_process_resolves_even_when_retitled() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "Old title");
     let live = vec![window("w-1.2-a", 5, Some("b:1"), "New title")];
-    assert_eq!(verify(&stored, live).expect("resolves").title, "New title");
+    assert_eq!(
+        verify(&stored, live, Liveness::Alive)
+            .expect("resolves")
+            .title,
+        "New title"
+    );
 }
 
 #[test]
@@ -26,7 +31,9 @@ fn a_different_process_instance_is_window_not_found() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "t");
     let live = vec![window("w-1.2-a", 5, Some("b:2"), "t")];
     assert_eq!(
-        verify(&stored, live).expect_err("refused").code,
+        verify(&stored, live, Liveness::Alive)
+            .expect_err("refused")
+            .code,
         ErrorCode::WindowNotFound
     );
 }
@@ -36,7 +43,9 @@ fn a_different_pid_is_window_not_found() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "t");
     let live = vec![window("w-1.2-a", 6, Some("b:1"), "t")];
     assert_eq!(
-        verify(&stored, live).expect_err("refused").code,
+        verify(&stored, live, Liveness::Alive)
+            .expect_err("refused")
+            .code,
         ErrorCode::WindowNotFound
     );
 }
@@ -46,7 +55,9 @@ fn a_vanished_window_is_window_not_found() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "t");
     let live = vec![window("w-1.3-a", 5, Some("b:1"), "t")];
     assert_eq!(
-        verify(&stored, live).expect_err("gone").code,
+        verify(&stored, live, Liveness::Alive)
+            .expect_err("gone")
+            .code,
         ErrorCode::WindowNotFound
     );
 }
@@ -56,7 +67,52 @@ fn a_stored_window_without_a_process_instance_is_refused() {
     let stored = window("w-1.2-a", 5, None, "t");
     let live = vec![window("w-1.2-a", 5, Some("b:1"), "t")];
     assert_eq!(
-        verify(&stored, live).expect_err("refused").code,
+        verify(&stored, live, Liveness::Alive)
+            .expect_err("refused")
+            .code,
         ErrorCode::StaleRef
     );
+}
+
+#[test]
+fn an_absent_window_of_a_stopped_process_is_app_unresponsive() {
+    let stored = window("w-1.2-a", 5, Some("b:1"), "t");
+    let error = verify(&stored, Vec::new(), Liveness::Stopped).expect_err("stopped");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains("'a'"));
+}
+
+#[test]
+fn an_absent_window_of_a_gone_process_is_window_not_found() {
+    let stored = window("w-1.2-a", 5, Some("b:1"), "t");
+    let error = verify(&stored, Vec::new(), Liveness::Gone).expect_err("gone");
+    assert_eq!(error.code, ErrorCode::WindowNotFound);
+    assert!(error.message.contains("no longer open"));
+}
+
+#[test]
+fn an_absent_window_of_a_live_process_is_window_not_found() {
+    let stored = window("w-1.2-a", 5, Some("b:1"), "t");
+    let live = vec![window("w-1.3-a", 5, Some("b:1"), "other")];
+    let error = verify(&stored, live, Liveness::Alive).expect_err("closed");
+    assert_eq!(error.code, ErrorCode::WindowNotFound);
+    assert!(error.message.contains("no longer open"));
+}
+
+#[test]
+fn a_reused_process_id_keeps_the_different_process_refusal_whatever_the_verdict() {
+    let stored = window("w-1.2-a", 5, Some("b:1"), "t");
+    for process in [Liveness::Alive, Liveness::Stopped, Liveness::Gone] {
+        let live = vec![window("w-1.2-a", 5, Some("b:2"), "t")];
+        let error = verify(&stored, live, process).expect_err("refused");
+        assert_eq!(error.code, ErrorCode::WindowNotFound);
+        assert!(error.message.contains("different process"));
+    }
+}
+
+#[test]
+fn a_window_that_is_listed_resolves_even_when_its_process_reads_stopped() {
+    let stored = window("w-1.2-a", 5, Some("b:1"), "t");
+    let live = vec![window("w-1.2-a", 5, Some("b:1"), "t")];
+    assert!(verify(&stored, live, Liveness::Stopped).is_ok());
 }
