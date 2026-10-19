@@ -76,8 +76,8 @@ The roadmap's exit text promises a portal dialog that is approved once and then 
 - R15. `crates/core` and `src/` are unchanged, and no shipped source names a plan, phase or decision id.
 - R16. Every test fails for a real reason and is invert-verified. Captures are judged by independent PNG pixel statistics against known paint, the clipboard by foreign-producer and foreign-reader round trips, never by `ok:true`. Live tests run only in private sessions and never touch the live display's clipboard.
 - R17. `docs/phases.md` states what was built and no longer states what the evidence disproved, the open rows are settled by owner (`L9-17` and `L13-21` measured here; `L13-25` measured by 3.8 and consumed here; `L1-17` stays with 3.15 once 3.8 lands and reassigns it, and this sub-phase does not edit that row), all 28 rows that `scripts/check-linux-findings.py --sub-phase 3.10` lists at the 3.6 head are disposed of (`L1-3` and `L22-9` are not among them), and every owner item is written down.
-- R18. A stranger dogfood is run on a private X11 session under each window manager and on a headless Wayland session, and its report is committed with at least one finding, each disposed of.
-- R19. The release binary stays under 15 MiB, `cargo deny check` passes, and the cost of each command is reported as min-of-seven with the warm-up discarded.
+- R18. A stranger dogfood is run on a private X11 session under each window manager and on a headless Wayland session, and its report goes in the PR description with at least one finding, each disposed of; no report file is committed.
+- R19. The release binary stays under 15 MiB and `cargo deny check` passes, both recorded as a ledger row. No performance baseline is run for this sub-phase.
 
 ### Acceptance Examples
 
@@ -390,7 +390,7 @@ Each public fn of the adapter reaches these through `route::current()`; the rout
 | C, clipboard formats and owner | U8, U10 | `input/clipboard/{mod,formats,uri_list,targets,payload,incr,owner_entry,owner_serve,owner_request,owner_record,owner_files}.rs`, `src/bin/agent-desktop-linux-clipboard-owner.rs`, their tests | none |
 | D, clipboard read, set and clear | U9, U16 | `input/clipboard/{x11_read,x11_requestor,owner_spawn,owner_spawn_spec,owner_locate,owner_signal,set_clear}.rs`, their tests | C's pure fns, `OwnerRecord`, env constants; E's Wayland fns |
 | E, Wayland | U11, U12 | `input/clipboard/{wayland,wayland_errors,command_runner}.rs`, `system/capture/{wayland_portal,wayland_portal_call,wayland_portal_bus,wayland_frame}.rs`, their tests | C's `Target`, `choose_target`; `route` |
-| I, integration | U1, U2, U13-U15, U17 | skeleton and every shared file above, `route.rs`, `probes/linux/FINDINGS.md`, `docs/phases.md`, `docs/dogfood-reports/`, `capture_live_tests.rs`, `clipboard_live_tests.rs`, `owner_live_tests.rs` | all |
+| I, integration | U1, U2, U13-U15, U17 | skeleton and every shared file above, `route.rs`, `probes/linux/FINDINGS.md`, `docs/phases.md`, `capture_live_tests.rs`, `set_clear_live_tests.rs`, `owner_live_tests.rs` | all |
 
 Order: I lands the skeleton and starts U1 (measurement needs only the box) at once. A to E then start together, each on a branch off the skeleton commit, with no lane waiting on another. Lane B's first work is the pure rules (`window_unit`, `window_obstruction`, `compose`), lane D's is `owner_locate` and the spec builder, lane E's is the error classifier and the `PortalCaller` fakes. Merge order A, C, B, D, E, then `wayland_portal_bus.rs` once 3.8 is under the branch; no two lanes touch one file, so the merges conflict only in compile errors at the frozen seams, which lane I resolves. U1 results that fix constants (strip size, INCR chunk, unit rule table, composition fill) arrive as ledger rows plus a message; lanes use named placeholder constants in their own file until then.
 
@@ -415,8 +415,8 @@ Risks of the split: the owner (C) and the setter (D) share the env constants and
 | U12 | Wayland capture (gated) | `system/capture/wayland_portal.rs`, `wayland_portal_call.rs`, `wayland_portal_bus.rs`, `wayland_frame.rs` | U1, U3; the binding file needs 3.8's session-bus facility |
 | U13 | Roadmap, ledger and owner items | `docs/phases.md`, `probes/linux/FINDINGS.md` | U14, U15, U17 |
 | U14 | Capture live verification and cost | `capture_live_tests.rs` | U5-U7, U12 |
-| U17 | Clipboard live verification | `clipboard_live_tests.rs`, `owner_live_tests.rs` | U10, U11, U16 |
-| U15 | Stranger dogfood | `docs/dogfood-reports/` | U14, U17 |
+| U17 | Clipboard live verification | `set_clear_live_tests.rs`, `owner_live_tests.rs` | U10, U11, U16 |
+| U15 | Stranger dogfood | the PR description | U14, U17 |
 
 ### U1. Measure the open facts
 
@@ -691,7 +691,7 @@ Risks of the split: the owner (C) and the setter (D) share the env constants and
 - **Requirements:** R1-R8, R16, R19.
 - **Dependencies:** U5-U7, U12.
 - **Files:** `crates/linux/src/system/capture/capture_live_tests.rs` (`#[ignore]`, started by the launch helpers 3.2's live walk uses).
-- **Approach:** every test refuses to run unless `DISPLAY` is the private server its wrapper started, and judges output by decoding the PNG and classifying cells against the paint. Two kinds of target, never mixed: raw painter windows built with `x11rb` exist on X11 only and are not on the accessibility tree, so `--window-id` (an accessibility bus name and object path, `window_id.rs`) cannot select them; they exercise the XID-level primitives (grab, visual conversion, strip stride, obstruction, map state, close during grab) by calling those functions with the painter's XID. Complete-command tests (`screenshot --window-id`, `--app`) use registered application windows: a throwaway GTK3 and GTK4 window from a short Python `gi` script written into the test's temporary directory, each with a solid CSS background of a known colour and a stable title, so the accessibility registry lists it and the paint is known independently of the capture. Each test runs under openbox and again under `gnome-shell --x11`; the Wayland leg uses the headless session recipe. The cost table is min of seven with the warm-up discarded, with median and max beside it.
+- **Approach:** every test refuses to run unless `DISPLAY` is the private server its wrapper started, and judges output by decoding the PNG and classifying cells against the paint. Two kinds of target, never mixed: raw painter windows built with `x11rb` exist on X11 only and are not on the accessibility tree, so `--window-id` (an accessibility bus name and object path, `window_id.rs`) cannot select them; they exercise the XID-level primitives (grab, visual conversion, strip stride, obstruction, map state, close during grab) by calling those functions with the painter's XID. Complete-command tests (`screenshot --window-id`, `--app`) use registered application windows: a throwaway GTK3 and GTK4 window from a short Python `gi` script written into the test's temporary directory, each with a solid CSS background of a known colour and a stable title, so the accessibility registry lists it and the paint is known independently of the capture. Each test runs under openbox and again under `gnome-shell --x11`; the Wayland leg uses the headless session recipe.
 - **Test scenarios:**
   - Complete command: a registered GTK window of known colour is captured by `--window-id` (taken from `list-windows`); every sampled cell classifies as the paint, on both managers (covers R1).
   - Complete command: a second registered window above the first: under `gnome-shell --x11` the first's capture is its own colours; under openbox it is its own colours via the proved route or a refusal with reason `covered`, and in no run does it contain the cover's colour (covers AE1, R2).
@@ -703,15 +703,15 @@ Risks of the split: the owner (C) and the setter (D) share the env constants and
   - `permissions` shows `screen_recording` as designed on X11 and Wayland (covers R8).
   - Stale-socket scenario through complete commands (B1): a private X11 session under each manager with `WAYLAND_DISPLAY` set to a socket nothing listens on and a working `DISPLAY`: `screenshot` with no selector, `--screen 0`, an out-of-range `--screen` (its `display_count` comes from the X11 enumeration) and `--window-id` all capture on X11 and decode to the painted cells, and `permissions` reports `screen_recording: not_required`; the same environment with `DISPLAY` unset is the documented none-or-Wayland error.
   - Wayland leg: `ExactWindow` is not supported (covers AE6); the U12 route if built, with its pixel judgement.
-  - Cost: `screenshot` 1280x800 and a window, split into grab, convert, encode and total; the `permission_report` overhead from the added probe; release size against 15 MiB.
-- **Verification:** the suite passes under both managers and the Wayland leg; each named rule is broken once and its test seen to fail (post-grab re-map removed, obstruction removed, strip stride, channel order) and then restored; the cost table and size go in the PR description.
+  - Size: the release binary against 15 MiB, recorded as a ledger row; no performance baseline is run.
+- **Verification:** the suite passes under both managers and the Wayland leg; each named rule is broken once and its test seen to fail (post-grab re-map removed, obstruction removed, strip stride, channel order) and then restored; the release size goes in the ledger.
 
 ### U17. Clipboard live verification
 
 - **Goal:** prove the clipboard and the owner process on real software in private sessions.
 - **Requirements:** R9-R13, R10a, R16, R19.
 - **Dependencies:** U10, U11, U16.
-- **Files:** `crates/linux/src/input/clipboard/clipboard_live_tests.rs`, `owner_live_tests.rs` (`#[ignore]`).
+- **Files:** `crates/linux/src/input/clipboard/set_clear_live_tests.rs` (spawn, serve, replace, clear, take-over exit and the round trips) and `owner_live_tests.rs` (a stale record from a killed owner, the lease descriptor not inherited, a state directory the owner cannot use), both `#[ignore]`.
 - **Approach:** as U14, driving a separately built debug `agent-desktop` binary and the owner helper beside it (`cargo build --locked -p agent-desktop -p agent-desktop-linux --bins` runs first and the directory is passed to the tests, because cargo does not build another package's binary for `-p agent-desktop` alone; the test process is never the owner's host, and the owner is stopped by recorded identity); foreign tools (`xclip`, `wl-copy`, `wl-paste`) are producers and readers, never the product's route, started and stopped by pid, and the owner is always a child process of the test, never the test runner (`docs/solutions/best-practices/a-test-that-acts-on-its-own-runner-acts-on-every-other-test.md`).
 - **Test scenarios:**
   - Product set then foreign read for text, image and file paths; foreign write (`xclip -i` for `text/plain`, `image/png`, `text/uri-list`, `x-special/gnome-copied-files`) then product get in each format and `auto`; empty owner versus no owner; multi-line, non-BMP and 1 MB text; a large image above one request; file paths with spaces and non-ASCII names (covers R9).
@@ -722,7 +722,6 @@ Risks of the split: the owner (C) and the setter (D) share the env constants and
   - A process-level run with the real binary: `clipboard-set` followed by `clipboard-get` in separate invocations returns the value, and every test first requires `DISPLAY` to be the private server its wrapper started, so no run reaches the live display's clipboard.
   - Stale-socket scenario through complete commands (B1): `clipboard-set`, `clipboard-get` and `clipboard-clear` in a private X11 session with `WAYLAND_DISPLAY` set to a dead socket and a working `DISPLAY` run the native X11 route, round-tripped against a foreign reader and producer; with `DISPLAY` unset the same commands are the Wayland-tool or install error naming the missing socket.
   - Wayland leg: a round trip with a keyboard seat, `wl-copy --clear`, the stale and empty `WAYLAND_DISPLAY` cases, and the `L13-12` re-measure as a row (covers R13); `L13-25` is cited from 3.8's row and not re-measured.
-  - Cost: `clipboard-get`, `clipboard-set` and `clipboard-clear` at 1 KB and 1 MB, set measured from spawn to verified.
 - **Verification:** the suite passes under both managers and the Wayland leg; each named rule is broken once and its test seen to fail (percent-decoding, helper located by `PATH`, build identity unchecked, lease variable passed through, stale record signalled, `Nothing is copied` mapped to an error, the helper left in the host's process group so it dies with the host) and then restored; no owner started by a test is left running.
 
 ### U15. Stranger dogfood
@@ -730,10 +729,10 @@ Risks of the split: the owner (C) and the setter (D) share the env constants and
 - **Goal:** find what the unit tests and the author cannot: the shipped skill and the built binary, driven by someone who has nothing else.
 - **Requirements:** R18.
 - **Dependencies:** U14, U17.
-- **Files:** `docs/dogfood-reports/<date>-<serial>-feat-linux-3-10-capture-clipboard-dogfood.md` (the serial is the next one in the directory when written).
+- **Files:** none. The report is written into the PR description.
 - **Approach:** the operator is a subagent given the copy of `skills/agent-desktop/` and the release binary and denied the repository and this plan. Every example the skill contains is run verbatim in bash; reaching for a flag, variable or ordering the skill does not document ends the run as a finding; no fixed sleeps, only the tool's own waits; each failure is reproduced a second time before it is a finding; each behavioural claim is checked in both directions. Three legs: a private Xvfb with openbox, one with `gnome-shell --x11`, and a headless Wayland session. Targets are painter windows plus real GNOME apps (Calculator, Text Editor, Files). The judgements are J1 window by `--window-id` per toolkit, J2 covered and minimised on both managers, J3 `--screen` and full screen including two monitors and an out-of-range index, J4 stale, unknown, ambiguous and token-less window ids, J5 a window closed mid-capture, J6 the Wayland refusals and any proved route, J7 `permissions`, J8 `--debug` alignment, J9 clipboard foreign-producer and foreign-reader round trips in every format and `auto`, J10 the setter's stdout closing, the recorded owner alive, replaced and cleared, J11 tool-missing and dead-display errors, J12 a stale `WAYLAND_DISPLAY` with a working `DISPLAY` through `screenshot`, `permissions` and the three clipboard commands. Judgement uses independent decoding (stdlib `zlib` and `struct`) and pixel statistics, not `ok:true`. Every run ends by stopping the recorded owner pids and removing its private directory.
 - **Test expectation:** none -- the dogfood is the verification; each finding is one of fixed with a named, invert-verified test, owned elsewhere with the receiving scope written into `docs/phases.md` in this PR, or accepted with a reason.
-- **Verification:** the report is committed with an environment table, the per-target matrix, the judgements and at least one finding, every finding disposed of; a report without findings is re-scoped against harder targets and rerun.
+- **Verification:** the report goes in the PR description with an environment table, the per-target matrix, the judgements and at least one finding, every finding disposed of; a report without findings is re-scoped against harder targets and rerun.
 
 ---
 
@@ -752,10 +751,9 @@ Risks of the split: the owner (C) and the setter (D) share the env constants and
 | Isolation | `cargo tree -p agent-desktop-core` shows no platform crate; `git diff -- crates/core src` is empty | R15 |
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `scripts/check-stale-ref-constructor-misuse.sh`, `cargo fmt --all -- --check` | 400-line cap, no plan ids in source |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.10` lists none as `DEFERRED` | R17 |
-| Perf | min of seven, warm-up discarded, median and max beside it, for the U14 cost rows | R19 |
-| Dogfood | the committed report with every finding disposed of | R18 |
+| Dogfood | the report in the PR description with every finding disposed of | R18 |
 
-Requirement-to-check map: R1 → U5 mapping and sandwich scenarios, U14 window paint; R2 → U5 obstruction and routing scenarios, U14 covered and minimised; R3 → U5 and U6 sandwich scenarios, U14 closed-mid-grab; R4 → U6 scenarios, U14 `--screen` and monitors; R5 → U5 unit rule, U14 `--debug`; R6 → U3 scenarios; R7 → U5 Wayland arm, U12 scenarios, U14 Wayland leg; R8 → U7 scenarios, U14 `permissions`; R9 → U8, U9 scenarios, U17 round trips; R10 → U10, U16 scenarios, U17 foreign read and end-of-file; R11 → U10, U16 scenarios, U17 lease, replacement, group kill, `SelectionClear` and lost-connection exit; R12 → U16 clear scenarios, U17 clear; R13 → U11 scenarios, U17 Wayland leg; R14 → U2 scenarios, U14 and U17 stale-socket scenarios; R15 → isolation row; R16 → invert row and the pixel and foreign-tool judgements; R17 → U13 and the ledger row; R18 → U15; R19 → supply chain, size and perf rows.
+Requirement-to-check map: R1 → U5 mapping and sandwich scenarios, U14 window paint; R2 → U5 obstruction and routing scenarios, U14 covered and minimised; R3 → U5 and U6 sandwich scenarios, U14 closed-mid-grab; R4 → U6 scenarios, U14 `--screen` and monitors; R5 → U5 unit rule, U14 `--debug`; R6 → U3 scenarios; R7 → U5 Wayland arm, U12 scenarios, U14 Wayland leg; R8 → U7 scenarios, U14 `permissions`; R9 → U8, U9 scenarios, U17 round trips; R10 → U10, U16 scenarios, U17 foreign read and end-of-file; R11 → U10, U16 scenarios, U17 lease, replacement, group kill, `SelectionClear` and lost-connection exit; R12 → U16 clear scenarios, U17 clear; R13 → U11 scenarios, U17 Wayland leg; R14 → U2 scenarios, U14 and U17 stale-socket scenarios; R15 → isolation row; R16 → invert row and the pixel and foreign-tool judgements; R17 → U13 and the ledger row; R18 → U15; R19 → supply chain and size rows.
 
 ## Definition of Done
 
@@ -771,10 +769,10 @@ Requirement-to-check map: R1 → U5 mapping and sandwich scenarios, U14 window p
   - `L1-17`: stays owned by 3.15 as 3.8 decided; no `uinput` need here (B2).
   - `L13-1`, `L13-2`: display-server choice (U2); `L13-10`, `L13-11`, `L13-12`: the Wayland clipboard route and its re-measure (U1, U11); `L13-25`: measured by 3.8's keyboard unit with a foreign producer and consumed here (E1).
   - U1's new rows: each with its verdict and a disposition.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified.
+- The dogfood report is in the PR description with every finding disposed of and every fixed finding's test invert-verified; no report file is committed.
 - `crates/core` and `src` diffs are empty, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - `docs/phases.md` states what was built and no longer states what the evidence disproved, and the owner items are written.
-- The release binary is under 15 MiB, `cargo deny check` passes, and the PR description carries the cost table.
+- The release binary is under 15 MiB and `cargo deny check` passes, both recorded as a ledger row. No performance baseline is run.
 - No abandoned experiment code remains, and no owner process started by a test or a dogfood run is left running.
 
 ## Risks & Dependencies
