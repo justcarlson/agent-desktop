@@ -1,8 +1,9 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{decide, decide_x11};
+use super::{decide, decide_x11, fault_error};
 use crate::system::display_mutter::LogicalMonitor;
 use crate::system::display_server::{Cause, DisplayServer, Unavailable};
+use crate::system::x11::MonitorFault;
 use crate::system::x11::X11Monitor;
 use crate::tree::Extents;
 
@@ -180,7 +181,7 @@ fn a_mutter_that_timed_out_still_reports_the_randr_monitors_at_scale_one() {
     let monitors = vec![monitor("DP-1", &["DP-1"], 0, 1920, true)];
     let displays = decide_x11(
         x11(),
-        Some(monitors),
+        Ok(monitors),
         Err(agent_desktop_core::AdapterError::timeout("mutter")),
     )
     .expect("randr answered");
@@ -193,7 +194,7 @@ fn a_mutter_that_answers_still_supplies_the_scale_on_x11() {
     let monitors = vec![monitor("DP-1", &["DP-1"], 0, 1920, true)];
     let displays = decide_x11(
         x11(),
-        Some(monitors),
+        Ok(monitors),
         Ok(Some(vec![logical(&["DP-1"], 2.0, true)])),
     )
     .expect("read");
@@ -202,7 +203,51 @@ fn a_mutter_that_answers_still_supplies_the_scale_on_x11() {
 
 #[test]
 fn an_unreadable_randr_stays_an_error_whatever_mutter_says() {
-    let error = decide_x11(x11(), None, Ok(Some(vec![logical(&["DP-1"], 2.0, true)])))
-        .expect_err("unreadable");
+    let error = decide_x11(
+        x11(),
+        Err(fault_error(":0", Some(MonitorFault::Unreadable))),
+        Ok(Some(vec![logical(&["DP-1"], 2.0, true)])),
+    )
+    .expect_err("unreadable");
     assert_eq!(error.code, ErrorCode::Internal);
+}
+
+fn cause(error: &agent_desktop_core::AdapterError) -> Option<String> {
+    error
+        .details
+        .as_ref()
+        .and_then(|details| details.get("display_unavailable"))
+        .and_then(|value| value.as_str())
+        .map(str::to_owned)
+}
+
+#[test]
+fn a_display_that_refuses_this_client_is_a_permanent_refusal_and_not_a_retry() {
+    let error = fault_error(
+        ":1",
+        Some(MonitorFault::Denied("Authorization required".to_owned())),
+    );
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(cause(&error).as_deref(), Some("refused"));
+    assert!(error.message.contains("Authorization required"));
+    assert!(!error.is_explicitly_retryable());
+    assert!(
+        !error
+            .suggestion
+            .as_deref()
+            .is_some_and(|text| text.contains("Retry once"))
+    );
+}
+
+#[test]
+fn a_display_nothing_answers_at_names_the_address_and_a_silent_one_is_a_timeout() {
+    let missing = fault_error(
+        "remote:0",
+        Some(MonitorFault::Unreachable("connection refused".to_owned())),
+    );
+    assert_eq!(missing.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(cause(&missing).as_deref(), Some("missing"));
+    assert!(missing.message.contains("remote:0"));
+    let silent = fault_error("remote:0", None);
+    assert_eq!(silent.code, ErrorCode::Timeout);
 }

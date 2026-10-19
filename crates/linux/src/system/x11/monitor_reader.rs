@@ -3,13 +3,13 @@ use x11rb::protocol::randr::ConnectionExt as RandrExt;
 use x11rb::protocol::xproto::ConnectionExt as XprotoExt;
 use x11rb::rust_connection::RustConnection;
 
-use super::{MonitorSource, X11Monitor};
+use super::{MonitorFault, MonitorSource, X11Monitor, fault_of_connect};
 use crate::system::display_server::{DisplayServer, session_server};
 use crate::tree::Extents;
 
 /// Reads the RandR monitor list off the display named by `DISPLAY`, one
 /// connection per call, like the window-manager reader. A display that
-/// cannot be connected or whose replies do not decode answers `None`: the
+/// cannot be connected or whose replies do not decode answers a fault: the
 /// list is unavailable, never partially reported.
 pub(crate) struct MonitorReader;
 
@@ -25,8 +25,13 @@ fn output_name(
     String::from_utf8(info.name).ok()
 }
 
-fn monitors(display: &str) -> Option<Vec<X11Monitor>> {
-    let (connection, screen) = RustConnection::connect(Some(display)).ok()?;
+fn monitors(display: &str) -> Result<Vec<X11Monitor>, MonitorFault> {
+    let (connection, screen) =
+        RustConnection::connect(Some(display)).map_err(|error| fault_of_connect(&error))?;
+    read_monitors(&connection, screen).ok_or(MonitorFault::Unreadable)
+}
+
+fn read_monitors(connection: &RustConnection, screen: usize) -> Option<Vec<X11Monitor>> {
     let root = connection.setup().roots.get(screen)?.root;
     let reply = connection
         .randr_get_monitors(root, true)
@@ -39,7 +44,7 @@ fn monitors(display: &str) -> Option<Vec<X11Monitor>> {
         let name = String::from_utf8(name.name).ok()?;
         let mut connectors = vec![name.clone()];
         for output in monitor.outputs {
-            let Some(connector) = output_name(&connection, output) else {
+            let Some(connector) = output_name(connection, output) else {
                 continue;
             };
             if !connectors.contains(&connector) {
@@ -62,10 +67,10 @@ fn monitors(display: &str) -> Option<Vec<X11Monitor>> {
 }
 
 impl MonitorSource for MonitorReader {
-    fn read(&self) -> Option<Vec<X11Monitor>> {
+    fn read(&self) -> Result<Vec<X11Monitor>, MonitorFault> {
         match session_server() {
             DisplayServer::X11(display) => monitors(&display),
-            _ => None,
+            _ => Err(MonitorFault::Unreadable),
         }
     }
 }

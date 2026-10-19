@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, Rect};
 
 use super::display_mutter::{self, LogicalMonitor};
 use super::display_server::{Cause, DisplayServer, Unavailable, session_server};
-use super::x11::{self, MonitorReader, MonitorSource, X11Monitor};
+use super::x11::{self, MonitorFault, MonitorReader, MonitorSource, X11Monitor};
 
 fn wayland_missing() -> AdapterError {
     AdapterError::new(
@@ -47,6 +47,38 @@ fn unreachable(why: Unavailable) -> AdapterError {
 fn unreadable() -> AdapterError {
     AdapterError::internal("The display server's monitor list could not be read")
         .with_suggestion("Retry once the X session answers")
+}
+
+fn denied(display: &str, reason: &str) -> AdapterError {
+    unreachable(Unavailable {
+        cause: Cause::Refused,
+        detail: format!("DISPLAY={display} refused this client: {reason}"),
+    })
+}
+
+fn not_answering(display: &str, detail: &str) -> AdapterError {
+    unreachable(Unavailable {
+        cause: Cause::Missing,
+        detail: format!("DISPLAY={display} did not answer: {detail}"),
+    })
+}
+
+fn silent() -> AdapterError {
+    AdapterError::timeout("The display server did not answer in time")
+        .with_suggestion("Retry, or check that DISPLAY names a server that is running")
+}
+
+/// The answer for a monitor read that failed or never finished: a refusal and
+/// an address nobody answers at are permanent and say so, a read that ran out
+/// of time is a timeout, and only a reply that could not be used is the
+/// generic read failure.
+pub(crate) fn fault_error(display: &str, fault: Option<MonitorFault>) -> AdapterError {
+    match fault {
+        Some(MonitorFault::Denied(reason)) => denied(display, &reason),
+        Some(MonitorFault::Unreachable(detail)) => not_answering(display, &detail),
+        Some(MonitorFault::Unreadable) => unreadable(),
+        None => silent(),
+    }
 }
 
 fn scale_of(monitor: &X11Monitor, logical: &[LogicalMonitor]) -> f64 {
@@ -136,10 +168,10 @@ pub(crate) fn decide(
 /// monitors are still reported.
 pub(crate) fn decide_x11(
     server: DisplayServer,
-    monitors: Option<Vec<X11Monitor>>,
+    monitors: Result<Vec<X11Monitor>, AdapterError>,
     mutter: Result<Option<Vec<LogicalMonitor>>, AdapterError>,
 ) -> Result<Vec<DisplayInfo>, AdapterError> {
-    decide(server, monitors, mutter.unwrap_or(None))
+    decide(server, Some(monitors?), mutter.unwrap_or(None))
 }
 
 /// Lists the session's displays. On X11 the monitor list comes from RandR
@@ -153,11 +185,16 @@ pub(crate) fn list_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, Adap
             None,
             display_mutter::logical_monitors(deadline)?,
         ),
-        server @ DisplayServer::X11(_) => {
+        DisplayServer::X11(display) => {
             let pending = x11::start(|| MonitorReader.read());
             let mutter =
                 display_mutter::logical_monitors_within(deadline, display_mutter::OPTIONAL_SLICE);
-            decide_x11(server, pending.finish(deadline).flatten(), mutter)
+            let monitors = match pending.finish(deadline) {
+                Some(Ok(list)) => Ok(list),
+                Some(Err(fault)) => Err(fault_error(&display, Some(fault))),
+                None => Err(fault_error(&display, None)),
+            };
+            decide_x11(DisplayServer::X11(display), monitors, mutter)
         }
         server @ DisplayServer::Unavailable(_) => decide(server, None, None),
     }
