@@ -16,6 +16,22 @@ use super::focus_world;
 
 const POLL: Duration = Duration::from_millis(25);
 
+/// How long a frame gets to report itself active once the window manager
+/// already names it. Chromium and Electron report it after their own focus
+/// event, which took 1.8 s on an idle box and more on a loaded one.
+const FRAME_REPORT_GRACE: Duration = Duration::from_millis(6_000);
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Grace {
+    pub(super) activation: Duration,
+    pub(super) frame_report: Duration,
+}
+
+const GRACE: Grace = Grace {
+    activation: ACTIVATION_GRACE,
+    frame_report: FRAME_REPORT_GRACE,
+};
+
 /// Which display server the session uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Session {
@@ -123,14 +139,15 @@ fn wait_for_focus(
     world: &impl FocusWorld,
     client: u32,
     before: Option<u32>,
-    deadline: Deadline,
+    (deadline, frame_deadline): (Deadline, Deadline),
 ) -> Result<(), AdapterError> {
     loop {
         let (active, done) = is_active(world, client);
         if done {
             return Ok(());
         }
-        if deadline.is_expired() {
+        let waiting_for_the_frame = active == Some(client) && !frame_deadline.is_expired();
+        if deadline.is_expired() && !waiting_for_the_frame {
             let cause = timeout_cause(before, active, client);
             let held_back = matches!(
                 cause,
@@ -143,7 +160,7 @@ fn wait_for_focus(
             };
             return Err(refusal(cause));
         }
-        std::thread::sleep(POLL.min(deadline.remaining()));
+        std::thread::sleep(POLL.min(frame_deadline.remaining()));
     }
 }
 
@@ -153,6 +170,15 @@ pub(super) fn run(
     world: &impl FocusWorld,
     win: &WindowInfo,
     deadline: Deadline,
+) -> Result<(), AdapterError> {
+    run_with(world, win, deadline, GRACE)
+}
+
+pub(super) fn run_with(
+    world: &impl FocusWorld,
+    win: &WindowInfo,
+    deadline: Deadline,
+    grace: Grace,
 ) -> Result<(), AdapterError> {
     window_id::decode(&win.id).map_err(|error| {
         error.with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
@@ -180,7 +206,15 @@ pub(super) fn run(
     world
         .send(client)
         .map_err(|_| refusal(Cause::ActivationNotSent))?;
-    wait_for_focus(world, client, active, deadline.capped(ACTIVATION_GRACE))
+    wait_for_focus(
+        world,
+        client,
+        active,
+        (
+            deadline.capped(grace.activation),
+            deadline.capped(grace.frame_report),
+        ),
+    )
 }
 
 pub(crate) fn focus_window(
