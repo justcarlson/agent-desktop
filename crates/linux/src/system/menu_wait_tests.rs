@@ -177,3 +177,12 @@ fn a_budget_too_small_for_the_first_read_is_a_timeout() {
     let error = run(&world, true, spent).expect_err("timeout");
     assert_eq!(error.code, ErrorCode::Timeout);
 }
+
+#[test]
+fn the_deadline_is_consulted_only_after_a_mismatch() {
+    let world = Fake::new(vec![Ok(true)]);
+    let spent = Deadline::after(1).expect("deadline");
+    std::thread::sleep(Duration::from_millis(5));
+    assert!(run(&world, true, spent).is_ok());
+    assert_eq!(world.read_count.get(), 1);
+}
