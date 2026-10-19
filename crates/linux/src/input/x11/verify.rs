@@ -1,7 +1,11 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
-use super::sink::{PointerRead, SinkError, X11Sink};
+use super::pointer_read::PointerRead;
+
+use super::sink_error::SinkError;
+
+use super::sink::X11Sink;
 use crate::input::release_guard::Touched;
 
 const FIRST_BUTTON_MASK: u16 = 0x0100;

@@ -4,9 +4,15 @@ use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline};
 
-use super::sink::{PointerRead, SinkError, X11Sink};
-use crate::input::keymap::{Keymap, KeymapEdit};
-use crate::input::step::{Plan, Step};
+use super::pointer_read::PointerRead;
+
+use super::sink_error::SinkError;
+
+use super::sink::X11Sink;
+use crate::input::keymap::Keymap;
+use crate::input::keymap_edit::KeymapEdit;
+use crate::input::plan::Plan;
+use crate::input::step::Step;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Recorded {

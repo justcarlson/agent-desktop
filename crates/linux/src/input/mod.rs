@@ -1,11 +1,15 @@
 pub(crate) mod backend;
 pub(crate) mod blocked_combo;
 pub(crate) mod deliver;
+pub(crate) mod delivery;
 pub(crate) mod drag_plan;
+pub(crate) mod key_lookup;
 pub(crate) mod key_names;
 pub(crate) mod key_plan;
-pub(crate) mod keyboard;
 pub(crate) mod keymap;
+pub(crate) mod keymap_edit;
+pub(crate) mod keysym_step;
+pub(crate) mod plan;
 pub(crate) mod pointer_plan;
 pub(crate) mod release_guard;
 pub(crate) mod release_state;

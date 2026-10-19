@@ -7,13 +7,14 @@ use serde_json::json;
 
 use super::held_journal::HeldJournal;
 use super::progress::Progress;
-use super::sink::{SinkError, X11Sink};
+use super::sink::X11Sink;
+use super::sink_error::SinkError;
 use super::verify;
+use crate::input::delivery::Delivery;
+use crate::input::plan::Plan;
 use crate::input::release_guard::ReleaseGuard;
-use crate::input::step::{Delivery, Plan, Step};
+use crate::input::step::Step;
 
-pub(crate) const REMAP_SETTLE: Duration = Duration::from_millis(50);
-pub(crate) const REMAP_RESTORE_HOLD: Duration = Duration::from_millis(50);
 const PAUSE_SLICE: Duration = Duration::from_millis(10);
 const MECHANISM: &str = "x11_xtest";
 const ABORT_SUGGESTION: &str =
@@ -73,9 +74,7 @@ fn execute(
             return Err(guard.abort(error, ABORT_SUGGESTION));
         }
     }
-    if let Err(error) = hold_before_restore(&mut guard, deadline, progress)
-        .and_then(|()| guard.finish().map_err(SinkError::into_adapter))
-    {
+    if let Err(error) = guard.finish().map_err(SinkError::into_adapter) {
         return Err(guard.abort(error, ABORT_SUGGESTION));
     }
     let touched = guard.touched().clone();
@@ -133,32 +132,18 @@ fn run_step(
         Step::Key { code, down } => guard.key(*code, *down),
         Step::Button { code, down } => guard.button(*code, *down),
         Step::MoveTo { x, y } => guard.move_to(*x, *y),
-        Step::Pause(duration) => return pause(*duration, deadline, progress, guard.delivered()),
+        Step::Pause(duration) => {
+            guard.sink().round_trip().map_err(SinkError::into_adapter)?;
+            return pause(*duration, deadline, progress, guard.delivered());
+        }
         Step::Keymap(edit) => {
-            if guard.restores_remap(edit) {
-                hold_before_restore(guard, deadline, progress)?;
-                return guard.edit_keymap(edit).map_err(SinkError::into_adapter);
-            }
-            guard
+            return guard
                 .edit_keymap(edit)
                 .and_then(|()| guard.sink().round_trip())
-                .map_err(SinkError::into_adapter)?;
-            return pause(REMAP_SETTLE, deadline, progress, guard.delivered());
+                .map_err(SinkError::into_adapter);
         }
     };
     sent.map_err(SinkError::into_adapter)
-}
-
-fn hold_before_restore(
-    guard: &mut ReleaseGuard<'_>,
-    deadline: Deadline,
-    progress: &Progress,
-) -> Result<(), AdapterError> {
-    if !guard.has_pending_remaps() {
-        return Ok(());
-    }
-    guard.sink().round_trip().map_err(SinkError::into_adapter)?;
-    pause(REMAP_RESTORE_HOLD, deadline, progress, guard.delivered())
 }
 
 fn check_alive(

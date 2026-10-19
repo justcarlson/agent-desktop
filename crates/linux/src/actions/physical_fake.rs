@@ -8,8 +8,10 @@ use agent_desktop_core::{
 
 use crate::actions::physical_target::{Gate, PhysicalWorld};
 use crate::input::backend::Backend;
+use crate::input::delivery::Delivery;
 use crate::input::keymap::Keymap;
-use crate::input::step::{Delivery, KeysymStep, Plan};
+use crate::input::keysym_step::KeysymStep;
+use crate::input::plan::Plan;
 use crate::tree::AtspiElement;
 
 pub(crate) struct FakeWorld {

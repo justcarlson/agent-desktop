@@ -1,35 +1,7 @@
-use agent_desktop_core::{AdapterError, ErrorCode};
-
-use crate::input::keymap::{Keymap, KeymapEdit};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum SinkError {
-    Closed,
-    Request(String),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PointerRead {
-    pub(crate) x: i32,
-    pub(crate) y: i32,
-    pub(crate) mask: u16,
-}
-
-impl SinkError {
-    pub(crate) fn into_adapter(self) -> AdapterError {
-        match self {
-            Self::Closed => AdapterError::new(
-                ErrorCode::ActionFailed,
-                "The display connection closed while input was being sent",
-            ),
-            Self::Request(detail) => AdapterError::new(
-                ErrorCode::ActionFailed,
-                "The display server rejected an input request",
-            )
-            .with_platform_detail(detail),
-        }
-    }
-}
+use super::pointer_read::PointerRead;
+use super::sink_error::SinkError;
+use crate::input::keymap::Keymap;
+use crate::input::keymap_edit::KeymapEdit;
 
 pub(crate) trait X11Sink {
     fn key(&mut self, code: u8, down: bool) -> Result<(), SinkError>;

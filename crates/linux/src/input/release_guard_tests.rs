@@ -3,7 +3,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use agent_desktop_core::{AdapterError, DeliveryDisposition};
 
 use super::ReleaseGuard;
-use crate::input::keymap::KeymapEdit;
+use crate::input::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, start_keymap};
 use crate::input::x11::held_journal::HeldJournal;
 

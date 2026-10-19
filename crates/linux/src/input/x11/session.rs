@@ -7,12 +7,14 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::held_journal::HeldJournal;
 use super::progress::Progress;
-use super::sink::{SinkError, X11Sink};
+use super::sink::X11Sink;
+use super::sink_error::SinkError;
 use super::worker::{self, Link, Report};
 use super::xtest_sink::XtestSink;
+use crate::input::delivery::Delivery;
 use crate::input::keymap::Keymap;
+use crate::input::plan::Plan;
 use crate::input::release_state::ReleaseState;
-use crate::input::step::{Delivery, Plan};
 
 const WORKER_GRACE: Duration = Duration::from_millis(250);
 const ABORT_SUGGESTION: &str =

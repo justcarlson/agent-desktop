@@ -1,18 +1,14 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the planner is not called until the transport is wired"
-    )
-)]
-
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Modifier};
 
+use super::key_lookup::KeyLookup;
 use super::key_names::keysym_for_char;
-use super::keymap::{KeyLookup, Keymap, KeymapEdit};
-use super::step::{KeysymStep, Plan, Step};
+use super::keymap::Keymap;
+use super::keymap_edit::KeymapEdit;
+use super::keysym_step::KeysymStep;
+use super::plan::Plan;
+use super::step::Step;
 
 pub(crate) const CHUNK_CHARS: usize = 32;
 const REMAP_SETTLE: Duration = Duration::from_millis(30);

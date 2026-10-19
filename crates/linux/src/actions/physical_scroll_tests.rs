@@ -78,3 +78,31 @@ fn on_wayland_the_wheel_is_refused_before_anything_is_computed() {
     assert_eq!(world.count("bounds"), 0);
     assert!(world.sent_nothing());
 }
+
+#[test]
+fn every_direction_reaches_the_x_button_that_scrolls_that_way() {
+    use crate::input::keymap::Keymap;
+    use crate::input::step::Step;
+    use crate::input::wheel_plan::{
+        BUTTON_WHEEL_DOWN, BUTTON_WHEEL_LEFT, BUTTON_WHEEL_RIGHT, BUTTON_WHEEL_UP, plan_wheel,
+    };
+    let at = agent_desktop_core::Point { x: 5.0, y: 5.0 };
+    for (direction, button) in [
+        (Direction::Up, BUTTON_WHEEL_UP),
+        (Direction::Down, BUTTON_WHEEL_DOWN),
+        (Direction::Left, BUTTON_WHEEL_LEFT),
+        (Direction::Right, BUTTON_WHEEL_RIGHT),
+    ] {
+        let (dx, dy) = wheel_deltas(&direction, 1);
+        let plans = plan_wheel(&Keymap::sample(), at.clone(), dx, dy, &[]).expect("plan");
+        let pressed: Vec<u8> = plans
+            .iter()
+            .flat_map(|plan| &plan.steps)
+            .filter_map(|step| match step {
+                Step::Button { code, down: true } => Some(*code),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(pressed, vec![button], "{direction:?}");
+    }
+}

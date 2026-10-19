@@ -1,16 +1,10 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the planner is not called until the transport is wired"
-    )
-)]
-
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, KeyCombo, Modifier};
 
 use super::key_names::{keysym_for_key, modifier_keysym};
 use super::keymap::Keymap;
-use super::step::{KeysymStep, Plan, Step};
+use super::keysym_step::KeysymStep;
+use super::plan::Plan;
+use super::step::Step;
 
 pub(crate) fn distinct_modifiers(modifiers: &[Modifier]) -> Vec<&Modifier> {
     let mut seen: Vec<&Modifier> = Vec::new();

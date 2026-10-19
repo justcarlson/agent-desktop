@@ -1,11 +1,8 @@
-#![expect(
-    dead_code,
-    reason = "the module is laid out ahead of the code that calls it"
-)]
-
 use agent_desktop_core::{AdapterError, Deadline};
 
-use crate::input::step::{Delivery, KeysymStep};
+use crate::input::delivery::Delivery;
+
+use crate::input::keysym_step::KeysymStep;
 
 pub(crate) fn send_keys(
     _keys: &[KeysymStep],

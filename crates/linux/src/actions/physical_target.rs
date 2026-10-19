@@ -1,8 +1,3 @@
-#![expect(
-    dead_code,
-    reason = "the module is laid out ahead of the code that calls it"
-)]
-
 use std::time::Duration;
 
 use agent_desktop_core::{
@@ -15,8 +10,10 @@ use super::physical_click::{self, ClickSpec};
 use super::physical_keyboard;
 use super::physical_scroll;
 use crate::input::backend::Backend;
+use crate::input::delivery::Delivery;
 use crate::input::keymap::Keymap;
-use crate::input::step::{Delivery, KeysymStep, Plan};
+use crate::input::keysym_step::KeysymStep;
+use crate::input::plan::Plan;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 

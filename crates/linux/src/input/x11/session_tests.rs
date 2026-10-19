@@ -3,8 +3,9 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{DeliveryDisposition, ErrorCode};
 
 use super::run_with;
-use crate::input::keymap::KeymapEdit;
-use crate::input::step::{Plan, Step};
+use crate::input::keymap_edit::KeymapEdit;
+use crate::input::plan::Plan;
+use crate::input::step::Step;
 use crate::input::x11::fake_sink::{
     FakeSink, Recorded, deadline, drag_plan, events, no_gate, open, plan, start_keymap,
 };

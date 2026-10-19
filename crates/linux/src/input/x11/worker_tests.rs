@@ -184,8 +184,8 @@ fn a_connection_that_cannot_open_reports_its_own_error_and_sends_nothing() {
 }
 
 #[test]
-fn a_remap_is_held_for_the_settle_time_before_it_is_restored() {
-    use crate::input::keymap::KeymapEdit;
+fn the_worker_runs_the_planned_hold_between_the_keys_and_the_restore() {
+    use crate::input::keymap_edit::KeymapEdit;
     use std::time::Instant;
     let fake = FakeSink::new();
     let typed = plan(
@@ -202,6 +202,11 @@ fn a_remap_is_held_for_the_settle_time_before_it_is_restored() {
                 code: 12,
                 down: false,
             },
+            Step::Pause(std::time::Duration::from_millis(50)),
+            Step::Keymap(KeymapEdit {
+                keycode: 12,
+                keysyms: vec![0, 0],
+            }),
         ],
         None,
     );
@@ -210,7 +215,7 @@ fn a_remap_is_held_for_the_settle_time_before_it_is_restored() {
     run_with(open(&fake), vec![typed], &mut no_gate(), deadline(5_000)).expect("typed");
 
     assert!(
-        started.elapsed() >= std::time::Duration::from_millis(100),
+        started.elapsed() >= std::time::Duration::from_millis(50),
         "the remap was restored before the keys were consumed"
     );
 }

@@ -1,12 +1,6 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the planner is not called until the transport is wired"
-    )
-)]
-
 use agent_desktop_core::Modifier;
+
+use super::key_lookup::KeyLookup;
 
 const SHIFT_ROW: usize = 0;
 const CONTROL_ROW: usize = 2;
@@ -21,18 +15,6 @@ pub(crate) struct Keymap {
     pub(crate) keysyms: Vec<u32>,
     pub(crate) modifier_codes_per_modifier: u8,
     pub(crate) modifier_codes: Vec<u8>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct KeymapEdit {
-    pub(crate) keycode: u8,
-    pub(crate) keysyms: Vec<u32>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct KeyLookup {
-    pub(crate) code: u8,
-    pub(crate) shift: bool,
 }
 
 impl Keymap {

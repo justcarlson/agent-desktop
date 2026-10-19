@@ -1,7 +1,7 @@
 use super::{check, leftover_buttons, leftover_keys};
 use crate::input::release_guard::Touched;
 use crate::input::x11::fake_sink::FakeSink;
-use crate::input::x11::sink::PointerRead;
+use crate::input::x11::pointer_read::PointerRead;
 
 fn read(mask: u16) -> PointerRead {
     PointerRead { x: 0, y: 0, mask }

@@ -1,9 +1,12 @@
 use agent_desktop_core::AdapterError;
 
-use super::keymap::{Keymap, KeymapEdit};
+use super::keymap::Keymap;
+
+use super::keymap_edit::KeymapEdit;
 use super::release_state::ReleaseState;
 use super::x11::held_journal::HeldJournal;
-use super::x11::sink::{SinkError, X11Sink};
+use super::x11::sink::X11Sink;
+use super::x11::sink_error::SinkError;
 
 pub(crate) struct ReleaseGuard<'a> {
     sink: &'a mut dyn X11Sink,
@@ -57,14 +60,6 @@ impl<'a> ReleaseGuard<'a> {
 
     pub(crate) fn journal_to(&mut self, journal: Option<HeldJournal>) {
         self.journal = journal;
-    }
-
-    pub(crate) fn has_pending_remaps(&self) -> bool {
-        !self.remaps.is_empty()
-    }
-
-    pub(crate) fn restores_remap(&self, edit: &KeymapEdit) -> bool {
-        self.remaps.iter().any(|saved| saved == edit)
     }
 
     fn sync_journal(&self) {

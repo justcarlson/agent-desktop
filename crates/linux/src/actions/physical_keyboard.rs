@@ -1,8 +1,3 @@
-#![expect(
-    dead_code,
-    reason = "the module is laid out ahead of the code that calls it"
-)]
-
 use agent_desktop_core::{
     Action, ActionResult, ActionStep, AdapterError, Deadline, InteractionPolicy, KeyCombo,
     StepMechanism,
@@ -70,6 +65,7 @@ pub(crate) fn press_key_global_steps(
     Ok(vec![physical_step(&backend, "press_key")])
 }
 
+#[expect(dead_code, reason = "the application-targeted press calls it")]
 pub(crate) fn press_global(
     bus: &SharedBus,
     combo: &KeyCombo,

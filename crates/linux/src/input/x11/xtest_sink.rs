@@ -5,8 +5,13 @@ use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::protocol::xtest::{self, ConnectionExt as _};
 use x11rb::rust_connection::RustConnection;
 
-use super::sink::{PointerRead, SinkError, X11Sink};
-use crate::input::keymap::{Keymap, KeymapEdit};
+use super::pointer_read::PointerRead;
+
+use super::sink_error::SinkError;
+
+use super::sink::X11Sink;
+use crate::input::keymap::Keymap;
+use crate::input::keymap_edit::KeymapEdit;
 
 const KEY_PRESS: u8 = 2;
 const KEY_RELEASE: u8 = 3;

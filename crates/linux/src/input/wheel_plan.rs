@@ -1,19 +1,12 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the planner is not called until the transport is wired"
-    )
-)]
-
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, ErrorCode, Modifier, Point};
 
 use super::key_plan::{key_down_steps, key_up_steps, modifier_codes};
 use super::keymap::Keymap;
+use super::plan::Plan;
 use super::pointer_plan::{pause, point_xy};
-use super::step::{Plan, Step};
+use super::step::Step;
 
 pub(crate) const BUTTON_WHEEL_UP: u8 = 4;
 pub(crate) const BUTTON_WHEEL_DOWN: u8 = 5;

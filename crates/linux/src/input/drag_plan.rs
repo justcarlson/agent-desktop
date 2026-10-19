@@ -1,11 +1,3 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the planner is not called until the transport is wired"
-    )
-)]
-
 use std::time::Duration;
 
 use agent_desktop_core::{
@@ -13,8 +5,9 @@ use agent_desktop_core::{
     MAX_DRAG_DURATION_MS, Point,
 };
 
+use super::plan::Plan;
 use super::pointer_plan::{BUTTON_LEFT, pause, point_xy};
-use super::step::{Plan, Step};
+use super::step::Step;
 
 pub(crate) const DEFAULT_DURATION_MS: u64 = 300;
 pub(crate) const DEFAULT_DROP_DELAY_MS: u64 = 500;

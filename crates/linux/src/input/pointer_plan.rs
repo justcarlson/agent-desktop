@@ -1,18 +1,11 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the planner is not called until the transport is wired"
-    )
-)]
-
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Modifier, MouseButton, Point, validate_mouse_click_count};
 
 use super::key_plan::{key_down_steps, key_up_steps, modifier_codes};
 use super::keymap::Keymap;
-use super::step::{Plan, Step};
+use super::plan::Plan;
+use super::step::Step;
 
 pub(crate) const CLICK_HOLD: Duration = Duration::from_millis(10);
 pub(crate) const CLICK_GAP: Duration = Duration::from_millis(20);

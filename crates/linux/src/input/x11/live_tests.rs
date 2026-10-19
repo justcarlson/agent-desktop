@@ -5,7 +5,8 @@ use agent_desktop_core::{AdapterError, Deadline};
 
 use super::session::{live_keymap, run};
 use crate::input::keymap::Keymap;
-use crate::input::step::{Plan, Step};
+use crate::input::plan::Plan;
+use crate::input::step::Step;
 use crate::tree::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(30);
