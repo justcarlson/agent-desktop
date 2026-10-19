@@ -27,6 +27,29 @@ fn check_encoded(length: usize) -> Result<(), AdapterError> {
     Ok(())
 }
 
+fn broken(what: &str, error: impl std::fmt::Display) -> AdapterError {
+    AdapterError::internal(format!("{what}: {error}"))
+}
+
+fn write_png(
+    rgb: &[u8],
+    width: u32,
+    height: u32,
+    sink: impl std::io::Write,
+) -> Result<(), AdapterError> {
+    let mut encoder = Encoder::new(sink, width, height);
+    encoder.set_color(ColorType::Rgb);
+    encoder.set_depth(BitDepth::Eight);
+    encoder.set_compression(Compression::Balanced);
+    let mut writer = encoder
+        .write_header()
+        .map_err(|error| broken("The PNG header could not be written", error))?;
+    writer
+        .write_image_data(rgb)
+        .and_then(|()| writer.finish())
+        .map_err(|error| broken("The PNG could not be encoded", error))
+}
+
 pub(crate) fn encode_png(
     rgb: &[u8],
     width: u32,
@@ -38,17 +61,7 @@ pub(crate) fn encode_png(
         return Err(refused("The capture bytes do not match its size"));
     }
     let mut data = Vec::new();
-    let mut encoder = Encoder::new(&mut data, width, height);
-    encoder.set_color(ColorType::Rgb);
-    encoder.set_depth(BitDepth::Eight);
-    encoder.set_compression(Compression::Balanced);
-    let mut writer = encoder
-        .write_header()
-        .map_err(|error| refused(format!("The PNG header could not be written: {error}")))?;
-    writer
-        .write_image_data(rgb)
-        .and_then(|()| writer.finish())
-        .map_err(|error| refused(format!("The PNG could not be encoded: {error}")))?;
+    write_png(rgb, width, height, &mut data)?;
     check_encoded(data.len())?;
     Ok(ImageBuffer {
         data,

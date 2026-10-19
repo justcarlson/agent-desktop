@@ -57,3 +57,23 @@ fn bytes_that_do_not_match_the_size_are_refused() {
     assert!(encode_png(&[0; 11], 2, 2, 1.0).is_err());
     assert!(encode_png(&[0; 13], 2, 2, 1.0).is_err());
 }
+
+struct Broken;
+
+impl std::io::Write for Broken {
+    fn write(&mut self, _bytes: &[u8]) -> std::io::Result<usize> {
+        Err(std::io::Error::other("the sink is broken"))
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Err(std::io::Error::other("the sink is broken"))
+    }
+}
+
+#[test]
+fn an_encoder_failure_is_internal_and_a_refusal_is_not() {
+    let error = write_png(&[0; 12], 2, 2, Broken).unwrap_err();
+    assert_eq!(error.code, ErrorCode::Internal);
+    let refusal = encode_png(&[0; 11], 2, 2, 1.0).unwrap_err();
+    assert_eq!(refusal.code, ErrorCode::ActionFailed);
+}
