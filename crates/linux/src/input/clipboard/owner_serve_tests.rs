@@ -51,7 +51,7 @@ fn answerer(text: &[u8], threshold: usize) -> Answerer {
         },
         served: vec![Served {
             atom: UTF8,
-            bytes: text.to_vec(),
+            bytes: text.to_vec().into(),
         }],
         claim_time: 1,
         incr_threshold: threshold,
@@ -154,4 +154,19 @@ fn a_small_value_is_answered_in_one_reply_with_no_transfer() {
     serve(&mut wire, &answerer(b"hi", 1024), 4);
     assert!(matches!(wire.replies[0], Reply::Bytes { .. }));
     assert!(wire.chunks.is_empty());
+}
+
+#[test]
+fn the_ninth_concurrent_incr_request_is_refused() {
+    let mut events: Vec<OwnerEvent> = (1..=9).map(|requestor| ask(requestor, 50)).collect();
+    events.push(OwnerEvent::Cleared);
+    let mut wire = Script::new(events);
+    serve(&mut wire, &answerer(b"abcdef", 4), 4);
+    assert_eq!(wire.replies.len(), 9);
+    assert!(
+        wire.replies[..8]
+            .iter()
+            .all(|reply| matches!(reply, Reply::StartIncr { .. }))
+    );
+    assert_eq!(wire.replies[8], Reply::Refuse);
 }

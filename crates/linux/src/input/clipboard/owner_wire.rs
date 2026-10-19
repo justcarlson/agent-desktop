@@ -101,7 +101,7 @@ pub(crate) fn claim(display: &str, payload: &Payload) -> Result<Claimed, String>
     for target in &payload.targets {
         served.push(Served {
             atom: atom(&connection, &target.name)?,
-            bytes: target.bytes.clone(),
+            bytes: target.bytes.clone().into(),
         });
     }
     let claim_time = server_time(&connection, window, atoms.timestamp)?;

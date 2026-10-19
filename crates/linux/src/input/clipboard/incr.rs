@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 /// The chunks of one INCR transfer on the owner's side. The transfer ends
@@ -5,14 +7,14 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 /// of the chunk size.
 #[derive(Debug)]
 pub(crate) struct IncrSender {
-    data: Vec<u8>,
+    data: Arc<[u8]>,
     chunk: usize,
     sent: usize,
     finished: bool,
 }
 
 impl IncrSender {
-    pub(crate) fn new(data: Vec<u8>, chunk: usize) -> Self {
+    pub(crate) fn new(data: Arc<[u8]>, chunk: usize) -> Self {
         Self {
             data,
             chunk: chunk.max(1),

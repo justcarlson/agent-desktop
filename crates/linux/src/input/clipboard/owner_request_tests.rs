@@ -18,11 +18,11 @@ fn answerer(threshold: usize, text: &[u8]) -> Answerer {
         served: vec![
             Served {
                 atom: UTF8,
-                bytes: text.to_vec(),
+                bytes: text.to_vec().into(),
             },
             Served {
                 atom: PLAIN,
-                bytes: text.to_vec(),
+                bytes: text.to_vec().into(),
             },
         ],
         claim_time: 777,
@@ -139,7 +139,7 @@ fn two_requestors_in_a_row_are_answered_independently() {
 }
 
 fn sender(len: usize) -> IncrSender {
-    IncrSender::new((0..len).map(|i| i as u8).collect(), 4)
+    IncrSender::new((0..len).map(|i| i as u8).collect::<Vec<u8>>().into(), 4)
 }
 
 fn drain(transfers: &mut Transfers, requestor: u32, property: u32) -> Vec<Vec<u8>> {
@@ -153,7 +153,7 @@ fn drain(transfers: &mut Transfers, requestor: u32, property: u32) -> Vec<Vec<u8
 #[test]
 fn a_transfer_advances_one_chunk_per_delete_and_ends_with_the_zero_chunk() {
     let mut transfers = Transfers::default();
-    transfers.start(1, 50, UTF8, sender(6));
+    assert!(transfers.start(1, 50, UTF8, sender(6)));
     let chunks = drain(&mut transfers, 1, 50);
     assert_eq!(chunks, [vec![0, 1, 2, 3], vec![4, 5], vec![]]);
     assert_eq!(transfers.in_flight(), 0);
@@ -190,4 +190,48 @@ fn a_delete_on_a_property_with_no_transfer_is_ignored() {
     transfers.start(1, 50, UTF8, sender(8));
     assert!(transfers.on_property_deleted(1, 51).is_none());
     assert!(transfers.on_property_deleted(9, 50).is_none());
+}
+
+#[test]
+fn the_ninth_concurrent_transfer_is_refused_and_the_bytes_are_shared() {
+    let data: Arc<[u8]> = vec![7u8; 1024].into();
+    let mut transfers = Transfers::default();
+    for requestor in 0..MAX_TRANSFERS as u32 {
+        let sender = IncrSender::new(Arc::clone(&data), 4);
+        assert!(transfers.start(requestor, 50, UTF8, sender));
+    }
+    assert_eq!(Arc::strong_count(&data), MAX_TRANSFERS + 1);
+    let refused = IncrSender::new(Arc::clone(&data), 4);
+    assert!(!transfers.start(99, 50, UTF8, refused));
+    assert_eq!(transfers.in_flight(), MAX_TRANSFERS);
+    assert_eq!(Arc::strong_count(&data), MAX_TRANSFERS + 1);
+}
+
+#[test]
+fn a_restarted_transfer_replaces_its_own_and_does_not_count_twice() {
+    let mut transfers = Transfers::default();
+    for _ in 0..MAX_TRANSFERS + 3 {
+        assert!(transfers.start(1, 50, UTF8, sender(8)));
+    }
+    assert_eq!(transfers.in_flight(), 1);
+}
+
+#[test]
+fn a_finished_transfer_frees_its_place() {
+    let mut transfers = Transfers::default();
+    for requestor in 0..MAX_TRANSFERS as u32 {
+        assert!(transfers.start(requestor, 50, UTF8, sender(2)));
+    }
+    drain(&mut transfers, 0, 50);
+    assert!(transfers.start(99, 50, UTF8, sender(2)));
+}
+
+#[test]
+fn an_idle_transfer_is_dropped_and_a_fresh_one_is_kept() {
+    let mut transfers = Transfers::default();
+    transfers.start(1, 50, UTF8, sender(8));
+    transfers.expire(TRANSFER_IDLE);
+    assert_eq!(transfers.in_flight(), 1);
+    transfers.expire(Duration::ZERO);
+    assert_eq!(transfers.in_flight(), 0);
 }

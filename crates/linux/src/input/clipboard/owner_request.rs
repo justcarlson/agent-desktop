@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use super::incr::IncrSender;
 
@@ -46,7 +48,7 @@ pub(crate) enum Reply {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Served {
     pub(crate) atom: u32,
-    pub(crate) bytes: Vec<u8>,
+    pub(crate) bytes: Arc<[u8]>,
 }
 
 /// The pure answer to one `SelectionRequest`: what the owner serves, when it
@@ -60,11 +62,11 @@ pub(crate) struct Answerer {
 }
 
 impl Answerer {
-    pub(crate) fn bytes_of(&self, atom: u32) -> Option<&[u8]> {
+    pub(crate) fn shared_bytes_of(&self, atom: u32) -> Option<Arc<[u8]>> {
         self.served
             .iter()
             .find(|served| served.atom == atom)
-            .map(|served| served.bytes.as_slice())
+            .map(|served| Arc::clone(&served.bytes))
     }
 
     /// A request with no property comes from an obsolete client and names the
@@ -107,7 +109,7 @@ impl Answerer {
         Reply::Bytes {
             property,
             kind: served.atom,
-            data: served.bytes.clone(),
+            data: served.bytes.to_vec(),
         }
     }
 }
@@ -120,9 +122,13 @@ pub(crate) struct Chunk {
     pub(crate) data: Vec<u8>,
 }
 
+pub(crate) const MAX_TRANSFERS: usize = 8;
+pub(crate) const TRANSFER_IDLE: Duration = Duration::from_secs(30);
+
 struct Transfer {
     kind: u32,
     sender: IncrSender,
+    touched: Instant,
 }
 
 /// The INCR transfers in flight, one per requestor window and property, each
@@ -133,9 +139,35 @@ pub(crate) struct Transfers {
 }
 
 impl Transfers {
-    pub(crate) fn start(&mut self, requestor: u32, property: u32, kind: u32, sender: IncrSender) {
+    /// Starts a transfer, or says it is refused because `MAX_TRANSFERS` others
+    /// are in flight. A transfer for a requestor and property that already has
+    /// one replaces it and does not count twice.
+    pub(crate) fn start(
+        &mut self,
+        requestor: u32,
+        property: u32,
+        kind: u32,
+        sender: IncrSender,
+    ) -> bool {
+        let key = (requestor, property);
+        if !self.active.contains_key(&key) && self.active.len() >= MAX_TRANSFERS {
+            return false;
+        }
+        self.active.insert(
+            key,
+            Transfer {
+                kind,
+                sender,
+                touched: Instant::now(),
+            },
+        );
+        true
+    }
+
+    /// Drops the transfers that no requestor advanced for `idle`.
+    pub(crate) fn expire(&mut self, idle: Duration) {
         self.active
-            .insert((requestor, property), Transfer { kind, sender });
+            .retain(|_, transfer| transfer.touched.elapsed() < idle);
     }
 
     /// The next chunk once `requestor` deleted `property`. The transfer is
@@ -143,6 +175,7 @@ impl Transfers {
     pub(crate) fn on_property_deleted(&mut self, requestor: u32, property: u32) -> Option<Chunk> {
         let key = (requestor, property);
         let transfer = self.active.get_mut(&key)?;
+        transfer.touched = Instant::now();
         let kind = transfer.kind;
         let data = transfer.sender.next_chunk()?;
         if data.is_empty() {

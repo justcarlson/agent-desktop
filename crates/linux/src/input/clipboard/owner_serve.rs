@@ -1,5 +1,5 @@
 use super::incr::IncrSender;
-use super::owner_request::{Answerer, Chunk, Reply, Request, Transfers};
+use super::owner_request::{Answerer, Chunk, Reply, Request, TRANSFER_IDLE, Transfers};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OwnerEvent {
@@ -40,18 +40,22 @@ pub(crate) fn serve(wire: &mut dyn Wire, answerer: &Answerer, chunk_bytes: usize
         match event {
             OwnerEvent::Cleared => return Ended::Cleared,
             OwnerEvent::Request(request) => {
-                let reply = answerer.answer(&request);
+                transfers.expire(TRANSFER_IDLE);
+                let mut reply = answerer.answer(&request);
                 if let Reply::StartIncr { property, kind, .. } = &reply {
-                    let data = answerer
-                        .bytes_of(request.target)
-                        .unwrap_or_default()
-                        .to_vec();
-                    transfers.start(
-                        request.requestor,
-                        *property,
-                        *kind,
-                        IncrSender::new(data, chunk_bytes),
-                    );
+                    let started = answerer
+                        .shared_bytes_of(request.target)
+                        .is_some_and(|data| {
+                            transfers.start(
+                                request.requestor,
+                                *property,
+                                *kind,
+                                IncrSender::new(data, chunk_bytes),
+                            )
+                        });
+                    if !started {
+                        reply = Reply::Refuse;
+                    }
                 }
                 wire.send_reply(&request, &reply);
             }

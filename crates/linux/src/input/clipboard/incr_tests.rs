@@ -10,26 +10,29 @@ fn drain(mut sender: IncrSender) -> Vec<Vec<u8>> {
 
 #[test]
 fn an_exact_multiple_ends_with_a_zero_chunk() {
-    let chunks = drain(IncrSender::new(vec![1; 8], 4));
+    let chunks = drain(IncrSender::new(vec![1; 8].into(), 4));
     let sizes: Vec<usize> = chunks.iter().map(Vec::len).collect();
     assert_eq!(sizes, [4, 4, 0]);
 }
 
 #[test]
 fn a_remainder_emits_one_short_chunk_then_the_zero_chunk() {
-    let chunks = drain(IncrSender::new(vec![1; 10], 4));
+    let chunks = drain(IncrSender::new(vec![1; 10].into(), 4));
     let sizes: Vec<usize> = chunks.iter().map(Vec::len).collect();
     assert_eq!(sizes, [4, 4, 2, 0]);
 }
 
 #[test]
 fn an_empty_payload_emits_only_the_zero_chunk() {
-    assert_eq!(drain(IncrSender::new(Vec::new(), 4)), [Vec::<u8>::new()]);
+    assert_eq!(
+        drain(IncrSender::new(Vec::new().into(), 4)),
+        [Vec::<u8>::new()]
+    );
 }
 
 #[test]
 fn the_sender_stays_finished() {
-    let mut sender = IncrSender::new(vec![1], 4);
+    let mut sender = IncrSender::new(vec![1].into(), 4);
     assert!(sender.next_chunk().is_some());
     assert_eq!(sender.next_chunk(), Some(Vec::new()));
     assert_eq!(sender.next_chunk(), None);
@@ -40,7 +43,7 @@ fn the_sender_stays_finished() {
 fn the_receiver_reassembles_what_the_sender_chunked() {
     let data: Vec<u8> = (0..=255).cycle().take(1000).collect();
     let mut receiver = IncrReceiver::new(4096);
-    for chunk in drain(IncrSender::new(data.clone(), 64)) {
+    for chunk in drain(IncrSender::new(data.clone().into(), 64)) {
         receiver.push(&chunk).expect("within the cap");
     }
     assert_eq!(receiver.into_bytes(), Some(data));
