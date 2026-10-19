@@ -70,3 +70,8 @@ fn a_settle_waits_before_the_real_keys_can_follow() {
     assert!(started.elapsed() >= Duration::from_millis(60));
     assert!(session.events().is_empty());
 }
+
+#[test]
+fn the_chosen_lead_waits_for_the_compositor_to_attach_the_keyboard() {
+    assert!(LEAD_POLICY.settle >= Duration::from_millis(50));
+}

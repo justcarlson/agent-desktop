@@ -16,10 +16,12 @@ pub(crate) struct LeadPolicy {
     pub(crate) settle: Duration,
 }
 
-/// The one place the lead is chosen.
+/// The one place the lead is chosen. The compositor gives the focused window
+/// its keyboard about 10 ms after the first key, so the settle lets a global
+/// press, which has no frame to wait for, find the window ready.
 pub(crate) const LEAD_POLICY: LeadPolicy = LeadPolicy {
     tap: Some(KEYSYM_SHIFT_L),
-    settle: Duration::ZERO,
+    settle: Duration::from_millis(100),
 };
 
 pub(crate) fn lead_steps(policy: LeadPolicy) -> Vec<KeysymStep> {

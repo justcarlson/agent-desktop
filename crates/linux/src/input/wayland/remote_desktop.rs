@@ -19,6 +19,7 @@ const ACCESS_DENIED: &str = "org.freedesktop.DBus.Error.AccessDenied";
 pub(crate) struct RemoteDesktop {
     connection: Connection,
     session: Option<OwnedObjectPath>,
+    started: bool,
 }
 
 impl RemoteDesktop {
@@ -30,6 +31,7 @@ impl RemoteDesktop {
         Self {
             connection,
             session: None,
+            started: false,
         }
     }
 
@@ -87,7 +89,17 @@ impl KeySession for RemoteDesktop {
     }
 
     fn start(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
-        self.call_session("Start", deadline)
+        self.call_session("Start", deadline)?;
+        self.started = true;
+        Ok(())
+    }
+
+    fn resumed(&self) -> bool {
+        self.started && self.session.is_some()
+    }
+
+    fn retain(&self) -> bool {
+        true
     }
 
     fn keysym(&mut self, keysym: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError> {
@@ -111,6 +123,7 @@ impl KeySession for RemoteDesktop {
     fn stop(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
         let stopped = self.call_session("Stop", deadline);
         self.session = None;
+        self.started = false;
         if stopped.is_err() {
             SessionBus::forget(&self.connection);
         }

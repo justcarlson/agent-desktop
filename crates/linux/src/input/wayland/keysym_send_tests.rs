@@ -8,6 +8,11 @@ const CONTROL_L: u32 = 0xffe3;
 const SHIFT_L: u32 = 0xffe1;
 const KEY_A: u32 = 0x61;
 
+const FAST_LEAD: LeadPolicy = LeadPolicy {
+    tap: LEAD_POLICY.tap,
+    settle: std::time::Duration::ZERO,
+};
+
 fn live() -> Deadline {
     Deadline::after(5_000).expect("a five second deadline builds")
 }
@@ -48,7 +53,7 @@ fn drive_with(
     keys: &[KeysymStep],
     gate: Gate<'_>,
 ) -> Result<Delivery, AdapterError> {
-    run(session, LEAD_POLICY, keys, gate, live())
+    run(session, FAST_LEAD, keys, gate, live())
 }
 
 #[test]
@@ -114,14 +119,8 @@ fn a_failed_create_issues_no_stop() {
 fn a_deadline_spent_before_start_times_out_and_still_stops() {
     let mut session = FakeSession::new();
     let expired = Deadline::after(0).expect("a zero deadline builds");
-    let error = run(
-        &mut session,
-        LEAD_POLICY,
-        &ctrl_a(),
-        &mut || Ok(()),
-        expired,
-    )
-    .expect_err("an expired deadline fails");
+    let error = run(&mut session, FAST_LEAD, &ctrl_a(), &mut || Ok(()), expired)
+        .expect_err("an expired deadline fails");
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(session.events(), vec!["create", "stop"]);
 }
@@ -223,7 +222,7 @@ fn a_pointer_command_is_refused_with_the_semantic_suggestion_and_nothing_sent() 
 #[test]
 fn the_lead_is_a_shift_tap() {
     assert_eq!(
-        lead_key::lead_steps(LEAD_POLICY)
+        lead_key::lead_steps(FAST_LEAD)
             .iter()
             .map(|s| s.keysym)
             .collect::<Vec<_>>(),
@@ -271,7 +270,7 @@ fn chunks_share_one_session_and_the_count_adds_up() {
     let mut session = FakeSession::new();
     let delivery = run_chunks(
         &mut session,
-        LEAD_POLICY,
+        FAST_LEAD,
         &[&first, &second],
         &mut || Ok(()),
         live(),
@@ -289,7 +288,7 @@ fn a_failure_in_a_later_chunk_is_uncertain_with_the_whole_count() {
     let mut session = FakeSession::failing_on("down:62");
     let error = run_chunks(
         &mut session,
-        LEAD_POLICY,
+        FAST_LEAD,
         &[&first, &second],
         &mut || Ok(()),
         live(),
@@ -316,7 +315,7 @@ fn a_gate_that_stops_between_chunks_is_uncertain_with_the_count() {
     };
     let error = run_chunks(
         &mut session,
-        LEAD_POLICY,
+        FAST_LEAD,
         &[&first, &second],
         &mut gate,
         live(),
@@ -334,4 +333,40 @@ fn a_character_outside_the_layout_in_a_later_chunk_is_refused_before_any_key() {
     let error = send_chunks(&[first, outside], &mut || Ok(()), live()).expect_err("refused");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}
+
+#[test]
+fn a_retained_session_is_left_open_after_a_delivery() {
+    let mut session = FakeSession::new();
+    session.retains = true;
+
+    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect("delivers");
+
+    let events = session.events();
+    assert_eq!(events.first().map(String::as_str), Some("create"));
+    assert!(!events.iter().any(|event| event == "stop"));
+}
+
+#[test]
+fn a_resumed_session_skips_create_start_lead_and_stop() {
+    let mut session = FakeSession::new();
+    session.resumed = true;
+    session.retains = true;
+    let (first, _) = two_taps();
+
+    let delivery =
+        run_chunks(&mut session, FAST_LEAD, &[&first], &mut || Ok(()), live()).expect("delivers");
+
+    assert_eq!(delivery.delivered_events, 2);
+    assert_eq!(session.events(), vec!["down:61", "up:61"]);
+}
+
+#[test]
+fn a_retained_session_that_fails_is_still_stopped() {
+    let mut session = FakeSession::failing_on("down:ffe3");
+    session.retains = true;
+
+    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("fails");
+
+    assert_eq!(session.events().last().map(String::as_str), Some("stop"));
 }

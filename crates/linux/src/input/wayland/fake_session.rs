@@ -9,6 +9,8 @@ pub(super) struct FakeSession {
     log: Rc<RefCell<Vec<String>>>,
     pub(super) fail_on: Option<&'static str>,
     pub(super) drops_first_key: bool,
+    pub(super) resumed: bool,
+    pub(super) retains: bool,
     pub(super) arrived: Vec<(u32, bool)>,
     keys_seen: u32,
 }
@@ -19,6 +21,8 @@ impl FakeSession {
             log: Rc::default(),
             fail_on: None,
             drops_first_key: false,
+            resumed: false,
+            retains: false,
             arrived: Vec::new(),
             keys_seen: 0,
         }
@@ -70,5 +74,13 @@ impl KeySession for FakeSession {
 
     fn stop(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
         self.record("stop".into())
+    }
+
+    fn resumed(&self) -> bool {
+        self.resumed
+    }
+
+    fn retain(&self) -> bool {
+        self.retains
     }
 }

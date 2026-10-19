@@ -4,6 +4,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use serde_json::json;
 
+use super::kept_session;
 use super::key_session::KeySession;
 use super::layout::refuse_unreachable;
 use super::lead_key::{LEAD_POLICY, LeadPolicy, send_lead};
@@ -81,10 +82,12 @@ fn drive(
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
     ensure_budget(deadline).map_err(|error| with_progress(error, 0))?;
-    session
-        .start(deadline)
-        .and_then(|()| send_lead(session, lead, deadline))
-        .map_err(|error| with_progress(error, 0))?;
+    if !session.resumed() {
+        session
+            .start(deadline)
+            .and_then(|()| send_lead(session, lead, deadline))
+            .map_err(|error| with_progress(error, 0))?;
+    }
     let mut delivered = 0_u32;
     for chunk in chunks {
         gate().map_err(|error| with_progress_kept(error, delivered))?;
@@ -118,14 +121,17 @@ pub(crate) fn run_chunks(
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
-    session
-        .create(deadline)
-        .map_err(|error| with_progress(error, 0))?;
+    if !session.resumed() {
+        session
+            .create(deadline)
+            .map_err(|error| with_progress(error, 0))?;
+    }
     let outcome = drive(session, lead, chunks, gate, deadline);
     if outcome.as_ref().is_ok_and(|delivered| *delivered > 0) {
         sleep(deadline.remaining().min(DRAIN));
     }
-    if let Ok(recovery) = Deadline::detached_after(RECOVERY_BUDGET_MS) {
+    let kept = outcome.is_ok() && session.retain();
+    if !kept && let Ok(recovery) = Deadline::detached_after(RECOVERY_BUDGET_MS) {
         let _ = session.stop(recovery);
     }
     outcome.map(|delivered_events| Delivery { delivered_events })
@@ -149,8 +155,25 @@ pub(crate) fn send_chunks(
             delivered_events: 0,
         });
     }
-    let mut session = RemoteDesktop::open(deadline)?;
-    run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline)
+    let kept = kept_session::take();
+    let reused = kept.is_some();
+    let mut session = match kept {
+        Some(session) => session,
+        None => RemoteDesktop::open(deadline)?,
+    };
+    let mut outcome = run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline);
+    if reused && outcome.as_ref().is_err_and(sent_nothing) {
+        session = RemoteDesktop::open(deadline)?;
+        outcome = run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline);
+    }
+    if outcome.is_ok() && session.resumed() {
+        kept_session::keep(session);
+    }
+    outcome
+}
+
+fn sent_nothing(error: &AdapterError) -> bool {
+    error.disposition == DeliverySemantics::not_delivered()
 }
 
 #[cfg(test)]
