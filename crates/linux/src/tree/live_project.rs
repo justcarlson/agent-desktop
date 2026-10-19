@@ -2,8 +2,11 @@ use agent_desktop_core::{
     AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect, state,
 };
 
+use super::frame_geometry::pointer_bounds;
+use super::offscreen::{OffscreenInput, offscreen};
+use super::placement::Placement;
 use super::state_bits::{ENABLED, SENSITIVE, SHOWING, StateBits, VISIBLE};
-use super::{Field, ObservedRead};
+use super::{Extents, Field, ObservedRead};
 
 /// The answer for a live read that left a field the projection needs unread.
 /// It is retryable: the node answered, a field did not.
@@ -57,11 +60,83 @@ pub(crate) fn live_value(evidence: &LocatorEvidence) -> Result<Option<String>, A
     Ok(evidence.value.known().cloned())
 }
 
-/// The state projection. `hidden` is a live-only token; `offscreen` is never
-/// produced because the state set cannot decide it.
+fn has_position(read: &ObservedRead) -> bool {
+    matches!(&read.node.extents, Field::Present(extents)
+        if extents.x != i32::MIN && extents.y != i32::MIN)
+}
+
+fn is_sentinel(read: &ObservedRead) -> bool {
+    matches!(&read.node.extents, Field::Present(_)) && !has_position(read)
+}
+
+fn state_bits(read: &ObservedRead) -> Option<(bool, bool)> {
+    read.node.traits.states.present().map(|words| {
+        let bits = StateBits::new(words);
+        (bits.has(VISIBLE), bits.has(SHOWING))
+    })
+}
+
+/// Whether the one node read already settles offscreen without looking at the
+/// window: the state set failed or shows the node hidden, or it has the GTK 3
+/// shape of a row scrolled out of its viewport (`VISIBLE` without `SHOWING`
+/// at the sentinel position, L6-9).
+pub(crate) fn settled_by_read(read: &ObservedRead) -> bool {
+    match state_bits(read) {
+        None | Some((false, false)) => true,
+        Some((visible, showing)) => visible && !showing && is_sentinel(read),
+    }
+}
+
+/// `Some(true)` only on positive evidence, `Some(false)` only when the node
+/// provably intersects its frame and scroll container in a window that is not
+/// minimized, `None` when anything needed was not read.
+pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> Option<bool> {
+    let (visible, showing) = state_bits(read)?;
+    if !visible && !showing {
+        return None;
+    }
+    let minimized = if placement.frame_iconified || placement.x11.is_some_and(|x11| x11.hidden) {
+        Some(true)
+    } else {
+        placement.x11.map(|_| false)
+    };
+    let verdict = offscreen(OffscreenInput {
+        node: placement.node,
+        frame: placement.frame,
+        container: placement.container,
+        visible,
+        showing,
+        sentinel: is_sentinel(read),
+        minimized,
+    });
+    let container_unread =
+        read.node.element.scroll_container().is_some() && placement.container.is_none();
+    if container_unread && verdict == Some(false) {
+        None
+    } else {
+        verdict
+    }
+}
+
+/// The node's rectangle in the frame a pointer is aimed in, for a toolkit
+/// whose own screen extents cannot be trusted: the toolkit's rule applied to
+/// the screen extents, the window extents and the client origin. `None` when
+/// nothing was read or the position cannot be proved.
+pub(crate) fn pointer_rect(read: &ObservedRead, placement: &Placement) -> Option<Rect> {
+    let Field::Present(screen) = &read.node.extents else {
+        return None;
+    };
+    let window: Extents = placement.node?;
+    let origin = placement.x11.map(|x11| x11.client_origin);
+    pointer_bounds(&placement.toolkit, *screen, window, origin).map(Rect::from)
+}
+
+/// The state projection. `hidden` is a live-only token. `offscreen` follows
+/// the placement: the token and `Some(true)` together on positive evidence.
 pub(crate) fn live_state(
     read: &ObservedRead,
     evidence: &LocatorEvidence,
+    placement: &Placement,
 ) -> Result<ElementState, AdapterError> {
     let role = evidence
         .role
@@ -76,13 +151,17 @@ pub(crate) fn live_state(
     if is_hidden(read) {
         states.push(state::HIDDEN.to_owned());
     }
+    let off = derived_offscreen(read, placement);
+    if off == Some(true) && !states.iter().any(|token| token == state::OFFSCREEN) {
+        states.push(state::OFFSCREEN.to_owned());
+    }
     Ok(ElementState {
         role,
         states,
         value: live_value(evidence)?,
         enabled: enabled(read),
         hidden: None,
-        offscreen: None,
+        offscreen: off,
     })
 }
 
@@ -108,19 +187,28 @@ pub(crate) fn live_bounds(read: &ObservedRead) -> Option<Rect> {
 }
 
 /// Identity, state, bounds and actions of one node, all from the one read.
+/// A toolkit whose screen extents are global keeps them; any other takes the
+/// provable pointer rectangle and falls back to the extents as read.
 pub(crate) fn live_element(
     read: &ObservedRead,
     evidence: &LocatorEvidence,
+    placement: &Placement,
+    global: bool,
 ) -> Result<LiveElement, AdapterError> {
+    let bounds = if global {
+        live_bounds(read)
+    } else {
+        pointer_rect(read, placement).or_else(|| live_bounds(read))
+    };
     Ok(LiveElement {
         identity: LiveIdentity {
             name: evidence.name.clone(),
             description: evidence.description.clone(),
             identifiers: evidence.identifiers.clone(),
         },
-        state: live_state(read, evidence)?,
+        state: live_state(read, evidence, placement)?,
         states_complete: true,
-        bounds: live_bounds(read),
+        bounds,
         available_actions: live_actions(evidence)?,
     })
 }
@@ -128,3 +216,7 @@ pub(crate) fn live_element(
 #[cfg(test)]
 #[path = "live_project_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "live_placement_tests.rs"]
+mod placement_tests;

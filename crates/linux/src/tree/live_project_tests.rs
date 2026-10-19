@@ -33,7 +33,11 @@ fn with_extents(mut read: ObservedRead, x: i32, y: i32, width: i32, height: i32)
 }
 
 fn state_of(read: &ObservedRead) -> agent_desktop_core::ElementState {
-    live_state(read, &evidence_of(read)).expect("the state projects")
+    state_in(read, &Placement::default())
+}
+
+fn state_in(read: &ObservedRead, placement: &Placement) -> agent_desktop_core::ElementState {
+    live_state(read, &evidence_of(read), placement).expect("the state projects")
 }
 
 fn hidden(read: &ObservedRead) -> bool {
@@ -67,7 +71,8 @@ fn visible_without_showing_and_showing_alone_are_not_hidden() {
 fn a_failed_state_read_is_the_incomplete_answer_and_never_an_empty_state_list() {
     let mut read = read_of(PUSH_BUTTON, "b", &[]);
     read.node.traits.states = Field::Failed("no answer".to_owned());
-    let error = live_state(&read, &evidence_of(&read)).expect_err("incomplete");
+    let error =
+        live_state(&read, &evidence_of(&read), &Placement::default()).expect_err("incomplete");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert!(error.is_explicitly_retryable());
 }
@@ -194,7 +199,7 @@ fn the_live_element_is_identity_state_bounds_and_actions_of_one_read() {
         &[ENABLED, VISIBLE, SHOWING],
     );
     let evidence = evidence_of(&read);
-    let element = live_element(&read, &evidence).expect("projects");
+    let element = live_element(&read, &evidence, &Placement::default(), true).expect("projects");
     assert_eq!(
         element.identity.name,
         LocatorField::Known("Save".to_owned())

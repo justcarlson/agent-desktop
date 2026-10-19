@@ -4,8 +4,12 @@ use agent_desktop_core::{
 use zbus::Connection;
 
 use super::absence::Liveness;
-use super::live_project::{live_actions, live_bounds, live_element, live_state, live_value};
+use super::live_offscreen::{global_position, placement};
+use super::live_project::{
+    live_actions, live_bounds, live_element, live_state, live_value, pointer_rect, settled_by_read,
+};
 use super::node_evidence::{NodeEvidence, read_evidence};
+use super::placement::Placement;
 use super::resolve_errors::{app_exited, object_gone, settle_gone, stopped_app, stopped_aware};
 use super::{AtspiElement, atspi_element};
 use crate::system::{SharedBus, within};
@@ -15,9 +19,14 @@ use crate::system::{SharedBus, within};
 pub(crate) trait NodeReader {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError>;
     fn stopped_app(&mut self, pid: u32) -> Option<String>;
+    /// Where the node sits in its window, read once.
+    fn placement(&mut self, element: &AtspiElement, deadline: Deadline) -> Placement;
+    /// Whether the node's toolkit reports global screen positions.
+    fn global_position(&mut self, element: &AtspiElement, deadline: Deadline) -> bool;
 }
 
 struct BusReader<'a> {
+    bus: &'a SharedBus,
     connection: &'a Connection,
     deadline: Deadline,
 }
@@ -29,6 +38,14 @@ impl NodeReader for BusReader<'_> {
 
     fn stopped_app(&mut self, pid: u32) -> Option<String> {
         stopped_app(pid)
+    }
+
+    fn placement(&mut self, element: &AtspiElement, deadline: Deadline) -> Placement {
+        placement(self.bus, element, deadline)
+    }
+
+    fn global_position(&mut self, element: &AtspiElement, deadline: Deadline) -> bool {
+        global_position(self.bus, element, deadline)
     }
 }
 
@@ -72,6 +89,7 @@ fn with_reader<T>(
     atspi_element(handle)?;
     let connection = bus.get(deadline)?.inner().clone();
     let mut reader = BusReader {
+        bus,
         connection: &connection,
         deadline,
     };
@@ -88,9 +106,15 @@ pub(crate) fn value_via<R: NodeReader>(
 pub(crate) fn state_via<R: NodeReader>(
     reader: &mut R,
     handle: &NativeHandle,
+    deadline: Deadline,
 ) -> Result<Option<ElementState>, AdapterError> {
     let node = read_live(reader, handle)?;
-    live_state(&node.read, &node.evidence).map(Some)
+    let placed = if settled_by_read(&node.read) {
+        Placement::default()
+    } else {
+        reader.placement(atspi_element(handle)?, deadline)
+    };
+    live_state(&node.read, &node.evidence, &placed).map(Some)
 }
 
 pub(crate) fn actions_via<R: NodeReader>(
@@ -100,19 +124,37 @@ pub(crate) fn actions_via<R: NodeReader>(
     live_actions(&read_live(reader, handle)?.evidence).map(Some)
 }
 
+/// The one placement a live element needs, read only when the state or the
+/// bounds want it: the state wants it unless the node read already settles
+/// offscreen, the bounds want it unless the toolkit's extents are global.
 pub(crate) fn element_via<R: NodeReader>(
     reader: &mut R,
     handle: &NativeHandle,
+    deadline: Deadline,
 ) -> Result<LiveElement, AdapterError> {
     let node = read_live(reader, handle)?;
-    live_element(&node.read, &node.evidence)
+    let element = atspi_element(handle)?;
+    let global = reader.global_position(element, deadline);
+    let placed = if global && settled_by_read(&node.read) {
+        Placement::default()
+    } else {
+        reader.placement(element, deadline)
+    };
+    live_element(&node.read, &node.evidence, &placed, global)
 }
 
 pub(crate) fn bounds_via<R: NodeReader>(
     reader: &mut R,
     handle: &NativeHandle,
+    deadline: Deadline,
 ) -> Result<Option<Rect>, AdapterError> {
-    Ok(live_bounds(&read_live(reader, handle)?.read))
+    let node = read_live(reader, handle)?;
+    let element = atspi_element(handle)?;
+    if reader.global_position(element, deadline) {
+        return Ok(live_bounds(&node.read));
+    }
+    let placed = reader.placement(element, deadline);
+    Ok(pointer_rect(&node.read, &placed))
 }
 
 pub(crate) fn get_live_value(
@@ -131,7 +173,7 @@ pub(crate) fn get_live_state(
     deadline: Deadline,
 ) -> Result<Option<ElementState>, AdapterError> {
     with_reader(bus, handle, deadline, |reader, handle| {
-        state_via(reader, handle)
+        state_via(reader, handle, deadline)
     })
 }
 
@@ -151,7 +193,7 @@ pub(crate) fn get_live_element(
     deadline: Deadline,
 ) -> Result<LiveElement, AdapterError> {
     with_reader(bus, handle, deadline, |reader, handle| {
-        element_via(reader, handle)
+        element_via(reader, handle, deadline)
     })
 }
 
@@ -161,7 +203,7 @@ pub(crate) fn get_element_bounds(
     deadline: Deadline,
 ) -> Result<Option<Rect>, AdapterError> {
     with_reader(bus, handle, deadline, |reader, handle| {
-        bounds_via(reader, handle)
+        bounds_via(reader, handle, deadline)
     })
 }
 
