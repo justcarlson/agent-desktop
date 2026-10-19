@@ -97,7 +97,7 @@ fn clear_with_an_empty_read_back_is_matched() {
 #[test]
 fn clear_with_a_non_empty_read_back_is_not_matched() {
     let mut fake = Fake::holding("old");
-    fake.landing = Some("old".to_owned());
+    fake.landing = Some("ol".to_owned());
     let (_, outcome) = replace(&fake, "").expect("delivered");
     assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unchanged));
 }
@@ -194,12 +194,46 @@ fn an_unreadable_field_leaves_the_insert_unobserved() {
 }
 
 #[test]
-fn an_insert_the_field_ignored_is_not_matched() {
+fn an_insert_the_field_ignored_is_write_ignored_and_not_delivered() {
     let mut fake = Fake::holding("abc");
     fake.caret = Ok(Some((1, vec![])));
     fake.insert = Script::Ignore;
-    let (_, outcome) = typed(&fake, "Z").expect("delivered");
+    let error = typed(&fake, "Z").expect_err("ignored");
+    assert_ignored(&error);
+}
+
+#[test]
+fn a_set_the_field_ignored_is_write_ignored_and_not_delivered() {
+    let mut fake = Fake::holding("old");
+    fake.set = Script::Ignore;
+    let error = replace(&fake, "new").expect_err("ignored");
+    assert_ignored(&error);
+    assert_eq!(fake.logged(), ["set(new)"]);
+}
+
+#[test]
+fn a_snap_that_differs_from_both_old_and_requested_stays_unverified() {
+    let mut fake = Fake::holding("old");
+    fake.landing = Some("ne".to_owned());
+    let (_, outcome) = replace(&fake, "new").expect("delivered");
     assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unchanged));
+}
+
+#[test]
+fn an_unreadable_old_value_cannot_prove_the_write_ignored() {
+    let mut fake = Fake::holding("old");
+    fake.set = Script::Ignore;
+    let rungs = &mut replace_rungs(&fake, "new", false);
+    *fake.text.borrow_mut() = None;
+    let (_, outcome) = drive(rungs).expect("delivered");
+    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unread));
+}
+
+fn assert_ignored(error: &AdapterError) {
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let cause = error.details.as_ref().and_then(|d| d.get("cause"));
+    assert_eq!(cause.and_then(|c| c.as_str()), Some("write_ignored"));
 }
 
 #[test]

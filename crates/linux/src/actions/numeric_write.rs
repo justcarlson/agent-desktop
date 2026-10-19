@@ -53,6 +53,16 @@ pub(crate) fn agrees(stored: f64, requested: f64) -> bool {
     (stored - requested).abs() <= 1e-9 * requested.abs().max(1.0)
 }
 
+fn write_ignored() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The control still holds its old value, so the write was not applied",
+    )
+    .with_suggestion("Operate the control with click or key presses instead")
+    .with_details(serde_json::json!({ "cause": "write_ignored" }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
 fn read_only() -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionNotSupported,
@@ -64,6 +74,7 @@ fn read_only() -> AdapterError {
 
 pub(crate) fn write_rungs(port: &dyn NumericPort, plan: Plan) -> Vec<Rung<'_>> {
     let write = move || {
+        let before = port.stored();
         if port.set(plan.value)? == WriteReply::Absent {
             return Err(read_only());
         }
@@ -71,6 +82,9 @@ pub(crate) fn write_rungs(port: &dyn NumericPort, plan: Plan) -> Vec<Rung<'_>> {
             _ if !plan.readback_proves_commit => Observed::Unread,
             None => Observed::Unread,
             Some(stored) if agrees(stored, plan.value) => Observed::Matched,
+            Some(stored) if before.is_some_and(|old| agrees(stored, old)) => {
+                return Err(write_ignored());
+            }
             Some(_) => Observed::Unchanged,
         };
         Ok(DeliveryOutcome::Delivered(observed))

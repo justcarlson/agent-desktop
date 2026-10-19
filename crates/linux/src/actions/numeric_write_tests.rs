@@ -159,3 +159,15 @@ fn a_zero_step_is_an_unreadable_step() {
     let plan = planned("7.5", true, Some(0.0));
     assert!(!plan.readback_proves_commit);
 }
+
+#[test]
+fn a_value_that_stays_at_its_old_reading_is_write_ignored_and_not_delivered() {
+    let mut control = Control::slider();
+    control.reply = WriteReply::Done;
+    control.maximum = 0.0;
+    let error = write(&control, planned("5", false, None)).expect_err("ignored");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let cause = error.details.as_ref().and_then(|d| d.get("cause"));
+    assert_eq!(cause.and_then(|c| c.as_str()), Some("write_ignored"));
+}

@@ -39,11 +39,27 @@ fn offset(value: usize) -> Result<i32, AdapterError> {
     })
 }
 
-fn judge(port: &dyn TextPort, secure: bool, expected: &str) -> Observed {
+pub(crate) fn write_ignored() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The field still holds its old text, so the write was not applied",
+    )
+    .with_suggestion("Use physical typing for this field")
+    .with_details(serde_json::json!({ "cause": "write_ignored" }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
+fn judge(
+    port: &dyn TextPort,
+    secure: bool,
+    before: Option<&str>,
+    expected: &str,
+) -> Result<Observed, AdapterError> {
     match guarded_read(port, secure) {
-        None => Observed::Unread,
-        Some(read) if read == expected => Observed::Matched,
-        Some(_) => Observed::Unchanged,
+        None => Ok(Observed::Unread),
+        Some(read) if read == expected => Ok(Observed::Matched),
+        Some(read) if before == Some(read.as_str()) => Err(write_ignored()),
+        Some(_) => Ok(Observed::Unchanged),
     }
 }
 
@@ -73,12 +89,20 @@ pub(crate) fn replace_rungs<'a>(
     text: &'a str,
     secure: bool,
 ) -> Vec<Rung<'a>> {
-    let set = move || match port
-        .set_contents(text)
-        .map_err(|error| scrub(error, text, secure))?
-    {
-        WriteReply::Absent => Ok(DeliveryOutcome::NotDelivered),
-        WriteReply::Done => Ok(DeliveryOutcome::Delivered(judge(port, secure, text))),
+    let set = move || {
+        let before = guarded_read(port, secure);
+        match port
+            .set_contents(text)
+            .map_err(|error| scrub(error, text, secure))?
+        {
+            WriteReply::Absent => Ok(DeliveryOutcome::NotDelivered),
+            WriteReply::Done => Ok(DeliveryOutcome::Delivered(judge(
+                port,
+                secure,
+                before.as_deref(),
+                text,
+            )?)),
+        }
     };
     let rewrite = move || rewrite(port, text, secure);
     vec![
@@ -108,14 +132,14 @@ fn rewrite(port: &dyn TextPort, text: &str, secure: bool) -> Result<DeliveryOutc
     }
     if text.is_empty() {
         let outcome = if removed {
-            DeliveryOutcome::Delivered(judge(port, secure, text))
+            DeliveryOutcome::Delivered(judge(port, secure, None, text)?)
         } else {
             DeliveryOutcome::Satisfied
         };
         return Ok(outcome);
     }
     match port.insert(0, text, offset(text.len())?) {
-        Ok(WriteReply::Done) => Ok(DeliveryOutcome::Delivered(judge(port, secure, text))),
+        Ok(WriteReply::Done) => Ok(DeliveryOutcome::Delivered(judge(port, secure, None, text)?)),
         Ok(WriteReply::Absent) if removed => Err(after_delete(None)),
         Ok(WriteReply::Absent) => Ok(DeliveryOutcome::NotDelivered),
         Err(error) if removed => Err(scrub(after_delete(Some(error)), text, secure)),
@@ -177,10 +201,12 @@ fn insert_at_caret(
         }
     }
     let sent = port.insert(offset(replaced.start)?, text, offset(text.len())?);
-    let expected = before.and_then(|old| expected_after(&old, replaced, text));
+    let expected = before
+        .as_deref()
+        .and_then(|old| expected_after(old, replaced, text));
     match sent {
         Ok(WriteReply::Done) => Ok(DeliveryOutcome::Delivered(match expected {
-            Some(expected) => judge(port, secure, &expected),
+            Some(expected) => judge(port, secure, before.as_deref(), &expected)?,
             None => Observed::Unread,
         })),
         Ok(WriteReply::Absent) if removed => Err(after_delete(None)),
