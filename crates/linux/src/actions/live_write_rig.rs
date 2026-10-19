@@ -230,6 +230,19 @@ impl Probe {
         })
     }
 
+    pub(super) fn framed(&self, pid: u32, element: &AtspiElement) -> AtspiElement {
+        let app = self
+            .applications(pid)
+            .into_iter()
+            .next()
+            .expect("the application is on the bus");
+        let mut frame = self.children(&app).into_iter().next().unwrap_or(app);
+        frame.set_ancestry(crate::tree::ancestry::of_root(&frame));
+        let mut framed = element.clone();
+        framed.set_ancestry(crate::tree::ancestry::child(&frame, None));
+        framed
+    }
+
     pub(super) fn lists(&self, parent: &AtspiElement, child: &AtspiElement) -> bool {
         self.children(parent).iter().any(|item| item == child)
     }

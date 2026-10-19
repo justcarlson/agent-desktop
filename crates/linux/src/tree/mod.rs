@@ -2,7 +2,7 @@ pub(crate) mod absence;
 pub(crate) mod action_names;
 pub(crate) mod action_read;
 mod admit;
-mod ancestry;
+pub(crate) mod ancestry;
 mod attributes;
 mod bounded;
 pub(crate) mod capability_rules;

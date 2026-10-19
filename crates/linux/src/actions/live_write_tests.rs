@@ -219,6 +219,7 @@ fn write_live_a_destroyed_widget_is_stale_where_the_toolkit_reports_it() {
         let handle = NativeHandle::new(victim.clone());
         let names = probe.action_names(&victim);
         let parent = probe.find(app.pid, &|probe, element| probe.lists(element, &victim));
+        let framed = probe.framed(app.pid, &victim);
         app.send("remove");
         assert!(
             wait_until(SETTLE, || !probe.lists(&parent, &victim)),
@@ -237,15 +238,25 @@ fn write_live_a_destroyed_widget_is_stale_where_the_toolkit_reports_it() {
         );
         if label != "gtk3" {
             let error = reply.expect_err("a destroyed widget takes no write");
-            assert!(
-                matches!(error.code, ErrorCode::StaleRef | ErrorCode::ActionFailed),
-                "[{label}] {error:?}"
-            );
+            assert_eq!(error.code, ErrorCode::StaleRef, "[{label}] {error:?}");
             assert_eq!(
                 error.disposition.delivery(),
                 DeliveryDisposition::NotDelivered,
                 "[{label}]"
             );
+        }
+        let framed_handle = NativeHandle::new(framed.clone());
+        let clicked = super::click::click(&target(&probe, &framed_handle, &framed, 4_000));
+        println!(
+            "write_live {label}: destroyed click {:?}",
+            clicked.as_ref().map_err(describe)
+        );
+        if label == "gtk3" {
+            let result = clicked.expect("a GTK3 widget keeps answering after it is removed");
+            assert_eq!(result.steps[0].verified(), Some(false), "[{label}]");
+        } else {
+            let error = clicked.expect_err("a destroyed widget is never a delivered click");
+            assert_eq!(error.code, ErrorCode::StaleRef, "[{label}] {error:?}");
         }
     }
 }
