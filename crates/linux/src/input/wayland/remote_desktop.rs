@@ -65,15 +65,7 @@ impl KeySession for RemoteDesktop {
                 .deserialize::<OwnedObjectPath>()
                 .map_err(|error| classify_call(&error))
         })
-        .map_err(|error| match error.code {
-            ErrorCode::Timeout => AdapterError::timeout(
-                "The compositor input service did not answer session creation in time",
-            )
-            .with_suggestion("The desktop session is busy or its input service is unreachable; retry, or use the semantic action")
-            .with_details(json!({ "physical_delivery_started": false }))
-            .with_disposition(DeliverySemantics::not_delivered()),
-            _ => error,
-        })?;
+        .map_err(creation_failure)?;
         self.session = Some(path);
         Ok(())
     }
@@ -111,6 +103,20 @@ pub(crate) fn semantic_action_refusal(message: impl Into<String>) -> AdapterErro
         .with_suggestion("Use the semantic action on the element instead of physical input")
         .with_details(json!({ "physical_delivery_started": false }))
         .with_disposition(DeliverySemantics::not_delivered())
+}
+
+fn creation_failure(error: AdapterError) -> AdapterError {
+    match error.code {
+        ErrorCode::Timeout => AdapterError::timeout(
+            "The compositor input service did not answer session creation in time",
+        )
+        .with_suggestion(
+            "The desktop session is busy or its input service is unreachable; retry, or use the semantic action",
+        )
+        .with_details(json!({ "physical_delivery_started": false }))
+        .with_disposition(DeliverySemantics::not_delivered()),
+        _ => error,
+    }
 }
 
 pub(crate) fn classify_call(error: &zbus::Error) -> AdapterError {

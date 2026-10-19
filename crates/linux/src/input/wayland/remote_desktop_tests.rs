@@ -54,3 +54,22 @@ fn a_reply_that_never_comes_is_a_timeout() {
     let slow = zbus::Error::InputOutput(Arc::new(std::io::Error::from(ErrorKind::TimedOut)));
     assert_eq!(classify_call(&slow).code, ErrorCode::Timeout);
 }
+
+#[test]
+fn an_unanswered_session_creation_is_a_timeout_that_started_nothing() {
+    let slow = zbus::Error::InputOutput(Arc::new(std::io::Error::from(ErrorKind::TimedOut)));
+    let error = creation_failure(classify_call(&slow));
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_ne!(error.code, ErrorCode::Internal);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(
+        error.details.expect("details")["physical_delivery_started"],
+        false
+    );
+}
+
+#[test]
+fn a_refused_session_creation_keeps_its_own_error() {
+    let refused = creation_failure(classify_call(&method_error(ACCESS_DENIED)));
+    assert_eq!(refused.code, ErrorCode::ActionNotSupported);
+}
