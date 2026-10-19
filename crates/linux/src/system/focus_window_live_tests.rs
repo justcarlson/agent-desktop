@@ -5,6 +5,7 @@ use agent_desktop_core::{Deadline, ErrorCode, WindowFilter, WindowInfo};
 
 use super::focus_window::focus_window;
 use super::interaction_lease::acquire;
+use super::overview::overview_open;
 use super::x11::stacking_read::StackingRead;
 use super::x11::stacking_source::StackingSource;
 use super::x11::{DisplayReader, X11State};
@@ -139,35 +140,28 @@ fn focus(window: &WindowInfo) -> Result<(), agent_desktop_core::AdapterError> {
     focus_window(&SharedBus::default(), window, &lease)
 }
 
-fn click_center(window: &WindowInfo) {
-    let bounds = window.bounds.expect("bounds");
-    let x = (bounds.x + bounds.width / 2.0) as i64;
-    let y = (bounds.y + bounds.height / 2.0) as i64;
-    let xdotool = format!("{}/xdotool", tools());
+fn press_escape() {
     let library = format!(
         "{}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu",
         std::env::var("HOME").expect("HOME")
     );
-    for args in [
-        vec!["mousemove".to_owned(), x.to_string(), y.to_string()],
-        vec!["click".to_owned(), "1".to_owned()],
-    ] {
-        let status = Command::new(&xdotool)
-            .env("LD_LIBRARY_PATH", &library)
-            .args(&args)
-            .status()
-            .expect("xdotool runs");
-        assert!(status.success());
-        std::thread::sleep(Duration::from_millis(400));
+    let status = Command::new(format!("{}/xdotool", tools()))
+        .env("LD_LIBRARY_PATH", &library)
+        .args(["key", "Escape"])
+        .status()
+        .expect("xdotool runs");
+    assert!(status.success());
+}
+
+fn wait_for_closed_overview() {
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(8) {
+        if overview_open() == Some(false) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(150));
     }
-    let active = Command::new("xprop")
-        .args(["-root", "_NET_ACTIVE_WINDOW"])
-        .output()
-        .expect("xprop runs");
-    println!(
-        "focus_window_live click at {x},{y} bounds={bounds:?} root active={}",
-        String::from_utf8_lossy(&active.stdout).trim()
-    );
+    panic!("the overview never read closed");
 }
 
 fn cause(error: &agent_desktop_core::AdapterError) -> String {
@@ -225,22 +219,18 @@ fn check(kind: &str, manager: &str) {
         ),
         Err(error) => {
             assert_eq!(error.code, ErrorCode::ActionFailed);
-            if manager == "mutter" && !focused_blocker && !focused_target {
-                assert_eq!(cause(&error), "activation_not_granted");
-            }
             if manager == "mutter" {
-                let clicked = if target.bounds.is_some_and(|b| b.x > 0.0) {
-                    &target
-                } else {
-                    &blocker
-                };
-                click_center(clicked);
-                assert!(
-                    wait_until_focused(&bus, &clicked.id)
-                        || is_focused(&bus, &target.id)
-                        || is_focused(&bus, &blocker.id),
-                    "a click focuses a window"
+                assert_eq!(
+                    overview_open(),
+                    Some(true),
+                    "only an open overview refuses a first activation: {error:?}"
                 );
+                assert_eq!(cause(&error), "overview_open");
+                press_escape();
+                wait_for_closed_overview();
+                focus(foreground)
+                    .expect("a never-focused window is granted once the overview is closed");
+                assert!(wait_until_focused(&bus, &foreground.id));
             }
         }
     }
