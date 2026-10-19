@@ -2,6 +2,7 @@ use super::Extents;
 use super::hit_guard::admits;
 use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::stacked_window::StackedWindow;
+use crate::system::x11::stacking_decode::frame_rectangle;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
 use crate::system::x11::window_kind::WindowKind;
 
@@ -22,20 +23,8 @@ pub(crate) enum Occlusion {
 
 /// The border drawn around a client, so the rectangle tested is the frame and
 /// not the client: a title bar covers a point the client rectangle does not.
-fn frame_of(window: &StackedWindow) -> Option<Extents> {
-    let grow = |edge: u32| i32::try_from(edge).ok();
-    let (left, right, top, bottom) = (
-        grow(window.extents.left)?,
-        grow(window.extents.right)?,
-        grow(window.extents.top)?,
-        grow(window.extents.bottom)?,
-    );
-    Some(Extents {
-        x: window.client.x.checked_sub(left)?,
-        y: window.client.y.checked_sub(top)?,
-        width: window.client.width.checked_add(left)?.checked_add(right)?,
-        height: window.client.height.checked_add(top)?.checked_add(bottom)?,
-    })
+fn frame_of(window: &StackedWindow) -> Extents {
+    frame_rectangle(window.client, Some(window.extents))
 }
 
 fn on_screen_now(window: &StackedWindow, current: Option<u32>) -> Option<bool> {
@@ -66,9 +55,7 @@ pub(crate) fn occlusion(snapshot: &StackingSnapshot, target: u32, point: (i32, i
         if window.flags.hidden || !window.flags.mapped || window.kind == WindowKind::Desktop {
             continue;
         }
-        let Some(frame) = frame_of(window) else {
-            continue;
-        };
+        let frame = frame_of(window);
         if !admits(frame, point) {
             continue;
         }
