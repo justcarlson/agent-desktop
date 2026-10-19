@@ -28,7 +28,7 @@ fn nothing_read_is_unverified() {
 
 #[test]
 fn a_matching_label_with_no_route_is_not_supported_and_not_delivered() {
-    let error = no_route("Dark");
+    let error = no_route();
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(
         error.disposition,
@@ -37,9 +37,11 @@ fn a_matching_label_with_no_route_is_not_supported_and_not_delivered() {
 }
 
 #[test]
-fn the_display_value_is_never_echoed_into_an_error() {
-    let error = no_route("hunter2");
-    assert!(!error.message.contains("hunter2"));
+fn no_error_text_in_select_reveals_the_length_of_the_value() {
+    let source = include_str!("select.rs");
+    assert!(!source.contains("character"));
+    assert!(!source.contains("chars().count()"));
+    assert!(!no_route().message.contains("character"));
 }
 
 #[test]

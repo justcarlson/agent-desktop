@@ -19,6 +19,7 @@ pub(crate) mod scroll_plan;
 pub(crate) mod scroll_wrap;
 pub(crate) mod secure_write;
 pub(crate) mod select;
+pub(crate) mod select_exclusive;
 pub(crate) mod select_search;
 pub(crate) mod text_write;
 pub(crate) mod toggle_state;

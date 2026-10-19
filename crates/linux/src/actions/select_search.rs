@@ -6,6 +6,7 @@ pub(crate) const DEPTH_LIMIT: usize = 8;
 pub(crate) struct Inspected {
     pub(crate) name: Option<String>,
     pub(crate) selection: bool,
+    pub(crate) selectable: bool,
 }
 
 pub(crate) trait ItemReader {
@@ -33,7 +34,7 @@ pub(crate) struct Hit<N> {
 pub(crate) enum Search<N> {
     Found(Hit<N>),
     Ambiguous,
-    NotFound { seen: usize },
+    NotFound { selectable: bool },
     Incomplete,
 }
 
@@ -58,6 +59,7 @@ pub(crate) fn search<R: ItemReader>(
         container: None,
     }];
     let mut seen = 0;
+    let mut selectable = false;
     let mut incomplete = false;
     let mut found: Option<Hit<R::Node>> = None;
     while let Some(pending) = stack.pop() {
@@ -74,6 +76,7 @@ pub(crate) fn search<R: ItemReader>(
                 continue;
             }
         };
+        selectable |= inspected.selectable;
         let matched = inspected
             .name
             .as_deref()
@@ -120,7 +123,7 @@ pub(crate) fn search<R: ItemReader>(
     Ok(match found {
         Some(hit) => Search::Found(hit),
         None if incomplete => Search::Incomplete,
-        None => Search::NotFound { seen },
+        None => Search::NotFound { selectable },
     })
 }
 

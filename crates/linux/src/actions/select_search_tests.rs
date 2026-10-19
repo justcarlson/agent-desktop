@@ -28,6 +28,7 @@ impl ItemReader for FakeTree {
         Ok(Inspected {
             name: self.names[*node].map(str::to_owned),
             selection: self.selection[*node],
+            selectable: self.selection[*node],
         })
     }
 
@@ -119,20 +120,20 @@ fn a_matched_row_does_not_count_its_matching_label_twice() {
 }
 
 #[test]
-fn no_match_reports_the_nodes_it_saw() {
+fn no_match_under_a_selection_container_is_selectable() {
     let mut tree = FakeTree::new(&[(None, true, &[1]), (Some("A"), false, &[])]);
     assert_eq!(
         search(&mut tree, &0, "Z").expect("searched"),
-        Search::NotFound { seen: 2 }
+        Search::NotFound { selectable: true }
     );
 }
 
 #[test]
-fn a_lone_root_with_no_children_has_seen_one_node() {
+fn no_match_with_no_selection_anywhere_is_not_selectable() {
     let mut tree = FakeTree::new(&[(Some("combo"), false, &[])]);
     assert_eq!(
         search(&mut tree, &0, "Z").expect("searched"),
-        Search::NotFound { seen: 1 }
+        Search::NotFound { selectable: false }
     );
 }
 
@@ -186,4 +187,17 @@ fn an_unreadable_root_is_an_error() {
     let mut tree = FakeTree::new(&[(Some("A"), false, &[])]);
     tree.unreadable.push(0);
     assert!(search(&mut tree, &0, "A").is_err());
+}
+
+#[test]
+fn a_button_with_inner_nodes_and_no_selection_is_not_selectable() {
+    let mut tree = FakeTree::new(&[
+        (None, false, &[1, 2]),
+        (Some("label"), false, &[]),
+        (None, false, &[]),
+    ]);
+    assert_eq!(
+        search(&mut tree, &0, "x").expect("searched"),
+        Search::NotFound { selectable: false }
+    );
 }

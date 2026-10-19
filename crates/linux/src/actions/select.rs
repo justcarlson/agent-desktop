@@ -13,6 +13,9 @@ use super::click::{
 };
 use super::context::Target;
 use super::mutation::{WriteKind, WriteReply};
+use super::select_exclusive::{
+    SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
+};
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, name_matches, search};
 use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
@@ -22,7 +25,6 @@ use crate::tree::role_numbers::COMBO_BOX;
 use crate::tree::state_bits::SELECTED;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
-const SELECTION_INTERFACE: &str = "org.a11y.atspi.Selection";
 const SELECT_SETTLE: Duration = Duration::from_millis(1000);
 
 pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool>) -> Option<bool> {
@@ -45,9 +47,11 @@ impl ItemReader for BusReader<'_> {
     fn inspect(&mut self, node: &AtspiElement) -> Result<Inspected, AdapterError> {
         let view = read_node_view(self.bus, &handle_of(node), self.deadline)?;
         self.inspected_role = view.role();
+        let selection = advertises_selection(&view);
         Ok(Inspected {
             name: view.name().map(str::to_owned),
-            selection: advertises_selection(&view),
+            selection,
+            selectable: selection || names_select_verb(&view),
         })
     }
 
@@ -59,6 +63,12 @@ impl ItemReader for BusReader<'_> {
 fn advertises_selection(view: &NodeView) -> bool {
     view.interfaces()
         .is_some_and(|names| names.iter().any(|name| name == SELECTION_INTERFACE))
+}
+
+fn names_select_verb(view: &NodeView) -> bool {
+    view.action_names().is_some_and(|names| {
+        resolve_verb(names, verbs_for(&Action::Select(String::new()))).is_some()
+    })
 }
 
 fn children_of(
@@ -170,6 +180,25 @@ fn container_target<'a>(
     })
 }
 
+fn keep_only_the_item(
+    target: &Target<'_>,
+    holder: &Target<'_>,
+    index: i32,
+    item: &AtspiElement,
+    display_value: &str,
+) -> Option<bool> {
+    let count = selected_count(holder);
+    if !needs_replacement(count) {
+        return exclusive_verdict(count);
+    }
+    replace_with_only(holder, index).ok()?;
+    let reread = read_verification(target.bus, target, item, display_value);
+    match reread {
+        Some(true) => exclusive_verdict(selected_count(holder)),
+        other => other,
+    }
+}
+
 fn select_through(
     target: &Target<'_>,
     hit: &Hit<AtspiElement>,
@@ -181,23 +210,33 @@ fn select_through(
     let view = read_node_view(target.bus, &handle_of(&hit.item), target.deadline)?;
     let names = names_of(&view)?;
     let own_verb = hit.own && resolve_verb(names, verbs).is_some();
+    let holder_handle = container.map(|container| handle_of(&container.node));
+    let holder = match &holder_handle {
+        Some(handle) if !own_verb => Some(container_target(target, handle)?),
+        _ => None,
+    };
     let observe = || {
-        poll_until(
+        let verified = poll_until(
             target.deadline,
             SELECT_SETTLE,
             POLL_STEP,
             || read_verification(target.bus, target, &hit.item, display_value),
             |verified| *verified == Some(true),
-        )
+        );
+        match (&holder, container) {
+            (Some(holder), Some(container)) if verified == Some(true) => {
+                keep_only_the_item(target, holder, container.index, &hit.item, display_value)
+            }
+            _ => verified,
+        }
     };
     let run = || {
         let reply: Result<WriteReply, AdapterError> = match (own_verb, container) {
             (true, _) => invoke_verb(target, &action, names, verbs),
             (false, Some(container)) => {
-                let handle = handle_of(&container.node);
-                let holder = container_target(target, &handle)?;
+                let holder = holder.as_ref().ok_or_else(no_route)?;
                 invoke(
-                    &holder,
+                    holder,
                     Call {
                         interface: SELECTION_INTERFACE,
                         method: "SelectChild",
@@ -207,7 +246,7 @@ fn select_through(
                     true,
                 )
             }
-            (false, None) => Err(no_route(display_value)),
+            (false, None) => Err(no_route()),
         };
         deliver(reply, observe).and_then(unchanged_is_ignored)
     };
@@ -234,13 +273,10 @@ fn combo_selection(target: &Target<'_>) -> Result<bool, AdapterError> {
     Ok(view.role() == Some(COMBO_BOX) && advertises_selection(&view))
 }
 
-fn no_route(display_value: &str) -> AdapterError {
+fn no_route() -> AdapterError {
     refusal(
         ErrorCode::ActionNotSupported,
-        format!(
-            "No semantic route selects the {}-character value; use the headed click and key route",
-            display_value.chars().count()
-        ),
+        "The element has no Selection interface and no selectable item, so a select has no semantic route",
         json!({ "selection_route": "absent" }),
     )
 }
@@ -283,17 +319,13 @@ pub(crate) fn select(
             };
             select_through(target, &hit, container.as_ref(), display_value)
         }
-        Search::Ambiguous => Err(AdapterError::ambiguous_target(format!(
-            "More than one item matches the {}-character value",
-            display_value.chars().count()
-        ))),
-        Search::NotFound { seen } if seen <= 1 => Err(no_route(display_value)),
-        Search::NotFound { .. } => Err(refusal(
+        Search::Ambiguous => Err(AdapterError::ambiguous_target(
+            "More than one item matches the requested value",
+        )),
+        Search::NotFound { selectable: false } => Err(no_route()),
+        Search::NotFound { selectable: true } => Err(refusal(
             ErrorCode::ElementNotFound,
-            format!(
-                "No item matches the {}-character value",
-                display_value.chars().count()
-            ),
+            "No item in the selectable container matches the requested value",
             json!({ "searched": true }),
         )),
         Search::Incomplete => Err(refusal(

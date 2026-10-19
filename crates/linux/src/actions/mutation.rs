@@ -1,8 +1,3 @@
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the callers land with the other lanes")
-)]
-
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::{Value, json};
 
