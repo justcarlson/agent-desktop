@@ -48,6 +48,8 @@ pub(crate) mod window_facts;
 pub(crate) mod window_flags;
 pub(crate) mod window_kind;
 pub(crate) mod window_x11_state;
+#[cfg(test)]
+pub(crate) mod xwd_oracle;
 
 pub(crate) use bounded::start;
 pub(crate) use client::X11Client;

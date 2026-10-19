@@ -1,4 +1,3 @@
-use std::process::Command;
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::Deadline;
@@ -11,6 +10,7 @@ use super::*;
 use crate::system::capture::pixels::to_rgb;
 use crate::system::capture::png_encode::encode_png;
 use crate::system::x11::map_state::MapState;
+use crate::system::x11::xwd_oracle::{wait_viewable, xwd_pixel};
 
 const FILL: [u8; 3] = [0x33, 0x66, 0x99];
 const ORIGIN: (i16, i16) = (100, 90);
@@ -94,42 +94,6 @@ impl Flat {
     }
 }
 
-fn xwd_pixel(window: u32, x: usize, y: usize, dir: &str) -> [u8; 3] {
-    let path = format!("{dir}/flat.xwd");
-    let output = Command::new("xwd")
-        .args(["-silent", "-id", &window.to_string(), "-out", &path])
-        .output()
-        .expect("xwd runs");
-    assert!(
-        output.status.success(),
-        "xwd failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let file = std::fs::read(&path).expect("xwd output");
-    let field = |index: usize| {
-        u32::from_be_bytes(
-            file[index * 4..index * 4 + 4]
-                .try_into()
-                .expect("four bytes"),
-        )
-    };
-    let (header, colours) = (field(0) as usize, field(19) as usize);
-    let (big_endian, bits, line) = (field(7) == 1, field(11) as usize, field(12) as usize);
-    let bytes = bits / 8;
-    let start = header + colours * 12 + y * line + x * bytes;
-    let pixel = &file[start..start + bytes];
-    let value = if big_endian {
-        pixel.iter().fold(0u32, |v, b| (v << 8) | u32::from(*b))
-    } else {
-        pixel
-            .iter()
-            .rev()
-            .fold(0u32, |v, b| (v << 8) | u32::from(*b))
-    };
-    let channel = |mask: u32| ((value & mask) >> mask.trailing_zeros()) as u8;
-    [channel(field(14)), channel(field(15)), channel(field(16))]
-}
-
 fn grab_when_painted(window: u32, rect: GrabRect) -> Raw {
     let started = Instant::now();
     loop {
@@ -164,6 +128,7 @@ fn grab_live_a_flat_window_reads_back_its_fill_and_matches_an_independent_captur
     );
     let rgb = to_rgb(&raw.format, &raw.data, raw.width, raw.height, raw.stride).expect("converts");
     assert!(rgb.chunks_exact(3).all(|pixel| pixel == FILL));
+    wait_viewable(&flat.connection, flat.window);
     assert_eq!(xwd_pixel(flat.window, 50, 40, &dir), FILL);
     let png = encode_png(&rgb, raw.width, raw.height, 1.0).expect("encodes");
     assert_eq!(
