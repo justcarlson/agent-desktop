@@ -11,7 +11,6 @@ use crate::system::{SharedBus, window_id, within};
 #[derive(Default)]
 struct Tally {
     resolved: usize,
-    unverifiable: usize,
     failures: Vec<String>,
 }
 
@@ -128,13 +127,6 @@ fn resolve_all(
                     )),
                 }
             }
-            Err(error) if kind(&error) == "resolve_unverifiable_entry" => {
-                println!(
-                    "resolve_live unverifiable: {ref_id} role={} path={:?} bounds={:?}",
-                    entry.identity.role, entry.scope.path, entry.geometry.bounds
-                );
-                tally.unverifiable += 1;
-            }
             Err(error) => tally.failures.push(format!(
                 "{ref_id} {} {:?} path {:?}: {:?} {} {}",
                 entry.identity.role,
@@ -159,9 +151,8 @@ fn check(
     for include_bounds in [false, true] {
         let tally = resolve_all(adapter, bus, frame, include_bounds)?;
         println!(
-            "resolve_live {label} bounds={include_bounds}: resolved={} unverifiable={} failed={}",
+            "resolve_live {label} bounds={include_bounds}: resolved={} failed={}",
             tally.resolved,
-            tally.unverifiable,
             tally.failures.len()
         );
         if tally.resolved == 0 {

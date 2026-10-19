@@ -134,6 +134,37 @@ pub(crate) fn accepts_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> b
     !size_contradicts(entry, evidence) && admit_node(entry, evidence) == Admission::Collect
 }
 
+fn no_text(field: &LocatorField<String>) -> bool {
+    match field {
+        LocatorField::Known(text) => text.trim().is_empty(),
+        LocatorField::Absent => true,
+        LocatorField::Unknown => false,
+    }
+}
+
+/// Whether nothing the node answers could tell it from any other node of its
+/// role: no name or description, no identifier, and no extents with an area.
+/// An unreadable field is not an absence.
+fn landing_is_identityless(evidence: &LocatorEvidence) -> bool {
+    no_text(&evidence.name)
+        && no_text(&evidence.description)
+        && evidence.identifiers.is_complete()
+        && evidence.identifiers.preferred_identifier().is_none()
+        && !evidence.ref_evidence.bounds.is_unknown()
+        && live_size(evidence).is_none()
+}
+
+/// Decides the node the stored path landed on for a ref that carries no
+/// identity to check it against. The path is the only evidence, so the claim
+/// is the narrowest one: the node there has the stored role, does not
+/// contradict a stored size, and is itself as bare as the ref, so a node that
+/// has since gained a name, an identifier or an area is a different element.
+pub(crate) fn accepts_identityless_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
+    evidence.role.known() == Some(&entry.identity.role)
+        && !size_contradicts(entry, evidence)
+        && landing_is_identityless(evidence)
+}
+
 #[cfg(test)]
 #[path = "resolve_match_tests.rs"]
 mod tests;
