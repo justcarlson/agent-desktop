@@ -12,6 +12,7 @@ use super::grab::{Raw, read_strips};
 use super::grab_error::GrabError;
 use super::grab_rect::GrabRect;
 use super::map_state::MapState;
+use super::repaint::Repaint;
 
 const PAINT_WAIT: Duration = Duration::from_millis(1_000);
 const PAINT_POLL: Duration = Duration::from_millis(40);
@@ -67,6 +68,7 @@ pub(crate) fn grab_redirected(
     if MapState::from(attributes.map_state) != MapState::Viewable {
         return Err(GrabError::Unviewable);
     }
+    let repaint = Repaint::watch(connection, window);
     connection
         .composite_redirect_window(window, Redirect::AUTOMATIC)
         .map_err(unreadable)?
@@ -79,6 +81,9 @@ pub(crate) fn grab_redirected(
             .map_err(unreadable)?
             .check()
             .map_err(unreadable);
+        if let Some(repaint) = &repaint {
+            repaint.settle(deadline);
+        }
         let raw =
             named.and_then(|()| painted(connection, pixmap, rect, attributes.visual, deadline));
         let _ = connection.free_pixmap(pixmap);

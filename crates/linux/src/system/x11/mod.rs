@@ -27,6 +27,7 @@ mod monitor_fault;
 mod monitor_reader;
 mod monitor_source;
 mod reader;
+mod repaint;
 mod snapshot;
 mod source;
 pub(crate) mod stacked_window;
