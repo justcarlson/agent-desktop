@@ -154,3 +154,20 @@ fn a_timeout_is_not_a_death_and_another_failure_is_not_a_reading() {
     let other = method_error("org.freedesktop.DBus.Error.Failed");
     assert_eq!(verdict(Some(&other)), "NotRead");
 }
+
+#[test]
+fn an_empty_state_set_is_seen_and_a_live_set_is_not() {
+    assert!(with_bits(PUSH_BUTTON, &[]).state_set_is_empty());
+    assert!(!with_bits(PUSH_BUTTON, &[SHOWING]).state_set_is_empty());
+}
+
+#[test]
+fn a_node_missing_from_its_parent_is_gone_and_an_unreadable_parent_proves_nothing() {
+    use super::listing_verdict;
+    let sibling = vec![(":1.2".to_owned(), "/other".to_owned())];
+    let listed = vec![(":1.2".to_owned(), "/node".to_owned())];
+    assert!(listing_verdict(None, ":1.2", "/node"));
+    assert!(listing_verdict(Some(Some(sibling)), ":1.2", "/node"));
+    assert!(!listing_verdict(Some(Some(listed)), ":1.2", "/node"));
+    assert!(!listing_verdict(Some(None), ":1.2", "/node"));
+}

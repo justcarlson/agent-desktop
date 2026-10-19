@@ -6,11 +6,13 @@ use super::live_read::{NodeReader, read_live};
 use super::node_evidence::{NodeEvidence, read_evidence};
 use super::node_read::call;
 use super::placement::Placement;
-use super::resolve_errors::stopped_app;
+use super::resolve_errors::{object_gone, stopped_app};
 use super::state_bits::{CHECKED, EXPANDED, PRESSED, SELECTED, StateBits};
 use super::{AtspiElement, Field};
 use crate::actions::mutation::Corroboration;
 use crate::system::{ACCESSIBLE_INTERFACE, SharedBus, within};
+
+const NULL_PATH: &str = "/org/a11y/atspi/null";
 
 /// One node read for an action: the evidence the snapshot walk projects, kept
 /// whole so a write and its read-back look at the node the same way.
@@ -53,6 +55,19 @@ impl NodeView {
             .states
             .present()
             .map(|words| StateBits::new(words).has(bit))
+    }
+
+    /// Whether the state read answered with no bit set at all. A live node
+    /// always carries at least one bit, so an empty set is the signal a
+    /// destroyed GTK3 object leaves while it keeps answering.
+    pub(crate) fn state_set_is_empty(&self) -> bool {
+        self.node
+            .read
+            .node
+            .traits
+            .states
+            .present()
+            .is_some_and(|words| words.iter().all(|word| *word == 0))
     }
 
     pub(crate) fn tokens(&self) -> Option<&[String]> {
@@ -191,7 +206,69 @@ pub(crate) fn read_node_view(
         connection: &connection,
         deadline,
     };
-    read_live(&mut reader, handle).map(NodeView::new)
+    let view = read_live(&mut reader, handle).map(NodeView::new)?;
+    if view.state_set_is_empty() && parent_lacks(&connection, handle, deadline) {
+        return Err(object_gone());
+    }
+    Ok(view)
+}
+
+/// Whether the node is absent from its parent's child list: the parent could
+/// not be named, or it names the node nowhere in its children. A parent whose
+/// children cannot be read proves nothing.
+pub(crate) fn listing_verdict(
+    parent: Option<Option<Vec<(String, String)>>>,
+    bus_name: &str,
+    path: &str,
+) -> bool {
+    match parent {
+        None => true,
+        Some(None) => false,
+        Some(Some(children)) => !children
+            .iter()
+            .any(|(name, child)| name == bus_name && child == path),
+    }
+}
+
+fn parent_lacks(connection: &Connection, handle: &NativeHandle, deadline: Deadline) -> bool {
+    let Ok(element) = super::atspi_element(handle) else {
+        return false;
+    };
+    let listing = within(deadline, async {
+        Ok(parent_listing(connection, element).await)
+    });
+    listing.is_ok_and(|parent| listing_verdict(parent, element.bus_name(), element.path()))
+}
+
+async fn parent_listing(
+    connection: &Connection,
+    element: &AtspiElement,
+) -> Option<Option<Vec<(String, String)>>> {
+    use zbus::zvariant::{OwnedValue, Structure, Value};
+    let reply = call(
+        connection,
+        element,
+        crate::system::PROPERTIES_INTERFACE,
+        "Get",
+        &(ACCESSIBLE_INTERFACE, "Parent"),
+    )
+    .await
+    .ok()?;
+    let value = reply.body().deserialize::<OwnedValue>().ok()?;
+    let structure = Structure::try_from(value).ok()?;
+    let [Value::Str(name), Value::ObjectPath(path)] = structure.fields() else {
+        return None;
+    };
+    if path.as_str() == NULL_PATH || name.is_empty() {
+        return None;
+    }
+    let parent = AtspiElement::new(name.to_string(), path.to_string(), element.pid());
+    Some(
+        super::list_children(connection, &parent)
+            .await
+            .ok()
+            .map(|children| children.into_iter().collect()),
+    )
 }
 
 /// What one `GetRole` outcome says about the node. Every live node of every

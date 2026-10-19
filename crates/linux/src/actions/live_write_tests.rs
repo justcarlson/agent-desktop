@@ -251,13 +251,13 @@ fn write_live_a_destroyed_widget_is_stale_where_the_toolkit_reports_it() {
             "write_live {label}: destroyed click {:?}",
             clicked.as_ref().map_err(describe)
         );
-        if label == "gtk3" {
-            let result = clicked.expect("a GTK3 widget keeps answering after it is removed");
-            assert_eq!(result.steps[0].verified(), Some(false), "[{label}]");
-        } else {
-            let error = clicked.expect_err("a destroyed widget is never a delivered click");
-            assert_eq!(error.code, ErrorCode::StaleRef, "[{label}] {error:?}");
-        }
+        let error = clicked.expect_err("a destroyed widget is never a delivered click");
+        assert_eq!(error.code, ErrorCode::StaleRef, "[{label}] {error:?}");
+        assert_eq!(
+            error.disposition.delivery(),
+            DeliveryDisposition::NotDelivered,
+            "[{label}]"
+        );
     }
 }
 
