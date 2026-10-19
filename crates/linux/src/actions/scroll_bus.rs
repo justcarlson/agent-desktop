@@ -8,12 +8,16 @@ use super::scroll_find_bar::{Site, choose_bar};
 use super::scroll_into_view::{BarFound, Geometry, ScrollPort, View};
 use super::scroll_plan::{Axis, BarRange};
 use crate::system::toolkit_id::ToolkitId;
+use crate::system::window_filter::frame_state;
+use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::{DisplayReader, X11Client, X11State};
 use crate::system::{PROPERTIES_INTERFACE, SharedBus, classify, within};
 use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::SCROLL_BAR;
 use crate::tree::window_extents::read_window_extents;
 use crate::tree::{
     AtspiElement, COMPONENT_INTERFACE, Extents, get_element_bounds, get_live_state, list_children,
+    read_node,
 };
 
 const VALUE_INTERFACE: &str = "org.a11y.atspi.Value";
@@ -44,6 +48,27 @@ impl<'a> BusPort<'a> {
             deadline,
             bar: None,
             crawl: None,
+        }
+    }
+
+    fn window_minimized(&self) -> bool {
+        let Some(frame) = self.element.frame() else {
+            return false;
+        };
+        let Ok(shared) = self.bus.get(self.deadline) else {
+            return false;
+        };
+        let read = within(self.deadline, async {
+            read_node(shared.inner(), frame).await
+        });
+        read.is_ok_and(|node| frame_state(&node.traits.states).minimized == Some(true))
+            || self.every_window_hidden()
+    }
+
+    fn every_window_hidden(&self) -> bool {
+        match DisplayReader.clients_within(self.deadline) {
+            X11State::Ready { clients, .. } => every_window_hidden(&clients, self.element.pid()),
+            _ => false,
         }
     }
 
@@ -128,6 +153,14 @@ impl<'a> BusPort<'a> {
     }
 }
 
+pub(crate) fn every_window_hidden(clients: &[X11Client], pid: u32) -> bool {
+    let own: Vec<_> = clients
+        .iter()
+        .filter(|client| client.pid == Some(pid))
+        .collect();
+    !own.is_empty() && own.iter().all(|client| client.hidden)
+}
+
 fn positive(rect: Extents) -> bool {
     rect.width > 0 && rect.height > 0 && rect.x != i32::MIN && rect.y != i32::MIN
 }
@@ -164,6 +197,7 @@ impl ScrollPort for BusPort<'_> {
             return Ok(View {
                 offscreen: None,
                 hidden: false,
+                window_minimized: self.window_minimized(),
                 bounds_provable: false,
             });
         };
@@ -172,6 +206,7 @@ impl ScrollPort for BusPort<'_> {
         Ok(View {
             offscreen: read.offscreen,
             hidden: read.states.iter().any(|token| token == state::HIDDEN),
+            window_minimized: self.window_minimized(),
             bounds_provable,
         })
     }
@@ -293,3 +328,7 @@ impl ScrollPort for BusPort<'_> {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "scroll_bus_tests.rs"]
+mod tests;

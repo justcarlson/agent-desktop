@@ -65,6 +65,7 @@ impl Fake {
             view: View {
                 offscreen: Some(true),
                 hidden: false,
+                window_minimized: false,
                 bounds_provable: true,
             },
             scroll_to_answer: false,
@@ -345,4 +346,16 @@ fn a_target_without_a_position_finds_the_horizontal_bar_when_no_vertical_one_mov
     port.bar_axis = Some(Axis::Horizontal);
     drive(&mut port, &mut waiter).expect("the horizontal bar moves the target");
     assert_eq!(port.writes.len(), 1);
+}
+
+#[test]
+fn a_target_in_a_minimized_window_gets_the_window_hidden_refusal_and_no_rung_runs() {
+    let mut waiter = clock(5_000);
+    let mut port = Fake::new(waiter.clone());
+    port.view.window_minimized = true;
+    let error = drive(&mut port, &mut waiter).expect_err("refused");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(cause(&error), "window_hidden");
+    assert_eq!(port.scroll_to_calls, 0);
+    assert!(port.writes.is_empty());
 }

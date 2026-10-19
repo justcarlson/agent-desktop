@@ -10,6 +10,7 @@ use super::scroll_plan::{
     next_value, rungs_for,
 };
 use crate::system::SharedBus;
+use crate::system::focus_cause::{Cause as FocusCause, refusal};
 use crate::system::toolkit_id::ToolkitId;
 use crate::tree::{Extents, atspi_element};
 
@@ -18,6 +19,7 @@ use crate::tree::{Extents, atspi_element};
 pub(crate) struct View {
     pub(crate) offscreen: Option<bool>,
     pub(crate) hidden: bool,
+    pub(crate) window_minimized: bool,
     pub(crate) bounds_provable: bool,
 }
 
@@ -204,6 +206,9 @@ pub(crate) fn drive<P: ScrollPort, W: Waiter>(
     waiter: &mut W,
 ) -> Result<(), AdapterError> {
     let view = port.view()?;
+    if view.window_minimized {
+        return Err(refusal(FocusCause::WindowHidden));
+    }
     if view.offscreen != Some(true) {
         if view.hidden {
             return Err(failure(Cause::TargetHidden, &[]));
