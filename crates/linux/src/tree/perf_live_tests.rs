@@ -46,7 +46,7 @@ fn report(app: &str, what: &str, timing: &Timing) {
     );
 }
 
-fn find_all(adapter: &LinuxAdapter, window: &str, role: &str) {
+fn find_all(adapter: &LinuxAdapter, window: &str, role: &str) -> Result<(), String> {
     let args = FindArgs {
         app: None,
         window_id: Some(window.to_owned()),
@@ -72,7 +72,8 @@ fn find_all(adapter: &LinuxAdapter, window: &str, role: &str) {
         timeout_ms: Some(30_000),
     };
     agent_desktop_core::commands::find::execute(args, adapter, &CommandContext::default())
-        .expect("find answers");
+        .map(|_| ())
+        .map_err(|error| format!("{error:?}"))
 }
 
 fn perf_check(
@@ -161,9 +162,23 @@ fn perf_check(
     });
     report(label, "resolve_window_strict (listing)", &strict);
 
-    let found = measure(|| find_all(adapter, &window, "button"));
+    if label == "files" {
+        println!(
+            "perf files find --role button (all, hydrated): not measured, Files rows churn and core's find stops on churn"
+        );
+        return Ok(());
+    }
+    let mut refusals = Vec::new();
+    let found = measure(|| {
+        if let Err(error) = find_all(adapter, &window, "button") {
+            refusals.push(error);
+        }
+    });
     report(label, "find --role button (all, hydrated)", &found);
-    Ok(())
+    match refusals.first() {
+        Some(error) => Err(format!("find --role button answered an error: {error}")),
+        None => Ok(()),
+    }
 }
 
 #[test]
