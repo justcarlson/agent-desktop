@@ -156,7 +156,7 @@ flowchart TB
 - Refs persist `source_window_id`, `source_window_title`, `process.pid` and `process_instance`, which core's headed focus requires (`headed_focus.rs`). The ledger rows this plan cites are `L1`-`L14`, `L16`-`L20`, `L23-37`, `L25` and the `L27` rows this sub-phase measured; `scripts/check-linux-findings.py` validates every citation in `docs/phases.md`. There is no `L15` area; the old mention is removed.
 - Openbox 3.6.1 and `gnome-shell --x11` both run as the window manager in a private Xvfb with the packages extracted at `~/ad-wt/wm-pkgs` (`L16-6`). `xprop` and `xwininfo` are on the box; the 2016 `xdotool` is under `~/.local/ad-tools` and is a probe aid only (`L5-1`).
 - Xvfb has no pointer-driving harness besides `xdotool`, used in U1 only to calibrate GTK4 positions and to stage covers; no product code uses it.
-- The live AT-SPI bus is broken until the owner restarts it, so every verification runs in a private session; Gecko is unmeasurable there (`L16-15`) and its leg is a live-session line in the Definition of Done.
+- The live AT-SPI bus is broken until the owner restarts it, so every verification runs in a private session; Gecko runs there only as the inner snap binary, not the `/usr/bin/firefox` wrapper (`L16-15`, `L27-44`).
 - Inferred bets, recorded so a reviewer can overturn them: the page step for rung two is the container viewport extent; the edge slack is the largest GTK4 offset U1 measures; an override-redirect window intercepts only through its X11 input region (`L27-42`).
 
 ### Sequencing
@@ -324,7 +324,7 @@ U1 → U3; U3 → U4; (U3, U4) → U5; (U3, U4) → U6; U3 → U7; U6 → U8; (U
   5. `scroll_into_view`: what ships (`ScrollTo` off GTK, then the bar `Value` write, each judged by observation, no input synthesized) and the wheel and pointer route moved to §3.8 with `L6-11`, `L6-12`, `L13-17`, `L5-5`; the absent-item leg stays with 3.7 and 3.12 (`L14-7`).
   6. `focus_window`: §3.6 gains the `_NET_ACTIVE_WINDOW` activation, its two-measure success rule and the `activation_not_granted` refusal, as Windows' 2.6 has; §3.9 is narrowed to extend it; `L4-23` is closed by `L27-3` and `L27-11`.
   7. §3.5's handoff sentence about `hidden` and `offscreen` and §3.7's ordering line are updated to what shipped.
-  8. §3.6 exit criteria state what the evidence proves and on which apps, by row, and the outstanding live-session, Wayland and Gecko legs.
+  8. §3.6 exit criteria state what the evidence proves and on which apps, by row, and the outstanding live-session and Wayland legs.
   9. Owned-elsewhere dogfood items sit in the receiving sub-phases' scope: ref actions through `execute_action` (§3.7), mouse input, hover and drag and the wheel scroll route (§3.8), launch and window operations including restore and the focus-by-click fallback (§3.9), screenshot and clipboard (§3.10), the signal baseline and `wait --event` (§3.11), and the Linux skill's capability list (§3.13).
   Every ledger row naming 3.6 gets its disposition; rows the roadmap cites under other sub-phases are re-tagged. The sub-phase's measurements are area `L27`.
 - **Test expectation:** none -- documentation. `scripts/check-linux-findings.py` is the check.
@@ -369,7 +369,7 @@ U1 → U3; U3 → U4; (U3, U4) → U5; (U3, U4) → U6; U3 → U7; U6 → U8; (U
 | Unit | `scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-linux` | U3-U8 pure behavior, on every host |
 | Live, private session | through `scripts/remote-linux.sh`, `XDG_RUNTIME_DIR=$R dbus-run-session -- xvfb-run -a` with openbox then `gnome-shell --x11` started inside: `cargo test --locked -p agent-desktop-linux -- --ignored hit_live offscreen_live focus_window_live scroll_into_view_live` | R1-R10 on real apps without the broken live bus |
 | Live, Wayland | a private `gnome-shell --headless --wayland` session (recipe in the orchestration notes): the Wayland scenarios of U5 and U6 | R3 Wayland arm |
-| Live, live session | the same ignored tests on the live session once the owner restores its bus, including a Gecko target | the legs the private session cannot show |
+| Live, live session | the same ignored tests on the live session once the owner restores its bus | the leg the private session cannot show |
 | Invert | break each named rule (cross-window leg, frame-versus-client rectangle, sentinel guard, GTK4 trust, both-bits `hidden`, web-shape `offscreen`, second focus condition, trusting the `ScrollTo` return, nearest container), watch its test fail, restore | the tests guard what they name |
 | MSRV | `cargo +1.89.0 check --locked -p agent-desktop-linux --all-targets` | toolchain floor |
 | Isolation | `cargo tree -p agent-desktop-core` shows no platform crate and `git diff -- crates/core` is empty | KD1, R11 |
@@ -382,7 +382,7 @@ Requirement-to-check map: R1 → U4 verdict rows, U5 live reach; R2 → U4 occlu
 
 ## Definition of Done
 
-- Every Verification Contract row passes in the private session under both window managers, the invert check has been run for each rule it names, and the live-session re-run (including Gecko) is either done or listed in the PR description as outstanding with what it covers.
+- Every Verification Contract row passes in the private session under both window managers, the invert check has been run for each rule it names, and the live-session re-run is either done or listed in the PR description as outstanding with what it covers.
 - Every ledger row naming 3.6, and every row the roadmap cites for it, is disposed of in the PR description, implemented, owned elsewhere with the receiving scope in `docs/phases.md`, or accepted with the reason:
   - `L6-1`, `L6-2`, `L13-7`: implemented, `Contains` is unused and `GetAccessibleAtPoint` type 1 is the descent (U4, U5).
   - `L6-3`, `L6-4`, `L6-5`: implemented, stacking plus frame rectangle, the descent, and client-origin comparison (U3-U5).
@@ -421,7 +421,7 @@ Requirement-to-check map: R1 → U4 verdict rows, U5 live reach; R2 → U4 occlu
 | Per-point cost: five candidate points each pay a descent and an X11 read, and `get_live_state` pays one X11 `HIDDEN` read for otherwise on-screen nodes | measured in U10 min-of-seven and reported in the PR for the owner; an X11 snapshot cache is considered only on that number |
 | PR size exceeds the roadmap's ~1.2k estimate and the ~2k guideline | about 2.8k lines of product code and tests; the estimate predates the X11 stacking additions, `focus_window`, ancestry and the live derivation, each of which the exit criteria need; the seam after U5 (hit test) versus U6-U8 (state, focus, scroll) is noted for information only, KD9 keeps one PR |
 | The live AT-SPI bus is broken | all verification runs in a private session; the live-session re-run waits for the owner |
-| Gecko cannot run in a private session (`L16-15`) | its offscreen leg is a live-session Definition of Done line |
+| The `/usr/bin/firefox` snap wrapper cannot run in a private session (`L16-15`) | the inner snap binary does, and the Gecko offscreen leg is proved with it (`L27-44`) |
 
 ## Open Questions
 
@@ -435,7 +435,7 @@ Requirement-to-check map: R1 → U4 verdict rows, U5 live reach; R2 → U4 occlu
 ### For the owner
 
 - Core's `stable_preflight` (`ref_action.rs`) samples `get_element_bounds` until stable and never gives up on `None` before the deadline; for a target whose pointer bounds are withheld on uncalibrated GTK4, a non-actionable first report becomes `TIMEOUT`. A core change (stop sampling on `None`) is the owner's call. Likewise `pointer_action.rs` reports a withheld-bounds target as "not visible"; the Linux adapter supplies the true cause through `scroll_into_view`'s error.
-- The live session's AT-SPI bus must be restarted before the live-session re-run, and a Wayland session and Gecko are needed for the legs the private session cannot show.
+- The live session's AT-SPI bus must be restarted before the live-session re-run, and a Wayland session is needed for the leg the private session cannot show.
 - Whether snapshots should carry `offscreen` (KTD9) once the dogfood shows whether agents miss it.
 - Wayland focus: `focus_window` refuses a Wayland session here, yet GTK4 windows may carry `ACTIVE` once a seat keyboard exists, which no ledger row measures. Whether headed Wayland ref actions are a refusal leg or a measured focus route is the owner's call; core's pre-dispatch focus ordering stays unchanged.
 
