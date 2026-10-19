@@ -35,6 +35,11 @@ impl ObservationOps for LinuxAdapter {
         root: ObservationRoot<'_>,
         request: &ObservationRequest,
     ) -> Result<ObservedTree, AdapterError> {
+        if let ObservationRoot::Element { handle, .. } = &root
+            && let Some(target) = crate::tray::target_of(handle)
+        {
+            return crate::tray::observe::observe(target, root, request.deadline);
+        }
         crate::tree::observe_tree(self.bus(), root, request)
     }
 

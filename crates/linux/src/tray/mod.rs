@@ -16,6 +16,7 @@ mod menu_layout;
 mod menu_nodes;
 mod menu_resolve;
 mod node_evidence;
+pub(crate) mod observe;
 mod panel_correlate;
 mod registration;
 mod resolve;
