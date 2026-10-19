@@ -126,14 +126,45 @@ fn a_helper_that_is_not_executable_is_refused() {
 }
 
 #[test]
-fn a_helper_writable_by_group_or_others_is_refused() {
-    for mode in [0o775, 0o757] {
-        let dir = scratch(&format!("writable-{mode:o}"));
-        let image = image_in(&dir, "agent-desktop");
-        install(&dir, mode);
-        let error = refused_by(&dir, &image);
-        assert!(error.message.contains("writable"), "{}", error.message);
+fn a_helper_writable_by_others_is_refused_whatever_the_group() {
+    for mode in [0o757, 0o777, 0o702] {
+        let dir = scratch(&format!("others-{mode:o}"));
+        let helper = install(&dir, mode);
+        let error = check_helper_with(&helper, &|_| true).expect_err("refused");
+        assert!(error.message.contains("by others"), "{}", error.message);
     }
+}
+
+#[test]
+fn a_group_writable_helper_in_a_shared_group_is_refused() {
+    let dir = scratch("shared-group");
+    let helper = install(&dir, 0o775);
+    let error = check_helper_with(&helper, &|_| false).expect_err("refused");
+    assert!(error.message.contains("not private"), "{}", error.message);
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}
+
+#[test]
+fn a_group_writable_helper_in_the_private_group_is_accepted() {
+    let dir = scratch("private-group");
+    let helper = install(&dir, 0o775);
+    check_helper_with(&helper, &|_| true).expect("accepted");
+}
+
+#[test]
+fn the_group_asked_about_is_the_group_of_the_file() {
+    let dir = scratch("asked-group");
+    let helper = install(&dir, 0o775);
+    let expected = fs::symlink_metadata(&helper).expect("metadata").gid();
+    check_helper_with(&helper, &|gid| gid == expected).expect("accepted");
+}
+
+#[test]
+fn a_helper_without_group_write_never_asks_about_the_group() {
+    let dir = scratch("no-group-write");
+    let helper = install(&dir, 0o755);
+    check_helper_with(&helper, &|_| panic!("the group is not consulted")).expect("accepted");
 }
 
 #[test]

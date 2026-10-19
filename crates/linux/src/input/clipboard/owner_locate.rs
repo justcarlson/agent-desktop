@@ -4,16 +4,19 @@ use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
+use super::owner_group;
+
 pub(crate) const HELPER_NAME: &str = "agent-desktop-linux-clipboard-owner";
 
-const WRITABLE_BY_OTHERS: u32 = 0o022;
+const WRITABLE_BY_OTHERS: u32 = 0o002;
+const WRITABLE_BY_GROUP: u32 = 0o020;
 const ANY_EXECUTE: u32 = 0o111;
 const DELETED_SUFFIX: &str = " (deleted)";
 
 fn refusal(message: String) -> AdapterError {
     AdapterError::new(ErrorCode::PlatformNotSupported, message)
         .with_suggestion(format!(
-            "Install {HELPER_NAME} in the directory of the agent-desktop binary or library, owned by this user and not writable by others"
+            "Install {HELPER_NAME} in the directory of the agent-desktop binary or library, owned by this user and not writable by others or by a shared group"
         ))
         .with_disposition(DeliverySemantics::not_delivered())
 }
@@ -38,6 +41,13 @@ pub(crate) fn image_from_maps(maps: &str, address: usize) -> Option<PathBuf> {
 }
 
 fn check_helper(helper: &Path) -> Result<(), AdapterError> {
+    check_helper_with(helper, &owner_group::caller_owns_group)
+}
+
+fn check_helper_with(
+    helper: &Path,
+    group_is_private: &dyn Fn(u32) -> bool,
+) -> Result<(), AdapterError> {
     let metadata = fs::symlink_metadata(helper).map_err(|error| {
         refusal(format!(
             "The clipboard owner helper {} is missing: {error}",
@@ -53,7 +63,9 @@ fn check_helper(helper: &Path) -> Result<(), AdapterError> {
     } else if !owner_ok {
         Some("is owned by another user")
     } else if mode & WRITABLE_BY_OTHERS != 0 {
-        Some("is writable by group or others")
+        Some("is writable by others")
+    } else if mode & WRITABLE_BY_GROUP != 0 && !group_is_private(metadata.gid()) {
+        Some("is writable by a group that is not private to this user")
     } else {
         None
     };

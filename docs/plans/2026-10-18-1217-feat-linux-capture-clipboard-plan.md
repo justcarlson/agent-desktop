@@ -22,7 +22,7 @@ execution: code
 ### Build status
 
 - Built and merged on this branch: skeleton, lane A (pixels, PNG, X11 grab, Composite redirect, `grab_redirected`), lane C (clipboard formats, detached owner), lane D (X11 read, helper spawn and locate, set, clear, reap). `clipboard-get`, `clipboard-set` and `clipboard-clear` are wired through `adapter.rs` and pass a release-binary check in a private session: `clipboard-set` exits and the owner lives, a second GTK3 process reads the value, `clipboard-get` reads a value another client set, `clipboard-clear` ends the owner, and a foreign client taking the selection ends the owner.
-- The helper check refuses a helper that is writable by group, so a debug or release build made under a `0002` umask (mode `0775`) fails `clipboard-set` with `PLATFORM_NOT_SUPPORTED` until it is `chmod 0755`; an install that sets mode `0755` passes.
+- The helper check refuses a helper writable by others, and one writable by a group unless that group is the caller's own primary group and no other account belongs to it, so a build made under a `0002` umask (mode `0775`, private group) works with no `chmod`, and a helper in a shared group (for example `adm`) is refused.
 - In progress: lane B (window and display capture, `screenshot.rs`, permissions) and lane E (Wayland clipboard and capture, which needs 3.8's session bus). U1 legs 8 and 9 (`L29-18`, `L29-19`) are deferred until a healthy headless Wayland session exists. U13 to U15 and U17 wait for those lanes.
 - Ledger: area L29 holds the measured rows (`L29-1` to `L29-19`); the area number was fixed at integration.
 
