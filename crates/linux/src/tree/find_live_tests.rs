@@ -12,9 +12,9 @@ use crate::system::{SharedBus, window_id};
 /// rectangle to anchor on, which stops the whole `find`.
 const CORE_ANCHOR_REFUSAL: &str = "lacks a verifiable identity or geometry anchor";
 
-/// The Files roles whose rows come and go while the test runs (mount rows from
-/// other sessions), which stops core's `find` as a whole.
-const FILES_CHURNING_ROLES: [&str; 1] = ["group"];
+/// The one Files role judged: the other roles' rows come and go while the test
+/// runs (mount rows from other sessions), which stops core's `find` as a whole.
+const FILES_JUDGED_ROLES: [&str; 1] = ["button"];
 
 fn args(window: &str, role: Option<&str>, name: Option<&str>, selection: Selection) -> FindArgs {
     FindArgs {
@@ -147,7 +147,7 @@ fn find_check(
         Err(error) => problems.push(format!("--first failed: {error}")),
     }
     for role in ["listbox", "group", "tab", "list"] {
-        if label == "files" && FILES_CHURNING_ROLES.contains(&role) {
+        if label == "files" && !FILES_JUDGED_ROLES.contains(&role) {
             println!(
                 "find_live files role {role}: not judged, its rows churn and core's find stops on churn"
             );
