@@ -1852,6 +1852,13 @@ Sub-phase 3.5 (resolution and live locator) adds these cross-platform core items
 - A window-relative geometry key in place of the absolute `bounds_hash` would make bounds usable as identity evidence on GTK3 and Qt (L17-19); it needs a core field.
 - `find` stops as a whole when one selected match has neither identity nor a hashable rectangle (`crates/core/src/live_locator/hydrate.rs`, `anchor_missing`: `STALE_REF`, "Selected locator lacks a verifiable identity or geometry anchor"). On Linux that is any unnamed node whose extents are the off-screen sentinel, such as GNOME Terminal's tab and a VS Code `group`: `find --role tab` and `find --role group` fail on those apps even though every other match is addressable (L20-3 live run, 3.5). Omitting an unanchorable match, or reporting it without a ref as `find` already does for matches that get bounds instead, is core's call.
 
+The 3.6 stranger dogfood adds these cross-platform core items. Phase 3 changes none of them; each is an owner decision, listed with its evidence:
+
+- `find --first` answers `data.match` where the core skill shows `data.matches[]` (3.6 stranger dogfood).
+- `wait --predicate exists` on an element that is gone answers `STALE_REF` where the absence is the answer the wait was asked for (3.6 stranger dogfood).
+- The `stable` check reports `fail` with `samples: 1` next to a terminal failure of another check, which reads as a stability measurement that was never taken (3.6 stranger dogfood).
+- The `--headed` hint of a `POLICY_DENIED` repeats the flag the command already carried (3.6 stranger dogfood).
+
 ### Objectives
 
 Linux parity (original scope):
