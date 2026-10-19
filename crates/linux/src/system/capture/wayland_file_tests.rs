@@ -1,0 +1,105 @@
+use std::fs;
+use std::os::unix::fs::symlink;
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
+
+use super::*;
+
+fn scratch(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("adwf-{}-{name}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).expect("a directory");
+    dir
+}
+
+fn me() -> u32 {
+    rustix::process::getuid().as_raw()
+}
+
+fn long_ago() -> SystemTime {
+    SystemTime::now() - Duration::from_secs(5)
+}
+
+#[test]
+fn a_file_uri_decodes_to_its_path() {
+    assert_eq!(
+        path_of_uri("file:///tmp/a%20b.png").expect("a path"),
+        PathBuf::from("/tmp/a b.png")
+    );
+    assert_eq!(
+        path_of_uri("file://localhost/tmp/x.png").expect("a path"),
+        PathBuf::from("/tmp/x.png")
+    );
+}
+
+#[test]
+fn other_uris_are_refused() {
+    for uri in [
+        "http://example.test/x.png",
+        "file://other-host/tmp/x.png",
+        "file:///tmp/../etc/passwd",
+        "file:///tmp/a%00b.png",
+        "file:///tmp/a%zz.png",
+        "file://relative",
+    ] {
+        assert!(path_of_uri(uri).is_err(), "{uri}");
+    }
+}
+
+#[test]
+fn a_file_is_read_and_removed() {
+    let dir = scratch("read");
+    let path = dir.join("shot.png");
+    fs::write(&path, b"png bytes").expect("a file");
+    let bytes = take_file(&path, std::slice::from_ref(&dir), me(), long_ago()).expect("read");
+    assert_eq!(bytes, b"png bytes");
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_file_outside_the_allowed_directories_is_neither_read_nor_removed() {
+    let dir = scratch("outside");
+    let other = scratch("elsewhere");
+    let path = dir.join("shot.png");
+    fs::write(&path, b"x").expect("a file");
+    assert!(take_file(&path, &[other], me(), long_ago()).is_err());
+    assert!(path.exists());
+}
+
+#[test]
+fn a_symlink_is_refused_and_its_target_survives() {
+    let dir = scratch("link");
+    let target = dir.join("target.png");
+    let link = dir.join("link.png");
+    fs::write(&target, b"secret").expect("a target");
+    symlink(&target, &link).expect("a link");
+    assert!(take_file(&link, std::slice::from_ref(&dir), me(), long_ago()).is_err());
+    assert!(target.exists());
+}
+
+#[test]
+fn a_file_of_another_user_is_refused_and_kept() {
+    let dir = scratch("owner");
+    let path = dir.join("shot.png");
+    fs::write(&path, b"x").expect("a file");
+    assert!(take_file(&path, std::slice::from_ref(&dir), me() + 1, long_ago()).is_err());
+    assert!(path.exists());
+}
+
+#[test]
+fn a_file_older_than_the_request_is_refused_and_kept() {
+    let dir = scratch("stale");
+    let path = dir.join("shot.png");
+    fs::write(&path, b"x").expect("a file");
+    let later = SystemTime::now() + Duration::from_secs(3_600);
+    assert!(take_file(&path, std::slice::from_ref(&dir), me(), later).is_err());
+    assert!(path.exists());
+}
+
+#[test]
+fn a_directory_is_not_a_screenshot() {
+    let dir = scratch("dir");
+    let inner = dir.join("inner");
+    fs::create_dir_all(&inner).expect("a directory");
+    assert!(take_file(&inner, std::slice::from_ref(&dir), me(), long_ago()).is_err());
+}
