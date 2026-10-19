@@ -9,7 +9,6 @@ fn length_as_i32(length: usize) -> Result<i32, TextUnitError> {
 
 /// The UTF-8 byte length of `text`, the length `InsertText` takes. A length
 /// above `i32::MAX` cannot be sent and is refused.
-#[cfg_attr(not(test), expect(dead_code, reason = "no caller yet"))]
 pub(crate) fn utf8_len(text: &str) -> Result<i32, TextUnitError> {
     length_as_i32(text.len())
 }

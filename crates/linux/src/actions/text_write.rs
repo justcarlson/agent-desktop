@@ -3,9 +3,10 @@ use std::ops::Range;
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::chain::{DeliveryOutcome, Observed, Rung};
-use super::mutation::WriteReply;
+use super::mutation::{WriteReply, with_value_chars};
 use super::secure_write::{guarded_read, scrub};
 use crate::tree::text_selection::CaretAndSelection;
+use crate::tree::text_units::utf8_len;
 
 pub(crate) const EDITABLE_TEXT: &str = "org.a11y.atspi.EditableText";
 pub(crate) const REPLACE_LABEL: &str = "EditableText.SetTextContents";
@@ -32,11 +33,17 @@ pub(crate) fn read_only_field() -> AdapterError {
         .with_disposition(DeliverySemantics::not_delivered())
 }
 
+fn too_long<E>(_: E) -> AdapterError {
+    AdapterError::new(ErrorCode::InvalidArgs, "The text is too long to address")
+        .with_disposition(DeliverySemantics::not_delivered())
+}
+
 fn offset(value: usize) -> Result<i32, AdapterError> {
-    i32::try_from(value).map_err(|_| {
-        AdapterError::new(ErrorCode::InvalidArgs, "The text is too long to address")
-            .with_disposition(DeliverySemantics::not_delivered())
-    })
+    i32::try_from(value).map_err(too_long)
+}
+
+fn text_error(error: AdapterError, text: &str, secure: bool) -> AdapterError {
+    with_value_chars(scrub(error, text, secure), text.chars().count())
 }
 
 pub(crate) fn write_ignored() -> AdapterError {
@@ -93,7 +100,7 @@ pub(crate) fn replace_rungs<'a>(
         let before = guarded_read(port, secure);
         match port
             .set_contents(text)
-            .map_err(|error| scrub(error, text, secure))?
+            .map_err(|error| text_error(error, text, secure))?
         {
             WriteReply::Absent => Ok(DeliveryOutcome::NotDelivered),
             WriteReply::Done => Ok(DeliveryOutcome::Delivered(judge(
@@ -127,7 +134,7 @@ fn rewrite(port: &dyn TextPort, text: &str, secure: bool) -> Result<DeliveryOutc
         match port.delete(0, offset(count)?) {
             Ok(WriteReply::Done) => {}
             Ok(WriteReply::Absent) => return Ok(DeliveryOutcome::NotDelivered),
-            Err(error) => return Err(scrub(error, text, secure)),
+            Err(error) => return Err(text_error(error, text, secure)),
         }
     }
     if text.is_empty() {
@@ -138,12 +145,12 @@ fn rewrite(port: &dyn TextPort, text: &str, secure: bool) -> Result<DeliveryOutc
         };
         return Ok(outcome);
     }
-    match port.insert(0, text, offset(text.len())?) {
+    match port.insert(0, text, utf8_len(text).map_err(too_long)?) {
         Ok(WriteReply::Done) => Ok(DeliveryOutcome::Delivered(judge(port, secure, None, text)?)),
         Ok(WriteReply::Absent) if removed => Err(after_delete(None)),
         Ok(WriteReply::Absent) => Ok(DeliveryOutcome::NotDelivered),
-        Err(error) if removed => Err(scrub(after_delete(Some(error)), text, secure)),
-        Err(error) => Err(scrub(error, text, secure)),
+        Err(error) if removed => Err(text_error(after_delete(Some(error)), text, secure)),
+        Err(error) => Err(text_error(error, text, secure)),
     }
 }
 
@@ -186,7 +193,7 @@ fn insert_at_caret(
     if text.is_empty() {
         return Ok(DeliveryOutcome::Satisfied);
     }
-    let Some((caret, selections)) = port.caret().map_err(|e| scrub(e, text, secure))? else {
+    let Some((caret, selections)) = port.caret().map_err(|e| text_error(e, text, secure))? else {
         return Err(unreadable_caret());
     };
     let selected = selections.into_iter().find(|range| range.start < range.end);
@@ -197,10 +204,14 @@ fn insert_at_caret(
         match port.delete(offset(replaced.start)?, offset(replaced.end)?) {
             Ok(WriteReply::Done) => {}
             Ok(WriteReply::Absent) => return Ok(DeliveryOutcome::NotDelivered),
-            Err(error) => return Err(scrub(error, text, secure)),
+            Err(error) => return Err(text_error(error, text, secure)),
         }
     }
-    let sent = port.insert(offset(replaced.start)?, text, offset(text.len())?);
+    let sent = port.insert(
+        offset(replaced.start)?,
+        text,
+        utf8_len(text).map_err(too_long)?,
+    );
     let expected = before
         .as_deref()
         .and_then(|old| expected_after(old, replaced, text));
@@ -211,8 +222,8 @@ fn insert_at_caret(
         })),
         Ok(WriteReply::Absent) if removed => Err(after_delete(None)),
         Ok(WriteReply::Absent) => Ok(DeliveryOutcome::NotDelivered),
-        Err(error) if removed => Err(scrub(after_delete(Some(error)), text, secure)),
-        Err(error) => Err(scrub(error, text, secure)),
+        Err(error) if removed => Err(text_error(after_delete(Some(error)), text, secure)),
+        Err(error) => Err(text_error(error, text, secure)),
     }
 }
 
