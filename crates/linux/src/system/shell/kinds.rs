@@ -44,6 +44,10 @@ const PRESENTED: [ShellKind; 3] = [
     ShellKind::SystemMenu,
 ];
 
+pub(crate) fn is_presented(kind: ShellKind) -> bool {
+    PRESENTED.contains(&kind)
+}
+
 /// The kinds a session can snapshot: those whose container lives in the shell
 /// tree, which is the only fact they depend on.
 pub(crate) fn advertised(env: &ShellEnvironment) -> Vec<SnapshotSurface> {

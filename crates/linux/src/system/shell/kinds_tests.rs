@@ -1,7 +1,7 @@
 use agent_desktop_core::SnapshotSurface;
 
 use crate::system::shell::detect::{Fact, ShellEnvironment};
-use crate::system::shell::kinds::{ShellKind, advertised, kind_of, surface_of};
+use crate::system::shell::kinds::{ShellKind, advertised, is_presented, kind_of, surface_of};
 
 fn environment(tree: Fact) -> ShellEnvironment {
     ShellEnvironment {
@@ -56,4 +56,12 @@ fn an_absent_or_unreadable_tree_advertises_nothing_whatever_the_daemon_says() {
     for tree in [Fact::Absent("x".into()), Fact::Unreadable("y".into())] {
         assert!(advertised(&environment(tree)).is_empty());
     }
+}
+
+#[test]
+fn only_the_advertised_kinds_may_be_opened() {
+    assert!(is_presented(ShellKind::Tray));
+    assert!(is_presented(ShellKind::MessageList));
+    assert!(is_presented(ShellKind::SystemMenu));
+    assert!(!is_presented(ShellKind::Dock));
 }

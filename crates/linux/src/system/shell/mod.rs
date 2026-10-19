@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, InteractionLease, InteractionPolicy, ObservationRequest,
+    AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, ObservationRequest,
     ObservationRoot, ObservedTree, SnapshotSurface, WindowInfo,
 };
 
@@ -34,6 +34,17 @@ pub(crate) fn supported(bus: &SharedBus) -> Vec<SnapshotSurface> {
         return Vec::new();
     };
     kinds::advertised(&detect::detect(bus, deadline))
+}
+
+/// The answer for a gnome-shell process that this session's accessibility
+/// registry does not list: it belongs to another session, so it is not this
+/// session's shell.
+pub(crate) fn not_this_sessions_shell() -> AdapterError {
+    identity::tree_absent("the shell process is not on this session's accessibility bus")
+}
+
+pub(crate) fn is_shell_comm(comm: &str) -> bool {
+    identity::is_shell_comm(comm)
 }
 
 /// Whether the element belongs to the desktop shell rather than to an application.
@@ -77,6 +88,13 @@ pub(crate) fn open_surface(
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(AdapterError::not_supported("open_system_surface"));
     };
+    if !kinds::is_presented(kind) {
+        return Err(AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            "The taskbar surface is not offered: no stock shell shows a dock",
+        )
+        .with_suggestion("Open system-tray, action-center or quick-settings instead"));
+    }
     open::open(bus, kind, policy, lease).map(|(window, _)| window)
 }
 
