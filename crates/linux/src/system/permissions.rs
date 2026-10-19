@@ -11,9 +11,15 @@ pub(crate) fn report(
     let probed = bus
         .get(deadline)
         .and_then(|connection| probe_registry(bus, &connection, deadline));
-    let report = report_from_probe(probed)?;
+    let report = report_from_probe(probed, CaptureAvailability::Unknown)?;
     ensure_budget(deadline)?;
     Ok(report)
+}
+
+#[expect(dead_code, reason = "stub the owning lane replaces")]
+pub(crate) enum CaptureAvailability {
+    Reachable,
+    Unknown,
 }
 
 /// An unreachable bus is the accessibility permission being unavailable, so it
@@ -21,6 +27,7 @@ pub(crate) fn report(
 /// an unexpected bus error stays an error: nothing was learned about the bus.
 pub(crate) fn report_from_probe(
     probed: Result<(), AdapterError>,
+    _capture: CaptureAvailability,
 ) -> Result<PermissionReport, AdapterError> {
     let accessibility = match probed {
         Ok(()) => PermissionState::Granted,

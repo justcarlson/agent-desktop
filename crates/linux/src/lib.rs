@@ -7,6 +7,7 @@ mod system;
 mod tree;
 
 pub use adapter::LinuxAdapter;
+pub use input::clipboard::owner_entry::run_from_env as clipboard_owner_from_env;
 
 /// Makes an input call that a SIGTERM, SIGINT or SIGHUP interrupts release the
 /// keys and buttons it holds before the signal takes effect. The command-line

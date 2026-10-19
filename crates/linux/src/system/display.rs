@@ -15,7 +15,7 @@ fn wayland_missing() -> AdapterError {
     )
 }
 
-fn unreachable(why: Unavailable) -> AdapterError {
+pub(crate) fn unreachable(why: Unavailable) -> AdapterError {
     let (message, suggestion) = match why.cause {
         Cause::NotConfigured => (
             "No display server is configured in this session".to_owned(),

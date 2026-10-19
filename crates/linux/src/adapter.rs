@@ -1,9 +1,9 @@
 use agent_desktop_core::{
     AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
-    Deadline, DragParams, ElementState, HitTestResult, InputOps, InteractionLease, KeyCombo,
-    LiveElement, MouseEvent, NativeHandle, ObservationOps, ObservationRequest, ObservationRoot,
-    ObservedTree, Point, ProcessIdentity, Rect, RefEntry, SurfaceInfo, TreeOptions, WindowFilter,
-    WindowInfo,
+    ClipboardContent, ClipboardFormat, Deadline, DragParams, ElementState, HitTestResult, InputOps,
+    InteractionLease, KeyCombo, LiveElement, MouseEvent, NativeHandle, ObservationOps,
+    ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity, Rect, RefEntry,
+    SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -195,6 +195,26 @@ impl InputOps for LinuxAdapter {
         Err(crate::input::standalone::reject_standalone(
             "key-down/key-up",
         ))
+    }
+
+    fn get_clipboard_content(
+        &self,
+        format: ClipboardFormat,
+        deadline: Deadline,
+    ) -> Result<Option<ClipboardContent>, AdapterError> {
+        crate::input::clipboard::set_clear::get_clipboard(format, deadline)
+    }
+
+    fn set_clipboard_content(
+        &self,
+        content: &ClipboardContent,
+        lease: &InteractionLease,
+    ) -> Result<(), AdapterError> {
+        crate::input::clipboard::set_clear::set_clipboard(content, lease)
+    }
+
+    fn clear_clipboard(&self, lease: &InteractionLease) -> Result<(), AdapterError> {
+        crate::input::clipboard::set_clear::clear_clipboard(lease)
     }
 }
 

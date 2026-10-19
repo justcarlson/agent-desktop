@@ -21,7 +21,7 @@ fn io_error(kind: ErrorKind) -> zbus::Error {
 
 fn denied_suggestion(error: zbus::Error, stage: Stage) -> String {
     let fault = BusFault::of(stage, &error).expect("the error must classify as a bus fault");
-    let report = report_from_probe(Err(fault.into_error(&error)))
+    let report = report_from_probe(Err(fault.into_error(&error)), CaptureAvailability::Unknown)
         .expect("an unreachable bus must still produce a report");
     assert!(report.accessibility_denied());
     report
@@ -32,7 +32,8 @@ fn denied_suggestion(error: zbus::Error, stage: Stage) -> String {
 
 #[test]
 fn a_reachable_registry_reports_granted() {
-    let report = report_from_probe(Ok(())).expect("a granted probe is a report");
+    let report = report_from_probe(Ok(()), CaptureAvailability::Unknown)
+        .expect("a granted probe is a report");
     assert!(report.accessibility_granted());
     assert_eq!(report.automation, PermissionState::NotRequired);
     assert_eq!(report.screen_recording, PermissionState::Unknown);
@@ -78,7 +79,8 @@ fn a_failed_launcher_spawn_reports_denied_with_the_launch_error_step() {
 #[test]
 fn a_bus_timeout_stays_an_error_rather_than_a_denied_report() {
     let timeout = AdapterError::timeout("The accessibility bus did not answer in time");
-    let error = report_from_probe(Err(timeout)).expect_err("a timeout teaches nothing");
+    let error = report_from_probe(Err(timeout), CaptureAvailability::Unknown)
+        .expect_err("a timeout teaches nothing");
     assert_eq!(error.code, ErrorCode::Timeout);
 }
 

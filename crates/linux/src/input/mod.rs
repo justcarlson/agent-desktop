@@ -1,5 +1,6 @@
 pub(crate) mod backend;
 pub(crate) mod blocked_combo;
+pub(crate) mod clipboard;
 pub(crate) mod deliver;
 pub(crate) mod delivery;
 pub(crate) mod drag_plan;

@@ -2,9 +2,9 @@ use agent_desktop_core::launch_options::LaunchOptions;
 use agent_desktop_core::launch_result::LaunchResult;
 use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
-    ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DisplayInfo, InteractionLease,
-    InteractionPolicy, KeyCombo, PermissionReport, ProcessIdentity, SessionAffinity,
-    SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DisplayInfo, ImageBuffer,
+    InteractionLease, InteractionPolicy, KeyCombo, PermissionReport, ProcessIdentity,
+    ScreenshotTarget, SessionAffinity, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -96,6 +96,22 @@ impl SystemOps for LinuxAdapter {
 
     fn is_blocked_combo(&self, combo: &KeyCombo) -> bool {
         crate::input::blocked_combo::is_blocked(combo)
+    }
+
+    fn screenshot(
+        &self,
+        target: ScreenshotTarget,
+        deadline: Deadline,
+    ) -> Result<ImageBuffer, AdapterError> {
+        crate::system::screenshot::screenshot(self.bus(), target, deadline)
+    }
+
+    fn screenshot_window_frame(
+        &self,
+        window: &WindowInfo,
+        deadline: Deadline,
+    ) -> Result<ImageBuffer, AdapterError> {
+        crate::system::screenshot::screenshot_window_frame(self.bus(), window, deadline)
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {
