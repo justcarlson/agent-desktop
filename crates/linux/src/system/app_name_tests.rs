@@ -72,3 +72,22 @@ fn a_substring_does_not_match() {
         &facts("x", None)
     ));
 }
+
+#[test]
+fn an_executable_deleted_while_it_runs_keeps_its_name() {
+    let replaced = facts("calc", Some("gnome-calculator (deleted)"));
+    assert_eq!(app_name(&replaced), "gnome-calculator");
+    assert!(name_matches(
+        "gnome-calculator",
+        "gnome-calculator",
+        None,
+        &replaced
+    ));
+    assert!(!name_matches(
+        "gnome-calculator (deleted)",
+        "gnome-calculator",
+        None,
+        &replaced
+    ));
+    assert_eq!(app_name(&facts("x", Some(" (deleted)"))), "x");
+}

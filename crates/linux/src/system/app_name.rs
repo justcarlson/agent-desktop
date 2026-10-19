@@ -4,6 +4,15 @@ fn non_blank(text: Option<&str>) -> Option<&str> {
     text.filter(|text| !text.trim().is_empty())
 }
 
+const DELETED_SUFFIX: &str = " (deleted)";
+
+/// An executable's basename without the marker the kernel appends to the
+/// link target of a binary that was removed or replaced while it runs, so an
+/// application keeps its name across a package upgrade.
+fn live_basename(basename: &str) -> &str {
+    basename.strip_suffix(DELETED_SUFFIX).unwrap_or(basename)
+}
+
 /// The name an application is listed under: the executable's basename,
 /// then `comm`, which the kernel cuts at 15 characters. It comes from `/proc`
 /// alone, never from the accessibility root, so an application keeps one name
@@ -11,6 +20,8 @@ fn non_blank(text: Option<&str>) -> Option<&str> {
 /// unresponsive application only when the listed name is unchanged.
 pub(crate) fn app_name(facts: &ProcessFacts) -> String {
     non_blank(facts.exe_basename.as_deref())
+        .map(live_basename)
+        .filter(|name| !name.trim().is_empty())
         .unwrap_or(&facts.comm)
         .to_owned()
 }
@@ -28,7 +39,7 @@ pub(crate) fn name_matches(
         Some(name),
         non_blank(registry_name),
         Some(facts.comm.as_str()),
-        facts.exe_basename.as_deref(),
+        facts.exe_basename.as_deref().map(live_basename),
     ]
     .into_iter()
     .flatten()
