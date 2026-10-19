@@ -97,8 +97,28 @@ pub(crate) fn list_surfaces(
     mark_unread(&mut surfaces, &windows, &scan);
     surfaces.extend(nested_entries(&scan));
     let owners: Vec<&WindowInfo> = windows.iter().map(|window| &window.info).collect();
-    surfaces.extend(menu_surface::surfaces_of(bus, &owners, deadline)?);
-    Ok(surfaces)
+    Ok(with_menu_leg(
+        surfaces,
+        menu_surface::surfaces_of(bus, &owners, deadline),
+    ))
+}
+
+/// A menu scan that failed leaves the window and sheet entries standing and
+/// marks the menu kind unread on every window, so a missing `menu` entry is
+/// not mistaken for an observed absence.
+pub(super) fn with_menu_leg(
+    mut surfaces: Vec<SurfaceInfo>,
+    menu: Result<Vec<SurfaceInfo>, AdapterError>,
+) -> Vec<SurfaceInfo> {
+    match menu {
+        Ok(entries) => surfaces.extend(entries),
+        Err(_) => {
+            for entry in surfaces.iter_mut().filter(|entry| entry.kind == "window") {
+                entry.unclassified.push("menu".to_owned());
+            }
+        }
+    }
+    surfaces
 }
 
 #[cfg(test)]

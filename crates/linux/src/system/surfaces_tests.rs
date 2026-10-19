@@ -1,8 +1,9 @@
 use agent_desktop_core::{WindowInfo, WindowState};
 
-use super::surfaces_of;
+use super::{surfaces_of, with_menu_leg};
 use crate::system::listed_window::ListedWindow;
 use crate::system::x11::FrameFacts;
+use agent_desktop_core::{AdapterError, ErrorCode};
 
 fn window(id: &str, title: &str, sheet: bool) -> ListedWindow {
     ListedWindow {
@@ -56,6 +57,28 @@ fn a_modal_dialog_also_lists_a_sheet_surface_on_the_same_id() {
 fn an_untitled_window_lists_no_title() {
     let surfaces = surfaces_of(&[window("w-1", "", false)]);
     assert_eq!(surfaces[0].title, None);
+}
+
+#[test]
+fn a_failed_menu_scan_keeps_the_window_and_sheet_entries_and_marks_the_menu_unread() {
+    let surfaces = surfaces_of(&[window("w-1", "Doc", true)]);
+    let kept = with_menu_leg(
+        surfaces,
+        Err(AdapterError::new(ErrorCode::Timeout, "the scan ran out")),
+    );
+    let kinds: Vec<&str> = kept.iter().map(|entry| entry.kind.as_str()).collect();
+    assert_eq!(kinds, ["window", "sheet"]);
+    assert_eq!(kept[0].unclassified, ["menu"]);
+    assert!(kept[1].unclassified.is_empty());
+}
+
+#[test]
+fn a_menu_scan_that_worked_appends_its_entries_and_marks_nothing() {
+    let surfaces = surfaces_of(&[window("w-1", "Doc", false)]);
+    let menu = surfaces_of(&[window("w-1", "Doc", false)]);
+    let kept = with_menu_leg(surfaces, Ok(menu));
+    assert_eq!(kept.len(), 2);
+    assert!(kept.iter().all(|entry| entry.unclassified.is_empty()));
 }
 
 #[test]
