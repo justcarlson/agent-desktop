@@ -342,3 +342,27 @@ fn no_node_gets_scroll_from_this_table() {
         assert!(!all_tokens(spec).iter().any(|token| token == "Scroll"));
     }
 }
+
+#[test]
+fn a_switch_with_only_a_toggle_verb_also_takes_a_click() {
+    use crate::tree::role_numbers::{CHECK_BOX, TOGGLE_BUTTON};
+    for role in [CHECK_BOX, TOGGLE_BUTTON] {
+        for verb in ["toggle", "switch", "uncheck"] {
+            let spec = Spec {
+                names: &[verb],
+                ..plain(role)
+            };
+            assert!(tokens_of(&spec).contains(&"Click"), "{role} {verb}");
+        }
+    }
+}
+
+#[test]
+fn a_toggle_verb_on_a_button_or_a_plain_check_verb_adds_no_click_rule() {
+    use crate::tree::role_numbers::PUSH_BUTTON;
+    let button = Spec {
+        names: &["toggle"],
+        ..plain(PUSH_BUTTON)
+    };
+    assert!(!tokens_of(&button).contains(&"Click"));
+}

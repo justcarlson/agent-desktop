@@ -3,7 +3,9 @@ use std::cell::Cell;
 use agent_desktop_core::{Action, DeliverySemantics, ErrorCode};
 
 use super::*;
-use crate::tree::role_numbers::PUSH_BUTTON;
+use crate::tree::role_numbers::{
+    CHECK_BOX, CHECK_MENU_ITEM, PUSH_BUTTON, RADIO_BUTTON, RADIO_MENU_ITEM,
+};
 
 fn counted_drive(
     wanted: bool,

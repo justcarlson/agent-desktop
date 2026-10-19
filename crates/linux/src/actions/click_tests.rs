@@ -152,3 +152,14 @@ fn a_div_advertising_click_ancestor_is_clicked_through_it() {
     let chosen = names(&["clickAncestor"]);
     assert_eq!(resolve_verb(&chosen, verbs), Some(0));
 }
+
+#[test]
+fn a_switch_with_only_a_toggle_verb_is_clicked_through_the_toggle() {
+    use crate::tree::role_numbers::{CHECK_BOX, TOGGLE_BUTTON};
+    let toggle_only = names(&["toggle"]);
+    assert!(toggles_in_place(Some(CHECK_BOX), &toggle_only));
+    assert!(toggles_in_place(Some(TOGGLE_BUTTON), &toggle_only));
+    assert!(!toggles_in_place(Some(PUSH_BUTTON), &toggle_only));
+    assert!(!toggles_in_place(None, &toggle_only));
+    assert!(!toggles_in_place(Some(CHECK_BOX), &names(&["doDefault"])));
+}

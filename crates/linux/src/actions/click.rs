@@ -9,9 +9,11 @@ use super::action_call::{do_action, resolve_verb};
 use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::context::Target;
 use super::mutation::WriteReply;
+use super::toggle_state::toggle;
 use crate::system::within;
-use crate::tree::action_names::verbs_for;
+use crate::tree::action_names::{toggle_verbs, verbs_for};
 use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::capability_rules::carries_checked;
 use crate::tree::role_numbers::TOGGLE_BUTTON;
 use crate::tree::state_bits::HAS_POPUP;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
@@ -178,6 +180,10 @@ fn settle_for(view: &NodeView) -> (Duration, Duration) {
     }
 }
 
+fn toggles_in_place(role: Option<u32>, names: &[String]) -> bool {
+    role.is_some_and(carries_checked) && resolve_verb(names, toggle_verbs(None)).is_some()
+}
+
 fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, AdapterError> {
     let view = target.view()?;
     let names = names_of(&view)?;
@@ -185,6 +191,9 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
     let before = view.observation();
     let (budget, step) = settle_for(&view);
     let own_verb = resolve_verb(names, verbs).is_some();
+    if matches!(action, Action::Click) && !own_verb && toggles_in_place(view.role(), names) {
+        return toggle(target, None);
+    }
     let inner = if own_verb || !opens_popup(&view) {
         None
     } else {

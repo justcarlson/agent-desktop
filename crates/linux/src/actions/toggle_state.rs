@@ -9,9 +9,8 @@ use super::context::Target;
 use super::mutation::WriteReply;
 use crate::tree::action_names::toggle_verbs;
 use crate::tree::action_read::NodeView;
-use crate::tree::role_numbers::{
-    CHECK_BOX, CHECK_MENU_ITEM, RADIO_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON,
-};
+use crate::tree::capability_rules::carries_checked;
+use crate::tree::role_numbers::TOGGLE_BUTTON;
 use crate::tree::state_bits::{CHECKED, INDETERMINATE, PRESSED};
 
 const TOGGLE_SETTLE: Duration = Duration::from_millis(1000);
@@ -35,13 +34,6 @@ impl Flag {
     pub(super) fn is_wanted(self, wanted: bool) -> bool {
         self == Self::of(Some(wanted))
     }
-}
-
-fn can_carry_checked(role: u32) -> bool {
-    matches!(
-        role,
-        CHECK_BOX | RADIO_BUTTON | CHECK_MENU_ITEM | RADIO_MENU_ITEM | TOGGLE_BUTTON
-    )
 }
 
 fn checked_flag(
@@ -85,7 +77,7 @@ fn read_flag(view: &NodeView) -> Result<Flag, AdapterError> {
 
 fn guard_role(role: Option<u32>, action: &Action) -> Result<(), AdapterError> {
     match role {
-        Some(role) if can_carry_checked(role) => Ok(()),
+        Some(role) if carries_checked(role) => Ok(()),
         Some(_) => Err(refusal(
             ErrorCode::ActionNotSupported,
             format!("The role of the element cannot carry {}", action.name()),
