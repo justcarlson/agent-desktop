@@ -4,7 +4,7 @@ const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 
 const postinstallScriptPath = join(__dirname, '..', '..', 'npm', 'scripts', 'postinstall.js');
-const wrapperScriptPath = join(__dirname, '..', '..', 'npm', 'bin', 'agent-desktop.js');
+const wrapperScriptPath = join(__dirname, '..', '..', 'npm', 'bin', 'agent-desktop');
 
 const OS_STUB_PLATFORM_ENV = 'AGENT_DESKTOP_TEST_OS_PLATFORM';
 const OS_STUB_ARCH_ENV = 'AGENT_DESKTOP_TEST_OS_ARCH';

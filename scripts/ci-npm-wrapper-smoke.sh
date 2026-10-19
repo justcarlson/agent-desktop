@@ -27,7 +27,7 @@ if [ "$SOURCE_SHA" != "$COPY_SHA" ] || [ "$HELPER_SOURCE_SHA" != "$HELPER_COPY_S
   echo "NPM smoke executable copy failed immutable identity verification" >&2
   exit 1
 fi
-node npm/bin/agent-desktop.js version > /tmp/agent-desktop-version.json
+node npm/bin/agent-desktop version > /tmp/agent-desktop-version.json
 node -e "
   const out = require('fs').readFileSync('/tmp/agent-desktop-version.json', 'utf8');
   const json = JSON.parse(out);

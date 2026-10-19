@@ -3,6 +3,7 @@
 const {
   chmodSync,
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -10,11 +11,10 @@ const {
   readdirSync,
   renameSync,
   rmSync,
-  symlinkSync,
   unlinkSync,
   writeFileSync,
 } = require('fs');
-const { dirname, isAbsolute, join } = require('path');
+const { dirname, isAbsolute, join, sep } = require('path');
 const { platform, arch } = require('os');
 const { execFileSync } = require('child_process');
 const { createHash } = require('crypto');
@@ -185,36 +185,37 @@ function installArchive(tarballPath, binaryPath, helperPath, entry, trashCommand
   }
 }
 
-function fixGlobalInstallBin() {
-  if (platform() === 'win32') return;
+const BIN_ENTRY_NAME = 'agent-desktop';
 
-  let npmBinDir;
+function isInstalledPackage(directory) {
+  return directory.split(sep).includes('node_modules');
+}
+
+/**
+ * Replaces the JS wrapper at the package bin entry with a hard link to the
+ * native binary so package-manager shims exec it directly. Leaves the wrapper
+ * in place outside node_modules, on win32 and whenever linking fails.
+ */
+function linkBinEntry(directory, binaryName, osPlatform = platform()) {
+  if (osPlatform === 'win32' || !isInstalledPackage(directory)) return false;
+  const entryPath = join(directory, BIN_ENTRY_NAME);
+  const binaryPath = join(directory, binaryName);
+  const temporary = `${entryPath}.link-${process.pid}`;
   try {
-    const prefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8', timeout: 5000 }).trim();
-    npmBinDir = join(prefix, 'bin');
-  } catch {
-    return;
-  }
-
-  const symlinkPath = join(npmBinDir, 'agent-desktop');
-  const entry = resolve(platform(), arch());
-  if (!entry) return;
-
-  const binaryPath = join(binDir, entry.binaryName);
-
-  try {
-    const stat = lstatSync(symlinkPath);
-    if (!stat.isSymbolicLink()) return;
-  } catch {
-    return;
-  }
-
-  try {
-    unlinkSync(symlinkPath);
-    symlinkSync(binaryPath, symlinkPath);
-    log('Optimized: symlink points to native binary (zero overhead)');
+    const binaryStat = lstatSync(binaryPath);
+    try {
+      const entryStat = lstatSync(entryPath);
+      if (entryStat.ino === binaryStat.ino && entryStat.dev === binaryStat.dev) return false;
+    } catch {}
+    linkSync(binaryPath, temporary);
+    renameSync(temporary, entryPath);
+    log('Linked bin entry to native binary');
+    return true;
   } catch (err) {
-    log(`Could not optimize symlink: ${err.message}`);
+    log(`Could not link bin entry, keeping the Node wrapper: ${err.message}`);
+    return false;
+  } finally {
+    try { unlinkSync(temporary); } catch {}
   }
 }
 
@@ -292,7 +293,7 @@ function main() {
       }
       installExecutable(customPath, binaryPath);
       log(`Using binary from AGENT_DESKTOP_BINARY_PATH: ${customPath}`);
-      fixGlobalInstallBin();
+      linkBinEntry(binDir, binaryName);
       promptSkillInstall();
     } catch (err) {
       log(`Failed to install from AGENT_DESKTOP_BINARY_PATH: ${err.message}`);
@@ -314,7 +315,7 @@ function main() {
         ? `Native executables ready: ${binaryName}, ${MACOS_HELPER_NAME}`
         : `Native executable ready: ${binaryName}`,
     );
-    fixGlobalInstallBin();
+    linkBinEntry(binDir, binaryName);
     promptSkillInstall();
     return;
   }
@@ -356,7 +357,7 @@ function main() {
     return;
   }
 
-  fixGlobalInstallBin();
+  linkBinEntry(binDir, binaryName);
 
   promptSkillInstall();
 }
@@ -370,6 +371,7 @@ module.exports = {
   cleanupStaging,
   customHelperPath,
   installArchive,
+  linkBinEntry,
   matchesRecordedDigest,
   printManualFallback,
   promptSkillInstall,

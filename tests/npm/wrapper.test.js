@@ -43,6 +43,8 @@ test('wrapper resolves the released win32-x64 mapping and names the missing-bina
   assert.equal(code, 1);
   assert.match(stderr, /Error: Native binary not found for win32-x64/);
   assert.match(stderr, /--ignore-scripts/);
+  assert.match(stderr, /pnpm add -g --allow-build=agent-desktop agent-desktop/);
+  assert.match(stderr, /bun add -g --trust agent-desktop/);
 });
 
 test('wrapper resolves the released win32-arm64 mapping and exits non-zero when the binary is absent', async () => {
