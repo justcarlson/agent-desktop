@@ -70,7 +70,7 @@ impl Cause {
                 "The window manager ignores activation of a window that has never held focus; focus the window once yourself, then retry"
             }
             Self::WindowMinimized | Self::WindowHidden => {
-                "Restore the window with 'restore-window', then retry"
+                "Restore the window with 'restore', then retry"
             }
             Self::WaylandSession | Self::NoDisplay | Self::NoWindowManager => {
                 "Run the desktop session on X11 with a window manager, or focus the window yourself"

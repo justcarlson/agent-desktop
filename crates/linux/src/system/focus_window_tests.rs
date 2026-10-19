@@ -355,3 +355,11 @@ fn a_window_id_of_another_format_is_refused_before_any_send() {
     assert_eq!(error.code, ErrorCode::InvalidArgs);
     assert_eq!(world.sends(), 0);
 }
+
+#[test]
+fn a_minimized_or_hidden_window_is_pointed_to_the_restore_command() {
+    for cause in [Cause::WindowMinimized, Cause::WindowHidden] {
+        let suggestion = refusal(cause).suggestion.expect("a suggestion");
+        assert!(suggestion.contains("'restore'"), "{suggestion}");
+    }
+}
