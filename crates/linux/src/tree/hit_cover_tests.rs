@@ -35,3 +35,18 @@ fn an_untitled_or_unknown_cover_stays_unnamed() {
     assert_eq!(cover_name(&clients, 1), None);
     assert_eq!(cover_name(&clients, 9), None);
 }
+
+#[test]
+fn an_override_redirect_cover_with_a_unique_title_is_named() {
+    let names = [(7, "Popup".to_owned())];
+    assert_eq!(override_name(&names, &[], 7).as_deref(), Some("Popup"));
+    assert_eq!(override_name(&names, &[], 8), None);
+}
+
+#[test]
+fn an_override_redirect_cover_sharing_its_title_stays_unnamed() {
+    let names = [(7, "Popup".to_owned())];
+    assert_eq!(override_name(&names, &[client(1, 5, "Popup")], 7), None);
+    let twins = [(7, "Popup".to_owned()), (8, "Popup".to_owned())];
+    assert_eq!(override_name(&twins, &[], 7), None);
+}

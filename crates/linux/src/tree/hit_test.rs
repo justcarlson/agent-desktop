@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, HitTestResult, NativeHandle, Point};
 
 use super::frame_geometry::{calibrate, to_pointer_frame, window_point};
-use super::hit_cover::cover_name;
+use super::hit_cover::{cover_name, override_name};
 use super::hit_descent::{Described, NodeSource, Probe, descend, locate};
 use super::hit_guard::{admits, aimable, pixel};
 use super::hit_occlusion::occlusion;
@@ -155,7 +155,14 @@ pub(crate) fn hit_test_via<W: HitWorld>(
     Ok(match decide(standing, landing, stacking) {
         Verdict::Reaches => HitTestResult::ReachesTarget,
         Verdict::CoveredBy { window, frame } => {
-            intercepted_by_window(frame, cover_name(&windowing.clients, window))
+            let name = cover_name(&windowing.clients, window).or_else(|| {
+                override_name(
+                    &windowing.snapshot.override_redirect_names,
+                    &windowing.clients,
+                    window,
+                )
+            });
+            intercepted_by_window(frame, name)
         }
         Verdict::SameWindowLander => intercepted_by_lander(lander, calibrated.window_origin),
         Verdict::Unknown => HitTestResult::Unknown,

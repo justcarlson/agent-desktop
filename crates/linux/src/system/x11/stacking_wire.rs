@@ -7,7 +7,7 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::rust_connection::RustConnection;
 
-use crate::system::x11::snapshot::decode_frame_extents;
+use crate::system::x11::snapshot::{decode_frame_extents, decode_title};
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_atoms::{WindowAtoms, names};
 use crate::system::x11::stacking_decode::{
@@ -23,11 +23,13 @@ const MAX_STACK: u32 = 4_096;
 const MAX_OVERLAYS: usize = 64;
 const TYPE_LONGS: u32 = 8;
 const STATE_LONGS: u32 = 64;
+const MAX_TITLE_LONGS: u32 = 1_024;
 
 #[derive(Default)]
 struct Overlays {
     bounds: Vec<Extents>,
     receiving: Vec<(u32, Extents)>,
+    names: Vec<(u32, String)>,
 }
 
 type Property<'c> = Cookie<'c, RustConnection, GetPropertyReply>;
@@ -235,7 +237,51 @@ fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Got<Ove
             return Err(Stop::Failed);
         }
     }
+    found.names = titles(connection, &found.receiving)?;
     Ok(found)
+}
+
+/// The titles of the windows that take the pointer, `_NET_WM_NAME` first and
+/// `WM_NAME` after, one read per window however many rectangles it has.
+fn titles(connection: &RustConnection, receiving: &[(u32, Extents)]) -> Got<Vec<(u32, String)>> {
+    let mut ids: Vec<u32> = receiving.iter().map(|(id, _)| *id).collect();
+    ids.dedup();
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let atom = |name: &[u8]| answer(connection.intern_atom(false, name).ok()).map(|r| r.atom);
+    let (wide_name, utf8) = (atom(b"_NET_WM_NAME")?, atom(b"UTF8_STRING")?);
+    let reads: Vec<_> = ids
+        .iter()
+        .map(|id| {
+            (
+                property(connection, *id, wide_name, utf8, MAX_TITLE_LONGS),
+                property(
+                    connection,
+                    *id,
+                    AtomEnum::WM_NAME.into(),
+                    AtomEnum::STRING,
+                    MAX_TITLE_LONGS,
+                ),
+            )
+        })
+        .collect();
+    let mut named = Vec::new();
+    for (id, (wide, narrow)) in ids.into_iter().zip(reads) {
+        let (wide, narrow) = match (value(wide), value(narrow)) {
+            (Ok(wide), Ok(narrow)) => (wide, narrow),
+            (Err(Stop::Failed), _) | (_, Err(Stop::Failed)) => return Err(Stop::Failed),
+            _ => continue,
+        };
+        let title = decode_title(
+            Some((wide.0, wide.1.as_slice())),
+            Some((narrow.0, narrow.1.as_slice())),
+        );
+        if !title.is_empty() {
+            named.push((id, title));
+        }
+    }
+    Ok(named)
 }
 
 /// The stacking evidence for one client on the display `display`: the
@@ -317,5 +363,6 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
         stack,
         override_redirect_above: overlays.bounds,
         override_redirect_receiving: overlays.receiving,
+        override_redirect_names: overlays.names,
     })
 }

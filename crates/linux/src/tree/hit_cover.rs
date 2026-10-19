@@ -13,6 +13,22 @@ pub(crate) fn cover_name(clients: &[X11Client], window: u32) -> Option<String> {
     (same == 1 && !cover.title.is_empty()).then(|| cover.title.clone())
 }
 
+/// The title of an override-redirect cover, by the same rule: only when no
+/// other client or override-redirect window carries it.
+pub(crate) fn override_name(
+    names: &[(u32, String)],
+    clients: &[X11Client],
+    window: u32,
+) -> Option<String> {
+    let (_, title) = names.iter().find(|(id, _)| *id == window)?;
+    let others = names.iter().filter(|(_, other)| other == title).count()
+        + clients
+            .iter()
+            .filter(|client| &client.title == title)
+            .count();
+    (others == 1).then(|| title.clone())
+}
+
 #[cfg(test)]
 #[path = "hit_cover_tests.rs"]
 pub(crate) mod tests;
