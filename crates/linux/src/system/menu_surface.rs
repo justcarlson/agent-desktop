@@ -14,10 +14,6 @@ const SETTLE: Duration = Duration::from_millis(500);
 const POLL_GAP: Duration = Duration::from_millis(40);
 const MAX_POLLS: usize = 13;
 
-#[expect(
-    dead_code,
-    reason = "read by the menu surface listing, not by the wait"
-)]
 pub(crate) struct MenuPopup {
     pub(crate) root: AtspiElement,
     pub(crate) family: MenuFamily,
@@ -30,6 +26,11 @@ pub(super) trait PopupReader {
     fn window(&mut self) -> Result<Option<Node>, AdapterError>;
     fn top_levels(&mut self) -> Result<Vec<Node>, AdapterError>;
     fn pause(&mut self, gap: Duration);
+}
+
+/// The menu surface kinds this session can snapshot.
+pub(crate) fn supported() -> Vec<SnapshotSurface> {
+    vec![SnapshotSurface::Menu]
 }
 
 fn popup_of(found: menu_popup::Found<'_>) -> MenuPopup {
@@ -106,10 +107,6 @@ pub(crate) fn popups_at(
     }
 }
 
-#[expect(
-    dead_code,
-    reason = "the menu surface listing of the same detector calls it"
-)]
 pub(crate) fn popups_of(
     bus: &SharedBus,
     owner: &WindowInfo,
@@ -121,23 +118,61 @@ pub(crate) fn popups_of(
     popups_at(bus, &window, settle, deadline)
 }
 
-/// The menu surface kinds this session can snapshot.
-pub(crate) fn supported() -> Vec<SnapshotSurface> {
-    Vec::new()
-}
-
-/// The popups open in a window and the top-level popups of its application.
+/// The popups open in a window and the top-level popups of its application,
+/// outermost first. Only a focused window waits for a popup to appear: an
+/// action runs in the window that has focus.
 pub(crate) fn open_popups(
-    _bus: &SharedBus,
-    _owner: &WindowInfo,
-    _deadline: Deadline,
+    bus: &SharedBus,
+    owner: &WindowInfo,
+    deadline: Deadline,
 ) -> Result<Vec<MenuPopup>, AdapterError> {
-    Ok(Vec::new())
+    popups_of(bus, owner, owner.state.is_focused, deadline)
 }
 
-/// One `menu` entry for each open popup.
-pub(crate) fn entries(_popups: &[MenuPopup], _owner: &WindowInfo) -> Vec<SurfaceInfo> {
-    Vec::new()
+/// One `menu` entry for the outermost open popup.
+pub(crate) fn entries(popups: &[MenuPopup], owner: &WindowInfo) -> Vec<SurfaceInfo> {
+    popups
+        .first()
+        .map(|popup| SurfaceInfo {
+            id: owner.id.clone(),
+            kind: "menu".to_owned(),
+            title: None,
+            item_count: Some(popup.items),
+            unclassified: Vec::new(),
+        })
+        .into_iter()
+        .collect()
+}
+
+/// The `menu` entries of one process's windows. A popup that is a top-level
+/// window of the application belongs to no window in particular, and the
+/// window that held the focus loses it to the popup, so it is listed once, on
+/// the first window that sees it, and the windows after that skip it.
+pub(crate) fn surfaces_of(
+    bus: &SharedBus,
+    owners: &[&WindowInfo],
+    deadline: Deadline,
+) -> Result<Vec<SurfaceInfo>, AdapterError> {
+    entries_across(owners, |owner| open_popups(bus, owner, deadline))
+}
+
+fn entries_across(
+    owners: &[&WindowInfo],
+    mut read: impl FnMut(&WindowInfo) -> Result<Vec<MenuPopup>, AdapterError>,
+) -> Result<Vec<SurfaceInfo>, AdapterError> {
+    let mut listed = Vec::new();
+    let mut claimed = false;
+    for owner in owners {
+        let popups: Vec<MenuPopup> = read(owner)?
+            .into_iter()
+            .filter(|popup| !(claimed && popup.family.is_top_level()))
+            .collect();
+        claimed |= popups
+            .first()
+            .is_some_and(|popup| popup.family.is_top_level());
+        listed.extend(entries(&popups, owner));
+    }
+    Ok(listed)
 }
 
 #[cfg(test)]

@@ -1,9 +1,34 @@
-use super::rooted;
+use agent_desktop_core::ErrorCode;
+
+use super::{menu_absent, outermost, rooted};
+use crate::system::menu_surface::{MenuFamily, MenuPopup};
 use crate::tree::AtspiElement;
+
+fn popup(path: &str) -> MenuPopup {
+    MenuPopup {
+        root: AtspiElement::new(":1.2", path, 7),
+        family: MenuFamily::Qt,
+        items: 3,
+    }
+}
+
+#[test]
+fn a_closed_menu_is_not_found_and_never_an_empty_tree() {
+    let error = outermost(Vec::new()).map(|_| ()).expect_err("no popup");
+    assert_eq!(error.code, ErrorCode::ElementNotFound);
+    assert!(error.suggestion.is_some());
+    assert_eq!(menu_absent().code, ErrorCode::ElementNotFound);
+}
+
+#[test]
+fn the_outermost_popup_is_the_one_observed() {
+    let chosen = outermost(vec![popup("/outer"), popup("/inner")]).expect("a popup");
+    assert_eq!(chosen.root.path(), "/outer");
+}
 
 #[test]
 fn the_popup_root_is_its_own_frame_and_not_the_window() {
-    let root = rooted(&AtspiElement::new(":1.2", "/popup", 7));
+    let root = rooted(&popup("/popup").root);
     assert_eq!(root.frame().map(AtspiElement::path), Some("/popup"));
 }
 

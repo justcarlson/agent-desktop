@@ -18,15 +18,19 @@ fn snapshot_args(surface: SnapshotSurface) -> agent_desktop_core::commands::snap
 }
 
 #[test]
-fn supported_surfaces_advertises_window_and_sheet_and_rejects_the_rest() {
+fn supported_surfaces_advertises_window_sheet_and_menu_and_rejects_the_rest() {
     let adapter = LinuxAdapter::new();
     assert_eq!(
         adapter.supported_surfaces(),
-        vec![SnapshotSurface::Window, SnapshotSurface::Sheet]
+        vec![
+            SnapshotSurface::Window,
+            SnapshotSurface::Sheet,
+            SnapshotSurface::Menu
+        ]
     );
 
     let error = agent_desktop_core::commands::snapshot::execute(
-        snapshot_args(SnapshotSurface::Menu),
+        snapshot_args(SnapshotSurface::Alert),
         &adapter,
         &CommandContext::default(),
     )
@@ -43,7 +47,7 @@ fn supported_surfaces_advertises_window_and_sheet_and_rejects_the_rest() {
             .and_then(|details| details.get("supported_surfaces"))
             .and_then(|surfaces| surfaces.as_array())
             .map(Vec::len),
-        Some(2)
+        Some(3)
     );
 }
 

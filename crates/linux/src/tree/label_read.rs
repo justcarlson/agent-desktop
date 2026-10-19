@@ -41,6 +41,25 @@ async fn name_of(
     get_one(connection, target, NAME, string_value, Liveness::Alive).await
 }
 
+const TEXT_INTERFACE: &str = "org.a11y.atspi.Text";
+
+/// The text a label node holds when its own `Name` is blank: GTK 4 puts the
+/// visible label of a menu item in the `Text` of its label node and leaves
+/// the `Name` empty.
+async fn text_of(connection: &Connection, target: &AtspiElement) -> Option<String> {
+    let reply = call(
+        connection,
+        target,
+        TEXT_INTERFACE,
+        "GetText",
+        &(0_i32, -1_i32),
+    )
+    .await
+    .ok()?;
+    let text = reply.body().deserialize::<String>().ok()?;
+    (!text.trim().is_empty()).then_some(text)
+}
+
 /// Whether the node's label is worth reading: its own `Name` is blank, and its
 /// canonical role is one a ref can point at. A blank container is never read,
 /// so a tree full of unnamed panels costs no relation reads.
@@ -77,9 +96,12 @@ pub(crate) async fn read_label(connection: &Connection, element: &AtspiElement) 
     };
     match name_of(connection, &target).await {
         Ok(Field::Failed(_)) | Err(_) => LabelOutcome::Failed,
-        Ok(field) => field.non_blank().map_or(LabelOutcome::Unlabelled, |text| {
-            LabelOutcome::Text(text.clone())
-        }),
+        Ok(field) => match field.non_blank() {
+            Some(text) => LabelOutcome::Text(text.clone()),
+            None => text_of(connection, &target)
+                .await
+                .map_or(LabelOutcome::Unlabelled, LabelOutcome::Text),
+        },
     }
 }
 

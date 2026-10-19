@@ -116,6 +116,8 @@ mod launch_live_tests;
 #[cfg(test)]
 mod menu_fixture;
 #[cfg(test)]
+mod menu_live_rig;
+#[cfg(test)]
 mod menu_surface_live_tests;
 #[cfg(test)]
 mod menu_wait_live_tests;

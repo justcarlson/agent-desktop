@@ -1,4 +1,6 @@
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ProcessIdentity, SurfaceInfo};
+use agent_desktop_core::{
+    AdapterError, Deadline, ErrorCode, ProcessIdentity, SurfaceInfo, WindowInfo,
+};
 
 use super::SharedBus;
 use super::listed_window::ListedWindow;
@@ -94,10 +96,8 @@ pub(crate) fn list_surfaces(
     let mut surfaces = surfaces_of(&windows);
     mark_unread(&mut surfaces, &windows, &scan);
     surfaces.extend(nested_entries(&scan));
-    for window in &windows {
-        let popups = menu_surface::open_popups(bus, &window.info, deadline)?;
-        surfaces.extend(menu_surface::entries(&popups, &window.info));
-    }
+    let owners: Vec<&WindowInfo> = windows.iter().map(|window| &window.info).collect();
+    surfaces.extend(menu_surface::surfaces_of(bus, &owners, deadline)?);
     Ok(surfaces)
 }
 

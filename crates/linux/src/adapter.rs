@@ -270,3 +270,4 @@ impl InputOps for LinuxAdapter {
 #[cfg(test)]
 #[path = "adapter_tests.rs"]
 mod tests;
+

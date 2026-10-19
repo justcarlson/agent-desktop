@@ -27,6 +27,14 @@ pub(crate) enum MenuFamily {
     Chromium,
 }
 
+impl MenuFamily {
+    /// Whether popups of the family are top-level windows of the application
+    /// rather than children of the window that opened them.
+    pub(crate) fn is_top_level(self) -> bool {
+        matches!(self, Self::Gtk3Context | Self::Chromium)
+    }
+}
+
 pub(super) struct Found<'a> {
     pub(super) root: &'a Node,
     pub(super) family: MenuFamily,
