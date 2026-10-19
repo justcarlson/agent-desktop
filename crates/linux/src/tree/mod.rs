@@ -118,6 +118,9 @@ mod perf_live_tests;
 mod qt_live_tests;
 
 #[cfg(test)]
+mod registry_toolkit_live_tests;
+
+#[cfg(test)]
 pub(crate) mod live_launch;
 
 #[cfg(test)]
