@@ -21,6 +21,8 @@ pub(crate) mod window_gate;
 mod fake_tree;
 #[cfg(test)]
 mod live_tests;
+#[cfg(test)]
+mod live_wayland_tests;
 
 const SUPPORT_BUDGET_MS: u64 = 3_000;
 

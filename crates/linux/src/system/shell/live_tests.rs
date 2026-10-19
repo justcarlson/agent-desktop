@@ -131,11 +131,11 @@ fn headed_lease() -> InteractionLease {
         .expect("the private session grants the lease")
 }
 
-fn deadline() -> Deadline {
+pub(super) fn deadline() -> Deadline {
     Deadline::after(30_000).expect("a deadline builds")
 }
 
-fn named(
+pub(super) fn named(
     bus: &SharedBus,
     name: &'static str,
     role: u32,

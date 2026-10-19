@@ -63,7 +63,7 @@ impl KeySession for Recording {
 
 impl PointerSession for Recording {
     fn motion(&mut self, dx: f64, dy: f64, _deadline: Deadline) -> Result<(), AdapterError> {
-        if dx < -1_000.0 {
+        if dx <= -500.0 {
             self.position = (0.0, 0.0);
         } else {
             self.position = (self.position.0 + dx, self.position.1 + dy);

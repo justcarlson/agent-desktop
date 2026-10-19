@@ -1,9 +1,9 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
-use super::SharedBus;
 use super::liveness::{Liveness, liveness};
 use super::window_id;
 use super::window_ops::windows_of_process;
+use super::{SharedBus, shell};
 
 fn not_found(detail: &str) -> AdapterError {
     AdapterError::new(ErrorCode::WindowNotFound, detail)
@@ -51,6 +51,10 @@ pub(crate) fn resolve_window_strict(
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
     window_id::decode(&expected.id)?;
+    if shell::is_shell_window(expected) {
+        shell::window_gate::verify(bus, &expected.id, deadline)?;
+        return Ok(expected.clone());
+    }
     let pid = expected.pid.get();
     let live = windows_of_process(bus, pid, deadline)?;
     let process = expected
