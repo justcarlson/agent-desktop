@@ -1866,6 +1866,12 @@ The 3.6 stranger dogfood adds these cross-platform core items. Phase 3 changes n
 - `is visible` on a native-Wayland GTK4 node answers `result: false` with `applicable: false` (`crates/core/src/commands/is_check.rs:56`) because the node has no bounds, while the actionability gate now passes `visible` for the same node when `offscreen` is known false; the command should read the same evidence as the gate (3.7 delta end-to-end run).
 - Core's `identity_unknown_error` (`crates/core/src/resolve_errors.rs:11-22`) answers `APP_UNRESPONSIVE` for an incomplete identity read even when the process is running, for example a Files node that vanished during a search (3.7).
 
+The 3.8 stranger dogfood and insider E2E add these cross-platform core items. Phase 3 changes none of them; each is an owner decision, listed with its evidence:
+
+- The commands `drag` (`commands/drag.rs`, `dragged: true`), `mouse-wheel` (`commands/mouse_wheel.rs`, `scrolled: true`), `close` (`closed: true`) and the window move (`moved: true`) build their success flag from an adapter call that returns `()`, so no platform can report an unproved delivery honestly: a Linux wheel at the top of a list and a drag whose drop landed elsewhere both answer `true` with no disposition and no steps (L28-23, L28-24). The fix is one decision: the adapter returns a delivery report from these calls, as `execute_action` already returns an `ActionResult` with steps and a disposition, and the commands carry its disposition (`delivered_unverified` where nothing was read back).
+- A headed click is physical first on macOS (`crates/macos/src/actions/chain_defs.rs`, `CLICK_CHAIN`, step `CGClick`) and on Linux (`crates/linux/src/actions/dispatch.rs`, `physical_first`, falling back to the semantic call only when the pointer is unsupported or cannot be aimed), and semantic first on Windows (`crates/windows/src/actions/chain.rs`, `CLICK_CHAIN`, and `dispatch.rs`, `click_chain_judged_for`: Invoke, then the legacy default action, with a physical click only for a node with no semantic route). The core skill says a headed click is physical first. The decision is to align Windows or to say in the core skill that the order is per platform.
+- The `press` combo parser (`crates/core/src/commands/combo.rs:33`) accepts only `meta`, `cmd` and `command` as the meta modifier, so `press super+l` and `press win+x` fail with `Unknown modifier` on every platform before an adapter sees them, while the binary's `--modifiers` flag accepts `super` and `win` (L28-27).
+
 ### Objectives
 
 Linux parity (original scope):
@@ -2332,13 +2338,6 @@ Runtime detection required for input, clipboard, and screenshot since Linux runs
 - `at-spi2-core` package installed (default on GNOME)
 - X11: the XTEST extension on the display (no input tool; L1-2, L5-1). Wayland: AT-SPI actions need no input tool (L13-8, L13-9); keys need mutter RemoteDesktop, and `ydotool` is not used because it needs write access to `/dev/uinput`, root-only on a stock install (L5-2, L13-15)
 - `wmctrl` is optional: it is absent from the base install, and `xdotool` plus direct EWMH property reads and client messages cover window operations (L8-6)
-
-### Core owner items from the Linux sub-phases
-
-Decisions that live in `crates/core` or in all three adapters, found by the Linux dogfoods and left for the core owner. Each states what was measured and what the decision is.
-
-- **Success flags built from a unit return.** The commands `drag` (`commands/drag.rs`, `dragged: true`), `mouse-wheel` (`commands/mouse_wheel.rs`, `scrolled: true`), `close` (`closed: true`) and the window move (`moved: true`) build their success flag from an adapter call that returns `()`, so no platform can report an unproved delivery honestly: a Linux wheel at the top of a list and a drag whose drop landed elsewhere both answer `true` with no disposition and no steps (L28-23, L28-24). The fix is one decision: the adapter returns a delivery report from these calls, as `execute_action` already returns an `ActionResult` with steps and a disposition, and the commands carry its disposition (`delivered_unverified` where nothing was read back).
-- **Headed click order differs between platforms.** macOS puts the physical click first (`crates/macos/src/actions/chain_defs.rs`, `CLICK_CHAIN`, step `CGClick`), and Linux does the same (`crates/linux/src/actions/dispatch.rs`, `physical_first`, falling back to the semantic call only when the pointer is unsupported or cannot be aimed). Windows runs the semantic chain first, Invoke and then the legacy default action (`crates/windows/src/actions/chain.rs`, `CLICK_CHAIN`, and `dispatch.rs`, `click_chain_judged_for`), and clicks physically only for a node with no semantic route. The core skill says a headed click is physical first. The decision is to align Windows or to say in the core skill that the order is per platform.
 
 ### Key Risks and Mitigations (Linux-specific — folds into the Risk Register)
 
