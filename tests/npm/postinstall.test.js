@@ -525,11 +525,13 @@ test('bin entry is untouched on win32', () => {
 test('bin entry keeps the wrapper when the native binary is missing', () => {
   const dir = join(temporaryDirectory(), 'node_modules', 'agent-desktop', 'bin');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'agent-desktop'), 'wrapper', { mode: 0o755 });
-  captureWarnings(() => {
+  writeFileSync(join(dir, 'agent-desktop'), '#!/usr/bin/env node\n', { mode: 0o755 });
+  const warnings = captureWarnings(() => {
     assert.equal(postinstall.linkBinEntry(dir, 'agent-desktop-darwin-arm64', 'darwin'), false);
   });
-  assert.equal(readFileSync(join(dir, 'agent-desktop'), 'utf8'), 'wrapper');
+  assert.equal(readFileSync(join(dir, 'agent-desktop'), 'utf8'), '#!/usr/bin/env node\n');
+  assert.match(warnings, /keeping the Node wrapper/);
+  assert.notEqual(process.exitCode, 1);
 });
 
 test('bin entry is untouched under an unrelated node_modules ancestor', () => {
