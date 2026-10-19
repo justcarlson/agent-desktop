@@ -1,8 +1,9 @@
-use agent_desktop_core::{LocatorField, capability};
+use agent_desktop_core::{Action, LocatorField, capability};
 
-use super::Field;
+use super::capability_rules::scroll_tokens;
 use super::role_numbers::{ENTRY, PASSWORD_TEXT, TERMINAL, TEXT};
 use super::state_bits::{EDITABLE, StateBits};
+use super::{Field, RawNode};
 
 const TABLE: [(&str, &str); 15] = [
     ("click", capability::CLICK),
@@ -45,7 +46,7 @@ pub(crate) fn capability_of(name: &str) -> Option<&'static str> {
 /// decide `SetValue`, failed: a list that might be missing a token must not
 /// read as a complete one. `SetValue` is a positive claim from the
 /// `editable` state on a text role.
-pub(crate) fn capabilities(
+fn capabilities_from(
     actions: &Field<Vec<String>>,
     role: &Field<u32>,
     states: &Field<Vec<u32>>,
@@ -72,6 +73,34 @@ pub(crate) fn capabilities(
         push(capability::SET_VALUE);
     }
     LocatorField::Known(tokens)
+}
+
+/// The capability tokens of a node: its action names, role and states read
+/// through the one table, then the tokens that need more than a name.
+pub(crate) fn capabilities(node: &RawNode) -> LocatorField<Vec<String>> {
+    let LocatorField::Known(mut tokens) =
+        capabilities_from(&node.actions, &node.traits.role, &node.traits.states)
+    else {
+        return LocatorField::Unknown;
+    };
+    for token in scroll_tokens(node) {
+        if !tokens.iter().any(|known| known == token) {
+            tokens.push(token.to_owned());
+        }
+    }
+    LocatorField::Known(tokens)
+}
+
+/// The action names a dispatch tries for `action`, in order.
+#[expect(dead_code, reason = "no caller yet")]
+pub(crate) fn verbs_for(_action: &Action) -> &'static [&'static str] {
+    &[]
+}
+
+/// The action names a toggle tries when the wanted state is `desired`.
+#[expect(dead_code, reason = "no caller yet")]
+pub(crate) fn toggle_verbs(_desired: Option<bool>) -> &'static [&'static str] {
+    &[]
 }
 
 #[cfg(test)]

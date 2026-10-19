@@ -38,6 +38,7 @@ mod window_resolve;
 pub(crate) mod x11;
 
 pub(crate) use app_name::app_name as listed_app_name;
+pub(crate) use bus::ensure_budget;
 pub(crate) use bus::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, classify};
 pub(crate) use bus::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
 pub(crate) use bus_deadline::within;

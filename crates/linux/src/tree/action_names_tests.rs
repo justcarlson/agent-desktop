@@ -1,6 +1,6 @@
 use agent_desktop_core::LocatorField;
 
-use super::{capabilities, capability_of};
+use super::{capabilities_from, capability_of};
 use crate::tree::Field;
 use crate::tree::role_numbers::{ENTRY, PUSH_BUTTON, TEXT};
 use crate::tree::state_bits::EDITABLE;
@@ -18,7 +18,7 @@ fn known(field: LocatorField<Vec<String>>) -> Vec<String> {
 }
 
 fn of_button(actions: &Field<Vec<String>>) -> LocatorField<Vec<String>> {
-    capabilities(
+    capabilities_from(
         actions,
         &Field::Present(PUSH_BUTTON),
         &Field::Present(words(&[])),
@@ -86,19 +86,19 @@ fn tokens_are_deduplicated_in_order_of_first_appearance() {
 
 #[test]
 fn set_value_follows_the_editable_state_on_a_text_role() {
-    let editable = capabilities(
+    let editable = capabilities_from(
         &Field::Absent,
         &Field::Present(ENTRY),
         &Field::Present(words(&[EDITABLE])),
     );
     assert_eq!(known(editable), ["SetValue"]);
-    let read_only = capabilities(
+    let read_only = capabilities_from(
         &Field::Absent,
         &Field::Present(ENTRY),
         &Field::Present(words(&[])),
     );
     assert!(known(read_only).is_empty());
-    let button = capabilities(
+    let button = capabilities_from(
         &Field::Absent,
         &Field::Present(PUSH_BUTTON),
         &Field::Present(words(&[EDITABLE])),
@@ -108,7 +108,7 @@ fn set_value_follows_the_editable_state_on_a_text_role() {
 
 #[test]
 fn set_value_joins_the_advertised_tokens() {
-    let tokens = known(capabilities(
+    let tokens = known(capabilities_from(
         &names(&["SetFocus"]),
         &Field::Present(TEXT),
         &Field::Present(words(&[EDITABLE])),
@@ -118,13 +118,13 @@ fn set_value_joins_the_advertised_tokens() {
 
 #[test]
 fn a_failed_role_or_state_read_makes_the_list_unknown() {
-    let failed_role = capabilities(
+    let failed_role = capabilities_from(
         &names(&["click"]),
         &Field::Failed("x".to_owned()),
         &Field::Present(words(&[])),
     );
     assert_eq!(failed_role, LocatorField::Unknown);
-    let failed_states = capabilities(
+    let failed_states = capabilities_from(
         &names(&["click"]),
         &Field::Present(PUSH_BUTTON),
         &Field::Failed("x".to_owned()),

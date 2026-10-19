@@ -33,7 +33,7 @@ pub(crate) fn is_wrapper_shape(
 /// Classifies one read for the walk.
 pub(crate) fn classify(read: &ObservedRead) -> NodeClass {
     let node = &read.node;
-    let caps = capabilities(&node.actions, &node.traits.role, &node.traits.states);
+    let caps = capabilities(node);
     NodeClass {
         wrapper: is_wrapper_shape(&node.traits.role, &node.properties, &read.value, &caps),
         web_document: is_web_document(node.traits.role.present().copied()),

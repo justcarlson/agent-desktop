@@ -1,8 +1,8 @@
 use agent_desktop_core::{
-    AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, ElementState,
-    HitTestResult, InputOps, InteractionLease, LiveElement, NativeHandle, ObservationOps,
-    ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity, Rect, RefEntry,
-    SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
+    AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
+    Deadline, ElementState, HitTestResult, InputOps, InteractionLease, LiveElement, NativeHandle,
+    ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity,
+    Rect, RefEntry, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -94,6 +94,14 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
 
+    fn get_text_selection(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<Option<std::ops::Range<usize>>, AdapterError> {
+        crate::tree::text_selection::read_selection(self.bus(), handle, deadline)
+    }
+
     fn hit_test(
         &self,
         handle: &NativeHandle,
@@ -149,7 +157,17 @@ impl ObservationOps for LinuxAdapter {
         .into_accessibility_tree()
     }
 }
+
 impl ActionOps for LinuxAdapter {
+    fn execute_action(
+        &self,
+        handle: &NativeHandle,
+        request: ActionRequest,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        crate::actions::execute_action(self.bus(), handle, request, lease)
+    }
+
     fn scroll_into_view(
         &self,
         handle: &NativeHandle,

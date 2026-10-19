@@ -79,11 +79,7 @@ impl Projector<'_> {
             states: vocabulary.states,
             ref_evidence: LocatorRefEvidence {
                 bounds: bounds_of(&read.node.extents),
-                available_actions: capabilities(
-                    &read.node.actions,
-                    &read.node.traits.role,
-                    &read.node.traits.states,
-                ),
+                available_actions: capabilities(&read.node),
                 descriptors: vocabulary.descriptor,
             },
         }

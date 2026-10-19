@@ -1,9 +1,11 @@
-mod absence;
-mod action_names;
+pub(crate) mod absence;
+pub(crate) mod action_names;
+pub(crate) mod action_read;
 mod admit;
 mod ancestry;
 mod attributes;
 mod bounded;
+pub(crate) mod capability_rules;
 mod child_list;
 mod descriptor;
 pub(crate) mod display_bounds;
@@ -57,6 +59,8 @@ mod settle;
 pub(crate) mod state_bits;
 mod states;
 pub(crate) mod surfaces;
+pub(crate) mod text_selection;
+pub(crate) mod text_units;
 pub(crate) mod toolkit_trust;
 mod value_read;
 mod vocabulary;
@@ -86,6 +90,9 @@ pub(crate) mod test_support;
 
 #[cfg(test)]
 mod absence_live_tests;
+
+#[cfg(test)]
+mod capability_live_tests;
 
 #[cfg(test)]
 mod chromium_live_tests;
