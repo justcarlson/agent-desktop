@@ -95,3 +95,24 @@ fn an_unread_focus_state_is_unread() {
         DeliveryOutcome::Delivered(Observed::Unread)
     );
 }
+
+#[test]
+fn focus_that_drops_on_the_second_read_is_not_verified() {
+    assert_eq!(corroborated(Some(true), Some(false)), Some(false));
+}
+
+#[test]
+fn focus_held_across_two_reads_is_verified() {
+    assert_eq!(corroborated(Some(true), Some(true)), Some(true));
+}
+
+#[test]
+fn focus_not_seen_on_the_first_read_is_not_re_read_into_a_match() {
+    assert_eq!(corroborated(Some(false), Some(true)), Some(false));
+    assert_eq!(corroborated(None, Some(true)), None);
+}
+
+#[test]
+fn a_failed_second_read_leaves_focus_unproven() {
+    assert_eq!(corroborated(Some(true), None), None);
+}

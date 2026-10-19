@@ -24,6 +24,13 @@ pub(super) fn focus_policy_gate(policy: InteractionPolicy) -> Result<(), Adapter
     .with_details(json!({ "foreground_effect": true })))
 }
 
+pub(super) fn corroborated(first: Option<bool>, second: Option<bool>) -> Option<bool> {
+    match first {
+        Some(true) => second,
+        other => other,
+    }
+}
+
 pub(super) fn focus_judged_for(
     policy: InteractionPolicy,
     invoke: impl FnOnce() -> Result<WriteReply, AdapterError>,
@@ -47,17 +54,18 @@ pub(crate) fn focus(
             policy,
             || invoke_verb(target, &action, names, verbs),
             || {
-                poll_until(
-                    target.deadline,
-                    FOCUS_SETTLE,
-                    POLL_STEP,
-                    || {
-                        read_node_view(target.bus, target.handle, target.deadline)
-                            .ok()
-                            .and_then(|after| after.state(FOCUSED))
-                    },
-                    |focused| *focused == Some(true),
-                )
+                let read = || {
+                    read_node_view(target.bus, target.handle, target.deadline)
+                        .ok()
+                        .and_then(|after| after.state(FOCUSED))
+                };
+                let first = poll_until(target.deadline, FOCUS_SETTLE, POLL_STEP, read, |focused| {
+                    *focused == Some(true)
+                });
+                if first == Some(true) {
+                    std::thread::sleep(POLL_STEP);
+                }
+                corroborated(first, read())
             },
         )
     };
