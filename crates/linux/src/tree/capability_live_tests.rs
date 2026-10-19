@@ -3,8 +3,9 @@ use std::collections::BTreeMap;
 use agent_desktop_core::{Deadline, LocatorField};
 
 use super::action_names::{capabilities, capability_of};
+use super::capability_rules::carries_checked;
 use super::live_apps::each_app;
-use super::role_numbers::{DIAL, PUSH_BUTTON, SCROLL_BAR, SLIDER, SPIN_BUTTON};
+use super::role_numbers::{COMBO_BOX, DIAL, PUSH_BUTTON, SCROLL_BAR, SLIDER, SPIN_BUTTON};
 use super::state_bits::{EXPANDABLE, EXPANDED, HAS_POPUP, StateBits};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, RawNode, WalkLimits, WalkedNode};
@@ -62,14 +63,46 @@ fn stateful_disclosure(node: &RawNode) -> bool {
     (verb && (bits.has(EXPANDABLE) || bits.has(EXPANDED))) || menu_button
 }
 
+fn disabled(node: &RawNode) -> bool {
+    node.traits
+        .states
+        .present()
+        .is_some_and(|words| StateBits::new(words).is_disabled())
+}
+
+fn toggle_only_click(node: &RawNode, role: u32) -> bool {
+    carries_checked(role) && named(node, &["toggle", "switch", "uncheck"])
+}
+
+fn disabled_click(node: &RawNode, role: u32) -> bool {
+    (role == PUSH_BUTTON || carries_checked(role)) && disabled(node)
+}
+
+fn popup_dropdown(node: &RawNode, role: u32) -> bool {
+    let popup = node
+        .traits
+        .states
+        .present()
+        .is_some_and(|words| StateBits::new(words).has(HAS_POPUP));
+    role == COMBO_BOX
+        && popup
+        && !advertises(node, SELECTION)
+        && matches!(node.properties.child_count.present(), Some(1 | 2))
+}
+
 fn backed(node: &RawNode, token: &str) -> bool {
     let role = node.traits.role.present().copied().unwrap_or_default();
     match token {
-        "Click" | "RightClick" | "SetFocus" | "Toggle" => names(node)
-            .iter()
-            .any(|name| capability_of(name).contains(&token)),
+        "Click" | "RightClick" | "SetFocus" | "Toggle" => {
+            names(node)
+                .iter()
+                .any(|name| capability_of(name).contains(&token))
+                || (token == "Click"
+                    && (toggle_only_click(node, role) || disabled_click(node, role)))
+        }
         "Select" => {
             named(node, &["select"])
+                || popup_dropdown(node, role)
                 || (advertises(node, SELECTION)
                     && node
                         .properties
