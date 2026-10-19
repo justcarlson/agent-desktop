@@ -4,7 +4,7 @@ use super::role_numbers::{
     COMBO_BOX, DIAL, ENTRY, LIST, PASSWORD_TEXT, PUSH_BUTTON, SCROLL_BAR, SLIDER, SPIN_BUTTON,
     TERMINAL, TEXT,
 };
-use super::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, StateBits};
+use super::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, StateBits};
 use super::{Field, RawNode};
 
 const VALUE: &str = "org.a11y.atspi.Value";
@@ -92,8 +92,10 @@ fn is_numeric_control(role: u32) -> bool {
 }
 
 fn text_tokens(facts: &Facts) -> Vec<&'static str> {
-    let editable =
-        is_text_entry(facts.role) && facts.bits.has(EDITABLE) && facts.advertises(EDITABLE_TEXT);
+    let editable = is_text_entry(facts.role)
+        && facts.bits.has(EDITABLE)
+        && !facts.bits.has(READ_ONLY)
+        && facts.advertises(EDITABLE_TEXT);
     let mut tokens = Vec::new();
     if editable {
         tokens.push(capability::SET_VALUE);

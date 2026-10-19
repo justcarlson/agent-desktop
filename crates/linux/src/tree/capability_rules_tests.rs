@@ -6,7 +6,7 @@ use crate::tree::role_numbers::{
     DIAL, ENTRY, LEVEL_BAR, LIST, PANEL, PASSWORD_TEXT, PROGRESS_BAR, PUSH_BUTTON, SCROLL_BAR,
     SCROLL_PANE, SLIDER, SPIN_BUTTON, TEXT,
 };
-use crate::tree::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP};
+use crate::tree::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY};
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{Field, RawNode};
 
@@ -210,6 +210,16 @@ fn an_entry_without_editable_text_gets_neither_token() {
 #[test]
 fn a_read_only_entry_gets_neither_token() {
     let spec = Spec {
+        interfaces: &[EDITABLE_TEXT, TEXT_IFACE],
+        ..plain(ENTRY)
+    };
+    assert!(tokens_of(&spec).is_empty());
+}
+
+#[test]
+fn an_editable_entry_marked_read_only_gets_no_token() {
+    let spec = Spec {
+        bits: &[EDITABLE, READ_ONLY],
         interfaces: &[EDITABLE_TEXT, TEXT_IFACE],
         ..plain(ENTRY)
     };
