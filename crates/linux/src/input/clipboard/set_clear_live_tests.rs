@@ -12,6 +12,9 @@ use crate::input::clipboard::owner_record;
 mod support;
 use support::*;
 
+#[path = "owner_live_tests.rs"]
+mod owner_tests;
+
 #[test]
 #[ignore = "needs a private X11 session and the built clipboard owner"]
 fn text_set_is_served_by_a_detached_owner_and_read_by_a_second_process() {
