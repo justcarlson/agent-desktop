@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DeliverySemantics, ErrorCode, InteractionLease, InteractionPolicy,
-    MouseButton, MouseEvent, MouseEventKind, Point, Rect,
+    AdapterError, Deadline, DeliverySemantics, DisplayInfo, ErrorCode, InteractionLease,
+    InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, Point, Rect,
 };
 use serde_json::json;
 
@@ -35,6 +35,17 @@ pub(crate) trait PointerSession: KeySession {
     fn pause(&mut self, duration: Duration) {
         std::thread::sleep(duration);
     }
+    fn attach_stream(&mut self, _deadline: Deadline) -> bool {
+        false
+    }
+    fn motion_absolute(
+        &mut self,
+        _x: f64,
+        _y: f64,
+        _deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        Err(AdapterError::internal("Absolute motion is not available"))
+    }
 }
 
 impl PointerSession for RemoteDesktop {
@@ -44,6 +55,14 @@ impl PointerSession for RemoteDesktop {
 
     fn button(&mut self, button: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError> {
         self.pointer_button(button, down, deadline)
+    }
+
+    fn attach_stream(&mut self, deadline: Deadline) -> bool {
+        RemoteDesktop::attach_stream(self, deadline)
+    }
+
+    fn motion_absolute(&mut self, x: f64, y: f64, deadline: Deadline) -> Result<(), AdapterError> {
+        self.pointer_motion_absolute(x, y, deadline)
     }
 }
 
@@ -94,6 +113,33 @@ fn recovery_deadline(spent: Deadline) -> Deadline {
     Deadline::detached_after(RECOVERY_MS).unwrap_or(spent)
 }
 
+/// Clicks at `local`, the target in the primary monitor's own coordinates,
+/// with absolute motion on a linked screen-cast stream, which a modal that
+/// holds a pointer grab (the open message list) honours. When the stream
+/// cannot be linked or started, nothing was sent and the click is made with
+/// relative motion to `target` instead.
+pub(crate) fn run_pointer_absolute<S: PointerSession>(
+    session: &mut S,
+    target: &Point,
+    local: &Point,
+    button: &MouseButton,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    session.create(deadline)?;
+    if session.attach_stream(deadline) && session.start(deadline).is_ok() {
+        let delivered = session
+            .motion_absolute(local.x, local.y, deadline)
+            .and_then(|()| {
+                session.pause(SETTLE_PAUSE);
+                press(session, button_code(button), deadline)
+            });
+        let stopped = session.stop(recovery_deadline(deadline));
+        return delivered.and(stopped);
+    }
+    let _ = session.stop(recovery_deadline(deadline));
+    run_pointer(session, target, button, deadline)
+}
+
 /// Moves the compositor pointer to `target` and clicks. The session is
 /// stopped on every path once it was created; a refused creation sends no
 /// event.
@@ -138,7 +184,27 @@ fn read_extents(
         .ok_or_else(unreadable_extents)
 }
 
-fn deliver(point: &Point, button: &MouseButton, deadline: Deadline) -> Result<(), AdapterError> {
+/// The point in the primary monitor's own coordinates, when it lies inside
+/// that monitor: the stream a click is aimed on records the primary monitor.
+pub(crate) fn local_in_primary(point: &Point, displays: &[DisplayInfo]) -> Option<Point> {
+    let primary = displays.iter().find(|display| display.is_primary)?;
+    let bounds = &primary.bounds;
+    let inside = point.x >= bounds.x
+        && point.x < bounds.x + bounds.width
+        && point.y >= bounds.y
+        && point.y < bounds.y + bounds.height;
+    inside.then_some(Point {
+        x: point.x - bounds.x,
+        y: point.y - bounds.y,
+    })
+}
+
+fn deliver(
+    point: &Point,
+    displays: &[DisplayInfo],
+    button: &MouseButton,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
     match backend()? {
         Backend::X11(_) => mouse_event(
             &MouseEvent {
@@ -151,7 +217,10 @@ fn deliver(point: &Point, button: &MouseButton, deadline: Deadline) -> Result<()
         ),
         Backend::Wayland => {
             let mut session = RemoteDesktop::open(deadline)?;
-            run_pointer(&mut session, point, button, deadline)
+            match local_in_primary(point, displays) {
+                Some(local) => run_pointer_absolute(&mut session, point, &local, button, deadline),
+                None => run_pointer(&mut session, point, button, deadline),
+            }
         }
     }
 }
@@ -171,7 +240,7 @@ pub(crate) fn click(
     let extents = read_extents(bus, node, deadline)?;
     let displays = list_displays(deadline)?;
     let point = aim(extents, &displays)?;
-    deliver(&point, &button, deadline)?;
+    deliver(&point, &displays, &button, deadline)?;
     Ok(point)
 }
 

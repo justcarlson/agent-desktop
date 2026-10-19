@@ -2,9 +2,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, MouseButton, Point};
+use agent_desktop_core::{
+    AdapterError, Deadline, DisplayInfo, ErrorCode, MouseButton, Point, Rect,
+};
 
-use crate::input::shell_click::{PointerSession, run_pointer};
+use crate::input::shell_click::{
+    PointerSession, local_in_primary, run_pointer, run_pointer_absolute,
+};
 use crate::input::wayland::key_session::KeySession;
 
 #[derive(Default)]
@@ -13,6 +17,8 @@ struct Recording {
     fail_on: Option<&'static str>,
     position: (f64, f64),
     recovery_live: Vec<(&'static str, bool)>,
+    stream: bool,
+    start_fails: bool,
 }
 
 impl Recording {
@@ -45,6 +51,10 @@ impl KeySession for Recording {
     }
 
     fn start(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
+        if self.start_fails {
+            self.log.borrow_mut().push("start".to_owned());
+            return Err(AdapterError::new(ErrorCode::ActionFailed, "no pipewire"));
+        }
         self.step("start".to_owned())
     }
 
@@ -85,6 +95,16 @@ impl PointerSession for Recording {
     }
 
     fn pause(&mut self, _duration: Duration) {}
+
+    fn attach_stream(&mut self, _deadline: Deadline) -> bool {
+        self.log.borrow_mut().push("attach".to_owned());
+        self.stream
+    }
+
+    fn motion_absolute(&mut self, x: f64, y: f64, _deadline: Deadline) -> Result<(), AdapterError> {
+        self.position = (x, y);
+        self.step(format!("absolute@{x},{y}"))
+    }
 }
 
 fn deadline() -> Deadline {
@@ -165,4 +185,95 @@ fn the_release_and_the_stop_run_on_a_live_deadline_after_the_budget_is_spent() {
     let mut session = Recording::default();
     run_pointer(&mut session, &target(), &MouseButton::Left, spent).expect("the click lands");
     assert_eq!(session.recovery_live, [("up", true), ("stop", true)]);
+}
+
+fn session_with_stream() -> Recording {
+    Recording {
+        stream: true,
+        ..Recording::default()
+    }
+}
+
+#[test]
+fn a_linked_stream_aims_the_click_with_one_absolute_motion_and_no_relative_travel() {
+    let mut session = session_with_stream();
+    let local = Point { x: 677.0, y: 71.0 };
+    run_pointer_absolute(
+        &mut session,
+        &target(),
+        &local,
+        &MouseButton::Left,
+        deadline(),
+    )
+    .expect("the click lands");
+    let events = session.events();
+    assert_eq!(events[0], "create");
+    assert_eq!(events[1], "attach");
+    assert_eq!(events[2], "start");
+    assert_eq!(events[3], "absolute@677,71");
+    assert_eq!(events[4], "button:272:true@677,71");
+    assert_eq!(events[5], "button:272:false@677,71");
+    assert_eq!(events.last().map(String::as_str), Some("stop"));
+    assert!(!events.iter().any(|label| label == "motion"));
+}
+
+#[test]
+fn without_a_stream_the_click_falls_back_to_relative_motion_to_the_target() {
+    let mut session = Recording::default();
+    run_pointer_absolute(
+        &mut session,
+        &target(),
+        &Point { x: 640.0, y: 16.0 },
+        &MouseButton::Left,
+        deadline(),
+    )
+    .expect("the click lands");
+    let events = session.events();
+    assert!(events.iter().any(|label| label == "motion"));
+    assert!(events.iter().any(|label| label == "button:272:true@640,16"));
+    assert!(!events.iter().any(|label| label.starts_with("absolute")));
+}
+
+#[test]
+fn a_stream_that_will_not_start_sends_no_event_and_falls_back_to_relative_motion() {
+    let mut session = Recording {
+        stream: true,
+        start_fails: true,
+        ..Recording::default()
+    };
+    session.start_fails = true;
+    let outcome = run_pointer_absolute(
+        &mut session,
+        &target(),
+        &Point { x: 640.0, y: 16.0 },
+        &MouseButton::Left,
+        deadline(),
+    );
+    assert!(outcome.is_err());
+    let events = session.events();
+    assert!(!events.iter().any(|label| label.starts_with("absolute")));
+    assert!(!events.iter().any(|label| label.starts_with("button")));
+}
+
+fn display(primary: bool, x: f64, y: f64) -> DisplayInfo {
+    DisplayInfo {
+        id: "d".to_owned(),
+        bounds: Rect {
+            x,
+            y,
+            width: 1280.0,
+            height: 800.0,
+        },
+        is_primary: primary,
+        scale: 1.0,
+    }
+}
+
+#[test]
+fn a_point_in_the_primary_monitor_is_made_local_to_it_and_one_elsewhere_is_not() {
+    let displays = [display(true, 100.0, 50.0), display(false, 1380.0, 50.0)];
+    let inside = local_in_primary(&Point { x: 140.0, y: 70.0 }, &displays).expect("inside");
+    assert_eq!((inside.x, inside.y), (40.0, 20.0));
+    assert!(local_in_primary(&Point { x: 1500.0, y: 70.0 }, &displays).is_none());
+    assert!(local_in_primary(&Point { x: 1.0, y: 1.0 }, &[display(false, 0.0, 0.0)]).is_none());
 }

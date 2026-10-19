@@ -12,6 +12,10 @@ use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, within};
 const SERVICE: &str = "org.gnome.Mutter.RemoteDesktop";
 const PATH: &str = "/org/gnome/Mutter/RemoteDesktop";
 const SESSION_INTERFACE: &str = "org.gnome.Mutter.RemoteDesktop.Session";
+const SCREEN_CAST: &str = "org.gnome.Mutter.ScreenCast";
+const SCREEN_CAST_PATH: &str = "/org/gnome/Mutter/ScreenCast";
+const SCREEN_CAST_SESSION: &str = "org.gnome.Mutter.ScreenCast.Session";
+const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
 const ACCESS_DENIED: &str = "org.freedesktop.DBus.Error.AccessDenied";
 
 /// A typed view of Mutter's RemoteDesktop service over the session bus
@@ -20,6 +24,7 @@ pub(crate) struct RemoteDesktop {
     connection: Connection,
     session: Option<OwnedObjectPath>,
     started: bool,
+    stream: Option<OwnedObjectPath>,
 }
 
 impl RemoteDesktop {
@@ -32,6 +37,7 @@ impl RemoteDesktop {
             connection,
             session: None,
             started: false,
+            stream: None,
         }
     }
 
@@ -117,6 +123,96 @@ impl RemoteDesktop {
     }
 }
 
+impl RemoteDesktop {
+    /// Links a screen-cast stream of the primary monitor to the created
+    /// session, which is what lets the pointer move to an absolute position.
+    /// `false` when the compositor offers no such stream; the session is then
+    /// still good for relative motion.
+    pub(crate) fn attach_stream(&mut self, deadline: Deadline) -> bool {
+        let Ok(path) = self.session_path().map(str::to_owned) else {
+            return false;
+        };
+        let stream = within(deadline, async {
+            let id: zbus::zvariant::OwnedValue = self
+                .connection
+                .call_method(
+                    Some(SERVICE),
+                    path.as_str(),
+                    Some(PROPERTIES),
+                    "Get",
+                    &(SESSION_INTERFACE, "SessionId"),
+                )
+                .await
+                .map_err(|error| classify_call(&error))?
+                .body()
+                .deserialize()
+                .map_err(|error| classify_call(&error))?;
+            let id = String::try_from(id).map_err(|_| AdapterError::internal("no session id"))?;
+            let mut options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+                std::collections::HashMap::new();
+            options.insert("remote-desktop-session-id", id.as_str().into());
+            let cast: OwnedObjectPath = self
+                .connection
+                .call_method(
+                    Some(SCREEN_CAST),
+                    SCREEN_CAST_PATH,
+                    Some(SCREEN_CAST),
+                    "CreateSession",
+                    &(options,),
+                )
+                .await
+                .map_err(|error| classify_call(&error))?
+                .body()
+                .deserialize()
+                .map_err(|error| classify_call(&error))?;
+            let none: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+                std::collections::HashMap::new();
+            self.connection
+                .call_method(
+                    Some(SCREEN_CAST),
+                    cast.as_str(),
+                    Some(SCREEN_CAST_SESSION),
+                    "RecordMonitor",
+                    &("", none),
+                )
+                .await
+                .map_err(|error| classify_call(&error))?
+                .body()
+                .deserialize::<OwnedObjectPath>()
+                .map_err(|error| classify_call(&error))
+        });
+        self.stream = stream.ok();
+        self.stream.is_some()
+    }
+
+    pub(crate) fn pointer_motion_absolute(
+        &mut self,
+        x: f64,
+        y: f64,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let path = self.session_path()?;
+        let stream = self
+            .stream
+            .as_ref()
+            .ok_or_else(|| AdapterError::internal("No screen-cast stream is linked"))?
+            .as_str();
+        within(deadline, async {
+            self.connection
+                .call_method(
+                    Some(SERVICE),
+                    path,
+                    Some(SESSION_INTERFACE),
+                    "NotifyPointerMotionAbsolute",
+                    &(stream, x, y),
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| classify_call(&error))
+        })
+    }
+}
+
 impl KeySession for RemoteDesktop {
     fn create(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
         let path = within(deadline, async {
@@ -172,6 +268,7 @@ impl KeySession for RemoteDesktop {
         let stopped = self.call_session("Stop", deadline);
         self.session = None;
         self.started = false;
+        self.stream = None;
         if stopped.is_err() {
             SessionBus::forget(&self.connection);
         }
