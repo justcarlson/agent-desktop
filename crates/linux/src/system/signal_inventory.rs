@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
-
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::SharedBus;
@@ -18,6 +16,13 @@ use crate::tree::AtspiElement;
 /// How far the read of one selected application's frames got. `app` indexes
 /// `Registry::apps`.
 pub(crate) struct AppOutcome {
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the capture reads the outcome, tests read the app"
+        )
+    )]
     pub(crate) app: usize,
     pub(crate) read: RootRead,
 }

@@ -21,14 +21,6 @@ fn as_timeout(error: &AdapterError) -> AdapterError {
         .with_platform_detail(format!("{:?}: {cause}", error.code))
 }
 
-fn forget_cached(bus: &SharedBus) {
-    if let Ok(probe) = Deadline::detached_after(1)
-        && let Ok(connection) = bus.get(probe)
-    {
-        bus.forget(&connection);
-    }
-}
-
 /// Narrows every failure of a capture to the three codes core's poll loop
 /// understands. A scoped target confirmed stopped stays `APP_UNRESPONSIVE`
 /// and a missing accessibility bus stays fatal; everything else is
@@ -41,7 +33,7 @@ pub(crate) fn narrow(
     bus: &SharedBus,
     deadline: Deadline,
 ) -> AdapterError {
-    narrow_with(error, scope, deadline, || forget_cached(bus))
+    narrow_with(error, scope, deadline, || bus.forget_cached())
 }
 
 pub(super) fn narrow_with(
