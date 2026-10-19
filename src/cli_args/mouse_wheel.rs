@@ -21,7 +21,7 @@ pub(crate) struct MouseWheelArgs {
         long,
         default_value = "0",
         allow_negative_numbers = true,
-        help = "Horizontal wheel lines; positive scrolls left, negative scrolls right"
+        help = "Horizontal wheel lines; positive scrolls right, negative scrolls left"
     )]
     #[serde(default)]
     pub dx: f64,
