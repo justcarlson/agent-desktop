@@ -187,32 +187,25 @@ fn keysym_text_uses_keysyms_directly_with_no_remap_and_chunks_by_character() {
 fn every_restore_waits_at_least_fifty_milliseconds_after_the_last_key_up() {
     let plans = plan_text_with(&Keymap::sample(), "你😀é€", UnmappedRoute::Remap).unwrap();
     for plan in &plans {
-        let restore = plan.steps.len() - 1;
+        let last_key = plan
+            .steps
+            .iter()
+            .rposition(|step| matches!(step, Step::Key { .. }))
+            .unwrap();
+        let restore = last_key
+            + 1
+            + plan.steps[last_key + 1..]
+                .iter()
+                .take_while(|step| matches!(step, Step::Pause(_)))
+                .count();
         assert!(matches!(plan.steps[restore], Step::Keymap(_)));
-        let mut held = Duration::ZERO;
-        let mut index = restore;
-        while index > 0 {
-            index -= 1;
-            match &plan.steps[index] {
-                Step::Pause(duration) => held += *duration,
-                _ => break,
-            }
-        }
-        assert_eq!(plan.steps[index], key(14, false));
+        let held: Duration = plan.steps[last_key + 1..restore]
+            .iter()
+            .map(|step| match step {
+                Step::Pause(duration) => *duration,
+                _ => Duration::ZERO,
+            })
+            .sum();
         assert!(held >= Duration::from_millis(50), "{held:?}");
     }
-}
-
-#[test]
-fn each_remapped_character_is_held_before_the_next_remap_edit() {
-    let plans = plan_text_with(&Keymap::sample(), "你好", UnmappedRoute::Remap).unwrap();
-    let steps = &plans[0].steps;
-    let second_edit = steps
-        .iter()
-        .enumerate()
-        .filter(|(_, step)| matches!(step, Step::Keymap(_)))
-        .nth(1)
-        .unwrap()
-        .0;
-    assert_eq!(steps[second_edit - 1], Step::Pause(REMAP_RESTORE_HOLD));
 }

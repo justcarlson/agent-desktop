@@ -245,6 +245,10 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         let hold = Plan {
             steps: vec![
                 Step::Key { code, down: true },
+                Step::Button {
+                    code: 1,
+                    down: true,
+                },
                 Step::Pause(Duration::from_secs(60)),
             ],
             release_origin: None,
@@ -266,8 +270,11 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         .spawn()
         .expect("helper");
     let marker = format!("key[{code}]=down");
+    let pointer = "Virtual core XTEST pointer";
+    let button_marker = "button[1]=down";
     let started = Instant::now();
-    while !device_state(device).contains(&marker) {
+    while !(device_state(device).contains(&marker) && device_state(pointer).contains(button_marker))
+    {
         assert!(
             started.elapsed() < Duration::from_secs(20),
             "key never went down"
@@ -282,8 +289,8 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let _ = child.wait();
     std::thread::sleep(Duration::from_millis(500));
     assert!(
-        device_state(device).contains(&marker),
-        "the server released the key by itself, so the journal is not needed"
+        device_state(device).contains(&marker) && device_state(pointer).contains(button_marker),
+        "the server released the input by itself, so the journal is not needed"
     );
     let nudge = Plan {
         steps: vec![Step::MoveTo { x: 3, y: 3 }],
@@ -291,7 +298,7 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     };
     run(&display, vec![nudge], &mut || Ok(()), deadline(8_000)).expect("next call");
     assert!(
-        !device_state(device).contains(&marker),
-        "the next call did not release the key a killed client left held"
+        !device_state(device).contains(&marker) && !device_state(pointer).contains(button_marker),
+        "the next call did not release the input a killed client left held"
     );
 }

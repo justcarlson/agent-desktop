@@ -28,11 +28,17 @@ enum Typing {
     Unmapped(u32),
 }
 
-struct Remap {
+struct Slot {
     keycode: u8,
-    width: usize,
     original: Vec<u32>,
 }
+
+struct Remap {
+    slots: Vec<Slot>,
+    width: usize,
+}
+
+pub(crate) const MAX_REMAP_SLOTS: usize = 32;
 
 pub(crate) fn plan_text(map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError> {
     plan_text_with(map, text, UNMAPPED_ROUTE)
@@ -51,10 +57,18 @@ pub(crate) fn plan_text_with(
         .filter(|(_, typing)| matches!(typing, Typing::Unmapped(_)))
         .map(|(character, _)| *character)
         .collect();
+    let mut distinct: Vec<u32> = Vec::new();
+    for typing in &typings {
+        if let Typing::Unmapped(keysym) = typing
+            && !distinct.contains(keysym)
+        {
+            distinct.push(*keysym);
+        }
+    }
     let remap = if unmapped.is_empty() {
         None
     } else {
-        Some(remap_for(map, &unmapped, route)?)
+        Some(remap_for(map, &unmapped, &distinct, route)?)
     };
     characters
         .chunks(CHUNK_CHARS)
@@ -71,63 +85,107 @@ fn classify(map: &Keymap, character: char) -> Typing {
     }
 }
 
-fn remap_for(map: &Keymap, unmapped: &[char], route: UnmappedRoute) -> Result<Remap, AdapterError> {
+fn remap_for(
+    map: &Keymap,
+    unmapped: &[char],
+    keysyms: &[u32],
+    route: UnmappedRoute,
+) -> Result<Remap, AdapterError> {
     if route == UnmappedRoute::Refuse || unmapped.iter().any(|c| c.is_control()) {
         return Err(refusal(unmapped));
     }
-    let keycode = map.spare_keycode().ok_or_else(|| {
-        AdapterError::new(
+    let spare = map.spare_keycodes(keysyms.len().min(MAX_REMAP_SLOTS));
+    if spare.is_empty() {
+        return Err(AdapterError::new(
             ErrorCode::ActionNotSupported,
             "The keyboard layout has no spare key to type characters it lacks",
         )
         .with_details(serde_json::json!({ "physical_delivery_started": false }))
-        .with_disposition(DeliverySemantics::not_delivered())
-    })?;
-    let original = map.keysyms_of(keycode).ok_or_else(|| refusal(unmapped))?;
+        .with_disposition(DeliverySemantics::not_delivered()));
+    }
+    let slots = spare
+        .into_iter()
+        .map(|keycode| {
+            map.keysyms_of(keycode)
+                .map(|original| Slot { keycode, original })
+                .ok_or_else(|| refusal(unmapped))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(Remap {
-        keycode,
+        slots,
         width: usize::from(map.keysyms_per_keycode),
-        original,
     })
+}
+
+struct Assignments<'a> {
+    remap: &'a Remap,
+    holds: Vec<Option<u32>>,
+    next: usize,
+}
+
+impl<'a> Assignments<'a> {
+    fn new(remap: &'a Remap) -> Self {
+        Self {
+            remap,
+            holds: vec![None; remap.slots.len()],
+            next: 0,
+        }
+    }
+
+    fn keycode_for(&mut self, steps: &mut Vec<Step>, keysym: u32) -> u8 {
+        if let Some(index) = self.holds.iter().position(|held| *held == Some(keysym)) {
+            return self.remap.slots[index].keycode;
+        }
+        let index = self.next;
+        self.next = (self.next + 1) % self.remap.slots.len();
+        if self.holds[index].is_some() {
+            steps.push(Step::Pause(REMAP_RESTORE_HOLD));
+        }
+        let keycode = self.remap.slots[index].keycode;
+        steps.push(Step::Keymap(KeymapEdit {
+            keycode,
+            keysyms: vec![keysym; self.remap.width],
+        }));
+        steps.push(Step::Pause(REMAP_SETTLE));
+        self.holds[index] = Some(keysym);
+        keycode
+    }
+
+    fn restore(&self, steps: &mut Vec<Step>) {
+        steps.push(Step::Pause(REMAP_RESTORE_HOLD));
+        for (index, held) in self.holds.iter().enumerate() {
+            if held.is_some() {
+                steps.push(Step::Keymap(KeymapEdit {
+                    keycode: self.remap.slots[index].keycode,
+                    keysyms: self.remap.slots[index].original.clone(),
+                }));
+            }
+        }
+    }
 }
 
 fn chunk_plan(map: &Keymap, chunk: &[Typing], remap: Option<&Remap>) -> Result<Plan, AdapterError> {
     let shift = map.modifier_code(&Modifier::Shift);
     let mut steps = Vec::new();
-    let mut remapped = false;
+    let mut assignments = remap.map(Assignments::new);
     for typing in chunk {
         match *typing {
             Typing::Mapped(lookup) => mapped_steps(&mut steps, lookup, shift)?,
             Typing::Unmapped(keysym) => {
-                let Some(remap) = remap else {
+                let Some(assignments) = assignments.as_mut() else {
                     return Err(AdapterError::new(
                         ErrorCode::Internal,
                         "An unmapped character reached planning without a remap",
                     ));
                 };
-                remapped = true;
-                steps.push(Step::Keymap(KeymapEdit {
-                    keycode: remap.keycode,
-                    keysyms: vec![keysym; remap.width],
-                }));
-                steps.push(Step::Pause(REMAP_SETTLE));
-                steps.push(Step::Key {
-                    code: remap.keycode,
-                    down: true,
-                });
-                steps.push(Step::Key {
-                    code: remap.keycode,
-                    down: false,
-                });
-                steps.push(Step::Pause(REMAP_RESTORE_HOLD));
+                let code = assignments.keycode_for(&mut steps, keysym);
+                steps.push(Step::Key { code, down: true });
+                steps.push(Step::Key { code, down: false });
             }
         }
     }
-    if let (true, Some(remap)) = (remapped, remap) {
-        steps.push(Step::Keymap(KeymapEdit {
-            keycode: remap.keycode,
-            keysyms: remap.original.clone(),
-        }));
+    if let Some(assignments) = assignments.filter(|a| a.holds.iter().any(Option::is_some)) {
+        assignments.restore(&mut steps);
     }
     Ok(Plan {
         steps,

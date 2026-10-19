@@ -88,11 +88,13 @@ impl Keymap {
             .find(|code| *code != 0)
     }
 
-    pub(crate) fn spare_keycode(&self) -> Option<u8> {
+    pub(crate) fn spare_keycodes(&self, wanted: usize) -> Vec<u8> {
         (0..self.keycode_count())
             .rev()
-            .find(|index| (0..self.width()).all(|level| self.column(*index, level) == Some(0)))
-            .and_then(|index| self.code_at(index))
+            .filter(|index| (0..self.width()).all(|level| self.column(*index, level) == Some(0)))
+            .filter_map(|index| self.code_at(index))
+            .take(wanted)
+            .collect()
     }
 
     pub(crate) fn keysyms_of(&self, keycode: u8) -> Option<Vec<u32>> {

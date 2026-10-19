@@ -137,6 +137,13 @@ impl Scene {
             .execute_action(handle, ActionRequest::headed(action), &lease)
     }
 
+    pub(super) fn adapter_bounds(&self, target: &Tgt) -> Option<agent_desktop_core::Rect> {
+        self.adapter
+            .get_element_bounds(&target.handle, deadline(5_000))
+            .ok()
+            .flatten()
+    }
+
     pub(super) fn bounds_y(&self, target: &Tgt) -> f64 {
         self.adapter
             .get_element_bounds(&target.handle, deadline(5_000))

@@ -73,13 +73,14 @@ fn a_mapping_with_no_modifier_table_has_no_modifier_codes() {
 
 #[test]
 fn the_spare_keycode_is_the_highest_one_with_no_symbols() {
-    assert_eq!(Keymap::sample().spare_keycode(), Some(14));
+    assert_eq!(Keymap::sample().spare_keycodes(1), vec![14]);
+    assert_eq!(Keymap::sample().spare_keycodes(5), vec![14, 12]);
 }
 
 #[test]
 fn a_mapping_with_no_empty_keycode_has_no_spare() {
     let map = Keymap::parse(8, 2, vec![1, 2, 3, 4], 0, Vec::new());
-    assert_eq!(map.spare_keycode(), None);
+    assert!(map.spare_keycodes(1).is_empty());
 }
 
 #[test]
