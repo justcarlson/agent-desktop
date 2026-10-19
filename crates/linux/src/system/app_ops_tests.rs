@@ -28,6 +28,11 @@ fn a_running_process_off_the_bus_is_app_not_found_naming_the_connection() {
     assert_eq!(error.code, ErrorCode::AppNotFound);
     assert!(error.message.contains("not on the accessibility bus"));
     assert!(error.message.contains("77"));
+    let advice = error.suggestion.clone().expect("a recovery hint");
+    assert!(advice.contains("--force-renderer-accessibility"));
+    assert!(advice.contains("--no-sandbox"));
+    assert!(advice.contains("QT_ACCESSIBILITY=1"));
+    assert!(!advice.contains("A Chromium or Electron app needs ACCESSIBILITY_ENABLED=1"));
     let details = error.details.expect("details");
     assert_eq!(details["pid"], 77);
 }
