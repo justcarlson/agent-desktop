@@ -8,6 +8,7 @@ use crate::{ErrorCode, Rect, action::Action, action_request::ActionRequest, capa
 pub(super) fn visibility(
     evidence: &ActionabilityEvidence,
     requires_geometry: bool,
+    delivered_without_pointer: bool,
 ) -> ActionabilityCheck {
     match evidence.state.hidden {
         Some(true) => return fail("visible", "live hidden state is true"),
@@ -34,7 +35,10 @@ pub(super) fn visibility(
     if !requires_geometry && evidence.state.offscreen.is_none() && evidence.bounds.is_some() {
         return pass("visible");
     }
-    if !requires_geometry && evidence.state.offscreen == Some(false) && evidence.bounds.is_none() {
+    if (!requires_geometry || delivered_without_pointer)
+        && evidence.state.offscreen == Some(false)
+        && evidence.bounds.is_none()
+    {
         return pass("visible");
     }
     let Some(bounds) = evidence.bounds else {
@@ -44,6 +48,18 @@ pub(super) fn visibility(
         return fail("visible", "bounds are zero-sized");
     }
     pass("visible")
+}
+
+pub(super) fn stability_without_pointer(
+    evidence: &ActionabilityEvidence,
+    expectation: super::stability::StabilityExpectation,
+) -> ActionabilityCheck {
+    if evidence.bounds.is_none() && evidence.state.offscreen == Some(false) {
+        let mut check = pass("stable");
+        check.reason = Some("no pointer use; not measurable without bounds".to_owned());
+        return check;
+    }
+    stability(expectation, evidence.bounds)
 }
 
 pub(super) fn stability(

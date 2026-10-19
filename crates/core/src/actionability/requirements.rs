@@ -85,6 +85,30 @@ impl ActionabilityRequirements {
         !(direct_pointer || direct_text)
     }
 
+    /// Whether a headless action reaches its target without a pointer: the
+    /// delivery is semantic (a click through an advertised verb) or the
+    /// action's own capability is advertised, and no cursor or hit test is
+    /// involved. Headed, hover, drag and a click with no semantic verb are
+    /// pointer-delivered and never qualify.
+    pub(crate) fn delivered_without_pointer(
+        &self,
+        request: &crate::ActionRequest,
+        available_actions: &[String],
+        pointer_delivery: PointerDelivery,
+    ) -> bool {
+        if request.policy != crate::InteractionPolicy::headless() {
+            return false;
+        }
+        match pointer_delivery {
+            PointerDelivery::Physical => false,
+            PointerDelivery::Semantic => true,
+            PointerDelivery::NotApplicable => crate::capability::contains_any(
+                available_actions,
+                crate::capability::for_action(&request.action),
+            ),
+        }
+    }
+
     pub(crate) fn requires_stability(&self, pointer_delivery: PointerDelivery) -> bool {
         self.stable && !matches!(pointer_delivery, PointerDelivery::Semantic)
     }

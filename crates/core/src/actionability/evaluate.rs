@@ -107,7 +107,7 @@ pub(super) fn check_with_stability_or_gap(
     finish(evidence, report)
 }
 
-fn build_report(
+pub(super) fn build_report(
     stability: StabilityExpectation,
     evidence: &ActionabilityEvidence,
     request: &ActionRequest,
@@ -120,14 +120,24 @@ fn build_report(
     let mut checks = Vec::new();
     let mut verified_point = None;
     let presentation_point = evidence.bounds.and_then(center_point);
+    let without_pointer = requirements.delivered_without_pointer(
+        request,
+        &evidence.available_actions,
+        pointer_delivery,
+    );
     if requirements.visible {
         checks.push(gates::visibility(
             evidence,
             requirements.requires_geometry(request, &evidence.available_actions),
+            without_pointer,
         ));
     }
     if requirements.requires_stability(pointer_delivery) {
-        checks.push(gates::stability(stability, evidence.bounds));
+        checks.push(if without_pointer {
+            gates::stability_without_pointer(evidence, stability)
+        } else {
+            gates::stability(stability, evidence.bounds)
+        });
     }
     if requirements.enabled {
         checks.push(gates::enabled(evidence));
