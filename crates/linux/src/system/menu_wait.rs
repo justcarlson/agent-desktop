@@ -5,6 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, P
 use super::SharedBus;
 use super::liveness::{Liveness, liveness};
 use super::menu_anchor::menu_open;
+use super::process_facts::{self, ProcessFacts};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -13,6 +14,18 @@ pub(super) trait MenuWorld {
     fn liveness(&self) -> Liveness;
     fn menu_open(&self, deadline: Deadline) -> Result<bool, AdapterError>;
     fn pause(&self, gap: Duration);
+
+    fn label(&self) -> String {
+        let pid = self.process().pid.get();
+        app_label(process_facts::read(pid).as_ref(), pid)
+    }
+}
+
+fn app_label(facts: Option<&ProcessFacts>, pid: u32) -> String {
+    facts
+        .and_then(|facts| facts.exe_basename.clone().or(Some(facts.comm.clone())))
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| format!("pid {pid}"))
 }
 
 struct BusWorld<'a> {
@@ -75,10 +88,7 @@ fn verify_process(world: &impl MenuWorld) -> Result<(), AdapterError> {
     match world.liveness() {
         Liveness::Alive => Ok(()),
         Liveness::Gone => Err(stale_process_error(world.process())),
-        Liveness::Stopped => Err(AdapterError::app_unresponsive(&format!(
-            "pid {}",
-            world.process().pid.get()
-        ))),
+        Liveness::Stopped => Err(AdapterError::app_unresponsive(&world.label())),
     }
 }
 

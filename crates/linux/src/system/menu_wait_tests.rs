@@ -2,8 +2,9 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use super::{MenuWorld, run};
+use super::{MenuWorld, app_label, run};
 use crate::system::liveness::Liveness;
+use crate::system::process_facts::ProcessFacts;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessIdentity};
 
 struct Fake {
@@ -57,6 +58,10 @@ impl MenuWorld for Fake {
             })
         };
         next.unwrap_or(Ok(false))
+    }
+
+    fn label(&self) -> String {
+        "calculator".to_owned()
     }
 
     fn pause(&self, gap: Duration) {
@@ -185,4 +190,31 @@ fn the_deadline_is_consulted_only_after_a_mismatch() {
     std::thread::sleep(Duration::from_millis(5));
     assert!(run(&world, true, spent).is_ok());
     assert_eq!(world.read_count.get(), 1);
+}
+
+fn facts(comm: &str, exe: Option<&str>) -> ProcessFacts {
+    ProcessFacts {
+        comm: comm.to_owned(),
+        exe_basename: exe.map(str::to_owned),
+        instance: "boot:1".to_owned(),
+        web_family: None,
+    }
+}
+
+#[test]
+fn the_name_of_a_stopped_app_is_its_executable_then_its_comm_then_its_pid() {
+    assert_eq!(
+        app_label(Some(&facts("gnome-calc", Some("gnome-calculator"))), 7),
+        "gnome-calculator"
+    );
+    assert_eq!(app_label(Some(&facts("gnome-calc", None)), 7), "gnome-calc");
+    assert_eq!(app_label(Some(&facts("", None)), 7), "pid 7");
+    assert_eq!(app_label(None, 7), "pid 7");
+}
+
+#[test]
+fn a_stopped_target_error_names_the_app() {
+    let world = Fake::new(vec![Ok(false)]).with_lives(vec![Liveness::Stopped]);
+    let error = run(&world, true, deadline(5000)).expect_err("stopped");
+    assert!(error.message.contains("calculator"), "{}", error.message);
 }
