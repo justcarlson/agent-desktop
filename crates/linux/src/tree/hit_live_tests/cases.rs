@@ -1,0 +1,124 @@
+use super::{
+    AtspiElement, Strictness, candidates, exercise, gtk3_check, gtk4_check, hit, qt_check, verdict,
+    window_extents,
+};
+use crate::tree::WalkLimits;
+use crate::tree::live_apps::{AppSpec, app, qt, terminal, vscode};
+use crate::tree::live_launch::nonce;
+use crate::tree::live_rig::{deadline, rig};
+use crate::tree::walker::walk_tree;
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_gtk3_terminal_cover_in_both_directions() {
+    let session = rig();
+    terminal(&session.adapter, &session.bus, gtk3_check).expect("gtk3 terminal");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_qt_cover_in_both_directions() {
+    let session = rig();
+    qt(&session.adapter, &session.bus, qt_check).expect("qt");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_gtk4_calculator_at_two_positions() {
+    let session = rig();
+    let spec = AppSpec {
+        label: "calculator",
+        program: "gnome-calculator",
+        arguments: &[],
+        min_nodes: 30,
+    };
+    app(&spec, &session.adapter, &session.bus, gtk4_check).expect("gtk4 calculator");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_gtk4_files_at_two_positions() {
+    let session = rig();
+    let spec = AppSpec {
+        label: "files",
+        program: "nautilus",
+        arguments: &["--new-window"],
+        min_nodes: 30,
+    };
+    app(&spec, &session.adapter, &session.bus, gtk4_check).expect("gtk4 files");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_vscode_is_never_a_wrong_verdict() {
+    let session = rig();
+    vscode(&session.adapter, &session.bus, |_, _, _, frame| {
+        exercise("vscode", Strictness::NeverWrong, frame)
+    })
+    .expect("vscode");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_chrome_cover_in_both_directions() {
+    let session = rig();
+    let data = std::env::temp_dir().join(nonce("hit-chrome"));
+    let data_arg = format!("--user-data-dir={}", data.display());
+    let spec = AppSpec {
+        label: "chrome",
+        program: "google-chrome",
+        arguments: &[
+            "--force-renderer-accessibility",
+            "--no-first-run",
+            "--no-sandbox",
+            "--password-store=basic",
+            &data_arg,
+            "about:blank",
+        ],
+        min_nodes: 30,
+    };
+    let outcome = app(&spec, &session.adapter, &session.bus, |_, _, _, frame| {
+        exercise("chrome", Strictness::Exact, frame)
+    });
+    let _ = std::fs::remove_dir_all(data);
+    outcome.expect("chrome");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn hit_live_files_zero_axis_group_is_unknown() {
+    let session = rig();
+    let spec = AppSpec {
+        label: "files",
+        program: "nautilus",
+        arguments: &["--new-window"],
+        min_nodes: 30,
+    };
+    app(&spec, &session.adapter, &session.bus, |_, _, _, frame| {
+        let inner = rig();
+        let walk = walk_tree(&inner.bus, frame, &WalkLimits::default(), deadline(10_000))
+            .map_err(|error| error.message)?;
+        let mut all = Vec::new();
+        candidates(&walk.root, &mut all);
+        let zero: Vec<&AtspiElement> = all
+            .into_iter()
+            .filter(|element| {
+                window_extents(&inner, element)
+                    .is_some_and(|rect| rect.width == 0 || rect.height == 0)
+            })
+            .collect();
+        println!("hit_live files: {} zero-axis nodes", zero.len());
+        assert!(!zero.is_empty(), "the Files window has a zero-axis node");
+        for element in zero.iter().take(5) {
+            let outcome = hit(&inner, element, (300, 300));
+            println!(
+                "hit_live files: zero-axis {} -> {}",
+                element.path(),
+                verdict(&outcome)
+            );
+            assert_eq!(verdict(&outcome), "unknown");
+        }
+        Ok(())
+    })
+    .expect("files");
+}
