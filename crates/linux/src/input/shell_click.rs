@@ -22,6 +22,7 @@ const STEP_PIXELS: f64 = 40.0;
 const MOTION_PAUSE: Duration = Duration::from_millis(10);
 const SETTLE_PAUSE: Duration = Duration::from_millis(150);
 const PRESS_PAUSE: Duration = Duration::from_millis(60);
+const RECOVERY_MS: u64 = 1_000;
 const BTN_LEFT: u32 = 272;
 const BTN_RIGHT: u32 = 273;
 const BTN_MIDDLE: u32 = 274;
@@ -83,7 +84,14 @@ fn press<S: PointerSession>(
 ) -> Result<(), AdapterError> {
     session.button(code, true, deadline)?;
     session.pause(PRESS_PAUSE);
-    session.button(code, false, deadline)
+    session.button(code, false, recovery_deadline(deadline))
+}
+
+/// A press that went down must come up, and a session that was created must
+/// stop, even when the click spent its whole budget: both run on a short
+/// deadline of their own, or the compositor keeps the button held.
+fn recovery_deadline(spent: Deadline) -> Deadline {
+    Deadline::detached_after(RECOVERY_MS).unwrap_or(spent)
 }
 
 /// Moves the compositor pointer to `target` and clicks. The session is
@@ -103,7 +111,7 @@ pub(crate) fn run_pointer<S: PointerSession>(
             session.pause(SETTLE_PAUSE);
             press(session, button_code(button), deadline)
         });
-    let stopped = session.stop(deadline);
+    let stopped = session.stop(recovery_deadline(deadline));
     delivered.and(stopped)
 }
 

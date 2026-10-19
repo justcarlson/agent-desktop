@@ -12,6 +12,7 @@ struct Recording {
     log: Rc<RefCell<Vec<String>>>,
     fail_on: Option<&'static str>,
     position: (f64, f64),
+    recovery_live: Vec<(&'static str, bool)>,
 }
 
 impl Recording {
@@ -56,7 +57,8 @@ impl KeySession for Recording {
         self.step("keysym".to_owned())
     }
 
-    fn stop(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {
+    fn stop(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
+        self.recovery_live.push(("stop", !deadline.is_expired()));
         self.step("stop".to_owned())
     }
 }
@@ -71,7 +73,10 @@ impl PointerSession for Recording {
         self.step("motion".to_owned())
     }
 
-    fn button(&mut self, button: u32, down: bool, _deadline: Deadline) -> Result<(), AdapterError> {
+    fn button(&mut self, button: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError> {
+        if !down {
+            self.recovery_live.push(("up", !deadline.is_expired()));
+        }
         let label = format!(
             "button:{button}:{down}@{},{}",
             self.position.0, self.position.1
@@ -151,4 +156,13 @@ fn a_session_that_will_not_stop_is_reported_after_a_good_click() {
     let error = run_pointer(&mut session, &target(), &MouseButton::Left, deadline())
         .expect_err("the leak is an error");
     assert_eq!(error.code, ErrorCode::ActionFailed);
+}
+
+#[test]
+fn the_release_and_the_stop_run_on_a_live_deadline_after_the_budget_is_spent() {
+    let spent = Deadline::after(1).expect("a deadline builds");
+    std::thread::sleep(Duration::from_millis(20));
+    let mut session = Recording::default();
+    run_pointer(&mut session, &target(), &MouseButton::Left, spent).expect("the click lands");
+    assert_eq!(session.recovery_live, [("up", true), ("stop", true)]);
 }
