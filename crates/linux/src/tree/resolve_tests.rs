@@ -275,3 +275,25 @@ fn a_search_left_incomplete_by_a_stopped_application_names_it_as_unresponsive() 
     fake.stopped = None;
     assert!(!refusal(&mut fake, &back).message.contains("files"));
 }
+
+#[test]
+fn a_destroyed_landing_declines_settled_and_any_other_failed_read_leaves_the_region_unread() {
+    let mut fake = files();
+    let entry = fake.entry_of("/opts2", true);
+    let frame = fake.frame();
+    fake.faults.evidence_errors.insert(
+        "/opts2".to_owned(),
+        AdapterError::new(ErrorCode::ElementNotFound, "destroyed"),
+    );
+    let (landed, unread) = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
+    assert!(landed.is_none());
+    assert!(!unread);
+
+    fake.faults.evidence_errors.insert(
+        "/opts2".to_owned(),
+        AdapterError::new(ErrorCode::Internal, "unreadable"),
+    );
+    let (landed, unread) = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
+    assert!(landed.is_none());
+    assert!(unread);
+}

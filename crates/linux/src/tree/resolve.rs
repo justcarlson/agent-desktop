@@ -38,7 +38,9 @@ fn path_tier_applies(entry: &RefEntry) -> bool {
 
 /// The element the stored path lands on when it still answers to the stored
 /// identity and has not changed size, and whether the descent left a region
-/// unread. Declining is never a verdict: the search decides.
+/// unread. Declining is never a verdict: the search decides. A landing that
+/// was destroyed is settled gone, as the anchor path settles it, so it
+/// declines without leaving a region unread; any other failed read does.
 fn path_tier<S: Source>(
     source: &mut S,
     frame: &AtspiElement,
@@ -58,6 +60,7 @@ fn path_tier<S: Source>(
         Err(error) if matches!(error.code, ErrorCode::AppNotFound | ErrorCode::Timeout) => {
             Err(error)
         }
+        Err(error) if error.code == ErrorCode::ElementNotFound => Ok((None, false)),
         Err(_) => Ok((None, true)),
     }
 }
