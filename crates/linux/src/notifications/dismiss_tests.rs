@@ -72,7 +72,7 @@ fn a_reflow_between_the_reads_is_refused_before_the_click() {
     let moved = vec![spec("New", "n"), spec("Mail", "a"), spec("Chat", "b")];
     let world = FakeWorld::new(&log, vec![reading(&three(), false), reading(&moved, false)])
         .staged_by_reads();
-    let error = run(world, &identity("Chat", "b")).expect_err("moved");
+    let error = run(world, &NotificationIdentity::default()).expect_err("moved");
     assert_eq!(error.code, ErrorCode::NotificationNotFound);
     assert!(!log.borrow().iter().any(|line| line.starts_with("click")));
 }
