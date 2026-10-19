@@ -200,8 +200,10 @@ pub(crate) fn capture(
     recheck(&ctx, &before, plain.then_some(rect))?;
     let displays = env.lookup.displays(deadline).unwrap_or_default();
     let scale = scale_for(&displays, ctx.window.bounds.unwrap_or_else(|| rect.into()));
+    let (width, height) = (raw.width, raw.height);
     let rgb = (env.decode)(&raw)?;
-    (env.encode)(&rgb, raw.width, raw.height, scale)
+    drop(raw);
+    (env.encode)(&rgb, width, height, scale)
 }
 
 #[cfg(test)]

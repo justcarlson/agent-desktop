@@ -93,7 +93,8 @@ pub(super) fn read_strips(
     }
     let limit = connection.maximum_request_bytes();
     let strips = rect.strips(usize::from(rect.width) * WIRE_PIXEL_BYTES, limit)?;
-    let mut data = Vec::new();
+    let mut data =
+        Vec::with_capacity(usize::from(rect.width) * usize::from(rect.height) * WIRE_PIXEL_BYTES);
     let mut format = None;
     let mut stride = 0;
     for strip in strips {

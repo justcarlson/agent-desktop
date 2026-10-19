@@ -3,6 +3,8 @@ use png::{BitDepth, ColorType, Compression, Encoder};
 
 use super::pixels::MAX_PIXELS;
 
+const ENCODED_SHARE: usize = 4;
+
 fn refused(reason: impl Into<String>) -> AdapterError {
     AdapterError::new(ErrorCode::ActionFailed, reason)
 }
@@ -60,7 +62,7 @@ pub(crate) fn encode_png(
     if rgb.len() as u64 != pixels * 3 {
         return Err(refused("The capture bytes do not match its size"));
     }
-    let mut data = Vec::new();
+    let mut data = Vec::with_capacity(rgb.len() / ENCODED_SHARE);
     write_png(rgb, width, height, &mut data)?;
     check_encoded(data.len())?;
     Ok(ImageBuffer {
