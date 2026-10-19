@@ -76,6 +76,13 @@ pub(crate) fn kind(toolkit: &ToolkitId) -> ToolkitKind {
     }
 }
 
+/// Whether a combo box's own `Selection` follows the application: GTK 3 only.
+/// A Qt combo reports the selection of its popup view, which moves while the
+/// combo keeps its value (L30-25, L30-40).
+pub(crate) fn combo_selection_is_live(toolkit: &ToolkitId) -> bool {
+    kind(toolkit) == ToolkitKind::Gtk3
+}
+
 /// Whether the root names Gecko, whose `SetTextContents` and `InsertText`
 /// answer `true` and change nothing (L30-14).
 pub(crate) fn is_gecko(toolkit: &ToolkitId) -> bool {

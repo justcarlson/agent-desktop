@@ -15,25 +15,20 @@ use super::select_exclusive::{
     SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
 };
 use super::select_popup::{is_popup_dropdown, select_in_popup};
-use super::select_search::{Container, Hit, Inspected, ItemReader, Search, name_matches, search};
+use super::select_search::{Container, Hit, Inspected, ItemReader, Search, search};
+use super::select_verify::read_verification;
 use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::role_numbers::COMBO_BOX;
-use crate::tree::state_bits::SELECTED;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
 pub(super) const SELECT_SETTLE: Duration = Duration::from_millis(1000);
-const OBJECT_REPLACEMENT: char = '\u{fffc}';
 const SELECT_CHILD_LABEL: &str = "Selection.SelectChild";
 const SELECT_VERB_LABEL: &str = "Action.DoAction";
 const SELECT_SUGGESTION: &str =
     "Refresh the snapshot and inspect the element before deciding whether to retry.";
-
-pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool>) -> Option<bool> {
-    combo_value.or(item_selected)
-}
 
 pub(super) struct BusReader<'a> {
     pub(super) bus: &'a SharedBus,
@@ -149,38 +144,6 @@ fn selection_parent(
     }))
 }
 
-fn says_something(shown: &str) -> bool {
-    shown
-        .chars()
-        .any(|char| !char.is_whitespace() && char != OBJECT_REPLACEMENT)
-}
-
-fn combo_value_matches(view: &NodeView, wanted: &str) -> Option<bool> {
-    if view.role() != Some(COMBO_BOX) {
-        return None;
-    }
-    let shown = view
-        .value()
-        .or_else(|| view.name())
-        .filter(|shown| says_something(shown))?;
-    Some(name_matches(shown, wanted))
-}
-
-fn read_verification(
-    bus: &SharedBus,
-    root: &Target<'_>,
-    item: &AtspiElement,
-    wanted: &str,
-) -> Option<bool> {
-    let combo = read_node_view(bus, root.handle, root.deadline)
-        .ok()
-        .and_then(|view| combo_value_matches(&view, wanted));
-    let selected = read_node_view(bus, &handle_of(item), root.deadline)
-        .ok()
-        .and_then(|view| view.state(SELECTED));
-    verification(combo, selected)
-}
-
 pub(super) fn container_target<'a>(
     parent: &Target<'a>,
     handle: &'a agent_desktop_core::NativeHandle,
@@ -205,7 +168,13 @@ fn keep_only_the_item(
         return exclusive_verdict(count);
     }
     replace_with_only(holder, index).ok()?;
-    let reread = read_verification(target.bus, target, item, display_value);
+    let reread = read_verification(
+        target.bus,
+        target,
+        item,
+        display_value,
+        Some((holder, index)),
+    );
     match reread {
         Some(true) => exclusive_verdict(selected_count(holder)),
         other => other,
@@ -236,7 +205,18 @@ fn select_through(
             target.deadline,
             SELECT_SETTLE,
             POLL_STEP,
-            || read_verification(target.bus, target, &verified_node, display_value),
+            || {
+                read_verification(
+                    target.bus,
+                    target,
+                    &verified_node,
+                    display_value,
+                    holder
+                        .as_ref()
+                        .zip(container)
+                        .map(|(holder, c)| (holder, c.index)),
+                )
+            },
             |verified| *verified == Some(true),
         );
         match (&holder, container) {

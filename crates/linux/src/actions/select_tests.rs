@@ -1,5 +1,6 @@
 use super::*;
 use crate::actions::mutation::WriteReply;
+use crate::actions::select_verify::{combo_evidence, says_something, verification};
 
 #[test]
 fn a_combo_value_outranks_an_unselected_item() {
@@ -89,4 +90,22 @@ fn a_blank_or_object_replacement_text_says_nothing_about_the_combo_value() {
     assert!(!says_something(""));
     assert!(!says_something(" \u{fffc} "));
     assert!(says_something("Two"));
+}
+
+#[test]
+fn a_combo_name_is_no_evidence_against_the_wanted_value_where_it_may_be_a_label() {
+    assert_eq!(combo_evidence(None, Some("combo"), "beta", true), None);
+    assert_eq!(
+        combo_evidence(None, Some("combo"), "beta", false),
+        Some(false)
+    );
+    assert_eq!(combo_evidence(None, Some("beta"), "beta", true), Some(true));
+    assert_eq!(
+        combo_evidence(Some("alpha"), Some("beta"), "beta", true),
+        Some(false)
+    );
+    assert_eq!(
+        combo_evidence(Some("\u{fffc}"), Some(""), "beta", false),
+        None
+    );
 }

@@ -22,6 +22,7 @@ pub(crate) mod select;
 pub(crate) mod select_exclusive;
 pub(crate) mod select_popup;
 pub(crate) mod select_search;
+pub(crate) mod select_verify;
 pub(crate) mod text_write;
 pub(crate) mod toggle_state;
 pub(crate) mod value_write;

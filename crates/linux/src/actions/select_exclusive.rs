@@ -32,6 +32,28 @@ pub(super) fn selected_count(holder: &Target<'_>) -> Option<i32> {
     .flatten()
 }
 
+pub(super) fn child_selected(holder: &Target<'_>, index: i32) -> Option<bool> {
+    let connection = holder.bus.get(holder.deadline).ok()?;
+    let element = holder.element;
+    within(holder.deadline, async {
+        let reply = connection
+            .inner()
+            .call_method(
+                Some(element.bus_name()),
+                element.path(),
+                Some(SELECTION_INTERFACE),
+                "IsChildSelected",
+                &(index,),
+            )
+            .await;
+        Ok(reply
+            .ok()
+            .and_then(|message| message.body().deserialize::<bool>().ok()))
+    })
+    .ok()
+    .flatten()
+}
+
 pub(super) fn needs_replacement(count: Option<i32>) -> bool {
     count.is_some_and(|count| count > 1)
 }

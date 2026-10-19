@@ -97,3 +97,15 @@ fn only_a_root_named_gecko_is_gecko() {
     assert!(!is_gecko(&toolkit(Some("Qt"), Some("6.4"))));
     assert!(!is_gecko(&ToolkitId::default()));
 }
+
+#[test]
+fn only_gtk_three_has_a_combo_selection_that_follows_the_application() {
+    use super::combo_selection_is_live;
+    assert!(combo_selection_is_live(&toolkit(Some("gtk"), Some("3.24"))));
+    assert!(!combo_selection_is_live(&toolkit(
+        Some("GTK"),
+        Some("4.14")
+    )));
+    assert!(!combo_selection_is_live(&toolkit(Some("Qt"), Some("6.4"))));
+    assert!(!combo_selection_is_live(&ToolkitId::default()));
+}
