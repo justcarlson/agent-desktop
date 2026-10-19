@@ -208,11 +208,10 @@ text(s)    := chunks of <= 32 chars
   7. Whether the combos of KTD11 that openbox handles (`alt+f4`, `alt+tab`) behave as listed in the private session.
   8. AT-SPI `GenerateKeyboardEvent` and `GenerateMouseEvent` effect on apps (`L5-4`), and the hold timing of a press-sleep-release (`L5-9`).
   9. Wayland: does `NotifyKeyboardKeysym` drop only the first key of a session or the first after idle, which lead (a modifier tap, a settle wait) survives, whether and when frame `ACTIVE` appears (`L23-29`: after a RemoteDesktop session and its first key, on the focused window), whether a modifier-tap lead creates the seat keyboard as the first key did (`L23-30`), and whether the call works for a plain client with no consent step.
-  10. Costs, min-of-seven with the warm-up discarded: one key, one click, one 300 ms drag, one worker connect, one RemoteDesktop session, against the `L5-5` baselines.
-  11. `/dev/uinput` mode and group membership on the box (`L5-2`), unchanged by this unit.
-  12. Whether `type` needs the element to report `FOCUSED` or the frame gate suffices, and how long frame `ACTIVE` takes to appear after `focus_window`, which sets the gate's polling budget.
-  13. Wayland modifier-versus-selection isolation (`L13-25`), owned here because the keyboard implementation is what a modifier fault would repair (E1). With the target focused in a Wayland-native GTK4 editor, send Ctrl+V and a plain printable key through `NotifyKeyboardKeysym` in the passing and the failing direction, with the clipboard selection owned by a foreign producer (`wl-copy` in the private session, and separately a GTK app that copied the text itself), each at least three times (`L23-30` landed `wl-copy` text with Ctrl+V once): does the plain key land every time, does Ctrl+V paste the foreign selection, the self-copied one, or neither. The row names whether a paste failure is in the modifier path (then `lead_key.rs` and `keysym_send.rs` repair it in this PR, with a regression test and a live case) or in the selection offer (then 3.10 consumes the row as its measured cause and 3.8 changes nothing). 3.10 carries no keyboard repair.
-  14. Scroll targets. For GTK3, GTK4, Qt and Chromium, which roles move content under a wheel at their centre on X11 and which do not (a scroll pane with no overflow, a list inside a scroll pane, a document), read back by an independent scroll position or the first visible row. This fixes KTD14's eligible-role list; a `scroll bar` `Value` write also moved the Files grid content after about 1.3 s (`L23-24`), which U1 records as the headless alternative on the toolkits where it works.
+  10. `/dev/uinput` mode and group membership on the box (`L5-2`), unchanged by this unit.
+  11. Whether `type` needs the element to report `FOCUSED` or the frame gate suffices, and how long frame `ACTIVE` takes to appear after `focus_window`, which sets the gate's polling budget.
+  12. Wayland modifier-versus-selection isolation (`L13-25`), owned here because the keyboard implementation is what a modifier fault would repair (E1). With the target focused in a Wayland-native GTK4 editor, send Ctrl+V and a plain printable key through `NotifyKeyboardKeysym` in the passing and the failing direction, with the clipboard selection owned by a foreign producer (`wl-copy` in the private session, and separately a GTK app that copied the text itself), each at least three times (`L23-30` landed `wl-copy` text with Ctrl+V once): does the plain key land every time, does Ctrl+V paste the foreign selection, the self-copied one, or neither. The row names whether a paste failure is in the modifier path (then `lead_key.rs` and `keysym_send.rs` repair it in this PR, with a regression test and a live case) or in the selection offer (then 3.10 consumes the row as its measured cause and 3.8 changes nothing). 3.10 carries no keyboard repair.
+  13. Scroll targets. For GTK3, GTK4, Qt and Chromium, which roles move content under a wheel at their centre on X11 and which do not (a scroll pane with no overflow, a list inside a scroll pane, a document), read back by an independent scroll position or the first visible row. This fixes KTD14's eligible-role list; a `scroll bar` `Value` write also moved the Files grid content after about 1.3 s (`L23-24`), which U1 records as the headless alternative on the toolkits where it works.
 - **Test expectation:** none -- a measurement; its output is rows that cite their captures, read by `scripts/check-linux-findings.py`.
 - **Verification:** each question has a row with a verdict and a disposition; the rows pass `python3 scripts/check-linux-findings.py`; the decisions U2-U7 leave open (remap or refuse, lead key, Wayland gate, element focus requirement, toolkit aim table, blocked-combo measured set) are each settled by a named row.
 
@@ -328,7 +327,7 @@ text(s)    := chunks of <= 32 chars
 
 - **Goal:** `scroll @ref --headed` passes core's supported-action gate and reaches the wheel leg, so the follow-up the core skill documents is usable (C1).
 - **Requirements:** R6.
-- **Dependencies:** U1 (question 14), U6; 3.7's `capability_rules.rs`.
+- **Dependencies:** U1 (question 13), U6; 3.7's `capability_rules.rs`.
 - **Files:** `crates/linux/src/tree/scroll_capability.rs`, `crates/linux/src/tree/scroll_capability_tests.rs`, 3.7's `capability_rules.rs` and its tests, `crates/linux/src/tree/projection.rs` and its tests, 3.5's `live_project.rs` only if its action list is not already fed by `capability_rules.rs`.
 - **Approach:** KTD14. `scroll_capability.rs` is a pure rule over role, interface list and the session kind; `capability_rules.rs` calls it so the snapshot projection and `get_live_actions` share it. 3.7's no-`Scroll` scenario in `action_names_tests.rs` and `capability_rules_tests.rs` is changed here to expect the token on eligible targets and its absence elsewhere.
 - **Test scenarios:**
@@ -503,7 +502,7 @@ Requirement-to-check map: R1 -> U2 plan rows, U8 case 1 and 2; R2 -> U2 no-layou
   - `L14-3`, `L23-12`, `L27-10`: cause separated (a never-focused window under mutter; XTEST reaches GTK4 once the window is active) and re-measured by U1; closure stays with 3.12 and `docs/phases.md` states the cause; the focus click is 3.9's.
   - `L4-19`: `Escape` synthesis available through `press`; `Action::Cancel` does not exist in core.
   - `L1-4`, `L13-1`, `L13-2`: implemented as the display rule (KTD2).
-  - `L13-25`: the modifier-versus-selection isolation measured by U1 question 13 with a foreign producer; a modifier-path cause is repaired here, a selection-offer cause is handed to 3.10 as its measured input (E1).
+  - `L13-25`: the modifier-versus-selection isolation measured by U1 question 12 with a foreign producer; a modifier-path cause is repaired here, a selection-offer cause is handed to 3.10 as its measured input (E1).
   - `L23-29`, `L23-30`: implemented as the Wayland gate read after the lead key and the lead-key policy (U7).
   - `L23-37`, `L23-24`: implemented as the GTK4 aim and the wheel pacing (U3, U6); the headless scroll bar route is 3.7's.
   - `L1-3`, `L13-6`, `L7-8`, `L13-8`, `L13-9`: confirmed or implemented by U1 and U8 (version fact stays in the ledger; the AT-SPI-first rule holds on Wayland; `GrabFocus` is never used).
@@ -539,7 +538,7 @@ Requirement-to-check map: R1 -> U2 plan rows, U8 case 1 and 2; R2 -> U2 no-layou
 
 - Remap versus refuse for characters outside the layout, the settle wait, and the per-toolkit table (KTD4), from U1.
 - The lead key or settle wait on Wayland and, given `L23-29`, when frame `ACTIVE` can be read there (KTD7, KTD8), from U1.
-- The click hold and gap per toolkit, the polling budget for the frame gate (U1 question 12), and the wheel step size; the pickup delay is the 200 ms U3 states.
+- The click hold and gap per toolkit, the polling budget for the frame gate (U1 question 11), and the wheel step size; the pickup delay is the 200 ms U3 states.
 - Whether the element must also report `FOCUSED` for `type`, or the frame gate suffices.
 
 ### For the owner
