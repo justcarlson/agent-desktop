@@ -54,6 +54,7 @@ struct Fake {
     writes: Vec<f64>,
     moves_on_write: bool,
     arrival: Option<Duration>,
+    bar_axis: Option<Axis>,
 }
 
 impl Fake {
@@ -87,6 +88,7 @@ impl Fake {
             writes: Vec::new(),
             moves_on_write: true,
             arrival: None,
+            bar_axis: None,
         }
     }
 
@@ -125,7 +127,10 @@ impl ScrollPort for Fake {
         Ok(self.geometry)
     }
 
-    fn find_bar(&mut self, _axis: Axis) -> Result<BarFound, AdapterError> {
+    fn find_bar(&mut self, axis: Axis) -> Result<BarFound, AdapterError> {
+        if self.bar_axis.is_some_and(|only| only != axis) {
+            return Ok(BarFound::Missing { container: true });
+        }
         Ok(self.bar)
     }
 
@@ -329,4 +334,15 @@ fn a_target_that_stays_off_after_each_write_is_rewritten_a_bounded_number_of_tim
     let error = drive(&mut port, &mut waiter).expect_err("never lands");
     assert_eq!(cause(&error), "target_not_realised");
     assert!(port.writes.len() <= MAX_WRITES);
+}
+
+#[test]
+fn a_target_without_a_position_finds_the_horizontal_bar_when_no_vertical_one_moves() {
+    let mut waiter = clock(10_000);
+    let mut port = Fake::new(waiter.clone());
+    port.geometry.target = None;
+    port.geometry.neighbour = Some((250, rect(60, 0, 80, 200)));
+    port.bar_axis = Some(Axis::Horizontal);
+    drive(&mut port, &mut waiter).expect("the horizontal bar moves the target");
+    assert_eq!(port.writes.len(), 1);
 }

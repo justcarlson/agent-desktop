@@ -11,17 +11,17 @@ use crate::actions::scroll_into_view;
 use crate::system::SharedBus;
 
 #[path = "live_scroll_scripts.rs"]
-mod scripts;
+pub(in crate::tree) mod scripts;
 
 use scripts::{GTK3_LIST, GTK4_LIST, QT_LIST, far_outside, intersects, pointer, window_rect};
 
-struct Target {
-    name: String,
-    handle: NativeHandle,
-    element: AtspiElement,
+pub(in crate::tree) struct Target {
+    pub(in crate::tree) name: String,
+    pub(in crate::tree) handle: NativeHandle,
+    pub(in crate::tree) element: AtspiElement,
 }
 
-fn nodes_of(
+pub(in crate::tree) fn nodes_of(
     adapter: &LinuxAdapter,
     _bus: &SharedBus,
     frame: &AtspiElement,

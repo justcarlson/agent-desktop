@@ -4,7 +4,7 @@ use super::super::node_read::call;
 use super::super::{AtspiElement, COMPONENT_INTERFACE, Extents};
 use crate::system::{SharedBus, within};
 
-pub(super) const GTK3_LIST: &str = r#"
+pub(in crate::tree) const GTK3_LIST: &str = r#"
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -21,7 +21,7 @@ w.show_all()
 Gtk.main()
 "#;
 
-pub(super) const GTK4_LIST: &str = r#"
+pub(in crate::tree) const GTK4_LIST: &str = r#"
 import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
@@ -40,7 +40,45 @@ app.connect("activate", activate)
 app.run([])
 "#;
 
-pub(super) const QT_LIST: &str = r#"
+pub(in crate::tree) const GTK3_STRIP: &str = r#"
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+w = Gtk.Window(title="adscroll-gtk3-strip")
+w.set_default_size(480, 200)
+s = Gtk.ScrolledWindow()
+s.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.NEVER)
+b = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+for i in range(300):
+    b.pack_start(Gtk.Button(label="Col %03d" % i), False, False, 0)
+s.add(b)
+w.add(s)
+w.connect("destroy", Gtk.main_quit)
+w.show_all()
+Gtk.main()
+"#;
+
+pub(in crate::tree) const GTK4_STRIP: &str = r#"
+import gi
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk
+def activate(app):
+    w = Gtk.ApplicationWindow(application=app, title="adscroll-gtk4-strip")
+    w.set_default_size(480, 200)
+    s = Gtk.ScrolledWindow()
+    s.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.NEVER)
+    b = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+    for i in range(300):
+        b.append(Gtk.Button(label="Col %03d" % i))
+    s.set_child(b)
+    w.set_child(s)
+    w.present()
+app = Gtk.Application(application_id="org.agentdesktop.ScrollStrip4")
+app.connect("activate", activate)
+app.run([])
+"#;
+
+pub(in crate::tree) const QT_LIST: &str = r#"
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget
 app = QApplication(sys.argv)
@@ -54,7 +92,7 @@ w.show()
 sys.exit(app.exec())
 "#;
 
-pub(super) fn window_rect(bus: &SharedBus, element: &AtspiElement) -> Option<Extents> {
+pub(in crate::tree) fn window_rect(bus: &SharedBus, element: &AtspiElement) -> Option<Extents> {
     let deadline = Deadline::after(3_000).ok()?;
     let connection = bus.get(deadline).ok()?;
     let (x, y, width, height) = within(deadline, async {
@@ -81,26 +119,26 @@ pub(super) fn window_rect(bus: &SharedBus, element: &AtspiElement) -> Option<Ext
     })
 }
 
-pub(super) fn positive(rect: Option<Extents>) -> Option<Extents> {
+pub(in crate::tree) fn positive(rect: Option<Extents>) -> Option<Extents> {
     rect.filter(|r| r.width > 0 && r.height > 0 && r.x != i32::MIN && r.y != i32::MIN)
 }
 
 /// Whether the rectangle intersects the frame at all, `None` when either is
 /// unusable. Written separately from the product rule on purpose.
-pub(super) fn intersects(node: Option<Extents>, frame: Option<Extents>) -> Option<bool> {
+pub(in crate::tree) fn intersects(node: Option<Extents>, frame: Option<Extents>) -> Option<bool> {
     let (n, f) = (positive(node)?, positive(frame)?);
     let across = n.x < f.x + f.width && f.x < n.x + n.width;
     let down = n.y < f.y + f.height && f.y < n.y + n.height;
     Some(across && down)
 }
 
-pub(super) fn far_outside(node: Option<Extents>, frame: Option<Extents>) -> Option<bool> {
+pub(in crate::tree) fn far_outside(node: Option<Extents>, frame: Option<Extents>) -> Option<bool> {
     let (n, f) = (positive(node)?, positive(frame)?);
     let gap = |a: i32, al: i32, b: i32, bl: i32| (a - (b + bl)).max(b - (a + al));
     Some(gap(n.x, n.width, f.x, f.width).max(gap(n.y, n.height, f.y, f.height)) > 60)
 }
 
-pub(super) fn pointer() -> Option<(i16, i16)> {
+pub(in crate::tree) fn pointer() -> Option<(i16, i16)> {
     use x11rb::connection::Connection;
     use x11rb::protocol::xproto::ConnectionExt;
     let (connection, screen) = x11rb::connect(None).ok()?;

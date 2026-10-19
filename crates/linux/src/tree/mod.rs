@@ -100,6 +100,9 @@ mod live_apps;
 mod live_cover;
 
 #[cfg(test)]
+mod live_horizontal_live_tests;
+
+#[cfg(test)]
 mod live_offscreen_live_tests;
 
 #[cfg(test)]

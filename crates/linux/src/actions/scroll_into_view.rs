@@ -143,13 +143,27 @@ fn bar_rung<P: ScrollPort, W: Waiter>(
     waiter: &mut W,
 ) -> Result<Outcome, AdapterError> {
     let first = port.geometry()?;
-    let axis = axis_of(first.target, first.container.or(first.frame));
-    let extents = match port.find_bar(axis)? {
-        BarFound::Found { extents } => extents,
-        BarFound::Missing { container: true } => return Ok(Outcome::Stopped(Cause::NoBar)),
-        BarFound::Missing { container: false } => {
-            return Ok(Outcome::Stopped(Cause::NoContainer));
+    let axes = if usable(first.target).is_some() {
+        vec![axis_of(first.target, first.container.or(first.frame))]
+    } else {
+        vec![Axis::Vertical, Axis::Horizontal]
+    };
+    let mut stopped = Cause::NoBar;
+    let mut chosen = None;
+    for axis in axes {
+        match port.find_bar(axis)? {
+            BarFound::Found { extents } if port.range()?.is_some() => {
+                chosen = Some((axis, extents));
+                break;
+            }
+            BarFound::Found { .. } | BarFound::Missing { container: true } => {
+                stopped = Cause::NoBar;
+            }
+            BarFound::Missing { container: false } => stopped = Cause::NoContainer,
         }
+    }
+    let Some((axis, extents)) = chosen else {
+        return Ok(Outcome::Stopped(stopped));
     };
     for _ in 0..MAX_WRITES {
         let geometry = port.geometry()?;
