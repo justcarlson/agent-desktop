@@ -10,6 +10,7 @@ use super::progress::Progress;
 use super::sink::X11Sink;
 use super::sink_error::SinkError;
 use super::worker::{self, ABORT_SUGGESTION, Link, Report};
+use super::worker_slot::{self, WorkerSlot};
 use super::xtest_sink::XtestSink;
 use crate::input::delivery::{Delivery, Gate};
 use crate::input::keymap::Keymap;
@@ -17,6 +18,7 @@ use crate::input::plan::Plan;
 use crate::input::release_state::ReleaseState;
 
 const WORKER_GRACE: Duration = Duration::from_millis(250);
+const RELEASE_ALLOWANCE: Duration = Duration::from_secs(2);
 
 pub(crate) fn run(
     display: &str,
@@ -26,18 +28,20 @@ pub(crate) fn run(
 ) -> Result<Delivery, AdapterError> {
     let display = display.to_owned();
     let journal = HeldJournal::in_runtime_dir(&display);
+    let cutoff = deadline.remaining() + RELEASE_ALLOWANCE;
     run_journaled(
-        move || XtestSink::connect(&display),
+        move || XtestSink::connect(&display, cutoff),
         plans,
         gate,
-        (deadline, journal),
+        (deadline, journal, worker_slot::shared()),
     )
 }
 
 pub(crate) fn live_keymap(display: &str, deadline: Deadline) -> Result<Keymap, AdapterError> {
     let display = display.to_owned();
+    let cutoff = deadline.remaining() + RELEASE_ALLOWANCE;
     let read = crate::system::x11::start(move || {
-        let mut sink = XtestSink::connect(&display)?;
+        let mut sink = XtestSink::connect(&display, cutoff)?;
         sink.keymap().map_err(SinkError::into_adapter)
     });
     read.finish(deadline)
@@ -51,15 +55,31 @@ pub(crate) fn run_with<S: X11Sink + 'static>(
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
-    run_journaled(open, plans, gate, (deadline, None))
+    run_journaled(
+        open,
+        plans,
+        gate,
+        (deadline, None, Arc::new(WorkerSlot::default())),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn run_with_slot<S: X11Sink + 'static>(
+    open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
+    plans: Vec<Plan>,
+    gate: Gate<'_>,
+    (deadline, slot): (Deadline, Arc<WorkerSlot>),
+) -> Result<Delivery, AdapterError> {
+    run_journaled(open, plans, gate, (deadline, None, slot))
 }
 
 pub(crate) fn run_journaled<S: X11Sink + 'static>(
     open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
     plans: Vec<Plan>,
     gate: Gate<'_>,
-    (deadline, journal): (Deadline, Option<HeldJournal>),
+    (deadline, journal, slot): (Deadline, Option<HeldJournal>, Arc<WorkerSlot>),
 ) -> Result<Delivery, AdapterError> {
+    let claim = slot.claim(deadline)?;
     let progress = Arc::new(Progress::default());
     let (reports, inbox) = channel();
     let (proceed_tx, proceed) = channel();
@@ -71,10 +91,13 @@ pub(crate) fn run_journaled<S: X11Sink + 'static>(
     let worker_progress = Arc::clone(&progress);
     let spawned = thread::Builder::new()
         .name("x11-input".to_owned())
-        .spawn(move || match open() {
-            Ok(sink) => worker::work(sink, plans, &link, deadline, &worker_progress),
-            Err(error) => {
-                let _ = link.reports.send(Report::Done(Err(error)));
+        .spawn(move || {
+            let _claim = claim;
+            match open() {
+                Ok(sink) => worker::work(sink, plans, &link, deadline, &worker_progress),
+                Err(error) => {
+                    let _ = link.reports.send(Report::Done(Err(error)));
+                }
             }
         });
     if spawned.is_err() {

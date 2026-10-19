@@ -2,13 +2,16 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::{DeliveryDisposition, ErrorCode};
 
-use super::run_with;
+use std::sync::Arc;
+
+use super::{run_with, run_with_slot};
 use crate::input::keymap_edit::KeymapEdit;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
 use crate::input::x11::fake_sink::{
     FakeSink, Recorded, deadline, drag_plan, events, no_gate, open, plan, start_keymap,
 };
+use crate::input::x11::worker_slot::WorkerSlot;
 
 fn wait_for(fake: &FakeSink, done: impl Fn(&[Recorded]) -> bool) {
     let started = Instant::now();
@@ -272,4 +275,83 @@ fn a_gate_that_stops_a_later_plan_is_delivered_unverified() {
         DeliveryDisposition::DeliveredUnverified
     );
     assert_eq!(error.details.expect("evidence")["delivered_events"], 2);
+}
+
+fn stalled_gesture() -> Plan {
+    plan(
+        vec![
+            Step::Button {
+                code: 1,
+                down: true,
+            },
+            Step::MoveTo { x: 40, y: 40 },
+            Step::Button {
+                code: 1,
+                down: false,
+            },
+        ],
+        Some((5, 5)),
+    )
+}
+
+#[test]
+fn a_call_that_starts_while_a_timed_out_worker_releases_is_refused_and_sends_nothing() {
+    let slot = Arc::new(WorkerSlot::default());
+    let stalled = FakeSink::new();
+    stalled.world().move_stall = Duration::from_millis(900);
+    run_with_slot(
+        open(&stalled),
+        vec![stalled_gesture()],
+        &mut no_gate(),
+        (deadline(100), Arc::clone(&slot)),
+    )
+    .expect_err("the first call timed out");
+    let second = FakeSink::new();
+
+    let error = run_with_slot(
+        open(&second),
+        vec![tap_plan(38)],
+        &mut no_gate(),
+        (deadline(150), slot),
+    )
+    .expect_err("the worker has not released yet");
+
+    assert_eq!(
+        error.details.expect("evidence")["cause"],
+        "previous_release_outstanding"
+    );
+    assert!(events(&second).is_empty());
+}
+
+#[test]
+fn a_call_with_time_left_waits_for_the_release_and_then_runs_after_it() {
+    let slot = Arc::new(WorkerSlot::default());
+    let fake = FakeSink::new();
+    fake.world().move_stall = Duration::from_millis(500);
+    run_with_slot(
+        open(&fake),
+        vec![stalled_gesture()],
+        &mut no_gate(),
+        (deadline(100), Arc::clone(&slot)),
+    )
+    .expect_err("the first call timed out");
+
+    run_with_slot(
+        open(&fake),
+        vec![tap_plan(38)],
+        &mut no_gate(),
+        (deadline(5_000), slot),
+    )
+    .expect("the second call runs once the first worker is done");
+
+    let recorded = events(&fake);
+    let release = recorded
+        .iter()
+        .position(|event| *event == Recorded::Button(1, false))
+        .expect("the first worker released");
+    let press = recorded
+        .iter()
+        .position(|event| *event == Recorded::Key(38, true))
+        .expect("the second call pressed");
+    assert!(release < press);
 }

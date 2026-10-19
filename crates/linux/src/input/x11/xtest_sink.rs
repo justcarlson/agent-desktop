@@ -1,9 +1,15 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
+use std::os::fd::AsFd;
+use std::time::Duration;
 use x11rb::connection::{Connection, RequestConnection};
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::protocol::xtest::{self, ConnectionExt as _};
-use x11rb::rust_connection::RustConnection;
+use x11rb::reexports::x11rb_protocol::parse_display::parse_display;
+use x11rb::reexports::x11rb_protocol::xauth::get_auth;
+use x11rb::rust_connection::{DefaultStream, RustConnection};
+
+use super::io_cutoff::IoCutoff;
 
 use super::pointer_read::PointerRead;
 
@@ -27,6 +33,7 @@ pub(crate) struct XtestSink {
     root: Window,
     min_keycode: u8,
     max_keycode: u8,
+    _cutoff: IoCutoff,
 }
 
 fn request(error: impl std::fmt::Display) -> SinkError {
@@ -53,9 +60,35 @@ fn unreachable_display(display: &str, error: impl std::fmt::Display) -> AdapterE
     .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
 }
 
+fn open_connection(
+    display: &str,
+    cutoff_after: Duration,
+) -> Result<(RustConnection, usize, IoCutoff), Box<dyn std::error::Error>> {
+    let parsed = parse_display(Some(display))?;
+    let screen = usize::from(parsed.screen);
+    let mut last: Option<Box<dyn std::error::Error>> = None;
+    for address in parsed.connect_instruction() {
+        let (stream, (family, name)) = match DefaultStream::connect(&address) {
+            Ok(connected) => connected,
+            Err(error) => {
+                last = Some(Box::new(error));
+                continue;
+            }
+        };
+        let cutoff = IoCutoff::arm(stream.as_fd(), cutoff_after)?;
+        let (auth_name, auth_data) = get_auth(family, &name, parsed.display)
+            .unwrap_or(None)
+            .unwrap_or_default();
+        let connection =
+            RustConnection::connect_to_stream_with_auth_info(stream, screen, auth_name, auth_data)?;
+        return Ok((connection, screen, cutoff));
+    }
+    Err(last.unwrap_or_else(|| "no address to connect to".into()))
+}
+
 impl XtestSink {
-    pub(crate) fn connect(display: &str) -> Result<Self, AdapterError> {
-        let (connection, screen) = RustConnection::connect(Some(display))
+    pub(crate) fn connect(display: &str, cutoff_after: Duration) -> Result<Self, AdapterError> {
+        let (connection, screen, cutoff) = open_connection(display, cutoff_after)
             .map_err(|error| unreachable_display(display, error))?;
         let has_xtest = connection
             .extension_information(xtest::X11_EXTENSION_NAME)
@@ -76,6 +109,7 @@ impl XtestSink {
             root,
             min_keycode,
             max_keycode,
+            _cutoff: cutoff,
         })
     }
 
