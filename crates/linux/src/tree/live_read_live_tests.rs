@@ -41,8 +41,15 @@ fn read_check(
     let entries = rig.entries(frame, true);
     let (mut checked, mut sentinel, mut problems) = (0usize, 0usize, Vec::new());
     for (id, entry) in &entries {
-        let Ok(handle) = adapter.resolve_element_strict(entry, deadline(5_000)) else {
-            continue;
+        let handle = match adapter.resolve_element_strict(entry, deadline(5_000)) {
+            Ok(handle) => handle,
+            Err(error) => {
+                problems.push(format!(
+                    "{id} {} {:?} did not resolve: {:?} {}",
+                    entry.identity.role, entry.identity.name, error.code, error.message
+                ));
+                continue;
+            }
         };
         let live = adapter
             .get_live_element(&handle, deadline(5_000))

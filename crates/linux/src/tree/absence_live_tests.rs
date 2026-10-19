@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, ErrorCode, NativeHandle, ObservationOps, 
 
 use super::live_fixture::{self, Fixture};
 use super::live_launch::Launched;
-use super::live_rig::{Rig, deadline, kind, refused, rig, signal, wait_until};
+use super::live_rig::{Rig, Suspended, deadline, kind, refused, rig, signal, wait_until};
 
 struct Subject {
     rig: Rig,
@@ -98,7 +98,7 @@ fn absence_live_a_killed_app_is_a_settled_stale_ref_in_one_pass_for_a_ref_and_a_
 fn absence_live_a_stopped_app_is_unresponsive_within_the_budget_and_never_stale() {
     for (label, make) in toolkits() {
         let subject = subject(make);
-        signal(subject.fixture.pid, "STOP");
+        let suspended = Suspended::new(subject.fixture.pid);
         let started = Instant::now();
         let held = subject
             .rig
@@ -119,7 +119,7 @@ fn absence_live_a_stopped_app_is_unresponsive_within_the_budget_and_never_stale(
             "absence_live stop {label}: held {:?} in {held_ms} ms, ref {:?} in {resolved_ms} ms",
             held.code, resolved.code
         );
-        signal(subject.fixture.pid, "CONT");
+        drop(suspended);
         for (error, ms, what) in [(&held, held_ms, "held"), (&resolved, resolved_ms, "ref")] {
             assert_eq!(error.code, ErrorCode::AppUnresponsive, "[{label}] {what}");
             assert!(ms < 3_500, "[{label}] {what} took {ms} ms");
@@ -164,13 +164,18 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
         );
 
         let started = Instant::now();
-        let limit = Duration::from_secs(25);
+        let limit = Duration::from_secs(if label == "gtk3" { 8 } else { 25 });
         let answered_gone = wait_until(limit, || live_read(&subject).is_err());
         let held_ms = started.elapsed().as_millis();
         println!(
             "absence_live remove {label}: held handle stops answering={answered_gone} after {held_ms} ms"
         );
-        if label != "gtk3" {
+        if label == "gtk3" {
+            assert!(
+                !answered_gone,
+                "[gtk3] a destroyed object now answers gone after {held_ms} ms: L25-5 no longer holds"
+            );
+        } else {
             assert!(
                 answered_gone && held_ms < 3_000,
                 "[{label}] the held handle answers gone at once: {held_ms} ms"

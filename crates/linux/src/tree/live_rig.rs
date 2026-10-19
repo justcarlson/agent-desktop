@@ -139,6 +139,25 @@ pub(super) fn signal(pid: u32, name: &str) {
     assert!(status.success(), "kill -{name} {pid} failed");
 }
 
+/// A process held stopped by SIGSTOP and continued again when this drops, so
+/// a failing assertion cannot leave the fixture frozen.
+pub(super) struct Suspended(u32);
+
+impl Suspended {
+    pub(super) fn new(pid: u32) -> Self {
+        signal(pid, "STOP");
+        Self(pid)
+    }
+}
+
+impl Drop for Suspended {
+    fn drop(&mut self) {
+        let _ = std::process::Command::new("kill")
+            .args(["-CONT", &self.0.to_string()])
+            .status();
+    }
+}
+
 pub(super) fn refused<T>(outcome: Result<T, AdapterError>, what: &str) -> AdapterError {
     match outcome {
         Ok(_) => panic!("{what}"),

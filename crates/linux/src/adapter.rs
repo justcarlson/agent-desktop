@@ -218,4 +218,22 @@ mod tests {
             "the failure must come from the adapter, not surface validation: {error:?}"
         );
     }
+
+    #[test]
+    fn every_live_read_is_the_adapters_own_and_not_the_unsupported_default() {
+        let adapter = LinuxAdapter::new();
+        let foreign = agent_desktop_core::NativeHandle::new(5u32);
+        let deadline = agent_desktop_core::Deadline::after(1_000).expect("a deadline builds");
+        let errors = [
+            adapter.get_live_value(&foreign, deadline).err(),
+            adapter.get_live_state(&foreign, deadline).err(),
+            adapter.get_live_actions(&foreign, deadline).err(),
+            adapter.get_live_element(&foreign, deadline).err(),
+            adapter.get_element_bounds(&foreign, deadline).err(),
+        ];
+        for error in errors {
+            let error = error.expect("a foreign handle is refused");
+            assert_eq!(error.code, ErrorCode::InvalidArgs, "{error:?}");
+        }
+    }
 }

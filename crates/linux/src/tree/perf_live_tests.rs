@@ -1,7 +1,9 @@
 use std::time::Instant;
 
 use agent_desktop_core::commands::find::{FindArgs, FindFilterArgs, FindSelectionArgs};
-use agent_desktop_core::{CommandContext, ObservationOps, RefEntry, SnapshotSurface, WindowFilter};
+use agent_desktop_core::{
+    CommandContext, ErrorCode, ObservationOps, RefEntry, SnapshotSurface, WindowFilter,
+};
 
 use super::live_apps::each_app;
 use super::live_rig::{deadline, rig};
@@ -102,18 +104,26 @@ fn perf_check(
 
     let mut moved = entry.clone();
     moved.scope.path.clear();
-    let sized = measure(|| {
-        let _ = adapter.resolve_element_strict(&moved, deadline(5_000));
-    });
+    let mut outcomes = Vec::new();
+    let sized = measure(|| outcomes.push(adapter.resolve_element_strict(&moved, deadline(5_000))));
     report(label, "search resolving by identity and size", &sized);
+    if let Some(error) = outcomes
+        .iter()
+        .filter_map(|outcome| outcome.as_ref().err())
+        .find(|error| error.code != ErrorCode::AmbiguousTarget)
+    {
+        return Err(format!("the search did not resolve: {error:?}"));
+    }
 
     let mut missing = entry.clone();
     missing.scope.path.clear();
     missing.identity.name = Some("no such element anywhere".to_owned());
-    let miss = measure(|| {
-        let _ = adapter.resolve_element_strict(&missing, deadline(5_000));
-    });
+    let mut misses = Vec::new();
+    let miss = measure(|| misses.push(adapter.resolve_element_strict(&missing, deadline(5_000))));
     report(label, "search miss", &miss);
+    if misses.iter().any(Result::is_ok) {
+        return Err("a name nothing has resolved to an element".to_owned());
+    }
 
     let handle = adapter
         .resolve_element_strict(entry, deadline(5_000))

@@ -67,14 +67,52 @@ fn with_reader<T>(
     bus: &SharedBus,
     handle: &NativeHandle,
     deadline: Deadline,
-    project: impl FnOnce(&NodeEvidence) -> Result<T, AdapterError>,
+    project: impl FnOnce(&mut BusReader<'_>, &NativeHandle) -> Result<T, AdapterError>,
 ) -> Result<T, AdapterError> {
+    atspi_element(handle)?;
     let connection = bus.get(deadline)?.inner().clone();
     let mut reader = BusReader {
         connection: &connection,
         deadline,
     };
-    project(&read_live(&mut reader, handle)?)
+    project(&mut reader, handle)
+}
+
+pub(crate) fn value_via<R: NodeReader>(
+    reader: &mut R,
+    handle: &NativeHandle,
+) -> Result<Option<String>, AdapterError> {
+    live_value(&read_live(reader, handle)?.evidence)
+}
+
+pub(crate) fn state_via<R: NodeReader>(
+    reader: &mut R,
+    handle: &NativeHandle,
+) -> Result<Option<ElementState>, AdapterError> {
+    let node = read_live(reader, handle)?;
+    live_state(&node.read, &node.evidence).map(Some)
+}
+
+pub(crate) fn actions_via<R: NodeReader>(
+    reader: &mut R,
+    handle: &NativeHandle,
+) -> Result<Option<Vec<String>>, AdapterError> {
+    live_actions(&read_live(reader, handle)?.evidence).map(Some)
+}
+
+pub(crate) fn element_via<R: NodeReader>(
+    reader: &mut R,
+    handle: &NativeHandle,
+) -> Result<LiveElement, AdapterError> {
+    let node = read_live(reader, handle)?;
+    live_element(&node.read, &node.evidence)
+}
+
+pub(crate) fn bounds_via<R: NodeReader>(
+    reader: &mut R,
+    handle: &NativeHandle,
+) -> Result<Option<Rect>, AdapterError> {
+    Ok(live_bounds(&read_live(reader, handle)?.read))
 }
 
 pub(crate) fn get_live_value(
@@ -82,7 +120,9 @@ pub(crate) fn get_live_value(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<String>, AdapterError> {
-    with_reader(bus, handle, deadline, |node| live_value(&node.evidence))
+    with_reader(bus, handle, deadline, |reader, handle| {
+        value_via(reader, handle)
+    })
 }
 
 pub(crate) fn get_live_state(
@@ -90,8 +130,8 @@ pub(crate) fn get_live_state(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<ElementState>, AdapterError> {
-    with_reader(bus, handle, deadline, |node| {
-        live_state(&node.read, &node.evidence).map(Some)
+    with_reader(bus, handle, deadline, |reader, handle| {
+        state_via(reader, handle)
     })
 }
 
@@ -100,8 +140,8 @@ pub(crate) fn get_live_actions(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<Vec<String>>, AdapterError> {
-    with_reader(bus, handle, deadline, |node| {
-        live_actions(&node.evidence).map(Some)
+    with_reader(bus, handle, deadline, |reader, handle| {
+        actions_via(reader, handle)
     })
 }
 
@@ -110,8 +150,8 @@ pub(crate) fn get_live_element(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<LiveElement, AdapterError> {
-    with_reader(bus, handle, deadline, |node| {
-        live_element(&node.read, &node.evidence)
+    with_reader(bus, handle, deadline, |reader, handle| {
+        element_via(reader, handle)
     })
 }
 
@@ -120,7 +160,9 @@ pub(crate) fn get_element_bounds(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<Rect>, AdapterError> {
-    with_reader(bus, handle, deadline, |node| Ok(live_bounds(&node.read)))
+    with_reader(bus, handle, deadline, |reader, handle| {
+        bounds_via(reader, handle)
+    })
 }
 
 #[cfg(test)]

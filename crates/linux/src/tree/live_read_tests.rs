@@ -60,16 +60,32 @@ fn kind(error: &AdapterError) -> &str {
 #[test]
 fn every_projection_of_a_node_costs_exactly_one_node_read() {
     let mut reader = Counting::alive();
-    let node = read_live(&mut reader, &handle()).expect("reads");
+    let handle = handle();
+    value_via(&mut reader, &handle).expect("value");
     assert_eq!(reader.reads, 1);
-    live_element(&node.read, &node.evidence).expect("element");
-    live_state(&node.read, &node.evidence).expect("state");
-    live_value(&node.evidence).expect("value");
-    live_actions(&node.evidence).expect("actions");
-    live_bounds(&node.read);
-    assert_eq!(reader.reads, 1);
-    read_live(&mut reader, &handle()).expect("reads");
+    state_via(&mut reader, &handle).expect("state");
     assert_eq!(reader.reads, 2);
+    actions_via(&mut reader, &handle).expect("actions");
+    assert_eq!(reader.reads, 3);
+    element_via(&mut reader, &handle).expect("element");
+    assert_eq!(reader.reads, 4);
+    bounds_via(&mut reader, &handle).expect("bounds");
+    assert_eq!(reader.reads, 5);
+}
+
+#[test]
+fn each_projection_answers_with_its_own_part_of_the_one_read() {
+    let mut reader = Counting::alive();
+    let handle = handle();
+    let element = element_via(&mut reader, &handle).expect("element");
+    let actions = actions_via(&mut reader, &handle)
+        .expect("actions")
+        .expect("listed");
+    assert_eq!(actions, element.available_actions);
+    let state = state_via(&mut reader, &handle)
+        .expect("state")
+        .expect("read");
+    assert_eq!(state.role, element.state.role);
 }
 
 #[test]
