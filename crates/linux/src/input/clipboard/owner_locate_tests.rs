@@ -127,7 +127,7 @@ fn a_helper_that_is_not_executable_is_refused() {
 
 #[test]
 fn a_helper_writable_by_others_is_refused_whatever_the_group() {
-    for mode in [0o757, 0o777, 0o702] {
+    for mode in [0o757, 0o777, 0o702, 0o1757] {
         let dir = scratch(&format!("others-{mode:o}"));
         let helper = install(&dir, mode);
         let error = check_helper_with(&helper, &|_| true).expect_err("refused");
@@ -162,7 +162,62 @@ fn the_group_asked_about_is_the_group_of_the_file() {
 
 #[test]
 fn a_helper_without_group_write_never_asks_about_the_group() {
-    let dir = scratch("no-group-write");
+    let dir = directory_with("no-group-write", 0o755);
+    let helper = install(&dir, 0o755);
+    check_helper_with(&helper, &|_| panic!("the group is not consulted")).expect("accepted");
+}
+
+fn directory_with(name: &str, mode: u32) -> PathBuf {
+    let dir = scratch(name);
+    fs::set_permissions(&dir, fs::Permissions::from_mode(mode)).expect("a directory mode");
+    dir
+}
+
+#[test]
+fn a_directory_writable_by_others_is_refused() {
+    for mode in [0o777, 0o757, 0o707] {
+        let dir = directory_with(&format!("dir-others-{mode:o}"), mode);
+        let helper = install(&dir, 0o755);
+        let error = check_helper_with(&helper, &|_| true).expect_err("refused");
+        assert!(
+            error.message.contains("The directory") && error.message.contains("by others"),
+            "{}",
+            error.message
+        );
+    }
+}
+
+#[test]
+fn a_sticky_directory_writable_by_others_is_accepted() {
+    let dir = directory_with("dir-sticky", 0o1777);
+    let helper = install(&dir, 0o755);
+    check_helper_with(&helper, &|_| true).expect("accepted");
+}
+
+#[test]
+fn a_sticky_bit_does_not_excuse_a_group_that_is_shared() {
+    let dir = directory_with("dir-sticky-group", 0o1770);
+    let helper = install(&dir, 0o755);
+    let error = check_helper_with(&helper, &|_| false).expect_err("refused");
+    assert!(error.message.contains("The directory"), "{}", error.message);
+}
+
+#[test]
+fn a_group_writable_directory_follows_the_private_group_rule() {
+    let dir = directory_with("dir-group", 0o775);
+    let helper = install(&dir, 0o755);
+    let error = check_helper_with(&helper, &|_| false).expect_err("refused");
+    assert!(
+        error.message.contains("The directory") && error.message.contains("not private"),
+        "{}",
+        error.message
+    );
+    check_helper_with(&helper, &|_| true).expect("accepted");
+}
+
+#[test]
+fn a_directory_that_is_not_writable_by_others_or_group_never_asks_about_the_group() {
+    let dir = directory_with("dir-closed", 0o755);
     let helper = install(&dir, 0o755);
     check_helper_with(&helper, &|_| panic!("the group is not consulted")).expect("accepted");
 }

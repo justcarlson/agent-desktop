@@ -44,6 +44,29 @@ fn check_helper(helper: &Path) -> Result<(), AdapterError> {
     check_helper_with(helper, &owner_group::caller_owns_group)
 }
 
+const STICKY: u32 = 0o1000;
+
+fn owned_by_caller_or_root(uid: u32) -> bool {
+    uid == rustix::process::getuid().as_raw() || uid == 0
+}
+
+fn write_problem(
+    metadata: &fs::Metadata,
+    sticky_allowed: bool,
+    group_is_private: &dyn Fn(u32) -> bool,
+) -> Option<&'static str> {
+    let mode = metadata.permissions().mode();
+    if !owned_by_caller_or_root(metadata.uid()) {
+        Some("is owned by another user")
+    } else if mode & WRITABLE_BY_OTHERS != 0 && !(sticky_allowed && mode & STICKY != 0) {
+        Some("is writable by others")
+    } else if mode & WRITABLE_BY_GROUP != 0 && !group_is_private(metadata.gid()) {
+        Some("is writable by a group that is not private to this user")
+    } else {
+        None
+    }
+}
+
 fn check_helper_with(
     helper: &Path,
     group_is_private: &dyn Fn(u32) -> bool,
@@ -54,25 +77,33 @@ fn check_helper_with(
             helper.display()
         ))
     })?;
-    let owner_ok = metadata.uid() == rustix::process::getuid().as_raw() || metadata.uid() == 0;
     let mode = metadata.permissions().mode();
     let problem = if !metadata.file_type().is_file() {
         Some("is not a regular file")
     } else if mode & ANY_EXECUTE == 0 {
         Some("is not executable")
-    } else if !owner_ok {
-        Some("is owned by another user")
-    } else if mode & WRITABLE_BY_OTHERS != 0 {
-        Some("is writable by others")
-    } else if mode & WRITABLE_BY_GROUP != 0 && !group_is_private(metadata.gid()) {
-        Some("is writable by a group that is not private to this user")
     } else {
-        None
+        write_problem(&metadata, false, group_is_private)
     };
-    match problem {
-        Some(problem) => Err(refusal(format!(
+    if let Some(problem) = problem {
+        return Err(refusal(format!(
             "The clipboard owner helper {} {problem}",
             helper.display()
+        )));
+    }
+    let directory = helper
+        .parent()
+        .ok_or_else(|| refusal("The clipboard owner helper has no directory".into()))?;
+    let listed = fs::metadata(directory).map_err(|error| {
+        refusal(format!(
+            "The directory {} of the clipboard owner helper could not be read: {error}",
+            directory.display()
+        ))
+    })?;
+    match write_problem(&listed, true, group_is_private) {
+        Some(problem) => Err(refusal(format!(
+            "The directory {} of the clipboard owner helper {problem}",
+            directory.display()
         ))),
         None => Ok(()),
     }

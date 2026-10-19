@@ -35,11 +35,10 @@ pub(super) fn private_session() -> Session {
         std::env::var_os("WAYLAND_DISPLAY").is_none(),
         "a private X11 session carries no Wayland display"
     );
-    let home = std::env::var("AGENT_DESKTOP_HOME").expect("AGENT_DESKTOP_HOME in the private dir");
-    assert!(
-        Path::new(&home).starts_with(&private),
-        "the state root must sit inside the private session, not {home}"
-    );
+    let home = Path::new(&private).join("clipboard-state");
+    fs::create_dir_all(&home).expect("a private state root");
+    fs::set_permissions(&home, fs::Permissions::from_mode(0o700)).expect("a private mode");
+    unsafe { std::env::set_var("AGENT_DESKTOP_HOME", &home) };
     Session {
         _guard: guard,
         display,
