@@ -6,9 +6,10 @@ use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, KeyCombo, MouseButton, Point, Rect,
 };
 
-use crate::actions::physical_target::{Gate, PhysicalWorld};
+use crate::actions::physical_target::PhysicalWorld;
 use crate::input::backend::Backend;
 use crate::input::delivery::Delivery;
+use crate::input::delivery::Gate;
 use crate::input::keymap::Keymap;
 use crate::input::keysym_step::KeysymStep;
 use crate::input::plan::Plan;
@@ -97,7 +98,6 @@ impl FakeWorld {
         }
         Ok(Delivery {
             delivered_events: delivered,
-            mechanism: "fake",
         })
     }
 }

@@ -76,7 +76,7 @@ fn a_key_missing_from_the_layout_is_refused_before_any_event() {
 
 #[test]
 fn a_modifier_the_keyboard_lacks_is_refused() {
-    let bare = Keymap::parse(8, 2, vec![0x61, 0x41], 0, Vec::new());
+    let bare = Keymap::new(8, 2, vec![0x61, 0x41], 0, Vec::new());
     let error = plan_combo(&bare, &combo("a", &[Modifier::Ctrl])).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
 }

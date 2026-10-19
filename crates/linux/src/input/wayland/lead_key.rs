@@ -4,9 +4,8 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::key_session::KeySession;
+use crate::input::key_names::KEYSYM_SHIFT_L;
 use crate::input::keysym_step::KeysymStep;
-
-const SHIFT_L: u32 = 0xffe1;
 
 /// What a session sends before its real keys, because the compositor drops
 /// the first key of a session and creates the seat keyboard only on input:
@@ -19,7 +18,7 @@ pub(crate) struct LeadPolicy {
 
 /// The one place the lead is chosen.
 pub(crate) const LEAD_POLICY: LeadPolicy = LeadPolicy {
-    tap: Some(SHIFT_L),
+    tap: Some(KEYSYM_SHIFT_L),
     settle: Duration::ZERO,
 };
 

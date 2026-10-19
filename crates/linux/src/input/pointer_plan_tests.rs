@@ -77,7 +77,7 @@ fn modifiers_wrap_the_gesture_and_release_in_reverse() {
 #[test]
 fn a_modifier_the_keyboard_lacks_fails_before_any_step() {
     assert!(click(1, &[Modifier::Meta]).is_ok());
-    let bare = Keymap::parse(8, 2, vec![1, 2], 0, Vec::new());
+    let bare = Keymap::new(8, 2, vec![1, 2], 0, Vec::new());
     let error = plan_click(&bare, at(), &MouseButton::Left, 1, &[Modifier::Ctrl]).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
 }

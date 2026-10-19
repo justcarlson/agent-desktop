@@ -6,6 +6,7 @@ use agent_desktop_core::{
 use super::frame_active::ActiveGate;
 use super::physical_target::{LiveWorld, PhysicalWorld, ensure_budget, ensure_keyboard_policy};
 use crate::input::backend::Backend;
+use crate::input::delivery::Gate;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
@@ -84,7 +85,7 @@ fn send_combo(
     world: &impl PhysicalWorld,
     backend: &Backend,
     combo: &KeyCombo,
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     match backend {

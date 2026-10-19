@@ -10,14 +10,12 @@ use super::physical_click::{self, ClickSpec};
 use super::physical_keyboard;
 use super::physical_scroll;
 use crate::input::backend::Backend;
-use crate::input::delivery::Delivery;
+use crate::input::delivery::{Delivery, Gate};
 use crate::input::keymap::Keymap;
 use crate::input::keysym_step::KeysymStep;
 use crate::input::plan::Plan;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
-
-pub(crate) type Gate<'a> = &'a mut dyn FnMut() -> Result<(), AdapterError>;
 
 /// Everything a physical leg reads from or sends to the desktop, so each leg
 /// runs against a fixed desktop in a test.

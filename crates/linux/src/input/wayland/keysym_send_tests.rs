@@ -46,7 +46,7 @@ fn ctrl_a() -> Vec<KeysymStep> {
 fn drive_with(
     session: &mut FakeSession,
     keys: &[KeysymStep],
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
 ) -> Result<Delivery, AdapterError> {
     run(session, LEAD_POLICY, keys, gate, live())
 }
@@ -74,7 +74,6 @@ fn ctrl_a_runs_create_start_lead_gate_keys_stop_in_that_order() {
     ];
     assert_eq!(session.events(), expected);
     assert_eq!(delivery.delivered_events, 4);
-    assert_eq!(delivery.mechanism, "mutter_remote_desktop");
 }
 
 #[test]

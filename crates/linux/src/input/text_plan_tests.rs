@@ -131,7 +131,7 @@ fn the_remap_is_restored_once_per_chunk_that_used_it() {
 
 #[test]
 fn the_remap_route_without_a_spare_keycode_is_not_supported() {
-    let map = Keymap::parse(
+    let map = Keymap::new(
         8,
         2,
         vec![0x61, 0x41],
@@ -144,7 +144,7 @@ fn the_remap_route_without_a_spare_keycode_is_not_supported() {
 
 #[test]
 fn a_shifted_character_without_a_shift_key_is_not_supported() {
-    let map = Keymap::parse(8, 2, vec![0x61, 0x41], 0, Vec::new());
+    let map = Keymap::new(8, 2, vec![0x61, 0x41], 0, Vec::new());
     let error = plan_text(&map, "A").unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
 }

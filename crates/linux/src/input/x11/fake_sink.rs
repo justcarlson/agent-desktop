@@ -43,7 +43,7 @@ pub(crate) struct FakeSink {
 }
 
 pub(crate) fn start_keymap() -> Keymap {
-    Keymap::parse(
+    Keymap::new(
         8,
         2,
         vec![0x61, 0x41, 0x62, 0x42, 0, 0, 0, 0, 0, 0, 0, 0],

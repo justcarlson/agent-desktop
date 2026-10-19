@@ -16,8 +16,7 @@ use crate::input::release_guard::ReleaseGuard;
 use crate::input::step::Step;
 
 const PAUSE_SLICE: Duration = Duration::from_millis(10);
-const MECHANISM: &str = "x11_xtest";
-const ABORT_SUGGESTION: &str =
+pub(super) const ABORT_SUGGESTION: &str =
     "Run 'snapshot' to read the real state before retrying: some input was already delivered";
 
 pub(crate) enum Report {
@@ -81,7 +80,6 @@ fn execute(
     verify::check(guard.sink(), &touched)?;
     Ok(Delivery {
         delivered_events: guard.delivered(),
-        mechanism: MECHANISM,
     })
 }
 

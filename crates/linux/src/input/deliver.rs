@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, DragParams, MouseEvent, MouseEventKind};
 
 use super::backend::{Backend, backend};
-use super::delivery::Delivery;
+use super::delivery::{Delivery, Gate};
 use super::keysym_step::KeysymStep;
 use super::plan::Plan;
 use super::standalone::reject_standalone;
@@ -10,7 +10,7 @@ use super::x11::{drag_send, mouse_send, session};
 
 pub(crate) fn send_plans(
     plans: Vec<Plan>,
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
@@ -21,7 +21,7 @@ pub(crate) fn send_plans(
 
 pub(crate) fn send_keysyms(
     keys: &[KeysymStep],
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     match backend()? {

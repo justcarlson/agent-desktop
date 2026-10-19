@@ -8,10 +8,9 @@ use super::key_session::KeySession;
 use super::layout::refuse_unreachable;
 use super::lead_key::{LEAD_POLICY, LeadPolicy, send_lead};
 use super::remote_desktop::{RemoteDesktop, semantic_action_refusal};
-use crate::input::delivery::Delivery;
+use crate::input::delivery::{Delivery, Gate};
 use crate::input::keysym_step::KeysymStep;
 
-const MECHANISM: &str = "mutter_remote_desktop";
 const RECOVERY_BUDGET_MS: u64 = 1_000;
 const DRAIN: Duration = Duration::from_millis(150);
 
@@ -75,7 +74,7 @@ fn drive(
     session: &mut dyn KeySession,
     lead: LeadPolicy,
     keys: &[KeysymStep],
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
     ensure_budget(deadline).map_err(|error| with_progress(error, 0))?;
@@ -91,7 +90,7 @@ pub(crate) fn run(
     session: &mut dyn KeySession,
     lead: LeadPolicy,
     keys: &[KeysymStep],
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     session
@@ -104,22 +103,18 @@ pub(crate) fn run(
     if let Ok(recovery) = Deadline::detached_after(RECOVERY_BUDGET_MS) {
         let _ = session.stop(recovery);
     }
-    outcome.map(|delivered_events| Delivery {
-        delivered_events,
-        mechanism: MECHANISM,
-    })
+    outcome.map(|delivered_events| Delivery { delivered_events })
 }
 
 pub(crate) fn send_keys(
     keys: &[KeysymStep],
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     refuse_unreachable(keys)?;
     if keys.is_empty() {
         return Ok(Delivery {
             delivered_events: 0,
-            mechanism: MECHANISM,
         });
     }
     let mut session = RemoteDesktop::open(deadline)?;

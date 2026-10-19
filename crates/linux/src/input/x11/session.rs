@@ -9,21 +9,19 @@ use super::held_journal::HeldJournal;
 use super::progress::Progress;
 use super::sink::X11Sink;
 use super::sink_error::SinkError;
-use super::worker::{self, Link, Report};
+use super::worker::{self, ABORT_SUGGESTION, Link, Report};
 use super::xtest_sink::XtestSink;
-use crate::input::delivery::Delivery;
+use crate::input::delivery::{Delivery, Gate};
 use crate::input::keymap::Keymap;
 use crate::input::plan::Plan;
 use crate::input::release_state::ReleaseState;
 
 const WORKER_GRACE: Duration = Duration::from_millis(250);
-const ABORT_SUGGESTION: &str =
-    "Run 'snapshot' to read the real state before retrying: some input was already delivered";
 
 pub(crate) fn run(
     display: &str,
     plans: Vec<Plan>,
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     let display = display.to_owned();
@@ -50,7 +48,7 @@ pub(crate) fn live_keymap(display: &str, deadline: Deadline) -> Result<Keymap, A
 pub(crate) fn run_with<S: X11Sink + 'static>(
     open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
     plans: Vec<Plan>,
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     run_journaled(open, plans, gate, (deadline, None))
@@ -59,7 +57,7 @@ pub(crate) fn run_with<S: X11Sink + 'static>(
 pub(crate) fn run_journaled<S: X11Sink + 'static>(
     open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
     plans: Vec<Plan>,
-    gate: &mut dyn FnMut() -> Result<(), AdapterError>,
+    gate: Gate<'_>,
     (deadline, journal): (Deadline, Option<HeldJournal>),
 ) -> Result<Delivery, AdapterError> {
     let progress = Arc::new(Progress::default());

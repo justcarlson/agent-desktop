@@ -18,7 +18,7 @@ pub(crate) struct Keymap {
 }
 
 impl Keymap {
-    pub(crate) fn parse(
+    pub(crate) fn new(
         min_keycode: u8,
         keysyms_per_keycode: u8,
         keysyms: Vec<u32>,
@@ -125,7 +125,7 @@ impl Keymap {
         modifier_codes[4] = 9;
         modifier_codes[7] = 12;
         modifier_codes[13] = 15;
-        Self::parse(8, 4, keysyms, 2, modifier_codes)
+        Self::new(8, 4, keysyms, 2, modifier_codes)
     }
 }
 

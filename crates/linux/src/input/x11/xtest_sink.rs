@@ -152,7 +152,7 @@ impl X11Sink for XtestSink {
             .map_err(request)?
             .reply()
             .map_err(request)?;
-        Ok(Keymap::parse(
+        Ok(Keymap::new(
             self.min_keycode,
             keys.keysyms_per_keycode,
             keys.keysyms,
