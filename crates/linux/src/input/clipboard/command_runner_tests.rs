@@ -1,5 +1,4 @@
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -24,8 +23,10 @@ impl Dir {
 
     fn script(&self, body: &str) -> PathBuf {
         let path = self.0.join("tool");
-        fs::write(&path, format!("#!/bin/sh\n{body}\n")).expect("a script");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).expect("executable");
+        crate::input::clipboard::test_script::write_executable(
+            &path,
+            &format!("#!/bin/sh\n{body}\n"),
+        );
         path
     }
 }
