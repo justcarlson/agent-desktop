@@ -55,6 +55,29 @@ fn describe(
     })
 }
 
+/// The titles of the items the watcher lists, read without their menus.
+pub(crate) fn titles(deadline: Deadline) -> Result<Vec<String>, AdapterError> {
+    let listed = watcher::registered_items(deadline)?;
+    let connection = call::session(deadline)?;
+    let mut seen: Vec<(String, String)> = Vec::new();
+    let mut titles = Vec::new();
+    for registered in registration::parse_all(&listed) {
+        let Some(owner) = call::unique_owner(&connection, &registered.bus_name, deadline)? else {
+            continue;
+        };
+        let key = (owner.clone(), registered.object_path.clone());
+        if seen.contains(&key) {
+            continue;
+        }
+        if let Ok(props) = item_props::read(&connection, &owner, &registered.object_path, deadline)
+        {
+            titles.push(props.title);
+        }
+        seen.push(key);
+    }
+    Ok(titles)
+}
+
 pub(crate) fn read(deadline: Deadline) -> Result<TrayView, AdapterError> {
     let listed = watcher::registered_items(deadline)?;
     let connection = call::session(deadline)?;

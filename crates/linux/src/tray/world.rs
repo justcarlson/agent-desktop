@@ -55,6 +55,20 @@ fn ambiguous_panel_node(title: &str) -> AdapterError {
     ))
 }
 
+/// A panel node names an item only by its title, so two registered items
+/// that share a title leave the node naming neither.
+pub(crate) fn ensure_title_is_single(titles: &[String], title: &str) -> Result<(), AdapterError> {
+    if titles
+        .iter()
+        .filter(|other| other.as_str() == title)
+        .count()
+        > 1
+    {
+        return Err(ambiguous_panel_node(title));
+    }
+    Ok(())
+}
+
 /// The one panel node that carries `title`. A repeated title names no node,
 /// because the panel order is not evidence of which item a node is.
 pub(crate) fn choose_panel_node(names: &[String], title: &str) -> Result<usize, AdapterError> {
@@ -101,6 +115,7 @@ impl LiveWorld<'_> {
         title: &str,
         deadline: Deadline,
     ) -> Result<(AtspiElement, Option<Rect>), AdapterError> {
+        ensure_title_is_single(&super::view::titles(deadline)?, title)?;
         let panel = self.locate(Landmark::TrayPanel, deadline)?;
         let connection = self.bus.get(deadline)?;
         let (children, names, extents) = within(deadline, async {
