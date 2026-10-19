@@ -247,3 +247,17 @@ fn a_failed_delivery_does_not_wait_to_drain() {
     drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("fails");
     assert!(started.elapsed() < DRAIN);
 }
+
+#[test]
+fn text_outside_the_layout_is_refused_before_a_session_is_opened() {
+    let keys: Vec<KeysymStep> = "你好"
+        .chars()
+        .flat_map(|c| tap(0x0100_0000 | u32::from(c)))
+        .collect();
+    let error = send_keys(&keys, &mut || Ok(()), live()).expect_err("refused");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(
+        error.details.expect("details")["cause"],
+        "character_outside_layout"
+    );
+}

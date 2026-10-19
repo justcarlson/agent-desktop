@@ -6,6 +6,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use super::key_session::KeySession;
 use super::keysym_send::{run, send_keys};
 use super::lead_key::LeadPolicy;
+use super::live_shell::Shell;
 use super::remote_desktop::RemoteDesktop;
 use crate::input::step::KeysymStep;
 use crate::system::SharedBus;
@@ -110,14 +111,13 @@ fn wait_for(pid: u32, accept: impl Fn(&Read) -> bool) -> Option<Read> {
     None
 }
 
-fn launch_with(launched: &mut Launched, active_log: &str) -> u32 {
-    let display = std::env::var("WAYLAND_DISPLAY").expect("WAYLAND_DISPLAY names the shell socket");
+fn launch_with(launched: &mut Launched, active_log: &str, display: &str) -> u32 {
     let pid = launched.spawn_with_env(
         "python3",
         &["-I", "-c", APP],
         &[
             ("GDK_BACKEND", "wayland".into()),
-            ("WAYLAND_DISPLAY", display),
+            ("WAYLAND_DISPLAY", display.to_owned()),
             ("GTK_USE_PORTAL", "0".into()),
             ("GDK_DEBUG", "no-portals".into()),
             ("DISPLAY", String::new()),
@@ -131,7 +131,7 @@ fn launch_with(launched: &mut Launched, active_log: &str) -> u32 {
 fn keys(text: &str) -> Vec<KeysymStep> {
     text.chars()
         .flat_map(|c| {
-            let keysym = if c.is_ascii() {
+            let keysym = if c.is_ascii() || ('\u{a0}'..='\u{ff}').contains(&c) {
                 u32::from(c)
             } else {
                 0x0100_0000 | u32::from(c)
@@ -190,6 +190,8 @@ fn send(pid: u32, steps: &[KeysymStep]) -> Result<u32, AdapterError> {
 #[test]
 #[ignore = "needs a private Wayland session with a headless gnome-shell; run through scripts/private-session.sh"]
 fn remote_desktop_answers_on_the_session_bus_and_not_on_the_accessibility_bus() {
+    let _launched = Launched::new();
+    let _shell = Shell::start();
     let mut desktop = RemoteDesktop::open(deadline()).expect("the session bus opens");
     desktop.create(deadline()).expect("CreateSession succeeds");
     desktop.start(deadline()).expect("Start succeeds");
@@ -209,12 +211,14 @@ fn remote_desktop_answers_on_the_session_bus_and_not_on_the_accessibility_bus() 
 #[test]
 #[ignore = "needs a private Wayland session with a headless gnome-shell; run through scripts/private-session.sh"]
 fn keys_land_in_a_wayland_native_gtk4_entry() {
+    let _guard = Launched::new();
+    let shell = Shell::start();
     let mut launched = Launched::new();
     let log = format!(
         "{}/keys.log",
         std::env::var("XDG_RUNTIME_DIR").expect("a runtime dir")
     );
-    let pid = launch_with(&mut launched, &log);
+    let pid = launch_with(&mut launched, &log, &shell.socket);
     close_overview();
 
     send(pid, &keys("hello")).expect("the keys deliver");
@@ -254,4 +258,15 @@ fn keys_land_in_a_wayland_native_gtk4_entry() {
         "app log {:?}",
         std::fs::read_to_string(&log)
     );
+
+    for refused in ["你好", "é"] {
+        let error = send(pid, &keys(refused)).expect_err("text outside the layout is refused");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert_eq!(
+            error.details.expect("details")["cause"],
+            "character_outside_layout"
+        );
+    }
+    let unchanged = wait_for(pid, |now| now.text == "x").map(|now| now.text);
+    assert_eq!(unchanged.as_deref(), Some("x"));
 }

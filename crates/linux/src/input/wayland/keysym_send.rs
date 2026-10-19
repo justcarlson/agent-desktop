@@ -13,6 +13,7 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use serde_json::json;
 
 use super::key_session::KeySession;
+use super::layout::refuse_unreachable;
 use super::lead_key::{LEAD_POLICY, LeadPolicy, send_lead};
 use super::remote_desktop::{RemoteDesktop, semantic_action_refusal};
 use crate::input::step::{Delivery, KeysymStep};
@@ -121,6 +122,7 @@ pub(crate) fn send_keys(
     gate: &mut dyn FnMut() -> Result<(), AdapterError>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
+    refuse_unreachable(keys)?;
     if keys.is_empty() {
         return Ok(Delivery {
             delivered_events: 0,
