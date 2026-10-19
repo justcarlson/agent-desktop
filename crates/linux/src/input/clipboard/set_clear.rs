@@ -17,6 +17,7 @@ use super::payload::{Payload, payload_of};
 use super::wayland::{clear_wayland, read_wayland, set_wayland};
 use super::x11_read::{fault_error, read_x11};
 use super::x11_requestor::{SelectionServer, X11Server};
+use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::route::{self, Route};
 
 const VERIFY_GRACE_MS: u64 = 1_000;
@@ -237,36 +238,64 @@ pub(crate) fn clear_x11(display: &str, lease: &InteractionLease) -> Result<(), A
     with_env(PathBuf::new(), |env| clear_with(env, display, lease))
 }
 
+fn routed(server: DisplayServer) -> Result<Route, AdapterError> {
+    route::resolve(server).map_err(not_delivered)
+}
+
+fn get_from(
+    server: DisplayServer,
+    format: ClipboardFormat,
+    deadline: Deadline,
+) -> Result<Option<ClipboardContent>, AdapterError> {
+    match routed(server)? {
+        Route::X11(display) => read_x11(&display, format, deadline),
+        Route::Wayland => read_wayland(format, deadline),
+    }
+}
+
+fn set_from(
+    server: DisplayServer,
+    content: &ClipboardContent,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
+    match routed(server)? {
+        Route::X11(display) => set_x11(&display, content, lease),
+        Route::Wayland => set_wayland(content, lease),
+    }
+}
+
+fn clear_from(server: DisplayServer, lease: &InteractionLease) -> Result<(), AdapterError> {
+    match routed(server)? {
+        Route::X11(display) => clear_x11(&display, lease),
+        Route::Wayland => clear_wayland(lease),
+    }
+}
+
 pub(crate) fn get_clipboard(
     format: ClipboardFormat,
     deadline: Deadline,
 ) -> Result<Option<ClipboardContent>, AdapterError> {
-    match route::current()? {
-        Route::X11(display) => read_x11(&display, format, deadline),
-        Route::Wayland => read_wayland(format, deadline),
-    }
+    get_from(session_server(), format, deadline)
 }
 
 pub(crate) fn set_clipboard(
     content: &ClipboardContent,
     lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
-    match route::current()? {
-        Route::X11(display) => set_x11(&display, content, lease),
-        Route::Wayland => set_wayland(content, lease),
-    }
+    set_from(session_server(), content, lease)
 }
 
 pub(crate) fn clear_clipboard(lease: &InteractionLease) -> Result<(), AdapterError> {
-    match route::current()? {
-        Route::X11(display) => clear_x11(&display, lease),
-        Route::Wayland => clear_wayland(lease),
-    }
+    clear_from(session_server(), lease)
 }
 
 #[cfg(test)]
 #[path = "set_clear_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "set_clear_route_tests.rs"]
+mod route_tests;
 
 #[cfg(test)]
 #[path = "set_clear_live_tests.rs"]
