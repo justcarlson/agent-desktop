@@ -71,7 +71,7 @@ GNOME is the one desktop with measured evidence, and the evidence overturns most
 - R15. The three deferred sandbox rows are closed on a disposable root-capable runner: both snap interfaces disconnected and the empty-registry or denied shape recorded, the Flatpak read with and without `--talk-name=org.a11y.Bus` and the exact override text, each in both directions (`L1-18`, `L12-8`, `L12-9`, `L21-35`).
 - R16. Isolation and hygiene: `git diff -- crates/core` is empty, no dependency is added (zbus stays `=5.19.0` blocking; no tokio, no atspi crate), no shipped source names a plan, a phase or a decision id, no probe script, capture or box identity is committed.
 - R17. The release binary stays under 15 MiB.
-- R18. A stranger dogfood is run and its judged report committed with every finding disposed of.
+- R18. A stranger dogfood is run and its judged findings are written in the PR description, each with one disposition; the report itself is not committed.
 
 **Notification identity and signal loss**
 
@@ -386,10 +386,10 @@ U1 first. U2 documentation proceeds alongside. U3 and U4 give every later unit i
 - **Goal:** find what a new agent hits using only the shipped binary and docs.
 - **Requirements:** R18.
 - **Dependencies:** U11; the Linux skill seam for the skill leg.
-- **Files:** `docs/dogfood-reports/<date>-<serial>-feat-linux-3-14-shell-notifications-dogfood.md`.
+- **Files:** none; the findings go in the PR description.
 - **Approach:** a subagent operator briefed that it holds the built binary and the shipped docs only, repository withheld, in a private session with the shell, an AppIndicator test item and a notification sender; every shipped example run verbatim in the default shell; every step's `ok` read; waiting uses the tool's own primitives (`wait --notification`, `wait --element`), never a fixed sleep; any undocumented flag, variable or ordering is a finding; a failure counts after a second independent observation; a behavioural claim is measured in both directions. Tasks: list and clear notifications, dismiss one of two apps, press an action, snapshot each shell surface, click a dock item and a tray item, pick a tray menu entry, wait for a new notification. Negatives: no daemon, tree absent, no extension, a non-GNOME daemon, headless dismissal, an autohidden dock. If the skill seam is absent the skill-only leg is listed open, not passed. The report is judged: at least one finding, else the targets are made harder.
 - **Test expectation:** none -- a run and a report; each finding is fixed (a named test that fails when the fix is broken), owned elsewhere (the receiving scope written into `docs/phases.md` in this PR) or accepted with a reason.
-- **Verification:** the report is committed, every finding has one disposition, every fixed finding's test was seen to fail with the fix removed.
+- **Verification:** the findings are in the PR description, every finding has one disposition, every fixed finding's test was seen to fail with the fix removed.
 
 ### U13. Close-out
 
@@ -613,7 +613,7 @@ Requirement-to-check map: R1 -> U3 scenarios, U11 detector states; R2 -> U4 scen
 - Menu surfaces: `menu` is in `supported_surfaces` only for the families U14 and U15 prove, `data.surfaces` lists an open menu after the opening action, and `snapshot --surface menu` and `find --surface menu` are measured live on GTK3, GTK4, Qt and Chromium menus, with the 3.7 dogfood reproductions (Calculator `right-click`, Text Editor `expand`) re-run and their nine items rooted and acted on; §3.4's "fails validation by design" and §3.11's deferral are corrected in the same PR.
 - Every exit criterion E1 to E13 has its test, seen to fail when the rule is broken.
 - Shell kinds are enumerated in `docs/phases.md` and each advertised kind has a passing open, snapshot, ref, headed-action round trip; each non-advertised kind has its reason written down.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified; a skill-only leg that could not run because the seam is open is listed as open, not passed.
+- The dogfood findings are in the PR description with every finding disposed of and every fixed finding's test invert-verified; a skill-only leg that could not run because the seam is open is listed as open, not passed.
 - The release binary size against 15 MiB is in the PR description.
 - `crates/core` diff is empty, no dependency was added, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - Nothing was published, nothing merged to `main`, no live shell or notification was touched, and no abandoned experiment code remains (the sandbox workflow branch is deleted).
