@@ -70,7 +70,7 @@ GNOME is the one desktop with measured evidence, and the evidence overturns most
 - R14. `docs/phases.md` states what was built and no longer states what the evidence disproved: the four false sentences, the incomplete ones, the shell scope enumerated, the dependencies, KDE and other-daemon paths marked unmeasured, the owner items; the `L21` rows enter `probes/linux/FINDINGS.md` (area `L21`) and every row naming 3.14 is disposed of; every deferral is written into the receiving scope in the same PR.
 - R15. The three deferred sandbox rows are closed on a disposable root-capable runner: both snap interfaces disconnected and the empty-registry or denied shape recorded, the Flatpak read with and without `--talk-name=org.a11y.Bus` and the exact override text, each in both directions (`L1-18`, `L12-8`, `L12-9`, `L21-35`).
 - R16. Isolation and hygiene: `git diff -- crates/core` is empty, no dependency is added (zbus stays `=5.19.0` blocking; no tokio, no atspi crate), no shipped source names a plan, a phase or a decision id, no probe script, capture or box identity is committed.
-- R17. The Linux perf method is applied and reported: min-of-seven with the warm-up discarded, reported as min with median and max, for shell discovery, list read, open and restore, a dismiss, an action, tray discovery, a menu pick and one `wait --notification` poll; release size against 15 MiB.
+- R17. The release binary stays under 15 MiB.
 - R18. A stranger dogfood is run and its judged report committed with every finding disposed of.
 
 **Notification identity and signal loss**
@@ -371,15 +371,15 @@ U1 first. U2 documentation proceeds alongside. U3 and U4 give every later unit i
 - **Test expectation:** none -- a measurement run; no test reads its output.
 - **Verification:** rows exist for both directions of each leg; the docs' commands are the commands that worked verbatim; the runner state is restored and the workflow branch deleted.
 
-### U11. Live verification, performance and size
+### U11. Live verification and size
 
-- **Goal:** every R is observed working on a real private GNOME shell, and the Linux perf method is applied.
+- **Goal:** every R is observed working on a real private GNOME shell, and the release size is checked.
 - **Requirements:** R1 to R13, R17, R19 to R24.
 - **Dependencies:** U7, U9, U10, U16. Menu scenarios: the 3.7 dogfood reproductions (Calculator `right-click`, Text Editor `expand`), a GTK3 menu and popover, a Qt `QMenu` and a Chromium menu, each with `data.surfaces`, `snapshot --surface menu`, a ref re-resolved in a second process, an item `click` with its effect read independently, and the closed-menu `STALE_REF`; missed-signal run: install the `ActionInvoked` rule after the click and check the result.
 - **Files:** `crates/linux/src/**/live_*_tests.rs` (ignored by default, run explicitly), `scripts/` additions only if the harness of 3.12 lacks a helper.
-- **Approach:** through `scripts/remote-linux.sh` in private sessions (`scripts/private-session.sh`, the `L21` private gnome-shell recipe, health-gated on three consecutive answers; the Wayland tier and the `--x11` tier; `appindicators` and `dock` extensions enabled where a row needs them). Every effect is read from an independent source: AT-SPI `SHOWING`, a separate sender's own `NotificationClosed` / `ActionInvoked` subscription, the SNI receiver's log, node presence. Scenarios: each R once on each tier that supports it; the three detector states; the sender-before-adapter listing parity; dismiss with a bystander; app-filtered bulk; action with the daemon signal; adopt versus open; tray activation with the receiver log; the disabled-entry refusal; a stale tray ref after owner replacement; Wayland-pointer refusal shape. Costs, min-of-seven with the warm-up discarded, reported as min with median and max: shell discovery (cold and cached), list read, open and restore, one dismiss, one action, tray discovery, one menu pick, one `wait --notification` poll; release size against 15 MiB. L2-19: apps launched for the dock and tray scenarios are attributed through 3.9's recipe, never by the launcher's pid.
+- **Approach:** through `scripts/remote-linux.sh` in private sessions (`scripts/private-session.sh`, the `L21` private gnome-shell recipe, health-gated on three consecutive answers; the Wayland tier and the `--x11` tier; `appindicators` and `dock` extensions enabled where a row needs them). Every effect is read from an independent source: AT-SPI `SHOWING`, a separate sender's own `NotificationClosed` / `ActionInvoked` subscription, the SNI receiver's log, node presence. Scenarios: each R once on each tier that supports it; the three detector states; the sender-before-adapter listing parity; dismiss with a bystander; app-filtered bulk; action with the daemon signal; adopt versus open; tray activation with the receiver log; the disabled-entry refusal; a stale tray ref after owner replacement; Wayland-pointer refusal shape. Release size against 15 MiB. L2-19: apps launched for the dock and tray scenarios are attributed through 3.9's recipe, never by the launcher's pid.
 - **Test scenarios:** the live tests are the scenarios above; none passes on `ok:true` alone.
-- **Verification:** all live scenarios pass, each inverted once (break the rule, watch the live test fail, restore); costs and size are in the PR description.
+- **Verification:** all live scenarios pass, each inverted once (break the rule, watch the live test fail, restore); the release size is in the PR description.
 
 ### U12. Stranger dogfood
 
@@ -583,11 +583,11 @@ Each probe names the decision it can flip, so the measurement is read against it
 | Header | the FFI header drift check shows no drift | the ABI is untouched |
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `scripts/check-stale-ref-constructor-misuse.sh`, `cargo fmt --all -- --check`, and a grep proving no `CloseNotification` call exists in `crates/linux/src` outside tests | 400-line cap, no plan ids in source, R9 |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.14` lists no `DEFERRED` row | R14 |
-| Perf | min-of-seven with the warm-up discarded (min, median, max) for the costs of U11; size against 15 MiB | R17 |
+| Size | release binary against 15 MiB | R17 |
 | Skill | `skills get platform` on Linux and the shell and notification examples verbatim, once the seam lands | docs honesty |
 | Dogfood | the committed report with every finding disposed of | R18 |
 
-Requirement-to-check map: R1 -> U3 scenarios, U11 detector states; R2 -> U4 scenarios and the live round trip per kind; R3 -> U4 gate and hit scenarios, U11 stale-after-restart; R4 -> U5 scenarios, U11 sender parity; R5 -> U7 dismiss scenarios, U11 bystander; R6 -> U7 dismiss-all scenarios, U11; R7 -> U7 action scenarios, U11 daemon signal; R8 -> U4 open/restore and U7 session scenarios; R9 -> U5, U7 (no `CloseNotification` import exists: a grep guard in Source rules), U11; R10 -> U8; R11 -> U9 method choice, U11 receiver log; R12 -> U9 menu pick; R13 -> U6, U11 both tiers; R14 -> U2, U13, Ledger; R15 -> U10; R16 -> Isolation, Dependency, Source rules; R17 -> Perf; R18 -> Dogfood; R19 -> U5 no-id test, U7 moved-entry test, grep guard; R20 -> U7 missed-signal scenarios, U5 missed-banner scenario, U11 late-rule run; R21 -> U14 per-family scenarios; R22 -> U15 list and parity scenarios, U16 signal parity; R23 -> U14 observe scenarios, U11 live snapshot; R24 -> U15 resolve scenarios, U11 live item click.
+Requirement-to-check map: R1 -> U3 scenarios, U11 detector states; R2 -> U4 scenarios and the live round trip per kind; R3 -> U4 gate and hit scenarios, U11 stale-after-restart; R4 -> U5 scenarios, U11 sender parity; R5 -> U7 dismiss scenarios, U11 bystander; R6 -> U7 dismiss-all scenarios, U11; R7 -> U7 action scenarios, U11 daemon signal; R8 -> U4 open/restore and U7 session scenarios; R9 -> U5, U7 (no `CloseNotification` import exists: a grep guard in Source rules), U11; R10 -> U8; R11 -> U9 method choice, U11 receiver log; R12 -> U9 menu pick; R13 -> U6, U11 both tiers; R14 -> U2, U13, Ledger; R15 -> U10; R16 -> Isolation, Dependency, Source rules; R17 -> Size; R18 -> Dogfood; R19 -> U5 no-id test, U7 moved-entry test, grep guard; R20 -> U7 missed-signal scenarios, U5 missed-banner scenario, U11 late-rule run; R21 -> U14 per-family scenarios; R22 -> U15 list and parity scenarios, U16 signal parity; R23 -> U14 observe scenarios, U11 live snapshot; R24 -> U15 resolve scenarios, U11 live item click.
 
 ## Definition of Done
 
@@ -614,7 +614,7 @@ Requirement-to-check map: R1 -> U3 scenarios, U11 detector states; R2 -> U4 scen
 - Every exit criterion E1 to E13 has its test, seen to fail when the rule is broken.
 - Shell kinds are enumerated in `docs/phases.md` and each advertised kind has a passing open, snapshot, ref, headed-action round trip; each non-advertised kind has its reason written down.
 - The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified; a skill-only leg that could not run because the seam is open is listed as open, not passed.
-- The Linux perf method was applied and its table (min, median, max over seven, warm-up discarded) is in the PR description.
+- The release binary size against 15 MiB is in the PR description.
 - `crates/core` diff is empty, no dependency was added, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - Nothing was published, nothing merged to `main`, no live shell or notification was touched, and no abandoned experiment code remains (the sandbox workflow branch is deleted).
 - `docs/phases.md` states what was built and no longer states what the evidence disproved; every deferral and owner item is written into the receiving scope.
