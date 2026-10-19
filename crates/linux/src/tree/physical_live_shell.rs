@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use super::physical_live_x11::overview_active;
 use crate::input::x11::live_tests::refuse_live_display;
+use crate::system::overview::overview_open;
 
 const FIRST_DISPLAY: u32 = 100;
 const LAST_DISPLAY: u32 = 199;
@@ -80,7 +80,7 @@ fn stop(child: &mut Child) {
 fn healthy() -> bool {
     let until = Instant::now() + SHELL_WAIT;
     while Instant::now() < until {
-        if overview_active().is_ok() {
+        if overview_open().is_some() {
             return true;
         }
         std::thread::sleep(POLL);

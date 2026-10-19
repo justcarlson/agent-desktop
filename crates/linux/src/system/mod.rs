@@ -17,7 +17,7 @@ pub(crate) mod focus_window;
 mod focus_world;
 mod interaction_lease;
 mod listed_window;
-mod overview;
+pub(crate) mod overview;
 mod permissions;
 mod proc_scan;
 pub(crate) mod process_facts;

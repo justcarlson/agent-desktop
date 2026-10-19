@@ -1,9 +1,8 @@
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::Deadline;
 
-use crate::system::session_bus::SessionBus;
-use crate::system::within;
+use crate::system::overview::overview_open;
 use crate::system::x11::activate::{active_window_within, request_activation};
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
@@ -65,30 +64,8 @@ pub(super) fn activate(client: u32) {
     request_activation(client).expect("the activation request is sent");
 }
 
-pub(super) fn overview_active() -> Result<bool, AdapterError> {
-    let deadline = read_deadline();
-    let connection = SessionBus::get(deadline)?;
-    within(deadline, async {
-        let reply = connection
-            .call_method(
-                Some("org.gnome.Shell"),
-                "/org/gnome/Shell",
-                Some("org.freedesktop.DBus.Properties"),
-                "Get",
-                &("org.gnome.Shell", "OverviewActive"),
-            )
-            .await
-            .map_err(|error| AdapterError::internal(error.to_string()))?;
-        let value: zbus::zvariant::OwnedValue = reply
-            .body()
-            .deserialize()
-            .map_err(|error| AdapterError::internal(error.to_string()))?;
-        bool::try_from(value).map_err(|error| AdapterError::internal(error.to_string()))
-    })
-}
-
 pub(super) fn wait_for_closed_overview(budget: Duration) {
     wait_until("the Overview reading closed", budget, || {
-        overview_active().is_ok_and(|open| !open)
+        overview_open() == Some(false)
     });
 }
