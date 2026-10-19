@@ -276,3 +276,18 @@ fn a_no_reply_is_a_timeout_unless_the_recipient_left_during_the_call() {
     let died = no_reply("Message recipient disconnected from message bus without replying");
     assert_eq!(fault_of(&died), Fault::Uncertain);
 }
+
+#[test]
+fn a_destroyed_qt_value_write_is_gone_and_a_live_chromium_input_is_only_unsupported() {
+    let qt = fault(UNKNOWN_INTERFACE);
+    let gone = classify_write(qt, WriteKind::SetProperty, true, Corroboration::Dead);
+    assert_eq!(gone, Verdict::Abort(Abort::Stale));
+    let chromium = fault(UNKNOWN_METHOD);
+    let alive = classify_write(
+        chromium,
+        WriteKind::SetTextContents,
+        true,
+        Corroboration::Alive,
+    );
+    assert_eq!(alive, Verdict::Absent);
+}

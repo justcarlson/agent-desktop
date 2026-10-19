@@ -69,7 +69,6 @@ pub(crate) fn read_node_view(
     Err(AdapterError::not_supported("read_node_view"))
 }
 
-#[expect(dead_code, reason = "no caller yet")]
 pub(crate) fn corroborate(
     _bus: &SharedBus,
     _element: &AtspiElement,
