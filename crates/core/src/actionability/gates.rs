@@ -34,6 +34,9 @@ pub(super) fn visibility(
     if !requires_geometry && evidence.state.offscreen.is_none() && evidence.bounds.is_some() {
         return pass("visible");
     }
+    if !requires_geometry && evidence.state.offscreen == Some(false) && evidence.bounds.is_none() {
+        return pass("visible");
+    }
     let Some(bounds) = evidence.bounds else {
         return unknown("visible", "bounds unavailable");
     };
@@ -214,3 +217,7 @@ pub(crate) fn bounds_are_visible(bounds: Option<Rect>) -> bool {
         bounds.validate().is_ok() && bounds.width > 0.0 && bounds.height > 0.0
     })
 }
+
+#[cfg(test)]
+#[path = "gates_tests.rs"]
+mod tests;
