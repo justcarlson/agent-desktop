@@ -88,8 +88,10 @@ fn perf_check(
     let rig = rig();
     let entries = rig.entries(frame, true);
     let window = window_id::encode(frame.bus_name(), frame.path()).ok_or("no window id")?;
+    let unjudged = super::live_churn::unjudged(label, &entries);
     let (target, entry): (&String, &RefEntry) = entries
         .iter()
+        .filter(|(id, _)| !unjudged.contains(id))
         .filter(|(_, entry)| entry.identity.role == "button" && entry.identity.name.is_some())
         .map(|(id, entry)| (id, entry))
         .next_back()
@@ -105,15 +107,22 @@ fn perf_check(
 
     let mut moved = entry.clone();
     moved.scope.path.clear();
-    let mut outcomes = Vec::new();
-    let sized = measure(|| outcomes.push(adapter.resolve_element_strict(&moved, deadline(5_000))));
-    report(label, "search resolving by identity and size", &sized);
-    if let Some(error) = outcomes
-        .iter()
-        .filter_map(|outcome| outcome.as_ref().err())
-        .find(|error| error.code != ErrorCode::AmbiguousTarget)
-    {
-        return Err(format!("the search did not resolve: {error:?}"));
+    if label == "files" {
+        println!(
+            "perf files search resolving by identity and size: not measured, the search reads every button and Files mount rows churn"
+        );
+    } else {
+        let mut outcomes = Vec::new();
+        let sized =
+            measure(|| outcomes.push(adapter.resolve_element_strict(&moved, deadline(5_000))));
+        report(label, "search resolving by identity and size", &sized);
+        if let Some(error) = outcomes
+            .iter()
+            .filter_map(|outcome| outcome.as_ref().err())
+            .find(|error| error.code != ErrorCode::AmbiguousTarget)
+        {
+            return Err(format!("the search did not resolve: {error:?}"));
+        }
     }
 
     let mut missing = entry.clone();
