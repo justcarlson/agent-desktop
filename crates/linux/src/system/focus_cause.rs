@@ -15,6 +15,7 @@ pub(crate) enum Cause {
     AmbiguousWindow,
     ActivationNotSent,
     ActivationNotGranted,
+    OverviewOpen,
     ActivationRefused,
     FrameNotActive,
 }
@@ -32,6 +33,7 @@ impl Cause {
             Self::AmbiguousWindow => "ambiguous_window",
             Self::ActivationNotSent => "activation_not_sent",
             Self::ActivationNotGranted => "activation_not_granted",
+            Self::OverviewOpen => "overview_open",
             Self::ActivationRefused => "activation_refused",
             Self::FrameNotActive => "frame_not_active",
         }
@@ -57,6 +59,9 @@ impl Cause {
                 "The activation request could not be sent to the window manager"
             }
             Self::ActivationNotGranted => "The window manager did not grant focus to the window",
+            Self::OverviewOpen => {
+                "The Activities Overview is open, so the window manager grants no activation"
+            }
             Self::ActivationRefused => "The window manager left another window active",
             Self::FrameNotActive => {
                 "The window manager made the window active but the application does not report it active"
@@ -67,8 +72,9 @@ impl Cause {
     fn suggestion(self) -> &'static str {
         match self {
             Self::ActivationNotGranted => {
-                "The window manager ignores activation of a window that has never held focus; focus the window once yourself, then retry"
+                "The window manager granted no activation and no cause could be read; close any overview or lock screen, then retry, or focus the window yourself"
             }
+            Self::OverviewOpen => "Close the Activities Overview (press Escape), then retry",
             Self::WindowMinimized | Self::WindowHidden => {
                 "Restore the window with 'restore', then retry"
             }

@@ -17,6 +17,7 @@ pub(crate) mod focus_window;
 mod focus_world;
 mod interaction_lease;
 mod listed_window;
+mod overview;
 mod permissions;
 mod proc_scan;
 pub(crate) mod process_facts;
@@ -53,6 +54,8 @@ pub(crate) use window_resolve::resolve_window_strict;
 mod display_live_tests;
 #[cfg(test)]
 mod focus_activation_live_tests;
+#[cfg(test)]
+mod focus_overview_live_tests;
 #[cfg(test)]
 mod focus_window_live_tests;
 #[cfg(test)]

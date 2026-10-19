@@ -36,6 +36,7 @@ struct World {
     frame_active: Cell<Option<bool>>,
     sent: RefCell<Vec<u32>>,
     active_reads: Cell<u32>,
+    overview: Option<bool>,
 }
 
 fn facts() -> ProcessFacts {
@@ -80,6 +81,7 @@ impl World {
             frame_active: Cell::new(Some(active == Some(CLIENT))),
             sent: RefCell::new(Vec::new()),
             active_reads: Cell::new(0),
+            overview: None,
         }
     }
 
@@ -166,6 +168,10 @@ impl FocusWorld for World {
             self.frame_active.set(Some(true));
         }
         self.active.get()
+    }
+
+    fn overview_open(&self) -> Option<bool> {
+        self.overview
     }
 }
 
@@ -310,7 +316,7 @@ fn a_window_that_never_held_focus_is_not_granted_and_nothing_else_is_sent() {
         error
             .suggestion
             .as_deref()
-            .is_some_and(|text| text.contains("never held focus"))
+            .is_some_and(|text| !text.contains("never held focus"))
     );
     assert_eq!(world.sends(), 1);
 }
@@ -365,3 +371,6 @@ fn a_minimized_or_hidden_window_is_pointed_to_the_restore_command() {
         assert!(suggestion.contains("'restore'"), "{suggestion}");
     }
 }
+
+#[path = "focus_overview_tests.rs"]
+mod overview;

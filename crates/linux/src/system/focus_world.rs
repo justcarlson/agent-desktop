@@ -5,6 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 use super::focus_window::{FocusWorld, FrameView, Session};
 use crate::system::bus_deadline::within;
 use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::overview::overview_open;
 use crate::system::process_facts::{self, Lookup};
 use crate::system::registry::toolkit;
 use crate::system::toolkit::reports_global_position;
@@ -93,5 +94,9 @@ impl FocusWorld for LiveWorld<'_> {
 
     fn active(&self) -> Option<u32> {
         active_window_within(ACTIVE_READ)
+    }
+
+    fn overview_open(&self) -> Option<bool> {
+        overview_open()
     }
 }

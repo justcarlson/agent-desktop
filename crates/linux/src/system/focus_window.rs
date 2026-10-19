@@ -42,6 +42,7 @@ pub(super) trait FocusWorld {
     fn global_position(&self) -> bool;
     fn send(&self, client: u32) -> Result<(), ActivateError>;
     fn active(&self) -> Option<u32>;
+    fn overview_open(&self) -> Option<bool>;
 }
 
 fn check_process(world: &impl FocusWorld, win: &WindowInfo) -> Result<(), AdapterError> {
@@ -130,7 +131,17 @@ fn wait_for_focus(
             return Ok(());
         }
         if deadline.is_expired() {
-            return Err(refusal(timeout_cause(before, active, client)));
+            let cause = timeout_cause(before, active, client);
+            let held_back = matches!(
+                cause,
+                Cause::ActivationNotGranted | Cause::ActivationRefused
+            );
+            let cause = if held_back && world.overview_open() == Some(true) {
+                Cause::OverviewOpen
+            } else {
+                cause
+            };
+            return Err(refusal(cause));
         }
         std::thread::sleep(POLL.min(deadline.remaining()));
     }
