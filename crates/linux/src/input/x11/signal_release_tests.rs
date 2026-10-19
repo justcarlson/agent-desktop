@@ -56,3 +56,16 @@ fn a_worker_that_never_finishes_holds_the_signal_back_only_for_the_wait() {
     assert!(progress.is_cancelled());
     assert!(started.elapsed() < Duration::from_secs(2));
 }
+
+#[test]
+fn a_process_that_never_enabled_the_signal_handling_installs_no_handler() {
+    let armed = super::arm(
+        Arc::new(Progress::default()),
+        Arc::new(WorkerSlot::default()),
+    );
+
+    assert!(!armed.installed());
+    let mut current: libc::sigaction = unsafe { std::mem::zeroed() };
+    unsafe { libc::sigaction(libc::SIGTERM, std::ptr::null(), &mut current) };
+    assert_eq!(current.sa_sigaction, libc::SIG_DFL);
+}

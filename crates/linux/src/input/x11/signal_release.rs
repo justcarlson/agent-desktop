@@ -1,5 +1,5 @@
 use std::os::raw::c_int;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::{Arc, Mutex, Once, PoisonError};
 use std::thread;
 use std::time::Duration;
@@ -12,6 +12,7 @@ use super::worker_slot::WorkerSlot;
 const SIGNALS: [c_int; 3] = [libc::SIGTERM, libc::SIGINT, libc::SIGHUP];
 const RELEASE_WAIT: Duration = Duration::from_millis(2_000);
 
+static ENABLED: AtomicBool = AtomicBool::new(false);
 static PIPE_WRITE: AtomicI32 = AtomicI32::new(-1);
 static START: Once = Once::new();
 static CURRENT: Mutex<Option<Target>> = Mutex::new(None);
@@ -23,23 +24,43 @@ struct Target {
     slot: Arc<WorkerSlot>,
 }
 
-/// While held, SIGTERM, SIGINT and SIGHUP stop the running input call and wait
-/// for its worker to release what it holds before the signal's own action is
-/// taken. A handler that was installed before is called afterwards, so a host
-/// process keeps its own handling.
-pub(crate) struct Armed;
+/// While held and enabled, SIGTERM, SIGINT and SIGHUP stop the running input
+/// call and wait for its worker to release what it holds before the signal's
+/// own action is taken. A process that never calls `enable` is never touched:
+/// a library host owns its signal handlers.
+pub(crate) struct Armed {
+    installed: bool,
+}
+
+/// Turns the signal handling on for the rest of the process. Only the
+/// command-line binary calls it.
+pub(crate) fn enable() {
+    ENABLED.store(true, Ordering::SeqCst);
+}
 
 pub(crate) fn arm(progress: Arc<Progress>, slot: Arc<WorkerSlot>) -> Armed {
+    if !ENABLED.load(Ordering::SeqCst) {
+        return Armed { installed: false };
+    }
     START.call_once(start_watcher);
     *CURRENT.lock().unwrap_or_else(PoisonError::into_inner) = Some(Target { progress, slot });
     install();
-    Armed
+    Armed { installed: true }
+}
+
+impl Armed {
+    #[cfg(test)]
+    pub(crate) fn installed(&self) -> bool {
+        self.installed
+    }
 }
 
 impl Drop for Armed {
     fn drop(&mut self) {
-        *CURRENT.lock().unwrap_or_else(PoisonError::into_inner) = None;
-        restore();
+        if self.installed {
+            *CURRENT.lock().unwrap_or_else(PoisonError::into_inner) = None;
+            restore();
+        }
     }
 }
 

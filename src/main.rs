@@ -350,6 +350,7 @@ fn build_adapter() -> impl agent_desktop_core::PlatformAdapter {
 
     #[cfg(target_os = "linux")]
     {
+        agent_desktop_linux::release_input_on_signals();
         agent_desktop_linux::LinuxAdapter::new()
     }
 
