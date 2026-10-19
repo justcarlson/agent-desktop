@@ -13,6 +13,7 @@ use super::state_bits::{ICONIFIED, StateBits};
 use super::toolkit_trust::{read_toolkit, reports_global_position};
 use super::window_extents::read_window_extents;
 use super::{AtspiElement, Extents};
+use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::registry::toolkit;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
@@ -164,6 +165,8 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
         container: element
             .scroll_container()
             .and_then(|container| read_window_extents(bus, container, deadline)),
+        wayland_unplaced: !reports_global_position(&toolkit)
+            && session_server() == DisplayServer::Wayland,
         toolkit,
         ..Placement::default()
     };

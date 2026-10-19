@@ -225,3 +225,57 @@ fn the_live_element_is_identity_state_bounds_and_actions_of_one_read() {
     );
     assert!(element.states_complete);
 }
+
+fn wayland_placement() -> Placement {
+    Placement {
+        frame: Some(Extents {
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 600,
+        }),
+        wayland_unplaced: true,
+        ..Placement::default()
+    }
+}
+
+#[test]
+fn a_shown_node_of_a_mapped_wayland_frame_is_on_screen_and_not_hidden_with_no_rectangle() {
+    let read = with_states(
+        read_of(PUSH_BUTTON, "b", &[]),
+        &[VISIBLE, SHOWING, SENSITIVE],
+    );
+    let projected = state_in(&read, &wayland_placement());
+    assert_eq!(projected.offscreen, Some(false));
+    assert_eq!(projected.hidden, Some(false));
+    assert!(
+        !projected
+            .states
+            .iter()
+            .any(|token| token == state::OFFSCREEN)
+    );
+}
+
+#[test]
+fn the_mapped_wayland_claim_needs_the_wayland_flag_both_state_bits_and_a_live_frame() {
+    let shown = with_states(
+        read_of(PUSH_BUTTON, "b", &[]),
+        &[VISIBLE, SHOWING, SENSITIVE],
+    );
+    let none = |placement: &Placement| {
+        let projected = state_in(&shown, placement);
+        (projected.offscreen, projected.hidden)
+    };
+    assert_eq!(none(&Placement::default()), (None, None));
+    let mut iconified = wayland_placement();
+    iconified.frame_iconified = true;
+    assert_ne!(none(&iconified), (Some(false), Some(false)));
+    let mut no_frame = wayland_placement();
+    no_frame.frame = None;
+    assert_eq!(none(&no_frame), (None, None));
+    let visible_only = with_states(read_of(PUSH_BUTTON, "b", &[]), &[VISIBLE, SENSITIVE]);
+    assert_eq!(
+        state_in(&visible_only, &wayland_placement()).offscreen,
+        None
+    );
+}

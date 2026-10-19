@@ -154,6 +154,18 @@ pub(crate) fn pointer_rect(read: &ObservedRead, placement: &Placement) -> Option
     pointer_extents(read, placement).map(Rect::from)
 }
 
+/// Whether a node that both `VISIBLE` and `SHOWING` sit on a frame that is not
+/// iconified, in a Wayland session whose toolkit reports no global position:
+/// there is no rectangle to prove it on screen, but the toolkit's own flags
+/// say it is mapped and shown, and that is all that is claimed.
+fn on_a_mapped_wayland_frame(read: &ObservedRead, placement: &Placement) -> bool {
+    placement.wayland_unplaced
+        && placement.x11.is_none()
+        && placement.frame.is_some()
+        && !placement.frame_iconified
+        && state_bits(read) == Some((true, true))
+}
+
 /// The state projection. `hidden` is a live-only token. `offscreen` follows
 /// the placement: the token and `Some(true)` together on positive evidence.
 pub(crate) fn live_state(
@@ -175,6 +187,8 @@ pub(crate) fn live_state(
         states.push(state::HIDDEN.to_owned());
     }
     let off = derived_offscreen(read, placement);
+    let mapped = off.is_none() && on_a_mapped_wayland_frame(read, placement);
+    let off = if mapped { Some(false) } else { off };
     if off == Some(true) && !states.iter().any(|token| token == state::OFFSCREEN) {
         states.push(state::OFFSCREEN.to_owned());
     }
@@ -183,7 +197,7 @@ pub(crate) fn live_state(
         states,
         value: live_value(evidence)?,
         enabled: enabled(read),
-        hidden: None,
+        hidden: mapped.then_some(false),
         offscreen: off,
     })
 }
