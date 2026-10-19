@@ -452,6 +452,12 @@ Every row in this ledger was measured on one machine.
 | L20-6 | Fresh Google Chrome window, first successful `snapshot` | dbus | app | L17-17: a childless Chromium frame is unread, not empty | 8 of 8 launches (3 polled through `list-apps`, 5 polled by `snapshot` itself every 50 ms from launch): the first call that succeeded returned 225 nodes, 71 refs, `complete: true`; calls before the window existed failed rather than returning an empty tree. A frame under the 32-node shell ceiling is never accepted as settled, so a childless frame waits for its children | CONFIRMS | 3.4: no change; the settle rule already treats a thin web tree as unread |
 | L20-7 | `cargo test -p agent-desktop` outside a private session while the owner's AT-SPI bus is down | tool | box | none | `cli_process` `batch_session_ended_skip_is_defeated_by_following_event_wait_same_session` and `_cross_session` fail: the batch hard-stops at preflight with `PERM_DENIED` (accessibility permission) because the `wait` entry needs the bus; inside a private session the same two pass (13 of 13). `list_apps_inventory_matches_the_platform` asserted `PLATFORM_NOT_SUPPORTED` for Linux and failed in both settings (fixed here) | NEW-EDGE | 3.15: the batch process tests do not depend on a live accessibility bus |
 
+## Area L23 — live harness probes (GTK4 pointer coordinates)
+
+| id | probe | stack | scope | phases.md expectation | observed | verdict | action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| L23-37 | P2/P7/P9 helper: GTK4 pointer coordinates | dbus | api-contract | L6-6 / L13-6: GTK4 global geometry unreliable | `GetExtents(type 0)` of GTK4 nodes is `[0,0,w,h]` for nearly all nodes; `GetExtents(type 1)` (window coords) is real (combo `[329,285,558,54]`). A click built from type 0 landed on the sidebar ("Recent Files" selected in Files), one built from type 1 plus the X window origin opened the combo | NEW-EDGE | 3.8: GTK4 pointer targeting = window-coordinate extents + the X11 window origin; screen extents are valid only on GTK3/Qt |
+
 ## Area L24 — hardening probes of the observation sub-phase
 
 | id | probe | stack | scope | phases.md expectation | observed | verdict | action |
