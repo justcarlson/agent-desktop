@@ -6,7 +6,7 @@ use super::chain::{DeliveryOutcome, Observed, Rung};
 use super::mutation::{WriteReply, with_value_chars};
 use super::secure_write::{guarded_read, scrub};
 use crate::tree::text_selection::CaretAndSelection;
-use crate::tree::text_units::utf8_len;
+use crate::tree::text_units::{LengthUnit, insert_length};
 
 pub(crate) const EDITABLE_TEXT: &str = "org.a11y.atspi.EditableText";
 pub(crate) const REPLACE_LABEL: &str = "EditableText.SetTextContents";
@@ -18,6 +18,9 @@ pub(crate) trait TextPort {
     fn delete(&self, start: i32, end: i32) -> Result<WriteReply, AdapterError>;
     fn insert(&self, position: i32, text: &str, length: i32) -> Result<WriteReply, AdapterError>;
     fn read(&self) -> Option<String>;
+    fn length_unit(&self) -> LengthUnit {
+        LengthUnit::Utf8Bytes
+    }
     fn caret(&self) -> Result<Option<CaretAndSelection>, AdapterError>;
 }
 
@@ -145,7 +148,11 @@ fn rewrite(port: &dyn TextPort, text: &str, secure: bool) -> Result<DeliveryOutc
         };
         return Ok(outcome);
     }
-    match port.insert(0, text, utf8_len(text).map_err(too_long)?) {
+    match port.insert(
+        0,
+        text,
+        insert_length(text, port.length_unit()).map_err(too_long)?,
+    ) {
         Ok(WriteReply::Done) => Ok(DeliveryOutcome::Delivered(judge(port, secure, None, text)?)),
         Ok(WriteReply::Absent) if removed => Err(after_delete(None)),
         Ok(WriteReply::Absent) => Ok(DeliveryOutcome::NotDelivered),
@@ -210,7 +217,7 @@ fn insert_at_caret(
     let sent = port.insert(
         offset(replaced.start)?,
         text,
-        utf8_len(text).map_err(too_long)?,
+        insert_length(text, port.length_unit()).map_err(too_long)?,
     );
     let expected = before
         .as_deref()

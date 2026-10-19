@@ -65,3 +65,26 @@ fn descents_are_trusted_for_the_four_measured_toolkits() {
     assert!(!trusts_descent(&toolkit(Some("gtk"), None)));
     assert!(!trusts_descent(&toolkit(Some("clutter"), Some("1.0"))));
 }
+
+#[test]
+fn only_qt_counts_the_insert_length_in_utf16_units() {
+    use super::insert_length_unit;
+    use crate::tree::text_units::LengthUnit;
+    let named = |name: &str, version: &str| toolkit(Some(name), Some(version));
+    assert_eq!(
+        insert_length_unit(&named("Qt", "6.4")),
+        LengthUnit::Utf16Units
+    );
+    assert_eq!(
+        insert_length_unit(&named("gtk", "3.24")),
+        LengthUnit::Utf8Bytes
+    );
+    assert_eq!(
+        insert_length_unit(&named("GTK", "4.14")),
+        LengthUnit::Utf8Bytes
+    );
+    assert_eq!(
+        insert_length_unit(&ToolkitId::default()),
+        LengthUnit::Utf8Bytes
+    );
+}

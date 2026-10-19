@@ -25,21 +25,43 @@ fn set_value_and_clear_land_on_a_text_field_in_every_toolkit() {
 
 #[test]
 #[ignore = "needs lane A's write engine and lane B's caret read; run through scripts/private-session.sh --wm"]
-fn type_inserts_ascii_emoji_and_a_combining_mark_at_the_caret() {
+fn type_inserts_non_ascii_text_into_an_empty_field_exactly() {
     each_toolkit(|toolkit, bench| {
         let field = bench.named("field");
-        bench
-            .act(&field, Action::SetValue(String::new()))
-            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
-        for piece in ["ab", "\u{1F600}", "e\u{301}"] {
+        for piece in [
+            "ab",
+            "\u{e9}",
+            "\u{1F600}",
+            "e\u{301}",
+            "ab\u{e9}\u{1F600}e\u{301}",
+        ] {
+            bench
+                .act(&field, Action::SetValue(String::new()))
+                .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
             bench
                 .act(&field, Action::TypeText(piece.to_owned()))
                 .unwrap_or_else(|error| panic!("{toolkit:?} {piece:?}: {error}"));
+            assert_eq!(bench.text_of(&field), piece, "{toolkit:?} {piece:?}");
         }
+    });
+}
+
+#[test]
+#[ignore = "needs lane A's write engine and lane B's caret read; run through scripts/private-session.sh --wm"]
+fn type_after_a_wide_character_lands_at_the_caret_exactly() {
+    each_toolkit(|toolkit, bench| {
+        let field = bench.named("field");
+        bench
+            .act(&field, Action::SetValue("a\u{1F600}".to_owned()))
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        bench
+            .act(&field, Action::TypeText("\u{e9}".to_owned()))
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
         let read = bench.text_of(&field);
-        assert!(read.contains('\u{1F600}'), "{toolkit:?}: {read:?}");
-        assert!(read.contains("e\u{301}"), "{toolkit:?}: {read:?}");
-        assert!(read.contains("ab"), "{toolkit:?}: {read:?}");
+        assert!(
+            read == "a\u{1F600}\u{e9}" || read == "\u{e9}a\u{1F600}",
+            "{toolkit:?}: {read:?}"
+        );
     });
 }
 

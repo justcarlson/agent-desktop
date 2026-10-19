@@ -10,9 +10,12 @@ use super::text_write::{self, EDITABLE_TEXT, TextPort, read_only_field, writable
 use super::write_call::{Call, invoke};
 use crate::system::{PROPERTIES_INTERFACE, ensure_budget, within};
 use crate::tree::action_read::NodeView;
+use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::{DIAL, SCROLL_BAR, SLIDER, SPIN_BUTTON};
 use crate::tree::state_bits::{EDITABLE, READ_ONLY};
 use crate::tree::text_selection::{CaretAndSelection, read_caret_and_selection};
+use crate::tree::text_units::LengthUnit;
+use crate::tree::toolkit_trust::insert_length_unit;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Route {
@@ -90,6 +93,11 @@ impl TextPort for LiveText<'_> {
         let target = self.target;
         let view = target.view().ok()?;
         view.value().map(str::to_owned)
+    }
+
+    fn length_unit(&self) -> LengthUnit {
+        let target = self.target;
+        insert_length_unit(&toolkit_of(target.bus, target.element, target.deadline))
     }
 
     fn caret(&self) -> Result<Option<CaretAndSelection>, AdapterError> {

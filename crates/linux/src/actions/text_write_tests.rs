@@ -4,6 +4,7 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::fakes::{Fake, Script, drive, span};
 use super::*;
+use crate::tree::text_units::LengthUnit;
 
 fn invalid() -> AdapterError {
     AdapterError::new(ErrorCode::InvalidArgs, "bad range")
@@ -300,4 +301,20 @@ fn the_read_only_refusal_is_action_not_supported_and_not_delivered() {
     let error = read_only_field();
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}
+
+#[test]
+fn a_qt_field_is_sent_the_utf16_length_so_it_reads_no_garbage_past_the_text() {
+    let mut fake = Fake::holding("");
+    fake.unit = LengthUnit::Utf16Units;
+    fake.caret = Ok(Some((0, vec![])));
+    typed(&fake, "\u{e9}").expect("delivered");
+    typed(&fake, "\u{1F600}").expect("delivered");
+    assert_eq!(
+        fake.logged(),
+        [
+            "insert(0,1,\u{e9})".to_owned(),
+            "insert(0,2,\u{1F600})".to_owned()
+        ]
+    );
 }

@@ -4,6 +4,7 @@ use zbus::zvariant::OwnedValue;
 
 use super::AtspiElement;
 use super::node_read::call;
+use super::text_units::LengthUnit;
 use crate::system::PROPERTIES_INTERFACE;
 use crate::system::toolkit_id::ToolkitId;
 
@@ -72,6 +73,15 @@ pub(crate) fn kind(toolkit: &ToolkitId) -> ToolkitKind {
         ToolkitKind::Chromium
     } else {
         ToolkitKind::Other
+    }
+}
+
+/// The unit the toolkit counts the `InsertText` length in: Qt in UTF-16
+/// units, every other toolkit in bytes (L30-38).
+pub(crate) fn insert_length_unit(toolkit: &ToolkitId) -> LengthUnit {
+    match kind(toolkit) {
+        ToolkitKind::Qt => LengthUnit::Utf16Units,
+        _ => LengthUnit::Utf8Bytes,
     }
 }
 

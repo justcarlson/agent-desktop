@@ -5,6 +5,7 @@ use agent_desktop_core::AdapterError;
 use super::{TextPort, WriteReply};
 use crate::actions::chain::{DeliveryOutcome, Rung};
 use crate::tree::text_selection::CaretAndSelection;
+use crate::tree::text_units::LengthUnit;
 
 #[derive(Clone)]
 pub(crate) enum Script {
@@ -23,6 +24,7 @@ pub(crate) struct Fake {
     pub(crate) caret: Result<Option<CaretAndSelection>, AdapterError>,
     pub(crate) log: RefCell<Vec<String>>,
     pub(crate) reads: Cell<usize>,
+    pub(crate) unit: LengthUnit,
 }
 
 impl Fake {
@@ -36,6 +38,7 @@ impl Fake {
             caret: Ok(None),
             log: RefCell::new(Vec::new()),
             reads: Cell::new(0),
+            unit: LengthUnit::Utf8Bytes,
         }
     }
 
@@ -54,6 +57,10 @@ impl Fake {
 }
 
 impl TextPort for Fake {
+    fn length_unit(&self) -> LengthUnit {
+        self.unit
+    }
+
     fn set_contents(&self, text: &str) -> Result<WriteReply, AdapterError> {
         self.log.borrow_mut().push(format!("set({text})"));
         let (reply, applied) = Self::reply(&self.set)?;

@@ -1,4 +1,6 @@
-use super::{TextUnitError, code_point_to_utf16, length_as_i32, utf8_len};
+use super::{
+    LengthUnit, TextUnitError, code_point_to_utf16, insert_length, length_as_i32, utf8_len,
+};
 
 const MIXED: &str = "a\u{1F600}e\u{301}b";
 
@@ -28,4 +30,13 @@ fn a_length_above_i32_max_is_rejected() {
     let limit = i32::MAX as usize;
     assert_eq!(length_as_i32(limit), Ok(i32::MAX));
     assert_eq!(length_as_i32(limit + 1), Err(TextUnitError::TooLong));
+}
+
+#[test]
+fn the_insert_length_follows_the_unit_the_toolkit_counts_in() {
+    assert_eq!(insert_length("\u{e9}", LengthUnit::Utf8Bytes), Ok(2));
+    assert_eq!(insert_length("\u{e9}", LengthUnit::Utf16Units), Ok(1));
+    assert_eq!(insert_length("\u{1F600}", LengthUnit::Utf8Bytes), Ok(4));
+    assert_eq!(insert_length("\u{1F600}", LengthUnit::Utf16Units), Ok(2));
+    assert_eq!(insert_length("e\u{301}", LengthUnit::Utf16Units), Ok(2));
 }
