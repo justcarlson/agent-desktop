@@ -13,6 +13,8 @@ struct Fake {
     lives: RefCell<VecDeque<Liveness>>,
     read_count: Cell<usize>,
     pauses: RefCell<Vec<Duration>>,
+    recent: Cell<bool>,
+    action_window_polls: Cell<usize>,
 }
 
 impl Fake {
@@ -23,7 +25,15 @@ impl Fake {
             lives: RefCell::new(VecDeque::new()),
             read_count: Cell::new(0),
             pauses: RefCell::new(Vec::new()),
+            recent: Cell::new(false),
+            action_window_polls: Cell::new(usize::MAX),
         }
+    }
+
+    fn after_an_action(self, polls: usize) -> Self {
+        self.recent.set(true);
+        self.action_window_polls.set(polls);
+        self
     }
 
     fn with_lives(self, lives: Vec<Liveness>) -> Self {
@@ -67,6 +77,10 @@ impl MenuWorld for Fake {
     fn pause(&self, gap: Duration) {
         self.pauses.borrow_mut().push(gap);
         std::thread::sleep(gap);
+    }
+
+    fn recent_action(&self) -> bool {
+        self.recent.get() && self.read_count.get() < self.action_window_polls.get()
     }
 }
 
@@ -217,4 +231,35 @@ fn a_stopped_target_error_names_the_app() {
     let world = Fake::new(vec![Ok(false)]).with_lives(vec![Liveness::Stopped]);
     let error = run(&world, true, deadline(5000)).expect_err("stopped");
     assert!(error.message.contains("calculator"), "{}", error.message);
+}
+
+#[test]
+fn a_closed_read_right_after_an_opener_action_does_not_end_the_closed_wait() {
+    let world = Fake::new(vec![Ok(false), Ok(false), Ok(true), Ok(false)]).after_an_action(100);
+    assert!(run(&world, false, deadline(5000)).is_ok());
+    assert_eq!(world.read_count.get(), 4);
+}
+
+#[test]
+fn a_closed_wait_after_an_action_ends_when_the_settle_window_has_passed() {
+    let world = Fake::new(vec![Ok(false)]).after_an_action(3);
+    assert!(run(&world, false, deadline(5000)).is_ok());
+    assert_eq!(world.read_count.get(), 3);
+}
+
+#[test]
+fn an_open_wait_is_not_held_by_a_recent_action() {
+    let world = Fake::new(vec![Ok(true)]).after_an_action(100);
+    assert!(run(&world, true, deadline(5000)).is_ok());
+    assert_eq!(world.read_count.get(), 1);
+}
+
+#[test]
+fn a_poll_is_followed_by_the_full_pause_whatever_the_poll_cost() {
+    let world = Fake::new(vec![Ok(false), Ok(false), Ok(false), Ok(true)]);
+    assert!(run(&world, true, deadline(5000)).is_ok());
+    assert_eq!(world.read_count.get(), 4);
+    let pauses = world.pauses.borrow();
+    assert_eq!(pauses.len(), 3);
+    assert!(pauses.iter().all(|gap| *gap == Duration::from_millis(50)));
 }

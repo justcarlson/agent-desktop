@@ -3,6 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessIdentity};
 
 use super::SharedBus;
+use super::action_clock;
 use super::liveness::{Liveness, liveness};
 use super::menu_anchor::menu_open;
 use super::process_facts::{self, ProcessFacts};
@@ -14,6 +15,7 @@ pub(super) trait MenuWorld {
     fn liveness(&self) -> Liveness;
     fn menu_open(&self, deadline: Deadline) -> Result<bool, AdapterError>;
     fn pause(&self, gap: Duration);
+    fn recent_action(&self) -> bool;
 
     fn label(&self) -> String {
         let pid = self.process().pid.get();
@@ -48,6 +50,10 @@ impl MenuWorld for BusWorld<'_> {
 
     fn pause(&self, gap: Duration) {
         std::thread::sleep(gap);
+    }
+
+    fn recent_action(&self) -> bool {
+        action_clock::settles(true)
     }
 }
 
@@ -92,20 +98,33 @@ fn verify_process(world: &impl MenuWorld) -> Result<(), AdapterError> {
     }
 }
 
+/// Whether a read that matches the wanted state may end the wait. A menu
+/// that an action of this process has just asked to open stays closed for
+/// the first few hundred milliseconds, so a closed read right after such an
+/// action proves nothing until the menu has been seen open or the settle
+/// window of the action has passed.
+fn settled(open: bool, seen_open: bool, world: &impl MenuWorld) -> bool {
+    open || seen_open || !world.recent_action()
+}
+
 pub(super) fn run(
     world: &impl MenuWorld,
     open: bool,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     let mut state_never_read = true;
+    let mut seen_open = false;
     loop {
         verify_process(world)?;
         match world.menu_open(deadline) {
-            Ok(state) if state == open => {
+            Ok(state) if state == open && settled(open, seen_open, world) => {
                 verify_process(world)?;
                 return Ok(());
             }
-            Ok(_) => state_never_read = false,
+            Ok(state) => {
+                state_never_read = false;
+                seen_open |= state;
+            }
             Err(error) if error.code == ErrorCode::Timeout => {}
             Err(error) => {
                 verify_process(world)?;

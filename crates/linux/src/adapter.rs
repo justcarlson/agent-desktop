@@ -159,6 +159,17 @@ impl ObservationOps for LinuxAdapter {
     }
 }
 
+impl LinuxAdapter {
+    fn deliver(
+        &self,
+        handle: &NativeHandle,
+        request: ActionRequest,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        crate::actions::execute_action(self.bus(), handle, request, lease)
+    }
+}
+
 impl ActionOps for LinuxAdapter {
     fn execute_action(
         &self,
@@ -166,7 +177,9 @@ impl ActionOps for LinuxAdapter {
         request: ActionRequest,
         lease: &InteractionLease,
     ) -> Result<ActionResult, AdapterError> {
-        crate::actions::execute_action(self.bus(), handle, request, lease)
+        let result = self.deliver(handle, request, lease);
+        crate::system::action_clock::mark();
+        result
     }
 
     fn scroll_into_view(
