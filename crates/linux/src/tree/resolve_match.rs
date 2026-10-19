@@ -103,7 +103,9 @@ pub(crate) fn entry_is_unverifiable(entry: &RefEntry) -> bool {
 /// Decides one node's admission from the stored ref and the node's evidence:
 /// the role gate, the composed identity rule and the size promotion. An
 /// unreadable role or identity leaves the region unread and is never a
-/// refutation.
+/// refutation. A ref that can only be recognised by its size is refuted by a
+/// node whose size was read and differs: it is not unread, since nothing more
+/// could be learned about that node.
 pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admission {
     match evidence.role.known() {
         None if evidence.role.is_unknown() => return Admission::Unread,
@@ -113,6 +115,12 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
     match identity_verdict(entry, evidence) {
         IdentityMatch::Match => Admission::Collect,
         IdentityMatch::Unknown if geometry_matches(entry, evidence) => Admission::Collect,
+        IdentityMatch::Unknown
+            if provisional_geometry_candidate(entry)
+                && !evidence.ref_evidence.bounds.is_unknown() =>
+        {
+            Admission::Reject
+        }
         IdentityMatch::Unknown => Admission::Unread,
         IdentityMatch::NoMatch => Admission::Reject,
     }

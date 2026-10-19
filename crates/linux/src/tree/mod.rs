@@ -71,7 +71,31 @@ mod walker_tests;
 pub(crate) mod test_support;
 
 #[cfg(test)]
+mod absence_live_tests;
+
+#[cfg(test)]
+mod chromium_live_tests;
+
+#[cfg(test)]
 mod live_apps;
+
+#[cfg(test)]
+mod live_fixture;
+
+#[cfg(test)]
+mod live_read_live_tests;
+
+#[cfg(test)]
+mod live_rig;
+
+#[cfg(test)]
+mod navigate_live_tests;
+
+#[cfg(test)]
+mod perf_live_tests;
+
+#[cfg(test)]
+mod qt_live_tests;
 
 #[cfg(test)]
 pub(crate) mod live_launch;

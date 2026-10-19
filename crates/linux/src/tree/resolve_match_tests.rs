@@ -187,7 +187,7 @@ fn a_ref_with_nothing_to_match_is_unverifiable_and_an_identifier_or_text_is_enou
 }
 
 #[test]
-fn an_unreadable_identity_is_promoted_only_by_a_matching_size() {
+fn an_unreadable_identity_is_promoted_by_a_matching_size_and_refuted_by_a_different_one() {
     let entry = sized(ref_entry("entry"), rect(5.0, 5.0, 120.0, 24.0));
     let same = evidence("entry", None, None, Some(rect(900.0, 9.0, 120.0, 24.0)));
     let other = evidence("entry", None, None, Some(rect(5.0, 5.0, 130.0, 24.0)));
@@ -196,5 +196,18 @@ fn an_unreadable_identity_is_promoted_only_by_a_matching_size() {
     let mut unreadable_other = other.clone();
     unreadable_other.name = LocatorField::Unknown;
     assert_eq!(admit_node(&entry, &unreadable_same), Admission::Collect);
-    assert_eq!(admit_node(&entry, &unreadable_other), Admission::Unread);
+    assert_eq!(admit_node(&entry, &unreadable_other), Admission::Reject);
+}
+
+#[test]
+fn a_ref_known_only_by_its_size_is_refuted_by_a_node_whose_size_was_read_and_differs() {
+    let entry = sized(ref_entry("textfield"), rect(0.0, 0.0, 690.0, 464.0));
+    let mut resized = evidence("textfield", None, None, Some(rect(0.0, 0.0, 690.0, 463.0)));
+    assert_eq!(admit_node(&entry, &resized), Admission::Reject);
+    let same = evidence("textfield", None, None, Some(rect(5.0, 9.0, 690.0, 464.0)));
+    assert_eq!(admit_node(&entry, &same), Admission::Collect);
+    resized.ref_evidence.bounds = LocatorField::Unknown;
+    assert_eq!(admit_node(&entry, &resized), Admission::Unread);
+    resized.ref_evidence.bounds = LocatorField::Absent;
+    assert_eq!(admit_node(&entry, &resized), Admission::Reject);
 }

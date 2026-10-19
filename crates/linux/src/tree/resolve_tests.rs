@@ -208,3 +208,26 @@ fn a_deadline_that_is_already_spent_is_a_timeout_before_any_read() {
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(fake.reads.gate, 0);
 }
+
+#[test]
+fn a_nameless_ref_whose_element_changed_size_is_a_settled_miss_and_not_a_retry() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/editor", node(PANEL, "", 690, 464));
+    let entry = fake.entry_of("/editor", true);
+    assert!(entry.identity.name.is_none());
+    fake.nodes
+        .get_mut("/editor")
+        .expect("editor")
+        .read
+        .node
+        .extents = crate::tree::Field::Present(crate::tree::Extents {
+        x: 0,
+        y: 0,
+        width: 690,
+        height: 463,
+    });
+    let error = refusal(&mut fake, &entry);
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(kind(&error), "resolve_no_candidate");
+    assert!(!error.is_explicitly_retryable());
+}
