@@ -7,7 +7,7 @@ use agent_desktop_core::{
     WindowState,
 };
 
-pub(crate) use super::world::*;
+pub(crate) use super::world::{FakeLookup, FakeStacking, Seq};
 use super::*;
 use crate::system::capture::pixels::VisualFormat;
 use crate::system::capture::window_xid::XidOutcome;
