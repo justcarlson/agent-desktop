@@ -1,15 +1,66 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
 
-use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer};
+use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer, ImageFormat, MAX_PNG_INPUT_BYTES};
+use png::{BitDepth, ColorType, Compression, Encoder};
+
+use super::pixels::MAX_PIXELS;
+
+fn refused(reason: impl Into<String>) -> AdapterError {
+    AdapterError::new(ErrorCode::ActionFailed, reason)
+}
+
+fn check_pixels(width: u32, height: u32) -> Result<u64, AdapterError> {
+    let pixels = u64::from(width) * u64::from(height);
+    if pixels == 0 {
+        return Err(refused("The capture has no pixels"));
+    }
+    if pixels > MAX_PIXELS {
+        return Err(refused(format!(
+            "The capture is {width}x{height}, larger than the {MAX_PIXELS} pixel limit"
+        )));
+    }
+    Ok(pixels)
+}
+
+fn check_encoded(length: usize) -> Result<(), AdapterError> {
+    if length > MAX_PNG_INPUT_BYTES {
+        return Err(refused("The encoded capture is larger than the size limit"));
+    }
+    Ok(())
+}
 
 pub(crate) fn encode_png(
-    _rgb: &[u8],
-    _width: u32,
-    _height: u32,
-    _scale_factor: f64,
+    rgb: &[u8],
+    width: u32,
+    height: u32,
+    scale_factor: f64,
 ) -> Result<ImageBuffer, AdapterError> {
-    Err(AdapterError::new(
-        ErrorCode::PlatformNotSupported,
-        "PNG encoding is not built yet",
-    ))
+    let pixels = check_pixels(width, height)?;
+    if rgb.len() as u64 != pixels * 3 {
+        return Err(refused("The capture bytes do not match its size"));
+    }
+    let mut data = Vec::new();
+    let mut encoder = Encoder::new(&mut data, width, height);
+    encoder.set_color(ColorType::Rgb);
+    encoder.set_depth(BitDepth::Eight);
+    encoder.set_compression(Compression::Balanced);
+    let mut writer = encoder
+        .write_header()
+        .map_err(|error| refused(format!("The PNG header could not be written: {error}")))?;
+    writer
+        .write_image_data(rgb)
+        .and_then(|()| writer.finish())
+        .map_err(|error| refused(format!("The PNG could not be encoded: {error}")))?;
+    check_encoded(data.len())?;
+    Ok(ImageBuffer {
+        data,
+        format: ImageFormat::Png,
+        width,
+        height,
+        scale_factor,
+    })
 }
+
+#[cfg(test)]
+#[path = "png_encode_tests.rs"]
+mod tests;
