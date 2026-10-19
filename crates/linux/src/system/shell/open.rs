@@ -201,10 +201,18 @@ pub(crate) fn is_showing(
     let anchor = Anchor::Landmark(container_landmark(kind));
     let root = find_root(bus, deadline)?;
     let located = locate_anchor(bus, &root, anchor, deadline)?;
-    Ok(match kind {
-        ShellKind::MessageList | ShellKind::SystemMenu => located.anchor.showing,
+    Ok(showing_of(kind, &located))
+}
+
+/// The message list is told by its own container: its clear-all button, the
+/// anchor, is hidden while the list is empty even when the list is open. The
+/// system menu is told by its anchor.
+pub(super) fn showing_of(kind: ShellKind, located: &super::container::Located) -> bool {
+    match kind {
+        ShellKind::MessageList => located.container.showing,
+        ShellKind::SystemMenu => located.anchor.showing,
         ShellKind::Dock | ShellKind::Tray => true,
-    })
+    }
 }
 
 #[cfg(test)]

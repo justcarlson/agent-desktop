@@ -5,8 +5,11 @@ use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionPolicy, WindowInfo, WindowState,
 };
 
+use crate::system::shell::container::Located;
 use crate::system::shell::kinds::ShellKind;
-use crate::system::shell::open::{Opened, Surface, close_with, open_with};
+use crate::system::shell::light::Light;
+use crate::system::shell::open::{Opened, Surface, close_with, open_with, showing_of};
+use crate::tree::AtspiElement;
 
 struct World {
     showing: Cell<bool>,
@@ -166,4 +169,43 @@ fn a_close_that_does_not_take_effect_is_an_error() {
     let error =
         close_with(&world, ShellKind::MessageList, deadline(60)).expect_err("it stays open");
     assert_eq!(error.code, ErrorCode::Timeout);
+}
+
+fn light(showing: bool) -> Light {
+    Light {
+        element: AtspiElement::new(":1.2", "/n", 7),
+        role: 43,
+        name: String::new(),
+        extents: None,
+        showing,
+        visible: true,
+        children: Vec::new(),
+    }
+}
+
+#[test]
+fn an_empty_open_message_list_is_showing_though_its_clear_all_button_is_hidden() {
+    let located = Located {
+        anchor: light(false),
+        container: light(true),
+    };
+    assert!(showing_of(ShellKind::MessageList, &located));
+}
+
+#[test]
+fn a_closed_message_list_is_not_showing_though_its_anchor_claims_to() {
+    let located = Located {
+        anchor: light(true),
+        container: light(false),
+    };
+    assert!(!showing_of(ShellKind::MessageList, &located));
+}
+
+#[test]
+fn the_system_menu_is_still_told_by_its_anchor() {
+    let located = Located {
+        anchor: light(true),
+        container: light(false),
+    };
+    assert!(showing_of(ShellKind::SystemMenu, &located));
 }
