@@ -2,7 +2,7 @@ use agent_desktop_core::AdapterError;
 
 use super::context::Target;
 use super::mutation::{WriteKind, WriteReply};
-use super::write_call::invoke;
+use super::write_call::{Call, invoke};
 
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
 
@@ -26,10 +26,12 @@ pub(crate) fn do_action(
     match resolve_verb(names, verbs) {
         Some(index) => invoke(
             target,
-            ACTION_INTERFACE,
-            "DoAction",
-            &(index,),
-            WriteKind::DoAction,
+            Call {
+                interface: ACTION_INTERFACE,
+                method: "DoAction",
+                body: &(index,),
+                kind: WriteKind::DoAction,
+            },
             true,
         ),
         None => Ok(WriteReply::Absent),

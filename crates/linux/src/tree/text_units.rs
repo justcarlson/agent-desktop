@@ -24,23 +24,6 @@ pub(crate) fn code_point_to_utf16(text: &str, offset: usize) -> Option<usize> {
     Some(units)
 }
 
-/// The code-point offset of the UTF-16 unit at `offset`, or `None` past the
-/// end or between the two halves of a surrogate pair.
-#[cfg_attr(not(test), expect(dead_code, reason = "no caller yet"))]
-pub(crate) fn utf16_to_code_point(text: &str, offset: usize) -> Option<usize> {
-    let mut units = 0;
-    for (index, point) in text.chars().enumerate() {
-        if units == offset {
-            return Some(index);
-        }
-        if units > offset {
-            return None;
-        }
-        units += point.len_utf16();
-    }
-    (units == offset).then(|| text.chars().count())
-}
-
 #[cfg(test)]
 #[path = "text_units_tests.rs"]
 mod tests;

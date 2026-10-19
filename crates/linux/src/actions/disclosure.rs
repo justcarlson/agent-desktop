@@ -11,7 +11,7 @@ use super::click::{
 use super::context::Target;
 use super::toggle_state::{Flag, drive_to};
 use crate::tree::action_names::verbs_for;
-use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::action_read::NodeView;
 use crate::tree::state_bits::{EXPANDABLE, EXPANDED, HAS_POPUP};
 
 const DISCLOSURE_SETTLE: Duration = Duration::from_millis(1000);
@@ -67,7 +67,7 @@ pub(crate) fn set_expanded(
     } else {
         Action::Collapse
     };
-    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    let view = target.view()?;
     let current = plan_disclosure(DisclosureFacts::of(&view), &action)?;
     let names = names_of(&view)?;
     let verbs = verbs_for(&action);
@@ -76,12 +76,13 @@ pub(crate) fn set_expanded(
     } else {
         (DISCLOSURE_SETTLE, POLL_STEP)
     };
-    let inner = if current.is_wanted(expanded) || resolve_verb(names, verbs).is_some() {
+    let inner = if current.is_wanted(expanded)
+        || resolve_verb(names, verbs).is_some()
+        || !opens_popup(&view)
+    {
         None
-    } else if opens_popup(&view) {
-        popup_inner(target, verbs)?
     } else {
-        None
+        popup_inner(target, verbs)?
     };
     let run = || {
         drive_to(
@@ -90,7 +91,7 @@ pub(crate) fn set_expanded(
             || match &inner {
                 Some(inner) => {
                     let child = inner.target(target)?;
-                    let child_view = read_node_view(child.bus, child.handle, child.deadline)?;
+                    let child_view = child.view()?;
                     let child_names = names_of(&child_view)?;
                     invoke_verb(&child, &action, child_names, verbs)
                 }
@@ -102,7 +103,8 @@ pub(crate) fn set_expanded(
                     budget,
                     step,
                     || {
-                        read_node_view(target.bus, target.handle, target.deadline)
+                        target
+                            .view()
                             .map_or(Flag::Unknown, |after| read_expanded(&after))
                     },
                     |flag| flag.is_wanted(expanded),

@@ -76,10 +76,12 @@ fn a_deadline_spent_before_the_message_leaves_is_not_delivered() {
     };
     let error = invoke(
         &target,
-        "org.a11y.atspi.Action",
-        "DoAction",
-        &(0i32,),
-        WriteKind::DoAction,
+        Call {
+            interface: "org.a11y.atspi.Action",
+            method: "DoAction",
+            body: &(0i32,),
+            kind: WriteKind::DoAction,
+        },
         true,
     )
     .expect_err("no budget is left");

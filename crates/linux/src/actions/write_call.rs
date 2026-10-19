@@ -47,14 +47,24 @@ fn judge_failure(
     }
 }
 
+pub(crate) struct Call<'a, B> {
+    pub(crate) interface: &'static str,
+    pub(crate) method: &'static str,
+    pub(crate) body: &'a B,
+    pub(crate) kind: WriteKind,
+}
+
 pub(crate) fn invoke<B: Serialize + DynamicType>(
     target: &Target<'_>,
-    interface: &'static str,
-    method: &'static str,
-    body: &B,
-    kind: WriteKind,
+    call: Call<'_, B>,
     advertised: bool,
 ) -> Result<WriteReply, AdapterError> {
+    let Call {
+        interface,
+        method,
+        body,
+        kind,
+    } = call;
     ensure_budget(target.deadline).map_err(|error| deadline_error(error, false))?;
     let connection = target
         .bus

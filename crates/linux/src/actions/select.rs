@@ -14,7 +14,7 @@ use super::click::{
 use super::context::Target;
 use super::mutation::{WriteKind, WriteReply};
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, name_matches, search};
-use super::write_call::invoke;
+use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::{NodeView, read_node_view};
@@ -198,10 +198,12 @@ fn select_through(
                 let holder = container_target(target, &handle)?;
                 invoke(
                     &holder,
-                    SELECTION_INTERFACE,
-                    "SelectChild",
-                    &(container.index,),
-                    WriteKind::SelectChild,
+                    Call {
+                        interface: SELECTION_INTERFACE,
+                        method: "SelectChild",
+                        body: &(container.index,),
+                        kind: WriteKind::SelectChild,
+                    },
                     true,
                 )
             }
@@ -228,7 +230,7 @@ pub(super) fn unchanged_is_ignored(
 }
 
 fn combo_selection(target: &Target<'_>) -> Result<bool, AdapterError> {
-    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    let view = target.view()?;
     Ok(view.role() == Some(COMBO_BOX) && advertises_selection(&view))
 }
 
@@ -256,7 +258,7 @@ pub(crate) fn select(
         Search::Found(hit) => {
             let container = if hit.own {
                 let own_names_verb = {
-                    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+                    let view = target.view()?;
                     resolve_verb(names_of(&view)?, verbs_for(&Action::Select(String::new())))
                         .is_some()
                 };

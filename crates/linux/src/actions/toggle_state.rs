@@ -8,7 +8,7 @@ use super::click::{POLL_STEP, invoke_verb, names_of, poll_until, refusal, run_si
 use super::context::Target;
 use super::mutation::WriteReply;
 use crate::tree::action_names::toggle_verbs;
-use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::action_read::NodeView;
 use crate::tree::role_numbers::{
     CHECK_BOX, CHECK_MENU_ITEM, RADIO_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON,
 };
@@ -138,7 +138,7 @@ pub(crate) fn toggle(
         Some(true) => Action::Check,
         Some(false) => Action::Uncheck,
     };
-    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    let view = target.view()?;
     guard_role(view.role(), &action)?;
     let current = read_flag(&view)?;
     let names = names_of(&view)?;
@@ -155,7 +155,8 @@ pub(crate) fn toggle(
                     TOGGLE_SETTLE,
                     POLL_STEP,
                     || {
-                        read_node_view(target.bus, target.handle, target.deadline)
+                        target
+                            .view()
                             .ok()
                             .and_then(|after| read_flag(&after).ok())
                             .unwrap_or(Flag::Unknown)

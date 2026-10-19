@@ -8,7 +8,6 @@ use super::click::{POLL_STEP, deliver, invoke_verb, names_of, poll_until, run_si
 use super::context::Target;
 use super::mutation::WriteReply;
 use crate::tree::action_names::verbs_for;
-use crate::tree::action_read::read_node_view;
 use crate::tree::state_bits::FOCUSED;
 
 const FOCUS_SETTLE: Duration = Duration::from_millis(500);
@@ -46,7 +45,7 @@ pub(crate) fn focus(
 ) -> Result<ActionResult, AdapterError> {
     focus_policy_gate(policy)?;
     let action = Action::SetFocus;
-    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    let view = target.view()?;
     let names = names_of(&view)?;
     let verbs = verbs_for(&action);
     let run = || {
@@ -54,11 +53,7 @@ pub(crate) fn focus(
             policy,
             || invoke_verb(target, &action, names, verbs),
             || {
-                let read = || {
-                    read_node_view(target.bus, target.handle, target.deadline)
-                        .ok()
-                        .and_then(|after| after.state(FOCUSED))
-                };
+                let read = || target.view().ok().and_then(|after| after.state(FOCUSED));
                 let first = poll_until(target.deadline, FOCUS_SETTLE, POLL_STEP, read, |focused| {
                     *focused == Some(true)
                 });

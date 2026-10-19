@@ -179,7 +179,7 @@ fn settle_for(view: &NodeView) -> (Duration, Duration) {
 }
 
 fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, AdapterError> {
-    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    let view = target.view()?;
     let names = names_of(&view)?;
     let verbs = verbs_for(action);
     let before = view.observation();
@@ -194,7 +194,7 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
         let reply = match &inner {
             Some(inner) => {
                 let child = inner.target(target)?;
-                let child_view = read_node_view(child.bus, child.handle, child.deadline)?;
+                let child_view = child.view()?;
                 let child_names = names_of(&child_view)?;
                 invoke_verb(&child, action, child_names, verbs)
             }
@@ -206,7 +206,8 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
                 budget,
                 step,
                 || {
-                    read_node_view(target.bus, target.handle, target.deadline)
+                    target
+                        .view()
                         .ok()
                         .and_then(|after| after.observation().changed_since(&before))
                 },

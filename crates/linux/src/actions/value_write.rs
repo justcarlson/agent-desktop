@@ -7,9 +7,9 @@ use super::mutation::{WriteKind, WriteReply};
 use super::numeric_write::{self, NumericPort, VALUE_INTERFACE};
 use super::secure_write::is_secure;
 use super::text_write::{self, EDITABLE_TEXT, TextPort, read_only_field, writable};
-use super::write_call::invoke;
+use super::write_call::{Call, invoke};
 use crate::system::{PROPERTIES_INTERFACE, ensure_budget, within};
-use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::action_read::NodeView;
 use crate::tree::role_numbers::{DIAL, SCROLL_BAR, SLIDER, SPIN_BUTTON};
 use crate::tree::state_bits::{EDITABLE, READ_ONLY};
 use crate::tree::text_selection::{CaretAndSelection, read_caret_and_selection};
@@ -58,10 +58,12 @@ impl LiveText<'_> {
         ensure_budget(self.target.deadline)?;
         invoke(
             self.target,
-            EDITABLE_TEXT,
-            method,
-            body,
-            kind,
+            Call {
+                interface: EDITABLE_TEXT,
+                method,
+                body,
+                kind,
+            },
             self.advertised,
         )
     }
@@ -86,7 +88,7 @@ impl TextPort for LiveText<'_> {
 
     fn read(&self) -> Option<String> {
         let target = self.target;
-        let view = read_node_view(target.bus, target.handle, target.deadline).ok()?;
+        let view = target.view().ok()?;
         view.value().map(str::to_owned)
     }
 
@@ -105,17 +107,19 @@ impl NumericPort for LiveNumeric<'_> {
         ensure_budget(self.target.deadline)?;
         invoke(
             self.target,
-            PROPERTIES_INTERFACE,
-            "Set",
-            &(VALUE_INTERFACE, "CurrentValue", Value::from(value)),
-            WriteKind::SetProperty,
+            Call {
+                interface: PROPERTIES_INTERFACE,
+                method: "Set",
+                body: &(VALUE_INTERFACE, "CurrentValue", Value::from(value)),
+                kind: WriteKind::SetProperty,
+            },
             true,
         )
     }
 
     fn stored(&self) -> Option<f64> {
         let target = self.target;
-        let view = read_node_view(target.bus, target.handle, target.deadline).ok()?;
+        let view = target.view().ok()?;
         view.value()?
             .parse::<f64>()
             .ok()
@@ -155,7 +159,7 @@ fn unsupported(action: &str) -> AdapterError {
 }
 
 fn view_of(target: &Target<'_>) -> Result<NodeView, AdapterError> {
-    read_node_view(target.bus, target.handle, target.deadline)
+    target.view()
 }
 
 fn ensure_writable(view: &NodeView) -> Result<(), AdapterError> {

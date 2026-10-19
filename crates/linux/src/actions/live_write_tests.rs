@@ -8,7 +8,7 @@ use zbus::zvariant::Value;
 use super::action_call::do_action;
 use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::mutation::{WriteKind, WriteReply};
-use super::write_call::invoke;
+use super::write_call::{Call, invoke};
 
 #[path = "live_write_fixture.rs"]
 mod fixture;
@@ -29,10 +29,12 @@ fn set_current_value(
 ) -> Result<WriteReply, AdapterError> {
     invoke(
         target,
-        "org.freedesktop.DBus.Properties",
-        "Set",
-        &(VALUE_INTERFACE, "CurrentValue", Value::F64(value)),
-        WriteKind::SetProperty,
+        Call {
+            interface: "org.freedesktop.DBus.Properties",
+            method: "Set",
+            body: &(VALUE_INTERFACE, "CurrentValue", Value::F64(value)),
+            kind: WriteKind::SetProperty,
+        },
         true,
     )
 }
@@ -124,10 +126,12 @@ fn write_live_set_text_contents_lands_and_an_independent_read_returns_it() {
         let handle = NativeHandle::new(entry.clone());
         let reply = invoke(
             &target(&probe, &handle, &entry, 5_000),
-            "org.a11y.atspi.EditableText",
-            "SetTextContents",
-            &("hello",),
-            WriteKind::SetTextContents,
+            Call {
+                interface: "org.a11y.atspi.EditableText",
+                method: "SetTextContents",
+                body: &("hello",),
+                kind: WriteKind::SetTextContents,
+            },
             true,
         );
         println!("write_live {label}: text reply {reply:?}");
@@ -190,10 +194,12 @@ fn write_live_an_index_the_node_does_not_have_changes_nothing() {
         let before = probe.checked(&flag);
         let reply = invoke(
             &target(&probe, &handle, &flag, 5_000),
-            "org.a11y.atspi.Action",
-            "DoAction",
-            &(99i32,),
-            WriteKind::DoAction,
+            Call {
+                interface: "org.a11y.atspi.Action",
+                method: "DoAction",
+                body: &(99i32,),
+                kind: WriteKind::DoAction,
+            },
             true,
         );
         std::thread::sleep(Duration::from_millis(600));
