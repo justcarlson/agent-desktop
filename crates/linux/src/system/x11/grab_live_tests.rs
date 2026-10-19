@@ -20,13 +20,6 @@ fn deadline() -> Deadline {
     Deadline::after(10_000).expect("a deadline builds")
 }
 
-fn private_display() -> String {
-    let display = std::env::var("DISPLAY").expect("DISPLAY");
-    let private = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
-    assert!(!private.is_empty() && !matches!(display.as_str(), ":0" | ":99" | ""));
-    display
-}
-
 fn independent_compositing(display: &str) -> bool {
     let (connection, screen) = RustConnection::connect(Some(display)).expect("connect");
     let atom = connection
@@ -103,11 +96,15 @@ impl Flat {
 
 fn xwd_pixel(window: u32, x: usize, y: usize, dir: &str) -> [u8; 3] {
     let path = format!("{dir}/flat.xwd");
-    let status = Command::new("xwd")
+    let output = Command::new("xwd")
         .args(["-silent", "-id", &window.to_string(), "-out", &path])
-        .status()
+        .output()
         .expect("xwd runs");
-    assert!(status.success());
+    assert!(
+        output.status.success(),
+        "xwd failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let file = std::fs::read(&path).expect("xwd output");
     let field = |index: usize| {
         u32::from_be_bytes(
@@ -149,7 +146,7 @@ fn grab_when_painted(window: u32, rect: GrabRect) -> Raw {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_a_flat_window_reads_back_its_fill_and_matches_an_independent_capture() {
-    let display = private_display();
+    let display = super::super::live_display::private_display();
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let flat = Flat::new(&display);
     flat.map();
@@ -193,7 +190,7 @@ fn grab_live_a_flat_window_reads_back_its_fill_and_matches_an_independent_captur
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_describes_the_window_and_names_each_refusal() {
-    let display = private_display();
+    let display = super::super::live_display::private_display();
     let flat = Flat::new(&display);
     flat.map();
     let info = DisplayGrabber
@@ -246,7 +243,7 @@ fn grab_live_describes_the_window_and_names_each_refusal() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_the_root_grab_and_the_compositing_read_answer_on_the_private_screen() {
-    let display = private_display();
+    let display = super::super::live_display::private_display();
     assert_eq!(
         DisplayGrabber.compositing(deadline()),
         Ok(independent_compositing(&display))
@@ -267,7 +264,7 @@ fn grab_live_the_root_grab_and_the_compositing_read_answer_on_the_private_screen
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_the_root_is_drawable_zero_in_root_coordinates() {
-    let display = private_display();
+    let display = super::super::live_display::private_display();
     let flat = Flat::new(&display);
     flat.map();
     grab_when_painted(
@@ -313,7 +310,7 @@ fn grab_live_the_root_is_drawable_zero_in_root_coordinates() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_a_framed_window_has_a_parent_and_every_rect_is_in_root_coordinates() {
-    let display = private_display();
+    let display = super::super::live_display::private_display();
     let framed = Flat::at(&display, (300, 200), (150, 100), FILL, false);
     framed.map();
     let started = Instant::now();
@@ -353,7 +350,7 @@ fn grab_live_a_framed_window_has_a_parent_and_every_rect_is_in_root_coordinates(
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_a_covered_window_is_blank_directly_and_painted_through_the_redirect() {
-    let display = private_display();
+    let display = super::super::live_display::private_display();
     let covered = Flat::at(&display, (100, 90), (100, 80), FILL, true);
     covered.map();
     let rect = GrabRect {

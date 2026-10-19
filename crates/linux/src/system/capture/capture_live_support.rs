@@ -62,7 +62,8 @@ pub(super) fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("a deadline builds")
 }
 
-pub(super) fn assert_private_display() {
+pub(super) fn assert_private_display() -> std::sync::MutexGuard<'static, ()> {
+    let guard = crate::system::x11::live_display::exclusive();
     let display = std::env::var("DISPLAY").expect("a private display");
     assert!(
         !matches!(display.as_str(), ":0" | ":99" | ""),
@@ -72,6 +73,7 @@ pub(super) fn assert_private_display() {
         std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
         "run through scripts/private-session.sh"
     );
+    guard
 }
 
 pub(super) fn compositing() -> bool {

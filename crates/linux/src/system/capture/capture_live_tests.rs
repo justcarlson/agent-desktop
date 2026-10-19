@@ -17,7 +17,7 @@ fn window_at(x: i32, y: i32) -> Geometry {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_window_pixels_are_the_window_paint() {
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = paint(
@@ -49,7 +49,7 @@ fn grab_live_window_pixels_are_the_window_paint() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_the_window_unit_follows_the_manager() {
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = paint(
@@ -84,7 +84,7 @@ fn grab_live_the_window_unit_follows_the_manager() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_full_screen_grab_equals_the_known_paint() {
-    assert_private_display();
+    let _display = assert_private_display();
     if compositing() {
         println!("grab_live skipped: a compositing session refuses a full screen");
         return;
@@ -112,7 +112,7 @@ fn grab_live_a_full_screen_grab_equals_the_known_paint() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_full_screen_is_refused_under_compositing() {
-    assert_private_display();
+    let _display = assert_private_display();
     if !compositing() {
         println!("grab_live skipped: this session does not composite");
         return;
@@ -128,7 +128,7 @@ fn grab_live_a_full_screen_is_refused_under_compositing() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_covered_window_returns_its_own_paint() {
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = paint(
@@ -179,7 +179,7 @@ fn grab_live_a_covered_window_returns_its_own_paint() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_window_partly_off_screen_reports_off_screen() {
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = paint(
@@ -220,7 +220,7 @@ fn grab_live_the_capture_permission_follows_the_session() {
     use crate::system::route::resolve;
     use crate::system::x11::grab::DisplayGrabber;
 
-    assert_private_display();
+    let _display = assert_private_display();
     let deadline = Deadline::after(10_000).expect("a deadline builds");
     let x11 = detect(&DisplayEnv::from_process(), &SocketProbe);
     let reachable = capture_availability(resolve(x11), &DisplayGrabber, deadline);
@@ -240,7 +240,7 @@ fn grab_live_the_capture_permission_follows_the_session() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_chromium_window_is_captured_on_its_client_unit() {
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = chrome(&mut launched);
@@ -268,7 +268,7 @@ fn grab_live_a_chromium_window_is_captured_on_its_client_unit() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_qt_window_is_captured_plain_and_covered() {
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = paint_qt(&mut launched, "adcap-qt", "#ff0000", &window_at(200, 150));
@@ -322,7 +322,7 @@ fn grab_live_a_covered_window_that_never_repaints_is_never_the_cover() {
     use crate::system::x11::DisplayReader;
     use crate::system::x11::grab::DisplayGrabber;
 
-    assert_private_display();
+    let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = paint(

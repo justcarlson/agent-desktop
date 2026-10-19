@@ -20,6 +20,8 @@ mod frame_facts;
 pub(crate) mod grab;
 pub(crate) mod grab_error;
 pub(crate) mod grab_rect;
+#[cfg(test)]
+pub(crate) mod live_display;
 pub(crate) mod map;
 pub(crate) mod map_state;
 mod monitor;
