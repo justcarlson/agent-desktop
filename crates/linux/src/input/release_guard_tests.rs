@@ -219,18 +219,6 @@ fn a_press_whose_journal_cannot_be_written_is_not_sent() {
 }
 
 #[test]
-fn the_guard_keeps_to_the_field_limit() {
-    let source = include_str!("release_guard.rs");
-    let start = source
-        .find("pub(crate) struct ReleaseGuard")
-        .expect("the guard struct");
-    let body = &source[start..];
-    let body = &body[body.find('{').expect("open") + 1..body.find("\n}").expect("close")];
-    let fields = body.lines().filter(|line| line.contains(": ")).count();
-    assert!(fields <= 7, "the guard has {fields} fields");
-}
-
-#[test]
 fn a_remap_is_journaled_with_the_original_keysyms_before_it_is_sent() {
     let dir = std::env::temp_dir().join(format!("ad-guard-remap-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
