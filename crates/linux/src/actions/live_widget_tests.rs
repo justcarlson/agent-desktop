@@ -301,6 +301,7 @@ fn a_chromium_page_takes_a_click_and_a_check() {
             vec![
                 "--no-sandbox".to_owned(),
                 "--force-renderer-accessibility".to_owned(),
+                "--password-store=basic".to_owned(),
                 "--no-first-run".to_owned(),
                 format!("--user-data-dir={profile}"),
                 "--new-window".to_owned(),

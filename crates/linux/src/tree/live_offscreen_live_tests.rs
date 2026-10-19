@@ -336,6 +336,7 @@ fn offscreen_live_chrome_page_realises_an_offscreen_button() {
             arguments: &[
                 "--no-sandbox",
                 "--force-renderer-accessibility",
+                "--password-store=basic",
                 "--no-first-run",
                 &user_data,
                 "--new-window",
