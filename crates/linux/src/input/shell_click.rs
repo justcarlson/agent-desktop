@@ -12,8 +12,8 @@ use super::shell_aim::aim;
 use super::wayland::key_session::KeySession;
 use super::wayland::remote_desktop::RemoteDesktop;
 use crate::actions::physical_target::{ensure_budget, ensure_headed_click_policy};
-use crate::system::shell::light::extents_of;
-use crate::system::{SharedBus, list_displays, within};
+use crate::system::shell::light::live_extents;
+use crate::system::{SharedBus, list_displays};
 use crate::tree::AtspiElement;
 
 const CLAMP_MOTIONS: usize = 4;
@@ -125,9 +125,9 @@ fn read_extents(
     node: &AtspiElement,
     deadline: Deadline,
 ) -> Result<Rect, AdapterError> {
-    let connection = bus.get(deadline)?.inner().clone();
-    let extents = within(deadline, async { Ok(extents_of(&connection, node).await) })?;
-    extents.map(Rect::from).ok_or_else(unreadable_extents)
+    live_extents(bus, node, deadline)?
+        .map(Rect::from)
+        .ok_or_else(unreadable_extents)
 }
 
 fn deliver(point: &Point, button: &MouseButton, deadline: Deadline) -> Result<(), AdapterError> {

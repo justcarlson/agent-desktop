@@ -1,9 +1,9 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use futures_util::future::{join_all, join5};
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
-use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, within};
+use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::state_bits::{SHOWING, StateBits, VISIBLE};
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, Extents, list_children};
 
@@ -111,6 +111,17 @@ pub(crate) async fn extents_of(connection: &Connection, element: &AtspiElement) 
     })
 }
 
+pub(crate) fn live_extents(
+    bus: &SharedBus,
+    element: &AtspiElement,
+    deadline: Deadline,
+) -> Result<Option<Extents>, AdapterError> {
+    let connection = bus.get(deadline)?.inner().clone();
+    within(deadline, async {
+        Ok(extents_of(&connection, element).await)
+    })
+}
+
 async fn read_one(connection: &Connection, element: &AtspiElement) -> Result<Light, AdapterError> {
     let (children, name, role, states, extents) = join5(
         list_children(connection, element),
@@ -122,10 +133,7 @@ async fn read_one(connection: &Connection, element: &AtspiElement) -> Result<Lig
     .await;
     let children = children?;
     let role = role.ok_or_else(|| {
-        AdapterError::new(
-            agent_desktop_core::ErrorCode::ElementNotFound,
-            "The shell node did not answer",
-        )
+        AdapterError::new(ErrorCode::ElementNotFound, "The shell node did not answer")
     })?;
     let bits = states.as_deref().map(StateBits::new);
     Ok(Light {

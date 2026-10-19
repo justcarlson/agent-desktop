@@ -7,6 +7,15 @@ use super::list::{matches_app, read_listing};
 use super::verify::same_identity;
 use super::world::ShellWorld;
 
+/// The entry a mutation aims at: its position, the app scope it was counted
+/// in, and the identity the caller expects there.
+#[derive(Clone, Copy)]
+pub(crate) struct Wanted<'a> {
+    pub(crate) index: usize,
+    pub(crate) app_filter: Option<&'a str>,
+    pub(crate) identity: &'a NotificationIdentity,
+}
+
 /// A fresh read with the entry a mutation targets picked out of it.
 pub(crate) struct Located {
     pub(crate) entry: Entry,
@@ -50,15 +59,19 @@ pub(crate) fn moved(index: usize) -> AdapterError {
 /// index is no longer the one the first read found.
 pub(crate) fn reconfirm(
     world: &dyn ShellWorld,
-    index: usize,
-    app_filter: Option<&str>,
-    identity: &NotificationIdentity,
+    wanted: Wanted<'_>,
     first: &NotificationInfo,
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
-    let again = locate(world, index, app_filter, identity, deadline)?;
+    let again = locate(
+        world,
+        wanted.index,
+        wanted.app_filter,
+        wanted.identity,
+        deadline,
+    )?;
     if !same_identity(first, &again.entry.info) {
-        return Err(moved(index));
+        return Err(moved(wanted.index));
     }
     Ok(again)
 }

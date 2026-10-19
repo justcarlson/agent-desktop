@@ -147,16 +147,7 @@ impl LiveSurface<'_> {
 
 impl Surface for LiveSurface<'_> {
     fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError> {
-        match kind {
-            ShellKind::Dock | ShellKind::Tray => {
-                self.located(Anchor::Landmark(container_landmark(kind)), deadline)?;
-                Ok(true)
-            }
-            ShellKind::MessageList | ShellKind::SystemMenu => {
-                let anchor = Anchor::Landmark(container_landmark(kind));
-                Ok(self.located(anchor, deadline)?.1.anchor.showing)
-            }
-        }
+        is_showing(self.bus, kind, deadline)
     }
 
     fn press_opener(&self, kind: ShellKind, policy: InteractionPolicy) -> Result<(), AdapterError> {

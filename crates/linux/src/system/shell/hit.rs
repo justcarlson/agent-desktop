@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, HitTestResult, Point};
 
-use super::light::{extents_of, is_placed};
-use crate::system::{SharedBus, list_displays, within};
+use super::light::{is_placed, live_extents};
+use crate::system::{SharedBus, list_displays};
 use crate::tree::display_bounds::off_every_display;
 use crate::tree::{AtspiElement, Extents};
 
@@ -59,10 +59,7 @@ pub(crate) fn hit_test(
     point: Point,
     deadline: Deadline,
 ) -> Result<HitTestResult, AdapterError> {
-    let connection = bus.get(deadline)?.inner().clone();
-    let extents = within(deadline, async {
-        Ok(extents_of(&connection, target).await)
-    })?;
+    let extents = live_extents(bus, target, deadline)?;
     let displays = display_extents(deadline);
     Ok(decide(extents, &point, displays.as_deref()))
 }

@@ -3,7 +3,7 @@ use agent_desktop_core::{
 };
 
 use super::session::Session;
-use super::target::{locate, reconfirm, require};
+use super::target::{Wanted, locate, reconfirm, require};
 use super::verify::{Removal, bystander_error, judge_removal, settle_read, survived_error};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
@@ -45,14 +45,12 @@ fn run(
     let deadline = lease.deadline();
     let (index, app) = (request.index, request.app_filter);
     let first = locate(world, index, app, request.identity, deadline)?;
-    let ready = reconfirm(
-        world,
+    let wanted = Wanted {
         index,
-        app,
-        request.identity,
-        &first.entry.info,
-        deadline,
-    )?;
+        app_filter: app,
+        identity: request.identity,
+    };
+    let ready = reconfirm(world, wanted, &first.entry.info, deadline)?;
     let close = require(ready.entry.close, "close button", index)?;
     let target = ready.entry.info;
     world.click(&close.element, MouseButton::Left, request.policy, lease)?;

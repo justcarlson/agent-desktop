@@ -88,8 +88,17 @@ fn reconfirm_refuses_an_entry_that_changed_between_reads() {
     let world = FakeWorld::new(&log(), vec![before, after]).staged_by_reads();
     let none = NotificationIdentity::default();
     let first = locate(&world, 2, None, &none, deadline()).expect("first");
-    let error = reconfirm(&world, 2, None, &none, &first.entry.info, deadline())
-        .err()
-        .expect("moved");
+    let error = reconfirm(
+        &world,
+        Wanted {
+            index: 2,
+            app_filter: None,
+            identity: &none,
+        },
+        &first.entry.info,
+        deadline(),
+    )
+    .err()
+    .expect("moved");
     assert_eq!(error.code, ErrorCode::NotificationNotFound);
 }

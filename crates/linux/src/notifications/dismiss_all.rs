@@ -1,6 +1,6 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, DismissAllNotificationsRequest, InteractionLease, MouseButton,
-    NotificationFilter, NotificationInfo,
+    AdapterError, Deadline, DeliverySemantics, DismissAllNotificationsRequest, ErrorCode,
+    InteractionLease, MouseButton, NotificationFilter, NotificationInfo,
 };
 
 use super::extract::Control;
@@ -14,6 +14,7 @@ use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
 
 type Outcome = (Vec<NotificationInfo>, Vec<String>);
+type Closed = (Vec<NotificationInfo>, Vec<(usize, String)>);
 
 pub(crate) fn dismiss_all(
     bus: &SharedBus,
@@ -48,12 +49,8 @@ fn nothing_to_clear(
     request: &DismissAllNotificationsRequest<'_>,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    let filter = NotificationFilter {
-        app: request.app_filter.map(str::to_owned),
-        ..NotificationFilter::default()
-    };
     let listing = read_listing(world, deadline)?;
-    Ok(apply_filter(listing.infos(), &filter).is_empty())
+    Ok(apply_filter(listing.infos(), &app_scope(request)).is_empty())
 }
 
 fn run(
@@ -63,19 +60,18 @@ fn run(
 ) -> Result<Outcome, AdapterError> {
     let deadline = lease.deadline();
     let listing = read_listing(world, deadline)?;
-    let filter = NotificationFilter {
-        app: request.app_filter.map(str::to_owned),
-        ..NotificationFilter::default()
-    };
+    let filter = app_scope(request);
     let captured = apply_filter(listing.infos(), &filter);
     if captured.is_empty() {
         return Ok((Vec::new(), Vec::new()));
     }
-    let mut recorded: Vec<(usize, String)> = Vec::new();
-    let current = if request.app_filter.is_some() {
-        close_each(world, &captured, &filter, request, lease, &mut recorded)?
+    let (current, recorded) = if request.app_filter.is_some() {
+        close_each(world, &captured, &filter, request, lease)?
     } else {
-        click_clear_all(world, listing, &captured, request, lease)?
+        (
+            click_clear_all(world, listing, &captured, request, lease)?,
+            Vec::new(),
+        )
     };
     let mut failures: Vec<String> = recorded
         .iter()
@@ -89,6 +85,13 @@ fn run(
     );
     let dismissed = lost(&captured, &current);
     Ok((dismissed, failures))
+}
+
+fn app_scope(request: &DismissAllNotificationsRequest<'_>) -> NotificationFilter {
+    NotificationFilter {
+        app: request.app_filter.map(str::to_owned),
+        ..NotificationFilter::default()
+    }
 }
 
 fn click_clear_all(
@@ -111,10 +114,10 @@ fn close_each(
     filter: &NotificationFilter,
     request: &DismissAllNotificationsRequest<'_>,
     lease: &InteractionLease,
-    recorded: &mut Vec<(usize, String)>,
-) -> Result<Vec<NotificationInfo>, AdapterError> {
+) -> Result<Closed, AdapterError> {
     let deadline = lease.deadline();
     let mut current = Vec::new();
+    let mut recorded = Vec::new();
     for target in captured {
         let listing = read_listing(world, deadline)?;
         let before = listing.infos();
@@ -143,16 +146,16 @@ fn close_each(
             recorded.push((target.index, bystander_error().message));
         }
     }
-    Ok(current)
+    Ok((current, recorded))
 }
 
 fn missing_clear_all() -> AdapterError {
     AdapterError::new(
-        agent_desktop_core::ErrorCode::ActionFailed,
+        ErrorCode::ActionFailed,
         "The message list shows no clear-all button to click",
     )
     .with_suggestion("Run list-notifications and retry with a freshly observed list")
-    .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
+    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 #[cfg(test)]

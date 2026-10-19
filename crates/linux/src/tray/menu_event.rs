@@ -102,20 +102,20 @@ fn reread(
 fn checked_after(
     connection: &Connection,
     target: &TrayTarget,
-    before: Option<bool>,
+    before: bool,
     deadline: Deadline,
-) -> Option<bool> {
+) -> bool {
     let started = Instant::now();
     loop {
         let flipped = reread(connection, target, deadline)
             .ok()
             .and_then(|layout| menu_resolve::find(&layout, target).ok().map(|e| e.checked))
-            .is_some_and(|now| now != before);
+            .is_some_and(|now| now != Some(before));
         if flipped {
-            return Some(true);
+            return true;
         }
         if started.elapsed() >= VERIFY_WINDOW || deadline.is_expired() {
-            return None;
+            return false;
         }
         std::thread::sleep(VERIFY_POLL);
     }
@@ -142,12 +142,13 @@ pub(crate) fn deliver(
             send_clicked(connection, target, id, deadline)?;
             let step =
                 ActionStep::succeeded("dbusmenu-event").with_mechanism(StepMechanism::SemanticApi);
-            let step = match entry.checked {
-                Some(before) => match checked_after(connection, target, Some(before), deadline) {
-                    Some(verified) => step.with_verified(verified),
-                    None => step,
-                },
-                None => step,
+            let verified = entry
+                .checked
+                .is_some_and(|before| checked_after(connection, target, before, deadline));
+            let step = if verified {
+                step.with_verified(true)
+            } else {
+                step
             };
             Ok(result_of(step))
         }

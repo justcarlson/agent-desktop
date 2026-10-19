@@ -9,7 +9,7 @@ use serde_json::json;
 use super::extract::{Control, is_laid_out};
 use super::session::Session;
 use super::signals::{BusSignals, SETTLE_BUDGET, SignalSource, Subscription};
-use super::target::{Located, locate, reconfirm, require};
+use super::target::{Located, Wanted, locate, reconfirm, require};
 use super::verify::{evidence, matching_count, settle_read};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
@@ -60,14 +60,7 @@ fn run(
     let first = locate(world, index, None, request.identity, deadline)?;
     let name = request.action_name;
     require_known(&first, name, index)?;
-    let mut ready = reconfirm(
-        world,
-        index,
-        None,
-        request.identity,
-        &first.entry.info,
-        deadline,
-    )?;
+    let mut ready = reconfirm(world, wanted_by(request), &first.entry.info, deadline)?;
     if !laid_out(&ready, name) {
         let expand = require(ready.entry.expand.take(), "expand button", index)?;
         world.click(&expand.element, MouseButton::Left, request.policy, lease)?;
@@ -91,6 +84,14 @@ fn run(
     )
 }
 
+fn wanted_by<'a>(request: &NotificationActionRequest<'a>) -> Wanted<'a> {
+    Wanted {
+        index: request.index,
+        app_filter: None,
+        identity: request.identity,
+    }
+}
+
 fn collect(
     subscription: Option<Box<dyn Subscription>>,
     clicked: Instant,
@@ -106,16 +107,8 @@ fn expanded(
     first: &NotificationInfo,
     lease: &InteractionLease,
 ) -> Result<Located, AdapterError> {
-    let index = request.index;
     loop {
-        let ready = reconfirm(
-            world,
-            index,
-            None,
-            request.identity,
-            first,
-            lease.deadline(),
-        )?;
+        let ready = reconfirm(world, wanted_by(request), first, lease.deadline())?;
         if laid_out(&ready, request.action_name) {
             return Ok(ready);
         }
