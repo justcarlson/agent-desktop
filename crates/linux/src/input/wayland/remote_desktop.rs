@@ -124,11 +124,11 @@ impl RemoteDesktop {
 }
 
 impl RemoteDesktop {
-    /// Links a screen-cast stream of the primary monitor to the created
+    /// Links a screen-cast stream of the monitor on `connector` to the created
     /// session, which is what lets the pointer move to an absolute position.
     /// `false` when the compositor offers no such stream; the session is then
     /// still good for relative motion.
-    pub(crate) fn attach_stream(&mut self, deadline: Deadline) -> bool {
+    pub(crate) fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> bool {
         let Ok(path) = self.session_path().map(str::to_owned) else {
             return false;
         };
@@ -173,7 +173,7 @@ impl RemoteDesktop {
                     cast.as_str(),
                     Some(SCREEN_CAST_SESSION),
                     "RecordMonitor",
-                    &("", none),
+                    &(connector, none),
                 )
                 .await
                 .map_err(|error| classify_call(&error))?

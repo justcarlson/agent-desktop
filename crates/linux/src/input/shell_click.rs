@@ -35,7 +35,7 @@ pub(crate) trait PointerSession: KeySession {
     fn pause(&mut self, duration: Duration) {
         std::thread::sleep(duration);
     }
-    fn attach_stream(&mut self, _deadline: Deadline) -> bool {
+    fn attach_stream(&mut self, _connector: &str, _deadline: Deadline) -> bool {
         false
     }
     fn motion_absolute(
@@ -57,8 +57,8 @@ impl PointerSession for RemoteDesktop {
         self.pointer_button(button, down, deadline)
     }
 
-    fn attach_stream(&mut self, deadline: Deadline) -> bool {
-        RemoteDesktop::attach_stream(self, deadline)
+    fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> bool {
+        RemoteDesktop::attach_stream(self, connector, deadline)
     }
 
     fn motion_absolute(&mut self, x: f64, y: f64, deadline: Deadline) -> Result<(), AdapterError> {
@@ -113,22 +113,72 @@ fn recovery_deadline(spent: Deadline) -> Deadline {
     Deadline::detached_after(RECOVERY_MS).unwrap_or(spent)
 }
 
-/// Clicks at `local`, the target in the primary monitor's own coordinates,
-/// with absolute motion on a linked screen-cast stream, which a modal that
-/// holds a pointer grab (the open message list) honours. When the stream
-/// cannot be linked or started, nothing was sent and the click is made with
-/// relative motion to `target` instead.
+/// Where a click goes on a Wayland session: the point in the compositor's
+/// space, the monitor under it with the point in that monitor's own
+/// coordinates, and whether the point lies in a shell modal.
+pub(crate) struct Aim {
+    pub(crate) target: Point,
+    pub(crate) connector: String,
+    pub(crate) local: Point,
+    pub(crate) in_modal: bool,
+}
+
+const TOP_BAR_HEIGHT: f64 = 64.0;
+
+/// The monitor that holds the point and the point in its own coordinates.
+/// The connector is the first one driving the logical monitor.
+pub(crate) fn monitor_under(point: &Point, displays: &[DisplayInfo]) -> Option<(String, Point)> {
+    let display = displays.iter().find(|display| {
+        let bounds = &display.bounds;
+        point.x >= bounds.x
+            && point.x < bounds.x + bounds.width
+            && point.y >= bounds.y
+            && point.y < bounds.y + bounds.height
+    })?;
+    let connector = display.id.split('+').next().unwrap_or_default().to_owned();
+    Some((
+        connector,
+        Point {
+            x: point.x - display.bounds.x,
+            y: point.y - display.bounds.y,
+        },
+    ))
+}
+
+/// A point below the top bar belongs to a popup: the open message list or the
+/// system menu, which hold a pointer grab that relative motion does not reach.
+pub(crate) fn in_modal(point: &Point) -> bool {
+    point.y >= TOP_BAR_HEIGHT
+}
+
+fn no_screencast_stream() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "A click inside the shell's open popup needs a screen-cast stream, and none could be started",
+    )
+    .with_suggestion("Run the desktop session with PipeWire, which a GNOME session starts by default")
+    .with_details(json!({
+        "cause": "no_screencast_stream",
+        "physical_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
+/// Clicks with absolute motion on a screen-cast stream of the monitor under
+/// the point, which a modal that holds a pointer grab honours. When no stream
+/// can be linked or started, nothing has been sent: a click on the top bar
+/// goes on with relative motion, and a click inside a popup is refused, since
+/// relative motion does not reach it.
 pub(crate) fn run_pointer_absolute<S: PointerSession>(
     session: &mut S,
-    target: &Point,
-    local: &Point,
+    aim: &Aim,
     button: &MouseButton,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     session.create(deadline)?;
-    if session.attach_stream(deadline) && session.start(deadline).is_ok() {
+    if session.attach_stream(&aim.connector, deadline) && session.start(deadline).is_ok() {
         let delivered = session
-            .motion_absolute(local.x, local.y, deadline)
+            .motion_absolute(aim.local.x, aim.local.y, deadline)
             .and_then(|()| {
                 session.pause(SETTLE_PAUSE);
                 press(session, button_code(button), deadline)
@@ -137,7 +187,10 @@ pub(crate) fn run_pointer_absolute<S: PointerSession>(
         return delivered.and(stopped);
     }
     let _ = session.stop(recovery_deadline(deadline));
-    run_pointer(session, target, button, deadline)
+    if aim.in_modal {
+        return Err(no_screencast_stream());
+    }
+    run_pointer(session, &aim.target, button, deadline)
 }
 
 /// Moves the compositor pointer to `target` and clicks. The session is
@@ -184,21 +237,6 @@ fn read_extents(
         .ok_or_else(unreadable_extents)
 }
 
-/// The point in the primary monitor's own coordinates, when it lies inside
-/// that monitor: the stream a click is aimed on records the primary monitor.
-pub(crate) fn local_in_primary(point: &Point, displays: &[DisplayInfo]) -> Option<Point> {
-    let primary = displays.iter().find(|display| display.is_primary)?;
-    let bounds = &primary.bounds;
-    let inside = point.x >= bounds.x
-        && point.x < bounds.x + bounds.width
-        && point.y >= bounds.y
-        && point.y < bounds.y + bounds.height;
-    inside.then_some(Point {
-        x: point.x - bounds.x,
-        y: point.y - bounds.y,
-    })
-}
-
 fn deliver(
     point: &Point,
     displays: &[DisplayInfo],
@@ -217,8 +255,16 @@ fn deliver(
         ),
         Backend::Wayland => {
             let mut session = RemoteDesktop::open(deadline)?;
-            match local_in_primary(point, displays) {
-                Some(local) => run_pointer_absolute(&mut session, point, &local, button, deadline),
+            match monitor_under(point, displays) {
+                Some((connector, local)) => {
+                    let aim = Aim {
+                        target: point.clone(),
+                        connector,
+                        local,
+                        in_modal: in_modal(point),
+                    };
+                    run_pointer_absolute(&mut session, &aim, button, deadline)
+                }
                 None => run_pointer(&mut session, point, button, deadline),
             }
         }
