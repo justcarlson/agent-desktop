@@ -49,7 +49,18 @@ fn no_action_file_reaches_a_read_path_mapper_or_a_banned_call() {
 
 #[test]
 fn every_banned_name_is_caught_when_planted() {
-    for banned in BANNED {
+    let expected = [
+        "bus::classify",
+        "classify_at",
+        "gone_error",
+        "read_failure",
+        "CopyText",
+        "CutText",
+        "PasteText",
+        "GrabFocus",
+    ];
+    assert_eq!(BANNED, expected);
+    for banned in expected {
         let planted = format!("fn f() {{ let _ = {banned}; }}");
         assert_eq!(offences(&planted), vec![banned], "{banned}");
     }

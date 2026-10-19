@@ -41,7 +41,7 @@ fn judge_failure(
     } else {
         Corroboration::NotRead
     };
-    match classify_write(fault, advertised, corroboration) {
+    match classify_write(fault, kind, advertised, corroboration) {
         Verdict::Absent => Ok(WriteReply::Absent),
         Verdict::Abort(abort) => Err(abort_error(abort, kind, Some(error))),
     }

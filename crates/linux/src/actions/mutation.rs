@@ -16,6 +16,8 @@ const ACCESS_DENIED: &str = "org.freedesktop.DBus.Error.AccessDenied";
 const NO_REPLY: &str = "org.freedesktop.DBus.Error.NoReply";
 const TIMEOUT: &str = "org.freedesktop.DBus.Error.Timeout";
 const TIMED_OUT: &str = "org.freedesktop.DBus.Error.TimedOut";
+const NO_SUCH_ACTION: &str = "org.gtk.GDBus.UnmappedGError.Quark._g_2dio_2derror_2dquark.Code13";
+const RECIPIENT_LEFT: &str = "recipient disconnected";
 
 const REFRESH: &str = "Run 'snapshot' to refresh, then retry with the updated ref.";
 const READ_FIRST: &str =
@@ -62,6 +64,7 @@ pub(crate) enum Fault {
     ObjectUnknown,
     InterfaceMissing,
     Unsupported,
+    NoSuchAction,
     InvalidArgs,
     AccessDenied,
     TimedOut,
@@ -91,6 +94,7 @@ pub(crate) fn fault_of_name(name: &str) -> Fault {
         Failure::Suspect => Fault::InterfaceMissing,
         Failure::TimedOut | Failure::Other => match name {
             NOT_SUPPORTED | PROPERTY_READ_ONLY | UNKNOWN_PROPERTY => Fault::Unsupported,
+            NO_SUCH_ACTION => Fault::NoSuchAction,
             INVALID_ARGS => Fault::InvalidArgs,
             ACCESS_DENIED => Fault::AccessDenied,
             NO_REPLY | TIMEOUT | TIMED_OUT => Fault::TimedOut,
@@ -101,6 +105,11 @@ pub(crate) fn fault_of_name(name: &str) -> Fault {
 
 pub(crate) fn fault_of(error: &zbus::Error) -> Fault {
     match error {
+        zbus::Error::MethodError(name, Some(text), _)
+            if name.as_str() == NO_REPLY && text.contains(RECIPIENT_LEFT) =>
+        {
+            Fault::Uncertain
+        }
         zbus::Error::MethodError(name, _, _) => fault_of_name(name.as_str()),
         other => match failure(other) {
             Failure::TimedOut => Fault::TimedOut,
@@ -119,10 +128,13 @@ pub(crate) fn needs_corroboration(fault: Fault, advertised: bool) -> bool {
 
 pub(crate) fn classify_write(
     fault: Fault,
+    kind: WriteKind,
     advertised: bool,
     corroboration: Corroboration,
 ) -> Verdict {
     match fault {
+        Fault::NoSuchAction if kind == WriteKind::DoAction => Verdict::Absent,
+        Fault::NoSuchAction => Verdict::Abort(Abort::Uncertain),
         Fault::AppGone => Verdict::Abort(Abort::Stale),
         Fault::Unsupported => Verdict::Absent,
         Fault::InvalidArgs => Verdict::Abort(Abort::InvalidArgs),

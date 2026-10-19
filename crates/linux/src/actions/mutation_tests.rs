@@ -6,7 +6,8 @@ use crate::tree::absence::{UNKNOWN_INTERFACE, UNKNOWN_METHOD, UNKNOWN_OBJECT};
 use crate::tree::test_support::{client_timeout, method_error};
 
 const FAILED: &str = "org.freedesktop.DBus.Error.Failed";
-const UNMAPPED: &str = "org.gtk.GDBus.UnmappedGError.Quark._g_2dio_2derror_2dquark.Code13";
+const UNMAPPED: &str = "org.gtk.GDBus.UnmappedGError.Quark._g_2dio_2derror_2dquark.Code99";
+const NO_SUCH_ACTION: &str = "org.gtk.GDBus.UnmappedGError.Quark._g_2dio_2derror_2dquark.Code13";
 
 fn fault(name: &str) -> Fault {
     fault_of(&method_error(name))
@@ -51,6 +52,7 @@ fn each_error_name_lands_in_its_row_of_the_table() {
         ("org.freedesktop.DBus.Error.NoReply", Fault::TimedOut),
         (FAILED, Fault::Uncertain),
         (UNMAPPED, Fault::Uncertain),
+        (NO_SUCH_ACTION, Fault::NoSuchAction),
     ];
     for (name, expected) in rows {
         assert_eq!(fault(name), expected, "{name}");
@@ -65,7 +67,12 @@ fn a_client_timeout_and_a_dropped_connection_are_both_uncertain() {
     )));
     assert_eq!(fault_of(&dropped), Fault::Uncertain);
     for fault in [Fault::TimedOut, Fault::Uncertain] {
-        let abort = abort_of(classify_write(fault, true, Corroboration::Alive));
+        let abort = abort_of(classify_write(
+            fault,
+            WriteKind::DoAction,
+            true,
+            Corroboration::Alive,
+        ));
         let error = abort_error(abort, WriteKind::DoAction, None);
         assert_eq!(
             delivery(&error),
@@ -80,7 +87,8 @@ fn a_client_timeout_and_a_dropped_connection_are_both_uncertain() {
 #[test]
 fn a_suspect_error_on_an_advertised_interface_is_decided_by_the_corroboration() {
     for fault in [Fault::ObjectUnknown, Fault::InterfaceMissing] {
-        let decide = |corroboration| classify_write(fault, true, corroboration);
+        let decide =
+            |corroboration| classify_write(fault, WriteKind::DoAction, true, corroboration);
         assert_eq!(decide(Corroboration::Alive), Verdict::Absent);
         assert_eq!(decide(Corroboration::Dead), Verdict::Abort(Abort::Stale));
         assert_eq!(
@@ -104,7 +112,12 @@ fn a_missing_interface_the_node_never_advertised_falls_through_unread() {
         Corroboration::NotRead,
     ] {
         assert_eq!(
-            classify_write(Fault::InterfaceMissing, false, corroboration),
+            classify_write(
+                Fault::InterfaceMissing,
+                WriteKind::DoAction,
+                false,
+                corroboration
+            ),
             Verdict::Absent
         );
     }
@@ -142,13 +155,19 @@ fn each_write_error_row_carries_its_code_and_disposition() {
         (Fault::Uncertain, ErrorCode::ActionFailed, uncertain),
     ];
     for (fault, code, expected) in rows {
-        let abort = abort_of(classify_write(fault, true, Corroboration::Alive));
+        let abort = abort_of(classify_write(
+            fault,
+            WriteKind::DoAction,
+            true,
+            Corroboration::Alive,
+        ));
         let error = abort_error(abort, WriteKind::SetProperty, None);
         assert_eq!(error.code, code, "{fault:?}");
         assert_eq!(delivery(&error), expected, "{fault:?}");
     }
     let dead = abort_of(classify_write(
         Fault::ObjectUnknown,
+        WriteKind::DoAction,
         true,
         Corroboration::Dead,
     ));
@@ -220,4 +239,40 @@ fn a_text_write_error_keeps_the_error_name_and_drops_the_reply_text() {
             .as_deref()
             .is_some_and(|detail| detail.contains("hunter2"))
     );
+}
+
+#[test]
+fn a_missing_action_index_falls_through_for_an_action_and_stays_uncertain_for_text() {
+    let decide = |kind| classify_write(Fault::NoSuchAction, kind, true, Corroboration::NotRead);
+    assert_eq!(decide(WriteKind::DoAction), Verdict::Absent);
+    for kind in [
+        WriteKind::InsertText,
+        WriteKind::SetTextContents,
+        WriteKind::SetProperty,
+    ] {
+        assert_eq!(decide(kind), Verdict::Abort(Abort::Uncertain), "{kind:?}");
+    }
+}
+
+fn no_reply(description: &str) -> zbus::Error {
+    let call = zbus::Message::method_call("/probe", "Probe")
+        .and_then(|builder| builder.build(&()))
+        .expect("a call builds");
+    let name = "org.freedesktop.DBus.Error.NoReply";
+    let reply = zbus::Message::error(&call.header(), name)
+        .and_then(|builder| builder.build(&()))
+        .expect("a reply builds");
+    zbus::Error::MethodError(
+        name.try_into().expect("a valid name"),
+        Some(description.to_owned()),
+        reply,
+    )
+}
+
+#[test]
+fn a_no_reply_is_a_timeout_unless_the_recipient_left_during_the_call() {
+    let waited = no_reply("Did not receive a reply");
+    assert_eq!(fault_of(&waited), Fault::TimedOut);
+    let died = no_reply("Message recipient disconnected from message bus without replying");
+    assert_eq!(fault_of(&died), Fault::Uncertain);
 }
