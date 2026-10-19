@@ -44,8 +44,10 @@ fn distances(sites: &[Site], target: usize) -> HashMap<usize, usize> {
 /// The scroll bar that scrolls the target along `axis`: the one that hangs
 /// off the nearest ancestor of the target, since a bar scrolls the content
 /// beside it, a bar that says which way it runs ahead of one that does not.
-/// When the target was not met in the crawl, the only bar that
-/// runs the right way, and none when there are several.
+/// When the target was found and no bar hangs off its ancestors, none: a
+/// bar of another pane would scroll the wrong content. When the target was
+/// not met, the only bar that runs the right way, and none when there are
+/// several.
 pub(crate) fn choose_bar(sites: &[Site], target: Option<usize>, axis: Axis) -> Option<usize> {
     let bars: Vec<usize> = sites
         .iter()
@@ -65,9 +67,7 @@ pub(crate) fn choose_bar(sites: &[Site], target: Option<usize>, axis: Axis) -> O
                     .map(|distance| (*distance, unknown, bar))
             })
             .min();
-        if let Some((_, _, bar)) = nearest {
-            return Some(bar);
-        }
+        return nearest.map(|(_, _, bar)| bar);
     }
     match bars.as_slice() {
         [only] => Some(*only),

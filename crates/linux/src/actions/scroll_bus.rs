@@ -232,7 +232,7 @@ impl ScrollPort for BusPort<'_> {
         let mut found = self.bar_in_container(axis)?;
         if found.is_none() {
             let (bus, deadline) = (self.bus, self.deadline);
-            if let Some(crawl) = self.crawl()? {
+            if let Some(crawl) = self.crawl()?.filter(|crawl| crawl.target.is_some()) {
                 let sites = crawl.sites(bus, deadline)?;
                 found = choose_bar(&sites, crawl.target, axis)
                     .map(|index| crawl.nodes[index].0.clone());

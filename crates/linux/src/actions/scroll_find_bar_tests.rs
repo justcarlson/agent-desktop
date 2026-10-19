@@ -80,3 +80,15 @@ fn a_bar_that_names_its_direction_beats_one_that_does_not_beside_the_same_pane()
     ];
     assert_eq!(choose_bar(&sites, Some(1), Axis::Vertical), Some(3));
 }
+
+#[test]
+fn a_located_target_with_no_bar_above_it_does_not_borrow_the_bar_of_another_pane() {
+    let sites = [
+        node(None),
+        node(Some(0)),
+        node(Some(0)),
+        node(Some(1)),
+        bar(2, Orientation::Vertical),
+    ];
+    assert_eq!(choose_bar(&sites, Some(3), Axis::Vertical), None);
+}
