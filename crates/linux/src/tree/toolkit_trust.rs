@@ -1,4 +1,43 @@
+use futures_util::future::join;
+use zbus::Connection;
+use zbus::zvariant::OwnedValue;
+
+use super::AtspiElement;
+use super::node_read::call;
+use crate::system::PROPERTIES_INTERFACE;
 use crate::system::toolkit_id::ToolkitId;
+
+const APPLICATION_INTERFACE: &str = "org.a11y.atspi.Application";
+
+async fn application_text(
+    connection: &Connection,
+    root: &AtspiElement,
+    property: &'static str,
+) -> Option<String> {
+    let reply = call(
+        connection,
+        root,
+        PROPERTIES_INTERFACE,
+        "Get",
+        &(APPLICATION_INTERFACE, property),
+    )
+    .await
+    .ok()?;
+    let value = reply.body().deserialize::<OwnedValue>().ok()?;
+    value.downcast_ref::<&str>().ok().map(str::to_owned)
+}
+
+/// The toolkit an application root names, read one property at a time: GTK 3
+/// and Qt both refuse `GetAll` on the application interface while answering
+/// each property, so a group read would leave the toolkit unknown.
+pub(crate) async fn read_toolkit(connection: &Connection, root: &AtspiElement) -> ToolkitId {
+    let (name, version) = join(
+        application_text(connection, root, "ToolkitName"),
+        application_text(connection, root, "Version"),
+    )
+    .await;
+    ToolkitId { name, version }
+}
 
 /// The toolkits whose accessibility geometry has been measured.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

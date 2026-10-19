@@ -3,7 +3,6 @@ use futures_util::future::join4;
 use zbus::Connection;
 
 use super::{Facts, HitWorld, Windowing};
-use crate::system::registry::toolkit;
 use crate::system::x11::map::{ClientMatch, match_client};
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
@@ -12,6 +11,7 @@ use crate::system::{REGISTRY_ROOT_PATH, within};
 use crate::tree::hit_descent::{BusNodes, Described, Hit, NodeSource};
 use crate::tree::resolve_errors::{stopped_app, stopped_aware};
 use crate::tree::state_bits::{ICONIFIED, StateBits};
+use crate::tree::toolkit_trust::read_toolkit;
 use crate::tree::window_extents::read_window_extents_async;
 use crate::tree::{AtspiElement, read_node};
 
@@ -73,7 +73,7 @@ impl HitWorld for LiveWorld<'_> {
                 read_node(self.connection, target),
                 read_window_extents_async(self.connection, target),
                 read_node(self.connection, frame),
-                toolkit(self.connection, &root),
+                read_toolkit(self.connection, &root),
             )
             .await)
         })?;

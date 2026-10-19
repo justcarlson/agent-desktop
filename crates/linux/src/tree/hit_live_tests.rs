@@ -7,13 +7,13 @@ use agent_desktop_core::{AdapterError, ErrorCode, HitTestResult, ObservationOps,
 
 use super::frame_geometry::pointer_bounds;
 use super::live_rig::{Rig, Suspended, deadline, rig, wait_until};
+use super::toolkit_trust::read_toolkit;
 use super::walker::walk_tree;
 use super::window_extents::read_window_extents;
 use super::{AtspiElement, Extents, WalkedNode};
 use super::{ObservedRead, Walk, WalkLimits};
 use crate::LinuxAdapter;
 use crate::system::SharedBus;
-use crate::system::registry::toolkit;
 use crate::system::{REGISTRY_ROOT_PATH, within};
 use x_tools::{Geometry, XWindow};
 
@@ -48,13 +48,18 @@ fn polled(rig: &Rig, target: &AtspiElement, point: (i32, i32), wanted: &str) -> 
     last
 }
 
-pub(super) fn candidates<'a>(
-    node: &'a WalkedNode<super::ObservedRead>,
-    out: &mut Vec<&'a AtspiElement>,
+/// Every node under the window with the window as its frame, the ancestry a
+/// resolved ref carries.
+pub(super) fn candidates(
+    frame: &AtspiElement,
+    node: &WalkedNode<super::ObservedRead>,
+    out: &mut Vec<AtspiElement>,
 ) {
     for child in &node.children {
-        out.push(&child.payload.node.element);
-        candidates(child, out);
+        let mut element = child.payload.node.element.clone();
+        element.set_ancestry(super::ancestry::of_root(frame));
+        out.push(element);
+        candidates(frame, child, out);
     }
 }
 
@@ -110,24 +115,24 @@ fn scene(rig: &Rig, frame: &AtspiElement, walk: &Walk<ObservedRead>) -> Result<S
     let origin = x_tools::geometry(window.id).ok_or("no geometry")?;
     let frame_rect = window_extents(rig, frame).ok_or("no frame extents")?;
     let mut all = Vec::new();
-    candidates(&walk.root, &mut all);
+    candidates(frame, &walk.root, &mut all);
     let mut first = None;
     for element in all.into_iter().take(400) {
-        let Some(rect) = window_extents(rig, element) else {
+        let Some(rect) = window_extents(rig, &element) else {
             continue;
         };
         if !inside(frame_rect, rect) {
             continue;
         }
         let point = oracle_point(rect, origin);
-        let outcome = verdict(&hit(rig, element, point));
+        let outcome = verdict(&hit(rig, &element, point));
         if first.is_none() {
             first = Some((element.clone(), point, outcome));
         }
         if outcome == "reaches" {
             return Ok(Scene {
                 window,
-                target: element.clone(),
+                target: element,
                 point,
                 baseline: outcome,
             });
@@ -252,7 +257,7 @@ fn frame_against_oracle(
     let connection = rig.bus.get(budget).expect("the bus is reachable");
     let root = AtspiElement::new(frame.bus_name(), REGISTRY_ROOT_PATH, frame.pid());
     let id = within(budget, async {
-        Ok::<_, AdapterError>(toolkit(connection.inner(), &root).await)
+        Ok::<_, AdapterError>(read_toolkit(connection.inner(), &root).await)
     })
     .expect("the toolkit reads");
     let bounds = pointer_bounds(&id, screen, own, Some((origin.x, origin.y)));

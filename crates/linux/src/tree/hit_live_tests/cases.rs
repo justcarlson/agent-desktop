@@ -99,8 +99,8 @@ fn hit_live_files_zero_axis_group_is_unknown() {
         let walk = walk_tree(&inner.bus, frame, &WalkLimits::default(), deadline(10_000))
             .map_err(|error| error.message)?;
         let mut all = Vec::new();
-        candidates(&walk.root, &mut all);
-        let zero: Vec<&AtspiElement> = all
+        candidates(frame, &walk.root, &mut all);
+        let zero: Vec<AtspiElement> = all
             .into_iter()
             .filter(|element| {
                 window_extents(&inner, element)
