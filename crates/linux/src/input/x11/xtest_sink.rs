@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use std::os::fd::AsFd;
 use std::time::Duration;
 use x11rb::connection::{Connection, RequestConnection};
@@ -63,31 +63,48 @@ fn unreachable_display(display: &str, error: impl std::fmt::Display) -> AdapterE
 fn open_connection(
     display: &str,
     cutoff_after: Duration,
-) -> Result<(RustConnection, usize, IoCutoff), Box<dyn std::error::Error>> {
-    let parsed = parse_display(Some(display))?;
+) -> Result<(RustConnection, usize, IoCutoff), String> {
+    let parsed = parse_display(Some(display)).map_err(|error| error.to_string())?;
     let screen = usize::from(parsed.screen);
-    let mut last: Option<Box<dyn std::error::Error>> = None;
+    let mut last: Option<String> = None;
     for address in parsed.connect_instruction() {
         let (stream, (family, name)) = match DefaultStream::connect(&address) {
             Ok(connected) => connected,
             Err(error) => {
-                last = Some(Box::new(error));
+                last = Some(error.to_string());
                 continue;
             }
         };
-        let cutoff = IoCutoff::arm(stream.as_fd(), cutoff_after)?;
+        let cutoff =
+            IoCutoff::arm(stream.as_fd(), cutoff_after).map_err(|error| error.to_string())?;
         let (auth_name, auth_data) = get_auth(family, &name, parsed.display)
             .unwrap_or(None)
             .unwrap_or_default();
         let connection =
-            RustConnection::connect_to_stream_with_auth_info(stream, screen, auth_name, auth_data)?;
+            RustConnection::connect_to_stream_with_auth_info(stream, screen, auth_name, auth_data)
+                .map_err(|error| error.to_string())?;
         return Ok((connection, screen, cutoff));
     }
-    Err(last.unwrap_or_else(|| "no address to connect to".into()))
+    Err(last.unwrap_or_else(|| "no address to connect to".to_owned()))
 }
 
 impl XtestSink {
-    pub(crate) fn connect(display: &str, cutoff_after: Duration) -> Result<Self, AdapterError> {
+    pub(crate) fn connect(
+        display: &str,
+        deadline: Deadline,
+        cutoff_after: Duration,
+    ) -> Result<Self, AdapterError> {
+        let name = display.to_owned();
+        let pending = crate::system::x11::start(move || Self::open(&name, cutoff_after));
+        pending.finish(deadline).unwrap_or_else(|| {
+            Err(unreachable_display(
+                display,
+                "the display did not answer before the deadline",
+            ))
+        })
+    }
+
+    fn open(display: &str, cutoff_after: Duration) -> Result<Self, AdapterError> {
         let (connection, screen, cutoff) = open_connection(display, cutoff_after)
             .map_err(|error| unreachable_display(display, error))?;
         let has_xtest = connection
@@ -213,3 +230,7 @@ impl X11Sink for XtestSink {
         Ok((reply.width, reply.height))
     }
 }
+
+#[cfg(test)]
+#[path = "xtest_sink_tests.rs"]
+mod tests;

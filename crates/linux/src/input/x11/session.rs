@@ -30,7 +30,7 @@ pub(crate) fn run(
     let journal = HeldJournal::in_runtime_dir(&display);
     let cutoff = deadline.remaining() + RELEASE_ALLOWANCE;
     run_journaled(
-        move || XtestSink::connect(&display, cutoff),
+        move || XtestSink::connect(&display, deadline, cutoff),
         plans,
         gate,
         (deadline, journal, worker_slot::shared()),
@@ -41,7 +41,7 @@ pub(crate) fn live_keymap(display: &str, deadline: Deadline) -> Result<Keymap, A
     let display = display.to_owned();
     let cutoff = deadline.remaining() + RELEASE_ALLOWANCE;
     let read = crate::system::x11::start(move || {
-        let mut sink = XtestSink::connect(&display, cutoff)?;
+        let mut sink = XtestSink::connect(&display, deadline, cutoff)?;
         sink.keymap().map_err(SinkError::into_adapter)
     });
     read.finish(deadline)
