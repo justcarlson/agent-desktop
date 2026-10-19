@@ -1,4 +1,4 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
 
 use agent_desktop_core::{AdapterError, Deadline};
 
@@ -166,3 +166,7 @@ pub(crate) fn run_pass(
 #[cfg(test)]
 #[path = "signal_inventory_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "signal_inventory_live_tests.rs"]
+mod live_tests;

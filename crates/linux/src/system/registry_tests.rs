@@ -7,6 +7,7 @@ use crate::tree::AtspiElement;
 
 #[derive(Default)]
 struct Counting {
+    stopped: bool,
     facts: Cell<u32>,
     names: Cell<u32>,
     toolkits: Cell<u32>,
@@ -21,6 +22,10 @@ impl AppReads for Counting {
             instance: "boot:1".to_owned(),
             web_family: None,
         })
+    }
+
+    fn is_stopped(&self, _pid: u32) -> bool {
+        self.stopped
     }
 
     async fn name(&self, _root: &AtspiElement) -> Option<Option<String>> {
@@ -68,4 +73,28 @@ fn no_filter_reads_every_pid() {
     assert!(matches!(read(&reads, 7, None), AppRead::Listed(_)));
     assert!(matches!(read(&reads, 9, None), AppRead::Listed(_)));
     assert_eq!(reads.names.get(), 2);
+}
+
+#[test]
+fn a_stopped_process_is_listed_unanswered_without_a_name_or_toolkit_read() {
+    let reads = Counting {
+        stopped: true,
+        ..Counting::default()
+    };
+    let AppRead::Listed(app) = read(&reads, 7, None) else {
+        panic!("a stopped app stays listed")
+    };
+    assert!(!app.answered);
+    assert_eq!(reads.facts.get(), 1);
+    assert_eq!((reads.names.get(), reads.toolkits.get()), (0, 0));
+}
+
+#[test]
+fn a_running_process_is_read_for_its_name_and_toolkit() {
+    let reads = Counting::default();
+    let AppRead::Listed(app) = read(&reads, 7, None) else {
+        panic!("listed")
+    };
+    assert!(app.answered);
+    assert_eq!((reads.names.get(), reads.toolkits.get()), (1, 1));
 }

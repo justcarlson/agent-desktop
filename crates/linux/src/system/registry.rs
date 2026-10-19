@@ -8,6 +8,7 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use super::bus_slice::within_slice;
+use super::proc_stat;
 use super::process_facts::{self, ProcessFacts};
 use super::registry_app::{RegistryApp, assemble, skipped};
 use super::toolkit_id::ToolkitId;
@@ -54,6 +55,7 @@ pub(crate) async fn toolkit(connection: &Connection, root: &AtspiElement) -> Too
 
 trait AppReads {
     fn facts(&self, pid: u32) -> Option<ProcessFacts>;
+    fn is_stopped(&self, pid: u32) -> bool;
     async fn name(&self, root: &AtspiElement) -> Option<Option<String>>;
     async fn toolkit(&self, root: &AtspiElement) -> ToolkitId;
 }
@@ -63,6 +65,10 @@ struct BusReads<'a>(&'a Connection);
 impl AppReads for BusReads<'_> {
     fn facts(&self, pid: u32) -> Option<ProcessFacts> {
         process_facts::read(pid)
+    }
+
+    fn is_stopped(&self, pid: u32) -> bool {
+        proc_stat::is_stopped(pid)
     }
 
     async fn name(&self, root: &AtspiElement) -> Option<Option<String>> {
@@ -90,6 +96,9 @@ async fn read_known(reads: &impl AppReads, root: AtspiElement, only: Option<u32>
             "the process has exited",
         ));
     };
+    if reads.is_stopped(pid) {
+        return AppRead::Listed(Box::new(assemble(root, facts, None, ToolkitId::default())));
+    }
     let (name, toolkit) = join(reads.name(&root), reads.toolkit(&root)).await;
     AppRead::Listed(Box::new(assemble(root, facts, name, toolkit)))
 }
