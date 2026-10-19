@@ -257,10 +257,10 @@ fn bounds_of_another_toolkit_are_the_pointer_rule_over_the_placement_and_never_t
 }
 
 #[test]
-fn a_live_element_of_another_toolkit_keeps_the_raw_rectangle_when_the_position_is_unprovable() {
+fn a_live_element_of_another_toolkit_has_no_bounds_when_the_position_is_unprovable() {
     let mut reader = Counting::alive();
     reader.global = false;
     reader.at = Some(rect(5, 6, 498, 34));
     let element = element_via(&mut reader, &handle(), deadline()).expect("element");
-    assert_eq!(element.bounds.map(|b| (b.x, b.y)), Some((5.0, 6.0)));
+    assert_eq!(element.bounds, None);
 }

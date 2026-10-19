@@ -26,6 +26,7 @@ mod live_read;
 mod name_evidence;
 mod node_class;
 mod node_evidence;
+mod node_position;
 mod node_properties;
 mod node_read;
 mod node_traits;

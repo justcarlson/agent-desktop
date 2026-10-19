@@ -180,7 +180,7 @@ fn pointer_rect_is_the_toolkits_rule_applied_to_the_three_readings() {
 }
 
 #[test]
-fn a_global_toolkit_keeps_its_extents_and_another_falls_back_to_them_when_unprovable() {
+fn a_global_toolkit_keeps_its_extents_and_another_has_no_bounds_when_unprovable() {
     let read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(100, 137, 420, 34)));
     let evidence = evidence_for(&read, &read.node.element);
     let global =
@@ -189,5 +189,5 @@ fn a_global_toolkit_keeps_its_extents_and_another_falls_back_to_them_when_unprov
     let mut unprovable = window(rect(0, 0, 420, 34));
     unprovable.node = None;
     let other = live_element(&read, &evidence, &unprovable, false).expect("projects");
-    assert_eq!(other.bounds.map(|b| (b.x, b.y)), Some((100.0, 137.0)));
+    assert_eq!(other.bounds, None);
 }

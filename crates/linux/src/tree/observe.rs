@@ -6,6 +6,7 @@ use agent_desktop_core::{
 };
 
 use super::ancestry;
+use super::node_position::place_nodes;
 use super::projection::project;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
@@ -156,7 +157,9 @@ pub(crate) fn observe_tree(
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
     let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline| {
-        walk_tree(bus, element, limits, deadline)
+        let mut walk = walk_tree(bus, element, limits, deadline)?;
+        place_nodes(bus, &mut walk, deadline);
+        Ok(walk)
     };
     let mut pause = std::thread::sleep;
     observe_with(

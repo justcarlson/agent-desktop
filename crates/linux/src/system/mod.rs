@@ -32,7 +32,7 @@ mod window_filter;
 pub(crate) mod window_id;
 mod window_listing;
 mod window_ops;
-mod window_position;
+pub(crate) mod window_position;
 mod window_resolve;
 pub(crate) mod x11;
 

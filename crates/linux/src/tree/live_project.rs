@@ -187,7 +187,8 @@ pub(crate) fn live_bounds(read: &ObservedRead) -> Option<Rect> {
 
 /// Identity, state, bounds and actions of one node, all from the one read.
 /// A toolkit whose screen extents are global keeps them; any other takes the
-/// provable pointer rectangle and falls back to the extents as read.
+/// provable pointer rectangle and has no bounds when none can be proved,
+/// because its own position is `[0, 0]`.
 pub(crate) fn live_element(
     read: &ObservedRead,
     evidence: &LocatorEvidence,
@@ -197,7 +198,7 @@ pub(crate) fn live_element(
     let bounds = if global {
         live_bounds(read)
     } else {
-        pointer_rect(read, placement).or_else(|| live_bounds(read))
+        pointer_rect(read, placement)
     };
     Ok(LiveElement {
         identity: LiveIdentity {

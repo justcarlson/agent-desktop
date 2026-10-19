@@ -2,11 +2,13 @@ use agent_desktop_core::Rect;
 
 use super::listed_window::ListedWindow;
 use super::x11::map::{ClientMatch, match_client};
-use super::x11::{X11Client, X11State};
+use super::x11::{FrameFacts, X11Client, X11State};
 use crate::tree::Extents;
 
-fn client_origin(window: &ListedWindow, clients: &[X11Client]) -> Option<(i32, i32)> {
-    let ClientMatch::One(id) = match_client(&window.frame, clients) else {
+/// Where the single X11 client of a window sits, or `None` when the window
+/// maps to no client or to several.
+pub(crate) fn frame_origin(frame: &FrameFacts, clients: &[X11Client]) -> Option<(i32, i32)> {
+    let ClientMatch::One(id) = match_client(frame, clients) else {
         return None;
     };
     let bounds = clients.iter().find(|client| client.id == id)?.bounds?;
@@ -39,7 +41,7 @@ pub(crate) fn place_windows(listed: &mut [ListedWindow], state: &X11State) {
         window.info.bounds = window
             .frame
             .extents
-            .zip(client_origin(window, clients))
+            .zip(frame_origin(&window.frame, clients))
             .map(|(size, origin)| at(origin, size));
     }
 }
