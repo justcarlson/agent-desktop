@@ -97,7 +97,7 @@ fn a_zero_duration_still_travels_in_one_step() {
 }
 
 #[test]
-fn defaults_are_300_ms_of_travel_and_a_500_ms_dwell() {
+fn defaults_are_300_ms_of_travel_and_a_dwell_below_the_folder_spring_load_threshold() {
     let plan = plan_drag(&params(None, None), deadline(5_000)).unwrap();
     let total = pauses(&plan).as_millis() as i64;
     let expected = (PICKUP_DELAY_MS * 2 + DEFAULT_DURATION_MS + DEFAULT_DROP_DELAY_MS) as i64;

@@ -175,7 +175,7 @@ agent-desktop --headed mouse-move --xy 100,200
 - `hover` moves the cursor to an element center or to `--xy`. A positive `--duration` is rejected, because a stateless process cannot own the cursor during a dwell. Hover, then `wait <ms>`.
 - With `--headed`, a ref endpoint must focus its exact window first. If focus cannot be confirmed, the command fails before delivery. Coordinate-only input never focuses.
 - `drag` accepts refs, coordinates, or a mix. The destination app is never pre-focused, because raising it could cover the source point. For a cross-app drag, keep the destination visible. Both endpoints still pass visibility, stability and hit-test checks.
-- A drop target often needs the item to dwell over it. The default `--drop-delay` is 500 ms. Raise it (800 to 1200) for list reorders and cross-window drops.
+- A drop target often needs the item to dwell over it. The default `--drop-delay` is 500 ms (150 ms on Linux, where a longer hold opens a hovered Files folder). Raise it (800 to 1200) for list reorders and cross-window drops.
 - `mouse-click` takes `--button left|right|middle`, `--count`, and `--modifiers`.
 
 ## Choose the command

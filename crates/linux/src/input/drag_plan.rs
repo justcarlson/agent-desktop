@@ -10,7 +10,7 @@ use super::pointer_plan::{BUTTON_LEFT, pause, point_xy};
 use super::step::Step;
 
 pub(crate) const DEFAULT_DURATION_MS: u64 = 300;
-pub(crate) const DEFAULT_DROP_DELAY_MS: u64 = 500;
+pub(crate) const DEFAULT_DROP_DELAY_MS: u64 = 150;
 pub(crate) const PICKUP_DELAY_MS: u64 = 200;
 pub(crate) const TICK_MS: u64 = 16;
 const MAX_STEPS: u64 = 4_096;
