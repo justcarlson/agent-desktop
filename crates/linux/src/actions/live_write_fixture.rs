@@ -32,7 +32,7 @@ const WIDGETS_GTK4: &str = r#"
 def activate(app):
     window = Gtk.ApplicationWindow(application=app, title="adw-" + sys.argv[1])
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-    flag = Gtk.CheckButton(label="Flag")
+    flag = Gtk.ToggleButton(label="Flag")
     victim = Gtk.Button(label="Victim")
     entry = Gtk.Entry()
     entry.set_text("start")

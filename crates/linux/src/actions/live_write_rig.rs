@@ -10,11 +10,13 @@ use crate::system::{SharedBus, owner_process_id};
 use crate::tree::AtspiElement;
 
 pub(super) const ROLE_CHECK_BOX: u32 = 7;
-pub(super) const ROLE_PROGRESS_BAR: u32 = 48;
+pub(super) const ROLE_TOGGLE_BUTTON: u32 = 62;
+pub(super) const ROLE_PROGRESS_BAR: u32 = 42;
 pub(super) const ROLE_PUSH_BUTTON: u32 = 43;
 pub(super) const ROLE_SLIDER: u32 = 51;
 pub(super) const EDITABLE_TEXT: &str = "org.a11y.atspi.EditableText";
 const CHECKED: u32 = 4;
+const PRESSED: u32 = 20;
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const REGISTRY: &str = "org.a11y.atspi.Registry";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
@@ -100,10 +102,19 @@ impl Probe {
         listed.into_iter().map(|(name, _, _)| name).collect()
     }
 
+    pub(super) fn toggle(&self, pid: u32) -> AtspiElement {
+        self.find(pid, &|probe, element| {
+            matches!(
+                probe.role(element),
+                Some(ROLE_CHECK_BOX | ROLE_TOGGLE_BUTTON)
+            ) && probe.name(element) == "Flag"
+        })
+    }
+
     pub(super) fn checked(&self, element: &AtspiElement) -> Option<bool> {
         let reply = self.call(element, ACCESSIBLE, "GetState", &()).ok()?;
         let words = reply.body().deserialize::<Vec<u32>>().ok()?;
-        Some(words.first()? & (1 << CHECKED) != 0)
+        Some(words.first()? & ((1 << CHECKED) | (1 << PRESSED)) != 0)
     }
 
     pub(super) fn text(&self, element: &AtspiElement) -> Option<String> {
@@ -121,15 +132,17 @@ impl Probe {
             .and_then(|value| f64::try_from(value).ok())
     }
 
-    fn application(&self, pid: u32) -> Option<AtspiElement> {
+    fn applications(&self, pid: u32) -> Vec<AtspiElement> {
         let root = AtspiElement::new(REGISTRY, ROOT, 0);
-        for app in self.children(&root) {
-            let owner = zbus::block_on(owner_process_id(self.connection.inner(), app.bus_name()));
-            if owner.ok() == Some(pid) {
-                return Some(AtspiElement::new(app.bus_name(), app.path(), pid));
-            }
-        }
-        None
+        self.children(&root)
+            .iter()
+            .filter(|app| {
+                let owner =
+                    zbus::block_on(owner_process_id(self.connection.inner(), app.bus_name()));
+                owner.ok() == Some(pid)
+            })
+            .map(|app| AtspiElement::new(app.bus_name(), ROOT, pid))
+            .collect()
     }
 
     fn descend(
@@ -149,20 +162,54 @@ impl Probe {
             .find_map(|child| self.descend(child, depth - 1, matches))
     }
 
+    fn dump(&self, pid: u32) -> String {
+        let mut out = String::new();
+        for app in self.applications(pid) {
+            out.push_str(&format!(
+                "root children call: {:?}\nChildCount: {:?}\n",
+                self.call(&app, ACCESSIBLE, "GetChildren", &()).map(|m| m
+                    .body()
+                    .deserialize::<Vec<(String, OwnedObjectPath)>>()
+                    .map_err(|e| e.to_string())),
+                self.property(&app, ACCESSIBLE, "ChildCount")
+            ));
+            self.dump_into(&app, 0, &mut out);
+        }
+        out
+    }
+
+    fn dump_into(&self, element: &AtspiElement, depth: usize, out: &mut String) {
+        out.push_str(&format!(
+            "{}role={:?} name={:?}\n",
+            "  ".repeat(depth),
+            self.role(element),
+            self.name(element)
+        ));
+        if depth < 10 {
+            for child in self.children(element) {
+                self.dump_into(&child, depth + 1, out);
+            }
+        }
+    }
+
     pub(super) fn find(
         &self,
         pid: u32,
         matches: &dyn Fn(&Probe, &AtspiElement) -> bool,
     ) -> AtspiElement {
         let mut found = None;
+        let seen = wait_until(Duration::from_secs(40), || {
+            found = self
+                .applications(pid)
+                .iter()
+                .find_map(|app| self.descend(app, 12, matches));
+            found.is_some()
+        });
         assert!(
-            wait_until(Duration::from_secs(40), || {
-                found = self
-                    .application(pid)
-                    .and_then(|app| self.descend(&app, 12, matches));
-                found.is_some()
-            }),
-            "the widget never appeared under pid {pid}"
+            seen,
+            "the widget never appeared under pid {pid}; alive={}; tree:\n{}",
+            std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            self.dump(pid)
         );
         found.expect("recorded")
     }

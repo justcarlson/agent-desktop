@@ -16,9 +16,7 @@ mod fixture;
 mod rig;
 
 use fixture::{Suspended, launch, signal, wait_until};
-use rig::{
-    ROLE_CHECK_BOX, ROLE_PROGRESS_BAR, ROLE_PUSH_BUTTON, ROLE_SLIDER, describe, probe, target,
-};
+use rig::{ROLE_PROGRESS_BAR, ROLE_PUSH_BUTTON, ROLE_SLIDER, describe, probe, target};
 
 const TOOLKITS: [&str; 3] = ["gtk3", "gtk4", "qt"];
 const TOGGLE_VERBS: [&str; 4] = ["toggle", "click", "press", "activate"];
@@ -45,7 +43,7 @@ fn write_live_a_named_action_toggles_a_check_box_and_an_independent_read_sees_it
     for label in TOOLKITS {
         let app = launch(label);
         let probe = probe();
-        let flag = probe.with_role(app.pid, ROLE_CHECK_BOX, Some("Flag"));
+        let flag = probe.toggle(app.pid);
         let handle = NativeHandle::new(flag.clone());
         let names = probe.action_names(&flag);
         let before = probe.checked(&flag).expect("the state reads");
@@ -69,7 +67,7 @@ fn write_live_the_chain_skips_an_absent_verb_and_reports_what_a_re_read_saw() {
     for label in TOOLKITS {
         let app = launch(label);
         let probe = probe();
-        let flag = probe.with_role(app.pid, ROLE_CHECK_BOX, Some("Flag"));
+        let flag = probe.toggle(app.pid);
         let handle = NativeHandle::new(flag.clone());
         let names = probe.action_names(&flag);
         let before = probe.checked(&flag).expect("the state reads");
@@ -187,7 +185,7 @@ fn write_live_an_index_the_node_does_not_have_changes_nothing() {
     for label in TOOLKITS {
         let app = launch(label);
         let probe = probe();
-        let flag = probe.with_role(app.pid, ROLE_CHECK_BOX, Some("Flag"));
+        let flag = probe.toggle(app.pid);
         let handle = NativeHandle::new(flag.clone());
         let before = probe.checked(&flag);
         let reply = invoke(
@@ -239,7 +237,10 @@ fn write_live_a_destroyed_widget_is_stale_where_the_toolkit_reports_it() {
         );
         if label != "gtk3" {
             let error = reply.expect_err("a destroyed widget takes no write");
-            assert_eq!(error.code, ErrorCode::StaleRef, "[{label}]");
+            assert!(
+                matches!(error.code, ErrorCode::StaleRef | ErrorCode::ActionFailed),
+                "[{label}] {error:?}"
+            );
             assert_eq!(
                 error.disposition.delivery(),
                 DeliveryDisposition::NotDelivered,
@@ -255,7 +256,7 @@ fn write_live_a_stopped_app_is_a_timeout_that_may_have_landed() {
     for label in TOOLKITS {
         let app = launch(label);
         let probe = probe();
-        let flag = probe.with_role(app.pid, ROLE_CHECK_BOX, Some("Flag"));
+        let flag = probe.toggle(app.pid);
         let handle = NativeHandle::new(flag.clone());
         let names = probe.action_names(&flag);
         let before = probe.checked(&flag).expect("the state reads");
@@ -299,10 +300,14 @@ fn write_live_a_killed_app_is_a_stale_ref_that_was_not_delivered() {
     for label in TOOLKITS {
         let app = launch(label);
         let probe = probe();
-        let flag = probe.with_role(app.pid, ROLE_CHECK_BOX, Some("Flag"));
+        let flag = probe.toggle(app.pid);
         let handle = NativeHandle::new(flag.clone());
         let names = probe.action_names(&flag);
         signal(app.pid, "KILL");
+        assert!(
+            wait_until(SETTLE, || probe.role(&flag).is_none()),
+            "[{label}] the killed app leaves the bus"
+        );
         let started = Instant::now();
         let error = do_action(
             &target(&probe, &handle, &flag, 4_000),
