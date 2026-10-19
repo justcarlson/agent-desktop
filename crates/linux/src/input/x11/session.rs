@@ -7,6 +7,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::held_journal::HeldJournal;
 use super::progress::Progress;
+use super::signal_release;
 use super::sink::X11Sink;
 use super::sink_error::SinkError;
 use super::worker::{self, ABORT_SUGGESTION, Link, Report};
@@ -19,6 +20,13 @@ use crate::input::release_state::ReleaseState;
 
 const WORKER_GRACE: Duration = Duration::from_millis(250);
 const RELEASE_ALLOWANCE: Duration = Duration::from_secs(2);
+
+pub(crate) struct CallEnv {
+    pub(crate) deadline: Deadline,
+    pub(crate) journal: Option<HeldJournal>,
+    pub(crate) slot: Arc<WorkerSlot>,
+    pub(crate) release_on_signal: bool,
+}
 
 pub(crate) fn run(
     display: &str,
@@ -33,7 +41,12 @@ pub(crate) fn run(
         move || XtestSink::connect(&display, deadline, cutoff),
         plans,
         gate,
-        (deadline, journal, worker_slot::shared()),
+        CallEnv {
+            deadline,
+            journal,
+            slot: worker_slot::shared(),
+            release_on_signal: true,
+        },
     )
 }
 
@@ -59,7 +72,12 @@ pub(crate) fn run_with<S: X11Sink + 'static>(
         open,
         plans,
         gate,
-        (deadline, None, Arc::new(WorkerSlot::default())),
+        CallEnv {
+            deadline,
+            journal: None,
+            slot: Arc::new(WorkerSlot::default()),
+            release_on_signal: false,
+        },
     )
 }
 
@@ -70,17 +88,35 @@ pub(crate) fn run_with_slot<S: X11Sink + 'static>(
     gate: Gate<'_>,
     (deadline, slot): (Deadline, Arc<WorkerSlot>),
 ) -> Result<Delivery, AdapterError> {
-    run_journaled(open, plans, gate, (deadline, None, slot))
+    run_journaled(
+        open,
+        plans,
+        gate,
+        CallEnv {
+            deadline,
+            journal: None,
+            slot,
+            release_on_signal: false,
+        },
+    )
 }
 
 pub(crate) fn run_journaled<S: X11Sink + 'static>(
     open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
     plans: Vec<Plan>,
     gate: Gate<'_>,
-    (deadline, journal, slot): (Deadline, Option<HeldJournal>, Arc<WorkerSlot>),
+    env: CallEnv,
 ) -> Result<Delivery, AdapterError> {
+    let CallEnv {
+        deadline,
+        journal,
+        slot,
+        release_on_signal,
+    } = env;
     let claim = slot.claim(deadline)?;
     let progress = Arc::new(Progress::default());
+    let _armed =
+        release_on_signal.then(|| signal_release::arm(Arc::clone(&progress), Arc::clone(&slot)));
     let (reports, inbox) = channel();
     let (proceed_tx, proceed) = channel();
     let link = Link {

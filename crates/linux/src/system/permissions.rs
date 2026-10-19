@@ -7,6 +7,7 @@ pub(crate) fn report(
     bus: &SharedBus,
     deadline: Deadline,
 ) -> Result<PermissionReport, AdapterError> {
+    crate::input::x11::stale_release::sweep();
     let probed = bus
         .get(deadline)
         .and_then(|connection| probe_registry(bus, &connection, deadline));

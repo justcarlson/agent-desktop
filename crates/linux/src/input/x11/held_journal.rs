@@ -163,7 +163,6 @@ impl HeldJournal {
             .collect()
     }
 
-    #[cfg(test)]
     pub(crate) fn stale_entries(&self, alive: &dyn Fn(u32) -> bool) -> Vec<StaleEntry> {
         self.scan(alive)
             .into_iter()
@@ -172,6 +171,18 @@ impl HeldJournal {
                 _ => None,
             })
             .collect()
+    }
+
+    pub(crate) fn has_stale_entries(&self) -> bool {
+        !self.stale_entries(&process_is_alive).is_empty()
+    }
+
+    pub(crate) fn release_readable_stale(&self, sink: &mut dyn X11Sink) {
+        for record in self.scan(&process_is_alive) {
+            if let Record::Entry(entry) = record {
+                release_entry(sink, &entry);
+            }
+        }
     }
 
     pub(crate) fn release_stale(&self, sink: &mut dyn X11Sink) -> Result<(), AdapterError> {

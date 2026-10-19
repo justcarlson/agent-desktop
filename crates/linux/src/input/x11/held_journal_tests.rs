@@ -225,3 +225,25 @@ fn a_remap_a_dead_process_left_pending_is_restored_by_the_next_call() {
     assert!(fake.recorded().contains(&Recorded::Keymap(original)));
     assert!(next.stale_entries(&dead).is_empty());
 }
+
+const DEAD_PID: u32 = 4_000_000_000;
+
+#[test]
+fn a_sweep_releases_what_a_dead_call_held_and_leaves_an_unreadable_record_for_the_next_input() {
+    let dir = scratch("sweep");
+    HeldJournal::at(dir.clone(), ":7", DEAD_PID)
+        .record(&held(&[38], &[1]), &[])
+        .expect("record");
+    std::fs::write(dir.join("4000000001.json"), "not json").expect("write");
+    let fake = FakeSink::new();
+    let mut sink = fake.clone();
+    let sweeper = HeldJournal::at(dir.clone(), ":7", 222);
+    assert!(sweeper.has_stale_entries());
+
+    sweeper.release_readable_stale(&mut sink);
+
+    assert!(fake.recorded().contains(&Recorded::Button(1, false)));
+    assert!(fake.recorded().contains(&Recorded::Key(38, false)));
+    assert!(dir.join("4000000001.json").exists());
+    assert!(!sweeper.has_stale_entries());
+}

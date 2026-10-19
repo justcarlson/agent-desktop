@@ -68,6 +68,7 @@ dependencies = [
  "async-io",
  "futures-lite",
  "futures-util",
+ "libc",
  "serde_json",
  "thiserror",
  "x11rb",
