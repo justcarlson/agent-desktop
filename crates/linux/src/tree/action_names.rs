@@ -109,8 +109,8 @@ pub(crate) fn verbs_for(action: &Action) -> &'static [&'static str] {
 pub(crate) fn toggle_verbs(desired: Option<bool>) -> &'static [&'static str] {
     match desired {
         Some(true) => &["check", "toggle", "switch", "click"],
-        Some(false) => &["uncheck", "toggle", "switch", "click"],
-        None => &["toggle", "switch", "click"],
+        Some(false) => &["uncheck", "toggle", "switch", "click", "check"],
+        None => &["toggle", "switch", "click", "check", "uncheck"],
     }
 }
 

@@ -1,6 +1,6 @@
 use agent_desktop_core::{Action, ErrorCode};
 
-use super::live_text_tests::{Toolkit, each_toolkit};
+use super::live_bench::{Toolkit, each_toolkit};
 
 const SCROLL_BAR: u32 = 48;
 

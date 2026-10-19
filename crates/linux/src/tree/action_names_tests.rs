@@ -111,9 +111,12 @@ fn the_check_verbs_put_check_before_the_toggle_verbs() {
     );
     assert_eq!(
         verbs_for(&Action::Uncheck),
-        ["uncheck", "toggle", "switch", "click"]
+        ["uncheck", "toggle", "switch", "click", "check"]
     );
-    assert_eq!(verbs_for(&Action::Toggle), ["toggle", "switch", "click"]);
+    assert_eq!(
+        verbs_for(&Action::Toggle),
+        ["toggle", "switch", "click", "check", "uncheck"]
+    );
     assert_eq!(toggle_verbs(Some(true)), verbs_for(&Action::Check));
     assert_eq!(toggle_verbs(None), verbs_for(&Action::Toggle));
 }

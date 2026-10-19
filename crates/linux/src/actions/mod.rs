@@ -31,6 +31,10 @@ pub(crate) use scroll_into_view::scroll_into_view;
 #[cfg(test)]
 mod action_scan_tests;
 #[cfg(test)]
+mod live_bench;
+#[cfg(test)]
+mod live_bench_env;
+#[cfg(test)]
 mod live_click_tests;
 #[cfg(test)]
 mod live_disclosure_tests;
@@ -41,11 +45,17 @@ mod live_invariant_tests;
 #[cfg(test)]
 mod live_select_tests;
 #[cfg(test)]
+mod live_text_scripts;
+#[cfg(test)]
 mod live_text_tests;
 #[cfg(test)]
 mod live_toggle_tests;
 #[cfg(test)]
 mod live_value_tests;
+#[cfg(test)]
+mod live_widget_scripts;
+#[cfg(test)]
+mod live_widget_tests;
 #[cfg(test)]
 mod live_write_tests;
 #[cfg(test)]

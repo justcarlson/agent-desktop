@@ -209,6 +209,11 @@ fn select_through(
     run_single_rung(action.name(), target.deadline, run)
 }
 
+fn combo_selection(target: &Target<'_>) -> Result<bool, AdapterError> {
+    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    Ok(view.role() == Some(COMBO_BOX) && advertises_selection(&view))
+}
+
 fn no_route(display_value: &str) -> AdapterError {
     refusal(
         ErrorCode::ActionNotSupported,
@@ -243,7 +248,14 @@ pub(crate) fn select(
                     selection_parent(&mut reader, target.element)?
                 }
             } else {
-                hit.container.clone()
+                let combo = combo_selection(target)?;
+                hit.container.clone().map(|container| match combo {
+                    true => Container {
+                        node: target.element.clone(),
+                        index: container.index,
+                    },
+                    false => container,
+                })
             };
             let hit = Hit {
                 own: hit.own && container.is_none(),

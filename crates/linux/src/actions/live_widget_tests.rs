@@ -1,0 +1,341 @@
+use std::time::{Duration, Instant};
+
+use agent_desktop_core::{
+    Action, ActionRequest, Deadline, ErrorCode, NativeHandle, ObservationOps, WindowFilter,
+};
+
+use super::live_bench::{Bench, Scripts, Toolkit, each_scripts};
+use super::live_widget_scripts::{BROWSER_PAGE, GTK3_WIDGETS, GTK4_WIDGETS, QT_WIDGETS};
+use crate::LinuxAdapter;
+use crate::system::window_id;
+use crate::tree::live_launch::{Launched, nonce};
+use crate::tree::role_numbers::{CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, LIST, PUSH_BUTTON};
+use crate::tree::state_bits::{CHECKED, FOCUSED, SELECTED};
+use crate::tree::text_selection::{read_caret_and_selection, read_selection};
+
+const ALL: [Toolkit; 3] = [Toolkit::Gtk3, Toolkit::Gtk4, Toolkit::Qt];
+const BROWSER_SECONDS: u64 = 90;
+const LIST_ITEM: u32 = 32;
+
+fn widgets() -> Scripts<'static> {
+    Scripts {
+        gtk3: GTK3_WIDGETS,
+        gtk4: GTK4_WIDGETS,
+        qt: QT_WIDGETS,
+    }
+}
+
+fn status_becomes(bench: &Bench, wanted: &str) -> bool {
+    let status = bench.named("status");
+    bench
+        .wait_for(|| (bench.text_of(&status) == wanted).then_some(()))
+        .is_some()
+}
+
+fn checked_becomes(bench: &Bench, handle: &NativeHandle, wanted: bool) -> bool {
+    bench
+        .wait_for(|| (bench.has_state(handle, CHECKED) == wanted).then_some(()))
+        .is_some()
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn a_click_runs_the_handler_of_a_button_in_every_toolkit() {
+    each_scripts(&widgets(), &ALL, |toolkit, bench| {
+        let button = bench
+            .find(PUSH_BUTTON, "Press me")
+            .unwrap_or_else(|| panic!("{toolkit:?}: no button"));
+        bench
+            .act(&button, Action::Click)
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        assert!(status_becomes(bench, "clicked"), "{toolkit:?}");
+    });
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn toggle_check_and_uncheck_move_a_check_box_and_never_write_twice() {
+    each_scripts(&widgets(), &ALL, |toolkit, bench| {
+        let flag = bench
+            .find(CHECK_BOX, "Flag")
+            .unwrap_or_else(|| panic!("{toolkit:?}: no check box"));
+        assert!(!bench.has_state(&flag, CHECKED), "{toolkit:?}");
+        if matches!(toolkit, Toolkit::Gtk4) {
+            assert!(bench.action_names(&flag).is_empty(), "{toolkit:?}");
+            let refused = bench
+                .act(&flag, Action::Toggle)
+                .expect_err("a GTK4 check button advertises no action");
+            assert_eq!(refused.code, ErrorCode::ActionNotSupported, "{toolkit:?}");
+            let details = refused.details.expect("details");
+            assert_eq!(details["semantic_verb"], "absent", "{toolkit:?}");
+            let click = bench
+                .act(&flag, Action::Click)
+                .expect_err("the click reaches the physical seam");
+            let details = click.details.expect("details");
+            assert_eq!(details["physical_delivery_started"], false, "{toolkit:?}");
+            assert!(!bench.has_state(&flag, CHECKED), "{toolkit:?}");
+            return;
+        }
+        bench
+            .act(&flag, Action::Toggle)
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        assert!(checked_becomes(bench, &flag, true), "{toolkit:?}: toggle");
+        bench
+            .act(&flag, Action::Check)
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        std::thread::sleep(Duration::from_millis(500));
+        assert!(bench.has_state(&flag, CHECKED), "{toolkit:?}: check twice");
+        bench
+            .act(&flag, Action::Uncheck)
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        assert!(checked_becomes(bench, &flag, false), "{toolkit:?}: uncheck");
+    });
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn select_by_display_value_chooses_the_item_of_a_combo_box() {
+    each_scripts(
+        &widgets(),
+        &[Toolkit::Gtk3, Toolkit::Qt],
+        |toolkit, bench| {
+            let combo = bench
+                .with_role(COMBO_BOX)
+                .unwrap_or_else(|| panic!("{toolkit:?}: no combo box"));
+            let result = bench
+                .act(&combo, Action::Select("beta".to_owned()))
+                .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+            if matches!(toolkit, Toolkit::Qt) {
+                let proved = result
+                    .steps
+                    .iter()
+                    .any(|step| step.verified() == Some(true));
+                assert!(!proved, "{toolkit:?}: a closed Qt popup takes no selection");
+                assert_eq!(bench.name_of(&combo), "alpha", "{toolkit:?}");
+                return;
+            }
+            assert!(
+                status_becomes(bench, "combo:beta"),
+                "{toolkit:?}: {result:?}"
+            );
+            let renamed = bench
+                .wait_for(|| (bench.name_of(&combo) == "beta").then_some(()))
+                .is_some();
+            assert!(
+                renamed,
+                "{toolkit:?}: the combo reads {}",
+                bench.name_of(&combo)
+            );
+        },
+    );
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn select_by_display_value_chooses_the_item_of_a_qt_list() {
+    each_scripts(&widgets(), &[Toolkit::Qt], |toolkit, bench| {
+        let list = bench
+            .find(LIST, "items")
+            .unwrap_or_else(|| panic!("{toolkit:?}: no list"));
+        let result = bench
+            .act(&list, Action::Select("two".to_owned()))
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        assert!(status_becomes(bench, "list:two"), "{toolkit:?}: {result:?}");
+        let item = bench.find(LIST_ITEM, "two").expect("the item");
+        assert!(bench.has_state(&item, SELECTED), "{toolkit:?}");
+    });
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn a_headed_set_focus_moves_the_focus_to_a_qt_button() {
+    each_scripts(&widgets(), &[Toolkit::Qt], |toolkit, bench| {
+        let button = bench
+            .find(PUSH_BUTTON, "Press me")
+            .unwrap_or_else(|| panic!("{toolkit:?}: no button"));
+        let headless = bench.act(&button, Action::SetFocus);
+        assert!(headless.is_err(), "{toolkit:?}: headless focus is denied");
+        bench
+            .act_with(&button, ActionRequest::headed(Action::SetFocus))
+            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        let focused = bench
+            .wait_for(|| bench.has_state(&button, FOCUSED).then_some(()))
+            .is_some();
+        assert!(focused, "{toolkit:?}");
+    });
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn the_selection_reads_in_utf16_and_the_caret_in_code_points() {
+    each_scripts(
+        &widgets(),
+        &[Toolkit::Gtk3, Toolkit::Gtk4],
+        |toolkit, bench| {
+            let name = if matches!(toolkit, Toolkit::Gtk3) {
+                "view"
+            } else {
+                "field"
+            };
+            let text = bench.named(name);
+            assert!(bench.add_selection(&text, 2, 7), "{toolkit:?}: select");
+            let budget = || Deadline::after(5_000).expect("a deadline");
+            let utf16 = read_selection(bench.adapter().bus(), &text, budget())
+                .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+            assert_eq!(utf16, Some(3..8), "{toolkit:?}");
+            let element = crate::tree::atspi_element(&text).expect("an element");
+            let (caret, selections) =
+                read_caret_and_selection(bench.adapter().bus(), element, budget())
+                    .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"))
+                    .expect("the caret and the selection read");
+            assert_eq!(selections, vec![2..7], "{toolkit:?}");
+            assert!(caret == 2 || caret == 7, "{toolkit:?}: caret {caret}");
+        },
+    );
+}
+
+fn frame_of_app(adapter: &LinuxAdapter, app: &str) -> crate::tree::AtspiElement {
+    let started = Instant::now();
+    loop {
+        let filter = WindowFilter {
+            focused_only: false,
+            app: Some(app.to_owned()),
+        };
+        let windows = adapter
+            .list_windows(&filter, Deadline::after(5_000).expect("a deadline"))
+            .unwrap_or_default();
+        if let Some(window) = windows.first() {
+            let (bus, path) = window_id::decode(&window.id).expect("a window id");
+            return crate::tree::AtspiElement::new(bus, path, window.pid.get());
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(40),
+            "no {app} window"
+        );
+        std::thread::sleep(Duration::from_millis(300));
+    }
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh --wm"]
+fn the_read_only_menu_item_of_gnome_terminal_toggles() {
+    let adapter = LinuxAdapter::new();
+    let mut launched = Launched::new();
+    launched.spawn(
+        "gnome-terminal",
+        &["--wait", "--", "bash", "-c", "sleep 300"],
+    );
+    let frame = frame_of_app(&adapter, "gnome-terminal-server");
+    let bench = Bench::attach(launched, frame);
+    let item = bench
+        .find(CHECK_MENU_ITEM, "Read-Only")
+        .expect("the Read-Only menu item");
+    assert!(!bench.has_state(&item, CHECKED));
+    bench
+        .act(&item, Action::Toggle)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(checked_becomes(&bench, &item, true), "toggled on");
+    bench
+        .act(&item, Action::Toggle)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(checked_becomes(&bench, &item, false), "toggled off");
+}
+
+fn browser_bench(
+    program: &str,
+    environment: &[(&'static str, String)],
+    arguments: impl Fn(&str, &str) -> Vec<String>,
+) -> (Bench, String) {
+    let tag = nonce("page");
+    let dir = std::env::temp_dir().join(&tag);
+    std::fs::create_dir_all(&dir).expect("a page directory");
+    let page = dir.join("page.html");
+    std::fs::write(&page, BROWSER_PAGE.replace("TAG", &tag)).expect("a page");
+    let mut launched = Launched::new();
+    launched.scratch.push(dir.clone());
+    let url = format!("file://{}", page.display());
+    let profile = dir.join("profile").to_string_lossy().into_owned();
+    let owned = arguments(&url, &profile);
+    let borrowed: Vec<&str> = owned.iter().map(String::as_str).collect();
+    let pid = launched.spawn_with_env(program, &borrowed, environment);
+    let adapter = LinuxAdapter::new();
+    let frame = Bench::wait_for_frame(&adapter, &tag, pid, BROWSER_SECONDS)
+        .unwrap_or_else(|reason| panic!("{program}: {reason}"));
+    (Bench::attach(launched, frame), tag)
+}
+
+fn drive_page(bench: &Bench, tag: &str, label: &str) {
+    let frame = bench.frame().clone().into_native_handle();
+    let titled = |wanted: String| {
+        bench
+            .wait_for(|| bench.name_of(&frame).contains(&wanted).then_some(()))
+            .is_some()
+    };
+    let button = bench
+        .find(PUSH_BUTTON, "Press")
+        .unwrap_or_else(|| panic!("{label}: no button"));
+    bench
+        .act(&button, Action::Click)
+        .unwrap_or_else(|error| panic!("{label}: {error}"));
+    assert!(titled(format!("{tag}:clicked")), "{label}: click");
+    let agree = bench
+        .find(CHECK_BOX, "Agree")
+        .unwrap_or_else(|| panic!("{label}: no check box"));
+    bench
+        .act(&agree, Action::Check)
+        .unwrap_or_else(|error| panic!("{label}: {error}"));
+    assert!(titled(format!("{tag}:chk=true")), "{label}: check title");
+    assert!(checked_becomes(bench, &agree, true), "{label}: check state");
+    bench
+        .act(&agree, Action::Uncheck)
+        .unwrap_or_else(|error| panic!("{label}: {error}"));
+    assert!(titled(format!("{tag}:chk=false")), "{label}: uncheck title");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh --wm"]
+fn a_chromium_page_takes_a_click_and_a_check() {
+    let (bench, tag) = browser_bench(
+        "google-chrome",
+        &[("ACCESSIBILITY_ENABLED", "1".to_owned())],
+        |url, profile| {
+            vec![
+                "--no-sandbox".to_owned(),
+                "--force-renderer-accessibility".to_owned(),
+                "--no-first-run".to_owned(),
+                format!("--user-data-dir={profile}"),
+                "--new-window".to_owned(),
+                url.to_owned(),
+            ]
+        },
+    );
+    drive_page(&bench, &tag, "chromium");
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh --wm"]
+fn a_gecko_page_takes_a_click_and_a_check() {
+    let snap = "/snap/firefox/current";
+    let library_path = format!(
+        "{snap}/usr/lib/firefox:{snap}/usr/lib/x86_64-linux-gnu:{snap}/gnome-platform/usr/lib/x86_64-linux-gnu"
+    );
+    let (bench, tag) = browser_bench(
+        "/snap/firefox/current/usr/lib/firefox/firefox",
+        &[
+            ("LD_LIBRARY_PATH", library_path),
+            ("GTK_A11Y", "atspi".to_owned()),
+            ("MOZ_ENABLE_WAYLAND", "0".to_owned()),
+        ],
+        |url, profile| {
+            std::fs::create_dir_all(profile).expect("a profile directory");
+            vec![
+                "--no-remote".to_owned(),
+                "--profile".to_owned(),
+                profile.to_owned(),
+                "--new-window".to_owned(),
+                url.to_owned(),
+            ]
+        },
+    );
+    drive_page(&bench, &tag, "gecko");
+}
