@@ -12,6 +12,7 @@ mod extents;
 mod field;
 pub(crate) mod frame_geometry;
 mod gtk_switch;
+mod hit_cover;
 pub(crate) mod hit_descent;
 pub(crate) mod hit_guard;
 pub(crate) mod hit_occlusion;

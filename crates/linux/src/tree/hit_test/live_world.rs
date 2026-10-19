@@ -118,7 +118,11 @@ impl HitWorld for LiveWorld<'_> {
         let read =
             start(move || StackingSource::read(&DisplayReader, client)).finish(self.deadline)?;
         match read {
-            StackingRead::Ready(snapshot) => Some(Windowing { client, snapshot }),
+            StackingRead::Ready(snapshot) => Some(Windowing {
+                client,
+                snapshot,
+                clients,
+            }),
             StackingRead::NotX11 | StackingRead::NoManager | StackingRead::Unavailable => None,
         }
     }

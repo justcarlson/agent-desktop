@@ -6,6 +6,7 @@ use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::window_flags::WindowFlags;
 use crate::system::x11::window_kind::WindowKind;
+use crate::tree::hit_cover::tests::client;
 use crate::tree::hit_descent::tests::{FakeNodes, el};
 use crate::tree::hit_descent::{Described, Hit};
 
@@ -86,6 +87,7 @@ fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
             stack,
             override_redirect_above: Vec::new(),
         },
+        clients: Vec::new(),
     }
 }
 
@@ -180,6 +182,18 @@ fn a_window_above_the_target_over_the_point_intercepts_without_a_descent() {
     assert_eq!(name, None);
     assert_eq!(bounds.expect("the cover's frame").width, 600.0);
     assert!(world.nodes.calls.is_empty());
+}
+
+#[test]
+fn a_cover_that_maps_to_one_client_is_named_by_its_title() {
+    let cover = stacked(20, rect(200, 100, 600, 400));
+    let mut covered = windowing((100, 137), vec![cover]);
+    covered.clients = vec![client(CLIENT, 77, "Target"), client(20, 77, "Cover")];
+    let mut world = World::new(gtk3_facts(), Some(covered));
+    let HitTestResult::InterceptedBy { name, .. } = test(&mut world, (310, 154)) else {
+        panic!("a cover must intercept");
+    };
+    assert_eq!(name.as_deref(), Some("Cover"));
 }
 
 #[test]

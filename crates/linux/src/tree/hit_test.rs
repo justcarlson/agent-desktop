@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, HitTestResult, NativeHandle, Point};
 
 use super::frame_geometry::{calibrate, to_pointer_frame, window_point};
+use super::hit_cover::cover_name;
 use super::hit_descent::{Described, NodeSource, descend, locate};
 use super::hit_guard::{admits, aimable, pixel};
 use super::hit_occlusion::occlusion;
@@ -9,8 +10,8 @@ use super::toolkit_trust::{reports_global_position, trusts_descent, trusts_same_
 use super::{AtspiElement, Extents, atspi_element};
 use crate::system::SharedBus;
 use crate::system::toolkit_id::ToolkitId;
-use crate::system::x11::FrameFacts;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::{FrameFacts, X11Client};
 
 mod live_world;
 
@@ -29,6 +30,7 @@ pub(crate) struct Facts {
 pub(crate) struct Windowing {
     pub(crate) client: u32,
     pub(crate) snapshot: StackingSnapshot,
+    pub(crate) clients: Vec<X11Client>,
 }
 
 /// Everything a hit test reads. The bus implements it; a test substitutes
@@ -63,10 +65,10 @@ fn pre_guard(facts: &Facts, point: (i32, i32)) -> bool {
     }
 }
 
-fn intercepted_by_window(frame: Extents) -> HitTestResult {
+fn intercepted_by_window(frame: Extents, name: Option<String>) -> HitTestResult {
     HitTestResult::InterceptedBy {
         role: Some("window".to_owned()),
-        name: None,
+        name,
         bounds: Some(frame.into()),
     }
 }
@@ -143,7 +145,9 @@ pub(crate) fn hit_test_via<W: HitWorld>(
     };
     Ok(match decide(standing, landing, stacking) {
         Verdict::Reaches => HitTestResult::ReachesTarget,
-        Verdict::CoveredBy { frame, .. } => intercepted_by_window(frame),
+        Verdict::CoveredBy { window, frame } => {
+            intercepted_by_window(frame, cover_name(&windowing.clients, window))
+        }
         Verdict::SameWindowLander => intercepted_by_lander(lander, calibrated.window_origin),
         Verdict::Unknown => HitTestResult::Unknown,
     })
