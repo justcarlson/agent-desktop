@@ -141,6 +141,9 @@ mod physical_live_mutter_tests;
 mod physical_live_rig;
 
 #[cfg(test)]
+mod physical_live_shell;
+
+#[cfg(test)]
 mod physical_live_scripts;
 
 #[cfg(test)]

@@ -60,12 +60,28 @@ pub(crate) fn deadline(ms: u64) -> Deadline {
     Deadline::detached_after(ms).expect("deadline")
 }
 
+const OWN_DISPLAY_ENV: &str = "AD_OWN_DISPLAY";
+
+pub(crate) fn refuse_live_display(display: &str) {
+    let name = display.split('.').next().unwrap_or_default();
+    assert!(
+        !display.is_empty() && !matches!(name, ":0" | ":1" | ":99"),
+        "refusing the display {display:?}: live tests take their display only from a private session"
+    );
+}
+
 pub(crate) fn private_display() -> String {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION")
         .expect("live input tests run only inside scripts/private-session.sh");
-    let number = std::fs::read_to_string(format!("{dir}/displayfd")).expect("displayfd");
-    let private = format!(":{}", number.trim());
-    let current = std::env::var("DISPLAY").expect("DISPLAY");
+    let current = std::env::var("DISPLAY").unwrap_or_default();
+    refuse_live_display(&current);
+    let private = match std::env::var(OWN_DISPLAY_ENV) {
+        Ok(own) => own,
+        Err(_) => {
+            let number = std::fs::read_to_string(format!("{dir}/displayfd")).expect("displayfd");
+            format!(":{}", number.trim())
+        }
+    };
     assert_eq!(
         current, private,
         "input is sent only to the private session's display"

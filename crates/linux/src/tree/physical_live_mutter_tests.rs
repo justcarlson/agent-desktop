@@ -1,10 +1,11 @@
 use std::process::Command;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use agent_desktop_core::{Action, KeyCombo, NativeHandle};
 
 use super::physical_live_rig::{Kit, Scene};
 use super::physical_live_scripts::GTK3_NEVER_FOCUSED;
+use super::physical_live_shell::X11Shell;
 use super::physical_live_x11::{
     active_window, holds_for, wait_for_closed_overview, wait_for_viewable_client, wait_until,
 };
@@ -35,12 +36,48 @@ fn is_active(scene: &Scene) -> Option<bool> {
     frame_active(&scene.bus, &scene.frame, deadline).expect("the frame state reads")
 }
 
+const CHILD_ENV: &str = "AD_MUTTER_CHILD";
+const CHILD_BUDGET: Duration = Duration::from_secs(120);
+const THIS_TEST: &str = "tree::physical_live_mutter_tests::live_a_raw_click_activates_a_window_only_once_the_overview_is_closed";
+
 #[test]
-#[ignore = "needs a private gnome-shell --x11 on the private display (see ledger L28-2 and L28-3)"]
+#[ignore = "drives its own private gnome-shell --x11; run through scripts/private-session.sh --wm"]
 fn live_a_raw_click_activates_a_window_only_once_the_overview_is_closed() {
+    if std::env::var(CHILD_ENV).is_ok() {
+        click_scenario();
+        return;
+    }
+    let shell = X11Shell::start();
+    let mut child = Command::new(std::env::current_exe().expect("exe"))
+        .args(["--exact", THIS_TEST, "--include-ignored", "--nocapture"])
+        .env("DISPLAY", &shell.display)
+        .env("AD_OWN_DISPLAY", &shell.display)
+        .env(CHILD_ENV, "1")
+        .spawn()
+        .expect("the scenario process starts");
+    let until = Instant::now() + CHILD_BUDGET;
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("the scenario process is polled") {
+            break Some(status);
+        }
+        if Instant::now() >= until {
+            let _ = child.kill();
+            let _ = child.wait();
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    };
+    drop(shell);
+    assert!(
+        status.is_some_and(|status| status.success()),
+        "the scenario failed or did not finish in {CHILD_BUDGET:?}: {status:?}"
+    );
+}
+
+fn click_scenario() {
     assert!(
         window_manager_name().contains("GNOME Shell"),
-        "this case runs only under a private gnome-shell --x11"
+        "the scenario runs only under its own gnome-shell --x11"
     );
     let target = Scene::open(Kit::Gtk, GTK3_NEVER_FOCUSED, 2);
     wait_for_viewable_client(target.pid, SETTLE);

@@ -65,7 +65,7 @@ pub(super) fn activate(client: u32) {
     request_activation(client).expect("the activation request is sent");
 }
 
-fn overview_active() -> Result<bool, AdapterError> {
+pub(super) fn overview_active() -> Result<bool, AdapterError> {
     let deadline = read_deadline();
     let connection = SessionBus::get(deadline)?;
     within(deadline, async {

@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, DeliverySemantics};
 
 use super::XtestSink;
+use crate::input::x11::live_tests::refuse_live_display;
 
 const TCP_PORT_BASE: u16 = 6_000;
 
@@ -12,6 +13,7 @@ fn a_display_that_never_answers_ends_the_connect_at_the_deadline() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("a listening socket");
     let port = listener.local_addr().expect("its address").port();
     let display = format!("127.0.0.1:{}", port - TCP_PORT_BASE);
+    refuse_live_display(&display);
     let deadline = Deadline::after(300).expect("the deadline builds");
     let started = Instant::now();
 
