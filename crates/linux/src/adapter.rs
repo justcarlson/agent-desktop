@@ -183,7 +183,9 @@ impl InputOps for LinuxAdapter {
         _down: bool,
         _lease: &InteractionLease,
     ) -> Result<(), AdapterError> {
-        Err(crate::input::standalone::reject_standalone("key_event"))
+        Err(crate::input::standalone::reject_standalone(
+            "key-down/key-up",
+        ))
     }
 }
 

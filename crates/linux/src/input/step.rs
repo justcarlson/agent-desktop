@@ -1,8 +1,3 @@
-#![expect(
-    dead_code,
-    reason = "the module is laid out ahead of the code that calls it"
-)]
-
 use std::time::Duration;
 
 use super::keymap::KeymapEdit;
