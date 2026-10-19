@@ -135,6 +135,9 @@ mod perf_live_tests;
 mod physical_live_apps_tests;
 
 #[cfg(test)]
+mod physical_live_mutter_tests;
+
+#[cfg(test)]
 mod physical_live_rig;
 
 #[cfg(test)]

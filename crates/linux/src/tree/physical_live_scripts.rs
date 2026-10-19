@@ -98,3 +98,19 @@ w.show_all()
 GLib.timeout_add(600, lambda: (menu.popup(None, None, None, None, 0, Gtk.get_current_event_time()), False)[1])
 Gtk.main()
 "#;
+
+pub(super) const GTK3_NEVER_FOCUSED: &str = r#"
+import gi, os
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+log = os.environ["AD_LIVE_LOG"]
+w = Gtk.Window(title="adnever")
+w.set_default_size(320, 80)
+w.set_focus_on_map(False)
+e = Gtk.Entry()
+e.connect("changed", lambda x: open(log, "w").write(x.get_text()))
+w.add(e)
+w.connect("destroy", Gtk.main_quit)
+w.show_all()
+Gtk.main()
+"#;

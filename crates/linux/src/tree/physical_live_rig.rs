@@ -5,11 +5,11 @@ use agent_desktop_core::{
     NativeHandle, ObservationOps, SystemOps,
 };
 
+use super::AtspiElement;
 use super::live_launch::{Launched, nonce};
 use super::live_tree::pid_frame;
 use super::resolve_live_tests::snapshot_entries;
 use super::walker_live_tests::settle;
-use super::{AtspiElement, atspi_element};
 use crate::LinuxAdapter;
 use crate::input::x11::live_tests::private_display;
 use crate::system::SharedBus;
@@ -30,7 +30,6 @@ pub(super) struct Scene {
 
 pub(super) struct Tgt {
     pub(super) handle: NativeHandle,
-    pub(super) element: AtspiElement,
 }
 
 pub(super) fn deadline(ms: u64) -> Deadline {
@@ -117,8 +116,7 @@ impl Scene {
             .adapter
             .resolve_element_strict(&entry, deadline(10_000))
             .expect("the entry resolves");
-        let element = atspi_element(&handle).expect("an element").clone();
-        Tgt { handle, element }
+        Tgt { handle }
     }
 
     pub(super) fn lease(&self) -> InteractionLease {
