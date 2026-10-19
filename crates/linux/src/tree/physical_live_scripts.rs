@@ -1,0 +1,100 @@
+pub(super) const GTK3_BUTTON: &str = r#"
+import gi, os
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+log = os.environ["AD_LIVE_LOG"]
+w = Gtk.Window(title="adbtn")
+w.set_default_size(320, 120)
+b = Gtk.Button(label="Go")
+b.connect("clicked", lambda x: open(log, "a").write("clicked\n"))
+w.add(b)
+w.connect("destroy", Gtk.main_quit)
+w.show_all()
+Gtk.main()
+"#;
+
+pub(super) const GTK4_BUTTON: &str = r#"
+import gi, os
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk, GLib
+Gtk.init()
+log = os.environ["AD_LIVE_LOG"]
+loop = GLib.MainLoop()
+w = Gtk.Window(title="adbtn")
+w.set_default_size(320, 120)
+b = Gtk.Button(label="Go")
+b.connect("clicked", lambda x: open(log, "a").write("clicked\n"))
+w.set_child(b)
+w.connect("close-request", lambda *a: loop.quit())
+w.present()
+loop.run()
+"#;
+
+pub(super) const QT_BUTTON: &str = r#"
+import os, sys
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton
+log = os.environ["AD_LIVE_LOG"]
+app = QApplication(sys.argv)
+w = QMainWindow()
+w.setWindowTitle("adbtn")
+b = QPushButton("Go")
+b.clicked.connect(lambda: open(log, "a").write("clicked\n"))
+w.setCentralWidget(b)
+w.resize(320, 120)
+w.show()
+sys.exit(app.exec())
+"#;
+
+pub(super) const QT_ENTRY: &str = r#"
+import os, sys
+from PyQt6.QtWidgets import QApplication, QLineEdit, QMainWindow
+log = os.environ["AD_LIVE_LOG"]
+app = QApplication(sys.argv)
+w = QMainWindow()
+w.setWindowTitle("adx")
+e = QLineEdit()
+e.textChanged.connect(lambda t: open(log, "w").write(t))
+w.setCentralWidget(e)
+w.resize(320, 80)
+w.show()
+sys.exit(app.exec())
+"#;
+
+pub(super) const GTK3_DRAG: &str = r#"
+import gi, os
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk
+log = os.environ["AD_LIVE_LOG"]
+def note(text):
+    open(log, "a").write(text + "\n")
+w = Gtk.Window(title="addrag")
+w.set_default_size(600, 400)
+box = Gtk.EventBox()
+box.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK
+               | Gdk.EventMask.BUTTON1_MOTION_MASK)
+box.connect("button-press-event", lambda a, e: note("press %d %d" % (e.x_root, e.y_root)))
+box.connect("button-release-event", lambda a, e: note("release %d %d" % (e.x_root, e.y_root)))
+box.connect("motion-notify-event", lambda a, e: note("move"))
+w.add(box)
+w.connect("destroy", Gtk.main_quit)
+w.show_all()
+Gtk.main()
+"#;
+
+pub(super) const GTK3_GRAB: &str = r#"
+import gi, os
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+log = os.environ["AD_LIVE_LOG"]
+w = Gtk.Window(title="adgrab")
+w.set_default_size(200, 100)
+menu = Gtk.Menu()
+for label in ("One", "Two"):
+    menu.append(Gtk.MenuItem(label=label))
+menu.show_all()
+menu.connect("key-press-event", lambda a, e: open(log, "a").write("menukey\n"))
+w.connect("destroy", Gtk.main_quit)
+w.show_all()
+GLib.timeout_add(600, lambda: (menu.popup(None, None, None, None, 0, Gtk.get_current_event_time()), False)[1])
+Gtk.main()
+"#;

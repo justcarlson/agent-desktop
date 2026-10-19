@@ -132,6 +132,15 @@ mod navigate_live_tests;
 mod perf_live_tests;
 
 #[cfg(test)]
+mod physical_live_rig;
+
+#[cfg(test)]
+mod physical_live_scripts;
+
+#[cfg(test)]
+mod physical_live_tests;
+
+#[cfg(test)]
 mod qt_live_tests;
 
 #[cfg(test)]

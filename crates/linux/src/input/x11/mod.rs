@@ -3,7 +3,7 @@ pub(crate) mod drag_send;
 pub(crate) mod fake_sink;
 pub(crate) mod held_journal;
 #[cfg(test)]
-mod live_tests;
+pub(crate) mod live_tests;
 pub(crate) mod mouse_send;
 pub(crate) mod pointer_read;
 pub(crate) mod progress;

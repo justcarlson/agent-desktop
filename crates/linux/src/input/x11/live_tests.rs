@@ -11,7 +11,7 @@ use crate::tree::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(30);
 
-const GTK3: &str = r#"
+pub(crate) const GTK3: &str = r#"
 import gi, os
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -26,7 +26,7 @@ w.show_all()
 Gtk.main()
 "#;
 
-const GTK4: &str = r#"
+pub(crate) const GTK4: &str = r#"
 import gi, os
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib
@@ -43,7 +43,7 @@ w.present()
 loop.run()
 "#;
 
-const QT: &str = r#"
+pub(crate) const QT: &str = r#"
 import os, sys
 from PyQt6.QtWidgets import QApplication, QLineEdit
 log = os.environ["AD_LIVE_LOG"]
@@ -56,11 +56,11 @@ e.show()
 sys.exit(app.exec())
 "#;
 
-fn deadline(ms: u64) -> Deadline {
+pub(crate) fn deadline(ms: u64) -> Deadline {
     Deadline::detached_after(ms).expect("deadline")
 }
 
-fn private_display() -> String {
+pub(crate) fn private_display() -> String {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION")
         .expect("live input tests run only inside scripts/private-session.sh");
     let number = std::fs::read_to_string(format!("{dir}/displayfd")).expect("displayfd");
@@ -114,7 +114,7 @@ fn click_plan(x: i32, y: i32) -> Plan {
     }
 }
 
-fn window_center(name: &str) -> (i32, i32) {
+pub(crate) fn window_center(name: &str) -> (i32, i32) {
     let started = Instant::now();
     while started.elapsed() < SETTLE {
         let output = Command::new("xwininfo").args(["-name", name]).output();
@@ -139,7 +139,7 @@ fn window_center(name: &str) -> (i32, i32) {
     panic!("window {name} never appeared");
 }
 
-fn wait_for_log(path: &str, expected: &str) -> String {
+pub(crate) fn wait_for_log(path: &str, expected: &str) -> String {
     let started = Instant::now();
     let mut seen = String::new();
     while started.elapsed() < Duration::from_secs(8) {
@@ -152,7 +152,7 @@ fn wait_for_log(path: &str, expected: &str) -> String {
     seen
 }
 
-fn spawn_app(launched: &mut Launched, kind: &str, log: &str) {
+pub(crate) fn spawn_app(launched: &mut Launched, kind: &str, log: &str) {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("session");
     let script = format!("{dir}/adx-{kind}.py");
     let source = match kind {
@@ -176,7 +176,11 @@ fn spawn_app(launched: &mut Launched, kind: &str, log: &str) {
             ],
         );
     } else {
-        launched.spawn_with_env("python3", &[&script], &[log]);
+        launched.spawn_with_env(
+            "python3",
+            &[&script],
+            &[log, ("PYTHONUTF8", "1".to_owned())],
+        );
     }
 }
 
@@ -223,7 +227,7 @@ fn live_typing_reaches_a_qt_entry() {
     type_into("qt");
 }
 
-fn device_state(device: &str) -> String {
+pub(crate) fn device_state(device: &str) -> String {
     let output = Command::new("xinput")
         .args(["query-state", device])
         .output()
