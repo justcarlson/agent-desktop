@@ -3,6 +3,7 @@ use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 use crate::system::shell::fake_tree::{BUS, FakeTree, PANEL, PID, WINDOW, at, element};
 use crate::system::shell::identity::{
     ShellRoot, content_window, is_shell_comm, is_shell_owner, pick_shell_app, retry_until,
+    window_missing,
 };
 use crate::system::window_id;
 use crate::tree::AtspiElement;
@@ -83,7 +84,7 @@ fn deadline() -> agent_desktop_core::Deadline {
 fn a_window_that_comes_back_within_the_retries_is_found() {
     let mut misses = 3;
     let mut pauses = 0;
-    let found = retry_until(25, deadline(), &mut |_| pauses += 1, || {
+    let found = retry_until(10, deadline(), &mut |_| pauses += 1, || {
         if misses == 0 {
             Some("window")
         } else {
@@ -98,9 +99,9 @@ fn a_window_that_comes_back_within_the_retries_is_found() {
 #[test]
 fn a_window_that_never_comes_back_is_none_after_the_bounded_retries() {
     let mut pauses = 0;
-    let found: Option<()> = retry_until(25, deadline(), &mut |_| pauses += 1, || None);
+    let found: Option<()> = retry_until(10, deadline(), &mut |_| pauses += 1, || None);
     assert!(found.is_none());
-    assert_eq!(pauses, 25);
+    assert_eq!(pauses, 10);
 }
 
 #[test]
@@ -108,7 +109,20 @@ fn the_retries_stop_at_a_spent_deadline() {
     let spent = agent_desktop_core::Deadline::after(1).expect("a deadline");
     std::thread::sleep(std::time::Duration::from_millis(10));
     let mut pauses = 0;
-    let found: Option<()> = retry_until(25, spent, &mut |_| pauses += 1, || None);
+    let found: Option<()> = retry_until(10, spent, &mut |_| pauses += 1, || None);
     assert!(found.is_none());
     assert_eq!(pauses, 0);
+}
+
+#[test]
+fn a_missing_shell_window_is_named_apart_from_an_absent_shell_and_is_safe_to_retry() {
+    let error = window_missing();
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::AppNotFound);
+    let details = error.details.expect("details");
+    assert_eq!(details["shell_tree"], "window_missing");
+    assert_eq!(details["retryable"], true);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
 }

@@ -1,7 +1,7 @@
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 use zbus::Connection;
 
@@ -15,7 +15,7 @@ use crate::tree::{AtspiElement, list_children};
 
 pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
 const SHELL_COMM: &str = "gnome-shell";
-const WINDOW_RETRIES: usize = 25;
+const WINDOW_RETRIES: usize = 10;
 const WINDOW_RETRY_GAP: Duration = Duration::from_millis(100);
 
 /// The shell's accessibility application and its content window. `bus_name`
@@ -98,6 +98,23 @@ pub(super) fn retry_until<T>(
     None
 }
 
+/// The shell is on the bus but its content window is out of the registry,
+/// which happens for seconds after a change in the message list while the
+/// process stays up. It is named apart from an absent shell and answers
+/// within about a second, so a retry a little later is the right move.
+pub(super) fn window_missing() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::AppNotFound,
+        "The desktop shell's window is missing from the accessibility registry for the moment",
+    )
+    .with_suggestion("Retry the command in a few seconds; the shell process is running")
+    .with_details(json!({
+        "shell_tree": "window_missing",
+        "retryable": true,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
 fn tree_absent(detail: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::AppNotFound,
@@ -151,7 +168,7 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
     let window = retry_until(WINDOW_RETRIES, deadline, &mut std::thread::sleep, || {
         content_window(&nodes, app)
     })
-    .ok_or_else(|| tree_absent("the shell application has no content window"))?;
+    .ok_or_else(window_missing)?;
     let root = ShellRoot {
         bus_name: window.bus_name().to_owned(),
         path: window.path().to_owned(),
