@@ -55,6 +55,8 @@ fn connection_faults_and_a_timeout_become_three_distinct_codes() {
     assert!(unreachable.message.contains(":77"));
     assert_eq!(denied.code, ErrorCode::PlatformNotSupported);
     assert!(denied.message.contains("no authority"));
+    assert!(denied.message.contains("refused"));
+    assert!(!denied.message.contains("answers at"));
     assert_ne!(unreachable.message, denied.message);
     assert_eq!(timeout.code, ErrorCode::Timeout);
 }
