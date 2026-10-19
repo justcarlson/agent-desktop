@@ -11,7 +11,7 @@ use crate::system::toolkit_id::ToolkitId;
 use crate::system::window_position::frame_origin;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
-use crate::system::{REGISTRY_ROOT_PATH, SharedBus, within};
+use crate::system::{REGISTRY_ROOT_PATH, SharedBus, shell, within};
 
 const IN_FLIGHT: usize = 64;
 
@@ -141,6 +141,9 @@ pub(crate) fn place_nodes(bus: &SharedBus, walk: &mut Walk<ObservedRead>, deadli
         return;
     };
     let element = walk.root.payload.node.element.clone();
+    if shell::is_shell_element(&element) {
+        return;
+    }
     let app_root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
     let toolkit = within(deadline, async {
         Ok(read_toolkit(connection.inner(), &app_root).await)

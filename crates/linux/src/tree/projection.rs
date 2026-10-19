@@ -4,6 +4,7 @@ use agent_desktop_core::{
 };
 
 use super::action_names::capabilities;
+use super::decorate::Decorate;
 use super::value_read::truncate_to_boundary;
 use super::vocabulary::resolve_vocabulary;
 use super::{Extents, Field, ObservedRead, Walk, WalkLimits, WalkedNode};
@@ -152,19 +153,37 @@ impl Projector<'_> {
         }
     }
 
-    fn subtree(&mut self, node: WalkedNode<ObservedRead>) -> ObservedSubtree {
-        let evidence = self.evidence(&node);
+    fn subtree(
+        &mut self,
+        node: WalkedNode<ObservedRead>,
+        is_root: bool,
+        decorate: &mut dyn Decorate,
+    ) -> ObservedSubtree {
+        let mut evidence = self.evidence(&node);
         let WalkedNode {
+            payload,
             children,
             truncated,
             child_count,
             source_index,
             ..
         } = node;
-        let children = children
+        let after_own = children
+            .iter()
+            .map(|child| child.source_index + 1)
+            .max()
+            .unwrap_or(0)
+            .max(child_count.map_or(0, |count| count as usize));
+        let mut appended = decorate.decorate(&payload, &mut evidence, after_own);
+        let end = after_own + appended.len();
+        let mut children: Vec<ObservedSubtree> = children
             .into_iter()
-            .map(|child| self.subtree(child))
+            .map(|child| self.subtree(child, false, decorate))
             .collect();
+        children.append(&mut appended);
+        if is_root {
+            children.append(&mut decorate.finish(end));
+        }
         ObservedSubtree::new(evidence, children, !truncated, child_count)
             .with_source_child_index(source_index)
     }
@@ -188,10 +207,21 @@ pub(crate) fn project_node(
 /// Turns a finished walk into core's observed subtree and the statistics of
 /// the walk. Every field is known, absent or unknown exactly as it was read:
 /// a read that failed is unknown, never an empty value.
+#[cfg(test)]
 pub(crate) fn project(
     walk: Walk<ObservedRead>,
     limits: &WalkLimits,
 ) -> (ObservedSubtree, LocatorStats) {
+    project_with(walk, limits, &mut super::decorate::Plain)
+}
+
+/// `project`, with a hook that may decorate nodes and append its own.
+pub(crate) fn project_with(
+    walk: Walk<ObservedRead>,
+    limits: &WalkLimits,
+    decorate: &mut dyn Decorate,
+) -> (ObservedSubtree, LocatorStats) {
+    decorate.prepare(&walk.root);
     let mut projector = Projector {
         limits,
         stats: LocatorStats::default(),
@@ -206,7 +236,7 @@ pub(crate) fn project(
     projector.stats.traversal.limits = counts.limits;
     projector.stats.reads.counts.observation_attempts = 1;
     projector.stats.reads.counts.child_reads = walk.node_count as u64;
-    let subtree = projector.subtree(walk.root);
+    let subtree = projector.subtree(walk.root, true, decorate);
     (subtree, projector.stats)
 }
 

@@ -6,10 +6,11 @@ use agent_desktop_core::{
 };
 
 use super::ancestry;
+use super::decorate::{Decorate, Plain};
 use super::nested_dialog::find as find_nested;
 use super::node_position::place_nodes;
 use super::observe_menu::{observe_menu, rooted};
-use super::projection::project;
+use super::projection::project_with;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
@@ -156,10 +157,20 @@ struct SettleHost<'a> {
     pause: &'a mut dyn FnMut(Duration),
 }
 
+#[cfg(test)]
 fn observe_with(
     root: ObservationRoot<'_>,
     request: &ObservationRequest,
+    host: SettleHost<'_>,
+) -> Result<ObservedTree, AdapterError> {
+    observe_decorated(root, request, host, &mut Plain)
+}
+
+fn observe_decorated(
+    root: ObservationRoot<'_>,
+    request: &ObservationRequest,
     mut host: SettleHost<'_>,
+    decorate: &mut dyn Decorate,
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
     require_surface(request.surface)?;
@@ -176,7 +187,7 @@ fn observe_with(
     let started = Instant::now();
     let (walk, settled) = settled_walk(&root, &element, &limits, &request, &mut host)?;
     let complete = walk.complete && settled;
-    let (subtree, mut stats) = project(walk, &limits);
+    let (subtree, mut stats) = project_with(walk, &limits, decorate);
     stats.reads.health.deadline_exhausted += u64::from(!complete && request.deadline.is_expired());
     stats.elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
     ObservedTree::from_roots(
@@ -203,13 +214,24 @@ pub(crate) fn observe_tree(
             return shell::observe_shell(bus, window, request);
         }
     }
+    observe_tree_with(bus, root, request, &mut Plain)
+}
+
+/// `observe_tree` for a root that is not routed by surface, with a hook that
+/// may decorate the projected nodes and append its own.
+pub(crate) fn observe_tree_with(
+    bus: &SharedBus,
+    root: ObservationRoot<'_>,
+    request: &ObservationRequest,
+    decorate: &mut dyn Decorate,
+) -> Result<ObservedTree, AdapterError> {
     let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline| {
         let mut walk = walk_tree(bus, element, limits, deadline)?;
         place_nodes(bus, &mut walk, deadline);
         Ok(walk)
     };
     let mut pause = std::thread::sleep;
-    observe_with(
+    observe_decorated(
         root,
         request,
         SettleHost {
@@ -218,6 +240,7 @@ pub(crate) fn observe_tree(
             stopped: &crate::system::proc_stat::is_stopped,
             pause: &mut pause,
         },
+        decorate,
     )
 }
 

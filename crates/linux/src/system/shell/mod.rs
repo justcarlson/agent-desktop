@@ -15,6 +15,7 @@ pub(crate) mod light;
 pub(crate) mod live_state;
 pub(crate) mod open;
 pub(crate) mod search;
+pub(crate) mod tray_decorator;
 pub(crate) mod window_gate;
 
 #[cfg(test)]
@@ -86,5 +87,11 @@ pub(crate) fn observe_shell(
     window_gate::verify(bus, &window.id, request.deadline)?;
     let mut inner = *request;
     inner.surface = SnapshotSurface::Window;
-    crate::tree::observe_tree(bus, ObservationRoot::Window(window), &inner)
+    let root = ObservationRoot::Window(window);
+    if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
+        let view = crate::tray::view::read(request.deadline).ok();
+        let mut decorator = tray_decorator::TrayDecorator::new(view);
+        return crate::tree::observe_tree_with(bus, root, &inner, &mut decorator);
+    }
+    crate::tree::observe_tree(bus, root, &inner)
 }
