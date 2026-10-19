@@ -47,21 +47,39 @@ stop_app() {
   sleep 3
 }
 
+slots=()
+cut_off=()
+
+restore_plugs() {
+  local pair
+  for pair in "${cut_off[@]+"${cut_off[@]}"}"; do
+    sudo snap connect "firefox:${pair%%=*}" "${pair#*=}" || true
+  done
+  cut_off=()
+}
+
+connected_slot() {
+  snap connections firefox | awk -v plug="firefox:$1" '$2 == plug && $3 != "-" { print $3 }'
+}
+
 snap_leg() {
-  local round connected plug
+  local round plug slot mode pair
   echo "SNAP connections before:"
   snap connections firefox
-  connected=()
   for plug in "${snap_plugs[@]}"; do
-    if snap connections firefox | grep -q "firefox:$plug"; then
-      connected+=("$plug")
+    slot=$(connected_slot "$plug")
+    if [ -n "$slot" ]; then
+      slots+=("$plug=$slot")
     fi
   done
-  echo "SNAP connected plugs: ${connected[*]}"
+  echo "SNAP connected plugs: ${slots[*]+"${slots[*]}"}"
   for round in 1 2; do
     for mode in default restricted; do
       if [ "$mode" = restricted ]; then
-        for plug in "${connected[@]}"; do sudo snap disconnect "firefox:$plug"; done
+        for pair in "${slots[@]+"${slots[@]}"}"; do
+          sudo snap disconnect "firefox:${pair%%=*}"
+          cut_off+=("$pair")
+        done
       fi
       snap run firefox --no-remote --profile "$HOME/ff-$mode-$round" about:blank >/dev/null 2>&1 &
       wait_for_app firefox || echo "SNAP round $round $mode: firefox never reached the registry"
@@ -69,7 +87,7 @@ snap_leg() {
       read_app "snap round=$round mode=$mode" firefox
       stop_app firefox
       if [ "$mode" = restricted ]; then
-        for plug in "${connected[@]}"; do sudo snap connect "firefox:$plug"; done
+        restore_plugs
       fi
     done
   done
@@ -101,6 +119,7 @@ flatpak_leg() {
   flatpak override --system --show org.gnome.TextEditor || true
 }
 
+trap restore_plugs EXIT
 gsettings set org.gnome.desktop.interface toolkit-accessibility true
 snap_leg
 flatpak_leg
