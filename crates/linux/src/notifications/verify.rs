@@ -132,7 +132,9 @@ pub(crate) fn settle_read(
     done: impl Fn(&[NotificationInfo]) -> bool,
 ) -> Result<Vec<NotificationInfo>, AdapterError> {
     let settle = deadline.capped(REMOVAL_SETTLE);
-    let mut current = read_listing(world, settle)?.infos();
+    let mut current = read_listing(world, settle)
+        .map_err(unconfirmed_read)?
+        .infos();
     loop {
         if done(&current) || settle.is_expired() {
             return Ok(current);
@@ -141,9 +143,21 @@ pub(crate) fn settle_read(
         current = match read_listing(world, settle) {
             Ok(listing) => listing.infos(),
             Err(error) if error.code == ErrorCode::Timeout => return Ok(current),
-            Err(error) => return Err(error),
+            Err(error) => return Err(unconfirmed_read(error)),
         };
     }
+}
+
+/// The click went out, so a list that cannot be read afterwards leaves the
+/// delivery in doubt and never turns it into a bare failure of the read.
+pub(crate) fn unconfirmed_read(error: AdapterError) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The click was delivered but the message list could not be read afterwards",
+    )
+    .with_suggestion("Run list-notifications to see what the message list holds now")
+    .with_platform_detail(error.message)
+    .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
 pub(crate) fn survived_error(what: &str) -> AdapterError {

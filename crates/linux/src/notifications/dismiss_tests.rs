@@ -160,7 +160,7 @@ fn a_headless_policy_is_refused_with_no_event() {
 fn the_list_a_failed_dismissal_opened_is_closed() {
     let log = log();
     let mut world = FakeWorld::new(&log, vec![reading(&three(), false)]);
-    world.click_fails = true;
+    world.faults.click = true;
     let _ = run(world, &identity("Chat", "b"));
     assert!(log.borrow().iter().any(|line| line == "close"));
 }
@@ -181,7 +181,7 @@ fn an_adopted_list_stays_open_after_a_dismissal() {
 fn a_click_error_is_returned_and_the_list_is_still_restored() {
     let log = log();
     let mut world = FakeWorld::new(&log, vec![reading(&three(), false)]);
-    world.click_fails = true;
+    world.faults.click = true;
     assert!(run(world, &identity("Chat", "b")).is_err());
     assert!(log.borrow().iter().any(|line| line == "close"));
 }
@@ -193,4 +193,18 @@ fn an_entry_that_has_gone_is_not_found_without_opening_the_list() {
     let error = run(world, &identity("Chat", "b")).expect_err("gone");
     assert_eq!(error.code, ErrorCode::NotificationNotFound);
     assert!(!log.borrow().iter().any(|line| line == "open"));
+}
+
+#[test]
+fn a_list_that_cannot_be_read_after_the_click_is_a_delivered_unverified_failure() {
+    let log = log();
+    let mut world = FakeWorld::new(&log, vec![reading(&three(), false)]);
+    world.faults.read_after_click = true;
+    let error = run(world, &identity("Chat", "b")).expect_err("unconfirmed");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+    assert!(error.platform_detail.is_some());
 }

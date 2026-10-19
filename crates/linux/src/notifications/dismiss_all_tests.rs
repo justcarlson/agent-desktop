@@ -181,7 +181,7 @@ fn headless_is_refused_with_no_event() {
 fn the_list_is_closed_after_a_failed_clear() {
     let log = log();
     let mut world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
-    world.click_fails = true;
+    world.faults.click = true;
     assert!(
         dismiss_all_in(
             &world,
@@ -197,7 +197,7 @@ fn the_list_is_closed_after_a_failed_clear() {
 fn a_filtered_click_error_is_a_per_entry_failure_not_an_abort() {
     let log = log();
     let mut world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
-    world.click_fails = true;
+    world.faults.click = true;
     let (dismissed, failures) = dismiss_all_in(
         &world,
         request(Some("mail"), InteractionPolicy::headed()),
@@ -220,4 +220,21 @@ fn an_empty_list_is_cleared_without_opening_it() {
     .expect("cleared");
     assert!(dismissed.is_empty() && failures.is_empty());
     assert!(!log.borrow().iter().any(|line| line == "open"));
+}
+
+#[test]
+fn a_list_that_cannot_be_read_after_the_clear_is_a_delivered_unverified_failure() {
+    let log = log();
+    let mut world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
+    world.faults.read_after_click = true;
+    let error = dismiss_all_in(
+        &world,
+        request(None, InteractionPolicy::headed()),
+        &lease(600),
+    )
+    .expect_err("unconfirmed");
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
 }

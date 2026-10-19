@@ -65,7 +65,7 @@ fn a_list_that_was_showing_is_adopted_and_left_open() {
 fn a_close_that_does_not_stick_turns_a_success_into_an_error_naming_it() {
     let log = log();
     let mut world = world(&log);
-    world.close_sticks = true;
+    world.faults.close_sticks = true;
     let lease = lease(500);
     let session = Session::open(&world, InteractionPolicy::headed(), &lease).expect("open");
     let error = session.finish(Ok(())).expect_err("unverified");
@@ -88,7 +88,7 @@ fn dropping_an_unfinished_session_closes_what_it_opened() {
 fn an_open_that_failed_after_showing_the_list_still_closes_it() {
     let log = log();
     let mut world = world(&log);
-    world.open_fails = true;
+    world.faults.open = true;
     let lease = lease(500);
     let error = Session::open(&world, InteractionPolicy::headed(), &lease)
         .err()

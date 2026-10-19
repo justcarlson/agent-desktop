@@ -170,17 +170,28 @@ pub(crate) fn reading(specs: &[Spec], clear_all: bool) -> Reading {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct Faults {
+    pub(crate) open: bool,
+    pub(crate) close_sticks: bool,
+    pub(crate) click: bool,
+    pub(crate) read_after_click: bool,
+}
+
+#[derive(Default)]
+struct Counts {
+    clicks: Cell<usize>,
+    reads: Cell<usize>,
+}
+
 pub(crate) struct FakeWorld {
     pub(crate) log: Log,
     stages: Vec<Reading>,
-    clicks: Cell<usize>,
-    reads: Cell<usize>,
+    counts: Counts,
     by_reads: bool,
     pub(crate) opened: Opened,
-    pub(crate) open_fails: bool,
     pub(crate) showing: Cell<bool>,
-    pub(crate) close_sticks: bool,
-    pub(crate) click_fails: bool,
+    pub(crate) faults: Faults,
 }
 
 impl FakeWorld {
@@ -188,14 +199,11 @@ impl FakeWorld {
         Self {
             log: Rc::clone(log),
             stages,
-            clicks: Cell::new(0),
-            reads: Cell::new(0),
+            counts: Counts::default(),
             by_reads: false,
             opened: Opened::Opened,
-            open_fails: false,
             showing: Cell::new(false),
-            close_sticks: false,
-            click_fails: false,
+            faults: Faults::default(),
         }
     }
 
@@ -231,12 +239,18 @@ impl ShellWorld for FakeWorld {
 
     fn read(&self, _: &AtspiElement, _: Deadline) -> Result<Reading, AdapterError> {
         self.note("read");
+        if self.faults.read_after_click && self.counts.clicks.get() > 0 {
+            return Err(AdapterError::new(
+                ErrorCode::Internal,
+                "the shell tree could not be read",
+            ));
+        }
         let position = if self.by_reads {
-            self.reads.get()
+            self.counts.reads.get()
         } else {
-            self.clicks.get()
+            self.counts.clicks.get()
         };
-        self.reads.set(self.reads.get() + 1);
+        self.counts.reads.set(self.counts.reads.get() + 1);
         let stage = position.min(self.stages.len() - 1);
         Ok(self.stages[stage].clone())
     }
@@ -247,7 +261,7 @@ impl ShellWorld for FakeWorld {
         _: &InteractionLease,
     ) -> Result<(WindowInfo, Opened), AdapterError> {
         self.note("open");
-        if self.open_fails {
+        if self.faults.open {
             self.showing.set(true);
             return Err(AdapterError::timeout("the list never showed"));
         }
@@ -269,7 +283,7 @@ impl ShellWorld for FakeWorld {
         if lease.deadline().is_expired() {
             return Err(AdapterError::timeout("the close ran on a spent deadline"));
         }
-        if !self.close_sticks {
+        if !self.faults.close_sticks {
             self.showing.set(false);
         }
         Ok(())
@@ -288,13 +302,13 @@ impl ShellWorld for FakeWorld {
         _: &InteractionLease,
     ) -> Result<Point, AdapterError> {
         self.note(format!("click:{}", node.path()));
-        if self.click_fails {
+        if self.faults.click {
             return Err(AdapterError::new(
                 ErrorCode::ActionFailed,
                 "the click failed",
             ));
         }
-        self.clicks.set(self.clicks.get() + 1);
+        self.counts.clicks.set(self.counts.clicks.get() + 1);
         Ok(Point { x: 0.0, y: 0.0 })
     }
 }

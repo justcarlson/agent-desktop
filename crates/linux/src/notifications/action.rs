@@ -73,7 +73,8 @@ fn run(
     let target = ready.entry.info;
     let after = settle_read(world, deadline, |now| {
         matching_count(now, &target) < matching_count(&ready.all, &target)
-    })?;
+    })
+    .unwrap_or_else(|_| ready.all.clone());
     let gone = matching_count(&after, &target) < matching_count(&ready.all, &target);
     let seen = collect(subscription, clicked);
     let proof = evidence(&seen, gone);

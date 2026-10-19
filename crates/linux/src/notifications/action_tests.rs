@@ -219,3 +219,12 @@ fn the_result_is_never_verified() {
         agent_desktop_core::DeliverySemantics::delivered_verified()
     );
 }
+
+#[test]
+fn a_list_that_cannot_be_read_after_the_click_still_reports_the_delivery() {
+    let log = log();
+    let mut world = FakeWorld::new(&log, vec![entry(true), gone()]);
+    world.faults.read_after_click = true;
+    let result = go(&world, &signals(&log, Vec::new()), "Run A").expect("delivered");
+    assert_eq!(evidence_of(&result), "settle_elapsed");
+}
