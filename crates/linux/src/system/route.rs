@@ -1,8 +1,3 @@
-#![expect(
-    dead_code,
-    reason = "the capture and clipboard routes call it as they land"
-)]
-
 use agent_desktop_core::AdapterError;
 
 use super::display;

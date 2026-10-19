@@ -1,11 +1,3 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the clipboard read and set paths use it once they land"
-    )
-)]
-
 use agent_desktop_core::{
     AdapterError, ClipboardContent, ErrorCode, MAX_PNG_INPUT_BYTES, parse_png_dimensions,
 };

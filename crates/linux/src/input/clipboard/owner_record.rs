@@ -135,13 +135,6 @@ pub(crate) fn remove_own(dir: &Path, record: &OwnerRecord) {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the clipboard read and set paths use it once they land"
-    )
-)]
 pub(crate) fn read_outcome(dir: &Path, display: &str, nonce: &str) -> Option<Outcome> {
     let name = file_name(display, nonce)?;
     outcome_of(&std::fs::read(dir.join(name)).ok()?)

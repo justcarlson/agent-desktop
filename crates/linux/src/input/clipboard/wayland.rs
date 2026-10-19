@@ -1,5 +1,3 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
-
 use agent_desktop_core::{
     AdapterError, ClipboardContent, ClipboardFormat, Deadline, ErrorCode, InteractionLease,
 };
