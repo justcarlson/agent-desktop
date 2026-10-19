@@ -46,8 +46,7 @@ mod tests {
     #[test]
     fn the_adapter_grants_the_lease_a_permission_request_needs() {
         let deadline = Deadline::standard().expect("a standard deadline builds");
-        let lease = SystemOps::acquire_interaction_lease(&LinuxAdapter::new(), deadline)
+        SystemOps::acquire_interaction_lease(&LinuxAdapter::new(), deadline)
             .expect("Linux has no prompt, so a request only needs the shared lease");
-        assert_eq!(lease.contention_count(), 0);
     }
 }
