@@ -1,7 +1,8 @@
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{
-    Action, ActionRequest, Deadline, ErrorCode, NativeHandle, ObservationOps, WindowFilter,
+    Action, ActionRequest, Deadline, DeliverySemantics, ErrorCode, NativeHandle, ObservationOps,
+    WindowFilter,
 };
 
 use super::live_bench::{Bench, Scripts, Toolkit, each_scripts};
@@ -72,9 +73,13 @@ fn toggle_check_and_uncheck_move_a_check_box_and_never_write_twice() {
             assert_eq!(details["semantic_verb"], "absent", "{toolkit:?}");
             let click = bench
                 .act(&flag, Action::Click)
-                .expect_err("the click reaches the physical seam");
-            let details = click.details.expect("details");
-            assert_eq!(details["physical_delivery_started"], false, "{toolkit:?}");
+                .expect_err("a headless click on a node with no verb needs the pointer");
+            assert_eq!(click.code, ErrorCode::PolicyDenied, "{toolkit:?}");
+            assert_eq!(
+                click.disposition,
+                DeliverySemantics::not_delivered(),
+                "{toolkit:?}"
+            );
             assert!(!bench.has_state(&flag, CHECKED), "{toolkit:?}");
             return;
         }

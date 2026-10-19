@@ -41,7 +41,7 @@ fn type_text(kit: Kit, source: &str) {
     focus_by_click(&scene, &entry);
     let text = "h\u{e9}llo \u{65e5}\u{672c}";
     let result = scene
-        .act(&entry.handle, Action::TypeText(text.to_owned()))
+        .act_physical(&entry.handle, Action::TypeText(text.to_owned()))
         .expect("the text is typed");
     assert!(result.steps.iter().all(|step| step.verified == Some(false)));
     let seen = scene.wait_log(|log| log == text);
@@ -53,7 +53,7 @@ fn key_combo(kit: Kit, source: &str) {
     let (scene, entry) = entry_scene(kit, source);
     focus_by_click(&scene, &entry);
     scene
-        .act(&entry.handle, Action::TypeText("abc".to_owned()))
+        .act_physical(&entry.handle, Action::TypeText("abc".to_owned()))
         .expect("typed");
     scene.wait_log(|log| log == "abc");
     scene
@@ -63,7 +63,7 @@ fn key_combo(kit: Kit, source: &str) {
         )
         .expect("select all");
     scene
-        .act(&entry.handle, Action::TypeText("X".to_owned()))
+        .act_physical(&entry.handle, Action::TypeText("X".to_owned()))
         .expect("typed over the selection");
     assert_eq!(scene.wait_log(|log| log == "X"), "X");
     scene
@@ -245,7 +245,7 @@ fn live_a_frame_that_is_not_active_refuses_with_window_active() {
     let decoy = Scene::attach(launched, pid, decoy_log, 2);
     std::thread::sleep(Duration::from_secs(1));
     let error = scene
-        .act(&entry.handle, Action::TypeText("zz".to_owned()))
+        .act_physical(&entry.handle, Action::TypeText("zz".to_owned()))
         .expect_err("a frame that is not active refuses");
     assert_eq!(error.code, ErrorCode::ActionFailed, "{error:?}");
     let details = error.details.as_ref().expect("details");
@@ -277,7 +277,7 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
         || active_window() == Some(client.id),
     );
     let refused = scene
-        .act(&entry.handle, Action::TypeText("zq".to_owned()))
+        .act_physical(&entry.handle, Action::TypeText("zq".to_owned()))
         .expect_err("the AT-SPI frame state is stricter than _NET_ACTIVE_WINDOW under a grab");
     assert_eq!(refused.details.expect("details")["check"], "window_active");
     assert_eq!(grab.log_text(), "");
