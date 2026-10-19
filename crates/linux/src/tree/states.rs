@@ -36,7 +36,9 @@ fn can_be_pressed(role: u32) -> bool {
 /// Resolves the canonical state tokens from the state bit words and the role
 /// number. Every token is a positive claim from a bit that is set; the one
 /// negative, `disabled`, needs a successful state read with neither `ENABLED`
-/// nor `SENSITIVE` set, because GTK4 never sets `ENABLED`. The result is
+/// nor `SENSITIVE` set, because GTK4 never sets `ENABLED`, and never for a
+/// read-only node, because Chromium leaves both bits unset on a read-only
+/// input that is enabled. The result is
 /// unknown when the state read or the role read failed, since the role
 /// decides `secure` and which toggle bits count.
 pub(crate) fn resolve_states(
@@ -48,7 +50,7 @@ pub(crate) fn resolve_states(
     };
     let bits = StateBits::new(words);
     let mut tokens = Vec::new();
-    if !bits.has(ENABLED) && !bits.has(SENSITIVE) {
+    if !bits.has(ENABLED) && !bits.has(SENSITIVE) && !bits.has(READ_ONLY) {
         tokens.push(state::DISABLED);
     }
     if *role == PASSWORD_TEXT {

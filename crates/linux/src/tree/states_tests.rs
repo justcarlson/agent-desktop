@@ -157,3 +157,10 @@ fn every_single_bit_on_several_roles_yields_vocabulary_tokens_only() {
         }
     }
 }
+
+#[test]
+fn a_read_only_node_with_no_enabled_bit_is_not_disabled() {
+    assert!(!has(GROUP, &[READ_ONLY], state::DISABLED));
+    assert!(has(GROUP, &[READ_ONLY], state::READONLY));
+    assert!(has(GROUP, &[0], state::DISABLED));
+}
