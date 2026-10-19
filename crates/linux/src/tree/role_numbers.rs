@@ -32,8 +32,8 @@ pub(crate) const APPLICATION: u32 = 75;
 pub(crate) const ENTRY: u32 = 79;
 pub(crate) const DOCUMENT_FRAME: u32 = 82;
 pub(crate) const DOCUMENT_WEB: u32 = 95;
-#[cfg(test)]
 pub(crate) const NOTIFICATION: u32 = 101;
+pub(crate) const LABEL: u32 = 29;
 pub(crate) const LANDMARK: u32 = 110;
 pub(crate) const PUSH_BUTTON_MENU: u32 = 129;
 

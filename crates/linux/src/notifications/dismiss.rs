@@ -1,9 +1,60 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use agent_desktop_core::{
+    AdapterError, DismissNotificationRequest, InteractionLease, MouseButton, NotificationInfo,
+};
 
-use agent_desktop_core::AdapterError;
+use super::session::Session;
+use super::target::{locate, reconfirm, require};
+use super::verify::{Removal, bystander_error, judge_removal, settle_read, survived_error};
+use super::world::{LiveWorld, ShellWorld};
+use crate::system::SharedBus;
 
-pub(crate) fn unsupported() -> AdapterError {
-    AdapterError::not_supported("dismiss_notification")
+pub(crate) fn dismiss(
+    bus: &SharedBus,
+    request: DismissNotificationRequest<'_>,
+    lease: &InteractionLease,
+) -> Result<NotificationInfo, AdapterError> {
+    dismiss_in(&LiveWorld::new(bus), request, lease)
+}
+
+/// Removes exactly the entry at the index through its own close button and
+/// proves it by re-reading the list: the target left, and nothing else did.
+pub(crate) fn dismiss_in(
+    world: &dyn ShellWorld,
+    request: DismissNotificationRequest<'_>,
+    lease: &InteractionLease,
+) -> Result<NotificationInfo, AdapterError> {
+    let session = Session::open(world, request.policy, lease)?;
+    let result = run(world, &request, lease);
+    session.finish(result)
+}
+
+fn run(
+    world: &dyn ShellWorld,
+    request: &DismissNotificationRequest<'_>,
+    lease: &InteractionLease,
+) -> Result<NotificationInfo, AdapterError> {
+    let deadline = lease.deadline();
+    let (index, app) = (request.index, request.app_filter);
+    let first = locate(world, index, app, request.identity, deadline)?;
+    let ready = reconfirm(
+        world,
+        index,
+        app,
+        request.identity,
+        &first.entry.info,
+        deadline,
+    )?;
+    let close = require(ready.entry.close, "close button", index)?;
+    let target = ready.entry.info;
+    world.click(&close.element, MouseButton::Left, request.policy, lease)?;
+    let after = settle_read(world, deadline, |now| {
+        judge_removal(&ready.all, now, &target) != Removal::Pending
+    })?;
+    match judge_removal(&ready.all, &after, &target) {
+        Removal::Settled => Ok(target),
+        Removal::Pending => Err(survived_error("close button of the notification")),
+        Removal::Bystander => Err(bystander_error()),
+    }
 }
 
 #[cfg(test)]

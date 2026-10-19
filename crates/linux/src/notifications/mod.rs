@@ -14,42 +14,46 @@ mod landmark;
 mod list;
 mod session;
 mod signals;
+mod target;
 mod verify;
 mod world;
+
+#[cfg(test)]
+mod fake;
 
 #[cfg(test)]
 mod live_tests;
 
 pub(crate) fn list(
-    _bus: &SharedBus,
-    _filter: &NotificationFilter,
-    _policy: InteractionPolicy,
-    _deadline: Deadline,
-    _lease: Option<&InteractionLease>,
+    bus: &SharedBus,
+    filter: &NotificationFilter,
+    policy: InteractionPolicy,
+    deadline: Deadline,
+    lease: Option<&InteractionLease>,
 ) -> Result<Vec<NotificationInfo>, AdapterError> {
-    Err(AdapterError::not_supported("list_notifications"))
+    list::list(bus, filter, policy, deadline, lease)
 }
 
 pub(crate) fn dismiss(
-    _bus: &SharedBus,
-    _request: DismissNotificationRequest<'_>,
-    _lease: &InteractionLease,
+    bus: &SharedBus,
+    request: DismissNotificationRequest<'_>,
+    lease: &InteractionLease,
 ) -> Result<NotificationInfo, AdapterError> {
-    Err(AdapterError::not_supported("dismiss_notification"))
+    dismiss::dismiss(bus, request, lease)
 }
 
 pub(crate) fn dismiss_all(
-    _bus: &SharedBus,
-    _request: DismissAllNotificationsRequest<'_>,
-    _lease: &InteractionLease,
+    bus: &SharedBus,
+    request: DismissAllNotificationsRequest<'_>,
+    lease: &InteractionLease,
 ) -> Result<(Vec<NotificationInfo>, Vec<String>), AdapterError> {
-    Err(AdapterError::not_supported("dismiss_all_notifications"))
+    dismiss_all::dismiss_all(bus, request, lease)
 }
 
 pub(crate) fn action(
-    _bus: &SharedBus,
-    _request: NotificationActionRequest<'_>,
-    _lease: &InteractionLease,
+    bus: &SharedBus,
+    request: NotificationActionRequest<'_>,
+    lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
-    Err(AdapterError::not_supported("notification_action"))
+    action::action(bus, request, lease)
 }
