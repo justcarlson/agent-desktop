@@ -22,12 +22,8 @@ fn a_window_manager_naming_a_different_window_focuses_none() {
 }
 
 #[test]
-fn an_ambiguous_unmapped_or_absent_active_window_focuses_none() {
-    for evidence in [
-        X11Evidence::Ambiguous,
-        X11Evidence::Unmapped,
-        X11Evidence::NoActive,
-    ] {
+fn an_unmapped_or_absent_active_window_focuses_none() {
+    for evidence in [X11Evidence::Unmapped, X11Evidence::NoActive] {
         assert_eq!(decide_focus(&[1], evidence), None, "{evidence:?}");
     }
 }
@@ -49,7 +45,6 @@ fn no_candidate_focuses_none_whatever_the_window_manager_says() {
 fn an_active_candidate_that_no_source_confirms_is_indeterminate() {
     let cases = [
         (vec![1, 3], X11Evidence::Unavailable),
-        (vec![1], X11Evidence::Ambiguous),
         (vec![1], X11Evidence::NoActive),
         (vec![1], X11Evidence::Unmapped),
         (vec![1], X11Evidence::Frame(2)),
@@ -68,6 +63,7 @@ fn a_decided_or_candidate_free_focus_is_not_indeterminate() {
     let cases = [
         (vec![1, 3], X11Evidence::Frame(3)),
         (vec![3], X11Evidence::Unavailable),
+        (vec![3], X11Evidence::Ambiguous),
         (vec![], X11Evidence::Unavailable),
         (vec![], X11Evidence::Ambiguous),
         (vec![], X11Evidence::NoActive),
@@ -79,4 +75,10 @@ fn a_decided_or_candidate_free_focus_is_not_indeterminate() {
             "{candidates:?} {evidence:?}"
         );
     }
+}
+
+#[test]
+fn one_active_candidate_among_same_titled_windows_is_focused() {
+    assert_eq!(decide_focus(&[1], X11Evidence::Ambiguous), Some(1));
+    assert_eq!(decide_focus(&[1, 3], X11Evidence::Ambiguous), None);
 }

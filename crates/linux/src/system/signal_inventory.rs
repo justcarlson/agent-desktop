@@ -16,13 +16,6 @@ use crate::tree::AtspiElement;
 /// How far the read of one selected application's frames got. `app` indexes
 /// `Registry::apps`.
 pub(crate) struct AppOutcome {
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "the capture reads the outcome, tests read the app"
-        )
-    )]
     pub(crate) app: usize,
     pub(crate) read: RootRead,
 }
@@ -81,6 +74,19 @@ pub(super) fn read_selected(
 ) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
     let chosen = chosen_apps(registry, select, proc_stat::is_stopped);
     gather(&chosen, |roots| read_frames(bus, roots, deadline))
+}
+
+/// Whether a selected, listable application has no outcome in the pass: it
+/// was left unread because it is stopped. What it presented is unknown, so a
+/// capture that skipped it cannot say that its windows closed.
+pub(crate) fn skipped_selected(
+    registry: &Registry,
+    pass: &Pass,
+    select: impl Fn(&RegistryApp) -> bool,
+) -> bool {
+    registry.apps.iter().enumerate().any(|(index, app)| {
+        is_listable(app) && select(app) && !pass.outcomes.iter().any(|outcome| outcome.app == index)
+    })
 }
 
 fn candidates_of(windows: &[ListedWindow]) -> Vec<usize> {

@@ -13,7 +13,7 @@ use super::registry::{Registry, read_registry, read_registry_for};
 use super::registry_app::RegistryApp;
 use super::registry_frames::RootRead;
 use super::signal_boundary::{Scope, narrow};
-use super::signal_inventory::{Pass, run_pass};
+use super::signal_inventory::{Pass, run_pass, skipped_selected};
 use super::signal_population::apps_of;
 use super::signal_surfaces::{nested_signals, sheet_signals};
 use super::unresponsive::stopped_target;
@@ -105,11 +105,18 @@ fn windows_of_pass(pass: &Pass) -> Vec<WindowInfo> {
         .collect()
 }
 
-fn assemble(registry: &Registry, pass: &Pass, scope: Scope, nested: &NestedScan) -> SignalBaseline {
+fn assemble(
+    registry: &Registry,
+    pass: &Pass,
+    scope: Scope,
+    nested: &NestedScan,
+    unread: bool,
+) -> SignalBaseline {
     let read = pass
         .outcomes
         .iter()
-        .all(|outcome| outcome.read == RootRead::Read);
+        .all(|outcome| outcome.read == RootRead::Read)
+        && !unread;
     let scoped = scope == Scope::Scoped;
     let surfaces = if scoped {
         let mut surfaces = sheet_signals(&pass.windows, &registry.apps);
@@ -149,7 +156,8 @@ fn capture(
         Scope::Scoped => world.nested(&pass.windows, deadline),
         Scope::Unscoped => NestedScan::complete_and_empty(),
     };
-    let baseline = assemble(&registry, &pass, scope, &nested);
+    let unread = skipped_selected(&registry, &pass, &select);
+    let baseline = assemble(&registry, &pass, scope, &nested, unread);
     ensure_budget(deadline)?;
     Ok(baseline)
 }

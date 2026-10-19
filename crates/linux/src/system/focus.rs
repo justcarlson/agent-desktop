@@ -4,12 +4,14 @@ use super::x11::X11Evidence;
 /// listed windows that carry the `ACTIVE` state. A toolkit can set that state
 /// on a window no window manager made active, so with a window manager's
 /// answer the candidate must agree with it; without one a single candidate
-/// is believed and several are not. Where the sources do not agree, nothing
+/// is believed and several are not. A window manager whose active window
+/// matches several frames, as two windows of one title do, does not
+/// contradict a single `ACTIVE` frame. Where the sources do not agree, nothing
 /// is claimed.
 pub(crate) fn decide_focus(candidates: &[usize], evidence: X11Evidence) -> Option<usize> {
     match (candidates, evidence) {
         ([], _) => None,
-        ([only], X11Evidence::Unavailable) => Some(*only),
+        ([only], X11Evidence::Unavailable | X11Evidence::Ambiguous) => Some(*only),
         (_, X11Evidence::Frame(named)) => candidates.contains(&named).then_some(named),
         _ => None,
     }

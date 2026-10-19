@@ -215,3 +215,30 @@ fn no_active_window_means_no_candidates() {
     assert!(pass.candidates.is_empty());
     assert_eq!(pass.focused, None);
 }
+
+#[test]
+fn a_selected_app_with_no_outcome_is_skipped_and_one_with_an_outcome_is_not() {
+    use super::{AppOutcome, Pass, skipped_selected};
+    let registry = registry(vec![
+        app(":1.1", 11, "calc", true),
+        app(":1.2", 12, "edit", false),
+    ]);
+    let pass = |apps: &[usize]| Pass {
+        windows: Vec::new(),
+        outcomes: apps
+            .iter()
+            .map(|&app| AppOutcome {
+                app,
+                read: RootRead::Read,
+            })
+            .collect(),
+        candidates: Vec::new(),
+        focused: None,
+    };
+    assert!(skipped_selected(&registry, &pass(&[0]), |_| true));
+    assert!(!skipped_selected(&registry, &pass(&[0, 1]), |_| true));
+    assert!(!skipped_selected(&registry, &pass(&[0]), |app| app
+        .root
+        .pid()
+        == 11));
+}
