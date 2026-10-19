@@ -81,12 +81,28 @@ pub(crate) fn settle_gone(error: AdapterError) -> AdapterError {
     }
 }
 
-/// A timeout on a process that `/proc` shows stopped is `APP_UNRESPONSIVE`,
-/// the answer the scoped listings give for the same state; a timeout alone
-/// stays a timeout. Every other error passes through.
+const INCOMPLETE_KIND: &str = "resolution_identity_unknown";
+
+/// Whether the error is the retryable answer for an observation that could not
+/// be completed, rather than a settled refusal.
+pub(crate) fn is_incomplete(error: &AdapterError) -> bool {
+    error
+        .details
+        .as_ref()
+        .and_then(|details| details.get("kind"))
+        .and_then(serde_json::Value::as_str)
+        == Some(INCOMPLETE_KIND)
+}
+
+/// A timeout, or an observation left incomplete, on a process that `/proc`
+/// shows stopped is `APP_UNRESPONSIVE` naming the application, the answer the
+/// scoped listings give for the same state; without a stopped process both
+/// stay as they were. Every other error passes through.
 pub(crate) fn stopped_aware(error: AdapterError, stopped_app: Option<&str>) -> AdapterError {
     match stopped_app {
-        Some(name) if error.code == ErrorCode::Timeout => AdapterError::app_unresponsive(name),
+        Some(name) if error.code == ErrorCode::Timeout || is_incomplete(&error) => {
+            AdapterError::app_unresponsive(name)
+        }
         _ => error,
     }
 }

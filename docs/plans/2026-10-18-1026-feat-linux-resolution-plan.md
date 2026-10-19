@@ -62,7 +62,7 @@ The roadmap also conflates two macOS ideas: `is_definitive_absence` there means 
 **Absence, liveness and deadlines**
 
 - R10. "Object gone", "app left the bus", "not implemented by this element" and "timed out" are classified from the measured table with one mapping at the resolver boundary. An exited app and a target absent from its parent's child list are a settled `STALE_REF` in one pass. A destroyed object is recognised by its own reads only where the toolkit stops answering (GTK4, Qt, and GTK3 and Chromium after about 16 s); within that window presence is decided by the descent from the verified frame, never by a successful read of a stored path (`L17-6`).
-- R11. Every call races the caller's deadline: a stopped app yields a retryable `TIMEOUT`, or `APP_UNRESPONSIVE` where `/proc` shows it stopped (3.4's convention for the same state), within the command budget, and is never reported as `STALE_REF` (`L17-10`, `L19-1`).
+- R11. Every call races the caller's deadline: a stopped app yields a retryable `TIMEOUT`, or `APP_UNRESPONSIVE` where `/proc` shows it stopped (3.4's convention for the same state), and a search that an app stopping mid-way left incomplete is `APP_UNRESPONSIVE` naming the app by the same check, within the command budget, and is never reported as `STALE_REF` (`L17-10`, `L19-1`).
 
 **Process and proof**
 

@@ -53,6 +53,18 @@ fn a_timeout_on_a_stopped_process_is_unresponsive_and_otherwise_a_timeout() {
 }
 
 #[test]
+fn an_incomplete_observation_on_a_stopped_process_names_the_stopped_application() {
+    let incomplete = || {
+        AdapterError::new(ErrorCode::AppUnresponsive, "tree unreadable").with_details(
+            serde_json::json!({ "kind": "resolution_identity_unknown", "retryable": true }),
+        )
+    };
+    let stopped = stopped_aware(incomplete(), Some("files"));
+    assert!(stopped.message.contains("files"));
+    assert_eq!(stopped_aware(incomplete(), None).message, "tree unreadable");
+}
+
+#[test]
 fn a_stopped_process_does_not_turn_a_settled_refusal_into_unresponsive() {
     let refused = stopped_aware(no_candidate(), Some("files"));
     assert_eq!(refused.code, ErrorCode::StaleRef);

@@ -258,3 +258,20 @@ fn a_twin_whose_extents_cannot_be_read_is_never_replaced_by_the_twin_of_its_size
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert!(error.is_explicitly_retryable());
 }
+
+#[test]
+fn a_search_left_incomplete_by_a_stopped_application_names_it_as_unresponsive() {
+    let mut fake = files();
+    let mut back = fake.entry_of("/back", true);
+    back.scope.path.clear();
+    fake.nodes
+        .get_mut("/toolbar")
+        .expect("toolbar")
+        .children_unread = true;
+    fake.stopped = Some("files".to_owned());
+    let error = refusal(&mut fake, &back);
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains("files"));
+    fake.stopped = None;
+    assert!(!refusal(&mut fake, &back).message.contains("files"));
+}

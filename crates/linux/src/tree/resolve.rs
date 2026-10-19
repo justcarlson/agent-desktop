@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rec
 use super::AtspiElement;
 use super::path_descent::{Landing, Level, descend};
 use super::resolve_errors::{
-    ambiguous, no_candidate, settle_gone, stopped_aware, unverifiable_entry,
+    ambiguous, is_incomplete, no_candidate, settle_gone, stopped_aware, unverifiable_entry,
 };
 use super::resolve_match::{accepts_landing, entry_is_unverifiable};
 use super::resolve_search::Searched;
@@ -130,7 +130,7 @@ pub(super) fn settle_outcome<S: Source>(
 ) -> Result<AtspiElement, AdapterError> {
     outcome.map_err(|error| {
         let error = settle_gone(error);
-        if error.code == ErrorCode::Timeout {
+        if error.code == ErrorCode::Timeout || is_incomplete(&error) {
             let stopped = source.stopped_app(entry.process.pid.get());
             stopped_aware(error, stopped.as_deref())
         } else {
