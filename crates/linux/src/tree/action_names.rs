@@ -69,7 +69,6 @@ pub(crate) fn capabilities(node: &RawNode) -> LocatorField<Vec<String>> {
 }
 
 /// The action names a dispatch tries for `action`, in order.
-#[cfg_attr(not(test), expect(dead_code, reason = "no caller yet"))]
 pub(crate) fn verbs_for(action: &Action) -> &'static [&'static str] {
     match action {
         Action::Click => &[

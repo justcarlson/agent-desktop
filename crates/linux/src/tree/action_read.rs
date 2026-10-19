@@ -35,7 +35,6 @@ fn text_of(field: &Field<String>) -> Option<Option<String>> {
     }
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "no caller yet"))]
 impl NodeView {
     pub(crate) fn new(node: NodeEvidence) -> Self {
         Self { node }
@@ -132,7 +131,6 @@ fn differs<T: PartialEq>(now: &Option<T>, before: &Option<T>) -> Option<bool> {
     Some(now.as_ref()? != before.as_ref()?)
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "no caller yet"))]
 impl Observation {
     /// Whether any part both readings share differs: `Some(true)` as soon as
     /// one does, `Some(false)` only when every part was read both times and

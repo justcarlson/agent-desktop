@@ -195,7 +195,6 @@ pub(crate) fn read_selection(
     })
 }
 
-#[expect(dead_code, reason = "no caller yet")]
 /// The caret and every selection of a text node in code points, the unit
 /// `InsertText` takes, or `None` when either could not be read. It reads no
 /// text, so the caller decides whether a secure field may be read at all.
