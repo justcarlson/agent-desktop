@@ -1,1 +1,169 @@
+use std::cell::{Cell, RefCell};
+use std::time::Duration;
 
+use agent_desktop_core::{
+    AdapterError, Deadline, ErrorCode, InteractionPolicy, WindowInfo, WindowState,
+};
+
+use crate::system::shell::kinds::ShellKind;
+use crate::system::shell::open::{Opened, Surface, close_with, open_with};
+
+struct World {
+    showing: Cell<bool>,
+    opens_on_press: bool,
+    closes_on_press: bool,
+    events: RefCell<Vec<&'static str>>,
+}
+
+impl World {
+    fn closed() -> Self {
+        Self {
+            showing: Cell::new(false),
+            opens_on_press: true,
+            closes_on_press: true,
+            events: RefCell::default(),
+        }
+    }
+
+    fn open() -> Self {
+        let world = Self::closed();
+        world.showing.set(true);
+        world
+    }
+
+    fn events(&self) -> Vec<&'static str> {
+        self.events.borrow().clone()
+    }
+}
+
+impl Surface for World {
+    fn showing(&self, _kind: ShellKind, _deadline: Deadline) -> Result<bool, AdapterError> {
+        Ok(self.showing.get())
+    }
+
+    fn press_opener(
+        &self,
+        _kind: ShellKind,
+        _policy: InteractionPolicy,
+    ) -> Result<(), AdapterError> {
+        self.events.borrow_mut().push("press");
+        if self.showing.get() && self.closes_on_press {
+            self.showing.set(false);
+        } else if !self.showing.get() && self.opens_on_press {
+            self.showing.set(true);
+        }
+        Ok(())
+    }
+
+    fn window(&self, _kind: ShellKind, _deadline: Deadline) -> Result<WindowInfo, AdapterError> {
+        Ok(WindowInfo {
+            id: "w-1-2-3".to_owned(),
+            title: "t".to_owned(),
+            app: "gnome-shell".to_owned(),
+            pid: 1.into(),
+            process_instance: None,
+            bounds: None,
+            state: WindowState::default(),
+        })
+    }
+
+    fn pause(&self, duration: Duration) {
+        std::thread::sleep(duration.min(Duration::from_millis(5)));
+    }
+}
+
+fn deadline(ms: u64) -> Deadline {
+    Deadline::after(ms).expect("a deadline builds")
+}
+
+#[test]
+fn a_surface_already_showing_is_adopted_with_no_event() {
+    let world = World::open();
+    let (_, how) = open_with(
+        &world,
+        ShellKind::MessageList,
+        InteractionPolicy::headed(),
+        deadline(2_000),
+    )
+    .expect("an open surface is adopted");
+    assert_eq!(how, Opened::Adopted);
+    assert!(world.events().is_empty());
+}
+
+#[test]
+fn a_closed_surface_is_opened_by_one_press_and_left_open() {
+    let world = World::closed();
+    let (_, how) = open_with(
+        &world,
+        ShellKind::SystemMenu,
+        InteractionPolicy::headed(),
+        deadline(2_000),
+    )
+    .expect("the press opens it");
+    assert_eq!(how, Opened::Opened);
+    assert_eq!(world.events(), ["press"]);
+    assert!(world.showing.get(), "the opened surface stays open");
+}
+
+#[test]
+fn a_policy_that_is_not_headed_is_refused_before_the_first_event() {
+    for policy in [
+        InteractionPolicy::headless(),
+        InteractionPolicy::focus_fallback(),
+    ] {
+        let world = World::closed();
+        let error = open_with(&world, ShellKind::MessageList, policy, deadline(2_000))
+            .expect_err("a click needs the cursor");
+        assert_eq!(error.code, ErrorCode::PolicyDenied);
+        assert!(world.events().is_empty());
+    }
+}
+
+#[test]
+fn an_open_that_never_shows_is_a_timeout_after_the_click_was_sent() {
+    let mut world = World::closed();
+    world.opens_on_press = false;
+    let error = open_with(
+        &world,
+        ShellKind::MessageList,
+        InteractionPolicy::headed(),
+        deadline(60),
+    )
+    .expect_err("the surface never shows");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(
+        error.details.expect("details")["physical_delivery_started"],
+        true
+    );
+    assert_eq!(world.events(), ["press"]);
+}
+
+#[test]
+fn the_dock_and_the_tray_need_no_opener_even_headless() {
+    for kind in [ShellKind::Dock, ShellKind::Tray] {
+        let world = World::closed();
+        let (_, how) = open_with(&world, kind, InteractionPolicy::headless(), deadline(2_000))
+            .expect("nothing to open");
+        assert_eq!(how, Opened::Adopted);
+        assert!(world.events().is_empty());
+    }
+}
+
+#[test]
+fn close_presses_only_a_showing_surface_and_waits_for_it_to_hide() {
+    let world = World::open();
+    close_with(&world, ShellKind::MessageList, deadline(2_000)).expect("it closes");
+    assert_eq!(world.events(), ["press"]);
+    assert!(!world.showing.get());
+    close_with(&world, ShellKind::MessageList, deadline(2_000)).expect("a closed one stays");
+    assert_eq!(world.events(), ["press"]);
+}
+
+#[test]
+fn a_close_that_does_not_take_effect_is_an_error() {
+    let mut world = World::open();
+    world.closes_on_press = false;
+    let error =
+        close_with(&world, ShellKind::MessageList, deadline(60)).expect_err("it stays open");
+    assert_eq!(error.code, ErrorCode::Timeout);
+}

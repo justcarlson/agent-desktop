@@ -1,9 +1,20 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, InteractionLease, InteractionPolicy, WindowInfo};
+use agent_desktop_core::{
+    AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, MouseButton, Rect,
+    WindowInfo, WindowState,
+};
+use serde_json::json;
 
-use super::kinds::ShellKind;
-use crate::system::SharedBus;
+use super::container::{Anchor, Landmark, Located, locate_anchor};
+use super::identity::{ShellRoot, find_root};
+use super::kinds::{ShellKind, title_of};
+use crate::actions::physical_target::ensure_headed_click_policy;
+use crate::input::shell_click;
+use crate::system::{SharedBus, process_facts, window_id};
+
+const POLL: Duration = Duration::from_millis(40);
+const SHELL_APP: &str = "gnome-shell";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Opened {
@@ -11,29 +22,198 @@ pub(crate) enum Opened {
     Opened,
 }
 
-pub(crate) fn open(
-    _bus: &SharedBus,
-    _kind: ShellKind,
-    _policy: InteractionPolicy,
-    _lease: &InteractionLease,
+fn opener_of(kind: ShellKind) -> Option<Anchor> {
+    match kind {
+        ShellKind::MessageList => Some(Anchor::Landmark(Landmark::DateMenu)),
+        ShellKind::SystemMenu => Some(Anchor::SystemButton),
+        ShellKind::Dock | ShellKind::Tray => None,
+    }
+}
+
+pub(super) fn container_landmark(kind: ShellKind) -> Landmark {
+    match kind {
+        ShellKind::Dock => Landmark::DockPanel,
+        ShellKind::Tray => Landmark::TrayPanel,
+        ShellKind::MessageList => Landmark::MessageList,
+        ShellKind::SystemMenu => Landmark::SystemMenu,
+    }
+}
+
+/// What opening and closing a surface needs from the shell, so the rules
+/// run against a fixed shell in a test.
+pub(crate) trait Surface {
+    fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError>;
+    fn press_opener(&self, kind: ShellKind, policy: InteractionPolicy) -> Result<(), AdapterError>;
+    fn window(&self, kind: ShellKind, deadline: Deadline) -> Result<WindowInfo, AdapterError>;
+    fn pause(&self, duration: Duration);
+}
+
+fn did_not_flip(kind: ShellKind, wanted: &str, started: bool) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::Timeout,
+        format!(
+            "The shell's {} did not become {wanted} in time",
+            title_of(kind)
+        ),
+    )
+    .with_suggestion("Retry the command; the shell may be busy")
+    .with_details(json!({ "physical_delivery_started": started, "surface": title_of(kind) }))
+}
+
+fn settle<W: Surface>(
+    world: &W,
+    kind: ShellKind,
+    wanted: bool,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    loop {
+        if world.showing(kind, deadline)? == wanted {
+            return Ok(());
+        }
+        if deadline.is_expired() {
+            let label = if wanted { "visible" } else { "hidden" };
+            return Err(did_not_flip(kind, label, true));
+        }
+        world.pause(POLL);
+    }
+}
+
+pub(crate) fn open_with<W: Surface>(
+    world: &W,
+    kind: ShellKind,
+    policy: InteractionPolicy,
+    deadline: Deadline,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
-    Err(AdapterError::not_supported("open_system_surface"))
+    if opener_of(kind).is_none() || world.showing(kind, deadline)? {
+        return Ok((world.window(kind, deadline)?, Opened::Adopted));
+    }
+    ensure_headed_click_policy(policy)?;
+    world.press_opener(kind, policy)?;
+    settle(world, kind, true, deadline)?;
+    Ok((world.window(kind, deadline)?, Opened::Opened))
+}
+
+pub(crate) fn close_with<W: Surface>(
+    world: &W,
+    kind: ShellKind,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if opener_of(kind).is_none() || !world.showing(kind, deadline)? {
+        return Ok(());
+    }
+    world.press_opener(kind, InteractionPolicy::headed())?;
+    settle(world, kind, false, deadline)
+}
+
+pub(crate) fn window_info(
+    kind: ShellKind,
+    root: &ShellRoot,
+    container: &super::light::Light,
+) -> Result<WindowInfo, AdapterError> {
+    let id = window_id::encode(container.element.bus_name(), container.element.path())
+        .ok_or_else(|| AdapterError::internal("The shell container has no window id"))?;
+    Ok(WindowInfo {
+        id,
+        title: title_of(kind).to_owned(),
+        app: SHELL_APP.to_owned(),
+        pid: root.pid.into(),
+        process_instance: process_facts::read(root.pid).map(|facts| facts.instance),
+        bounds: container.placed().map(Rect::from),
+        state: WindowState {
+            is_focused: false,
+            accessible: true,
+            minimized: Some(false),
+            visible: Some(true),
+        },
+    })
+}
+
+struct LiveSurface<'a> {
+    bus: &'a SharedBus,
+    lease: &'a InteractionLease,
+}
+
+impl LiveSurface<'_> {
+    fn located(
+        &self,
+        anchor: Anchor,
+        deadline: Deadline,
+    ) -> Result<(ShellRoot, Located), AdapterError> {
+        let root = find_root(self.bus, deadline)?;
+        let located = locate_anchor(self.bus, &root, anchor, deadline)?;
+        Ok((root, located))
+    }
+}
+
+impl Surface for LiveSurface<'_> {
+    fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError> {
+        match kind {
+            ShellKind::Dock | ShellKind::Tray => {
+                self.located(Anchor::Landmark(container_landmark(kind)), deadline)?;
+                Ok(true)
+            }
+            ShellKind::MessageList | ShellKind::SystemMenu => {
+                let anchor = Anchor::Landmark(container_landmark(kind));
+                Ok(self.located(anchor, deadline)?.1.anchor.showing)
+            }
+        }
+    }
+
+    fn press_opener(&self, kind: ShellKind, policy: InteractionPolicy) -> Result<(), AdapterError> {
+        let Some(opener) = opener_of(kind) else {
+            return Ok(());
+        };
+        let (_, located) = self.located(opener, self.lease.deadline())?;
+        shell_click::click(
+            self.bus,
+            &located.anchor.element,
+            MouseButton::Left,
+            policy,
+            self.lease,
+        )
+        .map(|_| ())
+    }
+
+    fn window(&self, kind: ShellKind, deadline: Deadline) -> Result<WindowInfo, AdapterError> {
+        let anchor = Anchor::Landmark(container_landmark(kind));
+        let (root, located) = self.located(anchor, deadline)?;
+        window_info(kind, &root, &located.container)
+    }
+
+    fn pause(&self, duration: Duration) {
+        std::thread::sleep(duration);
+    }
+}
+
+pub(crate) fn open(
+    bus: &SharedBus,
+    kind: ShellKind,
+    policy: InteractionPolicy,
+    lease: &InteractionLease,
+) -> Result<(WindowInfo, Opened), AdapterError> {
+    open_with(&LiveSurface { bus, lease }, kind, policy, lease.deadline())
 }
 
 pub(crate) fn close(
-    _bus: &SharedBus,
-    _kind: ShellKind,
-    _lease: &InteractionLease,
+    bus: &SharedBus,
+    kind: ShellKind,
+    lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
-    Err(AdapterError::not_supported("closing a shell surface"))
+    close_with(&LiveSurface { bus, lease }, kind, lease.deadline())
 }
 
 pub(crate) fn is_showing(
-    _bus: &SharedBus,
-    _kind: ShellKind,
-    _deadline: Deadline,
+    bus: &SharedBus,
+    kind: ShellKind,
+    deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    Err(AdapterError::not_supported("reading a shell surface"))
+    let anchor = Anchor::Landmark(container_landmark(kind));
+    let root = find_root(bus, deadline)?;
+    let located = locate_anchor(bus, &root, anchor, deadline)?;
+    Ok(match kind {
+        ShellKind::MessageList | ShellKind::SystemMenu => located.anchor.showing,
+        ShellKind::Dock | ShellKind::Tray => true,
+    })
 }
 
 #[cfg(test)]
