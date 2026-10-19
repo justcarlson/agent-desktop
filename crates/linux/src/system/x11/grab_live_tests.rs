@@ -28,6 +28,34 @@ fn private_display() -> String {
     display
 }
 
+fn independent_compositing(display: &str) -> bool {
+    let (connection, screen) = RustConnection::connect(Some(display)).expect("connect");
+    let atom = connection
+        .intern_atom(false, format!("_NET_WM_CM_S{screen}").as_bytes())
+        .expect("intern")
+        .reply()
+        .expect("atom")
+        .atom;
+    connection
+        .get_selection_owner(atom)
+        .expect("owner")
+        .reply()
+        .expect("reply")
+        .owner
+        != 0
+}
+
+fn root_origin(flat: &Flat) -> (i32, i32) {
+    let root = flat.connection.setup().roots[0].root;
+    let origin = flat
+        .connection
+        .translate_coordinates(flat.window, root, 0, 0)
+        .expect("translate")
+        .reply()
+        .expect("origin");
+    (i32::from(origin.dst_x), i32::from(origin.dst_y))
+}
+
 struct Flat {
     connection: RustConnection,
     window: u32,
@@ -219,8 +247,11 @@ fn grab_live_describes_the_window_and_names_each_refusal() {
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_the_root_grab_and_the_compositing_read_answer_on_the_private_screen() {
-    private_display();
-    assert_eq!(DisplayGrabber.compositing(deadline()), Ok(false));
+    let display = private_display();
+    assert_eq!(
+        DisplayGrabber.compositing(deadline()),
+        Ok(independent_compositing(&display))
+    );
     let rect = GrabRect {
         x: 0,
         y: 0,
@@ -259,7 +290,14 @@ fn grab_live_the_root_is_drawable_zero_in_root_coordinates() {
         .grab(0, inside, deadline())
         .expect("the root grabs");
     let rgb = to_rgb(&raw.format, &raw.data, raw.width, raw.height, raw.stride).expect("converts");
-    assert!(rgb.chunks_exact(3).all(|pixel| pixel == FILL));
+    if independent_compositing(&display) {
+        assert!(
+            rgb.chunks_exact(3).all(|pixel| pixel != FILL),
+            "a compositor's root shows its own stage, never the application window"
+        );
+    } else {
+        assert!(rgb.chunks_exact(3).all(|pixel| pixel == FILL));
+    }
     let outside = GrabRect {
         x: 0,
         y: 0,
@@ -301,9 +339,10 @@ fn grab_live_a_framed_window_has_a_parent_and_every_rect_is_in_root_coordinates(
     assert_eq!(outer.parent, None);
     assert!(outer.rect.x <= info.rect.x && outer.rect.y <= info.rect.y);
     assert!(outer.rect.width >= info.rect.width && outer.rect.height >= info.rect.height);
-    assert!(
-        info.rect.x > 100 && info.rect.y > 100,
-        "a parent-relative origin would be a few pixels: {info:?}"
+    assert_eq!(
+        (info.rect.x, info.rect.y),
+        root_origin(&framed),
+        "the client origin is in root coordinates, not relative to the frame"
     );
     assert_eq!((info.rect.width, info.rect.height), (150, 100));
     assert!(
@@ -332,10 +371,17 @@ fn grab_live_a_covered_window_is_blank_directly_and_painted_through_the_redirect
         .grab(covered.window, rect, deadline())
         .expect("a direct grab");
     let direct = to_rgb(&direct.format, &direct.data, 100, 80, direct.stride).expect("converts");
-    assert!(
-        direct.chunks_exact(3).all(|pixel| pixel != FILL),
-        "a covered window reads its cover or nothing"
-    );
+    if independent_compositing(&display) {
+        assert!(
+            direct.chunks_exact(3).all(|pixel| pixel == FILL),
+            "a compositor keeps a covered window's own pixels"
+        );
+    } else {
+        assert!(
+            direct.chunks_exact(3).all(|pixel| pixel != FILL),
+            "a covered window reads its cover or nothing"
+        );
+    }
     let through = DisplayGrabber
         .grab_redirected(covered.window, rect, deadline())
         .expect("a redirected grab");
