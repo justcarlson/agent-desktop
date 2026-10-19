@@ -20,6 +20,8 @@ pub(crate) enum DeliveryOutcome {
     Delivered(Observed),
 }
 
+const ABSENT_CAUSE: &str = "affordance_absent";
+
 pub(crate) struct ChainDef {
     pub(crate) action: &'static str,
     pub(crate) suggestion: &'static str,
@@ -32,9 +34,16 @@ pub(crate) struct Rung<'a> {
 
 fn exhausted(def: &ChainDef, steps: &[ActionStep]) -> AdapterError {
     let tried: Vec<&str> = steps.iter().map(ActionStep::label).collect();
-    AdapterError::new(ErrorCode::ActionFailed, "All chain steps exhausted")
+    let rungs: Vec<_> = tried
+        .iter()
+        .map(|label| json!({ "label": label, "outcome": "not_delivered", "cause": ABSENT_CAUSE }))
+        .collect();
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "No step delivered the action: every step answered false or named an affordance the element does not carry",
+    )
         .with_suggestion(def.suggestion)
-        .with_details(json!({ "steps_tried": tried }))
+        .with_details(json!({ "steps_tried": tried, "rungs": rungs }))
         .with_disposition(DeliverySemantics::not_delivered())
 }
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::actions::mutation::WriteReply;
 
 #[test]
 fn a_combo_value_outranks_an_unselected_item() {
@@ -81,4 +82,11 @@ fn a_select_whose_read_back_is_unchanged_is_a_write_ignored_failure() {
     ] {
         assert!(unchanged_is_ignored(kept).is_ok());
     }
+}
+
+#[test]
+fn a_blank_or_object_replacement_text_says_nothing_about_the_combo_value() {
+    assert!(!says_something(""));
+    assert!(!says_something(" \u{fffc} "));
+    assert!(says_something("Two"));
 }

@@ -7,12 +7,10 @@ use serde_json::json;
 use zbus::zvariant::{OwnedValue, Structure, Value};
 
 use super::action_call::resolve_verb;
-use super::chain::{DeliveryOutcome, Observed};
-use super::click::{
-    POLL_STEP, deliver, invoke_verb, names_of, poll_until, refusal, run_single_rung,
-};
+use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
+use super::click::{POLL_STEP, deliver, invoke_verb, names_of, poll_until, refusal};
 use super::context::Target;
-use super::mutation::{WriteKind, WriteReply};
+use super::mutation::WriteKind;
 use super::select_exclusive::{
     SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
 };
@@ -26,6 +24,11 @@ use crate::tree::state_bits::SELECTED;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
 const SELECT_SETTLE: Duration = Duration::from_millis(1000);
+const OBJECT_REPLACEMENT: char = '\u{fffc}';
+const SELECT_CHILD_LABEL: &str = "Selection.SelectChild";
+const SELECT_VERB_LABEL: &str = "Action.DoAction";
+const SELECT_SUGGESTION: &str =
+    "Refresh the snapshot and inspect the element before deciding whether to retry.";
 
 pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool>) -> Option<bool> {
     combo_value.or(item_selected)
@@ -145,11 +148,20 @@ fn selection_parent(
     }))
 }
 
+fn says_something(shown: &str) -> bool {
+    shown
+        .chars()
+        .any(|char| !char.is_whitespace() && char != OBJECT_REPLACEMENT)
+}
+
 fn combo_value_matches(view: &NodeView, wanted: &str) -> Option<bool> {
     if view.role() != Some(COMBO_BOX) {
         return None;
     }
-    let shown = view.value().or_else(|| view.name())?;
+    let shown = view
+        .value()
+        .or_else(|| view.name())
+        .filter(|shown| says_something(shown))?;
     Some(name_matches(shown, wanted))
 }
 
@@ -207,12 +219,14 @@ fn select_through(
 ) -> Result<ActionResult, AdapterError> {
     let action = Action::Select(display_value.to_owned());
     let verbs = verbs_for(&action);
-    let view = read_node_view(target.bus, &handle_of(&hit.item), target.deadline)?;
+    let item_handle = handle_of(&hit.item);
+    let item = container_target(target, &item_handle)?;
+    let view = item.view()?;
     let names = names_of(&view)?;
-    let own_verb = hit.own && resolve_verb(names, verbs).is_some();
+    let own_verb = resolve_verb(names, verbs).is_some();
     let holder_handle = container.map(|container| handle_of(&container.node));
-    let holder = match &holder_handle {
-        Some(handle) if !own_verb => Some(container_target(target, handle)?),
+    let holder = match (&holder_handle, hit.own) {
+        (Some(handle), false) => Some(container_target(target, handle)?),
         _ => None,
     };
     let observe = || {
@@ -230,12 +244,12 @@ fn select_through(
             _ => verified,
         }
     };
-    let run = || {
-        let reply: Result<WriteReply, AdapterError> = match (own_verb, container) {
-            (true, _) => invoke_verb(target, &action, names, verbs),
-            (false, Some(container)) => {
-                let holder = holder.as_ref().ok_or_else(no_route)?;
-                invoke(
+    let mut rungs = Vec::new();
+    if let (Some(holder), Some(container)) = (&holder, container) {
+        rungs.push(Rung {
+            label: SELECT_CHILD_LABEL,
+            run: Box::new(move || {
+                let reply = invoke(
                     holder,
                     Call {
                         interface: SELECTION_INTERFACE,
@@ -244,13 +258,28 @@ fn select_through(
                         kind: WriteKind::SelectChild,
                     },
                     true,
-                )
-            }
-            (false, None) => Err(no_route()),
-        };
-        deliver(reply, observe).and_then(unchanged_is_ignored)
+                );
+                deliver(reply, observe).and_then(unchanged_is_ignored)
+            }),
+        });
+    }
+    if own_verb {
+        rungs.push(Rung {
+            label: SELECT_VERB_LABEL,
+            run: Box::new(|| {
+                let reply = invoke_verb(&item, &action, names, verbs);
+                deliver(reply, observe).and_then(unchanged_is_ignored)
+            }),
+        });
+    }
+    if rungs.is_empty() {
+        return Err(no_route());
+    }
+    let def = ChainDef {
+        action: action.name(),
+        suggestion: SELECT_SUGGESTION,
     };
-    run_single_rung(action.name(), target.deadline, run)
+    execute_chain(&def, &mut rungs, target.deadline)
 }
 
 pub(super) fn unchanged_is_ignored(

@@ -172,3 +172,22 @@ fn a_deadline_spent_between_rungs_is_a_timeout_stamped_not_delivered() {
     assert_eq!(error.disposition.retry(), RetryDisposition::Safe);
     assert_eq!(calls.get(), 0);
 }
+
+#[test]
+fn exhaustion_names_each_rung_and_why_it_did_not_deliver() {
+    let (first, second) = (Cell::new(0), Cell::new(0));
+    let mut rungs = [
+        rung("one", &first, Ok(DeliveryOutcome::NotDelivered)),
+        rung("two", &second, Ok(DeliveryOutcome::NotDelivered)),
+    ];
+    let error = execute_chain(&DEF, &mut rungs, deadline()).expect_err("nothing delivers");
+    let details = error.details.expect("details");
+    assert_eq!(
+        details["rungs"],
+        serde_json::json!([
+            { "label": "one", "outcome": "not_delivered", "cause": "affordance_absent" },
+            { "label": "two", "outcome": "not_delivered", "cause": "affordance_absent" }
+        ])
+    );
+    assert_ne!(error.message, "All chain steps exhausted");
+}
