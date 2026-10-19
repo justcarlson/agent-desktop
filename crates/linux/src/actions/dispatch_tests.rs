@@ -32,15 +32,31 @@ fn only_the_no_verb_refusal_routes_to_physical_delivery() {
     assert!(!has_no_verb(&other));
 }
 
+fn timeout(disposition: agent_desktop_core::DeliverySemantics) -> agent_desktop_core::AdapterError {
+    agent_desktop_core::AdapterError::new(ErrorCode::Timeout, "t").with_disposition(disposition)
+}
+
 #[test]
-fn a_stopped_target_is_named_only_after_a_sent_timeout() {
+fn a_sent_timeout_with_a_stopped_target_names_the_stop() {
     use super::name_stopped_target;
-    use agent_desktop_core::{AdapterError, DeliverySemantics};
-    let unsent = AdapterError::new(ErrorCode::Timeout, "t")
-        .with_disposition(DeliverySemantics::not_delivered());
-    assert!(
-        name_stopped_target(unsent, std::process::id())
-            .details
-            .is_none()
+    let named = name_stopped_target(
+        timeout(agent_desktop_core::DeliverySemantics::uncertain()),
+        7,
+        |_| true,
     );
+    assert_eq!(named.details.expect("details")["target_stopped"], true);
+}
+
+#[test]
+fn an_unsent_timeout_with_a_stopped_target_carries_no_details() {
+    use super::name_stopped_target;
+    let unsent = timeout(agent_desktop_core::DeliverySemantics::not_delivered());
+    assert!(name_stopped_target(unsent, 7, |_| true).details.is_none());
+}
+
+#[test]
+fn a_sent_timeout_with_a_running_target_carries_no_details() {
+    use super::name_stopped_target;
+    let sent = timeout(agent_desktop_core::DeliverySemantics::uncertain());
+    assert!(name_stopped_target(sent, 7, |_| false).details.is_none());
 }

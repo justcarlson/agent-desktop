@@ -44,9 +44,13 @@ fn has_no_verb(error: &AdapterError) -> bool {
             .is_some_and(|verb| verb == "absent")
 }
 
-fn name_stopped_target(mut error: AdapterError, pid: u32) -> AdapterError {
+fn name_stopped_target(
+    mut error: AdapterError,
+    pid: u32,
+    is_stopped: impl Fn(u32) -> bool,
+) -> AdapterError {
     let uncertain = error.disposition == DeliverySemantics::uncertain();
-    if error.code == ErrorCode::Timeout && uncertain && process_facts::is_stopped(pid) {
+    if error.code == ErrorCode::Timeout && uncertain && is_stopped(pid) {
         let mut details = error.details.take().unwrap_or_else(|| json!({}));
         if let Some(map) = details.as_object_mut() {
             map.insert("target_stopped".to_owned(), json!(true));
@@ -104,7 +108,8 @@ pub(crate) fn execute_action(
         Err(error) if verbless && has_no_verb(&error) => {
             physical_delivery(bus, &request.action, Some(element), &request, lease)
         }
-        other => other.map_err(|error| name_stopped_target(error, element.pid())),
+        other => other
+            .map_err(|error| name_stopped_target(error, element.pid(), process_facts::is_stopped)),
     }
 }
 
