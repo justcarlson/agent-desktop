@@ -69,7 +69,13 @@ fn spawn() -> Option<Shell> {
     let before = sockets();
     let log = std::fs::File::create(runtime_dir().join("shell.log")).ok()?;
     let child = Command::new("gnome-shell")
-        .args(["--headless", "--wayland", "--virtual-monitor", "1280x800"])
+        .args([
+            "--headless",
+            "--wayland",
+            "--no-x11",
+            "--virtual-monitor",
+            "1280x800",
+        ])
         .env_remove("DISPLAY")
         .stdin(Stdio::null())
         .stdout(log.try_clone().ok()?)
