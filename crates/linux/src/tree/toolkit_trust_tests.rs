@@ -88,3 +88,12 @@ fn only_qt_counts_the_insert_length_in_utf16_units() {
         LengthUnit::Utf8Bytes
     );
 }
+
+#[test]
+fn only_a_root_named_gecko_is_gecko() {
+    use super::is_gecko;
+    assert!(is_gecko(&toolkit(Some("Gecko"), Some("158.0"))));
+    assert!(!is_gecko(&toolkit(Some("Chromium"), None)));
+    assert!(!is_gecko(&toolkit(Some("Qt"), Some("6.4"))));
+    assert!(!is_gecko(&ToolkitId::default()));
+}

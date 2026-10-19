@@ -76,6 +76,15 @@ pub(crate) fn kind(toolkit: &ToolkitId) -> ToolkitKind {
     }
 }
 
+/// Whether the root names Gecko, whose `SetTextContents` and `InsertText`
+/// answer `true` and change nothing (L30-14).
+pub(crate) fn is_gecko(toolkit: &ToolkitId) -> bool {
+    toolkit
+        .name
+        .as_deref()
+        .is_some_and(|name| name.eq_ignore_ascii_case("gecko"))
+}
+
 /// The unit the toolkit counts the `InsertText` length in: Qt in UTF-16
 /// units, every other toolkit in bytes (L30-38).
 pub(crate) fn insert_length_unit(toolkit: &ToolkitId) -> LengthUnit {

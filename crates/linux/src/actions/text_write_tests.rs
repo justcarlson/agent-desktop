@@ -318,3 +318,14 @@ fn a_qt_field_is_sent_the_utf16_length_so_it_reads_no_garbage_past_the_text() {
         ]
     );
 }
+
+#[test]
+fn the_gecko_refusal_is_not_supported_not_delivered_and_names_its_cause() {
+    let error = editable_text_ignored();
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(
+        error.details.expect("details")["cause"],
+        "toolkit_ignores_editable_text"
+    );
+}

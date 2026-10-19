@@ -36,6 +36,16 @@ pub(crate) fn read_only_field() -> AdapterError {
         .with_disposition(DeliverySemantics::not_delivered())
 }
 
+pub(crate) fn editable_text_ignored() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionNotSupported,
+        "This toolkit accepts EditableText writes and applies none of them",
+    )
+    .with_suggestion("Click the field and type with --headed, which sends real key events")
+    .with_details(serde_json::json!({ "cause": "toolkit_ignores_editable_text" }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
 fn too_long<E>(_: E) -> AdapterError {
     AdapterError::new(ErrorCode::InvalidArgs, "The text is too long to address")
         .with_disposition(DeliverySemantics::not_delivered())

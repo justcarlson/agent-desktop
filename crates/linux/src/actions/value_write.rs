@@ -15,7 +15,7 @@ use crate::tree::role_numbers::{DIAL, SCROLL_BAR, SLIDER, SPIN_BUTTON};
 use crate::tree::state_bits::{EDITABLE, READ_ONLY};
 use crate::tree::text_selection::{CaretAndSelection, read_caret_and_selection};
 use crate::tree::text_units::LengthUnit;
-use crate::tree::toolkit_trust::insert_length_unit;
+use crate::tree::toolkit_trust::{insert_length_unit, is_gecko};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Route {
@@ -178,6 +178,13 @@ fn ensure_writable(view: &NodeView) -> Result<(), AdapterError> {
     }
 }
 
+fn ensure_toolkit_applies_writes(target: &Target<'_>) -> Result<(), AdapterError> {
+    if is_gecko(&toolkit_of(target.bus, target.element, target.deadline)) {
+        return Err(text_write::editable_text_ignored());
+    }
+    Ok(())
+}
+
 fn secure_view(view: &NodeView) -> bool {
     is_secure(view.role(), view.tokens(), view.secure())
 }
@@ -208,6 +215,7 @@ pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult,
         }
         Route::Text => {
             ensure_writable(&view)?;
+            ensure_toolkit_applies_writes(target)?;
             let port = LiveText {
                 target,
                 advertised: text_advertised(view.interfaces()),
@@ -224,6 +232,7 @@ pub(crate) fn clear(target: &Target<'_>) -> Result<ActionResult, AdapterError> {
         return Err(unsupported("clear"));
     }
     ensure_writable(&view)?;
+    ensure_toolkit_applies_writes(target)?;
     let port = LiveText {
         target,
         advertised: true,
@@ -238,6 +247,7 @@ pub(crate) fn type_text(target: &Target<'_>, text: &str) -> Result<ActionResult,
         return Err(unsupported("type"));
     }
     ensure_writable(&view)?;
+    ensure_toolkit_applies_writes(target)?;
     let port = LiveText {
         target,
         advertised: true,
