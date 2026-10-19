@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use agent_desktop_core::{Action, DragParams, ErrorCode, InputOps, KeyCombo, Modifier, Point};
+use agent_desktop_core::{
+    Action, DragParams, ErrorCode, InputOps, KeyCombo, Modifier, NativeHandle, Point,
+};
 
 use super::live_launch::{Launched, nonce};
 use super::live_offscreen_live_tests::scripts::{GTK3_LIST, GTK4_LIST, QT_LIST};
@@ -266,20 +268,37 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
     std::thread::sleep(Duration::from_millis(1200));
     let (scene, entry) = entry_scene(Kit::Gtk, GTK3);
     std::thread::sleep(Duration::from_millis(800));
-    let outcome = scene.act(&entry.handle, Action::TypeText("zq".to_owned()));
+    let raised = std::process::Command::new("wmctrl")
+        .args(["-a", "adx"])
+        .status()
+        .expect("wmctrl runs");
+    assert!(raised.success());
     std::thread::sleep(Duration::from_millis(500));
-    match outcome {
-        Ok(result) => {
-            assert!(
-                result.steps.iter().all(|step| step.verified == Some(false)),
-                "{result:?}"
-            );
-            println!(
-                "grab: menu saw {:?}, target saw {:?}",
-                grab.log_text(),
-                scene.log_text()
-            );
-        }
-        Err(error) => assert_eq!(error.details.expect("details")["check"], "window_active"),
-    }
+    let net_active = std::process::Command::new("xprop")
+        .args(["-root", "_NET_ACTIVE_WINDOW"])
+        .output()
+        .expect("xprop runs");
+    assert!(
+        !String::from_utf8_lossy(&net_active.stdout).contains("0x0"),
+        "the window manager named no active window"
+    );
+    let refused = scene
+        .act(&entry.handle, Action::TypeText("zq".to_owned()))
+        .expect_err("the AT-SPI frame state is stricter than _NET_ACTIVE_WINDOW under a grab");
+    assert_eq!(refused.details.expect("details")["check"], "window_active");
+    assert_eq!(grab.log_text(), "");
+    let combo = KeyCombo {
+        key: "z".to_owned(),
+        modifiers: vec![],
+    };
+    let result = scene
+        .act(&NativeHandle::null(), Action::PressKey(combo))
+        .expect("a global press has no gate");
+    assert!(
+        result.steps.iter().all(|step| step.verified == Some(false)),
+        "{result:?}"
+    );
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(grab.log_text().contains("menukey"), "the menu got no key");
+    assert_eq!(scene.log_text(), "");
 }

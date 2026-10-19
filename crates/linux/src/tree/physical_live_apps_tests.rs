@@ -156,7 +156,7 @@ fn live_the_wheel_scrolls_a_chromium_page() {
         format!("<html><body>{buttons}{script}</body></html>"),
     )
     .expect("page");
-    let url = format!("file:{}{}", "/".repeat(2), page);
+    let url = format!("file://{page}");
     let profile = format!("--user-data-dir={root}/profile");
     let scene = app_scene(
         "google-chrome",
