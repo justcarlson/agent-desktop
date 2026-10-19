@@ -14,6 +14,7 @@ use super::owner_spawn::{
 };
 use super::owner_spawn_spec::{SpawnRequest, build_spec, protect_lease_descriptor};
 use super::payload::{Payload, payload_of};
+use super::route_fallback::{COPY, Fallback, PASTE};
 use super::wayland::{clear_wayland, read_wayland, set_wayland};
 use super::x11_read::{fault_error, read_x11};
 use super::x11_requestor::{SelectionServer, X11Server};
@@ -242,30 +243,36 @@ fn routed(server: DisplayServer) -> Result<Route, AdapterError> {
     route::resolve(server).map_err(not_delivered)
 }
 
-fn get_from(
+pub(crate) fn get_from(
     server: DisplayServer,
+    fallback: &Fallback,
     format: ClipboardFormat,
     deadline: Deadline,
 ) -> Result<Option<ClipboardContent>, AdapterError> {
-    match routed(server)? {
+    match fallback.route(routed(server)?, &[PASTE]) {
         Route::X11(display) => read_x11(&display, format, deadline),
         Route::Wayland => read_wayland(format, deadline),
     }
 }
 
-fn set_from(
+pub(crate) fn set_from(
     server: DisplayServer,
+    fallback: &Fallback,
     content: &ClipboardContent,
     lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
-    match routed(server)? {
+    match fallback.route(routed(server)?, &[COPY, PASTE]) {
         Route::X11(display) => set_x11(&display, content, lease),
         Route::Wayland => set_wayland(content, lease),
     }
 }
 
-fn clear_from(server: DisplayServer, lease: &InteractionLease) -> Result<(), AdapterError> {
-    match routed(server)? {
+pub(crate) fn clear_from(
+    server: DisplayServer,
+    fallback: &Fallback,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
+    match fallback.route(routed(server)?, &[COPY, PASTE]) {
         Route::X11(display) => clear_x11(&display, lease),
         Route::Wayland => clear_wayland(lease),
     }
@@ -275,18 +282,23 @@ pub(crate) fn get_clipboard(
     format: ClipboardFormat,
     deadline: Deadline,
 ) -> Result<Option<ClipboardContent>, AdapterError> {
-    get_from(session_server(), format, deadline)
+    get_from(
+        session_server(),
+        &Fallback::from_process(),
+        format,
+        deadline,
+    )
 }
 
 pub(crate) fn set_clipboard(
     content: &ClipboardContent,
     lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
-    set_from(session_server(), content, lease)
+    set_from(session_server(), &Fallback::from_process(), content, lease)
 }
 
 pub(crate) fn clear_clipboard(lease: &InteractionLease) -> Result<(), AdapterError> {
-    clear_from(session_server(), lease)
+    clear_from(session_server(), &Fallback::from_process(), lease)
 }
 
 #[cfg(test)]

@@ -15,6 +15,7 @@ pub(crate) mod owner_spawn_spec;
 pub(crate) mod owner_wire;
 pub(crate) mod payload;
 pub(crate) mod release_gate;
+pub(crate) mod route_fallback;
 pub(crate) mod set_clear;
 pub(crate) mod targets;
 pub(crate) mod uri_list;

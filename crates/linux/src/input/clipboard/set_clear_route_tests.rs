@@ -24,19 +24,26 @@ fn assert_refused_before_any_change(error: AdapterError) {
 #[test]
 fn a_read_with_no_usable_display_is_not_delivered() {
     let deadline = Deadline::after(1_000).expect("a deadline");
-    let error = get_from(no_display(), ClipboardFormat::Text, deadline).expect_err("refused");
+    let error = get_from(
+        no_display(),
+        &Fallback::default(),
+        ClipboardFormat::Text,
+        deadline,
+    )
+    .expect_err("refused");
     assert_refused_before_any_change(error);
 }
 
 #[test]
 fn a_set_with_no_usable_display_is_not_delivered() {
     let content = ClipboardContent::Text("hello".to_owned());
-    let error = set_from(no_display(), &content, &lease()).expect_err("refused");
+    let error =
+        set_from(no_display(), &Fallback::default(), &content, &lease()).expect_err("refused");
     assert_refused_before_any_change(error);
 }
 
 #[test]
 fn a_clear_with_no_usable_display_is_not_delivered() {
-    let error = clear_from(no_display(), &lease()).expect_err("refused");
+    let error = clear_from(no_display(), &Fallback::default(), &lease()).expect_err("refused");
     assert_refused_before_any_change(error);
 }
