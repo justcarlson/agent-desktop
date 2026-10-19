@@ -8,7 +8,7 @@ use super::keysym_send::{run, send_keys};
 use super::lead_key::LeadPolicy;
 use super::live_shell::Shell;
 use super::remote_desktop::RemoteDesktop;
-use crate::input::step::KeysymStep;
+use crate::input::keysym_step::KeysymStep;
 use crate::system::SharedBus;
 use crate::system::session_bus::SessionBus;
 use crate::tree::live_launch::Launched;

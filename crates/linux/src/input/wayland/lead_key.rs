@@ -4,7 +4,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::key_session::KeySession;
-use crate::input::step::KeysymStep;
+use crate::input::keysym_step::KeysymStep;
 
 const SHIFT_L: u32 = 0xffe1;
 

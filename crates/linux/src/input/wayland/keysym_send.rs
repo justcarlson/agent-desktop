@@ -1,11 +1,3 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the module is laid out ahead of the code that calls it"
-    )
-)]
-
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -16,7 +8,8 @@ use super::key_session::KeySession;
 use super::layout::refuse_unreachable;
 use super::lead_key::{LEAD_POLICY, LeadPolicy, send_lead};
 use super::remote_desktop::{RemoteDesktop, semantic_action_refusal};
-use crate::input::step::{Delivery, KeysymStep};
+use crate::input::delivery::Delivery;
+use crate::input::keysym_step::KeysymStep;
 
 const MECHANISM: &str = "mutter_remote_desktop";
 const RECOVERY_BUDGET_MS: u64 = 1_000;
