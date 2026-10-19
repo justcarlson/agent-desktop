@@ -122,6 +122,10 @@ pub(crate) fn execute_action(
         Action::SetFocus => focus(&target, request.policy),
         Action::SetValue(text) => set_value(&target, text),
         Action::Clear => clear(&target),
+        Action::TypeText(text) if request.policy.is_headed() => physical_first(
+            || physical_delivery(bus, &request.action, Some(element), &request, lease),
+            || type_text(&target, text),
+        ),
         Action::TypeText(text) => type_text(&target, text),
         Action::ScrollTo => scroll_to(bus, handle, lease),
         Action::DoubleClick | Action::TripleClick | Action::Scroll(_, _) | Action::PressKey(_) => {

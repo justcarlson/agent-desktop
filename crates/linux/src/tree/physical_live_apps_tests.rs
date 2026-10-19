@@ -28,7 +28,7 @@ fn type_and_read(scene: &Scene, field: &Tgt, text: &str, replace: bool) -> Strin
             .expect("select all");
     }
     scene
-        .act_physical(&field.handle, Action::TypeText(text.to_owned()))
+        .act(&field.handle, Action::TypeText(text.to_owned()))
         .expect("the text is typed");
     for _ in 0..40 {
         if scene.value_of(field).is_some_and(|value| !value.is_empty()) {

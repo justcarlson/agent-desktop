@@ -137,22 +137,6 @@ impl Scene {
             .execute_action(handle, ActionRequest::headed(action), &lease)
     }
 
-    pub(super) fn act_physical(
-        &self,
-        handle: &NativeHandle,
-        action: Action,
-    ) -> Result<ActionResult, AdapterError> {
-        let lease = self.lease();
-        let element = super::atspi_element(handle)?;
-        crate::actions::physical_delivery::physical_delivery(
-            &self.bus,
-            &action,
-            Some(element),
-            &ActionRequest::headed(action.clone()),
-            &lease,
-        )
-    }
-
     pub(super) fn adapter_bounds(&self, target: &Tgt) -> Option<agent_desktop_core::Rect> {
         self.adapter
             .get_element_bounds(&target.handle, deadline(5_000))
