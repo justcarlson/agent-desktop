@@ -1,12 +1,23 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use std::collections::BTreeSet;
 
 use agent_desktop_core::AppInfo;
 
+use super::app_ops::{info, one_entry_per_process};
 use super::listed_window::ListedWindow;
 use super::registry_app::RegistryApp;
 
-pub(crate) fn apps_of(_windows: &[ListedWindow], _registry_apps: &[RegistryApp]) -> Vec<AppInfo> {
-    Vec::new()
+/// The applications that own at least one listed window, one entry per
+/// process. A helper that answers on the registry with no frame never
+/// appears, and a window that opens under a running process adds no app.
+pub(crate) fn apps_of(windows: &[ListedWindow], registry_apps: &[RegistryApp]) -> Vec<AppInfo> {
+    let owners: BTreeSet<usize> = windows.iter().map(|window| window.app).collect();
+    one_entry_per_process(
+        owners
+            .into_iter()
+            .filter_map(|index| registry_apps.get(index))
+            .map(|app| info(app, true))
+            .collect(),
+    )
 }
 
 #[cfg(test)]

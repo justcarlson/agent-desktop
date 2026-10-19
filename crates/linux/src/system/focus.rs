@@ -15,9 +15,12 @@ pub(crate) fn decide_focus(candidates: &[usize], evidence: X11Evidence) -> Optio
     }
 }
 
-#[expect(dead_code, reason = "stub the owning lane replaces")]
-pub(crate) fn focus_is_indeterminate(_candidates: &[usize], _decided: Option<usize>) -> bool {
-    false
+/// Whether the sources named an `ACTIVE` window and still could not agree on
+/// one. `decided` is the answer of the same `decide_focus` call, so the
+/// branching lives in one place. Without a candidate there is nothing to
+/// decide, so no focus is a true answer.
+pub(crate) fn focus_is_indeterminate(candidates: &[usize], decided: Option<usize>) -> bool {
+    !candidates.is_empty() && decided.is_none()
 }
 
 #[cfg(test)]

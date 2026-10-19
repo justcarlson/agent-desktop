@@ -1,4 +1,4 @@
-use super::decide_focus;
+use super::{decide_focus, focus_is_indeterminate};
 use crate::system::x11::X11Evidence;
 
 #[test]
@@ -42,5 +42,41 @@ fn no_candidate_focuses_none_whatever_the_window_manager_says() {
         X11Evidence::NoActive,
     ] {
         assert_eq!(decide_focus(&[], evidence), None, "{evidence:?}");
+    }
+}
+
+#[test]
+fn an_active_candidate_that_no_source_confirms_is_indeterminate() {
+    let cases = [
+        (vec![1, 3], X11Evidence::Unavailable),
+        (vec![1], X11Evidence::Ambiguous),
+        (vec![1], X11Evidence::NoActive),
+        (vec![1], X11Evidence::Unmapped),
+        (vec![1], X11Evidence::Frame(2)),
+    ];
+    for (candidates, evidence) in cases {
+        let decided = decide_focus(&candidates, evidence);
+        assert!(
+            focus_is_indeterminate(&candidates, decided),
+            "{candidates:?} {evidence:?}"
+        );
+    }
+}
+
+#[test]
+fn a_decided_or_candidate_free_focus_is_not_indeterminate() {
+    let cases = [
+        (vec![1, 3], X11Evidence::Frame(3)),
+        (vec![3], X11Evidence::Unavailable),
+        (vec![], X11Evidence::Unavailable),
+        (vec![], X11Evidence::Ambiguous),
+        (vec![], X11Evidence::NoActive),
+    ];
+    for (candidates, evidence) in cases {
+        let decided = decide_focus(&candidates, evidence);
+        assert!(
+            !focus_is_indeterminate(&candidates, decided),
+            "{candidates:?} {evidence:?}"
+        );
     }
 }
