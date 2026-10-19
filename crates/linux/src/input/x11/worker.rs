@@ -1,0 +1,193 @@
+use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
+use std::time::Duration;
+
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use serde_json::json;
+
+use super::held_journal::HeldJournal;
+use super::progress::Progress;
+use super::sink::{SinkError, X11Sink};
+use super::verify;
+use crate::input::release_guard::ReleaseGuard;
+use crate::input::step::{Delivery, Plan, Step};
+
+pub(crate) const REMAP_SETTLE: Duration = Duration::from_millis(50);
+pub(crate) const REMAP_RESTORE_HOLD: Duration = Duration::from_millis(50);
+const PAUSE_SLICE: Duration = Duration::from_millis(10);
+const MECHANISM: &str = "x11_xtest";
+const ABORT_SUGGESTION: &str =
+    "Run 'snapshot' to read the real state before retrying: some input was already delivered";
+
+pub(crate) enum Report {
+    Gate,
+    Done(Result<Delivery, AdapterError>),
+}
+
+pub(crate) struct Link {
+    pub(crate) reports: Sender<Report>,
+    pub(crate) proceed: Receiver<bool>,
+    pub(crate) journal: Option<HeldJournal>,
+}
+
+pub(crate) fn mark_started(error: AdapterError, delivered: u32) -> AdapterError {
+    let mut details = error.details.clone().unwrap_or_else(|| json!({}));
+    if let Some(map) = details.as_object_mut() {
+        map.insert("physical_delivery_started".into(), (delivered > 0).into());
+    }
+    error.with_details(details)
+}
+
+pub(crate) fn work(
+    mut sink: impl X11Sink,
+    plans: Vec<Plan>,
+    link: &Link,
+    deadline: Deadline,
+    progress: &Progress,
+) {
+    let outcome = execute(&mut sink, &plans, link, deadline, progress);
+    let _ = link.reports.send(Report::Done(outcome));
+}
+
+fn execute(
+    sink: &mut dyn X11Sink,
+    plans: &[Plan],
+    link: &Link,
+    deadline: Deadline,
+    progress: &Progress,
+) -> Result<Delivery, AdapterError> {
+    preflight(sink, plans)?;
+    if let Some(journal) = &link.journal {
+        journal.release_stale(sink);
+    }
+    let mut guard = ReleaseGuard::new(sink);
+    guard.journal_to(link.journal.clone());
+    for plan in plans {
+        if !gate_passed(link) {
+            let stopped = AdapterError::internal("The input call was stopped between steps");
+            return Err(guard.abort(stopped, ABORT_SUGGESTION));
+        }
+        guard.set_origin(plan.release_origin);
+        let outcome = run_plan(&mut guard, plan, deadline, progress);
+        if let Err(error) = outcome {
+            return Err(guard.abort(error, ABORT_SUGGESTION));
+        }
+    }
+    if let Err(error) = hold_before_restore(&mut guard, deadline, progress)
+        .and_then(|()| guard.finish().map_err(SinkError::into_adapter))
+    {
+        return Err(guard.abort(error, ABORT_SUGGESTION));
+    }
+    let touched = guard.touched().clone();
+    verify::check(guard.sink(), &touched)?;
+    Ok(Delivery {
+        delivered_events: guard.delivered(),
+        mechanism: MECHANISM,
+    })
+}
+
+fn gate_passed(link: &Link) -> bool {
+    link.reports.send(Report::Gate).is_ok() && link.proceed.recv().unwrap_or(false)
+}
+
+fn preflight(sink: &mut dyn X11Sink, plans: &[Plan]) -> Result<(), AdapterError> {
+    let (width, height) = sink.root_size().map_err(SinkError::into_adapter)?;
+    let (width, height) = (i32::from(width), i32::from(height));
+    let outside = |step: &Step| {
+        matches!(step, Step::MoveTo { x, y }
+            if !(0..width).contains(x) || !(0..height).contains(y))
+    };
+    if plans.iter().flat_map(|plan| &plan.steps).any(outside) {
+        return Err(AdapterError::new(
+            ErrorCode::InvalidArgs,
+            "A pointer position lies outside the screen",
+        )
+        .with_details(json!({ "screen_width": width, "screen_height": height }))
+        .with_suggestion("Use a point inside the screen bounds")
+        .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered()));
+    }
+    Ok(())
+}
+
+fn run_plan(
+    guard: &mut ReleaseGuard<'_>,
+    plan: &Plan,
+    deadline: Deadline,
+    progress: &Progress,
+) -> Result<(), AdapterError> {
+    for step in &plan.steps {
+        check_alive(deadline, progress, guard.delivered())?;
+        run_step(guard, step, deadline, progress)?;
+        progress.record(guard.delivered());
+    }
+    guard.sink().round_trip().map_err(SinkError::into_adapter)
+}
+
+fn run_step(
+    guard: &mut ReleaseGuard<'_>,
+    step: &Step,
+    deadline: Deadline,
+    progress: &Progress,
+) -> Result<(), AdapterError> {
+    let sent = match step {
+        Step::Key { code, down } => guard.key(*code, *down),
+        Step::Button { code, down } => guard.button(*code, *down),
+        Step::MoveTo { x, y } => guard.move_to(*x, *y),
+        Step::Pause(duration) => return pause(*duration, deadline, progress, guard.delivered()),
+        Step::Keymap(edit) => {
+            if guard.restores_remap(edit) {
+                hold_before_restore(guard, deadline, progress)?;
+                return guard.edit_keymap(edit).map_err(SinkError::into_adapter);
+            }
+            guard
+                .edit_keymap(edit)
+                .and_then(|()| guard.sink().round_trip())
+                .map_err(SinkError::into_adapter)?;
+            return pause(REMAP_SETTLE, deadline, progress, guard.delivered());
+        }
+    };
+    sent.map_err(SinkError::into_adapter)
+}
+
+fn hold_before_restore(
+    guard: &mut ReleaseGuard<'_>,
+    deadline: Deadline,
+    progress: &Progress,
+) -> Result<(), AdapterError> {
+    if !guard.has_pending_remaps() {
+        return Ok(());
+    }
+    guard.sink().round_trip().map_err(SinkError::into_adapter)?;
+    pause(REMAP_RESTORE_HOLD, deadline, progress, guard.delivered())
+}
+
+fn check_alive(
+    deadline: Deadline,
+    progress: &Progress,
+    delivered: u32,
+) -> Result<(), AdapterError> {
+    if progress.is_cancelled() || deadline.is_expired() {
+        return Err(mark_started(deadline.timeout_error(), delivered));
+    }
+    Ok(())
+}
+
+fn pause(
+    duration: Duration,
+    deadline: Deadline,
+    progress: &Progress,
+    delivered: u32,
+) -> Result<(), AdapterError> {
+    let mut left = duration;
+    while !left.is_zero() {
+        check_alive(deadline, progress, delivered)?;
+        let slice = left.min(PAUSE_SLICE);
+        thread::sleep(slice);
+        left = left.saturating_sub(slice);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "worker_tests.rs"]
+mod tests;
