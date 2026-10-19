@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use x11rb::connection::Connection;
@@ -24,6 +25,7 @@ pub(crate) const ACTIVATION_GRACE: Duration = Duration::from_millis(2_000);
 const FORMAT_LONGS: u8 = 32;
 const MESSAGE_LONGS: usize = 5;
 const SERVER_TIME_BUDGET: Duration = Duration::from_millis(1_000);
+const CONFIRM_BUDGET: Duration = Duration::from_millis(500);
 const EVENT_POLL: Duration = Duration::from_millis(2);
 
 /// The five data longs of a `_NET_ACTIVE_WINDOW` request: the source
@@ -76,7 +78,7 @@ fn atom(connection: &RustConnection, name: &[u8]) -> Result<Atom, ActivateError>
 /// A connection ready to send: the root, the atom and the server time were
 /// all read before the caller's deadline.
 pub(crate) struct Prepared {
-    connection: RustConnection,
+    connection: Arc<RustConnection>,
     root: u32,
     active: Atom,
     timestamp: u32,
@@ -141,7 +143,7 @@ pub(crate) fn prepare(deadline: agent_desktop_core::Deadline) -> Result<Prepared
     let active = atom(&connection, b"_NET_ACTIVE_WINDOW")?;
     let timestamp = server_time(&connection, root, deadline).ok_or(ActivateError::SendFailed)?;
     Ok(Prepared {
-        connection,
+        connection: Arc::new(connection),
         root,
         active,
         timestamp,
@@ -149,8 +151,11 @@ pub(crate) fn prepare(deadline: agent_desktop_core::Deadline) -> Result<Prepared
 }
 
 /// Asks the window manager to make `client` the active window, from the
-/// caller's thread. The request is written and flushed, not awaited: the
-/// caller judges the effect by observation.
+/// caller's thread. The request is written here; a round trip then makes sure
+/// the display server has taken it before the connection can close, because a
+/// window manager can drop a request whose sender has already gone. That wait
+/// runs on a worker that holds the connection, so a server that stops
+/// answering costs the confirmation budget and the request still stands.
 pub(crate) fn send(prepared: &Prepared, client: u32, source: u32) -> Result<(), ActivateError> {
     let message = activation_event(client, prepared.active, source, prepared.timestamp);
     let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
@@ -161,7 +166,18 @@ pub(crate) fn send(prepared: &Prepared, client: u32, source: u32) -> Result<(), 
     prepared
         .connection
         .flush()
-        .map_err(|_| ActivateError::SendFailed)
+        .map_err(|_| ActivateError::SendFailed)?;
+    let connection = Arc::clone(&prepared.connection);
+    if let Some(deadline) = deadline_of(CONFIRM_BUDGET) {
+        let _ = bounded(deadline, None, move || {
+            connection
+                .get_input_focus()
+                .ok()
+                .and_then(|cookie| cookie.reply().ok())
+                .map(|_| ())
+        });
+    }
+    Ok(())
 }
 
 /// The window the manager says is active, or `None` when it names none or
