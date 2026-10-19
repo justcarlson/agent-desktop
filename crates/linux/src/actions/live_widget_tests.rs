@@ -112,11 +112,8 @@ fn select_by_display_value_chooses_the_item_of_a_combo_box() {
                 assert_eq!(bench.name_of(&combo), "alpha", "{toolkit:?}");
                 return;
             }
-            let result = result.unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
-            assert!(
-                status_becomes(bench, "combo:beta"),
-                "{toolkit:?}: {result:?}"
-            );
+            result.unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+            assert!(status_becomes(bench, "combo:beta"), "{toolkit:?}");
             let renamed = bench
                 .wait_for(|| (bench.name_of(&combo) == "beta").then_some(()))
                 .is_some();
@@ -136,10 +133,10 @@ fn select_by_display_value_chooses_the_item_of_a_qt_list() {
         let list = bench
             .find(LIST, "items")
             .unwrap_or_else(|| panic!("{toolkit:?}: no list"));
-        let result = bench
+        bench
             .act(&list, Action::Select("two".to_owned()))
             .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
-        assert!(status_becomes(bench, "list:two"), "{toolkit:?}: {result:?}");
+        assert!(status_becomes(bench, "list:two"), "{toolkit:?}");
         let item = bench.find(LIST_ITEM, "two").expect("the item");
         assert!(bench.has_state(&item, SELECTED), "{toolkit:?}");
     });
