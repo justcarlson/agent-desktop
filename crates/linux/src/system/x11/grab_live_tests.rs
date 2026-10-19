@@ -21,10 +21,9 @@ fn deadline() -> Deadline {
 }
 
 fn private_display() -> String {
-    let private = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let display = std::env::var("DISPLAY").expect("DISPLAY");
-    assert!(!private.is_empty());
-    assert_ne!(display, ":0", "the live display must never be captured");
+    let private = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
+    assert!(!private.is_empty() && !matches!(display.as_str(), ":0" | ":99" | ""));
     display
 }
 

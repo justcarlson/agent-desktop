@@ -1,6 +1,5 @@
-use x11rb::protocol::xproto::{Depth, Format, Setup, Visualtype};
+use x11rb::protocol::xproto::{Depth, Format, ImageOrder, Setup, Visualtype};
 
-use super::byte_order::msb_first;
 use super::channel_masks::masks_of;
 use crate::system::capture::pixels::VisualFormat;
 
@@ -34,7 +33,7 @@ pub(crate) fn format_of(setup: &Setup, depth: u8, visual_id: u32) -> Option<Visu
         bits_per_pixel: format.bits_per_pixel,
         depth,
         scanline_pad: format.scanline_pad,
-        msb_first: msb_first(setup.image_byte_order),
+        msb_first: setup.image_byte_order == ImageOrder::MSB_FIRST,
     })
 }
 

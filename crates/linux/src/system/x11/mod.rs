@@ -1,7 +1,6 @@
 pub(crate) mod activate;
 pub(crate) mod activate_error;
 mod bounded;
-pub(crate) mod byte_order;
 pub(crate) mod channel_masks;
 mod client;
 pub(crate) mod client_message;

@@ -158,16 +158,6 @@ pub(crate) fn records_in(dir: &Path, display: &str) -> Vec<OwnerRecord> {
         .collect()
 }
 
-#[expect(
-    dead_code,
-    reason = "the clipboard read and set paths use it once they land"
-)]
-pub(crate) fn records_for(display: &str) -> Vec<OwnerRecord> {
-    record_dir()
-        .map(|dir| records_in(&dir, display))
-        .unwrap_or_default()
-}
-
 pub(crate) fn start_ticks_of(pid: u32) -> Option<u64> {
     parse_start_time(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
 }
@@ -175,16 +165,9 @@ pub(crate) fn start_ticks_of(pid: u32) -> Option<u64> {
 /// A record is live only while the process it names started when the record
 /// says. A different start time means the pid was recycled, and a recycled
 /// pid is never signalled.
+#[cfg(test)]
 pub(crate) fn is_live_with(record: &OwnerRecord, start_of: impl Fn(u32) -> Option<u64>) -> bool {
     record.pid != 0 && start_of(record.pid) == Some(record.start_ticks)
-}
-
-#[expect(
-    dead_code,
-    reason = "the clipboard read and set paths use it once they land"
-)]
-pub(crate) fn is_live(record: &OwnerRecord) -> bool {
-    is_live_with(record, start_ticks_of)
 }
 
 #[cfg(test)]

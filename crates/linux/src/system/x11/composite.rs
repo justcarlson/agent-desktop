@@ -6,10 +6,9 @@ use x11rb::protocol::composite::{ConnectionExt as _, Redirect};
 use x11rb::protocol::xproto::{ConnectionExt as _, Window, WindowClass};
 use x11rb::rust_connection::RustConnection;
 
-use super::MonitorFault;
 use super::drawable::reply_error;
 use super::grab::{Raw, read_strips};
-use super::grab_error::GrabError;
+use super::grab_error::{GrabError, unreadable};
 use super::grab_rect::GrabRect;
 use super::map_state::MapState;
 use super::repaint::Repaint;
@@ -78,10 +77,6 @@ fn content_regions(connection: &RustConnection, window: Window, rect: GrabRect) 
     } else {
         found
     }
-}
-
-fn unreadable<E>(_: E) -> GrabError {
-    GrabError::Fault(MonitorFault::Unreadable)
 }
 
 fn painted(

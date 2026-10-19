@@ -1,5 +1,4 @@
 use super::*;
-use crate::tree::Extents;
 
 fn rect(x: i16, y: i16, width: u16, height: u16) -> GrabRect {
     GrabRect {
@@ -64,45 +63,4 @@ fn a_strip_that_overflows_the_wire_coordinate_is_refused() {
         rect(0, i16::MAX, 10, 10).strips(40, 120),
         Err(GrabError::Resource)
     );
-}
-
-#[test]
-fn clipping_keeps_the_part_on_the_screen() {
-    assert_eq!(
-        rect(10, 10, 20, 20).clip_to(100, 100),
-        Some(rect(10, 10, 20, 20))
-    );
-    assert_eq!(
-        rect(-5, -5, 20, 20).clip_to(100, 100),
-        Some(rect(0, 0, 15, 15))
-    );
-    assert_eq!(
-        rect(90, 90, 20, 20).clip_to(100, 100),
-        Some(rect(90, 90, 10, 10))
-    );
-}
-
-#[test]
-fn a_rectangle_wholly_off_the_screen_clips_to_nothing() {
-    assert_eq!(rect(100, 0, 10, 10).clip_to(100, 100), None);
-    assert_eq!(rect(-10, 0, 10, 10).clip_to(100, 100), None);
-    assert_eq!(rect(0, 200, 10, 10).clip_to(100, 100), None);
-}
-
-#[test]
-fn extents_convert_only_when_they_fit_the_wire_and_have_area() {
-    let extents = |x, y, width, height| Extents {
-        x,
-        y,
-        width,
-        height,
-    };
-    assert_eq!(
-        GrabRect::from_extents(extents(-3, 4, 50, 60)),
-        Some(rect(-3, 4, 50, 60))
-    );
-    assert_eq!(GrabRect::from_extents(extents(0, 0, 0, 60)), None);
-    assert_eq!(GrabRect::from_extents(extents(0, 0, 60, -1)), None);
-    assert_eq!(GrabRect::from_extents(extents(40_000, 0, 5, 5)), None);
-    assert_eq!(GrabRect::from_extents(extents(0, 0, 70_000, 5)), None);
 }

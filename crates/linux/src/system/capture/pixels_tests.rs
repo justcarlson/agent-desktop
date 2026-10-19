@@ -129,13 +129,3 @@ fn zero_size_is_refused() {
     assert!(to_rgb(&le32(), &[], 0, 2, 8).is_err());
     assert!(to_rgb(&le32(), &[], 2, 0, 8).is_err());
 }
-
-#[test]
-fn a_row_is_padded_to_the_scanline_unit() {
-    let mut format = le32();
-    format.bits_per_pixel = 24;
-    assert_eq!(format.row_bytes(3), 12);
-    assert_eq!(le32().row_bytes(3), 12);
-    format.scanline_pad = 8;
-    assert_eq!(format.row_bytes(3), 9);
-}

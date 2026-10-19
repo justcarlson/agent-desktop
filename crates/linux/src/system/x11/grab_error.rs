@@ -14,6 +14,10 @@ pub(crate) enum GrabError {
     Timeout,
 }
 
+pub(crate) fn unreadable<E>(_: E) -> GrabError {
+    GrabError::Fault(MonitorFault::Unreadable)
+}
+
 impl GrabError {
     pub(crate) fn from_error_kind(kind: ErrorKind, map_state: impl FnOnce() -> MapState) -> Self {
         match kind {

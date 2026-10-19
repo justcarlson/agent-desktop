@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
-
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 pub(crate) const MAX_PIXELS: u64 = 64 * 1024 * 1024;
@@ -20,12 +18,6 @@ struct Channel {
 }
 
 impl VisualFormat {
-    pub(crate) fn row_bytes(&self, width: u32) -> usize {
-        let pad = usize::from(self.scanline_pad.max(8));
-        let bits = (width as usize).saturating_mul(usize::from(self.bits_per_pixel));
-        bits.div_ceil(pad).saturating_mul(pad) / 8
-    }
-
     fn describe(&self) -> String {
         format!(
             "depth {} with {} bits per pixel and masks {:#x}/{:#x}/{:#x}",
