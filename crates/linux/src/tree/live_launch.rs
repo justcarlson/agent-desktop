@@ -55,10 +55,56 @@ impl Launched {
             let _ = child.wait();
         }
         self.children.clear();
+        stop_activated_servers();
         for path in self.scratch.drain(..) {
             let _ = std::fs::remove_dir_all(path);
         }
     }
+}
+
+const ACTIVATED_SERVERS: [&str; 1] = ["gnome-terminal-"];
+
+/// Ends the servers that D-Bus started for a launched client and that outlive
+/// it: `gnome-terminal` only asks its server to open a window, so killing the
+/// client leaves the server and its window for every later test of the
+/// session. Only processes of this session's own runtime directory are
+/// signalled, each by pid.
+fn stop_activated_servers() {
+    let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR") else {
+        return;
+    };
+    let wanted = format!("XDG_RUNTIME_DIR={}", runtime.to_string_lossy());
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|name| name.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        let comm = std::fs::read_to_string(entry.path().join("comm")).unwrap_or_default();
+        if !is_activated_server(comm.trim()) {
+            continue;
+        }
+        let environ = std::fs::read(entry.path().join("environ")).unwrap_or_default();
+        let ours = environ
+            .split(|byte| *byte == 0)
+            .any(|variable| variable == wanted.as_bytes());
+        if ours {
+            let _ = Command::new("kill")
+                .args(["-KILL", &pid.to_string()])
+                .status();
+        }
+    }
+}
+
+fn is_activated_server(comm: &str) -> bool {
+    ACTIVATED_SERVERS
+        .iter()
+        .any(|prefix| comm.starts_with(prefix))
 }
 
 impl Drop for Launched {
@@ -125,4 +171,18 @@ pub(crate) fn environment_note() -> String {
         kib("MemAvailable"),
         kib("SwapFree")
     )
+}
+
+#[cfg(test)]
+mod activated_tests {
+    use super::is_activated_server;
+
+    #[test]
+    fn only_the_terminal_server_is_an_activated_server() {
+        assert!(is_activated_server("gnome-terminal-"));
+        assert!(!is_activated_server("gnome-terminal"));
+        assert!(!is_activated_server("dbus-daemon"));
+        assert!(!is_activated_server("Xvfb"));
+        assert!(!is_activated_server("openbox"));
+    }
 }
