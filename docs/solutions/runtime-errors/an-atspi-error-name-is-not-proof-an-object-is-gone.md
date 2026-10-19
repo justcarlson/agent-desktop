@@ -2,7 +2,7 @@
 title: An AT-SPI error name is not proof an object is gone
 date: 2026-10-18
 category: runtime-errors
-module: crates/linux/src/tree/absence.rs, crates/linux/src/tree/resolve_errors.rs, crates/linux/src/tree/node_evidence.rs, crates/linux/src/tree/resolve.rs
+module: crates/linux/src/tree/absence.rs, crates/linux/src/tree/resolve_errors.rs, crates/linux/src/tree/node_evidence.rs, crates/linux/src/tree/resolve.rs, crates/linux/src/tree/toolkit_trust.rs
 problem_type: runtime_error
 component: atspi-resolver
 symptoms:
@@ -19,6 +19,7 @@ Re-identifying a stored ref on Linux needs a verdict on whether the element stil
 ## What the toolkits actually do
 
 - **The same names mean "not implemented" on live objects** (L17-2). Qt answers `UnknownObject` to `Text.GetText` on 46 of 48 live nodes and `UnknownInterface` to `Properties.Get` of `Value`; GTK4 answers `UnknownMethod`; GTK3 answers `Failed`. Qt also answers `UnknownInterface` to `Properties.GetAll(Accessible)` on every live node (L17-3), so a `GetAll` failure is no absence signal.
+  The same holds on the application interface: GTK3 and Qt refuse `Properties.GetAll(org.a11y.atspi.Application)` while answering `Get(ToolkitName)` and `Get(Version)` (L27-20, L27-32), so `toolkit_trust.rs` reads the toolkit one property at a time and a refused group read leaves nothing to conclude.
 - **Destroyed objects keep answering.** GTK3 and Chromium objects return their old values for about 16 s after destruction, then `UnknownObject` (L17-6 to L17-8). A successful read of a stored path proves nothing in that window. GTK4 and Qt go quiet at once, with `UnknownMethod` and `UnknownObject`/`UnknownInterface` respectively (L17-1, L17-4).
 - **An exited application is a different error.** SIGKILL and clean quit both give `org.freedesktop.DBus.Error.ServiceUnknown` on the call and `NameHasNoOwner` on a bus-daemon query; never `UnknownObject` (L17-9).
 - **A timeout carries no D-Bus error name** (L17-10): a stopped process fails every read with a local `TIMED_OUT` after the client limit, and the registry still lists it. Registry presence is no liveness evidence.
