@@ -1,20 +1,44 @@
+#![cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the callers land with the other lanes")
+)]
+
 use agent_desktop_core::AdapterError;
 
 use super::context::Target;
-use super::mutation::WriteReply;
+use super::mutation::{WriteKind, WriteReply};
+use super::write_call::invoke;
 
-#[expect(dead_code, reason = "no caller yet")]
-pub(crate) fn resolve_verb(_names: &[String], _verbs: &[&str]) -> Option<i32> {
-    None
+const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
+
+pub(crate) fn resolve_verb(names: &[String], verbs: &[&str]) -> Option<i32> {
+    verbs
+        .iter()
+        .filter(|verb| !verb.is_empty())
+        .find_map(|verb| {
+            names
+                .iter()
+                .position(|name| name.eq_ignore_ascii_case(verb))
+        })
+        .and_then(|position| i32::try_from(position).ok())
 }
 
-#[expect(dead_code, reason = "no caller yet")]
 pub(crate) fn do_action(
-    _target: &Target<'_>,
-    _names: &[String],
-    _verbs: &[&str],
+    target: &Target<'_>,
+    names: &[String],
+    verbs: &[&str],
 ) -> Result<WriteReply, AdapterError> {
-    Ok(WriteReply::Absent)
+    match resolve_verb(names, verbs) {
+        Some(index) => invoke(
+            target,
+            ACTION_INTERFACE,
+            "DoAction",
+            &(index,),
+            WriteKind::DoAction,
+            true,
+        ),
+        None => Ok(WriteReply::Absent),
+    }
 }
 
 #[cfg(test)]
