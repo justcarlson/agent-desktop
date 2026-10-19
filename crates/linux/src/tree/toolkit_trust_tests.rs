@@ -109,3 +109,12 @@ fn only_gtk_three_has_a_combo_selection_that_follows_the_application() {
     assert!(!combo_selection_is_live(&toolkit(Some("Qt"), Some("6.4"))));
     assert!(!combo_selection_is_live(&ToolkitId::default()));
 }
+
+#[test]
+fn only_qt_names_a_combo_by_its_shown_value() {
+    use super::combo_name_is_value;
+    assert!(combo_name_is_value(&toolkit(Some("Qt"), Some("6.4"))));
+    assert!(!combo_name_is_value(&toolkit(Some("gtk"), Some("3.24"))));
+    assert!(!combo_name_is_value(&toolkit(Some("Chromium"), None)));
+    assert!(!combo_name_is_value(&ToolkitId::default()));
+}

@@ -83,6 +83,13 @@ pub(crate) fn combo_selection_is_live(toolkit: &ToolkitId) -> bool {
     kind(toolkit) == ToolkitKind::Gtk3
 }
 
+/// Whether a combo box's accessible name is its shown value. Only Qt is
+/// proven to name the combo by its current text; GTK 3 and Chromium let the
+/// application name it with a label (`set_name`, `aria-label`).
+pub(crate) fn combo_name_is_value(toolkit: &ToolkitId) -> bool {
+    kind(toolkit) == ToolkitKind::Qt
+}
+
 /// Whether the root names Gecko, whose `SetTextContents` and `InsertText`
 /// answer `true` and change nothing (L30-14).
 pub(crate) fn is_gecko(toolkit: &ToolkitId) -> bool {

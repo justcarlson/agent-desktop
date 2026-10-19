@@ -93,19 +93,23 @@ fn a_blank_or_object_replacement_text_says_nothing_about_the_combo_value() {
 }
 
 #[test]
-fn a_combo_name_is_no_evidence_against_the_wanted_value_where_it_may_be_a_label() {
-    assert_eq!(combo_evidence(None, Some("combo"), "beta", true), None);
+fn a_combo_name_is_evidence_against_the_wanted_value_only_where_it_is_the_value() {
+    assert_eq!(combo_evidence(None, Some("combo"), "beta", false), None);
+    assert_eq!(combo_evidence(None, Some("sel"), "two", false), None);
     assert_eq!(
-        combo_evidence(None, Some("combo"), "beta", false),
-        Some(false)
-    );
-    assert_eq!(combo_evidence(None, Some("beta"), "beta", true), Some(true));
-    assert_eq!(
-        combo_evidence(Some("alpha"), Some("beta"), "beta", true),
+        combo_evidence(None, Some("combo"), "beta", true),
         Some(false)
     );
     assert_eq!(
-        combo_evidence(Some("\u{fffc}"), Some(""), "beta", false),
+        combo_evidence(None, Some("beta"), "beta", false),
+        Some(true)
+    );
+    assert_eq!(
+        combo_evidence(Some("alpha"), Some("beta"), "beta", false),
+        Some(false)
+    );
+    assert_eq!(
+        combo_evidence(Some("\u{fffc}"), Some(""), "beta", true),
         None
     );
 }
