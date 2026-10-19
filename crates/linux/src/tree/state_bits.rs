@@ -12,7 +12,7 @@ pub(crate) const PRESSED: u32 = 20;
 pub(crate) const SELECTED: u32 = 23;
 pub(crate) const SENSITIVE: u32 = 24;
 pub(crate) const SHOWING: u32 = 25;
-pub(crate) const HORIZONTAL: u32 = 13;
+pub(crate) const HORIZONTAL: u32 = 14;
 pub(crate) const VERTICAL: u32 = 29;
 pub(crate) const VISIBLE: u32 = 30;
 pub(crate) const INDETERMINATE: u32 = 32;
@@ -35,5 +35,20 @@ impl<'a> StateBits<'a> {
         self.0
             .get((bit / 32) as usize)
             .is_some_and(|word| word & (1 << (bit % 32)) != 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_bit_fourteen_is_horizontal() {
+        assert!(StateBits::new(&[1 << 14]).has(HORIZONTAL));
+    }
+
+    #[test]
+    fn bit_thirteen_is_a_tooltip_not_horizontal() {
+        assert!(!StateBits::new(&[1 << 13]).has(HORIZONTAL));
     }
 }
