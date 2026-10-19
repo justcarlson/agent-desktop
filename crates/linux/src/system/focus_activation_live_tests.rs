@@ -107,7 +107,7 @@ fn focus_window_takes_focus_back_from_a_window_another_tool_activated() {
     let second_pid = spawn(&mut launched, "adactB");
     let _second = window_titled(&bus, second_pid, "adactB");
     let other = x_id_of("adactB");
-    for round in 0..3 {
+    for round in 0..10 {
         activate_externally(&other);
         assert!(
             !is_focused(&bus, &first.id),
