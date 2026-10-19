@@ -155,13 +155,14 @@ fn an_enabled_entry_and_an_item_with_activate_are_ref_able_with_a_click() {
 }
 
 #[test]
-fn a_disabled_entry_and_a_separator_advertise_no_click() {
+fn a_disabled_entry_advertises_click_with_its_disabled_state_and_a_separator_none() {
     let nodes = all();
     let off = nodes
         .iter()
         .find(|node| node.identity.name.as_deref() == Some("Off"))
         .expect("Off is projected");
-    assert!(off.presentation.available_actions.is_empty());
+    assert_eq!(off.presentation.available_actions, ["Click"]);
+    assert!(off.presentation.states.iter().any(|state| state == "disabled"));
     let separator = nodes
         .iter()
         .find(|node| node.role == SEPARATOR_ROLE)

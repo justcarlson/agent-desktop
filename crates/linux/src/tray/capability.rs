@@ -17,9 +17,12 @@ pub(crate) fn actions(methods: &[String]) -> Vec<String> {
     actions
 }
 
-/// A menu entry can be picked when it is enabled and is not a separator.
+/// A menu entry other than a separator is clickable, enabled or not: whether
+/// it can be picked now is its `enabled` state, which core's gate reads, so a
+/// disabled entry gets the same enabled-check answer headless and headed and
+/// never a hint to use `--headed` that cannot help.
 pub(crate) fn entry_actions(entry: &LayoutEntry) -> Vec<String> {
-    if entry.enabled && !entry.separator {
+    if !entry.separator {
         vec![capability::CLICK.to_owned()]
     } else {
         Vec::new()

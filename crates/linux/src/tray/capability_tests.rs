@@ -40,8 +40,8 @@ fn a_listed_context_menu_reports_right_click() {
 }
 
 #[test]
-fn an_enabled_entry_reports_click_a_disabled_one_and_a_separator_report_none() {
+fn an_entry_reports_click_enabled_or_not_and_a_separator_reports_none() {
     assert_eq!(entry_actions(&entry(true, false)), ["Click"]);
-    assert!(entry_actions(&entry(false, false)).is_empty());
+    assert_eq!(entry_actions(&entry(false, false)), ["Click"]);
     assert!(entry_actions(&entry(true, true)).is_empty());
 }
