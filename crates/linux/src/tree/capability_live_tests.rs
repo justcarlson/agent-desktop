@@ -6,6 +6,7 @@ use super::action_names::{capabilities, capability_of};
 use super::capability_rules::carries_checked;
 use super::live_apps::each_app;
 use super::role_numbers::{COMBO_BOX, DIAL, PUSH_BUTTON, SCROLL_BAR, SLIDER, SPIN_BUTTON};
+use super::scroll_capability::wheel_target;
 use super::state_bits::{EXPANDABLE, EXPANDED, HAS_POPUP, StateBits};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, RawNode, WalkLimits, WalkedNode};
@@ -115,6 +116,11 @@ fn backed(node: &RawNode, token: &str) -> bool {
                 || advertises(node, EDITABLE_TEXT)
         }
         "TypeText" => advertises(node, EDITABLE_TEXT) && advertises(node, TEXT),
+        "Scroll" => node
+            .traits
+            .interfaces
+            .present()
+            .is_some_and(|interfaces| wheel_target(role, interfaces)),
         "Expand" | "Collapse" => stateful_disclosure(node),
         _ => false,
     }
