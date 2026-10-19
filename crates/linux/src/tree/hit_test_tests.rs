@@ -86,6 +86,7 @@ fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
             current_desktop: Some(0),
             stack,
             override_redirect_above: Vec::new(),
+            override_redirect_receiving: Vec::new(),
         },
         clients: Vec::new(),
     }

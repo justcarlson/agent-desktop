@@ -115,6 +115,12 @@ fn names(connection: &RustConnection) -> Option<Names> {
     })
 }
 
+#[derive(Default)]
+struct Overlays {
+    bounds: Vec<Extents>,
+    receiving: Vec<(u32, Extents)>,
+}
+
 type Property<'c> = Cookie<'c, RustConnection, GetPropertyReply>;
 
 fn property(
@@ -230,7 +236,7 @@ fn frame_of(connection: &RustConnection, root: Window, client: Window) -> Option
     })
 }
 
-fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<Vec<Extents>> {
+fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<Overlays> {
     let siblings = connection.query_tree(root).ok()?.reply().ok()?.children;
     let position = siblings.iter().position(|window| *window == frame)?;
     let probes: Vec<_> = siblings[position + 1..]
@@ -240,11 +246,12 @@ fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<
             (
                 connection.get_window_attributes(*window).ok(),
                 connection.get_geometry(*window).ok(),
+                super::stacking_input::request(connection, *window),
             )
         })
         .collect();
-    let mut found = Vec::new();
-    for (attributes, size) in probes {
+    let mut found = Overlays::default();
+    for (window, (attributes, size, input)) in siblings[position + 1..].iter().zip(probes) {
         let Some(attributes) = attributes.and_then(|cookie| cookie.reply().ok()) else {
             continue;
         };
@@ -256,13 +263,20 @@ fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<
             continue;
         };
         let border = i32::from(size.border_width) * 2;
-        found.push(Extents {
+        found.bounds.push(Extents {
             x: i32::from(size.x),
             y: i32::from(size.y),
             width: i32::from(size.width) + border,
             height: i32::from(size.height) + border,
         });
-        if found.len() == MAX_OVERLAYS {
+        let inside = i32::from(size.border_width);
+        let origin = (i32::from(size.x) + inside, i32::from(size.y) + inside);
+        found.receiving.extend(
+            super::stacking_input::rectangles(input, origin)
+                .into_iter()
+                .map(|rect| (*window, rect)),
+        );
+        if found.bounds.len() == MAX_OVERLAYS {
             break;
         }
     }
@@ -326,7 +340,7 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     if stack.first().is_none_or(|window| window.id != target) {
         return StackingRead::Unavailable;
     }
-    let Some(above) =
+    let Some(overlays) =
         frame_of(&connection, root, target).and_then(|frame| overlays(&connection, root, frame))
     else {
         return StackingRead::Unavailable;
@@ -334,6 +348,7 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     StackingRead::Ready(StackingSnapshot {
         current_desktop,
         stack,
-        override_redirect_above: above,
+        override_redirect_above: overlays.bounds,
+        override_redirect_receiving: overlays.receiving,
     })
 }

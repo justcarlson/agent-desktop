@@ -17,6 +17,7 @@ mod source;
 pub(crate) mod stacked_window;
 pub(crate) mod stacking;
 pub(crate) mod stacking_decode;
+mod stacking_input;
 pub(crate) mod stacking_read;
 pub(crate) mod stacking_snapshot;
 pub(crate) mod stacking_source;

@@ -9,14 +9,17 @@ use crate::system::x11::window_kind::WindowKind;
 /// What the stacking order says about a point of the target's window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Occlusion {
-    /// A managed window above the target, whose frame contains the point.
+    /// A window above the target that takes the pointer at the point: a
+    /// managed window whose frame contains it, or an override-redirect window
+    /// whose input region does.
     CoveredBy {
         window: u32,
         frame: Extents,
     },
     Clear,
-    /// A mapped override-redirect window above the target contains the point:
-    /// real, but nothing proves it takes the event.
+    /// A mapped override-redirect window above the target contains the point,
+    /// but its input region was not read or does not hold it: nothing proves
+    /// it takes the event.
     OverrideRedirectOver,
     Unknown,
 }
@@ -72,6 +75,16 @@ pub(crate) fn occlusion(snapshot: &StackingSnapshot, target: u32, point: (i32, i
     }
     if unreadable {
         return Occlusion::Unknown;
+    }
+    if let Some((window, frame)) = snapshot
+        .override_redirect_receiving
+        .iter()
+        .find(|(_, rect)| admits(*rect, point))
+    {
+        return Occlusion::CoveredBy {
+            window: *window,
+            frame: *frame,
+        };
     }
     if snapshot
         .override_redirect_above

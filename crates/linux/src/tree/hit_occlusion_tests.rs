@@ -43,6 +43,7 @@ fn snapshot(stack: Vec<StackedWindow>) -> StackingSnapshot {
         current_desktop: Some(0),
         stack,
         override_redirect_above: Vec::new(),
+        override_redirect_receiving: Vec::new(),
     }
 }
 
@@ -169,6 +170,31 @@ fn the_topmost_covering_window_is_named() {
 fn an_override_redirect_window_over_the_point_is_reported_as_such() {
     let mut read = snapshot(vec![target()]);
     read.override_redirect_above = vec![rect(300, 150, 50, 50)];
+    assert_eq!(
+        occlusion(&read, TARGET, POINT),
+        Occlusion::OverrideRedirectOver
+    );
+}
+
+#[test]
+fn an_override_redirect_window_whose_input_region_holds_the_point_covers_it() {
+    let mut read = snapshot(vec![target()]);
+    read.override_redirect_above = vec![rect(300, 150, 50, 50)];
+    read.override_redirect_receiving = vec![(77, rect(300, 150, 50, 50))];
+    assert_eq!(
+        occlusion(&read, TARGET, POINT),
+        Occlusion::CoveredBy {
+            window: 77,
+            frame: rect(300, 150, 50, 50)
+        }
+    );
+}
+
+#[test]
+fn an_override_redirect_window_whose_input_region_misses_the_point_does_not_cover_it() {
+    let mut read = snapshot(vec![target()]);
+    read.override_redirect_above = vec![rect(300, 150, 50, 50)];
+    read.override_redirect_receiving = vec![(77, rect(300, 150, 10, 10))];
     assert_eq!(
         occlusion(&read, TARGET, POINT),
         Occlusion::OverrideRedirectOver

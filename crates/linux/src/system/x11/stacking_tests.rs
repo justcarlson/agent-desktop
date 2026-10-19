@@ -86,6 +86,7 @@ fn snapshot(stack: Vec<StackedWindow>) -> StackingRead {
         current_desktop: Some(0),
         stack,
         override_redirect_above: Vec::new(),
+        override_redirect_receiving: Vec::new(),
     })
 }
 
