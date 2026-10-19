@@ -4,8 +4,11 @@ use agent_desktop_core::Deadline;
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::damage::{ConnectionExt as _, Damage, ReportLevel};
-use x11rb::protocol::xproto::Window;
+use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::rust_connection::RustConnection;
+
+use super::damage_bounds::DamageBounds;
+use super::grab_rect::GrabRect;
 
 const REDIRECT_WAIT: Duration = Duration::from_millis(100);
 const REPAINT_WAIT: Duration = Duration::from_millis(300);
@@ -23,19 +26,28 @@ impl<'a> Repaint<'a> {
         connection.damage_query_version(1, 1).ok()?.reply().ok()?;
         let damage = connection.generate_id().ok()?;
         connection
-            .damage_create(damage, window, ReportLevel::NON_EMPTY)
+            .damage_create(damage, window, ReportLevel::BOUNDING_BOX)
             .ok()?
             .check()
             .ok()?;
         Some(Self { connection, damage })
     }
 
-    fn damaged_within(&self, wait: Duration, deadline: Deadline) -> bool {
+    fn damaged_within(&self, wait: Duration, deadline: Deadline, target: Option<GrabRect>) -> bool {
         let started = Instant::now();
         let limit = wait.min(deadline.remaining());
+        let mut seen: Option<DamageBounds> = None;
         loop {
             match self.connection.poll_for_event() {
-                Ok(Some(Event::DamageNotify(event))) if event.damage == self.damage => return true,
+                Ok(Some(Event::DamageNotify(event))) if event.damage == self.damage => {
+                    let area = event.area;
+                    let report = DamageBounds::of(area.x, area.y, area.width, area.height);
+                    let total = seen.map_or(report, |earlier| earlier.merged(report));
+                    seen = Some(total);
+                    if target.is_none_or(|rect| total.covers(rect)) {
+                        return true;
+                    }
+                }
                 Ok(Some(_)) => continue,
                 Ok(None) if started.elapsed() < limit => std::thread::sleep(POLL),
                 _ => return false,
@@ -44,17 +56,22 @@ impl<'a> Repaint<'a> {
     }
 
     /// Waits for the redirect's own report and then for the client's repaint
-    /// after it, and says whether the repaint came. A redirected pixmap read
-    /// before that repaint can hold what was on the screen instead of the
-    /// window's own paint.
-    pub(super) fn settle(&self, deadline: Deadline) -> bool {
+    /// after it, and says whether the repaint reports covered the whole
+    /// target. Reports that were queued before the subtract belong to the
+    /// redirect, so they are dropped. A redirected pixmap read before that repaint can hold what was
+    /// on the screen instead of the window's own paint, and a repaint of a
+    /// part says nothing about the rest.
+    pub(super) fn settle(&self, deadline: Deadline, target: GrabRect) -> bool {
         let _ = self.connection.flush();
-        if !self.damaged_within(REDIRECT_WAIT, deadline) {
+        if !self.damaged_within(REDIRECT_WAIT, deadline, None) {
             return false;
         }
         let _ = self.connection.damage_subtract(self.damage, 0u32, 0u32);
-        let _ = self.connection.flush();
-        self.damaged_within(REPAINT_WAIT, deadline)
+        if let Ok(cookie) = self.connection.get_input_focus() {
+            let _ = cookie.reply();
+        }
+        while let Ok(Some(_)) = self.connection.poll_for_event() {}
+        self.damaged_within(REPAINT_WAIT, deadline, Some(target))
     }
 }
 

@@ -12,7 +12,7 @@ use super::grab_error::{GrabError, unreadable};
 use super::grab_rect::GrabRect;
 use super::map_state::MapState;
 use super::repaint::Repaint;
-use super::unpainted::{Region, matches_screen};
+use super::unpainted::{Region, is_proven};
 
 const PAINT_WAIT: Duration = Duration::from_millis(1_000);
 const PAINT_POLL: Duration = Duration::from_millis(40);
@@ -104,7 +104,10 @@ fn painted(
 /// lasts only for this read. A pixmap that is still blank after the wait is
 /// refused: it is a window not painted yet, never an image to return. A
 /// pixmap that equals what the screen shows under the window, with no repaint
-/// seen, holds only that copy, so it is refused as well.
+/// seen, holds only that copy, so it is refused as well. So is any pixmap
+/// whose provenance is not proven for the whole target: a partial repaint
+/// report, a missing screen read and a pixmap that matches the screen in any
+/// pixel prove nothing.
 pub(crate) fn grab_redirected(
     connection: &RustConnection,
     window: Window,
@@ -141,18 +144,15 @@ pub(crate) fn grab_redirected(
             .map_err(unreadable);
         let repainted = repaint
             .as_ref()
-            .is_some_and(|repaint| repaint.settle(deadline));
+            .is_some_and(|repaint| repaint.settle(deadline, rect));
         let raw = named
             .and_then(|()| painted(connection, pixmap, rect, attributes.visual, deadline))
             .and_then(|raw| {
-                let unpainted = !repainted
-                    && screen
-                        .as_ref()
-                        .is_some_and(|shown| matches_screen(shown, &raw, &regions));
-                if unpainted {
-                    Err(GrabError::Timeout)
-                } else {
+                let proven = is_proven(repainted, screen.as_ref(), &raw, &regions);
+                if proven {
                     Ok(raw)
+                } else {
+                    Err(GrabError::Timeout)
                 }
             });
         let _ = connection.free_pixmap(pixmap);

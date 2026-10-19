@@ -17,12 +17,12 @@ fn pixel_at(raw: &Raw, x: usize, y: usize) -> Option<[u8; 3]> {
     Some([bytes[0], bytes[1], bytes[2]])
 }
 
-/// Whether every pixel of the regions that lies inside both images is the
-/// same in the two. A redirected pixmap whose window content equals what the
-/// screen showed has not been painted by the window: it holds the screen's
-/// copy, which can be the pixels of whatever covers the window. A grab with
-/// no pixel to compare is not a match.
-pub(super) fn matches_screen(screen: &Raw, pixmap: &Raw, regions: &[Region]) -> bool {
+/// Whether no pixel of the regions that lies inside both images is the same
+/// in the two. A pixel equal to the screen's can be the screen's copy, which
+/// can be the pixels of whatever covers the window, so only a region that
+/// differs everywhere is the window's own paint. A grab with no pixel to
+/// compare proves nothing.
+pub(super) fn differs_everywhere(screen: &Raw, pixmap: &Raw, regions: &[Region]) -> bool {
     let width = screen.width.min(pixmap.width) as i32;
     let height = screen.height.min(pixmap.height) as i32;
     let mut compared = 0usize;
@@ -34,7 +34,7 @@ pub(super) fn matches_screen(screen: &Raw, pixmap: &Raw, regions: &[Region]) -> 
         for y in top..bottom {
             for x in left..right {
                 let (x, y) = (x as usize, y as usize);
-                if pixel_at(screen, x, y) != pixel_at(pixmap, x, y) {
+                if pixel_at(screen, x, y) == pixel_at(pixmap, x, y) {
                     return false;
                 }
                 compared += 1;
@@ -42,6 +42,19 @@ pub(super) fn matches_screen(screen: &Raw, pixmap: &Raw, regions: &[Region]) -> 
         }
     }
     compared > 0
+}
+
+/// Whether a redirected pixmap is proven to hold the window's own paint over
+/// the whole target: the repaint reports covered it, or the screen was read
+/// and the pixmap differs from it everywhere. A missing screen read, a partial
+/// repaint report and a partly differing pixmap are all unproven.
+pub(super) fn is_proven(
+    damage_covered: bool,
+    screen: Option<&Raw>,
+    pixmap: &Raw,
+    regions: &[Region],
+) -> bool {
+    damage_covered || screen.is_some_and(|shown| differs_everywhere(shown, pixmap, regions))
 }
 
 #[cfg(test)]

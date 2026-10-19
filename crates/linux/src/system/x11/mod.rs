@@ -9,6 +9,7 @@ pub(crate) mod compositing;
 pub(crate) mod control;
 pub(crate) mod control_display;
 pub(crate) mod control_send;
+mod damage_bounds;
 pub(crate) mod desktop_placement;
 pub(crate) mod desktops;
 pub(crate) mod drawable;
