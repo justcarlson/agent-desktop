@@ -55,6 +55,10 @@ impl AtspiElement {
         }
     }
 
+    pub(crate) fn ancestry(&self) -> &Ancestry {
+        &self.ancestry
+    }
+
     /// The window root the walk this element came from descended under.
     pub(crate) fn frame(&self) -> Option<&AtspiElement> {
         self.ancestry.frame()

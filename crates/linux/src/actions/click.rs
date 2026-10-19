@@ -14,7 +14,7 @@ use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::role_numbers::TOGGLE_BUTTON;
 use crate::tree::state_bits::HAS_POPUP;
-use crate::tree::{AtspiElement, atspi_element, list_children};
+use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
 pub(super) const POLL_STEP: Duration = Duration::from_millis(50);
 pub(super) const POPUP_STEP: Duration = Duration::from_millis(250);
@@ -150,7 +150,9 @@ pub(super) fn popup_inner(
         list_children(connection.inner(), element).await
     })?;
     for (bus, path) in children.into_iter().take(INNER_TOGGLE_SCAN) {
-        let handle = AtspiElement::new(bus, path, element.pid()).into_native_handle();
+        let mut child = AtspiElement::new(bus, path, element.pid());
+        child.set_ancestry(ancestry::child(element, None));
+        let handle = child.into_native_handle();
         let Ok(view) = read_node_view(target.bus, &handle, target.deadline) else {
             continue;
         };

@@ -17,7 +17,7 @@ use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::role_numbers::COMBO_BOX;
 use crate::tree::state_bits::SELECTED;
-use crate::tree::{AtspiElement, atspi_element, list_children};
+use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
 const SELECTION_INTERFACE: &str = "org.a11y.atspi.Selection";
 const SELECT_SETTLE: Duration = Duration::from_millis(1000);
@@ -29,6 +29,7 @@ pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool
 struct BusReader<'a> {
     bus: &'a SharedBus,
     deadline: Deadline,
+    inspected_role: Option<u32>,
 }
 
 fn handle_of(element: &AtspiElement) -> agent_desktop_core::NativeHandle {
@@ -40,6 +41,7 @@ impl ItemReader for BusReader<'_> {
 
     fn inspect(&mut self, node: &AtspiElement) -> Result<Inspected, AdapterError> {
         let view = read_node_view(self.bus, &handle_of(node), self.deadline)?;
+        self.inspected_role = view.role();
         Ok(Inspected {
             name: view.name().map(str::to_owned),
             selection: advertises_selection(&view),
@@ -47,7 +49,7 @@ impl ItemReader for BusReader<'_> {
     }
 
     fn children(&mut self, node: &AtspiElement) -> Result<Vec<AtspiElement>, AdapterError> {
-        children_of(self.bus, node, self.deadline)
+        children_of(self.bus, node, self.inspected_role, self.deadline)
     }
 }
 
@@ -59,6 +61,7 @@ fn advertises_selection(view: &NodeView) -> bool {
 fn children_of(
     bus: &SharedBus,
     node: &AtspiElement,
+    role: Option<u32>,
     deadline: Deadline,
 ) -> Result<Vec<AtspiElement>, AdapterError> {
     let connection = bus.get(deadline)?;
@@ -67,7 +70,11 @@ fn children_of(
     })?;
     Ok(children
         .into_iter()
-        .map(|(name, path)| AtspiElement::new(name, path, node.pid()))
+        .map(|(name, path)| {
+            let mut child = AtspiElement::new(name, path, node.pid());
+            child.set_ancestry(ancestry::child(node, role));
+            child
+        })
         .collect())
 }
 
@@ -92,11 +99,12 @@ fn parent_of(
             let value = message.body().deserialize::<OwnedValue>().ok()?;
             let structure = Structure::try_from(value).ok()?;
             match structure.fields() {
-                [Value::Str(name), Value::ObjectPath(path)] => Some(AtspiElement::new(
-                    name.to_string(),
-                    path.to_string(),
-                    node.pid(),
-                )),
+                [Value::Str(name), Value::ObjectPath(path)] => {
+                    let mut parent =
+                        AtspiElement::new(name.to_string(), path.to_string(), node.pid());
+                    parent.set_ancestry(node.ancestry().clone());
+                    Some(parent)
+                }
                 _ => None,
             }
         });
@@ -219,6 +227,7 @@ pub(crate) fn select(
     let mut reader = BusReader {
         bus: target.bus,
         deadline: target.deadline,
+        inspected_role: None,
     };
     match search(&mut reader, target.element, display_value)? {
         Search::Found(hit) => {
