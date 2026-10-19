@@ -126,7 +126,6 @@ fn names(list: &[&str]) -> Vec<String> {
 }
 
 #[test]
-#[ignore = "needs the resolve_verb body of the write engine and the verbs_for body of the capability tables"]
 fn a_chromium_checkbox_advertising_check_clicks_through_check() {
     let verbs = verbs_for(&Action::Click);
     let chosen = names(&["check", "showContextMenu"]);
@@ -134,7 +133,6 @@ fn a_chromium_checkbox_advertising_check_clicks_through_check() {
 }
 
 #[test]
-#[ignore = "needs the resolve_verb body of the write engine and the verbs_for body of the capability tables"]
 fn a_node_with_a_plain_click_verb_never_uses_check() {
     let verbs = verbs_for(&Action::Click);
     let chosen = names(&["check", "click"]);
@@ -142,7 +140,6 @@ fn a_node_with_a_plain_click_verb_never_uses_check() {
 }
 
 #[test]
-#[ignore = "needs the resolve_verb body of the write engine and the verbs_for body of the capability tables"]
 fn do_default_and_context_menu_alone_are_no_click_verb() {
     let verbs = verbs_for(&Action::Click);
     let chosen = names(&["doDefault", "showContextMenu"]);
@@ -150,7 +147,6 @@ fn do_default_and_context_menu_alone_are_no_click_verb() {
 }
 
 #[test]
-#[ignore = "needs the resolve_verb body of the write engine and the verbs_for body of the capability tables"]
 fn a_div_advertising_click_ancestor_is_clicked_through_it() {
     let verbs = verbs_for(&Action::Click);
     let chosen = names(&["clickAncestor"]);
