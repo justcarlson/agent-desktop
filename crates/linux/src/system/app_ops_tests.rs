@@ -1,6 +1,6 @@
 use agent_desktop_core::{AppInfo, AppPresentation, ErrorCode};
 
-use super::{one_entry_per_process, scoped_outcome};
+use super::{missing_connection, one_entry_per_process, scoped_outcome};
 
 fn app() -> AppInfo {
     AppInfo {
@@ -74,4 +74,20 @@ fn processes_that_differ_in_pid_or_start_time_stay_separate() {
         entry(9, "b:2", AppPresentation::Foreground),
     ]);
     assert_eq!(merged.len(), 3);
+}
+
+#[test]
+fn a_shell_process_off_this_sessions_bus_is_not_this_sessions_shell_and_gets_no_browser_advice() {
+    let error = missing_connection("gnome-shell", 2012, "gnome-shell");
+    assert_eq!(error.code, ErrorCode::AppNotFound);
+    assert!(error.message.contains("not on the accessibility registry"));
+    let advice = error.suggestion.expect("a suggestion");
+    assert!(!advice.contains("Chromium") && !advice.contains("Electron"));
+    assert_eq!(error.details.expect("details")["shell_tree"], "absent");
+}
+
+#[test]
+fn an_ordinary_process_off_the_bus_still_gets_the_toolkit_advice() {
+    let error = missing_connection("chrome", 7, "chrome");
+    assert!(error.suggestion.expect("advice").contains("Chromium"));
 }

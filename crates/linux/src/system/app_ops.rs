@@ -85,6 +85,9 @@ pub(crate) fn inventory(bus: &SharedBus, deadline: Deadline) -> Result<AppInvent
 /// The error for a name that no registry application has but a running
 /// process does.
 pub(crate) fn missing_connection(query: &str, pid: u32, comm: &str) -> AdapterError {
+    if super::shell::is_shell_comm(comm) {
+        return super::shell::not_this_sessions_shell();
+    }
     AdapterError::new(
         ErrorCode::AppNotFound,
         format!("'{query}' is running (pid {pid}) but is not on the accessibility bus"),
