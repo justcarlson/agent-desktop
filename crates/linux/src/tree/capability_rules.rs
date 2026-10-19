@@ -161,6 +161,15 @@ fn toggle_click_tokens(facts: &Facts) -> Vec<&'static str> {
     }
 }
 
+fn disabled_click_tokens(facts: &Facts) -> Vec<&'static str> {
+    let pressable = facts.role == PUSH_BUTTON || carries_checked(facts.role);
+    if pressable && facts.bits.is_disabled() {
+        vec![capability::CLICK]
+    } else {
+        Vec::new()
+    }
+}
+
 fn select_tokens(facts: &Facts) -> Vec<&'static str> {
     if facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0) {
         vec![capability::SELECT]
@@ -170,8 +179,9 @@ fn select_tokens(facts: &Facts) -> Vec<&'static str> {
 }
 
 /// The tokens that need more than an action name: the text and numeric
-/// writes, the disclosure pair, selection and the click of a switch that
-/// advertises only a toggle verb. A scroll bar takes `SetValue`
+/// writes, the disclosure pair, selection, the click of a switch that
+/// advertises only a toggle verb and the click of a disabled button, whose
+/// toolkit drops the verb a live button would carry. A scroll bar takes `SetValue`
 /// on every toolkit and the write is judged by its read-back, because the
 /// table has no toolkit input and a Qt bar that does not move content says
 /// so when the write is read back.
@@ -181,6 +191,7 @@ pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
     tokens.extend(disclosure_tokens(facts));
     tokens.extend(select_tokens(facts));
     tokens.extend(toggle_click_tokens(facts));
+    tokens.extend(disabled_click_tokens(facts));
     tokens
 }
 

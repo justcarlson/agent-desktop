@@ -37,6 +37,10 @@ impl<'a> StateBits<'a> {
             .get((bit / 32) as usize)
             .is_some_and(|word| word & (1 << (bit % 32)) != 0)
     }
+
+    pub(crate) fn is_disabled(&self) -> bool {
+        !self.has(ENABLED) && !self.has(SENSITIVE) && !self.has(READ_ONLY)
+    }
 }
 
 #[cfg(test)]

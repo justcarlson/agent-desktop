@@ -6,8 +6,8 @@ use super::role_numbers::{
     RADIO_MENU_ITEM, TOGGLE_BUTTON,
 };
 use super::state_bits::{
-    BUSY, CHECKED, ENABLED, EXPANDED, FOCUSED, HAS_POPUP, INDETERMINATE, INVALID_ENTRY, MODAL,
-    MULTISELECTABLE, PRESSED, READ_ONLY, REQUIRED, SELECTED, SENSITIVE, StateBits,
+    BUSY, CHECKED, EXPANDED, FOCUSED, HAS_POPUP, INDETERMINATE, INVALID_ENTRY, MODAL,
+    MULTISELECTABLE, PRESSED, READ_ONLY, REQUIRED, SELECTED, StateBits,
 };
 
 const UNGATED: [(u32, &str); 9] = [
@@ -50,7 +50,7 @@ pub(crate) fn resolve_states(
     };
     let bits = StateBits::new(words);
     let mut tokens = Vec::new();
-    if !bits.has(ENABLED) && !bits.has(SENSITIVE) && !bits.has(READ_ONLY) {
+    if bits.is_disabled() {
         tokens.push(state::DISABLED);
     }
     if *role == PASSWORD_TEXT {

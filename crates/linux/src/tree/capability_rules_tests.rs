@@ -6,7 +6,7 @@ use crate::tree::role_numbers::{
     DIAL, ENTRY, LEVEL_BAR, LIST, PANEL, PASSWORD_TEXT, PROGRESS_BAR, PUSH_BUTTON, SCROLL_BAR,
     SCROLL_PANE, SLIDER, SPIN_BUTTON, TEXT,
 };
-use crate::tree::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY};
+use crate::tree::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, SENSITIVE};
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{Field, RawNode};
 
@@ -26,7 +26,9 @@ struct Spec<'a> {
 
 fn node(spec: &Spec) -> RawNode {
     let mut node = read_of(spec.role, "n", spec.names).node;
-    node.traits.states = Field::Present(words(spec.bits));
+    let mut bits = spec.bits.to_vec();
+    bits.push(SENSITIVE);
+    node.traits.states = Field::Present(words(&bits));
     node.traits.interfaces =
         Field::Present(spec.interfaces.iter().map(|i| (*i).to_owned()).collect());
     node.properties.child_count = Field::Present(spec.children);
@@ -365,4 +367,29 @@ fn a_toggle_verb_on_a_button_or_a_plain_check_verb_adds_no_click_rule() {
         ..plain(PUSH_BUTTON)
     };
     assert!(!tokens_of(&button).contains(&"Click"));
+}
+
+fn tokens_with_states(role: u32, names: &[&str], bits: &[u32]) -> Vec<&'static str> {
+    let mut raw = node(&Spec {
+        names,
+        ..plain(role)
+    });
+    raw.traits.states = Field::Present(words(bits));
+    rule_tokens(&Facts::of(&raw).expect("every read present"))
+}
+
+#[test]
+fn a_disabled_button_keeps_the_click_a_live_one_would_carry() {
+    use crate::tree::role_numbers::CHECK_BOX;
+    for role in [PUSH_BUTTON, CHECK_BOX] {
+        let disabled = tokens_with_states(role, &["doDefault"], &[]);
+        assert!(disabled.contains(&"Click"), "{role}");
+        assert!(!tokens_with_states(role, &["doDefault"], &[SENSITIVE]).contains(&"Click"));
+    }
+    assert!(!tokens_with_states(PANEL, &["doDefault"], &[]).contains(&"Click"));
+}
+
+#[test]
+fn a_read_only_node_is_never_given_the_disabled_click() {
+    assert!(!tokens_with_states(PUSH_BUTTON, &[], &[READ_ONLY]).contains(&"Click"));
 }
