@@ -26,6 +26,31 @@ DIR=${AGENT_DESKTOP_REMOTE_DIR:-ad-wt/$(basename "$ROOT")}
 TIMEOUT=${AGENT_DESKTOP_REMOTE_TIMEOUT:-3600}
 case "$TIMEOUT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_TIMEOUT must be whole seconds" >&2; exit 2 ;; esac
 
+# A kill by process name reaches every session of the user on the shared box, so only a kill by pid
+# is sent: after `kill`, every word is a number, a signal option or a variable.
+names_a_process_to_kill() {
+  local chunk word
+  if printf '%s' "$1" | grep -Eq '(^|[^[:alnum:]_.-])(pkill|killall)([^[:alnum:]_.-]|$)'; then
+    return 0
+  fi
+  while IFS= read -r chunk; do
+    chunk=${chunk#kill}
+    for word in $chunk; do
+      case "$word" in
+        --|-s|-n|-[0-9]*|-[A-Z]*|[0-9]*|[A-Z][A-Z0-9]*|\$*|\"\$*|\"-\$*|-\$*|\'\$*|\>*) ;;
+        *) return 0 ;;
+      esac
+    done
+  done < <(printf '%s\n' "$1" | grep -oE '(^|[^[:alnum:]_.-])kill([[:space:]][^;&|)]*)?' | sed -E 's/^[^k]*//')
+  return 1
+}
+to_check=$*
+[ "${1:-}" = "-c" ] && to_check=${2:-}
+if names_a_process_to_kill "$to_check"; then
+  echo "remote-linux: kill by pid only; name-based kills reach every session on the box" >&2
+  exit 2
+fi
+
 if [ "${1:-}" = "-c" ]; then
   [ $# -eq 2 ] || { echo "remote-linux: -c takes exactly one string" >&2; exit 2; }
   cmd="bash -c $(printf '%q' "$2")"

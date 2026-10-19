@@ -116,7 +116,7 @@ start_shell() {
   printf '%s' "$socket"
 }
 
-for attempt in $(seq 1 "$attempts"); do
+for _ in $(seq 1 "$attempts"); do
   if socket=$(start_shell) && healthy && close_overview; then
     export WAYLAND_DISPLAY=$socket
     "$@"
