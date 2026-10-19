@@ -5,6 +5,7 @@ use super::capability;
 use super::menu_layout::{Layout, LayoutEntry};
 use super::node_evidence::{ENTRY_ROLE, SEPARATOR_ROLE, fresh};
 
+#[cfg(test)]
 pub(crate) fn child_count(entries: &[LayoutEntry]) -> usize {
     entries
         .iter()

@@ -10,7 +10,6 @@ use super::{
 
 struct Read {
     name: String,
-    role: &'static str,
     state: ElementState,
     actions: Vec<String>,
     bounds: Option<Rect>,
@@ -35,7 +34,6 @@ fn read_item(target: &TrayTarget, deadline: Deadline) -> Result<Read, AdapterErr
     };
     Ok(Read {
         name: props.title,
-        role: ITEM_ROLE,
         state: ElementState {
             role: ITEM_ROLE.to_owned(),
             states: item_states(props.passive, on_screen_states),
@@ -57,7 +55,6 @@ fn read_entry(target: &TrayTarget, menu: &str, deadline: Deadline) -> Result<Rea
     let role = menu_nodes::role_of(entry);
     Ok(Read {
         name: entry.label.clone(),
-        role,
         state: ElementState {
             role: role.to_owned(),
             states: menu_nodes::states_of(entry),

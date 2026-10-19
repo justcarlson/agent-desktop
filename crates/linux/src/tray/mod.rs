@@ -1,8 +1,3 @@
-#![expect(
-    dead_code,
-    reason = "the shell observer that calls read and the view is not on this branch"
-)]
-
 use agent_desktop_core::{
     ActionRequest, ActionResult, AdapterError, Deadline, ElementState, HitTestResult,
     InteractionLease, LiveElement, NativeHandle, Point, Rect, RefEntry,
@@ -37,6 +32,7 @@ mod live_scripts;
 #[cfg(test)]
 mod live_tests;
 
+#[cfg(test)]
 pub(crate) fn read(deadline: Deadline) -> Result<view::TrayView, AdapterError> {
     view::read(deadline)
 }

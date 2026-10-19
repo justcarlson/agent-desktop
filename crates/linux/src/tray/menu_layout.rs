@@ -106,6 +106,7 @@ pub(crate) fn parse(revision: u32, root: &RawEntry) -> Layout {
 }
 
 impl Layout {
+    #[cfg(test)]
     pub(crate) fn walk(&self) -> Vec<&LayoutEntry> {
         let mut found = Vec::new();
         let mut pending = vec![&self.root];
