@@ -182,3 +182,33 @@ fn a_tray_that_could_not_be_read_leaves_the_panel_untouched() {
         .collect();
     assert_eq!(names, ["Dropbox", "System", "Ghost"]);
 }
+
+#[test]
+fn the_system_button_is_given_the_click_capability_it_does_not_advertise() {
+    let mut decorator: TrayDecorator<Fake> = TrayDecorator::new(None);
+    let read = read_of(MENU, "System", &[]);
+    let mut evidence = project_node(&read, false, &WalkLimits::default());
+    assert_eq!(
+        evidence.ref_evidence.available_actions,
+        LocatorField::Known(Vec::new())
+    );
+    decorator.decorate(&read, &mut evidence, 0);
+    assert_eq!(
+        evidence.ref_evidence.available_actions,
+        LocatorField::Known(vec![agent_desktop_core::capability::CLICK.to_owned()])
+    );
+}
+
+#[test]
+fn another_menu_node_keeps_the_capabilities_it_read() {
+    let log = Rc::default();
+    let mut decorator = TrayDecorator::new(Some(fake(vec!["Dropbox"], &log)));
+    let read = read_of(MENU, "Dropbox", &[]);
+    let mut evidence = project_node(&read, false, &WalkLimits::default());
+    decorator.prepare(&node(read.clone(), 0, Vec::new()));
+    decorator.decorate(&read, &mut evidence, 0);
+    assert_eq!(
+        evidence.ref_evidence.available_actions,
+        LocatorField::Known(Vec::new())
+    );
+}

@@ -1,4 +1,4 @@
-use agent_desktop_core::{LocatorEvidence, ObservedSubtree};
+use agent_desktop_core::{LocatorEvidence, LocatorField, ObservedSubtree, capability};
 
 use super::container::MENU;
 use crate::tray::view::TrayView;
@@ -52,6 +52,26 @@ fn panel_title(read: &ObservedRead) -> Option<String> {
     (is_menu && name != SYSTEM_BUTTON).then(|| name.clone())
 }
 
+fn is_system_button(read: &ObservedRead) -> bool {
+    read.node.traits.role.present() == Some(&MENU)
+        && read.node.properties.name.non_blank().map(String::as_str) == Some(SYSTEM_BUTTON)
+}
+
+/// The system button advertises no accessibility action: the shell opens it
+/// on a pointer press. It is addressable for a click all the same, so the
+/// click capability is given to it here, for the physical delivery to carry.
+fn pointer_pressable(evidence: &mut LocatorEvidence) {
+    let has_none = evidence
+        .ref_evidence
+        .available_actions
+        .known()
+        .is_none_or(Vec::is_empty);
+    if has_none {
+        evidence.ref_evidence.available_actions =
+            LocatorField::Known(vec![capability::CLICK.to_owned()]);
+    }
+}
+
 fn titles(node: &WalkedNode<ObservedRead>, out: &mut Vec<String>) {
     out.extend(panel_title(&node.payload));
     for child in &node.children {
@@ -95,6 +115,10 @@ impl<I: Items> Decorate for TrayDecorator<I> {
         evidence: &mut LocatorEvidence,
         first_child_index: usize,
     ) -> Vec<ObservedSubtree> {
+        if is_system_button(read) {
+            pointer_pressable(evidence);
+            return Vec::new();
+        }
         let Some(items) = &self.items else {
             return Vec::new();
         };
