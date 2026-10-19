@@ -37,15 +37,21 @@ pub(super) struct Reads {
     pub(super) searches: usize,
 }
 
+/// The reads a test makes fail, by kind or by node path.
+#[derive(Default)]
+pub(super) struct Faults {
+    pub(super) gate_error: Option<AdapterError>,
+    pub(super) search_error: Option<AdapterError>,
+    pub(super) level_errors: HashMap<String, AdapterError>,
+    pub(super) evidence_errors: HashMap<String, AdapterError>,
+}
+
 pub(super) struct Fake {
     pub(super) nodes: HashMap<String, FakeNode>,
     pub(super) pids: HashMap<String, u32>,
     pub(super) web_process: bool,
-    pub(super) gate_error: Option<AdapterError>,
-    pub(super) search_error: Option<AdapterError>,
     pub(super) stopped: Option<String>,
-    pub(super) level_errors: HashMap<String, AdapterError>,
-    pub(super) evidence_errors: HashMap<String, AdapterError>,
+    pub(super) faults: Faults,
     pub(super) reads: Reads,
 }
 
@@ -70,11 +76,8 @@ impl Fake {
             nodes: HashMap::new(),
             pids: HashMap::from([(BUS.to_owned(), WINDOW_PID)]),
             web_process: false,
-            gate_error: None,
-            search_error: None,
             stopped: None,
-            level_errors: HashMap::new(),
-            evidence_errors: HashMap::new(),
+            faults: Faults::default(),
             reads: Reads::default(),
         };
         fake.add_on(BUS, None, FRAME_PATH, node(FRAME, "window", 800, 600));
@@ -242,7 +245,7 @@ impl Fake {
 impl Source for Fake {
     fn open_window(&mut self, _entry: &RefEntry) -> Result<AtspiElement, AdapterError> {
         self.reads.gate += 1;
-        match self.gate_error.clone() {
+        match self.faults.gate_error.clone() {
             Some(error) => Err(error),
             None => Ok(self.frame()),
         }
@@ -250,7 +253,7 @@ impl Source for Fake {
 
     fn level(&mut self, element: &AtspiElement) -> Result<Level<AtspiElement>, AdapterError> {
         self.reads.levels += 1;
-        if let Some(error) = self.level_errors.get(element.path()) {
+        if let Some(error) = self.faults.level_errors.get(element.path()) {
             return Err(error.clone());
         }
         if element.pid() == UNKNOWN_PID {
@@ -264,7 +267,7 @@ impl Source for Fake {
 
     fn evidence(&mut self, element: &AtspiElement) -> Result<LocatorEvidence, AdapterError> {
         self.reads.evidence += 1;
-        if let Some(error) = self.evidence_errors.get(element.path()) {
+        if let Some(error) = self.faults.evidence_errors.get(element.path()) {
             return Err(error.clone());
         }
         let mut read = self.nodes[element.path()].read.clone();
@@ -278,7 +281,7 @@ impl Source for Fake {
         entry: &RefEntry,
     ) -> Result<Searched, AdapterError> {
         self.reads.searches += 1;
-        if let Some(error) = self.search_error.clone() {
+        if let Some(error) = self.faults.search_error.clone() {
             return Err(error);
         }
         Ok(evaluate(&self.walk(), entry, self.web_process))

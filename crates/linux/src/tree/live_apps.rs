@@ -13,15 +13,26 @@ const TERMINAL_SERVER: &str = "gnome-terminal-server";
 /// What a live test does with one settled application window.
 pub(super) type Check = fn(&str, &LinuxAdapter, &SharedBus, &AtspiElement) -> Result<(), String>;
 
+/// An application to launch and the settled node count to wait for.
+pub(super) struct AppSpec<'a> {
+    pub(super) label: &'a str,
+    pub(super) program: &'a str,
+    pub(super) arguments: &'a [&'a str],
+    pub(super) min_nodes: usize,
+}
+
 pub(super) fn app(
-    label: &str,
-    program: &str,
-    arguments: &[&str],
-    min_nodes: usize,
+    spec: &AppSpec,
     adapter: &LinuxAdapter,
     bus: &SharedBus,
     check: Check,
 ) -> Result<(), String> {
+    let AppSpec {
+        label,
+        program,
+        arguments,
+        min_nodes,
+    } = *spec;
     let connection = bus
         .get(Deadline::standard().map_err(|error| error.message)?)
         .map_err(|error| error.message)?;
@@ -84,11 +95,14 @@ pub(super) fn vscode(adapter: &LinuxAdapter, bus: &SharedBus, check: Check) -> R
     }
     let data = std::env::temp_dir().join(nonce("resolve-vscode"));
     let data_arg = data.to_string_lossy().into_owned();
+    let arguments = vscode_arguments(&data_arg);
     let result = app(
-        "vscode",
-        &program,
-        &vscode_arguments(&data_arg),
-        200,
+        &AppSpec {
+            label: "vscode",
+            program: &program,
+            arguments: &arguments,
+            min_nodes: 200,
+        },
         adapter,
         bus,
         check,
@@ -108,10 +122,12 @@ pub(super) fn each_app(
         (
             "files",
             app(
-                "files",
-                "nautilus",
-                &["--new-window"],
-                30,
+                &AppSpec {
+                    label: "files",
+                    program: "nautilus",
+                    arguments: &["--new-window"],
+                    min_nodes: 30,
+                },
                 adapter,
                 bus,
                 check,
@@ -120,10 +136,12 @@ pub(super) fn each_app(
         (
             "calculator",
             app(
-                "calculator",
-                "gnome-calculator",
-                &[],
-                30,
+                &AppSpec {
+                    label: "calculator",
+                    program: "gnome-calculator",
+                    arguments: &[],
+                    min_nodes: 30,
+                },
                 adapter,
                 bus,
                 check,
@@ -132,10 +150,12 @@ pub(super) fn each_app(
         (
             "settings",
             app(
-                "settings",
-                "gnome-control-center",
-                &[],
-                20,
+                &AppSpec {
+                    label: "settings",
+                    program: "gnome-control-center",
+                    arguments: &[],
+                    min_nodes: 20,
+                },
                 adapter,
                 bus,
                 check,
@@ -144,10 +164,12 @@ pub(super) fn each_app(
         (
             "text-editor",
             app(
-                "text-editor",
-                "gnome-text-editor",
-                &["--new-window"],
-                15,
+                &AppSpec {
+                    label: "text-editor",
+                    program: "gnome-text-editor",
+                    arguments: &["--new-window"],
+                    min_nodes: 15,
+                },
                 adapter,
                 bus,
                 check,

@@ -48,7 +48,7 @@ fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
     ] {
         let mut fake = one_button();
         let entry = fake.entry_of("/back", true);
-        fake.gate_error = Some(refusal);
+        fake.faults.gate_error = Some(refusal);
         let error = resolve(&mut fake, &entry, deadline()).expect_err("refused");
         assert_eq!(error.code, ErrorCode::StaleRef);
         assert_eq!(kind(&error), expected);
@@ -62,7 +62,7 @@ fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
 fn an_application_that_left_during_the_gate_is_a_settled_stale_ref() {
     let mut fake = one_button();
     let entry = fake.entry_of("/back", true);
-    fake.gate_error = Some(AdapterError::new(ErrorCode::AppNotFound, "left"));
+    fake.faults.gate_error = Some(AdapterError::new(ErrorCode::AppNotFound, "left"));
     let error = resolve(&mut fake, &entry, deadline()).expect_err("gone");
     assert_eq!(kind(&error), "resolve_owning_process_exited");
 }
@@ -72,7 +72,7 @@ fn a_timeout_is_never_stale_and_a_stopped_process_makes_it_unresponsive() {
     let mut fake = one_button();
     let mut entry = fake.entry_of("/back", true);
     entry.scope.path.clear();
-    fake.search_error = Some(AdapterError::timeout("slow"));
+    fake.faults.search_error = Some(AdapterError::timeout("slow"));
     let slow = resolve(&mut fake, &entry, deadline()).expect_err("timeout");
     assert_eq!(slow.code, ErrorCode::Timeout);
 
@@ -85,7 +85,7 @@ fn a_timeout_is_never_stale_and_a_stopped_process_makes_it_unresponsive() {
 fn a_timeout_while_the_gate_waits_on_a_stopped_process_is_unresponsive() {
     let mut fake = one_button();
     let entry = fake.entry_of("/back", true);
-    fake.gate_error = Some(AdapterError::timeout("slow"));
+    fake.faults.gate_error = Some(AdapterError::timeout("slow"));
     fake.stopped = Some("files".to_owned());
     let error = resolve(&mut fake, &entry, deadline()).expect_err("stopped");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);

@@ -117,7 +117,7 @@ fn a_level_that_cannot_be_read_is_retried_and_never_stale() {
 fn a_node_on_the_path_that_answers_as_destroyed_is_stale_and_settled() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", true);
-    fake.level_errors.insert(
+    fake.faults.level_errors.insert(
         "/toolbar".to_owned(),
         AdapterError::new(ErrorCode::ElementNotFound, "gone"),
     );
@@ -126,7 +126,7 @@ fn a_node_on_the_path_that_answers_as_destroyed_is_stale_and_settled() {
     assert!(!error.is_explicitly_retryable());
 
     let mut fake = files();
-    fake.evidence_errors.insert(
+    fake.faults.evidence_errors.insert(
         "/opts2".to_owned(),
         AdapterError::new(ErrorCode::ElementNotFound, "gone"),
     );
@@ -138,7 +138,7 @@ fn a_node_on_the_path_that_answers_as_destroyed_is_stale_and_settled() {
 fn a_landing_whose_evidence_cannot_be_read_is_retried() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", true);
-    fake.evidence_errors.insert(
+    fake.faults.evidence_errors.insert(
         "/opts2".to_owned(),
         AdapterError::internal("a field failed"),
     );
@@ -155,7 +155,7 @@ fn the_window_gate_refusals_apply_and_nothing_is_read_after_them() {
     ] {
         let mut fake = files();
         let entry = fake.entry_of("/opts2", true);
-        fake.gate_error = Some(refusal);
+        fake.faults.gate_error = Some(refusal);
         let error = refused(&mut fake, &entry);
         assert_eq!(error.code, ErrorCode::StaleRef);
         assert_eq!(kind(&error), expected);
