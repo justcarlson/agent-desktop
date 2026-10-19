@@ -376,11 +376,10 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         .map(|(_, window)| window.clone())
         .expect("the lowest window");
     if let Err(error) = focus(&lowest_window) {
-        println!(
-            "focus_window_live stacking: raise refused {}",
+        panic!(
+            "focus_window_live stacking: the raise was refused, so the stack was never reordered: {}",
             cause(&error)
         );
-        return;
     }
     let raised = root_stack();
     println!(
