@@ -16,13 +16,12 @@ use crate::system::shell::light::extents_of;
 use crate::system::{SharedBus, list_displays, within};
 use crate::tree::AtspiElement;
 
-const CLAMP_MOTIONS: usize = 6;
-const CLAMP_DELTA: f64 = -700.0;
+const CLAMP_MOTIONS: usize = 4;
+const CLAMP_DELTA: f64 = -4_000.0;
 const STEP_PIXELS: f64 = 40.0;
-const MOTION_PAUSE: Duration = Duration::from_millis(30);
+const MOTION_PAUSE: Duration = Duration::from_millis(10);
 const SETTLE_PAUSE: Duration = Duration::from_millis(150);
 const PRESS_PAUSE: Duration = Duration::from_millis(60);
-const DRAIN_PAUSE: Duration = Duration::from_millis(300);
 const BTN_LEFT: u32 = 272;
 const BTN_RIGHT: u32 = 273;
 const BTN_MIDDLE: u32 = 274;
@@ -104,7 +103,6 @@ pub(crate) fn run_pointer<S: PointerSession>(
             session.pause(SETTLE_PAUSE);
             press(session, button_code(button), deadline)
         });
-    session.pause(DRAIN_PAUSE);
     let stopped = session.stop(deadline);
     delivered.and(stopped)
 }
