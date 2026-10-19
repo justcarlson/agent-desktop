@@ -4,6 +4,7 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 use agent_desktop_core::Deadline;
 use futures_util::future::join3;
 use zbus::Connection;
+use zbus::zvariant::OwnedValue;
 
 use super::absence::Liveness;
 use super::node_read::{COMPONENT_INTERFACE, call, get_one, string_value};
@@ -17,13 +18,36 @@ use crate::system::registry::toolkit;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
 use crate::system::x11::{DisplayReader, FrameFacts};
-use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, within};
+use crate::system::{
+    ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, within,
+};
 
 const SCREEN_COORDINATES: u32 = 0;
+const APPLICATION_INTERFACE: &str = "org.a11y.atspi.Application";
 
 fn known_toolkits() -> &'static Mutex<HashMap<String, ToolkitId>> {
     static KNOWN: OnceLock<Mutex<HashMap<String, ToolkitId>>> = OnceLock::new();
     KNOWN.get_or_init(Mutex::default)
+}
+
+/// One property of the application interface read on its own: some toolkits
+/// answer `GetAll` with "Property unavailable" while each name still reads.
+async fn application_text(
+    connection: &Connection,
+    root: &AtspiElement,
+    name: &str,
+) -> Option<String> {
+    let reply = call(
+        connection,
+        root,
+        PROPERTIES_INTERFACE,
+        "Get",
+        &(APPLICATION_INTERFACE, name),
+    )
+    .await
+    .ok()?;
+    let value = reply.body().deserialize::<OwnedValue>().ok()?;
+    value.downcast_ref::<&str>().ok().map(str::to_owned)
 }
 
 /// The toolkit of the application `element` belongs to. An application keeps
@@ -44,9 +68,16 @@ pub(crate) fn toolkit_of(bus: &SharedBus, element: &AtspiElement, deadline: Dead
     };
     let root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
     let read = within(deadline, async {
-        Ok(toolkit(connection.inner(), &root).await)
-    })
-    .unwrap_or_default();
+        let whole = toolkit(connection.inner(), &root).await;
+        if whole.name.is_some() {
+            return Ok(whole);
+        }
+        Ok(ToolkitId {
+            name: application_text(connection.inner(), &root, "ToolkitName").await,
+            version: application_text(connection.inner(), &root, "Version").await,
+        })
+    });
+    let read = read.unwrap_or_default();
     if read.name.is_some() {
         known_toolkits()
             .lock()

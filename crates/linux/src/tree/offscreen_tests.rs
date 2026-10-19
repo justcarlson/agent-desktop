@@ -113,3 +113,12 @@ fn a_minimized_window_hides_every_node_whatever_its_rectangle() {
     row.frame = None;
     assert_eq!(offscreen(row), Some(true));
 }
+
+#[test]
+fn a_container_at_the_sentinel_position_is_ignored_and_the_frame_decides() {
+    let mut row = input(Some(rect(0, 0, 480, 34)));
+    row.container = Some(rect(i32::MIN, i32::MIN, 480, 360));
+    assert_eq!(offscreen(row), Some(false));
+    row.node = Some(rect(2, 5526, 420, 22));
+    assert_eq!(offscreen(row), Some(true));
+}

@@ -73,12 +73,21 @@ fn a_web_node_with_visible_and_no_showing_inside_the_frame_is_not_hidden_or_offs
 }
 
 #[test]
-fn a_node_with_neither_bit_is_hidden_and_never_offscreen() {
+fn a_node_with_neither_bit_is_hidden_and_is_never_called_on_screen() {
     let read = read_with(&[ENABLED], Some(rect(0, 0, 10, 10)));
     let projected = state_in(&read, &window(rect(0, 0, 10, 10)));
     assert!(projected.states.iter().any(|t| t == state::HIDDEN));
     assert_eq!(projected.offscreen, None);
     assert_eq!(projected.hidden, None);
+}
+
+#[test]
+fn a_hidden_node_on_a_rectangle_far_outside_the_window_is_hidden_and_offscreen() {
+    let read = read_with(&[ENABLED], Some(rect(1, 4501, 464, 18)));
+    let projected = state_in(&read, &window(rect(1, 4501, 464, 18)));
+    assert!(projected.states.iter().any(|t| t == state::HIDDEN));
+    assert!(projected.states.iter().any(|t| t == state::OFFSCREEN));
+    assert_eq!(projected.offscreen, Some(true));
 }
 
 #[test]

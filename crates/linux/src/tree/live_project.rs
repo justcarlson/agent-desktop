@@ -77,24 +77,24 @@ fn state_bits(read: &ObservedRead) -> Option<(bool, bool)> {
 }
 
 /// Whether the one node read already settles offscreen without looking at the
-/// window: the state set failed or shows the node hidden, or it has the GTK 3
-/// shape of a row scrolled out of its viewport (`VISIBLE` without `SHOWING`
+/// window: the state set failed, or it has the GTK 3 shape of a row scrolled out of its viewport (`VISIBLE` without `SHOWING`
 /// at the sentinel position, L6-9).
 pub(crate) fn settled_by_read(read: &ObservedRead) -> bool {
     match state_bits(read) {
-        None | Some((false, false)) => true,
+        None => true,
         Some((visible, showing)) => visible && !showing && is_sentinel(read),
     }
 }
 
 /// `Some(true)` only on positive evidence, `Some(false)` only when the node
 /// provably intersects its frame and scroll container in a window that is not
-/// minimized, `None` when anything needed was not read.
+/// minimized, `None` when anything needed was not read. A node with neither
+/// `VISIBLE` nor `SHOWING` is hidden, which is its own evidence: it can still
+/// be off screen on a rectangle outside its window (a Qt item scrolled out of
+/// view reads that way, L27-6), but it is never called on screen.
 pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> Option<bool> {
     let (visible, showing) = state_bits(read)?;
-    if !visible && !showing {
-        return None;
-    }
+    let hidden = !visible && !showing;
     let minimized = if placement.frame_iconified || placement.x11.is_some_and(|x11| x11.hidden) {
         Some(true)
     } else {
@@ -111,10 +111,9 @@ pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> O
     });
     let container_unread =
         read.node.element.scroll_container().is_some() && placement.container.is_none();
-    if container_unread && verdict == Some(false) {
-        None
-    } else {
-        verdict
+    match verdict {
+        Some(false) if container_unread || hidden => None,
+        other => other,
     }
 }
 

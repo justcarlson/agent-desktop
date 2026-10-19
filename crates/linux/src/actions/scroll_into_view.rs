@@ -156,7 +156,9 @@ fn bar_rung<P: ScrollPort, W: Waiter>(
         let Some(range) = port.range()? else {
             return Ok(Outcome::Stopped(Cause::NoBar));
         };
-        let viewport = geometry.container.or(extents).or(geometry.frame);
+        let viewport = [geometry.container, extents, geometry.frame]
+            .into_iter()
+            .find_map(usable);
         let aim = viewport
             .and_then(|viewport| aim_for(geometry.target, geometry.neighbour, axis, viewport));
         let (Some(viewport), Some(aim)) = (viewport, aim) else {
@@ -171,6 +173,12 @@ fn bar_rung<P: ScrollPort, W: Waiter>(
         }
     }
     Ok(Outcome::Stopped(Cause::NotRealised))
+}
+
+fn usable(rect: Option<Extents>) -> Option<Extents> {
+    rect.filter(|rect| {
+        rect.width > 0 && rect.height > 0 && rect.x != i32::MIN && rect.y != i32::MIN
+    })
 }
 
 /// Brings the target on screen by the rungs its toolkit answers to, judging

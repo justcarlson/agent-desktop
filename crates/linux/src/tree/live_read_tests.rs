@@ -208,11 +208,6 @@ fn a_node_the_read_alone_settles_costs_no_placement() {
         .expect("read");
     assert_eq!(state.offscreen, Some(true));
     assert_eq!(reader.placements, 0);
-
-    let mut hidden = Counting::alive();
-    hidden.states = Some(words(&[8]));
-    state_via(&mut hidden, &handle(), deadline()).expect("state");
-    assert_eq!(hidden.placements, 0);
 }
 
 #[test]

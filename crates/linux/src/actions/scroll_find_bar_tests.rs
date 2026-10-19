@@ -69,3 +69,14 @@ fn no_bar_at_all_is_none() {
         None
     );
 }
+
+#[test]
+fn a_bar_that_names_its_direction_beats_one_that_does_not_beside_the_same_pane() {
+    let sites = [
+        node(None),
+        node(Some(0)),
+        bar(0, Orientation::Unknown),
+        bar(0, Orientation::Vertical),
+    ];
+    assert_eq!(choose_bar(&sites, Some(1), Axis::Vertical), Some(3));
+}

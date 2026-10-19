@@ -61,7 +61,9 @@ fn region(node: Extents, around: Extents) -> Region {
 /// or a rectangle of positive area wholly outside the frame, or the scroll
 /// container, by more than `EDGE_SLACK`. `SHOWING` being absent is never
 /// enough on its own: on-screen Chromium and Gecko nodes read `VISIBLE`
-/// without it (L3-27). An unknown minimized state keeps a node that is
+/// without it (L3-27). A scroll container reading the sentinel position is
+/// ignored: after a scroll a GTK3 viewport reports it while the node inside
+/// reports a real rectangle in the frame (L27-4). An unknown minimized state keeps a node that is
 /// otherwise inside from being called on screen.
 pub(crate) fn offscreen(input: OffscreenInput) -> Option<bool> {
     if input.minimized == Some(true) {
@@ -73,6 +75,7 @@ pub(crate) fn offscreen(input: OffscreenInput) -> Option<bool> {
     let node = usable(input.node)?;
     let frame = usable(input.frame)?;
     let container = match input.container {
+        Some(container) if container.x == i32::MIN || container.y == i32::MIN => None,
         Some(container) => Some(usable(Some(container))?),
         None => None,
     };
