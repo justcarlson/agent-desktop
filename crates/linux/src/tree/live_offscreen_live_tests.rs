@@ -63,8 +63,15 @@ fn survey(
             continue;
         };
         hidden += usize::from(read.states.iter().any(|token| token == state::HIDDEN));
-        let oracle_on = intersects(window_rect(bus, &node.element), frame_rect);
-        let oracle_off = far_outside(window_rect(bus, &node.element), frame_rect);
+        let node_rect = window_rect(bus, &node.element);
+        let container_rect = node
+            .element
+            .scroll_container()
+            .map(|container| window_rect(bus, container));
+        let in_container = container_rect.map_or(Some(true), |rect| intersects(node_rect, rect));
+        let oracle_on = intersects(node_rect, frame_rect)
+            .filter(|inside| *inside && in_container == Some(true));
+        let oracle_off = far_outside(node_rect, frame_rect);
         match read.offscreen {
             Some(true) => {
                 yes += 1;
