@@ -1,3 +1,5 @@
+use std::io::Write;
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
@@ -68,8 +70,19 @@ impl HeldJournal {
             "keys": keys,
             "buttons": buttons,
         });
-        let _ = std::fs::create_dir_all(&self.dir);
-        let _ = std::fs::write(self.own_path(), entry.to_string());
+        let _ = std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&self.dir);
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(self.own_path());
+        if let Ok(mut file) = file {
+            let _ = file.write_all(entry.to_string().as_bytes());
+        }
     }
 
     pub(crate) fn clear(&self) {

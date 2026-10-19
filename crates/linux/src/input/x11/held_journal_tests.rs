@@ -98,3 +98,17 @@ fn an_unreadable_entry_is_ignored() {
             .is_empty()
     );
 }
+
+#[test]
+fn the_journal_file_is_private_to_its_owner() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = scratch("mode");
+    HeldJournal::at(dir.clone(), ":7", 111).record(&[38], &[]);
+
+    let mode = std::fs::metadata(dir.join("111.json"))
+        .expect("file")
+        .permissions()
+        .mode();
+
+    assert_eq!(mode & 0o077, 0);
+}
