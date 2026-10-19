@@ -1,6 +1,7 @@
 use agent_desktop_core::LocatorField;
 
-use super::{Facts, rule_tokens, scroll_tokens};
+use super::{Facts, rule_tokens, scroll_tokens, scroll_tokens_with};
+use crate::system::display_server::DisplayServer;
 use crate::tree::action_names::capabilities;
 use crate::tree::role_numbers::{
     DIAL, ENTRY, LEVEL_BAR, LIST, PANEL, PASSWORD_TEXT, PROGRESS_BAR, PUSH_BUTTON, SCROLL_BAR,
@@ -325,8 +326,31 @@ fn a_failed_child_count_matters_only_to_a_selection_node() {
     assert_eq!(capabilities(&button), LocatorField::Known(Vec::new()));
 }
 
+const COMPONENT: &str = "org.a11y.atspi.Component";
+
+fn x11() -> DisplayServer {
+    DisplayServer::X11(":9".to_owned())
+}
+
 #[test]
-fn no_node_gets_scroll_from_this_table() {
+fn a_scroll_pane_with_bounds_gets_scroll_on_x11_and_nothing_else_does() {
+    let pane = node(&Spec {
+        interfaces: &[COMPONENT],
+        ..plain(SCROLL_PANE)
+    });
+    assert_eq!(scroll_tokens_with(&pane, &x11()), ["Scroll"]);
+    assert!(scroll_tokens_with(&pane, &DisplayServer::Wayland).is_empty());
+    let button = node(&Spec {
+        interfaces: &[COMPONENT],
+        ..plain(PUSH_BUTTON)
+    });
+    assert!(scroll_tokens_with(&button, &x11()).is_empty());
+    let no_bounds = node(&plain(SCROLL_PANE));
+    assert!(scroll_tokens_with(&no_bounds, &x11()).is_empty());
+}
+
+#[test]
+fn a_scroll_bar_and_a_pane_without_bounds_get_no_scroll() {
     let specs = [
         Spec {
             interfaces: &[VALUE],

@@ -4,8 +4,10 @@ use super::role_numbers::{
     CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, DIAL, ENTRY, LIST, PASSWORD_TEXT, PUSH_BUTTON,
     RADIO_BUTTON, RADIO_MENU_ITEM, SCROLL_BAR, SLIDER, SPIN_BUTTON, TERMINAL, TEXT, TOGGLE_BUTTON,
 };
+use super::scroll_capability::{eligible, wheel_target};
 use super::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, StateBits};
 use super::{Field, RawNode};
+use crate::system::display_server::{DisplayServer, session_server};
 
 const VALUE: &str = "org.a11y.atspi.Value";
 const TEXT_INTERFACE: &str = "org.a11y.atspi.Text";
@@ -203,9 +205,28 @@ pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
     tokens
 }
 
-/// The tokens a scroll target carries. A scroll target has no token yet.
-pub(crate) fn scroll_tokens(_node: &RawNode) -> Vec<&'static str> {
-    Vec::new()
+/// The tokens a scroll target carries: `Scroll` for a node a wheel at its
+/// centre can move, on a session that has a pointer leg. The session is only
+/// probed for a node whose role and interfaces already qualify.
+pub(crate) fn scroll_tokens(node: &RawNode) -> Vec<&'static str> {
+    let (Some(role), Some(interfaces)) =
+        (node.traits.role.present(), node.traits.interfaces.present())
+    else {
+        return Vec::new();
+    };
+    if !wheel_target(*role, interfaces) {
+        return Vec::new();
+    }
+    scroll_tokens_with(node, &session_server())
+}
+
+pub(crate) fn scroll_tokens_with(node: &RawNode, session: &DisplayServer) -> Vec<&'static str> {
+    match (node.traits.role.present(), node.traits.interfaces.present()) {
+        (Some(role), Some(interfaces)) if eligible(*role, interfaces, session) => {
+            vec![capability::SCROLL]
+        }
+        _ => Vec::new(),
+    }
 }
 
 #[cfg(test)]

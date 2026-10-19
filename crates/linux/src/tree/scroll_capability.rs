@@ -1,11 +1,3 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the module is laid out ahead of the code that calls it"
-    )
-)]
-
 use super::node_read::COMPONENT_INTERFACE;
 use super::role_numbers::{DOCUMENT_FRAME, DOCUMENT_WEB, LIST, SCROLL_PANE, VIEWPORT};
 use crate::system::display_server::DisplayServer;
@@ -29,9 +21,13 @@ const WHEEL_TARGETS: [u32; 8] = [
 /// content under a wheel, it has bounds to aim at, and the session has a
 /// pointer leg. A Wayland session has none, so no node is eligible there.
 pub(crate) fn eligible(role: u32, interfaces: &[String], session: &DisplayServer) -> bool {
-    matches!(session, DisplayServer::X11(_))
-        && WHEEL_TARGETS.contains(&role)
-        && interfaces.iter().any(|name| name == COMPONENT_INTERFACE)
+    matches!(session, DisplayServer::X11(_)) && wheel_target(role, interfaces)
+}
+
+/// The part of eligibility a node decides alone: a role that moves content
+/// under a wheel and a `Component` interface to take bounds from.
+pub(crate) fn wheel_target(role: u32, interfaces: &[String]) -> bool {
+    WHEEL_TARGETS.contains(&role) && interfaces.iter().any(|name| name == COMPONENT_INTERFACE)
 }
 
 #[cfg(test)]
