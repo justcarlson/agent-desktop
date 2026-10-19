@@ -8,11 +8,12 @@ component: tooling
 severity: medium
 applies_when:
   - "Several worktrees build into one CARGO_TARGET_DIR on a remote box"
-  - "The remote box clock runs ahead of the machine that edits the sources"
+  - "A run reports Finished within a fraction of a second after a source edit"
 symptoms:
   - "A test run on the box shows the behaviour from before a source edit, with no rebuild."
   - "A test that passes locally fails on the box, or the reverse, and the failing assertion does not match the code."
   - "cargo prints no Compiling line for a crate that changed."
+  - "A test run lists test names that belong to another worktree."
 tags: [linux, remote-development, cargo, rsync, mtime, shared-state]
 ---
 
@@ -20,14 +21,14 @@ tags: [linux, remote-development, cargo, rsync, mtime, shared-state]
 
 ## Context
 
-`scripts/remote-linux.sh` syncs each worktree to its own folder on the box, and every worktree builds into one `~/ad-target` so the disk holds one set of dependencies. Cargo decides whether a crate is fresh by comparing source modification times with its build outputs. `rsync -a` keeps the workstation's modification times, and the box clock runs ahead of the workstation (L27-28). Nothing in the final code shows this: the script only names the shared directory.
+`scripts/remote-linux.sh` syncs each worktree to its own folder on the box, and every worktree builds into one `~/ad-target` so the disk holds one set of dependencies. Cargo names a workspace member's artifacts and fingerprints the same way in every copy of the tree, so all worktrees share one set of outputs. A fingerprint is judged against source modification times, and `rsync -a` keeps the workstation's times. A build that another worktree made later therefore looks fresh to this one, even though it came from other sources. Runs in two lanes saw another worktree's test names in their own output, and `Finished` came back in 0.05 s after an edit. Nothing in the final code shows this: the script only names the shared directory.
 
 ## Guidance
 
-1. **Treat a missing recompile as a stale binary, not as a passing build.** An edit made on the workstation carries a modification time that is older than an output another worktree built on the box a moment before. Cargo then reuses that output, and the test binary comes from other sources. The run reports the old behaviour and no error.
-2. **Touch the sources on the box before the run.** `scripts/remote-linux.sh -c 'find crates src -name "*.rs" -exec touch {} +; cargo test -p agent-desktop-linux'` forces a rebuild of what the sync changed. Do this whenever the target dir is shared and the run follows an edit.
+1. **Treat a missing recompile as a stale binary, not as a passing build.** The run reports the behaviour of the other worktree's sources and prints no error.
+2. **Touch the synced sources on the box before cargo.** `scripts/remote-linux.sh -c 'find crates src -name "*.rs" -exec touch {} +; cargo test -p agent-desktop-linux'` forces a rebuild of what the sync changed. Do this on every run until the script does it itself.
 3. **Read the Compiling lines.** A run that changed a crate and shows no `Compiling` line for it did not test the change.
-4. **Prefer a per-worktree `CARGO_TARGET_DIR` when the disk allows it.** A separate directory removes the cross-tree reuse; it does not remove the clock skew against that tree's own earlier builds, so the touch stays.
+4. **A per-worktree `CARGO_TARGET_DIR` removes the cross-worktree reuse** when the disk allows it.
 
 ## Why This Matters
 
