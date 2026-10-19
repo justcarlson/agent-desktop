@@ -1,5 +1,6 @@
 use agent_desktop_core::AdapterError;
 
+use super::held_input::HeldInput;
 use super::keymap::Keymap;
 
 use super::keymap_edit::KeymapEdit;
@@ -11,8 +12,7 @@ use super::x11::sink_error::SinkError;
 pub(crate) struct ReleaseGuard<'a> {
     sink: &'a mut dyn X11Sink,
     state: ReleaseState,
-    held_keys: Vec<u8>,
-    held_buttons: Vec<u8>,
+    held: HeldInput,
     touched: Touched,
     origin: Option<(i32, i32)>,
     remaps: Vec<KeymapEdit>,
@@ -49,8 +49,7 @@ impl<'a> ReleaseGuard<'a> {
         Self {
             sink,
             state: ReleaseState::default(),
-            held_keys: Vec::new(),
-            held_buttons: Vec::new(),
+            held: HeldInput::default(),
             touched: Touched::default(),
             origin: None,
             remaps: Vec::new(),
@@ -65,7 +64,7 @@ impl<'a> ReleaseGuard<'a> {
     fn sync_journal(&self) -> Result<(), SinkError> {
         match &self.journal {
             Some(journal) => journal
-                .record(&self.held_keys, &self.held_buttons)
+                .record(&self.held.keys, &self.held.buttons)
                 .map_err(|error| SinkError::Journal(error.to_string())),
             None => Ok(()),
         }
@@ -90,12 +89,12 @@ impl<'a> ReleaseGuard<'a> {
     pub(crate) fn key(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
         if down {
             self.state.arm();
-            let was_held = self.held_keys.contains(&code);
-            remember(&mut self.held_keys, code);
+            let was_held = self.held.keys.contains(&code);
+            remember(&mut self.held.keys, code);
             remember(&mut self.touched.keys, code);
             if let Err(error) = self.sync_journal() {
                 if !was_held {
-                    self.held_keys.retain(|held| *held != code);
+                    self.held.keys.retain(|held| *held != code);
                 }
                 return Err(error);
             }
@@ -103,7 +102,7 @@ impl<'a> ReleaseGuard<'a> {
         self.sink.key(code, down)?;
         self.state.mark_delivered();
         if !down {
-            self.held_keys.retain(|held| *held != code);
+            self.held.keys.retain(|held| *held != code);
             let _ = self.sync_journal();
         }
         Ok(())
@@ -112,12 +111,12 @@ impl<'a> ReleaseGuard<'a> {
     pub(crate) fn button(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
         if down {
             self.state.arm();
-            let was_held = self.held_buttons.contains(&code);
-            remember(&mut self.held_buttons, code);
+            let was_held = self.held.buttons.contains(&code);
+            remember(&mut self.held.buttons, code);
             remember(&mut self.touched.buttons, code);
             if let Err(error) = self.sync_journal() {
                 if !was_held {
-                    self.held_buttons.retain(|held| *held != code);
+                    self.held.buttons.retain(|held| *held != code);
                 }
                 return Err(error);
             }
@@ -125,7 +124,7 @@ impl<'a> ReleaseGuard<'a> {
         self.sink.button(code, down)?;
         self.state.mark_delivered();
         if !down {
-            self.held_buttons.retain(|held| *held != code);
+            self.held.buttons.retain(|held| *held != code);
             let _ = self.sync_journal();
         }
         Ok(())
@@ -185,15 +184,15 @@ impl<'a> ReleaseGuard<'a> {
 
     fn release_everything(&mut self) -> Result<(), SinkError> {
         let mut outcome = Ok(());
-        if !self.held_buttons.is_empty() {
+        if !self.held.buttons.is_empty() {
             if let Some((x, y)) = self.origin {
                 keep_first(&mut outcome, self.move_to(x, y));
             }
-            while let Some(code) = self.held_buttons.pop() {
+            while let Some(code) = self.held.buttons.pop() {
                 keep_first(&mut outcome, self.sink.button(code, false));
             }
         }
-        while let Some(code) = self.held_keys.pop() {
+        while let Some(code) = self.held.keys.pop() {
             keep_first(&mut outcome, self.sink.key(code, false));
         }
         while let Some(edit) = self.remaps.pop() {

@@ -3,6 +3,7 @@ pub(crate) mod blocked_combo;
 pub(crate) mod deliver;
 pub(crate) mod delivery;
 pub(crate) mod drag_plan;
+pub(crate) mod held_input;
 pub(crate) mod key_lookup;
 pub(crate) mod key_names;
 pub(crate) mod key_plan;

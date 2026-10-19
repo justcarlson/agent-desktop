@@ -217,3 +217,15 @@ fn a_press_whose_journal_cannot_be_written_is_not_sent() {
     assert!(matches!(error, SinkError::Journal(_)));
     assert!(without_round_trips(&fake).is_empty());
 }
+
+#[test]
+fn the_guard_keeps_to_the_field_limit() {
+    let source = include_str!("release_guard.rs");
+    let start = source
+        .find("pub(crate) struct ReleaseGuard")
+        .expect("the guard struct");
+    let body = &source[start..];
+    let body = &body[body.find('{').expect("open") + 1..body.find("\n}").expect("close")];
+    let fields = body.lines().filter(|line| line.contains(": ")).count();
+    assert!(fields <= 7, "the guard has {fields} fields");
+}
