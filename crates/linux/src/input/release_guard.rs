@@ -64,7 +64,7 @@ impl<'a> ReleaseGuard<'a> {
     fn sync_journal(&self) -> Result<(), SinkError> {
         match &self.journal {
             Some(journal) => journal
-                .record(&self.held.keys, &self.held.buttons)
+                .record(&self.held, &self.remaps)
                 .map_err(|error| SinkError::Journal(error.to_string())),
             None => Ok(()),
         }
@@ -141,10 +141,18 @@ impl<'a> ReleaseGuard<'a> {
         let current = self.sink.keymap()?;
         let original = original_keysyms(&current, edit.keycode);
         self.state.arm();
+        let pending_before = self.remaps.len();
         if let Some(original) = original {
             self.track_remap(edit, original);
         }
+        let restoring = self.remaps.len() < pending_before;
+        if !restoring {
+            self.sync_journal()?;
+        }
         self.sink.edit_keymap(edit)?;
+        if restoring {
+            let _ = self.sync_journal();
+        }
         self.state.mark_delivered();
         Ok(())
     }

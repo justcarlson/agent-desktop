@@ -229,3 +229,21 @@ fn the_guard_keeps_to_the_field_limit() {
     let fields = body.lines().filter(|line| line.contains(": ")).count();
     assert!(fields <= 7, "the guard has {fields} fields");
 }
+
+#[test]
+fn a_remap_is_journaled_with_the_original_keysyms_before_it_is_sent() {
+    let dir = std::env::temp_dir().join(format!("ad-guard-remap-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let fake = FakeSink::new();
+    let mut sink = fake.clone();
+    let mut guard = ReleaseGuard::new(&mut sink);
+    guard.journal_to(Some(HeldJournal::at(dir.clone(), ":7", 111)));
+    guard.edit_keymap(&remap()).expect("remap");
+    let observer = HeldJournal::at(dir, ":7", 222);
+
+    let pending = observer.stale_entries(&|_| false);
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].remaps, [restore()]);
+    guard.finish().expect("finish");
+    assert!(observer.stale_entries(&|_| false).is_empty());
+}

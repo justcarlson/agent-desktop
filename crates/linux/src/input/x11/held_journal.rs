@@ -6,6 +6,8 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::{Value, json};
 
 use super::sink::X11Sink;
+use crate::input::held_input::HeldInput;
+use crate::input::keymap_edit::KeymapEdit;
 
 const JOURNAL_DIR: &str = "agent-desktop-input";
 const RECORD_EXTENSION: &str = "json";
@@ -23,6 +25,7 @@ pub(crate) struct StaleEntry {
     path: PathBuf,
     pub(crate) keys: Vec<u8>,
     pub(crate) buttons: Vec<u8>,
+    pub(crate) remaps: Vec<KeymapEdit>,
 }
 
 fn codes(value: &Value, field: &str) -> Vec<u8> {
@@ -40,6 +43,25 @@ enum Record {
     Own,
     Entry(StaleEntry),
     Unreadable(PathBuf),
+}
+
+fn remaps(value: &Value) -> Vec<KeymapEdit> {
+    value["remaps"]
+        .as_array()
+        .map(|list| {
+            list.iter()
+                .filter_map(|edit| {
+                    let keycode = u8::try_from(edit["keycode"].as_u64()?).ok()?;
+                    let keysyms = edit["keysyms"]
+                        .as_array()?
+                        .iter()
+                        .map(|keysym| u32::try_from(keysym.as_u64()?).ok())
+                        .collect::<Option<Vec<u32>>>()?;
+                    Some(KeymapEdit { keycode, keysyms })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn process_is_alive(pid: u32) -> bool {
@@ -68,16 +90,20 @@ impl HeldJournal {
         self.dir.join(format!("{}.json", self.pid))
     }
 
-    pub(crate) fn record(&self, keys: &[u8], buttons: &[u8]) -> std::io::Result<()> {
-        if keys.is_empty() && buttons.is_empty() {
+    pub(crate) fn record(&self, held: &HeldInput, remaps: &[KeymapEdit]) -> std::io::Result<()> {
+        if held.keys.is_empty() && held.buttons.is_empty() && remaps.is_empty() {
             self.clear();
             return Ok(());
         }
         let entry = json!({
             "display": self.display,
             "pid": self.pid,
-            "keys": keys,
-            "buttons": buttons,
+            "keys": held.keys,
+            "buttons": held.buttons,
+            "remaps": remaps
+                .iter()
+                .map(|edit| json!({ "keycode": edit.keycode, "keysyms": edit.keysyms }))
+                .collect::<Vec<_>>(),
         });
         std::fs::DirBuilder::new()
             .recursive(true)
@@ -121,6 +147,7 @@ impl HeldJournal {
                 path,
                 keys: codes(&value, "keys"),
                 buttons: codes(&value, "buttons"),
+                remaps: remaps(&value),
             })
         })
     }
@@ -180,7 +207,11 @@ fn release_entry(sink: &mut dyn X11Sink, entry: &StaleEntry) {
         .iter()
         .all(|code| sink.button(*code, false).is_ok());
     let keys_released = entry.keys.iter().all(|code| sink.key(*code, false).is_ok());
-    if buttons_released && keys_released && sink.round_trip().is_ok() {
+    let keymap_restored = entry
+        .remaps
+        .iter()
+        .all(|edit| sink.edit_keymap(edit).is_ok());
+    if buttons_released && keys_released && keymap_restored && sink.round_trip().is_ok() {
         let _ = std::fs::remove_file(&entry.path);
     }
 }

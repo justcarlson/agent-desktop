@@ -3,12 +3,21 @@ use std::path::PathBuf;
 use agent_desktop_core::DeliverySemantics;
 
 use super::HeldJournal;
+use crate::input::held_input::HeldInput;
+use crate::input::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, Recorded};
 
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("ad-journal-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     dir
+}
+
+fn held(keys: &[u8], buttons: &[u8]) -> HeldInput {
+    HeldInput {
+        keys: keys.to_vec(),
+        buttons: buttons.to_vec(),
+    }
 }
 
 fn dead(_pid: u32) -> bool {
@@ -23,7 +32,7 @@ fn alive(_pid: u32) -> bool {
 fn a_dead_process_leaves_its_held_input_to_be_released_by_the_next_call() {
     let dir = scratch("dead");
     HeldJournal::at(dir.clone(), ":7", 111)
-        .record(&[38], &[1])
+        .record(&held(&[38], &[1]), &[])
         .expect("record");
     let next = HeldJournal::at(dir.clone(), ":7", 222);
     let fake = FakeSink::new();
@@ -48,7 +57,7 @@ fn a_dead_process_leaves_its_held_input_to_be_released_by_the_next_call() {
 fn input_held_by_a_live_process_is_left_alone() {
     let dir = scratch("alive");
     HeldJournal::at(dir.clone(), ":7", 111)
-        .record(&[38], &[])
+        .record(&held(&[38], &[]), &[])
         .expect("record");
     let fake = FakeSink::new();
     let mut sink = fake.clone();
@@ -64,7 +73,7 @@ fn input_held_by_a_live_process_is_left_alone() {
 fn input_held_on_another_display_is_left_alone() {
     let dir = scratch("display");
     HeldJournal::at(dir.clone(), ":9", 111)
-        .record(&[38], &[])
+        .record(&held(&[38], &[]), &[])
         .expect("record");
     let fake = FakeSink::new();
     let mut sink = fake.clone();
@@ -80,7 +89,7 @@ fn input_held_on_another_display_is_left_alone() {
 fn a_call_never_releases_its_own_entry_as_stale() {
     let dir = scratch("own");
     let journal = HeldJournal::at(dir, ":7", 111);
-    journal.record(&[38], &[]).expect("record");
+    journal.record(&held(&[38], &[]), &[]).expect("record");
 
     assert!(journal.stale_entries(&dead).is_empty());
 }
@@ -89,8 +98,8 @@ fn a_call_never_releases_its_own_entry_as_stale() {
 fn recording_nothing_held_removes_the_entry() {
     let dir = scratch("clear");
     let journal = HeldJournal::at(dir.clone(), ":7", 111);
-    journal.record(&[38], &[]).expect("record");
-    journal.record(&[], &[]).expect("record");
+    journal.record(&held(&[38], &[]), &[]).expect("record");
+    journal.record(&held(&[], &[]), &[]).expect("record");
 
     assert!(
         HeldJournal::at(dir, ":7", 222)
@@ -126,7 +135,7 @@ fn an_unreadable_record_of_a_dead_process_refuses_the_call_once_and_is_set_aside
 fn readable_records_are_released_even_when_another_record_is_unreadable() {
     let dir = scratch("mixed");
     HeldJournal::at(dir.clone(), ":7", 111)
-        .record(&[38], &[])
+        .record(&held(&[38], &[]), &[])
         .expect("record");
     std::fs::write(dir.join("5.json"), "not json").expect("write");
     let fake = FakeSink::new();
@@ -156,11 +165,13 @@ fn a_record_of_a_live_process_is_never_called_unreadable() {
 fn a_failed_rewrite_keeps_the_previous_record_and_reports_the_error() {
     let dir = scratch("atomic");
     let journal = HeldJournal::at(dir.clone(), ":7", 111);
-    journal.record(&[37], &[]).expect("first record");
+    journal
+        .record(&held(&[37], &[]), &[])
+        .expect("first record");
     std::fs::create_dir(dir.join("111.json.tmp")).expect("block the temporary file");
 
     journal
-        .record(&[37, 38], &[])
+        .record(&held(&[37, 38], &[]), &[])
         .expect_err("the rewrite cannot complete");
 
     let kept = HeldJournal::at(dir, ":7", 222).stale_entries(&dead);
@@ -174,7 +185,7 @@ fn a_record_that_cannot_be_written_is_an_error() {
     std::fs::write(&dir, "a file where the directory belongs").expect("file");
 
     HeldJournal::at(dir, ":7", 111)
-        .record(&[38], &[])
+        .record(&held(&[38], &[]), &[])
         .expect_err("no directory");
 }
 
@@ -183,7 +194,7 @@ fn the_journal_file_is_private_to_its_owner() {
     use std::os::unix::fs::PermissionsExt;
     let dir = scratch("mode");
     HeldJournal::at(dir.clone(), ":7", 111)
-        .record(&[38], &[])
+        .record(&held(&[38], &[]), &[])
         .expect("record");
 
     let mode = std::fs::metadata(dir.join("111.json"))
@@ -192,4 +203,25 @@ fn the_journal_file_is_private_to_its_owner() {
         .mode();
 
     assert_eq!(mode & 0o077, 0);
+}
+
+#[test]
+fn a_remap_a_dead_process_left_pending_is_restored_by_the_next_call() {
+    let dir = scratch("remap");
+    let original = KeymapEdit {
+        keycode: 12,
+        keysyms: vec![0, 0],
+    };
+    HeldJournal::at(dir.clone(), ":7", 111)
+        .record(&HeldInput::default(), std::slice::from_ref(&original))
+        .expect("record");
+    let fake = FakeSink::new();
+    let mut sink = fake.clone();
+    let next = HeldJournal::at(dir, ":7", 222);
+
+    next.release_stale_where(&mut sink, &dead)
+        .expect("released");
+
+    assert!(fake.recorded().contains(&Recorded::Keymap(original)));
+    assert!(next.stale_entries(&dead).is_empty());
 }

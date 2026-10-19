@@ -4,6 +4,8 @@ pub(crate) mod fake_sink;
 pub(crate) mod held_journal;
 pub(crate) mod io_cutoff;
 #[cfg(test)]
+pub(crate) mod live_remap_tests;
+#[cfg(test)]
 pub(crate) mod live_tests;
 pub(crate) mod mouse_send;
 pub(crate) mod pointer_read;
