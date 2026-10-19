@@ -17,7 +17,7 @@ const MAX_STEPS: u64 = 4_096;
 
 pub(crate) fn plan_drag(params: &DragParams, deadline: Deadline) -> Result<Plan, AdapterError> {
     let origin = point_xy(&params.from)?;
-    let destination = point_xy(&params.to)?;
+    point_xy(&params.to)?;
     validate_timing(params)?;
     preflight(params, deadline)?;
     let duration_ms = params.duration_ms.unwrap_or(DEFAULT_DURATION_MS);
@@ -42,20 +42,7 @@ pub(crate) fn plan_drag(params: &DragParams, deadline: Deadline) -> Result<Plan,
         steps.push(Step::MoveTo { x, y });
         steps.extend(pause(tick_delay));
     }
-    let mut remaining = drop_delay_ms;
-    while remaining > 0 {
-        steps.push(Step::MoveTo {
-            x: destination.0,
-            y: destination.1,
-        });
-        let tick = remaining.min(TICK_MS);
-        steps.extend(pause(Duration::from_millis(tick)));
-        remaining -= tick;
-    }
-    steps.push(Step::MoveTo {
-        x: destination.0,
-        y: destination.1,
-    });
+    steps.extend(pause(Duration::from_millis(drop_delay_ms)));
     steps.push(left(false));
     Ok(Plan {
         steps,

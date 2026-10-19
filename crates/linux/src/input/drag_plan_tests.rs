@@ -27,17 +27,20 @@ fn pauses(plan: &Plan) -> Duration {
 fn the_plan_starts_at_the_origin_and_ends_with_a_release_at_the_destination() {
     let plan = plan_drag(&params(Some(300), Some(100)), deadline(5_000)).unwrap();
     assert_eq!(plan.steps.first(), Some(&Step::MoveTo { x: 10, y: 10 }));
-    let tail = &plan.steps[plan.steps.len() - 2..];
+    let release = plan.steps.len() - 1;
     assert_eq!(
-        tail,
-        [
-            Step::MoveTo { x: 110, y: 50 },
-            Step::Button {
-                code: BUTTON_LEFT,
-                down: false
-            }
-        ]
+        plan.steps[release],
+        Step::Button {
+            code: BUTTON_LEFT,
+            down: false
+        }
     );
+    let last_move = plan
+        .steps
+        .iter()
+        .rev()
+        .find(|step| matches!(step, Step::MoveTo { .. }));
+    assert_eq!(last_move, Some(&Step::MoveTo { x: 110, y: 50 }));
     assert_eq!(plan.release_origin, Some((10, 10)));
 }
 
@@ -76,7 +79,7 @@ fn travel_is_interpolated_in_sixteen_millisecond_ticks_and_reaches_the_destinati
         .iter()
         .filter(|step| matches!(step, Step::MoveTo { .. }))
         .collect();
-    assert_eq!(moves.len(), 20 + 1 + 1);
+    assert_eq!(moves.len(), 1 + 20);
     assert_eq!(moves[1], &Step::MoveTo { x: 15, y: 12 });
 }
 
@@ -137,4 +140,27 @@ fn a_non_finite_endpoint_is_invalid_args() {
         plan_drag(&bad, deadline(5_000)).unwrap_err().code,
         ErrorCode::InvalidArgs
     );
+}
+
+#[test]
+fn the_dwell_sends_no_pointer_motion_after_the_last_travel_step() {
+    let plan = plan_drag(&params(Some(16), Some(500)), deadline(5_000)).unwrap();
+    let last_move = plan
+        .steps
+        .iter()
+        .rposition(|step| matches!(step, Step::MoveTo { .. }))
+        .unwrap();
+    assert!(
+        plan.steps[last_move + 1..]
+            .iter()
+            .all(|step| !matches!(step, Step::MoveTo { .. }))
+    );
+    let held: Duration = plan.steps[last_move + 1..]
+        .iter()
+        .filter_map(|step| match step {
+            Step::Pause(duration) => Some(*duration),
+            _ => None,
+        })
+        .sum();
+    assert!(held >= Duration::from_millis(500));
 }
