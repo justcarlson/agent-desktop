@@ -91,23 +91,17 @@ fn a_bus_less_process_keeps_the_empty_list() {
 fn a_stopped_twin_is_reported_even_when_its_same_name_twin_has_windows() {
     let registry = registry(vec![app(7, "chrome", false), app(8, "chrome", true)]);
     let stopped = stopped_target(&registry, |_| true, |pid| pid == 7);
-    let read = std::cell::Cell::new(false);
-    let error = settle_scoped(stopped, || {
-        read.set(true);
-        Ok(vec!["the running twin's window"])
-    })
-    .expect_err("stopped");
-    assert!(!read.get(), "a stopped target's windows are never read");
+    let error = settle_scoped(vec!["the running twin's window"], stopped).expect_err("stopped");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert!(error.message.contains("chrome"));
 }
 
 #[test]
 fn windows_are_returned_when_no_selected_app_is_stopped() {
-    let kept = settle_scoped(None, || Ok(vec![1, 2])).expect("nothing is stopped");
+    let kept = settle_scoped(vec![1, 2], None).expect("nothing is stopped");
     assert_eq!(kept, [1, 2]);
     assert!(
-        settle_scoped(None, || Ok(Vec::<u8>::new()))
+        settle_scoped(Vec::<u8>::new(), None)
             .expect("empty")
             .is_empty()
     );

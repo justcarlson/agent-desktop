@@ -30,12 +30,12 @@ pub(crate) fn stopped_target(
 /// applications' windows alone would hide it, and a same-name twin that is
 /// stopped beside a running one would vanish without a trace.
 pub(crate) fn settle_scoped<T>(
+    windows: Vec<T>,
     stopped: Option<AdapterError>,
-    windows: impl FnOnce() -> Result<Vec<T>, AdapterError>,
 ) -> Result<Vec<T>, AdapterError> {
     match stopped {
         Some(error) => Err(error),
-        None => windows(),
+        None => Ok(windows),
     }
 }
 
@@ -69,10 +69,8 @@ pub(crate) fn scoped_windows_of(
     select: impl Fn(&RegistryApp) -> bool,
     deadline: Deadline,
 ) -> Result<Vec<ListedWindow>, AdapterError> {
-    settle_scoped(
-        stopped_target(registry, &select, proc_stat::is_stopped),
-        || windows_of(bus, registry, &select, deadline),
-    )
+    let windows = windows_of(bus, registry, &select, deadline)?;
+    settle_scoped(windows, stopped_target(registry, &select, proc_stat::is_stopped))
 }
 
 /// A named target that no registry application and no running process

@@ -1,24 +1,155 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
 
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::SharedBus;
+use super::focus::decide_focus;
+use super::focus_world::focus_send;
 use super::listed_window::ListedWindow;
+use super::proc_stat;
 use super::registry::Registry;
 use super::registry_app::RegistryApp;
-use super::registry_frames::RootRead;
-use super::window_ops::windows_of;
+use super::registry_frames::{FrameRead, RootRead, read_frames};
+use super::window_listing::collect;
+use super::window_ops::is_listable;
+use super::x11::{self, DisplayReader, FrameFacts, X11Evidence, X11Source, X11State};
+use crate::tree::AtspiElement;
 
+/// How far the read of one selected application's frames got. `app` indexes
+/// `Registry::apps`.
 pub(crate) struct AppOutcome {
     pub(crate) app: usize,
     pub(crate) read: RootRead,
 }
 
+/// One coherent read of the selected applications: their windows, how each
+/// application's read went, and the focus decision over the same windows.
 pub(crate) struct Pass {
     pub(crate) windows: Vec<ListedWindow>,
     pub(crate) outcomes: Vec<AppOutcome>,
     pub(crate) candidates: Vec<usize>,
     pub(crate) focused: Option<usize>,
+}
+
+/// The applications whose frames a pass reads, with their position in the
+/// registry. An application that did not answer and is stopped is left out:
+/// reading it costs a full slice and can only time out.
+fn chosen_apps<'a>(
+    registry: &'a Registry,
+    select: impl Fn(&RegistryApp) -> bool,
+    is_stopped: impl Fn(u32) -> bool,
+) -> Vec<(usize, &'a RegistryApp)> {
+    registry
+        .apps
+        .iter()
+        .enumerate()
+        .filter(|(_, app)| is_listable(app) && select(app))
+        .filter(|(_, app)| app.answered || !is_stopped(app.root.pid()))
+        .collect()
+}
+
+fn gather(
+    chosen: &[(usize, &RegistryApp)],
+    read: impl FnOnce(&[AtspiElement]) -> Result<Vec<FrameRead>, AdapterError>,
+) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
+    let roots: Vec<AtspiElement> = chosen.iter().map(|(_, app)| app.root.clone()).collect();
+    let frames = read(&roots)?;
+    let outcomes = chosen
+        .iter()
+        .zip(&frames)
+        .map(|((app, _), frame)| AppOutcome {
+            app: *app,
+            read: frame.read,
+        })
+        .collect();
+    let nodes: Vec<_> = frames.into_iter().map(|frame| frame.nodes).collect();
+    Ok((collect(chosen, &nodes), outcomes))
+}
+
+/// The windows and per-application outcomes of the applications `select`
+/// accepts, in registry order, without the display-server read.
+pub(super) fn read_selected(
+    bus: &SharedBus,
+    registry: &Registry,
+    select: impl Fn(&RegistryApp) -> bool,
+    deadline: Deadline,
+) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
+    let chosen = chosen_apps(registry, select, proc_stat::is_stopped);
+    gather(&chosen, |roots| read_frames(bus, roots, deadline))
+}
+
+fn candidates_of(windows: &[ListedWindow]) -> Vec<usize> {
+    windows
+        .iter()
+        .enumerate()
+        .filter(|(_, window)| window.active)
+        .map(|(index, _)| index)
+        .collect()
+}
+
+/// The window the sources agree is focused. A window counts when its frame
+/// carries `ACTIVE`; so does a modal or dialog frame its toolkit never
+/// reports active when the display server names its client the active
+/// window and input focus lies in the client or one of its descendants.
+fn focus_of(
+    windows: &[ListedWindow],
+    candidates: &[usize],
+    state: &X11State,
+    input_focus_in: impl Fn(u32) -> bool,
+) -> Option<usize> {
+    if candidates.is_empty() && !windows.iter().any(|window| window.modal || window.dialog) {
+        return None;
+    }
+    let frames: Vec<FrameFacts> = windows.iter().map(|window| window.frame.clone()).collect();
+    let evidence = x11::evidence(state, &frames);
+    let mut candidates = candidates.to_vec();
+    if let X11Evidence::Frame(named) = evidence
+        && (windows[named].modal || windows[named].dialog)
+        && !candidates.contains(&named)
+        && let X11State::Ready {
+            active: Some(client),
+            ..
+        } = state
+        && input_focus_in(*client)
+    {
+        candidates.push(named);
+    }
+    decide_focus(&candidates, evidence)
+}
+
+pub(super) fn pass_over(
+    windows: Vec<ListedWindow>,
+    outcomes: Vec<AppOutcome>,
+    state: &X11State,
+    input_focus_in: impl Fn(u32) -> bool,
+) -> Pass {
+    let candidates = candidates_of(&windows);
+    let focused = focus_of(&windows, &candidates, state, input_focus_in);
+    Pass {
+        windows,
+        outcomes,
+        candidates,
+        focused,
+    }
+}
+
+/// A pass whose display-server read the caller already started: `finish`
+/// waits for that read, and the state it came to comes back with the pass.
+pub(super) fn run_pass_with(
+    bus: &SharedBus,
+    registry: &Registry,
+    select: impl Fn(&RegistryApp) -> bool,
+    finish: impl FnOnce(Deadline) -> X11State,
+    deadline: Deadline,
+) -> Result<(Pass, X11State), AdapterError> {
+    let (windows, outcomes) = read_selected(bus, registry, select, deadline)?;
+    let state = finish(deadline);
+    Ok((
+        pass_over(windows, outcomes, &state, |client| {
+            focus_send::input_focus_in(client, deadline)
+        }),
+        state,
+    ))
 }
 
 pub(crate) fn run_pass(
@@ -27,12 +158,9 @@ pub(crate) fn run_pass(
     select: impl Fn(&RegistryApp) -> bool,
     deadline: Deadline,
 ) -> Result<Pass, AdapterError> {
-    Ok(Pass {
-        windows: windows_of(bus, registry, select, deadline)?,
-        outcomes: Vec::new(),
-        candidates: Vec::new(),
-        focused: None,
-    })
+    let pending = x11::start(|| DisplayReader.read());
+    let finish = |deadline| pending.finish(deadline).unwrap_or(X11State::Unavailable);
+    run_pass_with(bus, registry, select, finish, deadline).map(|(pass, _)| pass)
 }
 
 #[cfg(test)]

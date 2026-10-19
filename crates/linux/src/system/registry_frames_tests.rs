@@ -1,8 +1,9 @@
 use std::time::{Duration, Instant};
 
+use agent_desktop_core::{AdapterError, ErrorCode};
 use async_io::Timer;
 
-use super::collect_frames;
+use super::{RootRead, collect_frames};
 
 fn children(count: usize) -> Vec<(String, String)> {
     (0..count)
@@ -10,29 +11,82 @@ fn children(count: usize) -> Vec<(String, String)> {
         .collect()
 }
 
+fn gone() -> AdapterError {
+    AdapterError::new(ErrorCode::ElementNotFound, "gone")
+}
+
 #[test]
-fn one_stalled_frame_costs_one_slice_and_keeps_its_peers() {
+fn one_stalled_frame_costs_one_slice_keeps_its_peers_and_reads_timed_out() {
     let started = Instant::now();
-    let frames = zbus::block_on(collect_frames(
+    let (frames, read) = zbus::block_on(collect_frames(
         children(4),
         Duration::from_millis(100),
         |(bus, _)| async move {
             if bus == ":1.1" {
                 Timer::after(Duration::from_secs(30)).await;
             }
-            Some(bus)
+            Ok(bus)
         },
     ));
     assert_eq!(frames, [":1.0", ":1.2", ":1.3"]);
+    assert_eq!(read, RootRead::TimedOut);
     assert!(started.elapsed() < Duration::from_secs(5));
 }
 
 #[test]
-fn a_frame_that_fails_to_read_is_left_out() {
-    let frames = zbus::block_on(collect_frames(
+fn a_frame_that_fails_for_another_reason_reads_timed_out() {
+    let (frames, read) = zbus::block_on(collect_frames(
         children(3),
         Duration::from_millis(100),
-        |(bus, _)| async move { (bus != ":1.0").then_some(bus) },
+        |(bus, _)| async move {
+            if bus == ":1.0" {
+                Err(AdapterError::internal("failed field"))
+            } else {
+                Ok(bus)
+            }
+        },
     ));
     assert_eq!(frames, [":1.1", ":1.2"]);
+    assert_eq!(read, RootRead::TimedOut);
+}
+
+#[test]
+fn a_gone_frame_is_left_out_and_the_read_is_complete() {
+    let (frames, read) = zbus::block_on(collect_frames(
+        children(3),
+        Duration::from_millis(100),
+        |(bus, _)| async move { if bus == ":1.0" { Err(gone()) } else { Ok(bus) } },
+    ));
+    assert_eq!(frames, [":1.1", ":1.2"]);
+    assert_eq!(read, RootRead::Read);
+}
+
+#[test]
+fn gone_and_timed_out_never_compare_equal() {
+    assert_ne!(RootRead::Read, RootRead::TimedOut);
+}
+
+#[test]
+fn every_gone_code_is_an_absence() {
+    for code in [
+        ErrorCode::WindowNotFound,
+        ErrorCode::AppNotFound,
+        ErrorCode::ElementNotFound,
+    ] {
+        assert!(super::is_gone(&AdapterError::new(code, "x")));
+    }
+    assert!(!super::is_gone(&AdapterError::internal("x")));
+    assert!(!super::is_gone(&AdapterError::new(ErrorCode::Timeout, "x")));
+}
+
+#[test]
+fn a_child_list_that_does_not_answer_is_slow_and_a_gone_one_is_not() {
+    use super::{Outcome, outcome};
+    assert!(matches!(outcome::<u8>(None), Outcome::Slow));
+    assert!(matches!(outcome::<u8>(Some(Err(gone()))), Outcome::Gone));
+    assert!(matches!(
+        outcome::<u8>(Some(Err(AdapterError::internal("x")))),
+        Outcome::Slow
+    ));
+    assert!(matches!(outcome(Some(Ok(1u8))), Outcome::Read(1)));
 }

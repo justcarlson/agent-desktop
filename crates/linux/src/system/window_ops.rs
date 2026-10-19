@@ -1,22 +1,17 @@
 use agent_desktop_core::{AdapterError, Deadline, WindowFilter, WindowInfo};
 
 use super::SharedBus;
-use super::focus::decide_focus;
 use super::listed_window::ListedWindow;
 use super::proc_scan::find_running;
 use super::proc_stat;
 use super::registry::{Registry, read_registry};
 use super::registry_app::RegistryApp;
-use super::registry_frames::read_frames;
-use super::stopped_windows::of_stopped_apps;
-use super::unresponsive::{require_known_target, scoped_windows_of};
+use super::signal_inventory::{Pass, read_selected, run_pass_with};
+use super::unresponsive::{require_known_target, settle_scoped, stopped_target};
 use super::window_filter::is_helper_app;
-use super::window_ids::WindowIds;
-use super::window_listing::collect;
 use super::window_position::{mark_minimized, mark_other_desktop, place_windows, trim_shadows};
-use super::x11::desktops;
-use super::x11::map::{ClientMatch, match_client};
-use super::x11::{self, DisplayReader, FrameFacts, X11Evidence, X11Source, X11State};
+use super::x11::desktops::{self, Desktops};
+use super::x11::{self, DisplayReader, X11Source, X11State};
 
 pub(super) fn is_listable(app: &RegistryApp) -> bool {
     !is_helper_app(
@@ -32,69 +27,21 @@ pub(crate) fn windows_of(
     select: impl Fn(&RegistryApp) -> bool,
     deadline: Deadline,
 ) -> Result<Vec<ListedWindow>, AdapterError> {
-    let chosen: Vec<(usize, &RegistryApp)> = registry
-        .apps
-        .iter()
-        .enumerate()
-        .filter(|(_, app)| {
-            is_listable(app) && select(app) && !proc_stat::is_stopped(app.root.pid())
-        })
-        .collect();
-    let roots: Vec<_> = chosen.iter().map(|(_, app)| app.root.clone()).collect();
-    let frames = read_frames(bus, &roots, deadline)?;
-    let nodes: Vec<_> = frames.into_iter().map(|frame| frame.nodes).collect();
-    Ok(collect(&chosen, &nodes))
+    read_selected(bus, registry, select, deadline).map(|(windows, _)| windows)
 }
 
-/// Keeps the id of each listed window against its X11 client, for the day its
-/// process is stopped and can no longer be asked.
-fn remember_ids(listed: &[ListedWindow], state: &X11State, ids: Option<&WindowIds>) {
-    let (Some(ids), X11State::Ready { clients, .. }) = (ids, state) else {
-        return;
-    };
-    for window in listed {
-        let (ClientMatch::One(client), Some(instance)) = (
-            match_client(&window.frame, clients),
-            window.info.process_instance.as_deref(),
-        ) else {
-            continue;
-        };
-        ids.remember(client, instance, &window.info.id);
+/// Places the windows of a pass, trims the client-side shadows the toolkit
+/// drew, marks the minimized ones, those on another desktop and the focused
+/// one, and returns the index of the focused window.
+fn finish_listing(pass: &mut Pass, state: &X11State, desktops: Option<&Desktops>) -> Option<usize> {
+    place_windows(&mut pass.windows, state);
+    trim_shadows(&mut pass.windows, state);
+    mark_minimized(&mut pass.windows, state);
+    mark_other_desktop(&mut pass.windows, state, desktops);
+    if let Some(index) = pass.focused {
+        pass.windows[index].info.state.is_focused = true;
     }
-}
-
-/// The window the sources agree is focused. A window counts when its frame
-/// carries `ACTIVE`; so does a modal or dialog frame its toolkit never
-/// reports active when the display server names its client the active
-/// window and input focus lies in the client or one of its descendants.
-pub(super) fn focused_index(
-    listed: &[ListedWindow],
-    state: &X11State,
-    input_focus_in: impl Fn(u32) -> bool,
-) -> Option<usize> {
-    let mut candidates: Vec<usize> = listed
-        .iter()
-        .enumerate()
-        .filter(|(_, window)| window.active)
-        .map(|(index, _)| index)
-        .collect();
-    if candidates.is_empty() && !listed.iter().any(|window| window.modal || window.dialog) {
-        return None;
-    }
-    let frames: Vec<FrameFacts> = listed.iter().map(|window| window.frame.clone()).collect();
-    let evidence = x11::evidence(state, &frames);
-    if let X11Evidence::Frame(named) = evidence
-        && (listed[named].modal || listed[named].dialog)
-        && !candidates.contains(&named)
-        && let X11State::Ready {
-            active: Some(client),
-            ..
-        } = state
-        && input_focus_in(*client)
-    {
-        candidates.push(named);
-    }
-    decide_focus(&candidates, evidence)
+    pass.focused
 }
 
 /// Lists top-level windows, marking the one the sources agree is focused.
@@ -107,39 +54,23 @@ pub(crate) fn list_windows(
     let desktops = x11::start(desktops::read);
     let registry = read_registry(bus, deadline)?;
     let select = |app: &RegistryApp| filter.app.as_deref().is_none_or(|query| app.matches(query));
-    let mut listed = if let Some(query) = filter.app.as_deref() {
-        require_known_target(&registry, select, query, find_running)?;
-        scoped_windows_of(bus, &registry, select, deadline)?
-    } else {
-        windows_of(bus, &registry, select, deadline)?
+    let stopped = match filter.app.as_deref() {
+        Some(query) => {
+            require_known_target(&registry, select, query, find_running)?;
+            stopped_target(&registry, select, proc_stat::is_stopped)
+        }
+        None => None,
     };
-    let state = pending.finish(deadline).unwrap_or(X11State::Unavailable);
-    if filter.app.is_none() {
-        let ids = WindowIds::in_runtime_dir();
-        remember_ids(&listed, &state, ids.as_ref());
-        listed.extend(of_stopped_apps(
-            &registry,
-            select,
-            proc_stat::is_stopped,
-            &state,
-            |client, instance| ids.as_ref()?.recall(client, instance),
-        ));
-    }
-    place_windows(&mut listed, &state);
-    trim_shadows(&mut listed, &state);
-    mark_minimized(&mut listed, &state);
-    mark_other_desktop(
-        &mut listed,
+    let finish = |deadline| pending.finish(deadline).unwrap_or(X11State::Unavailable);
+    let (mut pass, state) = run_pass_with(bus, &registry, select, finish, deadline)?;
+    pass.windows = settle_scoped(pass.windows, stopped)?;
+    let focused = finish_listing(
+        &mut pass,
         &state,
         desktops.finish(deadline).flatten().as_ref(),
     );
-    let focused = focused_index(&listed, &state, |client| {
-        super::focus_world::focus_send::input_focus_in(client, deadline)
-    });
-    if let Some(index) = focused {
-        listed[index].info.state.is_focused = true;
-    }
-    Ok(listed
+    Ok(pass
+        .windows
         .into_iter()
         .enumerate()
         .filter(|(index, _)| !filter.focused_only || Some(*index) == focused)
