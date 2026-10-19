@@ -48,7 +48,7 @@ fn secure(evidence: &LocatorEvidence) -> bool {
     evidence
         .states
         .known()
-        .is_some_and(|tokens| tokens.iter().any(|token| token == state::SECURE))
+        .is_none_or(|tokens| tokens.iter().any(|token| token == state::SECURE))
 }
 
 /// The node's value, withheld from a secure field whatever was read.

@@ -2,7 +2,10 @@ use std::ops::Range;
 
 use agent_desktop_core::{AdapterError, ErrorCode};
 
-use super::{MAX_TEXT_CHARACTERS, TEXT_INTERFACE, TextSource, readable, selection_utf16};
+use super::{
+    MAX_TEXT_CHARACTERS, TEXT_INTERFACE, TextSource, readable, selection_utf16,
+    selection_when_readable,
+};
 
 const MIXED: &str = "a\u{1F600}e\u{301}b";
 
@@ -136,4 +139,16 @@ fn only_a_node_naming_the_text_interface_is_read() {
         Some(&interfaces(&["org.a11y.atspi.Value"]))
     ));
     assert!(!readable(false, None));
+}
+
+#[test]
+fn a_node_treated_as_secure_is_never_asked_for_its_text() {
+    let mut fake = Fake::over("hunter2", 7, one(0, 7));
+    let interfaces = vec![TEXT_INTERFACE.to_owned()];
+    let read = selection_when_readable(true, Some(&interfaces), &mut fake).expect("answers");
+    assert_eq!(read, None);
+    assert_eq!(fake.text_reads, 0);
+    let open = selection_when_readable(false, Some(&interfaces), &mut fake).expect("answers");
+    assert_eq!(open, Some(0..7));
+    assert!(fake.text_reads > 0);
 }

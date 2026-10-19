@@ -7,6 +7,7 @@ use super::node_evidence::{NodeEvidence, read_evidence};
 use super::node_read::call;
 use super::placement::Placement;
 use super::resolve_errors::{object_gone, stopped_app};
+use super::role_numbers::PASSWORD_TEXT;
 use super::state_bits::{CHECKED, EXPANDED, PRESSED, SELECTED, StateBits};
 use super::{AtspiElement, Field};
 use crate::actions::mutation::Corroboration;
@@ -105,9 +106,15 @@ impl NodeView {
         usize::try_from(*count).ok()
     }
 
+    /// Whether the node must be treated as a secure field. It fails closed:
+    /// a password role is secure whatever the tokens say, and a node whose
+    /// role or states could not be read is secure too, because the read that
+    /// failed is the one that would have said so.
     pub(crate) fn secure(&self) -> bool {
-        self.tokens()
-            .is_some_and(|tokens| tokens.iter().any(|token| token == state::SECURE))
+        match (self.role(), self.tokens()) {
+            (Some(PASSWORD_TEXT), _) | (None, _) | (_, None) => true,
+            (Some(_), Some(tokens)) => tokens.iter().any(|token| token == state::SECURE),
+        }
     }
 
     pub(crate) fn observation(&self) -> Observation {

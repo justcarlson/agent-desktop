@@ -171,3 +171,20 @@ fn a_node_missing_from_its_parent_is_gone_and_an_unreadable_parent_proves_nothin
     assert!(!listing_verdict(Some(Some(listed)), ":1.2", "/node"));
     assert!(!listing_verdict(Some(None), ":1.2", "/node"));
 }
+
+#[test]
+fn a_password_role_is_secure_whatever_the_tokens_say() {
+    assert!(with_bits(PASSWORD_TEXT, &[SHOWING]).secure());
+}
+
+#[test]
+fn a_node_whose_states_or_role_could_not_be_read_is_secure() {
+    let mut states = read_of(PUSH_BUTTON, "n", &[]);
+    states.node.traits.states = Field::Failed("x".to_owned());
+    let view = view_of(states);
+    assert!(view.secure());
+    assert_eq!(view.value(), None);
+    let mut role = read_of(PUSH_BUTTON, "n", &[]);
+    role.node.traits.role = Field::Failed("x".to_owned());
+    assert!(view_of(role).secure());
+}

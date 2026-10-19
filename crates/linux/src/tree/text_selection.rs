@@ -183,16 +183,25 @@ pub(crate) fn read_selection(
     deadline: Deadline,
 ) -> Result<Option<Range<usize>>, AdapterError> {
     let view = read_node_view(bus, handle, deadline)?;
-    if !readable(view.secure(), view.interfaces()) {
-        return Ok(None);
-    }
     let element = super::atspi_element(handle)?;
     let connection = bus.get(deadline)?.inner().clone();
-    selection_utf16(&mut BusText {
+    let mut source = BusText {
         connection: &connection,
         element,
         deadline,
-    })
+    };
+    selection_when_readable(view.secure(), view.interfaces(), &mut source)
+}
+
+fn selection_when_readable<S: TextSource>(
+    secure: bool,
+    interfaces: Option<&[String]>,
+    source: &mut S,
+) -> Result<Option<Range<usize>>, AdapterError> {
+    if !readable(secure, interfaces) {
+        return Ok(None);
+    }
+    selection_utf16(source)
 }
 
 /// The caret and every selection of a text node in code points, the unit
