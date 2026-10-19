@@ -8,12 +8,12 @@ use agent_desktop_core::{
 use super::ancestry;
 use super::nested_dialog::find as find_nested;
 use super::node_position::place_nodes;
-use super::observe_menu::rooted;
+use super::observe_menu::{observe_menu, rooted};
 use super::projection::project;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
-use crate::system::{SharedBus, proc_stat, process_facts, window_id};
+use crate::system::{SharedBus, proc_stat, process_facts, shell, window_id};
 
 pub(super) fn is_web_process(pid: u32) -> bool {
     process_facts::read(pid).is_some_and(|facts| facts.web_family.is_some())
@@ -195,6 +195,14 @@ pub(crate) fn observe_tree(
     root: ObservationRoot<'_>,
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
+    if let ObservationRoot::Window(window) = &root {
+        if request.surface == SnapshotSurface::Menu {
+            return observe_menu(bus, window, request);
+        }
+        if shell::kinds::kind_of(request.surface).is_some() {
+            return shell::observe_shell(bus, window, request);
+        }
+    }
     let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline| {
         let mut walk = walk_tree(bus, element, limits, deadline)?;
         place_nodes(bus, &mut walk, deadline);

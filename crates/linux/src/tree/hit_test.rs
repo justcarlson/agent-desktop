@@ -8,10 +8,10 @@ use super::hit_occlusion::occlusion;
 use super::hit_verdict::{Landing, Standing, Verdict, decide, needs_landing};
 use super::toolkit_trust::{reports_global_position, trusts_descent, trusts_same_window_landing};
 use super::{AtspiElement, Extents, atspi_element};
-use crate::system::SharedBus;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
 use crate::system::x11::{FrameFacts, X11Client};
+use crate::system::{SharedBus, shell};
 
 mod live_world;
 
@@ -182,6 +182,9 @@ pub(crate) fn hit_test(
     deadline: Deadline,
 ) -> Result<HitTestResult, AdapterError> {
     let target = atspi_element(handle)?;
+    if shell::is_shell_element(target) {
+        return shell::hit::hit_test(bus, target, point, deadline);
+    }
     let (Some(frame), Some(pixel)) = (target.frame(), pixel(point.x, point.y)) else {
         return Ok(HitTestResult::Unknown);
     };

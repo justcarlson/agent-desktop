@@ -2,6 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ProcessIdentity, Sur
 
 use super::SharedBus;
 use super::listed_window::ListedWindow;
+use super::menu_surface;
 use super::nested_scan::{NestedScan, bus_read, scan_windows};
 use super::process_facts;
 use super::registry::read_registry;
@@ -93,6 +94,10 @@ pub(crate) fn list_surfaces(
     let mut surfaces = surfaces_of(&windows);
     mark_unread(&mut surfaces, &windows, &scan);
     surfaces.extend(nested_entries(&scan));
+    for window in &windows {
+        let popups = menu_surface::open_popups(bus, &window.info, deadline)?;
+        surfaces.extend(menu_surface::entries(&popups, &window.info));
+    }
     Ok(surfaces)
 }
 

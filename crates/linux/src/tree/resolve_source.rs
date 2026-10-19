@@ -1,7 +1,10 @@
-use agent_desktop_core::{AdapterError, Deadline, LocatorEvidence, NativeHandle, RefEntry};
+use agent_desktop_core::{
+    AdapterError, Deadline, LocatorEvidence, NativeHandle, RefEntry, SnapshotSurface,
+};
 use zbus::Connection;
 
 use super::absence::Liveness;
+use super::menu_resolve::resolve_menu;
 use super::node_evidence::read_evidence_placed;
 use super::node_position::place_nodes;
 use super::node_read::read_node_with_liveness;
@@ -14,7 +17,7 @@ use super::resolve_gate::stored_window;
 use super::resolve_search::{Searched, evaluate};
 use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits};
-use crate::system::{SharedBus, owner_process_id, process_facts, within};
+use crate::system::{SharedBus, owner_process_id, process_facts, shell, within};
 
 fn unanswered() -> AdapterError {
     AdapterError::timeout("The accessible object did not answer in time")
@@ -46,6 +49,11 @@ impl Source for BusSource<'_> {
         let window = stored_window(entry)?;
         window.check_process(&process_facts::lookup(window.pid()), entry)?;
         let frame = window.frame();
+        if shell::is_shell_element(&frame) {
+            if let Some(id) = entry.source.source_window_id.as_deref() {
+                shell::window_gate::verify(self.bus, id, self.deadline)?;
+            }
+        }
         let connection = &self.connection;
         within(self.deadline, async {
             let (_, liveness) = read_node_with_liveness(connection, &frame)
@@ -101,6 +109,9 @@ pub(crate) fn resolve_element_strict(
     entry: &RefEntry,
     deadline: Deadline,
 ) -> Result<NativeHandle, AdapterError> {
+    if entry.source.source_surface == SnapshotSurface::Menu {
+        return resolve_menu(bus, entry, deadline);
+    }
     let mut source = BusSource::open(bus, deadline)?;
     resolve(&mut source, entry, deadline).map(AtspiElement::into_native_handle)
 }

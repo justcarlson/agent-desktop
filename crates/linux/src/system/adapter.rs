@@ -2,16 +2,18 @@ use agent_desktop_core::launch_options::LaunchOptions;
 use agent_desktop_core::launch_result::LaunchResult;
 use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
-    ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DisplayInfo, ImageBuffer,
-    InteractionLease, InteractionPolicy, KeyCombo, PermissionReport, ProcessIdentity,
-    ScreenshotTarget, SessionAffinity, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps,
-    WindowInfo, WindowOp,
+    ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
+    DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
+    KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, PermissionReport,
+    ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline, SignalFilter,
+    SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
+use crate::notifications;
 use crate::system::{
-    action_clock, close, interaction_lease, key_dispatch, launch, menu_wait, permissions,
-    process_state, protected, session, signal_capture, window_op,
+    action_clock, close, interaction_lease, key_dispatch, launch, menu_surface, menu_wait,
+    permissions, process_state, protected, session, shell, signal_capture, window_op,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -136,7 +138,10 @@ impl SystemOps for LinuxAdapter {
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {
-        vec![SnapshotSurface::Window, SnapshotSurface::Sheet]
+        let mut surfaces = vec![SnapshotSurface::Window, SnapshotSurface::Sheet];
+        surfaces.extend(menu_surface::supported());
+        surfaces.extend(shell::supported(self.bus()));
+        surfaces
     }
 
     fn open_session(
@@ -145,5 +150,48 @@ impl SystemOps for LinuxAdapter {
         deadline: Deadline,
     ) -> Result<Box<dyn AdapterSession>, AdapterError> {
         Ok(Box::new(session::open(self.bus(), deadline)?))
+    }
+
+    fn dismiss_all_notifications(
+        &self,
+        request: DismissAllNotificationsRequest<'_>,
+        lease: &InteractionLease,
+    ) -> Result<(Vec<NotificationInfo>, Vec<String>), AdapterError> {
+        notifications::dismiss_all(self.bus(), request, lease)
+    }
+
+    fn dismiss_notification(
+        &self,
+        request: DismissNotificationRequest<'_>,
+        lease: &InteractionLease,
+    ) -> Result<NotificationInfo, AdapterError> {
+        notifications::dismiss(self.bus(), request, lease)
+    }
+
+    fn list_notifications(
+        &self,
+        filter: &NotificationFilter,
+        policy: InteractionPolicy,
+        deadline: Deadline,
+        lease: Option<&InteractionLease>,
+    ) -> Result<Vec<NotificationInfo>, AdapterError> {
+        notifications::list(self.bus(), filter, policy, deadline, lease)
+    }
+
+    fn notification_action(
+        &self,
+        request: NotificationActionRequest<'_>,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        notifications::action(self.bus(), request, lease)
+    }
+
+    fn open_system_surface(
+        &self,
+        surface: SnapshotSurface,
+        policy: InteractionPolicy,
+        lease: &InteractionLease,
+    ) -> Result<WindowInfo, AdapterError> {
+        shell::open_surface(self.bus(), surface, policy, lease)
     }
 }

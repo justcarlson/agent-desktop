@@ -69,6 +69,32 @@ impl RemoteDesktop {
     }
 }
 
+impl RemoteDesktop {
+    #[expect(dead_code, reason = "stub the owning lane replaces")]
+    pub(crate) fn pointer_motion_relative(
+        &mut self,
+        _dx: f64,
+        _dy: f64,
+        _deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        Err(AdapterError::not_supported(
+            "pointer motion through the compositor",
+        ))
+    }
+
+    #[expect(dead_code, reason = "stub the owning lane replaces")]
+    pub(crate) fn pointer_button(
+        &mut self,
+        _button: u32,
+        _down: bool,
+        _deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        Err(AdapterError::not_supported(
+            "pointer button through the compositor",
+        ))
+    }
+}
+
 impl KeySession for RemoteDesktop {
     fn create(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
         let path = within(deadline, async {

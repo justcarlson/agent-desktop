@@ -27,6 +27,7 @@ mod label_read;
 pub(crate) mod live_offscreen;
 mod live_project;
 mod live_read;
+pub(crate) mod menu_resolve;
 mod name_evidence;
 pub(crate) mod nested_dialog;
 mod node_class;

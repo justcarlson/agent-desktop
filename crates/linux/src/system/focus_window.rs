@@ -8,7 +8,7 @@ use super::x11::X11State;
 use super::x11::activate::ACTIVATION_GRACE;
 use super::x11::activate_error::ActivateError;
 use super::x11::stacking_read::StackingRead;
-use super::{SharedBus, window_id};
+use super::{SharedBus, shell, window_id};
 
 use super::focus_cause::{Cause, lift_refusal, modal_refusal, refusal};
 use super::focus_world;
@@ -302,6 +302,9 @@ pub(crate) fn focus_window(
     win: &WindowInfo,
     lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
+    if shell::is_shell_window(win) {
+        return Ok(());
+    }
     let deadline = lease.deadline();
     let world = focus_world::LiveWorld::new(bus, win, deadline)?;
     run(&world, win, deadline)

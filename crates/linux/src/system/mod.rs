@@ -58,6 +58,7 @@ mod runtime_store;
 mod screenshot;
 mod session;
 pub(crate) mod session_bus;
+pub(crate) mod shell;
 mod signal;
 mod signal_boundary;
 mod signal_capture;
@@ -114,6 +115,8 @@ mod key_dispatch_live_tests;
 mod launch_live_tests;
 #[cfg(test)]
 mod menu_fixture;
+#[cfg(test)]
+mod menu_surface_live_tests;
 #[cfg(test)]
 mod menu_wait_live_tests;
 #[cfg(test)]

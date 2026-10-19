@@ -1,9 +1,8 @@
 use agent_desktop_core::{
-    AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
     ClipboardContent, ClipboardFormat, Deadline, DragParams, ElementState, HitTestResult, InputOps,
     InteractionLease, KeyCombo, LiveElement, MouseEvent, NativeHandle, ObservationOps,
     ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity, Rect, RefEntry,
-    SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
+    SnapshotSurface, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -44,6 +43,9 @@ impl ObservationOps for LinuxAdapter {
         entry: &RefEntry,
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
+        if crate::tray::owns(entry) {
+            return crate::tray::resolve(entry, deadline);
+        }
         crate::tree::resolve_element_strict(self.bus(), entry, deadline)
     }
 
@@ -52,7 +54,18 @@ impl ObservationOps for LinuxAdapter {
         entry: &RefEntry,
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
+        if crate::tray::owns(entry) {
+            return crate::tray::resolve(entry, deadline);
+        }
         crate::tree::resolve_locator_anchor(self.bus(), entry, deadline)
+    }
+
+    fn resolve_shell_surface(
+        &self,
+        surface: SnapshotSurface,
+        deadline: Deadline,
+    ) -> Result<WindowInfo, AdapterError> {
+        crate::system::shell::resolve_surface(self.bus(), surface, deadline)
     }
 
     fn get_live_value(
@@ -68,6 +81,9 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<ElementState>, AdapterError> {
+        if let Some(target) = crate::tray::target_of(handle) {
+            return crate::tray::live_state(target, deadline);
+        }
         crate::tree::get_live_state(self.bus(), handle, deadline)
     }
 
@@ -76,6 +92,9 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<Vec<String>>, AdapterError> {
+        if let Some(target) = crate::tray::target_of(handle) {
+            return crate::tray::live_actions(target, deadline);
+        }
         crate::tree::get_live_actions(self.bus(), handle, deadline)
     }
 
@@ -84,6 +103,9 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<LiveElement, AdapterError> {
+        if let Some(target) = crate::tray::target_of(handle) {
+            return crate::tray::live_element(target, deadline);
+        }
         crate::tree::get_live_element(self.bus(), handle, deadline)
     }
 
@@ -92,6 +114,9 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<Rect>, AdapterError> {
+        if let Some(target) = crate::tray::target_of(handle) {
+            return crate::tray::bounds(target, deadline);
+        }
         crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
 
@@ -169,7 +194,10 @@ impl ActionOps for LinuxAdapter {
         let target = crate::tree::atspi_element(handle)
             .ok()
             .map(|element| element.pid());
-        let result = crate::actions::execute_action(self.bus(), handle, request, lease);
+        let result = match crate::tray::target_of(handle) {
+            Some(target) => crate::tray::execute(target, request, lease),
+            None => crate::actions::execute_action(self.bus(), handle, request, lease),
+        };
         crate::system::action_clock::mark_target(target);
         result
     }

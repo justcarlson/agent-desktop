@@ -18,7 +18,7 @@ use crate::system::registry::toolkit;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
 use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
-use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, within};
+use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, shell, within};
 
 const SCREEN_COORDINATES: u32 = 0;
 
@@ -149,6 +149,9 @@ fn wholly_outside(placement: &Placement) -> bool {
 /// window, and the displays the screen rectangle is judged against. Every part
 /// that could not be read stays absent; nothing is guessed.
 pub(crate) fn placement(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placement {
+    if shell::is_shell_element(element) {
+        return shell::live_state::placement(bus, element, deadline);
+    }
     let pending = x11::start(|| MonitorReader.read());
     let mut placed = place(bus, element, deadline);
     placed.displays = match pending.finish(deadline) {

@@ -1,6 +1,8 @@
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
+use agent_desktop_core::{
+    AdapterError, Deadline, ErrorCode, SnapshotSurface, SurfaceInfo, WindowInfo,
+};
 
 pub(crate) use super::menu_popup::MenuFamily;
 use super::menu_popup::{self, Node};
@@ -117,6 +119,25 @@ pub(crate) fn popups_of(
     let (bus_name, path) = window_id::decode(&owner.id)?;
     let window = AtspiElement::new(bus_name, path, owner.pid.get());
     popups_at(bus, &window, settle, deadline)
+}
+
+/// The menu surface kinds this session can snapshot.
+pub(crate) fn supported() -> Vec<SnapshotSurface> {
+    Vec::new()
+}
+
+/// The popups open in a window and the top-level popups of its application.
+pub(crate) fn open_popups(
+    _bus: &SharedBus,
+    _owner: &WindowInfo,
+    _deadline: Deadline,
+) -> Result<Vec<MenuPopup>, AdapterError> {
+    Ok(Vec::new())
+}
+
+/// One `menu` entry for each open popup.
+pub(crate) fn entries(_popups: &[MenuPopup], _owner: &WindowInfo) -> Vec<SurfaceInfo> {
+    Vec::new()
 }
 
 #[cfg(test)]

@@ -1,4 +1,6 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{
+    AdapterError, Deadline, ObservationRequest, ObservedTree, WindowInfo,
+};
 
 use super::role_numbers::is_bulk_container;
 use super::walker::walk_tree;
@@ -63,6 +65,15 @@ pub(crate) fn is_pruned(node: &WalkedNode<ObservedRead>) -> bool {
 /// purpose.
 pub(crate) fn is_cut_short_beyond_pruning(node: &WalkedNode<ObservedRead>) -> bool {
     (node.truncated && !is_pruned(node)) || node.children.iter().any(is_cut_short_beyond_pruning)
+}
+
+/// Observes the menu surface of a window.
+pub(crate) fn observe_menu(
+    _bus: &SharedBus,
+    _window: &WindowInfo,
+    _request: &ObservationRequest,
+) -> Result<ObservedTree, AdapterError> {
+    Err(AdapterError::not_supported("observe_tree for this surface"))
 }
 
 #[cfg(test)]
