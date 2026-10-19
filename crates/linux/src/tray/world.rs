@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, MouseButton, Point,
+    Rect,
 };
 
 use crate::system::shell::container::{Landmark, locate};
@@ -20,6 +21,7 @@ pub(crate) trait ShellWorld {
         lease: &InteractionLease,
     ) -> Result<Point, AdapterError>;
     fn panel_node(&self, title: &str, deadline: Deadline) -> Result<AtspiElement, AdapterError>;
+    fn panel_extents(&self, title: &str, deadline: Deadline) -> Option<Rect>;
 }
 
 pub(crate) fn shared_bus() -> &'static SharedBus {
@@ -83,25 +85,42 @@ impl ShellWorld for LiveWorld<'_> {
     }
 
     fn panel_node(&self, title: &str, deadline: Deadline) -> Result<AtspiElement, AdapterError> {
+        self.panel_read(title, deadline).map(|(node, _)| node)
+    }
+
+    fn panel_extents(&self, title: &str, deadline: Deadline) -> Option<Rect> {
+        self.panel_read(title, deadline).ok()?.1
+    }
+}
+
+impl LiveWorld<'_> {
+    fn panel_read(
+        &self,
+        title: &str,
+        deadline: Deadline,
+    ) -> Result<(AtspiElement, Option<Rect>), AdapterError> {
         let panel = self.locate(Landmark::TrayPanel, deadline)?;
         let connection = self.bus.get(deadline)?;
-        let (children, names) = within(deadline, async {
+        let (children, names, extents) = within(deadline, async {
             let addresses = list_children(connection.inner(), &panel).await?;
             let mut children = Vec::new();
             let mut names = Vec::new();
+            let mut extents = Vec::new();
             for (bus_name, path) in addresses {
                 let child = AtspiElement::new(bus_name, path, panel.pid());
                 let node = read_node(connection.inner(), &child).await?;
                 names.push(node.properties.name.present().cloned().unwrap_or_default());
+                extents.push(node.extents.present().copied().map(Rect::from));
                 children.push(child);
             }
-            Ok((children, names))
+            Ok((children, names, extents))
         })?;
         let index = choose_panel_node(&names, title)?;
-        children
+        let node = children
             .into_iter()
             .nth(index)
-            .ok_or_else(|| no_panel_node(title))
+            .ok_or_else(|| no_panel_node(title))?;
+        Ok((node, extents.get(index).copied().flatten()))
     }
 }
 

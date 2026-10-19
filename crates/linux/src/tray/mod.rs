@@ -99,8 +99,8 @@ pub(crate) fn live_element(
 }
 
 pub(crate) fn bounds(
-    _target: &TrayTarget,
-    _deadline: Deadline,
+    target: &TrayTarget,
+    deadline: Deadline,
 ) -> Result<Option<Rect>, AdapterError> {
-    Ok(None)
+    live::bounds(target, deadline)
 }

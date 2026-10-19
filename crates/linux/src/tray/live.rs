@@ -1,8 +1,9 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, ElementState, LiveElement, LiveIdentity, LocatorField,
+    AdapterError, Deadline, ElementState, LiveElement, LiveIdentity, LocatorField, Rect, state,
 };
 
-use super::node_evidence::{ITEM_ROLE, NO_GEOMETRY, identifiers, item_states, name_field};
+use super::node_evidence::{ITEM_ROLE, identifiers, item_states, name_field, presence};
+use super::world::{LiveWorld, ShellWorld, shared_bus};
 use super::{
     TrayTarget, call, capability, introspect, item_props, menu_layout, menu_nodes, menu_resolve,
 };
@@ -12,6 +13,7 @@ struct Read {
     role: &'static str,
     state: ElementState,
     actions: Vec<String>,
+    bounds: Option<Rect>,
 }
 
 fn read_item(target: &TrayTarget, deadline: Deadline) -> Result<Read, AdapterError> {
@@ -24,18 +26,26 @@ fn read_item(target: &TrayTarget, deadline: Deadline) -> Result<Read, AdapterErr
         &target.object_path,
         deadline,
     )?);
+    let observed = LiveWorld::new(shared_bus()).panel_extents(&props.title, deadline);
+    let (bounds, offscreen) = presence(observed);
+    let on_screen_states = if offscreen {
+        vec![state::OFFSCREEN.to_owned()]
+    } else {
+        Vec::new()
+    };
     Ok(Read {
         name: props.title,
         role: ITEM_ROLE,
         state: ElementState {
             role: ITEM_ROLE.to_owned(),
-            states: item_states(props.passive, Vec::new()),
+            states: item_states(props.passive, on_screen_states),
             value: None,
             enabled: Some(true),
             hidden: Some(props.passive),
-            offscreen: None,
+            offscreen: Some(offscreen),
         },
         actions: capability::actions(&methods),
+        bounds,
     })
 }
 
@@ -54,9 +64,10 @@ fn read_entry(target: &TrayTarget, menu: &str, deadline: Deadline) -> Result<Rea
             value: None,
             enabled: Some(entry.enabled),
             hidden: Some(false),
-            offscreen: None,
+            offscreen: Some(true),
         },
         actions: capability::entry_actions(entry),
+        bounds: None,
     })
 }
 
@@ -78,9 +89,9 @@ pub(super) fn state(target: &TrayTarget, deadline: Deadline) -> Result<ElementSt
     read(target, deadline).map(|read| read.state)
 }
 
-/// A tray node has no extents of its own. The rectangle it reports is empty
-/// and positioned nowhere, which core's visibility gate accepts for a
-/// semantic click, the only kind a tray node takes headless.
+/// A bound item reports the extents of the shell panel node that shows it. An
+/// item with no panel node and a menu entry have no on-screen presence, so
+/// they report no rectangle and are marked offscreen.
 pub(super) fn element(
     target: &TrayTarget,
     deadline: Deadline,
@@ -94,7 +105,14 @@ pub(super) fn element(
         },
         state: read.state,
         states_complete: true,
-        bounds: Some(NO_GEOMETRY),
+        bounds: read.bounds,
         available_actions: read.actions,
     })
+}
+
+pub(super) fn bounds(
+    target: &TrayTarget,
+    deadline: Deadline,
+) -> Result<Option<Rect>, AdapterError> {
+    read(target, deadline).map(|read| read.bounds)
 }

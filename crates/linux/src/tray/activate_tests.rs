@@ -55,6 +55,10 @@ impl ShellWorld for World {
     fn panel_node(&self, _: &str, _: Deadline) -> Result<AtspiElement, AdapterError> {
         Ok(AtspiElement::new(":1.1", "/node", 1))
     }
+
+    fn panel_extents(&self, _: &str, _: Deadline) -> Option<agent_desktop_core::Rect> {
+        None
+    }
 }
 
 fn methods(names: &[&str]) -> Vec<String> {

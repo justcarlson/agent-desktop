@@ -1,3 +1,4 @@
+use agent_desktop_core::state;
 use agent_desktop_core::{AdapterError, Deadline, LocatorEvidence, LocatorField, ObservedSubtree};
 
 use super::item_props::{self, ItemProps};
@@ -146,7 +147,7 @@ impl TrayView {
                     ITEM_ROLE,
                     &item.props.title,
                     &item.target,
-                    item_states(item.props.passive, Vec::new()),
+                    item_states(item.props.passive, vec![state::OFFSCREEN.to_owned()]),
                     capability::actions(&item.methods),
                 );
                 ObservedSubtree::new(evidence, menu_children(item, 0), true, None)

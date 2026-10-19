@@ -13,7 +13,7 @@ pub(crate) fn child_count(entries: &[LayoutEntry]) -> usize {
 }
 
 pub(crate) fn states_of(entry: &LayoutEntry) -> Vec<String> {
-    let mut states = Vec::new();
+    let mut states = vec![state::OFFSCREEN.to_owned()];
     if !entry.enabled {
         states.push(state::DISABLED.to_owned());
     }

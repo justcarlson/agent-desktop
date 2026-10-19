@@ -61,11 +61,14 @@ fn a_target_built_for_an_entry_survives_its_own_encoding() {
 #[test]
 fn states_follow_enabled_checked_and_submenu() {
     let mut entry = layout().root.children[0].clone();
-    assert!(states_of(&entry).is_empty());
+    assert_eq!(states_of(&entry), ["offscreen"]);
     entry.enabled = false;
     entry.checked = Some(true);
     entry.submenu = true;
-    assert_eq!(states_of(&entry), ["disabled", "checked", "haspopup"]);
+    assert_eq!(
+        states_of(&entry),
+        ["offscreen", "disabled", "checked", "haspopup"]
+    );
 }
 
 #[test]

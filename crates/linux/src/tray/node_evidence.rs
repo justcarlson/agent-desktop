@@ -11,12 +11,15 @@ pub(super) const ENTRY_ROLE: &str = "menuitem";
 pub(super) const SEPARATOR_ROLE: &str = "separator";
 pub(super) const UNBOUND_DESCRIPTION: &str = "tray item without D-Bus identity";
 
-pub(super) const NO_GEOMETRY: Rect = Rect {
-    x: 0.0,
-    y: 0.0,
-    width: 0.0,
-    height: 0.0,
-};
+/// The on-screen presence of a tray node: the rectangle the shell panel node
+/// reports, or none with the node marked offscreen. A rectangle is never
+/// made up for a node that was not observed.
+pub(super) fn presence(observed: Option<Rect>) -> (Option<Rect>, bool) {
+    match observed.filter(|rect| rect.width > 0.0 && rect.height > 0.0) {
+        Some(rect) => (Some(rect), false),
+        None => (None, true),
+    }
+}
 
 pub(super) fn name_field(name: &str) -> LocatorField<String> {
     if name.is_empty() {
