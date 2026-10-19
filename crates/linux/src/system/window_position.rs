@@ -46,6 +46,28 @@ pub(crate) fn place_windows(listed: &mut [ListedWindow], state: &X11State) {
     }
 }
 
+/// Marks the windows whose single X11 client the window manager reports hidden
+/// as minimized and not visible, as a toolkit that reports no iconified state
+/// leaves them. A window the display server cannot place keeps what the
+/// toolkit said.
+pub(crate) fn mark_minimized(listed: &mut [ListedWindow], state: &X11State) {
+    let X11State::Ready { clients, .. } = state else {
+        return;
+    };
+    for window in listed {
+        let ClientMatch::One(id) = match_client(&window.frame, clients) else {
+            continue;
+        };
+        if clients
+            .iter()
+            .any(|client| client.id == id && client.hidden)
+        {
+            window.info.state.minimized = Some(true);
+            window.info.state.visible = Some(false);
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "window_position_tests.rs"]
 mod tests;

@@ -50,6 +50,7 @@ fn facts() -> ProcessFacts {
 fn x11_client(id: u32, title: &str) -> X11Client {
     X11Client {
         id,
+        hidden: false,
         pid: Some(100),
         title: title.to_owned(),
         extents: None,

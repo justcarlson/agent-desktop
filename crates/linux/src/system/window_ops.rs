@@ -10,7 +10,7 @@ use super::registry_frames::read_frames;
 use super::unresponsive::{require_known_target, scoped_windows_of};
 use super::window_filter::is_helper_app;
 use super::window_listing::collect;
-use super::window_position::place_windows;
+use super::window_position::{mark_minimized, place_windows};
 use super::x11::{self, DisplayReader, FrameFacts, X11Source, X11State};
 
 pub(super) fn is_listable(app: &RegistryApp) -> bool {
@@ -67,13 +67,9 @@ pub(crate) fn list_windows(
     } else {
         windows_of(bus, &registry, select, deadline)?
     };
-    let needs_position = listed.iter().any(|window| !window.frame.global_position);
-    let state = if needs_position || listed.iter().any(|window| window.active) {
-        pending.finish(deadline).unwrap_or(X11State::Unavailable)
-    } else {
-        X11State::Unavailable
-    };
+    let state = pending.finish(deadline).unwrap_or(X11State::Unavailable);
     place_windows(&mut listed, &state);
+    mark_minimized(&mut listed, &state);
     let focused = focused_index(&listed, &state);
     if let Some(index) = focused {
         listed[index].info.state.is_focused = true;

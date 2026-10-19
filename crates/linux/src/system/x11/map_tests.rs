@@ -4,6 +4,7 @@ use crate::system::x11::FrameExtents;
 fn client(id: u32, pid: u32, title: &str, y: i32, top: u32) -> X11Client {
     X11Client {
         id,
+        hidden: false,
         pid: Some(pid),
         title: title.to_owned(),
         extents: Some(FrameExtents {

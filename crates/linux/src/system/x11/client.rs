@@ -10,4 +10,5 @@ pub(crate) struct X11Client {
     pub(crate) title: String,
     pub(crate) extents: Option<FrameExtents>,
     pub(crate) bounds: Option<Extents>,
+    pub(crate) hidden: bool,
 }

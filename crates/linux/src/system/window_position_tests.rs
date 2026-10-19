@@ -31,6 +31,7 @@ fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
 fn client(id: u32, x: i32, y: i32) -> X11Client {
     X11Client {
         id,
+        hidden: false,
         pid: Some(321),
         title: "Doc".to_owned(),
         extents: None,
@@ -93,4 +94,38 @@ fn a_global_position_toolkit_keeps_the_extents_it_reported() {
     assert!(reported.is_some());
     place_windows(&mut listed, &ready(vec![client(7, 460, 165)]));
     assert_eq!(listed[0].info.bounds, reported);
+}
+
+#[test]
+fn a_hidden_client_marks_its_window_minimized_and_not_visible() {
+    let mut listed = windows(("gtk", "4.14.5"));
+    assert_eq!(listed[0].info.state.minimized, Some(false));
+    let mut hidden = client(7, 460, 165);
+    hidden.hidden = true;
+    mark_minimized(&mut listed, &ready(vec![hidden]));
+    assert_eq!(listed[0].info.state.minimized, Some(true));
+    assert_eq!(listed[0].info.state.visible, Some(false));
+}
+
+#[test]
+fn a_shown_client_or_a_silent_display_server_leaves_the_toolkit_state() {
+    for state in [
+        ready(vec![client(7, 460, 165)]),
+        X11State::Unavailable,
+        X11State::NoWindowManager,
+    ] {
+        let mut listed = windows(("gtk", "4.14.5"));
+        mark_minimized(&mut listed, &state);
+        assert_eq!(listed[0].info.state.minimized, Some(false));
+        assert_eq!(listed[0].info.state.visible, Some(true));
+    }
+}
+
+#[test]
+fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
+    let mut listed = windows(("gtk", "4.14.5"));
+    let mut hidden = client(7, 460, 165);
+    hidden.hidden = true;
+    mark_minimized(&mut listed, &ready(vec![hidden, client(8, 20, 20)]));
+    assert_eq!(listed[0].info.state.minimized, Some(false));
 }

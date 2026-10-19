@@ -13,6 +13,7 @@ use agent_desktop_core::Deadline;
 const MAX_CLIENTS: usize = 256;
 const MAX_LIST_LONGS: u32 = 4_096;
 const MAX_TITLE_LONGS: u32 = 1_024;
+const STATE_LONGS: u32 = 64;
 
 /// Reads window-manager properties from the display named by `DISPLAY`. It
 /// connects on every read and keeps nothing: a connection kept between calls
@@ -47,6 +48,8 @@ struct Atoms {
     name: Atom,
     utf8: Atom,
     frame_extents: Atom,
+    state: Atom,
+    hidden: Atom,
 }
 
 fn display_to_read() -> Option<String> {
@@ -69,6 +72,8 @@ fn atoms(connection: &RustConnection) -> Option<Atoms> {
         name: atom(connection, b"_NET_WM_NAME")?,
         utf8: atom(connection, b"UTF8_STRING")?,
         frame_extents: atom(connection, b"_NET_FRAME_EXTENTS")?,
+        state: atom(connection, b"_NET_WM_STATE")?,
+        hidden: atom(connection, b"_NET_WM_STATE_HIDDEN")?,
     })
 }
 
@@ -131,6 +136,14 @@ fn client(connection: &RustConnection, atoms: &Atoms, root: Window, window: Wind
         4,
     )
     .and_then(|reply| decode_frame_extents(reply.format, &reply.value));
+    let hidden = cardinals(property(
+        connection,
+        window,
+        atoms.state,
+        AtomEnum::ATOM,
+        STATE_LONGS,
+    ))
+    .is_some_and(|states| states.contains(&atoms.hidden));
     X11Client {
         id: window,
         pid,
@@ -143,6 +156,7 @@ fn client(connection: &RustConnection, atoms: &Atoms, root: Window, window: Wind
         ),
         extents,
         bounds: bounds(connection, root, window),
+        hidden,
     }
 }
 
