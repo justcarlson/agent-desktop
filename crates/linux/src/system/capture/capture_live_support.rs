@@ -2,7 +2,12 @@ use std::io::Cursor;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{Deadline, ImageBuffer, WindowFilter, WindowInfo};
+use agent_desktop_core::{
+    AdapterError, Deadline, DisplayInfo, ImageBuffer, WindowFilter, WindowInfo,
+};
+
+use super::window_context::WindowLookup;
+use super::window_xid::XidOutcome;
 
 use crate::system::x11::grab::{DisplayGrabber, Grabber};
 use crate::system::{SharedBus, list_windows};
@@ -27,6 +32,26 @@ win.connect("destroy", Gtk.main_quit)
 win.show_all()
 GLib.timeout_add(500, lambda: (win.move(int(x), int(y)), False)[1])
 Gtk.main()
+"##;
+
+const QT_PAINTER: &str = r##"
+import sys
+from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget
+title, color, x, y, w, h = sys.argv[1:7]
+app = QApplication(sys.argv)
+window = QMainWindow()
+window.setWindowTitle(title)
+body = QWidget()
+body.setAutoFillBackground(True)
+palette = body.palette()
+palette.setColor(QPalette.ColorRole.Window, QColor(color))
+body.setPalette(palette)
+window.setCentralWidget(body)
+window.resize(int(w), int(h))
+window.move(int(x), int(y))
+window.show()
+sys.exit(app.exec())
 "##;
 
 pub(super) const RED: [u8; 3] = [0xff, 0x00, 0x00];
@@ -83,6 +108,42 @@ pub(super) fn paint(
         if popup { "1" } else { "0" },
     ];
     launched.spawn("python3", &args)
+}
+
+pub(super) fn paint_qt(launched: &mut Launched, title: &str, color: &str, at: &Geometry) -> u32 {
+    let home = std::env::var("HOME").expect("HOME");
+    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
+    let script = format!("{dir}/capture-qt-painter.py");
+    std::fs::write(&script, QT_PAINTER).expect("the Qt painter writes");
+    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
+    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
+    let args = [
+        script.as_str(),
+        title,
+        color,
+        &at.x.to_string(),
+        &at.y.to_string(),
+        &at.width.to_string(),
+        &at.height.to_string(),
+    ];
+    launched.spawn_with_env(
+        &python,
+        &args,
+        &[
+            ("QT_ACCESSIBILITY", "1".to_owned()),
+            ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
+            ("QT_QPA_PLATFORM", "xcb".to_owned()),
+            ("LD_LIBRARY_PATH", libraries),
+        ],
+    )
+}
+
+pub(super) fn stop(pid: u32) {
+    let status = Command::new("kill")
+        .args(["-STOP", &pid.to_string()])
+        .status()
+        .expect("kill runs");
+    assert!(status.success(), "pid {pid} could not be stopped");
 }
 
 pub(super) fn chrome(launched: &mut Launched) -> u32 {
@@ -209,4 +270,36 @@ pub(super) fn reason(error: &agent_desktop_core::AdapterError) -> String {
         .and_then(|details| details["reason"].as_str())
         .unwrap_or("none")
         .to_owned()
+}
+
+pub(super) struct FixedLookup {
+    pub(super) xid: u32,
+}
+
+impl WindowLookup for FixedLookup {
+    fn resolve(&self, window: &WindowInfo, _: Deadline) -> Result<WindowInfo, AdapterError> {
+        Ok(window.clone())
+    }
+
+    fn xid(&self, _: &WindowInfo, _: Deadline) -> XidOutcome {
+        XidOutcome::One(self.xid)
+    }
+
+    fn displays(&self, deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
+        crate::system::list_displays(deadline)
+    }
+}
+
+pub(super) fn x_window_id(title: &str) -> u32 {
+    let output = Command::new("xwininfo")
+        .args(["-name", title])
+        .output()
+        .expect("xwininfo runs");
+    let text = String::from_utf8_lossy(&output.stdout);
+    let id = text
+        .split("Window id: ")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .expect("xwininfo names the window");
+    u32::from_str_radix(id.trim_start_matches("0x"), 16).expect("a window id")
 }

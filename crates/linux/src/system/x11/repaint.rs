@@ -44,16 +44,17 @@ impl<'a> Repaint<'a> {
     }
 
     /// Waits for the redirect's own report and then for the client's repaint
-    /// after it. A redirected pixmap read before that repaint can hold what
-    /// was on the screen instead of the window's own paint. A window that
-    /// does not repaint inside the wait is read as it stands.
-    pub(super) fn settle(&self, deadline: Deadline) {
+    /// after it, and says whether the repaint came. A redirected pixmap read
+    /// before that repaint can hold what was on the screen instead of the
+    /// window's own paint.
+    pub(super) fn settle(&self, deadline: Deadline) -> bool {
         let _ = self.connection.flush();
-        if self.damaged_within(REDIRECT_WAIT, deadline) {
-            let _ = self.connection.damage_subtract(self.damage, 0u32, 0u32);
-            let _ = self.connection.flush();
-            self.damaged_within(REPAINT_WAIT, deadline);
+        if !self.damaged_within(REDIRECT_WAIT, deadline) {
+            return false;
         }
+        let _ = self.connection.damage_subtract(self.damage, 0u32, 0u32);
+        let _ = self.connection.flush();
+        self.damaged_within(REPAINT_WAIT, deadline)
     }
 }
 

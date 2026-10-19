@@ -264,3 +264,115 @@ fn grab_live_a_chromium_window_is_captured_on_its_client_unit() {
     let (centre_x, centre_y) = (pixels.width / 2, pixels.height / 2);
     assert!(pixels.region_is(centre_x - 100, centre_y - 60, 200, 120, BLUE));
 }
+
+#[test]
+#[ignore = "needs a private X session; run through scripts/private-session.sh"]
+fn grab_live_a_qt_window_is_captured_plain_and_covered() {
+    assert_private_display();
+    let bus = SharedBus::default();
+    let mut launched = Launched::new();
+    let pid = paint_qt(&mut launched, "adcap-qt", "#ff0000", &window_at(200, 150));
+    let window = wait_for_listed(&bus, pid);
+    let plain = screenshot(
+        &bus,
+        ScreenshotTarget::ExactWindow(window.clone()),
+        deadline(20_000),
+    )
+    .expect("the Qt window is captured");
+    let before = decode(&plain);
+    let (centre_x, centre_y) = (before.width / 2, before.height / 2);
+    assert!(before.region_is(centre_x - 100, centre_y - 60, 200, 120, RED));
+    let cover = Geometry {
+        x: 100,
+        y: 100,
+        width: 600,
+        height: 450,
+    };
+    paint(&mut launched, "adcap-qt-over", "#0000ff", &cover, true);
+    wait_for_x_window("adcap-qt-over");
+    let covered = screenshot(
+        &bus,
+        ScreenshotTarget::ExactWindow(window),
+        deadline(20_000),
+    )
+    .expect("the covered Qt window is captured");
+    let after = decode(&covered);
+    println!(
+        "grab_live qt compositing={} plain={}x{} covered={}x{} blue={}",
+        compositing(),
+        before.width,
+        before.height,
+        after.width,
+        after.height,
+        after.count_of(BLUE)
+    );
+    assert_eq!(after.count_of(BLUE), 0);
+    assert_eq!((after.width, after.height), (before.width, before.height));
+    assert!(after.region_is(centre_x - 100, centre_y - 60, 200, 120, RED));
+}
+
+#[test]
+#[ignore = "needs a private X session; run through scripts/private-session.sh"]
+fn grab_live_a_covered_window_that_never_repaints_is_never_the_cover() {
+    use agent_desktop_core::ErrorCode;
+
+    use crate::system::capture::png_encode::encode_png;
+    use crate::system::capture::window::capture;
+    use crate::system::capture::window_context::{CaptureEnv, real_decode};
+    use crate::system::x11::DisplayReader;
+    use crate::system::x11::grab::DisplayGrabber;
+
+    assert_private_display();
+    let bus = SharedBus::default();
+    let mut launched = Launched::new();
+    let pid = paint(
+        &mut launched,
+        "adcap-frozen",
+        "#ff0000",
+        &window_at(200, 150),
+        false,
+    );
+    let window = wait_for_listed(&bus, pid);
+    let xid = x_window_id("adcap-frozen");
+    let cover = Geometry {
+        x: 100,
+        y: 100,
+        width: 600,
+        height: 450,
+    };
+    paint(&mut launched, "adcap-frozen-over", "#0000ff", &cover, true);
+    wait_for_x_window("adcap-frozen-over");
+    stop(pid);
+    let lookup = FixedLookup { xid };
+    let env = CaptureEnv {
+        grabber: &DisplayGrabber,
+        stacking: &DisplayReader,
+        lookup: &lookup,
+        decode: real_decode,
+        encode: encode_png,
+    };
+    let started = std::time::Instant::now();
+    let outcome = capture(&env, &window, false, deadline(20_000));
+    println!(
+        "grab_live frozen compositing={} after={:?} outcome={:?}",
+        compositing(),
+        started.elapsed(),
+        outcome.as_ref().map(|image| (image.width, image.height))
+    );
+    if let Ok(image) = &outcome {
+        let pixels = decode(image);
+        println!(
+            "grab_live frozen red={} blue={}",
+            pixels.count_of(RED),
+            pixels.count_of(BLUE)
+        );
+    }
+    assert!(started.elapsed() < std::time::Duration::from_secs(15));
+    if compositing() {
+        let image = outcome.expect("a compositor keeps the stopped window's own pixels");
+        assert_eq!(decode(&image).count_of(BLUE), 0);
+    } else {
+        let error = outcome.expect_err("a window that cannot repaint is not captured");
+        assert_eq!(error.code, ErrorCode::Timeout);
+    }
+}

@@ -40,6 +40,7 @@ pub(crate) mod stacking_snapshot;
 pub(crate) mod stacking_source;
 mod stacking_wire;
 mod state;
+mod unpainted;
 pub(crate) mod visual;
 pub(crate) mod window_facts;
 pub(crate) mod window_flags;

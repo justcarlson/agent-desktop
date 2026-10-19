@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::Deadline;
 use x11rb::connection::Connection;
 use x11rb::protocol::composite::{ConnectionExt as _, Redirect};
-use x11rb::protocol::xproto::{ConnectionExt as _, Window};
+use x11rb::protocol::xproto::{ConnectionExt as _, Window, WindowClass};
 use x11rb::rust_connection::RustConnection;
 
 use super::MonitorFault;
@@ -13,12 +13,71 @@ use super::grab_error::GrabError;
 use super::grab_rect::GrabRect;
 use super::map_state::MapState;
 use super::repaint::Repaint;
+use super::unpainted::{Region, matches_screen};
 
 const PAINT_WAIT: Duration = Duration::from_millis(1_000);
 const PAINT_POLL: Duration = Duration::from_millis(40);
 
 pub(crate) fn is_blank(data: &[u8]) -> bool {
     data.iter().all(|byte| *byte == 0)
+}
+
+fn screen_under(
+    connection: &RustConnection,
+    window: Window,
+    rect: GrabRect,
+    deadline: Deadline,
+) -> Option<Raw> {
+    let root = connection.get_geometry(window).ok()?.reply().ok()?.root;
+    let origin = connection
+        .translate_coordinates(window, root, 0, 0)
+        .ok()?
+        .reply()
+        .ok()?;
+    let area = GrabRect {
+        x: origin.dst_x.checked_add(rect.x)?,
+        y: origin.dst_y.checked_add(rect.y)?,
+        width: rect.width,
+        height: rect.height,
+    };
+    read_strips(connection, root, area, deadline, None).ok()
+}
+
+fn content_regions(connection: &RustConnection, window: Window, rect: GrabRect) -> Vec<Region> {
+    let children = connection
+        .query_tree(window)
+        .ok()
+        .and_then(|cookie| cookie.reply().ok())
+        .map(|tree| tree.children)
+        .unwrap_or_default();
+    let found: Vec<Region> = children
+        .into_iter()
+        .filter_map(|child| {
+            let attributes = connection.get_window_attributes(child).ok()?.reply().ok()?;
+            let size = connection.get_geometry(child).ok()?.reply().ok()?;
+            let paints = attributes.class == WindowClass::INPUT_OUTPUT;
+            (paints && MapState::from(attributes.map_state) == MapState::Viewable).then_some(
+                Region {
+                    x: i32::from(size.x) - i32::from(rect.x),
+                    y: i32::from(size.y) - i32::from(rect.y),
+                    width: i32::from(size.width),
+                    height: i32::from(size.height),
+                },
+            )
+        })
+        .max_by_key(|region| i64::from(region.width) * i64::from(region.height))
+        .into_iter()
+        .collect();
+    if found.is_empty() {
+        vec![Region {
+            x: 0,
+            y: 0,
+            width: i32::from(rect.width),
+            height: i32::from(rect.height),
+        }]
+    } else {
+        found
+    }
 }
 
 fn unreadable<E>(_: E) -> GrabError {
@@ -48,7 +107,9 @@ fn painted(
 /// Reads a mapped window's own pixels through a Composite redirect, so a
 /// window another window covers still gives its own paint. The redirect
 /// lasts only for this read. A pixmap that is still blank after the wait is
-/// refused: it is a window not painted yet, never an image to return.
+/// refused: it is a window not painted yet, never an image to return. A
+/// pixmap that equals what the screen shows under the window, with no repaint
+/// seen, holds only that copy, so it is refused as well.
 pub(crate) fn grab_redirected(
     connection: &RustConnection,
     window: Window,
@@ -68,6 +129,8 @@ pub(crate) fn grab_redirected(
     if MapState::from(attributes.map_state) != MapState::Viewable {
         return Err(GrabError::Unviewable);
     }
+    let screen = screen_under(connection, window, rect, deadline);
+    let regions = content_regions(connection, window, rect);
     let repaint = Repaint::watch(connection, window);
     connection
         .composite_redirect_window(window, Redirect::AUTOMATIC)
@@ -81,11 +144,22 @@ pub(crate) fn grab_redirected(
             .map_err(unreadable)?
             .check()
             .map_err(unreadable);
-        if let Some(repaint) = &repaint {
-            repaint.settle(deadline);
-        }
-        let raw =
-            named.and_then(|()| painted(connection, pixmap, rect, attributes.visual, deadline));
+        let repainted = repaint
+            .as_ref()
+            .is_some_and(|repaint| repaint.settle(deadline));
+        let raw = named
+            .and_then(|()| painted(connection, pixmap, rect, attributes.visual, deadline))
+            .and_then(|raw| {
+                let unpainted = !repainted
+                    && screen
+                        .as_ref()
+                        .is_some_and(|shown| matches_screen(shown, &raw, &regions));
+                if unpainted {
+                    Err(GrabError::Timeout)
+                } else {
+                    Ok(raw)
+                }
+            });
         let _ = connection.free_pixmap(pixmap);
         raw
     });
