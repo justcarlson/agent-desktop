@@ -13,15 +13,21 @@ use crate::system::session_bus::SessionBus;
 use crate::tree::live_launch::Launched;
 
 const APP: &str = r#"
+import os, time
 import gi
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 def activate(app):
     window = Gtk.ApplicationWindow(application=app, title="adwl-keys")
     entry = Gtk.Entry()
     window.set_child(entry)
-    window.connect("notify::is-active", lambda w, p: (window.set_focus(entry), entry.grab_focus()))
+    window.connect("notify::is-active", lambda w, p: (open(os.environ["ACTIVE_LOG"], "a").write("%s active=%s\n" % (time.time(), w.is_active())), GLib.timeout_add(50, lambda: (entry.grab_focus(), False)[1])))
+    entry.connect("changed", lambda e: open(os.environ["ACTIVE_LOG"], "a").write("%s changed %r\n" % (time.time(), e.get_text())))
+    keys = Gtk.EventControllerKey()
+    keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+    keys.connect("key-pressed", lambda c, v, code, st: open(os.environ["ACTIVE_LOG"], "a").write("%s key %x code %d focus=%s\n" % (time.time(), v, code, window.get_focus())) or False)
+    window.add_controller(keys)
     window.present()
     window.set_focus(entry)
 
@@ -32,6 +38,7 @@ app.run([])
 
 const READER: &str = r#"
 import sys
+import os, time
 import gi
 gi.require_version("Atspi", "2.0")
 from gi.repository import Atspi
@@ -45,6 +52,7 @@ def walk(node, found, depth=0):
     if node.get_state_set().contains(Atspi.StateType.ACTIVE):
         found["active"] = True
     if role in ("text", "entry"):
+        found["focused"] = found.get("focused", False) or node.get_state_set().contains(Atspi.StateType.FOCUSED)
         try:
             found["text"] = Atspi.Text.get_text(node, 0, -1)
         except Exception:
@@ -61,11 +69,13 @@ for index in range(desktop.get_child_count()):
     if app is not None and app.get_process_id() == pid:
         walk(app, found)
 print("active=%d" % (1 if found.get("active") else 0))
+print("focused=%d" % (1 if found.get("focused") else 0))
 print("text=" + found.get("text", "<none>"))
 "#;
 
 struct Read {
     active: bool,
+    focused: bool,
     text: String,
 }
 
@@ -77,8 +87,13 @@ fn read(pid: u32) -> Option<Read> {
     let stdout = String::from_utf8(output.stdout).ok()?;
     let mut lines = stdout.lines();
     let active = lines.next()? == "active=1";
+    let focused = lines.next()? == "focused=1";
     let text = lines.next()?.strip_prefix("text=")?.to_owned();
-    Some(Read { active, text })
+    Some(Read {
+        active,
+        focused,
+        text,
+    })
 }
 
 fn wait_for(pid: u32, accept: impl Fn(&Read) -> bool) -> Option<Read> {
@@ -92,7 +107,7 @@ fn wait_for(pid: u32, accept: impl Fn(&Read) -> bool) -> Option<Read> {
     None
 }
 
-fn launch(launched: &mut Launched) -> u32 {
+fn launch_with(launched: &mut Launched, active_log: &str) -> u32 {
     let display = std::env::var("WAYLAND_DISPLAY").expect("WAYLAND_DISPLAY names the shell socket");
     let pid = launched.spawn_with_env(
         "python3",
@@ -101,9 +116,10 @@ fn launch(launched: &mut Launched) -> u32 {
             ("GDK_BACKEND", "wayland".into()),
             ("WAYLAND_DISPLAY", display),
             ("GTK_USE_PORTAL", "0".into()),
-            ("GTK_IM_MODULE", "gtk-im-context-simple".into()),
+            ("GTK_IM_MODULE", "simple".into()),
             ("GDK_DEBUG", "no-portals".into()),
             ("DISPLAY", String::new()),
+            ("ACTIVE_LOG", active_log.to_owned()),
         ],
     );
     wait_for(pid, |_| true).expect("the entry is on the accessibility bus");
@@ -155,9 +171,16 @@ fn deadline() -> Deadline {
 
 fn send(pid: u32, steps: &[KeysymStep]) -> Result<u32, AdapterError> {
     let mut gate = || {
-        wait_for(pid, |now| now.active)
-            .map(|_| ())
-            .ok_or_else(|| AdapterError::internal("the frame never became active"))
+        let ready = wait_for(pid, |now| now.active && now.focused);
+        match ready {
+            Some(_) => Ok(()),
+            None => {
+                let last = read(pid).map(|now| (now.active, now.focused));
+                Err(AdapterError::internal(format!(
+                    "frame active and entry focused were not both true (last read {last:?})"
+                )))
+            }
+        }
     };
     send_keys(steps, &mut gate, deadline()).map(|delivery| delivery.delivered_events)
 }
@@ -185,13 +208,22 @@ fn remote_desktop_answers_on_the_session_bus_and_not_on_the_accessibility_bus() 
 #[ignore = "needs a private Wayland session with a headless gnome-shell; run through scripts/private-session.sh"]
 fn keys_land_in_a_wayland_native_gtk4_entry() {
     let mut launched = Launched::new();
-    let pid = launch(&mut launched);
+    let log = format!(
+        "{}/keys.log",
+        std::env::var("XDG_RUNTIME_DIR").expect("a runtime dir")
+    );
+    let pid = launch_with(&mut launched, &log);
     close_overview();
 
     send(pid, &keys("hello")).expect("the keys deliver");
     let typed = wait_for(pid, |now| now.text == "hello").map(|now| now.text);
     let last = read(pid).map(|now| (now.active, now.text));
-    assert_eq!(typed.as_deref(), Some("hello"), "last read {last:?}");
+    assert_eq!(
+        typed.as_deref(),
+        Some("hello"),
+        "last read {last:?} app log {:?}",
+        std::fs::read_to_string(&log)
+    );
 
     let mut select_all = vec![
         KeysymStep {
