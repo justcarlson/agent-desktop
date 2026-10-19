@@ -2,7 +2,7 @@ use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 
 use crate::system::shell::fake_tree::{BUS, FakeTree, PANEL, PID, WINDOW, at, element};
 use crate::system::shell::identity::{
-    ShellRoot, content_window, is_shell_comm, is_shell_owner, pick_shell_app,
+    ShellRoot, content_window, is_shell_comm, is_shell_owner, pick_shell_app, retry_until,
 };
 use crate::system::window_id;
 use crate::tree::AtspiElement;
@@ -73,4 +73,42 @@ fn a_window_of_the_remembered_shell_is_a_shell_window_and_another_never_is() {
         u32::MAX - 1
     )));
     assert!(!is_shell_owner(BUS, std::process::id()));
+}
+
+fn deadline() -> agent_desktop_core::Deadline {
+    agent_desktop_core::Deadline::after(10_000).expect("a deadline")
+}
+
+#[test]
+fn a_window_that_comes_back_within_the_retries_is_found() {
+    let mut misses = 3;
+    let mut pauses = 0;
+    let found = retry_until(25, deadline(), &mut |_| pauses += 1, || {
+        if misses == 0 {
+            Some("window")
+        } else {
+            misses -= 1;
+            None
+        }
+    });
+    assert_eq!(found, Some("window"));
+    assert_eq!(pauses, 3);
+}
+
+#[test]
+fn a_window_that_never_comes_back_is_none_after_the_bounded_retries() {
+    let mut pauses = 0;
+    let found: Option<()> = retry_until(25, deadline(), &mut |_| pauses += 1, || None);
+    assert!(found.is_none());
+    assert_eq!(pauses, 25);
+}
+
+#[test]
+fn the_retries_stop_at_a_spent_deadline() {
+    let spent = agent_desktop_core::Deadline::after(1).expect("a deadline");
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    let mut pauses = 0;
+    let found: Option<()> = retry_until(25, spent, &mut |_| pauses += 1, || None);
+    assert!(found.is_none());
+    assert_eq!(pauses, 0);
 }

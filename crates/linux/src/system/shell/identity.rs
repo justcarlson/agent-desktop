@@ -1,4 +1,5 @@
 use std::sync::{Mutex, PoisonError};
+use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use serde_json::json;
@@ -14,6 +15,8 @@ use crate::tree::{AtspiElement, list_children};
 
 pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
 const SHELL_COMM: &str = "gnome-shell";
+const WINDOW_RETRIES: usize = 25;
+const WINDOW_RETRY_GAP: Duration = Duration::from_millis(100);
 
 /// The shell's accessibility application and its content window. `bus_name`
 /// is the unique name on the accessibility bus, `pid` the process behind it.
@@ -73,6 +76,28 @@ pub(crate) fn content_window<N: Nodes>(nodes: &N, app: &AtspiElement) -> Option<
     })
 }
 
+/// Runs `probe` until it answers, at most `1 + attempts` times, pausing
+/// between tries and stopping at the deadline. The shell's content window
+/// drops out of the registry for a moment after a mutation, so a miss right
+/// then is not yet an absent shell.
+pub(super) fn retry_until<T>(
+    attempts: usize,
+    deadline: Deadline,
+    pause: &mut dyn FnMut(Duration),
+    mut probe: impl FnMut() -> Option<T>,
+) -> Option<T> {
+    for attempt in 0..=attempts {
+        if let Some(found) = probe() {
+            return Some(found);
+        }
+        if attempt == attempts || deadline.is_expired() {
+            return None;
+        }
+        pause(WINDOW_RETRY_GAP);
+    }
+    None
+}
+
 fn tree_absent(detail: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::AppNotFound,
@@ -123,8 +148,10 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
         return Err(tree_absent("the shell process is not a gnome-shell"));
     }
     let nodes = LiveNodes::new(accessibility, deadline);
-    let window = content_window(&nodes, app)
-        .ok_or_else(|| tree_absent("the shell application has no content window"))?;
+    let window = retry_until(WINDOW_RETRIES, deadline, &mut std::thread::sleep, || {
+        content_window(&nodes, app)
+    })
+    .ok_or_else(|| tree_absent("the shell application has no content window"))?;
     let root = ShellRoot {
         bus_name: window.bus_name().to_owned(),
         path: window.path().to_owned(),
