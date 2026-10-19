@@ -389,3 +389,13 @@ fn clear_never_needs_the_helper() {
     let server = FakeServer::new(&[None], &[]);
     run_clear(&world, &server).expect("a clear needs no helper");
 }
+
+#[test]
+fn a_helper_that_exits_after_the_selection_changed_hands_is_uncertain() {
+    let world = World::new("exits-changed");
+    let helper = world.helper(EXITS);
+    let server = FakeServer::new(&[Some(100), Some(200)], &[]);
+    let error = run_set(&world, &helper, &server, &text("hello"), 3_000).expect_err("refused");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+}

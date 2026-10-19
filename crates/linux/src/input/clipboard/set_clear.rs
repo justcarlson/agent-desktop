@@ -116,8 +116,9 @@ fn start_owner(
 }
 
 /// Hands the payload to a detached owner and returns once a fresh
-/// connection sees that owner serving every target. Only a failure before
-/// the owner claims the selection leaves the earlier clipboard intact.
+/// connection sees that owner serving every target. A helper that stops
+/// without a record may have claimed the selection first, so the earlier
+/// clipboard counts as intact only when the same client still holds it.
 pub(crate) fn set_with(
     env: &Env<'_>,
     display: &str,
@@ -144,9 +145,10 @@ pub(crate) fn set_with(
         Handshake::Failed(message) | Handshake::Exited(message) => {
             kill_and_reap(&mut child);
             discard(env.record_dir, display, env.nonce);
+            let disposition = after_abort(env, display, prior, deadline);
             return Err(failed(
-                format!("The clipboard owner stopped before it held the selection: {message}"),
-                DeliverySemantics::not_delivered(),
+                format!("The clipboard owner stopped without serving the selection: {message}"),
+                disposition,
             ));
         }
         Handshake::TimedOut => {

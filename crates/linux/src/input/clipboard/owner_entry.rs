@@ -1,3 +1,4 @@
+use super::owner_files;
 use super::owner_payload::read_payload;
 use super::owner_record::{self, OwnerRecord};
 use super::owner_serve::serve;
@@ -90,6 +91,12 @@ fn run_owner(env: OwnerEnv) -> i32 {
     }
     if let Err(message) = start_session() {
         return fail(&env, &message);
+    }
+    if let Err(error) = owner_files::ensure_private_dir(&dir) {
+        return fail(
+            &env,
+            &format!("the owner record storage is not usable: {error}"),
+        );
     }
     let payload = match read_payload(env.payload_fd.as_deref()) {
         Ok(payload) => payload,
