@@ -57,7 +57,7 @@ pub(crate) trait PhysicalWorld {
     ) -> Result<Delivery, AdapterError>;
     fn send_keysyms(
         &self,
-        keys: &[KeysymStep],
+        chunks: &[Vec<KeysymStep>],
         gate: Gate<'_>,
         deadline: Deadline,
     ) -> Result<Delivery, AdapterError>;
@@ -147,11 +147,11 @@ impl PhysicalWorld for LiveWorld<'_> {
 
     fn send_keysyms(
         &self,
-        keys: &[KeysymStep],
+        chunks: &[Vec<KeysymStep>],
         gate: Gate<'_>,
         deadline: Deadline,
     ) -> Result<Delivery, AdapterError> {
-        crate::input::deliver::send_keysyms(keys, gate, deadline)
+        crate::input::deliver::send_keysyms(chunks, gate, deadline)
     }
 
     fn pointer_refusal(&self, what: &'static str) -> AdapterError {

@@ -23,18 +23,20 @@ fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
 }
 
 fn with_progress(error: AdapterError, delivered_events: u32) -> AdapterError {
+    if delivered_events > 0 {
+        return error
+            .with_details(json!({
+                "physical_delivery_started": true,
+                "delivered_events": delivered_events,
+            }))
+            .with_disposition(DeliverySemantics::uncertain());
+    }
     if error.disposition != DeliverySemantics::Unknown {
         return error;
     }
-    let started = delivered_events > 0;
-    let disposition = if started {
-        DeliverySemantics::uncertain()
-    } else {
-        DeliverySemantics::not_delivered()
-    };
     error
-        .with_details(json!({ "physical_delivery_started": started }))
-        .with_disposition(disposition)
+        .with_details(json!({ "physical_delivery_started": false }))
+        .with_disposition(DeliverySemantics::not_delivered())
 }
 
 fn recover(session: &mut dyn KeySession, held: &[u32]) {
@@ -49,6 +51,7 @@ fn recover(session: &mut dyn KeySession, held: &[u32]) {
 fn send_each(
     session: &mut dyn KeySession,
     keys: &[KeysymStep],
+    already_delivered: u32,
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
     let mut held: Vec<u32> = Vec::new();
@@ -58,7 +61,7 @@ fn send_each(
             ensure_budget(deadline).and_then(|()| session.keysym(key.keysym, key.down, deadline))
         {
             recover(session, &held);
-            return Err(with_progress(error, delivered));
+            return Err(with_progress(error, already_delivered + delivered));
         }
         delivered += 1;
         if key.down {
@@ -73,7 +76,7 @@ fn send_each(
 fn drive(
     session: &mut dyn KeySession,
     lead: LeadPolicy,
-    keys: &[KeysymStep],
+    chunks: &[&[KeysymStep]],
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
@@ -82,10 +85,22 @@ fn drive(
         .start(deadline)
         .and_then(|()| send_lead(session, lead, deadline))
         .map_err(|error| with_progress(error, 0))?;
-    gate()?;
-    send_each(session, keys, deadline)
+    let mut delivered = 0_u32;
+    for chunk in chunks {
+        gate().map_err(|error| with_progress_kept(error, delivered))?;
+        delivered += send_each(session, chunk, delivered, deadline)?;
+    }
+    Ok(delivered)
 }
 
+fn with_progress_kept(error: AdapterError, delivered: u32) -> AdapterError {
+    if delivered == 0 {
+        return error;
+    }
+    with_progress(error, delivered)
+}
+
+#[cfg(test)]
 pub(crate) fn run(
     session: &mut dyn KeySession,
     lead: LeadPolicy,
@@ -93,10 +108,20 @@ pub(crate) fn run(
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
+    run_chunks(session, lead, &[keys], gate, deadline)
+}
+
+pub(crate) fn run_chunks(
+    session: &mut dyn KeySession,
+    lead: LeadPolicy,
+    chunks: &[&[KeysymStep]],
+    gate: Gate<'_>,
+    deadline: Deadline,
+) -> Result<Delivery, AdapterError> {
     session
         .create(deadline)
         .map_err(|error| with_progress(error, 0))?;
-    let outcome = drive(session, lead, keys, gate, deadline);
+    let outcome = drive(session, lead, chunks, gate, deadline);
     if outcome.as_ref().is_ok_and(|delivered| *delivered > 0) {
         sleep(deadline.remaining().min(DRAIN));
     }
@@ -106,19 +131,35 @@ pub(crate) fn run(
     outcome.map(|delivered_events| Delivery { delivered_events })
 }
 
-pub(crate) fn send_keys(
-    keys: &[KeysymStep],
+pub(crate) fn send_chunks(
+    chunks: &[Vec<KeysymStep>],
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
-    refuse_unreachable(keys)?;
-    if keys.is_empty() {
+    for chunk in chunks {
+        refuse_unreachable(chunk)?;
+    }
+    let chunks: Vec<&[KeysymStep]> = chunks
+        .iter()
+        .map(Vec::as_slice)
+        .filter(|chunk| !chunk.is_empty())
+        .collect();
+    if chunks.is_empty() {
         return Ok(Delivery {
             delivered_events: 0,
         });
     }
     let mut session = RemoteDesktop::open(deadline)?;
-    run(&mut session, LEAD_POLICY, keys, gate, deadline)
+    run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline)
+}
+
+#[cfg(test)]
+pub(crate) fn send_keys(
+    keys: &[KeysymStep],
+    gate: Gate<'_>,
+    deadline: Deadline,
+) -> Result<Delivery, AdapterError> {
+    send_chunks(&[keys.to_vec()], gate, deadline)
 }
 
 pub(crate) fn pointer_refusal(what: &'static str) -> AdapterError {

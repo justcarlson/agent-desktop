@@ -200,11 +200,11 @@ impl PhysicalWorld for FakeWorld {
 
     fn send_keysyms(
         &self,
-        _keys: &[KeysymStep],
+        chunks: &[Vec<KeysymStep>],
         gate: Gate<'_>,
         _deadline: Deadline,
     ) -> Result<Delivery, AdapterError> {
-        self.deliver(1, gate)
+        self.deliver(chunks.len(), gate)
     }
 
     fn pointer_refusal(&self, what: &'static str) -> AdapterError {

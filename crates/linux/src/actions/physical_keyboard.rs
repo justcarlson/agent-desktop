@@ -29,9 +29,8 @@ pub(crate) fn type_text_steps(
             world.send_plans(plans, &mut || gate.check(), deadline)?;
         }
         Backend::Wayland => {
-            for chunk in world.plan_text_keysyms(text) {
-                world.send_keysyms(&chunk, &mut || gate.check(), deadline)?;
-            }
+            let chunks = world.plan_text_keysyms(text);
+            world.send_keysyms(&chunks, &mut || gate.check(), deadline)?;
         }
     }
     Ok(vec![physical_step(&backend, "type_text")])
@@ -96,7 +95,7 @@ fn send_combo(
         }
         Backend::Wayland => {
             let keys = world.plan_keysyms(combo)?;
-            world.send_keysyms(&keys, gate, deadline)?;
+            world.send_keysyms(&[keys], gate, deadline)?;
         }
     }
     Ok(())

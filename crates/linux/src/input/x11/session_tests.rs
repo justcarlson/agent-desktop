@@ -216,3 +216,60 @@ fn a_remap_is_restored_after_the_deadline_cancels_the_call() {
 
     assert_eq!(fake.world().keymap, start_keymap());
 }
+
+fn tap_plan(code: u8) -> Plan {
+    plan(
+        vec![
+            Step::Key { code, down: true },
+            Step::Key { code, down: false },
+        ],
+        None,
+    )
+}
+
+#[test]
+fn a_failure_in_a_later_plan_is_delivered_unverified_with_the_whole_count() {
+    let fake = FakeSink::new().failing_on(3);
+
+    let error = run_with(
+        open(&fake),
+        vec![tap_plan(38), tap_plan(39)],
+        &mut no_gate(),
+        deadline(5_000),
+    )
+    .expect_err("the second plan fails");
+
+    assert_eq!(
+        error.disposition.delivery(),
+        DeliveryDisposition::DeliveredUnverified
+    );
+    assert_eq!(error.details.expect("evidence")["delivered_events"], 2);
+}
+
+#[test]
+fn a_gate_that_stops_a_later_plan_is_delivered_unverified() {
+    let fake = FakeSink::new();
+    let mut calls = 0;
+    let mut gate = || {
+        calls += 1;
+        if calls == 2 {
+            Err(agent_desktop_core::AdapterError::internal("window lost"))
+        } else {
+            Ok(())
+        }
+    };
+
+    let error = run_with(
+        open(&fake),
+        vec![tap_plan(38), tap_plan(39)],
+        &mut gate,
+        deadline(5_000),
+    )
+    .expect_err("the gate stops the second plan");
+
+    assert_eq!(
+        error.disposition.delivery(),
+        DeliveryDisposition::DeliveredUnverified
+    );
+    assert_eq!(error.details.expect("evidence")["delivered_events"], 2);
+}

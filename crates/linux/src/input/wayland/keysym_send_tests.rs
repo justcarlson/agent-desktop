@@ -260,3 +260,78 @@ fn text_outside_the_layout_is_refused_before_a_session_is_opened() {
         "character_outside_layout"
     );
 }
+
+fn two_taps() -> (Vec<KeysymStep>, Vec<KeysymStep>) {
+    (tap(KEY_A).to_vec(), tap(0x62).to_vec())
+}
+
+#[test]
+fn chunks_share_one_session_and_the_count_adds_up() {
+    let (first, second) = two_taps();
+    let mut session = FakeSession::new();
+    let delivery = run_chunks(
+        &mut session,
+        LEAD_POLICY,
+        &[&first, &second],
+        &mut || Ok(()),
+        live(),
+    )
+    .expect("both chunks deliver");
+    assert_eq!(delivery.delivered_events, 4);
+    let events = session.events();
+    let count = |label: &str| events.iter().filter(|event| *event == label).count();
+    assert_eq!((count("create"), count("start"), count("stop")), (1, 1, 1));
+}
+
+#[test]
+fn a_failure_in_a_later_chunk_is_uncertain_with_the_whole_count() {
+    let (first, second) = two_taps();
+    let mut session = FakeSession::failing_on("down:62");
+    let error = run_chunks(
+        &mut session,
+        LEAD_POLICY,
+        &[&first, &second],
+        &mut || Ok(()),
+        live(),
+    )
+    .expect_err("the second chunk fails");
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    let details = error.details.expect("details");
+    assert_eq!(details["physical_delivery_started"], true);
+    assert_eq!(details["delivered_events"], 2);
+}
+
+#[test]
+fn a_gate_that_stops_between_chunks_is_uncertain_with_the_count() {
+    let (first, second) = two_taps();
+    let mut session = FakeSession::new();
+    let mut calls = 0;
+    let mut gate = || {
+        calls += 1;
+        if calls == 2 {
+            Err(AdapterError::new(ErrorCode::ActionFailed, "window lost"))
+        } else {
+            Ok(())
+        }
+    };
+    let error = run_chunks(
+        &mut session,
+        LEAD_POLICY,
+        &[&first, &second],
+        &mut gate,
+        live(),
+    )
+    .expect_err("the gate stops the second chunk");
+    assert_eq!(error.message, "window lost");
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert_eq!(error.details.expect("details")["delivered_events"], 2);
+}
+
+#[test]
+fn a_character_outside_the_layout_in_a_later_chunk_is_refused_before_any_key() {
+    let (first, _) = two_taps();
+    let outside = tap(0x0100_0000 | u32::from('你')).to_vec();
+    let error = send_chunks(&[first, outside], &mut || Ok(()), live()).expect_err("refused");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}

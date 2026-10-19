@@ -20,13 +20,13 @@ pub(crate) fn send_plans(
 }
 
 pub(crate) fn send_keysyms(
-    keys: &[KeysymStep],
+    chunks: &[Vec<KeysymStep>],
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(_) => Err(AdapterError::not_supported("x11_keysym_input")),
-        Backend::Wayland => keysym_send::send_keys(keys, gate, deadline),
+        Backend::Wayland => keysym_send::send_chunks(chunks, gate, deadline),
     }
 }
 
