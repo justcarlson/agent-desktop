@@ -173,6 +173,11 @@ impl SharedBus {
         Ok(slot.get_or_insert(connection).clone())
     }
 
+    #[expect(dead_code, reason = "the signal boundary calls it when lane B merges")]
+    pub(crate) fn forget_cached(&self) {
+        *self.slot.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    }
+
     pub(crate) fn forget(&self, connection: &Connection) {
         let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
         let same = slot
