@@ -1,4 +1,4 @@
-use super::{require_known_target, stopped_target};
+use super::{require_known_target, settle_scoped, stopped_target};
 use crate::system::process_facts::ProcessFacts;
 use crate::system::registry::Registry;
 use crate::system::registry_app::{RegistryApp, assemble};
@@ -85,4 +85,24 @@ fn a_bus_less_process_keeps_the_empty_list() {
     let registry = registry(Vec::new());
     let running = |_: &str| Some((77, "sleep".to_owned()));
     assert!(require_known_target(&registry, |_| true, "sleep", running).is_ok());
+}
+
+#[test]
+fn a_stopped_twin_is_reported_even_when_its_same_name_twin_has_windows() {
+    let registry = registry(vec![app(7, "chrome", false), app(8, "chrome", true)]);
+    let stopped = stopped_target(&registry, |_| true, |pid| pid == 7);
+    let error = settle_scoped(vec!["the running twin's window"], stopped).expect_err("stopped");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains("chrome"));
+}
+
+#[test]
+fn windows_are_returned_when_no_selected_app_is_stopped() {
+    let kept = settle_scoped(vec![1, 2], None).expect("nothing is stopped");
+    assert_eq!(kept, [1, 2]);
+    assert!(
+        settle_scoped(Vec::<u8>::new(), None)
+            .expect("empty")
+            .is_empty()
+    );
 }

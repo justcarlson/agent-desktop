@@ -24,10 +24,26 @@ pub(crate) fn stopped_target(
         .map(|app| AdapterError::app_unresponsive(&app.name))
 }
 
+/// The answer for a scoped listing: the windows, unless a selected
+/// application is stopped. A stopped application cannot be read, so its
+/// windows are missing from the list; answering with the other selected
+/// applications' windows alone would hide it, and a same-name twin that is
+/// stopped beside a running one would vanish without a trace.
+pub(crate) fn settle_scoped<T>(
+    windows: Vec<T>,
+    stopped: Option<AdapterError>,
+) -> Result<Vec<T>, AdapterError> {
+    match stopped {
+        Some(error) => Err(error),
+        None => Ok(windows),
+    }
+}
+
 /// The windows of the selected applications for a request that names its
-/// target. When the target yields none and it is stopped, that is
-/// `APP_UNRESPONSIVE` for the target rather than an empty list that reads as
-/// "no window". An empty list from a responsive application stays empty.
+/// target. When a selected application is stopped that is `APP_UNRESPONSIVE`
+/// for it, whether or not another selected application has windows, rather
+/// than a list that reads as complete. An empty list from a responsive
+/// application stays empty.
 pub(crate) fn scoped_windows_of(
     bus: &SharedBus,
     registry: &Registry,
@@ -35,12 +51,10 @@ pub(crate) fn scoped_windows_of(
     deadline: Deadline,
 ) -> Result<Vec<ListedWindow>, AdapterError> {
     let windows = windows_of(bus, registry, &select, deadline)?;
-    if windows.is_empty()
-        && let Some(error) = stopped_target(registry, &select, process_facts::is_stopped)
-    {
-        return Err(error);
-    }
-    Ok(windows)
+    settle_scoped(
+        windows,
+        stopped_target(registry, &select, process_facts::is_stopped),
+    )
 }
 
 /// A named target that no registry application and no running process
