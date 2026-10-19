@@ -19,6 +19,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib
 
 def activate(app):
+    Gtk.Settings.get_default().set_property("gtk-entry-select-on-focus", False)
     window = Gtk.ApplicationWindow(application=app, title="adwl-keys")
     entry = Gtk.Entry()
     window.set_child(entry)
@@ -118,7 +119,6 @@ fn launch_with(launched: &mut Launched, active_log: &str) -> u32 {
             ("GDK_BACKEND", "wayland".into()),
             ("WAYLAND_DISPLAY", display),
             ("GTK_USE_PORTAL", "0".into()),
-            ("GTK_IM_MODULE", "simple".into()),
             ("GDK_DEBUG", "no-portals".into()),
             ("DISPLAY", String::new()),
             ("ACTIVE_LOG", active_log.to_owned()),
@@ -248,5 +248,10 @@ fn keys_land_in_a_wayland_native_gtk4_entry() {
     select_all.extend(keys("x"));
     send(pid, &select_all).expect("ctrl+a then x deliver");
     let replaced = wait_for(pid, |now| now.text == "x").map(|now| now.text);
-    assert_eq!(replaced.as_deref(), Some("x"));
+    assert_eq!(
+        replaced.as_deref(),
+        Some("x"),
+        "app log {:?}",
+        std::fs::read_to_string(&log)
+    );
 }

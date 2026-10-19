@@ -231,3 +231,19 @@ fn the_lead_is_a_shift_tap() {
         vec![SHIFT_L, SHIFT_L]
     );
 }
+
+#[test]
+fn the_session_is_held_open_while_the_compositor_drains_the_last_keys() {
+    let mut session = FakeSession::new();
+    let started = std::time::Instant::now();
+    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect("delivers");
+    assert!(started.elapsed() >= DRAIN);
+}
+
+#[test]
+fn a_failed_delivery_does_not_wait_to_drain() {
+    let mut session = FakeSession::failing_on("down:ffe3");
+    let started = std::time::Instant::now();
+    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("fails");
+    assert!(started.elapsed() < DRAIN);
+}

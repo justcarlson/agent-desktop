@@ -6,6 +6,9 @@
     )
 )]
 
+use std::thread::sleep;
+use std::time::Duration;
+
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use serde_json::json;
 
@@ -16,6 +19,7 @@ use crate::input::step::{Delivery, KeysymStep};
 
 const MECHANISM: &str = "mutter_remote_desktop";
 const RECOVERY_BUDGET_MS: u64 = 1_000;
+const DRAIN: Duration = Duration::from_millis(150);
 
 fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
     if deadline.is_expired() {
@@ -100,6 +104,9 @@ pub(crate) fn run(
         .create(deadline)
         .map_err(|error| with_progress(error, 0))?;
     let outcome = drive(session, lead, keys, gate, deadline);
+    if outcome.as_ref().is_ok_and(|delivered| *delivered > 0) {
+        sleep(deadline.remaining().min(DRAIN));
+    }
     if let Ok(recovery) = Deadline::detached_after(RECOVERY_BUDGET_MS) {
         let _ = session.stop(recovery);
     }
