@@ -6,7 +6,7 @@ use agent_desktop_core::{Deadline, ErrorCode, ScreenshotTarget};
 
 use super::wayland_portal::capture_wayland;
 use super::wayland_portal_live_support::{
-    BLUE, DIALOG_SHOWN, KEY_RETURN, KEY_TAB, Keys, World, boot,
+    BLUE, DIALOG_SHOWN, KEY_RETURN, KEY_TAB, Keys, World, boot, stored_screenshot_grants,
 };
 
 fn home_screenshots() -> BTreeSet<String> {
@@ -105,4 +105,53 @@ fn deny_is_permission_denied_and_leaves_no_file() {
     println!("portal_live denied {:?}", denied.code);
     assert_eq!(denied.code, ErrorCode::PermDenied);
     assert_eq!(home_screenshots(), before);
+}
+
+fn quick_capture() -> (
+    Result<agent_desktop_core::ImageBuffer, agent_desktop_core::AdapterError>,
+    Duration,
+) {
+    let started = Instant::now();
+    let deadline = Deadline::after(15_000).expect("a deadline");
+    let outcome = capture_wayland(&ScreenshotTarget::FullScreen, deadline);
+    (outcome, started.elapsed())
+}
+
+#[test]
+#[ignore = "boots a private headless gnome-shell and its portal; run inside scripts/private-session.sh"]
+fn one_allow_is_remembered_for_the_host_process_and_later_calls_show_no_dialog() {
+    let world = boot();
+    assert_eq!(stored_screenshot_grants(), "");
+    capture_while(&world, 25_000, |keys| {
+        keys.press(KEY_TAB);
+        std::thread::sleep(Duration::from_millis(400));
+        keys.press(KEY_RETURN);
+    })
+    .expect("the first call is allowed by a person");
+    let stored = stored_screenshot_grants();
+    println!("portal_live grants after allow: {stored}");
+    assert_eq!(stored, r#"screenshot=Some({"": ["yes"]})"#);
+    for call in [2, 3] {
+        let (outcome, took) = quick_capture();
+        println!("portal_live call{call} {:?} in {took:?}", outcome.is_ok());
+        assert!(outcome.is_ok(), "call {call} needs no dialog");
+        assert!(took < Duration::from_secs(5), "{took:?}");
+    }
+}
+
+#[test]
+#[ignore = "boots a private headless gnome-shell and its portal; run inside scripts/private-session.sh"]
+fn one_deny_is_remembered_and_later_calls_are_refused_at_once() {
+    let world = boot();
+    capture_while(&world, 25_000, |keys| keys.press(KEY_RETURN)).expect_err("denied");
+    let stored = stored_screenshot_grants();
+    println!("portal_live grants after deny: {stored}");
+    assert_eq!(stored, r#"screenshot=Some({"": ["no"]})"#);
+    let (outcome, took) = quick_capture();
+    println!(
+        "portal_live second call {:?} in {took:?}",
+        outcome.as_ref().map_err(|e| e.code.clone()).err()
+    );
+    assert_eq!(outcome.expect_err("refused").code, ErrorCode::PermDenied);
+    assert!(took < Duration::from_secs(5), "{took:?}");
 }

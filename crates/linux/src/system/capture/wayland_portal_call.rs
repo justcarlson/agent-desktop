@@ -39,7 +39,9 @@ fn refused(code: u32) -> AdapterError {
         ErrorCode::PermDenied,
         format!("The desktop portal did not allow the screenshot (response {code})"),
     )
-    .with_suggestion("Allow screenshots in the dialog the desktop shows, then try again")
+    .with_suggestion(
+        "Allow screenshots in the dialog the desktop shows; a refusal is remembered, so reset it in the desktop's privacy settings first",
+    )
 }
 
 fn timed_out(error: AdapterError) -> AdapterError {

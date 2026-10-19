@@ -327,3 +327,35 @@ pub(super) fn boot() -> World {
     }
     panic!("no healthy headless gnome-shell with its portal after {ATTEMPTS} starts");
 }
+
+pub(super) fn stored_screenshot_grants() -> String {
+    let Ok(connection) = Connection::session() else {
+        return "no bus".into();
+    };
+    let store = "org.freedesktop.impl.portal.PermissionStore";
+    let path = "/org/freedesktop/impl/portal/PermissionStore";
+    let listed = bus_call(&connection, "List", &("screenshot",), store, path, store)
+        .and_then(|reply| reply.body().deserialize::<Vec<String>>().ok());
+    let Some(ids) = listed else {
+        return "no table".into();
+    };
+    let mut out = Vec::new();
+    for id in ids {
+        let looked = bus_call(
+            &connection,
+            "Lookup",
+            &("screenshot", id.as_str()),
+            store,
+            path,
+            store,
+        )
+        .and_then(|reply| {
+            reply
+                .body()
+                .deserialize::<(HashMap<String, Vec<String>>, zbus::zvariant::OwnedValue)>()
+                .ok()
+        });
+        out.push(format!("{id}={:?}", looked.map(|(grants, _)| grants)));
+    }
+    out.join(";")
+}
