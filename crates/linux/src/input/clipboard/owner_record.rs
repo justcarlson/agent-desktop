@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use super::owner_files;
-use crate::system::process_facts::parse_start_time;
+use crate::system::proc_stat;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OwnerRecord {
@@ -159,7 +159,8 @@ pub(crate) fn records_in(dir: &Path, display: &str) -> Vec<OwnerRecord> {
 }
 
 pub(crate) fn start_ticks_of(pid: u32) -> Option<u64> {
-    parse_start_time(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
+    proc_stat::parse(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
+        .map(|parsed| parsed.start_time)
 }
 
 /// A record is live only while the process it names started when the record
