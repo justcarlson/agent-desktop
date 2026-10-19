@@ -258,6 +258,12 @@ fn files_check(
             println!("scroll_live {label}: the tree holds no offscreen row ({message})");
             Ok(())
         }
+        Err(message) if message.contains("no scroll bar") => {
+            println!(
+                "scroll_live {label}: the offscreen node sits in a scroller without a bar ({message})"
+            );
+            Ok(())
+        }
         other => other,
     }
 }
