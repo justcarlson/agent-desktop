@@ -231,3 +231,30 @@ fn a_nameless_ref_whose_element_changed_size_is_a_settled_miss_and_not_a_retry()
     assert_eq!(kind(&error), "resolve_no_candidate");
     assert!(!error.is_explicitly_retryable());
 }
+
+#[test]
+fn a_twin_whose_extents_cannot_be_read_is_never_replaced_by_the_twin_of_its_size() {
+    let mut fake = files();
+    let mut entry = fake.entry_of("/opts2", true);
+    entry.scope.path.clear();
+    fake.nodes
+        .get_mut("/opts1")
+        .expect("opts1")
+        .read
+        .node
+        .extents = crate::tree::Field::Present(crate::tree::Extents {
+        x: 0,
+        y: 0,
+        width: 23,
+        height: 34,
+    });
+    fake.nodes
+        .get_mut("/opts2")
+        .expect("opts2")
+        .read
+        .node
+        .extents = crate::tree::Field::Failed("extents unavailable".to_owned());
+    let error = refusal(&mut fake, &entry);
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.is_explicitly_retryable());
+}

@@ -63,10 +63,22 @@ fn position_is_never_read_so_a_moved_window_selects_the_same_twin() {
 }
 
 #[test]
-fn a_candidate_with_unreadable_extents_is_never_the_stored_size() {
+fn a_candidate_with_unreadable_extents_never_lets_its_twin_win_by_size() {
     let candidates = vec![None, Some(rect(0.0, 0.0, 23.0, 34.0))];
     let stored = rect(0.0, 0.0, 23.0, 34.0);
-    assert_eq!(select_by_stored_size(&candidates, Some(&stored)), Some(1));
+    assert_eq!(select_by_stored_size(&candidates, Some(&stored)), None);
+    assert_eq!(
+        classify(&candidates, Some(&stored), false),
+        Verdict::Incomplete
+    );
+    let readable = vec![
+        Some(rect(0.0, 0.0, 34.0, 34.0)),
+        Some(rect(0.0, 0.0, 23.0, 34.0)),
+    ];
+    assert_eq!(
+        classify(&readable, Some(&stored), false),
+        Verdict::Resolved(1)
+    );
 }
 
 #[test]

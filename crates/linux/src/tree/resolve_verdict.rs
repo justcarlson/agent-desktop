@@ -17,12 +17,17 @@ pub(crate) enum Verdict {
 
 /// The one candidate whose size equals the stored size, when exactly one does.
 /// It only ever picks among several candidates and never refutes one; a ref
-/// with no stored size cannot be separated this way and stays ambiguous.
+/// with no stored size cannot be separated this way and stays ambiguous. A
+/// candidate whose extents were not read is not a size that differs: it could
+/// be the element, so while any candidate is unread nothing is picked.
 pub(crate) fn select_by_stored_size(
     candidates: &[Option<Rect>],
     stored: Option<&Rect>,
 ) -> Option<usize> {
     let stored = stored.and_then(usable_size)?;
+    if candidates.iter().any(Option::is_none) {
+        return None;
+    }
     let mut sole = None;
     let mut matches = 0;
     for (index, rect) in candidates.iter().enumerate() {
@@ -52,7 +57,8 @@ pub(crate) fn classify(
     if candidates.len() > 1 && !separable {
         return Verdict::Ambiguous;
     }
-    if unread_region {
+    let extents_unread = candidates.len() > 1 && candidates.iter().any(Option::is_none);
+    if unread_region || extents_unread {
         return Verdict::Incomplete;
     }
     match candidates.len() {
