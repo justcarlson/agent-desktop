@@ -90,6 +90,7 @@ fn settled_walk(
             Err(error) => return Err(window_gone(root, error)),
         };
         if request.surface == SnapshotSurface::Sheet
+            && matches!(root, ObservationRoot::Window(_))
             && !super::surfaces::is_sheet(&walk.root.payload.node)
         {
             return Err(sheet_absent());
