@@ -24,6 +24,7 @@ pub(crate) const ACTIVATION_GRACE: Duration = Duration::from_millis(2_000);
 const FORMAT_LONGS: u8 = 32;
 const MESSAGE_LONGS: usize = 5;
 const SERVER_TIME_BUDGET: Duration = Duration::from_millis(1_000);
+const EVENT_POLL: Duration = Duration::from_millis(2);
 
 /// The five data longs of a `_NET_ACTIVE_WINDOW` request: the source
 /// indication, the time of the user action, and the window that is active
@@ -72,29 +73,25 @@ fn atom(connection: &RustConnection, name: &[u8]) -> Result<Atom, ActivateError>
         .ok_or(ActivateError::SendFailed)
 }
 
-/// Asks the window manager to make `client` the active window.
-pub(crate) fn activate(client: u32, source: u32, timestamp: u32) -> Result<(), ActivateError> {
-    let (connection, root) = connect()?;
-    let active = atom(&connection, b"_NET_ACTIVE_WINDOW")?;
-    let message = activation_event(client, active, source, timestamp);
-    let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
-    connection
-        .send_event(false, root, mask, message)
-        .map_err(|_| ActivateError::SendFailed)?;
-    connection
-        .get_input_focus()
-        .ok()
-        .and_then(|cookie| cookie.reply().ok())
-        .map(|_| ())
-        .ok_or(ActivateError::SendFailed)
+/// A connection ready to send: the root, the atom and the server time were
+/// all read before the caller's deadline.
+pub(crate) struct Prepared {
+    connection: RustConnection,
+    root: u32,
+    active: Atom,
+    timestamp: u32,
 }
 
 /// The display server's current time, the stamp a request made now should
 /// carry. A server only tells its time through an event, so a property on a
-/// window made for the purpose is touched and the notification read.
-pub(crate) fn server_time() -> Option<u32> {
-    let (connection, root) = connect().ok()?;
-    let property = atom(&connection, b"WM_CLASS").ok()?;
+/// window made for the purpose is touched and the notification polled for
+/// until `deadline`.
+fn server_time(
+    connection: &RustConnection,
+    root: u32,
+    deadline: agent_desktop_core::Deadline,
+) -> Option<u32> {
+    let property = atom(connection, b"WM_CLASS").ok()?;
     let window = connection.generate_id().ok()?;
     connection
         .create_window(
@@ -124,8 +121,12 @@ pub(crate) fn server_time() -> Option<u32> {
         .ok()?;
     connection.flush().ok()?;
     let stamp = loop {
-        if let Event::PropertyNotify(event) = connection.wait_for_event().ok()? {
-            break Some(event.time);
+        match connection.poll_for_event() {
+            Ok(Some(Event::PropertyNotify(event))) => break Some(event.time),
+            Ok(Some(_)) => {}
+            Ok(None) if deadline.is_expired() => break None,
+            Ok(None) => std::thread::sleep(EVENT_POLL.min(deadline.remaining())),
+            Err(_) => break None,
         }
     };
     let _ = connection.destroy_window(window);
@@ -133,9 +134,39 @@ pub(crate) fn server_time() -> Option<u32> {
     stamp
 }
 
+/// Connects and reads everything a request needs. Nothing is sent: a worker
+/// that outlives its deadline holds a connection and no request.
+pub(crate) fn prepare(deadline: agent_desktop_core::Deadline) -> Result<Prepared, ActivateError> {
+    let (connection, root) = connect()?;
+    let active = atom(&connection, b"_NET_ACTIVE_WINDOW")?;
+    let timestamp = server_time(&connection, root, deadline).ok_or(ActivateError::SendFailed)?;
+    Ok(Prepared {
+        connection,
+        root,
+        active,
+        timestamp,
+    })
+}
+
+/// Asks the window manager to make `client` the active window, from the
+/// caller's thread. The request is written and flushed, not awaited: the
+/// caller judges the effect by observation.
+pub(crate) fn send(prepared: &Prepared, client: u32, source: u32) -> Result<(), ActivateError> {
+    let message = activation_event(client, prepared.active, source, prepared.timestamp);
+    let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
+    prepared
+        .connection
+        .send_event(false, prepared.root, mask, message)
+        .map_err(|_| ActivateError::SendFailed)?;
+    prepared
+        .connection
+        .flush()
+        .map_err(|_| ActivateError::SendFailed)
+}
+
 /// The window the manager says is active, or `None` when it names none or
 /// cannot be asked.
-pub(crate) fn active_window() -> Option<u32> {
+fn active_window() -> Option<u32> {
     let (connection, root) = connect().ok()?;
     let active = atom(&connection, b"_NET_ACTIVE_WINDOW").ok()?;
     let reply = connection
@@ -151,14 +182,28 @@ fn deadline_of(budget: Duration) -> Option<agent_desktop_core::Deadline> {
     agent_desktop_core::Deadline::from_duration(budget).ok()
 }
 
-/// Sends the request with a real server time, bounded: a server that has
-/// stopped answering costs the budget, never the caller's whole deadline.
+/// Prepares under the budget and then sends on this thread, so a server that
+/// stopped answering costs the budget and no request is ever written after the
+/// caller was told it failed.
 pub(crate) fn request_activation(client: u32) -> Result<(), ActivateError> {
     let deadline = deadline_of(SERVER_TIME_BUDGET).ok_or(ActivateError::SendFailed)?;
-    bounded(deadline, Err(ActivateError::SendFailed), move || {
-        let stamp = server_time().ok_or(ActivateError::SendFailed)?;
-        activate(client, ACTIVATION_SOURCE, stamp)
+    request_via(deadline, prepare, |prepared| {
+        send(&prepared, client, ACTIVATION_SOURCE)
     })
+}
+
+/// The two phases apart: `prepare` runs on a worker the deadline can abandon,
+/// `send` only on the calling thread and only with what `prepare` returned in
+/// time.
+pub(crate) fn request_via<P: Send + 'static>(
+    deadline: agent_desktop_core::Deadline,
+    prepare: impl FnOnce(agent_desktop_core::Deadline) -> Result<P, ActivateError> + Send + 'static,
+    send: impl FnOnce(P) -> Result<(), ActivateError>,
+) -> Result<(), ActivateError> {
+    let prepared = bounded(deadline, Err(ActivateError::SendFailed), move || {
+        prepare(deadline)
+    })?;
+    send(prepared)
 }
 
 /// `active_window` bounded by `budget`.
