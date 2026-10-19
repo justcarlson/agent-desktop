@@ -6,6 +6,7 @@ mod attributes;
 mod bounded;
 mod child_list;
 mod descriptor;
+pub(crate) mod display_bounds;
 mod element;
 mod expansion;
 mod extents;

@@ -16,7 +16,7 @@ use super::{AtspiElement, Extents};
 use crate::system::registry::toolkit;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
-use crate::system::x11::{DisplayReader, FrameFacts};
+use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, within};
 
 const SCREEN_COORDINATES: u32 = 0;
@@ -132,8 +132,19 @@ fn wholly_outside(placement: &Placement) -> bool {
 /// Reads where `element` sits in its window once: its own rectangle, the
 /// frame's and the scroll container's in window coordinates, whether the frame
 /// is iconified, the toolkit, and what the display server says about the
-/// window. Every part that could not be read stays absent; nothing is guessed.
+/// window, and the displays the screen rectangle is judged against. Every part
+/// that could not be read stays absent; nothing is guessed.
 pub(crate) fn placement(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placement {
+    let pending = x11::start(|| MonitorReader.read());
+    let mut placed = place(bus, element, deadline);
+    placed.displays = match pending.finish(deadline) {
+        Some(Ok(monitors)) => Some(monitors.into_iter().map(|monitor| monitor.bounds).collect()),
+        _ => None,
+    };
+    placed
+}
+
+fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placement {
     let toolkit = toolkit_of(bus, element, deadline);
     let mut placed = Placement {
         node: read_window_extents(bus, element, deadline),

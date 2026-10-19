@@ -191,3 +191,58 @@ fn a_global_toolkit_keeps_its_extents_and_another_has_no_bounds_when_unprovable(
     let other = live_element(&read, &evidence, &unprovable, false).expect("projects");
     assert_eq!(other.bounds, None);
 }
+
+fn gtk(version: &str) -> ToolkitId {
+    ToolkitId {
+        name: Some("GTK".to_owned()),
+        version: Some(version.to_owned()),
+    }
+}
+
+fn on_screen_1280x800(mut placement: Placement) -> Placement {
+    placement.displays = Some(vec![rect(0, 0, 1280, 800)]);
+    placement
+}
+
+#[test]
+fn a_node_wholly_outside_every_display_is_offscreen_and_a_partly_visible_one_is_not() {
+    let mut placed = on_screen_1280x800(window(rect(10, 10, 100, 40)));
+    placed.toolkit = gtk("3.24.41");
+    let outside = read_with(
+        &[ENABLED, VISIBLE, SHOWING],
+        Some(rect(-308, -156, 100, 40)),
+    );
+    assert_eq!(derived_offscreen(&outside, &placed), Some(true));
+    let projected = state_in(&outside, &placed);
+    assert!(projected.states.iter().any(|t| t == state::OFFSCREEN));
+    let partly = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(1260, 10, 100, 40)));
+    assert_eq!(derived_offscreen(&partly, &placed), Some(false));
+}
+
+#[test]
+fn a_node_outside_every_display_is_not_called_offscreen_without_a_display_list() {
+    let mut placed = window(rect(10, 10, 100, 40));
+    placed.toolkit = gtk("3.24.41");
+    let outside = read_with(
+        &[ENABLED, VISIBLE, SHOWING],
+        Some(rect(-308, -156, 100, 40)),
+    );
+    assert_eq!(derived_offscreen(&outside, &placed), Some(false));
+    placed.displays = Some(Vec::new());
+    assert_eq!(derived_offscreen(&outside, &placed), Some(false));
+}
+
+#[test]
+fn a_node_of_a_toolkit_without_global_position_is_judged_by_its_provable_rectangle() {
+    let read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(0, 0, 100, 40)));
+    let mut placed = on_screen_1280x800(window(rect(0, 0, 100, 40)));
+    placed.toolkit = gtk("4.14.5");
+    placed.x11 = Some(WindowX11State {
+        client_id: 7,
+        hidden: false,
+        client_origin: (-308, -156),
+    });
+    assert_eq!(derived_offscreen(&read, &placed), Some(true));
+    placed.x11 = mapped(false);
+    assert_eq!(derived_offscreen(&read, &placed), Some(false));
+}

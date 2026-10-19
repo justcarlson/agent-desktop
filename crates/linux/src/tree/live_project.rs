@@ -2,10 +2,12 @@ use agent_desktop_core::{
     AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect, state,
 };
 
+use super::display_bounds::off_every_display;
 use super::frame_geometry::pointer_bounds;
 use super::offscreen::{OffscreenInput, offscreen};
 use super::placement::Placement;
 use super::state_bits::{ENABLED, SENSITIVE, SHOWING, StateBits, VISIBLE};
+use super::toolkit_trust::reports_global_position;
 use super::{Extents, Field, ObservedRead};
 
 /// The answer for a live read that left a field the projection needs unread.
@@ -111,10 +113,34 @@ pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> O
     });
     let container_unread =
         read.node.element.scroll_container().is_some() && placement.container.is_none();
+    let off_screen = verdict != Some(true)
+        && off_every_display(screen_rect(read, placement), placement.displays.as_deref());
     match verdict {
+        _ if off_screen => Some(true),
         Some(false) if container_unread || hidden => None,
         other => other,
     }
+}
+
+/// The node's rectangle in screen coordinates: the toolkit's own extents when
+/// it reports global positions, the provable pointer rectangle otherwise.
+fn screen_rect(read: &ObservedRead, placement: &Placement) -> Option<Extents> {
+    if reports_global_position(&placement.toolkit) {
+        return match &read.node.extents {
+            Field::Present(extents) => Some(*extents),
+            Field::Absent | Field::Failed(_) => None,
+        };
+    }
+    pointer_extents(read, placement)
+}
+
+fn pointer_extents(read: &ObservedRead, placement: &Placement) -> Option<Extents> {
+    let Field::Present(screen) = &read.node.extents else {
+        return None;
+    };
+    let window: Extents = placement.node?;
+    let origin = placement.x11.map(|x11| x11.client_origin);
+    pointer_bounds(&placement.toolkit, *screen, window, origin)
 }
 
 /// The node's rectangle in the frame a pointer is aimed in, for a toolkit
@@ -122,12 +148,7 @@ pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> O
 /// the screen extents, the window extents and the client origin. `None` when
 /// nothing was read or the position cannot be proved.
 pub(crate) fn pointer_rect(read: &ObservedRead, placement: &Placement) -> Option<Rect> {
-    let Field::Present(screen) = &read.node.extents else {
-        return None;
-    };
-    let window: Extents = placement.node?;
-    let origin = placement.x11.map(|x11| x11.client_origin);
-    pointer_bounds(&placement.toolkit, *screen, window, origin).map(Rect::from)
+    pointer_extents(read, placement).map(Rect::from)
 }
 
 /// The state projection. `hidden` is a live-only token. `offscreen` follows

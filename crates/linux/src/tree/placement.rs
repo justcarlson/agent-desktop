@@ -11,4 +11,5 @@ pub(crate) struct Placement {
     pub(crate) frame_iconified: bool,
     pub(crate) toolkit: ToolkitId,
     pub(crate) x11: Option<WindowX11State>,
+    pub(crate) displays: Option<Vec<Extents>>,
 }
