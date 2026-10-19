@@ -127,3 +127,15 @@ fn the_measured_about_and_shortcuts_shapes_are_listed_sheets() {
     let sheets: Vec<bool> = windows.iter().map(|window| window.sheet).collect();
     assert_eq!(sheets, [true, true, true, false]);
 }
+
+#[test]
+fn a_frame_that_neither_shows_nor_is_iconified_is_unshown_and_the_others_are_not() {
+    let app = app(Some(("qt", "6.7")));
+    let unshown = |bits: &[u32]| {
+        let nodes = vec![frame(16, "d", "/org/a11y/atspi/accessible/1", bits)];
+        collect(&[(0, &app)], &[nodes])[0].unshown
+    };
+    assert!(unshown(&[8, 24]));
+    assert!(!unshown(&[8, 24, 25, 30]));
+    assert!(!unshown(&[8, 15]));
+}

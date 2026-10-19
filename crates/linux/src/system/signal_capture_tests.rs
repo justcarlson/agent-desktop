@@ -1,6 +1,5 @@
 use std::cell::RefCell;
-use std::thread::sleep;
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, ProcessIdentity, SignalBaseline, SignalFilter,
@@ -105,6 +104,7 @@ fn listed(app: &RegistryApp, scripted: &Scripted) -> ListedWindow {
             global_position: false,
         },
         sheet: scripted.sheet,
+        unshown: false,
     }
 }
 

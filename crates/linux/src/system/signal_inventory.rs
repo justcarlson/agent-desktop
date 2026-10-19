@@ -3,6 +3,7 @@ use agent_desktop_core::{AdapterError, Deadline};
 use super::SharedBus;
 use super::focus::decide_focus;
 use super::focus_world::focus_send;
+use super::ghost_window::without_ghosts;
 use super::listed_window::ListedWindow;
 use super::proc_stat;
 use super::registry::Registry;
@@ -67,6 +68,16 @@ fn gather(
 /// The windows and per-application outcomes of the applications `select`
 /// accepts, in registry order, without the display-server read.
 pub(super) fn read_selected(
+    bus: &SharedBus,
+    registry: &Registry,
+    select: impl Fn(&RegistryApp) -> bool,
+    deadline: Deadline,
+) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
+    let (windows, outcomes) = read_unfiltered(bus, registry, select, deadline)?;
+    Ok((without_ghosts(windows, &X11State::Unavailable), outcomes))
+}
+
+fn read_unfiltered(
     bus: &SharedBus,
     registry: &Registry,
     select: impl Fn(&RegistryApp) -> bool,
@@ -153,8 +164,9 @@ pub(super) fn run_pass_with(
     finish: impl FnOnce(Deadline) -> X11State,
     deadline: Deadline,
 ) -> Result<(Pass, X11State), AdapterError> {
-    let (windows, outcomes) = read_selected(bus, registry, select, deadline)?;
+    let (windows, outcomes) = read_unfiltered(bus, registry, select, deadline)?;
     let state = finish(deadline);
+    let windows = without_ghosts(windows, &state);
     Ok((
         pass_over(windows, outcomes, &state, |client| {
             focus_send::input_focus_in(client, deadline)

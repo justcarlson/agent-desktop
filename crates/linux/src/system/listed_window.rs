@@ -13,4 +13,8 @@ pub(crate) struct ListedWindow {
     pub(crate) dialog: bool,
     pub(crate) frame: FrameFacts,
     pub(crate) sheet: bool,
+    /// The window neither shows nor is iconified. A toolkit that keeps a
+    /// top-level window for reuse leaves such a husk on the registry after
+    /// it hides or closes.
+    pub(crate) unshown: bool,
 }

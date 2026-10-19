@@ -29,6 +29,7 @@ fn window(id: &str, sheet: bool) -> ListedWindow {
             global_position: false,
         },
         sheet,
+        unshown: false,
     }
 }
 

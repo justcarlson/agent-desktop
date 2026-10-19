@@ -50,6 +50,7 @@ fn window(id: &str, title: &str, sheet: bool) -> ListedWindow {
             global_position: false,
         },
         sheet,
+        unshown: false,
     }
 }
 

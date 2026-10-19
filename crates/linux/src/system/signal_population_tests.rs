@@ -47,6 +47,7 @@ fn window(owner: usize, id: &str, visible: bool) -> ListedWindow {
             global_position: false,
         },
         sheet: false,
+        unshown: false,
     }
 }
 
