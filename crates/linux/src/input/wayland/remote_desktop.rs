@@ -1,3 +1,137 @@
+use std::io::ErrorKind;
+
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
+use serde_json::json;
+use zbus::Connection;
+use zbus::zvariant::OwnedObjectPath;
+
+use super::key_session::KeySession;
+use crate::system::session_bus::SessionBus;
+use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, within};
+
+const SERVICE: &str = "org.gnome.Mutter.RemoteDesktop";
+const PATH: &str = "/org/gnome/Mutter/RemoteDesktop";
+const SESSION_INTERFACE: &str = "org.gnome.Mutter.RemoteDesktop.Session";
+const ACCESS_DENIED: &str = "org.freedesktop.DBus.Error.AccessDenied";
+
+/// A typed view of Mutter's RemoteDesktop service over the session bus
+/// connection. It never holds the accessibility connection.
+pub(crate) struct RemoteDesktop {
+    connection: Connection,
+    session: Option<OwnedObjectPath>,
+}
+
+impl RemoteDesktop {
+    pub(crate) fn open(deadline: Deadline) -> Result<Self, AdapterError> {
+        Ok(Self::over(SessionBus::get(deadline)?))
+    }
+
+    pub(crate) fn over(connection: Connection) -> Self {
+        Self {
+            connection,
+            session: None,
+        }
+    }
+
+    fn session_path(&self) -> Result<&str, AdapterError> {
+        self.session
+            .as_ref()
+            .map(|path| path.as_str())
+            .ok_or_else(|| AdapterError::internal("The keyboard session was not created"))
+    }
+
+    fn call_session(&self, member: &'static str, deadline: Deadline) -> Result<(), AdapterError> {
+        let path = self.session_path()?;
+        within(deadline, async {
+            self.connection
+                .call_method(Some(SERVICE), path, Some(SESSION_INTERFACE), member, &())
+                .await
+                .map(|_| ())
+                .map_err(|error| classify_call(&error))
+        })
+    }
+}
+
+impl KeySession for RemoteDesktop {
+    fn create(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
+        let path = within(deadline, async {
+            let reply = self
+                .connection
+                .call_method(Some(SERVICE), PATH, Some(SERVICE), "CreateSession", &())
+                .await
+                .map_err(|error| classify_call(&error))?;
+            reply
+                .body()
+                .deserialize::<OwnedObjectPath>()
+                .map_err(|error| classify_call(&error))
+        })?;
+        self.session = Some(path);
+        Ok(())
+    }
+
+    fn start(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
+        self.call_session("Start", deadline)
+    }
+
+    fn keysym(&mut self, keysym: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError> {
+        let path = self.session_path()?;
+        within(deadline, async {
+            self.connection
+                .call_method(
+                    Some(SERVICE),
+                    path,
+                    Some(SESSION_INTERFACE),
+                    "NotifyKeyboardKeysym",
+                    &(keysym, down),
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| classify_call(&error))
+        })
+    }
+
+    fn stop(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
+        let stopped = self.call_session("Stop", deadline);
+        self.session = None;
+        stopped
+    }
+}
+
+pub(crate) fn semantic_action_refusal(message: impl Into<String>) -> AdapterError {
+    AdapterError::new(ErrorCode::ActionNotSupported, message)
+        .with_suggestion("Use the semantic action on the element instead of physical input")
+        .with_details(json!({ "physical_delivery_started": false }))
+        .with_disposition(DeliverySemantics::not_delivered())
+}
+
+pub(crate) fn classify_call(error: &zbus::Error) -> AdapterError {
+    match error {
+        zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _)
+            if io.kind() == ErrorKind::TimedOut =>
+        {
+            AdapterError::timeout("The compositor did not answer the keyboard request in time")
+                .with_platform_detail(error.to_string())
+        }
+        zbus::Error::MethodError(name, _, _)
+            if matches!(
+                name.as_str(),
+                SERVICE_UNKNOWN | NAME_HAS_NO_OWNER | ACCESS_DENIED
+            ) =>
+        {
+            semantic_action_refusal(
+                "Keyboard input through the compositor is not available in this session",
+            )
+            .with_platform_detail(error.to_string())
+        }
+        _ => AdapterError::new(
+            ErrorCode::ActionFailed,
+            "The compositor rejected the keyboard request",
+        )
+        .with_suggestion("Retry the command; report the platform detail if it persists")
+        .with_platform_detail(error.to_string()),
+    }
+}
+
 #[cfg(test)]
 #[path = "remote_desktop_tests.rs"]
 mod tests;

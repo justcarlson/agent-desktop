@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline};
-use zbus::connection::Builder;
+use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use super::bus_deadline::within;
 use super::bus_slice::within_slice;
+use super::session_bus::SessionBus;
 
 const SERVICE: &str = "org.gnome.Mutter.DisplayConfig";
 const PATH: &str = "/org/gnome/Mutter/DisplayConfig";
@@ -92,8 +93,7 @@ fn assemble(reply: Reply) -> Vec<LogicalMonitor> {
         .collect()
 }
 
-async fn get_current_state() -> Option<Vec<LogicalMonitor>> {
-    let session = Builder::session().ok()?.build().await.ok()?;
+async fn get_current_state(session: Connection) -> Option<Vec<LogicalMonitor>> {
     let reply = session
         .call_method(Some(SERVICE), PATH, Some(INTERFACE), "GetCurrentState", &())
         .await
@@ -102,12 +102,26 @@ async fn get_current_state() -> Option<Vec<LogicalMonitor>> {
     Some(assemble(body))
 }
 
+fn open_session(
+    open_within: Deadline,
+    deadline: Deadline,
+) -> Result<Option<Connection>, AdapterError> {
+    match SessionBus::get(open_within) {
+        Ok(session) => Ok(Some(session)),
+        Err(_) if !deadline.is_expired() => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
 /// The compositor's logical monitor list, or `None` when the session bus has
 /// no Mutter answering it. Only the deadline itself is an error.
 pub(crate) fn logical_monitors(
     deadline: Deadline,
 ) -> Result<Option<Vec<LogicalMonitor>>, AdapterError> {
-    within(deadline, async { Ok(get_current_state().await) })
+    let Some(session) = open_session(deadline, deadline)? else {
+        return Ok(None);
+    };
+    within(deadline, async { Ok(get_current_state(session).await) })
 }
 
 /// Like `logical_monitors`, but a Mutter that does not answer within `slice`
@@ -116,7 +130,12 @@ pub(crate) fn logical_monitors_within(
     deadline: Deadline,
     slice: Duration,
 ) -> Result<Option<Vec<LogicalMonitor>>, AdapterError> {
+    let Some(session) = open_session(deadline.capped(slice), deadline)? else {
+        return Ok(None);
+    };
     within(deadline, async {
-        Ok(within_slice(slice, get_current_state()).await.flatten())
+        Ok(within_slice(slice, get_current_state(session))
+            .await
+            .flatten())
     })
 }
