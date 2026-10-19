@@ -14,7 +14,7 @@ const {
   unlinkSync,
   writeFileSync,
 } = require('fs');
-const { dirname, isAbsolute, join, sep } = require('path');
+const { basename, dirname, isAbsolute, join } = require('path');
 const { platform, arch } = require('os');
 const { execFileSync } = require('child_process');
 const { createHash } = require('crypto');
@@ -188,13 +188,23 @@ function installArchive(tarballPath, binaryPath, helperPath, entry, trashCommand
 const BIN_ENTRY_NAME = 'agent-desktop';
 
 function isInstalledPackage(directory) {
-  return directory.split(sep).includes('node_modules');
+  return basename(dirname(dirname(directory))) === 'node_modules';
+}
+
+function isNodeWrapper(path) {
+  try {
+    return readFileSync(path).subarray(0, 2).toString() === '#!';
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Replaces the JS wrapper at the package bin entry with a hard link to the
  * native binary so package-manager shims exec it directly. Leaves the wrapper
- * in place outside node_modules, on win32 and whenever linking fails.
+ * in place unless the package sits directly in node_modules, on win32, and
+ * whenever linking fails. A failure that leaves the entry on an older native
+ * binary fails the install.
  */
 function linkBinEntry(directory, binaryName, osPlatform = platform()) {
   if (osPlatform === 'win32' || !isInstalledPackage(directory)) return false;
@@ -207,12 +217,18 @@ function linkBinEntry(directory, binaryName, osPlatform = platform()) {
       const entryStat = lstatSync(entryPath);
       if (entryStat.ino === binaryStat.ino && entryStat.dev === binaryStat.dev) return false;
     } catch {}
+    rmSync(temporary, { force: true });
     linkSync(binaryPath, temporary);
     renameSync(temporary, entryPath);
     log('Linked bin entry to native binary');
     return true;
   } catch (err) {
-    log(`Could not link bin entry, keeping the Node wrapper: ${err.message}`);
+    if (isNodeWrapper(entryPath)) {
+      log(`Could not link bin entry, keeping the Node wrapper: ${err.message}`);
+    } else {
+      log(`Could not link bin entry to the installed native binary: ${err.message}`);
+      process.exitCode = 1;
+    }
     return false;
   } finally {
     try { unlinkSync(temporary); } catch {}

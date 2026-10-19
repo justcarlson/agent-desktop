@@ -531,3 +531,66 @@ test('bin entry keeps the wrapper when the native binary is missing', () => {
   });
   assert.equal(readFileSync(join(dir, 'agent-desktop'), 'utf8'), 'wrapper');
 });
+
+test('bin entry is untouched under an unrelated node_modules ancestor', () => {
+  const dir = binWithWrapper(['node_modules', 'sandbox', 'agent-desktop', 'npm', 'bin']);
+  assert.equal(postinstall.linkBinEntry(dir, 'agent-desktop-darwin-arm64', 'darwin'), false);
+  assert.equal(readFileSync(join(dir, 'agent-desktop'), 'utf8'), '#!/usr/bin/env node\n');
+});
+
+test('a leftover temporary link does not block linking', {
+  skip: process.platform === 'win32',
+}, () => {
+  const dir = binWithWrapper();
+  writeFileSync(join(dir, `agent-desktop.link-${process.pid}`), 'stale');
+  captureWarnings(() => {
+    assert.equal(postinstall.linkBinEntry(dir, 'agent-desktop-darwin-arm64', 'darwin'), true);
+  });
+  assert.equal(readFileSync(join(dir, 'agent-desktop'), 'utf8'), 'native');
+});
+
+test('a failed relink that leaves an older native entry fails the install', {
+  skip: process.platform === 'win32' || process.getuid?.() === 0,
+}, () => {
+  const dir = binWithWrapper();
+  captureWarnings(() => postinstall.linkBinEntry(dir, 'agent-desktop-darwin-arm64', 'darwin'));
+  const native = join(dir, 'agent-desktop-darwin-arm64');
+  writeFileSync(`${native}.next`, 'newer', { mode: 0o755 });
+  renameSync(`${native}.next`, native);
+  chmodSync(dir, 0o555);
+  try {
+    const warnings = captureWarnings(() => {
+      assert.equal(postinstall.linkBinEntry(dir, 'agent-desktop-darwin-arm64', 'darwin'), false);
+    });
+    assert.match(warnings, /Could not link bin entry to the installed native binary/);
+    assert.equal(process.exitCode, 1);
+  } finally {
+    process.exitCode = 0;
+    chmodSync(dir, 0o755);
+  }
+});
+
+test('postinstall links the bin entry of an installed package to the native binary', {
+  skip: process.platform === 'win32',
+}, async () => {
+  const root = join(temporaryDirectory(), 'node_modules', 'agent-desktop');
+  for (const part of ['package.json', 'bin/agent-desktop', 'lib/platform.js', 'scripts/postinstall.js']) {
+    mkdirSync(join(root, part, '..'), { recursive: true });
+    writeFileSync(join(root, part), readFileSync(join(__dirname, '..', '..', 'npm', part)), { mode: 0o755 });
+  }
+  const source = join(temporaryDirectory(), 'release');
+  mkdirSync(source);
+  writeFileSync(join(source, 'agent-desktop'), 'native', { mode: 0o755 });
+  writeFileSync(join(source, 'agent-desktop-macos-helper'), 'helper', { mode: 0o755 });
+  process.env.AGENT_DESKTOP_BINARY_PATH = join(source, 'agent-desktop');
+  try {
+    const { code, stderr } = await runScriptWithOsStub(join(root, 'scripts', 'postinstall.js'), 'darwin', 'arm64');
+    assert.equal(code, 0, stderr);
+    assert.match(stderr, /Linked bin entry to native binary/);
+  } finally {
+    delete process.env.AGENT_DESKTOP_BINARY_PATH;
+  }
+  const entry = lstatSync(join(root, 'bin', 'agent-desktop'));
+  assert.equal(entry.ino, lstatSync(join(root, 'bin', 'agent-desktop-darwin-arm64')).ino);
+  assert.equal(readFileSync(join(root, 'bin', 'agent-desktop-macos-helper'), 'utf8'), 'helper');
+});
