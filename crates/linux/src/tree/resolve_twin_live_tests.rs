@@ -177,3 +177,65 @@ fn resolve_live_twin_buttons_are_told_apart_by_path_and_by_stored_size_and_stay_
         stored
     );
 }
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn resolve_live_files_row_refs_survive_a_sibling_row_leaving() {
+    use super::live_launch::nonce;
+    use super::live_rig::wait_until;
+    use std::time::Duration;
+
+    let adapter = LinuxAdapter::new();
+    let bus = SharedBus::default();
+    let connection = bus
+        .get(Deadline::standard().expect("a standard deadline builds"))
+        .expect("the accessibility bus must be reachable");
+    let mut launched = Launched::new();
+    let folder = std::env::temp_dir().join(nonce("resolve-rows"));
+    std::fs::create_dir_all(&folder).expect("the folder is made");
+    launched.scratch.push(folder.clone());
+    for name in ["alpha.txt", "beta.txt"] {
+        std::fs::write(folder.join(name), b"x").expect("a file is written");
+    }
+    let pid = launched.spawn("nautilus", &["--new-window", &folder.to_string_lossy()]);
+    let settled = settle(&bus, 30, || pid_frame(&connection, pid)).expect("files settles");
+    let snapshot = |name: &str| {
+        named(
+            snapshot_entries(&adapter, &settled.frame, false).expect("a snapshot"),
+            name,
+        )
+    };
+    let mut before = Vec::new();
+    assert!(
+        wait_until(Duration::from_secs(20), || {
+            before = snapshot("beta.txt");
+            !before.is_empty() && !snapshot("alpha.txt").is_empty()
+        }),
+        "Files lists both files"
+    );
+    println!("resolve_live files rows: beta refs={}", before.len());
+    std::fs::remove_file(folder.join("alpha.txt")).expect("the first file is removed");
+    assert!(
+        wait_until(Duration::from_secs(20), || snapshot("alpha.txt").is_empty()),
+        "Files stops listing the removed file"
+    );
+    let mut paths = Vec::new();
+    for entry in &before {
+        let handle = adapter
+            .resolve_element_strict(entry, Deadline::after(5_000).expect("the deadline builds"))
+            .unwrap_or_else(|error| {
+                panic!(
+                    "a row ref {:?} {:?} did not survive the removal: {:?} {}",
+                    entry.identity.role, entry.scope.path, error.code, error.message
+                )
+            });
+        paths.push(atspi_element(&handle).expect("ours").path().to_owned());
+    }
+    paths.sort();
+    paths.dedup();
+    assert_eq!(
+        paths.len(),
+        before.len(),
+        "each ref resolves to its own node"
+    );
+}

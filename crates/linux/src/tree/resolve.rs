@@ -7,7 +7,7 @@ use super::resolve_errors::{
     ambiguous, is_incomplete, no_candidate, settle_gone, stopped_aware, unverifiable_entry,
 };
 use super::resolve_match::{accepts_landing, entry_is_unverifiable};
-use super::resolve_search::Searched;
+use super::resolve_search::{Candidate, Searched};
 use super::resolve_verdict::{Verdict, classify};
 use super::walker_expand::UNKNOWN_PID;
 
@@ -65,6 +65,27 @@ fn path_tier<S: Source>(
     }
 }
 
+/// The one candidate that sits as deep as the stored path is long, when
+/// several answer to the stored evidence. A control that exposes a twin of
+/// itself as its own child (a Files row's cell holds a cell of the same name
+/// and size) puts the twins at different depths, and a sibling removed from
+/// the list shifts every index but no depth. It only ever picks among several
+/// candidates and never refutes one.
+fn sole_at_stored_depth<'a>(
+    candidates: &'a [Candidate],
+    entry: &RefEntry,
+) -> Option<&'a Candidate> {
+    if candidates.len() < 2 {
+        return None;
+    }
+    let depth = entry.scope.path.len();
+    let mut at_depth = candidates
+        .iter()
+        .filter(|candidate| candidate.depth == depth);
+    let first = at_depth.next()?;
+    at_depth.next().is_none().then_some(first)
+}
+
 fn attempt<S: Source>(
     source: &mut S,
     entry: &RefEntry,
@@ -93,6 +114,12 @@ fn attempt<S: Source>(
         .map(|candidate| candidate.bounds)
         .collect();
     let unread = path_unread || searched.unread_region;
+    if window_rooted(entry)
+        && !unread
+        && let Some(candidate) = sole_at_stored_depth(&searched.candidates, entry)
+    {
+        return Ok(candidate.element.clone());
+    }
     match classify(&rects, entry.geometry.bounds.as_ref(), unread) {
         Verdict::Resolved(index) => searched
             .candidates
@@ -145,6 +172,10 @@ pub(super) fn settle_outcome<S: Source>(
 #[cfg(test)]
 #[path = "resolve_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "resolve_depth_tests.rs"]
+mod depth_tests;
 
 #[cfg(test)]
 #[path = "resolve_refusal_tests.rs"]

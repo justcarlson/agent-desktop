@@ -6,11 +6,13 @@ use super::role_numbers::is_web_document;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, WalkedNode};
 
 /// A live node that answers to the stored evidence, with its extents for the
-/// size tie-break.
+/// size tie-break and its depth below the window frame (the frame is 0, so a
+/// node's depth is the length of its child-index path).
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Candidate {
     pub(crate) element: AtspiElement,
     pub(crate) bounds: Option<Rect>,
+    pub(crate) depth: usize,
 }
 
 /// What a search over a finished walk found and whether any region of the
@@ -30,10 +32,11 @@ fn childless_web_region(node: &WalkedNode<ObservedRead>, is_root: bool, web_proc
 fn visit(
     node: &WalkedNode<ObservedRead>,
     entry: &RefEntry,
-    is_root: bool,
+    depth: usize,
     web_process: bool,
     found: &mut Searched,
 ) {
+    let is_root = depth == 0;
     let limits = WalkLimits::default();
     let evidence = project_node(&node.payload, node.in_web_document, &limits);
     match admit_node(entry, &evidence) {
@@ -43,13 +46,14 @@ fn visit(
                 LocatorField::Known(rect) => Some(rect),
                 LocatorField::Absent | LocatorField::Unknown => None,
             },
+            depth,
         }),
         Admission::Unread => found.unread_region = true,
         Admission::Reject => {}
     }
     found.unread_region |= childless_web_region(node, is_root, web_process);
     for child in &node.children {
-        visit(child, entry, false, web_process, found);
+        visit(child, entry, depth + 1, web_process, found);
     }
 }
 
@@ -63,7 +67,7 @@ pub(crate) fn evaluate(walk: &Walk<ObservedRead>, entry: &RefEntry, web_process:
         candidates: Vec::new(),
         unread_region: !walk.complete,
     };
-    visit(&walk.root, entry, true, web_process, &mut found);
+    visit(&walk.root, entry, 0, web_process, &mut found);
     found
 }
 
