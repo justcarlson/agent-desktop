@@ -10,6 +10,8 @@ use crate::input::step::Step;
 use crate::tree::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(30);
+const READY_ATTEMPTS: u32 = 6;
+const READY_WAIT: Duration = Duration::from_millis(1_500);
 
 pub(crate) const GTK3: &str = r#"
 import gi, os
@@ -156,9 +158,13 @@ pub(crate) fn window_center(name: &str) -> (i32, i32) {
 }
 
 pub(crate) fn wait_for_log(path: &str, expected: &str) -> String {
+    wait_for_log_within(path, expected, Duration::from_secs(8))
+}
+
+fn wait_for_log_within(path: &str, expected: &str, budget: Duration) -> String {
     let started = Instant::now();
     let mut seen = String::new();
-    while started.elapsed() < Duration::from_secs(8) {
+    while started.elapsed() < budget {
         seen = std::fs::read_to_string(path).unwrap_or_default();
         if seen == expected {
             break;
@@ -208,20 +214,35 @@ fn type_into(kind: &str) {
     let mut launched = Launched::new();
     spawn_app(&mut launched, kind, &log);
     let (x, y) = window_center("adx");
-    std::thread::sleep(Duration::from_millis(800));
     let mut gate = || -> Result<(), AdapterError> { Ok(()) };
-    run(&display, vec![click_plan(x, y)], &mut gate, deadline(8_000)).expect("click");
     let map = live_keymap(&display, deadline(8_000)).expect("keymap");
+    let mut ready = false;
+    for _ in 0..READY_ATTEMPTS {
+        run(&display, vec![click_plan(x, y)], &mut gate, deadline(8_000)).expect("click");
+        let probe = run(
+            &display,
+            vec![type_plan(&map, "h")],
+            &mut gate,
+            deadline(8_000),
+        )
+        .expect("the probe key");
+        assert_eq!(probe.delivered_events, 2);
+        if wait_for_log_within(&log, "h", READY_WAIT) == "h" {
+            ready = true;
+            break;
+        }
+    }
+    assert!(ready, "the {kind} entry never took the first key");
     let outcome = run(
         &display,
-        vec![type_plan(&map, "hello")],
+        vec![type_plan(&map, "ello")],
         &mut gate,
         deadline(8_000),
     );
     let seen = wait_for_log(&log, "hello");
     launched.stop();
     let delivery = outcome.expect("typed");
-    assert_eq!(delivery.delivered_events, 10);
+    assert_eq!(delivery.delivered_events, 8);
     assert_eq!(seen, "hello", "the {kind} entry did not receive the keys");
 }
 
