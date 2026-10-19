@@ -1,4 +1,3 @@
-pub(crate) mod compose;
 pub(crate) mod display;
 pub(crate) mod fullscreen_route;
 pub(crate) mod pixels;

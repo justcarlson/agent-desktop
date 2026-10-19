@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
-
 use agent_desktop_core::{AdapterError, ErrorCode, ImageBuffer, ImageFormat, MAX_PNG_INPUT_BYTES};
 use png::{BitDepth, ColorType, Compression, Encoder};
 

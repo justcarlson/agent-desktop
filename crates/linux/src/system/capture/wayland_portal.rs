@@ -1,5 +1,3 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ImageBuffer, ScreenshotTarget};
 
 pub(crate) fn capture_wayland(

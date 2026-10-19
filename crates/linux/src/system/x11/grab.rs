@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code, reason = "stub the owning lane replaces"))]
-
 use agent_desktop_core::Deadline;
 use x11rb::connection::{Connection, RequestConnection};
 use x11rb::protocol::xproto::{ConnectionExt, ImageFormat, Window};
