@@ -1,5 +1,6 @@
 use std::io::{Seek, Write};
 use std::os::fd::IntoRawFd;
+use std::os::unix::fs::MetadataExt;
 
 use super::*;
 use crate::input::clipboard::payload::{Target, frame};
@@ -40,12 +41,14 @@ fn tempfile_in_memory() -> File {
 #[test]
 fn an_inherited_descriptor_is_read_and_closed() {
     let number = descriptor_holding(&framed());
+    let path = format!("/proc/self/fd/{number}");
+    let inode = std::fs::metadata(&path)
+        .expect("open before the read")
+        .ino();
     let payload = read_payload(Some(&number.to_string())).expect("payload");
     assert_eq!(payload.targets[0].bytes, b"hello");
-    assert!(
-        std::fs::metadata(format!("/proc/self/fd/{number}")).is_err(),
-        "the descriptor is closed after the read"
-    );
+    let still_ours = std::fs::metadata(&path).is_ok_and(|after| after.ino() == inode);
+    assert!(!still_ours, "the descriptor is closed after the read");
 }
 
 #[test]

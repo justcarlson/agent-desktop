@@ -12,7 +12,8 @@ use super::owner_serve::{Lost, OwnerEvent, Wire};
 use super::payload::Payload;
 
 const REQUEST_HEADROOM_BYTES: usize = 1024;
-const INCR_CHUNK_BYTES: usize = 64 * 1024;
+const SINGLE_PROPERTY_LIMIT_BYTES: usize = 262_140;
+const INCR_CHUNK_BYTES: usize = 1024 * 1024;
 
 /// One claimed selection: the connection and window that own it, and the
 /// pure answerer built from what the owner serves.
@@ -116,9 +117,10 @@ pub(crate) fn claim(display: &str, payload: &Payload) -> Result<Claimed, String>
     if holder != window {
         return Err("another client took the selection during the claim".to_owned());
     }
-    let incr_threshold = connection
+    let request_bytes = connection
         .maximum_request_bytes()
         .saturating_sub(REQUEST_HEADROOM_BYTES);
+    let incr_threshold = request_bytes.min(SINGLE_PROPERTY_LIMIT_BYTES - REQUEST_HEADROOM_BYTES);
     Ok(Claimed {
         wire: X11Wire {
             connection,
@@ -132,7 +134,7 @@ pub(crate) fn claim(display: &str, payload: &Payload) -> Result<Claimed, String>
             incr_threshold,
         },
         window,
-        chunk_bytes: INCR_CHUNK_BYTES.min(incr_threshold.max(1)),
+        chunk_bytes: INCR_CHUNK_BYTES.min(request_bytes.max(1)),
     })
 }
 
