@@ -109,7 +109,6 @@ fn install() {
         return;
     }
     for signal in SIGNALS {
-        // in below, and the handler is an async-signal-safe extern "C" function.
         unsafe {
             let mut action: libc::sigaction = std::mem::zeroed();
             action.sa_sigaction = on_signal as extern "C" fn(c_int) as usize;
