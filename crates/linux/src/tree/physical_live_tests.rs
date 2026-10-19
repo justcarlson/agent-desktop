@@ -10,6 +10,7 @@ use super::physical_live_rig::{Kit, Scene, Tgt};
 use super::physical_live_scripts::{
     GTK3_BUTTON, GTK3_DRAG, GTK3_GRAB, GTK4_BUTTON, QT_BUTTON, QT_ENTRY,
 };
+use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
 use crate::input::x11::live_tests::{GTK3, GTK4, device_state, window_center};
 
 const ENTRY_ROLES: &[&str] = &["textfield", "text", "entry"];
@@ -268,19 +269,12 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
     std::thread::sleep(Duration::from_millis(1200));
     let (scene, entry) = entry_scene(Kit::Gtk, GTK3);
     std::thread::sleep(Duration::from_millis(800));
-    let raised = std::process::Command::new("wmctrl")
-        .args(["-a", "adx"])
-        .status()
-        .expect("wmctrl runs");
-    assert!(raised.success());
-    std::thread::sleep(Duration::from_millis(500));
-    let net_active = std::process::Command::new("xprop")
-        .args(["-root", "_NET_ACTIVE_WINDOW"])
-        .output()
-        .expect("xprop runs");
-    assert!(
-        !String::from_utf8_lossy(&net_active.stdout).contains("0x0"),
-        "the window manager named no active window"
+    let client = wait_for_viewable_client(scene.pid, Duration::from_secs(15));
+    activate(client.id);
+    wait_until(
+        "the window manager naming the window active",
+        Duration::from_secs(5),
+        || active_window() == Some(client.id),
     );
     let refused = scene
         .act(&entry.handle, Action::TypeText("zq".to_owned()))

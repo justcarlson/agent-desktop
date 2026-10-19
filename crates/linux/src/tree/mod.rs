@@ -147,6 +147,9 @@ mod physical_live_scripts;
 mod physical_live_tests;
 
 #[cfg(test)]
+mod physical_live_x11;
+
+#[cfg(test)]
 mod qt_live_tests;
 
 #[cfg(test)]

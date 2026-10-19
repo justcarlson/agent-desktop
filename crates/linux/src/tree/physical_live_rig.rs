@@ -26,6 +26,7 @@ pub(super) struct Scene {
     pub(super) launched: Launched,
     pub(super) frame: AtspiElement,
     pub(super) log: String,
+    pub(super) pid: u32,
 }
 
 pub(super) struct Tgt {
@@ -95,6 +96,7 @@ impl Scene {
             launched,
             frame: settled.frame,
             log,
+            pid,
         }
     }
 
