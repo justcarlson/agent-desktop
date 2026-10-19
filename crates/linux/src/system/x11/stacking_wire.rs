@@ -1,119 +1,28 @@
 use x11rb::connection::Connection;
 use x11rb::cookie::Cookie;
+use x11rb::errors::ReplyError;
 use x11rb::protocol::xproto::{
     Atom, AtomEnum, ConnectionExt, GetGeometryReply, GetPropertyReply, GetWindowAttributesReply,
     MapState, TranslateCoordinatesReply, Window, WindowClass,
 };
 use x11rb::rust_connection::RustConnection;
 
-use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::snapshot::decode_frame_extents;
 use crate::system::x11::stacked_window::StackedWindow;
+use crate::system::x11::stacking_atoms::{WindowAtoms, names};
 use crate::system::x11::stacking_decode::{
-    StateAtoms, TypeAtoms, decode_current_desktop, decode_desktop, decode_kind, decode_stack,
-    decode_state,
+    complete_value, decode_current_desktop, decode_desktop, decode_kind, decode_stack,
+    decode_state, exceeds_cap,
 };
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
 use crate::system::x11::window_flags::WindowFlags;
-use crate::system::x11::window_kind::WindowKind;
 use crate::tree::Extents;
 
 const MAX_STACK: u32 = 4_096;
-const MAX_ENTRIES: usize = 256;
 const MAX_OVERLAYS: usize = 64;
 const TYPE_LONGS: u32 = 8;
 const STATE_LONGS: u32 = 64;
-
-const NAMES: [&[u8]; 16] = [
-    b"_NET_SUPPORTING_WM_CHECK",
-    b"_NET_CLIENT_LIST_STACKING",
-    b"_NET_CURRENT_DESKTOP",
-    b"_NET_WM_STATE",
-    b"_NET_WM_STATE_HIDDEN",
-    b"_NET_WM_STATE_ABOVE",
-    b"_NET_WM_DESKTOP",
-    b"_NET_WM_WINDOW_TYPE",
-    b"_NET_WM_WINDOW_TYPE_NORMAL",
-    b"_NET_WM_WINDOW_TYPE_DIALOG",
-    b"_NET_WM_WINDOW_TYPE_UTILITY",
-    b"_NET_WM_WINDOW_TYPE_MENU",
-    b"_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
-    b"_NET_WM_WINDOW_TYPE_POPUP_MENU",
-    b"_NET_WM_WINDOW_TYPE_DOCK",
-    b"_NET_WM_WINDOW_TYPE_DESKTOP",
-];
-
-struct Names {
-    wm_check: Atom,
-    stacking: Atom,
-    current_desktop: Atom,
-    state: Atom,
-    desktop: Atom,
-    kind: Atom,
-    frame_extents: Atom,
-    states: StateAtoms,
-    types: TypeAtoms,
-}
-
-fn names(connection: &RustConnection) -> Option<Names> {
-    let cookies: Vec<_> = NAMES
-        .iter()
-        .map(|name| connection.intern_atom(false, name).ok())
-        .collect::<Option<_>>()?;
-    let ids: Vec<Atom> = cookies
-        .into_iter()
-        .map(|cookie| cookie.reply().ok().map(|reply| reply.atom))
-        .collect::<Option<_>>()?;
-    let frame_extents = connection
-        .intern_atom(false, b"_NET_FRAME_EXTENTS")
-        .ok()?
-        .reply()
-        .ok()?
-        .atom;
-    let [
-        wm_check,
-        stacking,
-        current_desktop,
-        state,
-        hidden,
-        above,
-        desktop,
-        kind,
-        normal,
-        dialog,
-        utility,
-        menu,
-        dropdown,
-        popup,
-        dock,
-        desktop_type,
-    ] = ids.as_slice()
-    else {
-        return None;
-    };
-    Some(Names {
-        wm_check: *wm_check,
-        stacking: *stacking,
-        current_desktop: *current_desktop,
-        state: *state,
-        desktop: *desktop,
-        kind: *kind,
-        frame_extents,
-        states: StateAtoms {
-            hidden: *hidden,
-            above: *above,
-        },
-        types: TypeAtoms {
-            normal: *normal,
-            dialog: *dialog,
-            utility: *utility,
-            menu: [*menu, *dropdown, *popup],
-            dock: *dock,
-            desktop: *desktop_type,
-        },
-    })
-}
 
 #[derive(Default)]
 struct Overlays {
@@ -135,9 +44,31 @@ fn property(
         .ok()
 }
 
-fn bytes(cookie: Option<Property<'_>>) -> Option<(u8, Vec<u8>)> {
-    let reply = cookie?.reply().ok()?;
-    Some((reply.format, reply.value))
+/// Why a reply left nothing to use: the window no longer exists (an X
+/// error, so nothing of it can cover anything), or the read failed and leaves
+/// the evidence short.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stop {
+    Gone,
+    Failed,
+}
+
+type Got<T> = Result<T, Stop>;
+
+fn answer<T: x11rb::x11_utils::TryParse>(cookie: Option<Cookie<'_, RustConnection, T>>) -> Got<T> {
+    match cookie.map(|cookie| cookie.reply()) {
+        Some(Ok(value)) => Ok(value),
+        Some(Err(ReplyError::X11Error(_))) => Err(Stop::Gone),
+        Some(Err(ReplyError::ConnectionError(_))) | None => Err(Stop::Failed),
+    }
+}
+
+/// A property value as `(format, bytes)`, empty when the property is absent.
+/// A value cut short by the length asked for is a failed read, because the
+/// part not read may hold the atom that decides.
+fn value(cookie: Option<Property<'_>>) -> Got<(u8, Vec<u8>)> {
+    let reply = answer(cookie)?;
+    complete_value(reply.format, reply.value, reply.bytes_after).ok_or(Stop::Failed)
 }
 
 struct Pending<'c> {
@@ -165,7 +96,7 @@ fn geometry(connection: &RustConnection, root: Window, id: Window) -> Geometry<'
 
 fn request<'c>(
     connection: &'c RustConnection,
-    names: &Names,
+    names: &WindowAtoms,
     root: Window,
     id: Window,
 ) -> Pending<'c> {
@@ -179,11 +110,12 @@ fn request<'c>(
     }
 }
 
-fn client_rectangle(rest: Geometry<'_>) -> Option<(bool, Extents)> {
-    let attributes = rest.attributes?.reply().ok()?;
-    let origin = rest.origin?.reply().ok()?;
-    let size = rest.size?.reply().ok()?;
-    Some((
+fn client_rectangle(rest: Geometry<'_>) -> Got<(bool, Extents)> {
+    let attributes = answer(rest.attributes);
+    let origin = answer(rest.origin);
+    let size = answer(rest.size);
+    let (attributes, origin, size) = (attributes?, origin?, size?);
+    Ok((
         attributes.map_state == MapState::VIEWABLE,
         Extents {
             x: i32::from(origin.dst_x),
@@ -194,26 +126,36 @@ fn client_rectangle(rest: Geometry<'_>) -> Option<(bool, Extents)> {
     ))
 }
 
-fn collect(pending: Pending<'_>, names: &Names) -> Option<StackedWindow> {
+fn collect(pending: Pending<'_>, atoms: &WindowAtoms) -> Got<StackedWindow> {
     let (mapped, client) = client_rectangle(pending.rest)?;
-    let (hidden, above) = bytes(pending.state).map_or((false, false), |(format, value)| {
-        decode_state(format, &value, names.states)
-    });
-    let desktop = bytes(pending.desktop).map_or(DesktopPlacement::Unknown, |(format, value)| {
-        decode_desktop(format, &value)
-    });
-    let kind = bytes(pending.kind).map_or(WindowKind::Normal, |(format, value)| {
-        decode_kind(format, &value, names.types)
-    });
-    let extents = bytes(pending.extents)
-        .and_then(|(format, value)| decode_frame_extents(format, &value))
-        .unwrap_or(crate::system::x11::FrameExtents {
+    let (state, desktop, kind, extents) = (
+        value(pending.state),
+        value(pending.desktop),
+        value(pending.kind),
+        value(pending.extents),
+    );
+    let (hidden, above) = {
+        let (format, bytes) = state?;
+        decode_state(format, &bytes, atoms.states)
+    };
+    let desktop = {
+        let (format, bytes) = desktop?;
+        decode_desktop(format, &bytes)
+    };
+    let kind = {
+        let (format, bytes) = kind?;
+        decode_kind(format, &bytes, atoms.types)
+    };
+    let extents = {
+        let (format, bytes) = extents?;
+        decode_frame_extents(format, &bytes).unwrap_or(crate::system::x11::FrameExtents {
             left: 0,
             right: 0,
             top: 0,
             bottom: 0,
-        });
-    Some(StackedWindow {
+        })
+    };
+    Ok(StackedWindow {
         id: pending.id,
         flags: WindowFlags {
             hidden,
@@ -227,21 +169,30 @@ fn collect(pending: Pending<'_>, names: &Names) -> Option<StackedWindow> {
     })
 }
 
-fn frame_of(connection: &RustConnection, root: Window, client: Window) -> Option<Window> {
-    let parent = connection.query_tree(client).ok()?.reply().ok()?.parent;
-    Some(if parent == root || parent == 0 {
+fn frame_of(connection: &RustConnection, root: Window, client: Window) -> Got<Window> {
+    let parent = answer(connection.query_tree(client).ok())?.parent;
+    Ok(if parent == root || parent == 0 {
         client
     } else {
         parent
     })
 }
 
-fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<Overlays> {
-    let siblings = connection.query_tree(root).ok()?.reply().ok()?.children;
-    let position = siblings.iter().position(|window| *window == frame)?;
-    let probes: Vec<_> = siblings[position + 1..]
+/// The mapped override-redirect windows above `frame`. A sibling that is gone
+/// is skipped; a read that failed, or more siblings than are probed, leaves
+/// the answer unknown.
+fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Got<Overlays> {
+    let siblings = answer(connection.query_tree(root).ok())?.children;
+    let position = siblings
         .iter()
-        .take(MAX_ENTRIES)
+        .position(|window| *window == frame)
+        .ok_or(Stop::Failed)?;
+    let above = &siblings[position + 1..];
+    if exceeds_cap(above.len()) {
+        return Err(Stop::Failed);
+    }
+    let probes: Vec<_> = above
+        .iter()
         .map(|window| {
             (
                 connection.get_window_attributes(*window).ok(),
@@ -251,16 +202,20 @@ fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<
         })
         .collect();
     let mut found = Overlays::default();
-    for (window, (attributes, size, input)) in siblings[position + 1..].iter().zip(probes) {
-        let Some(attributes) = attributes.and_then(|cookie| cookie.reply().ok()) else {
-            continue;
+    for (window, (attributes, size, input)) in above.iter().zip(probes) {
+        let attributes = match answer(attributes) {
+            Ok(attributes) => attributes,
+            Err(Stop::Gone) => continue,
+            Err(Stop::Failed) => return Err(Stop::Failed),
         };
         let paints = attributes.class == WindowClass::INPUT_OUTPUT;
         if !attributes.override_redirect || attributes.map_state != MapState::VIEWABLE || !paints {
             continue;
         }
-        let Some(size) = size.and_then(|cookie| cookie.reply().ok()) else {
-            continue;
+        let size = match answer(size) {
+            Ok(size) => size,
+            Err(Stop::Gone) => continue,
+            Err(Stop::Failed) => return Err(Stop::Failed),
         };
         let border = i32::from(size.border_width) * 2;
         found.bounds.push(Extents {
@@ -277,15 +232,16 @@ fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<
                 .map(|rect| (*window, rect)),
         );
         if found.bounds.len() == MAX_OVERLAYS {
-            break;
+            return Err(Stop::Failed);
         }
     }
-    Some(found)
+    Ok(found)
 }
 
 /// The stacking evidence for one client on the display `display`: the
 /// target and every managed client above it, bottom to top, and the mapped
-/// override-redirect windows above the target's frame.
+/// override-redirect windows above the target's frame. Evidence that is short
+/// by a failed reply or a cap is `Unavailable`, never a smaller `Ready`.
 pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     let Ok((connection, screen)) = RustConnection::connect(Some(display)) else {
         return StackingRead::Unavailable;
@@ -301,46 +257,57 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     let Some(names) = names(&connection) else {
         return StackingRead::Unavailable;
     };
-    let manager = property(&connection, root, names.wm_check, AtomEnum::WINDOW, 1);
+    let manager = property(&connection, root, names.root.wm_check, AtomEnum::WINDOW, 1);
     let stack = property(
         &connection,
         root,
-        names.stacking,
+        names.root.stacking,
         AtomEnum::WINDOW,
         MAX_STACK,
     );
     let desktop = property(
         &connection,
         root,
-        names.current_desktop,
+        names.root.current_desktop,
         AtomEnum::CARDINAL,
         1,
     );
-    let has_manager = bytes(manager).is_some_and(|(_, value)| !value.is_empty());
+    let has_manager = value(manager).is_ok_and(|(_, bytes)| !bytes.is_empty());
     if !has_manager {
         return StackingRead::NoManager;
     }
-    let Some(listed) = bytes(stack).and_then(|(format, value)| decode_stack(format, &value)) else {
+    let Some(listed) = value(stack)
+        .ok()
+        .and_then(|(format, bytes)| decode_stack(format, &bytes))
+    else {
         return StackingRead::Unavailable;
     };
     let Some(position) = listed.iter().position(|window| *window == target) else {
         return StackingRead::Unavailable;
     };
-    let pending: Vec<_> = listed[position..]
+    let from_target = &listed[position..];
+    if exceeds_cap(from_target.len()) {
+        return StackingRead::Unavailable;
+    }
+    let pending: Vec<_> = from_target
         .iter()
-        .take(MAX_ENTRIES)
-        .map(|window| request(&connection, &names, root, *window))
+        .map(|window| request(&connection, &names.window, root, *window))
         .collect();
-    let current_desktop =
-        bytes(desktop).and_then(|(format, value)| decode_current_desktop(format, &value));
-    let stack: Vec<StackedWindow> = pending
-        .into_iter()
-        .filter_map(|entry| collect(entry, &names))
-        .collect();
+    let current_desktop = value(desktop)
+        .ok()
+        .and_then(|(format, bytes)| decode_current_desktop(format, &bytes));
+    let mut stack = Vec::with_capacity(pending.len());
+    for entry in pending {
+        match collect(entry, &names.window) {
+            Ok(window) => stack.push(window),
+            Err(Stop::Gone) => {}
+            Err(Stop::Failed) => return StackingRead::Unavailable,
+        }
+    }
     if stack.first().is_none_or(|window| window.id != target) {
         return StackingRead::Unavailable;
     }
-    let Some(overlays) =
+    let Ok(overlays) =
         frame_of(&connection, root, target).and_then(|frame| overlays(&connection, root, frame))
     else {
         return StackingRead::Unavailable;

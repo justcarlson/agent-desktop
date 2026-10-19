@@ -24,6 +24,26 @@ pub(crate) struct TypeAtoms {
     pub(crate) desktop: u32,
 }
 
+/// The windows probed above and including a target at most this many: more
+/// than the cap leaves the topmost windows unread, which is unknown and never a
+/// shorter answer.
+pub(crate) const MAX_ENTRIES: usize = 256;
+
+/// Whether `count` windows are more than a read probes.
+pub(crate) fn exceeds_cap(count: usize) -> bool {
+    count > MAX_ENTRIES
+}
+
+/// A property reply as `(format, bytes)`, or `None` when the value was cut
+/// short by the length asked for (`bytes_after` is not zero).
+pub(crate) fn complete_value(
+    format: u8,
+    value: Vec<u8>,
+    bytes_after: u32,
+) -> Option<(u8, Vec<u8>)> {
+    (bytes_after == 0).then_some((format, value))
+}
+
 /// `_NET_CLIENT_LIST_STACKING`: window ids bottom to top. A value that ends
 /// inside an id or is not 32-bit is rejected.
 pub(crate) fn decode_stack(format: u8, bytes: &[u8]) -> Option<Vec<u32>> {

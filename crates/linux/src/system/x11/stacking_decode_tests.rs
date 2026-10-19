@@ -137,3 +137,19 @@ fn every_side_of_the_border_grows_the_matching_edge() {
         }
     );
 }
+
+#[test]
+fn a_property_cut_short_by_the_length_asked_for_is_not_a_value() {
+    assert_eq!(
+        complete_value(32, vec![1, 2, 3, 4], 0),
+        Some((32, vec![1, 2, 3, 4]))
+    );
+    assert_eq!(complete_value(32, vec![1, 2, 3, 4], 8), None);
+    assert_eq!(complete_value(0, Vec::new(), 0), Some((0, Vec::new())));
+}
+
+#[test]
+fn more_windows_than_a_read_probes_exceed_the_cap() {
+    assert!(!exceeds_cap(MAX_ENTRIES));
+    assert!(exceeds_cap(MAX_ENTRIES + 1));
+}
