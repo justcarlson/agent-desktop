@@ -21,6 +21,7 @@ fn one_stalled_frame_costs_one_slice_keeps_its_peers_and_reads_timed_out() {
     let (frames, read) = zbus::block_on(collect_frames(
         children(4),
         Duration::from_millis(100),
+        || false,
         |(bus, _)| async move {
             if bus == ":1.1" {
                 Timer::after(Duration::from_secs(30)).await;
@@ -38,6 +39,7 @@ fn a_frame_that_fails_for_another_reason_reads_timed_out() {
     let (frames, read) = zbus::block_on(collect_frames(
         children(3),
         Duration::from_millis(100),
+        || false,
         |(bus, _)| async move {
             if bus == ":1.0" {
                 Err(AdapterError::internal("failed field"))
@@ -55,6 +57,7 @@ fn a_gone_frame_is_left_out_and_the_read_is_complete() {
     let (frames, read) = zbus::block_on(collect_frames(
         children(3),
         Duration::from_millis(100),
+        || false,
         |(bus, _)| async move { if bus == ":1.0" { Err(gone()) } else { Ok(bus) } },
     ));
     assert_eq!(frames, [":1.1", ":1.2"]);
@@ -82,11 +85,41 @@ fn every_gone_code_is_an_absence() {
 #[test]
 fn a_child_list_that_does_not_answer_is_slow_and_a_gone_one_is_not() {
     use super::{Outcome, outcome};
-    assert!(matches!(outcome::<u8>(None), Outcome::Slow));
-    assert!(matches!(outcome::<u8>(Some(Err(gone()))), Outcome::Gone));
+    assert!(matches!(outcome::<u8>(None, || false), Outcome::Slow));
     assert!(matches!(
-        outcome::<u8>(Some(Err(AdapterError::internal("x")))),
+        outcome::<u8>(Some(Err(gone())), || false),
+        Outcome::Gone
+    ));
+    assert!(matches!(
+        outcome::<u8>(Some(Err(AdapterError::internal("x"))), || false),
         Outcome::Slow
     ));
-    assert!(matches!(outcome(Some(Ok(1u8))), Outcome::Read(1)));
+    assert!(matches!(outcome(Some(Ok(1u8)), || false), Outcome::Read(1)));
+}
+
+#[test]
+fn a_failure_while_the_process_is_gone_is_an_absence_and_while_it_lives_is_slow() {
+    use super::{Outcome, outcome};
+    let failed = || Some(Err::<u8, _>(AdapterError::internal("NoReply")));
+    assert!(matches!(outcome(failed(), || true), Outcome::Gone));
+    assert!(matches!(outcome(failed(), || false), Outcome::Slow));
+    assert!(matches!(outcome::<u8>(None, || true), Outcome::Slow));
+}
+
+#[test]
+fn a_frame_that_fails_after_its_process_left_reads_complete() {
+    let (frames, read) = zbus::block_on(collect_frames(
+        children(2),
+        Duration::from_millis(100),
+        || true,
+        |(bus, _)| async move {
+            if bus == ":1.0" {
+                Err(AdapterError::internal("NoReply"))
+            } else {
+                Ok(bus)
+            }
+        },
+    ));
+    assert_eq!(frames, [":1.1"]);
+    assert_eq!(read, RootRead::Read);
 }

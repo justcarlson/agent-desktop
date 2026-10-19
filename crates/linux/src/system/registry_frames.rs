@@ -5,6 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use futures_util::stream::{self, StreamExt};
 
 use super::bus_slice::within_slice;
+use super::proc_stat;
 use super::{SharedBus, within};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
 
@@ -42,10 +43,17 @@ enum Outcome<T> {
     Slow,
 }
 
-fn outcome<T>(answer: Option<Result<T, AdapterError>>) -> Outcome<T> {
+/// A read that failed for another reason while its process is no longer
+/// there is an absence: a call in flight when an application is killed fails
+/// with a bus error for a moment before the name leaves the bus.
+fn outcome<T>(
+    answer: Option<Result<T, AdapterError>>,
+    process_gone: impl FnOnce() -> bool,
+) -> Outcome<T> {
     match answer {
         Some(Ok(value)) => Outcome::Read(value),
         Some(Err(error)) if is_gone(&error) => Outcome::Gone,
+        Some(Err(_)) if process_gone() => Outcome::Gone,
         Some(Err(_)) | None => Outcome::Slow,
     }
 }
@@ -57,6 +65,7 @@ fn outcome<T>(answer: Option<Result<T, AdapterError>>) -> Outcome<T> {
 async fn collect_frames<T, F, Fut>(
     children: Vec<(String, String)>,
     slice: Duration,
+    process_gone: impl Fn() -> bool,
     read: F,
 ) -> (Vec<T>, RootRead)
 where
@@ -69,7 +78,7 @@ where
             .map(|child| within_slice(slice, read(child))),
     )
     .buffered(FRAMES_IN_FLIGHT)
-    .map(outcome)
+    .map(|answer| outcome(answer, &process_gone))
     .collect::<Vec<_>>()
     .await;
     let mut complete = RootRead::Read;
@@ -98,7 +107,7 @@ pub(crate) fn read_frames(
         let connection = shared.inner();
         let reads = roots.iter().map(|root| async move {
             let listed = within_slice(CHILDREN_SLICE, list_children(connection, root)).await;
-            let children = match outcome(listed) {
+            let children = match outcome(listed, || proc_stat::is_gone(root.pid())) {
                 Outcome::Read(children) => children,
                 Outcome::Gone => {
                     return FrameRead {
@@ -113,12 +122,16 @@ pub(crate) fn read_frames(
                     };
                 }
             };
-            let (nodes, read) =
-                collect_frames(children, FRAME_SLICE, |(bus_name, path)| async move {
+            let (nodes, read) = collect_frames(
+                children,
+                FRAME_SLICE,
+                || proc_stat::is_gone(root.pid()),
+                |(bus_name, path)| async move {
                     let frame = AtspiElement::new(bus_name, path, root.pid());
                     read_node(connection, &frame).await
-                })
-                .await;
+                },
+            )
+            .await;
             FrameRead { nodes, read }
         });
         Ok(stream::iter(reads)

@@ -75,3 +75,9 @@ fn an_unknown_state_letter_is_other_and_not_a_known_class() {
 fn a_process_nothing_runs_under_is_not_stopped() {
     assert!(!is_stopped(u32::MAX - 1));
 }
+
+#[test]
+fn a_process_that_cannot_be_read_or_is_a_zombie_is_gone() {
+    assert!(super::is_gone(u32::MAX));
+    assert!(!super::is_gone(std::process::id()));
+}

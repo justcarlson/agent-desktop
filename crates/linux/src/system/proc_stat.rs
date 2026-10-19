@@ -76,6 +76,15 @@ pub(crate) fn is_stopped(pid: u32) -> bool {
     matches!(read_stat(pid), Ok(Some(stat)) if stat.state == ProcState::Stopped)
 }
 
+/// Whether the process no longer exists: its stat file is missing, or it is
+/// a zombie or dead. A process that cannot be read is gone.
+pub(crate) fn is_gone(pid: u32) -> bool {
+    std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|stat| parse(&stat))
+        .is_none_or(|stat| matches!(stat.state, ProcState::Zombie | ProcState::Dead))
+}
+
 #[cfg(test)]
 #[path = "proc_stat_tests.rs"]
 mod tests;
