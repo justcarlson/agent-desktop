@@ -1,24 +1,41 @@
+#![expect(
+    dead_code,
+    reason = "the shell observer that calls read and the view is not on this branch"
+)]
+
 use agent_desktop_core::{
     ActionRequest, ActionResult, AdapterError, Deadline, ElementState, InteractionLease,
-    LiveElement, NativeHandle, ObservedTree, Rect, RefEntry,
+    LiveElement, NativeHandle, Rect, RefEntry,
 };
 
-use crate::system::SharedBus;
-
 mod activate;
+mod call;
 mod capability;
+mod execute;
+mod identity;
+mod introspect;
 mod item_props;
+mod live;
 mod menu_event;
 mod menu_layout;
 mod menu_nodes;
 mod menu_resolve;
+mod node_evidence;
 mod panel_correlate;
 mod registration;
+mod resolve;
+pub(crate) mod view;
 mod watcher;
 mod world;
 
 #[cfg(test)]
+mod fit_tests;
+#[cfg(test)]
 mod live_tests;
+
+pub(crate) fn read(deadline: Deadline) -> Result<view::TrayView, AdapterError> {
+    view::read(deadline)
+}
 
 /// A tray item or one of its menu entries, named by D-Bus identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,62 +45,53 @@ pub(crate) struct TrayTarget {
     pub(crate) menu_path: Option<String>,
     pub(crate) entry_id: Option<i32>,
     pub(crate) revision: Option<u32>,
+    pub(crate) label_path: Vec<String>,
 }
 
-pub(crate) fn target_of(_handle: &NativeHandle) -> Option<&TrayTarget> {
-    None
+pub(crate) fn target_of(handle: &NativeHandle) -> Option<&TrayTarget> {
+    handle.downcast_ref::<TrayTarget>()
 }
 
 /// Whether a stored ref names a tray item or one of its menu entries.
-pub(crate) fn owns(_entry: &RefEntry) -> bool {
-    false
+pub(crate) fn owns(entry: &RefEntry) -> bool {
+    entry
+        .identity
+        .native_id
+        .as_ref()
+        .is_some_and(|id| identity::is_tray_id(&id.value))
 }
 
-#[expect(dead_code, reason = "stub the owning lane replaces")]
-pub(crate) fn enrich(
-    _tree: &mut ObservedTree,
-    _bus: &SharedBus,
-    _deadline: Deadline,
-) -> Result<(), AdapterError> {
-    Ok(())
-}
-
-pub(crate) fn resolve(
-    _entry: &RefEntry,
-    _deadline: Deadline,
-) -> Result<NativeHandle, AdapterError> {
-    Err(AdapterError::not_supported("resolving a tray item"))
+pub(crate) fn resolve(entry: &RefEntry, deadline: Deadline) -> Result<NativeHandle, AdapterError> {
+    resolve::resolve(entry, deadline)
 }
 
 pub(crate) fn execute(
-    _target: &TrayTarget,
-    _request: ActionRequest,
-    _lease: &InteractionLease,
+    target: &TrayTarget,
+    request: ActionRequest,
+    lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
-    Err(AdapterError::not_supported("execute_action on a tray item"))
+    execute::execute(target, request, lease)
 }
 
 pub(crate) fn live_actions(
-    _target: &TrayTarget,
-    _deadline: Deadline,
+    target: &TrayTarget,
+    deadline: Deadline,
 ) -> Result<Option<Vec<String>>, AdapterError> {
-    Ok(None)
+    live::actions(target, deadline).map(Some)
 }
 
 pub(crate) fn live_state(
-    _target: &TrayTarget,
-    _deadline: Deadline,
+    target: &TrayTarget,
+    deadline: Deadline,
 ) -> Result<Option<ElementState>, AdapterError> {
-    Ok(None)
+    live::state(target, deadline).map(Some)
 }
 
 pub(crate) fn live_element(
-    _target: &TrayTarget,
-    _deadline: Deadline,
+    target: &TrayTarget,
+    deadline: Deadline,
 ) -> Result<LiveElement, AdapterError> {
-    Err(AdapterError::not_supported(
-        "get_live_element on a tray item",
-    ))
+    live::element(target, deadline)
 }
 
 pub(crate) fn bounds(

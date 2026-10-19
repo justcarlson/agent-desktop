@@ -1,7 +1,29 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use agent_desktop_core::capability;
 
-pub(crate) fn actions(_methods: &[String]) -> Vec<String> {
-    Vec::new()
+use super::menu_layout::LayoutEntry;
+
+/// The capabilities an item has, from the methods it lists. `Click` means the
+/// primary `Activate` and nothing else: `SecondaryActivate` is the middle
+/// click, a different action, and never stands in for it.
+pub(crate) fn actions(methods: &[String]) -> Vec<String> {
+    let lists = |name: &str| methods.iter().any(|method| method == name);
+    let mut actions = Vec::new();
+    if lists("Activate") {
+        actions.push(capability::CLICK.to_owned());
+    }
+    if lists("ContextMenu") {
+        actions.push(capability::RIGHT_CLICK.to_owned());
+    }
+    actions
+}
+
+/// A menu entry can be picked when it is enabled and is not a separator.
+pub(crate) fn entry_actions(entry: &LayoutEntry) -> Vec<String> {
+    if entry.enabled && !entry.separator {
+        vec![capability::CLICK.to_owned()]
+    } else {
+        Vec::new()
+    }
 }
 
 #[cfg(test)]

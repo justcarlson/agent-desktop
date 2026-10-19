@@ -1,13 +1,13 @@
-#![expect(dead_code, reason = "stub the owning lane replaces")]
+use std::sync::OnceLock;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, InteractionLease, InteractionPolicy, MouseButton, Point,
+    AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, MouseButton, Point,
 };
 
-use crate::system::SharedBus;
 use crate::system::shell::container::{Landmark, locate};
 use crate::system::shell::identity::find_root;
-use crate::tree::AtspiElement;
+use crate::system::{SharedBus, within};
+use crate::tree::{AtspiElement, list_children, read_node};
 
 /// What the tray code needs from the shell core, so its tests run on fakes.
 pub(crate) trait ShellWorld {
@@ -19,6 +19,12 @@ pub(crate) trait ShellWorld {
         policy: InteractionPolicy,
         lease: &InteractionLease,
     ) -> Result<Point, AdapterError>;
+    fn panel_node(&self, title: &str, deadline: Deadline) -> Result<AtspiElement, AdapterError>;
+}
+
+pub(crate) fn shared_bus() -> &'static SharedBus {
+    static BUS: OnceLock<SharedBus> = OnceLock::new();
+    BUS.get_or_init(SharedBus::default)
 }
 
 pub(crate) struct LiveWorld<'a> {
@@ -28,6 +34,35 @@ pub(crate) struct LiveWorld<'a> {
 impl<'a> LiveWorld<'a> {
     pub(crate) fn new(bus: &'a SharedBus) -> Self {
         Self { bus }
+    }
+}
+
+fn no_panel_node(title: &str) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ElementNotFound,
+        format!("The system tray shows no panel node titled '{title}'"),
+    )
+    .with_suggestion("Open the tray with 'open-surface system-tray', then retry")
+}
+
+fn ambiguous_panel_node(title: &str) -> AdapterError {
+    AdapterError::ambiguous_target(format!(
+        "The system tray shows several panel nodes titled '{title}', so the pointer cannot tell which is the item"
+    ))
+}
+
+/// The one panel node that carries `title`. A repeated title names no node,
+/// because the panel order is not evidence of which item a node is.
+pub(crate) fn choose_panel_node(names: &[String], title: &str) -> Result<usize, AdapterError> {
+    let mut matching = names
+        .iter()
+        .enumerate()
+        .filter(|(_, name)| name.as_str() == title)
+        .map(|(index, _)| index);
+    match (matching.next(), matching.next()) {
+        (Some(index), None) => Ok(index),
+        (None, _) => Err(no_panel_node(title)),
+        (Some(_), Some(_)) => Err(ambiguous_panel_node(title)),
     }
 }
 
@@ -45,6 +80,28 @@ impl ShellWorld for LiveWorld<'_> {
         lease: &InteractionLease,
     ) -> Result<Point, AdapterError> {
         crate::input::shell_click::click(self.bus, node, button, policy, lease)
+    }
+
+    fn panel_node(&self, title: &str, deadline: Deadline) -> Result<AtspiElement, AdapterError> {
+        let panel = self.locate(Landmark::TrayPanel, deadline)?;
+        let connection = self.bus.get(deadline)?;
+        let (children, names) = within(deadline, async {
+            let addresses = list_children(connection.inner(), &panel).await?;
+            let mut children = Vec::new();
+            let mut names = Vec::new();
+            for (bus_name, path) in addresses {
+                let child = AtspiElement::new(bus_name, path, panel.pid());
+                let node = read_node(connection.inner(), &child).await?;
+                names.push(node.properties.name.present().cloned().unwrap_or_default());
+                children.push(child);
+            }
+            Ok((children, names))
+        })?;
+        let index = choose_panel_node(&names, title)?;
+        children
+            .into_iter()
+            .nth(index)
+            .ok_or_else(|| no_panel_node(title))
     }
 }
 
