@@ -17,6 +17,8 @@ symptoms:
   - "Every remote run waits on the box lock for tens of minutes and no process seems to hold it."
   - "Builds on the box fail on include_str! of a committed docs/ file that exists locally."
   - "Synthetic keys and clicks land nowhere; a seat grab returns AlreadyGrabbed."
+  - "A test that counts interaction-lease waits fails only when another worktree's run is active."
+  - "A full-screen capture or window geometry check shows the windows of a different test in the same process."
   - "A key stays pressed on the display after the process that held it died."
 tags: [linux, at-spi, x11, wayland, remote-development, shared-state, flock, rsync, gnome-shell, input]
 ---
@@ -38,6 +40,8 @@ The Linux adapter is verified against a real GNOME 46 X11 session on a dev box t
    - **A popup menu in another application.** `_NET_ACTIVE_WINDOW` and the target's frame can name the target while the menu keeps the keyboard grab. The `window_active` gate is necessary and not sufficient, and a global `press`, which has no gate, delivers the key to the menu (L28-8, L28-20).
 5. **Release held input that outlives its client.** XTest holds a key or button until something releases it, and the X server does not release it when the holder dies: after `kill -9` and after `SIGTERM`, both stayed down (L28-5). A leg that crashes with a key held leaves the shared display with a stuck key. The adapter journals held input and releases it before the next call sends anything (L28-11), and a probe that holds input does the same release itself.
 
+5. **Treat the interaction lease file and the display as shared across worktrees and across tests.** The production lease is one file, `/tmp/agent-desktop-<uid>/interaction.lock`, for every process of that user on the box, whatever worktree built it, and `~/ad-wt/.box.lock` only serializes `remote-linux.sh` runs, not a lease taken by a process another run left behind. A test that asserts the lease contention count measures every other run too, so assert only what the test itself caused, or give the code under test a temporary root (the `_at(root)` seam in `crates/core/src/interaction_lease.rs`). In the same way, tests of one process that share one X display see each other's windows in a full-screen grab: run the capture live tests one at a time, each on its own private display, and end each test only after its windows are gone.
+
 Every rule protects the next run, not the current one. A run that breaks one of them usually still passes itself.
 
 ## Why This Matters
@@ -48,6 +52,7 @@ Each failure surfaced far from its cause and looked like a product result. The d
 
 - Before a run starts any second session, compositor or bus launcher on the dev box.
 - Before a run starts a process that can outlive its command: a clipboard owner, a launched app, a background helper.
+- Before a test asserts a count or a pixel that another run on the same box or display can change.
 - When a remote build fails on a file that exists locally, check what the sync sent before you debug the build.
 - When synthetic input has no effect, check for a held grab (a modal, a keyring prompt, the Overview, a popup menu) before you conclude anything about the input path.
 - After a run that held keys or buttons, check that none stayed down.
