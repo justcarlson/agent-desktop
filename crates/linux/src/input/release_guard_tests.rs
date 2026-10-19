@@ -6,6 +6,7 @@ use super::ReleaseGuard;
 use crate::input::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, start_keymap};
 use crate::input::x11::held_journal::HeldJournal;
+use crate::input::x11::sink_error::SinkError;
 
 const SUGGESTION: &str = "inspect before retrying";
 
@@ -198,4 +199,21 @@ fn a_press_is_journaled_before_it_is_sent_and_cleared_when_released() {
     assert_eq!(observer.stale_entries(&|_| false).len(), 1);
     guard.key(38, false).expect("release");
     assert!(observer.stale_entries(&|_| false).is_empty());
+}
+
+#[test]
+fn a_press_whose_journal_cannot_be_written_is_not_sent() {
+    let dir = std::env::temp_dir().join(format!("ad-guard-blocked-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::write(&dir, "a file where the directory belongs").expect("file");
+    let fake = FakeSink::new();
+    let mut sink = fake.clone();
+    let mut guard = ReleaseGuard::new(&mut sink);
+    guard.journal_to(Some(HeldJournal::at(dir, ":7", 111)));
+
+    let error = guard.key(38, true).expect_err("the press is refused");
+    drop(guard);
+
+    assert!(matches!(error, SinkError::Journal(_)));
+    assert!(without_round_trips(&fake).is_empty());
 }

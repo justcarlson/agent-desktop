@@ -58,7 +58,7 @@ fn execute(
 ) -> Result<Delivery, AdapterError> {
     preflight(sink, plans)?;
     if let Some(journal) = &link.journal {
-        journal.release_stale(sink);
+        journal.release_stale(sink)?;
     }
     let mut guard = ReleaseGuard::new(sink);
     guard.journal_to(link.journal.clone());

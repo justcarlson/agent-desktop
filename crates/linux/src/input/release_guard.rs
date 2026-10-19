@@ -62,9 +62,12 @@ impl<'a> ReleaseGuard<'a> {
         self.journal = journal;
     }
 
-    fn sync_journal(&self) {
-        if let Some(journal) = &self.journal {
-            journal.record(&self.held_keys, &self.held_buttons);
+    fn sync_journal(&self) -> Result<(), SinkError> {
+        match &self.journal {
+            Some(journal) => journal
+                .record(&self.held_keys, &self.held_buttons)
+                .map_err(|error| SinkError::Journal(error.to_string())),
+            None => Ok(()),
         }
     }
 
@@ -87,15 +90,21 @@ impl<'a> ReleaseGuard<'a> {
     pub(crate) fn key(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
         if down {
             self.state.arm();
+            let was_held = self.held_keys.contains(&code);
             remember(&mut self.held_keys, code);
             remember(&mut self.touched.keys, code);
-            self.sync_journal();
+            if let Err(error) = self.sync_journal() {
+                if !was_held {
+                    self.held_keys.retain(|held| *held != code);
+                }
+                return Err(error);
+            }
         }
         self.sink.key(code, down)?;
         self.state.mark_delivered();
         if !down {
             self.held_keys.retain(|held| *held != code);
-            self.sync_journal();
+            let _ = self.sync_journal();
         }
         Ok(())
     }
@@ -103,15 +112,21 @@ impl<'a> ReleaseGuard<'a> {
     pub(crate) fn button(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
         if down {
             self.state.arm();
+            let was_held = self.held_buttons.contains(&code);
             remember(&mut self.held_buttons, code);
             remember(&mut self.touched.buttons, code);
-            self.sync_journal();
+            if let Err(error) = self.sync_journal() {
+                if !was_held {
+                    self.held_buttons.retain(|held| *held != code);
+                }
+                return Err(error);
+            }
         }
         self.sink.button(code, down)?;
         self.state.mark_delivered();
         if !down {
             self.held_buttons.retain(|held| *held != code);
-            self.sync_journal();
+            let _ = self.sync_journal();
         }
         Ok(())
     }
@@ -186,7 +201,7 @@ impl<'a> ReleaseGuard<'a> {
         }
         keep_first(&mut outcome, self.sink.round_trip());
         if outcome.is_ok() {
-            self.sync_journal();
+            let _ = self.sync_journal();
         }
         outcome
     }
