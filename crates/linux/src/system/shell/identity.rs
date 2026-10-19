@@ -1,5 +1,5 @@
 use std::sync::{Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
@@ -17,6 +17,20 @@ pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
 const SHELL_COMM: &str = "gnome-shell";
 const WINDOW_RETRIES: usize = 10;
 const WINDOW_RETRY_GAP: Duration = Duration::from_millis(100);
+const WINDOW_BUDGET: Duration = Duration::from_millis(2_000);
+const OUTAGE_MEMORY: Duration = Duration::from_millis(3_000);
+
+static LAST_MISSING: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// A window that has just been missing for a whole retry is still missing a
+/// moment later, so the next lookup in the same outage probes once instead of
+/// spending the retry again and again until the command's budget is gone.
+pub(super) fn retries_after(last_missing: Option<Instant>, now: Instant) -> usize {
+    match last_missing {
+        Some(at) if now.saturating_duration_since(at) < OUTAGE_MEMORY => 0,
+        _ => WINDOW_RETRIES,
+    }
+}
 
 /// The shell's accessibility application and its content window. `bus_name`
 /// is the unique name on the accessibility bus, `pid` the process behind it.
@@ -115,7 +129,7 @@ pub(super) fn window_missing() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
-fn tree_absent(detail: &str) -> AdapterError {
+pub(crate) fn tree_absent(detail: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::AppNotFound,
         "The desktop shell is not on the accessibility registry",
@@ -164,11 +178,17 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
     if !process_facts::read(pid).is_some_and(|facts| is_shell_comm(&facts.comm)) {
         return Err(tree_absent("the shell process is not a gnome-shell"));
     }
-    let nodes = LiveNodes::new(accessibility, deadline);
-    let window = retry_until(WINDOW_RETRIES, deadline, &mut std::thread::sleep, || {
+    let probe_deadline = deadline.capped(WINDOW_BUDGET);
+    let nodes = LiveNodes::new(accessibility, probe_deadline);
+    let last = *LAST_MISSING.lock().unwrap_or_else(PoisonError::into_inner);
+    let retries = retries_after(last, Instant::now());
+    let window = retry_until(retries, probe_deadline, &mut std::thread::sleep, || {
         content_window(&nodes, app)
     })
-    .ok_or_else(window_missing)?;
+    .ok_or_else(|| {
+        *LAST_MISSING.lock().unwrap_or_else(PoisonError::into_inner) = Some(Instant::now());
+        window_missing()
+    })?;
     let root = ShellRoot {
         bus_name: window.bus_name().to_owned(),
         path: window.path().to_owned(),

@@ -2,8 +2,8 @@ use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 
 use crate::system::shell::fake_tree::{BUS, FakeTree, PANEL, PID, WINDOW, at, element};
 use crate::system::shell::identity::{
-    ShellRoot, content_window, is_shell_comm, is_shell_owner, pick_shell_app, retry_until,
-    window_missing,
+    ShellRoot, content_window, is_shell_comm, is_shell_owner, pick_shell_app, retries_after,
+    retry_until, window_missing,
 };
 use crate::system::window_id;
 use crate::tree::AtspiElement;
@@ -125,4 +125,13 @@ fn a_missing_shell_window_is_named_apart_from_an_absent_shell_and_is_safe_to_ret
         error.disposition,
         agent_desktop_core::DeliverySemantics::not_delivered()
     );
+}
+
+#[test]
+fn a_lookup_in_the_same_outage_probes_once_and_a_fresh_one_retries() {
+    let now = std::time::Instant::now();
+    assert_eq!(retries_after(Some(now), now), 0);
+    assert_eq!(retries_after(None, now), 10);
+    let long_ago = now - std::time::Duration::from_millis(5_000);
+    assert_eq!(retries_after(Some(long_ago), now), 10);
 }
