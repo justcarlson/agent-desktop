@@ -16,12 +16,14 @@ use super::select_exclusive::{
 };
 use super::select_popup::{is_popup_dropdown, select_in_popup};
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, search};
-use super::select_verify::read_verification;
+use super::select_verify::{commit_unobserved, read_verification};
 use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::COMBO_BOX;
+use crate::tree::toolkit_trust::is_gecko;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
 pub(super) const SELECT_SETTLE: Duration = Duration::from_millis(1000);
@@ -200,6 +202,8 @@ fn select_through(
         (Some(handle), false) => Some(container_target(target, handle)?),
         _ => None,
     };
+    let application_fires_no_change =
+        is_gecko(&toolkit_of(target.bus, target.element, target.deadline));
     let observe = || {
         let verified = poll_until(
             target.deadline,
@@ -219,7 +223,7 @@ fn select_through(
             },
             |verified| *verified == Some(true),
         );
-        match (&holder, container) {
+        let decided = match (&holder, container) {
             (Some(holder), Some(container)) if verified == Some(true) => keep_only_the_item(
                 target,
                 holder,
@@ -228,7 +232,8 @@ fn select_through(
                 display_value,
             ),
             _ => verified,
-        }
+        };
+        commit_unobserved(application_fires_no_change, decided)
     };
     let mut rungs = Vec::new();
     if let (Some(holder), Some(container)) = (&holder, container) {

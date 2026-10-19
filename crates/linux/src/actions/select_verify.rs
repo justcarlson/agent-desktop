@@ -16,6 +16,18 @@ pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool
     combo_value.or(item_selected)
 }
 
+/// A select that Gecko applies moves the page's value and fires no `change`
+/// or `input` event, so the page's own logic never runs: the state read-back
+/// proves the selection and not the application's commit, and the answer is
+/// then unverified (L30-43).
+pub(super) fn commit_unobserved(no_change_event: bool, verdict: Option<bool>) -> Option<bool> {
+    if no_change_event && verdict == Some(true) {
+        None
+    } else {
+        verdict
+    }
+}
+
 pub(super) fn says_something(shown: &str) -> bool {
     shown
         .chars()

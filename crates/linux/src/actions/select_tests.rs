@@ -1,6 +1,8 @@
 use super::*;
 use crate::actions::mutation::WriteReply;
-use crate::actions::select_verify::{combo_evidence, says_something, verification};
+use crate::actions::select_verify::{
+    combo_evidence, commit_unobserved, says_something, verification,
+};
 
 #[test]
 fn a_combo_value_outranks_an_unselected_item() {
@@ -112,4 +114,12 @@ fn a_combo_name_is_evidence_against_the_wanted_value_only_where_it_is_the_value(
         combo_evidence(Some("\u{fffc}"), Some(""), "beta", true),
         None
     );
+}
+
+#[test]
+fn a_select_on_a_toolkit_that_fires_no_change_event_is_never_verified() {
+    assert_eq!(commit_unobserved(true, Some(true)), None);
+    assert_eq!(commit_unobserved(true, Some(false)), Some(false));
+    assert_eq!(commit_unobserved(true, None), None);
+    assert_eq!(commit_unobserved(false, Some(true)), Some(true));
 }
