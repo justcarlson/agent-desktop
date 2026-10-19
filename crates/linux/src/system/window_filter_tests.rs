@@ -136,3 +136,13 @@ fn a_showing_visible_filler_is_a_window_and_a_hidden_one_is_not() {
     ));
     assert!(!is_window_shape(&filler, &Field::Present(vec![]), &shown));
 }
+
+#[test]
+fn a_nameless_menu_host_frame_is_a_menu_popup_and_nothing_else_is() {
+    assert!(is_menu_popup_frame(Some("MenuHostRootView"), ""));
+    assert!(is_menu_popup_frame(Some("MenuHostRootView"), "  "));
+    assert!(!is_menu_popup_frame(Some("MenuHostRootView"), "Titled"));
+    assert!(!is_menu_popup_frame(Some("BrowserRootView"), ""));
+    assert!(!is_menu_popup_frame(Some("RootView"), ""));
+    assert!(!is_menu_popup_frame(None, ""));
+}

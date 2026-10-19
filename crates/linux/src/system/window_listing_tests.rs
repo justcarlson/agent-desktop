@@ -77,6 +77,19 @@ fn non_window_roles_and_chrome_bubbles_are_dropped() {
 }
 
 #[test]
+fn an_open_chrome_menu_frame_is_not_a_window() {
+    let app = app(Some(("Chromium", "1")));
+    let mut menu = frame(23, "", "/org/a11y/atspi/accessible/4", &[25, 1]);
+    menu.attributes = attributes(&[("class", "MenuHostRootView")]);
+    let mut browser = frame(23, "Page", "/org/a11y/atspi/accessible/1", &[25]);
+    browser.attributes = attributes(&[("class", "BrowserRootView")]);
+    let windows = collect(&[(0, &app)], &[vec![browser, menu]]);
+    assert_eq!(windows.len(), 1);
+    assert_eq!(windows[0].info.title, "Page");
+    assert!(!windows[0].active);
+}
+
+#[test]
 fn a_failed_state_read_leaves_visibility_unknown_and_never_active() {
     let app = app(None);
     let mut node = frame(23, "Doc", "/org/a11y/atspi/accessible/1", &[]);

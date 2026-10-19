@@ -4,6 +4,7 @@ use crate::tree::{COMPONENT_INTERFACE, Field};
 
 const HELPER_PROCESSES: [&str; 2] = ["gnome-shell", "mutter-x11-frames"];
 const BUBBLE_CLASS: &str = "RootView";
+const MENU_HOST_CLASS: &str = "MenuHostRootView";
 
 /// Whether a child of an application root is a top-level window: a frame,
 /// dialog or window role that implements the component interface, or a panel
@@ -55,6 +56,14 @@ pub(crate) fn is_helper_app(root_name: &str, exe_basename: Option<&str>) -> bool
 /// is a `BrowserRootView`.
 pub(crate) fn is_bubble(class: Option<&str>, title: &str) -> bool {
     class == Some(BUBBLE_CLASS) && title.trim().is_empty()
+}
+
+/// Whether a Chromium frame is the host of an open menu: a context or main
+/// menu opens as a nameless frame of class `MenuHostRootView` under the
+/// application root, carrying `ACTIVE` while it is open. It is a popup
+/// of the window that opened it, never a window.
+pub(crate) fn is_menu_popup_frame(class: Option<&str>, title: &str) -> bool {
+    class == Some(MENU_HOST_CLASS) && title.trim().is_empty()
 }
 
 /// What a frame's state set says. `None` is a state read that failed.
