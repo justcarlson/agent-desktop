@@ -1,6 +1,8 @@
 use super::*;
 use crate::system::bus_fault::BusFault;
 use crate::system::bus_stage::Stage;
+use crate::system::capture::window::fakes::{FakeGrabber, Rig, deadline};
+use crate::system::x11::grab_error::GrabError;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use zbus::Message;
@@ -90,4 +92,86 @@ fn the_bus_error_carries_explicit_non_retryable_evidence() {
     let error = BusFault::SocketGone.into_error(&source);
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert!(!error.permits_retry_by_default());
+}
+
+fn display_down() -> AdapterError {
+    AdapterError::new(ErrorCode::PlatformNotSupported, "no display")
+}
+
+fn grabber_answering(answer: Result<bool, fn() -> GrabError>) -> FakeGrabber {
+    let rig = Rig::standard();
+    *rig.grabber.compositing.lock().expect("compositing lock") = answer;
+    rig.grabber
+}
+
+fn screen_recording_of(
+    route: Result<Route, AdapterError>,
+    grabber: &FakeGrabber,
+) -> PermissionState {
+    let capture = capture_availability(route, grabber, deadline());
+    report_from_probe(Ok(()), capture)
+        .expect("a granted probe is a report")
+        .screen_recording
+}
+
+#[test]
+fn an_x11_display_that_answers_needs_no_screen_recording_permission() {
+    let grabber = grabber_answering(Ok(false));
+    let state = screen_recording_of(Ok(Route::X11(":0".into())), &grabber);
+    assert_eq!(state, PermissionState::NotRequired);
+}
+
+#[test]
+fn a_compositing_x11_display_also_answers() {
+    let grabber = grabber_answering(Ok(true));
+    let state = screen_recording_of(Ok(Route::X11(":0".into())), &grabber);
+    assert_eq!(state, PermissionState::NotRequired);
+}
+
+#[test]
+fn wayland_is_unknown_and_the_display_is_never_asked() {
+    let grabber = grabber_answering(Ok(true));
+    let state = screen_recording_of(Ok(Route::Wayland), &grabber);
+    assert_eq!(state, PermissionState::Unknown);
+    assert_eq!(grabber.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_display_that_does_not_answer_is_unknown() {
+    let grabber = grabber_answering(Err(|| GrabError::Timeout));
+    let state = screen_recording_of(Ok(Route::X11(":0".into())), &grabber);
+    assert_eq!(state, PermissionState::Unknown);
+}
+
+#[test]
+fn no_display_variable_is_unknown_and_the_display_is_never_asked() {
+    let grabber = grabber_answering(Ok(true));
+    let state = screen_recording_of(Err(display_down()), &grabber);
+    assert_eq!(state, PermissionState::Unknown);
+    assert_eq!(grabber.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_failed_capture_probe_never_produces_denied() {
+    let failures: [fn() -> GrabError; 4] = [
+        || GrabError::Timeout,
+        || GrabError::Gone,
+        || GrabError::Resource,
+        || GrabError::Fault(crate::system::x11::MonitorFault::Denied("refused".into())),
+    ];
+    for failure in failures {
+        let grabber = grabber_answering(Err(failure));
+        let state = screen_recording_of(Ok(Route::X11(":0".into())), &grabber);
+        assert!(!matches!(state, PermissionState::Denied { .. }));
+    }
+}
+
+#[test]
+fn an_unanswering_display_leaves_the_accessibility_result_as_the_bus_probe_found_it() {
+    let grabber = grabber_answering(Err(|| GrabError::Timeout));
+    let capture = capture_availability(Ok(Route::X11(":0".into())), &grabber, deadline());
+    let unreachable = AdapterError::new(ErrorCode::PlatformNotSupported, "bus gone");
+    let report = report_from_probe(Err(unreachable), capture).expect("a denied report");
+    assert!(report.accessibility_denied());
+    assert_eq!(report.screen_recording, PermissionState::Unknown);
 }
