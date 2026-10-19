@@ -94,15 +94,24 @@ pub(crate) async fn read_label(connection: &Connection, element: &AtspiElement) 
         Ok(None) => return LabelOutcome::Unlabelled,
         Err(_) => return LabelOutcome::Failed,
     };
-    match name_of(connection, &target).await {
-        Ok(Field::Failed(_)) | Err(_) => LabelOutcome::Failed,
-        Ok(field) => match field.non_blank() {
-            Some(text) => LabelOutcome::Text(text.clone()),
-            None => text_of(connection, &target)
-                .await
-                .map_or(LabelOutcome::Unlabelled, LabelOutcome::Text),
-        },
+    let name = name_of(connection, &target).await.ok();
+    match from_name(name) {
+        Some(outcome) => outcome,
+        None => from_text(text_of(connection, &target).await),
     }
+}
+
+/// The outcome the label target's `Name` settles, or `None` when the name is
+/// blank and the target's `Text` has to be read.
+fn from_name(name: Option<Field<String>>) -> Option<LabelOutcome> {
+    match name {
+        None | Some(Field::Failed(_)) => Some(LabelOutcome::Failed),
+        Some(field) => field.non_blank().cloned().map(LabelOutcome::Text),
+    }
+}
+
+fn from_text(text: Option<String>) -> LabelOutcome {
+    text.map_or(LabelOutcome::Unlabelled, LabelOutcome::Text)
 }
 
 #[cfg(test)]

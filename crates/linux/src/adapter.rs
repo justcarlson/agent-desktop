@@ -187,8 +187,8 @@ impl ObservationOps for LinuxAdapter {
     }
 }
 
-impl ActionOps for LinuxAdapter {
-    fn execute_action(
+impl LinuxAdapter {
+    fn deliver(
         &self,
         handle: &NativeHandle,
         request: ActionRequest,
@@ -203,6 +203,17 @@ impl ActionOps for LinuxAdapter {
         };
         crate::system::action_clock::mark_target(target);
         result
+    }
+}
+
+impl ActionOps for LinuxAdapter {
+    fn execute_action(
+        &self,
+        handle: &NativeHandle,
+        request: ActionRequest,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        self.deliver(handle, request, lease)
     }
 
     fn scroll_into_view(

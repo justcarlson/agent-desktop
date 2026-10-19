@@ -144,6 +144,30 @@ fn a_submenu_chain_lists_one_entry() {
 }
 
 #[test]
+fn the_first_popup_of_a_chain_is_the_outermost_and_the_entry_counts_it() {
+    let inner_items = vec![
+        item("A", true),
+        item("B", true),
+        item("C", true),
+        item("D", true),
+        item("E", true),
+    ];
+    let inner = node(MENU, "More", &[SHOWING], inner_items);
+    let more = node(ITEM, "More", &[SHOWING], vec![inner]);
+    let outer = node(MENU, "File", &[SHOWING], vec![item("Open", true), more]);
+    let found = popups(frame_with(vec![node(
+        MENU_BAR,
+        "",
+        &[SHOWING],
+        vec![outer],
+    )]));
+    assert_eq!(found.len(), 2);
+    assert_eq!(found[0].items, 2);
+    assert_eq!(found[1].items, 5);
+    assert_eq!(entries(&found, &owner(true))[0].item_count, Some(2));
+}
+
+#[test]
 fn a_popup_that_appears_after_the_settle_poll_is_listed() {
     let mut fake = Fake::new(frame_with(vec![gtk4_popover(true)])).opening_after(2);
     let found = find_popups(&mut fake, true, deadline()).expect("a scan");

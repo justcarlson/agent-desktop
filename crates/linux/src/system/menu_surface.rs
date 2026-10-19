@@ -119,14 +119,20 @@ pub(crate) fn popups_of(
 }
 
 /// The popups open in a window and the top-level popups of its application,
-/// outermost first. Only a focused window waits for a popup to appear: an
-/// action runs in the window that has focus.
+/// outermost first. A listing waits for a popup to appear only when this
+/// process has just delivered an action and the window holds the focus: that
+/// is the one case where a popup may be on its way.
 pub(crate) fn open_popups(
     bus: &SharedBus,
     owner: &WindowInfo,
     deadline: Deadline,
 ) -> Result<Vec<MenuPopup>, AdapterError> {
-    popups_of(bus, owner, owner.state.is_focused, deadline)
+    popups_of(
+        bus,
+        owner,
+        super::action_clock::settles(owner.state.is_focused),
+        deadline,
+    )
 }
 
 /// One `menu` entry for the outermost open popup.
