@@ -30,7 +30,7 @@ case "${1:?command}" in
       --method "$dest.Close${CLOSE_SUFFIX:-Notification}" "${2:?id}" >/dev/null
     ;;
   monitor)
-    gdbus monitor --session --dest "$dest" > "${2:?file}" 2>&1 &
+    dbus-monitor --session "type='signal',interface='$dest'" > "${2:?file}" 2>&1 &
     echo $!
     ;;
   *) echo "usage: notification-oracle.sh notify|close|monitor ..." >&2; exit 2 ;;

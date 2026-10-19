@@ -35,6 +35,15 @@ pub(crate) fn action_in(
     request: NotificationActionRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
+    if request.policy.is_headed() {
+        locate(
+            world,
+            request.index,
+            None,
+            request.identity,
+            lease.deadline(),
+        )?;
+    }
     let session = Session::open(world, request.policy, lease)?;
     let result = run(world, signals, &request, lease);
     session.finish(result)

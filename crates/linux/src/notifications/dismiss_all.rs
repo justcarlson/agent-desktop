@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, DismissAllNotificationsRequest, InteractionLease, MouseButton,
+    AdapterError, Deadline, DismissAllNotificationsRequest, InteractionLease, MouseButton,
     NotificationFilter, NotificationInfo,
 };
 
@@ -32,9 +32,28 @@ pub(crate) fn dismiss_all_in(
     request: DismissAllNotificationsRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<Outcome, AdapterError> {
+    if request.policy.is_headed() && nothing_to_clear(world, &request, lease.deadline())? {
+        return Ok((Vec::new(), Vec::new()));
+    }
     let session = Session::open(world, request.policy, lease)?;
     let result = run(world, &request, lease);
     session.finish(result)
+}
+
+/// Reads the closed list first: an empty list, or an app filter that matches
+/// nothing, needs no click and no open, and the open is the step that fails
+/// on a list that has just emptied.
+fn nothing_to_clear(
+    world: &dyn ShellWorld,
+    request: &DismissAllNotificationsRequest<'_>,
+    deadline: Deadline,
+) -> Result<bool, AdapterError> {
+    let filter = NotificationFilter {
+        app: request.app_filter.map(str::to_owned),
+        ..NotificationFilter::default()
+    };
+    let listing = read_listing(world, deadline)?;
+    Ok(apply_filter(listing.infos(), &filter).is_empty())
 }
 
 fn run(

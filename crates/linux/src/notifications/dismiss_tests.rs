@@ -70,8 +70,15 @@ fn a_mismatched_identity_clicks_nothing() {
 fn a_reflow_between_the_reads_is_refused_before_the_click() {
     let log = log();
     let moved = vec![spec("New", "n"), spec("Mail", "a"), spec("Chat", "b")];
-    let world = FakeWorld::new(&log, vec![reading(&three(), false), reading(&moved, false)])
-        .staged_by_reads();
+    let world = FakeWorld::new(
+        &log,
+        vec![
+            reading(&three(), false),
+            reading(&three(), false),
+            reading(&moved, false),
+        ],
+    )
+    .staged_by_reads();
     let error = run(world, &NotificationIdentity::default()).expect_err("moved");
     assert_eq!(error.code, ErrorCode::NotificationNotFound);
     assert!(!log.borrow().iter().any(|line| line.starts_with("click")));
@@ -152,8 +159,9 @@ fn a_headless_policy_is_refused_with_no_event() {
 #[test]
 fn the_list_a_failed_dismissal_opened_is_closed() {
     let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&three(), false)]);
-    let _ = run(world, &identity("Mail", "a"));
+    let mut world = FakeWorld::new(&log, vec![reading(&three(), false)]);
+    world.click_fails = true;
+    let _ = run(world, &identity("Chat", "b"));
     assert!(log.borrow().iter().any(|line| line == "close"));
 }
 
@@ -176,4 +184,13 @@ fn a_click_error_is_returned_and_the_list_is_still_restored() {
     world.click_fails = true;
     assert!(run(world, &identity("Chat", "b")).is_err());
     assert!(log.borrow().iter().any(|line| line == "close"));
+}
+
+#[test]
+fn an_entry_that_has_gone_is_not_found_without_opening_the_list() {
+    let log = log();
+    let world = FakeWorld::new(&log, vec![reading(&[], true)]);
+    let error = run(world, &identity("Chat", "b")).expect_err("gone");
+    assert_eq!(error.code, ErrorCode::NotificationNotFound);
+    assert!(!log.borrow().iter().any(|line| line == "open"));
 }

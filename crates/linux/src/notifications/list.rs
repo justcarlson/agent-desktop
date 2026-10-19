@@ -5,11 +5,9 @@ use agent_desktop_core::{
 
 use super::extract::{Control, Entry, extract, partition};
 use super::landmark::{ContainerState, classify, labels_of};
-use super::world::{LiveWorld, Role, ShellWorld};
+use super::world::{LiveWorld, Node, Role, ShellWorld};
 use crate::system::SharedBus;
 use crate::system::shell::container::Landmark;
-
-const CLEAR_ALL_WORD: &str = "clear";
 
 /// What one read of the message list found: its entries in tree order, with
 /// indices over the unfiltered list, and the clear-all control outside them.
@@ -60,7 +58,8 @@ pub(crate) fn read_listing(
     }
     let (subtrees, outside) = partition(&reading.nodes);
     let labels = labels_of(&reading.nodes);
-    match classify(&labels, subtrees.len()) {
+    let footer = footer_buttons(&outside);
+    match classify(&labels, subtrees.len(), footer.len()) {
         ContainerState::Unrecognised => Err(unrecognised_container()),
         ContainerState::Empty => Ok(Listing {
             entries: Vec::new(),
@@ -71,20 +70,24 @@ pub(crate) fn read_listing(
             for (position, subtree) in subtrees.into_iter().enumerate() {
                 entries.push(extract(subtree, position + 1).ok_or_else(unreadable_entry)?);
             }
-            let clear_all = outside
-                .into_iter()
-                .find(|node| {
-                    node.role == Role::PushButton
-                        && node.name.to_lowercase().contains(CLEAR_ALL_WORD)
-                })
-                .map(|node| Control {
-                    name: node.name.clone(),
-                    extents: node.extents,
-                    element: node.element.clone(),
-                });
+            let clear_all = footer.last().map(|node| Control {
+                name: node.name.clone(),
+                extents: node.extents,
+                element: node.element.clone(),
+            });
             Ok(Listing { entries, clear_all })
         }
     }
+}
+
+/// The push buttons outside every entry. The shell keeps one there, the
+/// clear-all button, and it is the last of them whatever the language.
+fn footer_buttons<'a>(outside: &[&'a Node]) -> Vec<&'a Node> {
+    outside
+        .iter()
+        .copied()
+        .filter(|node| node.role == Role::PushButton)
+        .collect()
 }
 
 fn incomplete_read(deadline: Deadline) -> AdapterError {

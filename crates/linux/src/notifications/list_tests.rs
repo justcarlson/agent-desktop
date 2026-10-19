@@ -79,6 +79,18 @@ fn a_container_with_neither_entries_nor_landmark_is_an_error() {
 }
 
 #[test]
+fn an_empty_list_without_the_landmark_text_is_empty_when_the_footer_button_is_there() {
+    let mut read = reading(&[], true);
+    read.nodes.retain(|node| node.name != "No Notifications");
+    let world = FakeWorld::new(&log(), vec![read]);
+    assert!(
+        list_in(&world, &NotificationFilter::default(), deadline())
+            .expect("listed")
+            .is_empty()
+    );
+}
+
+#[test]
 fn a_cut_short_read_is_an_error_and_never_a_prefix() {
     let mut read = reading(&[spec("Mail", "a")], false);
     read.complete = false;

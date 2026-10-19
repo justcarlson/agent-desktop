@@ -17,8 +17,8 @@ answers() {
 }
 
 healthy() {
-  local streak=0 tick
-  for tick in $(seq 1 $((health_seconds * 2))); do
+  local streak=0
+  for _ in $(seq 1 $((health_seconds * 2))); do
     kill -0 "$shell_pid" 2>/dev/null || return 1
     if answers; then streak=$((streak + 1)); else streak=0; fi
     [ "$streak" -ge 3 ] && return 0

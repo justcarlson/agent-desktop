@@ -23,6 +23,15 @@ pub(crate) fn dismiss_in(
     request: DismissNotificationRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<NotificationInfo, AdapterError> {
+    if request.policy.is_headed() {
+        locate(
+            world,
+            request.index,
+            request.app_filter,
+            request.identity,
+            lease.deadline(),
+        )?;
+    }
     let session = Session::open(world, request.policy, lease)?;
     let result = run(world, &request, lease);
     session.finish(result)

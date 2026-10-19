@@ -17,15 +17,18 @@ pub(crate) fn labels_of(nodes: &[Node]) -> Vec<String> {
         .collect()
 }
 
-/// Entries mean a list; the empty landmark with no entries means an empty
-/// list; anything else is a container this reader does not recognise.
-pub(crate) fn classify(labels: &[String], entries: usize) -> ContainerState {
+/// Entries mean a list. With no entries, the empty landmark or the footer
+/// button that sits outside every entry means an empty list: the shell does
+/// not always expose the landmark text, and the footer button carries no
+/// language. Anything else is a container this reader does not recognise.
+pub(crate) fn classify(labels: &[String], entries: usize, footer_buttons: usize) -> ContainerState {
     if entries > 0 {
         return ContainerState::Entries;
     }
-    if labels
-        .iter()
-        .any(|label| label.trim().eq_ignore_ascii_case(EMPTY_LANDMARK))
+    if footer_buttons > 0
+        || labels
+            .iter()
+            .any(|label| label.trim().eq_ignore_ascii_case(EMPTY_LANDMARK))
     {
         return ContainerState::Empty;
     }

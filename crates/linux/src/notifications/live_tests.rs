@@ -85,6 +85,15 @@ impl Drop for Monitor {
     }
 }
 
+fn closed_with_reason(log: &str, reason: u32) -> bool {
+    let lines: Vec<&str> = log.lines().map(str::trim).collect();
+    lines
+        .iter()
+        .position(|line| line.contains("member=NotificationClosed"))
+        .and_then(|at| lines.get(at + 2))
+        .is_some_and(|line| *line == format!("uint32 {reason}"))
+}
+
 #[test]
 #[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
 fn signals_subscribed_before_a_close_arrive_and_after_it_do_not() {
@@ -101,8 +110,8 @@ fn signals_subscribed_before_a_close_arrive_and_after_it_do_not() {
 }
 
 #[test]
-#[ignore = "needs the private gnome-shell and lane B's real shell core"]
-fn needs_shell_core_list_matches_what_the_sender_posted() {
+#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
+fn list_matches_what_the_sender_posted() {
     let bus = SharedBus::default();
     notify("live-mail", "first", "k1=Run A");
     notify("live-chat", "second", "");
@@ -113,8 +122,8 @@ fn needs_shell_core_list_matches_what_the_sender_posted() {
 }
 
 #[test]
-#[ignore = "needs the private gnome-shell and lane B's real shell core"]
-fn needs_shell_core_action_is_seen_by_the_monitor() {
+#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
+fn action_is_seen_by_the_monitor() {
     let bus = SharedBus::default();
     let monitor = Monitor::start("action");
     notify("live-mail", "act", "act-b=Run B");
@@ -135,8 +144,8 @@ fn needs_shell_core_action_is_seen_by_the_monitor() {
 }
 
 #[test]
-#[ignore = "needs the private gnome-shell and lane B's real shell core"]
-fn needs_shell_core_dismiss_leaves_the_other_app_and_closes_with_reason_two() {
+#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
+fn dismiss_leaves_the_other_app_and_closes_with_reason_two() {
     let bus = SharedBus::default();
     let monitor = Monitor::start("dismiss");
     notify("live-keep", "stays", "");
@@ -153,12 +162,12 @@ fn needs_shell_core_dismiss_leaves_the_other_app_and_closes_with_reason_two() {
     let left = listed(&bus);
     assert!(left.iter().any(|entry| entry.title == "stays"));
     assert!(!left.iter().any(|entry| entry.title == "goes"));
-    assert!(monitor.text().contains("NotificationClosed"));
+    assert!(closed_with_reason(&monitor.text(), 2));
 }
 
 #[test]
-#[ignore = "needs the private gnome-shell and lane B's real shell core"]
-fn needs_shell_core_dismiss_all_empties_the_list() {
+#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
+fn dismiss_all_empties_the_list() {
     let bus = SharedBus::default();
     notify("live-a", "one", "");
     notify("live-b", "two", "");
@@ -171,8 +180,8 @@ fn needs_shell_core_dismiss_all_empties_the_list() {
 }
 
 #[test]
-#[ignore = "needs the private gnome-shell and lane B's real shell core"]
-fn needs_shell_core_an_entry_that_has_gone_is_not_found() {
+#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
+fn an_entry_that_has_gone_is_not_found() {
     let bus = SharedBus::default();
     let id = notify("live-gone", "vanishing", "");
     let info = listed(&bus).remove(0);

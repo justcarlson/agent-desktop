@@ -29,6 +29,28 @@ fn without_a_filter_one_click_clears_everything() {
 }
 
 #[test]
+fn the_clear_all_button_is_found_without_its_english_name() {
+    let log = log();
+    let mut full = reading(&mixed(), true);
+    for node in full
+        .nodes
+        .iter_mut()
+        .filter(|node| node.name.starts_with("Clear"))
+    {
+        node.name = "Alle Benachrichtigungen l\u{f6}schen".to_owned();
+    }
+    let world = FakeWorld::new(&log, vec![full, reading(&[], true)]);
+    let (dismissed, _) = dismiss_all_in(
+        &world,
+        request(None, InteractionPolicy::headed()),
+        &lease(600),
+    )
+    .expect("cleared");
+    assert_eq!(dismissed.len(), 3);
+    assert_eq!(world.clicks(), vec!["/clear"]);
+}
+
+#[test]
 fn a_filter_never_clicks_clear_all_and_leaves_other_apps() {
     let log = log();
     let stages = vec![
@@ -184,4 +206,18 @@ fn a_filtered_click_error_is_a_per_entry_failure_not_an_abort() {
     .expect("outcome");
     assert!(dismissed.is_empty());
     assert_eq!(failures.len(), 2);
+}
+
+#[test]
+fn an_empty_list_is_cleared_without_opening_it() {
+    let log = log();
+    let world = FakeWorld::new(&log, vec![reading(&[], true)]);
+    let (dismissed, failures) = dismiss_all_in(
+        &world,
+        request(None, InteractionPolicy::headed()),
+        &lease(600),
+    )
+    .expect("cleared");
+    assert!(dismissed.is_empty() && failures.is_empty());
+    assert!(!log.borrow().iter().any(|line| line == "open"));
 }
