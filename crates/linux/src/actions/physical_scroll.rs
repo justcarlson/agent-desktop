@@ -1,21 +1,48 @@
-#![expect(
-    dead_code,
-    reason = "the module is laid out ahead of the code that calls it"
-)]
+use agent_desktop_core::{
+    ActionStep, AdapterError, Deadline, Direction, InteractionPolicy, StepMechanism,
+};
 
-use agent_desktop_core::{Action, ActionRequest, ActionResult, AdapterError, InteractionLease};
-
-use crate::system::SharedBus;
+use super::physical_target::{PhysicalWorld, aim_point, ensure_budget, ensure_headed_click_policy};
+use crate::input::backend::Backend;
 use crate::tree::AtspiElement;
 
-pub(crate) fn scroll(
-    _bus: &SharedBus,
-    _action: &Action,
-    _element: Option<&AtspiElement>,
-    _request: &ActionRequest,
-    _lease: &InteractionLease,
-) -> Result<ActionResult, AdapterError> {
-    Err(AdapterError::not_supported("scroll"))
+const SCROLL_LABEL: &str = "XTEST.scroll";
+const NOTCHES_PER_AMOUNT: f64 = 1.0;
+
+/// Wheel deltas for a scroll request. A positive vertical delta is a wheel
+/// turn away from the user, which moves the content down; a positive
+/// horizontal delta moves the content to the right.
+pub(crate) fn wheel_deltas(direction: &Direction, amount: u32) -> (f64, f64) {
+    let notches = f64::from(amount) * NOTCHES_PER_AMOUNT;
+    match direction {
+        Direction::Up => (0.0, notches),
+        Direction::Down => (0.0, -notches),
+        Direction::Left => (-notches, 0.0),
+        Direction::Right => (notches, 0.0),
+    }
+}
+
+pub(crate) fn scroll_steps(
+    world: &impl PhysicalWorld,
+    element: &AtspiElement,
+    deltas: (f64, f64),
+    policy: InteractionPolicy,
+    deadline: Deadline,
+) -> Result<Vec<ActionStep>, AdapterError> {
+    ensure_headed_click_policy(policy)?;
+    ensure_budget(deadline)?;
+    if world.backend()? == Backend::Wayland {
+        return Err(world.pointer_refusal("scroll"));
+    }
+    let at = aim_point(world, element, None, deadline)?;
+    let map = world.keymap(deadline)?;
+    let plans = world.plan_wheel(&map, at, deltas)?;
+    world.send_plans(plans, &mut || Ok(()), deadline)?;
+    Ok(vec![
+        ActionStep::succeeded(SCROLL_LABEL)
+            .with_mechanism(StepMechanism::PhysicalSynthetic)
+            .with_verified(false),
+    ])
 }
 
 #[cfg(test)]
