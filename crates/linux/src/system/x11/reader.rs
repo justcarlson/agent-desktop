@@ -3,8 +3,12 @@ use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, W
 use x11rb::rust_connection::RustConnection;
 
 use super::snapshot::{decode_cardinals, decode_frame_extents, decode_title};
+use super::stacking::{READ_BUDGET, bounded, route};
+use super::stacking_read::StackingRead;
 use super::{X11Client, X11Source, X11State};
+use crate::system::display_server::session_server;
 use crate::tree::Extents;
+use agent_desktop_core::Deadline;
 
 const MAX_CLIENTS: usize = 256;
 const MAX_LIST_LONGS: u32 = 4_096;
@@ -15,9 +19,26 @@ const MAX_TITLE_LONGS: u32 = 1_024;
 /// would outlive a server that has stopped answering.
 pub(crate) struct DisplayReader;
 
+#[path = "stacking_wire.rs"]
+mod stacking_wire;
+
 impl super::stacking_source::StackingSource for DisplayReader {
-    fn read(&self, _target_client: u32) -> super::stacking_read::StackingRead {
-        super::stacking_read::StackingRead::Unavailable
+    fn read(&self, target_client: u32) -> StackingRead {
+        route(session_server(), |display| {
+            let Ok(deadline) = Deadline::from_duration(READ_BUDGET) else {
+                return StackingRead::Unavailable;
+            };
+            bounded(deadline, StackingRead::Unavailable, move || {
+                stacking_wire::read_stacking(&display, target_client)
+            })
+        })
+    }
+
+    fn clients(&self) -> X11State {
+        let Ok(deadline) = Deadline::from_duration(READ_BUDGET) else {
+            return X11State::Unavailable;
+        };
+        bounded(deadline, X11State::Unavailable, || X11Source::read(&Self))
     }
 }
 

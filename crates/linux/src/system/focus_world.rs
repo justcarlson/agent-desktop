@@ -1,0 +1,97 @@
+use std::time::Duration;
+
+use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
+
+use super::{FocusWorld, FrameView, Session};
+use crate::system::bus_deadline::within;
+use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::process_facts::{self, Lookup};
+use crate::system::registry::toolkit;
+use crate::system::toolkit::reports_global_position;
+use crate::system::window_filter::frame_state;
+use crate::system::x11::activate::{active_window_within, request_activation};
+use crate::system::x11::activate_error::ActivateError;
+use crate::system::x11::stacking_read::StackingRead;
+use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::{DisplayReader, X11State};
+use crate::system::{SharedBus, window_id};
+use crate::tree::{AtspiElement, read_node};
+
+const ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
+const ACTIVE_READ: Duration = Duration::from_millis(500);
+
+/// The live desktop `focus_window` reads and writes: the accessibility bus
+/// for the frame and the display server for the window manager.
+pub(super) struct LiveWorld<'a> {
+    bus: &'a SharedBus,
+    frame: AtspiElement,
+    deadline: Deadline,
+}
+
+impl<'a> LiveWorld<'a> {
+    pub(super) fn new(
+        bus: &'a SharedBus,
+        win: &WindowInfo,
+        deadline: Deadline,
+    ) -> Result<Self, AdapterError> {
+        let (bus_name, path) = window_id::decode(&win.id)?;
+        Ok(Self {
+            bus,
+            frame: AtspiElement::new(bus_name, path, win.pid.get()),
+            deadline,
+        })
+    }
+}
+
+impl FocusWorld for LiveWorld<'_> {
+    fn session(&self) -> Session {
+        match session_server() {
+            DisplayServer::X11(_) => Session::X11,
+            DisplayServer::Wayland => Session::Wayland,
+            DisplayServer::Unavailable(..) => Session::NoDisplay,
+        }
+    }
+
+    fn lookup(&self, pid: u32) -> Lookup {
+        process_facts::lookup(pid)
+    }
+
+    fn frame(&self) -> Result<FrameView, AdapterError> {
+        let shared = self.bus.get(self.deadline)?;
+        let node = within(self.deadline, async {
+            read_node(shared.inner(), &self.frame).await
+        })?;
+        let state = frame_state(&node.traits.states);
+        Ok(FrameView {
+            minimized: state.minimized,
+            active: state.active,
+        })
+    }
+
+    fn clients(&self) -> X11State {
+        DisplayReader.clients()
+    }
+
+    fn stacking(&self, client: u32) -> StackingRead {
+        StackingSource::read(&DisplayReader, client)
+    }
+
+    fn global_position(&self) -> bool {
+        let Ok(shared) = self.bus.get(self.deadline) else {
+            return false;
+        };
+        let root = AtspiElement::new(self.frame.bus_name(), ROOT_PATH, self.frame.pid());
+        let read = within(self.deadline, async {
+            Ok(toolkit(shared.inner(), &root).await)
+        });
+        read.is_ok_and(|id| reports_global_position(id.name.as_deref(), id.version.as_deref()))
+    }
+
+    fn send(&self, client: u32) -> Result<(), ActivateError> {
+        request_activation(client)
+    }
+
+    fn active(&self) -> Option<u32> {
+        active_window_within(ACTIVE_READ)
+    }
+}
