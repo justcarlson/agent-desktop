@@ -322,9 +322,17 @@ fn signal_live_slow_but_alive_target_is_incomplete_and_not_unresponsive() {
         "{:?}",
         seed.completeness
     );
+    let waited = Instant::now();
     let result = wait_event(&rig, "window-opened", Some(&app), 4_000, Some(Ok(seed)));
     let error = result.expect_err("nothing opens in a blocked app");
     assert_eq!(error.code(), ErrorCode::Timeout.as_str(), "{error}");
+    assert_eq!(details_of(&error)["kind"], "wait_timeout");
+    assert!(
+        waited.elapsed() >= Duration::from_millis(3_500)
+            && waited.elapsed() < Duration::from_millis(8_000),
+        "the wait kept polling to its deadline: {:?}",
+        waited.elapsed()
+    );
     assert_ne!(
         details_of(&error)["last_error"]["code"],
         "APP_UNRESPONSIVE",
