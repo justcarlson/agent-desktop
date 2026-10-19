@@ -4,6 +4,7 @@ use agent_desktop_core::{AdapterError, RefEntry};
 use super::absence::{Failure, failure};
 use super::resolve_errors::{app_exited, window_replaced, window_unverifiable};
 use super::{AtspiElement, ancestry};
+use crate::system::process_facts::Lookup;
 use crate::system::window_id;
 
 /// The window a ref was taken in, as its stored evidence names it.
@@ -56,13 +57,20 @@ impl StoredWindow {
     }
 
     /// Checks the process the window id points at is the one the ref was taken
-    /// from: a pid with no `/proc` entry has exited, and a start time that
-    /// differs is a restarted application that reuses the pid.
-    pub(crate) fn check_process(&self, live_instance: Option<&str>) -> Result<(), AdapterError> {
-        match live_instance {
-            None => Err(app_exited()),
-            Some(instance) if instance == self.instance => Ok(()),
-            Some(_) => Err(window_replaced()),
+    /// from: a pid with no `/proc` entry has exited, a start time that differs
+    /// is a restarted application that reuses the pid, and a process that
+    /// `/proc` could not be read for is unidentified and retried, never
+    /// declared gone.
+    pub(crate) fn check_process(
+        &self,
+        live: &Lookup,
+        entry: &RefEntry,
+    ) -> Result<(), AdapterError> {
+        match live {
+            Lookup::Gone => Err(app_exited()),
+            Lookup::Unreadable => Err(identity_unknown_error(entry)),
+            Lookup::Found(facts) if facts.instance == self.instance => Ok(()),
+            Lookup::Found(_) => Err(window_replaced()),
         }
     }
 

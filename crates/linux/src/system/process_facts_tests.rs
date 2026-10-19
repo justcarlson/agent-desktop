@@ -1,4 +1,7 @@
-use super::{WebFamily, classify_web, parse_start_time, parse_stopped, process_instance, read};
+use super::{
+    Lookup, WebFamily, classify_web, lookup, lookup_for_error, parse_start_time, parse_stopped,
+    process_instance, read,
+};
 
 fn stat_with(comm: &str, start_time: u64) -> String {
     let after_state: Vec<String> = (4..=52)
@@ -115,4 +118,33 @@ fn a_stopped_state_letter_is_read_after_the_last_parenthesis() {
     assert!(!parse_stopped("42 (calc) S 1 2 3"));
     assert!(!parse_stopped("42 (T) S 1 2 3"));
     assert!(!parse_stopped("not a stat line"));
+}
+
+#[test]
+fn only_a_read_that_failed_because_the_process_left_says_gone() {
+    use std::io::{Error, ErrorKind};
+    assert_eq!(
+        lookup_for_error(&Error::from(ErrorKind::NotFound)),
+        Lookup::Gone
+    );
+    assert_eq!(lookup_for_error(&Error::from_raw_os_error(3)), Lookup::Gone);
+    assert_eq!(
+        lookup_for_error(&Error::from(ErrorKind::PermissionDenied)),
+        Lookup::Unreadable
+    );
+    assert_eq!(
+        lookup_for_error(&Error::from_raw_os_error(24)),
+        Lookup::Unreadable
+    );
+}
+
+#[test]
+fn a_process_id_nothing_runs_under_is_gone() {
+    assert_eq!(lookup(u32::MAX - 1), Lookup::Gone);
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn this_process_is_found() {
+    assert!(matches!(lookup(std::process::id()), Lookup::Found(_)));
 }

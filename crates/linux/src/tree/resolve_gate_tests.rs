@@ -1,6 +1,7 @@
 use agent_desktop_core::{ErrorCode, RefEntry};
 
 use super::*;
+use crate::system::process_facts::{Lookup, ProcessFacts};
 use crate::system::{NAME_HAS_NO_OWNER, window_id};
 use crate::tree::test_support::{client_timeout, method_error, ref_entry};
 
@@ -10,6 +11,15 @@ fn entry() -> RefEntry {
     entry.process.process_instance = Some("boot:100".to_owned());
     entry.source.source_window_id = window_id::encode(":1.2", "/org/a11y/atspi/accessible/1");
     entry
+}
+
+fn running(instance: &str) -> Lookup {
+    Lookup::Found(ProcessFacts {
+        comm: "app".to_owned(),
+        exe_basename: None,
+        instance: instance.to_owned(),
+        web_family: None,
+    })
 }
 
 fn kind(error: &AdapterError) -> &str {
@@ -60,9 +70,13 @@ fn the_frame_is_the_stored_address_and_its_own_frame() {
 
 #[test]
 fn a_process_with_another_start_time_is_a_different_process() {
-    assert!(window().check_process(Some("boot:100")).is_ok());
+    assert!(
+        window()
+            .check_process(&running("boot:100"), &entry())
+            .is_ok()
+    );
     let replaced = window()
-        .check_process(Some("boot:101"))
+        .check_process(&running("boot:101"), &entry())
         .expect_err("another start time");
     assert_eq!(replaced.code, ErrorCode::StaleRef);
     assert_eq!(kind(&replaced), "resolve_window_replaced");
@@ -70,8 +84,20 @@ fn a_process_with_another_start_time_is_a_different_process() {
 
 #[test]
 fn a_pid_with_no_process_has_exited() {
-    let exited = window().check_process(None).expect_err("no process");
+    let exited = window()
+        .check_process(&Lookup::Gone, &entry())
+        .expect_err("no process");
     assert_eq!(kind(&exited), "resolve_owning_process_exited");
+}
+
+#[test]
+fn a_pid_that_could_not_be_read_is_retried_and_never_declared_exited() {
+    let unread = window()
+        .check_process(&Lookup::Unreadable, &entry())
+        .expect_err("unidentified");
+    assert_eq!(unread.code, ErrorCode::AppUnresponsive);
+    assert!(unread.is_explicitly_retryable());
+    assert_ne!(kind(&unread), "resolve_owning_process_exited");
 }
 
 #[test]

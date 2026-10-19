@@ -43,8 +43,7 @@ impl<'a> BusSource<'a> {
 impl Source for BusSource<'_> {
     fn open_window(&mut self, entry: &RefEntry) -> Result<AtspiElement, AdapterError> {
         let window = stored_window(entry)?;
-        let live = process_facts::read(window.pid()).map(|facts| facts.instance);
-        window.check_process(live.as_deref())?;
+        window.check_process(&process_facts::lookup(window.pid()), entry)?;
         let frame = window.frame();
         let connection = &self.connection;
         within(self.deadline, async {

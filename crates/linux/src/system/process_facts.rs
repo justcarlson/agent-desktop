@@ -24,6 +24,36 @@ pub(crate) struct ProcessFacts {
     pub(crate) web_family: Option<WebFamily>,
 }
 
+/// What a lookup of one process id found. A process that is gone and one
+/// that could not be read are different answers: only the first may end a
+/// ref's life.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Lookup {
+    Found(ProcessFacts),
+    Gone,
+    Unreadable,
+}
+
+impl Lookup {
+    pub(crate) fn found(self) -> Option<ProcessFacts> {
+        match self {
+            Self::Found(facts) => Some(facts),
+            Self::Gone | Self::Unreadable => None,
+        }
+    }
+}
+
+/// Whether a failed `/proc` read says the process has exited, as opposed to
+/// the read having failed for another reason.
+pub(crate) fn lookup_for_error(error: &std::io::Error) -> Lookup {
+    const ESRCH: i32 = 3;
+    if error.kind() == std::io::ErrorKind::NotFound || error.raw_os_error() == Some(ESRCH) {
+        Lookup::Gone
+    } else {
+        Lookup::Unreadable
+    }
+}
+
 /// The start time, in clock ticks since boot, from the text of
 /// `/proc/<pid>/stat`. The command name sits in parentheses and may itself
 /// contain spaces and parentheses, so the fields are counted from the last
@@ -102,22 +132,34 @@ fn has_chromium_payload(exe: &Path) -> bool {
     })
 }
 
-/// The facts of a running process, or `None` when it has gone or its start
-/// time cannot be read: a made-up token would let a recycled id pass.
+/// The facts of a running process, or `None` when it has gone or could not be
+/// read.
 pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
-    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    let start_time = parse_start_time(&stat)?;
-    let comm = std::fs::read_to_string(format!("/proc/{pid}/comm"))
-        .ok()?
-        .trim_end()
-        .to_owned();
+    lookup(pid).found()
+}
+
+/// Looks one process up. A made-up start time would let a recycled id pass,
+/// so a stat line without a readable start time is `Unreadable`, and only a
+/// read that failed because the process has gone is `Gone`.
+pub(crate) fn lookup(pid: u32) -> Lookup {
+    let stat = match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+        Ok(stat) => stat,
+        Err(error) => return lookup_for_error(&error),
+    };
+    let Some(start_time) = parse_start_time(&stat) else {
+        return Lookup::Unreadable;
+    };
+    let comm = match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
+        Ok(comm) => comm.trim_end().to_owned(),
+        Err(error) => return lookup_for_error(&error),
+    };
     let exe = std::fs::read_link(format!("/proc/{pid}/exe")).ok();
     let exe_basename = exe
         .as_deref()
         .and_then(Path::file_name)
         .map(|name| name.to_string_lossy().into_owned());
     let payload = exe.as_deref().is_some_and(has_chromium_payload);
-    Some(ProcessFacts {
+    Lookup::Found(ProcessFacts {
         web_family: classify_web(&comm, exe_basename.as_deref(), payload),
         comm,
         exe_basename,
