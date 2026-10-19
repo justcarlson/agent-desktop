@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -10,6 +11,7 @@ use x11rb::protocol::xproto::{
 use x11rb::rust_connection::RustConnection;
 use x11rb::{CURRENT_TIME, NONE};
 
+use super::release_gate::ReleaseGate;
 use super::x11_read::{Converted, Fault, Requestor};
 use crate::system::x11::{self, fault_of_connect};
 
@@ -244,8 +246,13 @@ impl SelectionServer for X11Server {
 
     fn release(&self, display: &str, deadline: Deadline) -> Result<(), Fault> {
         let display = display.to_owned();
-        bounded(deadline, move || {
+        let gate = Arc::new(ReleaseGate::default());
+        let worker = Arc::clone(&gate);
+        let outcome = bounded(deadline, move || {
             let requestor = X11Requestor::connect(&display)?;
+            if !worker.commit() {
+                return Err(Fault::Timeout);
+            }
             requestor
                 .connection
                 .set_selection_owner(NONE, requestor.clipboard, CURRENT_TIME)
@@ -257,6 +264,7 @@ impl SelectionServer for X11Server {
                 .reply()
                 .map_err(protocol)?;
             Ok(())
-        })
+        });
+        gate.settle(outcome)
     }
 }

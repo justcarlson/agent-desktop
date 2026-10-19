@@ -16,6 +16,7 @@ pub(crate) enum Fault {
     Connect(MonitorFault),
     Protocol(String),
     OverCap,
+    MutationUnconfirmed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +37,10 @@ const INNER_DEADLINE_SHARE: u32 = 10;
 
 pub(crate) fn fault_error(fault: Fault, owner_pid: Option<u32>) -> AdapterError {
     let error = match fault {
+        Fault::MutationUnconfirmed => {
+            return AdapterError::timeout("The clipboard change did not finish in time")
+                .with_disposition(DeliverySemantics::uncertain());
+        }
         Fault::Timeout => {
             let error = AdapterError::timeout("The clipboard owner did not answer in time");
             match owner_pid {
