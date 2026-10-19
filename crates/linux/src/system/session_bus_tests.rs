@@ -62,3 +62,27 @@ fn a_session_bus_timeout_is_a_timeout() {
     )));
     assert_eq!(unreachable(&slow).code, ErrorCode::Timeout);
 }
+
+#[test]
+fn a_forgotten_connection_is_opened_again_and_another_one_is_left_alone() {
+    let slot: Mutex<Option<u32>> = Mutex::new(None);
+    cached_or_open(&slot, live(), || Ok(3)).expect("the first call opens");
+
+    forget_matching(&slot, |held| *held == 4);
+    let kept = cached_or_open(&slot, live(), || Ok(9)).expect("reuse");
+    assert_eq!(kept, 3);
+
+    forget_matching(&slot, |held| *held == 3);
+    let reopened = cached_or_open(&slot, live(), || Ok(9)).expect("reopen");
+    assert_eq!(reopened, 9);
+}
+
+#[test]
+fn a_transport_error_is_told_apart_from_a_method_error() {
+    let broken = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
+        ErrorKind::BrokenPipe,
+    )));
+    assert!(is_transport_failure(&broken));
+    let refused = zbus::Error::Failure("no".into());
+    assert!(!is_transport_failure(&refused));
+}

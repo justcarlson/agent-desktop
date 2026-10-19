@@ -6,7 +6,7 @@ use zbus::Connection;
 use zbus::zvariant::OwnedObjectPath;
 
 use super::key_session::KeySession;
-use crate::system::session_bus::SessionBus;
+use crate::system::session_bus::{SessionBus, is_transport_failure};
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, within};
 
 const SERVICE: &str = "org.gnome.Mutter.RemoteDesktop";
@@ -40,6 +40,20 @@ impl RemoteDesktop {
             .ok_or_else(|| AdapterError::internal("The keyboard session was not created"))
     }
 
+    fn failed(&self, error: &zbus::Error) -> AdapterError {
+        if is_transport_failure(error) {
+            SessionBus::forget(&self.connection);
+        }
+        classify_call(error)
+    }
+
+    fn forget_on_timeout(&self, error: AdapterError) -> AdapterError {
+        if error.code == ErrorCode::Timeout {
+            SessionBus::forget(&self.connection);
+        }
+        error
+    }
+
     fn call_session(&self, member: &'static str, deadline: Deadline) -> Result<(), AdapterError> {
         let path = self.session_path()?;
         within(deadline, async {
@@ -47,8 +61,9 @@ impl RemoteDesktop {
                 .call_method(Some(SERVICE), path, Some(SESSION_INTERFACE), member, &())
                 .await
                 .map(|_| ())
-                .map_err(|error| classify_call(&error))
+                .map_err(|error| self.failed(&error))
         })
+        .map_err(|error| self.forget_on_timeout(error))
     }
 }
 
@@ -59,12 +74,13 @@ impl KeySession for RemoteDesktop {
                 .connection
                 .call_method(Some(SERVICE), PATH, Some(SERVICE), "CreateSession", &())
                 .await
-                .map_err(|error| classify_call(&error))?;
+                .map_err(|error| self.failed(&error))?;
             reply
                 .body()
                 .deserialize::<OwnedObjectPath>()
                 .map_err(|error| classify_call(&error))
         })
+        .map_err(|error| self.forget_on_timeout(error))
         .map_err(creation_failure)?;
         self.session = Some(path);
         Ok(())
@@ -87,13 +103,17 @@ impl KeySession for RemoteDesktop {
                 )
                 .await
                 .map(|_| ())
-                .map_err(|error| classify_call(&error))
+                .map_err(|error| self.failed(&error))
         })
+        .map_err(|error| self.forget_on_timeout(error))
     }
 
     fn stop(&mut self, deadline: Deadline) -> Result<(), AdapterError> {
         let stopped = self.call_session("Stop", deadline);
         self.session = None;
+        if stopped.is_err() {
+            SessionBus::forget(&self.connection);
+        }
         stopped
     }
 }

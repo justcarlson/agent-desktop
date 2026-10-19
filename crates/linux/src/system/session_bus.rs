@@ -31,6 +31,20 @@ pub(crate) fn cached_or_open<T: Clone>(
     Ok(guard.get_or_insert(opened).clone())
 }
 
+pub(crate) fn forget_matching<T>(slot: &Mutex<Option<T>>, same: impl Fn(&T) -> bool) {
+    let mut guard = slot.lock().unwrap_or_else(PoisonError::into_inner);
+    if guard.as_ref().is_some_and(same) {
+        *guard = None;
+    }
+}
+
+pub(crate) fn is_transport_failure(error: &zbus::Error) -> bool {
+    matches!(
+        error,
+        zbus::Error::InputOutput(_) | zbus::Error::Connection(..)
+    )
+}
+
 fn unreachable(source: &zbus::Error) -> AdapterError {
     if let zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _) = source
         && io.kind() == ErrorKind::TimedOut
@@ -60,6 +74,10 @@ fn open(deadline: Deadline) -> Result<Connection, AdapterError> {
 impl SessionBus {
     pub(crate) fn get(deadline: Deadline) -> Result<Connection, AdapterError> {
         cached_or_open(&SLOT, deadline, || open(deadline))
+    }
+
+    pub(crate) fn forget(connection: &Connection) {
+        forget_matching(&SLOT, |held| held.unique_name() == connection.unique_name());
     }
 }
 
