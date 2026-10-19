@@ -2,7 +2,7 @@ use x11rb::connection::Connection;
 use x11rb::cookie::Cookie;
 use x11rb::protocol::xproto::{
     Atom, AtomEnum, ConnectionExt, GetGeometryReply, GetPropertyReply, GetWindowAttributesReply,
-    MapState, TranslateCoordinatesReply, Window,
+    MapState, TranslateCoordinatesReply, Window, WindowClass,
 };
 use x11rb::rust_connection::RustConnection;
 
@@ -248,7 +248,8 @@ fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Option<
         let Some(attributes) = attributes.and_then(|cookie| cookie.reply().ok()) else {
             continue;
         };
-        if !attributes.override_redirect || attributes.map_state != MapState::VIEWABLE {
+        let paints = attributes.class == WindowClass::INPUT_OUTPUT;
+        if !attributes.override_redirect || attributes.map_state != MapState::VIEWABLE || !paints {
             continue;
         }
         let Some(size) = size.and_then(|cookie| cookie.reply().ok()) else {
