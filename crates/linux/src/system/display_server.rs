@@ -92,6 +92,17 @@ fn failure(variable: &str, value: &str, reach: Reach) -> (Cause, String) {
     }
 }
 
+/// The display name every reader is given. A local name written with the
+/// `unix` transport prefix (`unix:1`) is the same display as `:1`, but the
+/// readers' connection parser takes `unix` for a host name, so the name is
+/// handed over without the prefix.
+pub(crate) fn canonical_display(display: &str) -> String {
+    match display.strip_prefix("unix") {
+        Some(rest) if rest.starts_with(':') => rest.to_owned(),
+        _ => display.to_owned(),
+    }
+}
+
 /// Chooses the display server from the environment and what answers.
 pub(crate) fn detect(env: &DisplayEnv, probe: &dyn Probe) -> DisplayServer {
     let mut failures = Vec::new();
@@ -106,7 +117,7 @@ pub(crate) fn detect(env: &DisplayEnv, probe: &dyn Probe) -> DisplayServer {
     if let Some(display) = &env.display {
         let reach = probe.x11(display);
         if reach == Reach::Connected {
-            return DisplayServer::X11(display.clone());
+            return DisplayServer::X11(canonical_display(display));
         }
         failures.push(failure("DISPLAY", display, reach));
     }

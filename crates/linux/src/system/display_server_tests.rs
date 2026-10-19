@@ -123,3 +123,18 @@ fn no_variables_is_not_configured() {
     assert_eq!(why.cause, Cause::NotConfigured);
     assert!(why.detail.is_empty());
 }
+
+#[test]
+fn a_display_written_with_the_unix_transport_prefix_is_handed_on_without_it() {
+    let server = detect(
+        &env(None, Some("unix:1.0")),
+        &probe(Reach::Missing, Reach::Connected),
+    );
+    assert_eq!(server, DisplayServer::X11(":1.0".to_owned()));
+    let plain = detect(
+        &env(None, Some(":2")),
+        &probe(Reach::Missing, Reach::Connected),
+    );
+    assert_eq!(plain, DisplayServer::X11(":2".to_owned()));
+    assert_eq!(super::canonical_display("unixhost:0"), "unixhost:0");
+}
