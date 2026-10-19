@@ -108,13 +108,19 @@ pub(super) fn snapshot_entries(
 }
 
 fn resolve_all(
+    label: &str,
     adapter: &LinuxAdapter,
     bus: &SharedBus,
     frame: &AtspiElement,
     include_bounds: bool,
 ) -> Result<Tally, String> {
     let mut tally = Tally::default();
-    for (ref_id, entry) in snapshot_entries(adapter, frame, include_bounds)? {
+    let snapshot = snapshot_entries(adapter, frame, include_bounds)?;
+    let unjudged = super::live_churn::unjudged(label, &snapshot);
+    for (ref_id, entry) in snapshot
+        .into_iter()
+        .filter(|(id, _)| !unjudged.contains(id))
+    {
         let attempt = Deadline::after(5_000).map_err(|error| error.message)?;
         match adapter.resolve_element_strict(&entry, attempt) {
             Ok(handle) => {
@@ -149,7 +155,7 @@ fn check(
 ) -> Result<(), String> {
     let mut failures = Vec::new();
     for include_bounds in [false, true] {
-        let tally = resolve_all(adapter, bus, frame, include_bounds)?;
+        let tally = resolve_all(label, adapter, bus, frame, include_bounds)?;
         println!(
             "resolve_live {label} bounds={include_bounds}: resolved={} failed={}",
             tally.resolved,

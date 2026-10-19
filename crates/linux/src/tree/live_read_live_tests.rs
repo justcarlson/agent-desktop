@@ -44,7 +44,8 @@ fn read_check(
     let rig = rig();
     let entries = rig.entries(frame, true);
     let (mut checked, mut sentinel, mut problems) = (0usize, 0usize, Vec::new());
-    for (id, entry) in &entries {
+    let unjudged = super::live_churn::unjudged(label, &entries);
+    for (id, entry) in entries.iter().filter(|(id, _)| !unjudged.contains(id)) {
         let handle = match adapter.resolve_element_strict(entry, deadline(5_000)) {
             Ok(handle) => handle,
             Err(error) => {
