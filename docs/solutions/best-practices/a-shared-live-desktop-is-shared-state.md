@@ -1,5 +1,5 @@
 ---
-title: A shared live desktop is shared state - four ways one run breaks every other run
+title: A shared live desktop is shared state - five ways one run breaks every other run
 date: 2026-10-18
 category: best-practices
 module: scripts/remote-linux.sh, scripts/session-env.sh, crates/linux
@@ -17,21 +17,26 @@ symptoms:
   - "Every remote run waits on the box lock for tens of minutes and no process seems to hold it."
   - "Builds on the box fail on include_str! of a committed docs/ file that exists locally."
   - "Synthetic keys and clicks land nowhere; a seat grab returns AlreadyGrabbed."
+  - "A key stays pressed on the display after the process that held it died."
 tags: [linux, at-spi, x11, wayland, remote-development, shared-state, flock, rsync, gnome-shell, input]
 ---
 
-# A shared live desktop is shared state - four ways one run breaks every other run
+# A shared live desktop is shared state - five ways one run breaks every other run
 
 ## Context
 
-The Linux adapter is verified against a real GNOME 46 X11 session on a dev box that several agents and test runs drive at once through `scripts/remote-linux.sh`. That session is process-wide shared state: its accessibility bus, its X server, its clipboard and its input grab belong to every run. During the Linux exploration probes, four separate mistakes by one run silently broke the box for every other run, and each looked like a product defect until it was traced. None of them is visible in the final code, which only carries the guards.
+The Linux adapter is verified against a real GNOME 46 X11 session on a dev box that several agents and test runs drive at once through `scripts/remote-linux.sh`. That session is process-wide shared state: its accessibility bus, its X server, its clipboard and its input grab belong to every run. During the Linux exploration probes, separate mistakes by one run silently broke the box for every other run, and each looked like a product defect until it was traced. None of them is visible in the final code, which only carries the guards.
 
 ## Guidance
 
 1. **Give every second session its own runtime directory.** A run that starts `dbus-run-session` and `gnome-shell --headless --wayland` (or any second session) with the live `XDG_RUNTIME_DIR` also starts its own `at-spi-bus-launcher`. That launcher takes the same `/run/user/<uid>/at-spi/bus_0` path and deletes it when it exits. The live session's bus daemon keeps running on an unlinked socket, `org.a11y.Bus.GetAddress` still answers with the old address, and every new AT-SPI client fails. Set `XDG_RUNTIME_DIR` to a private `0700` directory before the second session starts, and check that `/run/user/<uid>/at-spi/bus*` still exists afterwards. `scripts/remote-linux.sh` now prints a warning after every run when the socket is missing, and it refuses a command that starts `dbus-run-session` without setting `XDG_RUNTIME_DIR`. A test suite run the way CI runs it (`dbus-run-session -- xvfb-run ... cargo test`) is a second session too: on a CI runner it is the only session, but on the box it deleted the live socket a second time.
 2. **Detach anything that outlives the command.** `echo hi | xclip -selection clipboard` returns at once, but the forked selection server keeps the caller's open descriptors, including the box lock, and the caller's stdio pipes. One such `xclip` held the lock for half an hour. The script now takes the lock with `flock -o`, which keeps the lock out of children, and `-w` bounds the wait. A probe that sets the clipboard starts the owner with stdin, stdout and stderr on `/dev/null` under `setsid`, records its pid, and stops it before it finishes.
 3. **Sync the files git lists, not a `.gitignore` merge.** `rsync --filter=':- .gitignore'` reads `.gitignore` as rsync filter syntax, where a line that starts with `!` clears the rule list instead of re-including a path. This repository's `.gitignore` excludes `docs/*` and re-includes files with `!`, so `docs/` never reached the box and every all-targets build there failed on an `include_str!` of a committed doc. The script now builds an rsync filter from `git ls-files -co --exclude-standard`, escapes rsync pattern characters, and mirrors exactly that list.
-4. **Check for a held grab before you trust undelivered input.** A GNOME Shell modal, such as a password prompt from a background updater, holds an active keyboard and pointer grab. While it is open, synthetic keys and clicks reach no window, and a GDK seat grab returns `AlreadyGrabbed`. `xdotool key XF86LogGrabInfo` makes Xorg write the grab holder to its log (`~/.local/share/xorg/Xorg.<n>.log` for a rootless Xorg), which names `gnome-shell` and its pid. A run that finds a held grab records its input rows as blocked by the environment, not as product findings. Clearing the modal needs the session's owner: a logout, or a restart of `org.gnome.Shell@x11.service`.
+4. **Check for a held grab before you trust undelivered input.** A GNOME Shell modal, such as a password prompt from a background updater, holds an active keyboard and pointer grab. While it is open, synthetic keys and clicks reach no window, and a GDK seat grab returns `AlreadyGrabbed`. `xdotool key XF86LogGrabInfo` makes Xorg write the grab holder to its log (`~/.local/share/xorg/Xorg.<n>.log` for a rootless Xorg), which names `gnome-shell` and its pid. A run that finds a held grab records its input rows as blocked by the environment, not as product findings. Clearing the modal needs the session's owner: a logout, or a restart of `org.gnome.Shell@x11.service`. The same grab appears in a private session, from three sources that the adapter's checks do not all see:
+   - **A Chromium keyring prompt.** Without `--password-store=basic`, Chromium asks the keyring for its password store, and a `gcr-prompter` dialog becomes the active window and takes the wheel, `pagedown` and clicks. Start every Chromium under test with the flag (L28-16).
+   - **The Activities Overview of a private mutter.** A fresh `gnome-shell --x11` starts with the Overview open, and it refuses clicks and keys until one `Escape` closes it. Wait about 2 s for the animation before the next click (L28-2, L28-17).
+   - **A popup menu in another application.** `_NET_ACTIVE_WINDOW` and the target's frame can name the target while the menu keeps the keyboard grab. The `window_active` gate is necessary and not sufficient, and a global `press`, which has no gate, delivers the key to the menu (L28-8, L28-20).
+5. **Release held input that outlives its client.** XTest holds a key or button until something releases it, and the X server does not release it when the holder dies: after `kill -9` and after `SIGTERM`, both stayed down (L28-5). A leg that crashes with a key held leaves the shared display with a stuck key. The adapter journals held input and releases it before the next call sends anything (L28-11), and a probe that holds input does the same release itself.
 
 Every rule protects the next run, not the current one. A run that breaks one of them usually still passes itself.
 
@@ -44,7 +49,8 @@ Each failure surfaced far from its cause and looked like a product result. The d
 - Before a run starts any second session, compositor or bus launcher on the dev box.
 - Before a run starts a process that can outlive its command: a clipboard owner, a launched app, a background helper.
 - When a remote build fails on a file that exists locally, check what the sync sent before you debug the build.
-- When synthetic input has no effect, check for a held grab before you conclude anything about the input path.
+- When synthetic input has no effect, check for a held grab (a modal, a keyring prompt, the Overview, a popup menu) before you conclude anything about the input path.
+- After a run that held keys or buttons, check that none stayed down.
 
 ## Examples
 
