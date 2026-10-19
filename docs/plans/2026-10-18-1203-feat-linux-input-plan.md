@@ -65,8 +65,8 @@ Nothing in the ledger is a saved capture of input landing on an app: `L5-7`, `L5
 **Process and proof**
 
 - R12. `crates/core` is unchanged, no shipped source names a plan, phase or decision id, no subprocess is spawned for input, pure tests run on every host, and every other requirement is proved by a real run on the GNOME box in private sessions now and on the live session once the owner restores it. `docs/phases.md` states what was built and no longer states what the evidence disproved, and every ledger row naming 3.8 is disposed of.
-- R13. A stranger dogfood is run and its report committed with at least one finding, each disposed of.
-- R14. Latency is measured min-of-seven with the warm-up discarded against `L5-5`, and the release binary stays under 15 MiB with the size delta of the `xtest` feature reported.
+- R13. A stranger dogfood is run and its report goes in the pull request description with at least one finding, each disposed of. No report file is committed.
+- R14. The release binary stays under 15 MiB. Its size is measured once and recorded as a ledger row. No performance baseline is run for this sub-phase.
 
 ### Key Decisions
 
@@ -338,9 +338,9 @@ text(s)    := chunks of <= 32 chars
   - 3.7's expectations that no node gets `Scroll` are replaced, not deleted: a node outside the list still gets none.
 - **Verification:** the scenarios pass; dropping the token for eligible targets fails the gate test, and emitting it for a non-listed role fails the negative scenario. Live (U8): `scroll @ref --headed` moves content on a Files list, a GTK3 scroll pane, a Qt list and a Chromium page.
 
-### U8. Live verification, performance and size
+### U8. Live verification and size
 
-- **Goal:** prove R1-R11 and R14 on real apps in private sessions, and record the costs.
+- **Goal:** prove R1-R11 on real apps in private sessions, and record the release binary size (R14).
 - **Requirements:** R1-R11, R14.
 - **Dependencies:** U5, U6, U7, U11.
 - **Files:** ignored live tests beside each unit (`physical_keyboard_live_tests.rs`, `physical_click_live_tests.rs`, `input_release_live_tests.rs`, `wayland_input_live_tests.rs`); new rows in `probes/linux/FINDINGS.md`.
@@ -356,9 +356,9 @@ text(s)    := chunks of <= 32 chars
   5a. `scroll @ref --headed` end to end through core on a Files list, a GTK3 scroll pane, a Qt list and a Chromium page: the content moves, read back by an independent scroll position or first visible row; the same ref headless is refused by policy; an ineligible ref is refused at the gate (C1).
   6. Wayland keys with the chosen lead, on a global `press` and on a ref action under a policy that skips `focus_window`; `type @ref --headed` shown to end at `focus_window`'s Wayland refusal with nothing sent; pointer refusals; a RemoteDesktop call over the session bus succeeds and the same call over the accessibility bus fails with a missing service (A4).
   6a. Stale-socket scenario through complete commands (B1): a private X11 session (Xvfb with openbox) with `WAYLAND_DISPLAY` set to a socket path nothing listens on and a working `DISPLAY`: `type`, `press`, a headed `click` and `mouse-click` through the CLI deliver on X11 and read back, with `list-displays`-style display enumeration and window focus taking the same X11 route; the same environment with `DISPLAY` unset fails as `PLATFORM_NOT_SUPPORTED` naming both variables; a live Wayland socket with `DISPLAY` also set stays on Wayland.
-  7. Costs, min-of-seven with the warm-up discarded, reported as min with median and max: one key, one click, one drag, one worker connect, one RemoteDesktop session, against `L5-5`. The release binary size with and without `xtest` against 15 MiB.
+  7. Size: the release binary is built once and measured against 15 MiB, and the byte count is recorded as a ledger row. This is a size fact, not a performance baseline: no latency is measured for this sub-phase.
 - **Test expectation:** the live tests are the unit scenarios marked live above; nothing asserts a coordinate from a live app.
-- **Verification:** every live case passes in the private sessions; the numbers are recorded; the live-session re-run is listed as outstanding with what it covers.
+- **Verification:** every live case passes in the private sessions; the release size is recorded and under 15 MiB; the live-session re-run is listed as outstanding with what it covers.
 
 ### U9. Correct `docs/phases.md` and dispose of the ledger rows
 
@@ -383,7 +383,7 @@ text(s)    := chunks of <= 32 chars
 - **Goal:** find what a new agent hits using only the shipped skill and the built binary.
 - **Requirements:** R13.
 - **Dependencies:** U8.
-- **Files:** `docs/dogfood-reports/<date>-<serial>-feat-linux-3-8-input-dogfood.md`.
+- **Files:** none. The report is the dogfood section of the pull request description.
 - **Approach:** KD6. The operator is a subagent told that it holds the built release binary and the text of `skills/agent-desktop/` (from `agent-desktop skills get core`) and nothing else, in a private Xvfb session under openbox, plus a private Wayland leg. Apps are Text Editor, Calculator, a GTK3 app, a Qt app and Files, launched and arranged by the harness outside the operator's tools. The operator runs every example in bash verbatim, reads every `ok`, waits with `wait` and never sleeps, treats any undocumented flag, variable or ordering as a finding, confirms a failure twice, and measures each claim in the passing and the failing direction. Probes:
   1. `type` ASCII, non-ASCII, long text; the same without `--headed` and against a background window and a grab-holding client.
   2. `press` chords; a blocked combo and the same with `--force` on a throwaway window.
@@ -396,8 +396,8 @@ text(s)    := chunks of <= 32 chars
   9. A stale `WAYLAND_DISPLAY` with a working `DISPLAY`: `type`, `press`, `click --headed` and `mouse-click` deliver on X11, and `DISPLAY` unset in the same environment ends in the documented error (B1).
   10. `scroll @ref --headed` on a list after a failed scroll recovery, and the headless form refused by policy (C1).
   Every effect is compared with an independent observation.
-- **Test expectation:** none -- a run and a report; each finding is disposed as fixed with a named test that fails when the fix is removed, owned elsewhere with the receiving scope written in `docs/phases.md`, or accepted with the reason. After any code fix, U8's live and performance rows are re-run.
-- **Verification:** the report is committed with at least one finding, every finding has one disposition, and every fixed finding's test has been seen to fail with the fix removed.
+- **Test expectation:** none -- a run and a report; each finding is disposed as fixed with a named test that fails when the fix is removed, owned elsewhere with the receiving scope written in `docs/phases.md`, or accepted with the reason. After any code fix, U8's live rows are re-run.
+- **Verification:** the report is in the pull request description with at least one finding, every finding has one disposition, and every fixed finding's test has been seen to fail with the fix removed. No report file is committed.
 
 ---
 
@@ -482,10 +482,10 @@ pub(crate) fn eligible(role: u32, interfaces: &[String], session: &DisplayServer
 | No subprocess | a search of `crates/linux/src/input` and `crates/linux/src/actions` finds no `Command::new` | KTD2, R12 |
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `scripts/check-stale-ref-constructor-misuse.sh`, `cargo fmt --all -- --check` | 400-line cap, no plan ids in source |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.8` lists none `DEFERRED` | citations valid, dispositions made |
-| Perf and size | min-of-seven with the warm-up discarded for the rows in U8; release size with and without `xtest` against 15 MiB | R14 |
-| Dogfood | the committed report with every finding disposed | R13 |
+| Size | the release binary size measured once with the touch rule, under 15 MiB, recorded as a ledger row; no performance baseline | R14 |
+| Dogfood | the report in the pull request description with every finding disposed | R13 |
 
-Requirement-to-check map: R1 -> U2 plan rows, U8 case 1 and 2; R2 -> U2 no-layout row, U8 case 1; R3 -> U6 gate rows, U8 case 1 grab-holder; R4 -> U2 chunk row, U6 chunk re-check row; R5 -> U3 wheel and click rows, U5 trait rows, U8 case 3; R6 -> U6 geometry rows, U11 scenarios, U8 cases 3 and 5a; R7 -> U3 drag rows, U5 abort row, U8 case 4; R8 -> U4 guard and verify rows, U8 case 4; R9 -> U3 and U5 rejection rows, U8 case 5; R10 -> U7 rows including the bus-routing rows, U8 cases 6 and 6a; R11 -> U2 blocked rows, U6 `is_blocked_combo` row, U6 ForceClick row; R12 -> isolation, no-subprocess, source rules, ledger and U9; R13 -> U10; R14 -> perf and size.
+Requirement-to-check map: R1 -> U2 plan rows, U8 case 1 and 2; R2 -> U2 no-layout row, U8 case 1; R3 -> U6 gate rows, U8 case 1 grab-holder; R4 -> U2 chunk row, U6 chunk re-check row; R5 -> U3 wheel and click rows, U5 trait rows, U8 case 3; R6 -> U6 geometry rows, U11 scenarios, U8 cases 3 and 5a; R7 -> U3 drag rows, U5 abort row, U8 case 4; R8 -> U4 guard and verify rows, U8 case 4; R9 -> U3 and U5 rejection rows, U8 case 5; R10 -> U7 rows including the bus-routing rows, U8 cases 6 and 6a; R11 -> U2 blocked rows, U6 `is_blocked_combo` row, U6 ForceClick row; R12 -> isolation, no-subprocess, source rules, ledger and U9; R13 -> U10; R14 -> size.
 
 ## Definition of Done
 
@@ -510,7 +510,7 @@ Requirement-to-check map: R1 -> U2 plan rows, U8 case 1 and 2; R2 -> U2 no-layou
   - `L4-9`, `L18-4`, `L18-10`: the keyboard path now exists (`press`, `Escape`), so 3.7's GTK4 navigation-list fallback and 3.11's `--menu-closed` can use it; each row names its consumer.
   - `L27-5`, `L27-10`: the wheel leg and the focus click (U8 cases 3b and 5b); `L27-10`'s fact replaces the uncommitted `L23-14` citations.
   - U1's new rows, including the re-recorded `L21-21`, `L23-12`, `L23-24`, `L23-29`, `L23-30`: each with its verdict and a disposition.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified.
+- The dogfood report is in the pull request description with every finding disposed of and every fixed finding's test invert-verified. No report file is committed, and no performance baseline is run; the release binary size is measured once, stays under 15 MiB and is recorded as a ledger row.
 - `crates/core` diff is empty, no shipped source names a plan, phase or decision id, no input subprocess exists, and no probe script, capture or box identity is committed.
 - `docs/phases.md` states what was built and no longer states what the evidence disproved; the `scroll_into_view` policy gap, the live-session legs, the root measurement and the `is_protected_process` statement are written into their receivers.
 - No abandoned experiment code remains.
@@ -529,7 +529,7 @@ Requirement-to-check map: R1 -> U2 plan rows, U8 case 1 and 2; R2 -> U2 no-layou
 | The shell-bound blocked combos cannot be measured under openbox | the list is reasoned from the membership test and says which entries are unmeasured; `--force` stays the escape |
 | Wayland keys are typed into the wrong window | frame `active` appears there only after a seat keyboard exists (`L23-29`), so the gate is read after the lead key; headed ref actions are stopped earlier by 3.6's `focus_window`, so the exposure is global `press`, written into 3.13's skill scope and carried in the step as `focus_verified: false` when the frame is unreadable |
 | RemoteDesktop is closed to ordinary clients on a live session | `ACTION_NOT_SUPPORTED` with the semantic suggestion; the live closure is a Definition of Done line |
-| Per-call connection cost | measured in U8 against `L5-5`; in-process XTEST is expected at or below the GI figure |
+| Per-call connection cost | not measured as a baseline for this sub-phase; in-process XTEST removes the subprocess start that `L5-5` measured |
 | PR size exceeds the ~2k guideline | about 3k lines of product code and 1.5k of tests; the Windows input module without clipboard is 3.7k lines for the same surface; the roadmap's ~2k estimate predates the keymap and remap work, the Wayland session and the release guards, each of which the exit criteria need; the seam after U5 (X11 trait) versus U6-U7 (gate, legs, Wayland) is noted for information only, KD7 keeps one PR |
 | The live session holds an input grab and its bus is broken | all verification runs in private sessions; the live-session re-run waits for the owner |
 
