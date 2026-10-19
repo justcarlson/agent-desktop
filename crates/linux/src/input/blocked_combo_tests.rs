@@ -64,3 +64,9 @@ fn modifier_order_and_key_spelling_do_not_evade_the_list() {
 fn an_unknown_key_name_is_not_blocked_and_fails_in_planning_instead() {
     assert!(!blocked("hyper", &[Modifier::Alt]));
 }
+
+#[test]
+fn ctrl_alt_forward_delete_is_blocked_by_its_own_name() {
+    assert!(blocked("forwarddelete", &[Modifier::Ctrl, Modifier::Alt]));
+    assert!(!blocked("forwarddelete", &[Modifier::Ctrl]));
+}

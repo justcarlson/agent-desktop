@@ -11,6 +11,7 @@ const BLOCKED: &[(&[Modifier], &str)] = &[
     (&[Modifier::Alt], "tab"),
     (&[Modifier::Meta], "l"),
     (&[Modifier::Ctrl, Modifier::Alt], "delete"),
+    (&[Modifier::Ctrl, Modifier::Alt], "forwarddelete"),
     (&[Modifier::Ctrl, Modifier::Alt], "backspace"),
     (&[Modifier::Ctrl, Modifier::Alt], "l"),
     (&[], "super"),

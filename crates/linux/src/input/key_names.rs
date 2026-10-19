@@ -11,7 +11,7 @@ const UNICODE_KEYSYM_BASE: u32 = 0x0100_0000;
 const FIRST_FUNCTION_KEYSYM: u32 = 0xffbe;
 const MAX_FUNCTION_KEY: u32 = 24;
 
-const ACCEPTED_FORMS: &str = "a single character, f1-f24, return, tab, escape, space, backspace, delete, forwarddelete, home, end, pageup, pagedown, insert, left, up, right, down, ctrl, shift, alt, super, a punctuation name such as comma, greater or leftbracket, or an X keysym name such as Page_Up";
+const ACCEPTED_FORMS: &str = "a single character, f1-f24, return, tab, escape, space, backspace, delete (the backspace key), forwarddelete (the forward Delete key), home, end, pageup, pagedown, insert, left, up, right, down, ctrl, shift, alt, super, a punctuation name such as comma, greater or leftbracket, or an X keysym name such as Page_Up";
 
 const NAMED_KEYS: &[(&str, u32)] = &[
     ("return", KEYSYM_RETURN),
@@ -21,7 +21,7 @@ const NAMED_KEYS: &[(&str, u32)] = &[
     ("esc", 0xff1b),
     ("space", 0x20),
     ("backspace", 0xff08),
-    ("delete", 0xffff),
+    ("delete", 0xff08),
     ("home", 0xff50),
     ("left", 0xff51),
     ("up", 0xff52),

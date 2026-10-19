@@ -118,3 +118,11 @@ fn every_printable_ascii_punctuation_character_has_a_name_that_resolves_to_it() 
         assert!(named.contains(&u32::from(character)), "{character}");
     }
 }
+
+#[test]
+fn delete_is_the_backspace_key_as_on_macos_and_windows_and_forwarddelete_is_the_forward_key() {
+    assert_eq!(keysym_for_key("delete").unwrap(), 0xff08);
+    assert_eq!(keysym_for_key("backspace").unwrap(), 0xff08);
+    assert_eq!(keysym_for_key("forwarddelete").unwrap(), 0xffff);
+    assert_eq!(keysym_for_key("Delete").unwrap(), 0xff08);
+}
