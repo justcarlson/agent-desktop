@@ -93,9 +93,11 @@ impl NodeView {
             .map(String::as_str)
     }
 
-    /// The node's value, withheld from a secure field whatever was read.
+    /// The node's value, withheld from a secure field whatever was read and
+    /// from a read that stopped at the cap: a prefix is never the value, so
+    /// no write is judged, verified or sized by it.
     pub(crate) fn value(&self) -> Option<&str> {
-        if self.secure() {
+        if self.secure() || self.node.read.value.truncated {
             return None;
         }
         self.node.read.value.value.present().map(String::as_str)
@@ -118,7 +120,7 @@ impl NodeView {
     }
 
     pub(crate) fn observation(&self) -> Observation {
-        let value = if self.secure() {
+        let value = if self.secure() || self.node.read.value.truncated {
             None
         } else {
             text_of(&self.node.read.value.value)

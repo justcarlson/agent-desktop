@@ -46,6 +46,7 @@ fn the_target_matching_itself_is_an_own_hit_with_no_container() {
         Search::Found(Hit {
             item: 0,
             container: None,
+            row: None,
             own: true
         })
     );
@@ -67,6 +68,7 @@ fn a_depth_three_descendant_selects_by_the_index_under_the_selection_ancestor() 
         Search::Found(Hit {
             item: 5,
             container: Some(Container { node: 0, index: 1 }),
+            row: Some(2),
             own: false
         })
     );
@@ -200,4 +202,19 @@ fn a_button_with_inner_nodes_and_no_selection_is_not_selectable() {
         search(&mut tree, &0, "x").expect("searched"),
         Search::NotFound { selectable: false }
     );
+}
+
+#[test]
+fn the_row_is_the_container_child_on_the_path_not_the_matching_label() {
+    let mut tree = FakeTree::new(&[
+        (None, true, &[1]),
+        (None, false, &[2]),
+        (None, false, &[3]),
+        (Some("Red"), false, &[]),
+    ]);
+    let Search::Found(hit) = search(&mut tree, &0, "Red").expect("searched") else {
+        panic!("expected a hit");
+    };
+    assert_eq!(hit.item, 3);
+    assert_eq!(hit.row, Some(1));
 }

@@ -220,6 +220,7 @@ fn select_through(
 ) -> Result<ActionResult, AdapterError> {
     let action = Action::Select(display_value.to_owned());
     let verbs = verbs_for(&action);
+    let verified_node = hit.row.clone().unwrap_or_else(|| hit.item.clone());
     let item_handle = handle_of(&hit.item);
     let item = container_target(target, &item_handle)?;
     let view = item.view()?;
@@ -235,13 +236,17 @@ fn select_through(
             target.deadline,
             SELECT_SETTLE,
             POLL_STEP,
-            || read_verification(target.bus, target, &hit.item, display_value),
+            || read_verification(target.bus, target, &verified_node, display_value),
             |verified| *verified == Some(true),
         );
         match (&holder, container) {
-            (Some(holder), Some(container)) if verified == Some(true) => {
-                keep_only_the_item(target, holder, container.index, &hit.item, display_value)
-            }
+            (Some(holder), Some(container)) if verified == Some(true) => keep_only_the_item(
+                target,
+                holder,
+                container.index,
+                &verified_node,
+                display_value,
+            ),
             _ => verified,
         }
     };

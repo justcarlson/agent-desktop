@@ -5,6 +5,7 @@ use crate::tree::node_evidence::{NodeEvidence, evidence_for};
 use crate::tree::role_numbers::{PASSWORD_TEXT, PUSH_BUTTON, TOGGLE_BUTTON};
 use crate::tree::state_bits::{CHECKED, EXPANDED, FOCUSED, SHOWING};
 use crate::tree::test_support::{client_timeout, method_error, read_of, words};
+use crate::tree::value_read::ValueRead;
 use crate::tree::{Field, ObservedRead};
 
 fn verdict(error: Option<&zbus::Error>) -> String {
@@ -187,4 +188,21 @@ fn a_node_whose_states_or_role_could_not_be_read_is_secure() {
     let mut role = read_of(PUSH_BUTTON, "n", &[]);
     role.node.traits.role = Field::Failed("x".to_owned());
     assert!(view_of(role).secure());
+}
+
+#[test]
+fn a_value_read_that_stopped_at_the_cap_is_no_value() {
+    let mut read = read_of(PUSH_BUTTON, "n", &[]);
+    read.value = ValueRead {
+        value: Field::Present("a prefix".to_owned()),
+        truncated: true,
+    };
+    let view = view_of(read);
+    assert_eq!(view.value(), None);
+    let mut whole = read_of(PUSH_BUTTON, "n", &[]);
+    whole.value = ValueRead {
+        value: Field::Present("all".to_owned()),
+        truncated: false,
+    };
+    assert_eq!(view_of(whole).value(), Some("all"));
 }

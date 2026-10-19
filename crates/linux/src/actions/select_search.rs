@@ -27,6 +27,7 @@ pub(crate) struct Container<N> {
 pub(crate) struct Hit<N> {
     pub(crate) item: N,
     pub(crate) container: Option<Container<N>>,
+    pub(crate) row: Option<N>,
     pub(crate) own: bool,
 }
 
@@ -46,6 +47,7 @@ struct Pending<N> {
     node: N,
     depth: usize,
     container: Option<Container<N>>,
+    row: Option<N>,
 }
 
 pub(crate) fn search<R: ItemReader>(
@@ -57,6 +59,7 @@ pub(crate) fn search<R: ItemReader>(
         node: root.clone(),
         depth: 0,
         container: None,
+        row: None,
     }];
     let mut seen = 0;
     let mut selectable = false;
@@ -88,6 +91,7 @@ pub(crate) fn search<R: ItemReader>(
             found = Some(Hit {
                 item: pending.node,
                 container: pending.container,
+                row: pending.row,
                 own: pending.depth == 0,
             });
             continue;
@@ -113,10 +117,16 @@ pub(crate) fn search<R: ItemReader>(
             } else {
                 pending.container.clone()
             };
+            let row = if inspected.selection {
+                Some(child.clone())
+            } else {
+                pending.row.clone()
+            };
             stack.push(Pending {
                 node: child,
                 depth: pending.depth + 1,
                 container,
+                row,
             });
         }
     }
