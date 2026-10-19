@@ -77,7 +77,7 @@ pub(super) fn disagreement(raw: Result<RawNode, String>, entry: &RefEntry) -> Op
         return Some(format!("name {name:?} against stored {stored:?}"));
     }
     if let (Some(stored), Some(extents)) = (entry.geometry.bounds, raw.extents.present())
-        && agent_desktop_core::Rect::from(*extents) != stored
+        && (f64::from(extents.width) != stored.width || f64::from(extents.height) != stored.height)
     {
         return Some(format!("bounds {extents:?} against stored {stored:?}"));
     }

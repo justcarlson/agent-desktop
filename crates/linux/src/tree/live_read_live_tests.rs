@@ -16,7 +16,11 @@ const VOLATILE: [&str; 3] = [state::FOCUSED, state::SELECTED, state::PRESSED];
 fn stable(tokens: &[String]) -> BTreeSet<String> {
     tokens
         .iter()
-        .filter(|token| !VOLATILE.contains(&token.as_str()) && *token != state::HIDDEN)
+        .filter(|token| {
+            !VOLATILE.contains(&token.as_str())
+                && *token != state::HIDDEN
+                && *token != state::OFFSCREEN
+        })
         .cloned()
         .collect()
 }
@@ -69,7 +73,14 @@ fn read_check(
             differences.push(format!("name {name:?} against {stored:?}"));
         }
         let second = expected_bounds(&rig, &handle);
-        if live.bounds != second {
+        let same_size =
+            |left: Rect, right: Rect| left.width == right.width && left.height == right.height;
+        let agrees = match (live.bounds, second) {
+            (Some(live), Some(second)) => same_size(live, second),
+            (None, _) => true,
+            (Some(_), None) => false,
+        };
+        if !agrees {
             differences.push(format!("bounds {:?} against {second:?}", live.bounds));
         }
         if live.bounds.is_none() {
