@@ -3,7 +3,6 @@ pub(crate) const BUSY: u32 = 3;
 pub(crate) const CHECKED: u32 = 4;
 pub(crate) const EDITABLE: u32 = 7;
 pub(crate) const ENABLED: u32 = 8;
-#[expect(dead_code, reason = "no caller yet")]
 pub(crate) const EXPANDABLE: u32 = 9;
 pub(crate) const EXPANDED: u32 = 10;
 pub(crate) const FOCUSED: u32 = 12;
