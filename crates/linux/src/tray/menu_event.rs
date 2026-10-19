@@ -61,9 +61,11 @@ fn send_clicked(
     let menu = target.menu_path.as_deref().unwrap_or_default();
     call::call(
         connection,
-        &target.owner,
-        menu,
-        MENU_INTERFACE,
+        call::Endpoint {
+            destination: &target.owner,
+            path: menu,
+            interface: MENU_INTERFACE,
+        },
         "Event",
         &(id, "clicked", Value::from(0i32), 0u32),
         deadline,
@@ -80,9 +82,11 @@ fn send_about_to_show(
     let menu = target.menu_path.as_deref().unwrap_or_default();
     call::call(
         connection,
-        &target.owner,
-        menu,
-        MENU_INTERFACE,
+        call::Endpoint {
+            destination: &target.owner,
+            path: menu,
+            interface: MENU_INTERFACE,
+        },
         "AboutToShow",
         &(id,),
         deadline,

@@ -85,9 +85,11 @@ impl ItemWire for BusWire<'_> {
     fn send(&self, method: &str) -> Result<(), AdapterError> {
         call::call(
             self.connection,
-            &self.target.owner,
-            &self.target.object_path,
-            ITEM_INTERFACE,
+            call::Endpoint {
+                destination: &self.target.owner,
+                path: &self.target.object_path,
+                interface: ITEM_INTERFACE,
+            },
             method,
             &(0i32, 0i32),
             self.deadline,

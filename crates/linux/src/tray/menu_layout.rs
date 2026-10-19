@@ -201,9 +201,11 @@ pub(crate) fn read(
 ) -> Result<Layout, AdapterError> {
     let reply = call::call(
         connection,
-        owner,
-        menu_path,
-        MENU_INTERFACE,
+        call::Endpoint {
+            destination: owner,
+            path: menu_path,
+            interface: MENU_INTERFACE,
+        },
         "GetLayout",
         &(0i32, -1i32, Vec::<String>::new()),
         deadline,

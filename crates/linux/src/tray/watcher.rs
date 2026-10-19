@@ -16,9 +16,11 @@ pub(crate) fn registered_items(deadline: Deadline) -> Result<Vec<String>, Adapte
     }
     let reply = call::call(
         &connection,
-        WATCHER,
-        WATCHER_PATH,
-        "org.freedesktop.DBus.Properties",
+        call::Endpoint {
+            destination: WATCHER,
+            path: WATCHER_PATH,
+            interface: "org.freedesktop.DBus.Properties",
+        },
         "Get",
         &(WATCHER, REGISTERED),
         deadline,

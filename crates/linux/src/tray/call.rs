@@ -52,11 +52,17 @@ pub(super) fn fault(error: &zbus::Error) -> AdapterError {
         .with_platform_detail(error.to_string())
 }
 
+/// Where a bus call goes: the owner, the object and the interface.
+#[derive(Clone, Copy)]
+pub(super) struct Endpoint<'a> {
+    pub(super) destination: &'a str,
+    pub(super) path: &'a str,
+    pub(super) interface: &'a str,
+}
+
 pub(super) fn call<B>(
     connection: &Connection,
-    destination: &str,
-    path: &str,
-    interface: &str,
+    endpoint: Endpoint<'_>,
     method: &str,
     body: &B,
     deadline: Deadline,
@@ -66,7 +72,13 @@ where
 {
     within(deadline, async {
         connection
-            .call_method(Some(destination), path, Some(interface), method, body)
+            .call_method(
+                Some(endpoint.destination),
+                endpoint.path,
+                Some(endpoint.interface),
+                method,
+                body,
+            )
             .await
             .map_err(|error| fault(&error))
     })
@@ -79,9 +91,11 @@ pub(super) fn owner_alive(
 ) -> Result<bool, AdapterError> {
     call(
         connection,
-        BUS_DAEMON,
-        BUS_DAEMON_PATH,
-        BUS_DAEMON,
+        Endpoint {
+            destination: BUS_DAEMON,
+            path: BUS_DAEMON_PATH,
+            interface: BUS_DAEMON,
+        },
         "NameHasOwner",
         &(unique_name,),
         deadline,
@@ -113,9 +127,11 @@ pub(super) fn unique_owner(
     }
     let reply = call(
         connection,
-        BUS_DAEMON,
-        BUS_DAEMON_PATH,
-        BUS_DAEMON,
+        Endpoint {
+            destination: BUS_DAEMON,
+            path: BUS_DAEMON_PATH,
+            interface: BUS_DAEMON,
+        },
         "GetNameOwner",
         &(name,),
         deadline,
@@ -140,9 +156,11 @@ pub(super) fn all_properties(
 ) -> Result<HashMap<String, OwnedValue>, AdapterError> {
     call(
         connection,
-        destination,
-        path,
-        PROPERTIES,
+        Endpoint {
+            destination,
+            path,
+            interface: PROPERTIES,
+        },
         "GetAll",
         &(interface,),
         deadline,
@@ -160,9 +178,11 @@ pub(super) fn introspect(
 ) -> Result<String, AdapterError> {
     call(
         connection,
-        destination,
-        path,
-        INTROSPECTABLE,
+        Endpoint {
+            destination,
+            path,
+            interface: INTROSPECTABLE,
+        },
         "Introspect",
         &(),
         deadline,
