@@ -134,7 +134,7 @@ fn wait_for_focus(
             let cause = timeout_cause(before, active, client);
             let held_back = matches!(
                 cause,
-                Cause::ActivationNotGranted | Cause::ActivationRefused
+                Cause::ActivationNotGranted | Cause::ActivationRefused | Cause::FrameNotActive
             );
             let cause = if held_back && world.overview_open() == Some(true) {
                 Cause::OverviewOpen

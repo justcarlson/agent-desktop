@@ -111,4 +111,14 @@ fn focus_window_names_an_open_overview_and_succeeds_once_it_is_closed() {
     key("Escape");
     wait_for_overview(false);
     focus(&target).expect("a window that never held focus is granted once the overview is closed");
+    key("super");
+    wait_for_overview(true);
+    let held = focus(&target).expect_err("no activation while the overview is open");
+    assert_eq!(
+        cause_of(&held),
+        "overview_open",
+        "the window was already active: {held:?}"
+    );
+    key("Escape");
+    wait_for_overview(false);
 }
