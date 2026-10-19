@@ -15,6 +15,9 @@ pub(super) const POPUP_MENU: u32 = 41;
 pub(super) const SEPARATOR: u32 = 50;
 pub(super) const CHECK_ITEM: u32 = 8;
 pub(super) const BUTTON: u32 = 43;
+pub(super) const TOGGLE: u32 = 62;
+pub(super) const CHECKED: u32 = 4;
+pub(super) const MODAL: u32 = 16;
 pub(super) const LABEL: u32 = 29;
 pub(super) const DOCUMENT_WEB: u32 = 95;
 
@@ -75,4 +78,24 @@ pub(super) fn chromium_frame() -> Node {
     let menu = node(MENU, "", &[SHOWING], items(true));
     let bar = node(MENU_BAR, "", &[SHOWING], vec![menu]);
     node(FRAME, "", &[SHOWING], vec![bar])
+}
+
+pub(super) fn header_toggle(checked: bool) -> Node {
+    let states: &[u32] = if checked {
+        &[SHOWING, CHECKED]
+    } else {
+        &[SHOWING]
+    };
+    node(TOGGLE, "Menu", states, Vec::new())
+}
+
+pub(super) fn header_popover_panel(showing: bool) -> Node {
+    let states: &[u32] = if showing { &[SHOWING] } else { &[] };
+    let buttons = vec![
+        node(BUTTON, "Zoom Out", states, Vec::new()),
+        node(BUTTON, "New Window", states, Vec::new()),
+    ];
+    let inner = node(PANEL, "", states, buttons);
+    let container: &[u32] = if showing { &[MODAL, SHOWING] } else { &[MODAL] };
+    node(PANEL, "", container, vec![inner])
 }

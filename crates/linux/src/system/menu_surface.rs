@@ -1,5 +1,3 @@
-#![expect(dead_code, reason = "imported detector the owning lane wires")]
-
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
@@ -14,6 +12,10 @@ const SETTLE: Duration = Duration::from_millis(500);
 const POLL_GAP: Duration = Duration::from_millis(40);
 const MAX_POLLS: usize = 13;
 
+#[expect(
+    dead_code,
+    reason = "read by the menu surface listing, not by the wait"
+)]
 pub(crate) struct MenuPopup {
     pub(crate) root: AtspiElement,
     pub(crate) family: MenuFamily,

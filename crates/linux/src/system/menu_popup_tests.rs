@@ -154,3 +154,51 @@ fn a_menu_that_does_not_show_is_not_open_though_its_items_do() {
     let menu = node(MENU, "File", &[], items(true));
     assert!(in_window(&frame_with(vec![menu])).is_empty());
 }
+
+#[test]
+fn a_checked_toggle_with_a_modal_showing_panel_of_buttons_is_a_gtk3_popover() {
+    let frame = frame_with(vec![header_toggle(true), header_popover_panel(true)]);
+    let found = in_window(&frame);
+    assert_eq!(families(&found), [MenuFamily::Gtk3Popover]);
+    assert_eq!(found[0].items, 2);
+}
+
+#[test]
+fn a_gtk3_popover_with_the_toggle_clear_is_closed() {
+    let frame = frame_with(vec![header_toggle(false), header_popover_panel(false)]);
+    assert!(in_window(&frame).is_empty());
+}
+
+#[test]
+fn the_toggle_alone_is_not_a_popover() {
+    let frame = frame_with(vec![header_toggle(true)]);
+    assert!(in_window(&frame).is_empty());
+}
+
+#[test]
+fn a_modal_panel_without_the_checked_toggle_is_a_dialog_and_not_a_menu() {
+    let frame = frame_with(vec![header_toggle(false), header_popover_panel(true)]);
+    assert!(in_window(&frame).is_empty());
+}
+
+#[test]
+fn a_checked_toggle_with_a_panel_that_is_not_modal_is_not_a_popover() {
+    let panel = node(
+        PANEL,
+        "",
+        &[SHOWING],
+        vec![node(BUTTON, "Go", &[SHOWING], Vec::new())],
+    );
+    let frame = frame_with(vec![header_toggle(true), panel]);
+    assert!(in_window(&frame).is_empty());
+}
+
+#[test]
+fn a_menu_found_by_another_rule_hides_the_popover_rule() {
+    let frame = frame_with(vec![
+        header_toggle(true),
+        header_popover_panel(true),
+        gtk3_bar(true),
+    ]);
+    assert_eq!(families(&in_window(&frame)), [MenuFamily::Gtk3Bar]);
+}

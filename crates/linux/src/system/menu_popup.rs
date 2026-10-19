@@ -1,8 +1,8 @@
-#![expect(dead_code, reason = "imported detector the owning lane wires")]
-
 use crate::tree::role_numbers::is_web_document;
-use crate::tree::role_numbers::{CHECK_MENU_ITEM, FILLER, FRAME, PANEL, RADIO_MENU_ITEM, WINDOW};
-use crate::tree::state_bits::{SHOWING, StateBits};
+use crate::tree::role_numbers::{
+    CHECK_MENU_ITEM, FILLER, FRAME, PANEL, PUSH_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON, WINDOW,
+};
+use crate::tree::state_bits::{CHECKED, MODAL, SHOWING, StateBits};
 use crate::tree::{ObservedRead, WalkedNode};
 
 pub(super) type Node = WalkedNode<ObservedRead>;
@@ -28,6 +28,10 @@ pub(crate) enum MenuFamily {
 }
 
 impl MenuFamily {
+    #[expect(
+        dead_code,
+        reason = "read by the menu surface listing, not by the wait"
+    )]
     pub(crate) fn is_top_level(self) -> bool {
         matches!(self, Self::Gtk3Context | Self::Chromium)
     }
@@ -108,6 +112,58 @@ fn collect<'a>(node: &'a Node, in_bar: bool, found: &mut Vec<Found<'a>>) {
     }
 }
 
+fn showing_buttons(node: &Node, depth: usize) -> usize {
+    if depth > ITEM_SEARCH_DEPTH || node.in_web_document {
+        return 0;
+    }
+    node.children
+        .iter()
+        .map(|child| {
+            let own = role(child) == Some(PUSH_BUTTON) && has_state(child, SHOWING);
+            usize::from(own) + showing_buttons(child, depth + 1)
+        })
+        .sum()
+}
+
+fn has_checked_toggle(node: &Node) -> bool {
+    if node.in_web_document || is_web_document(role(node)) {
+        return false;
+    }
+    let checked = role(node) == Some(TOGGLE_BUTTON) && has_state(node, CHECKED);
+    checked || node.children.iter().any(has_checked_toggle)
+}
+
+fn header_popover(node: &Node) -> Option<(&Node, usize)> {
+    if node.in_web_document || is_web_document(role(node)) {
+        return None;
+    }
+    let container = role(node) == Some(PANEL) && has_state(node, MODAL) && has_state(node, SHOWING);
+    if container {
+        let buttons = showing_buttons(node, 0);
+        if buttons > 0 {
+            return Some((node, buttons));
+        }
+    }
+    node.children.iter().find_map(header_popover)
+}
+
+/// The header-bar popover of GTK 3: a checked toggle in the window and a
+/// modal, showing panel with showing buttons. The panel stays in the tree
+/// while the popover is closed, so the toggle is what tells a closed popover
+/// from an open one, and the panel is what tells it from a toggle that is
+/// checked for another reason. A modal panel without the toggle is a dialog.
+fn gtk3_popover(frame: &Node) -> Option<Found<'_>> {
+    if !has_checked_toggle(frame) {
+        return None;
+    }
+    let (root, items) = header_popover(frame)?;
+    Some(Found {
+        root,
+        family: MenuFamily::Gtk3Popover,
+        items,
+    })
+}
+
 /// The popups open inside one window's tree, outermost first. A menu is open
 /// when it shows and one of its items shows: a closed Qt popup and a closed
 /// GTK 3 menu keep their nodes with the items cleared, and the menu-bar items
@@ -116,6 +172,9 @@ fn collect<'a>(node: &'a Node, in_bar: bool, found: &mut Vec<Found<'a>>) {
 pub(super) fn in_window(frame: &Node) -> Vec<Found<'_>> {
     let mut found = Vec::new();
     collect(frame, false, &mut found);
+    if found.is_empty() {
+        found.extend(gtk3_popover(frame));
+    }
     found
 }
 
