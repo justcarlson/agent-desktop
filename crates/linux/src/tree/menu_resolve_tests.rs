@@ -1,6 +1,6 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{choose, is_menu_entry, menu_closed};
+use super::{choose, is_menu_entry, menu_closed, no_position};
 use crate::tree::AtspiElement;
 
 fn element(path: &str) -> AtspiElement {
@@ -56,4 +56,18 @@ fn a_ref_taken_on_the_menu_surface_is_a_menu_entry_and_a_window_ref_is_not() {
     assert!(is_menu_entry(&entry));
     entry.source.source_surface = agent_desktop_core::SnapshotSurface::Window;
     assert!(!is_menu_entry(&entry));
+}
+
+#[test]
+fn an_unplaced_popup_item_is_refused_at_once_before_any_event() {
+    let error = no_position();
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    let details = error.details.expect("details");
+    assert_eq!(details["physical_delivery_started"], false);
+    assert_eq!(details["check"], "geometry");
+    assert_eq!(details["retryable"], false);
 }

@@ -1,5 +1,6 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, LocatorEvidence, NativeHandle, RefEntry, SnapshotSurface,
+    AdapterError, Deadline, DeliverySemantics, ErrorCode, LocatorEvidence, NativeHandle, RefEntry,
+    SnapshotSurface,
 };
 use serde_json::json;
 use zbus::Connection;
@@ -13,12 +14,46 @@ use super::resolve_errors::{ambiguous, settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
 use super::resolve_search::{Searched, evaluate};
 use super::walker::walk_tree;
-use super::{AtspiElement, WalkLimits};
+use super::{AtspiElement, WalkLimits, atspi_element, read_node};
 use crate::system::menu_surface::popups_at;
+use crate::system::shell::container::MENU;
 use crate::system::{SharedBus, owner_process_id, process_facts, within};
 
 pub(crate) fn is_menu_entry(entry: &RefEntry) -> bool {
     entry.source.source_surface == SnapshotSurface::Menu
+}
+
+/// Whether a node sits inside a popup menu: the root its walk started from is
+/// itself a menu node, which a window frame never is.
+pub(crate) fn inside_popup(bus: &SharedBus, handle: &NativeHandle, deadline: Deadline) -> bool {
+    let Ok(element) = atspi_element(handle) else {
+        return false;
+    };
+    let Some(frame) = element.frame() else {
+        return false;
+    };
+    let Ok(connection) = bus.get(deadline) else {
+        return false;
+    };
+    within(deadline, async {
+        read_node(connection.inner(), frame).await
+    })
+    .is_ok_and(|node| node.traits.role.present() == Some(&MENU))
+}
+
+/// The answer for a popup item whose toolkit gives it no screen position: a
+/// GTK 4 popup reports every item at the screen origin, so nothing can aim a
+/// pointer at it, and waiting for a position would only run out the budget.
+pub(crate) fn no_position() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The menu item has no usable screen position, so a pointer click cannot be aimed at it",
+    )
+    .with_suggestion("Use the item's semantic click where the platform delivers it")
+    .with_details(
+        json!({ "check": "geometry", "physical_delivery_started": false, "retryable": false }),
+    )
+    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 fn unanswered() -> AdapterError {

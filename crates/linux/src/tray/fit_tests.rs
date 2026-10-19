@@ -162,7 +162,12 @@ fn a_disabled_entry_advertises_click_with_its_disabled_state_and_a_separator_non
         .find(|node| node.identity.name.as_deref() == Some("Off"))
         .expect("Off is projected");
     assert_eq!(off.presentation.available_actions, ["Click"]);
-    assert!(off.presentation.states.iter().any(|state| state == "disabled"));
+    assert!(
+        off.presentation
+            .states
+            .iter()
+            .any(|state| state == "disabled")
+    );
     let separator = nodes
         .iter()
         .find(|node| node.role == SEPARATOR_ROLE)
