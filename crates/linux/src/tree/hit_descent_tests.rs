@@ -79,15 +79,13 @@ fn tree() -> FakeNodes {
 fn run(nodes: &mut FakeNodes) -> Located {
     let frame = el("/frame");
     let descent = descend(nodes, &frame, (10, 10), deadline()).expect("the descent runs");
-    locate(
-        nodes,
-        &el("/target"),
-        &frame,
-        &descent,
-        (10, 10),
-        deadline(),
-    )
-    .expect("locate runs")
+    let target = el("/target");
+    let probe = Probe {
+        target: &target,
+        frame: &frame,
+        window_point: (10, 10),
+    };
+    locate(nodes, &probe, &descent, deadline()).expect("locate runs")
 }
 
 #[test]
@@ -197,15 +195,13 @@ fn a_descent_that_never_reaches_null_stops_at_the_cap() {
     let frame = el("/frame");
     let descent = descend(&mut nodes, &frame, (1, 1), deadline()).expect("runs");
     assert_eq!(nodes.points.len(), 50);
-    let located = locate(
-        &mut nodes,
-        &el("/target"),
-        &frame,
-        &descent,
-        (1, 1),
-        deadline(),
-    )
-    .expect("locate runs");
+    let target = el("/target");
+    let probe = Probe {
+        target: &target,
+        frame: &frame,
+        window_point: (1, 1),
+    };
+    let located = locate(&mut nodes, &probe, &descent, deadline()).expect("locate runs");
     assert_eq!(located.landing, Landing::Unresolved);
 }
 

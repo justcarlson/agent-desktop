@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, HitTestResult, NativeHandle, Po
 
 use super::frame_geometry::{calibrate, to_pointer_frame, window_point};
 use super::hit_cover::cover_name;
-use super::hit_descent::{Described, NodeSource, descend, locate};
+use super::hit_descent::{Described, NodeSource, Probe, descend, locate};
 use super::hit_guard::{admits, aimable, pixel};
 use super::hit_occlusion::occlusion;
 use super::hit_verdict::{Landing, Standing, Verdict, decide, needs_landing};
@@ -138,7 +138,16 @@ pub(crate) fn hit_test_via<W: HitWorld>(
     let standing = standing(&facts.toolkit);
     let (landing, lander) = if needs_landing(standing, stacking) {
         let descent = descend(world, frame, window_at, deadline)?;
-        let located = locate(world, target, frame, &descent, window_at, deadline)?;
+        let located = locate(
+            world,
+            &Probe {
+                target,
+                frame,
+                window_point: window_at,
+            },
+            &descent,
+            deadline,
+        )?;
         (located.landing, located.lander)
     } else {
         (Landing::NotRead, None)

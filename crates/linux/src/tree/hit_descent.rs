@@ -165,18 +165,30 @@ fn resolved(landing: Landing) -> Located {
     }
 }
 
+/// What a descent looked for: the target, the window frame it ran in and the
+/// point it probed in window coordinates.
+#[derive(Clone, Copy)]
+pub(crate) struct Probe<'a> {
+    pub(crate) target: &'a AtspiElement,
+    pub(crate) frame: &'a AtspiElement,
+    pub(crate) window_point: (i32, i32),
+}
+
 /// Classifies a finished descent. The ancestry is proved only on an outside
 /// landing: first that the landing is not below the target, then that the
 /// target is not below the landing. A step that cannot be verified makes the
 /// landing unresolved rather than foreign.
 pub(crate) fn locate<S: NodeSource>(
     source: &mut S,
-    target: &AtspiElement,
-    frame: &AtspiElement,
+    probe: &Probe,
     descent: &Descent,
-    window_point: (i32, i32),
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
+    let Probe {
+        target,
+        frame,
+        window_point,
+    } = *probe;
     let Some(lander) = descent.chain.last() else {
         return Ok(resolved(Landing::Unresolved));
     };
