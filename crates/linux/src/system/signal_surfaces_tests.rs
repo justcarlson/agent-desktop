@@ -144,3 +144,65 @@ fn a_dialog_that_closes_is_one_window_closed_and_one_surface_dismissed() {
 fn a_window_naming_a_missing_registry_entry_gives_no_signal() {
     assert!(sheet_signals(&[window("w-2", "About", true)], &[]).is_empty());
 }
+
+fn nested(id: &str, title: Option<&str>) -> crate::system::nested_scan::Nested {
+    crate::system::nested_scan::Nested {
+        window: 0,
+        id: id.to_owned(),
+        title: title.map(str::to_owned),
+    }
+}
+
+fn scan(found: Vec<crate::system::nested_scan::Nested>) -> crate::system::nested_scan::NestedScan {
+    crate::system::nested_scan::NestedScan {
+        found,
+        complete: true,
+    }
+}
+
+#[test]
+fn a_dialog_inside_a_window_is_one_sheet_signal_on_its_own_id() {
+    let windows = [window("w-1.4-win", "Editor", false)];
+    let signals = super::nested_signals(
+        &scan(vec![nested("w-1.4-dlg", Some("About"))]),
+        &windows,
+        &[app()],
+    );
+    let [signal] = signals.as_slice() else {
+        panic!("one signal")
+    };
+    assert_eq!(signal.id, "w-1.4-dlg");
+    assert_eq!(signal.kind, SnapshotSurface::Sheet);
+    assert_eq!(signal.pid.get(), 77);
+    assert_eq!(signal.title.as_deref(), Some("About"));
+    assert!(SIGNAL_SURFACE_KINDS.contains(&signal.kind));
+}
+
+#[test]
+fn a_nested_dialog_is_announced_when_it_shows_and_dismissed_when_it_no_longer_does() {
+    let windows = [window("w-1.4-win", "Editor", false)];
+    let with = |found| SignalBaseline {
+        windows: Vec::new(),
+        apps: Vec::new(),
+        surfaces: super::nested_signals(&scan(found), &windows, &[app()]),
+        completeness: SignalCompleteness::complete(),
+    };
+    let closed = with(Vec::new());
+    let open = with(vec![nested("w-1.4-dlg", None)]);
+    let appeared = diff_signals(&closed, &open);
+    assert_eq!(appeared.len(), 1);
+    assert_eq!(
+        appeared[0].kind,
+        EventKind::SurfaceAppeared {
+            surface: SnapshotSurface::Sheet
+        }
+    );
+    let dismissed = diff_signals(&open, &closed);
+    assert_eq!(dismissed.len(), 1);
+    assert_eq!(
+        dismissed[0].kind,
+        EventKind::SurfaceDismissed {
+            surface: SnapshotSurface::Sheet
+        }
+    );
+}

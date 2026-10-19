@@ -56,3 +56,30 @@ fn an_untitled_window_lists_no_title() {
     let surfaces = surfaces_of(&[window("w-1", "", false)]);
     assert_eq!(surfaces[0].title, None);
 }
+
+#[test]
+fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entries() {
+    use crate::system::nested_scan::{Nested, NestedScan};
+    let scan = NestedScan {
+        found: vec![Nested {
+            window: 0,
+            id: "w-1.7-dlg".to_owned(),
+            title: Some("About".to_owned()),
+        }],
+        complete: true,
+    };
+    let entries = super::nested_entries(&scan);
+    let [entry] = entries.as_slice() else {
+        panic!("one entry")
+    };
+    assert_eq!(
+        (entry.id.as_str(), entry.kind.as_str()),
+        ("w-1.7-dlg", "sheet")
+    );
+    assert_eq!(entry.title.as_deref(), Some("About"));
+    assert!(
+        surfaces_of(&[window("w-1.7-win", "Editor", false)])
+            .iter()
+            .all(|surface| surface.id != entry.id)
+    );
+}

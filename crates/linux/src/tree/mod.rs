@@ -28,6 +28,7 @@ pub(crate) mod live_offscreen;
 mod live_project;
 mod live_read;
 mod name_evidence;
+pub(crate) mod nested_dialog;
 mod node_class;
 mod node_evidence;
 mod node_position;

@@ -31,7 +31,7 @@ pub(super) fn observe_plain(
     )
 }
 
-fn window(id: String) -> WindowInfo {
+pub(super) fn window(id: String) -> WindowInfo {
     WindowInfo {
         id,
         title: "t".to_owned(),
@@ -43,7 +43,7 @@ fn window(id: String) -> WindowInfo {
     }
 }
 
-fn request() -> ObservationRequest {
+pub(super) fn request() -> ObservationRequest {
     ObservationRequest::snapshot(
         &TreeOptions::default(),
         Deadline::after(5_000).expect("deadline"),
@@ -111,7 +111,7 @@ fn a_surface_this_adapter_does_not_walk_is_not_supported() {
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
 }
 
-fn rooted_walk(
+pub(super) fn rooted_walk(
     role: u32,
     state_bits: &[u32],
 ) -> impl Fn(&WalkLimits) -> Result<Walk<ObservedRead>, AdapterError> {

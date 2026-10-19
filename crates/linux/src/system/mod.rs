@@ -36,6 +36,7 @@ mod menu_popup;
 mod menu_reader;
 pub(crate) mod menu_surface;
 mod menu_wait;
+mod nested_scan;
 pub(crate) mod overview;
 mod permissions;
 mod proc_scan;

@@ -6,6 +6,8 @@ use serde_json::json;
 use super::SharedBus;
 use super::bus::ensure_budget;
 use super::focus::focus_is_indeterminate;
+use super::listed_window::ListedWindow;
+use super::nested_scan::{NestedScan, bus_read, scan_windows};
 use super::proc_stat;
 use super::registry::{Registry, read_registry, read_registry_for};
 use super::registry_app::RegistryApp;
@@ -13,7 +15,7 @@ use super::registry_frames::RootRead;
 use super::signal_boundary::{Scope, narrow};
 use super::signal_inventory::{Pass, run_pass};
 use super::signal_population::apps_of;
-use super::signal_surfaces::sheet_signals;
+use super::signal_surfaces::{nested_signals, sheet_signals};
 use super::unresponsive::stopped_target;
 use super::window_ops::is_listable;
 
@@ -26,6 +28,7 @@ trait CaptureWorld {
         deadline: Deadline,
     ) -> Result<Pass, AdapterError>;
     fn is_stopped(&self, pid: u32) -> bool;
+    fn nested(&self, windows: &[ListedWindow], deadline: Deadline) -> NestedScan;
 }
 
 struct BusWorld<'a>(&'a SharedBus);
@@ -49,6 +52,10 @@ impl CaptureWorld for BusWorld<'_> {
 
     fn is_stopped(&self, pid: u32) -> bool {
         proc_stat::is_stopped(pid)
+    }
+
+    fn nested(&self, windows: &[ListedWindow], deadline: Deadline) -> NestedScan {
+        scan_windows(windows, bus_read(self.0, deadline))
     }
 }
 
@@ -98,14 +105,16 @@ fn windows_of_pass(pass: &Pass) -> Vec<WindowInfo> {
         .collect()
 }
 
-fn assemble(registry: &Registry, pass: &Pass, scope: Scope) -> SignalBaseline {
+fn assemble(registry: &Registry, pass: &Pass, scope: Scope, nested: &NestedScan) -> SignalBaseline {
     let read = pass
         .outcomes
         .iter()
         .all(|outcome| outcome.read == RootRead::Read);
     let scoped = scope == Scope::Scoped;
     let surfaces = if scoped {
-        sheet_signals(&pass.windows, &registry.apps)
+        let mut surfaces = sheet_signals(&pass.windows, &registry.apps);
+        surfaces.extend(nested_signals(nested, &pass.windows, &registry.apps));
+        surfaces
     } else {
         Vec::new()
     };
@@ -116,7 +125,7 @@ fn assemble(registry: &Registry, pass: &Pass, scope: Scope) -> SignalBaseline {
         completeness: SignalCompleteness {
             windows: read && !focus_is_indeterminate(&pass.candidates, pass.focused),
             apps: read,
-            surfaces: scoped && read,
+            surfaces: scoped && read && nested.complete,
         },
     }
 }
@@ -136,7 +145,11 @@ fn capture(
         return Err(error);
     }
     let pass = world.pass(&registry, &select, deadline)?;
-    let baseline = assemble(&registry, &pass, scope);
+    let nested = match scope {
+        Scope::Scoped => world.nested(&pass.windows, deadline),
+        Scope::Unscoped => NestedScan::complete_and_empty(),
+    };
+    let baseline = assemble(&registry, &pass, scope, &nested);
     ensure_budget(deadline)?;
     Ok(baseline)
 }

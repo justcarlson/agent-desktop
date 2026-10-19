@@ -6,7 +6,9 @@ use agent_desktop_core::{
 };
 
 use super::ancestry;
+use super::nested_dialog::find as find_nested;
 use super::node_position::place_nodes;
+use super::observe_menu::rooted;
 use super::projection::project;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
@@ -107,7 +109,7 @@ fn settled_walk(
             && matches!(root, ObservationRoot::Window(_))
             && !super::surfaces::is_sheet(&walk.root.payload.node)
         {
-            return Err(sheet_absent());
+            return nested_sheet(&walk, limits, request, host);
         }
         let waits = matches!(root, ObservationRoot::Window(_))
             && (web_process || has_web_document(&walk.root));
@@ -125,6 +127,24 @@ fn settled_walk(
             }
         }
     }
+}
+
+/// The walk of a dialog drawn inside the window that was walked, rooted at
+/// the dialog, or the absence of any sheet. The refs of the walk resolve
+/// against the dialog and not against the window.
+fn nested_sheet(
+    window_walk: &Walk<ObservedRead>,
+    limits: &WalkLimits,
+    request: &ObservationRequest,
+    host: &mut SettleHost<'_>,
+) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
+    let dialog = find_nested(&window_walk.root)
+        .into_iter()
+        .next()
+        .map(|nested| rooted(nested.element))
+        .ok_or_else(sheet_absent)?;
+    let walk = (host.walker)(&dialog, limits, request.deadline)?;
+    Ok((walk, true))
 }
 
 /// What the settle loop needs from outside the tree: the walk itself, whether
@@ -189,6 +209,10 @@ pub(crate) fn observe_tree(
 #[cfg(test)]
 #[path = "observe_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "observe_nested_tests.rs"]
+mod nested_tests;
 
 #[cfg(test)]
 #[path = "observe_settle_tests.rs"]

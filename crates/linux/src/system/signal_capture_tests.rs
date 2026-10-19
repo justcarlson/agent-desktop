@@ -9,7 +9,6 @@ use agent_desktop_core::{
 
 use super::{CaptureWorld, capture};
 use crate::system::focus::decide_focus;
-use crate::system::listed_window::ListedWindow;
 use crate::system::process_facts::ProcessFacts;
 use crate::system::registry::Registry;
 use crate::system::registry_app::{RegistryApp, assemble};
@@ -17,6 +16,7 @@ use crate::system::registry_frames::RootRead;
 use crate::system::signal_inventory::{AppOutcome, Pass};
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::{FrameFacts, X11Evidence};
+use crate::system::{listed_window::ListedWindow, nested_scan::NestedScan};
 use crate::tree::AtspiElement;
 
 fn app(index: u32, name: &str, answered: bool) -> RegistryApp {
@@ -109,6 +109,10 @@ fn listed(app: &RegistryApp, scripted: &Scripted) -> ListedWindow {
 }
 
 impl CaptureWorld for World {
+    fn nested(&self, _: &[ListedWindow], _: Deadline) -> NestedScan {
+        NestedScan::complete_and_empty()
+    }
+
     fn registry(&self, pid: Option<u32>, _deadline: Deadline) -> Result<Registry, AdapterError> {
         self.registry_asks.borrow_mut().push(pid);
         Ok(Registry {

@@ -1,0 +1,130 @@
+use agent_desktop_core::{AdapterError, ErrorCode, WindowInfo, WindowState};
+
+use super::{Nested, scan_windows};
+use crate::system::listed_window::ListedWindow;
+use crate::system::x11::FrameFacts;
+use crate::tree::nested_dialog::Node;
+use crate::tree::role_numbers::{DIALOG, FRAME, PANEL};
+use crate::tree::state_bits::SHOWING;
+use crate::tree::test_support::{read_of, words};
+use crate::tree::{AtspiElement, Field, WalkedNode};
+
+fn window(id: &str, sheet: bool) -> ListedWindow {
+    ListedWindow {
+        app: 0,
+        info: WindowInfo {
+            id: id.to_owned(),
+            title: "App".to_owned(),
+            app: "app".to_owned(),
+            pid: 7.into(),
+            process_instance: Some("boot:7".to_owned()),
+            bounds: None,
+            state: WindowState::default(),
+        },
+        active: false,
+        frame: FrameFacts {
+            pid: 7,
+            title: "App".to_owned(),
+            extents: None,
+            global_position: false,
+        },
+        sheet,
+    }
+}
+
+fn node(role: u32, name: &str, showing: bool, path: &str, children: Vec<Node>) -> Node {
+    let mut read = read_of(role, name, &[]);
+    read.node.element = AtspiElement::new(":1.2", path, 7);
+    let bits: &[u32] = if showing { &[SHOWING] } else { &[] };
+    read.node.traits.states = Field::Present(words(bits));
+    WalkedNode {
+        payload: read,
+        children,
+        truncated: false,
+        child_count: None,
+        source_index: 0,
+        in_web_document: false,
+    }
+}
+
+fn tree_with(showing: bool) -> Node {
+    let dialog = node(DIALOG, "About", showing, "/org/dlg_1", Vec::new());
+    node(
+        FRAME,
+        "App",
+        true,
+        "/org/win_1",
+        vec![node(PANEL, "", true, "/org/p_1", vec![dialog])],
+    )
+}
+
+const WINDOW_ID: &str = "w-1.2-org-win_1";
+
+#[test]
+fn a_showing_dialog_inside_a_window_is_found_under_its_own_address_and_not_the_windows() {
+    let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
+    assert!(scan.complete);
+    assert_eq!(
+        scan.found,
+        [Nested {
+            window: 0,
+            id: "w-1.2-org-dlg_1".to_owned(),
+            title: Some("About".to_owned()),
+        }]
+    );
+    assert_ne!(scan.found[0].id, WINDOW_ID);
+}
+
+#[test]
+fn the_same_dialog_without_showing_is_not_found_whether_or_not_its_node_stays() {
+    let stays = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(false)));
+    assert!(stays.found.is_empty());
+    let gone = scan_windows(&[window(WINDOW_ID, false)], |_| {
+        Ok(node(FRAME, "App", true, "/org/win_1", Vec::new()))
+    });
+    assert!(gone.found.is_empty() && gone.complete);
+}
+
+#[test]
+fn the_id_of_a_nested_dialog_is_stable_across_scans() {
+    let first = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
+    let second = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
+    assert_eq!(first.found[0].id, second.found[0].id);
+}
+
+#[test]
+fn a_window_that_is_itself_a_dialog_is_not_scanned() {
+    let scan = scan_windows(&[window(WINDOW_ID, true)], |_| {
+        panic!("a sheet window is listed as a sheet already")
+    });
+    assert!(scan.found.is_empty() && scan.complete);
+}
+
+#[test]
+fn a_tree_cut_short_by_the_budget_marks_the_scan_incomplete() {
+    let mut cut = tree_with(false);
+    cut.children[0].truncated = true;
+    let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(cut.clone()));
+    assert!(!scan.complete);
+}
+
+#[test]
+fn a_window_that_cannot_be_read_marks_the_scan_incomplete_and_keeps_the_others() {
+    let windows = [window("w-1.2-org-win_9", false), window(WINDOW_ID, false)];
+    let scan = scan_windows(&windows, |element| {
+        if element.path() == "/org/win_9" {
+            Err(AdapterError::new(ErrorCode::Timeout, "slow"))
+        } else {
+            Ok(tree_with(true))
+        }
+    });
+    assert!(!scan.complete);
+    assert_eq!(scan.found.len(), 1);
+    assert_eq!(scan.found[0].window, 1);
+}
+
+#[test]
+fn a_window_id_this_adapter_did_not_issue_marks_the_scan_incomplete() {
+    let scan = scan_windows(&[window("not-an-id", false)], |_| Ok(tree_with(true)));
+    assert!(!scan.complete && scan.found.is_empty());
+}

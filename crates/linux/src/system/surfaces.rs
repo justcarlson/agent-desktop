@@ -2,6 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ProcessIdentity, Sur
 
 use super::SharedBus;
 use super::listed_window::ListedWindow;
+use super::nested_scan::{NestedScan, bus_read, scan_windows};
 use super::process_facts;
 use super::registry::read_registry;
 use super::unresponsive::scoped_windows_of;
@@ -49,6 +50,15 @@ pub(crate) fn surfaces_of(windows: &[ListedWindow]) -> Vec<SurfaceInfo> {
         .collect()
 }
 
+/// The `sheet` entries of the dialogs drawn inside the windows, each on the
+/// dialog's own id.
+pub(crate) fn nested_entries(scan: &NestedScan) -> Vec<SurfaceInfo> {
+    scan.found
+        .iter()
+        .map(|nested| surface(&nested.id, "sheet", &nested.title))
+        .collect()
+}
+
 /// Lists the surfaces the named process presents. The process identity is
 /// checked first so a surface list never answers for a pid that has since
 /// become a different process.
@@ -61,7 +71,12 @@ pub(crate) fn list_surfaces(
     let registry = read_registry(bus, deadline)?;
     let pid = process.pid.get();
     let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
-    Ok(surfaces_of(&windows))
+    let mut surfaces = surfaces_of(&windows);
+    surfaces.extend(nested_entries(&scan_windows(
+        &windows,
+        bus_read(bus, deadline),
+    )));
+    Ok(surfaces)
 }
 
 #[cfg(test)]
