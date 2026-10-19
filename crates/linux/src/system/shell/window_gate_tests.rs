@@ -11,7 +11,7 @@ fn a_live_container_of_the_current_shell_passes() {
 
 #[test]
 fn an_id_from_before_a_shell_restart_is_refused_even_with_the_same_path() {
-    let tree = gnome_shell(true, false);
+    let tree = gnome_shell(true, false).answering_on_any_bus();
     let error = check(&tree, &FakeTree::root(), ":1.99", "/list")
         .expect_err("the bus name belongs to a replaced shell");
     assert_eq!(error.code, ErrorCode::StaleRef);

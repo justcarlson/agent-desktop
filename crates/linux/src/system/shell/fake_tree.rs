@@ -36,6 +36,7 @@ pub(super) struct FakeTree {
     nodes: BTreeMap<String, Light>,
     gone: BTreeSet<String>,
     reads: RefCell<Vec<String>>,
+    any_bus: bool,
 }
 
 impl FakeTree {
@@ -44,7 +45,13 @@ impl FakeTree {
             nodes: BTreeMap::new(),
             gone: BTreeSet::new(),
             reads: RefCell::default(),
+            any_bus: false,
         }
+    }
+
+    pub(super) fn answering_on_any_bus(mut self) -> Self {
+        self.any_bus = true;
+        self
     }
 
     pub(super) fn add(
@@ -116,7 +123,7 @@ impl FakeTree {
 impl Nodes for FakeTree {
     fn read(&self, element: &AtspiElement) -> Result<Light, AdapterError> {
         self.reads.borrow_mut().push(element.path().to_owned());
-        if element.bus_name() != BUS || self.gone.contains(element.path()) {
+        if (!self.any_bus && element.bus_name() != BUS) || self.gone.contains(element.path()) {
             return Err(AdapterError::new(ErrorCode::ElementNotFound, "gone"));
         }
         self.nodes
