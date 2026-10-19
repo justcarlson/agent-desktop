@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Behaviour checks for scripts/remote-linux.sh against a stubbed ssh and rsync, so no box is needed:
+#   bash scripts/test-remote-linux.sh
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+failed=0
+stubs=$(mktemp -d)
+log="$stubs/ssh.log"
+trap 'rm -rf "$stubs"' EXIT
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s"\n' "$log" > "$stubs/ssh"
+printf '#!/bin/sh\nexit 0\n' > "$stubs/rsync"
+chmod +x "$stubs/ssh" "$stubs/rsync"
+
+check() {
+  if [ "$2" = ok ]; then echo "ok   $1"; else echo "FAIL $1"; failed=1; fi
+}
+
+run() {
+  : > "$log"
+  PATH="$stubs:$PATH" AGENT_DESKTOP_REMOTE_LOCK=0 bash "$here/remote-linux.sh" "$@" > /dev/null 2>&1
+  tail -n 1 "$log"
+}
+
+sent=$(run cargo test -p agent-desktop-linux)
+verdict=ok
+case "$sent" in *"touch {}"*"exec"*) ;; *) verdict=bad ;; esac
+check "a cargo command touches the synced sources before it runs" "$verdict"
+
+sent=$(run -c 'cd x && cargo build')
+verdict=ok
+case "$sent" in *"touch {}"*) ;; *) verdict=bad ;; esac
+check "a cargo command inside a shell string touches the sources too" "$verdict"
+
+sent=$(run echo hello)
+verdict=ok
+case "$sent" in *touch*) verdict=bad ;; esac
+check "a command without cargo is not delayed by a touch" "$verdict"
+
+exit "$failed"
