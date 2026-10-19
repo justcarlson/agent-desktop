@@ -69,7 +69,7 @@ fn a_filter_never_clicks_clear_all_and_leaves_other_apps() {
     assert!(failures.is_empty());
     let clicks = world.clicks();
     assert!(!clicks.iter().any(|path| path == "/clear"));
-    assert_eq!(clicks.len(), 2);
+    assert_eq!(clicks, ["/e1/close", "/e2/close"]);
 }
 
 #[test]

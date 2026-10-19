@@ -1,33 +1,18 @@
 use crate::system::shell::fake_tree::{SENTINEL, at};
 use crate::system::shell::live_state::project;
 use crate::tree::Extents;
-use crate::tree::display_bounds::off_every_display;
-use crate::tree::offscreen::{OffscreenInput, offscreen};
+use crate::tree::live_project::derived_offscreen;
 use crate::tree::placement::Placement;
+use crate::tree::role_numbers::PUSH_BUTTON;
+use crate::tree::test_support::read_of;
 
 fn displays() -> Vec<Extents> {
     vec![at(0, 0, 1280, 800)]
 }
 
 fn verdict(placement: &Placement) -> Option<bool> {
-    let hidden = placement.x11.is_some_and(|state| state.hidden);
-    let minimized = if hidden {
-        Some(true)
-    } else {
-        placement.x11.map(|_| false)
-    };
-    let by_rule = offscreen(OffscreenInput {
-        node: placement.node,
-        frame: placement.frame,
-        container: None,
-        visible: true,
-        showing: true,
-        sentinel: false,
-        minimized,
-    });
-    let off_screen =
-        by_rule != Some(true) && off_every_display(placement.node, placement.displays.as_deref());
-    if off_screen { Some(true) } else { by_rule }
+    let read = read_of(PUSH_BUTTON, "", &[]);
+    derived_offscreen(&read, placement)
 }
 
 #[test]

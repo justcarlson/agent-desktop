@@ -26,7 +26,7 @@ mod identity;
 mod label_outcome;
 mod label_read;
 pub(crate) mod live_offscreen;
-mod live_project;
+pub(crate) mod live_project;
 mod live_read;
 pub(crate) mod menu_resolve;
 mod name_evidence;
