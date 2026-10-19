@@ -1,0 +1,76 @@
+use std::collections::HashMap;
+
+use super::scroll_plan::Axis;
+
+/// One node of the window as the crawl met it: where it hangs and, for a
+/// scroll bar, which way it runs when that could be read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Site {
+    pub(crate) parent: Option<usize>,
+    pub(crate) bar: Option<Orientation>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Orientation {
+    Vertical,
+    Horizontal,
+    Unknown,
+}
+
+fn runs(orientation: Orientation, axis: Axis) -> bool {
+    matches!(
+        (orientation, axis),
+        (Orientation::Vertical, Axis::Vertical)
+            | (Orientation::Horizontal, Axis::Horizontal)
+            | (Orientation::Unknown, _)
+    )
+}
+
+/// How far each ancestor of `target` is above it, nearest first.
+fn distances(sites: &[Site], target: usize) -> HashMap<usize, usize> {
+    let mut found = HashMap::new();
+    let mut at = sites.get(target).and_then(|site| site.parent);
+    let mut distance = 1;
+    while let Some(index) = at {
+        if found.insert(index, distance).is_some() {
+            break;
+        }
+        at = sites.get(index).and_then(|site| site.parent);
+        distance += 1;
+    }
+    found
+}
+
+/// The scroll bar that scrolls the target along `axis`: the one that hangs
+/// off the nearest ancestor of the target, since a bar scrolls the content
+/// beside it. When the target was not met in the crawl, the only bar that
+/// runs the right way, and none when there are several.
+pub(crate) fn choose_bar(sites: &[Site], target: Option<usize>, axis: Axis) -> Option<usize> {
+    let bars: Vec<usize> = sites
+        .iter()
+        .enumerate()
+        .filter(|(_, site)| site.bar.is_some_and(|way| runs(way, axis)))
+        .map(|(index, _)| index)
+        .collect();
+    if let Some(target) = target {
+        let above = distances(sites, target);
+        let nearest = bars
+            .iter()
+            .filter_map(|&bar| {
+                let parent = sites.get(bar)?.parent?;
+                above.get(&parent).map(|distance| (*distance, bar))
+            })
+            .min();
+        if let Some((_, bar)) = nearest {
+            return Some(bar);
+        }
+    }
+    match bars.as_slice() {
+        [only] => Some(*only),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+#[path = "scroll_find_bar_tests.rs"]
+mod tests;

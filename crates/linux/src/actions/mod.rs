@@ -1,3 +1,6 @@
+mod scroll_bus;
+mod scroll_crawl;
+mod scroll_find_bar;
 mod scroll_into_view;
 pub(crate) mod scroll_observe;
 pub(crate) mod scroll_plan;
