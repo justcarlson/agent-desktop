@@ -6,7 +6,7 @@ use crate::tree::role_numbers::{LIST, PUSH_BUTTON};
 
 #[test]
 #[ignore = "live: needs the AT-SPI session, GNOME Settings and the write engine"]
-fn a_settings_sidebar_row_selects_by_display_value_through_its_list() {
+fn a_settings_sidebar_row_that_ignores_the_selection_is_a_write_ignored_failure() {
     let session = open("gnome-control-center", &[]).expect("settings opens");
     let list = find(&session, |view| {
         view.role() == Some(LIST)
@@ -15,8 +15,10 @@ fn a_settings_sidebar_row_selects_by_display_value_through_its_list() {
                 .is_some_and(|names| names.iter().any(|name| name == "org.a11y.atspi.Selection"))
     })
     .expect("the sidebar list");
-    let result = act(&session, &list, |target| select(target, "Sound")).expect("selects");
-    assert_eq!(result.steps.len(), 1);
+    let refused = act(&session, &list, |target| select(target, "Sound"))
+        .expect_err("a navigation row does not change on SelectChild");
+    assert_eq!(refused.code, ErrorCode::ActionFailed);
+    assert_eq!(refused.details.expect("details")["cause"], "write_ignored");
 }
 
 #[test]

@@ -5,7 +5,9 @@ use agent_desktop_core::{
 };
 
 use super::live_bench::{Bench, Scripts, Toolkit, each_scripts};
-use super::live_widget_scripts::{BROWSER_PAGE, GTK3_WIDGETS, GTK4_WIDGETS, QT_WIDGETS};
+use super::live_widget_scripts::{
+    BROWSER_PAGE, GTK3_WIDGETS, GTK4_WIDGETS, QT_MAIN, QT_PLAIN, QT_WIDGETS,
+};
 use crate::LinuxAdapter;
 use crate::system::window_id;
 use crate::tree::live_launch::{Launched, nonce};
@@ -335,4 +337,47 @@ fn a_gecko_page_takes_a_click_and_a_check() {
         },
     );
     drive_page(&bench, &tag, "gecko");
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+fn a_plain_qwidget_and_a_qmainwindow_are_both_listed_windows() {
+    let (python, environment) =
+        super::live_bench_env::qt_environment().expect("the Qt environment");
+    let tag = nonce("qtlist");
+    let dir = std::env::temp_dir().join(&tag);
+    std::fs::create_dir_all(&dir).expect("a directory");
+    let mut launched = Launched::new();
+    launched.scratch.push(dir.clone());
+    for (name, source) in [("plain", QT_PLAIN), ("main", QT_MAIN)] {
+        let script = dir.join(format!("{name}.py"));
+        std::fs::write(&script, source).expect("a script");
+        launched.spawn_with_env(&python, &[&script.to_string_lossy(), &tag], &environment);
+    }
+    let adapter = LinuxAdapter::new();
+    let listed = wait_for_titles(&adapter, &[&format!("plain-{tag}"), &format!("main-{tag}")]);
+    launched.stop();
+    assert!(listed.is_ok(), "{listed:?}");
+}
+
+fn wait_for_titles(adapter: &LinuxAdapter, wanted: &[&str]) -> Result<(), String> {
+    let started = Instant::now();
+    let mut seen = Vec::new();
+    while started.elapsed() < Duration::from_secs(30) {
+        let windows = adapter
+            .list_windows(
+                &WindowFilter::default(),
+                Deadline::after(5_000).expect("a deadline"),
+            )
+            .unwrap_or_default();
+        seen = windows.iter().map(|window| window.title.clone()).collect();
+        if wanted
+            .iter()
+            .all(|title| seen.iter().any(|shown| shown.contains(title)))
+        {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(300));
+    }
+    Err(format!("listed windows: {seen:?}"))
 }

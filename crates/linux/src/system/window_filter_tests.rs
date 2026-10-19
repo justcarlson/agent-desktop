@@ -120,3 +120,17 @@ fn an_unreadable_state_set_is_unknown_not_false() {
         }
     );
 }
+
+#[test]
+fn a_showing_visible_filler_is_a_window_and_a_hidden_one_is_not() {
+    let filler = Field::Present(20);
+    let shown = Field::Present(words(&[25, 30]));
+    assert!(is_window_shape(&filler, &component(), &shown));
+    assert!(!is_window_shape(&filler, &component(), &no_states()));
+    assert!(!is_window_shape(
+        &filler,
+        &component(),
+        &Field::Present(words(&[25]))
+    ));
+    assert!(!is_window_shape(&filler, &Field::Present(vec![]), &shown));
+}

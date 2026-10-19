@@ -99,3 +99,27 @@ pub(super) const BROWSER_PAGE: &str = r#"<html><head><title>TAG</title></head><b
 <input type="checkbox" id="ck" onchange="document.title='TAG:chk=' + this.checked">
 <label for="ck">Agree</label>
 </body></html>"#;
+
+pub(super) const QT_PLAIN: &str = r#"
+import sys
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton
+app = QApplication(sys.argv)
+w = QWidget()
+w.setWindowTitle("plain-" + sys.argv[1])
+QVBoxLayout(w).addWidget(QPushButton("b"))
+w.show()
+sys.exit(app.exec())
+"#;
+
+pub(super) const QT_MAIN: &str = r#"
+import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton
+app = QApplication(sys.argv)
+w = QMainWindow()
+w.setWindowTitle("main-" + sys.argv[1])
+c = QWidget()
+QVBoxLayout(c).addWidget(QPushButton("b"))
+w.setCentralWidget(c)
+w.show()
+sys.exit(app.exec())
+"#;

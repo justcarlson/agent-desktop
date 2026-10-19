@@ -1,5 +1,5 @@
-use crate::tree::role_numbers::{DIALOG, FRAME, PANEL, WINDOW};
-use crate::tree::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits};
+use crate::tree::role_numbers::{DIALOG, FILLER, FRAME, PANEL, WINDOW};
+use crate::tree::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits, VISIBLE};
 use crate::tree::{COMPONENT_INTERFACE, Field};
 
 const HELPER_PROCESSES: [&str; 2] = ["gnome-shell", "mutter-x11-frames"];
@@ -8,7 +8,9 @@ const BUBBLE_CLASS: &str = "RootView";
 /// Whether a child of an application root is a top-level window: a frame,
 /// dialog or window role that implements the component interface, or a panel
 /// that carries `MODAL` (GTK 4 presents its shortcuts window that way, and an
-/// application root has no panel child otherwise). GTK 3 names the frame `frame` and
+/// application root has no panel child otherwise), or a filler that is
+/// `SHOWING` and `VISIBLE` (Qt presents a top-level `QWidget` that is not a
+/// `QMainWindow` that way, L30-28). GTK 3 names the frame `frame` and
 /// GTK 4 names the same numeric role `application`, so only the number is
 /// read.
 pub(crate) fn is_window_shape(
@@ -21,6 +23,10 @@ pub(crate) fn is_window_shape(
         Some(&PANEL) => states
             .present()
             .is_some_and(|words| StateBits::new(words).has(MODAL)),
+        Some(&FILLER) => states.present().is_some_and(|words| {
+            let bits = StateBits::new(words);
+            bits.has(SHOWING) && bits.has(VISIBLE)
+        }),
         _ => false,
     };
     shaped
