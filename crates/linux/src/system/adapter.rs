@@ -1,6 +1,6 @@
 use agent_desktop_core::{
-    AdapterError, AdapterSession, Deadline, DisplayInfo, InteractionLease, PermissionReport,
-    SessionAffinity, SnapshotSurface, SystemOps, WindowInfo,
+    AdapterError, AdapterSession, Deadline, DisplayInfo, InteractionLease, KeyCombo,
+    PermissionReport, SessionAffinity, SnapshotSurface, SystemOps, WindowInfo,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -36,6 +36,10 @@ impl SystemOps for LinuxAdapter {
 
     fn focus_window(&self, win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
         crate::system::focus_window::focus_window(self.bus(), win, lease)
+    }
+
+    fn is_blocked_combo(&self, combo: &KeyCombo) -> bool {
+        crate::input::blocked_combo::is_blocked(combo)
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {

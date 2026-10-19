@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
-    Deadline, ElementState, HitTestResult, InputOps, InteractionLease, LiveElement, NativeHandle,
+    Deadline, ElementState, HitTestResult, InputOps, InteractionLease, KeyCombo, LiveElement, NativeHandle,
     ObservationOps, ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity,
     Rect, RefEntry, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
@@ -176,7 +176,16 @@ impl ActionOps for LinuxAdapter {
         crate::actions::scroll_into_view(self.bus(), handle, lease)
     }
 }
-impl InputOps for LinuxAdapter {}
+impl InputOps for LinuxAdapter {
+    fn key_event(
+        &self,
+        _combo: &KeyCombo,
+        _down: bool,
+        _lease: &InteractionLease,
+    ) -> Result<(), AdapterError> {
+        Err(crate::input::standalone::reject_standalone("key_event"))
+    }
+}
 
 #[cfg(test)]
 mod tests {

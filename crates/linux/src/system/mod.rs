@@ -25,6 +25,7 @@ pub(crate) mod registry;
 mod registry_app;
 mod registry_frames;
 mod session;
+pub(crate) mod session_bus;
 mod surfaces;
 mod toolkit;
 pub(crate) mod toolkit_id;

@@ -55,6 +55,7 @@ mod resolve_verdict;
 pub(crate) mod role_numbers;
 mod role_table;
 mod roles;
+pub(crate) mod scroll_capability;
 mod settle;
 pub(crate) mod state_bits;
 mod states;
