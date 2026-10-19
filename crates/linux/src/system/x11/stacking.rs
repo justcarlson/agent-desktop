@@ -14,6 +14,17 @@ use super::{FrameFacts, X11State, start};
 /// handful of pipelined round trips, 2 to 4 ms in `L27-3`.
 pub(super) const READ_BUDGET: Duration = Duration::from_millis(1_500);
 
+/// The deadline of a read with no caller to share one with.
+#[cfg(test)]
+pub(super) fn standard_deadline() -> Option<Deadline> {
+    Deadline::from_duration(READ_BUDGET).ok()
+}
+
+/// The budget of one read: the read budget, cut to what the caller has left.
+pub(super) fn capped(caller: Deadline) -> Option<Deadline> {
+    Deadline::from_duration(READ_BUDGET.min(caller.remaining())).ok()
+}
+
 /// Runs a display-server read on its own thread and gives up with `fallback`
 /// when `deadline` passes first: a round trip to a server that has stopped
 /// answering cannot be interrupted, only abandoned.
@@ -48,7 +59,7 @@ pub(crate) fn frame_window_state(
     deadline: Deadline,
     frame: &FrameFacts,
 ) -> Option<WindowX11State> {
-    let X11State::Ready { clients, .. } = source.clients() else {
+    let X11State::Ready { clients, .. } = source.clients_within(deadline) else {
         return None;
     };
     let ClientMatch::One(client_id) = match_client(frame, &clients) else {
@@ -57,9 +68,12 @@ pub(crate) fn frame_window_state(
     if deadline.is_expired() {
         return None;
     }
-    let StackingRead::Ready(snapshot) = source.read(client_id) else {
+    let StackingRead::Ready(snapshot) = source.read_within(client_id, deadline) else {
         return None;
     };
+    if deadline.is_expired() {
+        return None;
+    }
     let window = snapshot
         .stack
         .iter()

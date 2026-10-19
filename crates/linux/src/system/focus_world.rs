@@ -69,11 +69,11 @@ impl FocusWorld for LiveWorld<'_> {
     }
 
     fn clients(&self) -> X11State {
-        DisplayReader.clients()
+        DisplayReader.clients_within(self.deadline)
     }
 
     fn stacking(&self, client: u32) -> StackingRead {
-        StackingSource::read(&DisplayReader, client)
+        DisplayReader.read_within(client, self.deadline)
     }
 
     fn global_position(&self) -> bool {

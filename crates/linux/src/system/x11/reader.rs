@@ -3,7 +3,7 @@ use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, W
 use x11rb::rust_connection::RustConnection;
 
 use super::snapshot::{decode_cardinals, decode_frame_extents, decode_title};
-use super::stacking::{READ_BUDGET, bounded, route};
+use super::stacking::{bounded, capped, route};
 use super::stacking_read::StackingRead;
 use super::{X11Client, X11Source, X11State};
 use crate::system::display_server::session_server;
@@ -21,9 +21,9 @@ const STATE_LONGS: u32 = 64;
 pub(crate) struct DisplayReader;
 
 impl super::stacking_source::StackingSource for DisplayReader {
-    fn read(&self, target_client: u32) -> StackingRead {
+    fn read_within(&self, target_client: u32, caller: Deadline) -> StackingRead {
         route(session_server(), |display| {
-            let Ok(deadline) = Deadline::from_duration(READ_BUDGET) else {
+            let Some(deadline) = capped(caller) else {
                 return StackingRead::Unavailable;
             };
             bounded(deadline, StackingRead::Unavailable, move || {
@@ -32,8 +32,8 @@ impl super::stacking_source::StackingSource for DisplayReader {
         })
     }
 
-    fn clients(&self) -> X11State {
-        let Ok(deadline) = Deadline::from_duration(READ_BUDGET) else {
+    fn clients_within(&self, caller: Deadline) -> X11State {
+        let Some(deadline) = capped(caller) else {
             return X11State::Unavailable;
         };
         bounded(deadline, X11State::Unavailable, || X11Source::read(&Self))

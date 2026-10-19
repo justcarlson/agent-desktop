@@ -78,15 +78,29 @@ async fn window_rectangles(
     all
 }
 
-async fn origin_of(connection: &zbus::Connection, frame: &AtspiElement) -> Option<(i32, i32)> {
+async fn frame_title(connection: &zbus::Connection, frame: &AtspiElement) -> Option<String> {
     let node = read_node(connection, frame).await.ok()?;
+    Some(node.properties.name.present().cloned().unwrap_or_default())
+}
+
+/// The origin of the frame's X11 client. The title is read on the bus; the
+/// display-server read then runs here, outside any polled future, under the
+/// caller's deadline.
+fn origin_of(
+    connection: &zbus::Connection,
+    frame: &AtspiElement,
+    deadline: Deadline,
+) -> Option<(i32, i32)> {
+    let title = within(deadline, async { Ok(frame_title(connection, frame).await) })
+        .ok()
+        .flatten()?;
     let facts = FrameFacts {
         pid: frame.pid(),
-        title: node.properties.name.present().cloned().unwrap_or_default(),
+        title,
         extents: None,
         global_position: false,
     };
-    let X11State::Ready { clients, .. } = DisplayReader.clients() else {
+    let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
         return None;
     };
     frame_origin(&facts, &clients)
@@ -111,13 +125,7 @@ pub(crate) fn place_nodes(bus: &SharedBus, walk: &mut Walk<ObservedRead>, deadli
         return;
     }
     let frame = element.frame().cloned();
-    let origin = frame.and_then(|frame| {
-        within(deadline, async {
-            Ok(origin_of(connection.inner(), &frame).await)
-        })
-        .ok()
-        .flatten()
-    });
+    let origin = frame.and_then(|frame| origin_of(connection.inner(), &frame, deadline));
     let elements = if origin.is_some() {
         placed_elements(&mut walk.root)
     } else {

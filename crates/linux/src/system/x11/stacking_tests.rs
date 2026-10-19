@@ -44,12 +44,12 @@ struct Fixed {
 }
 
 impl StackingSource for Fixed {
-    fn read(&self, _target_client: u32) -> StackingRead {
+    fn read_within(&self, _target_client: u32, _deadline: Deadline) -> StackingRead {
         self.reads.fetch_add(1, Ordering::SeqCst);
         self.stack.clone()
     }
 
-    fn clients(&self) -> X11State {
+    fn clients_within(&self, _deadline: Deadline) -> X11State {
         self.clients.clone()
     }
 }
@@ -206,4 +206,38 @@ fn an_x11_session_reads_the_display_the_detector_chose() {
         StackingRead::NoManager
     });
     assert_eq!(read, StackingRead::NoManager);
+}
+
+struct Slow {
+    clients: X11State,
+    stack: StackingRead,
+}
+
+impl StackingSource for Slow {
+    fn read_within(&self, _target_client: u32, _deadline: Deadline) -> StackingRead {
+        std::thread::sleep(Duration::from_millis(120));
+        self.stack.clone()
+    }
+
+    fn clients_within(&self, _deadline: Deadline) -> X11State {
+        self.clients.clone()
+    }
+}
+
+#[test]
+fn a_read_that_ends_after_the_callers_deadline_gives_no_state() {
+    let source = Slow {
+        clients: ready(vec![client(5, 10, "Doc")]),
+        stack: snapshot(vec![window(5, true, 120, 80)]),
+    };
+    let budget = Deadline::after(60).expect("a deadline builds");
+    assert_eq!(frame_window_state(&source, budget, &facts(10, "Doc")), None);
+}
+
+#[test]
+fn a_read_never_waits_longer_than_the_caller_has_left() {
+    let short = capped(Deadline::after(50).expect("a deadline builds")).expect("a deadline");
+    assert!(short.remaining() <= Duration::from_millis(50));
+    let long = capped(Deadline::after(60_000).expect("a deadline builds")).expect("a deadline");
+    assert!(long.remaining() <= READ_BUDGET);
 }
