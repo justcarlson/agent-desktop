@@ -64,7 +64,10 @@ fn baseline(windows: &[ListedWindow]) -> SignalBaseline {
 
 #[test]
 fn only_sheet_windows_become_signals_and_each_carries_its_identity() {
-    let windows = [window("w-1", "Calculator", false), window("w-2", "About", true)];
+    let windows = [
+        window("w-1", "Calculator", false),
+        window("w-2", "About", true),
+    ];
     let signals = sheet_signals(&windows, &[app()]);
     let [signal] = signals.as_slice() else {
         panic!("one signal")
@@ -108,7 +111,7 @@ fn a_dialog_listed_as_window_and_sheet_is_one_window_opened_and_one_surface() {
         .iter()
         .filter(|event| event.kind == EventKind::WindowOpened)
         .count();
-    let appeared: Vec<_> = events
+    let appeared = events
         .iter()
         .filter(|event| {
             matches!(
@@ -118,9 +121,9 @@ fn a_dialog_listed_as_window_and_sheet_is_one_window_opened_and_one_surface() {
                 }
             )
         })
-        .collect();
+        .count();
     assert_eq!(opened, 1);
-    assert_eq!(appeared.len(), 1);
+    assert_eq!(appeared, 1);
     assert_eq!(events.len(), 2);
 }
 

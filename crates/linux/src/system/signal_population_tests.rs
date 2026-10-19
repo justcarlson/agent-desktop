@@ -66,7 +66,10 @@ fn an_app_whose_only_window_is_hidden_is_present() {
     let apps = [app(":1.1", 10, "boot:1", "calc")];
     let population = apps_of(&[window(0, "w-1", false)], &apps);
     assert_eq!(population.len(), 1);
-    assert_eq!(population[0].presentation, Some(AppPresentation::Foreground));
+    assert_eq!(
+        population[0].presentation,
+        Some(AppPresentation::Foreground)
+    );
     assert_eq!(population[0].process_instance.as_deref(), Some("boot:1"));
 }
 

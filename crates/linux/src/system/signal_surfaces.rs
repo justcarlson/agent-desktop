@@ -27,6 +27,7 @@ pub(crate) fn sheet_signals(
                 title: Some(window.info.title.clone()).filter(|title| !title.is_empty()),
             })
         })
+        .filter(|signal| SIGNAL_SURFACE_KINDS.contains(&signal.kind))
         .collect()
 }
 
