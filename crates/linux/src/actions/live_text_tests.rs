@@ -35,6 +35,7 @@ scale.get_accessible().set_name("scale")
 box.add(scale)
 pane = Gtk.ScrolledWindow()
 pane.set_size_request(200, 100)
+pane.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
 pane.add(Gtk.Label(label="\n".join(str(n) for n in range(200))))
 box.add(pane)
 window.add(box)
@@ -66,6 +67,8 @@ def activate(app):
     scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
     label(scale, "scale")
     box.append(scale)
+    bar = Gtk.Scrollbar(orientation=Gtk.Orientation.VERTICAL, adjustment=Gtk.Adjustment(value=0, lower=0, upper=1000, step_increment=10, page_increment=100, page_size=100))
+    box.append(bar)
     window.set_child(box)
     window.present()
 
@@ -76,7 +79,7 @@ app.run([])
 
 const QT_SCRIPT: &str = r#"
 import sys
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLineEdit, QSpinBox, QSlider)
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLineEdit, QSpinBox, QSlider, QScrollBar)
 from PyQt6.QtCore import Qt
 app = QApplication(sys.argv)
 w = QWidget()
@@ -97,6 +100,9 @@ scale = QSlider(Qt.Orientation.Horizontal)
 scale.setRange(0, 100)
 scale.setAccessibleName("scale")
 lay.addWidget(scale)
+bar = QScrollBar(Qt.Orientation.Vertical)
+bar.setRange(0, 1000)
+lay.addWidget(bar)
 w.show()
 sys.exit(app.exec())
 "#;
@@ -161,8 +167,8 @@ impl Bench {
         };
         std::fs::write(&script, source).map_err(|error| error.to_string())?;
         let script_arg = script.to_string_lossy().into_owned();
-        launched.spawn_with_env(&program, &[&script_arg, &tag], &environment);
-        let frame = Self::wait_for_frame(&adapter, &tag)?;
+        let pid = launched.spawn_with_env(&program, &[&script_arg, &tag], &environment);
+        let frame = Self::wait_for_frame(&adapter, &tag, pid)?;
         Ok(Self {
             adapter,
             launched,
@@ -170,7 +176,7 @@ impl Bench {
         })
     }
 
-    fn wait_for_frame(adapter: &LinuxAdapter, tag: &str) -> Result<AtspiElement, String> {
+    fn wait_for_frame(adapter: &LinuxAdapter, tag: &str, pid: u32) -> Result<AtspiElement, String> {
         let started = Instant::now();
         while started.elapsed() < Duration::from_secs(20) {
             let windows = adapter
@@ -180,31 +186,50 @@ impl Bench {
                 let (bus, path) = window_id::decode(&window.id).map_err(|e| e.message)?;
                 return Ok(AtspiElement::new(bus, path, window.pid.get()));
             }
+            if let Ok(connection) = adapter.bus().get(deadline(5_000))
+                && let Some(frame) = super::live_click_tests::frame_of(&connection, pid)
+            {
+                return Ok(frame);
+            }
             std::thread::sleep(Duration::from_millis(250));
         }
         Err("the fixture window never appeared".to_owned())
     }
 
-    fn walk(&self, matches: impl Fn(&crate::tree::RawNode) -> bool) -> Option<AtspiElement> {
+    fn walk_all(&self, matches: impl Fn(&crate::tree::RawNode) -> bool) -> Vec<AtspiElement> {
         let budget = deadline(10_000);
-        let connection = self.adapter.bus().get(budget).ok()?;
-        let mut queue = vec![self.frame.clone()];
+        let Ok(connection) = self.adapter.bus().get(budget) else {
+            return Vec::new();
+        };
+        let mut root = self.frame.clone();
+        root.set_ancestry(crate::tree::ancestry::of_root(&root));
+        let mut queue = vec![root];
+        let mut found = Vec::new();
         let mut index = 0;
         while index < queue.len() && index < 400 {
             let element = queue[index].clone();
             index += 1;
-            let node = within(budget, read_node(connection.inner(), &element)).ok()?;
+            let Ok(node) = within(budget, read_node(connection.inner(), &element)) else {
+                break;
+            };
             if matches(&node) && index > 1 {
-                return Some(element);
+                found.push(element.clone());
             }
-            let children = within(budget, list_children(connection.inner(), &element)).ok()?;
-            queue.extend(
-                children
-                    .into_iter()
-                    .map(|(bus, path)| AtspiElement::new(bus, path, self.frame.pid())),
-            );
+            let Ok(children) = within(budget, list_children(connection.inner(), &element)) else {
+                break;
+            };
+            let role = node.traits.role.present().copied();
+            queue.extend(children.into_iter().map(|(bus, path)| {
+                let mut child = AtspiElement::new(bus, path, self.frame.pid());
+                child.set_ancestry(crate::tree::ancestry::child(&element, role));
+                child
+            }));
         }
-        None
+        found
+    }
+
+    fn walk(&self, matches: impl Fn(&crate::tree::RawNode) -> bool) -> Option<AtspiElement> {
+        self.walk_all(matches).into_iter().next()
     }
 
     pub(super) fn named(&self, name: &str) -> NativeHandle {
@@ -220,6 +245,13 @@ impl Bench {
             );
             std::thread::sleep(Duration::from_millis(250));
         }
+    }
+
+    pub(super) fn all_with_role(&self, role: u32) -> Vec<NativeHandle> {
+        self.walk_all(|node| node.traits.role.present() == Some(&role))
+            .into_iter()
+            .map(AtspiElement::into_native_handle)
+            .collect()
     }
 
     pub(super) fn with_role(&self, role: u32) -> Option<NativeHandle> {
@@ -293,6 +325,12 @@ impl Bench {
         .expect("the text reads")
     }
 
+    pub(super) fn maximum_of(&self, handle: &NativeHandle) -> f64 {
+        self.property(handle, "org.a11y.atspi.Value", "MaximumValue")
+            .downcast_ref::<f64>()
+            .expect("a number")
+    }
+
     pub(super) fn number_of(&self, handle: &NativeHandle) -> f64 {
         self.property(handle, "org.a11y.atspi.Value", "CurrentValue")
             .downcast_ref::<f64>()
@@ -310,7 +348,7 @@ pub(super) fn each_toolkit(check: impl Fn(Toolkit, &Bench)) {
     for toolkit in TOOLKITS {
         match Bench::open(toolkit) {
             Ok(bench) => check(toolkit, &bench),
-            Err(reason) => println!("skipped {toolkit:?}: {reason}"),
+            Err(reason) => panic!("{toolkit:?} fixture unavailable: {reason}"),
         }
     }
 }

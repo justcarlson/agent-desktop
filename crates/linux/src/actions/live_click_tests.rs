@@ -59,7 +59,7 @@ fn owner_pid(connection: &Connection, bus: &str) -> Option<u32> {
         .ok()
 }
 
-fn frame_of(connection: &Connection, pid: u32) -> Option<AtspiElement> {
+pub(super) fn frame_of(connection: &Connection, pid: u32) -> Option<AtspiElement> {
     raw_children(connection, REGISTRY_SERVICE, REGISTRY_ROOT_PATH)
         .into_iter()
         .filter(|(bus, _)| owner_pid(connection, bus) == Some(pid))
@@ -100,7 +100,9 @@ pub(super) fn find(
     wanted: impl Fn(&NodeView) -> bool,
 ) -> Result<AtspiElement, String> {
     let deadline = Deadline::standard().map_err(|error| error.message)?;
-    let mut stack = vec![session.frame.clone()];
+    let mut root = session.frame.clone();
+    root.set_ancestry(crate::tree::ancestry::of_root(&root));
+    let mut stack = vec![root];
     let mut seen = 0;
     while let Some(element) = stack.pop() {
         seen += 1;
@@ -108,14 +110,16 @@ pub(super) fn find(
             break;
         }
         let handle = element.clone().into_native_handle();
-        if let Ok(view) = read_node_view(session.adapter.bus(), &handle, deadline)
-            && wanted(&view)
-        {
+        let view = read_node_view(session.adapter.bus(), &handle, deadline).ok();
+        if view.as_ref().is_some_and(&wanted) {
             return Ok(element);
         }
+        let role = view.as_ref().and_then(NodeView::role);
         let kids = raw_children(&session.connection, element.bus_name(), element.path());
         for (bus, path) in kids.into_iter().rev() {
-            stack.push(AtspiElement::new(bus, path, element.pid()));
+            let mut child = AtspiElement::new(bus, path, element.pid());
+            child.set_ancestry(crate::tree::ancestry::child(&element, role));
+            stack.push(child);
         }
     }
     Err("no node matched".to_owned())
