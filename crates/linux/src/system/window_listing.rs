@@ -41,7 +41,7 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
             app: app.name.clone(),
             pid: app.root.pid().into(),
             process_instance: Some(app.facts.instance.clone()),
-            bounds: rect(node),
+            bounds: global_position.then(|| rect(node)).flatten(),
             state: WindowState {
                 is_focused: false,
                 accessible: true,
