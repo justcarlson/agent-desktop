@@ -14,6 +14,7 @@ use super::mutation::WriteKind;
 use super::select_exclusive::{
     SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
 };
+use super::select_popup::{is_popup_dropdown, select_in_popup};
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, name_matches, search};
 use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
@@ -23,7 +24,7 @@ use crate::tree::role_numbers::COMBO_BOX;
 use crate::tree::state_bits::SELECTED;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
-const SELECT_SETTLE: Duration = Duration::from_millis(1000);
+pub(super) const SELECT_SETTLE: Duration = Duration::from_millis(1000);
 const OBJECT_REPLACEMENT: char = '\u{fffc}';
 const SELECT_CHILD_LABEL: &str = "Selection.SelectChild";
 const SELECT_VERB_LABEL: &str = "Action.DoAction";
@@ -34,13 +35,13 @@ pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool
     combo_value.or(item_selected)
 }
 
-struct BusReader<'a> {
-    bus: &'a SharedBus,
-    deadline: Deadline,
-    inspected_role: Option<u32>,
+pub(super) struct BusReader<'a> {
+    pub(super) bus: &'a SharedBus,
+    pub(super) deadline: Deadline,
+    pub(super) inspected_role: Option<u32>,
 }
 
-fn handle_of(element: &AtspiElement) -> agent_desktop_core::NativeHandle {
+pub(super) fn handle_of(element: &AtspiElement) -> agent_desktop_core::NativeHandle {
     element.clone().into_native_handle()
 }
 
@@ -63,7 +64,7 @@ impl ItemReader for BusReader<'_> {
     }
 }
 
-fn advertises_selection(view: &NodeView) -> bool {
+pub(super) fn advertises_selection(view: &NodeView) -> bool {
     view.interfaces()
         .is_some_and(|names| names.iter().any(|name| name == SELECTION_INTERFACE))
 }
@@ -74,7 +75,7 @@ fn names_select_verb(view: &NodeView) -> bool {
     })
 }
 
-fn children_of(
+pub(super) fn children_of(
     bus: &SharedBus,
     node: &AtspiElement,
     role: Option<u32>,
@@ -94,7 +95,7 @@ fn children_of(
         .collect())
 }
 
-fn parent_of(
+pub(super) fn parent_of(
     bus: &SharedBus,
     node: &AtspiElement,
     deadline: Deadline,
@@ -180,7 +181,7 @@ fn read_verification(
     verification(combo, selected)
 }
 
-fn container_target<'a>(
+pub(super) fn container_target<'a>(
     parent: &Target<'a>,
     handle: &'a agent_desktop_core::NativeHandle,
 ) -> Result<Target<'a>, AdapterError> {
@@ -302,7 +303,7 @@ fn combo_selection(target: &Target<'_>) -> Result<bool, AdapterError> {
     Ok(view.role() == Some(COMBO_BOX) && advertises_selection(&view))
 }
 
-fn no_route() -> AdapterError {
+pub(super) fn no_route() -> AdapterError {
     refusal(
         ErrorCode::ActionNotSupported,
         "The element has no Selection interface and no selectable item, so a select has no semantic route",
@@ -310,10 +311,33 @@ fn no_route() -> AdapterError {
     )
 }
 
+pub(super) fn miss_error(miss: &Search<AtspiElement>) -> AdapterError {
+    match miss {
+        Search::Found(_) => AdapterError::internal("a found item is not a miss"),
+        Search::Ambiguous => {
+            AdapterError::ambiguous_target("More than one item matches the requested value")
+        }
+        Search::NotFound { selectable: false } => no_route(),
+        Search::NotFound { selectable: true } => refusal(
+            ErrorCode::ElementNotFound,
+            "No item in the selectable container matches the requested value",
+            json!({ "searched": true }),
+        ),
+        Search::Incomplete => refusal(
+            ErrorCode::ElementNotFound,
+            "The search for the item ended at its limit before it covered the container",
+            json!({ "search_incomplete": true }),
+        ),
+    }
+}
+
 pub(crate) fn select(
     target: &Target<'_>,
     display_value: &str,
 ) -> Result<ActionResult, AdapterError> {
+    if is_popup_dropdown(target)? {
+        return select_in_popup(target, display_value);
+    }
     let mut reader = BusReader {
         bus: target.bus,
         deadline: target.deadline,
@@ -348,20 +372,7 @@ pub(crate) fn select(
             };
             select_through(target, &hit, container.as_ref(), display_value)
         }
-        Search::Ambiguous => Err(AdapterError::ambiguous_target(
-            "More than one item matches the requested value",
-        )),
-        Search::NotFound { selectable: false } => Err(no_route()),
-        Search::NotFound { selectable: true } => Err(refusal(
-            ErrorCode::ElementNotFound,
-            "No item in the selectable container matches the requested value",
-            json!({ "searched": true }),
-        )),
-        Search::Incomplete => Err(refusal(
-            ErrorCode::ElementNotFound,
-            "The search for the item ended at its limit before it covered the container",
-            json!({ "search_incomplete": true }),
-        )),
+        miss => Err(miss_error(&miss)),
     }
 }
 

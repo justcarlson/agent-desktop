@@ -2,7 +2,8 @@ use agent_desktop_core::ErrorCode;
 
 use super::live_click_tests::{act, find, find_named, open};
 use super::select::select;
-use crate::tree::role_numbers::{LIST, PUSH_BUTTON};
+use super::select_popup::displayed_value;
+use crate::tree::role_numbers::{COMBO_BOX, LIST, PUSH_BUTTON};
 
 #[test]
 #[ignore = "live: needs the AT-SPI session, GNOME Settings and the write engine"]
@@ -43,4 +44,29 @@ fn a_button_with_no_selection_route_is_not_supported() {
     let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
     let error = act(&session, &digit, |target| select(target, "7")).expect_err("no route");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
+}
+
+#[test]
+#[ignore = "live: needs the AT-SPI session, zenity and the write engine"]
+fn a_gtk4_drop_down_is_chosen_through_its_popup_and_the_shown_value_follows() {
+    let session = open(
+        "zenity",
+        &[
+            "--forms",
+            "--add-combo=Pick",
+            "--combo-values=Alpha|Beta|Gamma",
+        ],
+    )
+    .expect("zenity opens");
+    let combo = find(&session, |view| view.role() == Some(COMBO_BOX)).expect("the drop down");
+    let result = act(&session, &combo, |target| {
+        let result = select(target, "Gamma")?;
+        assert_eq!(displayed_value(target).as_deref(), Some("Gamma"));
+        Ok(result)
+    })
+    .expect("the choice is delivered");
+    assert_eq!(
+        result.steps.last().and_then(|step| step.verified()),
+        Some(true)
+    );
 }

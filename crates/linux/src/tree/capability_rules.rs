@@ -170,8 +170,16 @@ fn disabled_click_tokens(facts: &Facts) -> Vec<&'static str> {
     }
 }
 
+fn popup_dropdown(facts: &Facts) -> bool {
+    facts.role == COMBO_BOX
+        && facts.bits.has(HAS_POPUP)
+        && !facts.advertises(SELECTION)
+        && popup_button_children(facts)
+}
+
 fn select_tokens(facts: &Facts) -> Vec<&'static str> {
-    if facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0) {
+    let selection = facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0);
+    if selection || popup_dropdown(facts) {
         vec![capability::SELECT]
     } else {
         Vec::new()

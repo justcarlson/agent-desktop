@@ -14,6 +14,7 @@ pub(crate) const SPIN_BUTTON: u32 = 52;
 pub(crate) const WINDOW: u32 = 69;
 pub(crate) const SECTION: u32 = 85;
 pub(crate) const LEVEL_BAR: u32 = 103;
+pub(crate) const LABEL: u32 = 29;
 pub(crate) const LIST: u32 = 31;
 pub(crate) const PASSWORD_TEXT: u32 = 40;
 pub(crate) const PUSH_BUTTON: u32 = 43;
