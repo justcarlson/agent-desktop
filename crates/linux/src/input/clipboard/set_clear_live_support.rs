@@ -2,7 +2,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, Once};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -53,18 +53,50 @@ pub(super) fn deadline() -> Deadline {
     Deadline::after(20_000).expect("a deadline")
 }
 
-pub(super) fn built_helper() -> PathBuf {
-    let exe = std::env::current_exe().expect("the test image");
-    let debug_dir = exe
+static BUILT: Once = Once::new();
+
+fn build_one(package: &str, bin: &str) {
+    let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let mut command = Command::new(cargo);
+    command.args(["build", "-p", package, "--bin", bin]);
+    if profile_dir().ends_with("release") {
+        command.arg("--release");
+    }
+    let output = command.output().expect("cargo runs");
+    assert!(
+        output.status.success(),
+        "building {bin} failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn profile_dir() -> PathBuf {
+    std::env::current_exe()
+        .expect("the test image")
         .parent()
         .and_then(Path::parent)
         .expect("the target directory")
-        .to_path_buf();
-    let built = debug_dir.join(HELPER_NAME);
-    assert!(
-        built.is_file(),
-        "build the helper first: cargo build -p agent-desktop-linux --bin {HELPER_NAME}"
-    );
+        .to_path_buf()
+}
+
+fn build_binaries() {
+    BUILT.call_once(|| {
+        build_one("agent-desktop", "agent-desktop");
+        build_one("agent-desktop-linux", HELPER_NAME);
+    });
+}
+
+pub(super) fn built_helper() -> PathBuf {
+    build_binaries();
+    let built = profile_dir().join(HELPER_NAME);
+    assert!(built.is_file(), "{HELPER_NAME} is missing after the build");
+    built
+}
+
+pub(super) fn built_cli() -> PathBuf {
+    build_binaries();
+    let built = profile_dir().join("agent-desktop");
+    assert!(built.is_file(), "agent-desktop is missing after the build");
     built
 }
 

@@ -73,11 +73,7 @@ fn the_cli_exits_with_its_stdout_closed_while_the_owner_keeps_serving() {
     let session = private_session();
     let helper = built_helper();
     fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).expect("executable");
-    let cli = helper.with_file_name("agent-desktop");
-    assert!(
-        cli.is_file(),
-        "build the CLI first: cargo build -p agent-desktop"
-    );
+    let cli = built_cli();
     let started = Instant::now();
     let output = Command::new(&cli)
         .args(["clipboard-set", "from the cli"])
