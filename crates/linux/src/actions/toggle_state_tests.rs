@@ -163,3 +163,9 @@ fn an_unread_role_is_refused_without_a_support_claim() {
     let error = guard_role(None, &Action::Check).expect_err("refused");
     assert_eq!(error.code, ErrorCode::ActionFailed);
 }
+
+#[test]
+fn a_click_that_runs_the_toggle_path_reports_a_click() {
+    assert_eq!(reported_name(&Action::Toggle, true), "click");
+    assert_eq!(reported_name(&Action::Toggle, false), "toggle");
+}

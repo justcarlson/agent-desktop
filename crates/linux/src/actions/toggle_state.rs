@@ -121,9 +121,25 @@ pub(super) fn drive_to(
     }
 }
 
+pub(super) fn reported_name(action: &Action, clicked: bool) -> &'static str {
+    if clicked {
+        Action::Click.name()
+    } else {
+        action.name()
+    }
+}
+
 pub(crate) fn toggle(
     target: &Target<'_>,
     desired: Option<bool>,
+) -> Result<ActionResult, AdapterError> {
+    toggle_reporting(target, desired, false)
+}
+
+pub(super) fn toggle_reporting(
+    target: &Target<'_>,
+    desired: Option<bool>,
+    clicked: bool,
 ) -> Result<ActionResult, AdapterError> {
     let action = match desired {
         None => Action::Toggle,
@@ -158,7 +174,7 @@ pub(crate) fn toggle(
             },
         )
     };
-    run_single_rung(action.name(), target.deadline, run)
+    run_single_rung(reported_name(&action, clicked), target.deadline, run)
 }
 
 #[cfg(test)]

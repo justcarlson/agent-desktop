@@ -9,7 +9,7 @@ use super::action_call::{do_action, resolve_verb};
 use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::context::Target;
 use super::mutation::WriteReply;
-use super::toggle_state::toggle;
+use super::toggle_state::toggle_reporting;
 use crate::system::within;
 use crate::tree::action_names::{toggle_verbs, verbs_for};
 use crate::tree::action_read::{NodeView, read_node_view};
@@ -192,7 +192,7 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
     let (budget, step) = settle_for(&view);
     let own_verb = resolve_verb(names, verbs).is_some();
     if matches!(action, Action::Click) && !own_verb && toggles_in_place(view.role(), names) {
-        return toggle(target, None);
+        return toggle_reporting(target, None, true);
     }
     let inner = if own_verb || !opens_popup(&view) {
         None
