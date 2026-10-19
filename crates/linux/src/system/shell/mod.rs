@@ -7,6 +7,7 @@ use crate::system::{SharedBus, window_id};
 use crate::tree::AtspiElement;
 
 pub(crate) mod container;
+pub(crate) mod deliver;
 pub(crate) mod detect;
 pub(crate) mod hit;
 pub(crate) mod identity;

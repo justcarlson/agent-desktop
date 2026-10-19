@@ -199,7 +199,18 @@ impl LinuxAdapter {
             .map(|element| element.pid());
         let result = match crate::tray::target_of(handle) {
             Some(target) => crate::tray::execute(target, request, lease),
-            None => crate::actions::execute_action(self.bus(), handle, request, lease),
+            None => {
+                let outcome = crate::tree::atspi_element(handle)
+                    .ok()
+                    .filter(|element| crate::system::shell::is_shell_element(element))
+                    .and_then(|element| {
+                        crate::system::shell::deliver::deliver(self.bus(), &element, &request, lease)
+                    });
+                match outcome {
+                    Some(result) => result,
+                    None => crate::actions::execute_action(self.bus(), handle, request, lease),
+                }
+            }
         };
         crate::system::action_clock::mark_target(target);
         result
