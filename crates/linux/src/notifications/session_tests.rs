@@ -96,3 +96,14 @@ fn an_open_that_failed_after_showing_the_list_still_closes_it() {
     assert!(!world.showing.get());
     assert_eq!(error.details.expect("details")["list_restore"], "closed");
 }
+
+#[test]
+fn the_list_is_closed_even_when_the_command_spent_its_whole_budget() {
+    let log = log();
+    let world = world(&log);
+    let lease = lease(5);
+    let session = Session::open(&world, InteractionPolicy::headed(), &lease).expect("open");
+    std::thread::sleep(std::time::Duration::from_millis(30));
+    assert_eq!(session.finish(Ok(1)).expect("closed"), 1);
+    assert!(!world.showing.get());
+}

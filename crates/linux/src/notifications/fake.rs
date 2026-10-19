@@ -264,8 +264,11 @@ impl ShellWorld for FakeWorld {
         Ok((window, self.opened))
     }
 
-    fn close(&self, _: &InteractionLease) -> Result<(), AdapterError> {
+    fn close(&self, lease: &InteractionLease) -> Result<(), AdapterError> {
         self.note("close");
+        if lease.deadline().is_expired() {
+            return Err(AdapterError::timeout("the close ran on a spent deadline"));
+        }
         if !self.close_sticks {
             self.showing.set(false);
         }

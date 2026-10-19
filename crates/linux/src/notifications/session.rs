@@ -28,7 +28,6 @@ impl Restore {
 /// path out, and the close is checked by reading `SHOWING` back.
 pub(crate) struct Session<'a> {
     world: &'a dyn ShellWorld,
-    lease: &'a InteractionLease,
     opened: bool,
     finished: bool,
 }
@@ -45,14 +44,12 @@ impl<'a> Session<'a> {
         match world.open(policy, lease) {
             Ok((_, opened)) => Ok(Self {
                 world,
-                lease,
                 opened: opened == Opened::Opened,
                 finished: false,
             }),
             Err(error) => {
                 let mut cleanup = Self {
                     world,
-                    lease,
                     opened: world_is_showing(world),
                     finished: false,
                 };
@@ -76,7 +73,7 @@ impl<'a> Session<'a> {
         if !self.opened {
             return Restore::Adopted;
         }
-        let closed = self.world.close(self.lease).is_ok() && still_closed(self.world);
+        let closed = close_within_own_budget(self.world) && still_closed(self.world);
         if closed {
             Restore::Closed
         } else {
@@ -91,6 +88,16 @@ impl Drop for Session<'_> {
             self.restore();
         }
     }
+}
+
+/// The close runs on a deadline of its own: the lease deadline is spent when
+/// the command waited out its whole budget, and a close that shared it would
+/// leave the list open.
+fn close_within_own_budget(world: &dyn ShellWorld) -> bool {
+    Deadline::detached_after(CLEANUP_MS)
+        .and_then(|deadline| InteractionLease::guarded(deadline, ()))
+        .and_then(|cleanup| world.close(&cleanup))
+        .is_ok()
 }
 
 fn world_is_showing(world: &dyn ShellWorld) -> bool {
