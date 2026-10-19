@@ -10,10 +10,17 @@ mod element;
 mod expansion;
 mod extents;
 mod field;
+pub(crate) mod frame_geometry;
 mod gtk_switch;
+pub(crate) mod hit_descent;
+pub(crate) mod hit_guard;
+pub(crate) mod hit_occlusion;
+pub(crate) mod hit_test;
+pub(crate) mod hit_verdict;
 mod identity;
 mod label_outcome;
 mod label_read;
+pub(crate) mod live_offscreen;
 mod live_project;
 mod live_read;
 mod name_evidence;
@@ -24,8 +31,10 @@ mod node_read;
 mod node_traits;
 mod observe;
 mod observed_read;
+pub(crate) mod offscreen;
 mod path_descent;
 mod placeholder;
+pub(crate) mod placement;
 mod projection;
 mod raw_node;
 mod resolve;
@@ -45,6 +54,7 @@ mod settle;
 pub(crate) mod state_bits;
 mod states;
 pub(crate) mod surfaces;
+pub(crate) mod toolkit_trust;
 mod value_read;
 mod vocabulary;
 mod walk;
@@ -53,6 +63,7 @@ mod walk_limits;
 mod walked_node;
 mod walker;
 mod walker_expand;
+pub(crate) mod window_extents;
 mod wrapper;
 
 #[cfg(test)]
@@ -77,7 +88,16 @@ mod absence_live_tests;
 mod chromium_live_tests;
 
 #[cfg(test)]
+mod hit_live_tests;
+
+#[cfg(test)]
 mod live_apps;
+
+#[cfg(test)]
+mod live_cover;
+
+#[cfg(test)]
+mod live_offscreen_live_tests;
 
 #[cfg(test)]
 mod live_fixture;
@@ -139,6 +159,7 @@ pub(crate) use element::atspi_element;
 pub(crate) use expansion::Expansion;
 pub(crate) use extents::Extents;
 pub(crate) use field::Field;
+pub(crate) use hit_test::hit_test;
 pub(crate) use label_outcome::LabelOutcome;
 #[cfg(test)]
 pub(crate) use label_read::read_label;

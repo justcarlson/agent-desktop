@@ -15,6 +15,12 @@ const MAX_TITLE_LONGS: u32 = 1_024;
 /// would outlive a server that has stopped answering.
 pub(crate) struct DisplayReader;
 
+impl super::stacking_source::StackingSource for DisplayReader {
+    fn read(&self, _target_client: u32) -> super::stacking_read::StackingRead {
+        super::stacking_read::StackingRead::Unavailable
+    }
+}
+
 struct Atoms {
     wm_check: Atom,
     active: Atom,

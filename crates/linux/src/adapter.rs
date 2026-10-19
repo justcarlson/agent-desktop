@@ -1,8 +1,8 @@
 use agent_desktop_core::{
     AccessibilityNode, ActionOps, AdapterError, AppInfo, AppInventory, Deadline, ElementState,
-    InputOps, LiveElement, NativeHandle, ObservationOps, ObservationRequest, ObservationRoot,
-    ObservedTree, ProcessIdentity, Rect, RefEntry, SurfaceInfo, TreeOptions, WindowFilter,
-    WindowInfo,
+    HitTestResult, InputOps, InteractionLease, LiveElement, NativeHandle, ObservationOps,
+    ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity, Rect, RefEntry,
+    SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -94,6 +94,15 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
 
+    fn hit_test(
+        &self,
+        handle: &NativeHandle,
+        point: Point,
+        deadline: Deadline,
+    ) -> Result<HitTestResult, AdapterError> {
+        crate::tree::hit_test(self.bus(), handle, point, deadline)
+    }
+
     fn list_windows(
         &self,
         filter: &WindowFilter,
@@ -140,7 +149,15 @@ impl ObservationOps for LinuxAdapter {
         .into_accessibility_tree()
     }
 }
-impl ActionOps for LinuxAdapter {}
+impl ActionOps for LinuxAdapter {
+    fn scroll_into_view(
+        &self,
+        handle: &NativeHandle,
+        lease: &InteractionLease,
+    ) -> Result<(), AdapterError> {
+        crate::actions::scroll_into_view(self.bus(), handle, lease)
+    }
+}
 impl InputOps for LinuxAdapter {}
 
 #[cfg(test)]

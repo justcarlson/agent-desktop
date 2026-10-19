@@ -10,20 +10,21 @@ mod bus_stage;
 mod display;
 mod display_mutter;
 mod display_probe;
-mod display_server;
+pub(crate) mod display_server;
 mod focus;
+pub(crate) mod focus_window;
 mod interaction_lease;
 mod listed_window;
 mod permissions;
 mod proc_scan;
 pub(crate) mod process_facts;
-mod registry;
+pub(crate) mod registry;
 mod registry_app;
 mod registry_frames;
 mod session;
 mod surfaces;
 mod toolkit;
-mod toolkit_id;
+pub(crate) mod toolkit_id;
 mod unresponsive;
 mod window_filter;
 pub(crate) mod window_id;
@@ -47,6 +48,8 @@ pub(crate) use window_resolve::resolve_window_strict;
 
 #[cfg(test)]
 mod display_live_tests;
+#[cfg(test)]
+mod focus_window_live_tests;
 #[cfg(test)]
 mod registry_live_tests;
 #[cfg(test)]

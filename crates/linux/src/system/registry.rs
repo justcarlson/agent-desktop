@@ -48,7 +48,7 @@ async fn root_name(connection: &Connection, root: &AtspiElement) -> Option<Optio
     Some(value.downcast_ref::<&str>().ok().map(str::to_owned))
 }
 
-async fn toolkit(connection: &Connection, root: &AtspiElement) -> ToolkitId {
+pub(crate) async fn toolkit(connection: &Connection, root: &AtspiElement) -> ToolkitId {
     let all = async {
         connection
             .call_method(
