@@ -1,12 +1,171 @@
-use agent_desktop_core::{ActionResult, AdapterError};
+use std::time::Duration;
 
+use agent_desktop_core::{Action, ActionResult, AdapterError, ErrorCode};
+use serde_json::json;
+
+use super::chain::{DeliveryOutcome, Observed};
+use super::click::{POLL_STEP, invoke_verb, names_of, poll_until, refusal, run_single_rung};
 use super::context::Target;
+use super::mutation::WriteReply;
+use crate::tree::action_names::toggle_verbs;
+use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::role_numbers::{
+    CHECK_BOX, CHECK_MENU_ITEM, RADIO_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON,
+};
+use crate::tree::state_bits::{CHECKED, INDETERMINATE, PRESSED};
+
+const TOGGLE_SETTLE: Duration = Duration::from_millis(1000);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Flag {
+    On,
+    Off,
+    Unknown,
+}
+
+impl Flag {
+    pub(super) fn of(value: Option<bool>) -> Self {
+        match value {
+            Some(true) => Self::On,
+            Some(false) => Self::Off,
+            None => Self::Unknown,
+        }
+    }
+
+    pub(super) fn is_wanted(self, wanted: bool) -> bool {
+        self == Self::of(Some(wanted))
+    }
+}
+
+fn can_carry_checked(role: u32) -> bool {
+    matches!(
+        role,
+        CHECK_BOX | RADIO_BUTTON | CHECK_MENU_ITEM | RADIO_MENU_ITEM | TOGGLE_BUTTON
+    )
+}
+
+fn checked_flag(
+    role: u32,
+    checked: Option<bool>,
+    pressed: Option<bool>,
+    indeterminate: Option<bool>,
+) -> Result<Flag, AdapterError> {
+    if indeterminate == Some(true) {
+        return Err(refusal(
+            ErrorCode::ActionFailed,
+            "The element is in the indeterminate state, so no checked state is known",
+            json!({ "checked": "indeterminate" }),
+        ));
+    }
+    if role != TOGGLE_BUTTON {
+        return Ok(Flag::of(checked));
+    }
+    Ok(match (checked, pressed) {
+        (Some(true), _) | (_, Some(true)) => Flag::On,
+        (Some(false), Some(false)) => Flag::Off,
+        _ => Flag::Unknown,
+    })
+}
+
+fn read_flag(view: &NodeView) -> Result<Flag, AdapterError> {
+    let role = view.role().ok_or_else(|| {
+        refusal(
+            ErrorCode::ActionFailed,
+            "The role of the element could not be read",
+            json!({ "role": "unread" }),
+        )
+    })?;
+    checked_flag(
+        role,
+        view.state(CHECKED),
+        view.state(PRESSED),
+        view.state(INDETERMINATE),
+    )
+}
+
+fn guard_role(role: Option<u32>, action: &Action) -> Result<(), AdapterError> {
+    match role {
+        Some(role) if can_carry_checked(role) => Ok(()),
+        Some(_) => Err(refusal(
+            ErrorCode::ActionNotSupported,
+            format!("The role of the element cannot carry {}", action.name()),
+            json!({ "role_cannot_be_checked": true }),
+        )),
+        None => Err(refusal(
+            ErrorCode::ActionFailed,
+            "The role of the element could not be read",
+            json!({ "role": "unread" }),
+        )),
+    }
+}
+
+fn wanted_of(desired: Option<bool>, current: Flag) -> bool {
+    desired.unwrap_or(current == Flag::Off)
+}
+
+pub(super) fn drive_to(
+    wanted: bool,
+    current: Flag,
+    invoke: impl FnOnce() -> Result<WriteReply, AdapterError>,
+    read_after: impl FnOnce() -> Flag,
+) -> Result<DeliveryOutcome, AdapterError> {
+    if current == Flag::Unknown {
+        return Err(refusal(
+            ErrorCode::ActionFailed,
+            "The state of the element could not be read before the action",
+            json!({ "state": "unread" }),
+        ));
+    }
+    if current.is_wanted(wanted) {
+        return Ok(DeliveryOutcome::Satisfied);
+    }
+    match invoke()? {
+        WriteReply::Absent => Ok(DeliveryOutcome::NotDelivered),
+        WriteReply::Done => Ok(DeliveryOutcome::Delivered(match read_after() {
+            after if after.is_wanted(wanted) => Observed::Matched,
+            Flag::Unknown => Observed::Unread,
+            _ => Observed::Unchanged,
+        })),
+    }
+}
 
 pub(crate) fn toggle(
-    _target: &Target<'_>,
-    _desired: Option<bool>,
+    target: &Target<'_>,
+    desired: Option<bool>,
 ) -> Result<ActionResult, AdapterError> {
-    Err(AdapterError::not_supported("toggle"))
+    let action = match desired {
+        None => Action::Toggle,
+        Some(true) => Action::Check,
+        Some(false) => Action::Uncheck,
+    };
+    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    guard_role(view.role(), &action)?;
+    let current = read_flag(&view)?;
+    let names = names_of(&view)?;
+    let verbs = toggle_verbs(desired);
+    let wanted = wanted_of(desired, current);
+    let run = || {
+        drive_to(
+            wanted,
+            current,
+            || invoke_verb(target, &action, names, verbs),
+            || {
+                poll_until(
+                    target.deadline,
+                    TOGGLE_SETTLE,
+                    POLL_STEP,
+                    || {
+                        read_node_view(target.bus, target.handle, target.deadline)
+                            .ok()
+                            .and_then(|after| read_flag(&after).ok())
+                            .unwrap_or(Flag::Unknown)
+                    },
+                    |flag| flag.is_wanted(wanted),
+                )
+            },
+        )
+    };
+    run_single_rung(action.name(), target.deadline, run)
 }
 
 #[cfg(test)]

@@ -1,13 +1,226 @@
-use agent_desktop_core::{ActionResult, AdapterError};
+use std::time::{Duration, Instant};
 
+use agent_desktop_core::{
+    Action, ActionResult, AdapterError, Deadline, DeliverySemantics, ErrorCode, NativeHandle,
+};
+use serde_json::json;
+
+use super::action_call::{do_action, resolve_verb};
+use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::context::Target;
+use super::mutation::WriteReply;
+use crate::system::within;
+use crate::tree::action_names::verbs_for;
+use crate::tree::action_read::{NodeView, read_node_view};
+use crate::tree::role_numbers::TOGGLE_BUTTON;
+use crate::tree::state_bits::HAS_POPUP;
+use crate::tree::{AtspiElement, atspi_element, list_children};
 
-pub(crate) fn click(_target: &Target<'_>) -> Result<ActionResult, AdapterError> {
-    Err(AdapterError::not_supported("click"))
+pub(super) const POLL_STEP: Duration = Duration::from_millis(50);
+pub(super) const POPUP_STEP: Duration = Duration::from_millis(250);
+pub(super) const POPUP_SETTLE: Duration = Duration::from_millis(1500);
+const CLICK_SETTLE: Duration = Duration::from_millis(300);
+const INNER_TOGGLE_SCAN: usize = 4;
+const CLICK_LABEL: &str = "Action.DoAction";
+const SUGGESTION: &str =
+    "Refresh the snapshot and inspect the element before deciding whether to retry.";
+
+pub(super) fn poll_until<T>(
+    deadline: Deadline,
+    budget: Duration,
+    step: Duration,
+    mut read: impl FnMut() -> T,
+    done: impl Fn(&T) -> bool,
+) -> T {
+    let end = Instant::now() + budget.min(deadline.remaining());
+    loop {
+        let value = read();
+        let now = Instant::now();
+        if done(&value) || now >= end {
+            return value;
+        }
+        std::thread::sleep(step.min(end - now));
+    }
 }
 
-pub(crate) fn right_click(_target: &Target<'_>) -> Result<ActionResult, AdapterError> {
-    Err(AdapterError::not_supported("right-click"))
+pub(super) fn observed_of(change: Option<bool>) -> Observed {
+    match change {
+        Some(true) => Observed::Matched,
+        Some(false) => Observed::Unchanged,
+        None => Observed::Unread,
+    }
+}
+
+pub(super) fn refusal(
+    code: ErrorCode,
+    message: impl Into<String>,
+    details: serde_json::Value,
+) -> AdapterError {
+    AdapterError::new(code, message)
+        .with_suggestion(SUGGESTION)
+        .with_details(details)
+        .with_disposition(DeliverySemantics::not_delivered())
+}
+
+pub(super) fn no_semantic_verb(action: &Action) -> AdapterError {
+    refusal(
+        ErrorCode::ActionNotSupported,
+        format!(
+            "The element advertises no action that carries {}",
+            action.name()
+        ),
+        json!({ "semantic_verb": "absent" }),
+    )
+}
+
+pub(super) fn names_of(view: &NodeView) -> Result<&[String], AdapterError> {
+    view.action_names().ok_or_else(|| {
+        refusal(
+            ErrorCode::ActionFailed,
+            "The action list of the element could not be read",
+            json!({ "action_names": "unread" }),
+        )
+    })
+}
+
+pub(super) fn invoke_verb(
+    target: &Target<'_>,
+    action: &Action,
+    names: &[String],
+    verbs: &[&str],
+) -> Result<WriteReply, AdapterError> {
+    if resolve_verb(names, verbs).is_none() {
+        return Err(no_semantic_verb(action));
+    }
+    do_action(target, names, verbs)
+}
+
+pub(super) fn deliver(
+    reply: Result<WriteReply, AdapterError>,
+    observe: impl FnOnce() -> Option<bool>,
+) -> Result<DeliveryOutcome, AdapterError> {
+    match reply? {
+        WriteReply::Absent => Ok(DeliveryOutcome::NotDelivered),
+        WriteReply::Done => Ok(DeliveryOutcome::Delivered(observed_of(observe()))),
+    }
+}
+
+pub(super) fn run_single_rung(
+    action: &'static str,
+    deadline: Deadline,
+    run: impl FnMut() -> Result<DeliveryOutcome, AdapterError>,
+) -> Result<ActionResult, AdapterError> {
+    let def = ChainDef {
+        action,
+        suggestion: SUGGESTION,
+    };
+    let mut rungs = [Rung {
+        label: CLICK_LABEL,
+        run: Box::new(run),
+    }];
+    execute_chain(&def, &mut rungs, deadline)
+}
+
+pub(super) struct Inner {
+    handle: NativeHandle,
+}
+
+impl Inner {
+    pub(super) fn target<'a>(&'a self, parent: &Target<'a>) -> Result<Target<'a>, AdapterError> {
+        Ok(Target {
+            bus: parent.bus,
+            handle: &self.handle,
+            element: atspi_element(&self.handle)?,
+            deadline: parent.deadline,
+        })
+    }
+}
+
+fn is_inner_toggle(role: Option<u32>, has_verb: bool) -> bool {
+    role == Some(TOGGLE_BUTTON) && has_verb
+}
+
+pub(super) fn popup_inner(
+    target: &Target<'_>,
+    verbs: &[&str],
+) -> Result<Option<Inner>, AdapterError> {
+    let connection = target.bus.get(target.deadline)?;
+    let element = target.element;
+    let children = within(target.deadline, async {
+        list_children(connection.inner(), element).await
+    })?;
+    for (bus, path) in children.into_iter().take(INNER_TOGGLE_SCAN) {
+        let handle = AtspiElement::new(bus, path, element.pid()).into_native_handle();
+        let Ok(view) = read_node_view(target.bus, &handle, target.deadline) else {
+            continue;
+        };
+        let has_verb = view
+            .action_names()
+            .is_some_and(|names| resolve_verb(names, verbs).is_some());
+        if is_inner_toggle(view.role(), has_verb) {
+            return Ok(Some(Inner { handle }));
+        }
+    }
+    Ok(None)
+}
+
+pub(super) fn opens_popup(view: &NodeView) -> bool {
+    view.state(HAS_POPUP) == Some(true)
+}
+
+fn settle_for(view: &NodeView) -> (Duration, Duration) {
+    if opens_popup(view) {
+        (POPUP_SETTLE, POPUP_STEP)
+    } else {
+        (CLICK_SETTLE, POLL_STEP)
+    }
+}
+
+fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, AdapterError> {
+    let view = read_node_view(target.bus, target.handle, target.deadline)?;
+    let names = names_of(&view)?;
+    let verbs = verbs_for(action);
+    let before = view.observation();
+    let (budget, step) = settle_for(&view);
+    let own_verb = resolve_verb(names, verbs).is_some();
+    let inner = if own_verb || !opens_popup(&view) {
+        None
+    } else {
+        popup_inner(target, verbs)?
+    };
+    let run = || {
+        let reply = match &inner {
+            Some(inner) => {
+                let child = inner.target(target)?;
+                let child_view = read_node_view(child.bus, child.handle, child.deadline)?;
+                let child_names = names_of(&child_view)?;
+                invoke_verb(&child, action, child_names, verbs)
+            }
+            None => invoke_verb(target, action, names, verbs),
+        };
+        deliver(reply, || {
+            poll_until(
+                target.deadline,
+                budget,
+                step,
+                || {
+                    read_node_view(target.bus, target.handle, target.deadline)
+                        .ok()
+                        .and_then(|after| after.observation().changed_since(&before))
+                },
+                |change| *change == Some(true),
+            )
+        })
+    };
+    run_single_rung(action.name(), target.deadline, run)
+}
+
+pub(crate) fn click(target: &Target<'_>) -> Result<ActionResult, AdapterError> {
+    activate(target, &Action::Click)
+}
+
+pub(crate) fn right_click(target: &Target<'_>) -> Result<ActionResult, AdapterError> {
+    activate(target, &Action::RightClick)
 }
 
 #[cfg(test)]

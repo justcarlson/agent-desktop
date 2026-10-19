@@ -1,1 +1,189 @@
+use super::*;
 
+struct FakeTree {
+    names: Vec<Option<&'static str>>,
+    selection: Vec<bool>,
+    children: Vec<Vec<usize>>,
+    unreadable: Vec<usize>,
+}
+
+impl FakeTree {
+    fn new(shape: &[(Option<&'static str>, bool, &[usize])]) -> Self {
+        Self {
+            names: shape.iter().map(|entry| entry.0).collect(),
+            selection: shape.iter().map(|entry| entry.1).collect(),
+            children: shape.iter().map(|entry| entry.2.to_vec()).collect(),
+            unreadable: Vec::new(),
+        }
+    }
+}
+
+impl ItemReader for FakeTree {
+    type Node = usize;
+
+    fn inspect(&mut self, node: &usize) -> Result<Inspected, AdapterError> {
+        if self.unreadable.contains(node) {
+            return Err(AdapterError::internal("gone"));
+        }
+        Ok(Inspected {
+            name: self.names[*node].map(str::to_owned),
+            selection: self.selection[*node],
+        })
+    }
+
+    fn children(&mut self, node: &usize) -> Result<Vec<usize>, AdapterError> {
+        Ok(self.children[*node].clone())
+    }
+}
+
+#[test]
+fn the_target_matching_itself_is_an_own_hit_with_no_container() {
+    let mut tree = FakeTree::new(&[(Some("Dark"), false, &[])]);
+    let found = search(&mut tree, &0, "dark").expect("searched");
+    assert_eq!(
+        found,
+        Search::Found(Hit {
+            item: 0,
+            container: None,
+            own: true
+        })
+    );
+}
+
+#[test]
+fn a_depth_three_descendant_selects_by_the_index_under_the_selection_ancestor() {
+    let mut tree = FakeTree::new(&[
+        (None, true, &[1, 2]),
+        (None, false, &[3]),
+        (None, false, &[4]),
+        (Some("Red"), false, &[]),
+        (None, false, &[5]),
+        (Some("Blue"), false, &[]),
+    ]);
+    let found = search(&mut tree, &0, "Blue").expect("searched");
+    assert_eq!(
+        found,
+        Search::Found(Hit {
+            item: 5,
+            container: Some(Container { node: 0, index: 1 }),
+            own: false
+        })
+    );
+}
+
+#[test]
+fn the_nearest_selection_ancestor_wins_over_a_farther_one() {
+    let mut tree = FakeTree::new(&[
+        (None, true, &[1]),
+        (None, true, &[2, 3]),
+        (Some("A"), false, &[]),
+        (Some("B"), false, &[]),
+    ]);
+    let found = search(&mut tree, &0, "B").expect("searched");
+    let Search::Found(hit) = found else {
+        panic!("expected a hit");
+    };
+    assert_eq!(hit.container, Some(Container { node: 1, index: 1 }));
+}
+
+#[test]
+fn matching_trims_and_ignores_case_but_is_exact_otherwise() {
+    assert!(name_matches("  Hot Corner ", "hot corner"));
+    assert!(!name_matches("Hot Corners", "Hot Corner"));
+}
+
+#[test]
+fn two_equal_matches_are_ambiguous() {
+    let mut tree = FakeTree::new(&[
+        (None, true, &[1, 2]),
+        (Some("Same"), false, &[]),
+        (Some("same"), false, &[]),
+    ]);
+    assert_eq!(
+        search(&mut tree, &0, "Same").expect("searched"),
+        Search::Ambiguous
+    );
+}
+
+#[test]
+fn a_matched_row_does_not_count_its_matching_label_twice() {
+    let mut tree = FakeTree::new(&[
+        (None, true, &[1]),
+        (Some("Row"), false, &[2]),
+        (Some("Row"), false, &[]),
+    ]);
+    assert!(matches!(
+        search(&mut tree, &0, "Row").expect("searched"),
+        Search::Found(_)
+    ));
+}
+
+#[test]
+fn no_match_reports_the_nodes_it_saw() {
+    let mut tree = FakeTree::new(&[(None, true, &[1]), (Some("A"), false, &[])]);
+    assert_eq!(
+        search(&mut tree, &0, "Z").expect("searched"),
+        Search::NotFound { seen: 2 }
+    );
+}
+
+#[test]
+fn a_lone_root_with_no_children_has_seen_one_node() {
+    let mut tree = FakeTree::new(&[(Some("combo"), false, &[])]);
+    assert_eq!(
+        search(&mut tree, &0, "Z").expect("searched"),
+        Search::NotFound { seen: 1 }
+    );
+}
+
+#[test]
+fn the_search_stops_at_the_node_limit_and_reports_incomplete() {
+    let mut shape: Vec<(Option<&'static str>, bool, Vec<usize>)> =
+        vec![(None, true, (1..=NODE_LIMIT + 5).collect())];
+    shape.extend((0..NODE_LIMIT + 5).map(|_| (None, false, Vec::new())));
+    let borrowed: Vec<(Option<&'static str>, bool, &[usize])> = shape
+        .iter()
+        .map(|(name, selection, kids)| (*name, *selection, kids.as_slice()))
+        .collect();
+    let mut tree = FakeTree::new(&borrowed);
+    assert_eq!(
+        search(&mut tree, &0, "Z").expect("searched"),
+        Search::Incomplete
+    );
+}
+
+#[test]
+fn the_search_stops_below_the_depth_limit_and_reports_incomplete() {
+    let depth = DEPTH_LIMIT + 2;
+    let mut shape: Vec<(Option<&'static str>, bool, Vec<usize>)> = Vec::new();
+    for level in 0..depth {
+        shape.push((None, false, vec![level + 1]));
+    }
+    shape.push((Some("Deep"), false, Vec::new()));
+    let borrowed: Vec<(Option<&'static str>, bool, &[usize])> = shape
+        .iter()
+        .map(|(name, selection, kids)| (*name, *selection, kids.as_slice()))
+        .collect();
+    let mut tree = FakeTree::new(&borrowed);
+    assert_eq!(
+        search(&mut tree, &0, "Deep").expect("searched"),
+        Search::Incomplete
+    );
+}
+
+#[test]
+fn an_unreadable_descendant_makes_a_miss_incomplete_not_absent() {
+    let mut tree = FakeTree::new(&[(None, true, &[1]), (Some("A"), false, &[])]);
+    tree.unreadable.push(1);
+    assert_eq!(
+        search(&mut tree, &0, "A").expect("searched"),
+        Search::Incomplete
+    );
+}
+
+#[test]
+fn an_unreadable_root_is_an_error() {
+    let mut tree = FakeTree::new(&[(Some("A"), false, &[])]);
+    tree.unreadable.push(0);
+    assert!(search(&mut tree, &0, "A").is_err());
+}
