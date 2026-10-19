@@ -6,7 +6,7 @@ use super::display_bounds::off_every_display;
 use super::frame_geometry::pointer_bounds;
 use super::offscreen::{OffscreenInput, offscreen};
 use super::placement::Placement;
-use super::state_bits::{ENABLED, SENSITIVE, SHOWING, StateBits, VISIBLE};
+use super::state_bits::{SHOWING, StateBits, VISIBLE};
 use super::toolkit_trust::reports_global_position;
 use super::{Extents, Field, ObservedRead};
 
@@ -36,12 +36,15 @@ fn is_hidden(read: &ObservedRead) -> bool {
 }
 
 /// `ENABLED` or `SENSITIVE` (GTK4 sets only the second) makes a control
-/// enabled; a successful state read with neither makes it disabled.
+/// enabled, and so does `READ_ONLY` (Chromium sets neither bit on an enabled
+/// read-only input); a successful state read with none of them makes it
+/// disabled.
 fn enabled(read: &ObservedRead) -> Option<bool> {
-    read.node.traits.states.present().map(|words| {
-        let bits = StateBits::new(words);
-        bits.has(ENABLED) || bits.has(SENSITIVE)
-    })
+    read.node
+        .traits
+        .states
+        .present()
+        .map(|words| !StateBits::new(words).is_disabled())
 }
 
 fn secure(evidence: &LocatorEvidence) -> bool {

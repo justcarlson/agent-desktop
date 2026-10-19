@@ -3,7 +3,7 @@ use agent_desktop_core::{ErrorCode, LocatorEvidence, LocatorField, Rect, state};
 use super::*;
 use crate::tree::node_evidence::evidence_for;
 use crate::tree::role_numbers::{PASSWORD_TEXT, PUSH_BUTTON, SLIDER};
-use crate::tree::state_bits::{ENABLED, SENSITIVE, SHOWING, VISIBLE};
+use crate::tree::state_bits::{ENABLED, READ_ONLY, SENSITIVE, SHOWING, VISIBLE};
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Extents, Field, ancestry};
 
@@ -110,6 +110,19 @@ fn enabled_comes_from_either_bit_and_disabled_needs_a_successful_read_with_neith
     assert_eq!(projected.enabled, Some(false));
     assert!(
         projected
+            .states
+            .iter()
+            .any(|token| token == state::DISABLED)
+    );
+}
+
+#[test]
+fn a_read_only_node_with_neither_enabled_bit_is_enabled() {
+    let read = with_states(read_of(PUSH_BUTTON, "b", &[]), &[READ_ONLY, VISIBLE]);
+    let projected = state_of(&read);
+    assert_eq!(projected.enabled, Some(true));
+    assert!(
+        !projected
             .states
             .iter()
             .any(|token| token == state::DISABLED)
