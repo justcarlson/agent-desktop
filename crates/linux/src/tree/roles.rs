@@ -4,7 +4,7 @@ use super::attributes::{AttributeRead, first_xml_role};
 use super::gtk_switch::is_gtk_switch;
 use super::role_numbers::{LANDMARK, LIST, PUSH_BUTTON, TERMINAL, TEXT};
 use super::role_table::base_role;
-use super::state_bits::{EDITABLE, HAS_POPUP, StateBits};
+use super::state_bits::{EDITABLE, FOCUSABLE, HAS_POPUP, READ_ONLY, StateBits};
 use super::{Field, NodeTraits};
 
 const SELECTION_INTERFACE: &str = "org.a11y.atspi.Selection";
@@ -26,6 +26,14 @@ fn has_state(states: &Field<Vec<u32>>, bit: u32) -> bool {
 
 fn text_role(states: &Field<Vec<u32>>) -> Role {
     if has_state(states, EDITABLE) {
+        Role::TextField
+    } else {
+        Role::Document
+    }
+}
+
+fn terminal_role(states: &Field<Vec<u32>>) -> Role {
+    if has_state(states, FOCUSABLE) && !has_state(states, READ_ONLY) {
         Role::TextField
     } else {
         Role::Document
@@ -67,7 +75,8 @@ pub(crate) fn role_of(
     attributes: &AttributeRead,
 ) -> Role {
     match number {
-        TEXT | TERMINAL => text_role(states),
+        TEXT => text_role(states),
+        TERMINAL => terminal_role(states),
         PUSH_BUTTON => push_button_role(states),
         LIST => list_role(interfaces),
         LANDMARK => landmark_role(attributes),

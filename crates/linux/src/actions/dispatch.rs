@@ -35,6 +35,13 @@ fn target_element<'a>(
     atspi_element(handle).map(Some)
 }
 
+fn reaches_physical_without_verb(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::Click | Action::RightClick | Action::SetFocus | Action::TypeText(_)
+    )
+}
+
 fn has_no_verb(error: &AdapterError) -> bool {
     error.code == ErrorCode::ActionNotSupported
         && error
@@ -124,12 +131,8 @@ pub(crate) fn execute_action(
             Err(handled_by_core(&request.action))
         }
     };
-    let verbless = matches!(
-        request.action,
-        Action::Click | Action::RightClick | Action::SetFocus
-    );
     match semantic {
-        Err(error) if verbless && has_no_verb(&error) => {
+        Err(error) if reaches_physical_without_verb(&request.action) && has_no_verb(&error) => {
             physical_delivery(bus, &request.action, Some(element), &request, lease)
         }
         other => other

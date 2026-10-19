@@ -5,6 +5,7 @@ pub(crate) const EDITABLE: u32 = 7;
 pub(crate) const ENABLED: u32 = 8;
 pub(crate) const EXPANDABLE: u32 = 9;
 pub(crate) const EXPANDED: u32 = 10;
+pub(crate) const FOCUSABLE: u32 = 11;
 pub(crate) const FOCUSED: u32 = 12;
 pub(crate) const ICONIFIED: u32 = 15;
 pub(crate) const MODAL: u32 = 16;

@@ -9,6 +9,7 @@ pub(crate) mod key_names;
 pub(crate) mod key_plan;
 pub(crate) mod keymap;
 pub(crate) mod keymap_edit;
+pub(crate) mod keysym_names;
 pub(crate) mod keysym_step;
 pub(crate) mod plan;
 pub(crate) mod pointer_plan;

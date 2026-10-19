@@ -1,4 +1,4 @@
-use agent_desktop_core::{ActionResult, AdapterError, DeliverySemantics, ErrorCode};
+use agent_desktop_core::{Action, ActionResult, AdapterError, DeliverySemantics, ErrorCode};
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::chain::{ChainDef, execute_chain};
@@ -244,7 +244,9 @@ pub(crate) fn clear(target: &Target<'_>) -> Result<ActionResult, AdapterError> {
 pub(crate) fn type_text(target: &Target<'_>, text: &str) -> Result<ActionResult, AdapterError> {
     let view = view_of(target)?;
     if !text_advertised(view.interfaces()) {
-        return Err(unsupported("type"));
+        return Err(super::click::no_semantic_verb(&Action::TypeText(
+            String::new(),
+        )));
     }
     ensure_writable(&view)?;
     ensure_toolkit_applies_writes(target)?;

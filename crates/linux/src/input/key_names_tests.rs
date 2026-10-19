@@ -80,3 +80,41 @@ fn every_modifier_has_its_own_keysym() {
     keysyms.dedup();
     assert_eq!(keysyms.len(), 4);
 }
+
+#[test]
+fn the_punctuation_names_of_macos_and_windows_and_the_xkb_names_resolve() {
+    let expected = [
+        ("greater", 0x3e),
+        ("less", 0x3c),
+        ("comma", 0x2c),
+        ("period", 0x2e),
+        ("slash", 0x2f),
+        ("semicolon", 0x3b),
+        ("quote", 0x27),
+        ("leftbracket", 0x5b),
+        ("rightbracket", 0x5d),
+        ("backslash", 0x5c),
+        ("minus", 0x2d),
+        ("equal", 0x3d),
+        ("grave", 0x60),
+        ("asciitilde", 0x7e),
+        ("underscore", 0x5f),
+        ("forwarddelete", 0xffff),
+        ("Page_Up", 0xff55),
+        ("Control_R", 0xffe4),
+    ];
+    for (name, keysym) in expected {
+        assert_eq!(keysym_for_key(name).unwrap(), keysym, "{name}");
+    }
+}
+
+#[test]
+fn every_printable_ascii_punctuation_character_has_a_name_that_resolves_to_it() {
+    let named: Vec<u32> = super::super::keysym_names::PUNCTUATION_NAMES
+        .iter()
+        .map(|(_, keysym)| *keysym)
+        .collect();
+    for character in "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~".chars() {
+        assert!(named.contains(&u32::from(character)), "{character}");
+    }
+}

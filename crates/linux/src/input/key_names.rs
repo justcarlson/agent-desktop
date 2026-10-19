@@ -11,7 +11,7 @@ const UNICODE_KEYSYM_BASE: u32 = 0x0100_0000;
 const FIRST_FUNCTION_KEYSYM: u32 = 0xffbe;
 const MAX_FUNCTION_KEY: u32 = 24;
 
-const ACCEPTED_FORMS: &str = "a single character, f1-f24, return, tab, escape, space, backspace, delete, home, end, pageup, pagedown, insert, left, up, right, down, or ctrl, shift, alt, super";
+const ACCEPTED_FORMS: &str = "a single character, f1-f24, return, tab, escape, space, backspace, delete, forwarddelete, home, end, pageup, pagedown, insert, left, up, right, down, ctrl, shift, alt, super, a punctuation name such as comma, greater or leftbracket, or an X keysym name such as Page_Up";
 
 const NAMED_KEYS: &[(&str, u32)] = &[
     ("return", KEYSYM_RETURN),
@@ -62,6 +62,9 @@ pub(crate) fn keysym_for_key(name: &str) -> Result<u32, AdapterError> {
     let lowered = name.to_ascii_lowercase();
     if let Some((_, keysym)) = NAMED_KEYS.iter().find(|(known, _)| *known == lowered) {
         return Ok(*keysym);
+    }
+    if let Some(keysym) = super::keysym_names::lookup(&lowered) {
+        return Ok(keysym);
     }
     if let Some(number) = function_key_number(&lowered) {
         return Ok(FIRST_FUNCTION_KEYSYM + number - 1);
