@@ -5,10 +5,9 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 use super::{Described, Hit, NodeSource};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, within};
 use crate::tree::node_read::call;
-use crate::tree::window_extents::read_window_extents_async;
+use crate::tree::window_extents::{WINDOW_COORDINATES, read_window_extents_async};
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, list_children};
 
-const WINDOW_COORDINATES: u32 = 1;
 const NULL_PATH: &str = "/org/a11y/atspi/null";
 
 /// The bus behind a descent. Every call races the deadline.

@@ -5,12 +5,11 @@ use zbus::Connection;
 use super::scroll_find_bar::{Orientation, Site};
 use crate::system::{ACCESSIBLE_INTERFACE, SharedBus, within};
 use crate::tree::role_numbers::SCROLL_BAR;
+use crate::tree::state_bits::{HORIZONTAL, StateBits, VERTICAL};
 use crate::tree::{AtspiElement, list_children};
 
 const MAX_NODES: usize = 2_000;
 const IN_FLIGHT: usize = 48;
-const HORIZONTAL: u32 = 13;
-const VERTICAL: u32 = 29;
 
 /// The nodes of one window met breadth first, each remembering what it hangs
 /// from, and which of them is the target.
@@ -23,7 +22,7 @@ fn same(element: &AtspiElement, bus: &str, path: &str) -> bool {
     element.bus_name() == bus && element.path() == path
 }
 
-async fn role_of(connection: &Connection, element: &AtspiElement) -> u32 {
+pub(crate) async fn role_of(connection: &Connection, element: &AtspiElement) -> u32 {
     let reply = connection
         .call_method(
             Some(element.bus_name()),
@@ -53,14 +52,10 @@ pub(crate) async fn orientation_of(connection: &Connection, bar: &AtspiElement) 
         .ok()
         .and_then(|message| message.body().deserialize::<Vec<u32>>().ok())
         .unwrap_or_default();
-    let has = |bit: u32| {
-        words
-            .get((bit / 32) as usize)
-            .is_some_and(|word| word & (1 << (bit % 32)) != 0)
-    };
-    if has(VERTICAL) {
+    let states = StateBits::new(&words);
+    if states.has(VERTICAL) {
         Orientation::Vertical
-    } else if has(HORIZONTAL) {
+    } else if states.has(HORIZONTAL) {
         Orientation::Horizontal
     } else {
         Orientation::Unknown

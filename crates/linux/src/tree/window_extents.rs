@@ -5,7 +5,7 @@ use super::node_read::call;
 use super::{AtspiElement, COMPONENT_INTERFACE, Extents};
 use crate::system::{SharedBus, within};
 
-const WINDOW_COORDINATES: u32 = 1;
+pub(crate) const WINDOW_COORDINATES: u32 = 1;
 
 /// One `GetExtents` in window coordinates. Any failed or malformed reply is
 /// `None`: the position is evidence only when it was read.

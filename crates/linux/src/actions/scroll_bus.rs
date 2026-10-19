@@ -3,12 +3,12 @@ use futures_util::future::join3;
 use zbus::Connection;
 use zbus::zvariant::{OwnedValue, Value};
 
-use super::scroll_crawl::{Crawl, orientation_of};
+use super::scroll_crawl::{Crawl, orientation_of, role_of};
 use super::scroll_find_bar::{Site, choose_bar};
 use super::scroll_into_view::{BarFound, Geometry, ScrollPort, View};
 use super::scroll_plan::{Axis, BarRange};
 use crate::system::toolkit_id::ToolkitId;
-use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, classify, within};
+use crate::system::{PROPERTIES_INTERFACE, SharedBus, classify, within};
 use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::SCROLL_BAR;
 use crate::tree::window_extents::read_window_extents;
@@ -133,19 +133,7 @@ fn positive(rect: Extents) -> bool {
 }
 
 async fn role_is_bar(connection: &Connection, element: &AtspiElement) -> bool {
-    let reply = connection
-        .call_method(
-            Some(element.bus_name()),
-            element.path(),
-            Some(ACCESSIBLE_INTERFACE),
-            "GetRole",
-            &(),
-        )
-        .await;
-    reply
-        .ok()
-        .and_then(|message| message.body().deserialize::<u32>().ok())
-        == Some(SCROLL_BAR)
+    role_of(connection, element).await == SCROLL_BAR
 }
 
 async fn number(connection: &Connection, bar: &AtspiElement, name: &str) -> Option<f64> {
