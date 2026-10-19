@@ -11,12 +11,8 @@ use super::x11::{FrameFacts, X11State};
 use super::{SharedBus, window_id};
 use crate::tree::Extents;
 
-#[path = "focus_cause.rs"]
-mod focus_cause;
-#[path = "focus_world.rs"]
-mod focus_world;
-
-use focus_cause::{Cause, refusal};
+use super::focus_cause::{Cause, refusal};
+use super::focus_world;
 
 const POLL: Duration = Duration::from_millis(25);
 
@@ -176,10 +172,13 @@ pub(super) fn run(
     wait_for_focus(world, client, active, deadline.capped(ACTIVATION_GRACE))
 }
 
-pub(crate) fn focus_window(win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
+pub(crate) fn focus_window(
+    bus: &SharedBus,
+    win: &WindowInfo,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
     let deadline = lease.deadline();
-    let bus = SharedBus::default();
-    let world = focus_world::LiveWorld::new(&bus, win, deadline)?;
+    let world = focus_world::LiveWorld::new(bus, win, deadline)?;
     run(&world, win, deadline)
 }
 

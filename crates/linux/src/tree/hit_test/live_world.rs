@@ -6,7 +6,7 @@ use super::{Facts, HitWorld, Windowing};
 use crate::system::x11::map::{ClientMatch, match_client};
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
-use crate::system::x11::{DisplayReader, FrameFacts, X11Source, X11State, start};
+use crate::system::x11::{DisplayReader, FrameFacts, X11State, start};
 use crate::system::{REGISTRY_ROOT_PATH, within};
 use crate::tree::hit_descent::{BusNodes, Described, Hit, NodeSource};
 use crate::tree::resolve_errors::{stopped_app, stopped_aware};
@@ -108,7 +108,7 @@ impl HitWorld for LiveWorld<'_> {
     }
 
     fn windowing(&mut self, frame: &FrameFacts) -> Option<Windowing> {
-        let state = start(|| X11Source::read(&DisplayReader)).finish(self.deadline)?;
+        let state = start(|| DisplayReader.clients()).finish(self.deadline)?;
         let X11State::Ready { clients, .. } = state else {
             return None;
         };

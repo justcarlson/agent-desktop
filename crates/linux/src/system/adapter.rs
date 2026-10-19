@@ -35,7 +35,7 @@ impl SystemOps for LinuxAdapter {
     }
 
     fn focus_window(&self, win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
-        crate::system::focus_window::focus_window(win, lease)
+        crate::system::focus_window::focus_window(self.bus(), win, lease)
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {

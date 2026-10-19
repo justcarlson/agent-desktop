@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
-use super::{FocusWorld, FrameView, Session};
+use super::focus_window::{FocusWorld, FrameView, Session};
 use crate::system::bus_deadline::within;
 use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::process_facts::{self, Lookup};

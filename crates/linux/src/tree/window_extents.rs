@@ -33,7 +33,6 @@ pub(crate) async fn read_window_extents_async(
 
 /// An element's rectangle in window coordinates, or `None` when it cannot be
 /// read inside the deadline.
-#[allow(dead_code, reason = "called by the live bounds read")]
 pub(crate) fn read_window_extents(
     bus: &SharedBus,
     element: &AtspiElement,

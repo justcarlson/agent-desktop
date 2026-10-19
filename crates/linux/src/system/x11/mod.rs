@@ -20,6 +20,7 @@ pub(crate) mod stacking_decode;
 pub(crate) mod stacking_read;
 pub(crate) mod stacking_snapshot;
 pub(crate) mod stacking_source;
+mod stacking_wire;
 mod state;
 pub(crate) mod window_flags;
 pub(crate) mod window_kind;

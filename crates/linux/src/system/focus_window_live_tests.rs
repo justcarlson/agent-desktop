@@ -136,7 +136,7 @@ fn is_focused(bus: &SharedBus, id: &str) -> bool {
 
 fn focus(window: &WindowInfo) -> Result<(), agent_desktop_core::AdapterError> {
     let lease = acquire(deadline(8_000)).expect("a lease");
-    focus_window(window, &lease)
+    focus_window(&SharedBus::default(), window, &lease)
 }
 
 fn click_center(window: &WindowInfo) {

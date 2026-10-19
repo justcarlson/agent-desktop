@@ -19,9 +19,6 @@ const MAX_TITLE_LONGS: u32 = 1_024;
 /// would outlive a server that has stopped answering.
 pub(crate) struct DisplayReader;
 
-#[path = "stacking_wire.rs"]
-mod stacking_wire;
-
 impl super::stacking_source::StackingSource for DisplayReader {
     fn read(&self, target_client: u32) -> StackingRead {
         route(session_server(), |display| {
@@ -29,7 +26,7 @@ impl super::stacking_source::StackingSource for DisplayReader {
                 return StackingRead::Unavailable;
             };
             bounded(deadline, StackingRead::Unavailable, move || {
-                stacking_wire::read_stacking(&display, target_client)
+                super::stacking_wire::read_stacking(&display, target_client)
             })
         })
     }

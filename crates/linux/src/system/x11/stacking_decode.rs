@@ -78,10 +78,6 @@ pub(crate) fn decode_kind(format: u8, bytes: &[u8], atoms: TypeAtoms) -> WindowK
 
 /// The rectangle the window manager draws around a client: the client
 /// rectangle grown by `_NET_FRAME_EXTENTS` (left, right, top, bottom).
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the occlusion verdict reads the frame rectangle")
-)]
 pub(crate) fn frame_rectangle(client: Extents, extents: Option<FrameExtents>) -> Extents {
     let Some(border) = extents else {
         return client;

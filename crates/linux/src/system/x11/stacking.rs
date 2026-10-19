@@ -43,10 +43,6 @@ pub(super) fn route(
 /// The X11 client of a listed window and its state, or `None` when the
 /// session is not X11, no manager answers, or the window maps to no single
 /// client.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the live placement read is its caller")
-)]
 pub(crate) fn frame_window_state(
     source: &dyn StackingSource,
     deadline: Deadline,
