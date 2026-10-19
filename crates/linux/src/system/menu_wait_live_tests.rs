@@ -203,7 +203,13 @@ fn menu_wait_live_terminal_hidden_bar_times_out_with_the_direction_message() {
     let error = wait_menu(&rig, &app, true, 3_000).expect_err("a hidden bar is no open menu");
     assert_eq!(error.code(), ErrorCode::Timeout.as_str(), "{error}");
     assert!(started.elapsed() < Duration::from_millis(6_000));
-    let message = error.to_string().to_lowercase();
+    let detail = match &error {
+        agent_desktop_core::AppError::Adapter(adapter) => {
+            adapter.platform_detail.clone().unwrap_or_default()
+        }
+        _ => String::new(),
+    };
+    let message = format!("{error} {detail}").to_lowercase();
     println!("menu_wait_live hidden bar message={message:?}");
     assert!(message.contains("menu"), "{message}");
     assert!(
