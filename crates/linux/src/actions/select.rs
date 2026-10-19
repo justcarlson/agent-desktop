@@ -1,10 +1,13 @@
 use std::time::Duration;
 
-use agent_desktop_core::{Action, ActionResult, AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{
+    Action, ActionResult, AdapterError, Deadline, DeliverySemantics, ErrorCode,
+};
 use serde_json::json;
 use zbus::zvariant::{OwnedValue, Structure, Value};
 
 use super::action_call::resolve_verb;
+use super::chain::{DeliveryOutcome, Observed};
 use super::click::{
     POLL_STEP, deliver, invoke_verb, names_of, poll_until, refusal, run_single_rung,
 };
@@ -204,9 +207,24 @@ fn select_through(
             }
             (false, None) => Err(no_route(display_value)),
         };
-        deliver(reply, observe)
+        deliver(reply, observe).and_then(unchanged_is_ignored)
     };
     run_single_rung(action.name(), target.deadline, run)
+}
+
+pub(super) fn unchanged_is_ignored(
+    outcome: DeliveryOutcome,
+) -> Result<DeliveryOutcome, AdapterError> {
+    match outcome {
+        DeliveryOutcome::Delivered(Observed::Unchanged) => Err(AdapterError::new(
+            ErrorCode::ActionFailed,
+            "The selection still holds the old choice, so the select was not applied",
+        )
+        .with_suggestion("Choose the item with a headed click and key route")
+        .with_details(json!({ "cause": "write_ignored" }))
+        .with_disposition(DeliverySemantics::not_delivered())),
+        other => Ok(other),
+    }
 }
 
 fn combo_selection(target: &Target<'_>) -> Result<bool, AdapterError> {

@@ -102,18 +102,15 @@ fn select_by_display_value_chooses_the_item_of_a_combo_box() {
             let combo = bench
                 .with_role(COMBO_BOX)
                 .unwrap_or_else(|| panic!("{toolkit:?}: no combo box"));
-            let result = bench
-                .act(&combo, Action::Select("beta".to_owned()))
-                .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+            let result = bench.act(&combo, Action::Select("beta".to_owned()));
             if matches!(toolkit, Toolkit::Qt) {
-                let proved = result
-                    .steps
-                    .iter()
-                    .any(|step| step.verified() == Some(true));
-                assert!(!proved, "{toolkit:?}: a closed Qt popup takes no selection");
+                let refused = result.expect_err("a Qt combo popup takes no semantic selection");
+                assert_eq!(refused.code, ErrorCode::ActionFailed, "{toolkit:?}");
+                assert_eq!(refused.details.expect("details")["cause"], "write_ignored");
                 assert_eq!(bench.name_of(&combo), "alpha", "{toolkit:?}");
                 return;
             }
+            let result = result.unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
             assert!(
                 status_becomes(bench, "combo:beta"),
                 "{toolkit:?}: {result:?}"

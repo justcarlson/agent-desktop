@@ -62,3 +62,21 @@ fn a_select_child_that_is_refused_is_not_delivered() {
         crate::actions::chain::DeliveryOutcome::NotDelivered
     );
 }
+
+#[test]
+fn a_select_whose_read_back_is_unchanged_is_a_write_ignored_failure() {
+    use super::super::chain::{DeliveryOutcome, Observed};
+    use super::unchanged_is_ignored;
+    use agent_desktop_core::ErrorCode;
+    let error = unchanged_is_ignored(DeliveryOutcome::Delivered(Observed::Unchanged))
+        .expect_err("unchanged is ignored");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.details.expect("details")["cause"], "write_ignored");
+    for kept in [
+        DeliveryOutcome::Delivered(Observed::Matched),
+        DeliveryOutcome::Delivered(Observed::Unread),
+        DeliveryOutcome::NotDelivered,
+    ] {
+        assert!(unchanged_is_ignored(kept).is_ok());
+    }
+}
