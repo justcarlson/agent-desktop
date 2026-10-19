@@ -125,6 +125,22 @@ fn a_popup_button_with_one_child_and_no_verb_is_a_menu_button() {
 }
 
 #[test]
+fn an_expanded_popup_button_keeps_its_pair_while_the_popover_is_its_second_child() {
+    let open = Spec {
+        bits: &[HAS_POPUP, EXPANDED],
+        children: 2,
+        ..plain(PUSH_BUTTON)
+    };
+    assert_eq!(tokens_of(&open), ["Expand", "Collapse"]);
+    let crowded = Spec {
+        bits: &[HAS_POPUP, EXPANDED],
+        children: 3,
+        ..plain(PUSH_BUTTON)
+    };
+    assert!(tokens_of(&crowded).is_empty());
+}
+
+#[test]
 fn a_button_that_is_not_a_menu_button_gets_no_disclosure_token() {
     let two_children = Spec {
         bits: &[HAS_POPUP],

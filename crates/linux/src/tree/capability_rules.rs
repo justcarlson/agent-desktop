@@ -114,10 +114,18 @@ fn value_tokens(facts: &Facts) -> Vec<&'static str> {
     }
 }
 
+fn popup_button_children(facts: &Facts) -> bool {
+    match facts.child_count {
+        Some(1) => true,
+        Some(2) => facts.bits.has(EXPANDED),
+        _ => false,
+    }
+}
+
 fn menu_button(facts: &Facts) -> bool {
     facts.role == PUSH_BUTTON
         && facts.bits.has(HAS_POPUP)
-        && facts.child_count == Some(1)
+        && popup_button_children(facts)
         && !facts.has_any_name(&DISCLOSURE_CLICKS)
 }
 
