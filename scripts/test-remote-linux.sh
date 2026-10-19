@@ -31,6 +31,7 @@ verdict=ok
 case "$sent" in *"touch {}"*) ;; *) verdict=bad ;; esac
 check "a cargo command inside a shell string touches the sources too" "$verdict"
 
+# shellcheck disable=SC2116
 sent=$(run echo hello)
 verdict=ok
 case "$sent" in *touch*) verdict=bad ;; esac
