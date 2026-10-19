@@ -32,7 +32,7 @@ pub(super) fn name_field(name: &str) -> LocatorField<String> {
 pub(super) fn identifiers(target: &TrayTarget) -> IdentifierEvidence {
     IdentifierEvidence::typed(
         [ElementIdentifier {
-            kind: IdentifierKind::Unknown,
+            kind: IdentifierKind::RuntimeId,
             value: identity::encode(target),
         }],
         Some(0),

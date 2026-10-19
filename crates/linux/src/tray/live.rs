@@ -2,6 +2,7 @@ use agent_desktop_core::{
     AdapterError, Deadline, ElementState, LiveElement, LiveIdentity, LocatorField, Rect, state,
 };
 
+use super::menu_layout::LayoutEntry;
 use super::node_evidence::{ITEM_ROLE, identifiers, item_states, name_field, presence};
 use super::world::{LiveWorld, ShellWorld, shared_bus};
 use super::{
@@ -47,24 +48,35 @@ fn read_item(target: &TrayTarget, deadline: Deadline) -> Result<Read, AdapterErr
     })
 }
 
+pub(super) fn entry_state(entry: &LayoutEntry, role: &str, offscreen: bool) -> ElementState {
+    let mut states = menu_nodes::states_of(entry);
+    if !offscreen {
+        states.retain(|token| token != state::OFFSCREEN);
+    }
+    ElementState {
+        role: role.to_owned(),
+        states,
+        value: None,
+        enabled: Some(entry.enabled),
+        hidden: Some(false),
+        offscreen: offscreen.then_some(true),
+    }
+}
+
 fn read_entry(target: &TrayTarget, menu: &str, deadline: Deadline) -> Result<Read, AdapterError> {
     let connection = call::session(deadline)?;
     call::require_owner(&connection, &target.owner, deadline)?;
     let layout = menu_layout::read(&connection, &target.owner, menu, deadline)?;
     let entry = menu_resolve::find(&layout, target)?;
     let role = menu_nodes::role_of(entry);
+    let props = item_props::read(&connection, &target.owner, &target.object_path, deadline)?;
+    let observed = LiveWorld::new(shared_bus()).panel_extents(&props.title, deadline);
+    let (bounds, offscreen) = presence(observed);
     Ok(Read {
         name: entry.label.clone(),
-        state: ElementState {
-            role: role.to_owned(),
-            states: menu_nodes::states_of(entry),
-            value: None,
-            enabled: Some(entry.enabled),
-            hidden: Some(false),
-            offscreen: Some(true),
-        },
+        state: entry_state(entry, role, offscreen),
         actions: capability::entry_actions(entry),
-        bounds: None,
+        bounds,
     })
 }
 
@@ -86,9 +98,11 @@ pub(super) fn state(target: &TrayTarget, deadline: Deadline) -> Result<ElementSt
     read(target, deadline).map(|read| read.state)
 }
 
-/// A bound item reports the extents of the shell panel node that shows it. An
-/// item with no panel node and a menu entry have no on-screen presence, so
-/// they report no rectangle and are marked offscreen.
+/// A bound item reports the extents of the shell panel node that shows it, and
+/// so does each of its menu entries: an entry is delivered through the item's
+/// menu on the bus and has no geometry of its own. An item with no panel node,
+/// and the entries under it, have no on-screen presence, so they report no
+/// rectangle and are marked offscreen.
 pub(super) fn element(
     target: &TrayTarget,
     deadline: Deadline,
@@ -113,3 +127,7 @@ pub(super) fn bounds(
 ) -> Result<Option<Rect>, AdapterError> {
     read(target, deadline).map(|read| read.bounds)
 }
+
+#[cfg(test)]
+#[path = "live_state_tests.rs"]
+mod tests;

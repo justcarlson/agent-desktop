@@ -5,10 +5,12 @@ use agent_desktop_core::{
     Rect,
 };
 
-use crate::system::shell::container::{Landmark, locate};
+use crate::system::shell::container::{Landmark, MENU, locate};
 use crate::system::shell::identity::find_root;
 use crate::system::{SharedBus, within};
 use crate::tree::{AtspiElement, list_children, read_node};
+
+const PANEL_DEPTH: usize = 4;
 
 /// What the tray code needs from the shell core, so its tests run on fakes.
 pub(crate) trait ShellWorld {
@@ -102,16 +104,26 @@ impl LiveWorld<'_> {
         let panel = self.locate(Landmark::TrayPanel, deadline)?;
         let connection = self.bus.get(deadline)?;
         let (children, names, extents) = within(deadline, async {
-            let addresses = list_children(connection.inner(), &panel).await?;
             let mut children = Vec::new();
             let mut names = Vec::new();
             let mut extents = Vec::new();
-            for (bus_name, path) in addresses {
-                let child = AtspiElement::new(bus_name, path, panel.pid());
-                let node = read_node(connection.inner(), &child).await?;
-                names.push(node.properties.name.present().cloned().unwrap_or_default());
-                extents.push(node.extents.present().copied().map(Rect::from));
-                children.push(child);
+            let mut pending: Vec<(AtspiElement, usize)> = vec![(panel.clone(), 0)];
+            while let Some((parent, depth)) = pending.pop() {
+                if depth >= PANEL_DEPTH {
+                    continue;
+                }
+                let addresses = list_children(connection.inner(), &parent).await?;
+                for (bus_name, path) in addresses.into_iter().rev() {
+                    let child = AtspiElement::new(bus_name, path, panel.pid());
+                    let node = read_node(connection.inner(), &child).await?;
+                    if node.traits.role.present() == Some(&MENU) {
+                        names.push(node.properties.name.present().cloned().unwrap_or_default());
+                        extents.push(node.extents.present().copied().map(Rect::from));
+                        children.push(child);
+                    } else {
+                        pending.push((child, depth + 1));
+                    }
+                }
             }
             Ok((children, names, extents))
         })?;

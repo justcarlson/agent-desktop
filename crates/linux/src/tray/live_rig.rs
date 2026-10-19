@@ -106,7 +106,7 @@ impl Rig {
         let mut entry = ref_entry(role);
         entry.identity.name = Some(name.to_owned());
         entry.identity.native_id = Some(agent_desktop_core::ElementIdentifier {
-            kind: agent_desktop_core::IdentifierKind::Unknown,
+            kind: agent_desktop_core::IdentifierKind::RuntimeId,
             value: identity::encode(target),
         });
         entry

@@ -11,7 +11,7 @@ pub(super) fn target_of_entry(entry: &RefEntry) -> Result<TrayTarget, AdapterErr
         .identity
         .native_id
         .as_ref()
-        .filter(|id| id.kind == IdentifierKind::Unknown)
+        .filter(|id| id.kind == IdentifierKind::RuntimeId)
         .and_then(|id| identity::decode(&id.value))
         .ok_or_else(malformed)
 }
