@@ -35,25 +35,29 @@ struct Flat {
 
 impl Flat {
     fn new(display: &str) -> Self {
+        Self::at(display, ORIGIN, SIZE, FILL, true)
+    }
+
+    fn at(display: &str, origin: (i16, i16), size: (u16, u16), fill: [u8; 3], bare: bool) -> Self {
         let (connection, screen) = RustConnection::connect(Some(display)).expect("connect");
         let root = connection.setup().roots[screen].root;
         let window = connection.generate_id().expect("an id");
-        let pixel = u32::from_be_bytes([0, FILL[0], FILL[1], FILL[2]]);
+        let pixel = u32::from_be_bytes([0, fill[0], fill[1], fill[2]]);
         connection
             .create_window(
                 x11rb::COPY_DEPTH_FROM_PARENT,
                 window,
                 root,
-                ORIGIN.0,
-                ORIGIN.1,
-                SIZE.0,
-                SIZE.1,
+                origin.0,
+                origin.1,
+                size.0,
+                size.1,
                 0,
                 WindowClass::INPUT_OUTPUT,
                 0,
                 &CreateWindowAux::new()
                     .background_pixel(pixel)
-                    .override_redirect(1),
+                    .override_redirect(u32::from(bare)),
             )
             .expect("create");
         Self { connection, window }
@@ -228,4 +232,121 @@ fn grab_live_the_root_grab_and_the_compositing_read_answer_on_the_private_screen
         .expect("the root grabs");
     assert_eq!((raw.width, raw.height), (1280, 800));
     assert_eq!(raw.data.len(), raw.stride * 800);
+}
+
+#[test]
+#[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
+fn grab_live_the_root_is_drawable_zero_in_root_coordinates() {
+    let display = private_display();
+    let flat = Flat::new(&display);
+    flat.map();
+    grab_when_painted(
+        flat.window,
+        GrabRect {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        },
+    );
+    let inside = GrabRect {
+        x: ORIGIN.0 + 20,
+        y: ORIGIN.1 + 20,
+        width: 30,
+        height: 30,
+    };
+    let raw = DisplayGrabber
+        .grab(0, inside, deadline())
+        .expect("the root grabs");
+    let rgb = to_rgb(&raw.format, &raw.data, raw.width, raw.height, raw.stride).expect("converts");
+    assert!(rgb.chunks_exact(3).all(|pixel| pixel == FILL));
+    let outside = GrabRect {
+        x: 0,
+        y: 0,
+        width: 30,
+        height: 30,
+    };
+    let raw = DisplayGrabber
+        .grab(0, outside, deadline())
+        .expect("the root grabs");
+    let rgb = to_rgb(&raw.format, &raw.data, raw.width, raw.height, raw.stride).expect("converts");
+    assert!(rgb.chunks_exact(3).all(|pixel| pixel != FILL));
+}
+
+#[test]
+#[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
+fn grab_live_a_framed_window_has_a_parent_and_every_rect_is_in_root_coordinates() {
+    let display = private_display();
+    let framed = Flat::at(&display, (300, 200), (150, 100), FILL, false);
+    framed.map();
+    let started = Instant::now();
+    let info = loop {
+        let info = DisplayGrabber
+            .describe(framed.window, deadline())
+            .expect("describes");
+        if (info.parent.is_some() && info.map_state == MapState::Viewable)
+            || started.elapsed() > Duration::from_secs(10)
+        {
+            break info;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    println!("grab_live framed={info:?}");
+    let frame = info
+        .parent
+        .expect("the manager reparents the window into a frame");
+    let outer = DisplayGrabber
+        .describe(frame, deadline())
+        .expect("the frame");
+    assert_eq!(outer.parent, None);
+    assert!(outer.rect.x <= info.rect.x && outer.rect.y <= info.rect.y);
+    assert!(outer.rect.width >= info.rect.width && outer.rect.height >= info.rect.height);
+    assert!(
+        info.rect.x > 100 && info.rect.y > 100,
+        "a parent-relative origin would be a few pixels: {info:?}"
+    );
+    assert_eq!((info.rect.width, info.rect.height), (150, 100));
+    assert!(
+        outer.rect.y < info.rect.y,
+        "a title bar sits above the client"
+    );
+}
+
+#[test]
+#[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
+fn grab_live_a_covered_window_is_blank_directly_and_painted_through_the_redirect() {
+    let display = private_display();
+    let covered = Flat::at(&display, (100, 90), (100, 80), FILL, true);
+    covered.map();
+    let rect = GrabRect {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 80,
+    };
+    grab_when_painted(covered.window, rect);
+    let cover = Flat::at(&display, (60, 60), (300, 200), [0xcc, 0x22, 0x22], true);
+    cover.map();
+    std::thread::sleep(Duration::from_millis(300));
+    let direct = DisplayGrabber
+        .grab(covered.window, rect, deadline())
+        .expect("a direct grab");
+    let direct = to_rgb(&direct.format, &direct.data, 100, 80, direct.stride).expect("converts");
+    assert!(
+        direct.chunks_exact(3).all(|pixel| pixel != FILL),
+        "a covered window reads its cover or nothing"
+    );
+    let through = DisplayGrabber
+        .grab_redirected(covered.window, rect, deadline())
+        .expect("a redirected grab");
+    let through =
+        to_rgb(&through.format, &through.data, 100, 80, through.stride).expect("converts");
+    assert!(through.chunks_exact(3).all(|pixel| pixel == FILL));
+    covered.unmap();
+    assert_eq!(
+        DisplayGrabber
+            .grab_redirected(covered.window, rect, deadline())
+            .err(),
+        Some(GrabError::Unviewable)
+    );
 }

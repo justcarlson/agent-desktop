@@ -31,6 +31,14 @@ pub(crate) trait Grabber: Send + Sync {
     fn describe(&self, window: u32, deadline: Deadline) -> Result<DrawableInfo, GrabError>;
     fn grab(&self, drawable: u32, rect: GrabRect, deadline: Deadline) -> Result<Raw, GrabError>;
     fn compositing(&self, deadline: Deadline) -> Result<bool, GrabError>;
+    fn grab_redirected(
+        &self,
+        _window: u32,
+        _rect: GrabRect,
+        _deadline: Deadline,
+    ) -> Result<Raw, GrabError> {
+        Err(GrabError::Fault(MonitorFault::Unreadable))
+    }
 }
 
 /// The real grabber: it connects on every call and keeps nothing, because a
@@ -74,11 +82,12 @@ fn window_of(connection: &RustConnection, screen: usize, id: u32) -> Result<Wind
     }
 }
 
-fn read_strips(
+pub(super) fn read_strips(
     connection: &RustConnection,
     drawable: Window,
     rect: GrabRect,
     deadline: Deadline,
+    visual: Option<u32>,
 ) -> Result<Raw, GrabError> {
     let unreadable = GrabError::Fault(MonitorFault::Unreadable);
     if u64::from(rect.width) * u64::from(rect.height) > MAX_PIXELS {
@@ -113,8 +122,12 @@ fn read_strips(
         stride = reply.data.len() / rows;
         if format.is_none() {
             format = Some(
-                format_of(connection.setup(), reply.depth, reply.visual)
-                    .ok_or(unreadable.clone())?,
+                format_of(
+                    connection.setup(),
+                    reply.depth,
+                    visual.unwrap_or(reply.visual),
+                )
+                .ok_or(unreadable.clone())?,
             );
         }
         data.extend_from_slice(&reply.data);
@@ -139,12 +152,23 @@ impl Grabber for DisplayGrabber {
     fn grab(&self, drawable: u32, rect: GrabRect, deadline: Deadline) -> Result<Raw, GrabError> {
         on_display(deadline, move |connection, screen| {
             let target = window_of(connection, screen, drawable)?;
-            read_strips(connection, target, rect, deadline)
+            read_strips(connection, target, rect, deadline, None)
         })
     }
 
     fn compositing(&self, deadline: Deadline) -> Result<bool, GrabError> {
         on_display(deadline, super::compositing::read)
+    }
+
+    fn grab_redirected(
+        &self,
+        window: u32,
+        rect: GrabRect,
+        deadline: Deadline,
+    ) -> Result<Raw, GrabError> {
+        on_display(deadline, move |connection, _| {
+            super::composite::grab_redirected(connection, window, rect, deadline)
+        })
     }
 }
 
