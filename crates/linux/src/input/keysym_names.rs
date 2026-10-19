@@ -64,6 +64,7 @@ pub(super) const KEY_NAMES: &[(&str, u32)] = &[
     ("alt_r", 0xffea),
     ("super_l", 0xffeb),
     ("super_r", 0xffec),
+    ("win", 0xffeb),
 ];
 
 pub(super) fn lookup(lowered: &str) -> Option<u32> {

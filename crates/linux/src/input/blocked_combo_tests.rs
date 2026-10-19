@@ -70,3 +70,21 @@ fn ctrl_alt_forward_delete_is_blocked_by_its_own_name() {
     assert!(blocked("forwarddelete", &[Modifier::Ctrl, Modifier::Alt]));
     assert!(!blocked("forwarddelete", &[Modifier::Ctrl]));
 }
+
+#[test]
+fn the_shell_surfaces_and_the_terminal_launch_the_windows_list_counterparts_are_blocked() {
+    assert!(blocked("d", &[Modifier::Meta]));
+    assert!(blocked("tab", &[Modifier::Meta]));
+    assert!(blocked("f2", &[Modifier::Alt]));
+    assert!(blocked("t", &[Modifier::Ctrl, Modifier::Alt]));
+    assert!(blocked("win", &[]));
+    assert!(blocked("l", &[Modifier::Meta, Modifier::Shift]));
+}
+
+#[test]
+fn ordinary_application_shortcuts_stay_unblocked() {
+    assert!(!blocked("q", &[Modifier::Ctrl]));
+    assert!(!blocked("t", &[Modifier::Ctrl]));
+    assert!(!blocked("d", &[Modifier::Ctrl]));
+    assert!(!blocked("f2", &[]));
+}
