@@ -134,6 +134,9 @@ impl ObservationOps for LinuxAdapter {
         point: Point,
         deadline: Deadline,
     ) -> Result<HitTestResult, AdapterError> {
+        if let Some(target) = crate::tray::target_of(handle) {
+            return crate::tray::hit_test(target, point, deadline);
+        }
         crate::tree::hit_test(self.bus(), handle, point, deadline)
     }
 
