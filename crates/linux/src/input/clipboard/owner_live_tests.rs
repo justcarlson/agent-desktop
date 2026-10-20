@@ -22,7 +22,9 @@ fn kill_by_pid(pid: u32) {
 }
 
 fn try_set(content: &ClipboardContent) -> Result<(), AdapterError> {
-    LinuxAdapter::new().set_clipboard_content(content, &lease())
+    LinuxAdapter::new()
+        .set_clipboard_content(content, &lease())
+        .map(|_| ())
 }
 
 #[test]

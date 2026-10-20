@@ -304,12 +304,14 @@ impl InputOps for LinuxAdapter {
         &self,
         content: &ClipboardContent,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::input::clipboard::set_clear::set_clipboard(content, lease)
+    ) -> Result<OperationReport, AdapterError> {
+        crate::input::clipboard::set_clear::set_clipboard(content, lease)?;
+        Ok(OperationReport::clipboard_written("clipboard-set", false))
     }
 
-    fn clear_clipboard(&self, lease: &InteractionLease) -> Result<(), AdapterError> {
-        crate::input::clipboard::set_clear::clear_clipboard(lease)
+    fn clear_clipboard(&self, lease: &InteractionLease) -> Result<OperationReport, AdapterError> {
+        crate::input::clipboard::set_clear::clear_clipboard(lease)?;
+        Ok(OperationReport::clipboard_written("clipboard-clear", false))
     }
 }
 

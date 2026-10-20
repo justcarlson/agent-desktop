@@ -80,6 +80,7 @@ mod window_op_shadow;
 mod window_op_verdict;
 mod window_ops;
 pub(crate) mod window_position;
+mod window_report;
 mod window_resolve;
 pub(crate) mod x11;
 

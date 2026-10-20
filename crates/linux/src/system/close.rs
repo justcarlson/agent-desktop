@@ -1,8 +1,11 @@
 use std::time::Instant;
 
-use agent_desktop_core::{AdapterError, AppInfo, InteractionLease};
+use agent_desktop_core::{
+    AdapterError, AppInfo, InteractionLease, OperationReport, OperationTarget,
+};
 
 use super::SharedBus;
+use super::liveness::{Liveness, liveness};
 use super::process_facts::Lookup;
 use world::{Live, World};
 
@@ -61,7 +64,7 @@ pub(crate) fn close_app(
     app: &AppInfo,
     force: bool,
     lease: &InteractionLease,
-) -> Result<(), AdapterError> {
+) -> Result<OperationReport, AdapterError> {
     let pid = app.pid.get();
     let request = Request {
         name: &app.name,
@@ -75,7 +78,14 @@ pub(crate) fn close_app(
         deadline: lease.deadline(),
         started: Instant::now(),
     };
-    run(&live, &request)
+    let was_gone = liveness(pid, live.instance) == Liveness::Gone;
+    run(&live, &request)?;
+    let target = OperationTarget::for_app(app)?;
+    Ok(if was_gone {
+        OperationReport::app_already_gone(target)
+    } else {
+        OperationReport::app_exited(target)
+    })
 }
 
 #[cfg(test)]

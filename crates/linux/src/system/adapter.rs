@@ -4,9 +4,9 @@ use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
-    KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, PermissionReport,
-    ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline, SignalFilter,
-    SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, OperationReport,
+    OperationTarget, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
+    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -14,6 +14,7 @@ use crate::notifications;
 use crate::system::{
     action_clock, close, interaction_lease, key_dispatch, launch, menu_surface, menu_wait,
     permissions, process_state, protected, session, shell, signal_capture, window_op,
+    window_report,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -53,7 +54,7 @@ impl SystemOps for LinuxAdapter {
         app: &AppInfo,
         force: bool,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         close::close_app(self.bus(), app, force, lease)
     }
 
@@ -83,8 +84,14 @@ impl SystemOps for LinuxAdapter {
         win: &WindowInfo,
         op: WindowOp,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        window_op::window_op(self.bus(), win, op, lease)
+    ) -> Result<OperationReport, AdapterError> {
+        let target = OperationTarget::for_window(win)?;
+        window_op::window_op(self.bus(), win, op.clone(), lease)?;
+        Ok(OperationReport::window_operation(
+            target,
+            &op,
+            window_report::window_readback(&op),
+        ))
     }
 
     fn press_key_for_app(
