@@ -88,11 +88,14 @@ carries its `path`, `width` and `height`. An empty clipboard answers `found: fal
   `agent-desktop-linux-clipboard-owner`, which serves the content until another
   client takes the selection or `clipboard-clear` ends it. The CLI exits first;
   the content stays available while the owner lives.
-- **The helper must sit beside the `agent-desktop` binary** in the same directory,
-  owned by the user and not writable by others or by a shared group. npm installs and
-  release archives ship it there. A copy of the binary moved alone cannot set the
-  clipboard: `clipboard-set` answers `PLATFORM_NOT_SUPPORTED` naming the missing
-  helper, `not_delivered`, `safe`.
+- **The helper must sit beside the `agent-desktop` binary** in the same directory
+  and be owned by the user. It must not be world-writable or writable by a shared
+  group. A group-writable helper is accepted when its group is the user's own
+  private group: the shipped helper is mode 775 in that group and works. A 777
+  copy is refused with `PLATFORM_NOT_SUPPORTED`, "writable by others". npm
+  installs and release archives ship it in place. A copy of the binary moved alone
+  cannot set the clipboard: `clipboard-set` answers `PLATFORM_NOT_SUPPORTED`
+  naming the missing helper. Both refusals are `not_delivered`, `safe`.
 - Without a clipboard manager the content ends with the owner. GNOME's shell keeps
   only text and PNG after the owner dies, caps text at 4 MiB, and does not take
   over a file copy or a custom target: do not rely on content outliving the owner.
