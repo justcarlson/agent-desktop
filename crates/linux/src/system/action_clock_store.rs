@@ -1,7 +1,7 @@
 use std::fs;
-use std::io::Write;
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+
+use super::runtime_store::{runtime_subdir, write_private_atomically};
 
 const DIR_NAME: &str = "agent-desktop-actions";
 const ANY: &str = "any";
@@ -12,8 +12,7 @@ fn runtime_dir() -> Option<PathBuf> {
     if cfg!(test) {
         return None;
     }
-    let base = std::env::var_os("XDG_RUNTIME_DIR").filter(|value| !value.is_empty())?;
-    Some(Path::new(&base).join(DIR_NAME))
+    runtime_subdir(DIR_NAME)
 }
 
 /// Milliseconds since the machine booted, suspend included, so two processes
@@ -46,23 +45,6 @@ fn name_of(target: Option<u32>) -> String {
     target.map_or_else(|| ANY.to_owned(), |pid| pid.to_string())
 }
 
-fn write_atomic(dir: &Path, name: &str, body: &str) -> std::io::Result<()> {
-    fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o700)
-        .create(dir)?;
-    let scratch = dir.join(format!(".{name}.{}", std::process::id()));
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&scratch)?;
-    file.write_all(body.as_bytes())?;
-    drop(file);
-    fs::rename(&scratch, dir.join(name))
-}
-
 fn is_stale(
     path: &Path,
     name: &str,
@@ -89,7 +71,7 @@ fn is_old_scratch(path: &Path) -> bool {
         .is_some_and(|age| age.as_millis() > u128::from(KEEP_MS))
 }
 
-/// Removes records that are old or whose process is gone. A scratch file is
+/// Removes records that are old or whose process is gone. A pending file is
 /// another invocation's record in the middle of being written, so it is left
 /// alone unless it has sat there far longer than a write takes.
 fn prune(dir: &Path, now_ms: u64, token_now: &dyn Fn(u32) -> Option<String>) {
@@ -99,7 +81,7 @@ fn prune(dir: &Path, now_ms: u64, token_now: &dyn Fn(u32) -> Option<String>) {
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let path = entry.path();
-        let remove = if name.starts_with('.') {
+        let remove = if name.ends_with(".tmp") {
             is_old_scratch(&path)
         } else {
             is_stale(&path, &name, now_ms, token_now) && is_stale(&path, &name, now_ms, token_now)
@@ -120,7 +102,11 @@ pub(super) fn record_in(
         .and_then(token_now)
         .unwrap_or_else(|| NO_TOKEN.to_owned());
     prune(dir, now_ms, token_now);
-    let _ = write_atomic(dir, &name_of(target), &encode(now_ms, &token));
+    let _ = write_private_atomically(
+        dir,
+        &dir.join(name_of(target)),
+        encode(now_ms, &token).as_bytes(),
+    );
 }
 
 pub(super) fn recent_in(
