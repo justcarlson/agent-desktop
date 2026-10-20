@@ -167,3 +167,30 @@ fn shared_perm_denied_before_delivery_pins_the_windows_envelope() {
     );
     assert_eq!(error_wire(&error)["disposition"]["retry"], "safe");
 }
+
+#[test]
+fn adapter_window_op_without_a_process_instance_keeps_the_stale_ref_envelope() {
+    use agent_desktop_core::{InteractionLease, SystemOps};
+
+    let win = WindowInfo {
+        id: "w-1".into(),
+        title: String::new(),
+        app: "fixture".into(),
+        pid: ProcessId::from(1u32),
+        process_instance: None,
+        bounds: None,
+        state: WindowState::default(),
+    };
+    let deadline = Deadline::after(1_000).expect("deadline");
+    let lease = InteractionLease::guarded(deadline, ()).expect("lease");
+
+    let error = crate::adapter::WindowsAdapter::new()
+        .window_op(&win, WindowOp::Minimize, &lease)
+        .expect_err("stale");
+
+    assert_class_a_envelope(
+        &error,
+        ErrorCode::StaleRef,
+        DeliverySemantics::not_delivered(),
+    );
+}

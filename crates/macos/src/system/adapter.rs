@@ -9,6 +9,10 @@ use agent_desktop_core::{
 use crate::adapter::MacOSAdapter;
 use crate::system::close_outcome::CloseOutcome;
 
+fn reported_after_dispatch(error: AdapterError) -> AdapterError {
+    error.with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified())
+}
+
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(
         &self,
@@ -114,8 +118,8 @@ impl SystemOps for MacOSAdapter {
         force: bool,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let target = OperationTarget::for_app(app)?;
         let outcome = crate::system::app_ops::close_app_impl(app, force, lease.deadline())?;
+        let target = OperationTarget::for_app(app).map_err(reported_after_dispatch)?;
         Ok(match outcome {
             CloseOutcome::Exited => OperationReport::app_exited(target),
             CloseOutcome::AlreadyGone => OperationReport::app_already_gone(target),
@@ -206,10 +210,12 @@ impl SystemOps for MacOSAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let target = OperationTarget::for_window(win)?;
-        let report = crate::system::window_report::window_report(target, &op);
+        let operation = op.clone();
         crate::system::window_ops::execute(win, op, lease.deadline())?;
-        Ok(report)
+        let target = OperationTarget::for_window(win).map_err(reported_after_dispatch)?;
+        Ok(crate::system::window_report::window_report(
+            target, &operation,
+        ))
     }
 
     fn list_notifications(

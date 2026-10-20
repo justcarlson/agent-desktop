@@ -142,14 +142,17 @@ pub fn execute(
         &lease,
     );
     let result = adapter.drag(params, &lease);
-    if result.is_ok() && drag_tracking {
+    let delivered = result
+        .as_ref()
+        .is_ok_and(|report| crate::cursor_overlay::confirms_delivery(report.disposition()));
+    if delivered && drag_tracking {
         crate::cursor_overlay::submit_drag_effect(
             adapter,
             context,
             from.point.clone(),
             to.point.clone(),
         );
-    } else if result.is_ok() {
+    } else if delivered {
         crate::cursor_overlay::submit(
             adapter,
             context,
