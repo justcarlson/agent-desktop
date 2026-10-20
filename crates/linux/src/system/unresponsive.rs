@@ -79,7 +79,10 @@ pub(crate) fn scoped_windows_of(
     deadline: Deadline,
 ) -> Result<Vec<ListedWindow>, AdapterError> {
     let windows = windows_of(bus, registry, &select, deadline)?;
-    settle_scoped(windows, stopped_target(registry, &select, proc_stat::is_stopped))
+    settle_scoped(
+        windows,
+        stopped_target(registry, &select, proc_stat::is_stopped),
+    )
 }
 
 /// A named target that no registry application and no running process

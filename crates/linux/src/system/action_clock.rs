@@ -24,6 +24,12 @@ pub(crate) fn mark_process(pid: u32) {
     store::record(Some(pid));
 }
 
+/// Records the action against the process it reached when the target carried
+/// one, and against the session when it carried none.
+pub(crate) fn mark_target(target: Option<u32>) {
+    target.map_or_else(mark, mark_process);
+}
+
 /// Whether an action reached this process just now, in this or in another
 /// invocation of the tool.
 pub(crate) fn recent_for(pid: u32) -> bool {

@@ -1,7 +1,7 @@
 use agent_desktop_core::{WindowInfo, WindowState};
 
-use super::focused_index;
 use crate::system::listed_window::ListedWindow;
+use crate::system::signal_inventory::pass_over;
 use crate::system::x11::{FrameExtents, FrameFacts, X11Client, X11State};
 
 fn window(title: &str, active: bool, modal: bool) -> ListedWindow {
@@ -26,6 +26,7 @@ fn window(title: &str, active: bool, modal: bool) -> ListedWindow {
             global_position: true,
         },
         sheet: false,
+        unshown: false,
     }
 }
 
@@ -48,44 +49,52 @@ fn state(active: u32) -> X11State {
     }
 }
 
+fn focused(
+    listed: Vec<ListedWindow>,
+    state: &X11State,
+    input_focus_in: impl Fn(u32) -> bool,
+) -> Option<usize> {
+    pass_over(listed, Vec::new(), Vec::new(), state, input_focus_in).focused
+}
+
 #[test]
 fn a_frame_that_reports_active_and_matches_the_display_is_focused() {
-    let listed = [window("main", true, false), window("dialog", false, false)];
-    assert_eq!(focused_index(&listed, &state(1), |_| false), Some(0));
+    let listed = vec![window("main", true, false), window("dialog", false, false)];
+    assert_eq!(focused(listed, &state(1), |_| false), Some(0));
 }
 
 #[test]
 fn a_modal_frame_that_never_reports_active_is_focused_when_the_display_and_input_focus_name_it() {
-    let listed = [window("main", false, false), window("dialog", false, true)];
-    assert_eq!(focused_index(&listed, &state(2), |_| true), Some(1));
+    let listed = vec![window("main", false, false), window("dialog", false, true)];
+    assert_eq!(focused(listed, &state(2), |_| true), Some(1));
 }
 
 #[test]
 fn a_dialog_frame_that_never_reports_active_is_focused_when_the_display_and_input_focus_name_it() {
     let mut dialog = window("dialog", false, false);
     dialog.dialog = true;
-    let listed = [window("main", false, false), dialog];
-    assert_eq!(focused_index(&listed, &state(2), |_| true), Some(1));
+    let listed = vec![window("main", false, false), dialog];
+    assert_eq!(focused(listed, &state(2), |_| true), Some(1));
 }
 
 #[test]
 fn a_dialog_frame_the_display_does_not_name_is_not_focused() {
     let mut dialog = window("dialog", false, false);
     dialog.dialog = true;
-    let listed = [window("main", false, false), dialog];
-    assert_eq!(focused_index(&listed, &state(1), |_| false), None);
+    let listed = vec![window("main", false, false), dialog];
+    assert_eq!(focused(listed, &state(1), |_| false), None);
 }
 
 #[test]
 fn a_modal_frame_the_display_does_not_name_is_not_focused() {
-    let listed = [window("main", false, false), window("dialog", false, true)];
-    assert_eq!(focused_index(&listed, &state(1), |_| false), None);
+    let listed = vec![window("main", false, false), window("dialog", false, true)];
+    assert_eq!(focused(listed, &state(1), |_| false), None);
 }
 
 #[test]
 fn a_frame_that_is_not_modal_and_not_active_is_never_focused_by_the_display_alone() {
-    let listed = [window("main", false, false), window("dialog", false, false)];
-    assert_eq!(focused_index(&listed, &state(2), |_| true), None);
+    let listed = vec![window("main", false, false), window("dialog", false, false)];
+    assert_eq!(focused(listed, &state(2), |_| true), None);
 }
 
 #[test]
@@ -93,9 +102,9 @@ fn an_inactive_dialog_needs_positive_input_focus_evidence() {
     for modal in [false, true] {
         let mut dialog = window("dialog", false, modal);
         dialog.dialog = true;
-        let listed = [window("main", false, false), dialog];
-        assert_eq!(focused_index(&listed, &state(2), |_| false), None);
-        assert_eq!(focused_index(&listed, &state(2), |id| id == 2), Some(1));
-        assert_eq!(focused_index(&listed, &state(2), |id| id == 1), None);
+        let listed = vec![window("main", false, false), dialog];
+        assert_eq!(focused(listed.clone(), &state(2), |_| false), None);
+        assert_eq!(focused(listed.clone(), &state(2), |id| id == 2), Some(1));
+        assert_eq!(focused(listed, &state(2), |id| id == 1), None);
     }
 }

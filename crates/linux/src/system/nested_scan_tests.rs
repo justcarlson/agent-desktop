@@ -22,6 +22,7 @@ fn window(id: &str, sheet: bool) -> ListedWindow {
             state: WindowState::default(),
         },
         active: false,
+        modal: false,
         frame: FrameFacts {
             pid: 7,
             title: "App".to_owned(),

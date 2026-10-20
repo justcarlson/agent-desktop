@@ -17,6 +17,7 @@ fn window(id: &str, title: &str, unshown: bool) -> ListedWindow {
             state: WindowState::default(),
         },
         active: false,
+        modal: false,
         frame: FrameFacts {
             pid: 7,
             title: title.to_owned(),
@@ -36,6 +37,7 @@ fn client(id: u32, title: &str, hidden: bool) -> X11Client {
         extents: None,
         bounds: None,
         hidden,
+        shadow: (0, 0, 0, 0),
     }
 }
 

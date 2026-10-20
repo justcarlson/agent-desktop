@@ -159,17 +159,6 @@ impl ObservationOps for LinuxAdapter {
     }
 }
 
-impl LinuxAdapter {
-    fn deliver(
-        &self,
-        handle: &NativeHandle,
-        request: ActionRequest,
-        lease: &InteractionLease,
-    ) -> Result<ActionResult, AdapterError> {
-        crate::actions::execute_action(self.bus(), handle, request, lease)
-    }
-}
-
 impl ActionOps for LinuxAdapter {
     fn execute_action(
         &self,
@@ -180,11 +169,8 @@ impl ActionOps for LinuxAdapter {
         let target = crate::tree::atspi_element(handle)
             .ok()
             .map(|element| element.pid());
-        let result = self.deliver(handle, request, lease);
-        match target {
-            Some(pid) => crate::system::action_clock::mark_process(pid),
-            None => crate::system::action_clock::mark(),
-        }
+        let result = crate::actions::execute_action(self.bus(), handle, request, lease);
+        crate::system::action_clock::mark_target(target);
         result
     }
 

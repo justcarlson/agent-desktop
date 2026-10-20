@@ -235,6 +235,7 @@ fn an_active_window_no_client_claims_is_not_a_candidate() {
         extents: None,
         bounds: None,
         hidden: false,
+        shadow: (0, 0, 0, 0),
     }];
     let state = X11State::Ready {
         active: None,
@@ -271,6 +272,7 @@ fn an_active_window_with_a_client_keeps_its_candidacy() {
             height: 10,
         }),
         hidden: false,
+        shadow: (0, 0, 0, 0),
     }];
     let state = X11State::Ready {
         active: Some(0x40_0003),
