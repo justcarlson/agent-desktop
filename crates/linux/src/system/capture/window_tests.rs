@@ -130,3 +130,43 @@ fn an_unmapped_window_is_minimised_on_either_session_type() {
         assert_eq!(rig.grabber.grab_count(), 0);
     }
 }
+
+#[test]
+fn a_client_side_shadow_is_cropped_from_the_captured_client_area() {
+    let rig = Rig::standard();
+    rig.grabber.shadow_as(
+        CLIENT,
+        FrameExtents {
+            left: 14,
+            right: 14,
+            top: 10,
+            bottom: 24,
+        },
+    );
+    let area = Some(agent_desktop_core::Rect {
+        x: 15.0,
+        y: 48.0,
+        width: 972.0,
+        height: 666.0,
+    });
+    rig.lookup.resolved.set(vec![Some(window_info(area))]);
+    let image = capture(&rig.env(), &target(), false, deadline()).expect("captured");
+    let (drawable, rect) = rig.grabber.last_grab();
+    assert_eq!(drawable, CLIENT);
+    assert_eq!(rect, (14, 10, 972, 666));
+    assert_eq!((image.width, image.height), (972, 666));
+}
+
+#[test]
+fn a_shadow_that_leaves_no_area_is_ignored() {
+    let (area, inset) = inside_shadow(
+        extents(0, 0, 20, 20),
+        Some(FrameExtents {
+            left: 10,
+            right: 10,
+            top: 0,
+            bottom: 0,
+        }),
+    );
+    assert_eq!((area, inset), (extents(0, 0, 20, 20), (0, 0)));
+}

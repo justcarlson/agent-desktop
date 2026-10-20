@@ -1,12 +1,14 @@
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
-use x11rb::protocol::xproto::{ConnectionExt, Window};
+use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, Window};
 use x11rb::rust_connection::RustConnection;
 
 use super::MonitorFault;
 use super::drawable_info::DrawableInfo;
+use super::frame_extents::FrameExtents;
 use super::grab_error::GrabError;
 use super::map_state::MapState;
+use super::snapshot::decode_frame_extents;
 use crate::tree::Extents;
 
 pub(crate) fn root_of(connection: &RustConnection, screen: usize) -> Result<Window, GrabError> {
@@ -41,6 +43,21 @@ fn map_state_of(connection: &RustConnection, drawable: Window) -> MapState {
         .ok()
         .and_then(|cookie| cookie.reply().ok())
         .map_or(MapState::Unmapped, |attributes| attributes.map_state.into())
+}
+
+fn shadow_of(connection: &RustConnection, window: Window) -> Option<FrameExtents> {
+    let atom = connection
+        .intern_atom(false, b"_GTK_FRAME_EXTENTS")
+        .ok()?
+        .reply()
+        .ok()?
+        .atom;
+    let reply = connection
+        .get_property(false, window, atom, AtomEnum::CARDINAL, 0, 4)
+        .ok()?
+        .reply()
+        .ok()?;
+    decode_frame_extents(reply.format, &reply.value)
 }
 
 pub(crate) fn describe(
@@ -78,5 +95,6 @@ pub(crate) fn describe(
         depth: geometry.depth,
         map_state: attributes.map_state.into(),
         override_redirect: attributes.override_redirect,
+        shadow: shadow_of(connection, window),
     })
 }

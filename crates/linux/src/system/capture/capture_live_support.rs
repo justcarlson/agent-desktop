@@ -22,6 +22,11 @@ from gi.repository import Gtk, Gdk, GLib
 title, color, x, y, w, h, popup = sys.argv[1:8]
 kind = Gtk.WindowType.POPUP if popup == "1" else Gtk.WindowType.TOPLEVEL
 win = Gtk.Window(type=kind)
+if popup == "2":
+    bar = Gtk.HeaderBar()
+    bar.set_show_close_button(True)
+    bar.set_title(title)
+    win.set_titlebar(bar)
 win.set_title(title)
 win.set_default_size(int(w), int(h))
 css = Gtk.CssProvider()
@@ -96,6 +101,21 @@ pub(super) fn paint(
     at: &Geometry,
     popup: bool,
 ) -> u32 {
+    paint_as(launched, title, color, at, if popup { "1" } else { "0" })
+}
+
+/// A window that draws its own title bar and shadow, so its toolkit sets
+/// `_GTK_FRAME_EXTENTS` wherever the manager lets it.
+pub(super) fn paint_decorated(
+    launched: &mut Launched,
+    title: &str,
+    color: &str,
+    at: &Geometry,
+) -> u32 {
+    paint_as(launched, title, color, at, "2")
+}
+
+fn paint_as(launched: &mut Launched, title: &str, color: &str, at: &Geometry, mode: &str) -> u32 {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let script = format!("{dir}/capture-painter.py");
     std::fs::write(&script, PAINTER).expect("the painter script writes");
@@ -107,7 +127,7 @@ pub(super) fn paint(
         &at.y.to_string(),
         &at.width.to_string(),
         &at.height.to_string(),
-        if popup { "1" } else { "0" },
+        mode,
     ];
     launched.spawn("python3", &args)
 }
@@ -304,4 +324,35 @@ pub(super) fn x_window_id(title: &str) -> u32 {
         .and_then(|rest| rest.split_whitespace().next())
         .expect("xwininfo names the window");
     u32::from_str_radix(id.trim_start_matches("0x"), 16).expect("a window id")
+}
+
+/// The four numbers of an `xprop` cardinal property, or none when it is unset.
+pub(super) fn shadow_of(xid: u32) -> Option<[i32; 4]> {
+    let output = Command::new("xprop")
+        .args(["-id", &format!("0x{xid:x}"), "_GTK_FRAME_EXTENTS"])
+        .output()
+        .expect("xprop runs");
+    let text = String::from_utf8_lossy(&output.stdout);
+    let numbers: Vec<i32> = text
+        .split('=')
+        .nth(1)?
+        .split(',')
+        .filter_map(|part| part.trim().parse().ok())
+        .collect();
+    <[i32; 4]>::try_from(numbers).ok()
+}
+
+pub(super) fn client_size(xid: u32) -> (i32, i32) {
+    let output = Command::new("xwininfo")
+        .args(["-id", &format!("0x{xid:x}")])
+        .output()
+        .expect("xwininfo runs");
+    let text = String::from_utf8_lossy(&output.stdout);
+    let field = |name: &str| -> i32 {
+        text.lines()
+            .find_map(|line| line.trim().strip_prefix(name))
+            .and_then(|rest| rest.trim().parse().ok())
+            .expect("xwininfo prints the size")
+    };
+    (field("Width:"), field("Height:"))
 }

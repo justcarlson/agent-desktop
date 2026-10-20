@@ -7,6 +7,7 @@ use super::window_obstruction::{Cover, cover};
 use super::window_unit::{Unit, choose, for_screenshot};
 use super::window_xid::xid_or_error;
 use crate::system::bus::ensure_budget;
+use crate::system::x11::FrameExtents;
 use crate::system::x11::grab_error::GrabError;
 use crate::system::x11::grab_rect::GrabRect;
 use crate::system::x11::map_state::MapState;
@@ -15,6 +16,7 @@ use crate::tree::Extents;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Geometry {
     client: Extents,
+    inset: (i16, i16),
     frame: Option<Extents>,
     frame_id: Option<u32>,
 }
@@ -30,6 +32,37 @@ fn covered() -> AdapterError {
         "Raise the window or move what covers it, then retry",
     )
     .with_details(serde_json::json!({ "reason": "covered" }))
+}
+
+/// The client area inside a GTK window's own shadow, and the offset of that
+/// area within the drawable. A shadow that leaves no area is not used.
+fn inside_shadow(rect: Extents, shadow: Option<FrameExtents>) -> (Extents, (i16, i16)) {
+    let Some(shadow) = shadow else {
+        return (rect, (0, 0));
+    };
+    let grown = |value: u32| i32::try_from(value).ok();
+    let (Some(left), Some(right), Some(top), Some(bottom)) = (
+        grown(shadow.left),
+        grown(shadow.right),
+        grown(shadow.top),
+        grown(shadow.bottom),
+    ) else {
+        return (rect, (0, 0));
+    };
+    let (width, height) = (rect.width - left - right, rect.height - top - bottom);
+    let offset = (i16::try_from(left), i16::try_from(top));
+    match offset {
+        (Ok(x), Ok(y)) if width > 0 && height > 0 => (
+            Extents {
+                x: rect.x + left,
+                y: rect.y + top,
+                width,
+                height,
+            },
+            (x, y),
+        ),
+        _ => (rect, (0, 0)),
+    }
 }
 
 fn survey(ctx: &WindowContext) -> Result<Geometry, AdapterError> {
@@ -53,8 +86,10 @@ fn survey(ctx: &WindowContext) -> Result<Geometry, AdapterError> {
         }
         None => None,
     };
+    let (area, inset) = inside_shadow(client.rect, client.shadow);
     Ok(Geometry {
-        client: client.rect,
+        client: area,
+        inset,
         frame: frame.map(|(_, rect)| rect),
         frame_id: frame.map(|(id, _)| id),
     })
@@ -72,14 +107,14 @@ fn unit_of(geometry: &Geometry, bounds: Option<Rect>, strict: bool) -> Result<Un
     Ok(for_screenshot(proven, geometry.frame.is_some()))
 }
 
-fn target_of(geometry: &Geometry, unit: Unit, xid: u32) -> (u32, Extents) {
+fn target_of(geometry: &Geometry, unit: Unit, xid: u32) -> (u32, Extents, (i16, i16)) {
     match (unit, geometry.frame_id, geometry.frame) {
-        (Unit::Frame, Some(id), Some(rect)) => (id, rect),
-        _ => (xid, geometry.client),
+        (Unit::Frame, Some(id), Some(rect)) => (id, rect, (0, 0)),
+        _ => (xid, geometry.client, geometry.inset),
     }
 }
 
-fn grab_rect_of(rect: Extents) -> Result<GrabRect, AdapterError> {
+fn grab_rect_of(rect: Extents, inset: (i16, i16)) -> Result<GrabRect, AdapterError> {
     let too_large = || {
         refusal(
             ErrorCode::ActionFailed,
@@ -93,8 +128,8 @@ fn grab_rect_of(rect: Extents) -> Result<GrabRect, AdapterError> {
         return Err(too_large());
     }
     Ok(GrabRect {
-        x: 0,
-        y: 0,
+        x: inset.0,
+        y: inset.1,
         width,
         height,
     })
@@ -181,8 +216,8 @@ pub(crate) fn capture(
     };
     let before = survey(&ctx)?;
     let unit = unit_of(&before, ctx.window.bounds, strict_unit)?;
-    let (drawable, rect) = target_of(&before, unit, xid);
-    let area = grab_rect_of(rect)?;
+    let (drawable, rect, inset) = target_of(&before, unit, xid);
+    let area = grab_rect_of(rect, inset)?;
     ensure_budget(deadline)?;
     let plain = matches!(clearance(&ctx, rect), Clearance::Clear);
     let raw = if plain {

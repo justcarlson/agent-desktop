@@ -48,6 +48,7 @@ pub(crate) type GrabFn = Box<dyn Fn(u32, GrabRect) -> Result<Raw, GrabError> + S
 
 pub(crate) struct FakeGrabber {
     pub(crate) drawn: Mutex<HashMap<u32, Seq<Drawn>>>,
+    pub(crate) shadows: Mutex<HashMap<u32, FrameExtents>>,
     pub(crate) compositing: Mutex<Result<bool, fn() -> GrabError>>,
     pub(crate) grab_with: Mutex<GrabFn>,
     pub(crate) redirect_with: Mutex<GrabFn>,
@@ -81,6 +82,13 @@ impl FakeGrabber {
             .lock()
             .expect("drawn lock")
             .insert(id, Seq::of(items));
+    }
+
+    pub(crate) fn shadow_as(&self, id: u32, shadow: FrameExtents) {
+        self.shadows
+            .lock()
+            .expect("shadows lock")
+            .insert(id, shadow);
     }
 
     pub(crate) fn redirect_count(&self) -> usize {
@@ -121,6 +129,12 @@ impl Grabber for FakeGrabber {
                 _ => MapState::Unmapped,
             },
             override_redirect: false,
+            shadow: self
+                .shadows
+                .lock()
+                .expect("shadows lock")
+                .get(&window)
+                .copied(),
         })
     }
 
@@ -261,6 +275,7 @@ impl Rig {
     pub(crate) fn standard() -> Self {
         let grabber = FakeGrabber {
             drawn: Mutex::new(HashMap::new()),
+            shadows: Mutex::new(HashMap::new()),
             compositing: Mutex::new(Ok(false)),
             grab_with: Mutex::new(Box::new(|_, rect| Ok(raw_of(rect)))),
             redirect_with: Mutex::new(Box::new(|_, _| {
