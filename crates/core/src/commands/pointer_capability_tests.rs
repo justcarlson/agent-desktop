@@ -42,9 +42,9 @@ impl InputOps for NoPointerAdapter {
         &self,
         _event: MouseEvent,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         self.sent.fetch_add(1, Ordering::SeqCst);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
