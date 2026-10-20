@@ -66,7 +66,7 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   timeout. A process that exits first is `ACTION_FAILED` with
   `details.kind: exited` and `delivered_unverified`. The result carries `app`,
   `pid`, `process_instance` and, when one appeared, `window`.
-- Negative numbers need the `=` form: `move-window --x=-100`.
+- Negative numbers need the `=` form: `move-window --x=-100 --y=-20`.
 - A launch reports a window the launch produced, never one that was open.
 - Chromium, Electron and Qt apps need flags to appear on the bus; pass them with
   `--arg`. See `references/troubleshooting.md`.
@@ -111,7 +111,9 @@ messages and judge the effect by a read-back inside 250 ms with a 2 px tolerance
 - A window the process cannot be mapped to (none or two clients) is refused.
 - A window manager may ignore a restore sent 1 to 2 s after a minimize, or a
   minimize sent within about 250 ms of a restore. A retry after a pause succeeds.
-- Negative coordinates need `--x=-100`.
+- `move-window` requires both `--x` and `--y`; a lone one is `INVALID_ARGS` at
+  parse time (exit 2). Negative coordinates need the `=` form:
+  `move-window --x=-100 --y=20`.
 
 ## Focus
 
@@ -132,7 +134,11 @@ state agree.
 - A window the window manager never activated can end `ACTION_FAILED` with
   `activation_not_granted`: under mutter, until a window has held focus once.
   While the GNOME Activities Overview is open the cause is `overview_open`; close
-  the overview first. A headed ref action runs `focus-window` for you and ends
+  the overview first. A fresh GNOME shell opens it and it blocks activation for
+  every window. Send a global `--headed press escape` (no `--app`), then call
+  `focus-window --app <name>`; measured `overview_open` from the first call, the
+  Escape closed the overview, and the second call returned a focused window with
+  `is_focused: true`. A headed ref action runs `focus-window` for you and ends
   the same way.
 - A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - A hidden window refuses a pointer action with the same reason as `click`
@@ -179,18 +185,25 @@ diffs a baseline taken at wait start against fresh reads. On Linux:
   window never produces `app-launched`, and a second window of a running app
   (`--new-window`) is `window-opened`, never `app-launched`. A Qt process
   registers twice and counts once.
-- A dialog is one `window-opened` and one `surface-appeared`. A dialog drawn
-  inside its window is found only when `--app` scopes the wait, and it appears
-  0.7 to 1.5 s after the action.
+- A dialog that is its own top-level window is one `window-opened` and one
+  `surface-appeared`. An unscoped `window-opened` sees it (measured on a Nautilus
+  "New Folder" dialog); `surface-appeared` and `surface-dismissed` require
+  `--app` and an unscoped one is `INVALID_ARGS` ("requires --app"). A dialog
+  drawn inside its window is found only when `--app` scopes the wait, and it
+  appears 0.7 to 1.5 s after the action.
 - `focus-changed` needs a window that reports `ACTIVE`. On a Wayland session no
   window does until a seat keyboard exists, so the wait times out there and the
   `TIMEOUT` carries `baseline_counts`.
 - A wait scoped to a stopped app fails at once with top-level
   `APP_UNRESPONSIVE`, `not_delivered` and `retry: safe`; it is not a `TIMEOUT`.
-  A `batch` of an action followed by such a wait does not start the action
-  (`pre_action_baseline_failed`). An app that is alive but slow keeps the wait
-  polling; classes that could not be read are left out of the diff and no event
-  is invented from them.
+  This holds for every mode, `--event` included: a scoped event wait answers in
+  milliseconds instead of running its timeout. A `batch` of an action followed by
+  such a wait does not start the action (`pre_action_baseline_failed`). An app
+  that is alive but slow keeps the wait polling; classes that could not be read
+  are left out of the diff and no event is invented from them.
+- `batch` itself succeeds when an entry fails: the top-level envelope is
+  `ok: true`, the exit status is 0, and each entry carries its own `ok: false`
+  and `error`. Read every entry; a failed entry does not fail the command.
 - `--menu-closed` on a menu you have not opened is true at once: wait for
   `--menu` first, then close the menu, then wait for `--menu-closed`.
 - A window that neither shows nor is iconified is the husk of a closed window and

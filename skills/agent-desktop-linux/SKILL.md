@@ -69,7 +69,7 @@ tool for observation or semantic actions.
   shows nested nameless `group` nodes: read past them.
 - **A window appears before its content.** `wait --window` first, then
   `wait --text`. `--text` matches a subtree, so ancestors of the text match.
-  A `--timeout-ms` shorter than the first read returns `TIMEOUT`, never a
+  A `--timeout` shorter than the first read returns `TIMEOUT`, never a
   partial tree.
 - **Chromium, Electron and Qt apps need a launch flag or variable** to appear
   on the bus. See `references/troubleshooting.md`.
