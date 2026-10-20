@@ -28,9 +28,18 @@ class SilentServer:
     def __init__(self):
         self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener.bind(("127.0.0.1", 0))
+        self.number = None
+        for candidate in range(200, 1000):
+            try:
+                self.listener.bind(("127.0.0.1", 6000 + candidate))
+                self.number = candidate
+                break
+            except OSError:
+                continue
+        if self.number is None:
+            raise OSError("no free X11 TCP display port")
         self.listener.listen(64)
-        self.port = self.listener.getsockname()[1]
+        self.port = 6000 + self.number
         self.held = []
         self.stopped = threading.Event()
         self.worker = threading.Thread(target=self.serve, daemon=True)
@@ -94,7 +103,7 @@ def main():
 
     server = SilentServer()
     os.environ.pop("WAYLAND_DISPLAY", None)
-    os.environ["DISPLAY"] = f"127.0.0.1:{server.port}"
+    os.environ["DISPLAY"] = f"127.0.0.1:{server.number}"
     adapter = create()
     if not adapter:
         print("leak_probe: ad_adapter_create returned null", file=sys.stderr)
