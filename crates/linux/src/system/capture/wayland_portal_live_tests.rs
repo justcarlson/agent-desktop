@@ -5,8 +5,9 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, ErrorCode, ScreenshotTarget};
 
 use super::wayland_portal::capture_wayland;
+use super::wayland_portal_live_monitors::{allow_screenshots, capture_target, set_first_scale};
 use super::wayland_portal_live_support::{
-    BLUE, DIALOG_SHOWN, KEY_RETURN, KEY_TAB, Keys, World, boot, stored_screenshot_grants,
+    BLUE, DIALOG_SHOWN, KEY_RETURN, KEY_TAB, Keys, World, boot, boot_with, stored_screenshot_grants,
 };
 
 fn home_screenshots() -> BTreeSet<String> {
@@ -154,4 +155,54 @@ fn one_deny_is_remembered_and_later_calls_are_refused_at_once() {
     );
     assert_eq!(outcome.expect_err("refused").code, ErrorCode::PermDenied);
     assert!(took < Duration::from_secs(5), "{took:?}");
+}
+
+#[test]
+#[ignore = "boots a private headless gnome-shell with two virtual monitors; run inside scripts/private-session.sh"]
+fn each_screen_is_its_rectangle_of_the_portals_image_on_two_monitors() {
+    let world = boot_with(&["1280x800", "800x600"]);
+    allow_screenshots();
+    let whole = capture_target(&world, &ScreenshotTarget::FullScreen).expect("the desktop");
+    assert_eq!((whole.width, whole.height), (2080, 800));
+    println!(
+        "portal_live displays {:?}",
+        crate::system::list_wayland_displays(Deadline::after(30_000).expect("a deadline"))
+    );
+    let first = capture_target(&world, &ScreenshotTarget::Screen(0)).expect("screen 0");
+    let second = capture_target(&world, &ScreenshotTarget::Screen(1)).expect("screen 1");
+    println!(
+        "portal_live screens {}x{} and {}x{}",
+        first.width, first.height, second.width, second.height
+    );
+    assert_eq!((first.width, first.height), (1280, 800));
+    assert_eq!((second.width, second.height), (800, 600));
+    assert!(
+        blue_pixels(&first.data).2 >= 100_000,
+        "the window is on screen 0"
+    );
+    assert_eq!(blue_pixels(&second.data).2, 0, "and not on screen 1");
+}
+
+#[test]
+#[ignore = "boots a private headless gnome-shell with a scaled monitor; run inside scripts/private-session.sh"]
+fn a_scaled_monitor_is_cropped_in_image_pixels() {
+    let world = boot_with(&["2560x1600", "800x600"]);
+    allow_screenshots();
+    set_first_scale(2.0).expect("the shell accepts scale 2 for a 2560x1600 mode");
+    std::thread::sleep(Duration::from_secs(3));
+    let whole = capture_target(&world, &ScreenshotTarget::FullScreen).expect("the desktop");
+    assert_eq!((whole.width, whole.height), (3360, 1600));
+    let first = capture_target(&world, &ScreenshotTarget::Screen(0)).expect("screen 0");
+    let second = capture_target(&world, &ScreenshotTarget::Screen(1)).expect("screen 1");
+    println!(
+        "portal_live scaled {}x{} and {}x{}",
+        first.width, first.height, second.width, second.height
+    );
+    assert_eq!((first.width, first.height), (2560, 1600));
+    assert_eq!((second.width, second.height), (800, 600));
+    assert!(
+        blue_pixels(&first.data).2 >= 400_000,
+        "the 400x300 window is drawn at twice its size"
+    );
+    assert_eq!(blue_pixels(&second.data).2, 0);
 }

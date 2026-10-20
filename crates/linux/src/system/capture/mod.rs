@@ -2,6 +2,7 @@ pub(crate) mod display;
 pub(crate) mod fullscreen_route;
 pub(crate) mod pixels;
 pub(crate) mod png_encode;
+pub(crate) mod wayland_crop;
 pub(crate) mod wayland_file;
 pub(crate) mod wayland_portal;
 pub(crate) mod wayland_portal_bus;
@@ -16,6 +17,8 @@ pub(crate) mod window_xid;
 mod capture_live_support;
 #[cfg(test)]
 mod capture_live_tests;
+#[cfg(test)]
+mod wayland_portal_live_monitors;
 #[cfg(test)]
 mod wayland_portal_live_support;
 #[cfg(test)]

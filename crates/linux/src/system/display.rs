@@ -174,17 +174,23 @@ pub(crate) fn decide_x11(
     decide(server, Some(monitors?), mutter.unwrap_or(None))
 }
 
+/// The displays of a Wayland session as Mutter lists them, with no look at the
+/// environment: a caller that already chose the Wayland route asks here.
+pub(crate) fn list_wayland_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
+    decide(
+        DisplayServer::Wayland,
+        None,
+        display_mutter::logical_monitors(deadline)?,
+    )
+}
+
 /// Lists the session's displays. On X11 the monitor list comes from RandR
 /// and Mutter's `DisplayConfig` supplies each monitor's scale where it
 /// answers; on Wayland Mutter is the only measured source and a session
 /// without it is `PLATFORM_NOT_SUPPORTED`.
 pub(crate) fn list_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
     match session_server() {
-        DisplayServer::Wayland => decide(
-            DisplayServer::Wayland,
-            None,
-            display_mutter::logical_monitors(deadline)?,
-        ),
+        DisplayServer::Wayland => list_wayland_displays(deadline),
         DisplayServer::X11(display) => {
             let pending = x11::start(|| MonitorReader.read());
             let mutter =

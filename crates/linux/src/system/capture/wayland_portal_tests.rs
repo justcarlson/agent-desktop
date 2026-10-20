@@ -58,24 +58,57 @@ fn tiny_png(width: u32, height: u32) -> Vec<u8> {
     data
 }
 
-fn display() -> DisplayInfo {
+fn display(id: &str, x: f64, width: f64, height: f64) -> DisplayInfo {
     DisplayInfo {
-        id: "0".into(),
+        id: id.into(),
         bounds: Rect {
-            x: 0.0,
+            x,
             y: 0.0,
-            width: 1280.0,
-            height: 800.0,
+            width,
+            height,
         },
         scale: 1.0,
-        is_primary: true,
+        is_primary: x == 0.0,
     }
+}
+
+fn two_displays() -> Vec<DisplayInfo> {
+    vec![
+        display("a", 0.0, 40.0, 30.0),
+        display("b", 40.0, 20.0, 20.0),
+    ]
+}
+
+fn gradient_png(width: u32, height: u32) -> Vec<u8> {
+    let mut data = Vec::new();
+    for y in 0..height {
+        for x in 0..width {
+            data.extend_from_slice(&[x as u8, y as u8, 7]);
+        }
+    }
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, width, height);
+    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().expect("a header");
+    writer.write_image_data(&data).expect("pixels");
+    writer.finish().expect("done");
+    out
 }
 
 fn run(
     target: &ScreenshotTarget,
     answer: Result<PortalAnswer, AdapterError>,
     roots: &[PathBuf],
+) -> (Result<ImageBuffer, AdapterError>, Vec<String>) {
+    run_on(target, answer, roots, two_displays())
+}
+
+fn run_on(
+    target: &ScreenshotTarget,
+    answer: Result<PortalAnswer, AdapterError>,
+    roots: &[PathBuf],
+    shown: Vec<DisplayInfo>,
 ) -> (Result<ImageBuffer, AdapterError>, Vec<String>) {
     let calls = Rc::new(RefCell::new(Vec::new()));
     let connect = {
@@ -87,7 +120,8 @@ fn run(
             }))
         }
     };
-    let outcome = capture_with(target, deadline(), &connect, roots);
+    let listing = move |_deadline: Deadline| Ok(shown.clone());
+    let outcome = capture_with(target, deadline(), &connect, roots, &listing);
     let seen = calls.borrow().clone();
     (outcome, seen)
 }
@@ -142,19 +176,67 @@ fn a_refusal_from_the_portal_is_permission_denied() {
 }
 
 #[test]
-fn a_display_target_is_unsupported_and_makes_no_portal_call() {
-    for target in [
-        ScreenshotTarget::Screen(0),
-        ScreenshotTarget::Display {
-            index: 0,
-            expected: display(),
+fn a_screen_target_is_the_displays_rectangle_of_the_portals_image() {
+    let dir = scratch("screen");
+    let path = dir.join("Screenshot.png");
+    fs::write(&path, gradient_png(60, 30)).expect("a png");
+    let (outcome, calls) = run(&ScreenshotTarget::Screen(1), granted(&path), &[dir]);
+    let image = outcome.expect("a crop");
+    assert_eq!((image.width, image.height), (20, 20));
+    assert_eq!(calls.len(), 2);
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_display_target_that_changed_makes_no_portal_call() {
+    let stale = display("b", 40.0, 25.0, 20.0);
+    let (outcome, calls) = run(
+        &ScreenshotTarget::Display {
+            index: 1,
+            expected: stale,
         },
-    ] {
-        let (outcome, calls) = run(&target, Ok(PortalAnswer::Refused { code: 2 }), &[]);
-        let error = outcome.expect_err("unsupported");
-        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-        assert!(calls.is_empty());
-    }
+        Ok(PortalAnswer::Refused { code: 2 }),
+        &[],
+    );
+    assert_eq!(outcome.expect_err("changed").code, ErrorCode::InvalidArgs);
+    assert!(calls.is_empty());
+}
+
+#[test]
+fn an_unknown_screen_index_makes_no_portal_call() {
+    let (outcome, calls) = run(
+        &ScreenshotTarget::Screen(7),
+        Ok(PortalAnswer::Refused { code: 2 }),
+        &[],
+    );
+    assert_eq!(outcome.expect_err("range").code, ErrorCode::InvalidArgs);
+    assert!(calls.is_empty());
+}
+
+#[test]
+fn an_image_that_does_not_confirm_the_layout_is_unsupported_and_still_removed() {
+    let dir = scratch("unproven");
+    let path = dir.join("Screenshot.png");
+    fs::write(&path, gradient_png(50, 30)).expect("a png");
+    let (outcome, _) = run(&ScreenshotTarget::Screen(1), granted(&path), &[dir]);
+    let error = outcome.expect_err("unproven");
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_window_target_is_unsupported_and_makes_no_portal_call() {
+    let window = crate::system::capture::window::fakes::target();
+    let (outcome, calls) = run(
+        &ScreenshotTarget::ExactWindow(window),
+        Ok(PortalAnswer::Refused { code: 2 }),
+        &[],
+    );
+    assert_eq!(
+        outcome.expect_err("unsupported").code,
+        ErrorCode::PlatformNotSupported
+    );
+    assert!(calls.is_empty());
 }
 
 #[test]
@@ -167,7 +249,13 @@ fn a_missing_session_bus_is_unsupported_and_does_not_hang() {
             "The D-Bus session bus is not available in this session",
         ))
     };
-    let outcome = capture_with(&ScreenshotTarget::FullScreen, deadline(), &connect, &[]);
+    let outcome = capture_with(
+        &ScreenshotTarget::FullScreen,
+        deadline(),
+        &connect,
+        &[],
+        &|_| Ok(Vec::new()),
+    );
     assert_eq!(
         outcome.expect_err("no bus").code,
         ErrorCode::PlatformNotSupported

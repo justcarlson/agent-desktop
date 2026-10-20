@@ -87,18 +87,17 @@ pub(super) struct Shell {
     socket: String,
 }
 
-pub(super) fn spawn_shell() -> Option<Shell> {
+pub(super) fn spawn_shell(monitors: &[&str]) -> Option<Shell> {
     for name in sockets() {
         let _ = std::fs::remove_file(runtime_dir().join(&name));
         let _ = std::fs::remove_file(runtime_dir().join(format!("{name}.lock")));
     }
     let before = sockets();
-    let group = spawn(
-        "gnome-shell",
-        &["--headless", "--wayland", "--virtual-monitor", "1280x800"],
-        &[],
-        "shell.log",
-    )?;
+    let mut args = vec!["--headless", "--wayland"];
+    for monitor in monitors {
+        args.extend(["--virtual-monitor", monitor]);
+    }
+    let group = spawn("gnome-shell", &args, &[], "shell.log")?;
     let until = Instant::now() + SOCKET_WAIT;
     while Instant::now() < until {
         if let Some(socket) = sockets().difference(&before).next() {
@@ -292,13 +291,19 @@ pub(super) fn forget_screenshot_permission() {
 }
 
 pub(super) fn boot() -> World {
+    boot_with(&["1280x800"])
+}
+
+pub(super) fn boot_with(monitors: &[&str]) -> World {
     assert!(
         std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
         "run inside scripts/private-session.sh"
     );
     assert!(std::env::var_os("WAYLAND_DISPLAY").is_none());
     for _ in 0..ATTEMPTS {
-        let Some(shell) = spawn_shell() else { continue };
+        let Some(shell) = spawn_shell(monitors) else {
+            continue;
+        };
         let Some(keys) = bounded_keys() else { continue };
         let Some(portal) = start_portal(&shell.socket) else {
             continue;

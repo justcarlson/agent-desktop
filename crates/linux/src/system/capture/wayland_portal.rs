@@ -2,26 +2,19 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, ImageBuffer, ImageFormat, ScreenshotTarget,
+    AdapterError, Deadline, DisplayInfo, ErrorCode, ImageBuffer, ImageFormat, ScreenshotTarget,
     parse_png_dimensions,
 };
-use serde_json::json;
 
+use super::display::select;
 use super::pixels::MAX_PIXELS;
+use super::wayland_crop::{crop_png, pixel_rect};
 use super::wayland_file::{path_of_uri, take_file};
 use super::wayland_portal_bus::connect;
 use super::wayland_portal_call::{PortalWire, screenshot_uri};
 
 type Connect<'a> = &'a dyn Fn(Deadline) -> Result<Box<dyn PortalWire>, AdapterError>;
-
-fn display_mapping() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::PlatformNotSupported,
-        "A single display cannot be captured on a Wayland session",
-    )
-    .with_suggestion("Capture the whole screen with no screen selector")
-    .with_details(json!({ "reason": "display_mapping" }))
-}
+type Displays<'a> = &'a dyn Fn(Deadline) -> Result<Vec<DisplayInfo>, AdapterError>;
 
 fn window_unsupported() -> AdapterError {
     AdapterError::new(
@@ -74,20 +67,28 @@ pub(crate) fn capture_with(
     deadline: Deadline,
     connect: Connect<'_>,
     roots: &[PathBuf],
+    displays: Displays<'_>,
 ) -> Result<ImageBuffer, AdapterError> {
-    match target {
-        ScreenshotTarget::FullScreen => {}
+    let chosen = match target {
+        ScreenshotTarget::FullScreen => None,
         ScreenshotTarget::Screen(_) | ScreenshotTarget::Display { .. } => {
-            return Err(display_mapping());
+            let all = displays(deadline)?;
+            let (_, display) = select(&all, target)?;
+            Some((display, all))
         }
         ScreenshotTarget::ExactWindow(_) => return Err(window_unsupported()),
-    }
+    };
     let started = SystemTime::now();
     let wire = connect(deadline)?;
     let uri = screenshot_uri(wire.as_ref(), &token(), deadline)?;
     let path = path_of_uri(&uri)?;
     let uid = rustix::process::getuid().as_raw();
-    image_of(take_file(&path, roots, uid, started)?)
+    let whole = image_of(take_file(&path, roots, uid, started)?)?;
+    let Some((display, all)) = chosen else {
+        return Ok(whole);
+    };
+    let rect = pixel_rect(&display, &all, (whole.width, whole.height))?;
+    crop_png(&whole.data, rect, display.scale)
 }
 
 /// Captures the whole desktop through the desktop portal's `Screenshot` call.
@@ -97,7 +98,13 @@ pub(crate) fn capture_wayland(
     target: &ScreenshotTarget,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    capture_with(target, deadline, &connect, &allowed_directories())
+    capture_with(
+        target,
+        deadline,
+        &connect,
+        &allowed_directories(),
+        &crate::system::list_wayland_displays,
+    )
 }
 
 #[cfg(test)]

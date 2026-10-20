@@ -75,7 +75,7 @@ pub(crate) use bus_fault::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN};
 pub(crate) use bus_process::{owner_process_id, process_id};
 
 pub(crate) use app_ops::{inventory as app_inventory, scoped as apps_scoped};
-pub(crate) use display::list_displays;
+pub(crate) use display::{list_displays, list_wayland_displays};
 pub(crate) use surfaces::list_surfaces;
 pub(crate) use window_ops::{focused_window, list_windows};
 pub(crate) use window_resolve::resolve_window_strict;
