@@ -1,6 +1,301 @@
 #!/usr/bin/env bash
-# Placeholder with a frozen name and a fail-closed exit code. The lane that owns
-# this file replaces it; until then a workflow that calls it fails and never
-# passes without running anything.
-echo "$(basename "$0"): not implemented yet" >&2
+# Drive the packaged FFI library against a real application.
+#
+# Usage: run-consumer.sh <extracted-ffi-archive-dir>
+#
+# The directory must hold lib/libagent_desktop_ffi.so and
+# include/agent_desktop.h, the layout the release archive ships. Every numbered
+# leg is one assertion and names the code the library returned. The run fails
+# closed when no target registers; nothing is skipped.
+set -euo pipefail
+
+ARCHIVE=${1:?usage: run-consumer.sh <extracted-ffi-archive-dir>}
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+LIB_DIR="$ARCHIVE/lib"
+INCLUDE_DIR="$ARCHIVE/include"
+LIBRARY="$LIB_DIR/libagent_desktop_ffi.so"
+HEADER="$INCLUDE_DIR/agent_desktop.h"
+APP=${AD_APP:-gnome-calculator}
+ATSPI_APP=${AD_ATSPI_APP:-calculator}
+
+for file in "$LIBRARY" "$HEADER"; do
+  [ -r "$file" ] || { echo "run-consumer: missing $file" >&2; exit 2; }
+done
+command -v cc >/dev/null 2>&1 || { echo "run-consumer: cc is required" >&2; exit 2; }
+command -v python3 >/dev/null 2>&1 || { echo "run-consumer: python3 is required" >&2; exit 2; }
+
+WORK=$(mktemp -d "${AGENT_DESKTOP_PRIVATE_SESSION:-${TMPDIR:-/tmp}}/ad-consumer.XXXXXX")
+export AGENT_DESKTOP_HOME="$WORK/state"
+mkdir -m 700 "$AGENT_DESKTOP_HOME"
+mkdir -p "$WORK/nopath" "$WORK/bus"
+APP_PID=
+
+# shellcheck disable=SC2329,SC2317
+cleanup() {
+  if [ -n "$APP_PID" ]; then
+    kill "$APP_PID" 2>/dev/null || true
+  fi
+  rm -rf "$WORK"
+}
+trap cleanup EXIT
+
+echo "run-consumer: compiling against $LIBRARY"
+cc -std=gnu11 -Wall -Wextra -Werror -O2 -I"$INCLUDE_DIR" "$SCRIPT_DIR/consumer.c" \
+  -L"$LIB_DIR" -Wl,-rpath,"$LIB_DIR" -l:libagent_desktop_ffi.so -lpthread \
+  -o "$WORK/consumer"
+CONSUMER="$WORK/consumer"
+
+stop_app() {
+  local pid=${APP_PID:-}
+  [ -n "$pid" ] || return 0
+  kill "$pid" 2>/dev/null || true
+  for _ in $(seq 1 100); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.05
+  done
+  kill -9 "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  APP_PID=
+}
+
+launch_app() {
+  "$APP" >/dev/null 2>&1 &
+  APP_PID=$!
+}
+
+read_display() {
+  python3 "$SCRIPT_DIR/atspi_read.py" --app "$ATSPI_APP" --timeout "${1:-20}"
+}
+
+wait_registered() {
+  read_display 30 >/dev/null
+}
+
+snapshot_target() {
+  local label=$1
+  for _ in $(seq 1 100); do
+    "$CONSUMER" snapshot "$APP" > "$SNAP" 2>"$WORK/snapshot.err" && return 0
+    sleep 0.1
+  done
+  echo "run-consumer: FAIL code=$(sed -n 's/.*code=\([A-Z_]*\).*/\1/p' "$WORK/snapshot.err" | tail -1) target=$label ($APP did not snapshot)" >&2
+  return 1
+}
+
+find_ref() {
+  python3 - "$1" "$2" "$3" <<'PY'
+import json
+import sys
+
+path, role, name = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def walk(node):
+    if isinstance(node, dict):
+        if node.get("role") == role and node.get("name") == name and node.get("ref_id"):
+            yield node["ref_id"]
+        for value in node.values():
+            if isinstance(value, (dict, list)):
+                yield from walk(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from walk(item)
+
+with open(path, encoding="utf-8") as stream:
+    document = json.load(stream)
+refs = list(walk(document))
+if len(refs) != 1:
+    raise SystemExit(f"expected one {role} named {name!r}, found {refs}")
+print(refs[0])
+PY
+}
+
+read_clipboard() {
+  python3 - <<'PY'
+import sys
+import time
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, Gtk
+
+Gtk.init([])
+clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+deadline = time.monotonic() + 5
+while time.monotonic() < deadline:
+    text = clipboard.wait_for_text()
+    if text is not None:
+        print(text)
+        sys.exit(0)
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    time.sleep(0.1)
+sys.exit(3)
+PY
+}
+
+session_atspi_pids() {
+  local environ pid comm
+  for environ in /proc/[0-9]*/environ; do
+    pid=${environ#/proc/}
+    pid=${pid%/environ}
+    [ "$pid" != "$$" ] || continue
+    grep -qzF "XDG_RUNTIME_DIR=$AGENT_DESKTOP_PRIVATE_SESSION" "$environ" 2>/dev/null || continue
+    comm=$(cat "/proc/$pid/comm" 2>/dev/null) || continue
+    case "$comm" in
+      at-spi-bus-launcher|at-spi2-registryd) echo "$pid" ;;
+      dbus-daemon)
+        if tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q "at-spi"; then
+          echo "$pid"
+        fi
+        ;;
+    esac
+  done
+}
+
+echo "run-consumer: leg abi"
+"$CONSUMER" abi
+
+echo "run-consumer: leg handshake"
+"$CONSUMER" handshake
+
+echo "run-consumer: leg windows-exact"
+"$CONSUMER" windows-exact "$APP"
+
+wait_target_absent() {
+  python3 "$SCRIPT_DIR/atspi_read.py" --app "$ATSPI_APP" --absent --timeout 30 || {
+    echo "run-consumer: FAIL code=STALE_TARGET the previous $APP never left the registry" >&2
+    exit 1
+  }
+}
+
+wait_target_absent
+launch_app
+SNAP="$WORK/snapshot.json"
+if ! wait_registered; then
+  echo "run-consumer: FAIL code=APP_NOT_FOUND target=snapshot ($APP never registered)" >&2
+  exit 1
+fi
+snapshot_target snapshot
+python3 - "$SNAP" <<'PY'
+import json
+import sys
+
+document = json.load(open(sys.argv[1], encoding="utf-8"))
+data = document["data"]
+assert document["ok"] is True, "snapshot is not ok"
+assert data["complete"] is True, "snapshot is incomplete"
+assert data["ref_count"] > 0, "snapshot allocated no refs"
+PY
+echo "run-consumer: leg snapshot ok"
+
+echo "run-consumer: leg click"
+BEFORE=$(read_display 20) || BEFORE=""
+REF=$(find_ref "$SNAP" button 7)
+"$CONSUMER" click "$REF" > "$WORK/click.json"
+expected=7
+shown=""
+for _ in $(seq 1 100); do
+  shown=$(read_display 5) || shown=""
+  [ "$shown" = "$expected" ] && break
+  sleep 0.05
+done
+if [ "$shown" != "$expected" ]; then
+  echo "run-consumer: FAIL code=ACTION_NOT_DELIVERED display=$shown expected=$expected before=$BEFORE" >&2
+  exit 1
+fi
+echo "run-consumer: leg click ok display=$shown before=$BEFORE"
+
+stop_app
+wait_target_absent
+launch_app
+if ! wait_registered; then
+  echo "run-consumer: FAIL code=APP_NOT_FOUND target=relaunch ($APP never registered)" >&2
+  exit 1
+fi
+snapshot_target relaunch
+
+echo "run-consumer: leg lifetime"
+"$CONSUMER" lifetime "$APP"
+
+echo "run-consumer: leg serialise"
+"$CONSUMER" serialise "$APP"
+
+echo "run-consumer: leg lost-bus"
+"$CONSUMER" bus "$APP" "$WORK/bus" &
+BUS_PID=$!
+for _ in $(seq 1 300); do
+  [ -f "$WORK/bus/kill-request" ] && break
+  kill -0 "$BUS_PID" 2>/dev/null || break
+  sleep 0.1
+done
+if [ ! -f "$WORK/bus/kill-request" ]; then
+  echo "run-consumer: FAIL code=BUS_KILL consumer never requested the kill" >&2
+  wait "$BUS_PID" 2>/dev/null || true
+  exit 1
+fi
+BUS_PIDS=$(session_atspi_pids)
+if [ -z "$BUS_PIDS" ]; then
+  echo "run-consumer: FAIL code=BUS_NOT_FOUND no session accessibility bus process" >&2
+  wait "$BUS_PID" 2>/dev/null || true
+  exit 1
+fi
+for pid in $BUS_PIDS; do
+  kill "$pid" 2>/dev/null || true
+done
+sleep 0.5
+touch "$WORK/bus/killed"
+
+for _ in $(seq 1 300); do
+  [ -f "$WORK/bus/relaunch-request" ] && break
+  kill -0 "$BUS_PID" 2>/dev/null || break
+  sleep 0.1
+done
+if [ ! -f "$WORK/bus/relaunch-request" ]; then
+  echo "run-consumer: FAIL code=INTERNAL consumer did not observe the lost bus" >&2
+  wait "$BUS_PID" 2>/dev/null || true
+  exit 1
+fi
+stop_app
+launch_app
+if ! wait_registered; then
+  echo "run-consumer: FAIL code=APP_NOT_FOUND target=bus-relaunch ($APP never registered)" >&2
+  wait "$BUS_PID" 2>/dev/null || true
+  exit 1
+fi
+touch "$WORK/bus/relaunched"
+if ! wait "$BUS_PID"; then
+  echo "run-consumer: FAIL code=BUS_RECOVERY the adapter did not recover" >&2
+  exit 1
+fi
+echo "run-consumer: leg lost-bus ok"
+
+echo "run-consumer: leg clipboard"
+CLIP_TEXT="agent-desktop-ffi-clipboard-$RANDOM"
+if ! CLIP_OUT=$(env PATH="$WORK/nopath" "$CONSUMER" clipboard-set "$CLIP_TEXT" 2>&1); then
+  echo "run-consumer: FAIL code=$(printf '%s' "$CLIP_OUT" | sed -n 's/.*code=\([A-Z_]*\).*/\1/p' | tail -1) target=clipboard-set" >&2
+  exit 1
+fi
+READBACK=""
+for _ in $(seq 1 100); do
+  READBACK=$(read_clipboard) || READBACK=""
+  [ "$READBACK" = "$CLIP_TEXT" ] && break
+  sleep 0.05
+done
+if [ "$READBACK" != "$CLIP_TEXT" ]; then
+  echo "run-consumer: FAIL code=CLIPBOARD_SET read=$READBACK expected=$CLIP_TEXT" >&2
+  exit 1
+fi
+if ! CLIP_OUT=$(env PATH="$WORK/nopath" "$CONSUMER" clipboard-clear 2>&1); then
+  echo "run-consumer: FAIL code=$(printf '%s' "$CLIP_OUT" | sed -n 's/.*code=\([A-Z_]*\).*/\1/p' | tail -1) target=clipboard-clear" >&2
+  exit 1
+fi
+for _ in $(seq 1 100); do
+  if ! read_clipboard >/dev/null; then
+    echo "run-consumer: leg clipboard ok (text=$CLIP_TEXT, cleared)"
+    echo "run-consumer: all legs passed"
+    exit 0
+  fi
+  sleep 0.05
+done
+echo "run-consumer: FAIL code=CLIPBOARD_CLEAR the selection survived the clear" >&2
 exit 1
