@@ -235,6 +235,10 @@ def mutter_lift_outcome_set(ctx: LegContext) -> None:
 
 @implementation("lifecycle.mutter_desktop_switch_read_back")
 def mutter_desktop_switch_read_back(ctx: LegContext) -> None:
+    saved = [
+        ("org.gnome.mutter", "dynamic-workspaces", gsettings.get(ctx.tier, "org.gnome.mutter", "dynamic-workspaces")),
+        ("org.gnome.desktop.wm.preferences", "num-workspaces", gsettings.get(ctx.tier, "org.gnome.desktop.wm.preferences", "num-workspaces")),
+    ]
     gsettings.set(ctx.tier, "org.gnome.mutter", "dynamic-workspaces", "false")
     gsettings.set(ctx.tier, "org.gnome.desktop.wm.preferences", "num-workspaces", "4")
     calculator = apps.launch(ctx.tier, "Calculator")
@@ -253,6 +257,8 @@ def mutter_desktop_switch_read_back(ctx: LegContext) -> None:
     finally:
         _run(ctx.tier, ["wmctrl", "-s", "0"])
         apps.stop(calculator)
+        for schema, key, value in saved:
+            gsettings.set(ctx.tier, schema, key, value)
 
 
 @implementation("lifecycle.mutter_activation_refusal_codes")

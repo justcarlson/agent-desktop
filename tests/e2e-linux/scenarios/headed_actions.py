@@ -181,7 +181,7 @@ def toggle_switch(ctx: LegContext) -> None:
         open_main_menu(ctx, window)
         switch = ref_for(ctx, window, role="switch")
         assert_ok(ctx.product(["toggle", switch]))
-        ctx.restored("atspi.checked", atspi_raw.poll(lambda: checked_map(live_root(ctx.tier, app)) == before, 6.0))
+        ctx.restored("atspi.checked", atspi_raw.poll(lambda: _restored_checked(ctx.tier, app, before), 6.0))
     finally:
         stop(app)
 
@@ -189,6 +189,11 @@ def toggle_switch(ctx: LegContext) -> None:
 def _changed_checked(tier, app, before):
     current = checked_map(live_root(tier, app))
     return current if current != before else None
+
+
+def _restored_checked(tier, app, before):
+    current = checked_map(live_root(tier, app))
+    return current if current == before else None
 
 
 @implementation("headed_actions.delayed_enable")

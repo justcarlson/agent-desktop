@@ -27,8 +27,8 @@ def match_window_line(lines: list[str], title: str) -> str | None:
 
 
 def non_blank(image: pixels.Image) -> bool:
-    first = image.pixel(0, 0)
-    return any(image.pixel(x, y) != first for y in range(image.height) for x in range(image.width))
+    first = image.rgb[:3]
+    return any(image.rgb[offset : offset + 3] != first for offset in range(3, len(image.rgb), 3))
 
 
 def capture_bytes(envelope) -> tuple[bytes, str]:
