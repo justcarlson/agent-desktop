@@ -1,10 +1,11 @@
+use std::ffi::OsStr;
 use std::io::Read;
 use std::os::fd::OwnedFd;
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use agent_desktop_core::{AdapterError, ErrorCode, MAX_PNG_INPUT_BYTES};
-use rustix::fs::{FileType, Mode, OFlags, fstat, open};
+use rustix::fs::{AtFlags, CWD, FileType, Mode, OFlags, fstat, openat, statat, unlinkat};
 
 const FRESH_FOR: Duration = Duration::from_secs(120);
 
@@ -77,6 +78,17 @@ fn inside(path: &Path, roots: &[PathBuf]) -> bool {
         .any(|root| parent.starts_with(root))
 }
 
+/// Unlinks `name` in the directory the file was opened from, and only when the
+/// name still points at the file that was read. A swapped name stays.
+fn remove_if_same(directory: &OwnedFd, name: &OsStr, opened: (u64, u64)) {
+    let Ok(now) = statat(directory, name, AtFlags::SYMLINK_NOFOLLOW) else {
+        return;
+    };
+    if (now.st_dev, now.st_ino) == opened {
+        let _ = unlinkat(directory, name, AtFlags::empty());
+    }
+}
+
 /// Opens the named file without following a link, checks that it is a regular
 /// file of this user, made just now and within the size cap, reads it into
 /// memory and removes it. The file goes whatever the bytes turn out to be.
@@ -89,9 +101,21 @@ pub(crate) fn take_file(
     if !inside(path, roots) {
         return Err(refused("it is outside the user's own directories"));
     }
-    let fd: OwnedFd = open(
-        path,
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+    let (parent, name) = path
+        .parent()
+        .zip(path.file_name())
+        .ok_or_else(|| refused("it could not be opened"))?;
+    let directory: OwnedFd = openat(
+        CWD,
+        parent,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|_| refused("its directory could not be opened"))?;
+    let fd: OwnedFd = openat(
+        &directory,
+        name,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
         Mode::empty(),
     )
     .map_err(|_| refused("it could not be opened"))?;
@@ -111,7 +135,7 @@ pub(crate) fn take_file(
     let read = std::fs::File::from(fd)
         .take(MAX_PNG_INPUT_BYTES as u64 + 1)
         .read_to_end(&mut bytes);
-    let _ = std::fs::remove_file(path);
+    remove_if_same(&directory, name, (stat.st_dev, stat.st_ino));
     read.map_err(|_| refused("it could not be read"))?;
     if bytes.len() > MAX_PNG_INPUT_BYTES {
         return Err(refused("it is larger than the size limit"));

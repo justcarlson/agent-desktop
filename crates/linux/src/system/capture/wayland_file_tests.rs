@@ -103,3 +103,49 @@ fn a_directory_is_not_a_screenshot() {
     fs::create_dir_all(&inner).expect("a directory");
     assert!(take_file(&inner, std::slice::from_ref(&dir), me(), long_ago()).is_err());
 }
+
+#[test]
+fn a_fifo_is_refused_at_once_and_left_in_place() {
+    let dir = scratch("fifo");
+    let path = dir.join("shot.png");
+    rustix::fs::mknodat(
+        rustix::fs::CWD,
+        &path,
+        rustix::fs::FileType::Fifo,
+        rustix::fs::Mode::from_raw_mode(0o600),
+        0,
+    )
+    .expect("a fifo");
+    let started = std::time::Instant::now();
+    assert!(take_file(&path, std::slice::from_ref(&dir), me(), long_ago()).is_err());
+    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(path.exists());
+}
+
+#[test]
+fn a_name_swapped_after_the_open_is_not_removed() {
+    let dir = scratch("swap");
+    let path = dir.join("shot.png");
+    let other = dir.join("other.png");
+    fs::write(&path, b"png bytes").expect("a file");
+    fs::write(&other, b"someone else's").expect("another file");
+    let directory = rustix::fs::openat(
+        rustix::fs::CWD,
+        &dir,
+        OFlags::RDONLY | OFlags::DIRECTORY,
+        Mode::empty(),
+    )
+    .expect("a directory");
+    let opened = fs::metadata(&path).expect("metadata");
+    fs::rename(&other, &path).expect("a swap");
+    let name = std::ffi::OsStr::new("shot.png");
+    remove_if_same(
+        &directory,
+        name,
+        (
+            std::os::unix::fs::MetadataExt::dev(&opened),
+            std::os::unix::fs::MetadataExt::ino(&opened),
+        ),
+    );
+    assert_eq!(fs::read(&path).expect("kept"), b"someone else's");
+}
