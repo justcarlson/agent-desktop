@@ -105,3 +105,32 @@ fn dropping_the_subscription_also_ends_the_thread() {
     drop(reader);
     assert!(ended.load(Ordering::SeqCst));
 }
+
+#[test]
+fn dropping_during_a_match_rule_request_that_never_replies_ends_startup() {
+    let deadline = Deadline::detached_after(5_000).expect("deadline");
+    let reader = Reader::spawn(move |stop, _outbox| {
+        let _ = async_io::block_on(await_startup(
+            std::future::pending::<zbus::Result<()>>(),
+            &stop,
+            deadline,
+        ));
+    });
+    let started = Instant::now();
+    drop(reader);
+    assert!(started.elapsed() < Duration::from_millis(500));
+}
+
+#[test]
+fn a_match_rule_request_that_never_replies_is_bounded_by_the_deadline() {
+    let deadline = Deadline::detached_after(100).expect("deadline");
+    let started = Instant::now();
+    let result = async_io::block_on(await_startup(
+        std::future::pending::<zbus::Result<()>>(),
+        &AtomicBool::new(false),
+        deadline,
+    ));
+    assert!(matches!(result, Err(StartupEnd::Deadline)));
+    assert!(started.elapsed() >= Duration::from_millis(80));
+    assert!(started.elapsed() < Duration::from_millis(500));
+}

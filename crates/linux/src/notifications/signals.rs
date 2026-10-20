@@ -110,14 +110,21 @@ impl SignalSource for BusSignals {
         let connection = SessionBus::get(deadline)?;
         let (ready_tx, ready_rx) = channel::<Result<(), String>>();
         let reader = Reader::spawn(move |stop, outbox| {
-            async_io::block_on(listen(connection, stop, outbox, ready_tx));
+            async_io::block_on(listen(connection, stop, outbox, ready_tx, deadline));
         });
-        match ready_rx.recv_timeout(READY_WAIT) {
+        match ready_rx.recv_timeout(READY_WAIT.min(deadline.remaining())) {
             Ok(Ok(())) => Ok(Box::new(reader)),
             Ok(Err(detail)) => Err(subscribe_failed(detail)),
-            Err(_) => Err(subscribe_failed(
-                "the match rule was not confirmed".to_owned(),
-            )),
+            Err(_) => {
+                drop(reader);
+                if deadline.is_expired() {
+                    Err(deadline.timeout_error())
+                } else {
+                    Err(subscribe_failed(
+                        "the match rule was not confirmed".to_owned(),
+                    ))
+                }
+            }
         }
     }
 }
@@ -135,10 +142,21 @@ async fn listen(
     stop: Arc<AtomicBool>,
     outbox: Sender<Signal>,
     ready: Sender<Result<(), String>>,
+    deadline: Deadline,
 ) {
-    let stream = match open_stream(&connection).await {
+    let stream = match await_startup(open_stream(&connection), &stop, deadline).await {
         Ok(stream) => stream,
-        Err(error) => {
+        Err(StartupEnd::Cancelled) => {
+            let _ = ready.send(Err("subscription startup was cancelled".to_owned()));
+            return;
+        }
+        Err(StartupEnd::Deadline) => {
+            let _ = ready.send(Err(
+                "the operation deadline expired during subscription startup".to_owned(),
+            ));
+            return;
+        }
+        Err(StartupEnd::Failed(error)) => {
             let _ = ready.send(Err(error.to_string()));
             return;
         }
@@ -161,6 +179,32 @@ async fn listen(
             None => {}
         }
     }
+}
+
+enum StartupEnd {
+    Cancelled,
+    Deadline,
+    Failed(zbus::Error),
+}
+
+async fn await_startup<T>(
+    future: impl std::future::Future<Output = zbus::Result<T>>,
+    stop: &AtomicBool,
+    deadline: Deadline,
+) -> Result<T, StartupEnd> {
+    futures_lite::future::or(async { future.await.map_err(StartupEnd::Failed) }, async {
+        loop {
+            if stop.load(Ordering::SeqCst) {
+                return Err(StartupEnd::Cancelled);
+            }
+            let remaining = deadline.remaining();
+            if remaining.is_zero() {
+                return Err(StartupEnd::Deadline);
+            }
+            async_io::Timer::after(STOP_POLL.min(remaining)).await;
+        }
+    })
+    .await
 }
 
 async fn open_stream(connection: &zbus::Connection) -> zbus::Result<MessageStream> {
