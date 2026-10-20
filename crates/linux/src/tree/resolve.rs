@@ -6,7 +6,7 @@ use super::path_descent::{Landing, Level, descend};
 use super::resolve_errors::{
     ambiguous, is_incomplete, no_candidate, settle_gone, stopped_aware, unverifiable_entry,
 };
-use super::resolve_match::{accepts_identityless_landing, accepts_landing, entry_is_unverifiable};
+use super::resolve_match::{accepts_landing, entry_is_unverifiable};
 use super::resolve_search::{Candidate, Searched};
 use super::resolve_verdict::{Verdict, classify};
 use super::walker_expand::UNKNOWN_PID;
@@ -55,7 +55,7 @@ fn path_tier<S: Source>(
         return Ok((None, unread));
     };
     match source.evidence(&element) {
-        Ok(evidence) if accepts(entry, &evidence) => Ok((Some(element), unread)),
+        Ok(evidence) if accepts_landing(entry, &evidence) => Ok((Some(element), unread)),
         Ok(_) => Ok((None, unread)),
         Err(error) if matches!(error.code, ErrorCode::AppNotFound | ErrorCode::Timeout) => {
             Err(error)
@@ -98,21 +98,12 @@ fn frame_candidate<'a>(candidates: &'a [Candidate], entry: &RefEntry) -> Option<
     candidates.iter().find(|candidate| candidate.depth == 0)
 }
 
-fn accepts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    if entry_is_unverifiable(entry) {
-        accepts_identityless_landing(entry, evidence)
-    } else {
-        accepts_landing(entry, evidence)
-    }
-}
-
 fn attempt<S: Source>(
     source: &mut S,
     entry: &RefEntry,
     deadline: Deadline,
 ) -> Result<AtspiElement, AdapterError> {
-    let identityless = entry_is_unverifiable(entry);
-    if identityless && !path_tier_applies(entry) {
+    if entry_is_unverifiable(entry) {
         return Err(unverifiable_entry());
     }
     if deadline.is_expired() {
@@ -124,13 +115,6 @@ fn attempt<S: Source>(
         if let Some(element) = landed {
             return Ok(element);
         }
-        if identityless {
-            return Err(if unread {
-                identity_unknown_error(entry)
-            } else {
-                unverifiable_entry()
-            });
-        }
         unread
     } else {
         false
@@ -140,6 +124,11 @@ fn attempt<S: Source>(
         .candidates
         .iter()
         .map(|candidate| candidate.bounds)
+        .collect();
+    let spaces: Vec<agent_desktop_core::BoundsSpace> = searched
+        .candidates
+        .iter()
+        .map(|candidate| candidate.bounds_space)
         .collect();
     if let Some(frame) = frame_candidate(&searched.candidates, entry) {
         return Ok(frame.element.clone());
@@ -151,7 +140,13 @@ fn attempt<S: Source>(
     {
         return Ok(candidate.element.clone());
     }
-    match classify(&rects, entry.geometry.bounds.as_ref(), unread) {
+    match classify(
+        &rects,
+        &spaces,
+        entry.geometry.bounds.as_ref(),
+        super::resolve_match::stored_space(entry),
+        unread,
+    ) {
         Verdict::Resolved(index) => searched
             .candidates
             .into_iter()
@@ -165,10 +160,10 @@ fn attempt<S: Source>(
 }
 
 /// Resolves a stored ref to the live element it was taken from, or refuses.
-/// Four tiers: a ref with neither evidence nor a stored path to verify a node
-/// against is refused before any read, and one with a path but no evidence may
-/// only land on that path, never be searched; the window gate proves the process and window are the stored
-/// ones; the stored child-index path is followed and its landing accepted when
+/// A ref with no identity evidence is refused before any read: a child index
+/// cannot distinguish an unnamed node from a replacement or reordered sibling.
+/// The window gate proves the process and window are the stored ones; the
+/// stored child-index path is followed and its landing accepted when
 /// it still answers to the stored identity and size; otherwise a bounded
 /// search of the window's tree decides among zero, one and several candidates.
 /// An application that left, a destroyed object and a timeout are told apart

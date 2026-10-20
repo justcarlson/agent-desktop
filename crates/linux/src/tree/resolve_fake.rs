@@ -222,8 +222,11 @@ impl Fake {
         entry.identity.name = evidence.name.known().filter(|n| !n.is_empty()).cloned();
         entry.identity.native_id = evidence.identifiers.preferred_identifier().cloned();
         if keep_rect {
-            entry.geometry.bounds = evidence.ref_evidence.bounds.known().copied();
+            let window = evidence.ref_evidence.window_bounds.known().copied();
+            entry.geometry.bounds =
+                window.or_else(|| evidence.ref_evidence.bounds.known().copied());
             entry.geometry.bounds_hash = entry.geometry.bounds.and_then(|b| b.bounds_hash());
+            entry.geometry.bounds_space = window.map(|_| agent_desktop_core::BoundsSpace::Window);
         }
         entry.process.pid = WINDOW_PID.into();
         entry.process.process_instance = Some("inst".to_owned());

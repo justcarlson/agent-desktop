@@ -2,7 +2,8 @@ use agent_desktop_core::{AdapterError, Deadline, LocatorEvidence, NativeHandle, 
 use zbus::Connection;
 
 use super::absence::Liveness;
-use super::node_evidence::read_evidence;
+use super::node_evidence::read_evidence_placed;
+use super::node_position::place_nodes;
 use super::node_read::read_node_with_liveness;
 use super::observe::is_web_process;
 use super::path_descent::{Level, Levels};
@@ -71,7 +72,10 @@ impl Source for BusSource<'_> {
 
     fn evidence(&mut self, element: &AtspiElement) -> Result<LocatorEvidence, AdapterError> {
         let connection = &self.connection;
-        let read = within(self.deadline, read_evidence(connection, element))?;
+        let read = within(
+            self.deadline,
+            read_evidence_placed(self.bus, connection, element, self.deadline),
+        )?;
         match read.liveness {
             Liveness::TimedOut => Err(unanswered()),
             _ => Ok(read.evidence),
@@ -79,7 +83,8 @@ impl Source for BusSource<'_> {
     }
 
     fn search(&mut self, frame: &AtspiElement, entry: &RefEntry) -> Result<Searched, AdapterError> {
-        let walk = walk_tree(self.bus, frame, &WalkLimits::default(), self.deadline)?;
+        let mut walk = walk_tree(self.bus, frame, &WalkLimits::default(), self.deadline)?;
+        place_nodes(self.bus, &mut walk, self.deadline);
         Ok(evaluate(&walk, entry, is_web_process(frame.pid())))
     }
 

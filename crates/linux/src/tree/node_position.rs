@@ -1,6 +1,8 @@
 use agent_desktop_core::Deadline;
 use futures_util::future::join_all;
 
+use agent_desktop_core::BoundsSpace;
+
 use super::frame_geometry::pointer_bounds;
 use super::toolkit_trust::{read_toolkit, reports_global_position};
 use super::window_extents::read_window_extents_async;
@@ -37,17 +39,40 @@ fn apply(
 ) {
     let mut next = windows.iter();
     for_each_read(root, &mut |read| {
-        let Field::Present(screen) = &read.node.extents else {
-            return;
-        };
         if !is_placed(&read.node.extents) {
             return;
         }
         let window = next.next().copied().flatten();
-        read.node.extents = window
-            .and_then(|window| pointer_bounds(toolkit, *screen, window, origin))
-            .map_or(Field::Absent, Field::Present);
+        place_read_bounds(read, toolkit, origin, window);
     });
+}
+
+/// Places one read for evidence: the pointer rectangle when the client origin
+/// is known, otherwise the toolkit's own window rectangle. A Wayland session
+/// reports no global position, so the window rectangle is the only stable
+/// evidence and is tagged with its frame; a node with neither keeps none.
+fn place_read_bounds(
+    read: &mut ObservedRead,
+    toolkit: &ToolkitId,
+    origin: Option<(i32, i32)>,
+    window: Option<Extents>,
+) {
+    let Field::Present(screen) = &read.node.extents else {
+        read.evidence_bounds = None;
+        read.node.extents = Field::Absent;
+        return;
+    };
+    read.evidence_bounds = window
+        .filter(|window| !is_sentinel(*window))
+        .map(|window| (window, BoundsSpace::Window));
+    read.node.extents = origin
+        .zip(window)
+        .and_then(|(origin, window)| pointer_bounds(toolkit, *screen, window, Some(origin)))
+        .map_or(Field::Absent, Field::Present);
+}
+
+fn is_sentinel(extents: Extents) -> bool {
+    extents.x == i32::MIN || extents.y == i32::MIN
 }
 
 fn placed_elements(root: &mut WalkedNode<ObservedRead>) -> Vec<AtspiElement> {
@@ -126,11 +151,7 @@ pub(crate) fn place_nodes(bus: &SharedBus, walk: &mut Walk<ObservedRead>, deadli
     }
     let frame = element.frame().cloned();
     let origin = frame.and_then(|frame| origin_of(connection.inner(), &frame, deadline));
-    let elements = if origin.is_some() {
-        placed_elements(&mut walk.root)
-    } else {
-        Vec::new()
-    };
+    let elements = placed_elements(&mut walk.root);
     let windows = within(deadline, async {
         Ok(window_rectangles(connection.inner(), &elements).await)
     })
@@ -141,3 +162,22 @@ pub(crate) fn place_nodes(bus: &SharedBus, walk: &mut Walk<ObservedRead>, deadli
 #[cfg(test)]
 #[path = "node_position_tests.rs"]
 mod tests;
+
+/// Places one node read without walking its window: the same rule the walk
+/// applies, used where only one node's evidence is wanted. A toolkit with
+/// global positions is left as read.
+pub(crate) fn place_single(bus: &SharedBus, read: &mut ObservedRead, deadline: Deadline) {
+    let element = read.node.element.clone();
+    let toolkit = super::live_offscreen::toolkit_of(bus, &element, deadline);
+    if reports_global_position(&toolkit) {
+        return;
+    }
+    let Ok(connection) = bus.get(deadline) else {
+        return;
+    };
+    let origin = element
+        .frame()
+        .and_then(|frame| origin_of(connection.inner(), frame, deadline));
+    let window = super::window_extents::read_window_extents(bus, &element, deadline);
+    place_read_bounds(read, &toolkit, origin, window);
+}

@@ -1,4 +1,4 @@
-use agent_desktop_core::{LocatorField, Rect, RefEntry};
+use agent_desktop_core::{BoundsSpace, LocatorField, Rect, RefEntry};
 
 use super::projection::project_node;
 use super::resolve_match::{Admission, admit_node};
@@ -12,6 +12,7 @@ use super::{AtspiElement, ObservedRead, Walk, WalkLimits, WalkedNode};
 pub(crate) struct Candidate {
     pub(crate) element: AtspiElement,
     pub(crate) bounds: Option<Rect>,
+    pub(crate) bounds_space: BoundsSpace,
     pub(crate) depth: usize,
 }
 
@@ -42,9 +43,18 @@ fn visit(
     match admit_node(entry, &evidence) {
         Admission::Collect => found.candidates.push(Candidate {
             element: node.payload.node.element.clone(),
-            bounds: match evidence.ref_evidence.bounds {
+            bounds: match evidence.ref_evidence.window_bounds {
                 LocatorField::Known(rect) => Some(rect),
-                LocatorField::Absent | LocatorField::Unknown => None,
+                LocatorField::Absent | LocatorField::Unknown => {
+                    match evidence.ref_evidence.bounds {
+                        LocatorField::Known(rect) => Some(rect),
+                        LocatorField::Absent | LocatorField::Unknown => None,
+                    }
+                }
+            },
+            bounds_space: match evidence.ref_evidence.window_bounds {
+                LocatorField::Known(_) => BoundsSpace::Window,
+                LocatorField::Absent | LocatorField::Unknown => BoundsSpace::Screen,
             },
             depth,
         }),

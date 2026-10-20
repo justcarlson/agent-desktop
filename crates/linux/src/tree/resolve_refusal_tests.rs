@@ -110,17 +110,17 @@ fn bare_list() -> Fake {
 }
 
 #[test]
-fn a_bare_ref_resolves_at_its_stored_path_when_the_node_there_is_still_bare() {
+fn a_bare_ref_is_refused_even_when_its_stored_path_still_lands() {
     let mut fake = bare_list();
     let entry = fake.entry_of("/list", false);
     assert!(entry.identity.name.is_none() && !entry.scope.path.is_empty());
-    let handle = resolve(&mut fake, &entry, deadline()).expect("the bare ref lands");
-    assert_eq!(handle.path(), "/list");
-    assert_eq!(fake.reads.searches, 0);
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("no identity anchor");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    no_reads(&fake);
 }
 
 #[test]
-fn a_bare_ref_with_no_stored_rectangle_lands_when_the_live_node_reports_an_area() {
+fn a_bare_ref_with_no_stored_rectangle_refuses_a_live_area() {
     let mut fake = Fake::new();
     let mut list = node(LIST, "", 0, 0);
     list.node.extents = crate::tree::Field::Absent;
@@ -134,20 +134,20 @@ fn a_bare_ref_with_no_stored_rectangle_lands_when_the_live_node_reports_an_area(
             width: 700,
             height: 474,
         });
-    let handle = resolve(&mut fake, &entry, deadline()).expect("the bare ref lands");
-    assert_eq!(handle.path(), "/list");
-    assert_eq!(fake.reads.searches, 0);
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("no identity anchor");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    no_reads(&fake);
 }
 
 #[test]
-fn a_bare_ref_resolves_at_its_stored_path_when_the_extents_read_is_unavailable() {
+fn a_bare_ref_is_refused_when_both_extents_reads_are_unavailable() {
     let mut fake = bare_list();
     fake.nodes.get_mut("/list").expect("list").read.node.extents =
         crate::tree::Field::Failed("no geometry on this session".to_owned());
     let entry = fake.entry_of("/list", false);
-    let handle = resolve(&mut fake, &entry, deadline()).expect("the bare ref lands");
-    assert_eq!(handle.path(), "/list");
-    assert_eq!(fake.reads.searches, 0);
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("no identity anchor");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    no_reads(&fake);
 }
 
 #[test]
@@ -201,14 +201,154 @@ fn a_bare_ref_is_refused_for_a_different_role_or_a_path_off_the_tree_and_is_neve
 }
 
 #[test]
-fn a_bare_ref_whose_path_could_not_be_read_is_retried_and_not_refused_for_good() {
+fn a_bare_ref_is_refused_before_attempting_an_unreadable_path() {
     let mut fake = bare_list();
     let entry = fake.entry_of("/list", false);
     fake.faults.level_errors.insert(
         FRAME_PATH.to_owned(),
         AdapterError::new(ErrorCode::Internal, "unreadable"),
     );
-    let error = resolve(&mut fake, &entry, deadline()).expect_err("retried");
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
-    assert!(error.is_explicitly_retryable());
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("no identity anchor");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert!(!error.is_explicitly_retryable());
+    no_reads(&fake);
+}
+
+#[test]
+fn a_bare_ref_never_retargets_a_reordered_or_replaced_same_role_sibling() {
+    for replacement in [false, true] {
+        let mut fake = bare_list();
+        fake.add(FRAME_PATH, "/twin", node(LIST, "", 100, 0));
+        let entry = fake.entry_of("/list", false);
+        let children = &mut fake.nodes.get_mut(FRAME_PATH).expect("frame").children;
+        if replacement {
+            children[0] = "/twin".to_owned();
+            children.pop();
+        } else {
+            children.swap(0, 2);
+        }
+        let error = resolve(&mut fake, &entry, deadline()).expect_err("no identity anchor");
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        no_reads(&fake);
+    }
+}
+
+#[test]
+fn a_bare_ref_with_stored_zero_area_bounds_refuses_unreadable_live_extents() {
+    let mut fake = bare_list();
+    let entry = fake.entry_of("/list", true);
+    fake.nodes.get_mut("/list").expect("list").read.node.extents =
+        crate::tree::Field::Failed("extents failed".to_owned());
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("no identity anchor");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    no_reads(&fake);
+}
+
+#[test]
+fn indistinguishable_sized_twins_remain_ambiguous_after_the_path_declines() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", node(LIST, "", 100, 40));
+    fake.add(FRAME_PATH, "/second", node(LIST, "", 100, 40));
+    let mut entry = fake.entry_of("/first", true);
+    entry.scope.path = [99].into_iter().collect();
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("twins are ambiguous");
+    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+    assert_eq!(
+        error.details.as_ref().expect("details")["candidate_count"],
+        2
+    );
+}
+
+fn window_field(x: i32, y: i32, width: i32, height: i32) -> crate::tree::ObservedRead {
+    let mut read = node(LIST, "", width, height);
+    read.node.extents = crate::tree::Field::Present(crate::tree::Extents {
+        x,
+        y,
+        width,
+        height,
+    });
+    read.evidence_bounds = Some((
+        crate::tree::Extents {
+            x,
+            y,
+            width,
+            height,
+        },
+        agent_desktop_core::BoundsSpace::Window,
+    ));
+    read
+}
+
+#[test]
+fn a_window_relative_ref_resolves_its_field_after_the_siblings_swap() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+    fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
+    let entry = fake.entry_of("/first", true);
+    assert_eq!(
+        entry.geometry.bounds_space,
+        Some(agent_desktop_core::BoundsSpace::Window)
+    );
+
+    let handle = resolve(&mut fake, &entry, deadline()).expect("the field is anchored");
+    assert_eq!(handle.path(), "/first");
+
+    fake.nodes
+        .get_mut(FRAME_PATH)
+        .expect("frame")
+        .children
+        .swap(0, 1);
+    let handle = resolve(&mut fake, &entry, deadline()).expect("the field moved");
+    assert_eq!(handle.path(), "/first");
+    assert!(
+        fake.reads.searches > 0,
+        "the path tier declined the swapped sibling"
+    );
+}
+
+#[test]
+fn a_window_relative_ref_refuses_a_replacement_sibling_of_the_same_size() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+    fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
+    let mut entry = fake.entry_of("/first", true);
+    entry.scope.path.clear();
+    let children = &mut fake.nodes.get_mut(FRAME_PATH).expect("frame").children;
+    children.remove(0);
+    fake.add(FRAME_PATH, "/replacement", window_field(0, 200, 420, 34));
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("the replacement moved");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+}
+
+#[test]
+fn a_retained_object_ref_follows_its_widget_after_the_siblings_swap() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+    fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
+    let mut entry = fake.entry_of("/first", true);
+    entry.identity.retained_object = Some("/first".to_owned());
+
+    fake.nodes
+        .get_mut(FRAME_PATH)
+        .expect("frame")
+        .children
+        .swap(0, 1);
+    let handle = resolve(&mut fake, &entry, deadline()).expect("the widget is named by its path");
+    assert_eq!(handle.path(), "/first");
+    assert!(fake.reads.searches > 0, "the swapped landing was declined");
+}
+
+#[test]
+fn a_retained_object_ref_refuses_a_replacement_at_the_old_rectangle() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+    fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
+    let mut entry = fake.entry_of("/first", true);
+    entry.identity.retained_object = Some("/first".to_owned());
+
+    let children = &mut fake.nodes.get_mut(FRAME_PATH).expect("frame").children;
+    children.remove(0);
+    fake.add(FRAME_PATH, "/replacement", window_field(0, 38, 420, 34));
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("a new object at the old place");
+    assert_eq!(error.code, ErrorCode::StaleRef);
 }

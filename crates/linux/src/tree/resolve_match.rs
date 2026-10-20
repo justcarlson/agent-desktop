@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry,
+    BoundsSpace, IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry,
     ref_identity::{
         has_meaningful_identity, has_stable_text_identity, identity_match, stable_text_match,
     },
@@ -93,16 +93,65 @@ pub(crate) fn provisional_geometry_candidate(entry: &RefEntry) -> bool {
 /// Whether the candidate's size equals the stored one under the promotion's
 /// eligibility rule.
 fn geometry_matches_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> bool {
-    provisional_geometry_candidate(entry)
-        && stored_size(entry)
-            .zip(live_size(evidence))
-            .is_some_and(|(stored, live)| sizes_within(stored, live, tolerance))
+    if !provisional_geometry_candidate(entry) {
+        return false;
+    }
+    if comparable_rectangles(entry, evidence) {
+        return entry
+            .geometry
+            .bounds
+            .as_ref()
+            .zip(live_rect(evidence))
+            .is_some_and(|(stored, live)| rects_within(stored, live, tolerance));
+    }
+    stored_size(entry)
+        .zip(live_size(evidence))
+        .is_some_and(|(stored, live)| sizes_within(stored, live, tolerance))
 }
 
-/// Whether the stored size and the live size are both known and differ by
-/// more than a layout jitter. An unknown size on either side, or a different
-/// position, refutes nothing.
+pub(crate) fn stored_space(entry: &RefEntry) -> BoundsSpace {
+    entry.geometry.bounds_space.unwrap_or_default()
+}
+
+fn live_rect(evidence: &LocatorEvidence) -> Option<&Rect> {
+    evidence
+        .ref_evidence
+        .window_bounds
+        .known()
+        .or_else(|| evidence.ref_evidence.bounds.known())
+}
+
+fn rects_within(left: &Rect, right: &Rect, tolerance: f64) -> bool {
+    (left.x - right.x).abs() < tolerance
+        && (left.y - right.y).abs() < tolerance
+        && (left.width - right.width).abs() < tolerance
+        && (left.height - right.height).abs() < tolerance
+}
+
+/// Whether both rectangles are measured in the same frame, and that frame is
+/// the window. Only then does a position identify an element: a screen
+/// position moves with the window on GTK 3 and Qt and is not reported at all
+/// on a Wayland session.
+pub(crate) fn comparable_rectangles(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
+    stored_space(entry) == BoundsSpace::Window
+        && matches!(evidence.ref_evidence.window_bounds, LocatorField::Known(_))
+}
+
+/// Whether the stored and live evidence describe different rectangles by more
+/// than a layout jitter. A window-relative rectangle is compared whole, so a
+/// reordered or replaced same-role sibling is refuted; a screen rectangle is
+/// compared by size alone, because its position is not stable. An unknown
+/// rectangle on either side refutes nothing.
 pub(crate) fn size_contradicts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
+    let Some(stored) = entry.geometry.bounds.as_ref() else {
+        return false;
+    };
+    let Some(live) = live_rect(evidence) else {
+        return false;
+    };
+    if comparable_rectangles(entry, evidence) {
+        return !rects_within(stored, live, LAYOUT_JITTER_PX);
+    }
     stored_size(entry)
         .zip(live_size(evidence))
         .is_some_and(|(stored, live)| !sizes_within(stored, live, LAYOUT_JITTER_PX))
@@ -153,42 +202,6 @@ fn admit_node_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f6
 pub(crate) fn accepts_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
     !size_contradicts(entry, evidence)
         && admit_node_within(entry, evidence, LAYOUT_JITTER_PX) == Admission::Collect
-}
-
-fn no_text(field: &LocatorField<String>) -> bool {
-    match field {
-        LocatorField::Known(text) => text.trim().is_empty(),
-        LocatorField::Absent => true,
-        LocatorField::Unknown => false,
-    }
-}
-
-/// Whether nothing the node answers could tell it from any other node of its
-/// role: no name or description, no identifier, and no size the ref stored.
-/// An unreadable name, description or identifier is not an absence, so it
-/// withholds the claim. A ref that stored no rectangle had its extents
-/// dropped because the snapshot could not place them, as on a Wayland
-/// session, so a live area is no evidence of a different node there; a ref
-/// that stored a rectangle, even a zero-area one, is still refuted by a live
-/// node that has gained an area.
-fn landing_is_identityless(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    no_text(&evidence.name)
-        && no_text(&evidence.description)
-        && evidence.identifiers.is_complete()
-        && evidence.identifiers.preferred_identifier().is_none()
-        && (entry.geometry.bounds.is_none() || live_size(evidence).is_none())
-}
-
-/// Decides the node the stored path landed on for a ref that carries no
-/// identity to check it against. The path is the only evidence, so the claim
-/// is the narrowest one: the node there has the stored role, does not
-/// contradict a stored size, and is itself as bare as the ref, so a node that
-/// has since gained a name or an identifier is a different element, as is one
-/// that gained an area when the ref had stored a rectangle.
-pub(crate) fn accepts_identityless_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    evidence.role.known() == Some(&entry.identity.role)
-        && !size_contradicts(entry, evidence)
-        && landing_is_identityless(entry, evidence)
 }
 
 #[cfg(test)]

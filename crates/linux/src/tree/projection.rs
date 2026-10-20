@@ -25,6 +25,15 @@ fn bounds_of(extents: &Field<Extents>) -> LocatorField<Rect> {
     }
 }
 
+fn window_bounds(read: &ObservedRead) -> LocatorField<Rect> {
+    match read.evidence_bounds {
+        Some((extents, agent_desktop_core::BoundsSpace::Window)) => {
+            bounds_of(&Field::Present(extents))
+        }
+        _ => LocatorField::Absent,
+    }
+}
+
 fn value_of(read: &ObservedRead) -> LocatorField<String> {
     match &read.value.value {
         Field::Present(text) => LocatorField::Known(text.clone()),
@@ -75,10 +84,12 @@ impl Projector<'_> {
             name: self.capped(vocabulary.name),
             description: self.capped(vocabulary.description),
             value: value_of(read),
-            identifiers: vocabulary.identifiers,
+            identifiers: vocabulary
+                .identifiers
+                .with_retained_object(read.node.element.path().to_owned()),
             states: vocabulary.states,
             ref_evidence: LocatorRefEvidence {
-                window_bounds: LocatorField::Absent,
+                window_bounds: window_bounds(read),
                 bounds: bounds_of(&read.node.extents),
                 bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 available_actions: capabilities(&read.node),

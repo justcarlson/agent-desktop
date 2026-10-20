@@ -1,4 +1,4 @@
-use agent_desktop_core::Rect;
+use agent_desktop_core::{BoundsSpace, Rect};
 
 use super::resolve_match::{same_size, usable_size};
 
@@ -22,20 +22,28 @@ pub(crate) enum Verdict {
 /// be the element, so while any candidate is unread nothing is picked.
 pub(crate) fn select_by_stored_size(
     candidates: &[Option<Rect>],
+    spaces: &[BoundsSpace],
     stored: Option<&Rect>,
+    stored_space: BoundsSpace,
 ) -> Option<usize> {
-    let stored = stored.and_then(usable_size)?;
-    if candidates.iter().any(Option::is_none) {
+    if stored.and_then(usable_size).is_none() || candidates.iter().any(Option::is_none) {
         return None;
     }
+    let whole = stored_space == BoundsSpace::Window
+        && spaces.iter().all(|space| *space == BoundsSpace::Window);
+    let stored = stored?;
     let mut sole = None;
     let mut matches = 0;
     for (index, rect) in candidates.iter().enumerate() {
-        if rect
-            .as_ref()
-            .and_then(usable_size)
-            .is_some_and(|size| same_size(size, stored))
-        {
+        let Some(rect) = rect else { continue };
+        let same = if whole {
+            (rect.x - stored.x).abs() < 0.5
+                && (rect.y - stored.y).abs() < 0.5
+                && same_size((rect.width, rect.height), (stored.width, stored.height))
+        } else {
+            usable_size(rect).is_some_and(|size| same_size(size, (stored.width, stored.height)))
+        };
+        if same {
             matches += 1;
             sole = Some(index);
         }
@@ -50,7 +58,9 @@ pub(crate) fn select_by_stored_size(
 /// not be read is retried and not resolved.
 pub(crate) fn classify(
     candidates: &[Option<Rect>],
+    spaces: &[BoundsSpace],
     stored: Option<&Rect>,
+    stored_space: BoundsSpace,
     unread_region: bool,
 ) -> Verdict {
     let separable = stored.and_then(usable_size).is_some();
@@ -64,9 +74,8 @@ pub(crate) fn classify(
     match candidates.len() {
         0 => Verdict::Stale,
         1 => Verdict::Resolved(0),
-        _ => {
-            select_by_stored_size(candidates, stored).map_or(Verdict::Ambiguous, Verdict::Resolved)
-        }
+        _ => select_by_stored_size(candidates, spaces, stored, stored_space)
+            .map_or(Verdict::Ambiguous, Verdict::Resolved),
     }
 }
 

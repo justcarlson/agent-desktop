@@ -56,11 +56,26 @@ fn a_gtk4_node_is_placed_at_its_window_rectangle_moved_to_the_client_origin() {
 }
 
 #[test]
-fn without_a_client_origin_no_node_keeps_a_position() {
+fn without_a_client_origin_a_node_keeps_its_window_rectangle_as_reference_evidence() {
     let mut root = node(0, 0, vec![node(0, 0, Vec::new())]);
-    apply(&mut root, &gtk4(), None, &[window(0, 0), window(180, 46)]);
+    apply(&mut root, &gtk4(), None, &[window(1, 2), window(180, 46)]);
     assert_eq!(extents_of(&root), None);
     assert_eq!(extents_of(&root.children[0]), None);
+    assert_eq!(
+        root.children[0].payload.evidence_bounds,
+        Some((window(180, 46).expect("rect"), BoundsSpace::Window))
+    );
+}
+
+#[test]
+fn a_client_origin_keeps_a_screen_position_and_the_window_rectangle_as_reference_evidence() {
+    let mut root = node(0, 0, Vec::new());
+    apply(&mut root, &gtk4(), Some((460, 165)), &[window(1, 2)]);
+    assert_eq!(extents_of(&root), Some((461, 167)));
+    assert_eq!(
+        root.payload.evidence_bounds,
+        Some((window(1, 2).expect("rect"), BoundsSpace::Window))
+    );
 }
 
 #[test]

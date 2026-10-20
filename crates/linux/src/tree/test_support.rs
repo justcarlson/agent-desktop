@@ -152,8 +152,8 @@ pub(crate) fn evidence(
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds: bounds.map_or(LocatorField::Absent, LocatorField::Known),
             bounds_space: agent_desktop_core::BoundsSpace::Screen,
+            bounds: bounds.map_or(LocatorField::Absent, LocatorField::Known),
             available_actions: LocatorField::Absent,
             descriptors: NodeDescriptor::default(),
         },

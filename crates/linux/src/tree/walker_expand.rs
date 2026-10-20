@@ -173,5 +173,13 @@ pub(super) async fn read_observed_with_liveness(
         read_value(connection, &node, max_field_bytes),
     )
     .await;
-    Ok((ObservedRead { node, label, value }, liveness))
+    Ok((
+        ObservedRead {
+            node,
+            label,
+            value,
+            evidence_bounds: None,
+        },
+        liveness,
+    ))
 }
