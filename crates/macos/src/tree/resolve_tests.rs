@@ -189,6 +189,27 @@ fn strict_resolution_requires_the_exact_process_instance() {
 }
 
 #[test]
+fn identity_unknown_then_success_retries_within_the_budget() {
+    let entry = entry(Some(42), Some("w-42"), None, None);
+    let attempts = std::cell::Cell::new(0);
+    let deadline = Instant::now() + Duration::from_millis(250);
+
+    let result = retry_incomplete_until(deadline, || {
+        attempts.set(attempts.get() + 1);
+        if attempts.get() == 1 {
+            Err(agent_desktop_core::resolve_errors::identity_unknown_error(
+                &entry,
+            ))
+        } else {
+            Ok(7_u8)
+        }
+    });
+
+    assert_eq!(result.unwrap(), 7);
+    assert_eq!(attempts.get(), 2);
+}
+
+#[test]
 fn only_explicitly_retryable_incomplete_errors_retry() {
     let retryable = incomplete_traversal_error("children", 3);
     assert!(is_retryable_resolution_error(&retryable));

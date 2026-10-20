@@ -57,7 +57,7 @@ fn a_timeout_on_a_stopped_process_is_unresponsive_and_otherwise_a_timeout() {
 #[test]
 fn an_incomplete_observation_on_a_stopped_process_names_the_stopped_application() {
     let incomplete = || {
-        AdapterError::new(ErrorCode::AppUnresponsive, "tree unreadable").with_details(
+        AdapterError::new(ErrorCode::Timeout, "tree unreadable").with_details(
             serde_json::json!({ "kind": "resolution_identity_unknown", "retryable": true }),
         )
     };

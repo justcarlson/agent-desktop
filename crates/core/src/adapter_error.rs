@@ -56,6 +56,15 @@ impl AdapterError {
         self.retryability == crate::retryability::Retryability::Retryable
     }
 
+    /// Whether the error is an incomplete read an adapter's own loop retries
+    /// inside the operation budget: an explicitly retryable `TIMEOUT` or
+    /// `APP_UNRESPONSIVE`. Deadline exhaustion carries no retryable stamp, so
+    /// it is not one.
+    pub fn is_transient_incomplete_read(&self) -> bool {
+        matches!(self.code, ErrorCode::Timeout | ErrorCode::AppUnresponsive)
+            && self.is_explicitly_retryable()
+    }
+
     pub(crate) fn is_retryable_resolution_failure(&self) -> bool {
         matches!(
             self.code,

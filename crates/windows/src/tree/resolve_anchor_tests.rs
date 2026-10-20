@@ -279,7 +279,12 @@ fn a_role_read_that_comes_back_unknown_is_retryable_not_settled() {
         Err(error) => error,
         Ok(()) => panic!("an unknown role must never verify as a match"),
     };
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    assert!(error.is_transient_incomplete_read());
     assert_eq!(
         error
             .details

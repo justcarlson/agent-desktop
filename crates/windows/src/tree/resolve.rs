@@ -272,8 +272,7 @@ pub(crate) fn retry_incomplete_until(
 /// error carries.
 #[cfg(target_os = "windows")]
 pub(crate) fn is_retryable_resolution_error(error: &AdapterError) -> bool {
-    error.is_explicitly_retryable()
-        && matches!(error.code, ErrorCode::AppUnresponsive | ErrorCode::Timeout)
+    error.is_transient_incomplete_read()
 }
 
 /// Stamps the final incomplete diagnosis with `deadline_elapsed` so the
