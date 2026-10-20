@@ -288,6 +288,34 @@ pub(super) struct World {
     pub(super) keys: Keys,
 }
 
+/// The shell and the portal push a wayland-only environment into the bus's
+/// activation set, where it outlives them: a later D-Bus-activated app
+/// inherits the dead socket and a forced backend and dies at display init.
+/// Hand the session's X11 display back so the session launches cleanly.
+fn restore_activation_display() {
+    let Ok(connection) = Connection::session() else {
+        return;
+    };
+    let display = std::env::var("DISPLAY").unwrap_or_default();
+    let activation: HashMap<&str, &str> = HashMap::from([
+        ("DISPLAY", display.as_str()),
+        ("WAYLAND_DISPLAY", ""),
+        ("GDK_BACKEND", "x11"),
+    ]);
+    let _ = bus_call(
+        &connection,
+        &BUS_DAEMON,
+        "UpdateActivationEnvironment",
+        &(activation,),
+    );
+}
+
+impl Drop for World {
+    fn drop(&mut self) {
+        restore_activation_display();
+    }
+}
+
 pub(super) fn forget_screenshot_permission() {
     if let Ok(connection) = Connection::session() {
         let _ = bus_call(
