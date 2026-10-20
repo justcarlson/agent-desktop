@@ -85,7 +85,7 @@ fn recovery_for_code(
             requires_fresh_snapshot: false,
             retry_after_ms: None,
         }),
-        ErrorCode::AppUnresponsive => Some(RecoveryHint {
+        ErrorCode::AppUnresponsive | ErrorCode::Timeout => Some(RecoveryHint {
             strategy: "inspect_state_then_retry_original".into(),
             retryable: true,
             requires_fresh_snapshot: true,
