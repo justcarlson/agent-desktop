@@ -30,7 +30,7 @@ class LegContext:
         self.leg = leg
         self._member_reader = member_reader or _session_members
         self._baseline = self.owned()
-        self._reads: dict[str, dict[str, object]] = {}
+        self._reads: dict[str, dict[str, list[object]]] = {}
         self._findings: list[str] = []
         self._products: list[Envelope] = []
 
@@ -41,10 +41,7 @@ class LegContext:
             raise ValueError(
                 f"leg {self.leg.id} read oracle channel {channel} it did not declare"
             )
-        entry = self._reads.setdefault(channel, {})
-        if stage in entry:
-            raise ValueError(f"oracle channel {channel} recorded {stage} twice")
-        entry[stage] = value
+        self._reads.setdefault(channel, {}).setdefault(stage, []).append(value)
 
     def before(self, channel: str, value: object) -> None:
         self._record("before", channel, value)
@@ -76,47 +73,44 @@ class LegContext:
         return list(self._products)
 
     @property
-    def reads(self) -> dict[str, dict[str, object]]:
-        return {channel: dict(entry) for channel, entry in self._reads.items()}
+    def reads(self) -> dict[str, dict[str, list[object]]]:
+        return {channel: {stage: list(values) for stage, values in entry.items()}
+                for channel, entry in self._reads.items()}
 
     @property
     def baseline(self) -> OwnedSet:
         return self._baseline
 
 
-def _values_match(left: object, right: object) -> bool:
-    return left == right
-
-
 def evaluate(ctx: LegContext) -> list[str]:
     failures = []
     reads = ctx._reads
-    if not any("before" in entry for entry in reads.values()):
+    if not any(entry.get("before") for entry in reads.values()):
         failures.append("no oracle recorded a before read")
-    if not any("after" in entry for entry in reads.values()):
+    if not any(entry.get("after") for entry in reads.values()):
         failures.append("no oracle recorded an after read")
     for channel in sorted(reads):
         entry = reads[channel]
-        has_before = "before" in entry
-        has_after = "after" in entry
-        has_restored = "restored" in entry
-        if has_before != has_after:
-            missing = "after" if has_before else "before"
-            failures.append(f"oracle {channel} is missing its {missing} read")
+        befores = entry.get("before", [])
+        afters = entry.get("after", [])
+        restores = entry.get("restored", [])
+        if not befores:
+            failures.append(f"oracle {channel} is missing its before read")
             continue
-        if not has_before:
-            failures.append(f"oracle {channel} recorded a restoration with no reads")
+        if not afters:
+            failures.append(f"oracle {channel} is missing its after read")
             continue
-        if _values_match(entry["before"], entry["after"]):
-            if has_restored and not _values_match(entry["restored"], entry["before"]):
+        changed = any(before != after for before, after in zip(befores, afters))
+        if not changed:
+            if restores and any(restored not in befores for restored in restores):
                 failures.append(
                     f"oracle {channel} drifted: the restoration read disagrees with the before read"
                 )
-        elif not has_restored:
+        elif not restores:
             failures.append(
                 f"oracle {channel} changed during the leg but recorded no restoration read"
             )
-        elif not _values_match(entry["restored"], entry["before"]):
+        elif any(restored not in befores for restored in restores):
             failures.append(
                 f"oracle {channel} changed during the leg and was not restored"
             )

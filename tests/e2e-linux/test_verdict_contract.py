@@ -161,11 +161,13 @@ class ReadDisciplineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ctx.before("x11", 1)
 
-    def test_recording_the_same_stage_twice_is_refused(self):
+    def test_repeating_a_stage_keeps_every_value(self):
         ctx = self.ctx()
-        ctx.before("atspi", 1)
-        with self.assertRaises(ValueError):
-            ctx.before("atspi", 2)
+        ctx.before("atspi", None)
+        ctx.before("atspi", {"window": (1, 2)})
+        ctx.after("atspi", None)
+        self.assertEqual(ctx.reads["atspi"]["before"], [None, {"window": (1, 2)}])
+        self.assertEqual(ctx.reads["atspi"]["after"], [None])
 
     def test_findings_are_collected(self):
         ctx = self.ctx()
