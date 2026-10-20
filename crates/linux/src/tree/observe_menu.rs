@@ -1,6 +1,6 @@
 use agent_desktop_core::{AdapterError, Deadline};
 
-use super::role_numbers::{LIST, TABLE, TREE, TREE_TABLE};
+use super::role_numbers::is_bulk_container;
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, WalkLimits, WalkedNode, ancestry};
 use crate::system::SharedBus;
@@ -30,7 +30,7 @@ pub(crate) fn scan_walk(
 const BULK_CHILDREN: usize = 48;
 
 /// Walks up to `max_nodes` nodes below `root` and reads at most a few dozen
-/// children of any one node. The popup of a menu is never one of the many
+/// children of any one list, table or tree. The popup of a menu is never one of the many
 /// rows of a list or the many cells of a table, so a container with
 /// thousands of rows does not use up the budget before the walk reaches the
 /// menu. A container cut this way is reported by [`is_pruned`].
@@ -42,14 +42,10 @@ pub(crate) fn scan_walk_pruned(
 ) -> Result<WalkedNode<ObservedRead>, AdapterError> {
     let limits = WalkLimits {
         max_nodes,
-        max_children: BULK_CHILDREN,
+        bulk_children: BULK_CHILDREN,
         ..WalkLimits::default()
     };
     walk_tree(bus, root, &limits, deadline).map(|walk| walk.root)
-}
-
-fn is_bulk_container(role: Option<u32>) -> bool {
-    matches!(role, Some(LIST | TABLE | TREE | TREE_TABLE))
 }
 
 /// Whether a node is a list, table or tree whose rows were cut at the child

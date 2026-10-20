@@ -5,4 +5,6 @@
 pub(crate) struct NodeClass {
     pub(crate) wrapper: bool,
     pub(crate) web_document: bool,
+    /// A list, table or tree, whose many rows a walk may read in part.
+    pub(crate) bulk: bool,
 }

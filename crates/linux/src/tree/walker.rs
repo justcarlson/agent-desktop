@@ -165,7 +165,15 @@ where
                 slot.node.child_count = slot.listed;
             } else {
                 let path = ancestor_path(&slots, index);
-                let admission = admit_children(&children, &path, admitted, edges, limits);
+                let node_limits = WalkLimits {
+                    max_children: if class.bulk {
+                        limits.bulk_children.min(limits.max_children)
+                    } else {
+                        limits.max_children
+                    },
+                    ..*limits
+                };
+                let admission = admit_children(&children, &path, admitted, edges, &node_limits);
                 counts.note_hits(&admission.hits, admission.cycles);
                 edges += admission.considered;
                 admitted += admission.indices.len();

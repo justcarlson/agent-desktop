@@ -64,4 +64,49 @@ mod pruning {
         list.children[3].truncated = true;
         assert!(is_cut_short_beyond_pruning(&list));
     }
+
+    fn walked(role: u32, children: u32) -> WalkedNode<ObservedRead> {
+        use crate::tree::walker::walk_levels;
+        use crate::tree::wrapper::classify;
+        use crate::tree::{Expansion, WalkLimits};
+        let limits = WalkLimits {
+            bulk_children: BULK_CHILDREN,
+            ..WalkLimits::default()
+        };
+        walk_levels(
+            0u32,
+            &limits,
+            agent_desktop_core::Deadline::after(5_000).expect("deadline"),
+            |level| {
+                Ok(level
+                    .iter()
+                    .map(|key| {
+                        if *key == 0 {
+                            Expansion::read(read_of(role, "c", &[]), (1..=children).collect())
+                        } else {
+                            Expansion::read(read_of(PANEL, "k", &[]), Vec::new())
+                        }
+                    })
+                    .collect())
+            },
+            classify,
+        )
+        .expect("a walk")
+        .root
+    }
+
+    #[test]
+    fn a_plain_container_of_sixty_children_is_read_whole() {
+        let root = walked(PANEL, 60);
+        assert_eq!(root.children.len(), 60);
+        assert!(!is_cut_short_beyond_pruning(&root));
+    }
+
+    #[test]
+    fn a_list_of_sixty_children_is_cut_at_the_limit_and_counts_as_read() {
+        let root = walked(LIST, 60);
+        assert_eq!(root.children.len(), BULK_CHILDREN);
+        assert!(is_pruned(&root));
+        assert!(!is_cut_short_beyond_pruning(&root));
+    }
 }

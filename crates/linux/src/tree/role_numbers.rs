@@ -36,6 +36,11 @@ pub(crate) const NOTIFICATION: u32 = 101;
 pub(crate) const LANDMARK: u32 = 110;
 pub(crate) const PUSH_BUTTON_MENU: u32 = 129;
 
+/// Whether a numeric role is a list, table or tree: a container of many rows.
+pub(crate) fn is_bulk_container(role: Option<u32>) -> bool {
+    matches!(role, Some(LIST | TABLE | TREE | TREE_TABLE))
+}
+
 /// Whether a numeric role opens a web document, below which DOM identifiers
 /// and classes are read.
 pub(crate) fn is_web_document(role: Option<u32>) -> bool {

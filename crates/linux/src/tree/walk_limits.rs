@@ -16,6 +16,7 @@ pub(crate) struct WalkLimits {
     pub(crate) max_nodes: usize,
     pub(crate) max_edges: usize,
     pub(crate) max_children: usize,
+    pub(crate) bulk_children: usize,
     pub(crate) max_field_bytes: usize,
     pub(crate) root_in_web: bool,
 }
@@ -28,6 +29,7 @@ impl Default for WalkLimits {
             max_nodes: DEFAULT_MAX_NODES,
             max_edges: DEFAULT_MAX_EDGES,
             max_children: DEFAULT_MAX_CHILDREN,
+            bulk_children: DEFAULT_MAX_CHILDREN,
             max_field_bytes: DEFAULT_MAX_FIELD_BYTES,
             root_in_web: false,
         }
@@ -43,6 +45,7 @@ impl WalkLimits {
             max_nodes: request.budget.max_nodes,
             max_edges: request.budget.max_edges,
             max_children: request.budget.max_children_per_node,
+            bulk_children: request.budget.max_children_per_node,
             max_field_bytes: request.budget.max_field_bytes,
             root_in_web: false,
         }
