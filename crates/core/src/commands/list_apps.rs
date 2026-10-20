@@ -7,14 +7,23 @@ pub struct ListAppsArgs {
 }
 
 pub fn execute(args: ListAppsArgs, adapter: &dyn PlatformAdapter) -> Result<Value, AppError> {
-    let inventory = adapter.list_apps_inventory(crate::Deadline::after(
+    let deadline = crate::Deadline::after(
         args.timeout_ms
             .unwrap_or(crate::DEFAULT_OPERATION_TIMEOUT_MS),
-    )?)?;
+    )?;
+    let inventory = adapter.list_apps_inventory(deadline)?;
     let mut apps = inventory.apps;
     if let Some(app) = args.app {
         let needle = search_text::normalize(&app);
         apps.retain(|candidate| search_text::contains(&candidate.name, &needle));
+        for aliased in adapter
+            .list_apps_scoped(&app, None, deadline)
+            .unwrap_or_default()
+        {
+            if !apps.iter().any(|kept| kept.pid == aliased.pid) {
+                apps.push(aliased);
+            }
+        }
     }
     let mut output = json!({ "apps": apps });
     if !inventory.skipped.is_empty() {
