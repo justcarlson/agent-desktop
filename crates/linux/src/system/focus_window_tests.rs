@@ -82,6 +82,15 @@ fn wayland_no_display_and_no_manager_are_refused_before_any_send() {
 }
 
 #[test]
+fn an_open_menu_of_the_active_app_is_focus_without_another_request() {
+    let mut world = World::new(Some(CLIENT));
+    world.frame_active.set(Some(false));
+    world.menu_open = true;
+    run(&world, &window(), budget()).expect("the menu's grab is the application's focus");
+    assert_eq!(world.sends(), 0);
+}
+
+#[test]
 fn active_on_the_display_but_not_on_the_frame_is_a_failure_never_a_success() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::OnlyOnX11;

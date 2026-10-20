@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use agent_desktop_core::{AdapterError, ErrorCode};
 
-use super::{chosen_apps, gather, pass_over};
+use super::{chosen_apps, gather, pass_over, pass_over_with_menu};
 use crate::system::listed_window::ListedWindow;
 use crate::system::process_facts::ProcessFacts;
 use crate::system::registry::Registry;
@@ -244,6 +244,60 @@ fn an_active_window_no_client_claims_is_not_a_candidate() {
     let pass = pass_over(windows, outcomes, Vec::new(), &state);
     assert!(pass.candidates.is_empty());
     assert_eq!(pass.focused, None);
+}
+
+#[test]
+fn the_app_the_manager_names_active_owns_the_focus_when_its_menu_is_open() {
+    use crate::system::x11::X11Client;
+    use crate::tree::Extents;
+    let build = || {
+        let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
+        let mut menu = frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]);
+        menu.properties.name = Field::Present(String::new());
+        let frames = vec![read(
+            vec![
+                frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25]),
+                menu,
+            ],
+            RootRead::Read,
+        )];
+        let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
+        let title = windows[0].frame.title.clone();
+        let clients = vec![X11Client {
+            id: 0x40_0003,
+            pid: Some(1),
+            title,
+            extents: None,
+            bounds: Some(Extents {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            }),
+            hidden: false,
+            shadow: (0, 0, 0, 0),
+        }];
+        let state = X11State::Ready {
+            active: Some(0x40_0003),
+            clients,
+        };
+        (windows, outcomes, state)
+    };
+
+    let (windows, outcomes, state) = build();
+    assert_eq!(
+        pass_over(windows, outcomes, Vec::new(), &state).focused,
+        None,
+        "no frame claims ACTIVE while the menu's grab holds the keyboard"
+    );
+
+    let (windows, outcomes, state) = build();
+    let pass = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| true);
+    assert_eq!(pass.focused, Some(0));
+
+    let (windows, outcomes, state) = build();
+    let closed = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| false);
+    assert_eq!(closed.focused, None);
 }
 
 #[test]

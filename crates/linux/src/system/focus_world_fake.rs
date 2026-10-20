@@ -53,6 +53,7 @@ pub(super) struct World {
     pub(super) frame_modal: Option<bool>,
     pub(super) frame_dialog: bool,
     pub(super) input_focus: bool,
+    pub(super) menu_open: bool,
 }
 
 pub(super) fn facts() -> ProcessFacts {
@@ -114,6 +115,7 @@ impl World {
             frame_modal: None,
             frame_dialog: false,
             input_focus: false,
+            menu_open: false,
         }
     }
 
@@ -206,6 +208,10 @@ impl FocusWorld for World {
 
     fn input_focus_in(&self, _client: u32) -> bool {
         self.input_focus
+    }
+
+    fn menu_open(&self) -> bool {
+        self.menu_open
     }
 
     fn grace(&self) -> Grace {

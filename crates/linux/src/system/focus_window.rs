@@ -67,6 +67,7 @@ pub(super) trait FocusWorld: ClientWorld {
     fn switch_desktop(&self, desktop: u32) -> Result<(), ActivateError>;
     fn modal_over(&self, client: u32) -> Option<String>;
     fn input_focus_in(&self, client: u32) -> bool;
+    fn menu_open(&self) -> bool;
     fn grace(&self) -> Grace {
         GRACE
     }
@@ -142,7 +143,8 @@ fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
     let reported = view.and_then(|view| view.active) == Some(true);
     let silent_dialog = view
         .is_some_and(|view| (view.modal == Some(true) || view.dialog) && view.active != Some(true));
-    let done = reported || (silent_dialog && world.input_focus_in(client));
+    let menu_holds_the_grab = world.menu_open();
+    let done = reported || menu_holds_the_grab || (silent_dialog && world.input_focus_in(client));
     (active, done)
 }
 
@@ -276,7 +278,7 @@ pub(super) fn run(
         }
         None if view.other_desktop.is_none()
             && active == Some(client)
-            && frame.active == Some(true) =>
+            && (frame.active == Some(true) || world.menu_open()) =>
         {
             return Ok(());
         }

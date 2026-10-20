@@ -35,6 +35,7 @@ mod launch_target;
 mod listed_window;
 mod liveness;
 mod menu_anchor;
+mod menu_focus;
 mod menu_popup;
 mod menu_reader;
 pub(crate) mod menu_surface;

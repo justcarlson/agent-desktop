@@ -3,6 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
 use super::focus_window::{FocusWorld, FrameView, Session};
+use super::menu_focus;
 use crate::system::bus_deadline::within;
 use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::overview::overview_open;
@@ -108,6 +109,10 @@ impl FocusWorld for LiveWorld<'_> {
 
     fn input_focus_in(&self, client: u32) -> bool {
         focus_send::input_focus_in(client, self.deadline)
+    }
+
+    fn menu_open(&self) -> bool {
+        menu_focus::open_at(self.bus, &self.frame, self.deadline)
     }
 
     fn overview_open(&self) -> Option<bool> {

@@ -6,6 +6,7 @@ use super::focus_world::focus_send;
 use super::ghost_window::without_ghosts;
 use super::listed_window::ListedWindow;
 use super::liveness;
+use super::menu_focus;
 use super::proc_stat;
 use super::registry::Registry;
 use super::registry_app::RegistryApp;
@@ -196,6 +197,23 @@ fn focus_of(
     decide_focus(&candidates, evidence)
 }
 
+/// The window a menu gives its application the focus for: the window manager
+/// names a managed window active, no frame claims `ACTIVE` because the menu's
+/// grab holds the keyboard, and the application owning that window has a menu
+/// open. Only then is a window without an `ACTIVE` state a focus answer.
+fn menu_focus_of(
+    windows: &[ListedWindow],
+    state: &X11State,
+    menu_open: impl Fn(&WindowInfo) -> bool,
+) -> Option<usize> {
+    let frames: Vec<FrameFacts> = windows.iter().map(|window| window.frame.clone()).collect();
+    let X11Evidence::Frame(named) = x11::evidence(state, &frames) else {
+        return None;
+    };
+    menu_open(&windows.get(named)?.info).then_some(named)
+}
+
+#[cfg(test)]
 pub(super) fn pass_over(
     windows: Vec<ListedWindow>,
     outcomes: Vec<AppOutcome>,
@@ -203,8 +221,20 @@ pub(super) fn pass_over(
     state: &X11State,
     input_focus_in: impl Fn(u32) -> bool,
 ) -> Pass {
+    pass_over_with_menu(windows, outcomes, recovered, state, |_| false, input_focus_in)
+}
+
+pub(super) fn pass_over_with_menu(
+    windows: Vec<ListedWindow>,
+    outcomes: Vec<AppOutcome>,
+    recovered: Vec<usize>,
+    state: &X11State,
+    menu_open: impl Fn(&WindowInfo) -> bool,
+    input_focus_in: impl Fn(u32) -> bool,
+) -> Pass {
     let candidates = candidates_of(&windows, state);
-    let focused = focus_of(&windows, &candidates, state, input_focus_in);
+    let focused = focus_of(&windows, &candidates, state, input_focus_in)
+        .or_else(|| menu_focus_of(&windows, state, menu_open));
     Pass {
         windows,
         outcomes,
@@ -242,9 +272,14 @@ pub(super) fn run_pass_with(
     recovered.dedup();
     windows.extend(stopped);
     Ok((
-        pass_over(windows, outcomes, recovered, &state, |client| {
-            focus_send::input_focus_in(client, deadline)
-        }),
+        pass_over_with_menu(
+            windows,
+            outcomes,
+            recovered,
+            &state,
+            |window| menu_focus::open_for_window(bus, window, deadline),
+            |client| focus_send::input_focus_in(client, deadline),
+        ),
         state,
     ))
 }
