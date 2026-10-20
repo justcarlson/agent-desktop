@@ -125,6 +125,7 @@ impl CaptureWorld for World {
             outcomes,
             candidates,
             focused,
+            recovered: Vec::new(),
         })
     }
 
@@ -183,10 +184,12 @@ fn a_scoped_target_that_is_stopped_is_unresponsive_with_its_identity() {
     world.stopped = vec![101];
     let error = capture(&world, &scoped_to("calc"), deadline()).expect_err("error");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
-    let details = error.details.expect("details");
+    let details = error.details.clone().expect("details");
     assert_eq!(details["app"], "calc");
     assert_eq!(details["pid"], 101);
     assert_eq!(details["process_instance"], "boot:1");
+    assert_eq!(details["retryable"], false);
+    assert!(!error.permits_retry_by_default());
     assert!(world.reads.roots_read.borrow().is_empty());
 }
 

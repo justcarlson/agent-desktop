@@ -9,8 +9,11 @@ use super::proc_stat;
 use super::registry::Registry;
 use super::registry_app::RegistryApp;
 use super::registry_frames::{FrameRead, RootRead, read_frames};
+use super::stopped_windows::of_stopped_apps;
+use super::window_ids::WindowIds;
 use super::window_listing::collect;
 use super::window_ops::is_listable;
+use super::x11::map::{ClientMatch, match_client};
 use super::x11::{self, DisplayReader, FrameFacts, X11Evidence, X11Source, X11State};
 use crate::tree::AtspiElement;
 
@@ -28,6 +31,10 @@ pub(crate) struct Pass {
     pub(crate) outcomes: Vec<AppOutcome>,
     pub(crate) candidates: Vec<usize>,
     pub(crate) focused: Option<usize>,
+    /// The selected applications whose windows the display server, not their
+    /// own read, supplied because their process is stopped. What they present
+    /// is known, so a pass that has them is not left wondering what they show.
+    pub(crate) recovered: Vec<usize>,
 }
 
 impl Pass {
@@ -102,17 +109,38 @@ fn read_unfiltered(
     gather(&chosen, |roots| read_frames(bus, roots, deadline))
 }
 
-/// Whether a selected, listable application has no outcome in the pass: it
-/// was left unread because it is stopped. What it presented is unknown, so a
-/// capture that skipped it cannot say that its windows closed.
+/// Whether a selected, listable application has no outcome in the pass and no
+/// windows the display server supplied for it: it was left unread because it
+/// is stopped and its windows could not be told. What it presented is
+/// unknown, so a capture that skipped it cannot say that its windows closed.
 pub(crate) fn skipped_selected(
     registry: &Registry,
     pass: &Pass,
     select: impl Fn(&RegistryApp) -> bool,
 ) -> bool {
     registry.apps.iter().enumerate().any(|(index, app)| {
-        is_listable(app) && select(app) && !pass.outcomes.iter().any(|outcome| outcome.app == index)
+        is_listable(app)
+            && select(app)
+            && !pass.outcomes.iter().any(|outcome| outcome.app == index)
+            && !pass.recovered.contains(&index)
     })
+}
+
+/// Keeps the id of each listed window against its X11 client, for the day its
+/// process is stopped and can no longer be asked.
+fn remember_ids(listed: &[ListedWindow], state: &X11State, ids: Option<&WindowIds>) {
+    let (Some(ids), X11State::Ready { clients, .. }) = (ids, state) else {
+        return;
+    };
+    for window in listed {
+        let (ClientMatch::One(client), Some(instance)) = (
+            match_client(&window.frame, clients),
+            window.info.process_instance.as_deref(),
+        ) else {
+            continue;
+        };
+        ids.remember(client, instance, &window.info.id);
+    }
 }
 
 fn candidates_of(windows: &[ListedWindow]) -> Vec<usize> {
@@ -157,6 +185,7 @@ fn focus_of(
 pub(super) fn pass_over(
     windows: Vec<ListedWindow>,
     outcomes: Vec<AppOutcome>,
+    recovered: Vec<usize>,
     state: &X11State,
     input_focus_in: impl Fn(u32) -> bool,
 ) -> Pass {
@@ -167,11 +196,14 @@ pub(super) fn pass_over(
         outcomes,
         candidates,
         focused,
+        recovered,
     }
 }
 
 /// A pass whose display-server read the caller already started: `finish`
 /// waits for that read, and the state it came to comes back with the pass.
+/// The stopped selected applications' windows are read back from the display
+/// server, under the ids they were listed with while they still answered.
 pub(super) fn run_pass_with(
     bus: &SharedBus,
     registry: &Registry,
@@ -179,11 +211,24 @@ pub(super) fn run_pass_with(
     finish: impl FnOnce(Deadline) -> X11State,
     deadline: Deadline,
 ) -> Result<(Pass, X11State), AdapterError> {
-    let (windows, outcomes) = read_unfiltered(bus, registry, select, deadline)?;
+    let (windows, outcomes) = read_unfiltered(bus, registry, &select, deadline)?;
     let state = finish(deadline);
-    let windows = without_ghosts(windows, &state);
+    let mut windows = without_ghosts(windows, &state);
+    let ids = WindowIds::in_runtime_dir();
+    remember_ids(&windows, &state, ids.as_ref());
+    let stopped = of_stopped_apps(
+        registry,
+        &select,
+        proc_stat::is_stopped,
+        &state,
+        |client, instance| ids.as_ref()?.recall(client, instance),
+    );
+    let mut recovered: Vec<usize> = stopped.iter().map(|window| window.app).collect();
+    recovered.sort_unstable();
+    recovered.dedup();
+    windows.extend(stopped);
     Ok((
-        pass_over(windows, outcomes, &state, |client| {
+        pass_over(windows, outcomes, recovered, &state, |client| {
             focus_send::input_focus_in(client, deadline)
         }),
         state,

@@ -67,6 +67,7 @@ pub(crate) fn of_stopped_apps(
                     global_position: false,
                 },
                 sheet: false,
+                unshown: false,
             });
         }
     }

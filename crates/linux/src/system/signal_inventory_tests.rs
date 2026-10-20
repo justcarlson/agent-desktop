@@ -188,7 +188,7 @@ fn one_active_candidate_without_x11_evidence_is_the_focused_window() {
         RootRead::Read,
     )];
     let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
-    let pass = pass_over(windows, outcomes, &X11State::Unavailable, |_| false);
+    let pass = pass_over(windows, outcomes, Vec::new(), &X11State::Unavailable, |_| false);
     assert_eq!(pass.candidates, [0]);
     assert_eq!(pass.focused, Some(0));
 }
@@ -204,14 +204,14 @@ fn two_active_candidates_without_x11_evidence_name_no_focused_window() {
         RootRead::Read,
     )];
     let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
-    let pass = pass_over(windows, outcomes, &X11State::Unavailable, |_| false);
+    let pass = pass_over(windows, outcomes, Vec::new(), &X11State::Unavailable, |_| false);
     assert_eq!(pass.candidates, [0, 1]);
     assert_eq!(pass.focused, None);
 }
 
 #[test]
 fn no_active_window_means_no_candidates() {
-    let pass = pass_over(Vec::new(), Vec::new(), &X11State::Unavailable, |_| false);
+    let pass = pass_over(Vec::new(), Vec::new(), Vec::new(), &X11State::Unavailable, |_| false);
     assert!(pass.candidates.is_empty());
     assert_eq!(pass.focused, None);
 }
@@ -234,6 +234,7 @@ fn a_selected_app_with_no_outcome_is_skipped_and_one_with_an_outcome_is_not() {
             .collect(),
         candidates: Vec::new(),
         focused: None,
+        recovered: Vec::new(),
     };
     assert!(skipped_selected(&registry, &pass(&[0]), |_| true));
     assert!(!skipped_selected(&registry, &pass(&[0, 1]), |_| true));
@@ -241,4 +242,24 @@ fn a_selected_app_with_no_outcome_is_skipped_and_one_with_an_outcome_is_not() {
         .root
         .pid()
         == 11));
+}
+
+#[test]
+fn a_stopped_app_the_display_server_supplied_windows_for_is_not_skipped() {
+    use super::{AppOutcome, Pass, skipped_selected};
+    let registry = registry(vec![
+        app(":1.1", 11, "calc", true),
+        app(":1.2", 12, "edit", false),
+    ]);
+    let pass = Pass {
+        windows: Vec::new(),
+        outcomes: vec![AppOutcome {
+            app: 0,
+            read: RootRead::Read,
+        }],
+        candidates: Vec::new(),
+        focused: None,
+        recovered: vec![1],
+    };
+    assert!(!skipped_selected(&registry, &pass, |_| true));
 }

@@ -114,7 +114,12 @@ fn signal_inventory_live_a_stopped_target_is_skipped_slow_roots_read_timed_out_a
     assert!(!app.answered, "a stopped app does not answer its root");
 
     let (pass, ms) = timed(|| run_pass(&bus, &registry, |_| true, deadline()).expect("pass"));
-    assert!(pass.windows.iter().all(|w| w.info.pid.get() != pid));
+    assert!(
+        pass.windows
+            .iter()
+            .any(|w| w.info.pid.get() == pid && !w.info.state.accessible),
+        "the stopped app's window is recovered from the display server"
+    );
     assert!(
         pass.outcomes
             .iter()
@@ -127,7 +132,13 @@ fn signal_inventory_live_a_stopped_target_is_skipped_slow_roots_read_timed_out_a
 
     let (only, ms) =
         timed(|| run_pass(&bus, &registry, |a| a.root.pid() == pid, deadline()).expect("pass"));
-    assert!(only.outcomes.is_empty() && only.windows.is_empty());
+    assert!(only.outcomes.is_empty());
+    assert!(
+        only.windows
+            .iter()
+            .all(|w| w.info.pid.get() == pid && !w.info.state.accessible),
+        "a scoped pass on a stopped app lists its display-server windows"
+    );
     println!("signal_inventory_live stopped target, scoped pass: {ms}ms");
 
     let roots = vec![app.root.clone()];

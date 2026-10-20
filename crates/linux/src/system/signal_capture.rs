@@ -81,6 +81,7 @@ fn stopped_scoped_target(
             "app": app.name,
             "pid": app.root.pid(),
             "process_instance": app.facts.instance,
+            "retryable": false,
         })),
     )
 }
