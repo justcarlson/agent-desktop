@@ -4,11 +4,12 @@ use super::listed_window::ListedWindow;
 use super::nested_scan::NestedScan;
 use super::registry_app::RegistryApp;
 
-pub(crate) const SIGNAL_SURFACE_KINDS: [SnapshotSurface; 1] = [SnapshotSurface::Sheet];
+pub(crate) const SIGNAL_SURFACE_KINDS: [SnapshotSurface; 2] =
+    [SnapshotSurface::Sheet, SnapshotSurface::Menu];
 
 fn sheet_signal(app: &RegistryApp, id: String, title: Option<String>) -> SurfaceSignal {
     SurfaceSignal {
-        kind: SIGNAL_SURFACE_KINDS[0],
+        kind: SnapshotSurface::Sheet,
         app: app.name.clone(),
         pid: app.root.pid().into(),
         process_instance: app.facts.instance.clone(),
@@ -35,6 +36,27 @@ pub(crate) fn sheet_signals(
                 window.info.id.clone(),
                 Some(window.info.title.clone()).filter(|title| !title.is_empty()),
             ))
+        })
+        .collect()
+}
+
+/// One `Menu` signal for every open menu a window is or holds, keyed on the
+/// window's own id for a menu that is a window and on the popup's address for
+/// a menu inside one. A menu that is itself a window is also one
+/// `window-opened` and one `window-closed`; the surface signal is how its open
+/// and close announce what the window was.
+pub(crate) fn menu_signals(
+    scan: &NestedScan,
+    windows: &[ListedWindow],
+    registry_apps: &[RegistryApp],
+) -> Vec<SurfaceSignal> {
+    scan.menus
+        .iter()
+        .filter_map(|menu| {
+            let app = registry_apps.get(windows.get(menu.window)?.app)?;
+            let mut signal = sheet_signal(app, menu.id.clone(), menu.title.clone());
+            signal.kind = SnapshotSurface::Menu;
+            Some(signal)
         })
         .collect()
 }

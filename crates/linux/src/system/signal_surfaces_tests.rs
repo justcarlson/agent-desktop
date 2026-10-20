@@ -91,7 +91,10 @@ fn a_dialog_without_a_name_is_keyed_on_its_id() {
 
 #[test]
 fn every_emitted_kind_is_an_advertised_kind() {
-    assert_eq!(SIGNAL_SURFACE_KINDS, [SnapshotSurface::Sheet]);
+    assert_eq!(
+        SIGNAL_SURFACE_KINDS,
+        [SnapshotSurface::Sheet, SnapshotSurface::Menu]
+    );
     let signals = sheet_signals(&[window("w-2", "About", true)], &[app()]);
     assert!(
         signals
@@ -157,6 +160,7 @@ fn nested(id: &str, title: Option<&str>) -> crate::system::nested_scan::Nested {
 fn scan(found: Vec<crate::system::nested_scan::Nested>) -> crate::system::nested_scan::NestedScan {
     crate::system::nested_scan::NestedScan {
         found,
+        menus: Vec::new(),
         complete: true,
         unread: Vec::new(),
     }
@@ -205,6 +209,45 @@ fn a_nested_dialog_is_announced_when_it_shows_and_dismissed_when_it_no_longer_do
         dismissed[0].kind,
         EventKind::SurfaceDismissed {
             surface: SnapshotSurface::Sheet
+        }
+    );
+}
+
+#[test]
+fn a_menu_a_window_is_or_holds_is_one_menu_signal_and_appears_and_disappears() {
+    let windows = [window("w-1.4-win", "Editor", false)];
+    let scan = |menus| crate::system::nested_scan::NestedScan {
+        found: Vec::new(),
+        menus,
+        complete: true,
+        unread: Vec::new(),
+    };
+    let closed = super::menu_signals(&scan(Vec::new()), &windows, &[app()]);
+    let open = super::menu_signals(&scan(vec![nested("w-1.4-menu", None)]), &windows, &[app()]);
+    let [signal] = open.as_slice() else {
+        panic!("one menu signal")
+    };
+    assert_eq!(signal.kind, SnapshotSurface::Menu);
+    assert_eq!(signal.id, "w-1.4-menu");
+    assert_eq!(signal.pid.get(), 77);
+    let baseline = |surfaces| SignalBaseline {
+        windows: Vec::new(),
+        apps: Vec::new(),
+        surfaces,
+        completeness: SignalCompleteness::complete(),
+    };
+    let appeared = diff_signals(&baseline(closed.clone()), &baseline(open.clone()));
+    assert_eq!(
+        appeared[0].kind,
+        EventKind::SurfaceAppeared {
+            surface: SnapshotSurface::Menu
+        }
+    );
+    let dismissed = diff_signals(&baseline(open), &baseline(closed));
+    assert_eq!(
+        dismissed[0].kind,
+        EventKind::SurfaceDismissed {
+            surface: SnapshotSurface::Menu
         }
     );
 }

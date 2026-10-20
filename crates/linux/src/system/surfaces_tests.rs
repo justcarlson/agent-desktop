@@ -67,6 +67,7 @@ fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entrie
             id: "w-1.7-dlg".to_owned(),
             title: Some("About".to_owned()),
         }],
+        menus: Vec::new(),
         complete: true,
         unread: Vec::new(),
     };
@@ -92,6 +93,7 @@ fn a_window_whose_tree_was_not_read_in_full_names_the_sheet_kind_unclassified() 
     let windows = [window("w-1", "A", false), window("w-2", "B", false)];
     let scan = NestedScan {
         found: Vec::new(),
+        menus: Vec::new(),
         complete: false,
         unread: vec![1],
     };

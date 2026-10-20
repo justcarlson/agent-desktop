@@ -217,6 +217,71 @@ fn no_active_window_means_no_candidates() {
 }
 
 #[test]
+fn an_active_window_no_client_claims_is_not_a_candidate() {
+    use crate::system::x11::X11Client;
+    let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
+    let frames = vec![read(
+        vec![
+            frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25, 1]),
+            frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]),
+        ],
+        RootRead::Read,
+    )];
+    let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
+    let clients = vec![X11Client {
+        id: 0x40_0003,
+        pid: Some(1),
+        title: "other".to_owned(),
+        extents: None,
+        bounds: None,
+        hidden: false,
+    }];
+    let state = X11State::Ready {
+        active: None,
+        clients,
+    };
+    let pass = pass_over(windows, outcomes, Vec::new(), &state);
+    assert!(pass.candidates.is_empty());
+    assert_eq!(pass.focused, None);
+}
+
+#[test]
+fn an_active_window_with_a_client_keeps_its_candidacy() {
+    use crate::system::x11::X11Client;
+    use crate::tree::Extents;
+    let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
+    let frames = vec![read(
+        vec![
+            frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25, 1]),
+            frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]),
+        ],
+        RootRead::Read,
+    )];
+    let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
+    let title = windows[0].frame.title.clone();
+    let clients = vec![X11Client {
+        id: 0x40_0003,
+        pid: Some(1),
+        title,
+        extents: None,
+        bounds: Some(Extents {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        }),
+        hidden: false,
+    }];
+    let state = X11State::Ready {
+        active: Some(0x40_0003),
+        clients,
+    };
+    let pass = pass_over(windows, outcomes, Vec::new(), &state);
+    assert_eq!(pass.candidates, [0]);
+    assert_eq!(pass.focused, Some(0));
+}
+
+#[test]
 fn a_selected_app_with_no_outcome_is_skipped_and_one_with_an_outcome_is_not() {
     use super::{AppOutcome, Pass, skipped_selected};
     let registry = registry(vec![

@@ -4,7 +4,7 @@ use super::{Nested, scan_windows};
 use crate::system::listed_window::ListedWindow;
 use crate::system::x11::FrameFacts;
 use crate::tree::nested_dialog::Node;
-use crate::tree::role_numbers::{DIALOG, FRAME, PANEL};
+use crate::tree::role_numbers::{DIALOG, FRAME, PANEL, WINDOW};
 use crate::tree::state_bits::SHOWING;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field, WalkedNode};
@@ -129,4 +129,38 @@ fn a_window_that_cannot_be_read_marks_the_scan_incomplete_and_keeps_the_others()
 fn a_window_id_this_adapter_did_not_issue_marks_the_scan_incomplete() {
     let scan = scan_windows(&[window("not-an-id", false)], |_| Ok(tree_with(true)));
     assert!(!scan.complete && scan.found.is_empty());
+}
+
+fn menu_window_tree() -> Node {
+    let item = node(35, "Paste", true, "/org/m_item", Vec::new());
+    let menu = node(33, "", true, "/org/m_1", vec![item]);
+    node(WINDOW, "", true, "/org/menu_1", vec![menu])
+}
+
+#[test]
+fn a_window_that_is_itself_a_menu_is_one_menu_signal_on_the_windows_id() {
+    let scan = scan_windows(&[window("w-1.2-org-menu_1", false)], |_| {
+        Ok(menu_window_tree())
+    });
+    assert!(scan.complete);
+    assert_eq!(scan.menus.len(), 1);
+    assert_eq!(scan.menus[0].id, "w-1.2-org-menu_1");
+    assert_eq!(scan.menus[0].title, None);
+}
+
+#[test]
+fn a_menu_drawn_inside_a_window_is_found_on_its_own_address() {
+    let item = node(35, "Copy", true, "/org/m_item", Vec::new());
+    let menu = node(33, "", true, "/org/m_2", vec![item]);
+    let frame = node(FRAME, "App", true, "/org/win_1", vec![menu]);
+    let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(frame.clone()));
+    assert!(scan.complete);
+    assert_eq!(scan.menus.len(), 1);
+    assert_eq!(scan.menus[0].id, "w-1.2-org-m_2");
+}
+
+#[test]
+fn an_idle_window_reports_no_menu() {
+    let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
+    assert!(scan.menus.is_empty());
 }

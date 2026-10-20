@@ -15,7 +15,7 @@ use super::registry_frames::RootRead;
 use super::signal_boundary::{Scope, narrow};
 use super::signal_inventory::{Pass, run_pass, skipped_selected};
 use super::signal_population::apps_of;
-use super::signal_surfaces::{nested_signals, sheet_signals};
+use super::signal_surfaces::{SIGNAL_SURFACE_KINDS, menu_signals, nested_signals, sheet_signals};
 use super::unresponsive::first_stopped;
 
 trait CaptureWorld {
@@ -102,6 +102,8 @@ fn assemble(
     let surfaces = if scoped {
         let mut surfaces = sheet_signals(&pass.windows, &registry.apps);
         surfaces.extend(nested_signals(nested, &pass.windows, &registry.apps));
+        surfaces.extend(menu_signals(nested, &pass.windows, &registry.apps));
+        surfaces.retain(|signal| SIGNAL_SURFACE_KINDS.contains(&signal.kind));
         surfaces
     } else {
         Vec::new()

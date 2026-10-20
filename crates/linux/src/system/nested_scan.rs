@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::listed_window::ListedWindow;
+use super::menu_popup;
 use super::{SharedBus, window_id};
 use crate::tree::AtspiElement;
 use crate::tree::nested_dialog::{Node, find, is_cut_short};
@@ -22,6 +23,10 @@ pub(crate) struct Nested {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NestedScan {
     pub(crate) found: Vec<Nested>,
+    /// The menus the windows hold or are, keyed on the window's own id for a
+    /// window that is itself a menu and on the popup's address for a menu
+    /// drawn inside a window.
+    pub(crate) menus: Vec<Nested>,
     pub(crate) complete: bool,
     /// The windows whose trees were not read to the end, by position.
     pub(crate) unread: Vec<usize>,
@@ -31,6 +36,7 @@ impl NestedScan {
     pub(crate) fn complete_and_empty() -> Self {
         Self {
             found: Vec::new(),
+            menus: Vec::new(),
             complete: true,
             unread: Vec::new(),
         }
@@ -72,6 +78,25 @@ pub(crate) fn scan_windows(
                     title: dialog.title.map(str::to_owned),
                 }),
                 None => whole = false,
+            }
+        }
+        if menu_popup::top_level(&root).is_some() {
+            scan.menus.push(Nested {
+                window: index,
+                id: window.info.id.clone(),
+                title: None,
+            });
+        } else {
+            for menu in menu_popup::in_window(&root) {
+                let element = &menu.root.payload.node.element;
+                match window_id::encode(element.bus_name(), element.path()) {
+                    Some(id) => scan.menus.push(Nested {
+                        window: index,
+                        id,
+                        title: None,
+                    }),
+                    None => whole = false,
+                }
             }
         }
         if !whole {

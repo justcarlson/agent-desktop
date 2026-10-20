@@ -143,11 +143,24 @@ fn remember_ids(listed: &[ListedWindow], state: &X11State, ids: Option<&WindowId
     }
 }
 
-fn candidates_of(windows: &[ListedWindow]) -> Vec<usize> {
+/// The windows that could take focus: the ones that claim `ACTIVE`, minus
+/// those the window manager does not manage at all. An override-redirect
+/// popup takes `ACTIVE` while it grabs input but is no window a window
+/// manager can make active, so with a client list to check it is no
+/// candidate. Without one a claimed `ACTIVE` is all there is to go on.
+fn candidates_of(windows: &[ListedWindow], state: &X11State) -> Vec<usize> {
+    let managed = match state {
+        X11State::Ready { clients, .. } if !clients.is_empty() => Some(clients),
+        _ => None,
+    };
     windows
         .iter()
         .enumerate()
         .filter(|(_, window)| window.active)
+        .filter(|(_, window)| {
+            managed
+                .is_none_or(|clients| match_client(&window.frame, clients) != ClientMatch::NoClient)
+        })
         .map(|(index, _)| index)
         .collect()
 }
@@ -189,7 +202,7 @@ pub(super) fn pass_over(
     state: &X11State,
     input_focus_in: impl Fn(u32) -> bool,
 ) -> Pass {
-    let candidates = candidates_of(&windows);
+    let candidates = candidates_of(&windows, state);
     let focused = focus_of(&windows, &candidates, state, input_focus_in);
     Pass {
         windows,
