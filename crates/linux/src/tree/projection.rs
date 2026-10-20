@@ -207,6 +207,7 @@ pub(crate) fn project_node(
 /// Turns a finished walk into core's observed subtree and the statistics of
 /// the walk. Every field is known, absent or unknown exactly as it was read:
 /// a read that failed is unknown, never an empty value.
+#[cfg(test)]
 pub(crate) fn project(
     walk: Walk<ObservedRead>,
     limits: &WalkLimits,

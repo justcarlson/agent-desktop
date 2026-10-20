@@ -1,7 +1,8 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{choose, is_menu_entry, menu_closed, no_position};
+use super::{choose, is_menu_entry, menu_closed, no_position, resolve_contextual};
 use crate::tree::AtspiElement;
+use crate::tree::menu_context::MenuContext;
 
 fn element(path: &str) -> AtspiElement {
     AtspiElement::new(":1.2", path, 7)
@@ -17,7 +18,7 @@ fn kind_of(error: &agent_desktop_core::AdapterError) -> Option<&str> {
 
 #[test]
 fn a_ref_no_open_popup_answers_to_is_stale_because_the_menu_closed() {
-    let error = choose(Vec::new(), None).expect_err("no landing");
+    let error = choose(Vec::<AtspiElement>::new(), None).expect_err("no landing");
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind_of(&error), Some("menu_closed"));
     assert_eq!(menu_closed().code, ErrorCode::StaleRef);
@@ -36,9 +37,38 @@ fn two_popups_answering_are_ambiguous() {
 }
 
 #[test]
+fn a_replacement_popup_with_the_same_item_path_cannot_resolve_an_old_ref() {
+    let original = MenuContext::test("/popup/a", 10);
+    let replacement = MenuContext::test("/popup/b", 20);
+    let mut entry = crate::tree::test_support::ref_entry("menuitem");
+    entry.identity.retained_object = Some(original.encode("/shared/item"));
+    let mut attempted = false;
+
+    let result = resolve_contextual(
+        &entry,
+        vec![(replacement, element("/popup/b"))],
+        |_root, _entry| {
+            attempted = true;
+            Ok(element("/shared/item"))
+        },
+    );
+
+    assert_eq!(
+        result
+            .expect_err("the ref belongs to the closed popup")
+            .code,
+        agent_desktop_core::ErrorCode::StaleRef
+    );
+    assert!(
+        !attempted,
+        "the replacement popup must not reach child resolution"
+    );
+}
+
+#[test]
 fn a_refusal_that_is_not_staleness_is_kept_when_nothing_landed() {
     let refusal = agent_desktop_core::AdapterError::timeout("slow");
-    let error = choose(Vec::new(), Some(refusal)).expect_err("a refusal");
+    let error = choose(Vec::<AtspiElement>::new(), Some(refusal)).expect_err("a refusal");
     assert_eq!(error.code, ErrorCode::Timeout);
 }
 

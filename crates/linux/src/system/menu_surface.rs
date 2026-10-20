@@ -9,6 +9,7 @@ use super::menu_popup::{self, Node};
 use super::menu_reader::BusReader;
 use super::{SharedBus, window_id};
 use crate::tree::AtspiElement;
+use crate::tree::menu_context::MenuContext;
 
 const SETTLE: Duration = Duration::from_millis(500);
 const POLL_GAP: Duration = Duration::from_millis(40);
@@ -18,6 +19,7 @@ pub(crate) struct MenuPopup {
     pub(crate) root: AtspiElement,
     pub(crate) family: MenuFamily,
     pub(crate) items: usize,
+    pub(crate) context: MenuContext,
 }
 
 /// What a scan for open popups reads: the walk of one window, the top-level
@@ -38,6 +40,7 @@ fn popup_of(found: menu_popup::Found<'_>) -> MenuPopup {
         root: found.root.payload.node.element.clone(),
         family: found.family,
         items: found.items,
+        context: MenuContext::from_walk(found.root),
     }
 }
 

@@ -4,8 +4,8 @@ use agent_desktop_core::{
 };
 
 use super::ancestry;
+use super::menu_context::MenuIdentity;
 use super::node_position::place_nodes;
-use super::projection::project;
 use super::role_numbers::is_bulk_container;
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, WalkLimits, WalkedNode};
@@ -102,9 +102,11 @@ pub(crate) fn observe_menu(
     };
     let started = std::time::Instant::now();
     let mut walk = walk_tree(bus, &root, &limits, request.deadline)?;
+    let context = popup.context.clone();
     place_nodes(bus, &mut walk, request.deadline);
     let complete = walk.complete;
-    let (subtree, mut stats) = project(walk, &limits);
+    let (subtree, mut stats) =
+        super::projection::project_with(walk, &limits, &mut MenuIdentity::new(context));
     stats.reads.health.deadline_exhausted += u64::from(!complete && request.deadline.is_expired());
     stats.elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
     let observation = ObservationRoot::Window(window);

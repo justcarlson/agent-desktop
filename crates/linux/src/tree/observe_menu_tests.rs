@@ -3,12 +3,14 @@ use agent_desktop_core::ErrorCode;
 use super::{menu_absent, outermost, rooted};
 use crate::system::menu_surface::{MenuFamily, MenuPopup};
 use crate::tree::AtspiElement;
+use crate::tree::menu_context::MenuContext;
 
 fn popup(path: &str) -> MenuPopup {
     MenuPopup {
         root: AtspiElement::new(":1.2", path, 7),
         family: MenuFamily::Qt,
         items: 3,
+        context: MenuContext::test(path, 3),
     }
 }
 

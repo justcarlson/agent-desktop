@@ -6,6 +6,7 @@ use serde_json::json;
 use zbus::Connection;
 
 use super::absence::Liveness;
+use super::menu_context::MenuContext;
 use super::node_evidence::read_evidence;
 use super::observe_menu::rooted;
 use super::path_descent::{Level, Levels};
@@ -138,23 +139,41 @@ pub(crate) fn resolve_menu(
     if popups.is_empty() {
         return Err(menu_closed());
     }
-    let mut landed = Vec::new();
-    let mut refusal: Option<AdapterError> = None;
+    let mut candidates = Vec::new();
     for popup in popups {
+        candidates.push((popup.context, popup.root));
+    }
+    resolve_contextual(entry, candidates, |popup, scoped_entry| {
         let mut source = MenuSource {
             bus,
             connection: connection.clone(),
-            popup: popup.root,
+            popup,
             levels: None,
             deadline,
         };
-        match resolve(&mut source, entry, deadline) {
+        resolve(&mut source, scoped_entry, deadline)
+    })
+    .map(AtspiElement::into_native_handle)
+}
+
+fn resolve_contextual(
+    entry: &RefEntry,
+    candidates: Vec<(MenuContext, AtspiElement)>,
+    mut resolve: impl FnMut(AtspiElement, &RefEntry) -> Result<AtspiElement, AdapterError>,
+) -> Result<AtspiElement, AdapterError> {
+    let mut landed = Vec::new();
+    let mut refusal: Option<AdapterError> = None;
+    for (context, popup) in candidates {
+        let Some(scoped_entry) = context.entry_for(entry) else {
+            continue;
+        };
+        match resolve(popup, &scoped_entry) {
             Ok(element) => landed.push(element),
             Err(error) if is_stale(&error) => {}
             Err(error) => refusal = refusal.or(Some(error)),
         }
     }
-    choose(landed, refusal).map(AtspiElement::into_native_handle)
+    choose(landed, refusal)
 }
 
 fn choose(
