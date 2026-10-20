@@ -32,9 +32,10 @@ jobs:
       - name: Check E2E scripts without running native automation
         run: |
           scripts/check-bash3-compat.sh
-          shellcheck -x -e SC2034,SC2154 tests/e2e/run.sh tests/e2e/electron-live.sh tests/e2e/permission-contract.sh tests/e2e/guard-command.sh scripts/*.sh .githooks/pre-commit
-          PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m py_compile tests/e2e/*.py
+          shellcheck -x -e SC2034,SC2154 tests/e2e/run.sh tests/e2e/electron-live.sh tests/e2e/permission-contract.sh tests/e2e/guard-command.sh tests/e2e-linux/run.sh scripts/*.sh .githooks/pre-commit
+          PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m py_compile tests/e2e/*.py tests/e2e-linux/runner/*.py tests/e2e-linux/test_*.py tests/e2e-linux/scenarios/*.py
           PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -m unittest discover -s tests/e2e -p 'test_*.py'
+          AGENT_DESKTOP_E2E_SKIP_LIVE=1 PYTHONPYCACHEPREFIX=/tmp/agent-desktop-pycache python3 -I -m unittest discover -s tests/e2e-linux -p 'test_*.py'
           python3 scripts/check-linux-findings.py
       - name: Validate GitHub Actions workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.11

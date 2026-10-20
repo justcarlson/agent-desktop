@@ -52,6 +52,10 @@ TOKEN_SCAN_FAILED=0
 # tree scan that could not fail reported clean over real violations.
 TOKEN_SCAN_RS_ROOTS="crates src"
 TOKEN_SCAN_MD_ROOTS="skills"
+# The live harness ships Python and shell a reader relies on the same way as
+# Rust: a plan id in a runner comment goes stale and misleads exactly as one
+# in a doc comment does, so its tree walks the same token rules.
+TOKEN_SCAN_HARNESS_ROOTS="tests/e2e-linux"
 
 token_rule() {
     local pattern="$1"
@@ -69,7 +73,7 @@ token_rule() {
     # - which is the usual case, and is how three plan-decision ids reached
     # shipped source with this gate reporting clean.
     # shellcheck disable=SC2086
-    matches="$( { grep -rnE --include='*.rs' "$pattern" $TOKEN_SCAN_RS_ROOTS 2>/dev/null; grep -rnE --include='*.md' "$pattern" $TOKEN_SCAN_MD_ROOTS 2>/dev/null; } )"
+    matches="$( { grep -rnE --include='*.rs' "$pattern" $TOKEN_SCAN_RS_ROOTS 2>/dev/null; grep -rnE --include='*.md' "$pattern" $TOKEN_SCAN_MD_ROOTS 2>/dev/null; grep -rnE --include='*.py' --include='*.sh' "$pattern" $TOKEN_SCAN_HARNESS_ROOTS 2>/dev/null; } )"
     if [ -n "$matches" ]; then
         printf '%s\n' "$matches" >&2
         printf '  ^ %s - describe what is true, not when it was built\n\n' "$description" >&2
@@ -454,15 +458,18 @@ wrap.rs:2:/// planned fast-follow to the current read'
     # mktemp per run. The harness contract forbids `rm` in these scripts, so the
     # fixture cannot clean up after itself; a stable path bounds what it leaves
     # behind at one directory instead of one per invocation.
-    local tree_root planted_rs
+    local tree_root planted_rs planted_py planted_sh
     tree_root="${TMPDIR:-/tmp}/agent-desktop-phase-reference-selftest"
-    mkdir -p "$tree_root/crates/x/src" "$tree_root/skills"
+    mkdir -p "$tree_root/crates/x/src" "$tree_root/skills" "$tree_root/tests/e2e-linux/runner"
     planted_rs="$tree_root/crates/x/src/planted.rs"
+    planted_py="$tree_root/tests/e2e-linux/runner/planted.py"
+    planted_sh="$tree_root/tests/e2e-linux/runner/planted.sh"
     printf '/// see KTD7 for the decision
 pub fn f() {}
 ' > "$planted_rs"
     TOKEN_SCAN_RS_ROOTS="$tree_root/crates $tree_root/src"
     TOKEN_SCAN_MD_ROOTS="$tree_root/skills"
+    TOKEN_SCAN_HARNESS_ROOTS="$tree_root/tests/e2e-linux"
     if token_check 2>/dev/null; then
         printf 'self-test FAIL (missed): the tree scan passed a planted plan-decision id
 ' >&2
@@ -471,6 +478,21 @@ pub fn f() {}
     printf '/// describes what the code does
 pub fn f() {}
 ' > "$planted_rs"
+    printf '#!/bin/sh\n# see KTD7 for the decision\nexit 0\n' > "$planted_sh"
+    if token_check 2>/dev/null; then
+        printf 'self-test FAIL (missed): the tree scan passed a planted plan-decision id in a harness shell file
+' >&2
+        failures=1
+    fi
+    printf '#!/bin/sh\n# the decision the measurement forced\nexit 0\n' > "$planted_sh"
+    printf '# the decision the measurement forced\nx = 1\n' > "$planted_py"
+    printf '# see KTD7 for the decision\ny = 2\n' >> "$planted_py"
+    if token_check 2>/dev/null; then
+        printf 'self-test FAIL (missed): the tree scan passed a planted plan-decision id in a harness Python file
+' >&2
+        failures=1
+    fi
+    printf '# the decision the measurement forced\nx = 1\n' > "$planted_py"
     if ! token_check 2>/dev/null; then
         printf 'self-test FAIL (false positive): the tree scan failed a clean fixture tree
 ' >&2
@@ -478,6 +500,7 @@ pub fn f() {}
     fi
     TOKEN_SCAN_RS_ROOTS="crates src"
     TOKEN_SCAN_MD_ROOTS="skills"
+    TOKEN_SCAN_HARNESS_ROOTS="tests/e2e-linux"
 
     if [ "$failures" -ne 0 ]; then
         printf 'The delivery-plan reference rules do not behave as documented.\n' >&2
