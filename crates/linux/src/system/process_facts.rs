@@ -122,11 +122,6 @@ pub(crate) fn lookup(pid: u32) -> Lookup {
     }
 }
 
-/// The facts of a process and the state its stat line reported, read once.
-pub(crate) fn read_with_state(pid: u32) -> Option<(ProcessFacts, ProcState)> {
-    inspect(pid, true).ok()
-}
-
 /// The facts a name is matched on: the same as [`read`] without the check for
 /// a Chromium payload next to the executable, which a name never needs.
 pub(crate) fn read_names(pid: u32) -> Option<ProcessFacts> {
