@@ -58,12 +58,14 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   a running instance applies the arguments but not `--env` or `--cwd`, and the
   result says so.
 - The pid reported is the owner of the new window, found from `_NET_WM_PID` and
-  the registry, never the launcher's pid. The command waits for a window up to
-  `--timeout` (default 30000). An app that shows no window returns `ok` with no
-  `window` at the timeout; with `--activate` it also waits up to that timeout. A
-  process that exits first is `ACTION_FAILED` with `details.kind: exited` and
-  `delivered_unverified`. The result carries `app`, `pid`, `process_instance`
-  and, when one appeared, `window`.
+  the registry, never the launcher's pid. The command waits for a window. A
+  launch handed to an already-running app waits about 5 s for a new window and
+  returns `ok` with no `window` if none appears, even with a larger `--timeout`.
+  A fresh app that shows no window waits up to `--timeout` (default 30000) and
+  then also returns `ok` with no `window`; with `--activate` it waits up to that
+  timeout. A process that exits first is `ACTION_FAILED` with
+  `details.kind: exited` and `delivered_unverified`. The result carries `app`,
+  `pid`, `process_instance` and, when one appeared, `window`.
 - Negative numbers need the `=` form: `move-window --x=-100`.
 - A launch reports a window the launch produced, never one that was open.
 - Chromium, Electron and Qt apps need flags to appear on the bus; pass them with
