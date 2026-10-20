@@ -287,6 +287,7 @@ fn zero_bounds_click_reports_visible_fail_after_scroll_seam() {
         ActionRequest::headless(Action::Click).with_timeout_ms(Some(0)),
     );
     assert_eq!(adapter.scroll_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.dispatch_calls.load(Ordering::SeqCst), 0);
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_ne!(error.code, ErrorCode::PlatformNotSupported);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
@@ -312,6 +313,7 @@ fn zero_bounds_without_scroll_impl_is_not_platform_not_supported() {
         ActionRequest::headless(Action::Click).with_timeout_ms(Some(0)),
     );
     assert_eq!(adapter.scroll_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.dispatch_calls.load(Ordering::SeqCst), 0);
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_ne!(error.code, ErrorCode::PlatformNotSupported);
     assert_not_delivered(&error);
