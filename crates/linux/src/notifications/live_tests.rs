@@ -66,7 +66,8 @@ struct Monitor {
 
 impl Monitor {
     fn start(name: &str) -> Self {
-        let file = std::env::temp_dir().join(format!("3.14-c-{name}-{}.log", std::process::id()));
+        let file =
+            std::env::temp_dir().join(format!("notification-{name}-{}.log", std::process::id()));
         let pid = oracle(&["monitor", file.to_str().expect("path")]);
         std::thread::sleep(Duration::from_millis(500));
         Self { pid, file }
