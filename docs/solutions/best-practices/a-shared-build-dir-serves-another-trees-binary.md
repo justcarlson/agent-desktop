@@ -28,7 +28,8 @@ tags: [linux, remote-development, cargo, rsync, mtime, shared-state]
 1. **Treat a missing recompile as a stale binary, not as a passing build.** The run reports the behaviour of the other worktree's sources and prints no error.
 2. **Touch the synced sources on the box before cargo.** `scripts/remote-linux.sh -c 'find crates src -name "*.rs" -exec touch {} +; cargo test -p agent-desktop-linux'` forces a rebuild of what the sync changed. Do this on every run until the script does it itself.
 3. **Read the Compiling lines.** A run that changed a crate and shows no `Compiling` line for it did not test the change.
-4. **A per-worktree `CARGO_TARGET_DIR` removes the cross-worktree reuse** when the disk allows it.
+4. **Copy a binary you will drive live to a private path right after you build it.** `~/ad-target/release/agent-desktop` is overwritten by any lane's build, and a live run that used it between two builds got another lane's binary, which answered `wait --menu` with the stub `TIMEOUT` (L33-45).
+5. **A per-worktree `CARGO_TARGET_DIR` removes the cross-worktree reuse** when the disk allows it.
 
 ## Why This Matters
 
