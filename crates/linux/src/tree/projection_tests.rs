@@ -359,3 +359,6 @@ fn the_walk_statistics_reach_the_observation() {
     assert_eq!(stats.reads.counts.child_reads, 3);
     assert_eq!(stats.reads.health.native_read_failures, 0);
 }
+
+#[path = "projection_retained_tests.rs"]
+mod retained_tests;

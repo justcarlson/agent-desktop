@@ -1,5 +1,6 @@
 use agent_desktop_core::{
-    LocatorEvidence, LocatorField, LocatorRefEvidence, LocatorStats, ObservedSubtree, Rect,
+    IdentifierEvidence, LocatorEvidence, LocatorField, LocatorRefEvidence, LocatorStats,
+    ObservedSubtree, Rect,
 };
 
 use super::action_names::capabilities;
@@ -32,6 +33,48 @@ fn window_bounds(read: &ObservedRead) -> LocatorField<Rect> {
         }
         _ => LocatorField::Absent,
     }
+}
+
+/// The identifiers a ref can store. A node its own identifier or stable text
+/// names is left alone: the AT-SPI object path moves when siblings are
+/// reordered, so it is not identity evidence and must not override a name. A
+/// node that has neither stores the object path as a retained object, so a
+/// bare ref can still name one widget; a ref that carries neither identity nor
+/// a retained object stays unverifiable.
+fn identifiers_with_retained_object(
+    read: &ObservedRead,
+    identifiers: IdentifierEvidence,
+    named: bool,
+) -> IdentifierEvidence {
+    if named {
+        return identifiers;
+    }
+    identifiers.with_retained_object(read.node.element.path().to_owned())
+}
+
+/// Whether the node's read settled enough to say its identifier and stable
+/// text do not name it. An unreadable field could hide a name, so it withholds
+/// the claim.
+fn identity_is_absent(
+    role: &LocatorField<String>,
+    name: &LocatorField<String>,
+    description: &LocatorField<String>,
+    value: &LocatorField<String>,
+    identifiers: &IdentifierEvidence,
+) -> bool {
+    let settled = !role.is_unknown()
+        && !name.is_unknown()
+        && !description.is_unknown()
+        && !value.is_unknown()
+        && identifiers.is_complete();
+    settled
+        && !agent_desktop_core::ref_identity::identity_fields_are_meaningful(
+            role.known().map(String::as_str).unwrap_or_default(),
+            name.known().map(String::as_str),
+            value.known().map(String::as_str),
+            description.known().map(String::as_str),
+            identifiers.preferred_value(),
+        )
 }
 
 fn value_of(read: &ObservedRead) -> LocatorField<String> {
@@ -79,18 +122,29 @@ impl Projector<'_> {
         self.stats.identifiers.nodes_with_multiple_identifiers += u64::from(identifiers > 1);
         self.stats.reads.health.native_read_failures += Self::failures_of(read);
         self.stats.reads.counts.action_reads += u64::from(read.node.actions.present().is_some());
+        let name = self.capped(vocabulary.name);
+        let description = self.capped(vocabulary.description);
+        let value = value_of(read);
+        let window_bounds = window_bounds(read);
+        let bounds = bounds_of(&read.node.extents);
+        let named = !identity_is_absent(
+            &vocabulary.role,
+            &name,
+            &description,
+            &value,
+            &vocabulary.identifiers,
+        );
+        let identifiers = identifiers_with_retained_object(read, vocabulary.identifiers, named);
         LocatorEvidence {
             role: vocabulary.role,
-            name: self.capped(vocabulary.name),
-            description: self.capped(vocabulary.description),
-            value: value_of(read),
-            identifiers: vocabulary
-                .identifiers
-                .with_retained_object(read.node.element.path().to_owned()),
+            name,
+            description,
+            value,
+            identifiers,
             states: vocabulary.states,
             ref_evidence: LocatorRefEvidence {
-                window_bounds: window_bounds(read),
-                bounds: bounds_of(&read.node.extents),
+                window_bounds,
+                bounds,
                 bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 available_actions: capabilities(&read.node),
                 descriptors: vocabulary.descriptor,
