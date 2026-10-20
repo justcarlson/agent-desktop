@@ -7,9 +7,14 @@ use super::registry_app::RegistryApp;
 pub(crate) const SIGNAL_SURFACE_KINDS: [SnapshotSurface; 2] =
     [SnapshotSurface::Sheet, SnapshotSurface::Menu];
 
-fn sheet_signal(app: &RegistryApp, id: String, title: Option<String>) -> SurfaceSignal {
+fn surface_signal(
+    app: &RegistryApp,
+    kind: SnapshotSurface,
+    id: String,
+    title: Option<String>,
+) -> SurfaceSignal {
     SurfaceSignal {
-        kind: SnapshotSurface::Sheet,
+        kind,
         app: app.name.clone(),
         pid: app.root.pid().into(),
         process_instance: app.facts.instance.clone(),
@@ -31,8 +36,9 @@ pub(crate) fn sheet_signals(
         .filter(|window| window.sheet)
         .filter_map(|window| {
             let app = registry_apps.get(window.app)?;
-            Some(sheet_signal(
+            Some(surface_signal(
                 app,
+                SnapshotSurface::Sheet,
                 window.info.id.clone(),
                 Some(window.info.title.clone()).filter(|title| !title.is_empty()),
             ))
@@ -54,9 +60,12 @@ pub(crate) fn menu_signals(
         .iter()
         .filter_map(|menu| {
             let app = registry_apps.get(windows.get(menu.window)?.app)?;
-            let mut signal = sheet_signal(app, menu.id.clone(), menu.title.clone());
-            signal.kind = SnapshotSurface::Menu;
-            Some(signal)
+            Some(surface_signal(
+                app,
+                SnapshotSurface::Menu,
+                menu.id.clone(),
+                menu.title.clone(),
+            ))
         })
         .collect()
 }
@@ -73,7 +82,12 @@ pub(crate) fn nested_signals(
         .iter()
         .filter_map(|nested| {
             let app = registry_apps.get(windows.get(nested.window)?.app)?;
-            Some(sheet_signal(app, nested.id.clone(), nested.title.clone()))
+            Some(surface_signal(
+                app,
+                SnapshotSurface::Sheet,
+                nested.id.clone(),
+                nested.title.clone(),
+            ))
         })
         .collect()
 }
