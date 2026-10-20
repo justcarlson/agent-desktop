@@ -8,6 +8,7 @@ use zbus::zvariant::{OwnedValue, Value};
 use crate::system::shell::detect::{
     CallFailure, Fact, Need, SessionCalls, ShellEnvironment, TreeCalls, WatcherRead,
     classify_daemon, classify_tree, classify_watcher, detect_with, extension_state, require,
+    require_daemon_with,
 };
 
 type Log = Rc<RefCell<Vec<&'static str>>>;
@@ -73,6 +74,24 @@ fn a_service_with_no_owner_is_a_daemon_that_is_absent() {
     let (fact, server) = classify_daemon(Err(CallFailure::NoService));
     assert!(matches!(fact, Fact::Absent(_)));
     assert_eq!(server, None);
+}
+
+#[test]
+fn the_daemon_requirement_reads_only_the_daemon_and_preserves_absent_and_unsupported_errors() {
+    let log = Log::default();
+    let (mut session, _) = healthy(&log);
+    session.server = Err(CallFailure::NoService);
+    let absent = require_daemon_with(&session).expect_err("no daemon");
+    assert_eq!(absent.code, ErrorCode::PlatformNotSupported);
+    assert!(absent.message.contains("No notification service"));
+    assert_eq!(*log.borrow(), ["session:server"]);
+
+    log.borrow_mut().clear();
+    session.server = Ok("other".to_owned());
+    let unsupported = require_daemon_with(&session).expect_err("unsupported daemon");
+    assert_eq!(unsupported.code, ErrorCode::PlatformNotSupported);
+    assert!(unsupported.message.contains("other"));
+    assert_eq!(*log.borrow(), ["session:server"]);
 }
 
 #[test]

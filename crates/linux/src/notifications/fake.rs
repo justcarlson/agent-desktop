@@ -172,10 +172,16 @@ pub(crate) fn reading(specs: &[Spec], clear_all: bool) -> Reading {
 
 #[derive(Default)]
 pub(crate) struct Faults {
+    pub(crate) daemon: Option<DaemonFailure>,
     pub(crate) open: bool,
     pub(crate) close_sticks: bool,
     pub(crate) click: bool,
     pub(crate) read_after_click: bool,
+}
+
+pub(crate) enum DaemonFailure {
+    Absent,
+    Unsupported,
 }
 
 #[derive(Default)]
@@ -232,6 +238,32 @@ impl FakeWorld {
 }
 
 impl ShellWorld for FakeWorld {
+    fn require_daemon(&self, _: Deadline) -> Result<(), AdapterError> {
+        use crate::system::shell::detect::{Fact, Need, ShellEnvironment, require};
+
+        let environment = match &self.faults.daemon {
+            Some(DaemonFailure::Absent) => ShellEnvironment {
+                daemon: Fact::Absent("no service owns org.freedesktop.Notifications".to_owned()),
+                tree: Fact::Present,
+                watcher: Fact::Present,
+                server: None,
+            },
+            Some(DaemonFailure::Unsupported) => ShellEnvironment {
+                daemon: Fact::Absent("unsupported notification service".to_owned()),
+                tree: Fact::Present,
+                watcher: Fact::Present,
+                server: Some("other".to_owned()),
+            },
+            None => ShellEnvironment {
+                daemon: Fact::Present,
+                tree: Fact::Present,
+                watcher: Fact::Present,
+                server: Some("gnome-shell".to_owned()),
+            },
+        };
+        require(&environment, Need::Daemon)
+    }
+
     fn locate(&self, landmark: Landmark, _: Deadline) -> Result<AtspiElement, AdapterError> {
         self.note(format!("locate:{landmark:?}"));
         Ok(element("/root"))

@@ -41,6 +41,7 @@ impl<'a> Session<'a> {
         if !policy.is_headed() {
             return Err(headed_required(policy));
         }
+        world.require_daemon(lease.deadline())?;
         match world.open(policy, lease) {
             Ok((_, opened)) => Ok(Self {
                 world,

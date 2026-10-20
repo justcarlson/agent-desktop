@@ -39,6 +39,7 @@ pub(crate) struct Reading {
 
 /// What the notification code needs from the shell core, so its tests run on fakes.
 pub(crate) trait ShellWorld {
+    fn require_daemon(&self, deadline: Deadline) -> Result<(), AdapterError>;
     fn locate(&self, landmark: Landmark, deadline: Deadline) -> Result<AtspiElement, AdapterError>;
     fn read(&self, root: &AtspiElement, deadline: Deadline) -> Result<Reading, AdapterError>;
     fn open(
@@ -68,6 +69,10 @@ impl<'a> LiveWorld<'a> {
 }
 
 impl ShellWorld for LiveWorld<'_> {
+    fn require_daemon(&self, deadline: Deadline) -> Result<(), AdapterError> {
+        crate::system::shell::detect::require_daemon(deadline)
+    }
+
     fn locate(&self, landmark: Landmark, deadline: Deadline) -> Result<AtspiElement, AdapterError> {
         let root = find_root(self.bus, deadline)?;
         locate(self.bus, &root, landmark, deadline)

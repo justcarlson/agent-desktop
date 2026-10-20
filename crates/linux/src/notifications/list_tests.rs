@@ -1,5 +1,5 @@
 use super::*;
-use crate::notifications::fake::{FakeWorld, log, reading, spec};
+use crate::notifications::fake::{DaemonFailure, FakeWorld, log, reading, spec};
 use agent_desktop_core::Deadline;
 
 fn deadline() -> Deadline {
@@ -109,6 +109,34 @@ fn only_the_message_list_container_is_read() {
             .iter()
             .any(|line| line.starts_with("click") || line == "open")
     );
+}
+
+#[test]
+fn an_absent_notification_service_blocks_listing_before_the_shell_tree_is_read() {
+    let log = log();
+    let mut world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")], false)]);
+    world.faults.daemon = Some(DaemonFailure::Absent);
+    let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
+    assert_eq!(
+        error.code,
+        agent_desktop_core::ErrorCode::PlatformNotSupported
+    );
+    assert!(error.message.contains("No notification service"));
+    assert!(log.borrow().is_empty());
+}
+
+#[test]
+fn a_non_gnome_notification_service_blocks_listing_with_its_own_error() {
+    let log = log();
+    let mut world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")], false)]);
+    world.faults.daemon = Some(DaemonFailure::Unsupported);
+    let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
+    assert_eq!(
+        error.code,
+        agent_desktop_core::ErrorCode::PlatformNotSupported
+    );
+    assert!(error.message.contains("only GNOME Shell is supported"));
+    assert!(log.borrow().is_empty());
 }
 
 #[test]

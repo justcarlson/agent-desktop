@@ -5,6 +5,7 @@ use serde_json::json;
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
+use self::errors::{tree_error, unreadable};
 use super::identity::{SHELL_BUS_NAME, pick_shell_app, registry_apps};
 use crate::system::session_bus::SessionBus;
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, owner_process_id, within};
@@ -20,6 +21,12 @@ const EXTENSIONS: &str = "org.gnome.Shell.Extensions";
 const EXTENSIONS_PATH: &str = "/org/gnome/Shell/Extensions";
 const INDICATOR_EXTENSION: &str = "appindicator";
 const EXTENSION_ENABLED: u32 = 1;
+
+mod errors;
+mod requirements;
+pub(crate) use requirements::require_daemon;
+#[cfg(test)]
+use requirements::require_daemon_with;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Fact {
@@ -38,10 +45,7 @@ pub(crate) struct ShellEnvironment {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Need {
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "nothing reads the daemon requirement yet")
-    )]
+    #[cfg(test)]
     Daemon,
     Tree,
     #[cfg_attr(
@@ -193,8 +197,13 @@ pub(crate) fn detect(bus: &SharedBus, deadline: Deadline) -> ShellEnvironment {
     )
 }
 
+#[cfg(test)]
 fn daemon_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
-    if let Some(server) = env.server.as_deref().filter(|name| *name != SERVER_NAME) {
+    daemon_fact_error(&env.daemon, env.server.as_deref())
+}
+
+fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterError> {
+    if let Some(server) = server.filter(|name| *name != SERVER_NAME) {
         return Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
             format!("The notification service is '{server}'; only GNOME Shell is supported"),
@@ -204,7 +213,7 @@ fn daemon_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
         )
         .with_details(json!({ "daemon": "unsupported", "server": server })));
     }
-    match &env.daemon {
+    match daemon {
         Fact::Present => Ok(()),
         Fact::Absent(why) => Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
@@ -213,27 +222,6 @@ fn daemon_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
         .with_suggestion("Install and start a GNOME-compatible notification service")
         .with_details(json!({ "daemon": "absent", "detail": why }))),
         Fact::Unreadable(why) => Err(unreadable("notification service", why, "daemon")),
-    }
-}
-
-fn unreadable(what: &str, why: &str, key: &str) -> AdapterError {
-    AdapterError::new(ErrorCode::Timeout, format!("The {what} could not be read"))
-        .with_suggestion("Retry the command; report the detail if it persists")
-        .with_details(json!({ key: "unreadable", "retryable": true, "detail": why }))
-}
-
-fn tree_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
-    match &env.tree {
-        Fact::Present => Ok(()),
-        Fact::Absent(why) => Err(AdapterError::new(
-            ErrorCode::AppNotFound,
-            "The desktop shell is not on the accessibility registry",
-        )
-        .with_suggestion(
-            "Restart the shell session so it registers again; do not toggle accessibility settings",
-        )
-        .with_details(json!({ "shell_tree": "absent", "detail": why }))),
-        Fact::Unreadable(why) => Err(unreadable("shell accessibility tree", why, "shell_tree")),
     }
 }
 
@@ -252,6 +240,7 @@ fn watcher_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
 
 pub(crate) fn require(env: &ShellEnvironment, need: Need) -> Result<(), AdapterError> {
     match need {
+        #[cfg(test)]
         Need::Daemon => daemon_error(env),
         Need::Tree => tree_error(env),
         Need::Watcher => watcher_error(env),

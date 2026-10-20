@@ -57,6 +57,7 @@ pub(crate) fn read_listing(
     world: &dyn ShellWorld,
     deadline: Deadline,
 ) -> Result<Listing, AdapterError> {
+    world.require_daemon(deadline)?;
     let mut tries = 0;
     loop {
         match read_listing_once(world, deadline) {

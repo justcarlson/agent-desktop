@@ -1,5 +1,5 @@
 use super::*;
-use crate::notifications::fake::{FakeWorld, lease, log, reading, spec};
+use crate::notifications::fake::{DaemonFailure, FakeWorld, lease, log, reading, spec};
 use agent_desktop_core::{ErrorCode, InteractionPolicy};
 
 fn world(log: &crate::notifications::fake::Log) -> FakeWorld {
@@ -24,6 +24,19 @@ fn a_focus_only_policy_is_refused_too() {
     let world = world(&log);
     let lease = lease(500);
     assert!(Session::open(&world, InteractionPolicy::focus_fallback(), &lease).is_err());
+    assert!(log.borrow().is_empty());
+}
+
+#[test]
+fn a_missing_notification_daemon_blocks_mutation_before_opening_the_list() {
+    let log = log();
+    let mut world = world(&log);
+    world.faults.daemon = Some(DaemonFailure::Absent);
+    let lease = lease(500);
+    let error = Session::open(&world, InteractionPolicy::headed(), &lease)
+        .err()
+        .expect("error");
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert!(log.borrow().is_empty());
 }
 
