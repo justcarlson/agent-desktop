@@ -289,8 +289,8 @@ fn zero_bounds_click_reports_visible_fail_after_scroll_seam() {
     assert_eq!(adapter.scroll_calls.load(Ordering::SeqCst), 1);
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_ne!(error.code, ErrorCode::PlatformNotSupported);
-    assert_eq!(error.disposition, DeliverySemantics::uncertain());
-    assert_eq!(error.disposition.retry(), RetryDisposition::Unsafe);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition.retry(), RetryDisposition::Safe);
     let details = error.details.expect("actionability details");
     assert_eq!(details["preparatory_scroll"], "may_have_changed_view");
     let visible = find_check(&details, "visible");
