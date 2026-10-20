@@ -21,7 +21,8 @@ use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window_id};
 use crate::tree::role_numbers::DIALOG;
-use crate::tree::{AtspiElement, read_node};
+use crate::tree::state_bits::{ACTIVE, StateBits};
+use crate::tree::{AtspiElement, list_children, read_node};
 
 #[path = "focus_send.rs"]
 pub(super) mod focus_send;
@@ -113,6 +114,44 @@ impl FocusWorld for LiveWorld<'_> {
 
     fn menu_open(&self) -> bool {
         menu_focus::open_at(self.bus, &self.frame, self.deadline).unwrap_or(false)
+    }
+
+    fn app_frame_active(&self) -> Option<bool> {
+        let shared = self.bus.get(self.deadline).ok()?;
+        within(self.deadline, async {
+            let roots = AtspiElement::new(
+                super::REGISTRY_SERVICE,
+                super::REGISTRY_ROOT_PATH,
+                self.frame.pid(),
+            );
+            let apps = list_children(shared.inner(), &roots).await?;
+            let mut read_any = false;
+            for (bus_name, path) in apps {
+                if bus_name != self.frame.bus_name() {
+                    continue;
+                }
+                let app = AtspiElement::new(bus_name.clone(), path, self.frame.pid());
+                let Ok(frames) = list_children(shared.inner(), &app).await else {
+                    continue;
+                };
+                for (frame_bus, frame_path) in frames {
+                    let frame = AtspiElement::new(frame_bus, frame_path, self.frame.pid());
+                    let Ok(node) = read_node(shared.inner(), &frame).await else {
+                        continue;
+                    };
+                    let Some(states) = node.traits.states.present() else {
+                        continue;
+                    };
+                    read_any = true;
+                    if StateBits::new(states).has(ACTIVE) {
+                        return Ok(Some(true));
+                    }
+                }
+            }
+            Ok(if read_any { Some(false) } else { None })
+        })
+        .ok()
+        .flatten()
     }
 
     fn overview_open(&self) -> Option<bool> {

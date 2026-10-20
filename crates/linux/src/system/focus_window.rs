@@ -68,6 +68,10 @@ pub(super) trait FocusWorld: ClientWorld {
     fn modal_over(&self, client: u32) -> Option<String>;
     fn input_focus_in(&self, client: u32) -> bool;
     fn menu_open(&self) -> bool;
+    /// Whether any accessibility frame owned by this process reports ACTIVE.
+    /// Chromium can move ACTIVE from its main frame to an application-owned
+    /// popup while the X11 window manager continues to name the main client.
+    fn app_frame_active(&self) -> Option<bool>;
     fn grace(&self) -> Grace {
         GRACE
     }
@@ -140,7 +144,8 @@ fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
         return (active, false);
     }
     let view = world.frame().ok();
-    let reported = view.and_then(|view| view.active) == Some(true);
+    let reported =
+        view.and_then(|view| view.active) == Some(true) || world.app_frame_active() == Some(true);
     let silent_dialog = view
         .is_some_and(|view| (view.modal == Some(true) || view.dialog) && view.active != Some(true));
     let done = reported || world.menu_open() || (silent_dialog && world.input_focus_in(client));
@@ -277,7 +282,9 @@ pub(super) fn run(
         }
         None if view.other_desktop.is_none()
             && active == Some(client)
-            && (frame.active == Some(true) || world.menu_open()) =>
+            && (frame.active == Some(true)
+                || world.app_frame_active() == Some(true)
+                || world.menu_open()) =>
         {
             return Ok(());
         }

@@ -54,6 +54,7 @@ pub(super) struct World {
     pub(super) frame_dialog: bool,
     pub(super) input_focus: bool,
     pub(super) menu_open: bool,
+    pub(super) app_frame_active: Option<bool>,
 }
 
 pub(super) fn facts() -> ProcessFacts {
@@ -116,6 +117,7 @@ impl World {
             frame_dialog: false,
             input_focus: false,
             menu_open: false,
+            app_frame_active: Some(false),
         }
     }
 
@@ -212,6 +214,10 @@ impl FocusWorld for World {
 
     fn menu_open(&self) -> bool {
         self.menu_open
+    }
+
+    fn app_frame_active(&self) -> Option<bool> {
+        self.app_frame_active
     }
 
     fn grace(&self) -> Grace {

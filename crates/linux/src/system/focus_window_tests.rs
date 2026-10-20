@@ -91,6 +91,22 @@ fn an_open_menu_of_the_active_app_is_focus_without_another_request() {
 }
 
 #[test]
+fn a_chromium_popup_active_frame_proves_focus_only_when_its_app_owns_the_x11_client() {
+    let mut app_owned = World::new(Some(CLIENT));
+    app_owned.frame_active.set(Some(false));
+    app_owned.app_frame_active = Some(true);
+    run(&app_owned, &window(), budget()).expect("the active popup belongs to this app");
+    assert_eq!(app_owned.sends(), 0);
+
+    let mut foreign = World::new(Some(OTHER));
+    foreign.grant = Grant::Never;
+    foreign.frame_active.set(Some(false));
+    foreign.app_frame_active = Some(true);
+    assert_refused(&failure(&foreign), "activation_refused");
+    assert_eq!(foreign.active.get(), Some(OTHER));
+}
+
+#[test]
 fn active_on_the_display_but_not_on_the_frame_is_a_failure_never_a_success() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::OnlyOnX11;
