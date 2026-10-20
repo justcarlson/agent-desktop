@@ -53,6 +53,20 @@ recovery strategy from `recovery.strategy` only when `disposition.retry` is
 `safe`; command strings from older envelopes must not be executed blindly.
 The removed `retry_command` field has no compatibility alias.
 
+## Disposition values
+
+Every error carries `disposition`, and commands that act on a target may also
+carry it on their result. `delivery` is one of `unknown`, `not_delivered`,
+`delivery_uncertain`, `delivered_unverified` or `delivered_verified`. `retry`
+is one of `unknown`, `safe` or `unsafe`, and it follows from `delivery`:
+`not_delivered` is `safe`, and every other non-`unknown` value is `unsafe`.
+
+`unknown` means the command established nothing about delivery. Observation
+errors and errors raised before a target was found, such as `APP_NOT_FOUND`,
+carry it because no delivery question applies. Treat `unknown` as not safe to
+retry automatically: read `error.code` and the message, and choose a recovery
+strategy only when `disposition.retry` is `safe`.
+
 ## Version 2.4 migration
 
 Stateful ref actions (`set-value`, `type`, `clear`, `check`, `uncheck`, `toggle`, `expand`, and `collapse`) now reject observed postcondition contradictions after one delivery attempt. Readback failures preserve the adapter's error code and carry `details.kind: "post_action_verification"`. Missing evidence alone remains a successful `delivered_unverified` result with `details.verification_scope: "unavailable"`; neither that result nor verified element state proves application-level persistence.
