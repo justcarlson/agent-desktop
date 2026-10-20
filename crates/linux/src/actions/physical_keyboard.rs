@@ -4,10 +4,9 @@ use agent_desktop_core::{
 };
 
 use super::frame_active::ActiveGate;
-use super::physical_target::{LiveWorld, PhysicalWorld, ensure_budget, ensure_keyboard_policy};
+use super::physical_target::{PhysicalWorld, ensure_budget, ensure_keyboard_policy};
 use crate::input::backend::Backend;
 use crate::input::delivery::Gate;
-use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
 pub(crate) fn type_text_steps(
@@ -65,19 +64,51 @@ pub(crate) fn press_key_global_steps(
     Ok(vec![physical_step(&backend, "press_key")])
 }
 
-#[expect(dead_code, reason = "the application-targeted press calls it")]
-pub(crate) fn press_global(
-    bus: &SharedBus,
+/// Presses a chord for one process under the caller's focus gate. The gate
+/// decides whether the keys may go; the focus-steal policy only words the
+/// refusal, because an application that owns the active window is the target
+/// whatever the policy says.
+pub(crate) fn press_for_process(
+    world: &impl PhysicalWorld,
     combo: &KeyCombo,
     policy: InteractionPolicy,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<ActionResult, AdapterError> {
-    ensure_keyboard_policy(policy)?;
-    let steps = press_key_global_steps(&LiveWorld { bus }, combo, deadline)?;
+    ensure_budget(deadline)?;
+    let backend = world.backend()?;
+    gate().map_err(|error| worded_for(error, policy))?;
+    send_combo(world, &backend, combo, gate, deadline)?;
     Ok(ActionResult::from_execution(
         &Action::PressKey(combo.clone()),
-        steps,
+        vec![physical_step(&backend, "press_key")],
     ))
+}
+
+fn worded_for(mut error: AdapterError, policy: InteractionPolicy) -> AdapterError {
+    let focus = error
+        .details
+        .as_ref()
+        .and_then(|details| details.get("check"))
+        .and_then(serde_json::Value::as_str)
+        == Some("window_active");
+    if !focus {
+        return error;
+    }
+    let (message, suggestion) = if policy.allow_focus_steal {
+        (
+            "Focus did not reach the target application, so no key was sent",
+            "Retry once the target application owns the active window; a menu or dialog of another application can hold the keyboard",
+        )
+    } else {
+        (
+            "The target application is in the background and focus changes are not allowed, so no key was sent",
+            "Retry with --headed so the target can be activated first, or bring the target to the front yourself",
+        )
+    };
+    error.message = message.to_owned();
+    error.suggestion = Some(suggestion.to_owned());
+    error
 }
 
 fn send_combo(

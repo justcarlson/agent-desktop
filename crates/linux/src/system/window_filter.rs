@@ -63,6 +63,7 @@ pub(crate) struct FrameState {
     pub(crate) visible: Option<bool>,
     pub(crate) minimized: Option<bool>,
     pub(crate) active: Option<bool>,
+    pub(crate) modal: Option<bool>,
 }
 
 pub(crate) fn frame_state(states: &Field<Vec<u32>>) -> FrameState {
@@ -73,12 +74,14 @@ pub(crate) fn frame_state(states: &Field<Vec<u32>>) -> FrameState {
                 visible: Some(bits.has(SHOWING)),
                 minimized: Some(bits.has(ICONIFIED)),
                 active: Some(bits.has(ACTIVE)),
+                modal: Some(bits.has(MODAL)),
             }
         }
         None => FrameState {
             visible: None,
             minimized: None,
             active: None,
+            modal: None,
         },
     }
 }

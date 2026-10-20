@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use super::app_name::{app_name, name_matches};
+use super::app_name::{aliases_of, app_name, name_matches};
 use super::process_facts::ProcessFacts;
 use super::toolkit_id::ToolkitId;
 use crate::tree::AtspiElement;
@@ -18,6 +18,7 @@ pub(crate) struct RegistryApp {
     pub(crate) answered: bool,
     pub(crate) facts: ProcessFacts,
     pub(crate) toolkit: ToolkitId,
+    pub(crate) aliases: Vec<String>,
 }
 
 /// Builds the entry for an application from what its bus name, its process
@@ -37,6 +38,7 @@ pub(crate) fn assemble(
         name,
         registry_name,
         answered,
+        aliases: aliases_of(&facts),
         facts,
         toolkit,
     }
@@ -50,6 +52,7 @@ impl RegistryApp {
             &self.name,
             self.registry_name.as_deref(),
             &self.facts,
+            &self.aliases,
         )
     }
 }

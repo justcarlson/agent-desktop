@@ -1,0 +1,167 @@
+use super::*;
+
+fn maximized() -> WindowFacts {
+    let mut facts = state(0, 21, 1280, 779);
+    facts.maximized_vertical = true;
+    facts.maximized_horizontal = true;
+    facts
+}
+
+#[test]
+fn a_maximize_remembers_the_client_rectangle_the_window_had() {
+    let world = World::showing(state(120, 90, 500, 380)).then_showing(maximized());
+    run(&world, &window(), &WindowOp::Maximize, budget()).expect("a maximize");
+    assert_eq!(
+        *world.remember_calls.borrow(),
+        vec![Some(Extents {
+            x: 120,
+            y: 90,
+            width: 500,
+            height: 380
+        })]
+    );
+}
+
+#[test]
+fn a_maximize_of_a_maximized_window_keeps_the_rectangle_already_remembered() {
+    let world = World::showing(maximized());
+    run(&world, &window(), &WindowOp::Maximize, budget()).expect("a maximize");
+    assert!(world.remember_calls.borrow().is_empty());
+}
+
+#[test]
+fn a_restore_gives_back_the_remembered_place_with_a_move_of_the_client() {
+    let world = World::showing(maximized())
+        .then_showing(state(121, 112, 500, 380))
+        .then_showing(state(121, 112, 500, 380))
+        .then_showing(state(120, 90, 500, 380));
+    *world.remembered.borrow_mut() = Some(Extents {
+        x: 120,
+        y: 90,
+        width: 500,
+        height: 380,
+    });
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
+    let writes = world.writes.borrow();
+    assert_eq!(writes.len(), 2);
+    assert_eq!(writes[0].1, WindowWrite::SetMaximized(false));
+    assert_eq!(
+        writes[1].1,
+        WindowWrite::MoveResize {
+            x: Some(120),
+            y: Some(90),
+            width: None,
+            height: None
+        }
+    );
+    assert_eq!(*world.remember_calls.borrow(), vec![None]);
+}
+
+#[test]
+fn a_restore_of_a_window_nobody_remembered_only_unmaximizes() {
+    let world = World::showing(maximized()).then_showing(state(10, 10, 500, 380));
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
+    assert_eq!(world.writes(), 1);
+    assert!(world.remember_calls.borrow().is_empty());
+}
+
+#[test]
+fn a_place_the_manager_did_not_give_back_is_unverified_and_stays_remembered() {
+    let world = World::showing(maximized())
+        .then_showing(state(121, 112, 500, 380))
+        .then_showing(state(121, 112, 500, 380));
+    *world.remembered.borrow_mut() = Some(Extents {
+        x: 120,
+        y: 90,
+        width: 500,
+        height: 380,
+    });
+    let error = run(&world, &window(), &WindowOp::Restore, budget()).expect_err("a miss");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert!(world.remember_calls.borrow().is_empty());
+}
+
+fn skips_a_move_to_the_place_it_believes_current(written: &[WindowWrite]) -> WindowFacts {
+    let at = |x: i32| WindowWrite::MoveResize {
+        x: Some(x),
+        y: Some(90),
+        width: None,
+        height: None,
+    };
+    match written.last() {
+        None => maximized(),
+        Some(last) if *last == at(160) => state(160, 90, 500, 380),
+        Some(last) if *last == at(120) && written.contains(&at(160)) => state(120, 90, 500, 380),
+        Some(_) => state(121, 112, 500, 380),
+    }
+}
+
+#[test]
+fn a_manager_that_skips_a_move_to_the_place_it_believes_is_current_is_nudged_away_and_back() {
+    let mut world = World::showing(maximized());
+    world.reaction = Some(skips_a_move_to_the_place_it_believes_current);
+    *world.remembered.borrow_mut() = Some(Extents {
+        x: 120,
+        y: 90,
+        width: 500,
+        height: 380,
+    });
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
+    let writes = world.writes.borrow();
+    assert_eq!(writes.len(), 4);
+    assert!(matches!(
+        &writes[2].1,
+        WindowWrite::MoveResize {
+            x: Some(160),
+            y: Some(90),
+            ..
+        }
+    ));
+}
+
+#[test]
+fn a_window_already_back_in_its_place_is_not_moved() {
+    let world = World::showing(maximized()).then_showing(state(120, 90, 500, 380));
+    *world.remembered.borrow_mut() = Some(Extents {
+        x: 121,
+        y: 91,
+        width: 500,
+        height: 380,
+    });
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
+    assert_eq!(world.writes(), 1);
+    assert_eq!(*world.remember_calls.borrow(), vec![None]);
+}
+
+#[test]
+fn a_retried_restore_of_an_unmaximized_window_still_gives_back_the_place_that_was_kept() {
+    let world = World::showing(state(160, 90, 500, 380))
+        .then_showing(state(160, 90, 500, 380))
+        .then_showing(state(120, 90, 500, 380));
+    *world.remembered.borrow_mut() = Some(Extents {
+        x: 120,
+        y: 90,
+        width: 500,
+        height: 380,
+    });
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("the retry applies the place");
+    let writes = world.writes.borrow();
+    assert_eq!(writes.len(), 1);
+    assert_eq!(
+        writes[0].1,
+        WindowWrite::MoveResize {
+            x: Some(120),
+            y: Some(90),
+            width: None,
+            height: None
+        }
+    );
+    assert_eq!(*world.remember_calls.borrow(), vec![None]);
+}
+
+#[test]
+fn a_restore_of_a_window_with_nothing_kept_and_nothing_maximized_writes_nothing() {
+    let world = World::showing(state(160, 90, 500, 380));
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("nothing to do");
+    assert_eq!(world.writes(), 0);
+}

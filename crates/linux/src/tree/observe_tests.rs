@@ -3,7 +3,7 @@ use agent_desktop_core::{
     TreeOptions, WindowInfo, WindowState,
 };
 
-use super::{SettleHost, observe_with};
+use super::{SettleHost, observe_with, refuse_stopped};
 use crate::system::window_id;
 use crate::tree::role_numbers::PUSH_BUTTON;
 use crate::tree::test_support::{read_of, words};
@@ -353,4 +353,14 @@ fn a_handle_a_descent_landed_on_below_a_web_document_seeds_the_walk_in_a_web_con
         false,
     ));
     assert!(!seed_seen_for(flattened));
+}
+
+#[test]
+fn a_window_of_a_stopped_process_is_unresponsive_and_a_running_one_passes() {
+    let id = window_id::encode(":1.7", "/stopped/x4a00003").expect("an id");
+    let listed = window(id);
+    let error = refuse_stopped(&listed, |pid| pid == 77).expect_err("stopped");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains('a'));
+    assert!(refuse_stopped(&listed, |_| false).is_ok());
 }

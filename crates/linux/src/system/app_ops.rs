@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
 use agent_desktop_core::{
-    AdapterError, AppInfo, AppInventory, AppPresentation, Deadline, ErrorCode,
+    AdapterError, AppInfo, AppInventory, AppPresentation, Deadline, DeliverySemantics, ErrorCode,
 };
 use serde_json::json;
 
 use super::SharedBus;
 use super::proc_scan::find_running;
-use super::process_facts;
+use super::proc_stat;
 use super::registry::{Registry, read_registry};
 use super::registry_app::RegistryApp;
 use super::unresponsive::{settle_matches, stopped_target};
@@ -90,6 +90,7 @@ pub(crate) fn missing_connection(query: &str, pid: u32, comm: &str) -> AdapterEr
         format!("'{query}' is running (pid {pid}) but is not on the accessibility bus"),
     )
     .with_suggestion(MISSING_CONNECTION)
+    .with_disposition(DeliverySemantics::not_delivered())
     .with_details(json!({
         "kind": "no_accessibility_connection",
         "pid": pid,
@@ -125,11 +126,7 @@ pub(crate) fn scoped(
     let registry = read_registry(bus, deadline)?;
     let matched = infos(bus, &registry, |app| app.matches(name), deadline)?;
     let matched = settle_matches(matched, || {
-        stopped_target(
-            &registry,
-            |app| app.matches(name),
-            process_facts::is_stopped,
-        )
+        stopped_target(&registry, |app| app.matches(name), proc_stat::is_stopped)
     })?;
     scoped_outcome(matched, name, find_running)
 }

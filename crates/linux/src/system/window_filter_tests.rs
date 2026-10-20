@@ -100,7 +100,8 @@ fn state_bits_become_visible_minimized_and_active() {
         FrameState {
             visible: Some(true),
             minimized: Some(false),
-            active: Some(true)
+            active: Some(true),
+            modal: Some(false)
         }
     );
     let hidden = frame_state(&Field::Present(words(&[15])));
@@ -116,7 +117,8 @@ fn an_unreadable_state_set_is_unknown_not_false() {
         FrameState {
             visible: None,
             minimized: None,
-            active: None
+            active: None,
+            modal: None
         }
     );
 }

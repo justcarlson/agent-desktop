@@ -1,6 +1,7 @@
 use agent_desktop_core::Rect;
 
 use super::listed_window::ListedWindow;
+use super::x11::desktops::Desktops;
 use super::x11::map::{ClientMatch, match_client};
 use super::x11::{FrameFacts, X11Client, X11State};
 use crate::tree::Extents;
@@ -47,6 +48,27 @@ pub(crate) fn place_windows(listed: &mut [ListedWindow], state: &X11State) {
             .extents
             .zip(frame_origin(&window.frame, clients))
             .map(|(size, origin)| at(origin, size));
+    }
+}
+
+/// Marks the windows whose single X11 client the window manager keeps on a
+/// desktop other than the one shown as not visible: the display server has
+/// them unmapped, whatever the toolkit says.
+pub(crate) fn mark_other_desktop(
+    listed: &mut [ListedWindow],
+    state: &X11State,
+    desktops: Option<&Desktops>,
+) {
+    let (X11State::Ready { clients, .. }, Some(desktops)) = (state, desktops) else {
+        return;
+    };
+    for window in listed {
+        let ClientMatch::One(id) = match_client(&window.frame, clients) else {
+            continue;
+        };
+        if desktops.hides(id) {
+            window.info.state.visible = Some(false);
+        }
     }
 }
 

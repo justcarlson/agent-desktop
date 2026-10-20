@@ -28,7 +28,7 @@ pub(super) fn capped(caller: Deadline) -> Option<Deadline> {
 /// Runs a display-server read on its own thread and gives up with `fallback`
 /// when `deadline` passes first: a round trip to a server that has stopped
 /// answering cannot be interrupted, only abandoned.
-pub(super) fn bounded<T: Send + 'static>(
+pub(in crate::system) fn bounded<T: Send + 'static>(
     deadline: Deadline,
     fallback: T,
     read: impl FnOnce() -> T + Send + 'static,

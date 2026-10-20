@@ -1,8 +1,12 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{Deadline, ErrorCode, ProcessIdentity, WindowFilter};
+use agent_desktop_core::{
+    Deadline, DeliverySemantics, ErrorCode, ProcessIdentity, WindowFilter, WindowOp,
+};
 
+use super::interaction_lease::acquire;
+use super::window_op::window_op;
 use super::{SharedBus, app_inventory, apps_scoped, list_surfaces, list_windows};
 use crate::tree::live_launch::Launched;
 
@@ -97,10 +101,19 @@ fn check_stopped_app(program: &str, args: &[&str], registry_name: Option<&str>) 
         focused_only: false,
         app: None,
     };
-    assert!(
-        list_windows(&bus, &everything, deadline()).is_ok(),
-        "an unscoped listing is not failed by one stopped app"
-    );
+    let all = list_windows(&bus, &everything, deadline()).expect("an unscoped listing");
+    let held = all
+        .iter()
+        .find(|window| window.pid == pid)
+        .expect("the stopped app's window is listed from the display server");
+    assert!(!held.state.accessible, "and marked as not readable");
+    let lease = acquire(deadline()).expect("a lease");
+    for op in [WindowOp::Minimize, WindowOp::Move { x: 5.0, y: 5.0 }] {
+        let error = window_op(&bus, held, op, &lease).expect_err("a stopped app");
+        assert_eq!(error.code, ErrorCode::AppUnresponsive);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    }
+    drop(lease);
 
     drop(stop);
     let started = Instant::now();

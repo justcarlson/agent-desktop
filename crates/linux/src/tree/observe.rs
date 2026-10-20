@@ -11,15 +11,28 @@ use super::projection::project;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
-use crate::system::{SharedBus, process_facts, window_id};
+use crate::system::{SharedBus, proc_stat, process_facts, window_id};
 
 pub(super) fn is_web_process(pid: u32) -> bool {
     process_facts::read(pid).is_some_and(|facts| facts.web_family.is_some())
 }
 
+/// A window of a stopped process cannot be read, so observing it is
+/// `APP_UNRESPONSIVE` at once instead of a walk that waits out its budget.
+fn refuse_stopped(
+    window: &agent_desktop_core::WindowInfo,
+    is_stopped: impl Fn(u32) -> bool,
+) -> Result<(), AdapterError> {
+    if is_stopped(window.pid.get()) {
+        return Err(AdapterError::app_unresponsive(&window.app));
+    }
+    Ok(())
+}
+
 fn root_element(root: &ObservationRoot<'_>) -> Result<AtspiElement, AdapterError> {
     match root {
         ObservationRoot::Window(window) => {
+            refuse_stopped(window, proc_stat::is_stopped)?;
             let (bus, path) = window_id::decode(&window.id)?;
             let mut element = AtspiElement::new(bus, path, window.pid.get());
             element.set_ancestry(ancestry::of_root(&element));

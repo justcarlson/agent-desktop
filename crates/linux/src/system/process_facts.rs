@@ -1,8 +1,8 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-const START_TIME_FIELD: usize = 22;
-const FIELDS_BEFORE_STATE: usize = 3;
+use super::proc_stat::{self, ProcState};
+
 const BOOT_ID_PREFIX_LEN: usize = 8;
 const CHROMIUM_NAMES: [&str; 5] = ["code", "chrome", "chromium", "electron", "google-chrome"];
 const GECKO_NAMES: [&str; 3] = ["firefox", "firefox-bin", "firefox-esr"];
@@ -43,47 +43,16 @@ impl Lookup {
     }
 }
 
+pub(crate) const ESRCH: i32 = 3;
+
 /// Whether a failed `/proc` read says the process has exited, as opposed to
 /// the read having failed for another reason.
 pub(crate) fn lookup_for_error(error: &std::io::Error) -> Lookup {
-    const ESRCH: i32 = 3;
     if error.kind() == std::io::ErrorKind::NotFound || error.raw_os_error() == Some(ESRCH) {
         Lookup::Gone
     } else {
         Lookup::Unreadable
     }
-}
-
-/// The start time, in clock ticks since boot, from the text of
-/// `/proc/<pid>/stat`. The command name sits in parentheses and may itself
-/// contain spaces and parentheses, so the fields are counted from the last
-/// closing parenthesis; text without one is rejected.
-pub(crate) fn parse_start_time(stat: &str) -> Option<u64> {
-    let open = stat.find('(')?;
-    let close = stat.rfind(')')?;
-    if close < open {
-        return None;
-    }
-    stat[close + 1..]
-        .split_whitespace()
-        .nth(START_TIME_FIELD - FIELDS_BEFORE_STATE)?
-        .parse()
-        .ok()
-}
-
-/// Whether the state letter of `/proc/<pid>/stat` says the process is
-/// stopped by a signal (`T`) or by a tracer (`t`). The state follows the last
-/// closing parenthesis, like the start time.
-pub(crate) fn parse_stopped(stat: &str) -> bool {
-    stat.rfind(')')
-        .and_then(|close| stat[close + 1..].split_whitespace().next())
-        .is_some_and(|state| state == "T" || state == "t")
-}
-
-/// Whether the process is stopped right now. A process that cannot be read is
-/// not reported as stopped.
-pub(crate) fn is_stopped(pid: u32) -> bool {
-    std::fs::read_to_string(format!("/proc/{pid}/stat")).is_ok_and(|stat| parse_stopped(&stat))
 }
 
 /// The token that tells two runs of one process id apart: a prefix of the
@@ -117,6 +86,11 @@ pub(crate) fn classify_web(
     }
 }
 
+/// The token for a start time on this boot.
+pub(crate) fn instance_token(start_time: u64) -> String {
+    process_instance(boot_id(), start_time)
+}
+
 fn boot_id() -> &'static str {
     static BOOT_ID: OnceLock<String> = OnceLock::new();
     BOOT_ID.get_or_init(|| {
@@ -142,29 +116,46 @@ pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
 /// so a stat line without a readable start time is `Unreadable`, and only a
 /// read that failed because the process has gone is `Gone`.
 pub(crate) fn lookup(pid: u32) -> Lookup {
-    let stat = match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
-        Ok(stat) => stat,
-        Err(error) => return lookup_for_error(&error),
-    };
-    let Some(start_time) = parse_start_time(&stat) else {
-        return Lookup::Unreadable;
+    match inspect(pid, true) {
+        Ok((facts, _)) => Lookup::Found(facts),
+        Err(lookup) => lookup,
+    }
+}
+
+/// The facts of a process and the state its stat line reported, read once.
+pub(crate) fn read_with_state(pid: u32) -> Option<(ProcessFacts, ProcState)> {
+    inspect(pid, true).ok()
+}
+
+/// The facts a name is matched on: the same as [`read`] without the check for
+/// a Chromium payload next to the executable, which a name never needs.
+pub(crate) fn read_names(pid: u32) -> Option<ProcessFacts> {
+    inspect(pid, false).ok().map(|(facts, _)| facts)
+}
+
+fn inspect(pid: u32, check_payload: bool) -> Result<(ProcessFacts, ProcState), Lookup> {
+    let stat = match proc_stat::read_stat(pid) {
+        Ok(Some(stat)) => stat,
+        Ok(None) => return Err(Lookup::Gone),
+        Err(()) => return Err(Lookup::Unreadable),
     };
     let comm = match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
         Ok(comm) => comm.trim_end().to_owned(),
-        Err(error) => return lookup_for_error(&error),
+        Err(error) => return Err(lookup_for_error(&error)),
     };
     let exe = std::fs::read_link(format!("/proc/{pid}/exe")).ok();
     let exe_basename = exe
         .as_deref()
         .and_then(Path::file_name)
         .map(|name| name.to_string_lossy().into_owned());
-    let payload = exe.as_deref().is_some_and(has_chromium_payload);
-    Lookup::Found(ProcessFacts {
+    let payload = check_payload && exe.as_deref().is_some_and(has_chromium_payload);
+    let facts = ProcessFacts {
         web_family: classify_web(&comm, exe_basename.as_deref(), payload),
         comm,
         exe_basename,
-        instance: process_instance(boot_id(), start_time),
-    })
+        instance: process_instance(boot_id(), stat.start_time),
+    };
+    Ok((facts, stat.state))
 }
 
 #[cfg(test)]

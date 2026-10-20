@@ -291,4 +291,84 @@ mod tests {
             assert_eq!(error.code, ErrorCode::InvalidArgs, "{error:?}");
         }
     }
+
+    fn lease() -> InteractionLease {
+        InteractionLease::guarded(Deadline::after(2_000).expect("a deadline builds"), ())
+            .expect("a lease")
+    }
+
+    fn not_the_default(error: &AdapterError) {
+        assert_ne!(
+            error.code,
+            ErrorCode::PlatformNotSupported,
+            "the adapter answers for itself: {error:?}"
+        );
+    }
+
+    #[test]
+    fn the_lifecycle_overrides_are_wired_to_the_adapter() {
+        let adapter = LinuxAdapter::new();
+        assert!(adapter.is_protected_process("gnome-shell"));
+        assert!(!adapter.is_protected_process("gnome-text-editor"));
+
+        let gone = std::process::Command::new("true")
+            .spawn()
+            .and_then(|mut child| child.wait().map(|_| child.id()))
+            .expect("a child that exits");
+        let identity = ProcessIdentity::new(gone, "deadbeef:1");
+        let deadline = Deadline::after(2_000).expect("a deadline builds");
+        assert_eq!(
+            adapter
+                .process_state(identity.clone(), deadline)
+                .expect("an exited process has a state"),
+            agent_desktop_core::process_state::ProcessState::Exited { code: None }
+        );
+
+        let protected = AppInfo {
+            name: "gnome-shell".to_owned(),
+            pid: gone.into(),
+            bundle_id: None,
+            process_instance: Some("deadbeef:1".to_owned()),
+            presentation: None,
+        };
+        let error = adapter
+            .close_app(&protected, false, &lease())
+            .expect_err("a protected name is refused");
+        assert_eq!(error.code, ErrorCode::InvalidArgs);
+
+        let mut options = agent_desktop_core::launch_options::LaunchOptions::default();
+        options.args.push("a\0b".to_owned());
+        let error = adapter
+            .launch_app("anything", &options, &lease())
+            .expect_err("a NUL argument is refused");
+        assert_eq!(error.code, ErrorCode::InvalidArgs);
+
+        let window = agent_desktop_core::WindowInfo {
+            id: "w-1.2-a".to_owned(),
+            title: String::new(),
+            app: "app".to_owned(),
+            pid: gone.into(),
+            process_instance: None,
+            bounds: None,
+            state: agent_desktop_core::WindowState::default(),
+        };
+        let error = adapter
+            .window_op(&window, agent_desktop_core::WindowOp::Minimize, &lease())
+            .expect_err("a window without its process instance is refused");
+        not_the_default(&error);
+
+        let combo = KeyCombo {
+            key: "n".to_owned(),
+            modifiers: Vec::new(),
+        };
+        let error = adapter
+            .press_key_for_app(
+                identity,
+                &combo,
+                agent_desktop_core::InteractionPolicy::headless(),
+                &lease(),
+            )
+            .expect_err("no desktop here");
+        not_the_default(&error);
+    }
 }

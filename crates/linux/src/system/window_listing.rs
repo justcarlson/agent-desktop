@@ -50,6 +50,7 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
             },
         },
         active: state.active == Some(true),
+        modal: state.modal == Some(true),
         frame: FrameFacts {
             pid: app.root.pid(),
             title,

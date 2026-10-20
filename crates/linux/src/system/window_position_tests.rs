@@ -3,6 +3,7 @@ use crate::system::process_facts::ProcessFacts;
 use crate::system::registry_app::assemble;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::window_listing::collect;
+use crate::system::x11::desktops::Desktops;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field};
 
@@ -141,4 +142,34 @@ fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
 
     let bounds = listed[0].info.bounds.expect("a position");
     assert_eq!((bounds.x, bounds.y), (98.0, 119.0));
+}
+
+fn on_desktop(current: u32, window_on: u32) -> Desktops {
+    use crate::system::x11::desktop_placement::DesktopPlacement;
+    Desktops {
+        current: Some(current),
+        placements: vec![(7, DesktopPlacement::On(window_on))],
+    }
+}
+
+#[test]
+fn a_window_on_another_desktop_is_not_visible() {
+    let mut listed = windows(("gtk", "3.24.41"));
+    assert_eq!(listed[0].info.state.visible, Some(true));
+    mark_other_desktop(
+        &mut listed,
+        &ready(vec![client(7, 0, 0)]),
+        Some(&on_desktop(0, 1)),
+    );
+    assert_eq!(listed[0].info.state.visible, Some(false));
+}
+
+#[test]
+fn a_window_on_the_current_desktop_or_with_no_desktop_evidence_keeps_what_the_toolkit_said() {
+    let mut listed = windows(("gtk", "3.24.41"));
+    let state = ready(vec![client(7, 0, 0)]);
+    mark_other_desktop(&mut listed, &state, Some(&on_desktop(1, 1)));
+    assert_eq!(listed[0].info.state.visible, Some(true));
+    mark_other_desktop(&mut listed, &state, None);
+    assert_eq!(listed[0].info.state.visible, Some(true));
 }

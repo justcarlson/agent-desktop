@@ -8,6 +8,7 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use super::bus_slice::within_slice;
+use super::proc_stat::ProcState;
 use super::process_facts;
 use super::registry_app::{RegistryApp, assemble, skipped};
 use super::toolkit_id::ToolkitId;
@@ -56,10 +57,13 @@ async fn read_app(connection: &Connection, bus: String, path: String) -> AppRead
         Ok(pid) => pid,
         Err(error) => return AppRead::Skipped(skipped(&bus, None, &error.message)),
     };
-    let Some(facts) = process_facts::read(pid) else {
+    let Some((facts, state)) = process_facts::read_with_state(pid) else {
         return AppRead::Skipped(skipped(&bus, Some(pid), "the process has exited"));
     };
     let root = AtspiElement::new(bus, path, pid);
+    if state == ProcState::Stopped {
+        return AppRead::Listed(Box::new(assemble(root, facts, None, ToolkitId::default())));
+    }
     let (name, toolkit) = join(
         within_slice(ROOT_SLICE, root_name(connection, &root)),
         within_slice(ROOT_SLICE, toolkit(connection, &root)),

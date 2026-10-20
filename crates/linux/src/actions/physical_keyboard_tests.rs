@@ -1,6 +1,6 @@
-use agent_desktop_core::{ErrorCode, InteractionPolicy, KeyCombo};
+use agent_desktop_core::{AdapterError, ErrorCode, InteractionPolicy, KeyCombo};
 
-use super::{press_key_element_steps, press_key_global_steps, type_text_steps};
+use super::{press_for_process, press_key_element_steps, press_key_global_steps, type_text_steps};
 use crate::actions::physical_target::tests::fake::{
     FakeWorld, check_of, deadline, element, expired, not_delivered,
 };
@@ -210,5 +210,36 @@ fn an_unreadable_frame_on_x11_is_not_taken_as_active() {
     )
     .unwrap_err();
     assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+    assert!(world.sent_nothing());
+}
+
+#[test]
+fn a_process_press_under_a_passing_gate_ignores_the_focus_steal_policy() {
+    let world = FakeWorld::x11();
+    let result = press_for_process(
+        &world,
+        &combo(),
+        InteractionPolicy::headless(),
+        &mut || Ok(()),
+        deadline(),
+    )
+    .unwrap();
+    assert_eq!(result.steps[0].verified(), Some(false));
+    assert_eq!(world.count("sent"), 1);
+}
+
+#[test]
+fn a_process_press_runs_the_gate_before_the_plan_is_read_or_sent() {
+    let world = FakeWorld::x11();
+    let error = press_for_process(
+        &world,
+        &combo(),
+        InteractionPolicy::headed(),
+        &mut || Err(AdapterError::new(ErrorCode::ActionFailed, "gate")),
+        deadline(),
+    )
+    .unwrap_err();
+    assert_eq!(error.message, "gate");
+    assert_eq!(world.count("keymap"), 0);
     assert!(world.sent_nothing());
 }

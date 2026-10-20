@@ -26,6 +26,10 @@ fn a_running_process_off_the_bus_is_app_not_found_naming_the_connection() {
     let error = scoped_outcome(Vec::new(), "firefox", |_| Some((77, "firefox".to_owned())))
         .expect_err("diagnostic");
     assert_eq!(error.code, ErrorCode::AppNotFound);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
     assert!(error.message.contains("not on the accessibility bus"));
     assert!(error.message.contains("77"));
     let advice = error.suggestion.clone().expect("a recovery hint");

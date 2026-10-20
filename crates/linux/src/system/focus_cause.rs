@@ -18,6 +18,7 @@ pub(crate) enum Cause {
     OverviewOpen,
     ActivationRefused,
     FrameNotActive,
+    BlockedByModalDialog,
 }
 
 impl Cause {
@@ -36,6 +37,7 @@ impl Cause {
             Self::OverviewOpen => "overview_open",
             Self::ActivationRefused => "activation_refused",
             Self::FrameNotActive => "frame_not_active",
+            Self::BlockedByModalDialog => "blocked_by_modal_dialog",
         }
     }
 
@@ -49,8 +51,8 @@ impl Cause {
                 "No window manager is running, so nothing can activate the window"
             }
             Self::X11Unavailable => "The display server did not describe the window in time",
-            Self::WindowMinimized => "The window is minimized and is not activated from here",
-            Self::WindowHidden => "The window manager reports the window hidden",
+            Self::WindowMinimized => "The window is minimized and the window manager kept it so",
+            Self::WindowHidden => "The window manager reports the window hidden and kept it so",
             Self::WindowNotMapped => "The window is not mapped on the display",
             Self::AmbiguousWindow => {
                 "More than one display window matches this window, so none is activated"
@@ -66,6 +68,7 @@ impl Cause {
             Self::FrameNotActive => {
                 "The window manager made the window active but the application does not report it active"
             }
+            Self::BlockedByModalDialog => "A modal dialog of the application took the focus",
         }
     }
 
@@ -75,9 +78,6 @@ impl Cause {
                 "The window manager granted no activation and no cause could be read; close any overview or lock screen, then retry, or focus the window yourself"
             }
             Self::OverviewOpen => "Close the Activities Overview (press Escape), then retry",
-            Self::WindowMinimized | Self::WindowHidden => {
-                "Restore the window with 'restore', then retry"
-            }
             Self::WaylandSession | Self::NoDisplay | Self::NoWindowManager => {
                 "Run the desktop session on X11 with a window manager, or focus the window yourself"
             }
@@ -86,8 +86,71 @@ impl Cause {
     }
 }
 
+fn manager_hint(manager: &str) -> String {
+    let lower = manager.to_ascii_lowercase();
+    if lower.contains("openbox") {
+        format!(
+            "{manager} lists minimized windows in the client list menu on a middle click of the desktop; choose the window there, then retry"
+        )
+    } else if lower.contains("gnome") || lower.contains("mutter") {
+        format!(
+            "{manager} shows minimized windows in the Activities Overview; choose the window there, then retry"
+        )
+    } else {
+        format!(
+            "{manager} did not bring the window back; bring it back through {manager}, then retry"
+        )
+    }
+}
+
+/// The refusal after the window manager was asked to bring a minimized or
+/// hidden window back and left it hidden. The request went out, so the
+/// outcome is not safe to repeat blindly.
+pub(crate) fn lift_refusal(cause: Cause, manager: &str) -> AdapterError {
+    let manager = if manager.is_empty() {
+        "the window manager"
+    } else {
+        manager
+    };
+    let state = if cause == Cause::WindowMinimized {
+        "minimized"
+    } else {
+        "hidden"
+    };
+    AdapterError::new(
+        ErrorCode::ActionNotSupported,
+        format!("The {state} window was not brought back by {manager}"),
+    )
+    .with_suggestion(manager_hint(manager))
+    .with_details(json!({
+        "physical_delivery_started": false,
+        "cause": cause.as_str(),
+        "window_manager": manager,
+    }))
+    .with_disposition(DeliverySemantics::delivered_unverified())
+}
+
+pub(crate) fn modal_refusal(dialog: &str) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        format!("{} named '{dialog}'", Cause::BlockedByModalDialog.message()),
+    )
+    .with_suggestion(format!("Answer or close the dialog '{dialog}', then retry"))
+    .with_details(json!({
+        "physical_delivery_started": false,
+        "cause": Cause::BlockedByModalDialog.as_str(),
+        "dialog": dialog,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
 pub(crate) fn refusal(cause: Cause) -> AdapterError {
-    AdapterError::new(ErrorCode::ActionFailed, cause.message())
+    let code = if cause == Cause::WaylandSession {
+        ErrorCode::ActionNotSupported
+    } else {
+        ErrorCode::ActionFailed
+    };
+    AdapterError::new(code, cause.message())
         .with_suggestion(cause.suggestion())
         .with_details(json!({
             "physical_delivery_started": false,

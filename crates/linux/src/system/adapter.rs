@@ -1,10 +1,17 @@
+use agent_desktop_core::launch_options::LaunchOptions;
+use agent_desktop_core::launch_result::LaunchResult;
+use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
-    AdapterError, AdapterSession, Deadline, DisplayInfo, InteractionLease, KeyCombo,
-    PermissionReport, SessionAffinity, SnapshotSurface, SystemOps, WindowInfo,
+    ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DisplayInfo, InteractionLease,
+    InteractionPolicy, KeyCombo, PermissionReport, ProcessIdentity, SessionAffinity,
+    SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
-use crate::system::{interaction_lease, permissions, session};
+use crate::system::{
+    close, interaction_lease, key_dispatch, launch, permissions, process_state, protected, session,
+    window_op,
+};
 
 impl SystemOps for LinuxAdapter {
     fn acquire_interaction_lease(
@@ -36,6 +43,55 @@ impl SystemOps for LinuxAdapter {
 
     fn focus_window(&self, win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
         crate::system::focus_window::focus_window(self.bus(), win, lease)
+    }
+
+    fn close_app(
+        &self,
+        app: &AppInfo,
+        force: bool,
+        lease: &InteractionLease,
+    ) -> Result<(), AdapterError> {
+        close::close_app(self.bus(), app, force, lease)
+    }
+
+    fn is_protected_process(&self, identifier: &str) -> bool {
+        protected::is_protected(identifier)
+    }
+
+    fn launch_app(
+        &self,
+        id: &str,
+        options: &LaunchOptions,
+        lease: &InteractionLease,
+    ) -> Result<LaunchResult, AdapterError> {
+        launch::launch_app(self.bus(), id, options, lease)
+    }
+
+    fn process_state(
+        &self,
+        process: ProcessIdentity,
+        deadline: Deadline,
+    ) -> Result<ProcessState, AdapterError> {
+        process_state::process_state(self.bus(), process, deadline)
+    }
+
+    fn window_op(
+        &self,
+        win: &WindowInfo,
+        op: WindowOp,
+        lease: &InteractionLease,
+    ) -> Result<(), AdapterError> {
+        window_op::window_op(self.bus(), win, op, lease)
+    }
+
+    fn press_key_for_app(
+        &self,
+        process: ProcessIdentity,
+        combo: &KeyCombo,
+        policy: InteractionPolicy,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        key_dispatch::press_key_for_app(self.bus(), process, combo, policy, lease)
     }
 
     fn is_blocked_combo(&self, combo: &KeyCombo) -> bool {

@@ -1,20 +1,22 @@
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, InteractionLease, WindowInfo};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, InteractionLease, WindowInfo};
 
 use super::process_facts::Lookup;
+use super::window_op_verdict::POLL;
+use super::x11::X11State;
 use super::x11::activate::ACTIVATION_GRACE;
 use super::x11::activate_error::ActivateError;
-use super::x11::map::{ClientMatch, match_client};
 use super::x11::stacking_read::StackingRead;
-use super::x11::{FrameFacts, X11State};
 use super::{SharedBus, window_id};
-use crate::tree::Extents;
 
-use super::focus_cause::{Cause, refusal};
+use super::focus_cause::{Cause, lift_refusal, modal_refusal, refusal};
 use super::focus_world;
+use super::restore_minimized::Lifted;
+use super::window_client::{ClientWorld, client_of};
+use super::x11::desktop_placement::DesktopPlacement;
 
-const POLL: Duration = Duration::from_millis(25);
+const FIRST_LOOK: Duration = Duration::from_millis(400);
 
 /// How long a frame gets to report itself active once the window manager
 /// already names it. Chromium and Electron report it after their own focus
@@ -45,19 +47,28 @@ pub(super) enum Session {
 pub(super) struct FrameView {
     pub(super) minimized: Option<bool>,
     pub(super) active: Option<bool>,
+    pub(super) modal: Option<bool>,
 }
 
 /// Everything `focus_window` reads and writes, so the decision can be driven
 /// by a fixed desktop.
-pub(super) trait FocusWorld {
+pub(super) trait FocusWorld: ClientWorld {
     fn session(&self) -> Session;
     fn lookup(&self, pid: u32) -> Lookup;
     fn frame(&self) -> Result<FrameView, AdapterError>;
     fn clients(&self) -> X11State;
     fn stacking(&self, client: u32) -> StackingRead;
-    fn global_position(&self) -> bool;
     fn send(&self, client: u32) -> Result<(), ActivateError>;
     fn active(&self) -> Option<u32>;
+    fn lift(&self, client: u32) -> Result<Lifted, AdapterError>;
+    fn stopped(&self, pid: u32) -> bool;
+    fn send_untimed(&self, client: u32) -> Result<(), ActivateError>;
+    fn switch_desktop(&self, desktop: u32) -> Result<(), ActivateError>;
+    fn modal_over(&self, client: u32) -> Option<String>;
+    fn input_focus_in(&self, client: u32) -> bool;
+    fn grace(&self) -> Grace {
+        GRACE
+    }
     fn overview_open(&self) -> Option<bool>;
 }
 
@@ -73,37 +84,12 @@ fn check_process(world: &impl FocusWorld, win: &WindowInfo) -> Result<(), Adapte
     }
 }
 
-fn facts_of(win: &WindowInfo, global_position: bool) -> FrameFacts {
-    FrameFacts {
-        pid: win.pid.get(),
-        title: win.title.clone(),
-        extents: win.bounds.map(|rect| Extents {
-            x: rect.x as i32,
-            y: rect.y as i32,
-            width: rect.width as i32,
-            height: rect.height as i32,
-        }),
-        global_position,
-    }
+struct ClientView {
+    hidden: bool,
+    other_desktop: Option<u32>,
 }
 
-fn client_of(
-    world: &impl FocusWorld,
-    win: &WindowInfo,
-    clients: &[super::x11::X11Client],
-) -> Result<u32, Cause> {
-    let mut found = match_client(&facts_of(win, false), clients);
-    if matches!(found, ClientMatch::Several(_)) {
-        found = match_client(&facts_of(win, world.global_position()), clients);
-    }
-    match found {
-        ClientMatch::One(id) => Ok(id),
-        ClientMatch::Several(_) => Err(Cause::AmbiguousWindow),
-        ClientMatch::NoClient => Err(Cause::WindowNotMapped),
-    }
-}
-
-fn check_visible(world: &impl FocusWorld, client: u32) -> Result<(), Cause> {
+fn client_view(world: &impl FocusWorld, client: u32) -> Result<ClientView, Cause> {
     let StackingRead::Ready(snapshot) = world.stacking(client) else {
         return Err(Cause::X11Unavailable);
     };
@@ -112,19 +98,51 @@ fn check_visible(world: &impl FocusWorld, client: u32) -> Result<(), Cause> {
         .iter()
         .find(|window| window.id == client)
         .ok_or(Cause::X11Unavailable)?;
-    if window.flags.hidden {
-        Err(Cause::WindowHidden)
-    } else if !window.flags.mapped {
-        Err(Cause::WindowNotMapped)
+    let other_desktop = match (window.desktop, snapshot.current_desktop) {
+        (DesktopPlacement::On(desktop), Some(current)) if desktop != current => Some(desktop),
+        _ => None,
+    };
+    if other_desktop.is_none() && !window.flags.hidden && !window.flags.mapped {
+        return Err(Cause::WindowNotMapped);
+    }
+    Ok(ClientView {
+        hidden: window.flags.hidden && other_desktop.is_none(),
+        other_desktop,
+    })
+}
+
+fn held_cause(frame: FrameView, hidden: bool) -> Option<Cause> {
+    if frame.minimized == Some(true) {
+        Some(Cause::WindowMinimized)
+    } else if hidden {
+        Some(Cause::WindowHidden)
     } else {
-        Ok(())
+        None
     }
 }
 
+fn lift_held(world: &impl FocusWorld, client: u32, cause: Cause) -> Result<(), AdapterError> {
+    match world.lift(client)? {
+        Lifted::Cleared => Ok(()),
+        Lifted::StillHidden { manager } => Err(lift_refusal(cause, &manager)),
+    }
+}
+
+/// Whether the window is active by both measures. A dialog that its toolkit
+/// marks modal and never reports active has no frame measure to give; for it
+/// the display server naming the window active and the input focus lying in
+/// it are the evidence.
 fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
     let active = world.active();
-    let frame = world.frame().ok().and_then(|view| view.active);
-    (active, active == Some(client) && frame == Some(true))
+    if active != Some(client) {
+        return (active, false);
+    }
+    let view = world.frame().ok();
+    let reported = view.and_then(|view| view.active) == Some(true);
+    let modal_without_report = view.and_then(|view| view.modal) == Some(true)
+        && view.and_then(|view| view.active) != Some(true);
+    let done = reported || (modal_without_report && world.input_focus_in(client));
+    (active, done)
 }
 
 fn timeout_cause(before: Option<u32>, after: Option<u32>, client: u32) -> Cause {
@@ -135,33 +153,84 @@ fn timeout_cause(before: Option<u32>, after: Option<u32>, client: u32) -> Cause 
     }
 }
 
+/// Polls until the window is active by both measures. With `first_look`, a
+/// request the manager has not acted on by then, the display server still
+/// naming another window, ends the wait early: a granted request shows
+/// within tens of milliseconds, so the wait that follows is spent on the
+/// resend and not on a request nobody is acting on. A window the manager
+/// already names gets the longer frame deadline to report itself active.
 fn wait_for_focus(
     world: &impl FocusWorld,
     client: u32,
     before: Option<u32>,
     (deadline, frame_deadline): (Deadline, Deadline),
-) -> Result<(), AdapterError> {
+    first_look: Option<Duration>,
+) -> Result<(), Cause> {
+    let started = std::time::Instant::now();
     loop {
         let (active, done) = is_active(world, client);
         if done {
             return Ok(());
         }
+        let unanswered =
+            active != Some(client) && first_look.is_some_and(|look| started.elapsed() >= look);
         let waiting_for_the_frame = active == Some(client) && !frame_deadline.is_expired();
-        if deadline.is_expired() && !waiting_for_the_frame {
-            let cause = timeout_cause(before, active, client);
-            let held_back = matches!(
-                cause,
-                Cause::ActivationNotGranted | Cause::ActivationRefused | Cause::FrameNotActive
-            );
-            let cause = if held_back && world.overview_open() == Some(true) {
-                Cause::OverviewOpen
-            } else {
-                cause
-            };
-            return Err(refusal(cause));
+        if (deadline.is_expired() || unanswered) && !waiting_for_the_frame {
+            return Err(timeout_cause(before, active, client));
         }
         std::thread::sleep(POLL.min(frame_deadline.remaining()));
     }
+}
+
+fn overview_aware(world: &impl FocusWorld, cause: Cause) -> Cause {
+    let held_back = matches!(
+        cause,
+        Cause::ActivationNotGranted | Cause::ActivationRefused | Cause::FrameNotActive
+    );
+    if held_back && world.overview_open() == Some(true) {
+        Cause::OverviewOpen
+    } else {
+        cause
+    }
+}
+
+fn ask_and_wait(
+    world: &impl FocusWorld,
+    client: u32,
+    before: Option<u32>,
+    deadline: Deadline,
+    untimed: bool,
+) -> Result<(), AdapterError> {
+    let sent = if untimed {
+        world.send_untimed(client)
+    } else {
+        world.send(client)
+    };
+    sent.map_err(|_| refusal(Cause::ActivationNotSent))?;
+    let grace = world.grace();
+    let first_look = (!untimed).then_some(FIRST_LOOK.min(grace.activation));
+    let deadlines = (
+        deadline.capped(grace.activation),
+        deadline.capped(grace.frame_report),
+    );
+    match wait_for_focus(world, client, before, deadlines, first_look) {
+        Ok(()) => Ok(()),
+        Err(cause) => Err(match world.modal_over(client) {
+            Some(dialog) => modal_refusal(&dialog),
+            None => refusal(overview_aware(world, cause)),
+        }),
+    }
+}
+
+fn was_ignored(error: &AdapterError) -> bool {
+    error
+        .details
+        .as_ref()
+        .and_then(|details| details["cause"].as_str())
+        .is_some_and(|cause| {
+            cause == Cause::ActivationNotGranted.as_str()
+                || cause == Cause::ActivationRefused.as_str()
+        })
 }
 
 /// Makes the window active through the window manager and returns only when
@@ -171,50 +240,59 @@ pub(super) fn run(
     win: &WindowInfo,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    run_with(world, win, deadline, GRACE)
-}
-
-pub(super) fn run_with(
-    world: &impl FocusWorld,
-    win: &WindowInfo,
-    deadline: Deadline,
-    grace: Grace,
-) -> Result<(), AdapterError> {
     window_id::decode(&win.id).map_err(|error| {
         error.with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
     })?;
     check_process(world, win)?;
+    if world.stopped(win.pid.get()) {
+        return Err(AdapterError::app_unresponsive(&win.app));
+    }
     match world.session() {
         Session::X11 => {}
         Session::Wayland => return Err(refusal(Cause::WaylandSession)),
         Session::NoDisplay => return Err(refusal(Cause::NoDisplay)),
     }
     let frame = world.frame()?;
-    if frame.minimized == Some(true) {
-        return Err(refusal(Cause::WindowMinimized));
-    }
     let (active, clients) = match world.clients() {
         X11State::Ready { active, clients } => (active, clients),
         X11State::NoWindowManager => return Err(refusal(Cause::NoWindowManager)),
         X11State::Unavailable => return Err(refusal(Cause::X11Unavailable)),
     };
     let client = client_of(world, win, &clients).map_err(refusal)?;
-    check_visible(world, client).map_err(refusal)?;
-    if active == Some(client) && frame.active == Some(true) {
-        return Ok(());
+    let view = client_view(world, client).map_err(refusal)?;
+    if let Some(desktop) = view.other_desktop {
+        world
+            .switch_desktop(desktop)
+            .map_err(|_| refusal(Cause::ActivationNotSent))?;
     }
-    world
-        .send(client)
-        .map_err(|_| refusal(Cause::ActivationNotSent))?;
-    wait_for_focus(
-        world,
-        client,
-        active,
-        (
-            deadline.capped(grace.activation),
-            deadline.capped(grace.frame_report),
-        ),
-    )
+    let active = match held_cause(frame, view.hidden) {
+        Some(cause) => {
+            lift_held(world, client, cause)?;
+            if is_active(world, client).1 {
+                return Ok(());
+            }
+            world.active()
+        }
+        None if view.other_desktop.is_none()
+            && active == Some(client)
+            && frame.active == Some(true) =>
+        {
+            return Ok(());
+        }
+        None => active,
+    };
+    match ask_and_wait(world, client, active, deadline, false) {
+        Err(error) if was_ignored(&error) => {
+            if deadline.is_expired() {
+                return Err(AdapterError::timeout(
+                    "The lease ran out before the window manager answered the activation request",
+                )
+                .with_disposition(DeliverySemantics::not_delivered()));
+            }
+            ask_and_wait(world, client, world.active(), deadline, true)
+        }
+        outcome => outcome,
+    }
 }
 
 pub(crate) fn focus_window(
@@ -228,5 +306,25 @@ pub(crate) fn focus_window(
 }
 
 #[cfg(test)]
+#[path = "focus_world_fake.rs"]
+mod fake;
+
+#[cfg(test)]
 #[path = "focus_window_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "focus_fallback_tests.rs"]
+mod fallback_tests;
+
+#[cfg(test)]
+#[path = "focus_lift_tests.rs"]
+mod lift_tests;
+
+#[cfg(test)]
+#[path = "focus_lift_live_tests.rs"]
+mod lift_live_tests;
+
+#[cfg(test)]
+#[path = "focus_fallback_live_tests.rs"]
+mod fallback_live_tests;

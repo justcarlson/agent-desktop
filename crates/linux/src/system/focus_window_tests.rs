@@ -1,219 +1,7 @@
-use std::cell::{Cell, RefCell};
+use agent_desktop_core::ErrorCode;
 
-use agent_desktop_core::{ErrorCode, ProcessId, WindowState};
-
+use super::fake::*;
 use super::*;
-use crate::system::process_facts::ProcessFacts;
-use crate::system::x11::desktop_placement::DesktopPlacement;
-use crate::system::x11::stacked_window::StackedWindow;
-use crate::system::x11::stacking_snapshot::StackingSnapshot;
-use crate::system::x11::window_flags::WindowFlags;
-use crate::system::x11::window_kind::WindowKind;
-use crate::system::x11::{FrameExtents, X11Client};
-
-const CLIENT: u32 = 0x0040_0003;
-const OTHER: u32 = 0x0060_0001;
-const INSTANCE: &str = "abcd1234:99";
-
-#[derive(Clone, Copy)]
-enum Grant {
-    Never,
-    Now,
-    OnlyOnX11,
-    AfterReads(u32),
-    FrameAfterReads(u32),
-}
-
-struct World {
-    session: Session,
-    lookup: Lookup,
-    minimized: Option<bool>,
-    state: X11State,
-    flags: WindowFlags,
-    global: bool,
-    grant: Grant,
-    send_fails: bool,
-    active: Cell<Option<u32>>,
-    frame_active: Cell<Option<bool>>,
-    sent: RefCell<Vec<u32>>,
-    active_reads: Cell<u32>,
-    overview: Option<bool>,
-}
-
-fn facts() -> ProcessFacts {
-    ProcessFacts {
-        comm: "app".to_owned(),
-        exe_basename: None,
-        instance: INSTANCE.to_owned(),
-        web_family: None,
-    }
-}
-
-fn x11_client(id: u32, title: &str) -> X11Client {
-    X11Client {
-        shadow: (0, 0),
-        id,
-        hidden: false,
-        pid: Some(100),
-        title: title.to_owned(),
-        extents: None,
-        bounds: None,
-    }
-}
-
-impl World {
-    fn new(active: Option<u32>) -> Self {
-        Self {
-            session: Session::X11,
-            lookup: Lookup::Found(facts()),
-            minimized: Some(false),
-            state: X11State::Ready {
-                active,
-                clients: vec![x11_client(CLIENT, "Doc")],
-            },
-            flags: WindowFlags {
-                hidden: false,
-                above: false,
-                mapped: true,
-            },
-            global: true,
-            grant: Grant::Now,
-            send_fails: false,
-            active: Cell::new(active),
-            frame_active: Cell::new(Some(active == Some(CLIENT))),
-            sent: RefCell::new(Vec::new()),
-            active_reads: Cell::new(0),
-            overview: None,
-        }
-    }
-
-    fn sends(&self) -> usize {
-        self.sent.borrow().len()
-    }
-}
-
-impl FocusWorld for World {
-    fn session(&self) -> Session {
-        self.session
-    }
-
-    fn lookup(&self, _pid: u32) -> Lookup {
-        self.lookup.clone()
-    }
-
-    fn frame(&self) -> Result<FrameView, AdapterError> {
-        Ok(FrameView {
-            minimized: self.minimized,
-            active: self.frame_active.get(),
-        })
-    }
-
-    fn clients(&self) -> X11State {
-        self.state.clone()
-    }
-
-    fn stacking(&self, client: u32) -> StackingRead {
-        StackingRead::Ready(StackingSnapshot {
-            current_desktop: Some(0),
-            stack: vec![StackedWindow {
-                shadow: (0, 0),
-                id: client,
-                flags: self.flags,
-                desktop: DesktopPlacement::On(0),
-                kind: WindowKind::Normal,
-                client: crate::tree::Extents {
-                    x: 0,
-                    y: 0,
-                    width: 100,
-                    height: 100,
-                },
-                extents: FrameExtents {
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                },
-            }],
-            override_redirect_above: Vec::new(),
-            override_redirect_receiving: Vec::new(),
-            override_redirect_names: Vec::new(),
-        })
-    }
-
-    fn global_position(&self) -> bool {
-        self.global
-    }
-
-    fn send(&self, client: u32) -> Result<(), ActivateError> {
-        self.sent.borrow_mut().push(client);
-        if self.send_fails {
-            return Err(ActivateError::SendFailed);
-        }
-        match self.grant {
-            Grant::Now => {
-                self.active.set(Some(client));
-                self.frame_active.set(Some(true));
-            }
-            Grant::OnlyOnX11 | Grant::FrameAfterReads(_) => self.active.set(Some(client)),
-            Grant::Never | Grant::AfterReads(_) => {}
-        }
-        Ok(())
-    }
-
-    fn active(&self) -> Option<u32> {
-        let reads = self.active_reads.get() + 1;
-        self.active_reads.set(reads);
-        if let Grant::AfterReads(needed) = self.grant
-            && reads >= needed
-            && self.sends() > 0
-        {
-            self.active.set(Some(CLIENT));
-            self.frame_active.set(Some(true));
-        }
-        if let Grant::FrameAfterReads(needed) = self.grant
-            && reads >= needed
-            && self.sends() > 0
-        {
-            self.frame_active.set(Some(true));
-        }
-        self.active.get()
-    }
-
-    fn overview_open(&self) -> Option<bool> {
-        self.overview
-    }
-}
-
-fn window() -> WindowInfo {
-    WindowInfo {
-        id: window_id::encode(":1.7", "/org/a11y/atspi/accessible/5").expect("an id"),
-        title: "Doc".to_owned(),
-        app: "app".to_owned(),
-        pid: ProcessId::new(100),
-        process_instance: Some(INSTANCE.to_owned()),
-        bounds: None,
-        state: WindowState::default(),
-    }
-}
-
-fn budget() -> Deadline {
-    Deadline::after(250).expect("a deadline builds")
-}
-
-fn failure(world: &World) -> AdapterError {
-    run(world, &window(), budget()).expect_err("the focus must fail")
-}
-
-fn assert_refused(error: &AdapterError, cause: &str) {
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    let details = error.details.as_ref().expect("details");
-    assert_eq!(details["cause"], cause);
-    assert_eq!(details["physical_delivery_started"], false);
-    assert_eq!(
-        error.disposition,
-        agent_desktop_core::DeliverySemantics::not_delivered()
-    );
-}
 
 #[test]
 fn a_window_already_active_by_both_measures_sends_nothing() {
@@ -239,14 +27,6 @@ fn a_grant_that_arrives_after_some_polls_is_still_a_success() {
 }
 
 #[test]
-fn a_hidden_window_is_refused_before_any_send() {
-    let mut world = World::new(Some(OTHER));
-    world.flags.hidden = true;
-    assert_refused(&failure(&world), "window_hidden");
-    assert_eq!(world.sends(), 0);
-}
-
-#[test]
 fn an_unmapped_window_is_refused_before_any_send() {
     let mut world = World::new(Some(OTHER));
     world.flags.mapped = false;
@@ -258,14 +38,6 @@ fn an_unmapped_window_is_refused_before_any_send() {
     };
     assert_refused(&failure(&none), "window_not_mapped");
     assert_eq!(world.sends() + none.sends(), 0);
-}
-
-#[test]
-fn a_minimized_frame_is_refused_before_any_send() {
-    let mut world = World::new(Some(OTHER));
-    world.minimized = Some(true);
-    assert_refused(&failure(&world), "window_minimized");
-    assert_eq!(world.sends(), 0);
 }
 
 #[test]
@@ -284,7 +56,16 @@ fn an_ambiguous_mapping_is_refused_before_any_send() {
 fn wayland_no_display_and_no_manager_are_refused_before_any_send() {
     let mut wayland = World::new(Some(OTHER));
     wayland.session = Session::Wayland;
-    assert_refused(&failure(&wayland), "wayland_session");
+    let refused = failure(&wayland);
+    assert_eq!(refused.code, ErrorCode::ActionNotSupported);
+    assert_eq!(
+        refused.details.as_ref().expect("details")["cause"],
+        "wayland_session"
+    );
+    assert_eq!(
+        refused.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
     let mut none = World::new(Some(OTHER));
     none.session = Session::NoDisplay;
     assert_refused(&failure(&none), "no_display");
@@ -371,14 +152,6 @@ fn a_window_id_of_another_format_is_refused_before_any_send() {
     let error = run(&world, &foreign, budget()).expect_err("a foreign id is refused");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
     assert_eq!(world.sends(), 0);
-}
-
-#[test]
-fn a_minimized_or_hidden_window_is_pointed_to_the_restore_command() {
-    for cause in [Cause::WindowMinimized, Cause::WindowHidden] {
-        let suggestion = refusal(cause).suggestion.expect("a suggestion");
-        assert!(suggestion.contains("'restore'"), "{suggestion}");
-    }
 }
 
 #[path = "focus_overview_tests.rs"]

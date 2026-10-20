@@ -14,7 +14,7 @@ use super::scroll_wrap::scroll_to;
 use super::select::select;
 use super::toggle_state::toggle;
 use super::value_write::{clear, set_value, type_text};
-use crate::system::{SharedBus, ensure_budget, process_facts};
+use crate::system::{SharedBus, ensure_budget};
 use crate::tree::{AtspiElement, atspi_element};
 
 fn handled_by_core(action: &Action) -> AdapterError {
@@ -139,8 +139,9 @@ pub(crate) fn execute_action(
         Err(error) if reaches_physical_without_verb(&request.action) && has_no_verb(&error) => {
             physical_delivery(bus, &request.action, Some(element), &request, lease)
         }
-        other => other
-            .map_err(|error| name_stopped_target(error, element.pid(), process_facts::is_stopped)),
+        other => other.map_err(|error| {
+            name_stopped_target(error, element.pid(), crate::system::proc_stat::is_stopped)
+        }),
     }
 }
 

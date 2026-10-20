@@ -92,6 +92,16 @@ fn a_timeout_while_the_gate_waits_on_a_stopped_process_is_unresponsive() {
     no_reads(&fake);
 }
 
+#[test]
+fn a_stopped_process_is_unresponsive_before_anything_is_read_or_waited_for() {
+    let mut fake = one_button();
+    let entry = fake.entry_of("/back", true);
+    fake.stopped = Some("files".to_owned());
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("stopped");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    no_reads(&fake);
+}
+
 fn bare_list() -> Fake {
     let mut fake = Fake::new();
     fake.add(FRAME_PATH, "/list", node(LIST, "", 100, 0));

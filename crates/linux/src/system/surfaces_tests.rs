@@ -17,6 +17,7 @@ fn window(id: &str, title: &str, sheet: bool) -> ListedWindow {
             state: WindowState::default(),
         },
         active: false,
+        modal: false,
         frame: FrameFacts {
             pid: 7,
             title: title.to_owned(),

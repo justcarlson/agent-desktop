@@ -9,6 +9,7 @@ pub(crate) struct ListedWindow {
     pub(crate) app: usize,
     pub(crate) info: WindowInfo,
     pub(crate) active: bool,
+    pub(crate) modal: bool,
     pub(crate) frame: FrameFacts,
     pub(crate) sheet: bool,
 }

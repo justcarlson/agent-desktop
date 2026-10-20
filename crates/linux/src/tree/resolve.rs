@@ -178,6 +178,9 @@ pub(crate) fn resolve<S: Source>(
     entry: &RefEntry,
     deadline: Deadline,
 ) -> Result<AtspiElement, AdapterError> {
+    if let Some(name) = source.stopped_app(entry.process.pid.get()) {
+        return Err(AdapterError::app_unresponsive(&name));
+    }
     let outcome = attempt(source, entry, deadline);
     settle_outcome(source, entry, outcome)
 }

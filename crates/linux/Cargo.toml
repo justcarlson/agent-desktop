@@ -14,6 +14,7 @@ async-io                     = "=2.6.0"
 futures-lite                 = "=2.6.1"
 zbus                         = "=5.19.0"
 futures-util                 = { version = "=0.3.33", default-features = false, features = ["alloc"] }
+rustix                       = { version = "=1.1.5", default-features = false, features = ["std", "process"] }
 x11rb                        = { version = "=0.14.0", default-features = false, features = ["randr", "shape", "xtest"] }
 
 [lints]

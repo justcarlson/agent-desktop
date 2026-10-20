@@ -1,0 +1,258 @@
+use std::process::Command;
+use std::time::{Duration, Instant};
+
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowFilter, WindowInfo};
+
+use super::*;
+use crate::system::interaction_lease::acquire;
+use crate::system::list_windows;
+use crate::tree::live_launch::Launched;
+
+pub(super) const SETTLE: Duration = Duration::from_secs(40);
+pub(super) const RUNS: usize = 3;
+pub(super) const PAUSE_MS: u64 = 3_000;
+
+pub(super) const APP: &str = r#"
+import os, gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+w = Gtk.Window(title="adl")
+w.set_default_size(320, 200)
+if os.environ.get("ADL_NOFOCUS"):
+    w.set_focus_on_map(False)
+w.add(Gtk.Label(label="l"))
+w.connect("destroy", Gtk.main_quit)
+w.show_all()
+if os.environ.get("ADL_MODAL"):
+    dialog = Gtk.Dialog(title="adl-dialog", transient_for=w, modal=True)
+    dialog.set_default_size(200, 80)
+    GLib.timeout_add(500, lambda: (dialog.show_all(), False)[1])
+Gtk.main()
+"#;
+
+pub(super) fn deadline(ms: u64) -> Deadline {
+    Deadline::after(ms).expect("a deadline builds")
+}
+
+pub(super) fn tool(name: &str) -> Command {
+    let home = std::env::var("HOME").expect("HOME");
+    let mut command = Command::new(format!("{home}/.local/ad-tools/root/usr/bin/{name}"));
+    command.env(
+        "LD_LIBRARY_PATH",
+        format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu"),
+    );
+    command
+}
+
+pub(super) fn xprop(args: &[&str]) -> String {
+    let output = Command::new("xprop")
+        .args(args)
+        .output()
+        .expect("xprop runs");
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+pub(super) fn window_manager() -> String {
+    let check = xprop(&["-root", "_NET_SUPPORTING_WM_CHECK"]);
+    let id = check
+        .split_whitespace()
+        .last()
+        .unwrap_or_default()
+        .to_owned();
+    xprop(&["-id", &id, "_NET_WM_NAME"])
+        .split('"')
+        .nth(1)
+        .unwrap_or_default()
+        .to_owned()
+}
+
+fn find_xid(pid: u32) -> Option<String> {
+    let clients = xprop(&["-root", "_NET_CLIENT_LIST"]);
+    clients
+        .split('#')
+        .nth(1)
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .find(|id| {
+            xprop(&["-id", id, "_NET_WM_PID"])
+                .split('=')
+                .nth(1)
+                .and_then(|text| text.trim().parse::<u32>().ok())
+                == Some(pid)
+        })
+        .map(str::to_owned)
+}
+
+pub(super) fn xid_of(pid: u32) -> String {
+    let started = Instant::now();
+    loop {
+        if let Some(id) = find_xid(pid) {
+            return id;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(40),
+            "the display lists the app's window"
+        );
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn wait_mapped(pid: u32) {
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(20) {
+        if let Some(xid) = find_xid(pid) {
+            let info = Command::new("xwininfo")
+                .args(["-id", &xid])
+                .output()
+                .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
+                .unwrap_or_default();
+            if info.contains("Map State: IsViewable") {
+                return;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+pub(super) fn is_hidden(xid: &str) -> bool {
+    xprop(&["-id", xid, "_NET_WM_STATE"]).contains("_NET_WM_STATE_HIDDEN")
+}
+
+pub(super) fn active_pid() -> Option<u32> {
+    let active = xprop(&["-root", "_NET_ACTIVE_WINDOW"]);
+    let id = active.split_whitespace().last()?.to_owned();
+    xprop(&["-id", &id, "_NET_WM_PID"])
+        .split('=')
+        .nth(1)?
+        .trim()
+        .parse()
+        .ok()
+}
+
+pub(super) fn windows_of(bus: &SharedBus, pid: u32) -> Vec<WindowInfo> {
+    let everything = WindowFilter {
+        focused_only: false,
+        app: None,
+    };
+    list_windows(bus, &everything, deadline(10_000))
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|window| window.pid == pid)
+        .collect()
+}
+
+pub(super) fn spawn(launched: &mut Launched, bus: &SharedBus, name: &str) -> WindowInfo {
+    spawn_with(launched, bus, name, false)
+}
+
+pub(super) fn spawn_with(
+    launched: &mut Launched,
+    bus: &SharedBus,
+    name: &str,
+    never_focused: bool,
+) -> WindowInfo {
+    spawn_env(launched, bus, name, never_focused, false)
+}
+
+pub(super) fn spawn_env(
+    launched: &mut Launched,
+    bus: &SharedBus,
+    name: &str,
+    never_focused: bool,
+    modal: bool,
+) -> WindowInfo {
+    let script = format!(
+        "{}/adl-{name}.py",
+        std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session")
+    );
+    std::fs::write(&script, APP).expect("a script writes");
+    let mut env: Vec<(&str, String)> = Vec::new();
+    if never_focused {
+        env.push(("ADL_NOFOCUS", "1".to_owned()));
+    }
+    if modal {
+        env.push(("ADL_MODAL", "1".to_owned()));
+    }
+    let pid = launched.spawn_with_env("python3", &[&script], &env);
+    let started = Instant::now();
+    while started.elapsed() < SETTLE {
+        if let Some(window) = windows_of(bus, pid).into_iter().next() {
+            wait_mapped(pid);
+            return window;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    panic!("{name} never listed a window");
+}
+
+pub(super) fn focus(bus: &SharedBus, window: &WindowInfo) -> Result<(), AdapterError> {
+    let lease = acquire(deadline(8_000)).expect("a lease");
+    focus_window(bus, window, &lease)
+}
+
+pub(super) fn close_overview() {
+    let status = tool("xdotool")
+        .args(["key", "Escape"])
+        .status()
+        .expect("xdotool runs");
+    assert!(status.success());
+    std::thread::sleep(Duration::from_millis(2_500));
+}
+
+pub(super) fn outcome(
+    bus: &SharedBus,
+    target: &WindowInfo,
+    xid: &str,
+    manager: &str,
+) -> &'static str {
+    match focus(bus, target) {
+        Ok(()) => {
+            assert!(!is_hidden(xid), "Ok with the window still hidden");
+            assert_eq!(active_pid(), Some(target.pid.get()), "Ok but not active");
+            "restored_and_active"
+        }
+        Err(error) => {
+            assert_eq!(error.code, ErrorCode::ActionNotSupported, "{error:?}");
+            assert!(error.message.contains(manager), "{}", error.message);
+            assert!(is_hidden(xid), "refused but the window is no longer hidden");
+            "left_hidden"
+        }
+    }
+}
+
+#[test]
+#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
+fn focus_window_live_a_minimized_window_ends_as_measured_for_the_manager() {
+    let bus = SharedBus::default();
+    let mut launched = Launched::new();
+    close_overview();
+    let manager = window_manager();
+    let target = spawn(&mut launched, &bus, "target");
+    let blocker = spawn(&mut launched, &bus, "blocker");
+    let xid = xid_of(target.pid.get());
+    let mut outcomes = Vec::new();
+    for _ in 0..RUNS {
+        let _ = focus(&bus, &blocker);
+        let status = tool("xdotool")
+            .args(["windowminimize", &xid])
+            .status()
+            .expect("xdotool runs");
+        assert!(status.success());
+        let started = Instant::now();
+        while !is_hidden(&xid) && started.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(is_hidden(&xid), "the minimize never took effect");
+        std::thread::sleep(Duration::from_millis(PAUSE_MS));
+        outcomes.push(outcome(&bus, &target, &xid, &manager));
+        std::thread::sleep(Duration::from_millis(PAUSE_MS));
+    }
+    println!("focus_window_live lift {manager}: {outcomes:?}");
+    if manager.contains("Openbox") {
+        assert!(
+            outcomes.iter().all(|found| *found == "restored_and_active"),
+            "{manager} restores a minimized window to the stamp-free activation: {outcomes:?}"
+        );
+    }
+}

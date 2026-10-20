@@ -1,3 +1,4 @@
+use super::app_alias::{AliasIndex, current_index};
 use super::process_facts::ProcessFacts;
 
 fn non_blank(text: Option<&str>) -> Option<&str> {
@@ -26,14 +27,33 @@ pub(crate) fn app_name(facts: &ProcessFacts) -> String {
         .to_owned()
 }
 
+/// The desktop entry names the process's executable answers to. The listed
+/// name never follows them.
+pub(crate) fn aliases_of(facts: &ProcessFacts) -> Vec<String> {
+    aliases_in(&current_index(), facts)
+}
+
+/// As [`aliases_of`] over an index the caller already holds, for a caller that
+/// asks about many processes.
+pub(crate) fn aliases_in(index: &AliasIndex, facts: &ProcessFacts) -> Vec<String> {
+    facts
+        .exe_basename
+        .as_deref()
+        .map(live_basename)
+        .map(|basename| index.names_for(basename))
+        .unwrap_or_default()
+}
+
 /// Whether `query` names this application: exactly, ignoring case, its
 /// listed name, the accessibility root's registry name while the root
-/// answered, its `comm` or its executable basename.
+/// answered, its `comm`, its executable basename or one of the desktop entry
+/// names in `aliases`.
 pub(crate) fn name_matches(
     query: &str,
     name: &str,
     registry_name: Option<&str>,
     facts: &ProcessFacts,
+    aliases: &[String],
 ) -> bool {
     [
         Some(name),
@@ -43,6 +63,7 @@ pub(crate) fn name_matches(
     ]
     .into_iter()
     .flatten()
+    .chain(aliases.iter().map(String::as_str))
     .any(|candidate| candidate.eq_ignore_ascii_case(query))
 }
 

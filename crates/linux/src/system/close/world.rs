@@ -1,0 +1,91 @@
+use std::time::{Duration, Instant};
+
+use agent_desktop_core::{AdapterError, Deadline};
+
+use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::liveness::{self, Liveness};
+use crate::system::process_facts::{self, Lookup};
+use crate::system::protected;
+use crate::system::signal::{self, Sent, Signal};
+use crate::system::window_op_verdict::POLL;
+use crate::system::x11::control::{self, ControlError, ControlRead, Toplevel};
+
+const LATE_READ_MS: u64 = 300;
+
+/// What the close flow touches outside itself. The live implementation reads
+/// `/proc`, talks to the display server and signals through a descriptor; a
+/// test supplies a process and a clock of its own.
+pub(super) trait World {
+    fn is_protected(&self, identifier: &str) -> bool;
+    fn facts(&self) -> Lookup;
+    fn liveness(&self) -> Liveness;
+    fn elapsed(&self) -> Duration;
+    fn remaining(&self) -> Duration;
+    fn pause(&self);
+    fn toplevels(&self) -> ControlRead<Vec<Toplevel>>;
+    fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>>;
+    fn request_close(&self, window: u32) -> Result<(), ControlError>;
+    fn signal(&self, signal: Signal) -> Result<Sent, AdapterError>;
+    fn timeout_error(&self) -> AdapterError;
+    fn on_wayland(&self) -> bool;
+}
+
+pub(super) struct Live<'a> {
+    pub(super) pid: u32,
+    pub(super) instance: &'a str,
+    pub(super) deadline: Deadline,
+    pub(super) started: Instant,
+}
+
+impl World for Live<'_> {
+    fn is_protected(&self, identifier: &str) -> bool {
+        protected::is_protected(identifier)
+    }
+
+    fn facts(&self) -> Lookup {
+        process_facts::lookup(self.pid)
+    }
+
+    fn liveness(&self) -> Liveness {
+        liveness::liveness(self.pid, self.instance)
+    }
+
+    fn elapsed(&self) -> Duration {
+        self.started.elapsed()
+    }
+
+    fn remaining(&self) -> Duration {
+        self.deadline.remaining()
+    }
+
+    fn pause(&self) {
+        std::thread::sleep(self.deadline.remaining().min(POLL));
+    }
+
+    fn toplevels(&self) -> ControlRead<Vec<Toplevel>> {
+        control::toplevels_of(self.pid, self.deadline)
+    }
+
+    fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>> {
+        match Deadline::detached_after(LATE_READ_MS) {
+            Ok(deadline) => control::toplevels_of(self.pid, deadline),
+            Err(_) => ControlRead::Unavailable,
+        }
+    }
+
+    fn request_close(&self, window: u32) -> Result<(), ControlError> {
+        control::request_close(window, self.deadline)
+    }
+
+    fn signal(&self, signal: Signal) -> Result<Sent, AdapterError> {
+        signal::send(self.pid, self.instance, signal)
+    }
+
+    fn timeout_error(&self) -> AdapterError {
+        self.deadline.timeout_error()
+    }
+
+    fn on_wayland(&self) -> bool {
+        matches!(session_server(), DisplayServer::Wayland)
+    }
+}

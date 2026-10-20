@@ -10,6 +10,7 @@ use x11rb::protocol::xproto::{
 use x11rb::rust_connection::RustConnection;
 
 use super::activate_error::ActivateError;
+use super::client_message::{FORMAT_LONGS, MESSAGE_LONGS};
 use super::stacking::bounded;
 
 /// The source indication of the request: 2 says a pager or automation tool
@@ -22,8 +23,6 @@ pub(crate) const ACTIVATION_SOURCE: u32 = 2;
 /// request counts as ignored. Openbox answered within 2 to 4 ms (`L27-3`).
 pub(crate) const ACTIVATION_GRACE: Duration = Duration::from_millis(2_000);
 
-const FORMAT_LONGS: u8 = 32;
-const MESSAGE_LONGS: usize = 5;
 const SERVER_TIME_BUDGET: Duration = Duration::from_millis(1_000);
 const CONFIRM_BUDGET: Duration = Duration::from_millis(500);
 const EVENT_POLL: Duration = Duration::from_millis(2);
@@ -50,7 +49,7 @@ pub(crate) fn activation_event(
     )
 }
 
-fn connect() -> Result<(RustConnection, u32), ActivateError> {
+pub(super) fn connect() -> Result<(RustConnection, u32), ActivateError> {
     let display = match crate::system::display_server::session_server() {
         crate::system::display_server::DisplayServer::X11(display) => display,
         _ => return Err(ActivateError::NoDisplay),
@@ -88,7 +87,7 @@ pub(crate) struct Prepared {
 /// carry. A server only tells its time through an event, so a property on a
 /// window made for the purpose is touched and the notification polled for
 /// until `deadline`.
-fn server_time(
+pub(super) fn server_time(
     connection: &RustConnection,
     root: u32,
     deadline: agent_desktop_core::Deadline,
@@ -185,13 +184,23 @@ pub(crate) fn send(prepared: &Prepared, client: u32, source: u32) -> Result<(), 
 fn active_window() -> Option<u32> {
     let (connection, root) = connect().ok()?;
     let active = atom(&connection, b"_NET_ACTIVE_WINDOW").ok()?;
+    first_window(&connection, root, active)
+}
+
+/// The first window the property holds, or `None` when it is unset, names no
+/// window or cannot be read.
+pub(crate) fn first_window(
+    connection: &RustConnection,
+    window: u32,
+    property: Atom,
+) -> Option<u32> {
     let reply = connection
-        .get_property(false, root, active, AtomEnum::WINDOW, 0, 1)
+        .get_property(false, window, property, AtomEnum::WINDOW, 0, 1)
         .ok()?
         .reply()
         .ok()?;
     let bytes: [u8; 4] = reply.value.get(..4)?.try_into().ok()?;
-    Some(u32::from_ne_bytes(bytes)).filter(|window| *window != 0)
+    Some(u32::from_ne_bytes(bytes)).filter(|id| *id != 0)
 }
 
 fn deadline_of(budget: Duration) -> Option<agent_desktop_core::Deadline> {

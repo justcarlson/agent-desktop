@@ -32,10 +32,16 @@ fn a_missing_or_blank_executable_falls_back_to_comm() {
 fn a_query_matches_the_name_comm_or_executable_exactly_ignoring_case() {
     let process = facts("gnome-terminal-", Some("gnome-terminal-server"));
     let name = "gnome-terminal-server";
-    assert!(name_matches("GNOME-Terminal-Server", name, None, &process));
-    assert!(name_matches("gnome-terminal-", name, None, &process));
+    assert!(name_matches(
+        "GNOME-Terminal-Server",
+        name,
+        None,
+        &process,
+        &[]
+    ));
+    assert!(name_matches("gnome-terminal-", name, None, &process, &[]));
     let files = facts("nautilus", Some("nautilus"));
-    assert!(name_matches("nautilus", "nautilus", None, &files));
+    assert!(name_matches("nautilus", "nautilus", None, &files, &[]));
 }
 
 #[test]
@@ -45,15 +51,17 @@ fn the_registry_name_is_a_query_alias_only_while_it_is_known() {
         "org.gnome.nautilus",
         "nautilus",
         Some("org.gnome.Nautilus"),
-        &files
+        &files,
+        &[]
     ));
     assert!(!name_matches(
         "org.gnome.nautilus",
         "nautilus",
         None,
-        &files
+        &files,
+        &[]
     ));
-    assert!(!name_matches("x", "nautilus", Some("  "), &files));
+    assert!(!name_matches("x", "nautilus", Some("  "), &files, &[]));
 }
 
 #[test]
@@ -63,13 +71,15 @@ fn a_substring_does_not_match() {
         "naut",
         "nautilus",
         Some("org.gnome.Nautilus"),
-        &files
+        &files,
+        &[]
     ));
     assert!(!name_matches(
         "Nautilus",
         "x",
         Some("org.gnome.Nautilus"),
-        &facts("x", None)
+        &facts("x", None),
+        &[]
     ));
 }
 
@@ -81,13 +91,32 @@ fn an_executable_deleted_while_it_runs_keeps_its_name() {
         "gnome-calculator",
         "gnome-calculator",
         None,
-        &replaced
+        &replaced,
+        &[]
     ));
     assert!(!name_matches(
         "gnome-calculator (deleted)",
         "gnome-calculator",
         None,
-        &replaced
+        &replaced,
+        &[]
     ));
     assert_eq!(app_name(&facts("x", Some(" (deleted)"))), "x");
+}
+
+fn aliased(query: &str, process: &ProcessFacts, aliases: &[&str]) -> bool {
+    let aliases: Vec<String> = aliases.iter().map(|alias| (*alias).to_owned()).collect();
+    name_matches(query, &app_name(process), None, process, &aliases)
+}
+
+#[test]
+fn an_alias_matches_exactly_ignoring_case_and_never_renames_the_app() {
+    let files = facts("nautilus", Some("nautilus"));
+    assert!(aliased("Files", &files, &["Files"]));
+    assert!(aliased("files", &files, &["Files"]));
+    assert!(aliased("nautilus", &files, &["Files"]));
+    assert!(!aliased("Files", &files, &[]));
+    assert!(!aliased("File", &files, &["Files"]));
+    assert!(!aliased("Files Helper", &files, &["Files"]));
+    assert_eq!(app_name(&files), "nautilus");
 }

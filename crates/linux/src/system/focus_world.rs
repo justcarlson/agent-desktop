@@ -6,9 +6,12 @@ use super::focus_window::{FocusWorld, FrameView, Session};
 use crate::system::bus_deadline::within;
 use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::overview::overview_open;
+use crate::system::proc_stat;
 use crate::system::process_facts::{self, Lookup};
 use crate::system::registry::toolkit;
+use crate::system::restore_minimized::{self, Lifted};
 use crate::system::toolkit::reports_global_position;
+use crate::system::window_client::ClientWorld;
 use crate::system::window_filter::frame_state;
 use crate::system::x11::activate::{active_window_within, request_activation};
 use crate::system::x11::activate_error::ActivateError;
@@ -17,6 +20,9 @@ use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window_id};
 use crate::tree::{AtspiElement, read_node};
+
+#[path = "focus_send.rs"]
+mod focus_send;
 
 const ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACTIVE_READ: Duration = Duration::from_millis(500);
@@ -66,6 +72,7 @@ impl FocusWorld for LiveWorld<'_> {
         Ok(FrameView {
             minimized: state.minimized,
             active: state.active,
+            modal: state.modal,
         })
     }
 
@@ -77,6 +84,44 @@ impl FocusWorld for LiveWorld<'_> {
         DisplayReader.read_within(client, self.deadline)
     }
 
+    fn send(&self, client: u32) -> Result<(), ActivateError> {
+        request_activation(client)
+    }
+
+    fn active(&self) -> Option<u32> {
+        active_window_within(ACTIVE_READ)
+    }
+
+    fn stopped(&self, pid: u32) -> bool {
+        proc_stat::is_stopped(pid)
+    }
+
+    fn send_untimed(&self, client: u32) -> Result<(), ActivateError> {
+        focus_send::request_untimed(client, self.deadline)
+    }
+
+    fn switch_desktop(&self, desktop: u32) -> Result<(), ActivateError> {
+        focus_send::switch_desktop(desktop, self.deadline)
+    }
+
+    fn input_focus_in(&self, client: u32) -> bool {
+        focus_send::input_focus_in(client, self.deadline)
+    }
+
+    fn overview_open(&self) -> Option<bool> {
+        overview_open()
+    }
+
+    fn modal_over(&self, client: u32) -> Option<String> {
+        focus_send::dialog_over(client, self.deadline)
+    }
+
+    fn lift(&self, client: u32) -> Result<Lifted, AdapterError> {
+        restore_minimized::lift(client, self.deadline)
+    }
+}
+
+impl ClientWorld for LiveWorld<'_> {
     fn global_position(&self) -> bool {
         let Ok(shared) = self.bus.get(self.deadline) else {
             return false;
@@ -86,17 +131,5 @@ impl FocusWorld for LiveWorld<'_> {
             Ok(toolkit(shared.inner(), &root).await)
         });
         read.is_ok_and(|id| reports_global_position(id.name.as_deref(), id.version.as_deref()))
-    }
-
-    fn send(&self, client: u32) -> Result<(), ActivateError> {
-        request_activation(client)
-    }
-
-    fn active(&self) -> Option<u32> {
-        active_window_within(ACTIVE_READ)
-    }
-
-    fn overview_open(&self) -> Option<bool> {
-        overview_open()
     }
 }

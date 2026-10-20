@@ -4,7 +4,7 @@ use crate::system::registry::Registry;
 use crate::system::registry_app::{RegistryApp, assemble};
 use crate::system::toolkit_id::ToolkitId;
 use crate::tree::AtspiElement;
-use agent_desktop_core::{AppInfo, ErrorCode};
+use agent_desktop_core::{AppInfo, DeliverySemantics, ErrorCode};
 
 fn app(pid: u32, exe: &str, answered: bool) -> RegistryApp {
     assemble(
@@ -91,17 +91,23 @@ fn a_bus_less_process_keeps_the_empty_list() {
 fn a_stopped_twin_is_reported_even_when_its_same_name_twin_has_windows() {
     let registry = registry(vec![app(7, "chrome", false), app(8, "chrome", true)]);
     let stopped = stopped_target(&registry, |_| true, |pid| pid == 7);
-    let error = settle_scoped(vec!["the running twin's window"], stopped).expect_err("stopped");
+    let read = std::cell::Cell::new(false);
+    let error = settle_scoped(stopped, || {
+        read.set(true);
+        Ok(vec!["the running twin's window"])
+    })
+    .expect_err("stopped");
+    assert!(!read.get(), "a stopped target's windows are never read");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert!(error.message.contains("chrome"));
 }
 
 #[test]
 fn windows_are_returned_when_no_selected_app_is_stopped() {
-    let kept = settle_scoped(vec![1, 2], None).expect("nothing is stopped");
+    let kept = settle_scoped(None, || Ok(vec![1, 2])).expect("nothing is stopped");
     assert_eq!(kept, [1, 2]);
     assert!(
-        settle_scoped(Vec::<u8>::new(), None)
+        settle_scoped(None, || Ok(Vec::<u8>::new()))
             .expect("empty")
             .is_empty()
     );
@@ -139,4 +145,12 @@ fn a_single_stopped_match_is_returned_without_asking_what_is_stopped() {
     let kept = settle_matches(vec![listed(7)], || panic!("one match needs no twin check"))
         .expect("one match");
     assert_eq!(kept.len(), 1);
+}
+
+#[test]
+fn an_unknown_target_is_refused_before_anything_is_sent() {
+    let registry = registry(Vec::new());
+    let error = require_known_target(&registry, |_| true, "zzz", |_| None).expect_err("unknown");
+    assert_eq!(error.code, ErrorCode::AppNotFound);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }

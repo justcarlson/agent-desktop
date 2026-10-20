@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 use serde_json::json;
 
-use crate::system::{listed_app_name, process_facts};
+use crate::system::{listed_app_name, proc_stat, process_facts};
 
 fn settled(message: &str, kind: &str) -> AdapterError {
     AdapterError::stale_ref_because(message).with_details(json!({
@@ -109,7 +109,7 @@ pub(crate) fn stopped_aware(error: AdapterError, stopped_app: Option<&str>) -> A
 
 /// The listed name of `pid`'s application when the process is stopped now.
 pub(crate) fn stopped_app(pid: u32) -> Option<String> {
-    process_facts::is_stopped(pid)
+    proc_stat::is_stopped(pid)
         .then(|| process_facts::read(pid))
         .flatten()
         .map(|facts| listed_app_name(&facts))

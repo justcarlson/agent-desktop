@@ -1,4 +1,5 @@
 mod adapter;
+mod app_alias;
 mod app_name;
 mod app_ops;
 mod bus;
@@ -7,6 +8,11 @@ mod bus_fault;
 mod bus_process;
 mod bus_slice;
 mod bus_stage;
+mod close;
+mod close_plan;
+mod desktop_entry;
+mod desktop_exec;
+mod desktop_lookup;
 mod display;
 mod display_mutter;
 mod display_probe;
@@ -16,23 +22,41 @@ pub(crate) mod focus_cause;
 pub(crate) mod focus_window;
 mod focus_world;
 mod interaction_lease;
+mod key_dispatch;
+mod launch;
+mod launch_attach;
+mod launch_observe;
+mod launch_target;
 mod listed_window;
+mod liveness;
 pub(crate) mod overview;
 mod permissions;
 mod proc_scan;
+pub(crate) mod proc_stat;
 pub(crate) mod process_facts;
+mod process_state;
+mod process_state_classify;
+mod protected;
 pub(crate) mod registry;
 mod registry_app;
 mod registry_frames;
+mod restore_minimized;
+mod runtime_store;
 mod session;
 pub(crate) mod session_bus;
+mod signal;
+mod stopped_windows;
 mod surfaces;
 mod toolkit;
 pub(crate) mod toolkit_id;
 mod unresponsive;
+mod window_client;
 pub(crate) mod window_filter;
 pub(crate) mod window_id;
+mod window_ids;
 mod window_listing;
+mod window_op;
+mod window_op_verdict;
 mod window_ops;
 pub(crate) mod window_position;
 mod window_resolve;
@@ -53,6 +77,10 @@ pub(crate) use window_ops::{focused_window, list_windows};
 pub(crate) use window_resolve::resolve_window_strict;
 
 #[cfg(test)]
+mod app_alias_live_tests;
+#[cfg(test)]
+mod close_live_tests;
+#[cfg(test)]
 mod display_live_tests;
 #[cfg(test)]
 mod focus_activation_live_tests;
@@ -61,8 +89,16 @@ mod focus_overview_live_tests;
 #[cfg(test)]
 mod focus_window_live_tests;
 #[cfg(test)]
+mod key_dispatch_live_tests;
+#[cfg(test)]
+mod launch_live_tests;
+#[cfg(test)]
+mod process_state_live_tests;
+#[cfg(test)]
 mod registry_live_tests;
 #[cfg(test)]
 mod sheet_live_tests;
 #[cfg(test)]
 mod stopped_live_tests;
+#[cfg(test)]
+mod window_op_live_tests;

@@ -69,6 +69,7 @@ dependencies = [
  "futures-lite",
  "futures-util",
  "libc",
+ "rustix",
  "serde_json",
  "thiserror",
  "x11rb",
