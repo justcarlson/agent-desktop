@@ -87,6 +87,23 @@ test('the glibc gate reads every shipped ELF file in both workflows', () => {
   assert.match(jobBlock(dryRunWorkflow, 'ffi'), /libagent_desktop_ffi\.so/);
 });
 
+test('Linux container run steps select bash instead of the container default sh', () => {
+  for (const [file, workflow, jobs] of LINUX_BUILD_JOBS) {
+    for (const job of jobs) {
+      const block = jobBlock(workflow, job);
+      if (job === 'linux-consumer') {
+        assert.match(block, /defaults:\n {6}run:\n {8}shell: bash\n/, `${file} ${job}`);
+        continue;
+      }
+      for (const step of block.split(/(?=^ {6}- )/m)) {
+        if (/if: runner\.os == 'Linux'/.test(step) && /^ {8}run:/m.test(step)) {
+          assert.match(step, /^ {8}shell: bash$/m, `${file} ${job}: ${step.split('\n')[0].trim()}`);
+        }
+      }
+    }
+  }
+});
+
 test('the Linux CLI archive is built from both executables and listed exactly', () => {
   for (const [name, job] of [
     ['release.yml', jobBlock(releaseWorkflow, 'build')],

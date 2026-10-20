@@ -56,6 +56,7 @@ jobs:
     steps:
       - name: Install container build tools
         if: runner.os == 'Linux'
+        shell: bash
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -67,6 +68,7 @@ jobs:
 
       - name: Install rustup (container)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           set -euo pipefail
           case "$(uname -m)" in
@@ -95,6 +97,7 @@ jobs:
 
       - name: Build release binary (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           cargo build --locked --release -p agent-desktop --target ${{ matrix.target }}
           cargo build --locked --release -p agent-desktop-linux --bins --target ${{ matrix.target }}
@@ -105,6 +108,7 @@ jobs:
 
       - name: Check glibc floor and size (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           LIMIT=$((15 * 1024 * 1024))
           for FILE in agent-desktop agent-desktop-linux-clipboard-owner; do
@@ -124,6 +128,7 @@ jobs:
 
       - name: Smoke-run the built binary (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         run: target/${{ matrix.target }}/release/agent-desktop version
 
       - name: Smoke-run the built binary (Windows)
@@ -146,6 +151,7 @@ jobs:
 
       - name: Create tarball (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         env:
           VERSION: ${{ inputs.version || format('0.0.0-pr{0}', github.event.pull_request.number) }}
         run: |
@@ -206,6 +212,7 @@ jobs:
     steps:
       - name: Install container build tools
         if: runner.os == 'Linux'
+        shell: bash
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -217,6 +224,7 @@ jobs:
 
       - name: Install rustup (container)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           set -euo pipefail
           case "$(uname -m)" in
@@ -244,16 +252,19 @@ jobs:
 
       - name: Build Linux clipboard owner for FFI consumers
         if: runner.os == 'Linux'
+        shell: bash
         run: cargo build --locked --release -p agent-desktop-linux --bins --target ${{ matrix.target }}
 
       - name: Check glibc floor (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           scripts/check-elf-glibc-floor.sh "target/${{ matrix.target }}/release-ffi/libagent_desktop_ffi.so" "${GLIBC_FLOOR}"
           scripts/check-elf-glibc-floor.sh "target/${{ matrix.target }}/release/agent-desktop-linux-clipboard-owner" "${GLIBC_FLOOR}"
 
       - name: Stage and verify archive contents (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         env:
           VERSION: ${{ inputs.version || format('0.0.0-pr{0}', github.event.pull_request.number) }}
         run: |
@@ -348,6 +359,9 @@ jobs:
             ${{ matrix.npm_key }}
 
   linux-consumer:
+    defaults:
+      run:
+        shell: bash
     name: Linux consumer (${{ matrix.target }})
     needs: [cli, ffi]
     if: ${{ !cancelled() }}
