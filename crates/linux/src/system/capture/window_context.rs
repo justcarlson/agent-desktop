@@ -43,6 +43,7 @@ pub(crate) struct CaptureEnv<'a> {
     pub(crate) lookup: &'a dyn WindowLookup,
     pub(crate) decode: Decode,
     pub(crate) encode: Encode,
+    pub(crate) stopped: fn(u32) -> bool,
 }
 
 pub(crate) fn real_decode(raw: &Raw) -> Result<Vec<u8>, AdapterError> {

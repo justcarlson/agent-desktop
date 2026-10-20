@@ -101,6 +101,7 @@ fn with_env<T>(
         lookup: &lookup,
         decode: real_decode,
         encode: encode_png,
+        stopped: crate::system::proc_stat::is_stopped,
     };
     run(&env)
 }

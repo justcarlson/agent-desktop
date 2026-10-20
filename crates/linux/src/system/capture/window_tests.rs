@@ -146,6 +146,19 @@ fn an_unmapped_window_names_the_missing_compositor_and_asks_for_a_restore() {
 }
 
 #[test]
+fn a_stopped_process_is_app_unresponsive_before_any_x11_call() {
+    let mut rig = Rig::standard();
+    rig.stopped = always_stopped;
+    let error = capture(&rig.env(), &target(), false, deadline()).expect_err("stopped");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains("editor"), "{}", error.message);
+    let details = error.details.expect("details");
+    assert_eq!(details["pid"].as_u64(), Some(4));
+    assert_eq!(details["process_instance"].as_str(), Some("instance"));
+    assert_eq!(rig.x11_touched(), 0);
+}
+
+#[test]
 fn a_client_side_shadow_is_cropped_from_the_captured_client_area() {
     let rig = Rig::standard();
     rig.grabber.shadow_as(

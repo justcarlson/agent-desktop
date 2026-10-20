@@ -42,6 +42,13 @@ fn not_viewable(compositing: bool) -> AdapterError {
     )
 }
 
+fn stopped(window: &WindowInfo) -> AdapterError {
+    AdapterError::app_unresponsive(&window.app).with_details(serde_json::json!({
+        "pid": window.pid,
+        "process_instance": window.process_instance,
+    }))
+}
+
 fn covered() -> AdapterError {
     refusal(
         ErrorCode::ActionFailed,
@@ -220,8 +227,14 @@ pub(crate) fn capture(
         ));
     }
     ensure_budget(deadline)?;
+    if (env.stopped)(window.pid.get()) {
+        return Err(stopped(window));
+    }
     let resolved = env.lookup.resolve(window, deadline)?;
-    let xid = xid_or_error(env.lookup.xid(&resolved, deadline))?;
+    let xid = match xid_or_error(env.lookup.xid(&resolved, deadline)) {
+        Err(_) if (env.stopped)(window.pid.get()) => return Err(stopped(window)),
+        outcome => outcome?,
+    };
     ensure_budget(deadline)?;
     let compositing = env
         .grabber

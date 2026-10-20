@@ -174,6 +174,15 @@ pub(crate) struct Rig {
     pub(crate) grabber: FakeGrabber,
     pub(crate) stacking: FakeStacking,
     pub(crate) lookup: FakeLookup,
+    pub(crate) stopped: fn(u32) -> bool,
+}
+
+pub(crate) fn never_stopped(_pid: u32) -> bool {
+    false
+}
+
+pub(crate) fn always_stopped(_pid: u32) -> bool {
+    true
 }
 
 pub(crate) fn decode(raw: &Raw) -> Result<Vec<u8>, AdapterError> {
@@ -317,6 +326,7 @@ impl Rig {
                 displays: Seq::of(vec![Some(vec![display_at("A", 0.0, 1920.0, 1.0, true)])]),
                 calls: AtomicUsize::new(0),
             },
+            stopped: never_stopped,
         }
     }
 
@@ -327,6 +337,7 @@ impl Rig {
             lookup: &self.lookup,
             decode,
             encode,
+            stopped: self.stopped,
         }
     }
 
