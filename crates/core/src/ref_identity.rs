@@ -29,6 +29,24 @@ pub fn has_stable_text_identity(entry: &RefEntry) -> bool {
         || crate::accname::non_blank(entry.identity.description.as_deref()).is_some()
 }
 
+/// Whether an element's own identifier or stable text identifies it, ignoring
+/// any retained object. A platform that can only retain a positional object
+/// path must not present that path as identity evidence for a node its
+/// identifier or text already names, because the path moves when the siblings
+/// are reordered.
+pub fn identity_fields_are_meaningful(
+    role: &str,
+    name: Option<&str>,
+    value: Option<&str>,
+    description: Option<&str>,
+    native_id: Option<&str>,
+) -> bool {
+    crate::accname::non_blank(native_id).is_some()
+        || stable_name(role, name, value).is_some()
+        || stable_value(role, value).is_some()
+        || crate::accname::non_blank(description).is_some()
+}
+
 pub fn identity_match(
     entry: &RefEntry,
     actual_name: &LocatorField<String>,
