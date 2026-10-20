@@ -2,13 +2,16 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{Deadline, ErrorCode, ScreenshotTarget};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ScreenshotTarget};
 
 use super::wayland_portal::capture_wayland;
+use super::wayland_portal_bus::PORTAL_BUS;
 use super::wayland_portal_live_monitors::{allow_screenshots, capture_target, set_first_scale};
 use super::wayland_portal_live_support::{
-    BLUE, DIALOG_SHOWN, KEY_RETURN, KEY_TAB, Keys, World, boot, boot_with, stored_screenshot_grants,
+    BLUE, BUS_DAEMON, DIALOG_SHOWN, Endpoint, FRONTEND, KEY_RETURN, KEY_TAB, Keys, World, boot,
+    boot_with, bus_call, stored_screenshot_grants,
 };
+use crate::system::bus_deadline::within;
 
 fn home_screenshots() -> BTreeSet<String> {
     let home = PathBuf::from(std::env::var("HOME").expect("a home directory"));
@@ -205,4 +208,74 @@ fn a_scaled_monitor_is_cropped_in_image_pixels() {
         "the 400x300 window is drawn at twice its size"
     );
     assert_eq!(blue_pixels(&second.data).2, 0);
+}
+
+fn bus_id(connection: &zbus::blocking::Connection) -> Option<String> {
+    bus_call(connection, &BUS_DAEMON, "GetId", &())?
+        .body()
+        .deserialize::<String>()
+        .ok()
+}
+
+#[test]
+#[ignore = "boots a private headless gnome-shell and its portal; run inside scripts/private-session.sh"]
+fn the_portal_calls_go_to_the_session_bus_and_not_the_accessibility_bus() {
+    let world = boot();
+    allow_screenshots();
+    let session = zbus::blocking::Connection::session().expect("the session bus");
+    let session_id = bus_id(&session).expect("the session bus id");
+    let address = bus_call(
+        &session,
+        &Endpoint {
+            destination: "org.a11y.Bus",
+            path: "/org/a11y/bus",
+            interface: "org.a11y.Bus",
+        },
+        "GetAddress",
+        &(),
+    )
+    .expect("the accessibility bus address")
+    .body()
+    .deserialize::<String>()
+    .expect("an address");
+    let accessibility = zbus::blocking::connection::Builder::address(address.as_str())
+        .expect("an address")
+        .build()
+        .expect("the accessibility bus");
+    let accessibility_id = bus_id(&accessibility).expect("the accessibility bus id");
+    let owns = |connection: &zbus::blocking::Connection| {
+        bus_call(connection, &BUS_DAEMON, "NameHasOwner", &(FRONTEND,))
+            .and_then(|reply| reply.body().deserialize::<bool>().ok())
+            .unwrap_or(false)
+    };
+    let used = within(Deadline::after(10_000).expect("a deadline"), async {
+        let connection = PORTAL_BUS(Deadline::after(10_000).expect("a deadline"))?;
+        let reply = connection
+            .call_method(
+                Some("org.freedesktop.DBus"),
+                "/org/freedesktop/DBus",
+                Some("org.freedesktop.DBus"),
+                "GetId",
+                &(),
+            )
+            .await
+            .map_err(|error| AdapterError::new(ErrorCode::ActionFailed, error.to_string()))?;
+        reply
+            .body()
+            .deserialize::<String>()
+            .map_err(|error| AdapterError::new(ErrorCode::ActionFailed, error.to_string()))
+    })
+    .expect("the portal connection answers");
+    println!(
+        "portal_live buses session={session_id} accessibility={accessibility_id} portal={used}"
+    );
+    assert_ne!(session_id, accessibility_id);
+    assert_eq!(used, session_id);
+    assert!(
+        owns(&session),
+        "the portal service lives on the session bus"
+    );
+    assert!(!owns(&accessibility), "and not on the accessibility bus");
+    let image = capture_target(&world, &ScreenshotTarget::FullScreen).expect("the desktop");
+    assert_eq!((image.width, image.height), (1280, 800));
 }
