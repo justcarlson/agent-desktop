@@ -16,7 +16,10 @@ fn single_client<'a>(frame: &FrameFacts, clients: &'a [X11Client]) -> Option<&'a
 /// Where the single X11 client of a window sits, or `None` when the window
 /// maps to no client or to several.
 pub(crate) fn frame_origin(frame: &FrameFacts, clients: &[X11Client]) -> Option<(i32, i32)> {
-    let client = single_client(frame, clients)?;
+    client_origin(single_client(frame, clients)?)
+}
+
+fn client_origin(client: &X11Client) -> Option<(i32, i32)> {
     let bounds = client.bounds?;
     Some((
         bounds.x.checked_add(client.shadow.0)?,
@@ -24,12 +27,7 @@ pub(crate) fn frame_origin(frame: &FrameFacts, clients: &[X11Client]) -> Option<
     ))
 }
 
-/// The size of the single X11 client of a window less its client-side shadow,
-/// or `None` for a window with no shadow, whose toolkit size is kept. A
-/// toolkit that reports window coordinates does not follow a resize in its
-/// extents, and the client is what the manager resizes.
-fn visible_size(frame: &FrameFacts, clients: &[X11Client]) -> Option<Extents> {
-    let client = single_client(frame, clients)?;
+fn visible_size(client: &X11Client) -> Option<Extents> {
     let (left, top, right, bottom) = client.shadow;
     if client.shadow == (0, 0, 0, 0) {
         return None;
@@ -69,8 +67,10 @@ pub(crate) fn place_windows(listed: &mut [ListedWindow], state: &X11State) {
         window.info.bounds = window
             .frame
             .extents
-            .zip(frame_origin(&window.frame, clients))
-            .map(|(size, origin)| at(origin, visible_size(&window.frame, clients).unwrap_or(size)));
+            .zip(single_client(&window.frame, clients))
+            .and_then(|(size, client)| {
+                client_origin(client).map(|origin| at(origin, visible_size(client).unwrap_or(size)))
+            });
     }
 }
 

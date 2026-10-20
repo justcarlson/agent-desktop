@@ -86,7 +86,7 @@ fn requested_of(write: &WindowWrite) -> Value {
     }
 }
 
-fn observed_of(observed: Option<&WindowFacts>) -> Value {
+pub(super) fn observed_of(observed: Option<&WindowFacts>) -> Value {
     observed.map_or(Value::Null, |facts| {
         json!({
             "x": facts.client.x,

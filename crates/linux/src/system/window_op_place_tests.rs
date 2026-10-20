@@ -106,7 +106,8 @@ fn a_manager_that_skips_a_move_to_the_place_it_believes_is_current_is_nudged_awa
         width: 500,
         height: 380,
     });
-    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
+    let deadline = Deadline::after(2_000).expect("a deadline builds");
+    run(&world, &window(), &WindowOp::Restore, deadline).expect("a restore");
     let writes = world.writes.borrow();
     assert_eq!(writes.len(), 4);
     assert!(matches!(
@@ -131,6 +132,23 @@ fn a_window_already_back_in_its_place_is_not_moved() {
     run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
     assert_eq!(world.writes(), 1);
     assert_eq!(*world.remember_calls.borrow(), vec![None]);
+}
+
+#[test]
+fn a_restore_without_time_to_confirm_keeps_the_remembered_place() {
+    let facts = state(120, 90, 500, 380);
+    let world = World::showing(facts);
+    *world.remembered.borrow_mut() = Some(facts.client);
+    let error = run(
+        &world,
+        &window(),
+        &WindowOp::Restore,
+        Deadline::after(100).expect("a deadline builds"),
+    )
+    .expect_err("the give-back needs a full confirmation pause");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(*world.remembered.borrow(), Some(facts.client));
+    assert!(world.remember_calls.borrow().is_empty());
 }
 
 #[test]

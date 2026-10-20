@@ -1,8 +1,5 @@
 use super::*;
 
-/// A client at `place` in one read may only be passing through it while a
-/// manager slides the window somewhere else, so the place counts as held only
-/// when the same rectangle still reads back after a pause.
 fn rests_at(
     world: &impl OpWorld,
     client: u32,
@@ -12,10 +9,11 @@ fn rests_at(
 ) -> bool {
     if (first.x - place.x).abs() > POSITION_TOLERANCE
         || (first.y - place.y).abs() > POSITION_TOLERANCE
+        || deadline.remaining() < CONFIRM_PAUSE
     {
         return false;
     }
-    std::thread::sleep(CONFIRM_PAUSE.min(deadline.remaining()));
+    std::thread::sleep(CONFIRM_PAUSE);
     matches!(world.facts(client), ControlRead::Ready(next) if next.client == *first)
 }
 

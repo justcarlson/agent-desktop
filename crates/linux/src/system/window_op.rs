@@ -17,7 +17,7 @@ use super::restore_minimized::{Lifted, lift, still_hidden};
 use super::window_client::{ClientWorld, client_of};
 use super::window_op_shadow::{Shadow, to_client, to_visible};
 use super::window_op_verdict::{
-    POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, requested, unverified,
+    POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, observed_of, requested, unverified,
 };
 use super::x11::control::{ControlError, ControlRead, xwayland_clients};
 use super::x11::control_send::{WindowWrite, write_window};
@@ -175,10 +175,6 @@ fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), Adapt
     Ok((id, shadow))
 }
 
-/// A rectangle read while the manager is still sliding the window can satisfy
-/// the request in passing and fail it a moment later, so a placing write is
-/// only settled when the satisfied rectangle still reads back after a pause.
-/// The same read catches a toolkit that clamps a size after applying it.
 fn settle(
     world: &impl OpWorld,
     client: u32,
@@ -187,7 +183,7 @@ fn settle(
 ) -> (Verdict, Option<WindowFacts>) {
     let limit = deadline.capped(SETTLE_BUDGET);
     loop {
-        let observed = world.facts(client).ready();
+        let mut observed = world.facts(client).ready();
         let at_limit = limit.is_expired();
         let verdict = match observed {
             Some(facts) => judge(write, &facts, at_limit),
@@ -196,11 +192,13 @@ fn settle(
         };
         match verdict {
             Verdict::Satisfied if matches!(write, WindowWrite::MoveResize { .. }) => {
-                std::thread::sleep(CONFIRM_PAUSE.min(limit.remaining()));
-                match world.facts(client) {
-                    ControlRead::Ready(facts)
-                        if judge(write, &facts, true) == Verdict::Satisfied =>
-                    {
+                if limit.remaining() < CONFIRM_PAUSE {
+                    return (Verdict::Mismatch, observed);
+                }
+                std::thread::sleep(CONFIRM_PAUSE);
+                observed = world.facts(client).ready();
+                match observed {
+                    Some(facts) if judge(write, &facts, true) == Verdict::Satisfied => {
                         return (Verdict::Satisfied, Some(facts));
                     }
                     _ if limit.is_expired() => return (Verdict::Mismatch, observed),
@@ -275,9 +273,6 @@ fn restore(
     give_back_place(world, win, client, deadline)
 }
 
-/// The hold may move a client the manager shifted, so a rectangle observed
-/// before it ran is stale: the window is read once more and the error says
-/// where the command actually left it.
 fn reobserve(world: &impl OpWorld, client: u32, mut error: AdapterError) -> AdapterError {
     let (ControlRead::Ready(facts), Some(observed)) = (
         world.facts(client),
@@ -289,13 +284,7 @@ fn reobserve(world: &impl OpWorld, client: u32, mut error: AdapterError) -> Adap
     ) else {
         return error;
     };
-    observed["x"] = serde_json::json!(facts.client.x);
-    observed["y"] = serde_json::json!(facts.client.y);
-    observed["width"] = serde_json::json!(facts.client.width);
-    observed["height"] = serde_json::json!(facts.client.height);
-    observed["hidden"] = serde_json::json!(facts.hidden);
-    observed["maximized_vertical"] = serde_json::json!(facts.maximized_vertical);
-    observed["maximized_horizontal"] = serde_json::json!(facts.maximized_horizontal);
+    *observed = observed_of(Some(&facts));
     error
 }
 
