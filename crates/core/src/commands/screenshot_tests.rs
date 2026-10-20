@@ -219,6 +219,36 @@ fn argument_and_target_errors_carry_a_suggestion_and_a_safe_disposition() {
 }
 
 #[test]
+fn incomplete_process_identity_carries_a_suggestion_and_a_safe_disposition() {
+    let mut incomplete = window("w-42", 700);
+    incomplete.process_instance = None;
+    let adapter = ScreenshotAdapter {
+        displays: vec![display("main", true, 2.0)],
+        windows: vec![incomplete],
+        target: Mutex::new(None),
+    };
+    let mut request = args();
+    request.window_id = Some("w-42".into());
+
+    let error =
+        screenshot::execute(request, &adapter).expect_err("the process identity is incomplete");
+
+    assert_eq!(error.code(), "ACTION_NOT_SUPPORTED");
+    let crate::AppError::Adapter(adapter_error) = error else {
+        panic!("an adapter error");
+    };
+    assert_eq!(
+        adapter_error.suggestion.as_deref(),
+        Some("Refresh the target with 'list-windows', then retry")
+    );
+    assert_eq!(
+        adapter_error.disposition,
+        crate::DeliverySemantics::not_delivered()
+    );
+    assert!(adapter.take_target().is_none());
+}
+
+#[test]
 fn output_path_response_keeps_image_metadata() {
     let adapter = ScreenshotAdapter::new();
     let path = output_path();
