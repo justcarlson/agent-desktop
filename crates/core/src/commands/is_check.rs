@@ -95,12 +95,8 @@ pub fn execute(
 /// read once the live state says it is not offscreen; the command answers
 /// from that same evidence instead of reporting the property inapplicable.
 fn visible_without_bounds(live_bounds: Option<Rect>, live: Option<&ElementState>) -> Option<bool> {
-    let live = live.filter(|state| live_bounds.is_none() && state.offscreen == Some(false))?;
-    Some(
-        live.hidden != Some(true)
-            && !state::has_state(&live.states, state::HIDDEN)
-            && !state::has_state(&live.states, state::OFFSCREEN),
-    )
+    live.filter(|_| live_bounds.is_none())?
+        .visible_without_bounds()
 }
 
 fn visible_answer(ref_id: &str, visible: bool) -> Value {

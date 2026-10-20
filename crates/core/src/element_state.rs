@@ -14,3 +14,19 @@ pub struct ElementState {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub offscreen: Option<bool>,
 }
+
+impl ElementState {
+    /// The visibility the live state alone proves for a node whose bounds
+    /// cannot be read: known on-screen and not hidden is visible, hidden is
+    /// not, and anything else proves nothing. The actionability gate and the
+    /// `is visible` command both answer from this one rule.
+    pub(crate) fn visible_without_bounds(&self) -> Option<bool> {
+        if self.offscreen != Some(false) {
+            return None;
+        }
+        let hidden = self
+            .hidden
+            .unwrap_or_else(|| crate::state::has_state(&self.states, crate::state::HIDDEN));
+        Some(!hidden)
+    }
+}

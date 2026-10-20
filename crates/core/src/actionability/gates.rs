@@ -36,8 +36,8 @@ pub(super) fn visibility(
         return pass("visible");
     }
     if (!requires_geometry || delivered_without_pointer)
-        && evidence.state.offscreen == Some(false)
         && evidence.bounds.is_none()
+        && evidence.state.visible_without_bounds() == Some(true)
     {
         return pass("visible");
     }

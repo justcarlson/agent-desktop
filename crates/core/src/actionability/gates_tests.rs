@@ -159,3 +159,29 @@ fn a_headed_type_needs_no_pointer_bounds_on_a_known_on_screen_node() {
     let unknown = status_of(typed, true, None, None, &["TypeText"], "visible");
     assert_eq!(unknown, Some(ActionabilityStatus::Unknown));
 }
+
+#[test]
+fn visible_without_bounds_agrees_with_the_visibility_gate_for_every_state() {
+    for hidden in [None, Some(true), Some(false)] {
+        for offscreen in [None, Some(true), Some(false)] {
+            for token in [
+                None,
+                Some(crate::state::HIDDEN),
+                Some(crate::state::OFFSCREEN),
+            ] {
+                let mut probe = evidence(offscreen, None);
+                probe.state.hidden = hidden;
+                probe.state.states = token.map(String::from).into_iter().collect();
+                let Some(verdict) = probe.state.visible_without_bounds() else {
+                    continue;
+                };
+                let gate = visibility(&probe, false, false);
+                assert_eq!(
+                    gate.status == ActionabilityStatus::Pass,
+                    verdict,
+                    "hidden {hidden:?} offscreen {offscreen:?} token {token:?}"
+                );
+            }
+        }
+    }
+}
