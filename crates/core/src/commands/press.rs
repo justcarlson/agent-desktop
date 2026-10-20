@@ -69,11 +69,6 @@ pub fn execute(
     )
 }
 
-/// Keys sent to a process land in its active window. A caller that names
-/// another window of the same process, while focus changes are not allowed,
-/// would type into the wrong window, so the press is refused. A focused
-/// window of another process is for the adapter's own gate to judge, and an
-/// adapter that cannot name the focused window leaves it to that gate.
 fn ensure_not_a_sibling_window(
     adapter: &dyn PlatformAdapter,
     named: &crate::WindowInfo,
