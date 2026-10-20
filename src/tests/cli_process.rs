@@ -1,5 +1,8 @@
 use std::process::Command;
 
+#[path = "cli_process_support.rs"]
+mod support;
+
 fn binary() -> Command {
     Command::new(env!("CARGO_BIN_EXE_agent-desktop"))
 }
@@ -264,7 +267,7 @@ fn start_session_in_dir(dir: &std::path::Path) -> String {
 }
 
 fn run_batch(dir: &std::path::Path, cmds: serde_json::Value, extra: &[&str]) -> serde_json::Value {
-    let mut c = binary();
+    let mut c = support::private_bus_binary();
     c.arg("batch")
         .arg(cmds.to_string())
         .args(extra)

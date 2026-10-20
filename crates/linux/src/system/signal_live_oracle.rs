@@ -7,7 +7,6 @@ use crate::system::{
 };
 
 pub(crate) const FRAME: u32 = 23;
-pub(crate) const MENU: u32 = 33;
 pub(crate) const MENU_ITEM: u32 = 35;
 pub(crate) const POPUP_MENU: u32 = 41;
 pub(crate) const MENU_BUTTON: u32 = 43;

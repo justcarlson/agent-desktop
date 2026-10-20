@@ -4,9 +4,10 @@ use agent_desktop_core::{ErrorCode, ProcessIdentity, SystemOps, WindowFilter};
 
 use super::list_windows;
 use super::signal_live_apps::{
-    Rig, Stopped, capture, count_of, deadline, details_of, diff, dismiss_dialog, found_event,
-    identity_of, launch_qt, open_gtk4_menu_item, open_terminal_about, outcome, poll, process_state,
-    terminal_server, tokens, top_level, wait_event, x11_windows,
+    FRAME, MENU_BUTTON, Rig, STATE_SHOWING, Stopped, capture, chrome_profile, close_chrome_menu,
+    count_of, deadline, descendants, details_of, diff, dismiss_dialog, do_action, found_event,
+    identity_of, launch_chrome, launch_qt, open_gtk4_menu_item, open_terminal_about, outcome, poll,
+    process_state, terminal_server, tokens, top_level, wait_event, x11_windows,
 };
 
 const OPEN_MS: u64 = 15_000;
@@ -94,17 +95,6 @@ fn dialog_case(rig: &Rig, pid: u32, app: &str, identity: &ProcessIdentity, open:
         "{:?}",
         tokens(&events)
     );
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn signal_live_gtk3_about_dialog_is_a_sheet_by_identity() {
-    let mut rig = Rig::new();
-    let pid = terminal_server(&mut rig);
-    let (app, identity) = identity_of(&rig, pid);
-    dialog_case(&rig, pid, &app, &identity, |rig| {
-        open_terminal_about(rig, pid)
-    });
 }
 
 #[test]

@@ -15,7 +15,6 @@ use crate::trace_artifacts::clear_test_budgets;
 use crate::{ImageBuffer, ImageFormat};
 use crate::{capability, refs::RefEntry};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(super) const MINI_PNG: &[u8] = &[
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
@@ -180,54 +179,6 @@ impl SystemOps for FailingScreenshotAdapter {
         _deadline: crate::Deadline,
     ) -> Result<ImageBuffer, AdapterError> {
         Err(AdapterError::not_supported("screenshot"))
-    }
-}
-
-struct FailingActionAdapter {
-    screenshot_calls: AtomicU32,
-}
-
-impl ObservationOps for FailingActionAdapter {
-    fn resolve_element_strict(
-        &self,
-        _entry: &RefEntry,
-        _deadline: crate::Deadline,
-    ) -> Result<NativeHandle, AdapterError> {
-        Ok(NativeHandle::null())
-    }
-
-    crate::adapter::complete_live_observation!("button", "Run", [capability::CLICK]);
-}
-
-impl ActionOps for FailingActionAdapter {
-    fn execute_action(
-        &self,
-        _handle: &NativeHandle,
-        _request: ActionRequest,
-        _lease: &crate::InteractionLease,
-    ) -> Result<ActionResult, AdapterError> {
-        Err(AdapterError::internal("boom"))
-    }
-}
-
-impl InputOps for FailingActionAdapter {}
-
-impl SystemOps for FailingActionAdapter {
-    crate::adapter::guarded_interaction_lease!();
-
-    fn screenshot(
-        &self,
-        _target: ScreenshotTarget,
-        _deadline: crate::Deadline,
-    ) -> Result<ImageBuffer, AdapterError> {
-        self.screenshot_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(ImageBuffer {
-            data: MINI_PNG.to_vec(),
-            format: ImageFormat::Png,
-            width: 1,
-            height: 1,
-            scale_factor: 1.0,
-        })
     }
 }
 

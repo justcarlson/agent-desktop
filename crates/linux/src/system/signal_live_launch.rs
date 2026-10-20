@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use super::{
     FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, Rig, TOGGLE, app_inventory, deadline, descendants,
-    do_action, poll, press, top_level, within,
+    do_action, poll, press, require_program, top_level, within,
 };
 use crate::tree::live_launch::nonce;
 
@@ -60,21 +60,6 @@ pub(crate) fn open_gtk4_menu_item(rig: &Rig, pid: u32, from_end: usize) {
         .nth(from_end - 1)
         .expect("the popover has enough items");
     do_action(&rig.connection, &target);
-}
-
-pub(crate) fn open_terminal_about(rig: &Rig, pid: u32) {
-    let help = poll("the Help menu", || {
-        descendants(&rig.connection, pid)
-            .into_iter()
-            .find(|n| n.role == MENU && n.name == "Help")
-    });
-    do_action(&rig.connection, &help);
-    let about = poll("the About item", || {
-        descendants(&rig.connection, pid)
-            .into_iter()
-            .find(|n| n.role == MENU_ITEM && n.name.starts_with("About"))
-    });
-    do_action(&rig.connection, &about);
 }
 
 pub(crate) fn terminal_server(rig: &mut Rig) -> u32 {

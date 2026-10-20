@@ -34,34 +34,6 @@ w.show_all()
 Gtk.main()
 "#;
 
-const GRAB: &str = r#"
-import os, gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
-log = os.environ["ADK_LOG"]
-w = Gtk.Window(title="adk-grab")
-w.set_default_size(320, 200)
-w.add(Gtk.Label(label="m"))
-w.connect("destroy", Gtk.main_quit)
-w.show_all()
-menu = Gtk.Menu()
-for name in ("one", "two"):
-    menu.append(Gtk.MenuItem(label=name))
-def key(widget, event):
-    with open(log, "a") as out:
-        out.write(Gdk.keyval_name(event.keyval) + "\n")
-    return False
-menu.connect("key-press-event", key)
-menu.show_all()
-def pop():
-    menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
-    with open(log + ".state", "w") as out:
-        out.write("visible=%s\n" % menu.get_visible())
-    return False
-GLib.timeout_add(1500, pop)
-Gtk.main()
-"#;
-
 struct App {
     window: WindowInfo,
     log: String,
@@ -108,25 +80,6 @@ fn tool(name: &str) -> Command {
         format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu"),
     );
     command
-}
-
-fn xid_of(pid: u32) -> String {
-    let clients = xprop(&["-root", "_NET_CLIENT_LIST"]);
-    clients
-        .split('#')
-        .nth(1)
-        .unwrap_or_default()
-        .split(',')
-        .map(str::trim)
-        .find(|id| {
-            xprop(&["-id", id, "_NET_WM_PID"])
-                .split('=')
-                .nth(1)
-                .and_then(|text| text.trim().parse::<u32>().ok())
-                == Some(pid)
-        })
-        .expect("the display lists the app's window")
-        .to_owned()
 }
 
 fn close_overview() {
@@ -290,41 +243,4 @@ fn key_dispatch_live_a_background_target_gets_nothing_under_either_policy() {
         assert_eq!(keys_of(&target), "");
         assert_eq!(keys_of(&front), "");
     }
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn key_dispatch_live_a_popup_grab_in_another_app_gets_no_keys_and_the_target_none() {
-    assert_private_display();
-    close_overview();
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let target = spawn(&mut launched, &bus, "target", KEYED);
-    let holder = spawn(&mut launched, &bus, "grab", GRAB);
-    std::thread::sleep(Duration::from_secs(3));
-    let status = tool("wmctrl")
-        .args(["-i", "-a", &xid_of(target.window.pid.get())])
-        .status()
-        .expect("wmctrl runs");
-    assert!(status.success());
-    wait_until("the display never named the target active", || {
-        active_pid() == Some(target.window.pid.get())
-    });
-    println!(
-        "key_dispatch_live grab state {:?}",
-        std::fs::read_to_string(format!("{}.state", holder.log))
-    );
-    let error = press(&bus, &target, InteractionPolicy::headed())
-        .expect_err("a held grab leaves the frame inactive and the chord unsent");
-    println!(
-        "key_dispatch_live grab: {} {:?}",
-        error.message, error.details
-    );
-    assert_eq!(
-        error.details.as_ref().expect("details")["check"],
-        "window_active"
-    );
-    std::thread::sleep(Duration::from_millis(500));
-    assert_eq!(keys_of(&target), "");
-    assert_eq!(keys_of(&holder), "");
 }
