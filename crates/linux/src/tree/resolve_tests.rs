@@ -159,7 +159,7 @@ fn a_unique_match_resolves_and_no_match_is_stale_only_when_everything_was_read()
         .expect("toolbar")
         .children_unread = true;
     let incomplete = refusal(&mut fake, &back);
-    assert_eq!(incomplete.code, ErrorCode::AppUnresponsive);
+    assert_eq!(incomplete.code, ErrorCode::Timeout);
     assert!(incomplete.is_explicitly_retryable());
 }
 
@@ -173,7 +173,7 @@ fn one_match_beside_an_unread_region_is_retried_and_not_resolved() {
         .expect("toolbar")
         .children_unread = true;
     let error = refusal(&mut fake, &back);
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
 }
 
@@ -184,7 +184,7 @@ fn a_childless_web_frame_is_unread_and_never_stale() {
     let mut cold = Fake::new();
     cold.web_process = true;
     let error = refusal(&mut cold, &entry);
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
 }
 
@@ -274,7 +274,7 @@ fn a_twin_whose_extents_cannot_be_read_is_never_replaced_by_the_twin_of_its_size
         .node
         .extents = crate::tree::Field::Failed("extents unavailable".to_owned());
     let error = refusal(&mut fake, &entry);
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
 }
 

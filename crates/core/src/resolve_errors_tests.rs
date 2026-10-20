@@ -16,7 +16,8 @@ fn identity_unknown_error_pins_the_shared_payload() {
     let entry = entry_with_role("button");
     let error = identity_unknown_error(&entry);
 
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
     assert_eq!(
         error.message,
         "Strict resolution could not determine candidate identity from the live accessibility evidence"

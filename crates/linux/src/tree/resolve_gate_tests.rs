@@ -95,7 +95,7 @@ fn a_pid_that_could_not_be_read_is_retried_and_never_declared_exited() {
     let unread = window()
         .check_process(&Lookup::Unreadable, &entry())
         .expect_err("unidentified");
-    assert_eq!(unread.code, ErrorCode::AppUnresponsive);
+    assert_eq!(unread.code, ErrorCode::Timeout);
     assert!(unread.is_explicitly_retryable());
     assert_ne!(kind(&unread), "resolve_owning_process_exited");
 }
@@ -124,6 +124,6 @@ fn an_owner_the_bus_cannot_name_is_exited_or_retryable_never_a_match() {
     let unnamed = window()
         .check_owner(Err(method_error("org.example.Error.Unheard")), &entry())
         .expect_err("unnamed");
-    assert_eq!(unnamed.code, ErrorCode::AppUnresponsive);
+    assert_eq!(unnamed.code, ErrorCode::Timeout);
     assert!(unnamed.is_explicitly_retryable());
 }

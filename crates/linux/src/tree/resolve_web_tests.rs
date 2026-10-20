@@ -121,11 +121,11 @@ fn a_child_whose_owner_cannot_be_looked_up_is_retried_and_never_stale() {
     let mut entry = fake.entry_of("/remote", true);
     fake.pids.remove(":1.7");
     let error = resolve(&mut fake, &entry, deadline()).expect_err("unreadable");
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
     entry.scope.path.clear();
     let error = resolve(&mut fake, &entry, deadline()).expect_err("unreadable");
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
 }
 
 fn window_with_background_tab() -> Fake {
@@ -152,6 +152,6 @@ fn a_pathless_element_stays_retried_while_a_web_document_lists_no_children() {
     let mut entry = fake.entry_of("/save", true);
     entry.scope.path.clear();
     let error = resolve(&mut fake, &entry, deadline()).expect_err("a region is unread");
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
 }

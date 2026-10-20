@@ -109,7 +109,7 @@ fn a_level_that_cannot_be_read_is_retried_and_never_stale() {
         .expect("toolbar")
         .children_unread = true;
     let error = refused(&mut fake, &entry);
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
 }
 
@@ -143,7 +143,7 @@ fn a_landing_whose_evidence_cannot_be_read_is_retried() {
         AdapterError::internal("a field failed"),
     );
     let error = refused(&mut fake, &entry);
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
 }
 
