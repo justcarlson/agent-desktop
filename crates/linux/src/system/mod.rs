@@ -3,6 +3,7 @@ mod action_clock_store;
 mod adapter;
 mod app_alias;
 mod app_name;
+mod app_names;
 mod app_ops;
 mod bus;
 mod bus_deadline;

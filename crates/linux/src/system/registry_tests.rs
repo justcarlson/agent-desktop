@@ -8,6 +8,8 @@ use crate::tree::AtspiElement;
 #[derive(Default)]
 struct Counting {
     stopped: bool,
+    remembered: Option<String>,
+    saved: std::cell::RefCell<Vec<String>>,
     facts: Cell<u32>,
     names: Cell<u32>,
     toolkits: Cell<u32>,
@@ -36,6 +38,14 @@ impl AppReads for Counting {
     async fn toolkit(&self, _root: &AtspiElement) -> ToolkitId {
         self.toolkits.set(self.toolkits.get() + 1);
         ToolkitId::default()
+    }
+
+    fn remembered_name(&self, _root: &AtspiElement, _instance: &str) -> Option<String> {
+        self.remembered.clone()
+    }
+
+    fn remember_name(&self, _root: &AtspiElement, _instance: &str, name: &str) {
+        self.saved.borrow_mut().push(name.to_owned());
     }
 }
 
@@ -97,4 +107,30 @@ fn a_running_process_is_read_for_its_name_and_toolkit() {
     };
     assert!(app.answered);
     assert_eq!((reads.names.get(), reads.toolkits.get()), (1, 1));
+}
+
+#[test]
+fn a_running_root_keeps_the_name_it_answered_to() {
+    let reads = Counting::default();
+    let AppRead::Listed(_) = read(&reads, 7, None) else {
+        panic!("listed")
+    };
+    assert_eq!(reads.saved.borrow().as_slice(), ["App"]);
+}
+
+#[test]
+fn a_stopped_process_resolves_by_the_name_its_root_answered_to() {
+    let reads = Counting {
+        stopped: true,
+        remembered: Some("QtApp".to_owned()),
+        ..Counting::default()
+    };
+    let AppRead::Listed(app) = read(&reads, 7, None) else {
+        panic!("a stopped app stays listed")
+    };
+    assert!(!app.answered);
+    assert_eq!(app.registry_name.as_deref(), Some("QtApp"));
+    assert!(app.matches("qtapp"));
+    assert!(!app.matches("unknown-app"));
+    assert_eq!((reads.names.get(), reads.toolkits.get()), (0, 0));
 }

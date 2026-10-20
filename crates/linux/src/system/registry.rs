@@ -7,6 +7,7 @@ use serde_json::Value;
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
+use super::app_names::AppNames;
 use super::bus_slice::within_slice;
 use super::proc_stat;
 use super::process_facts::{self, ProcessFacts};
@@ -58,6 +59,15 @@ trait AppReads {
     fn is_stopped(&self, pid: u32) -> bool;
     async fn name(&self, root: &AtspiElement) -> Option<Option<String>>;
     async fn toolkit(&self, root: &AtspiElement) -> ToolkitId;
+    /// The name this root answered to before its process stopped, kept because
+    /// a stopped process cannot be asked again. `None` is the default for
+    /// readers with no memory of one.
+    fn remembered_name(&self, _root: &AtspiElement, _instance: &str) -> Option<String> {
+        None
+    }
+    /// Keeps the name this root answered to, against the process instance, so
+    /// the application still resolves by it after the process stops.
+    fn remember_name(&self, _root: &AtspiElement, _instance: &str, _name: &str) {}
 }
 
 struct BusReads<'a>(&'a Connection);
@@ -82,6 +92,16 @@ impl AppReads for BusReads<'_> {
             .await
             .unwrap_or_default()
     }
+
+    fn remembered_name(&self, root: &AtspiElement, instance: &str) -> Option<String> {
+        AppNames::in_runtime_dir()?.recall(root.bus_name(), instance)
+    }
+
+    fn remember_name(&self, root: &AtspiElement, instance: &str, name: &str) {
+        if let Some(names) = AppNames::in_runtime_dir() {
+            names.remember(root.bus_name(), instance, name);
+        }
+    }
 }
 
 async fn read_known(reads: &impl AppReads, root: AtspiElement, only: Option<u32>) -> AppRead {
@@ -97,10 +117,16 @@ async fn read_known(reads: &impl AppReads, root: AtspiElement, only: Option<u32>
         ));
     };
     if reads.is_stopped(pid) {
-        return AppRead::Listed(Box::new(assemble(root, facts, None, ToolkitId::default())));
+        let mut app = assemble(root.clone(), facts, None, ToolkitId::default());
+        app.registry_name = reads.remembered_name(&root, &app.facts.instance);
+        return AppRead::Listed(Box::new(app));
     }
     let (name, toolkit) = join(reads.name(&root), reads.toolkit(&root)).await;
-    AppRead::Listed(Box::new(assemble(root, facts, name, toolkit)))
+    let app = assemble(root.clone(), facts, name, toolkit);
+    if let Some(answered) = app.registry_name.as_deref() {
+        reads.remember_name(&root, &app.facts.instance, answered);
+    }
+    AppRead::Listed(Box::new(app))
 }
 
 async fn read_app(

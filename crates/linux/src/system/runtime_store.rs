@@ -12,15 +12,24 @@ pub(super) fn runtime_subdir(name: &str) -> Option<PathBuf> {
     Some(PathBuf::from(runtime).join(name))
 }
 
+fn token(text: &str) -> String {
+    text.chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect()
+}
+
 /// The file stem of an entry kept for one client and one process instance:
 /// the client in hexadecimal and the instance token with every character that
 /// is not alphanumeric replaced.
 pub(super) fn instance_stem(client: u32, instance: &str) -> String {
-    let token: String = instance
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect();
-    format!("{client:08x}-{token}")
+    format!("{client:08x}-{}", token(instance))
+}
+
+/// The file stem of an entry kept under a caller-chosen key and one process
+/// instance: the key and the instance token with every character that is not
+/// alphanumeric replaced.
+pub(super) fn named_stem(key: &str, instance: &str) -> String {
+    format!("{}-{}", token(key), token(instance))
 }
 
 fn create_pending(path: &Path) -> std::io::Result<(PathBuf, std::fs::File)> {
