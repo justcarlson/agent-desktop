@@ -370,3 +370,19 @@ fn a_retained_session_that_fails_is_still_stopped() {
 
     assert_eq!(session.events().last().map(String::as_str), Some("stop"));
 }
+
+#[test]
+fn a_timeout_from_the_gate_before_any_real_key_says_nothing_was_delivered() {
+    let mut session = FakeSession::new();
+    let expired = Deadline::after(0).expect("a zero deadline builds");
+    let mut gate = || Err(expired.timeout_error());
+
+    let error = drive_with(&mut session, &ctrl_a(), &mut gate).expect_err("the gate times out");
+
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(
+        error.details.expect("details")["physical_delivery_started"],
+        false
+    );
+}

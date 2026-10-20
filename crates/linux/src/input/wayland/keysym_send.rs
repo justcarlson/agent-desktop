@@ -23,20 +23,33 @@ fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
     }
 }
 
+fn with_fields(error: AdapterError, fields: serde_json::Value) -> AdapterError {
+    let mut details = error.details.clone().unwrap_or_else(|| json!({}));
+    if let (Some(map), Some(extra)) = (details.as_object_mut(), fields.as_object()) {
+        map.extend(
+            extra
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
+    }
+    error.with_details(details)
+}
+
 fn with_progress(error: AdapterError, delivered_events: u32) -> AdapterError {
     if delivered_events > 0 {
-        return error
-            .with_details(json!({
+        return with_fields(
+            error,
+            json!({
                 "physical_delivery_started": true,
                 "delivered_events": delivered_events,
-            }))
-            .with_disposition(DeliverySemantics::uncertain());
+            }),
+        )
+        .with_disposition(DeliverySemantics::uncertain());
     }
     if error.disposition != DeliverySemantics::Unknown {
         return error;
     }
-    error
-        .with_details(json!({ "physical_delivery_started": false }))
+    with_fields(error, json!({ "physical_delivery_started": false }))
         .with_disposition(DeliverySemantics::not_delivered())
 }
 
@@ -97,9 +110,6 @@ fn drive(
 }
 
 fn with_progress_kept(error: AdapterError, delivered: u32) -> AdapterError {
-    if delivered == 0 {
-        return error;
-    }
     with_progress(error, delivered)
 }
 
@@ -159,11 +169,11 @@ pub(crate) fn send_chunks(
     let reused = kept.is_some();
     let mut session = match kept {
         Some(session) => session,
-        None => RemoteDesktop::open(deadline)?,
+        None => RemoteDesktop::open(deadline).map_err(|error| with_progress(error, 0))?,
     };
     let mut outcome = run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline);
     if reused && outcome.as_ref().is_err_and(sent_nothing) {
-        session = RemoteDesktop::open(deadline)?;
+        session = RemoteDesktop::open(deadline).map_err(|error| with_progress(error, 0))?;
         outcome = run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline);
     }
     if outcome.is_ok() && session.resumed() {
