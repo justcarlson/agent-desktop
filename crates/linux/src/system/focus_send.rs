@@ -111,7 +111,7 @@ pub(super) fn dialog_over(client: u32, deadline: Deadline) -> Option<String> {
 
 /// Whether the input focus lies in `client`: the focus window is the client or
 /// one of its descendants.
-pub(super) fn input_focus_in(client: u32, deadline: Deadline) -> bool {
+pub(crate) fn input_focus_in(client: u32, deadline: Deadline) -> bool {
     bounded(deadline, false, move || {
         let Ok((connection, root)) = connect() else {
             return false;

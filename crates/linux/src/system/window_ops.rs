@@ -65,8 +65,12 @@ fn remember_ids(listed: &[ListedWindow], state: &X11State, ids: Option<&WindowId
 /// The window the sources agree is focused. A window counts when its frame
 /// carries `ACTIVE`; so does a modal or dialog frame its toolkit never
 /// reports active when the display server names its client the active
-/// window, the one witness such a dialog has.
-pub(super) fn focused_index(listed: &[ListedWindow], state: &X11State) -> Option<usize> {
+/// window and input focus lies in the client or one of its descendants.
+pub(super) fn focused_index(
+    listed: &[ListedWindow],
+    state: &X11State,
+    input_focus_in: impl Fn(u32) -> bool,
+) -> Option<usize> {
     let mut candidates: Vec<usize> = listed
         .iter()
         .enumerate()
@@ -81,6 +85,11 @@ pub(super) fn focused_index(listed: &[ListedWindow], state: &X11State) -> Option
     if let X11Evidence::Frame(named) = evidence
         && (listed[named].modal || listed[named].dialog)
         && !candidates.contains(&named)
+        && let X11State::Ready {
+            active: Some(client),
+            ..
+        } = state
+        && input_focus_in(*client)
     {
         candidates.push(named);
     }
@@ -123,7 +132,9 @@ pub(crate) fn list_windows(
         &state,
         desktops.finish(deadline).flatten().as_ref(),
     );
-    let focused = focused_index(&listed, &state);
+    let focused = focused_index(&listed, &state, |client| {
+        super::focus_world::focus_send::input_focus_in(client, deadline)
+    });
     if let Some(index) = focused {
         listed[index].info.state.is_focused = true;
     }

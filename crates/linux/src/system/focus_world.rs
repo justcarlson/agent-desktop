@@ -23,7 +23,7 @@ use crate::tree::role_numbers::DIALOG;
 use crate::tree::{AtspiElement, read_node};
 
 #[path = "focus_send.rs"]
-mod focus_send;
+pub(super) mod focus_send;
 
 const ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACTIVE_READ: Duration = Duration::from_millis(500);
