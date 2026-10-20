@@ -87,4 +87,7 @@ fi
 
 dbus-update-activation-environment "DISPLAY=$display"
 
+# The session's displayfd names the display its tests must drive; this display now owns that role.
+echo "${display#:}" > "$AGENT_DESKTOP_PRIVATE_SESSION/displayfd"
+
 DISPLAY=$display "$@"
