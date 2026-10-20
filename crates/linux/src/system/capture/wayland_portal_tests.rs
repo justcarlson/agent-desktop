@@ -227,6 +227,45 @@ fn an_image_that_does_not_confirm_the_layout_is_unsupported_and_still_removed() 
 }
 
 #[test]
+fn a_layout_that_changed_during_the_consent_wait_is_refused_and_the_file_removed() {
+    let dir = scratch("rearranged");
+    let path = dir.join("Screenshot.png");
+    fs::write(&path, gradient_png(60, 30)).expect("a png");
+    let first = two_displays();
+    let swapped = vec![
+        display("b", 0.0, 20.0, 20.0),
+        display("a", 20.0, 40.0, 30.0),
+    ];
+    let reads = Cell::new(0);
+    let listing = |_deadline: Deadline| {
+        reads.set(reads.get() + 1);
+        Ok(if reads.get() == 1 {
+            first.clone()
+        } else {
+            swapped.clone()
+        })
+    };
+    let calls = Rc::new(RefCell::new(Vec::new()));
+    let connect = |_deadline: Deadline| -> Result<Box<dyn PortalWire>, AdapterError> {
+        Ok(Box::new(Wire {
+            answer: granted(&path),
+            calls: Rc::clone(&calls),
+        }))
+    };
+    let outcome = capture_with(
+        &ScreenshotTarget::Screen(1),
+        deadline(),
+        &connect,
+        std::slice::from_ref(&dir),
+        &listing,
+    );
+    let error = outcome.expect_err("rearranged");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert!(error.message.contains("layout changed"));
+    assert!(!path.exists());
+}
+
+#[test]
 fn a_window_target_is_unsupported_and_makes_no_portal_call() {
     let window = crate::system::capture::window::fakes::target();
     let (outcome, calls) = run(

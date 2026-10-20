@@ -31,6 +31,14 @@ fn not_a_png() -> AdapterError {
     )
 }
 
+fn layout_changed() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The display layout changed while the screenshot was being allowed",
+    )
+    .with_suggestion("Run 'list-displays' again, then capture the display once more")
+}
+
 fn allowed_directories() -> Vec<PathBuf> {
     let mut roots = vec![std::env::temp_dir()];
     for name in ["XDG_RUNTIME_DIR", "HOME"] {
@@ -87,6 +95,9 @@ pub(crate) fn capture_with(
     let Some((display, all)) = chosen else {
         return Ok(whole);
     };
+    if displays(deadline)? != all {
+        return Err(layout_changed());
+    }
     let rect = pixel_rect(&display, &all, (whole.width, whole.height))?;
     crop_png(&whole.data, rect, display.scale)
 }
