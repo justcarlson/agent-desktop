@@ -145,6 +145,16 @@ fn expiry_after_a_successful_read_names_the_direction_only() {
 }
 
 #[test]
+fn the_expiry_error_is_the_wait_timeout_shape_every_wait_carries() {
+    let world = Fake::new(vec![Ok(false)]);
+    let error = run(&world, true, deadline(120)).expect_err("expires");
+    let details = error.details.expect("details");
+    assert_eq!(details["kind"], "wait_timeout");
+    assert_eq!(details["predicate"], "menu");
+    assert_eq!(details["timeout_ms"], 120);
+}
+
+#[test]
 fn a_target_that_dies_between_the_read_and_the_return_is_stale_and_never_ok() {
     let world = Fake::new(vec![Ok(true)]).with_lives(vec![Liveness::Alive, Liveness::Gone]);
     let error = run(&world, true, deadline(5000)).expect_err("stale");

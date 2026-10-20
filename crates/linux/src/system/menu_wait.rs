@@ -65,6 +65,19 @@ fn direction_message(open: bool) -> &'static str {
     }
 }
 
+/// The wait's own timeout: the same `wait_timeout` kind and `timeout_ms` the
+/// other wait predicates carry, keyed `menu`, with the direction and poll
+/// state kept in the platform detail.
+fn menu_timeout(open: bool, deadline: Deadline, detail: String) -> AdapterError {
+    AdapterError::timeout(direction_message(open))
+        .with_details(serde_json::json!({
+            "kind": "wait_timeout",
+            "predicate": "menu",
+            "timeout_ms": deadline.timeout_ms(),
+        }))
+        .with_platform_detail(detail)
+}
+
 fn expiry_detail(open: bool, state_never_read: bool) -> String {
     let direction = direction_message(open);
     if state_never_read {
@@ -132,13 +145,15 @@ pub(super) fn run(
             }
         }
         if deadline.is_expired() {
-            return Err(deadline
-                .timeout_error()
-                .with_platform_detail(expiry_detail(open, state_never_read)));
+            return Err(menu_timeout(
+                open,
+                deadline,
+                expiry_detail(open, state_never_read),
+            ));
         }
         let gap = deadline
             .remaining_slice(POLL_INTERVAL)
-            .map_err(|error| error.with_platform_detail(direction_message(open)))?;
+            .map_err(|_| menu_timeout(open, deadline, direction_message(open).to_owned()))?;
         world.pause(gap);
     }
 }
