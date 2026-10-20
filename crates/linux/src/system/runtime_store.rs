@@ -1,6 +1,9 @@
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_PENDING: AtomicU64 = AtomicU64::new(0);
 
 /// A directory of this name in the runtime directory, or `None` when the
 /// session has no runtime directory.
@@ -20,6 +23,23 @@ pub(super) fn instance_stem(client: u32, instance: &str) -> String {
     format!("{client:08x}-{token}")
 }
 
+fn create_pending(path: &Path) -> std::io::Result<(PathBuf, std::fs::File)> {
+    loop {
+        let sequence = NEXT_PENDING.fetch_add(1, Ordering::Relaxed);
+        let pending = path.with_extension(format!("{}.{sequence}.tmp", std::process::id()));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&pending)
+        {
+            Ok(file) => return Ok((pending, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 /// Writes `bytes` to `path` through a pending file beside it that is renamed
 /// into place, in a private directory (mode 0700, file 0600). A failed write
 /// leaves no pending file behind.
@@ -32,17 +52,16 @@ pub(super) fn write_private_atomically(
         .recursive(true)
         .mode(0o700)
         .create(dir)?;
-    let pending = path.with_extension("tmp");
-    let written = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&pending)
-        .and_then(|mut file| file.write_all(bytes))
+    let (pending, mut file) = create_pending(path)?;
+    let written = file
+        .write_all(bytes)
         .and_then(|()| std::fs::rename(&pending, path));
     if written.is_err() {
         let _ = std::fs::remove_file(&pending);
     }
     written
 }
+
+#[cfg(test)]
+#[path = "runtime_store_tests.rs"]
+mod tests;
