@@ -14,3 +14,11 @@ pub use adapter::LinuxAdapter;
 pub fn release_input_on_signals() {
     input::x11::signal_release::enable();
 }
+
+/// Ends the keyboard session a Wayland delivery left open for the next one.
+/// The command-line binary calls it before the process ends: a session left to
+/// the compositor's disconnect handling is torn down late, and that teardown
+/// can take the keyboard focus from the session of the next process.
+pub fn end_input_session() {
+    input::wayland::kept_session::end();
+}

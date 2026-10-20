@@ -49,7 +49,6 @@ impl<S> Pool<S> {
 
 static KEPT: Pool<RemoteDesktop> = Pool::new();
 static GENERATION: AtomicU64 = AtomicU64::new(0);
-
 fn stop_quietly(mut session: RemoteDesktop) {
     if let Ok(deadline) = Deadline::detached_after(STOP_BUDGET_MS) {
         let _ = session.stop(deadline);
@@ -85,6 +84,14 @@ pub(crate) fn keep(session: RemoteDesktop) {
                 stop_quietly(session);
             }
         });
+}
+
+/// Stops the kept session now, for a process that is about to end.
+pub(crate) fn end() {
+    GENERATION.fetch_add(1, Ordering::SeqCst);
+    if let Taken::Fresh(session) | Taken::Expired(session) = KEPT.take(Duration::ZERO) {
+        stop_quietly(session);
+    }
 }
 
 #[cfg(test)]

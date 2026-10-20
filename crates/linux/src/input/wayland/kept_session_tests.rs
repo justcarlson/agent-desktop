@@ -31,3 +31,12 @@ fn a_later_put_replaces_the_value_that_was_kept() {
 
     assert!(matches!(pool.take(Duration::from_secs(5)), Taken::Fresh(2)));
 }
+
+#[test]
+fn taking_with_no_idle_allowance_hands_back_whatever_is_kept_so_the_process_can_stop_it() {
+    let pool = Pool::new();
+    pool.put(7);
+
+    assert!(matches!(pool.take(Duration::ZERO), Taken::Expired(7)));
+    assert!(matches!(pool.take(Duration::ZERO), Taken::Empty));
+}
