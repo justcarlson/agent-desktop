@@ -21,6 +21,11 @@ A compact identifier for one persisted snapshot. Lookup is confined to the selec
 ### Surface
 A scoped UI layer that can be observed separately from the whole window, such as an open menu, sheet, popover, alert, or focused area.
 
+### Window Rectangle
+The visible window bounds shared by window listing and window commands, excluding any client-side drop shadow.
+
+A move or resize names this rectangle, and a refusal reports requested and observed bounds in the same terms. Matching bounds during a window-manager animation are provisional; placement must still satisfy the request after a full confirmation pause before it counts as held.
+
 ### Drill-down
 A snapshot operation that starts from an existing ref to observe that element's subtree instead of re-reading the entire window.
 

@@ -33,7 +33,13 @@ Classify in layers, as `crates/linux/src/tree/absence.rs` does.
 1. `Failure` sorts one failed call: `AppGone` (`ServiceUnknown`, `NameHasNoOwner`), `Suspect` (the three names above), `TimedOut`, `Other`. `Suspect` is never a verdict on its own.
 2. `Liveness` is read from the node's own `Accessible.GetRole`, which every live node of every toolkit answers (L17-11). A field read that fails as `Suspect` becomes "object gone" only when `GetRole` also fails in the suspect family; otherwise the failure stays on its field (`read_failure`). `GetAll` and `GetChildAtIndex` are not valid corroboration: Qt fails the first and GTK4 childless nodes fail the second.
 3. Presence is decided by the parent's child list, not by the object's own reads (L17-12): the resolver follows the stored child-index path down from the verified window frame (`path_descent.rs`), and a landing is accepted only if its evidence still matches the stored identity. A node that merely answers is not a positive. The `Parent` property is never climbed (L2-2).
-4. Map to settled answers in `resolve_errors.rs`: app left the bus is `STALE_REF` kind `resolve_owning_process_exited`; destroyed object is `resolve_target_destroyed`; a full search with no match is `resolve_no_candidate`. A timeout stays `TIMEOUT`, except that a process `/proc` shows stopped becomes `APP_UNRESPONSIVE` (`stopped_aware`).
+4. Map to settled answers in `resolve_errors.rs`: app left the bus is `STALE_REF` kind `resolve_owning_process_exited`; destroyed object is `resolve_target_destroyed`; a full search with no match is `resolve_no_candidate`. After that mapping, `resolve.rs` checks whether `/proc` shows the owning process stopped when the error is a timeout or an incomplete identity observation (`resolution_identity_unknown`). Those become `APP_UNRESPONSIVE` (`stopped_aware`); without stopped-process evidence they stay unchanged. Other errors pass through.
+
+### Process state needs independent evidence
+
+The lifecycle path in `crates/linux/src/system/process_state.rs` asks a different question from element resolution. `liveness.rs` checks the expected process-instance token against `/proc` before and after the accessibility probes: a missing, zombie, dead or replaced process is `Exited`; an unreadable stat is conservatively alive. `kill(pid, 0)` succeeds on a zombie and cannot replace that check.
+
+`process_state_classify.rs` keeps an answered probe, a timed-out probe and an unavailable probe distinct. A stopped process is `Unresponsive` unless it answered. A live process becomes `Unresponsive` after two consecutive accessibility timeouts under the enabled blocked-loop rule; one timeout or unavailable evidence leaves it `Running`. The rule was measured against a blocked main loop and healthy applications under load (ledger L31-17, L31-18), not inferred from registry presence. Returning an error for an unavailable probe would let core mistake uncertainty for exit.
 
 ## Prevention
 
