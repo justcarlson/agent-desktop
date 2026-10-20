@@ -143,8 +143,7 @@ fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
     let reported = view.and_then(|view| view.active) == Some(true);
     let silent_dialog = view
         .is_some_and(|view| (view.modal == Some(true) || view.dialog) && view.active != Some(true));
-    let menu_holds_the_grab = world.menu_open();
-    let done = reported || menu_holds_the_grab || (silent_dialog && world.input_focus_in(client));
+    let done = reported || world.menu_open() || (silent_dialog && world.input_focus_in(client));
     (active, done)
 }
 

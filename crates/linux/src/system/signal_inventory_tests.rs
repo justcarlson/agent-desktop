@@ -246,57 +246,57 @@ fn an_active_window_no_client_claims_is_not_a_candidate() {
     assert_eq!(pass.focused, None);
 }
 
-#[test]
-fn the_app_the_manager_names_active_owns_the_focus_when_its_menu_is_open() {
+fn menu_desktop() -> (Vec<ListedWindow>, Vec<super::AppOutcome>, X11State) {
     use crate::system::x11::X11Client;
     use crate::tree::Extents;
-    let build = || {
-        let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
-        let mut menu = frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]);
-        menu.properties.name = Field::Present(String::new());
-        let frames = vec![read(
-            vec![
-                frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25]),
-                menu,
-            ],
-            RootRead::Read,
-        )];
-        let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
-        let title = windows[0].frame.title.clone();
-        let clients = vec![X11Client {
-            id: 0x40_0003,
-            pid: Some(1),
-            title,
-            extents: None,
-            bounds: Some(Extents {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 10,
-            }),
-            hidden: false,
-            shadow: (0, 0, 0, 0),
-        }];
-        let state = X11State::Ready {
-            active: Some(0x40_0003),
-            clients,
-        };
-        (windows, outcomes, state)
+    let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
+    let mut menu = frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]);
+    menu.properties.name = Field::Present(String::new());
+    let frames = vec![read(
+        vec![
+            frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25]),
+            menu,
+        ],
+        RootRead::Read,
+    )];
+    let (windows, outcomes, _) = gathered(&registry, |_| true, frames);
+    let title = windows[0].frame.title.clone();
+    let clients = vec![X11Client {
+        id: 0x40_0003,
+        pid: Some(1),
+        title,
+        extents: None,
+        bounds: Some(Extents {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        }),
+        hidden: false,
+        shadow: (0, 0, 0, 0),
+    }];
+    let state = X11State::Ready {
+        active: Some(0x40_0003),
+        clients,
     };
+    (windows, outcomes, state)
+}
 
-    let (windows, outcomes, state) = build();
+#[test]
+fn the_app_the_manager_names_active_owns_the_focus_when_its_menu_is_open() {
+    let (windows, outcomes, state) = menu_desktop();
     assert_eq!(
         pass_over(windows, outcomes, Vec::new(), &state).focused,
         None,
         "no frame claims ACTIVE while the menu's grab holds the keyboard"
     );
 
-    let (windows, outcomes, state) = build();
-    let pass = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| true);
+    let (windows, outcomes, state) = menu_desktop();
+    let pass = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| Ok(true));
     assert_eq!(pass.focused, Some(0));
 
-    let (windows, outcomes, state) = build();
-    let closed = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| false);
+    let (windows, outcomes, state) = menu_desktop();
+    let closed = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| Ok(false));
     assert_eq!(closed.focused, None);
 }
 
@@ -355,6 +355,7 @@ fn a_selected_app_with_no_outcome_is_skipped_and_one_with_an_outcome_is_not() {
             .collect(),
         candidates: Vec::new(),
         focused: None,
+        menu_focus_complete: true,
         recovered: Vec::new(),
     };
     assert!(skipped_selected(&registry, &pass(&[0]), |_| true));
@@ -380,6 +381,7 @@ fn a_stopped_app_the_display_server_supplied_windows_for_is_not_skipped() {
         }],
         candidates: Vec::new(),
         focused: None,
+        menu_focus_complete: true,
         recovered: vec![1],
     };
     assert!(!skipped_selected(&registry, &pass, |_| true));

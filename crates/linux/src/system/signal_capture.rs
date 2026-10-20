@@ -113,7 +113,9 @@ fn assemble(
         apps: apps_of(&pass.windows, &registry.apps),
         surfaces,
         completeness: SignalCompleteness {
-            windows: read && !focus_is_indeterminate(&pass.candidates, pass.focused),
+            windows: read
+                && pass.menu_focus_complete
+                && !focus_is_indeterminate(&pass.candidates, pass.focused),
             apps: read,
             surfaces: scoped && read && nested.complete,
         },

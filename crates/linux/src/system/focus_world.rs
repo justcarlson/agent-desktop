@@ -112,7 +112,7 @@ impl FocusWorld for LiveWorld<'_> {
     }
 
     fn menu_open(&self) -> bool {
-        menu_focus::open_at(self.bus, &self.frame, self.deadline)
+        menu_focus::open_at(self.bus, &self.frame, self.deadline).unwrap_or(false)
     }
 
     fn overview_open(&self) -> Option<bool> {

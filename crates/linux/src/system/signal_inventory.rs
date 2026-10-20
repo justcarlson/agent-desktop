@@ -33,6 +33,7 @@ pub(crate) struct Pass {
     pub(crate) outcomes: Vec<AppOutcome>,
     pub(crate) candidates: Vec<usize>,
     pub(crate) focused: Option<usize>,
+    pub(crate) menu_focus_complete: bool,
     /// The selected applications whose windows the display server, not their
     /// own read, supplied because their process is stopped. What they present
     /// is known, so a pass that has them is not left wondering what they show.
@@ -204,13 +205,13 @@ fn focus_of(
 fn menu_focus_of(
     windows: &[ListedWindow],
     state: &X11State,
-    menu_open: impl Fn(&WindowInfo) -> bool,
-) -> Option<usize> {
+    menu_open: impl Fn(&WindowInfo) -> Result<bool, AdapterError>,
+) -> Result<Option<usize>, AdapterError> {
     let frames: Vec<FrameFacts> = windows.iter().map(|window| window.frame.clone()).collect();
     let X11Evidence::Frame(named) = x11::evidence(state, &frames) else {
-        return None;
+        return Ok(None);
     };
-    menu_open(&windows.get(named)?.info).then_some(named)
+    menu_open(&windows[named].info).map(|open| open.then_some(named))
 }
 
 #[cfg(test)]
@@ -221,7 +222,7 @@ pub(super) fn pass_over(
     state: &X11State,
     input_focus_in: impl Fn(u32) -> bool,
 ) -> Pass {
-    pass_over_with_menu(windows, outcomes, recovered, state, |_| false, input_focus_in)
+    pass_over_with_menu(windows, outcomes, recovered, state, |_| Ok(false), input_focus_in)
 }
 
 pub(super) fn pass_over_with_menu(
@@ -229,17 +230,24 @@ pub(super) fn pass_over_with_menu(
     outcomes: Vec<AppOutcome>,
     recovered: Vec<usize>,
     state: &X11State,
-    menu_open: impl Fn(&WindowInfo) -> bool,
+    menu_open: impl Fn(&WindowInfo) -> Result<bool, AdapterError>,
     input_focus_in: impl Fn(u32) -> bool,
 ) -> Pass {
     let candidates = candidates_of(&windows, state);
-    let focused = focus_of(&windows, &candidates, state, input_focus_in)
-        .or_else(|| menu_focus_of(&windows, state, menu_open));
+    let focused = focus_of(&windows, &candidates, state, input_focus_in);
+    let from_menu = if focused.is_none() && candidates.is_empty() {
+        menu_focus_of(&windows, state, menu_open)
+    } else {
+        Ok(None)
+    };
+    let menu_focus_complete = from_menu.is_ok();
+    let focused = focused.or(from_menu.unwrap_or(None));
     Pass {
         windows,
         outcomes,
         candidates,
         focused,
+        menu_focus_complete,
         recovered,
     }
 }

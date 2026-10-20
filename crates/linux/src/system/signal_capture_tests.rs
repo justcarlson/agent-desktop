@@ -126,6 +126,7 @@ impl CaptureWorld for World {
             outcomes,
             candidates,
             focused,
+            menu_focus_complete: true,
             recovered: Vec::new(),
         })
     }
@@ -144,6 +145,24 @@ fn scoped_to(name: &str) -> SignalFilter {
         app: Some(name.to_owned()),
         process: None,
     }
+}
+
+#[test]
+fn uncertain_menu_focus_marks_only_the_window_signal_class_incomplete() {
+    let world = World::new(vec![app(1, "alpha", true)], vec![window(0, "doc")]);
+    let registry = world.registry(None, deadline()).unwrap();
+    let mut pass = world.pass(&registry, &|_| true, deadline()).unwrap();
+    pass.menu_focus_complete = false;
+    let baseline = super::assemble(
+        &registry,
+        &pass,
+        super::Scope::Scoped,
+        &NestedScan::complete_and_empty(),
+        false,
+    );
+    assert!(!baseline.completeness.windows);
+    assert!(baseline.completeness.apps);
+    assert!(baseline.completeness.surfaces);
 }
 
 fn take(world: &World, filter: &SignalFilter) -> SignalBaseline {
