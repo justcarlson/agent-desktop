@@ -100,9 +100,9 @@ fn an_absent_window_of_a_live_process_is_window_not_found() {
 }
 
 #[test]
-fn a_reused_process_id_keeps_the_different_process_refusal_whatever_the_verdict() {
+fn a_reused_process_id_keeps_the_different_process_refusal_while_the_process_answers() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "t");
-    for process in [Liveness::Alive, Liveness::Stopped, Liveness::Gone] {
+    for process in [Liveness::Alive, Liveness::Gone] {
         let live = vec![window("w-1.2-a", 5, Some("b:2"), "t")];
         let error = verify(&stored, live, process).expect_err("refused");
         assert_eq!(error.code, ErrorCode::WindowNotFound);
@@ -111,8 +111,9 @@ fn a_reused_process_id_keeps_the_different_process_refusal_whatever_the_verdict(
 }
 
 #[test]
-fn a_window_that_is_listed_resolves_even_when_its_process_reads_stopped() {
+fn a_listed_window_of_a_stopped_process_is_still_app_unresponsive() {
     let stored = window("w-1.2-a", 5, Some("b:1"), "t");
     let live = vec![window("w-1.2-a", 5, Some("b:1"), "t")];
-    assert!(verify(&stored, live, Liveness::Stopped).is_ok());
+    let error = verify(&stored, live, Liveness::Stopped).expect_err("stopped");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
 }

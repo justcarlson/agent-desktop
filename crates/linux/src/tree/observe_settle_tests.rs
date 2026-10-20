@@ -92,6 +92,7 @@ fn observe_limited(limits: &WalkLimits, ms: u64, pause_ms: u64) -> (usize, bool)
         SettleHost {
             walker: &mut walker,
             is_web_process: &|_| true,
+            stopped: &|_| false,
             pause: &mut pause,
         },
     )
@@ -128,6 +129,7 @@ fn observe(web: bool, document: bool, ms: u64, curve: &[Result<usize, AdapterErr
         SettleHost {
             walker: &mut walker,
             is_web_process: &|_| web,
+            stopped: &|_| false,
             pause: &mut pause,
         },
     )
@@ -161,6 +163,7 @@ fn observe_element(web: bool, curve: &[Result<usize, AdapterError>]) -> usize {
         SettleHost {
             walker: &mut walker,
             is_web_process: &|_| web,
+            stopped: &|_| false,
             pause: &mut pause,
         },
     )
@@ -244,6 +247,7 @@ fn a_poll_that_finds_the_window_gone_is_window_not_found() {
         SettleHost {
             walker: &mut walker,
             is_web_process: &|_| true,
+            stopped: &|_| false,
             pause: &mut |_| {},
         },
     )
@@ -291,6 +295,7 @@ fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
         SettleHost {
             walker: &mut walker,
             is_web_process: &|_| true,
+            stopped: &|_| false,
             pause: &mut |_| {},
         },
     )

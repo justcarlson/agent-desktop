@@ -40,6 +40,7 @@ pub(super) struct World {
     pub(super) stopped: bool,
     pub(super) lift_result: Lifted,
     pub(super) wayland: bool,
+    pub(super) stopped: bool,
     pub(super) reaction: Option<fn(&[WindowWrite]) -> WindowFacts>,
     pub(super) remembered: RefCell<Option<Extents>>,
     pub(super) remember_calls: RefCell<Vec<Option<Extents>>>,
@@ -92,6 +93,7 @@ impl World {
             stopped: false,
             lift_result: Lifted::Cleared,
             wayland: false,
+            stopped: false,
             reaction: None,
             remembered: RefCell::new(None),
             remember_calls: RefCell::new(Vec::new()),
@@ -204,6 +206,17 @@ pub(super) fn resize(width: f64, height: f64) -> WindowOp {
 
 fn wide(width: i32, height: i32) -> WindowFacts {
     state(10, 10, width, height)
+}
+
+#[test]
+fn a_window_whose_process_is_stopped_is_unresponsive_and_never_written() {
+    let mut world = World::showing(wide(562, 693));
+    world.stopped = true;
+    let error = run(&world, &window(), &resize(562.0, 693.0), budget())
+        .expect_err("a stopped window refuses the op");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert!(world.writes.borrow().is_empty());
 }
 
 #[test]

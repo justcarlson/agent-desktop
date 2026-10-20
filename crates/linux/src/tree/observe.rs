@@ -148,10 +148,11 @@ fn nested_sheet(
 }
 
 /// What the settle loop needs from outside the tree: the walk itself, whether
-/// a process is a web engine, and how to wait.
+/// a process is a web engine or has stopped, and how to wait.
 struct SettleHost<'a> {
     walker: &'a mut Walker<'a>,
     is_web_process: &'a dyn Fn(u32) -> bool,
+    stopped: &'a dyn Fn(u32) -> bool,
     pause: &'a mut dyn FnMut(Duration),
 }
 
@@ -162,6 +163,11 @@ fn observe_with(
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
     require_surface(request.surface)?;
+    if let ObservationRoot::Window(window) = &root
+        && (host.stopped)(window.pid.get())
+    {
+        return Err(AdapterError::app_unresponsive(&window.app));
+    }
     let element = root_element(&root)?;
     let limits = WalkLimits {
         root_in_web: element.in_web_document(),
@@ -201,6 +207,7 @@ pub(crate) fn observe_tree(
         SettleHost {
             walker: &mut walker,
             is_web_process: &is_web_process,
+            stopped: &crate::system::proc_stat::is_stopped,
             pause: &mut pause,
         },
     )

@@ -12,15 +12,18 @@ fn not_found(detail: &str) -> AdapterError {
 
 /// Checks a stored window against a fresh listing: the process and its
 /// start must be the same. The title is not compared because applications
-/// retitle their windows, and the id already is the window's address. A
-/// stopped process is listed with no windows, so a window missing from the
-/// listing of a stopped process is `APP_UNRESPONSIVE` for its application and
-/// not a closed window.
+/// retitle their windows, and the id already is the window's address. The
+/// listing shows a stopped process's windows, recovered from the display
+/// server, so its window may still be there; resolving it is
+/// `APP_UNRESPONSIVE` for its application either way, never a closed window.
 pub(crate) fn verify(
     expected: &WindowInfo,
     live: Vec<WindowInfo>,
     process: Liveness,
 ) -> Result<WindowInfo, AdapterError> {
+    if process == Liveness::Stopped {
+        return Err(AdapterError::app_unresponsive(&expected.app));
+    }
     let Some(instance) = expected
         .process_instance
         .as_deref()
@@ -32,10 +35,7 @@ pub(crate) fn verify(
         ));
     };
     let Some(found) = live.into_iter().find(|window| window.id == expected.id) else {
-        return Err(match process {
-            Liveness::Stopped => AdapterError::app_unresponsive(&expected.app),
-            Liveness::Alive | Liveness::Gone => not_found("The window is no longer open"),
-        });
+        return Err(not_found("The window is no longer open"));
     };
     if found.pid != expected.pid || found.process_instance.as_deref() != Some(instance) {
         return Err(not_found(
