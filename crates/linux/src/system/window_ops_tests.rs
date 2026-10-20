@@ -1,7 +1,7 @@
 use agent_desktop_core::{WindowInfo, WindowState};
 
 use crate::system::listed_window::ListedWindow;
-use crate::system::signal_inventory::pass_over;
+use crate::system::signal_inventory::pass_over_with_menu;
 use crate::system::x11::{FrameExtents, FrameFacts, X11Client, X11State};
 
 fn window(title: &str, active: bool, modal: bool) -> ListedWindow {
@@ -54,7 +54,15 @@ fn focused(
     state: &X11State,
     input_focus_in: impl Fn(u32) -> bool,
 ) -> Option<usize> {
-    pass_over(listed, Vec::new(), Vec::new(), state, input_focus_in).focused
+    pass_over_with_menu(
+        listed,
+        Vec::new(),
+        Vec::new(),
+        state,
+        |_| Ok(false),
+        input_focus_in,
+    )
+    .focused
 }
 
 #[test]

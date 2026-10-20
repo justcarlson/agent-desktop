@@ -44,6 +44,7 @@ fn window(id: &str, title: &str, sheet: bool) -> ListedWindow {
         },
         active: false,
         modal: false,
+        dialog: false,
         frame: FrameFacts {
             pid: 77,
             title: title.to_owned(),

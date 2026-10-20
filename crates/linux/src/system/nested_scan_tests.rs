@@ -23,6 +23,7 @@ fn window(id: &str, sheet: bool) -> ListedWindow {
         },
         active: false,
         modal: false,
+        dialog: false,
         frame: FrameFacts {
             pid: 7,
             title: "App".to_owned(),

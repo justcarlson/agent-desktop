@@ -220,9 +220,15 @@ pub(super) fn pass_over(
     outcomes: Vec<AppOutcome>,
     recovered: Vec<usize>,
     state: &X11State,
-    input_focus_in: impl Fn(u32) -> bool,
 ) -> Pass {
-    pass_over_with_menu(windows, outcomes, recovered, state, |_| Ok(false), input_focus_in)
+    pass_over_with_menu(
+        windows,
+        outcomes,
+        recovered,
+        state,
+        |_| Ok(false),
+        |_| false,
+    )
 }
 
 pub(super) fn pass_over_with_menu(

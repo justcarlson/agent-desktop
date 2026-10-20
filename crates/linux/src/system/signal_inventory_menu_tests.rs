@@ -21,9 +21,14 @@ fn add_other_application(windows: &mut Vec<ListedWindow>, state: &mut X11State, 
 #[test]
 fn a_failed_menu_read_leaves_focus_incomplete() {
     let (windows, outcomes, state) = menu_desktop();
-    let pass = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| {
-        Err(AdapterError::timeout("The menu scan did not finish"))
-    });
+    let pass = pass_over_with_menu(
+        windows,
+        outcomes,
+        Vec::new(),
+        &state,
+        |_| Err(AdapterError::timeout("The menu scan did not finish")),
+        |_| false,
+    );
     assert_eq!(pass.focused, None);
     assert!(!pass.menu_focus_complete);
     assert!(
@@ -37,7 +42,14 @@ fn a_failed_menu_read_leaves_focus_incomplete() {
 fn a_menu_does_not_override_a_conflicting_active_application() {
     let (mut windows, outcomes, mut state) = menu_desktop();
     add_other_application(&mut windows, &mut state, true);
-    let pass = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |_| Ok(true));
+    let pass = pass_over_with_menu(
+        windows,
+        outcomes,
+        Vec::new(),
+        &state,
+        |_| Ok(true),
+        |_| false,
+    );
     assert_eq!(pass.candidates.len(), 1);
     assert_eq!(pass.focused, None);
 }
@@ -46,9 +58,14 @@ fn a_menu_does_not_override_a_conflicting_active_application() {
 fn another_applications_menu_is_not_focus_for_the_active_application() {
     let (mut windows, outcomes, mut state) = menu_desktop();
     add_other_application(&mut windows, &mut state, false);
-    let pass = pass_over_with_menu(windows, outcomes, Vec::new(), &state, |window| {
-        Ok(window.pid.get() == 2)
-    });
+    let pass = pass_over_with_menu(
+        windows,
+        outcomes,
+        Vec::new(),
+        &state,
+        |window| Ok(window.pid.get() == 2),
+        |_| false,
+    );
     assert_eq!(pass.focused, None);
     assert!(pass.menu_focus_complete);
 }
