@@ -11,7 +11,7 @@ use super::context::Target;
 use super::mutation::WriteReply;
 use super::toggle_state::toggle_reporting;
 use crate::system::within;
-use crate::tree::action_names::{toggle_verbs, verbs_for};
+use crate::tree::action_names::{click_verbs, toggle_verbs, verbs_for};
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::capability_rules::carries_checked;
 use crate::tree::role_numbers::TOGGLE_BUTTON;
@@ -187,7 +187,10 @@ fn toggles_in_place(role: Option<u32>, names: &[String]) -> bool {
 fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, AdapterError> {
     let view = target.view()?;
     let names = names_of(&view)?;
-    let verbs = verbs_for(action);
+    let verbs = match action {
+        Action::Click => click_verbs(view.role()),
+        _ => verbs_for(action),
+    };
     let before = view.observation();
     let (budget, step) = settle_for(&view);
     let own_verb = resolve_verb(names, verbs).is_some();

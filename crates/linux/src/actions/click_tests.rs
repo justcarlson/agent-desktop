@@ -154,6 +154,19 @@ fn a_div_advertising_click_ancestor_is_clicked_through_it() {
 }
 
 #[test]
+fn a_menu_item_with_only_show_menu_is_clicked_through_it() {
+    use crate::tree::role_numbers::MENU_ITEM;
+    let chosen = names(&["ShowMenu"]);
+    assert_eq!(
+        resolve_verb(&chosen, click_verbs(Some(MENU_ITEM))),
+        Some(0),
+        "a menu item's own open action is its click"
+    );
+    assert_eq!(resolve_verb(&chosen, click_verbs(Some(PUSH_BUTTON))), None);
+    assert_eq!(resolve_verb(&chosen, click_verbs(None)), None);
+}
+
+#[test]
 fn a_switch_with_only_a_toggle_verb_is_clicked_through_the_toggle() {
     use crate::tree::role_numbers::{CHECK_BOX, TOGGLE_BUTTON};
     let toggle_only = names(&["toggle"]);

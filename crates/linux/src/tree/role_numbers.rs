@@ -19,6 +19,7 @@ pub(crate) const SECTION: u32 = 85;
 pub(crate) const LEVEL_BAR: u32 = 103;
 pub(crate) const LABEL: u32 = 29;
 pub(crate) const LIST: u32 = 31;
+pub(crate) const MENU_ITEM: u32 = 35;
 pub(crate) const PASSWORD_TEXT: u32 = 40;
 pub(crate) const PUSH_BUTTON: u32 = 43;
 pub(crate) const RADIO_BUTTON: u32 = 44;
@@ -35,6 +36,12 @@ pub(crate) const DOCUMENT_WEB: u32 = 95;
 pub(crate) const NOTIFICATION: u32 = 101;
 pub(crate) const LANDMARK: u32 = 110;
 pub(crate) const PUSH_BUTTON_MENU: u32 = 129;
+
+/// Whether a numeric role is a menu item: a plain row in a menu, a check or
+/// radio row, all of which open their own submenu or run their own action.
+pub(crate) fn is_menu_item(role: u32) -> bool {
+    matches!(role, MENU_ITEM | CHECK_MENU_ITEM | RADIO_MENU_ITEM)
+}
 
 /// Whether a numeric role is a list, table or tree: a container of many rows.
 pub(crate) fn is_bulk_container(role: Option<u32>) -> bool {

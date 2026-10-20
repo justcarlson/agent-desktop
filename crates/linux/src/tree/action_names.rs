@@ -2,6 +2,7 @@ use agent_desktop_core::{Action, LocatorField, capability};
 
 use super::RawNode;
 use super::capability_rules::{Facts, rule_tokens, scroll_tokens};
+use super::role_numbers::is_menu_item;
 
 const TABLE: [(&str, &[&str]); 16] = [
     ("click", &[capability::CLICK]),
@@ -66,6 +67,36 @@ pub(crate) fn capabilities(node: &RawNode) -> LocatorField<Vec<String>> {
         push_new(&mut tokens, token);
     }
     LocatorField::Known(tokens)
+}
+
+/// The action names a click tries, in order. A menu item whose only verb is
+/// Qt's `ShowMenu` takes that verb last; it is the menu item's own open action,
+/// not the context menu a `showContextMenu` advertises elsewhere.
+pub(crate) fn click_verbs(role: Option<u32>) -> &'static [&'static str] {
+    const CLICK: [&str; 7] = [
+        "click",
+        "press",
+        "activate",
+        "open",
+        "jump",
+        "check",
+        "clickAncestor",
+    ];
+    const MENU_ITEM_CLICK: [&str; 8] = [
+        "click",
+        "press",
+        "activate",
+        "open",
+        "jump",
+        "check",
+        "clickAncestor",
+        "ShowMenu",
+    ];
+    if role.is_some_and(is_menu_item) {
+        &MENU_ITEM_CLICK
+    } else {
+        &CLICK
+    }
 }
 
 /// The action names a dispatch tries for `action`, in order.

@@ -5,7 +5,9 @@ use agent_desktop_core::{Deadline, LocatorField};
 use super::action_names::{capabilities, capability_of};
 use super::capability_rules::carries_checked;
 use super::live_apps::each_app;
-use super::role_numbers::{COMBO_BOX, DIAL, PUSH_BUTTON, SCROLL_BAR, SLIDER, SPIN_BUTTON};
+use super::role_numbers::{
+    COMBO_BOX, DIAL, PUSH_BUTTON, SCROLL_BAR, SLIDER, SPIN_BUTTON, is_menu_item,
+};
 use super::scroll_capability::wheel_target;
 use super::state_bits::{EXPANDABLE, EXPANDED, HAS_POPUP, StateBits};
 use super::walker::walk_tree;
@@ -79,6 +81,10 @@ fn disabled_click(node: &RawNode, role: u32) -> bool {
     (role == PUSH_BUTTON || carries_checked(role)) && disabled(node)
 }
 
+fn menu_item_click(node: &RawNode, role: u32) -> bool {
+    is_menu_item(role) && named(node, &["showmenu"])
+}
+
 fn popup_dropdown(node: &RawNode, role: u32) -> bool {
     let popup = node
         .traits
@@ -99,7 +105,9 @@ fn backed(node: &RawNode, token: &str) -> bool {
                 .iter()
                 .any(|name| capability_of(name).contains(&token))
                 || (token == "Click"
-                    && (toggle_only_click(node, role) || disabled_click(node, role)))
+                    && (toggle_only_click(node, role)
+                        || disabled_click(node, role)
+                        || menu_item_click(node, role)))
         }
         "Select" => {
             named(node, &["select"])

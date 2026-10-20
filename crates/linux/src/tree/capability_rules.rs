@@ -3,6 +3,7 @@ use agent_desktop_core::capability;
 use super::role_numbers::{
     CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, DIAL, ENTRY, LIST, PASSWORD_TEXT, PUSH_BUTTON,
     RADIO_BUTTON, RADIO_MENU_ITEM, SCROLL_BAR, SLIDER, SPIN_BUTTON, TERMINAL, TEXT, TOGGLE_BUTTON,
+    is_menu_item,
 };
 use super::scroll_capability::{eligible, wheel_target};
 use super::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, StateBits};
@@ -18,6 +19,7 @@ const EXPAND: &str = "listitem.expand";
 const COLLAPSE: &str = "listitem.collapse";
 const DISCLOSURE_CLICKS: [&str; 3] = ["click", "press", "activate"];
 const TOGGLE_ONLY_NAMES: [&str; 3] = ["toggle", "switch", "uncheck"];
+const SHOW_MENU: &str = "showmenu";
 
 /// What the token rules read from a node, every part confirmed. A part whose
 /// read failed makes the whole node unknown, never empty: a token the failed
@@ -172,6 +174,18 @@ fn disabled_click_tokens(facts: &Facts) -> Vec<&'static str> {
     }
 }
 
+/// A menu item's only verb may be `ShowMenu`, which opens the item's own menu
+/// on a menu bar and a submenu on a row. That is the click a caller means by
+/// clicking the item, so the item carries `Click`; the dispatch answers it
+/// with the same verb.
+fn menu_item_click_tokens(facts: &Facts) -> Vec<&'static str> {
+    if is_menu_item(facts.role) && facts.has_name(SHOW_MENU) {
+        vec![capability::CLICK]
+    } else {
+        Vec::new()
+    }
+}
+
 fn popup_dropdown(facts: &Facts) -> bool {
     facts.role == COMBO_BOX
         && facts.bits.has(HAS_POPUP)
@@ -202,6 +216,7 @@ pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
     tokens.extend(select_tokens(facts));
     tokens.extend(toggle_click_tokens(facts));
     tokens.extend(disabled_click_tokens(facts));
+    tokens.extend(menu_item_click_tokens(facts));
     tokens
 }
 

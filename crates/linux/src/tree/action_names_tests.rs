@@ -1,9 +1,9 @@
 use agent_desktop_core::{Action, LocatorField};
 
-use super::{capabilities, capability_of, toggle_verbs, verbs_for};
+use super::{capabilities, capability_of, click_verbs, toggle_verbs, verbs_for};
 use crate::tree::Field;
 use crate::tree::RawNode;
-use crate::tree::role_numbers::PUSH_BUTTON;
+use crate::tree::role_numbers::{MENU_ITEM, PUSH_BUTTON};
 use crate::tree::test_support::read_of;
 
 fn node(actions: &[&str]) -> RawNode {
@@ -141,6 +141,15 @@ fn the_click_verbs_end_with_the_two_chromium_verbs_and_exclude_do_default() {
             .iter()
             .any(|verb| verb.eq_ignore_ascii_case("doDefault"))
     );
+}
+
+#[test]
+fn a_menu_items_click_verbs_end_with_show_menu() {
+    let menu_item = click_verbs(Some(MENU_ITEM));
+    assert_eq!(menu_item.last(), Some(&"ShowMenu"));
+    assert_eq!(&menu_item[..7], verbs_for(&Action::Click));
+    assert_eq!(click_verbs(Some(PUSH_BUTTON)), verbs_for(&Action::Click));
+    assert_eq!(click_verbs(None), verbs_for(&Action::Click));
 }
 
 #[test]

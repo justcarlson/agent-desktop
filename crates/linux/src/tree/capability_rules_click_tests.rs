@@ -1,5 +1,23 @@
 use super::*;
-use crate::tree::role_numbers::{CHECK_BOX, COMBO_BOX};
+use crate::tree::role_numbers::{
+    CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, MENU_ITEM, RADIO_MENU_ITEM,
+};
+
+#[test]
+fn a_menu_item_whose_only_verb_is_show_menu_carries_click() {
+    for role in [MENU_ITEM, CHECK_MENU_ITEM, RADIO_MENU_ITEM] {
+        let spec = Spec {
+            names: &["ShowMenu"],
+            ..plain(role)
+        };
+        assert!(tokens_of(&spec).contains(&"Click"), "{role}");
+    }
+    let not_a_menu_item = Spec {
+        names: &["ShowMenu"],
+        ..plain(PUSH_BUTTON)
+    };
+    assert!(!tokens_of(&not_a_menu_item).contains(&"Click"));
+}
 
 #[test]
 fn a_switch_with_only_a_toggle_verb_also_takes_a_click() {
