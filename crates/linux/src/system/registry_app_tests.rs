@@ -48,17 +48,31 @@ fn the_listed_name_is_identical_whether_the_root_answers_or_the_app_is_stopped()
 
 #[test]
 fn the_registry_name_finds_an_answering_app_and_the_stable_name_finds_both() {
-    let answering = assemble(
+    let mut answering = assemble(
         root(),
         nautilus_facts(),
         Some(Some("org.gnome.Nautilus".to_owned())),
         ToolkitId::default(),
     );
-    let stopped = assemble(root(), nautilus_facts(), None, ToolkitId::default());
+    answering.aliases.clear();
+    let mut stopped = assemble(root(), nautilus_facts(), None, ToolkitId::default());
+    stopped.aliases.clear();
     assert!(answering.matches("org.gnome.Nautilus"));
     assert!(!stopped.matches("org.gnome.Nautilus"));
     assert!(answering.matches("nautilus"));
     assert!(stopped.matches("nautilus"));
+}
+
+#[test]
+fn a_desktop_id_alias_finds_an_app_whose_root_reports_another_registry_name() {
+    let mut app = assemble(
+        root(),
+        nautilus_facts(),
+        Some(Some("nautilus".to_owned())),
+        ToolkitId::default(),
+    );
+    app.aliases = vec!["org.gnome.Nautilus".to_owned()];
+    assert!(app.matches("org.gnome.Nautilus"));
 }
 
 #[test]
