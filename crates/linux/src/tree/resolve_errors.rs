@@ -84,7 +84,7 @@ pub(crate) fn ambiguous(candidates: usize) -> AdapterError {
 }
 
 /// A read error mapped to the answer a ref gets: an application that left the
-/// bus and a destroyed object are settled, anything else is unchanged.
+/// bus is settled, a destroyed object stays retryable, and anything else is unchanged.
 pub(crate) fn settle_gone(error: AdapterError) -> AdapterError {
     match error.code {
         ErrorCode::AppNotFound => app_exited(),

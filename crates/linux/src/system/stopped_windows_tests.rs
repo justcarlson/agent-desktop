@@ -59,7 +59,13 @@ fn a_stopped_apps_clients_are_listed_as_not_accessible_with_decodable_distinct_i
         client(0x40_0003, 7, false),
         client(0x40_0009, 7, true),
     ]);
-    let windows = of_stopped_apps(&registry, |_| true, |pid| pid == 7, &state, |_, _| None);
+    let windows = of_stopped_apps(
+        &registry,
+        |_| true,
+        |pid, instance| pid == 7 && instance == "boot:1",
+        &state,
+        |_, _| None,
+    );
     assert_eq!(windows.len(), 2);
     assert_ne!(windows[0].info.id, windows[1].info.id);
     for window in &windows {
@@ -77,14 +83,29 @@ fn a_stopped_apps_clients_are_listed_as_not_accessible_with_decodable_distinct_i
 fn only_stopped_unanswering_selected_apps_and_their_own_clients_are_listed() {
     let state = ready(vec![client(1, 7, false), client(2, 8, false)]);
     let running = registry(vec![app(7, false)]);
-    assert!(of_stopped_apps(&running, |_| true, |_| false, &state, |_, _| None).is_empty());
+    assert!(of_stopped_apps(&running, |_| true, |_, _| false, &state, |_, _| None).is_empty());
     let answering = registry(vec![app(7, true)]);
-    assert!(of_stopped_apps(&answering, |_| true, |_| true, &state, |_, _| None).is_empty());
+    assert!(of_stopped_apps(&answering, |_| true, |_, _| true, &state, |_, _| None).is_empty());
     let stopped = registry(vec![app(7, false)]);
-    assert!(of_stopped_apps(&stopped, |_| false, |_| true, &state, |_, _| None).is_empty());
-    let own = of_stopped_apps(&stopped, |_| true, |_| true, &state, |_, _| None);
+    assert!(of_stopped_apps(&stopped, |_| false, |_, _| true, &state, |_, _| None).is_empty());
+    let own = of_stopped_apps(&stopped, |_| true, |_, _| true, &state, |_, _| None);
     assert_eq!(own.len(), 1);
     assert_eq!(own[0].info.pid.get(), 7);
+}
+
+#[test]
+fn a_recycled_pid_does_not_claim_the_replacement_process_clients() {
+    let registry = registry(vec![app(7, false)]);
+    let state = ready(vec![client(1, 7, false)]);
+    let replacement_instance = "boot:2";
+    let windows = of_stopped_apps(
+        &registry,
+        |_| true,
+        |pid, instance| pid == 7 && instance == replacement_instance,
+        &state,
+        |_, _| None,
+    );
+    assert!(windows.is_empty());
 }
 
 #[test]
@@ -92,7 +113,7 @@ fn two_registry_entries_of_one_stopped_process_list_each_window_once() {
     let registry = registry(vec![app(7, false), app(7, false)]);
     let state = ready(vec![client(1, 7, false)]);
     assert_eq!(
-        of_stopped_apps(&registry, |_| true, |_| true, &state, |_, _| None).len(),
+        of_stopped_apps(&registry, |_| true, |_, _| true, &state, |_, _| None).len(),
         1
     );
 }
@@ -104,7 +125,7 @@ fn no_display_evidence_lists_nothing() {
         of_stopped_apps(
             &registry,
             |_| true,
-            |_| true,
+            |_, _| true,
             &X11State::Unavailable,
             |_, _| None
         )
@@ -114,7 +135,7 @@ fn no_display_evidence_lists_nothing() {
         of_stopped_apps(
             &registry,
             |_| true,
-            |_| true,
+            |_, _| true,
             &X11State::NoWindowManager,
             |_, _| None
         )
@@ -132,7 +153,7 @@ fn a_window_listed_before_the_stop_keeps_the_id_it_had() {
     let windows = of_stopped_apps(
         &registry,
         |_| true,
-        |_| true,
+        |_, _| true,
         &state,
         |xid, instance| {
             (xid == 0x40_0003 && instance == "boot:1").then(|| "w-1.9-org-gnome-before".to_owned())

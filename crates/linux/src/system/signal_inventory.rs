@@ -5,6 +5,7 @@ use super::focus::decide_focus;
 use super::focus_world::focus_send;
 use super::ghost_window::without_ghosts;
 use super::listed_window::ListedWindow;
+use super::liveness;
 use super::proc_stat;
 use super::registry::Registry;
 use super::registry_app::RegistryApp;
@@ -232,7 +233,7 @@ pub(super) fn run_pass_with(
     let stopped = of_stopped_apps(
         registry,
         &select,
-        proc_stat::is_stopped,
+        |pid, instance| liveness::liveness(pid, instance) == liveness::Liveness::Stopped,
         &state,
         |client, instance| ids.as_ref()?.recall(client, instance),
     );

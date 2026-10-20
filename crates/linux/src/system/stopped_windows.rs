@@ -17,7 +17,7 @@ use super::x11::{FrameFacts, X11State};
 pub(crate) fn of_stopped_apps(
     registry: &Registry,
     select: impl Fn(&RegistryApp) -> bool,
-    is_stopped: impl Fn(u32) -> bool,
+    is_stopped: impl Fn(u32, &str) -> bool,
     state: &X11State,
     known_id: impl Fn(u32, &str) -> Option<String>,
 ) -> Vec<ListedWindow> {
@@ -28,7 +28,7 @@ pub(crate) fn of_stopped_apps(
     let mut found = Vec::new();
     for (index, app) in registry.apps.iter().enumerate() {
         let pid = app.root.pid();
-        if app.answered || !select(app) || !is_stopped(pid) {
+        if app.answered || !select(app) || !is_stopped(pid, &app.facts.instance) {
             continue;
         }
         for client in clients.iter().filter(|client| client.pid == Some(pid)) {
