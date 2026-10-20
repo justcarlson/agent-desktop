@@ -76,16 +76,10 @@ fn unavailable_verification_preserves_no_delivery_and_demotes_verified_delivery(
 }
 
 #[test]
-fn legacy_json_defaults_to_delivered_unverified() {
-    let result: ActionResult = serde_json::from_value(serde_json::json!({
-        "action": "click"
-    }))
-    .expect("legacy action result");
+fn json_without_disposition_is_rejected() {
+    let value = serde_json::json!({ "action": "click" });
 
-    assert_eq!(
-        result.disposition(),
-        DeliverySemantics::delivered_unverified()
-    );
+    assert!(serde_json::from_value::<ActionResult>(value).is_err());
 }
 
 #[test]
