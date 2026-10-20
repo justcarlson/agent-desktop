@@ -70,6 +70,16 @@ impl AdapterError {
         self.retryability != crate::retryability::Retryability::NonRetryable
     }
 
+    /// Marks a lookup refusal raised before anything was sent to the
+    /// application as `not_delivered`, keeping any stronger evidence the
+    /// error already carries.
+    pub(crate) fn unsent(mut self) -> Self {
+        if self.disposition == DeliverySemantics::unknown() {
+            self.disposition = DeliverySemantics::not_delivered();
+        }
+        self
+    }
+
     pub fn stale_ref(ref_id: &str) -> Self {
         Self::new(
             ErrorCode::StaleRef,

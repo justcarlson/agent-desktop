@@ -188,7 +188,11 @@ fn observe_first_owner(
             result => return result.map(|observed| (window, observed)),
         }
     }
-    Err(crate::AdapterError::new(crate::ErrorCode::WindowNotFound, "No window to observe").into())
+    Err(
+        crate::AdapterError::new(crate::ErrorCode::WindowNotFound, "No window to observe")
+            .unsent()
+            .into(),
+    )
 }
 
 fn windows_for_app(
@@ -223,7 +227,8 @@ pub(crate) fn resolve_window(
                     crate::ErrorCode::WindowNotFound,
                     format!("No window with id {wid}"),
                 )
-                .with_suggestion("Run 'list-windows' to see available window IDs."),
+                .with_suggestion("Run 'list-windows' to see available window IDs.")
+                .unsent(),
             )
         })
     } else if let Some(app) = app_name {

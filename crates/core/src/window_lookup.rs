@@ -56,7 +56,7 @@ pub(crate) fn select_surface_owner(
     empty_error: crate::AdapterError,
 ) -> Result<WindowInfo, AppError> {
     if candidates.is_empty() {
-        return Err(empty_error.into());
+        return Err(empty_error.unsent().into());
     }
     let best = candidates
         .iter()
@@ -84,7 +84,7 @@ pub(crate) fn select_window(
     ambiguous_message: &str,
 ) -> Result<WindowInfo, AppError> {
     if candidates.is_empty() {
-        return Err(empty_error.into());
+        return Err(empty_error.unsent().into());
     }
     if candidates.len() == 1 {
         return Ok(candidates.swap_remove(0));
