@@ -220,6 +220,53 @@ fn ref_entry_full_roundtrip_preserves_all_fields() {
 }
 
 #[test]
+fn legacy_ref_entry_json_without_bounds_space_deserializes_to_none() {
+    let bounds = crate::Rect {
+        x: 4.0,
+        y: 8.0,
+        width: 120.0,
+        height: 24.0,
+    };
+    let mut entry = minimal_entry("button");
+    entry.geometry = crate::RefGeometry {
+        bounds: Some(bounds),
+        bounds_hash: bounds.bounds_hash(),
+        bounds_space: None,
+    };
+
+    let json = serde_json::to_string(&entry).unwrap();
+    assert!(
+        !json.contains("\"bounds_space\""),
+        "a screen rectangle writes no bounds_space key, json={json}"
+    );
+
+    let back: RefEntry = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.geometry.bounds_space, None);
+    assert_eq!(back.geometry.bounds, Some(bounds));
+}
+
+#[test]
+fn window_bounds_space_round_trips_as_window() {
+    let mut entry = minimal_entry("button");
+    entry.geometry.bounds_space = Some(crate::BoundsSpace::Window);
+    entry.geometry.bounds = Some(crate::Rect {
+        x: 4.0,
+        y: 8.0,
+        width: 120.0,
+        height: 24.0,
+    });
+
+    let json = serde_json::to_string(&entry).unwrap();
+    assert!(
+        json.contains("\"bounds_space\":\"window\""),
+        "a window rectangle names its space as 'window', json={json}"
+    );
+
+    let back: RefEntry = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.geometry.bounds_space, Some(crate::BoundsSpace::Window));
+}
+
+#[test]
 fn refmap_round_trip_keeps_bounds_on_a_rounding_boundary() {
     let bounds = crate::Rect {
         x: 505.24,

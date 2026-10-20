@@ -254,6 +254,25 @@ fn empty_dom_classes_is_omitted() {
     assert!(!json.contains("\"placeholder\":"));
 }
 
+#[test]
+fn node_presentation_never_serializes_ref_bounds() {
+    let presentation = crate::NodePresentation {
+        ref_bounds: Some(Rect {
+            x: 4.0,
+            y: 8.0,
+            width: 120.0,
+            height: 24.0,
+        }),
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&presentation).unwrap();
+
+    assert!(
+        !json.contains("ref_bounds"),
+        "ref_bounds is evidence, not envelope output, json={json}"
+    );
+}
+
 /// A node with the fields present round-trips through deserialization with all
 /// fields intact — pinned both ways, so a future serde mis-threading shows up
 /// in the schema test rather than later.
