@@ -288,9 +288,10 @@ fn signal_live_two_windows_focus_changes_under_the_window_manager() {
 #[test]
 #[ignore = "needs a Wayland session with no input device; run through the owner's Wayland harness"]
 fn signal_live_wayland_without_input_times_out_with_baseline_counts() {
-    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
-        return;
-    }
+    assert!(
+        std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        "precondition: this test needs a Wayland session, WAYLAND_DISPLAY is not set"
+    );
     let mut rig = Rig::new();
     let pid = rig.spawn("gnome-calculator", &[]);
     let (name, _) = identity_of(&rig, pid);
