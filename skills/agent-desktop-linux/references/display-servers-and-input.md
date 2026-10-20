@@ -42,8 +42,12 @@ event with `verified: false`, because XTEST has no read-back; `semantic_api` mea
 the node's own action ran and the pointer did not move. Windows works the other
 way round (semantic first), so do not carry that assumption across platforms.
 
-Before a ref-addressed key or click, the target frame must report `active`
-within a short wait. A frame that never does fails with `check: window_active`.
+Before a physical ref-addressed key or click, the target frame must report
+`active` within a short wait; a frame that never does fails with
+`check: window_active`. Headless semantic actions do not need the frame active:
+a headless `type` into a background window succeeds. A headless `press --app` to
+a background app fails with `display_active_window`, and `press --window-id` on
+another window of the active process fails with `other_window_of_target`.
 The gate is necessary, not sufficient: while a popup menu holds the grab, keys
 reach the menu even if the frame reads active, so key steps stay unverified.
 Pointer forms aim at the centre of the ref's bounds, which the adapter withholds
@@ -90,15 +94,15 @@ in the CLI help; `agent-desktop press <combo>` shows the refusal per combo.
 Headless `type @ref text` writes through `EditableText.InsertText`. Under `--headed` it
 sends physical keys first (step `XTEST.type_text`, `physical_synthetic`; the result still
 reads the field back when it can) and falls back to `EditableText` only where keys
-cannot be sent. A node with no `EditableText` (a widget of role `document`, such as a
-terminal emulator) has no semantic route: it takes keys only under `--headed`. Terminal
-output cannot be read through a ref:
-a `document` node with no text interface has no readable text, so verify what a
-terminal command did through files or another app.
+cannot be sent. A terminal's text node is a `textfield` named `Terminal` with only
+`RightClick`: headless `type` on it answers `POLICY_DENIED` with check
+`supported_action`, and it takes keys only under `--headed`. Its value is null, so
+terminal output cannot be read through a ref; verify what a terminal command did
+through files or another app.
 
-The first `type` into a fresh document can change the window title, and the ref then
-answers `STALE_REF` (`resolve_no_candidate`). Take a fresh `snapshot` after a `type`
-that changes the app and read the value from the new ref.
+The first `type` into a fresh document changes the window title. The ref from the
+snapshot still resolves: `get` on it reads the typed value. Take a fresh snapshot
+only when the UI you address has changed for another reason.
 
 ## Wayland keys
 
@@ -106,11 +110,10 @@ Wayland keys go through `org.gnome.Mutter.RemoteDesktop` on the session bus.
 Each call opens its own session, sends keysyms, waits 150 ms so the compositor
 drains them, and stops the session, releasing any key still held.
 
-- **The lead Shift.** The compositor drops the first key of a session and creates
-  the seat keyboard only on input, so the first key press of a call sends a lone
-  Shift tap before the real keys. It is harmless in a text field, but it can reach
-  a shortcut handler that watches a bare Shift. This is a stated limit, not a bug
-  to retry around.
+- **The lead Shift.** The compositor drops the first key of a session, so the
+  first key press of a call sends a lone Shift tap before the real keys. The tap
+  does not reach the application: a GTK3 entry logged only the real key, not the
+  Shift. Send the keys you mean; the lead tap is not an extra shortcut.
 - **Characters.** Only printable ASCII, function, modifier and vendor keysyms are
   accepted. Anything else returns `ACTION_NOT_SUPPORTED` with cause
   `character_outside_layout`; set the value directly with `set-value` instead.
@@ -166,6 +169,8 @@ If a button seems stuck after you killed a command, run any input command
 
 ## Held input
 
-`key-down`, `key-up`, `mouse-down` and `mouse-up` fail closed with
-`ACTION_NOT_SUPPORTED` on every platform, and the adapter emits no event.
-Compose `press` with modifiers (`ctrl+shift+a`) and `drag` instead.
+`key-down` and `key-up` fail closed with `ACTION_NOT_SUPPORTED` and
+`delivery: unknown`. `mouse-down` and `mouse-up` without `--headed` fail with
+`POLICY_DENIED` and `not_delivered`; with `--headed` they fail with
+`ACTION_NOT_SUPPORTED`. No event is emitted. Compose `press` with modifiers
+(`ctrl+shift+a`) and `drag` instead.

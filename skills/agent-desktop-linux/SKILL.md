@@ -40,7 +40,7 @@ tool for observation or semantic actions.
 | Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, X11 only. On Wayland the pointer cannot be aimed and these refuse with `ACTION_NOT_SUPPORTED` |
 | Focus | `focus` | Needs `--headed` for the focus permission; delivered through the node's own focus action, not the pointer |
 | Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and Wayland; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
-| Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed with `ACTION_NOT_SUPPORTED` on every platform |
+| Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed: `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Works for X11 and Xwayland windows; a Wayland-native window is refused with cause `wayland_session`. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: window, screen or whole screen with no permission. Wayland: whole desktop only, after a consent dialog. See `references/capture-and-clipboard.md` |
@@ -96,10 +96,10 @@ tool for observation or semantic actions.
   semantic action (`semantic_api`) only where the pointer is unsupported (Wayland)
   or the node cannot be aimed. Windows works the other way round. Read the step in
   `data` to see which ran.
-- Headless `type` writes through `EditableText`. A node with no `EditableText` (a
-  widget of role `document`, such as a terminal) has no semantic route, so it
-  receives keys only under `--headed`. A `document` widget with no text interface has
-  no readable text.
+- Headless `type` writes through `EditableText`. A terminal's text node is a
+  `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
+  on it is `POLICY_DENIED` with check `supported_action`, and its value is null.
+  It receives keys only under `--headed`.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
   Windows names plus X keysym names.
 - X11 and Wayland differ in input, capture and window control; the Wayland
