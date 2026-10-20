@@ -206,8 +206,8 @@ def delayed_enable(ctx: LegContext) -> None:
         before = count_live(ctx.tier, app, "7")
         ctx.before("atspi.names_7", before)
         trigger = helper_module.delayed(2.0, lambda: _press_twice(ctx.tier, app))
-        trigger.join()
         assert_ok(ctx.product(["click", undo, "--timeout-ms", "8000"]))
+        trigger.join()
         after = wait_count(ctx.tier, app, "7", before + 1)
         ctx.after("atspi.names_7", after)
         if after != before + 1:

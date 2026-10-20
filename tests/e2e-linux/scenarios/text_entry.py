@@ -139,22 +139,13 @@ def replace_all_gating(ctx: LegContext) -> None:
 
 def _modifier_state(tier) -> str:
     process = subprocess.run(
-        ["xdotool", "getmodifierstate", "shift", "ctrl", "alt", "super"],
+        ["xdotool", "getmodifierstate"],
         capture_output=True,
         text=True,
         env=tier.env,
         timeout=5,
         check=False,
     )
-    if process.returncode != 0:
-        process = subprocess.run(
-            ["xdotool", "getmodifierstate"],
-            capture_output=True,
-            text=True,
-            env=tier.env,
-            timeout=5,
-            check=False,
-        )
     return process.stdout
 
 

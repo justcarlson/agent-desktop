@@ -7,7 +7,7 @@ from oracle import atspi_raw, x11
 from runner import apps
 from runner.legs import implementation
 from runner.verdict import LegContext
-from scenarios.headed_actions import assert_ok, count_live, live_root, raw_names, ref_for, window_of
+from scenarios.headed_actions import assert_ok, live_root, raw_names, ref_for, window_of
 
 POINTER_TOLERANCE = 2
 DISPLAY_RE = re.compile(r"^\d+$")
@@ -90,8 +90,8 @@ def _window_id(app) -> str:
     return window_of(app)
 
 
-def _display_names(root) -> set[str]:
-    return {name for name in raw_names(root) if DISPLAY_RE.match(name or "")}
+def _display_weight(root) -> int:
+    return sum(len(name) for name in raw_names(root) if DISPLAY_RE.match(name or ""))
 
 
 def _terminal_tabs(root) -> int:
@@ -117,7 +117,7 @@ def _targets(ctx: LegContext) -> list[dict]:
             "app": calculator,
             "button": "7",
             "window": window_of(calculator),
-            "effect": lambda: len(_display_names(live_root(ctx.tier, calculator))),
+            "effect": lambda: _display_weight(live_root(ctx.tier, calculator)),
         },
         {
             "name": "gtk3",
@@ -151,6 +151,15 @@ def _button_point(ctx: LegContext, target: dict) -> tuple[int, int]:
     return expected_point(origin, frame_extents(ctx.tier, target["window"]), extents)
 
 
+def _scroll_ref(ctx: LegContext, window: str) -> str:
+    for role in ("listbox", "scrollarea", "terminal", "text"):
+        try:
+            return ref_for(ctx, window, role=role, deadline_s=2.0)
+        except AssertionError:
+            continue
+    return ref_for(ctx, window, role="group")
+
+
 def _flat(node) -> list:
     collected = [node]
     for child in node.children():
@@ -175,7 +184,7 @@ def _product_for_verb(ctx: LegContext, target: dict, verb: str, point: tuple[int
     if verb == "drag":
         return ctx.product(["drag", "--from-xy", coordinates, "--to-xy", f"{point[0] + 20},{point[1]}"])
     if verb == "scroll":
-        return ctx.product(["scroll", ref, "--direction", "down", "--amount", "3"])
+        return ctx.product(["scroll", _scroll_ref(ctx, window), "--direction", "down", "--amount", "3"])
     raise AssertionError(f"unknown verb {verb}")
 
 
