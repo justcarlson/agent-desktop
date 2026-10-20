@@ -53,7 +53,7 @@ pub(crate) fn aliases_in(index: &AliasIndex, facts: &ProcessFacts) -> Vec<String
 /// Whether `query` names this application: exactly, ignoring case, its
 /// listed name, the accessibility root's registry name while the root
 /// answered, its `comm`, its executable basename or one of the desktop entry
-/// names in `aliases`, including the launcher's known server names.
+/// names or ids in `aliases`, including the launcher's known server names.
 pub(crate) fn name_matches(
     query: &str,
     name: &str,

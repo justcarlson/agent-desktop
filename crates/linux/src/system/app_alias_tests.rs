@@ -156,3 +156,22 @@ fn terminal_answers_to_its_name_through_the_server_it_runs_as() {
     assert_eq!(index.names_for("gnome-terminal-server"), ["Terminal"]);
     assert_eq!(index.names_for("gnome-terminal"), ["Terminal"]);
 }
+
+#[test]
+fn a_desktop_id_never_aliases_the_try_exec_helper() {
+    let index = AliasIndex::build(&[file(
+        "org.example.Client",
+        "Name=Client\nType=Application\nExec=client\nTryExec=helper",
+    )]);
+    assert_eq!(index.ids_for("client"), ["org.example.Client"]);
+    assert!(index.ids_for("helper").is_empty());
+}
+
+#[test]
+fn shared_executable_basenames_do_not_receive_desktop_id_aliases() {
+    let index = AliasIndex::build(&[
+        file("one", "Name=One\nType=Application\nExec=/opt/one/shared"),
+        file("two", "Name=Two\nType=Application\nExec=/opt/two/shared"),
+    ]);
+    assert!(index.ids_for("shared").is_empty());
+}

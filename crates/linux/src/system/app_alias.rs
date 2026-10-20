@@ -12,6 +12,7 @@ struct IndexedEntry {
     id: String,
     name: String,
     programs: Vec<String>,
+    id_programs: Vec<String>,
 }
 
 /// The desktop entries of the machine, as the names each executable goes by.
@@ -33,16 +34,20 @@ impl AliasIndex {
             .filter_map(|(id, text)| parse(id, text))
             .filter(|entry| entry.traits.application && !entry.traits.hidden)
             .map(|entry| {
-                let mut programs: Vec<String> = entry
+                let mut id_programs: Vec<String> = entry
                     .exec
                     .as_deref()
                     .and_then(program_word)
                     .into_iter()
-                    .chain(entry.try_exec.clone())
                     .filter_map(|program| basename_lower(&program))
                     .collect();
+                let mut programs = id_programs.clone();
+                programs.extend(entry.try_exec.as_deref().and_then(basename_lower));
                 let id = entry.id.to_lowercase();
                 for (key, extra) in KEY_TABLE {
+                    if *key == id || id_programs.iter().any(|program| program == key) {
+                        id_programs.extend(extra.iter().map(|name| (*name).to_owned()));
+                    }
                     if *key == id || programs.iter().any(|program| program == key) {
                         programs.extend(extra.iter().map(|name| (*name).to_owned()));
                     }
@@ -52,6 +57,7 @@ impl AliasIndex {
                     id: entry.id,
                     name: entry.name,
                     programs,
+                    id_programs,
                 }
             })
             .collect();
@@ -71,17 +77,20 @@ impl AliasIndex {
         names
     }
 
-    /// The id of every entry whose `Exec` program or `TryExec` has this
-    /// executable basename, compared exactly and ignoring case.
+    /// The id uniquely associated with this executable through `Exec` or a
+    /// known launcher/server mapping. `TryExec` only checks availability and
+    /// cannot identify the running application. Shared executable basenames
+    /// cannot distinguish desktop entries, so they receive no id alias.
     pub(crate) fn ids_for(&self, exe_basename: &str) -> Vec<String> {
         let wanted = exe_basename.to_lowercase();
-        let mut ids: Vec<String> = Vec::new();
-        for entry in &self.entries {
-            if entry.programs.contains(&wanted) && !ids.contains(&entry.id) {
-                ids.push(entry.id.clone());
-            }
+        let mut entries = self
+            .entries
+            .iter()
+            .filter(|entry| entry.id_programs.contains(&wanted));
+        match (entries.next(), entries.next()) {
+            (Some(entry), None) => vec![entry.id.clone()],
+            _ => Vec::new(),
         }
-        ids
     }
 
     /// The id of every entry whose `Name` equals `name`, ignoring case.
