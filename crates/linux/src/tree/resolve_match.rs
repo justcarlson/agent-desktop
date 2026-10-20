@@ -165,13 +165,16 @@ fn no_text(field: &LocatorField<String>) -> bool {
 
 /// Whether nothing the node answers could tell it from any other node of its
 /// role: no name or description, no identifier, and no extents with an area.
-/// An unreadable field is not an absence.
+/// An unreadable name, description or identifier is not an absence, so it
+/// withholds the claim. An unreadable extents read is treated like an absent
+/// one: a session with no display geometry to report cannot prove a node
+/// gained an area, and the role and the stored path are the evidence that
+/// remains.
 fn landing_is_identityless(evidence: &LocatorEvidence) -> bool {
     no_text(&evidence.name)
         && no_text(&evidence.description)
         && evidence.identifiers.is_complete()
         && evidence.identifiers.preferred_identifier().is_none()
-        && !evidence.ref_evidence.bounds.is_unknown()
         && live_size(evidence).is_none()
 }
 

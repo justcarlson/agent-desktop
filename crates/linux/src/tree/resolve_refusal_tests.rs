@@ -120,6 +120,17 @@ fn a_bare_ref_resolves_at_its_stored_path_when_the_node_there_is_still_bare() {
 }
 
 #[test]
+fn a_bare_ref_resolves_at_its_stored_path_when_the_extents_read_is_unavailable() {
+    let mut fake = bare_list();
+    fake.nodes.get_mut("/list").expect("list").read.node.extents =
+        crate::tree::Field::Failed("no geometry on this session".to_owned());
+    let entry = fake.entry_of("/list", false);
+    let handle = resolve(&mut fake, &entry, deadline()).expect("the bare ref lands");
+    assert_eq!(handle.path(), "/list");
+    assert_eq!(fake.reads.searches, 0);
+}
+
+#[test]
 fn a_bare_ref_is_refused_when_the_path_lands_on_a_node_that_is_no_longer_bare() {
     let mut named = bare_list();
     let entry = named.entry_of("/list", false);
