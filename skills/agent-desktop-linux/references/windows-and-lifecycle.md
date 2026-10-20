@@ -25,8 +25,11 @@ match. Read `list-apps` and use what it shows.
 
 Window ids are opaque addresses of 34 to 70 characters, valid for the life of the
 window's process. `list-apps` rows carry `name`, `pid` and `process_instance`
-and no `bundle_id`. `list-windows` rows add `minimized` and `process_instance`.
-Several instances of one app share a name: use `--window-id` to pick one.
+and no `bundle_id`. `list-windows` rows carry `id`, `title`, `pid`, `is_focused`,
+`minimized`, `visible`, `accessible` and `process_instance`, plus `bounds` when
+the display maps one. Several instances of one app share a name: use `--window-id`
+to pick one. Two windows of one process with the same title and bounds make
+`focus-window --window-id` answer `ambiguous_window`.
 `close-app` and `launch` cannot choose between instances and answer
 `AMBIGUOUS_TARGET`.
 
