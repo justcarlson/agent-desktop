@@ -172,8 +172,8 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
         );
         if label == "gtk3" {
             assert!(
-                !answered_gone,
-                "[gtk3] a destroyed object now answers gone after {held_ms} ms: L25-5 no longer holds"
+                answered_gone,
+                "[gtk3] a destroyed object still answers after {held_ms} ms"
             );
         } else {
             assert!(
