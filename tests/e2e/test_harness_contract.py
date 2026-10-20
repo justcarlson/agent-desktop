@@ -56,6 +56,7 @@ class HarnessContractTests(unittest.TestCase):
             *E2E_ROOT.glob("*.sh"),
             *(E2E_ROOT / "scenarios").glob("*.sh"),
             *(E2E_ROOT.parent / "fixture-app").glob("*.sh"),
+            *(E2E_ROOT.parent / "e2e-linux").glob("*.sh"),
             *(E2E_ROOT.parent.parent / "scripts").glob("*.sh"),
         ]
         for path in sorted(shell_paths):
