@@ -267,8 +267,23 @@ class ReportTests(unittest.TestCase):
             report.LegOutcome("d", "x11-openbox", "headless", report.ERROR),
             report.LegOutcome("e", "x11-openbox", "headless", report.UNIMPLEMENTED),
             report.LegOutcome("f", "x11-openbox", "headless", report.TIER_UNAVAILABLE),
+            report.LegOutcome("g", "x11-openbox", "headless", report.OUTSTANDING),
         ]
-        self.assertEqual(report.count_failures(outcomes), 4)
+        self.assertEqual(report.count_failures(outcomes), 6)
+
+    def test_only_passed_or_disposed_legs_exit_zero(self):
+        accepted = [
+            report.LegOutcome("a", "x11-openbox", "headless", report.PASS),
+            report.LegOutcome("b", "x11-openbox", "headless", report.REFUSED),
+            report.LegOutcome("c", "x11-openbox", "headless", report.OWNER),
+        ]
+        self.assertEqual(report.count_failures(accepted), 0)
+        self.assertEqual(report.exit_code(report.count_failures(accepted), False), 0)
+        for rejected in (report.BLOCKED, report.OUTSTANDING, report.FAIL):
+            outcomes = accepted + [
+                report.LegOutcome("z", "x11-openbox", "headless", rejected)
+            ]
+            self.assertEqual(report.exit_code(report.count_failures(outcomes), False), 1)
 
     def test_render_groups_by_tier_and_mode(self):
         outcomes = [

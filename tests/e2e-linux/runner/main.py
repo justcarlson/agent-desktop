@@ -146,6 +146,18 @@ def _run_tier(tier_name: str, legs_for_tier, impls, suite_dir: Path, verify_bina
     try:
         with session.start_tier(tier_name, TIER_DEADLINE_S) as tier_obj:
             for leg in legs_for_tier:
+                if leg.disposition in (report.OUTSTANDING, report.OWNER):
+                    for mode in leg.modes:
+                        outcomes.append(
+                            report.LegOutcome(
+                                leg_id=leg.id,
+                                tier=tier_name,
+                                mode=mode,
+                                outcome=leg.disposition,
+                                detail=leg.reason,
+                            )
+                        )
+                    continue
                 impl = impls.get(leg.id)
                 for mode in leg.modes:
                     if impl is None:

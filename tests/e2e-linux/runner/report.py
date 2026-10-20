@@ -5,13 +5,14 @@ from dataclasses import dataclass
 PASS = "pass"
 REFUSED = "asserted-refusal"
 OWNER = "owner-decision"
+OUTSTANDING = "outstanding"
 BLOCKED = "blocked"
 UNIMPLEMENTED = "unimplemented"
 FAIL = "fail"
 ERROR = "error"
 TIER_UNAVAILABLE = "tier-unavailable"
 
-_NONFAILING = {PASS, REFUSED, OWNER, BLOCKED}
+_NONFAILING = {PASS, REFUSED, OWNER}
 
 
 @dataclass
