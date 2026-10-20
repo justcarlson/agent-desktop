@@ -158,15 +158,28 @@ fn a_client_side_shadow_is_cropped_from_the_captured_client_area() {
 }
 
 #[test]
-fn a_shadow_that_leaves_no_area_is_ignored() {
-    let (area, inset) = inside_shadow(
-        extents(0, 0, 20, 20),
-        Some(FrameExtents {
+fn an_invalid_shadow_is_ignored() {
+    let rect = extents(0, 0, 20, 20);
+    for shadow in [
+        FrameExtents {
             left: 10,
             right: 10,
             top: 0,
             bottom: 0,
-        }),
-    );
-    assert_eq!((area, inset), (extents(0, 0, 20, 20), (0, 0)));
+        },
+        FrameExtents {
+            left: 1_000,
+            right: i32::MAX as u32,
+            top: 0,
+            bottom: 0,
+        },
+        FrameExtents {
+            left: 0,
+            right: 0,
+            top: 1_000,
+            bottom: i32::MAX as u32,
+        },
+    ] {
+        assert_eq!(inside_shadow(rect, Some(shadow)), (rect, (0, 0)));
+    }
 }

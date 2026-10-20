@@ -34,8 +34,6 @@ fn covered() -> AdapterError {
     .with_details(serde_json::json!({ "reason": "covered" }))
 }
 
-/// The client area inside a GTK window's own shadow, and the offset of that
-/// area within the drawable. A shadow that leaves no area is not used.
 fn inside_shadow(rect: Extents, shadow: Option<FrameExtents>) -> (Extents, (i16, i16)) {
     let Some(shadow) = shadow else {
         return (rect, (0, 0));
@@ -49,7 +47,16 @@ fn inside_shadow(rect: Extents, shadow: Option<FrameExtents>) -> (Extents, (i16,
     ) else {
         return (rect, (0, 0));
     };
-    let (width, height) = (rect.width - left - right, rect.height - top - bottom);
+    let (Some(width), Some(height)) = (
+        rect.width
+            .checked_sub(left)
+            .and_then(|n| n.checked_sub(right)),
+        rect.height
+            .checked_sub(top)
+            .and_then(|n| n.checked_sub(bottom)),
+    ) else {
+        return (rect, (0, 0));
+    };
     let offset = (i16::try_from(left), i16::try_from(top));
     match offset {
         (Ok(x), Ok(y)) if width > 0 && height > 0 => (
