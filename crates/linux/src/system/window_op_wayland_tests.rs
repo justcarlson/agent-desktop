@@ -8,6 +8,24 @@ fn cause(error: &AdapterError) -> String {
 }
 
 #[test]
+fn a_wayland_session_with_no_x11_window_manager_names_the_session_and_not_the_manager() {
+    let mut world = World::showing(state(0, 0, 1, 1));
+    world.wayland = true;
+    world.clients = ControlRead::NoManager;
+    let error = run(
+        &world,
+        &window(),
+        &WindowOp::Move { x: 10.0, y: 20.0 },
+        budget(),
+    )
+    .expect_err("refused");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(cause(&error), "wayland_session");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(world.writes(), 0);
+}
+
+#[test]
 fn an_xwayland_window_is_moved_through_the_x11_route() {
     let mut world = World::showing(state(60, 70, 500, 380));
     world.wayland = true;

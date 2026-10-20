@@ -159,8 +159,13 @@ fn ensure_owned_after(world: &impl OpWorld, win: &WindowInfo) -> Result<(), Adap
 fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), AdapterError> {
     let read = world.clients();
     let ControlRead::Ready(clients) = &read else {
-        if world.on_wayland() && matches!(read, ControlRead::NoManager) {
-            return Err(unsupported_session(&ControlRead::NotX11));
+        if world.on_wayland() {
+            return Err(refused(
+                ErrorCode::ActionNotSupported,
+                "wayland_session",
+                "A Wayland session lets no client move, resize, minimize or maximize another client's window",
+                "Run the desktop session on X11 with a window manager, or operate the window yourself",
+            ));
         }
         return Err(unsupported_session(&read));
     };
