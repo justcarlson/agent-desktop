@@ -74,7 +74,7 @@ class ProcessOracleTests(unittest.TestCase):
     def test_wrong_display_is_not_accepted(self):
         tier = SimpleNamespace(display=":151")
         app = SimpleNamespace(display=":100", name="Terminal", windows=[], pid=123)
-        with patch.object(apps.x11, "stacking", return_value=[]), self.assertRaises(AssertionError):
+        with patch.object(apps.x11, "stacking_xids", return_value=[]), self.assertRaises(AssertionError):
             apps._display_verified(tier, app)
 
     def test_unowned_stop_is_refused_before_signalling(self):

@@ -84,7 +84,7 @@ def _display_verified(tier, app) -> bool:
     if app.display != tier.display:
         raise AssertionError(f"{app.name} mapped on {app.display}, expected {tier.display}")
     mapped = []
-    for xid in x11.stacking(tier):
+    for xid in x11.stacking_xids(tier):
         text = tool(tier, ["xprop", "-id", xid, "_NET_WM_PID"])
         match = re.search(r"=\s*(\d+)", text)
         if match and int(match[1]) == app.pid:
