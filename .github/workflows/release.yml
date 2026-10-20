@@ -134,6 +134,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -148,18 +149,44 @@ jobs:
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
           - target: aarch64-pc-windows-msvc
             runner: windows-11-arm
     steps:
+      - name: Install container build tools
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install rustup (container)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) TRIPLE=x86_64-unknown-linux-gnu ;;
+            aarch64) TRIPLE=aarch64-unknown-linux-gnu ;;
+          esac
+          BASE="https://static.rust-lang.org/rustup/dist/${TRIPLE}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${BASE}/rustup-init"
+          echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain none --profile minimal
+          rm rustup-init
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install
 
       - name: Install Rust toolchain
         run: |
@@ -336,6 +363,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -354,11 +382,13 @@ jobs:
             archive: tar.gz
             lib_name: libagent_desktop_ffi.dylib
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
             archive: tar.gz
             lib_name: libagent_desktop_ffi.so
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
             archive: tar.gz
             lib_name: libagent_desktop_ffi.so
           - target: x86_64-pc-windows-msvc
@@ -370,10 +400,34 @@ jobs:
             archive: zip
             lib_name: agent_desktop_ffi.dll
     steps:
+      - name: Install container build tools
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install rustup (container)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) TRIPLE=x86_64-unknown-linux-gnu ;;
+            aarch64) TRIPLE=aarch64-unknown-linux-gnu ;;
+          esac
+          BASE="https://static.rust-lang.org/rustup/dist/${TRIPLE}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${BASE}/rustup-init"
+          echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain none --profile minimal
+          rm rustup-init
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install
 
       - name: Install Rust toolchain
         run: |
@@ -603,6 +657,7 @@ jobs:
     if: needs.release-please.outputs.release_created == 'true'
     name: FFI Panic Guard (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -615,18 +670,44 @@ jobs:
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
           - target: aarch64-pc-windows-msvc
             runner: windows-11-arm
     steps:
+      - name: Install container build tools
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install rustup (container)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) TRIPLE=x86_64-unknown-linux-gnu ;;
+            aarch64) TRIPLE=aarch64-unknown-linux-gnu ;;
+          esac
+          BASE="https://static.rust-lang.org/rustup/dist/${TRIPLE}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${BASE}/rustup-init"
+          echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain none --profile minimal
+          rm rustup-init
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install
 
       - name: Install Rust toolchain
         run: |

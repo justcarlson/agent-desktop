@@ -29,6 +29,7 @@ jobs:
   cli:
     name: Dry-run CLI (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -43,17 +44,43 @@ jobs:
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
           - target: aarch64-pc-windows-msvc
             runner: windows-11-arm
     steps:
+      - name: Install container build tools
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Install rustup (container)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) TRIPLE=x86_64-unknown-linux-gnu ;;
+            aarch64) TRIPLE=aarch64-unknown-linux-gnu ;;
+          esac
+          BASE="https://static.rust-lang.org/rustup/dist/${TRIPLE}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${BASE}/rustup-init"
+          echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain none --profile minimal
+          rm rustup-init
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install
 
       - name: Install Rust toolchain
         run: |
@@ -156,6 +183,7 @@ jobs:
   ffi:
     name: Dry-run FFI (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -166,17 +194,43 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
           - target: aarch64-pc-windows-msvc
             runner: windows-11-arm
     steps:
+      - name: Install container build tools
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Install rustup (container)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) TRIPLE=x86_64-unknown-linux-gnu ;;
+            aarch64) TRIPLE=aarch64-unknown-linux-gnu ;;
+          esac
+          BASE="https://static.rust-lang.org/rustup/dist/${TRIPLE}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${BASE}/rustup-init"
+          echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain none --profile minimal
+          rm rustup-init
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install
 
       - name: Install Rust toolchain
         run: |
@@ -298,6 +352,7 @@ jobs:
     needs: [cli, ffi]
     if: ${{ !cancelled() }}
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -306,13 +361,26 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
+            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
     steps:
+      - name: Install container build tools
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
 
       - name: Download this architecture's CLI and FFI archives
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -333,9 +401,11 @@ jobs:
           find extracted -maxdepth 3 | sort
 
       - name: Install the session and observer packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          apt-get update
+          apt-get install -y --no-install-recommends \
             at-spi2-core dbus-x11 xvfb x11-utils openbox gnome-calculator \
             python3-gi gir1.2-atspi-2.0 gcc
 

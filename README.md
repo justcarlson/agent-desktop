@@ -23,7 +23,7 @@ It ships 60 command names, 56 operational commands. The other four (`key-down`, 
 npm install -g agent-desktop
 ```
 
-This works on macOS (ARM64, x64) and Windows (x64, ARM64). The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256 against the release's `checksums.txt`. npm 11 runs that script but warns that it is not covered by `allowScripts`. An npm that blocks install scripts leaves no binary, and the first run fails with binary-not-found. To allow the script:
+This works on macOS (ARM64, x64) and Windows (x64, ARM64). The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256 against the release's `checksums.txt`. npm 11 runs that script but warns that it is not covered by `allowScripts`. An npm that blocks install scripts leaves no binary, and the first run fails with binary-not-found. The installer runs `curl` and `tar` from your `PATH`, and GNU `tar` needs `gzip` to read the archive, so on Linux all three must be installed. To allow the script:
 
 ```bash
 npm install -g --allow-scripts=agent-desktop agent-desktop

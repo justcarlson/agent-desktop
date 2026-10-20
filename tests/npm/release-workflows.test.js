@@ -9,7 +9,8 @@ const releaseWorkflow = read('.github/workflows/release.yml');
 const dryRunWorkflow = read('.github/workflows/release-dry-run.yml');
 
 const HELPER = 'agent-desktop-linux-clipboard-owner';
-const FLOOR_HOSTS = /^ubuntu-22\.04(-arm)?$/;
+const CURRENT_HOSTS = /^ubuntu-24\.04(-arm)?$/;
+const FLOOR_CONTAINER = /^ubuntu:22\.04@sha256:[0-9a-f]{64}$/;
 
 function jobBlock(workflow, jobName) {
   const lines = workflow.split('\n');
@@ -27,6 +28,8 @@ function matrixRows(jobText) {
     if (target) rows.push({ target: target[1] });
     const runner = line.match(/^\s+runner:\s*(\S+)/);
     if (runner && rows.length > 0) rows[rows.length - 1].runner = runner[1];
+    const container = line.match(/^\s+container:\s*(\S+)/);
+    if (container && rows.length > 0) rows[rows.length - 1].container = container[1];
   }
   return rows;
 }
@@ -40,13 +43,14 @@ const LINUX_BUILD_JOBS = [
   ['release-dry-run.yml', dryRunWorkflow, ['cli', 'ffi', 'linux-consumer']],
 ];
 
-test('every Linux matrix row runs on the glibc floor host', () => {
+test('every Linux matrix row builds inside the pinned Ubuntu 22.04 container on a current runner', () => {
   for (const [file, workflow, jobs] of LINUX_BUILD_JOBS) {
     for (const job of jobs) {
       const rows = linuxRows(jobBlock(workflow, job));
       assert.equal(rows.length, 2, `${file} ${job} must build both Linux architectures`);
       for (const row of rows) {
-        assert.match(row.runner ?? '', FLOOR_HOSTS, `${file} ${job} builds ${row.target} on ${row.runner}`);
+        assert.match(row.runner ?? '', CURRENT_HOSTS, `${file} ${job} builds ${row.target} on ${row.runner}`);
+        assert.match(row.container ?? '', FLOOR_CONTAINER, `${file} ${job} row ${row.target} needs the digest-pinned 22.04 container: a bare host carries its own glibc`);
       }
       assert.deepEqual(
         rows.map((row) => row.target).sort(),
@@ -56,10 +60,13 @@ test('every Linux matrix row runs on the glibc floor host', () => {
   }
 });
 
-test('no Linux build job names ubuntu-latest in its matrix or runner', () => {
+test('no Linux build job names ubuntu-latest or a retiring 22.04 label, and each runs in its matrix container', () => {
   for (const [file, workflow, jobs] of LINUX_BUILD_JOBS) {
     for (const job of jobs) {
-      assert.doesNotMatch(jobBlock(workflow, job), /ubuntu-latest/, `${file} ${job}`);
+      const block = jobBlock(workflow, job);
+      assert.doesNotMatch(block, /ubuntu-latest/, `${file} ${job}`);
+      assert.doesNotMatch(block, /runner: ubuntu-22\.04/, `${file} ${job}`);
+      assert.match(block, /^ {4}container: \$\{\{ matrix\.container \}\}$/m, `${file} ${job} must run its job in the matrix container`);
     }
   }
 });
