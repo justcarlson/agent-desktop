@@ -8,7 +8,7 @@ use zbus::zvariant::{OwnedValue, Value};
 use crate::system::shell::detect::{
     CallFailure, Fact, Need, SessionCalls, ShellEnvironment, TreeCalls, WatcherRead,
     classify_daemon, classify_tree, classify_watcher, detect_with, extension_state, require,
-    require_daemon_with,
+    require_daemon_with, require_watcher_with,
 };
 
 type Log = Rc<RefCell<Vec<&'static str>>>;
@@ -95,6 +95,36 @@ fn the_daemon_requirement_reads_only_the_daemon_and_preserves_absent_and_unsuppo
 }
 
 #[test]
+fn the_watcher_requirement_distinguishes_absent_present_empty_and_unreadable() {
+    let log = Log::default();
+    let (mut session, _) = healthy(&log);
+    session.watcher = Ok(WatcherRead::NoOwner);
+    let absent = require_watcher_with(&session).expect_err("no watcher");
+    assert_eq!(absent.code, ErrorCode::PlatformNotSupported);
+    assert!(
+        absent
+            .suggestion
+            .expect("suggestion")
+            .contains("AppIndicator")
+    );
+    assert_eq!(*log.borrow(), ["session:watcher", "session:extensions"]);
+
+    log.borrow_mut().clear();
+    session.watcher = Ok(WatcherRead::Items(0));
+    assert!(require_watcher_with(&session).is_ok());
+    assert_eq!(*log.borrow(), ["session:watcher"]);
+
+    log.borrow_mut().clear();
+    session.watcher = Err(CallFailure::Transport("bus stalled".to_owned()));
+    let unreadable = require_watcher_with(&session).expect_err("unreadable");
+    assert_eq!(unreadable.code, ErrorCode::Timeout);
+    assert_eq!(
+        unreadable.details.expect("details")["watcher"],
+        "unreadable"
+    );
+}
+
+#[test]
 fn another_server_is_named_and_refused_as_unsupported() {
     let log = Log::default();
     let (mut session, tree) = healthy(&log);
@@ -166,6 +196,14 @@ fn a_watcher_with_no_items_is_present_and_empty() {
         classify_watcher(Ok(WatcherRead::Items(0)), None),
         Fact::Present
     );
+}
+
+#[test]
+fn the_focused_watcher_requirement_does_not_read_the_shell_registry() {
+    let log = Log::default();
+    let (session, _) = healthy(&log);
+    assert!(require_watcher_with(&session).is_ok());
+    assert_eq!(*log.borrow(), ["session:watcher"]);
 }
 
 #[test]

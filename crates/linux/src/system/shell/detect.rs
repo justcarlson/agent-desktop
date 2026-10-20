@@ -24,9 +24,9 @@ const EXTENSION_ENABLED: u32 = 1;
 
 mod errors;
 mod requirements;
-pub(crate) use requirements::require_daemon;
+pub(crate) use requirements::{require_daemon, require_watcher};
 #[cfg(test)]
-use requirements::require_daemon_with;
+use requirements::{require_daemon_with, require_watcher_with};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Fact {
@@ -48,10 +48,7 @@ pub(crate) enum Need {
     #[cfg(test)]
     Daemon,
     Tree,
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "nothing reads the watcher requirement yet")
-    )]
+    #[cfg(test)]
     Watcher,
 }
 
@@ -225,8 +222,13 @@ fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterE
     }
 }
 
+#[cfg(test)]
 fn watcher_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
-    match &env.watcher {
+    watcher_fact_error(&env.watcher)
+}
+
+fn watcher_fact_error(watcher: &Fact) -> Result<(), AdapterError> {
+    match watcher {
         Fact::Present => Ok(()),
         Fact::Absent(why) => Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
@@ -243,6 +245,7 @@ pub(crate) fn require(env: &ShellEnvironment, need: Need) -> Result<(), AdapterE
         #[cfg(test)]
         Need::Daemon => daemon_error(env),
         Need::Tree => tree_error(env),
+        #[cfg(test)]
         Need::Watcher => watcher_error(env),
     }
 }

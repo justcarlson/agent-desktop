@@ -25,6 +25,9 @@ mod fake_tree;
 mod live_tests;
 #[cfg(test)]
 mod live_wayland_tests;
+#[cfg(test)]
+#[path = "tray_observation_tests.rs"]
+mod tray_observation_tests;
 
 const SUPPORT_BUDGET_MS: u64 = 3_000;
 
@@ -108,9 +111,26 @@ pub(crate) fn observe_shell(
     inner.surface = SnapshotSurface::Window;
     let root = ObservationRoot::Window(window);
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
-        let view = crate::tray::view::read(request.deadline).ok();
-        let mut decorator = tray_decorator::TrayDecorator::new(view);
+        let view = tray_observation::read(
+            || detect::require_watcher(request.deadline),
+            || crate::tray::view::read(request.deadline),
+        )?;
+        let mut decorator = tray_decorator::TrayDecorator::new(Some(view));
         return crate::tree::observe_tree_with(bus, root, &inner, &mut decorator);
     }
     crate::tree::observe_tree(bus, root, &inner)
+}
+
+mod tray_observation {
+    use agent_desktop_core::AdapterError;
+
+    use crate::tray::view::TrayView;
+
+    pub(super) fn read(
+        require_watcher: impl FnOnce() -> Result<(), AdapterError>,
+        read: impl FnOnce() -> Result<TrayView, AdapterError>,
+    ) -> Result<TrayView, AdapterError> {
+        require_watcher()?;
+        read()
+    }
 }
