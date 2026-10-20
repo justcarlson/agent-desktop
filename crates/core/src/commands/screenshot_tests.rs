@@ -10,6 +10,7 @@ struct ScreenshotAdapter {
     displays: Vec<DisplayInfo>,
     windows: Vec<WindowInfo>,
     target: Mutex<Option<ScreenshotTarget>>,
+    stopped: bool,
 }
 
 impl ScreenshotAdapter {
@@ -20,6 +21,7 @@ impl ScreenshotAdapter {
             displays: vec![display("main", true, 2.0), display("secondary", false, 1.0)],
             windows: vec![window("w-41", 700), focused],
             target: Mutex::new(None),
+            stopped: false,
         }
     }
 
@@ -69,6 +71,18 @@ impl SystemOps for ScreenshotAdapter {
 
     fn list_displays(&self, _deadline: crate::Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
         Ok(self.displays.clone())
+    }
+
+    fn process_state(
+        &self,
+        _process: crate::ProcessIdentity,
+        _deadline: crate::Deadline,
+    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+        Ok(if self.stopped {
+            crate::process_state::ProcessState::Unresponsive
+        } else {
+            crate::process_state::ProcessState::Running
+        })
     }
 }
 
@@ -189,7 +203,22 @@ fn missing_window_returns_an_error_without_capturing() {
 
     let error = screenshot::execute(request, &adapter).expect_err("missing window");
 
-    assert_eq!(error.code(), "INVALID_ARGS");
+    assert_eq!(error.code(), "WINDOW_NOT_FOUND");
+    assert!(adapter.take_target().is_none());
+}
+
+#[test]
+fn missing_window_of_a_stopped_app_is_unresponsive_not_missing() {
+    let mut adapter = ScreenshotAdapter::new();
+    adapter.stopped = true;
+    adapter.windows.clear();
+    let mut request = args();
+    request.app = Some("Example".into());
+    request.window_id = Some("w-42".into());
+
+    let error = screenshot::execute(request, &adapter).expect_err("stopped app");
+
+    assert_eq!(error.code(), "APP_UNRESPONSIVE");
     assert!(adapter.take_target().is_none());
 }
 

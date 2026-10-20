@@ -1,6 +1,7 @@
 use crate::{
-    AdapterError, AppError, ErrorCode,
+    AdapterError, AppError, Deadline, ErrorCode,
     adapter::{PlatformAdapter, ScreenshotTarget, WindowFilter},
+    process_state::ProcessState,
 };
 use base64::Engine;
 use serde_json::{Value, json};
@@ -112,7 +113,7 @@ fn resolve_target(
                     && window.process_instance.as_deref() == Some(instance.as_str())
             });
         }
-        let win = select_unique_window(candidates, window_id)?;
+        let win = select_unique_window(candidates, window_id, expected_app.as_ref(), adapter)?;
         return Ok(ScreenshotTarget::ExactWindow(win));
     }
 
@@ -129,15 +130,40 @@ fn resolve_target(
     Ok(ScreenshotTarget::FullScreen)
 }
 
+fn missing_window_error(
+    window_id: &str,
+    expected_app: Option<&crate::AppInfo>,
+    adapter: &dyn PlatformAdapter,
+) -> AppError {
+    let stopped = expected_app.filter(|app| {
+        let Ok(process) = crate::commands::helpers::process_identity(app) else {
+            return false;
+        };
+        let Ok(deadline) = Deadline::after(1_000) else {
+            return false;
+        };
+        adapter.process_state(process, deadline).ok() == Some(ProcessState::Unresponsive)
+    });
+    if let Some(app) = stopped {
+        return AdapterError::app_unresponsive(&app.name).into();
+    }
+    AdapterError::new(
+        ErrorCode::WindowNotFound,
+        format!("Window '{window_id}' was not found"),
+    )
+    .with_suggestion("Run 'list-windows' to refresh window IDs, then retry.")
+    .unsent()
+    .into()
+}
+
 fn select_unique_window(
     mut candidates: Vec<crate::WindowInfo>,
     window_id: &str,
+    expected_app: Option<&crate::AppInfo>,
+    adapter: &dyn PlatformAdapter,
 ) -> Result<crate::WindowInfo, AppError> {
     match candidates.len() {
-        0 => Err(AppError::invalid_input_with_suggestion(
-            format!("Window '{window_id}' not found"),
-            "Run 'list-windows' to see the window ids this session has, then use one of them",
-        )),
+        0 => Err(missing_window_error(window_id, expected_app, adapter)),
         1 => Ok(candidates.swap_remove(0)),
         _ => Err(AdapterError::ambiguous_target(format!(
             "Multiple windows matched id '{window_id}'"
