@@ -7,6 +7,14 @@ use crate::{
 /// `get_clipboard_content`/`set_clipboard_content`; the C ABI
 /// (`ad_get_clipboard`/`ad_set_clipboard`) is unaffected.
 pub trait InputOps: Send + Sync {
+    /// The reason physical pointer delivery cannot happen in this session, if
+    /// it cannot. Commands that would aim a cursor ask before any geometry or
+    /// actionability work, so a session without pointer input answers at once
+    /// instead of spending its wait budget on a gesture it can never send.
+    fn physical_pointer_refusal(&self) -> Option<AdapterError> {
+        None
+    }
+
     fn mouse_event(
         &self,
         _event: MouseEvent,

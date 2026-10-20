@@ -84,6 +84,9 @@ pub(crate) fn execute_ref_action_with_context(
 ) -> Result<Value, AppError> {
     let request = request.with_timeout_ms(args.timeout_ms);
     validate_post_action_wait(context)?;
+    if request.policy.is_headed() && request.action.headed_requirement().requires_cursor() {
+        super::point_resolve::require_pointer_capability(adapter)?;
+    }
     let entry = load_ref_entry(&args.ref_id, context)?;
     let (result, lease, pre, deadline, lease_started) =
         crate::ref_action_wait::execute_with_auto_wait_and_lease(

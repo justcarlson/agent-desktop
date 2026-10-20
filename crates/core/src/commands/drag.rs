@@ -3,7 +3,7 @@ use crate::{
     adapter::PlatformAdapter,
     commands::{
         helpers::{apply_post_action_wait, validate_post_action_wait},
-        point_resolve::{PointResolveArgs, require_cursor_policy},
+        point_resolve::{PointResolveArgs, require_cursor_policy, require_pointer_capability},
         pointer_action::{
             PointResolveAttempt, ensure_point_deadline, focus_point_under_lease, point_deadline,
             resolve_point_under_lease, retry_leased_point_phase, wait_for_point_with_deadline,
@@ -47,6 +47,7 @@ pub fn execute(
     context: &CommandContext,
 ) -> Result<Value, AppError> {
     require_cursor_policy(context, "drag")?;
+    require_pointer_capability(adapter)?;
     validate_post_action_wait(context)?;
     let deadline = point_deadline(args.timeout_ms)?;
     let from_args = PointResolveArgs {

@@ -33,6 +33,15 @@ pub(crate) fn require_cursor_policy(
     .into())
 }
 
+/// Refuses a pointer gesture the session cannot deliver before any target is
+/// resolved, so the refusal is immediate and nothing is sent.
+pub(crate) fn require_pointer_capability(adapter: &dyn PlatformAdapter) -> Result<(), AppError> {
+    match adapter.physical_pointer_refusal() {
+        Some(error) => Err(error.into()),
+        None => Ok(()),
+    }
+}
+
 pub(crate) fn resolve_point_from_ref_or_xy_with_context(
     args: PointResolveArgs<'_>,
     adapter: &dyn PlatformAdapter,

@@ -1,6 +1,8 @@
 use crate::{
-    AppError, MouseButton, MouseEvent, MouseEventKind, Point, adapter::PlatformAdapter,
-    commands::point_resolve::require_cursor_policy, context::CommandContext,
+    AppError, MouseButton, MouseEvent, MouseEventKind, Point,
+    adapter::PlatformAdapter,
+    commands::point_resolve::{require_cursor_policy, require_pointer_capability},
+    context::CommandContext,
 };
 use serde_json::{Value, json};
 
@@ -15,6 +17,7 @@ pub fn execute(
     context: &CommandContext,
 ) -> Result<Value, AppError> {
     require_cursor_policy(context, "mouse-move")?;
+    require_pointer_capability(adapter)?;
     let lease = crate::commands::helpers::acquire_interaction_lease(adapter)?;
     let point = Point {
         x: args.x,

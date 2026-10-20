@@ -85,6 +85,9 @@ pub(crate) mod wait_timeout;
 mod window_target;
 
 #[cfg(test)]
+mod pointer_capability_tests;
+
+#[cfg(test)]
 mod ref_policy_tests;
 
 #[cfg(test)]
