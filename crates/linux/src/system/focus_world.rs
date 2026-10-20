@@ -19,6 +19,7 @@ use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window_id};
+use crate::tree::role_numbers::DIALOG;
 use crate::tree::{AtspiElement, read_node};
 
 #[path = "focus_send.rs"]
@@ -73,6 +74,7 @@ impl FocusWorld for LiveWorld<'_> {
             minimized: state.minimized,
             active: state.active,
             modal: state.modal,
+            dialog: node.traits.role.present() == Some(&DIALOG),
         })
     }
 

@@ -63,9 +63,9 @@ fn remember_ids(listed: &[ListedWindow], state: &X11State, ids: Option<&WindowId
 }
 
 /// The window the sources agree is focused. A window counts when its frame
-/// carries `ACTIVE`; so does a modal frame its toolkit never reports active
-/// when the display server names its client the active window, the one
-/// witness such a dialog has.
+/// carries `ACTIVE`; so does a modal or dialog frame its toolkit never
+/// reports active when the display server names its client the active
+/// window, the one witness such a dialog has.
 pub(super) fn focused_index(listed: &[ListedWindow], state: &X11State) -> Option<usize> {
     let mut candidates: Vec<usize> = listed
         .iter()
@@ -73,13 +73,13 @@ pub(super) fn focused_index(listed: &[ListedWindow], state: &X11State) -> Option
         .filter(|(_, window)| window.active)
         .map(|(index, _)| index)
         .collect();
-    if candidates.is_empty() && !listed.iter().any(|window| window.modal) {
+    if candidates.is_empty() && !listed.iter().any(|window| window.modal || window.dialog) {
         return None;
     }
     let frames: Vec<FrameFacts> = listed.iter().map(|window| window.frame.clone()).collect();
     let evidence = x11::evidence(state, &frames);
     if let X11Evidence::Frame(named) = evidence
-        && listed[named].modal
+        && (listed[named].modal || listed[named].dialog)
         && !candidates.contains(&named)
     {
         candidates.push(named);

@@ -51,6 +51,7 @@ pub(super) struct World {
     pub(super) grace: Grace,
     pub(super) overview: Option<bool>,
     pub(super) frame_modal: Option<bool>,
+    pub(super) frame_dialog: bool,
     pub(super) input_focus: bool,
 }
 
@@ -111,6 +112,7 @@ impl World {
             },
             overview: None,
             frame_modal: None,
+            frame_dialog: false,
             input_focus: false,
         }
     }
@@ -148,6 +150,7 @@ impl FocusWorld for World {
             minimized: self.minimized,
             active: self.frame_active.get(),
             modal: self.frame_modal,
+            dialog: self.frame_dialog,
         })
     }
 

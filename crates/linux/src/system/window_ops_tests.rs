@@ -18,6 +18,7 @@ fn window(title: &str, active: bool, modal: bool) -> ListedWindow {
         },
         active,
         modal,
+        dialog: false,
         frame: FrameFacts {
             pid: 7,
             title: title.to_owned(),
@@ -57,6 +58,22 @@ fn a_frame_that_reports_active_and_matches_the_display_is_focused() {
 fn a_modal_frame_that_never_reports_active_is_focused_when_the_display_names_it() {
     let listed = [window("main", false, false), window("dialog", false, true)];
     assert_eq!(focused_index(&listed, &state(2)), Some(1));
+}
+
+#[test]
+fn a_dialog_frame_that_never_reports_active_is_focused_when_the_display_names_it() {
+    let mut dialog = window("dialog", false, false);
+    dialog.dialog = true;
+    let listed = [window("main", false, false), dialog];
+    assert_eq!(focused_index(&listed, &state(2)), Some(1));
+}
+
+#[test]
+fn a_dialog_frame_the_display_does_not_name_is_not_focused() {
+    let mut dialog = window("dialog", false, false);
+    dialog.dialog = true;
+    let listed = [window("main", false, false), dialog];
+    assert_eq!(focused_index(&listed, &state(1)), None);
 }
 
 #[test]

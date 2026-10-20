@@ -48,6 +48,7 @@ pub(super) struct FrameView {
     pub(super) minimized: Option<bool>,
     pub(super) active: Option<bool>,
     pub(super) modal: Option<bool>,
+    pub(super) dialog: bool,
 }
 
 /// Everything `focus_window` reads and writes, so the decision can be driven
@@ -129,9 +130,9 @@ fn lift_held(world: &impl FocusWorld, client: u32, cause: Cause) -> Result<(), A
 }
 
 /// Whether the window is active by both measures. A dialog that its toolkit
-/// marks modal and never reports active has no frame measure to give; for it
-/// the display server naming the window active and the input focus lying in
-/// it are the evidence.
+/// marks modal or presents as a dialog frame and never reports active has no
+/// frame measure to give; for it the display server naming the window active
+/// and the input focus lying in it are the evidence.
 fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
     let active = world.active();
     if active != Some(client) {
@@ -139,9 +140,9 @@ fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
     }
     let view = world.frame().ok();
     let reported = view.and_then(|view| view.active) == Some(true);
-    let modal_without_report = view.and_then(|view| view.modal) == Some(true)
-        && view.and_then(|view| view.active) != Some(true);
-    let done = reported || (modal_without_report && world.input_focus_in(client));
+    let silent_dialog = view
+        .is_some_and(|view| (view.modal == Some(true) || view.dialog) && view.active != Some(true));
+    let done = reported || (silent_dialog && world.input_focus_in(client));
     (active, done)
 }
 

@@ -7,6 +7,7 @@ use super::window_filter::{frame_state, is_bubble, is_window_shape};
 use super::window_id;
 use super::x11::FrameFacts;
 use crate::tree::RawNode;
+use crate::tree::role_numbers::DIALOG;
 
 fn rect(node: &RawNode) -> Option<Rect> {
     node.extents.present().map(|extents| Rect::from(*extents))
@@ -51,6 +52,7 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
         },
         active: state.active == Some(true),
         modal: state.modal == Some(true),
+        dialog: node.traits.role.present() == Some(&DIALOG),
         frame: FrameFacts {
             pid: app.root.pid(),
             title,

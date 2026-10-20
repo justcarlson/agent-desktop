@@ -186,6 +186,26 @@ fn a_modal_dialog_its_toolkit_never_reports_active_is_accepted_on_the_display_an
 }
 
 #[test]
+fn a_dialog_frame_its_toolkit_never_reports_active_is_accepted_on_the_display_and_the_input_focus()
+{
+    let mut world = World::new(Some(OTHER));
+    world.grant = Grant::OnlyOnX11;
+    world.frame_dialog = true;
+    world.input_focus = true;
+    run(&world, &window(), budget()).expect("active on the display with the focus in it");
+    assert_eq!(writes(&world), ["send"]);
+}
+
+#[test]
+fn a_dialog_frame_whose_input_focus_lies_elsewhere_is_still_refused() {
+    let mut world = World::new(Some(OTHER));
+    world.grant = Grant::OnlyOnX11;
+    world.frame_dialog = true;
+    world.input_focus = false;
+    assert_refused(&failure(&world), "frame_not_active");
+}
+
+#[test]
 fn a_modal_dialog_whose_input_focus_lies_elsewhere_is_still_refused() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::OnlyOnX11;
