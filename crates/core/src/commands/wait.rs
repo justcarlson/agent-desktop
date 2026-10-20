@@ -124,7 +124,7 @@ fn wait_for_menu(
         .map_err(|error| {
             wait_timeout::menu(
                 crate::ref_action_wait_support::with_exited_process_state(
-                    adapter, process, error,
+                    adapter, process, error, deadline,
                 ),
                 timeout_ms,
             )

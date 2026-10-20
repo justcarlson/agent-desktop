@@ -106,18 +106,19 @@ fn attach_process_state_detail(
 const EXITED_PROCESS_SUGGESTION: &str = "The target process exited. Run 'list-apps' to see \
      whether the application runs again, launch it if it does not, then take a new snapshot";
 
+const PROCESS_STATE_PROBE_BUDGET: std::time::Duration = std::time::Duration::from_secs(1);
+
 pub(crate) fn with_exited_process_state(
     adapter: &dyn PlatformAdapter,
     process: crate::ProcessIdentity,
     err: AdapterError,
+    deadline: crate::Deadline,
 ) -> AdapterError {
     if err.code != ErrorCode::StaleRef {
         return err;
     }
-    let Ok(deadline) = crate::Deadline::after(1_000) else {
-        return err;
-    };
-    match adapter.process_state(process, deadline) {
+    let probe = deadline.capped(PROCESS_STATE_PROBE_BUDGET);
+    match adapter.process_state(process, probe) {
         Ok(state @ crate::process_state::ProcessState::Exited { .. }) => {
             attach_process_state_detail(err, state)
         }

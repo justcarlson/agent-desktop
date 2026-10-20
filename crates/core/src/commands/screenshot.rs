@@ -7,6 +7,8 @@ use base64::Engine;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
+const PROCESS_STATE_PROBE_BUDGET: std::time::Duration = std::time::Duration::from_secs(1);
+
 pub struct ScreenshotArgs {
     pub app: Option<String>,
     pub window_id: Option<String>,
@@ -113,7 +115,13 @@ fn resolve_target(
                     && window.process_instance.as_deref() == Some(instance.as_str())
             });
         }
-        let win = select_unique_window(candidates, window_id, expected_app.as_ref(), adapter)?;
+        let win = select_unique_window(
+            candidates,
+            window_id,
+            expected_app.as_ref(),
+            adapter,
+            deadline,
+        )?;
         return Ok(ScreenshotTarget::ExactWindow(win));
     }
 
@@ -134,15 +142,14 @@ fn missing_window_error(
     window_id: &str,
     expected_app: Option<&crate::AppInfo>,
     adapter: &dyn PlatformAdapter,
+    deadline: Deadline,
 ) -> AppError {
     let stopped = expected_app.filter(|app| {
         let Ok(process) = crate::commands::helpers::process_identity(app) else {
             return false;
         };
-        let Ok(deadline) = Deadline::after(1_000) else {
-            return false;
-        };
-        adapter.process_state(process, deadline).ok() == Some(ProcessState::Unresponsive)
+        let probe = deadline.capped(PROCESS_STATE_PROBE_BUDGET);
+        adapter.process_state(process, probe).ok() == Some(ProcessState::Unresponsive)
     });
     if let Some(app) = stopped {
         return AdapterError::app_unresponsive(&app.name).into();
@@ -161,9 +168,15 @@ fn select_unique_window(
     window_id: &str,
     expected_app: Option<&crate::AppInfo>,
     adapter: &dyn PlatformAdapter,
+    deadline: Deadline,
 ) -> Result<crate::WindowInfo, AppError> {
     match candidates.len() {
-        0 => Err(missing_window_error(window_id, expected_app, adapter)),
+        0 => Err(missing_window_error(
+            window_id,
+            expected_app,
+            adapter,
+            deadline,
+        )),
         1 => Ok(candidates.swap_remove(0)),
         _ => Err(AdapterError::ambiguous_target(format!(
             "Multiple windows matched id '{window_id}'"
@@ -172,3 +185,7 @@ fn select_unique_window(
         .into()),
     }
 }
+
+#[cfg(test)]
+#[path = "screenshot_deadline_tests.rs"]
+mod deadline_tests;
