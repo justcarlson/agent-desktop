@@ -170,6 +170,9 @@ pub(crate) fn entry_is_unverifiable(entry: &RefEntry) -> bool {
 /// node whose size was read and differs: it is not unread, since nothing more
 /// could be learned about that node.
 pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admission {
+    if entry.identity.retained_object.is_some() && size_contradicts(entry, evidence) {
+        return Admission::Reject;
+    }
     admit_node_within(entry, evidence, SAME_SIZE_PX)
 }
 

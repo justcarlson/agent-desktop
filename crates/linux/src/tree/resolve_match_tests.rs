@@ -242,3 +242,27 @@ fn a_one_pixel_shift_is_not_enough_for_a_search_to_collect_a_nameless_node() {
     );
     assert_eq!(admit_node(&entry, &shifted), Admission::Reject);
 }
+
+fn retained_at(path: &str, bounds: Rect) -> RefEntry {
+    let mut entry = sized(ref_entry("button"), bounds);
+    entry.geometry.bounds_space = Some(agent_desktop_core::BoundsSpace::Window);
+    entry.identity.retained_object = Some(path.to_owned());
+    entry
+}
+
+fn retained_evidence(path: &str, bounds: Rect) -> LocatorEvidence {
+    let mut found = evidence("button", None, None, None);
+    found.identifiers = found.identifiers.with_retained_object(path.to_owned());
+    found.ref_evidence.window_bounds = LocatorField::Known(bounds);
+    found
+}
+
+#[test]
+fn a_retained_object_is_refuted_by_a_different_rectangle_at_the_same_path() {
+    let entry = retained_at("/row", rect(0.0, 38.0, 420.0, 34.0));
+    let moved = retained_evidence("/row", rect(0.0, 80.0, 420.0, 34.0));
+    assert_eq!(admit_node(&entry, &moved), Admission::Reject);
+
+    let same = retained_evidence("/row", rect(0.0, 38.0, 420.0, 34.0));
+    assert_eq!(admit_node(&entry, &same), Admission::Collect);
+}
