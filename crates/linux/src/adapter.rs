@@ -216,7 +216,12 @@ impl LinuxAdapter {
                     .ok()
                     .filter(|element| crate::system::shell::is_shell_element(element))
                     .and_then(|element| {
-                        crate::system::shell::deliver::deliver(self.bus(), &element, &request, lease)
+                        crate::system::shell::deliver::deliver(
+                            self.bus(),
+                            &element,
+                            &request,
+                            lease,
+                        )
                     });
                 match outcome {
                     Some(result) => result,
@@ -307,4 +312,3 @@ impl InputOps for LinuxAdapter {
 #[cfg(test)]
 #[path = "adapter_tests.rs"]
 mod tests;
-
