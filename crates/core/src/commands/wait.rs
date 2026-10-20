@@ -118,13 +118,17 @@ fn wait_for_menu(
         AppError::Adapter(error) => wait_timeout::menu(error, timeout_ms),
         other => other,
     })?;
+    let process = crate::commands::helpers::process_identity(&target)?;
     adapter
-        .wait_for_menu(
-            crate::commands::helpers::process_identity(&target)?,
-            open,
-            deadline,
-        )
-        .map_err(|error| wait_timeout::menu(error, timeout_ms))?;
+        .wait_for_menu(process.clone(), open, deadline)
+        .map_err(|error| {
+            wait_timeout::menu(
+                crate::ref_action_wait_support::with_exited_process_state(
+                    adapter, process, error,
+                ),
+                timeout_ms,
+            )
+        })?;
     let elapsed = start.elapsed().as_millis();
     Ok(json!({ "found": true, "elapsed_ms": elapsed }))
 }

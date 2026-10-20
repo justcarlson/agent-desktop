@@ -55,11 +55,24 @@ impl Response {
     }
 }
 
-fn recovery_for_code(code: &ErrorCode, disposition: DeliverySemantics) -> Option<RecoveryHint> {
+fn recovery_for_code(
+    code: &ErrorCode,
+    disposition: DeliverySemantics,
+    details: Option<&Value>,
+) -> Option<RecoveryHint> {
     if disposition.retry() != RetryDisposition::Safe {
         return None;
     }
+    let process_exited = details
+        .and_then(|details| details.get("process_state"))
+        .is_some_and(|state| state == "exited");
     match code {
+        ErrorCode::StaleRef if process_exited => Some(RecoveryHint {
+            strategy: "inspect_state_then_retry_original".into(),
+            retryable: true,
+            requires_fresh_snapshot: true,
+            retry_after_ms: None,
+        }),
         ErrorCode::StaleRef | ErrorCode::SnapshotNotFound => Some(RecoveryHint {
             strategy: "refresh_snapshot_then_retry_original".into(),
             retryable: true,
@@ -92,7 +105,11 @@ impl ErrorPayload {
             payload.platform_detail = adapter_error.platform_detail.clone();
             payload.details = adapter_error.details.clone();
             payload.disposition = adapter_error.disposition;
-            payload.recovery = recovery_for_code(&adapter_error.code, adapter_error.disposition);
+            payload.recovery = recovery_for_code(
+                &adapter_error.code,
+                adapter_error.disposition,
+                adapter_error.details.as_ref(),
+            );
         }
         payload
     }

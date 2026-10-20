@@ -94,7 +94,35 @@ fn attach_process_state_detail(
         }
         None => details = json!({ "process_state": state.label() }),
     }
-    err.with_details(details)
+    let exited_stale = err.code == ErrorCode::StaleRef
+        && matches!(state, crate::process_state::ProcessState::Exited { .. });
+    let err = err.with_details(details);
+    if exited_stale {
+        return err.with_suggestion(EXITED_PROCESS_SUGGESTION);
+    }
+    err
+}
+
+const EXITED_PROCESS_SUGGESTION: &str = "The target process exited. Run 'list-apps' to see \
+     whether the application runs again, launch it if it does not, then take a new snapshot";
+
+pub(crate) fn with_exited_process_state(
+    adapter: &dyn PlatformAdapter,
+    process: crate::ProcessIdentity,
+    err: AdapterError,
+) -> AdapterError {
+    if err.code != ErrorCode::StaleRef {
+        return err;
+    }
+    let Ok(deadline) = crate::Deadline::after(1_000) else {
+        return err;
+    };
+    match adapter.process_state(process, deadline) {
+        Ok(state @ crate::process_state::ProcessState::Exited { .. }) => {
+            attach_process_state_detail(err, state)
+        }
+        _ => err,
+    }
 }
 
 pub(crate) fn trace_resolve_error(context: &CommandContext, ref_id: &str, err: &AdapterError) {
