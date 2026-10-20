@@ -49,6 +49,14 @@ for _ in $(seq 1 50); do
 done
 [ -S "/tmp/.X11-unix/X${display#:}" ] || { echo "private-mutter-shell: Xvfb did not start" >&2; exit 1; }
 
+# The outer wrapper pushed its own display into the activation environment before this
+# display existed, so a bus-activated app (Terminal, Files) would map there instead of
+# here (ledger L18-17, L34-3). Push ours before the shell or any app starts.
+push_vars="DISPLAY"
+[ -n "${XAUTHORITY:-}" ] && push_vars="$push_vars XAUTHORITY"
+# shellcheck disable=SC2086  # the list of variable names splits on purpose
+DISPLAY=$display dbus-update-activation-environment $push_vars
+
 overview_active() {
   busctl --user --timeout=3 get-property org.gnome.Shell /org/gnome/Shell org.gnome.Shell OverviewActive 2>/dev/null |
     sed -n 's/^b \(.*\)$/\1/p'

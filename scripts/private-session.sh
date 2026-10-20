@@ -30,8 +30,11 @@ base=${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}
 mkdir -p "$base"
 rt=$(mktemp -d "$base/rt.XXXXXX")
 chmod 700 "$rt"
-mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache"
+mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache" "$rt/ad-home"
 printf '[org/gnome/desktop/interface]\ntoolkit-accessibility=true\n' > "$rt/cfg/glib-2.0/settings/keyfile"
+if [ -n "${AD_RUNNER_PID:-}" ] && [ -n "${AD_RUNNER_START:-}" ]; then
+  printf '%s %s\n' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"
+fi
 
 pids=()
 # shellcheck disable=SC2317,SC2329
@@ -60,6 +63,10 @@ cleanup() {
   for pid in $(session_members); do
     kill -KILL "$pid" 2>/dev/null || true
   done
+  for _ in $(seq 1 50); do
+    [ -z "$(session_members)" ] && break
+    sleep 0.1
+  done
   for mount in "$rt/doc" "$rt/gvfs"; do
     fusermount -u "$mount" 2>/dev/null || true
   done
@@ -68,8 +75,6 @@ cleanup() {
   esac
 }
 trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM HUP
 
 # AT_SPI_BUS_ADDRESS points a toolkit straight at an accessibility bus (ledger L12-4), and
 # NO_AT_BRIDGE / GTK_A11Y switch the bridge off: any of them inherited would put apps on the
@@ -82,7 +87,7 @@ export XDG_CACHE_HOME=$rt/cache
 export GSETTINGS_BACKEND=keyfile
 export XDG_CURRENT_DESKTOP=GNOME
 export AGENT_DESKTOP_PRIVATE_SESSION=$rt
-export AGENT_DESKTOP_HOME=$rt/agent-desktop
+export AGENT_DESKTOP_HOME=$rt/ad-home
 
 bus_address="unix:path=$rt/bus"
 dbus-daemon --session --nofork --address="$bus_address" 2> "$rt/bus.log" &
@@ -148,6 +153,35 @@ if [ "$wm" = 1 ]; then
   fi
 fi
 
+# A trap only runs once the foreground child exits, so a payload that keeps running
+# would hold the whole cleanup open (ledger L23-34). The payload therefore gets its own
+# process group through setsid and runs in the background: a caught signal forwards to
+# that group at once, escalates to KILL after the grace period, and the EXIT sweep then
+# reaches any member that left the group (inner wrappers start their shell with setsid).
+grace_s=${AGENT_DESKTOP_SESSION_GRACE_S:-3}
 status=0
-"$@" || status=$?
+setsid -- "$@" &
+payload_pid=$!
+
+# shellcheck disable=SC2317,SC2329
+signal_payload() {
+  local sig="$1"
+  trap '' INT TERM HUP
+  kill -"$sig" -- "-$payload_pid" 2>/dev/null || true
+  local deadline=$((SECONDS + grace_s))
+  while kill -0 -- "-$payload_pid" 2>/dev/null && [ "$SECONDS" -lt "$deadline" ]; do
+    sleep 0.1
+  done
+  kill -KILL -- "-$payload_pid" 2>/dev/null || true
+  wait "$payload_pid" 2>/dev/null || true
+  case "$sig" in
+    INT) exit 130 ;;
+    HUP) exit 129 ;;
+    *) exit 143 ;;
+  esac
+}
+trap 'signal_payload INT' INT
+trap 'signal_payload TERM' TERM
+trap 'signal_payload HUP' HUP
+wait "$payload_pid" || status=$?
 exit "$status"
