@@ -46,7 +46,8 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   process group, so a caller that reads the output through a pipe sees end of
   file at exit.
 - `launch` attaches to a running app by default: one match with no arguments
-  returns the owner. One match with arguments starts another process. `--no-attach`
+  returns the owner. Arguments do not force a new process: a running Text Editor
+  took `--arg=--new-window` and opened a second window in the same pid. `--no-attach`
   on a running app fails with `ACTION_FAILED` naming the pid. A second
   `launch zenity` starts a new process, because each dialog is its own process.
 - `--arg` passes one argument and repeats; `--arg --info` works as written, and
@@ -54,11 +55,12 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   a running instance applies the arguments but not `--env` or `--cwd`, and the
   result says so.
 - The pid reported is the owner of the new window, found from `_NET_WM_PID` and
-  the registry, never the launcher's pid. The command waits 2 s for the first
-  window of an app it started (5 s for a new window of one already running) and
-  then answers with no `window`; with `--activate` it waits up to the launch
-  timeout. The result carries `app`, `pid`, `process_instance` and, when one
-  appeared, `window`.
+  the registry, never the launcher's pid. The command waits for a window up to
+  `--timeout` (default 30000). An app that shows no window returns `ok` with no
+  `window` at the timeout; with `--activate` it also waits up to that timeout. A
+  process that exits first is `ACTION_FAILED` with `details.kind: exited` and
+  `delivered_unverified`. The result carries `app`, `pid`, `process_instance`
+  and, when one appeared, `window`.
 - Negative numbers need the `=` form: `move-window --x=-100`.
 - A launch reports a window the launch produced, never one that was open.
 - Chromium, Electron and Qt apps need flags to appear on the bus; pass them with
@@ -69,14 +71,17 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 `close-app` succeeds only when the process is gone.
 
 - Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and no
-  signal. An app that outlives its windows (a file manager, a terminal server)
-  ends in `TIMEOUT` with `delivered_unverified`.
+  signal. A file manager that outlives its windows ends in `TIMEOUT` with
+  `delivered_unverified`; `--force` ends it. A terminal server closes like any
+  other app: `close-app gnome-terminal` ended `gnome-terminal-server`.
 - A save prompt keeps the app open. The dialog is a new top-level window of the
   same pid, counted in `details.dialogs`. Read it with a plain
   `snapshot --app <name>` or `--surface sheet`, answer it, then close again. When
   a dialog already stands, `close-app` sends nothing and answers `ACTION_FAILED`
-  with cause `dialog_pending`; a dialog that opens in answer to the request ends
-  the wait at once with the same cause and the dialog title in `details.dialog`.
+  with cause `dialog_pending`, `not_delivered` and `retry: safe`. A dialog that
+  opens in answer to the request ends the wait at once with the same cause and
+  the dialog title in `details.dialog`, but `delivered_unverified` and
+  `retry: unsafe`.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
@@ -148,8 +153,9 @@ is refused with cause `other_window_of_target` and a suggestion to use `--headed
 An app stopped with `SIGSTOP` is told from `/proc` without waiting for a probe.
 A ref used against it, a scoped `snapshot`, `list-windows --app`, `focus-window`
 and the window operations answer `APP_UNRESPONSIVE` in milliseconds, not
-`STALE_REF`. `close-app` graceful does not hang; `--force` ends it. An unscoped
-`list-windows` still lists its windows, marked `accessible: false`.
+`STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`, `not_delivered` and
+`retry: safe`; `--force` ends it. An unscoped `list-windows` still lists its
+windows, marked `accessible: false`.
 
 ## Waiting for lifecycle events
 
@@ -172,11 +178,12 @@ diffs a baseline taken at wait start against fresh reads. On Linux:
 - `focus-changed` needs a window that reports `ACTIVE`. On a Wayland session no
   window does until a seat keyboard exists, so the wait times out there and the
   `TIMEOUT` carries `baseline_counts`.
-- A wait scoped to a stopped app fails with `APP_UNRESPONSIVE` in the
-  `last_error` of its `TIMEOUT`, and a `batch` of an action followed by such a
-  wait does not start the action (`pre_action_baseline_failed`). An app that is
-  alive but slow keeps the wait polling; classes that could not be read are left
-  out of the diff and no event is invented from them.
+- A wait scoped to a stopped app fails at once with top-level
+  `APP_UNRESPONSIVE`, `not_delivered` and `retry: safe`; it is not a `TIMEOUT`.
+  A `batch` of an action followed by such a wait does not start the action
+  (`pre_action_baseline_failed`). An app that is alive but slow keeps the wait
+  polling; classes that could not be read are left out of the diff and no event
+  is invented from them.
 - `--menu-closed` on a menu you have not opened is true at once: wait for
   `--menu` first, then close the menu, then wait for `--menu-closed`.
 - A window that neither shows nor is iconified is the husk of a closed window and
@@ -187,8 +194,9 @@ diffs a baseline taken at wait start against fresh reads. On Linux:
 ## Reading the disposition
 
 Read `data.disposition` or `error.disposition` before you retry. A refusal made
-before anything was sent (a protected process, a relative path, a background `press`)
-carries `not_delivered` and `retry: safe`. Some refusals of an unknown app or window
-still carry `delivery: unknown`: for `APP_NOT_FOUND` nothing was sent. A timeout or a
-read-back mismatch carries `delivered_unverified` and `retry: unsafe`: look at the
-state with `list-windows` or `snapshot` before you repeat it.
+before anything was sent (a protected process, a relative path, a background
+`press`) carries `not_delivered` and `retry: safe`. `focus-window` on an unknown
+app is `not_delivered` and `safe`. `close-app` and the window operations answer
+`unknown` and `unknown` for `APP_NOT_FOUND`, although nothing was sent. A timeout
+or a read-back mismatch carries `delivered_unverified` and `retry: unsafe`: look
+at the state with `list-windows` or `snapshot` before you repeat it.
