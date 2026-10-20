@@ -17,6 +17,8 @@ pub(super) fn evidence_of(live: &LiveElement) -> LocatorEvidence {
             bounds: live
                 .bounds
                 .map_or(LocatorField::Absent, LocatorField::Known),
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             available_actions: LocatorField::Known(live.available_actions.clone()),
             descriptors: Default::default(),
         },
