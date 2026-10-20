@@ -78,8 +78,6 @@ fn inside(path: &Path, roots: &[PathBuf]) -> bool {
         .any(|root| parent.starts_with(root))
 }
 
-/// Unlinks `name` in the directory the file was opened from, and only when the
-/// name still points at the file that was read. A swapped name stays.
 fn remove_if_same(directory: &OwnedFd, name: &OsStr, opened: (u64, u64)) {
     let Ok(now) = statat(directory, name, AtFlags::SYMLINK_NOFOLLOW) else {
         return;
