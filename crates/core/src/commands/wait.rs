@@ -1,10 +1,11 @@
 use crate::{
-    AppError, ErrorCode, NotificationFilter, NotificationInfo,
+    AppError, ErrorCode,
     adapter::{PlatformAdapter, WindowFilter},
     commands::{
         helpers::resolve_app,
         wait_element::{ElementWaitInput, wait_for_element},
         wait_mode::WaitMode,
+        wait_notification,
         wait_surface::SurfaceWait,
         wait_text_match, wait_timeout,
     },
@@ -64,7 +65,7 @@ pub fn execute(
         }
         WaitMode::Menu { app, open } => wait_for_menu(app, open, timeout_ms, adapter),
         WaitMode::Notification { app, text } => {
-            wait_for_notification(app, text, timeout_ms, adapter, context)
+            wait_notification::wait_for_notification(app, text, timeout_ms, adapter, context)
         }
         WaitMode::Element { ref_id, predicate } => wait_for_element(
             ElementWaitInput {
@@ -158,6 +159,15 @@ fn wait_for_window(
                 }
                 last_observed = Some(wait_timeout::window_observation(&windows));
             }
+            Err(err) if wait_timeout::is_deadline_expired(&err) => {
+                return wait_timeout::window(
+                    &title,
+                    filter.app.as_deref(),
+                    timeout_ms,
+                    last_error,
+                    last_observed,
+                );
+            }
             Err(err) if is_retryable_wait_poll_error(&err.code) => {
                 last_error = Some(json!({
                     "code": err.code.as_str(),
@@ -233,6 +243,9 @@ fn wait_for_text(
                     return Ok(body);
                 }
             }
+            Err(AppError::Adapter(err)) if wait_timeout::is_deadline_expired(&err) => {
+                return wait_timeout::text(&text, timeout_ms, expected_count, last_error);
+            }
             Err(err) if is_retryable_wait_app_error(&err) => {
                 last_error = Some(json!({
                     "code": err.code(),
@@ -251,116 +264,12 @@ fn wait_for_text(
     }
 }
 
-fn is_retryable_wait_poll_error(code: &ErrorCode) -> bool {
+pub(crate) fn is_retryable_wait_poll_error(code: &ErrorCode) -> bool {
     matches!(code, ErrorCode::Timeout | ErrorCode::ElementNotFound)
 }
 
 fn is_retryable_wait_app_error(err: &AppError) -> bool {
     matches!(err, AppError::Adapter(err) if is_retryable_wait_poll_error(&err.code))
-}
-
-fn wait_for_notification(
-    app: Option<String>,
-    text: Option<String>,
-    timeout_ms: u64,
-    adapter: &dyn PlatformAdapter,
-    context: &CommandContext,
-) -> Result<Value, AppError> {
-    let filter = NotificationFilter {
-        app: app.clone(),
-        text: text.clone(),
-        ..Default::default()
-    };
-    let start = Instant::now();
-    let deadline = crate::Deadline::at(start, timeout_ms)?;
-    let mut baseline: Option<std::collections::HashMap<NotificationFingerprint, usize>> = None;
-    let mut last_error = None;
-
-    loop {
-        if deadline.is_expired() {
-            return wait_timeout::notification(app.as_ref(), text.as_ref(), timeout_ms, last_error);
-        }
-        match super::notification_policy::list_with_foreground_lease(
-            &filter, deadline, adapter, context,
-        ) {
-            Ok(current) => match &baseline {
-                None => {
-                    baseline = Some(notification_counts(&current));
-                }
-                Some(baseline) => {
-                    if let Some(notif) = first_new_notification(&current, baseline) {
-                        let elapsed = start.elapsed().as_millis();
-                        return Ok(json!({
-                            "condition": "notification",
-                            "matched": true,
-                            "notification": notif,
-                            "elapsed_ms": elapsed,
-                        }));
-                    }
-                }
-            },
-            Err(AppError::Adapter(err)) if is_retryable_wait_poll_error(&err.code) => {
-                last_error = Some(json!({
-                    "code": err.code.as_str(),
-                    "message": err.message
-                }));
-            }
-            Err(err) => return Err(err),
-        }
-
-        let remaining = deadline.remaining();
-        if remaining.is_zero() {
-            return wait_timeout::notification(app.as_ref(), text.as_ref(), timeout_ms, last_error);
-        }
-        std::thread::sleep(remaining.min(Duration::from_millis(500)));
-    }
-}
-
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct NotificationFingerprint {
-    app_name: String,
-    title: String,
-    body: Option<String>,
-    actions: Vec<String>,
-}
-
-impl From<&NotificationInfo> for NotificationFingerprint {
-    fn from(info: &NotificationInfo) -> Self {
-        Self {
-            app_name: info.app_name.clone(),
-            title: info.title.clone(),
-            body: info.body.clone(),
-            actions: info.actions.clone(),
-        }
-    }
-}
-
-fn notification_counts(
-    notifications: &[NotificationInfo],
-) -> std::collections::HashMap<NotificationFingerprint, usize> {
-    let mut counts = std::collections::HashMap::new();
-    for notification in notifications {
-        *counts
-            .entry(NotificationFingerprint::from(notification))
-            .or_insert(0) += 1;
-    }
-    counts
-}
-
-fn first_new_notification<'a>(
-    current: &'a [NotificationInfo],
-    baseline: &std::collections::HashMap<NotificationFingerprint, usize>,
-) -> Option<&'a NotificationInfo> {
-    let mut seen = std::collections::HashMap::new();
-    for notification in current {
-        let fingerprint = NotificationFingerprint::from(notification);
-        let current_count = seen.entry(fingerprint.clone()).or_insert(0);
-        *current_count += 1;
-        if *current_count > baseline.get(&fingerprint).copied().unwrap_or(0) {
-            return Some(notification);
-        }
-    }
-    None
 }
 
 #[cfg(test)]

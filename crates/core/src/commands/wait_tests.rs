@@ -239,18 +239,18 @@ fn headed_notification_wait_leases_each_poll_without_holding_across_sleep() {
 
 #[test]
 fn notification_wait_fingerprint_ignores_reindexed_existing_notification() {
-    let baseline = notification_counts(&[notification(0, "old")]);
+    let baseline = wait_notification::notification_counts(&[notification(0, "old")]);
     let current = vec![notification(4, "old")];
 
-    assert!(first_new_notification(&current, &baseline).is_none());
+    assert!(wait_notification::first_new_notification(&current, &baseline).is_none());
 }
 
 #[test]
 fn notification_wait_fingerprint_detects_duplicate_new_notification() {
-    let baseline = notification_counts(&[notification(0, "same")]);
+    let baseline = wait_notification::notification_counts(&[notification(0, "same")]);
     let current = vec![notification(4, "same"), notification(5, "same")];
 
-    let found = first_new_notification(&current, &baseline).unwrap();
+    let found = wait_notification::first_new_notification(&current, &baseline).unwrap();
 
     assert_eq!(found.index, 5);
 }

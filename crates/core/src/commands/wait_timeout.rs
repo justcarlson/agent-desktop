@@ -1,5 +1,19 @@
-use crate::{AdapterError, AppError, commands::wait_predicate};
+use crate::{AdapterError, AppError, ErrorCode, commands::wait_predicate};
 use serde_json::{Value, json};
+
+/// Whether an error is the wait's own deadline expiring inside an adapter
+/// call, rather than evidence about the target. Such an error ends the wait
+/// with the wait's timeout shape instead of being polled past or remembered
+/// as the cause.
+pub(crate) fn is_deadline_expired(error: &AdapterError) -> bool {
+    error.code == ErrorCode::Timeout
+        && error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("kind"))
+            .and_then(Value::as_str)
+            == Some("deadline")
+}
 
 /// Builds the wait-loop TIMEOUT error. Every payload carries
 /// `kind: "wait_timeout"` so agents can discriminate it from the chain
