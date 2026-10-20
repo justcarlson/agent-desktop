@@ -6,9 +6,15 @@ const DEFAULT_VERTICAL_LINES: f64 = -3.0;
 #[derive(Parser, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MouseWheelArgs {
-    #[arg(long, help = "Absolute X coordinate for wheel event")]
+    #[arg(
+        long,
+        help = "Absolute X coordinate for wheel event; write a negative value with = (--x=-100)"
+    )]
     pub x: f64,
-    #[arg(long, help = "Absolute Y coordinate for wheel event")]
+    #[arg(
+        long,
+        help = "Absolute Y coordinate for wheel event; write a negative value with = (--y=-100)"
+    )]
     pub y: f64,
     #[arg(
         long,
