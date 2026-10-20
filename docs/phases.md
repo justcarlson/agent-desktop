@@ -674,11 +674,11 @@ Shipped via `.github/workflows/release.yml` `build-ffi` matrix job:
 |--------|--------|---------|---------|
 | aarch64-apple-darwin | macos-latest | `.tar.gz` | `libagent_desktop_ffi.dylib` |
 | x86_64-apple-darwin | macos-latest | `.tar.gz` | `libagent_desktop_ffi.dylib` |
-| x86_64-unknown-linux-gnu | ubuntu-22.04 | `.tar.gz` | `libagent_desktop_ffi.so` |
-| aarch64-unknown-linux-gnu | ubuntu-22.04-arm | `.tar.gz` | `libagent_desktop_ffi.so` |
+| x86_64-unknown-linux-gnu | ubuntu-24.04 with pinned Ubuntu 22.04 container | `.tar.gz` | `libagent_desktop_ffi.so` |
+| aarch64-unknown-linux-gnu | ubuntu-24.04-arm with pinned Ubuntu 22.04 container | `.tar.gz` | `libagent_desktop_ffi.so` |
 | x86_64-pc-windows-msvc | windows-latest | `.zip` | `agent_desktop_ffi.dll` |
 
-Each archive contains `lib/`, `include/agent_desktop.h`, `LICENSE`, and a short `README.md`. macOS tarballs have their `install_name` verified `@rpath/libagent_desktop_ffi.dylib` via `otool -D` before upload. Linux binaries use `ubuntu-22.04` (glibc 2.35) as the baseline for maximum distro coverage.
+Each archive contains `lib/`, `include/agent_desktop.h`, `LICENSE`, and a short `README.md`. macOS tarballs have their `install_name` verified `@rpath/libagent_desktop_ffi.dylib` via `otool -D` before upload. Linux binaries build in digest-pinned `ubuntu:22.04` containers (glibc 2.35) on `ubuntu-24.04` and `ubuntu-24.04-arm` runners; the finished-file glibc gate enforces that floor (`L22-17`).
 
 ### Build Profile
 
@@ -2247,7 +2247,7 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 **Scope:**
 - FFI real-adapter path validated on Linux (non-stub tests) for both x86_64 and aarch64
 - npm `PLATFORMS` entries `linux-x64`/`linux-arm64` in `npm/lib/platform.js` flip from `released: false` to `released: true` (postinstall and the wrapper already consume the table; the Linux entries and target triples already exist)
-- Release matrix: CLI binary added for `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`, reusing the runners Phase 1.5 already builds the FFI cdylib on
+- Release matrix: CLI binary added for `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`; CLI and FFI Linux jobs use digest-pinned `ubuntu:22.04` containers on `ubuntu-24.04` and `ubuntu-24.04-arm` runners, with a finished-file glibc 2.35 gate (`L22-17`)
 - `skills/agent-desktop-linux/SKILL.md` — see Skill Update below
 - `skills get platform` returns the Linux skill on Linux and `skills` marks it `current`. The selection table is in `crates/core/src/commands/skills.rs` and has no Linux arm, so this needs the cross-platform core change listed in the Phase 3 introduction (`docs/dogfood-reports/2026-10-18-001-feat-linux-3-1-toolchain-bus-dogfood.md` F7, J6); the skill text carries the bus bootstrap, which commands work, and what an empty `supported_surfaces` means
 - The Linux skill states what a Linux caller meets, as measured by the 3.4 stranger dogfood: `--app` takes the process name `list-apps` shows (gnome-calculator, nautilus, gnome-text-editor) or the registry name (org.gnome.Nautilus); display names such as Calculator or Files are accepted only once the desktop-entry alias lands (3.9, F3); `--max-depth` and `--skeleton` count semantic levels, and empty layout wrappers do not count, so output nesting can exceed the number (F5, F6); the Linux skill lists the commands that are not available yet, so an agent does not discover them by failure (F9); window ids are opaque addresses (34-70 characters) valid for the life of the window's process, so re-run `list-windows` after a restart (F13); `bundle_id` is omitted on Linux (F11)
