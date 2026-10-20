@@ -249,6 +249,7 @@ fn blank_secure_entry(fixture: &HostedFixture) -> RefEntry {
             native_id: None,
         },
         geometry: agent_desktop_core::RefGeometry {
+            bounds_space: None,
             bounds: Some(*rect),
             bounds_hash: Some(hash),
         },

@@ -124,6 +124,7 @@ fn ref_snapshot(pid: u32) -> String {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

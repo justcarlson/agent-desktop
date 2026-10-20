@@ -132,6 +132,7 @@ fn snapshot_with_one_ref() -> String {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

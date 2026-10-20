@@ -17,6 +17,7 @@ fn entry(
         value: value.to_string(),
     });
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds,
         bounds_hash: hash,
     };
@@ -42,6 +43,8 @@ fn evidence(bounds_hash: Option<u64>) -> LocatorEvidence {
         identifiers: IdentifierEvidence::absent(),
         states: LocatorField::Absent,
         ref_evidence: agent_desktop_core::LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: match bounds_hash {
                 Some(_) => LocatorField::Known(rect(40.0, 20.0)),
                 None => LocatorField::Absent,

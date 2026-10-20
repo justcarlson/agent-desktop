@@ -110,6 +110,7 @@ fn entry() -> RefEntry {
     let bounds = bounds();
     let mut entry = crate::adapter::minimal_ref_entry("menuitem", Some("File"));
     entry.geometry = crate::RefGeometry {
+        bounds_space: None,
         bounds: Some(bounds),
         bounds_hash: bounds.bounds_hash(),
     };

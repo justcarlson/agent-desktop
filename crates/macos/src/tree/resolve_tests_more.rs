@@ -33,6 +33,8 @@ fn identifier_kind_mismatch_is_not_an_exact_match() {
         ),
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Absent,
             available_actions: LocatorField::Absent,
             descriptors: Default::default(),

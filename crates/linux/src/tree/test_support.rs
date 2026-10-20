@@ -85,6 +85,7 @@ pub(crate) fn ref_entry(role: &str) -> RefEntry {
             native_id: None,
         },
         geometry: agent_desktop_core::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -150,7 +151,9 @@ pub(crate) fn evidence(
         ),
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
             bounds: bounds.map_or(LocatorField::Absent, LocatorField::Known),
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             available_actions: LocatorField::Absent,
             descriptors: NodeDescriptor::default(),
         },

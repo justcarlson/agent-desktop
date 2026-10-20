@@ -16,6 +16,7 @@ fn minimal_entry(role: &str) -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -191,6 +192,7 @@ fn ref_entry_full_roundtrip_preserves_all_fields() {
             }),
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: Some(0xDEAD_BEEF),
         },
@@ -227,6 +229,7 @@ fn refmap_round_trip_keeps_bounds_on_a_rounding_boundary() {
     };
     let mut entry = minimal_entry("button");
     entry.geometry = crate::RefGeometry {
+        bounds_space: None,
         bounds: Some(bounds),
         bounds_hash: bounds.bounds_hash(),
     };

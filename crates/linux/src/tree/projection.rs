@@ -78,7 +78,9 @@ impl Projector<'_> {
             identifiers: vocabulary.identifiers,
             states: vocabulary.states,
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
                 bounds: bounds_of(&read.node.extents),
+                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 available_actions: capabilities(&read.node),
                 descriptors: vocabulary.descriptor,
             },

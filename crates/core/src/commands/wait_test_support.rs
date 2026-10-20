@@ -172,6 +172,7 @@ fn save_ref_in_store(store: RefStore, states: Vec<String>) -> String {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

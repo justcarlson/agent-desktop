@@ -16,6 +16,7 @@ fn entry(name: &str, root_ref: Option<&str>) -> crate::RefEntry {
             native_id: None,
         },
         geometry: RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

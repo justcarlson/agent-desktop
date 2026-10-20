@@ -25,6 +25,7 @@ fn entry() -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: Some(crate::Rect {
                 x: 0.0,
                 y: 0.0,

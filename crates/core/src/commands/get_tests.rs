@@ -88,6 +88,7 @@ fn live_bounds() -> Rect {
 fn entry_with_bounds(bounds: Option<Rect>) -> RefEntry {
     let mut entry = crate::adapter::minimal_ref_entry("textfield", Some("text-input"));
     entry.geometry = crate::RefGeometry {
+        bounds_space: None,
         bounds,
         bounds_hash: bounds.and_then(|b| b.bounds_hash()),
     };

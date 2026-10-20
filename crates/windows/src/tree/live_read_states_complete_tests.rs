@@ -45,6 +45,8 @@ fn read_with(role: &str, reads: Vec<(TreeProperty, PropertyOutcome)>) -> LiveRea
             identifiers: IdentifierEvidence::absent(),
             states: LocatorField::Known(Vec::new()),
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
+                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 bounds: LocatorField::Absent,
                 available_actions: LocatorField::Known(Vec::new()),
                 descriptors: NodeDescriptor::default(),

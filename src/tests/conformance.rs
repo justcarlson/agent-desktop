@@ -176,6 +176,7 @@ fn entry(bounds: Rect) -> RefEntry {
             native_id: None,
         },
         geometry: RefGeometry {
+            bounds_space: None,
             bounds: Some(bounds),
             bounds_hash: bounds.bounds_hash(),
         },

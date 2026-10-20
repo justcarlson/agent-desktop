@@ -57,6 +57,8 @@ fn subtree(complete: bool) -> ObservedSubtree {
             identifiers: IdentifierEvidence::absent(),
             states: LocatorField::Known(Vec::new()),
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
+                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 bounds: LocatorField::Absent,
                 available_actions: LocatorField::Known(vec!["Click".into()]),
                 descriptors: Default::default(),

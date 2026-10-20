@@ -13,9 +13,9 @@ pub(crate) fn ref_entry_from_node(
     root_ref: Option<String>,
     path: &[usize],
 ) -> RefEntry {
-    let bounds = node
-        .presentation
-        .bounds
+    let window_bounds = node.presentation.ref_bounds;
+    let bounds = window_bounds
+        .or(node.presentation.bounds)
         .filter(|bounds| bounds.validate().is_ok());
     RefEntry {
         process: crate::RefProcess {
@@ -37,6 +37,7 @@ pub(crate) fn ref_entry_from_node(
         geometry: crate::RefGeometry {
             bounds,
             bounds_hash: bounds.and_then(|bounds| bounds.bounds_hash()),
+            bounds_space: window_bounds.map(|_| crate::BoundsSpace::Window),
         },
         capabilities: crate::RefCapabilities {
             states: node.presentation.states.clone(),

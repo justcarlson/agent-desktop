@@ -262,6 +262,7 @@ fn ref_entry(pid: u32) -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

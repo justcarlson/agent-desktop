@@ -78,6 +78,7 @@ fn the_bounds_tie_break_resolves_the_stored_candidate_not_the_first_collected() 
     entry.identity.name = Some(name);
     entry.identity.native_id = native_id;
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(rect),
         bounds_hash: Some(target_hash),
     };
@@ -176,6 +177,7 @@ fn duplicate_entry(
     entry.identity.name = Some(name);
     entry.identity.native_id = native_id;
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(rect),
         bounds_hash,
     };
@@ -310,6 +312,8 @@ fn a_path_landing_with_an_unreadable_live_bounds_hash_is_still_accepted() {
         identifiers: agent_desktop_core::IdentifierEvidence::absent(),
         states: LocatorField::Absent,
         ref_evidence: agent_desktop_core::LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Unknown,
             available_actions: LocatorField::Absent,
             descriptors: agent_desktop_core::NodeDescriptor::default(),

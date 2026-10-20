@@ -34,6 +34,7 @@ pub(super) fn entry(
             native_id: None,
         },
         geometry: RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash,
         },
@@ -337,6 +338,8 @@ fn authoritatively_absent_native_identifier_is_a_definitive_mismatch() {
         identifiers: IdentifierEvidence::absent(),
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Absent,
             available_actions: LocatorField::Absent,
             descriptors: Default::default(),
@@ -370,6 +373,8 @@ fn native_identifier_reuse_by_a_different_role_is_definitively_stale() {
         identifiers: IdentifierEvidence::typed([identifier], Some(0), true),
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Absent,
             available_actions: LocatorField::Absent,
             descriptors: Default::default(),

@@ -259,6 +259,7 @@ fn element_entry() -> agent_desktop_core::RefEntry {
             native_id: None,
         },
         geometry: agent_desktop_core::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
