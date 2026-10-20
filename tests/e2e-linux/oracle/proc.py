@@ -1,7 +1,43 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
+def stat_fields(text: str) -> tuple[int, int, str]:
+    left = text.index("(")
+    right = text.rindex(")")
+    fields = text[right + 2:].split()
+    return int(fields[19]), int(fields[2]), text[left + 1:right]
+
+
+def environment(data: bytes) -> dict[str, str]:
+    return dict(item.decode(errors="surrogateescape").split("=", 1)
+                for item in data.split(b"\0") if b"=" in item)
+
+
+def facts(pid: int, root: Path = Path("/proc")) -> tuple[int, int, str, dict]:
+    directory = root / str(pid)
+    first = stat_fields((directory / "stat").read_text())
+    env = environment((directory / "environ").read_bytes())
+    if stat_fields((directory / "stat").read_text()) != first:
+        raise ProcessLookupError(f"process generation changed: {pid}")
+    return (*first, env)
+
+
 def members(runtime_dir: Path) -> list[tuple[int, int, str]]:
-    raise NotImplementedError("members")
+    result = []
+    for directory in Path("/proc").iterdir():
+        if not directory.name.isdecimal():
+            continue
+        try:
+            start, _, comm, env = facts(int(directory.name))
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        except PermissionError:
+            if directory.stat().st_uid == os.geteuid():
+                raise
+            continue
+        if env.get("XDG_RUNTIME_DIR") == str(runtime_dir):
+            result.append((int(directory.name), start, comm))
+    return sorted(result)
