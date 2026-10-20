@@ -140,7 +140,7 @@ fn lock_timeout(
     deadline.timeout_error().with_details(serde_json::json!({
         "kind": "lock_timeout",
         "purpose": purpose,
-        "path": path.display().to_string(),
+        "path": path.file_name().map(|name| name.to_string_lossy().into_owned()),
         "contention_count": contention_count,
     }))
 }
