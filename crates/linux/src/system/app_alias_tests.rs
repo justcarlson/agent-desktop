@@ -34,6 +34,46 @@ fn an_executable_answers_to_the_name_of_its_entry() {
 }
 
 #[test]
+fn an_executable_answers_to_the_id_of_its_entry() {
+    let index = AliasIndex::build(&stock());
+    assert_eq!(index.ids_for("nautilus"), ["org.gnome.Nautilus"]);
+    assert_eq!(index.ids_for("gnome-calculator"), ["org.gnome.Calculator"]);
+    assert_eq!(index.ids_for("gnome-text-editor"), ["org.gnome.TextEditor"]);
+    assert!(index.ids_for("calculator").is_empty());
+}
+
+#[test]
+fn a_process_is_queried_by_the_desktop_id_even_when_the_root_reports_another_name() {
+    use crate::system::app_name::{aliases_in, name_matches};
+    use crate::system::process_facts::ProcessFacts;
+
+    let index = AliasIndex::build(&stock());
+    let facts = ProcessFacts {
+        comm: "gnome-calculato".to_owned(),
+        exe_basename: Some("gnome-calculator".to_owned()),
+        instance: "boot:42".to_owned(),
+        web_family: None,
+    };
+    let aliases = aliases_in(&index, &facts);
+    assert!(aliases.iter().any(|alias| alias == "Calculator"));
+    assert!(aliases.iter().any(|alias| alias == "org.gnome.Calculator"));
+    assert!(name_matches(
+        "org.gnome.Calculator",
+        "gnome-calculator",
+        Some("gnome-calculator"),
+        &facts,
+        &aliases
+    ));
+    assert!(!name_matches(
+        "org.gnome.Calc",
+        "gnome-calculator",
+        Some("gnome-calculator"),
+        &facts,
+        &aliases
+    ));
+}
+
+#[test]
 fn another_executable_and_a_lookalike_get_no_alias() {
     let index = AliasIndex::build(&stock());
     assert!(index.names_for("files-helper").is_empty());

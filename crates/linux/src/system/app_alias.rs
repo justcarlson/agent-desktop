@@ -71,6 +71,19 @@ impl AliasIndex {
         names
     }
 
+    /// The id of every entry whose `Exec` program or `TryExec` has this
+    /// executable basename, compared exactly and ignoring case.
+    pub(crate) fn ids_for(&self, exe_basename: &str) -> Vec<String> {
+        let wanted = exe_basename.to_lowercase();
+        let mut ids: Vec<String> = Vec::new();
+        for entry in &self.entries {
+            if entry.programs.contains(&wanted) && !ids.contains(&entry.id) {
+                ids.push(entry.id.clone());
+            }
+        }
+        ids
+    }
+
     /// The id of every entry whose `Name` equals `name`, ignoring case.
     pub(crate) fn ids_named(&self, name: &str) -> Vec<String> {
         self.entries

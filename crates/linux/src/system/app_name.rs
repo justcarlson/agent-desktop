@@ -28,8 +28,8 @@ pub(crate) fn app_name(facts: &ProcessFacts) -> String {
         .to_owned()
 }
 
-/// The desktop entry names the process's executable answers to. The listed
-/// name never follows them.
+/// The desktop entry names and ids the process's executable answers to. The
+/// listed name never follows them.
 pub(crate) fn aliases_of(facts: &ProcessFacts) -> Vec<String> {
     aliases_in(&current_index(), facts)
 }
@@ -37,12 +37,17 @@ pub(crate) fn aliases_of(facts: &ProcessFacts) -> Vec<String> {
 /// As [`aliases_of`] over an index the caller already holds, for a caller that
 /// asks about many processes.
 pub(crate) fn aliases_in(index: &AliasIndex, facts: &ProcessFacts) -> Vec<String> {
-    facts
+    let Some(basename) = facts
         .exe_basename
         .as_deref()
         .map(live_basename)
-        .map(|basename| index.names_for(basename))
-        .unwrap_or_default()
+        .filter(|basename| !basename.is_empty())
+    else {
+        return Vec::new();
+    };
+    let mut aliases = index.names_for(basename);
+    aliases.extend(index.ids_for(basename));
+    aliases
 }
 
 /// Whether `query` names this application: exactly, ignoring case, its
