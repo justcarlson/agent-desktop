@@ -36,12 +36,16 @@ cursor, so pointer commands (`hover`, `drag`, `double-click`, `triple-click`,
 `mouse-move`, `mouse-click`, `mouse-wheel`) require global `--headed`.
 
 Under `--headed`, `click` and `type` use physical input on X11 and report
-`physical_synthetic` with `verified: false`, because XTEST has no read-back. They
-do not fall back to the semantic call on Wayland: a headed `click` or `type`
-stops at the missing bounds with `TIMEOUT` (`actionability_timeout`) and sends
-nothing. A headless action reports `semantic_api` and leaves the pointer still.
-Windows works the other way round (semantic first), so do not carry that
-assumption across platforms.
+`physical_synthetic` with `verified: false`, because XTEST has no read-back. On
+Wayland every headed pointer command is refused at once with
+`ACTION_NOT_SUPPORTED`, cause `wayland_session` and
+`physical_delivery_started: false` (measured for `click`, `hover`,
+`double-click`, `mouse-wheel` and `mouse-down`). A headed `type` is not a
+pointer command: it waits for the node's bounds, finds none and ends `TIMEOUT`
+(`actionability_timeout`) after 5 s with nothing sent. Headless `type` writes
+through `EditableText`. A headless action reports `semantic_api` and leaves the
+pointer still. Windows works the other way round (semantic first), so do not
+carry that assumption across platforms.
 
 Before a physical ref-addressed key or click, the target frame must report
 `active` within a short wait; a frame that never does fails with
@@ -121,8 +125,9 @@ drains them, and stops the session, releasing any key still held.
   The rule is measured on a US layout, so a character your keymap holds can be
   refused. A refusal is safe: nothing was sent.
 - **Pointer.** AT-SPI gives no global window origin on Wayland, so every pointer
-  command refuses. A `--headed` ref `type` or `press` stops earlier: core waits for
-  the node's bounds, finds none, and ends in `TIMEOUT` (`actionability_timeout`)
+  command refuses at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
+  before anything is sent. A `--headed` ref `type` is not a pointer command: it
+  stops at the missing bounds and ends in `TIMEOUT` (`actionability_timeout`)
   after 5 s with no keys sent. Use headless `type` or `set-value`, or a global
   `press`, which sends keys with no element gate.
 - **No active window.** On a Wayland session with no seat keyboard no window carries
