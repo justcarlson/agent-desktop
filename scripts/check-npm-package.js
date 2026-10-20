@@ -9,7 +9,7 @@ const root = join(__dirname, '..');
 const npmDir = join(root, 'npm');
 const pkg = require(join(npmDir, 'package.json'));
 const releaseWorkflow = readFileSync(join(root, '.github/workflows/release.yml'), 'utf8');
-const { PLATFORMS, tarballName } = require(join(npmDir, 'lib', 'platform.js'));
+const { LINUX_HELPER_NAME, PLATFORMS, tarballName } = require(join(npmDir, 'lib', 'platform.js'));
 const expectedFiles = [
   'bin/agent-desktop.js',
   'lib/platform.js',
@@ -139,6 +139,16 @@ function expectedAssetCountFromMatrices(cliTargets, ffiJobText) {
 // that can drift.
 function workflowViolations(workflow, platforms = PLATFORMS, tarballPatternFor = tarballName) {
   const violations = [];
+
+  for (const [key, entry] of Object.entries(platforms)) {
+    if (
+      key.startsWith('linux-') &&
+      entry.released &&
+      JSON.stringify(entry.entries) !== JSON.stringify(['agent-desktop', LINUX_HELPER_NAME])
+    ) {
+      violations.push(`${key} must install exactly agent-desktop and ${LINUX_HELPER_NAME}`);
+    }
+  }
 
   // Negative rules stay whole-file: a long-lived token anywhere in the release
   // workflow is the thing being banned, whichever job carries it.
@@ -296,13 +306,17 @@ function selfTest() {
   const fixturePlatforms = {
     'darwin-x64': { target: 'x86_64-apple-darwin', released: true },
     'win32-x64': { target: 'x86_64-pc-windows-msvc', released: true },
-    'linux-x64': { target: 'x86_64-unknown-linux-gnu', released: true },
+    'linux-x64': {
+      target: 'x86_64-unknown-linux-gnu',
+      released: true,
+      entries: ['agent-desktop', LINUX_HELPER_NAME],
+    },
   };
-  const violationsFor = (workflow) => workflowViolations(workflow, fixturePlatforms, tarballName);
+  const violationsFor = (workflow, platforms = fixturePlatforms) => workflowViolations(workflow, platforms, tarballName);
 
   const failures = [];
-  const expectCaught = (name, workflow, needle) => {
-    const found = violationsFor(workflow);
+  const expectCaught = (name, workflow, needle, platforms) => {
+    const found = violationsFor(workflow, platforms);
     if (!found.some((violation) => violation.includes(needle))) {
       failures.push(`self-test FAIL (missed): ${name} -> ${JSON.stringify(found)}`);
     }
@@ -313,6 +327,15 @@ function selfTest() {
       `self-test FAIL (false positive): a sound workflow was rejected -> ${JSON.stringify(violationsFor(sound))}`,
     );
   }
+  expectCaught(
+    'a released Linux entry omits the clipboard owner',
+    sound,
+    'linux-x64 must install exactly',
+    {
+      ...fixturePlatforms,
+      'linux-x64': { ...fixturePlatforms['linux-x64'], entries: ['agent-desktop'] },
+    },
+  );
   expectCaught(
     'npm job loses id-token while another job keeps it',
     sound.replace('      contents: read\n      id-token: write\n', '      contents: read\n'),
