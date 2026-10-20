@@ -10,7 +10,7 @@ workspace names all three. `.githooks/pre-commit` picks the host's package set;
 `HOST_PKGS` below is the macOS one.
 
 ```bash
-HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi"
+HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi"
 
 cargo build $HOST_PKGS                         # Debug build
 cargo build --release -p agent-desktop         # Release build (<15MB target)
