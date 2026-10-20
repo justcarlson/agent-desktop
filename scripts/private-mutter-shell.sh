@@ -85,4 +85,8 @@ if [ "$(overview_active)" = true ]; then
   done
 fi
 
+# D-Bus-activated apps (gnome-terminal, nautilus) start from the bus, not from this shell, and take
+# their display from the bus activation environment, which still names the session's own Xvfb.
+dbus-update-activation-environment "DISPLAY=$display"
+
 DISPLAY=$display "$@"
