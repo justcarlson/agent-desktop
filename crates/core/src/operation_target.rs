@@ -36,6 +36,21 @@ impl OperationTarget {
         })
     }
 
+    pub(crate) fn window_without_instance(window: &WindowInfo) -> Self {
+        Self::Window {
+            id: window.id.clone(),
+            title: window.title.clone(),
+            process: ProcessIdentity::new(window.pid, ""),
+        }
+    }
+
+    pub(crate) fn app_without_instance(app: &AppInfo) -> Self {
+        Self::App {
+            name: app.name.clone(),
+            process: ProcessIdentity::new(app.pid, ""),
+        }
+    }
+
     pub fn for_app(app: &AppInfo) -> Result<Self, AdapterError> {
         let instance = require_instance(app.process_instance.as_deref(), "application")?;
         Ok(Self::App {

@@ -1,6 +1,6 @@
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, Rect};
 
-const TOLERANCE: f64 = 2.0;
+pub(crate) const TOLERANCE: f64 = 2.0;
 
 pub(crate) fn wait_for_geometry(
     element: &crate::tree::AXElement,

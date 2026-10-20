@@ -78,6 +78,7 @@ pub(crate) mod window_activate;
 pub(crate) mod window_enum;
 pub(crate) mod window_identity;
 pub(crate) mod window_op;
+pub(crate) mod window_op_readback;
 pub(crate) mod window_op_verb;
 pub(crate) mod window_ops;
 pub(crate) mod window_resolve;

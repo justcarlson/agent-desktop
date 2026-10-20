@@ -71,8 +71,12 @@ fn drag_report_carries_both_endpoints_and_stays_unverified() {
 fn window_operation_is_verified_only_when_the_adapter_read_back_the_state() {
     let target = OperationTarget::for_window(&window(Some("boot"))).unwrap();
 
-    let verified = OperationReport::window_operation(target.clone(), &WindowOp::Minimize, true);
-    let unverified = OperationReport::window_operation(target, &WindowOp::Maximize, false);
+    let verified = OperationReport::window_operation(
+        target.clone(),
+        &WindowOp::Minimize,
+        Some(WindowReadback::state("window_minimized_state")),
+    );
+    let unverified = OperationReport::window_operation(target, &WindowOp::Maximize, None);
 
     assert_eq!(
         verified.disposition(),

@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::{
     ActionResult, ActionStep, DragParams, MouseEvent, MouseEventKind, OperationReport,
-    OperationTarget, StepMechanism, WindowOp,
+    OperationTarget, StepMechanism, WindowOp, WindowReadback,
 };
 
 impl OperationReport {
@@ -44,25 +44,29 @@ impl OperationReport {
         )
     }
 
-    pub fn window_operation(target: OperationTarget, op: &WindowOp, verified: bool) -> Self {
-        let (action, label, scope) = match op {
-            WindowOp::Resize { .. } => ("resize-window", "window_resize", "window_size"),
-            WindowOp::Move { .. } => ("move-window", "window_move", "window_position"),
-            WindowOp::Minimize => ("minimize", "window_minimize", "window_minimized_state"),
-            WindowOp::Maximize => ("maximize", "window_maximize", "window_geometry"),
-            WindowOp::Restore => ("restore", "window_restore", "window_minimized_state"),
+    pub fn window_operation(
+        target: OperationTarget,
+        op: &WindowOp,
+        readback: Option<WindowReadback>,
+    ) -> Self {
+        let (action, label) = match op {
+            WindowOp::Resize { .. } => ("resize-window", "window_resize"),
+            WindowOp::Move { .. } => ("move-window", "window_move"),
+            WindowOp::Minimize => ("minimize", "window_minimize"),
+            WindowOp::Maximize => ("maximize", "window_maximize"),
+            WindowOp::Restore => ("restore", "window_restore"),
         };
-        let step = ActionStep::succeeded(label).with_mechanism(StepMechanism::SemanticApi);
-        if !verified {
+        let step = window_step(label);
+        let Some(readback) = readback else {
             return Self::new(
                 ActionResult::delivered_unverified(action).with_steps(vec![step]),
                 target,
             );
-        }
+        };
         Self::new(
             ActionResult::delivered_unverified(action)
                 .with_steps(vec![step.with_verified(true)])
-                .with_details(json!({ "verification_scope": scope }))
+                .with_details(readback.details())
                 .with_verified_delivery(),
             target,
         )
@@ -109,6 +113,10 @@ impl OperationReport {
             OperationTarget::Clipboard,
         )
     }
+}
+
+pub(crate) fn window_step(label: &'static str) -> ActionStep {
+    ActionStep::succeeded(label).with_mechanism(StepMechanism::SemanticApi)
 }
 
 fn physical_step(label: &'static str) -> ActionStep {

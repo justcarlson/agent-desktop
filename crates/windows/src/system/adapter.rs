@@ -2,17 +2,13 @@ use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
     KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, ObservationOps,
-    OperationReport, OperationTarget, PermissionReport, ProcessIdentity, ScreenshotTarget,
-    SessionAffinity, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowFilter,
-    WindowInfo, WindowOp, launch_options::LaunchOptions, process_state::ProcessState,
+    OperationReport, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
+    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowFilter, WindowInfo, WindowOp,
+    launch_options::LaunchOptions, process_state::ProcessState,
 };
 
 use crate::adapter::WindowsAdapter;
 use crate::system::close_outcome::CloseOutcome;
-
-fn reported_after_dispatch(error: AdapterError) -> AdapterError {
-    error.with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified())
-}
 
 impl SystemOps for WindowsAdapter {
     fn update_cursor_overlay(
@@ -192,12 +188,9 @@ impl SystemOps for WindowsAdapter {
         force: bool,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let outcome = crate::system::close::close_app_impl(app, force, lease.deadline())?;
-        let target = OperationTarget::for_app(app).map_err(reported_after_dispatch)?;
-        Ok(match outcome {
-            CloseOutcome::Exited => OperationReport::app_exited(target),
-            CloseOutcome::AlreadyGone => OperationReport::app_already_gone(target),
-        })
+        let dispatched = crate::system::close::close_app_impl(app, force, lease.deadline())
+            .map(|outcome| outcome == CloseOutcome::Exited);
+        OperationReport::from_close_dispatch(app, dispatched)
     }
 
     /// `SetWindowPos`/`ShowWindow` with Win32 placement re-read verification
@@ -208,10 +201,10 @@ impl SystemOps for WindowsAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let operation = op.clone();
-        crate::system::window_op::window_op_impl(win, op, lease.deadline())?;
-        let target = OperationTarget::for_window(win).map_err(reported_after_dispatch)?;
-        Ok(OperationReport::window_operation(target, &operation, true))
+        let readback = crate::system::window_op_readback::window_readback(&op);
+        let dispatched =
+            crate::system::window_op::window_op_impl(win, op.clone(), lease.deadline());
+        OperationReport::from_window_dispatch(win, &op, readback, dispatched)
     }
 
     fn resolve_window_strict(

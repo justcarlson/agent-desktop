@@ -1,17 +1,13 @@
 use agent_desktop_core::{
     ActionResult, AdapterError, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, ImageBuffer, InteractionLease, NotificationActionRequest,
-    NotificationFilter, NotificationInfo, OperationReport, OperationTarget, PermissionReport,
-    ProcessIdentity, ScreenshotTarget, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps,
-    WindowInfo, WindowOp,
+    NotificationFilter, NotificationInfo, OperationReport, PermissionReport, ProcessIdentity,
+    ScreenshotTarget, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo,
+    WindowOp,
 };
 
 use crate::adapter::MacOSAdapter;
 use crate::system::close_outcome::CloseOutcome;
-
-fn reported_after_dispatch(error: AdapterError) -> AdapterError {
-    error.with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified())
-}
 
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(
@@ -118,12 +114,9 @@ impl SystemOps for MacOSAdapter {
         force: bool,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let outcome = crate::system::app_ops::close_app_impl(app, force, lease.deadline())?;
-        let target = OperationTarget::for_app(app).map_err(reported_after_dispatch)?;
-        Ok(match outcome {
-            CloseOutcome::Exited => OperationReport::app_exited(target),
-            CloseOutcome::AlreadyGone => OperationReport::app_already_gone(target),
-        })
+        let dispatched = crate::system::app_ops::close_app_impl(app, force, lease.deadline())
+            .map(|outcome| outcome == CloseOutcome::Exited);
+        OperationReport::from_close_dispatch(app, dispatched)
     }
 
     fn is_protected_process(&self, identifier: &str) -> bool {
@@ -210,12 +203,9 @@ impl SystemOps for MacOSAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let operation = op.clone();
-        crate::system::window_ops::execute(win, op, lease.deadline())?;
-        let target = OperationTarget::for_window(win).map_err(reported_after_dispatch)?;
-        Ok(crate::system::window_report::window_report(
-            target, &operation,
-        ))
+        let readback = crate::system::window_report::window_readback(&op);
+        let dispatched = crate::system::window_ops::execute(win, op.clone(), lease.deadline());
+        OperationReport::from_window_dispatch(win, &op, readback, dispatched)
     }
 
     fn list_notifications(
