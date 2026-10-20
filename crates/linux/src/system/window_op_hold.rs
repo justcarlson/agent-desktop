@@ -1,5 +1,24 @@
 use super::*;
 
+/// A client at `place` in one read may only be passing through it while a
+/// manager slides the window somewhere else, so the place counts as held only
+/// when the same rectangle still reads back after a pause.
+fn rests_at(
+    world: &impl OpWorld,
+    client: u32,
+    first: &Extents,
+    place: &Extents,
+    deadline: Deadline,
+) -> bool {
+    if (first.x - place.x).abs() > POSITION_TOLERANCE
+        || (first.y - place.y).abs() > POSITION_TOLERANCE
+    {
+        return false;
+    }
+    std::thread::sleep(CONFIRM_PAUSE.min(deadline.remaining()));
+    matches!(world.facts(client), ControlRead::Ready(next) if next.client == *first)
+}
+
 /// Puts the client at `place`, with a second try through a place 40 px away
 /// where the manager skips a move to the place it believes the window holds.
 pub(super) fn move_client(
@@ -13,8 +32,7 @@ pub(super) fn move_client(
     let there = matches!(
         world.facts(client),
         ControlRead::Ready(facts)
-            if (facts.client.x - place.x).abs() <= POSITION_TOLERANCE
-                && (facts.client.y - place.y).abs() <= POSITION_TOLERANCE
+            if rests_at(world, client, &facts.client, &place, deadline)
     );
     if !there && apply(world, win, client, &back, deadline).is_err() {
         apply(
@@ -57,13 +75,12 @@ pub(super) fn hold_place(
         return Ok(());
     };
     let displays = world.displays();
-    let moved = matches!(
-        world.facts(client),
-        ControlRead::Ready(facts)
-            if fits_a_display(&facts.client, &displays)
-                && ((facts.client.x - place.x).abs() > POSITION_TOLERANCE
-                    || (facts.client.y - place.y).abs() > POSITION_TOLERANCE)
-    );
+    let moved = match world.facts(client) {
+        ControlRead::Ready(facts) if fits_a_display(&facts.client, &displays) => {
+            !rests_at(world, client, &facts.client, &place, deadline)
+        }
+        _ => false,
+    };
     if moved {
         move_client(world, win, client, place, deadline)?;
     }

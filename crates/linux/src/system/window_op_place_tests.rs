@@ -134,6 +134,34 @@ fn a_window_already_back_in_its_place_is_not_moved() {
 }
 
 #[test]
+fn a_place_the_unmaximize_slide_only_passed_through_is_still_written_to() {
+    let world = World::showing(maximized())
+        .then_showing(state(80, 40, 500, 380))
+        .then_showing(state(120, 90, 500, 380))
+        .then_showing(state(60, 90, 500, 380))
+        .then_showing(state(120, 90, 500, 380));
+    *world.remembered.borrow_mut() = Some(Extents {
+        x: 120,
+        y: 90,
+        width: 500,
+        height: 380,
+    });
+    let deadline = Deadline::after(2_000).expect("a deadline builds");
+    run(&world, &window(), &WindowOp::Restore, deadline).expect("the give-back lands");
+    let writes = world.writes.borrow();
+    assert_eq!(writes.len(), 2);
+    assert_eq!(
+        writes[1].1,
+        WindowWrite::MoveResize {
+            x: Some(120),
+            y: Some(90),
+            width: None,
+            height: None
+        }
+    );
+}
+
+#[test]
 fn a_retried_restore_of_an_unmaximized_window_still_gives_back_the_place_that_was_kept() {
     let world = World::showing(state(160, 90, 500, 380))
         .then_showing(state(160, 90, 500, 380))

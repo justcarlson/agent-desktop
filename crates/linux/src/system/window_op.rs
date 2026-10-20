@@ -175,6 +175,10 @@ fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), Adapt
     Ok((id, shadow))
 }
 
+/// A rectangle read while the manager is still sliding the window can satisfy
+/// the request in passing and fail it a moment later, so a placing write is
+/// only settled when the satisfied rectangle still reads back after a pause.
+/// The same read catches a toolkit that clamps a size after applying it.
 fn settle(
     world: &impl OpWorld,
     client: u32,
@@ -190,28 +194,23 @@ fn settle(
             None if at_limit => Verdict::Mismatch,
             None => Verdict::Pending,
         };
-        if verdict != Verdict::Pending {
-            return (verdict, observed);
+        match verdict {
+            Verdict::Satisfied if matches!(write, WindowWrite::MoveResize { .. }) => {
+                std::thread::sleep(CONFIRM_PAUSE.min(limit.remaining()));
+                match world.facts(client) {
+                    ControlRead::Ready(facts)
+                        if judge(write, &facts, true) == Verdict::Satisfied =>
+                    {
+                        return (Verdict::Satisfied, Some(facts));
+                    }
+                    _ if limit.is_expired() => return (Verdict::Mismatch, observed),
+                    _ => {}
+                }
+            }
+            Verdict::Pending => {}
+            _ => return (verdict, observed),
         }
         std::thread::sleep(POLL.min(limit.remaining()));
-    }
-}
-
-/// A toolkit that clamps a request after the manager applied it shows the
-/// requested size first, so a size that fits is read again after a pause and
-/// only the later read counts.
-fn confirm(
-    world: &impl OpWorld,
-    client: u32,
-    write: &WindowWrite,
-    deadline: Deadline,
-) -> (Verdict, Option<WindowFacts>) {
-    std::thread::sleep(CONFIRM_PAUSE.min(deadline.remaining()));
-    match world.facts(client) {
-        ControlRead::Ready(facts) => (judge(write, &facts, true), Some(facts)),
-        ControlRead::NotX11 | ControlRead::NoManager | ControlRead::Unavailable => {
-            (Verdict::Mismatch, None)
-        }
     }
 }
 
@@ -223,10 +222,7 @@ fn apply(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     world.write(client, write).map_err(write_failed)?;
-    let (mut verdict, mut observed) = settle(world, client, write, deadline);
-    if verdict == Verdict::Satisfied && is_resize(write) {
-        (verdict, observed) = confirm(world, client, write, deadline);
-    }
+    let (verdict, observed) = settle(world, client, write, deadline);
     ensure_owned_after(world, win)?;
     match verdict {
         Verdict::Satisfied => Ok(()),

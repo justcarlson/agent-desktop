@@ -241,6 +241,21 @@ fn a_clamped_resize_is_unverified_with_requested_observed_and_display_bounds() {
 }
 
 #[test]
+fn a_move_seen_only_in_passing_is_not_the_held_result() {
+    let world = World::showing(state(10, 10, 400, 300))
+        .then_showing(state(300, 200, 400, 300))
+        .then_showing(state(60, 90, 400, 300));
+    let error = run(
+        &world,
+        &window(),
+        &WindowOp::Move { x: 300.0, y: 200.0 },
+        budget(),
+    )
+    .expect_err("the slide kept going past the asked place");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+}
+
+#[test]
 fn a_state_request_the_manager_ignored_is_unverified_without_display_bounds() {
     let world = World::showing(wide(300, 200));
     let error = run(&world, &window(), &WindowOp::Maximize, budget()).expect_err("ignored");

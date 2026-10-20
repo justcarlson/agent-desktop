@@ -93,6 +93,20 @@ fn a_clamped_resize_that_also_shifted_the_client_still_gives_the_place_back() {
     assert_eq!(details["observed"]["height"], 800);
 }
 
+#[test]
+fn a_place_the_resize_slide_only_passed_through_is_still_held() {
+    let world = World::showing(state(300, 200, 400, 300))
+        .then_showing(state(60, 90, 520, 380))
+        .then_showing(state(60, 90, 520, 380))
+        .then_showing(state(300, 200, 520, 380))
+        .then_showing(state(60, 90, 520, 380))
+        .then_showing(state(60, 90, 520, 380))
+        .then_showing(state(300, 200, 520, 380));
+    let deadline = Deadline::after(2_000).expect("a deadline builds");
+    run(&world, &window(), &resize(520.0, 380.0), deadline).expect("the hold lands");
+    assert_eq!(world.writes(), 2);
+}
+
 fn oversize_and_shifted(written: &[WindowWrite]) -> WindowFacts {
     if written.is_empty() {
         state(300, 200, 400, 300)
