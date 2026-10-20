@@ -174,6 +174,7 @@ pub(crate) fn reading(specs: &[Spec], clear_all: bool) -> Reading {
 pub(crate) struct Faults {
     pub(crate) daemon: Option<DaemonFailure>,
     pub(crate) open: bool,
+    pub(crate) window_info: bool,
     pub(crate) close_sticks: bool,
     pub(crate) click: bool,
     pub(crate) read_after_click: bool,
@@ -293,9 +294,22 @@ impl ShellWorld for FakeWorld {
         _: &InteractionLease,
     ) -> Result<(WindowInfo, Opened), AdapterError> {
         self.note("open");
-        if self.faults.open {
+        if self.faults.open || self.faults.window_info {
+            let opened_by_call = self.opened == Opened::Opened;
             self.showing.set(true);
-            return Err(AdapterError::timeout("the list never showed"));
+            let message = if self.faults.window_info {
+                "window info could not be read"
+            } else {
+                "the list never showed"
+            };
+            let mut details = serde_json::Map::new();
+            details.insert(
+                "surface_opened_by_call".to_owned(),
+                serde_json::json!(opened_by_call),
+            );
+            return Err(
+                AdapterError::timeout(message).with_details(serde_json::Value::Object(details))
+            );
         }
         self.showing.set(true);
         let window = WindowInfo {

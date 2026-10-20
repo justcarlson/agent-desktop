@@ -15,6 +15,8 @@ struct World {
     showing: Cell<bool>,
     opens_on_press: bool,
     closes_on_press: bool,
+    window_fails: bool,
+    press_cleanup_fails: bool,
     events: RefCell<Vec<&'static str>>,
 }
 
@@ -24,6 +26,8 @@ impl World {
             showing: Cell::new(false),
             opens_on_press: true,
             closes_on_press: true,
+            window_fails: false,
+            press_cleanup_fails: false,
             events: RefCell::default(),
         }
     }
@@ -55,10 +59,18 @@ impl Surface for World {
         } else if !self.showing.get() && self.opens_on_press {
             self.showing.set(true);
         }
+        if self.press_cleanup_fails {
+            return Err(AdapterError::new(ErrorCode::ActionNotSupported, "Stop refused")
+                .with_details(serde_json::json!({ "physical_delivery_started": true }))
+                .with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified()));
+        }
         Ok(())
     }
 
     fn window(&self, _kind: ShellKind, _deadline: Deadline) -> Result<WindowInfo, AdapterError> {
+        if self.window_fails {
+            return Err(AdapterError::timeout("window info could not be read"));
+        }
         Ok(WindowInfo {
             id: "w-1-2-3".to_owned(),
             title: "t".to_owned(),
@@ -91,6 +103,66 @@ fn a_surface_already_showing_is_adopted_with_no_event() {
     .expect("an open surface is adopted");
     assert_eq!(how, Opened::Adopted);
     assert!(world.events().is_empty());
+}
+
+#[test]
+fn a_failed_window_read_of_an_adopted_surface_preserves_nonownership() {
+    let mut world = World::open();
+    world.window_fails = true;
+    let error = open_with(
+        &world,
+        ShellKind::MessageList,
+        InteractionPolicy::headed(),
+        deadline(2_000),
+    )
+    .expect_err("window info failed");
+    assert_eq!(
+        error.details.expect("details")["surface_opened_by_call"],
+        false
+    );
+    assert!(world.events().is_empty());
+}
+
+#[test]
+fn a_failed_window_read_after_opening_preserves_owned_state() {
+    let mut world = World::closed();
+    world.window_fails = true;
+    let error = open_with(
+        &world,
+        ShellKind::MessageList,
+        InteractionPolicy::headed(),
+        deadline(2_000),
+    )
+    .expect_err("window info failed");
+    assert_eq!(
+        error.details.expect("details")["surface_opened_by_call"],
+        true
+    );
+    assert_eq!(world.events(), ["press"]);
+}
+
+#[test]
+fn a_delivered_opener_error_preserves_ownership_for_restoration() {
+    let mut world = World::closed();
+    world.press_cleanup_fails = true;
+    let error = open_with(
+        &world,
+        ShellKind::MessageList,
+        InteractionPolicy::headed(),
+        deadline(2_000),
+    )
+    .expect_err("the click arrived but its pointer session did not stop");
+
+    assert!(world.showing.get());
+    assert_eq!(
+        error.details.expect("opener progress")["surface_opened_by_call"],
+        true
+    );
+    assert_eq!(world.events(), ["press"]);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
 }
 
 #[test]

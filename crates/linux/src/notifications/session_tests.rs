@@ -101,13 +101,27 @@ fn dropping_an_unfinished_session_closes_what_it_opened() {
 fn an_open_that_failed_after_showing_the_list_still_closes_it() {
     let log = log();
     let mut world = world(&log);
-    world.faults.open = true;
+    world.faults.window_info = true;
     let lease = lease(500);
     let error = Session::open(&world, InteractionPolicy::headed(), &lease)
         .err()
         .expect("error");
     assert!(!world.showing.get());
     assert_eq!(error.details.expect("details")["list_restore"], "closed");
+}
+
+#[test]
+fn an_adopted_list_stays_open_when_its_window_info_read_fails() {
+    let log = log();
+    let mut world = world(&log).adopted();
+    world.faults.window_info = true;
+    let lease = lease(500);
+    let error = Session::open(&world, InteractionPolicy::headed(), &lease)
+        .err()
+        .expect("error");
+    assert!(world.showing.get());
+    assert!(!log.borrow().iter().any(|line| line == "close"));
+    assert_eq!(error.details.expect("details")["list_restore"], "adopted");
 }
 
 #[test]

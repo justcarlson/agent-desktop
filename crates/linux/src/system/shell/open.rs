@@ -84,13 +84,50 @@ pub(crate) fn open_with<W: Surface>(
     policy: InteractionPolicy,
     deadline: Deadline,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
-    if opener_of(kind).is_none() || world.showing(kind, deadline)? {
-        return Ok((world.window(kind, deadline)?, Opened::Adopted));
+    if opener_of(kind).is_none() {
+        return world
+            .window(kind, deadline)
+            .map(|window| (window, Opened::Adopted))
+            .map_err(|error| with_open_progress(error, false));
     }
-    ensure_headed_click_policy(policy)?;
-    world.press_opener(kind, policy)?;
-    settle(world, kind, true, deadline)?;
-    Ok((world.window(kind, deadline)?, Opened::Opened))
+    let showing = world
+        .showing(kind, deadline)
+        .map_err(|error| with_open_progress(error, false))?;
+    if showing {
+        return world
+            .window(kind, deadline)
+            .map(|window| (window, Opened::Adopted))
+            .map_err(|error| with_open_progress(error, false));
+    }
+    ensure_headed_click_policy(policy).map_err(|error| with_open_progress(error, false))?;
+    world.press_opener(kind, policy).map_err(|error| {
+        let started = error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("physical_delivery_started"))
+            .and_then(serde_json::Value::as_bool)
+            == Some(true);
+        with_open_progress(error, started)
+    })?;
+    settle(world, kind, true, deadline).map_err(|error| with_open_progress(error, true))?;
+    world
+        .window(kind, deadline)
+        .map(|window| (window, Opened::Opened))
+        .map_err(|error| with_open_progress(error, true))
+}
+
+fn with_open_progress(error: AdapterError, opened_by_call: bool) -> AdapterError {
+    let mut details = match error.details.clone() {
+        Some(serde_json::Value::Object(map)) => map,
+        Some(details) => {
+            let mut map = serde_json::Map::new();
+            map.insert("cause".to_owned(), details);
+            map
+        }
+        None => serde_json::Map::new(),
+    };
+    details.insert("surface_opened_by_call".to_owned(), json!(opened_by_call));
+    error.with_details(serde_json::Value::Object(details))
 }
 
 pub(crate) fn close_with<W: Surface>(

@@ -51,7 +51,12 @@ impl<'a> Session<'a> {
             Err(error) => {
                 let mut cleanup = Self {
                     world,
-                    opened: world_is_showing(world),
+                    opened: error
+                        .details
+                        .as_ref()
+                        .and_then(|details| details.get("surface_opened_by_call"))
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false),
                     finished: false,
                 };
                 let restore = cleanup.restore();
@@ -99,12 +104,6 @@ fn close_within_own_budget(world: &dyn ShellWorld) -> bool {
         .and_then(|deadline| InteractionLease::guarded(deadline, ()))
         .and_then(|cleanup| world.close(&cleanup))
         .is_ok()
-}
-
-fn world_is_showing(world: &dyn ShellWorld) -> bool {
-    Deadline::detached_after(CLEANUP_MS)
-        .and_then(|deadline| world.is_showing(deadline))
-        .unwrap_or(false)
 }
 
 fn still_closed(world: &dyn ShellWorld) -> bool {
