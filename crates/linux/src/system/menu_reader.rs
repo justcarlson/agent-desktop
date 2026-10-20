@@ -5,8 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline};
 use super::menu_popup::{Node, only_menu_content};
 use super::menu_surface::{PopupReader, vanished};
 use super::{REGISTRY_ROOT_PATH, SharedBus, process_facts, within};
-use crate::tree::nested_dialog::is_cut_short;
-use crate::tree::observe_menu::{rooted, scan_walk};
+use crate::tree::observe_menu::{is_cut_short_beyond_pruning, rooted, scan_walk_pruned};
 use crate::tree::role_numbers::{FRAME, WINDOW};
 use crate::tree::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
@@ -49,7 +48,7 @@ fn is_popup_candidate(node: &RawNode) -> bool {
 /// all menu content: an open menu may continue past where the read stopped.
 /// A cut-short window holding anything else is not a popup whatever it hides.
 fn may_hide_a_menu(candidate: &Node) -> bool {
-    is_cut_short(candidate) && candidate.children.iter().all(only_menu_content)
+    is_cut_short_beyond_pruning(candidate) && candidate.children.iter().all(only_menu_content)
 }
 
 impl PopupReader for BusReader<'_> {
@@ -59,8 +58,8 @@ impl PopupReader for BusReader<'_> {
         if web {
             return Ok(None);
         }
-        let walked = scan_walk(self.bus, &rooted(self.window), WINDOW_NODES, self.deadline)?;
-        self.incomplete |= is_cut_short(&walked);
+        let walked = scan_walk_pruned(self.bus, &rooted(self.window), WINDOW_NODES, self.deadline)?;
+        self.incomplete |= is_cut_short_beyond_pruning(&walked);
         Ok(Some(walked))
     }
 
@@ -85,7 +84,7 @@ impl PopupReader for BusReader<'_> {
             if !is_popup_candidate(&node) {
                 continue;
             }
-            match scan_walk(self.bus, &rooted(&child), TOP_LEVEL_NODES, self.deadline) {
+            match scan_walk_pruned(self.bus, &rooted(&child), TOP_LEVEL_NODES, self.deadline) {
                 Ok(walked) => {
                     self.incomplete |= may_hide_a_menu(&walked);
                     windows.push(walked);
