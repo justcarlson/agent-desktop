@@ -266,6 +266,9 @@ pub(super) fn run(
         X11State::Unavailable => return Err(refusal(Cause::X11Unavailable)),
     };
     let client = client_of(world, win, &clients).map_err(refusal)?;
+    if world.overview_open() == Some(true) {
+        return Err(refusal(Cause::OverviewOpen));
+    }
     let view = client_view(world, client).map_err(refusal)?;
     if let Some(desktop) = view.other_desktop {
         world

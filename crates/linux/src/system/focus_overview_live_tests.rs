@@ -105,12 +105,27 @@ fn focus_window_names_an_open_overview_and_succeeds_once_it_is_closed() {
         key("super");
         wait_for_overview(true);
     }
+    let started = Instant::now();
     let refused = focus(&target).expect_err("no activation while the overview is open");
+    let refusal_ms = started.elapsed().as_millis();
     assert_eq!(refused.code, ErrorCode::ActionFailed);
     assert_eq!(cause_of(&refused), "overview_open");
+    assert!(
+        refusal_ms < 2_000,
+        "an open Overview should be identified promptly, took {refusal_ms}ms"
+    );
+    assert!(refused.suggestion.as_deref().is_some_and(|text| {
+        text.contains("Escape") && text.contains("Close the Activities Overview")
+    }));
+    println!("overview refusal cause=overview_open elapsed={refusal_ms}ms");
+    let recovered = Instant::now();
     key("Escape");
     wait_for_overview(false);
     focus(&target).expect("a window that never held focus is granted once the overview is closed");
+    println!(
+        "overview global Escape recovery elapsed={}ms",
+        recovered.elapsed().as_millis()
+    );
     key("super");
     wait_for_overview(true);
     let held = focus(&target).expect_err("no activation while the overview is open");

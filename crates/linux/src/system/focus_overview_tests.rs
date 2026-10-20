@@ -7,6 +7,7 @@ fn an_open_overview_is_the_cause_when_nothing_was_granted() {
     world.overview = Some(true);
     let error = failure(&world);
     assert_refused(&error, "overview_open");
+    assert_eq!(world.sends(), 0, "the refusal is decided before activation");
     assert!(
         error
             .suggestion
