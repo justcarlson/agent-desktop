@@ -11,6 +11,7 @@ use rustix::process::{Pid, Signal, kill_process};
 use super::*;
 use crate::input::clipboard::owner_files;
 use crate::input::clipboard::owner_record::start_ticks_of;
+use crate::input::clipboard::test_nonce::test_nonce;
 use crate::input::clipboard::x11_read::Fault;
 
 const DISPLAY: &str = ":77";
@@ -60,7 +61,7 @@ impl SelectionServer for FakeServer {
 struct World {
     root: PathBuf,
     records: PathBuf,
-    nonce: &'static str,
+    nonce: String,
 }
 
 impl World {
@@ -73,7 +74,7 @@ impl World {
         Self {
             root,
             records,
-            nonce: "testnonce00000001",
+            nonce: test_nonce(),
         }
     }
 
@@ -153,7 +154,7 @@ fn run_set(
             server,
             signaller: &PidfdSignaller,
             parent_env: &parent,
-            nonce: world.nonce,
+            nonce: &world.nonce,
         },
         DISPLAY,
         content,
@@ -163,6 +164,7 @@ fn run_set(
 
 fn run_clear(world: &World, server: &FakeServer) -> Result<(), AdapterError> {
     let parent = |name: &str| world.env_var(name);
+    let nonce = test_nonce();
     clear_with(
         &Env {
             helper: Path::new(""),
@@ -170,7 +172,7 @@ fn run_clear(world: &World, server: &FakeServer) -> Result<(), AdapterError> {
             server,
             signaller: &PidfdSignaller,
             parent_env: &parent,
-            nonce: "testnonce00000002",
+            nonce: &nonce,
         },
         DISPLAY,
         &lease(2_000),
@@ -308,7 +310,7 @@ fn a_second_set_stops_the_earlier_owner_after_the_new_claim_and_leaves_one_recor
     let world = World::new("replace");
     let mut earlier = sleeper();
     let ticks = start_ticks_of(earlier.id()).expect("start time");
-    write_record(&world, earlier.id(), ticks, "earlier00000001");
+    write_record(&world, earlier.id(), ticks, &test_nonce());
     let helper = world.helper(CLAIMS);
     let server = FakeServer::new(&[None, Some(WINDOW)], &text_targets());
     run_set(&world, &helper, &server, &text("hello"), 5_000).expect("set");
@@ -316,7 +318,7 @@ fn a_second_set_stops_the_earlier_owner_after_the_new_claim_and_leaves_one_recor
     assert!(!status.success());
     let names = world.record_names();
     assert_eq!(names.len(), 1, "{names:?}");
-    assert!(names[0].contains("testnonce00000001"), "{names:?}");
+    assert!(names[0].contains(&world.nonce), "{names:?}");
     terminate(world.pid());
 }
 
@@ -336,7 +338,7 @@ fn an_over_cap_payload_is_invalid_args_before_any_process_or_file() {
 #[test]
 fn no_payload_descriptor_stays_open_after_a_failed_set() {
     let mut world = World::new("fd-closed");
-    world.nonce = "fdclosednonce0001";
+    world.nonce = test_nonce();
     let helper = world.helper(EXITS);
     let server = FakeServer::new(&[None], &[]);
     let _ = run_set(&world, &helper, &server, &text("hello"), 3_000);
@@ -346,7 +348,7 @@ fn no_payload_descriptor_stays_open_after_a_failed_set() {
         .filter_map(|entry| fs::read_link(entry.path()).ok())
         .any(|link| {
             link.to_string_lossy()
-                .contains("memfd:ad-payload-fdclosednonce0001")
+                .contains(&format!("memfd:ad-payload-{}", world.nonce))
         });
     assert!(!leaked);
 }

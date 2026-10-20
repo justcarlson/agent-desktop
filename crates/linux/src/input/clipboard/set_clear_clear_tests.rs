@@ -1,11 +1,12 @@
 use super::*;
+use crate::input::clipboard::test_nonce::test_nonce;
 
 #[test]
 fn clear_releases_the_selection_and_stops_a_live_recorded_owner() {
     let world = World::new("clear-live");
     let mut owner = sleeper();
     let ticks = start_ticks_of(owner.id()).expect("start time");
-    write_record(&world, owner.id(), ticks, "live000000000001");
+    write_record(&world, owner.id(), ticks, &test_nonce());
     let server = FakeServer::new(&[None], &[]);
     run_clear(&world, &server).expect("cleared");
     assert_eq!(server.released.get(), 1);
@@ -22,7 +23,7 @@ fn clear_deletes_a_stale_record_without_signalling_a_recycled_pid() {
         &world,
         bystander.id(),
         ticks.wrapping_add(11),
-        "stale00000000001",
+        &test_nonce(),
     );
     let server = FakeServer::new(&[None], &[]);
     run_clear(&world, &server).expect("cleared");

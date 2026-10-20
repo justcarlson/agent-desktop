@@ -8,6 +8,7 @@ use rustix::io::fcntl_getfd;
 
 use super::*;
 use crate::input::clipboard::payload::{Target, unframe};
+use crate::input::clipboard::test_nonce::test_nonce;
 
 struct Script {
     outcomes: VecDeque<Option<Outcome>>,
@@ -119,8 +120,8 @@ fn sample() -> Payload {
 
 #[test]
 fn the_payload_file_is_anonymous_inheritable_and_holds_the_framed_payload() {
-    let nonce = "payloadnonce0001";
-    let descriptor = payload_file(&sample(), nonce).expect("a payload file");
+    let nonce = test_nonce();
+    let descriptor = payload_file(&sample(), &nonce).expect("a payload file");
     let link = fs::read_link(format!("/proc/self/fd/{}", descriptor.as_raw_fd()))
         .expect("the descriptor names a file");
     assert!(
@@ -141,8 +142,8 @@ fn the_payload_file_is_anonymous_inheritable_and_holds_the_framed_payload() {
 
 #[test]
 fn a_payload_never_exists_as_a_file_on_disk() {
-    let nonce = "payloadnonce0002";
-    let descriptor = payload_file(&sample(), nonce).expect("a payload file");
+    let nonce = test_nonce();
+    let descriptor = payload_file(&sample(), &nonce).expect("a payload file");
     let target = fs::read_link(format!("/proc/self/fd/{}", descriptor.as_raw_fd()))
         .expect("a link")
         .to_string_lossy()

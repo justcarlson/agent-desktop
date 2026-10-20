@@ -270,9 +270,7 @@ fn the_portal_calls_go_to_the_session_bus_and_not_the_accessibility_bus() {
             .map_err(|error| AdapterError::new(ErrorCode::ActionFailed, error.to_string()))
     })
     .expect("the portal connection answers");
-    println!(
-        "portal_live buses session={session_id} accessibility={accessibility_id} portal={used}"
-    );
+    println!("portal_live buses are distinct and the portal answers on the session bus");
     assert_ne!(session_id, accessibility_id);
     assert_eq!(used, session_id);
     assert!(
