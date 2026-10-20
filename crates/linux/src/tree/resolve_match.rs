@@ -164,29 +164,31 @@ fn no_text(field: &LocatorField<String>) -> bool {
 }
 
 /// Whether nothing the node answers could tell it from any other node of its
-/// role: no name or description, no identifier, and no extents with an area.
+/// role: no name or description, no identifier, and no size the ref stored.
 /// An unreadable name, description or identifier is not an absence, so it
-/// withholds the claim. An unreadable extents read is treated like an absent
-/// one: a session with no display geometry to report cannot prove a node
-/// gained an area, and the role and the stored path are the evidence that
-/// remains.
-fn landing_is_identityless(evidence: &LocatorEvidence) -> bool {
+/// withholds the claim. A ref that stored no rectangle had its extents
+/// dropped because the snapshot could not place them, as on a Wayland
+/// session, so a live area is no evidence of a different node there; a ref
+/// that stored a rectangle, even a zero-area one, is still refuted by a live
+/// node that has gained an area.
+fn landing_is_identityless(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
     no_text(&evidence.name)
         && no_text(&evidence.description)
         && evidence.identifiers.is_complete()
         && evidence.identifiers.preferred_identifier().is_none()
-        && live_size(evidence).is_none()
+        && (entry.geometry.bounds.is_none() || live_size(evidence).is_none())
 }
 
 /// Decides the node the stored path landed on for a ref that carries no
 /// identity to check it against. The path is the only evidence, so the claim
 /// is the narrowest one: the node there has the stored role, does not
 /// contradict a stored size, and is itself as bare as the ref, so a node that
-/// has since gained a name, an identifier or an area is a different element.
+/// has since gained a name or an identifier is a different element, as is one
+/// that gained an area when the ref had stored a rectangle.
 pub(crate) fn accepts_identityless_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
     evidence.role.known() == Some(&entry.identity.role)
         && !size_contradicts(entry, evidence)
-        && landing_is_identityless(evidence)
+        && landing_is_identityless(entry, evidence)
 }
 
 #[cfg(test)]

@@ -120,6 +120,26 @@ fn a_bare_ref_resolves_at_its_stored_path_when_the_node_there_is_still_bare() {
 }
 
 #[test]
+fn a_bare_ref_with_no_stored_rectangle_lands_when_the_live_node_reports_an_area() {
+    let mut fake = Fake::new();
+    let mut list = node(LIST, "", 0, 0);
+    list.node.extents = crate::tree::Field::Absent;
+    fake.add(FRAME_PATH, "/list", list);
+    let entry = fake.entry_of("/list", false);
+    assert!(entry.geometry.bounds.is_none());
+    fake.nodes.get_mut("/list").expect("list").read.node.extents =
+        crate::tree::Field::Present(crate::tree::Extents {
+            x: 0,
+            y: 0,
+            width: 700,
+            height: 474,
+        });
+    let handle = resolve(&mut fake, &entry, deadline()).expect("the bare ref lands");
+    assert_eq!(handle.path(), "/list");
+    assert_eq!(fake.reads.searches, 0);
+}
+
+#[test]
 fn a_bare_ref_resolves_at_its_stored_path_when_the_extents_read_is_unavailable() {
     let mut fake = bare_list();
     fake.nodes.get_mut("/list").expect("list").read.node.extents =
@@ -146,7 +166,7 @@ fn a_bare_ref_is_refused_when_the_path_lands_on_a_node_that_is_no_longer_bare() 
     assert_eq!(kind(&error), "resolve_unverifiable_entry");
 
     let mut sized = bare_list();
-    let entry = sized.entry_of("/list", false);
+    let entry = sized.entry_of("/list", true);
     sized
         .nodes
         .get_mut("/list")
