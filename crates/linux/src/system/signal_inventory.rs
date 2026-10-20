@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
 use super::SharedBus;
 use super::focus::decide_focus;
@@ -28,6 +28,21 @@ pub(crate) struct Pass {
     pub(crate) outcomes: Vec<AppOutcome>,
     pub(crate) candidates: Vec<usize>,
     pub(crate) focused: Option<usize>,
+}
+
+impl Pass {
+    /// The windows of the pass as they are reported, the focused one marked.
+    pub(crate) fn infos(&self) -> Vec<WindowInfo> {
+        self.windows
+            .iter()
+            .enumerate()
+            .map(|(index, window)| {
+                let mut info = window.info.clone();
+                info.state.is_focused = self.focused == Some(index);
+                info
+            })
+            .collect()
+    }
 }
 
 /// The applications whose frames a pass reads, with their position in the

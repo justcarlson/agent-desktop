@@ -81,7 +81,7 @@ pub(super) fn find_popups(
     Ok(popups)
 }
 
-fn vanished(error: &AdapterError) -> bool {
+pub(super) fn vanished(error: &AdapterError) -> bool {
     matches!(
         error.code,
         ErrorCode::ElementNotFound | ErrorCode::AppNotFound | ErrorCode::WindowNotFound
@@ -104,6 +104,10 @@ pub(crate) fn popups_at(
     }
 }
 
+#[expect(
+    dead_code,
+    reason = "the menu surface listing of the same detector calls it"
+)]
 pub(crate) fn popups_of(
     bus: &SharedBus,
     owner: &WindowInfo,

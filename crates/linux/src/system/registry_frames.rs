@@ -27,6 +27,15 @@ pub(crate) struct FrameRead {
     pub(crate) read: RootRead,
 }
 
+impl FrameRead {
+    fn empty(read: RootRead) -> Self {
+        Self {
+            nodes: Vec::new(),
+            read,
+        }
+    }
+}
+
 /// Whether a failed read says the object or its application left, which is an
 /// absence and not a slow answer.
 fn is_gone(error: &AdapterError) -> bool {
@@ -109,18 +118,8 @@ pub(crate) fn read_frames(
             let listed = within_slice(CHILDREN_SLICE, list_children(connection, root)).await;
             let children = match outcome(listed, || proc_stat::is_gone(root.pid())) {
                 Outcome::Read(children) => children,
-                Outcome::Gone => {
-                    return FrameRead {
-                        nodes: Vec::new(),
-                        read: RootRead::Read,
-                    };
-                }
-                Outcome::Slow => {
-                    return FrameRead {
-                        nodes: Vec::new(),
-                        read: RootRead::TimedOut,
-                    };
-                }
+                Outcome::Gone => return FrameRead::empty(RootRead::Read),
+                Outcome::Slow => return FrameRead::empty(RootRead::TimedOut),
             };
             let (nodes, read) = collect_frames(
                 children,

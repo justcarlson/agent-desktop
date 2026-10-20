@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, SignalBaseline, SignalCompleteness, SignalFilter, WindowInfo,
+    AdapterError, Deadline, SignalBaseline, SignalCompleteness, SignalFilter,
 };
 use serde_json::json;
 
@@ -88,18 +88,6 @@ fn stopped_scoped_target(
     )
 }
 
-fn windows_of_pass(pass: &Pass) -> Vec<WindowInfo> {
-    pass.windows
-        .iter()
-        .enumerate()
-        .map(|(index, window)| {
-            let mut info = window.info.clone();
-            info.state.is_focused = pass.focused == Some(index);
-            info
-        })
-        .collect()
-}
-
 fn assemble(
     registry: &Registry,
     pass: &Pass,
@@ -121,7 +109,7 @@ fn assemble(
         Vec::new()
     };
     SignalBaseline {
-        windows: windows_of_pass(pass),
+        windows: pass.infos(),
         apps: apps_of(&pass.windows, &registry.apps),
         surfaces,
         completeness: SignalCompleteness {

@@ -29,6 +29,9 @@ fn matched(window: &ListedWindow, clients: &[X11Client]) -> Vec<u32> {
 /// while the husk of a reopened dialog, whose client belongs to the live
 /// dialog, is dropped.
 pub(crate) fn without_ghosts(windows: Vec<ListedWindow>, state: &X11State) -> Vec<ListedWindow> {
+    if !windows.iter().any(|window| window.unshown) {
+        return windows;
+    }
     let clients = clients_of(state);
     let claimed: HashSet<u32> = windows
         .iter()
