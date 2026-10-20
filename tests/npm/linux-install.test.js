@@ -99,6 +99,7 @@ async function install({
   checksum,
   withCurl = true,
   withTar = true,
+  withGzip = true,
   serveChecksumsAs,
   packageDir = packageCopy(),
   extraEnv = {},
@@ -121,7 +122,7 @@ async function install({
   symlinkSync(toolPath('cat'), join(tools, 'cat'));
   if (withTar) {
     symlinkSync(toolPath('tar'), join(tools, 'tar'));
-    symlinkSync(toolPath('gzip'), join(tools, 'gzip'));
+    if (withGzip) symlinkSync(toolPath('gzip'), join(tools, 'gzip'));
   }
   const curlLog = join(scratch, 'curl.log');
   writeFileSync(curlLog, '');
@@ -201,6 +202,16 @@ test('a stock Linux install with no trash command leaves no staging directory an
   assert.equal(code, 0, stderr);
   assert.deepEqual(binContents(binDir).filter((name) => name.startsWith('.extract-')), []);
   assert.doesNotMatch(stderr, /Could not move cleanup artifact to Trash/);
+});
+
+test('GNU tar without gzip fails the install explicitly and cleans up', {
+  skip: process.platform !== 'linux' ? 'GNU tar requires an external gzip on Linux' : false,
+}, async () => {
+  const { code, stderr, binDir } = await install({ withGzip: false });
+  assert.equal(code, 1, stderr);
+  assert.match(stderr, /gzip: Cannot exec|gzip:.*not found/);
+  assert.match(stderr, /Download manually from:/);
+  assert.deepEqual(binContents(binDir), ['agent-desktop.js']);
 });
 
 for (const [name, options, expected] of [

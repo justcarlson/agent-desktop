@@ -186,7 +186,6 @@ jobs:
           echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
           chmod +x rustup-init
           ./rustup-init -y --default-toolchain none --profile minimal
-          rm rustup-init
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/rustup" toolchain install
 
@@ -434,7 +433,6 @@ jobs:
           echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
           chmod +x rustup-init
           ./rustup-init -y --default-toolchain none --profile minimal
-          rm rustup-init
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/rustup" toolchain install
 
@@ -718,7 +716,6 @@ jobs:
           echo "$(curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/rustup-init.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -
           chmod +x rustup-init
           ./rustup-init -y --default-toolchain none --profile minimal
-          rm rustup-init
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/rustup" toolchain install
 
