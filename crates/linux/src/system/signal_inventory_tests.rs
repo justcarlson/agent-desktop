@@ -386,3 +386,6 @@ fn a_stopped_app_the_display_server_supplied_windows_for_is_not_skipped() {
     };
     assert!(!skipped_selected(&registry, &pass, |_| true));
 }
+
+#[path = "signal_inventory_menu_tests.rs"]
+mod menu_tests;
