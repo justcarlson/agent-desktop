@@ -171,7 +171,7 @@ fn wait_for_window(
                     last_observed,
                 );
             }
-            Err(err) if is_retryable_wait_poll_error(&err.code) => {
+            Err(err) if is_retryable_window_poll_error(&err.code) => {
                 last_error = Some(json!({
                     "code": err.code.as_str(),
                     "message": err.message
@@ -271,6 +271,15 @@ pub(crate) fn is_retryable_wait_poll_error(code: &ErrorCode) -> bool {
     matches!(code, ErrorCode::Timeout | ErrorCode::ElementNotFound)
 }
 
+/// A window wait polls a condition that is not yet true, and an application
+/// that has not registered on the desktop yet is that condition: the window
+/// cannot exist before the application does. Absence is retried until the
+/// deadline instead of ending the wait at the first poll.
+fn is_retryable_window_poll_error(code: &ErrorCode) -> bool {
+    is_retryable_wait_poll_error(code)
+        || matches!(code, ErrorCode::AppNotFound | ErrorCode::WindowNotFound)
+}
+
 fn is_retryable_wait_app_error(err: &AppError) -> bool {
     matches!(err, AppError::Adapter(err) if is_retryable_wait_poll_error(&err.code))
 }
@@ -308,3 +317,7 @@ mod resolution_tests;
 #[cfg(test)]
 #[path = "wait_deadline_tests.rs"]
 mod deadline_tests;
+
+#[cfg(test)]
+#[path = "wait_window_retry_tests.rs"]
+mod window_retry_tests;
