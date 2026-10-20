@@ -301,9 +301,12 @@ fn signal_live_wayland_without_input_times_out_with_baseline_counts() {
     let counts = &details_of(&error)["baseline_counts"];
     assert!(counts["windows"].as_u64().unwrap_or(0) >= 1, "{counts}");
 
-    press(&rig, &name, "shift").expect("a first key reaches the application");
+    let error = press(&rig, &name, "shift")
+        .expect_err("no window of the application is active for the key to land in");
+    assert_eq!(error.code(), ErrorCode::ActionNotSupported.as_str());
     let result = wait_event(&rig, "focus-changed", None, OPEN_MS, Some(Ok(seed)));
-    found_event(&result);
+    let error = result.expect_err("nothing ever takes focus");
+    assert_eq!(error.code(), ErrorCode::Timeout.as_str());
 }
 
 #[test]
