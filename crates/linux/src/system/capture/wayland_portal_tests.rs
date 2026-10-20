@@ -139,10 +139,22 @@ fn the_whole_screen_is_the_portals_png_and_its_file_is_removed() {
     let dir = scratch("whole");
     let path = dir.join("Screenshot.png");
     fs::write(&path, tiny_png(1280, 800)).expect("a png");
-    let (outcome, calls) = run(&ScreenshotTarget::FullScreen, granted(&path), &[dir]);
+    let one = vec![display("a", 0.0, 1280.0, 800.0)];
+    let (outcome, calls) = run_on(&ScreenshotTarget::FullScreen, granted(&path), &[dir], one);
     let image = outcome.expect("an image");
     assert_eq!((image.width, image.height), (1280, 800));
     assert_eq!(calls.len(), 2);
+    assert!(!path.exists());
+}
+
+#[test]
+fn the_whole_screen_of_two_monitors_is_the_primary_display_only() {
+    let dir = scratch("primary");
+    let path = dir.join("Screenshot.png");
+    fs::write(&path, gradient_png(60, 30)).expect("a png");
+    let (outcome, _) = run(&ScreenshotTarget::FullScreen, granted(&path), &[dir]);
+    let image = outcome.expect("a crop");
+    assert_eq!((image.width, image.height), (40, 30));
     assert!(!path.exists());
 }
 

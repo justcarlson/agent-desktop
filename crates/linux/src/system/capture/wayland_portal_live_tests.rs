@@ -166,7 +166,11 @@ fn each_screen_is_its_rectangle_of_the_portals_image_on_two_monitors() {
     let world = boot_with(&["1280x800", "800x600"]);
     allow_screenshots();
     let whole = capture_target(&world, &ScreenshotTarget::FullScreen).expect("the desktop");
-    assert_eq!((whole.width, whole.height), (2080, 800));
+    assert_eq!(
+        (whole.width, whole.height),
+        (1280, 800),
+        "no selector is the primary display, as on X11"
+    );
     println!(
         "portal_live displays {:?}",
         crate::system::list_wayland_displays(Deadline::after(30_000).expect("a deadline"))
@@ -194,7 +198,7 @@ fn a_scaled_monitor_is_cropped_in_image_pixels() {
     set_first_scale(2.0).expect("the shell accepts scale 2 for a 2560x1600 mode");
     std::thread::sleep(Duration::from_secs(3));
     let whole = capture_target(&world, &ScreenshotTarget::FullScreen).expect("the desktop");
-    assert_eq!((whole.width, whole.height), (3360, 1600));
+    assert_eq!((whole.width, whole.height), (2560, 1600));
     let first = capture_target(&world, &ScreenshotTarget::Screen(0)).expect("screen 0");
     let second = capture_target(&world, &ScreenshotTarget::Screen(1)).expect("screen 1");
     println!(

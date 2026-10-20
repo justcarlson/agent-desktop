@@ -74,7 +74,15 @@ pub(crate) fn capture_with(
     displays: Displays<'_>,
 ) -> Result<ImageBuffer, AdapterError> {
     let chosen = match target {
-        ScreenshotTarget::FullScreen => None,
+        ScreenshotTarget::FullScreen => {
+            let all = displays(deadline).unwrap_or_default();
+            if all.len() > 1 {
+                let (_, display) = select(&all, target)?;
+                Some((display, all))
+            } else {
+                None
+            }
+        }
         ScreenshotTarget::Screen(_) | ScreenshotTarget::Display { .. } => {
             let all = displays(deadline)?;
             let (_, display) = select(&all, target)?;
