@@ -21,6 +21,9 @@ mod hold;
 #[path = "window_op_wayland_tests.rs"]
 mod wayland;
 
+#[path = "window_op_shadow_world_tests.rs"]
+mod shadow;
+
 pub(super) const CLIENT: u32 = 0x0040_0003;
 pub(super) const INSTANCE: &str = "abcd1234:99";
 
@@ -50,7 +53,7 @@ pub(super) fn process(instance: &str) -> Lookup {
 
 pub(super) fn client(id: u32, title: &str) -> X11Client {
     X11Client {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         hidden: false,
         pid: Some(100),

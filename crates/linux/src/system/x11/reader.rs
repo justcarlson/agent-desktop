@@ -2,7 +2,7 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, Window};
 use x11rb::rust_connection::RustConnection;
 
-use super::snapshot::{decode_cardinals, decode_frame_extents, decode_title};
+use super::snapshot::{decode_cardinals, decode_frame_extents, decode_shadow, decode_title};
 use super::stacking::{bounded, capped, route};
 use super::stacking_read::StackingRead;
 use super::{X11Client, X11Source, X11State};
@@ -139,12 +139,8 @@ fn client(connection: &RustConnection, atoms: &Atoms, root: Window, window: Wind
     )
     .and_then(|reply| decode_frame_extents(reply.format, &reply.value));
     let shadow = property(connection, window, atoms.gtk_extents, AtomEnum::CARDINAL, 4)
-        .and_then(|reply| decode_frame_extents(reply.format, &reply.value))
-        .map_or((0, 0), |extents| {
-            (
-                i32::try_from(extents.left).unwrap_or(0),
-                i32::try_from(extents.top).unwrap_or(0),
-            )
+        .map_or((0, 0, 0, 0), |reply| {
+            decode_shadow(reply.format, &reply.value)
         });
     let hidden = cardinals(property(
         connection,

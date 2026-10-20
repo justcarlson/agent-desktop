@@ -32,6 +32,20 @@ pub(crate) fn decode_frame_extents(format: u8, bytes: &[u8]) -> Option<FrameExte
     }
 }
 
+/// `_GTK_FRAME_EXTENTS` as left, top, right, bottom; zero where the window has
+/// no client-side shadow or the property is unreadable.
+pub(crate) fn decode_shadow(format: u8, bytes: &[u8]) -> (i32, i32, i32, i32) {
+    decode_frame_extents(format, bytes).map_or((0, 0, 0, 0), |extents| {
+        let side = |value: u32| i32::try_from(value).unwrap_or(0);
+        (
+            side(extents.left),
+            side(extents.top),
+            side(extents.right),
+            side(extents.bottom),
+        )
+    })
+}
+
 /// A window title from `_NET_WM_NAME` (UTF-8) or, when that is absent or
 /// empty, `WM_NAME` (Latin-1). Invalid UTF-8 is replaced, never an error.
 pub(crate) fn decode_title(utf8: Option<(u8, &[u8])>, latin1: Option<(u8, &[u8])>) -> String {

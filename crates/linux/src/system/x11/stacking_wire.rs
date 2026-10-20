@@ -7,7 +7,7 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::rust_connection::RustConnection;
 
-use crate::system::x11::snapshot::{decode_frame_extents, decode_title};
+use crate::system::x11::snapshot::{decode_frame_extents, decode_shadow, decode_title};
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_atoms::{WindowAtoms, names};
 use crate::system::x11::stacking_decode::{
@@ -130,16 +130,10 @@ fn client_rectangle(rest: Geometry<'_>) -> Got<(bool, Extents)> {
     ))
 }
 
-fn shadow_of(cookie: Option<Property<'_>>) -> (i32, i32) {
-    value(cookie)
-        .ok()
-        .and_then(|(format, bytes)| decode_frame_extents(format, &bytes))
-        .map_or((0, 0), |extents| {
-            (
-                i32::try_from(extents.left).unwrap_or(0),
-                i32::try_from(extents.top).unwrap_or(0),
-            )
-        })
+fn shadow_of(cookie: Option<Property<'_>>) -> (i32, i32, i32, i32) {
+    value(cookie).ok().map_or((0, 0, 0, 0), |(format, bytes)| {
+        decode_shadow(format, &bytes)
+    })
 }
 
 fn collect(pending: Pending<'_>, atoms: &WindowAtoms) -> Got<StackedWindow> {

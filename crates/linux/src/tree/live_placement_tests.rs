@@ -42,7 +42,7 @@ fn inside_a_container(mut read: ObservedRead) -> ObservedRead {
 
 fn mapped(hidden: bool) -> Option<WindowX11State> {
     Some(WindowX11State {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         client_id: 7,
         hidden,
         client_origin: (302, 260),
@@ -239,7 +239,7 @@ fn a_node_of_a_toolkit_without_global_position_is_judged_by_its_provable_rectang
     let mut placed = on_screen_1280x800(window(rect(0, 0, 100, 40)));
     placed.toolkit = gtk("4.14.5");
     placed.x11 = Some(WindowX11State {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         client_id: 7,
         hidden: false,
         client_origin: (-308, -156),
@@ -258,7 +258,7 @@ fn a_client_side_shadow_moves_the_pointer_rectangle_from_the_client_origin_insid
         version: Some("4.14.5".to_owned()),
     };
     placed.x11 = Some(WindowX11State {
-        shadow: (61, 55),
+        shadow: (61, 55, 0, 0),
         client_id: 7,
         hidden: false,
         client_origin: (37, 64),

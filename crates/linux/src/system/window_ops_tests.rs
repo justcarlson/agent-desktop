@@ -30,7 +30,7 @@ fn window(title: &str, active: bool, modal: bool) -> ListedWindow {
 
 fn client(id: u32, title: &str) -> X11Client {
     X11Client {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         pid: Some(7),
         title: title.to_owned(),

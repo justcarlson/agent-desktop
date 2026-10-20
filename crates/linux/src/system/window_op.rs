@@ -15,6 +15,7 @@ use super::proc_stat;
 use super::process_facts::{self, Lookup};
 use super::restore_minimized::{Lifted, lift, still_hidden};
 use super::window_client::{ClientWorld, client_of};
+use super::window_op_shadow::{Shadow, to_client, to_visible};
 use super::window_op_verdict::{
     POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, requested, unverified,
 };
@@ -155,18 +156,23 @@ fn ensure_owned_after(world: &impl OpWorld, win: &WindowInfo) -> Result<(), Adap
     Ok(())
 }
 
-fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<u32, AdapterError> {
+fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), AdapterError> {
     let read = world.clients();
     let ControlRead::Ready(clients) = &read else {
         return Err(unsupported_session(&read));
     };
-    client_of(world, win, clients).map_err(|cause| {
+    let id = client_of(world, win, clients).map_err(|cause| {
         if cause == Cause::WindowNotMapped && world.on_wayland() {
             unsupported_session(&ControlRead::NotX11)
         } else {
             no_client(cause)
         }
-    })
+    })?;
+    let shadow = clients
+        .iter()
+        .find(|client| client.id == id)
+        .map_or((0, 0, 0, 0), |client| client.shadow);
+    Ok((id, shadow))
 }
 
 fn settle(
@@ -273,6 +279,26 @@ fn restore(
     give_back_place(world, win, client, deadline)
 }
 
+fn write_and_hold(
+    world: &impl OpWorld,
+    win: &WindowInfo,
+    client: u32,
+    write: WindowWrite,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if write == WindowWrite::SetMaximized(true) {
+        remember_place(world, win, client);
+    }
+    let before = match world.facts(client) {
+        ControlRead::Ready(facts) if is_resize(&write) => Some(facts.client),
+        _ => None,
+    };
+    let outcome = apply(world, win, client, &write, deadline);
+    let held = hold_place(world, win, client, before, deadline);
+    outcome?;
+    held
+}
+
 fn run(
     world: &impl OpWorld,
     win: &WindowInfo,
@@ -285,28 +311,17 @@ fn run(
         return Err(AdapterError::app_unresponsive(&win.app)
             .with_disposition(DeliverySemantics::not_delivered()));
     }
-    let client = locate(world, win)?;
+    let (client, shadow) = locate(world, win)?;
     if deadline.is_expired() {
         return Err(deadline
             .timeout_error()
             .with_disposition(DeliverySemantics::not_delivered()));
     }
-    match write {
-        Some(write) => {
-            if write == WindowWrite::SetMaximized(true) {
-                remember_place(world, win, client);
-            }
-            let before = match world.facts(client) {
-                ControlRead::Ready(facts) if is_resize(&write) => Some(facts.client),
-                _ => None,
-            };
-            let outcome = apply(world, win, client, &write, deadline);
-            let held = hold_place(world, win, client, before, deadline);
-            outcome?;
-            held
-        }
+    let done = match write {
+        Some(write) => write_and_hold(world, win, client, to_client(write, shadow), deadline),
         None => restore(world, win, client, deadline),
-    }
+    };
+    done.map_err(|error| to_visible(error, shadow))
 }
 
 pub(crate) fn window_op(

@@ -31,7 +31,7 @@ fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
 
 fn client(id: u32, x: i32, y: i32) -> X11Client {
     X11Client {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         hidden: false,
         pid: Some(321),
@@ -135,13 +135,80 @@ fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
 #[test]
 fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
     let mut shadowed = client(7, 37, 64);
-    shadowed.shadow = (61, 55);
+    shadowed.shadow = (61, 55, 0, 0);
     let mut listed = windows(("gtk", "4.14.5"));
 
     place_windows(&mut listed, &ready(vec![shadowed]));
 
     let bounds = listed[0].info.bounds.expect("a position");
     assert_eq!((bounds.x, bounds.y), (98.0, 119.0));
+}
+
+#[test]
+fn a_gtk_window_with_a_shadow_has_the_size_of_its_client_less_the_shadow() {
+    let mut shadowed = client(7, 37, 79);
+    shadowed.shadow = (61, 55, 61, 67);
+    shadowed.bounds = Some(Extents {
+        x: 37,
+        y: 79,
+        width: 542,
+        height: 682,
+    });
+    let mut listed = windows(("gtk", "4.14.5"));
+    listed[0].frame.extents = Some(Extents {
+        x: 0,
+        y: 0,
+        width: 360,
+        height: 460,
+    });
+
+    place_windows(&mut listed, &ready(vec![shadowed]));
+
+    let bounds = listed[0].info.bounds.expect("a position");
+    assert_eq!(
+        (bounds.x, bounds.y, bounds.width, bounds.height),
+        (98.0, 134.0, 420.0, 560.0)
+    );
+}
+
+fn gtk3_window_with_shadow(shadow: (i32, i32, i32, i32)) -> (Vec<ListedWindow>, X11State) {
+    let mut listed = windows(("gtk", "3.24.41"));
+    listed[0].frame.global_position = true;
+    listed[0].info.bounds = Some(Rect {
+        x: 206.0,
+        y: 72.0,
+        width: 866.0,
+        height: 629.0,
+    });
+    let mut shadowed = client(7, 206, 72);
+    shadowed.shadow = shadow;
+    (listed, ready(vec![shadowed]))
+}
+
+#[test]
+fn a_gtk3_window_with_a_client_side_shadow_is_reported_without_the_shadow() {
+    let (mut listed, state) = gtk3_window_with_shadow((26, 23, 26, 29));
+
+    trim_shadows(&mut listed, &state);
+
+    let bounds = listed[0].info.bounds.expect("bounds");
+    assert_eq!(
+        (bounds.x, bounds.y, bounds.width, bounds.height),
+        (232.0, 95.0, 814.0, 577.0)
+    );
+}
+
+#[test]
+fn a_gtk3_window_without_a_shadow_keeps_its_bounds() {
+    let (mut listed, state) = gtk3_window_with_shadow((0, 0, 0, 0));
+
+    trim_shadows(&mut listed, &state);
+
+    let bounds = listed[0].info.bounds.expect("bounds");
+    assert_eq!(
+        (bounds.x, bounds.y, bounds.width, bounds.height),
+        (206.0, 72.0, 866.0, 629.0)
+    );
 }
 
 fn on_desktop(current: u32, window_on: u32) -> Desktops {

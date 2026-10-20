@@ -5,7 +5,7 @@ use x11rb::rust_connection::RustConnection;
 use super::X11Client;
 use super::control_display::{atoms, longs, open, property, route};
 use super::control_send::close_window;
-use super::snapshot::{decode_frame_extents, decode_title};
+use super::snapshot::{decode_frame_extents, decode_shadow, decode_title};
 use super::stacking_atoms::names;
 use super::stacking_decode::decode_kind;
 use super::window_kind::WindowKind;
@@ -143,12 +143,8 @@ fn read_clients(display: &str) -> ControlRead<Vec<X11Client>> {
                 .and_then(|reply| longs(reply.format, &reply.value, reply.bytes_after))
                 .is_some_and(|atoms| atoms.contains(hidden));
             let shadow = property(&connection, window, *gtk, AtomEnum::CARDINAL, 4)
-                .and_then(|reply| decode_frame_extents(reply.format, &reply.value))
-                .map_or((0, 0), |extents| {
-                    (
-                        i32::try_from(extents.left).unwrap_or(0),
-                        i32::try_from(extents.top).unwrap_or(0),
-                    )
+                .map_or((0, 0, 0, 0), |reply| {
+                    decode_shadow(reply.format, &reply.value)
                 });
             X11Client {
                 id: window,

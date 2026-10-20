@@ -21,6 +21,21 @@ fn frame_around(client: &X11Client) -> Option<Extents> {
     })
 }
 
+fn without_shadow(client: &X11Client, frame: Extents) -> Extents {
+    let (left, top, right, bottom) = client.shadow;
+    Extents {
+        x: frame.x + left,
+        y: frame.y + top,
+        width: frame.width - left - right,
+        height: frame.height - top - bottom,
+    }
+}
+
+fn sits_at(client: &X11Client, extents: Extents) -> bool {
+    frame_around(client)
+        .is_some_and(|frame| frame == extents || without_shadow(client, frame) == extents)
+}
+
 /// The client of a window, by process id and title first. A tie is broken by
 /// the window's extents only when the toolkit reports them in screen
 /// coordinates: the accessibility rectangle then equals the client rectangle
@@ -39,7 +54,7 @@ pub(crate) fn match_client(frame: &FrameFacts, clients: &[X11Client]) -> ClientM
     if let (true, Some(extents)) = (frame.global_position, frame.extents) {
         let placed: Vec<&&X11Client> = named
             .iter()
-            .filter(|client| frame_around(client) == Some(extents))
+            .filter(|client| sits_at(client, extents))
             .collect();
         if let [only] = placed.as_slice() {
             return ClientMatch::One(only.id);

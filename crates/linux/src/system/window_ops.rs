@@ -13,7 +13,7 @@ use super::unresponsive::{require_known_target, scoped_windows_of};
 use super::window_filter::is_helper_app;
 use super::window_ids::WindowIds;
 use super::window_listing::collect;
-use super::window_position::{mark_minimized, mark_other_desktop, place_windows};
+use super::window_position::{mark_minimized, mark_other_desktop, place_windows, trim_shadows};
 use super::x11::desktops;
 use super::x11::map::{ClientMatch, match_client};
 use super::x11::{self, DisplayReader, FrameFacts, X11Evidence, X11Source, X11State};
@@ -116,6 +116,7 @@ pub(crate) fn list_windows(
         ));
     }
     place_windows(&mut listed, &state);
+    trim_shadows(&mut listed, &state);
     mark_minimized(&mut listed, &state);
     mark_other_desktop(
         &mut listed,

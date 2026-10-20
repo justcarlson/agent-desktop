@@ -3,7 +3,7 @@ use crate::system::x11::FrameExtents;
 
 fn client(id: u32, pid: u32, title: &str, y: i32, top: u32) -> X11Client {
     X11Client {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         hidden: false,
         pid: Some(pid),
@@ -52,6 +52,23 @@ fn extents_select_one_of_two_same_titled_windows_of_one_process() {
     });
     assert_eq!(
         match_client(&frame(10, "Doc", at, true), &clients),
+        ClientMatch::One(1)
+    );
+}
+
+#[test]
+fn extents_without_the_client_side_shadow_select_the_shadowed_client() {
+    let mut first = client(1, 10, "Doc", 157, 0);
+    first.shadow = (26, 23, 26, 29);
+    let second = client(2, 10, "Doc", 400, 0);
+    let visible = Some(Extents {
+        x: 126,
+        y: 180,
+        width: 268,
+        height: 148,
+    });
+    assert_eq!(
+        match_client(&frame(10, "Doc", visible, true), &[first, second]),
         ClientMatch::One(1)
     );
 }

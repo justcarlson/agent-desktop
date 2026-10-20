@@ -23,7 +23,7 @@ fn app(pid: u32, answered: bool) -> RegistryApp {
 
 fn client(id: u32, pid: u32, hidden: bool) -> X11Client {
     X11Client {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         pid: Some(pid),
         title: format!("window {id}"),

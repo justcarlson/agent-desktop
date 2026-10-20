@@ -56,6 +56,7 @@ pub(crate) mod window_id;
 mod window_ids;
 mod window_listing;
 mod window_op;
+mod window_op_shadow;
 mod window_op_verdict;
 mod window_ops;
 pub(crate) mod window_position;

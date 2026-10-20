@@ -1,0 +1,61 @@
+use agent_desktop_core::AdapterError;
+use serde_json::Value;
+
+use super::x11::control_send::WindowWrite;
+
+/// The client-side shadow of a window as left, top, right, bottom. A window
+/// operation speaks the rectangle `list-windows` reports, the window without
+/// its shadow, while the manager places the X11 client, which includes it.
+pub(super) type Shadow = (i32, i32, i32, i32);
+
+fn grown(side: u32, before: i32, after: i32) -> u32 {
+    let total = i64::from(side) + i64::from(before) + i64::from(after);
+    u32::try_from(total.max(0)).unwrap_or(u32::MAX)
+}
+
+/// The write for the client that asks for the visible rectangle `write` names.
+pub(super) fn to_client(write: WindowWrite, shadow: Shadow) -> WindowWrite {
+    let (left, top, right, bottom) = shadow;
+    match write {
+        WindowWrite::MoveResize {
+            x,
+            y,
+            width,
+            height,
+        } => WindowWrite::MoveResize {
+            x: x.map(|x| x.saturating_sub(left)),
+            y: y.map(|y| y.saturating_sub(top)),
+            width: width.map(|width| grown(width, left, right)),
+            height: height.map(|height| grown(height, top, bottom)),
+        },
+        other => other,
+    }
+}
+
+fn shift(object: &mut Value, key: &str, by: i64) {
+    if let Some(number) = object.get(key).and_then(Value::as_i64) {
+        object[key] = Value::from(number + by);
+    }
+}
+
+/// Rewrites the client rectangles of an error back into the visible window's
+/// rectangle, the one the caller asked in and `list-windows` reports.
+pub(super) fn to_visible(mut error: AdapterError, shadow: Shadow) -> AdapterError {
+    let (left, top, right, bottom) = shadow;
+    let Some(details) = error.details.as_mut() else {
+        return error;
+    };
+    for key in ["requested", "observed"] {
+        if let Some(rectangle) = details.get_mut(key) {
+            shift(rectangle, "x", i64::from(left));
+            shift(rectangle, "y", i64::from(top));
+            shift(rectangle, "width", -i64::from(left) - i64::from(right));
+            shift(rectangle, "height", -i64::from(top) - i64::from(bottom));
+        }
+    }
+    error
+}
+
+#[cfg(test)]
+#[path = "window_op_shadow_tests.rs"]
+mod tests;

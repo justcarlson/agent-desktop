@@ -124,7 +124,7 @@ pub(crate) fn hit_test_via<W: HitWorld>(
         return Ok(HitTestResult::Unknown);
     }
     let shadow = if reports_global_position(&facts.toolkit) {
-        (0, 0)
+        (0, 0, 0, 0)
     } else {
         own.shadow
     };

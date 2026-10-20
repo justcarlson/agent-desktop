@@ -59,7 +59,7 @@ fn gtk4_facts() -> Facts {
 
 fn stacked(id: u32, client: Extents) -> StackedWindow {
     StackedWindow {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         flags: WindowFlags {
             hidden: false,

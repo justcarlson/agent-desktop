@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn gtk4_inside_a_client_side_shadow_is_calibrated_from_the_origin_after_the_shadow() {
     let mut shadowed = windowing((302, 260), vec![]);
-    shadowed.snapshot.stack[0].shadow = (61, 55);
+    shadowed.snapshot.stack[0].shadow = (61, 55, 0, 0);
     let mut world = World::new(gtk4_facts(), Some(shadowed));
     reaching(&mut world);
 

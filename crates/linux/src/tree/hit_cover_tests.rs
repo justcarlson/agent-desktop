@@ -2,7 +2,7 @@ use super::*;
 
 pub(crate) fn client(id: u32, pid: u32, title: &str) -> X11Client {
     X11Client {
-        shadow: (0, 0),
+        shadow: (0, 0, 0, 0),
         id,
         hidden: false,
         pid: Some(pid),

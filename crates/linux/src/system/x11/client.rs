@@ -11,8 +11,9 @@ pub(crate) struct X11Client {
     pub(crate) extents: Option<FrameExtents>,
     pub(crate) bounds: Option<Extents>,
     pub(crate) hidden: bool,
-    /// The left and top of `_GTK_FRAME_EXTENTS`: the client-side shadow a
-    /// GTK window draws inside its client, which the toolkit's window
-    /// coordinates start after. Zero for a window with no shadow.
-    pub(crate) shadow: (i32, i32),
+    /// `_GTK_FRAME_EXTENTS` as left, top, right, bottom: the client-side
+    /// shadow a GTK window draws inside its client. The toolkit's window
+    /// coordinates of GTK 4 start after the left and top; GTK 3 reports the
+    /// whole client. Zero for a window with no shadow.
+    pub(crate) shadow: (i32, i32, i32, i32),
 }
