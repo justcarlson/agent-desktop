@@ -46,7 +46,7 @@ fn covered() -> AdapterError {
     refusal(
         ErrorCode::ActionFailed,
         "Another window is drawn over this window and its own pixels could not be read",
-        "Raise the window or move what covers it, then retry",
+        "Raise the window with 'focus-window', or move what covers it, then retry",
     )
     .with_details(serde_json::json!({ "reason": "covered" }))
 }
@@ -244,14 +244,13 @@ pub(crate) fn capture(
         env.grabber.grab(drawable, area, deadline)
     } else {
         env.grabber.grab_redirected(drawable, area, deadline)
-    }
-    .map_err(|error| {
-        if plain || error == GrabError::Timeout || error == GrabError::Gone {
-            grab_failure(error, deadline)
-        } else {
-            covered()
-        }
-    })?;
+    };
+    let raw = match raw {
+        Ok(raw) => raw,
+        Err(GrabError::Gone) => return Err(grab_failure(GrabError::Gone, deadline)),
+        Err(_) if !plain => return Err(covered()),
+        Err(error) => return Err(grab_failure(error, deadline)),
+    };
     recheck(&ctx, &before, plain.then_some(rect))?;
     let displays = env.lookup.displays(deadline).unwrap_or_default();
     let scale = scale_for(&displays, ctx.window.bounds.unwrap_or_else(|| rect.into()));
