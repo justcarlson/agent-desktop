@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DisplayInfo, ErrorCode, MouseButton, Point, Rect,
+    AdapterError, Deadline, DeliverySemantics, DisplayInfo, ErrorCode, MouseButton, Point, Rect,
 };
 
 use crate::input::shell_click::{
@@ -31,7 +31,18 @@ impl Recording {
 
     fn step(&mut self, label: String) -> Result<(), AdapterError> {
         self.log.borrow_mut().push(label.clone());
-        if self.fail_on == Some(label.split(':').next().unwrap_or("")) {
+        if self.fail_on.is_some_and(|failure| {
+            label == failure
+                || label.starts_with(&format!("{failure}:"))
+                || label.starts_with(&format!("{failure}@"))
+        }) {
+            if label == "stop" || label == "button:272:false@640,16" {
+                return Err(
+                    crate::input::wayland::remote_desktop::semantic_action_refusal(
+                        "the compositor refused the request",
+                    ),
+                );
+            }
             return Err(AdapterError::new(
                 ErrorCode::ActionFailed,
                 "the fake failed",
@@ -175,7 +186,46 @@ fn a_session_that_will_not_stop_is_reported_after_a_good_click() {
     let mut session = Recording::failing_on("stop");
     let error = run_pointer(&mut session, &target(), &MouseButton::Left, deadline())
         .expect_err("the leak is an error");
-    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(
+        error.disposition.retry(),
+        agent_desktop_core::RetryDisposition::Unsafe
+    );
+    assert_eq!(
+        error.details.expect("delivery details")["physical_delivery_started"],
+        true
+    );
+}
+
+#[test]
+fn a_rejected_button_release_after_button_down_is_delivery_uncertain() {
+    let mut session = Recording::failing_on("button:272:false");
+    let error = run_pointer(&mut session, &target(), &MouseButton::Left, deadline())
+        .expect_err("the release call fails after a successful press");
+
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert_eq!(
+        error.details.expect("delivery details")["physical_delivery_started"],
+        true
+    );
+}
+
+#[test]
+fn an_absolute_wayland_click_with_failed_stop_keeps_delivery_evidence() {
+    let mut session = Recording {
+        stream: true,
+        fail_on: Some("stop"),
+        ..Recording::default()
+    };
+    let error = run_pointer_absolute(&mut session, &aim(true), &MouseButton::Left, deadline())
+        .expect_err("stopping the completed session fails");
+
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(
+        error.details.expect("delivery details")["physical_delivery_started"],
+        true
+    );
 }
 
 #[test]

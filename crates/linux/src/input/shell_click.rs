@@ -103,7 +103,35 @@ fn press<S: PointerSession>(
 ) -> Result<(), AdapterError> {
     session.button(code, true, deadline)?;
     session.pause(PRESS_PAUSE);
-    session.button(code, false, recovery_deadline(deadline))
+    session
+        .button(code, false, recovery_deadline(deadline))
+        .map_err(|error| delivery_error(error, DeliverySemantics::uncertain()))
+}
+
+fn delivery_error(error: AdapterError, disposition: DeliverySemantics) -> AdapterError {
+    let details = error.details.clone().unwrap_or_else(|| json!({}));
+    let mut details = match details {
+        serde_json::Value::Object(details) => details,
+        other => serde_json::Map::from_iter([("cause".to_owned(), other)]),
+    };
+    details.insert("physical_delivery_started".to_owned(), json!(true));
+    error
+        .with_details(serde_json::Value::Object(details))
+        .with_disposition(disposition)
+}
+
+fn stop_after_delivery(
+    delivered: Result<(), AdapterError>,
+    stopped: Result<(), AdapterError>,
+) -> Result<(), AdapterError> {
+    match (delivered, stopped) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(error), _) => Err(error),
+        (Ok(()), Err(error)) => Err(delivery_error(
+            error,
+            DeliverySemantics::delivered_unverified(),
+        )),
+    }
 }
 
 /// A press that went down must come up, and a session that was created must
@@ -184,7 +212,7 @@ pub(crate) fn run_pointer_absolute<S: PointerSession>(
                 press(session, button_code(button), deadline)
             });
         let stopped = session.stop(recovery_deadline(deadline));
-        return delivered.and(stopped);
+        return stop_after_delivery(delivered, stopped);
     }
     let _ = session.stop(recovery_deadline(deadline));
     if aim.in_modal {
@@ -211,7 +239,7 @@ pub(crate) fn run_pointer<S: PointerSession>(
             press(session, button_code(button), deadline)
         });
     let stopped = session.stop(recovery_deadline(deadline));
-    delivered.and(stopped)
+    stop_after_delivery(delivered, stopped)
 }
 
 fn unreadable_extents() -> AdapterError {
@@ -293,3 +321,7 @@ pub(crate) fn click(
 #[cfg(test)]
 #[path = "shell_click_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "shell_click_live_tests.rs"]
+mod live_tests;
