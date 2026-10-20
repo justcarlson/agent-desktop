@@ -43,7 +43,7 @@ fn refused(code: u32) -> AdapterError {
             "The desktop portal did not allow the screenshot (response 1)",
         )
         .with_suggestion(
-            "Allow screenshots in the dialog the desktop shows; a refusal is remembered, so reset it in the desktop's privacy settings first",
+            "A person chose Deny or closed the dialog. Allow screenshots in the dialog the desktop shows; if a Deny was remembered, reset it in the desktop's privacy settings first",
         );
     }
     AdapterError::new(
@@ -51,7 +51,7 @@ fn refused(code: u32) -> AdapterError {
         format!("The desktop portal ended the screenshot request without a result (response {code})"),
     )
     .with_suggestion(
-        "The request ended in another way than a refusal: a person chose Deny (a remembered refusal; reset it in the desktop's privacy settings), a dialog left open by an earlier call that timed out is still showing (dismiss it, then retry), or the portal backend failed (check that xdg-desktop-portal and its backend for this desktop run)",
+        "The portal shows one screenshot dialog at a time, so a dialog left open by an earlier call is the usual cause: answer it or wait up to 25 seconds for the portal to close it, then retry. Other causes: a person chose Deny, or the portal backend failed (check that xdg-desktop-portal and its backend for this desktop run)",
     )
 }
 

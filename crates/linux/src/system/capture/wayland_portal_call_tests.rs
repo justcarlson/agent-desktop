@@ -124,6 +124,7 @@ fn response_two_does_not_send_the_caller_only_to_the_privacy_settings() {
     let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("ended");
     let hint = error.suggestion.expect("a hint");
     assert!(hint.contains("dialog left open"), "{hint}");
+    assert!(hint.contains("25 seconds"), "{hint}");
     assert!(hint.contains("backend"), "{hint}");
     assert!(
         error.message.contains("without a result"),
@@ -186,4 +187,14 @@ fn a_timeout_names_the_dialog_a_person_must_approve() {
             .as_deref()
             .is_some_and(|text| text.contains("dialog"))
     );
+}
+
+#[test]
+fn response_one_names_deny_and_dismissal() {
+    let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 1 }));
+    let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("deny");
+    assert_eq!(error.code, ErrorCode::PermDenied);
+    let hint = error.suggestion.expect("a hint");
+    assert!(hint.contains("chose Deny or closed"), "{hint}");
+    assert!(hint.contains("if a Deny was remembered"), "{hint}");
 }
