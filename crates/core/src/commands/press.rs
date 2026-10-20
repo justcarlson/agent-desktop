@@ -32,6 +32,11 @@ pub fn execute(
             lease.deadline(),
         )?;
         let process = crate::commands::helpers::process_identity(&live)?;
+        if !context.physical_input_policy().is_headed()
+            && let Some(window) = &window
+        {
+            ensure_not_a_sibling_window(adapter, window, lease.deadline())?;
+        }
         if context.physical_input_policy().is_headed() {
             match &window {
                 Some(window) => {
@@ -62,6 +67,40 @@ pub fn execute(
         adapter,
         context,
     )
+}
+
+/// Keys sent to a process land in its active window. A caller that names
+/// another window of the same process, while focus changes are not allowed,
+/// would type into the wrong window, so the press is refused. A focused
+/// window of another process is for the adapter's own gate to judge, and an
+/// adapter that cannot name the focused window leaves it to that gate.
+fn ensure_not_a_sibling_window(
+    adapter: &dyn PlatformAdapter,
+    named: &crate::WindowInfo,
+    deadline: crate::Deadline,
+) -> Result<(), AppError> {
+    let Ok(Some(focused)) = adapter.focused_window(deadline) else {
+        return Ok(());
+    };
+    let sibling = focused.pid == named.pid
+        && focused.process_instance == named.process_instance
+        && focused.id != named.id;
+    if !sibling {
+        return Ok(());
+    }
+    Err(crate::AdapterError::new(
+        crate::ErrorCode::ActionFailed,
+        "The named window is not the active window of its application and focus changes are not allowed, so no key was sent",
+    )
+    .with_suggestion("Retry with --headed so the named window is brought forward first, or name the active window")
+    .with_details(serde_json::json!({
+        "check": "window_active",
+        "cause": "other_window_of_target",
+        "physical_delivery_started": false,
+        "window_id": named.id,
+    }))
+    .with_disposition(crate::DeliverySemantics::not_delivered())
+    .into())
 }
 
 fn target_app(

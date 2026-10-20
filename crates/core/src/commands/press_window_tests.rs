@@ -10,6 +10,8 @@ use std::sync::Mutex;
 struct TwoInstancesAdapter {
     pressed_pid: Mutex<Option<u32>>,
     focused_window: Mutex<Option<String>>,
+    active: Mutex<Option<crate::WindowInfo>>,
+    active_read_fails: bool,
 }
 
 fn instance(pid: u32) -> crate::AppInfo {
@@ -85,6 +87,16 @@ impl SystemOps for TwoInstancesAdapter {
     ) -> Result<(), AdapterError> {
         *self.focused_window.lock().unwrap() = Some(window.id.clone());
         Ok(())
+    }
+
+    fn focused_window(
+        &self,
+        _deadline: crate::Deadline,
+    ) -> Result<Option<crate::WindowInfo>, AdapterError> {
+        if self.active_read_fails {
+            return Err(AdapterError::not_supported("focused_window"));
+        }
+        Ok(self.active.lock().unwrap().clone())
     }
 
     fn press_key_for_app(
@@ -174,5 +186,75 @@ fn headed_window_id_focuses_the_named_window_not_another_of_the_instance() {
         adapter.focused_window.lock().unwrap().as_deref(),
         Some("w-42-prefs")
     );
+    assert_eq!(*adapter.pressed_pid.lock().unwrap(), Some(42));
+}
+
+fn with_active(id: &str, pid: u32) -> TwoInstancesAdapter {
+    let adapter = TwoInstancesAdapter::default();
+    let mut active = window(pid);
+    active.id = id.into();
+    *adapter.active.lock().unwrap() = Some(active);
+    adapter
+}
+
+#[test]
+fn the_named_window_that_is_the_active_one_is_pressed() {
+    let adapter = with_active("w-42-prefs", 42);
+
+    press(None, Some("w-42-prefs"), &adapter).unwrap();
+
+    assert_eq!(*adapter.pressed_pid.lock().unwrap(), Some(42));
+}
+
+#[test]
+fn another_window_of_the_process_is_refused_headless_and_nothing_is_pressed() {
+    let adapter = with_active("w-42", 42);
+
+    let error = press(None, Some("w-42-prefs"), &adapter).unwrap_err();
+
+    assert_eq!(error.code(), "ACTION_FAILED");
+    let crate::AppError::Adapter(error) = error else {
+        panic!("an adapter error")
+    };
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+    assert_eq!(
+        error.details.as_ref().unwrap()["cause"],
+        "other_window_of_target"
+    );
+    assert!(error.suggestion.as_deref().unwrap().contains("--headed"));
+    assert!(adapter.pressed_pid.lock().unwrap().is_none());
+    assert!(adapter.focused_window.lock().unwrap().is_none());
+}
+
+#[test]
+fn headed_brings_the_named_window_forward_instead_of_refusing() {
+    let adapter = with_active("w-42", 42);
+    let context = CommandContext::default().with_headed(true);
+
+    press_with(None, Some("w-42-prefs"), &adapter, &context).unwrap();
+
+    assert_eq!(
+        adapter.focused_window.lock().unwrap().as_deref(),
+        Some("w-42-prefs")
+    );
+    assert_eq!(*adapter.pressed_pid.lock().unwrap(), Some(42));
+}
+
+#[test]
+fn a_focused_window_of_another_process_is_left_to_the_adapters_gate() {
+    let adapter = with_active("w-41", 41);
+
+    press(None, Some("w-42"), &adapter).unwrap();
+
+    assert_eq!(*adapter.pressed_pid.lock().unwrap(), Some(42));
+}
+
+#[test]
+fn an_adapter_that_cannot_name_the_focused_window_leaves_the_decision_to_its_gate() {
+    let mut adapter = with_active("w-42", 42);
+    adapter.active_read_fails = true;
+
+    press(None, Some("w-42-prefs"), &adapter).unwrap();
+
     assert_eq!(*adapter.pressed_pid.lock().unwrap(), Some(42));
 }
