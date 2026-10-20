@@ -193,7 +193,7 @@ fn signal_live_chrome_menu_is_not_window_opened_and_two_windows_diff_correctly()
 
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn signal_live_stopped_target_scoped_wait_times_out_with_app_unresponsive_last_error() {
+fn signal_live_stopped_target_scoped_wait_answers_app_unresponsive_at_once() {
     let mut rig = Rig::new();
     let (pid, app, identity) = calculator(&mut rig);
     capture(&rig, Some(&app), Some(&identity), 10_000).expect("an alive target captures");
@@ -216,11 +216,9 @@ fn signal_live_stopped_target_scoped_wait_times_out_with_app_unresponsive_last_e
     let started = Instant::now();
     let result = wait_event(&rig, "window-opened", Some(&app), 3_000, Some(seed));
     let elapsed = started.elapsed();
-    let error = result.expect_err("nothing opens in a stopped app");
-    assert_eq!(error.code(), ErrorCode::Timeout.as_str());
-    let last = &details_of(&error)["last_error"]["code"];
-    assert_eq!(last, "APP_UNRESPONSIVE", "{:?}", details_of(&error));
-    assert!(elapsed < Duration::from_millis(6_000), "{elapsed:?}");
+    let error = result.expect_err("a stopped scoped target ends the wait");
+    assert_eq!(error.code(), ErrorCode::AppUnresponsive.as_str());
+    assert!(elapsed < Duration::from_secs(3), "{elapsed:?}");
 }
 
 #[test]
