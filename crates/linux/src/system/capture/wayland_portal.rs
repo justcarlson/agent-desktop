@@ -7,7 +7,6 @@ use agent_desktop_core::{
 };
 
 use super::display::select;
-use super::pixels::MAX_PIXELS;
 use super::wayland_crop::{crop_png, pixel_rect};
 use super::wayland_file::{path_of_uri, take_file};
 use super::wayland_portal_bus::connect;
@@ -58,9 +57,6 @@ fn token() -> String {
 
 fn image_of(bytes: Vec<u8>) -> Result<ImageBuffer, AdapterError> {
     let (width, height) = parse_png_dimensions(&bytes).ok_or_else(not_a_png)?;
-    if u64::from(width) * u64::from(height) > MAX_PIXELS {
-        return Err(not_a_png());
-    }
     Ok(ImageBuffer {
         data: bytes,
         format: ImageFormat::Png,

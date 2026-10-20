@@ -149,3 +149,12 @@ fn a_name_swapped_after_the_open_is_not_removed() {
     );
     assert_eq!(fs::read(&path).expect("kept"), b"someone else's");
 }
+
+#[test]
+fn a_file_over_the_size_cap_is_refused_and_removed() {
+    let dir = scratch("big");
+    let path = dir.join("shot.png");
+    fs::write(&path, vec![0u8; MAX_PNG_INPUT_BYTES + 1]).expect("a file");
+    assert!(take_file(&path, std::slice::from_ref(&dir), me(), long_ago()).is_err());
+    assert!(!path.exists());
+}

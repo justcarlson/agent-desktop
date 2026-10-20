@@ -266,6 +266,16 @@ fn a_layout_that_changed_during_the_consent_wait_is_refused_and_the_file_removed
 }
 
 #[test]
+fn a_png_over_the_pixel_cap_is_refused_by_the_header_check_and_still_removed() {
+    let dir = scratch("huge");
+    let path = dir.join("Screenshot.png");
+    fs::write(&path, tiny_png(100_000, 100_000)).expect("a png");
+    let (outcome, _) = run(&ScreenshotTarget::FullScreen, granted(&path), &[dir]);
+    assert_eq!(outcome.expect_err("huge").code, ErrorCode::ActionFailed);
+    assert!(!path.exists());
+}
+
+#[test]
 fn a_window_target_is_unsupported_and_makes_no_portal_call() {
     let window = crate::system::capture::window::fakes::target();
     let (outcome, calls) = run(
