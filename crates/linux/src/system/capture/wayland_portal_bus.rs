@@ -44,7 +44,26 @@ fn portal_error(error: &zbus::Error) -> AdapterError {
         .with_platform_detail(error.to_string())
 }
 
+impl Waiting {
+    fn close(&self) {
+        let Ok(grace) = Deadline::after(CLOSE_GRACE_MS) else {
+            return;
+        };
+        let _ = within(grace, async {
+            let proxy = Proxy::new(&self.connection, PORTAL_SERVICE, self.path.clone(), REQUEST)
+                .await
+                .map_err(|error| portal_error(&error))?;
+            let _ = proxy.call_method("Close", &()).await;
+            Ok(())
+        });
+    }
+}
+
 impl Pending for Waiting {
+    fn cancel(self: Box<Self>) {
+        self.close();
+    }
+
     fn wait(mut self: Box<Self>, deadline: Deadline) -> Result<PortalAnswer, AdapterError> {
         let answered = within(deadline, async {
             let message = self.stream.next().await.ok_or_else(|| {
@@ -66,17 +85,10 @@ impl Pending for Waiting {
                 PortalAnswer::Refused { code }
             })
         });
-        if let (Err(error), Ok(grace)) = (&answered, Deadline::after(CLOSE_GRACE_MS))
+        if let Err(error) = &answered
             && error.code == ErrorCode::Timeout
         {
-            let _ = within(grace, async {
-                let proxy =
-                    Proxy::new(&self.connection, PORTAL_SERVICE, self.path.clone(), REQUEST)
-                        .await
-                        .map_err(|error| portal_error(&error))?;
-                let _ = proxy.call_method("Close", &()).await;
-                Ok(())
-            });
+            self.close();
         }
         answered
     }

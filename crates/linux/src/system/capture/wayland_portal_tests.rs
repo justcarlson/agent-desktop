@@ -11,6 +11,8 @@ use crate::system::capture::wayland_portal_call::{Pending, PortalAnswer, request
 struct Answer(Result<PortalAnswer, AdapterError>);
 
 impl Pending for Answer {
+    fn cancel(self: Box<Self>) {}
+
     fn wait(self: Box<Self>, _deadline: Deadline) -> Result<PortalAnswer, AdapterError> {
         self.0
     }

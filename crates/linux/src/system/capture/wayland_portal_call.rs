@@ -11,6 +11,8 @@ pub(crate) enum PortalAnswer {
 /// A subscription to one request's `Response` signal. It exists before the
 /// call that creates the request, so a response that comes first is kept.
 pub(crate) trait Pending {
+    /// Closes the request so the portal drops its dialog and its result.
+    fn cancel(self: Box<Self>);
     fn wait(self: Box<Self>, deadline: Deadline) -> Result<PortalAnswer, AdapterError>;
 }
 
@@ -35,12 +37,21 @@ pub(crate) fn request_path(unique_name: &str, token: &str) -> String {
 }
 
 fn refused(code: u32) -> AdapterError {
+    if code == 1 {
+        return AdapterError::new(
+            ErrorCode::PermDenied,
+            "The desktop portal did not allow the screenshot (response 1)",
+        )
+        .with_suggestion(
+            "Allow screenshots in the dialog the desktop shows; a refusal is remembered, so reset it in the desktop's privacy settings first",
+        );
+    }
     AdapterError::new(
         ErrorCode::PermDenied,
-        format!("The desktop portal did not allow the screenshot (response {code})"),
+        format!("The desktop portal ended the screenshot request without a result (response {code})"),
     )
     .with_suggestion(
-        "Allow screenshots in the dialog the desktop shows; a refusal is remembered, so reset it in the desktop's privacy settings first",
+        "The request ended in another way than a refusal: a person chose Deny (a remembered refusal; reset it in the desktop's privacy settings), a dialog left open by an earlier call that timed out is still showing (dismiss it, then retry), or the portal backend failed (check that xdg-desktop-portal and its backend for this desktop run)",
     )
 }
 
@@ -74,8 +85,15 @@ pub(crate) fn screenshot_uri(
 ) -> Result<String, AdapterError> {
     let path = request_path(&wire.unique_name(), token);
     let pending = wire.subscribe(&path, deadline)?;
-    let handle = wire.call_screenshot(token, deadline)?;
+    let handle = match wire.call_screenshot(token, deadline) {
+        Ok(handle) => handle,
+        Err(error) => {
+            pending.cancel();
+            return Err(error);
+        }
+    };
     if handle != path {
+        pending.cancel();
         return Err(other_handle(&handle));
     }
     match pending.wait(deadline) {

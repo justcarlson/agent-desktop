@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
@@ -9,9 +9,14 @@ const TOKEN: &str = "adtoken1";
 
 struct FakePending {
     answer: Rc<RefCell<Option<Result<PortalAnswer, AdapterError>>>>,
+    cancelled: Rc<Cell<u32>>,
 }
 
 impl Pending for FakePending {
+    fn cancel(self: Box<Self>) {
+        self.cancelled.set(self.cancelled.get() + 1);
+    }
+
     fn wait(self: Box<Self>, _deadline: Deadline) -> Result<PortalAnswer, AdapterError> {
         self.answer
             .borrow_mut()
@@ -26,6 +31,8 @@ struct FakeWire {
     early: Option<Result<PortalAnswer, AdapterError>>,
     handle: Option<String>,
     unique: String,
+    cancelled: Rc<Cell<u32>>,
+    call_error: Option<AdapterError>,
 }
 
 impl FakeWire {
@@ -36,6 +43,8 @@ impl FakeWire {
             early: Some(answer),
             handle: None,
             unique: ":1.42".into(),
+            cancelled: Rc::new(Cell::new(0)),
+            call_error: None,
         }
     }
 }
@@ -55,11 +64,15 @@ impl PortalWire for FakeWire {
             .push(format!("subscribe {request_path}"));
         Ok(Box::new(FakePending {
             answer: Rc::clone(&self.answer),
+            cancelled: Rc::clone(&self.cancelled),
         }))
     }
 
     fn call_screenshot(&self, token: &str, _deadline: Deadline) -> Result<String, AdapterError> {
         self.events.borrow_mut().push(format!("call {token}"));
+        if let Some(error) = &self.call_error {
+            return Err(error.clone());
+        }
         *self.answer.borrow_mut() = self.early.clone();
         Ok(self
             .handle
@@ -106,6 +119,37 @@ fn a_refusal_is_permission_denied_with_a_suggestion() {
 }
 
 #[test]
+fn response_two_does_not_send_the_caller_only_to_the_privacy_settings() {
+    let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 2 }));
+    let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("ended");
+    let hint = error.suggestion.expect("a hint");
+    assert!(hint.contains("dialog left open"), "{hint}");
+    assert!(hint.contains("backend"), "{hint}");
+    assert!(
+        error.message.contains("without a result"),
+        "{}",
+        error.message
+    );
+    let one = FakeWire::answering(Ok(PortalAnswer::Refused { code: 1 }));
+    let refusal = screenshot_uri(&one, TOKEN, deadline()).expect_err("refused");
+    assert!(
+        !refusal
+            .suggestion
+            .expect("a hint")
+            .contains("dialog left open")
+    );
+}
+
+#[test]
+fn a_failed_call_closes_the_request_it_may_have_opened() {
+    let mut wire = FakeWire::answering(granted("file:///tmp/x.png"));
+    wire.call_error = Some(AdapterError::timeout("slow"));
+    let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("slow call");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(wire.cancelled.get(), 1);
+}
+
+#[test]
 fn a_grant_without_a_file_is_an_action_failure() {
     let wire = FakeWire::answering(Ok(PortalAnswer::Granted { uri: None }));
     let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("no file");
@@ -128,6 +172,7 @@ fn a_handle_that_is_not_the_subscribed_path_is_refused() {
     wire.handle = Some("/org/freedesktop/portal/desktop/request/1_42/other".into());
     let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("a mismatch");
     assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(wire.cancelled.get(), 1);
 }
 
 #[test]
