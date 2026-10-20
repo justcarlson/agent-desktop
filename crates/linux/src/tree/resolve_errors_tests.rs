@@ -20,13 +20,11 @@ fn retryable(error: &AdapterError) -> Option<bool> {
 }
 
 #[test]
-fn an_exited_application_and_a_destroyed_object_both_settle_with_different_kinds() {
+fn an_exited_application_settles_while_a_destroyed_object_may_be_drawn_again() {
     let exited = settle_gone(AdapterError::new(ErrorCode::AppNotFound, "left"));
     let destroyed = settle_gone(AdapterError::new(ErrorCode::ElementNotFound, "gone"));
     for error in [&exited, &destroyed] {
         assert_eq!(error.code, ErrorCode::StaleRef);
-        assert_eq!(retryable(error), Some(false));
-        assert!(!error.is_explicitly_retryable());
         assert_eq!(
             error.disposition,
             agent_desktop_core::DeliverySemantics::not_delivered()
@@ -34,6 +32,10 @@ fn an_exited_application_and_a_destroyed_object_both_settle_with_different_kinds
     }
     assert_eq!(kind(&exited), "resolve_owning_process_exited");
     assert_eq!(kind(&destroyed), "resolve_target_destroyed");
+    assert_eq!(retryable(&exited), Some(false));
+    assert!(!exited.is_explicitly_retryable());
+    assert_eq!(retryable(&destroyed), Some(true));
+    assert!(destroyed.is_explicitly_retryable());
 }
 
 #[test]
@@ -88,14 +90,16 @@ fn ambiguity_carries_the_candidate_count_and_is_settled() {
 
 #[test]
 fn every_refusal_is_a_stale_ref_that_a_snapshot_repairs() {
-    for error in [
-        no_candidate(),
-        window_replaced(),
-        window_unverifiable(),
-        unverifiable_entry(),
+    for (error, expected) in [
+        (no_candidate(), true),
+        (object_gone(), true),
+        (window_replaced(), false),
+        (window_unverifiable(), false),
+        (unverifiable_entry(), false),
     ] {
         assert_eq!(error.code, ErrorCode::StaleRef);
-        assert_eq!(retryable(&error), Some(false));
+        assert_eq!(retryable(&error), Some(expected), "{}", kind(&error));
+        assert_eq!(error.is_explicitly_retryable(), expected);
         assert!(
             error
                 .suggestion

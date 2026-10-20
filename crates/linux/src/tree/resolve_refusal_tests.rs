@@ -41,10 +41,10 @@ fn a_ref_with_nothing_to_match_is_refused_before_any_read_of_any_kind() {
 
 #[test]
 fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
-    for (refusal, expected) in [
-        (window_replaced(), "resolve_window_replaced"),
-        (app_exited(), "resolve_owning_process_exited"),
-        (object_gone(), "resolve_target_destroyed"),
+    for (refusal, expected, retryable) in [
+        (window_replaced(), "resolve_window_replaced", false),
+        (app_exited(), "resolve_owning_process_exited", false),
+        (object_gone(), "resolve_target_destroyed", true),
     ] {
         let mut fake = one_button();
         let entry = fake.entry_of("/back", true);
@@ -52,7 +52,7 @@ fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
         let error = resolve(&mut fake, &entry, deadline()).expect_err("refused");
         assert_eq!(error.code, ErrorCode::StaleRef);
         assert_eq!(kind(&error), expected);
-        assert!(!error.is_explicitly_retryable());
+        assert_eq!(error.is_explicitly_retryable(), retryable);
         assert_eq!(fake.reads.gate, 1);
         no_reads(&fake);
     }

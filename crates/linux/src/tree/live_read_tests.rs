@@ -131,25 +131,35 @@ fn each_projection_answers_with_its_own_part_of_the_one_read() {
 }
 
 #[test]
-fn a_destroyed_object_and_an_exited_application_are_settled_stale_refs() {
-    for (answer, expected) in [
+fn a_destroyed_object_is_retryable_and_an_exited_application_settles() {
+    for (answer, expected, retryable) in [
         (
             Err(AdapterError::new(ErrorCode::ElementNotFound, "gone")),
             "resolve_target_destroyed",
+            true,
         ),
         (
             Err(AdapterError::new(ErrorCode::AppNotFound, "left")),
             "resolve_owning_process_exited",
+            false,
         ),
-        (Ok((Liveness::ObjectGone, ())), "resolve_target_destroyed"),
-        (Ok((Liveness::AppGone, ())), "resolve_owning_process_exited"),
+        (
+            Ok((Liveness::ObjectGone, ())),
+            "resolve_target_destroyed",
+            true,
+        ),
+        (
+            Ok((Liveness::AppGone, ())),
+            "resolve_owning_process_exited",
+            false,
+        ),
     ] {
         let mut reader = Counting::alive();
         reader.answer = answer;
         let error = read_live(&mut reader, &handle()).expect_err("stale");
         assert_eq!(error.code, ErrorCode::StaleRef);
         assert_eq!(kind(&error), expected);
-        assert!(!error.is_explicitly_retryable());
+        assert_eq!(error.is_explicitly_retryable(), retryable);
         assert_eq!(reader.stopped_asked, 0);
     }
 }

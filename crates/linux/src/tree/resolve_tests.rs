@@ -133,7 +133,7 @@ fn a_page_that_left_the_tree_is_stale_and_its_stored_path_is_never_read_directly
     let error = refusal(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind(&error), "resolve_no_candidate");
-    assert!(!error.is_explicitly_retryable());
+    assert!(error.is_explicitly_retryable());
     assert_eq!(fake.reads.evidence, 0);
 }
 
@@ -210,7 +210,7 @@ fn a_deadline_that_is_already_spent_is_a_timeout_before_any_read() {
 }
 
 #[test]
-fn a_nameless_ref_whose_element_changed_size_is_a_settled_miss_and_not_a_retry() {
+fn a_nameless_ref_whose_element_changed_size_is_a_retryable_miss() {
     let mut fake = Fake::new();
     fake.add(FRAME_PATH, "/editor", node(PANEL, "", 690, 464));
     let entry = fake.entry_of("/editor", true);
@@ -229,7 +229,7 @@ fn a_nameless_ref_whose_element_changed_size_is_a_settled_miss_and_not_a_retry()
     let error = refusal(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind(&error), "resolve_no_candidate");
-    assert!(!error.is_explicitly_retryable());
+    assert!(error.is_explicitly_retryable());
 }
 
 #[test]

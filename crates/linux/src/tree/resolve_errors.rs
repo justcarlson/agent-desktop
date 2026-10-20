@@ -11,9 +11,19 @@ fn settled(message: &str, kind: &str) -> AdapterError {
     }))
 }
 
+fn unsettled(message: &str, kind: &str) -> AdapterError {
+    AdapterError::stale_ref_because(message).with_details(json!({
+        "kind": kind,
+        "complete": true,
+        "retryable": true,
+    }))
+}
+
 /// The search read the whole tree and no node answers to the stored evidence.
+/// The element may be drawn again, so the answer stays retryable the way the
+/// other platforms keep it.
 pub(crate) fn no_candidate() -> AdapterError {
-    settled(
+    unsettled(
         "Stored ref does not match any live element",
         "resolve_no_candidate",
     )
@@ -27,9 +37,11 @@ pub(crate) fn app_exited() -> AdapterError {
     )
 }
 
-/// The element the ref names was destroyed while its application kept running.
+/// The element the ref names was destroyed while its application kept
+/// running. The element may be drawn again, so the answer stays retryable the
+/// way the other platforms keep it.
 pub(crate) fn object_gone() -> AdapterError {
-    settled(
+    unsettled(
         "Stored ref's element no longer exists",
         "resolve_target_destroyed",
     )
