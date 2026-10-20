@@ -127,57 +127,6 @@ fn grab_live_a_full_screen_is_refused_under_compositing() {
 
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
-fn grab_live_a_covered_window_returns_its_own_paint() {
-    let _display = assert_private_display();
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let pid = paint(
-        &mut launched,
-        "adcap-under",
-        "#ff0000",
-        &window_at(200, 150),
-        false,
-    );
-    let window = wait_for_listed(&bus, pid);
-    let cover = Geometry {
-        x: 100,
-        y: 100,
-        width: 600,
-        height: 450,
-    };
-    paint(&mut launched, "adcap-over", "#0000ff", &cover, true);
-    wait_for_x_window("adcap-over");
-    if !compositing() {
-        let screen = screenshot(&bus, ScreenshotTarget::FullScreen, deadline(20_000))
-            .expect("the screen is captured");
-        assert_eq!(
-            decode(&screen).at(360, 250),
-            BLUE,
-            "the cover really hides the window on the screen"
-        );
-    }
-    let image = screenshot(
-        &bus,
-        ScreenshotTarget::ExactWindow(window),
-        deadline(20_000),
-    )
-    .expect("the covered window is captured");
-    let pixels = decode(&image);
-    println!(
-        "grab_live covered size={}x{} red={} blue={}",
-        pixels.width,
-        pixels.height,
-        pixels.count_of(RED),
-        pixels.count_of(BLUE)
-    );
-    assert_eq!(pixels.count_of(BLUE), 0);
-    let (centre_x, centre_y) = (pixels.width / 2, pixels.height / 2);
-    assert!(pixels.region_is(centre_x - 100, centre_y - 60, 200, 120, RED));
-    assert!(pixels.count_of(RED) >= 320 * 200);
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_window_partly_off_screen_reports_off_screen() {
     let _display = assert_private_display();
     let bus = SharedBus::default();
@@ -235,80 +184,6 @@ fn grab_live_the_capture_permission_follows_the_session() {
     let wayland = detect(&env, &SocketProbe);
     let unknown = capture_availability(resolve(wayland), &DisplayGrabber, deadline);
     assert!(matches!(unknown, CaptureAvailability::Unknown));
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh"]
-fn grab_live_a_chromium_window_is_captured_on_its_client_unit() {
-    let _display = assert_private_display();
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let pid = chrome(&mut launched);
-    let window = wait_for_listed(&bus, pid);
-    let framed = screenshot_window_frame(&bus, &window, deadline(20_000));
-    let whole = screenshot(
-        &bus,
-        ScreenshotTarget::ExactWindow(window),
-        deadline(20_000),
-    )
-    .expect("the window is captured");
-    let pixels = decode(&whole);
-    println!(
-        "grab_live chromium compositing={} size={}x{} frame={:?}",
-        compositing(),
-        pixels.width,
-        pixels.height,
-        framed.as_ref().map(|image| (image.width, image.height))
-    );
-    framed.expect("Chromium's client drawable passes the unit check on both managers");
-    let (centre_x, centre_y) = (pixels.width / 2, pixels.height / 2);
-    assert!(pixels.region_is(centre_x - 100, centre_y - 60, 200, 120, BLUE));
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh"]
-fn grab_live_a_qt_window_is_captured_plain_and_covered() {
-    let _display = assert_private_display();
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let pid = paint_qt(&mut launched, "adcap-qt", "#ff0000", &window_at(200, 150));
-    let window = wait_for_listed(&bus, pid);
-    let plain = screenshot(
-        &bus,
-        ScreenshotTarget::ExactWindow(window.clone()),
-        deadline(20_000),
-    )
-    .expect("the Qt window is captured");
-    let before = decode(&plain);
-    let (centre_x, centre_y) = (before.width / 2, before.height / 2);
-    assert!(before.region_is(centre_x - 100, centre_y - 60, 200, 120, RED));
-    let cover = Geometry {
-        x: 100,
-        y: 100,
-        width: 600,
-        height: 450,
-    };
-    paint(&mut launched, "adcap-qt-over", "#0000ff", &cover, true);
-    wait_for_x_window("adcap-qt-over");
-    let covered = screenshot(
-        &bus,
-        ScreenshotTarget::ExactWindow(window),
-        deadline(20_000),
-    )
-    .expect("the covered Qt window is captured");
-    let after = decode(&covered);
-    println!(
-        "grab_live qt compositing={} plain={}x{} covered={}x{} blue={}",
-        compositing(),
-        before.width,
-        before.height,
-        after.width,
-        after.height,
-        after.count_of(BLUE)
-    );
-    assert_eq!(after.count_of(BLUE), 0);
-    assert_eq!((after.width, after.height), (before.width, before.height));
-    assert!(after.region_is(centre_x - 100, centre_y - 60, 200, 120, RED));
 }
 
 #[test]

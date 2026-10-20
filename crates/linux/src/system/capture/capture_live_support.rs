@@ -22,11 +22,6 @@ from gi.repository import Gtk, Gdk, GLib
 title, color, x, y, w, h, popup = sys.argv[1:8]
 kind = Gtk.WindowType.POPUP if popup == "1" else Gtk.WindowType.TOPLEVEL
 win = Gtk.Window(type=kind)
-if popup == "2":
-    bar = Gtk.HeaderBar()
-    bar.set_show_close_button(True)
-    bar.set_title(title)
-    win.set_titlebar(bar)
 win.set_title(title)
 win.set_default_size(int(w), int(h))
 css = Gtk.CssProvider()
@@ -37,26 +32,6 @@ win.connect("destroy", Gtk.main_quit)
 win.show_all()
 GLib.timeout_add(500, lambda: (win.move(int(x), int(y)), False)[1])
 Gtk.main()
-"##;
-
-const QT_PAINTER: &str = r##"
-import sys
-from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget
-title, color, x, y, w, h = sys.argv[1:7]
-app = QApplication(sys.argv)
-window = QMainWindow()
-window.setWindowTitle(title)
-body = QWidget()
-body.setAutoFillBackground(True)
-palette = body.palette()
-palette.setColor(QPalette.ColorRole.Window, QColor(color))
-body.setPalette(palette)
-window.setCentralWidget(body)
-window.resize(int(w), int(h))
-window.move(int(x), int(y))
-window.show()
-sys.exit(app.exec())
 "##;
 
 pub(super) const RED: [u8; 3] = [0xff, 0x00, 0x00];
@@ -104,17 +79,6 @@ pub(super) fn paint(
     paint_as(launched, title, color, at, if popup { "1" } else { "0" })
 }
 
-/// A window that draws its own title bar and shadow, so its toolkit sets
-/// `_GTK_FRAME_EXTENTS` wherever the manager lets it.
-pub(super) fn paint_decorated(
-    launched: &mut Launched,
-    title: &str,
-    color: &str,
-    at: &Geometry,
-) -> u32 {
-    paint_as(launched, title, color, at, "2")
-}
-
 fn paint_as(launched: &mut Launched, title: &str, color: &str, at: &Geometry, mode: &str) -> u32 {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let script = format!("{dir}/capture-painter.py");
@@ -132,61 +96,12 @@ fn paint_as(launched: &mut Launched, title: &str, color: &str, at: &Geometry, mo
     launched.spawn("python3", &args)
 }
 
-pub(super) fn paint_qt(launched: &mut Launched, title: &str, color: &str, at: &Geometry) -> u32 {
-    let home = std::env::var("HOME").expect("HOME");
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
-    let script = format!("{dir}/capture-qt-painter.py");
-    std::fs::write(&script, QT_PAINTER).expect("the Qt painter writes");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    let args = [
-        script.as_str(),
-        title,
-        color,
-        &at.x.to_string(),
-        &at.y.to_string(),
-        &at.width.to_string(),
-        &at.height.to_string(),
-    ];
-    launched.spawn_with_env(
-        &python,
-        &args,
-        &[
-            ("QT_ACCESSIBILITY", "1".to_owned()),
-            ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
-            ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", libraries),
-        ],
-    )
-}
-
 pub(super) fn stop(pid: u32) {
     let status = Command::new("kill")
         .args(["-STOP", &pid.to_string()])
         .status()
         .expect("kill runs");
     assert!(status.success(), "pid {pid} could not be stopped");
-}
-
-pub(super) fn chrome(launched: &mut Launched) -> u32 {
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
-    let profile = format!("{dir}/chrome-profile");
-    let profile_flag = format!("--user-data-dir={profile}");
-    launched.scratch.push(profile.clone().into());
-    launched.spawn(
-        "google-chrome",
-        &[
-            &profile_flag,
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--force-renderer-accessibility",
-            "--ozone-platform=x11",
-            "--disable-gpu",
-            "--window-position=200,150",
-            "--window-size=400,300",
-            "--app=data:text/html,<title>adcap-chrome</title><body style='margin:0;background:%230000ff'></body>",
-        ],
-    )
 }
 
 pub(super) fn wait_for_x_window(title: &str) {
@@ -241,13 +156,6 @@ impl Decoded {
             self.pixels[start + 1],
             self.pixels[start + 2],
         ]
-    }
-
-    pub(super) fn count_of(&self, color: [u8; 3]) -> usize {
-        (0..self.height)
-            .flat_map(|y| (0..self.width).map(move |x| (x, y)))
-            .filter(|&(x, y)| self.at(x, y) == color)
-            .count()
     }
 
     pub(super) fn region_is(
@@ -324,35 +232,4 @@ pub(super) fn x_window_id(title: &str) -> u32 {
         .and_then(|rest| rest.split_whitespace().next())
         .expect("xwininfo names the window");
     u32::from_str_radix(id.trim_start_matches("0x"), 16).expect("a window id")
-}
-
-/// The four numbers of an `xprop` cardinal property, or none when it is unset.
-pub(super) fn shadow_of(xid: u32) -> Option<[i32; 4]> {
-    let output = Command::new("xprop")
-        .args(["-id", &format!("0x{xid:x}"), "_GTK_FRAME_EXTENTS"])
-        .output()
-        .expect("xprop runs");
-    let text = String::from_utf8_lossy(&output.stdout);
-    let numbers: Vec<i32> = text
-        .split('=')
-        .nth(1)?
-        .split(',')
-        .filter_map(|part| part.trim().parse().ok())
-        .collect();
-    <[i32; 4]>::try_from(numbers).ok()
-}
-
-pub(super) fn client_size(xid: u32) -> (i32, i32) {
-    let output = Command::new("xwininfo")
-        .args(["-id", &format!("0x{xid:x}")])
-        .output()
-        .expect("xwininfo runs");
-    let text = String::from_utf8_lossy(&output.stdout);
-    let field = |name: &str| -> i32 {
-        text.lines()
-            .find_map(|line| line.trim().strip_prefix(name))
-            .and_then(|rest| rest.trim().parse().ok())
-            .expect("xwininfo prints the size")
-    };
-    (field("Width:"), field("Height:"))
 }
