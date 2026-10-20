@@ -44,7 +44,47 @@ class Leg:
             raise ValueError(f"leg {self.id} needs a reason for its disposition")
 
 
+ASSERTED_REFUSALS = frozenset({
+    "capture.wayland_route_gated",
+    "headed_actions.never_focused_window_refusal",
+    "menus.hidden_bar_timeout_message",
+    "modal.calculator_about_blocks_parent",
+    "modal.files_properties_blocks_parent",
+    "modal.terminal_preferences_blocks_parent",
+    "occlusion.above_cover_refused_no_effect",
+    "select.refusal_without_semantic_route",
+    "state.undo_disabled_default_timeout",
+    "state.undo_disabled_explicit_timeout",
+    "state.undo_enable_delayed_short_timeout_fails",
+    "state.undo_zero_timeout_single_check",
+    "text_entry.unfocused_window_refusal",
+    "toolkit_qt.scroll_refused_no_container",
+    "tray.disabled_entry_refused",
+    "tray.item_without_activate_refused",
+    "wayland_actions.focus_window_wayland_session_refusal",
+    "wayland_focus.headed_ref_action_refusal",
+})
+
+OUTSTANDING_REASONS = {
+    "observation.unreachable_bus_permission_error":
+        "the unavailable-accessibility-bus permission mapping is absent on this base",
+}
+
+HEADED_ACTION_PREFIXES = ("state.", "values.", "disclosure.", "select.", "scroll.")
+HEADED_ACTION_LEGS = frozenset({"zero_bounds.history_listbox_outcome"})
+
+
 def _row(leg_id, requirement, target, tiers, modes, oracles):
+    disposition = "pass"
+    reason = ""
+    if leg_id in ASSERTED_REFUSALS:
+        disposition = "asserted-refusal"
+        reason = "the leg asserts the product's refusal as its expected outcome"
+    elif leg_id in OUTSTANDING_REASONS:
+        disposition = "outstanding"
+        reason = OUTSTANDING_REASONS[leg_id]
+    if leg_id.startswith(HEADED_ACTION_PREFIXES) or leg_id in HEADED_ACTION_LEGS:
+        modes = BOTH_MODES
     return Leg(
         id=leg_id,
         requirement=requirement,
@@ -52,8 +92,8 @@ def _row(leg_id, requirement, target, tiers, modes, oracles):
         tiers=tiers,
         modes=modes,
         oracles=tuple(oracles.split(",")),
-        disposition="outstanding",
-        reason="awaiting its implementation",
+        disposition=disposition,
+        reason=reason,
     )
 
 
