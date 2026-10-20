@@ -212,10 +212,9 @@ fn a_pointer_command_is_refused_with_the_semantic_suggestion_and_nothing_sent() 
             .suggestion
             .is_some_and(|text| text.contains("semantic action"))
     );
-    assert_eq!(
-        error.details.expect("details")["physical_delivery_started"],
-        false
-    );
+    let details = error.details.clone().expect("details");
+    assert_eq!(details["physical_delivery_started"], false);
+    assert_eq!(details["cause"], "wayland_session");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
 

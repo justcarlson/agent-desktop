@@ -199,6 +199,10 @@ pub(crate) fn pointer_refusal(what: &'static str) -> AdapterError {
     semantic_action_refusal(format!(
         "{what} is not available through the compositor on Wayland"
     ))
+    .with_details(json!({
+        "cause": "wayland_session",
+        "physical_delivery_started": false,
+    }))
 }
 
 #[cfg(test)]
