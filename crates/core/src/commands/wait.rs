@@ -171,7 +171,7 @@ fn wait_for_window(
                     last_observed,
                 );
             }
-            Err(err) if is_retryable_window_poll_error(&err.code) => {
+            Err(err) if is_retryable_window_poll_error(&err) => {
                 last_error = Some(json!({
                     "code": err.code.as_str(),
                     "message": err.message
@@ -274,10 +274,13 @@ pub(crate) fn is_retryable_wait_poll_error(code: &ErrorCode) -> bool {
 /// A window wait polls a condition that is not yet true, and an application
 /// that has not registered on the desktop yet is that condition: the window
 /// cannot exist before the application does. Absence is retried until the
-/// deadline instead of ending the wait at the first poll.
-fn is_retryable_window_poll_error(code: &ErrorCode) -> bool {
-    is_retryable_wait_poll_error(code)
-        || matches!(code, ErrorCode::AppNotFound | ErrorCode::WindowNotFound)
+/// deadline unless the adapter explicitly marks the error non-retryable.
+fn is_retryable_window_poll_error(error: &crate::AdapterError) -> bool {
+    is_retryable_wait_poll_error(&error.code)
+        || (matches!(
+            error.code,
+            ErrorCode::AppNotFound | ErrorCode::WindowNotFound
+        ) && error.permits_retry_by_default())
 }
 
 fn is_retryable_wait_app_error(err: &AppError) -> bool {
