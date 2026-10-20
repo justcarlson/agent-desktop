@@ -1,4 +1,6 @@
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ImageBuffer, Rect, WindowInfo};
+use agent_desktop_core::{
+    AdapterError, Deadline, DeliverySemantics, ErrorCode, ImageBuffer, Rect, WindowInfo,
+};
 
 use super::display::scale_for;
 use super::pixels::MAX_PIXELS;
@@ -22,7 +24,22 @@ struct Geometry {
 }
 
 fn refusal(code: ErrorCode, message: &str, suggestion: &str) -> AdapterError {
-    AdapterError::new(code, message).with_suggestion(suggestion)
+    AdapterError::new(code, message)
+        .with_suggestion(suggestion)
+        .with_disposition(DeliverySemantics::not_delivered())
+}
+
+fn not_viewable(compositing: bool) -> AdapterError {
+    let message = if compositing {
+        "The window is not viewable, so it has no pixels to capture"
+    } else {
+        "The window is not viewable and the window manager does not composite, so it has no pixels to capture"
+    };
+    refusal(
+        ErrorCode::InvalidArgs,
+        message,
+        "Restore the window with 'restore', then retry",
+    )
 }
 
 fn covered() -> AdapterError {
@@ -78,11 +95,7 @@ fn survey(ctx: &WindowContext) -> Result<Geometry, AdapterError> {
         .describe(ctx.xid, ctx.deadline)
         .map_err(|error| grab_failure(error, ctx.deadline))?;
     if !matches!(client.map_state, MapState::Viewable) {
-        return Err(refusal(
-            ErrorCode::InvalidArgs,
-            "The window is minimised or not shown, so it has no pixels to capture",
-            "Restore the window, then retry",
-        ));
+        return Err(not_viewable(ctx.compositing));
     }
     let frame = match client.parent {
         Some(parent) => {

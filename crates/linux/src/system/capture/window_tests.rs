@@ -111,7 +111,7 @@ fn a_viewable_window_the_server_cannot_read_is_off_screen_not_minimised() {
 }
 
 #[test]
-fn an_unmapped_window_is_minimised_on_either_session_type() {
+fn an_unmapped_window_names_the_missing_compositor_and_asks_for_a_restore() {
     for compositing in [false, true] {
         let rig = Rig::standard();
         if compositing {
@@ -127,6 +127,20 @@ fn an_unmapped_window_is_minimised_on_either_session_type() {
         );
         let error = capture(&rig.env(), &target(), false, deadline()).expect_err("minimised");
         assert_eq!(error.code, ErrorCode::InvalidArgs);
+        assert_eq!(
+            error.message.contains("does not composite"),
+            !compositing,
+            "{}",
+            error.message
+        );
+        assert!(
+            error
+                .suggestion
+                .as_deref()
+                .is_some_and(|text| text.contains("restore")),
+            "{:?}",
+            error.suggestion
+        );
         assert_eq!(rig.grabber.grab_count(), 0);
     }
 }
