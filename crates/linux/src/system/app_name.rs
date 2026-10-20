@@ -1,4 +1,5 @@
 use super::app_alias::{AliasIndex, current_index};
+use super::launch_attach::KEY_TABLE;
 use super::process_facts::ProcessFacts;
 
 fn non_blank(text: Option<&str>) -> Option<&str> {
@@ -47,7 +48,7 @@ pub(crate) fn aliases_in(index: &AliasIndex, facts: &ProcessFacts) -> Vec<String
 /// Whether `query` names this application: exactly, ignoring case, its
 /// listed name, the accessibility root's registry name while the root
 /// answered, its `comm`, its executable basename or one of the desktop entry
-/// names in `aliases`.
+/// names in `aliases`, including the launcher's known server names.
 pub(crate) fn name_matches(
     query: &str,
     name: &str,
@@ -64,7 +65,15 @@ pub(crate) fn name_matches(
     .into_iter()
     .flatten()
     .chain(aliases.iter().map(String::as_str))
-    .any(|candidate| candidate.eq_ignore_ascii_case(query))
+    .any(|candidate| {
+        candidate.eq_ignore_ascii_case(query)
+            || KEY_TABLE.iter().any(|(launcher, servers)| {
+                launcher.eq_ignore_ascii_case(query)
+                    && servers
+                        .iter()
+                        .any(|server| server.eq_ignore_ascii_case(candidate))
+            })
+    })
 }
 
 #[cfg(test)]

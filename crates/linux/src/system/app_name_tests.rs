@@ -45,6 +45,22 @@ fn a_query_matches_the_name_comm_or_executable_exactly_ignoring_case() {
 }
 
 #[test]
+fn launcher_names_find_the_server_exactly_without_desktop_entries() {
+    let server = facts("gnome-terminal-", Some("gnome-terminal-server"));
+    for query in ["gnome-terminal", "GNOME-TERMINAL", "org.gnome.Terminal"] {
+        assert!(aliased(query, &server, &[]), "{query}");
+        assert!(!aliased(query, &facts("other", Some("other")), &[]));
+        assert!(!aliased(
+            query,
+            &facts("gnome-terminal-", Some("gnome-terminal-server-helper")),
+            &[]
+        ));
+    }
+    assert!(!aliased("gnome-term", &server, &[]));
+    assert_eq!(app_name(&server), "gnome-terminal-server");
+}
+
+#[test]
 fn the_registry_name_is_a_query_alias_only_while_it_is_known() {
     let files = facts("nautilus", Some("nautilus"));
     assert!(name_matches(
