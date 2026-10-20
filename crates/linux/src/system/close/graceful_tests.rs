@@ -139,6 +139,19 @@ fn a_wayland_session_with_no_xwayland_is_not_supported_with_its_cause() {
 }
 
 #[test]
+fn a_wayland_session_with_no_x11_manager_keeps_the_wayland_cause() {
+    let mut world = Fake::new(Liveness::Alive);
+    world.windows = ControlRead::NoManager;
+    world.wayland = true;
+    let error = close(&world, &request()).expect_err("refused");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.details.expect("details")["cause"], "wayland_session");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(world.count("close"), 0);
+    assert_no_signal(&world);
+}
+
+#[test]
 fn a_windowless_process_that_exited_on_a_wayland_session_is_ok() {
     let mut world = Fake::new(Liveness::Alive);
     world.windows = ControlRead::Ready(Vec::new());

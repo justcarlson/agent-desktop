@@ -58,7 +58,7 @@ fn fan_out(world: &impl World, request: &Request<'_>, windows: &[u32]) -> Result
 fn request_close(world: &impl World, request: &Request<'_>) -> Result<bool, AdapterError> {
     let windows = match world.toplevels() {
         ControlRead::Ready(windows) => windows,
-        ControlRead::NotX11 if world.on_wayland() => {
+        ControlRead::NotX11 | ControlRead::NoManager if world.on_wayland() => {
             return unless_gone(world, refusal::wayland_session(request)).map(|()| false);
         }
         ControlRead::NotX11 | ControlRead::NoManager => {
