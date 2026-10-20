@@ -20,7 +20,7 @@ const {
   tarCommand,
   tarballName,
 } = require('../../npm/lib/platform.js');
-const { createTemporaryRoots, runScriptWithOsStub } = require('./helpers.js');
+const { createTemporaryRoots, postinstallAs, runScriptWithOsStub } = require('./helpers.js');
 
 const postinstallScriptPath = join(__dirname, '..', '..', 'npm', 'scripts', 'postinstall.js');
 
@@ -255,8 +255,9 @@ test('cleanup failure does not mask a successful archive install', { skip: POSIX
   const binary = join(destination, 'agent-desktop-darwin-arm64');
   const helper = join(destination, 'agent-desktop-macos-helper');
 
+  const darwin = postinstallAs('darwin');
   const warnings = captureWarnings(() =>
-    postinstall.installArchive(
+    darwin.installArchive(
       payload.tarball,
       binary,
       helper,
@@ -298,14 +299,14 @@ const EXPECTED_PLATFORM_ROWS = {
   'linux-arm64': {
     target: 'aarch64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-arm64',
-    entries: ['agent-desktop'],
-    released: false,
+    entries: ['agent-desktop', 'agent-desktop-linux-clipboard-owner'],
+    released: true,
   },
   'linux-x64': {
     target: 'x86_64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-x64',
-    entries: ['agent-desktop'],
-    released: false,
+    entries: ['agent-desktop', 'agent-desktop-linux-clipboard-owner'],
+    released: true,
   },
   'win32-arm64': {
     target: 'aarch64-pc-windows-msvc',
@@ -382,8 +383,8 @@ test('tarball name matches the template postinstall previously constructed inlin
   assert.equal(tarballName('0.8.3', 'x86_64-pc-windows-msvc'), 'agent-desktop-v0.8.3-x86_64-pc-windows-msvc.tar.gz');
 });
 
-test('postinstall refuses unreleased platforms with exit code 0 and names the released keys', async () => {
-  for (const [osPlatform, osArch] of [['linux', 'x64'], ['linux', 'arm64']]) {
+test('postinstall refuses unsupported platforms with exit code 0 and names the released keys', async () => {
+  for (const [osPlatform, osArch] of [['linux', 'riscv64'], ['freebsd', 'x64']]) {
     const { code, stderr } = await runScriptWithOsStub(postinstallScriptPath, osPlatform, osArch);
     assert.equal(code, 0, `expected exit 0 for ${osPlatform}-${osArch}`);
     const lines = stderr.split('\n').filter((line) => line.startsWith('agent-desktop: '));
@@ -392,7 +393,7 @@ test('postinstall refuses unreleased platforms with exit code 0 and names the re
       `agent-desktop: agent-desktop has no released native binary for ${osPlatform}-${osArch}.`,
       `unexpected refusal output for ${osPlatform}-${osArch}`,
     );
-    assert.match(lines[1], /^agent-desktop: Released platform keys today: darwin-arm64, darwin-x64, win32-arm64, win32-x64\.$/);
+    assert.match(lines[1], /^agent-desktop: Released platform keys today: darwin-arm64, darwin-x64, linux-arm64, linux-x64, win32-arm64, win32-x64\.$/);
     assert.equal(lines[2], 'agent-desktop: See: https://github.com/lahfir/agent-desktop');
   }
 });

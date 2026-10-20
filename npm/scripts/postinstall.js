@@ -14,12 +14,13 @@ const {
   unlinkSync,
   writeFileSync,
 } = require('fs');
-const { dirname, isAbsolute, join } = require('path');
+const { delimiter, dirname, isAbsolute, join } = require('path');
 const { platform, arch } = require('os');
 const { execFileSync } = require('child_process');
 const { createHash } = require('crypto');
 const {
   MACOS_HELPER_NAME,
+  helperNames,
   releasedKeys,
   resolve,
   tarCommand,
@@ -50,8 +51,17 @@ function trashRecoverably(path, trashCommand = 'trash') {
   }
 }
 
-function cleanupStaging(path, trashCommand) {
-  if (platform() === 'win32') {
+function commandAvailable(command) {
+  if (command.includes('/')) return existsSync(command);
+  return (process.env.PATH || '')
+    .split(delimiter)
+    .some((directory) => directory !== '' && existsSync(join(directory, command)));
+}
+
+// A stock Linux install has no trash command. Leaving the staging directory
+// there would keep a second copy of every executable under bin/.
+function cleanupStaging(path, trashCommand = 'trash') {
+  if (platform() === 'win32' || (platform() === 'linux' && !commandAvailable(trashCommand))) {
     try {
       rmSync(path, { recursive: true, force: true });
     } catch (err) {
@@ -127,15 +137,15 @@ function matchesRecordedDigest(destination) {
   }
 }
 
-function customHelperPath(customBinaryPath) {
-  const override = process.env[MACOS_HELPER_PATH_ENV];
+function customHelperPath(customBinaryPath, helperName = MACOS_HELPER_NAME) {
+  const override = helperName === MACOS_HELPER_NAME ? process.env[MACOS_HELPER_PATH_ENV] : undefined;
   if (override) {
     if (!isAbsolute(override)) {
       throw new Error(`${MACOS_HELPER_PATH_ENV} must be an absolute path`);
     }
     return override;
   }
-  return join(dirname(customBinaryPath), MACOS_HELPER_NAME);
+  return join(dirname(customBinaryPath), helperName);
 }
 
 function validateArchive(tarballPath, expectedEntries) {
@@ -154,7 +164,7 @@ function validateArchive(tarballPath, expectedEntries) {
 }
 
 function installArchive(tarballPath, binaryPath, helperPath, entry, trashCommand) {
-  const includesHelper = entry.entries.includes(MACOS_HELPER_NAME);
+  const [helperName] = helperNames(entry);
   validateArchive(tarballPath, entry.entries);
   const staging = mkdtempSync(join(binDir, '.extract-'));
   try {
@@ -167,13 +177,12 @@ function installArchive(tarballPath, binaryPath, helperPath, entry, trashCommand
     if (JSON.stringify(entries) !== JSON.stringify(expected)) {
       throw new Error(`Extracted archive has unexpected entries: ${entries.join(', ')}`);
     }
-    const binaryMember = entry.entries.find((member) => member !== MACOS_HELPER_NAME);
-    const extractedBinary = join(staging, binaryMember);
+    const extractedBinary = join(staging, entry.entries[0]);
     if (!lstatSync(extractedBinary).isFile()) {
       throw new Error('Release archive executables must be regular files');
     }
-    if (includesHelper) {
-      const extractedHelper = join(staging, MACOS_HELPER_NAME);
+    if (helperName) {
+      const extractedHelper = join(staging, helperName);
       if (!lstatSync(extractedHelper).isFile()) {
         throw new Error('Release archive executables must be regular files');
       }
@@ -239,11 +248,11 @@ function printManualFallback(tarballUrl, checksumsUrl, entry) {
   log('');
   log('Download manually from:');
   log(`  ${tarballUrl}`);
-  const includesHelper = entry.entries.includes(MACOS_HELPER_NAME);
+  const [helperName] = helperNames(entry);
   log('Then extract the archive so the installed file(s) are at:');
   log(`  ${join(binDir, entry.binaryName)}`);
-  if (includesHelper) {
-    log(`  ${join(binDir, MACOS_HELPER_NAME)}`);
+  if (helperName) {
+    log(`  ${join(binDir, helperName)}`);
   }
   log('');
   log('Verify the download before running it:');
@@ -268,10 +277,11 @@ function main() {
     return;
   }
 
-  const includesHelper = entry.entries.includes(MACOS_HELPER_NAME);
+  const [helperName] = helperNames(entry);
+  const includesHelper = Boolean(helperName);
   const binaryName = entry.binaryName;
   const binaryPath = join(binDir, binaryName);
-  const helperPath = join(binDir, MACOS_HELPER_NAME);
+  const helperPath = includesHelper ? join(binDir, helperName) : undefined;
 
   if (!existsSync(binDir)) {
     mkdirSync(binDir, { recursive: true });
@@ -284,9 +294,9 @@ function main() {
         throw new Error(`binary is not a regular file: ${customPath}`);
       }
       if (includesHelper) {
-        const sourceHelper = customHelperPath(customPath);
+        const sourceHelper = customHelperPath(customPath, helperName);
         if (!existsSync(sourceHelper) || !lstatSync(sourceHelper).isFile()) {
-          throw new Error(`macOS helper not found at ${sourceHelper}`);
+          throw new Error(`${helperName} not found at ${sourceHelper}`);
         }
         installExecutable(sourceHelper, helperPath);
       }
@@ -311,7 +321,7 @@ function main() {
     if (includesHelper) chmodSync(helperPath, 0o755);
     log(
       includesHelper
-        ? `Native executables ready: ${binaryName}, ${MACOS_HELPER_NAME}`
+        ? `Native executables ready: ${binaryName}, ${helperName}`
         : `Native executable ready: ${binaryName}`,
     );
     fixGlobalInstallBin();
@@ -343,7 +353,7 @@ function main() {
     unlinkSync(tarballPath);
     log(
       includesHelper
-        ? `Installed native executables: ${binaryName}, ${MACOS_HELPER_NAME}`
+        ? `Installed native executables: ${binaryName}, ${helperName}`
         : `Installed native executable: ${binaryName}`,
     );
   } catch (err) {

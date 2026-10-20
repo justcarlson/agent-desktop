@@ -35,11 +35,11 @@ function osStubEnv(osPlatform, osArch) {
   return { [OS_STUB_PLATFORM_ENV]: osPlatform, [OS_STUB_ARCH_ENV]: osArch };
 }
 
-function runScriptWithOsStub(scriptPath, osPlatform, osArch, args = []) {
+function runScriptWithOsStub(scriptPath, osPlatform, osArch, args = [], environment = {}) {
   const stub = writeOsStub(osPlatform, osArch);
   const env = { ...process.env };
   delete env.AGENT_DESKTOP_SKIP_DOWNLOAD;
-  Object.assign(env, osStubEnv(osPlatform, osArch));
+  Object.assign(env, osStubEnv(osPlatform, osArch), environment);
   return new Promise((settle) => {
     let settled = false;
     let stderr = '';
@@ -59,6 +59,22 @@ function runScriptWithOsStub(scriptPath, osPlatform, osArch, args = []) {
     child.on('close', finish);
     child.on('error', () => finish(-1));
   });
+}
+
+// Loads a fresh copy of the installer as if it ran on another OS: the installer
+// reads os.platform() once at load, so the stub has to be in place before it.
+function postinstallAs(osPlatform) {
+  const os = require('node:os');
+  const originalPlatform = os.platform;
+  os.platform = () => osPlatform;
+  const modulePath = require.resolve('../../npm/scripts/postinstall.js');
+  try {
+    delete require.cache[modulePath];
+    return require('../../npm/scripts/postinstall.js');
+  } finally {
+    os.platform = originalPlatform;
+    delete require.cache[modulePath];
+  }
 }
 
 // Separate collections for each suite; their teardown strategies differ.
@@ -83,6 +99,7 @@ function createTemporaryRoots() {
 module.exports = {
   createTemporaryRoots,
   osStubEnv,
+  postinstallAs,
   postinstallScriptPath,
   runScriptWithOsStub,
   wrapperScriptPath,
