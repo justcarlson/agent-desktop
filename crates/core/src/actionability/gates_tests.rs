@@ -143,3 +143,19 @@ fn pointer_delivery_never_gets_the_boundless_pass() {
     );
     assert_eq!(click, Some(ActionabilityStatus::Unknown));
 }
+
+#[test]
+fn a_headed_type_needs_no_pointer_bounds_on_a_known_on_screen_node() {
+    let typed = Action::TypeText("hello".into());
+    let passed = status_of(
+        typed.clone(),
+        true,
+        Some(false),
+        None,
+        &["TypeText"],
+        "visible",
+    );
+    assert_eq!(passed, Some(ActionabilityStatus::Pass));
+    let unknown = status_of(typed, true, None, None, &["TypeText"], "visible");
+    assert_eq!(unknown, Some(ActionabilityStatus::Unknown));
+}

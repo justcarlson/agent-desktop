@@ -377,3 +377,7 @@ mod cursor_overlay_tests;
 #[cfg(test)]
 #[path = "ref_action_scroll_recovery_tests.rs"]
 mod scroll_recovery_tests;
+
+#[cfg(test)]
+#[path = "ref_action_keyboard_tests.rs"]
+mod keyboard_tests;
