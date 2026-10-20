@@ -194,6 +194,31 @@ fn missing_window_returns_an_error_without_capturing() {
 }
 
 #[test]
+fn argument_and_target_errors_carry_a_suggestion_and_a_safe_disposition() {
+    let mut out_of_range = args();
+    out_of_range.screen = Some(9);
+    let mut missing_window = args();
+    missing_window.window_id = Some("w-404".into());
+
+    for request in [out_of_range, missing_window] {
+        let error = screenshot::execute(request, &ScreenshotAdapter::new())
+            .expect_err("the target does not exist");
+        let crate::AppError::Adapter(adapter) = error else {
+            panic!("an adapter error");
+        };
+        assert!(
+            adapter.suggestion.is_some(),
+            "{} carries no suggestion",
+            adapter.message
+        );
+        assert_eq!(
+            adapter.disposition,
+            crate::DeliverySemantics::not_delivered()
+        );
+    }
+}
+
+#[test]
 fn output_path_response_keeps_image_metadata() {
     let adapter = ScreenshotAdapter::new();
     let path = output_path();
