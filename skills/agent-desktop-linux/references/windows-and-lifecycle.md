@@ -123,8 +123,10 @@ state agree.
 - A minimized or hidden target is lifted first. A window on another workspace
   switches the user's current desktop to its workspace before the request: this
   changes what the user sees.
-- A modal dialog that took the focus is named in `details` and is never a
-  success. A stopped target is `APP_UNRESPONSIVE` before anything is sent.
+- When a modal dialog holds the focus, `focus-window --app <name>` succeeds with
+  the dialog as `data.focused`. Read `data.focused.title` and act on the dialog,
+  not the window you named. A stopped target is `APP_UNRESPONSIVE` before
+  anything is sent.
 - A window the window manager never activated can end `ACTION_FAILED` with
   `activation_not_granted`: under mutter, until a window has held focus once.
   While the GNOME Activities Overview is open the cause is `overview_open`; close
