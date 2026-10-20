@@ -35,12 +35,13 @@ window never change. Every X11 synthetic pointer path moves the user's real
 cursor, so pointer commands (`hover`, `drag`, `double-click`, `triple-click`,
 `mouse-move`, `mouse-click`, `mouse-wheel`) require global `--headed`.
 
-Under `--headed`, `click` and `type` try physical input first and fall back to
-the semantic call only when the pointer is unsupported (Wayland) or the target
-cannot be aimed. Read the step in `data`: `physical_synthetic` means a real
-event with `verified: false`, because XTEST has no read-back; `semantic_api` means
-the node's own action ran and the pointer did not move. Windows works the other
-way round (semantic first), so do not carry that assumption across platforms.
+Under `--headed`, `click` and `type` use physical input on X11 and report
+`physical_synthetic` with `verified: false`, because XTEST has no read-back. They
+do not fall back to the semantic call on Wayland: a headed `click` or `type`
+stops at the missing bounds with `TIMEOUT` (`actionability_timeout`) and sends
+nothing. A headless action reports `semantic_api` and leaves the pointer still.
+Windows works the other way round (semantic first), so do not carry that
+assumption across platforms.
 
 Before a physical ref-addressed key or click, the target frame must report
 `active` within a short wait; a frame that never does fails with

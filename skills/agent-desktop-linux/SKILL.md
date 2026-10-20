@@ -91,11 +91,11 @@ tool for observation or semantic actions.
 
 - Ref actions are semantic AT-SPI calls that never move the pointer or change
   the active window. `--headed` adds physical input and focus.
-- Under `--headed`, `click` and `type` try physical input first (a real click or
-  keys, step `physical_synthetic`, `verified: false`) and fall back to the node's
-  semantic action (`semantic_api`) only where the pointer is unsupported (Wayland)
-  or the node cannot be aimed. Windows works the other way round. Read the step in
-  `data` to see which ran.
+- Under `--headed`, `click` and `type` use physical input on X11 (a real click
+  or keys, step `physical_synthetic`, `verified: false`). On Wayland there is no
+  semantic fallback: a headed `click` or `type` stops at the missing bounds with
+  `TIMEOUT`. Windows works the other way round. Read the step in `data` to see
+  which ran.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.
