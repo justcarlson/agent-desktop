@@ -1,9 +1,6 @@
 use super::*;
 use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface, SystemOps};
 
-use super::*;
-use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface, SystemOps};
-
 fn snapshot_args(surface: SnapshotSurface) -> agent_desktop_core::commands::snapshot::SnapshotArgs {
     agent_desktop_core::commands::snapshot::SnapshotArgs {
         app: None,
