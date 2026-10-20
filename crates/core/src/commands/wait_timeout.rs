@@ -15,6 +15,19 @@ pub(crate) fn is_deadline_expired(error: &AdapterError) -> bool {
             == Some("deadline")
 }
 
+pub(crate) fn menu(mut error: AdapterError, timeout_ms: u64) -> AppError {
+    if error.code == ErrorCode::Timeout {
+        let details = error.details.get_or_insert_with(|| json!({}));
+        if !details.is_object() {
+            *details = json!({ "adapter_details": details.take() });
+        }
+        details["kind"] = json!("wait_timeout");
+        details["predicate"] = json!("menu");
+        details["timeout_ms"] = json!(timeout_ms);
+    }
+    AppError::Adapter(error)
+}
+
 /// Builds the wait-loop TIMEOUT error. Every payload carries
 /// `kind: "wait_timeout"` so agents can discriminate it from the chain
 /// deadline TIMEOUT schema (`kind: "chain_deadline"`) without sniffing

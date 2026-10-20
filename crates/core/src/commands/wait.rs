@@ -114,14 +114,17 @@ fn wait_for_menu(
 ) -> Result<Value, AppError> {
     let start = Instant::now();
     let deadline = crate::Deadline::at(start, timeout_ms)?;
-    let target = resolve_app(app.as_deref(), adapter, deadline)?;
+    let target = resolve_app(app.as_deref(), adapter, deadline).map_err(|error| match error {
+        AppError::Adapter(error) => wait_timeout::menu(error, timeout_ms),
+        other => other,
+    })?;
     adapter
         .wait_for_menu(
             crate::commands::helpers::process_identity(&target)?,
             open,
             deadline,
         )
-        .map_err(AppError::Adapter)?;
+        .map_err(|error| wait_timeout::menu(error, timeout_ms))?;
     let elapsed = start.elapsed().as_millis();
     Ok(json!({ "found": true, "elapsed_ms": elapsed }))
 }
@@ -301,3 +304,7 @@ mod predicate_tests;
 #[cfg(test)]
 #[path = "wait_resolution_tests.rs"]
 mod resolution_tests;
+
+#[cfg(test)]
+#[path = "wait_deadline_tests.rs"]
+mod deadline_tests;
