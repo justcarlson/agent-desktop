@@ -20,11 +20,14 @@ fn not_delivered(error: AdapterError) -> AdapterError {
 
 /// How long a person has to answer the portal's first-use dialog. The command's
 /// own budget is for calls that need no person; a person has to read the
-/// dialog and click, and the portal needs a second more to answer.
+/// dialog and click, and the portal needs a second more to answer. The portal
+/// ends an unanswered dialog at 25 s and honours `Request.Close` only then, so a
+/// shorter wait leaves a live dialog whose late Allow writes the desktop to a
+/// file nobody removes. No caller deadline, inherited or not, shortens it.
 pub(crate) const CONSENT_BUDGET_MS: u64 = 30_000;
 
 pub(crate) fn consent_deadline(command: Deadline) -> Result<Deadline, AdapterError> {
-    let consent = Deadline::after(CONSENT_BUDGET_MS)?;
+    let consent = Deadline::detached_after(CONSENT_BUDGET_MS)?;
     Ok(if consent.remaining() > command.remaining() {
         consent
     } else {
@@ -48,9 +51,22 @@ pub(crate) fn capture_with(
     target: ScreenshotTarget,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
+    capture_through(env, route, target, deadline, &capture_wayland)
+}
+
+pub(crate) type PortalCapture<'a> =
+    &'a dyn Fn(&ScreenshotTarget, Deadline) -> Result<ImageBuffer, AdapterError>;
+
+pub(crate) fn capture_through(
+    env: &CaptureEnv,
+    route: &Route,
+    target: ScreenshotTarget,
+    deadline: Deadline,
+    portal: PortalCapture<'_>,
+) -> Result<ImageBuffer, AdapterError> {
     match (route, target) {
         (Route::Wayland, ScreenshotTarget::ExactWindow(_)) => Err(wayland_window()),
-        (Route::Wayland, target) => capture_wayland(&target, consent_deadline(deadline)?),
+        (Route::Wayland, target) => portal(&target, consent_deadline(deadline)?),
         (Route::X11(_), ScreenshotTarget::ExactWindow(window)) => {
             window::capture(env, &window, false, deadline)
         }

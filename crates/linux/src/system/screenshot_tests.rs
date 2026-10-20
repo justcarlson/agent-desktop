@@ -191,6 +191,31 @@ fn a_person_gets_the_consent_budget_and_a_longer_command_budget_is_kept() {
     let command = Deadline::after(5_000).expect("a deadline");
     let consent = consent_deadline(command).expect("a deadline");
     assert!(consent.remaining() > std::time::Duration::from_millis(CONSENT_BUDGET_MS - 2_000));
-    let longer = Deadline::after(120_000).expect("a deadline");
+    let longer = Deadline::detached_after(120_000).expect("a deadline");
     assert!(consent_deadline(longer).expect("a deadline").remaining() > consent.remaining());
+}
+
+#[test]
+fn the_wayland_route_waits_for_a_person_whatever_the_command_deadline_is() {
+    for command_ms in [1, 5_000] {
+        let seen = std::cell::Cell::new(None);
+        let portal = |_: &ScreenshotTarget, given: Deadline| {
+            seen.set(Some(given.remaining()));
+            Err(AdapterError::new(ErrorCode::Timeout, "stub"))
+        };
+        let rig = Rig::standard();
+        let command = Deadline::after(command_ms).expect("a deadline");
+        let _ = capture_through(
+            &rig.env(),
+            &Route::Wayland,
+            ScreenshotTarget::FullScreen,
+            command,
+            &portal,
+        );
+        let waited = seen.get().expect("the portal was called");
+        assert!(
+            waited > std::time::Duration::from_millis(CONSENT_BUDGET_MS - 2_000),
+            "{command_ms} ms gave {waited:?}"
+        );
+    }
 }
