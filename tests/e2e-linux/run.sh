@@ -1,5 +1,24 @@
 #!/usr/bin/env bash
+# Drive the live harness through the canonical interaction lease so headed input
+# cannot interleave with another run on the same host. The release binary is
+# built once here; runner/main.py stages it under a private suite directory.
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-exec python3 -I "$here/runner/main.py" "$@"
+repo=$(cd "$here/../.." && pwd)
+e2e=$repo/tests/e2e
+
+build=1
+for arg in "$@"; do
+  case "$arg" in
+    --lying-actions) build=0 ;;
+  esac
+done
+if [ -n "${AGENT_DESKTOP_E2E_BIN:-}" ] || [ -n "${AGENT_DESKTOP_E2E_BIN_SRC:-}" ]; then
+  build=0
+fi
+if [ "$build" = 1 ]; then
+  (cd "$repo" && cargo build --locked --release -p agent-desktop)
+fi
+
+exec python3 "$e2e/interaction_lock.py" run python3 -I "$here/runner/main.py" "$@"
