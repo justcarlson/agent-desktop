@@ -14,6 +14,8 @@ pub(crate) mod window_unit;
 pub(crate) mod window_xid;
 
 #[cfg(test)]
+mod capture_live_shadow_tests;
+#[cfg(test)]
 mod capture_live_support;
 #[cfg(test)]
 mod capture_live_tests;
