@@ -192,6 +192,13 @@ impl InputOps for LinuxAdapter {
         }
     }
 
+    fn keyboard_needs_window_activation(&self) -> bool {
+        !matches!(
+            crate::input::backend::backend(),
+            Ok(crate::input::backend::Backend::Wayland)
+        )
+    }
+
     fn mouse_event(&self, event: MouseEvent, lease: &InteractionLease) -> Result<(), AdapterError> {
         crate::input::deliver::mouse_event(&event, lease.deadline())
     }
