@@ -252,6 +252,7 @@ pub(crate) fn stacked(id: u32, client: Extents) -> StackedWindow {
             top: 0,
             bottom: 0,
         },
+        shadow: (0, 0, 0, 0),
     }
 }
 
@@ -261,6 +262,7 @@ pub(crate) fn snapshot(stack: Vec<StackedWindow>, above: Vec<Extents>) -> Stacki
         stack,
         override_redirect_above: above,
         override_redirect_receiving: Vec::new(),
+        override_redirect_names: Vec::new(),
     })
 }
 

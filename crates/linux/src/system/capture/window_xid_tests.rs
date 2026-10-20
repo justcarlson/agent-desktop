@@ -24,6 +24,7 @@ fn client(id: u32, pid: u32, title: &str) -> X11Client {
             height: 10,
         }),
         hidden: false,
+        shadow: (0, 0, 0, 0),
     }
 }
 

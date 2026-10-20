@@ -31,6 +31,7 @@ fn stacked(id: u32, client: Extents) -> StackedWindow {
             top: 0,
             bottom: 0,
         },
+        shadow: (0, 0, 0, 0),
     }
 }
 
@@ -40,6 +41,7 @@ fn read_of(stack: Vec<StackedWindow>, override_redirect: Vec<Extents>) -> Stacki
         stack,
         override_redirect_above: override_redirect,
         override_redirect_receiving: Vec::new(),
+        override_redirect_names: Vec::new(),
     })
 }
 
