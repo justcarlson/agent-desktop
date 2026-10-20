@@ -16,9 +16,10 @@ pub trait InputOps: Send + Sync {
     }
 
     /// Whether a headed keyboard delivery needs the target window activated
-    /// first. An adapter whose keys reach the target element itself answers
-    /// false, so core skips a window focus the session cannot grant and lets
-    /// the adapter aim the keys.
+    /// first. An adapter whose keys can be delivered without activating
+    /// another window (a Wayland session, where the compositor refuses client
+    /// activation) answers false, so core skips a window focus the session
+    /// cannot grant.
     fn keyboard_needs_window_activation(&self) -> bool {
         true
     }
