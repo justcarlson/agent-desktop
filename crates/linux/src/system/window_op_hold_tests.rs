@@ -86,6 +86,11 @@ fn a_clamped_resize_that_also_shifted_the_client_still_gives_the_place_back() {
     let error = run(&world, &window(), &resize(5000.0, 5000.0), deadline).expect_err("clamped");
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(world.writes(), 2);
+    let details = error.details.expect("details");
+    assert_eq!(details["observed"]["x"], 300);
+    assert_eq!(details["observed"]["y"], 200);
+    assert_eq!(details["observed"]["width"], 1280);
+    assert_eq!(details["observed"]["height"], 800);
 }
 
 fn oversize_and_shifted(written: &[WindowWrite]) -> WindowFacts {

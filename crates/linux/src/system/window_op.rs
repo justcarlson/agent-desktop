@@ -279,6 +279,30 @@ fn restore(
     give_back_place(world, win, client, deadline)
 }
 
+/// The hold may move a client the manager shifted, so a rectangle observed
+/// before it ran is stale: the window is read once more and the error says
+/// where the command actually left it.
+fn reobserve(world: &impl OpWorld, client: u32, mut error: AdapterError) -> AdapterError {
+    let (ControlRead::Ready(facts), Some(observed)) = (
+        world.facts(client),
+        error
+            .details
+            .as_mut()
+            .and_then(|details| details.get_mut("observed"))
+            .filter(|observed| observed.is_object()),
+    ) else {
+        return error;
+    };
+    observed["x"] = serde_json::json!(facts.client.x);
+    observed["y"] = serde_json::json!(facts.client.y);
+    observed["width"] = serde_json::json!(facts.client.width);
+    observed["height"] = serde_json::json!(facts.client.height);
+    observed["hidden"] = serde_json::json!(facts.hidden);
+    observed["maximized_vertical"] = serde_json::json!(facts.maximized_vertical);
+    observed["maximized_horizontal"] = serde_json::json!(facts.maximized_horizontal);
+    error
+}
+
 fn write_and_hold(
     world: &impl OpWorld,
     win: &WindowInfo,
@@ -295,6 +319,10 @@ fn write_and_hold(
     };
     let outcome = apply(world, win, client, &write, deadline);
     let held = hold_place(world, win, client, before, deadline);
+    let outcome = match (outcome, before) {
+        (Err(error), Some(_)) => Err(reobserve(world, client, error)),
+        (outcome, _) => outcome,
+    };
     outcome?;
     held
 }
