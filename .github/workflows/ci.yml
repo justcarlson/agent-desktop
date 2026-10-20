@@ -297,6 +297,25 @@ jobs:
           fi
           echo "OK: shipped executable is within the 15MB per-file limit"
 
+      - name: Build Linux clipboard owner helper
+        run: cargo build --locked --release -p agent-desktop-linux --bins
+
+      - name: glibc floor gate self-test
+        run: scripts/check-elf-glibc-floor-selftest.sh
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: NPM package contents
+        run: |
+          node --test tests/npm/*.test.js
+          node scripts/check-npm-package.js
+          scripts/check-linux-archive-contents.sh npm linux-x64
+
+      - name: NPM wrapper smoke
+        run: scripts/ci-npm-wrapper-smoke.sh
+
       - name: Status reports accessibility granted on a live bus
         run: |
           cat > "$RUNNER_TEMP/status-granted.sh" <<'SCRIPT'

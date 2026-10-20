@@ -77,15 +77,15 @@ function normaliseTarballConstruction(line) {
     .replace(/\$\{[^}]+\}/g, '{V}');
 }
 
-// One tarball-name construction exists per shell dialect: the macOS legs build
-// names in bash, the Windows legs in pwsh. A parser that reads only the bash
-// construction would pass while the pwsh branch quietly built something else,
+// One tarball-name construction exists per runner OS: the macOS and Linux legs
+// build names in bash, the Windows legs in pwsh. A parser that reads only one
+// construction would pass while another branch quietly built something else,
 // so each branch's construction is extracted and compared independently.
 function tarballConstructionsByOs(jobText) {
   const constructions = {};
   let currentOs = null;
   for (const line of jobText.split('\n')) {
-    const branchMatch = line.match(/if: runner\.os == '(macOS|Windows)'/);
+    const branchMatch = line.match(/if: runner\.os == '(macOS|Linux|Windows)'/);
     if (branchMatch) {
       currentOs = branchMatch[1];
       continue;
@@ -101,6 +101,16 @@ function tarballConstructionsByOs(jobText) {
     }
   }
   return constructions;
+}
+
+// A matrix row names its OS only through its target triple, so the package step
+// that a row needs is derived from the triple: a Linux row without a Linux
+// tarball step is the defect this rule exists to catch.
+function runnerOsOf(target) {
+  if (target.includes('-apple-')) return 'macOS';
+  if (target.includes('-windows-')) return 'Windows';
+  if (target.includes('-linux-')) return 'Linux';
+  return target;
 }
 
 function expectedAssetCountFromMatrices(cliTargets, ffiJobText) {
@@ -180,7 +190,11 @@ function workflowViolations(workflow, platforms = PLATFORMS, tarballPatternFor =
 
   const packagePattern = tarballPatternFor('{V}', '{T}');
   const constructions = tarballConstructionsByOs(buildJob);
-  for (const osName of ['macOS', 'Windows']) {
+  const requiredOs = new Set(['macOS', 'Windows']);
+  for (const target of [...cliTargets, ...releasedTargets]) {
+    requiredOs.add(runnerOsOf(target));
+  }
+  for (const osName of ['macOS', 'Linux', 'Windows'].filter((name) => requiredOs.has(name))) {
     if (!constructions[osName]) {
       violations.push(
         `could not locate the ${osName} tarball-name construction in the ${BUILD_JOB} job — the gate fails closed`,
@@ -229,18 +243,24 @@ function selfTest() {
     '    permissions:',
     '      id-token: write        # Sigstore OIDC exchange',
     '    env:',
-    '      EXPECTED_ASSETS: 5',
+    '      EXPECTED_ASSETS: 7',
     '  build:',
     '    strategy:',
     '      matrix:',
     '        include:',
     '          - target: x86_64-apple-darwin',
     '            runner: macos-latest',
+    '          - target: x86_64-unknown-linux-gnu',
+    '            runner: ubuntu-22.04',
     '          - target: x86_64-pc-windows-msvc',
     '            runner: windows-latest',
     '    steps:',
     '      - name: Create tarball (macOS)',
     "        if: runner.os == 'macOS'",
+    '        run: |',
+    '          TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"',
+    '      - name: Create tarball (Linux)',
+    "        if: runner.os == 'Linux'",
     '        run: |',
     '          TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"',
     '      - name: Create tarball (Windows)',
@@ -253,6 +273,8 @@ function selfTest() {
     '      matrix:',
     '        include:',
     '          - target: x86_64-apple-darwin',
+    '            archive: tar.gz',
+    '          - target: x86_64-unknown-linux-gnu',
     '            archive: tar.gz',
     '          - target: x86_64-pc-windows-msvc',
     '            archive: zip',
@@ -274,7 +296,7 @@ function selfTest() {
   const fixturePlatforms = {
     'darwin-x64': { target: 'x86_64-apple-darwin', released: true },
     'win32-x64': { target: 'x86_64-pc-windows-msvc', released: true },
-    'linux-x64': { target: 'x86_64-unknown-linux-gnu', released: false },
+    'linux-x64': { target: 'x86_64-unknown-linux-gnu', released: true },
   };
   const violationsFor = (workflow) => workflowViolations(workflow, fixturePlatforms, tarballName);
 
@@ -326,8 +348,36 @@ function selfTest() {
   );
   expectCaught(
     'publish-github carries a stale asset count',
-    sound.replace('EXPECTED_ASSETS: 5', 'EXPECTED_ASSETS: 6'),
-    'expects 6 assets but the matrices imply exactly 5',
+    sound.replace('EXPECTED_ASSETS: 7', 'EXPECTED_ASSETS: 6'),
+    'expects 6 assets but the matrices imply exactly 7',
+  );
+  const linuxPackageStep = [
+    '      - name: Create tarball (Linux)',
+    "        if: runner.os == 'Linux'",
+    '        run: |',
+    '          TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"',
+    '',
+  ].join('\n');
+  if (!sound.includes(linuxPackageStep)) {
+    failures.push('self-test FAIL (fixture): the Linux package step is not in the sound workflow');
+  }
+  expectCaught(
+    'a Linux matrix row has no Linux package step',
+    sound.replace(linuxPackageStep, ''),
+    'could not locate the Linux tarball-name',
+  );
+  expectCaught(
+    'the Linux branch constructs a different archive name than the package',
+    sound.replace(
+      'TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"\n      - name: Create tarball (Windows)',
+      'TARBALL="agent-desktop-v${VERSION}-linux-${{ matrix.target }}.tar.gz"\n      - name: Create tarball (Windows)',
+    ),
+    'Linux release legs construct',
+  );
+  expectCaught(
+    'a released Linux target has no CLI matrix row',
+    sound.replace('          - target: x86_64-unknown-linux-gnu\n            runner: ubuntu-22.04\n', ''),
+    'npm installs x86_64-unknown-linux-gnu',
   );
   expectCaught(
     'the build matrix is restructured beyond recognition',
