@@ -79,6 +79,7 @@ struct Pending<'c> {
     desktop: Option<Property<'c>>,
     kind: Option<Property<'c>>,
     extents: Option<Property<'c>>,
+    shadow: Option<Property<'c>>,
     rest: Geometry<'c>,
 }
 
@@ -108,6 +109,7 @@ fn request<'c>(
         desktop: property(connection, id, names.desktop, AtomEnum::CARDINAL, 1),
         kind: property(connection, id, names.kind, AtomEnum::ATOM, TYPE_LONGS),
         extents: property(connection, id, names.frame_extents, AtomEnum::CARDINAL, 4),
+        shadow: property(connection, id, names.gtk_extents, AtomEnum::CARDINAL, 4),
         rest: geometry(connection, root, id),
     }
 }
@@ -128,8 +130,21 @@ fn client_rectangle(rest: Geometry<'_>) -> Got<(bool, Extents)> {
     ))
 }
 
+fn shadow_of(cookie: Option<Property<'_>>) -> (i32, i32) {
+    value(cookie)
+        .ok()
+        .and_then(|(format, bytes)| decode_frame_extents(format, &bytes))
+        .map_or((0, 0), |extents| {
+            (
+                i32::try_from(extents.left).unwrap_or(0),
+                i32::try_from(extents.top).unwrap_or(0),
+            )
+        })
+}
+
 fn collect(pending: Pending<'_>, atoms: &WindowAtoms) -> Got<StackedWindow> {
     let (mapped, client) = client_rectangle(pending.rest)?;
+    let shadow = shadow_of(pending.shadow);
     let (state, desktop, kind, extents) = (
         value(pending.state),
         value(pending.desktop),
@@ -168,6 +183,7 @@ fn collect(pending: Pending<'_>, atoms: &WindowAtoms) -> Got<StackedWindow> {
         kind,
         client,
         extents,
+        shadow,
     })
 }
 

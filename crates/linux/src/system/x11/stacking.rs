@@ -82,6 +82,7 @@ pub(crate) fn frame_window_state(
         client_id,
         hidden: window.flags.hidden,
         client_origin: (window.client.x, window.client.y),
+        shadow: window.shadow,
     })
 }
 

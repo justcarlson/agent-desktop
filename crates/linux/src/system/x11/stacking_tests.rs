@@ -14,6 +14,7 @@ use crate::tree::Extents;
 
 fn window(id: u32, hidden: bool, x: i32, y: i32) -> StackedWindow {
     StackedWindow {
+        shadow: (0, 0),
         id,
         flags: WindowFlags {
             hidden,
@@ -56,6 +57,7 @@ impl StackingSource for Fixed {
 
 fn client(id: u32, pid: u32, title: &str) -> X11Client {
     X11Client {
+        shadow: (0, 0),
         id,
         hidden: false,
         pid: Some(pid),
@@ -106,6 +108,7 @@ fn a_listed_window_with_one_client_reports_that_clients_state_and_origin() {
     assert_eq!(
         state,
         Some(WindowX11State {
+            shadow: (0, 0),
             client_id: 5,
             hidden: true,
             client_origin: (120, 80),

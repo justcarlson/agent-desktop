@@ -16,6 +16,7 @@ fn rect(x: i32, y: i32, width: i32, height: i32) -> Extents {
 
 fn window(id: u32, client: Extents) -> StackedWindow {
     StackedWindow {
+        shadow: (0, 0),
         id,
         flags: WindowFlags {
             hidden: false,

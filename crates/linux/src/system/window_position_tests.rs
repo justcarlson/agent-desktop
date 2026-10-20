@@ -30,6 +30,7 @@ fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
 
 fn client(id: u32, x: i32, y: i32) -> X11Client {
     X11Client {
+        shadow: (0, 0),
         id,
         hidden: false,
         pid: Some(321),
@@ -128,4 +129,16 @@ fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
     hidden.hidden = true;
     mark_minimized(&mut listed, &ready(vec![hidden, client(8, 20, 20)]));
     assert_eq!(listed[0].info.state.minimized, Some(false));
+}
+
+#[test]
+fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
+    let mut shadowed = client(7, 37, 64);
+    shadowed.shadow = (61, 55);
+    let mut listed = windows(("gtk", "4.14.5"));
+
+    place_windows(&mut listed, &ready(vec![shadowed]));
+
+    let bounds = listed[0].info.bounds.expect("a position");
+    assert_eq!((bounds.x, bounds.y), (98.0, 119.0));
 }

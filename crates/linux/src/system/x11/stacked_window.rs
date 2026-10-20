@@ -14,4 +14,5 @@ pub(crate) struct StackedWindow {
     pub(crate) kind: WindowKind,
     pub(crate) client: Extents,
     pub(crate) extents: FrameExtents,
+    pub(crate) shadow: (i32, i32),
 }

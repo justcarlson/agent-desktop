@@ -48,6 +48,7 @@ struct Atoms {
     name: Atom,
     utf8: Atom,
     frame_extents: Atom,
+    gtk_extents: Atom,
     state: Atom,
     hidden: Atom,
 }
@@ -72,6 +73,7 @@ fn atoms(connection: &RustConnection) -> Option<Atoms> {
         name: atom(connection, b"_NET_WM_NAME")?,
         utf8: atom(connection, b"UTF8_STRING")?,
         frame_extents: atom(connection, b"_NET_FRAME_EXTENTS")?,
+        gtk_extents: atom(connection, b"_GTK_FRAME_EXTENTS")?,
         state: atom(connection, b"_NET_WM_STATE")?,
         hidden: atom(connection, b"_NET_WM_STATE_HIDDEN")?,
     })
@@ -136,6 +138,14 @@ fn client(connection: &RustConnection, atoms: &Atoms, root: Window, window: Wind
         4,
     )
     .and_then(|reply| decode_frame_extents(reply.format, &reply.value));
+    let shadow = property(connection, window, atoms.gtk_extents, AtomEnum::CARDINAL, 4)
+        .and_then(|reply| decode_frame_extents(reply.format, &reply.value))
+        .map_or((0, 0), |extents| {
+            (
+                i32::try_from(extents.left).unwrap_or(0),
+                i32::try_from(extents.top).unwrap_or(0),
+            )
+        });
     let hidden = cardinals(property(
         connection,
         window,
@@ -157,6 +167,7 @@ fn client(connection: &RustConnection, atoms: &Atoms, root: Window, window: Wind
         extents,
         bounds: bounds(connection, root, window),
         hidden,
+        shadow,
     }
 }
 

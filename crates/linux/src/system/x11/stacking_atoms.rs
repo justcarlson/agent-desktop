@@ -35,6 +35,7 @@ pub(super) struct WindowAtoms {
     pub(super) desktop: Atom,
     pub(super) kind: Atom,
     pub(super) frame_extents: Atom,
+    pub(super) gtk_extents: Atom,
     pub(super) states: StateAtoms,
     pub(super) types: TypeAtoms,
 }
@@ -55,6 +56,12 @@ pub(super) fn names(connection: &RustConnection) -> Option<Names> {
         .collect::<Option<_>>()?;
     let frame_extents = connection
         .intern_atom(false, b"_NET_FRAME_EXTENTS")
+        .ok()?
+        .reply()
+        .ok()?
+        .atom;
+    let gtk_extents = connection
+        .intern_atom(false, b"_GTK_FRAME_EXTENTS")
         .ok()?
         .reply()
         .ok()?
@@ -91,6 +98,7 @@ pub(super) fn names(connection: &RustConnection) -> Option<Names> {
             desktop: *desktop,
             kind: *kind,
             frame_extents,
+            gtk_extents,
             states: StateAtoms {
                 hidden: *hidden,
                 above: *above,

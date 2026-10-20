@@ -11,8 +11,12 @@ pub(crate) fn frame_origin(frame: &FrameFacts, clients: &[X11Client]) -> Option<
     let ClientMatch::One(id) = match_client(frame, clients) else {
         return None;
     };
-    let bounds = clients.iter().find(|client| client.id == id)?.bounds?;
-    Some((bounds.x, bounds.y))
+    let client = clients.iter().find(|client| client.id == id)?;
+    let bounds = client.bounds?;
+    Some((
+        bounds.x.checked_add(client.shadow.0)?,
+        bounds.y.checked_add(client.shadow.1)?,
+    ))
 }
 
 fn at(origin: (i32, i32), size: Extents) -> Rect {

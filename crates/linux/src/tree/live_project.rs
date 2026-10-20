@@ -142,7 +142,12 @@ fn pointer_extents(read: &ObservedRead, placement: &Placement) -> Option<Extents
         return None;
     };
     let window: Extents = placement.node?;
-    let origin = placement.x11.map(|x11| x11.client_origin);
+    let origin = placement.x11.and_then(|x11| {
+        Some((
+            x11.client_origin.0.checked_add(x11.shadow.0)?,
+            x11.client_origin.1.checked_add(x11.shadow.1)?,
+        ))
+    });
     pointer_bounds(&placement.toolkit, *screen, window, origin)
 }
 

@@ -123,7 +123,12 @@ pub(crate) fn hit_test_via<W: HitWorld>(
     if own.flags.hidden || !own.flags.mapped {
         return Ok(HitTestResult::Unknown);
     }
-    let origin = (own.client.x, own.client.y);
+    let shadow = if reports_global_position(&facts.toolkit) {
+        (0, 0)
+    } else {
+        own.shadow
+    };
+    let origin = (own.client.x + shadow.0, own.client.y + shadow.1);
     let Some(calibrated) = calibrate(&facts.toolkit, facts.screen, facts.window, Some(origin))
     else {
         return Ok(HitTestResult::Unknown);

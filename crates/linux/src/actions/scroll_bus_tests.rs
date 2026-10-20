@@ -3,6 +3,7 @@ use crate::system::x11::X11Client;
 
 fn client(pid: u32, hidden: bool) -> X11Client {
     X11Client {
+        shadow: (0, 0),
         id: 1,
         pid: Some(pid),
         title: String::new(),

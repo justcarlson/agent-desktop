@@ -59,6 +59,7 @@ fn gtk4_facts() -> Facts {
 
 fn stacked(id: u32, client: Extents) -> StackedWindow {
     StackedWindow {
+        shadow: (0, 0),
         id,
         flags: WindowFlags {
             hidden: false,
@@ -390,11 +391,5 @@ fn a_spent_deadline_with_no_x11_answer_is_the_timeout_and_not_unknown() {
     assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
 }
 
-#[test]
-fn a_hidden_or_unmapped_window_is_unknown() {
-    let mut stacking = windowing((100, 137), vec![]);
-    stacking.snapshot.stack[0].flags.hidden = true;
-    let mut world = World::new(gtk3_facts(), Some(stacking));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
+#[path = "hit_test_shadow_tests.rs"]
+mod shadow;

@@ -233,6 +233,7 @@ fn bounds_of_another_toolkit_are_the_pointer_rule_over_the_placement_and_never_t
             version: Some("4.14.5".to_owned()),
         },
         x11: Some(crate::system::x11::window_x11_state::WindowX11State {
+            shadow: (0, 0),
             client_id: 7,
             hidden: false,
             client_origin: (302, 260),

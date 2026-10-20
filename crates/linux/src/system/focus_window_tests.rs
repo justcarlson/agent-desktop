@@ -51,6 +51,7 @@ fn facts() -> ProcessFacts {
 
 fn x11_client(id: u32, title: &str) -> X11Client {
     X11Client {
+        shadow: (0, 0),
         id,
         hidden: false,
         pid: Some(100),
@@ -115,6 +116,7 @@ impl FocusWorld for World {
         StackingRead::Ready(StackingSnapshot {
             current_desktop: Some(0),
             stack: vec![StackedWindow {
+                shadow: (0, 0),
                 id: client,
                 flags: self.flags,
                 desktop: DesktopPlacement::On(0),
