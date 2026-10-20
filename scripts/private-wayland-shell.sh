@@ -62,6 +62,72 @@ except GLib.Error:
 PY
 }
 
+start_portals() {
+  python3 - "$WAYLAND_DISPLAY" <<'PY'
+import os
+import subprocess
+import sys
+import time
+import gi
+from gi.repository import Gio, GLib
+
+sock = sys.argv[1]
+bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+
+def call(path, method, params=None):
+    return bus.call_sync("org.freedesktop.DBus", path, "org.freedesktop.DBus", method,
+                         params, None, Gio.DBusCallFlags.NONE, 3000, None)
+
+def owner_pid(name):
+    reply = call("/org/freedesktop/DBus", "GetConnectionUnixProcessID",
+                 GLib.Variant("(s)", (name,)))
+    return reply.unpack()[0]
+
+def name_owned(name):
+    reply = call("/org/freedesktop/DBus", "NameHasOwner", GLib.Variant("(s)", (name,)))
+    return reply.unpack()[0]
+
+def stop(name):
+    try:
+        pid = owner_pid(name)
+    except GLib.Error:
+        return
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        pass
+
+def wait_owned(name):
+    for _ in range(150):
+        if name_owned(name):
+            return True
+        time.sleep(0.2)
+    return False
+
+for name in ("org.freedesktop.portal.Desktop", "org.freedesktop.impl.portal.desktop.gnome"):
+    stop(name)
+time.sleep(1)
+activation = {"WAYLAND_DISPLAY": sock, "GDK_BACKEND": "wayland", "XDG_SESSION_TYPE": "wayland"}
+call("/org/freedesktop/DBus", "UpdateActivationEnvironment", GLib.Variant("(a{ss})", (activation,)))
+env = dict(os.environ, WAYLAND_DISPLAY=sock, GDK_BACKEND="wayland", XDG_SESSION_TYPE="wayland")
+subprocess.Popen(["/usr/libexec/xdg-desktop-portal-gnome"], env=env,
+                 stdin=subprocess.DEVNULL, start_new_session=True)
+if not wait_owned("org.freedesktop.impl.portal.desktop.gnome"):
+    sys.exit(1)
+subprocess.Popen(["/usr/libexec/xdg-desktop-portal", "-r"], env=env,
+                 stdin=subprocess.DEVNULL, start_new_session=True)
+if not wait_owned("org.freedesktop.portal.Desktop"):
+    sys.exit(1)
+time.sleep(2)
+reply = bus.call_sync("org.freedesktop.impl.portal.desktop.gnome",
+                      "/org/freedesktop/portal/desktop",
+                      "org.freedesktop.DBus.Introspectable", "Introspect",
+                      None, None, Gio.DBusCallFlags.NONE, 3000, None)
+text = reply.unpack()[0]
+sys.exit(0 if "org.freedesktop.impl.portal.Screenshot" in text else 1)
+PY
+}
+
 close_overview() {
   python3 - <<'PY'
 import sys, time
@@ -119,6 +185,7 @@ start_shell() {
 for _ in $(seq 1 "$attempts"); do
   if socket=$(start_shell) && healthy && close_overview; then
     export WAYLAND_DISPLAY=$socket
+    start_portals || { stop_shell; continue; }
     "$@"
     exit $?
   fi
