@@ -37,6 +37,11 @@ verdict=ok
 case "$sent" in *touch*) verdict=bad ;; esac
 check "a command without cargo is not delayed by a touch" "$verdict"
 
+sent=$(run cargo test -p agent-desktop-linux)
+verdict=ok
+case "$sent" in *CARGO_INCREMENTAL=0*) ;; *) verdict=bad ;; esac
+check "every remote command turns incremental builds off" "$verdict"
+
 refused() {
   : > "$log"
   if PATH="$stubs:$PATH" AGENT_DESKTOP_REMOTE_LOCK=0 bash "$here/remote-linux.sh" "$@" > /dev/null 2>&1; then

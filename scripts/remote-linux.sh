@@ -82,7 +82,7 @@ trap 'rm -f "$filter"' EXIT
 git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ 'function esc(s){gsub(/[][*?\\]/, "\\\\&", s); return s} {p=""; for(i=1;i<NF;i++){p=p $i "/"; if(!(p in d)){d[p]=1; print "+ /" esc(p)}} print "+ /" esc($0)} END{print "- *"}' > "$filter"
 rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
-  && export CARGO_TARGET_DIR=\$HOME/ad-target && . ./scripts/session-env.sh \
+  && export CARGO_TARGET_DIR=\$HOME/ad-target CARGO_INCREMENTAL=0 && . ./scripts/session-env.sh \
   && { $lock timeout -k 30 $TIMEOUT $wrap $cmd; rc=\$?; \
   ls \$XDG_RUNTIME_DIR/at-spi/bus* >/dev/null 2>&1 || echo 'remote-linux: WARNING the live session AT-SPI bus socket is missing' >&2; \
   exit \$rc; }"
