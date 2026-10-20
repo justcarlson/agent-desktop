@@ -43,7 +43,7 @@ fn expired(world: &impl World, request: &Request<'_>, progress: &Progress) -> Ad
 /// stopped process gets `SIGKILL` alone. `Ok` only once the process is
 /// observed gone, and a process that is gone or replaced by another is the
 /// benign outcome, never a signal to the stranger.
-pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<(), AdapterError> {
+pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<bool, AdapterError> {
     let mut progress = Progress {
         term_at: None,
         grace: Duration::ZERO,
@@ -54,7 +54,7 @@ pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<(), Ada
             .term_at
             .map(|at| world.elapsed().saturating_sub(at));
         match next(true, world.liveness(), since_term, progress.grace) {
-            Step::Done => return Ok(()),
+            Step::Done => return Ok(progress.sent_anything()),
             Step::Term | Step::Kill if world.remaining().is_zero() && !progress.sent_anything() => {
                 return Err(expired(world, request, &progress));
             }
@@ -63,11 +63,11 @@ pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<(), Ada
                     progress.term_at = Some(world.elapsed());
                     progress.grace = grace_within(world.remaining());
                 }
-                Sent::AlreadyGone | Sent::Replaced => return Ok(()),
+                Sent::AlreadyGone | Sent::Replaced => return Ok(progress.sent_anything()),
             },
             Step::Kill if !progress.killed => match deliver(world, Signal::Kill, &progress)? {
                 Sent::Delivered => progress.killed = true,
-                Sent::AlreadyGone | Sent::Replaced => return Ok(()),
+                Sent::AlreadyGone | Sent::Replaced => return Ok(progress.sent_anything()),
             },
             Step::Kill | Step::Wait => {}
             Step::Request | Step::Unresponsive => {

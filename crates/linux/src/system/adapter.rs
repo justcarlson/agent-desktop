@@ -5,8 +5,8 @@ use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
     KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, OperationReport,
-    OperationTarget, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
-    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline,
+    SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -14,7 +14,6 @@ use crate::notifications;
 use crate::system::{
     action_clock, close, interaction_lease, key_dispatch, launch, menu_surface, menu_wait,
     permissions, process_state, protected, session, shell, signal_capture, window_op,
-    window_report,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -85,13 +84,7 @@ impl SystemOps for LinuxAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let target = OperationTarget::for_window(win)?;
-        window_op::window_op(self.bus(), win, op.clone(), lease)?;
-        Ok(OperationReport::window_operation(
-            target,
-            &op,
-            window_report::window_readback(&op),
-        ))
+        window_op::window_op(self.bus(), win, op, lease)
     }
 
     fn press_key_for_app(

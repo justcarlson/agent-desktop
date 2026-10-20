@@ -54,7 +54,7 @@ pub(super) struct Fake {
     pub(super) state_after_toplevels: Option<Liveness>,
     pub(super) exits_on_term: bool,
     pub(super) exits_on_kill: bool,
-    pub(super) signal_outcome: RefCell<Option<Result<Sent, AdapterError>>>,
+    pub(super) signal_outcomes: RefCell<Vec<Result<Sent, AdapterError>>>,
     pub(super) expire_after_closes: Option<usize>,
     pub(super) log: RefCell<Vec<String>>,
     pub(super) wayland: bool,
@@ -77,7 +77,7 @@ impl Fake {
             state_after_toplevels: None,
             exits_on_term: false,
             exits_on_kill: false,
-            signal_outcome: RefCell::new(None),
+            signal_outcomes: RefCell::new(Vec::new()),
             expire_after_closes: None,
             log: RefCell::new(Vec::new()),
             wayland: false,
@@ -174,7 +174,8 @@ impl World for Fake {
             Signal::Term => "term",
             Signal::Kill => "kill",
         });
-        if let Some(outcome) = self.signal_outcome.borrow_mut().take() {
+        if !self.signal_outcomes.borrow().is_empty() {
+            let outcome = self.signal_outcomes.borrow_mut().remove(0);
             return outcome;
         }
         let exits = match signal {

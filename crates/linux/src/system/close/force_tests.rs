@@ -22,7 +22,7 @@ fn request() -> Request<'static> {
 fn a_live_process_that_exits_on_term_gets_no_kill() {
     let mut world = Fake::new(Liveness::Alive);
     world.exits_on_term = true;
-    close(&world, &request()).expect("closes");
+    assert!(close(&world, &request()).expect("closes"));
     assert_eq!(world.count("term"), 1);
     assert_eq!(world.count("kill"), 0);
 }
@@ -69,8 +69,8 @@ fn kill_is_sent_once_while_the_process_takes_time_to_leave() {
 fn a_replaced_or_vanished_process_is_a_benign_ok() {
     for outcome in [Sent::Replaced, Sent::AlreadyGone] {
         let world = Fake::new(Liveness::Alive);
-        *world.signal_outcome.borrow_mut() = Some(Ok(outcome));
-        close(&world, &request()).expect("benign");
+        world.signal_outcomes.borrow_mut().push(Ok(outcome));
+        assert!(!close(&world, &request()).expect("benign"));
         assert_eq!(world.count("kill"), 0);
     }
 }
@@ -80,7 +80,7 @@ fn a_refused_signal_is_the_error_and_not_delivered_when_nothing_was_sent() {
     let world = Fake::new(Liveness::Alive);
     let refused = AdapterError::new(ErrorCode::ActionFailed, "refused")
         .with_disposition(DeliverySemantics::not_delivered());
-    *world.signal_outcome.borrow_mut() = Some(Err(refused));
+    world.signal_outcomes.borrow_mut().push(Err(refused));
     let error = close(&world, &request()).expect_err("refused");
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());

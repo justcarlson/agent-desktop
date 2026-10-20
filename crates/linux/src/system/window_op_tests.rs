@@ -252,6 +252,11 @@ fn a_clamped_resize_is_unverified_with_requested_observed_and_display_bounds() {
     assert_eq!(details["observed"]["height"], 797);
     assert_eq!(details["display_bounds"][0]["width"], 1280.0);
     assert_eq!(details["display_bounds"][0]["height"], 800.0);
+    assert_eq!(details["target"]["id"], window().id);
+    assert_eq!(details["target"]["process"]["instance"], INSTANCE);
+    assert_eq!(details["steps"][0]["label"], "window_resize");
+    assert_eq!(details["steps"][0]["outcome"], "succeeded");
+    assert_eq!(details["steps"][0]["verified"], false);
 }
 
 #[test]

@@ -201,7 +201,7 @@ fn frame_extents(xid: &str) -> String {
 
 fn apply(window: &WindowInfo, op: WindowOp) -> Result<(), AdapterError> {
     let lease = acquire(deadline(10_000)).expect("a lease");
-    window_op(&SharedBus::default(), window, op, &lease)
+    window_op(&SharedBus::default(), window, op, &lease).map(|_| ())
 }
 
 fn near(left: i32, right: i32) -> bool {

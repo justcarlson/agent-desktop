@@ -3,8 +3,9 @@ use agent_desktop_core::{WindowOp, WindowReadback};
 use super::window_op_verdict::POSITION_TOLERANCE;
 
 /// What a successful window operation read back before it answered. A
-/// restore is left unverified because it may have nothing to change and then
-/// reads no state.
+/// restore is left unverified because its branches can lift a minimized
+/// window, clear maximization, return a saved place, or change nothing; no
+/// single readback scope describes every successful restore.
 pub(super) fn window_readback(op: &WindowOp) -> Option<WindowReadback> {
     match op {
         WindowOp::Resize { .. } => Some(WindowReadback::geometry(
@@ -40,7 +41,7 @@ mod tests {
     }
 
     #[test]
-    fn a_restore_stays_unverified_because_it_may_read_no_state() {
+    fn a_restore_stays_unverified_without_a_uniform_readback_scope() {
         assert_eq!(
             report(&WindowOp::Restore).disposition(),
             DeliverySemantics::delivered_unverified()

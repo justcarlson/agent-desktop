@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DeliverySemantics, ErrorCode, InteractionLease, Rect, WindowInfo,
-    WindowOp,
+    AdapterError, Deadline, DeliverySemantics, ErrorCode, InteractionLease, OperationReport,
+    OperationTarget, Rect, WindowInfo, WindowOp,
 };
 
 use self::hold::{give_back_place, hold_place, is_resize, remember_place};
@@ -320,7 +320,7 @@ fn write_and_hold(
     held
 }
 
-fn run(
+fn dispatch(
     world: &impl OpWorld,
     win: &WindowInfo,
     op: &WindowOp,
@@ -345,12 +345,28 @@ fn run(
     done.map_err(|error| to_visible(error, shadow))
 }
 
+fn run(
+    world: &impl OpWorld,
+    win: &WindowInfo,
+    op: &WindowOp,
+    deadline: Deadline,
+) -> Result<OperationReport, AdapterError> {
+    let dispatched = dispatch(world, win, op, deadline);
+    OperationReport::from_window_dispatch(
+        win,
+        op,
+        super::window_report::window_readback(op),
+        dispatched,
+    )
+}
+
 pub(crate) fn window_op(
     bus: &SharedBus,
     win: &WindowInfo,
     op: WindowOp,
     lease: &InteractionLease,
-) -> Result<(), AdapterError> {
+) -> Result<OperationReport, AdapterError> {
+    OperationTarget::for_window(win)?;
     let deadline = lease.deadline();
     let frame = FrameWorld::new(bus, win, deadline)
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;

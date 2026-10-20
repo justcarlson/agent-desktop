@@ -1,11 +1,8 @@
 use std::time::Instant;
 
-use agent_desktop_core::{
-    AdapterError, AppInfo, InteractionLease, OperationReport, OperationTarget,
-};
+use agent_desktop_core::{AdapterError, AppInfo, InteractionLease, OperationReport};
 
 use super::SharedBus;
-use super::liveness::{Liveness, liveness};
 use super::process_facts::Lookup;
 use world::{Live, World};
 
@@ -47,7 +44,8 @@ fn refuse_if_protected(world: &impl World, request: &Request<'_>) -> Result<(), 
 /// listed name and on what `/proc` says the process is, then the token
 /// requirement, then the process itself. A process that is gone, or that a
 /// changed token shows is not the listed one, is `Ok` and untouched.
-fn run(world: &impl World, request: &Request<'_>) -> Result<(), AdapterError> {
+/// The result is true only if a close request or signal was delivered.
+fn run(world: &impl World, request: &Request<'_>) -> Result<bool, AdapterError> {
     refuse_if_protected(world, request)?;
     if request.instance.is_none() {
         return Err(refusal::missing_token(request));
@@ -59,6 +57,20 @@ fn run(world: &impl World, request: &Request<'_>) -> Result<(), AdapterError> {
     }
 }
 
+fn run_report(
+    world: &impl World,
+    app: &AppInfo,
+    force: bool,
+) -> Result<OperationReport, AdapterError> {
+    let request = Request {
+        name: &app.name,
+        pid: app.pid.get(),
+        instance: app.process_instance.as_deref(),
+        force,
+    };
+    OperationReport::from_close_dispatch(app, run(world, &request))
+}
+
 pub(crate) fn close_app(
     _bus: &SharedBus,
     app: &AppInfo,
@@ -66,26 +78,13 @@ pub(crate) fn close_app(
     lease: &InteractionLease,
 ) -> Result<OperationReport, AdapterError> {
     let pid = app.pid.get();
-    let request = Request {
-        name: &app.name,
-        pid,
-        instance: app.process_instance.as_deref(),
-        force,
-    };
     let live = Live {
         pid,
-        instance: request.instance.unwrap_or_default(),
+        instance: app.process_instance.as_deref().unwrap_or_default(),
         deadline: lease.deadline(),
         started: Instant::now(),
     };
-    let was_gone = liveness(pid, live.instance) == Liveness::Gone;
-    run(&live, &request)?;
-    let target = OperationTarget::for_app(app)?;
-    Ok(if was_gone {
-        OperationReport::app_already_gone(target)
-    } else {
-        OperationReport::app_exited(target)
-    })
+    run_report(&live, app, force)
 }
 
 #[cfg(test)]
