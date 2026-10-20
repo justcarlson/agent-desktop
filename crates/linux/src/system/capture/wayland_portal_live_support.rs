@@ -173,27 +173,47 @@ pub(super) fn bounded_keys() -> Option<Keys> {
     receiver.recv_timeout(SEAT_WAIT).ok()?.ok()
 }
 
+pub(super) struct Endpoint {
+    pub(super) destination: &'static str,
+    pub(super) path: &'static str,
+    pub(super) interface: &'static str,
+}
+
+pub(super) const BUS_DAEMON: Endpoint = Endpoint {
+    destination: "org.freedesktop.DBus",
+    path: "/org/freedesktop/DBus",
+    interface: "org.freedesktop.DBus",
+};
+
+pub(super) const PERMISSION_STORE: Endpoint = Endpoint {
+    destination: "org.freedesktop.impl.portal.PermissionStore",
+    path: "/org/freedesktop/impl/portal/PermissionStore",
+    interface: "org.freedesktop.impl.portal.PermissionStore",
+};
+
 pub(super) fn bus_call<B: zbus::export::serde::Serialize + zbus::zvariant::DynamicType>(
     connection: &Connection,
+    endpoint: &Endpoint,
     member: &str,
     body: &B,
-    destination: &str,
-    path: &str,
-    interface: &str,
 ) -> Option<zbus::Message> {
     connection
-        .call_method(Some(destination), path, Some(interface), member, body)
+        .call_method(
+            Some(endpoint.destination),
+            endpoint.path,
+            Some(endpoint.interface),
+            member,
+            body,
+        )
         .ok()
 }
 
 pub(super) fn owner_pid(connection: &Connection, name: &str) -> Option<u32> {
     bus_call(
         connection,
+        &BUS_DAEMON,
         "GetConnectionUnixProcessID",
         &(name,),
-        "org.freedesktop.DBus",
-        "/org/freedesktop/DBus",
-        "org.freedesktop.DBus",
     )?
     .body()
     .deserialize::<u32>()
@@ -201,16 +221,9 @@ pub(super) fn owner_pid(connection: &Connection, name: &str) -> Option<u32> {
 }
 
 pub(super) fn owned(connection: &Connection, name: &str) -> bool {
-    bus_call(
-        connection,
-        "NameHasOwner",
-        &(name,),
-        "org.freedesktop.DBus",
-        "/org/freedesktop/DBus",
-        "org.freedesktop.DBus",
-    )
-    .and_then(|reply| reply.body().deserialize::<bool>().ok())
-    .unwrap_or(false)
+    bus_call(connection, &BUS_DAEMON, "NameHasOwner", &(name,))
+        .and_then(|reply| reply.body().deserialize::<bool>().ok())
+        .unwrap_or(false)
 }
 
 pub(super) fn wait_owned(connection: &Connection, name: &str) -> bool {
@@ -241,11 +254,9 @@ pub(super) fn start_portal(socket: &str) -> Option<(Group, Group)> {
         HashMap::from([("WAYLAND_DISPLAY", socket), ("GDK_BACKEND", "wayland")]);
     bus_call(
         &connection,
+        &BUS_DAEMON,
         "UpdateActivationEnvironment",
         &(activation,),
-        "org.freedesktop.DBus",
-        "/org/freedesktop/DBus",
-        "org.freedesktop.DBus",
     )?;
     let env = [
         ("WAYLAND_DISPLAY", socket),
@@ -281,11 +292,9 @@ pub(super) fn forget_screenshot_permission() {
     if let Ok(connection) = Connection::session() {
         let _ = bus_call(
             &connection,
+            &PERMISSION_STORE,
             "Delete",
             &("screenshot", "screenshot"),
-            "org.freedesktop.impl.portal.PermissionStore",
-            "/org/freedesktop/impl/portal/PermissionStore",
-            "org.freedesktop.impl.portal.PermissionStore",
         );
     }
 }
@@ -337,9 +346,7 @@ pub(super) fn stored_screenshot_grants() -> String {
     let Ok(connection) = Connection::session() else {
         return "no bus".into();
     };
-    let store = "org.freedesktop.impl.portal.PermissionStore";
-    let path = "/org/freedesktop/impl/portal/PermissionStore";
-    let listed = bus_call(&connection, "List", &("screenshot",), store, path, store)
+    let listed = bus_call(&connection, &PERMISSION_STORE, "List", &("screenshot",))
         .and_then(|reply| reply.body().deserialize::<Vec<String>>().ok());
     let Some(ids) = listed else {
         return "no table".into();
@@ -348,11 +355,9 @@ pub(super) fn stored_screenshot_grants() -> String {
     for id in ids {
         let looked = bus_call(
             &connection,
+            &PERMISSION_STORE,
             "Lookup",
             &("screenshot", id.as_str()),
-            store,
-            path,
-            store,
         )
         .and_then(|reply| {
             reply

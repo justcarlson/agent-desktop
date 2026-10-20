@@ -6,12 +6,13 @@ use zbus::blocking::Connection;
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::wayland_portal::capture_wayland;
-use super::wayland_portal_live_support::{World, bus_call};
+use super::wayland_portal_live_support::{Endpoint, PERMISSION_STORE, World, bus_call};
 
-const CONFIG: &str = "org.gnome.Mutter.DisplayConfig";
-const CONFIG_PATH: &str = "/org/gnome/Mutter/DisplayConfig";
-const STORE: &str = "org.freedesktop.impl.portal.PermissionStore";
-const STORE_PATH: &str = "/org/freedesktop/impl/portal/PermissionStore";
+const DISPLAY_CONFIG: Endpoint = Endpoint {
+    destination: "org.gnome.Mutter.DisplayConfig",
+    path: "/org/gnome/Mutter/DisplayConfig",
+    interface: "org.gnome.Mutter.DisplayConfig",
+};
 const TEMPORARY: u32 = 1;
 
 type Properties = HashMap<String, OwnedValue>;
@@ -30,28 +31,19 @@ pub(super) fn allow_screenshots() {
     let connection = Connection::session().expect("the session bus");
     bus_call(
         &connection,
+        &PERMISSION_STORE,
         "SetPermission",
         &("screenshot", true, "screenshot", "", vec!["yes"]),
-        STORE,
-        STORE_PATH,
-        STORE,
     )
     .expect("the permission is stored");
 }
 
 fn state(connection: &Connection) -> State {
-    bus_call(
-        connection,
-        "GetCurrentState",
-        &(),
-        CONFIG,
-        CONFIG_PATH,
-        CONFIG,
-    )
-    .expect("the monitor state")
-    .body()
-    .deserialize::<State>()
-    .expect("a state")
+    bus_call(connection, &DISPLAY_CONFIG, "GetCurrentState", &())
+        .expect("the monitor state")
+        .body()
+        .deserialize::<State>()
+        .expect("a state")
 }
 
 /// Sets the scale of the first monitor with `ApplyMonitorsConfig` and lays
@@ -106,6 +98,7 @@ pub(super) fn set_first_scale(scale: f64) -> Result<(), String> {
     }
     bus_call(
         &connection,
+        &DISPLAY_CONFIG,
         "ApplyMonitorsConfig",
         &(
             current.0,
@@ -113,9 +106,6 @@ pub(super) fn set_first_scale(scale: f64) -> Result<(), String> {
             placed,
             HashMap::<String, Value<'static>>::new(),
         ),
-        CONFIG,
-        CONFIG_PATH,
-        CONFIG,
     )
     .map(|_| ())
     .ok_or_else(|| "the shell refused the configuration".to_owned())
