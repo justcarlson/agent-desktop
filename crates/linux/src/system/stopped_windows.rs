@@ -21,7 +21,7 @@ pub(crate) fn of_stopped_apps(
     state: &X11State,
     known_id: impl Fn(u32, &str) -> Option<String>,
 ) -> Vec<ListedWindow> {
-    let X11State::Ready { clients, .. } = state else {
+    let X11State::Ready { clients, active } = state else {
         return Vec::new();
     };
     let mut seen = HashSet::new();
@@ -57,7 +57,7 @@ pub(crate) fn of_stopped_apps(
                         visible: Some(!client.hidden),
                     },
                 },
-                active: false,
+                active: *active == Some(client.id),
                 modal: false,
                 dialog: false,
                 frame: FrameFacts {

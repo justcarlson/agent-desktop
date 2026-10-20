@@ -53,6 +53,21 @@ fn registry(apps: Vec<RegistryApp>) -> Registry {
 }
 
 #[test]
+fn the_stopped_window_the_display_server_names_active_stays_a_focus_claim() {
+    let registry = registry(vec![app(7, false), app(8, false)]);
+    let state = X11State::Ready {
+        active: Some(0x40_0003),
+        clients: vec![client(0x40_0003, 7, false), client(0x40_0009, 8, false)],
+    };
+    let windows = of_stopped_apps(&registry, |_| true, |_, _| true, &state, |_, _| None);
+    let active: Vec<(u32, bool)> = windows
+        .iter()
+        .map(|window| (window.info.pid.get(), window.active))
+        .collect();
+    assert_eq!(active, [(7, true), (8, false)]);
+}
+
+#[test]
 fn a_stopped_apps_clients_are_listed_as_not_accessible_with_decodable_distinct_ids() {
     let registry = registry(vec![app(7, false)]);
     let state = ready(vec![
