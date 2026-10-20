@@ -879,23 +879,3 @@ jobs:
           scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-ffi
           --features stub-adapter --test c_abi_passthrough
 
-  sandbox-closure:
-    name: Sandbox closure (3.14 stack only)
-    if: startsWith(github.head_ref || github.ref_name, 'feat/linux-3.14')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install the desktop and sandbox tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb dbus-x11 at-spi2-core flatpak gsettings-desktop-schemas
-      - run: cargo build --release -p agent-desktop
-      - name: Install a snap Firefox
-        run: sudo snap install firefox
-      - name: Measure the snap and Flatpak legs
-        run: >-
-          xvfb-run -a dbus-run-session --
-          scripts/sandbox-closure.sh "$PWD/target/release/agent-desktop"
