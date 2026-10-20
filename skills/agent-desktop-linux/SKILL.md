@@ -43,7 +43,7 @@ tool for observation or semantic actions.
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed: `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Works for X11 and Xwayland windows; a Wayland-native window is refused with cause `wayland_session`. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | Works |
-| Capture | `screenshot` | X11: window, screen or whole screen with no permission. Wayland: whole desktop only, after a consent dialog. See `references/capture-and-clipboard.md` |
+| Capture | `screenshot` | X11: a window, with no permission, on any window manager; a screen or whole-screen grab only on a non-compositing one. Wayland: whole desktop only, after a consent dialog. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`, `--notification` |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME shell only; `list-notifications` works headless, mutations are headed |

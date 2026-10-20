@@ -13,23 +13,27 @@ agent-desktop screenshot --screen 0 /tmp/screen0.png
 agent-desktop screenshot /tmp/everything.png
 ```
 
-- No permission and no prompt. A window is read from its own drawable, so a window
-  that another window covers, or that is minimized, is still captured.
-- Targets are a window (`--app`, `--window-id`), a display by index from
-  `list-displays` (`--screen`), or the whole screen with no selector. With no
-  output path the image comes back as base64 in `data`.
-- Under a compositing session such as GNOME on X11, a root-window grab does not
-  show mapped windows. The CLI never returns it as the screen: a whole-screen
-  grab on a compositing session answers `PLATFORM_NOT_SUPPORTED` with reason
-  `compositing`. Capture a window or a display instead.
-- On a non-compositing window manager (openbox), a root grab is exact. A covered
-  window is read through a Composite redirect, and the image is returned only when
-  the repaint proves the whole target is covered or the pixmap differs from the
-  screen in every pixel of its content area. When the paint cannot be proven the
-  call answers `TIMEOUT` and never an image that might be blank. Bring the window
-  forward with `--headed focus-window` and capture again.
+- No permission and no prompt. Targets are a window (`--app`, `--window-id`), a
+  display by index from `list-displays` (`--screen`), or the whole screen with no
+  selector. With no output path the image comes back as base64 in `data`.
+- A window is read from its own drawable. Under a compositing window manager
+  (mutter) a covered window and a minimized window are both captured; each
+  measured 360x504 with a 900x700 editor over the calculator.
+- Under a non-compositing window manager (openbox) that read is not possible. A
+  covered window answers `ACTION_FAILED` with `details.reason: "covered"` and the
+  suggestion to raise it with `--headed focus-window`; the same capture after the
+  focus returns the window. A minimized window answers `INVALID_ARGS`, "The window
+  is not viewable and the window manager does not composite, so it has no pixels
+  to capture", with the suggestion to `restore` it. Both are `not_delivered` and
+  `retry: safe`.
+- A whole-screen or `--screen` grab on a non-compositing manager is exact
+  (1280x800 on the measured display). Under a compositor such as GNOME on X11 the
+  root window holds only the manager's own stage, so both forms answer
+  `PLATFORM_NOT_SUPPORTED` with `details.reason: "compositing"` and the
+  suggestion to capture one window with `--window-id`.
 - The area no X window owns (wallpaper, shell chrome) cannot be read under a
   compositor. Do not expect a screenshot to show it.
+- `screenshot` has no timeout flag.
 
 ## `screenshot` on Wayland
 
@@ -42,19 +46,19 @@ agent-desktop screenshot /tmp/desktop.png
 
 - **The first call shows a consent dialog** ("Allow Applications to Take
   Screenshots?", Deny focused) that is not on the accessibility bus. A person
-  must answer it. The CLI waits up to the command's deadline.
+  must answer it. `screenshot` has no timeout flag: the CLI waits for the portal's
+  answer, bounded by the longer of the command's own budget and 30 s.
 - **Allow** returns the whole desktop as one PNG. **Deny**, or a dismissed dialog,
   gives `PERM_DENIED`.
-- **Nobody answers**: `TIMEOUT` whose suggestion names the dialog. The dialog
-  stays open until a person dismisses it, and while it is open the next call
-  answers `PERM_DENIED` at once. Do not retry in a loop: ask the user to answer
-  the dialog.
+- **Nobody answers**: the portal stops waiting after about 25 s (measured 25.0 s
+  twice) and the call answers `TIMEOUT` whose suggestion names the dialog. The
+  dialog stays open, and a later call answers `PERM_DENIED` without a dialog; the
+  call made right after the timeout can spend about 16 s while the portal refuses
+  a second dialog. Do not retry in a loop: ask the user to answer the dialog.
 - The desktop remembers the answer per user for the host process. After an Allow,
   later calls return in about 50 ms with no dialog. After a Deny, every later call
-  is `PERM_DENIED` at once until the user resets it in the desktop's privacy
+  is `PERM_DENIED` until the user resets it in the desktop's privacy
   settings.
-- A request can take about 20 s on a headless shell that has been idle for a few
-  seconds, whatever the grant. Use a long `--timeout-ms` for the first call.
 - `--screen N` and a display target crop the whole-desktop image to that monitor.
   When the image does not confirm the monitor layout the call answers
   `PLATFORM_NOT_SUPPORTED` with reason `display_mapping`.
