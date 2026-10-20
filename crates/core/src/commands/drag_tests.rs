@@ -92,7 +92,7 @@ impl InputOps for DragCaptureAdapter {
         &self,
         params: DragParams,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         self.presented_before_drag.store(
             self.presented.lock().unwrap().len() as u32,
             Ordering::SeqCst,
@@ -102,7 +102,7 @@ impl InputOps for DragCaptureAdapter {
             return Err(AdapterError::internal("drag completion was uncertain")
                 .with_disposition(disposition));
         }
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -160,7 +160,8 @@ fn drop_delay_is_threaded_into_drag_params_and_response() {
     )
     .unwrap();
 
-    assert_eq!(value["dragged"], true);
+    assert_eq!(value["disposition"]["delivery"], "delivered_unverified");
+    assert!(value.get("dragged").is_none());
     assert_eq!(value["drop_delay_ms"], 750);
     let captured = adapter.captured.lock().unwrap().clone().unwrap();
     assert_eq!(captured.drop_delay_ms, Some(750));

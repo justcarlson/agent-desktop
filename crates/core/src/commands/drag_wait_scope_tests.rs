@@ -125,9 +125,13 @@ impl ObservationOps for CrossAppWaitAdapter {
 impl ActionOps for CrossAppWaitAdapter {}
 
 impl InputOps for CrossAppWaitAdapter {
-    fn drag(&self, params: DragParams, _lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn drag(
+        &self,
+        params: DragParams,
+        _lease: &InteractionLease,
+    ) -> Result<crate::OperationReport, AdapterError> {
         *self.captured.lock().unwrap() = Some(params);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -191,7 +195,11 @@ fn drag_wait_defaults_to_destination_window_and_finds_confirmation() {
     .expect("destination carries the confirmation; default scope must poll it");
 
     assert_eq!(value["matched_selector"], ":dropped");
-    assert_eq!(value["after_action"]["dragged"], json!(true));
+    assert_eq!(
+        value["after_action"]["disposition"]["delivery"],
+        "delivered_unverified"
+    );
+    assert!(value["after_action"].get("dragged").is_none());
     let observed = adapter.observed.lock().unwrap();
     assert!(
         observed.iter().any(|id| id == "w-2"),
@@ -225,7 +233,11 @@ fn drag_wait_scoped_to_source_window_misses_destination_confirmation() {
         other => panic!("expected adapter TIMEOUT, got {other:?}"),
     };
     assert_eq!(details["kind"], json!("wait_timeout"));
-    assert_eq!(details["after_action"]["dragged"], json!(true));
+    assert_eq!(
+        details["after_action"]["disposition"]["delivery"],
+        "delivered_unverified"
+    );
+    assert!(details["after_action"].get("dragged").is_none());
     let observed = adapter.observed.lock().unwrap();
     assert!(
         observed.iter().all(|id| id == "w-1"),
@@ -281,7 +293,11 @@ fn drag_wait_same_window_drag_polls_the_shared_window_and_matches() {
     .expect("the shared window carries the confirmation");
 
     assert_eq!(value["matched_selector"], ":dropped");
-    assert_eq!(value["after_action"]["dragged"], json!(true));
+    assert_eq!(
+        value["after_action"]["disposition"]["delivery"],
+        "delivered_unverified"
+    );
+    assert!(value["after_action"].get("dragged").is_none());
     let observed = adapter.observed.lock().unwrap();
     assert!(
         observed.iter().any(|id| id == "w-2") && !observed.iter().any(|id| id == "w-1"),

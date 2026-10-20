@@ -1,7 +1,10 @@
 use crate::{
     AppError, Modifier, MouseButton, MouseEvent, MouseEventKind, Point,
     adapter::PlatformAdapter,
-    commands::point_resolve::{require_cursor_policy, require_pointer_capability},
+    commands::{
+        operation_response::operation_response,
+        point_resolve::{require_cursor_policy, require_pointer_capability},
+    },
     context::CommandContext,
 };
 use serde_json::{Value, json};
@@ -40,8 +43,10 @@ pub fn execute(
         true,
         &lease,
     );
-    result?;
-    Ok(json!({ "clicked": true, "x": args.x, "y": args.y, "count": args.count }))
+    operation_response(
+        &result?,
+        json!({ "x": args.x, "y": args.y, "count": args.count }),
+    )
 }
 
 #[cfg(test)]

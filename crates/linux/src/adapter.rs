@@ -2,8 +2,8 @@ use agent_desktop_core::{
     AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
     ClipboardContent, ClipboardFormat, Deadline, DragParams, ElementState, HitTestResult, InputOps,
     InteractionLease, KeyCombo, LiveElement, MouseEvent, NativeHandle, ObservationOps,
-    ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity, Rect, RefEntry,
-    SnapshotSurface, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
+    ObservationRequest, ObservationRoot, ObservedTree, OperationReport, Point, ProcessIdentity,
+    Rect, RefEntry, SnapshotSurface, SurfaceInfo, TreeOptions, WindowFilter, WindowInfo,
 };
 
 use crate::system::SharedBus;
@@ -265,11 +265,19 @@ impl InputOps for LinuxAdapter {
         )
     }
 
-    fn mouse_event(&self, event: MouseEvent, lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn mouse_event(
+        &self,
+        event: MouseEvent,
+        lease: &InteractionLease,
+    ) -> Result<OperationReport, AdapterError> {
         crate::input::deliver::mouse_event(&event, lease.deadline())
     }
 
-    fn drag(&self, params: DragParams, lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn drag(
+        &self,
+        params: DragParams,
+        lease: &InteractionLease,
+    ) -> Result<OperationReport, AdapterError> {
         crate::input::deliver::drag(&params, lease.deadline())
     }
 

@@ -5,6 +5,9 @@ use std::time::Duration;
 
 use super::app_ops::is_protected_process;
 #[cfg(target_os = "windows")]
+use super::close_dispatch::CloseDispatch;
+use super::close_outcome::CloseOutcome;
+#[cfg(target_os = "windows")]
 use super::hresult::{adapter_error_from_win32, win32_last_error};
 use super::permissions::ensure_budget;
 use super::process_identity;
@@ -15,7 +18,7 @@ pub(crate) fn close_app_impl(
     app: &AppInfo,
     force: bool,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     ensure_not_protected(&app.name)?;
     if let Some(bundle_id) = &app.bundle_id {
         ensure_not_protected(bundle_id)?;
@@ -35,17 +38,21 @@ fn close_verified(
     instance: &str,
     force: bool,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     ensure_budget(deadline).map_err(before_termination)?;
     if process_observed_gone(app.pid, instance).map_err(before_termination)? {
-        return Ok(());
+        return Ok(CloseOutcome::AlreadyGone);
     }
-    if force {
-        force_terminate(app.pid, instance, deadline)?;
+    let dispatch = if force {
+        force_terminate(app.pid, instance, deadline)?
     } else {
-        graceful_close(app.pid, instance, deadline)?;
+        graceful_close(app.pid, instance, deadline)?
+    };
+    if dispatch == CloseDispatch::AlreadyGone {
+        return Ok(CloseOutcome::AlreadyGone);
     }
-    wait_for_exit(&app.name, app.pid, instance, force, deadline)
+    wait_for_exit(&app.name, app.pid, instance, force, deadline)?;
+    Ok(CloseOutcome::Exited)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -54,7 +61,7 @@ fn close_verified(
     _instance: &str,
     _force: bool,
     _deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     Err(AdapterError::not_supported("close_app"))
 }
 
@@ -72,7 +79,11 @@ fn ensure_not_protected(id: &str) -> Result<(), AdapterError> {
 }
 
 #[cfg(target_os = "windows")]
-fn graceful_close(pid: ProcessId, instance: &str, deadline: Deadline) -> Result<(), AdapterError> {
+fn graceful_close(
+    pid: ProcessId,
+    instance: &str,
+    deadline: Deadline,
+) -> Result<CloseDispatch, AdapterError> {
     ensure_budget(deadline).map_err(before_termination)?;
     let windows = top_level_windows_for_pid(pid).map_err(before_termination)?;
     if windows.is_empty() {
@@ -82,7 +93,7 @@ fn graceful_close(pid: ProcessId, instance: &str, deadline: Deadline) -> Result<
         post_wm_close_if_still_owned(hwnd, pid, instance)
     })?;
     if delivered {
-        Ok(())
+        Ok(CloseDispatch::Sent)
     } else {
         windowless_graceful_fallback(pid, instance, deadline)
     }
@@ -153,10 +164,10 @@ fn windowless_graceful_fallback(
     pid: ProcessId,
     instance: &str,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseDispatch, AdapterError> {
     ensure_budget(deadline).map_err(before_termination)?;
     if process_observed_gone(pid, instance).map_err(before_termination)? {
-        return Ok(());
+        return Ok(CloseDispatch::AlreadyGone);
     }
     Err(AdapterError::new(
         ErrorCode::ActionFailed,
@@ -170,7 +181,11 @@ fn windowless_graceful_fallback(
 }
 
 #[cfg(target_os = "windows")]
-fn force_terminate(pid: ProcessId, instance: &str, deadline: Deadline) -> Result<(), AdapterError> {
+fn force_terminate(
+    pid: ProcessId,
+    instance: &str,
+    deadline: Deadline,
+) -> Result<CloseDispatch, AdapterError> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{
         OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
@@ -179,13 +194,13 @@ fn force_terminate(pid: ProcessId, instance: &str, deadline: Deadline) -> Result
 
     ensure_budget(deadline).map_err(before_termination)?;
     if process_observed_gone(pid, instance).map_err(before_termination)? {
-        return Ok(());
+        return Ok(CloseDispatch::AlreadyGone);
     }
     let access = PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE;
     let handle = unsafe { OpenProcess(access, 0, u32::from(pid)) };
     if handle.is_null() {
         if process_observed_gone(pid, instance).map_err(before_termination)? {
-            return Ok(());
+            return Ok(CloseDispatch::AlreadyGone);
         }
         return Err(before_termination(win32_last_error(
             "OpenProcess failed before TerminateProcess",
@@ -197,7 +212,7 @@ fn force_terminate(pid: ProcessId, instance: &str, deadline: Deadline) -> Result
     })?;
     if !token_matches {
         unsafe { CloseHandle(handle) };
-        return Ok(());
+        return Ok(CloseDispatch::AlreadyGone);
     }
     let ok = unsafe { TerminateProcess(handle, 1) };
     let error = if ok == 0 {
@@ -208,14 +223,14 @@ fn force_terminate(pid: ProcessId, instance: &str, deadline: Deadline) -> Result
     unsafe { CloseHandle(handle) };
     if let Some(code) = error {
         if process_observed_gone(pid, instance).map_err(before_termination)? {
-            return Ok(());
+            return Ok(CloseDispatch::AlreadyGone);
         }
         return Err(before_termination(adapter_error_from_win32(
             code,
             "TerminateProcess failed",
         )));
     }
-    Ok(())
+    Ok(CloseDispatch::Sent)
 }
 
 #[cfg(target_os = "windows")]

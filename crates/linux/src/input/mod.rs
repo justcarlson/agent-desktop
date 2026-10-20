@@ -14,6 +14,7 @@ pub(crate) mod keysym_names;
 pub(crate) mod keysym_step;
 pub(crate) mod plan;
 pub(crate) mod pointer_plan;
+pub(crate) mod pointer_report;
 pub(crate) mod release_guard;
 pub(crate) mod release_state;
 pub(crate) mod shell_aim;

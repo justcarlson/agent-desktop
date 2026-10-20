@@ -2,12 +2,13 @@ use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
     KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, ObservationOps,
-    PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline,
-    SignalFilter, SnapshotSurface, SystemOps, WindowFilter, WindowInfo, WindowOp,
-    launch_options::LaunchOptions, process_state::ProcessState,
+    OperationReport, OperationTarget, PermissionReport, ProcessIdentity, ScreenshotTarget,
+    SessionAffinity, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowFilter,
+    WindowInfo, WindowOp, launch_options::LaunchOptions, process_state::ProcessState,
 };
 
 use crate::adapter::WindowsAdapter;
+use crate::system::close_outcome::CloseOutcome;
 
 impl SystemOps for WindowsAdapter {
     fn update_cursor_overlay(
@@ -186,8 +187,13 @@ impl SystemOps for WindowsAdapter {
         app: &AppInfo,
         force: bool,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::close::close_app_impl(app, force, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let target = OperationTarget::for_app(app)?;
+        let outcome = crate::system::close::close_app_impl(app, force, lease.deadline())?;
+        Ok(match outcome {
+            CloseOutcome::Exited => OperationReport::app_exited(target),
+            CloseOutcome::AlreadyGone => OperationReport::app_already_gone(target),
+        })
     }
 
     /// `SetWindowPos`/`ShowWindow` with Win32 placement re-read verification
@@ -197,8 +203,11 @@ impl SystemOps for WindowsAdapter {
         win: &WindowInfo,
         op: WindowOp,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::window_op::window_op_impl(win, op, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let target = OperationTarget::for_window(win)?;
+        let report = OperationReport::window_operation(target, &op, true);
+        crate::system::window_op::window_op_impl(win, op, lease.deadline())?;
+        Ok(report)
     }
 
     fn resolve_window_strict(

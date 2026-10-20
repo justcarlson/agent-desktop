@@ -1,11 +1,13 @@
 use agent_desktop_core::{
     ActionResult, AdapterError, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, ImageBuffer, InteractionLease, NotificationActionRequest,
-    NotificationFilter, NotificationInfo, PermissionReport, ProcessIdentity, ScreenshotTarget,
-    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    NotificationFilter, NotificationInfo, OperationReport, OperationTarget, PermissionReport,
+    ProcessIdentity, ScreenshotTarget, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps,
+    WindowInfo, WindowOp,
 };
 
 use crate::adapter::MacOSAdapter;
+use crate::system::close_outcome::CloseOutcome;
 
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(
@@ -111,8 +113,13 @@ impl SystemOps for MacOSAdapter {
         app: &agent_desktop_core::AppInfo,
         force: bool,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::app_ops::close_app_impl(app, force, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let target = OperationTarget::for_app(app)?;
+        let outcome = crate::system::app_ops::close_app_impl(app, force, lease.deadline())?;
+        Ok(match outcome {
+            CloseOutcome::Exited => OperationReport::app_exited(target),
+            CloseOutcome::AlreadyGone => OperationReport::app_already_gone(target),
+        })
     }
 
     fn is_protected_process(&self, identifier: &str) -> bool {
@@ -198,8 +205,11 @@ impl SystemOps for MacOSAdapter {
         win: &WindowInfo,
         op: WindowOp,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::window_ops::execute(win, op, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let target = OperationTarget::for_window(win)?;
+        let report = crate::system::window_report::window_report(target, &op);
+        crate::system::window_ops::execute(win, op, lease.deadline())?;
+        Ok(report)
     }
 
     fn list_notifications(

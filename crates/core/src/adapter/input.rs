@@ -1,6 +1,6 @@
 use crate::{
     AdapterError, ClipboardContent, ClipboardFormat, Deadline, DragParams, InteractionLease,
-    KeyCombo, MouseEvent,
+    KeyCombo, MouseEvent, OperationReport,
 };
 
 /// `get_clipboard`/`set_clipboard` were removed pre-1.0 in favor of
@@ -28,7 +28,7 @@ pub trait InputOps: Send + Sync {
         &self,
         _event: MouseEvent,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("mouse_event"))
     }
 
@@ -41,11 +41,15 @@ pub trait InputOps: Send + Sync {
         Err(AdapterError::not_supported("key_event"))
     }
 
-    fn drag(&self, _params: DragParams, _lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn drag(
+        &self,
+        _params: DragParams,
+        _lease: &InteractionLease,
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("drag"))
     }
 
-    fn clear_clipboard(&self, _lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn clear_clipboard(&self, _lease: &InteractionLease) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("clear_clipboard"))
     }
 
@@ -66,7 +70,7 @@ pub trait InputOps: Send + Sync {
         &self,
         _content: &ClipboardContent,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("set_clipboard_content"))
     }
 }

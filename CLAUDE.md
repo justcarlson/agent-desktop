@@ -350,7 +350,7 @@ Every command produces a response envelope:
 
 ```json
 {
-  "version": "2.4",
+  "version": "2.5",
   "ok": true,
   "command": "snapshot",
   "data": {
@@ -371,11 +371,13 @@ cut short carries `"subtree_truncated": true`, serialized only when true. A
 `--root` drill-down replaces refs inside an existing snapshot, so an incomplete
 observation there returns `TIMEOUT` rather than a partial tree.
 
+Pointer, drag, clipboard, close-app and window-operation commands return the adapter's `OperationReport` as `data`: `action`, `disposition`, `steps`, `target` and evidence in `details`. `delivered_verified` is claimed only after a postcondition read, `delivered_unverified` after a completed dispatch without one, and `not_delivered` only for an observed already-satisfied operation. Core never adds an unconditional success flag (`clicked`, `dragged`, `closed`, `cleared`, ...); version 2.5 removed them. A report read back from JSON must carry an explicit `disposition`.
+
 Error responses:
 
 ```json
 {
-  "version": "2.4",
+  "version": "2.5",
   "ok": false,
   "command": "click",
   "error": {

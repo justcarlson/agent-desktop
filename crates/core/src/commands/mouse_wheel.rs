@@ -1,6 +1,6 @@
 use crate::{
     AppError, MouseButton, MouseEvent, MouseEventKind, Point, adapter::PlatformAdapter,
-    context::CommandContext,
+    commands::operation_response::operation_response, context::CommandContext,
 };
 use serde_json::{Value, json};
 
@@ -45,8 +45,7 @@ pub fn execute(
         false,
         &lease,
     );
-    result?;
-    Ok(json!({ "scrolled": true, "dy": args.dy, "dx": args.dx }))
+    operation_response(&result?, json!({ "dy": args.dy, "dx": args.dx }))
 }
 
 #[cfg(test)]

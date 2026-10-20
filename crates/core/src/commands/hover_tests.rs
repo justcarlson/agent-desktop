@@ -80,9 +80,9 @@ impl InputOps for HoverCaptureAdapter {
         &self,
         event: MouseEvent,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         *self.moved_to.lock().unwrap() = Some(event);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -289,8 +289,8 @@ impl InputOps for StaleThenOkAdapter {
         &self,
         _event: MouseEvent,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
-        Ok(())
+    ) -> Result<crate::OperationReport, AdapterError> {
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -343,7 +343,8 @@ fn transient_stale_ref_retries_then_succeeds_when_timeout_wired() {
     )
     .unwrap();
 
-    assert_eq!(value["hovered"], true);
+    assert_eq!(value["disposition"]["delivery"], "delivered_unverified");
+    assert!(value.get("hovered").is_none());
     assert!(adapter.retry.calls() >= 3);
     assert_eq!(adapter.lease_acquisitions.load(Ordering::SeqCst), 1);
 }

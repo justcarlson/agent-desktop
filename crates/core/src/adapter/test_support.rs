@@ -285,3 +285,7 @@ pub(crate) fn observed_tree(
         true,
     )
 }
+
+pub(crate) fn test_report() -> crate::OperationReport {
+    crate::OperationReport::delivered_unverified("test", crate::OperationTarget::Clipboard)
+}

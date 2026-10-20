@@ -3,6 +3,7 @@ use crate::{
     adapter::PlatformAdapter,
     commands::{
         helpers::{apply_post_action_wait, validate_post_action_wait},
+        operation_response::operation_response,
         point_resolve::{PointResolveArgs, require_cursor_policy, require_pointer_capability},
         pointer_action::{
             PointResolveAttempt, ensure_point_deadline, focus_point_under_lease, point_deadline,
@@ -92,8 +93,10 @@ pub fn execute(
         false,
         &lease,
     );
-    result?;
-    let mut response = json!({ "hovered": true, "x": resolved.point.x, "y": resolved.point.y });
+    let mut response = operation_response(
+        &result?,
+        json!({ "x": resolved.point.x, "y": resolved.point.y }),
+    )?;
     if resolved.focused {
         response["focused"] = json!(true);
     }

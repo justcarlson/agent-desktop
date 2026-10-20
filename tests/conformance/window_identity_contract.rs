@@ -62,10 +62,13 @@ impl SystemOps for WindowIdentityAdapter {
         win: &WindowInfo,
         _op: WindowOp,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<agent_desktop_core::OperationReport, AdapterError> {
         let resolved = self.resolve_window_strict(win, lease.deadline())?;
         *self.last_window_op_id.lock().unwrap() = Some(resolved.id);
-        Ok(())
+        Ok(agent_desktop_core::OperationReport::delivered_unverified(
+            "test",
+            agent_desktop_core::OperationTarget::Clipboard,
+        ))
     }
 }
 

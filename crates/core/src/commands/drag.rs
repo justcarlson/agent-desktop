@@ -3,6 +3,7 @@ use crate::{
     adapter::PlatformAdapter,
     commands::{
         helpers::{apply_post_action_wait, validate_post_action_wait},
+        operation_response::operation_response,
         point_resolve::{PointResolveArgs, require_cursor_policy, require_pointer_capability},
         pointer_action::{
             PointResolveAttempt, ensure_point_deadline, focus_point_under_lease, point_deadline,
@@ -160,12 +161,13 @@ pub fn execute(
     } else {
         crate::cursor_overlay::cancel_drag(adapter, context);
     }
-    result?;
-    let mut response = json!({
-        "dragged": true,
-        "from": { "x": from.point.x, "y": from.point.y },
-        "to": { "x": to.point.x, "y": to.point.y }
-    });
+    let mut response = operation_response(
+        &result?,
+        json!({
+            "from": { "x": from.point.x, "y": from.point.y },
+            "to": { "x": to.point.x, "y": to.point.y }
+        }),
+    )?;
     if let Some(drop_delay_ms) = args.drop_delay_ms {
         response["drop_delay_ms"] = json!(drop_delay_ms);
     }

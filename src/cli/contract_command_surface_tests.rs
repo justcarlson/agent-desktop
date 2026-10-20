@@ -14,6 +14,7 @@ const NON_COMMAND_MODULES: &[&str] = &[
     "mod",
     "notification_identity",
     "notification_policy",
+    "operation_response",
     "point_resolve",
     "pointer_action",
     "query",

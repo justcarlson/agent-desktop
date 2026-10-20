@@ -26,7 +26,7 @@ impl InputOps for LocalDouble {
         &self,
         content: &ClipboardContent,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         let stored = match content {
             ClipboardContent::Text(text) => ClipboardContent::Text(text.clone()),
             ClipboardContent::Image(image) => ClipboardContent::Image(ImageBuffer {
@@ -39,7 +39,7 @@ impl InputOps for LocalDouble {
             ClipboardContent::FileUrls(urls) => ClipboardContent::FileUrls(urls.clone()),
         };
         *self.seen.lock().unwrap() = Some(stored);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 

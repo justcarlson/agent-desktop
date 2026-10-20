@@ -1,7 +1,7 @@
 use super::CursorPhase;
 use crate::{
     AdapterError, CommandContext, DeliveryDisposition, DeliverySemantics, MouseEvent,
-    PlatformAdapter, Point, Rect,
+    OperationReport, PlatformAdapter, Point, Rect,
 };
 
 const DISPATCH_RESERVE_MS: u64 = 100;
@@ -44,10 +44,11 @@ pub(crate) fn submit_travel(
     let _ = send(adapter, context, instruction);
 }
 
-pub(crate) fn input_was_delivered(result: &Result<(), AdapterError>) -> bool {
-    result
-        .as_ref()
-        .map_or_else(|error| confirms_delivery(error.disposition), |_| true)
+pub(crate) fn input_was_delivered(result: &Result<OperationReport, AdapterError>) -> bool {
+    result.as_ref().map_or_else(
+        |error| confirms_delivery(error.disposition),
+        |report| confirms_delivery(report.disposition()),
+    )
 }
 
 pub(crate) fn confirms_delivery(disposition: DeliverySemantics) -> bool {
@@ -180,7 +181,7 @@ pub(crate) fn dispatch_mouse_event_with_cursor(
     event: MouseEvent,
     click: bool,
     lease: &crate::InteractionLease,
-) -> Result<(), AdapterError> {
+) -> Result<OperationReport, AdapterError> {
     let point = event.point.clone();
     crate::cursor_overlay::submit_travel(adapter, context, point.clone(), lease, click);
     let result = adapter.mouse_event(event, lease);

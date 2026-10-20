@@ -183,13 +183,12 @@ pub(crate) fn apply_scoped_post_action_wait(
         }
         Err(AppError::Adapter(mut adapter_err)) => {
             let mut details = adapter_err.details.take().unwrap_or_else(|| json!({}));
+            let delivery = super::operation_response::delivery_in(&result);
             if let Some(obj) = details.as_object_mut() {
                 obj.insert("after_action".into(), result);
             }
             Err(AppError::Adapter(
-                adapter_err
-                    .with_details(details)
-                    .with_disposition(crate::DeliverySemantics::delivered_unverified()),
+                adapter_err.with_details(details).with_disposition(delivery),
             ))
         }
         Err(err) => Err(post_delivery_error(err, result)),
@@ -238,13 +237,14 @@ fn post_delivery_error(error: AppError, result: Value) -> AppError {
         other => crate::AdapterError::internal(other.to_string()),
     };
     let mut details = adapter_error.details.take().unwrap_or_else(|| json!({}));
+    let delivery = super::operation_response::delivery_in(&result);
     if let Some(object) = details.as_object_mut() {
         object.insert("after_action".into(), result);
     }
     AppError::Adapter(
         adapter_error
             .with_details(details)
-            .with_disposition(crate::DeliverySemantics::delivered_unverified()),
+            .with_disposition(delivery),
     )
 }
 

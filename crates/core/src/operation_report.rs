@@ -14,6 +14,14 @@ impl OperationReport {
         Self { result, target }
     }
 
+    pub fn delivered_unverified(action: impl Into<String>, target: OperationTarget) -> Self {
+        Self::new(ActionResult::delivered_unverified(action), target)
+    }
+
+    pub fn satisfied_without_delivery(action: impl Into<String>, target: OperationTarget) -> Self {
+        Self::new(ActionResult::satisfied_without_delivery(action), target)
+    }
+
     pub const fn disposition(&self) -> DeliverySemantics {
         self.result.disposition()
     }

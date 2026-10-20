@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, MouseEvent, MouseEventKind};
 
 use super::session;
+use crate::input::delivery::Delivery;
 use crate::input::plan::Plan;
 use crate::input::pointer_plan::{plan_click, plan_move};
 use crate::input::standalone::reject_standalone;
@@ -42,9 +43,9 @@ pub(crate) fn mouse_event(
     display: &str,
     event: &MouseEvent,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<Delivery, AdapterError> {
     let plans = plans_for(display, event, deadline)?;
-    session::run(display, plans, &mut || Ok(()), deadline).map(|_| ())
+    session::run(display, plans, &mut || Ok(()), deadline)
 }
 
 #[cfg(test)]

@@ -45,6 +45,7 @@ pub mod notification_action;
 pub(crate) mod notification_identity;
 pub(crate) mod notification_policy;
 pub mod open_system_surface;
+pub(crate) mod operation_response;
 pub mod permissions;
 pub(crate) mod point_resolve;
 pub(crate) mod pointer_action;
@@ -93,3 +94,6 @@ mod ref_policy_tests;
 
 #[cfg(test)]
 mod stale_retry_test_support;
+
+#[cfg(test)]
+mod operation_passthrough_tests;

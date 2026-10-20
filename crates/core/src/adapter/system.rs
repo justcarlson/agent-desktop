@@ -2,9 +2,9 @@ use crate::{
     AdapterError, AdapterSession, AppInfo, CursorOverlayControl, Deadline,
     DismissAllNotificationsRequest, DismissNotificationRequest, ImageBuffer, InteractionLease,
     InteractionPolicy, KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo,
-    PermissionReport, PermissionState, ProcessIdentity, SessionAffinity, SignalBaseline,
-    SignalFilter, WindowInfo, WindowOp, action_result::ActionResult, display_info::DisplayInfo,
-    screenshot_target::ScreenshotTarget,
+    OperationReport, PermissionReport, PermissionState, ProcessIdentity, SessionAffinity,
+    SignalBaseline, SignalFilter, WindowInfo, WindowOp, action_result::ActionResult,
+    display_info::DisplayInfo, screenshot_target::ScreenshotTarget,
 };
 
 pub trait SystemOps: Send + Sync {
@@ -144,7 +144,7 @@ pub trait SystemOps: Send + Sync {
         _app: &AppInfo,
         _force: bool,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("close_app"))
     }
 
@@ -215,7 +215,7 @@ pub trait SystemOps: Send + Sync {
         _win: &WindowInfo,
         _op: WindowOp,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("window_op"))
     }
 

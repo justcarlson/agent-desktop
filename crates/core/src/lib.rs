@@ -71,6 +71,7 @@ mod notification_filter;
 mod notification_identity;
 mod notification_info;
 mod operation_report;
+mod operation_report_build;
 mod operation_target;
 pub mod output;
 pub mod permission_report;
