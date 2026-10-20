@@ -1,5 +1,7 @@
 use super::*;
+use crate::SignalFilter;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
+use crate::commands::wait_event_filter::process_from_baseline;
 use crate::{AppInfo, WindowInfo};
 
 pub(super) struct SequenceAdapter {

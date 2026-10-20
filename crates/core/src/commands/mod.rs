@@ -74,6 +74,7 @@ pub mod version;
 pub mod wait;
 pub(crate) mod wait_element;
 pub(crate) mod wait_event;
+pub(crate) mod wait_event_filter;
 pub(crate) mod wait_event_input;
 pub(crate) mod wait_mode;
 pub(crate) mod wait_notification;

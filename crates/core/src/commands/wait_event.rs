@@ -1,6 +1,7 @@
+use crate::commands::wait_event_filter::{signal_filter, validate_signal_scope};
 use crate::{
-    AdapterError, AppError, ErrorCode, EventKind, ProcessIdentity, SignalBaseline, SignalFilter,
-    UiEvent, adapter::PlatformAdapter, commands::wait_event_input::EventWaitInput, diff_signals,
+    AdapterError, AppError, ErrorCode, EventKind, ProcessIdentity, SignalBaseline, UiEvent,
+    adapter::PlatformAdapter, commands::wait_event_input::EventWaitInput, diff_signals,
     process_state::ProcessState, signals::merge_signal_baseline,
 };
 use serde_json::{Value, json};
@@ -125,13 +126,6 @@ pub(crate) fn wait_for_event(
     }
 }
 
-fn is_appearance_class(kind: &EventKind) -> bool {
-    matches!(
-        kind,
-        EventKind::AppLaunched | EventKind::WindowOpened | EventKind::SurfaceAppeared { .. }
-    )
-}
-
 fn is_disappearance_class(kind: &EventKind) -> bool {
     matches!(
         kind,
@@ -190,107 +184,6 @@ fn confirm_app_terminated(
         Ok(ProcessState::Running | ProcessState::Unresponsive) => false,
         Ok(ProcessState::Exited { .. } | ProcessState::Crashed { .. }) | Err(_) => true,
     }
-}
-
-fn signal_filter(
-    input: &EventWaitInput,
-    requested: &EventKind,
-    seeded_baseline: Option<&Result<SignalBaseline, AdapterError>>,
-    adapter: &dyn PlatformAdapter,
-    deadline: crate::Deadline,
-) -> Result<SignalFilter, AppError> {
-    let Some(app) = input.app.as_deref() else {
-        return Ok(SignalFilter::default());
-    };
-    let with_process = |process: Option<crate::ProcessIdentity>| SignalFilter {
-        app: input.app.clone(),
-        process,
-    };
-    if matches!(requested, EventKind::AppLaunched) {
-        return Ok(with_process(None));
-    }
-    let successful_seed = seeded_baseline.and_then(|baseline| baseline.as_ref().ok());
-    let seeded_process = successful_seed
-        .map(|baseline| process_from_baseline(baseline, app))
-        .transpose()?
-        .flatten();
-    if let Some(process) = seeded_process {
-        return Ok(with_process(Some(process)));
-    }
-    if successful_seed.is_some() && matches!(requested, EventKind::AppTerminated) {
-        return Ok(with_process(None));
-    }
-    match crate::commands::helpers::resolve_app(Some(app), adapter, deadline) {
-        Ok(resolved) => Ok(with_process(Some(
-            crate::commands::helpers::process_identity(&resolved)?,
-        ))),
-        Err(AppError::Adapter(err))
-            if err.code == ErrorCode::AppNotFound && is_appearance_class(requested) =>
-        {
-            Ok(with_process(None))
-        }
-        Err(err) => Err(err),
-    }
-}
-
-fn process_from_baseline(
-    baseline: &SignalBaseline,
-    app: &str,
-) -> Result<Option<crate::ProcessIdentity>, AppError> {
-    let mut matches = baseline
-        .apps
-        .iter()
-        .filter(|candidate| candidate.matches_identifier(app));
-    let Some(first) = matches.next() else {
-        return Ok(None);
-    };
-    if matches.next().is_some() {
-        return Err(AdapterError::ambiguous_target(format!(
-            "Multiple application instances matched '{app}' in the event baseline"
-        ))
-        .into());
-    }
-    crate::commands::helpers::process_identity(first).map(Some)
-}
-
-fn validate_signal_scope(filter: &SignalFilter, baseline: &SignalBaseline) -> Result<(), AppError> {
-    let Some(expected) = filter.process.as_ref() else {
-        return Ok(());
-    };
-    let observed = baseline
-        .apps
-        .iter()
-        .map(|app| (app.pid, app.process_instance.as_deref()))
-        .chain(
-            baseline
-                .windows
-                .iter()
-                .map(|window| (window.pid, window.process_instance.as_deref())),
-        )
-        .chain(
-            baseline
-                .surfaces
-                .iter()
-                .map(|surface| (surface.pid, Some(surface.process_instance.as_str()))),
-        );
-    if let Some((pid, instance)) = observed.into_iter().find(|(pid, instance)| {
-        *pid == expected.pid && *instance != Some(expected.instance.as_str())
-    }) {
-        return Err(AdapterError::new(
-            ErrorCode::StaleRef,
-            "Target process identity changed during event observation",
-        )
-        .with_details(json!({
-            "kind": "process_changed",
-            "expected_pid": expected.pid,
-            "observed_pid": pid,
-            "observed_instance_matches": instance == Some(expected.instance.as_str()),
-            "retryable": false,
-        }))
-        .with_disposition(crate::DeliverySemantics::not_delivered())
-        .into());
-    }
-    Ok(())
 }
 
 fn find_match<'a>(
