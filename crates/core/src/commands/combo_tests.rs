@@ -39,10 +39,10 @@ fn parse_combo_accepts_long_form_modifier_aliases() {
 
 #[test]
 fn parse_combo_rejects_unknown_modifier_with_invalid_args_code() {
-    let err = parse_combo("win+k").expect_err("unknown modifier must fail");
+    let err = parse_combo("hyper+k").expect_err("unknown modifier must fail");
     assert_eq!(err.code(), "INVALID_ARGS");
     assert!(
-        err.to_string().contains("win"),
+        err.to_string().contains("hyper"),
         "error must name the unknown modifier, got: {}",
         err
     );
@@ -62,4 +62,12 @@ fn parse_combo_key_is_preserved_verbatim_without_lowercasing() {
         "parse_combo must NOT lowercase the key — normalization is the caller's responsibility"
     );
     assert_eq!(combo.modifiers, vec![Modifier::Meta]);
+}
+
+#[test]
+fn parse_combo_accepts_super_and_win_as_meta() {
+    for raw in ["super+e", "win+e"] {
+        let combo = parse_combo(raw).expect("platform name for the meta key");
+        assert_eq!(combo.modifiers, vec![Modifier::Meta], "{raw}");
+    }
 }

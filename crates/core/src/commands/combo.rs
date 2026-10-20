@@ -35,7 +35,7 @@ pub fn parse_combo(s: &str) -> Result<KeyCombo, AppError> {
 
     for &part in &parts[..parts.len() - 1] {
         let modifier = match part {
-            "meta" | "cmd" | "command" => Modifier::Meta,
+            "meta" | "cmd" | "command" | "super" | "win" => Modifier::Meta,
             "ctrl" | "control" => Modifier::Ctrl,
             "alt" | "option" => Modifier::Alt,
             "shift" => Modifier::Shift,
