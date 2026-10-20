@@ -66,7 +66,6 @@ fn a_headed_hover_is_refused_before_the_cursor_is_ever_moved() {
     .expect_err("a session without pointer input must refuse the hover");
 
     assert_eq!(error.code(), "ACTION_NOT_SUPPORTED");
-    assert_eq!(error.code(), "ACTION_NOT_SUPPORTED");
     assert_eq!(adapter.sent.load(Ordering::SeqCst), 0);
 }
 
@@ -81,5 +80,26 @@ fn a_headed_mouse_move_is_refused_before_the_cursor_is_ever_moved() {
     .expect_err("a session without pointer input must refuse the move");
 
     assert_eq!(error.code(), "ACTION_NOT_SUPPORTED");
+    assert_eq!(adapter.sent.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_headed_ref_click_is_refused_before_target_resolution() {
+    let adapter = NoPointerAdapter::new();
+    let error = click::execute(
+        helpers::RefArgs {
+            ref_id: "@missing:e1".into(),
+            timeout_ms: Some(5_000),
+        },
+        &adapter,
+        &CommandContext::default().with_headed(true),
+    )
+    .expect_err("the pointer refusal precedes ref loading and actionability");
+    let crate::AppError::Adapter(error) = error else {
+        panic!("the adapter's pointer refusal must reach the caller");
+    };
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(adapter.sent.load(Ordering::SeqCst), 0);
 }
