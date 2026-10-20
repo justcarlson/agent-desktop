@@ -159,6 +159,9 @@ fn ensure_owned_after(world: &impl OpWorld, win: &WindowInfo) -> Result<(), Adap
 fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), AdapterError> {
     let read = world.clients();
     let ControlRead::Ready(clients) = &read else {
+        if world.on_wayland() && matches!(read, ControlRead::NoManager) {
+            return Err(unsupported_session(&ControlRead::NotX11));
+        }
         return Err(unsupported_session(&read));
     };
     let id = client_of(world, win, clients).map_err(|cause| {
