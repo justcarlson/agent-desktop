@@ -185,3 +185,12 @@ fn the_grab_error_codes_match_the_table() {
         assert_eq!(error.code, code);
     }
 }
+
+#[test]
+fn a_person_gets_the_consent_budget_and_a_longer_command_budget_is_kept() {
+    let command = Deadline::after(5_000).expect("a deadline");
+    let consent = consent_deadline(command).expect("a deadline");
+    assert!(consent.remaining() > std::time::Duration::from_millis(CONSENT_BUDGET_MS - 2_000));
+    let longer = Deadline::after(120_000).expect("a deadline");
+    assert!(consent_deadline(longer).expect("a deadline").remaining() > consent.remaining());
+}

@@ -283,3 +283,68 @@ fn the_portal_calls_go_to_the_session_bus_and_not_the_accessibility_bus() {
     let image = capture_target(&world, &ScreenshotTarget::FullScreen).expect("the desktop");
     assert_eq!((image.width, image.height), (1280, 800));
 }
+
+#[test]
+#[ignore = "boots a private headless gnome-shell and its portal; run inside scripts/private-session.sh"]
+fn a_silent_dialog_ends_at_the_portals_limit_and_a_late_allow_leaves_nothing() {
+    let world = boot();
+    let before = home_screenshots();
+    let started = Instant::now();
+    let budget =
+        crate::system::screenshot::consent_deadline(Deadline::standard().expect("a deadline"))
+            .expect("a deadline");
+    let silent = capture_wayland(&ScreenshotTarget::FullScreen, budget)
+        .map(|image| image.width)
+        .expect_err("no answer ends the request");
+    println!(
+        "portal_live silent {:?} {:?} after {:?}",
+        silent.code,
+        silent.message,
+        started.elapsed()
+    );
+    assert_eq!(silent.code, ErrorCode::Timeout);
+    assert!(
+        silent
+            .suggestion
+            .as_deref()
+            .is_some_and(|text| text.contains("dialog"))
+    );
+    world.keys.press(KEY_TAB);
+    std::thread::sleep(Duration::from_millis(400));
+    world.keys.press(KEY_RETURN);
+    std::thread::sleep(Duration::from_secs(4));
+    let new_files: Vec<_> = home_screenshots().difference(&before).cloned().collect();
+    println!(
+        "portal_live late allow files={new_files:?} grants={}",
+        stored_screenshot_grants()
+    );
+    assert!(new_files.is_empty(), "a late Allow wrote {new_files:?}");
+    assert_eq!(
+        stored_screenshot_grants(),
+        "",
+        "a late Allow stored a grant"
+    );
+}
+
+#[test]
+#[ignore = "boots a private headless gnome-shell and its portal; run inside scripts/private-session.sh"]
+fn a_second_request_while_a_dialog_is_open_names_the_open_dialog() {
+    let world = boot();
+    let mut second = None;
+    let first = capture_while(&world, 9_000, |_| second = Some(quick_capture()));
+    println!(
+        "portal_live first {:?}",
+        first.map(|image| image.width).map_err(|e| e.code)
+    );
+    let (outcome, took) = second.expect("the second call ran");
+    let error = outcome.expect_err("the portal shows one dialog at a time");
+    println!(
+        "portal_live second {:?} in {took:?} {:?}",
+        error.code, error.suggestion
+    );
+    assert_eq!(error.code, ErrorCode::PermDenied);
+    assert!(took < Duration::from_secs(5));
+    let hint = error.suggestion.expect("a hint");
+    assert!(hint.contains("dialog left open"), "{hint}");
+    assert!(!hint.contains("is remembered"), "{hint}");
+}

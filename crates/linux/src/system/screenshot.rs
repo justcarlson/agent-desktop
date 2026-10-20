@@ -18,6 +18,20 @@ fn not_delivered(error: AdapterError) -> AdapterError {
     }
 }
 
+/// How long a person has to answer the portal's first-use dialog. The command's
+/// own budget is for calls that need no person; a person has to read the
+/// dialog and click, and the portal needs a second more to answer.
+pub(crate) const CONSENT_BUDGET_MS: u64 = 30_000;
+
+pub(crate) fn consent_deadline(command: Deadline) -> Result<Deadline, AdapterError> {
+    let consent = Deadline::after(CONSENT_BUDGET_MS)?;
+    Ok(if consent.remaining() > command.remaining() {
+        consent
+    } else {
+        command
+    })
+}
+
 fn wayland_window() -> AdapterError {
     AdapterError::new(
         ErrorCode::PlatformNotSupported,
@@ -36,7 +50,7 @@ pub(crate) fn capture_with(
 ) -> Result<ImageBuffer, AdapterError> {
     match (route, target) {
         (Route::Wayland, ScreenshotTarget::ExactWindow(_)) => Err(wayland_window()),
-        (Route::Wayland, target) => capture_wayland(&target, deadline),
+        (Route::Wayland, target) => capture_wayland(&target, consent_deadline(deadline)?),
         (Route::X11(_), ScreenshotTarget::ExactWindow(window)) => {
             window::capture(env, &window, false, deadline)
         }

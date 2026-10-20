@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 pub(crate) const PORTAL_SERVICE: &str = "org.freedesktop.portal.Desktop";
@@ -36,7 +38,13 @@ pub(crate) fn request_path(unique_name: &str, token: &str) -> String {
     format!("/org/freedesktop/portal/desktop/request/{sender}/{token}")
 }
 
-fn refused(code: u32) -> AdapterError {
+/// How long a request must have waited before the portal's response 2 is read
+/// as the portal giving up on an unanswered dialog. The portal's own limit on a
+/// dialog is the 25 s of a D-Bus call (measured: response 2 at 25.03 s); an
+/// earlier response 2 means the portal refused the request at once.
+pub(crate) const PORTAL_PATIENCE: Duration = Duration::from_secs(20);
+
+fn refused(code: u32, waited: Duration, patience: Duration) -> AdapterError {
     if code == 1 {
         return AdapterError::new(
             ErrorCode::PermDenied,
@@ -44,6 +52,14 @@ fn refused(code: u32) -> AdapterError {
         )
         .with_suggestion(
             "A person chose Deny or closed the dialog. Allow screenshots in the dialog the desktop shows; if a Deny was remembered, reset it in the desktop's privacy settings first",
+        );
+    }
+    if waited >= patience {
+        return AdapterError::timeout(
+            "The desktop portal stopped waiting for an answer to its screenshot dialog",
+        )
+        .with_suggestion(
+            "The desktop asks to allow screenshots in a dialog; a person must approve it before the portal stops waiting",
         );
     }
     AdapterError::new(
@@ -83,6 +99,16 @@ pub(crate) fn screenshot_uri(
     token: &str,
     deadline: Deadline,
 ) -> Result<String, AdapterError> {
+    screenshot_uri_after(wire, token, deadline, PORTAL_PATIENCE)
+}
+
+pub(crate) fn screenshot_uri_after(
+    wire: &dyn PortalWire,
+    token: &str,
+    deadline: Deadline,
+    patience: Duration,
+) -> Result<String, AdapterError> {
+    let started = Instant::now();
     let path = request_path(&wire.unique_name(), token);
     let pending = wire.subscribe(&path, deadline)?;
     let handle = match wire.call_screenshot(token, deadline) {
@@ -99,7 +125,7 @@ pub(crate) fn screenshot_uri(
     match pending.wait(deadline) {
         Ok(PortalAnswer::Granted { uri: Some(uri) }) => Ok(uri),
         Ok(PortalAnswer::Granted { uri: None }) => Err(no_uri()),
-        Ok(PortalAnswer::Refused { code }) => Err(refused(code)),
+        Ok(PortalAnswer::Refused { code }) => Err(refused(code, started.elapsed(), patience)),
         Err(error) if error.code == ErrorCode::Timeout => Err(timed_out(error)),
         Err(error) => Err(error),
     }
