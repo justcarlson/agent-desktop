@@ -1,4 +1,5 @@
 use agent_desktop_core::{
+    AccessibilityNode, ActionOps, ActionRequest, ActionResult, AdapterError, AppInfo, AppInventory,
     ClipboardContent, ClipboardFormat, Deadline, DragParams, ElementState, HitTestResult, InputOps,
     InteractionLease, KeyCombo, LiveElement, MouseEvent, NativeHandle, ObservationOps,
     ObservationRequest, ObservationRoot, ObservedTree, Point, ProcessIdentity, Rect, RefEntry,
@@ -216,12 +217,7 @@ impl LinuxAdapter {
                     .ok()
                     .filter(|element| crate::system::shell::is_shell_element(element))
                     .and_then(|element| {
-                        crate::system::shell::deliver::deliver(
-                            self.bus(),
-                            &element,
-                            &request,
-                            lease,
-                        )
+                        crate::system::shell::deliver::deliver(self.bus(), element, &request, lease)
                     });
                 match outcome {
                     Some(result) => result,

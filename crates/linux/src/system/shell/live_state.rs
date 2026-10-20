@@ -45,6 +45,7 @@ pub(crate) fn project(extents: Option<Extents>, displays: Option<&[Extents]>) ->
             client_id: 0,
             hidden: cannot_show,
             client_origin: (0, 0),
+            shadow: (0, 0, 0, 0),
         }),
         ..Placement::default()
     }
