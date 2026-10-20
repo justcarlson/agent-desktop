@@ -15,6 +15,7 @@ const MENU_BUTTON: u32 = 43;
 const TOGGLE: u32 = 62;
 const MENU: u32 = 33;
 const MENU_ITEM: u32 = 35;
+const STATE_SHOWING: u32 = 25;
 const NODE_LIMIT: usize = 4000;
 
 struct Entry {
@@ -106,11 +107,12 @@ fn descendants(connection: &Connection, pid: u32) -> Vec<Entry> {
     let Some((bus, path)) = app_root(connection, pid) else {
         return Vec::new();
     };
+    descendants_from(connection, children(connection, &bus, &path))
+}
+
+fn descendants_from(connection: &Connection, roots: Vec<(String, String)>) -> Vec<Entry> {
     let mut found = Vec::new();
-    let mut stack: Vec<(String, String)> = children(connection, &bus, &path)
-        .into_iter()
-        .rev()
-        .collect();
+    let mut stack: Vec<(String, String)> = roots.into_iter().rev().collect();
     while let Some((bus, path)) = stack.pop() {
         if found.len() >= NODE_LIMIT {
             break;
@@ -122,7 +124,13 @@ fn descendants(connection: &Connection, pid: u32) -> Vec<Entry> {
 }
 
 fn do_action(connection: &Connection, target: &Entry) {
-    let reply = connection
+    let done = try_action(connection, target)
+        .unwrap_or_else(|error| panic!("DoAction on {:?} failed: {error}", target.name));
+    assert!(done);
+}
+
+fn try_action(connection: &Connection, target: &Entry) -> Result<bool, zbus::Error> {
+    connection
         .call_method(
             Some(target.bus.as_str()),
             target.path.as_str(),
@@ -130,8 +138,51 @@ fn do_action(connection: &Connection, target: &Entry) {
             "DoAction",
             &(0_i32,),
         )
-        .unwrap_or_else(|error| panic!("DoAction on {:?} failed: {error}", target.name));
-    assert!(reply.body().deserialize::<bool>().unwrap_or(false));
+        .map(|reply| reply.body().deserialize::<bool>().unwrap_or(false))
+}
+
+struct AboutDialogCleanup<'a> {
+    connection: &'a Connection,
+    root: (String, String),
+    before: Vec<(String, String)>,
+}
+
+fn showing(connection: &Connection, bus: &str, path: &str) -> bool {
+    connection
+        .call_method(Some(bus), path, Some(ACCESSIBLE_INTERFACE), "GetState", &())
+        .ok()
+        .and_then(|reply| reply.body().deserialize::<Vec<u32>>().ok())
+        .is_some_and(|states| {
+            states
+                .first()
+                .is_some_and(|bits| bits & (1 << STATE_SHOWING) != 0)
+        })
+}
+
+impl AboutDialogCleanup<'_> {
+    fn dismiss(&self) {
+        let added = children(self.connection, &self.root.0, &self.root.1)
+            .into_iter()
+            .filter(|root| !self.before.contains(root))
+            .filter(|(bus, path)| {
+                showing(self.connection, bus, path)
+                    && entry(self.connection, bus, path)
+                        .is_some_and(|entry| entry.role == 16 && entry.name.starts_with("About"))
+            })
+            .collect();
+        if let Some(close) = descendants_from(self.connection, added)
+            .into_iter()
+            .find(|entry| entry.role == MENU_BUTTON && entry.name == "Close")
+        {
+            let _ = try_action(self.connection, &close);
+        }
+    }
+}
+
+impl Drop for AboutDialogCleanup<'_> {
+    fn drop(&mut self) {
+        self.dismiss();
+    }
 }
 
 fn poll<T>(what: &str, mut attempt: impl FnMut() -> Option<T>) -> T {
@@ -274,6 +325,15 @@ fn sheet_live_gtk3_about_is_a_showing_dialog_sheet() {
     });
     let identity = identity_of(&bus, pid);
     assert!(sheets(&surfaces_of(&bus, &identity)).is_empty());
+    let root = app_root(&connection, pid).expect("the terminal's accessibility root");
+    let cleanup = AboutDialogCleanup {
+        connection: &connection,
+        before: children(&connection, &root.0, &root.1)
+            .into_iter()
+            .filter(|(bus, path)| showing(&connection, bus, path))
+            .collect(),
+        root,
+    };
     let help = poll("the Help menu", || {
         descendants(&connection, pid)
             .into_iter()
@@ -287,4 +347,9 @@ fn sheet_live_gtk3_about_is_a_showing_dialog_sheet() {
     });
     do_action(&connection, &about);
     require_new_sheet_window(&bus, pid, &identity, before);
+    cleanup.dismiss();
+    poll("the About dialog to close", || {
+        (sheets(&surfaces_of(&bus, &identity)).is_empty() && windows_of(&bus, pid).len() == before)
+            .then_some(())
+    });
 }
