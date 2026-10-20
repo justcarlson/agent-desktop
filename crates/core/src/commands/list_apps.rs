@@ -1,4 +1,4 @@
-use crate::{AppError, adapter::PlatformAdapter, search_text};
+use crate::{AppError, ErrorCode, adapter::PlatformAdapter, search_text};
 use serde_json::{Value, json};
 
 pub struct ListAppsArgs {
@@ -16,10 +16,12 @@ pub fn execute(args: ListAppsArgs, adapter: &dyn PlatformAdapter) -> Result<Valu
     if let Some(app) = args.app {
         let needle = search_text::normalize(&app);
         apps.retain(|candidate| search_text::contains(&candidate.name, &needle));
-        for aliased in adapter
-            .list_apps_scoped(&app, None, deadline)
-            .unwrap_or_default()
-        {
+        let aliased = match adapter.list_apps_scoped(&app, None, deadline) {
+            Ok(aliased) => aliased,
+            Err(err) if err.code == ErrorCode::PlatformNotSupported => Vec::new(),
+            Err(err) => return Err(err.into()),
+        };
+        for aliased in aliased {
             if !apps.iter().any(|kept| kept.pid == aliased.pid) {
                 apps.push(aliased);
             }

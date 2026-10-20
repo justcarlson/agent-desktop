@@ -170,3 +170,49 @@ fn app_filter_accepts_the_adapter_alias_for_a_listed_app() {
     assert_eq!(apps.len(), 1);
     assert_eq!(apps[0]["name"], "Finder");
 }
+
+struct FailingScopeAdapter(AdapterError);
+impl ObservationOps for FailingScopeAdapter {
+    fn list_apps(&self, deadline: crate::Deadline) -> Result<Vec<AppInfo>, AdapterError> {
+        AppsAdapter.list_apps(deadline)
+    }
+    fn list_apps_scoped(
+        &self,
+        _name: &str,
+        _bundle_id: Option<&str>,
+        _deadline: crate::Deadline,
+    ) -> Result<Vec<AppInfo>, AdapterError> {
+        Err(self.0.clone())
+    }
+}
+impl ActionOps for FailingScopeAdapter {}
+impl InputOps for FailingScopeAdapter {}
+impl SystemOps for FailingScopeAdapter {}
+
+fn filtered_args() -> ListAppsArgs {
+    ListAppsArgs {
+        app: Some("text".into()),
+        timeout_ms: None,
+    }
+}
+
+#[test]
+fn app_filter_propagates_a_scoped_listing_failure() {
+    let adapter = FailingScopeAdapter(AdapterError::new(
+        crate::ErrorCode::Timeout,
+        "scoped listing timed out",
+    ));
+
+    let error = execute(filtered_args(), &adapter).unwrap_err();
+
+    assert_eq!(error.code(), "TIMEOUT");
+}
+
+#[test]
+fn app_filter_ignores_a_scoped_listing_that_is_not_supported() {
+    let adapter = FailingScopeAdapter(AdapterError::not_supported("list_apps_scoped"));
+
+    let value = execute(filtered_args(), &adapter).unwrap();
+
+    assert_eq!(value["apps"].as_array().unwrap().len(), 1);
+}
