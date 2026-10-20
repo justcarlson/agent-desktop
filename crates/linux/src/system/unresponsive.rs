@@ -16,12 +16,21 @@ pub(crate) fn stopped_target(
     select: impl Fn(&RegistryApp) -> bool,
     is_stopped: impl Fn(u32) -> bool,
 ) -> Option<AdapterError> {
+    first_stopped(registry, select, is_stopped).map(|app| AdapterError::app_unresponsive(&app.name))
+}
+
+/// The application `stopped_target` names, for a caller that needs more of it
+/// than its name.
+pub(crate) fn first_stopped(
+    registry: &Registry,
+    select: impl Fn(&RegistryApp) -> bool,
+    is_stopped: impl Fn(u32) -> bool,
+) -> Option<&RegistryApp> {
     registry
         .apps
         .iter()
         .filter(|app| is_listable(app) && select(app) && !app.answered)
         .find(|app| is_stopped(app.root.pid()))
-        .map(|app| AdapterError::app_unresponsive(&app.name))
 }
 
 /// The answer for a scoped listing: the windows, unless a selected

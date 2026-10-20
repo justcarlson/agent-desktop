@@ -8,7 +8,6 @@ use super::window_id;
 use super::x11::FrameFacts;
 use crate::tree::RawNode;
 use crate::tree::role_numbers::DIALOG;
-use crate::tree::state_bits::{ICONIFIED, SHOWING, StateBits};
 
 fn rect(node: &RawNode) -> Option<Rect> {
     node.extents.present().map(|extents| Rect::from(*extents))
@@ -61,10 +60,7 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
             global_position,
         },
         sheet: crate::tree::surfaces::is_sheet(node),
-        unshown: node.traits.states.present().is_some_and(|words| {
-            let bits = StateBits::new(words);
-            !bits.has(SHOWING) && !bits.has(ICONIFIED)
-        }),
+        unshown: state.visible == Some(false) && state.minimized == Some(false),
     })
 }
 

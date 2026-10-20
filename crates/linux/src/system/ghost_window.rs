@@ -22,11 +22,12 @@ fn matched(window: &ListedWindow, clients: &[X11Client]) -> Vec<u32> {
 /// Removes the husks of closed windows. A toolkit that keeps a top-level
 /// window for reuse leaves it on the registry after it hides or closes, with
 /// neither `SHOWING` nor `ICONIFIED`. No live window measured lacks both: a
-/// minimized one shows or is iconified, and one on another desktop shows. An
-/// unshown window stays only when the display server shows it is not a husk: its client is the
-/// only claimant of a managed X11 window of the same process, so a minimized
-/// window the window manager still manages is kept, while the husk of a
-/// reopened dialog, whose client belongs to the live dialog, is dropped.
+/// minimized one shows or is iconified, and one on another desktop shows.
+/// An unshown window stays only when the display server shows it is not a
+/// husk: its client is the only claimant of a managed X11 window of the same
+/// process. A minimized window the window manager still manages is kept,
+/// while the husk of a reopened dialog, whose client belongs to the live
+/// dialog, is dropped.
 pub(crate) fn without_ghosts(windows: Vec<ListedWindow>, state: &X11State) -> Vec<ListedWindow> {
     let clients = clients_of(state);
     let claimed: HashSet<u32> = windows

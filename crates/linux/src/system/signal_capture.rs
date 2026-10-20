@@ -9,15 +9,14 @@ use super::focus::focus_is_indeterminate;
 use super::listed_window::ListedWindow;
 use super::nested_scan::{NestedScan, bus_read, scan_windows};
 use super::proc_stat;
-use super::registry::{Registry, read_registry, read_registry_for};
+use super::registry::{Registry, read_registry_for};
 use super::registry_app::RegistryApp;
 use super::registry_frames::RootRead;
 use super::signal_boundary::{Scope, narrow};
 use super::signal_inventory::{Pass, run_pass, skipped_selected};
 use super::signal_population::apps_of;
 use super::signal_surfaces::{nested_signals, sheet_signals};
-use super::unresponsive::stopped_target;
-use super::window_ops::is_listable;
+use super::unresponsive::first_stopped;
 
 trait CaptureWorld {
     fn registry(&self, pid: Option<u32>, deadline: Deadline) -> Result<Registry, AdapterError>;
@@ -35,10 +34,7 @@ struct BusWorld<'a>(&'a SharedBus);
 
 impl CaptureWorld for BusWorld<'_> {
     fn registry(&self, pid: Option<u32>, deadline: Deadline) -> Result<Registry, AdapterError> {
-        match pid {
-            Some(_) => read_registry_for(self.0, pid, deadline),
-            None => read_registry(self.0, deadline),
-        }
+        read_registry_for(self.0, pid, deadline)
     }
 
     fn pass(
@@ -82,15 +78,14 @@ fn stopped_scoped_target(
     registry: &Registry,
     select: &dyn Fn(&RegistryApp) -> bool,
 ) -> Option<AdapterError> {
-    let error = stopped_target(registry, select, |pid| world.is_stopped(pid))?;
-    let app = registry.apps.iter().find(|app| {
-        is_listable(app) && select(app) && !app.answered && world.is_stopped(app.root.pid())
-    })?;
-    Some(error.with_details(json!({
-        "app": app.name,
-        "pid": app.root.pid(),
-        "process_instance": app.facts.instance,
-    })))
+    let app = first_stopped(registry, select, |pid| world.is_stopped(pid))?;
+    Some(
+        AdapterError::app_unresponsive(&app.name).with_details(json!({
+            "app": app.name,
+            "pid": app.root.pid(),
+            "process_instance": app.facts.instance,
+        })),
+    )
 }
 
 fn windows_of_pass(pass: &Pass) -> Vec<WindowInfo> {

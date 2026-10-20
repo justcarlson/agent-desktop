@@ -6,6 +6,17 @@ use super::registry_app::RegistryApp;
 
 pub(crate) const SIGNAL_SURFACE_KINDS: [SnapshotSurface; 1] = [SnapshotSurface::Sheet];
 
+fn sheet_signal(app: &RegistryApp, id: String, title: Option<String>) -> SurfaceSignal {
+    SurfaceSignal {
+        kind: SIGNAL_SURFACE_KINDS[0],
+        app: app.name.clone(),
+        pid: app.root.pid().into(),
+        process_instance: app.facts.instance.clone(),
+        id,
+        title,
+    }
+}
+
 /// One `Sheet` signal for every listed window the shared sheet predicate
 /// accepts. The window stays in the window list too, so a dialog is one
 /// `window-opened` and one `surface-appeared`, keyed on its id and never on
@@ -19,16 +30,12 @@ pub(crate) fn sheet_signals(
         .filter(|window| window.sheet)
         .filter_map(|window| {
             let app = registry_apps.get(window.app)?;
-            Some(SurfaceSignal {
-                kind: SnapshotSurface::Sheet,
-                app: app.name.clone(),
-                pid: app.root.pid().into(),
-                process_instance: app.facts.instance.clone(),
-                id: window.info.id.clone(),
-                title: Some(window.info.title.clone()).filter(|title| !title.is_empty()),
-            })
+            Some(sheet_signal(
+                app,
+                window.info.id.clone(),
+                Some(window.info.title.clone()).filter(|title| !title.is_empty()),
+            ))
         })
-        .filter(|signal| SIGNAL_SURFACE_KINDS.contains(&signal.kind))
         .collect()
 }
 
@@ -44,14 +51,7 @@ pub(crate) fn nested_signals(
         .iter()
         .filter_map(|nested| {
             let app = registry_apps.get(windows.get(nested.window)?.app)?;
-            Some(SurfaceSignal {
-                kind: SnapshotSurface::Sheet,
-                app: app.name.clone(),
-                pid: app.root.pid().into(),
-                process_instance: app.facts.instance.clone(),
-                id: nested.id.clone(),
-                title: nested.title.clone(),
-            })
+            Some(sheet_signal(app, nested.id.clone(), nested.title.clone()))
         })
         .collect()
 }

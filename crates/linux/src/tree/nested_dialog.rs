@@ -6,7 +6,7 @@ pub(crate) type Node = WalkedNode<ObservedRead>;
 
 /// A dialog drawn inside its window's tree: a `SHOWING` dialog node below the
 /// window, which no listing of top-level windows sees.
-pub(crate) struct Nested<'a> {
+pub(crate) struct NestedDialog<'a> {
     pub(crate) element: &'a AtspiElement,
     pub(crate) title: Option<&'a str>,
 }
@@ -24,12 +24,12 @@ fn showing(node: &Node) -> bool {
         .is_some_and(|words| StateBits::new(words).has(SHOWING))
 }
 
-fn collect<'a>(node: &'a Node, found: &mut Vec<Nested<'a>>) {
+fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
     if node.in_web_document || is_web_document(role(node)) {
         return;
     }
     if role(node) == Some(DIALOG) && showing(node) {
-        found.push(Nested {
+        found.push(NestedDialog {
             element: &node.payload.node.element,
             title: node
                 .payload
@@ -51,7 +51,7 @@ fn collect<'a>(node: &'a Node, found: &mut Vec<Nested<'a>>) {
 /// root itself is never one: a top-level dialog is a window, and listed as
 /// such. A dialog that does not show is not found, whether its node is gone
 /// or stays in the tree.
-pub(crate) fn find(window: &Node) -> Vec<Nested<'_>> {
+pub(crate) fn find(window: &Node) -> Vec<NestedDialog<'_>> {
     let mut found = Vec::new();
     for child in &window.children {
         collect(child, &mut found);

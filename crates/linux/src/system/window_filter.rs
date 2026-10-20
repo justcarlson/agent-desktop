@@ -55,7 +55,11 @@ pub(crate) fn is_helper_app(root_name: &str, exe_basename: Option<&str>) -> bool
 /// window: its view class is `RootView` and it has no title, where a window
 /// is a `BrowserRootView`.
 pub(crate) fn is_bubble(class: Option<&str>, title: &str) -> bool {
-    class == Some(BUBBLE_CLASS) && title.trim().is_empty()
+    is_nameless(class, BUBBLE_CLASS, title)
+}
+
+fn is_nameless(class: Option<&str>, wanted: &str, title: &str) -> bool {
+    class == Some(wanted) && title.trim().is_empty()
 }
 
 /// Whether a Chromium frame is the host of an open menu: a context or main
@@ -63,7 +67,7 @@ pub(crate) fn is_bubble(class: Option<&str>, title: &str) -> bool {
 /// application root, carrying `ACTIVE` while it is open. It is a popup
 /// of the window that opened it, never a window.
 pub(crate) fn is_menu_popup_frame(class: Option<&str>, title: &str) -> bool {
-    class == Some(MENU_HOST_CLASS) && title.trim().is_empty()
+    is_nameless(class, MENU_HOST_CLASS, title)
 }
 
 /// What a frame's state set says. `None` is a state read that failed.

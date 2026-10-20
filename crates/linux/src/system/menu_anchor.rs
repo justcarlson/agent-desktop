@@ -59,11 +59,12 @@ fn collect_targets(
     deadline: Deadline,
 ) -> Result<Vec<Target>, AdapterError> {
     let registry = read_registry_for(bus, Some(pid), deadline)?;
-    let windows = windows_of(bus, &registry, owned_by(pid), deadline)?;
+    let owned = owned_by(pid);
+    let windows = windows_of(bus, &registry, &owned, deadline)?;
     let roots = registry
         .apps
         .iter()
-        .filter(|app| owned_by(pid)(app))
+        .filter(|app| owned(app))
         .map(|app| app.root.clone())
         .collect();
     Ok(targets(
