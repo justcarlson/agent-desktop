@@ -72,11 +72,16 @@ fn show_default_cursor(
         map.insert("cursor_overlay".into(), overlay);
     }
     if multi_agent {
+        value["rendered"] = Value::Bool(false);
         return Ok(());
     }
-    if let Err(error) = adapter.update_cursor_overlay(&control) {
-        tracing::warn!(code = %error.code.as_str(), "cursor overlay lifecycle update was skipped");
-    }
+    value["rendered"] = Value::Bool(match adapter.update_cursor_overlay(&control) {
+        Ok(()) => true,
+        Err(error) => {
+            tracing::warn!(code = %error.code.as_str(), "cursor overlay lifecycle update was skipped");
+            false
+        }
+    });
     Ok(())
 }
 

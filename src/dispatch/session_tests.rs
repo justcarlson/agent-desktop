@@ -5,6 +5,93 @@ use crate::test_noop_ops::NoopAdapter;
 use agent_desktop_core::context::CommandContext;
 use agent_desktop_core::session::{ArtifactsMode, SessionTraceMode, StartSessionOptions};
 
+#[derive(Default)]
+struct OverlayAdapter {
+    calls: std::sync::atomic::AtomicUsize,
+    fail: bool,
+}
+
+impl agent_desktop_core::ObservationOps for OverlayAdapter {}
+impl agent_desktop_core::ActionOps for OverlayAdapter {}
+impl agent_desktop_core::InputOps for OverlayAdapter {}
+impl agent_desktop_core::SystemOps for OverlayAdapter {
+    fn update_cursor_overlay(
+        &self,
+        control: &agent_desktop_core::CursorOverlayControl,
+    ) -> Result<(), agent_desktop_core::AdapterError> {
+        assert!(control.is_enable());
+        self.calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if self.fail {
+            Err(agent_desktop_core::AdapterError::internal(
+                "renderer unavailable",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[test]
+fn session_start_reports_the_adapter_overlay_result() {
+    let _home = HomeGuard::new();
+    let rendering = OverlayAdapter::default();
+    let failing = OverlayAdapter {
+        fail: true,
+        ..Default::default()
+    };
+    let multi_agent = OverlayAdapter::default();
+    for (adapter, cursor, multi, rendered) in [
+        (
+            &rendering as &dyn agent_desktop_core::PlatformAdapter,
+            true,
+            false,
+            Some(true),
+        ),
+        (&NoopAdapter, true, false, Some(false)),
+        (&failing, true, false, Some(false)),
+        (&multi_agent, true, true, Some(false)),
+        (&rendering, false, false, None),
+    ] {
+        let value = super::dispatch(
+            SessionArgs {
+                action: SessionAction::Start(crate::cli_args::session::SessionStartArgs {
+                    name: None,
+                    no_trace: true,
+                    screenshots: false,
+                    cursor,
+                    multi_agent: multi,
+                }),
+            },
+            adapter,
+            &CommandContext::default(),
+        )
+        .expect("session starts even when the renderer is unavailable");
+        assert_eq!(
+            value.get("rendered").and_then(serde_json::Value::as_bool),
+            rendered,
+            "{value}"
+        );
+        let id = value["session_id"].as_str().unwrap();
+        let manifest = agent_desktop_core::session::read_manifest(id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(manifest.cursor_overlay).unwrap()["enabled"],
+            cursor
+        );
+    }
+    assert_eq!(
+        rendering.calls.load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+    assert_eq!(failing.calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+    assert_eq!(
+        multi_agent.calls.load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+}
+
 #[test]
 fn explicit_session_end_id_precedes_active_scope() {
     assert_eq!(
