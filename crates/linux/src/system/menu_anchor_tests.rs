@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use super::{Target, answer, owned_by, targets};
+use super::{Target, answer, owned_by, settle, targets};
 use crate::system::liveness::Liveness;
 use crate::system::process_facts::ProcessFacts;
 use crate::system::registry_app::{RegistryApp, assemble};
@@ -122,4 +122,17 @@ fn a_read_failure_is_not_an_answer() {
         |_| Err(AdapterError::timeout("slow")),
     );
     assert!(open.is_err());
+}
+
+#[test]
+fn an_open_menu_stands_whether_or_not_the_read_was_whole() {
+    assert_eq!(settle(true, false).ok(), Some(true));
+    assert_eq!(settle(true, true).ok(), Some(true));
+}
+
+#[test]
+fn a_closed_answer_needs_a_whole_read() {
+    assert_eq!(settle(false, false).ok(), Some(false));
+    let error = settle(false, true).expect_err("a partial read cannot say closed");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
 }

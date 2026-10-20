@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::{thread::sleep, time::Duration};
 
 use agent_desktop_core::{
@@ -6,52 +5,15 @@ use agent_desktop_core::{
     SnapshotSurface, WindowInfo, WindowState, diff_signals,
 };
 
+use super::signal_capture_fixture::{Reads, Scripted, app, window};
 use super::{CaptureWorld, capture};
 use crate::system::focus::decide_focus;
-use crate::system::process_facts::ProcessFacts;
 use crate::system::registry::Registry;
-use crate::system::registry_app::{RegistryApp, assemble};
+use crate::system::registry_app::RegistryApp;
 use crate::system::registry_frames::RootRead;
 use crate::system::signal_inventory::{AppOutcome, Pass};
-use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::{FrameFacts, X11Evidence};
 use crate::system::{listed_window::ListedWindow, nested_scan::NestedScan};
-use crate::tree::AtspiElement;
-
-fn app(index: u32, name: &str, answered: bool) -> RegistryApp {
-    assemble(
-        AtspiElement::new(
-            format!(":1.{index}"),
-            "/org/a11y/atspi/accessible/root",
-            100 + index,
-        ),
-        ProcessFacts {
-            comm: name.to_owned(),
-            exe_basename: Some(name.to_owned()),
-            instance: format!("boot:{index}"),
-            web_family: None,
-        },
-        answered.then(|| Some(name.to_owned())),
-        ToolkitId::default(),
-    )
-}
-
-#[derive(Clone)]
-struct Scripted {
-    owner: usize,
-    id: &'static str,
-    active: bool,
-    sheet: bool,
-}
-
-fn window(owner: usize, id: &'static str) -> Scripted {
-    Scripted {
-        owner,
-        id,
-        active: false,
-        sheet: false,
-    }
-}
 
 struct World {
     apps: Vec<RegistryApp>,
@@ -60,8 +22,7 @@ struct World {
     stopped: Vec<u32>,
     evidence: X11Evidence,
     lag: Duration,
-    registry_asks: RefCell<Vec<Option<u32>>>,
-    roots_read: RefCell<Vec<usize>>,
+    reads: Reads,
 }
 
 impl World {
@@ -73,8 +34,7 @@ impl World {
             stopped: Vec::new(),
             evidence: X11Evidence::Unavailable,
             lag: Duration::ZERO,
-            registry_asks: RefCell::new(Vec::new()),
-            roots_read: RefCell::new(Vec::new()),
+            reads: Reads::default(),
         }
     }
 }
@@ -114,7 +74,7 @@ impl CaptureWorld for World {
     }
 
     fn registry(&self, pid: Option<u32>, _deadline: Deadline) -> Result<Registry, AdapterError> {
-        self.registry_asks.borrow_mut().push(pid);
+        self.reads.registry_asks.borrow_mut().push(pid);
         Ok(Registry {
             apps: self.apps.clone(),
             skipped: Vec::new(),
@@ -135,7 +95,7 @@ impl CaptureWorld for World {
             .filter(|(_, app)| select(app))
             .map(|(index, _)| index)
             .collect();
-        self.roots_read.borrow_mut().extend(&chosen);
+        self.reads.roots_read.borrow_mut().extend(&chosen);
         let windows: Vec<ListedWindow> = self
             .windows
             .iter()
@@ -227,7 +187,7 @@ fn a_scoped_target_that_is_stopped_is_unresponsive_with_its_identity() {
     assert_eq!(details["app"], "calc");
     assert_eq!(details["pid"], 101);
     assert_eq!(details["process_instance"], "boot:1");
-    assert!(world.roots_read.borrow().is_empty());
+    assert!(world.reads.roots_read.borrow().is_empty());
 }
 
 #[test]
@@ -345,7 +305,7 @@ fn a_scoped_capture_for_one_app_never_reads_another_apps_roots() {
         vec![window(0, "w-1"), window(1, "w-2")],
     );
     let baseline = take(&world, &scoped_to("files"));
-    assert_eq!(*world.roots_read.borrow(), [1]);
+    assert_eq!(*world.reads.roots_read.borrow(), [1]);
     assert_eq!(baseline.windows.len(), 1);
     assert_eq!(baseline.windows[0].id, "w-2");
 }
@@ -361,8 +321,8 @@ fn a_process_filter_reads_the_registry_for_that_pid_and_selects_only_it() {
         process: Some(ProcessIdentity::new(102_u32, "boot:2")),
     };
     take(&world, &filter);
-    assert_eq!(*world.registry_asks.borrow(), [Some(102)]);
-    assert_eq!(*world.roots_read.borrow(), [1]);
+    assert_eq!(*world.reads.registry_asks.borrow(), [Some(102)]);
+    assert_eq!(*world.reads.roots_read.borrow(), [1]);
 }
 
 #[test]
@@ -387,7 +347,7 @@ fn a_spent_deadline_reads_nothing_and_returns_a_timeout() {
     sleep(Duration::from_millis(5));
     let error = capture(&world, &SignalFilter::default(), spent).expect_err("error");
     assert_eq!(error.code, ErrorCode::Timeout);
-    assert!(world.registry_asks.borrow().is_empty());
+    assert!(world.reads.registry_asks.borrow().is_empty());
 }
 
 #[test]

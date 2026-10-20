@@ -23,6 +23,8 @@ pub(crate) struct Nested {
 pub(crate) struct NestedScan {
     pub(crate) found: Vec<Nested>,
     pub(crate) complete: bool,
+    /// The windows whose trees were not read to the end, by position.
+    pub(crate) unread: Vec<usize>,
 }
 
 impl NestedScan {
@@ -30,6 +32,7 @@ impl NestedScan {
         Self {
             found: Vec::new(),
             complete: true,
+            unread: Vec::new(),
         }
     }
 }
@@ -52,15 +55,15 @@ pub(crate) fn scan_windows(
     let mut scan = NestedScan::complete_and_empty();
     for (index, window) in windows.iter().enumerate().filter(|(_, w)| !w.sheet) {
         let Ok((bus_name, path)) = window_id::decode(&window.info.id) else {
-            scan.complete = false;
+            scan.unread.push(index);
             continue;
         };
         let element = AtspiElement::new(bus_name, path, window.info.pid.get());
         let Ok(root) = read(&element) else {
-            scan.complete = false;
+            scan.unread.push(index);
             continue;
         };
-        scan.complete &= !is_cut_short(&root);
+        let mut whole = !is_cut_short(&root);
         for dialog in find(&root) {
             match window_id::encode(dialog.element.bus_name(), dialog.element.path()) {
                 Some(id) => scan.found.push(Nested {
@@ -68,10 +71,14 @@ pub(crate) fn scan_windows(
                     id,
                     title: dialog.title.map(str::to_owned),
                 }),
-                None => scan.complete = false,
+                None => whole = false,
             }
         }
+        if !whole {
+            scan.unread.push(index);
+        }
     }
+    scan.complete = scan.unread.is_empty();
     scan
 }
 

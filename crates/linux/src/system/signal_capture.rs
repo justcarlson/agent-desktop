@@ -63,13 +63,10 @@ fn scope_of(filter: &SignalFilter) -> Scope {
     }
 }
 
-fn selector(filter: &SignalFilter) -> impl Fn(&RegistryApp) -> bool + '_ {
-    move |app| {
-        filter
-            .process
-            .as_ref()
-            .is_none_or(|process| app.root.pid() == process.pid.get())
-            && filter.app.as_deref().is_none_or(|query| app.matches(query))
+pub(super) fn selector(filter: &SignalFilter) -> impl Fn(&RegistryApp) -> bool + '_ {
+    move |app| match &filter.process {
+        Some(process) => app.root.pid() == process.pid.get(),
+        None => filter.app.as_deref().is_none_or(|query| app.matches(query)),
     }
 }
 
@@ -161,3 +158,11 @@ pub(crate) fn capture_signal_baseline(
 #[cfg(test)]
 #[path = "signal_capture_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "signal_capture_fixture.rs"]
+mod signal_capture_fixture;
+
+#[cfg(test)]
+#[path = "signal_capture_select_tests.rs"]
+mod select_tests;

@@ -32,6 +32,13 @@ pub(crate) fn recent_for(pid: u32) -> bool {
 
 /// Whether a listing for a window waits for a popup: only a focused window,
 /// right after an action of this process.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the surface listing of the menu detector asks it; the wait asks recent_for"
+    )
+)]
 pub(crate) fn settles(focused: bool) -> bool {
     LAST_ACTION
         .lock()

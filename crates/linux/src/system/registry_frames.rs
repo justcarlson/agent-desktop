@@ -27,6 +27,14 @@ pub(crate) struct FrameRead {
     pub(crate) read: RootRead,
 }
 
+/// Whether a frame was read without the fields that decide if it is a window,
+/// which one failed read leaves unanswered and not absent.
+fn is_unclassified(node: &RawNode) -> bool {
+    node.traits.role.is_failed()
+        || node.traits.interfaces.is_failed()
+        || node.traits.states.is_failed()
+}
+
 impl FrameRead {
     fn empty(read: RootRead) -> Self {
         Self {
@@ -75,6 +83,7 @@ async fn collect_frames<T, F, Fut>(
     children: Vec<(String, String)>,
     slice: Duration,
     process_gone: impl Fn() -> bool,
+    is_unclassified: impl Fn(&T) -> bool,
     read: F,
 ) -> (Vec<T>, RootRead)
 where
@@ -94,7 +103,12 @@ where
     let mut nodes = Vec::new();
     for outcome in outcomes {
         match outcome {
-            Outcome::Read(node) => nodes.push(node),
+            Outcome::Read(node) => {
+                if is_unclassified(&node) {
+                    complete = RootRead::TimedOut;
+                }
+                nodes.push(node);
+            }
             Outcome::Gone => {}
             Outcome::Slow => complete = RootRead::TimedOut,
         }
@@ -125,6 +139,7 @@ pub(crate) fn read_frames(
                 children,
                 FRAME_SLICE,
                 || proc_stat::is_gone(root.pid()),
+                is_unclassified,
                 |(bus_name, path)| async move {
                     let frame = AtspiElement::new(bus_name, path, root.pid());
                     read_node(connection, &frame).await

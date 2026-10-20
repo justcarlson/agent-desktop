@@ -66,7 +66,7 @@ The roadmap gives 3.11 neither menu waits nor a way to open a dialog. Windows sh
 
 - R14. `crates/core` is unchanged, no shipped source names a plan, phase or decision id, and no probe script or capture enters the repository. Pure decisions take plain values and run on every host; every other requirement is proved by a real run on the GNOME box in a private session (`scripts/private-session.sh`), each test invert-verified.
 - R15. `docs/phases.md` states what was built and no longer states what `L18` or the code disproved: §3.11's scope and exit criterion and §3.12's popover and dialog sentences (§3.4's window shape and sheet sentences and the `L18-1` to `L18-17` rows are already corrected and present). `probes/linux/FINDINGS.md` gets the amendments to `L4-20`, `L14-8` and `L14-14` and this sub-phase's rows in area `L33`, every ledger row naming 3.11 is disposed of, and what core would need is written as owner items.
-- R16. A stranger dogfood is run and its report committed with at least one finding, each disposed of. Latency is measured min-of-seven with the warm-up discarded, and the release binary stays under 15 MiB.
+- R16. A stranger dogfood is run and its findings, at least one, each disposed of, go in the pull request description; no report file is committed. No latency baseline is taken, and the release binary stays under 15 MiB.
 
 ### Key Decisions
 
@@ -325,7 +325,7 @@ U1 settles the open measurements before code. Lanes A and C are independent of e
   - The listing asks only for the expected window's process.
 - **Verification:** the scenarios pass and invert; live in U9 with a SIGSTOPped Calculator and a ref from before the stop.
 
-### U9. Live verification and performance
+### U9. Live verification
 
 - **Goal:** prove R1-R13 on real apps in a private session, and price the poll.
 - **Requirements:** R1-R13, R16.
@@ -341,7 +341,7 @@ U1 settles the open measurements before code. Lanes A and C are independent of e
   - `wait --menu` and `--menu-closed` in both directions on Calculator and Files (GTK4, closed by `click`), Terminal (GTK3 bar shown, closed by `press Escape`; header popover closed by `click`), the Qt window, Chrome (closed by `press Escape`); an already-open menu satisfies `--menu` at once; a hidden GTK3 menu bar times out with the direction message.
   - A SIGSTOPped target scoped wait returns `TIMEOUT` carrying `APP_UNRESPONSIVE` as `last_error` inside the deadline, and a batch `[action, wait --event]` with that target aborts as `pre_action_baseline_failed`; a scoped target that is alive but slow (U1 item 11) keeps the wait polling with the classes incomplete and no `last_error` of that code, and a batch seed is not aborted; an unscoped wait with an unrelated stopped app reports no events and returns inside the deadline; a target that exits mid-menu-wait is `STALE_REF`; a window ref taken before a SIGSTOP resolves to `APP_UNRESPONSIVE` (U12).
   - Chrome: opening a menu is not `window-opened` (U3); two real windows list and diff correctly.
-- **Verification:** all pass in the private session; each scenario that guards a named rule has been seen to fail with the rule broken. Performance: min of seven with the warm-up discarded, with median and max beside it, for one unscoped capture pass against the 37 ms `L8-1` baseline, a scoped pass on one app, and one menu-detector poll (`menu_anchor`) on Calculator, Files, Terminal and Chrome; release size against 15 MiB. The numbers go in the PR description. The live-session re-run is outstanding until the owner restores the bus, with its scope listed.
+- **Verification:** all pass in the private session; each scenario that guards a named rule has been seen to fail with the rule broken. The live-session re-run is outstanding until the owner restores the bus, with its scope listed.
 
 ### U10. Roadmap and ledger corrections
 
@@ -367,7 +367,7 @@ U1 settles the open measurements before code. Lanes A and C are independent of e
 - **Goal:** find what a new agent hits using only the shipped skill and the built binary.
 - **Requirements:** R16.
 - **Dependencies:** U9.
-- **Files:** `docs/dogfood-reports/<date>-<serial>-feat-linux-3-11-signals-wait-parity-dogfood.md`.
+- **Files:** none; the findings and their dispositions go in the pull request description.
 - **Approach:** KD6. The operator is a subagent briefed that it holds the release binary and `skills/agent-desktop/` read through `skills get core` and nothing else, repository withheld, working inside `scripts/private-session.sh --wm`. It runs every example verbatim in the default shell, reads every step's `ok`, waits with the tool's own primitives and never a sleep, and treats any undocumented flag, variable or ordering (`AGENT_DESKTOP_HOME`, `XDG_CURRENT_DESKTOP`, `L4-25`) as a finding. A failure counts after a second independent observation; a behavioural claim is measured in both directions. Legs, positive and negative each:
   1. All seven tokens: Text Editor `--new-window`, Calculator, two-window focus, launch and close, and the three dialog openers.
   2. A no-transition pair yields nothing; the timeout carries `baseline_counts` and, when induced, `last_error`.
@@ -379,7 +379,7 @@ U1 settles the open measurements before code. Lanes A and C are independent of e
   8. A busy desktop with helpers, then an adversarial pass: zero timeout, tiny timeout against app-resolution cost, a target dying mid-wait.
   The report is judged: at least one finding, else the targets are made harder.
 - **Test expectation:** none -- a run and a report; each finding is fixed (a named test that fails when the fix is broken), owned elsewhere (the receiving scope written into `docs/phases.md` in this PR) or accepted with a reason.
-- **Verification:** the report is committed, every finding has one disposition, and every fixed finding's test was seen to fail with the fix removed.
+- **Verification:** the pull request description lists every finding with one disposition, and every fixed finding's test was seen to fail with the fix removed.
 
 ---
 
@@ -398,10 +398,9 @@ U1 settles the open measurements before code. Lanes A and C are independent of e
 | Size | release binary size against 15 MiB | R16 |
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `scripts/check-stale-ref-constructor-misuse.sh`, `cargo fmt --all -- --check` | 400-line cap, no plan ids in source |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.11` lists no `DEFERRED` row | citations valid, rows disposed |
-| Perf | min-of-seven with warm-up discarded; min, median, max for the capture pass (unscoped and scoped) and one menu-predicate poll | no unexplained latency; Linux method (`scripts/perf-baseline-compare.sh` is macOS-bound) |
-| Dogfood | the committed report with every finding disposed | R16 |
+| Dogfood | the pull request description with every finding disposed | R16 |
 
-Requirement-to-check map: R1 → U2, U5 rows and U9 handoff and open-close legs; R2 → U4 population rows and U9 helper leg; R3 → U4 focus rows and U9 focus legs; R4-R5 → U3 rows, U4 kinds test and U9 openers; R6 → U4 and U5 scoped-scan rows; R7 → U8 or its limit sentence; R8 → U4 completeness rows, U12 and U9 stopped-app and slow-app legs; R9 → U5 boundary rows and the batch leg; R10 → U2 select-first row, U5 deadline rows and U9 stopped legs; R11 → U6 family rows (imported rows plus Rule B) and U9 menu legs; R12 → U7 rows and U9 target-death leg; R13 → U9 cadence leg and dogfood leg 4; R14 → Isolation, Dependency and Source rules; R15 → Ledger and U10; R16 → Perf, Size and Dogfood.
+Requirement-to-check map: R1 → U2, U5 rows and U9 handoff and open-close legs; R2 → U4 population rows and U9 helper leg; R3 → U4 focus rows and U9 focus legs; R4-R5 → U3 rows, U4 kinds test and U9 openers; R6 → U4 and U5 scoped-scan rows; R7 → U8 or its limit sentence; R8 → U4 completeness rows, U12 and U9 stopped-app and slow-app legs; R9 → U5 boundary rows and the batch leg; R10 → U2 select-first row, U5 deadline rows and U9 stopped legs; R11 → U6 family rows (imported rows plus Rule B) and U9 menu legs; R12 → U7 rows and U9 target-death leg; R13 → U9 cadence leg and dogfood leg 4; R14 → Isolation, Dependency and Source rules; R15 → Ledger and U10; R16 → Size and Dogfood.
 
 ## Definition of Done
 
@@ -421,7 +420,7 @@ Requirement-to-check map: R1 → U2, U5 rows and U9 handoff and open-close legs;
   - `L18-15`: owned elsewhere, 3.12 (recorded in its scope). `L18-16`: consumed by 3.7 (U4 capability table and verb list).
   - `L18-17`: consumed (the private-session script), no code here.
   - U1's new rows: each with its verdict and a disposition.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified.
+- The dogfood findings are in the pull request description, each disposed of, and every fixed finding's test is invert-verified.
 - `crates/core` diff is empty, no shipped source names a plan, phase or decision id, no probe script, capture or box identity is committed, and no dependency was added.
 - `docs/phases.md` states what was built and no longer states what the evidence disproved.
 - No abandoned experiment code remains.

@@ -10,8 +10,8 @@ use agent_desktop_core::{
 
 use crate::adapter::LinuxAdapter;
 use crate::system::{
-    close, interaction_lease, key_dispatch, launch, menu_wait, permissions, process_state,
-    protected, session, signal_capture, window_op,
+    action_clock, close, interaction_lease, key_dispatch, launch, menu_wait, permissions,
+    process_state, protected, session, signal_capture, window_op,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -92,7 +92,10 @@ impl SystemOps for LinuxAdapter {
         policy: InteractionPolicy,
         lease: &InteractionLease,
     ) -> Result<ActionResult, AdapterError> {
-        key_dispatch::press_key_for_app(self.bus(), process, combo, policy, lease)
+        let pid = process.pid.get();
+        let result = key_dispatch::press_key_for_app(self.bus(), process, combo, policy, lease);
+        action_clock::mark_process(pid);
+        result
     }
 
     fn is_blocked_combo(&self, combo: &KeyCombo) -> bool {

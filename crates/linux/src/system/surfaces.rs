@@ -59,6 +59,24 @@ pub(crate) fn nested_entries(scan: &NestedScan) -> Vec<SurfaceInfo> {
         .collect()
 }
 
+/// Names the `sheet` kind unclassified on the window entry of every window
+/// whose tree was not read to the end, so a missing nested dialog is not
+/// taken for an observed absence.
+pub(crate) fn mark_unread(
+    surfaces: &mut [SurfaceInfo],
+    windows: &[ListedWindow],
+    scan: &NestedScan,
+) {
+    for window in scan.unread.iter().filter_map(|&index| windows.get(index)) {
+        for entry in surfaces
+            .iter_mut()
+            .filter(|entry| entry.kind == "window" && entry.id == window.info.id)
+        {
+            entry.unclassified.push("sheet".to_owned());
+        }
+    }
+}
+
 /// Lists the surfaces the named process presents. The process identity is
 /// checked first so a surface list never answers for a pid that has since
 /// become a different process.
@@ -71,11 +89,10 @@ pub(crate) fn list_surfaces(
     let registry = read_registry(bus, deadline)?;
     let pid = process.pid.get();
     let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
+    let scan = scan_windows(&windows, bus_read(bus, deadline));
     let mut surfaces = surfaces_of(&windows);
-    surfaces.extend(nested_entries(&scan_windows(
-        &windows,
-        bus_read(bus, deadline),
-    )));
+    mark_unread(&mut surfaces, &windows, &scan);
+    surfaces.extend(nested_entries(&scan));
     Ok(surfaces)
 }
 

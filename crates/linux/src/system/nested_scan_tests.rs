@@ -107,6 +107,7 @@ fn a_tree_cut_short_by_the_budget_marks_the_scan_incomplete() {
     cut.children[0].truncated = true;
     let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(cut.clone()));
     assert!(!scan.complete);
+    assert_eq!(scan.unread, [0]);
 }
 
 #[test]

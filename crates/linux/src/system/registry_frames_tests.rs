@@ -22,6 +22,7 @@ fn one_stalled_frame_costs_one_slice_keeps_its_peers_and_reads_timed_out() {
         children(4),
         Duration::from_millis(100),
         || false,
+        |_| false,
         |(bus, _)| async move {
             if bus == ":1.1" {
                 Timer::after(Duration::from_secs(30)).await;
@@ -40,6 +41,7 @@ fn a_frame_that_fails_for_another_reason_reads_timed_out() {
         children(3),
         Duration::from_millis(100),
         || false,
+        |_| false,
         |(bus, _)| async move {
             if bus == ":1.0" {
                 Err(AdapterError::internal("failed field"))
@@ -58,6 +60,7 @@ fn a_gone_frame_is_left_out_and_the_read_is_complete() {
         children(3),
         Duration::from_millis(100),
         || false,
+        |_| false,
         |(bus, _)| async move { if bus == ":1.0" { Err(gone()) } else { Ok(bus) } },
     ));
     assert_eq!(frames, [":1.1", ":1.2"]);
@@ -112,6 +115,7 @@ fn a_frame_that_fails_after_its_process_left_reads_complete() {
         children(2),
         Duration::from_millis(100),
         || true,
+        |_| false,
         |(bus, _)| async move {
             if bus == ":1.0" {
                 Err(AdapterError::internal("NoReply"))
@@ -122,4 +126,30 @@ fn a_frame_that_fails_after_its_process_left_reads_complete() {
     ));
     assert_eq!(frames, [":1.1"]);
     assert_eq!(read, RootRead::Read);
+}
+
+#[test]
+fn a_frame_whose_classifying_field_failed_is_kept_and_marks_the_read_incomplete() {
+    use crate::tree::test_support::read_of;
+    use crate::tree::{Field, RawNode};
+    let whole = read_of(23, "w", &[]).node;
+    let mut interfaces_failed = whole.clone();
+    interfaces_failed.traits.interfaces = Field::Failed("GetInterfaces".to_owned());
+    let (frames, read) = zbus::block_on(collect_frames(
+        children(2),
+        Duration::from_millis(100),
+        || false,
+        super::is_unclassified,
+        |(bus, _)| {
+            let node: RawNode = if bus == ":1.0" {
+                interfaces_failed.clone()
+            } else {
+                whole.clone()
+            };
+            async move { Ok(node) }
+        },
+    ));
+    assert_eq!(frames.len(), 2);
+    assert_eq!(read, RootRead::TimedOut);
+    assert!(!super::is_unclassified(&whole));
 }

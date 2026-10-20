@@ -87,3 +87,13 @@ fn a_record_parses_back() {
     assert_eq!(parse("1200 boot:7\n"), Some((1200, "boot:7")));
     assert_eq!(parse("x"), None);
 }
+
+#[test]
+fn a_scratch_file_being_written_by_another_invocation_is_not_pruned() {
+    let dir = scratch("scratch");
+    std::fs::create_dir_all(&dir).expect("dir");
+    std::fs::write(dir.join(".7.4242"), "").expect("scratch");
+    record_in(&dir, None, 10_000, &token);
+    assert!(dir.join(".7.4242").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}

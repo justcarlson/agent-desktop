@@ -158,6 +158,7 @@ fn scan(found: Vec<crate::system::nested_scan::Nested>) -> crate::system::nested
     crate::system::nested_scan::NestedScan {
         found,
         complete: true,
+        unread: Vec::new(),
     }
 }
 

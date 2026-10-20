@@ -63,24 +63,49 @@ fn write_atomic(dir: &Path, name: &str, body: &str) -> std::io::Result<()> {
     fs::rename(&scratch, dir.join(name))
 }
 
+fn is_stale(
+    path: &Path,
+    name: &str,
+    now_ms: u64,
+    token_now: &dyn Fn(u32) -> Option<String>,
+) -> bool {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    match parse(&text) {
+        None => true,
+        Some((at, token)) => {
+            !is_fresh(at, now_ms, KEEP_MS)
+                || name
+                    .parse::<u32>()
+                    .is_ok_and(|pid| token_now(pid).as_deref() != Some(token))
+        }
+    }
+}
+
+fn is_old_scratch(path: &Path) -> bool {
+    fs::metadata(path)
+        .and_then(|meta| meta.modified())
+        .ok()
+        .and_then(|modified| modified.elapsed().ok())
+        .is_some_and(|age| age.as_millis() > u128::from(KEEP_MS))
+}
+
+/// Removes records that are old or whose process is gone. A scratch file is
+/// another invocation's record in the middle of being written, so it is left
+/// alone unless it has sat there far longer than a write takes.
 fn prune(dir: &Path, now_ms: u64, token_now: &dyn Fn(u32) -> Option<String>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let text = fs::read_to_string(entry.path()).unwrap_or_default();
-        let stale = match parse(&text) {
-            None => true,
-            Some((at, token)) => {
-                !is_fresh(at, now_ms, KEEP_MS)
-                    || name
-                        .parse::<u32>()
-                        .is_ok_and(|pid| token_now(pid).as_deref() != Some(token))
-            }
+        let path = entry.path();
+        let remove = if name.starts_with('.') {
+            is_old_scratch(&path)
+        } else {
+            is_stale(&path, &name, now_ms, token_now) && is_stale(&path, &name, now_ms, token_now)
         };
-        if stale {
-            let _ = fs::remove_file(entry.path());
+        if remove {
+            let _ = fs::remove_file(&path);
         }
     }
 }

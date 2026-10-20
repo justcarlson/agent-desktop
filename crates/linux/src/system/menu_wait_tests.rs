@@ -263,3 +263,17 @@ fn a_poll_is_followed_by_the_full_pause_whatever_the_poll_cost() {
     assert_eq!(pauses.len(), 3);
     assert!(pauses.iter().all(|gap| *gap == Duration::from_millis(50)));
 }
+
+#[test]
+fn a_closed_wait_is_not_satisfied_by_reads_that_could_not_tell() {
+    let world = Fake::new(vec![
+        Err(AdapterError::timeout("partial")),
+        Err(AdapterError::timeout("partial")),
+        Ok(false),
+    ]);
+    assert!(run(&world, false, deadline(5000)).is_ok());
+    assert_eq!(world.read_count.get(), 3);
+    let never = Fake::new(vec![Err(AdapterError::timeout("partial"))]);
+    let error = run(&never, false, deadline(120)).expect_err("never read in full");
+    assert_eq!(error.code, ErrorCode::Timeout);
+}

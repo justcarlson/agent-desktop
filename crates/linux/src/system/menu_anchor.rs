@@ -11,8 +11,9 @@ use super::menu_reader::BusReader;
 use super::menu_surface::{MenuPopup, PopupReader, find_popups, vanished};
 use super::registry::read_registry_for;
 use super::registry_app::RegistryApp;
+use super::registry_frames::RootRead;
+use super::signal_inventory::read_selected;
 use super::window_id;
-use super::window_ops::windows_of;
 use crate::tree::AtspiElement;
 
 enum Target {
@@ -52,7 +53,7 @@ fn answer(
     Ok(false)
 }
 
-type TopLevels = RefCell<HashMap<String, Vec<Node>>>;
+type TopLevels = RefCell<HashMap<String, (Vec<Node>, bool)>>;
 
 /// What the reads of one poll share: whether the process is a web engine,
 /// which the registry already says, and the top-level popup candidates of
@@ -61,6 +62,7 @@ type TopLevels = RefCell<HashMap<String, Vec<Node>>>;
 struct Poll<'a> {
     web: bool,
     top_levels: &'a TopLevels,
+    incomplete: Cell<bool>,
 }
 
 struct AnchorReader<'a> {
@@ -69,6 +71,7 @@ struct AnchorReader<'a> {
     window: &'a AtspiElement,
     poll: &'a Poll<'a>,
     deadline: Deadline,
+    top_incomplete: bool,
 }
 
 impl PopupReader for AnchorReader<'_> {
@@ -83,14 +86,18 @@ impl PopupReader for AnchorReader<'_> {
         let key = self.window.bus_name().to_owned();
         if !self.poll.top_levels.borrow().contains_key(&key) {
             let probe = AtspiElement::new(key.clone(), "/", self.window.pid());
-            let all = BusReader::new(self.bus, &probe, self.deadline).top_levels()?;
-            self.poll.top_levels.borrow_mut().insert(key.clone(), all);
+            let mut reader = BusReader::new(self.bus, &probe, self.deadline);
+            let all = reader.top_levels()?;
+            self.poll
+                .top_levels
+                .borrow_mut()
+                .insert(key.clone(), (all, reader.incomplete));
         }
         let cache = self.poll.top_levels.borrow();
-        Ok(cache
-            .get(&key)
-            .into_iter()
-            .flatten()
+        let (all, incomplete) = cache.get(&key).cloned().unwrap_or_default();
+        self.top_incomplete |= incomplete;
+        Ok(all
+            .iter()
             .filter(|node| {
                 let element = &node.payload.node.element;
                 !(element.bus_name() == self.window.bus_name()
@@ -117,8 +124,12 @@ fn popups_at(
         window,
         poll,
         deadline,
+        top_incomplete: false,
     };
-    match find_popups(&mut reader, false, deadline) {
+    let found = find_popups(&mut reader, false, deadline);
+    poll.incomplete
+        .set(poll.incomplete.get() || reader.inner.incomplete || reader.top_incomplete);
+    match found {
         Err(error) if vanished(&error) => Ok(Vec::new()),
         other => other,
     }
@@ -145,10 +156,13 @@ fn collect_targets(
     bus: &SharedBus,
     pid: u32,
     deadline: Deadline,
-) -> Result<(Vec<Target>, bool), AdapterError> {
+) -> Result<(Vec<Target>, bool, bool), AdapterError> {
     let registry = read_registry_for(bus, Some(pid), deadline)?;
     let owned = owned_by(pid);
-    let windows = windows_of(bus, &registry, &owned, deadline)?;
+    let (windows, outcomes) = read_selected(bus, &registry, &owned, deadline)?;
+    let unread = outcomes
+        .iter()
+        .any(|outcome| outcome.read != RootRead::Read);
     let owners: Vec<&RegistryApp> = registry.apps.iter().filter(|app| owned(app)).collect();
     let web = owners.iter().any(|app| app.facts.web_family.is_some());
     let roots = owners.iter().map(|app| app.root.clone()).collect();
@@ -156,7 +170,20 @@ fn collect_targets(
         roots,
         windows.into_iter().map(|window| window.info).collect(),
     );
-    Ok((targets, web))
+    Ok((targets, web, unread))
+}
+
+/// The answer of a poll that found no open menu: closed only when every read
+/// that could have shown one was whole. A read that failed or was cut short
+/// proves nothing about a menu it could not see, so the poll reports that it
+/// could not tell and the wait goes on.
+fn settle(open: bool, incomplete: bool) -> Result<bool, AdapterError> {
+    if open || !incomplete {
+        return Ok(open);
+    }
+    Err(AdapterError::timeout(
+        "The menu state could not be read in full",
+    ))
 }
 
 fn read_menu(
@@ -168,21 +195,28 @@ fn read_menu(
     let pid = process.pid.get();
     let top_levels = TopLevels::default();
     let web = Cell::new(false);
-    answer(
+    let unread = Cell::new(false);
+    let poll_incomplete = Cell::new(false);
+    let open = answer(
         state,
         || {
-            let (found, is_web) = collect_targets(bus, pid, deadline)?;
+            let (found, is_web, not_whole) = collect_targets(bus, pid, deadline)?;
             web.set(is_web);
+            unread.set(not_whole);
             Ok(found)
         },
         |target| {
             let poll = Poll {
                 web: web.get(),
                 top_levels: &top_levels,
+                incomplete: Cell::new(false),
             };
-            read_target(bus, target, &poll, deadline)
+            let seen = read_target(bus, target, &poll, deadline);
+            poll_incomplete.set(poll_incomplete.get() || poll.incomplete.get());
+            seen
         },
-    )
+    )?;
+    settle(open, unread.get() || poll_incomplete.get())
 }
 
 /// Whether the process has an open menu now. The caller checks that the

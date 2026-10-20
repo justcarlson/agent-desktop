@@ -49,16 +49,26 @@ fn flips(
     action: impl FnOnce(),
     oracle: impl Fn() -> bool + Sync,
 ) {
-    let result = std::thread::scope(|scope| {
-        let waiter = scope.spawn(|| wait_menu(rig, app, open, 20_000));
+    let (result, finished, acted) = std::thread::scope(|scope| {
+        let waiter = scope.spawn(|| (wait_menu(rig, app, open, 20_000), Instant::now()));
         std::thread::sleep(Duration::from_millis(1_000));
+        assert!(
+            !waiter.is_finished(),
+            "the wait for open={open} must still be pending before the menu changes"
+        );
+        let acted = Instant::now();
         action();
         poll("the independent oracle to agree", || {
             (oracle() == open).then_some(())
         });
-        waiter.join().expect("the waiter finished")
+        let (result, finished) = waiter.join().expect("the waiter finished");
+        (result, finished, acted)
     });
     found(&result);
+    assert!(
+        finished >= acted,
+        "the wait ended before the action that changes the menu"
+    );
 }
 
 struct Legs<'a> {

@@ -27,16 +27,6 @@ pub(crate) enum MenuFamily {
     Chromium,
 }
 
-impl MenuFamily {
-    #[expect(
-        dead_code,
-        reason = "read by the menu surface listing, not by the wait"
-    )]
-    pub(crate) fn is_top_level(self) -> bool {
-        matches!(self, Self::Gtk3Context | Self::Chromium)
-    }
-}
-
 pub(super) struct Found<'a> {
     pub(super) root: &'a Node,
     pub(super) family: MenuFamily,
@@ -194,7 +184,7 @@ fn is_popup_content(role: Option<u32>) -> bool {
     )
 }
 
-fn only_menu_content(node: &Node) -> bool {
+pub(super) fn only_menu_content(node: &Node) -> bool {
     is_popup_content(role(node)) && node.children.iter().all(only_menu_content)
 }
 

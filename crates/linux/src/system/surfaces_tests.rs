@@ -68,6 +68,7 @@ fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entrie
             title: Some("About".to_owned()),
         }],
         complete: true,
+        unread: Vec::new(),
     };
     let entries = super::nested_entries(&scan);
     let [entry] = entries.as_slice() else {
@@ -83,4 +84,19 @@ fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entrie
             .iter()
             .all(|surface| surface.id != entry.id)
     );
+}
+
+#[test]
+fn a_window_whose_tree_was_not_read_in_full_names_the_sheet_kind_unclassified() {
+    use crate::system::nested_scan::NestedScan;
+    let windows = [window("w-1", "A", false), window("w-2", "B", false)];
+    let scan = NestedScan {
+        found: Vec::new(),
+        complete: false,
+        unread: vec![1],
+    };
+    let mut surfaces = surfaces_of(&windows);
+    super::mark_unread(&mut surfaces, &windows, &scan);
+    assert!(surfaces[0].unclassified.is_empty());
+    assert_eq!(surfaces[1].unclassified, ["sheet"]);
 }
