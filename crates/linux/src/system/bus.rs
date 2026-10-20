@@ -15,6 +15,9 @@ const BUS_SERVICE: &str = "org.a11y.Bus";
 const BUS_PATH: &str = "/org/a11y/bus";
 pub(crate) const REGISTRY_SERVICE: &str = "org.a11y.atspi.Registry";
 pub(crate) const REGISTRY_ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
+const REGISTRY_PATH: &str = "/org/a11y/atspi/registry";
+const REGISTRY_INTERFACE: &str = "org.a11y.atspi.Registry";
+const LISTENED_EVENT: &str = "window:activate";
 pub(crate) const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
 pub(crate) const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 
@@ -84,7 +87,26 @@ fn connect(deadline: Deadline) -> Result<Connection, AdapterError> {
             .await
             .map_err(|error| classify(&error))
     })?;
+    let _ = within(deadline, announce_listener(&connection));
     Ok(connection.into())
+}
+
+/// Chromium and Electron track which window is active only once an assistive
+/// client has told the registry it listens for events, and until then a
+/// window the window manager has made active still reads as not active. A
+/// client that never reads the tree through libatspi has to say so itself.
+async fn announce_listener(connection: &AsyncConnection) -> Result<(), AdapterError> {
+    connection
+        .call_method(
+            Some(REGISTRY_SERVICE),
+            REGISTRY_PATH,
+            Some(REGISTRY_INTERFACE),
+            "RegisterEvent",
+            &(LISTENED_EVENT, Vec::<String>::new(), ""),
+        )
+        .await
+        .map(|_| ())
+        .map_err(|error| classify(&error))
 }
 
 /// Reads `ChildCount` from the AT-SPI registry root, which answers even when
