@@ -81,13 +81,15 @@ Version 2.5 is a breaking payload change for the commands that dispatch pointer,
 
 The unconditional success flags are removed with no compatibility alias: `clicked`, `moved`, `scrolled`, `hovered`, `dragged`, `resized`, `minimized`, `maximized`, `restored`, `closed`, `cleared`, the `requested` field of `close-app`, and the inner `ok` of `clipboard-set`. A flag that every successful call carried proved nothing about the operation.
 
+A verified window report names the exact readback in `details.verification_scope` (`window_size`, `window_position`, `window_minimized_state` or `window_maximized_state`). Geometry scopes also state `details.tolerance` and `details.units`: 2 points on macOS, 8 px on Windows. A window failure after the write keeps its code, details and disposition and gains `details.target` and the completed `details.steps`.
+
 Each of these commands now returns the adapter's own report inside `data`:
 
 ```json
 {
   "action": "drag",
   "disposition": { "delivery": "delivered_unverified", "retry": "unsafe" },
-  "steps": [ { "label": "drag", "outcome": "succeeded", "mechanism": "physical_synthetic" } ],
+  "steps": [ { "label": "pointer_drag", "outcome": "succeeded", "mechanism": "physical_synthetic" } ],
   "target": { "kind": "drag", "from": { "x": 10, "y": 20 }, "to": { "x": 80, "y": 20 } },
   "from": { "x": 10, "y": 20 },
   "to": { "x": 80, "y": 20 }
