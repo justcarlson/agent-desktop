@@ -280,7 +280,8 @@ fn deliver(
                 modifiers: Vec::new(),
             },
             deadline,
-        ),
+        )
+        .map(|_| ()),
         Backend::Wayland => {
             let mut session = RemoteDesktop::open(deadline)?;
             match monitor_under(point, displays) {
