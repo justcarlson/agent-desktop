@@ -4,7 +4,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use serde_json::json;
 
-use super::{Scope, narrow_with};
+use super::{Scope, narrow};
 
 const ALL: [ErrorCode; 16] = [
     ErrorCode::PermDenied,
@@ -50,7 +50,7 @@ fn stopped() -> AdapterError {
 
 fn run(error: AdapterError, scope: Scope, deadline: Deadline) -> (AdapterError, u32) {
     let forgotten = Cell::new(0);
-    let narrowed = narrow_with(error, scope, deadline, || {
+    let narrowed = narrow(error, scope, deadline, || {
         forgotten.set(forgotten.get() + 1)
     });
     (narrowed, forgotten.get())

@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use super::{
-    FRAME, MENU_BUTTON, MENU_ITEM, Node, Rig, TOGGLE, app_inventory, deadline, descendants,
-    do_action, poll, press, top_level, within,
+    MENU_BUTTON, MENU_ITEM, Node, Rig, TOGGLE, app_inventory, deadline, descendants, do_action,
+    poll, press, top_level, within,
 };
 use crate::tree::live_launch::nonce;
 
@@ -128,17 +128,4 @@ pub(crate) fn scratch_dir(rig: &mut Rig, label: &str) -> String {
     std::fs::create_dir_all(&dir).expect("scratch dir");
     rig.launched.scratch.push(dir.clone());
     dir.to_string_lossy().into_owned()
-}
-
-pub(crate) fn close_newest_frame(rig: &Rig, pid: u32) {
-    let frames = top_level(&rig.connection, pid);
-    let newest = frames
-        .iter()
-        .rfind(|n| n.role == FRAME)
-        .expect("a frame to close");
-    let close = within(&rig.connection, newest)
-        .into_iter()
-        .find(|n| n.name == "Close" && n.role == MENU_BUTTON)
-        .expect("the frame's own Close button");
-    do_action(&rig.connection, &close);
 }

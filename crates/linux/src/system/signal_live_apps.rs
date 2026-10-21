@@ -8,12 +8,12 @@ use agent_desktop_core::commands::wait::{
 use agent_desktop_core::commands::wait_surface::SurfaceWait;
 use agent_desktop_core::{
     AdapterError, AppError, CommandContext, Deadline, InteractionPolicy, ProcessIdentity,
-    SignalBaseline, SignalFilter, SystemOps, UiEvent, WindowFilter, diff_signals,
+    SignalBaseline, SignalFilter, SystemOps, UiEvent, diff_signals,
 };
 use serde_json::Value;
 use zbus::blocking::Connection;
 
-use super::{SharedBus, app_inventory, list_windows};
+use super::{SharedBus, app_inventory};
 use crate::LinuxAdapter;
 use crate::tree::live_launch::Launched;
 
@@ -23,13 +23,12 @@ mod launch;
 mod oracle;
 
 pub(super) use launch::{
-    close_newest_frame, dismiss_dialog, launch_qt, main_menu_toggle, open_gtk4_menu_item,
-    scratch_dir, terminal_server,
+    dismiss_dialog, launch_qt, main_menu_toggle, open_gtk4_menu_item, scratch_dir, terminal_server,
 };
 pub(super) use oracle::{
-    FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, STATE_CHECKED, STATE_SHOWING, TOGGLE,
+    MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, STATE_CHECKED, STATE_SHOWING, TOGGLE,
     descendants, do_action, process_gone, process_state, showing_of, top_level, within,
-    x11_active_pid, x11_windows,
+    x11_windows,
 };
 
 pub(super) const SETTLE: Duration = Duration::from_secs(40);
@@ -220,16 +219,6 @@ fn wait_with(
 pub(super) fn press(rig: &Rig, app: &str, combo: &str) -> Result<Value, AppError> {
     press_with(rig, app, None, combo, CommandContext::default())
         .or_else(|_| press_headed(rig, app, None, combo))
-}
-
-pub(super) fn window_ids(rig: &Rig, app: &str) -> Vec<String> {
-    let filter = WindowFilter {
-        focused_only: false,
-        app: Some(app.to_owned()),
-    };
-    list_windows(rig.bus(), &filter, deadline(10_000))
-        .map(|windows| windows.into_iter().map(|w| w.id).collect())
-        .unwrap_or_default()
 }
 
 pub(super) fn press_headed(

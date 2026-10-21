@@ -6,7 +6,6 @@ use crate::system::{
     ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE,
 };
 
-pub(crate) const FRAME: u32 = 23;
 pub(crate) const MENU: u32 = 33;
 pub(crate) const MENU_ITEM: u32 = 35;
 pub(crate) const POPUP_MENU: u32 = 41;
@@ -56,15 +55,6 @@ pub(crate) fn x11_windows(pid: u32) -> Vec<String> {
         .into_iter()
         .filter(|id| window_pid(id) == Some(pid))
         .collect()
-}
-
-pub(crate) fn x11_active_pid() -> Option<u32> {
-    let active = hex_ids(&xprop(&["-root", "_NET_ACTIVE_WINDOW"]));
-    let id = active.first()?;
-    if id == "0x0" {
-        return None;
-    }
-    window_pid(id)
 }
 
 pub(crate) struct Node {

@@ -159,7 +159,7 @@ pub(crate) fn capture_signal_baseline(
     deadline: Deadline,
 ) -> Result<SignalBaseline, AdapterError> {
     capture(&BusWorld(bus), filter, deadline)
-        .map_err(|error| narrow(error, scope_of(filter), bus, deadline))
+        .map_err(|error| narrow(error, scope_of(filter), deadline, || bus.forget_cached()))
 }
 
 #[cfg(test)]
