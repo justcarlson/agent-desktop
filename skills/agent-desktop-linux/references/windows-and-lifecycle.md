@@ -13,7 +13,9 @@ display of a Wayland session). `wmctrl` and `xdotool` are not used.
   `gnome-text-editor`);
 - the registry name (`org.gnome.Nautilus`);
 - the `Name` of a desktop entry (`Files`, `Text Editor`) as an alias, when the
-  entry's `Exec` program matches the process. The listed name does not change.
+  entry's `Exec` program uniquely identifies the process. Entries sharing an
+  executable basename receive no name alias; `TryExec` helpers receive none.
+  The listed name does not change.
 
 Scoped app matching is exact, ignoring case, and the process must belong to this
 session. It accepts the listed name, registry name, executable basename, `comm`,
@@ -110,6 +112,8 @@ close only a document or tab and leave its window open.
   signal. A file manager that outlives its windows ends in `TIMEOUT` with
   `delivered_unverified`; `--force` ends it. A terminal server closes like any
   other app: `close-app gnome-terminal` ended `gnome-terminal-server`.
+- An unconfirmed close send reports uncertain delivery and unsafe retry, even
+  if the remaining fan-out runs out of time. Observe the app before retrying.
 - A save prompt keeps the app open. The dialog is a new top-level window of the
   same pid, counted in `details.dialogs`. Read it with a plain
   `snapshot --app <name>` or `--surface sheet`, answer it, then close again. When
@@ -162,6 +166,10 @@ agent-desktop focus-window --app gnome-calculator
 
 `focus-window` succeeds only when `_NET_ACTIVE_WINDOW` and the frame's `ACTIVE`
 state agree.
+
+Once an activation request is sent, a failed readback or modal refusal reports
+`delivered_unverified` and unsafe retry. An unconfirmed send reports uncertain
+delivery. A later timeout does not make the earlier request safe to repeat.
 
 - A minimized or hidden target is lifted first. A window on another workspace
   switches the user's current desktop to its workspace before the request: this

@@ -188,7 +188,7 @@ impl FocusWorld for World {
         self.stopped
     }
 
-    fn send_untimed(&self, client: u32) -> Result<(), ActivateError> {
+    fn send_untimed(&self, client: u32) -> Result<(), ControlError> {
         self.writes.borrow_mut().push("send_untimed".to_owned());
         if self.untimed_grants {
             self.active.set(Some(client));
@@ -231,11 +231,11 @@ impl FocusWorld for World {
         Ok(self.lifted.clone())
     }
 
-    fn send(&self, client: u32) -> Result<(), ActivateError> {
+    fn send(&self, client: u32) -> Result<(), ControlError> {
         self.writes.borrow_mut().push("send".to_owned());
         self.sent.borrow_mut().push(client);
         if self.send_fails {
-            return Err(ActivateError::SendFailed);
+            return Err(ControlError::SendFailed);
         }
         match self.grant {
             Grant::Now => {
@@ -293,8 +293,4 @@ pub(super) fn assert_refused(error: &AdapterError, cause: &str) {
     let details = error.details.as_ref().expect("details");
     assert_eq!(details["cause"], cause);
     assert_eq!(details["physical_delivery_started"], false);
-    assert_eq!(
-        error.disposition,
-        agent_desktop_core::DeliverySemantics::not_delivered()
-    );
 }

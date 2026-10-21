@@ -8,6 +8,7 @@ use super::window_op_verdict::POLL;
 use super::x11::X11State;
 use super::x11::activate::ACTIVATION_GRACE;
 use super::x11::activate_error::ActivateError;
+use super::x11::control_error::ControlError;
 use super::x11::stacking_read::StackingRead;
 use super::{SharedBus, shell, window_id};
 use crate::system::process_lookup::Lookup;
@@ -41,11 +42,11 @@ pub(super) trait FocusWorld: ClientWorld {
     fn frame(&self) -> Result<FrameView, AdapterError>;
     fn clients(&self) -> X11State;
     fn stacking(&self, client: u32) -> StackingRead;
-    fn send(&self, client: u32) -> Result<(), ActivateError>;
+    fn send(&self, client: u32) -> Result<(), ControlError>;
     fn active(&self) -> Option<u32>;
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError>;
     fn stopped(&self, pid: u32) -> bool;
-    fn send_untimed(&self, client: u32) -> Result<(), ActivateError>;
+    fn send_untimed(&self, client: u32) -> Result<(), ControlError>;
     fn switch_desktop(&self, desktop: u32) -> Result<(), ActivateError>;
     fn modal_over(&self, client: u32) -> Option<String>;
     fn input_focus_in(&self, client: u32) -> bool;
@@ -165,7 +166,14 @@ fn ask_and_wait(
     } else {
         world.send(client)
     };
-    sent.map_err(|_| refusal(Cause::ActivationNotSent))?;
+    sent.map_err(|error| match error {
+        ControlError::StaleWindow => AdapterError::stale_ref_because(
+            "The activation target's window owner or process instance changed or could not be verified",
+        ),
+        ControlError::SendFailed => refusal(Cause::ActivationNotSent)
+            .with_disposition(DeliverySemantics::uncertain()),
+        _ => refusal(Cause::ActivationNotSent),
+    })?;
     let first_look = (!untimed).then_some(FIRST_LOOK);
     let deadlines = (
         deadline.capped(ACTIVATION_GRACE),
@@ -176,7 +184,8 @@ fn ask_and_wait(
         Err(cause) => Err(match world.modal_over(client) {
             Some(dialog) => modal_refusal(&dialog),
             None => refusal(overview_aware(world, cause)),
-        }),
+        }
+        .with_disposition(DeliverySemantics::delivered_unverified())),
     }
 }
 
@@ -221,44 +230,62 @@ pub(super) fn run(
         return Err(refusal(Cause::OverviewOpen));
     }
     let view = client_view(world, client).map_err(refusal)?;
-    if let Some(desktop) = view.other_desktop {
-        world
-            .switch_desktop(desktop)
-            .map_err(|_| refusal(Cause::ActivationNotSent))?;
-    }
-    let active = match (frame.minimized == Some(true))
-        .then_some(Cause::WindowMinimized)
-        .or_else(|| view.hidden.then_some(Cause::WindowHidden))
-    {
-        Some(cause) => {
-            if let Lifted::StillHidden { manager } = world.lift(client)? {
-                return Err(lift_refusal(cause, &manager));
+    let mut prior_delivery = DeliverySemantics::not_delivered();
+    let outcome = (|| {
+        if let Some(desktop) = view.other_desktop {
+            prior_delivery = DeliverySemantics::uncertain();
+            world
+                .switch_desktop(desktop)
+                .map_err(|_| refusal(Cause::ActivationNotSent))?;
+            prior_delivery = DeliverySemantics::delivered_unverified();
+        }
+        let active = match (frame.minimized == Some(true))
+            .then_some(Cause::WindowMinimized)
+            .or_else(|| view.hidden.then_some(Cause::WindowHidden))
+        {
+            Some(cause) => {
+                let lifted = world.lift(client)?;
+                prior_delivery = DeliverySemantics::delivered_unverified();
+                if let Lifted::StillHidden { manager } = lifted {
+                    return Err(lift_refusal(cause, &manager));
+                }
+                if is_active(world, client).1 {
+                    return Ok(());
+                }
+                world.active()
             }
-            if is_active(world, client).1 {
+            None if view.other_desktop.is_none()
+                && active == Some(client)
+                && (frame.active == Some(true)
+                    || world.app_frame_active()
+                    || world.menu_open()) =>
+            {
                 return Ok(());
             }
-            world.active()
-        }
-        None if view.other_desktop.is_none()
-            && active == Some(client)
-            && (frame.active == Some(true) || world.app_frame_active() || world.menu_open()) =>
-        {
-            return Ok(());
-        }
-        None => active,
-    };
-    match ask_and_wait(world, client, active, deadline, false) {
-        Err(error) if was_ignored(&error) => {
-            if deadline.is_expired() {
-                return Err(AdapterError::timeout(
+            None => active,
+        };
+        match ask_and_wait(world, client, active, deadline, false) {
+            Err(error) if was_ignored(&error) => {
+                if deadline.is_expired() {
+                    return Err(AdapterError::timeout(
                     "The lease ran out before the window manager answered the activation request",
                 )
-                .with_disposition(DeliverySemantics::not_delivered()));
+                .with_disposition(DeliverySemantics::delivered_unverified()));
+                }
+                ask_and_wait(world, client, world.active(), deadline, true).map_err(|error| {
+                    error.with_disposition(DeliverySemantics::delivered_unverified())
+                })
             }
-            ask_and_wait(world, client, world.active(), deadline, true)
+            outcome => outcome,
         }
-        outcome => outcome,
-    }
+    })();
+    outcome.map_err(|error| {
+        if prior_delivery == DeliverySemantics::not_delivered() {
+            error
+        } else {
+            error.with_disposition(prior_delivery)
+        }
+    })
 }
 
 pub(crate) fn focus_window(

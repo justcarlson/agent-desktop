@@ -245,9 +245,7 @@ pub(crate) fn capture(
     ensure_budget(deadline)?;
     let raw = match raw {
         Ok(raw) => raw,
-        Err(GrabError::Gone) => return Err(grab_failure(GrabError::Gone, deadline)),
-        Err(GrabError::Timeout) => return Err(grab_failure(GrabError::Timeout, deadline)),
-        Err(_) if !plain => return Err(covered()),
+        Err(GrabError::UnprovenPaint) if !plain => return Err(covered()),
         Err(error) => return Err(grab_failure(error, deadline)),
     };
     recheck(&ctx, &before, plain.then_some(rect))?;

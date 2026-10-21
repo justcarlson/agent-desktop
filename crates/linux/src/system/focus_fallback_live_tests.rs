@@ -46,6 +46,7 @@ fn focus_window_live_a_modal_dialog_is_named_and_the_window_is_not_reported_acti
     );
     assert_eq!(details["cause"], "blocked_by_modal_dialog");
     assert_eq!(details["dialog"], "adl-dialog");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert!(names_of_active().contains("adl-dialog"));
 }
 
@@ -71,6 +72,7 @@ fn focus_window_live_a_stopped_application_is_refused_before_any_request() {
     let _ = Command::new("kill").args(["-CONT", &pid]).status();
     let error = result.expect_err("a stopped application is refused");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert!(
         started.elapsed() < Duration::from_millis(500),
         "{:?}",

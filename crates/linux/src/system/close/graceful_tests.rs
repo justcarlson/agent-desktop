@@ -58,23 +58,33 @@ fn a_process_that_exited_before_the_requests_is_ok_and_gets_none() {
 }
 
 #[test]
-fn every_send_failing_on_a_live_process_is_action_failed_with_the_force_suggestion() {
-    let mut world = Fake::new(Liveness::Alive);
-    world.windows = ControlRead::Ready(vec![window(1), window(2)]);
-    *world.closes.borrow_mut() = vec![Err(ControlError::SendFailed); 2];
-    let error = close(&world, &request()).expect_err("fails");
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert!(error.suggestion.expect("suggestion").contains("--force"));
-    assert_eq!(world.count("close"), 2);
+fn unconfirmed_close_sends_are_uncertain_even_when_fan_out_expires() {
+    for expires in [false, true] {
+        let mut world = Fake::new(Liveness::Alive);
+        world.windows = ControlRead::Ready(vec![window(1), window(2)]);
+        *world.closes.borrow_mut() = vec![Err(ControlError::SendFailed); 2];
+        world.expire_after_closes = expires.then_some(1);
+        let error = close(&world, &request()).expect_err("unconfirmed send");
+        assert_eq!(
+            error.code,
+            if expires {
+                ErrorCode::Timeout
+            } else {
+                ErrorCode::ActionFailed
+            }
+        );
+        assert_eq!(error.disposition, DeliverySemantics::uncertain());
+        assert_eq!(world.count("close"), if expires { 1 } else { 2 });
+    }
 }
 
 #[test]
-fn a_process_that_exited_while_the_sends_failed_is_ok() {
+fn a_process_exit_after_an_unconfirmed_send_does_not_claim_no_delivery() {
     let mut world = Fake::new(Liveness::Alive);
     *world.closes.borrow_mut() = vec![Err(ControlError::SendFailed)];
     world.exits_on_failed_close = true;
-    close(&world, &request()).expect("it exited meanwhile");
+    let error = close(&world, &request()).expect_err("the send remains unconfirmed");
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
 }
 
 #[test]

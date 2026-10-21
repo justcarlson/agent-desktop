@@ -2,6 +2,8 @@ pub(crate) mod action_clock;
 mod action_clock_store;
 mod adapter;
 pub(crate) mod alias_cache;
+#[cfg(test)]
+mod alias_live_tests;
 mod app_alias;
 mod app_name;
 mod app_names;
@@ -127,6 +129,8 @@ mod close_live_tests;
 #[cfg(test)]
 mod display_live_tests;
 #[cfg(test)]
+mod focus_identity_live_tests;
+#[cfg(test)]
 mod focus_window_live_tests;
 pub(crate) mod frame_identity;
 #[cfg(test)]
@@ -135,6 +139,8 @@ mod key_dispatch_live_tests;
 mod launch_live_tests;
 #[cfg(test)]
 mod menu_fixture;
+#[cfg(test)]
+mod menu_inventory_live_tests;
 #[cfg(test)]
 mod menu_live_rig;
 #[cfg(test)]

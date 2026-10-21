@@ -215,18 +215,23 @@ pub(crate) fn write_window(
 fn prepare_raise(
     window: u32,
     owner: ProcessIdentity,
+    stamped: bool,
 ) -> impl FnOnce(Deadline) -> Result<Result<Ready, ControlError>, ActivateError> + Send + 'static {
-    move |_| {
+    move |deadline| {
         let (connection, root) = connect()?;
         if let Err(error) = live(&connection, window) {
             return Ok(Err(error));
         }
         let kind = single(&connection, b"_NET_ACTIVE_WINDOW")?;
+        let mut data = activate();
+        if stamped {
+            data[1] = server_time(&connection, root, deadline).ok_or(ActivateError::SendFailed)?;
+        }
         let pid_atom = single(&connection, b"_NET_WM_PID")?;
         Ok(Ok(Ready {
             connection,
             root,
-            event: message(window, kind, activate()),
+            event: message(window, kind, data),
             owner: (owner, pid_atom),
         }))
     }
@@ -242,16 +247,16 @@ fn message(window: u32, kind: Atom, data: MessageData) -> ClientMessageEvent {
     ClientMessageEvent::new(FORMAT_LONGS, window, kind, data)
 }
 
-/// Asks the window manager to activate `window`, which un-minimizes it
-/// under EWMH. The caller judges the effect by the hidden flag.
-pub(crate) fn raise_window(
+/// Activates a window while its owner is held under the server grab.
+pub(crate) fn activate_window(
     window: u32,
     owner: &ProcessIdentity,
     deadline: Deadline,
+    stamped: bool,
 ) -> Result<(), ControlError> {
     deliver(
         deadline,
-        prepare_raise(window, owner.clone()),
+        prepare_raise(window, owner.clone(), stamped),
         emit_within(deadline),
     )
 }

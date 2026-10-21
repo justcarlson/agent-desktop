@@ -175,7 +175,7 @@ fn failed_close_sends_name_the_target_without_claiming_a_completed_step() {
 
     let error = super::run_report(&world, &app(), false).expect_err("request failed");
 
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
     let details = error.details.expect("target evidence");
     assert_eq!(details["target"]["kind"], "app");
     assert!(details.get("steps").is_none());

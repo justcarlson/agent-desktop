@@ -27,6 +27,9 @@ fn failure_of(world: &impl World, request: &Request<'_>, error: ControlError) ->
         ControlError::StaleWindow => not_delivered(AdapterError::stale_ref_because(
             "The close target's window owner or process instance changed or could not be verified",
         )),
+        ControlError::SendFailed => {
+            refusal::send_failed(request, error).with_disposition(DeliverySemantics::uncertain())
+        }
         other => refusal::send_failed(request, other),
     }
 }
@@ -37,26 +40,28 @@ fn fan_out(
     windows: &[u32],
 ) -> Result<bool, AdapterError> {
     let mut sent = 0_usize;
+    let mut delivery = DeliverySemantics::not_delivered();
     let mut first_failure = None;
     for window in windows {
         if world.remaining().is_zero() {
             if sent > 0 {
                 break;
             }
-            return Err(not_delivered(world.timeout_error()));
+            return Err(world.timeout_error().with_disposition(delivery));
         }
         match world.request_close(*window) {
-            Ok(()) => sent += 1,
+            Ok(()) => {
+                sent += 1;
+                delivery = DeliverySemantics::delivered_unverified();
+            }
             Err(ControlError::BadWindow) => {}
             Err(error @ ControlError::StaleWindow) => {
-                let delivery = if sent > 0 {
-                    DeliverySemantics::delivered_unverified()
-                } else {
-                    DeliverySemantics::not_delivered()
-                };
                 return Err(failure_of(world, request, error).with_disposition(delivery));
             }
             Err(error) => {
+                if error == ControlError::SendFailed && sent == 0 {
+                    delivery = DeliverySemantics::uncertain();
+                }
                 first_failure.get_or_insert_with(|| failure_of(world, request, error));
             }
         }
@@ -64,10 +69,13 @@ fn fan_out(
     if sent > 0 {
         return Ok(true);
     }
-    unless_gone(
-        world,
-        first_failure.unwrap_or_else(|| refusal::windowless(request)),
-    )
+    let failure = first_failure
+        .unwrap_or_else(|| refusal::windowless(request))
+        .with_disposition(delivery);
+    if delivery == DeliverySemantics::uncertain() {
+        return Err(failure);
+    }
+    unless_gone(world, failure)
 }
 
 fn request_close(world: &impl World, request: &Request<'_>) -> Result<bool, AdapterError> {

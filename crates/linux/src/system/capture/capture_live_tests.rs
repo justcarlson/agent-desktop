@@ -5,6 +5,9 @@ use crate::system::SharedBus;
 use crate::system::screenshot::{screenshot, screenshot_window_frame};
 use crate::tree::live_launch::Launched;
 
+#[path = "redirect_visibility_live_tests.rs"]
+mod redirect_visibility;
+
 fn window_at(x: i32, y: i32) -> Geometry {
     Geometry {
         x,

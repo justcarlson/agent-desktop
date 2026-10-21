@@ -117,6 +117,13 @@ fn bus_live_loss_is_internal_without_claiming_delivery() {
     );
     refuse.store(true, std::sync::atomic::Ordering::SeqCst);
     let refused = app_inventory(&bus, deadline()).expect_err("a method refusal is not bus loss");
+    assert_eq!(
+        bus.cached()
+            .expect("method refusal retains the connection")
+            .inner()
+            .unique_name(),
+        connection.inner().unique_name(),
+    );
     assert_eq!(refused.code, ErrorCode::Internal);
     assert!(
         refused
@@ -161,7 +168,7 @@ fn bus_live_loss_is_internal_without_claiming_delivery() {
     let shell_error = crate::system::shell::identity::content_window(&nodes, &root)
         .expect_err("an unreadable shell is not a missing window");
     assert_eq!(shell_error.code, ErrorCode::Internal);
-    for _ in 0..2 {
+    {
         let error = app_inventory(&bus, deadline()).expect_err("lost bus");
         assert_eq!(error.code, ErrorCode::Internal);
         assert!(
@@ -174,6 +181,16 @@ fn bus_live_loss_is_internal_without_claiming_delivery() {
         assert_eq!(error.disposition, DeliverySemantics::unknown());
         assert_ne!(error.disposition.retry(), RetryDisposition::Safe);
         println!("owned daemon exited: lost bus = {error:?}");
+    }
+    assert!(
+        bus.cached().is_none(),
+        "normal inventory evicts the dead connection"
+    );
+    for _ in 0..2 {
+        app_inventory(&bus, deadline())
+            .expect("the next inventory reconnects to the private session");
+        let fresh = bus.get(deadline()).expect("recovered connection");
+        probe_registry(&bus, &fresh, deadline()).expect("independent registry readback");
     }
     drop(server);
 }

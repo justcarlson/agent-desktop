@@ -77,23 +77,23 @@ fn hidden_link_and_no_exec_entries_give_no_alias() {
 }
 
 #[test]
-fn an_env_prefix_is_skipped_and_try_exec_adds_a_second_basename() {
+fn an_env_prefix_is_skipped_and_try_exec_never_identifies_the_app() {
     let index = AliasIndex::build(&[file(
         "t",
         "Name=Tool\nType=Application\nExec=env FOO=1 /opt/app/bin/tool %f\nTryExec=/usr/bin/other",
     )]);
     assert_eq!(index.names_for("tool"), ["Tool"]);
-    assert_eq!(index.names_for("other"), ["Tool"]);
+    assert!(index.names_for("other").is_empty());
     assert!(index.names_for("env").is_empty());
 }
 
 #[test]
-fn two_entries_with_one_basename_both_match() {
+fn two_entries_with_one_basename_receive_no_name_alias() {
     let index = AliasIndex::build(&[
         file("one", "Name=One\nType=Application\nExec=shared"),
         file("two", "Name=Two\nType=Application\nExec=shared --x"),
     ]);
-    assert_eq!(index.names_for("shared"), ["One", "Two"]);
+    assert!(index.names_for("shared").is_empty());
 }
 
 #[test]

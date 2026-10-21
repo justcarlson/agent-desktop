@@ -1,24 +1,19 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{
-    Atom, AtomEnum, ClientMessageEvent, ConnectionExt, CreateWindowAux, EventMask, PropMode,
-    WindowClass,
+    Atom, AtomEnum, ConnectionExt, CreateWindowAux, EventMask, PropMode, WindowClass,
 };
 use x11rb::rust_connection::RustConnection;
 
 use super::activate_error::ActivateError;
-use super::client_message::FORMAT_LONGS;
 use super::stacking::bounded;
 
 /// How long a window manager gets to make the window active before the
 /// request counts as ignored. Openbox answered within 2 to 4 ms (`L27-3`).
 pub(crate) const ACTIVATION_GRACE: Duration = Duration::from_millis(2_000);
 
-const SERVER_TIME_BUDGET: Duration = Duration::from_millis(1_000);
-const CONFIRM_BUDGET: Duration = Duration::from_millis(500);
 const EVENT_POLL: Duration = Duration::from_millis(2);
 
 pub(super) fn connect() -> Result<(RustConnection, u32), ActivateError> {
@@ -44,15 +39,6 @@ fn atom(connection: &RustConnection, name: &[u8]) -> Result<Atom, ActivateError>
         .and_then(|cookie| cookie.reply().ok())
         .map(|reply| reply.atom)
         .ok_or(ActivateError::SendFailed)
-}
-
-/// A connection ready to send: the root, the atom and the server time were
-/// all read before the caller's deadline.
-pub(crate) struct Prepared {
-    connection: Arc<RustConnection>,
-    root: u32,
-    active: Atom,
-    timestamp: u32,
 }
 
 /// The display server's current time, the stamp a request made now should
@@ -107,55 +93,6 @@ pub(super) fn server_time(
     stamp
 }
 
-/// Connects and reads everything a request needs. Nothing is sent: a worker
-/// that outlives its deadline holds a connection and no request.
-pub(crate) fn prepare(deadline: agent_desktop_core::Deadline) -> Result<Prepared, ActivateError> {
-    let (connection, root) = connect()?;
-    let active = atom(&connection, b"_NET_ACTIVE_WINDOW")?;
-    let timestamp = server_time(&connection, root, deadline).ok_or(ActivateError::SendFailed)?;
-    Ok(Prepared {
-        connection: Arc::new(connection),
-        root,
-        active,
-        timestamp,
-    })
-}
-
-/// Asks the window manager to make `client` the active window, from the
-/// caller's thread. The request is written here; a round trip then makes sure
-/// the display server has taken it before the connection can close, because a
-/// window manager can drop a request whose sender has already gone. That wait
-/// runs on a worker that holds the connection, so a server that stops
-/// answering costs the confirmation budget and the request still stands.
-pub(crate) fn send(prepared: &Prepared, client: u32) -> Result<(), ActivateError> {
-    let message = ClientMessageEvent::new(
-        FORMAT_LONGS,
-        client,
-        prepared.active,
-        [2, prepared.timestamp, 0, 0, 0],
-    );
-    let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
-    prepared
-        .connection
-        .send_event(false, prepared.root, mask, message)
-        .map_err(|_| ActivateError::SendFailed)?;
-    prepared
-        .connection
-        .flush()
-        .map_err(|_| ActivateError::SendFailed)?;
-    let connection = Arc::clone(&prepared.connection);
-    if let Some(deadline) = deadline_of(CONFIRM_BUDGET) {
-        let _ = bounded(deadline, None, move || {
-            connection
-                .get_input_focus()
-                .ok()
-                .and_then(|cookie| cookie.reply().ok())
-                .map(|_| ())
-        });
-    }
-    Ok(())
-}
-
 /// The window the manager says is active, or `None` when it names none or
 /// cannot be asked.
 fn active_window() -> Option<u32> {
@@ -182,14 +119,6 @@ pub(crate) fn first_window(
 
 fn deadline_of(budget: Duration) -> Option<agent_desktop_core::Deadline> {
     agent_desktop_core::Deadline::from_duration(budget).ok()
-}
-
-/// Prepares under the budget and then sends on this thread, so a server that
-/// stopped answering costs the budget and no request is ever written after the
-/// caller was told it failed.
-pub(crate) fn request_activation(client: u32) -> Result<(), ActivateError> {
-    let deadline = deadline_of(SERVER_TIME_BUDGET).ok_or(ActivateError::SendFailed)?;
-    request_via(deadline, prepare, |prepared| send(&prepared, client))
 }
 
 /// The two phases apart: `prepare` runs on a worker the deadline can abandon,

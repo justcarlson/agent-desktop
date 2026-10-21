@@ -68,7 +68,7 @@ fn find_xid(pid: u32) -> Option<String> {
         .map(str::to_owned)
 }
 
-pub(super) fn xid_of(pid: u32) -> String {
+pub(in crate::system) fn xid_of(pid: u32) -> String {
     let started = Instant::now();
     loop {
         if let Some(id) = find_xid(pid) {

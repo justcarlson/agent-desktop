@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::Deadline;
 
 use crate::system::overview::overview_open;
-use crate::system::x11::activate::{active_window_within, request_activation};
+use crate::system::x11::activate::active_window_within;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
 
@@ -61,7 +61,18 @@ pub(super) fn active_window() -> Option<u32> {
 }
 
 pub(super) fn activate(client: u32) {
-    request_activation(client).expect("the activation request is sent");
+    let X11State::Ready { clients, .. } = DisplayReader.clients_within(read_deadline()) else {
+        panic!("the private display answers");
+    };
+    let pid = clients
+        .iter()
+        .find(|window| window.id == client)
+        .and_then(|window| window.pid)
+        .expect("the client owner");
+    let facts = crate::system::process_facts::read(pid).expect("the process instance");
+    let owner = agent_desktop_core::ProcessIdentity::new(pid, facts.instance);
+    crate::system::x11::control_send::activate_window(client, &owner, read_deadline(), true)
+        .expect("the activation request is sent");
 }
 
 pub(super) fn wait_for_closed_overview(budget: Duration) {
