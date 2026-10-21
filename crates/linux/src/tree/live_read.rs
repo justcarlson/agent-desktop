@@ -21,6 +21,9 @@ use crate::system::{SharedBus, within};
 /// substitutes in-memory nodes and counts the reads.
 pub(crate) trait NodeReader {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError>;
+    fn is_verified_shell(&mut self, _element: &AtspiElement, _deadline: Deadline) -> bool {
+        false
+    }
     fn top_levels(
         &mut self,
         _element: &AtspiElement,
@@ -53,6 +56,12 @@ struct BusReader<'a> {
 impl NodeReader for BusReader<'_> {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
         within(self.deadline, read_evidence(self.connection, element))
+    }
+
+    fn is_verified_shell(&mut self, element: &AtspiElement, deadline: Deadline) -> bool {
+        crate::system::shell::is_shell_element(element)
+            && crate::system::shell::identity::find_root(self.bus, deadline)
+                .is_ok_and(|root| root.bus_name == element.bus_name())
     }
 
     fn top_levels(

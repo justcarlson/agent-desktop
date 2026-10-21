@@ -52,12 +52,16 @@ carry that assumption across platforms.
 
 Before a physical ref-addressed key or click, the target frame must report
 `active` within a short wait; a frame that never does fails with
-`check: window_active`. Headed `type` also requires the exact target to report
-`focused`, including before the bootstrap Shift and each subsequent key-down.
+`check: window_active`. Headed `type` also requires the target or its proven
+internal editor to report `focused`, including before the bootstrap Shift and
+each subsequent key-down. The internal-editor proof requires an editable target,
+a same-owner hit, a parent chain back to the target, and a focused editor that
+advertises `EditableText`.
 Closing a GTK4 menu can leave the document unfocused even while its window is
 active. GNOME 46's GTK4 bridge rejects AT-SPI `Component.GrabFocus` as unsupported.
-The tool cannot restore that document's focus automatically: focus the document
-yourself, or use headless `type` through `EditableText`. A `target_focus` refusal with
+When neither the target nor its proven internal editor is focused, the tool
+cannot restore that document's focus automatically: focus the document yourself,
+or use headless `type` through `EditableText`. A `target_focus` refusal with
 `physical_delivery_started: false` sent no keys; waiting does not supply the
 missing focus action. Headless semantic actions do not need the frame active:
 a headless `type` into a background window succeeds. A headless `press --app` to

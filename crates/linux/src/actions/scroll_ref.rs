@@ -56,15 +56,6 @@ fn uuid_context(path: &str) -> bool {
         })
 }
 
-fn rect(extents: crate::tree::Extents) -> Rect {
-    Rect {
-        x: extents.x.into(),
-        y: extents.y.into(),
-        width: extents.width.into(),
-        height: extents.height.into(),
-    }
-}
-
 fn usable(witness: &Witness) -> bool {
     [
         witness.geometry.target,
@@ -83,8 +74,8 @@ fn usable(witness: &Witness) -> bool {
 
 fn translated(entry: &RefEntry, before: &Witness, after: &Witness) -> Option<RefGeometry> {
     let old = entry.geometry.bounds?;
-    let first = rect(before.geometry.target?);
-    let last = rect(after.geometry.target?);
+    let first = Rect::from(before.geometry.target?);
+    let last = Rect::from(after.geometry.target?);
     let delta = after.range.current - before.range.current;
     if entry.geometry.bounds_space != Some(BoundsSpace::Window)
         || !usable(before)
