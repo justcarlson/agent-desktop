@@ -1,9 +1,8 @@
-use std::process::Command;
 use std::time::Duration;
 
 use super::{
     FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, Rig, TOGGLE, app_inventory, deadline, descendants,
-    do_action, poll, press, require_program, top_level, within,
+    do_action, poll, press, top_level, within,
 };
 use crate::tree::live_launch::nonce;
 
@@ -119,29 +118,6 @@ pub(crate) fn launch_qt(rig: &mut Rig, flag: &str) -> u32 {
     )
 }
 
-pub(crate) fn chrome_profile(rig: &mut Rig) -> String {
-    let dir = std::env::temp_dir().join(nonce("l311d-chrome"));
-    std::fs::create_dir_all(&dir).expect("scratch dir");
-    rig.launched.scratch.push(dir.clone());
-    dir.to_string_lossy().into_owned()
-}
-
-pub(crate) fn launch_chrome(rig: &mut Rig, profile: &str) -> u32 {
-    rig.spawn(
-        "google-chrome",
-        &[
-            "--no-sandbox",
-            "--password-store=basic",
-            &format!("--user-data-dir={profile}"),
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--force-renderer-accessibility",
-            "--new-window",
-            "about:blank",
-        ],
-    )
-}
-
 pub(crate) fn dismiss_dialog(rig: &Rig, app: &str, pid: u32, before: usize) {
     poll("the dialog to close", || {
         let top = top_level(&rig.connection, pid);
@@ -169,17 +145,6 @@ pub(crate) fn scratch_dir(rig: &mut Rig, label: &str) -> String {
     dir.to_string_lossy().into_owned()
 }
 
-const ESCAPE_SCRIPT: &str = "import gi\ngi.require_version('Atspi', '2.0')\nfrom gi.repository import Atspi\nkind = Atspi.KeySynthType.PRESSRELEASE | Atspi.KeySynthType.SYM\nAtspi.generate_keyboard_event(0xff1b, None, kind)";
-
-fn atspi_escape() {
-    require_program("python3");
-    let status = Command::new("python3").args(["-c", ESCAPE_SCRIPT]).status();
-    assert!(
-        status.is_ok_and(|s| s.success()),
-        "precondition: python3 gi could not send a key through AT-SPI"
-    );
-}
-
 pub(crate) fn close_newest_frame(rig: &Rig, pid: u32) {
     let frames = top_level(&rig.connection, pid);
     let newest = frames
@@ -191,15 +156,4 @@ pub(crate) fn close_newest_frame(rig: &Rig, pid: u32) {
         .find(|n| n.name == "Close" && n.role == MENU_BUTTON)
         .expect("the frame's own Close button");
     do_action(&rig.connection, &close);
-}
-
-pub(crate) fn close_chrome_menu(done: impl Fn() -> bool) {
-    poll("Escape to close the Chrome menu", || {
-        if done() {
-            return Some(());
-        }
-        atspi_escape();
-        std::thread::sleep(Duration::from_millis(500));
-        done().then_some(())
-    });
 }

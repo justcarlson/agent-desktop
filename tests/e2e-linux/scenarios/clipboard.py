@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
-import signal
+from contextlib import contextmanager
+from pathlib import Path
 
-from oracle import clipboard as oracle_clipboard
-from oracle import pixels
+from oracle import clipboard as oracle_clipboard, pixels
+from runner.helper import changed, require
 from runner.legs import implementation
 from runner.verdict import LegContext
 
@@ -12,141 +12,123 @@ TEXT_FORMAT = "text/plain"
 
 
 def text_of(data: dict) -> str | None:
-    if data.get("type") == "text":
-        return data.get("text") or ""
-    if data.get("found") is False:
-        return None
-    return None
+    return (data.get("text") or "") if data.get("type") == "text" else None
 
 
 def stop_owner(pid: int) -> None:
+    oracle_clipboard.stop_owner(pid)
+
+
+def _set_text(ctx, text):
+    response = ctx.product(["clipboard-set", text])
+    require(response.ok, f"clipboard-set failed: {response.error}")
+
+
+def _clear(ctx):
+    response = ctx.product(["clipboard-clear"])
+    require(response.ok, f"clipboard-clear failed: {response.error}")
+
+
+def _get(ctx, fmt="text"):
+    response = ctx.product(["clipboard-get", "--format", fmt])
+    require(response.ok, f"clipboard-get failed: {response.error}")
+    return response.data or {}
+
+
+@contextmanager
+def _selection(ctx, fmt):
+    read = lambda: oracle_clipboard.foreign_get(ctx.tier, fmt)
+    initial = read()
+    require(initial is None, "private clipboard was not empty at the leg baseline")
+    ctx.before("clipboard.selection", initial)
+    owners = []
     try:
-        os.kill(pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-
-
-def _set_text(ctx: LegContext, text: str) -> None:
-    envelope = ctx.product(["clipboard-set", text])
-    if not envelope.ok:
-        raise AssertionError(f"clipboard-set failed: {envelope.error}")
-
-
-def _get(ctx: LegContext, fmt: str = "text") -> dict:
-    envelope = ctx.product(["clipboard-get", "--format", fmt])
-    if not envelope.ok:
-        raise AssertionError(f"clipboard-get failed: {envelope.error}")
-    return envelope.data or {}
-
-
-def _small_image() -> pixels.Image:
-    return pixels.Image(
-        width=2,
-        height=2,
-        rgb=bytes((255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255)),
-    )
+        yield owners
+    finally:
+        ctx.after("clipboard.selection", read())
+        try:
+            _clear(ctx)
+        finally:
+            for pid in owners:
+                stop_owner(pid)
+        ctx.restored("clipboard.selection", changed(read, initial))
 
 
 @implementation("clipboard.text_roundtrip")
 def text_roundtrip(ctx: LegContext) -> None:
-    ctx.before("clipboard.owner", oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT))
-    _set_text(ctx, "product text")
-    ctx.after("clipboard.product_set", _get(ctx).get("text"))
-    if _get(ctx).get("text") != "product text":
-        raise AssertionError("the product did not read back the text it set")
-    owner = oracle_clipboard.foreign_set(ctx.tier, TEXT_FORMAT, b"foreign text")
-    try:
-        ctx.before("clipboard.foreign_owner_pid", owner)
-        read = oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT)
-        ctx.after("clipboard.foreign_read", read)
-        if read != b"foreign text":
-            raise AssertionError("a foreign producer's text did not round trip")
-        if text_of(_get(ctx)) != "foreign text":
-            raise AssertionError("the product did not read the foreign text")
-    finally:
-        stop_owner(owner)
+    with _selection(ctx, TEXT_FORMAT) as owners:
+        _set_text(ctx, "product text")
+        require(oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT) == b"product text",
+                "a foreign reader did not see the product's text")
+        require(text_of(_get(ctx)) == "product text")
+        owners.append(oracle_clipboard.foreign_set(ctx.tier, TEXT_FORMAT, b"foreign text"))
+        require(oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT) == b"foreign text")
+        require(text_of(_get(ctx)) == "foreign text", "the product did not read foreign text")
 
 
 @implementation("clipboard.html_roundtrip")
 def html_roundtrip(ctx: LegContext) -> None:
     payload = b"<b>foreign</b>"
-    owner = oracle_clipboard.foreign_set(ctx.tier, "text/html", payload)
-    try:
-        ctx.before("clipboard.html_owner_pid", owner)
-        read = oracle_clipboard.foreign_get(ctx.tier, "text/html")
-        ctx.after("clipboard.html_read", read)
-        if read != payload:
-            raise AssertionError("the html selection did not round trip")
+    with _selection(ctx, "text/html") as owners:
+        owners.append(oracle_clipboard.foreign_set(ctx.tier, "text/html", payload))
+        require(oracle_clipboard.foreign_get(ctx.tier, "text/html") == payload)
         auto = _get(ctx, "auto")
-        ctx.after("clipboard.product_auto", auto.get("text"))
-        if auto.get("text") is not None and "foreign" not in (auto.get("text") or ""):
-            raise AssertionError("the product's auto read missed the html text")
-    finally:
-        stop_owner(owner)
+        require(auto.get("text") is None or "foreign" in auto["text"],
+                "the product's auto read missed the HTML text")
+
+
+def _small_image():
+    return pixels.Image(2, 2, bytes((255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255)))
+
+
+def _write_png(ctx, payload):
+    path = ctx.tier.runtime_dir / "clipboard-product.png"
+    path.write_bytes(payload)
+    return path
 
 
 @implementation("clipboard.image_roundtrip")
 def image_roundtrip(ctx: LegContext) -> None:
     image = _small_image()
     payload = pixels.encode_png(image)
-    owner = oracle_clipboard.foreign_set(ctx.tier, "image/png", payload)
-    try:
-        ctx.before("clipboard.image_owner_pid", owner)
+    with _selection(ctx, "image/png") as owners:
+        owners.append(oracle_clipboard.foreign_set(ctx.tier, "image/png", payload))
         data = _get(ctx, "image")
-        read_path = data.get("path")
-        if not read_path:
-            raise AssertionError("the product did not read the foreign image")
-        read_image = pixels.decode_png(open(read_path, "rb").read())
-        ctx.after("clipboard.image_bytes", (read_image.width, read_image.height))
-        if not pixels.similar(read_image, image, tolerance=0.0):
-            raise AssertionError("the image read back differs from the foreign image")
-        set_envelope = ctx.product(["clipboard-set", "--image", str(_write_png(ctx, payload))])
-        if not set_envelope.ok:
-            raise AssertionError(f"clipboard-set --image failed: {set_envelope.error}")
+        require(data.get("path"), "the product did not read the foreign image")
+        read_image = pixels.decode_png(Path(data["path"]).read_bytes())
+        require(pixels.similar(read_image, image, tolerance=0.0), "foreign image pixels differ")
+        response = ctx.product(["clipboard-set", "--image", str(_write_png(ctx, payload))])
+        require(response.ok, f"clipboard-set --image failed: {response.error}")
         foreign = oracle_clipboard.foreign_get(ctx.tier, "image/png")
-        ctx.after("clipboard.foreign_image", len(foreign or b""))
-        if not foreign:
-            raise AssertionError("a foreign reader saw no image after the product set one")
-        if not pixels.similar(pixels.decode_png(foreign), image, tolerance=0.0):
-            raise AssertionError("the foreign image reader decoded different pixels")
-    finally:
-        stop_owner(owner)
+        require(foreign, "a foreign reader saw no product image")
+        require(pixels.similar(pixels.decode_png(foreign), image, tolerance=0.0))
 
 
-def _write_png(ctx: LegContext, payload: bytes):
-    path = ctx.tier.runtime_dir / "clipboard-product.png"
-    path.write_bytes(payload)
-    return path
+def _text_after_exit(ctx, text):
+    with _selection(ctx, TEXT_FORMAT):
+        _set_text(ctx, text)
+        require(oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT) == text.encode(),
+                "the selection owner did not outlive the setter")
 
 
 @implementation("clipboard.owner_outlives_setter")
 def owner_outlives_setter(ctx: LegContext) -> None:
-    ctx.before("clipboard.before_set", oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT))
-    _set_text(ctx, "survives the setter")
-    read = oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT)
-    ctx.after("clipboard.after_setter_exit", read)
-    if read != b"survives the setter":
-        raise AssertionError("the selection owner did not outlive the setter")
+    _text_after_exit(ctx, "survives the setter")
 
 
 @implementation("clipboard.clear_leaves_empty")
 def clear_leaves_empty(ctx: LegContext) -> None:
-    _set_text(ctx, "to be cleared")
-    ctx.before("clipboard.before_clear", text_of(_get(ctx)))
-    cleared = ctx.product(["clipboard-clear"])
-    if not cleared.ok:
-        raise AssertionError(f"clipboard-clear failed: {cleared.error}")
-    foreign = oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT)
-    ctx.after("clipboard.foreign_after_clear", foreign)
-    if foreign:
-        raise AssertionError("a foreign reader still saw text after clipboard-clear")
+    with _selection(ctx, TEXT_FORMAT):
+        read = lambda: oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT)
+        _set_text(ctx, "to be cleared")
+        before = changed(read, b"to be cleared")
+        ctx.before("clipboard.clear", before)
+        _clear(ctx)
+        ctx.after("clipboard.clear", changed(read, None))
+        _set_text(ctx, "to be cleared")
+        ctx.restored("clipboard.clear", changed(read, before))
 
 
 @implementation("clipboard.foreign_read_after_cli_exit")
 def foreign_read_after_cli_exit(ctx: LegContext) -> None:
-    ctx.before("clipboard.before_set", oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT))
-    _set_text(ctx, "after exit")
-    read = oracle_clipboard.foreign_get(ctx.tier, TEXT_FORMAT)
-    ctx.after("clipboard.after_exit", read)
-    if read != b"after exit":
-        raise AssertionError("a foreign read after the CLI exited did not see the selection")
+    _text_after_exit(ctx, "after exit")

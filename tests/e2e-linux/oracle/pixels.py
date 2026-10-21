@@ -108,7 +108,7 @@ def decode_xwd(data: bytes) -> Image:
             raise ValueError("xwd pixel data is truncated")
         for x in range(width):
             value = _packed_pixel(row, x, byte_width, big_endian)
-            if colors:
+            if colors and header[13] != 4:
                 red, green, blue = colors.get(value, (0, 0, 0))
             elif red_mask or green_mask or blue_mask:
                 red = _scale(value, red_mask)

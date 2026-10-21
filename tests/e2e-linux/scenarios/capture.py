@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import subprocess
 
 from oracle import atspi_raw, pixels, x11
 from runner import apps
+from runner.helper import changed, require
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.headed_actions import assert_ok, longest_text, live_root, ref_for, window_of
+from scenarios.pointer import frame_extents
 
 REFUSAL_CODES = {"ACTION_FAILED", "ACTION_NOT_SUPPORTED", "TIMEOUT", "WINDOW_NOT_FOUND", "PLATFORM_NOT_SUPPORTED"}
 
@@ -60,22 +63,12 @@ def _window_title(ctx: LegContext, window: str) -> str:
 
 
 def _x11_id(ctx: LegContext, window: str) -> str:
-    title = _window_title(ctx, window)
-    process = subprocess.run(
-        ["wmctrl", "-l"], capture_output=True, text=True, env=ctx.tier.env, timeout=5, check=False
-    )
-    found = match_window_line(process.stdout.splitlines(), title)
-    if not found:
-        active = x11.active_window(ctx.tier)
-        if not active:
-            raise AssertionError(f"no X11 window matches {title!r}")
-        return active
-    return found
+    return x11.xid(ctx.tier, window)
 
 
-def _xwd(ctx: LegContext, x11_window: str) -> bytes:
+def _xwd(ctx: LegContext, x11_window: str | None) -> bytes:
     process = subprocess.run(
-        ["xwd", "-id", x11_window, "-silent"],
+        ["xwd", *(["-id", x11_window] if x11_window else ["-root"]), "-silent"],
         capture_output=True,
         env=ctx.tier.env,
         timeout=10,
@@ -89,116 +82,198 @@ def _xwd(ctx: LegContext, x11_window: str) -> bytes:
 def _editor(ctx: LegContext):
     app = apps.launch(ctx.tier, "Text Editor")
     window = window_of(app)
-    assert_ok(ctx.product(["type", ref_for(ctx, window, role="text"), "capture baseline"]))
+    assert_ok(ctx.product(["type", ref_for(ctx, window, role="textfield"), "capture baseline"]))
     atspi_raw.poll(lambda: "capture baseline" in longest_text(live_root(ctx.tier, app)), 6.0)
     return app, window
+
+
+def _oracle_image(ctx, window=None):
+    image = pixels.decode_xwd(_xwd(ctx, _x11_id(ctx, window) if window else None))
+    if window:
+        left, right, top, bottom = frame_extents(ctx.tier, window)
+        width, height = image.width - left - right, image.height - top - bottom
+        require(min(left, right, top, bottom) >= 0 and min(width, height) > 0,
+                "the independently reported shadow does not fit the XWD image")
+        return image.crop((left, top, width, height))
+    return image
+
+
+def _product_image(ctx, window):
+    payload, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
+    return decode(payload, image_format)
+
+
+def _signature(image):
+    return image.width, image.height, hashlib.sha256(image.rgb).hexdigest()
+
+
+def _matches(product, oracle):
+    require(pixels.similar(product, oracle, tolerance=0.05),
+            "the product capture does not match independent xwd pixels")
 
 
 @implementation("capture.window_pixels_match_xwd")
 def window_pixels_match_xwd(ctx: LegContext) -> None:
     app, window = _editor(ctx)
     try:
-        payload, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        product = decode(payload, image_format)
-        oracle_image = pixels.decode_xwd(_xwd(ctx, _x11_id(ctx, window)))
-        ctx.before("pixels.product", (product.width, product.height))
-        ctx.after("pixels.xwd", (oracle_image.width, oracle_image.height))
-        if not pixels.similar(product, oracle_image, tolerance=0.05):
-            raise AssertionError("the product capture does not match the xwd pixels")
+        before = _oracle_image(ctx, window)
+        ctx.before("pixels.window_dimensions", (before.width, before.height))
+        product = _product_image(ctx, window)
+        after = _oracle_image(ctx, window)
+        ctx.after("pixels.window_dimensions", (after.width, after.height))
+        _matches(product, after)
     finally:
         apps.stop(app)
 
 
-@implementation("capture.stable_at_idle")
 def stable_at_idle(ctx: LegContext) -> None:
     app, window = _editor(ctx)
     try:
-        first, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        first_image = decode(first, image_format)
-        ctx.before("pixels.first", (first_image.width, first_image.height))
-        second, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        second_image = decode(second, image_format)
-        ctx.after("pixels.second", (second_image.width, second_image.height))
-        if not pixels.similar(first_image, second_image, tolerance=0.0):
-            raise AssertionError("two idle captures of the same window differ")
+        before = _oracle_image(ctx, window)
+        ctx.before("pixels.idle", _signature(before))
+        first, second = _product_image(ctx, window), _product_image(ctx, window)
+        after = _oracle_image(ctx, window)
+        ctx.after("pixels.idle", _signature(after))
+        _matches(first, before)
+        _matches(second, after)
+        require(pixels.similar(first, second, tolerance=0.0), "two idle captures differ")
     finally:
         apps.stop(app)
 
 
-@implementation("capture.content_change_moves_region")
 def content_change_moves_region(ctx: LegContext) -> None:
     app, window = _editor(ctx)
     try:
-        before_payload, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        before = decode(before_payload, image_format)
-        ctx.before("pixels.content", (before.width, before.height))
-        assert_ok(ctx.product(["type", ref_for(ctx, window, role="text"), "changed content that moves pixels"]))
-        after_payload, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        after = decode(after_payload, image_format)
-        ctx.after("pixels.content", (after.width, after.height))
-        if pixels.similar(before, after, tolerance=0.01):
-            raise AssertionError("a content change did not move the compared region")
+        text = longest_text(live_root(ctx.tier, app))
+        before = _oracle_image(ctx, window)
+        ctx.before("pixels.content", _signature(before))
+        _matches(_product_image(ctx, window), before)
+        try:
+            assert_ok(ctx.product(["type", ref_for(ctx, window, role="textfield"),
+                                   "changed content that moves pixels"]))
+            product = _product_image(ctx, window)
+            after = _oracle_image(ctx, window)
+            ctx.after("pixels.content", _signature(after))
+            _matches(product, after)
+            require(not pixels.similar(before, after, tolerance=0.01),
+                    "content change did not move independent xwd pixels")
+        finally:
+            target = ref_for(ctx, window, role="textfield")
+            assert_ok(ctx.product(["clear", target]))
+            if text:
+                assert_ok(ctx.product(["type", target, text]))
+            changed(lambda: longest_text(live_root(ctx.tier, app)), text)
+            restored = changed(lambda: _signature(_oracle_image(ctx, window)),
+                               _signature(before), seconds=3)
+            ctx.restored("pixels.content", restored)
     finally:
         apps.stop(app)
 
 
-@implementation("capture.covered_window_capture")
 def covered_window_capture(ctx: LegContext) -> None:
     app, window = _editor(ctx)
-    cover = apps.launch(ctx.tier, "Calculator")
+    cover = None
     try:
+        before = _oracle_image(ctx, window)
         x, y, _, _ = x11.geometry(ctx.tier, window)
-        assert_ok(ctx.product(["move-window", "--window-id", window_of(cover), "--x", str(x), "--y", str(y)]))
-        atspi_raw.poll(lambda: x11.geometry(ctx.tier, window_of(cover))[0] == x, 6.0)
-        payload, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        product = decode(payload, image_format)
-        oracle_image = pixels.decode_xwd(_xwd(ctx, _x11_id(ctx, window)))
-        ctx.before("pixels.covered", (product.width, product.height))
-        ctx.after("pixels.covered_oracle", (oracle_image.width, oracle_image.height))
-        if not pixels.similar(product, oracle_image, tolerance=0.05):
-            raise AssertionError("the covered window did not capture its own content")
+        region = (x, y, before.width, before.height)
+        root_before = _oracle_image(ctx).crop(region)
+        stack_before = x11.stacking_xids(ctx.tier)
+        ctx.before("pixels.covered_dimensions", (before.width, before.height))
+        ctx.before("x11.covered_stack", stack_before)
+        if ctx.tier.name == "x11-openbox":
+            ctx.before("pixels.covered_root", _signature(root_before))
+        cover = apps.launch(ctx.tier, "Calculator")
+        assert_ok(ctx.product(["move-window", "--window-id", window_of(cover),
+                               "--x", str(x), "--y", str(y)]))
+        changed(lambda: x11.geometry(ctx.tier, window_of(cover))[:2], (x, y), seconds=6)
+        target_xid, cover_xid = _x11_id(ctx, window), _x11_id(ctx, window_of(cover))
+        stack_after = x11.stacking_xids(ctx.tier)
+        ctx.after("x11.covered_stack", stack_after)
+        require(target_xid in stack_after and cover_xid in stack_after
+                and stack_after.index(cover_xid) > stack_after.index(target_xid),
+                "the covering window is not above the target")
+        cx, cy, cw, ch = x11.geometry(ctx.tier, window_of(cover))
+        require(min(x + before.width, cx + cw) > max(x, cx)
+                and min(y + before.height, cy + ch) > max(y, cy),
+                "the covering window does not overlap the target")
+        product, after = _product_image(ctx, window), _oracle_image(ctx, window)
+        root_after = _oracle_image(ctx).crop(region)
+        ctx.after("pixels.covered_dimensions", (after.width, after.height))
+        if ctx.tier.name == "x11-openbox":
+            ctx.after("pixels.covered_root", _signature(root_after))
+        _matches(product, after)
+        require(pixels.similar(before, after, tolerance=0.01), "by-id capture changed under cover")
+        mismatch = pixels.mismatch_fraction(root_before, root_after)
+        if ctx.tier.name == "x11-openbox":
+            require(mismatch > 0.05, "root pixels do not prove that the cover is present")
+        ctx.finding(f"covered root mismatch fraction: {mismatch:.4f}")
     finally:
-        apps.stop(cover)
+        if cover is not None:
+            apps.stop(cover)
+            ctx.restored("x11.covered_stack", changed(
+                lambda: x11.stacking_xids(ctx.tier), stack_before))
+            if ctx.tier.name == "x11-openbox":
+                restored = changed(lambda: _signature(_oracle_image(ctx).crop(region)),
+                                   _signature(root_before), seconds=3)
+                ctx.restored("pixels.covered_root", restored)
         apps.stop(app)
 
 
-@implementation("capture.minimised_window_capture")
+def _minimized(ctx, window):
+    from scenarios.lifecycle import _wm_state, is_hidden
+    return is_hidden(_wm_state(ctx.tier, window))
+
+
 def minimised_window_capture(ctx: LegContext) -> None:
     app, window = _editor(ctx)
     try:
-        payload, image_format = capture_bytes(ctx.product(["screenshot", "--window-id", window]))
-        before = decode(payload, image_format)
-        ctx.before("pixels.minimised", (before.width, before.height))
-        assert_ok(ctx.product(["minimize", "--window-id", window]))
-        envelope = ctx.product(["screenshot", "--window-id", window])
-        if not envelope.ok:
-            code = (envelope.error or {}).get("code")
-            if code not in REFUSAL_CODES:
-                raise AssertionError(f"a minimised capture refused with {code!r}")
-            ctx.after("pixels.minimised", code)
-            return
-        after = decode(capture_bytes(envelope)[0], (envelope.data or {}).get("format") or image_format)
-        ctx.after("pixels.minimised", (after.width, after.height))
-        if ctx.tier.name == "x11-mutter":
-            ctx.finding("the minimised window was still capturable under mutter")
-        else:
-            raise AssertionError("a minimised window captured content")
+        before = _minimized(ctx, window)
+        require(not before, "capture target starts minimized")
+        ctx.before("x11.minimized", before)
+        baseline = _product_image(ctx, window)
+        try:
+            assert_ok(ctx.product(["minimize", "--window-id", window]))
+            ctx.after("x11.minimized", changed(lambda: _minimized(ctx, window), True, seconds=6))
+            response = ctx.product(["screenshot", "--window-id", window])
+            if not response.ok:
+                code = (response.error or {}).get("code")
+                require(code in REFUSAL_CODES, f"minimized capture refused with {code!r}")
+                ctx.finding(f"minimized capture refusal: {code}")
+            else:
+                captured = decode(*capture_bytes(response))
+                _matches(captured, baseline)
+                require(ctx.tier.name == "x11-mutter", "a minimized openbox window captured content")
+                ctx.finding("the minimized window remained capturable under mutter")
+        finally:
+            assert_ok(ctx.product(["restore", "--window-id", window]))
+            ctx.restored("x11.minimized", changed(lambda: _minimized(ctx, window), before, seconds=6))
+            _matches(_product_image(ctx, window), _oracle_image(ctx, window))
     finally:
         apps.stop(app)
 
 
-@implementation("capture.display_capture")
 def display_capture(ctx: LegContext) -> None:
-    envelope = ctx.product(["screenshot", "--screen", "0"])
-    payload, image_format = capture_bytes(envelope)
-    image = decode(payload, image_format)
-    ctx.before("pixels.display", (image.width, image.height))
-    ctx.after("pixels.display_content", non_blank(image))
-    if not non_blank(image):
-        raise AssertionError("the display capture decoded to a blank image")
+    app, _ = _editor(ctx)
+    try:
+        before = _oracle_image(ctx)
+        ctx.before("pixels.display_dimensions", (before.width, before.height))
+        response = ctx.product(["screenshot", "--screen", "0"])
+        after = _oracle_image(ctx)
+        ctx.after("pixels.display_dimensions", (after.width, after.height))
+        if ctx.tier.name == "x11-mutter":
+            error = response.error or {}
+            require(not response.ok and error.get("code") == "PLATFORM_NOT_SUPPORTED"
+                    and (error.get("details") or {}).get("reason") == "compositing",
+                    "composited display capture did not report its landed refusal")
+        else:
+            product = decode(*capture_bytes(response))
+            _matches(product, after)
+            require(non_blank(product), "display capture decoded to a blank image")
+    finally:
+        apps.stop(app)
 
 
-@implementation("capture.wayland_route_gated")
 def wayland_route_gated(ctx: LegContext) -> None:
     app = apps.launch(ctx.tier, "Text Editor")
     try:
@@ -207,8 +282,8 @@ def wayland_route_gated(ctx: LegContext) -> None:
             raise AssertionError("the gated Wayland capture route answered")
         code = (envelope.error or {}).get("code")
         disposition = (envelope.error or {}).get("disposition") or {}
-        ctx.before("capture.refusal", code)
-        ctx.after("capture.disposition", disposition.get("delivery"))
+        ctx.before("pixels.window_bounds", live_root(ctx.tier, app).extents())
+        ctx.after("pixels.window_bounds", live_root(ctx.tier, app).extents())
         if code not in REFUSAL_CODES:
             raise AssertionError(f"the gated route answered {code!r}")
         if disposition.get("delivery") != "not_delivered":

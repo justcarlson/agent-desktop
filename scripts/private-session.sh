@@ -10,6 +10,7 @@
 # all, and DISPLAY is pushed into its activation environment as soon as Xvfb answers and
 # before the window manager or any app starts.
 set -euo pipefail
+umask 077
 
 wm=0
 screen=1280x800x24
@@ -30,7 +31,7 @@ base=${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}
 mkdir -p "$base"
 rt=$(mktemp -d "$base/rt.XXXXXX")
 chmod 700 "$rt"
-mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache" "$rt/ad-home"
+mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache" "$rt/ad-home" "$rt/tmp"
 printf '[org/gnome/desktop/interface]\ntoolkit-accessibility=true\n' > "$rt/cfg/glib-2.0/settings/keyfile"
 if [ -n "${AD_RUNNER_PID:-}" ] && [ -n "${AD_RUNNER_START:-}" ]; then
   printf '%s %s\n' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"
@@ -39,30 +40,45 @@ fi
 pids=()
 # shellcheck disable=SC2317,SC2329
 session_members() {
-  local environ pid
-  for environ in /proc/[0-9]*/environ; do
-    pid=${environ#/proc/}
-    pid=${pid%/environ}
+  local root=${1:-/proc} environ pid start
+  for environ in "$root"/[0-9]*/environ; do
+    pid=${environ%/environ}
+    pid=${pid##*/}
     [ "$pid" != "$$" ] || continue
-    if grep -qzF "XDG_RUNTIME_DIR=$rt" "$environ" 2>/dev/null; then
-      echo "$pid"
+    start=$(process_start "$pid" "$root") || continue
+    if grep -qzxF "XDG_RUNTIME_DIR=$rt" "$environ" 2>/dev/null &&
+       [ "$(process_start "$pid" "$root")" = "$start" ]; then
+      echo "$pid $start"
     fi
   done
 }
 # shellcheck disable=SC2317,SC2329
+process_start() {
+  local stat
+  stat=$(cat "${2:-/proc}/$1/stat" 2>/dev/null) || return 1
+  stat=${stat##*) }
+  set -- $stat
+  [ -n "${20:-}" ] || return 1
+  printf '%s\n' "${20}"
+}
+# shellcheck disable=SC2317,SC2329
+session_signal() {
+  local pid=$1 start=$2 sig=$3 root=${4:-/proc}
+  [ "$(process_start "$pid" "$root")" = "$start" ] || return 0
+  grep -qzxF "XDG_RUNTIME_DIR=$rt" "$root/$pid/environ" 2>/dev/null || return 0
+  [ "$(process_start "$pid" "$root")" = "$start" ] || return 0
+  kill "-$sig" "$pid" 2>/dev/null || true
+}
+# shellcheck disable=SC2317,SC2329
 cleanup() {
-  local pid mount
+  local pid start mount
   trap '' INT TERM HUP
   for pid in "${pids[@]}"; do
-    kill "$pid" 2>/dev/null || true
+    session_signal "$pid" "$(process_start "$pid")" TERM
   done
-  for pid in $(session_members); do
-    kill "$pid" 2>/dev/null || true
-  done
+  while read -r pid start; do session_signal "$pid" "$start" TERM; done < <(session_members)
   sleep 1
-  for pid in $(session_members); do
-    kill -KILL "$pid" 2>/dev/null || true
-  done
+  while read -r pid start; do session_signal "$pid" "$start" KILL; done < <(session_members)
   for _ in $(seq 1 50); do
     [ -z "$(session_members)" ] && break
     sleep 0.1
@@ -84,6 +100,7 @@ export XDG_RUNTIME_DIR=$rt
 export XDG_CONFIG_HOME=$rt/cfg
 export XDG_DATA_HOME=$rt/data
 export XDG_CACHE_HOME=$rt/cache
+export TMPDIR=$rt/tmp
 export GSETTINGS_BACKEND=keyfile
 export XDG_CURRENT_DESKTOP=GNOME
 export AGENT_DESKTOP_PRIVATE_SESSION=$rt
@@ -123,7 +140,7 @@ done
 export DISPLAY=":$display_number"
 
 dbus-update-activation-environment DISPLAY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_DATA_HOME \
-  XDG_CACHE_HOME GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION AGENT_DESKTOP_HOME
+  XDG_CACHE_HOME TMPDIR GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION AGENT_DESKTOP_HOME
 
 if [ "$wm" = 1 ]; then
   wm_root=${AGENT_DESKTOP_WM_ROOT:-$HOME/ad-wt/wm-pkgs/root}

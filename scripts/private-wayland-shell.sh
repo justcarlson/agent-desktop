@@ -179,11 +179,10 @@ start_shell() {
   done
   [ -n "${socket:-}" ] || return 1
   sleep 3
-  printf '%s' "$socket"
 }
 
 for _ in $(seq 1 "$attempts"); do
-  if socket=$(start_shell) && healthy && close_overview; then
+  if start_shell && healthy && close_overview; then
     export WAYLAND_DISPLAY=$socket
     start_portals || { stop_shell; continue; }
     "$@"

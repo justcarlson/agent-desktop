@@ -8,6 +8,7 @@ from pathlib import Path
 from runner.session import HARNESS_ROOT, Tier, _load_bounded_process
 
 BINARY_ENV = "AGENT_DESKTOP_E2E_BIN"
+LEASE_FD_ENV = "AGENT_DESKTOP_INTERACTION_LEASE_FD"
 DEFAULT_BINARY = HARNESS_ROOT.parent.parent / "target" / "release" / "agent-desktop"
 MAX_CAPTURE = 1_048_576
 
@@ -40,6 +41,8 @@ def _result_env(tier: Tier) -> dict[str, str]:
     env = dict(tier.env)
     env.setdefault("HOME", str(Path.home()))
     env.setdefault("LANG", "C.UTF-8")
+    if LEASE_FD_ENV in os.environ:
+        env[LEASE_FD_ENV] = os.environ[LEASE_FD_ENV]
     return env
 
 
@@ -79,6 +82,7 @@ def run_product(
         timeout_seconds=timeout_s,
         max_capture_bytes=MAX_CAPTURE,
         env=_result_env(tier),
+        inherit_interaction_lease=True,
     )
     elapsed = result.wall_ms
     raw = result.stdout

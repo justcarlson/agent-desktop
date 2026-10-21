@@ -243,27 +243,6 @@ pub(in crate::system) fn qt() -> Orphan {
     )
 }
 
-pub(in crate::system) fn chromium() -> Orphan {
-    let dir = scratch_dir("chrome");
-    let profile = dir.to_string_lossy().into_owned();
-    let mut orphan = Orphan::spawn(
-        "google-chrome",
-        &[
-            "--no-sandbox",
-            "--password-store=basic",
-            "--user-data-dir",
-            &profile,
-            "--disable-extensions",
-            "--no-first-run",
-            "--new-window",
-            "about:blank",
-        ],
-        &[],
-    );
-    orphan.keep(dir);
-    orphan
-}
-
 fn xdotool(args: &[&str]) -> bool {
     let home = std::env::var("HOME").expect("HOME");
     let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");

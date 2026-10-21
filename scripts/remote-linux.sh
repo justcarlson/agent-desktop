@@ -16,7 +16,7 @@
 # each other's input, focus and hit-test results. AGENT_DESKTOP_REMOTE_LOCK=0 skips the lock;
 # use it only for read-only commands that touch no display, input or app state. -o keeps the
 # lock out of children that outlive the command, such as xclip serving a selection, and -w
-# bounds the wait for the lock by the same timeout as the command.
+# bounds the wait for the lock separately when AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT is set.
 # Two runs from the same worktree share one remote folder, and the sync happens before the lock,
 # so runs from one worktree must not overlap.
 set -euo pipefail
@@ -25,6 +25,8 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DIR=${AGENT_DESKTOP_REMOTE_DIR:-ad-wt/$(basename "$ROOT")}
 TIMEOUT=${AGENT_DESKTOP_REMOTE_TIMEOUT:-3600}
 case "$TIMEOUT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_TIMEOUT must be whole seconds" >&2; exit 2 ;; esac
+LOCK_TIMEOUT=${AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT:-$TIMEOUT}
+case "$LOCK_TIMEOUT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT must be whole seconds" >&2; exit 2 ;; esac
 
 # A kill by process name reaches every session of the user on the shared box, so only a kill by pid
 # is sent: after `kill`, every word is a number, a signal option or a variable.

@@ -62,8 +62,8 @@ class SurfaceTests(unittest.TestCase):
     TREE = {
         "role": "window",
         "children": [
-            {"role": "button", "name": "7", "ref": "@s:e1"},
-            {"role": "group", "children": [{"role": "button", "name": "Main Menu", "ref": "@s:e2"}]},
+            {"role": "button", "name": "7", "ref_id": "@s:e1"},
+            {"role": "group", "children": [{"role": "button", "name": "Main Menu", "ref_id": "@s:e2"}]},
         ],
     }
 
@@ -106,10 +106,10 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(launch.app_names(None), [])
 
     def test_first_ref_returns_the_root_ref(self) -> None:
-        self.assertEqual(launch._first_ref({"ref": "@s:e1"}), "@s:e1")
+        self.assertEqual(launch._first_ref({"ref_id": "@s:e1"}), "@s:e1")
 
     def test_first_ref_descends(self) -> None:
-        tree = {"children": [{"children": [{"ref": "@s:e9"}]}]}
+        tree = {"children": [{"children": [{"ref_id": "@s:e9"}]}]}
         self.assertEqual(launch._first_ref(tree), "@s:e9")
 
 
@@ -142,8 +142,18 @@ class WaylandTests(unittest.TestCase):
         self.assertEqual(wayland_input.document_text(root), "alpha\nbeta")
 
     def test_text_ref_prefers_a_text_role(self) -> None:
-        tree = {"role": "window", "children": [{"role": "button", "ref": "a"}, {"role": "textbox", "ref": "b"}]}
-        self.assertEqual(wayland_input.text_ref(tree), "b")
+        tree = {"role": "window", "children": [{"role": "button", "ref_id": "@s:e1"}, {"role": "textfield", "ref_id": "@s:e2"}]}
+        self.assertEqual(wayland_input.text_ref(tree), "@s:e2")
+
+    def test_live_snapshot_refs_reach_each_action_selector(self) -> None:
+        tree = {"role": "window", "children": [
+            {"role": "button", "name": "7", "ref_id": "@s:e7"}]}
+        for read in (lambda: wayland_actions.named_ref(tree, "7"),
+                     lambda: wayland_focus.first_ref(tree),
+                     lambda: launch._first_ref(tree),
+                     lambda: surfaces.find_ref(tree, name="7")):
+            with self.subTest(read=read):
+                self.assertEqual(read(), "@s:e7")
 
     def test_search_finds_a_nested_detail(self) -> None:
         self.assertTrue(wayland_actions.search({"details": {"kind": "wayland_session"}}, "wayland_session"))

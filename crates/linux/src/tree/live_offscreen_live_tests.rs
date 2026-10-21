@@ -268,15 +268,6 @@ fn files_check(
     }
 }
 
-fn check_each(
-    label: &str,
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-    frame: &AtspiElement,
-) -> Result<(), String> {
-    scroll_case(label, adapter, bus, frame, None, true)
-}
-
 #[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
 fn offscreen_live_files_grid_realises_an_offscreen_row() {
@@ -314,42 +305,6 @@ fn offscreen_live_terminal_survey_agrees_with_the_oracle() {
         },
     )
     .expect("the survey holds");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_chrome_page_realises_an_offscreen_button() {
-    let dir = std::env::temp_dir().join(nonce("chrome"));
-    std::fs::create_dir_all(&dir).expect("dir");
-    let buttons: String = (0..300)
-        .map(|i| format!("<button>Btn {i:03}</button><br>"))
-        .collect();
-    let page = dir.join("page.html");
-    std::fs::write(&page, format!("<html><body>{buttons}</body></html>")).expect("page");
-    let url = format!("file://{}", page.display());
-    let data = dir.join("profile").to_string_lossy().into_owned();
-    let user_data = format!("--user-data-dir={data}");
-    let result = live_apps::app(
-        &AppSpec {
-            label: "chrome",
-            program: "google-chrome",
-            arguments: &[
-                "--no-sandbox",
-                "--force-renderer-accessibility",
-                "--password-store=basic",
-                "--no-first-run",
-                &user_data,
-                "--new-window",
-                &url,
-            ],
-            min_nodes: 100,
-        },
-        &LinuxAdapter::new(),
-        &SharedBus::default(),
-        check_each,
-    );
-    let _ = std::fs::remove_dir_all(dir);
-    result.expect("the case holds");
 }
 
 #[test]

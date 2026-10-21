@@ -10,6 +10,33 @@ execution: code
 
 # Linux Live E2E Harness on Real GNOME Apps (Sub-phase 3.12) - Plan
 
+## Owner validation amendment (2026-10-20)
+
+This amendment governs the rebase validation and supersedes conflicting live
+coverage, retry and shipping instructions below. Rebase onto the landed
+core-delivery head, validate locally and on private Linux sessions, commit as
+Lahfir, and do not push or open a PR.
+
+Rerun a failed test or harness leg at most once. Delete timing, load, session
+setup and environment-dependent checks, or replace them with a deterministic
+fake contract or a real observed-state wait. Record the reason in a `test:`
+commit. Fix product code only for a deterministic product defect, with priority
+on wrong-target actions and false delivery claims. Invert every new test.
+
+The current registry and README are the retained live inventory. Removed
+stock-app, input-seat, role, modal, exact-rendering and service-membership
+assumptions are not live passes. Keep 3.14 menu, popover, tray and notification
+legs outstanding with that dependency. Measure every retained tier/mode and
+report passed, failed and outstanding separately. An outstanding or unavailable
+result exits nonzero; only a completely passing selection exits zero.
+
+Independent X11 geometry excludes client shadows when observing visible-window
+position, size and capture content. Read the margins through X11 properties,
+never infer correctness from a product response. Cleanup carries process start
+tokens and revalidates exact private runtime ownership before PID signals.
+The README records concrete repaired contracts and deleted checks; the existing
+L34 rows and §3.12 record the measured results.
+
 ## Goal Capsule
 
 - **Objective:** a maintainer can run one command on a Linux GNOME box and learn, from independent observation of real desktop apps, whether every Linux command that exists on the landed stack works (shell surfaces, notifications and the tray are 3.14's commands and are driven here; FFI is 3.13's and the cursor overlay is an owner decision), in headless and headed mode, on each desktop backend; a green run means each named edge case was seen to behave and the box was left as it was found.
@@ -37,7 +64,7 @@ The desktop also fragments. GNOME on X11 under Openbox, under private mutter, an
 
 **Runner, isolation, cancellation**
 
-- R1. `bash tests/e2e-linux/run.sh` builds the locked release binary, stages an immutable hashed copy, takes the shared interaction lease, and exits `0` (every registered leg passed or is reported under a non-executing disposition), `1` (behavioural failure, contamination or failed restoration) or `2` (prerequisite gate), as `tests/e2e/README.md` defines for macOS.
+- R1. `bash tests/e2e-linux/run.sh` builds the locked release binary, stages an immutable hashed copy, takes the shared interaction lease, and exits `0` (every selected registered leg passed), `1` (behavioural failure, contamination, failed restoration, outstanding or unavailable work) or `2` (prerequisite gate), as `tests/e2e/README.md` defines for macOS.
 - R2. Every run uses its own runtime directory, session bus, accessibility bus, display, state root and GSettings keyfile; the live bus, display, shell and clipboard are never contacted (`L23-3`). Launched apps are attributed by registry diff plus runtime-directory membership and tracked as (pid, start time), never by the spawned pid (`L23-1`, `L23-4`).
 - R3. Cancelling `scripts/private-session.sh` or the runner with `SIGTERM`, `SIGHUP` or `SIGINT` leaves no member process and no runtime directory, and a runner sweep after `SIGKILL` removes the same (`L23-34`).
 - R4. Each shell tier starts through the landed wrapper for it (`scripts/private-mutter-shell.sh` for `gnome-shell --x11`, `scripts/private-wayland-shell.sh` for the headless Wayland shell) under its bounded retry and health gate, closes the Activities Overview before the first leg, kills a failed attempt by process group, and fails the tier with a named reason when the attempts are spent (`L23-28`, `L28-2`, `L28-10`, `L13-3`). Applications that the session bus activates (Terminal, Files) map on the tier's own display, read back by the runner before the first leg (`L18-17`).
@@ -45,7 +72,7 @@ The desktop also fragments. GNOME on X11 under Openbox, under private mutter, an
 **Verdict discipline**
 
 - R5. Every effect is asserted by a read from a channel the product does not use; an `ok: true` is never the evidence, and a leg that finished without a second-channel read fails.
-- R6. Every leg is registered with a requirement, target, backend tier, mode and disposition (`pass`, `asserted-refusal`, `owner-decision`, `outstanding`); a `pass` or `asserted-refusal` leg that did not execute, and an executed leg that is not registered, fail the run, while `owner-decision` and `outstanding` legs are reported with their reason and do not fail it. A seeded failing leg reaches a nonzero exit.
+- R6. Every leg is registered with a requirement, target, backend tier, mode and disposition (`pass`, `asserted-refusal`, `owner-decision`, `outstanding`); a `pass` or `asserted-refusal` leg that did not execute, and an executed leg that is not registered, fail the run, while `owner-decision` and `outstanding` legs are reported with their reason and keep the selection nonzero. A seeded failing leg reaches a nonzero exit.
 - R7. A vanished target, an unexpected owned process, a teardown failure or an unrestored value fails the run; mutated settings, folders and views are read back to their start values through the channel that read the start.
 - R8. Waits are deadline polls on a state; a fixed sleep never decides a verdict, and a leg never retries inside a run, because a retry would hide a dispatch-twice defect.
 

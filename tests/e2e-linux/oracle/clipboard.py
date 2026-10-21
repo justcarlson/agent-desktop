@@ -11,6 +11,7 @@ DEFAULT_TIMEOUT_S = 5.0
 MAX_CAPTURE_BYTES = 16 * 1024 * 1024
 
 TEXT_FORMATS = ("text", "text/plain", "text/plain;charset=utf-8")
+_OWNERS: dict[int, subprocess.Popen] = {}
 
 
 class ClipboardError(RuntimeError):
@@ -30,7 +31,7 @@ def xclip_target(fmt: str) -> str:
 def set_command(backend_name: str, fmt: str) -> list[str]:
     if backend_name == "wayland":
         return ["wl-copy", "--foreground", "--type", fmt]
-    return ["xclip", "-selection", "clipboard", "-silent", "-t", xclip_target(fmt), "-i"]
+    return ["xclip", "-selection", "clipboard", "-quiet", "-t", xclip_target(fmt), "-i"]
 
 
 def get_command(backend_name: str, fmt: str) -> list[str]:
@@ -98,9 +99,27 @@ def foreign_set(tier: Tier, fmt: str, data: bytes) -> int:
     while time.monotonic() < deadline:
         if process.poll() is not None:
             stderr = process.stderr.read().decode("utf-8", errors="replace")
+            process.stderr.close()
             raise ClipboardError(f"clipboard setter exited {process.returncode}: {stderr.strip()}")
         time.sleep(0.02)
+    _OWNERS[process.pid] = process
     return process.pid
+
+
+def stop_owner(pid: int) -> None:
+    process = _OWNERS.pop(pid, None)
+    if process is None:
+        raise ValueError("refusing to stop an unattributed clipboard owner")
+    try:
+        process.terminate()
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=2)
+    finally:
+        if process.stderr:
+            process.stderr.close()
 
 
 def foreign_get(tier: Tier, fmt: str) -> bytes | None:

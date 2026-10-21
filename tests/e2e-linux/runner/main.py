@@ -8,6 +8,7 @@ import signal
 import sys
 import tempfile
 import time
+import traceback
 from pathlib import Path
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ _LEASE_FD: int | None = None
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="run.sh")
     parser.add_argument("--tier", choices=TIER_CHOICES)
-    parser.add_argument("--leg")
+    parser.add_argument("--leg", help="one leg id or a comma-separated batch")
     parser.add_argument("--lying-actions", action="store_true")
     return parser.parse_args(argv)
 
@@ -75,12 +76,16 @@ def _evidence_path(suite_dir: Path, tier: str, mode: str, leg_id: str) -> Path:
     return Path(suite_dir) / "evidence" / tier / mode / f"{leg_id}.json"
 
 
-def _write_evidence(path: Path, ctx, leg_id: str, tier: str, mode: str) -> None:
+def _write_evidence(path: Path, ctx, outcome) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
-        "leg": leg_id,
-        "tier": tier,
-        "mode": mode,
+        "leg": outcome.leg_id,
+        "tier": outcome.tier,
+        "mode": outcome.mode,
+        "outcome": outcome.outcome,
+        "detail": outcome.detail,
+        "elapsed_ms": outcome.elapsed_ms,
+        "exception_traceback": ctx.exception_traceback,
         "reads": ctx.reads,
         "findings": ctx.findings,
         "owned_baseline": sorted(ctx.baseline.members),
@@ -97,6 +102,25 @@ def _write_evidence(path: Path, ctx, leg_id: str, tier: str, mode: str) -> None:
         ],
     }
     path.write_text(json.dumps(record, indent=2, default=repr))
+
+
+def _recover_failed_members(ctx) -> None:
+    from runner import session
+
+    remaining = ctx.owned().members - ctx.baseline.members
+    for signum in (signal.SIGTERM, signal.SIGKILL):
+        for pid, start in sorted(remaining):
+            if ((pid, start) in ctx.owned().members
+                    and session._process_start_time(Path("/proc") / str(pid)) == start):
+                session._kill(pid, signum, start, ctx.tier.runtime_dir, Path("/proc"))
+        deadline = time.monotonic() + 1.0
+        remaining = ctx.owned().members - ctx.baseline.members
+        while remaining and time.monotonic() < deadline:
+            time.sleep(0.05)
+            remaining = ctx.owned().members - ctx.baseline.members
+        if not remaining:
+            return
+    ctx.finding(f"failed-leg recovery left owned processes: {sorted(remaining)}")
 
 
 def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, verdict, report):
@@ -118,46 +142,53 @@ def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, ve
     except AssertionError as error:
         outcome = report.FAIL
         detail = str(error)
+        ctx.exception_traceback = traceback.format_exc()
     except Exception as error:
         outcome = report.ERROR
         detail = f"{type(error).__name__}: {error}"
+        ctx.exception_traceback = traceback.format_exc()
     elapsed = (time.perf_counter() - started) * 1000.0
-    try:
-        _write_evidence(
-            _evidence_path(suite_dir, tier_name, mode, leg.id), ctx, leg.id, tier_name, mode
-        )
-    except OSError as error:
-        ctx.finding(f"evidence could not be written: {error}")
-    return report.LegOutcome(
+    result = report.LegOutcome(
         leg_id=leg.id,
         tier=tier_name,
         mode=mode,
         outcome=outcome,
         detail=detail,
-        findings=tuple(ctx.findings),
         elapsed_ms=elapsed,
     )
+    try:
+        _write_evidence(
+            _evidence_path(suite_dir, tier_name, mode, leg.id), ctx, result
+        )
+    except OSError as error:
+        ctx.finding(f"evidence could not be written: {error}")
+    if outcome != report.PASS:
+        try:
+            _recover_failed_members(ctx)
+        except OSError as error:
+            ctx.finding(f"failed-leg recovery could not finish: {error}")
+    result.findings = tuple(ctx.findings)
+    return result
 
 
 def _run_tier(tier_name: str, legs_for_tier, impls, suite_dir: Path, verify_binary: bool):
-    from runner import report, session, stage, verdict
+    from runner import apps, report, session, stage, verdict
 
-    outcomes = []
+    outcomes = [report.LegOutcome(leg.id, tier_name, mode, leg.disposition, leg.reason)
+                for leg in legs_for_tier
+                if leg.disposition in (report.OUTSTANDING, report.OWNER)
+                for mode in leg.modes]
+    legs_for_tier = [leg for leg in legs_for_tier
+                     if leg.disposition not in (report.OUTSTANDING, report.OWNER)]
+    if not legs_for_tier:
+        return outcomes
     try:
         with session.start_tier(tier_name, TIER_DEADLINE_S) as tier_obj:
+            try:
+                apps.prime_desktop(tier_obj)
+            except (OSError, AssertionError, RuntimeError) as error:
+                raise session.TierUnavailable(f"{tier_name}: desktop warm-up failed: {error}") from error
             for leg in legs_for_tier:
-                if leg.disposition in (report.OUTSTANDING, report.OWNER):
-                    for mode in leg.modes:
-                        outcomes.append(
-                            report.LegOutcome(
-                                leg_id=leg.id,
-                                tier=tier_name,
-                                mode=mode,
-                                outcome=leg.disposition,
-                                detail=leg.reason,
-                            )
-                        )
-                    continue
                 impl = impls.get(leg.id)
                 for mode in leg.modes:
                     if impl is None:
@@ -220,12 +251,23 @@ def main(argv: list[str]) -> int:
     import scenarios
     from runner import gate, legs, report, session, stage, verdict
 
+    tiers = (args.tier,) if args.tier else TIER_CHOICES
+    selected_ids = ({name.strip() for name in args.leg.split(",")} if args.leg
+                    else {leg.id for leg in legs.REGISTRY})
+    for leg_id in sorted(selected_ids):
+        try:
+            selected = legs.leg_by_id(leg_id)
+        except KeyError:
+            print(f"gate: unknown leg {leg_id}", file=sys.stderr)
+            return report.exit_code(0, True)
+        if args.leg and not set(selected.tiers).intersection(tiers):
+            print(f"gate: {leg_id} is not registered for {args.tier}", file=sys.stderr)
+            return report.exit_code(0, True)
     env = dict(os.environ)
     lease_problem = _acquire_lease(env)
     if lease_problem:
         print(f"gate: {lease_problem}", file=sys.stderr)
         return report.exit_code(0, True)
-    tiers = (args.tier,) if args.tier else TIER_CHOICES
     missing = gate.check_prerequisites(tiers)
     if missing:
         for item in missing:
@@ -259,16 +301,6 @@ def main(argv: list[str]) -> int:
     session.sweep_strays(session_base)
 
     impls = legs.implementations()
-    if args.leg:
-        try:
-            legs.leg_by_id(args.leg)
-        except KeyError:
-            print(f"gate: unknown leg {args.leg}", file=sys.stderr)
-            return report.exit_code(0, True)
-        selected_ids = {args.leg}
-    else:
-        selected_ids = {leg.id for leg in legs.REGISTRY}
-
     outcomes = []
     for tier_name in tiers:
         legs_for_tier = [

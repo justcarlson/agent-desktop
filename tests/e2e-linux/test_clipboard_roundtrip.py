@@ -1,8 +1,12 @@
 import types
+import os
+import subprocess
+import sys
 import unittest
 from unittest import mock
 
 from oracle import clipboard
+from scenarios.clipboard import stop_owner
 
 
 def _tier(wayland=None):
@@ -21,7 +25,8 @@ class CommandTests(unittest.TestCase):
 
     def test_x11_setter_runs_in_the_foreground(self):
         argv = clipboard.set_command("x11", "image/png")
-        self.assertIn("-silent", argv)
+        self.assertIn("-quiet", argv)
+        self.assertNotIn("-silent", argv)
         self.assertIn("image/png", argv)
         self.assertNotIn("--foreground", argv)
 
@@ -35,6 +40,24 @@ class CommandTests(unittest.TestCase):
 
 
 class ForeignClientTests(unittest.TestCase):
+    def test_foreign_owner_cleanup_reaps_its_owned_child(self):
+        child = subprocess.Popen([sys.executable, "-c", "import time;time.sleep(60)"],
+                                 stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            with mock.patch.object(clipboard.subprocess, "Popen", return_value=child), \
+                mock.patch.object(clipboard.time, "monotonic", side_effect=[0, 0, 3]), \
+                mock.patch.object(clipboard.time, "sleep"):
+                pid = clipboard.foreign_set(_tier(), "text/plain", b"value")
+            stop_owner(pid)
+            with self.assertRaises(ChildProcessError):
+                os.waitpid(pid, os.WNOHANG)
+        finally:
+            if child.poll() is None:
+                child.terminate()
+            child.wait(timeout=5)
+            if child.stderr:
+                child.stderr.close()
+
     def test_a_setter_that_exits_is_an_error(self):
         with mock.patch.object(clipboard, "set_command", return_value=["false"]):
             with self.assertRaises(clipboard.ClipboardError):

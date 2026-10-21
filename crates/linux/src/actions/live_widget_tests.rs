@@ -295,27 +295,6 @@ fn drive_page(bench: &Bench, tag: &str, label: &str) {
 
 #[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh --wm"]
-fn a_chromium_page_takes_a_click_and_a_check() {
-    let (bench, tag) = browser_bench(
-        "google-chrome",
-        &[("ACCESSIBILITY_ENABLED", "1".to_owned())],
-        |url, profile| {
-            vec![
-                "--no-sandbox".to_owned(),
-                "--force-renderer-accessibility".to_owned(),
-                "--password-store=basic".to_owned(),
-                "--no-first-run".to_owned(),
-                format!("--user-data-dir={profile}"),
-                "--new-window".to_owned(),
-                url.to_owned(),
-            ]
-        },
-    );
-    drive_page(&bench, &tag, "chromium");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh --wm"]
 fn a_gecko_page_takes_a_click_and_a_check() {
     let snap = "/snap/firefox/current";
     let library_path = format!(

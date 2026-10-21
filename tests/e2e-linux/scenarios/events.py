@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from runner.apps import launch, stop
-from runner.helper import delayed
+from runner.apps import launch, stop, window_id
+from runner.helper import changed, delayed
 from runner.legs import implementation
 from runner.verdict import LegContext
-from oracle.atspi_raw import app_root
-from oracle.x11 import active_window
+from oracle.atspi_raw import app_root, registry, poll
+from oracle.x11 import active_window, restore_active
+from scenarios.launch import _close_added_windows, _window_ids
+from scenarios.menus import _click_named
 
 TEXT_EDITOR = "Text Editor"
 CALCULATOR = "Calculator"
@@ -22,7 +24,22 @@ def timed_out(envelope) -> bool:
 
 
 def root_windows(tier, owner: str) -> int:
-    return len(app_root(tier, owner).children())
+    try:
+        return len(app_root(tier, owner).children())
+    except LookupError:
+        return 0
+
+
+def _names(tier, owner):
+    return sorted(node.name for node in registry(tier) if node.name == owner)
+
+
+def _restore_count(ctx, owner, before, app_name):
+    replacement = launch(ctx.tier, app_name)
+    try:
+        ctx.restored("atspi.root_children", changed(lambda: root_windows(ctx.tier, owner), before))
+    finally:
+        stop(replacement)
 
 
 def _editor(tier):
@@ -48,10 +65,10 @@ def _assert_transition(ctx: LegContext, token: str, before: int, after: int) -> 
     assert after > before, f"{token} fired but the root children did not grow ({before} -> {after})"
 
 
-@implementation("events.window_opened_transition")
 def window_opened_transition(ctx: LegContext) -> None:
     app, root = _editor(ctx.tier)
     before = len(root.children())
+    existing = _window_ids(ctx.tier)
     ctx.before("atspi.root_children", before)
     trigger = delayed(0.8, lambda: _new_editor_window(ctx.tier))
     envelope = _wait(ctx, "window-opened")
@@ -59,6 +76,8 @@ def window_opened_transition(ctx: LegContext) -> None:
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "window-opened", envelope.raw
     _assert_transition(ctx, "window-opened", before, root_windows(ctx.tier, "gnome-text-editor"))
+    _close_added_windows(ctx.tier, existing)
+    ctx.restored("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     stop(app)
 
 
@@ -85,9 +104,9 @@ def window_closed_transition(ctx: LegContext) -> None:
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "window-closed", envelope.raw
-    remaining = [item for item in app_root(ctx.tier, "gnome-text-editor").children() if item.name]
-    ctx.after("atspi.root_children", len(remaining))
-    assert not remaining
+    remaining = changed(lambda: root_windows(ctx.tier, "gnome-text-editor"), 0)
+    ctx.after("atspi.root_children", remaining)
+    _restore_count(ctx, "gnome-text-editor", before, TEXT_EDITOR)
 
 
 @implementation("events.window_closed_quiet")
@@ -103,49 +122,67 @@ def window_closed_quiet(ctx: LegContext) -> None:
 
 @implementation("events.app_launched_transition")
 def app_launched_transition(ctx: LegContext) -> None:
-    ctx.before("proc.apps", [])
-    trigger = delayed(0.5, lambda: _calculator(ctx.tier))
+    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    launched = []
+    trigger = delayed(0.5, lambda: launched.append(launch(ctx.tier, CALCULATOR)))
     envelope = _wait(ctx, "app-launched")
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "app-launched", envelope.raw
-    ctx.after("proc.apps", ["gnome-calculator"])
+    ctx.after("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
+    stop(launched[0])
+    ctx.restored("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), []))
 
 
 @implementation("events.app_launched_quiet")
 def app_launched_quiet(ctx: LegContext) -> None:
-    ctx.before("proc.apps", [])
+    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
     envelope = ctx.product(["wait", "--event", "app-launched", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
-    ctx.after("proc.apps", [])
+    ctx.after("proc.apps", _names(ctx.tier, "gnome-calculator"))
 
 
 @implementation("events.app_terminated_transition")
 def app_terminated_transition(ctx: LegContext) -> None:
     app, _root = _calculator(ctx.tier)
-    ctx.before("proc.apps", ["gnome-calculator"])
+    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
     trigger = delayed(0.8, lambda: stop(app))
     envelope = _wait(ctx, "app-terminated")
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "app-terminated", envelope.raw
-    ctx.after("proc.apps", [])
+    ctx.after("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), []))
+    replacement = launch(ctx.tier, CALCULATOR)
+    try:
+        ctx.restored("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
+    finally:
+        stop(replacement)
 
 
 @implementation("events.app_terminated_quiet")
 def app_terminated_quiet(ctx: LegContext) -> None:
     app, _root = _calculator(ctx.tier)
-    ctx.before("proc.apps", ["gnome-calculator"])
+    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
     envelope = ctx.product(["wait", "--event", "app-terminated", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
-    ctx.after("proc.apps", ["gnome-calculator"])
+    ctx.after("proc.apps", _names(ctx.tier, "gnome-calculator"))
     stop(app)
 
 
 def _open_about(tier) -> None:
-    button = app_root(tier, "gnome-calculator").find(name="Main Menu")
-    assert button, "Calculator Main Menu missing from the raw tree"
-    button[0].do_action("click")
+    assert _click_named(tier, "gnome-calculator", "Main Menu"), "Calculator Main Menu missing"
+    previous = [-1]
+    def settled():
+        items = app_root(tier, "gnome-calculator").find(role=35)
+        count = len(items)
+        ready = count > 0 and previous[0] == count
+        previous[0] = count
+        return items if ready else None
+    items = poll(settled, 4)
+    assert items, "Calculator popover items did not settle"
+    assert items[-1].do_action("click"), "Calculator About item did not activate"
+    assert poll(lambda: any(node.role == 16 and "SHOWING" in node.states
+                           for node in app_root(tier, "gnome-calculator").walk()), 4), "About dialog did not show"
 
 
 def _appeared_about(ctx: LegContext, token: str) -> None:
@@ -158,15 +195,15 @@ def _appeared_about(ctx: LegContext, token: str) -> None:
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == token, envelope.raw
     _assert_transition(ctx, token, before, root_windows(ctx.tier, "gnome-calculator"))
+    _dismiss_about(ctx.tier)
+    ctx.restored("atspi.root_children", changed(lambda: root_windows(ctx.tier, "gnome-calculator"), before))
     stop(app)
 
 
-@implementation("events.surface_appeared_transition")
 def surface_appeared_transition(ctx: LegContext) -> None:
     _appeared_about(ctx, "surface-appeared")
 
 
-@implementation("events.surface_appeared_quiet")
 def surface_appeared_quiet(ctx: LegContext) -> None:
     app, root = _calculator(ctx.tier)
     ctx.before("atspi.root_children", len(root.children()))
@@ -177,26 +214,30 @@ def surface_appeared_quiet(ctx: LegContext) -> None:
 
 
 def _dismiss_about(tier) -> None:
-    close = app_root(tier, "gnome-calculator").find(name="Close")
-    if close:
-        close[0].do_action("click")
+    dialogs = [node for node in app_root(tier, "gnome-calculator").walk()
+               if node.role == 16 and "SHOWING" in node.states]
+    assert len(dialogs) == 1, "one showing About dialog required"
+    close = dialogs[0].find(role=43, name="Close")
+    assert len(close) == 1 and close[0].do_action("click"), "About did not close"
 
 
-@implementation("events.surface_dismissed_transition")
 def surface_dismissed_transition(ctx: LegContext) -> None:
     app, root = _calculator(ctx.tier)
     _open_about(ctx.tier)
-    ctx.before("atspi.root_children", len(root.children()))
+    before = len(root.children())
+    ctx.before("atspi.root_children", before)
     trigger = delayed(0.6, lambda: _dismiss_about(ctx.tier))
     envelope = _wait(ctx, "surface-dismissed")
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "surface-dismissed", envelope.raw
-    ctx.after("atspi.root_children", root_windows(ctx.tier, "gnome-calculator"))
+    after = changed(lambda: root_windows(ctx.tier, "gnome-calculator"), before - 1)
+    ctx.after("atspi.root_children", after)
+    _open_about(ctx.tier)
+    ctx.restored("atspi.root_children", changed(lambda: root_windows(ctx.tier, "gnome-calculator"), before))
     stop(app)
 
 
-@implementation("events.surface_dismissed_quiet")
 def surface_dismissed_quiet(ctx: LegContext) -> None:
     app, root = _calculator(ctx.tier)
     ctx.before("atspi.root_children", len(root.children()))
@@ -210,24 +251,6 @@ def _window_id(ctx: LegContext, app: str) -> str:
     envelope = ctx.product(["list-windows", "--app", app])
     assert envelope.ok and envelope.data, envelope.raw
     return envelope.data[0]["id"]
-
-
-@implementation("events.focus_changed_transition")
-def focus_changed_transition(ctx: LegContext) -> None:
-    editor, _root = _editor(ctx.tier)
-    calculator, _calc_root = _calculator(ctx.tier)
-    target = _window_id(ctx, CALCULATOR)
-    before = active_window(ctx.tier)
-    ctx.before("x11.active_window", before)
-    trigger = delayed(0.6, lambda: ctx.product(["focus-window", "--window-id", target]))
-    envelope = _wait(ctx, "focus-changed")
-    trigger.join()
-    assert envelope.ok, envelope.raw
-    after = active_window(ctx.tier)
-    ctx.after("x11.active_window", after)
-    assert after and after != before
-    stop(editor)
-    stop(calculator)
 
 
 @implementation("events.focus_changed_quiet")
@@ -245,6 +268,7 @@ def focus_changed_quiet(ctx: LegContext) -> None:
 def scoped_and_unscoped_forms(ctx: LegContext) -> None:
     app, root = _editor(ctx.tier)
     before = len(root.children())
+    existing = _window_ids(ctx.tier)
     ctx.before("atspi.root_children", before)
     scoped = delayed(0.6, lambda: _new_editor_window(ctx.tier))
     first = _wait(ctx, "window-opened", "--app", TEXT_EDITOR)
@@ -255,6 +279,8 @@ def scoped_and_unscoped_forms(ctx: LegContext) -> None:
     unscoped.join()
     assert second.ok, second.raw
     ctx.after("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
+    _close_added_windows(ctx.tier, existing)
+    ctx.restored("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     stop(app)
 
 
@@ -263,9 +289,10 @@ def open_and_close_inside_one_wait(ctx: LegContext) -> None:
     app, root = _editor(ctx.tier)
     ctx.before("atspi.root_children", len(root.children()))
 
+    existing = _window_ids(ctx.tier)
     def cycle() -> None:
-        other = _new_editor_window(ctx.tier)
-        stop(other)
+        _new_editor_window(ctx.tier)
+        _close_added_windows(ctx.tier, existing)
 
     trigger = delayed(0.6, cycle)
     envelope = _wait(ctx, "window-closed")
@@ -279,7 +306,9 @@ def open_and_close_inside_one_wait(ctx: LegContext) -> None:
 @implementation("events.target_killed_mid_wait")
 def target_killed_mid_wait(ctx: LegContext) -> None:
     app, root = _editor(ctx.tier)
-    ctx.before("proc.text_editor", "running")
+    read = lambda: _names(ctx.tier, "gnome-text-editor")
+    before = read()
+    ctx.before("proc.text_editor", before)
     trigger = delayed(0.5, lambda: stop(app))
     envelope = ctx.product(
         ["wait", "--event", "window-closed", "--app", TEXT_EDITOR, "--timeout", "8000"]
@@ -290,4 +319,9 @@ def target_killed_mid_wait(ctx: LegContext) -> None:
         assert envelope.data.get("target_unresolved") is True or envelope.data.get("found") is True
     else:
         assert timed_out(envelope), envelope.raw
-    ctx.after("proc.text_editor", "gone")
+    ctx.after("proc.text_editor", changed(read, []))
+    replacement = launch(ctx.tier, TEXT_EDITOR)
+    try:
+        ctx.restored("proc.text_editor", changed(read, before))
+    finally:
+        stop(replacement)

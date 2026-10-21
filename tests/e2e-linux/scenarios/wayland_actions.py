@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from scenarios.headed_actions import find_ref as qualified_ref
+
 import subprocess
 from pathlib import Path
 
@@ -45,20 +47,13 @@ def code_of(envelope) -> str:
 
 
 def named_ref(tree: dict | None, name: str) -> str | None:
-    stack = [tree] if tree else []
-    while stack:
-        node = stack.pop()
-        if node.get("ref") and node.get("name") == name:
-            return node["ref"]
-        stack.extend(node.get("children") or [])
-    return None
+    return qualified_ref(tree, name=name)
 
 
 def _error_text(envelope) -> dict:
     return {"message": (envelope.error or {}).get("message", ""), "details": (envelope.error or {}).get("details")}
 
 
-@implementation("wayland_actions.semantic_action_no_input_device")
 def semantic_action_no_input_device(ctx: LegContext) -> None:
     app = launch(ctx.tier, CALCULATOR)
     snapshot = ctx.product(["snapshot", "--app", CALCULATOR, "-i"])
@@ -73,7 +68,6 @@ def semantic_action_no_input_device(ctx: LegContext) -> None:
     stop(app)
 
 
-@implementation("wayland_actions.seat_without_keyboard_reported_as_seat")
 def seat_without_keyboard_reported_as_seat(ctx: LegContext) -> None:
     app = launch(ctx.tier, CALCULATOR)
     ctx.before("atspi.display", "")
@@ -85,7 +79,6 @@ def seat_without_keyboard_reported_as_seat(ctx: LegContext) -> None:
     stop(app)
 
 
-@implementation("wayland_actions.hit_test_unknown")
 def hit_test_unknown(ctx: LegContext) -> None:
     app = launch(ctx.tier, CALCULATOR)
     ctx.before("atspi.display", "")
@@ -128,7 +121,7 @@ def unhealthy_shell_named_reason(ctx: LegContext) -> None:
     script = REPO_ROOT / "scripts" / "private-wayland-shell.sh"
     env = dict(ctx.tier.env)
     env.pop("AGENT_DESKTOP_PRIVATE_SESSION", None)
-    ctx.before("session.tier", "wayland")
+    ctx.before("proc.runtime", Path(ctx.tier.runtime_dir).is_dir())
     completed = subprocess.run(
         ["bash", str(script), "--", "true"],
         env=env,
@@ -137,7 +130,7 @@ def unhealthy_shell_named_reason(ctx: LegContext) -> None:
         timeout=30,
         check=False,
     )
-    ctx.after("session.tier", completed.returncode)
+    ctx.after("proc.runtime", Path(ctx.tier.runtime_dir).is_dir())
     assert completed.returncode != 0, completed.stdout
     output = (completed.stdout + completed.stderr).lower()
     assert "private-session" in output or "private-wayland-shell" in output, output

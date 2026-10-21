@@ -7,7 +7,7 @@ use super::close_plan::TERM_GRACE;
 use super::process_facts;
 use super::protected::PROTECTED_NAMES;
 use super::{SharedBus, app_inventory, apps_scoped, list_windows};
-use rig::{Orphan, chromium, gtk3, gtk4, lease, qt};
+use rig::{Orphan, gtk3, gtk4, lease, qt};
 
 #[path = "close_live/rig.rs"]
 pub(super) mod rig;
@@ -94,13 +94,6 @@ fn close_live_gtk4_graceful() {
 fn close_live_qt_graceful() {
     let orphan = qt();
     graceful_close_ends_the_process(&orphan, &orphan.app("adclose-qt"));
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn close_live_chromium_graceful() {
-    let orphan = chromium();
-    graceful_close_ends_the_process(&orphan, &orphan.app("Google Chrome"));
 }
 
 #[test]

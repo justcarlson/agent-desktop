@@ -97,6 +97,15 @@ def active_window(tier: Tier) -> str | None:
     return ids[0] if ids else None
 
 
+def restore_active(tier: Tier, native_id: str) -> str | None:
+    if not HEX_ID.fullmatch(native_id):
+        raise ValueError("restoration needs a native X11 window id")
+    tool(tier, ["wmctrl", "-ia", native_id])
+    if not raw.poll(lambda: active_window(tier) == native_id, 5.0):
+        raise AssertionError("the original active window was not restored")
+    return active_window(tier)
+
+
 def stacking_xids(tier: Tier) -> list[str]:
     return window_ids(tool(tier, ["xprop", "-root", "_NET_CLIENT_LIST_STACKING"]))
 

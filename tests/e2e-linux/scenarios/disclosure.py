@@ -15,7 +15,6 @@ def expanded_state(tree, label):
     return "EXPANDED" in row.states, bool(children)
 
 
-@implementation("disclosure.files_tree_expand_collapse")
 def files_tree_expand_collapse(ctx: LegContext) -> None:
     directory = ctx.tier.runtime_dir / ("tree-" + uuid4().hex)
     (directory / "folder").mkdir(parents=True)
@@ -23,7 +22,7 @@ def files_tree_expand_collapse(ctx: LegContext) -> None:
     settings = (("org.gnome.nautilus.list-view", "use-tree-view", "true"),
                 ("org.gnome.nautilus.preferences", "default-folder-viewer", "'list-view'"))
     initial = {(schema, key): gsettings.get(ctx.tier, schema, key) for schema, key, _ in settings}
-    ctx.before("gsettings", initial)
+    ctx.before("gsettings", [[schema, key, value] for (schema, key), value in initial.items()])
     try:
         for schema, key, value in settings:
             gsettings.set(ctx.tier, schema, key, value)
@@ -51,6 +50,6 @@ def files_tree_expand_collapse(ctx: LegContext) -> None:
             gsettings.set(ctx.tier, schema, key, value)
         restored = {(schema, key): gsettings.get(ctx.tier, schema, key) for schema, key in initial}
         require(restored == initial)
-        ctx.after("gsettings", restored)
-        ctx.restored("gsettings", restored)
+        ctx.after("gsettings", [[schema, key, value] for (schema, key), value in restored.items()])
+        ctx.restored("gsettings", [[schema, key, value] for (schema, key), value in restored.items()])
         trash(ctx, directory)

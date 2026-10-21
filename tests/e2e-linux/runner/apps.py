@@ -4,6 +4,7 @@ import os
 import re
 import signal
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,11 +52,15 @@ def attributable(tier, pid, start, env) -> bool:
 def _owners(tier: Tier) -> list[OwnedApp]:
     result = []
     for node in raw.registry(tier):
-        pid = raw.owner_pid(node)
         try:
+            pid = raw.owner_pid(node)
             start, _, _, env = proc.facts(pid)
-        except (FileNotFoundError, ProcessLookupError):
+        except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
+        except Exception as error:
+            if "org.freedesktop.DBus.Error.NameHasNoOwner" in str(error):
+                continue
+            raise
         if not attributable(tier, pid, start, env):
             continue
         frames = [child for child in node.children() if child.role in (16, 23, 69)]
@@ -122,6 +127,14 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     if not found:
         raise AssertionError(f"no new private window for {app}; launcher exit={child.poll()}; log={log}")
     _TIERS[found.pid, found.start_time] = tier
+    try:
+        if tier.name == "x11-mutter" and x11.overview_active(tier):
+            tool(tier, ["xdotool", "key", "Escape"])
+            if not raw.poll(lambda: not x11.overview_active(tier), 2.5):
+                raise AssertionError("the private mutter Overview did not close")
+    except Exception:
+        stop(found)
+        raise
     return found
 
 
@@ -131,6 +144,7 @@ def stop(app: OwnedApp) -> None:
         raise ValueError("refusing to stop an unattributed process")
 
     def alive():
+        stat = ""
         try:
             stat = (Path("/proc") / str(app.pid) / "stat").read_text()
             if stat[stat.rindex(")") + 2:].split()[0] == "Z":
@@ -138,6 +152,13 @@ def stop(app: OwnedApp) -> None:
             start, group, _, env = proc.facts(app.pid)
         except (FileNotFoundError, ProcessLookupError):
             return False
+        except PermissionError:
+            # An exiting process can revoke environ before it becomes a zombie.
+            # Attribution was established at launch; retain only that generation.
+            if not stat:
+                raise
+            start, group, _ = proc.stat_fields(stat)
+            return group if start == app.start_time else False
         if start != app.start_time:
             return False
         if not attributable(tier, app.pid, start, env):
@@ -146,10 +167,9 @@ def stop(app: OwnedApp) -> None:
 
     group = alive()
     if group:
-        signal_owner = os.killpg if group == app.pid else os.kill
-        signal_owner(app.pid, signal.SIGTERM)
+        os.kill(app.pid, signal.SIGTERM)
         if raw.poll(lambda: not alive(), 2.0) is not True:
-            signal_owner(app.pid, signal.SIGKILL)
+            os.kill(app.pid, signal.SIGKILL)
         if not raw.poll(lambda: not alive(), 2.0):
             raise AssertionError(f"owned process survived: {app.pid}")
     for pid, child in list(_SPAWNED.items()):
@@ -164,6 +184,29 @@ def launch_qt(tier: Tier) -> OwnedApp:
     if log.exists():
         tool(tier, ["trash", str(log)])
     return launch(tier, str(path), (str(tier.runtime_dir / "qt-window.log"),))
+
+
+def prime_desktop(tier: Tier) -> None:
+    """Activate private portal/keyring services before a leg owns its baseline."""
+    if tier.display:
+        for key, value in (("index-recursive-directories", "[]"), ("index-single-directories", "[]"),
+                           ("enable-monitors", "false"), ("crawling-interval", "-2"), ("initial-sleep", "0")):
+            tool(tier, ["gsettings", "set", "org.freedesktop.Tracker3.Miner.Files", key, value])
+    names = ("Calculator", "Files", "Terminal", "Text Editor", "Settings") if tier.display else ("Calculator", "Text Editor")
+    for name in names:
+        app = launch(tier, name)
+        stop(app)
+    previous = proc.members(tier.runtime_dir)
+    stable_since = time.monotonic()
+    deadline = stable_since + 8.0
+    while time.monotonic() < deadline:
+        time.sleep(0.1)
+        current = proc.members(tier.runtime_dir)
+        if current != previous:
+            previous, stable_since = current, time.monotonic()
+        if time.monotonic() - stable_since >= 1.0:
+            return
+    raise AssertionError("private desktop service membership did not settle")
 
 
 def launch_vscode(tier: Tier) -> OwnedApp:

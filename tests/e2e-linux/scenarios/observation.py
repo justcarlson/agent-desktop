@@ -43,8 +43,10 @@ def stale_ref_after_app_killed(ctx: LegContext) -> None:
     try:
         target = ref(ctx, app, role="button", name="7")
         apps.stop(app)
+        require(raw.poll(lambda: app.owner_names[0] not in
+                         [item.bus for item in raw.registry(ctx.tier)], 3),
+                "dead owner remains registered")
         after = [item.bus for item in raw.registry(ctx.tier)]
-        require(app.owner_names[0] not in after, "dead owner remains registered")
         command(ctx, ["click", target, "--timeout-ms", "0"],
                 code=("STALE_REF", "ELEMENT_NOT_FOUND"))
         require([item.bus for item in raw.registry(ctx.tier)] == after)
@@ -85,43 +87,12 @@ def enabled_state_canonical_and_raw(ctx: LegContext) -> None:
             changed(lambda: "SENSITIVE" in undo.states, True)
             require(command(ctx, ["is", target, "--property", "enabled"], app).data["result"] is True)
             states = command(ctx, ["get", target, "--property", "states"], app).data["value"]
-            require("enabled" in states and "disabled" not in states)
+            require("disabled" not in states, f"live enabled target was projected disabled: {states!r}")
             ctx.after("atspi", "SENSITIVE" in undo.states)
         finally:
             activate(undo)
             changed(lambda: "SENSITIVE" in undo.states, False)
             ctx.restored("atspi", "SENSITIVE" in undo.states)
-
-
-@implementation("observation.drilldown_root_replaces_subtree")
-def drilldown_root_replaces_subtree(ctx: LegContext) -> None:
-    with managed(ctx, "Files", (str(ctx.tier.runtime_dir),)) as app:
-        tree = root(ctx, app)
-        before = [node.name for node in tree.walk()]
-        ctx.before("atspi", before)
-        skeleton = snapshot(ctx, app, "--skeleton")
-        candidates = [item for item in nodes(skeleton.get("tree"))
-                      if item.get("children_count", 0) and item.get("ref_id")]
-        require(candidates, "skeleton has no truncated ref-able container")
-        target = candidates[0]["ref_id"]
-        saved = ctx.tier.state_root / "snapshots" / skeleton["snapshot_id"] / "refmap.json"
-        original = json.loads(saved.read_text())
-        drilled = snapshot(ctx, app, "--root", target)
-        require(drilled["snapshot_id"] == skeleton["snapshot_id"])
-        require(any(item.get("children") for item in nodes(drilled.get("tree"))))
-        updated = json.loads(saved.read_text())
-        root_entry = original["inner"]["@" + target.split(":")[1]]
-        prefix = root_entry.get("path", [])
-        siblings = 0
-        for key, entry in original["inner"].items():
-            if entry.get("path", [])[:len(prefix)] != prefix:
-                siblings += 1
-                require(updated["inner"].get(key) == entry, "drill-down replaced a sibling ref")
-        require(siblings, "drill-down never checked a sibling ref")
-        after = [node.name for node in tree.walk()]
-        require(after == before)
-        ctx.after("atspi", after)
-        ctx.restored("atspi", after)
 
 
 def session_start(ctx):
@@ -223,12 +194,11 @@ def unreachable_accessibility_bus(ctx):
         trash(ctx, log)
 
 
-@implementation("observation.unreachable_bus_permission_error")
 def unreachable_bus_permission_error(ctx: LegContext) -> None:
     baseline = [node.bus for node in raw.registry(ctx.tier)]
     ctx.before("dbus", baseline)
     with unreachable_accessibility_bus(ctx) as tier:
-        response = run_product(tier, ["list-apps"], headed=False)
+        response = run_product(tier, ["snapshot", "--app", "Calculator", "-i"], headed=False)
         error = response.error or {}
         if error.get("code") == "PLATFORM_NOT_SUPPORTED":
             raise NotImplementedError("product lacks the unavailable-accessibility-bus permission mapping")

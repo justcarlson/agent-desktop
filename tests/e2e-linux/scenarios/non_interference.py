@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from oracle import atspi_raw, gsettings, x11
 from runner import apps
+from runner.helper import activate, changed, display, one
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.headed_actions import assert_ok, count_live, live_root, ref_for, window_of
@@ -10,18 +11,22 @@ from scenarios.headed_actions import assert_ok, count_live, live_root, ref_for, 
 def _semantic_click(ctx: LegContext, app, window: str) -> None:
     before_pointer = x11.pointer(ctx.tier)
     before_active = x11.active_window(ctx.tier)
-    before_count = count_live(ctx.tier, app, "7")
+    tree = live_root(ctx.tier, app)
+    before_count = display(tree)
     ctx.before("x11.pointer", before_pointer)
     ctx.before("x11.active_window", before_active)
-    ctx.before("atspi.names_7", before_count)
+    ctx.before("atspi.display", before_count)
     assert_ok(ctx.product(["click", ref_for(ctx, window, "7")]))
-    after_count = atspi_raw.poll(
-        lambda: count_live(ctx.tier, app, "7") if count_live(ctx.tier, app, "7") > before_count else None,
-        6.0,
-    )
-    ctx.after("atspi.names_7", after_count)
-    if after_count is None:
-        raise AssertionError("the semantic click left no effect")
+    try:
+        after_count = changed(lambda: display(tree), "7" if before_count in ("", "0") else before_count + "7")
+        ctx.after("atspi.display", after_count)
+        ctx.after("x11.pointer", x11.pointer(ctx.tier))
+        ctx.after("x11.active_window", x11.active_window(ctx.tier))
+        if x11.pointer(ctx.tier) != before_pointer or x11.active_window(ctx.tier) != before_active:
+            raise AssertionError("a semantic click changed pointer or focus")
+    finally:
+        activate(one(tree, role=43, name="Undo"))
+        ctx.restored("atspi.display", changed(lambda: display(tree), before_count))
 
 
 @implementation("non_interference.pointer_unchanged_by_semantic_click")
@@ -56,6 +61,7 @@ def active_window_unchanged_by_semantic_click(ctx: LegContext) -> None:
 @implementation("non_interference.pointer_unchanged_by_value_write")
 def pointer_unchanged_by_value_write(ctx: LegContext) -> None:
     schema, key = "org.gnome.desktop.peripherals.mouse", "speed"
+    before = gsettings.get(ctx.tier, schema, key)
     app = apps.launch(ctx.tier, "Settings", args=("mouse",))
     try:
         window = window_of(app)
@@ -65,17 +71,19 @@ def pointer_unchanged_by_value_write(ctx: LegContext) -> None:
         ctx.before("gsettings.speed", before)
         target = "0.2" if before != "0.2" else "0.4"
         assert_ok(ctx.product(["set-value", ref_for(ctx, window, role="slider"), target]))
-        changed = atspi_raw.poll(
+        observed = atspi_raw.poll(
             lambda: gsettings.get(ctx.tier, schema, key)
             if gsettings.get(ctx.tier, schema, key) != before
             else None,
             6.0,
         )
-        ctx.after("gsettings.speed", changed)
+        ctx.after("gsettings.speed", observed)
         ctx.after("x11.pointer", x11.pointer(ctx.tier))
-        if changed is None:
+        if observed is None:
             raise AssertionError("the semantic value write did not commit")
         if x11.pointer(ctx.tier) != pointer:
             raise AssertionError("a semantic value write moved the pointer")
     finally:
+        gsettings.set(ctx.tier, schema, key, before)
+        ctx.restored("gsettings.speed", changed(lambda: gsettings.get(ctx.tier, schema, key), before))
         apps.stop(app)

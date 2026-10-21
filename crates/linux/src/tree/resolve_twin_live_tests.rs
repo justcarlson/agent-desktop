@@ -36,14 +36,7 @@ fn resolve_widths(
 }
 
 fn without_path(entries: &[RefEntry]) -> Vec<RefEntry> {
-    entries
-        .iter()
-        .cloned()
-        .map(|mut entry| {
-            entry.scope.path.clear();
-            entry
-        })
-        .collect()
+    entries.iter().map(super::live_rig::search_entry).collect()
 }
 
 fn without_size(entries: &[RefEntry]) -> Vec<RefEntry> {

@@ -3,16 +3,13 @@ from __future__ import annotations
 import os
 import subprocess
 
-from oracle import atspi_raw, gsettings, proc, x11
+from oracle import atspi_raw, proc, x11
 from runner import apps
+from runner.helper import changed
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.headed_actions import assert_ok, window_of
-from scenarios.pointer import delivery_fields, error_delivery
-
-REFUSAL_ACTIVATION_CODES = frozenset(
-    {"activation_refused", "activation_not_granted", "overview_open", "frame_not_active"}
-)
+from scenarios.pointer import delivery_fields, error_delivery, frame_extents
 
 
 def _run(tier, argv: list[str]) -> subprocess.CompletedProcess:
@@ -37,7 +34,7 @@ def member_pids(members) -> set[int]:
 
 
 def _wm_state(tier, window: str) -> str:
-    process = _run(tier, ["xprop", "-id", window, "_NET_WM_STATE"])
+    process = _run(tier, ["xprop", "-id", x11.xid(tier, window), "_NET_WM_STATE"])
     return process.stdout
 
 
@@ -50,7 +47,9 @@ def _window_id(app) -> str:
 
 
 def _geometry(ctx: LegContext, window: str) -> tuple[int, int, int, int]:
-    return x11.geometry(ctx.tier, window)
+    x, y, width, height = x11.geometry(ctx.tier, window)
+    left, right, top, bottom = frame_extents(ctx.tier, window)
+    return x + left, y + top, width - left - right, height - top - bottom
 
 
 def _close_report(ctx: LegContext, app) -> dict:
@@ -59,19 +58,13 @@ def _close_report(ctx: LegContext, app) -> dict:
     return delivery_fields(data) if envelope.ok else error_delivery(envelope)
 
 
-@implementation("lifecycle.close_app_delivery_report")
-def close_app_delivery_report(ctx: LegContext) -> None:
-    app = apps.launch(ctx.tier, "Calculator")
-    pid = app.pid
-    ctx.before("proc.alive", _alive(ctx.tier, pid))
-    report = _close_report(ctx, app)
-    gone = atspi_raw.poll(lambda: True if not _alive(ctx.tier, pid) else None, 10.0)
-    ctx.after("proc.alive", not gone)
-    ctx.after("disposition.delivery", report["delivery"])
-    if not gone:
-        raise AssertionError("close-app reported delivery while the process stayed")
-    if report["delivery"] == "not_delivered":
-        raise AssertionError("close-app reported not delivered after the process exited")
+def _restore_geometry(ctx, window, before):
+    x, y, width, height = before
+    assert_ok(ctx.product(["resize-window", "--window-id", window,
+                           "--width", str(width), "--height", str(height)]))
+    assert_ok(ctx.product(["move-window", "--window-id", window,
+                           "--x", str(x), "--y", str(y)]))
+    ctx.restored("x11.geometry", changed(lambda: _geometry(ctx, window), before, seconds=6))
 
 
 @implementation("lifecycle.close_app_undelivered_report")
@@ -83,7 +76,6 @@ def close_app_undelivered_report(ctx: LegContext) -> None:
         ctx.before("proc.alive", _alive(ctx.tier, pid))
         report = _close_report(ctx, app)
         ctx.after("proc.alive", _alive(ctx.tier, pid))
-        ctx.after("disposition.delivery", report["delivery"])
         if report["delivery"] != "not_delivered":
             raise AssertionError(f"a stopped process was reported {report['delivery']}")
         if not _alive(ctx.tier, pid):
@@ -99,13 +91,17 @@ def focus_window_active_reads(ctx: LegContext) -> None:
     editor = apps.launch(ctx.tier, "Text Editor")
     try:
         target = _window_id(calculator)
+        native = x11.xid(ctx.tier, target)
         assert_ok(ctx.product(["press", "7", "--window-id", _window_id(editor)]))
-        ctx.before("x11.active_window", x11.active_window(ctx.tier))
+        before = x11.active_window(ctx.tier)
+        ctx.before("x11.active_window", before)
         assert_ok(ctx.product(["focus-window", "--window-id", target]))
-        active = atspi_raw.poll(lambda: target if x11.active_window(ctx.tier) == target else None, 6.0)
+        active = atspi_raw.poll(lambda: x11.active_window(ctx.tier)
+                               if x11.active_window(ctx.tier) == native else None, 6.0)
         ctx.after("x11.active_window", active)
-        if active != target:
+        if active != native:
             raise AssertionError("focus-window did not make the target active")
+        ctx.restored("x11.active_window", x11.restore_active(ctx.tier, before))
     finally:
         apps.stop(editor)
         apps.stop(calculator)
@@ -125,6 +121,7 @@ def resize_window(ctx: LegContext) -> None:
         ctx.after("x11.geometry", after)
         if after is None:
             raise AssertionError("the window did not take the new size")
+        _restore_geometry(ctx, window, before)
     finally:
         apps.stop(app)
 
@@ -143,6 +140,7 @@ def move_window(ctx: LegContext) -> None:
         ctx.after("x11.geometry", after)
         if after is None:
             raise AssertionError("the window did not take the new position")
+        _restore_geometry(ctx, window, before)
     finally:
         apps.stop(app)
 
@@ -164,7 +162,7 @@ def minimize_restore(ctx: LegContext) -> None:
         assert_ok(ctx.product(["restore", "--window-id", window]))
         ctx.restored(
             "x11.wm_state",
-            atspi_raw.poll(lambda: not is_hidden(_wm_state(ctx.tier, window)), 6.0),
+            changed(lambda: is_hidden(_wm_state(ctx.tier, window)), False, seconds=6),
         )
     finally:
         apps.stop(app)
@@ -186,7 +184,7 @@ def maximize_restore(ctx: LegContext) -> None:
         assert_ok(ctx.product(["restore", "--window-id", window]))
         ctx.restored(
             "x11.wm_state",
-            atspi_raw.poll(lambda: not is_maximised(_wm_state(ctx.tier, window)), 6.0),
+            changed(lambda: is_maximised(_wm_state(ctx.tier, window)), False, seconds=6),
         )
     finally:
         apps.stop(app)
@@ -201,7 +199,7 @@ def window_operation_delivery_reports(ctx: LegContext) -> None:
         ctx.before("x11.geometry", before)
         moved = assert_ok(ctx.product(["move-window", "--window-id", window, "--x", str(before[0] + 20), "--y", str(before[1] + 20)]))
         moved_report = delivery_fields(moved)
-        ctx.after("disposition.delivery", moved_report["delivery"])
+        ctx.after("x11.geometry", _geometry(ctx, window))
         if moved_report["delivery"] == "not_delivered":
             raise AssertionError("a moved window was reported not delivered")
         missing = ctx.product(["resize-window", "--window-id", "w-missing", "--width", "100", "--height", "100"])
@@ -209,77 +207,8 @@ def window_operation_delivery_reports(ctx: LegContext) -> None:
             raise AssertionError("resizing a missing window succeeded")
         if error_delivery(missing)["delivery"] != "not_delivered":
             raise AssertionError("a missing window was not reported as not delivered")
+        _restore_geometry(ctx, window, before)
     finally:
-        apps.stop(app)
-
-
-@implementation("lifecycle.mutter_lift_outcome_set")
-def mutter_lift_outcome_set(ctx: LegContext) -> None:
-    calculator = apps.launch(ctx.tier, "Calculator")
-    editor = apps.launch(ctx.tier, "Text Editor")
-    try:
-        target = _window_id(calculator)
-        ctx.before("x11.active_window", x11.active_window(ctx.tier))
-        assert_ok(ctx.product(["focus-window", "--window-id", target]))
-        active = atspi_raw.poll(
-            lambda: target if x11.active_window(ctx.tier) == target else None, 2.5
-        )
-        outcome = active or "target_not_active"
-        ctx.after("x11.active_window", outcome)
-        if outcome not in (target, "target_not_active"):
-            raise AssertionError(f"lift ended in an unmeasured outcome {outcome!r}")
-    finally:
-        apps.stop(editor)
-        apps.stop(calculator)
-
-
-@implementation("lifecycle.mutter_desktop_switch_read_back")
-def mutter_desktop_switch_read_back(ctx: LegContext) -> None:
-    saved = [
-        ("org.gnome.mutter", "dynamic-workspaces", gsettings.get(ctx.tier, "org.gnome.mutter", "dynamic-workspaces")),
-        ("org.gnome.desktop.wm.preferences", "num-workspaces", gsettings.get(ctx.tier, "org.gnome.desktop.wm.preferences", "num-workspaces")),
-    ]
-    gsettings.set(ctx.tier, "org.gnome.mutter", "dynamic-workspaces", "false")
-    gsettings.set(ctx.tier, "org.gnome.desktop.wm.preferences", "num-workspaces", "4")
-    calculator = apps.launch(ctx.tier, "Calculator")
-    try:
-        target = _window_id(calculator)
-        ctx.before("x11.current_desktop", x11.current_desktop(ctx.tier))
-        _run(ctx.tier, ["wmctrl", "-s", "1"])
-        switched = atspi_raw.poll(
-            lambda: x11.current_desktop(ctx.tier) if x11.current_desktop(ctx.tier) == 1 else None, 6.0
-        )
-        ctx.after("x11.current_desktop", switched)
-        if switched != 1:
-            raise AssertionError("the desktop switch was not read back")
-        assert_ok(ctx.product(["focus-window", "--window-id", target]))
-        ctx.after("x11.active_window", x11.active_window(ctx.tier))
-    finally:
-        _run(ctx.tier, ["wmctrl", "-s", "0"])
-        apps.stop(calculator)
-        for schema, key, value in saved:
-            gsettings.set(ctx.tier, schema, key, value)
-
-
-@implementation("lifecycle.mutter_activation_refusal_codes")
-def mutter_activation_refusal_codes(ctx: LegContext) -> None:
-    app = apps.launch(ctx.tier, "Calculator")
-    try:
-        window = _window_id(app)
-        assert_ok(ctx.product(["press", "super", "--window-id", window]))
-        atspi_raw.poll(lambda: True if x11.overview_active(ctx.tier) else None, 6.0)
-        ctx.before("x11.overview_active", x11.overview_active(ctx.tier))
-        envelope = ctx.product(["focus-window", "--window-id", window])
-        if envelope.ok:
-            raise AssertionError("focus-window succeeded while the Overview was open")
-        details = (envelope.error or {}).get("details") or {}
-        cause = details.get("kind") or (envelope.error or {}).get("code")
-        ctx.after("activation.cause", cause)
-        if cause not in REFUSAL_ACTIVATION_CODES:
-            raise AssertionError(f"the activation refusal carried {cause!r}")
-    finally:
-        assert_ok(ctx.product(["press", "escape"]))
-        atspi_raw.poll(lambda: not x11.overview_active(ctx.tier), 6.0)
         apps.stop(app)
 
 
@@ -289,14 +218,17 @@ def openbox_lift_restored_and_active(ctx: LegContext) -> None:
     editor = apps.launch(ctx.tier, "Text Editor")
     try:
         target = _window_id(calculator)
-        ctx.before("x11.active_window", x11.active_window(ctx.tier))
+        native = x11.xid(ctx.tier, target)
+        before = x11.active_window(ctx.tier)
+        ctx.before("x11.active_window", before)
         assert_ok(ctx.product(["focus-window", "--window-id", target]))
         active = atspi_raw.poll(
-            lambda: target if x11.active_window(ctx.tier) == target else None, 6.0
+            lambda: x11.active_window(ctx.tier) if x11.active_window(ctx.tier) == native else None, 6.0
         )
         ctx.after("x11.active_window", active)
-        if active != target:
+        if active != native:
             raise AssertionError("the lift did not end with the target active")
+        ctx.restored("x11.active_window", x11.restore_active(ctx.tier, before))
     finally:
         apps.stop(editor)
         apps.stop(calculator)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -53,6 +54,9 @@ def make_binary(root: Path, body: str) -> Path:
     path = Path(root) / "fake-agent-desktop"
     path.write_text(f"#!/bin/sh\n{body}\n")
     path.chmod(0o700)
+    helper = root / "agent-desktop-linux-clipboard-owner"
+    helper.write_text("#!/bin/sh\necho clipboard-owner\n")
+    helper.chmod(0o700)
     return path
 
 
@@ -144,15 +148,20 @@ class GateTests(unittest.TestCase):
                 "AGENT_DESKTOP_E2E_BIN": str(make_binary(Path(root), "exit 0")),
                 "AGENT_DESKTOP_WM_ROOT": str(Path(root) / "wm"),
             }
-            missing = gate.check_prerequisites(
-                ("x11-openbox",),
-                which=lambda tool: f"/usr/bin/{tool}",
-                env=env,
-                extra_paths=(),
-                gi_probe=lambda: None,
-                platform="linux",
-            )
-        self.assertEqual(missing, [])
+            for key in ("AGENT_DESKTOP_E2E_BIN", "AGENT_DESKTOP_E2E_BIN_SRC"):
+                with self.subTest(key=key):
+                    selected = {name: value for name, value in env.items()
+                                if name != "AGENT_DESKTOP_E2E_BIN"}
+                    selected[key] = env["AGENT_DESKTOP_E2E_BIN"]
+                    missing = gate.check_prerequisites(
+                        ("x11-openbox",),
+                        which=lambda tool: f"/usr/bin/{tool}",
+                        env=selected,
+                        extra_paths=(),
+                        gi_probe=lambda: None,
+                        platform="linux",
+                    )
+                    self.assertEqual(missing, [])
 
     def test_gate_failure_maps_to_exit_two(self):
         self.assertEqual(report.exit_code(0, True), 2)
@@ -165,8 +174,38 @@ class GateTests(unittest.TestCase):
                 code = main.main(["--tier", "x11-openbox"])
         self.assertEqual(code, 2)
 
+    def test_incompatible_leg_and_tier_is_rejected_before_startup(self):
+        with mock.patch.object(main, "_acquire_lease", return_value=None), \
+            mock.patch.object(gate, "check_prerequisites", side_effect=AssertionError("invalid selection reached startup")):
+            self.assertEqual(main.main([
+                "--tier", "wayland", "--leg", "state.terminal_copy_follows_selection"]), 2)
+
 
 class StageTests(unittest.TestCase):
+    def test_staged_program_can_invoke_adjacent_clipboard_owner(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = make_binary(Path(root), 'exec "$(dirname "$0")/agent-desktop-linux-clipboard-owner"')
+            suite = Path(root) / "suite"
+            target = stage.stage_binary(source, suite)
+            result = subprocess.run([str(target)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "clipboard-owner")
+            helper = target.with_name("agent-desktop-linux-clipboard-owner")
+            helper.chmod(0o700)
+            helper.write_text("#!/bin/sh\necho changed\n")
+            self.assertFalse(stage.verify_staged(target, suite))
+
+    def test_reused_suite_rejects_a_changed_source_image(self):
+        for image in ("cli", "helper"):
+            with self.subTest(image=image), tempfile.TemporaryDirectory() as root:
+                source = make_binary(Path(root), "echo version")
+                suite = Path(root) / "suite"
+                stage.stage_binary(source, suite)
+                changed = source if image == "cli" else source.with_name(stage.HELPER_NAME)
+                changed.write_text("#!/bin/sh\necho another-build\n")
+                with self.assertRaises(stage.StagedBinaryModified):
+                    stage.stage_binary(source, suite)
+
     def test_stage_records_hash_and_reverifies(self):
         with tempfile.TemporaryDirectory() as root:
             source = make_binary(Path(root), "echo version")
@@ -197,6 +236,14 @@ class StageTests(unittest.TestCase):
 
 
 class EnvelopeTests(unittest.TestCase):
+    def test_cli_child_inherits_the_held_interaction_lease(self):
+        body = '''exec python3 -c 'import json, os; os.fstat(int(os.environ["AGENT_DESKTOP_INTERACTION_LEASE_FD"])); print(json.dumps({"ok": True, "data": {"inherited": True}}))' '''
+        with tempfile.TemporaryFile() as lease, mock.patch.dict(
+                os.environ, {"AGENT_DESKTOP_INTERACTION_LEASE_FD": str(lease.fileno())}):
+            envelope = self.run_argv(body)
+        self.assertTrue(envelope.ok, envelope.raw)
+        self.assertEqual(envelope.data, {"inherited": True})
+
     def run_argv(self, body, **kw):
         with tempfile.TemporaryDirectory() as root:
             binary = make_binary(Path(root), body)
@@ -305,6 +352,28 @@ class ReportTests(unittest.TestCase):
 
 
 class SourceRuleTests(unittest.TestCase):
+    def test_remote_lock_wait_can_be_bounded_separately_from_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name, body in (("ssh", 'printf "%s\\n" "$*"'), ("rsync", "exit 0")):
+                path = Path(directory) / name
+                path.write_text("#!/bin/sh\n" + body + "\n")
+                path.chmod(0o700)
+            env = dict(os.environ, PATH=directory + os.pathsep + os.environ["PATH"],
+                       AGENT_DESKTOP_REMOTE_TIMEOUT="780",
+                       AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT="30")
+            result = subprocess.run(["bash", str(REPO / "scripts/remote-linux.sh"),
+                                     "-c", "true"], env=env, capture_output=True, text=True,
+                                    timeout=10, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("flock -o -w 30", result.stdout)
+        self.assertIn("timeout -k 30 780", result.stdout)
+
+    def test_session_and_remote_cleanup_is_recoverable(self):
+        permanent_delete = re.compile(r"(?m)(?:^|[;&|(){]|trap ['\"])\s*rm(?:\s|$)|\bfind\b[^\n]*\s-delete\b")
+        paths = [REPO / "scripts" / name for name in (
+            "private-session.sh", "private-wayland-shell.sh", "remote-linux.sh")]
+        self.assertEqual([path.name for path in paths if permanent_delete.search(path.read_text())], [])
+
     def test_no_shell_file_uses_rm(self):
         permanent_delete = re.compile(r"(?m)(?:^|[;&|(){])\s*rm(?:\s|$)")
         offenders = [

@@ -99,7 +99,7 @@ def dock_supported_surfaces_agree(ctx: LegContext) -> None:
     status = ctx.product(["status"])
     assert status.ok, status.raw
     advertised = supported(status.data)
-    ctx.before("status.supported_surfaces", advertised)
+    ctx.before("atspi.shell_nodes", len(app_root(ctx.tier, SHELL).find()))
     for surface in SURFACES:
         envelope = ctx.product(["open-system-surface", "--surface", surface])
         if surface in advertised:
@@ -107,7 +107,7 @@ def dock_supported_surfaces_agree(ctx: LegContext) -> None:
         else:
             assert not envelope.ok, envelope.raw
             assert (envelope.error or {}).get("code") == "PLATFORM_NOT_SUPPORTED", envelope.raw
-    ctx.after("status.supported_surfaces", supported(status.data))
+    ctx.after("atspi.shell_nodes", len(app_root(ctx.tier, SHELL).find()))
 
 
 @implementation("shell_surfaces.system_button_open_close_by_ref")

@@ -24,9 +24,21 @@ def names_containing(root, needle: str) -> list[str]:
 
 def _click_named(tier, owner: str, name: str) -> bool:
     matches = app_root(tier, owner).find(name=name)
+    toggles = [node for node in matches if node.role == 62]
+    if toggles:
+        assert len(toggles) == 1, "ambiguous menu toggle"
+        return toggles[0].do_action("click")
     if not matches:
         return False
     return matches[0].do_action("click")
+
+
+def _visible(tier, owner):
+    return any("SHOWING" in node.states for node in app_root(tier, owner).find(role=35))
+
+
+def _toggle(tier, owner):
+    assert _click_named(tier, owner, "Main Menu") or _click_named(tier, owner, "Menu"), "menu opener missing"
 
 
 def _calculator(tier):
@@ -39,70 +51,64 @@ def _terminal(tier):
     return app, app_root(tier, "gnome-terminal-server")
 
 
+def _menu_case(ctx, name, operation):
+    from runner.helper import changed
+    owner = "gnome-calculator" if name == CALCULATOR else "gnome-terminal-server"
+    app = launch(ctx.tier, name)
+    read = lambda: _visible(ctx.tier, owner)
+    try:
+        if operation in ("close", "already"):
+            _toggle(ctx.tier, owner)
+            changed(read, True)
+        before = read()
+        assert before == (operation in ("close", "already")), "unexpected initial menu visibility"
+        ctx.before("atspi.menu_visible", before)
+        if operation in ("open", "close"):
+            _toggle(ctx.tier, owner)
+        args = ["wait", "--menu-closed" if operation == "close" else "--menu", "--app", name,
+                "--timeout", "1500" if operation == "hidden" else "4000"]
+        envelope = ctx.product(args)
+        if operation == "hidden":
+            assert is_timeout(envelope), envelope.raw
+            message = timeout_message(envelope).lower()
+            assert "menu" in message or "hidden" in message, envelope.raw
+        else:
+            assert envelope.ok, envelope.raw
+            if operation == "already":
+                assert envelope.elapsed_ms < 1500, f"already-open menu took {envelope.elapsed_ms} ms"
+        expected = operation in ("open", "already")
+        ctx.after("atspi.menu_visible", changed(read, expected))
+        if read() != before:
+            _toggle(ctx.tier, owner)
+        ctx.restored("atspi.menu_visible", changed(read, before))
+    finally:
+        stop(app)
+
+
 @implementation("menus.wait_menu_opens_calculator")
 def wait_menu_opens_calculator(ctx: LegContext) -> None:
-    app, root = _calculator(ctx.tier)
-    ctx.before("atspi.menu_visible", False)
-    assert _click_named(ctx.tier, "gnome-calculator", "Main Menu")
-    envelope = ctx.product(["wait", "--menu", "--app", CALCULATOR, "--timeout", "4000"])
-    assert envelope.ok, envelope.raw
-    assert envelope.data and envelope.data.get("found") is True, envelope.raw
-    ctx.after("atspi.menu_visible", True)
-    stop(app)
+    _menu_case(ctx, CALCULATOR, "open")
 
 
 @implementation("menus.wait_menu_closes_calculator")
 def wait_menu_closes_calculator(ctx: LegContext) -> None:
-    app, _root = _calculator(ctx.tier)
-    assert _click_named(ctx.tier, "gnome-calculator", "Main Menu")
-    ctx.before("atspi.menu_visible", True)
-    assert _click_named(ctx.tier, "gnome-calculator", "Main Menu")
-    envelope = ctx.product(
-        ["wait", "--menu-closed", "--app", CALCULATOR, "--timeout", "4000"]
-    )
-    assert envelope.ok, envelope.raw
-    ctx.after("atspi.menu_visible", False)
-    stop(app)
+    _menu_case(ctx, CALCULATOR, "close")
 
 
-@implementation("menus.wait_menu_opens_terminal")
 def wait_menu_opens_terminal(ctx: LegContext) -> None:
-    app, _root = _terminal(ctx.tier)
-    ctx.before("atspi.menu_visible", False)
-    assert _click_named(ctx.tier, "gnome-terminal-server", "Main Menu") or _click_named(
-        ctx.tier, "gnome-terminal-server", "Menu"
-    )
-    envelope = ctx.product(["wait", "--menu", "--app", TERMINAL, "--timeout", "4000"])
-    assert envelope.ok, envelope.raw
-    ctx.after("atspi.menu_visible", True)
-    stop(app)
+    _menu_case(ctx, TERMINAL, "open")
 
 
 @implementation("menus.wait_menu_already_open")
 def wait_menu_already_open(ctx: LegContext) -> None:
-    app, _root = _calculator(ctx.tier)
-    assert _click_named(ctx.tier, "gnome-calculator", "Main Menu")
-    ctx.before("atspi.menu_visible", True)
-    envelope = ctx.product(["wait", "--menu", "--app", CALCULATOR, "--timeout", "4000"])
-    assert envelope.ok, envelope.raw
-    assert envelope.elapsed_ms < 1500, f"already-open menu took {envelope.elapsed_ms} ms"
-    ctx.after("atspi.menu_visible", True)
-    stop(app)
+    _menu_case(ctx, CALCULATOR, "already")
 
 
 @implementation("menus.hidden_bar_timeout_message")
 def hidden_bar_timeout_message(ctx: LegContext) -> None:
-    app, root = _terminal(ctx.tier)
-    ctx.before("atspi.menu_visible", False)
-    envelope = ctx.product(["wait", "--menu", "--app", TERMINAL, "--timeout", "1500"])
-    assert is_timeout(envelope), envelope.raw
-    message = timeout_message(envelope).lower()
-    assert "menu" in message or "hidden" in message, envelope.raw
-    ctx.after("atspi.menu_visible", False)
-    stop(app)
+    _menu_case(ctx, TERMINAL, "hidden")
 
 
-@implementation("menus.terminal_preferences_modal")
 def terminal_preferences_modal(ctx: LegContext) -> None:
     app, root = _terminal(ctx.tier)
     before = len(root.children())
@@ -126,7 +132,6 @@ def terminal_preferences_modal(ctx: LegContext) -> None:
     stop(app)
 
 
-@implementation("menus.settings_panel_navigation")
 def settings_panel_navigation(ctx: LegContext) -> None:
     before = names_containing(app_root(ctx.tier, "gnome-control-center"), "Power") if _registered(ctx.tier) else []
     ctx.before("atspi.panel", before)

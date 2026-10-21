@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from scenarios.headed_actions import find_ref as qualified_ref
+
 import json
 
 from runner.apps import launch, stop
@@ -11,16 +13,7 @@ CALCULATOR = "Calculator"
 
 
 def find_ref(tree: dict | None, *, name: str | None = None, role: str | None = None) -> str | None:
-    if not tree:
-        return None
-    stack = [tree]
-    while stack:
-        node = stack.pop()
-        if node.get("ref") and (name is None or node.get("name") == name):
-            if role is None or node.get("role") == role:
-                return node["ref"]
-        stack.extend(reversed(node.get("children") or []))
-    return None
+    return qualified_ref(tree, name=name, role=role)
 
 
 def surface_ids(surfaces: list[dict]) -> dict[str, list[str]]:
@@ -91,7 +84,6 @@ def baseline_after_opener_fails(ctx: LegContext) -> None:
     stop(app)
 
 
-@implementation("surfaces.window_and_sheet_dedupe_one_id")
 def window_and_sheet_dedupe_one_id(ctx: LegContext) -> None:
     app = launch(ctx.tier, CALCULATOR)
     ctx.before("atspi.surfaces", len(_surfaces(ctx, CALCULATOR)))
@@ -113,7 +105,6 @@ def window_and_sheet_dedupe_one_id(ctx: LegContext) -> None:
     stop(app)
 
 
-@implementation("surfaces.files_properties_surface_scope")
 def files_properties_surface_scope(ctx: LegContext) -> None:
     files = launch(ctx.tier, "Files")
     envelope = ctx.product(["list-windows", "--app", "Files"])

@@ -255,35 +255,6 @@ fn menu_wait_live_qt_file_menu_both_directions() {
 
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn menu_wait_live_chrome_menu_opens_and_closes_by_escape() {
-    let mut rig = Rig::new();
-    let profile = chrome_profile(&mut rig);
-    let pid = launch_chrome(&mut rig, &profile);
-    poll("the Chrome window", || {
-        (x11_windows(pid).len() == 1).then_some(())
-    });
-    let (app, _) = identity_of(&rig, pid);
-    let frames = || {
-        top_level(&rig.connection, pid)
-            .iter()
-            .filter(|n| n.role == FRAME && n.has(STATE_SHOWING))
-            .count()
-    };
-    let idle = frames();
-    let open = || do_action(&rig.connection, &named(&rig, pid, MENU_BUTTON, "Chrome"));
-    let close = || close_chrome_menu(|| frames() <= idle);
-    let legs = Legs {
-        label: "chrome",
-        app: &app,
-        open: &open,
-        close: &close,
-        is_open: &|| frames() > idle,
-    };
-    both_directions(&rig, &legs);
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
 fn menu_wait_live_target_exiting_mid_wait_is_stale_ref() {
     let mut rig = Rig::new();
     let pid = rig.spawn("gnome-calculator", &[]);

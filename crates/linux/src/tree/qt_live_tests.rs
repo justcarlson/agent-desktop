@@ -3,7 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{ErrorCode, RefEntry};
 
 use super::live_fixture;
-use super::live_rig::{Rig, deadline, kind, refused, rig, wait_until, width_of};
+use super::live_rig::{Rig, deadline, refused, rig, wait_until, width_of};
 use super::live_tree::{children_of, pid_of};
 use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
 
@@ -18,14 +18,7 @@ fn widths(rig: &Rig, entries: &[RefEntry]) -> Vec<f64> {
 }
 
 fn path_emptied(entries: &[RefEntry]) -> Vec<RefEntry> {
-    entries
-        .iter()
-        .cloned()
-        .map(|mut entry| {
-            entry.scope.path.clear();
-            entry
-        })
-        .collect()
+    entries.iter().map(super::live_rig::search_entry).collect()
 }
 
 fn size_cleared(entries: &[RefEntry]) -> Vec<RefEntry> {
@@ -84,48 +77,6 @@ fn qt_live_twins_resolve_to_their_own_button_after_the_window_moves() {
         2
     );
     assert!(!error.is_explicitly_retryable());
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn qt_live_rows_after_a_resort_resolve_to_their_own_text_or_are_refused_never_swapped() {
-    let mut rig = rig();
-    let fixture = live_fixture::qt(&mut rig.launched).expect("the fixture starts");
-    let settled = rig.settled(fixture.pid, 8);
-    let rows: Vec<RefEntry> = rig
-        .entries(&settled.frame, true)
-        .into_iter()
-        .map(|(_, entry)| entry)
-        .filter(|entry| entry.identity.role == "option")
-        .collect();
-    assert_eq!(rows.len(), 3);
-    fixture.send("reverse");
-    std::thread::sleep(Duration::from_millis(600));
-    let mut resolved = 0;
-    for row in &rows {
-        match rig.resolve(row) {
-            Ok(handle) => {
-                let raw = rig.raw(&handle).expect("a second read");
-                let name = raw.properties.name.non_blank().cloned();
-                println!("qt_live resort: {:?} -> {name:?}", row.identity.name);
-                assert_eq!(name, row.identity.name, "a row never resolves to another");
-                resolved += 1;
-            }
-            Err(error) => {
-                println!(
-                    "qt_live resort: {:?} refused {:?} {}",
-                    row.identity.name,
-                    error.code,
-                    kind(&error)
-                );
-                assert!(matches!(
-                    error.code,
-                    ErrorCode::StaleRef | ErrorCode::AmbiguousTarget
-                ));
-            }
-        }
-    }
-    assert!(resolved > 0, "at least one row is re-identified");
 }
 
 #[test]

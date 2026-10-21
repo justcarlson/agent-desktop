@@ -39,7 +39,6 @@ def settings_container_raw_only(ctx: LegContext) -> None:
     geometry_only(ctx, "Settings", ("multitasking",))
 
 
-@implementation("zero_bounds.history_listbox_outcome")
 def history_listbox_outcome(ctx: LegContext) -> None:
     with managed(ctx, "Calculator") as app:
         history = one(root(ctx, app), role=98)
@@ -63,7 +62,7 @@ def hidden_menu_items_not_visible(ctx: LegContext) -> None:
         item = one(tree, role=33, name="Edit")
         require("SHOWING" not in item.states)
         ctx.before("atspi", sorted(item.states))
-        target = ref(ctx, app, name="Edit", role="menu", surface="menubar")
+        target = ref(ctx, app, name="Edit", role="menu")
         response = command(ctx, ["is", target, "--property", "visible"], app)
         require(response.data["result"] is False)
         command(ctx, ["click", target, "--timeout-ms", "0"], app, code="ACTION_FAILED")

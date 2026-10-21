@@ -8,6 +8,7 @@ from pathlib import Path
 from runner import session
 
 BASE_TOOLS = (
+    "trash",
     "Xvfb",
     "dbus-daemon",
     "dbus-update-activation-environment",
@@ -90,7 +91,7 @@ def check_prerequisites(
     reason = gi_probe()
     if reason:
         missing.append(reason)
-    binary = env.get("AGENT_DESKTOP_E2E_BIN") or str(
+    binary = env.get("AGENT_DESKTOP_E2E_BIN_SRC") or env.get("AGENT_DESKTOP_E2E_BIN") or str(
         session.HARNESS_ROOT.parent.parent / "target" / "release" / "agent-desktop"
     )
     if not Path(binary).is_file():

@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import os
-import shutil
 import signal
 import subprocess
 import tempfile
@@ -11,6 +10,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from oracle import proc as process
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = HARNESS_ROOT.parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -35,7 +35,7 @@ OWNER_MARKER = "harness-owner"
 _PAYLOAD = r"""
 rt=$AGENT_DESKTOP_PRIVATE_SESSION
 mkdir -p "$rt/ad-home"
-env | grep -E '^(XDG_RUNTIME_DIR|DISPLAY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_CONFIG_HOME|XDG_DATA_HOME|XDG_CACHE_HOME|GSETTINGS_BACKEND|XDG_CURRENT_DESKTOP|AGENT_DESKTOP_PRIVATE_SESSION|AGENT_DESKTOP_HOME)=' > "$AD_TIER_ENV_FILE.tmp"
+env | grep -E '^(XDG_RUNTIME_DIR|DISPLAY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_CONFIG_HOME|XDG_DATA_HOME|XDG_CACHE_HOME|TMPDIR|LD_LIBRARY_PATH|GSETTINGS_BACKEND|XDG_CURRENT_DESKTOP|AGENT_DESKTOP_PRIVATE_SESSION|AGENT_DESKTOP_HOME)=' > "$AD_TIER_ENV_FILE.tmp"
 mv "$AD_TIER_ENV_FILE.tmp" "$AD_TIER_ENV_FILE"
 printf '%s %s\n' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"
 trap 'exit 0' TERM INT
@@ -50,6 +50,8 @@ _ENV_KEYS = (
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",
     "XDG_CACHE_HOME",
+    "TMPDIR",
+    "LD_LIBRARY_PATH",
     "GSETTINGS_BACKEND",
     "XDG_CURRENT_DESKTOP",
     "AGENT_DESKTOP_PRIVATE_SESSION",
@@ -81,9 +83,8 @@ class TeardownError(Exception):
 
 
 def _load_bounded_process():
-    spec = importlib.util.spec_from_file_location(
-        "bounded_process", HARNESS_ROOT.parent / "e2e" / "bounded_process.py"
-    )
+    spec = importlib.util.spec_from_file_location("bounded_process",
+                                                 HARNESS_ROOT.parent / "e2e" / "bounded_process.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -112,18 +113,15 @@ def _parse_env_file(text: str) -> dict[str, str]:
 
 
 def _proc_members(runtime_dir: Path, proc_root: Path = Path("/proc")) -> list[tuple[int, int]]:
-    needle = f"XDG_RUNTIME_DIR={runtime_dir}".encode()
     members = []
-    for environ in proc_root.glob("[0-9]*/environ"):
+    for directory in proc_root.glob("[0-9]*"):
         try:
-            pid = int(environ.parent.name)
-            data = environ.read_bytes()
-        except (OSError, ValueError):
+            pid = int(directory.name)
+            start, _, _, env = process.facts(pid, proc_root)
+        except (OSError, ValueError, IndexError):
             continue
-        if needle in data:
-            start = _process_start_time(proc_root / str(pid))
-            if start is not None:
-                members.append((pid, start))
+        if env.get("XDG_RUNTIME_DIR") == str(runtime_dir):
+            members.append((pid, start))
     return members
 
 
@@ -139,19 +137,21 @@ def _process_start_time(pid_dir: Path) -> int | None:
         return None
 
 
-def _kill(pid: int, sig: int) -> None:
+def _kill(pid: int, sig: int, start: int, runtime_dir: Path, proc_root: Path) -> None:
     try:
-        os.kill(pid, sig)
-    except (ProcessLookupError, PermissionError, OSError):
+        current, _, _, env = process.facts(pid, proc_root)
+        if current == start and env.get("XDG_RUNTIME_DIR") == str(runtime_dir):
+            os.kill(pid, sig)
+    except (OSError, ValueError, IndexError):
         pass
 
 
 def _sweep_members(runtime_dir: Path, proc_root: Path = Path("/proc")) -> list[tuple[int, int]]:
-    for pid, _ in _proc_members(runtime_dir, proc_root):
-        _kill(pid, signal.SIGTERM)
+    for pid, start in _proc_members(runtime_dir, proc_root):
+        _kill(pid, signal.SIGTERM, start, runtime_dir, proc_root)
     time.sleep(1.0)
-    for pid, _ in _proc_members(runtime_dir, proc_root):
-        _kill(pid, signal.SIGKILL)
+    for pid, start in _proc_members(runtime_dir, proc_root):
+        _kill(pid, signal.SIGKILL, start, runtime_dir, proc_root)
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
         remaining = _proc_members(runtime_dir, proc_root)
@@ -164,17 +164,13 @@ def _sweep_members(runtime_dir: Path, proc_root: Path = Path("/proc")) -> list[t
 def _remove_tree(path: Path) -> bool:
     if not path.exists():
         return True
-    for tool in (("trash",), ("gio", "trash")):
-        try:
-            result = subprocess.run(
-                [*tool, str(path)], capture_output=True, timeout=30, check=False
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            continue
-        if result.returncode == 0 and not path.exists():
-            return True
-    shutil.rmtree(path, ignore_errors=True)
-    return not path.exists()
+    try:
+        result = subprocess.run(
+            ["trash", str(path)], capture_output=True, timeout=30, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and not path.exists()
 
 
 def _a11y_address(env: dict[str, str], deadline: float) -> str | None:
@@ -217,19 +213,20 @@ def _a11y_warm(env: dict[str, str], deadline: float) -> bool:
 
 
 def _own_start_time() -> int:
-    start = _process_start_time(Path("/proc") / "self")
-    return start if start is not None else 0
+    return _process_start_time(Path("/proc") / "self") or 0
 
 
-def _signal_group(pgid: int, sig: int) -> None:
+def _signal_process(pid: int, sig: int) -> None:
     try:
-        os.killpg(pgid, sig)
+        os.kill(pid, sig)
     except (ProcessLookupError, PermissionError, OSError):
         pass
 
 
 def _build_tier(name: str, env_values: dict[str, str]) -> Tier:
     runtime_dir = Path(env_values["AGENT_DESKTOP_PRIVATE_SESSION"])
+    state_root = Path(env_values["AGENT_DESKTOP_HOME"])
+    state_root.chmod(0o700)
     env = {
         "HOME": os.environ.get("HOME", str(Path.home())),
         "PATH": f"{AD_TOOLS_BIN}:{os.environ.get('PATH', os.defpath)}",
@@ -238,14 +235,23 @@ def _build_tier(name: str, env_values: dict[str, str]) -> Tier:
     for key in _ENV_KEYS:
         if env_values.get(key):
             env[key] = env_values[key]
+    libraries = [str(path) for path in sorted((AD_TOOLS_BIN.parent / "lib").glob("*-linux-gnu"))
+                 if path.is_dir()]
+    libraries += env.get("LD_LIBRARY_PATH", os.environ.get("LD_LIBRARY_PATH", "")).split(os.pathsep)
+    libraries = list(dict.fromkeys(path for path in libraries if path))
+    if libraries:
+        env["LD_LIBRARY_PATH"] = os.pathsep.join(libraries)
+    if name == "wayland":
+        env.pop("DISPLAY", None)
+        env.update(GDK_BACKEND="wayland", XDG_SESSION_TYPE="wayland")
     return Tier(
         name=name,
         runtime_dir=runtime_dir,
-        display=env_values.get("DISPLAY") or None,
+        display=None if name == "wayland" else env_values.get("DISPLAY") or None,
         wayland_display=env_values.get("WAYLAND_DISPLAY") or None,
         bus_address=env_values["DBUS_SESSION_BUS_ADDRESS"],
         a11y_bus_address=env_values.get("AT_SPI_BUS_ADDRESS", ""),
-        state_root=Path(env_values["AGENT_DESKTOP_HOME"]),
+        state_root=state_root,
         keyfile=runtime_dir / "cfg" / "glib-2.0" / "settings" / "keyfile",
         env=env,
     )
@@ -282,7 +288,7 @@ def _wait_for_health(
                 f"{name}: the session wrapper exited {rc}: {_stderr_tail(proc)}"
             )
         time.sleep(0.2)
-    _signal_group(proc.pid, signal.SIGTERM)
+    _signal_process(proc.pid, signal.SIGTERM)
     raise TierUnavailable(f"{name}: the health gate did not pass in {int(deadline)}s")
 
 
@@ -318,11 +324,11 @@ def _teardown(
     try:
         proc.wait(timeout=20)
     except subprocess.TimeoutExpired:
-        _signal_group(proc.pid, signal.SIGTERM)
+        _signal_process(proc.pid, signal.SIGTERM)
         try:
             proc.wait(timeout=4)
         except subprocess.TimeoutExpired:
-            _signal_group(proc.pid, signal.SIGKILL)
+            _signal_process(proc.pid, signal.SIGKILL)
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
@@ -378,13 +384,13 @@ def start_tier(name: str, deadline: float):
         yield tier
     finally:
         if proc.poll() is None:
-            _signal_group(proc.pid, signal.SIGTERM)
+            _signal_process(proc.pid, signal.SIGTERM)
         runtime_dir = tier.runtime_dir if tier is not None else _env_runtime_dir(env_file)
         if runtime_dir is not None:
             _teardown(proc, runtime_dir, release_file)
         else:
             if proc.poll() is None:
-                _signal_group(proc.pid, signal.SIGKILL)
+                _signal_process(proc.pid, signal.SIGKILL)
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:

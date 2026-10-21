@@ -142,7 +142,8 @@ def managed(ctx, name, args=()):
     finally:
         apps.stop(app)
         require(raw.poll(lambda: proc.members(ctx.tier.runtime_dir) == baseline, 5),
-                "application cleanup changed private process membership")
+                f"application cleanup changed private process membership: before={baseline!r}; "
+                f"after={proc.members(ctx.tier.runtime_dir)!r}")
 
 
 def trash(ctx, path: Path):

@@ -19,14 +19,6 @@ def _present(ctx: LegContext, app, title: str, deadline_s: float = 8.0):
     return atspi_raw.poll(lambda: title if title in raw_names(live_root(ctx.tier, app)) else None, deadline_s)
 
 
-def _open_files_properties(ctx: LegContext):
-    app = apps.launch(ctx.tier, "Files")
-    window = window_of(app)
-    item = ref_for(ctx, window, role="cell")
-    assert_ok(ctx.product(["click", item]))
-    assert_ok(ctx.product(["press", "alt+Return"]))
-    _present(ctx, app, "Properties")
-    return app, window
 
 
 def _open_calculator_about(ctx: LegContext):
@@ -65,13 +57,6 @@ def _parent_action_blocked(ctx: LegContext, app, window: str, modal: str) -> Non
         raise AssertionError(f"a parent action changed state while {modal} was open")
 
 
-@implementation("modal.files_properties_blocks_parent")
-def files_properties_blocks_parent(ctx: LegContext) -> None:
-    app, window = _open_files_properties(ctx)
-    try:
-        _parent_action_blocked(ctx, app, window, "Properties")
-    finally:
-        apps.stop(app)
 
 
 @implementation("modal.terminal_preferences_blocks_parent")
@@ -90,26 +75,3 @@ def calculator_about_blocks_parent(ctx: LegContext) -> None:
         _parent_action_blocked(ctx, app, window, "About")
     finally:
         apps.stop(app)
-
-
-@implementation("modal.second_app_unaffected")
-def second_app_unaffected(ctx: LegContext) -> None:
-    files, _ = _open_files_properties(ctx)
-    editor = apps.launch(ctx.tier, "Text Editor")
-    try:
-        window = window_of(editor)
-        before = longest_text(live_root(ctx.tier, editor))
-        ctx.before("atspi.document_text", before)
-        assert_ok(ctx.product(["type", ref_for(ctx, window, role="text"), "unaffected"]))
-        after = atspi_raw.poll(
-            lambda: longest_text(live_root(ctx.tier, editor))
-            if longest_text(live_root(ctx.tier, editor)) != before
-            else None,
-            6.0,
-        )
-        ctx.after("atspi.document_text", after)
-        if not after or "unaffected" not in after:
-            raise AssertionError("a second app did not accept input beside the modal")
-    finally:
-        apps.stop(editor)
-        apps.stop(files)

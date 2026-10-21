@@ -164,3 +164,11 @@ pub(super) fn refused<T>(outcome: Result<T, AdapterError>, what: &str) -> Adapte
         Err(error) => error,
     }
 }
+
+/// Build a search probe without positional or exact-object shortcuts.
+pub(super) fn search_entry(entry: &RefEntry) -> RefEntry {
+    let mut searched = entry.clone();
+    searched.scope.path.clear();
+    searched.identity.retained_object = None;
+    searched
+}

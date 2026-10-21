@@ -33,11 +33,13 @@ class LegContext:
         self._reads: dict[str, dict[str, list[object]]] = {}
         self._findings: list[str] = []
         self._products: list[Envelope] = []
+        self.exception_traceback = ""
 
     def _record(self, stage: str, channel: str, value: object) -> None:
-        if channel not in ORACLE_NAMES:
+        family = channel.partition(".")[0]
+        if family not in ORACLE_NAMES:
             raise ValueError(f"unknown oracle channel {channel}")
-        if self.leg is not None and channel not in self.leg.oracles:
+        if self.leg is not None and family not in self.leg.oracles:
             raise ValueError(
                 f"leg {self.leg.id} read oracle channel {channel} it did not declare"
             )

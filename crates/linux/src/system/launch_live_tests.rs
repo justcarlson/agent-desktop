@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::launch_options::LaunchOptions;
 use agent_desktop_core::launch_result::LaunchResult;
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, RendererKind};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::interaction_lease::acquire;
 use super::launch::launch_app;
@@ -271,29 +271,6 @@ fn live_a_qt_app_launches_by_path_with_the_environment_given() {
             "{name} reached the app"
         );
     }
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_chrome_launches_as_chromium_with_a_private_profile() {
-    let profile = std::env::temp_dir().join(nonce("launch-chrome"));
-    let user_data = format!("--user-data-dir={}", profile.display());
-    let mut owned = Owned(Vec::new());
-    let result = launched(
-        &mut owned,
-        "google-chrome",
-        &[
-            "--password-store=basic",
-            "--no-sandbox",
-            "--ozone-platform=x11",
-            "--force-renderer-accessibility",
-            &user_data,
-            "about:blank",
-        ],
-    );
-    assert_owner_is_truthful(&result);
-    assert_eq!(result.renderer, Some(RendererKind::Chromium));
-    let _ = std::fs::remove_dir_all(profile);
 }
 
 #[test]

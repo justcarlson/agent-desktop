@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{ErrorCode, SystemOps, WindowFilter};
+use agent_desktop_core::{SystemOps, WindowFilter};
 
 use super::list_windows;
 use super::signal_live_apps::{
@@ -288,31 +288,6 @@ fn signal_live_two_windows_focus_changes_under_the_window_manager() {
         "{}",
         outcome(&result)
     );
-}
-
-#[test]
-#[ignore = "needs a Wayland session with no input device; run through the owner's Wayland harness"]
-fn signal_live_wayland_without_input_times_out_with_baseline_counts() {
-    assert!(
-        std::env::var_os("WAYLAND_DISPLAY").is_some(),
-        "precondition: this test needs a Wayland session, WAYLAND_DISPLAY is not set"
-    );
-    let mut rig = Rig::new();
-    let pid = rig.spawn("gnome-calculator", &[]);
-    let (name, _) = identity_of(&rig, pid);
-    let seed = capture(&rig, None, None, 10_000).expect("the seed capture");
-    let result = wait_event(&rig, "focus-changed", None, 4_000, Some(Ok(seed.clone())));
-    let error = result.expect_err("no ACTIVE window means no focus event");
-    assert_eq!(error.code(), ErrorCode::Timeout.as_str());
-    let counts = &details_of(&error)["baseline_counts"];
-    assert!(counts["windows"].as_u64().unwrap_or(0) >= 1, "{counts}");
-
-    let error = press(&rig, &name, "shift")
-        .expect_err("no window of the application is active for the key to land in");
-    assert_eq!(error.code(), ErrorCode::ActionNotSupported.as_str());
-    let result = wait_event(&rig, "focus-changed", None, OPEN_MS, Some(Ok(seed)));
-    let error = result.expect_err("nothing ever takes focus");
-    assert_eq!(error.code(), ErrorCode::Timeout.as_str());
 }
 
 #[test]

@@ -1,4 +1,6 @@
 import sys
+import json
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -6,9 +8,10 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from runner import helper
+from runner import helper, legs
+from runner.verdict import LegContext
 from runner.product import Envelope
-from scenarios import disclosure, scroll, state, toolkit_electron, toolkit_qt, values, zero_bounds
+from scenarios import disclosure, scroll, toolkit_electron, toolkit_qt, values, zero_bounds
 
 
 def envelope(*, ok=True, code=None, elapsed=2000, kind="actionability_timeout"):
@@ -18,15 +21,21 @@ def envelope(*, ok=True, code=None, elapsed=2000, kind="actionability_timeout"):
 
 
 class VerdictTests(unittest.TestCase):
-    def test_timeout_requires_code_kind_and_elapsed_budget(self):
-        state.timeout_verdict(envelope(ok=False, code="TIMEOUT"), 2000)
-        bad = [envelope(), envelope(ok=False, code="ACTION_FAILED"),
-               envelope(ok=False, code="TIMEOUT", kind="other"),
-               envelope(ok=False, code="TIMEOUT", elapsed=20),
-               envelope(ok=False, code="TIMEOUT", elapsed=5000)]
-        for response in bad:
-            with self.subTest(response=response), self.assertRaises(AssertionError):
-                state.timeout_verdict(response, 2000)
+    def test_disclosure_configuration_is_observed_and_restored_before_app_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ctx = LegContext(SimpleNamespace(runtime_dir=Path(directory)), "headless",
+                             None,
+                             member_reader=lambda _: frozenset())
+            with patch.object(disclosure.gsettings, "get", return_value="saved"), \
+                patch.object(disclosure.gsettings, "set"), \
+                patch.object(disclosure, "trash"), \
+                patch.object(disclosure, "managed", side_effect=RuntimeError("application boundary")):
+                with self.assertRaisesRegex(RuntimeError, "application boundary"):
+                    disclosure.files_tree_expand_collapse(ctx)
+            json.dumps(ctx.reads)
+            self.assertEqual(set(ctx.reads), {"gsettings"})
+            self.assertEqual(ctx.reads["gsettings"]["before"], ctx.reads["gsettings"]["restored"])
+
 
     def test_click_log_counts_only_new_activations(self):
         before = ["started", "click"]

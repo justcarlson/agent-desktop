@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import signal
 import sys
 import tempfile
 import unittest
@@ -9,7 +11,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import verdict
+from runner import main, report, session, verdict
 from runner.legs import Leg
 from runner.product import Envelope
 from runner.session import Tier
@@ -55,6 +57,64 @@ class VerdictRuleTests(unittest.TestCase):
         return LegContext(
             self.tier, mode, leg, member_reader=lambda tier: self.members[0]
         )
+
+    def test_completed_leg_evidence_keeps_its_verdict_before_suite_completion(self):
+        def seeded_failure(ctx):
+            ctx.before("atspi", "unchanged")
+            ctx.after("atspi", "unchanged")
+            raise AssertionError("seeded failure for retained evidence")
+
+        suite = Path(self.root.name) / "suite"
+        leg = atspi_leg()
+        outcome = main._run_leg(seeded_failure, leg, self.tier,
+                                "x11-openbox", "headless", suite, verdict, report)
+        evidence = json.loads(main._evidence_path(suite, "x11-openbox", "headless", leg.id).read_text())
+        self.assertEqual(outcome.outcome, "fail")
+        self.assertEqual(evidence["outcome"], "fail")
+        self.assertIn("seeded failure", evidence["detail"])
+
+        def cleanup_masks_failure(ctx):
+            try:
+                raise AssertionError("original scenario failure")
+            finally:
+                raise RuntimeError("cleanup failure")
+        main._run_leg(cleanup_masks_failure, leg, self.tier,
+                      "x11-openbox", "headless", suite, verdict, report)
+        evidence = json.loads(main._evidence_path(suite, "x11-openbox", "headless", leg.id).read_text())
+        self.assertIn("original scenario failure", evidence.get("exception_traceback", ""))
+        self.assertIn("cleanup failure", evidence["exception_traceback"])
+
+    def test_failed_leg_recovery_keeps_evidence_and_never_signals_reused_pid(self):
+        for reused in (False, True):
+            with self.subTest(reused=reused):
+                self.members[0] = frozenset({(10, 100)})
+
+                def leak(ctx):
+                    ctx.before("atspi", "unchanged")
+                    ctx.after("atspi", "unchanged")
+                    self.members[0] |= {(12, 120)}
+
+                def kill(pid, sig, start, runtime, proc_root):
+                    self.assertEqual((pid, sig, start, runtime, proc_root),
+                                     (12, signal.SIGTERM, 120, self.tier.runtime_dir, Path("/proc")))
+                    self.members[0] -= {(pid, 120)}
+
+                suite = Path(self.root.name) / str(reused)
+                with mock.patch.object(verdict, "_proc_members", side_effect=lambda _: list(self.members[0])), \
+                    mock.patch.object(session, "_process_start_time", return_value=121 if reused else 120), \
+                    mock.patch.object(session, "_kill", side_effect=kill) as send, \
+                    mock.patch.object(main.time, "monotonic", side_effect=[0, 2, 3, 5]):
+                    outcome = main._run_leg(leak, atspi_leg(), self.tier,
+                                            "x11-openbox", "headless", suite, verdict, report)
+                self.assertEqual(outcome.outcome, "fail")
+                evidence = json.loads(main._evidence_path(suite, "x11-openbox", "headless", "t.leg").read_text())
+                self.assertIn([12, 120], evidence["owned_final"])
+                if reused:
+                    send.assert_not_called()
+                    self.assertTrue(any("recovery" in item for item in outcome.findings))
+                else:
+                    send.assert_called_once_with(12, signal.SIGTERM, 120, self.tier.runtime_dir, Path("/proc"))
+                    self.assertEqual(self.members[0], {(10, 100)})
 
     def test_a_leg_with_no_oracle_read_fails(self):
         failures = verdict.evaluate(self.ctx())
@@ -155,6 +215,26 @@ class ReadDisciplineTests(unittest.TestCase):
         ctx = self.ctx()
         with self.assertRaises(ValueError):
             ctx.before("laser", 1)
+
+    def test_named_observations_share_the_declared_oracle(self):
+        ctx = self.ctx(leg=atspi_leg())
+        ctx.before("atspi.selection", False)
+        ctx.after("atspi.selection", True)
+        self.assertTrue(any("restoration" in message for message in verdict.evaluate(ctx)))
+        ctx.restored("atspi.selection", False)
+        self.assertEqual(verdict.evaluate(ctx), [])
+        for channel in ("laser.selection", "x11.pointer"):
+            with self.assertRaises(ValueError):
+                ctx.before(channel, None)
+
+    def test_an_unrelated_observation_cannot_mask_a_failed_restoration(self):
+        ctx = self.ctx(leg=atspi_leg())
+        ctx.before("atspi.selection", False)
+        ctx.after("atspi.selection", True)
+        ctx.before("atspi.other", True)
+        ctx.after("atspi.other", True)
+        ctx.restored("atspi.selection", True)
+        self.assertTrue(any("not restored" in item for item in verdict.evaluate(ctx)))
 
     def test_undeclared_channel_is_refused(self):
         ctx = self.ctx(leg=atspi_leg())

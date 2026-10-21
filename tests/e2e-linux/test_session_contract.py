@@ -44,6 +44,7 @@ class ProcParsingTests(unittest.TestCase):
             {
                 10: (f"PATH=/bin\x00XDG_RUNTIME_DIR={runtime}\x00".encode(), 100),
                 11: (b"XDG_RUNTIME_DIR=/run/user/1000/other\x00", 110),
+                13: (f"XDG_RUNTIME_DIR={runtime}-other\x00".encode(), 130),
                 12: (b"HOME=/root\x00", 120),
             },
         )
@@ -73,11 +74,69 @@ class SweepTests(unittest.TestCase):
     def member_env(self) -> bytes:
         return f"XDG_RUNTIME_DIR={self.runtime}\x00".encode()
 
+    def test_failed_trash_preserves_evidence(self):
+        evidence = self.runtime / "evidence.json"
+        evidence.write_text('{"failure": "retained"}')
+        with mock.patch.object(session.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
+            self.assertFalse(session._remove_tree(self.runtime))
+        self.assertEqual(evidence.read_text(), '{"failure": "retained"}')
+
+    def test_signal_rejects_reused_pid_and_changed_runtime(self):
+        make_proc(self.proc, {50: (self.member_env(), 6)})
+        with mock.patch.object(session.os, "kill") as send:
+            session._kill(50, signal.SIGTERM, 5, self.runtime, self.proc)
+            send.assert_not_called()
+            make_proc(self.proc, {50: (b"XDG_RUNTIME_DIR=/other\x00", 5)})
+            session._kill(50, signal.SIGTERM, 5, self.runtime, self.proc)
+            send.assert_not_called()
+            make_proc(self.proc, {50: (self.member_env(), 5)})
+            session._kill(50, signal.SIGTERM, 5, self.runtime, self.proc)
+            send.assert_called_once_with(50, signal.SIGTERM)
+
+    def test_shell_cleanup_revalidates_generation_and_exact_runtime(self):
+        source = session.SCRIPT_PRIVATE_SESSION.read_text()
+        functions = source[source.index("session_members() {"):source.index("cleanup() {")]
+        log = self.runtime / "signals"
+        script = functions + '\nkill() { printf "%s\\n" "$*" >> "$signal_log"; }\n' + 'session_signal 50 5 TERM "$proc_root"\n'
+        for env, start, expected in (
+            (self.member_env(), 6, ""),
+            (f"XDG_RUNTIME_DIR={self.runtime}-other\x00".encode(), 5, ""),
+            (self.member_env(), 5, "-TERM 50\n"),
+        ):
+            with self.subTest(start=start, env=env):
+                make_proc(self.proc, {50: (env, start)})
+                log.write_text("")
+                result = subprocess.run(["bash", "-c", script], env=dict(os.environ,
+                    rt=str(self.runtime), signal_log=str(log), proc_root=str(self.proc)),
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(log.read_text(), expected)
+
+    def test_tracked_pid_cleanup_does_not_signal_a_foreign_runtime(self):
+        source = session.SCRIPT_PRIVATE_SESSION.read_text()
+        functions = source[source.index("session_members() {"):source.index("trap cleanup EXIT")]
+        log = self.runtime / "tracked-signals"
+        script = functions + '\npids=(50)\n' + r'''
+process_start() { echo 5; }
+grep() { return 1; }
+sleep() { :; }
+seq() { :; }
+fusermount() { :; }
+trash() { :; }
+kill() { printf '%s\n' "$*" >> "$signal_log"; }
+cleanup
+'''
+        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                                env=dict(os.environ, rt=str(self.runtime),
+                                         base=str(self.runtime.parent), signal_log=str(log)))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(log.exists(), log.read_text() if log.exists() else "")
+
     def test_sweep_signals_members_by_membership(self):
         make_proc(self.proc, {50: (self.member_env(), 5)})
         calls = []
 
-        def fake_kill(pid, sig):
+        def fake_kill(pid, sig, *proof):
             calls.append((pid, sig))
             if sig == signal.SIGKILL:
                 (self.proc / str(pid) / "environ").unlink(missing_ok=True)
@@ -92,7 +151,7 @@ class SweepTests(unittest.TestCase):
     def test_survivors_are_reported(self):
         make_proc(self.proc, {51: (self.member_env(), 5)})
 
-        def fake_kill(pid, sig):
+        def fake_kill(pid, sig, *proof):
             return None
 
         times = iter([0.0, 1.0, 6.0])
@@ -137,6 +196,37 @@ class StraySweepTests(unittest.TestCase):
 
 
 class EnvFileTests(unittest.TestCase):
+    def test_tier_tools_keep_their_private_shared_library_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            binary = base / "tools/usr/bin"
+            library = base / "tools/usr/lib/x86_64-linux-gnu"
+            binary.mkdir(parents=True)
+            library.mkdir(parents=True)
+            state = base / "state"
+            state.mkdir()
+            values = {"AGENT_DESKTOP_PRIVATE_SESSION": str(base),
+                      "AGENT_DESKTOP_HOME": str(state), "DBUS_SESSION_BUS_ADDRESS": "unix:path=/private/bus",
+                      "LD_LIBRARY_PATH": "/private/wrapper-libraries"}
+            with mock.patch.object(session, "AD_TOOLS_BIN", binary):
+                tier = session._build_tier("x11-openbox", values)
+            self.assertEqual(tier.env["LD_LIBRARY_PATH"].split(os.pathsep),
+                             [str(library), "/private/wrapper-libraries"])
+
+    def test_wayland_tier_cannot_inherit_the_outer_x11_display(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            state.mkdir()
+            tier = session._build_tier("wayland", {"AGENT_DESKTOP_PRIVATE_SESSION": directory,
+                "AGENT_DESKTOP_HOME": str(state), "DBUS_SESSION_BUS_ADDRESS": "unix:path=/private/bus",
+                "DISPLAY": ":100", "WAYLAND_DISPLAY": "wayland-owned"})
+            self.assertIsNone(tier.display)
+            self.assertNotIn("DISPLAY", tier.env)
+            self.assertEqual(tier.wayland_display, "wayland-owned")
+            self.assertEqual(tier.env["GDK_BACKEND"], "wayland")
+            self.assertEqual(tier.env["XDG_SESSION_TYPE"], "wayland")
+
     def test_parse_env_file_keeps_only_known_keys(self):
         text = (
             "XDG_RUNTIME_DIR=/tmp/rt.a\n"
@@ -191,14 +281,15 @@ class StubWrapperTests(unittest.TestCase):
             'while [ "$1" != "--" ]; do shift; done; shift\n'
             'rt=$(mktemp -d "$AGENT_DESKTOP_SESSION_BASE/rt.XXXXXX")\n'
             'export XDG_RUNTIME_DIR=$rt\n'
+            'export TMPDIR=$rt/tmp\n'
             'export DBUS_SESSION_BUS_ADDRESS=unix:path=$rt/bus\n'
             'export AGENT_DESKTOP_PRIVATE_SESSION=$rt\n'
-            'mkdir -p "$rt/ad-home"\n'
+            'mkdir -p "$rt/ad-home" "$rt/tmp"\n'
             "printf 'XDG_RUNTIME_DIR=%s\\nDISPLAY=%s\\nDBUS_SESSION_BUS_ADDRESS=%s\\n"
-            "AGENT_DESKTOP_PRIVATE_SESSION=%s\\nAGENT_DESKTOP_HOME=%s\\n' \\\n"
-            '  "$rt" ":201" "$DBUS_SESSION_BUS_ADDRESS" "$rt" "$rt/ad-home" > "$AD_TIER_ENV_FILE"\n'
+            "AGENT_DESKTOP_PRIVATE_SESSION=%s\\nAGENT_DESKTOP_HOME=%s\\nTMPDIR=%s\\n' \\\n"
+            '  "$rt" ":201" "$DBUS_SESSION_BUS_ADDRESS" "$rt" "$rt/ad-home" "$TMPDIR" > "$AD_TIER_ENV_FILE"\n'
             'printf \'%s %s\\n\' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"\n'
-            'trap \'rm -rf "$rt"\' EXIT\n'
+            'trap \'trash "$rt"\' EXIT\n'
             'while [ ! -f "$AD_TIER_RELEASE_FILE" ]; do sleep 0.1; done\n'
         )
 
@@ -220,6 +311,9 @@ class StubWrapperTests(unittest.TestCase):
                 self.assertEqual(tier.display, ":201")
                 self.assertEqual(tier.a11y_bus_address, "unix:path=/fake/a11y")
                 self.assertEqual(tier.env["AT_SPI_BUS_ADDRESS"], "unix:path=/fake/a11y")
+                self.assertEqual(Path(tier.env["TMPDIR"]), tier.runtime_dir / "tmp")
+                self.assertTrue(Path(tier.env["TMPDIR"]).is_dir())
+                self.assertEqual(tier.state_root.stat().st_mode & 0o777, 0o700)
             self.assertFalse(tier.runtime_dir.exists())
 
     def test_unhealthy_wrapper_fails_with_its_reason(self):

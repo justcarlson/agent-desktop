@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 
@@ -32,11 +31,7 @@ def members(runtime_dir: Path) -> list[tuple[int, int, str]]:
             continue
         try:
             start, _, comm, env = facts(int(directory.name))
-        except (FileNotFoundError, ProcessLookupError):
-            continue
-        except PermissionError:
-            if directory.stat().st_uid == os.geteuid():
-                raise
+        except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
         if env.get("XDG_RUNTIME_DIR") == str(runtime_dir):
             result.append((int(directory.name), start, comm))

@@ -23,9 +23,8 @@ mod launch;
 mod oracle;
 
 pub(super) use launch::{
-    chrome_profile, close_chrome_menu, close_newest_frame, dismiss_dialog, launch_chrome,
-    launch_qt, main_menu_toggle, open_gtk4_menu_item, open_terminal_about, scratch_dir,
-    terminal_server,
+    close_newest_frame, dismiss_dialog, launch_qt, main_menu_toggle, open_gtk4_menu_item,
+    open_terminal_about, scratch_dir, terminal_server,
 };
 pub(super) use oracle::{
     FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, STATE_CHECKED, STATE_SHOWING, TOGGLE,

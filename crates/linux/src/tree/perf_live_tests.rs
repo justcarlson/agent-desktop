@@ -6,7 +6,7 @@ use agent_desktop_core::{
 };
 
 use super::live_apps::each_app;
-use super::live_rig::{deadline, rig};
+use super::live_rig::{deadline, rig, search_entry};
 use super::resolve::Source;
 use super::resolve_source::BusSource;
 use super::walker::walk_tree;
@@ -76,6 +76,44 @@ fn find_all(adapter: &LinuxAdapter, window: &str, role: &str) -> Result<(), Stri
         .map_err(|error| format!("{error:?}"))
 }
 
+fn search_miss(entry: &RefEntry) -> RefEntry {
+    let mut missing = search_entry(entry);
+    missing.identity.name = Some("no such element anywhere".to_owned());
+    missing
+}
+
+#[test]
+fn a_search_miss_probe_drops_retained_object_identity() {
+    use super::resolve::resolve;
+    use super::resolve_fake::{FRAME_PATH, Fake, deadline, node};
+    use super::role_numbers::PUSH_BUTTON;
+
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/button", node(PUSH_BUTTON, "Save", 30, 20));
+    let mut entry = fake.entry_of("/button", true);
+    entry.identity.retained_object = Some("/button".to_owned());
+    let mut pinned = entry.clone();
+    pinned.scope.path.clear();
+    pinned.identity.name = Some("no such element anywhere".to_owned());
+    assert_eq!(
+        resolve(&mut fake, &pinned, deadline())
+            .expect("the exact object remains")
+            .path(),
+        "/button"
+    );
+    let error = resolve(&mut fake, &search_miss(&entry), deadline())
+        .expect_err("a name-only search miss cannot retain the original object");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(
+        error.details.as_ref().expect("a classified miss")["kind"],
+        "resolve_no_candidate"
+    );
+    fake.add(FRAME_PATH, "/twin", node(PUSH_BUTTON, "Save", 30, 20));
+    let error = resolve(&mut fake, &search_entry(&entry), deadline())
+        .expect_err("equal twins without an object anchor must be ambiguous");
+    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+}
+
 fn perf_check(
     label: &str,
     adapter: &LinuxAdapter,
@@ -125,9 +163,7 @@ fn perf_check(
         }
     }
 
-    let mut missing = entry.clone();
-    missing.scope.path.clear();
-    missing.identity.name = Some("no such element anywhere".to_owned());
+    let missing = search_miss(entry);
     let mut misses = Vec::new();
     let miss = measure(|| misses.push(adapter.resolve_element_strict(&missing, deadline(5_000))));
     report(label, "search miss", &miss);

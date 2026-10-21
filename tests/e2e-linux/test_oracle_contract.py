@@ -19,15 +19,22 @@ class Clock:
 
 class RawOracleTests(unittest.TestCase):
     def test_state_words_cross_the_word_boundary(self):
-        words = [(1 << 1) | (1 << 4) | (1 << 10) | (1 << 25) | (1 << 26), 1 << 9]
+        words = [(1 << 1) | (1 << 4) | (1 << 10) | (1 << 24) | (1 << 25), 1 << 9]
         self.assertEqual(raw.decode_states(words), frozenset({
             "ACTIVE", "CHECKED", "EXPANDED", "SENSITIVE", "SHOWING", "CHECKABLE"}))
         self.assertEqual(raw.decode_states([]), frozenset())
         self.assertEqual(raw.decode_states([1 << 8]), frozenset({"ENABLED"}))
 
+    def test_showing_disabled_button_is_not_sensitive_or_selected(self):
+        # AT-SPI GetState wire fixture: ENABLED/SENSITIVE absent, SHOWING/VISIBLE present.
+        self.assertEqual(raw.decode_states([(1 << 25) | (1 << 30)]),
+                         frozenset({"SHOWING", "VISIBLE"}))
+        self.assertEqual(raw.decode_states([(1 << 22) | (1 << 23) | (1 << 24)]),
+                         frozenset({"SELECTABLE", "SELECTED", "SENSITIVE"}))
+
     def test_fresh_states_are_not_cached(self):
         node = raw.RawNode(None, ":1.4", "/node")
-        with patch.object(node, "invoke", side_effect=[([0],), ([1 << 25],)]):
+        with patch.object(node, "invoke", side_effect=[([0],), ([1 << 24],)]):
             self.assertEqual(node.states, frozenset())
             self.assertEqual(node.states, frozenset({"SENSITIVE"}))
 

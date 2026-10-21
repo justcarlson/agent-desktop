@@ -1,7 +1,13 @@
 import unittest
+import argparse
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import scenarios
-from runner import legs
+from runner import legs, verdict
+from runner.product import Envelope
+from runner.verdict import LegContext
 from scenarios import capture, clipboard, headed_actions, lifecycle, text_entry
 from scenarios import pointer
 
@@ -50,6 +56,18 @@ class TreeHelperTests(unittest.TestCase):
 
 
 class PointerMathTests(unittest.TestCase):
+    def test_pointer_observation_is_checked_after_recording(self):
+        tier = SimpleNamespace(runtime_dir=Path("/nonexistent/private"))
+        ctx = LegContext(tier, "headed", member_reader=lambda _: frozenset())
+        response = Envelope(True, {}, None, "{}", 0, [])
+        with patch.object(pointer.x11, "geometry", return_value=(0, 0, 100, 100)), \
+            patch.object(pointer.x11, "pointer", return_value=(20, 30)), \
+            patch.object(pointer, "_button_point", return_value=(20, 30)), \
+            patch("runner.verdict.run_product", return_value=response):
+            pointer._extents_at(ctx, {"window": "w-test", "name": "gtk4"}, 0)
+        self.assertEqual(ctx.reads["x11.pointer.gtk4"]["after"], [(20, 30)])
+
+
     def test_frame_extents_are_read_in_left_right_top_bottom_order(self):
         self.assertEqual(pointer.parse_frame_extents("_GTK_FRAME_EXTENTS(CARDINAL) = 61, 61, 55, 67"), (61, 61, 55, 67))
 
@@ -72,6 +90,50 @@ class PointerMathTests(unittest.TestCase):
 
 
 class DeliveryTests(unittest.TestCase):
+    def test_a_parser_refusal_is_not_an_outside_screen_measurement(self):
+        response = SimpleNamespace(error={"code": "INVALID_ARGS", "message": "unexpected argument",
+            "disposition": {"delivery": "not_delivered", "retry": "safe"}})
+        with self.assertRaisesRegex(AssertionError, "screen dimensions"):
+            pointer.error_delivery(response)
+
+    def test_outside_screen_probes_reach_argument_validation(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("verb")
+        for flag in ("--xy", "--from-xy", "--to-xy", "--x", "--y"):
+            parser.add_argument(flag)
+        for verb in ("drag", "mouse-wheel", "mouse-click"):
+            with self.subTest(verb=verb):
+                parsed = parser.parse_args(pointer._refused_argv(verb))
+                self.assertEqual(parsed.verb, verb)
+                self.assertTrue(any(str(value).startswith("-40") for value in vars(parsed).values()))
+
+    def test_pointer_report_is_checked_beside_independent_pointer_reads(self):
+        tier = SimpleNamespace(runtime_dir=Path("/nonexistent/private"))
+        ctx = LegContext(tier, "headed", legs.leg_by_id("pointer.mouse_click_delivery_report"),
+                         member_reader=lambda _: frozenset())
+        app = SimpleNamespace(windows=["w-test"])
+        delivered = Envelope(True, {"disposition": {"delivery": "delivered_unverified", "retry": "unsafe"},
+                                   "details": {"delivered_events": 3}, "steps": [{"label": "press"}]}, None, "{}", 0, [])
+        refused = Envelope(False, None, {"code": "INVALID_ARGS", "details": {"screen_width": 320, "screen_height": 240}, "disposition": {
+            "delivery": "not_delivered", "retry": "safe"}}, "{}", 0, [])
+        position = [(10, 10)]
+        def product(*args, **kw):
+            position[0] = (20, 30)
+            return delivered if not ctx.products else refused
+        def restore(tier, argv):
+            self.assertEqual(argv, ["xdotool", "mousemove", "10", "10"])
+            position[0] = (10, 10)
+        with patch.object(pointer.apps, "launch", return_value=app), \
+            patch.object(pointer.apps, "stop"), \
+            patch.object(pointer, "_button_point", return_value=(20, 30)), \
+            patch.object(pointer.x11, "pointer", side_effect=lambda _: position[0]), \
+            patch.object(pointer.x11, "tool", side_effect=restore), \
+            patch("runner.verdict.run_product", side_effect=product):
+            pointer.mouse_click_delivery_report(ctx)
+        self.assertEqual(set(ctx.reads), {"x11.pointer"})
+        self.assertEqual(len(ctx.products), 2)
+        self.assertEqual(verdict.evaluate(ctx), [])
+
     def test_delivery_fields_read_the_report(self):
         data = {
             "disposition": {"delivery": "delivered_unverified", "retry": "unsafe"},
@@ -89,7 +151,7 @@ class DeliveryTests(unittest.TestCase):
 
     def test_error_delivery_reads_the_error_disposition(self):
         class Envelope:
-            error = {"code": "INVALID_ARGS", "disposition": {"delivery": "not_delivered", "retry": "safe"}}
+            error = {"code": "INVALID_ARGS", "details": {"screen_width": 320, "screen_height": 240}, "disposition": {"delivery": "not_delivered", "retry": "safe"}}
 
         self.assertEqual(pointer.error_delivery(Envelope())["delivery"], "not_delivered")
 
@@ -110,6 +172,22 @@ class WindowStateTests(unittest.TestCase):
 
 
 class CaptureHelperTests(unittest.TestCase):
+    def test_editor_setup_resolves_the_wire_textfield_ref(self):
+        app = SimpleNamespace(windows=["w-test"])
+        calls = []
+
+        def product(argv):
+            calls.append(argv)
+            return Envelope(True, {"tree": TREE}, None, "{}", 0, argv)
+
+        ctx = SimpleNamespace(tier=object(), product=product)
+        with patch.object(capture.apps, "launch", return_value=app), \
+            patch.object(capture.atspi_raw, "poll", side_effect=lambda read, *_args, **_kw: read()), \
+            patch.object(capture, "live_root"), \
+            patch.object(capture, "longest_text", return_value="capture baseline"):
+            self.assertEqual(capture._editor(ctx), (app, "w-test"))
+        self.assertIn(["type", "@s1:e3", "capture baseline"], calls)
+
     def test_window_line_matches_the_exact_title(self):
         lines = ["0x04000007  0 1234 host Text Editor", "0x04000008  0 1235 host Calculator"]
         self.assertEqual(capture.match_window_line(lines, "Calculator"), "0x04000008")

@@ -63,6 +63,12 @@ def _png(width, height, color_type, rows, extra=b""):
 
 
 class XwdDecodeTests(unittest.TestCase):
+    def test_truecolor_uses_masks_even_when_xwd_contains_color_records(self):
+        header = _header(1, 1, 32, 4, 0xFF0000, 0x00FF00, 0x0000FF, ncolors=1)
+        color = struct.pack(">IHHHBB", 0, 65535, 65535, 65535, 7, 0)
+        image = pixels.decode_xwd(header + color + struct.pack("<I", 0x00112233))
+        self.assertEqual(image.pixel(0, 0), (0x11, 0x22, 0x33))
+
     def test_24_bit_rows_honour_stride(self):
         rows = [b"\x03\x02\x01" + b"\xff\xff", b"\x06\x05\x04" + b"\xff\xff"]
         image = pixels.decode_xwd(_xwd_24(1, 2, rows, 5))

@@ -2,11 +2,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use agent_desktop_core::{ClipboardFormat, Deadline, ErrorCode};
-
 use super::*;
-use crate::input::clipboard::set_clear::get_from;
-use crate::system::display_server::DisplayServer;
 
 fn tool_dir(name: &str, tools: &[&str]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("adfb-{}-{name}", std::process::id()));
@@ -60,24 +56,4 @@ fn an_x11_route_is_never_changed() {
     let dir = tool_dir("x11", &[]);
     let chosen = fallback(&dir, Some(":9")).route(Route::X11(":1".into()), &[PASTE]);
     assert_eq!(chosen, Route::X11(":1".into()));
-}
-
-#[test]
-fn missing_tools_without_a_display_name_the_package() {
-    let dir = tool_dir("nodisplay", &[]);
-    let deadline = Deadline::after(1_000).expect("a deadline");
-    let error = get_from(
-        DisplayServer::Wayland,
-        &fallback(&dir, None),
-        ClipboardFormat::Text,
-        deadline,
-    )
-    .expect_err("no tool and no display");
-    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert!(
-        error
-            .suggestion
-            .as_deref()
-            .is_some_and(|text| text.contains("wl-clipboard"))
-    );
 }

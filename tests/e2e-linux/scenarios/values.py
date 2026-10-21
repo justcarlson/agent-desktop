@@ -93,9 +93,9 @@ def terminal_read_only_flip(ctx: LegContext) -> None:
         tree = root(ctx, app)
         item = one(tree, role=8, name="Read-Only")
         initial = "CHECKED" in item.states
-        menu = ref(ctx, app, role="menu", name="Terminal", surface="menubar")
+        menu = ref(ctx, app, role="menu", name="Terminal")
         command(ctx, ["click", menu], app)
-        target = ref(ctx, app, role="menuitem", name="Read-Only", surface="menu")
+        target = ref(ctx, app, role="menuitem", name="Read-Only")
         ctx.before("atspi", initial)
         try:
             command(ctx, ["click", target], app)
@@ -104,7 +104,7 @@ def terminal_read_only_flip(ctx: LegContext) -> None:
             stale_twin(ctx, app, target, lambda: "CHECKED" in item.states)
         finally:
             command(ctx, ["click", menu], app)
-            target = ref(ctx, app, role="menuitem", name="Read-Only", surface="menu")
+            target = ref(ctx, app, role="menuitem", name="Read-Only")
             command(ctx, ["click", target], app)
             changed(lambda: "CHECKED" in item.states, initial)
             ctx.restored("atspi", "CHECKED" in item.states)

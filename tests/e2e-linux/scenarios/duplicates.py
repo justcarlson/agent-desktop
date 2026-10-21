@@ -55,34 +55,3 @@ def main_menu_nodes_separate(ctx: LegContext) -> None:
         require(after == evidence)
         ctx.after("atspi", after)
         ctx.restored("atspi", after)
-
-
-@implementation("duplicates.new_window_distinct_id")
-def new_window_distinct_id(ctx: LegContext) -> None:
-    with managed(ctx, "Text Editor", ("--new-window",)) as app:
-        tree = root(ctx, app)
-        initial = [apps.window_id(node) for node in tree.children() if node.role in (16, 23, 69)]
-        ctx.before("atspi", initial)
-        try:
-            command(ctx, ["press", "ctrl+n"], app, headed=True)
-            require(raw.poll(lambda: len(tree.children()) > len(initial), 3))
-            windows = [apps.window_id(node) for node in tree.children() if node.role in (16, 23, 69)]
-            require(len(set(windows)) == len(initial) + 1)
-            for window in windows:
-                addressed = apps.OwnedApp(app.name, app.pid, app.start_time,
-                                          app.owner_names, [window], app.display)
-                require(snapshot(ctx, addressed)["window"]["id"] == window)
-                command(ctx, ["focus-window", "--window-id", window])
-                frame = next(node for node in tree.children() if apps.window_id(node) == window)
-                require(raw.poll(lambda: "ACTIVE" in frame.states, 2.5))
-            ctx.after("atspi", windows)
-        finally:
-            extra = [apps.window_id(node) for node in tree.children() if node.role in (16, 23, 69)
-                     and apps.window_id(node) not in initial]
-            for window in extra:
-                addressed = apps.OwnedApp(app.name, app.pid, app.start_time,
-                                          app.owner_names, [window], app.display)
-                command(ctx, ["press", "ctrl+shift+w"], addressed, headed=True)
-            require(raw.poll(lambda: [apps.window_id(node) for node in tree.children()
-                                     if node.role in (16, 23, 69)] == initial, 3))
-            ctx.restored("atspi", initial)

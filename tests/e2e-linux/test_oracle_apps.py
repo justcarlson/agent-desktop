@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -14,6 +15,74 @@ from runner.helper import delayed
 
 
 class ProcessOracleTests(unittest.TestCase):
+    def test_owner_scan_ignores_retired_bus_names_but_preserves_other_errors(self):
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        frame = SimpleNamespace(role=23, bus=":1.2", path="/frame")
+        node = SimpleNamespace(name="Calculator", bus=":1.2", children=lambda: [frame])
+        retired = RuntimeError("GDBus.Error:org.freedesktop.DBus.Error.NameHasNoOwner: gone")
+        with patch.object(apps.raw, "registry", return_value=[node, node]), \
+            patch.object(apps.raw, "owner_pid", side_effect=[retired, 124]), \
+            patch.object(apps.proc, "facts", return_value=(99, 124, "calculator",
+                {"XDG_RUNTIME_DIR": "/private/a", "DISPLAY": ":150"})):
+            self.assertEqual([app.pid for app in apps._owners(tier)], [124])
+        for code in ("NoReply", "AccessDenied"):
+            with self.subTest(error=code), \
+                patch.object(apps.raw, "registry", return_value=[node]), \
+                patch.object(apps.raw, "owner_pid", side_effect=RuntimeError(code)):
+                with self.assertRaisesRegex(RuntimeError, code):
+                    apps._owners(tier)
+
+    def test_owner_scan_skips_a_process_during_unreadable_exec(self):
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        frame = SimpleNamespace(role=23, bus=":1.2", path="/frame")
+        node = SimpleNamespace(name="Calculator", bus=":1.2", children=lambda: [frame])
+        with patch.object(apps.raw, "registry", return_value=[node, node]), \
+            patch.object(apps.raw, "owner_pid", side_effect=[123, 124]), \
+            patch.object(apps.proc, "facts", side_effect=[PermissionError(),
+                (99, 124, "calculator", {"XDG_RUNTIME_DIR": "/private/a", "DISPLAY": ":150"})]):
+            self.assertEqual([app.pid for app in apps._owners(tier)], [124])
+
+    def test_members_skip_processes_that_cannot_be_attributed(self):
+        opaque = SimpleNamespace(name="1331", stat=lambda: SimpleNamespace(st_uid=os.geteuid()))
+        owned = SimpleNamespace(name="124")
+        facts = (99, 124, "owned", {"XDG_RUNTIME_DIR": "/private/a"})
+        with patch.object(Path, "iterdir", return_value=[opaque, owned]), \
+            patch.object(proc, "facts", side_effect=[PermissionError("opaque process"), facts]):
+            self.assertEqual(proc.members(Path("/private/a")), [(124, 99, "owned")])
+
+    def test_private_mutter_launch_closes_overview_before_returning(self):
+        with tempfile.TemporaryDirectory() as root:
+            tier = SimpleNamespace(name="x11-mutter", runtime_dir=Path(root), env={})
+            app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":150")
+            child = SimpleNamespace(pid=123, poll=lambda: None)
+            with patch.object(apps, "_owners", side_effect=[[], [app]]), \
+                patch.object(apps, "_display_verified", return_value=True), \
+                patch.object(apps.subprocess, "Popen", return_value=child), \
+                patch.object(apps.x11, "overview_active", side_effect=[True, True, False]) as active, \
+                patch.object(apps, "tool") as tool, \
+                patch.dict(apps._SPAWNED, clear=True), patch.dict(apps._TIERS, clear=True):
+                self.assertIs(apps.launch(tier, "Calculator"), app)
+                tool.assert_called_once_with(tier, ["xdotool", "key", "Escape"])
+                self.assertEqual(active.call_count, 3)
+
+    def test_warmup_activates_private_app_services_before_the_leg_baseline(self):
+        for display, names in ((":150", ["Calculator", "Files", "Terminal", "Text Editor", "Settings"]),
+                               (None, ["Calculator", "Text Editor"])):
+            tier = SimpleNamespace(display=display, runtime_dir=Path("/private/a"))
+            with patch.object(apps, "launch", side_effect=lambda tier, name: name) as launch, \
+                patch.object(apps, "stop") as stop, \
+                patch.object(apps.proc, "members", return_value=[]), \
+                patch.object(apps.time, "sleep"), \
+                patch.object(apps, "tool") as tool, \
+                patch.object(apps.time, "monotonic", side_effect=[0, 0, 1]):
+                apps.prime_desktop(tier)
+            self.assertEqual([call.args[1] for call in launch.call_args_list], names)
+            self.assertEqual([call.args[0] for call in stop.call_args_list], names)
+            self.assertEqual(tool.call_count, 5 if display else 0)
+            if display:
+                self.assertIn(["gsettings", "set", "org.freedesktop.Tracker3.Miner.Files",
+                               "index-recursive-directories", "[]"], [call.args[1] for call in tool.call_args_list])
+
     def test_proc_stat_handles_spaces_and_closing_parentheses(self):
         fields = ["S", "2", "17"] + ["0"] * 16 + ["987654", "0"]
         self.assertEqual(proc.stat_fields("123 (an app ) name) " + " ".join(fields)),
@@ -91,6 +160,22 @@ class ProcessOracleTests(unittest.TestCase):
             apps.stop(app)
         kill.assert_not_called()
         killpg.assert_not_called()
+
+    def test_stop_handles_unreadable_environ_without_signalling_a_reused_pid(self):
+        app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":150")
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        for start in (40, 41):
+            state = ["S"]
+            def stat():
+                return "123 (cal) " + " ".join([state[0], "1", "123"] + ["0"] * 16 + [str(start)])
+            with patch.dict(apps._TIERS, {(123, 40): tier}), \
+                patch.object(Path, "read_text", side_effect=stat), \
+                patch.object(proc, "facts", side_effect=PermissionError()), \
+                patch.object(apps.os, "kill", side_effect=lambda *args: state.__setitem__(0, "Z")) as send, \
+                patch.object(apps.os, "killpg") as group:
+                apps.stop(app)
+            self.assertEqual(send.call_count, int(start == 40))
+            group.assert_not_called()
 
     def test_oracle_tool_uses_the_private_environment_and_checks_exit(self):
         tier = SimpleNamespace(env=dict(os.environ, ORACLE_TEST_VALUE="private-value"))
