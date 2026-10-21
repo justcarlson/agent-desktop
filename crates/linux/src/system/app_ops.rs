@@ -19,7 +19,7 @@ pub(crate) fn info(app: &RegistryApp, foreground: bool) -> AppInfo {
     AppInfo {
         name: app.name.clone(),
         pid: app.root.pid().into(),
-        bundle_id: None,
+        bundle_id: super::app_name::desktop_id(&app.facts),
         process_instance: Some(app.facts.instance.clone()),
         presentation: Some(if foreground {
             AppPresentation::Foreground
@@ -123,17 +123,23 @@ pub(crate) fn scoped(
     bundle_id: Option<&str>,
     deadline: Deadline,
 ) -> Result<Vec<AppInfo>, AdapterError> {
-    if bundle_id.is_some() {
-        return Ok(Vec::new());
-    }
     let registry = read_registry(bus, deadline)?;
-    let matched = infos(bus, &registry, |app| app.matches(name), deadline)?;
+    let select = |app: &RegistryApp| match bundle_id {
+        Some(id) => super::app_name::desktop_id(&app.facts)
+            .is_some_and(|desktop_id| desktop_id.eq_ignore_ascii_case(id)),
+        None => app.matches(name),
+    };
+    let matched = infos(bus, &registry, select, deadline)?;
     let matched = settle_matches(matched, || {
-        stopped_target(&registry, |app| app.matches(name), proc_stat::is_stopped)
+        stopped_target(&registry, select, proc_stat::is_stopped)
     })?;
-    scoped_outcome(matched, name, find_running)
+    scoped_outcome(matched, bundle_id.unwrap_or(name), find_running)
 }
 
 #[cfg(test)]
 #[path = "app_ops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "app_ops_live_tests.rs"]
+mod live_tests;

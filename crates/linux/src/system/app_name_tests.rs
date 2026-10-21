@@ -136,3 +136,35 @@ fn an_alias_matches_exactly_ignoring_case_and_never_renames_the_app() {
     assert!(!aliased("Files Helper", &files, &["Files"]));
     assert_eq!(app_name(&files), "nautilus");
 }
+
+#[test]
+fn desktop_identity_uses_the_unique_executable_mapping_even_after_an_upgrade() {
+    let cache = super::super::app_alias::AliasCache::new();
+    let index = cache.index(&[], |_| {
+        vec![
+            (
+                "org.example.Files".into(),
+                "[Desktop Entry]\nType=Application\nName=Files\nExec=files %U\n".into(),
+            ),
+            (
+                "org.example.SharedOne".into(),
+                "[Desktop Entry]\nType=Application\nName=One\nExec=shared\n".into(),
+            ),
+            (
+                "org.example.SharedTwo".into(),
+                "[Desktop Entry]\nType=Application\nName=Two\nExec=shared\n".into(),
+            ),
+        ]
+    });
+    for executable in ["files", "files (deleted)"] {
+        assert_eq!(
+            desktop_id_in(&index, &facts("files", Some(executable))).as_deref(),
+            Some("org.example.Files")
+        );
+    }
+    assert_eq!(
+        desktop_id_in(&index, &facts("shared", Some("shared"))),
+        None
+    );
+    assert_eq!(desktop_id_in(&index, &facts("files", None)), None);
+}

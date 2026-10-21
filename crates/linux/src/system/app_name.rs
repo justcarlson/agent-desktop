@@ -34,6 +34,15 @@ pub(crate) fn aliases_of(facts: &ProcessFacts) -> Vec<String> {
     aliases_in(&current_index(), facts)
 }
 
+pub(crate) fn desktop_id_in(index: &AliasIndex, facts: &ProcessFacts) -> Option<String> {
+    let basename = live_basename(facts.exe_basename.as_deref()?);
+    index.ids_for(basename).into_iter().next()
+}
+
+pub(crate) fn desktop_id(facts: &ProcessFacts) -> Option<String> {
+    desktop_id_in(&current_index(), facts)
+}
+
 /// As [`aliases_of`] over an index the caller already holds, for a caller that
 /// asks about many processes.
 pub(crate) fn aliases_in(index: &AliasIndex, facts: &ProcessFacts) -> Vec<String> {
