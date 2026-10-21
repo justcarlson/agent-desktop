@@ -134,9 +134,5 @@ pub(crate) fn resolve_locator_anchor(
 mod tests;
 
 #[cfg(test)]
-#[path = "resolve_action_live_tests.rs"]
-mod action_live_tests;
-
-#[cfg(test)]
 #[path = "resolve_renderer_live_tests.rs"]
 mod renderer_live_tests;

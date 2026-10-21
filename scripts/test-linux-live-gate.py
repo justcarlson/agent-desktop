@@ -17,6 +17,29 @@ spec.loader.exec_module(gate)
 
 
 class GateTests(unittest.TestCase):
+    def test_private_services_and_window_manager_replacement_get_their_own_session(self):
+        cases = (
+            "system::close_live_tests::close_live_a_private_gnome_shell_is_refused_and_keeps_running",
+            "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+        )
+        for name in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                (directory / "mutter").mkdir()
+                manifest = directory / "manifest.json"
+                gate.save(manifest, dict(binary="/unused/libtest", timeout=10,
+                                         shards=gate.plan([name], {name}, 1)))
+                commands = []
+
+                def launch(command, log, timeout):
+                    commands.append(command)
+                    Path(command[command.index("--logfile") + 1]).write_text(f"ok {name}\n")
+                    return 0, 0.0
+
+                with patch.object(gate, "run_bounded", side_effect=launch), redirect_stdout(io.StringIO()):
+                    gate.worker(manifest, "mutter", 0)
+                self.assertEqual(commands[0][:3], ["bash", str(gate.ROOT / "scripts/private-session.sh"), "--"])
+
     def test_global_lease_consumers_share_one_writer_while_reads_run_elsewhere(self):
         writers = ["system::interaction_lease::tests::unit", "actions::dispatch_tests::unit",
                    "actions::live_widget_tests::live", "tree::physical_live_tests::live",
@@ -36,17 +59,20 @@ class GateTests(unittest.TestCase):
                 self.assertEqual(set(readers), set.union(*assigned[1:]))
 
     def test_partition_keeps_every_case_on_each_applicable_tier(self):
-        cases = ["unit::fast", "tree::live::one", "tree::live::two", gate.CURSOR_WAYLAND,
-                 *(module + "::case" for module in gate.WAYLAND_MODULES),
-                 gate.SELF_MUTTER + "::case"]
+        wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
+                   "input::wayland::live_tests::reply_loss::case",
+                   "system::shell::live_wayland_tests::native_case"]
+        mutter = [gate.SELF_MUTTER + "::case", "notifications::live_tests::case",
+                  "system::shell::outage_live_tests::case"]
+        cases = ["unit::fast", "tree::live::one", "tree::live::two", *wayland, *mutter]
         ignored = set(cases[1:])
         for jobs in (1, 2, 3):
             shards = gate.plan(cases, ignored, jobs)
             actual = {tier: [name for tasks in workers for task in tasks for name in task["tests"]]
                       for tier, workers in shards.items()}
             self.assertCountEqual(actual["openbox"], cases[:3])
-            self.assertCountEqual(actual["mutter"], [*cases[1:3], cases[-1]])
-            self.assertCountEqual(actual["wayland"], cases[3:-1])
+            self.assertCountEqual(actual["mutter"], [*cases[1:3], *mutter])
+            self.assertCountEqual(actual["wayland"], wayland)
 
     def test_receipts_reject_failure_omission_duplicate_and_missing_shard(self):
         for mode in ("pass", "failure", "omission", "duplicate", "setup_failure"):

@@ -21,25 +21,6 @@ w.show_all()
 Gtk.main()
 "#;
 
-pub(in crate::tree) const GTK4_LIST: &str = r#"
-import gi
-gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
-def activate(app):
-    w = Gtk.ApplicationWindow(application=app, title="adscroll-gtk4")
-    w.set_default_size(480, 360)
-    s = Gtk.ScrolledWindow()
-    b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-    for i in range(300):
-        b.append(Gtk.Button(label="Row %03d" % i))
-    s.set_child(b)
-    w.set_child(s)
-    w.present()
-app = Gtk.Application(application_id="org.agentdesktop.ScrollFixture4")
-app.connect("activate", activate)
-app.run([])
-"#;
-
 pub(in crate::tree) const GTK3_STRIP: &str = r#"
 import gi
 gi.require_version("Gtk", "3.0")
@@ -130,12 +111,6 @@ pub(in crate::tree) fn intersects(node: Option<Extents>, frame: Option<Extents>)
     let across = n.x < f.x + f.width && f.x < n.x + n.width;
     let down = n.y < f.y + f.height && f.y < n.y + n.height;
     Some(across && down)
-}
-
-pub(in crate::tree) fn far_outside(node: Option<Extents>, frame: Option<Extents>) -> Option<bool> {
-    let (n, f) = (positive(node)?, positive(frame)?);
-    let gap = |a: i32, al: i32, b: i32, bl: i32| (a - (b + bl)).max(b - (a + al));
-    Some(gap(n.x, n.width, f.x, f.width).max(gap(n.y, n.height, f.y, f.height)) > 60)
 }
 
 pub(in crate::tree) fn pointer() -> Option<(i16, i16)> {

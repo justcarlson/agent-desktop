@@ -45,14 +45,18 @@ Use a fresh output directory after any source change. Existing tier results
 are never overwritten. `--jobs 1` runs the same selection serially; `--list`
 builds and records the complete partition without opening a desktop.
 
-Ordinary ignored X11 cases run on both openbox and mutter. Non-ignored unit
+Ordinary ignored X11 cases run on both openbox and mutter. GNOME notification
+and shell-outage cases require GNOME Shell and run only on mutter. Non-ignored unit
 cases run once, with the openbox tier. The native Wayland input, clipboard and
-portal cases boot their own compositor and must inherit no `WAYLAND_DISPLAY`;
+portal and shell cases (including nested test modules) boot their own compositor
+and must inherit no `WAYLAND_DISPLAY`;
 they run on the Wayland tier inside the common private bus/runtime envelope.
 The Wayland cursor refusals use the external private Wayland shell helper.
 The physical mutter fixture boots its own X11 shell in a nested private
 session and runs on the mutter tier. Tests that replace a window manager run
 in a nested session so they cannot damage the remaining shard's environment.
+The fake RemoteDesktop service also gets a nested session bus so it cannot
+collide with the tier compositor's well-known service name.
 
 Modules stay together to avoid concurrent access to their fixture state. The
 portal module is split into independent case batches because each case boots

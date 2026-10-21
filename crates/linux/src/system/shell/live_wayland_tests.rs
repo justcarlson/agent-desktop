@@ -9,7 +9,6 @@ use agent_desktop_core::{Deadline, DisplayInfo, MouseButton, Rect};
 use super::container::{Anchor, Landmark, locate_anchor};
 use super::identity::find_root;
 use super::kinds::ShellKind;
-use super::live_tests::deadline;
 use super::open::is_showing;
 use crate::input::shell_aim::aim;
 use crate::input::shell_click::run_pointer;
@@ -20,6 +19,10 @@ use crate::system::SharedBus;
 const ATTEMPTS: u32 = 8;
 const HEALTH_READS: u32 = 5;
 const SOCKET_WAIT: Duration = Duration::from_secs(20);
+
+fn deadline() -> Deadline {
+    Deadline::after(30_000).expect("a deadline builds")
+}
 
 struct HeadlessShell {
     child: Child,

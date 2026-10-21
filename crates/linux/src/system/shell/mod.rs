@@ -22,8 +22,6 @@ pub(crate) mod window_gate;
 #[cfg(test)]
 mod fake_tree;
 #[cfg(test)]
-mod live_tests;
-#[cfg(test)]
 mod live_wayland_tests;
 #[cfg(test)]
 mod outage_live_tests;

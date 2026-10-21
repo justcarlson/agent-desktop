@@ -22,12 +22,15 @@ WAYLAND_MODULES = (
     "input::clipboard::wayland::live_tests",
     "input::wayland::live_tests",
     "system::capture::wayland_portal_live_tests",
+    "system::shell::live_wayland_tests",
 )
+MUTTER_MODULES = ("notifications::live_tests", "system::shell::outage_live_tests")
 CURSOR_WAYLAND = "system::cursor_overlay::tests::live_wayland_cursor_refusal_reports_unrendered_without_an_x11_window"
 CLI_WAYLAND = "system::cursor_overlay::cli_tests::live_wayland_cursor_cli_reports_unrendered_without_x11_fallback"
 EXTERNAL_WAYLAND = (CURSOR_WAYLAND, CLI_WAYLAND)
 BARE_CASES = (
     "system::close_live_tests::close_live_a_private_gnome_shell_is_refused_and_keeps_running",
+    "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
 )
 OPENBOX_CASES = (
     "system::close_live_tests::close_live_the_private_sessions_own_processes_are_refused",
@@ -100,11 +103,11 @@ def build():
 def tiers_for(name, ignored):
     if name not in ignored:
         return ("openbox",)
-    if name in EXTERNAL_WAYLAND or name.rsplit("::", 1)[0] in WAYLAND_MODULES:
+    if name in EXTERNAL_WAYLAND or any(name.startswith(module + "::") for module in WAYLAND_MODULES):
         return ("wayland",)
     if name in OPENBOX_CASES:
         return ("openbox",)
-    if name.startswith(SELF_MUTTER + "::"):
+    if any(name.startswith(module + "::") for module in (*MUTTER_MODULES, SELF_MUTTER)):
         return ("mutter",)
     return ("openbox", "mutter")
 
@@ -113,7 +116,7 @@ def validate_tiers(names):
     required = set((*EXTERNAL_WAYLAND, *BARE_CASES, *OPENBOX_CASES, *HELPER_PARENTS,
                     *HELPER_PARENTS.values()))
     missing = required - set(names)
-    modules = (*WAYLAND_MODULES, SELF_MUTTER)
+    modules = (*WAYLAND_MODULES, *MUTTER_MODULES, SELF_MUTTER)
     missing.update(module for module in modules if not any(
         name.startswith(module + "::") for name in names))
     if missing:

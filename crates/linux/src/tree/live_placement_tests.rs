@@ -145,6 +145,19 @@ fn an_unread_frame_or_container_never_makes_a_node_on_screen() {
 }
 
 #[test]
+fn a_partly_clipped_row_is_offscreen_when_its_center_is_outside_the_container() {
+    let read = inside_a_container(read_with(
+        &[ENABLED, VISIBLE, SHOWING],
+        Some(rect(0, 90, 100, 30)),
+    ));
+    let mut placed = window(rect(0, 90, 100, 30));
+    placed.container = Some(rect(0, 0, 420, 100));
+    assert_eq!(state_in(&read, &placed).offscreen, Some(true));
+    placed.node = Some(rect(0, 80, 100, 30));
+    assert_eq!(state_in(&read, &placed).offscreen, Some(false));
+}
+
+#[test]
 fn an_iconified_frame_or_a_hidden_x11_window_makes_every_node_offscreen() {
     let read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(0, 0, 10, 10)));
     let mut iconified = window(rect(2, 100, 420, 22));

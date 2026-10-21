@@ -6,6 +6,7 @@ use agent_desktop_core::{Deadline, ErrorCode, WindowFilter, WindowInfo};
 use super::{RootRead, run_pass};
 use crate::system::registry::read_registry;
 use crate::system::registry_frames::read_frames;
+use crate::system::signal_live_apps::{poll, x11_windows};
 use crate::system::{SharedBus, list_windows, resolve_window_strict};
 use crate::tree::live_launch::Launched;
 
@@ -53,6 +54,9 @@ fn signal_inventory_live_a_stopped_target_is_skipped_slow_roots_read_timed_out_a
     let bus = SharedBus::default();
     let mut launched = Launched::new();
     let pid = launched.spawn("gnome-calculator", &[]);
+    poll("the calculator's X11 window before SIGSTOP", || {
+        (x11_windows(pid).len() == 1).then_some(())
+    });
     let window = window_of(&bus, pid);
 
     let registry = read_registry(&bus, deadline()).expect("registry");

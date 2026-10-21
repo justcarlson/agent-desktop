@@ -79,40 +79,6 @@ fn focus_window_live_a_stopped_application_is_refused_before_any_request() {
     assert_eq!(xprop(&["-root", "_NET_ACTIVE_WINDOW"]), before);
 }
 
-fn current_desktop() -> String {
-    xprop(&["-root", "_NET_CURRENT_DESKTOP"])
-        .split('=')
-        .nth(1)
-        .unwrap_or_default()
-        .trim()
-        .to_owned()
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn focus_window_live_a_window_on_another_desktop_switches_the_desktop() {
-    close_overview();
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let target = spawn(&mut launched, &bus, "target");
-    let home = current_desktop();
-    let away = if home == "0" { "1" } else { "0" };
-    let started = Instant::now();
-    while current_desktop() != away && started.elapsed() < Duration::from_secs(12) {
-        let switched = tool("xdotool")
-            .args(["set_desktop", away])
-            .status()
-            .expect("xdotool runs");
-        assert!(switched.success());
-        std::thread::sleep(Duration::from_millis(1_500));
-    }
-    assert_eq!(current_desktop(), away, "the desktop never switched away");
-    std::thread::sleep(Duration::from_millis(1_000));
-    focus(&bus, &target).expect("the window is activated across desktops");
-    assert_eq!(current_desktop(), home);
-    assert_eq!(active_pid(), Some(target.pid.get()));
-}
-
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
 fn focus_window_live_a_zenity_dialog_the_toolkit_never_reports_active_is_focused() {

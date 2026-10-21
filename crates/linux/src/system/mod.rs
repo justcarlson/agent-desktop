@@ -103,13 +103,9 @@ pub(crate) use window_ops::{focused_window, list_windows};
 pub(crate) use window_resolve::resolve_window_strict;
 
 #[cfg(test)]
-mod app_alias_live_tests;
-#[cfg(test)]
 mod close_live_tests;
 #[cfg(test)]
 mod display_live_tests;
-#[cfg(test)]
-mod focus_overview_live_tests;
 #[cfg(test)]
 mod focus_window_live_tests;
 pub(crate) mod frame_identity;

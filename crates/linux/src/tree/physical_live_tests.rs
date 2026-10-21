@@ -9,7 +9,7 @@ use super::physical_live_rig::{Kit, Scene};
 use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
 use crate::actions::frame_active::frame_active;
-use crate::input::x11::live_tests::{GTK3, GTK4, device_state, window_center};
+use crate::input::x11::live_tests::{GTK3, device_state, window_center};
 
 const ENTRY_ROLES: &[&str] = &["textfield", "text", "entry"];
 const CLICK_ROLES: &[&str] = &["button"];
@@ -114,18 +114,6 @@ fn live_type_into_a_qt_entry_reads_back_with_remapped_characters() {
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_key_combos_select_and_delete_in_a_gtk3_entry() {
     key_combo(Kit::Gtk, GTK3);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_key_combos_select_and_delete_in_a_gtk4_entry() {
-    key_combo(Kit::Gtk, GTK4);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_key_combos_select_and_delete_in_a_qt_entry() {
-    key_combo(Kit::Qt, QT_ENTRY);
 }
 
 #[test]

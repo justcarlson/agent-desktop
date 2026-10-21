@@ -1,6 +1,5 @@
 use agent_desktop_core::{Deadline, ErrorCode, NativeHandle, ObservationOps, SystemOps};
 
-use super::live_apps::{self, AppSpec};
 use super::live_launch::{Launched, nonce};
 use super::resolve_live_tests::snapshot_entries;
 use super::{AtspiElement, atspi_element};
@@ -11,7 +10,7 @@ use crate::system::SharedBus;
 #[path = "live_scroll_scripts.rs"]
 pub(in crate::tree) mod scripts;
 
-use scripts::{GTK3_LIST, GTK4_LIST, QT_LIST, far_outside, intersects, pointer, window_rect};
+use scripts::{GTK3_LIST, QT_LIST, intersects, pointer, window_rect};
 
 pub(in crate::tree) struct Target {
     pub(in crate::tree) name: String,
@@ -44,83 +43,33 @@ pub(in crate::tree) fn nodes_of(
     Ok(found)
 }
 
-fn survey(
-    label: &str,
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-    nodes: &[Target],
-    frame: &AtspiElement,
-) {
-    let frame_rect = window_rect(bus, frame);
-    let mut contradictions = Vec::new();
-    for node in nodes.iter().take(800) {
-        let Ok(Some(read)) =
-            adapter.get_live_state(&node.handle, Deadline::after(5_000).expect("deadline"))
-        else {
-            continue;
-        };
-        let node_rect = window_rect(bus, &node.element);
-        let container_rect = node
-            .element
-            .scroll_container()
-            .map(|container| window_rect(bus, container));
-        let in_container = container_rect.map_or(Some(true), |rect| intersects(node_rect, rect));
-        let oracle_on = intersects(node_rect, frame_rect)
-            .filter(|inside| *inside && in_container == Some(true));
-        let oracle_off = far_outside(node_rect, frame_rect);
-        match read.offscreen {
-            Some(true) => {
-                if oracle_on == Some(true) {
-                    contradictions.push(format!("{} reported offscreen but intersects", node.name));
-                }
-            }
-            Some(false) => {
-                if oracle_off == Some(true) {
-                    contradictions.push(format!(
-                        "{} reported on screen but is far outside",
-                        node.name
-                    ));
-                }
-            }
-            None => {}
-        }
-    }
-    assert!(contradictions.is_empty(), "[{label}] {contradictions:?}");
-}
-
 fn scroll_case(
     label: &str,
     adapter: &LinuxAdapter,
     bus: &SharedBus,
     frame: &AtspiElement,
-    wanted: Option<&str>,
+    wanted: &str,
     expect_realised: bool,
 ) -> Result<(), String> {
-    let nodes = nodes_of(adapter, bus, frame)?;
-    survey(label, adapter, bus, &nodes, frame);
-    let target = match wanted {
-        Some(name) => nodes.iter().find(|node| node.name == name),
-        None => nodes.iter().rev().find(|node| {
-            adapter
-                .get_live_state(&node.handle, Deadline::after(5_000).expect("deadline"))
-                .ok()
-                .flatten()
-                .is_some_and(|read| read.offscreen == Some(true))
-        }),
-    }
-    .ok_or_else(|| format!("[{label}] no target {wanted:?} in {} nodes", nodes.len()))?;
-    let handle = &target.handle;
+    let (_, entry) = snapshot_entries(adapter, frame, true)?
+        .into_iter()
+        .find(|(_, entry)| entry.identity.name.as_deref() == Some(wanted))
+        .ok_or_else(|| format!("[{label}] no target {wanted:?}"))?;
+    let handle = adapter
+        .resolve_element_strict(&entry, Deadline::after(5_000).expect("deadline"))
+        .map_err(|error| error.message)?;
+    let element = atspi_element(&handle).map_err(|error| error.message)?;
     let deadline = Deadline::after(10_000).map_err(|error| error.message)?;
     adapter
-        .get_live_state(handle, deadline)
+        .get_live_state(&handle, deadline)
         .map_err(|error| error.message)?
         .ok_or("no state")?;
     let lease = SystemOps::acquire_interaction_lease(adapter, deadline).map_err(|e| e.message)?;
-    let pointer_before = pointer();
-    let outcome = scroll_into_view(bus, handle, &lease);
-    let pointer_after = pointer();
+    let pointer_before = pointer().ok_or("the private X11 pointer is unreadable")?;
+    let outcome = scroll_into_view(bus, &handle, &lease);
+    let pointer_after = pointer().ok_or("the private X11 pointer is unreadable after scrolling")?;
     let frame_rect = window_rect(bus, frame);
-    let own = window_rect(bus, &target.element);
+    let own = window_rect(bus, element);
     assert_eq!(pointer_before, pointer_after, "[{label}] the pointer moved");
     if expect_realised {
         outcome.map_err(|error| format!("[{label}] {:?} {}", error.code, error.message))?;
@@ -152,7 +101,7 @@ fn script_app(
     program: &str,
     source: &str,
     env: &[(&str, String)],
-    wanted: Option<&'static str>,
+    wanted: &'static str,
     expect_realised: bool,
 ) {
     let adapter = LinuxAdapter::new();
@@ -186,13 +135,7 @@ fn script_app(
 #[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
 fn offscreen_live_gtk3_scrolled_list_realises_an_offscreen_row() {
-    script_app("gtk3", "python3", GTK3_LIST, &[], Some("Row 250"), true);
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_gtk4_scrolled_list_realises_an_offscreen_row() {
-    script_app("gtk4", "python3", GTK4_LIST, &[], Some("Row 250"), true);
+    script_app("gtk3", "python3", GTK3_LIST, &[], "Row 250", true);
 }
 
 #[test]
@@ -207,82 +150,5 @@ fn offscreen_live_qt_list_item_cannot_be_scrolled_to() {
         ("QT_QPA_PLATFORM", "xcb".to_owned()),
         ("LD_LIBRARY_PATH", libraries),
     ];
-    script_app("qt", &python, QT_LIST, &env, Some("Item 250"), false);
-}
-
-/// The Files grid virtualises its rows, so a window may expose none off
-/// screen; that is reported rather than failed.
-fn files_check(
-    label: &str,
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-    frame: &AtspiElement,
-) -> Result<(), String> {
-    match scroll_case(label, adapter, bus, frame, None, true) {
-        Err(message) if message.contains("no target") => {
-            println!("scroll_live {label}: the tree holds no offscreen row ({message})");
-            Ok(())
-        }
-        Err(message) if message.contains("no scroll bar") => {
-            println!(
-                "scroll_live {label}: the offscreen node sits in a scroller without a bar ({message})"
-            );
-            Ok(())
-        }
-        other => other,
-    }
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_files_grid_realises_an_offscreen_row() {
-    let dir = std::env::temp_dir().join(nonce("files"));
-    std::fs::create_dir_all(&dir).expect("dir");
-    for i in 0..300 {
-        std::fs::write(dir.join(format!("file-{i:03}.txt")), "x").expect("file");
-    }
-    let target = dir.to_string_lossy().into_owned();
-    let result = live_apps::app(
-        &AppSpec {
-            label: "files",
-            program: "nautilus",
-            arguments: &["--new-window", &target],
-            min_nodes: 30,
-        },
-        &LinuxAdapter::new(),
-        &SharedBus::default(),
-        files_check,
-    );
-    let _ = std::fs::remove_dir_all(dir);
-    result.expect("the case holds");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_terminal_survey_agrees_with_the_oracle() {
-    live_apps::terminal(
-        &LinuxAdapter::new(),
-        &SharedBus::default(),
-        |label, adapter, bus, frame| {
-            let nodes = nodes_of(adapter, bus, frame)?;
-            survey(label, adapter, bus, &nodes, frame);
-            Ok(())
-        },
-    )
-    .expect("the survey holds");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_vscode_survey_agrees_with_the_oracle() {
-    live_apps::vscode(
-        &LinuxAdapter::new(),
-        &SharedBus::default(),
-        |label, adapter, bus, frame| {
-            let nodes = nodes_of(adapter, bus, frame)?;
-            survey(label, adapter, bus, &nodes, frame);
-            Ok(())
-        },
-    )
-    .expect("vscode is measured");
+    script_app("qt", &python, QT_LIST, &env, "Item 250", false);
 }

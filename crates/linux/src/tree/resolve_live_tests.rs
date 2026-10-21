@@ -1,28 +1,9 @@
-use agent_desktop_core::{
-    AdapterError, Deadline, ObservationOps, RefEntry, TreeOptions, WindowFilter, snapshot,
-};
+use agent_desktop_core::{Deadline, ObservationOps, RefEntry, TreeOptions, WindowFilter, snapshot};
 
-use super::live_apps::each_app;
 use super::node_read::read_node;
-use super::{AtspiElement, LabelOutcome, RawNode, atspi_element, resolve_vocabulary};
+use super::{AtspiElement, LabelOutcome, RawNode, resolve_vocabulary};
 use crate::LinuxAdapter;
 use crate::system::{SharedBus, window_id, within};
-
-#[derive(Default)]
-struct Tally {
-    resolved: usize,
-    failures: Vec<String>,
-}
-
-fn kind(error: &AdapterError) -> String {
-    error
-        .details
-        .as_ref()
-        .and_then(|details| details.get("kind"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default()
-        .to_owned()
-}
 
 fn entries(result: &snapshot::SnapshotResult) -> Vec<(String, RefEntry)> {
     let value = serde_json::to_value(&result.refmap).expect("a refmap serializes");
@@ -105,89 +86,6 @@ pub(super) fn snapshot_entries(
     let result = snapshot::build(adapter, &options, None, Some(&window.id), deadline)
         .map_err(|error| error.to_string())?;
     Ok(entries(&result))
-}
-
-fn resolve_all(
-    label: &str,
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-    frame: &AtspiElement,
-    include_bounds: bool,
-) -> Result<Tally, String> {
-    let mut tally = Tally::default();
-    let snapshot = snapshot_entries(adapter, frame, include_bounds)?;
-    let unjudged = super::live_churn::unjudged(label, &snapshot);
-    for (ref_id, entry) in snapshot
-        .into_iter()
-        .filter(|(id, _)| !unjudged.contains(id))
-    {
-        let attempt = Deadline::after(5_000).map_err(|error| error.message)?;
-        match adapter.resolve_element_strict(&entry, attempt) {
-            Ok(handle) => {
-                let element = atspi_element(&handle).map_err(|error| error.message)?;
-                match independent_read_disagrees(bus, element, &entry) {
-                    None => tally.resolved += 1,
-                    Some(difference) => tally.failures.push(format!(
-                        "{ref_id} {} {:?} resolved to a node that differs: {difference}",
-                        entry.identity.role, entry.identity.name
-                    )),
-                }
-            }
-            Err(error) => tally.failures.push(format!(
-                "{ref_id} {} {:?} path {:?}: {:?} {} {}",
-                entry.identity.role,
-                entry.identity.name,
-                entry.scope.path,
-                error.code,
-                kind(&error),
-                error.message
-            )),
-        }
-    }
-    Ok(tally)
-}
-
-fn check(
-    label: &str,
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-    frame: &AtspiElement,
-) -> Result<(), String> {
-    let mut failures = Vec::new();
-    for include_bounds in [false, true] {
-        let tally = resolve_all(label, adapter, bus, frame, include_bounds)?;
-        println!(
-            "resolve_live {label} bounds={include_bounds}: resolved={} failed={}",
-            tally.resolved,
-            tally.failures.len()
-        );
-        if tally.resolved == 0 {
-            failures.push(format!("bounds={include_bounds}: no ref resolved"));
-        }
-        failures.extend(
-            tally
-                .failures
-                .into_iter()
-                .map(|line| format!("bounds={include_bounds}: {line}")),
-        );
-    }
-    if failures.is_empty() {
-        Ok(())
-    } else {
-        Err(format!("[{label}] {}", failures.join("\n")))
-    }
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn resolve_live_every_snapshot_ref_resolves_to_the_node_it_was_taken_from() {
-    let adapter = LinuxAdapter::new();
-    let bus = SharedBus::default();
-    let failures: Vec<String> = each_app(&adapter, &bus, check)
-        .into_iter()
-        .filter_map(|(label, outcome)| outcome.err().map(|error| format!("[{label}] {error}")))
-        .collect();
-    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
 #[test]

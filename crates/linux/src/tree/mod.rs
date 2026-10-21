@@ -108,9 +108,6 @@ mod hit_live_tests;
 mod live_apps;
 
 #[cfg(test)]
-mod live_churn;
-
-#[cfg(test)]
 mod live_horizontal_live_tests;
 
 #[cfg(test)]

@@ -25,23 +25,6 @@ w.show_all()
 Gtk.main()
 "#;
 
-pub(crate) const GTK4: &str = r#"
-import gi, os
-gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, GLib
-Gtk.init()
-log = os.environ["AD_LIVE_LOG"]
-loop = GLib.MainLoop()
-w = Gtk.Window(title="adx")
-w.set_default_size(320, 80)
-e = Gtk.Entry()
-e.connect("changed", lambda x: open(log, "w").write(x.get_text()))
-w.set_child(e)
-w.connect("close-request", lambda *a: loop.quit())
-w.present()
-loop.run()
-"#;
-
 pub(crate) fn window_center(name: &str) -> (i32, i32) {
     let started = Instant::now();
     while started.elapsed() < SETTLE {
