@@ -53,7 +53,7 @@ fn the_target_matching_itself_is_an_own_hit_with_no_container() {
 }
 
 #[test]
-fn a_depth_three_descendant_selects_by_the_index_under_the_selection_ancestor() {
+fn a_depth_three_descendant_keeps_its_direct_row_under_the_selection_ancestor() {
     let mut tree = FakeTree::new(&[
         (None, true, &[1, 2]),
         (None, false, &[3]),
@@ -67,7 +67,7 @@ fn a_depth_three_descendant_selects_by_the_index_under_the_selection_ancestor() 
         found,
         Search::Found(Hit {
             item: 5,
-            container: Some(Container { node: 0, index: 1 }),
+            container: Some(Container { node: 0 }),
             row: Some(2),
             own: false
         })
@@ -86,7 +86,7 @@ fn the_nearest_selection_ancestor_wins_over_a_farther_one() {
     let Search::Found(hit) = found else {
         panic!("expected a hit");
     };
-    assert_eq!(hit.container, Some(Container { node: 1, index: 1 }));
+    assert_eq!(hit.container, Some(Container { node: 1 }));
 }
 
 #[test]
@@ -219,6 +219,20 @@ fn an_unreadable_root_is_an_error() {
     let mut tree = FakeTree::new(&[(Some("A"), false, &[])]);
     tree.unreadable.push(0);
     assert!(search(&mut tree, &0, "A").is_err());
+}
+
+#[test]
+fn a_matching_row_is_refused_when_an_unreadable_sibling_can_hide_a_duplicate() {
+    let mut tree = FakeTree::new(&[
+        (None, true, &[1, 2]),
+        (Some("Mouse & Touchpad"), false, &[]),
+        (Some("Mouse & Touchpad"), false, &[]),
+    ]);
+    tree.unreadable.push(2);
+    assert_eq!(
+        search(&mut tree, &0, "Mouse & Touchpad").unwrap(),
+        Search::Incomplete
+    );
 }
 
 #[test]

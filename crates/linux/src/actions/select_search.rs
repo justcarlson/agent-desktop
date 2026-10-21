@@ -20,7 +20,6 @@ pub(crate) trait ItemReader {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Container<N> {
     pub(crate) node: N,
-    pub(crate) index: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,11 +107,10 @@ pub(crate) fn search<R: ItemReader>(
             incomplete |= !children.is_empty();
             continue;
         }
-        for (index, child) in children.into_iter().enumerate().rev() {
+        for child in children.into_iter().rev() {
             let container = if inspected.selection {
                 Some(Container {
                     node: pending.node.clone(),
-                    index: i32::try_from(index).unwrap_or(i32::MAX),
                 })
             } else {
                 pending.container.clone()
@@ -134,6 +132,7 @@ pub(crate) fn search<R: ItemReader>(
         return Ok(Search::Incomplete);
     }
     Ok(match found {
+        _ if incomplete => Search::Incomplete,
         Some(hit) => Search::Found(hit),
         None => Search::NotFound { selectable },
     })

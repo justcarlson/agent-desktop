@@ -63,6 +63,18 @@ refuse with `ACTION_NOT_SUPPORTED`, cause `wayland_session`. On X11, only use
 physical input after observing a usable popup position and verify its effect.
 A successful input report alone does not prove an item was picked.
 
+GTK4 list-backed dropdowns, such as Settings' Night Light Schedule, are not
+menu-role popups. Their choices stay in the window tree: `wait --menu` and
+`snapshot --surface menu` do not cover them. Find the combobox, click its fresh
+ref, and use `wait --text` for a choice before taking a window snapshot. If
+`select` refuses, adding `--headed` does not supply a missing semantic action.
+On X11, after a headed click focuses the open dropdown, explicit headed
+`press down` / `press up` and `press return` can choose an item. Inspect the
+current choice first and verify the resulting value before another mutation.
+If `get` returns only the combobox label, use `snapshot --root` on its fresh
+ref to read the displayed value. A successful key report does not prove the
+choice was committed.
+
 ## GNOME Shell: Overview, top bar and popups
 
 | Surface | Meaning | How to use it |

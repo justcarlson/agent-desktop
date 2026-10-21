@@ -15,7 +15,7 @@ use super::select::{
     BusReader, SELECT_SETTLE, advertises_selection, children_of, container_target, handle_of,
     miss_error, no_route, parent_of, unchanged_is_ignored,
 };
-use super::select_exclusive::{select_child, selected_child};
+use super::select_exclusive::selected_child;
 use super::select_identity::with_current_row;
 use super::select_search::{Search, name_matches, search};
 use crate::tree::AtspiElement;
@@ -121,7 +121,7 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
     let action = Action::Select(display_value.to_owned());
     let row = hit.row.as_ref().unwrap_or(&hit.item);
     let run = || {
-        let chosen = select_child(&list, container.index, row)?;
+        let chosen = super::select_index::write(&list, row)?;
         if chosen == super::mutation::WriteReply::Absent {
             return Ok(DeliveryOutcome::NotDelivered);
         }

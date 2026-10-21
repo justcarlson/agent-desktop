@@ -3,9 +3,8 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 
 use super::context::Target;
 use super::mutation::{WriteKind, WriteReply};
-use super::select_identity::with_current_row;
 use super::write_call::{Call, invoke};
-use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, within};
+use crate::system::{PROPERTIES_INTERFACE, within};
 use crate::tree::AtspiElement;
 
 pub(super) const SELECTION_INTERFACE: &str = "org.a11y.atspi.Selection";
@@ -68,28 +67,6 @@ pub(super) fn selected_child(holder: &Target<'_>) -> Option<AtspiElement> {
     read_child(holder, SELECTION_INTERFACE, "GetSelectedChild", 0).ok()
 }
 
-pub(super) fn select_child(
-    holder: &Target<'_>,
-    index: i32,
-    row: &AtspiElement,
-) -> Result<WriteReply, AdapterError> {
-    with_current_row(
-        read_child(holder, ACCESSIBLE_INTERFACE, "GetChildAtIndex", index),
-        row,
-        || {
-            invoke(
-                holder,
-                Call {
-                    interface: SELECTION_INTERFACE,
-                    method: "SelectChild",
-                    body: &(index,),
-                    kind: WriteKind::SelectChild,
-                },
-            )
-        },
-    )
-}
-
 pub(super) fn needs_replacement(count: Option<i32>) -> bool {
     count.is_some_and(|count| count > 1)
 }
@@ -103,28 +80,24 @@ pub(super) fn exclusive_verdict(count: Option<i32>) -> Option<bool> {
 
 pub(super) fn replace_with_only(
     holder: &Target<'_>,
-    index: i32,
-    row: &AtspiElement,
+    item: &crate::tree::AtspiElement,
 ) -> Result<bool, AdapterError> {
-    let cleared = with_current_row(
-        read_child(holder, ACCESSIBLE_INTERFACE, "GetChildAtIndex", index),
-        row,
-        || {
-            invoke(
-                holder,
-                Call {
-                    interface: SELECTION_INTERFACE,
-                    method: "ClearSelection",
-                    body: &(),
-                    kind: WriteKind::ClearSelection,
-                },
-            )
+    super::select_index::resolve(holder, item)?;
+    let cleared = invoke(
+        holder,
+        Call {
+            interface: SELECTION_INTERFACE,
+            method: "ClearSelection",
+            body: &(),
+            kind: WriteKind::ClearSelection,
         },
     )? == WriteReply::Done;
     if !cleared {
         return Ok(false);
     }
-    Ok(select_child(holder, index, row)? == WriteReply::Done)
+    Ok(super::select_index::write(holder, item).map_err(|error| {
+        error.with_disposition(agent_desktop_core::DeliverySemantics::uncertain())
+    })? == WriteReply::Done)
 }
 
 #[cfg(test)]

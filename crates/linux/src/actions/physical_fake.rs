@@ -21,6 +21,7 @@ pub(crate) struct FakeWorld {
     pub(crate) bounds: Option<Rect>,
     pub(crate) chunks: usize,
     pub(crate) log: RefCell<Vec<String>>,
+    pub(crate) clip: Option<crate::tree::placement::Placement>,
 }
 
 impl FakeWorld {
@@ -44,6 +45,7 @@ impl FakeWorld {
             }),
             chunks: 1,
             log: RefCell::new(Vec::new()),
+            clip: None,
         }
     }
 
@@ -133,6 +135,22 @@ impl PhysicalWorld for FakeWorld {
     ) -> Result<Option<Rect>, AdapterError> {
         self.note("bounds");
         Ok(self.bounds)
+    }
+
+    fn validate_pointer(
+        &self,
+        element: &AtspiElement,
+        point: &Point,
+        _: Deadline,
+    ) -> Result<(), AdapterError> {
+        match &self.clip {
+            Some(placed) => crate::actions::physical_aim::validate(
+                point,
+                placed,
+                element.scroll_container().is_some(),
+            ),
+            None => Ok(()),
+        }
     }
 
     fn plan_combo(&self, _map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError> {

@@ -181,3 +181,55 @@ fn text_wait_with_count_zero_detects_absence() {
     assert_eq!(value["found"], true);
     assert_eq!(value["count"], 0);
 }
+
+struct LoadingPanel(std::sync::atomic::AtomicUsize);
+
+impl ObservationOps for LoadingPanel {
+    fn list_windows(
+        &self,
+        filter: &WindowFilter,
+        deadline: crate::Deadline,
+    ) -> Result<Vec<WindowInfo>, AdapterError> {
+        if self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            return Err(AdapterError::new(
+                ErrorCode::WindowNotFound,
+                "The panel is replacing its window",
+            ));
+        }
+        TextlessTreeAdapter.list_windows(filter, deadline)
+    }
+
+    fn observe_tree(
+        &self,
+        root: crate::live_locator::ObservationRoot<'_>,
+        request: &crate::live_locator::ObservationRequest,
+    ) -> Result<crate::live_locator::ObservedTree, AdapterError> {
+        TextlessTreeAdapter.observe_tree(root, request)
+    }
+}
+
+impl ActionOps for LoadingPanel {}
+impl InputOps for LoadingPanel {}
+impl SystemOps for LoadingPanel {}
+
+#[test]
+fn text_wait_survives_a_temporarily_missing_panel_window() {
+    let _guard = crate::refs_test_support::HomeGuard::new();
+    let adapter = LoadingPanel(std::sync::atomic::AtomicUsize::new(0));
+    let result = execute(
+        WaitArgs {
+            mode: WaitModeArgs {
+                text: Some("Doc".into()),
+                ..wait_args().mode
+            },
+            timeout_ms: 5_000,
+            app: Some("TestApp".into()),
+            ..wait_args()
+        },
+        &adapter,
+        &CommandContext::default(),
+    )
+    .unwrap();
+    assert_eq!(result["found"], true);
+    assert!(adapter.0.load(std::sync::atomic::Ordering::SeqCst) >= 2);
+}

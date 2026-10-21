@@ -208,7 +208,7 @@ fn finish(
     {
         "This cell is not directly editable. Activate it, take a fresh snapshot, and target the text editor if one appears; otherwise the application may accept only keyboard input (--headed)."
     } else {
-        "Waiting will not help: this element cannot satisfy the action as targeted. Target an element that advertises the action (check available_actions in a fresh snapshot) or adjust the interaction policy (e.g. pass --headed)."
+        "Waiting will not help: this element cannot satisfy the action as targeted. Target an element that advertises the action (check available_actions in a fresh snapshot). For a dropdown without select support, open it with click, inspect its choices, and use explicit keyboard input."
     };
     let mut details = json!(report);
     if let Some(object) = details.as_object_mut()
@@ -281,5 +281,26 @@ mod tests {
             )
         );
         assert!(!error.suggestion.unwrap().contains("it exposes"));
+    }
+
+    #[test]
+    fn unsupported_headed_select_does_not_suggest_repeating_headed_select() {
+        let mut evidence = cell_evidence();
+        evidence.state.role = "combobox".into();
+        evidence.state.enabled = Some(true);
+        evidence.state.hidden = Some(false);
+        evidence.state.offscreen = Some(false);
+        let error = check_with_stability(
+            StabilityExpectation::permissive(None),
+            &evidence,
+            &ActionRequest::headed(crate::Action::Select("Manual Schedule".into())),
+            None,
+            crate::Deadline::standard().unwrap(),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        let suggestion = error.suggestion.unwrap();
+        assert!(!suggestion.contains("--headed"));
+        assert!(suggestion.contains("available_actions"));
     }
 }

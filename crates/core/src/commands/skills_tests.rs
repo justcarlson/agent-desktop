@@ -154,6 +154,26 @@ fn get_specific_reference() {
 }
 
 #[test]
+fn linux_dropdown_recovery_uses_window_text_waits_and_root_reads() {
+    let result = get(GetArgs {
+        name: "linux".into(),
+        full: false,
+        reference: Some("shell-tray-and-notifications".into()),
+    })
+    .unwrap();
+    let content = result["content"].as_str().unwrap();
+    let dropdown = content
+        .split("GTK4 list-backed dropdowns")
+        .nth(1)
+        .expect("the shipped guide must distinguish dropdowns from menus")
+        .split("## GNOME Shell")
+        .next()
+        .unwrap();
+    assert!(dropdown.contains("wait --text"));
+    assert!(dropdown.contains("snapshot --root"));
+}
+
+#[test]
 fn unknown_skill_errors() {
     let err = get(GetArgs {
         name: "nope".into(),

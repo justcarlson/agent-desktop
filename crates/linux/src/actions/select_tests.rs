@@ -19,6 +19,7 @@ fn a_select_whose_read_back_is_unchanged_is_a_write_ignored_failure() {
     let error = unchanged_is_ignored(DeliveryOutcome::Delivered(Observed::Unchanged))
         .expect_err("unchanged is ignored");
     assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(error.details.expect("details")["cause"], "write_ignored");
     for kept in [
         DeliveryOutcome::Delivered(Observed::Matched),

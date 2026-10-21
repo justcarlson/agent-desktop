@@ -46,8 +46,12 @@ pub(crate) fn click_steps(
     }
     let at = aim_point(world, element, spec.verified.as_ref(), deadline)?;
     let map = world.keymap(deadline)?;
-    let plan = world.plan_click(&map, at, &spec.button, spec.count)?;
-    world.send_plans(vec![plan], &mut || Ok(()), deadline)?;
+    let plan = world.plan_click(&map, at.clone(), &spec.button, spec.count)?;
+    world.send_plans(
+        vec![plan],
+        &mut || world.validate_pointer(element, &at, deadline),
+        deadline,
+    )?;
     Ok(vec![
         ActionStep::succeeded(CLICK_LABEL)
             .with_mechanism(StepMechanism::PhysicalSynthetic)

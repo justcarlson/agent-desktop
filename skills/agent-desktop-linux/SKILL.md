@@ -83,9 +83,10 @@ tool for observation or semantic actions.
   command.
 - **Blocked key combos refuse without `--force`.** See
   `references/display-servers-and-input.md`.
-- **After opening a menu, inspect `data.surfaces`.** A `menu` entry leads to
+- **After opening a menu-role popup, inspect `data.surfaces`.** A `menu` entry leads to
   `snapshot --surface menu --app <name> -i`. If absent, use `wait --menu`
-  and `list-surfaces` before assuming the opener failed. See the shell reference.
+  and `list-surfaces` before assuming the opener failed. A list-backed dropdown
+  is part of the window, not a menu surface; see the shell reference.
 - **GNOME shell input has its own route on Wayland.** Headed shell clicks can
   work while ordinary app pointer commands refuse. Notifications need the
   GNOME notification service; tray snapshots also need a StatusNotifierWatcher.

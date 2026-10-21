@@ -32,6 +32,12 @@ pub(crate) trait PhysicalWorld {
         element: &AtspiElement,
         deadline: Deadline,
     ) -> Result<Option<Rect>, AdapterError>;
+    fn validate_pointer(
+        &self,
+        element: &AtspiElement,
+        point: &Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError>;
     fn plan_combo(&self, map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError>;
     fn plan_keysyms(&self, combo: &KeyCombo) -> Result<Vec<KeysymStep>, AdapterError>;
     fn plan_text(&self, map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError>;
@@ -100,6 +106,16 @@ impl PhysicalWorld for LiveWorld<'_> {
     ) -> Result<Option<Rect>, AdapterError> {
         let handle = element.clone().into_native_handle();
         crate::tree::get_element_bounds(self.bus, &handle, deadline)
+    }
+
+    fn validate_pointer(
+        &self,
+        element: &AtspiElement,
+        point: &Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let placed = crate::tree::live_offscreen::placement(self.bus, element, deadline);
+        super::physical_aim::validate(point, &placed, element.scroll_container().is_some())
     }
 
     fn plan_combo(&self, map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError> {

@@ -7,7 +7,7 @@ use crate::{
 pub fn execute_verified_action(
     adapter: &dyn PlatformAdapter,
     handle: &NativeHandle,
-    request: ActionRequest,
+    mut request: ActionRequest,
     lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
     let action = request.action.clone();
@@ -18,6 +18,15 @@ pub fn execute_verified_action(
     let before = matches!(action, Action::TypeText(_) | Action::Toggle)
         .then(|| adapter.get_live_element(handle, deadline).ok())
         .flatten();
+    if matches!(action, Action::Toggle)
+        && let Some(checked) = before.as_ref().and_then(checked)
+    {
+        request.action = if checked {
+            Action::Uncheck
+        } else {
+            Action::Check
+        };
+    }
     let expected_text = match (&action, &before) {
         (Action::TypeText(text), Some(before)) => before.state.value.as_deref().and_then(|value| {
             let selection_is_preserved = !request.policy.is_headed()
@@ -29,7 +38,14 @@ pub fn execute_verified_action(
         }),
         _ => None,
     };
-    let execution = adapter.execute_action(handle, request, lease);
+    let execution = adapter
+        .execute_action(handle, request, lease)
+        .map(|mut result| {
+            if matches!(action, Action::Toggle) {
+                result.action = action.name().into();
+            }
+            result
+        });
     if execution
         .as_ref()
         .is_err_and(|error| error.disposition == DeliverySemantics::not_delivered())
@@ -222,3 +238,7 @@ fn verification_error(
 #[cfg(test)]
 #[path = "post_action_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "post_action_toggle_tests.rs"]
+mod toggle_tests;

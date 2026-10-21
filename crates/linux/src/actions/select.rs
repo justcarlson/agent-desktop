@@ -11,14 +11,13 @@ use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::click::{POLL_STEP, deliver, invoke_verb, names_of, poll_until, refusal};
 use super::context::Target;
 use super::select_exclusive::{
-    SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, select_child,
-    selected_count,
+    SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
 };
 use super::select_popup::{is_popup_dropdown, select_in_popup};
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, search};
 use super::select_verify::{commit_unobserved, read_verification};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
-use crate::tree::action_names::verbs_for;
+use crate::tree::action_names::{click_verbs, verbs_for};
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::COMBO_BOX;
@@ -136,13 +135,10 @@ fn selection_parent(
         return Ok(None);
     }
     let siblings = reader.children(&parent)?;
-    let position = siblings
+    let present = siblings
         .iter()
-        .position(|sibling| sibling.bus_name() == node.bus_name() && sibling.path() == node.path());
-    Ok(position.map(|index| Container {
-        node: parent,
-        index: i32::try_from(index).unwrap_or(i32::MAX),
-    }))
+        .any(|sibling| sibling.bus_name() == node.bus_name() && sibling.path() == node.path());
+    Ok(present.then_some(Container { node: parent }))
 }
 
 pub(super) fn container_target<'a>(
@@ -160,7 +156,6 @@ pub(super) fn container_target<'a>(
 fn keep_only_the_item(
     target: &Target<'_>,
     holder: &Target<'_>,
-    index: i32,
     item: &AtspiElement,
     display_value: &str,
 ) -> Option<bool> {
@@ -168,7 +163,7 @@ fn keep_only_the_item(
     if !needs_replacement(count) {
         return exclusive_verdict(count);
     }
-    if !replace_with_only(holder, index, item).ok()? {
+    if !replace_with_only(holder, item).ok()? {
         return None;
     }
     let reread = read_verification(target.bus, target, item, display_value, Some(holder));
@@ -185,12 +180,19 @@ fn select_through(
     display_value: &str,
 ) -> Result<ActionResult, AdapterError> {
     let action = Action::Select(display_value.to_owned());
-    let verbs = verbs_for(&action);
     let verified_node = hit.row.clone().unwrap_or_else(|| hit.item.clone());
     let item_handle = handle_of(&hit.item);
     let item = container_target(target, &item_handle)?;
     let view = item.view()?;
     let names = names_of(&view)?;
+    let verbs = if resolve_verb(names, verbs_for(&action)).is_none()
+        && hit.row.as_ref().is_some_and(|row| {
+            row.bus_name() == hit.item.bus_name() && row.path() == hit.item.path()
+        }) {
+        click_verbs(view.role())
+    } else {
+        verbs_for(&action)
+    };
     let own_verb = resolve_verb(names, verbs).is_some();
     let holder_handle = container.map(|container| handle_of(&container.node));
     let holder = match (&holder_handle, hit.own) {
@@ -216,36 +218,36 @@ fn select_through(
             |verified| *verified == Some(true),
         );
         let decided = match (&holder, container) {
-            (Some(holder), Some(container)) if verified == Some(true) => keep_only_the_item(
-                target,
-                holder,
-                container.index,
-                &verified_node,
-                display_value,
-            ),
+            (Some(holder), Some(_)) if verified == Some(true) => {
+                keep_only_the_item(target, holder, &verified_node, display_value)
+            }
             _ => verified,
         };
         commit_unobserved(application_fires_no_change, decided)
     };
     let mut rungs = Vec::new();
-    if let (Some(holder), Some(container)) = (&holder, container) {
-        let row = &verified_node;
+    if let Some(holder) = &holder {
+        let verified_node = &verified_node;
+        let observe = &observe;
         rungs.push(Rung {
             label: SELECT_CHILD_LABEL,
             run: Box::new(move || {
-                let reply = select_child(holder, container.index, row);
+                let reply = super::select_index::write(holder, verified_node);
                 deliver(reply, observe).and_then(unchanged_is_ignored)
             }),
         });
     }
     if own_verb {
-        rungs.push(Rung {
-            label: SELECT_VERB_LABEL,
-            run: Box::new(|| {
-                let reply = invoke_verb(&item, &action, names, verbs);
-                deliver(reply, observe).and_then(unchanged_is_ignored)
-            }),
-        });
+        rungs.insert(
+            0,
+            Rung {
+                label: SELECT_VERB_LABEL,
+                run: Box::new(|| {
+                    let reply = invoke_verb(&item, &action, names, verbs);
+                    deliver(reply, observe).and_then(unchanged_is_ignored)
+                }),
+            },
+        );
     }
     if rungs.is_empty() {
         return Err(no_route());
@@ -263,11 +265,11 @@ pub(super) fn unchanged_is_ignored(
     match outcome {
         DeliveryOutcome::Delivered(Observed::Unchanged) => Err(AdapterError::new(
             ErrorCode::ActionFailed,
-            "The selection still holds the old choice, so the select was not applied",
+            "The selection write was accepted but the requested choice was not observed",
         )
         .with_suggestion("Choose the item with a headed click and key route")
         .with_details(json!({ "cause": "write_ignored" }))
-        .with_disposition(DeliverySemantics::not_delivered())),
+        .with_disposition(DeliverySemantics::delivered_unverified())),
         other => Ok(other),
     }
 }
@@ -335,7 +337,6 @@ pub(crate) fn select(
                 hit.container.clone().map(|container| match combo {
                     true => Container {
                         node: target.element.clone(),
-                        index: container.index,
                     },
                     false => container,
                 })
