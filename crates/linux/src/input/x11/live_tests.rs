@@ -3,7 +3,8 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::Deadline;
 
-use super::session::{live_keymap, run};
+use super::live_remap_tests::observed_keymap;
+use super::session::run;
 use crate::input::keymap::Keymap;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
@@ -106,7 +107,7 @@ pub(crate) fn device_state(device: &str) -> String {
 fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let display = private_display();
     if std::env::var("AD_HOLD_HELPER").is_ok() {
-        let map = live_keymap(&display, deadline(8_000)).expect("keymap");
+        let map = observed_keymap(&display);
         let code = keycode_for(&map, u32::from('a'));
         let hold = Plan {
             steps: vec![
@@ -123,7 +124,7 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
-    let map = live_keymap(&display, deadline(8_000)).expect("keymap");
+    let map = observed_keymap(&display);
     let code = keycode_for(&map, u32::from('a'));
     let device = "Virtual core XTEST keyboard";
     let mut child = Command::new(std::env::current_exe().expect("exe"))

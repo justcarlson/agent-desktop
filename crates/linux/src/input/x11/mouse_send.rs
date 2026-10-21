@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline, MouseEvent, MouseEventKind};
+use agent_desktop_core::{AdapterError, InteractionLease, MouseEvent, MouseEventKind};
 
 use super::session;
 use crate::input::plan::Plan;
@@ -9,12 +9,12 @@ use crate::input::wheel_plan::plan_wheel;
 pub(crate) fn plans_for(
     display: &str,
     event: &MouseEvent,
-    deadline: Deadline,
+    lease: &InteractionLease,
 ) -> Result<Vec<Plan>, AdapterError> {
     let map = if event.modifiers.is_empty() {
         Default::default()
     } else {
-        session::live_keymap(display, deadline)?
+        session::live_keymap(display, lease)?
     };
     match &event.kind {
         MouseEventKind::Move => plan_move(event.point.clone()).map(|plan| vec![plan]),

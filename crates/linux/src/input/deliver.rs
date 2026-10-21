@@ -38,7 +38,6 @@ pub(crate) fn mouse_event(
     event: &MouseEvent,
     lease: &InteractionLease,
 ) -> Result<OperationReport, AdapterError> {
-    let deadline = lease.deadline();
     match &event.kind {
         MouseEventKind::Down => {
             return Err(super::standalone::reject_standalone("mouse_event down"));
@@ -48,7 +47,7 @@ pub(crate) fn mouse_event(
     }
     match backend()? {
         Backend::X11(display) => {
-            let plans = mouse_send::plans_for(&display, event, deadline)?;
+            let plans = mouse_send::plans_for(&display, event, lease)?;
             let delivery = session::run(&display, plans, &mut || Ok(()), lease)?;
             Ok(with_event_count(
                 OperationReport::pointer_dispatched(event, false),
