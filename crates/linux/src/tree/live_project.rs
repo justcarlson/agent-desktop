@@ -85,8 +85,8 @@ pub(crate) fn settled_by_read(read: &ObservedRead) -> bool {
 }
 
 /// `Some(true)` only on positive evidence, `Some(false)` only when the node
-/// provably intersects its frame and scroll container in a window that is not
-/// minimized, `None` when anything needed was not read. A node with neither
+/// provably intersects its frame with its centre inside its scroll container
+/// in a window that is not minimized, `None` when anything needed was not read. A node with neither
 /// `VISIBLE` nor `SHOWING` is hidden, which is its own evidence: it can still
 /// be off screen on a rectangle outside its window (a Qt item scrolled out of
 /// view reads that way, L27-6), but it is never called on screen.
@@ -111,10 +111,23 @@ pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> O
     });
     let container_unread =
         read.node.element.scroll_container().is_some() && placement.container.is_none();
+    let centre_clipped = read.node.element.scroll_container().is_some()
+        && placement
+            .node
+            .zip(placement.container)
+            .is_some_and(|(node, container)| {
+                super::hit_guard::aimable(node)
+                    && super::hit_guard::aimable(container)
+                    && node
+                        .x
+                        .checked_add(node.width / 2)
+                        .zip(node.y.checked_add(node.height / 2))
+                        .is_some_and(|point| !super::hit_guard::admits(container, point))
+            });
     let off_screen = verdict != Some(true)
         && off_every_display(screen_rect(read, placement), placement.displays.as_deref());
     match verdict {
-        _ if off_screen => Some(true),
+        _ if off_screen || centre_clipped => Some(true),
         Some(false) if container_unread || hidden => None,
         other => other,
     }
@@ -260,3 +273,7 @@ mod tests;
 #[cfg(test)]
 #[path = "live_placement_tests.rs"]
 mod placement_tests;
+
+#[cfg(test)]
+#[path = "clipped_row_tests.rs"]
+mod clipped_row_tests;
