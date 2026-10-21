@@ -483,13 +483,14 @@ static int cmd_lifetime(const struct AdAdapter *unused, const char *app) {
     }
     char *out = NULL;
     int32_t rc = snapshot_rc(adapter, app, &out);
+    int ok = rc == AD_RESULT_OK && envelope_ok(out);
     if (out != NULL) {
       ad_free_string(out);
     }
     ad_adapter_destroy(adapter);
-    if (rc != AD_RESULT_OK) {
-      fprintf(stderr, "lifetime: FAIL code=%s rc=%d cycle=%d\n", rc_name(rc), rc,
-              cycle);
+    if (!ok) {
+      fprintf(stderr, "lifetime: FAIL code=%s rc=%d cycle=%d\n",
+              rc == AD_RESULT_OK ? "SNAPSHOT_ENVELOPE" : rc_name(rc), rc, cycle);
       return 1;
     }
   }

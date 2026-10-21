@@ -134,8 +134,10 @@ WRAPPER="$PREFIX/lib/node_modules/agent-desktop/bin/agent-desktop.js"
 [ -x "$BIN" ] || { echo "run-npm-install: FAIL code=SYMLINK_MISSING $BIN" >&2; exit 1; }
 [ -f "$WRAPPER" ] || { echo "run-npm-install: FAIL code=WRAPPER_MISSING $WRAPPER" >&2; exit 1; }
 
-check_version symlink "$("$BIN" version)"
-check_version wrapper "$(node "$WRAPPER" version)"
+version_json=$("$BIN" version)
+check_version symlink "$version_json"
+version_json=$(node "$WRAPPER" version)
+check_version wrapper "$version_json"
 echo "run-npm-install: symlink and wrapper report os=linux target=$ARCH"
 
 NODE_BIN=$(command -v node)

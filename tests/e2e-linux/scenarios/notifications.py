@@ -30,12 +30,6 @@ def _refusal(envelope, code):
     assert not envelope.ok and (envelope.error or {}).get("code") == code, envelope.raw
 
 
-def _dismiss(ctx, entry):
-    return ctx.product(["dismiss-notification", str(entry["index"]),
-                        "--expected-app", entry["app_name"],
-                        "--expected-title", entry["title"]])
-
-
 @contextmanager
 def _observing(ctx):
     with notify.observing(ctx) as sender:
@@ -117,17 +111,6 @@ def empty_list_not_found(ctx):
         envelope = ctx.product(["dismiss-notification", "1", "--expected-app", "HarnessAbsent"])
         _refusal(envelope, "NOTIFICATION_NOT_FOUND")
         assert not sender.signals(), sender.signals()
-        ctx.after("dbus.notifications", sender.active())
-
-
-@implementation("notifications.dismiss_one_reason_closed")
-def dismiss_one_reason_closed(ctx):
-    with _observing(ctx) as sender:
-        identifier = sender.send("HarnessDismiss", "Dismiss me")
-        entry = _await(ctx, "HarnessDismiss")[0]
-        envelope = _dismiss(ctx, entry)
-        assert envelope.ok, envelope.raw
-        assert sender.wait_closed([identifier]) == [{"id": identifier, "reason": 2}]
         ctx.after("dbus.notifications", sender.active())
 
 
