@@ -61,6 +61,15 @@ Each tier runs the headless and headed modes registered for that leg. A headed
 mode on a headless compositor means synthetic input inside that private session.
 It does not mean input to the user's desktop.
 
+The Mutter registry currently omits `events.open_and_close_inside_one_wait`
+and `ref_actions.drag`. The transient event leg received a correct
+`window-closed` response, then its teardown hit `UnknownMethod` while reading
+the vanished Text Editor AT-SPI node. The drag leg timed out during editor
+registry setup before dispatching a product command. These archived failures
+identify fixture timing and oracle responsiveness problems; they do not count
+as Mutter passes. Both legs remain registered on openbox. Event identity and
+drag-report behavior retain deterministic owners in the core and Linux suites.
+
 ## Legs
 
 Use `--leg <id>` with the same tier to reproduce a single registered leg:
