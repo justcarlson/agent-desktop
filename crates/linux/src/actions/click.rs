@@ -227,7 +227,13 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
             )
         })
     };
-    run_single_rung(action.name(), target.deadline, run)
+    if matches!(action, Action::Click) {
+        super::popup_verify::run(target, &view, None, || {
+            run_single_rung(action.name(), target.deadline, run)
+        })
+    } else {
+        run_single_rung(action.name(), target.deadline, run)
+    }
 }
 
 pub(crate) fn click(target: &Target<'_>) -> Result<ActionResult, AdapterError> {

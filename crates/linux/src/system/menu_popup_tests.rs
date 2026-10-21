@@ -202,3 +202,43 @@ fn a_menu_found_by_another_rule_hides_the_popover_rule() {
     ]);
     assert_eq!(families(&in_window(&frame)), [MenuFamily::Gtk3Bar]);
 }
+
+#[test]
+fn menu_regression_expanded_popup_button_exposes_its_showing_panel() {
+    use crate::tree::state_bits::{EXPANDED, PRESSED};
+    let panel = node(
+        PANEL,
+        "",
+        &[SHOWING],
+        vec![node(BUTTON, "Browse", &[SHOWING], vec![])],
+    );
+    let inner = node(TOGGLE, "Open", &[SHOWING, PRESSED], vec![]);
+    let mut opener = node(
+        BUTTON,
+        "Open",
+        &[SHOWING, HAS_POPUP, EXPANDED],
+        vec![inner, panel],
+    );
+    let found = in_window(&opener);
+    assert_eq!(families(&found), [MenuFamily::Gtk4Popover]);
+    assert_eq!(
+        found[0].root.payload.node.traits.role.present(),
+        Some(&PANEL)
+    );
+    assert_eq!(found[0].items, 1);
+    opener.children.pop();
+    assert!(
+        in_window(&opener).is_empty(),
+        "pressed/expanded alone proves no popup"
+    );
+    opener.children.push(node(
+        PANEL,
+        "",
+        &[],
+        vec![node(BUTTON, "Browse", &[SHOWING], vec![])],
+    ));
+    assert!(
+        in_window(&opener).is_empty(),
+        "a hidden panel is not an open popup"
+    );
+}

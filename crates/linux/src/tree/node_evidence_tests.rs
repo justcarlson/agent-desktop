@@ -51,3 +51,23 @@ fn a_handle_with_no_window_frame_is_refused_rather_than_read_with_a_guessed_flag
         .is_ok()
     );
 }
+
+#[test]
+fn menu_regression_inner_toggle_parent_keeps_its_frame_for_live_reads() {
+    use crate::tree::ancestry::{self, Ancestry};
+    for web in [false, true] {
+        let frame = AtspiElement::new(":1.1", "/frame", 7);
+        let mut parent = AtspiElement::new(":1.1", "/button", 7);
+        parent.set_ancestry(Ancestry::of(Some(frame.clone()), None, web));
+        let mut inner = AtspiElement::new(":1.1", "/toggle", 7);
+        inner.set_ancestry(ancestry::child(&parent, Some(PUSH_BUTTON)));
+        let restored = inner
+            .ancestry()
+            .button_parent()
+            .expect("walked popup opener");
+        require_ancestry(&restored).expect("parent live reads must retain their known context");
+        assert_eq!(restored, parent);
+        assert_eq!(restored.frame(), Some(&frame));
+        assert_eq!(restored.in_web_document(), web);
+    }
+}
