@@ -139,10 +139,10 @@ pub(super) fn window_missing() -> AdapterError {
 pub(crate) fn tree_absent(detail: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::AppNotFound,
-        "The desktop shell is not on the accessibility registry",
+        "The GNOME Shell accessibility capability is absent from this session",
     )
     .with_suggestion(
-        "Restart the shell session so it registers again; do not toggle accessibility settings",
+        "Use a GNOME Shell session exposing org.gnome.Shell and its accessibility tree",
     )
     .with_details(json!({ "shell_tree": "absent", "detail": detail }))
 }
