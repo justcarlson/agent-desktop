@@ -22,6 +22,15 @@ fn children_inherit_the_frame_and_nearest_scroll_container() {
     let inherited = child(&parent, Some(39));
     assert_eq!(inherited.frame(), Some(&frame));
     assert_eq!(inherited.scroll_container(), Some(&scroll));
+    assert_eq!(inherited.button_parent(), None);
+    assert_eq!(
+        child(&parent, Some(43)).button_parent(),
+        Some(parent.address())
+    );
+    assert_eq!(
+        child(&parent, Some(129)).button_parent(),
+        Some(parent.address())
+    );
 
     for role in [49, 68] {
         let mut pane = element(":1.1", "/root/frame/scroll", 1);

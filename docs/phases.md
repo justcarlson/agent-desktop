@@ -2097,6 +2097,8 @@ Same rendering shape, same [Cross-cutting sub-phase DoD](#cross-cutting-sub-phas
 
 **Depends on:** 3.6
 
+Popup buttons and their inner toggles require a popup observation as well as the opener's state change before delivery can be verified. The shared menu classifier reads beneath the exact opener recorded by the tree walk; an unrelated popup or pressed/expanded state alone is insufficient. An unread baseline refuses before invocation. A missing or unread post-action popup returns `ACTION_FAILED` / `popup_not_observed`, with unverified delivery after an invocation and `not_delivered` after a no-op (df3-edges #42; df3-wayland #10, #48).
+
 **Exit criteria:** on a private session, through the release binary and judged by an independent AT-SPI read, click, set-value, clear, type, toggle, check, uncheck, expand, collapse, select, focus and scroll-to each work on a real application (Calculator, Settings, Files, Text Editor, a Qt window, Chrome) or answer a stated refusal (a GTK4 check button and a Files cell have no verb, a Qt combo popup takes no selection, a Settings sidebar row does not navigate, both `ACTION_FAILED` with `write_ignored`); every classifier outcome, the secure write, the read-only refusal, the popover and navigation `verified: false`, UTF-16 text offsets, the focus policy and the headless invariant have a test that fails when its rule is broken. On native Wayland a headed `type` on a GTK 4 entry delivers through the keyboard route and is verified by the field's value (L13-8, L13-9).
 
 **Est. PR size:** ~2k LOC beyond the skeleton

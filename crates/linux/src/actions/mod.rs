@@ -14,6 +14,7 @@ pub(crate) mod physical_click;
 pub(crate) mod physical_keyboard;
 pub(crate) mod physical_scroll;
 pub(crate) mod physical_target;
+mod popup_verify;
 mod process_check;
 mod scroll_bus;
 pub(crate) mod scroll_crawl;

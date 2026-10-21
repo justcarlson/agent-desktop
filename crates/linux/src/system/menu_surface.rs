@@ -172,3 +172,33 @@ fn entries_across(
 #[cfg(test)]
 #[path = "menu_surface_tests.rs"]
 mod tests;
+
+pub(crate) fn roots_below(
+    bus: &SharedBus,
+    opener: &AtspiElement,
+    deadline: Deadline,
+) -> Option<Vec<AtspiElement>> {
+    use crate::tree::observe_menu::{rooted, scan_walk_pruned};
+    let tree = scan_walk_pruned(bus, &rooted(opener), 500, deadline).ok()?;
+    roots_in_tree(&tree)
+}
+
+fn roots_in_tree(tree: &Node) -> Option<Vec<AtspiElement>> {
+    use crate::tree::observe_menu::is_cut_short_beyond_pruning;
+    if is_cut_short_beyond_pruning(tree) || !popup_read_complete(tree) {
+        return None;
+    }
+    Some(
+        menu_popup::in_window(tree)
+            .into_iter()
+            .map(|popup| popup.root.payload.node.element.address())
+            .collect(),
+    )
+}
+
+fn popup_read_complete(node: &Node) -> bool {
+    node.payload.node.traits.role.present().is_some()
+        && node.payload.node.traits.states.present().is_some()
+        && !node.payload.node.children.is_failed()
+        && node.children.iter().all(popup_read_complete)
+}

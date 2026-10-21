@@ -162,15 +162,17 @@ pub(super) fn toggle_reporting(
             },
         )
     };
-    run_single_rung(
-        if clicked {
-            Action::Click.name()
-        } else {
-            action.name()
-        },
-        target.deadline,
-        run,
-    )
+    super::popup_verify::run(target, &view, Some(wanted), || {
+        run_single_rung(
+            if clicked {
+                Action::Click.name()
+            } else {
+                action.name()
+            },
+            target.deadline,
+            run,
+        )
+    })
 }
 
 #[cfg(test)]

@@ -208,3 +208,15 @@ fn a_window_that_sees_no_popup_does_not_claim_a_top_level_one() {
     .expect("entries");
     assert_eq!(listed[0].id, "w-1-3");
 }
+
+#[test]
+fn an_incomplete_popup_scan_never_proves_that_the_popup_is_closed() {
+    use crate::tree::Field;
+    let mut tree = frame_with(vec![gtk4_popover(true)]);
+    assert_eq!(super::roots_in_tree(&tree).expect("open scan").len(), 1);
+    tree.children[0].payload.node.traits.states = Field::Failed("read failed".to_owned());
+    assert!(super::roots_in_tree(&tree).is_none());
+    tree.children.clear();
+    tree.payload.node.children = Field::Failed("children unread".to_owned());
+    assert!(super::roots_in_tree(&tree).is_none());
+}
