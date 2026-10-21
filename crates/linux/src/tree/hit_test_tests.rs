@@ -295,7 +295,7 @@ fn an_unrelated_lander_on_a_trusted_toolkit_intercepts_with_its_role_name_and_bo
 
 #[test]
 fn unknown_inputs_stay_unknown() {
-    let mut world = reachable(gtk3_facts(), (100, 137), vec![]);
+    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
     world.nodes.lead("/frame", "/pane");
     unknown(&mut world, (310, 154));
     world.nodes.endless = true;

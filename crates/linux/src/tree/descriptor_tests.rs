@@ -23,7 +23,17 @@ fn describe(
     attrs: &Field<BTreeMap<String, String>>,
     in_web_document: bool,
 ) -> NodeDescriptor {
-    let props = properties("", "");
+    describe_with_description(role, role_name, attrs, in_web_document, "")
+}
+
+fn describe_with_description(
+    role: u32,
+    role_name: &str,
+    attrs: &Field<BTreeMap<String, String>>,
+    in_web_document: bool,
+    description: &str,
+) -> NodeDescriptor {
+    let props = properties("", description);
     let placeholder = read_placeholder(&props, &Field::Present(role), attrs);
     describe_with(
         &Field::Present(role),
@@ -90,11 +100,12 @@ fn author_role_description_and_placeholder_are_optional() {
     assert_eq!(no_description.role_description, None);
     assert_eq!(no_description.placeholder.as_deref(), Some("Search"));
 
-    let gtk = describe(
+    let gtk = describe_with_description(
         TEXT,
         "text",
-        &attributes(&[("toolkit", "GTK"), ("placeholder", "Hint")]),
+        &attributes(&[("toolkit", "GTK")]),
         false,
+        "Hint",
     );
     assert_eq!(gtk.placeholder, None);
 }

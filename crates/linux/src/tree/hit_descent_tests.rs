@@ -155,6 +155,7 @@ fn landings_match_verified_ancestry_and_geometry() {
     );
 
     let mut nodes = tree();
+    nodes.parents.remove("/target");
     nodes.leads.insert(
         "/frame".to_owned(),
         Hit::Object(AtspiElement::new(":1.2", "/target", 1)),
