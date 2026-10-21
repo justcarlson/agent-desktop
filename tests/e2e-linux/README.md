@@ -2,36 +2,37 @@
 
 ## Run
 
-Build the CLI and its adjacent clipboard owner on Linux, then run one tier:
+Build the CLI and its adjacent clipboard owner and run one tier in one call:
 
 ```sh
-export CARGO_INCREMENTAL=0
-cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins
-AGENT_DESKTOP_E2E_BIN="${CARGO_TARGET_DIR:-target}/release/agent-desktop" \
-  bash tests/e2e-linux/run.sh --tier x11-openbox
+bash tests/e2e-linux/run.sh --tier x11-openbox
 ```
 
-Use `target` in place of `$CARGO_TARGET_DIR` when the variable is unset.
-The runner stages and hashes both executables together. Keep the helper beside
-an externally supplied binary. Omit `--tier` to run all tiers sequentially.
-Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location.
-On the shared validation host, put it under `$HOME/ad-wt` and enter only through
-`scripts/remote-linux.sh -c`; bound each call with `AGENT_DESKTOP_REMOTE_TIMEOUT`.
-The runner starts its own private sessions and takes the interaction lease.
+Each run builds into its own suite's temporary Cargo target, stages both
+executables in `bin/`, and records their SHA256s in adjacent `.sha256` files
+and the startup output. It then removes the build intermediates. Every leg
+uses that pinned pair; a staged hash mismatch fails the run. Other worktrees'
+builds cannot replace either image. An externally supplied `AGENT_DESKTOP_E2E_BIN`
+(or `AGENT_DESKTOP_E2E_BIN_SRC`) skips the build and freezes that image and its
+adjacent helper before taking the interaction lease.
 
-On the shared host, run build and live validation as separate bounded calls
-from this checkout. Timeouts are whole seconds; the first bounds execution,
-the second bounds waiting for the shared box lock. Each call below is under
-15 minutes including lock wait. The single-leg run creates its own fresh suite:
+Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a
+fresh directory to choose the evidence location. The default is a fresh directory
+under `${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}`. On the shared validation host,
+enter only through `scripts/remote-linux.sh -c`; bound each call with
+`AGENT_DESKTOP_REMOTE_TIMEOUT`. The runner starts its own private sessions and
+takes the interaction lease.
+
+Build and live validation stay in the same bounded call. Timeouts are whole
+seconds; the first bounds the whole call, the second bounds waiting for the shared
+box lock. This call is under 15 minutes including lock wait:
 
 ```sh
 AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
-  bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins'
-AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
   bash scripts/remote-linux.sh -c '
-    suite=$(mktemp -d "$HOME/ad-wt/e2e-docs.XXXXXX")
+    export CARGO_INCREMENTAL=0 &&
+    suite=$(mktemp -d "$HOME/ad-wt/e2e-docs.XXXXXX") &&
     AGENT_DESKTOP_E2E_SUITE="$suite" \
-    AGENT_DESKTOP_E2E_BIN="$CARGO_TARGET_DIR/release/agent-desktop" \
       bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
   '
 ```
@@ -65,8 +66,7 @@ It does not mean input to the user's desktop.
 Use `--leg <id>` with the same tier to reproduce a single registered leg:
 
 ```sh
-AGENT_DESKTOP_E2E_BIN="${CARGO_TARGET_DIR:-target}/release/agent-desktop" \
-  bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
+bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
 ```
 
 `runner/legs.py` is the inventory of IDs, modes, requirements, and oracles.
@@ -148,14 +148,42 @@ state.text_editor_semantic_type --lying-actions`. This is an expected failure.
 Run `--lying-actions` as a blanket-response negative control: its fake program
 always says `ok:true` without real refs or effects, so the selection must fail.
 It may fail at ref acquisition before an action; portable lying-effect tests
-separately exercise effect and restoration checks. Send SIGTERM to the
-runner's own PID to test cancellation; cleanup must leave no private members.
-Identify that PID and its start token in your private runtime's `harness-owner`
-marker, verify it is your `runner/main.py` process, and signal only that PID.
+separately exercise effect and restoration checks. Cancellation is a separate
+live check; the negative-control command alone does not prove cleanup.
+
+At startup the runner prints `suite:` and both image hashes. When a private
+tier's accessibility health gate passes, it atomically publishes
+`<suite>/<tier>.ready.json` and prints `cancel-ready:` with that path, the runtime
+directory, `harness-owner` marker, runner PID and Linux `/proc` start token
+(field 22, ticks since boot). The marker contains `<pid> <start-token>`.
 The background shell/interaction-lock wrapper PID is not the runner PID.
-After it exits, verify that runtime directory is gone and no process environment
-references it. Cancellation is a separate live check; the negative-control
-command alone does not prove cleanup.
+
+Use this complete bounded cancellation check. It waits for the receipt rather
+than guessing a PID or sleeping before a signal:
+
+```sh
+AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=240 \
+  bash scripts/remote-linux.sh -c '
+    export CARGO_INCREMENTAL=0
+    suite=$(mktemp -d "$HOME/ad-wt/e2e-cancel.XXXXXX")
+    AGENT_DESKTOP_E2E_SUITE="$suite" bash tests/e2e-linux/run.sh \
+      --tier x11-mutter --leg ref_actions.right_click >"$suite/run.log" 2>&1 &
+    job=$!
+    python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" --wait 600
+    signal_rc=$?
+    wait "$job"; rc=$?
+    cat "$suite/run.log"
+    test "$signal_rc" -eq 0 && test "$rc" -eq 143 || exit 1
+    python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" \
+      --check-cleanup --wait 60
+  '
+```
+
+`cancel.py` checks the marker, exact `runner/main.py` command, user and start
+token before sending SIGTERM through a Linux PID descriptor. A changed or
+exited generation is refused. The final check waits until the runtime directory
+is absent and no process environment references it. Run the entire payload in
+one wrapper call; never overlap two calls from this worktree.
 The next run sweeps abandoned sessions whose recorded runner has exited.
 
 The portable self-tests need no Linux session:

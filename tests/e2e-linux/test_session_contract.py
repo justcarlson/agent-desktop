@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -313,6 +314,11 @@ class StubWrapperTests(unittest.TestCase):
                 self.assertEqual(Path(tier.env["TMPDIR"]), tier.runtime_dir / "tmp")
                 self.assertTrue(Path(tier.env["TMPDIR"]).is_dir())
                 self.assertEqual(tier.state_root.stat().st_mode & 0o777, 0o700)
+                receipt = json.loads((self.suite / "x11-openbox.ready.json").read_text())
+                self.assertEqual(receipt["runtime"], str(tier.runtime_dir))
+                self.assertEqual(receipt["marker"], str(tier.runtime_dir / session.OWNER_MARKER))
+                self.assertEqual((receipt["pid"], receipt["start"]),
+                                 (os.getpid(), session._own_start_time()))
             self.assertFalse(tier.runtime_dir.exists())
 
     def test_unhealthy_wrapper_fails_with_its_reason(self):

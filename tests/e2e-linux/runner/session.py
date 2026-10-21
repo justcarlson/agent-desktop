@@ -365,6 +365,8 @@ def start_tier(name: str, deadline: float):
         tier.env["AT_SPI_BUS_ADDRESS"] = address
         if not _a11y_warm(tier.env, monotonic_deadline):
             raise TierUnavailable(f"{name}: the accessibility registry did not come up")
+        from runner import cancel
+        cancel.publish(work_dir, tier)
         yield tier
     finally:
         if proc.poll() is None:
