@@ -104,7 +104,7 @@ fn scan(found: Vec<crate::system::nested_scan::Nested>) -> crate::system::nested
 #[test]
 fn a_dialog_inside_a_window_is_one_sheet_signal_on_its_own_id() {
     let windows = [window("w-1.4-win", "Editor", false)];
-    let signals = super::nested_signals(
+    let signals = super::nested_surface_signals(
         &scan(vec![nested("w-1.4-dlg", Some("About"))]),
         &windows,
         &[app()],
@@ -127,7 +127,8 @@ fn a_menu_maps_its_own_identity() {
         complete: true,
         unread: Vec::new(),
     };
-    let open = super::menu_signals(&scan(vec![nested("w-1.4-menu", None)]), &windows, &[app()]);
+    let open =
+        super::nested_surface_signals(&scan(vec![nested("w-1.4-menu", None)]), &windows, &[app()]);
     let [signal] = open.as_slice() else {
         panic!("one menu signal")
     };
