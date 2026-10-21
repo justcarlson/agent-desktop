@@ -232,15 +232,6 @@ fn assert_strict(label: &str, rows: &[(String, &'static str, &'static str)]) {
     }
 }
 
-fn assert_never_wrong(label: &str, rows: &[(String, &'static str, &'static str)]) {
-    for (step, wanted, got) in rows {
-        assert!(
-            got == wanted || *got == "unknown",
-            "{label}: {step}: wanted {wanted} or unknown, got {got}"
-        );
-    }
-}
-
 /// The frame's pointer rectangle against what the X server says about the
 /// client window, and whether the toolkit's own screen rectangle agrees.
 fn frame_against_oracle(
@@ -270,17 +261,7 @@ fn frame_against_oracle(
     )
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Strictness {
-    Exact,
-    NeverWrong,
-}
-
-pub(super) fn exercise(
-    label: &str,
-    strictness: Strictness,
-    frame: &AtspiElement,
-) -> Result<(), String> {
+pub(super) fn exercise(label: &str, frame: &AtspiElement) -> Result<(), String> {
     let mut rig = rig();
     let walk = walk_tree(&rig.bus, frame, &WalkLimits::default(), deadline(10_000))
         .map_err(|error| error.message)?;
@@ -291,10 +272,7 @@ pub(super) fn exercise(
     );
     let rows = both_directions(&mut rig, &scene);
     report(label, &scene, &rows);
-    match strictness {
-        Strictness::Exact => assert_strict(label, &rows),
-        Strictness::NeverWrong => assert_never_wrong(label, &rows),
-    }
+    assert_strict(label, &rows);
     minimized_and_stopped(label, &rig, &scene);
     Ok(())
 }
@@ -340,5 +318,5 @@ pub(super) fn gtk3_check(
     _: &SharedBus,
     frame: &AtspiElement,
 ) -> Result<(), String> {
-    exercise("gtk3 terminal", Strictness::Exact, frame)
+    exercise("gtk3 terminal", frame)
 }

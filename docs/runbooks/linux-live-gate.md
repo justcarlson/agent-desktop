@@ -171,6 +171,14 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   and exact reachability when raised. Separate real-Qt hit integration is retired;
   real Qt bounds-centre input and strict resolution remain live on both tiers.
 
+- `tree::hit_live_tests::cases::hit_live_vscode_is_never_a_wrong_verdict`:
+  the cover window never appeared in a full Mutter run after the app geometry
+  was successfully read. The same-tier `hit_live_chrome_cover_in_both_directions`
+  uses the same Chromium toolkit and the identical exercise with exact verdicts,
+  rather than permitting `Unknown`. It retains both stacking directions,
+  minimized-window refusal and bounded stopped-app failure. The separate VS Code
+  hit integration is retired; its observation and resolution coverage remains.
+
 ### Replaced cases
 
 - `tree::qt_live_tests::qt_live_twins_resolve_to_their_own_button_after_the_window_moves`
@@ -218,12 +226,13 @@ A successful signal command only requests a stop; capturing before the kernel
 has stopped the process made its precondition race. The production stopped
 process parser and exact `APP_UNRESPONSIVE` assertion remain unchanged.
 
-Four hit-test live scenarios remain. Their independent X11 oracle now
-waits for the application window to appear in `wmctrl -lp` with an eight-second
-deadline, rather than assuming that a settled AT-SPI tree means the window
-manager has already published it. Qt/Files/VS Code cases reached the callback
-before that publication under parallel load; all exact/never-wrong hit verdict,
-cover-direction and coordinate assertions remain in those retained cases.
+Three hit-test live scenarios remain. Their independent X11 oracle waits for
+an owned application window to appear in `wmctrl -lp` with an eight-second
+deadline. A settled AT-SPI tree alone does not establish that precondition.
+The failed app fixtures exposed no usable window at the oracle query; later
+focused retries still failed app/cover lifecycle setup and their dispositions
+are listed above. The retained terminal and Chrome cases require exact verdicts
+in both cover directions; Files retains zero-axis `Unknown` checks.
 
 Each cover clock has a unique fixture title. Its readiness wait requires that
 exact title, rather than an XID absent from a pre-launch list: X11 can reuse
