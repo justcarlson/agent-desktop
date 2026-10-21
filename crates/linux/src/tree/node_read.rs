@@ -30,7 +30,7 @@ where
     reply?.body().deserialize()
 }
 
-pub(super) async fn call<B>(
+pub(crate) async fn call<B>(
     connection: &Connection,
     element: &AtspiElement,
     interface: &str,

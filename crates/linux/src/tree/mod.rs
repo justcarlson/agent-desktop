@@ -200,7 +200,7 @@ pub(crate) use live_read::{
 pub(crate) use menu_resolve::{inside_popup, is_menu_entry, no_position};
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
-pub(crate) use node_read::{COMPONENT_INTERFACE, read_node};
+pub(crate) use node_read::{COMPONENT_INTERFACE, call, read_node};
 pub(crate) use node_traits::NodeTraits;
 pub(crate) use observe::{observe_tree, observe_tree_with};
 pub(crate) use observed_read::ObservedRead;
