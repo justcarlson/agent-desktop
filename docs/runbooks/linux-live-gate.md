@@ -192,6 +192,12 @@ the same explicit active-window setup; the button still receives exactly one
 click, and wheel origin is sampled after setup. Private GNOME animations are
 disabled so window-map transitions cannot move a fixture underneath its input.
 
+The retained stopped-window capture test waits until the owned painter's
+independently read `/proc/<pid>/status` reports `T`/`t` after `SIGSTOP`.
+A successful signal command only requests a stop; capturing before the kernel
+has stopped the process made its precondition race. The production stopped
+process parser and exact `APP_UNRESPONSIVE` assertion remain unchanged.
+
 ### Moved to deterministic unit coverage
 
 `tree::resolve_twin_live_tests::resolve_live_files_row_refs_survive_a_sibling_row_leaving`

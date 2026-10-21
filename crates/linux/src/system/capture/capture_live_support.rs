@@ -102,6 +102,23 @@ pub(super) fn stop(pid: u32) {
         .status()
         .expect("kill runs");
     assert!(status.success(), "pid {pid} could not be stopped");
+    let started = Instant::now();
+    loop {
+        let status = std::fs::read_to_string(format!("/proc/{pid}/status"))
+            .expect("the owned painter still exists");
+        let state = status
+            .lines()
+            .find(|line| line.starts_with("State:"))
+            .and_then(|line| line.split_whitespace().nth(1));
+        if matches!(state, Some("T" | "t")) {
+            return;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "pid {pid} never stopped"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 pub(super) fn wait_for_x_window(title: &str) {
