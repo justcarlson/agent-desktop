@@ -124,6 +124,10 @@ if [ -z "$out" ]; then
     slug="$(printf '%s' "$app" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9._-')"
     out="/tmp/agent-desktop-electron-${slug}-$(date -u +%Y%m%dT%H%M%SZ).json"
 fi
+if [ -e "$out" ] || [ -L "$out" ]; then
+    echo "refusing to overwrite an existing report: $out" >&2
+    exit 2
+fi
 
 baseline_args=()
 if [ -n "$baseline_binary" ]; then
