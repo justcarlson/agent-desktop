@@ -52,14 +52,17 @@ pub(super) fn execute(
             )?
         }
         None => {
-            let window = snapshot::resolve_window_for_surface(
+            let windows = snapshot::surface_windows(
                 adapter,
                 args.app.as_deref(),
                 args.window_id.as_deref(),
                 args.surface,
                 deadline,
             )?;
-            resolve_query(adapter, query, ObservationRoot::Window(&window), &request)?
+            snapshot::first_surface_owner(windows, |window| {
+                resolve_query(adapter, query, ObservationRoot::Window(window), &request)
+            })?
+            .1
         }
     };
     require_complete(&resolution)?;

@@ -57,7 +57,11 @@ impl ObservationOps for SurfaceAdapter {
 
 impl ActionOps for SurfaceAdapter {}
 impl InputOps for SurfaceAdapter {}
-impl SystemOps for SurfaceAdapter {}
+impl SystemOps for SurfaceAdapter {
+    fn supported_surfaces(&self) -> Vec<crate::SnapshotSurface> {
+        vec![crate::SnapshotSurface::Sheet, crate::SnapshotSurface::Alert]
+    }
+}
 
 fn app_window(id: &str, focused: bool) -> WindowInfo {
     WindowInfo {
@@ -150,4 +154,67 @@ fn an_alert_without_app_is_found_on_another_window_of_the_frontmost_app() {
     .unwrap();
 
     assert_eq!(result.window.id, "w-2");
+}
+
+#[test]
+fn find_and_snapshot_reach_the_same_sheet_and_respect_an_explicit_window() {
+    use crate::commands::find::{FindArgs, FindFilterArgs, FindSelectionArgs};
+
+    let adapter = SurfaceAdapter {
+        windows: vec![app_window("w-main", true), app_window("w-sheet", false)],
+        surface_on: "w-sheet",
+    };
+    let options = TreeOptions {
+        surface: crate::SnapshotSurface::Sheet,
+        ..Default::default()
+    };
+    for app in [None, Some("TextEdit")] {
+        let snapshot = build(
+            &adapter,
+            &options,
+            app,
+            None,
+            crate::Deadline::standard().unwrap(),
+        )
+        .expect("snapshot reaches the sheet window");
+        assert_eq!(snapshot.window.id, "w-sheet");
+        for window in [None, Some("w-main")] {
+            let result = crate::commands::find::execute(
+                FindArgs {
+                    app: app.map(str::to_owned),
+                    window_id: window.map(str::to_owned),
+                    root: None,
+                    surface: crate::SnapshotSurface::Sheet,
+                    filter: FindFilterArgs {
+                        role: Some("sheet".into()),
+                        name: None,
+                        description: None,
+                        native_id: None,
+                        value: None,
+                        text: None,
+                        exact: true,
+                    },
+                    states: Vec::new(),
+                    selection: FindSelectionArgs {
+                        count: true,
+                        first: false,
+                        last: false,
+                        nth: None,
+                        limit: None,
+                    },
+                    timeout_ms: None,
+                },
+                &adapter,
+                &CommandContext::default(),
+            );
+            if window.is_some() {
+                assert_eq!(
+                    result.expect_err("the pinned window has no sheet").code(),
+                    "ELEMENT_NOT_FOUND"
+                );
+            } else {
+                assert_eq!(result.expect("find reaches the same sheet")["count"], 1);
+            }
+        }
+    }
 }
