@@ -107,6 +107,18 @@ impl SystemOps for LinuxAdapter {
         result
     }
 
+    fn press_key_for_window(
+        &self,
+        window: &WindowInfo,
+        combo: &KeyCombo,
+        policy: InteractionPolicy,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        let result = key_dispatch::press_key_for_window(self.bus(), window, combo, policy, lease);
+        action_clock::mark_process(window.pid.get());
+        result
+    }
+
     fn is_blocked_combo(&self, combo: &KeyCombo) -> bool {
         crate::input::blocked_combo::is_blocked(combo)
     }
