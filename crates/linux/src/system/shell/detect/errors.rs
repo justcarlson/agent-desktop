@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 use serde_json::json;
 
-use super::{Fact, ShellEnvironment};
+use super::Fact;
 
 pub(super) fn unreadable(what: &str, why: &str, key: &str) -> AdapterError {
     AdapterError::new(ErrorCode::Timeout, format!("The {what} could not be read"))
@@ -9,17 +9,10 @@ pub(super) fn unreadable(what: &str, why: &str, key: &str) -> AdapterError {
         .with_details(json!({ key: "unreadable", "retryable": true, "detail": why }))
 }
 
-pub(super) fn tree_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
-    match &env.tree {
+pub(super) fn tree_error(tree: &Fact) -> Result<(), AdapterError> {
+    match tree {
         Fact::Present => Ok(()),
-        Fact::Absent(why) => Err(AdapterError::new(
-            ErrorCode::AppNotFound,
-            "The desktop shell is not on the accessibility registry",
-        )
-        .with_suggestion(
-            "Restart the shell session so it registers again; do not toggle accessibility settings",
-        )
-        .with_details(json!({ "shell_tree": "absent", "detail": why }))),
+        Fact::Absent(why) => Err(crate::system::shell::identity::tree_absent(why)),
         Fact::Unreadable(why) => Err(unreadable("shell accessibility tree", why, "shell_tree")),
     }
 }

@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock, PoisonError};
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use serde_json::json;
 
@@ -22,10 +19,6 @@ const SYSTEM_BUTTON: &str = "System";
 const SHOW_APPS: &str = "Show Apps";
 const BAR_MIN_WIDTH: i32 = 600;
 const BAR_MAX_HEIGHT: i32 = 64;
-const LIST_ASCENT: usize = 2;
-const SYSTEM_POPUP_ASCENT: usize = 6;
-const TRAY_ASCENT: usize = 2;
-const DOCK_ASCENT: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Landmark {
@@ -54,10 +47,8 @@ pub(crate) struct Located {
 
 fn ascent(anchor: Anchor) -> usize {
     match anchor {
-        Anchor::Landmark(Landmark::MessageList) => LIST_ASCENT,
-        Anchor::Landmark(Landmark::TrayPanel) => TRAY_ASCENT,
-        Anchor::Landmark(Landmark::SystemMenu) => SYSTEM_POPUP_ASCENT,
-        Anchor::Landmark(Landmark::DockPanel) => DOCK_ASCENT,
+        Anchor::Landmark(Landmark::MessageList | Landmark::TrayPanel | Landmark::DockPanel) => 2,
+        Anchor::Landmark(Landmark::SystemMenu) => 6,
         Anchor::Landmark(Landmark::DateMenu) | Anchor::SystemButton => 0,
     }
 }
@@ -143,60 +134,12 @@ fn above_anchor(path: &[Light], levels: usize) -> Option<&Light> {
     path.len().checked_sub(levels + 1).and_then(|i| path.get(i))
 }
 
-/// Remembered finds, so a second lookup in one process costs two reads. An
-/// entry is trusted only after the anchor still answers to its rule.
-#[derive(Default)]
-pub(crate) struct Remembered {
-    found: Mutex<HashMap<Anchor, (String, AtspiElement, AtspiElement)>>,
-}
-
-impl Remembered {
-    fn recall<N: Nodes>(&self, nodes: &N, root: &ShellRoot, anchor: Anchor) -> Option<Located> {
-        let (bus_name, anchor_element, container_element) = self
-            .found
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(&anchor)
-            .cloned()?;
-        if bus_name != root.bus_name {
-            return None;
-        }
-        let light = nodes.read(&anchor_element).ok()?;
-        if !is_anchor(anchor, &light) {
-            return None;
-        }
-        let container = nodes.read(&container_element).ok()?;
-        Some(Located {
-            anchor: light,
-            container,
-        })
-    }
-
-    fn keep(&self, root: &ShellRoot, anchor: Anchor, located: &Located) {
-        self.found
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(
-                anchor,
-                (
-                    root.bus_name.clone(),
-                    located.anchor.element.clone(),
-                    located.container.element.clone(),
-                ),
-            );
-    }
-}
-
-pub(crate) fn locate_in<N: Nodes>(
+fn locate_in<N: Nodes>(
     nodes: &N,
-    remembered: &Remembered,
     root: &ShellRoot,
     anchor: Anchor,
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
-    if let Some(located) = remembered.recall(nodes, root, anchor) {
-        return Ok(located);
-    }
     let start = AtspiElement::new(root.bus_name.as_str(), root.path.as_str(), root.pid);
     let query = Query {
         prune: &overview,
@@ -208,17 +151,10 @@ pub(crate) fn locate_in<N: Nodes>(
     let container = above_anchor(&path, ascent(anchor))
         .cloned()
         .ok_or_else(|| not_found(anchor))?;
-    let located = Located {
+    Ok(Located {
         anchor: found,
         container,
-    };
-    remembered.keep(root, anchor, &located);
-    Ok(located)
-}
-
-fn process_memory() -> &'static Remembered {
-    static MEMORY: OnceLock<Remembered> = OnceLock::new();
-    MEMORY.get_or_init(Remembered::default)
+    })
 }
 
 pub(crate) fn locate_anchor(
@@ -229,7 +165,7 @@ pub(crate) fn locate_anchor(
 ) -> Result<Located, AdapterError> {
     let connection = bus.get(deadline)?.inner().clone();
     let nodes = LiveNodes::new(connection, deadline);
-    locate_in(&nodes, process_memory(), root, anchor, deadline)
+    locate_in(&nodes, root, anchor, deadline)
 }
 
 pub(crate) fn locate(

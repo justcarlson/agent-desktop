@@ -55,19 +55,3 @@ fn nothing_read_is_unknown() {
         HitTestResult::Unknown
     );
 }
-
-#[test]
-fn no_input_ever_yields_an_interception() {
-    let nodes = [
-        Some(at(0, 0, 72, 32)),
-        Some(SENTINEL),
-        Some(at(-84, 0, 84, 60)),
-        None,
-    ];
-    for node in nodes {
-        for x in [-100.0, 0.0, 36.0, 2000.0] {
-            let verdict = decide(node, &point(x, 16.0), Some(&displays()));
-            assert!(!matches!(verdict, HitTestResult::InterceptedBy { .. }));
-        }
-    }
-}

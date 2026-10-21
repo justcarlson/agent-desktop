@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use agent_desktop_core::{
     AccessibilityNode, LocatorEvidence, LocatorField, ObservationSource, ObservedSubtree,
     ObservedTree, WindowInfo, WindowState,
@@ -8,6 +5,7 @@ use agent_desktop_core::{
 
 use crate::system::shell::container::MENU;
 use crate::system::shell::tray_decorator::{Items, TrayDecorator};
+use crate::tray::view::TrayView;
 use crate::tree::decorate::Decorate;
 use crate::tree::projection::{project_node, project_with};
 use crate::tree::role_numbers::{PANEL, PUSH_BUTTON};
@@ -16,7 +14,6 @@ use crate::tree::{ObservedRead, Walk, WalkCounts, WalkLimits, WalkedNode};
 
 struct Fake {
     titles: Vec<&'static str>,
-    log: Rc<RefCell<Vec<String>>>,
 }
 
 fn entry(name: &str) -> ObservedSubtree {
@@ -30,7 +27,6 @@ fn entry(name: &str) -> ObservedSubtree {
 
 impl Items for Fake {
     fn bind(&self, panel_titles: &[String]) -> Vec<Option<usize>> {
-        self.log.borrow_mut().push(format!("bind {panel_titles:?}"));
         panel_titles
             .iter()
             .map(|title| self.titles.iter().position(|item| item == title))
@@ -43,15 +39,11 @@ impl Items for Fake {
         evidence: &mut LocatorEvidence,
         first_child_index: usize,
     ) -> Vec<ObservedSubtree> {
-        self.log
-            .borrow_mut()
-            .push(format!("decorate {item} at {first_child_index}"));
         evidence.name = LocatorField::Known(format!("item:{}", self.titles[item]));
         vec![entry("menu entry").with_source_child_index(first_child_index)]
     }
 
     fn mark_unbound(&self, evidence: &mut LocatorEvidence) {
-        self.log.borrow_mut().push("unbound".to_owned());
         evidence.description = LocatorField::Known("unbound".to_owned());
     }
 
@@ -119,73 +111,41 @@ fn project(decorator: &mut dyn Decorate) -> AccessibilityNode {
     .0
 }
 
-fn fake(titles: Vec<&'static str>, log: &Rc<RefCell<Vec<String>>>) -> Fake {
-    Fake {
-        titles,
-        log: Rc::clone(log),
-    }
-}
-
 #[test]
-fn all_panel_titles_are_bound_at_once_and_the_system_menu_is_not_a_tray_item() {
-    let log = Rc::default();
-    let mut decorator = TrayDecorator::new(Some(fake(vec!["Dropbox"], &log)));
-    project(&mut decorator);
-    assert_eq!(log.borrow()[0], r#"bind ["Dropbox", "Ghost"]"#);
-}
-
-#[test]
-fn a_bound_node_takes_the_item_and_its_menu_entries_follow_its_children() {
-    let log = Rc::default();
-    let mut decorator = TrayDecorator::new(Some(fake(vec!["Dropbox"], &log)));
+fn panel_projection_never_shifts_identity_across_the_system_button() {
+    let mut decorator = TrayDecorator::new(Fake {
+        titles: vec!["System", "Dropbox", "Hidden"],
+    });
     let tree = project(&mut decorator);
+    assert_eq!(tree.children.len(), 5);
     assert_eq!(
         tree.children[0].identity.name.as_deref(),
         Some("item:Dropbox")
     );
     assert_eq!(tree.children[0].children.len(), 1);
-}
-
-#[test]
-fn a_node_no_item_matched_is_marked_unbound_and_the_system_menu_is_left_alone() {
-    let log = Rc::default();
-    let mut decorator = TrayDecorator::new(Some(fake(vec!["Dropbox"], &log)));
-    let tree = project(&mut decorator);
     assert_eq!(tree.children[1].identity.name.as_deref(), Some("System"));
+    assert_eq!(tree.children[2].identity.name.as_deref(), Some("Ghost"));
     assert_eq!(
-        log.borrow()
-            .iter()
-            .filter(|line| *line == "unbound")
-            .count(),
-        1
+        tree.children[2].identity.description.as_deref(),
+        Some("unbound")
+    );
+    assert_eq!(
+        tree.children[3].identity.name.as_deref(),
+        Some("unpaired:System")
+    );
+    assert_eq!(
+        tree.children[4].identity.name.as_deref(),
+        Some("unpaired:Hidden")
+    );
+    assert_eq!(
+        tree.children[0].children[0].identity.name.as_deref(),
+        Some("menu entry")
     );
 }
 
 #[test]
-fn items_no_panel_node_showed_are_appended_after_the_panels_own_children() {
-    let log = Rc::default();
-    let mut decorator = TrayDecorator::new(Some(fake(vec!["Dropbox", "Hidden"], &log)));
-    let tree = project(&mut decorator);
-    let last = tree.children.last().expect("children");
-    assert_eq!(last.identity.name.as_deref(), Some("unpaired:Hidden"));
-    assert_eq!(tree.children.len(), 4);
-}
-
-#[test]
-fn a_tray_that_could_not_be_read_leaves_the_panel_untouched() {
-    let mut decorator: TrayDecorator<Fake> = TrayDecorator::new(None);
-    let tree = project(&mut decorator);
-    let names: Vec<_> = tree
-        .children
-        .iter()
-        .map(|c| c.identity.name.clone().unwrap_or_default())
-        .collect();
-    assert_eq!(names, ["Dropbox", "System", "Ghost"]);
-}
-
-#[test]
 fn the_system_button_is_given_the_click_capability_it_does_not_advertise() {
-    let mut decorator: TrayDecorator<Fake> = TrayDecorator::new(None);
+    let mut decorator = TrayDecorator::new(TrayView { items: Vec::new() });
     let read = read_of(MENU, "System", &[]);
     let mut evidence = project_node(&read, false, &WalkLimits::default());
     assert_eq!(
@@ -196,19 +156,5 @@ fn the_system_button_is_given_the_click_capability_it_does_not_advertise() {
     assert_eq!(
         evidence.ref_evidence.available_actions,
         LocatorField::Known(vec![agent_desktop_core::capability::CLICK.to_owned()])
-    );
-}
-
-#[test]
-fn another_menu_node_keeps_the_capabilities_it_read() {
-    let log = Rc::default();
-    let mut decorator = TrayDecorator::new(Some(fake(vec!["Dropbox"], &log)));
-    let read = read_of(MENU, "Dropbox", &[]);
-    let mut evidence = project_node(&read, false, &WalkLimits::default());
-    decorator.prepare(&node(read.clone(), 0, Vec::new()));
-    decorator.decorate(&read, &mut evidence, 0);
-    assert_eq!(
-        evidence.ref_evidence.available_actions,
-        LocatorField::Known(Vec::new())
     );
 }

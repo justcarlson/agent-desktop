@@ -66,9 +66,8 @@ pub(crate) fn find<N: Nodes>(
             arena.push(Entry { light, parent });
             if candidate {
                 let path = chain(&arena, index);
-                let (matched, above) = path.split_last().ok_or_else(|| {
-                    AdapterError::internal("A shell search produced an empty chain")
-                })?;
+                let matched = &arena[index].light;
+                let above = &path[..path.len() - 1];
                 if (query.accept)(above, matched) {
                     return Ok(Some(path));
                 }

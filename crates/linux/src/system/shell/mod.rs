@@ -27,9 +27,6 @@ mod live_tests;
 mod live_wayland_tests;
 #[cfg(test)]
 mod outage_live_tests;
-#[cfg(test)]
-#[path = "tray_observation_tests.rs"]
-mod tray_observation_tests;
 
 const SUPPORT_BUDGET_MS: u64 = 3_000;
 
@@ -63,11 +60,6 @@ pub(crate) fn is_shell_window(window: &WindowInfo) -> bool {
         .is_ok_and(|(bus_name, _)| identity::is_shell_owner(&bus_name, window.pid.get()))
 }
 
-#[cfg(test)]
-pub(super) fn identity_remember_for_tests(root: &identity::ShellRoot) {
-    identity::remember(root);
-}
-
 pub(crate) fn resolve_surface(
     bus: &SharedBus,
     surface: SnapshotSurface,
@@ -76,7 +68,7 @@ pub(crate) fn resolve_surface(
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(AdapterError::not_supported("resolve_shell_surface"));
     };
-    detect::require(&detect::detect(bus, deadline), detect::Need::Tree)?;
+    detect::require_tree(bus, deadline)?;
     let root = identity::find_root(bus, deadline)?;
     let landmark = open::container_landmark(kind);
     let located =
@@ -113,26 +105,10 @@ pub(crate) fn observe_shell(
     inner.surface = SnapshotSurface::Window;
     let root = ObservationRoot::Window(window);
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
-        let view = tray_observation::read(
-            || detect::require_watcher(request.deadline),
-            || crate::tray::view::read(request.deadline),
-        )?;
-        let mut decorator = tray_decorator::TrayDecorator::new(Some(view));
+        detect::require_watcher(request.deadline)?;
+        let view = crate::tray::view::read(request.deadline)?;
+        let mut decorator = tray_decorator::TrayDecorator::new(view);
         return crate::tree::observe_tree_with(bus, root, &inner, &mut decorator);
     }
     crate::tree::observe_tree(bus, root, &inner)
-}
-
-mod tray_observation {
-    use agent_desktop_core::AdapterError;
-
-    use crate::tray::view::TrayView;
-
-    pub(super) fn read(
-        require_watcher: impl FnOnce() -> Result<(), AdapterError>,
-        read: impl FnOnce() -> Result<TrayView, AdapterError>,
-    ) -> Result<TrayView, AdapterError> {
-        require_watcher()?;
-        read()
-    }
 }

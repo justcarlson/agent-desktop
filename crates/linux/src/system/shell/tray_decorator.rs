@@ -80,16 +80,15 @@ fn titles(node: &WalkedNode<ObservedRead>, out: &mut Vec<String>) {
 }
 
 /// Attaches the tray's D-Bus identity to the panel nodes it can be paired
-/// with, marks the rest unbound, and appends the items no node showed. With
-/// no tray read it changes nothing: the tray is evidence, not a precondition.
+/// with, marks the rest unbound, and appends the items no node showed.
 pub(crate) struct TrayDecorator<I: Items> {
-    items: Option<I>,
+    items: I,
     bound: Vec<Option<usize>>,
     cursor: usize,
 }
 
 impl<I: Items> TrayDecorator<I> {
-    pub(crate) fn new(items: Option<I>) -> Self {
+    pub(crate) fn new(items: I) -> Self {
         Self {
             items,
             bound: Vec::new(),
@@ -100,12 +99,9 @@ impl<I: Items> TrayDecorator<I> {
 
 impl<I: Items> Decorate for TrayDecorator<I> {
     fn prepare(&mut self, root: &WalkedNode<ObservedRead>) {
-        let Some(items) = &self.items else {
-            return;
-        };
         let mut found = Vec::new();
         titles(root, &mut found);
-        self.bound = items.bind(&found);
+        self.bound = self.items.bind(&found);
         self.cursor = 0;
     }
 
@@ -119,28 +115,22 @@ impl<I: Items> Decorate for TrayDecorator<I> {
             pointer_pressable(evidence);
             return Vec::new();
         }
-        let Some(items) = &self.items else {
-            return Vec::new();
-        };
         if panel_title(read).is_none() {
             return Vec::new();
         }
         let slot = self.bound.get(self.cursor).copied().flatten();
         self.cursor += 1;
         match slot {
-            Some(item) => items.decorate(item, evidence, first_child_index),
+            Some(item) => self.items.decorate(item, evidence, first_child_index),
             None => {
-                items.mark_unbound(evidence);
+                self.items.mark_unbound(evidence);
                 Vec::new()
             }
         }
     }
 
     fn finish(&mut self, first_child_index: usize) -> Vec<ObservedSubtree> {
-        let Some(items) = &self.items else {
-            return Vec::new();
-        };
-        items
+        self.items
             .unpaired(&self.bound)
             .into_iter()
             .enumerate()
