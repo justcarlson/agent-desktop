@@ -80,11 +80,14 @@ fn a_missing_program_is_app_not_found_and_the_error_holds_no_argument_or_environ
     assert!(text.contains("tool"));
 }
 
-fn environ_of(pid: u32) -> Vec<u8> {
+fn environ_of(pid: u32, program: &str) -> Vec<u8> {
     for _ in 0..200 {
-        let environ = std::fs::read(format!("/proc/{pid}/environ")).unwrap_or_default();
-        if !environ.is_empty() {
-            return environ;
+        let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).unwrap_or_default();
+        if comm.trim() == program {
+            let environ = std::fs::read(format!("/proc/{pid}/environ")).unwrap_or_default();
+            if !environ.is_empty() {
+                return environ;
+            }
         }
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -113,7 +116,7 @@ fn the_app_gets_the_null_device_its_own_group_and_the_caller_environment_plus_th
         .next()
         .and_then(|rest| rest.split_whitespace().nth(2));
     assert_eq!(group, Some(spawned.pid.to_string().as_str()));
-    let environ = environ_of(spawned.pid);
+    let environ = environ_of(spawned.pid, "sleep");
     let variables: Vec<&[u8]> = environ.split(|byte| *byte == 0).collect();
     assert!(variables.contains(&b"LAUNCH_TEST_ADDED=yes".as_slice()));
     let inherited = std::env::var("PATH").expect("PATH");
@@ -124,7 +127,7 @@ fn the_app_gets_the_null_device_its_own_group_and_the_caller_environment_plus_th
 #[test]
 fn the_session_variables_the_caller_has_reach_the_app() {
     let spawned = spawn("sleep", &plan_of(&["/bin/sleep", "30"]), &options()).expect("spawn");
-    let environ = environ_of(spawned.pid);
+    let environ = environ_of(spawned.pid, "sleep");
     for name in [
         "DISPLAY",
         "WAYLAND_DISPLAY",
