@@ -136,13 +136,13 @@ pub(crate) fn execute_action(
         Action::Collapse => set_expanded(&target, false),
         Action::Select(display_value) => select(&target, display_value),
         Action::SetFocus => focus(&target, request.policy),
-        Action::SetValue(text) => set_value(&target, text),
-        Action::Clear => clear(&target),
+        Action::SetValue(text) => set_value(&target, text, request.policy),
+        Action::Clear => clear(&target, request.policy),
         Action::TypeText(text) if request.policy.is_headed() => physical_first(
             || deliver(bus, &request.action, Some(element), &request, lease),
-            || type_text(&target, text),
+            || type_text(&target, text, request.policy),
         ),
-        Action::TypeText(text) => type_text(&target, text),
+        Action::TypeText(text) => type_text(&target, text, request.policy),
         Action::ScrollTo => scroll_to(bus, handle, lease),
         Action::DoubleClick | Action::TripleClick | Action::Scroll(_, _) | Action::PressKey(_) => {
             deliver(bus, &request.action, Some(element), &request, lease)
