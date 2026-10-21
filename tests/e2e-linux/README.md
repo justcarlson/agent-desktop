@@ -98,6 +98,59 @@ python3 -I -m unittest discover -s tests/e2e-linux -p 'test_*.py'
 python3 -I -m unittest discover -s tests/e2e -p 'test_*.py'
 ```
 
+## Ref-action contracts
+
+The `ref_actions.*` legs observe and restore native application state:
+
+| Action | Independent effect |
+| --- | --- |
+| Focus | Qt Text entry gains `FOCUSED`; the prior button regains it on restoration. |
+| Double-click / triple-click | Text Editor selects a word / line, read through AT-SPI Text selection offsets. |
+| Right-click | Text Editor exposes a showing `Context menu` and its menu-item children. |
+| Hover | The existing Qt probe's native status tip appears and clears when the pointer leaves. |
+| Expand / collapse | Calculator's Main Menu changes `EXPANDED` and showing menu children together. |
+| Scroll | Settings Hot Corner leaves the viewport and Dynamic Workspaces enters it. |
+| Scroll-to | Settings reveals the offscreen monitor checkbox without changing its checked state. |
+| Drag | Text Editor gains a nonempty text selection. |
+
+Headless focus, double-click, triple-click, hover, scroll and drag are separate
+`asserted-refusal` rows requiring `POLICY_DENIED`, no app effect and unchanged
+pointer/focus. Right-click, disclosure and scroll-to have semantic success legs
+in both modes. These replacements do not establish Files tree disclosure or
+300-file realization; those original real-app requirements remain unproved.
+
+Raw pointer delivery legs also read the actual Calculator digit, Text Editor
+selection or scrollbar position, then assert out-of-screen refusal has no app
+effect and restore the original state. Fabricated reports and pointer movement
+alone cannot pass. Text Editor is seeded in memory through raw EditableText;
+GTK4's unsupported selection-removal and character-geometry methods are not
+used. Selection cleanup sends Right only with the exact owned window active.
+
+The abandoned Files targets lacked the expected expandable row and caused
+private indexing-service churn. File-backed editor startup and the inaccessible
+Qt tooltip were replaced by the deterministic targets above. Desktop readiness
+waits for the private transient extractor to exit before taking a leg baseline,
+with a finite deadline; it does not extend accessibility-call timeouts.
+Launch discovery reads frame children only for the requested application's
+aliases or executable name, while retaining private-runtime and process-generation
+checks. A stalled bystander or a newly mapped Mutter decoration cannot substitute
+for the requested owner.
+
+The ref-action refresh measures only its selected cells:
+
+| Tier | Headless effects | Headless asserted refusals | Headed effects | Raw headed delivery legs |
+| --- | ---: | ---: | ---: | ---: |
+| Openbox X11 | 4 | 6 | 10 | 3 |
+| Mutter X11 | 0 | 0 | 0 | 0 |
+
+The owner rule removes all 23 touched Mutter mode cells after bounded diagnostic
+retries: all ten ref actions in both modes and the three raw headed delivery
+legs. Bounded raw AT-SPI calls timed out, including all eight cells in the final
+selected batch. Earlier positive samples did not reproduce reliably and are
+not retained live passes. Openbox exercises their shared scenario contracts;
+the complete Mutter ref-action and raw-delivery matrix remains unproved.
+Other harness rows were not rerun.
+
 ## Removed live checks
 
 The validation refresh removes stock-app and timing assumptions from the live

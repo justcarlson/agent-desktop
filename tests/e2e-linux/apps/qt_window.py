@@ -30,6 +30,8 @@ def main(argv: list[str]) -> int:
     menu.aboutToShow.connect(lambda: record("menu-open"))
     menu.aboutToHide.connect(lambda: record("menu-closed"))
     button = QPushButton("Press me")
+    button.setStatusTip("Pointer over the button")
+    window.statusBar()
     button.clicked.connect(lambda: record("click"))
     layout.addWidget(button)
     field = QLineEdit()

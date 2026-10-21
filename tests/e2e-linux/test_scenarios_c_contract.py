@@ -107,33 +107,6 @@ class DeliveryTests(unittest.TestCase):
                 self.assertEqual(parsed.verb, verb)
                 self.assertTrue(any(str(value).startswith("-40") for value in vars(parsed).values()))
 
-    def test_pointer_report_is_checked_beside_independent_pointer_reads(self):
-        tier = SimpleNamespace(runtime_dir=Path("/nonexistent/private"))
-        ctx = LegContext(tier, "headed", legs.leg_by_id("pointer.mouse_click_delivery_report"),
-                         member_reader=lambda _: frozenset())
-        app = SimpleNamespace(windows=["w-test"])
-        delivered = Envelope(True, {"disposition": {"delivery": "delivered_unverified", "retry": "unsafe"},
-                                   "details": {"delivered_events": 3}, "steps": [{"label": "press"}]}, None, "{}", 0, [])
-        refused = Envelope(False, None, {"code": "INVALID_ARGS", "details": {"screen_width": 320, "screen_height": 240}, "disposition": {
-            "delivery": "not_delivered", "retry": "safe"}}, "{}", 0, [])
-        position = [(10, 10)]
-        def product(*args, **kw):
-            position[0] = (20, 30)
-            return delivered if not ctx.products else refused
-        def restore(tier, argv):
-            self.assertEqual(argv, ["xdotool", "mousemove", "10", "10"])
-            position[0] = (10, 10)
-        with patch.object(pointer.apps, "launch", return_value=app), \
-            patch.object(pointer.apps, "stop"), \
-            patch.object(pointer, "_button_point", return_value=(20, 30)), \
-            patch.object(pointer.x11, "pointer", side_effect=lambda _: position[0]), \
-            patch.object(pointer.x11, "tool", side_effect=restore), \
-            patch("runner.verdict.run_product", side_effect=product):
-            pointer.mouse_click_delivery_report(ctx)
-        self.assertEqual(set(ctx.reads), {"x11.pointer"})
-        self.assertEqual(len(ctx.products), 2)
-        self.assertEqual(verdict.evaluate(ctx), [])
-
     def test_delivery_fields_read_the_report(self):
         data = {
             "disposition": {"delivery": "delivered_unverified", "retry": "unsafe"},

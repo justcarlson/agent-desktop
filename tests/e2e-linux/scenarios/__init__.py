@@ -15,6 +15,10 @@ from scenarios import observation
 from scenarios import occlusion
 from scenarios import placeholder
 from scenarios import pointer
+from scenarios import ref_text
+from scenarios import ref_focus
+from scenarios import ref_disclosure
+from scenarios import ref_scroll
 from scenarios import scroll
 from scenarios import select
 from scenarios import shell_surfaces
@@ -48,6 +52,10 @@ __all__ = [
     "occlusion",
     "placeholder",
     "pointer",
+    "ref_text",
+    "ref_focus",
+    "ref_disclosure",
+    "ref_scroll",
     "scroll",
     "select",
     "shell_surfaces",

@@ -4,11 +4,12 @@ import re
 import subprocess
 
 from oracle import atspi_raw, x11
-from runner import apps
 from runner.helper import changed
+from runner.helper import require
 from runner.legs import implementation
 from runner.verdict import LegContext
-from scenarios.headed_actions import assert_ok, live_root, raw_names, ref_for, window_of
+from scenarios.headed_actions import assert_ok, live_root
+from scenarios.pointer_targets import delivery_target
 
 POINTER_TOLERANCE = 2
 DISPLAY_RE = re.compile(r"^\d+$")
@@ -124,15 +125,6 @@ def _extents_at(ctx: LegContext, target: dict, offset: int) -> None:
         raise AssertionError(f"{target['name']}: expected point {point}, pointer read {pointer}")
 
 
-def _delivered_argv(verb: str, point: tuple[int, int]) -> list[str]:
-    x, y = point
-    if verb == "drag":
-        return ["drag", "--from-xy", f"{x},{y}", "--to-xy", f"{x + 40},{y}"]
-    if verb == "mouse-wheel":
-        return ["mouse-wheel", "--x", str(x), "--y", str(y), "--dy", "-3"]
-    return ["mouse-click", "--xy", f"{x},{y}"]
-
-
 def _refused_argv(verb: str) -> list[str]:
     if verb == "drag":
         return ["drag", "--from-xy=-40,-40", "--to-xy=-30,-30"]
@@ -148,32 +140,41 @@ def _restore_pointer(ctx, before, channel="x11.pointer"):
 
 
 def _delivery_leg(ctx: LegContext, verb: str) -> None:
-    app = apps.launch(ctx.tier, "Calculator")
-    try:
-        target = {"name": "gtk4", "app": app, "button": "7", "window": window_of(app), "effect": lambda: 0}
-        point = _button_point(ctx, target)
-        expected = (point[0] + 40, point[1]) if verb == "drag" else point
+    with delivery_target(ctx, verb) as (point, argv, read, restore):
+        expected = (point[0] + 90, point[1]) if verb == "drag" else point
         before = x11.pointer(ctx.tier)
+        effect_before = read()
         ctx.before("x11.pointer", before)
-        data = assert_ok(ctx.product(_delivered_argv(verb, point)))
-        report = delivery_fields(data)
-        if report["delivery"] != "delivered_unverified":
-            raise AssertionError(f"delivered command reported {report['delivery']}")
-        if not report["events"] or not report["steps"]:
-            raise AssertionError("delivered command reported no events or no steps")
-        pointer = x11.pointer(ctx.tier)
-        ctx.after("x11.pointer", pointer)
-        if verb != "mouse-wheel" and not within(pointer, expected):
-            raise AssertionError(f"pointer {pointer} did not reach {expected}")
-        refused = ctx.product(_refused_argv(verb))
-        if refused.ok:
-            raise AssertionError("a point outside the screen was accepted")
-        assert_error(refused, {"INVALID_ARGS"})
-        if error_delivery(refused)["delivery"] != "not_delivered":
-            raise AssertionError("an out-of-screen point was not reported as not delivered")
-        _restore_pointer(ctx, before)
-    finally:
-        apps.stop(app)
+        ctx.before("atspi.effect", effect_before)
+        try:
+            data = assert_ok(ctx.product(argv))
+            report = delivery_fields(data)
+            if report["delivery"] != "delivered_unverified":
+                raise AssertionError(f"delivered command reported {report['delivery']}")
+            if not report["events"] or not report["steps"]:
+                raise AssertionError("delivered command reported no events or no steps")
+            pointer = x11.pointer(ctx.tier)
+            ctx.after("x11.pointer", pointer)
+            if verb != "mouse-wheel" and not within(pointer, expected):
+                raise AssertionError(f"pointer {pointer} did not reach {expected}")
+            require(atspi_raw.poll(lambda: read() != effect_before, 3),
+                    "delivered report has no independent application effect")
+            effect_after = read()
+            if verb == "mouse-click":
+                require(effect_after == "7", "click did not activate the target digit exactly once")
+            ctx.after("atspi.effect", effect_after)
+            ctx.before("atspi.refused_effect", effect_after)
+            refused = ctx.product(_refused_argv(verb))
+            assert_error(refused, {"INVALID_ARGS"})
+            if error_delivery(refused)["delivery"] != "not_delivered":
+                raise AssertionError("an out-of-screen point was not reported as not delivered")
+            ctx.after("atspi.refused_effect", read())
+            require(read() == effect_after, "not_delivered refusal changed the application")
+            ctx.restored("atspi.refused_effect", read())
+        finally:
+            restore()
+            ctx.restored("atspi.effect", changed(read, effect_before))
+            _restore_pointer(ctx, before)
 
 
 @implementation("pointer.drag_delivery_report")

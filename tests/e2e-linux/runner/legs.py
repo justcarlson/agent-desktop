@@ -45,6 +45,12 @@ class Leg:
 
 
 ASSERTED_REFUSALS = frozenset({
+    "ref_actions.focus_headless_refusal",
+    "ref_actions.double_click_headless_refusal",
+    "ref_actions.triple_click_headless_refusal",
+    "ref_actions.hover_headless_refusal",
+    "ref_actions.drag_headless_refusal",
+    "ref_actions.scroll_headless_refusal",
     "capture.wayland_route_gated",
     "headed_actions.never_focused_window_refusal",
     "menus.hidden_bar_timeout_message",
@@ -101,6 +107,22 @@ def _row(leg_id, requirement, target, tiers, modes, oracles):
 
 
 REGISTRY: tuple[Leg, ...] = (
+    _row("ref_actions.expand", "A ref expands the Calculator menu and reveals its children, then restores", "Calculator", OPENBOX_ONLY, BOTH_MODES, "atspi,x11"),
+    _row("ref_actions.collapse", "A ref collapses the Calculator menu and hides its children, then restores", "Calculator", OPENBOX_ONLY, BOTH_MODES, "atspi,x11"),
+    _row("ref_actions.scroll", "Ref scroll changes visible Settings rows, then restores", "Settings", OPENBOX_ONLY, HEADED, "atspi,x11"),
+    _row("ref_actions.scroll_headless_refusal", "Headless ref scroll is refused without changing visible rows", "Settings", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
+    _row("ref_actions.scroll_to", "Ref scroll-to reveals an offscreen control and restores the viewport", "Settings", OPENBOX_ONLY, BOTH_MODES, "atspi,x11"),
+    _row("ref_actions.focus", "Ref focus changes the raw FOCUSED state and restores it", "Qt window", OPENBOX_ONLY, HEADED, "atspi,x11"),
+    _row("ref_actions.focus_headless_refusal", "Headless ref focus is refused without changing focus", "Qt window", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
+    _row("ref_actions.double_click", "Ref double-click selects a document word and restores selection", "Text Editor", OPENBOX_ONLY, HEADED, "atspi,x11"),
+    _row("ref_actions.double_click_headless_refusal", "Headless double-click is refused without selecting text", "Text Editor", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
+    _row("ref_actions.triple_click", "Ref triple-click selects a document line and restores selection", "Text Editor", OPENBOX_ONLY, HEADED, "atspi,x11"),
+    _row("ref_actions.triple_click_headless_refusal", "Headless triple-click is refused without selecting text", "Text Editor", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
+    _row("ref_actions.right_click", "Ref right-click opens the raw context menu and restores it", "Text Editor", OPENBOX_ONLY, BOTH_MODES, "atspi,x11"),
+    _row("ref_actions.hover", "Ref hover exposes native status text and restores it", "Qt window", OPENBOX_ONLY, HEADED, "atspi,x11"),
+    _row("ref_actions.hover_headless_refusal", "Headless ref hover is refused without exposing status text", "Qt window", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
+    _row("ref_actions.drag", "Ref drag selects document text and restores selection", "Text Editor", OPENBOX_ONLY, HEADED, "atspi,x11"),
+    _row("ref_actions.drag_headless_refusal", "Headless ref drag is refused without selecting text", "Text Editor", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
     _row("capture.window_pixels_match_xwd", "A window capture matches the pixels xwd reads", "Text Editor", X11, HEADLESS, "pixels,x11"),
     _row("modal.terminal_preferences_blocks_parent", "Preferences blocks a ref action on its parent", "Files, Terminal, Calculator", X11, HEADED, "atspi,x11"),
     _row("modal.calculator_about_blocks_parent", "About blocks a ref action on its parent", "Files, Terminal, Calculator", X11, HEADED, "atspi,x11"),
@@ -134,9 +156,9 @@ REGISTRY: tuple[Leg, ...] = (
     _row("toolkit_qt.headed_click_logged_once", "A headed click logs exactly one activation", "Qt window", OPENBOX_ONLY, HEADED, "applog"),
     _row("headed_actions.focus_reads_active_window", "The product's focus step makes the target the active window", "Calculator", X11, HEADED, "atspi,x11"),
     _row("headed_actions.type_text", "Headed typing reaches the document", "Text Editor", X11, HEADED, "atspi,x11"),
-    _row("pointer.drag_delivery_report", "The drag delivery report agrees with the oracle delivered and undelivered", "Calculator", X11, HEADED, "x11,atspi"),
-    _row("pointer.mouse_wheel_delivery_report", "The wheel delivery report agrees with the oracle delivered and undelivered", "Calculator", X11, HEADED, "x11,atspi"),
-    _row("pointer.mouse_click_delivery_report", "The mouse-click delivery report agrees with the oracle delivered and undelivered", "Calculator", X11, HEADED, "x11,atspi"),
+    _row("pointer.drag_delivery_report", "The drag delivery report agrees with the oracle delivered and undelivered", "Text Editor", OPENBOX_ONLY, HEADED, "x11,atspi"),
+    _row("pointer.mouse_wheel_delivery_report", "The wheel delivery report agrees with the oracle delivered and undelivered", "Text Editor", OPENBOX_ONLY, HEADED, "x11,atspi"),
+    _row("pointer.mouse_click_delivery_report", "The mouse-click delivery report agrees with the oracle delivered and undelivered", "Calculator", OPENBOX_ONLY, HEADED, "x11,atspi"),
     _row("occlusion.ordinary_cover_removed_click_lands", "An ordinary cover is removed by focus preparation and the click lands", "Calculator over Text Editor", X11, HEADED, "x11,atspi"),
     _row("occlusion.above_cover_refused_no_effect", "An above-layer cover is refused with no effect in either window", "Calculator over Text Editor", OPENBOX_ONLY, HEADED, "x11,atspi"),
     _row("occlusion.above_flag_dropped_click_lands", "Without the above flag the same click lands in the editor", "Calculator over Text Editor", OPENBOX_ONLY, HEADED, "x11,atspi"),
