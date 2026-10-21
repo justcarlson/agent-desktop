@@ -19,6 +19,29 @@ On the shared validation host, put it under `$HOME/ad-wt` and enter only through
 `scripts/remote-linux.sh -c`; bound each call with `AGENT_DESKTOP_REMOTE_TIMEOUT`.
 The runner starts its own private sessions and takes the interaction lease.
 
+On the shared host, run build and live validation as separate bounded calls
+from this checkout. Timeouts are whole seconds; the first bounds execution,
+the second bounds waiting for the shared box lock. Each call below is under
+15 minutes including lock wait. The single-leg run creates its own fresh suite:
+
+```sh
+AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
+  bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && cargo build --locked --release -p agent-desktop -p agent-desktop-linux --bins'
+AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
+  bash scripts/remote-linux.sh -c '
+    suite=$(mktemp -d "$HOME/ad-wt/e2e-docs.XXXXXX")
+    AGENT_DESKTOP_E2E_SUITE="$suite" \
+    AGENT_DESKTOP_E2E_BIN="$CARGO_TARGET_DIR/release/agent-desktop" \
+      bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
+  '
+```
+
+A lock-wait expiry is infrastructure contention before any test runs. Keep
+failed suites for diagnosis; a successful suite is moved to Trash by the runner.
+Use another fresh suite for the sole diagnostic rerun. Do not reuse a suite
+with a different binary image. `run.sh` adds the extracted tool directory to
+PATH; Qt launches through the venv path below without activating it in the shell.
+
 Prerequisites include Python 3 with PyGObject, the GNOME apps, Xvfb, DBus,
 AT-SPI, openbox, xdotool, wmctrl, xclip, xwd, wl-clipboard, gnome-shell, and
 recoverable `trash` cleanup. Extracted tools may live under
@@ -55,11 +78,35 @@ must assert its expected error and absence of effect.
 Unimplemented, blocked, outstanding, failed, and unavailable-tier outcomes exit 1.
 Outstanding surface legs still need their owning product surface to land.
 
+To list registered IDs, modes and dispositions for a tier without starting apps:
+
+```sh
+python3 -I - <<'PYLIST'
+import sys
+sys.path.insert(0, "tests/e2e-linux")
+from runner.legs import REGISTRY
+for leg in REGISTRY:
+    if "x11-openbox" in leg.tiers:
+        print(leg.id, ",".join(leg.modes), leg.disposition, leg.reason)
+PYLIST
+```
+
+Change the tier string to `x11-mutter` or `wayland` for those inventories.
+A single ID executes all its registered modes; it is not a mode selector.
+
 ## KDE manual matrix (3.15)
 
 The Live Tiers above name GNOME only. A Plasma 5.24+ session is not hosted by the
 runner, so the same surface is walked by hand on a real Plasma desktop and stays
-owned by 3.15 until that walk is recorded. One row per cell; a cell that cannot run
+owned by 3.15 until that walk is recorded. The table is an acceptance checklist, not copy/paste shell commands; the
+receiving 3.15 run must choose concrete apps/refs and record its setup. Use the
+`agent-desktop` executable prefix for every product command. Pointer, drag and
+notification mutation commands require global `--headed`; notification actions
+also require the list fingerprint documented by the shipped command reference.
+The `_NET_ACTIVE_WINDOW` oracle applies to X11 only; Wayland uses independent
+raw window ACTIVE/focus reads and exact documented refusal outcomes.
+
+One row per cell; a cell that cannot run
 on the session is written down with its reason, never left blank.
 
 | Area | Steps | Expected shape | Record |
@@ -79,6 +126,15 @@ on the session is written down with its reason, never left blank.
 The printed report groups every outcome by tier and mode. Failed runs retain
 `report.txt` and per-leg JSON evidence in the printed suite directory. Evidence
 includes product argv, response envelopes, oracle reads, and process membership.
+Read `report.txt` first, then pretty-print the matching
+`evidence/<tier>/<mode>/<leg-id>.json` with `python3 -m json.tool`. Its
+`exception_traceback`, `products`, `reads`, and `owned_baseline`/`owned_final`
+show whether failure occurred before dispatch, at the effect check, or during
+restoration. A matching deterministic product failure needs the same command,
+preconditions and independent effect/no-effect reads on the diagnostic rerun.
+A raw-bus, launch, timing or service-membership failure before product dispatch
+is a fixture/environment failure; preserve its evidence when retiring it.
+
 Rerun a failed leg at most once to distinguish a deterministic product defect
 from timing, load, session setup, or environment behavior. Delete an unstable
 leg or replace it with a deterministic fake or an observed-state wait. Record
@@ -86,9 +142,18 @@ the reason in a `test:` commit. Keep legs requiring future product surfaces
 outstanding with that dependency. Fix product code only for a deterministic
 product defect, especially wrong-target input or false delivery evidence.
 
+For a bounded negative control, use the documented remote-run form with a
+fresh suite and payload `bash tests/e2e-linux/run.sh --tier x11-openbox --leg
+state.text_editor_semantic_type --lying-actions`. This is an expected failure.
 Run `--lying-actions` as a negative control: its fake program always says
 `ok:true`, and independent effect checks must still fail. Send SIGTERM to the
 runner's own PID to test cancellation; cleanup must leave no private members.
+Identify that PID and its start token in your private runtime's `harness-owner`
+marker, verify it is your `runner/main.py` process, and signal only that PID.
+The background shell/interaction-lock wrapper PID is not the runner PID.
+After it exits, verify that runtime directory is gone and no process environment
+references it. Cancellation is a separate live check; the negative-control
+command alone does not prove cleanup.
 The next run sweeps abandoned sessions whose recorded runner has exited.
 
 The portable self-tests need no Linux session:
