@@ -127,7 +127,7 @@ Use `wait`, not a fixed sleep. `--timeout` defaults to 30000 ms. Modes:
 - **Time.** `wait <ms>` pauses.
 - **Element.** `--predicate` is `exists` (default), `enabled`, `visible`, `actionable`, or `value` (with `--value`). `actionable` checks readiness for `--action` (`click` default, `type`, `set-value`, `clear`). Use `--action type` before a wait-then-type flow. The editability check runs only for editing actions. `--element` takes a qualified ref (`@<snapshot_id>:eN`); the wait polls the snapshot embedded in the ref.
 - **Window.** Waits for a window whose title contains the text. `--app` narrows. On timeout, `details.last_observed` lists the scoped window count and up to eight titles.
-- **Text.** Waits for text anywhere in the app's tree. `--count` adds a count to the result.
+- **Text.** Selects one app window, then waits for text in that tree. `--count` adds a count to the result. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. For a dialog, use `wait --window` for its title, then `snapshot --surface sheet` (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined; `--window-id` narrows event waits only.
 - **Menu.** `--menu` waits for a menu surface to open. `--menu-closed` waits for it to close.
 - **Event.** `--event` is one of `window-opened`, `window-closed`, `app-launched`, `app-terminated`, `focus-changed`, `surface-appeared`, `surface-dismissed`. It diffs a baseline taken at wait start against fresh reads, so you need no window id up front. `--window-id` and `--window` narrow it.
 

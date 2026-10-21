@@ -256,7 +256,19 @@ diffs a baseline taken at wait start against fresh reads. On Linux:
 - A window that neither shows nor is iconified is the husk of a closed window and
   is left out of every list, so `window-closed` fires when the dialog closes.
 - `wait` polls with a 50 ms pause and re-resolves a ref on every poll. A wait for
-  a `--window` appears before its content: follow it with `--text`.
+  a `--window` can finish before its content is ready. `wait --text --app` can
+  return `AMBIGUOUS_TARGET` if visibility, focus and accessibility do not select
+  one window, before checking the text. A document and its dialog can cause this.
+  For a save prompt, use a title wait followed
+  by a sheet snapshot:
+
+  ```bash
+  agent-desktop wait --window 'Save Changes?' --app gnome-text-editor --timeout 5000
+  agent-desktop snapshot --app gnome-text-editor --surface sheet -i --compact
+  ```
+
+  `--window` is a separate wait mode, not a filter for `--text`; `--window-id`
+  narrows event waits only.
 
 ## Reading the disposition
 
