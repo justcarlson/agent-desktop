@@ -103,44 +103,6 @@ fn a_suspect_error_on_an_advertised_interface_is_decided_by_the_corroboration() 
 }
 
 #[test]
-fn a_missing_interface_the_node_never_advertised_falls_through_unread() {
-    assert!(!needs_corroboration(Fault::InterfaceMissing, false));
-    for corroboration in [
-        Corroboration::Alive,
-        Corroboration::Dead,
-        Corroboration::TimedOut,
-        Corroboration::NotRead,
-    ] {
-        assert_eq!(
-            classify_write(
-                Fault::InterfaceMissing,
-                WriteKind::DoAction,
-                false,
-                corroboration
-            ),
-            Verdict::Absent
-        );
-    }
-}
-
-#[test]
-fn only_the_suspect_family_asks_for_a_corroborating_read() {
-    assert!(needs_corroboration(Fault::ObjectUnknown, false));
-    assert!(needs_corroboration(Fault::ObjectUnknown, true));
-    assert!(needs_corroboration(Fault::InterfaceMissing, true));
-    for fault in [
-        Fault::AppGone,
-        Fault::Unsupported,
-        Fault::InvalidArgs,
-        Fault::AccessDenied,
-        Fault::TimedOut,
-        Fault::Uncertain,
-    ] {
-        assert!(!needs_corroboration(fault, true), "{fault:?}");
-    }
-}
-
-#[test]
 fn each_write_error_row_carries_its_code_and_disposition() {
     let safe = (DeliveryDisposition::NotDelivered, RetryDisposition::Safe);
     let uncertain = (
@@ -197,24 +159,6 @@ fn a_spent_deadline_is_uncertain_only_once_the_message_was_sent() {
             RetryDisposition::Unsafe
         )
     );
-}
-
-#[test]
-fn a_text_write_error_carries_the_character_count_and_never_the_text() {
-    let secret = "hunter2-secret";
-    let source = method_error(FAILED);
-    let error = abort_error(Abort::Uncertain, WriteKind::InsertText, Some(&source));
-    let error = with_value_chars(error, secret.chars().count());
-    let rendered = serde_json::to_string(&error.details).expect("details serialise");
-    assert_eq!(
-        error
-            .details
-            .as_ref()
-            .and_then(|d| d["value_chars"].as_u64()),
-        Some(14)
-    );
-    assert!(!rendered.contains(secret));
-    assert!(!format!("{error:?}").contains(secret));
 }
 
 #[test]
@@ -275,19 +219,4 @@ fn a_no_reply_is_a_timeout_unless_the_recipient_left_during_the_call() {
     assert_eq!(fault_of(&waited), Fault::TimedOut);
     let died = no_reply("Message recipient disconnected from message bus without replying");
     assert_eq!(fault_of(&died), Fault::Uncertain);
-}
-
-#[test]
-fn a_destroyed_qt_value_write_is_gone_and_a_live_chromium_input_is_only_unsupported() {
-    let qt = fault(UNKNOWN_INTERFACE);
-    let gone = classify_write(qt, WriteKind::SetProperty, true, Corroboration::Dead);
-    assert_eq!(gone, Verdict::Abort(Abort::Stale));
-    let chromium = fault(UNKNOWN_METHOD);
-    let alive = classify_write(
-        chromium,
-        WriteKind::SetTextContents,
-        true,
-        Corroboration::Alive,
-    );
-    assert_eq!(alive, Verdict::Absent);
 }

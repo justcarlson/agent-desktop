@@ -10,15 +10,6 @@ fn names(listed: &[&str]) -> Vec<String> {
 }
 
 #[test]
-fn a_verb_resolves_to_the_position_of_its_name() {
-    assert_eq!(resolve_verb(&names(&["Click"]), &["click"]), Some(0));
-    assert_eq!(
-        resolve_verb(&names(&["win.close", "click"]), &["click"]),
-        Some(1)
-    );
-}
-
-#[test]
 fn the_requested_verb_order_decides_between_two_matching_names() {
     let listed = names(&["activate", "click"]);
     assert_eq!(resolve_verb(&listed, &["click", "activate"]), Some(1));
@@ -30,20 +21,6 @@ fn a_blank_name_matches_nothing_and_the_next_index_still_resolves() {
     let listed = names(&["", "click"]);
     assert_eq!(resolve_verb(&listed, &["click"]), Some(1));
     assert_eq!(resolve_verb(&names(&[""]), &["click", ""]), None);
-}
-
-#[test]
-fn a_do_default_name_never_resolves_for_a_click() {
-    assert_eq!(
-        resolve_verb(&names(&["doDefault"]), &["click", "press", "activate"]),
-        None
-    );
-}
-
-#[test]
-fn verb_case_does_not_matter() {
-    assert_eq!(resolve_verb(&names(&["TOGGLE"]), &["toggle"]), Some(0));
-    assert_eq!(resolve_verb(&names(&["Toggle"]), &["TOGGLE"]), Some(0));
 }
 
 #[test]

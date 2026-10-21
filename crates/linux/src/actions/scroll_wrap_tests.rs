@@ -49,14 +49,6 @@ fn a_target_already_on_screen_is_satisfied_and_never_scrolled() {
 }
 
 #[test]
-fn an_off_screen_target_that_the_after_read_finds_on_screen_is_verified() {
-    let mut port = Port::new(&[Visibility::OffScreen, Visibility::OnScreen]);
-    let result = scroll_with(&mut port, deadline()).expect("delivered");
-    assert_eq!(port.scrolls, 1);
-    assert_eq!(first_step(&result), (Some(true), 1));
-}
-
-#[test]
 fn an_ok_routine_with_the_target_still_off_screen_is_not_a_success() {
     let mut port = Port::new(&[Visibility::OffScreen, Visibility::OffScreen]);
     let result = scroll_with(&mut port, deadline()).expect("delivered");

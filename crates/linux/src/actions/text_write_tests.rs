@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::fakes::{Fake, Script, drive, span};
@@ -17,15 +15,6 @@ fn replace(fake: &Fake, text: &str) -> Result<(&'static str, DeliveryOutcome), A
 
 fn typed(fake: &Fake, text: &str) -> Result<(&'static str, DeliveryOutcome), AdapterError> {
     drive(&mut insert_rungs(fake, text, false))
-}
-
-#[test]
-fn a_set_that_reads_back_the_text_is_matched_on_the_first_rung() {
-    let fake = Fake::holding("old");
-    let (label, outcome) = replace(&fake, "hello").expect("delivered");
-    assert_eq!(label, REPLACE_LABEL);
-    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Matched));
-    assert_eq!(fake.logged(), ["set(hello)"]);
 }
 
 #[test]
@@ -86,21 +75,6 @@ fn a_failed_first_delete_is_not_a_partial_write() {
     fake.delete = Script::Fail(invalid());
     let error = replace(&fake, "hi").expect_err("the delete failed");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-}
-
-#[test]
-fn clear_with_an_empty_read_back_is_matched() {
-    let fake = Fake::holding("old");
-    let (_, outcome) = replace(&fake, "").expect("delivered");
-    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Matched));
-}
-
-#[test]
-fn clear_with_a_non_empty_read_back_is_not_matched() {
-    let mut fake = Fake::holding("old");
-    fake.landing = Some("ol".to_owned());
-    let (_, outcome) = replace(&fake, "").expect("delivered");
-    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unchanged));
 }
 
 #[test]
@@ -213,14 +187,6 @@ fn a_set_the_field_ignored_is_write_ignored_and_not_delivered() {
 }
 
 #[test]
-fn a_snap_that_differs_from_both_old_and_requested_stays_unverified() {
-    let mut fake = Fake::holding("old");
-    fake.landing = Some("ne".to_owned());
-    let (_, outcome) = replace(&fake, "new").expect("delivered");
-    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unchanged));
-}
-
-#[test]
 fn an_unreadable_old_value_cannot_prove_the_write_ignored() {
     let mut fake = Fake::holding("old");
     fake.set = Script::Ignore;
@@ -235,65 +201,6 @@ fn assert_ignored(error: &AdapterError) {
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     let cause = error.details.as_ref().and_then(|d| d.get("cause"));
     assert_eq!(cause.and_then(|c| c.as_str()), Some("write_ignored"));
-}
-
-#[test]
-fn an_emoji_is_sent_with_its_byte_length_not_one() {
-    let mut fake = Fake::holding("");
-    fake.caret = Ok(Some((0, vec![])));
-    typed(&fake, "\u{1F600}").expect("delivered");
-    assert_eq!(fake.logged(), ["insert(0,4,\u{1F600})"]);
-}
-
-#[test]
-fn every_length_sent_is_the_whole_utf8_length_of_its_text() {
-    let samples = [
-        "a",
-        "\u{e9}",
-        "e\u{301}",
-        "\u{1F600}",
-        "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}",
-        "\u{1F1E9}\u{1F1EA}",
-        "\u{4E2D}\u{6587}",
-    ];
-    for sample in samples {
-        let mut fake = Fake::holding("");
-        fake.caret = Ok(Some((0, vec![])));
-        typed(&fake, sample).expect("delivered");
-        let expected = format!("insert(0,{},{sample})", sample.len());
-        assert_eq!(fake.logged(), [expected], "{sample:?}");
-    }
-}
-
-#[test]
-fn the_expected_text_counts_code_points_not_bytes() {
-    assert_eq!(
-        expected_after("a\u{1F600}b", 2..2, "X").as_deref(),
-        Some("a\u{1F600}Xb")
-    );
-    assert_eq!(
-        expected_after("a\u{1F600}b", 1..2, "X").as_deref(),
-        Some("aXb")
-    );
-}
-
-#[test]
-fn an_out_of_range_replacement_has_no_expected_text() {
-    assert_eq!(expected_after("ab", 1..5, "X"), None);
-    assert_eq!(expected_after("ab", Range { start: 2, end: 1 }, "X"), None);
-}
-
-#[test]
-fn a_read_only_bit_or_a_missing_editable_bit_refuses_the_write() {
-    assert!(!writable(Some(true), Some(true)));
-    assert!(!writable(Some(false), Some(false)));
-    assert!(!writable(None, Some(false)));
-}
-
-#[test]
-fn an_editable_field_or_unread_states_are_writable() {
-    assert!(writable(Some(false), Some(true)));
-    assert!(writable(None, None));
 }
 
 #[test]

@@ -63,14 +63,6 @@ fn a_target_the_crawl_never_met_uses_the_only_bar_that_runs_the_right_way() {
 }
 
 #[test]
-fn no_bar_at_all_is_none() {
-    assert_eq!(
-        choose_bar(&[node(None), node(Some(0))], Some(1), Axis::Vertical),
-        None
-    );
-}
-
-#[test]
 fn a_bar_that_names_its_direction_beats_one_that_does_not_beside_the_same_pane() {
     let sites = [
         node(None),

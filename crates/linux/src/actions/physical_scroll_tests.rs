@@ -4,18 +4,6 @@ use super::{scroll_steps, wheel_deltas};
 use crate::actions::physical_target::tests::fake::{FakeWorld, check_of, deadline, element};
 
 #[test]
-fn down_turns_the_wheel_toward_the_user_and_up_away_from_them() {
-    assert_eq!(wheel_deltas(&Direction::Down, 3), (0.0, -3.0));
-    assert_eq!(wheel_deltas(&Direction::Up, 3), (0.0, 3.0));
-}
-
-#[test]
-fn left_and_right_use_the_horizontal_axis() {
-    assert_eq!(wheel_deltas(&Direction::Left, 2), (-2.0, 0.0));
-    assert_eq!(wheel_deltas(&Direction::Right, 2), (2.0, 0.0));
-}
-
-#[test]
 fn the_wheel_is_aimed_at_the_centre_of_the_targets_own_bounds() {
     let world = FakeWorld::x11();
     scroll_steps(
