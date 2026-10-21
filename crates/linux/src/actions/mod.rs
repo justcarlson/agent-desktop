@@ -7,6 +7,7 @@ pub(crate) mod disclosure;
 pub(crate) mod dispatch;
 pub(crate) mod focus;
 pub(crate) mod frame_active;
+mod keyboard_focus;
 pub(crate) mod mutation;
 pub(crate) mod numeric_write;
 mod physical_aim;

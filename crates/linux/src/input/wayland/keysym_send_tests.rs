@@ -54,9 +54,7 @@ fn delivery_lifecycle_and_failures() {
     let keys = ctrl_a();
     let mut session = FakeSession::new();
     let log = session.log();
-    let started = std::time::Instant::now();
     let mut gate = || {
-        assert!(started.elapsed() >= SHIFT_SETTLE);
         log.borrow_mut().push("gate".into());
         Ok(())
     };
@@ -66,7 +64,8 @@ fn delivery_lifecycle_and_failures() {
     let position = |label: &str| events.iter().position(|event| event == label).unwrap();
     assert_eq!(&events[..2], ["create", "start"]);
     assert!(position("down:ffe1") < position("up:ffe1"));
-    assert!(position("up:ffe1") < position("gate"));
+    assert!(position("gate") < position("down:ffe1"));
+    assert!(events[position("up:ffe1") + 1..position("down:ffe3")].contains(&"gate".into()));
     assert!(position("gate") < position("down:ffe3"));
     assert!(position("down:ffe3") < position("down:61"));
     assert!(position("down:61") < position("up:61"));
@@ -136,7 +135,8 @@ fn delivery_lifecycle_and_failures() {
     )
     .expect_err("gate refuses");
     assert_eq!(gate_error.message, "window is not active");
-    assert_eq!(gate_error.disposition, DeliverySemantics::uncertain());
+    assert_eq!(gate_error.disposition, DeliverySemantics::not_delivered());
+    assert!(gate_failure.arrived.is_empty());
     assert_eq!(
         gate_failure.events().last().map(String::as_str),
         Some("stop")
@@ -165,10 +165,10 @@ fn delivery_lifecycle_and_failures() {
     )
     .expect_err("gate times out");
     assert_eq!(error.code, ErrorCode::Timeout);
-    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(
         error.details.expect("details")["physical_delivery_started"],
-        true
+        false
     );
 }
 
@@ -200,10 +200,9 @@ fn chunks_preserve_progress() {
     assert_eq!(details["delivered_events"], 4);
 
     let mut session = FakeSession::new();
-    let mut calls = 0;
+    let log = session.log();
     let mut gate = || {
-        calls += 1;
-        if calls == 2 {
+        if log.borrow().iter().any(|event| event == "up:61") {
             Err(AdapterError::new(ErrorCode::ActionFailed, "window lost"))
         } else {
             Ok(())
@@ -211,11 +210,66 @@ fn chunks_preserve_progress() {
     };
     let error = run_chunks(&mut session, &[&first, &second], &mut gate, live())
         .expect_err("gate stops later chunk");
-    assert_eq!(error.message, "window lost");
+    assert!(error.message.contains("4 keyboard events were confirmed"));
     assert_eq!(
         error.details.expect("delivery details")["delivered_events"],
         4
     );
+}
+
+#[test]
+fn refusal_after_bootstrap_reports_the_sent_keys_in_message_and_evidence() {
+    let keys = tap(KEY_A);
+    let mut session = FakeSession::new();
+    let log = session.log();
+    let mut gate = || {
+        if log.borrow().iter().any(|event| event == "up:ffe1") {
+            Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "The target window is not active, so no key was sent",
+            )
+            .with_details(json!({ "cause": "not_active", "physical_delivery_started": false }))
+            .with_disposition(DeliverySemantics::not_delivered()))
+        } else {
+            Ok(())
+        }
+    };
+    let error = run_chunks(&mut session, &[&keys], &mut gate, live()).unwrap_err();
+    assert_eq!(
+        session.arrived,
+        [(KEYSYM_SHIFT_L, true), (KEYSYM_SHIFT_L, false)]
+    );
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert!(error.message.contains("2 keyboard events were confirmed"));
+    assert!(error.message.contains("bootstrap"));
+    assert!(!error.message.contains("no key was sent"));
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    let details = error.details.unwrap();
+    assert_eq!(details["cause"], "not_active");
+    assert_eq!(details["physical_delivery_started"], true);
+    assert_eq!(details["delivered_events"], 2);
+}
+
+#[test]
+fn focus_loss_inside_a_text_chunk_stops_before_the_next_key_down() {
+    let keys = [tap(KEY_A), tap(0x62)].concat();
+    let mut session = FakeSession::new();
+    session.resumed = true;
+    let log = session.log();
+    let mut gate = || {
+        if log.borrow().iter().any(|event| event == "up:61") {
+            Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "target focus lost",
+            ))
+        } else {
+            Ok(())
+        }
+    };
+    let error = run_chunks(&mut session, &[&keys], &mut gate, live()).unwrap_err();
+    assert_eq!(session.arrived, [(KEY_A, true), (KEY_A, false)]);
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert_eq!(error.details.unwrap()["delivered_events"], 2);
 }
 
 #[test]

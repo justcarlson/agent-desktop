@@ -36,8 +36,15 @@ fn with_fields(error: AdapterError, fields: serde_json::Value) -> AdapterError {
     error.with_details(details)
 }
 
-fn with_progress(error: AdapterError, delivered_events: u32) -> AdapterError {
+fn with_progress(mut error: AdapterError, delivered_events: u32) -> AdapterError {
     if delivered_events > 0 {
+        error.message = format!(
+            "At least {delivered_events} keyboard events were confirmed before Wayland delivery stopped (including any bootstrap keys); further delivery is uncertain"
+        );
+        error.suggestion = Some(
+            "Read the target's state before retrying; some keyboard input has already been sent"
+                .to_owned(),
+        );
         return with_fields(
             error,
             json!({
@@ -67,12 +74,16 @@ fn send_each(
     session: &mut dyn KeySession,
     keys: &[KeysymStep],
     already_delivered: u32,
+    gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
     let mut held: Vec<u32> = Vec::new();
     let mut delivered = 0_u32;
     for key in keys {
         let outcome = ensure_budget(deadline).and_then(|()| {
+            if key.down {
+                gate()?;
+            }
             session
                 .keysym(key.keysym, key.down, deadline)
                 .map_err(|error| {
@@ -115,6 +126,7 @@ fn drive(
         session
             .start(deadline)
             .map_err(|error| with_progress(error, 0))?;
+        gate().map_err(|error| with_progress(error, 0))?;
         let shift = [
             KeysymStep {
                 keysym: KEYSYM_SHIFT_L,
@@ -125,7 +137,7 @@ fn drive(
                 down: false,
             },
         ];
-        lead_delivered = send_each(session, &shift, 0, deadline)?;
+        lead_delivered = send_each(session, &shift, 0, gate, deadline)?;
         sleep(
             deadline
                 .remaining_slice(SHIFT_SETTLE)
@@ -135,7 +147,7 @@ fn drive(
     let mut delivered = 0_u32;
     for chunk in chunks {
         gate().map_err(|error| with_progress(error, lead_delivered + delivered))?;
-        delivered += send_each(session, chunk, lead_delivered + delivered, deadline)?;
+        delivered += send_each(session, chunk, lead_delivered + delivered, gate, deadline)?;
     }
     Ok(delivered)
 }
