@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 
 use agent_desktop_core::{
     DeliverySemantics, ErrorCode, InteractionPolicy, KeyCombo, ProcessId, ProcessIdentity,
@@ -14,7 +15,7 @@ const INSTANCE: &str = "boot:100";
 
 struct Keys<'a> {
     physical: &'a FakeWorld,
-    focused: Option<u32>,
+    focused: RefCell<VecDeque<Result<Option<WindowInfo>, AdapterError>>>,
     active: Option<u32>,
     lookup: Lookup,
     changes_after_send: bool,
@@ -36,7 +37,7 @@ impl<'a> Keys<'a> {
     fn owning(physical: &'a FakeWorld) -> Self {
         Self {
             physical,
-            focused: Some(PID),
+            focused: RefCell::new(VecDeque::from([Ok(Some(window(PID, "target")))])),
             active: Some(PID),
             lookup: Lookup::Found(facts(INSTANCE)),
             changes_after_send: false,
@@ -44,6 +45,10 @@ impl<'a> Keys<'a> {
             lookups: Cell::new(0),
             stopped: false,
         }
+    }
+
+    fn set_focused(&self, pid: Option<u32>) {
+        *self.focused.borrow_mut() = VecDeque::from([Ok(pid.map(|pid| window(pid, "target")))]);
     }
 
     fn read_count(&self, name: &str) -> usize {
@@ -68,14 +73,31 @@ impl KeyWorld for Keys<'_> {
         self.lookup.clone()
     }
 
-    fn focused_pid(&self, _deadline: Deadline) -> Result<Option<u32>, AdapterError> {
+    fn focused_window(&self, _deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError> {
         self.reads.borrow_mut().push("focused");
-        Ok(self.focused)
+        let mut reads = self.focused.borrow_mut();
+        if reads.len() > 1 {
+            reads.pop_front().unwrap()
+        } else {
+            reads.front().unwrap().clone()
+        }
     }
 
     fn active_client_pid(&self, _deadline: Deadline) -> Option<u32> {
         self.reads.borrow_mut().push("active");
         self.active
+    }
+}
+
+fn window(pid: u32, id: &str) -> WindowInfo {
+    WindowInfo {
+        id: id.into(),
+        title: id.into(),
+        app: "app".into(),
+        pid: ProcessId::new(pid),
+        process_instance: Some(INSTANCE.into()),
+        bounds: None,
+        state: Default::default(),
     }
 }
 
@@ -99,6 +121,7 @@ fn press(
         physical,
         keys,
         process: &process(),
+        window: None,
         combo: &combo(),
         policy,
         deadline: deadline(),
@@ -124,8 +147,8 @@ fn the_active_owner_gets_one_synthesis_under_headless_and_headed_policy() {
 #[test]
 fn a_popup_grab_in_another_app_leaves_the_frame_inactive_and_nothing_is_sent() {
     let physical = FakeWorld::x11();
-    let mut keys = Keys::owning(&physical);
-    keys.focused = None;
+    let keys = Keys::owning(&physical);
+    keys.set_focused(None);
     let error = press(&physical, &keys, InteractionPolicy::headed()).unwrap_err();
     assert_eq!(check_of(&error).as_deref(), Some("window_active"));
     assert!(not_delivered(&error));
@@ -137,7 +160,7 @@ fn another_application_owning_either_active_measure_gets_no_keys() {
     for (focused, active) in [(Some(OTHER), Some(PID)), (Some(PID), Some(OTHER))] {
         let physical = FakeWorld::x11();
         let mut keys = Keys::owning(&physical);
-        keys.focused = focused;
+        keys.set_focused(focused);
         keys.active = active;
         press(&physical, &keys, InteractionPolicy::headed()).unwrap_err();
         assert!(physical.sent_nothing());
@@ -164,8 +187,8 @@ fn on_wayland_the_gate_is_the_frame_alone() {
     assert_eq!(physical.count("sent"), 1);
 
     let inactive = FakeWorld::wayland();
-    let mut keys = Keys::owning(&inactive);
-    keys.focused = Some(OTHER);
+    let keys = Keys::owning(&inactive);
+    keys.set_focused(Some(OTHER));
     press(&inactive, &keys, InteractionPolicy::headed()).unwrap_err();
     assert!(inactive.sent_nothing());
 }
@@ -173,8 +196,8 @@ fn on_wayland_the_gate_is_the_frame_alone() {
 #[test]
 fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
     let physical = FakeWorld::wayland();
-    let mut keys = Keys::owning(&physical);
-    keys.focused = None;
+    let keys = Keys::owning(&physical);
+    keys.set_focused(None);
     let error = press(&physical, &keys, InteractionPolicy::headless()).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.details.as_ref().unwrap()["cause"], "frame_not_active");
@@ -199,7 +222,7 @@ fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
 fn a_background_target_fails_by_policy_and_neither_case_calls_synthesis() {
     let allowed = FakeWorld::x11();
     let mut keys = Keys::owning(&allowed);
-    keys.focused = Some(OTHER);
+    keys.set_focused(Some(OTHER));
     keys.active = Some(OTHER);
     let error = press(&allowed, &keys, InteractionPolicy::headed()).unwrap_err();
     assert!(
@@ -211,7 +234,7 @@ fn a_background_target_fails_by_policy_and_neither_case_calls_synthesis() {
 
     let forbidden = FakeWorld::x11();
     let mut keys = Keys::owning(&forbidden);
-    keys.focused = Some(OTHER);
+    keys.set_focused(Some(OTHER));
     keys.active = Some(OTHER);
     let error = press(&forbidden, &keys, InteractionPolicy::headless()).unwrap_err();
     assert!(error.message.contains("background"), "{}", error.message);
@@ -263,4 +286,72 @@ fn a_stopped_target_is_unresponsive_and_nothing_is_synthesised() {
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(physical.count("sent"), 0);
+}
+
+#[test]
+fn window_scoped_press_rechecks_exact_focus_before_synthesis() {
+    for wayland in [false, true] {
+        for changed in [false, true] {
+            let physical = if wayland {
+                FakeWorld::wayland()
+            } else {
+                FakeWorld::x11()
+            };
+            let keys = Keys::owning(&physical);
+            if changed {
+                *keys.focused.borrow_mut() = VecDeque::from([
+                    Ok(Some(window(PID, "target"))),
+                    Ok(Some(window(PID, "sibling"))),
+                ]);
+            }
+            let result = press_in(Press {
+                physical: &physical,
+                keys: &keys,
+                process: &process(),
+                window: Some(&window(PID, "target")),
+                combo: &combo(),
+                policy: InteractionPolicy::headless(),
+                deadline: deadline(),
+            });
+            if changed {
+                let error = result.unwrap_err();
+                assert_eq!(error.code, ErrorCode::StaleRef);
+                assert!(not_delivered(&error));
+                assert!(physical.sent_nothing());
+            } else {
+                assert!(result.is_ok());
+                assert_eq!(physical.count("sent"), 1);
+            }
+        }
+    }
+}
+
+#[test]
+fn window_scoped_press_refuses_unknown_or_mismatched_focus_without_synthesis() {
+    let mut recycled = window(PID, "target");
+    recycled.process_instance = Some("recycled".into());
+    for focus in [
+        Err(AdapterError::not_supported("focused_window")),
+        Ok(None),
+        Ok(Some(window(PID, "sibling"))),
+        Ok(Some(window(OTHER, "target"))),
+        Ok(Some(recycled)),
+    ] {
+        let physical = FakeWorld::x11();
+        let keys = Keys::owning(&physical);
+        *keys.focused.borrow_mut() = VecDeque::from([focus]);
+        let error = press_in(Press {
+            physical: &physical,
+            keys: &keys,
+            process: &process(),
+            window: Some(&window(PID, "target")),
+            combo: &combo(),
+            policy: InteractionPolicy::headless(),
+            deadline: deadline(),
+        })
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        assert!(not_delivered(&error));
+        assert!(physical.sent_nothing());
+    }
 }

@@ -32,11 +32,6 @@ pub fn execute(
             lease.deadline(),
         )?;
         let process = crate::commands::helpers::process_identity(&live)?;
-        if !context.physical_input_policy().is_headed()
-            && let Some(window) = &window
-        {
-            ensure_not_a_sibling_window(adapter, window, lease.deadline())?;
-        }
         if context.physical_input_policy().is_headed() {
             match &window {
                 Some(window) => {
@@ -50,7 +45,13 @@ pub fn execute(
                 )?,
             };
         }
-        adapter.press_key_for_app(process, &combo, context.physical_input_policy(), &lease)?
+        if !context.physical_input_policy().is_headed()
+            && let Some(window) = &window
+        {
+            adapter.press_key_for_window(window, &combo, context.physical_input_policy(), &lease)?
+        } else {
+            adapter.press_key_for_app(process, &combo, context.physical_input_policy(), &lease)?
+        }
     } else {
         let lease = adapter.acquire_interaction_lease(deadline)?;
         let handle = crate::adapter::NativeHandle::null();
@@ -67,35 +68,6 @@ pub fn execute(
         adapter,
         context,
     )
-}
-
-fn ensure_not_a_sibling_window(
-    adapter: &dyn PlatformAdapter,
-    named: &crate::WindowInfo,
-    deadline: crate::Deadline,
-) -> Result<(), AppError> {
-    let Ok(Some(focused)) = adapter.focused_window(deadline) else {
-        return Ok(());
-    };
-    let sibling = focused.pid == named.pid
-        && focused.process_instance == named.process_instance
-        && focused.id != named.id;
-    if !sibling {
-        return Ok(());
-    }
-    Err(crate::AdapterError::new(
-        crate::ErrorCode::ActionFailed,
-        "The named window is not the active window of its application and focus changes are not allowed, so no key was sent",
-    )
-    .with_suggestion("Retry with --headed so the named window is brought forward first, or name the active window")
-    .with_details(serde_json::json!({
-        "check": "window_active",
-        "cause": "other_window_of_target",
-        "physical_delivery_started": false,
-        "window_id": named.id,
-    }))
-    .with_disposition(crate::DeliverySemantics::not_delivered())
-    .into())
 }
 
 fn target_app(
