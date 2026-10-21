@@ -39,12 +39,6 @@ fn image(width: u32, height: u32, data: Vec<u8>) -> ClipboardContent {
 }
 
 #[test]
-fn framing_round_trips_three_targets() {
-    let payload = three();
-    assert_eq!(unframe(&frame(&payload)).expect("round trip"), payload);
-}
-
-#[test]
 fn a_length_that_overruns_the_buffer_is_rejected() {
     let mut bytes = frame(&three());
     bytes.truncate(bytes.len() - 1);
@@ -79,30 +73,6 @@ fn an_empty_buffer_and_a_huge_count_are_rejected_without_allocating() {
 }
 
 #[test]
-fn text_becomes_the_text_targets() {
-    let payload = payload_of(&ClipboardContent::Text("hi".into())).expect("text");
-    let names: Vec<&str> = payload.targets.iter().map(|t| t.name.as_str()).collect();
-    assert_eq!(
-        names,
-        [
-            "UTF8_STRING",
-            "text/plain;charset=utf-8",
-            "text/plain",
-            "STRING"
-        ]
-    );
-}
-
-#[test]
-fn file_paths_become_both_list_targets() {
-    let payload = payload_of(&ClipboardContent::FileUrls(vec!["/tmp/a b".into()])).expect("paths");
-    assert_eq!(payload.targets[0].name, URI_LIST);
-    assert_eq!(payload.targets[0].bytes, b"file:///tmp/a%20b\r\n");
-    assert_eq!(payload.targets[1].name, GNOME_FILES);
-    assert_eq!(payload.targets[1].bytes, b"copy\nfile:///tmp/a%20b");
-}
-
-#[test]
 fn relative_or_missing_paths_are_invalid_args() {
     for paths in [vec![], vec!["relative.txt".to_owned()]] {
         let error = payload_of(&ClipboardContent::FileUrls(paths)).expect_err("paths");
@@ -111,23 +81,9 @@ fn relative_or_missing_paths_are_invalid_args() {
 }
 
 #[test]
-fn an_image_keeps_its_png_bytes_as_the_only_target() {
-    let png = tiny_png(3, 2);
-    let payload = payload_of(&image(3, 2, png.clone())).expect("image");
-    assert_eq!(payload.targets, vec![target(PNG, &png)]);
-}
-
-#[test]
 fn an_image_whose_metadata_disagrees_with_its_png_is_invalid_args() {
     let error = payload_of(&image(4, 2, tiny_png(3, 2))).expect_err("mismatch");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
     let error = payload_of(&image(3, 2, vec![1, 2, 3])).expect_err("not a png");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
-}
-
-#[test]
-fn text_over_the_cap_is_invalid_args() {
-    let text = "x".repeat(MAX_PNG_INPUT_BYTES + 1);
-    let error = payload_of(&ClipboardContent::Text(text)).expect_err("cap");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
 }

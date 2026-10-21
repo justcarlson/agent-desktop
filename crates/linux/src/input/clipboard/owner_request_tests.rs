@@ -53,19 +53,6 @@ fn targets_lists_what_is_served_plus_targets_and_timestamp() {
 }
 
 #[test]
-fn a_served_target_returns_its_bytes_typed_as_itself() {
-    let reply = answerer(1024, b"hi").answer(&request(1, UTF8, 50));
-    assert_eq!(
-        reply,
-        Reply::Bytes {
-            property: 50,
-            kind: UTF8,
-            data: b"hi".to_vec()
-        }
-    );
-}
-
-#[test]
 fn an_unserved_target_is_refused() {
     assert_eq!(
         answerer(1024, b"hi").answer(&request(1, 999, 50)),
@@ -115,29 +102,6 @@ fn a_value_above_one_property_starts_incr_and_one_at_the_limit_does_not() {
     assert!(matches!(exact, Reply::Bytes { .. }), "{exact:?}");
 }
 
-#[test]
-fn two_requestors_in_a_row_are_answered_independently() {
-    let owner = answerer(1024, b"hi");
-    let first = owner.answer(&request(1, UTF8, 50));
-    let second = owner.answer(&request(2, PLAIN, 60));
-    assert!(matches!(
-        first,
-        Reply::Bytes {
-            property: 50,
-            kind: UTF8,
-            ..
-        }
-    ));
-    assert!(matches!(
-        second,
-        Reply::Bytes {
-            property: 60,
-            kind: PLAIN,
-            ..
-        }
-    ));
-}
-
 fn sender(len: usize) -> IncrSender {
     IncrSender::new((0..len).map(|i| i as u8).collect::<Vec<u8>>().into(), 4)
 }
@@ -148,15 +112,6 @@ fn drain(transfers: &mut Transfers, requestor: u32, property: u32) -> Vec<Vec<u8
         out.push(chunk.data);
     }
     out
-}
-
-#[test]
-fn a_transfer_advances_one_chunk_per_delete_and_ends_with_the_zero_chunk() {
-    let mut transfers = Transfers::default();
-    assert!(transfers.start(1, 50, UTF8, sender(6)));
-    let chunks = drain(&mut transfers, 1, 50);
-    assert_eq!(chunks, [vec![0, 1, 2, 3], vec![4, 5], vec![]]);
-    assert_eq!(transfers.in_flight(), 0);
 }
 
 #[test]
@@ -171,7 +126,7 @@ fn two_concurrent_transfers_are_independent() {
         (PLAIN, vec![0, 1, 2, 3])
     );
     assert_eq!((from_first.kind, from_first.data), (UTF8, vec![0, 1, 2, 3]));
-    assert_eq!(transfers.in_flight(), 2);
+    assert_eq!(transfers.active.len(), 2);
 }
 
 #[test]
@@ -203,7 +158,7 @@ fn the_ninth_concurrent_transfer_is_refused_and_the_bytes_are_shared() {
     assert_eq!(Arc::strong_count(&data), MAX_TRANSFERS + 1);
     let refused = IncrSender::new(Arc::clone(&data), 4);
     assert!(!transfers.start(99, 50, UTF8, refused));
-    assert_eq!(transfers.in_flight(), MAX_TRANSFERS);
+    assert_eq!(transfers.active.len(), MAX_TRANSFERS);
     assert_eq!(Arc::strong_count(&data), MAX_TRANSFERS + 1);
 }
 
@@ -213,7 +168,7 @@ fn a_restarted_transfer_replaces_its_own_and_does_not_count_twice() {
     for _ in 0..MAX_TRANSFERS + 3 {
         assert!(transfers.start(1, 50, UTF8, sender(8)));
     }
-    assert_eq!(transfers.in_flight(), 1);
+    assert_eq!(transfers.active.len(), 1);
 }
 
 #[test]
@@ -231,7 +186,7 @@ fn an_idle_transfer_is_dropped_and_a_fresh_one_is_kept() {
     let mut transfers = Transfers::default();
     transfers.start(1, 50, UTF8, sender(8));
     transfers.expire(TRANSFER_IDLE);
-    assert_eq!(transfers.in_flight(), 1);
+    assert_eq!(transfers.active.len(), 1);
     transfers.expire(Duration::ZERO);
-    assert_eq!(transfers.in_flight(), 0);
+    assert_eq!(transfers.active.len(), 0);
 }

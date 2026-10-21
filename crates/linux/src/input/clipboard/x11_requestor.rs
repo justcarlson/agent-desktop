@@ -102,11 +102,11 @@ impl X11Requestor {
         }
     }
 
-    fn read_property(&self, delete: bool) -> Result<(u32, u8, Vec<u8>), Fault> {
+    fn read_property(&self) -> Result<(u32, Vec<u8>), Fault> {
         let reply = self
             .connection
             .get_property(
-                delete,
+                true,
                 self.window,
                 self.property,
                 AtomEnum::ANY,
@@ -119,7 +119,7 @@ impl X11Requestor {
         if reply.bytes_after != 0 {
             return Err(Fault::OverCap);
         }
-        Ok((reply.type_, reply.format, reply.value))
+        Ok((reply.type_, reply.value))
     }
 
     fn convert(&self, target: u32, deadline: Deadline) -> Result<bool, Fault> {
@@ -158,7 +158,7 @@ impl Requestor for X11Requestor {
         if !self.convert(targets, deadline)? {
             return Ok(None);
         }
-        let (_, _, bytes) = self.read_property(true)?;
+        let (_, bytes) = self.read_property()?;
         let mut names = Vec::new();
         for id in atoms_of(&bytes) {
             let reply = self
@@ -178,7 +178,7 @@ impl Requestor for X11Requestor {
             return Ok(Converted::Refused);
         }
         let incr = atom(&self.connection, "INCR")?;
-        let (kind, _, bytes) = self.read_property(true)?;
+        let (kind, bytes) = self.read_property()?;
         if kind == incr {
             Ok(Converted::Incr)
         } else {
@@ -194,7 +194,7 @@ impl Requestor for X11Requestor {
                     && notify.atom == property
                     && notify.state == Property::NEW_VALUE)
         })?;
-        let (_, _, bytes) = self.read_property(true)?;
+        let (_, bytes) = self.read_property()?;
         Ok(bytes)
     }
 

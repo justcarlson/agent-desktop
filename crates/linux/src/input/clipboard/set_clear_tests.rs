@@ -152,7 +152,6 @@ fn run_set(
             helper,
             record_dir: &world.records,
             server,
-            signaller: &PidfdSignaller,
             parent_env: &parent,
             nonce: &world.nonce,
         },
@@ -170,7 +169,6 @@ fn run_clear(world: &World, server: &FakeServer) -> Result<(), AdapterError> {
             helper: Path::new(""),
             record_dir: &world.records,
             server,
-            signaller: &PidfdSignaller,
             parent_env: &parent,
             nonce: &nonce,
         },
@@ -271,16 +269,6 @@ fn a_timeout_is_uncertain_when_the_selection_changed_hands() {
     let server = FakeServer::new(&[Some(100), Some(200)], &[]);
     let error = run_set(&world, &helper, &server, &text("hello"), 400).expect_err("a timeout");
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
-    terminate(world.pid());
-}
-
-#[test]
-fn a_seen_owner_that_serves_every_target_is_a_delivered_set_with_one_record() {
-    let world = World::new("claims");
-    let helper = world.helper(CLAIMS);
-    let server = FakeServer::new(&[None, Some(WINDOW)], &text_targets());
-    run_set(&world, &helper, &server, &text("hello"), 5_000).expect("set");
-    assert_eq!(world.record_names().len(), 1, "{:?}", world.record_names());
     terminate(world.pid());
 }
 

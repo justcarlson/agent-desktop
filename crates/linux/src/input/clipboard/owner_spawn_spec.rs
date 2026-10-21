@@ -1,7 +1,6 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::os::fd::BorrowedFd;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 use agent_desktop_core::INTERACTION_LEASE_FD_ENV;
@@ -21,65 +20,37 @@ const INHERITED_FROM_PARENT: [&str; 5] = [
 ];
 const LOWEST_INHERITED_FD: i32 = 3;
 
-pub(crate) struct SpawnRequest<'a> {
-    pub(crate) helper: &'a Path,
-    pub(crate) display: &'a str,
-    pub(crate) nonce: &'a str,
-    pub(crate) payload_fd: i32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SpawnSpec {
-    pub(crate) program: PathBuf,
-    pub(crate) env: BTreeMap<String, String>,
-    pub(crate) null_stdio: bool,
-}
-
 /// What the owner is started with: the located helper, null stdio and an
 /// environment that is an allowlist. The display is the one the setter
 /// resolved, never the owner's own lookup, and the lease variable is not on
 /// the list.
-pub(crate) fn build_spec(
-    request: &SpawnRequest<'_>,
+pub(crate) fn build_command(
+    helper: &Path,
+    display: &str,
+    nonce: &str,
+    payload_fd: i32,
     parent_env: &dyn Fn(&str) -> Option<String>,
-) -> SpawnSpec {
-    let mut env = BTreeMap::new();
-    for name in INHERITED_FROM_PARENT {
-        if let Some(value) = parent_env(name) {
-            env.insert(name.to_owned(), value);
-        }
-    }
+) -> Command {
+    let mut command = Command::new(helper);
+    command.env_clear().envs(
+        INHERITED_FROM_PARENT
+            .into_iter()
+            .filter_map(|name| parent_env(name).map(|value| (name, value))),
+    );
     let own = [
-        ("DISPLAY", request.display.to_owned()),
-        (DISPLAY_ENV, request.display.to_owned()),
+        ("DISPLAY", display.to_owned()),
+        (DISPLAY_ENV, display.to_owned()),
         (MARKER_ENV, GENERATION.to_string()),
         (BUILD_IDENTITY_ENV, build_identity()),
-        (PAYLOAD_FD_ENV, request.payload_fd.to_string()),
-        (NONCE_ENV, request.nonce.to_owned()),
+        (PAYLOAD_FD_ENV, payload_fd.to_string()),
+        (NONCE_ENV, nonce.to_owned()),
     ];
-    env.extend(
-        own.into_iter()
-            .map(|(name, value)| (name.to_owned(), value)),
-    );
-    SpawnSpec {
-        program: request.helper.to_path_buf(),
-        env,
-        null_stdio: true,
-    }
-}
-
-impl SpawnSpec {
-    pub(crate) fn command(&self) -> Command {
-        let mut command = Command::new(&self.program);
-        command.env_clear().envs(&self.env);
-        if self.null_stdio {
-            command
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null());
-        }
-        command
-    }
+    command
+        .envs(own)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    command
 }
 
 /// Makes the lease descriptor a parent passed down close-on-exec again, so

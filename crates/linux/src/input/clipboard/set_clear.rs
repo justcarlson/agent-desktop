@@ -8,11 +8,11 @@ use agent_desktop_core::{
 
 use super::owner_locate::locate_helper;
 use super::owner_record::{self, OwnerRecord};
-use super::owner_signal::{PidfdSignaller, Signaller};
+use super::owner_signal::{PidfdControl, stop_by_identity};
 use super::owner_spawn::{
     ChildProbe, Handshake, await_handshake, kill_and_reap, new_nonce, payload_file, reap_when_done,
 };
-use super::owner_spawn_spec::{SpawnRequest, build_spec, protect_lease_descriptor};
+use super::owner_spawn_spec::{build_command, protect_lease_descriptor};
 use super::payload::{Payload, payload_of};
 use super::route_fallback::ClipboardTools;
 use super::x11_read::{fault_error, read_x11};
@@ -26,7 +26,6 @@ pub(crate) struct Env<'a> {
     pub(crate) helper: &'a Path,
     pub(crate) record_dir: &'a Path,
     pub(crate) server: &'a dyn SelectionServer,
-    pub(crate) signaller: &'a dyn Signaller,
     pub(crate) parent_env: &'a dyn Fn(&str) -> Option<String>,
     pub(crate) nonce: &'a str,
 }
@@ -55,7 +54,7 @@ fn discard(dir: &Path, display: &str, nonce: &str) {
 }
 
 fn retire(env: &Env<'_>, display: &str, record: &OwnerRecord) {
-    env.signaller.stop(record);
+    let _ = stop_by_identity(&PidfdControl, record);
     discard(env.record_dir, display, &record.nonce);
 }
 
@@ -100,13 +99,14 @@ fn start_owner(
 ) -> Result<std::process::Child, AdapterError> {
     let descriptor = payload_file(payload, env.nonce)?;
     protect_lease_descriptor(env.parent_env);
-    let request = SpawnRequest {
-        helper: env.helper,
+    let spawned = build_command(
+        env.helper,
         display,
-        nonce: env.nonce,
-        payload_fd: descriptor.as_raw_fd(),
-    };
-    let spawned = build_spec(&request, env.parent_env).command().spawn();
+        env.nonce,
+        descriptor.as_raw_fd(),
+        env.parent_env,
+    )
+    .spawn();
     drop(descriptor);
     spawned.map_err(|error| {
         failed(
@@ -199,10 +199,6 @@ pub(crate) fn clear_with(
     }
 }
 
-fn process_env(name: &str) -> Option<String> {
-    std::env::var(name).ok()
-}
-
 fn with_env<T>(
     helper: PathBuf,
     work: impl FnOnce(&Env<'_>) -> Result<T, AdapterError>,
@@ -214,12 +210,12 @@ fn with_env<T>(
         )
     })?;
     let nonce = new_nonce();
+    let parent_env = |name: &str| std::env::var(name).ok();
     work(&Env {
         helper: &helper,
         record_dir: &dir,
         server: &X11Server,
-        signaller: &PidfdSignaller,
-        parent_env: &process_env,
+        parent_env: &parent_env,
         nonce: &nonce,
     })
 }

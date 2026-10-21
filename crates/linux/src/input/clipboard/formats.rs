@@ -18,17 +18,13 @@ pub(crate) const TEXT_TARGETS: [&str; 4] = [UTF8_STRING, TEXT_UTF8, TEXT_PLAIN, 
 pub(crate) fn decode_text(target: &str, bytes: &[u8]) -> Result<String, AdapterError> {
     match target {
         STRING => Ok(bytes.iter().map(|byte| char::from(*byte)).collect()),
-        UTF8_STRING | TEXT_UTF8 | TEXT_PLAIN => String::from_utf8(bytes.to_vec()).map_err(|_| {
+        _ => std::str::from_utf8(bytes).map(str::to_owned).map_err(|_| {
             AdapterError::new(
                 ErrorCode::ActionFailed,
                 format!("The clipboard's {target} text is not valid UTF-8"),
             )
             .with_suggestion("Copy the text again from an application that offers UTF-8")
         }),
-        other => Err(AdapterError::new(
-            ErrorCode::ActionFailed,
-            format!("{other} is not a text target"),
-        )),
     }
 }
 
@@ -36,20 +32,13 @@ pub(crate) fn decode_text(target: &str, bytes: &[u8]) -> Result<String, AdapterE
 /// when every character fits Latin-1, so a reader of it never gets a
 /// substituted character.
 pub(crate) fn encode_text_targets(text: &str) -> Vec<Target> {
-    let mut targets = vec![
-        Target {
-            name: UTF8_STRING.to_owned(),
+    let mut targets: Vec<Target> = TEXT_TARGETS[..3]
+        .iter()
+        .map(|name| Target {
+            name: (*name).to_owned(),
             bytes: text.as_bytes().to_vec(),
-        },
-        Target {
-            name: TEXT_UTF8.to_owned(),
-            bytes: text.as_bytes().to_vec(),
-        },
-        Target {
-            name: TEXT_PLAIN.to_owned(),
-            bytes: text.as_bytes().to_vec(),
-        },
-    ];
+        })
+        .collect();
     let latin1: Option<Vec<u8>> = text
         .chars()
         .map(|c| u8::try_from(u32::from(c)).ok())

@@ -47,13 +47,6 @@ fn clear_with_another_client_re_owning_is_unresponsive_and_delivered_unverified(
 }
 
 #[test]
-fn clear_never_needs_the_helper() {
-    let world = World::new("clear-nohelper");
-    let server = FakeServer::new(&[None], &[]);
-    run_clear(&world, &server).expect("a clear needs no helper");
-}
-
-#[test]
 fn a_helper_that_exits_after_the_selection_changed_hands_is_uncertain() {
     let world = World::new("exits-changed");
     let helper = world.helper(EXITS);

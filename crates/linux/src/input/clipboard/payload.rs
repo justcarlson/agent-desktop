@@ -112,20 +112,10 @@ impl<'a> Cursor<'a> {
         Ok(head)
     }
 
-    fn u32(&mut self) -> Result<u32, AdapterError> {
-        let bytes: [u8; 4] = self
-            .take(4)?
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], AdapterError> {
+        self.take(N)?
             .try_into()
-            .map_err(|_| damaged("a short field"))?;
-        Ok(u32::from_le_bytes(bytes))
-    }
-
-    fn u64(&mut self) -> Result<u64, AdapterError> {
-        let bytes: [u8; 8] = self
-            .take(8)?
-            .try_into()
-            .map_err(|_| damaged("a short field"))?;
-        Ok(u64::from_le_bytes(bytes))
+            .map_err(|_| damaged("a short field"))
     }
 }
 
@@ -135,7 +125,7 @@ pub(crate) fn unframe(bytes: &[u8]) -> Result<Payload, AdapterError> {
     if generation != GENERATION {
         return Err(damaged(&format!("unknown generation {generation}")));
     }
-    let count = cursor.u32()? as usize;
+    let count = u32::from_le_bytes(cursor.array()?) as usize;
     if count == 0 {
         return Err(damaged("no targets"));
     }
@@ -144,10 +134,11 @@ pub(crate) fn unframe(bytes: &[u8]) -> Result<Payload, AdapterError> {
     }
     let mut targets = Vec::with_capacity(count);
     for _ in 0..count {
-        let name_len = cursor.u32()? as usize;
+        let name_len = u32::from_le_bytes(cursor.array()?) as usize;
         let name = String::from_utf8(cursor.take(name_len)?.to_vec())
             .map_err(|_| damaged("a target name that is not UTF-8"))?;
-        let data_len = usize::try_from(cursor.u64()?).map_err(|_| damaged("a length overruns"))?;
+        let data_len = usize::try_from(u64::from_le_bytes(cursor.array()?))
+            .map_err(|_| damaged("a length overruns"))?;
         let data = cursor.take(data_len)?.to_vec();
         targets.push(Target { name, bytes: data });
     }

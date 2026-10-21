@@ -55,17 +55,17 @@ pub(super) fn deadline() -> Deadline {
 
 static BUILT: Once = Once::new();
 
-fn build_one(package: &str, bin: &str) {
+fn build_helper() {
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut command = Command::new(cargo);
-    command.args(["build", "-p", package, "--bin", bin]);
+    command.args(["build", "-p", "agent-desktop-linux", "--bin", HELPER_NAME]);
     if profile_dir().ends_with("release") {
         command.arg("--release");
     }
     let output = command.output().expect("cargo runs");
     assert!(
         output.status.success(),
-        "building {bin} failed:\n{}",
+        "building {HELPER_NAME} failed:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
 }
@@ -81,8 +81,7 @@ fn profile_dir() -> PathBuf {
 
 fn build_binaries() {
     BUILT.call_once(|| {
-        build_one("agent-desktop", "agent-desktop");
-        build_one("agent-desktop-linux", HELPER_NAME);
+        build_helper();
     });
 }
 
@@ -90,13 +89,6 @@ pub(super) fn built_helper() -> PathBuf {
     build_binaries();
     let built = profile_dir().join(HELPER_NAME);
     assert!(built.is_file(), "{HELPER_NAME} is missing after the build");
-    built
-}
-
-pub(super) fn built_cli() -> PathBuf {
-    build_binaries();
-    let built = profile_dir().join("agent-desktop");
-    assert!(built.is_file(), "agent-desktop is missing after the build");
     built
 }
 
@@ -215,14 +207,4 @@ pub(super) fn text_of(content: Option<ClipboardContent>) -> Option<String> {
         Some(ClipboardContent::Text(text)) => Some(text),
         _ => None,
     }
-}
-
-pub(super) fn tiny_png() -> Vec<u8> {
-    let mut data = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
-    data.extend_from_slice(b"IHDR");
-    data.extend_from_slice(&3u32.to_be_bytes());
-    data.extend_from_slice(&2u32.to_be_bytes());
-    data.extend_from_slice(&[8, 2, 0, 0, 0]);
-    data.extend_from_slice(&[0; 4]);
-    data
 }

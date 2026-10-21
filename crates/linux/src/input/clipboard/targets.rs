@@ -15,6 +15,15 @@ pub(crate) enum Wanted {
     Text(&'static str),
 }
 
+impl Wanted {
+    pub(crate) fn target_name(&self) -> &'static str {
+        match self {
+            Self::FileUrls(name) | Self::Text(name) => name,
+            Self::Image => PNG,
+        }
+    }
+}
+
 fn first_offered(offered: &[String], candidates: &[&'static str]) -> Option<&'static str> {
     candidates
         .iter()

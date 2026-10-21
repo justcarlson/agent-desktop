@@ -6,10 +6,6 @@ use std::path::Path;
 const PRIVATE_DIR_MODE: u32 = 0o700;
 const PRIVATE_FILE_MODE: u32 = 0o600;
 
-fn current_user() -> u32 {
-    rustix::process::getuid().as_raw()
-}
-
 /// Creates `dir` with mode 0700, or accepts an existing one only when this
 /// user owns it and no one else can enter it.
 pub(crate) fn ensure_private_dir(dir: &Path) -> io::Result<()> {
@@ -19,7 +15,7 @@ pub(crate) fn ensure_private_dir(dir: &Path) -> io::Result<()> {
         .create(dir)?;
     let metadata = fs::metadata(dir)?;
     let private = metadata.is_dir()
-        && metadata.uid() == current_user()
+        && metadata.uid() == rustix::process::getuid().as_raw()
         && metadata.permissions().mode() & 0o077 == 0;
     if private {
         Ok(())

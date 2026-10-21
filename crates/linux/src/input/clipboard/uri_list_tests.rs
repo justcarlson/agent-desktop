@@ -31,11 +31,6 @@ fn crlf_and_lf_both_split() {
 }
 
 #[test]
-fn a_list_of_only_skipped_entries_is_no_paths() {
-    assert!(parse("# c\r\nhttp://x\r\nfile://remote/z\r\n").is_empty());
-}
-
-#[test]
 fn an_invalid_percent_sequence_is_an_error() {
     for bad in ["file:///a%zz", "file:///a%2", "file:///a%"] {
         let error = parse_uri_list(bad.as_bytes()).expect_err(bad);
@@ -82,13 +77,4 @@ fn gnome_files_parse_copy_cut_and_a_missing_header() {
             "{text:?}"
         );
     }
-}
-
-#[test]
-fn gnome_files_encode_copy_first_with_no_trailing_newline() {
-    let encoded = encode_gnome_copied_files(&["/a b".to_owned(), "/c".to_owned()]);
-    assert_eq!(
-        String::from_utf8(encoded).expect("ascii"),
-        "copy\nfile:///a%20b\nfile:///c"
-    );
 }

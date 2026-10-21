@@ -40,10 +40,6 @@ pub(crate) fn image_from_maps(maps: &str, address: usize) -> Option<PathBuf> {
     })
 }
 
-fn check_helper(helper: &Path) -> Result<(), AdapterError> {
-    check_helper_with(helper, &owner_group::caller_owns_group)
-}
-
 const STICKY: u32 = 0o1000;
 
 fn owned_by_caller_or_root(uid: u32) -> bool {
@@ -120,7 +116,7 @@ pub(crate) fn locate_in(maps: &str, address: usize) -> Result<PathBuf, AdapterEr
         .parent()
         .ok_or_else(|| refusal("The image that holds the clipboard code has no directory".into()))?
         .join(HELPER_NAME);
-    check_helper(&helper)?;
+    check_helper_with(&helper, &owner_group::caller_owns_group)?;
     Ok(helper)
 }
 

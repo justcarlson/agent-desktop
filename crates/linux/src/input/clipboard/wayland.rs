@@ -10,7 +10,7 @@ use super::command_runner::{CommandRunner, RunOutcome, RunSpec};
 use super::formats::{PNG, TEXT_UTF8, URI_LIST};
 use super::owner_spawn_spec::protect_lease_descriptor;
 use super::payload::payload_of;
-use super::targets::{Wanted, choose_target, content_of};
+use super::targets::{choose_target, content_of};
 use super::wayland_errors::{Failure, classify, failure_error};
 
 const COPY: &str = "wl-copy";
@@ -81,13 +81,6 @@ fn unverified(message: &str) -> AdapterError {
 
 fn fresh_deadline(fallback: Deadline) -> Deadline {
     Deadline::after(VERIFY_GRACE_MS).unwrap_or(fallback)
-}
-
-fn type_name(wanted: &Wanted) -> &'static str {
-    match wanted {
-        Wanted::FileUrls(name) | Wanted::Text(name) => name,
-        Wanted::Image => PNG,
-    }
 }
 
 enum Ran {
@@ -165,7 +158,7 @@ impl Wayland<'_> {
             args: vec![
                 "--no-newline".into(),
                 "--type".into(),
-                type_name(&wanted).into(),
+                wanted.target_name().into(),
             ],
             stdin: None,
             capture_stdout: true,

@@ -163,14 +163,6 @@ pub(crate) fn start_ticks_of(pid: u32) -> Option<u64> {
         .map(|parsed| parsed.start_time)
 }
 
-/// A record is live only while the process it names started when the record
-/// says. A different start time means the pid was recycled, and a recycled
-/// pid is never signalled.
-#[cfg(test)]
-pub(crate) fn is_live_with(record: &OwnerRecord, start_of: impl Fn(u32) -> Option<u64>) -> bool {
-    record.pid != 0 && start_of(record.pid) == Some(record.start_ticks)
-}
-
 #[cfg(test)]
 #[path = "owner_record_tests.rs"]
 mod tests;

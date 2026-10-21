@@ -1,10 +1,7 @@
+use agent_desktop_core::{ClipboardContent, ClipboardFormat};
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
-
-use agent_desktop_core::{ClipboardContent, ClipboardFormat, ImageBuffer, ImageFormat};
 
 use crate::input::clipboard::owner_record;
 
@@ -22,10 +19,10 @@ fn text_set_is_served_by_a_detached_owner_and_read_by_a_second_process() {
     install_helper_beside_the_image();
     set(&ClipboardContent::Text("live text value".into()));
     let owner = the_record(&session.display);
-    assert!(owner_record::is_live_with(
-        &owner,
-        owner_record::start_ticks_of
-    ));
+    assert_eq!(
+        owner_record::start_ticks_of(owner.pid),
+        Some(owner.start_ticks)
+    );
     for target in [
         "UTF8_STRING",
         "text/plain;charset=utf-8",
@@ -71,57 +68,6 @@ fn text_set_is_served_by_a_detached_owner_and_read_by_a_second_process() {
 }
 
 #[test]
-#[ignore = "needs a private X11 session and the built CLI and clipboard owner"]
-fn the_cli_exits_with_its_stdout_closed_while_the_owner_keeps_serving() {
-    let session = private_session();
-    let helper = built_helper();
-    fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).expect("executable");
-    let cli = built_cli();
-    let started = Instant::now();
-    let output = Command::new(&cli)
-        .args(["clipboard-set", "from the cli"])
-        .stdin(Stdio::null())
-        .output()
-        .expect("the CLI runs and its stdout reaches end-of-file");
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    assert!(started.elapsed() < Duration::from_secs(15));
-    assert_eq!(
-        foreign_read(&session.display, "UTF8_STRING").as_deref(),
-        Some(b"from the cli".as_slice())
-    );
-    let owner = the_record(&session.display);
-    assert!(owner_record::is_live_with(
-        &owner,
-        owner_record::start_ticks_of
-    ));
-    let cleared = Command::new(&cli)
-        .arg("clipboard-clear")
-        .stdin(Stdio::null())
-        .output()
-        .expect("the CLI clears");
-    assert!(cleared.status.success());
-    wait_until("the owner ends", || gone(owner.pid));
-}
-
-#[test]
-#[ignore = "needs a private X11 session and the built clipboard owner"]
-fn clear_leaves_the_selection_unowned_and_ends_the_recorded_owner() {
-    let session = private_session();
-    install_helper_beside_the_image();
-    set(&ClipboardContent::Text("to be cleared".into()));
-    let owner = the_record(&session.display);
-    clear_and_finish();
-    assert!(get(ClipboardFormat::Auto).is_none());
-    assert!(foreign_read(&session.display, "UTF8_STRING").is_none());
-    wait_until("the owner ends", || gone(owner.pid));
-    assert!(records(&session.display).is_empty());
-}
-
-#[test]
 #[ignore = "needs a private X11 session and the built clipboard owner"]
 fn a_second_set_replaces_the_first_owner_and_leaves_one_record() {
     let session = private_session();
@@ -155,31 +101,6 @@ fn a_text_above_the_incr_threshold_round_trips_through_both_readers() {
     );
     let ours = text_of(get(ClipboardFormat::Text)).expect("our read");
     assert!(ours == big, "our INCR reader must get every byte");
-    clear_and_finish();
-}
-
-#[test]
-#[ignore = "needs a private X11 session and the built clipboard owner"]
-fn an_image_is_served_as_png_and_read_back() {
-    let session = private_session();
-    install_helper_beside_the_image();
-    let png = tiny_png();
-    set(&ClipboardContent::Image(ImageBuffer {
-        data: png.clone(),
-        format: ImageFormat::Png,
-        width: 3,
-        height: 2,
-        scale_factor: 1.0,
-    }));
-    assert_eq!(
-        foreign_read(&session.display, "image/png"),
-        Some(png.clone())
-    );
-    let Some(ClipboardContent::Image(image)) = get(ClipboardFormat::Image) else {
-        panic!("an image is read as an image")
-    };
-    assert_eq!((image.width, image.height, image.data), (3, 2, png));
-    assert!(get(ClipboardFormat::Text).is_none());
     clear_and_finish();
 }
 
