@@ -44,3 +44,26 @@ fn unsupported_focus_names_a_supported_target_instead_of_repeating_headed() {
         assert!(!hint.contains("--headed"), "{hint}");
     }
 }
+
+#[test]
+fn unsupported_text_write_switches_to_type_in_the_actual_mode() {
+    for action in [Action::SetValue("search".into()), Action::Clear] {
+        for policy in [
+            InteractionPolicy::headless(),
+            InteractionPolicy::focus_fallback(),
+            InteractionPolicy::headed(),
+        ] {
+            let hint = unsupported(action.clone(), policy).suggestion.unwrap();
+            assert!(hint.contains("type"), "{hint}");
+            assert_eq!(
+                hint.contains("--headed type"),
+                !policy.is_headed(),
+                "{hint}"
+            );
+            if policy.is_headed() {
+                assert!(hint.contains("current headed mode"), "{hint}");
+                assert!(!hint.contains("--headed"), "{hint}");
+            }
+        }
+    }
+}
