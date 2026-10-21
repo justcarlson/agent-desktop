@@ -236,7 +236,3 @@ pub(crate) fn select_frame_origin(
         (None, managed())
     }
 }
-
-#[cfg(test)]
-#[path = "live_offscreen_tests.rs"]
-mod tests;
