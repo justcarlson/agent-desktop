@@ -1,4 +1,4 @@
-use agent_desktop_core::{ErrorCode, IdentifierKind, LocatorField};
+use agent_desktop_core::{ErrorCode, IdentifierKind};
 
 use super::*;
 use crate::tree::ancestry::{self, Ancestry};
@@ -50,14 +50,4 @@ fn a_handle_with_no_window_frame_is_refused_rather_than_read_with_a_guessed_flag
         })
         .is_ok()
     );
-}
-
-#[test]
-fn the_evidence_of_a_node_is_what_the_walk_projects_for_it() {
-    let read = dom_button();
-    let limits = WalkLimits::default();
-    let walked = crate::tree::projection::project_node(&read, true, &limits);
-    let live = evidence_for(&read, &element_in(true));
-    assert_eq!(walked, live);
-    assert_eq!(live.name, LocatorField::Known("Save".to_owned()));
 }

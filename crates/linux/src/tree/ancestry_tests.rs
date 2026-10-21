@@ -10,7 +10,7 @@ fn element(bus: &str, path: &str, pid: u32) -> AtspiElement {
 }
 
 #[test]
-fn a_child_inherits_the_frame_and_keeps_the_parents_container() {
+fn children_inherit_the_frame_and_nearest_scroll_container() {
     let frame = element(":1.1", "/root/frame", 1);
     let scroll = element(":1.1", "/root/frame/scroll", 1);
     let mut parent = element(":1.1", "/root/frame/scroll/inner", 1);
@@ -19,42 +19,23 @@ fn a_child_inherits_the_frame_and_keeps_the_parents_container() {
         Some(scroll.clone()),
         false,
     ));
-    let ancestry = child(&parent, Some(39));
-    assert_eq!(ancestry.frame(), Some(&frame));
-    assert_eq!(ancestry.scroll_container(), Some(&scroll));
-}
+    let inherited = child(&parent, Some(39));
+    assert_eq!(inherited.frame(), Some(&frame));
+    assert_eq!(inherited.scroll_container(), Some(&scroll));
 
-#[test]
-fn a_scroll_pane_or_viewport_parent_is_itself_the_container() {
     for role in [49, 68] {
-        let mut parent = element(":1.1", "/root/frame/scroll", 1);
-        parent.set_ancestry(Ancestry::of(
-            Some(element(":1.1", "/root/frame", 1)),
-            None,
-            false,
-        ));
-        let ancestry = child(&parent, Some(role));
-        assert_eq!(ancestry.scroll_container(), Some(&parent.address()));
+        let mut pane = element(":1.1", "/root/frame/scroll", 1);
+        pane.set_ancestry(Ancestry::of(Some(frame.clone()), None, false));
+        assert_eq!(
+            child(&pane, Some(role)).scroll_container(),
+            Some(&pane.address()),
+            "role {role}"
+        );
     }
 }
 
 #[test]
-fn two_handles_to_one_address_with_different_ancestry_compare_equal() {
-    let plain = element(":1.1", "/root/frame/node", 1);
-    let mut with = element(":1.1", "/root/frame/node", 1);
-    with.set_ancestry(of_root(&element(":1.1", "/root/frame", 1)));
-    assert_eq!(plain, with);
-}
-
-#[test]
-fn a_handle_with_no_ancestry_gives_none_for_both() {
-    let element = element(":1.1", "/root/frame/node", 1);
-    assert_eq!(element.frame(), None);
-    assert_eq!(element.scroll_container(), None);
-}
-
-#[test]
-fn children_inherit_the_frame_and_the_parent_as_container_when_it_scrolls() {
+fn child_construction_carries_bus_pid_and_ancestry() {
     let frame = element(":1.1", "/root/frame", 1);
     let mut read = read_of(49, "scroll", &[]);
     read.node.element = element(":1.1", "/root/frame/scroll", 1);
@@ -78,36 +59,33 @@ fn children_inherit_the_frame_and_the_parent_as_container_when_it_scrolls() {
     );
 }
 
-fn parent_in(web: bool) -> AtspiElement {
-    let mut parent = element(":1.1", "/root/frame/node", 1);
-    parent.set_ancestry(Ancestry::of(None, None, web));
-    parent
-}
-
 #[test]
-fn a_web_document_parent_puts_its_child_inside_a_web_document() {
+fn web_document_ancestry_propagates_and_root_starts_outside() {
     for role in [95, 82] {
-        assert!(child(&parent_in(false), Some(role)).in_web_document());
+        assert!(child(&element(":1.1", "/root", 1), Some(role)).in_web_document());
     }
-}
+    let mut inside = element(":1.1", "/root/node", 1);
+    inside.set_ancestry(Ancestry::of(None, None, true));
+    assert!(child(&inside, Some(39)).in_web_document());
+    assert!(child(&inside, None).in_web_document());
 
-#[test]
-fn a_child_stays_inside_a_web_document_whatever_its_parents_role() {
-    assert!(child(&parent_in(true), Some(39)).in_web_document());
-    assert!(child(&parent_in(true), None).in_web_document());
-}
-
-#[test]
-fn a_child_outside_any_web_document_is_not_inside_one() {
-    assert!(!child(&parent_in(false), Some(39)).in_web_document());
-    assert!(!child(&parent_in(false), None).in_web_document());
+    let mut outside = element(":1.1", "/root/node", 1);
+    outside.set_ancestry(Ancestry::of(None, None, false));
+    assert!(!child(&outside, Some(39)).in_web_document());
+    assert!(!child(&outside, None).in_web_document());
     assert!(!of_root(&element(":1.1", "/root/frame", 1)).in_web_document());
 }
 
 #[test]
-fn the_web_flag_survives_cloning_the_handle_but_not_the_address() {
-    let mut node = element(":1.1", "/root/frame/node", 1);
-    node.set_ancestry(Ancestry::of(None, None, true));
-    assert!(node.clone().in_web_document());
-    assert!(!node.address().in_web_document());
+fn ancestry_is_ignored_for_address_equality_but_address_conversion_drops_it() {
+    let plain = element(":1.1", "/root/frame/node", 1);
+    let mut with = element(":1.1", "/root/frame/node", 1);
+    let frame = element(":1.1", "/root/frame", 1);
+    let scroll = element(":1.1", "/root/frame/scroll", 1);
+    with.set_ancestry(Ancestry::of(Some(frame), Some(scroll), true));
+    assert_eq!(plain, with);
+    let address = with.address();
+    assert_eq!(address.frame(), None);
+    assert_eq!(address.scroll_container(), None);
+    assert!(!address.in_web_document());
 }

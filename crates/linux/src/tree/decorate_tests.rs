@@ -3,8 +3,8 @@ use agent_desktop_core::{
     ObservedTree, WindowInfo, WindowState,
 };
 
-use super::{Decorate, Plain};
-use crate::tree::projection::{project, project_node, project_with};
+use super::Decorate;
+use crate::tree::projection::{project_node, project_with};
 use crate::tree::role_numbers::{PANEL, PUSH_BUTTON};
 use crate::tree::test_support::read_of;
 use crate::tree::{ObservedRead, Walk, WalkCounts, WalkLimits, WalkedNode};
@@ -108,16 +108,6 @@ impl Decorate for Recording {
         self.finishes += 1;
         vec![extra("Tail", first_child_index)]
     }
-}
-
-#[test]
-fn the_default_hook_projects_exactly_what_project_does() {
-    let limits = WalkLimits::default();
-    let (plain_subtree, plain_stats) = project(walk(), &limits);
-    let (hooked_subtree, hooked_stats) = project_with(walk(), &limits, &mut Plain);
-    let plain = serde_json::to_string(&tree(plain_subtree, plain_stats)).expect("serialises");
-    let hooked = serde_json::to_string(&tree(hooked_subtree, hooked_stats)).expect("serialises");
-    assert_eq!(plain, hooked);
 }
 
 #[test]

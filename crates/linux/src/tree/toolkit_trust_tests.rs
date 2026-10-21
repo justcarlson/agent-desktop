@@ -1,120 +1,70 @@
 use super::*;
+use crate::tree::text_units::LengthUnit;
 
-fn toolkit(name: Option<&str>, version: Option<&str>) -> ToolkitId {
-    ToolkitId {
-        name: name.map(str::to_owned),
-        version: version.map(str::to_owned),
+#[test]
+fn toolkit_policy_matrix() {
+    let rows = [
+        (
+            Some("gtk"),
+            Some("3.24.41"),
+            [true, true, true, false, false, true, false],
+        ),
+        (
+            Some("GTK"),
+            Some("4.14.5"),
+            [false, false, true, false, false, false, false],
+        ),
+        (
+            Some("Qt"),
+            Some("6.4"),
+            [true, true, true, true, false, false, true],
+        ),
+        (
+            Some("Chromium"),
+            None,
+            [true, false, true, false, false, false, false],
+        ),
+        (
+            None,
+            None,
+            [false, false, false, false, false, false, false],
+        ),
+        (
+            Some("gtk"),
+            None,
+            [false, false, false, false, false, false, false],
+        ),
+        (
+            Some("gtk"),
+            Some("x"),
+            [false, false, false, false, false, false, false],
+        ),
+        (
+            Some("clutter"),
+            Some("1.0"),
+            [false, false, false, false, false, false, false],
+        ),
+        (
+            Some("Gecko"),
+            Some("158.0"),
+            [false, false, false, false, true, false, false],
+        ),
+    ];
+
+    for (name, version, expected) in rows {
+        let toolkit = ToolkitId {
+            name: name.map(str::to_owned),
+            version: version.map(str::to_owned),
+        };
+        let actual = [
+            reports_global_position(&toolkit),
+            trusts_same_window_landing(&toolkit),
+            trusts_descent(&toolkit),
+            insert_length_unit(&toolkit) == LengthUnit::Utf16Units,
+            is_gecko(&toolkit),
+            combo_selection_is_live(&toolkit),
+            combo_name_is_value(&toolkit),
+        ];
+        assert_eq!(actual, expected, "toolkit {name:?} {version:?}");
     }
-}
-
-#[test]
-fn gtk_three_qt_and_chromium_report_global_positions() {
-    assert!(reports_global_position(&toolkit(
-        Some("gtk"),
-        Some("3.24.41")
-    )));
-    assert!(reports_global_position(&toolkit(Some("Qt"), Some("6.4"))));
-    assert!(reports_global_position(&toolkit(Some("Chromium"), None)));
-}
-
-#[test]
-fn gtk_four_an_unversioned_gtk_and_unknown_toolkits_do_not() {
-    assert!(!reports_global_position(&toolkit(
-        Some("GTK"),
-        Some("4.14.5")
-    )));
-    assert!(!reports_global_position(&toolkit(Some("gtk"), None)));
-    assert!(!reports_global_position(&toolkit(Some("gtk"), Some("x"))));
-    assert!(!reports_global_position(&toolkit(
-        Some("clutter"),
-        Some("1.0")
-    )));
-    assert!(!reports_global_position(&toolkit(None, None)));
-}
-
-#[test]
-fn same_window_landings_are_trusted_for_gtk_three_and_qt_only() {
-    assert!(trusts_same_window_landing(&toolkit(
-        Some("gtk"),
-        Some("3.24")
-    )));
-    assert!(trusts_same_window_landing(&toolkit(
-        Some("Qt"),
-        Some("6.11")
-    )));
-}
-
-#[test]
-fn gtk_four_chromium_and_unknown_toolkits_are_untrusted_for_same_window_landings() {
-    assert!(!trusts_same_window_landing(&toolkit(
-        Some("gtk"),
-        Some("4.14")
-    )));
-    assert!(!trusts_same_window_landing(&toolkit(
-        Some("Chromium"),
-        Some("1.0")
-    )));
-    assert!(!trusts_same_window_landing(&toolkit(Some("gtk"), None)));
-    assert!(!trusts_same_window_landing(&toolkit(None, None)));
-}
-
-#[test]
-fn descents_are_trusted_for_the_four_measured_toolkits() {
-    assert!(trusts_descent(&toolkit(Some("gtk"), Some("4.14"))));
-    assert!(trusts_descent(&toolkit(Some("Chromium"), Some("1.0"))));
-    assert!(!trusts_descent(&toolkit(Some("gtk"), None)));
-    assert!(!trusts_descent(&toolkit(Some("clutter"), Some("1.0"))));
-}
-
-#[test]
-fn only_qt_counts_the_insert_length_in_utf16_units() {
-    use super::insert_length_unit;
-    use crate::tree::text_units::LengthUnit;
-    let named = |name: &str, version: &str| toolkit(Some(name), Some(version));
-    assert_eq!(
-        insert_length_unit(&named("Qt", "6.4")),
-        LengthUnit::Utf16Units
-    );
-    assert_eq!(
-        insert_length_unit(&named("gtk", "3.24")),
-        LengthUnit::Utf8Bytes
-    );
-    assert_eq!(
-        insert_length_unit(&named("GTK", "4.14")),
-        LengthUnit::Utf8Bytes
-    );
-    assert_eq!(
-        insert_length_unit(&ToolkitId::default()),
-        LengthUnit::Utf8Bytes
-    );
-}
-
-#[test]
-fn only_a_root_named_gecko_is_gecko() {
-    use super::is_gecko;
-    assert!(is_gecko(&toolkit(Some("Gecko"), Some("158.0"))));
-    assert!(!is_gecko(&toolkit(Some("Chromium"), None)));
-    assert!(!is_gecko(&toolkit(Some("Qt"), Some("6.4"))));
-    assert!(!is_gecko(&ToolkitId::default()));
-}
-
-#[test]
-fn only_gtk_three_has_a_combo_selection_that_follows_the_application() {
-    use super::combo_selection_is_live;
-    assert!(combo_selection_is_live(&toolkit(Some("gtk"), Some("3.24"))));
-    assert!(!combo_selection_is_live(&toolkit(
-        Some("GTK"),
-        Some("4.14")
-    )));
-    assert!(!combo_selection_is_live(&toolkit(Some("Qt"), Some("6.4"))));
-    assert!(!combo_selection_is_live(&ToolkitId::default()));
-}
-
-#[test]
-fn only_qt_names_a_combo_by_its_shown_value() {
-    use super::combo_name_is_value;
-    assert!(combo_name_is_value(&toolkit(Some("Qt"), Some("6.4"))));
-    assert!(!combo_name_is_value(&toolkit(Some("gtk"), Some("3.24"))));
-    assert!(!combo_name_is_value(&toolkit(Some("Chromium"), None)));
-    assert!(!combo_name_is_value(&ToolkitId::default()));
 }
