@@ -86,7 +86,7 @@ One prerequisite is not 3.6's but decides what it can prove. Core focuses the ta
   - Emitting `offscreen` or `hidden` into snapshots (KTD9). Evidence that would change the call: a dogfood finding that agents cannot tell scrolled-out rows from a snapshot.
   - An X11 snapshot cached across the five candidate points: 3.4 keeps no connection between calls and the cost is measured first (U10).
   - Wayland occlusion by any compositor query: `GetWindows` is `AccessDenied` and the screenshot service is too (`L13-17`).
-  - Modality as occlusion evidence. Modality is per application: a same-app modal is seen only when its X11 window covers the point, and no measured row shows a modal dialog in another app blocking the target.
+  - Modality in another application as occlusion evidence. Same-app modality is checked separately in the live-element preflight for semantic and physical actions: another top-level with `SHOWING` and `MODAL` refuses the target with `blocked_by_modal_dialog`, `not_delivered` and a hint to act in the dialog or close it. The target's own dialog remains actionable. Unreadable window membership or modal evidence refuses with `modal_state_unknown`; without a proven owner relationship, other same-app frames are conservatively blocked. This closes the semantic parent mutation observed in `df3-menus` rows 7 and 8.
 - Deferred to follow-up work, written into `docs/phases.md` in U9:
   - Coordinate and wheel scroll, which move the real pointer and need 3.8's input, receive the `scroll_into_view` fallback (`L6-11`, `L6-12`, `L13-17`, `L5-5`).
   - A target absent from the tree because a GTK4 grid virtualised it never reaches `scroll_into_view`: its ref does not resolve. A `scroll bar` `Value` write realises it a fraction of a second later (0.77 s, `L27-4`), so the realise-then-re-find leg is a `set-value` on the scroll bar ref in 3.7 and a harness leg in 3.12 (`L14-7`).
@@ -395,7 +395,7 @@ Requirement-to-check map: R1 → U4 verdict rows, U5 live reach; R2 → U4 occlu
   - `L6-14`: accepted, constants, unused.
   - `L4-16`, `L4-23`, `L5-6`, `L11-22`, `L16-6`, `L16-16`: `focus_window` uses none of `GrabFocus`; `L4-23` closed or re-assigned by U7's measurement; the rest cited by its guards (U7).
   - `L27-10`: implemented as the `overview_open` and `activation_not_granted` refusals (U7); the click fallback is owned by 3.9.
-  - `L27-23`: implemented as the cover pair of the live and dogfood legs (U5, U11); modality is not evidence (Scope Boundaries).
+  - `L27-23`: implemented as the geometric cover pair of the live and dogfood legs (U5, U11); another application's modality is not evidence (Scope Boundaries). Same-app modal blocking has a separate live-element gate, with deterministic coverage in `live_modal_tests.rs` and the `df3-menus` rows 7 and 8 repro on both X11 managers.
   - `L27-4`, `L27-34`, `L27-35`: implemented as the 2 s observation window (U8); the realise-then-re-find leg is owned by 3.7 and 3.12.
   - `L23-37`, `L27-22`, `L27-40`: implemented as the GTK4 window-extent model, which held (U4, U6).
   - `L27-26`, `L14-4`: implemented as KTD12's zero-axis adapter proof.

@@ -30,6 +30,7 @@ pub(crate) mod live_project;
 mod live_read;
 pub(crate) mod menu_context;
 pub(crate) mod menu_resolve;
+mod modal_gate;
 mod name_evidence;
 pub(crate) mod nested_dialog;
 mod node_class;
