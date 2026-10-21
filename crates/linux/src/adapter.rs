@@ -254,7 +254,7 @@ impl ActionOps for LinuxAdapter {
         handle: &NativeHandle,
         lease: &InteractionLease,
     ) -> Result<(), AdapterError> {
-        crate::actions::scroll_into_view(self.bus(), handle, lease)
+        crate::actions::scroll_into_view(self.bus(), handle, lease).map(|_| ())
     }
 }
 impl InputOps for LinuxAdapter {

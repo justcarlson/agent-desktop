@@ -210,6 +210,9 @@ pub(crate) fn set_value(
     match route(view.role(), view.interfaces()) {
         Route::Unsupported => Err(unsupported("set a value")),
         Route::Numeric { spin_button } => {
+            if view.state(READ_ONLY) == Some(true) {
+                return Err(unsupported("set a read-only value"));
+            }
             let increment = spin_button.then(|| minimum_increment(target)).flatten();
             let plan = numeric_write::plan(text, spin_button, increment)?;
             let port = LiveNumeric { target };

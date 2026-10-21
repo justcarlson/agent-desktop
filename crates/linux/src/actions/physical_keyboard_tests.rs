@@ -161,41 +161,54 @@ fn wayland_keys_go_through_the_keysym_sender_after_target_focus_preflight() {
 }
 
 #[test]
-fn headed_type_focuses_the_target_and_refuses_unproven_or_lost_focus() {
-    for wayland in [false, true] {
-        for reads in [
-            vec![false, true, true, true],
-            vec![false],
-            vec![true, false],
-            vec![true, true, false],
-        ] {
-            let world = if wayland {
-                FakeWorld::wayland()
-            } else {
-                FakeWorld::x11()
-            };
-            *world.focus_reads.borrow_mut() = reads.iter().copied().collect();
-            let outcome = type_text_steps(
-                &world,
-                &element(),
-                " ",
-                InteractionPolicy::headed(),
-                deadline(),
-            );
-            assert_eq!(world.count("focus_target"), usize::from(!reads[0]));
-            if !reads[0] && reads.len() > 1 {
-                outcome.expect("focus is acquired and proven before typing");
-                let entries = world.entries();
-                assert!(
-                    entries.iter().position(|e| e == "focus_target").unwrap()
-                        < entries.iter().position(|e| e == "sent").unwrap()
-                );
-                assert_eq!(world.count("sent"), 1);
-            } else {
-                let error = outcome.expect_err("an active window alone never authorizes typing");
-                assert_eq!(check_of(&error).as_deref(), Some("target_focus"));
-                assert!(not_delivered(&error));
-                assert!(world.sent_nothing());
+fn headed_element_keys_focus_the_target_and_refuse_unproven_or_lost_focus() {
+    for press in [false, true] {
+        for wayland in [false, true] {
+            for reads in [
+                vec![false, true, true, true],
+                vec![false],
+                vec![true, false],
+                vec![true, true, false],
+            ] {
+                let world = if wayland {
+                    FakeWorld::wayland()
+                } else {
+                    FakeWorld::x11()
+                };
+                *world.focus_reads.borrow_mut() = reads.iter().copied().collect();
+                let outcome = if press {
+                    press_key_element_steps(
+                        &world,
+                        &element(),
+                        &combo(),
+                        InteractionPolicy::headed(),
+                        deadline(),
+                    )
+                } else {
+                    type_text_steps(
+                        &world,
+                        &element(),
+                        " ",
+                        InteractionPolicy::headed(),
+                        deadline(),
+                    )
+                };
+                assert_eq!(world.count("focus_target"), usize::from(!reads[0]));
+                if !reads[0] && reads.len() > 1 {
+                    outcome.expect("focus is acquired and proven before typing");
+                    let entries = world.entries();
+                    assert!(
+                        entries.iter().position(|e| e == "focus_target").unwrap()
+                            < entries.iter().position(|e| e == "sent").unwrap()
+                    );
+                    assert_eq!(world.count("sent"), 1);
+                } else {
+                    let error =
+                        outcome.expect_err("an active window alone never authorizes typing");
+                    assert_eq!(check_of(&error).as_deref(), Some("target_focus"));
+                    assert!(not_delivered(&error));
+                    assert!(world.sent_nothing());
+                }
             }
         }
     }

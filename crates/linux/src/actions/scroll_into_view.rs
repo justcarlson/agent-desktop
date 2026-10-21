@@ -67,6 +67,7 @@ enum Cause {
     NotRealised,
     TargetHidden,
     BoundsNotProvable,
+    VisibilityUnknown,
 }
 
 impl Cause {
@@ -80,6 +81,7 @@ impl Cause {
             Self::NotRealised => "target_not_realised",
             Self::TargetHidden => "target_hidden",
             Self::BoundsNotProvable => "bounds_not_provable",
+            Self::VisibilityUnknown => "target_visibility_unknown",
         }
     }
 
@@ -96,6 +98,9 @@ impl Cause {
             Self::TargetHidden => "The element is hidden and cannot be scrolled into view",
             Self::BoundsNotProvable => {
                 "The element is on screen but its position cannot be proved to a pointer"
+            }
+            Self::VisibilityUnknown => {
+                "The element's visibility could not be proved, so no scroll was attempted"
             }
         }
     }
@@ -129,10 +134,12 @@ fn watch<P: ScrollPort, W: Waiter>(port: &mut P, waiter: &mut W) -> Result<bool,
 fn scroll_to_rung<P: ScrollPort, W: Waiter>(
     port: &mut P,
     waiter: &mut W,
+    delivered: &mut bool,
 ) -> Result<Outcome, AdapterError> {
     if !port.scroll_to()? {
         return Ok(Outcome::Stopped(Cause::NoRoute));
     }
+    *delivered = true;
     Ok(if watch(port, waiter)? {
         Outcome::Realised
     } else {
@@ -143,6 +150,7 @@ fn scroll_to_rung<P: ScrollPort, W: Waiter>(
 fn bar_rung<P: ScrollPort, W: Waiter>(
     port: &mut P,
     waiter: &mut W,
+    delivered: &mut bool,
 ) -> Result<Outcome, AdapterError> {
     let first = port.geometry()?;
     let axes = if usable(first.target).is_some() {
@@ -182,7 +190,10 @@ fn bar_rung<P: ScrollPort, W: Waiter>(
         };
         match next_value(range, viewport, axis, aim) {
             Step::AtLimit => return Ok(Outcome::Stopped(Cause::AtLimit)),
-            Step::Write(value) => port.write(value)?,
+            Step::Write(value) => {
+                port.write(value)?;
+                *delivered = true;
+            }
         }
         if watch(port, waiter)? {
             return Ok(Outcome::Realised);
@@ -204,7 +215,7 @@ fn usable(rect: Option<Extents>) -> Option<Extents> {
 pub(crate) fn drive<P: ScrollPort, W: Waiter>(
     port: &mut P,
     waiter: &mut W,
-) -> Result<(), AdapterError> {
+) -> Result<bool, AdapterError> {
     let view = port.view()?;
     if view.window_minimized {
         return Err(refusal(FocusCause::WindowHidden));
@@ -216,29 +227,45 @@ pub(crate) fn drive<P: ScrollPort, W: Waiter>(
         if !view.bounds_provable {
             return Err(failure(Cause::BoundsNotProvable, &[]));
         }
-        return Ok(());
+        if view.offscreen.is_none() {
+            return Err(failure(Cause::VisibilityUnknown, &[]));
+        }
+        return Ok(false);
     }
+    let mut delivered = false;
     let toolkit = port.toolkit();
     let (mut tried, mut cause) = (Vec::new(), Cause::NoRoute);
     for rung in rungs_for(&toolkit) {
         tried.push(rung.name());
         let outcome = match rung {
-            Rung::ScrollTo => scroll_to_rung(port, waiter)?,
-            Rung::BarValue => bar_rung(port, waiter)?,
-        };
+            Rung::ScrollTo => scroll_to_rung(port, waiter, &mut delivered),
+            Rung::BarValue => bar_rung(port, waiter, &mut delivered),
+        }
+        .map_err(|error| {
+            if delivered {
+                error.with_disposition(DeliverySemantics::uncertain())
+            } else {
+                error
+            }
+        })?;
         match outcome {
-            Outcome::Realised => return Ok(()),
+            Outcome::Realised => return Ok(delivered),
             Outcome::Stopped(stopped) => cause = cause.max(stopped),
         }
     }
-    Err(failure(cause, &tried))
+    let error = failure(cause, &tried);
+    Err(if delivered {
+        error.with_disposition(DeliverySemantics::delivered_unverified())
+    } else {
+        error
+    })
 }
 
 pub(crate) fn scroll_into_view(
     bus: &SharedBus,
     handle: &NativeHandle,
     lease: &InteractionLease,
-) -> Result<(), AdapterError> {
+) -> Result<bool, AdapterError> {
     let deadline = lease.deadline();
     let element = atspi_element(handle)?;
     drive(

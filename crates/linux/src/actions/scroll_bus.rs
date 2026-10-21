@@ -3,15 +3,18 @@ use futures_util::future::join3;
 use zbus::Connection;
 use zbus::zvariant::{OwnedValue, Value};
 
+use super::context::Target;
+use super::mutation::{WriteKind, WriteReply};
 use super::scroll_crawl::{Crawl, orientation_of, role_of};
 use super::scroll_find_bar::{Orientation, Site, choose_bar};
 use super::scroll_into_view::{BarFound, Geometry, ScrollPort, View};
 use super::scroll_plan::{Axis, BarRange};
+use super::write_call::{Call, invoke};
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::window_filter::frame_state;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
-use crate::system::{PROPERTIES_INTERFACE, SharedBus, classify, within};
+use crate::system::{PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::SCROLL_BAR;
 use crate::tree::window_extents::read_window_extents;
@@ -234,28 +237,22 @@ impl ScrollPort for BusPort<'_> {
     }
 
     fn scroll_to(&mut self) -> Result<bool, AdapterError> {
-        let connection = self.connection()?;
-        let element = self.element;
-        within(self.deadline, async {
-            let reply = connection
-                .inner()
-                .call_method(
-                    Some(element.bus_name()),
-                    element.path(),
-                    Some(COMPONENT_INTERFACE),
-                    "ScrollTo",
-                    &(TOP_LEFT,),
-                )
-                .await;
-            match reply {
-                Ok(message) => message
-                    .body()
-                    .deserialize::<bool>()
-                    .map_err(|error| classify(&error)),
-                Err(zbus::Error::MethodError(..)) => Ok(false),
-                Err(error) => Err(classify(&error)),
-            }
-        })
+        let target = Target {
+            bus: self.bus,
+            handle: self.handle,
+            element: self.element,
+            deadline: self.deadline,
+        };
+        invoke(
+            &target,
+            Call {
+                interface: COMPONENT_INTERFACE,
+                method: "ScrollTo",
+                body: &(TOP_LEFT,),
+                kind: WriteKind::ScrollTo,
+            },
+        )
+        .map(|reply| reply == WriteReply::Done)
     }
 
     fn geometry(&mut self) -> Result<Geometry, AdapterError> {
@@ -325,21 +322,29 @@ impl ScrollPort for BusPort<'_> {
                 "No scroll bar was found to write",
             ));
         };
-        let connection = self.connection()?;
-        within(self.deadline, async {
-            connection
-                .inner()
-                .call_method(
-                    Some(bar.bus_name()),
-                    bar.path(),
-                    Some(PROPERTIES_INTERFACE),
-                    "Set",
-                    &(VALUE_INTERFACE, "CurrentValue", Value::from(value)),
-                )
-                .await
-                .map(|_| ())
-                .map_err(|error| classify(&error))
-        })
+        let handle = bar.clone().into_native_handle();
+        let target = Target {
+            bus: self.bus,
+            handle: &handle,
+            element: bar,
+            deadline: self.deadline,
+        };
+        match invoke(
+            &target,
+            Call {
+                interface: PROPERTIES_INTERFACE,
+                method: "Set",
+                body: &(VALUE_INTERFACE, "CurrentValue", Value::from(value)),
+                kind: WriteKind::SetProperty,
+            },
+        )? {
+            WriteReply::Done => Ok(()),
+            WriteReply::Absent => Err(AdapterError::new(
+                ErrorCode::ActionNotSupported,
+                "The scroll bar does not accept value writes",
+            )
+            .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())),
+        }
     }
 }
 

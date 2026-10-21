@@ -55,6 +55,7 @@ struct Fake {
     moves_on_write: bool,
     arrival: Option<Duration>,
     bar_axis: Option<Axis>,
+    observe_error: bool,
 }
 
 impl Fake {
@@ -90,6 +91,7 @@ impl Fake {
             moves_on_write: true,
             arrival: None,
             bar_axis: None,
+            observe_error: false,
         }
     }
 
@@ -111,6 +113,9 @@ impl ScrollPort for Fake {
     }
 
     fn observe(&mut self) -> Result<Option<bool>, AdapterError> {
+        if self.observe_error {
+            return Err(AdapterError::timeout("observation timed out"));
+        }
         let landed = self.arrival.is_some_and(|at| self.clock.now.get() >= at);
         Ok(Some(!landed))
     }
@@ -359,3 +364,6 @@ fn a_target_in_a_minimized_window_gets_the_window_hidden_refusal_and_no_rung_run
     assert_eq!(port.scroll_to_calls, 0);
     assert!(port.writes.is_empty());
 }
+
+#[path = "scroll_delivery_tests.rs"]
+mod delivery;

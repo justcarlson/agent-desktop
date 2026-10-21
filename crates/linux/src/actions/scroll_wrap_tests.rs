@@ -6,6 +6,7 @@ struct Port {
     reads: Vec<Visibility>,
     scroll: Option<AdapterError>,
     scrolls: usize,
+    delivered: bool,
 }
 
 impl Port {
@@ -14,6 +15,7 @@ impl Port {
             reads: reads.iter().rev().copied().collect(),
             scroll: None,
             scrolls: 0,
+            delivered: true,
         }
     }
 }
@@ -23,11 +25,11 @@ impl ScrollPort for Port {
         self.reads.pop().unwrap_or(Visibility::Unread)
     }
 
-    fn scroll(&mut self) -> Result<(), AdapterError> {
+    fn scroll(&mut self) -> Result<bool, AdapterError> {
         self.scrolls += 1;
         match self.scroll.take() {
             Some(error) => Err(error),
-            None => Ok(()),
+            None => Ok(self.delivered),
         }
     }
 }
@@ -77,4 +79,16 @@ fn an_error_from_the_routine_is_returned_unchanged() {
     let error = scroll_with(&mut port, deadline()).expect_err("refused");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(error.message, "no route");
+}
+
+#[test]
+fn a_ladder_that_finds_the_target_satisfied_does_not_claim_delivery() {
+    let mut port = Port::new(&[Visibility::OffScreen]);
+    port.delivered = false;
+    let result = scroll_with(&mut port, deadline()).expect("already satisfied at ladder preflight");
+    assert_eq!(
+        result.disposition(),
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    assert_eq!(port.scrolls, 1);
 }
