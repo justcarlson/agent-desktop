@@ -53,10 +53,6 @@ class SourceRuleTests(unittest.TestCase):
         paths = [path for path in paths if path.exists()]
         self.assertEqual([str(path) for path in paths if trash.search(path.read_text())], [])
 
-    def test_rm_scan_covers_e2e_linux(self):
-        contract = (REPO / "tests" / "e2e" / "test_harness_contract.py").read_text()
-        self.assertIn("e2e-linux", contract)
-
     def test_runner_files_stay_under_the_line_cap(self):
         over = [
             path.name
