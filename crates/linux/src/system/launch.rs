@@ -12,13 +12,16 @@ use agent_desktop_core::{
 
 use super::app_alias::current_index;
 use super::focus_window::focus_window;
-use super::launch_attach::{Decision, Running, decide, identity_keys};
+use super::launch_attach::{Decision, Running, decide, identity_keys, matches};
 use super::launch_observe::{POLL_INTERVAL, Spawned, find_owner, pids_of, running_of};
 use super::launch_target::{Plan, Search, resolve};
 use super::liveness::{Liveness, liveness};
 use super::process_facts::{self, WebFamily};
 use super::registry::read_registry;
 use super::{SharedBus, list_windows};
+
+#[path = "launch_baseline.rs"]
+mod baseline;
 
 fn before_spawn(error: AdapterError) -> AdapterError {
     error.with_disposition(DeliverySemantics::not_delivered())
@@ -248,10 +251,15 @@ impl Launch<'_> {
         self.deadline.capped(wait)
     }
 
-    fn known_windows(&self) -> HashSet<String> {
-        list_windows(self.bus, &WindowFilter::default(), self.deadline)
-            .map(|windows| windows.into_iter().map(|window| window.id).collect())
-            .unwrap_or_default()
+    fn known_windows(
+        &self,
+        keys: &[String],
+        running: &[Running],
+    ) -> Result<HashSet<String>, AdapterError> {
+        match running.iter().find(|owner| matches(keys, owner)) {
+            Some(owner) => baseline::capture(self.bus, owner, self.deadline).map_err(before_spawn),
+            None => Ok(HashSet::new()),
+        }
     }
 
     fn conclude_with(
@@ -306,11 +314,7 @@ impl Launch<'_> {
         running: &[Running],
     ) -> Result<LaunchResult, AdapterError> {
         let before: HashSet<u32> = running.iter().map(|app| app.pid).collect();
-        let known = if running.is_empty() {
-            HashSet::new()
-        } else {
-            self.known_windows()
-        };
+        let known = self.known_windows(keys, running)?;
         let mut spawned = spawn(self.id, plan, self.options)?;
         match find_owner(self.bus, &mut spawned, keys, &before, self.deadline)? {
             Some(owner) => {
