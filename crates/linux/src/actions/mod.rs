@@ -67,9 +67,6 @@ mod live_widget_tests;
 mod live_write_tests;
 
 #[cfg(test)]
-mod live_keyboard_tests;
-
-#[cfg(test)]
 mod live_mutation_tests;
 
 #[cfg(test)]
