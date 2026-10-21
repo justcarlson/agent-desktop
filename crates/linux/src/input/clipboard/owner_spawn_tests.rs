@@ -7,7 +7,8 @@ use agent_desktop_core::Deadline;
 use rustix::io::fcntl_getfd;
 
 use super::*;
-use crate::input::clipboard::payload::{Target, unframe};
+use crate::input::clipboard::payload::unframe;
+use crate::input::clipboard::target::Target;
 use crate::input::clipboard::test_nonce::test_nonce;
 
 struct Script {

@@ -3,18 +3,13 @@ use agent_desktop_core::{
 };
 
 use super::formats::{self, GNOME_FILES, PNG, URI_LIST};
+use super::target::Target;
 use super::uri_list;
 
 pub(crate) const GENERATION: u8 = 1;
 
 const NAME_LENGTH_BYTES: usize = 4;
 const DATA_LENGTH_BYTES: usize = 8;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Target {
-    pub(crate) name: String,
-    pub(crate) bytes: Vec<u8>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Payload {

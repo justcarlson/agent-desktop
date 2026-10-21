@@ -1,6 +1,6 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
-use super::payload::Target;
+use super::target::Target;
 
 pub(crate) const UTF8_STRING: &str = "UTF8_STRING";
 pub(crate) const TEXT_UTF8: &str = "text/plain;charset=utf-8";
