@@ -13,7 +13,8 @@ entry means snapshot the menu next. If it is absent, wait for the menu, then
 run `list-surfaces --app gnome-calculator`; GTK4 popovers appear asynchronously.
 An incomplete scan marks `menu` in the window entry's `unclassified` list;
 an absent menu in that result does not prove it is closed. A definite action
-refusal does not start the popup-settle wait.
+refusal or a successful action already satisfied without delivery does not
+start the popup-settle wait.
 
 This example needs a running Calculator and `jq`. It discovers a fresh opener
 ref. On Mutter X11, first close Overview and focus Calculator using the recovery
