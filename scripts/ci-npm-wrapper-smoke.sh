@@ -28,7 +28,7 @@ HELPER_SOURCE="target/release/${HELPER_NAME}"
 PACKAGE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-npm.XXXXXX")
 VERSION_JSON="$PACKAGE_DIR/version.json"
 cleanup() {
-  trash "$PACKAGE_DIR"
+  rm -rf -- "$PACKAGE_DIR"
 }
 trap cleanup EXIT
 mkdir -p "$PACKAGE_DIR/bin"

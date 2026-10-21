@@ -38,12 +38,7 @@ class SmokeStagingTests(unittest.TestCase):
                     binary.chmod(0o755)
                 if scenario != "missing-helper":
                     (root / "target/release" / helper).write_text("helper")
-                tools = root / "tools"
-                tools.mkdir()
-                trash = tools / "trash"
-                trash.write_text('#!/bin/sh\nmv "$1" "$1.trashed"\n')
-                trash.chmod(0o755)
-                env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"], TMPDIR=str(root))
+                env = dict(os.environ, TMPDIR=str(root))
                 runs = [subprocess.Popen(["bash", "scripts/ci-npm-wrapper-smoke.sh"], cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE) for _ in range(2 if scenario == "overlap" else 1)]
                 results = [(run.communicate(timeout=20), run) for run in runs]
                 for binary in installed:
@@ -51,8 +46,7 @@ class SmokeStagingTests(unittest.TestCase):
                     self.assertEqual(binary.stat().st_mode & 0o777, 0o751)
                 for (stdout, stderr), run in results:
                     self.assertEqual(run.returncode == 0, scenario in ("success", "overlap"), (stdout, stderr))
-                self.assertFalse([path for path in root.glob("agent-desktop-npm.*") if not path.name.endswith(".trashed")])
-                self.assertEqual(len(list(root.glob("agent-desktop-npm.*.trashed"))), len(runs))
+                self.assertEqual(list(root.glob("agent-desktop-npm.*")), [])
 
 
 if __name__ == "__main__":
