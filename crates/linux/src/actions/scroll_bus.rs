@@ -156,16 +156,22 @@ impl<'a> BusPort<'a> {
             }
             Ok(found)
         })?;
-        let mut sites = vec![Site {
-            parent: None,
-            bar: None,
-        }];
+        let mut sites = vec![
+            Site {
+                parent: None,
+                bar: None,
+            },
+            Site {
+                parent: Some(0),
+                bar: None,
+            },
+        ];
         sites.extend(bars.iter().map(|(_, way)| Site {
             parent: Some(0),
             bar: Some(*way),
         }));
-        Ok(choose_bar(&sites, None, axis)
-            .and_then(|index| bars.into_iter().nth(index - 1))
+        Ok(choose_bar(&sites, Some(1), axis)?
+            .and_then(|index| bars.into_iter().nth(index - 2))
             .map(|(bar, _)| bar))
     }
 }
@@ -280,7 +286,7 @@ impl ScrollPort for BusPort<'_> {
             let (bus, deadline) = (self.bus, self.deadline);
             if let Some(crawl) = self.crawl()?.filter(|crawl| crawl.target.is_some()) {
                 let sites = crawl.sites(bus, deadline)?;
-                found = choose_bar(&sites, crawl.target, axis)
+                found = choose_bar(&sites, crawl.target, axis)?
                     .map(|index| crawl.nodes[index].0.clone());
             }
         }

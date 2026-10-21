@@ -23,6 +23,8 @@ pub(crate) struct FakeWorld {
     pub(crate) chunks: usize,
     pub(crate) log: RefCell<Vec<String>>,
     pub(crate) clip: Option<crate::tree::placement::Placement>,
+    pub(crate) pointer_reads: RefCell<VecDeque<Result<(), AdapterError>>>,
+    pub(crate) sink: Option<crate::input::x11::fake_sink::FakeSink>,
 }
 
 impl FakeWorld {
@@ -48,6 +50,8 @@ impl FakeWorld {
             chunks: 1,
             log: RefCell::new(Vec::new()),
             clip: None,
+            pointer_reads: RefCell::default(),
+            sink: None,
         }
     }
 
@@ -160,6 +164,9 @@ impl PhysicalWorld for FakeWorld {
         point: &Point,
         _: Deadline,
     ) -> Result<(), AdapterError> {
+        if let Some(result) = self.pointer_reads.borrow_mut().pop_front() {
+            return result;
+        }
         match &self.clip {
             Some(placed) => crate::actions::physical_aim::validate(
                 point,
@@ -221,15 +228,18 @@ impl PhysicalWorld for FakeWorld {
             "plan_wheel {},{} {},{}",
             at.x, at.y, deltas.0, deltas.1
         ));
-        Ok(vec![Self::plan()])
+        crate::input::wheel_plan::plan_wheel(_map, at, deltas.0, deltas.1, &[])
     }
 
     fn send_plans(
         &self,
         plans: Vec<Plan>,
         gate: Gate<'_>,
-        _deadline: Deadline,
+        deadline: Deadline,
     ) -> Result<Delivery, AdapterError> {
+        if let Some(sink) = &self.sink {
+            return crate::input::x11::fake_sink::run(sink, plans, gate, deadline, None);
+        }
         self.deliver(plans.len(), gate)
     }
 

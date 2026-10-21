@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    Action, ActionRequest, Deadline, ErrorCode, InteractionPolicy, NativeHandle, SystemOps,
+    Action, ActionRequest, Deadline, ErrorCode, InteractionLease, InteractionPolicy, NativeHandle,
 };
 
 use super::execute_action;
@@ -9,8 +9,7 @@ use crate::adapter::LinuxAdapter;
 fn a_foreign_handle_is_invalid_args_before_any_arm_runs() {
     let adapter = LinuxAdapter::new();
     let deadline = Deadline::standard().expect("a standard deadline builds");
-    let lease = SystemOps::acquire_interaction_lease(&adapter, deadline)
-        .expect("the shared lease is granted");
+    let lease = InteractionLease::guarded(deadline, ()).expect("local validation lease");
     let foreign = NativeHandle::new(5u32);
     let error = execute_action(
         adapter.bus(),

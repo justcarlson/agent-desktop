@@ -13,6 +13,7 @@ pub(crate) mod numeric_write;
 mod physical_aim;
 pub(crate) mod physical_click;
 pub(crate) mod physical_keyboard;
+pub(crate) mod physical_live_world;
 pub(crate) mod physical_scroll;
 pub(crate) mod physical_target;
 mod popup_verify;
@@ -80,3 +81,9 @@ mod live_numeric_tests;
 
 #[cfg(test)]
 mod live_selection_tests;
+
+#[cfg(test)]
+mod physical_scroll_live_tests;
+
+#[cfg(test)]
+mod scroll_bar_live_tests;

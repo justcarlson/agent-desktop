@@ -21,12 +21,22 @@ pub(super) fn refused() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
+fn bus_error(error: zbus::Error) -> AdapterError {
+    if super::mutation::fault_of(&error) == super::mutation::Fault::TimedOut {
+        AdapterError::timeout("The target focus request did not answer in time")
+            .with_platform_detail(error.to_string())
+            .with_disposition(DeliverySemantics::not_delivered())
+    } else {
+        refused()
+    }
+}
+
 pub(super) fn grab(
     bus: &SharedBus,
     element: &AtspiElement,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    let connection = bus.get(deadline).map_err(|_| refused())?;
+    let connection = bus.get(deadline)?;
     within(deadline, async {
         connection
             .inner()
@@ -38,10 +48,9 @@ pub(super) fn grab(
                 &(),
             )
             .await
-            .map_err(|_| refused())?;
+            .map_err(bus_error)?;
         Ok(())
     })
-    .map_err(|_| refused())
 }
 
 pub(super) fn read(
@@ -49,8 +58,8 @@ pub(super) fn read(
     element: &AtspiElement,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    let connection = bus.get(deadline).map_err(|_| refused())?;
-    within(deadline, focused(connection.inner(), element)).map_err(|_| refused())
+    let connection = bus.get(deadline)?;
+    within(deadline, focused(connection.inner(), element))
 }
 
 async fn focused(
@@ -65,9 +74,10 @@ async fn focused(
     if !bits.has(EDITABLE) {
         return Ok(false);
     }
-    Ok(internal_editor_focused(connection, element)
-        .await
-        .unwrap_or(false))
+    match internal_editor_focused(connection, element).await {
+        Err(error) if error.code != ErrorCode::Timeout => Ok(false),
+        result => result,
+    }
 }
 
 async fn states(
@@ -76,7 +86,7 @@ async fn states(
 ) -> Result<Vec<u32>, AdapterError> {
     call(connection, element, ACCESSIBLE_INTERFACE, "GetState", &())
         .await
-        .map_err(|_| refused())?
+        .map_err(bus_error)?
         .body()
         .deserialize()
         .map_err(|_| refused())
@@ -94,7 +104,7 @@ async fn parent(
         &(ACCESSIBLE_INTERFACE, "Parent"),
     )
     .await
-    .map_err(|_| refused())?;
+    .map_err(bus_error)?;
     let value: OwnedValue = reply.body().deserialize().map_err(|_| refused())?;
     let (bus, path) = <(String, OwnedObjectPath)>::try_from(value).map_err(|_| refused())?;
     Ok(AtspiElement::new(bus, path.to_string(), element.pid()))
@@ -113,7 +123,7 @@ async fn internal_editor_focused(
         &(PARENT_COORDINATES,),
     )
     .await
-    .map_err(|_| refused())?;
+    .map_err(bus_error)?;
     let (x, y, width, height): (i32, i32, i32, i32) =
         extents.body().deserialize().map_err(|_| refused())?;
     if width <= 0 || height <= 0 {
@@ -129,7 +139,7 @@ async fn internal_editor_focused(
         &(x, y, PARENT_COORDINATES),
     )
     .await
-    .map_err(|_| refused())?;
+    .map_err(bus_error)?;
     let (bus, path): (String, OwnedObjectPath) = hit.body().deserialize().map_err(|_| refused())?;
     let mut candidate = AtspiElement::new(bus, path.to_string(), element.pid());
     for _ in 0..2 {
@@ -146,7 +156,7 @@ async fn internal_editor_focused(
                 &(),
             )
             .await
-            .map_err(|_| refused())?;
+            .map_err(bus_error)?;
             let interfaces: Vec<String> = interfaces.body().deserialize().map_err(|_| refused())?;
             return Ok(interfaces
                 .iter()

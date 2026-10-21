@@ -193,11 +193,15 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
   `--amount` counts clicks, not rows. A `scrollarea` with no ref cannot take
   `scroll @ref`; use `scroll-to` on a child or `mouse-wheel` at coordinates.
   Each wheel burst uses click's pointer gate at that point. A hit-test result
-  naming an interceptor refuses the burst.
+  naming an interceptor refuses the burst; an unknown receiver refuses with
+  `pointer_hit_unproven`. If earlier bursts were sent, the error reports their
+  `delivered_clicks`, `delivered_unverified` and unsafe retry. Inspect the content
+  before deciding what to do next.
 - `scroll-to` scrolls through the bar on GTK3 and GTK4 and through `ScrollTo` on
   Chromium. It does not work on Qt: use `scroll --headed`. A container with no
   scrollable axis has no ref. If target visibility is unknown, `scroll-to`
-  refuses before scrolling. A scroll that moved the viewport but failed to reveal the target
+  refuses before scrolling. Equally ranked scroll bars refuse with
+  `AMBIGUOUS_TARGET` before a value write. A scroll that moved the viewport but failed to reveal the target
   is unsafe to retry; inspect the target and disposition first.
 
 ## Drag

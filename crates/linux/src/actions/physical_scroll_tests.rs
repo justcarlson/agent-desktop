@@ -4,6 +4,72 @@ use super::{scroll_steps, wheel_deltas};
 use crate::actions::physical_target::tests::fake::{FakeWorld, check_of, deadline, element};
 
 #[test]
+fn every_wheel_burst_revalidates_and_a_late_refusal_preserves_sent_clicks() {
+    use crate::input::x11::fake_sink::{FakeSink, Recorded};
+    use agent_desktop_core::{AdapterError, DeliverySemantics};
+    use serde_json::json;
+
+    for details in [
+        json!({"check": "receives_events", "interceptor": {"role": "button", "name": "Cover", "bounds": null}}),
+        json!({"kind": "pointer_hit_unproven", "hit_test": "unknown"}),
+    ] {
+        for allowed in 0..=3 {
+            let mut world = FakeWorld::x11();
+            let sink = FakeSink::new();
+            world.sink = Some(sink.clone());
+            world
+                .pointer_reads
+                .borrow_mut()
+                .extend((0..allowed).map(|_| Ok(())));
+            world
+                .pointer_reads
+                .borrow_mut()
+                .push_back(Err(AdapterError::new(
+                    ErrorCode::ActionFailed,
+                    "receiver changed",
+                )
+                .with_details(details.clone())
+                .with_disposition(DeliverySemantics::not_delivered())));
+            let result = scroll_steps(
+                &world,
+                &element(),
+                (0.0, -21.0),
+                InteractionPolicy::headed(),
+                deadline(),
+            );
+            let sent = sink
+                .recorded()
+                .iter()
+                .filter(|event| matches!(event, Recorded::Button(5, true)))
+                .count();
+            let expected = (allowed * 10).min(21);
+            assert_eq!(sent, expected, "allowed bursts: {allowed}");
+            if allowed == 3 {
+                result.expect("all three receivers were proven");
+            } else {
+                let error = result.expect_err("a receiver refusal stops the wheel");
+                assert_eq!(
+                    error.disposition,
+                    if allowed == 0 {
+                        DeliverySemantics::not_delivered()
+                    } else {
+                        DeliverySemantics::delivered_unverified()
+                    }
+                );
+                let observed = error.details.expect("refusal evidence");
+                for (key, value) in details.as_object().unwrap() {
+                    assert_eq!(&observed[key], value);
+                }
+                if allowed > 0 {
+                    assert_eq!(observed["delivered_clicks"], expected);
+                    assert_eq!(observed["physical_delivery_started"], true);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn the_wheel_is_aimed_at_the_centre_of_the_targets_own_bounds() {
     let world = FakeWorld::x11();
     scroll_steps(

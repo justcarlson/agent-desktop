@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
+
 use super::scroll_plan::Axis;
 
 /// One node of the window as the crawl met it: where it hangs and, for a
@@ -46,9 +48,12 @@ fn distances(sites: &[Site], target: usize) -> HashMap<usize, usize> {
 /// beside it, a bar that says which way it runs ahead of one that does not.
 /// When the target was found and no bar hangs off its ancestors, none: a
 /// bar of another pane would scroll the wrong content. When the target was
-/// not met, the only bar that runs the right way, and none when there are
-/// several.
-pub(crate) fn choose_bar(sites: &[Site], target: Option<usize>, axis: Axis) -> Option<usize> {
+/// not met, the only bar that runs the right way; several candidates refuse.
+pub(crate) fn choose_bar(
+    sites: &[Site],
+    target: Option<usize>,
+    axis: Axis,
+) -> Result<Option<usize>, AdapterError> {
     let bars: Vec<usize> = sites
         .iter()
         .enumerate()
@@ -57,7 +62,7 @@ pub(crate) fn choose_bar(sites: &[Site], target: Option<usize>, axis: Axis) -> O
         .collect();
     if let Some(target) = target {
         let above = distances(sites, target);
-        let nearest = bars
+        let mut ranked: Vec<_> = bars
             .iter()
             .filter_map(|&bar| {
                 let site = sites.get(bar)?;
@@ -66,13 +71,32 @@ pub(crate) fn choose_bar(sites: &[Site], target: Option<usize>, axis: Axis) -> O
                     .get(&site.parent?)
                     .map(|distance| (*distance, unknown, bar))
             })
-            .min();
-        return nearest.map(|(_, _, bar)| bar);
+            .collect();
+        ranked.sort_unstable();
+        return match ranked.as_slice() {
+            [] => Ok(None),
+            [(distance, unknown, _), (next_distance, next_unknown, _), ..]
+                if (distance, unknown) == (next_distance, next_unknown) =>
+            {
+                Err(ambiguous())
+            }
+            [(_, _, bar), ..] => Ok(Some(*bar)),
+        };
     }
     match bars.as_slice() {
-        [only] => Some(*only),
-        _ => None,
+        [] => Ok(None),
+        [only] => Ok(Some(*only)),
+        _ => Err(ambiguous()),
     }
+}
+
+fn ambiguous() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::AmbiguousTarget,
+        "Several equally ranked scroll bars could move the target",
+    )
+    .with_details(serde_json::json!({"kind": "scroll_bar_ambiguous"}))
+    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 #[cfg(test)]
