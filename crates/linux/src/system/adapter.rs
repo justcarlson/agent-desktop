@@ -17,6 +17,13 @@ use crate::system::{
 };
 
 impl SystemOps for LinuxAdapter {
+    fn update_cursor_overlay(
+        &self,
+        control: &agent_desktop_core::CursorOverlayControl,
+    ) -> Result<(), AdapterError> {
+        super::cursor_overlay::update(control)
+    }
+
     fn acquire_interaction_lease(
         &self,
         deadline: Deadline,
