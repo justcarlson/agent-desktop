@@ -46,6 +46,7 @@ fn a_replacement_popup_with_the_same_item_path_cannot_resolve_an_old_ref() {
 
     let result = resolve_contextual(
         &entry,
+        element("/owner"),
         vec![(replacement, element("/popup/b"))],
         |_root, _entry| {
             attempted = true;
@@ -63,6 +64,24 @@ fn a_replacement_popup_with_the_same_item_path_cannot_resolve_an_old_ref() {
         !attempted,
         "the replacement popup must not reach child resolution"
     );
+}
+
+#[test]
+fn a_successful_menu_resolution_carries_its_owner_window() {
+    let context = MenuContext::test("/popup", 10);
+    let mut entry = crate::tree::test_support::ref_entry("menuitem");
+    entry.identity.retained_object = Some(context.encode("/item"));
+    let owner = AtspiElement::new(":1.2", "/owner", 77);
+
+    let target = resolve_contextual(
+        &entry,
+        owner.clone(),
+        vec![(context, element("/popup"))],
+        |_root, _entry| Ok(element("/item")),
+    )
+    .expect("the matching menu item resolves");
+
+    assert_eq!(target.menu_owner(), Some(owner));
 }
 
 #[test]

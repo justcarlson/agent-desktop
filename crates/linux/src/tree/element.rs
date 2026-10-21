@@ -12,6 +12,7 @@ pub(crate) struct AtspiElement {
     path: String,
     pid: u32,
     ancestry: Ancestry,
+    menu_owner: Option<(String, String, u32)>,
 }
 
 impl PartialEq for AtspiElement {
@@ -29,6 +30,7 @@ impl AtspiElement {
             path: path.into(),
             pid,
             ancestry: Ancestry::default(),
+            menu_owner: None,
         }
     }
 
@@ -52,6 +54,7 @@ impl AtspiElement {
             path: self.path.clone(),
             pid: self.pid,
             ancestry: Ancestry::default(),
+            menu_owner: None,
         }
     }
 
@@ -77,6 +80,19 @@ impl AtspiElement {
 
     pub(crate) fn set_ancestry(&mut self, ancestry: Ancestry) {
         self.ancestry = ancestry;
+    }
+
+    pub(crate) fn is_menu_target(&self) -> bool {
+        self.menu_owner.is_some()
+    }
+
+    pub(crate) fn set_menu_owner(&mut self, owner: &AtspiElement) {
+        self.menu_owner = Some((owner.bus_name.clone(), owner.path.clone(), owner.pid));
+    }
+
+    pub(crate) fn menu_owner(&self) -> Option<AtspiElement> {
+        let (bus, path, pid) = self.menu_owner.as_ref()?;
+        Some(AtspiElement::new(bus.clone(), path.clone(), *pid))
     }
 
     pub(crate) fn into_native_handle(self) -> NativeHandle {

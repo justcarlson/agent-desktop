@@ -142,7 +142,7 @@ pub(crate) fn resolve_menu(
     for popup in popups {
         candidates.push((popup.context, popup.root));
     }
-    resolve_contextual(entry, candidates, |popup, scoped_entry| {
+    resolve_contextual(entry, window.frame(), candidates, |popup, scoped_entry| {
         let mut source = MenuSource {
             bus,
             connection: connection.clone(),
@@ -157,6 +157,7 @@ pub(crate) fn resolve_menu(
 
 fn resolve_contextual(
     entry: &RefEntry,
+    owner: AtspiElement,
     candidates: Vec<(MenuContext, AtspiElement)>,
     mut resolve: impl FnMut(AtspiElement, &RefEntry) -> Result<AtspiElement, AdapterError>,
 ) -> Result<AtspiElement, AdapterError> {
@@ -167,7 +168,10 @@ fn resolve_contextual(
             continue;
         };
         match resolve(popup, &scoped_entry) {
-            Ok(element) => landed.push(element),
+            Ok(mut element) => {
+                element.set_menu_owner(&owner);
+                landed.push(element);
+            }
             Err(error) if is_stale(&error) => {}
             Err(error) => refusal = refusal.or(Some(error)),
         }

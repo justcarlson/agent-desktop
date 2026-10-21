@@ -60,6 +60,15 @@ impl MenuContext {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn test_incomplete(root: &str, shape: u64) -> Self {
+        Self {
+            root: root.to_owned(),
+            shape,
+            complete: false,
+        }
+    }
+
     pub(crate) fn decode(token: &str) -> Option<(Self, &str)> {
         let rest = token.strip_prefix(PREFIX)?;
         let (shape, rest) = rest.split_once(':')?;

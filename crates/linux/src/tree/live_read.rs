@@ -8,6 +8,7 @@ use super::live_offscreen::{global_position, placement};
 use super::live_project::{
     live_actions, live_bounds, live_element, live_state, live_value, pointer_rect, settled_by_read,
 };
+use super::menu_context::MenuContext;
 use super::node_evidence::{NodeEvidence, read_evidence};
 use super::placement::Placement;
 use super::resolve_errors::{app_exited, object_gone, settle_gone, stopped_app, stopped_aware};
@@ -23,6 +24,15 @@ pub(crate) trait NodeReader {
     fn placement(&mut self, element: &AtspiElement, deadline: Deadline) -> Placement;
     /// Whether the node's toolkit reports global screen positions.
     fn global_position(&mut self, element: &AtspiElement, deadline: Deadline) -> bool;
+    /// The freshly observed context of the popup owning a resolved menu
+    /// target, including incomplete evidence that must fail identity matching.
+    fn menu_context(
+        &mut self,
+        _element: &AtspiElement,
+        _deadline: Deadline,
+    ) -> Result<Option<MenuContext>, AdapterError> {
+        Ok(None)
+    }
 }
 
 struct BusReader<'a> {
@@ -46,6 +56,22 @@ impl NodeReader for BusReader<'_> {
 
     fn global_position(&mut self, element: &AtspiElement, deadline: Deadline) -> bool {
         global_position(self.bus, element, deadline)
+    }
+
+    fn menu_context(
+        &mut self,
+        element: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<Option<MenuContext>, AdapterError> {
+        let (Some(frame), Some(owner)) = (element.frame(), element.menu_owner()) else {
+            return Ok(None);
+        };
+        let popups = crate::system::menu_surface::popups_at(self.bus, &owner, false, deadline)?;
+        let mut candidates = popups.into_iter().filter(|popup| popup.root == *frame);
+        let Some(popup) = candidates.next() else {
+            return Ok(None);
+        };
+        Ok(candidates.next().is_none().then_some(popup.context))
     }
 }
 
@@ -140,7 +166,23 @@ pub(crate) fn element_via<R: NodeReader>(
     } else {
         reader.placement(element, deadline)
     };
-    live_element(&node.read, &node.evidence, &placed, global)
+    let mut live = live_element(&node.read, &node.evidence, &placed, global)?;
+    if element.is_menu_target() {
+        let context = reader.menu_context(element, deadline)?;
+        if let (Some(context), Some(object_path)) = (
+            context,
+            live.identity
+                .identifiers
+                .retained_object()
+                .map(str::to_owned),
+        ) {
+            live.identity.identifiers = live
+                .identity
+                .identifiers
+                .with_retained_object(context.encode(&object_path));
+        }
+    }
+    Ok(live)
 }
 
 pub(crate) fn bounds_via<R: NodeReader>(
@@ -210,3 +252,7 @@ pub(crate) fn get_element_bounds(
 #[cfg(test)]
 #[path = "live_read_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "live_menu_tests.rs"]
+mod menu_tests;
