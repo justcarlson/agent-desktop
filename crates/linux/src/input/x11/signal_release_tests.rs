@@ -69,3 +69,61 @@ fn a_process_that_never_enabled_the_signal_handling_installs_no_handler() {
     unsafe { libc::sigaction(libc::SIGTERM, std::ptr::null(), &mut current) };
     assert_eq!(current.sa_sigaction, libc::SIG_DFL);
 }
+
+#[test]
+fn watcher_startup_failure_preserves_handlers_and_allows_retry() {
+    const CHILD: &str = "AD_SIGNAL_STARTUP_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "input::x11::signal_release::tests::watcher_startup_failure_preserves_handlers_and_allows_retry", "--nocapture"])
+            .env(CHILD, "1")
+            .status().unwrap();
+        assert!(status.success());
+        return;
+    }
+    extern "C" fn previous(_: libc::c_int) {}
+    let mut original: libc::sigaction = unsafe { std::mem::zeroed() };
+    let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
+    action.sa_sigaction = previous as extern "C" fn(libc::c_int) as usize;
+    unsafe { libc::sigemptyset(&mut action.sa_mask) };
+    assert_eq!(
+        unsafe { libc::sigaction(libc::SIGTERM, &action, &mut original) },
+        0
+    );
+    let mut limit: libc::rlimit = unsafe { std::mem::zeroed() };
+    assert_eq!(
+        unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) },
+        0
+    );
+    let exhausted = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: limit.rlim_max,
+    };
+    assert_eq!(
+        unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &exhausted) },
+        0
+    );
+    super::enable();
+    let failed = super::arm(Arc::default(), Arc::default());
+    assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &limit) }, 0);
+    let mut current: libc::sigaction = unsafe { std::mem::zeroed() };
+    assert_eq!(
+        unsafe { libc::sigaction(libc::SIGTERM, std::ptr::null(), &mut current) },
+        0
+    );
+    assert!(!failed.installed(), "no handlers without a running watcher");
+    assert_eq!(current.sa_sigaction, action.sa_sigaction);
+    assert_eq!(super::PIPE_WRITE.load(Ordering::Relaxed), -1);
+    let retry = super::arm(Arc::default(), Arc::default());
+    assert!(retry.installed(), "a startup failure must remain retryable");
+    drop(retry);
+    assert_eq!(
+        unsafe { libc::sigaction(libc::SIGTERM, std::ptr::null(), &mut current) },
+        0
+    );
+    assert_eq!(current.sa_sigaction, action.sa_sigaction);
+    assert_eq!(
+        unsafe { libc::sigaction(libc::SIGTERM, &original, std::ptr::null_mut()) },
+        0
+    );
+}

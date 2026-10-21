@@ -1,6 +1,7 @@
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-use std::sync::{Arc, Mutex, Once, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::Duration;
 
@@ -14,7 +15,7 @@ const RELEASE_WAIT: Duration = Duration::from_millis(2_000);
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static PIPE_WRITE: AtomicI32 = AtomicI32::new(-1);
-static START: Once = Once::new();
+static WATCHER: Mutex<Option<OwnedFd>> = Mutex::new(None);
 static CURRENT: Mutex<Option<Target>> = Mutex::new(None);
 static PREVIOUS: Mutex<Vec<(c_int, libc::sigaction)>> = Mutex::new(Vec::new());
 
@@ -42,7 +43,14 @@ pub(crate) fn arm(progress: Arc<Progress>, slot: Arc<WorkerSlot>) -> Armed {
     if !ENABLED.load(Ordering::SeqCst) {
         return Armed { installed: false };
     }
-    START.call_once(start_watcher);
+    let mut watcher = WATCHER.lock().unwrap_or_else(PoisonError::into_inner);
+    if watcher.is_none() {
+        let Ok(write_end) = start_watcher() else {
+            return Armed { installed: false };
+        };
+        PIPE_WRITE.store(write_end.as_raw_fd(), Ordering::Relaxed);
+        *watcher = Some(write_end);
+    }
     *CURRENT.lock().unwrap_or_else(PoisonError::into_inner) = Some(Target { progress, slot });
     install();
     Armed { installed: true }
@@ -87,22 +95,29 @@ extern "C" fn on_signal(signal: c_int) {
     }
 }
 
-fn start_watcher() {
+fn start_watcher() -> std::io::Result<OwnedFd> {
     let mut fds = [0 as c_int; 2];
     if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
-        return;
+        return Err(std::io::Error::last_os_error());
     }
-    PIPE_WRITE.store(fds[1], Ordering::Relaxed);
-    let read_end = fds[0];
-    let _ = thread::Builder::new()
+    let read_end = unsafe { OwnedFd::from_raw_fd(fds[0]) };
+    let write_end = unsafe { OwnedFd::from_raw_fd(fds[1]) };
+    thread::Builder::new()
         .name("x11-signal-release".to_owned())
-        .spawn(move || watch(read_end));
+        .spawn(move || watch(read_end))?;
+    Ok(write_end)
 }
 
-fn watch(read_end: c_int) {
+fn watch(read_end: OwnedFd) {
     loop {
         let mut byte = 0_u8;
-        let read = unsafe { libc::read(read_end, std::ptr::from_mut(&mut byte).cast(), 1) };
+        let read = unsafe {
+            libc::read(
+                read_end.as_raw_fd(),
+                std::ptr::from_mut(&mut byte).cast(),
+                1,
+            )
+        };
         if read != 1 {
             if read < 0 && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted
             {
