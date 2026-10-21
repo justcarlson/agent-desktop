@@ -259,6 +259,12 @@ fn wait_for_text(
                     "message": err.to_string()
                 }));
             }
+            Err(AppError::Adapter(mut err)) if err.code == ErrorCode::AmbiguousTarget => {
+                err.suggestion = Some(
+                    "Use `wait --window <title> --app <app>` to wait for the target window, or run `list-windows` and inspect it with `snapshot --window-id <id>`.".into(),
+                );
+                return Err(err.into());
+            }
             Err(err) => return Err(err),
         }
 

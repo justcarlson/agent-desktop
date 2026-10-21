@@ -98,6 +98,46 @@ impl InputOps for WindowWaitAdapter {}
 impl SystemOps for WindowWaitAdapter {}
 
 #[test]
+fn ambiguous_text_wait_suggests_window_wait_and_snapshot_recovery() {
+    let mut first = TextlessTreeAdapter
+        .list_windows(
+            &WindowFilter::default(),
+            crate::Deadline::standard().unwrap(),
+        )
+        .unwrap()
+        .remove(0);
+    first.state.is_focused = false;
+    let mut second = first.clone();
+    second.id = "w-2".into();
+    second.title = "Keyboard Shortcuts".into();
+    let error = execute(
+        WaitArgs {
+            mode: WaitModeArgs {
+                text: Some("Search Shortcuts".into()),
+                ..wait_args().mode
+            },
+            timeout_ms: 5_000,
+            app: Some("TestApp".into()),
+            ..wait_args()
+        },
+        &WindowWaitAdapter(vec![first, second]),
+        &CommandContext::default(),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AMBIGUOUS_TARGET");
+    match error {
+        AppError::Adapter(adapter_error) => {
+            let suggestion = adapter_error.suggestion.unwrap();
+            assert!(suggestion.contains("wait --window"), "{suggestion}");
+            assert!(suggestion.contains("snapshot --window-id"), "{suggestion}");
+            assert!(!suggestion.contains("wait --window-id"), "{suggestion}");
+        }
+        _ => panic!("expected adapter error"),
+    }
+}
+
+#[test]
 fn window_wait_scopes_matches_and_missing_window_diagnostics_to_the_app() {
     let mut project = TextlessTreeAdapter
         .list_windows(
