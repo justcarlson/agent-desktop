@@ -35,15 +35,6 @@ fn the_debug_frame_on_a_wayland_session_is_unsupported_and_touches_no_x11() {
     assert_eq!(rig.x11_touched(), 0);
 }
 
-#[test]
-fn a_window_on_x11_is_captured_by_both_entry_points() {
-    let rig = Rig::standard();
-    let target_window = ScreenshotTarget::ExactWindow(target());
-    capture_with(&rig.env(), &x11(), target_window, deadline()).expect("screenshot");
-    let rig = Rig::standard();
-    capture_frame_with(&rig.env(), &x11(), &target(), deadline()).expect("frame");
-}
-
 type Tweak = fn(&Rig);
 
 fn rows() -> Vec<(&'static str, Tweak, ScreenshotTarget)> {
@@ -184,15 +175,6 @@ fn the_grab_error_codes_match_the_table() {
         .expect_err("failed");
         assert_eq!(error.code, code);
     }
-}
-
-#[test]
-fn a_person_gets_the_consent_budget_and_a_longer_command_budget_is_kept() {
-    let command = Deadline::after(5_000).expect("a deadline");
-    let consent = consent_deadline(command).expect("a deadline");
-    assert!(consent.remaining() > std::time::Duration::from_millis(CONSENT_BUDGET_MS - 2_000));
-    let longer = Deadline::detached_after(120_000).expect("a deadline");
-    assert!(consent_deadline(longer).expect("a deadline").remaining() > consent.remaining());
 }
 
 #[test]

@@ -7,7 +7,7 @@ fn live() -> Deadline {
 }
 
 #[test]
-fn an_expired_deadline_times_out_before_the_opener_runs() {
+fn cache_obeys_deadlines_retries_reuses_and_forgets_only_the_matching_connection() {
     let slot: Mutex<Option<u32>> = Mutex::new(None);
     let opened = Cell::new(0);
     let expired = Deadline::after(0).expect("a zero deadline builds");
@@ -18,34 +18,41 @@ fn an_expired_deadline_times_out_before_the_opener_runs() {
     .expect_err("an expired deadline must not open");
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(opened.get(), 0);
-}
 
-#[test]
-fn a_failed_open_is_returned_and_the_next_call_opens_again() {
-    let slot: Mutex<Option<u32>> = Mutex::new(None);
     let failure = cached_or_open(&slot, live(), || Err(AdapterError::internal("no bus")))
         .expect_err("the open failure is returned");
     assert_eq!(failure.code, ErrorCode::Internal);
     let retried = cached_or_open(&slot, live(), || Ok(7)).expect("the next call opens again");
     assert_eq!(retried, 7);
-}
-
-#[test]
-fn a_kept_connection_is_reused_without_opening_again() {
-    let slot: Mutex<Option<u32>> = Mutex::new(None);
-    cached_or_open(&slot, live(), || Ok(3)).expect("the first call opens");
-    let opened = Cell::new(false);
-    let second = cached_or_open(&slot, live(), || {
-        opened.set(true);
+    let reused = cached_or_open(&slot, live(), || {
+        opened.set(opened.get() + 1);
         Ok(9)
     })
-    .expect("the second call reuses");
-    assert_eq!(second, 3);
-    assert!(!opened.get());
+    .expect("the next call reuses");
+    assert_eq!(reused, 7);
+    assert_eq!(opened.get(), 0);
+
+    forget_matching(&slot, |held| *held == 4);
+    let kept = cached_or_open(&slot, live(), || {
+        opened.set(opened.get() + 1);
+        Ok(9)
+    })
+    .expect("a different connection is kept");
+    assert_eq!(kept, 7);
+    assert_eq!(opened.get(), 0);
+
+    forget_matching(&slot, |held| *held == 7);
+    let reopened = cached_or_open(&slot, live(), || {
+        opened.set(opened.get() + 1);
+        Ok(9)
+    })
+    .expect("the matching connection is reopened");
+    assert_eq!(reopened, 9);
+    assert_eq!(opened.get(), 1);
 }
 
 #[test]
-fn a_missing_session_bus_names_the_session_bus_and_not_accessibility() {
+fn session_bus_errors_keep_their_platform_and_retry_meaning() {
     let refused = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
         ErrorKind::NotFound,
     )));
@@ -53,32 +60,12 @@ fn a_missing_session_bus_names_the_session_bus_and_not_accessibility() {
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert!(error.message.contains("session bus"));
     assert!(!error.message.contains("AT-SPI"));
-}
 
-#[test]
-fn a_session_bus_timeout_is_a_timeout() {
     let slow = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
         ErrorKind::TimedOut,
     )));
     assert_eq!(unreachable(&slow).code, ErrorCode::Timeout);
-}
 
-#[test]
-fn a_forgotten_connection_is_opened_again_and_another_one_is_left_alone() {
-    let slot: Mutex<Option<u32>> = Mutex::new(None);
-    cached_or_open(&slot, live(), || Ok(3)).expect("the first call opens");
-
-    forget_matching(&slot, |held| *held == 4);
-    let kept = cached_or_open(&slot, live(), || Ok(9)).expect("reuse");
-    assert_eq!(kept, 3);
-
-    forget_matching(&slot, |held| *held == 3);
-    let reopened = cached_or_open(&slot, live(), || Ok(9)).expect("reopen");
-    assert_eq!(reopened, 9);
-}
-
-#[test]
-fn a_transport_error_is_told_apart_from_a_method_error() {
     let broken = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
         ErrorKind::BrokenPipe,
     )));

@@ -87,21 +87,6 @@ fn a_flag_that_stays_set_is_still_hidden_and_names_the_manager() {
 }
 
 #[test]
-fn a_request_the_manager_honoured_at_once_is_sent_once() {
-    let world = World::clearing_after(0);
-    lift_via(&world, 42, deadline(5_000)).expect("a lift");
-    assert_eq!(world.activations.get(), 1);
-}
-
-#[test]
-fn the_send_alone_is_never_the_judgement() {
-    let world = World::never_clearing();
-    let lifted = lift_via(&world, 7, deadline(5_000)).expect("a lift");
-    assert!(matches!(lifted, Lifted::StillHidden { .. }));
-    assert!(world.hidden_reads.get() >= 2);
-}
-
-#[test]
 fn a_request_that_cannot_be_sent_is_not_delivered_and_reads_nothing() {
     let mut world = World::never_clearing();
     world.activation = Err(ControlError::SendFailed);

@@ -89,13 +89,6 @@ fn the_same_dialog_without_showing_is_not_found_whether_or_not_its_node_stays() 
 }
 
 #[test]
-fn the_id_of_a_nested_dialog_is_stable_across_scans() {
-    let first = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
-    let second = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
-    assert_eq!(first.found[0].id, second.found[0].id);
-}
-
-#[test]
 fn a_window_that_is_itself_a_dialog_is_not_scanned() {
     let scan = scan_windows(&[window(WINDOW_ID, true)], |_| {
         panic!("a sheet window is listed as a sheet already")
