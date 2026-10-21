@@ -34,20 +34,21 @@ tool for observation or semantic actions.
 
 | Group | Commands | Status on Linux |
 |-------|----------|-----------------|
-| Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. Surfaces are `window`, `sheet`, `menu`, and on GNOME `system-tray`, `action-center`, `quick-settings`; `status` lists the ones this session supports |
-| Surfaces | `list-surfaces` | Works; a `menu` entry appears after the action that opened a popup |
-| Ref interaction | `click`, `right-click`, `type`, `set-value`, `clear`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll`, `scroll-to` | Works headless through AT-SPI actions; no input tool is needed and Wayland is no different. A node with no usable action needs `--headed` physical input |
+| Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. This build supports `window` and `sheet`; `status` lists the available surfaces |
+| Surfaces | `list-surfaces` | Works for `window` and `sheet`. Menu, popover and shell surfaces await pass C (3.14) |
+| Ref interaction | `click`, `right-click`, `type`, `set-value`, `clear`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll-to` | Works headless where the node exposes the required AT-SPI capability. A node with no usable semantic action needs `--headed` physical input on X11 |
+| Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; X11 and `--headed` only |
 | Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, X11 only. On Wayland the pointer cannot be aimed and these refuse with `ACTION_NOT_SUPPORTED` |
 | Focus | `focus` | Needs `--headed` for the focus permission; delivered through the node's own focus action, not the pointer |
 | Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and Wayland; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed: `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Works for X11 and Xwayland windows; a Wayland-native window is refused with cause `wayland_session`. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | Works |
-| Capture | `screenshot` | X11: a window, with no permission, on any window manager; a screen or whole-screen grab only on a non-compositing one. Wayland: whole desktop only, after a consent dialog. See `references/capture-and-clipboard.md` |
+| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
-| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`, `--notification` |
-| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME shell only; `list-notifications` works headless, mutations are headed |
-| Shell surfaces | `open-system-surface` | GNOME shell: `system-tray`, `action-center`, `quick-settings`. No `taskbar` |
+| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu detection works before menu snapshots; notifications await pass C (3.14) |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Unavailable in this build; pass C (3.14) |
+| Shell surfaces | `open-system-surface` | Unavailable in this build; pass C (3.14) covers shell, tray and notification surfaces |
 | Cursor overlay | `cursor-overlay` | Records the session setting but never renders: `enable` returns `ok` with `data.rendered: false` and logs a skipped-update warning with `PLATFORM_NOT_SUPPORTED` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
@@ -59,8 +60,9 @@ tool for observation or semantic actions.
 - **`--app` takes the name `list-apps` prints** (`gnome-calculator`,
   `nautilus`) or the registry name (`org.gnome.Nautilus`), never a window title.
   A desktop-entry name such as `Files` is accepted once the entry exists. The
-  rule differs per command: `list-windows --app` is exact, `list-apps --app`
-  is a substring of the listed name.
+  rule differs per command: `list-windows --app` is exact (aliases included),
+  while `list-apps --app` combines a substring of the listed name with exact
+  adapter aliases, ignoring case.
 - **Window ids are opaque addresses** of 34 to 70 characters, valid for the
   life of the window's process. Run `list-windows` again after a restart.
   `list-apps` rows carry no `bundle_id` and add `process_instance`.
@@ -81,8 +83,8 @@ tool for observation or semantic actions.
   command.
 - **Blocked key combos refuse without `--force`.** See
   `references/display-servers-and-input.md`.
-- **Tray items and notifications:** shell calls that click need `--headed`.
-  See `references/shell-tray-and-notifications.md`.
+- **Menus, popovers, tray, notifications and shell surfaces await pass C (3.14).**
+  Their retained reference is future guidance, not this build's capability list.
 - **The state root must be private.** A group-writable or world-accessible
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
   `INTERNAL`; run `chmod 700` on it or let the tool create it.
@@ -92,7 +94,10 @@ tool for observation or semantic actions.
 - Ref actions are semantic AT-SPI calls that never move the pointer or change
   the active window. `--headed` adds physical input and focus.
 - Under `--headed`, `click` and `type` use physical input on X11 (a real click
-  or keys, step `physical_synthetic`, `verified: false`). On Wayland every headed
+  or keys, step `physical_synthetic`, `verified: false`), falling back to the
+  semantic call only after a safe unsupported-input or geometry refusal on that
+  X11 path. On Wayland the CLI rejects headed pointer actions before that
+  adapter fallback: every headed
   pointer command (`click`, `hover`, `double-click`, `mouse-*`, wheel) is refused
   at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
   `physical_delivery_started: false`. A headed `type` is not refused there: it
@@ -121,8 +126,9 @@ tool for observation or semantic actions.
   focus, workspaces, stopped apps, background `press`.
 - `references/capture-and-clipboard.md`: `screenshot` on X11 and Wayland,
   the Wayland consent dialog, clipboard owner and helper.
-- `references/shell-tray-and-notifications.md`: menus, tray, notification
-  commands, shell surfaces, sandboxed apps.
+- `references/shell-tray-and-notifications.md`: retained pass C (3.14) guidance
+  for menus, tray, notifications and shell surfaces; those surfaces are not
+  shipped in this build. Also contains sandbox setup guidance.
 - `references/troubleshooting.md`: symptom-to-cause map, Chromium, Electron
   and Qt flags, toolkit limits, error codes with `platform_detail`.
 

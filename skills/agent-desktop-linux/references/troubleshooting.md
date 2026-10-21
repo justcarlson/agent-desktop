@@ -72,12 +72,18 @@ nameless top-level frame, not a window: it does not count as a window event.
   GTK4 `Gtk.Entry` with visibility off, an entry with `InputPurpose.PASSWORD` and
   `Adw.PasswordEntryRow` all show their text: observation commands read them.
 - A `scrollarea` with no ref cannot take `scroll @ref`.
+- Live `offscreen` is derived from positive evidence: a minimized window, a
+  scrolled-out GTK3 sentinel row, or a rectangle outside its frame, scroll
+  container or every display. `VISIBLE` without `SHOWING` alone proves neither
+  hidden nor offscreen. A proven intersection in a non-minimized window can
+  report false; missing placement evidence stays unknown. Snapshots carry
+  neither live `offscreen` nor `hidden`; use live `get`/`is` checks.
 
 ## Toolkit limits
 
 | Toolkit | Limit |
 |---------|-------|
-| GTK4 | Bounds carry a reliable size and a position only where the node maps to a unique X11 client origin; elsewhere no position is reported. Menu item labels come from the labelling node. Secret entries show text. |
+| GTK4 | Bounds use the window-coordinate rectangle translated to the unique X11 client origin; elsewhere no position is reported. The toolkit's `[0,0,w,h]` screen extents establish no position. Menu item labels come from the labelling node. Secret entries show text. |
 | GTK3 | `scroll-to` works through the scrollbar. A held handle answers stale values for 16 to 17 s after its object is destroyed, so waits re-resolve on every poll. |
 | Qt | `scroll-to` does not work: use `scroll --headed`. A `QLineEdit` context menu is not observable. The combo popup takes no semantic selection. A Qt process registers twice; the apps list shows one entry per process. |
 | Chromium and Electron | `scroll-to` works through `ScrollTo`. `hit_test` answers unknown for an Electron host. Needs the flags above. |
@@ -105,11 +111,13 @@ The error text never carries an argument or an environment value.
 
 ## Commands that refuse by design
 
-- `key-down`, `key-up`, `mouse-down`, `mouse-up`: `ACTION_NOT_SUPPORTED` everywhere.
+- `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`. `mouse-down` and `mouse-up`
+  are `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed`.
 - `cursor-overlay`: succeeds as a setting only. `enable` returns `data.rendered:
   false` and no overlay is drawn, so do not wait for one.
-- `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`; open
-  `system-tray`, `action-center` or `quick-settings` instead.
+- `open-system-surface`: unavailable in this build. Shell surfaces, tray and
+  notification commands await pass C (3.14); no alternative shell surface is
+  currently supported.
 - Pointer commands and window screenshots on Wayland.
 
 ## Missing tools

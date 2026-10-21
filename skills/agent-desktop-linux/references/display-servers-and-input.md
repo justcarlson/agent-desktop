@@ -21,7 +21,7 @@ of `not_configured`, `missing` or `refused` and list the variables they tried.
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
 | Pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops, `focus-window`, `press --app` | EWMH on the X11 display | Xwayland clients only; native windows refused |
-| `screenshot` | Window, screen, whole screen | Whole desktop through a consent dialog |
+| `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` selects a monitor |
 | Clipboard | Native selection owner | `wl-clipboard` |
 
 No tool is needed on X11 beyond the binary and its clipboard helper. `xdotool`,
@@ -36,7 +36,10 @@ cursor, so pointer commands (`hover`, `drag`, `double-click`, `triple-click`,
 `mouse-move`, `mouse-click`, `mouse-wheel`) require global `--headed`.
 
 Under `--headed`, `click` and `type` use physical input on X11 and report
-`physical_synthetic` with `verified: false`, because XTEST has no read-back. On
+`physical_synthetic` with `verified: false`, because XTEST has no read-back.
+After an unsupported-input or geometry refusal on X11 that proves nothing was
+sent, the adapter can fall back to the semantic call; it never repeats an
+uncertain delivery. The CLI's Wayland pointer gate runs before that fallback. On
 Wayland every headed pointer command is refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
@@ -70,7 +73,8 @@ agent-desktop press return --app gnome-text-editor
   `period`, `greater`, `leftbracket`) and X keysym names such as `Page_Up`.
   `delete` is the backspace key; `forwarddelete` is the forward Delete key.
   A single character is its own key. An unknown name lists the accepted forms.
-- `cmd` and `meta` are the Super key.
+- In combos, `meta`, `cmd`, `command`, `super` and `win` name the Super modifier.
+  For a bare key use `super` or `meta`, not `cmd`, `command` or `win`.
 - `press` with no `--app` sends to the focused window. `press --app` or
   `--window-id` delivers only while the target process owns the active window;
   a headless press to a background or minimized target is refused. See
@@ -112,13 +116,14 @@ only when the UI you address has changed for another reason.
 ## Wayland keys
 
 Wayland keys go through `org.gnome.Mutter.RemoteDesktop` on the session bus.
-Each call opens its own session, sends keysyms, waits 150 ms so the compositor
-drains them, and stops the session, releasing any key still held.
+Calls send keysyms and wait 150 ms so the compositor drains them. A long-lived
+host can retain the keyboard session for later deliveries; a new CLI process
+opens its own session. Ending a session releases its held keys.
 
-- **The lead Shift.** The compositor drops the first key of a session, so the
-  first key press of a call sends a lone Shift tap before the real keys. The tap
-  does not reach the application: a GTK3 entry logged only the real key, not the
-  Shift. Send the keys you mean; the lead tap is not an extra shortcut.
+- **The lead Shift.** A newly opened key session sends a lone Shift tap and
+  waits 100 ms before the real keys so the compositor can attach its keyboard.
+  It inserts no text, but a handler that watches bare Shift can observe it.
+  Reusing a still-live session skips the lead tap.
 - **Characters.** Only printable ASCII, function, modifier and vendor keysyms are
   accepted. Anything else returns `ACTION_NOT_SUPPORTED` with cause
   `character_outside_layout`; set the value directly with `set-value` instead.
@@ -142,10 +147,11 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
 - A positive `--dy` scrolls up and a negative one down; a positive `--dx` scrolls
   right and a negative one left, on all three platforms. A negative value
   works as `--dy -5` or `--dy=-5`.
-- With neither `--dx` nor `--dy` the default is three lines down. The vertical
-  default applies only when `--dx` is absent.
-- `scrolled: true` is not a read-back. The adapter cannot tell whether the page
-  moved, so read the scrolled content afterwards.
+- With no `--dy`, the default is three lines down when `--dx` is zero (including
+  explicit `--dx 0`), and zero vertical lines when `--dx` is nonzero.
+- The result carries `dy`, `dx`, `target`, `steps` and `disposition`, with no
+  `scrolled` success flag. Wheel delivery is `delivered_unverified`; read the
+  scrolled content afterwards.
 - `scroll @ref --headed` sends wheel clicks at the centre of the target's bounds,
   and only for a node that carries the `Scroll` capability. A wheel click is
   page-size dependent (about two rows on GTK, exactly three items on Qt), so
@@ -171,7 +177,8 @@ The X server keeps XTEST-pressed buttons when the client dies. The CLI journals
 what it holds under `$XDG_RUNTIME_DIR/agent-desktop-input`, and the next call on
 that display releases what a killed process left before it sends its own events.
 If a button seems stuck after you killed a command, run any input command
-(`mouse-move --headed`, for instance) and it is released.
+with valid arguments, such as `agent-desktop --headed mouse-move --xy 640,400`,
+to release it before the new input.
 
 ## Held input
 

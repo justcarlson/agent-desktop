@@ -1,5 +1,11 @@
 # Menus, Shell, Tray and Notifications on Linux
 
+The menu, popover, tray, notification and shell-surface guidance below is
+reserved for skill pass C (3.14). This build advertises only `window` and
+`sheet`; menu waits are available, but menu snapshots and shell/notification
+commands are not. Treat the surface descriptions and examples below as pending
+that implementation and verification. The sandbox setup section is independent.
+
 Popup menus work on every desktop that exposes them through AT-SPI. The shell
 surfaces, the system tray and the notification commands are built for the GNOME
 shell. `agent-desktop status` lists `supported_surfaces`: if a surface is not in

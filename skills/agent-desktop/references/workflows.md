@@ -151,8 +151,8 @@ Slack, VS Code, Discord and similar apps are Chromium based. Use agent-desktop f
 agent-desktop launch "Slack"       # macOS name; on Windows use the absolute path to slack.exe
 agent-desktop close-app "Slack"
 agent-desktop wait --event app-terminated --app "Slack" --timeout 10000
-agent-desktop launch "Slack" --cdp
-agent-browser connect <port>
+agent-desktop launch "Slack" --cdp 9222
+agent-browser connect 9222
 ```
 
 `--cdp` needs a fresh launch, so close a running app first. Drive the web contents with the CDP client. Keep menus, file dialogs, windows, notifications and screenshots on agent-desktop. If no CDP client exists, skip `--cdp` and use the skeleton workflow on the accessibility path. It always works.
@@ -181,9 +181,12 @@ Batch saves process starts. It is not a transaction. Entries after a failure run
 
 ## Trace a multi-step run
 
+This example uses `jq` to read the session id returned by `session start`.
+
 ```bash
-agent-desktop session start --name "invoice-bot"
-export AGENT_DESKTOP_SESSION=<session_id>
+session_start=$(agent-desktop session start --name "invoice-bot")
+AGENT_DESKTOP_SESSION=$(printf '%s\n' "$session_start" | jq -er '.data.session_id')
+export AGENT_DESKTOP_SESSION
 agent-desktop status
 agent-desktop trace show --limit 50
 agent-desktop session end "$AGENT_DESKTOP_SESSION"

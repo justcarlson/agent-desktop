@@ -14,8 +14,9 @@ agent-desktop screenshot /tmp/everything.png
 ```
 
 - No permission and no prompt. Targets are a window (`--app`, `--window-id`), a
-  display by index from `list-displays` (`--screen`), or the whole screen with no
-  selector. With no output path the image comes back as base64 in `data`.
+  display by index from `list-displays` (`--screen`), or the primary display with
+  no selector (the first display if none is marked primary). With no output path
+  the image comes back as base64 in `data`.
 - A window is read from its own drawable. Under a compositing window manager
   (mutter) a covered window and a minimized window are both captured; each
   measured 360x504 with a 900x700 editor over the calculator.
@@ -37,8 +38,10 @@ agent-desktop screenshot /tmp/everything.png
 
 ## `screenshot` on Wayland
 
-Wayland has no window position and no per-window capture. Only the no-selector
-form works, through the desktop portal's `Screenshot`.
+Wayland has no window position and no per-window capture. The portal's
+`Screenshot` captures the desktop; the CLI returns the primary display by
+default, cropping the image on a multi-monitor desktop. `--screen N` selects
+another monitor. Cropping requires dimensions that confirm the monitor layout.
 
 ```bash
 agent-desktop screenshot /tmp/desktop.png
@@ -48,7 +51,7 @@ agent-desktop screenshot /tmp/desktop.png
   Screenshots?", Deny focused) that is not on the accessibility bus. A person
   must answer it. `screenshot` has no timeout flag: the CLI waits for the portal's
   answer, bounded by the longer of the command's own budget and 30 s.
-- **Allow** returns the whole desktop as one PNG. **Deny**, or a dismissed dialog,
+- **Allow** returns the selected display as a PNG. **Deny**, or a dismissed dialog,
   gives `PERM_DENIED`.
 - **Nobody answers**: the portal stops waiting after about 25 s (measured 25.0 s
   twice) and the call answers `TIMEOUT` whose suggestion names the dialog. The
@@ -63,7 +66,7 @@ agent-desktop screenshot /tmp/desktop.png
   When the image does not confirm the monitor layout the call answers
   `PLATFORM_NOT_SUPPORTED` with reason `display_mapping`.
 - A window target (`--app`, `--window-id`) is `PLATFORM_NOT_SUPPORTED` on Wayland
-  for good, not a gap to retry. Use a whole-desktop capture, or read the window
+  for good, not a gap to retry. Capture a display, or read the window
   with `snapshot`.
 - The portal writes the PNG under the user's home. The CLI accepts the file only
   inside the temp, runtime or home directory, checks it is a regular file of the
@@ -89,9 +92,11 @@ carries its `path`, `width` and `height`. An empty clipboard answers `found: fal
   client takes the selection or `clipboard-clear` ends it. The CLI exits first;
   the content stays available while the owner lives.
 - **The helper must sit beside the `agent-desktop` binary** in the same directory
-  and be owned by the user. It must not be world-writable or writable by a shared
-  group. A group-writable helper is accepted when its group is the user's own
-  private group: the shipped helper is mode 775 in that group and works. A 777
+  and be owned by the user or root. The helper must be a regular executable file,
+  not a symlink. Neither it nor its directory may be writable by a shared group;
+  the file must not be world-writable. A group-writable helper is accepted when
+  its group is the user's own private group. A world-writable directory is
+  accepted only with the sticky bit. A 777
   copy is refused with `PLATFORM_NOT_SUPPORTED`, "writable by others". npm
   installs and release archives ship it in place. A copy of the binary moved alone
   cannot set the clipboard: `clipboard-set` answers `PLATFORM_NOT_SUPPORTED`
@@ -122,5 +127,8 @@ carries its `path`, `width` and `height`. An empty clipboard answers `found: fal
 
 ### Clipboard through FFI
 
-The C library reaches the same code. Calls are text-only through the FFI and are
-serialized. There is no stable SONAME yet.
+The C library reaches the same code. Its clipboard API is text-only. Set and
+clear acquire the cross-process interaction lease; reads have a deadline but
+do not acquire that mutation lease. For an FFI host, the matching owner helper
+can sit beside `libagent_desktop_ffi.so`; it need not sit beside the host's
+executable. There is no stable SONAME yet.
