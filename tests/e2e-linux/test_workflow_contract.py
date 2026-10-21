@@ -42,20 +42,16 @@ class SourceRuleTests(unittest.TestCase):
         self.assertIn("flock -o -w 30", result.stdout)
         self.assertIn("timeout -k 30 780", result.stdout)
 
-    def test_session_and_remote_cleanup_is_recoverable(self):
-        permanent_delete = re.compile(r"(?m)(?:^|[;&|(){]|trap ['\"])\s*rm(?:\s|$)|\bfind\b[^\n]*\s-delete\b")
-        paths = [REPO / "scripts" / name for name in (
-            "private-session.sh", "private-wayland-shell.sh", "remote-linux.sh")]
-        self.assertEqual([path.name for path in paths if permanent_delete.search(path.read_text())], [])
-
-    def test_no_shell_file_uses_rm(self):
-        permanent_delete = re.compile(r"(?m)(?:^|[;&|(){])\s*rm(?:\s|$)")
-        offenders = [
-            path.name
-            for path in sorted(ROOT.glob("*.sh"))
-            if permanent_delete.search(path.read_text())
-        ]
-        self.assertEqual(offenders, [])
+    def test_harness_cleanup_does_not_depend_on_a_trash_command(self):
+        names = ("private-session.sh", "private-wayland-shell.sh", "remote-linux.sh",
+                 "test-private-session.sh", "check-elf-glibc-floor-selftest.sh",
+                 "ci-ffi-helper-discovery-smoke.sh")
+        trash = re.compile(r"\btrash\b")
+        paths = [REPO / "scripts" / name for name in names]
+        paths += sorted((ROOT / "runner").glob("*.py")) + sorted((ROOT / "scenarios").glob("*.py"))
+        paths += sorted((REPO / "tests" / "linux-dist").glob("run-*.sh"))
+        paths = [path for path in paths if path.exists()]
+        self.assertEqual([str(path) for path in paths if trash.search(path.read_text())], [])
 
     def test_rm_scan_covers_e2e_linux(self):
         contract = (REPO / "tests" / "e2e" / "test_harness_contract.py").read_text()

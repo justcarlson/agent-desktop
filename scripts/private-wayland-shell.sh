@@ -166,7 +166,7 @@ PY
 }
 
 start_shell() {
-  find "$rt" -maxdepth 1 -name 'wayland-*' -exec trash {} +
+  find "$rt" -maxdepth 1 -name 'wayland-*' -exec rm -f -- {} +
   local before
   before=$(sockets)
   setsid env -u DISPLAY gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 \

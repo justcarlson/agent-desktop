@@ -28,7 +28,7 @@ class VerdictTests(unittest.TestCase):
                              member_reader=lambda _: frozenset())
             with patch.object(disclosure.gsettings, "get", return_value="saved"), \
                 patch.object(disclosure.gsettings, "set"), \
-                patch.object(disclosure, "trash"), \
+                patch.object(disclosure, "remove"), \
                 patch.object(disclosure, "managed", side_effect=RuntimeError("application boundary")):
                 with self.assertRaisesRegex(RuntimeError, "application boundary"):
                     disclosure.files_tree_expand_collapse(ctx)

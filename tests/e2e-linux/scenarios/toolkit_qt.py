@@ -5,7 +5,7 @@ import time
 from oracle.atspi_raw import poll
 from oracle.proc import members
 from runner.helper import (command, delayed, managed, one, ref, require, root,
-                           snapshot, stale_twin, trash)
+                           snapshot, stale_twin, remove)
 from runner.legs import implementation
 from runner.verdict import LegContext
 
@@ -19,14 +19,14 @@ def log_state(ctx):
 @contextlib.contextmanager
 def qt_app(ctx):
     path = ctx.tier.runtime_dir / "qt-window.log"
-    trash(ctx, path)
+    remove(path)
     baseline = log_state(ctx)
     ctx.before("applog", baseline)
     try:
         with managed(ctx, "Qt") as app:
             yield app
     finally:
-        trash(ctx, path)
+        remove(path)
         restored = log_state(ctx)
         require(restored == baseline)
         ctx.restored("applog", restored)

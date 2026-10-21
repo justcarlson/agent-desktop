@@ -8,7 +8,6 @@ from pathlib import Path
 from runner import session
 
 BASE_TOOLS = (
-    "trash",
     "Xvfb",
     "dbus-daemon",
     "dbus-update-activation-environment",

@@ -56,7 +56,7 @@ verdict=ok
 { [ "$status" -ne 0 ] && [ ! -e "$marker" ]; } || verdict=bad
 check "a missing openbox fails and never runs the payload" "$verdict"
 case "$marker" in
-  "${TMPDIR:-/tmp}"/tmp.?*) if [ -e "$marker" ]; then gio trash -- "$marker" 2>/dev/null || true; fi ;;
+  "${TMPDIR:-/tmp}"/tmp.?*) if [ -e "$marker" ]; then rm -f -- "$marker"; fi ;;
 esac
 
 # shellcheck disable=SC2016

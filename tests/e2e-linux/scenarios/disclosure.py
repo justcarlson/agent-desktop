@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from oracle import gsettings
 from runner.helper import (changed, command, managed, nodes, require, root,
-                           snapshot, stale_twin, trash)
+                           snapshot, stale_twin, remove)
 from runner.legs import implementation
 from runner.verdict import LegContext
 
@@ -52,4 +52,4 @@ def files_tree_expand_collapse(ctx: LegContext) -> None:
         require(restored == initial)
         ctx.after("gsettings", [[schema, key, value] for (schema, key), value in restored.items()])
         ctx.restored("gsettings", [[schema, key, value] for (schema, key), value in restored.items()])
-        trash(ctx, directory)
+        remove(directory)

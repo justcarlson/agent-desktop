@@ -15,6 +15,8 @@ SOURCED_SUITE_FILES = [
 SCRATCH_CLEANUP_EXEMPTIONS = {
     "private-session.sh": "removes only the private runtime directory it created; it holds sockets and logs, never artifacts",
     "test-private-session.sh": "removes only the marker file it created; it is a sentinel, never an artifact",
+    "remote-linux.sh": "removes only the rsync filter file it created with mktemp; it is never an artifact",
+    "ci-npm-wrapper-smoke.sh": "removes only the version file and wrapper copies it generated inside the checkout",
 }
 
 

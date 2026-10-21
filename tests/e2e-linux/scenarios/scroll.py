@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from oracle.atspi_raw import poll
 from runner.helper import (changed, command, managed, one, ref, require, root,
-                           stale_twin, trash)
+                           stale_twin)
 from runner.legs import implementation
 from runner.verdict import LegContext
 

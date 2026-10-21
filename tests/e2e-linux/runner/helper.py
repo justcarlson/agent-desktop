@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import contextlib
 import re
+import shutil
 import threading
 import time
 from pathlib import Path
 from typing import Callable
 
 from oracle import atspi_raw as raw, proc, x11
-from oracle.gsettings import tool
 from runner import apps
 
 
@@ -146,10 +146,12 @@ def managed(ctx, name, args=()):
                 f"after={proc.members(ctx.tier.runtime_dir)!r}")
 
 
-def trash(ctx, path: Path):
-    if path.exists():
-        tool(ctx.tier, ["trash", str(path)])
-        require(not path.exists(), "recoverable cleanup did not move the artifact")
+def remove(path: Path):
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
+    require(not path.exists(), "cleanup did not remove the artifact")
 
 
 def stale_twin(ctx, app, target, read, action=("click",)):

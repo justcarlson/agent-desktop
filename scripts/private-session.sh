@@ -87,7 +87,7 @@ cleanup() {
     fusermount -u "$mount" 2>/dev/null || true
   done
   case "$rt" in
-    "$base"/rt.?*) [ -d "$rt" ] && XDG_DATA_HOME="$base/trash-data" trash "$rt" ;;
+    "$base"/rt.?*) [ -d "$rt" ] && rm -rf -- "$rt" ;;
   esac
 }
 trap cleanup EXIT

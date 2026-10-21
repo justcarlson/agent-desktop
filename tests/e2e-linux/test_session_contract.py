@@ -74,10 +74,10 @@ class SweepTests(unittest.TestCase):
     def member_env(self) -> bytes:
         return f"XDG_RUNTIME_DIR={self.runtime}\x00".encode()
 
-    def test_failed_trash_preserves_evidence(self):
+    def test_failed_removal_preserves_evidence(self):
         evidence = self.runtime / "evidence.json"
         evidence.write_text('{"failure": "retained"}')
-        with mock.patch.object(session.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
+        with mock.patch.object(session.shutil, "rmtree", side_effect=OSError("denied")):
             self.assertFalse(session._remove_tree(self.runtime))
         self.assertEqual(evidence.read_text(), '{"failure": "retained"}')
 
@@ -122,7 +122,6 @@ grep() { return 1; }
 sleep() { :; }
 seq() { :; }
 fusermount() { :; }
-trash() { :; }
 kill() { printf '%s\n' "$*" >> "$signal_log"; }
 cleanup
 '''
@@ -289,7 +288,7 @@ class StubWrapperTests(unittest.TestCase):
             "AGENT_DESKTOP_PRIVATE_SESSION=%s\\nAGENT_DESKTOP_HOME=%s\\nTMPDIR=%s\\n' \\\n"
             '  "$rt" ":201" "$DBUS_SESSION_BUS_ADDRESS" "$rt" "$rt/ad-home" "$TMPDIR" > "$AD_TIER_ENV_FILE"\n'
             'printf \'%s %s\\n\' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"\n'
-            'trap \'trash "$rt"\' EXIT\n'
+            'trap \'rm -rf -- "$rt"\' EXIT\n'
             'while [ ! -f "$AD_TIER_RELEASE_FILE" ]; do sleep 0.1; done\n'
         )
 

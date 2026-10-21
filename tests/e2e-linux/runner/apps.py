@@ -201,7 +201,7 @@ def launch_qt(tier: Tier) -> OwnedApp:
     path = Path(__file__).resolve().parents[1] / "apps/qt_window.py"
     log = tier.runtime_dir / "qt-window.log"
     if log.exists():
-        tool(tier, ["trash", str(log)])
+        log.unlink()
     return launch(tier, str(path), (str(tier.runtime_dir / "qt-window.log"),))
 
 

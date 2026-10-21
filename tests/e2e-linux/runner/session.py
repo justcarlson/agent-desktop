@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import os
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -138,12 +139,10 @@ def _remove_tree(path: Path) -> bool:
     if not path.exists():
         return True
     try:
-        result = subprocess.run(
-            ["trash", str(path)], capture_output=True, timeout=30, check=False
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        shutil.rmtree(path)
+    except OSError:
         return False
-    return result.returncode == 0 and not path.exists()
+    return not path.exists()
 
 
 def _a11y_address(env: dict[str, str], deadline: float) -> str | None:

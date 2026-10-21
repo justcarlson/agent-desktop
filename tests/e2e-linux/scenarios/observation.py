@@ -9,7 +9,7 @@ from oracle import atspi_raw as raw
 from oracle.proc import members
 from runner import apps
 from runner.helper import (activate, changed, command, display, managed, nodes,
-                           one, ref, require, root, snapshot, trash)
+                           one, ref, require, root, snapshot, remove)
 from runner.legs import implementation
 from runner.product import run_product
 from runner.verdict import LegContext
@@ -117,7 +117,7 @@ def session_namespace_isolation(ctx: LegContext) -> None:
         finally:
             for session in (first, second):
                 command(ctx, ["session", "end", session])
-                trash(ctx, ctx.tier.state_root / "sessions" / session)
+                remove(ctx.tier.state_root / "sessions" / session)
             ctx.restored("atspi", display(tree))
 
 
@@ -137,7 +137,7 @@ def trace_segment_written(ctx: LegContext) -> None:
             ctx.after("proc", rows)
         finally:
             command(ctx, ["session", "end", session])
-            trash(ctx, ctx.tier.state_root / "sessions" / session)
+            remove(ctx.tier.state_root / "sessions" / session)
             ctx.restored("proc", sorted(str(path) for path in directory.glob("*.jsonl")))
 
 
@@ -190,8 +190,8 @@ def unreachable_accessibility_bus(ctx):
         except subprocess.TimeoutExpired:
             daemon.kill()
             daemon.wait(2)
-        trash(ctx, socket)
-        trash(ctx, log)
+        remove(socket)
+        remove(log)
 
 
 def unreachable_bus_permission_error(ctx: LegContext) -> None:

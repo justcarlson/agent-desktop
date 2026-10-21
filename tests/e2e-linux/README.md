@@ -37,14 +37,14 @@ AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
 ```
 
 A lock-wait expiry is infrastructure contention before any test runs. Keep
-failed suites for diagnosis; a successful suite is moved to Trash by the runner.
+failed suites for diagnosis; the runner removes a successful suite.
 Use another fresh suite for the sole diagnostic rerun. Do not reuse a suite
 with a different binary image. `run.sh` adds the extracted tool directory to
 PATH; Qt launches through the venv path below without activating it in the shell.
 
 Prerequisites include Python 3 with PyGObject, the GNOME apps, Xvfb, DBus,
 AT-SPI, openbox, xdotool, wmctrl, xclip, xwd, wl-clipboard, gnome-shell, and
-recoverable `trash` cleanup. Extracted tools may live under
+private-session cleanup. Extracted tools may live under
 `~/.local/ad-tools/root/usr/bin`; openbox defaults to
 `~/ad-wt/wm-pkgs/root` (`AGENT_DESKTOP_WM_ROOT` overrides it).
 Qt legs use `~/.local/ad-tools/qtvenv`.
@@ -422,7 +422,7 @@ Failure evidence remains under `~/ad-wt/e2e-312-openbox.r5865e`,
 `e2e-312-openbox-retry.nIbLEh`, `e2e-312-mutter.RKK0H7`, and
 `e2e-312-mutter-retry.kxRGwE`. The all-pass Wayland suite
 `e2e-312-wayland.UtQDPl` and operator clipboard suite `e2e-docs.8ffTxD`
-are recoverable under `~/ad-wt/linux-validation-trash/Trash/files/`.
+were removed after their verdicts were recorded.
 The blanket-response negative control `e2e-docs-negative.nIRJM7` exits 1 in both
 modes at missing qualified refs, before action dispatch; it is not a live
 lying-effect proof. No private runtime directory or process referencing the
@@ -442,7 +442,7 @@ Rebased with rerere onto shipped core-delivery `7dc6500f`.
 | Conflicted file | Resolution |
 | --- | --- |
 | `probes/linux/FINDINGS.md` | Keep both shipped L32 findings and harness L34 measurements. |
-| `scripts/private-session.sh` | Keep cancellation/member sweeping, private `ad-home`, and recoverable cleanup with Trash data under the owned base. |
+| `scripts/private-session.sh` | Keep cancellation/member sweeping, private `ad-home`, and direct removal of the owned runtime directory. |
 | `scripts/private-wayland-shell.sh` | Keep recoverable socket cleanup and the socket value shared with the payload; the portable wrapper test catches a local variable hiding it. |
 | `scripts/remote-linux.sh` | Keep the single outer timeout around lock and execution, plus the separate bounded flock wait. |
 | `crates/linux/src/system/capture/capture_live_tests.rs` | Preserve the upstream Qt fixture removal and the harness branch's obsolete Chromium fixture removal. |

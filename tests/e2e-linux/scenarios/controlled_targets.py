@@ -1,5 +1,5 @@
 from oracle.atspi_raw import poll
-from runner.helper import changed, command, delayed, one, ref, require, root, trash
+from runner.helper import changed, command, delayed, one, ref, require, root, remove
 from runner.legs import implementation
 from scenarios import toolkit_qt
 from scenarios.ref_effects import desktop_restored
@@ -39,7 +39,7 @@ def delayed_enable(ctx):
             require(records.count("delayed-click") == 1, "activation count changed after dispatch")
             ctx.restored("atspi.delayed_target", "SENSITIVE" in button.states)
             for suffix in (".enable", ".enable-consumed", ".reset", ".reset-consumed"):
-                trash(ctx, log.with_suffix(suffix))
+                remove(log.with_suffix(suffix))
 
 
 @implementation("gaps.timeout_default")
