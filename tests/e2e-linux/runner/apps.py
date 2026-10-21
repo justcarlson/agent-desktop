@@ -49,7 +49,7 @@ def attributable(tier, pid, start, env) -> bool:
             env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir))
 
 
-def _owners(tier: Tier) -> list[OwnedApp]:
+def _owners(tier: Tier, *, names: tuple[str, ...] | None = None) -> list[OwnedApp]:
     result = []
     for node in raw.registry(tier):
         try:
@@ -63,16 +63,19 @@ def _owners(tier: Tier) -> list[OwnedApp]:
             raise
         if not attributable(tier, pid, start, env):
             continue
+        name = node.name
+        if names is not None and not any(needle in name.casefold() for needle in names):
+            continue
         frames = [child for child in node.children() if child.role in (16, 23, 69)]
-        result.append(OwnedApp(node.name, pid, start, [node.bus],
+        result.append(OwnedApp(name, pid, start, [node.bus],
                                [window_id(frame) for frame in frames], env.get("DISPLAY", "")))
     return result
 
 
 def owners_named(tier: Tier, name: str) -> list[OwnedApp]:
-    needles = ALIASES.get(name, (name.casefold(),))
+    needles = ALIASES.get(name, (Path(name).name.casefold(),))
     result = {}
-    for app in _owners(tier):
+    for app in _owners(tier, names=needles):
         if any(needle in app.name.casefold() for needle in needles):
             key = app.pid, app.start_time
             if key in result:
@@ -99,7 +102,8 @@ def _display_verified(tier, app) -> bool:
 
 
 def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float = 5.0) -> OwnedApp:
-    before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier)}
+    names = ALIASES.get(app, (Path(app).name.casefold(),))
+    before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
     env = dict(tier.env)
     if app.endswith("qt_window.py"):
         command = [str(Path.home() / ".local/ad-tools/qtvenv/bin/python"), app]
@@ -115,7 +119,7 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     _SPAWNED[child.pid] = child
 
     def locate():
-        candidates = [item for item in _owners(tier) if item.windows and
+        candidates = [item for item in _owners(tier, names=names) if item.windows and
                       set(item.windows) - before.get((item.pid, item.start_time), set())]
         if len(candidates) > 1:
             raise AssertionError(f"launch attributed multiple owners: {candidates}")
@@ -198,11 +202,11 @@ def prime_desktop(tier: Tier) -> None:
         stop(app)
     previous = proc.members(tier.runtime_dir)
     stable_since = time.monotonic()
-    deadline = stable_since + 8.0
+    deadline = stable_since + 45.0
     while time.monotonic() < deadline:
         time.sleep(0.1)
         current = proc.members(tier.runtime_dir)
-        if current != previous:
+        if current != previous or any(name == "tracker-extract" for _, _, name in current):
             previous, stable_since = current, time.monotonic()
         if time.monotonic() - stable_since >= 1.0:
             return

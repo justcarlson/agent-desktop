@@ -15,6 +15,69 @@ from runner.helper import delayed
 
 
 class ProcessOracleTests(unittest.TestCase):
+    def test_launch_discovery_does_not_read_a_stalled_bystander(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as directory:
+            tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={})
+            stalled = SimpleNamespace(name="unrelated-app", bus=":1.10",
+                                      children=Mock(side_effect=TimeoutError("bystander stalled")))
+            helper = SimpleNamespace(name="mutter-x11-frames", bus=":1.11", children=Mock())
+            frame = SimpleNamespace(role=23, bus=":1.12", path="/owned")
+            target = SimpleNamespace(name="qt_window.py", bus=":1.12", children=lambda: [frame])
+            child = SimpleNamespace(pid=999, poll=lambda: None)
+            with patch.object(apps.raw, "registry", side_effect=[[stalled], [stalled, helper, target]]), \
+                 patch.object(apps.raw, "owner_pid", side_effect=lambda node: int(node.bus.split(".")[-1])), \
+                 patch.object(apps.proc, "facts", return_value=(99, 99, "app", {
+                     "XDG_RUNTIME_DIR": directory, "DISPLAY": ":150"})), \
+                 patch.object(apps, "_display_verified", return_value=True), \
+                 patch.object(apps.subprocess, "Popen", return_value=child), \
+                 patch.dict(apps._SPAWNED, clear=True), patch.dict(apps._TIERS, clear=True):
+                found = apps.launch(tier, "/private/qt_window.py")
+            self.assertEqual((found.pid, found.owner_names, found.windows),
+                             (12, [":1.12"], ["w-1.12-owned"]))
+            stalled.children.assert_not_called()
+            helper.children.assert_not_called()
+
+    def test_launch_discovery_never_substitutes_a_new_decoration_owner(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={})
+            frame = SimpleNamespace(role=23, bus=":1.11", path="/decoration")
+            helper = SimpleNamespace(name="mutter-x11-frames", bus=":1.11", children=lambda: [frame])
+            child = SimpleNamespace(pid=999, poll=lambda: None)
+            with patch.object(apps.raw, "registry", side_effect=[[], [helper]]), \
+                 patch.object(apps.raw, "owner_pid", return_value=11), \
+                 patch.object(apps.proc, "facts", return_value=(99, 99, "app", {
+                     "XDG_RUNTIME_DIR": directory, "DISPLAY": ":150"})), \
+                 patch.object(apps.raw, "poll", side_effect=lambda predicate, *_a, **_kw: predicate()), \
+                 patch.object(apps, "_display_verified", return_value=True), \
+                 patch.object(apps.subprocess, "Popen", return_value=child), \
+                 patch.dict(apps._SPAWNED, clear=True), patch.dict(apps._TIERS, clear=True):
+                with self.assertRaisesRegex(AssertionError, "no new private window for Calculator"):
+                    apps.launch(tier, "Calculator")
+
+    def test_warmup_waits_for_transient_extraction_and_keeps_a_deadline(self):
+        tier = SimpleNamespace(display=None, runtime_dir=Path("/private/a"))
+        for exits in (True, False):
+            clock = [0.0]
+            def sleep(seconds):
+                clock[0] += seconds
+            def members(_):
+                return [] if exits and clock[0] >= 2 else [(12, 99, "tracker-extract")]
+            with self.subTest(exits=exits), \
+                 patch.object(apps, "launch", return_value=object()), \
+                 patch.object(apps, "stop"), \
+                 patch.object(apps.proc, "members", side_effect=members), \
+                 patch.object(apps.time, "sleep", side_effect=sleep), \
+                 patch.object(apps.time, "monotonic", side_effect=lambda: clock[0]):
+                if exits:
+                    apps.prime_desktop(tier)
+                    self.assertGreaterEqual(clock[0], 3)
+                    self.assertLess(clock[0], 5)
+                else:
+                    with self.assertRaisesRegex(AssertionError, "membership did not settle"):
+                        apps.prime_desktop(tier)
+                    self.assertLess(clock[0], 46)
+
     def test_owner_scan_ignores_retired_bus_names_but_preserves_other_errors(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/a"))
         frame = SimpleNamespace(role=23, bus=":1.2", path="/frame")
