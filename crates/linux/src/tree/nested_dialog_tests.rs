@@ -83,5 +83,8 @@ fn a_walk_with_an_unread_subtree_is_cut_short() {
     let mut cut = node(PANEL, "", true, "/p", Vec::new());
     cut.truncated = true;
     assert!(is_cut_short(&window(vec![cut])));
+    let mut cut = node(PANEL, "", true, "/p", Vec::new());
+    cut.child_count = Some(1);
+    assert!(is_cut_short(&window(vec![cut])));
     assert!(!is_cut_short(&window(vec![deep_dialog(true)])));
 }

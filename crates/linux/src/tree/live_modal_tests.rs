@@ -11,6 +11,7 @@ use crate::tree::{Field, ObservedRead};
 
 struct Desktop {
     dialog_states: Field<Vec<u32>>,
+    nested: bool,
     listed: bool,
     unavailable: Option<&'static str>,
 }
@@ -26,7 +27,7 @@ impl NodeReader for Desktop {
             return Err(AdapterError::timeout("window did not answer"));
         }
         let mut read: ObservedRead = match element.path() {
-            "/dialog" => {
+            "/dialog" | "/nested" => {
                 let mut read = read_of(FRAME, "Preferences", &[]);
                 read.node.traits.states = self.dialog_states.clone();
                 read
@@ -42,6 +43,53 @@ impl NodeReader for Desktop {
         })
     }
 
+    fn native_tree(
+        &mut self,
+        root: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<crate::tree::Walk<ObservedRead>, AdapterError> {
+        let mut walk = crate::tree::walker::walk_levels(
+            root.clone(),
+            &crate::tree::WalkLimits::default(),
+            deadline,
+            |level| {
+                level
+                    .iter()
+                    .map(|element| {
+                        let read = self.read(element)?.read;
+                        let paths = match element.path() {
+                            "/parent" if self.nested => {
+                                vec!["/parent/button".to_owned(), "/nested".to_owned()]
+                            }
+                            "/nested" => vec!["/inside".to_owned()],
+                            "/parent" | "/dialog" => vec![format!("{}/button", element.path())],
+                            _ => vec![],
+                        };
+                        let children = paths
+                            .into_iter()
+                            .map(|path| {
+                                let mut child =
+                                    AtspiElement::new(element.bus_name(), path, element.pid());
+                                child.set_ancestry(ancestry::child(
+                                    element,
+                                    read.node.traits.role.present().copied(),
+                                ));
+                                child
+                            })
+                            .collect();
+                        Ok(crate::tree::Expansion::read(read, children))
+                    })
+                    .collect()
+            },
+            crate::tree::wrapper::classify,
+        )?;
+        if self.unavailable == Some("cut") {
+            walk.root.child_count = Some(walk.root.children.len() as u32);
+            walk.root.children.pop();
+        }
+        Ok(walk)
+    }
+
     fn top_levels(
         &mut self,
         target: &AtspiElement,
@@ -51,9 +99,14 @@ impl NodeReader for Desktop {
             return Err(AdapterError::timeout("window listing did not answer"));
         }
         Ok(if self.listed {
-            ["/parent", "/dialog"]
-                .map(|path| AtspiElement::new(target.bus_name(), path, target.pid()))
-                .to_vec()
+            if self.nested {
+                vec!["/parent"]
+            } else {
+                vec!["/parent", "/dialog"]
+            }
+            .into_iter()
+            .map(|path| AtspiElement::new(target.bus_name(), path, target.pid()))
+            .collect()
         } else {
             vec![]
         })
@@ -73,7 +126,7 @@ impl NodeReader for Desktop {
 }
 
 fn target(frame: &str) -> NativeHandle {
-    let mut target = element("/button");
+    let mut target = element(&format!("{frame}/button"));
     target.set_ancestry(ancestry::of_root(&element(frame)));
     target.into_native_handle()
 }
@@ -84,6 +137,7 @@ fn a_renderer_target_checks_its_owning_frames_dialogs() {
     renderer.set_ancestry(ancestry::of_root(&element("/parent")));
     let handle = renderer.into_native_handle();
     let mut desktop = Desktop {
+        nested: false,
         dialog_states: Field::Present(words(&[])),
         listed: true,
         unavailable: None,
@@ -123,6 +177,7 @@ fn a_menu_owner_spoofing_the_shell_comm_is_still_blocked_by_its_modal() {
     menu.set_menu_owner(&frame);
     let handle = menu.into_native_handle();
     let mut desktop = Desktop {
+        nested: false,
         dialog_states: Field::Present(words(&[MODAL, SHOWING])),
         listed: true,
         unavailable: None,
@@ -149,6 +204,7 @@ fn a_menu_owner_spoofing_the_shell_comm_is_still_blocked_by_its_modal() {
 #[test]
 fn live_preflight_refuses_enabled_parent_behind_modal_but_admits_the_dialog_and_closed_control() {
     let mut desktop = Desktop {
+        nested: false,
         dialog_states: Field::Present(words(&[MODAL, SHOWING])),
         listed: true,
         unavailable: None,
@@ -186,6 +242,7 @@ fn live_preflight_refuses_when_modal_state_or_target_window_membership_is_unread
         Field::Present(vec![]),
     ] {
         let mut desktop = Desktop {
+            nested: false,
             dialog_states: states,
             listed: true,
             unavailable: None,
@@ -199,6 +256,7 @@ fn live_preflight_refuses_when_modal_state_or_target_window_membership_is_unread
         );
     }
     let mut desktop = Desktop {
+        nested: false,
         dialog_states: Field::Present(words(&[])),
         listed: false,
         unavailable: None,
@@ -222,4 +280,38 @@ fn live_preflight_refuses_when_modal_state_or_target_window_membership_is_unread
             agent_desktop_core::DeliverySemantics::not_delivered()
         );
     }
+}
+
+#[test]
+fn a_nested_modal_blocks_its_enabled_sibling_and_proves_inside_membership() {
+    let mut desktop = Desktop {
+        nested: true,
+        dialog_states: Field::Present(words(&[MODAL, SHOWING])),
+        listed: true,
+        unavailable: None,
+    };
+    let deadline = Deadline::standard().unwrap();
+    let outside = target("/parent");
+    let mut inside = element("/inside");
+    inside.set_ancestry(ancestry::of_root(&element("/nested")));
+    let inside = inside.into_native_handle();
+    let error = element_via(&mut desktop, &outside, deadline).unwrap_err();
+    assert_eq!(error.details.unwrap()["cause"], "blocked_by_modal_dialog");
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    element_via(&mut desktop, &inside, deadline)
+        .expect("the nested sheet target is inside the modal");
+    desktop.dialog_states = Field::Present(words(&[SHOWING]));
+    element_via(&mut desktop, &outside, deadline).expect("non-modal dialogs do not block siblings");
+    desktop.dialog_states = Field::Failed("unreadable".to_owned());
+    let error = element_via(&mut desktop, &outside, deadline).unwrap_err();
+    assert_eq!(error.details.unwrap()["cause"], "modal_state_unknown");
+    desktop.unavailable = Some("/nested");
+    assert!(element_via(&mut desktop, &inside, deadline).is_err());
+    desktop.unavailable = Some("cut");
+    desktop.dialog_states = Field::Present(words(&[SHOWING, MODAL]));
+    let error = element_via(&mut desktop, &outside, deadline).unwrap_err();
+    assert_eq!(error.details.unwrap()["cause"], "modal_state_unknown");
 }

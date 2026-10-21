@@ -14,6 +14,29 @@ struct MenuReader {
 }
 
 impl NodeReader for MenuReader {
+    fn native_tree(
+        &mut self,
+        root: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<crate::tree::Walk<crate::tree::ObservedRead>, AdapterError> {
+        crate::tree::walker::walk_levels(
+            root.clone(),
+            &crate::tree::WalkLimits::default(),
+            deadline,
+            |level| {
+                Ok(level
+                    .iter()
+                    .map(|element| {
+                        let mut read = read_of(PUSH_BUTTON, "Open", &["click"]);
+                        read.node.element = element.clone();
+                        crate::tree::Expansion::read(read, Vec::new())
+                    })
+                    .collect())
+            },
+            crate::tree::wrapper::classify,
+        )
+    }
+
     fn top_levels(
         &mut self,
         element: &AtspiElement,

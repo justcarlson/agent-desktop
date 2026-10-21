@@ -228,3 +228,30 @@ pub(crate) fn walk_tree(
         super::wrapper::classify,
     )
 }
+
+pub(crate) fn walk_native_tree(
+    bus: &SharedBus,
+    root: &AtspiElement,
+    deadline: Deadline,
+) -> Result<Walk<ObservedRead>, AdapterError> {
+    let limits = WalkLimits::default();
+    let connection = bus.get(deadline)?;
+    let mut reader = LevelReader::new(connection.inner(), root, &limits, deadline);
+    walk_levels(
+        root.clone(),
+        &limits,
+        deadline,
+        |level| {
+            let mut reads = reader.expand(level)?;
+            for read in &mut reads {
+                if super::role_numbers::is_web_document(
+                    read.payload.node.traits.role.present().copied(),
+                ) {
+                    read.children.clear();
+                }
+            }
+            Ok(reads)
+        },
+        super::wrapper::classify,
+    )
+}

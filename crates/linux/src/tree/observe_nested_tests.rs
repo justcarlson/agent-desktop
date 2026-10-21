@@ -77,3 +77,60 @@ fn a_dialog_inside_the_window_that_does_not_show_is_no_sheet() {
     .expect_err("a hidden dialog is not a sheet");
     assert_eq!(error.code, ErrorCode::ElementNotFound);
 }
+
+#[test]
+fn multiple_nested_sheets_are_ambiguous_before_any_refs_are_published() {
+    let window = window(window_id::encode(":1.7", "/a").unwrap());
+    let mut sheet = request();
+    sheet.surface = SnapshotSurface::Sheet;
+    let error = observe_plain(
+        ObservationRoot::Window(&window),
+        &sheet,
+        |element, limits, _| {
+            assert_eq!(
+                element.path(),
+                "/a",
+                "neither ambiguous dialog may be observed"
+            );
+            let mut walk = window_holding_a_dialog(true)(limits)?;
+            let mut second = walk.root.children[0].clone();
+            second.payload.node.element = AtspiElement::new(":1.7", "/other", 77);
+            walk.root.children.push(second);
+            walk.node_count += 1;
+            Ok(walk)
+        },
+    )
+    .expect_err("multiple sheets must not select an arbitrary dialog");
+    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+}
+
+#[test]
+fn unread_sheet_discovery_never_claims_absence_or_uniqueness() {
+    let window = window(window_id::encode(":1.7", "/a").unwrap());
+    let mut sheet = request();
+    sheet.surface = SnapshotSurface::Sheet;
+    for (showing, logical_cut) in [(false, false), (true, false), (false, true)] {
+        let error = observe_plain(
+            ObservationRoot::Window(&window),
+            &sheet,
+            |element, limits, _| {
+                assert_eq!(
+                    element.path(),
+                    "/a",
+                    "an unread region may hold another dialog"
+                );
+                let mut walk = window_holding_a_dialog(showing)(limits)?;
+                if logical_cut {
+                    walk.root.child_count = Some(1);
+                    walk.root.children.clear();
+                } else {
+                    walk.complete = false;
+                    walk.root.children[0].truncated = true;
+                }
+                Ok(walk)
+            },
+        )
+        .expect_err("unread regions cannot settle sheet discovery");
+        assert_eq!(error.code, ErrorCode::Timeout);
+    }
+}
