@@ -52,7 +52,7 @@ def _menu_case(ctx, name, operation):
         ctx.before("atspi.menu_visible", before)
         if operation in ("open", "close"):
             _toggle(ctx.tier, owner)
-        args = ["wait", "--menu-closed" if operation == "close" else "--menu", "--app", name,
+        args = ["wait", "--menu-closed" if operation == "close" else "--menu", "--app", owner,
                 "--timeout", "1500" if operation == "hidden" else "4000"]
         envelope = ctx.product(args)
         if operation == "hidden":

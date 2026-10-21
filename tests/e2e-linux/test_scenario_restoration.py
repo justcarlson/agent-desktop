@@ -307,6 +307,8 @@ class MenuRestorationTests(unittest.TestCase):
                     return [Item()] if kw.get("role") == 35 else [Outer(), Toggle()]
                 root = SimpleNamespace(find=find)
                 def product(tier, argv, **kw):
+                    if argv[argv.index("--app") + 1] == "Terminal":
+                        return Envelope(False, None, {"code": "APP_NOT_FOUND"}, "ambiguous desktop alias", 0, argv)
                     if name == "hidden_bar_timeout_message":
                         return Envelope(False, None, {"code": "TIMEOUT", "message": "menu hidden"}, "{}", 1500, argv)
                     return Envelope(True, {"found": True}, None, "{}", 5, argv)
