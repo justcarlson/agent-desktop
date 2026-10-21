@@ -21,9 +21,11 @@ description: >
 The observe-act loop, ref system, JSON envelope, sessions and tracing are the
 same on every platform. This file covers only what differs on Linux.
 
-Requires a graphical session of the signed-in user with a running AT-SPI
-accessibility bus, glibc 2.35 or newer (Ubuntu 22.04 baseline), on x86_64 or
-aarch64. Run the CLI inside the same desktop session as the target apps: the
+Requires Ubuntu 24.04+ with a graphical session of the signed-in user and a
+running AT-SPI accessibility bus, on x86_64 or aarch64. Other distributions
+need the at-spi2-core bridge fix dc0dc33; Ubuntu 22.04's bridge aborts on
+`Action.GetActions`. The archive loader floor is glibc 2.35.
+Run the CLI inside the same desktop session as the target apps: the
 session bus, the display and the runtime directory come from its environment.
 A TTY login, an SSH shell with no session variables, a container with no bus
 and another user's session see no apps. GNOME is the measured desktop; X11 and
@@ -96,6 +98,10 @@ tool for observation or semantic actions.
 
 ## What differs on Linux
 
+- Firefox/Gecko `select` can change the selected value without firing `change`
+  or `input` events, so dependent page handlers do not run. The result stays
+  `delivered_unverified` even when value readback matches. Check the dependent
+  application effect before continuing; value readback alone is no commit proof.
 - Ref actions are semantic AT-SPI calls that never move the pointer or change
   the active window. `--headed` adds physical input and focus.
 - Under `--headed`, `click` and `type` use physical input on X11 (a real click

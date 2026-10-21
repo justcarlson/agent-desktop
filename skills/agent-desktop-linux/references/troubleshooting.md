@@ -14,7 +14,7 @@ display server does not give.
 | App runs but `--app` finds nothing | Not on the bus, or wrong name | See "Apps that are not on the bus" and use the `list-apps` name |
 | Chromium shows a bus entry but no windows | Renderer accessibility is off | Add `--force-renderer-accessibility` |
 | Window appears but `snapshot` is thin | Content not ready | `wait --window`, then `wait --text`; raise `--timeout-ms` |
-| `TIMEOUT` on `snapshot` | `--timeout-ms` shorter than the first read | Raise it; a partial tree is never returned |
+| `TIMEOUT` on `snapshot` | Deadline before a usable observation, or an incomplete `--root` drill-down | Raise `--timeout-ms`; a later timeout on a normal snapshot can instead succeed with `complete: false` and `truncated: true` |
 | `ACTION_FAILED` `activation_not_granted` | Window manager never activated the window | `references/windows-and-lifecycle.md`, Focus |
 | `ACTION_FAILED` `overview_open` | GNOME Activities Overview is open | Close the overview, retry |
 | `ACTION_FAILED` `frame_not_active` or `check: window_active` | Window manager made the window active but the app does not report it | Run `snapshot` on the app once, then retry; it is intermittent on Electron |
@@ -62,6 +62,11 @@ nameless top-level frame, not a window: it does not count as a window event.
 
 ## Observation details
 
+- Check `data.complete` before treating an omitted control as absent. A normal
+  snapshot cut short after usable observation can succeed with `complete: false`,
+  `truncated: true` and `nodes_observed`. Retry with a larger `--timeout-ms`.
+  An incomplete `--root` drill-down returns `TIMEOUT` rather than replacing
+  existing refs with a partial subtree.
 - `--max-depth` and `--skeleton` count semantic levels. Empty layout wrappers do
   not count, so output nesting can exceed the number you passed. `-i --compact`
   still shows nested nameless `group` nodes on GTK4; read past them.
