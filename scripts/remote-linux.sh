@@ -27,8 +27,8 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DIR=${AGENT_DESKTOP_REMOTE_DIR:-ad-wt/$(basename "$ROOT")}
 TIMEOUT=${AGENT_DESKTOP_REMOTE_TIMEOUT:-3600}
 case "$TIMEOUT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_TIMEOUT must be whole seconds" >&2; exit 2 ;; esac
-LOCK_TIMEOUT=${AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT:-$TIMEOUT}
-case "$LOCK_TIMEOUT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT must be whole seconds" >&2; exit 2 ;; esac
+LOCK_WAIT=${AGENT_DESKTOP_REMOTE_LOCK_WAIT:-${AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT:-$TIMEOUT}}
+case "$LOCK_WAIT" in ""|*[!0-9]*) echo "remote-linux: AGENT_DESKTOP_REMOTE_LOCK_WAIT must be whole seconds" >&2; exit 2 ;; esac
 
 # A kill by process name reaches every session of the user on the shared box, so only a kill by pid
 # is sent: after `kill`, every word is a number, a signal option or a variable.
@@ -78,7 +78,7 @@ qdir=$(printf '%q' "$DIR")
 # touching the sources inside the lock makes it rebuild this worktree's own.
 wrap=
 case "$cmd" in *cargo*|*linux-live-gate*) wrap='sh -c '"'"'find crates src -name \*.rs -exec touch {} + ; exec "$@"'"'"' sh' ;; esac
-lock="flock -o -w $TIMEOUT \$HOME/ad-wt/.box.lock"
+lock="flock -o -w $LOCK_WAIT \$HOME/ad-wt/.box.lock"
 [ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p \$HOME/ad-wt $qdir"
 if [ "${AGENT_DESKTOP_REMOTE_SYNC:-1}" != 0 ]; then

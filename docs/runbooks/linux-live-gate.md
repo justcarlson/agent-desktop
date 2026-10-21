@@ -37,10 +37,13 @@ Default: `bash scripts/linux-live-gate.sh --jobs 3`. For shared-box calls below
 15 minutes, split the same gate into three chunks with one output directory:
 
 ```bash
-bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 840 bash scripts/linux-live-gate.sh --tier openbox --output "$HOME/ad-wt/live-gate-fast"'
-bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 840 bash scripts/linux-live-gate.sh --tier mutter --output "$HOME/ad-wt/live-gate-fast"'
-bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 840 bash scripts/linux-live-gate.sh --tier wayland --output "$HOME/ad-wt/live-gate-fast"'
+AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --tier openbox --output "$HOME/ad-wt/live-gate-fast"'
+AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --tier mutter --output "$HOME/ad-wt/live-gate-fast"'
+AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --tier wayland --output "$HOME/ad-wt/live-gate-fast"'
 ```
+
+A busy shared lock returns after 15 seconds; retry that chunk once the box is
+available. This leaves the tier deadline inside the call budget.
 
 Use a fresh output directory after any source change. Existing tier results
 are never overwritten. `--jobs 1` runs the same selection serially; `--list`
