@@ -87,7 +87,7 @@ class GateTests(unittest.TestCase):
         wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
                    "input::wayland::live_tests::reply_loss::case",
                    "system::shell::live_wayland_tests::native_case"]
-        mutter = [gate.SELF_MUTTER + "::case", "notifications::live_tests::case",
+        mutter = ["notifications::live_tests::case",
                   "system::shell::outage_live_tests::case"]
         cases = ["unit::fast", "tree::live::one", "tree::live::two", *wayland, *mutter]
         ignored = set(cases[1:])
