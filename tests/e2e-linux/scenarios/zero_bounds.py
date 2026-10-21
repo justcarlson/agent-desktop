@@ -40,22 +40,6 @@ def settings_container_raw_only(ctx: LegContext) -> None:
     geometry_only(ctx, "Settings", ("multitasking",))
 
 
-def history_listbox_outcome(ctx: LegContext) -> None:
-    with managed(ctx, "Calculator") as app:
-        history = one(root(ctx, app), role=98)
-        initial = history.extents(), sorted(history.states)
-        ctx.before("atspi", initial)
-        data = snapshot(ctx, app)
-        items = [item for item in nodes(data.get("tree")) if item.get("role") == "listbox"]
-        require(len(items) == 1 and items[0].get("ref_id"), "history lost its Scroll ref")
-        target = items[0]["ref_id"]
-        visible = command(ctx, ["is", target, "--property", "visible"], app).data
-        require(visible["result"] is False, "empty history should not be visible")
-        require((history.extents(), sorted(history.states)) == initial)
-        ctx.after("atspi", initial)
-        ctx.restored("atspi", initial)
-
-
 @implementation("zero_bounds.hidden_menu_items_not_visible")
 def hidden_menu_items_not_visible(ctx: LegContext) -> None:
     with managed(ctx, "Terminal", ("--hide-menubar",)) as app:

@@ -58,41 +58,6 @@ def _error_text(envelope) -> dict:
     return {"message": (envelope.error or {}).get("message", ""), "details": (envelope.error or {}).get("details")}
 
 
-def semantic_action_no_input_device(ctx: LegContext) -> None:
-    app = launch(ctx.tier, CALCULATOR)
-    snapshot = ctx.product(["snapshot", "--app", CALCULATOR, "-i"])
-    assert snapshot.ok, snapshot.raw
-    ref = named_ref((snapshot.data or {}).get("tree"), "7")
-    assert ref, "Calculator has no 7 button ref"
-    ctx.before("atspi.display", "")
-    envelope = ctx.product(["click", ref])
-    assert envelope.ok, envelope.raw
-    assert shows(app_root(ctx.tier, "gnome-calculator"), "7"), "the display did not change"
-    ctx.after("atspi.display", "7")
-    stop(app)
-
-
-def seat_without_keyboard_reported_as_seat(ctx: LegContext) -> None:
-    app = launch(ctx.tier, CALCULATOR)
-    ctx.before("atspi.display", "")
-    envelope = ctx.product(["press", "a"])
-    ctx.after("atspi.display", "")
-    assert not envelope.ok, envelope.raw
-    assert code_of(envelope) == "ACTION_NOT_SUPPORTED", envelope.raw
-    assert search(_error_text(envelope), "seat") or search(_error_text(envelope), "keyboard"), envelope.raw
-    stop(app)
-
-
-def hit_test_unknown(ctx: LegContext) -> None:
-    app = launch(ctx.tier, CALCULATOR)
-    ctx.before("atspi.display", "")
-    envelope = ctx.product(["mouse-click", "--x", "20", "--y", "20"], headed=True)
-    ctx.after("atspi.display", "")
-    assert not envelope.ok, envelope.raw
-    assert search(_error_text(envelope), "hit_test") or search(_error_text(envelope), "unknown"), envelope.raw
-    stop(app)
-
-
 def _window_state(ctx):
     root = app_root(ctx.tier, "gnome-calculator")
     frames = [node for node in root.children() if node.role in (23, 69)]

@@ -164,8 +164,9 @@ def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, ve
             _evidence_path(suite_dir, tier_name, mode, leg.id), ctx, result
         )
     except OSError as error:
+        result.outcome = report.ERROR
         ctx.finding(f"evidence could not be written: {error}")
-    if outcome != report.PASS:
+    if result.outcome != report.PASS:
         try:
             _recover_failed_members(ctx)
         except OSError as error:
