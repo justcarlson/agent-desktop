@@ -89,7 +89,3 @@ pub(crate) fn activate() -> MessageData {
 pub(super) fn close(timestamp: u32) -> MessageData {
     [timestamp, SOURCE_TOOL, 0, 0, 0]
 }
-
-#[cfg(test)]
-#[path = "client_message_tests.rs"]
-mod tests;

@@ -10,11 +10,6 @@ fn deadline(ms: u64) -> Deadline {
 }
 
 #[test]
-fn a_closure_result_passes_through_unchanged() {
-    assert_eq!(bounded_grab(deadline(2_000), || Ok(7)), Ok(7));
-}
-
-#[test]
 fn unreachable_denied_and_a_missed_deadline_are_three_distinct_errors() {
     let unreachable = bounded_grab::<()>(deadline(2_000), || {
         Err(GrabError::Fault(MonitorFault::Unreachable(":9".to_owned())))

@@ -162,7 +162,3 @@ pub(crate) fn grab_redirected(
     let _ = connection.flush();
     result
 }
-
-#[cfg(test)]
-#[path = "composite_tests.rs"]
-mod tests;

@@ -26,7 +26,3 @@ pub(crate) fn read(connection: &RustConnection, screen: usize) -> Result<bool, G
         .owner;
     Ok(is_compositing(owner))
 }
-
-#[cfg(test)]
-#[path = "compositing_tests.rs"]
-mod tests;

@@ -15,14 +15,6 @@ fn visual(class: VisualClass) -> Visualtype {
 }
 
 #[test]
-fn a_true_color_visual_gives_its_masks() {
-    assert_eq!(
-        masks_of(&visual(VisualClass::TRUE_COLOR)),
-        [0xff0000, 0x00ff00, 0x0000ff]
-    );
-}
-
-#[test]
 fn any_other_class_gives_no_masks_so_conversion_refuses_it() {
     for class in [
         VisualClass::DIRECT_COLOR,

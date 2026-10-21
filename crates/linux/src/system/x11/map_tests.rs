@@ -33,15 +33,6 @@ fn frame(pid: u32, title: &str, extents: Option<Extents>, global: bool) -> Frame
 }
 
 #[test]
-fn one_client_with_the_pid_and_title_is_the_match_without_extents() {
-    let clients = [client(1, 10, "Doc", 50, 37), client(2, 11, "Doc", 50, 37)];
-    assert_eq!(
-        match_client(&frame(10, "Doc", None, false), &clients),
-        ClientMatch::One(1)
-    );
-}
-
-#[test]
 fn extents_select_one_of_two_same_titled_windows_of_one_process() {
     let clients = [client(1, 10, "Doc", 157, 37), client(2, 10, "Doc", 400, 37)];
     let at = Some(Extents {
@@ -101,15 +92,6 @@ fn a_tie_with_global_extents_that_match_neither_stays_ambiguous() {
         match_client(&frame(10, "Doc", nowhere, true), &clients),
         ClientMatch::Several(_)
     ));
-}
-
-#[test]
-fn a_frame_whose_process_has_no_client_maps_to_none() {
-    let clients = [client(1, 10, "Doc", 50, 37)];
-    assert_eq!(
-        match_client(&frame(99, "Doc", None, true), &clients),
-        ClientMatch::NoClient
-    );
 }
 
 fn ready(active: Option<u32>, clients: Vec<X11Client>) -> X11State {

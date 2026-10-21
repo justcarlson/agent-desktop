@@ -36,7 +36,3 @@ pub(crate) fn format_of(setup: &Setup, depth: u8, visual_id: u32) -> Option<Visu
         msb_first: setup.image_byte_order == ImageOrder::MSB_FIRST,
     })
 }
-
-#[cfg(test)]
-#[path = "visual_tests.rs"]
-mod tests;

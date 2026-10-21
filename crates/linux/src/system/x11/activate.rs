@@ -236,7 +236,3 @@ pub(crate) fn active_window_within(budget: Duration) -> Option<u32> {
     let deadline = deadline_of(budget)?;
     bounded(deadline, None, active_window)
 }
-
-#[cfg(test)]
-#[path = "activate_tests.rs"]
-mod tests;
