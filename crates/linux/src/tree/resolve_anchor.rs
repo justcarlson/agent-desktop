@@ -2,7 +2,8 @@ use agent_desktop_core::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, RefEntry};
 
 use super::AtspiElement;
-use super::path_descent::{Landing, descend};
+use super::landing::Landing;
+use super::path_descent::descend;
 use super::resolve::{Source, settle_outcome, settle_read_error};
 use super::resolve_errors::no_candidate;
 use super::walker_expand::UNKNOWN_PID;

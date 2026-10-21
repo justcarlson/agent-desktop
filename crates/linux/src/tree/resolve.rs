@@ -3,20 +3,23 @@ use agent_desktop_core::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rect, RefEntry};
 
 use super::AtspiElement;
-use super::path_descent::{Landing, Level, descend};
+use super::candidate::Candidate;
+use super::landing::Landing;
+use super::level::Level;
+use super::path_descent::descend;
 use super::resolve_errors::{
     ambiguous, descendant_owner_gone, is_incomplete, no_candidate, settle_gone, stopped_aware,
     unverifiable_entry,
 };
 use super::resolve_match::{accepts_landing, entry_is_unverifiable};
-use super::resolve_search::{Candidate, Searched};
 use super::resolve_verdict::{Verdict, classify};
+use super::searched::Searched;
 use super::walker_expand::UNKNOWN_PID;
 
 /// What a resolution reads. The bus implements it; a test substitutes an
 /// in-memory tree and counts the reads.
 pub(crate) trait Source {
-    /// The verified window frame the ref was taken in, carrying its ancestry.
+    /// The verified root of the ref's surface, carrying its window ancestry.
     fn open_window(&mut self, entry: &RefEntry) -> Result<AtspiElement, AdapterError>;
     /// The children of one node, in the order a walk records them.
     fn level(&mut self, element: &AtspiElement) -> Result<Level<AtspiElement>, AdapterError>;

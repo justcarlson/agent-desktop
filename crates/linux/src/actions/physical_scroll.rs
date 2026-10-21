@@ -22,6 +22,8 @@ pub(crate) fn wheel_deltas(direction: &Direction, amount: u32) -> (f64, f64) {
     }
 }
 
+/// Proves the initial receiver before dispatch. Scrolling can move the
+/// referenced item away from the fixed wheel position during this action.
 pub(crate) fn scroll_steps(
     world: &impl PhysicalWorld,
     element: &AtspiElement,
@@ -36,8 +38,19 @@ pub(crate) fn scroll_steps(
     }
     let at = aim_point(world, element, None, deadline)?;
     let map = world.keymap(deadline)?;
-    let plans = world.plan_wheel(&map, at, deltas)?;
-    world.send_plans(plans, &mut || Ok(()), deadline)?;
+    let plans = world.plan_wheel(&map, at.clone(), deltas)?;
+    let mut before_dispatch = true;
+    world.send_plans(
+        plans,
+        &mut || {
+            if before_dispatch {
+                world.validate_pointer(element, &at, deadline)?;
+                before_dispatch = false;
+            }
+            Ok(())
+        },
+        deadline,
+    )?;
     Ok(vec![
         ActionStep::succeeded(SCROLL_LABEL)
             .with_mechanism(StepMechanism::PhysicalSynthetic)

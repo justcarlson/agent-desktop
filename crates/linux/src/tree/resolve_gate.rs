@@ -1,7 +1,8 @@
 use agent_desktop_core::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, RefEntry};
 
-use super::absence::{Failure, failure};
+use super::absence::failure;
+use super::failure::Failure;
 use super::resolve_errors::{app_exited, owner_unreachable, window_replaced, window_unverifiable};
 use super::{AtspiElement, ancestry};
 use crate::system::process_lookup::Lookup;

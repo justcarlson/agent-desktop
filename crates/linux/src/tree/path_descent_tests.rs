@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::*;
-use crate::tree::absence::Liveness;
 use crate::tree::ancestry;
+use crate::tree::liveness::Liveness;
 use crate::tree::node_read::read_children;
 use crate::tree::role_numbers::{DOCUMENT_WEB, PANEL, PUSH_BUTTON};
 use crate::tree::test_support::{children_reply, read_of};

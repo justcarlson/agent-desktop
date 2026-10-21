@@ -1,7 +1,8 @@
 use super::{NodeView, corroboration_of, listing_verdict};
 use crate::actions::mutation::Corroboration;
 use crate::system::NAME_HAS_NO_OWNER;
-use crate::tree::absence::{Liveness, UNKNOWN_INTERFACE, UNKNOWN_OBJECT};
+use crate::tree::absence::{UNKNOWN_INTERFACE, UNKNOWN_OBJECT};
+use crate::tree::liveness::Liveness;
 use crate::tree::node_evidence::{NodeEvidence, evidence_for};
 use crate::tree::role_numbers::{PASSWORD_TEXT, PUSH_BUTTON, TOGGLE_BUTTON};
 use crate::tree::state_bits::{CHECKED, EXPANDED, FOCUSED, PRESSED, SELECTED, SHOWING};
@@ -149,7 +150,8 @@ fn corroboration_distinguishes_dead_timed_out_and_unread_nodes() {
 fn parent_listing_proves_absence_only_when_a_successful_list_omits_the_address() {
     let sibling = vec![(":1.2".to_owned(), "/other".to_owned())];
     let listed = vec![(":1.2".to_owned(), "/node".to_owned())];
-    assert!(listing_verdict(None, ":1.2", "/node"));
+    assert!(!listing_verdict(None, ":1.2", "/node"));
+    assert!(listing_verdict(Some(Some(Vec::new())), ":1.2", "/node"));
     assert!(listing_verdict(Some(Some(sibling)), ":1.2", "/node"));
     assert!(!listing_verdict(Some(Some(listed)), ":1.2", "/node"));
     assert!(!listing_verdict(Some(None), ":1.2", "/node"));

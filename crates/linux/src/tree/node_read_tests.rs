@@ -32,7 +32,8 @@ mod classification {
 
     use super::super::{field, read_children};
     use crate::tree::Field;
-    use crate::tree::absence::{Liveness, UNKNOWN_INTERFACE, UNKNOWN_METHOD, UNKNOWN_OBJECT};
+    use crate::tree::absence::{UNKNOWN_INTERFACE, UNKNOWN_METHOD, UNKNOWN_OBJECT};
+    use crate::tree::liveness::Liveness;
     use crate::tree::test_support::{client_timeout, method_error};
 
     #[test]

@@ -12,6 +12,7 @@ pub(crate) fn el(path: &str) -> AtspiElement {
 #[derive(Default)]
 pub(crate) struct FakeNodes {
     pub(crate) leads: HashMap<String, Hit>,
+    pub(crate) child_lists: HashMap<String, Vec<String>>,
     pub(crate) parents: HashMap<String, String>,
     pub(crate) described: HashMap<String, Described>,
     pub(crate) endless: bool,
@@ -47,6 +48,19 @@ impl NodeSource for FakeNodes {
     ) -> Result<Option<AtspiElement>, AdapterError> {
         self.calls.push("verified_parent");
         Ok(self.parents.get(node.path()).map(|path| el(path)))
+    }
+
+    fn children(&mut self, node: &AtspiElement) -> Result<Option<Vec<AtspiElement>>, AdapterError> {
+        self.calls.push("children");
+        Ok(Some(match self.child_lists.get(node.path()) {
+            Some(paths) => paths.iter().map(|path| el(path)).collect(),
+            None => self
+                .parents
+                .iter()
+                .filter(|(_, owner)| owner.as_str() == node.path())
+                .map(|(path, _)| el(path))
+                .collect(),
+        }))
     }
 
     fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError> {

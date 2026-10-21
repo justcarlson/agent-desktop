@@ -6,8 +6,9 @@ use zbus::export::serde::Serialize;
 use zbus::zvariant::{DynamicDeserialize, DynamicType, OwnedValue};
 
 use super::AtspiElement;
-use super::absence::{Liveness, gone_error};
+use super::absence::gone_error;
 use super::action_read::read_node_view;
+use super::liveness::Liveness;
 use super::node_read::call;
 use super::text_units::code_point_to_utf16;
 use crate::system::{PROPERTIES_INTERFACE, SharedBus, within};

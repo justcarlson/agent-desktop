@@ -1,5 +1,9 @@
 use std::io::ErrorKind;
 
+use super::failure::Failure;
+use super::liveness::Liveness;
+use super::read_failure::ReadFailure;
+
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN};
@@ -7,39 +11,6 @@ use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN};
 pub(crate) const UNKNOWN_OBJECT: &str = "org.freedesktop.DBus.Error.UnknownObject";
 pub(crate) const UNKNOWN_METHOD: &str = "org.freedesktop.DBus.Error.UnknownMethod";
 pub(crate) const UNKNOWN_INTERFACE: &str = "org.freedesktop.DBus.Error.UnknownInterface";
-
-/// What one failed call says on its own. The names of the suspect family are
-/// answered both by destroyed objects and by live ones for interfaces they do
-/// not implement (L17-2), so on their own they prove nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Failure {
-    AppGone,
-    Suspect,
-    TimedOut,
-    Other,
-}
-
-/// What a node's own `Accessible.GetRole` says about it. The call is
-/// implemented by every live node of every toolkit (L17-11), so its failure in
-/// the suspect family is the corroboration a destroyed object needs. A
-/// destroyed GTK3 or Chromium object keeps answering it for about 16 s
-/// (L17-6, L17-8): an answering node is alive to its own reads only, and
-/// presence is decided by the parent's child list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Liveness {
-    Alive,
-    TimedOut,
-    ObjectGone,
-    AppGone,
-}
-
-/// What a failed read of one field means for the read of its node.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ReadFailure {
-    AppGone,
-    ObjectGone,
-    Failed,
-}
 
 pub(crate) fn failure_of_name(name: &str) -> Failure {
     match name {
@@ -58,18 +29,6 @@ pub(crate) fn failure(error: &zbus::Error) -> Failure {
             Failure::TimedOut
         }
         _ => Failure::Other,
-    }
-}
-
-impl Liveness {
-    /// The liveness a `GetRole` outcome shows: `None` when the call answered.
-    pub(crate) fn of(role_error: Option<&zbus::Error>) -> Self {
-        match role_error.map(failure) {
-            None | Some(Failure::Other) => Self::Alive,
-            Some(Failure::AppGone) => Self::AppGone,
-            Some(Failure::Suspect) => Self::ObjectGone,
-            Some(Failure::TimedOut) => Self::TimedOut,
-        }
     }
 }
 

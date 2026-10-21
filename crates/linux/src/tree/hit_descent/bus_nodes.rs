@@ -100,6 +100,20 @@ impl NodeSource for BusNodes<'_> {
         })
     }
 
+    fn children(&mut self, node: &AtspiElement) -> Result<Option<Vec<AtspiElement>>, AdapterError> {
+        within(self.deadline, async {
+            Ok(list_children(self.connection, node)
+                .await
+                .ok()
+                .map(|children| {
+                    children
+                        .into_iter()
+                        .map(|(bus, path)| AtspiElement::new(bus, path, node.pid()))
+                        .collect()
+                }))
+        })
+    }
+
     fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError> {
         within(self.deadline, async {
             let role = call(

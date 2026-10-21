@@ -41,6 +41,10 @@ After closure the same ref returns `STALE_REF`, `details.kind: menu_closed`. A
 snapshot of a closed menu returns `ELEMENT_NOT_FOUND`, “The window does not present an
 open menu”. Open again and take new refs.
 
+An open popup whose content changed returns `menu_context_changed`; an incomplete
+context read returns retryable `menu_context_unknown`. Keep it open and take a
+fresh menu snapshot before using a new ref.
+
 The toolkit comparison below was measured on private Openbox X11; Calculator's
 GTK4 popover was also read on Mutter X11 and Wayland.
 

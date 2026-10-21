@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 
 use super::hit_guard::admits;
 use super::hit_verdict::Landing;
@@ -39,6 +39,7 @@ pub(crate) trait NodeSource {
         &mut self,
         node: &AtspiElement,
     ) -> Result<Option<AtspiElement>, AdapterError>;
+    fn children(&mut self, node: &AtspiElement) -> Result<Option<Vec<AtspiElement>>, AdapterError>;
     fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError>;
 }
 
@@ -140,6 +141,57 @@ pub(crate) struct Probe<'a> {
     pub(crate) target: &'a AtspiElement,
     pub(crate) frame: &'a AtspiElement,
     pub(crate) window_point: (i32, i32),
+}
+
+fn unproven(reason: &str) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The pointer target is unproven: same-window sibling separation was not established",
+    )
+    .with_details(serde_json::json!({
+        "kind": "hit_test_unproven",
+        "reason": reason,
+        "physical_delivery_started": false,
+    }))
+    .with_suggestion(
+        "Expose the target without sibling overlap and with readable ancestry and bounds, then refresh the snapshot before retrying physical input",
+    )
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
+/// Native point queries and child order do not establish sibling stacking.
+/// Follows live child lists, since `Parent` can disagree with the walked tree.
+/// The target must be on the unique child branch containing the point.
+pub(crate) fn require_unambiguous_branch<S: NodeSource>(
+    source: &mut S,
+    probe: &Probe,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    let mut at = probe.frame.clone();
+    for _ in 0..DEPTH_CAP {
+        ensure_budget(deadline)?;
+        if same(&at, probe.target) {
+            return Ok(());
+        }
+        let Some(children) = source.children(&at)? else {
+            return Err(unproven("ancestry_unknown"));
+        };
+        let mut next = None;
+        for child in children {
+            ensure_budget(deadline)?;
+            let Some(extents) = source.describe(&child)?.window_extents else {
+                return Err(unproven("child_bounds_unknown"));
+            };
+            if admits(extents, probe.window_point) {
+                if next.is_some() {
+                    return Err(unproven("sibling_overlap"));
+                }
+                next = Some(child);
+            }
+        }
+        at = next.ok_or_else(|| unproven("ancestry_unknown"))?;
+    }
+    Err(unproven("ancestry_limit"))
 }
 
 /// Classifies a verified chain. An outside landing requires both ancestry

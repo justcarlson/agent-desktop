@@ -118,6 +118,19 @@ impl World {
             .parent("/pane", "/frame")
             .parent("/target", "/pane")
             .parent("/other", "/frame");
+        for (path, extents) in [
+            ("/pane", rect(0, 0, 1000, 1000)),
+            ("/target", facts.window),
+            ("/other", rect(700, 700, 40, 20)),
+        ] {
+            nodes.described.insert(
+                path.to_owned(),
+                Described {
+                    window_extents: Some(extents),
+                    ..Described::default()
+                },
+            );
+        }
         Self {
             nodes,
             facts: Some(facts),
@@ -257,44 +270,6 @@ fn a_cover_that_misses_the_point_leaves_the_target_reachable() {
 }
 
 #[test]
-fn an_unrelated_lander_on_a_trusted_toolkit_intercepts_with_its_role_name_and_bounds() {
-    let mut world = reachable(gtk3_facts(), (100, 137), vec![]);
-    world.nodes.lead("/frame", "/other");
-    world.nodes.described.insert(
-        "/other".to_owned(),
-        Described {
-            role: Some("push button".to_owned()),
-            name: Some("Close".to_owned()),
-            window_extents: Some(rect(200, 10, 40, 20)),
-        },
-    );
-    let HitTestResult::InterceptedBy { role, name, bounds } = test(&mut world, (310, 154)) else {
-        panic!("a trusted lander intercepts");
-    };
-    assert_eq!(role.as_deref(), Some("push button"));
-    assert_eq!(name.as_deref(), Some("Close"));
-    let bounds = bounds.expect("bounds");
-    assert_eq!((bounds.x, bounds.y), (300.0, 147.0));
-
-    world
-        .nodes
-        .described
-        .get_mut("/other")
-        .unwrap()
-        .window_extents = Some(rect(700, 700, 40, 20));
-    unknown(&mut world, (310, 154));
-
-    world
-        .nodes
-        .described
-        .get_mut("/other")
-        .unwrap()
-        .window_extents = Some(rect(200, 10, 40, 20));
-    world.facts.as_mut().unwrap().toolkit = toolkit("Chromium", "1.0");
-    unknown(&mut world, (310, 154));
-}
-
-#[test]
 fn unknown_inputs_stay_unknown() {
     let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
     world.nodes.lead("/frame", "/pane");
@@ -343,13 +318,6 @@ fn unknown_inputs_stay_unknown() {
     unknown(&mut raw_only, (10, 10));
     let mut gtk4_lander = reachable(gtk4_facts(), (302, 260), vec![]);
     gtk4_lander.nodes.lead("/frame", "/other");
-    gtk4_lander.nodes.described.insert(
-        "/other".to_owned(),
-        Described {
-            window_extents: Some(rect(300, 250, 300, 100)),
-            ..Described::default()
-        },
-    );
     unknown(&mut gtk4_lander, (700, 560));
 
     let mut minimized_facts = gtk3_facts();
@@ -394,3 +362,6 @@ mod shadow;
 
 #[path = "hit_test_popup_tests.rs"]
 mod popup;
+
+#[path = "hit_test_overlap_tests.rs"]
+mod overlap;

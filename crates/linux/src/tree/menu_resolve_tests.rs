@@ -18,7 +18,13 @@ fn kind_of(error: &agent_desktop_core::AdapterError) -> Option<&str> {
 
 #[test]
 fn a_ref_no_open_popup_answers_to_is_stale_because_the_menu_closed() {
-    let error = choose(Vec::<AtspiElement>::new(), None).expect_err("no landing");
+    let error = resolve_contextual(
+        &crate::tree::test_support::ref_entry("menuitem"),
+        element("/owner"),
+        Vec::new(),
+        |_, _| panic!("no popup to resolve"),
+    )
+    .expect_err("no popup");
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind_of(&error), Some("menu_closed"));
     assert_eq!(menu_closed().code, ErrorCode::StaleRef);
@@ -57,16 +63,41 @@ fn a_replacement_popup_with_the_same_item_path_cannot_resolve_an_old_ref() {
         },
     );
 
-    assert_eq!(
-        result
-            .expect_err("the ref belongs to the closed popup")
-            .code,
-        agent_desktop_core::ErrorCode::StaleRef
-    );
+    let error = result.expect_err("the captured popup context changed");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(kind_of(&error), Some("menu_context_changed"));
+    assert!(error.suggestion.unwrap().contains("fresh menu snapshot"));
     assert!(
         !attempted,
         "the replacement popup must not reach child resolution"
     );
+}
+
+#[test]
+fn an_incomplete_open_popup_does_not_prove_the_menu_closed() {
+    for (original, current) in [
+        (
+            MenuContext::test("/popup", 10),
+            MenuContext::test_incomplete("/popup", 10),
+        ),
+        (
+            MenuContext::test_incomplete("/popup", 10),
+            MenuContext::test("/popup", 10),
+        ),
+    ] {
+        let mut entry = crate::tree::test_support::ref_entry("menuitem");
+        entry.identity.retained_object = Some(original.encode("/item"));
+        let error = resolve_contextual(
+            &entry,
+            element("/owner"),
+            vec![(current, element("/popup"))],
+            |_, _| panic!("incomplete context must not resolve a child"),
+        )
+        .expect_err("the popup could not be fully read");
+        assert_eq!(kind_of(&error), Some("menu_context_unknown"));
+        assert_eq!(error.details.as_ref().unwrap()["complete"], false);
+        assert!(error.is_explicitly_retryable());
+    }
 }
 
 #[test]

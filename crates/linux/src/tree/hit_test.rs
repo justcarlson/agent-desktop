@@ -2,7 +2,9 @@ use agent_desktop_core::{AdapterError, Deadline, HitTestResult, NativeHandle, Po
 
 use super::frame_geometry::{calibrate, to_pointer_frame, window_point};
 use super::hit_cover::{cover_name, override_name};
-use super::hit_descent::{Described, NodeSource, Probe, descend, locate};
+use super::hit_descent::{
+    Described, NodeSource, Probe, descend, locate, require_unambiguous_branch,
+};
 use super::hit_guard::{admits, aimable, pixel};
 use super::hit_occlusion::occlusion;
 use super::hit_verdict::{Landing, Standing, Verdict, decide, needs_landing};
@@ -81,9 +83,8 @@ fn timed_out_or_unknown(deadline: Deadline) -> Result<HitTestResult, AdapterErro
     }
 }
 
-/// The hit test over `world`: both legs and the table. Every unreadable thing
-/// is `Unknown`; only a spent deadline or a failed bus read that timed out is
-/// an error.
+/// The hit test over `world`: both legs and the table. Unavailable windowing
+/// is `Unknown`; unproven sibling separation refuses physical delivery.
 pub(crate) fn hit_test_via<W: HitWorld>(
     world: &mut W,
     target: &AtspiElement,
@@ -135,17 +136,14 @@ pub(crate) fn hit_test_via<W: HitWorld>(
         same_window: trusts_same_window_landing(&facts.toolkit),
     };
     let (landing, lander) = if needs_landing(standing, stacking) {
+        let probe = Probe {
+            target,
+            frame,
+            window_point: window_at,
+        };
+        require_unambiguous_branch(world.nodes(), &probe, deadline)?;
         let descent = descend(world.nodes(), frame, window_at, deadline)?;
-        let located = locate(
-            world.nodes(),
-            &Probe {
-                target,
-                frame,
-                window_point: window_at,
-            },
-            descent.as_deref(),
-            deadline,
-        )?;
+        let located = locate(world.nodes(), &probe, descent.as_deref(), deadline)?;
         (located.landing, located.lander)
     } else {
         (Landing::NotRead, None)

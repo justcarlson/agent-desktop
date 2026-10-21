@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode, LocatorEvidence};
 use zbus::Connection;
 
-use super::absence::Liveness;
+use super::liveness::Liveness;
 use crate::system::SharedBus;
 use agent_desktop_core::Deadline;
 

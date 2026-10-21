@@ -3,11 +3,11 @@ use agent_desktop_core::{
 };
 use zbus::Connection;
 
-use super::absence::Liveness;
 use super::live_offscreen::{global_position, placement};
 use super::live_project::{
     live_actions, live_bounds, live_element, live_state, live_value, pointer_rect, settled_by_read,
 };
+use super::liveness::Liveness;
 use super::menu_context::MenuContext;
 use super::node_evidence::{NodeEvidence, read_evidence};
 use super::placement::Placement;

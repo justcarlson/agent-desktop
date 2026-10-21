@@ -151,6 +151,8 @@ fn absence_live_a_stopped_app_is_unresponsive_within_the_budget_and_never_stale(
 fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_recorded_per_toolkit() {
     for (label, make) in toolkits() {
         let subject = subject(make);
+        super::action_read::read_node_view(&subject.rig.bus, &subject.handle, deadline(4_000))
+            .expect("the live target can be read for an action");
         subject.fixture.send("remove");
         let mut gone = None;
         assert!(
@@ -162,6 +164,17 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
             "[{label}] the removed element stops resolving"
         );
         let (error, elapsed) = gone.expect("recorded");
+        assert!(
+            wait_until(Duration::from_secs(5), || {
+                super::action_read::read_node_view(
+                    &subject.rig.bus,
+                    &subject.handle,
+                    deadline(4_000),
+                )
+                .is_err_and(|error| error.code == ErrorCode::StaleRef)
+            }),
+            "[{label}] an action read refuses the removed target"
+        );
         println!(
             "absence_live remove {label}: ref {:?} kind {} in {} ms",
             error.code,

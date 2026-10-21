@@ -41,14 +41,15 @@ fn a_blank_label_name_falls_through_to_the_text_of_the_target() {
     assert_eq!(from_name(Some(Field::Present("  ".to_owned()))), None);
     assert_eq!(from_name(Some(Field::Absent)), None);
     assert_eq!(
-        from_text(Some("Open".to_owned())),
+        from_text(Ok("Open".to_owned())),
         LabelOutcome::Text("Open".to_owned())
     );
 }
 
 #[test]
 fn a_blank_name_and_no_text_leaves_the_node_unlabelled() {
-    assert_eq!(from_text(None), LabelOutcome::Unlabelled);
+    assert_eq!(from_text(Ok("  ".to_owned())), LabelOutcome::Unlabelled);
+    assert_eq!(from_text(Ok(String::new())), LabelOutcome::Unlabelled);
 }
 
 #[test]

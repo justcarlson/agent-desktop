@@ -118,15 +118,17 @@ pub(crate) fn reports_global_position(toolkit: &ToolkitId) -> bool {
     )
 }
 
-/// Whether a descent in window coordinates lands on the node under the point
-/// often enough to say a landing on the target means the target is reached.
+/// Whether window-coordinate descent is usable after sibling overlap has
+/// been excluded. GTK 3 and Qt can descend beneath an overlapping sibling;
+/// neither their child order nor their component z-order proves stacking.
 /// GTK 4 qualifies in window coordinates only.
 pub(crate) fn trusts_descent(toolkit: &ToolkitId) -> bool {
     kind(toolkit) != ToolkitKind::Other
 }
 
 /// Whether a landing on a node outside the target's ancestry in the same
-/// window is evidence that something covers the target. That needs a measured
+/// window, after sibling overlap is excluded, is evidence of interception.
+/// That needs a measured
 /// self-hit rate of 100% at the centres of visible nodes: GTK 3 and Qt reach
 /// it; GTK 4 (3 of 9 on Text Editor) and Chromium, whose Electron hosts land
 /// on unrelated nodes for 60 of 60, do not.

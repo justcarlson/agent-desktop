@@ -5,15 +5,17 @@ use agent_desktop_core::{
 use serde_json::json;
 use zbus::Connection;
 
-use super::absence::Liveness;
+use super::level::Level;
+use super::liveness::Liveness;
 use super::menu_context::MenuContext;
 use super::node_evidence::read_evidence;
 use super::observe_menu::rooted;
-use super::path_descent::{Level, Levels};
+use super::path_descent::Levels;
 use super::resolve::{Source, resolve};
 use super::resolve_errors::{ambiguous, settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
-use super::resolve_search::{Searched, evaluate};
+use super::resolve_search::evaluate;
+use super::searched::Searched;
 use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits, atspi_element, read_node};
 use crate::system::menu_surface::popups_at;
@@ -119,8 +121,14 @@ impl Source for MenuSource<'_> {
     }
 }
 
-fn is_stale(error: &AdapterError) -> bool {
-    error.code == ErrorCode::StaleRef
+fn context_changed(complete: bool) -> AdapterError {
+    AdapterError::stale_ref_because("The open menu no longer proves the captured context")
+        .with_suggestion("Keep the menu open, take a fresh menu snapshot, and use the new ref")
+        .with_details(json!({
+            "kind": if complete { "menu_context_changed" } else { "menu_context_unknown" },
+            "complete": complete,
+            "retryable": !complete,
+        }))
 }
 
 /// Resolves a ref taken in a menu: the popup is found again from the window
@@ -142,9 +150,6 @@ pub(crate) fn resolve_menu(
     })?;
     let popups = popups_at(bus, &window.frame(), false, deadline)
         .map_err(|error| settle_gone(error, window.pid()))?;
-    if popups.is_empty() {
-        return Err(menu_closed());
-    }
     let mut candidates = Vec::new();
     for popup in popups {
         candidates.push((popup.context, popup.root));
@@ -168,10 +173,24 @@ fn resolve_contextual(
     candidates: Vec<(MenuContext, AtspiElement)>,
     mut resolve: impl FnMut(AtspiElement, &RefEntry) -> Result<AtspiElement, AdapterError>,
 ) -> Result<AtspiElement, AdapterError> {
+    if candidates.is_empty() {
+        return Err(menu_closed());
+    }
     let mut landed = Vec::new();
     let mut refusal: Option<AdapterError> = None;
     for (context, popup) in candidates {
         let Some(scoped_entry) = context.entry_for(entry) else {
+            let captured = entry
+                .identity
+                .retained_object
+                .as_deref()
+                .and_then(MenuContext::decode);
+            let complete = context.is_complete()
+                && captured.is_some_and(|(captured, _)| captured.is_complete());
+            let error = context_changed(complete);
+            if !complete || refusal.is_none() {
+                refusal = Some(error);
+            }
             continue;
         };
         match resolve(popup, &scoped_entry) {
@@ -179,7 +198,6 @@ fn resolve_contextual(
                 element.set_menu_owner(&owner);
                 landed.push(element);
             }
-            Err(error) if is_stale(&error) => {}
             Err(error) => refusal = refusal.or(Some(error)),
         }
     }
@@ -191,9 +209,9 @@ fn choose(
     refusal: Option<AdapterError>,
 ) -> Result<AtspiElement, AdapterError> {
     match (landed.len(), refusal) {
-        (1, _) => landed.pop().ok_or_else(menu_closed),
+        (1, _) => landed.pop().ok_or_else(|| context_changed(true)),
         (0, Some(error)) => Err(error),
-        (0, None) => Err(menu_closed()),
+        (0, None) => Err(context_changed(true)),
         (count, _) => Err(ambiguous(count)),
     }
 }

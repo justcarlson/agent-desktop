@@ -8,9 +8,9 @@ use zbus::zvariant::OwnedObjectPath;
 use super::BusSource;
 use crate::system::{SharedBus, process_facts, window_id, within};
 use crate::tree::AtspiElement;
-use crate::tree::path_descent::Level;
+use crate::tree::level::Level;
 use crate::tree::resolve::{Source, resolve};
-use crate::tree::resolve_search::Searched;
+use crate::tree::searched::Searched;
 
 struct FrameService {
     role: u32,

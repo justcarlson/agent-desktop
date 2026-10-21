@@ -1,8 +1,7 @@
 use std::hash::{Hash, Hasher};
 
-use agent_desktop_core::{AdapterError, Deadline, LocatorEvidence, ObservedSubtree, RefEntry};
+use agent_desktop_core::{AdapterError, Deadline, RefEntry};
 
-use super::decorate::Decorate;
 use super::{AtspiElement, ObservedRead, WalkedNode};
 use crate::system::SharedBus;
 
@@ -32,6 +31,10 @@ pub(crate) struct MenuContext {
 }
 
 impl MenuContext {
+    pub(crate) fn is_complete(&self) -> bool {
+        self.complete
+    }
+
     pub(crate) fn from_walk(root: &WalkedNode<ObservedRead>) -> Self {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         hash_node(root, &mut hasher);
@@ -133,31 +136,6 @@ fn hash_node(node: &WalkedNode<ObservedRead>, hasher: &mut impl Hasher) {
     node.children.len().hash(hasher);
     for child in &node.children {
         hash_node(child, hasher);
-    }
-}
-
-pub(crate) struct MenuIdentity {
-    context: MenuContext,
-}
-
-impl MenuIdentity {
-    pub(crate) fn new(context: MenuContext) -> Self {
-        Self { context }
-    }
-}
-
-impl Decorate for MenuIdentity {
-    fn decorate(
-        &mut self,
-        read: &ObservedRead,
-        evidence: &mut LocatorEvidence,
-        _first_child_index: usize,
-    ) -> Vec<ObservedSubtree> {
-        evidence.identifiers = evidence
-            .identifiers
-            .clone()
-            .with_retained_object(self.context.encode(&read.node.element.object_identity()));
-        Vec::new()
     }
 }
 

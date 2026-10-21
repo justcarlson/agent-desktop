@@ -1,14 +1,16 @@
 use agent_desktop_core::{AdapterError, Deadline, NativeHandle, state};
 use zbus::Connection;
 
-use super::absence::{Failure, failure};
-use super::live_read::{NodeReader, read_live};
-use super::node_evidence::{NodeEvidence, read_evidence};
+use super::absence::failure;
+use super::failure::Failure;
+use super::live_read::read_live;
+use super::node_evidence::NodeEvidence;
 use super::node_read::call;
-use super::placement::Placement;
-use super::resolve_errors::{object_gone, stopped_app};
+use super::observation::Observation;
+use super::resolve_errors::object_gone;
 use super::role_numbers::PASSWORD_TEXT;
 use super::state_bits::{CHECKED, EXPANDED, PRESSED, SELECTED, StateBits};
+use super::view_reader::ViewReader;
 use super::{AtspiElement, Field};
 use crate::actions::mutation::Corroboration;
 use crate::system::{ACCESSIBLE_INTERFACE, SharedBus, within};
@@ -137,71 +139,6 @@ impl NodeView {
     }
 }
 
-/// What a write can change on a node, each part `None` when it was not read.
-/// Focus, showing and any armed state never count: they move without the
-/// write having done anything.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Observation {
-    checked: Option<bool>,
-    expanded: Option<bool>,
-    selected: Option<bool>,
-    pressed: Option<bool>,
-    value: Option<Option<String>>,
-    name: Option<Option<String>>,
-    child_count: Option<usize>,
-}
-
-fn differs<T: PartialEq>(now: &Option<T>, before: &Option<T>) -> Option<bool> {
-    Some(now.as_ref()? != before.as_ref()?)
-}
-
-impl Observation {
-    /// Whether any part both readings share differs: `Some(true)` as soon as
-    /// one does, `Some(false)` only when every part was read both times and
-    /// none differs, `None` when an unread part leaves it undecided.
-    pub(crate) fn changed_since(&self, before: &Observation) -> Option<bool> {
-        let verdicts = [
-            differs(&self.checked, &before.checked),
-            differs(&self.expanded, &before.expanded),
-            differs(&self.selected, &before.selected),
-            differs(&self.pressed, &before.pressed),
-            differs(&self.value, &before.value),
-            differs(&self.name, &before.name),
-            differs(&self.child_count, &before.child_count),
-        ];
-        if verdicts.contains(&Some(true)) {
-            Some(true)
-        } else if verdicts.contains(&None) {
-            None
-        } else {
-            Some(false)
-        }
-    }
-}
-
-struct ViewReader<'a> {
-    connection: &'a Connection,
-    deadline: Deadline,
-}
-
-impl NodeReader for ViewReader<'_> {
-    fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
-        within(self.deadline, read_evidence(self.connection, element))
-    }
-
-    fn stopped_app(&mut self, pid: u32) -> Option<String> {
-        stopped_app(pid)
-    }
-
-    fn placement(&mut self, _element: &AtspiElement, _deadline: Deadline) -> Placement {
-        Placement::default()
-    }
-
-    fn global_position(&mut self, _element: &AtspiElement, _deadline: Deadline) -> bool {
-        false
-    }
-}
-
 /// Reads the node a handle names once, with the answers a failed read gets
 /// everywhere else: a destroyed object or an application that left is a
 /// settled stale ref, a node that did not answer is a timeout.
@@ -223,16 +160,15 @@ pub(crate) fn read_node_view(
 }
 
 /// Whether the node is absent from its parent's child list: the parent could
-/// not be named, or it names the node nowhere in its children. A parent whose
-/// children cannot be read proves nothing.
+/// is confirmed absent, or it names the node nowhere in its children. A
+/// parent or child list that cannot be read proves nothing.
 pub(crate) fn listing_verdict(
     parent: Option<Option<Vec<(String, String)>>>,
     bus_name: &str,
     path: &str,
 ) -> bool {
     match parent {
-        None => true,
-        Some(None) => false,
+        None | Some(None) => false,
         Some(Some(children)) => !children
             .iter()
             .any(|(name, child)| name == bus_name && child == path),
@@ -268,7 +204,10 @@ async fn parent_listing(
     let [Value::Str(name), Value::ObjectPath(path)] = structure.fields() else {
         return None;
     };
-    if path.as_str() == NULL_PATH || name.is_empty() {
+    if path.as_str() == NULL_PATH {
+        return Some(Some(Vec::new()));
+    }
+    if name.is_empty() {
         return None;
     }
     let parent = AtspiElement::new(name.to_string(), path.to_string(), element.pid());
