@@ -400,7 +400,7 @@ Count: 74 rows in 7 groups. "Src" is the source line: `P` = `docs/phases.md` (se
 | FFI host over 50 timed-out calls | threads and descriptors flat |
 | FFI host over 200 healthy calls | resident memory flat within 5 percent after warm-up |
 | Cold bus start | answers or fails inside the lease deadline; value recorded, not compared |
-| glibc floor | `readelf` max `GLIBC_2.34` or lower on the 22.04 build |
+| glibc floor | `readelf` max `GLIBC_2.35` or lower on the 22.04 build |
 
 ## Appendix C. Probe rows measured at planning time
 

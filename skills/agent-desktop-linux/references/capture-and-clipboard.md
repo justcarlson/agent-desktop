@@ -122,13 +122,15 @@ carries its `path`, `width` and `height`. An empty clipboard answers `found: fal
 - The clipboard goes through `wl-clipboard` (`wl-copy`, `wl-paste`). Install the
   `wl-clipboard` package. Text, images and file lists round-trip against foreign
   readers and writers under GNOME.
-- Clipboard routing follows the display-server detector, with no X11 fallback.
+- Clipboard routing follows the display-server detector: an empty
+  `WAYLAND_DISPLAY` counts as unset; a stale socket falls through to a reachable
+  `DISPLAY`. Once Wayland is selected, clipboard failures never fall back to X11.
   Missing `wl-copy` or `wl-paste` returns `PLATFORM_NOT_SUPPORTED` with a
   `wl-clipboard` install hint, even when `DISPLAY` is set.
-- Three failures are distinct and never read as an empty clipboard: an empty or
-  stale `WAYLAND_DISPLAY` ("Failed to connect to a Wayland server"), a seat with no
-  keyboard ("This seat has no keyboard"), and a timeout from a shell that no
-  longer serves clients.
+- After Wayland is selected, connection failure ("Failed to connect to a Wayland
+  server"), a seat with no keyboard ("This seat has no keyboard"), and a timeout
+  from a shell that no longer serves clients are distinct errors, never an empty
+  clipboard.
 - `clipboard-clear` uses `wl-copy --clear`.
 
 ### Clipboard through FFI

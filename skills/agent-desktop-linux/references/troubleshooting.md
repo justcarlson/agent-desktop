@@ -169,8 +169,6 @@ D-Bus or X11 error:
 | `INTERNAL` | "The accessibility bus returned an unexpected error" | An unclassified bus reply: retry once, then report it |
 | `INVALID_ARGS` | "Native handle does not contain a Linux accessibility element" | A ref of another kind than the command accepts |
 
-The error text never carries an argument or an environment value.
-
 ## Commands that refuse by design
 
 - `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`. `mouse-down` and `mouse-up`
