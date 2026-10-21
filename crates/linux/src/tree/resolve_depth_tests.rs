@@ -32,11 +32,25 @@ fn resolved(fake: &mut Fake, entry: &RefEntry) -> String {
         .to_owned()
 }
 
+fn identify_beta(fake: &mut Fake) {
+    for path in ["/beta", "/beta-inner"] {
+        fake.nodes
+            .get_mut(path)
+            .expect("row")
+            .read
+            .node
+            .properties
+            .accessible_id = crate::tree::Field::Present(path.to_owned());
+    }
+}
+
 #[test]
-fn nested_twins_resolve_by_the_depth_the_ref_was_taken_at_after_a_sibling_row_leaves() {
+fn nested_twins_with_distinct_ids_resolve_after_a_sibling_row_leaves() {
     let mut fake = rows(&["alpha", "beta"]);
+    identify_beta(&mut fake);
     let outer = fake.entry_of("/beta", false);
     let inner = fake.entry_of("/beta-inner", false);
+    assert_ne!(outer.identity.native_id, inner.identity.native_id);
     assert_eq!(outer.scope.path.len() + 1, inner.scope.path.len());
     without_row(&mut fake, "alpha");
     assert_eq!(resolved(&mut fake, &outer), "/beta");
@@ -47,6 +61,7 @@ fn nested_twins_resolve_by_the_depth_the_ref_was_taken_at_after_a_sibling_row_le
 #[test]
 fn removed_sibling_refs_stay_stale_while_surviving_twins_keep_identity() {
     let mut fake = rows(&["alpha", "beta"]);
+    identify_beta(&mut fake);
     let removed = [
         fake.entry_of("/alpha", false),
         fake.entry_of("/alpha-inner", false),
@@ -69,12 +84,13 @@ fn removed_sibling_refs_stay_stale_while_surviving_twins_keep_identity() {
 }
 
 #[test]
-fn twins_at_neither_the_stored_depth_nor_one_of_them_stay_ambiguous() {
-    let mut fake = rows(&["beta"]);
-    let mut entry = fake.entry_of("/beta", false);
-    entry.scope.path = [0, 0, 0, 0].into_iter().collect();
-    let error = resolve(&mut fake, &entry, deadline()).expect_err("ambiguous");
-    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+fn nested_twins_without_distinguishing_evidence_stay_ambiguous() {
+    for keep_bounds in [false, true] {
+        let mut fake = rows(&["beta"]);
+        let entry = fake.entry_of("/beta", keep_bounds);
+        let error = resolve(&mut fake, &entry, deadline()).expect_err("ambiguous");
+        assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+    }
 }
 
 #[test]
@@ -89,7 +105,7 @@ fn two_twins_at_the_stored_depth_stay_ambiguous() {
 }
 
 #[test]
-fn a_region_left_unread_withholds_the_depth_pick() {
+fn a_region_left_unread_withholds_resolution() {
     let mut fake = rows(&["alpha", "beta"]);
     let outer = fake.entry_of("/beta", false);
     without_row(&mut fake, "alpha");
@@ -97,6 +113,38 @@ fn a_region_left_unread_withholds_the_depth_pick() {
     let error = resolve(&mut fake, &outer, deadline()).expect_err("incomplete");
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+}
+
+#[test]
+fn a_reparented_twin_never_loses_identity_to_the_control_at_its_old_depth() {
+    for keep_bounds in [false, true] {
+        let mut fake = Fake::new();
+        fake.add(FRAME_PATH, "/original", node(PUSH_BUTTON, "Save", 100, 20));
+        let entry = fake.entry_of("/original", keep_bounds);
+        fake.nodes
+            .get_mut(FRAME_PATH)
+            .expect("frame")
+            .children
+            .clear();
+        fake.add(FRAME_PATH, "/twin", node(PUSH_BUTTON, "Save", 200, 20));
+        fake.add(FRAME_PATH, "/wrapper", node(PANEL, "wrapper", 400, 300));
+        fake.nodes
+            .get_mut("/wrapper")
+            .expect("wrapper")
+            .children
+            .push("/original".to_owned());
+        let outcome = resolve(&mut fake, &entry, deadline());
+        if keep_bounds {
+            assert_eq!(
+                outcome.expect("stored size distinguishes original").path(),
+                "/original"
+            );
+        } else {
+            let error = outcome.expect_err("depth cannot distinguish twins");
+            assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+            assert_eq!(error.details.expect("details")["candidate_count"], 2);
+        }
+    }
 }
 
 #[test]

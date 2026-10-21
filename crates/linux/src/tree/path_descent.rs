@@ -65,7 +65,12 @@ pub(crate) fn descend<K>(
         }
         let level = match read(&current) {
             Ok(level) => level,
-            Err(error) if matches!(error.code, ErrorCode::AppNotFound | ErrorCode::Timeout) => {
+            Err(error)
+                if matches!(
+                    error.code,
+                    ErrorCode::AppNotFound | ErrorCode::Timeout | ErrorCode::StaleRef
+                ) =>
+            {
                 return Err(error);
             }
             Err(_) => return Ok(Landing::unread()),

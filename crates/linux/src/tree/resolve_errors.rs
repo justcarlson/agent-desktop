@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 use serde_json::json;
 
+use super::AtspiElement;
 use crate::system::{listed_app_name, proc_stat, process_facts};
 
 fn settled(message: &str, kind: &str) -> AdapterError {
@@ -59,6 +60,21 @@ pub(crate) fn object_gone() -> AdapterError {
         "Stored ref's element no longer exists",
         "resolve_target_destroyed",
     )
+}
+
+pub(super) fn descendant_owner_gone(element: &AtspiElement, error: AdapterError) -> AdapterError {
+    AdapterError::stale_ref_because(
+        "An accessibility owner below the stored window left the bus; the target could not be verified",
+    )
+    .with_details(json!({
+        "kind": "resolve_descendant_owner_gone",
+        "failed_bus": element.bus_name(),
+        "failed_pid": element.pid(),
+        "failed_path": element.path(),
+        "complete": false,
+        "retryable": true,
+    }))
+    .with_platform_detail(error.platform_detail.unwrap_or(error.message))
 }
 
 /// The window id now belongs to a different process, or to a process whose

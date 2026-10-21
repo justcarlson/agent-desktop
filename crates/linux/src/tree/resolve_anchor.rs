@@ -3,7 +3,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, RefEntry};
 
 use super::AtspiElement;
 use super::path_descent::{Landing, descend};
-use super::resolve::{Source, settle_outcome};
+use super::resolve::{Source, settle_outcome, settle_read_error};
 use super::resolve_errors::no_candidate;
 use super::walker_expand::UNKNOWN_PID;
 
@@ -18,11 +18,14 @@ fn attempt<S: Source>(
     let frame = source.open_window(entry)?;
     let mut destroyed = None;
     let landing = descend(frame, &entry.scope.path, deadline, |at| {
-        source.level(at).inspect_err(|error| {
-            if error.code == ErrorCode::ElementNotFound && at.pid() != UNKNOWN_PID {
-                destroyed = Some(error.clone());
-            }
-        })
+        let outcome = source.level(at);
+        outcome
+            .map_err(|error| settle_read_error(source, entry, at, error))
+            .inspect_err(|error| {
+                if error.code == ErrorCode::ElementNotFound && at.pid() != UNKNOWN_PID {
+                    destroyed = Some(error.clone());
+                }
+            })
     })?;
     if let Some(error) = destroyed {
         return Err(error);
@@ -35,12 +38,17 @@ fn attempt<S: Source>(
             no_candidate()
         });
     };
-    let evidence = match source.evidence(&element) {
+    let outcome = source.evidence(&element);
+    let evidence = match outcome.map_err(|error| settle_read_error(source, entry, &element, error))
+    {
         Ok(evidence) => evidence,
         Err(error)
             if matches!(
                 error.code,
-                ErrorCode::AppNotFound | ErrorCode::ElementNotFound | ErrorCode::Timeout
+                ErrorCode::AppNotFound
+                    | ErrorCode::ElementNotFound
+                    | ErrorCode::Timeout
+                    | ErrorCode::StaleRef
             ) =>
         {
             return Err(error);

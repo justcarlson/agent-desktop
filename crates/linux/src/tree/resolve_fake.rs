@@ -41,6 +41,7 @@ pub(super) struct Reads {
 #[derive(Default)]
 pub(super) struct Faults {
     pub(super) gate_error: Option<AdapterError>,
+    pub(super) recheck_error: Option<AdapterError>,
     pub(super) search_error: Option<AdapterError>,
     pub(super) level_errors: HashMap<String, AdapterError>,
     pub(super) evidence_errors: HashMap<String, AdapterError>,
@@ -224,6 +225,11 @@ impl Fake {
 impl Source for Fake {
     fn open_window(&mut self, _entry: &RefEntry) -> Result<AtspiElement, AdapterError> {
         self.reads.gate += 1;
+        if self.reads.gate > 1
+            && let Some(error) = &self.faults.recheck_error
+        {
+            return Err(error.clone());
+        }
         match self.faults.gate_error.clone() {
             Some(error) => Err(error),
             None => Ok(self.frame()),

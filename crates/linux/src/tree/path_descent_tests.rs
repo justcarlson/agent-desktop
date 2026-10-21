@@ -117,7 +117,11 @@ fn a_failed_read_leaves_the_region_unread_and_a_departure_ends_the_descent() {
     .expect("an object gone mid-descent is unread");
     assert!(vanished.unread);
 
-    for code in [ErrorCode::AppNotFound, ErrorCode::Timeout] {
+    for code in [
+        ErrorCode::AppNotFound,
+        ErrorCode::Timeout,
+        ErrorCode::StaleRef,
+    ] {
         let error = descend(0, &[0], deadline(), |_| {
             Err::<Level<u32>, _>(AdapterError::new(code.clone(), "left"))
         })
