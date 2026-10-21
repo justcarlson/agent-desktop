@@ -20,6 +20,15 @@ pub(crate) fn wait_for_event(
     let requested = parse_event_kind(&input.event)?;
     let start = Instant::now();
     let deadline = crate::Deadline::at(start, input.timeout_ms)?;
+    if deadline.is_expired() {
+        return timeout_err(
+            &input.event,
+            input.app.as_ref(),
+            input.timeout_ms,
+            seeded_baseline.as_ref().and_then(|seed| seed.as_ref().ok()),
+            None,
+        );
+    }
     let filter = match signal_filter(
         &input,
         &requested,
@@ -32,6 +41,15 @@ pub(crate) fn wait_for_event(
             if err.code == ErrorCode::AppNotFound && is_disappearance_class(&requested) =>
         {
             return unresolved_target_result(&requested, input.app.as_deref(), start);
+        }
+        Err(AppError::Adapter(err)) if crate::commands::wait_timeout::is_deadline_expired(&err) => {
+            return timeout_err(
+                &input.event,
+                input.app.as_ref(),
+                input.timeout_ms,
+                seeded_baseline.as_ref().and_then(|seed| seed.as_ref().ok()),
+                None,
+            );
         }
         Err(err) => return Err(err),
     };
