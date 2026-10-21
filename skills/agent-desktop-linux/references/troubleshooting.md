@@ -26,7 +26,8 @@ display server does not give.
 | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | Shell tree is readable but no SNI watcher exists | Enable AppIndicator in GNOME; see the shell reference |
 | `APP_UNRESPONSIVE` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref’s live identity | Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
-| `STALE_REF` | UI changed or the window closed | Take a new `snapshot`; see `details.kind` |
+| `STALE_REF` | UI changed or the window closed | See `details.kind`: `resolve_target_destroyed` needs a replacement target; `menu_closed` needs its opener reopened before a fresh menu snapshot. Neither permits retrying the old ref |
+| `ACTION_NOT_SUPPORTED`, `selection_index_unproven` | The toolkit's selection indices cannot identify accessible rows safely | Refreshing cannot help. On X11 use `--headed click` on the intended row's fresh ref, then verify the selected row and pane |
 | `INTERNAL` "private file parent is accessible by group or other users" | The state root is group-writable or world-accessible | `chmod 700` it; see `references/bus-and-permissions.md` |
 
 ## Apps that are not on the bus
@@ -111,6 +112,20 @@ open them in separate windows (`agent-desktop launch gnome-text-editor --arg=--n
 and use `--window-id` with fresh snapshots.
 
 ## Toolkit limits
+
+GNOME Settings category rows expose no semantic activation action, so `select`
+on `Settings categories` refuses without changing the selection. On X11, find
+the intended category button and use `--headed click` with that row ref; verify
+both the selected row and its pane. Do not retry `select` with refreshed refs.
+
+Nautilus search exposes no semantic SetValue action, and ref-addressed headed
+typing can refuse `target_focus`. On X11, focus the Files window, send
+`--headed press ctrl+f --app nautilus`, then wait for the search UI with
+`wait --text "Search Current Folder" --app nautilus --timeout 8000`. Put the
+query in the clipboard with `clipboard-set`, then send global `press ctrl+v`
+without `--app`. This replaces the clipboard. Verify the window's search query
+and result list. A successful
+paste report alone does not prove that the intended field received it.
 
 | Toolkit | Limit |
 |---------|-------|

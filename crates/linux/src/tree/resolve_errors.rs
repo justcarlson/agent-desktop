@@ -59,6 +59,7 @@ pub(crate) fn object_gone() -> AdapterError {
         "Stored ref's element no longer exists",
         "resolve_target_destroyed",
     )
+    .with_suggestion("The target was destroyed. Choose a replacement from a new snapshot and use its new ref; retrying this ref cannot restore it.")
 }
 
 pub(super) fn descendant_owner_gone(element: &AtspiElement, error: AdapterError) -> AdapterError {

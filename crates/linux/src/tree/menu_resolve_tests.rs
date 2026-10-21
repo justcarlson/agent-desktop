@@ -22,6 +22,9 @@ fn a_ref_no_open_popup_answers_to_is_stale_because_the_menu_closed() {
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind_of(&error), Some("menu_closed"));
     assert_eq!(menu_closed().code, ErrorCode::StaleRef);
+    let hint = error.suggestion.expect("closed-menu recovery");
+    assert!(hint.contains("opener"), "{hint}");
+    assert!(hint.contains("new ref"), "{hint}");
 }
 
 #[test]
