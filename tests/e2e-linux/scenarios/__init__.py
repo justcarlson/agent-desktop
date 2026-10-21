@@ -2,6 +2,7 @@ from scenarios import capture
 from scenarios import gaps_actions
 from scenarios import gaps_capture
 from scenarios import gaps_events
+from scenarios import gaps_surfaces
 from scenarios import gaps_gestures
 from scenarios import gaps_mutter
 from scenarios import clipboard
