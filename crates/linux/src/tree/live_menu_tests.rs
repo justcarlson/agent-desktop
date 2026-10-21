@@ -14,6 +14,16 @@ struct MenuReader {
 }
 
 impl NodeReader for MenuReader {
+    fn top_levels(
+        &mut self,
+        element: &AtspiElement,
+        _: Deadline,
+    ) -> Result<Vec<AtspiElement>, AdapterError> {
+        Ok(vec![element.menu_owner().unwrap_or_else(|| {
+            element.frame().expect("frame").clone()
+        })])
+    }
+
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
         let read = read_of(PUSH_BUTTON, "Open", &["click"]);
         let evidence = evidence_for(&read, element);

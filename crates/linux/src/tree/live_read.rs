@@ -21,6 +21,13 @@ use crate::system::{SharedBus, within};
 /// substitutes in-memory nodes and counts the reads.
 pub(crate) trait NodeReader {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError>;
+    fn top_levels(
+        &mut self,
+        _element: &AtspiElement,
+        _deadline: Deadline,
+    ) -> Result<Vec<AtspiElement>, AdapterError> {
+        Err(AdapterError::not_supported("modal window observation"))
+    }
     fn stopped_app(&mut self, pid: u32) -> Option<String>;
     /// Where the node sits in its window, read once.
     fn placement(&mut self, element: &AtspiElement, deadline: Deadline) -> Placement;
@@ -46,6 +53,24 @@ struct BusReader<'a> {
 impl NodeReader for BusReader<'_> {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
         within(self.deadline, read_evidence(self.connection, element))
+    }
+
+    fn top_levels(
+        &mut self,
+        element: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<Vec<AtspiElement>, AdapterError> {
+        let root = AtspiElement::new(
+            element.bus_name(),
+            crate::system::REGISTRY_ROOT_PATH,
+            element.pid(),
+        );
+        within(deadline, super::list_children(self.connection, &root)).map(|children| {
+            children
+                .into_iter()
+                .map(|(bus, path)| AtspiElement::new(bus, path, element.pid()))
+                .collect()
+        })
     }
 
     fn stopped_app(&mut self, pid: u32) -> Option<String> {
@@ -138,6 +163,7 @@ pub(crate) fn element_via<R: NodeReader>(
 ) -> Result<LiveElement, AdapterError> {
     let node = read_live(reader, handle)?;
     let element = atspi_element(handle)?;
+    super::modal_gate::ensure_unblocked(reader, element, deadline)?;
     let global = reader.global_position(element, deadline);
     let placed = if global && settled_by_read(&node.read) {
         Placement::default()
@@ -231,3 +257,7 @@ mod menu_tests;
 #[cfg(test)]
 #[path = "live_popup_bounds_tests.rs"]
 mod popup_bounds_tests;
+
+#[cfg(test)]
+#[path = "live_modal_tests.rs"]
+mod modal_tests;
