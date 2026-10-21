@@ -28,7 +28,7 @@ pub(crate) mod focus_cause;
 pub(crate) mod focus_window;
 mod focus_world;
 mod ghost_window;
-mod interaction_lease;
+pub(crate) mod interaction_lease;
 mod key_dispatch;
 mod launch;
 mod launch_attach;

@@ -51,7 +51,7 @@ pub(crate) mod window_x11_state;
 #[cfg(test)]
 pub(crate) mod xwd_oracle;
 
-pub(crate) use bounded::start;
+pub(crate) use bounded::{PendingRead, start};
 pub(crate) use client::X11Client;
 pub(crate) use evidence::X11Evidence;
 pub(crate) use frame_extents::FrameExtents;
