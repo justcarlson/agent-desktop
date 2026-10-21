@@ -74,7 +74,7 @@ impl World for Live<'_> {
     }
 
     fn request_close(&self, window: u32) -> Result<(), ControlError> {
-        control::request_close(window, self.deadline)
+        control::request_close(window, self.pid, self.instance, self.deadline)
     }
 
     fn signal(&self, signal: Signal) -> Result<Sent, AdapterError> {

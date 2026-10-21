@@ -63,6 +63,10 @@ pub(super) fn no_client(cause: Cause) -> AdapterError {
 
 pub(super) fn write_failed(error: ControlError) -> AdapterError {
     match error {
+        ControlError::StaleWindow => {
+            AdapterError::stale_ref_because("The window owner changed or could not be verified")
+                .with_disposition(DeliverySemantics::not_delivered())
+        }
         ControlError::BadWindow => refused(
             ErrorCode::WindowNotFound,
             "window_destroyed",

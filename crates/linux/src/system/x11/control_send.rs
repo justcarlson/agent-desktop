@@ -8,9 +8,12 @@ use super::activate_error::ActivateError;
 use super::client_message::{
     FORMAT_LONGS, MessageData, activate, close, iconify, maximize, move_resize,
 };
-use super::control::ControlError;
+use super::control::{ControlError, pid_of};
 use super::control_display::{atoms, connect};
+use super::control_grab::ServerGrab;
+use super::control_owner::CloseOwner;
 use super::stacking::bounded;
+use crate::system::liveness;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WindowWrite {
@@ -30,6 +33,7 @@ struct Ready {
     connection: RustConnection,
     root: u32,
     event: ClientMessageEvent,
+    close_owner: Option<(CloseOwner, Atom)>,
 }
 
 fn names_of(write: &WindowWrite) -> &'static [&'static [u8]] {
@@ -98,12 +102,14 @@ fn prepare_write(
             connection,
             root,
             event,
+            close_owner: None,
         }))
     }
 }
 
 fn prepare_close(
     window: u32,
+    owner: CloseOwner,
 ) -> impl FnOnce(Deadline) -> Result<Result<Ready, ControlError>, ActivateError> + Send + 'static {
     move |deadline| {
         let (connection, root) = connect()?;
@@ -111,11 +117,13 @@ fn prepare_close(
             return Ok(Err(error));
         }
         let kind = single(&connection, b"_NET_CLOSE_WINDOW")?;
+        let pid_atom = single(&connection, b"_NET_WM_PID")?;
         let stamp = server_time(&connection, root, deadline).ok_or(ActivateError::SendFailed)?;
         Ok(Ok(Ready {
             connection,
             root,
             event: message(window, kind, close(stamp)),
+            close_owner: Some((owner, pid_atom)),
         }))
     }
 }
@@ -138,10 +146,25 @@ fn within_deadline<P: Send + 'static>(
 }
 
 fn emit_within(deadline: Deadline) -> impl FnOnce(Ready) -> Result<(), ControlError> {
-    move |ready| within_deadline(deadline, ready, emit)
+    move |ready| within_deadline(deadline, ready, move |ready| emit(ready, deadline))
 }
 
-fn emit(ready: Ready) -> Result<(), ControlError> {
+fn emit(ready: Ready, deadline: Deadline) -> Result<(), ControlError> {
+    if let Some((owner, atom)) = &ready.close_owner {
+        return owner.send(
+            || ServerGrab::acquire(&ready.connection, deadline),
+            || pid_of(&ready.connection, ready.event.window, *atom),
+            liveness::identity,
+            || emit_event(&ready, deadline),
+        );
+    }
+    emit_event(&ready, deadline)
+}
+
+fn emit_event(ready: &Ready, deadline: Deadline) -> Result<(), ControlError> {
+    if deadline.is_expired() {
+        return Err(ControlError::TimedOut);
+    }
     let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
     ready
         .connection
@@ -199,6 +222,7 @@ fn prepare_raise(
             connection,
             root,
             event: message(window, kind, activate()),
+            close_owner: None,
         }))
     }
 }
@@ -220,8 +244,21 @@ pub(crate) fn raise_window(window: u32, deadline: Deadline) -> Result<(), Contro
 }
 
 /// Asks the window manager to close `window`, the request `wmctrl -c` sends.
-pub(super) fn close_window(window: u32, deadline: Deadline) -> Result<(), ControlError> {
-    deliver(deadline, prepare_close(window), emit_within(deadline))
+pub(super) fn close_window(
+    window: u32,
+    pid: u32,
+    instance: &str,
+    deadline: Deadline,
+) -> Result<(), ControlError> {
+    let owner = CloseOwner {
+        pid,
+        instance: instance.to_owned(),
+    };
+    deliver(
+        deadline,
+        prepare_close(window, owner),
+        emit_within(deadline),
+    )
 }
 
 #[cfg(test)]

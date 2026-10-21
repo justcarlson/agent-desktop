@@ -222,6 +222,32 @@ fn a_window_that_vanished_is_not_a_failed_send() {
 }
 
 #[test]
+fn a_stale_close_target_refuses_further_sends_and_preserves_prior_delivery() {
+    for sent_first in [false, true] {
+        let mut world = Fake::new(Liveness::Alive);
+        world.windows = ControlRead::Ready(vec![window(1), window(2), window(3)]);
+        let mut results = world.closes.borrow_mut();
+        if sent_first {
+            results.push(Ok(()));
+        }
+        results.push(Err(ControlError::StaleWindow));
+        drop(results);
+        let error = close(&world, &request()).expect_err("the owner changed");
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        assert_eq!(
+            error.disposition,
+            if sent_first {
+                DeliverySemantics::delivered_unverified()
+            } else {
+                DeliverySemantics::not_delivered()
+            }
+        );
+        assert_eq!(world.count("close"), if sent_first { 2 } else { 1 });
+        assert_no_signal(&world);
+    }
+}
+
+#[test]
 fn a_deadline_in_the_middle_of_the_fan_out_is_a_timeout_not_a_failed_send() {
     let mut world = Fake::new(Liveness::Alive);
     world.windows = ControlRead::Ready(vec![window(1), window(2), window(3)]);

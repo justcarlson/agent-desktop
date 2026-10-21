@@ -27,6 +27,7 @@ pub(crate) enum ControlError {
     NoDisplay,
     SendFailed,
     BadWindow,
+    StaleWindow,
     TimedOut,
 }
 
@@ -56,8 +57,13 @@ pub(crate) fn toplevels_of(pid: u32, deadline: Deadline) -> ControlRead<Vec<Topl
 }
 
 /// Asks the window manager to close one window.
-pub(crate) fn request_close(window: u32, deadline: Deadline) -> Result<(), ControlError> {
-    close_window(window, deadline)
+pub(crate) fn request_close(
+    window: u32,
+    pid: u32,
+    instance: &str,
+    deadline: Deadline,
+) -> Result<(), ControlError> {
+    close_window(window, pid, instance, deadline)
 }
 
 /// The name the running window manager gives itself, read from the window
@@ -169,7 +175,7 @@ fn title_of(connection: &RustConnection, window: u32, name: u32, utf8: u32) -> S
     )
 }
 
-fn pid_of(connection: &RustConnection, window: u32, pid_atom: u32) -> Option<u32> {
+pub(super) fn pid_of(connection: &RustConnection, window: u32, pid_atom: u32) -> Option<u32> {
     property(connection, window, pid_atom, AtomEnum::CARDINAL, 1)
         .and_then(|reply| longs(reply.format, &reply.value, reply.bytes_after))
         .and_then(|values| values.first().copied())
