@@ -59,7 +59,7 @@ Wire the Linux adapter into the shared observation path. After this sub-phase `l
 - R16. Pure tests run on every host; every other requirement is proved by a real run on the GNOME box, first in a private session and again on the live session when the owner restores its bus.
 - R17. Every ledger row naming 3.4 is disposed of; `L2-14` and `L2-17` are closed by measurement.
 - R18. `docs/phases.md` states what was built and no longer states what the ledger or the code disproved.
-- R19. A stranger dogfood is run and its report committed, with at least one finding, each disposed of.
+- R19. A stranger dogfood is run with at least one finding, each disposed of in the PR description; the judged report stays outside version control.
 - R20. Latency is measured min-of-seven with the warm-up discarded, and the release binary stays under 15 MiB with `x11rb` added.
 
 ### Key Decisions
@@ -416,10 +416,10 @@ Size: `docs/phases.md` estimates about 2k LOC; this plan is roughly 3.3-4k lines
 - **Goal:** find what a new agent hits using only the shipped skill and the built binary.
 - **Requirements:** R19.
 - **Dependencies:** U14.
-- **Files:** `docs/dogfood-reports/<date>-feat-linux-3-4-observation-dogfood.md` (no captures directory: Phase 3 keeps raw dumps out of the repository).
+- **Files:** none. The judged report and its evidence stay outside version control; findings and dispositions go in the PR description.
 - **Approach:** KD8. The operator is a subagent briefed that it holds the built release binary and `skills/agent-desktop/` (read through `agent-desktop skills get core`) and nothing else, with the repository withheld; it works in a private session with the apps U14 uses. It executes every example the skill contains verbatim, reads every step's `ok`, uses the tool's own `wait` primitives instead of sleeps, runs `snapshot --app` at the default timeout, and treats any flag, variable or ordering the skill does not document as a finding. Behavioral claims are measured in both directions before they are written down, and a failure is a finding only after a second independent observation. Commands this sub-phase does not implement must fail with `PLATFORM_NOT_SUPPORTED`, which the run checks is honest and not a stub success. The report is judged: at least one finding, else the targets are made harder (VS Code cold, the snap Firefox, two same-title windows, a no-bus app, an app that closes mid-snapshot). The core skill says Linux has no platform skill yet and `skills get platform` will therefore fail: that finding is expected and owned by 3.13, which gains its content in U13.
 - **Test expectation:** none -- a run and a report; each finding disposed as fixed with a named test that fails when the fix is broken, owned elsewhere with the receiving scope written in `docs/phases.md`, or accepted with the reason.
-- **Verification:** the report is committed, every finding has one of the three dispositions, and every "fixed" finding's test has been seen to fail with the fix removed.
+- **Verification:** the judged report stays outside version control, every finding has one of the three dispositions in the PR description, and every "fixed" finding's test has been seen to fail with the fix removed.
 
 ---
 
@@ -439,7 +439,7 @@ Size: `docs/phases.md` estimates about 2k LOC; this plan is roughly 3.3-4k lines
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `cargo fmt --all -- --check` | 400-line cap, no plan ids in source |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then the `--sub-phase 3.4` listing shows no `DEFERRED` row | citations valid, `L2-14` and `L2-17` closed |
 | Perf | min-of-seven with warm-up discarded, min with median and max, for `list_windows`, `list_apps` and `snapshot` | no unexplained latency |
-| Dogfood | the committed report with every finding disposed | R19 |
+| Dogfood | PR description with every finding disposed; no report file committed | R19 |
 
 Requirement-to-check map: R1 → U5 scenarios and U14 apps; R2-R3 → U4 scenarios and U14 ref counts; R4 → U3 and U5 scenarios and U14 values; R5 → U6 scenarios and U14 settle runs; R6 → U5 pure arm and U14 VS Code; R7 → U12 and U14 dialog; R8-R9 → U7 scenarios and U14 lists; R10 → U8, U10 scenarios and U14 focus; R11 → U7 and U14 no-bus app; R12 → U8 scenarios and U14 re-resolve; R13 → U9, U10 scenarios; R14 → U11 and U14 virtual monitors; R15 → isolation and source rules; R16 → the live rows; R17-R18 → ledger and citation checks (U13); R19 → U15; R20 → Perf and Size.
 
@@ -462,7 +462,7 @@ Requirement-to-check map: R1 → U5 scenarios and U14 apps; R2-R3 → U4 scenari
   - `L12-1`: confirmed by the snap Firefox run (U14).
   - `L13-4`, `L13-5`, `L13-6`, `L13-26`: implemented as honest Wayland behavior (U7, U8).
   - `L14-9`-`L14-12`, `L14-14`: accepted as test-target notes; 3.12 owns the targets (U13).
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified.
+- The judged dogfood report stays outside version control, with every finding disposed of in the PR description and every fixed finding's test invert-verified.
 - `crates/core` diff is empty, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - `docs/phases.md` states what was built and no longer states what the ledger or the code disproved.
 - No abandoned experiment code remains.

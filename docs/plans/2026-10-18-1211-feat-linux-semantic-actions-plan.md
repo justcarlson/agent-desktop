@@ -71,7 +71,7 @@ Two things are owed by nobody and decide whether `type` can be verified. Core ve
 **Process and proof**
 
 - R18. `crates/core` is unchanged, no shipped source names a plan, phase or decision id, pure tests run on every host, and every other requirement is proved by a real run on the GNOME box in a private session now and on the live session once the owner restores its bus. `docs/phases.md` states what was built and no longer states what the evidence disproved, and every ledger row naming 3.7 is disposed of.
-- R19. A stranger dogfood is run and its report committed with at least one finding, each disposed of.
+- R19. A stranger dogfood is run with at least one finding, each disposed of in the PR description; the judged report stays outside version control.
 - R20. Dispatch latency is measured min-of-seven with the warm-up discarded, and the release binary stays under 15 MiB.
 
 ### Acceptance Examples
@@ -593,7 +593,7 @@ Only the unknowns that change a design. Rows go in area `L30`; each in both dire
 - **Goal:** find what a new agent hits using only the shipped skill and the built binary.
 - **Requirements:** R19.
 - **Dependencies:** U13.
-- **Files:** `docs/dogfood-reports/<date>-<serial>-feat-linux-3-7-semantic-actions-dogfood.md` (the existing reports carry a date and serial prefix; this one follows them).
+- **Files:** none. The judged report and its evidence stay outside version control; findings and dispositions go in the PR description.
 - **Approach:** KD10. The operator is a subagent told it holds the release binary and the text of `agent-desktop skills get core` and nothing else, in a private session whose apps the harness launched. It runs every example verbatim in bash, reads every `ok` and `disposition`, waits with `wait` and never sleeps, treats any undocumented flag, variable or ordering as a finding, confirms a failure twice and measures each claim in the passing and the failing direction. Probes, each judged against an independent channel:
   1. Calculator `click` digits, then `get` on the display; pointer and `_NET_ACTIVE_WINDOW` unchanged.
   2. Settings "Hot Corner": `toggle`, then `check` on the already-checked state (`satisfied_without_delivery`), then `uncheck`, with GSettings read; the GTK3 Terminal "Read-Only" item.
@@ -610,7 +610,7 @@ Only the unknowns that change a design. Rows go in area `L30`; each in both dire
   13. `focus` headless against `--headed`, and a headed `click` on a node with no click verb (`ACTION_NOT_SUPPORTED`).
   The `skills get platform` failure on Linux is a known finding owned by the platform skill sub-phase.
 - **Test expectation:** none -- a run and a report; each finding is disposed as fixed with a named test that fails when the fix is removed, owned elsewhere with the receiving scope written in `docs/phases.md`, or accepted with the reason. After any code fix, U13's live and performance rows are re-run.
-- **Verification:** the report is committed with at least one finding, every finding has one disposition, and every fixed finding's test has been seen to fail with the fix removed.
+- **Verification:** the judged report stays outside version control with at least one finding, every finding has one disposition in the PR description, and every fixed finding's test has been seen to fail with the fix removed.
 
 ---
 
@@ -629,7 +629,7 @@ Only the unknowns that change a design. Rows go in area `L30`; each in both dire
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `scripts/check-stale-ref-constructor-misuse.sh`, `cargo fmt --all -- --check` | 400-line cap, no plan ids in source |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.7` lists the 31 existing rows and U1's, none `DEFERRED` | citations valid, dispositions possible |
 | Perf and size | min-of-seven with the warm-up discarded for the rows in U13; release size against 15 MiB | R20 |
-| Dogfood | the committed report with every finding disposed | R19 |
+| Dogfood | PR description with every finding disposed; no report file committed | R19 |
 
 Requirement-to-check map: R1 → U11 dispatch and exhaustive scenarios, U13 headed-gesture case; R2 → U2 table rows and scan, U3 abort scenario, U9 partial-write scenarios, U13 and U14 hostile probes; R3 → U3 `verified` scenarios, U6 click scenarios, U13 insensitive and popover cases; R4 → U4 drift and `doDefault` scenarios, U5 name scenarios, U2 scan; R5 → U4 token scenarios, U13 gate cases; R6 → U6 click scenarios, U11 verb-less arm; R7 → U6 toggle scenarios, U13 Hot Corner; R8 → U7 scenarios, U13 disclosure or the stated absence; R9 → U9 text and numeric scenarios, U13 value cases; R10 → U8 and U9 type scenarios, U13 text cases; R11 → U10 scenarios, U13 select cases; R12 → U11 focus scenarios, U13 focus cases; R13 → U9 secure scenarios, U14 probe 5; R14 → U13 invariant tests (positive control), Wayland run; R15 → U1 rows, U13 per-toolkit cases; R16 → U1 search, U12 owner item; R17 → U13 frame `ACTIVE` test; R18 → isolation, source rules, ledger; R19 → U14; R20 → perf and size.
 
@@ -653,7 +653,7 @@ Requirement-to-check map: R1 → U11 dispatch and exhaustive scenarios, U13 head
   - `L14-7`, `L27-4`: the scroll half is 3.6's, the wheel is the input tier's, and the unrealised-item half is a scroll bar `set-value` here and a harness leg in 3.12 (U9, U12).
   - `L16-11`: implemented, the table of U4 is the one table. `L16-20`: accepted, the action path reports a stopped app from 3.5's resolve and `is_stopped` as evidence and keeps `delivery_uncertain` after a post-send timeout.
   - U1's new rows: each with its verdict and a disposition.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified.
+- The judged dogfood report stays outside version control, with every finding disposed of in the PR description and every fixed finding's test invert-verified.
 - `crates/core` diff is empty, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - `docs/phases.md` states what was built and no longer states what the evidence disproved; the 3.4, 3.5 and 3.6 plan sentences it contradicts are named in the PR description for their owners.
 - No abandoned experiment code remains.

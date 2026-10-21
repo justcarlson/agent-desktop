@@ -304,7 +304,7 @@ Requirement-to-check map: R1–R3 → U3 scenarios and the exhaustiveness test; 
   - `L3-7`, `L3-11`: 3.3 implements the state accessor and the web-document scoping; 3.4 and 3.6 own the wiring.
   - `L1-18`: the Qt identity half is answered by `L3-9` and `L3-10` and the row is rewritten; the sandbox half stays with its other closure.
   - `L3-25`, `L3-26`: closed by U1.
-- The judged live-run report is `docs/dogfood-reports/2026-10-18-003-feat-linux-3-3-vocabulary-dogfood.md`.
+- The judged live-run report stays outside version control; its findings and dispositions go in the PR description.
 - The live run's output is in the PR description. No dogfood-as-a-stranger report exists because no user-visible surface exists before 3.4; §3.4 owns it (U8).
 - `crates/core` diff is empty; no probe script, capture or box identity is committed.
 - No abandoned experiment code remains.

@@ -585,7 +585,7 @@ Each probe names the decision it can flip, so the measurement is read against it
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.14` lists no `DEFERRED` row | R14 |
 | Size | release binary against 15 MiB | R17 |
 | Skill | `skills get platform` on Linux and the shell and notification examples verbatim, once the seam lands | docs honesty |
-| Dogfood | the committed report with every finding disposed of | R18 |
+| Dogfood | PR description with every finding disposed of; no report file committed | R18 |
 
 Requirement-to-check map: R1 -> U3 scenarios, U11 detector states; R2 -> U4 scenarios and the live round trip per kind; R3 -> U4 gate and hit scenarios, U11 stale-after-restart; R4 -> U5 scenarios, U11 sender parity; R5 -> U7 dismiss scenarios, U11 bystander; R6 -> U7 dismiss-all scenarios, U11; R7 -> U7 action scenarios, U11 daemon signal; R8 -> U4 open/restore and U7 session scenarios; R9 -> U5, U7 (no `CloseNotification` import exists: a grep guard in Source rules), U11; R10 -> U8; R11 -> U9 method choice, U11 receiver log; R12 -> U9 menu pick; R13 -> U6, U11 both tiers; R14 -> U2, U13, Ledger; R15 -> U10; R16 -> Isolation, Dependency, Source rules; R17 -> Size; R18 -> Dogfood; R19 -> U5 no-id test, U7 moved-entry test, grep guard; R20 -> U7 missed-signal scenarios, U5 missed-banner scenario, U11 late-rule run; R21 -> U14 per-family scenarios; R22 -> U15 list and parity scenarios, U16 signal parity; R23 -> U14 observe scenarios, U11 live snapshot; R24 -> U15 resolve scenarios, U11 live item click.
 

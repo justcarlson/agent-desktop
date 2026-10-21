@@ -203,7 +203,7 @@ U1 → (U2, U4 in parallel) → U3 → U5.
 - `docs/phases.md` contains no claim that `tokio` is required in Phase 3, and §3.1 describes detection as implemented.
 - `python3 scripts/check-linux-findings.py --sub-phase 3.1` lists no row this sub-phase leaves undisposed.
 - No experimental or abandoned code remains in the diff.
-- The stranger dogfood report `docs/dogfood-reports/2026-10-18-001-feat-linux-3-1-toolchain-bus-dogfood.md` is committed with a disposition for every finding.
+- The judged stranger dogfood report stays outside version control; its findings and dispositions go in the PR description.
 
 ## Risks & Dependencies
 
