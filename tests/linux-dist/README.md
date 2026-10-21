@@ -16,7 +16,7 @@ owner in `target/release`. It copies both into a fresh directory and empties
 PATH during clipboard calls. A foreign GTK reader must receive the payload
 after adapter destruction, then observe an empty selection after clear. The
 npm check applies the same contract after the installed CLI process exits.
-The release dry-run installs the GTK 3 typelib and `trash-cli`, runs the fake
+The release dry-run installs the GTK 3 typelib, runs the fake
 contracts, and stages the discovery check from that job's extracted archive.
 
 The consumer also runs the real ctypes smoke against the extracted library

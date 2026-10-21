@@ -62,7 +62,7 @@ cleanup() {
     kill "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
   fi
-  trash -- "$WORK"
+  rm -rf -- "$WORK"
 }
 trap cleanup EXIT
 

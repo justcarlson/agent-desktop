@@ -15,7 +15,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GATE="$ROOT/scripts/check-elf-glibc-floor.sh"
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/glibc-floor-selftest.XXXXXX")
-trap 'trash -- "$WORK"' EXIT
+trap 'rm -rf -- "$WORK"' EXIT
 
 fail() {
   echo "self-test FAIL: $1" >&2

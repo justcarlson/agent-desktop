@@ -46,7 +46,7 @@ for file in "$LIB" "$HELPER"; do
 done
 
 STAGE=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-ffi-helper.XXXXXX")
-trap 'trash -- "$STAGE"' EXIT
+trap 'rm -rf -- "$STAGE"' EXIT
 mkdir "$STAGE/nopath"
 cp "$LIB" "$STAGE/"
 cp "$HELPER" "$STAGE/"

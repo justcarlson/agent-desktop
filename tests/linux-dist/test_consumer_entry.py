@@ -41,7 +41,6 @@ case "$1" in
 esac
 ''')
             app = executable("app", "#!/usr/bin/env bash\nexec sleep 60\n")
-            executable("trash", "#!/usr/bin/env bash\nexit 0\n")
             executable("python3", f'''#!{sys.executable}
 import json, os, sys
 if sys.argv[1].endswith("atspi_read.py"):
