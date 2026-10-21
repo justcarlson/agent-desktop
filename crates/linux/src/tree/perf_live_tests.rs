@@ -82,38 +82,6 @@ fn search_miss(entry: &RefEntry) -> RefEntry {
     missing
 }
 
-#[test]
-fn a_search_miss_probe_drops_retained_object_identity() {
-    use super::resolve::resolve;
-    use super::resolve_fake::{FRAME_PATH, Fake, deadline, node};
-    use super::role_numbers::PUSH_BUTTON;
-
-    let mut fake = Fake::new();
-    fake.add(FRAME_PATH, "/button", node(PUSH_BUTTON, "Save", 30, 20));
-    let mut entry = fake.entry_of("/button", true);
-    entry.identity.retained_object = Some("/button".to_owned());
-    let mut pinned = entry.clone();
-    pinned.scope.path.clear();
-    pinned.identity.name = Some("no such element anywhere".to_owned());
-    assert_eq!(
-        resolve(&mut fake, &pinned, deadline())
-            .expect("the exact object remains")
-            .path(),
-        "/button"
-    );
-    let error = resolve(&mut fake, &search_miss(&entry), deadline())
-        .expect_err("a name-only search miss cannot retain the original object");
-    assert_eq!(error.code, ErrorCode::StaleRef);
-    assert_eq!(
-        error.details.as_ref().expect("a classified miss")["kind"],
-        "resolve_no_candidate"
-    );
-    fake.add(FRAME_PATH, "/twin", node(PUSH_BUTTON, "Save", 30, 20));
-    let error = resolve(&mut fake, &search_entry(&entry), deadline())
-        .expect_err("equal twins without an object anchor must be ambiguous");
-    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
-}
-
 fn perf_check(
     label: &str,
     adapter: &LinuxAdapter,

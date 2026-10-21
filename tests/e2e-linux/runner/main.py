@@ -124,6 +124,7 @@ def _recover_failed_members(ctx) -> None:
 
 
 def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, verdict, report):
+    from runner.session import TierUnavailable
     from runner.verdict import LegContext
 
     ctx = LegContext(tier_obj, mode, leg)
@@ -136,6 +137,8 @@ def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, ve
         if failures:
             outcome = report.FAIL
             detail = "; ".join(failures)
+    except TierUnavailable:
+        raise
     except NotImplementedError as error:
         outcome = report.BLOCKED
         detail = str(error)
@@ -172,7 +175,7 @@ def _run_leg(impl, leg, tier_obj, tier_name: str, mode: str, suite_dir: Path, ve
 
 
 def _run_tier(tier_name: str, legs_for_tier, impls, suite_dir: Path, verify_binary: bool):
-    from runner import apps, report, session, stage, verdict
+    from runner import apps, readiness, report, session, stage, verdict
 
     outcomes = [report.LegOutcome(leg.id, tier_name, mode, leg.disposition, leg.reason)
                 for leg in legs_for_tier
@@ -185,12 +188,14 @@ def _run_tier(tier_name: str, legs_for_tier, impls, suite_dir: Path, verify_bina
     try:
         with session.start_tier(tier_name, TIER_DEADLINE_S) as tier_obj:
             try:
+                readiness.wait_ready(tier_obj)
                 apps.prime_desktop(tier_obj)
             except (OSError, AssertionError, RuntimeError) as error:
                 raise session.TierUnavailable(f"{tier_name}: desktop warm-up failed: {error}") from error
             for leg in legs_for_tier:
                 impl = impls.get(leg.id)
                 for mode in leg.modes:
+                    readiness.wait_ready(tier_obj)
                     if impl is None:
                         outcomes.append(
                             report.LegOutcome(
@@ -222,8 +227,11 @@ def _run_tier(tier_name: str, legs_for_tier, impls, suite_dir: Path, verify_bina
                     )
                     break
     except session.TierUnavailable as error:
+        completed = {(row.leg_id, row.mode) for row in outcomes}
         for leg in legs_for_tier:
             for mode in leg.modes:
+                if (leg.id, mode) in completed:
+                    continue
                 outcomes.append(
                     report.LegOutcome(
                         leg_id=leg.id,

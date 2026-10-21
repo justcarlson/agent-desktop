@@ -3,11 +3,10 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::ErrorCode;
 
 use super::signal_live_apps::{
-    FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, Rig, STATE_CHECKED, STATE_SHOWING,
-    Stopped, TOGGLE, chrome_profile, close_chrome_menu, close_with_escape, descendants, details_of,
-    do_action, identity_of, launch_chrome, launch_qt, main_menu_toggle, outcome, poll,
-    process_state, scratch_dir, showing_of, signal, terminal_server, top_level, wait_menu,
-    x11_windows,
+    MENU, MENU_ITEM, Node, POPUP_MENU, Rig, STATE_CHECKED, STATE_SHOWING, Stopped, TOGGLE,
+    close_with_escape, descendants, details_of, do_action, identity_of, launch_qt,
+    main_menu_toggle, outcome, poll, process_state, scratch_dir, showing_of, signal,
+    terminal_server, wait_menu, x11_windows,
 };
 
 const MENU_MS: u64 = 15_000;

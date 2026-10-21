@@ -254,14 +254,17 @@ fails when its repair is removed and passes after restoration.
 | `test_capture_scenarios.py`, `test_window_oracle_excludes_independently_reported_client_shadows` | Fixed: crop XWD by independently read GTK frame extents; Mutter XWD was 822 by 642 while the content PNG was 700 by 520. |
 | `test_occlusion_scenarios.py`, `test_cover_position_is_observed_inside_its_client_shadow` | Fixed: compare a moved cover's visible origin and bounds, excluding its client shadow. |
 
-Mutter variants with raw accessibility bus timeouts, tracker/service membership
-churn, Qt fixture startup/teardown failures or long-text restoration timing were
-removed. The Files Properties opener did not require proof of its modal, so its
+Earlier lane runs retired Mutter specimens after raw accessibility bus timeouts,
+service membership churn, Qt startup/teardown or long-text restoration timing.
+The current inventory restores eleven event variants after isolating unrelated
+shell owners and adding a WM/AT-SPI responsiveness gate. The four ref gestures
+and canonical Qt headed-click contract run on both X11 tiers. A restored row is
+not a measured pass until its current receipt records one. The Files Properties opener did not require proof of its modal, so its
 leg was deleted on both X11 tiers. A newly launched window may already have
 focus; the unconditional never-focused refusal expectation was deleted.
 
-The later Mutter batch passed 32 cases. Nine lifecycle/event variants were
-removed after raw accessibility-bus timeouts. Lifecycle resize/restoration uses
+A historical Mutter batch passed 32 cases and retired nine lifecycle/event
+variants after raw accessibility-bus timeouts; it does not validate this head. Lifecycle resize/restoration uses
 visible bounds after subtracting independently read GTK client shadows;
 `test_resize_and_restore_use_visible_bounds_inside_client_shadows` proves
 the request, observed effect, and restoration against a fake X11 client.
@@ -319,12 +322,14 @@ they make no claim about the unexercised live wheel, offscreen or cover effects.
 Live VS Code Chromium checks for stale refs after process exit and stable
 web-content paths after a second file both passed in the native gate.
 
-The native performance search-miss probe changed a name but retained the
-exact object token. The resolver correctly returned that original object.
-The probe now drops that token;
-`a_search_miss_probe_drops_retained_object_identity` checks the pinned object
-and the genuine miss against a deterministic fake. No product resolver
-change is warranted by the inconsistent probe.
+The performance search-miss probe clears the retained object before looking for
+an absent name. Its old fake regression manufactured a named retained-object
+ref, changed its identity, and demanded successful resolution anyway. On the
+shipped resolver the sole diagnostic rerun again refused that unverifiable
+identity with `resolution_identity_unknown` and `not_delivered`. The invalid
+fake is deleted; no product code is changed. Canonical resolver tests retain
+swapped-widget identity, replacement refusal, complete-search miss and equal-twin
+ambiguity (`resolve_refusal_tests` and `resolve_tests`).
 
 The two twin fixtures now use the same search-probe helper, clearing exact
 object tokens before testing size or ambiguity. The fake probe also checks
@@ -346,8 +351,8 @@ findings validation and secret scans pass. Headless/headed live passes are
 ## Integration review decisions
 
 All 76 review OWNER rows are resolved in
-[the decision table](../../docs/plans/3.12-integration-decisions.md): 12 live
-contracts, one exact default-timeout refusal, 62 required 3.15 hardening cells,
+[the decision table](../../docs/plans/3.12-integration-decisions.md): 24 live
+contracts, one exact default-timeout refusal, 50 required 3.15 hardening cells,
 and one removed HTML-setter requirement. The receiving scope lists every
 transferred row in `docs/phases.md` §3.15. No transferred cell counts as a pass.
 The 3.14 surface/modal/shell/notification/tray rows remain outstanding.
@@ -370,33 +375,49 @@ mechanism; there are no executable OWNER rows to split.
 
 ## Integration validation receipt
 
-The integration build did not acquire the shared `~/ad-wt/.box.lock` in four
-bounded attempts (30, 180, 180 and 600 seconds of lock wait). The observed
-holder was the separate 3.14 reviewed-suite process, PID 584345. The final
-attempt expired at 2026-10-21 03:57:48 UTC before cargo started. No private app
-or live leg ran in this integration session. No live product finding or pass
-is established; historical lane numbers above are not current results.
+The rebased release CLI and adjacent clipboard helper build successfully. The
+four-package all-target Clippy gate passes with warnings denied. The library
+run exposed the obsolete fake described above; its sole retry reproduced the
+invalid success expectation. Final library validation follows its deletion.
+Live validation of this inventory is in progress; no pending cell counts as a
+pass. Historical lane numbers above do not certify this head.
 
-| Tier | Mode | Passed | Failed | Unrun: box lock | Outstanding: 3.14 |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Openbox X11 | headless | 0 | 0 | 104 | 10 |
-| Openbox X11 | headed | 0 | 0 | 38 | 2 |
-| Mutter X11 | headless | 0 | 0 | 70 | 30 |
-| Mutter X11 | headed | 0 | 0 | 23 | 10 |
-| Headless Wayland | headless | 0 | 0 | 5 | 0 |
-| Headless Wayland | headed | 0 | 0 | 1 | 0 |
+| Tier | Mode | Pending executable cells | Outstanding surface cells |
+| --- | --- | ---: | ---: |
+| Openbox X11 | headless | 104 | 10 |
+| Openbox X11 | headed | 38 | 2 |
+| Mutter X11 | headless | 81 | 30 |
+| Mutter X11 | headed | 23 | 10 |
+| Headless Wayland | headless | 5 | 0 |
+| Headless Wayland | headed | 1 | 0 |
 
-The separate `312-mutter-diagnosis.md` report was absent at the final check;
-its repair has not been assessed or applied. Live stranger dogfood also remains
-incomplete. The committed documentation review is explicit about that boundary.
-Resume by building and freezing this checkout's CLI/helper together under the
-box lock, then execute every retained ID/mode in small per-tier batches. Rerun
-each failed cell at most once; retire/replace environment-dependent specimens
-or preserve a deterministic product repro here. Do not count unrun cells as
-failures, passes, or fulfilled 3.14 dependencies.
+The supplied Mutter diagnosis is implemented: exclude attributed shell/decoration
+processes before property reads, isolate unrelated name timeouts while retaining
+plausible target failures, resolve explicit unique bus names directly, and bound
+WM/AT-SPI responsiveness before baselines and after mapping. Overview is closed
+only on observed true; an expired gate makes the tier unavailable. Portable
+regressions in `test_runtime_readiness.py` and the mapped-launch test in
+`test_oracle_apps.py` fail under intentional inversions.
 
-Local gates: portable Linux harness 303 tests (one live skip), shared E2E 58,
-Python files below 400 lines, source-reference policy, findings validator (655
-rows), secret scan over `64ccca5a..HEAD`, and Lahfir author/committer checks pass.
-New effect/identity unit tests were invert-checked. No product Rust was changed
-by this integration. No push or rebase was performed.
+Local gates pass: portable Linux harness 314 tests (one live-only skip), shared
+E2E 58, Python files below 400 lines, source-reference policy, findings validator
+(701 rows), and Lahfir author/committer checks. Final secret scanning uses
+`7dc6500f..HEAD`. Live stranger dogfood is pending.
+
+## Rebase resolutions
+
+Rebased with rerere onto shipped core-delivery `7dc6500f`.
+
+| Conflicted file | Resolution |
+| --- | --- |
+| `probes/linux/FINDINGS.md` | Keep both shipped L32 findings and harness L34 measurements. |
+| `scripts/private-session.sh` | Keep cancellation/member sweeping, private `ad-home`, and recoverable cleanup with Trash data under the owned base. |
+| `scripts/private-wayland-shell.sh` | Keep recoverable socket cleanup and the socket value shared with the payload; the portable wrapper test catches a local variable hiding it. |
+| `scripts/remote-linux.sh` | Keep the single outer timeout around lock and execution, plus the separate bounded flock wait. |
+| `crates/linux/src/system/capture/capture_live_tests.rs` | Preserve the upstream Qt fixture removal and the harness branch's obsolete Chromium fixture removal. |
+| `crates/linux/src/system/menu_wait_live_tests.rs` | Keep upstream outcome diagnostics and remove imports for retired Chromium checks. |
+| `crates/linux/src/system/signal_live_surfaces_tests.rs` | Keep upstream outcome diagnostics and the branch's retired Chromium surface checks. |
+| `crates/linux/src/system/signal_live_tests.rs` | Keep upstream outcome diagnostics and remove the mismatched-session Wayland check and its unused import. |
+| `tests/e2e-linux/test_runner_contract.py` | Keep tests moved into the workflow contract module; preserve behavioral lock timeout coverage there. |
+| `tests/e2e-linux/runner/legs.py` | Combine the ref-action and gap inventories without losing either family. |
+| `docs/phases.md` | Preserve shipped shell/notification/tray contracts and the explicit outstanding harness follow-through. |

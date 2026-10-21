@@ -6,11 +6,15 @@ from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from runner import apps, gate, legs, main, report, session, stage
+from runner import apps, gate, legs, main, readiness, report, session, stage
 from contextlib import nullcontext
 
 
 class RunnerSelectionTests(unittest.TestCase):
+    def setUp(self):
+        self.ready = mock.patch.object(readiness, "wait_ready").start()
+        self.addCleanup(mock.patch.stopall)
+
     def test_outstanding_legs_do_not_start_a_desktop(self):
         leg = legs.leg_by_id("shell_surfaces.snapshot_system_tray")
         with mock.patch.object(session, "start_tier", side_effect=AssertionError("desktop started")):

@@ -25,8 +25,7 @@ def batch_wait(ctx, token, scoped, action, app="Calculator"):
 
 
 def inventory(ctx):
-    return sorted((node.name, len(node.children())) for node in raw.registry(ctx.tier)
-                  if node.name == "gnome-calculator")
+    return sorted((app.name, len(app.windows)) for app in apps.owners_named(ctx.tier, "Calculator"))
 
 
 def calculator_processes(ctx):
@@ -159,7 +158,7 @@ for _token in TOKENS:
     for _scope in ("scoped", "unscoped"):
         for _kind, _fn in (("success", transition), ("quiet", quiet)):
             _id = f"gaps.event_{_token}_{_scope}_{_kind}"
-            if _id not in {leg.id for leg in REGISTRY}:
-                continue
-            implementation(_id)(
-                lambda ctx, token=_token, scoped=_scope == "scoped", fn=_fn: fn(ctx, token, scoped))
+            for _candidate in (_id, _id + ".mutter_owner"):
+                if _candidate in {leg.id for leg in REGISTRY}:
+                    implementation(_candidate)(
+                        lambda ctx, token=_token, scoped=_scope == "scoped", fn=_fn: fn(ctx, token, scoped))

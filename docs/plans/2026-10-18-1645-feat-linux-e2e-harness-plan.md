@@ -18,11 +18,11 @@ requirements, targets, tiers, modes and dispositions. A green selection proves
 only those retained cells. Fakes are portable contract evidence, never live
 passes. No owner-decision row remains.
 
-The integration is local on `feat/linux-3.12-e2e-harness`. Merge the verdict,
-ref-action and gaps lanes without rebasing, commit as Lahfir, and do not push.
+The integration is local on `feat/linux-3.12-e2e-harness`. Rebase onto shipped core-delivery `7dc6500f`, preserve both intents in conflicts,
+commit as Lahfir, and do not push.
 `docs/phases.md` §3.12 and this plan describe the same delivered scope.
-`3.12-integration-decisions.md` resolves all 76 review decision rows: 12 live
-contracts, one asserted refusal, 62 transferred to explicit 3.15 scope, and
+`3.12-integration-decisions.md` resolves all 76 review decision rows: 24 live
+contracts, one asserted refusal, 50 transferred to explicit 3.15 scope, and
 one removed HTML-setter requirement. None is a deferred owner choice.
 
 ## Requirements
@@ -32,7 +32,7 @@ one removed HTML-setter requirement. None is a deferred owner choice.
 | R1 | Build locked release CLI/helper; stage immutable hashes; hold the interaction lease; exit 0 only for an entirely passing executable selection, 1 for failures/outstanding/unavailable/owner results, 2 for prerequisites. |
 | R2 | Own runtime, bus, accessibility bus, display, product home and GSettings store. Attribute window owners by PID generation and exact runtime membership, not launcher status. |
 | R3 | TERM/HUP/INT unwind; unpublished startup runtimes are discovered and swept; generation-aware next-run cleanup handles abandoned sessions. |
-| R4 | Compose private-session with the landed Openbox/Mutter/Wayland wrappers. Shell health gates and bounded attempts must fail with a named reason; a socket/name alone is insufficient. |
+| R4 | Compose private-session with the landed Openbox/Mutter/Wayland wrappers. A bounded WM/AT-SPI responsiveness gate runs before warm-up/leg baselines and after mapping; close Overview only on observed true. Expiry makes the tier unavailable, never passing. A socket/name or stable process set is insufficient. |
 | R5 | A product response never proves its effect. Record independent before, after and final reads for each observable; reject missing/duplicate/unmatched/out-of-order evidence. |
 | R6 | Every registered executable ID has one implementation and every implementation has a registry ID. Outstanding results remain nonzero. No OWNER row is an accepted result. |
 | R7 | Final values equal their own before values. Check unchanged read-only channels too. Restore settings, document state, pointer and active window; compare owned process generations after cleanup. |
@@ -47,7 +47,7 @@ one removed HTML-setter requirement. None is a deferred owner choice.
 | R16 | Settings Applications placeholder and Files absence use raw attributes and product snapshots. |
 | R17 | Retained Calculator/Qt menu predicates and Terminal hidden-menu timeout; no unimplemented Terminal Preferences success is claimed. |
 | R18 | Retained X11 ordinary/ABOVE cover controls compare editor caret/document, covering app, stacking and final state. Modal opener/surface cases stay outstanding for 3.14. |
-| R19 | Retained seeded event transition/quiet cells assert token, scope and independent state; failed environment specimens are removed or received by 3.15. All surface-appeared/dismissed scoped/unscoped transition/quiet cells stay outstanding for 3.14. |
+| R19 | Retained seeded event transition/quiet cells, including the eleven restored Mutter owner/name/frame-timeout rows, assert token, scope and independent state; failed environment specimens are removed or received by 3.15. All surface-appeared/dismissed scoped/unscoped transition/quiet cells stay outstanding for 3.14. |
 | R20 | Seed-before/after About surface cases stay outstanding for the 3.14 opener; registry presence is not dedupe/baseline live proof. |
 | R21 | Retained text-entry and held-modifier checks read actual document/key state. Product focus is never rescued by the harness. Search/replace version hardening is in 3.15. |
 | R22 | Compare decoded supported capture pixels to XWD and assert exact unavailable-route refusals. Text/image clipboard content, setter lifetime and clear use foreign clients. Foreign HTML import is a read contract, not an HTML setter. Wayland keyboard-seat and consent runs belong to 3.15. |
@@ -112,8 +112,8 @@ time and exact runtime membership immediately before signaling.
   tests that reject valid integration; runtime verdict tests own evidence rules.
 - `scripts/check-no-phase-references.sh`, Python line cap,
   `python3 scripts/check-linux-findings.py`, `git diff --check`.
-- Gitleaks on `64ccca5a..HEAD`; author and committer Lahfir only; no attribution
-  footers. Use explicit git paths; no push, no rebase; finish with clean status.
+- Gitleaks on `7dc6500f..HEAD`; author and committer Lahfir only; no attribution
+  footers. Use explicit git paths; no push; finish with clean status.
 - Build and run via `bash scripts/remote-linux.sh -c '...'`, cargo prefixed
   `export CARGO_INCREMENTAL=0 &&`. Batch retained IDs per tier, keeping each
   call under 15 minutes. Headed means input inside the private session.

@@ -24,6 +24,18 @@ def facts(pid: int, root: Path = Path("/proc")) -> tuple[int, int, str, dict]:
     return (*first, env)
 
 
+def may_match(pid: int, comm: str, names) -> bool:
+    if any(comm.casefold() == name.casefold()[:15] for name in names):
+        return True
+    if "python" not in comm.casefold():
+        return False
+    try:
+        args = (Path("/proc") / str(pid) / "cmdline").read_bytes().split(b"\0")
+    except (FileNotFoundError, PermissionError):
+        return True
+    return any(Path(arg.decode(errors="surrogateescape")).name in names for arg in args if arg)
+
+
 def members(runtime_dir: Path) -> list[tuple[int, int, str]]:
     result = []
     for directory in Path("/proc").iterdir():

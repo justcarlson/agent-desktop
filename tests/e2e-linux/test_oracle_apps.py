@@ -15,6 +15,10 @@ from runner.helper import delayed
 
 
 class ProcessOracleTests(unittest.TestCase):
+    def setUp(self):
+        self.ready = patch("runner.readiness.wait_ready").start()
+        self.addCleanup(patch.stopall)
+
     def test_launch_discovery_does_not_read_a_stalled_bystander(self):
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as directory:
@@ -113,7 +117,7 @@ class ProcessOracleTests(unittest.TestCase):
             patch.object(proc, "facts", side_effect=[PermissionError("opaque process"), facts]):
             self.assertEqual(proc.members(Path("/private/a")), [(124, 99, "owned")])
 
-    def test_private_mutter_launch_closes_overview_before_returning(self):
+    def test_private_mutter_launch_checks_responsiveness_after_mapping(self):
         with tempfile.TemporaryDirectory() as root:
             tier = SimpleNamespace(name="x11-mutter", runtime_dir=Path(root), env={})
             app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":150")
@@ -121,12 +125,9 @@ class ProcessOracleTests(unittest.TestCase):
             with patch.object(apps, "_owners", side_effect=[[], [app]]), \
                 patch.object(apps, "_display_verified", return_value=True), \
                 patch.object(apps.subprocess, "Popen", return_value=child), \
-                patch.object(apps.x11, "overview_active", side_effect=[True, True, False]) as active, \
-                patch.object(apps, "tool") as tool, \
                 patch.dict(apps._SPAWNED, clear=True), patch.dict(apps._TIERS, clear=True):
                 self.assertIs(apps.launch(tier, "Calculator"), app)
-                tool.assert_called_once_with(tier, ["xdotool", "key", "Escape"])
-                self.assertEqual(active.call_count, 3)
+                self.ready.assert_called_once_with(tier, app)
 
     def test_warmup_activates_private_app_services_before_the_leg_baseline(self):
         for display, names in ((":150", ["Calculator", "Files", "Terminal", "Text Editor", "Settings"]),

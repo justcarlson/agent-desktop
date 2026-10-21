@@ -227,6 +227,23 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('wayland_actions.headed_ref_refusal', 'Headed ref action refuses Wayland focus before dispatch', 'Calculator', ('wayland',), ('headed',), ('atspi',), 'asserted-refusal', 'ACTION_NOT_SUPPORTED, cause=wayland_session, not_delivered with unchanged raw display'),
 )
 
+RESTORED_MUTTER_EVENTS = (
+    'gaps.event_window-opened_scoped_success.mutter_owner',
+    'gaps.event_window-opened_scoped_quiet.mutter_owner',
+    'gaps.event_window-opened_unscoped_success.mutter_owner',
+    'gaps.event_window-closed_scoped_success.mutter_owner',
+    'gaps.event_window-closed_scoped_quiet.mutter_owner',
+    'gaps.event_window-closed_unscoped_success.mutter_owner',
+    'gaps.event_window-closed_unscoped_quiet.mutter_owner',
+    'gaps.event_app-launched_scoped_success.mutter_owner',
+    'gaps.event_app-launched_scoped_quiet.mutter_owner',
+    'gaps.event_app-launched_unscoped_success.mutter_owner',
+    'gaps.event_app-launched_unscoped_quiet.mutter_owner',
+)
+REGISTRY += tuple(Leg(name, "R19 seeded event with independent owner/frame restoration",
+                      "Calculator and Text Editor", ("x11-mutter",), ("headless",),
+                      ("atspi", "x11", "proc"), "pass") for name in RESTORED_MUTTER_EVENTS)
+
 _BY_ID = {leg.id: leg for leg in REGISTRY}
 if len(_BY_ID) != len(REGISTRY):
     raise ValueError("duplicate leg id in the registry")

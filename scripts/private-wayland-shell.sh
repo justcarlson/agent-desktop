@@ -167,7 +167,7 @@ PY
 
 start_shell() {
   find "$rt" -maxdepth 1 -name 'wayland-*' -exec trash {} +
-  local before socket
+  local before
   before=$(sockets)
   setsid env -u DISPLAY gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 \
     > "$AGENT_DESKTOP_PRIVATE_SESSION/gnome-shell-wayland.log" 2>&1 < /dev/null &

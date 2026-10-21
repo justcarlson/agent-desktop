@@ -78,7 +78,7 @@ wrap=
 case "$cmd" in *cargo*) wrap='sh -c '"'"'find crates src -name \*.rs -exec touch {} + ; exec "$@"'"'"' sh' ;; esac
 # One timeout owns lock acquisition and execution; a nested timeout would move the command
 # into another process group that can outlive the outer deadline and the released lock.
-lock="timeout -k 30 $TIMEOUT flock -o -w $TIMEOUT \$HOME/ad-wt/.box.lock"
+lock="timeout -k 30 $TIMEOUT flock -o -w $LOCK_TIMEOUT \$HOME/ad-wt/.box.lock"
 [ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock="timeout -k 30 $TIMEOUT"
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p \$HOME/ad-wt $qdir"
 filter=$(mktemp)

@@ -34,6 +34,7 @@ ALIASES = {
 }
 _TIERS = {}
 _SPAWNED = {}
+SHELL_HELPERS = frozenset({"gnome-shell", "mutter-x11-fram", "mutter-x11-frames"})
 
 
 def window_id(node) -> str:
@@ -54,7 +55,7 @@ def _owners(tier: Tier, *, names: tuple[str, ...] | None = None) -> list[OwnedAp
     for node in raw.registry(tier):
         try:
             pid = raw.owner_pid(node)
-            start, _, _, env = proc.facts(pid)
+            start, _, process_name, env = proc.facts(pid)
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
         except Exception as error:
@@ -63,7 +64,16 @@ def _owners(tier: Tier, *, names: tuple[str, ...] | None = None) -> list[OwnedAp
             raise
         if not attributable(tier, pid, start, env):
             continue
-        name = node.name
+        if process_name in SHELL_HELPERS:
+            continue
+        try:
+            name = node.name
+        except Exception as error:
+            commands = tuple(COMMANDS[key] for key, aliases in ALIASES.items() if aliases == names)
+            if (names is not None and raw.unresponsive(error)
+                    and not proc.may_match(pid, process_name, commands or names)):
+                continue
+            raise
         if names is not None and not any(needle in name.casefold() for needle in names):
             continue
         frames = [child for child in node.children() if child.role in (16, 23, 69)]
@@ -102,8 +112,11 @@ def _display_verified(tier, app) -> bool:
 
 
 def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float = 5.0) -> OwnedApp:
+    from runner.readiness import wait_ready
+
     names = ALIASES.get(app, (Path(app).name.casefold(),))
-    before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
+    with raw.bounded_until(time.monotonic() + settle_s):
+        before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
     env = dict(tier.env)
     if app.endswith("qt_window.py"):
         command = [str(Path.home() / ".local/ad-tools/qtvenv/bin/python"), app]
@@ -127,15 +140,17 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
             return candidates[0]
         return None
 
-    found = raw.poll(locate, settle_s)
+    deadline = time.monotonic() + settle_s
+    with raw.bounded_until(deadline):
+        found = raw.poll(locate, settle_s)
     if not found:
         raise AssertionError(f"no new private window for {app}; launcher exit={child.poll()}; log={log}")
     _TIERS[found.pid, found.start_time] = tier
     try:
-        if tier.name == "x11-mutter" and x11.overview_active(tier):
-            tool(tier, ["xdotool", "key", "Escape"])
-            if not raw.poll(lambda: not x11.overview_active(tier), 2.5):
-                raise AssertionError("the private mutter Overview did not close")
+        if time.monotonic() >= deadline:
+            from runner.session import TierUnavailable
+            raise TierUnavailable(f"{tier.name}: app mapping responsiveness deadline expired")
+        wait_ready(tier, found)
     except Exception:
         stop(found)
         raise
