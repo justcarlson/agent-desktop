@@ -54,7 +54,7 @@ MENU_XML = """
     </method>
     <method name="Event">
       <arg type="i" direction="in"/><arg type="s" direction="in"/>
-      <arg type="v" direction="in"/>
+      <arg type="v" direction="in"/><arg type="u" direction="in"/>
     </method>
     <method name="AboutToShow"><arg type="i" direction="in"/><arg type="b" direction="out"/></method>
   </interface>
@@ -117,9 +117,6 @@ def main(argv: list[str]) -> int:
     entries = menu_entries(args.disabled_entry)
     served = {"revision": 1}
 
-    def variant(value):
-        return GLib.Variant("v", value)
-
     def layout_item(item):
         props = {
             "label": GLib.Variant("s", item["label"]),
@@ -131,7 +128,7 @@ def main(argv: list[str]) -> int:
     def on_item_call(_connection, _sender, _path, _interface, method, params, invocation):
         values = list(params.unpack()) if params is not None else []
         log_call(log_path, method, {"values": values})
-        invocation.return_value(GLib.Variant("()"))
+        invocation.return_value(None)
 
     def on_get_layout(_connection, _sender, _path, _interface, method, params, invocation):
         log_call(log_path, method, {"values": list(params.unpack())})
@@ -141,7 +138,7 @@ def main(argv: list[str]) -> int:
                 "(ia{sv}av)",
                 (
                     item["id"],
-                    {key: variant(value) for key, value in layout_item(item)[1].items()},
+                    layout_item(item)[1],
                     [],
                 ),
             )
@@ -151,7 +148,7 @@ def main(argv: list[str]) -> int:
             "(u(ia{sv}av))",
             (
                 served["revision"],
-                (0, {k: variant(v) for k, v in root_props.items()}, children),
+                (0, root_props, children),
             ),
         )
         invocation.return_value(result)
@@ -159,15 +156,15 @@ def main(argv: list[str]) -> int:
     def on_group_properties(_connection, _sender, _path, _interface, method, params, invocation):
         log_call(log_path, method, {"ids": list(params.unpack()[0])})
         groups = [
-            (item["id"], {k: variant(v) for k, v in layout_item(item)[1].items()})
+            (item["id"], layout_item(item)[1])
             for item in entries
         ]
         invocation.return_value(GLib.Variant("(a(ia{sv}))", (groups,)))
 
     def on_event(_connection, _sender, _path, _interface, method, params, invocation):
-        item_id, event_id, _data = params.unpack()
+        item_id, event_id, _data, _timestamp = params.unpack()
         log_call(log_path, method, {"id": item_id, "event": event_id})
-        invocation.return_value(GLib.Variant("(b)", (False,)))
+        invocation.return_value(None)
 
     def on_about_to_show(_connection, _sender, _path, _interface, method, params, invocation):
         log_call(log_path, method, {"id": params.unpack()[0]})

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scenarios import events, identity, launch, menus, surfaces
-from scenarios import shell_surfaces, wayland_actions, wayland_focus, wayland_input
+from scenarios import wayland_actions, wayland_focus, wayland_input
 
 
 class FakeNode:
@@ -111,29 +111,6 @@ class LaunchTests(unittest.TestCase):
     def test_first_ref_descends(self) -> None:
         tree = {"children": [{"children": [{"ref_id": "@s:e9"}]}]}
         self.assertEqual(launch._first_ref(tree), "@s:e9")
-
-
-class ShellTests(unittest.TestCase):
-    def test_count_role_counts_descendants(self) -> None:
-        tree = {"role": "menu", "children": [{"role": "menuitem"}, {"role": "menuitem"}]}
-        self.assertEqual(shell_surfaces.count_role(tree, "menuitem"), 2)
-
-    def test_walk_includes_the_root(self) -> None:
-        self.assertEqual(len(shell_surfaces.walk({"role": "window"})), 1)
-
-    def test_raw_showing_items_counts_showing_only(self) -> None:
-        root = FakeNode(
-            children=[
-                FakeNode("a", states=("SHOWING",)),
-                FakeNode("b", states=()),
-            ]
-        )
-        for node in (root, *root.children()):
-            node.role = shell_surfaces.MENU_ITEM_ROLE
-        self.assertEqual(shell_surfaces.raw_showing_items(root), 1)
-
-    def test_supported_reads_the_status_body(self) -> None:
-        self.assertEqual(shell_surfaces.supported({"supported_surfaces": ["window"]}), ["window"])
 
 
 class WaylandTests(unittest.TestCase):

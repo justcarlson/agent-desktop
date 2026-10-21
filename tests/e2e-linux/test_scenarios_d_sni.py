@@ -5,6 +5,7 @@ import io
 import sys
 import tempfile
 import unittest
+from xml.etree import ElementTree
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -13,6 +14,12 @@ from apps import sni_item
 
 
 class ItemXmlTests(unittest.TestCase):
+    def test_menu_event_accepts_the_dbusmenu_wire_signature(self) -> None:
+        method = ElementTree.fromstring(sni_item.MENU_XML).find(".//method[@name='Event']")
+        self.assertEqual("".join(arg.attrib["type"] for arg in method
+                                 if arg.attrib["direction"] == "in"), "isvu")
+        self.assertFalse([arg for arg in method if arg.attrib["direction"] == "out"])
+
     def test_activate_present_by_default(self) -> None:
         xml = sni_item.item_xml()
         self.assertIn('name="Activate"', xml)
