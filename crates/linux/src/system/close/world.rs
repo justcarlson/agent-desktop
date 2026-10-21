@@ -4,11 +4,15 @@ use agent_desktop_core::{AdapterError, Deadline};
 
 use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::liveness::{self, Liveness};
-use crate::system::process_facts::{self, Lookup};
-use crate::system::protected;
-use crate::system::signal::{self, Sent, Signal};
+use crate::system::process_lookup::Lookup;
+use crate::system::signal::Signal;
+use crate::system::signal_sent::Sent;
 use crate::system::window_op_verdict::POLL;
-use crate::system::x11::control::{self, ControlError, ControlRead, Toplevel};
+use crate::system::x11::control;
+use crate::system::x11::control::ControlRead;
+use crate::system::x11::control_error::ControlError;
+use crate::system::x11::toplevel::Toplevel;
+use crate::system::{process_facts, protected, signal};
 
 const LATE_READ_MS: u64 = 300;
 

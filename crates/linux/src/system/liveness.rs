@@ -1,5 +1,6 @@
-use super::proc_stat::{self, ProcStat, ProcState};
-use super::process_facts;
+use super::proc_stat::ProcStat;
+use super::{proc_stat, process_facts};
+use crate::system::proc_state::ProcState;
 
 /// Whether a process is running, stopped, or no longer there. A zombie and a
 /// recycled process id are `Gone`.

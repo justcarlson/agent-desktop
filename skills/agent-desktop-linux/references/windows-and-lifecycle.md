@@ -47,6 +47,9 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 - The `Exec` line is parsed in process and spawned with null stdio in its own
   process group, so a caller that reads the output through a pipe sees end of
   file at exit.
+- An absolute `.desktop` path launches that exact file inside the trusted XDG
+  data directories. Desktop ids use XDG directory precedence. A truncated
+  process-name prefix alone never identifies an app for attachment.
 - `launch` attaches to a running app by default: one match with no arguments
   returns the owner. Arguments do not force a new process: a running Text Editor
   took `--arg=--new-window` and opened a second window in the same pid. `--no-attach`
@@ -144,7 +147,9 @@ Reports contain `action`, `target`, `steps` and `disposition`, without a
   with cause `wayland_session` before anything is sent.
 - A window the process cannot be mapped to (none or two clients) is refused.
 - A window manager may ignore a restore sent 1 to 2 s after a minimize, or a
-  minimize sent within about 250 ms of a restore. A retry after a pause succeeds.
+  minimize sent within about 250 ms of a restore. Read the window state before
+  retrying. An unconfirmed restore send reports uncertain delivery and unsafe
+  retry; it may already have restored the window.
 - `move-window` requires both `--x` and `--y`; a lone one is `INVALID_ARGS` at
   parse time (exit 2). Negative coordinates need the `=` form:
   `move-window --x=-100 --y=20`.

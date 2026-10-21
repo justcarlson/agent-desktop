@@ -12,13 +12,16 @@ use agent_desktop_core::{
 
 use super::app_alias::current_index;
 use super::focus_window::focus_window;
-use super::launch_attach::{Decision, Running, decide, identity_keys, matches};
+use super::launch_attach::{Decision, decide, identity_keys, matches};
 use super::launch_observe::{POLL_INTERVAL, Spawned, find_owner, pids_of, running_of};
-use super::launch_target::{Plan, Search, resolve};
+use super::launch_target::{Plan, resolve};
 use super::liveness::{Liveness, liveness};
-use super::process_facts::{self, WebFamily};
+use super::process_facts;
 use super::registry::read_registry;
 use super::{SharedBus, list_windows};
+use crate::system::launch_search::Search;
+use crate::system::running_app::Running;
+use crate::system::web_family::WebFamily;
 
 #[path = "launch_baseline.rs"]
 mod baseline;

@@ -85,15 +85,17 @@ fn a_window_naming_a_missing_registry_entry_gives_no_signal() {
     assert!(sheet_signals(&[window("w-2", "About", true)], &[]).is_empty());
 }
 
-fn nested(id: &str, title: Option<&str>) -> crate::system::nested_scan::Nested {
-    crate::system::nested_scan::Nested {
+fn nested(id: &str, title: Option<&str>) -> crate::system::nested_surface::Nested {
+    crate::system::nested_surface::Nested {
         window: 0,
         id: id.to_owned(),
         title: title.map(str::to_owned),
     }
 }
 
-fn scan(found: Vec<crate::system::nested_scan::Nested>) -> crate::system::nested_scan::NestedScan {
+fn scan(
+    found: Vec<crate::system::nested_surface::Nested>,
+) -> crate::system::nested_scan::NestedScan {
     crate::system::nested_scan::NestedScan {
         found,
         menus: Vec::new(),

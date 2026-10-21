@@ -28,6 +28,7 @@ pub(super) trait PopupReader {
     fn window(&mut self) -> Result<Option<Node>, AdapterError>;
     fn top_levels(&mut self) -> Result<Vec<Node>, AdapterError>;
     fn pause(&mut self, gap: Duration);
+    fn incomplete(&self) -> bool;
 }
 
 /// The menu surface kinds this session can snapshot.
@@ -35,7 +36,7 @@ pub(crate) fn supported() -> Vec<SnapshotSurface> {
     vec![SnapshotSurface::Menu]
 }
 
-fn popup_of(found: menu_popup::Found<'_>) -> MenuPopup {
+fn popup_of(found: crate::system::menu_found::Found<'_>) -> MenuPopup {
     MenuPopup {
         root: found.root.payload.node.element.clone(),
         family: found.family,
@@ -83,6 +84,20 @@ pub(super) fn find_popups(
         }
         reader.pause(POLL_GAP);
         popups = scan(reader)?;
+    }
+    Ok(popups)
+}
+
+fn inventory(
+    reader: &mut impl PopupReader,
+    settle: bool,
+    deadline: Deadline,
+) -> Result<Vec<MenuPopup>, AdapterError> {
+    let popups = find_popups(reader, settle, deadline)?;
+    if reader.incomplete() {
+        return Err(AdapterError::timeout(
+            "The menu inventory could not be read in full",
+        ));
     }
     Ok(popups)
 }
@@ -142,9 +157,10 @@ pub(crate) fn surfaces_of(
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
     entries_across(owners, |owner| {
-        popups_of(
-            bus,
-            owner,
+        let (bus_name, path) = window_id::decode(&owner.id)?;
+        let window = AtspiElement::new(bus_name, path, owner.pid.get());
+        inventory(
+            &mut BusReader::new(bus, &window, deadline),
             super::action_clock::settles(owner.state.is_focused),
             deadline,
         )

@@ -4,11 +4,13 @@ use agent_desktop_core::{
 
 use super::SharedBus;
 use super::capture::wayland_portal::capture_wayland;
-use super::capture::window_context::{BusLookup, CaptureEnv, real_decode};
+use super::capture::window_context::real_decode;
 use super::capture::{display, png_encode::encode_png, window};
 use super::route::{Route, current};
 use super::x11::DisplayReader;
 use super::x11::grab::DisplayGrabber;
+use crate::system::capture::bus_lookup::BusLookup;
+use crate::system::capture::capture_env::CaptureEnv;
 
 fn not_delivered(error: AdapterError) -> AdapterError {
     if error.disposition == DeliverySemantics::Unknown {

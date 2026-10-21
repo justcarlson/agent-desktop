@@ -2,6 +2,7 @@ use super::FrameExtents;
 use super::desktop_placement::DesktopPlacement;
 use super::snapshot::decode_cardinals;
 use super::window_kind::WindowKind;
+use crate::system::x11::type_atoms::TypeAtoms;
 use crate::tree::Extents;
 
 const STICKY_DESKTOP: u32 = 0xFFFF_FFFF;
@@ -11,17 +12,6 @@ const STICKY_DESKTOP: u32 = 0xFFFF_FFFF;
 pub(crate) struct StateAtoms {
     pub(crate) hidden: u32,
     pub(crate) above: u32,
-}
-
-/// The atom ids of the `_NET_WM_WINDOW_TYPE` values that name a kind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TypeAtoms {
-    pub(crate) normal: u32,
-    pub(crate) dialog: u32,
-    pub(crate) utility: u32,
-    pub(crate) menu: [u32; 3],
-    pub(crate) dock: u32,
-    pub(crate) desktop: u32,
 }
 
 /// The windows probed above and including a target at most this many: more

@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, RefEntry};
 use super::absence::{Failure, failure};
 use super::resolve_errors::{app_exited, owner_unreachable, window_replaced, window_unverifiable};
 use super::{AtspiElement, ancestry};
-use crate::system::process_facts::Lookup;
+use crate::system::process_lookup::Lookup;
 use crate::system::window_id;
 
 /// The window a ref was taken in, as its stored evidence names it.

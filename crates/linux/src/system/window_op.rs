@@ -11,20 +11,20 @@ use self::window_place::PlaceStore;
 use super::display_server::{DisplayServer, session_server};
 use super::focus_cause::Cause;
 use super::focus_world::LiveWorld as FrameWorld;
-use super::proc_stat;
-use super::process_facts::{self, Lookup};
 use super::restore_minimized::{Lifted, lift, still_hidden};
 use super::window_client::{ClientWorld, client_of};
 use super::window_op_shadow::{Shadow, to_client, to_visible};
 use super::window_op_verdict::{
     POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, observed_of, requested, unverified,
 };
-use super::x11::control::{ControlError, ControlRead, xwayland_clients};
+use super::x11::control::{ControlRead, xwayland_clients};
 use super::x11::control_send::{WindowWrite, write_window};
 use super::x11::stacking_source::StackingSource;
 use super::x11::window_facts::{WindowFacts, read_facts};
 use super::x11::{DisplayReader, X11Client, X11State};
-use super::{SharedBus, list_displays};
+use super::{SharedBus, list_displays, proc_stat, process_facts};
+use crate::system::process_lookup::Lookup;
+use crate::system::x11::control_error::ControlError;
 use crate::tree::Extents;
 
 const CONFIRM_PAUSE: Duration = Duration::from_millis(120);
@@ -47,6 +47,7 @@ trait OpWorld: ClientWorld {
 
 struct Live<'a> {
     frame: FrameWorld<'a>,
+    owner: agent_desktop_core::ProcessIdentity,
     deadline: Deadline,
 }
 
@@ -82,15 +83,15 @@ impl OpWorld for Live<'_> {
     }
 
     fn facts(&self, client: u32) -> ControlRead<WindowFacts> {
-        read_facts(client, self.deadline)
+        read_facts(client, &self.owner, self.deadline)
     }
 
     fn write(&self, client: u32, write: &WindowWrite) -> Result<(), ControlError> {
-        write_window(client, write, self.deadline)
+        write_window(client, write, &self.owner, self.deadline)
     }
 
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError> {
-        lift(client, self.deadline)
+        lift(client, &self.owner, self.deadline)
     }
 
     fn remember(&self, win: &WindowInfo, client: u32, rectangle: Option<Extents>) {
@@ -144,8 +145,14 @@ fn ensure_owned_before(world: &impl OpWorld, win: &WindowInfo) -> Result<(), Ada
     Ok(())
 }
 
-fn ensure_owned_after(world: &impl OpWorld, win: &WindowInfo) -> Result<(), AdapterError> {
-    if same_instance(world, win) == Some(false) {
+fn ensure_owned_after(
+    world: &impl OpWorld,
+    win: &WindowInfo,
+    client: u32,
+) -> Result<(), AdapterError> {
+    let owned = matches!(world.clients(), ControlRead::Ready(clients)
+        if clients.iter().any(|candidate| candidate.id == client && candidate.pid == Some(win.pid.get())));
+    if same_instance(world, win) != Some(true) || !owned {
         return Err(AdapterError::new(
             ErrorCode::WindowNotFound,
             "The window's process changed or exited during the operation",
@@ -224,7 +231,7 @@ fn apply(
 ) -> Result<(), AdapterError> {
     world.write(client, write).map_err(write_failed)?;
     let (verdict, observed) = settle(world, client, write, deadline);
-    ensure_owned_after(world, win)?;
+    ensure_owned_after(world, win, client)?;
     match verdict {
         Verdict::Satisfied => Ok(()),
         Verdict::Pending | Verdict::Mismatch => {
@@ -365,7 +372,20 @@ pub(crate) fn window_op(
     let deadline = lease.deadline();
     let frame = FrameWorld::new(bus, win, deadline)
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
-    run(&Live { frame, deadline }, win, &op, deadline)
+    let owner = agent_desktop_core::ProcessIdentity::new(
+        win.pid,
+        win.process_instance.clone().unwrap_or_default(),
+    );
+    run(
+        &Live {
+            frame,
+            owner,
+            deadline,
+        },
+        win,
+        &op,
+        deadline,
+    )
 }
 
 #[path = "window_op_hold.rs"]

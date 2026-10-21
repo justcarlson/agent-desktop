@@ -3,8 +3,9 @@ use agent_desktop_core::{
 };
 
 use super::fullscreen_route::paint;
-use super::window_context::{CaptureEnv, grab_failure};
+use super::window_context::grab_failure;
 use crate::system::bus::ensure_budget;
+use crate::system::capture::capture_env::CaptureEnv;
 use crate::system::x11::grab_rect::GrabRect;
 use crate::tree::Extents;
 

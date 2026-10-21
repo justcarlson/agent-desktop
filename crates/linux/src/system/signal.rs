@@ -1,3 +1,4 @@
+use crate::system::signal_sent::Sent;
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use rustix::process::{Pid, PidfdFlags, Signal as KernelSignal, pidfd_open, pidfd_send_signal};
 
@@ -17,13 +18,6 @@ impl Signal {
             Self::Kill => "SIGKILL",
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Sent {
-    Delivered,
-    AlreadyGone,
-    Replaced,
 }
 
 /// The three kernel operations a signal needs, so the order of the token

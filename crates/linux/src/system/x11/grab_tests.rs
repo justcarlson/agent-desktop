@@ -3,7 +3,8 @@ use std::time::Duration;
 use agent_desktop_core::Deadline;
 
 use super::*;
-use crate::system::display_server::{Cause, Unavailable};
+use crate::system::display_cause::Cause;
+use crate::system::display_unavailable::Unavailable;
 
 fn deadline(ms: u64) -> Deadline {
     Deadline::from_duration(Duration::from_millis(ms)).unwrap()

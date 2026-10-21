@@ -60,7 +60,7 @@ fn both_the_command_name_and_the_executable_name_are_consulted() {
     let mut world = Fake::new(Liveness::Alive);
     world.protected = TABLE;
     world.facts =
-        crate::system::process_facts::Lookup::Found(crate::system::process_facts::ProcessFacts {
+        crate::system::process_lookup::Lookup::Found(crate::system::process_facts::ProcessFacts {
             comm: "renamed".to_owned(),
             exe_basename: Some("gnome-shell".to_owned()),
             instance: "t".to_owned(),
@@ -74,7 +74,7 @@ fn both_the_command_name_and_the_executable_name_are_consulted() {
 #[test]
 fn a_process_whose_facts_cannot_be_read_is_not_closed() {
     let mut world = Fake::new(Liveness::Alive);
-    world.facts = crate::system::process_facts::Lookup::Unreadable;
+    world.facts = crate::system::process_lookup::Lookup::Unreadable;
     let error = run(&world, &request(true)).expect_err("refused");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(world.count("term"), 0);
@@ -123,8 +123,8 @@ fn a_process_gone_before_any_close_request_is_reported_as_already_gone() {
 #[test]
 fn a_force_signal_that_finds_a_gone_or_replaced_process_reports_no_delivery() {
     for outcome in [
-        crate::system::signal::Sent::AlreadyGone,
-        crate::system::signal::Sent::Replaced,
+        crate::system::signal_sent::Sent::AlreadyGone,
+        crate::system::signal_sent::Sent::Replaced,
     ] {
         let world = Fake::new(Liveness::Alive);
         world.signal_outcomes.borrow_mut().push(Ok(outcome));
@@ -169,7 +169,9 @@ fn an_error_after_a_close_request_keeps_target_and_unverified_step_evidence() {
 #[test]
 fn failed_close_sends_name_the_target_without_claiming_a_completed_step() {
     let world = Fake::new(Liveness::Alive);
-    *world.closes.borrow_mut() = vec![Err(crate::system::x11::control::ControlError::SendFailed)];
+    *world.closes.borrow_mut() = vec![Err(
+        crate::system::x11::control_error::ControlError::SendFailed,
+    )];
 
     let error = super::run_report(&world, &app(), false).expect_err("request failed");
 
@@ -183,8 +185,8 @@ fn failed_close_sends_name_the_target_without_claiming_a_completed_step() {
 fn a_term_sent_before_the_process_is_replaced_remains_a_delivered_close() {
     let world = Fake::new(Liveness::Alive);
     *world.signal_outcomes.borrow_mut() = vec![
-        Ok(crate::system::signal::Sent::Delivered),
-        Ok(crate::system::signal::Sent::Replaced),
+        Ok(crate::system::signal_sent::Sent::Delivered),
+        Ok(crate::system::signal_sent::Sent::Replaced),
     ];
 
     let report = super::run_report(&world, &app(), true).expect("term was delivered");

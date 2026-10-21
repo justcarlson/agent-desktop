@@ -31,7 +31,7 @@ pub(super) const CLIENT: u32 = 0x0040_0003;
 pub(super) const INSTANCE: &str = "abcd1234:99";
 
 pub(super) struct World {
-    pub(super) clients: ControlRead<Vec<X11Client>>,
+    pub(super) clients: RefCell<VecDeque<ControlRead<Vec<X11Client>>>>,
     pub(super) facts: RefCell<VecDeque<ControlRead<WindowFacts>>>,
     pub(super) lookups: RefCell<VecDeque<Lookup>>,
     pub(super) writes: RefCell<Vec<(u32, WindowWrite)>>,
@@ -83,7 +83,9 @@ pub(super) fn state(x: i32, y: i32, width: i32, height: i32) -> WindowFacts {
 impl World {
     pub(super) fn showing(facts: WindowFacts) -> Self {
         Self {
-            clients: ControlRead::Ready(vec![client(CLIENT, "Doc")]),
+            clients: RefCell::new(VecDeque::from([ControlRead::Ready(vec![client(
+                CLIENT, "Doc",
+            )])])),
             facts: RefCell::new(VecDeque::from([ControlRead::Ready(facts)])),
             lookups: RefCell::new(VecDeque::from([process(INSTANCE)])),
             writes: RefCell::new(Vec::new()),
@@ -133,7 +135,7 @@ impl OpWorld for World {
     }
 
     fn clients(&self) -> ControlRead<Vec<X11Client>> {
-        self.clients.clone()
+        next(&self.clients)
     }
 
     fn facts(&self, _client: u32) -> ControlRead<WindowFacts> {

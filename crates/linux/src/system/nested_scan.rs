@@ -1,3 +1,4 @@
+use crate::system::nested_surface::Nested;
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::listed_window::ListedWindow;
@@ -8,15 +9,6 @@ use crate::tree::nested_dialog::{Node, find, is_cut_short};
 use crate::tree::observe_menu::{rooted, scan_walk};
 
 const NESTED_NODES: usize = 1000;
-
-/// A dialog drawn inside the tree of the window at `window`: the id is the
-/// dialog's own address, which no window shares.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Nested {
-    pub(crate) window: usize,
-    pub(crate) id: String,
-    pub(crate) title: Option<String>,
-}
 
 /// What a scan of the windows of one application found, and whether it read
 /// every window to the end.

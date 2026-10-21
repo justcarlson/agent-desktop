@@ -1,31 +1,9 @@
-use super::process_facts::{self, Lookup};
+use super::process_facts;
+use crate::system::proc_state::ProcState;
+use crate::system::process_lookup::Lookup;
 
 const START_TIME_FIELD: usize = 22;
 const FIELDS_BEFORE_STATE: usize = 3;
-
-/// The state letter of `/proc/<pid>/stat`, as a class.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ProcState {
-    Running,
-    Sleeping,
-    Stopped,
-    Zombie,
-    Dead,
-    Other,
-}
-
-impl ProcState {
-    fn from_letter(letter: &str) -> Self {
-        match letter {
-            "R" => Self::Running,
-            "S" => Self::Sleeping,
-            "T" | "t" => Self::Stopped,
-            "Z" => Self::Zombie,
-            "X" | "x" => Self::Dead,
-            _ => Self::Other,
-        }
-    }
-}
 
 /// What one stat line says: the state and the start time in clock ticks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

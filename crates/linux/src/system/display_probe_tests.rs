@@ -2,7 +2,8 @@
 use std::os::unix::net::UnixListener;
 
 use super::{SocketProbe, local_number, reach_from};
-use crate::system::display_server::{Probe, Reach};
+use crate::system::display_reach::Reach;
+use crate::system::display_server::Probe;
 
 const HEADER: &str = "Num       RefCount Protocol Flags    Type St Inode Path\n";
 

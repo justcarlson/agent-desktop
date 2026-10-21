@@ -88,8 +88,11 @@ fn painted(
         if raw.data.iter().any(|byte| *byte != 0) {
             return Ok(raw);
         }
-        if started.elapsed() >= PAINT_WAIT || deadline.is_expired() {
+        if deadline.is_expired() {
             return Err(GrabError::Timeout);
+        }
+        if started.elapsed() >= PAINT_WAIT {
+            return Err(GrabError::UnprovenPaint);
         }
         std::thread::sleep(PAINT_POLL.min(deadline.remaining()));
     }
@@ -148,7 +151,7 @@ pub(crate) fn grab_redirected(
                 if proven {
                     Ok(raw)
                 } else {
-                    Err(GrabError::Timeout)
+                    Err(GrabError::UnprovenPaint)
                 }
             });
         let _ = connection.free_pixmap(pixmap);

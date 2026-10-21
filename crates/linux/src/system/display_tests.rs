@@ -1,10 +1,11 @@
 use agent_desktop_core::ErrorCode;
 
 use super::{decide, decide_x11, fault_error};
+use crate::system::display_cause::Cause;
 use crate::system::display_mutter::LogicalMonitor;
-use crate::system::display_server::{Cause, DisplayServer, Unavailable};
-use crate::system::x11::MonitorFault;
-use crate::system::x11::X11Monitor;
+use crate::system::display_server::DisplayServer;
+use crate::system::display_unavailable::Unavailable;
+use crate::system::x11::{MonitorFault, X11Monitor};
 use crate::tree::Extents;
 
 fn monitor(name: &str, connectors: &[&str], x: i32, w: i32, primary: bool) -> X11Monitor {

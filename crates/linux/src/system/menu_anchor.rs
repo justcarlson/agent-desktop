@@ -51,6 +51,10 @@ struct AnchorReader<'a> {
 }
 
 impl PopupReader for AnchorReader<'_> {
+    fn incomplete(&self) -> bool {
+        self.inner.incomplete || self.poll.incomplete
+    }
+
     fn window(&mut self) -> Result<Option<Node>, AdapterError> {
         if self.poll.web {
             return Ok(None);

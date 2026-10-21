@@ -1,30 +1,22 @@
+use crate::system::app_outcome::AppOutcome;
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
-use super::SharedBus;
 use super::focus::decide_focus;
 use super::focus_world::focus_send;
 use super::ghost_window::without_ghosts;
 use super::listed_window::ListedWindow;
-use super::liveness;
-use super::menu_focus;
-use super::proc_stat;
 use super::registry::Registry;
 use super::registry_app::RegistryApp;
-use super::registry_frames::{FrameRead, RootRead, read_frames};
+use super::registry_frames::read_frames;
 use super::stopped_windows::of_stopped_apps;
 use super::window_ids::WindowIds;
 use super::window_listing::collect;
 use super::window_ops::is_listable;
 use super::x11::map::{ClientMatch, match_client};
 use super::x11::{self, DisplayReader, FrameFacts, X11Evidence, X11Source, X11State};
+use super::{SharedBus, liveness, menu_focus, proc_stat};
+use crate::system::frame_read::FrameRead;
 use crate::tree::AtspiElement;
-
-/// How far the read of one selected application's frames got. `app` indexes
-/// `Registry::apps`.
-pub(crate) struct AppOutcome {
-    pub(crate) app: usize,
-    pub(crate) read: RootRead,
-}
 
 /// One coherent read of the selected applications: their windows, how each
 /// application's read went, and the focus decision over the same windows.

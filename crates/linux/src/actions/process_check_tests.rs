@@ -1,8 +1,8 @@
-use agent_desktop_core::ProcessIdentity;
+use agent_desktop_core::{ErrorCode, ProcessIdentity};
 
 use super::{judge_frame, judge_owner};
-use crate::system::process_facts::{Lookup, ProcessFacts};
-use agent_desktop_core::ErrorCode;
+use crate::system::process_facts::ProcessFacts;
+use crate::system::process_lookup::Lookup;
 
 fn facts(instance: &str) -> Lookup {
     Lookup::Found(ProcessFacts {

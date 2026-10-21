@@ -7,7 +7,7 @@ use super::super::fake::Fake;
 use super::close;
 use crate::system::close_plan::TERM_GRACE;
 use crate::system::liveness::Liveness;
-use crate::system::signal::Sent;
+use crate::system::signal_sent::Sent;
 
 fn request() -> Request<'static> {
     Request {

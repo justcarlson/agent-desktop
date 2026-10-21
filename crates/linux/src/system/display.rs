@@ -1,8 +1,10 @@
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, Rect};
 
 use super::display_mutter::{self, LogicalMonitor};
-use super::display_server::{Cause, DisplayServer, Unavailable, session_server};
+use super::display_server::{DisplayServer, session_server};
 use super::x11::{self, MonitorFault, MonitorReader, MonitorSource, X11Monitor};
+use crate::system::display_cause::Cause;
+use crate::system::display_unavailable::Unavailable;
 
 fn wayland_missing() -> AdapterError {
     AdapterError::new(

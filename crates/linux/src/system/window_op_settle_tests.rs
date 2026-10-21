@@ -63,3 +63,25 @@ fn a_confirmation_that_returns_after_the_limit_reports_its_latest_rectangle() {
     assert_eq!(details["observed"]["x"], 60);
     assert_eq!(details["observed"]["y"], 90);
 }
+
+#[test]
+fn a_replacement_client_cannot_confirm_the_original_windows_operation() {
+    let mut maximized = state(0, 0, 400, 300);
+    maximized.maximized_vertical = true;
+    maximized.maximized_horizontal = true;
+    let world = World::showing(maximized);
+    let mut replacement = client(CLIENT, "Doc");
+    replacement.pid = Some(999);
+    world.clients.replace(
+        [
+            ControlRead::Ready(vec![client(CLIENT, "Doc")]),
+            ControlRead::Ready(vec![replacement]),
+        ]
+        .into(),
+    );
+    let error = run(&world, &window(), &WindowOp::Maximize, budget())
+        .expect_err("a replacement's matching state is not delivery proof");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    let current = World::showing(maximized);
+    run(&current, &window(), &WindowOp::Maximize, budget()).expect("the current owner confirms");
+}

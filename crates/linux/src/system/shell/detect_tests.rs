@@ -3,10 +3,12 @@ use std::collections::HashMap;
 use agent_desktop_core::ErrorCode;
 use zbus::zvariant::{OwnedValue, Value};
 
+use crate::system::shell::call_failure::CallFailure;
 use crate::system::shell::detect::{
-    CallFailure, Fact, Need, ShellEnvironment, WatcherRead, classify_daemon, classify_tree,
-    classify_watcher, extension_state, require,
+    Fact, Need, ShellEnvironment, classify_daemon, classify_tree, classify_watcher,
+    extension_state, require,
 };
+use crate::system::shell::watcher_read::WatcherRead;
 
 fn environment(daemon: Fact, tree: Fact, watcher: Fact, server: Option<&str>) -> ShellEnvironment {
     ShellEnvironment {

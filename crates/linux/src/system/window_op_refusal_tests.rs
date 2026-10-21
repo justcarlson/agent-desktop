@@ -15,8 +15,8 @@ fn cause(error: &AdapterError) -> String {
 
 #[test]
 fn a_wayland_session_is_not_supported_before_any_write() {
-    let mut world = World::showing(state(0, 0, 1, 1));
-    world.clients = ControlRead::NotX11;
+    let world = World::showing(state(0, 0, 1, 1));
+    world.clients.replace([ControlRead::NotX11].into());
     let error = refusal(&world, &WindowOp::Minimize);
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(cause(&error), "wayland_session");
@@ -25,8 +25,8 @@ fn a_wayland_session_is_not_supported_before_any_write() {
 
 #[test]
 fn no_window_manager_is_not_supported_before_any_write() {
-    let mut world = World::showing(state(0, 0, 1, 1));
-    world.clients = ControlRead::NoManager;
+    let world = World::showing(state(0, 0, 1, 1));
+    world.clients.replace([ControlRead::NoManager].into());
     let error = refusal(&world, &WindowOp::Maximize);
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(cause(&error), "no_window_manager");
@@ -34,16 +34,18 @@ fn no_window_manager_is_not_supported_before_any_write() {
 
 #[test]
 fn an_unreadable_display_is_not_delivered_before_any_write() {
-    let mut world = World::showing(state(0, 0, 1, 1));
-    world.clients = ControlRead::Unavailable;
+    let world = World::showing(state(0, 0, 1, 1));
+    world.clients.replace([ControlRead::Unavailable].into());
     let error = refusal(&world, &WindowOp::Restore);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
 
 #[test]
 fn a_window_with_no_x11_client_is_not_supported_before_any_write() {
-    let mut world = World::showing(state(0, 0, 1, 1));
-    world.clients = ControlRead::Ready(vec![client(CLIENT, "Another title")]);
+    let world = World::showing(state(0, 0, 1, 1));
+    world
+        .clients
+        .replace([ControlRead::Ready(vec![client(CLIENT, "Another title")])].into());
     let error = refusal(&world, &WindowOp::Minimize);
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(cause(&error), "window_not_mapped");
@@ -51,8 +53,14 @@ fn a_window_with_no_x11_client_is_not_supported_before_any_write() {
 
 #[test]
 fn an_ambiguous_mapping_is_an_ambiguous_target_before_any_write() {
-    let mut world = World::showing(state(0, 0, 1, 1));
-    world.clients = ControlRead::Ready(vec![client(CLIENT, "Doc"), client(CLIENT + 1, "Doc")]);
+    let world = World::showing(state(0, 0, 1, 1));
+    world.clients.replace(
+        [ControlRead::Ready(vec![
+            client(CLIENT, "Doc"),
+            client(CLIENT + 1, "Doc"),
+        ])]
+        .into(),
+    );
     let error = refusal(&world, &WindowOp::Minimize);
     assert_eq!(error.code, ErrorCode::AmbiguousTarget);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());

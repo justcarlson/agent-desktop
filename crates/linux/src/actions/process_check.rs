@@ -1,6 +1,6 @@
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessIdentity};
 
-use crate::system::process_facts::Lookup;
+use crate::system::process_lookup::Lookup;
 use crate::system::{SharedBus, owner_process_id, process_facts, within};
 use crate::tree::AtspiElement;
 use crate::tree::absence::{Failure, failure};

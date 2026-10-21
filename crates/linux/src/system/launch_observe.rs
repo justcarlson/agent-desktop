@@ -1,3 +1,5 @@
+use crate::system::launch_sample::Sample;
+use crate::system::launch_step::Step;
 use std::collections::HashSet;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Child, ExitStatus};
@@ -6,30 +8,13 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId};
 
 use super::SharedBus;
-use super::launch_attach::{Running, matches};
+use super::launch_attach::matches;
 use super::registry::{Registry, read_registry};
+use crate::system::running_app::Running;
 
 pub(super) const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const POLL_LIMIT: Duration = Duration::from_millis(250);
 const EXIT_GRACE: Duration = Duration::from_millis(1_000);
-
-/// What one look at the registry shows about a launch.
-pub(crate) struct Sample<'a> {
-    pub(crate) child_pid: u32,
-    pub(crate) child: Option<ExitStatus>,
-    pub(crate) apps: &'a [Running],
-    pub(crate) before: &'a HashSet<u32>,
-    pub(crate) keys: &'a [String],
-    pub(crate) settled: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Step {
-    Wait,
-    Owner(Running),
-    Ambiguous(Vec<u32>),
-    Failed(ExitStatus),
-}
 
 fn pick(mut found: Vec<&Running>) -> Option<Step> {
     match found.len() {

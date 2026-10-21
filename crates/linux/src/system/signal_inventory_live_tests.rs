@@ -3,8 +3,9 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::{Deadline, ErrorCode, WindowFilter, WindowInfo};
 
-use super::{RootRead, run_pass};
+use super::run_pass;
 use crate::system::registry::read_registry;
+use crate::system::registry_frames::RootRead;
 use crate::system::registry_frames::read_frames;
 use crate::system::signal_live_apps::{poll, x11_windows};
 use crate::system::{SharedBus, list_windows, resolve_window_strict};

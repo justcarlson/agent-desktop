@@ -1,5 +1,7 @@
 use super::eligible;
-use crate::system::display_server::{Cause, DisplayServer, Unavailable};
+use crate::system::display_cause::Cause;
+use crate::system::display_server::DisplayServer;
+use crate::system::display_unavailable::Unavailable;
 use crate::tree::node_read::COMPONENT_INTERFACE;
 use crate::tree::role_numbers::{
     DOCUMENT_FRAME, DOCUMENT_WEB, LIST, PANEL, PUSH_BUTTON, SCROLL_PANE, VIEWPORT,

@@ -1,13 +1,14 @@
 use agent_desktop_core::{Deadline, ErrorCode};
 
-use crate::system::shell::container::{Anchor, Landmark, MENU, locate_in};
+use crate::system::shell::anchor::Anchor;
+use crate::system::shell::container::{Landmark, MENU, locate_in};
 use crate::system::shell::fake_tree::{FakeTree, at, gnome_shell};
 
 fn deadline() -> Deadline {
     Deadline::after(10_000).expect("a deadline builds")
 }
 
-fn find(tree: &FakeTree, landmark: Landmark) -> crate::system::shell::container::Located {
+fn find(tree: &FakeTree, landmark: Landmark) -> crate::system::shell::located::Located {
     locate_in(
         tree,
         &FakeTree::root(),

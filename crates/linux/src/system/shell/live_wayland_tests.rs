@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::{Deadline, DisplayInfo, MouseButton, Rect};
 
-use super::container::{Anchor, Landmark, locate_anchor};
+use super::container::{Landmark, locate_anchor};
 use super::identity::find_root;
 use super::kinds::ShellKind;
 use super::open::is_showing;
@@ -15,6 +15,7 @@ use crate::input::shell_click::run_pointer;
 use crate::input::wayland::key_session::KeySession;
 use crate::input::wayland::remote_desktop::RemoteDesktop;
 use crate::system::SharedBus;
+use crate::system::shell::anchor::Anchor;
 
 const ATTEMPTS: u32 = 8;
 const HEALTH_READS: u32 = 5;

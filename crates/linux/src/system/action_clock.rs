@@ -30,6 +30,16 @@ pub(crate) fn mark_target(target: Option<u32>) {
     target.map_or_else(mark, mark_process);
 }
 
+pub(crate) fn mark_outcome<T>(
+    target: Option<u32>,
+    result: &Result<T, agent_desktop_core::AdapterError>,
+) {
+    if !matches!(result, Err(error) if error.disposition == agent_desktop_core::DeliverySemantics::not_delivered())
+    {
+        mark_target(target);
+    }
+}
+
 /// Whether an action reached this process just now, in this or in another
 /// invocation of the tool.
 pub(crate) fn recent_for(pid: u32) -> bool {

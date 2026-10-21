@@ -11,7 +11,9 @@ fn cause(error: &AdapterError) -> String {
 fn a_native_wayland_window_has_no_client_and_is_refused_as_a_wayland_session_before_any_write() {
     let mut world = World::showing(state(0, 0, 1, 1));
     world.wayland = true;
-    world.clients = ControlRead::Ready(vec![client(CLIENT, "Another title")]);
+    world
+        .clients
+        .replace([ControlRead::Ready(vec![client(CLIENT, "Another title")])].into());
     let error = run(&world, &window(), &WindowOp::Minimize, budget()).expect_err("refused");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(cause(&error), "wayland_session");
@@ -33,7 +35,7 @@ fn every_window_operation_on_a_wayland_session_reports_the_wayland_cause_with_no
     ] {
         let mut world = World::showing(state(10, 10, 400, 300));
         world.wayland = true;
-        world.clients = ControlRead::NoManager;
+        world.clients.replace([ControlRead::NoManager].into());
         let error = run(&world, &window(), &op, budget()).expect_err("refused");
         assert_eq!(error.code, ErrorCode::ActionNotSupported, "{op:?}");
         assert_eq!(cause(&error), "wayland_session", "{op:?}");

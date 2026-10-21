@@ -1,3 +1,5 @@
+use crate::system::shell::call_failure::CallFailure;
+use crate::system::shell::watcher_read::WatcherRead;
 use std::collections::HashMap;
 use std::future::Future;
 
@@ -49,18 +51,6 @@ pub(crate) enum Need {
     Daemon,
     Tree,
     Watcher,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum CallFailure {
-    NoService,
-    Transport(String),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum WatcherRead {
-    NoOwner,
-    Items,
 }
 
 pub(crate) fn failure_of(error: &zbus::Error) -> CallFailure {

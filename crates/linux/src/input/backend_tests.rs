@@ -3,9 +3,11 @@ use std::path::Path;
 use agent_desktop_core::ErrorCode;
 
 use super::{Backend, select};
-use crate::system::display_server::{
-    Cause, DisplayEnv, DisplayServer, Probe, Reach, Unavailable, detect,
-};
+use crate::system::display_cause::Cause;
+use crate::system::display_env::DisplayEnv;
+use crate::system::display_reach::Reach;
+use crate::system::display_server::{DisplayServer, Probe, detect};
+use crate::system::display_unavailable::Unavailable;
 
 struct Fixed {
     wayland: Reach,

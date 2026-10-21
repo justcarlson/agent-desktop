@@ -3,7 +3,8 @@ use serde_json::json;
 
 use crate::system::focus_cause::Cause;
 use crate::system::x11::X11Client;
-use crate::system::x11::control::{ControlError, ControlRead};
+use crate::system::x11::control::ControlRead;
+use crate::system::x11::control_error::ControlError;
 
 pub(super) fn refused(
     code: ErrorCode,

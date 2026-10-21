@@ -1,25 +1,20 @@
-use super::control::ControlError;
 use crate::system::liveness::Identity;
+use crate::system::x11::control_error::ControlError;
 
-pub(super) struct CloseOwner {
-    pub(super) pid: u32,
-    pub(super) instance: String,
-}
-
-impl CloseOwner {
-    pub(super) fn send<G>(
-        &self,
-        grab: impl FnOnce() -> Result<G, ControlError>,
-        owner: impl FnOnce() -> Option<u32>,
-        identity: impl FnOnce(u32, &str) -> Identity,
-        send: impl FnOnce() -> Result<(), ControlError>,
-    ) -> Result<(), ControlError> {
-        let _grab = grab()?;
-        if owner() != Some(self.pid) || identity(self.pid, &self.instance) != Identity::Same {
-            return Err(ControlError::StaleWindow);
-        }
-        send()
+pub(super) fn with_owner<G, T>(
+    target: &agent_desktop_core::ProcessIdentity,
+    grab: impl FnOnce() -> Result<G, ControlError>,
+    owner: impl FnOnce() -> Option<u32>,
+    identity: impl FnOnce(u32, &str) -> Identity,
+    operation: impl FnOnce() -> Result<T, ControlError>,
+) -> Result<T, ControlError> {
+    let _grab = grab()?;
+    if owner() != Some(target.pid.get())
+        || identity(target.pid.get(), &target.instance) != Identity::Same
+    {
+        return Err(ControlError::StaleWindow);
     }
+    operation()
 }
 
 #[cfg(test)]

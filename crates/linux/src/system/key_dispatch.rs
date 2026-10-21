@@ -4,16 +4,14 @@ use agent_desktop_core::{
 };
 use serde_json::json;
 
-use super::SharedBus;
-use super::listed_app_name;
-use super::proc_stat;
-use super::process_facts::{self, Lookup};
 use super::window_ops::focused_window;
 use super::x11::stacking_source::StackingSource;
 use super::x11::{DisplayReader, X11State};
+use super::{SharedBus, listed_app_name, proc_stat, process_facts};
 use crate::actions::physical_keyboard::press_for_process;
 use crate::actions::physical_target::{LiveWorld, PhysicalWorld};
 use crate::input::backend::Backend;
+use crate::system::process_lookup::Lookup;
 
 /// What the key gate reads about the desktop, so the decision can be driven
 /// by a fixed desktop.

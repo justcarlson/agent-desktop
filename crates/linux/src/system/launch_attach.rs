@@ -1,5 +1,4 @@
-const COMM_LEN: usize = 15;
-
+use crate::system::running_app::Running;
 /// Extra identity keys for launchers whose application runs under another
 /// name than the one launched: the launcher of a terminal exits and the
 /// terminal server it started owns the windows.
@@ -7,16 +6,6 @@ pub(super) const KEY_TABLE: &[(&str, &[&str])] = &[
     ("gnome-terminal", &["gnome-terminal-server"]),
     ("org.gnome.terminal", &["gnome-terminal-server"]),
 ];
-
-/// A running application as the registry lists it, once per process.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Running {
-    pub(crate) pid: u32,
-    pub(crate) instance: String,
-    pub(crate) name: String,
-    pub(crate) registry_name: Option<String>,
-    pub(crate) comm: String,
-}
 
 /// What a launch does about the applications already running.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,14 +35,13 @@ pub(super) fn identity_keys(raw: &[String]) -> Vec<String> {
 }
 
 /// Whether a key names the application exactly: its listed name, its registry
-/// name or its `comm`, which the kernel cuts at 15 characters. A substring
-/// never matches.
+/// name or its `comm`. A truncated prefix never establishes identity.
 pub(crate) fn matches(keys: &[String], app: &Running) -> bool {
     keys.iter().any(|key| {
         let same = |name: &str| name.eq_ignore_ascii_case(key);
-        let cut =
-            app.comm.len() == COMM_LEN && key.to_lowercase().starts_with(&app.comm.to_lowercase());
-        same(&app.name) || app.registry_name.as_deref().is_some_and(same) || same(&app.comm) || cut
+        same(&app.name)
+            || app.registry_name.as_deref().is_some_and(same)
+            || (app.comm.len() < 15 && same(&app.comm))
     })
 }
 

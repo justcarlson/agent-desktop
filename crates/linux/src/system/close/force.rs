@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, DeliverySemantics};
 
-use super::Request;
-use super::refusal;
 use super::world::World;
+use super::{Request, refusal};
 use crate::system::close_plan::grace_within;
 use crate::system::liveness::Liveness;
-use crate::system::signal::{Sent, Signal};
+use crate::system::signal::Signal;
+use crate::system::signal_sent::Sent;
 
 struct Progress {
     term_at: Option<Duration>,

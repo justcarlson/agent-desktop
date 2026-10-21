@@ -157,7 +157,7 @@ fn desktop_identity_uses_the_unique_executable_mapping_even_after_an_upgrade() {
         "[Desktop Entry]\nType=Application\nName=Two\nExec=shared\n",
     )
     .expect("second shared entry");
-    let cache = super::super::app_alias::AliasCache::new();
+    let cache = crate::system::alias_cache::AliasCache::new();
     let index = cache.index(std::slice::from_ref(&dir));
     for executable in ["files", "files (deleted)"] {
         assert_eq!(

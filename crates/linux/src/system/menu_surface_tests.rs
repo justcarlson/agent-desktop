@@ -3,7 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo, WindowState};
 
 use super::menu_popup::Node;
-use super::{MAX_POLLS, MenuPopup, PopupReader, entries_across, entry, find_popups};
+use super::{MAX_POLLS, MenuPopup, PopupReader, entries_across, entry, find_popups, inventory};
 use crate::system::menu_fixture::*;
 
 struct Fake {
@@ -12,6 +12,7 @@ struct Fake {
     appears_after: Option<usize>,
     scans: usize,
     pauses: usize,
+    incomplete: bool,
 }
 
 impl Fake {
@@ -22,6 +23,7 @@ impl Fake {
             appears_after: None,
             scans: 0,
             pauses: 0,
+            incomplete: false,
         }
     }
 
@@ -32,6 +34,10 @@ impl Fake {
 }
 
 impl PopupReader for Fake {
+    fn incomplete(&self) -> bool {
+        self.incomplete
+    }
+
     fn window(&mut self) -> Result<Option<Node>, AdapterError> {
         self.scans += 1;
         let hidden = self.appears_after.is_some_and(|after| self.scans <= after);
@@ -49,6 +55,33 @@ impl PopupReader for Fake {
     fn pause(&mut self, _gap: Duration) {
         self.pauses += 1;
     }
+}
+
+#[test]
+fn an_observed_popup_remains_positive_when_other_candidates_are_unread() {
+    let mut reader = Fake::new(frame_with(vec![gtk4_popover(true)]));
+    reader.incomplete = true;
+    let found = find_popups(&mut reader, false, deadline()).expect("observed popup");
+    assert_eq!(found.len(), 1);
+}
+
+#[test]
+fn an_unread_menu_inventory_marks_the_window_unclassified() {
+    let owner = owner(false);
+    let mut reader = Fake::new(frame_with(Vec::new()));
+    let complete = inventory(&mut reader, false, deadline()).expect("observed absence");
+    assert!(complete.is_empty());
+    reader.incomplete = true;
+    let menu = entries_across(&[&owner], |_| inventory(&mut reader, false, deadline()));
+    let window_entry = agent_desktop_core::SurfaceInfo {
+        id: owner.id,
+        kind: "window".to_owned(),
+        title: None,
+        item_count: None,
+        unclassified: Vec::new(),
+    };
+    let surfaces = crate::system::surfaces::with_menu_leg(vec![window_entry], menu);
+    assert_eq!(surfaces[0].unclassified, ["menu"]);
 }
 
 fn deadline() -> Deadline {

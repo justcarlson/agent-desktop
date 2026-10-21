@@ -70,14 +70,41 @@ fn two_matches_are_ambiguous_and_two_with_attach_off_still_refuse() {
 }
 
 #[test]
-fn a_key_matches_the_name_the_registry_name_or_the_cut_comm() {
+fn a_key_matches_only_an_exact_name_registry_name_or_comm() {
     let mut owner = app(1, "gnome-calculator", "gnome-calculato");
     owner.registry_name = Some("Calculator".to_owned());
     assert!(matches(&keys(&["gnome-calculator"]), &owner));
     assert!(matches(&keys(&["calculator"]), &owner));
-    assert!(matches(&keys(&["gnome-calculato"]), &owner));
-    let renamed = app(2, "wrapper", "gnome-calculato");
-    assert!(matches(&keys(&["gnome-calculator"]), &renamed));
+    assert!(!matches(&keys(&["gnome-calculato"]), &owner));
+    assert!(matches(&keys(&["short"]), &app(2, "wrapper", "short")));
+}
+
+#[test]
+fn a_truncated_comm_never_attaches_to_a_different_full_name() {
+    let owner = app(2, "abcdefghijklmnoA", "abcdefghijklmno");
+    assert_eq!(
+        decide(
+            &keys(&["abcdefghijklmnoB"]),
+            std::slice::from_ref(&owner),
+            true,
+            false
+        ),
+        Decision::Spawn
+    );
+    assert_eq!(
+        decide(
+            &keys(&["abcdefghijklmnoA"]),
+            std::slice::from_ref(&owner),
+            true,
+            false
+        ),
+        Decision::Attach(owner)
+    );
+    let unresolved = app(3, "abcdefghijklmno", "abcdefghijklmno");
+    assert_eq!(
+        decide(&keys(&["abcdefghijklmnoB"]), &[unresolved], true, false),
+        Decision::Spawn
+    );
 }
 
 #[test]

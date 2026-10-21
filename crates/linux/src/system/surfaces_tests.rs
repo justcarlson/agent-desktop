@@ -75,7 +75,8 @@ fn a_failed_menu_scan_keeps_the_window_and_sheet_entries_and_marks_the_menu_unre
 
 #[test]
 fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entries() {
-    use crate::system::nested_scan::{Nested, NestedScan};
+    use crate::system::nested_scan::NestedScan;
+    use crate::system::nested_surface::Nested;
     let scan = NestedScan {
         found: vec![Nested {
             window: 0,

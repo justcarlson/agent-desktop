@@ -1,7 +1,8 @@
 use x11rb::protocol::xproto::Atom;
 use x11rb::rust_connection::RustConnection;
 
-use crate::system::x11::stacking_decode::{StateAtoms, TypeAtoms};
+use crate::system::x11::stacking_decode::StateAtoms;
+use crate::system::x11::type_atoms::TypeAtoms;
 
 const NAMES: [&[u8]; 18] = [
     b"_NET_SUPPORTING_WM_CHECK",

@@ -3,7 +3,7 @@ use std::time::Instant;
 use agent_desktop_core::{AdapterError, AppInfo, InteractionLease, OperationReport};
 
 use super::SharedBus;
-use super::process_facts::Lookup;
+use crate::system::process_lookup::Lookup;
 use world::{Live, World};
 
 #[cfg(test)]

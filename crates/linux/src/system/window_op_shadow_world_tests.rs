@@ -25,7 +25,9 @@ fn shadowed() -> World {
     let mut world = World::showing(state(206, 72, 866, 629));
     let mut shadowed = client(CLIENT, "Doc");
     shadowed.shadow = (26, 23, 26, 29);
-    world.clients = ControlRead::Ready(vec![shadowed]);
+    world
+        .clients
+        .replace([ControlRead::Ready(vec![shadowed])].into());
     world.reaction = Some(client_rectangle);
     world
 }
