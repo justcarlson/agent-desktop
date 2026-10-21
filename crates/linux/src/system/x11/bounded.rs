@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::os::fd::AsFd;
 use std::os::unix::net::UnixStream;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -116,27 +117,73 @@ pub(crate) struct PendingRead<T> {
     sockets: Sockets,
 }
 
-/// Starts one read on a dedicated thread. When the thread cannot even be
-/// spawned the pending answer reads as absent.
+struct ReaderPool {
+    active: AtomicUsize,
+    limit: usize,
+}
+
+struct Permit(&'static ReaderPool);
+
+impl Drop for Permit {
+    fn drop(&mut self) {
+        self.0.active.fetch_sub(1, Ordering::Release);
+    }
+}
+
+impl ReaderPool {
+    const fn new(limit: usize) -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            limit,
+        }
+    }
+
+    fn start<T: Send + 'static>(
+        &'static self,
+        read: impl FnOnce() -> T + Send + 'static,
+    ) -> PendingRead<T> {
+        let (sender, receiver) = channel();
+        let sockets = Arc::new(Mutex::new((false, Vec::new())));
+        let mut pending = PendingRead {
+            receiver: None,
+            worker: None,
+            sockets,
+        };
+        if self
+            .active
+            .fetch_update(Ordering::Acquire, Ordering::Relaxed, |active| {
+                (active < self.limit).then_some(active + 1)
+            })
+            .is_err()
+        {
+            return pending;
+        }
+        let permit = Permit(self);
+        let registered = pending.sockets.clone();
+        let worker = thread::Builder::new()
+            .name("x11-read".to_owned())
+            .spawn(move || {
+                let _permit = permit;
+                CURRENT.with_borrow_mut(|current| *current = Some(registered));
+                let _ = sender.send(read());
+                CURRENT.with_borrow_mut(|current| *current = None);
+            })
+            .ok();
+        pending.receiver = worker.as_ref().map(|_| receiver);
+        pending.worker = worker;
+        pending
+    }
+}
+
+/// Limits even workers blocked in DNS/NSS before a cancellable socket exists.
+/// The worker owns its permit until exit, including after caller timeout.
+static READERS: ReaderPool = ReaderPool::new(16);
+
+/// Starts a bounded read; saturation or spawn failure returns an absent answer.
 pub(crate) fn start<T: Send + 'static>(
     read: impl FnOnce() -> T + Send + 'static,
 ) -> PendingRead<T> {
-    let (sender, receiver) = channel();
-    let sockets = Arc::new(Mutex::new((false, Vec::new())));
-    let registered = sockets.clone();
-    let spawned = thread::Builder::new()
-        .name("x11-read".to_owned())
-        .spawn(move || {
-            CURRENT.with_borrow_mut(|current| *current = Some(registered));
-            let _ = sender.send(read());
-            CURRENT.with_borrow_mut(|current| *current = None);
-        });
-    let worker = spawned.ok();
-    PendingRead {
-        receiver: worker.as_ref().map(|_| receiver),
-        worker,
-        sockets,
-    }
+    READERS.start(read)
 }
 
 impl<T> PendingRead<T> {
