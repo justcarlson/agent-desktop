@@ -288,7 +288,7 @@ fn is_retryable_window_poll_error(error: &crate::AdapterError) -> bool {
 }
 
 fn is_retryable_wait_app_error(err: &AppError) -> bool {
-    matches!(err, AppError::Adapter(err) if is_retryable_wait_poll_error(&err.code))
+    matches!(err, AppError::Adapter(err) if is_retryable_window_poll_error(err))
 }
 
 #[cfg(test)]
