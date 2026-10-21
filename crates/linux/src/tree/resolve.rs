@@ -5,7 +5,8 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rec
 use super::AtspiElement;
 use super::path_descent::{Landing, Level, descend};
 use super::resolve_errors::{
-    ambiguous, is_incomplete, no_candidate, settle_gone, stopped_aware, unverifiable_entry,
+    ambiguous, descendant_owner_gone, is_incomplete, no_candidate, settle_gone, stopped_aware,
+    unverifiable_entry,
 };
 use super::resolve_match::{accepts_landing, entry_is_unverifiable};
 use super::resolve_search::{Candidate, Searched};
@@ -25,6 +26,25 @@ pub(crate) trait Source {
     fn search(&mut self, frame: &AtspiElement, entry: &RefEntry) -> Result<Searched, AdapterError>;
     /// The listed name of the application when `/proc` shows it stopped.
     fn stopped_app(&mut self, pid: u32) -> Option<String>;
+}
+
+pub(super) fn settle_read_error<S: Source>(
+    source: &mut S,
+    entry: &RefEntry,
+    element: &AtspiElement,
+    error: AdapterError,
+) -> AdapterError {
+    if error.code != ErrorCode::AppNotFound
+        || element
+            .frame()
+            .is_none_or(|frame| frame.bus_name() == element.bus_name())
+    {
+        return error;
+    }
+    match source.open_window(entry) {
+        Ok(_) => descendant_owner_gone(element, error),
+        Err(error) => error,
+    }
 }
 
 /// Whether the stored path is scoped to the window root rather than to a
@@ -49,16 +69,23 @@ fn path_tier<S: Source>(
     deadline: Deadline,
 ) -> Result<(Option<AtspiElement>, bool), AdapterError> {
     let landing = descend(frame.clone(), &entry.scope.path, deadline, |element| {
-        source.level(element)
+        let outcome = source.level(element);
+        outcome.map_err(|error| settle_read_error(source, entry, element, error))
     })?;
     let Landing { element, unread } = landing;
     let Some(element) = element.filter(|element| element.pid() != UNKNOWN_PID) else {
         return Ok((None, unread));
     };
-    match source.evidence(&element) {
+    let evidence = source.evidence(&element);
+    match evidence.map_err(|error| settle_read_error(source, entry, &element, error)) {
         Ok(evidence) if accepts_landing(entry, &evidence) => Ok((Some(element), unread)),
         Ok(_) => Ok((None, unread)),
-        Err(error) if matches!(error.code, ErrorCode::AppNotFound | ErrorCode::Timeout) => {
+        Err(error)
+            if matches!(
+                error.code,
+                ErrorCode::AppNotFound | ErrorCode::Timeout | ErrorCode::StaleRef
+            ) =>
+        {
             Err(error)
         }
         Err(error) if error.code == ErrorCode::ElementNotFound => Ok((None, false)),

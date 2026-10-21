@@ -102,6 +102,64 @@ fn an_element_under_a_child_on_another_bus_name_keeps_the_frames_process_beside_
 }
 
 #[test]
+fn a_disappearing_renderer_is_not_reported_as_the_live_frame_owner_leaving() {
+    for resolver in [
+        resolve::<Fake>,
+        crate::tree::resolve_anchor::resolve_anchor::<Fake>,
+    ] {
+        for during_descent in [false, true] {
+            let mut fake = remote_panel();
+            fake.add_on(
+                ":1.7",
+                Some("/remote"),
+                "/target",
+                node(PUSH_BUTTON, "Target", 50, 20),
+            );
+            let entry = fake.entry_of("/target", true);
+            let errors = if during_descent {
+                &mut fake.faults.level_errors
+            } else {
+                &mut fake.faults.evidence_errors
+            };
+            let failed_path = if during_descent { "/remote" } else { "/target" };
+            errors.insert(
+                failed_path.to_owned(),
+                AdapterError::new(ErrorCode::AppNotFound, "renderer left"),
+            );
+            let error = resolver(&mut fake, &entry, deadline()).expect_err("renderer is gone");
+            assert_eq!(error.code, ErrorCode::StaleRef);
+            let details = error.details.as_ref().expect("departure cause");
+            assert_eq!(details["kind"], "resolve_descendant_owner_gone");
+            assert_eq!(details["failed_bus"], ":1.7");
+            assert_eq!(details["failed_pid"], 41);
+            assert_eq!(details["failed_path"], failed_path);
+            assert_eq!(details["complete"], false);
+            assert!(error.is_explicitly_retryable());
+            assert_eq!(error.platform_detail.as_deref(), Some("renderer left"));
+            assert_eq!(fake.reads.gate, 2, "the stored frame owner is rechecked");
+        }
+    }
+}
+
+#[test]
+fn a_frame_owner_lost_during_renderer_failure_keeps_the_frame_gate_cause() {
+    let mut fake = remote_panel();
+    let entry = fake.entry_of("/remote", true);
+    fake.faults.evidence_errors.insert(
+        "/remote".to_owned(),
+        AdapterError::new(ErrorCode::AppNotFound, "renderer left"),
+    );
+    fake.faults.recheck_error = Some(crate::tree::resolve_errors::app_exited());
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("frame owner also left");
+    assert_eq!(
+        error.details.as_ref().expect("frame cause")["kind"],
+        "resolve_owning_process_exited"
+    );
+    assert!(!error.is_explicitly_retryable());
+    assert_eq!(fake.reads.gate, 2);
+}
+
+#[test]
 fn a_child_whose_owner_cannot_be_looked_up_is_retried_and_never_stale() {
     let mut fake = remote_panel();
     let mut entry = fake.entry_of("/remote", true);
