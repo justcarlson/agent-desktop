@@ -14,6 +14,11 @@ const ACCESSIBILITY: u8 = 1;
 const SCREEN_RECORDING: u8 = 2;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 const HOST_PATH_CAPACITY: usize = 4096;
+const COMMAND_HOST_ENVS: [&str; 3] = [
+    "AGENT_DESKTOP_INTERNAL_COMMAND_HOST",
+    "AGENT_DESKTOP_INTERNAL_HOST_SOCKET",
+    "AGENT_DESKTOP_INTERNAL_HOST_CLIENT",
+];
 
 pub(crate) fn start() -> Result<&'static str, AdapterError> {
     let steps = missing_steps(
@@ -23,15 +28,26 @@ pub(crate) fn start() -> Result<&'static str, AdapterError> {
     if steps == 0 {
         return Ok("not_needed");
     }
-    if single_instance_lock().is_none() {
-        return Ok("already_running");
+    match single_instance_lock() {
+        Ok(Some(_)) => {}
+        Ok(None) => return Ok("already_running"),
+        Err(error) => {
+            return Err(
+                AdapterError::internal("Could not open the permission guide lock")
+                    .with_platform_detail(error.to_string()),
+            );
+        }
     }
     let executable = std::env::current_exe().map_err(|error| {
         AdapterError::internal("Could not locate the agent-desktop executable")
             .with_platform_detail(error.to_string())
     })?;
     let host = host_app().unwrap_or_else(|| executable.clone());
-    let mut child = Command::new(&executable)
+    let mut command = Command::new(&executable);
+    for name in COMMAND_HOST_ENVS {
+        command.env_remove(name);
+    }
+    let mut child = command
         .env(STEPS_ENV, steps.to_string())
         .env(HOST_ENV, host)
         .process_group(0)
@@ -63,8 +79,10 @@ fn run_child(steps: &str) -> bool {
     else {
         return false;
     };
-    let Some(_lock) = single_instance_lock() else {
-        return true;
+    let _lock = match single_instance_lock() {
+        Ok(Some(lock)) => lock,
+        Ok(None) => return true,
+        Err(_) => return false,
     };
     unsafe { agent_desktop_permission_guide_run(steps, host.as_ptr(), granted) == 0 }
 }
@@ -120,15 +138,21 @@ fn host_app() -> Option<PathBuf> {
     path.to_str().ok().map(PathBuf::from)
 }
 
-fn single_instance_lock() -> Option<File> {
+fn single_instance_lock() -> std::io::Result<Option<File>> {
     let file = File::options()
         .create(true)
         .truncate(false)
         .write(true)
-        .open(std::env::temp_dir().join(LOCK_NAME))
-        .ok()?;
-    let locked = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0;
-    locked.then_some(file)
+        .open(std::env::temp_dir().join(LOCK_NAME))?;
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
+        return Ok(Some(file));
+    }
+    let error = std::io::Error::last_os_error();
+    if error.raw_os_error() == Some(libc::EWOULDBLOCK) {
+        Ok(None)
+    } else {
+        Err(error)
+    }
 }
 
 unsafe extern "C" {

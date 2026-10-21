@@ -292,6 +292,7 @@ static NSColor *ADGuideGray(CGFloat white) {
 @property(nonatomic) int total;
 @property(nonatomic) int completed;
 @property(nonatomic) BOOL advancing;
+@property(nonatomic) BOOL probing;
 @property(nonatomic) NSRect lastSettings;
 @end
 
@@ -510,13 +511,29 @@ static NSColor *ADGuideGray(CGFloat white) {
         return;
     }
     [self follow:ADGuideSettingsFrame()];
-    if (self.advancing) {
+    if (self.advancing || self.probing) {
         return;
     }
-    if (!self.granted(self.current)) {
-        [self retryStalledDrop];
-        return;
-    }
+    self.probing = YES;
+    uint8_t step = self.current;
+    ADGuideGranted granted = self.granted;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        bool done = granted(step);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.probing = NO;
+            if (self.advancing || step != self.current) {
+                return;
+            }
+            if (done) {
+                [self advance];
+            } else {
+                [self retryStalledDrop];
+            }
+        });
+    });
+}
+
+- (void)advance {
     self.advancing = YES;
     [self showGranted];
     self.remaining &= (uint8_t)~self.current;
