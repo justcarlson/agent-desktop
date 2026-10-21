@@ -3,7 +3,7 @@ use std::cell::{Cell, RefCell};
 use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use super::{Kernel, Sent, Signal, send_through};
-use crate::system::liveness::Identity;
+use crate::system::identity::Identity;
 
 struct Fake {
     identities: RefCell<Vec<Identity>>,

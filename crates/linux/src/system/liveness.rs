@@ -1,3 +1,4 @@
+use super::identity::Identity;
 use super::proc_stat::ProcStat;
 use super::{proc_stat, process_facts};
 use crate::system::proc_state::ProcState;
@@ -9,16 +10,6 @@ pub(crate) enum Liveness {
     Alive,
     Stopped,
     Gone,
-}
-
-/// What the process id names now, compared with the token it had when the
-/// caller saw it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Identity {
-    Gone,
-    Same,
-    Replaced,
-    Unreadable,
 }
 
 /// The verdict from one stat read. A missing entry, a zombie and a dead

@@ -73,7 +73,7 @@ fn process_is_alive(pid: u32, instance: &str) -> bool {
     }
     matches!(
         liveness::identity(pid, instance),
-        liveness::Identity::Same | liveness::Identity::Unreadable
+        crate::system::identity::Identity::Same | crate::system::identity::Identity::Unreadable
     )
 }
 

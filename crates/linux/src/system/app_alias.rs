@@ -1,3 +1,4 @@
+use super::indexed_entry::IndexedEntry;
 use crate::system::alias_cache::AliasCache;
 use std::path::Path;
 use std::sync::Arc;
@@ -6,12 +7,6 @@ use super::desktop_entry::parse;
 use super::desktop_exec::program_word;
 use super::desktop_lookup::current_dirs;
 use super::launch_attach::KEY_TABLE;
-
-struct IndexedEntry {
-    id: String,
-    name: String,
-    programs: Vec<String>,
-}
 
 /// The desktop entries of the machine, as the names each executable goes by.
 pub(crate) struct AliasIndex {

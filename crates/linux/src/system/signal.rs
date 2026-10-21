@@ -2,7 +2,8 @@ use crate::system::signal_sent::Sent;
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use rustix::process::{Pid, PidfdFlags, Signal as KernelSignal, pidfd_open, pidfd_send_signal};
 
-use super::liveness::{self, Identity};
+use super::identity::Identity;
+use super::liveness;
 use super::process_facts;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

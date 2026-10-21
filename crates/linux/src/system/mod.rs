@@ -40,6 +40,8 @@ pub(crate) mod focus_window;
 mod focus_world;
 pub(crate) mod frame_read;
 mod ghost_window;
+pub(crate) mod identity;
+mod indexed_entry;
 pub(crate) mod interaction_lease;
 mod key_dispatch;
 mod launch;
