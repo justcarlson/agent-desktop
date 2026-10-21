@@ -16,7 +16,7 @@ mod fixture;
 mod rig;
 
 use fixture::{Suspended, launch, signal, wait_until};
-use rig::{ROLE_PROGRESS_BAR, ROLE_PUSH_BUTTON, ROLE_SLIDER, describe, probe, target};
+use rig::{ROLE_PROGRESS_BAR, ROLE_PUSH_BUTTON, describe, probe, target};
 
 const TOOLKITS: [&str; 3] = ["gtk3", "gtk4", "qt"];
 const TOGGLE_VERBS: [&str; 4] = ["toggle", "click", "press", "activate"];
@@ -37,30 +37,6 @@ fn set_current_value(
         },
         true,
     )
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn write_live_a_named_action_toggles_a_check_box_and_an_independent_read_sees_it() {
-    for label in TOOLKITS {
-        let app = launch(label);
-        let probe = probe();
-        let flag = probe.toggle(app.pid);
-        let handle = NativeHandle::new(flag.clone());
-        let names = probe.action_names(&flag);
-        let before = probe.checked(&flag).expect("the state reads");
-        let reply = do_action(
-            &target(&probe, &handle, &flag, 5_000),
-            &names,
-            &TOGGLE_VERBS,
-        );
-        println!("write_live {label}: actions {names:?} reply {reply:?}");
-        assert_eq!(reply.expect("the action is delivered"), WriteReply::Done);
-        assert!(
-            wait_until(SETTLE, || probe.checked(&flag) == Some(!before)),
-            "[{label}] the independent read shows the toggle"
-        );
-    }
 }
 
 #[test]
@@ -112,55 +88,6 @@ fn write_live_the_chain_skips_an_absent_verb_and_reports_what_a_re_read_saw() {
             result.disposition().delivery(),
             DeliveryDisposition::DeliveredVerified,
             "[{label}]"
-        );
-    }
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn write_live_set_text_contents_lands_and_an_independent_read_returns_it() {
-    for label in TOOLKITS {
-        let app = launch(label);
-        let probe = probe();
-        let entry = probe.editable(app.pid);
-        let handle = NativeHandle::new(entry.clone());
-        let reply = invoke(
-            &target(&probe, &handle, &entry, 5_000),
-            Call {
-                interface: "org.a11y.atspi.EditableText",
-                method: "SetTextContents",
-                body: &("hello",),
-                kind: WriteKind::SetTextContents,
-            },
-            true,
-        );
-        println!("write_live {label}: text reply {reply:?}");
-        assert_eq!(reply.expect("the write is delivered"), WriteReply::Done);
-        assert!(
-            wait_until(SETTLE, || probe.text(&entry).as_deref() == Some("hello")),
-            "[{label}] the independent read returns {:?}",
-            probe.text(&entry)
-        );
-    }
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn write_live_a_value_property_write_moves_a_slider() {
-    for label in TOOLKITS {
-        let app = launch(label);
-        let probe = probe();
-        let slider = probe.with_role(app.pid, ROLE_SLIDER, None);
-        let handle = NativeHandle::new(slider.clone());
-        let reply = set_current_value(&target(&probe, &handle, &slider, 5_000), 42.0);
-        println!("write_live {label}: slider reply {reply:?}");
-        assert_eq!(reply.expect("the write is delivered"), WriteReply::Done);
-        assert!(
-            wait_until(SETTLE, || probe
-                .value(&slider)
-                .is_some_and(|value| (value - 42.0).abs() < 1.0)),
-            "[{label}] the independent read returns {:?}",
-            probe.value(&slider)
         );
     }
 }

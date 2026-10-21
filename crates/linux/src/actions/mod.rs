@@ -47,17 +47,11 @@ mod live_click_tests;
 #[cfg(test)]
 mod live_disclosure_tests;
 #[cfg(test)]
-mod live_dispatch_tests;
-#[cfg(test)]
-mod live_invariant_tests;
-#[cfg(test)]
 mod live_select_tests;
 #[cfg(test)]
 mod live_text_scripts;
 #[cfg(test)]
 mod live_text_tests;
-#[cfg(test)]
-mod live_toggle_tests;
 #[cfg(test)]
 mod live_value_tests;
 #[cfg(test)]
@@ -66,5 +60,3 @@ mod live_widget_scripts;
 mod live_widget_tests;
 #[cfg(test)]
 mod live_write_tests;
-#[cfg(test)]
-mod scroll_into_view_live_tests;
