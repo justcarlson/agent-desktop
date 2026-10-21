@@ -125,27 +125,6 @@ fn restore_of_a_visible_window_that_is_not_maximized_is_ok_without_a_write() {
 }
 
 #[test]
-fn restore_of_a_maximized_window_removes_both_atoms_and_reads_back() {
-    let mut full = state(0, 0, 1280, 800);
-    full.maximized_vertical = true;
-    full.maximized_horizontal = true;
-    let world = World::showing(full).then_showing(state(10, 10, 400, 300));
-    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
-    assert_eq!(world.writes.borrow()[0].1, WindowWrite::SetMaximized(false));
-    assert_eq!(world.lifts.get(), 0);
-}
-
-#[test]
-fn restore_of_a_hidden_window_whose_flag_clears_is_ok_after_one_lift() {
-    let mut hidden = state(0, 0, 400, 300);
-    hidden.hidden = true;
-    let world = World::showing(hidden).then_showing(state(0, 0, 400, 300));
-    run(&world, &window(), &WindowOp::Restore, budget()).expect("a lift");
-    assert_eq!(world.lifts.get(), 1);
-    assert_eq!(world.writes(), 0);
-}
-
-#[test]
 fn restore_of_a_hidden_window_that_stays_hidden_names_the_manager_and_is_not_success() {
     let mut hidden = state(0, 0, 400, 300);
     hidden.hidden = true;

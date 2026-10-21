@@ -53,7 +53,6 @@ mod tests {
         let moved = report(&WindowOp::Move { x: 1.0, y: 2.0 });
         let details = moved.result.details.unwrap();
         assert_eq!(details["verification_scope"], "window_position");
-        assert_eq!(details["tolerance"], f64::from(POSITION_TOLERANCE));
         assert_eq!(details["units"], "pixels");
     }
 

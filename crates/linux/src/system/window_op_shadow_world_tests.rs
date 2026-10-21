@@ -77,6 +77,9 @@ fn a_resize_the_manager_clamped_reports_the_visible_size_it_held() {
     let error = run(&world, &window(), &resize(700.0, 450.0), budget()).expect_err("a clamp");
     let details = error.details.expect("details");
     assert_eq!(details["requested"]["width"], 700);
+    assert_eq!(details["requested"]["height"], 450);
+    assert_eq!(details["observed"]["x"], 232);
+    assert_eq!(details["observed"]["y"], 95);
     assert_eq!(details["observed"]["width"], 644);
     assert_eq!(details["observed"]["height"], 379);
 }

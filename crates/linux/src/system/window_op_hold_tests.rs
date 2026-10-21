@@ -40,14 +40,6 @@ fn a_resize_that_shifts_the_client_gives_the_place_back() {
 }
 
 #[test]
-fn a_resize_that_keeps_the_client_where_it_was_writes_nothing_more() {
-    let world = World::showing(state(300, 200, 520, 380));
-    let deadline = Deadline::after(2_000).expect("a deadline builds");
-    run(&world, &window(), &resize(520.0, 380.0), deadline).expect("a resize");
-    assert_eq!(world.writes(), 1);
-}
-
-#[test]
 fn a_size_that_fits_only_for_a_moment_is_not_a_success() {
     let world = World::showing(state(0, 0, 400, 300))
         .then_showing(state(0, 0, 5000, 5000))

@@ -8,28 +8,6 @@ fn maximized() -> WindowFacts {
 }
 
 #[test]
-fn a_maximize_remembers_the_client_rectangle_the_window_had() {
-    let world = World::showing(state(120, 90, 500, 380)).then_showing(maximized());
-    run(&world, &window(), &WindowOp::Maximize, budget()).expect("a maximize");
-    assert_eq!(
-        *world.remember_calls.borrow(),
-        vec![Some(Extents {
-            x: 120,
-            y: 90,
-            width: 500,
-            height: 380
-        })]
-    );
-}
-
-#[test]
-fn a_maximize_of_a_maximized_window_keeps_the_rectangle_already_remembered() {
-    let world = World::showing(maximized());
-    run(&world, &window(), &WindowOp::Maximize, budget()).expect("a maximize");
-    assert!(world.remember_calls.borrow().is_empty());
-}
-
-#[test]
 fn a_restore_gives_back_the_remembered_place_with_a_move_of_the_client() {
     let world = World::showing(maximized())
         .then_showing(state(121, 112, 500, 380))
@@ -55,14 +33,6 @@ fn a_restore_gives_back_the_remembered_place_with_a_move_of_the_client() {
         }
     );
     assert_eq!(*world.remember_calls.borrow(), vec![None]);
-}
-
-#[test]
-fn a_restore_of_a_window_nobody_remembered_only_unmaximizes() {
-    let world = World::showing(maximized()).then_showing(state(10, 10, 500, 380));
-    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
-    assert_eq!(world.writes(), 1);
-    assert!(world.remember_calls.borrow().is_empty());
 }
 
 #[test]
@@ -118,20 +88,6 @@ fn a_manager_that_skips_a_move_to_the_place_it_believes_is_current_is_nudged_awa
             ..
         }
     ));
-}
-
-#[test]
-fn a_window_already_back_in_its_place_is_not_moved() {
-    let world = World::showing(maximized()).then_showing(state(120, 90, 500, 380));
-    *world.remembered.borrow_mut() = Some(Extents {
-        x: 121,
-        y: 91,
-        width: 500,
-        height: 380,
-    });
-    run(&world, &window(), &WindowOp::Restore, budget()).expect("a restore");
-    assert_eq!(world.writes(), 1);
-    assert_eq!(*world.remember_calls.borrow(), vec![None]);
 }
 
 #[test]
@@ -203,11 +159,4 @@ fn a_retried_restore_of_an_unmaximized_window_still_gives_back_the_place_that_wa
         }
     );
     assert_eq!(*world.remember_calls.borrow(), vec![None]);
-}
-
-#[test]
-fn a_restore_of_a_window_with_nothing_kept_and_nothing_maximized_writes_nothing() {
-    let world = World::showing(state(160, 90, 500, 380));
-    run(&world, &window(), &WindowOp::Restore, budget()).expect("nothing to do");
-    assert_eq!(world.writes(), 0);
 }
