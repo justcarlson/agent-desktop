@@ -142,7 +142,9 @@ pub(crate) fn probe_registry(
 
 pub(crate) fn is_connection_failure(error: &zbus::Error) -> bool {
     match error {
-        zbus::Error::InputOutput(io) => io.kind() != ErrorKind::TimedOut,
+        zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _) => {
+            io.kind() != ErrorKind::TimedOut
+        }
         zbus::Error::MethodError(..) => false,
         _ => false,
     }

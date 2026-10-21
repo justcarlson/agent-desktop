@@ -63,8 +63,11 @@ async fn name_of(connection: &Connection, element: &AtspiElement) -> String {
         .unwrap_or_default()
 }
 
-async fn role_of(connection: &Connection, element: &AtspiElement) -> Option<u32> {
-    let reply = connection
+async fn role_of(
+    connection: &Connection,
+    element: &AtspiElement,
+) -> Result<Option<u32>, AdapterError> {
+    let reply = match connection
         .call_method(
             Some(element.bus_name()),
             element.path(),
@@ -73,8 +76,14 @@ async fn role_of(connection: &Connection, element: &AtspiElement) -> Option<u32>
             &(),
         )
         .await
-        .ok()?;
-    reply.body().deserialize::<u32>().ok()
+    {
+        Ok(reply) => reply,
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            return Err(crate::system::classify(&error));
+        }
+        Err(_) => return Ok(None),
+    };
+    Ok(reply.body().deserialize::<u32>().ok())
 }
 
 async fn states_of(connection: &Connection, element: &AtspiElement) -> Option<Vec<u32>> {
@@ -132,7 +141,7 @@ async fn read_one(connection: &Connection, element: &AtspiElement) -> Result<Lig
     )
     .await;
     let children = children?;
-    let role = role.ok_or_else(|| {
+    let role = role?.ok_or_else(|| {
         AdapterError::new(ErrorCode::ElementNotFound, "The shell node did not answer")
     })?;
     let bits = states.as_deref().map(StateBits::new);

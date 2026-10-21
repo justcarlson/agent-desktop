@@ -50,6 +50,9 @@ where
 fn field<T>(result: Result<T, zbus::Error>, liveness: Liveness) -> Result<Field<T>, AdapterError> {
     match result {
         Ok(value) => Ok(Field::Present(value)),
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            Err(crate::system::classify(&error))
+        }
         Err(error) => match gone_error(&error, liveness) {
             Some(gone) => Err(gone),
             None => Ok(Field::Failed(error.to_string())),

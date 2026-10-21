@@ -82,12 +82,22 @@ pub(crate) fn pick_shell_app(
 
 /// The content window among an application's children: the first child the
 /// reader says is a window.
-pub(crate) fn content_window<N: Nodes>(nodes: &N, app: &AtspiElement) -> Option<AtspiElement> {
-    let root = nodes.read(app).ok()?;
-    root.children.iter().find_map(|child| {
-        let light = nodes.read(child).ok()?;
-        (light.role == WINDOW).then_some(light.element)
-    })
+pub(crate) fn content_window<N: Nodes>(
+    nodes: &N,
+    app: &AtspiElement,
+) -> Result<Option<AtspiElement>, AdapterError> {
+    let root = nodes.read(app)?;
+    for child in &root.children {
+        let light = match nodes.read(child) {
+            Ok(light) => light,
+            Err(error) if error.code == ErrorCode::ElementNotFound => continue,
+            Err(error) => return Err(error),
+        };
+        if light.role == WINDOW {
+            return Ok(Some(light.element));
+        }
+    }
+    Ok(None)
 }
 
 /// Runs `probe` until it answers, at most `1 + attempts` times, pausing
@@ -178,13 +188,17 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
     if !process_facts::read(pid).is_some_and(|facts| is_shell_comm(&facts.comm)) {
         return Err(tree_absent("the shell process is not a gnome-shell"));
     }
+    if crate::system::proc_stat::is_stopped(pid) {
+        return Err(AdapterError::app_unresponsive(SHELL_COMM));
+    }
     let probe_deadline = deadline.capped(WINDOW_BUDGET);
     let nodes = LiveNodes::new(accessibility, probe_deadline);
     let last = *LAST_MISSING.lock().unwrap_or_else(PoisonError::into_inner);
     let retries = retries_after(last, Instant::now());
     let window = retry_until(retries, probe_deadline, &mut std::thread::sleep, || {
-        content_window(&nodes, app)
+        content_window(&nodes, app).transpose()
     })
+    .transpose()?
     .ok_or_else(|| {
         *LAST_MISSING.lock().unwrap_or_else(PoisonError::into_inner) = Some(Instant::now());
         window_missing()

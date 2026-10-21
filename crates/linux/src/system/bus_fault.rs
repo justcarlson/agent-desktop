@@ -23,7 +23,13 @@ impl BusFault {
             zbus::Error::InputOutput(io) | zbus::Error::Connection(io, _)
                 if matches!(
                     io.kind(),
-                    ErrorKind::NotFound | ErrorKind::ConnectionRefused
+                    ErrorKind::NotFound
+                        | ErrorKind::ConnectionRefused
+                        | ErrorKind::BrokenPipe
+                        | ErrorKind::ConnectionReset
+                        | ErrorKind::ConnectionAborted
+                        | ErrorKind::NotConnected
+                        | ErrorKind::UnexpectedEof
                 ) =>
             {
                 Some(Self::unreachable_at(stage))
@@ -57,7 +63,7 @@ impl BusFault {
                 "AT-SPI is installed but its bus launcher could not start. Read the launch error with 'systemctl --user status at-spi-dbus-bus.service'."
             }
             Self::SocketGone => {
-                "The accessibility bus daemon's socket is missing or refusing connections. Restart it with 'systemctl --user restart at-spi-dbus-bus.service', or log out and back in."
+                "The accessibility bus connection was lost or its socket is missing or refusing connections. Restart it with 'systemctl --user restart at-spi-dbus-bus.service', or log out and back in, then create a new adapter or restart the calling process."
             }
         }
     }

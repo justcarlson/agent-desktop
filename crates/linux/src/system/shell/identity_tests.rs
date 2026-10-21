@@ -33,7 +33,9 @@ fn the_content_window_is_the_child_with_the_window_role() {
     tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
     tree.add(Some("/root"), "/decor", PANEL, "", at(0, 0, 1, 1));
     tree.add(Some("/root"), "/w", WINDOW, "", at(0, 54, 87, 55));
-    let window = content_window(&tree, &element("/root")).expect("a window child");
+    let window = content_window(&tree, &element("/root"))
+        .expect("a readable app")
+        .expect("a window child");
     assert_eq!(window.path(), "/w");
 }
 
@@ -42,7 +44,24 @@ fn an_app_with_no_window_child_has_no_content_window() {
     let mut tree = FakeTree::new();
     tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
     tree.add(Some("/root"), "/decor", PANEL, "", at(0, 0, 1, 1));
-    assert!(content_window(&tree, &element("/root")).is_none());
+    assert!(
+        content_window(&tree, &element("/root"))
+            .expect("a readable app")
+            .is_none()
+    );
+}
+
+#[test]
+fn a_destroyed_sibling_does_not_hide_the_live_content_window() {
+    let mut tree = FakeTree::new();
+    tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
+    tree.add(Some("/root"), "/decor", PANEL, "", at(0, 0, 1, 1));
+    tree.add(Some("/root"), "/w", WINDOW, "", at(0, 54, 87, 55));
+    tree.vanish("/decor");
+    let window = content_window(&tree, &element("/root"))
+        .expect("the live sibling is still readable")
+        .expect("the content window");
+    assert_eq!(window.path(), "/w");
 }
 
 fn window(bus: &str, pid: u32) -> WindowInfo {
