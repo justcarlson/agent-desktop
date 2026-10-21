@@ -38,6 +38,7 @@ from scenarios import wayland_actions
 from scenarios import wayland_focus
 from scenarios import wayland_input
 from scenarios import zero_bounds
+from scenarios import controlled_targets
 from scenarios import gaps_decisions
 
 __all__ = [

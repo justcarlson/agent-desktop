@@ -4,7 +4,7 @@ from oracle import atspi_raw as raw, proc, x11
 from runner import apps
 from runner.helper import changed, managed, ref, require
 from scenarios.launch import _close_added_windows, _window_ids
-from runner.legs import implementation, leg_by_id
+from runner.legs import REGISTRY, implementation
 
 TOKENS = ("window-opened", "window-closed", "app-launched", "app-terminated", "focus-changed")
 
@@ -159,7 +159,7 @@ for _token in TOKENS:
     for _scope in ("scoped", "unscoped"):
         for _kind, _fn in (("success", transition), ("quiet", quiet)):
             _id = f"gaps.event_{_token}_{_scope}_{_kind}"
-            if leg_by_id(_id).disposition == "owner-decision":
+            if _id not in {leg.id for leg in REGISTRY}:
                 continue
             implementation(_id)(
                 lambda ctx, token=_token, scoped=_scope == "scoped", fn=_fn: fn(ctx, token, scoped))

@@ -28,6 +28,8 @@ def gesture(ctx, toolkit, position):
         ctx.before("x11.pointer", pointer)
         ctx.before("x11.geometry", geometry)
         ctx.before("x11.active_window", active)
+        ctx.before("atspi.target_geometry", (target.extents(window_coords=True),
+                                              x11.client_origin(ctx.tier, window)))
         try:
             if position == "second":
                 destination = (80, 90) if geometry[:2] != (80, 90) else (120, 130)
@@ -38,7 +40,6 @@ def gesture(ctx, toolkit, position):
             origin = x11.client_origin(ctx.tier, window)
             point = expected_point(origin, frame_extents(ctx.tier, window), extents)
             require(min(extents[2:]) > 0, "gesture target has no positive geometry")
-            ctx.before("atspi.target_geometry", (extents, origin))
             before = display(tree) if toolkit == "gtk4" else None
             if toolkit == "qt":
                 log = ctx.tier.runtime_dir / "qt-window.log"
@@ -67,12 +68,12 @@ def gesture(ctx, toolkit, position):
             if toolkit != "qt":
                 ctx.restored("atspi.effect", changed(read, before))
         finally:
-            if "atspi.target_geometry" in ctx.reads:
-                ctx.restored("atspi.target_geometry", (target.extents(window_coords=True), x11.client_origin(ctx.tier, window)))
             if position == "second":
                 lifecycle._restore_geometry(ctx, window, geometry)
             else:
                 ctx.restored("x11.geometry", lifecycle._geometry(ctx, window))
+            ctx.restored("atspi.target_geometry", (target.extents(window_coords=True),
+                                                    x11.client_origin(ctx.tier, window)))
             tool(ctx.tier, ["xdotool", "mousemove", str(pointer[0]), str(pointer[1])])
             ctx.restored("x11.pointer", changed(lambda: x11.pointer(ctx.tier), pointer))
             ctx.restored("x11.active_window", x11.restore_active(ctx.tier, active))

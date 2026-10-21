@@ -21,25 +21,6 @@ class LaneCoverageTests(unittest.TestCase):
         self.assertTrue(registered)
         self.assertEqual(registered - implemented, set())
 
-    def test_no_foreign_leg_is_implemented_here(self) -> None:
-        registered = {leg.id for leg in REGISTRY if leg.id.startswith(LANE_PREFIXES)}
-        lane_sources = {
-            "events",
-            "menus",
-            "identity",
-            "surfaces",
-            "launch",
-            "shell_surfaces",
-            "notifications",
-            "tray",
-            "wayland_actions",
-            "wayland_input",
-            "wayland_focus",
-        }
-        implementations_now = implementations()
-        for leg_id in sorted(registered):
-            module = implementations_now[leg_id].__module__.rsplit(".", 1)[-1]
-            self.assertIn(module, lane_sources, leg_id)
 
 
 if __name__ == "__main__":

@@ -17,13 +17,3 @@ def frame_alive(ctx, app):
 def dropdown(tree):
     return [node.name for node in tree.find(role=35) if "SHOWING" in node.states
             and node.name not in ("File", "Edit", "Selection", "View", "Go", "More", "Run", "Terminal", "Help")]
-
-
-@implementation("toolkit_electron.refs_and_completeness")
-def refs_and_completeness(ctx: LegContext) -> None:
-    raise NotImplementedError(ctx.leg.reason)
-
-
-@implementation("toolkit_electron.menu_action_and_waits")
-def menu_action_and_waits(ctx: LegContext) -> None:
-    raise NotImplementedError(ctx.leg.reason)

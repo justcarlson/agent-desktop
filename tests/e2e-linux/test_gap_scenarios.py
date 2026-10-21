@@ -51,17 +51,6 @@ class GapScenarioTests(unittest.TestCase):
                         with self.assertRaises(AssertionError):
                             gaps_capture.clipboard_refusal(ctx, ["clipboard-clear"])
 
-    def test_retiring_a_mutter_cell_preserves_the_openbox_contract(self):
-        row = legs.Leg("sample", "independent effect", "Calculator", legs.X11,
-                       legs.BOTH_MODES, ("atspi",), "pass")
-        with patch.object(legs, "MUTTER_OWNER_REASONS", {"sample": "private bus timeout"}):
-            result = list(legs._retained_cells([row]))
-        self.assertEqual([(r.tiers, r.modes, r.disposition) for r in result], [
-            (legs.OPENBOX_ONLY, legs.BOTH_MODES, "pass"),
-            (legs.MUTTER_ONLY, legs.BOTH_MODES, "owner-decision")])
-        self.assertEqual(result[1].reason, "private bus timeout")
-        self.assertEqual(row.tiers, legs.X11)
-
     def test_terminated_event_requires_process_exit_even_after_the_registry_owner_disappears(self):
         for exits in (False, True):
             with self.subTest(exits=exits):

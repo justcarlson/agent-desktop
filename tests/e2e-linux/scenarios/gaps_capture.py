@@ -49,26 +49,6 @@ def wayland_window_capture_refused(ctx):
         ctx.restored("atspi.windows", read())
 
 
-@implementation("gaps.wayland_clipboard_text")
-def wayland_clipboard_text(ctx):
-    raise NotImplementedError(ctx.leg.reason)
-
-
-@implementation("gaps.wayland_clipboard_image")
-def wayland_clipboard_image(ctx):
-    raise NotImplementedError(ctx.leg.reason)
-
-
-@implementation("gaps.wayland_clipboard_lifetime")
-def wayland_clipboard_lifetime(ctx):
-    raise NotImplementedError(ctx.leg.reason)
-
-
-@implementation("gaps.wayland_clipboard_clear")
-def wayland_clipboard_clear(ctx):
-    raise NotImplementedError(ctx.leg.reason)
-
-
 def clipboard_offers(ctx):
     code, stdout, stderr = foreign_clipboard._run(["wl-paste", "--list-types"], dict(ctx.tier.env))
     require(code in (0, 1), "foreign clipboard reader did not complete")

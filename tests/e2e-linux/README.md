@@ -55,11 +55,11 @@ must assert its expected error and absence of effect.
 Unimplemented, blocked, outstanding, failed, and unavailable-tier outcomes exit 1.
 Outstanding surface legs still need their owning product surface to land.
 
-## KDE manual matrix
+## KDE manual matrix (3.15)
 
 The Live Tiers above name GNOME only. A Plasma 5.24+ session is not hosted by the
 runner, so the same surface is walked by hand on a real Plasma desktop and stays
-outstanding until that walk is recorded. One row per cell; a cell that cannot run
+owned by 3.15 until that walk is recorded. One row per cell; a cell that cannot run
 on the session is written down with its reason, never left blank.
 
 | Area | Steps | Expected shape | Record |
@@ -217,7 +217,7 @@ mandatory X11 all-ignored gate. That incompatible session-precondition check
 was deleted; deterministic signal timeout/baseline contracts and the private
 Wayland harness refusal cases remain.
 
-Measured retained live mode instances on the rebased release:
+Historical pre-review lane measurements (not a receipt for the integrated head):
 
 | Tier | Passed | Failed | Outstanding |
 | --- | ---: | ---: | ---: |
@@ -268,7 +268,7 @@ deleted: every replaced row correctly returned StaleRef, but the fixture
 incorrectly demanded at least one success. Deterministic replacement-refusal
 and reordered-row tests remain; no wrong-target result was observed.
 
-Validation gates on the rebased source: 2,506 retained Linux library tests
+Historical pre-review validation gates: 2,506 retained Linux library tests
 pass across bounded private-session chunks. Twelve native checks are removed
 for the reasons above. The four-package all-target Clippy gate passes with
 warnings denied. Mac harness self-tests pass 271 with one skip; shared e2e
@@ -276,3 +276,33 @@ self-tests pass 58. All 64 new tests have failed under an intentional break
 and passed after restoration. Formatting, Rust size, source-reference policy,
 findings validation and secret scans pass. Headless/headed live passes are
 69/19 on Openbox, 48/10 on Mutter, and 3/0 on headless Wayland.
+
+
+## Integration review decisions
+
+All 76 review OWNER rows are resolved in
+[the decision table](../../docs/plans/3.12-integration-decisions.md): 12 live
+contracts, one exact default-timeout refusal, 62 required 3.15 hardening cells,
+and one removed HTML-setter requirement. The receiving scope lists every
+transferred row in `docs/phases.md` §3.15. No transferred cell counts as a pass.
+The 3.14 surface/modal/shell/notification/tray rows remain outstanding.
+
+Capture, quiet events, identity queries, failed-launch/stale-ref queries,
+lifecycle and non-interference now record independent final reads. Duplicate
+non-interference after records are removed. Qt evidence consistently reads the
+actual log and process members, including log removal after app teardown.
+Controlled Qt activation/selection and seatless Wayland semantic-click tests
+reject lying successes in portable tests and have been invert-checked.
+
+Two integration-only structural tests are retired: the source AST pairing
+scanner could not see cross-module context-manager observations, and the lane
+source restriction rejected legitimate implementations after lane integration.
+Runtime verdict tests and executable registry coverage retain the actual
+contracts. The owner-retirement splitter test is removed with that obsolete
+mechanism; there are no executable OWNER rows to split.
+
+Current integration live measurements are pending the shared box lock. The
+build has not yet acquired it; no earlier lane count is claimed as a fresh
+integration pass. Batches will use all registered modes automatically, with a
+single diagnostic rerun per failed cell. The independent Mutter diagnosis is
+applied when its report becomes available.

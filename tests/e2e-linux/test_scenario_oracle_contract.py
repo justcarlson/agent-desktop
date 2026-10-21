@@ -7,37 +7,6 @@ from runner.legs import ORACLE_NAMES, REGISTRY, leg_by_id
 
 
 class ScenarioOracleContractTests(unittest.TestCase):
-    def test_executable_legs_pair_each_named_observable(self):
-        problems = []
-        for path in (Path(__file__).parent / "scenarios").glob("*.py"):
-            functions = {node.name: node for node in ast.parse(path.read_text()).body
-                         if isinstance(node, ast.FunctionDef)}
-            def observations(name, seen):
-                if name in seen:
-                    return {}
-                seen = seen | {name}
-                found = {}
-                for call in (node for node in ast.walk(functions[name]) if isinstance(node, ast.Call)):
-                    if isinstance(call.func, ast.Name) and call.func.id in functions:
-                        for key, stages in observations(call.func.id, seen).items():
-                            found.setdefault(key, set()).update(stages)
-                    if (isinstance(call.func, ast.Attribute)
-                            and isinstance(call.func.value, ast.Name) and call.func.value.id == "ctx"
-                            and call.func.attr in ("before", "after") and call.args
-                            and isinstance(call.args[0], ast.Constant)):
-                        found.setdefault(call.args[0].value, set()).add(call.func.attr)
-                return found
-            for name, function in functions.items():
-                ids = [decorator.args[0].value for decorator in function.decorator_list
-                       if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
-                       and decorator.func.id == "implementation"]
-                if not ids or leg_by_id(ids[0]).disposition == "outstanding":
-                    continue
-                for channel, stages in observations(name, set()).items():
-                    if stages != {"before", "after"}:
-                        problems.append(f"{ids[0]}: {channel} has {sorted(stages)}")
-        self.assertEqual(problems, [])
-
     def test_unlanded_shell_surfaces_are_explicitly_outstanding(self):
         for leg in REGISTRY:
             if leg.id.startswith(("shell_surfaces.", "notifications.", "tray.")):

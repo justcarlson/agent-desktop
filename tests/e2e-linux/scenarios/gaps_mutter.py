@@ -1,7 +1,7 @@
 from oracle import x11
 from oracle.gsettings import tool
 from runner.helper import changed, managed, require
-from runner.legs import implementation, leg_by_id
+from runner.legs import REGISTRY, implementation
 from scenarios import lifecycle, toolkit_qt
 
 
@@ -70,11 +70,6 @@ def mutter_minimize_restore(ctx):
     minimize_restore(ctx)
 
 
-@implementation("gaps.mutter_maximize_restore")
-def mutter_maximize_restore(ctx):
-    raise NotImplementedError(ctx.leg.reason)
-
-
 @implementation("gaps.mutter_window_operation_refusals")
 def mutter_window_operation_refusals(ctx):
     with managed(ctx, "Calculator") as app:
@@ -95,5 +90,5 @@ def mutter_window_operation_refusals(ctx):
 
 for _suffix in ("headless_click_logged_once", "headed_click_logged_once", "scroll_refused_no_container",
                 "wait_menu_opens", "wait_menu_closes", "menu_already_open"):
-    if leg_by_id("gaps.mutter_qt_" + _suffix).disposition != "owner-decision":
+    if "gaps.mutter_qt_" + _suffix in {leg.id for leg in REGISTRY}:
         implementation("gaps.mutter_qt_" + _suffix)(getattr(toolkit_qt, _suffix))

@@ -7,7 +7,8 @@ from pathlib import Path
 
 
 def main(argv: list[str]) -> int:
-    from PyQt6.QtWidgets import QApplication, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget
+    from PyQt6.QtCore import QTimer
+    from PyQt6.QtWidgets import QApplication, QComboBox, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget
     if len(argv) != 1:
         raise ValueError("expected the activation log path")
     log = Path(argv[0])
@@ -38,6 +39,29 @@ def main(argv: list[str]) -> int:
     field.setAccessibleName("Text entry")
     field.setPlaceholderText("Type name")
     layout.addWidget(field)
+    combo = QComboBox()
+    combo.setAccessibleName("Delivery choice")
+    combo.addItems(["Alpha", "Bravo", "Charlie"])
+    combo.currentTextChanged.connect(lambda value: record("choice:" + value))
+    layout.addWidget(combo)
+    delayed = QPushButton("Delayed activation")
+    delayed.setEnabled(False)
+    delayed.clicked.connect(lambda: record("delayed-click"))
+    layout.addWidget(delayed)
+    enable = log.with_suffix(".enable")
+    reset = log.with_suffix(".reset")
+    timer = QTimer(window)
+
+    def control():
+        if reset.exists():
+            reset.rename(log.with_suffix(".reset-consumed"))
+            delayed.setEnabled(False)
+        if enable.exists():
+            enable.rename(log.with_suffix(".enable-consumed"))
+            QTimer.singleShot(400, lambda: delayed.setEnabled(True))
+
+    timer.timeout.connect(control)
+    timer.start(20)
     offscreen = QLineEdit(container)
     offscreen.setAccessibleName("Offscreen entry")
     offscreen.setGeometry(10, 800, 200, 30)
