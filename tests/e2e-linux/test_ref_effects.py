@@ -15,6 +15,25 @@ from scenarios import ref_effects
 
 
 class SelectionTests(unittest.TestCase):
+    def test_each_mode_resets_and_observes_the_editor_before_preparing_its_document(self):
+        state = ["headless residue"]
+        def invoke(interface, method, signature, args):
+            state[0] = args[0]
+            return (True,)
+        field = SimpleNamespace(text=lambda: state[0], invoke=invoke)
+        ctx = SimpleNamespace(before=lambda *a: None, after=lambda *a: None,
+                              restored=lambda *a: None)
+        with patch.object(ref_effects, "managed", return_value=contextlib.nullcontext(object())), \
+             patch.object(ref_effects, "root"), patch.object(ref_effects, "one", return_value=field), \
+             patch.object(ref_effects, "ref", return_value="@s:e1"), \
+             patch.object(ref_effects, "clear_selection"):
+            for mode in ("headless", "headed"):
+                ctx.mode = mode
+                state[0] = mode + " saved draft"
+                with ref_effects.editor(ctx):
+                    self.assertEqual(state[0], (LINE + "\n") * 120)
+                self.assertEqual(state[0], "")
+
     def test_selection_cleanup_requires_the_owned_active_window(self):
         ctx = SimpleNamespace(tier=object())
         app = SimpleNamespace(windows=["owned"])

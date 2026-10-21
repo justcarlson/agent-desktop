@@ -59,8 +59,8 @@ def editor(ctx):
     with managed(ctx, "Text Editor", ("--new-window",)) as app:
         tree = root(ctx, app)
         field = one(tree, role=61)
-        original = field.text()
-        require(original == "", "document must start empty")
+        require(field.invoke("org.a11y.atspi.EditableText", "SetTextContents", "(s)", ("",))[0])
+        original = changed(field.text, "")
         ctx.before("atspi.document_preparation", original)
         try:
             expected = (LINE + "\n") * 120
