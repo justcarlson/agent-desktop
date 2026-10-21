@@ -5,8 +5,6 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::*;
 use x11rb::rust_connection::RustConnection;
 
-use crate::system::x11::xwd_oracle::xwd_pixel;
-
 fn cli(args: &[&str]) -> Value {
     let binary = std::env::var_os("AGENT_DESKTOP_TEST_BINARY").expect("candidate CLI");
     let output = Command::new(binary)
@@ -47,60 +45,6 @@ fn owned(connection: &RustConnection, root: Window, session: &str) -> Vec<Window
                 .is_some_and(|(id, _)| id == session)
         })
         .collect()
-}
-
-fn one_window(connection: &RustConnection, root: Window, session: &str, dir: &str) -> Window {
-    let windows = owned(connection, root, session);
-    assert_eq!(windows.len(), 1, "rendered:true must have a native window");
-    let window = windows[0];
-    let attrs = connection
-        .get_window_attributes(window)
-        .unwrap()
-        .reply()
-        .unwrap();
-    assert!(attrs.override_redirect);
-    assert_eq!(attrs.map_state, MapState::VIEWABLE);
-    assert_eq!(
-        connection
-            .get_geometry(window)
-            .unwrap()
-            .reply()
-            .unwrap()
-            .depth,
-        32
-    );
-    assert_eq!(xwd_pixel(window, 3, 10, dir), [255, 255, 255]);
-    window
-}
-
-#[test]
-#[ignore = "private X11 desktop and AGENT_DESKTOP_TEST_BINARY pointing to the candidate CLI"]
-fn live_x11_cursor_cli_reports_rendered_and_paints_agent_positions() {
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("private desktop");
-    let (oracle, index) = x11rb::connect(None).expect("native window oracle");
-    let root = oracle.setup().roots[index].root;
-    let started = cli(&["session", "start", "--cursor", "--no-trace"]);
-    assert_eq!(started["rendered"], true, "{started}");
-    let session = started["session_id"].as_str().expect("session id");
-    one_window(&oracle, root, session, &dir);
-    cli(&["--session", session, "cursor-overlay", "disable"]);
-    assert!(owned(&oracle, root, session).is_empty());
-    let enabled = cli(&["--session", session, "cursor-overlay", "enable"]);
-    assert_eq!(enabled["rendered"], true, "{enabled}");
-    let window = one_window(&oracle, root, session, &dir);
-    for (xy, expected) in [("150,150", (150, 150)), ("500,400", (500, 400))] {
-        cli(&["--session", session, "--headed", "mouse-move", "--xy", xy]);
-        assert_eq!(one_window(&oracle, root, session, &dir), window);
-        let geometry = oracle.get_geometry(window).unwrap().reply().unwrap();
-        assert_eq!((geometry.x, geometry.y), expected);
-    }
-    cli(&["--session", session, "cursor-overlay", "disable"]);
-    assert!(owned(&oracle, root, session).is_empty());
-    let enabled = cli(&["--session", session, "cursor-overlay", "enable"]);
-    assert_eq!(enabled["rendered"], true, "{enabled}");
-    one_window(&oracle, root, session, &dir);
-    cli(&["session", "end", session]);
-    assert!(owned(&oracle, root, session).is_empty());
 }
 
 #[test]

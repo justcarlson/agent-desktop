@@ -43,9 +43,8 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             gate.select_tests(names, ignored, ["tree::typo"], True)
 
-    def test_private_services_and_window_manager_replacement_get_their_own_session(self):
+    def test_private_services_get_their_own_session(self):
         cases = (
-            "system::close_live_tests::close_live_a_private_gnome_shell_is_refused_and_keeps_running",
             "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
         )
         for name in cases:

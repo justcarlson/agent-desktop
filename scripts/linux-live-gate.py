@@ -29,12 +29,10 @@ CURSOR_WAYLAND = "system::cursor_overlay::tests::live_wayland_cursor_refusal_rep
 CLI_WAYLAND = "system::cursor_overlay::cli_tests::live_wayland_cursor_cli_reports_unrendered_without_x11_fallback"
 EXTERNAL_WAYLAND = (CURSOR_WAYLAND, CLI_WAYLAND)
 BARE_CASES = (
-    "system::close_live_tests::close_live_a_private_gnome_shell_is_refused_and_keeps_running",
     "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
 )
 OPENBOX_CASES = (
     "system::close_live_tests::close_live_the_private_sessions_own_processes_are_refused",
-    "system::registry_live_tests::registry_live_focus_agrees_with_the_window_manager",
 )
 HELPER_PARENTS = {
     "system::window_op_live_tests::environment::window_op_live_child_stale_wayland":

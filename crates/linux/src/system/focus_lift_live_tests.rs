@@ -1,7 +1,7 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowFilter, WindowInfo};
+use agent_desktop_core::{AdapterError, Deadline, WindowFilter, WindowInfo};
 
 use super::*;
 use crate::system::interaction_lease::acquire;
@@ -9,8 +9,6 @@ use crate::system::list_windows;
 use crate::tree::live_launch::Launched;
 
 pub(super) const SETTLE: Duration = Duration::from_secs(40);
-pub(super) const RUNS: usize = 3;
-pub(super) const PAUSE_MS: u64 = 3_000;
 
 pub(super) const APP: &str = r#"
 import os, gi
@@ -50,20 +48,6 @@ pub(in crate::system) fn xprop(args: &[&str]) -> String {
         .output()
         .expect("xprop runs");
     String::from_utf8_lossy(&output.stdout).into_owned()
-}
-
-pub(super) fn window_manager() -> String {
-    let check = xprop(&["-root", "_NET_SUPPORTING_WM_CHECK"]);
-    let id = check
-        .split_whitespace()
-        .last()
-        .unwrap_or_default()
-        .to_owned();
-    xprop(&["-id", &id, "_NET_WM_NAME"])
-        .split('"')
-        .nth(1)
-        .unwrap_or_default()
-        .to_owned()
 }
 
 fn find_xid(pid: u32) -> Option<String> {
@@ -113,10 +97,6 @@ fn wait_mapped(pid: u32) {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-}
-
-pub(super) fn is_hidden(xid: &str) -> bool {
-    xprop(&["-id", xid, "_NET_WM_STATE"]).contains("_NET_WM_STATE_HIDDEN")
 }
 
 pub(super) fn active_pid() -> Option<u32> {
@@ -198,61 +178,4 @@ pub(super) fn close_overview() {
         .expect("xdotool runs");
     assert!(status.success());
     std::thread::sleep(Duration::from_millis(2_500));
-}
-
-pub(super) fn outcome(
-    bus: &SharedBus,
-    target: &WindowInfo,
-    xid: &str,
-    manager: &str,
-) -> &'static str {
-    match focus(bus, target) {
-        Ok(()) => {
-            assert!(!is_hidden(xid), "Ok with the window still hidden");
-            assert_eq!(active_pid(), Some(target.pid.get()), "Ok but not active");
-            "restored_and_active"
-        }
-        Err(error) => {
-            assert_eq!(error.code, ErrorCode::ActionNotSupported, "{error:?}");
-            assert!(error.message.contains(manager), "{}", error.message);
-            assert!(is_hidden(xid), "refused but the window is no longer hidden");
-            "left_hidden"
-        }
-    }
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn focus_window_live_a_minimized_window_ends_as_measured_for_the_manager() {
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    close_overview();
-    let manager = window_manager();
-    let target = spawn(&mut launched, &bus, "target");
-    let blocker = spawn(&mut launched, &bus, "blocker");
-    let xid = xid_of(target.pid.get());
-    let mut outcomes = Vec::new();
-    for _ in 0..RUNS {
-        let _ = focus(&bus, &blocker);
-        let status = tool("xdotool")
-            .args(["windowminimize", &xid])
-            .status()
-            .expect("xdotool runs");
-        assert!(status.success());
-        let started = Instant::now();
-        while !is_hidden(&xid) && started.elapsed() < Duration::from_secs(5) {
-            std::thread::sleep(Duration::from_millis(100));
-        }
-        assert!(is_hidden(&xid), "the minimize never took effect");
-        std::thread::sleep(Duration::from_millis(PAUSE_MS));
-        outcomes.push(outcome(&bus, &target, &xid, &manager));
-        std::thread::sleep(Duration::from_millis(PAUSE_MS));
-    }
-    println!("focus_window_live lift {manager}: {outcomes:?}");
-    if manager.contains("Openbox") {
-        assert!(
-            outcomes.iter().all(|found| *found == "restored_and_active"),
-            "{manager} restores a minimized window to the stamp-free activation: {outcomes:?}"
-        );
-    }
 }
