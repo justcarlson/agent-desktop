@@ -46,7 +46,7 @@ fn a_timeout_during_the_first_send_never_reports_safe_to_retry() {
     drop(inbox);
 
     assert!(before_resume.is_empty());
-    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
     let details = error.details.unwrap();
     assert_eq!(details["physical_delivery_started"], true);
     assert_eq!(details["delivered_events"], 0);

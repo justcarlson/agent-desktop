@@ -53,10 +53,10 @@ carry that assumption across platforms.
 Before a physical ref-addressed key or click, the target frame must report
 `active` within a short wait; a frame that never does fails with
 `check: window_active`. Headed `type` also requires the target or its proven
-internal editor to report `focused`, including before the bootstrap Shift and
-each subsequent key-down. The internal-editor proof requires an editable target,
-a same-owner hit, a parent chain back to the target, and a focused editor that
-advertises `EditableText`.
+internal editor to report `focused`: before each X11 text plan, and on Wayland
+before the bootstrap Shift and each subsequent key-down. The internal-editor proof
+requires an editable target, a same-owner hit, a parent chain back to the target,
+and a focused editor that advertises `EditableText`.
 Closing a GTK4 menu can leave the document unfocused even while its window is
 active. GNOME 46's GTK4 bridge rejects AT-SPI `Component.GrabFocus` as unsupported.
 When neither the target nor its proven internal editor is focused, the tool
@@ -126,6 +126,12 @@ text node is a `textfield` named `Terminal` with only
 `supported_action`, and it takes keys only under `--headed`. Its value is null, so
 terminal output cannot be read through a ref; verify what a terminal command did
 through files or another app.
+
+X11 physical `type` refuses control characters, including Tab and newline, before
+sending any text: those keys can move focus or submit a form inside a text burst.
+Use headless `type` or `set-value` for literal text containing those characters;
+use an explicit `press tab` or `press return` when navigation or submission is
+intended.
 
 The first `type` into a fresh document changes the window title. The ref from the
 snapshot still resolves: `get` on it reads the typed value. Take a fresh snapshot

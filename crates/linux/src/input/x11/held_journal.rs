@@ -6,6 +6,7 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::{Value, json};
 
 use super::sink::X11Sink;
+use super::sink_error::SinkError;
 use crate::input::held_input::HeldInput;
 use crate::input::keymap_edit::KeymapEdit;
 use crate::system::{liveness, proc_stat, process_facts};
@@ -42,7 +43,7 @@ fn codes(value: &Value, field: &str) -> Vec<u8> {
 }
 
 enum Record {
-    Own,
+    Own(StaleEntry),
     Entry(StaleEntry),
     Unreadable(PathBuf),
 }
@@ -163,22 +164,25 @@ impl HeldJournal {
         {
             return Some(Record::Unreadable(path));
         }
-        if pid == self.pid && !instance.is_empty() && instance == self.instance {
-            return Some(Record::Own);
-        }
-        if alive(pid, instance) {
+        let own = pid == self.pid && !instance.is_empty() && instance == self.instance;
+        if !own && alive(pid, instance) {
             return None;
         }
         let Some(value) = parsed.filter(|value| value["display"].is_string()) else {
             return Some(Record::Unreadable(path));
         };
         (value["display"].as_str() == Some(self.display.as_str())).then(|| {
-            Record::Entry(StaleEntry {
+            let entry = StaleEntry {
                 path,
                 keys: codes(&value, "keys"),
                 buttons: codes(&value, "buttons"),
                 remaps: remaps(&value),
-            })
+            };
+            if own {
+                Record::Own(entry)
+            } else {
+                Record::Entry(entry)
+            }
         })
     }
 
@@ -189,7 +193,6 @@ impl HeldJournal {
         listing
             .flatten()
             .filter_map(|file| self.classify(file.path(), alive))
-            .filter(|record| !matches!(record, Record::Own))
             .collect()
     }
 
@@ -210,51 +213,57 @@ impl HeldJournal {
     pub(crate) fn release_readable_stale(&self, sink: &mut dyn X11Sink) {
         for record in self.scan(&process_is_alive) {
             if let Record::Entry(entry) = record {
-                release_entry(sink, &entry);
+                let _ = release_entry(sink, &entry);
             }
         }
     }
 
+    /// Recovers pending input, including this process's previous call, while owning the worker slot.
     pub(crate) fn release_stale(&self, sink: &mut dyn X11Sink) -> Result<(), AdapterError> {
         self.release_stale_where(sink, &process_is_alive)
     }
 
-    pub(crate) fn release_stale_where(
+    fn release_stale_where(
         &self,
         sink: &mut dyn X11Sink,
         alive: &dyn Fn(u32, &str) -> bool,
     ) -> Result<(), AdapterError> {
         let mut unreadable = 0_usize;
+        let mut recovered = Ok(());
         for record in self.scan(alive) {
             match record {
-                Record::Entry(entry) => release_entry(sink, &entry),
+                Record::Entry(entry) | Record::Own(entry) => {
+                    recovered = recovered.and(release_entry(sink, &entry));
+                }
                 Record::Unreadable(path) => {
                     quarantine(&path);
                     unreadable += 1;
                 }
-                Record::Own => {}
             }
         }
         if unreadable == 0 {
-            return Ok(());
+            return recovered.map_err(|error| error.into_adapter()
+                .with_suggestion("Check the held input and retry only after the display connection recovers")
+                .with_details(json!({ "cause": "held_input_recovery_failed", "physical_delivery_started": false }))
+                .with_disposition(DeliverySemantics::not_delivered()));
         }
         Err(unreadable_record_refusal(unreadable))
     }
 }
 
-fn release_entry(sink: &mut dyn X11Sink, entry: &StaleEntry) {
-    let buttons_released = entry
-        .buttons
-        .iter()
-        .all(|code| sink.button(*code, false).is_ok());
-    let keys_released = entry.keys.iter().all(|code| sink.key(*code, false).is_ok());
-    let keymap_restored = entry
-        .remaps
-        .iter()
-        .all(|edit| sink.edit_keymap(edit).is_ok());
-    if buttons_released && keys_released && keymap_restored && sink.round_trip().is_ok() {
-        let _ = std::fs::remove_file(&entry.path);
+fn release_entry(sink: &mut dyn X11Sink, entry: &StaleEntry) -> Result<(), SinkError> {
+    let mut recovered = Ok(());
+    for code in &entry.buttons {
+        recovered = recovered.and(sink.button(*code, false));
     }
+    for code in &entry.keys {
+        recovered = recovered.and(sink.key(*code, false));
+    }
+    for edit in &entry.remaps {
+        recovered = recovered.and(sink.edit_keymap(edit));
+    }
+    recovered.and(sink.round_trip())?;
+    std::fs::remove_file(&entry.path).map_err(|error| SinkError::Journal(error.to_string()))
 }
 
 fn quarantine(path: &Path) {

@@ -26,6 +26,30 @@ fn restore() -> KeymapEdit {
 }
 
 #[test]
+fn failed_restores_remain_recoverable_until_acknowledged() {
+    let dir = std::env::temp_dir().join(format!("ad-restore-retry-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let fake = FakeSink::new();
+    let mut sink = fake.clone();
+    let mut guard = ReleaseGuard::new(&mut sink);
+    guard.journal_to(Some(HeldJournal::at(dir.clone(), ":7", 111)));
+    let observer = HeldJournal::at(dir.clone(), ":7", 222);
+    guard.edit_keymap(&remap()).unwrap();
+    fake.world().fail_on_event = Some(2);
+    guard
+        .edit_keymap(&restore())
+        .expect_err("planned restore fails");
+    fake.world().fail_on_event = Some(3);
+    guard.finish().expect_err("cleanup restore also fails");
+    assert_eq!(observer.stale_entries(&|_, _| false)[0].remaps, [restore()]);
+    assert_ne!(fake.world().keymap, start_keymap());
+    guard.finish().expect("recovery is retried");
+    assert_eq!(fake.world().keymap, start_keymap());
+    assert!(observer.stale_entries(&|_, _| false).is_empty());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn keys_are_released_in_the_reverse_order_they_were_pressed() {
     let fake = FakeSink::new();
     let mut sink = fake.clone();
