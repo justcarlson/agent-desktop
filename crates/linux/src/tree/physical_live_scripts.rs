@@ -1,35 +1,3 @@
-pub(super) const GTK3_BUTTON: &str = r#"
-import gi, os
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
-log = os.environ["AD_LIVE_LOG"]
-w = Gtk.Window(title="adbtn")
-w.set_default_size(320, 120)
-b = Gtk.Button(label="Go")
-b.connect("clicked", lambda x: open(log, "a").write("clicked\n"))
-w.add(b)
-w.connect("destroy", Gtk.main_quit)
-w.show_all()
-Gtk.main()
-"#;
-
-pub(super) const GTK4_BUTTON: &str = r#"
-import gi, os
-gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, GLib
-Gtk.init()
-log = os.environ["AD_LIVE_LOG"]
-loop = GLib.MainLoop()
-w = Gtk.Window(title="adbtn")
-w.set_default_size(320, 120)
-b = Gtk.Button(label="Go")
-b.connect("clicked", lambda x: open(log, "a").write("clicked\n"))
-w.set_child(b)
-w.connect("close-request", lambda *a: loop.quit())
-w.present()
-loop.run()
-"#;
-
 pub(super) const QT_BUTTON: &str = r#"
 import os, sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton

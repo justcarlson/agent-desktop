@@ -7,9 +7,7 @@ use agent_desktop_core::{
 use super::live_launch::{Launched, nonce};
 use super::live_offscreen_live_tests::scripts::{GTK3_LIST, GTK4_LIST, QT_LIST};
 use super::physical_live_rig::{Kit, Scene, Tgt};
-use super::physical_live_scripts::{
-    GTK3_BUTTON, GTK3_DRAG, GTK3_GRAB, GTK4_BUTTON, QT_BUTTON, QT_ENTRY,
-};
+use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
 use crate::actions::frame_active::frame_active;
 use crate::input::x11::live_tests::{GTK3, GTK4, device_state, window_center};
@@ -191,18 +189,6 @@ fn live_key_combos_select_and_delete_in_a_gtk4_entry() {
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_key_combos_select_and_delete_in_a_qt_entry() {
     key_combo(Kit::Qt, QT_ENTRY);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_click_at_the_bounds_centre_presses_a_gtk3_button() {
-    click_button(Kit::Gtk, GTK3_BUTTON);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_click_at_the_bounds_centre_presses_a_gtk4_button() {
-    click_button(Kit::Gtk, GTK4_BUTTON);
 }
 
 #[test]

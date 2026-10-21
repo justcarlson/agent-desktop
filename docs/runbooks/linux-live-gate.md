@@ -108,6 +108,16 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   ambiguous. The replacement explicitly tests retained identity, shared text
   plus size, and shared text alone returning `AMBIGUOUS_TARGET` with two candidates.
 
+- `tree::physical_live_tests::live_a_click_at_the_bounds_centre_presses_a_gtk3_button`
+  and `live_a_click_at_the_bounds_centre_presses_a_gtk4_button`: duplicate button
+  fixtures intermittently never became mapped/viewable under Mutter, including
+  isolated validation with explicit activation. The same-tier
+  `live_a_click_at_the_bounds_centre_presses_a_qt_button` retains the physical
+  bounds-center click and exact handler-log contract on both X11 tiers.
+  `actions::live_widget_tests::a_click_runs_the_handler_of_a_button_in_every_toolkit`
+  retains GTK button-handler coverage; the dedicated Mutter raw-click scenario
+  and retained GTK physical typing/key cases retain native GTK input coverage.
+
 ### Replaced cases
 
 - `tree::qt_live_tests::qt_live_twins_resolve_to_their_own_button_after_the_window_moves`
