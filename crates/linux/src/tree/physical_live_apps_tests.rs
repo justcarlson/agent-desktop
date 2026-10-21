@@ -64,6 +64,13 @@ fn live_qt_headless_reveal_has_no_container_while_the_headed_wheel_moves_the_con
     let scene = Scene::open(Kit::Qt, QT_LIST, 20);
     let far = scene.find(&["option"], Some("Item 040"));
     let near = scene.find(&["option"], Some("Item 005"));
+    let baseline = scene.wait_log(|text| serde_json::from_str::<serde_json::Value>(text).is_ok());
+    let before: serde_json::Value = serde_json::from_str(&baseline).expect("Qt scroll baseline");
+    let offset = before["offset"].as_i64().expect("Qt content offset");
+    assert_eq!(
+        before["visible"], false,
+        "the far item starts outside the viewport"
+    );
     let error = {
         let lease = scene.lease();
         scroll_into_view(&scene.bus, &far, &lease)
@@ -71,14 +78,27 @@ fn live_qt_headless_reveal_has_no_container_while_the_headed_wheel_moves_the_con
     };
     let details = error.details.as_ref().expect("details");
     assert_eq!(details["cause"], "no_scroll_container", "{details}");
-    let before = scene.adapter_bounds(&far);
+    assert_eq!(
+        scene.log_text(),
+        baseline,
+        "headless refusal did not scroll"
+    );
     scene
         .act(&near, Action::Scroll(Direction::Down, 13))
         .expect("the headed wheel is delivered");
-    std::thread::sleep(Duration::from_millis(800));
-    let after = scene.adapter_bounds(&far).expect("the item is on screen");
+    let observed = scene.wait_log(|text| {
+        serde_json::from_str::<serde_json::Value>(text).is_ok_and(|state| {
+            state["offset"].as_i64().is_some_and(|after| after > offset) && state["visible"] == true
+        })
+    });
+    let after: serde_json::Value =
+        serde_json::from_str(&observed).expect("Qt scroll postcondition");
     assert!(
-        before.is_none_or(|b| b.y - after.y > 300.0),
-        "{before:?} -> {after:?}"
+        after["offset"].as_i64().expect("Qt content offset") > offset,
+        "{before} -> {after}"
+    );
+    assert_eq!(
+        after["visible"], true,
+        "Qt confirms the far item is visible"
     );
 }

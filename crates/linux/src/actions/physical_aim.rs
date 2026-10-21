@@ -13,7 +13,7 @@ pub(crate) fn validate(
     let inside = || {
         let node = placed.node?;
         let frame = placed.frame?;
-        if placed.frame_iconified || placed.x11.is_some_and(|window| window.hidden) {
+        if placed.frame_iconified == Some(true) || placed.x11.is_some_and(|window| window.hidden) {
             return None;
         }
         let origin = placed.popup_origin.or_else(|| {

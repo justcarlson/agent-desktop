@@ -186,6 +186,7 @@ fn actions_map_by_the_capability_table_and_a_failed_list_is_incomplete() {
 
 fn wayland_placement() -> Placement {
     Placement {
+        frame_iconified: Some(false),
         frame: Some(Extents {
             x: 0,
             y: 0,
@@ -215,6 +216,21 @@ fn a_shown_node_of_a_mapped_wayland_frame_is_on_screen_and_not_hidden_with_no_re
 }
 
 #[test]
+fn a_wayland_frame_with_unread_state_does_not_prove_visibility() {
+    let read = with_states(
+        read_of(PUSH_BUTTON, "b", &[]),
+        &[VISIBLE, SHOWING, SENSITIVE],
+    );
+    let placed = Placement {
+        frame: wayland_placement().frame,
+        wayland_unplaced: true,
+        ..Placement::default()
+    };
+    let projected = state_in(&read, &placed);
+    assert_eq!((projected.offscreen, projected.hidden), (None, None));
+}
+
+#[test]
 fn the_mapped_wayland_claim_needs_the_wayland_flag_both_state_bits_and_a_live_frame() {
     let shown = with_states(
         read_of(PUSH_BUTTON, "b", &[]),
@@ -226,7 +242,7 @@ fn the_mapped_wayland_claim_needs_the_wayland_flag_both_state_bits_and_a_live_fr
     };
     assert_eq!(none(&Placement::default()), (None, None));
     let mut iconified = wayland_placement();
-    iconified.frame_iconified = true;
+    iconified.frame_iconified = Some(true);
     assert_ne!(none(&iconified), (Some(false), Some(false)));
     let mut no_frame = wayland_placement();
     no_frame.frame = None;

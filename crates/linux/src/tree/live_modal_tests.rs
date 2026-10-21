@@ -79,6 +79,27 @@ fn target(frame: &str) -> NativeHandle {
 }
 
 #[test]
+fn a_renderer_target_checks_its_owning_frames_dialogs() {
+    let mut renderer = AtspiElement::new(":1.99", "/button", 99);
+    renderer.set_ancestry(ancestry::of_root(&element("/parent")));
+    let handle = renderer.into_native_handle();
+    let mut desktop = Desktop {
+        dialog_states: Field::Present(words(&[])),
+        listed: true,
+        unavailable: None,
+    };
+    let deadline = Deadline::standard().unwrap();
+    assert!(element_via(&mut desktop, &handle, deadline).is_ok());
+    desktop.dialog_states = Field::Present(words(&[MODAL, SHOWING]));
+    let error = element_via(&mut desktop, &handle, deadline).unwrap_err();
+    assert_eq!(error.details.unwrap()["cause"], "blocked_by_modal_dialog");
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+}
+
+#[test]
 fn a_menu_owner_spoofing_the_shell_comm_is_still_blocked_by_its_modal() {
     let mut owner = Command::new("sh")
         .args([

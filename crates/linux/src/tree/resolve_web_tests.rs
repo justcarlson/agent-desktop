@@ -90,6 +90,33 @@ fn remote_panel() -> Fake {
 }
 
 #[test]
+fn a_retained_ref_refuses_the_same_path_and_rectangle_on_another_owner() {
+    let mut fake = Fake::new();
+    fake.add(
+        FRAME_PATH,
+        "/field",
+        node(crate::tree::role_numbers::ENTRY, "", 100, 24),
+    );
+    let mut entry = fake.entry_of("/field", true);
+    let original = resolve(&mut fake, &entry, deadline()).expect("original field");
+    entry.identity.retained_object = fake
+        .evidence(&original)
+        .unwrap()
+        .identifiers
+        .retained_object()
+        .map(str::to_owned);
+    assert!(entry.identity.retained_object.is_some());
+    assert_eq!(
+        resolve(&mut fake, &entry, deadline()).unwrap().bus_name(),
+        BUS
+    );
+    fake.pids.insert(":1.99".to_owned(), 99);
+    fake.nodes.get_mut("/field").unwrap().bus = ":1.99".to_owned();
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("replacement owner");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+}
+
+#[test]
 fn an_element_under_a_child_on_another_bus_name_keeps_the_frames_process_beside_its_own() {
     let mut fake = remote_panel();
     let entry = fake.entry_of("/remote", true);

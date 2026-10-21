@@ -23,14 +23,14 @@ fn a_named_menu_item_resolves_only_its_context_scoped_object_path() {
     fake.add(FRAME_PATH, "/other", node(MENU_ITEM, "Preferences", 0, 0));
     let mut entry = fake.entry_of("/preferences", false);
     entry.source.source_surface = agent_desktop_core::SnapshotSurface::Menu;
-    entry.identity.retained_object = Some("/preferences".to_owned());
+    entry.identity.retained_object = Some(":1.2/preferences".to_owned());
 
     let found = evaluate(&fake.walk(), &entry, false);
     assert!(!found.unread_region);
     assert_eq!(found.candidates.len(), 1);
     assert_eq!(found.candidates[0].element.path(), "/preferences");
 
-    entry.identity.retained_object = Some("/removed".to_owned());
+    entry.identity.retained_object = Some(":1.2/removed".to_owned());
     let found = evaluate(&fake.walk(), &entry, false);
     assert!(!found.unread_region);
     assert!(found.candidates.is_empty());

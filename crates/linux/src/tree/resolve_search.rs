@@ -45,7 +45,7 @@ fn visit(
     if entry.source.source_surface == agent_desktop_core::SnapshotSurface::Menu {
         evidence.identifiers = evidence
             .identifiers
-            .with_retained_object(node.payload.node.element.path().to_owned());
+            .with_retained_object(node.payload.node.element.object_identity());
     }
     let admission = if provisional_geometry_candidate(entry) && accepts_landing(entry, &evidence) {
         Admission::Collect

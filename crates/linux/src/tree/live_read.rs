@@ -74,11 +74,20 @@ impl NodeReader for BusReader<'_> {
             crate::system::REGISTRY_ROOT_PATH,
             element.pid(),
         );
-        within(deadline, super::list_children(self.connection, &root)).map(|children| {
-            children
-                .into_iter()
-                .map(|(bus, path)| AtspiElement::new(bus, path, element.pid()))
-                .collect()
+        within(deadline, async {
+            let children = super::list_children(self.connection, &root).await?;
+            let mut windows = Vec::with_capacity(children.len());
+            for (bus, path) in children {
+                let pid = if bus == element.bus_name() {
+                    element.pid()
+                } else {
+                    crate::system::process_id(self.connection, bus.clone())
+                        .await
+                        .1?
+                };
+                windows.push(AtspiElement::new(bus, path, pid));
+            }
+            Ok(windows)
         })
     }
 
@@ -183,8 +192,8 @@ pub(crate) fn element_via<R: NodeReader>(
     if element.is_menu_target() {
         let context = reader.menu_context(element, deadline)?;
         let object = context.map_or_else(
-            || element.path().to_owned(),
-            |context| context.encode(element.path()),
+            || element.object_identity(),
+            |context| context.encode(&element.object_identity()),
         );
         live.identity.identifiers = live.identity.identifiers.with_retained_object(object);
     }

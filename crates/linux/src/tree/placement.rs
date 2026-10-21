@@ -8,7 +8,7 @@ pub(crate) struct Placement {
     pub(crate) node: Option<Extents>,
     pub(crate) frame: Option<Extents>,
     pub(crate) container: Option<Extents>,
-    pub(crate) frame_iconified: bool,
+    pub(crate) frame_iconified: Option<bool>,
     pub(crate) toolkit: ToolkitId,
     /// The origin of a uniquely matched, viewable override-redirect popup,
     /// relative to its AT-SPI frame's window-coordinate rectangle.

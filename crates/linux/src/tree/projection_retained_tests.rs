@@ -27,22 +27,22 @@ fn a_named_node_keeps_its_name_and_never_borrows_the_object_path_as_identity() {
 }
 
 #[test]
-fn an_identityless_node_with_a_rectangle_stores_its_object_path_as_the_retained_object() {
+fn an_identityless_node_with_a_rectangle_retains_its_bus_and_object_path() {
     let read = placed(read_of(PUSH_BUTTON, "", &[]), (4, 8, 120, 24));
-    let path = read.node.element.path().to_owned();
+    let path = ":1.1/p";
     let evidence = evidence_of(read);
 
-    assert_eq!(evidence.identifiers.retained_object(), Some(path.as_str()));
+    assert_eq!(evidence.identifiers.retained_object(), Some(path));
 }
 
 #[test]
-fn an_identityless_node_without_an_area_still_stores_its_object_path() {
+fn an_identityless_node_without_an_area_still_retains_its_bus_and_object_path() {
     let mut read = placed(read_of(PUSH_BUTTON, "", &[]), (4, 8, 0, 24));
     read.node.extents = Field::Absent;
-    let path = read.node.element.path().to_owned();
+    let path = ":1.1/p";
     let evidence = evidence_of(read);
 
-    assert_eq!(evidence.identifiers.retained_object(), Some(path.as_str()));
+    assert_eq!(evidence.identifiers.retained_object(), Some(path));
 }
 
 #[test]

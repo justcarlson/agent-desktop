@@ -42,6 +42,10 @@ impl AtspiElement {
         &self.path
     }
 
+    pub(crate) fn object_identity(&self) -> String {
+        format!("{}{}", self.bus_name, self.path)
+    }
+
     pub(crate) fn pid(&self) -> u32 {
         self.pid
     }

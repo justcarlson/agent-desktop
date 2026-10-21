@@ -117,7 +117,7 @@ impl Projector<'_> {
         let identifiers = if identity_is_absent {
             vocabulary
                 .identifiers
-                .with_retained_object(read.node.element.path().to_owned())
+                .with_retained_object(read.node.element.object_identity())
         } else {
             vocabulary.identifiers
         };

@@ -36,7 +36,7 @@ impl MenuContext {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         hash_node(root, &mut hasher);
         Self {
-            root: root.payload.node.element.path().to_owned(),
+            root: root.payload.node.element.object_identity(),
             shape: hasher.finish(),
             complete: tree_complete(root),
         }
@@ -124,7 +124,7 @@ fn tree_complete(node: &WalkedNode<ObservedRead>) -> bool {
 }
 
 fn hash_node(node: &WalkedNode<ObservedRead>, hasher: &mut impl Hasher) {
-    node.payload.node.element.path().hash(hasher);
+    node.payload.node.element.object_identity().hash(hasher);
     node.payload.node.traits.role.present().hash(hasher);
     node.payload.node.properties.name.present().hash(hasher);
     node.payload.label.hash(hasher);
@@ -156,7 +156,7 @@ impl Decorate for MenuIdentity {
         evidence.identifiers = evidence
             .identifiers
             .clone()
-            .with_retained_object(self.context.encode(read.node.element.path()));
+            .with_retained_object(self.context.encode(&read.node.element.object_identity()));
         Vec::new()
     }
 }
