@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use agent_desktop_core::{Action, Direction, KeyCombo, Modifier};
+use agent_desktop_core::{Action, Direction, KeyCombo, Modifier, NativeHandle};
 
 use super::live_launch::Launched;
 use super::live_offscreen_live_tests::scripts::QT_LIST;
-use super::physical_live_rig::{Kit, Scene, Tgt};
+use super::physical_live_rig::{Kit, Scene};
 use crate::actions::scroll_into_view;
 
 fn app_scene(program: &str, args: &[&str], min_nodes: usize) -> Scene {
@@ -13,9 +13,9 @@ fn app_scene(program: &str, args: &[&str], min_nodes: usize) -> Scene {
     Scene::attach(launched, pid, String::new(), min_nodes)
 }
 
-fn type_and_read(scene: &Scene, field: &Tgt, text: &str, replace: bool) -> String {
+fn type_and_read(scene: &Scene, field: &NativeHandle, text: &str, replace: bool) -> String {
     scene
-        .act(&field.handle, Action::Click)
+        .act(field, Action::Click)
         .expect("the focusing click is delivered");
     std::thread::sleep(Duration::from_millis(500));
     if replace {
@@ -24,11 +24,11 @@ fn type_and_read(scene: &Scene, field: &Tgt, text: &str, replace: bool) -> Strin
             modifiers: vec![Modifier::Ctrl],
         };
         scene
-            .act(&field.handle, Action::PressKey(select_all))
+            .act(field, Action::PressKey(select_all))
             .expect("select all");
     }
     scene
-        .act(&field.handle, Action::TypeText(text.to_owned()))
+        .act(field, Action::TypeText(text.to_owned()))
         .expect("the text is typed");
     for _ in 0..40 {
         if scene.value_of(field).is_some_and(|value| !value.is_empty()) {
@@ -66,14 +66,14 @@ fn live_qt_headless_reveal_has_no_container_while_the_headed_wheel_moves_the_con
     let near = scene.find(&["option"], Some("Item 005"));
     let error = {
         let lease = scene.lease();
-        scroll_into_view(&scene.bus, &far.handle, &lease)
+        scroll_into_view(&scene.bus, &far, &lease)
             .expect_err("a Qt list has no scroll container to drive headless")
     };
     let details = error.details.as_ref().expect("details");
     assert_eq!(details["cause"], "no_scroll_container", "{details}");
     let before = scene.adapter_bounds(&far);
     scene
-        .act(&near.handle, Action::Scroll(Direction::Down, 13))
+        .act(&near, Action::Scroll(Direction::Down, 13))
         .expect("the headed wheel is delivered");
     std::thread::sleep(Duration::from_millis(800));
     let after = scene.adapter_bounds(&far).expect("the item is on screen");

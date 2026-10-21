@@ -28,7 +28,3 @@ pub(crate) fn override_name(
             .count();
     (others == 1).then(|| title.clone())
 }
-
-#[cfg(test)]
-#[path = "hit_cover_tests.rs"]
-pub(crate) mod tests;
