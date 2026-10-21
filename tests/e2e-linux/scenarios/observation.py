@@ -138,7 +138,7 @@ def trace_segment_written(ctx: LegContext) -> None:
         finally:
             command(ctx, ["session", "end", session])
             trash(ctx, ctx.tier.state_root / "sessions" / session)
-            ctx.restored("proc", [])
+            ctx.restored("proc", sorted(str(path) for path in directory.glob("*.jsonl")))
 
 
 @contextlib.contextmanager

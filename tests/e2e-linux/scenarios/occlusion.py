@@ -112,6 +112,7 @@ def _occlusion(ctx, *, above=False, drop=False, refuse=False):
         ctx.after("x11.stacking", x11.stacking(ctx.tier))
     finally:
         ctx.restored("atspi.document", _restore_document(ctx, target, initial))
+        ctx.restored("atspi.cover_display", _cover_display(ctx, cover))
         x11.set_above(ctx.tier, window_of(cover), initial_above)
         ctx.restored("x11.cover_above", changed(lambda: _above_state(ctx, cover), initial_above))
         if before_stack is not None:

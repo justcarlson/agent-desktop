@@ -42,7 +42,7 @@ class EventScenarioTests(unittest.TestCase):
                     patch.object(events, "delayed", side_effect=delayed), \
                     patch("runner.verdict.run_product", side_effect=product):
                     getattr(events, kind)(ctx)
-                expected = ["oracle proc.apps needs exactly one restored read; got 0"] if kind.endswith("quiet") else []
+                expected = []
                 self.assertEqual(verdict.evaluate(ctx), expected)
                 self.assertEqual(owners, set())
 
@@ -70,5 +70,4 @@ class EventScenarioTests(unittest.TestCase):
             events.open_and_close_inside_one_wait(ctx)
         self.assertEqual(frames, ["seed"])
         self.assertEqual(stopped, [app])
-        self.assertEqual(verdict.evaluate(ctx), [
-            "oracle atspi.root_children needs exactly one restored read; got 0"])
+        self.assertEqual(verdict.evaluate(ctx), [])

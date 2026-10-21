@@ -52,6 +52,7 @@ def restart_old_id_window_not_found(ctx: LegContext) -> None:
     assert not envelope.ok, envelope.raw
     assert error_code(envelope) == "WINDOW_NOT_FOUND", envelope.raw
     ctx.after("atspi.root_children", len(app_root(ctx.tier, "gnome-calculator").children()))
+    ctx.restored("atspi.root_children", len(app_root(ctx.tier, "gnome-calculator").children()))
     stop(second)
 
 
@@ -59,11 +60,12 @@ def restart_old_id_window_not_found(ctx: LegContext) -> None:
 def restart_new_id_resolves(ctx: LegContext) -> None:
     original, replacement, second = _restarted(ctx)
     assert original and replacement and original[0] != replacement[0]
-    ctx.before("atspi.root_children", 1)
+    ctx.before("atspi.root_children", len(app_root(ctx.tier, "gnome-calculator").children()))
     envelope = ctx.product(["snapshot", "--window-id", replacement[0], "-i"])
     assert envelope.ok, envelope.raw
     assert envelope.data and envelope.data.get("window", {}).get("id") == replacement[0]
     ctx.after("atspi.root_children", len(app_root(ctx.tier, "gnome-calculator").children()))
+    ctx.restored("atspi.root_children", len(app_root(ctx.tier, "gnome-calculator").children()))
     stop(second)
 
 
@@ -72,12 +74,14 @@ def id_survives_unrelated_launch(ctx: LegContext) -> None:
     calculator = launch(ctx.tier, CALCULATOR)
     original = window_ids(_wait_windows(ctx, CALCULATOR))
     assert original
-    ctx.before("proc.calculator", calculator.pid)
+    read = lambda: len(app_root(ctx.tier, "gnome-calculator").children())
+    ctx.before("proc.calculator", read())
     files = launch(ctx.tier, "Files")
     envelope = ctx.product(["snapshot", "--window-id", original[0], "-i"])
     assert envelope.ok, envelope.raw
     still = window_ids(_windows(ctx, CALCULATOR))
-    ctx.after("proc.calculator", calculator.pid)
+    ctx.after("proc.calculator", read())
     assert original[0] in still
     stop(files)
+    ctx.restored("proc.calculator", read())
     stop(calculator)

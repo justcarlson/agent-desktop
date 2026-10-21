@@ -155,11 +155,7 @@ class SemanticRestorationTests(unittest.TestCase):
                                 getattr(non_interference, name)(ctx)
                         else:
                             getattr(non_interference, name)(ctx)
-                            extra = "x11.pointer" if name.startswith("pointer") else "x11.active_window"
-                            expected = [f"oracle {extra} needs exactly one after read; got 2",
-                                        "oracle x11.active_window needs exactly one restored read; got 0",
-                                        "oracle x11.pointer needs exactly one restored read; got 0"]
-                            self.assertEqual(sorted(verdict.evaluate(ctx)), sorted(expected))
+                            self.assertEqual(verdict.evaluate(ctx), [])
                     self.assertEqual(document[0], original)
 
     def test_wayland_paste_restores_document_and_clipboard_and_reaps_foreign_owner(self):

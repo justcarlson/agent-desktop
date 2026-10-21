@@ -76,6 +76,7 @@ def close_app_undelivered_report(ctx: LegContext) -> None:
         ctx.before("proc.alive", _alive(ctx.tier, pid))
         report = _close_report(ctx, app)
         ctx.after("proc.alive", _alive(ctx.tier, pid))
+        ctx.restored("proc.alive", _alive(ctx.tier, pid))
         if report["delivery"] != "not_delivered":
             raise AssertionError(f"a stopped process was reported {report['delivery']}")
         if not _alive(ctx.tier, pid):

@@ -103,6 +103,7 @@ def list_apps_alias(ctx: LegContext) -> None:
         assert "complete" not in (envelope.data or {}) or envelope.data.get("complete") is not False
         ctx.after("proc.apps", read())
         assert read() == before, "query changed registered applications"
+        ctx.restored("proc.apps", read())
     finally:
         stop(app)
 
@@ -117,6 +118,7 @@ def launch_suggestion(ctx: LegContext) -> None:
     assert error_code(envelope) == "APP_NOT_FOUND", envelope.raw
     suggestion = (envelope.error or {}).get("suggestion")
     assert suggestion, "the APP_NOT_FOUND envelope carries no suggestion"
+    ctx.restored("proc.apps", read())
 
 
 @implementation("launch.recovery_strategy_on_error")
@@ -139,6 +141,7 @@ def recovery_strategy_on_error(ctx: LegContext) -> None:
     disposition = error.get("disposition") or {}
     if disposition.get("retry") == "safe":
         assert (error.get("recovery") or {}).get("strategy"), envelope.raw
+    ctx.restored("proc.calculator", read())
 
 
 def _first_ref(tree: dict | None) -> str | None:

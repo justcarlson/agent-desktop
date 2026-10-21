@@ -29,7 +29,8 @@ def placeholder_read(ctx, app, expected):
              for node in fields]
     require(after == evidence)
     ctx.after("atspi", after)
-    ctx.restored("atspi", after)
+    ctx.restored("atspi", [(node.name, node.get_property(ACCESSIBLE, "Description"), node.attributes())
+                           for node in fields])
 
 
 @implementation("placeholder.settings_apps_search")

@@ -10,19 +10,24 @@ from runner.legs import implementation
 from runner.verdict import LegContext
 
 
+def log_state(ctx):
+    path = ctx.tier.runtime_dir / "qt-window.log"
+    return {"members": members(ctx.tier.runtime_dir),
+            "log": path.read_text() if path.exists() else None}
+
+
 @contextlib.contextmanager
 def qt_app(ctx):
     path = ctx.tier.runtime_dir / "qt-window.log"
     trash(ctx, path)
-    baseline = {"members": members(ctx.tier.runtime_dir), "log": None}
+    baseline = log_state(ctx)
     ctx.before("applog", baseline)
     try:
         with managed(ctx, "Qt") as app:
             yield app
     finally:
         trash(ctx, path)
-        restored = {"members": members(ctx.tier.runtime_dir),
-                    "log": path.read_text() if path.exists() else None}
+        restored = log_state(ctx)
         require(restored == baseline)
         ctx.restored("applog", restored)
 
@@ -65,7 +70,7 @@ def refs_and_completeness(ctx: LegContext) -> None:
         for role, name in (("button", "Press me"), ("textfield", "Text entry")):
             ref(ctx, app, role=role, name=name)
         require(events(path) == before)
-        ctx.after("applog", events(path))
+        ctx.after("applog", log_state(ctx))
 
 
 def click_once(ctx, headed):
@@ -76,7 +81,7 @@ def click_once(ctx, headed):
         command(ctx, ["click", target], app, headed=headed)
         require(poll(lambda: click_delta(before, events(path)) == 1, 2, floor_s=0.3))
         require(click_delta(before, events(path)) == 1, "click dispatched more than once")
-        ctx.after("applog", events(path).count("click"))
+        ctx.after("applog", log_state(ctx))
         stale_twin(ctx, app, target, lambda: events(path))
 
 
@@ -104,7 +109,7 @@ def scroll_refused_no_container(ctx: LegContext) -> None:
         response = command(ctx, ["scroll-to", target], app, code="ACTION_NOT_SUPPORTED")
         require(response.error.get("details", {}).get("cause") == "no_scroll_container", response.raw)
         require((field.text(), events(path)) == before)
-        ctx.after("applog", before)
+        ctx.after("applog", log_state(ctx))
 
 
 def menu_transition(ctx, opening, *, already=False):
@@ -134,7 +139,7 @@ def menu_transition(ctx, opening, *, already=False):
             require("menu-open" in after[len(initial):])
             if not opening and not already:
                 require("menu-closed" in after[len(initial):])
-            ctx.after("applog", after)
+            ctx.after("applog", log_state(ctx))
             wait_menu(ctx, app, not (opening or already), timeout=200, code="TIMEOUT")
         finally:
             if trigger:

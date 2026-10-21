@@ -24,7 +24,7 @@ def select_contract(ctx, *, absent=False):
             ctx.after("gsettings", gsettings.get(ctx.tier, schema, key))
         finally:
             require(gsettings.get(ctx.tier, schema, key) == initial)
-            ctx.restored("gsettings", initial)
+            ctx.restored("gsettings", gsettings.get(ctx.tier, schema, key))
 
 
 @implementation("select.screen_blank_value")

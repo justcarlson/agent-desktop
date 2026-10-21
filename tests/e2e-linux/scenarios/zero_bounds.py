@@ -26,7 +26,8 @@ def geometry_only(ctx, name, args):
                  if zero_axis(node.extents())]
         require(empty == after)
         ctx.after("atspi", after)
-        ctx.restored("atspi", after)
+        ctx.restored("atspi", [(node.path, node.role, node.extents()) for node in raw_nodes
+                               if zero_axis(node.extents())])
 
 
 @implementation("zero_bounds.files_container_raw_only")

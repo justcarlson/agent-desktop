@@ -122,6 +122,8 @@ def window_pixels_match_xwd(ctx: LegContext) -> None:
         after = _oracle_image(ctx, window)
         ctx.after("pixels.window_dimensions", (after.width, after.height))
         _matches(product, after)
+        final = _oracle_image(ctx, window)
+        ctx.restored("pixels.window_dimensions", (final.width, final.height))
     finally:
         apps.stop(app)
 
@@ -137,6 +139,7 @@ def stable_at_idle(ctx: LegContext) -> None:
         _matches(first, before)
         _matches(second, after)
         require(pixels.similar(first, second, tolerance=0.0), "two idle captures differ")
+        ctx.restored("pixels.idle", _signature(_oracle_image(ctx, window)))
     finally:
         apps.stop(app)
 
@@ -217,6 +220,8 @@ def covered_window_capture(ctx: LegContext) -> None:
                 restored = changed(lambda: _signature(_oracle_image(ctx).crop(region)),
                                    _signature(root_before), seconds=3)
                 ctx.restored("pixels.covered_root", restored)
+        final = _oracle_image(ctx, window)
+        ctx.restored("pixels.covered_dimensions", (final.width, final.height))
         apps.stop(app)
 
 
@@ -270,6 +275,8 @@ def display_capture(ctx: LegContext) -> None:
             product = decode(*capture_bytes(response))
             _matches(product, after)
             require(non_blank(product), "display capture decoded to a blank image")
+        final = _oracle_image(ctx)
+        ctx.restored("pixels.display_dimensions", (final.width, final.height))
     finally:
         apps.stop(app)
 

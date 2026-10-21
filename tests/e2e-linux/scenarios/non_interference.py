@@ -27,6 +27,8 @@ def _semantic_click(ctx: LegContext, app, window: str) -> None:
     finally:
         activate(one(tree, role=43, name="Undo"))
         ctx.restored("atspi.display", changed(lambda: display(tree), before_count))
+        ctx.restored("x11.pointer", x11.pointer(ctx.tier))
+        ctx.restored("x11.active_window", x11.active_window(ctx.tier))
 
 
 @implementation("non_interference.pointer_unchanged_by_semantic_click")
@@ -36,7 +38,6 @@ def pointer_unchanged_by_semantic_click(ctx: LegContext) -> None:
         window = window_of(app)
         pointer = x11.pointer(ctx.tier)
         _semantic_click(ctx, app, window)
-        ctx.after("x11.pointer", x11.pointer(ctx.tier))
         if x11.pointer(ctx.tier) != pointer:
             raise AssertionError("a headless semantic click moved the pointer")
     finally:
@@ -50,7 +51,6 @@ def active_window_unchanged_by_semantic_click(ctx: LegContext) -> None:
     try:
         active = x11.active_window(ctx.tier)
         _semantic_click(ctx, app, window_of(app))
-        ctx.after("x11.active_window", x11.active_window(ctx.tier))
         if x11.active_window(ctx.tier) != active:
             raise AssertionError("a headless semantic click changed the active window")
     finally:
@@ -86,4 +86,5 @@ def pointer_unchanged_by_value_write(ctx: LegContext) -> None:
     finally:
         gsettings.set(ctx.tier, schema, key, before)
         ctx.restored("gsettings.speed", changed(lambda: gsettings.get(ctx.tier, schema, key), before))
+        ctx.restored("x11.pointer", x11.pointer(ctx.tier))
         apps.stop(app)

@@ -91,6 +91,7 @@ def window_opened_quiet(ctx: LegContext) -> None:
     after = root_windows(ctx.tier, "gnome-text-editor")
     ctx.after("atspi.root_children", after)
     assert after == before
+    ctx.restored("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     stop(app)
 
 
@@ -117,6 +118,7 @@ def window_closed_quiet(ctx: LegContext) -> None:
     envelope = ctx.product(["wait", "--event", "window-closed", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
     ctx.after("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
+    ctx.restored("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     stop(app)
 
 
@@ -140,6 +142,7 @@ def app_launched_quiet(ctx: LegContext) -> None:
     envelope = ctx.product(["wait", "--event", "app-launched", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
     ctx.after("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.restored("proc.apps", _names(ctx.tier, "gnome-calculator"))
 
 
 @implementation("events.app_terminated_transition")
@@ -166,6 +169,7 @@ def app_terminated_quiet(ctx: LegContext) -> None:
     envelope = ctx.product(["wait", "--event", "app-terminated", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
     ctx.after("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.restored("proc.apps", _names(ctx.tier, "gnome-calculator"))
     stop(app)
 
 
@@ -261,6 +265,7 @@ def focus_changed_quiet(ctx: LegContext) -> None:
     envelope = ctx.product(["wait", "--event", "focus-changed", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
     ctx.after("x11.active_window", active_window(ctx.tier))
+    ctx.restored("x11.active_window", active_window(ctx.tier))
     stop(editor)
 
 
@@ -300,6 +305,7 @@ def open_and_close_inside_one_wait(ctx: LegContext) -> None:
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "window-closed", envelope.raw
     ctx.after("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
+    ctx.restored("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     stop(app)
 
 

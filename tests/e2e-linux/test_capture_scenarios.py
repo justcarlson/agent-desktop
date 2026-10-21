@@ -85,14 +85,13 @@ class CaptureScenarioTests(unittest.TestCase):
         self.assertEqual((result.width, result.height), (3, 3))
         self.assertEqual(result.rgb, image.rgb[33:42] + image.rgb[48:57] + image.rgb[63:72])
 
-    def test_window_capture_observations_without_final_reads_are_rejected(self):
+    def test_window_capture_observations_include_independent_final_reads(self):
         for name in ("window_pixels_match_xwd", "stable_at_idle", "covered_window_capture"):
             with self.subTest(leg=name), self.fixture("capture." + name) as (ctx, state):
                 getattr(capture, name)(ctx)
                 channel = {"window_pixels_match_xwd": "window_dimensions", "stable_at_idle": "idle",
                            "covered_window_capture": "covered_dimensions"}[name]
-                self.assertEqual(verdict.evaluate(ctx), [
-                    f"oracle pixels.{channel} needs exactly one restored read; got 0"])
+                self.assertEqual(verdict.evaluate(ctx), [])
                 self.assertGreaterEqual(state["raw_reads"], 2)
 
     def test_content_change_restores_document_and_fresh_xwd_pixels(self):
@@ -124,6 +123,5 @@ class CaptureScenarioTests(unittest.TestCase):
         for tier in ("x11-openbox", "x11-mutter"):
             with self.subTest(tier=tier), self.fixture("capture.display_capture", tier) as (ctx, state):
                 capture.display_capture(ctx)
-                self.assertEqual(verdict.evaluate(ctx), [
-                    "oracle pixels.display_dimensions needs exactly one restored read; got 0"])
+                self.assertEqual(verdict.evaluate(ctx), [])
                 self.assertGreaterEqual(state["raw_reads"], 2)

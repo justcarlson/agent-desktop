@@ -58,7 +58,10 @@ def gesture(ctx, toolkit, position):
             expected = before + 1 if toolkit == "qt" else (
                 "7" if before in ("", "0") else before + "7")
             observed = changed(read, expected)
-            ctx.after("applog" if toolkit == "qt" else "atspi.effect", observed)
+            if toolkit == "qt":
+                ctx.after("applog", toolkit_qt.log_state(ctx))
+            else:
+                ctx.after("atspi.effect", observed)
             if toolkit == "gtk4":
                 activate(one(tree, role=43, name="Undo"))
             if toolkit != "qt":
