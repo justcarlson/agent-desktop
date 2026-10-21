@@ -47,12 +47,12 @@ fn witness(y: i32, value: f64) -> Witness {
 #[test]
 fn viewport_motion_only_translates_the_ref_when_independent_scroll_evidence_agrees() {
     let mut entry = crate::tree::test_support::ref_entry("incrementor");
-    entry.geometry.bounds = Some(rect(bounds(781)));
+    entry.geometry.bounds = Some(Rect::from(bounds(781)));
     entry.geometry.bounds_space = Some(BoundsSpace::Window);
     let before = witness(781, 0.0);
     let after = witness(46, 735.0);
     let moved = translated(&entry, &before, &after).expect("the content coordinate is unchanged");
-    assert_eq!(moved.bounds, Some(rect(bounds(46))));
+    assert_eq!(moved.bounds, Some(Rect::from(bounds(46))));
     assert_eq!(moved.bounds_hash, moved.bounds.unwrap().bounds_hash());
     for mutation in 0..16 {
         let mut before = witness(781, 0.0);
