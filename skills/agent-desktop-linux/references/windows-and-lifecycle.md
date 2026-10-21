@@ -68,7 +68,9 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   `details.kind: exited` and `delivered_unverified`. The result carries `app`,
   `pid`, `process_instance` and, when one appeared, `window`.
 - Negative numbers need the `=` form: `move-window --x=-100 --y=-20`.
-- A launch reports a window the launch produced, never one that was open.
+- A no-argument attach returns an existing window of the running app. A new
+  launch or argument handoff reports only a newly opened window; if the handoff
+  opens a tab in an existing window, the result can have no `window`.
 - Chromium, Electron and Qt apps need flags to appear on the bus; pass them with
   `--arg`. See `references/troubleshooting.md`.
 
