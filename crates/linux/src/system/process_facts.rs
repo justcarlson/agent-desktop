@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use super::proc_stat::{self, ProcState};
+use super::proc_stat;
 
 const BOOT_ID_PREFIX_LEN: usize = 8;
 const CHROMIUM_NAMES: [&str; 5] = ["code", "chrome", "chromium", "electron", "google-chrome"];
@@ -32,15 +32,6 @@ pub(crate) enum Lookup {
     Found(ProcessFacts),
     Gone,
     Unreadable,
-}
-
-impl Lookup {
-    pub(crate) fn found(self) -> Option<ProcessFacts> {
-        match self {
-            Self::Found(facts) => Some(facts),
-            Self::Gone | Self::Unreadable => None,
-        }
-    }
 }
 
 pub(crate) const ESRCH: i32 = 3;
@@ -109,7 +100,7 @@ fn has_chromium_payload(exe: &Path) -> bool {
 /// The facts of a running process, or `None` when it has gone or could not be
 /// read.
 pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
-    lookup(pid).found()
+    inspect(pid, true).ok()
 }
 
 /// Looks one process up. A made-up start time would let a recycled id pass,
@@ -117,7 +108,7 @@ pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
 /// read that failed because the process has gone is `Gone`.
 pub(crate) fn lookup(pid: u32) -> Lookup {
     match inspect(pid, true) {
-        Ok((facts, _)) => Lookup::Found(facts),
+        Ok(facts) => Lookup::Found(facts),
         Err(lookup) => lookup,
     }
 }
@@ -125,10 +116,10 @@ pub(crate) fn lookup(pid: u32) -> Lookup {
 /// The facts a name is matched on: the same as [`read`] without the check for
 /// a Chromium payload next to the executable, which a name never needs.
 pub(crate) fn read_names(pid: u32) -> Option<ProcessFacts> {
-    inspect(pid, false).ok().map(|(facts, _)| facts)
+    inspect(pid, false).ok()
 }
 
-fn inspect(pid: u32, check_payload: bool) -> Result<(ProcessFacts, ProcState), Lookup> {
+fn inspect(pid: u32, check_payload: bool) -> Result<ProcessFacts, Lookup> {
     let stat = match proc_stat::read_stat(pid) {
         Ok(Some(stat)) => stat,
         Ok(None) => return Err(Lookup::Gone),
@@ -150,7 +141,7 @@ fn inspect(pid: u32, check_payload: bool) -> Result<(ProcessFacts, ProcState), L
         exe_basename,
         instance: process_instance(boot_id(), stat.start_time),
     };
-    Ok((facts, stat.state))
+    Ok(facts)
 }
 
 #[cfg(test)]

@@ -3,11 +3,11 @@ use agent_desktop_core::{AdapterError, Deadline, ProcessIdentity};
 
 use super::SharedBus;
 use super::liveness::{Liveness, liveness};
-use super::process_state_classify::{BLOCKED_LOOP_RULE, Probe, classify};
+use super::process_state_classify::Probe;
 use super::registry::read_registry;
 
-/// What `process_state` reads: the kernel's view of the process and one
-/// accessibility probe. Split out so the order of the reads can be tested.
+/// What `process_state` reads: kernel liveness and accessibility probes.
+/// Split out so the order of the reads can be tested.
 pub(super) trait Observer {
     fn liveness(&self) -> Liveness;
     fn probe(&self) -> Probe;
@@ -55,17 +55,28 @@ impl Observer for Live<'_> {
 /// The liveness answer. It never returns an error: a probe that cannot run
 /// leaves the kernel's answer standing, and the token is read again after
 /// the probes so a process id recycled meanwhile reads as exited.
-pub(super) fn observe(observer: &impl Observer, blocked_loop: bool) -> ProcessState {
+pub(super) fn observe(observer: &impl Observer) -> ProcessState {
     let first = observer.liveness();
     if first == Liveness::Gone {
-        return classify(Liveness::Gone, &[], blocked_loop);
+        return ProcessState::Exited { code: None };
     }
-    let mut probes = vec![observer.probe()];
-    let timed_out = probes[0] == Probe::TimedOut;
-    if blocked_loop && timed_out && first == Liveness::Alive && !observer.expired() {
-        probes.push(observer.probe());
+    let first_probe = observer.probe();
+    let second_probe =
+        if first == Liveness::Alive && first_probe == Probe::TimedOut && !observer.expired() {
+            Some(observer.probe())
+        } else {
+            None
+        };
+    let final_liveness = observer.liveness();
+    let answered = first_probe == Probe::Answered || second_probe == Some(Probe::Answered);
+    let blocked = first_probe == Probe::TimedOut && second_probe == Some(Probe::TimedOut);
+    match final_liveness {
+        Liveness::Gone => ProcessState::Exited { code: None },
+        Liveness::Stopped if answered => ProcessState::Running,
+        Liveness::Stopped => ProcessState::Unresponsive,
+        Liveness::Alive if !answered && blocked => ProcessState::Unresponsive,
+        Liveness::Alive => ProcessState::Running,
     }
-    classify(observer.liveness(), &probes, blocked_loop)
 }
 
 pub(crate) fn process_state(
@@ -79,7 +90,7 @@ pub(crate) fn process_state(
         instance: &process.instance,
         deadline,
     };
-    Ok(observe(&live, BLOCKED_LOOP_RULE))
+    Ok(observe(&live))
 }
 
 #[cfg(test)]

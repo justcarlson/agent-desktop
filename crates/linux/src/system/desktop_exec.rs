@@ -94,9 +94,7 @@ pub(crate) fn expand(exec: &str, context: &ExecContext<'_>) -> Vec<String> {
         }
     }
     let at = slot.unwrap_or(words.len());
-    let tail = words.split_off(at);
-    words.extend(context.arguments.iter().cloned());
-    words.extend(tail);
+    words.splice(at..at, context.arguments.iter().cloned());
     words
 }
 

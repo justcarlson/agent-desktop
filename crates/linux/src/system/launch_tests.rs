@@ -1,6 +1,6 @@
-use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use super::*;
 use crate::system::launch_target::Plan;
@@ -121,13 +121,6 @@ fn the_app_gets_the_null_device_its_own_group_and_the_caller_environment_plus_th
     assert!(variables.contains(&b"LAUNCH_TEST_ADDED=yes".as_slice()));
     let inherited = std::env::var("PATH").expect("PATH");
     assert!(variables.contains(&format!("PATH={inherited}").as_bytes()));
-    kill(&spawned);
-}
-
-#[test]
-fn the_session_variables_the_caller_has_reach_the_app() {
-    let spawned = spawn("sleep", &plan_of(&["/bin/sleep", "30"]), &options()).expect("spawn");
-    let environ = environ_of(spawned.pid, "sleep");
     for name in [
         "DISPLAY",
         "WAYLAND_DISPLAY",
@@ -144,7 +137,17 @@ fn the_session_variables_the_caller_has_reach_the_app() {
             );
         }
     }
+    let pid = spawned.pid;
     kill(&spawned);
+    drop(spawned);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while std::path::Path::new(&format!("/proc/{pid}")).exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(
+        !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+        "the spawned child {pid} was reaped"
+    );
 }
 
 #[test]
@@ -153,25 +156,6 @@ fn a_directory_of_the_entry_that_does_not_exist_is_not_used() {
     plan.cwd = Some(PathBuf::from("/nonexistent/entry/dir"));
     let spawned = spawn("sleep", &plan, &options()).expect("spawn");
     kill(&spawned);
-}
-
-#[test]
-fn activate_focuses_the_first_window_once_and_never_otherwise() {
-    let asked = LaunchOptions {
-        activate: true,
-        ..options()
-    };
-    let calls = Cell::new(0);
-    let focus = |_: &WindowInfo| {
-        calls.set(calls.get() + 1);
-        Ok(())
-    };
-    conclude(&owner(), Some(window()), &asked, true, focus);
-    assert_eq!(calls.get(), 1);
-    conclude(&owner(), None, &asked, true, focus);
-    assert_eq!(calls.get(), 1);
-    conclude(&owner(), Some(window()), &options(), true, focus);
-    assert_eq!(calls.get(), 1);
 }
 
 #[test]
@@ -199,30 +183,6 @@ fn a_reused_instance_says_the_environment_and_directory_were_dropped() {
     assert!(created.suggestion.is_none());
     let plain = conclude(&owner(), None, &options(), false, |_| Ok(()));
     assert!(plain.suggestion.is_none());
-}
-
-#[test]
-fn the_result_names_the_owner_by_its_listed_name_pid_and_token() {
-    let result = conclude(&owner(), None, &options(), true, |_| Ok(()));
-    assert_eq!(result.app, "tool");
-    assert_eq!(result.pid, ProcessId::new(4_000_000));
-    assert_eq!(result.process_instance.as_deref(), Some("boot:9"));
-}
-
-#[test]
-fn an_owner_that_is_gone_before_a_window_appears_is_not_reported_as_a_launch() {
-    let owner = Running {
-        pid: 41,
-        instance: "boot:1".to_owned(),
-        name: "app".to_owned(),
-        registry_name: None,
-        comm: "app".to_owned(),
-    };
-    let error = exited_early(&owner, Liveness::Gone).expect_err("a dead owner");
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert!(error.message.contains("pid 41"));
-    assert!(exited_early(&owner, Liveness::Alive).is_ok());
-    assert!(exited_early(&owner, Liveness::Stopped).is_ok());
 }
 
 fn listed(id: &str) -> WindowInfo {

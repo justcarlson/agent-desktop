@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::SystemTime;
 
@@ -108,22 +107,16 @@ type Stamps = Vec<Option<SystemTime>>;
 /// An index that is rebuilt only when a directory it was read from changes.
 pub(crate) struct AliasCache {
     state: Mutex<Option<(Stamps, Arc<AliasIndex>)>>,
-    builds: AtomicUsize,
 }
 
 impl AliasCache {
     pub(crate) const fn new() -> Self {
         Self {
             state: Mutex::new(None),
-            builds: AtomicUsize::new(0),
         }
     }
 
-    pub(crate) fn index(
-        &self,
-        dirs: &[PathBuf],
-        read: impl Fn(&[PathBuf]) -> Vec<(String, String)>,
-    ) -> Arc<AliasIndex> {
+    pub(crate) fn index(&self, dirs: &[PathBuf]) -> Arc<AliasIndex> {
         let now = stamps(dirs);
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some((seen, index)) = state.as_ref()
@@ -131,15 +124,9 @@ impl AliasCache {
         {
             return Arc::clone(index);
         }
-        self.builds.fetch_add(1, Ordering::Relaxed);
-        let index = Arc::new(AliasIndex::build(&read(dirs)));
+        let index = Arc::new(AliasIndex::build(&read_all(dirs)));
         *state = Some((now, Arc::clone(&index)));
         index
-    }
-
-    #[cfg(test)]
-    pub(crate) fn builds(&self) -> usize {
-        self.builds.load(Ordering::Relaxed)
     }
 }
 
@@ -147,7 +134,7 @@ static CACHE: AliasCache = AliasCache::new();
 
 /// The index of the entries the process environment names.
 pub(crate) fn current_index() -> Arc<AliasIndex> {
-    CACHE.index(&current_dirs(), read_all)
+    CACHE.index(&current_dirs())
 }
 
 #[cfg(test)]

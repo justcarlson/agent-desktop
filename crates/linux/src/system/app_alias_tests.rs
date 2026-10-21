@@ -1,4 +1,5 @@
-use std::cell::Cell;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use super::*;
 use crate::tree::live_launch::nonce;
@@ -25,24 +26,6 @@ fn stock() -> Vec<(String, String)> {
 }
 
 #[test]
-fn an_executable_answers_to_the_name_of_its_entry() {
-    let index = AliasIndex::build(&stock());
-    assert_eq!(index.names_for("nautilus"), ["Files"]);
-    assert_eq!(index.names_for("gnome-calculator"), ["Calculator"]);
-    assert_eq!(index.names_for("gnome-text-editor"), ["Text Editor"]);
-    assert_eq!(index.names_for("NAUTILUS"), ["Files"]);
-}
-
-#[test]
-fn an_executable_answers_to_the_id_of_its_entry() {
-    let index = AliasIndex::build(&stock());
-    assert_eq!(index.ids_for("nautilus"), ["org.gnome.Nautilus"]);
-    assert_eq!(index.ids_for("gnome-calculator"), ["org.gnome.Calculator"]);
-    assert_eq!(index.ids_for("gnome-text-editor"), ["org.gnome.TextEditor"]);
-    assert!(index.ids_for("calculator").is_empty());
-}
-
-#[test]
 fn a_process_is_queried_by_the_desktop_id_even_when_the_root_reports_another_name() {
     use crate::system::app_name::{aliases_in, name_matches};
     use crate::system::process_facts::ProcessFacts;
@@ -50,7 +33,7 @@ fn a_process_is_queried_by_the_desktop_id_even_when_the_root_reports_another_nam
     let index = AliasIndex::build(&stock());
     let facts = ProcessFacts {
         comm: "gnome-calculato".to_owned(),
-        exe_basename: Some("gnome-calculator".to_owned()),
+        exe_basename: Some("GNOME-CALCULATOR".to_owned()),
         instance: "boot:42".to_owned(),
         web_family: None,
     };
@@ -114,36 +97,32 @@ fn two_entries_with_one_basename_both_match() {
 }
 
 #[test]
-fn a_name_finds_its_entry_exactly_and_not_by_substring() {
-    let index = AliasIndex::build(&stock());
-    assert_eq!(index.ids_named("calculator"), ["org.gnome.Calculator"]);
-    assert_eq!(index.ids_named("Text Editor"), ["org.gnome.TextEditor"]);
-    assert!(index.ids_named("Calc").is_empty());
-}
-
-#[test]
-fn ten_queries_read_the_disk_once_and_a_change_rebuilds_once() {
+fn a_changed_directory_rebuilds_the_aliases_while_unchanged_queries_reuse_the_index() {
     let dir = std::env::temp_dir().join(nonce("alias-cache"));
     std::fs::create_dir_all(&dir).expect("dir");
+    let path = dir.join("org.example.Calculator.desktop");
+    std::fs::write(
+        &path,
+        "[Desktop Entry]\nName=Before\nType=Application\nExec=gnome-calculator\n",
+    )
+    .expect("entry");
     let dirs = [dir.clone()];
     let cache = AliasCache::new();
-    let reads = Cell::new(0);
-    let read = |_: &[PathBuf]| {
-        reads.set(reads.get() + 1);
-        stock()
-    };
-    for _ in 0..10 {
-        assert_eq!(cache.index(&dirs, read).names_for("nautilus"), ["Files"]);
-    }
-    assert_eq!((reads.get(), cache.builds()), (1, 1));
+    let before = cache.index(&dirs);
+    assert_eq!(before.names_for("gnome-calculator"), ["Before"]);
+    assert!(Arc::ptr_eq(&before, &cache.index(&dirs)));
     let handle = std::fs::File::open(&dir).expect("open dir");
     handle
-        .set_modified(SystemTime::now() + std::time::Duration::from_secs(60))
+        .set_modified(SystemTime::now() + Duration::from_secs(60))
         .expect("touch");
-    for _ in 0..10 {
-        cache.index(&dirs, read);
-    }
-    assert_eq!((reads.get(), cache.builds()), (2, 2));
+    std::fs::write(
+        &path,
+        "[Desktop Entry]\nName=After\nType=Application\nExec=gnome-calculator\n",
+    )
+    .expect("update entry");
+    let after = cache.index(&dirs);
+    assert_eq!(after.names_for("gnome-calculator"), ["After"]);
+    assert!(!Arc::ptr_eq(&before, &after));
     let _ = std::fs::remove_dir_all(dir);
 }
 

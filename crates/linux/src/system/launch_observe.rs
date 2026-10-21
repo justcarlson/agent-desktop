@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::os::unix::process::ExitStatusExt;
-use std::process::Child;
+use std::process::{Child, ExitStatus};
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId};
@@ -13,23 +13,10 @@ pub(super) const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const POLL_LIMIT: Duration = Duration::from_millis(250);
 const EXIT_GRACE: Duration = Duration::from_millis(1_000);
 
-/// How a launched process ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Exit {
-    Code(i32),
-    Signal(i32),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ChildState {
-    Running,
-    Exited(Exit),
-}
-
 /// What one look at the registry shows about a launch.
 pub(crate) struct Sample<'a> {
     pub(crate) child_pid: u32,
-    pub(crate) child: ChildState,
+    pub(crate) child: Option<ExitStatus>,
     pub(crate) apps: &'a [Running],
     pub(crate) before: &'a HashSet<u32>,
     pub(crate) keys: &'a [String],
@@ -41,7 +28,7 @@ pub(crate) enum Step {
     Wait,
     Owner(Running),
     Ambiguous(Vec<u32>),
-    Failed(Exit),
+    Failed(ExitStatus),
 }
 
 fn pick(mut found: Vec<&Running>) -> Option<Step> {
@@ -71,18 +58,27 @@ pub(crate) fn step(sample: &Sample<'_>) -> Step {
         .collect();
     let own = sample.apps.iter().find(|app| app.pid == sample.child_pid);
     match sample.child {
-        ChildState::Running => own
+        None => own
             .map(|app| Step::Owner(app.clone()))
             .or_else(|| pick(new))
             .unwrap_or(Step::Wait),
-        ChildState::Exited(exit @ Exit::Signal(_)) => Step::Failed(exit),
-        ChildState::Exited(exit @ Exit::Code(code)) => pick(new)
-            .or_else(|| if code == 0 { pick(candidates) } else { None })
-            .unwrap_or(if code != 0 || sample.settled {
-                Step::Failed(exit)
-            } else {
-                Step::Wait
-            }),
+        Some(status) if status.code().is_none() => Step::Failed(status),
+        Some(status) => {
+            let code = status.code();
+            pick(new)
+                .or_else(|| {
+                    if code == Some(0) {
+                        pick(candidates)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(if code.is_some_and(|code| code != 0) || sample.settled {
+                    Step::Failed(status)
+                } else {
+                    Step::Wait
+                })
+        }
     }
 }
 
@@ -118,18 +114,10 @@ impl Spawned {
         }
     }
 
-    fn state(&mut self) -> ChildState {
-        let status = self
-            .child
+    fn state(&mut self) -> Option<ExitStatus> {
+        self.child
             .as_mut()
-            .and_then(|child| child.try_wait().ok().flatten());
-        match status {
-            None => ChildState::Running,
-            Some(status) => ChildState::Exited(match status.code() {
-                Some(code) => Exit::Code(code),
-                None => Exit::Signal(status.signal().unwrap_or_default()),
-            }),
-        }
+            .and_then(|child| child.try_wait().ok().flatten())
     }
 }
 
@@ -145,22 +133,19 @@ impl Drop for Spawned {
     }
 }
 
-/// How a wait for the owner of a launch ended.
-pub(crate) enum Found {
-    Owner(Running),
-    NotOnBus,
-}
-
-fn failed(exit: Exit, identifier: &str) -> AdapterError {
-    let (what, detail) = match exit {
-        Exit::Code(code) => (
+fn failed(status: ExitStatus, identifier: &str) -> AdapterError {
+    let (what, detail) = match status.code() {
+        Some(code) => (
             format!("'{identifier}' exited with status {code} and no application took its place"),
             serde_json::json!({ "kind": "exited", "status": code }),
         ),
-        Exit::Signal(signal) => (
-            format!("'{identifier}' was killed by signal {signal} before it started"),
-            serde_json::json!({ "kind": "crashed", "signal": signal }),
-        ),
+        None => {
+            let signal = status.signal().unwrap_or_default();
+            (
+                format!("'{identifier}' was killed by signal {signal} before it started"),
+                serde_json::json!({ "kind": "crashed", "signal": signal }),
+            )
+        }
     };
     AdapterError::new(ErrorCode::ActionFailed, what)
         .with_details(detail)
@@ -195,13 +180,13 @@ pub(crate) fn find_owner(
     keys: &[String],
     before: &HashSet<u32>,
     deadline: Deadline,
-) -> Result<Found, AdapterError> {
+) -> Result<Option<Running>, AdapterError> {
     let identifier = keys.first().map_or("the application", String::as_str);
     let mut interval = POLL_INTERVAL;
     let mut exited_at: Option<Instant> = None;
     loop {
         let child = spawned.state();
-        if matches!(child, ChildState::Exited(_)) {
+        if child.is_some() {
             exited_at.get_or_insert_with(Instant::now);
         }
         let expired = deadline.is_expired();
@@ -221,10 +206,10 @@ pub(crate) fn find_owner(
             settled,
         };
         match step(&sample) {
-            Step::Owner(owner) => return Ok(Found::Owner(owner)),
+            Step::Owner(owner) => return Ok(Some(owner)),
             Step::Ambiguous(pids) => return Err(ambiguous(&pids, identifier)),
-            Step::Failed(exit) => return Err(failed(exit, identifier)),
-            Step::Wait if expired => return Ok(Found::NotOnBus),
+            Step::Failed(status) => return Err(failed(status, identifier)),
+            Step::Wait if expired => return Ok(None),
             Step::Wait => {}
         }
         std::thread::sleep(interval.min(deadline.remaining()));

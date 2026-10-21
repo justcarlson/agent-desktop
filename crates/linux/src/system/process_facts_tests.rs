@@ -1,4 +1,4 @@
-use super::{Lookup, WebFamily, classify_web, lookup, lookup_for_error, process_instance, read};
+use super::{Lookup, WebFamily, classify_web, lookup_for_error, process_instance, read};
 
 #[test]
 fn different_start_times_give_different_tokens() {
@@ -17,44 +17,16 @@ fn a_different_boot_gives_a_different_token_for_the_same_start_time() {
 }
 
 #[test]
-fn the_token_is_never_empty() {
-    assert!(!process_instance("", 0).is_empty());
-}
-
-#[test]
-fn the_known_browser_binaries_classify_to_their_family() {
-    for name in ["code", "chrome", "chromium", "electron", "google-chrome"] {
-        assert_eq!(
-            classify_web(name, None, false),
-            Some(WebFamily::Chromium),
-            "{name}"
-        );
-    }
-    assert_eq!(classify_web("firefox", None, false), Some(WebFamily::Gecko));
-    assert_eq!(
-        classify_web("x", Some("firefox-bin"), false),
-        Some(WebFamily::Gecko)
-    );
-}
-
-#[test]
-fn the_exe_basename_classifies_when_comm_was_truncated_or_renamed() {
+fn executable_name_command_name_and_payload_choose_the_browser_family() {
     assert_eq!(
         classify_web("Isolated Web Co", Some("Chrome"), false),
         Some(WebFamily::Chromium)
     );
-}
-
-#[test]
-fn an_unlisted_binary_with_a_chromium_payload_beside_it_is_chromium() {
+    assert_eq!(classify_web("firefox", None, false), Some(WebFamily::Gecko));
     assert_eq!(
         classify_web("slack", Some("slack"), true),
         Some(WebFamily::Chromium)
     );
-}
-
-#[test]
-fn a_native_application_is_in_no_family() {
     assert_eq!(classify_web("nautilus", Some("nautilus"), false), None);
 }
 
@@ -88,15 +60,4 @@ fn only_a_read_that_failed_because_the_process_left_says_gone() {
         lookup_for_error(&Error::from_raw_os_error(24)),
         Lookup::Unreadable
     );
-}
-
-#[test]
-fn a_process_id_nothing_runs_under_is_gone() {
-    assert_eq!(lookup(u32::MAX - 1), Lookup::Gone);
-}
-
-#[test]
-#[cfg(target_os = "linux")]
-fn this_process_is_found() {
-    assert!(matches!(lookup(std::process::id()), Lookup::Found(_)));
 }

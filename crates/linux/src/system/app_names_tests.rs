@@ -3,7 +3,7 @@ use super::AppNames;
 fn store(name: &str) -> (AppNames, std::path::PathBuf) {
     let dir = std::env::temp_dir().join(format!("ad-names-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    (AppNames::at(dir.clone()), dir)
+    (AppNames { dir: dir.clone() }, dir)
 }
 
 #[test]

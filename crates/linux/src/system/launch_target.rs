@@ -8,14 +8,6 @@ use super::desktop_entry::{DesktopEntry, parse};
 use super::desktop_exec::{ExecContext, expand, program_word};
 use super::desktop_lookup::{absolute_dirs, current_dirs, find, is_trusted};
 
-/// What a launch identifier names.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Target {
-    Path(PathBuf),
-    Command(String),
-    Entry(String),
-}
-
 /// The directories an identifier is looked up in.
 pub(crate) struct Search {
     pub(crate) data_dirs: Vec<PathBuf>,
@@ -65,70 +57,6 @@ pub(crate) fn find_on_path(name: &str, dirs: &[PathBuf]) -> Option<PathBuf> {
     dirs.iter()
         .map(|dir| dir.join(name))
         .find(|file| is_executable(file))
-}
-
-fn classify_path(identifier: &str, search: &Search) -> Result<Target, AdapterError> {
-    let file = PathBuf::from(identifier);
-    if let Some(id) = file
-        .file_name()
-        .and_then(|name| name.to_str())
-        .and_then(|name| name.strip_suffix(".desktop"))
-    {
-        return if is_trusted(&file, &search.data_dirs) {
-            Ok(Target::Entry(id.to_owned()))
-        } else {
-            Err(invalid(format!(
-                "'{identifier}' is a desktop file outside the XDG data directories and is not launched"
-            )))
-        };
-    }
-    if file.is_file() {
-        Ok(Target::Path(file))
-    } else {
-        Err(not_found(identifier))
-    }
-}
-
-/// Names the target of an identifier. The order is: an absolute path, a
-/// relative path (refused), an installed desktop id, an executable on `PATH`,
-/// and last the exact `Name` of one desktop entry, ignoring case. Nothing is
-/// guessed from part of a name, and a `Name` several entries share is
-/// ambiguous.
-pub(crate) fn classify(
-    identifier: &str,
-    search: &Search,
-    index: &AliasIndex,
-) -> Result<Target, AdapterError> {
-    if identifier.trim().is_empty() || identifier.contains('\0') {
-        return Err(invalid(
-            "The launch identifier is empty or holds a NUL".to_owned(),
-        ));
-    }
-    if identifier.starts_with('/') {
-        return classify_path(identifier, search);
-    }
-    if identifier.contains('/') {
-        return Err(invalid(format!(
-            "'{identifier}' is a relative path; pass an absolute path, a command name or a desktop id"
-        )));
-    }
-    if let Some(file) = find(identifier, &search.data_dirs) {
-        let id = file.file_stem().and_then(|stem| stem.to_str());
-        return Ok(Target::Entry(id.unwrap_or(identifier).to_owned()));
-    }
-    if find_on_path(identifier, &search.path_dirs).is_some() {
-        return Ok(Target::Command(identifier.to_owned()));
-    }
-    let mut ids = index.ids_named(identifier);
-    match ids.len() {
-        0 => Err(not_found(identifier)),
-        1 => Ok(Target::Entry(ids.remove(0))),
-        _ => Err(AdapterError::ambiguous_target(format!(
-            "'{identifier}' is the name of several desktop entries: {}",
-            ids.join(", ")
-        ))
-        .with_disposition(DeliverySemantics::not_delivered())),
-    }
 }
 
 /// Whether the entry can be started: it must be a visible application with a
@@ -220,33 +148,76 @@ fn entry_plan(id: &str, arguments: &[String], search: &Search) -> Result<Plan, A
     })
 }
 
-/// The command line and the identity keys of a target.
-pub(crate) fn plan(
-    target: &Target,
+fn direct_plan(program: String, arguments: &[String], keys: Vec<String>) -> Plan {
+    Plan {
+        argv: std::iter::once(program)
+            .chain(arguments.iter().cloned())
+            .collect(),
+        cwd: None,
+        keys,
+    }
+}
+
+/// Resolve an identifier directly to the command and identity keys to launch.
+/// The order is: absolute path, relative path refusal, installed desktop id,
+/// executable on `PATH`, then an exact case-insensitive desktop `Name`.
+pub(crate) fn resolve(
+    identifier: &str,
     arguments: &[String],
     search: &Search,
+    index: &AliasIndex,
 ) -> Result<Plan, AdapterError> {
-    match target {
-        Target::Entry(id) => entry_plan(id, arguments, search),
-        Target::Path(file) => Ok(Plan {
-            argv: std::iter::once(file.to_string_lossy().into_owned())
-                .chain(arguments.iter().cloned())
-                .collect(),
-            cwd: None,
-            keys: basename_lower(&file.to_string_lossy())
-                .into_iter()
-                .collect(),
-        }),
-        Target::Command(name) => {
-            let program = resolve_program(name, &search.path_dirs)?;
-            Ok(Plan {
-                argv: std::iter::once(program)
-                    .chain(arguments.iter().cloned())
-                    .collect(),
-                cwd: None,
-                keys: vec![name.to_lowercase()],
-            })
+    if identifier.trim().is_empty() || identifier.contains('\0') {
+        return Err(invalid(
+            "The launch identifier is empty or holds a NUL".to_owned(),
+        ));
+    }
+    if identifier.starts_with('/') {
+        let file = PathBuf::from(identifier);
+        if let Some(id) = file
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.strip_suffix(".desktop"))
+        {
+            if !is_trusted(&file, &search.data_dirs) {
+                return Err(invalid(format!(
+                    "'{identifier}' is a desktop file outside the XDG data directories and is not launched"
+                )));
+            }
+            return entry_plan(id, arguments, search);
         }
+        if file.is_file() {
+            let keys = basename_lower(identifier).into_iter().collect();
+            return Ok(direct_plan(identifier.to_owned(), arguments, keys));
+        }
+        return Err(not_found(identifier));
+    }
+    if identifier.contains('/') {
+        return Err(invalid(format!(
+            "'{identifier}' is a relative path; pass an absolute path, a command name or a desktop id"
+        )));
+    }
+    if let Some(file) = find(identifier, &search.data_dirs) {
+        let id = file.file_stem().and_then(|stem| stem.to_str());
+        return entry_plan(id.unwrap_or(identifier), arguments, search);
+    }
+    if find_on_path(identifier, &search.path_dirs).is_some() {
+        let program = resolve_program(identifier, &search.path_dirs)?;
+        return Ok(direct_plan(
+            program,
+            arguments,
+            vec![identifier.to_lowercase()],
+        ));
+    }
+    let mut ids = index.ids_named(identifier);
+    match ids.len() {
+        0 => Err(not_found(identifier)),
+        1 => entry_plan(&ids.remove(0), arguments, search),
+        _ => Err(AdapterError::ambiguous_target(format!(
+            "'{identifier}' is the name of several desktop entries: {}",
+            ids.join(", ")
+        ))
+        .with_disposition(DeliverySemantics::not_delivered())),
     }
 }
 

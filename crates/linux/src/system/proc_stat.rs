@@ -8,11 +8,9 @@ const FIELDS_BEFORE_STATE: usize = 3;
 pub(crate) enum ProcState {
     Running,
     Sleeping,
-    DiskSleep,
     Stopped,
     Zombie,
     Dead,
-    Idle,
     Other,
 }
 
@@ -21,11 +19,9 @@ impl ProcState {
         match letter {
             "R" => Self::Running,
             "S" => Self::Sleeping,
-            "D" => Self::DiskSleep,
             "T" | "t" => Self::Stopped,
             "Z" => Self::Zombie,
             "X" | "x" => Self::Dead,
-            "I" => Self::Idle,
             _ => Self::Other,
         }
     }

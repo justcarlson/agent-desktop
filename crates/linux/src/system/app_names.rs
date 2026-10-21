@@ -14,11 +14,7 @@ pub(super) struct AppNames {
 
 impl AppNames {
     pub(super) fn in_runtime_dir() -> Option<Self> {
-        runtime_subdir(NAMES_DIR).map(Self::at)
-    }
-
-    pub(super) fn at(dir: PathBuf) -> Self {
-        Self { dir }
+        runtime_subdir(NAMES_DIR).map(|dir| Self { dir })
     }
 
     fn path(&self, bus_name: &str, instance: &str) -> PathBuf {
