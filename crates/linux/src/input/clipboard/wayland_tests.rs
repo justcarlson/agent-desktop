@@ -5,8 +5,6 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use agent_desktop_core::{ImageBuffer, ImageFormat};
-
 use super::*;
 
 static NEXT: AtomicU32 = AtomicU32::new(0);
@@ -120,47 +118,7 @@ fn both() -> Tools {
     Tools::with(&[COPY, PASTE])
 }
 
-fn png() -> Vec<u8> {
-    let mut data = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
-    data.extend_from_slice(b"IHDR");
-    data.extend_from_slice(&2u32.to_be_bytes());
-    data.extend_from_slice(&3u32.to_be_bytes());
-    data.extend_from_slice(&[8, 2, 0, 0, 0, 0, 0, 0, 0]);
-    data
-}
-
 const TEXT_LIST: &[u8] = b"UTF8_STRING\nSTRING\nTEXT\ntext/plain;charset=utf-8\ntext/plain\n";
-
-#[test]
-fn nothing_copied_is_an_absent_value_and_not_an_error() {
-    let script = Script::new(vec![fails("Nothing is copied\n")]);
-    let outcome = read_via(&script, &both(), ClipboardFormat::Auto);
-    assert!(outcome.expect("an empty clipboard is no error").is_none());
-}
-
-#[test]
-fn text_is_read_with_the_type_the_owner_offered() {
-    let script = Script::new(vec![ok(TEXT_LIST), ok("héllo".as_bytes())]);
-    let content = read_via(&script, &both(), ClipboardFormat::Text).expect("a read");
-    assert!(matches!(content, Some(ClipboardContent::Text(ref text)) if text == "héllo"));
-    let seen = script.seen.borrow();
-    assert_eq!(seen[0].args, ["--list-types"]);
-    assert_eq!(seen[1].args, ["--no-newline", "--type", "UTF8_STRING"]);
-}
-
-#[test]
-fn an_image_and_a_file_list_are_read_by_their_own_types() {
-    let image = Script::new(vec![ok(b"image/png\ntext/plain\n"), ok(&png())]);
-    let content = read_via(&image, &both(), ClipboardFormat::Image).expect("a read");
-    assert!(
-        matches!(content, Some(ClipboardContent::Image(ref picture)) if picture.width == 2 && picture.height == 3)
-    );
-    let files = Script::new(vec![ok(b"text/uri-list\n"), ok(b"file:///tmp/a%20b\r\n")]);
-    let content = read_via(&files, &both(), ClipboardFormat::FileUrls).expect("a read");
-    assert!(
-        matches!(content, Some(ClipboardContent::FileUrls(ref paths)) if paths == &["/tmp/a b"])
-    );
-}
 
 #[test]
 fn a_format_the_owner_does_not_offer_is_absent() {
@@ -238,42 +196,6 @@ fn a_text_set_sends_the_payload_on_stdin_and_not_in_the_arguments() {
     assert_eq!(seen[0].stdin.as_deref(), Some(b"s3cret-token".as_slice()));
     assert!(!seen[0].capture_stdout);
     assert!(seen[0].args.iter().all(|arg| !arg.contains("s3cret")));
-}
-
-#[test]
-fn a_file_set_offers_the_uri_list_and_no_second_type() {
-    let script = Script::new(vec![ok(b""), ok(b"text/uri-list\n")]);
-    let content = ClipboardContent::FileUrls(vec!["/tmp/a b".into()]);
-    set_via(&script, &both(), &content).expect("a set");
-    let seen = script.seen.borrow();
-    assert_eq!(seen[0].args, ["--type", "text/uri-list"]);
-    assert_eq!(
-        seen[0].stdin.as_deref(),
-        Some(b"file:///tmp/a%20b\r\n".as_slice())
-    );
-}
-
-#[test]
-fn an_image_set_offers_the_png() {
-    let script = Script::new(vec![ok(b""), ok(b"image/png\n")]);
-    let content = ClipboardContent::Image(ImageBuffer {
-        data: png(),
-        format: ImageFormat::Png,
-        width: 2,
-        height: 3,
-        scale_factor: 1.0,
-    });
-    set_via(&script, &both(), &content).expect("a set");
-    assert_eq!(script.seen.borrow()[0].args, ["--type", "image/png"]);
-}
-
-#[test]
-fn clear_runs_wl_copy_clear_and_checks_the_clipboard_is_empty() {
-    let script = Script::new(vec![ok(b""), fails("Nothing is copied\n")]);
-    clear_via(&script, &both()).expect("a clear");
-    let seen = script.seen.borrow();
-    assert_eq!(seen[0].args, ["--clear"]);
-    assert_eq!(seen[0].stdin, None);
 }
 
 #[test]

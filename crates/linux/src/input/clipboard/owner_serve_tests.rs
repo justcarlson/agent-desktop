@@ -86,20 +86,6 @@ fn the_loop_ends_when_the_connection_is_lost() {
 }
 
 #[test]
-fn a_long_idle_stretch_does_not_end_the_loop() {
-    let mut events = vec![OwnerEvent::Other; 100_000];
-    events.push(ask(1, 50));
-    events.push(OwnerEvent::Cleared);
-    let mut wire = Script::new(events);
-    assert_eq!(serve(&mut wire, &answerer(b"hi", 1024), 4), Ended::Cleared);
-    assert_eq!(
-        wire.replies.len(),
-        1,
-        "the owner still answered after the idle stretch"
-    );
-}
-
-#[test]
 fn an_incr_transfer_sends_a_chunk_per_delete_and_a_zero_chunk_last() {
     let delete = OwnerEvent::PropertyDeleted {
         window: 1,

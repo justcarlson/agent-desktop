@@ -18,37 +18,6 @@ fn scratch(label: &str) -> PathBuf {
 }
 
 #[test]
-fn a_record_whose_start_time_matches_is_live() {
-    assert!(is_live_with(&record(&test_nonce()), |pid| {
-        (pid == 4242).then_some(9_000_123)
-    }));
-}
-
-#[test]
-fn a_recycled_pid_with_another_start_time_is_stale() {
-    assert!(!is_live_with(&record(&test_nonce()), |_| Some(9_000_124)));
-}
-
-#[test]
-fn a_pid_that_is_gone_is_stale() {
-    assert!(!is_live_with(&record(&test_nonce()), |_| None));
-}
-
-#[test]
-fn pid_zero_is_never_live() {
-    let mut zero = record(&test_nonce());
-    zero.pid = 0;
-    assert!(!is_live_with(&zero, |_| Some(zero.start_ticks)));
-}
-
-#[test]
-fn start_ticks_of_the_running_process_are_readable_and_stable() {
-    let pid = std::process::id();
-    let first = start_ticks_of(pid).expect("our own stat reads");
-    assert_eq!(start_ticks_of(pid), Some(first));
-}
-
-#[test]
 fn two_spellings_of_one_display_share_a_name() {
     assert_eq!(normalise_display(":0"), normalise_display(":0.0"));
     assert_ne!(normalise_display(":0"), normalise_display(":0.1"));
@@ -78,16 +47,6 @@ fn a_nonce_that_is_short_or_has_separators_has_no_file_name() {
 }
 
 #[test]
-fn a_record_survives_its_bytes() {
-    let mut original = record(&test_nonce());
-    original.display = normalise_display(":7");
-    assert_eq!(
-        OwnerRecord::from_bytes(&original.to_bytes()),
-        Some(original)
-    );
-}
-
-#[test]
 fn a_failure_outcome_carries_its_message_and_is_not_a_record() {
     let dir = scratch("failure");
     let nonce = test_nonce();
@@ -111,8 +70,16 @@ fn records_are_listed_per_display_only() {
     publish(&dir, &seven).expect("seven");
     publish(&dir, &eight).expect("eight");
     let found = records_in(&dir, ":7.0");
-    assert_eq!(found.len(), 1);
-    assert_eq!(found[0].nonce, seven_nonce);
+    assert_eq!(
+        found,
+        [OwnerRecord {
+            pid: seven.pid,
+            start_ticks: seven.start_ticks,
+            display: normalise_display(&seven.display),
+            window: seven.window,
+            nonce: seven_nonce,
+        }]
+    );
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 

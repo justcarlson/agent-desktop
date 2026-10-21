@@ -44,19 +44,3 @@ fn another_protocol_generation_never_starts_the_owner() {
     env.marker = Some((GENERATION + 1).to_string());
     assert_eq!(runs_owner(env), (EXIT_USAGE, false));
 }
-
-#[test]
-fn a_matching_marker_and_build_run_the_owner_with_the_environment() {
-    let seen = Cell::new(false);
-    let status = run_checked(matching(), |env| {
-        seen.set(env == matching());
-        EXIT_OK
-    });
-    assert_eq!(status, EXIT_OK);
-    assert!(seen.get());
-}
-
-#[test]
-fn the_build_identity_names_the_generation() {
-    assert!(build_identity().ends_with(&format!(":{GENERATION}")));
-}

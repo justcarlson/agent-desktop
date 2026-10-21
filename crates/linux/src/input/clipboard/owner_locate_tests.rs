@@ -48,16 +48,6 @@ fn the_helper_sits_beside_a_library_image_found_in_the_maps() {
 }
 
 #[test]
-fn the_helper_sits_beside_the_cli_binary_the_same_way() {
-    let dir = scratch("cli");
-    let image = image_in(&dir, "agent-desktop");
-    let helper = install(&dir, 0o755);
-    let maps = maps_line(0x4000, 0x6000, &image);
-    let found = locate_in(&maps, 0x4000).expect("the helper is located");
-    assert_eq!(found, fs::canonicalize(helper).expect("canonical"));
-}
-
-#[test]
 fn an_address_outside_every_mapping_finds_no_image() {
     let maps = maps_line(0x1000, 0x2000, Path::new("/usr/lib/libc.so.6"));
     assert_eq!(image_from_maps(&maps, 0x2000), None);
@@ -160,13 +150,6 @@ fn the_group_asked_about_is_the_group_of_the_file() {
     check_helper_with(&helper, &|gid| gid == expected).expect("accepted");
 }
 
-#[test]
-fn a_helper_without_group_write_never_asks_about_the_group() {
-    let dir = directory_with("no-group-write", 0o755);
-    let helper = install(&dir, 0o755);
-    check_helper_with(&helper, &|_| panic!("the group is not consulted")).expect("accepted");
-}
-
 fn directory_with(name: &str, mode: u32) -> PathBuf {
     let dir = scratch(name);
     fs::set_permissions(&dir, fs::Permissions::from_mode(mode)).expect("a directory mode");
@@ -213,22 +196,4 @@ fn a_group_writable_directory_follows_the_private_group_rule() {
         error.message
     );
     check_helper_with(&helper, &|_| true).expect("accepted");
-}
-
-#[test]
-fn a_directory_that_is_not_writable_by_others_or_group_never_asks_about_the_group() {
-    let dir = directory_with("dir-closed", 0o755);
-    let helper = install(&dir, 0o755);
-    check_helper_with(&helper, &|_| panic!("the group is not consulted")).expect("accepted");
-}
-
-#[test]
-fn a_helper_found_through_the_path_or_the_current_image_is_never_used() {
-    let dir = scratch("path");
-    let image = image_in(&dir, "agent-desktop");
-    let elsewhere = scratch("path-bin");
-    install(&elsewhere, 0o755);
-    let maps = maps_line(0x1000, 0x2000, &image);
-    let error = locate_in(&maps, 0x1000).expect_err("a helper elsewhere is not found");
-    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
 }

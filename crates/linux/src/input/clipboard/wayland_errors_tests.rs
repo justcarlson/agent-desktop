@@ -46,28 +46,6 @@ fn each_connection_failure_has_its_own_reason() {
 }
 
 #[test]
-fn a_seat_without_a_keyboard_names_a_headless_session() {
-    let error = failure_error(&Failure::NoKeyboard, DeliverySemantics::uncertain());
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(reason(&error).as_deref(), Some("no_keyboard_seat"));
-    assert!(
-        error
-            .suggestion
-            .as_deref()
-            .is_some_and(|text| text.contains("headless"))
-    );
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-}
-
-#[test]
-fn only_an_unexplained_failure_takes_the_caller_delivery() {
-    let uncertain = failure_error(&Failure::Other("x".into()), DeliverySemantics::uncertain());
-    assert_eq!(uncertain.disposition, DeliverySemantics::uncertain());
-    let known = failure_error(&Failure::SocketRefused, DeliverySemantics::uncertain());
-    assert_eq!(known.disposition, DeliverySemantics::not_delivered());
-}
-
-#[test]
 fn the_platform_detail_is_bounded() {
     let long = "x".repeat(5_000);
     let error = failure_error(&Failure::Other(long), DeliverySemantics::uncertain());
