@@ -3,35 +3,10 @@ use std::collections::BTreeMap;
 use agent_desktop_core::NodeDescriptor;
 
 use super::descriptors as describe_with;
-use crate::tree::name_evidence::name_fields as resolve_names;
 use crate::tree::placeholder::read_placeholder;
 use crate::tree::role_numbers::{CHECK_BOX, ENTRY, PUSH_BUTTON, TEXT};
 use crate::tree::test_support::attributes;
-use crate::tree::{Field, LabelOutcome, NodeProperties};
-
-fn descriptors(
-    role: &Field<u32>,
-    role_name: &Field<String>,
-    properties: &NodeProperties,
-    attributes: &Field<BTreeMap<String, String>>,
-    in_web_document: bool,
-) -> NodeDescriptor {
-    let placeholder = read_placeholder(properties, role, attributes);
-    describe_with(role, role_name, &placeholder, attributes, in_web_document)
-}
-
-fn name_fields(
-    properties: &NodeProperties,
-    role: &Field<u32>,
-    attributes: &Field<BTreeMap<String, String>>,
-    label: &LabelOutcome,
-) -> (
-    agent_desktop_core::LocatorField<String>,
-    agent_desktop_core::LocatorField<String>,
-) {
-    let placeholder = read_placeholder(properties, role, attributes);
-    resolve_names(properties, role, &placeholder, label)
-}
+use crate::tree::{Field, NodeProperties};
 
 fn properties(name: &str, description: &str) -> NodeProperties {
     NodeProperties {
@@ -48,21 +23,23 @@ fn describe(
     attrs: &Field<BTreeMap<String, String>>,
     in_web_document: bool,
 ) -> NodeDescriptor {
-    descriptors(
+    let props = properties("", "");
+    let placeholder = read_placeholder(&props, &Field::Present(role), attrs);
+    describe_with(
         &Field::Present(role),
         &Field::Present(role_name.to_owned()),
-        &properties("", ""),
+        &placeholder,
         attrs,
         in_web_document,
     )
 }
 
 #[test]
-fn class_is_split_on_whitespace_only_inside_a_web_document() {
-    let attrs = attributes(&[("class", "btn  primary")]);
+fn classes_are_web_only_and_split_on_whitespace() {
+    let attrs = attributes(&[("class", "btn  primary\twide")]);
     assert_eq!(
         describe(PUSH_BUTTON, "push button", &attrs, true).dom_classes,
-        ["btn", "primary"]
+        ["btn", "primary", "wide"]
     );
     assert!(
         describe(PUSH_BUTTON, "push button", &attrs, false)
@@ -72,12 +49,13 @@ fn class_is_split_on_whitespace_only_inside_a_web_document() {
 }
 
 #[test]
-fn subrole_is_the_first_xml_role_and_the_one_gtk_pair() {
-    let web = attributes(&[("xml-roles", "navigation banner")]);
+fn subrole_prefers_first_xml_role_then_requires_the_exact_gtk_switch_pair() {
+    let xml = attributes(&[("xml-roles", "navigation banner"), ("toolkit", "GTK")]);
     assert_eq!(
-        describe(110, "landmark", &web, true).subrole.as_deref(),
+        describe(CHECK_BOX, "switch", &xml, true).subrole.as_deref(),
         Some("navigation")
     );
+
     let gtk = attributes(&[("toolkit", "GTK")]);
     assert_eq!(
         describe(CHECK_BOX, "switch", &gtk, false)
@@ -85,59 +63,38 @@ fn subrole_is_the_first_xml_role_and_the_one_gtk_pair() {
             .as_deref(),
         Some("switch")
     );
-    assert_eq!(describe(CHECK_BOX, "checkbox", &gtk, false).subrole, None);
-    assert_eq!(describe(PUSH_BUTTON, "switch", &gtk, false).subrole, None);
-    assert_eq!(describe(43, "generic", &gtk, false).subrole, None);
-    let gtk3 = attributes(&[("toolkit", "gtk")]);
-    assert_eq!(describe(CHECK_BOX, "switch", &gtk3, false).subrole, None);
-    let qt = attributes(&[]);
-    assert_eq!(describe(CHECK_BOX, "switch", &qt, false).subrole, None);
-}
-
-#[test]
-fn role_description_is_the_author_attribute() {
-    let attrs = attributes(&[("roledescription", "editor")]);
-    assert_eq!(
-        describe(ENTRY, "entry", &attrs, true)
-            .role_description
-            .as_deref(),
-        Some("editor")
-    );
-    assert_eq!(
-        describe(ENTRY, "entry", &attributes(&[]), true).role_description,
-        None
-    );
-}
-
-#[test]
-fn the_descriptor_placeholder_equals_the_name_evidence_placeholder() {
-    let cases = [
-        (
-            ENTRY,
-            attributes(&[("placeholder", "Describe"), ("tag", "div")]),
-            properties("", ""),
-        ),
-        (
-            ENTRY,
-            attributes(&[("placeholder-text", "Search"), ("tag", "input")]),
-            properties("", ""),
-        ),
-        (TEXT, attributes(&[]), properties("", "Type name")),
-    ];
-    for (role, attrs, props) in cases {
-        let role_field = Field::Present(role);
-        let descriptor = descriptors(&role_field, &Field::Absent, &props, &attrs, true);
-        let (name, _) = name_fields(&props, &role_field, &attrs, &LabelOutcome::Unlabelled);
-        let placeholder = descriptor.placeholder.expect("a placeholder is read");
-        assert_eq!(name.known(), Some(&placeholder));
+    for (role, name, attrs) in [
+        (CHECK_BOX, "checkbox", gtk.clone()),
+        (PUSH_BUTTON, "switch", gtk),
+        (43, "generic", attributes(&[("toolkit", "GTK")])),
+        (CHECK_BOX, "switch", attributes(&[("toolkit", "gtk")])),
+        (CHECK_BOX, "switch", attributes(&[])),
+    ] {
+        assert_eq!(describe(role, name, &attrs, false).subrole, None);
     }
-    let gtk = attributes(&[("toolkit", "GTK")]);
-    let descriptor = descriptors(
-        &Field::Present(TEXT),
-        &Field::Absent,
-        &properties("", "Tooltip"),
-        &gtk,
+}
+
+#[test]
+fn author_role_description_and_placeholder_are_optional() {
+    let described = attributes(&[("roledescription", "editor"), ("placeholder", "Describe")]);
+    let result = describe(ENTRY, "entry", &described, true);
+    assert_eq!(result.role_description.as_deref(), Some("editor"));
+    assert_eq!(result.placeholder.as_deref(), Some("Describe"));
+
+    let no_description = describe(
+        ENTRY,
+        "entry",
+        &attributes(&[("placeholder-text", "Search")]),
+        true,
+    );
+    assert_eq!(no_description.role_description, None);
+    assert_eq!(no_description.placeholder.as_deref(), Some("Search"));
+
+    let gtk = describe(
+        TEXT,
+        "text",
+        &attributes(&[("toolkit", "GTK"), ("placeholder", "Hint")]),
         false,
     );
-    assert_eq!(descriptor.placeholder, None);
+    assert_eq!(gtk.placeholder, None);
 }

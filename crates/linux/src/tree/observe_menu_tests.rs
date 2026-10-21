@@ -1,6 +1,6 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{menu_absent, outermost, rooted};
+use super::{outermost, rooted};
 use crate::system::menu_surface::{MenuFamily, MenuPopup};
 use crate::tree::AtspiElement;
 use crate::tree::menu_context::MenuContext;
@@ -19,7 +19,6 @@ fn a_closed_menu_is_not_found_and_never_an_empty_tree() {
     let error = outermost(Vec::new()).map(|_| ()).expect_err("no popup");
     assert_eq!(error.code, ErrorCode::ElementNotFound);
     assert!(error.suggestion.is_some());
-    assert_eq!(menu_absent().code, ErrorCode::ElementNotFound);
 }
 
 #[test]

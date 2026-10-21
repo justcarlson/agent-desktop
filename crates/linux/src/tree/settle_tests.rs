@@ -21,49 +21,6 @@ fn run(curve: &[usize], remaining: Duration) -> Vec<Step> {
     steps
 }
 
-#[test]
-fn a_plateau_at_the_empty_shell_is_not_a_settled_tree() {
-    let steps = run(&[18, 18, 18, 18, 370, 380, 386, 386, 386], MS(60_000));
-    assert_eq!(steps.len(), 9);
-    assert_eq!(steps[3], Step::Wait(POLL));
-    assert_eq!(steps[8], Step::Settled);
-}
-
-#[test]
-fn a_filling_tree_settles_on_the_third_equal_read() {
-    let steps = run(&[66, 120, 226, 247, 247, 247, 300], MS(60_000));
-    assert_eq!(steps.len(), 6);
-    assert_eq!(steps[5], Step::Settled);
-}
-
-#[test]
-fn two_equal_reads_above_the_ceiling_are_not_enough() {
-    let steps = run(&[247, 247], MS(60_000));
-    assert_eq!(steps, vec![Step::Wait(POLL), Step::Wait(POLL)]);
-}
-
-#[test]
-fn a_budget_smaller_than_one_poll_gives_up_at_once() {
-    assert_eq!(run(&[20, 20], MS(200)), vec![Step::GiveUp]);
-}
-
-#[test]
-fn the_wait_stops_at_its_share_of_the_budget() {
-    let steps = run(&[20; 40], MS(1_000));
-    assert_eq!(steps.last(), Some(&Step::GiveUp));
-    let waits = steps
-        .iter()
-        .filter(|step| matches!(step, Step::Wait(_)))
-        .count();
-    assert_eq!(waits, 3);
-}
-
-#[test]
-fn a_tree_that_settles_on_the_last_affordable_poll_is_settled_not_given_up() {
-    let steps = run(&[100, 100, 100], MS(1_000));
-    assert_eq!(steps.last(), Some(&Step::Settled));
-}
-
 fn node(role: u32, children: Vec<WalkedNode<ObservedRead>>) -> WalkedNode<ObservedRead> {
     WalkedNode {
         payload: read_of(role, "n", &[]),
@@ -76,40 +33,55 @@ fn node(role: u32, children: Vec<WalkedNode<ObservedRead>>) -> WalkedNode<Observ
 }
 
 #[test]
-fn a_web_document_below_the_root_marks_a_web_tree() {
+fn settle_and_tree_predicate_boundaries() {
+    let plateau = run(&[18, 18, 18, 18, 370, 380, 386, 386, 386], MS(60_000));
+    assert_eq!(plateau.len(), 9);
+    assert_eq!(plateau[3], Step::Wait(POLL));
+    assert_eq!(plateau[8], Step::Settled);
+    assert_eq!(
+        run(&[66, 120, 226, 247, 247, 247], MS(60_000)).last(),
+        Some(&Step::Settled)
+    );
+    assert_eq!(
+        run(&[247, 247], MS(60_000)),
+        vec![Step::Wait(POLL), Step::Wait(POLL)]
+    );
+    assert_eq!(run(&[20, 20], MS(200)), vec![Step::GiveUp]);
+    let capped = run(&[20; 40], MS(1_000));
+    assert_eq!(capped.last(), Some(&Step::GiveUp));
+    assert_eq!(
+        capped
+            .iter()
+            .filter(|step| matches!(step, Step::Wait(_)))
+            .count(),
+        3
+    );
+    assert_eq!(
+        run(&[100, 100, 100], MS(1_000)).last(),
+        Some(&Step::Settled)
+    );
+
     let tree = node(PANEL, vec![node(PANEL, vec![node(DOCUMENT_WEB, vec![])])]);
     assert!(has_web_document(&tree));
-}
-
-#[test]
-fn a_native_document_frame_is_not_a_web_document() {
-    let tree = node(PANEL, vec![node(DOCUMENT_FRAME, vec![])]);
-    assert!(!has_web_document(&tree));
-}
-
-#[test]
-fn a_stable_depth_cut_walk_below_the_shell_ceiling_settles() {
+    assert!(!has_web_document(&node(
+        PANEL,
+        vec![node(DOCUMENT_FRAME, vec![])]
+    )));
     let mut settle = Settle::new(MS(60_000));
-    let steps: Vec<Step> = (0..3)
-        .map(|_| settle.after_walk(2, Duration::ZERO, true))
-        .collect();
-    assert_eq!(steps[2], Step::Settled);
-}
-
-#[test]
-fn an_uncut_walk_below_the_shell_ceiling_keeps_waiting() {
+    assert_eq!(settle.after_walk(2, Duration::ZERO, true), Step::Wait(POLL));
+    assert_eq!(settle.after_walk(2, Duration::ZERO, true), Step::Wait(POLL));
+    assert_eq!(settle.after_walk(2, Duration::ZERO, true), Step::Settled);
     let mut settle = Settle::new(MS(60_000));
-    let steps: Vec<Step> = (0..3)
-        .map(|_| settle.after_walk(2, Duration::ZERO, false))
-        .collect();
-    assert_eq!(steps[2], Step::Wait(POLL));
-}
-
-#[test]
-fn a_child_count_anywhere_marks_a_depth_cut() {
+    for _ in 0..2 {
+        settle.after_walk(2, Duration::ZERO, false);
+    }
+    assert_eq!(
+        settle.after_walk(2, Duration::ZERO, false),
+        Step::Wait(POLL)
+    );
     let mut cut = node(PANEL, vec![]);
     cut.child_count = Some(3);
-    let tree = node(PANEL, vec![node(PANEL, vec![cut])]);
-    assert!(has_depth_cut(&tree));
+    let cut_tree = node(PANEL, vec![node(PANEL, vec![cut])]);
+    assert!(has_depth_cut(&cut_tree));
     assert!(!has_depth_cut(&node(PANEL, vec![node(PANEL, vec![])])));
 }

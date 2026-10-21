@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use agent_desktop_core::AdapterError;
 use futures_util::future::{join, join3, join4};
 use zbus::export::serde::Serialize;
-use zbus::zvariant::{DynamicType, OwnedValue};
+use zbus::zvariant::{DynamicDeserialize, DynamicType, OwnedValue};
 use zbus::{Connection, Message};
 
 use super::absence::{Liveness, gone_error};
@@ -22,6 +22,13 @@ const NULL_PATH: &str = "/org/a11y/atspi/null";
 const SCREEN_COORDINATES: u32 = 0;
 
 pub(super) type Reply = Result<Message, zbus::Error>;
+
+fn deserialize<T>(reply: Reply) -> Result<T, zbus::Error>
+where
+    T: for<'de> DynamicDeserialize<'de>,
+{
+    reply?.body().deserialize()
+}
 
 pub(super) async fn call<B>(
     connection: &Connection,
@@ -106,10 +113,7 @@ pub(super) async fn get_one<T>(
         &(ACCESSIBLE_INTERFACE, key),
     )
     .await;
-    let read = field(
-        reply.and_then(|message| message.body().deserialize::<OwnedValue>()),
-        liveness,
-    )?;
+    let read = field(deserialize::<OwnedValue>(reply), liveness)?;
     Ok(match read {
         Field::Present(value) => convert(&value),
         Field::Absent => Field::Failed(format!("Properties.Get({key}) failed")),
@@ -145,10 +149,7 @@ async fn read_properties(
     reply: Reply,
     liveness: Liveness,
 ) -> Result<NodeProperties, AdapterError> {
-    let map = field(
-        reply.and_then(|message| message.body().deserialize::<HashMap<String, OwnedValue>>()),
-        liveness,
-    )?;
+    let map = field(deserialize::<HashMap<String, OwnedValue>>(reply), liveness)?;
     match map {
         Field::Present(map) => Ok(from_map(&map)),
         Field::Absent | Field::Failed(_) => {
@@ -162,11 +163,7 @@ pub(super) fn read_children(
     liveness: Liveness,
 ) -> Result<Field<Vec<ChildAddress>>, AdapterError> {
     let raw = field(
-        reply.and_then(|message| {
-            message
-                .body()
-                .deserialize::<Vec<(String, zbus::zvariant::OwnedObjectPath)>>()
-        }),
+        deserialize::<Vec<(String, zbus::zvariant::OwnedObjectPath)>>(reply),
         liveness,
     )?;
     Ok(raw.map(|entries| {
@@ -208,11 +205,7 @@ async fn read_extents(
         &(SCREEN_COORDINATES,),
     )
     .await;
-    field(
-        reply.and_then(|message| message.body().deserialize::<(i32, i32, i32, i32)>()),
-        liveness,
-    )
-    .map(|read| {
+    field(deserialize::<(i32, i32, i32, i32)>(reply), liveness).map(|read| {
         read.map(|(x, y, width, height)| Extents {
             x,
             y,
@@ -229,8 +222,7 @@ async fn action_name(
     listed: String,
 ) -> String {
     let reply = call(connection, element, ACTION_INTERFACE, "GetName", &(index,)).await;
-    reply
-        .and_then(|message| message.body().deserialize::<String>())
+    deserialize::<String>(reply)
         .ok()
         .filter(|name| !name.is_empty())
         .unwrap_or(listed)
@@ -251,11 +243,7 @@ async fn read_actions(
     }
     let reply = call(connection, element, ACTION_INTERFACE, "GetActions", &()).await;
     let listed = field(
-        reply.and_then(|message| {
-            message
-                .body()
-                .deserialize::<Vec<(String, String, String)>>()
-        }),
+        deserialize::<Vec<(String, String, String)>>(reply),
         liveness,
     )?;
     Ok(match listed {
@@ -287,6 +275,8 @@ pub(crate) async fn read_node_with_liveness(
     connection: &Connection,
     element: &AtspiElement,
 ) -> Result<(RawNode, Liveness), AdapterError> {
+    let accessible =
+        |method: &'static str| call(connection, element, ACCESSIBLE_INTERFACE, method, &());
     let (first, second) = join(
         join4(
             call(
@@ -296,52 +286,25 @@ pub(crate) async fn read_node_with_liveness(
                 "GetAll",
                 &(ACCESSIBLE_INTERFACE,),
             ),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetRole", &()),
-            call(
-                connection,
-                element,
-                ACCESSIBLE_INTERFACE,
-                "GetRoleName",
-                &(),
-            ),
-            call(connection, element, ACCESSIBLE_INTERFACE, "GetState", &()),
+            accessible("GetRole"),
+            accessible("GetRoleName"),
+            accessible("GetState"),
         ),
         join3(
-            call(
-                connection,
-                element,
-                ACCESSIBLE_INTERFACE,
-                "GetInterfaces",
-                &(),
-            ),
-            call(
-                connection,
-                element,
-                ACCESSIBLE_INTERFACE,
-                "GetAttributes",
-                &(),
-            ),
-            call(
-                connection,
-                element,
-                ACCESSIBLE_INTERFACE,
-                "GetChildren",
-                &(),
-            ),
+            accessible("GetInterfaces"),
+            accessible("GetAttributes"),
+            accessible("GetChildren"),
         ),
     )
     .await;
     let (all, role, role_name, state) = first;
     let (interfaces, attributes, child_reply) = second;
 
-    let role = role.and_then(|message| message.body().deserialize::<u32>());
+    let role = deserialize::<u32>(role);
     let liveness = Liveness::of(role.as_ref().err());
     let role = field(role, liveness)?;
     let properties = read_properties(connection, element, all, liveness).await?;
-    let interfaces = field(
-        interfaces.and_then(|message| message.body().deserialize::<Vec<String>>()),
-        liveness,
-    )?;
+    let interfaces = field(deserialize::<Vec<String>>(interfaces), liveness)?;
     let (extents, actions) = join(
         read_extents(connection, element, &interfaces, liveness),
         read_actions(connection, element, &interfaces, liveness),
@@ -353,18 +316,12 @@ pub(crate) async fn read_node_with_liveness(
         properties,
         traits: NodeTraits {
             role,
-            role_name: field(
-                role_name.and_then(|message| message.body().deserialize::<String>()),
-                liveness,
-            )?,
-            states: field(
-                state.and_then(|message| message.body().deserialize::<Vec<u32>>()),
-                liveness,
-            )?,
+            role_name: field(deserialize::<String>(role_name), liveness)?,
+            states: field(deserialize::<Vec<u32>>(state), liveness)?,
             interfaces,
         },
         attributes: field(
-            attributes.and_then(|message| message.body().deserialize::<BTreeMap<String, String>>()),
+            deserialize::<BTreeMap<String, String>>(attributes),
             liveness,
         )?,
         extents: extents?,

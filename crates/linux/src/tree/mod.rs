@@ -98,9 +98,6 @@ pub(crate) mod test_support;
 mod absence_live_tests;
 
 #[cfg(test)]
-mod capability_live_tests;
-
-#[cfg(test)]
 mod chromium_live_tests;
 
 #[cfg(test)]

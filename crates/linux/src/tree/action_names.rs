@@ -33,10 +33,9 @@ const TABLE: [(&str, &[&str]); 16] = [
 /// `clickAncestor` stands for `Click` because the ancestor that owns the
 /// handler is reached through it.
 pub(crate) fn capability_of(name: &str) -> &'static [&'static str] {
-    let lowered = name.to_ascii_lowercase();
     TABLE
         .iter()
-        .find(|(known, _)| *known == lowered)
+        .find(|(known, _)| known.eq_ignore_ascii_case(name))
         .map_or(&[], |(_, tokens)| *tokens)
 }
 
@@ -73,16 +72,7 @@ pub(crate) fn capabilities(node: &RawNode) -> LocatorField<Vec<String>> {
 /// Qt's `ShowMenu` takes that verb last; it is the menu item's own open action,
 /// not the context menu a `showContextMenu` advertises elsewhere.
 pub(crate) fn click_verbs(role: Option<u32>) -> &'static [&'static str] {
-    const CLICK: [&str; 7] = [
-        "click",
-        "press",
-        "activate",
-        "open",
-        "jump",
-        "check",
-        "clickAncestor",
-    ];
-    const MENU_ITEM_CLICK: [&str; 8] = [
+    const CLICK: [&str; 8] = [
         "click",
         "press",
         "activate",
@@ -93,24 +83,16 @@ pub(crate) fn click_verbs(role: Option<u32>) -> &'static [&'static str] {
         "ShowMenu",
     ];
     if role.is_some_and(is_menu_item) {
-        &MENU_ITEM_CLICK
-    } else {
         &CLICK
+    } else {
+        &CLICK[..7]
     }
 }
 
 /// The action names a dispatch tries for `action`, in order.
 pub(crate) fn verbs_for(action: &Action) -> &'static [&'static str] {
     match action {
-        Action::Click => &[
-            "click",
-            "press",
-            "activate",
-            "open",
-            "jump",
-            "check",
-            "clickAncestor",
-        ],
+        Action::Click => click_verbs(None),
         Action::RightClick => &["showContextMenu", "menu", "ShowMenu", "menu.popup"],
         Action::Toggle => toggle_verbs(None),
         Action::Check => toggle_verbs(Some(true)),

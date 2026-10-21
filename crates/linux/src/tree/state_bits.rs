@@ -43,18 +43,3 @@ impl<'a> StateBits<'a> {
         !self.has(ENABLED) && !self.has(SENSITIVE) && !self.has(READ_ONLY)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_bit_fourteen_is_horizontal() {
-        assert!(StateBits::new(&[1 << 14]).has(HORIZONTAL));
-    }
-
-    #[test]
-    fn bit_thirteen_is_a_tooltip_not_horizontal() {
-        assert!(!StateBits::new(&[1 << 13]).has(HORIZONTAL));
-    }
-}

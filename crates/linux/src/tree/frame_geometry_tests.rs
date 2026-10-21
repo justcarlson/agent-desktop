@@ -17,25 +17,91 @@ fn toolkit(name: &str, version: &str) -> ToolkitId {
 }
 
 #[test]
-fn a_global_toolkit_keeps_its_screen_extents() {
+fn global_and_gtk4_bounds_use_their_distinct_coordinate_sources() {
     let screen = rect(100, 137, 420, 34);
-    let bounds = pointer_bounds(&toolkit("gtk", "3.24"), screen, rect(0, 0, 420, 34), None);
-    assert_eq!(bounds, Some(screen));
+    assert_eq!(
+        pointer_bounds(&toolkit("gtk", "3.24"), screen, rect(0, 0, 420, 34), None),
+        Some(screen)
+    );
+    assert_eq!(
+        pointer_bounds(
+            &toolkit("gtk", "4.14"),
+            rect(0, 0, 558, 54),
+            rect(329, 285, 558, 54),
+            Some((302, 260))
+        ),
+        Some(rect(631, 545, 558, 54))
+    );
+    assert_eq!(
+        pointer_bounds(
+            &toolkit("gtk", "4.14"),
+            rect(0, 0, 558, 54),
+            rect(329, 285, 558, 54),
+            None
+        ),
+        None
+    );
+    let unknown = ToolkitId::default();
+    assert_eq!(
+        pointer_bounds(&unknown, rect(0, 0, 9, 9), rect(5, 6, 9, 9), Some((10, 20))),
+        Some(rect(15, 26, 9, 9))
+    );
+    assert_eq!(
+        pointer_bounds(
+            &toolkit("gtk", "4.14"),
+            rect(0, 0, 9, 9),
+            rect(i32::MIN, i32::MIN, 9, 9),
+            Some((1, 1))
+        ),
+        None
+    );
 }
 
 #[test]
-fn gtk_four_position_is_the_window_extents_plus_the_client_origin() {
-    let bounds = pointer_bounds(
-        &toolkit("gtk", "4.14"),
+fn calibration_requires_agreeing_global_origins_and_uses_client_origin_for_gtk4() {
+    let gtk3 = toolkit("gtk", "3.24");
+    let screen = rect(100, 137, 420, 34);
+    let window = rect(0, 0, 420, 34);
+    for (origin, expected) in [
+        ((100, 137), true),
+        ((101, 136), true),
+        ((102, 137), false),
+        ((100, 139), false),
+    ] {
+        assert_eq!(
+            origins_agree(screen, window, origin),
+            expected,
+            "{origin:?}"
+        );
+    }
+    assert!(origins_agree(
+        rect(117, 142, 420, 34),
+        rect(17, 5, 420, 34),
+        (100, 137)
+    ));
+    assert!(!origins_agree(rect(117, 142, 420, 34), window, (100, 137)));
+    assert!(calibrate(&gtk3, screen, window, Some((100, 137))).is_some());
+    assert_eq!(calibrate(&gtk3, screen, window, Some((300, 137))), None);
+    assert_eq!(calibrate(&gtk3, screen, window, None), None);
+
+    let gtk4 = toolkit("gtk", "4.14");
+    let calibrated = calibrate(
+        &gtk4,
         rect(0, 0, 558, 54),
         rect(329, 285, 558, 54),
         Some((302, 260)),
+    )
+    .expect("client origin calibrates a non-global toolkit");
+    assert_eq!(calibrated.rect, rect(631, 545, 558, 54));
+    assert_eq!(calibrated.window_origin, (302, 260));
+    assert_eq!(
+        window_point(calibrated.window_origin, (700, 560)),
+        Some((398, 300))
     );
-    assert_eq!(bounds, Some(rect(631, 545, 558, 54)));
 }
 
 #[test]
-fn a_popup_item_is_offset_from_its_popup_root_not_from_the_owner_frame() {
+fn popup_translation_uses_popup_root_and_checked_arithmetic_rejects_overflow() {
     let origin = popup_origin((541, 189), rect(196, 6, 274, 418));
     assert_eq!(origin, Some((345, 183)));
     assert_eq!(
@@ -48,84 +114,12 @@ fn a_popup_item_is_offset_from_its_popup_root_not_from_the_owner_frame() {
         Some(rect(553, 233, 214, 32))
     );
     assert_eq!(popup_origin((i32::MIN, 0), rect(1, 0, 1, 1)), None);
+    assert_eq!(window_point((i32::MIN, 0), (i32::MAX, 0)), None);
+    assert_eq!(to_pointer_frame((i32::MAX, 0), rect(1, 0, 1, 1)), None);
 }
 
 #[test]
-fn gtk_four_without_a_client_origin_has_no_position_and_never_the_screen_extents() {
-    let bounds = pointer_bounds(
-        &toolkit("gtk", "4.14"),
-        rect(0, 0, 558, 54),
-        rect(329, 285, 558, 54),
-        None,
-    );
-    assert_eq!(bounds, None);
-}
-
-#[test]
-fn an_unreadable_toolkit_is_positioned_like_gtk_four() {
-    let unknown = ToolkitId::default();
-    let bounds = pointer_bounds(&unknown, rect(0, 0, 9, 9), rect(5, 6, 9, 9), Some((10, 20)));
-    assert_eq!(bounds, Some(rect(15, 26, 9, 9)));
-}
-
-#[test]
-fn a_sentinel_window_position_has_no_pointer_bounds() {
-    let bounds = pointer_bounds(
-        &toolkit("gtk", "4.14"),
-        rect(0, 0, 9, 9),
-        rect(i32::MIN, i32::MIN, 9, 9),
-        Some((1, 1)),
-    );
-    assert_eq!(bounds, None);
-}
-
-#[test]
-fn origins_agree_within_one_pixel_and_not_two() {
-    let screen = rect(100, 137, 420, 34);
-    let window = rect(0, 0, 420, 34);
-    assert!(origins_agree(screen, window, (100, 137)));
-    assert!(origins_agree(screen, window, (101, 136)));
-    assert!(!origins_agree(screen, window, (102, 137)));
-    assert!(!origins_agree(screen, window, (100, 139)));
-}
-
-#[test]
-fn a_window_offset_is_part_of_the_agreement() {
-    let screen = rect(117, 142, 420, 34);
-    assert!(origins_agree(screen, rect(17, 5, 420, 34), (100, 137)));
-    assert!(!origins_agree(screen, rect(0, 0, 420, 34), (100, 137)));
-}
-
-#[test]
-fn a_global_toolkit_whose_origin_disagrees_is_not_calibrated() {
-    let gtk3 = toolkit("gtk", "3.24");
-    let screen = rect(100, 137, 420, 34);
-    assert!(calibrate(&gtk3, screen, rect(0, 0, 420, 34), Some((100, 137))).is_some());
-    assert_eq!(
-        calibrate(&gtk3, screen, rect(0, 0, 420, 34), Some((300, 137))),
-        None
-    );
-    assert_eq!(calibrate(&gtk3, screen, rect(0, 0, 420, 34), None), None);
-}
-
-#[test]
-fn the_window_point_subtracts_the_window_origin() {
-    let gtk3 = toolkit("gtk", "3.24");
-    let calibrated = calibrate(
-        &gtk3,
-        rect(100, 137, 420, 34),
-        rect(0, 0, 420, 34),
-        Some((100, 137)),
-    )
-    .expect("agreeing origins calibrate");
-    assert_eq!(
-        window_point(calibrated.window_origin, (310, 154)),
-        Some((210, 17))
-    );
-}
-
-#[test]
-fn a_window_offset_shifts_the_window_origin_of_a_global_toolkit() {
+fn a_nonzero_window_offset_keeps_the_global_client_origin() {
     let gtk3 = toolkit("gtk", "3.24");
     let calibrated = calibrate(
         &gtk3,
@@ -133,27 +127,10 @@ fn a_window_offset_shifts_the_window_origin_of_a_global_toolkit() {
         rect(17, 5, 420, 34),
         Some((100, 137)),
     )
-    .expect("agreeing origins calibrate");
+    .expect("the window offset participates in calibration");
     assert_eq!(calibrated.window_origin, (100, 137));
     assert_eq!(
         window_point(calibrated.window_origin, (310, 154)),
         Some((210, 17))
-    );
-}
-
-#[test]
-fn gtk_four_calibrates_to_the_client_origin_and_ignores_the_screen_extents() {
-    let calibrated = calibrate(
-        &toolkit("gtk", "4.14"),
-        rect(0, 0, 558, 54),
-        rect(329, 285, 558, 54),
-        Some((302, 260)),
-    )
-    .expect("a client origin calibrates gtk 4");
-    assert_eq!(calibrated.rect, rect(631, 545, 558, 54));
-    assert_eq!(calibrated.window_origin, (302, 260));
-    assert_eq!(
-        window_point(calibrated.window_origin, (700, 560)),
-        Some((398, 300))
     );
 }

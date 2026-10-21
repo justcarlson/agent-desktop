@@ -96,29 +96,6 @@ fn is_numeric_control(role: u32) -> bool {
     matches!(role, SLIDER | SPIN_BUTTON | DIAL | SCROLL_BAR)
 }
 
-fn text_tokens(facts: &Facts) -> Vec<&'static str> {
-    let editable = is_text_entry(facts.role)
-        && facts.bits.has(EDITABLE)
-        && !facts.bits.has(READ_ONLY)
-        && facts.advertises(EDITABLE_TEXT);
-    let mut tokens = Vec::new();
-    if editable {
-        tokens.push(capability::SET_VALUE);
-        if facts.advertises(TEXT_INTERFACE) {
-            tokens.push(capability::TYPE_TEXT);
-        }
-    }
-    tokens
-}
-
-fn value_tokens(facts: &Facts) -> Vec<&'static str> {
-    if is_numeric_control(facts.role) && facts.advertises(VALUE) {
-        vec![capability::SET_VALUE]
-    } else {
-        Vec::new()
-    }
-}
-
 fn popup_button_children(facts: &Facts) -> bool {
     match facts.child_count {
         Some(1) => true,
@@ -134,22 +111,6 @@ fn menu_button(facts: &Facts) -> bool {
         && !facts.has_any_name(&DISCLOSURE_CLICKS)
 }
 
-fn disclosure_tokens(facts: &Facts) -> Vec<&'static str> {
-    let stateful = facts.bits.has(EXPANDABLE) || facts.bits.has(EXPANDED);
-    let clickable = facts.has_any_name(&DISCLOSURE_CLICKS);
-    let both = (stateful && (clickable || facts.has_name(TOGGLE_EXPAND))) || menu_button(facts);
-    let expand = both || (stateful && facts.has_name(EXPAND));
-    let collapse = both || (stateful && facts.has_name(COLLAPSE));
-    let mut tokens = Vec::new();
-    if expand {
-        tokens.push(capability::EXPAND);
-    }
-    if collapse {
-        tokens.push(capability::COLLAPSE);
-    }
-    tokens
-}
-
 pub(crate) fn carries_checked(role: u32) -> bool {
     matches!(
         role,
@@ -157,49 +118,11 @@ pub(crate) fn carries_checked(role: u32) -> bool {
     )
 }
 
-fn toggle_click_tokens(facts: &Facts) -> Vec<&'static str> {
-    if carries_checked(facts.role) && facts.has_any_name(&TOGGLE_ONLY_NAMES) {
-        vec![capability::CLICK]
-    } else {
-        Vec::new()
-    }
-}
-
-fn disabled_click_tokens(facts: &Facts) -> Vec<&'static str> {
-    let pressable = facts.role == PUSH_BUTTON || carries_checked(facts.role);
-    if pressable && facts.bits.is_disabled() {
-        vec![capability::CLICK]
-    } else {
-        Vec::new()
-    }
-}
-
-/// A menu item's only verb may be `ShowMenu`, which opens the item's own menu
-/// on a menu bar and a submenu on a row. That is the click a caller means by
-/// clicking the item, so the item carries `Click`; the dispatch answers it
-/// with the same verb.
-fn menu_item_click_tokens(facts: &Facts) -> Vec<&'static str> {
-    if is_menu_item(facts.role) && facts.has_name(SHOW_MENU) {
-        vec![capability::CLICK]
-    } else {
-        Vec::new()
-    }
-}
-
 fn popup_dropdown(facts: &Facts) -> bool {
     facts.role == COMBO_BOX
         && facts.bits.has(HAS_POPUP)
         && !facts.advertises(SELECTION)
         && popup_button_children(facts)
-}
-
-fn select_tokens(facts: &Facts) -> Vec<&'static str> {
-    let selection = facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0);
-    if selection || popup_dropdown(facts) {
-        vec![capability::SELECT]
-    } else {
-        Vec::new()
-    }
 }
 
 /// The tokens that need more than an action name: the text and numeric
@@ -210,14 +133,47 @@ fn select_tokens(facts: &Facts) -> Vec<&'static str> {
 /// table has no toolkit input and a Qt bar that does not move content says
 /// so when the write is read back.
 pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
-    let mut tokens = text_tokens(facts);
-    tokens.extend(value_tokens(facts));
-    tokens.extend(disclosure_tokens(facts));
-    tokens.extend(select_tokens(facts));
-    tokens.extend(toggle_click_tokens(facts));
-    tokens.extend(disabled_click_tokens(facts));
-    tokens.extend(menu_item_click_tokens(facts));
-    tokens
+    let editable_text = is_text_entry(facts.role)
+        && facts.bits.has(EDITABLE)
+        && !facts.bits.has(READ_ONLY)
+        && facts.advertises(EDITABLE_TEXT);
+    let stateful = facts.bits.has(EXPANDABLE) || facts.bits.has(EXPANDED);
+    let clickable = facts.has_any_name(&DISCLOSURE_CLICKS);
+    let both = (stateful && (clickable || facts.has_name(TOGGLE_EXPAND))) || menu_button(facts);
+    let expand = both || (stateful && facts.has_name(EXPAND));
+    let collapse = both || (stateful && facts.has_name(COLLAPSE));
+    let pressable = facts.role == PUSH_BUTTON || carries_checked(facts.role);
+    let rules = [
+        (editable_text, capability::SET_VALUE),
+        (
+            editable_text && facts.advertises(TEXT_INTERFACE),
+            capability::TYPE_TEXT,
+        ),
+        (
+            is_numeric_control(facts.role) && facts.advertises(VALUE),
+            capability::SET_VALUE,
+        ),
+        (expand, capability::EXPAND),
+        (collapse, capability::COLLAPSE),
+        (
+            facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0)
+                || popup_dropdown(facts),
+            capability::SELECT,
+        ),
+        (
+            carries_checked(facts.role) && facts.has_any_name(&TOGGLE_ONLY_NAMES),
+            capability::CLICK,
+        ),
+        (pressable && facts.bits.is_disabled(), capability::CLICK),
+        (
+            is_menu_item(facts.role) && facts.has_name(SHOW_MENU),
+            capability::CLICK,
+        ),
+    ];
+    rules
+        .into_iter()
+        .filter_map(|(enabled, token)| enabled.then_some(token))
+        .collect()
 }
 
 /// The tokens a scroll target carries: `Scroll` for a node a wheel at its

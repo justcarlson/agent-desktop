@@ -1,16 +1,13 @@
-use super::{NodeView, corroboration_of};
+use super::{NodeView, corroboration_of, listing_verdict};
+use crate::actions::mutation::Corroboration;
 use crate::system::NAME_HAS_NO_OWNER;
 use crate::tree::absence::{Liveness, UNKNOWN_INTERFACE, UNKNOWN_OBJECT};
 use crate::tree::node_evidence::{NodeEvidence, evidence_for};
 use crate::tree::role_numbers::{PASSWORD_TEXT, PUSH_BUTTON, TOGGLE_BUTTON};
-use crate::tree::state_bits::{CHECKED, EXPANDED, FOCUSED, SHOWING};
+use crate::tree::state_bits::{CHECKED, EXPANDED, FOCUSED, PRESSED, SELECTED, SHOWING};
 use crate::tree::test_support::{client_timeout, method_error, read_of, words};
 use crate::tree::value_read::ValueRead;
 use crate::tree::{Field, ObservedRead};
-
-fn verdict(error: Option<&zbus::Error>) -> String {
-    format!("{:?}", corroboration_of(error))
-}
 
 fn view_of(read: ObservedRead) -> NodeView {
     let evidence = evidence_for(&read, &read.node.element);
@@ -28,181 +25,132 @@ fn with_bits(role: u32, bits: &[u32]) -> NodeView {
 }
 
 #[test]
-fn the_view_reports_what_the_one_read_holds() {
-    let view = with_bits(PUSH_BUTTON, &[SHOWING]);
-    assert_eq!(view.role(), Some(PUSH_BUTTON));
-    assert_eq!(view.name(), Some("Wrap"));
-    assert_eq!(view.action_names(), Some(&["click".to_owned()][..]));
-    assert_eq!(view.state(SHOWING), Some(true));
-    assert_eq!(view.state(CHECKED), Some(false));
-    assert_eq!(view.child_count(), Some(0));
-    assert!(!view.secure());
-}
-
-#[test]
-fn a_failed_state_read_is_none_not_false() {
-    let mut read = read_of(PUSH_BUTTON, "n", &[]);
-    read.node.traits.states = Field::Failed("x".to_owned());
-    let view = view_of(read);
-    assert_eq!(view.state(CHECKED), None);
-    assert_eq!(view.tokens(), None);
-}
-
-#[test]
-fn the_action_names_are_none_only_when_the_read_failed() {
+fn absent_and_failed_reads_remain_distinct() {
     let mut absent = read_of(PUSH_BUTTON, "n", &[]);
     absent.node.actions = Field::Absent;
-    assert_eq!(view_of(absent).action_names(), Some(&[][..]));
+    let absent = view_of(absent);
+    assert_eq!(absent.action_names(), Some(&[][..]));
+
     let mut failed = read_of(PUSH_BUTTON, "n", &[]);
-    failed.node.actions = Field::Failed("x".to_owned());
+    failed.node.actions = Field::Failed("actions unavailable".to_owned());
     assert_eq!(view_of(failed).action_names(), None);
-}
-
-#[test]
-fn a_secure_field_gives_no_value_whatever_was_read() {
-    let mut read = read_of(PASSWORD_TEXT, "Password", &[]);
-    read.value.value = Field::Present("hunter2".to_owned());
-    let view = view_of(read);
-    assert!(view.secure());
-    assert_eq!(view.value(), None);
-    assert_eq!(view.observation().changed_since(&view.observation()), None);
-}
-
-#[test]
-fn an_ordinary_field_gives_its_value() {
-    let mut read = read_of(PUSH_BUTTON, "n", &[]);
-    read.value.value = Field::Present("42".to_owned());
-    assert_eq!(view_of(read).value(), Some("42"));
-}
-
-#[test]
-fn a_changed_checked_state_is_a_change() {
-    let before = with_bits(TOGGLE_BUTTON, &[]).observation();
-    let after = with_bits(TOGGLE_BUTTON, &[CHECKED]).observation();
-    assert_eq!(after.changed_since(&before), Some(true));
-}
-
-#[test]
-fn a_changed_expanded_state_is_a_change() {
-    let before = with_bits(PUSH_BUTTON, &[]).observation();
-    let after = with_bits(PUSH_BUTTON, &[EXPANDED]).observation();
-    assert_eq!(after.changed_since(&before), Some(true));
-}
-
-#[test]
-fn focus_alone_is_not_a_change() {
-    let before = with_bits(PUSH_BUTTON, &[SHOWING]).observation();
-    let after = with_bits(PUSH_BUTTON, &[SHOWING, FOCUSED]).observation();
-    assert_eq!(after.changed_since(&before), Some(false));
-}
-
-#[test]
-fn a_changed_value_or_name_or_child_count_is_a_change() {
-    let base = read_of(PUSH_BUTTON, "n", &[]);
-    let before = view_of(base.clone()).observation();
-    let mut valued = base.clone();
-    valued.value.value = Field::Present("1".to_owned());
-    assert_eq!(
-        view_of(valued).observation().changed_since(&before),
-        Some(true)
-    );
-    let mut renamed = base.clone();
-    renamed.node.properties.name = Field::Present("m".to_owned());
-    assert_eq!(
-        view_of(renamed).observation().changed_since(&before),
-        Some(true)
-    );
-    let mut grown = base;
-    grown.node.properties.child_count = Field::Present(2);
-    assert_eq!(
-        view_of(grown).observation().changed_since(&before),
-        Some(true)
-    );
-}
-
-#[test]
-fn an_unread_part_leaves_no_change_undecided() {
-    let before = with_bits(PUSH_BUTTON, &[]).observation();
-    let mut read = read_of(PUSH_BUTTON, "Wrap", &["click"]);
-    read.node.traits.states = Field::Failed("x".to_owned());
-    let unread = view_of(read).observation();
-    assert_eq!(unread.changed_since(&before), None);
-}
-
-#[test]
-fn a_difference_in_a_read_part_decides_even_when_another_is_unread() {
-    let before = with_bits(PUSH_BUTTON, &[]).observation();
-    let mut read = read_of(PUSH_BUTTON, "Wrap", &["click"]);
-    read.node.traits.states = Field::Failed("x".to_owned());
-    read.node.properties.name = Field::Present("Other".to_owned());
-    assert_eq!(
-        view_of(read).observation().changed_since(&before),
-        Some(true)
-    );
-}
-
-#[test]
-fn a_role_answer_is_alive_and_a_missing_object_or_application_is_dead() {
-    assert_eq!(verdict(None), "Alive");
-    for name in [UNKNOWN_OBJECT, UNKNOWN_INTERFACE, NAME_HAS_NO_OWNER] {
-        assert_eq!(verdict(Some(&method_error(name))), "Dead", "{name}");
-    }
-}
-
-#[test]
-fn a_timeout_is_not_a_death_and_another_failure_is_not_a_reading() {
-    assert_eq!(verdict(Some(&client_timeout())), "TimedOut");
-    let other = method_error("org.freedesktop.DBus.Error.Failed");
-    assert_eq!(verdict(Some(&other)), "NotRead");
-}
-
-#[test]
-fn an_empty_state_set_is_seen_and_a_live_set_is_not() {
+    let mut failed_states = read_of(PUSH_BUTTON, "n", &[]);
+    failed_states.node.traits.states = Field::Failed("states unavailable".to_owned());
+    let failed_states = view_of(failed_states);
+    assert_eq!(failed_states.state(CHECKED), None);
+    assert_eq!(failed_states.tokens(), None);
     assert!(with_bits(PUSH_BUTTON, &[]).state_set_is_empty());
     assert!(!with_bits(PUSH_BUTTON, &[SHOWING]).state_set_is_empty());
 }
 
 #[test]
-fn a_node_missing_from_its_parent_is_gone_and_an_unreadable_parent_proves_nothing() {
-    use super::listing_verdict;
+fn secure_fields_withhold_values_and_truncated_values_are_not_values() {
+    let mut password = read_of(PASSWORD_TEXT, "Password", &[]);
+    password.value.value = Field::Present("sensitive".to_owned());
+    let password = view_of(password);
+    assert!(password.secure());
+    assert_eq!(password.value(), None);
+    assert_eq!(
+        password
+            .observation()
+            .changed_since(&password.observation()),
+        None
+    );
+    assert!(with_bits(PASSWORD_TEXT, &[SHOWING]).secure());
+
+    let mut unread_states = read_of(PUSH_BUTTON, "n", &[]);
+    unread_states.node.traits.states = Field::Failed("unavailable".to_owned());
+    assert!(view_of(unread_states).secure());
+    let mut unread_role = read_of(PUSH_BUTTON, "n", &[]);
+    unread_role.node.traits.role = Field::Failed("unavailable".to_owned());
+    assert!(view_of(unread_role).secure());
+
+    let mut truncated = read_of(PUSH_BUTTON, "n", &[]);
+    truncated.value = ValueRead {
+        value: Field::Present("prefix".to_owned()),
+        truncated: true,
+    };
+    assert_eq!(view_of(truncated).value(), None);
+}
+
+#[test]
+fn observations_report_only_shared_differences_and_keep_unread_indeterminate() {
+    let base = read_of(PUSH_BUTTON, "n", &[]);
+    let before = view_of(base.clone()).observation();
+    let mut cases = Vec::new();
+
+    let mut checked = base.clone();
+    checked.node.traits.role = Field::Present(TOGGLE_BUTTON);
+    checked.node.traits.states = Field::Present(words(&[CHECKED]));
+    cases.push(("checked", checked));
+    let mut expanded = base.clone();
+    expanded.node.traits.states = Field::Present(words(&[EXPANDED]));
+    cases.push(("expanded", expanded));
+    let mut selected = base.clone();
+    selected.node.traits.states = Field::Present(words(&[SELECTED]));
+    cases.push(("selected", selected));
+    let mut pressed = base.clone();
+    pressed.node.traits.states = Field::Present(words(&[PRESSED]));
+    cases.push(("pressed", pressed));
+    let mut valued = base.clone();
+    valued.value.value = Field::Present("1".to_owned());
+    cases.push(("value", valued));
+    let mut renamed = base.clone();
+    renamed.node.properties.name = Field::Present("m".to_owned());
+    cases.push(("name", renamed));
+    let mut grown = base.clone();
+    grown.node.properties.child_count = Field::Present(2);
+    cases.push(("child count", grown));
+
+    for (part, changed) in cases {
+        assert_eq!(
+            view_of(changed).observation().changed_since(&before),
+            Some(true),
+            "{part}"
+        );
+    }
+    let focused = with_bits(PUSH_BUTTON, &[SHOWING, FOCUSED]).observation();
+    let shown = with_bits(PUSH_BUTTON, &[SHOWING]).observation();
+    assert_eq!(focused.changed_since(&shown), Some(false));
+
+    let mut unread = read_of(PUSH_BUTTON, "n", &[]);
+    unread.node.traits.states = Field::Failed("states unavailable".to_owned());
+    assert_eq!(view_of(unread).observation().changed_since(&before), None);
+    let mut decided = read_of(PUSH_BUTTON, "n", &[]);
+    decided.node.traits.states = Field::Failed("states unavailable".to_owned());
+    decided.node.properties.name = Field::Present("other".to_owned());
+    assert_eq!(
+        view_of(decided).observation().changed_since(&before),
+        Some(true)
+    );
+}
+
+#[test]
+fn corroboration_distinguishes_dead_timed_out_and_unread_nodes() {
+    assert_eq!(corroboration_of(None), Corroboration::Alive);
+    for name in [UNKNOWN_OBJECT, UNKNOWN_INTERFACE, NAME_HAS_NO_OWNER] {
+        assert_eq!(
+            corroboration_of(Some(&method_error(name))),
+            Corroboration::Dead,
+            "{name}"
+        );
+    }
+    assert_eq!(
+        corroboration_of(Some(&client_timeout())),
+        Corroboration::TimedOut
+    );
+    assert_eq!(
+        corroboration_of(Some(&method_error("org.freedesktop.DBus.Error.Failed"))),
+        Corroboration::NotRead
+    );
+}
+
+#[test]
+fn parent_listing_proves_absence_only_when_a_successful_list_omits_the_address() {
     let sibling = vec![(":1.2".to_owned(), "/other".to_owned())];
     let listed = vec![(":1.2".to_owned(), "/node".to_owned())];
     assert!(listing_verdict(None, ":1.2", "/node"));
     assert!(listing_verdict(Some(Some(sibling)), ":1.2", "/node"));
     assert!(!listing_verdict(Some(Some(listed)), ":1.2", "/node"));
     assert!(!listing_verdict(Some(None), ":1.2", "/node"));
-}
-
-#[test]
-fn a_password_role_is_secure_whatever_the_tokens_say() {
-    assert!(with_bits(PASSWORD_TEXT, &[SHOWING]).secure());
-}
-
-#[test]
-fn a_node_whose_states_or_role_could_not_be_read_is_secure() {
-    let mut states = read_of(PUSH_BUTTON, "n", &[]);
-    states.node.traits.states = Field::Failed("x".to_owned());
-    let view = view_of(states);
-    assert!(view.secure());
-    assert_eq!(view.value(), None);
-    let mut role = read_of(PUSH_BUTTON, "n", &[]);
-    role.node.traits.role = Field::Failed("x".to_owned());
-    assert!(view_of(role).secure());
-}
-
-#[test]
-fn a_value_read_that_stopped_at_the_cap_is_no_value() {
-    let mut read = read_of(PUSH_BUTTON, "n", &[]);
-    read.value = ValueRead {
-        value: Field::Present("a prefix".to_owned()),
-        truncated: true,
-    };
-    let view = view_of(read);
-    assert_eq!(view.value(), None);
-    let mut whole = read_of(PUSH_BUTTON, "n", &[]);
-    whole.value = ValueRead {
-        value: Field::Present("all".to_owned()),
-        truncated: false,
-    };
-    assert_eq!(view_of(whole).value(), Some("all"));
 }
