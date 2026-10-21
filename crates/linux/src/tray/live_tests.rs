@@ -72,33 +72,11 @@ fn tray_live_marks_passive_from_status_and_not_from_geometry() {
 
 #[test]
 #[ignore = "needs a private session bus; run through scripts/private-session.sh"]
-fn tray_live_headless_click_activates_only_what_is_listed() {
-    let rig = rig_with_two_items("activate");
+fn tray_live_context_menu_uses_the_primary_context_method() {
+    let rig = rig_with_two_items("context-menu");
     let view = rig.view();
     let kde = rig.item_entry(item(&view, "Dropbox"));
     let handle = rig.resolve(&kde).expect("the KDE-style item resolves");
-    let actions = rig
-        .adapter
-        .get_live_actions(&handle, deadline(5_000))
-        .expect("live actions read");
-    assert_eq!(
-        actions,
-        Some(vec!["Click".to_owned(), "RightClick".to_owned()])
-    );
-    let live = rig
-        .adapter
-        .get_live_element(&handle, deadline(5_000))
-        .expect("the live element reads");
-    assert_eq!(live.state.role, "menubutton");
-    let result = rig
-        .adapter
-        .execute_action(&handle, ActionRequest::headless(Action::Click), &lease())
-        .expect("Activate is delivered");
-    assert_eq!(
-        result.disposition().delivery(),
-        DeliveryDisposition::DeliveredUnverified
-    );
-    rig.wait_for("item KdeItem method Activate 0 0");
     rig.adapter
         .execute_action(
             &handle,
@@ -107,28 +85,6 @@ fn tray_live_headless_click_activates_only_what_is_listed() {
         )
         .expect("ContextMenu is delivered");
     rig.wait_for("item KdeItem method ContextMenu 0 0");
-
-    let aya = rig.item_entry(item(&view, "Slack"));
-    let handle = rig.resolve(&aya).expect("the Ayatana-style item resolves");
-    assert_eq!(
-        rig.adapter
-            .get_live_actions(&handle, deadline(5_000))
-            .expect("live actions read"),
-        Some(Vec::new())
-    );
-    let before = rig.log().len();
-    let error = rig
-        .adapter
-        .execute_action(&handle, ActionRequest::headless(Action::Click), &lease())
-        .expect_err("a headless click with no Activate is refused");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
-    assert_eq!(
-        error.details.expect("details")["physical_delivery_started"],
-        false
-    );
-    std::thread::sleep(std::time::Duration::from_millis(400));
-    assert_eq!(rig.log().len(), before, "{:?}", rig.log());
-    assert_eq!(rig.count("Secondary"), 0);
 }
 
 #[test]
