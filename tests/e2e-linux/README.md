@@ -86,6 +86,11 @@ changed, and the same private process membership after cleanup. A refusal leg
 must assert its expected error and absence of effect.
 Unimplemented, blocked, outstanding, failed, and unavailable-tier outcomes exit 1.
 
+`placeholder.files_search_none` also runs headed on both X11 tiers. Its raw
+AT-SPI oracle verifies that Nautilus's unfocused editable search wrapper owns
+the focused internal editor, reads the physically typed query from that editor,
+and restores the empty query and closed search state.
+
 To list registered IDs, modes and dispositions for a tier without starting apps:
 
 ```sh
@@ -442,7 +447,7 @@ mechanism; there are no executable OWNER rows to split.
 
 ## Closing targeted validation receipt
 
-Measured 2026-10-21 on product `17a50d56` with a frozen debug CLI/helper, after the full live baseline at `a9410839`. Current registry: 171 IDs, 280 tier/mode cells, **zero outstanding**. Closing selection: 55 IDs, **94 pass, zero fail**; three flaky cells retired, never counted as passes.
+Measured 2026-10-21 on product `17a50d56` with a frozen debug CLI/helper, after the full live baseline at `a9410839`. Registry at that receipt: 171 IDs, 280 tier/mode cells, **zero outstanding**. Closing selection: 55 IDs, **94 pass, zero fail**; three flaky cells retired, never counted as passes.
 E2E P/F by headless, headed mode: Openbox **34/0, 13/0**; Mutter **33/0, 12/0**; Wayland **1/0, 1/0**. The eight retained notification cells passed their sole reruns in fresh private sessions after the retired list specimen contaminated the batch.
 Ignored Rust live gate: **38 unique tests, 73 executions, zero failures** (Openbox 35/0, Mutter 38/0; no selected Wayland tests); merged receipt complete and green.
 Native gates: Linux library **1,846/0** (185 ignored), binary **225/0**; Mac **2,478/0**. Both Clippy lanes, Windows/Linux core cross-checks, fmt, Rust size/source policies and cbindgen verification pass. Portable suites: **306 + 57 + 6 tests**, one skip, zero failures.

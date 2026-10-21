@@ -122,7 +122,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('select.screen_blank_value', 'Screen Blank takes a new value the idle-delay key confirms', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('gsettings',), 'pass', ''),
     Leg('select.refusal_without_semantic_route', 'A combo with no semantic route is refused with no effect', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('gsettings',), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
     Leg('placeholder.settings_apps_search', 'Applications search reports its placeholder and no description', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
-    Leg('placeholder.files_search_none', 'Files search reports no placeholder', 'Files', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
+    Leg('placeholder.files_search_none', 'Files search has no placeholder and headed typing reaches its focused internal editor', 'Files', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('zero_bounds.files_container_raw_only', 'A zero-axis Files container gets no ref and is covered as raw geometry', 'Files', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('zero_bounds.settings_container_raw_only', 'A zero-axis Settings container gets no ref and is covered as raw geometry', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('zero_bounds.hidden_menu_items_not_visible', 'Hidden menu bar items read as not visible', 'Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
