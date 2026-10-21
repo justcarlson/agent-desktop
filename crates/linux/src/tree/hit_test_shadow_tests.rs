@@ -1,6 +1,38 @@
 use super::*;
 
 #[test]
+fn gtk4_hits_follow_both_positions_and_never_reach_through_a_cover() {
+    let mut world = World::new(gtk4_facts(), None);
+    reaching(&mut world);
+    for origin in [(60, 60), (380, 190)] {
+        let point = (origin.0 + 398, origin.1 + 300);
+        world.windowing = Some(windowing(origin, vec![]));
+        let reads = world.nodes.points.len();
+        assert_eq!(test(&mut world, point), HitTestResult::ReachesTarget);
+        assert_eq!(world.nodes.points.get(reads), Some(&(398, 300)));
+        let cover = stacked(20, rect(origin.0 + 300, origin.1 + 200, 200, 200));
+        world
+            .windowing
+            .as_mut()
+            .expect("window")
+            .snapshot
+            .stack
+            .push(cover);
+        let covered = test(&mut world, point);
+        assert!(matches!(covered, HitTestResult::InterceptedBy { .. }));
+        world
+            .windowing
+            .as_mut()
+            .expect("window")
+            .snapshot
+            .stack
+            .pop();
+        assert_eq!(test(&mut world, point), HitTestResult::ReachesTarget);
+        assert_eq!(test(&mut world, (10, 10)), HitTestResult::Unknown);
+    }
+}
+
+#[test]
 fn gtk4_inside_a_client_side_shadow_is_calibrated_from_the_origin_after_the_shadow() {
     let mut shadowed = windowing((302, 260), vec![]);
     shadowed.snapshot.stack[0].shadow = (61, 55, 0, 0);

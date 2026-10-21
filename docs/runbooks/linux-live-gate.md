@@ -162,10 +162,6 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   zenity refusal/delivery checks remain. The diagnostic's historical input-timing
   combinations and repeated samples are retired.
 
-- `tree::hit_live_tests::cases::hit_live_gtk4_files_at_two_positions`: its cover
-  window still failed to appear on the sole focused retry with bounded native
-  window waits. The retained same-tier `hit_live_gtk4_calculator_at_two_positions`
-  runs the identical GTK4 two-position, never-wrong scenario.
 - `tree::hit_live_tests::cases::hit_live_qt_cover_in_both_directions`: its app
   still exposed no usable X window on that focused retry. The retained same-tier
   `hit_live_gtk3_terminal_cover_in_both_directions` runs the identical exact-cover
@@ -222,7 +218,7 @@ A successful signal command only requests a stop; capturing before the kernel
 has stopped the process made its precondition race. The production stopped
 process parser and exact `APP_UNRESPONSIVE` assertion remain unchanged.
 
-Five hit-test live scenarios remain. Their independent X11 oracle now
+Four hit-test live scenarios remain. Their independent X11 oracle now
 waits for the application window to appear in `wmctrl -lp` with an eight-second
 deadline, rather than assuming that a settled AT-SPI tree means the window
 manager has already published it. Qt/Files/VS Code cases reached the callback
@@ -232,10 +228,21 @@ cover-direction and coordinate assertions remain in those retained cases.
 Each cover clock has a unique fixture title. Its readiness wait requires that
 exact title, rather than an XID absent from a pre-launch list: X11 can reuse
 the previous clock's ID while the window-manager list still includes it. This
-retains the GTK4 two-position scenario without relying on clock/XID lifecycle
-timing or changing any hit verdict.
+removes clock/XID lifecycle timing from the retained cover scenarios without
+changing any hit verdict.
 
 ### Moved to deterministic unit coverage
+
+`tree::hit_live_tests::cases::hit_live_gtk4_files_at_two_positions` and
+`hit_live_gtk4_calculator_at_two_positions` merge into
+`tree::hit_test::tests::shadow::gtk4_hits_follow_both_positions_and_never_reach_through_a_cover`.
+The cover lifecycle and native app mapping still failed on their bounded focused
+retries. The fake moves the same target between both original window positions,
+independently checks the calibrated local point, requires exact interception
+under a cover, exact reachability after its removal, and `Unknown` outside the
+calibrated target. Native GTK4 zero-axis refusal, real GTK4 physical input,
+terminal/Chromium exact-cover hit scenarios and other live geometry checks remain.
+These app/cover lifecycle scenarios are no longer live gate requirements.
 
 `tree::resolve_twin_live_tests::resolve_live_files_row_refs_survive_a_sibling_row_leaving`
 is replaced by

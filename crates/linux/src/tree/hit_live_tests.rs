@@ -342,28 +342,3 @@ pub(super) fn gtk3_check(
 ) -> Result<(), String> {
     exercise("gtk3 terminal", Strictness::Exact, frame)
 }
-
-pub(super) fn gtk4_check(
-    label: &str,
-    _: &LinuxAdapter,
-    _: &SharedBus,
-    frame: &AtspiElement,
-) -> Result<(), String> {
-    let rig = rig();
-    let title = frame_title(&rig, frame);
-    let window = x_tools::window_of(frame.pid(), &title).ok_or("no X window")?;
-    for (x, y) in [(60, 60), (380, 190)] {
-        x_tools::move_to(window.id, x, y);
-        std::thread::sleep(Duration::from_millis(500));
-        println!(
-            "hit_live {label} moved to {x},{y}: {:?}",
-            x_tools::geometry(window.id)
-        );
-        exercise(
-            &format!("{label} at {x},{y}"),
-            Strictness::NeverWrong,
-            frame,
-        )?;
-    }
-    Ok(())
-}

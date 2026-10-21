@@ -86,19 +86,6 @@ pub(super) fn geometry(id: u32) -> Option<Geometry> {
     })
 }
 
-pub(super) fn move_to(id: u32, x: i32, y: i32) {
-    run(
-        "wmctrl",
-        &[
-            "-i",
-            "-r",
-            &format!("0x{id:x}"),
-            "-e",
-            &format!("0,{x},{y},-1,-1"),
-        ],
-    );
-}
-
 pub(super) fn set_above(id: u32, on: bool) {
     let change = if on { "add,above" } else { "remove,above" };
     run("wmctrl", &["-i", "-r", &format!("0x{id:x}"), "-b", change]);
