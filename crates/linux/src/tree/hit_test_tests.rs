@@ -55,7 +55,7 @@ fn gtk4_facts() -> Facts {
     }
 }
 
-fn stacked(id: u32, client: Extents) -> StackedWindow {
+pub(crate) fn stacked(id: u32, client: Extents) -> StackedWindow {
     StackedWindow {
         shadow: (0, 0, 0, 0),
         id,
@@ -76,7 +76,7 @@ fn stacked(id: u32, client: Extents) -> StackedWindow {
     }
 }
 
-fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
+pub(crate) fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
     let mut stack = vec![stacked(CLIENT, rect(origin.0, origin.1, 800, 600))];
     stack.extend(above);
     Windowing {
