@@ -1,5 +1,5 @@
 /// What reading a node's `LabelledBy` relation produced.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum LabelOutcome {
     /// The node has no label relation, or its target has no text.
     Unlabelled,

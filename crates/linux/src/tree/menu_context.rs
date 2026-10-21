@@ -90,13 +90,16 @@ impl MenuContext {
 }
 
 fn tree_complete(node: &WalkedNode<ObservedRead>) -> bool {
-    !node.truncated && node.children.iter().all(tree_complete)
+    !node.truncated
+        && node.payload.label != super::LabelOutcome::Failed
+        && node.children.iter().all(tree_complete)
 }
 
 fn hash_node(node: &WalkedNode<ObservedRead>, hasher: &mut impl Hasher) {
     node.payload.node.element.path().hash(hasher);
     node.payload.node.traits.role.present().hash(hasher);
     node.payload.node.properties.name.present().hash(hasher);
+    node.payload.label.hash(hasher);
     node.truncated.hash(hasher);
     node.child_count.hash(hasher);
     node.children.len().hash(hasher);
