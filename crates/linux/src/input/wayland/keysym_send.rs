@@ -72,9 +72,24 @@ fn send_each(
     let mut held: Vec<u32> = Vec::new();
     let mut delivered = 0_u32;
     for key in keys {
-        if let Err(error) =
-            ensure_budget(deadline).and_then(|()| session.keysym(key.keysym, key.down, deadline))
-        {
+        let outcome = ensure_budget(deadline).and_then(|()| {
+            session
+                .keysym(key.keysym, key.down, deadline)
+                .map_err(|error| {
+                    if error.disposition != DeliverySemantics::Unknown {
+                        return error;
+                    }
+                    with_fields(
+                        error,
+                        json!({
+                            "physical_delivery_started": true,
+                            "delivered_events": already_delivered + delivered,
+                        }),
+                    )
+                    .with_disposition(DeliverySemantics::uncertain())
+                })
+        });
+        if let Err(error) = outcome {
             recover(session, &held);
             return Err(with_progress(error, already_delivered + delivered));
         }
@@ -95,6 +110,7 @@ fn drive(
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
     ensure_budget(deadline).map_err(|error| with_progress(error, 0))?;
+    let mut lead_delivered = 0;
     if !session.resumed() {
         session
             .start(deadline)
@@ -109,17 +125,17 @@ fn drive(
                 down: false,
             },
         ];
-        send_each(session, &shift, 0, deadline).map_err(|error| with_progress(error, 0))?;
+        lead_delivered = send_each(session, &shift, 0, deadline)?;
         sleep(
             deadline
                 .remaining_slice(SHIFT_SETTLE)
-                .map_err(|error| with_progress(error, 0))?,
+                .map_err(|error| with_progress(error, lead_delivered))?,
         );
     }
     let mut delivered = 0_u32;
     for chunk in chunks {
-        gate().map_err(|error| with_progress(error, delivered))?;
-        delivered += send_each(session, chunk, delivered, deadline)?;
+        gate().map_err(|error| with_progress(error, lead_delivered + delivered))?;
+        delivered += send_each(session, chunk, lead_delivered + delivered, deadline)?;
     }
     Ok(delivered)
 }

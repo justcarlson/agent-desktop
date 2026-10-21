@@ -12,6 +12,9 @@ use crate::system::SharedBus;
 use crate::system::session_bus::SessionBus;
 use crate::tree::live_launch::Launched;
 
+#[path = "reply_loss_live_tests.rs"]
+mod reply_loss;
+
 const APP: &str = r#"
 import os, time
 import gi
