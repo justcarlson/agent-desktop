@@ -74,6 +74,31 @@ fn a_second_lease_times_out_and_drop_releases_the_first() {
 }
 
 #[test]
+fn a_recovery_lease_retains_file_and_process_ownership_after_parent_drop() {
+    let _test_guard = interaction_lease_test_guard();
+    let root = test_root("recovery");
+    let original =
+        acquire_unix_interaction_lease_at(Deadline::after(1_000).unwrap(), &root).unwrap();
+    let recovery = original.with_deadline(Deadline::detached_after(5_000).unwrap());
+    let inherited = recovery.duplicate_inheritable_fd().unwrap();
+    drop(original);
+    assert!(FileLock::is_held(&interaction_lock_path_at(&root).unwrap()));
+    let error = acquire_unix_interaction_lease_at(Deadline::after(10).unwrap(), &root)
+        .err()
+        .expect("the recovery lease must retain the process guard");
+    assert_eq!(
+        error.details.unwrap()["kind"],
+        "interaction_process_lock_timeout"
+    );
+    assert!(!recovery.deadline().is_expired());
+    drop(recovery);
+    assert!(FileLock::is_held(&interaction_lock_path_at(&root).unwrap()));
+    drop(inherited);
+    acquire_unix_interaction_lease_at(Deadline::after(1_000).unwrap(), &root).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn home_changes_do_not_change_the_physical_interaction_lock() {
     let _test_guard = interaction_lease_test_guard();
     let root = test_root("home");
