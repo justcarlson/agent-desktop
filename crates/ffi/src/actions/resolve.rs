@@ -230,7 +230,18 @@ unsafe fn decode_core_ref_entry(
         ));
     }
 
-    Ok(CoreRefEntry {
+    let bounds_space = match entry.geometry.bounds_space {
+        crate::AD_BOUNDS_SPACE_UNKNOWN => None,
+        crate::AD_BOUNDS_SPACE_SCREEN => Some(agent_desktop_core::BoundsSpace::Screen),
+        crate::AD_BOUNDS_SPACE_WINDOW => Some(agent_desktop_core::BoundsSpace::Window),
+        _ => {
+            return Err(AdapterError::new(
+                ErrorCode::InvalidArgs,
+                "invalid geometry.bounds_space",
+            ));
+        }
+    };
+    let decoded = CoreRefEntry {
         process: RefProcess {
             pid: agent_desktop_core::ProcessId::new(entry.process.pid),
             process_instance: Some(process_instance),
@@ -244,7 +255,7 @@ unsafe fn decode_core_ref_entry(
             native_id,
         },
         geometry: RefGeometry {
-            bounds_space: None,
+            bounds_space,
             bounds,
             bounds_hash,
         },
@@ -264,7 +275,16 @@ unsafe fn decode_core_ref_entry(
             path_is_absolute: entry.scope.path_is_absolute,
             path,
         },
-    })
+    };
+    if !agent_desktop_core::ref_identity::has_meaningful_identity(&decoded)
+        && (bounds_space != Some(agent_desktop_core::BoundsSpace::Window) || bounds.is_none())
+    {
+        return Err(AdapterError::new(
+            ErrorCode::InvalidArgs,
+            "Geometry-only refs require window-relative bounds",
+        ));
+    }
+    Ok(decoded)
 }
 
 fn process_identity(

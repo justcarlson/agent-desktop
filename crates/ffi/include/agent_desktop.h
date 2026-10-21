@@ -143,6 +143,12 @@
 
 #define AD_MAX_REF_PATH_DEPTH 128
 
+#define AD_BOUNDS_SPACE_UNKNOWN 0
+
+#define AD_BOUNDS_SPACE_SCREEN 1
+
+#define AD_BOUNDS_SPACE_WINDOW 2
+
 #define AD_REF_GEOMETRY_SIZE 48
 
 #define AD_REF_IDENTITY_SIZE 40
@@ -670,6 +676,11 @@ typedef struct AdRefGeometry {
   uint64_t bounds_hash;
   bool has_bounds;
   bool has_bounds_hash;
+  /**
+   * Coordinate frame of `bounds`; use an `AD_BOUNDS_SPACE_*` constant.
+   * Geometry-only refs require window-relative bounds.
+   */
+  int32_t bounds_space;
 } AdRefGeometry;
 
 typedef struct AdStringSlice {
@@ -2219,6 +2230,7 @@ _Static_assert(sizeof(AdStringSlice) == AD_STRING_SLICE_SIZE, "AdStringSlice ABI
 _Static_assert(sizeof(AdRefCapabilities) == AD_REF_CAPABILITIES_SIZE, "AdRefCapabilities ABI size changed");
 _Static_assert(sizeof(AdRefGeometry) == AD_REF_GEOMETRY_SIZE, "AdRefGeometry ABI size changed");
 _Static_assert(offsetof(AdRefGeometry, bounds_hash) == 32, "AdRefGeometry.bounds_hash offset changed");
+_Static_assert(offsetof(AdRefGeometry, bounds_space) == 44, "AdRefGeometry.bounds_space offset changed");
 _Static_assert(sizeof(AdRefSource) == AD_REF_SOURCE_SIZE, "AdRefSource ABI size changed");
 _Static_assert(offsetof(AdRefSource, window_bounds_hash) == 24, "AdRefSource.window_bounds_hash offset changed");
 _Static_assert(sizeof(AdRefScope) == AD_REF_SCOPE_SIZE, "AdRefScope ABI size changed");

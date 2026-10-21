@@ -20,6 +20,42 @@ fn decode(entry: AdRefEntry) -> Result<CoreRefEntry, AdapterError> {
 }
 
 #[test]
+fn exact_ref_geometry_preserves_window_space_and_refuses_unproven_frames() {
+    for (space, has_bounds, expected) in [
+        (
+            crate::AD_BOUNDS_SPACE_WINDOW,
+            true,
+            Some(agent_desktop_core::BoundsSpace::Window),
+        ),
+        (crate::AD_BOUNDS_SPACE_WINDOW, false, None),
+        (crate::AD_BOUNDS_SPACE_SCREEN, true, None),
+        (crate::AD_BOUNDS_SPACE_UNKNOWN, true, None),
+        (99, true, None),
+    ] {
+        let mut entry = test_ref_entry();
+        entry.identity.role = c"button".as_ptr();
+        if space == 99 {
+            entry.identity.name = c"target".as_ptr();
+        }
+        entry.geometry.bounds = crate::AdRect {
+            x: 12.0,
+            y: 24.0,
+            width: 80.0,
+            height: 30.0,
+        };
+        entry.geometry.has_bounds = has_bounds;
+        entry.geometry.bounds_space = space;
+        match expected {
+            Some(expected) => {
+                let decoded = decode(entry).unwrap();
+                assert_eq!(decoded.geometry.bounds_space, Some(expected));
+            }
+            None => assert_eq!(decode(entry).unwrap_err().code, ErrorCode::InvalidArgs),
+        }
+    }
+}
+
+#[test]
 fn ffi_ref_entry_preserves_description_identity() {
     let role = CString::new("button").unwrap();
     let name = CString::new("Primary").unwrap();
@@ -51,6 +87,7 @@ fn ffi_ref_entry_preserves_description_identity() {
         height: 4.0,
     };
     entry.geometry.has_bounds = true;
+    entry.geometry.bounds_space = crate::AD_BOUNDS_SPACE_SCREEN;
     entry.geometry.bounds_hash = Rect {
         x: 1.0,
         y: 2.0,
@@ -85,6 +122,10 @@ fn ffi_ref_entry_preserves_description_identity() {
     assert_eq!(core_entry.capabilities.available_actions, ["Click"]);
     assert_eq!(core_entry.geometry.bounds.unwrap().width, 3.0);
     assert_eq!(
+        core_entry.geometry.bounds_space,
+        Some(agent_desktop_core::BoundsSpace::Screen)
+    );
+    assert_eq!(
         core_entry.geometry.bounds_hash,
         core_entry.geometry.bounds.unwrap().bounds_hash()
     );
@@ -109,6 +150,7 @@ fn ffi_ref_entry_derives_bounds_hash_when_caller_omits_it() {
     let role = CString::new("button").unwrap();
     let mut entry = test_ref_entry();
     entry.identity.role = role.as_ptr();
+    entry.identity.name = c"target".as_ptr();
     entry.geometry.bounds = crate::types::AdRect {
         x: 1.0,
         y: 2.0,
