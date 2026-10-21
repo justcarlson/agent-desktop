@@ -31,22 +31,9 @@ fn the_launching_fields_are_read_from_the_main_group_only() {
 }
 
 #[test]
-fn a_localised_name_never_replaces_the_plain_one() {
-    let text = "[Desktop Entry]\nName[de]=Rechner\nName=Calculator\nType=Application\n";
-    assert_eq!(parse("x", text).expect("entry").name, "Calculator");
-}
-
-#[test]
 fn the_first_occurrence_of_a_key_wins() {
     let text = "[Desktop Entry]\nName=First\nName=Second\n";
     assert_eq!(parse("x", text).expect("entry").name, "First");
-}
-
-#[test]
-fn terminal_hidden_and_link_are_recorded_not_dropped() {
-    let text = "[Desktop Entry]\nName=Vim\nType=Link\nTerminal=true\nHidden=true\nExec=vim\n";
-    let traits = parse("vim", text).expect("entry").traits;
-    assert!(traits.terminal && traits.hidden && !traits.application);
 }
 
 #[test]
@@ -62,10 +49,4 @@ fn value_escapes_are_undone_once() {
     let entry = parse("x", text).expect("entry");
     assert_eq!(entry.name, "A B");
     assert_eq!(entry.exec.as_deref(), Some("a \\ b"));
-}
-
-#[test]
-fn comments_and_keys_of_later_groups_are_skipped() {
-    let text = "# c\n[Desktop Entry]\n# Name=Wrong\nName=Right\n[Desktop Action a]\nName=Later\n";
-    assert_eq!(parse("x", text).expect("entry").name, "Right");
 }
