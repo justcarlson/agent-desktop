@@ -4,9 +4,8 @@ use agent_desktop_core::{SystemOps, WindowFilter};
 
 use super::list_windows;
 use super::signal_live_apps::{
-    Rig, capture, close_newest_frame, count_of, deadline, diff, found_event,
-    identity_of, outcome, poll, press, process_gone, signal, tokens, wait_event, window_ids, x11_active_pid,
-    x11_windows,
+    Rig, capture, close_newest_frame, count_of, deadline, diff, found_event, identity_of, outcome,
+    poll, press, process_gone, signal, tokens, wait_event, window_ids, x11_active_pid, x11_windows,
 };
 
 const OPEN_MS: u64 = 15_000;

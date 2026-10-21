@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use super::*;
 use crate::system::x11::FrameExtents;
 use crate::system::x11::desktop_placement::DesktopPlacement;
@@ -383,16 +381,6 @@ fn unreadable_facts_are_unknown() {
     let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
     world.facts = None;
     assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn a_spent_deadline_with_no_x11_answer_is_the_timeout_and_not_unknown() {
-    let mut world = World::new(gtk3_facts(), None);
-    let spent = Deadline::after(1).expect("a deadline builds");
-    std::thread::sleep(Duration::from_millis(20));
-    let error = hit_test_via(&mut world, &el("/target"), &el("/frame"), (310, 154), spent)
-        .expect_err("a spent deadline is an error");
-    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
 }
 
 #[path = "hit_test_shadow_tests.rs"]

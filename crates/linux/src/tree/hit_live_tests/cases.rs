@@ -1,6 +1,6 @@
 use super::{AtspiElement, candidates, gtk3_check, hit, verdict, window_extents};
 use crate::tree::WalkLimits;
-use crate::tree::live_apps::{AppSpec, app, qt, terminal};
+use crate::tree::live_apps::{AppSpec, app, terminal};
 use crate::tree::live_rig::{deadline, rig};
 use crate::tree::walker::walk_tree;
 
