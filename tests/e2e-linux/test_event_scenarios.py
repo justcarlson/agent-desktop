@@ -1,15 +1,58 @@
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from runner import legs, verdict
+from runner import legs, main, report, verdict
 from runner.product import Envelope
 from runner.verdict import LegContext
 from scenarios import events
 
 
 class EventScenarioTests(unittest.TestCase):
+    def test_window_events_require_the_observed_kind_owner_and_frame(self):
+        for scenario in ("scoped_and_unscoped_forms", "window_closed_transition"):
+            for field in (None, "kind", "pid", "window_id"):
+                for bad_response in ((0, 1) if field and scenario == "scoped_and_unscoped_forms" else (0,)):
+                    with self.subTest(scenario=scenario, field=field, response=bad_response):
+                        tier = SimpleNamespace(runtime_dir=Path("/private/test"))
+                        leg = legs.leg_by_id("events." + scenario)
+                        frames, pending, calls, replies = ["seed"], [], [], []
+                        app = SimpleNamespace(pid=123, windows=["seed"])
+                        root = SimpleNamespace(children=lambda: list(frames))
+                        def product(tier, argv, **kw):
+                            before = set(frames)
+                            pending.pop()()
+                            event = {"kind": argv[argv.index("--event") + 1], "pid": 123,
+                                     "window_id": next(iter(set(frames) ^ before))}
+                            if field is not None and len(calls) == bad_response:
+                                event[field] = {"kind": "app-terminated", "pid": 999,
+                                                "window_id": "unrelated"}[field]
+                            calls.append(argv)
+                            replies.append(str(event))
+                            return Envelope(True, {"event": event}, None, str(event), 1, argv)
+                        def restore(ctx, owner, count, name):
+                            frames[:] = ["seed"]
+                            ctx.restored("atspi.root_children", len(frames))
+                        with tempfile.TemporaryDirectory() as directory, \
+                            patch.object(verdict, "_proc_members", return_value=[]), \
+                            patch.object(events, "_editor", return_value=(app, root)), \
+                            patch.object(events, "_window_ids", side_effect=lambda _: list(frames)), \
+                            patch.object(events, "_new_editor_window", side_effect=lambda _: frames.append(f"extra-{len(frames)}")), \
+                            patch.object(events, "_close_added_windows", side_effect=lambda _, seed: frames.__setitem__(slice(None), seed)), \
+                            patch.object(events, "root_windows", side_effect=lambda *a: len(frames)), \
+                            patch.object(events, "_restore_count", side_effect=restore), \
+                            patch.object(events, "stop", side_effect=lambda _: frames.clear()), \
+                            patch.object(events, "delayed", side_effect=lambda _, action: (pending.append(action) or SimpleNamespace(join=lambda: None))), \
+                            patch("runner.verdict.run_product", side_effect=product):
+                            outcome = main._run_leg(getattr(events, scenario), leg, tier,
+                                                    "x11-openbox", "headless", Path(directory), verdict, report)
+                        self.assertEqual(outcome.outcome, report.PASS if field is None else report.FAIL,
+                                         outcome.detail)
+                        if field is not None:
+                            self.assertEqual(outcome.detail, replies[-1])
+
     def test_process_events_read_transitions_and_restore_private_registry_state(self):
         for kind in ("app_launched_transition", "app_terminated_transition", "app_launched_quiet",
                      "app_terminated_quiet", "target_killed_mid_wait"):

@@ -116,6 +116,33 @@ class VerdictRuleTests(unittest.TestCase):
                     send.assert_called_once_with(12, signal.SIGTERM, 120, self.tier.runtime_dir, Path("/proc"))
                     self.assertEqual(self.members[0], {(10, 100)})
 
+    def test_evidence_write_failure_is_an_error_even_for_a_passing_leg(self):
+        from runner import gate, stage
+
+        def observed(ctx):
+            ctx.before("atspi", "unchanged")
+            ctx.after("atspi", "unchanged")
+            ctx.restored("atspi", "unchanged")
+
+        suite = Path(self.root.name) / "suite"
+        suite.mkdir()
+        with mock.patch.object(main, "_write_evidence", side_effect=OSError("disk full")):
+            outcome = main._run_leg(observed, atspi_leg(), self.tier,
+                                    "x11-openbox", "headless", suite, verdict, report)
+        self.assertEqual(outcome.outcome, report.ERROR)
+        self.assertEqual(report.count_failures([outcome]), 1)
+        self.assertIn("evidence could not be written: disk full", report.render([outcome]))
+        with mock.patch.dict(main.os.environ, {main.SUITE_ENV: str(suite)}), \
+            mock.patch.object(main, "_acquire_lease", return_value=None), \
+            mock.patch.object(gate, "check_prerequisites", return_value=[]), \
+            mock.patch.object(stage, "stage_binary", return_value=suite / "binary"), \
+            mock.patch.object(session, "sweep_strays"), \
+            mock.patch.object(main.signal, "signal"), \
+            mock.patch.object(main, "_run_tier", return_value=[outcome]):
+            status = main.main(["--tier", "x11-openbox", "--leg", "events.window_closed_transition"])
+        self.assertEqual(status, 1)
+        self.assertTrue(suite.is_dir(), "the failed run deleted its diagnostic directory")
+
     def test_a_leg_with_no_oracle_read_fails(self):
         failures = verdict.evaluate(self.ctx())
         self.assertTrue(any("before" in f for f in failures))

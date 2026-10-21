@@ -114,6 +114,14 @@ def run_product(
             elapsed,
             full_argv,
         )
+    if result.returncode != (0 if envelope["ok"] else 1):
+        return _harness_error(
+            "HARNESS_EXIT_MISMATCH",
+            f"exit {result.returncode} contradicts envelope ok={envelope['ok']}",
+            raw + stderr,
+            elapsed,
+            full_argv,
+        )
     return Envelope(
         ok=envelope["ok"],
         data=envelope.get("data"),

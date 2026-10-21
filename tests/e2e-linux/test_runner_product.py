@@ -120,10 +120,23 @@ class EnvelopeTests(unittest.TestCase):
 
     def test_error_envelope_passes_through(self):
         envelope = self.run_argv(
-            'printf \'{"ok":false,"error":{"code":"STALE_REF","message":"gone"}}\''
+            'printf \'{"ok":false,"error":{"code":"STALE_REF","message":"gone"}}\'; exit 1'
         )
         self.assertFalse(envelope.ok)
         self.assertEqual(envelope.error["code"], "STALE_REF")
+
+    def test_exit_status_must_match_the_envelope(self):
+        for body, status in (
+            ('{"ok":true,"data":{}}', 17),
+            ('{"ok":false,"error":{"code":"STALE_REF"}}', 0),
+            ('{"ok":false,"error":{"code":"STALE_REF"}}', 2),
+        ):
+            with self.subTest(status=status, body=body):
+                envelope = self.run_argv(f"printf '%s' '{body}'; exit {status}")
+                self.assertFalse(envelope.ok)
+                self.assertEqual(envelope.error["code"], "HARNESS_EXIT_MISMATCH")
+                self.assertIn(f"exit {status}", envelope.error["message"])
+                self.assertIn(body, envelope.raw)
 
     def test_malformed_stdout_is_a_harness_error_with_raw(self):
         envelope = self.run_argv("printf 'this is not json'")
