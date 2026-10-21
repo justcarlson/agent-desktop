@@ -68,13 +68,40 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   `details.kind: exited` and `delivered_unverified`. The result carries `app`,
   `pid`, `process_instance` and, when one appeared, `window`.
 - Negative numbers need the `=` form: `move-window --x=-100 --y=-20`.
-- A launch reports a window the launch produced, never one that was open.
+- A no-argument attach returns an existing window of the running app. A new
+  launch or argument handoff reports only a newly opened window; if the handoff
+  opens a tab in an existing window, the result can have no `window`.
 - Chromium, Electron and Qt apps need flags to appear on the bus; pass them with
   `--arg`. See `references/troubleshooting.md`.
 
 ## `close-app`
 
-`close-app` succeeds only when the process is gone.
+`close-app` closes the app, including all its windows, and succeeds only when the
+process is gone. There is no `close-window` command. To close just one of several
+windows, click that window's own Close button ref. For the last window, use
+`close-app` when you intend to exit the app.
+
+For example, with Text Editor windows titled `a.txt` and `b.txt` already open, this
+Bash recipe uses `jq` to select the unique `b.txt` window and its Close button.
+It stops if either selection is ambiguous; it does not pick the first match.
+
+```bash
+(
+  set -euo pipefail
+  window_id=$(agent-desktop list-windows --app gnome-text-editor |
+    jq -er '[.data[] | select(.title == "b.txt")] |
+      if length == 1 then .[0].id else error("choose one window") end')
+  close_ref=$(agent-desktop snapshot --app gnome-text-editor --window-id "$window_id" -i --compact |
+    jq -er '[.. | objects | select(.role? == "button" and .name? == "Close" and .ref_id?) | .ref_id] |
+      if length == 1 then .[0] else error("choose the window Close button") end')
+  agent-desktop click "$close_ref"
+  agent-desktop list-windows --app gnome-text-editor
+)
+```
+
+Check that only the intended window disappeared. If a save prompt appears,
+snapshot `--surface sheet`, answer it, then list the windows again. Ctrl+W may
+close only a document or tab and leave its window open.
 
 - Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and no
   signal. A file manager that outlives its windows ends in `TIMEOUT` with
@@ -148,8 +175,15 @@ state agree.
   `is_focused: true`. A headed ref action runs `focus-window` for you and ends
   the same way.
 - A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
-- A hidden window refuses a pointer action with the same reason as `click`
-  ("the window manager reports the window hidden"): run `restore --app <name>`.
+- A headless ref `click` on a minimized window refuses with live `offscreen`
+  evidence and leaves it minimized. On X11, `--headed click` first focuses the
+  ref's exact source window, restoring it if minimized, then delivers the click.
+  It refuses if the window manager cannot show and activate that window, or if
+  the target remains hidden, offscreen or occluded after focus. An unsupported
+  physical route or geometry refusal can fall back to semantic click only when
+  it proves nothing was sent. Ordinary-app headed pointer actions on Wayland
+  refuse with cause `wayland_session` before delivery. Use `restore` when you want
+  to restore a window without clicking it.
 
 ## Workspaces
 
@@ -222,7 +256,19 @@ diffs a baseline taken at wait start against fresh reads. On Linux:
 - A window that neither shows nor is iconified is the husk of a closed window and
   is left out of every list, so `window-closed` fires when the dialog closes.
 - `wait` polls with a 50 ms pause and re-resolves a ref on every poll. A wait for
-  a `--window` appears before its content: follow it with `--text`.
+  a `--window` can finish before its content is ready. `wait --text --app` can
+  return `AMBIGUOUS_TARGET` if visibility, focus and accessibility do not select
+  one window, before checking the text. A document and its dialog can cause this.
+  For a save prompt, use a title wait followed
+  by a sheet snapshot:
+
+  ```bash
+  agent-desktop wait --window 'Save Changes?' --app gnome-text-editor --timeout 5000
+  agent-desktop snapshot --app gnome-text-editor --surface sheet -i --compact
+  ```
+
+  `--window` is a separate wait mode, not a filter for `--text`; `--window-id`
+  narrows event waits only.
 
 ## Reading the disposition
 

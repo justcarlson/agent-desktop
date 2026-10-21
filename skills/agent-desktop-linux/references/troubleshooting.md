@@ -82,6 +82,33 @@ nameless top-level frame, not a window: it does not count as a window event.
   report false; missing placement evidence stays unknown. Snapshots carry
   neither live `offscreen` nor `hidden`; use live `get`/`is` checks.
 
+## GTK editor tabs
+
+GNOME Text Editor can expose the focused document's editor under both tab
+groups: `alpha.txt` and `beta.txt` can both contain `BETA FILE` with focused and
+visible state. Native AT-SPI exposes the same duplication. A group label can
+name one file while its child editor exposes another file's content; the label
+and the child's focused state do not prove which buffer a ref will edit.
+
+Switch to the intended tab, take a fresh snapshot and verify the active content
+before editing. For example, with `beta.txt` active and `alpha.txt` immediately
+to its left in the focused Text Editor window, and known distinct contents
+`BETA FILE` and `ALPHA FILE`:
+
+```bash
+agent-desktop press ctrl+pageup --app gnome-text-editor
+agent-desktop snapshot --app gnome-text-editor -i --compact
+agent-desktop press ctrl+a --app gnome-text-editor
+agent-desktop press ctrl+c --app gnome-text-editor
+agent-desktop clipboard-get
+```
+
+Check that the copied text is `ALPHA FILE`; this replaces the clipboard
+and selects the buffer. Use Ctrl+PageDown to switch right. If the identity is
+still unclear, stop before writing. For documents that need separate targets,
+open them in separate windows (`agent-desktop launch gnome-text-editor --arg=--new-window --arg=/tmp/note.txt`)
+and use `--window-id` with fresh snapshots.
+
 ## Toolkit limits
 
 | Toolkit | Limit |
