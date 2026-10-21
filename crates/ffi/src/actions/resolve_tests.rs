@@ -20,15 +20,24 @@ fn decode(entry: AdRefEntry) -> Result<CoreRefEntry, AdapterError> {
 }
 
 #[test]
-fn exact_ref_geometry_preserves_window_space_and_refuses_unproven_frames() {
-    for (space, has_bounds, expected) in [
+fn exact_ref_geometry_accepts_only_the_platform_native_frame() {
+    let (native_space, other_space, expected_space) = if cfg!(target_os = "linux") {
         (
             crate::AD_BOUNDS_SPACE_WINDOW,
-            true,
-            Some(agent_desktop_core::BoundsSpace::Window),
-        ),
-        (crate::AD_BOUNDS_SPACE_WINDOW, false, None),
-        (crate::AD_BOUNDS_SPACE_SCREEN, true, None),
+            crate::AD_BOUNDS_SPACE_SCREEN,
+            agent_desktop_core::BoundsSpace::Window,
+        )
+    } else {
+        (
+            crate::AD_BOUNDS_SPACE_SCREEN,
+            crate::AD_BOUNDS_SPACE_WINDOW,
+            agent_desktop_core::BoundsSpace::Screen,
+        )
+    };
+    for (space, has_bounds, expected) in [
+        (native_space, true, Some(expected_space)),
+        (native_space, false, None),
+        (other_space, true, None),
         (crate::AD_BOUNDS_SPACE_UNKNOWN, true, None),
         (99, true, None),
     ] {
@@ -158,6 +167,11 @@ fn ffi_ref_entry_derives_bounds_hash_when_caller_omits_it() {
         height: 4.0,
     };
     entry.geometry.has_bounds = true;
+    entry.geometry.bounds_space = if cfg!(target_os = "linux") {
+        crate::AD_BOUNDS_SPACE_WINDOW
+    } else {
+        crate::AD_BOUNDS_SPACE_SCREEN
+    };
 
     let core_entry = decode(entry).unwrap();
 

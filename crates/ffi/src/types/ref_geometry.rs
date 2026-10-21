@@ -7,7 +7,8 @@ pub struct AdRefGeometry {
     pub has_bounds: bool,
     pub has_bounds_hash: bool,
     /// Coordinate frame of `bounds`; use an `AD_BOUNDS_SPACE_*` constant.
-    /// Geometry-only refs require window-relative bounds.
+    /// macOS and Windows geometry must be screen-relative. Linux geometry-only
+    /// refs require window-relative bounds.
     pub bounds_space: i32,
 }
 

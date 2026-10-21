@@ -678,7 +678,8 @@ typedef struct AdRefGeometry {
   bool has_bounds_hash;
   /**
    * Coordinate frame of `bounds`; use an `AD_BOUNDS_SPACE_*` constant.
-   * Geometry-only refs require window-relative bounds.
+   * macOS and Windows geometry must be screen-relative. Linux geometry-only
+   * refs require window-relative bounds.
    */
   int32_t bounds_space;
 } AdRefGeometry;

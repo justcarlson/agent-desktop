@@ -241,6 +241,17 @@ unsafe fn decode_core_ref_entry(
             ));
         }
     };
+    let required_space = if cfg!(target_os = "linux") {
+        agent_desktop_core::BoundsSpace::Window
+    } else {
+        agent_desktop_core::BoundsSpace::Screen
+    };
+    if !cfg!(target_os = "linux") && bounds_hash.is_some() && bounds_space != Some(required_space) {
+        return Err(AdapterError::new(
+            ErrorCode::InvalidArgs,
+            "Ref geometry requires screen-relative bounds on this platform",
+        ));
+    }
     let decoded = CoreRefEntry {
         process: RefProcess {
             pid: agent_desktop_core::ProcessId::new(entry.process.pid),
@@ -277,11 +288,11 @@ unsafe fn decode_core_ref_entry(
         },
     };
     if !agent_desktop_core::ref_identity::has_meaningful_identity(&decoded)
-        && (bounds_space != Some(agent_desktop_core::BoundsSpace::Window) || bounds.is_none())
+        && (bounds_space != Some(required_space) || bounds.is_none())
     {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
-            "Geometry-only refs require window-relative bounds",
+            format!("Geometry-only refs require {required_space:?}-relative bounds"),
         ));
     }
     Ok(decoded)
