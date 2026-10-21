@@ -34,6 +34,7 @@ pub(crate) struct BusSource<'a> {
 
 impl<'a> BusSource<'a> {
     pub(crate) fn open(bus: &'a SharedBus, deadline: Deadline) -> Result<Self, AdapterError> {
+        crate::system::display_server::require(deadline)?;
         let connection = bus.get(deadline)?.inner().clone();
         Ok(Self {
             bus,
@@ -127,3 +128,7 @@ pub(crate) fn resolve_locator_anchor(
     let mut source = BusSource::open(bus, deadline)?;
     resolve_anchor(&mut source, entry, deadline).map(AtspiElement::into_native_handle)
 }
+
+#[cfg(test)]
+#[path = "resolve_source_tests.rs"]
+mod tests;
