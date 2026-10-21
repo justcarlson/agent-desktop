@@ -23,6 +23,9 @@ fn not_delivered(error: AdapterError) -> AdapterError {
 fn failure_of(world: &impl World, request: &Request<'_>, error: ControlError) -> AdapterError {
     match error {
         ControlError::TimedOut => not_delivered(world.timeout_error()),
+        ControlError::StaleWindow => not_delivered(AdapterError::stale_ref_because(
+            "The close target's window owner or process instance changed or could not be verified",
+        )),
         other => refusal::send_failed(request, other),
     }
 }
@@ -44,6 +47,14 @@ fn fan_out(
         match world.request_close(*window) {
             Ok(()) => sent += 1,
             Err(ControlError::BadWindow) => {}
+            Err(error @ ControlError::StaleWindow) => {
+                let delivery = if sent > 0 {
+                    DeliverySemantics::delivered_unverified()
+                } else {
+                    DeliverySemantics::not_delivered()
+                };
+                return Err(failure_of(world, request, error).with_disposition(delivery));
+            }
             Err(error) => {
                 first_failure.get_or_insert_with(|| failure_of(world, request, error));
             }
