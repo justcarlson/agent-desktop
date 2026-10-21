@@ -51,6 +51,7 @@ pub fn execute(
     require_pointer_capability(adapter)?;
     validate_post_action_wait(context)?;
     let deadline = point_deadline(args.timeout_ms)?;
+    DragParams::validate_timing(args.duration_ms, args.drop_delay_ms, deadline)?;
     let from_args = PointResolveArgs {
         ref_id: args.from.ref_id.as_deref(),
         xy: args.from.xy,
