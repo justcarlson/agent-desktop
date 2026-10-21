@@ -42,10 +42,7 @@ pub(crate) fn same_size(left: (f64, f64), right: (f64, f64)) -> bool {
 }
 
 fn live_size(evidence: &LocatorEvidence) -> Option<(f64, f64)> {
-    match &evidence.ref_evidence.bounds {
-        LocatorField::Known(rect) => usable_size(rect),
-        LocatorField::Absent | LocatorField::Unknown => None,
-    }
+    evidence.ref_evidence.bounds.known().and_then(usable_size)
 }
 
 /// The size the ref was taken with, when it carries a rectangle with an area.
@@ -93,20 +90,8 @@ pub(crate) fn provisional_geometry_candidate(entry: &RefEntry) -> bool {
 /// Whether the candidate's size equals the stored one under the promotion's
 /// eligibility rule.
 fn geometry_matches_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> bool {
-    if !provisional_geometry_candidate(entry) {
-        return false;
-    }
-    if comparable_rectangles(entry, evidence) {
-        return entry
-            .geometry
-            .bounds
-            .as_ref()
-            .zip(live_rect(evidence))
-            .is_some_and(|(stored, live)| rects_within(stored, live, tolerance));
-    }
-    stored_size(entry)
-        .zip(live_size(evidence))
-        .is_some_and(|(stored, live)| sizes_within(stored, live, tolerance))
+    provisional_geometry_candidate(entry)
+        && rectangles_match(entry, evidence, tolerance) == Some(true)
 }
 
 pub(crate) fn stored_space(entry: &RefEntry) -> BoundsSpace {
@@ -128,6 +113,21 @@ fn rects_within(left: &Rect, right: &Rect, tolerance: f64) -> bool {
         && (left.height - right.height).abs() < tolerance
 }
 
+fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> Option<bool> {
+    if comparable_rectangles(entry, evidence) {
+        entry
+            .geometry
+            .bounds
+            .as_ref()
+            .zip(live_rect(evidence))
+            .map(|(stored, live)| rects_within(stored, live, tolerance))
+    } else {
+        stored_size(entry)
+            .zip(live_size(evidence))
+            .map(|(stored, live)| sizes_within(stored, live, tolerance))
+    }
+}
+
 /// Whether both rectangles are measured in the same frame, and that frame is
 /// the window. Only then does a position identify an element: a screen
 /// position moves with the window on GTK 3 and Qt and is not reported at all
@@ -143,18 +143,7 @@ pub(crate) fn comparable_rectangles(entry: &RefEntry, evidence: &LocatorEvidence
 /// compared by size alone, because its position is not stable. An unknown
 /// rectangle on either side refutes nothing.
 pub(crate) fn size_contradicts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    let Some(stored) = entry.geometry.bounds.as_ref() else {
-        return false;
-    };
-    let Some(live) = live_rect(evidence) else {
-        return false;
-    };
-    if comparable_rectangles(entry, evidence) {
-        return !rects_within(stored, live, LAYOUT_JITTER_PX);
-    }
-    stored_size(entry)
-        .zip(live_size(evidence))
-        .is_some_and(|(stored, live)| !sizes_within(stored, live, LAYOUT_JITTER_PX))
+    rectangles_match(entry, evidence, LAYOUT_JITTER_PX) == Some(false)
 }
 
 /// Whether nothing any tier could verify a live node against is stored: no

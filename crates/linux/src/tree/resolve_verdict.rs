@@ -32,10 +32,8 @@ pub(crate) fn select_by_stored_size(
     let whole = stored_space == BoundsSpace::Window
         && spaces.iter().all(|space| *space == BoundsSpace::Window);
     let stored = stored?;
-    let mut sole = None;
-    let mut matches = 0;
-    for (index, rect) in candidates.iter().enumerate() {
-        let Some(rect) = rect else { continue };
+    let mut matching = candidates.iter().enumerate().filter_map(|(index, rect)| {
+        let rect = rect.as_ref()?;
         let same = if whole {
             (rect.x - stored.x).abs() < 0.5
                 && (rect.y - stored.y).abs() < 0.5
@@ -43,12 +41,10 @@ pub(crate) fn select_by_stored_size(
         } else {
             usable_size(rect).is_some_and(|size| same_size(size, (stored.width, stored.height)))
         };
-        if same {
-            matches += 1;
-            sole = Some(index);
-        }
-    }
-    sole.filter(|_| matches == 1)
+        same.then_some(index)
+    });
+    let first = matching.next()?;
+    matching.next().is_none().then_some(first)
 }
 
 /// Classifies the candidates a search collected. Two or more candidates with
