@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -16,7 +17,8 @@ class RunnerSelectionTests(unittest.TestCase):
         self.addCleanup(mock.patch.stopall)
 
     def test_outstanding_legs_do_not_start_a_desktop(self):
-        leg = legs.leg_by_id("shell_surfaces.snapshot_system_tray")
+        leg = replace(legs.leg_by_id("observation.qualified_refs_survive_snapshots"),
+                      disposition="outstanding", reason="pending fixture acceptance")
         with mock.patch.object(session, "start_tier", side_effect=AssertionError("desktop started")):
             outcomes = main._run_tier("x11-mutter", [leg], {}, Path("/unused"), False)
         self.assertEqual([(row.leg_id, row.outcome) for row in outcomes],
