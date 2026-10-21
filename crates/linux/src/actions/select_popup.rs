@@ -1,22 +1,23 @@
-use agent_desktop_core::{Action, ActionResult, AdapterError, ErrorCode, NativeHandle};
+use agent_desktop_core::{
+    Action, ActionResult, AdapterError, DeliverySemantics, ErrorCode, NativeHandle,
+};
 use serde_json::json;
 
 use super::action_call::resolve_verb;
-use super::chain::DeliveryOutcome;
+use super::chain::{DeliveryOutcome, Observed};
 use super::click::{
     POLL_STEP, deliver, invoke_verb, names_of, opens_popup, poll_until, popup_inner, refusal,
     run_single_rung,
 };
 use super::context::Target;
 use super::disclosure::set_expanded;
-use super::mutation::WriteKind;
 use super::select::{
     BusReader, SELECT_SETTLE, advertises_selection, children_of, container_target, handle_of,
     miss_error, no_route, parent_of, unchanged_is_ignored,
 };
-use super::select_exclusive::SELECTION_INTERFACE;
+use super::select_exclusive::{select_child, selected_child};
+use super::select_identity::with_current_row;
 use super::select_search::{Search, name_matches, search};
-use super::write_call::{Call, invoke};
 use crate::tree::AtspiElement;
 use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::read_node_view;
@@ -118,20 +119,22 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
     let popover_view = popover.view()?;
     let names = names_of(&popover_view)?;
     let action = Action::Select(display_value.to_owned());
+    let row = hit.row.as_ref().unwrap_or(&hit.item);
     let run = || {
-        let chosen = invoke(
-            &list,
-            Call {
-                interface: SELECTION_INTERFACE,
-                method: "SelectChild",
-                body: &(container.index,),
-                kind: WriteKind::SelectChild,
-            },
-        )?;
+        let chosen = select_child(&list, container.index, row)?;
         if chosen == super::mutation::WriteReply::Absent {
             return Ok(DeliveryOutcome::NotDelivered);
         }
-        let committed = invoke_verb(&popover, &action, names, &COMMIT_VERBS);
+        let selected = selected_child(&list).ok_or_else(|| {
+            AdapterError::new(ErrorCode::StaleRef, "The selected row is unreadable")
+        });
+        let committed = with_current_row(selected, row, || {
+            invoke_verb(&popover, &action, names, &COMMIT_VERBS)
+        })
+        .map_err(|error| error.with_disposition(DeliverySemantics::unknown()));
+        if matches!(committed, Ok(super::mutation::WriteReply::Absent)) {
+            return Ok(DeliveryOutcome::Delivered(Observed::Unread));
+        }
         deliver(committed, || {
             poll_until(
                 target.deadline,
