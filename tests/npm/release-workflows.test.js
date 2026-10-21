@@ -40,7 +40,7 @@ function linuxRows(jobText) {
 
 const LINUX_BUILD_JOBS = [
   ['release.yml', releaseWorkflow, ['build', 'build-ffi', 'ffi-release-panic-guard']],
-  ['release-dry-run.yml', dryRunWorkflow, ['cli', 'ffi', 'linux-consumer']],
+  ['release-dry-run.yml', dryRunWorkflow, ['cli', 'ffi']],
 ];
 
 test('every Linux matrix row builds inside the pinned Ubuntu 22.04 container on a current runner', () => {
@@ -71,6 +71,25 @@ test('no Linux build job names ubuntu-latest or a retiring 22.04 label, and each
   }
 });
 
+test('the Linux live consumers run on the hosted 24.04 desktop host, outside any container, on the archives built in the pinned container', () => {
+  const block = jobBlock(dryRunWorkflow, 'linux-consumer');
+  const rows = linuxRows(block);
+  assert.deepEqual(
+    rows.map((row) => [row.target, row.runner]).sort(),
+    [
+      ['aarch64-unknown-linux-gnu', 'ubuntu-24.04-arm'],
+      ['x86_64-unknown-linux-gnu', 'ubuntu-24.04'],
+    ],
+  );
+  for (const row of rows) {
+    assert.equal(row.container, undefined, `${row.target} consumer must run on the bare supported desktop host`);
+  }
+  assert.doesNotMatch(block, /^ {4}container:/m, 'linux-consumer must not run its job in a container');
+  assert.match(block, /^ {4}needs: \[cli, ffi\]$/m, 'linux-consumer must consume the archives the build jobs produced');
+  assert.match(block, /pattern: "dry-run-\{binary,ffi\}-\$\{\{ matrix\.target \}\}"/, 'linux-consumer must download the container-built archives');
+  assert.match(block, /defaults:\n {6}run:\n {8}shell: bash\n/);
+});
+
 test('the glibc gate reads every shipped ELF file in both workflows', () => {
   const gated = [
     ['release.yml build', jobBlock(releaseWorkflow, 'build')],
@@ -91,10 +110,6 @@ test('Linux container run steps select bash instead of the container default sh'
   for (const [file, workflow, jobs] of LINUX_BUILD_JOBS) {
     for (const job of jobs) {
       const block = jobBlock(workflow, job);
-      if (job === 'linux-consumer') {
-        assert.match(block, /defaults:\n {6}run:\n {8}shell: bash\n/, `${file} ${job}`);
-        continue;
-      }
       for (const step of block.split(/(?=^ {6}- )/m)) {
         if (/if: runner\.os == 'Linux'/.test(step) && /^ {8}run:/m.test(step)) {
           assert.match(step, /^ {8}shell: bash$/m, `${file} ${job}: ${step.split('\n')[0].trim()}`);
