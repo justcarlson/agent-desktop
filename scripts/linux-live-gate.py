@@ -43,6 +43,16 @@ HELPER_PARENTS = {
         "system::window_op_live_tests::environment::window_op_live_an_xwayland_window_is_operated_and_a_native_wayland_window_is_refused",
 }
 SELF_MUTTER = "tree::physical_live_mutter_tests"
+# Reviewed module groups whose fixtures never acquire the global interaction lease.
+# Unknown modules and all unit tests stay on one writer, preserving that lock's contract.
+PARALLEL_READS = {
+    "tree::absence_live_tests", "tree::capability_live_tests", "tree::chromium_live_tests",
+    "tree::find_live_tests", "tree::hit_live_tests::cases", "tree::live_read_live_tests",
+    "tree::navigate_live_tests", "tree::observe_live_tests", "tree::qt_live_tests",
+    "tree::registry_toolkit_live_tests", "tree::resolve_live_tests",
+    "tree::live_timeout",
+    "tree::vocabulary_live_tests", "tree::walker_live_tests",
+}
 RESULT = re.compile(r"^(ok|failed|ignored) (\S+)\s*$", re.MULTILINE)
 ACTIVE = []
 STOPPING = False
@@ -132,7 +142,13 @@ def plan(names, ignored, jobs):
                 weight = sum(20 if name in ignored else 0.1 for name in selected)
                 tasks.append((weight, module, selected))
         for weight, module, cases in sorted(tasks, reverse=True):
-            shard = min(range(jobs), key=lambda index: loads[index])
+            # Native Wayland fixtures use their own portal sessions/local tokens, not
+            # the cross-process interaction lease. X11 mutations must share a writer.
+            readers = module in PARALLEL_READS or module.startswith("system::capture::")
+            candidates = range(jobs) if tier == "wayland" else (
+                range(1, jobs) if jobs > 1 and readers and all(name in ignored for name in cases)
+                else (0,))
+            shard = min(candidates, key=lambda index: loads[index])
             shards[tier][shard].append({"module": module, "tests": cases})
             loads[shard] += weight
     expected = Counter((tier, name) for name in names for tier in tiers_for(name, ignored))

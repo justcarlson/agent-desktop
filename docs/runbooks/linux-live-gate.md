@@ -59,6 +59,12 @@ in a nested session so they cannot damage the remaining shard's environment.
 Modules stay together to avoid concurrent access to their fixture state. The
 portal module is split into independent case batches because each case boots
 its own compositor. Workers execute those batches serially within each shard.
+On X11, the global product interaction lease intentionally spans private displays.
+One worker therefore runs mutations and unit tests (including real lease tests);
+the other workers run explicitly reviewed read-only modules. Unknown modules
+default to the writer. This avoids cross-shard lease timeouts without bypassing,
+relocating or weakening the product lock. Native Wayland fixtures use independent
+portal sessions/local tokens and remain distributed across all three workers.
 
 ## Recording results
 

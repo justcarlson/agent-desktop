@@ -17,6 +17,24 @@ spec.loader.exec_module(gate)
 
 
 class GateTests(unittest.TestCase):
+    def test_global_lease_consumers_share_one_writer_while_reads_run_elsewhere(self):
+        writers = ["system::interaction_lease::tests::unit", "actions::dispatch_tests::unit",
+                   "actions::live_widget_tests::live", "tree::physical_live_tests::live",
+                   "system::focus_window_live_tests::live",
+                   "tree::resolve_source::action_live_tests::live"]
+        readers = ["tree::resolve_live_tests::live", "tree::find_live_tests::live",
+                   "system::capture::capture_live_tests::live"]
+        names = writers + readers
+        ignored = set(names[2:])
+        for jobs in (1, 2, 3):
+            shards = gate.plan(names, ignored, jobs)["openbox"]
+            assigned = [{name for task in tasks for name in task["tests"]} for tasks in shards]
+            self.assertTrue(set(writers) <= assigned[0])
+            self.assertFalse(any(set(writers) & values for values in assigned[1:]))
+            if jobs > 1:
+                self.assertFalse(set(readers) & assigned[0])
+                self.assertEqual(set(readers), set.union(*assigned[1:]))
+
     def test_partition_keeps_every_case_on_each_applicable_tier(self):
         cases = ["unit::fast", "tree::live::one", "tree::live::two", gate.CURSOR_WAYLAND,
                  *(module + "::case" for module in gate.WAYLAND_MODULES),
