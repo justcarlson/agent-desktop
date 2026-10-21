@@ -13,7 +13,7 @@ from scenarios import events
 class EventScenarioTests(unittest.TestCase):
     def test_killed_target_requires_requested_kind_and_independent_identity(self):
         for unresolved in (False, True):
-            for fault in (None, "kind", "identity"):
+            for fault in (None, "kind", "identity", "timeout"):
                 with self.subTest(unresolved=unresolved, fault=fault):
                     tier = SimpleNamespace(runtime_dir=Path("/private/test"))
                     ctx = LegContext(tier, "headless", legs.leg_by_id("events.target_killed_mid_wait"),
@@ -26,6 +26,8 @@ class EventScenarioTests(unittest.TestCase):
                         event.update(pid=999 if fault == "identity" else 123, window_id="raw-frame")
                     def product(tier, argv, **kw):
                         pending.pop()()
+                        if fault == "timeout":
+                            return Envelope(False, None, {"code": "TIMEOUT"}, "timeout", 8000, argv)
                         return Envelope(True, {"event": event, "target_unresolved": unresolved},
                                         None, str(event), 1, argv)
                     def launch(*a):

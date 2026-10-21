@@ -228,15 +228,13 @@ def target_killed_mid_wait(ctx: LegContext) -> None:
         ["wait", "--event", "window-closed", "--app", TEXT_EDITOR, "--timeout", "8000"]
     )
     trigger.join()
-    if envelope.ok:
-        assert event_kind(envelope.data) == "window-closed", envelope.raw
-        event = envelope.data.get("event") or {}
-        if envelope.data.get("target_unresolved") is True:
-            assert event.get("app") == TEXT_EDITOR, envelope.raw
-        else:
-            assert event.get("pid") == app.pid and event.get("window_id") in app.windows, envelope.raw
+    assert envelope.ok, envelope.raw
+    assert event_kind(envelope.data) == "window-closed", envelope.raw
+    event = envelope.data.get("event") or {}
+    if envelope.data.get("target_unresolved") is True:
+        assert event.get("app") == TEXT_EDITOR, envelope.raw
     else:
-        assert timed_out(envelope), envelope.raw
+        assert event.get("pid") == app.pid and event.get("window_id") in app.windows, envelope.raw
     ctx.after("atspi.text_editor", changed(read, []))
     replacement = launch(ctx.tier, TEXT_EDITOR)
     try:

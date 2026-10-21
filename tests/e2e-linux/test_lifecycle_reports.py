@@ -10,7 +10,7 @@ from test_review_scenario_regressions import context, envelope
 
 class LifecycleReportTests(unittest.TestCase):
     def test_move_resize_and_minimize_reports_match_effects_in_both_directions(self):
-        for fault in (None, "move-window:no-effect", "move-window:partial", "resize-window:no-effect",
+        for fault in (None, "move-window:no-effect", "move-window:partial", "resize-window:no-effect", "resize-window:partial",
                       "minimize:no-effect", "move-window:positive-report", "resize-window:positive-report",
                       "minimize:positive-report", "move-window:unverified", "resize-window:unverified",
                       "minimize:unverified", "move-window:negative-report", "resize-window:negative-report",
@@ -34,6 +34,8 @@ class LifecycleReportTests(unittest.TestCase):
                                 geometry[1] -= 1
                         elif operation == "resize-window":
                             geometry[2:] = [int(argv[4]), int(argv[6])]
+                            if fault == operation + ":partial":
+                                geometry[3] -= 1
                         elif operation in ("minimize", "restore"):
                             hidden[0] = operation == "minimize"
                     delivery = "not_delivered" if fault == operation + ":positive-report" else ("delivered_unverified" if fault in (operation + ":unverified", operation + ":no-effect") else "delivered_verified")

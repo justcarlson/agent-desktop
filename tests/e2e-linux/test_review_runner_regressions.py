@@ -36,7 +36,7 @@ class RunnerRegressionTests(unittest.TestCase):
              patch.object(main, "_run_tier", side_effect=run), \
              patch.object(main.signal, "signal", side_effect=lambda sig, handler: handlers.update({sig: handler})):
             with self.assertRaises(SystemExit) as raised:
-                main.main(["--tier", "x11-openbox", "--leg", "lifecycle.move_window"])
+                main.main(["--tier", "x11-openbox", "--leg", "lifecycle.window_operation_delivery_reports"])
         self.assertEqual(raised.exception.code, 129)
         self.assertEqual(cleanup, ["tier unwound"])
 
