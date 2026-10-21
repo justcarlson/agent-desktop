@@ -115,7 +115,7 @@ impl Fake {
 
     pub(super) fn frame(&self) -> AtspiElement {
         let mut frame = AtspiElement::new(BUS, FRAME_PATH, WINDOW_PID);
-        frame.set_ancestry(ancestry::of_root(&frame.clone()));
+        frame.set_ancestry(ancestry::of_root(&frame));
         frame
     }
 
@@ -137,10 +137,6 @@ impl Fake {
         raw
     }
 
-    fn children_of(&self, element: &AtspiElement) -> Vec<AtspiElement> {
-        level_of(&self.raw(element), &self.pids, self.web_process).children
-    }
-
     pub(super) fn walk(&self) -> Walk<ObservedRead> {
         walk_levels(
             self.frame(),
@@ -160,7 +156,7 @@ impl Fake {
                         }
                         let raw = self.raw(element);
                         let unread = raw.children.is_failed();
-                        let children = self.children_of(element);
+                        let children = level_of(&raw, &self.pids, self.web_process).children;
                         let mut read = self.nodes[element.path()].read.clone();
                         read.node = raw;
                         Expansion {
@@ -177,47 +173,27 @@ impl Fake {
         .expect("an in-memory walk cannot fail")
     }
 
-    fn locate(node: &WalkedNode<ObservedRead>, path: &str, trail: &mut Vec<usize>) -> bool {
-        if node.payload.node.element.path() == path {
-            return true;
-        }
-        for child in &node.children {
-            trail.push(child.source_index);
-            if Self::locate(child, path, trail) {
-                return true;
-            }
-            trail.pop();
-        }
-        false
-    }
-
     fn find<'a>(
         node: &'a WalkedNode<ObservedRead>,
         path: &str,
-    ) -> Option<&'a WalkedNode<ObservedRead>> {
+    ) -> Option<(&'a WalkedNode<ObservedRead>, Vec<usize>)> {
         if node.payload.node.element.path() == path {
-            return Some(node);
+            return Some((node, Vec::new()));
         }
-        node.children
-            .iter()
-            .find_map(|child| Self::find(child, path))
-    }
-
-    pub(super) fn evidence_of(&self, path: &str) -> LocatorEvidence {
-        let walk = self.walk();
-        let node = Self::find(&walk.root, path).expect("the node is in the tree");
-        project_node(&node.payload, node.in_web_document, &WalkLimits::default())
+        for child in &node.children {
+            if let Some((found, mut trail)) = Self::find(child, path) {
+                trail.insert(0, child.source_index);
+                return Some((found, trail));
+            }
+        }
+        None
     }
 
     /// The ref a snapshot would have stored for the node at `path`.
     pub(super) fn entry_of(&self, path: &str, keep_rect: bool) -> RefEntry {
         let walk = self.walk();
-        let mut trail = Vec::new();
-        assert!(
-            Self::locate(&walk.root, path, &mut trail),
-            "{path} is walked"
-        );
-        let evidence = self.evidence_of(path);
+        let (node, trail) = Self::find(&walk.root, path).expect("the node is walked");
+        let evidence = project_node(&node.payload, node.in_web_document, &WalkLimits::default());
         let mut entry = ref_entry(evidence.role.known().expect("a role was read"));
         entry.identity.name = evidence.name.known().filter(|n| !n.is_empty()).cloned();
         entry.identity.native_id = evidence.identifiers.preferred_identifier().cloned();

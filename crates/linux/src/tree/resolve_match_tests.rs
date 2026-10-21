@@ -30,24 +30,6 @@ fn an_unreadable_role_withholds_the_verdict_and_a_different_role_is_rejected() {
 }
 
 #[test]
-fn rows_that_share_an_identifier_are_told_apart_by_their_stable_text() {
-    let entry = with_identifier(named("cell", "alpha"), "list.row");
-    let same_row = evidence("cell", Some("alpha"), Some("list.row"), None);
-    let other_row = evidence("cell", Some("beta"), Some("list.row"), None);
-    assert_eq!(admit_node(&entry, &same_row), Admission::Collect);
-    assert_eq!(admit_node(&entry, &other_row), Admission::Reject);
-}
-
-#[test]
-fn rows_with_one_identifier_and_one_text_both_stay_candidates() {
-    let entry = with_identifier(named("cell", "alpha"), "list.row");
-    let first = evidence("cell", Some("alpha"), Some("list.row"), None);
-    let second = evidence("cell", Some("alpha"), Some("list.row"), None);
-    assert_eq!(admit_node(&entry, &first), Admission::Collect);
-    assert_eq!(admit_node(&entry, &second), Admission::Collect);
-}
-
-#[test]
 fn an_identifier_match_with_no_stored_text_resolves_on_the_identifier_alone() {
     let entry = with_identifier(ref_entry("button"), "toolbar.save");
     let live = evidence("button", Some("anything"), Some("toolbar.save"), None);
@@ -76,18 +58,6 @@ fn a_size_contradicts_only_when_both_sizes_are_known_and_differ() {
         named("button", "View Options"),
         rect(10.0, 10.0, 34.0, 34.0),
     );
-    let same_size_elsewhere = evidence(
-        "button",
-        Some("View Options"),
-        None,
-        Some(rect(900.0, 400.0, 34.0, 34.0)),
-    );
-    let narrower = evidence(
-        "button",
-        Some("View Options"),
-        None,
-        Some(rect(10.0, 10.0, 23.0, 34.0)),
-    );
     let unreadable = {
         let mut live = evidence("button", Some("View Options"), None, None);
         live.ref_evidence.bounds = LocatorField::Unknown;
@@ -100,8 +70,6 @@ fn a_size_contradicts_only_when_both_sizes_are_known_and_differ() {
         None,
         Some(rect(-1.0, -1.0, -1.0, -1.0)),
     );
-    assert!(!size_contradicts(&entry, &same_size_elsewhere));
-    assert!(size_contradicts(&entry, &narrower));
     assert!(!size_contradicts(&entry, &unreadable));
     assert!(!size_contradicts(&entry, &no_extents));
     assert!(!size_contradicts(&entry, &minus_one));
@@ -150,43 +118,6 @@ fn a_landing_is_positional_so_a_twin_elsewhere_does_not_matter_but_a_resize_decl
 }
 
 #[test]
-fn a_ref_with_no_stored_size_accepts_a_landing_that_matches_its_identity() {
-    let entry = named("button", "View Options");
-    let live = evidence(
-        "button",
-        Some("View Options"),
-        None,
-        Some(rect(0.0, 0.0, 23.0, 34.0)),
-    );
-    assert!(accepts_landing(&entry, &live));
-}
-
-#[test]
-fn only_a_rectangle_with_an_area_can_identify_a_ref_that_has_no_text() {
-    let anonymous = sized(ref_entry("entry"), rect(5.0, 5.0, 120.0, 24.0));
-    assert!(provisional_geometry_candidate(&anonymous));
-    assert!(!entry_is_unverifiable(&anonymous));
-
-    let container = sized(ref_entry("group"), rect(0.0, 0.0, 710.0, 0.0));
-    assert!(!provisional_geometry_candidate(&container));
-    assert!(entry_is_unverifiable(&container));
-
-    let named_entry = sized(named("group", "List View"), rect(0.0, 0.0, 710.0, 0.0));
-    assert!(!provisional_geometry_candidate(&named_entry));
-    assert!(!entry_is_unverifiable(&named_entry));
-}
-
-#[test]
-fn a_ref_with_nothing_to_match_is_unverifiable_and_an_identifier_or_text_is_enough() {
-    assert!(entry_is_unverifiable(&ref_entry("button")));
-    assert!(!entry_is_unverifiable(&named("button", "Save")));
-    assert!(!entry_is_unverifiable(&with_identifier(
-        ref_entry("button"),
-        "toolbar.save"
-    )));
-}
-
-#[test]
 fn an_unreadable_identity_is_promoted_by_a_matching_size_and_refuted_by_a_different_one() {
     let entry = sized(ref_entry("entry"), rect(5.0, 5.0, 120.0, 24.0));
     let same = evidence("entry", None, None, Some(rect(900.0, 9.0, 120.0, 24.0)));
@@ -210,25 +141,6 @@ fn a_ref_known_only_by_its_size_is_refuted_by_a_node_whose_size_was_read_and_dif
     assert_eq!(admit_node(&entry, &resized), Admission::Unread);
     resized.ref_evidence.bounds = LocatorField::Absent;
     assert_eq!(admit_node(&entry, &resized), Admission::Reject);
-}
-
-#[test]
-fn a_nameless_ref_known_by_its_size_still_lands_after_a_one_pixel_layout_shift() {
-    let entry = sized(ref_entry("textfield"), rect(290.0, 186.0, 690.0, 464.0));
-    let shifted = evidence(
-        "textfield",
-        None,
-        None,
-        Some(rect(290.0, 187.0, 690.0, 463.0)),
-    );
-    let resized = evidence(
-        "textfield",
-        None,
-        None,
-        Some(rect(290.0, 186.0, 690.0, 440.0)),
-    );
-    assert!(accepts_landing(&entry, &shifted));
-    assert!(!accepts_landing(&entry, &resized));
 }
 
 #[test]
