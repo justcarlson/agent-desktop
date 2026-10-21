@@ -73,7 +73,7 @@ impl Source for BusSource<'_> {
             if super::surfaces::is_sheet(&walk.root.payload.node) {
                 frame
             } else {
-                if !walk.complete {
+                if !walk.complete || super::nested_dialog::is_incomplete(&walk.root) {
                     return Err(agent_desktop_core::resolve_errors::identity_unknown_error(
                         entry,
                     ));
@@ -115,7 +115,7 @@ impl Source for BusSource<'_> {
 
     fn search(&mut self, frame: &AtspiElement, entry: &RefEntry) -> Result<Searched, AdapterError> {
         let mut walk = walk_tree(self.bus, frame, &WalkLimits::default(), self.deadline)?;
-        place_nodes(self.bus, &mut walk, self.deadline);
+        place_nodes(self.bus, &mut walk, self.deadline)?;
         Ok(evaluate(&walk, entry, is_web_process(frame.pid())))
     }
 

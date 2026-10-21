@@ -45,7 +45,7 @@ pub(crate) fn toolkit_of(bus: &SharedBus, element: &AtspiElement, deadline: Dead
     };
     let root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
     let read = within(deadline, async {
-        Ok(read_toolkit(connection.inner(), &root).await)
+        read_toolkit(connection.inner(), &root).await
     });
     let read = read.unwrap_or_default();
     if read.name.is_some() {

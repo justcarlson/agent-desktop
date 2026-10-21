@@ -69,7 +69,7 @@ impl HitWorld for LiveWorld<'_> {
             )
             .await)
         })?;
-        let (Ok(screen), Some(window), Ok(frame_node)) = (screen, window, frame_node) else {
+        let (Ok(screen), Some(window), Ok(frame_node)) = (screen, window?, frame_node) else {
             return Ok(None);
         };
         let (Some(screen), Some(states)) = (
@@ -84,6 +84,7 @@ impl HitWorld for LiveWorld<'_> {
             .present()
             .cloned()
             .unwrap_or_default();
+        let toolkit = toolkit?;
         let global_position = crate::tree::toolkit_trust::reports_global_position(&toolkit);
         self.native_popup = if target.is_menu_target()
             && frame_node.traits.role.present() == Some(&MENU)
@@ -98,7 +99,7 @@ impl HitWorld for LiveWorld<'_> {
                 || (target.is_menu_target() && kind(&toolkit) == ToolkitKind::Gtk3));
         self.popup_rect = if self.popup && kind(&toolkit) == ToolkitKind::Gtk4 {
             within(deadline, async {
-                Ok(read_window_extents_async(connection, frame).await)
+                read_window_extents_async(connection, frame).await
             })?
         } else {
             None

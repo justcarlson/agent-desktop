@@ -10,7 +10,7 @@ use super::live_rig::{deadline, wait_until};
 use super::physical_live_rig::{Kit, Scene};
 use crate::system::window_id;
 
-const APP: &str = r#"
+pub(super) const APP: &str = r#"
 import gi, os
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Atk, GLib

@@ -54,7 +54,7 @@ pub(crate) async fn read_evidence_placed(
     let (mut read, liveness) =
         read_observed_with_liveness(connection, element, WalkLimits::default().max_field_bytes)
             .await?;
-    place_single(bus, &mut read, deadline);
+    place_single(bus, &mut read, deadline)?;
     let evidence = evidence_for(&read, element);
     Ok(NodeEvidence {
         read,

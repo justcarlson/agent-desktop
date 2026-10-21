@@ -26,22 +26,6 @@ fn gtk4() -> ToolkitId {
     }
 }
 
-#[test]
-fn gtk4_menu_origin_selection_uses_the_popup_source() {
-    assert_eq!(
-        select_origin(true, || Some((730, 410)), || Some((120, 80))),
-        Some((730, 410))
-    );
-}
-
-#[test]
-fn ordinary_window_origin_selection_uses_the_managed_client_source() {
-    assert_eq!(
-        select_origin(false, || Some((730, 410)), || Some((120, 80))),
-        Some((120, 80))
-    );
-}
-
 fn window(x: i32, y: i32) -> Option<Extents> {
     Some(Extents {
         x,
@@ -144,4 +128,53 @@ fn placed_elements_follow_the_order_apply_consumes_them_in() {
         ],
     );
     assert_eq!(placed_elements(&mut root).len(), 3);
+}
+
+struct UnavailableGeometry;
+
+#[zbus::interface(name = "org.a11y.atspi.Component")]
+impl UnavailableGeometry {
+    fn get_extents(&self, _coordinates: u32) -> zbus::fdo::Result<(i32, i32, i32, i32)> {
+        Err(zbus::fdo::Error::NotSupported("no geometry".into()))
+    }
+}
+
+#[test]
+fn placement_readers_preserve_transport_loss_and_allow_unavailable_geometry() {
+    use zbus::connection::Builder;
+    let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+    let (client, server) = zbus::block_on(futures_lite::future::zip(
+        Builder::async_io_unix_stream(near).p2p().build(),
+        Builder::async_io_unix_stream(far)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at("/missing", UnavailableGeometry)
+            .unwrap()
+            .build(),
+    ));
+    let client = client.unwrap();
+    let _server = server.unwrap();
+    let element = AtspiElement::new("org.agentdesktop.GeometryFixture", "/missing", 1);
+    assert_eq!(
+        zbus::block_on(window_rectangles(&client, std::slice::from_ref(&element))).unwrap(),
+        [None],
+        "a method refusal is unknown geometry"
+    );
+    assert_eq!(
+        zbus::block_on(read_toolkit(&client, &element)).unwrap(),
+        ToolkitId::default(),
+        "unavailable toolkit properties remain unknown"
+    );
+    zbus::block_on(client.clone().close()).unwrap();
+    let extents = zbus::block_on(window_rectangles(&client, std::slice::from_ref(&element)))
+        .expect_err("a broken transport cannot become unknown geometry");
+    let toolkit = zbus::block_on(read_toolkit(&client, &element))
+        .expect_err("a broken transport cannot become an unknown toolkit");
+    let frame = zbus::block_on(frame_facts(&client, &element))
+        .expect_err("a broken transport cannot become an unknown frame");
+    for error in [extents, toolkit, frame] {
+        assert_eq!(error.code, ErrorCode::Internal);
+        assert!(error.platform_detail.is_some());
+    }
 }

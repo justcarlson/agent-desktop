@@ -1,5 +1,5 @@
 use agent_desktop_core::BoundsSpace;
-use agent_desktop_core::Deadline;
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::bounded::collect_bounded;
 use super::frame_geometry::{pointer_bounds, popup_origin};
@@ -90,7 +90,7 @@ fn placed_elements(root: &mut WalkedNode<ObservedRead>) -> Vec<AtspiElement> {
 async fn window_rectangles(
     connection: &zbus::Connection,
     elements: &[AtspiElement],
-) -> Vec<Option<Extents>> {
+) -> Result<Vec<Option<Extents>>, AdapterError> {
     collect_bounded(
         IN_FLIGHT,
         elements
@@ -98,30 +98,27 @@ async fn window_rectangles(
             .map(|element| read_window_extents_async(connection, element)),
     )
     .await
+    .into_iter()
+    .collect()
 }
 
 async fn frame_facts(
     connection: &zbus::Connection,
     frame: &AtspiElement,
-) -> Option<(String, Option<u32>, Option<Extents>)> {
-    let node = read_node(connection, frame).await.ok()?;
-    Some((
-        node.properties.name.present().cloned().unwrap_or_default(),
-        node.traits.role.present().copied(),
-        node.extents.present().copied(),
-    ))
-}
-
-fn select_origin(
-    gtk4_menu: bool,
-    popup_origin: impl FnOnce() -> Option<(i32, i32)>,
-    managed_origin: impl FnOnce() -> Option<(i32, i32)>,
-) -> Option<(i32, i32)> {
-    if gtk4_menu {
-        popup_origin()
-    } else {
-        managed_origin()
-    }
+) -> Result<Option<super::RawNode>, AdapterError> {
+    let node = match read_node(connection, frame).await {
+        Ok(node) => node,
+        Err(error)
+            if matches!(
+                error.code,
+                ErrorCode::AppNotFound | ErrorCode::ElementNotFound
+            ) =>
+        {
+            return Ok(None);
+        }
+        Err(error) => return Err(error),
+    };
+    Ok(Some(node))
 }
 
 /// The origin of the frame's X11 client. The title is read on the bus; the
@@ -133,51 +130,40 @@ fn origin_of(
     frame: &AtspiElement,
     toolkit: &ToolkitId,
     deadline: Deadline,
-) -> Option<(i32, i32)> {
-    let facts = within(deadline, async { Ok(frame_facts(connection, frame).await) })
-        .ok()
-        .flatten()?;
-    let (title, role, screen) = facts;
-    let gtk4_menu = if role == Some(MENU) {
-        let app_root = AtspiElement::new(frame.bus_name(), REGISTRY_ROOT_PATH, frame.pid());
-        let toolkit = within(deadline, async {
-            Ok(read_toolkit(connection, &app_root).await)
-        })
-        .ok();
-        toolkit.is_some_and(|toolkit| toolkit_kind(&toolkit) == ToolkitKind::Gtk4)
-    } else {
-        false
+) -> Result<Option<(i32, i32)>, AdapterError> {
+    let Some(node) = geometry_or_unknown(within(deadline, frame_facts(connection, frame)))? else {
+        return Ok(None);
     };
-    select_origin(
-        gtk4_menu,
-        || {
-            let window = within(deadline, async {
-                Ok(read_window_extents_async(connection, frame).await)
-            })
-            .ok()
-            .flatten()
-            .or(screen)?;
-            let origin =
-                DisplayReader::popup_origin(frame.pid(), (window.width, window.height), deadline)?;
-            popup_origin(origin, window)
-        },
-        || {
-            let facts = FrameFacts {
-                size_identity: title.is_empty()
-                    && crate::system::frame_identity::permits_on_bus(
-                        bus, frame, toolkit, screen, deadline,
-                    ),
-                pid: frame.pid(),
-                title,
-                extents: screen,
-                global_position: false,
-            };
-            let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
-                return None;
-            };
-            frame_origin(&facts, &clients)
-        },
-    )
+    let title = node.properties.name.present().cloned().unwrap_or_default();
+    let role = node.traits.role.present().copied();
+    let screen = node.extents.present().copied();
+    if role == Some(MENU) && toolkit_kind(toolkit) == ToolkitKind::Gtk4 {
+        let Some(window) = geometry_or_unknown(within(
+            deadline,
+            read_window_extents_async(connection, frame),
+        ))?
+        .or(screen) else {
+            return Ok(None);
+        };
+        return Ok(DisplayReader::popup_origin(
+            frame.pid(),
+            (window.width, window.height),
+            deadline,
+        )
+        .and_then(|origin| popup_origin(origin, window)));
+    }
+    let facts = FrameFacts {
+        size_identity: title.is_empty()
+            && crate::system::frame_identity::permits_on_bus(bus, frame, toolkit, screen, deadline),
+        pid: frame.pid(),
+        title,
+        extents: screen,
+        global_position: false,
+    };
+    let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
+        return Ok(None);
+    };
+    Ok(frame_origin(&facts, &clients))
 }
 
 /// Puts the node rectangles of a finished walk where a pointer can be aimed
@@ -185,31 +171,47 @@ fn origin_of(
 /// global positions is left as read. Anything else gets its window-coordinate
 /// rectangles moved to the window's X11 client origin, and the rectangles it
 /// cannot place are dropped.
-pub(crate) fn place_nodes(bus: &SharedBus, walk: &mut Walk<ObservedRead>, deadline: Deadline) {
-    let Ok(connection) = bus.get(deadline) else {
-        return;
-    };
+pub(crate) fn place_nodes(
+    bus: &SharedBus,
+    walk: &mut Walk<ObservedRead>,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
     let element = walk.root.payload.node.element.clone();
     if shell::is_shell_element(&element) {
-        return;
+        return Ok(());
     }
+    let connection = match bus.get(deadline) {
+        Ok(connection) => connection,
+        Err(error) if error.code == ErrorCode::Timeout => return Ok(()),
+        Err(error) => return Err(error),
+    };
     let app_root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
-    let toolkit = within(deadline, async {
-        Ok(read_toolkit(connection.inner(), &app_root).await)
-    })
-    .unwrap_or_default();
+    let toolkit = geometry_or_unknown(within(
+        deadline,
+        read_toolkit(connection.inner(), &app_root),
+    ))?;
     if reports_global_position(&toolkit) {
-        return;
+        return Ok(());
     }
-    let frame = element.frame().cloned();
-    let origin =
-        frame.and_then(|frame| origin_of(bus, connection.inner(), &frame, &toolkit, deadline));
+    let origin = match element.frame() {
+        Some(frame) => origin_of(bus, connection.inner(), frame, &toolkit, deadline)?,
+        None => None,
+    };
     let elements = placed_elements(&mut walk.root);
-    let windows = within(deadline, async {
-        Ok(window_rectangles(connection.inner(), &elements).await)
-    })
-    .unwrap_or_default();
+    let windows = geometry_or_unknown(within(
+        deadline,
+        window_rectangles(connection.inner(), &elements),
+    ))?;
     apply(&mut walk.root, &toolkit, origin, &windows);
+    Ok(())
+}
+
+/// A spent observation budget leaves geometry unknown; transport loss is an error.
+fn geometry_or_unknown<T: Default>(read: Result<T, AdapterError>) -> Result<T, AdapterError> {
+    match read {
+        Err(error) if error.code == ErrorCode::Timeout => Ok(T::default()),
+        other => other,
+    }
 }
 
 #[cfg(test)]
@@ -219,18 +221,33 @@ mod tests;
 /// Places one node read without walking its window: the same rule the walk
 /// applies, used where only one node's evidence is wanted. A toolkit with
 /// global positions is left as read.
-pub(crate) fn place_single(bus: &SharedBus, read: &mut ObservedRead, deadline: Deadline) {
+pub(crate) fn place_single(
+    bus: &SharedBus,
+    read: &mut ObservedRead,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
     let element = read.node.element.clone();
-    let toolkit = super::live_offscreen::toolkit_of(bus, &element, deadline);
-    if reports_global_position(&toolkit) {
-        return;
-    }
-    let Ok(connection) = bus.get(deadline) else {
-        return;
+    let connection = match bus.get(deadline) {
+        Ok(connection) => connection,
+        Err(error) if error.code == ErrorCode::Timeout => return Ok(()),
+        Err(error) => return Err(error),
     };
-    let origin = element
-        .frame()
-        .and_then(|frame| origin_of(bus, connection.inner(), frame, &toolkit, deadline));
-    let window = super::window_extents::read_window_extents(bus, &element, deadline);
+    let app_root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
+    let toolkit = geometry_or_unknown(within(
+        deadline,
+        read_toolkit(connection.inner(), &app_root),
+    ))?;
+    if reports_global_position(&toolkit) {
+        return Ok(());
+    }
+    let origin = match element.frame() {
+        Some(frame) => origin_of(bus, connection.inner(), frame, &toolkit, deadline)?,
+        None => None,
+    };
+    let window = geometry_or_unknown(within(
+        deadline,
+        read_window_extents_async(connection.inner(), &element),
+    ))?;
     place_read_bounds(read, &toolkit, origin, window);
+    Ok(())
 }

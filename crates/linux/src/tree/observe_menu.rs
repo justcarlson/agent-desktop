@@ -103,7 +103,7 @@ pub(crate) fn observe_menu(
     let started = std::time::Instant::now();
     let mut walk = walk_tree(bus, &root, &limits, request.deadline)?;
     let context = popup.context.clone();
-    place_nodes(bus, &mut walk, request.deadline);
+    place_nodes(bus, &mut walk, request.deadline)?;
     let complete = walk.complete;
     let (subtree, mut stats) =
         super::projection::project_with(walk, &limits, &mut MenuIdentity::new(context));

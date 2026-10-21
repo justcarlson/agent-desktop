@@ -1,3 +1,4 @@
+use agent_desktop_core::AdapterError;
 use futures_util::future::join;
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
@@ -14,8 +15,8 @@ async fn application_text(
     connection: &Connection,
     root: &AtspiElement,
     property: &'static str,
-) -> Option<String> {
-    let reply = call(
+) -> Result<Option<String>, AdapterError> {
+    let reply = match call(
         connection,
         root,
         PROPERTIES_INTERFACE,
@@ -23,21 +24,36 @@ async fn application_text(
         &(APPLICATION_INTERFACE, property),
     )
     .await
-    .ok()?;
-    let value = reply.body().deserialize::<OwnedValue>().ok()?;
-    value.downcast_ref::<&str>().ok().map(str::to_owned)
+    {
+        Ok(reply) => reply,
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            return Err(crate::system::classify(&error));
+        }
+        Err(_) => return Ok(None),
+    };
+    Ok(reply
+        .body()
+        .deserialize::<OwnedValue>()
+        .ok()
+        .and_then(|value| value.downcast_ref::<&str>().ok().map(str::to_owned)))
 }
 
 /// The toolkit an application root names, read one property at a time: GTK 3
 /// and Qt both refuse `GetAll` on the application interface while answering
 /// each property, so a group read would leave the toolkit unknown.
-pub(crate) async fn read_toolkit(connection: &Connection, root: &AtspiElement) -> ToolkitId {
+pub(crate) async fn read_toolkit(
+    connection: &Connection,
+    root: &AtspiElement,
+) -> Result<ToolkitId, AdapterError> {
     let (name, version) = join(
         application_text(connection, root, "ToolkitName"),
         application_text(connection, root, "Version"),
     )
     .await;
-    ToolkitId { name, version }
+    Ok(ToolkitId {
+        name: name?,
+        version: version?,
+    })
 }
 
 /// The toolkits whose accessibility geometry has been measured.

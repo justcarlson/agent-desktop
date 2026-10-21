@@ -51,7 +51,7 @@ async fn root_name(connection: &Connection, root: &AtspiElement) -> Option<Optio
 }
 
 pub(crate) async fn toolkit(connection: &Connection, root: &AtspiElement) -> ToolkitId {
-    read_toolkit(connection, root).await
+    read_toolkit(connection, root).await.unwrap_or_default()
 }
 
 trait AppReads {

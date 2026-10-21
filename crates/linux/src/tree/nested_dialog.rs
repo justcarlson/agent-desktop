@@ -69,6 +69,30 @@ pub(crate) fn is_cut_short(node: &Node) -> bool {
         || node.children.iter().any(is_cut_short)
 }
 
+/// A failed role can hide a dialog or a web-document boundary. Only a known
+/// dialog needs showing evidence; other nodes' states do not decide discovery.
+fn unread_dialog(node: &Node) -> bool {
+    if node.in_web_document || is_web_document(role(node)) {
+        return false;
+    }
+    if role(node).is_none()
+        || (role(node) == Some(DIALOG) && node.payload.node.traits.states.present().is_none())
+    {
+        return true;
+    }
+    if role(node) == Some(DIALOG) && showing(node) {
+        return false;
+    }
+    node.children.iter().any(unread_dialog)
+}
+
+/// Root states also decide whether the top-level window itself is a sheet.
+pub(crate) fn is_incomplete(window: &Node) -> bool {
+    is_cut_short(window)
+        || window.payload.node.traits.states.present().is_none()
+        || unread_dialog(window)
+}
+
 #[cfg(test)]
 #[path = "nested_dialog_tests.rs"]
 mod tests;
