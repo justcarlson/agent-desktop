@@ -208,7 +208,9 @@ jobs:
         run: cargo build --locked --profile release-ffi -p agent-desktop-ffi
 
       - name: FFI dylib-adjacent helper discovery smoke
-        run: scripts/ci-ffi-helper-discovery-smoke.sh
+        run: |
+          command -v trash >/dev/null || brew install trash
+          scripts/ci-ffi-helper-discovery-smoke.sh
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -246,7 +248,7 @@ jobs:
       - name: Install AT-SPI bus and virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends at-spi2-core dbus-x11 xvfb
+          sudo apt-get install -y --no-install-recommends at-spi2-core dbus-x11 xvfb trash-cli
 
       - name: Cache cargo registry
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

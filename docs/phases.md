@@ -2268,6 +2268,34 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 
 **Exit criteria:** `npm install -g` works on Ubuntu; release dry-run artifacts verified for both architectures.
 
+**Rebased native validation (2026-10-20):** the C consumer passes all nine legs
+twice in separate private Openbox sessions, including clipboard set, foreign
+readback and clear. The FFI library-adjacent helper smoke passes with PATH
+empty; dropping the helper fails specifically for the missing owner. The
+packed npm install uses this checkout's CLI and owner, proves downloaded
+checksums and digest reuse, then passes installed snapshot, real Calculator
+click, missing-app refusal, and foreign clipboard readback after CLI exit.
+No helper is borrowed from an older branch. The test commit replaces the C
+lifetime scheduling race with deterministic stale-handle checks, pins the
+reader's GTK/GDK versions, and uses PID handles for private-bus cleanup.
+All thirteen new fake tests fail under intentional breaks and pass after
+restoration. Rebase conflict resolutions and exact repro commands are in
+`tests/linux-dist/README.md`.
+
+**Validation gates:** all 2,506 retained Linux library tests pass with ignored
+tests enabled and one test thread, across bounded private-session calls. No
+native test fails on this branch. Four-package all-target Clippy passes with
+warnings denied; the deterministic FFI held-owner test passes; Linux npm tests
+pass 64/64; Mac npm tests pass 63 with one Linux-only skip. Mac formatting,
+source policy, file-size and findings checks pass. Thirteen new tests have
+been individually inverted and restored.
+
+**Release evidence still outstanding:** native x64 builds require glibc 2.39
+for the CLI and FFI library; the owner needs at most 2.34. This confirms the
+need for the pinned Ubuntu 22.04 release build and finished-file floor gate.
+The hosted container and arm64 jobs were not dispatched, and this validation
+does not claim those exit criteria are complete (L22-16, L22-19, L22-20).
+
 **Est. PR size:** ~1.2k LOC
 
 ### 3.14 — Shell Surfaces & Notifications

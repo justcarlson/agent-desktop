@@ -319,6 +319,14 @@ def main() -> None:
             fail(f"real adapter snapshot on a worker thread failed: {message}")
         ok(f"worker thread: {app.decode()} snapshot ok:true {message}")
 
+    if os.environ.get("AD_EXPECT_LINUX_HELPER") == "1":
+        from linux_helper import verify
+        try:
+            verify(lib, os.environ["AD_HELPER_EMPTY_PATH"])
+        except AssertionError as error:
+            fail(str(error))
+        ok("library-adjacent Linux owner set/read/clear with empty PATH")
+
     if os.environ.get("AD_EXPECT_MACOS_HELPER") == "1":
         print("\nLeg 6 — non-colocated Python host discovers the dylib-adjacent packaged helper")
         adapter = ad_adapter_create()

@@ -35,7 +35,7 @@ cleanup() {
   if [ -n "$APP_PID" ]; then
     kill "$APP_PID" 2>/dev/null || true
   fi
-  rm -rf "$WORK"
+  trash -- "$WORK"
 }
 trap cleanup EXIT
 
@@ -116,6 +116,7 @@ import time
 import gi
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, Gtk
 
 Gtk.init([])
@@ -133,24 +134,6 @@ sys.exit(3)
 PY
 }
 
-session_atspi_pids() {
-  local environ pid comm
-  for environ in /proc/[0-9]*/environ; do
-    pid=${environ#/proc/}
-    pid=${pid%/environ}
-    [ "$pid" != "$$" ] || continue
-    grep -qzF "XDG_RUNTIME_DIR=$AGENT_DESKTOP_PRIVATE_SESSION" "$environ" 2>/dev/null || continue
-    comm=$(cat "/proc/$pid/comm" 2>/dev/null) || continue
-    case "$comm" in
-      at-spi-bus-launcher|at-spi2-registryd) echo "$pid" ;;
-      dbus-daemon)
-        if tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q "at-spi"; then
-          echo "$pid"
-        fi
-        ;;
-    esac
-  done
-}
 
 echo "run-consumer: leg abi"
 "$CONSUMER" abi
@@ -233,16 +216,11 @@ if [ ! -f "$WORK/bus/kill-request" ]; then
   wait "$BUS_PID" 2>/dev/null || true
   exit 1
 fi
-BUS_PIDS=$(session_atspi_pids)
-if [ -z "$BUS_PIDS" ]; then
-  echo "run-consumer: FAIL code=BUS_NOT_FOUND no session accessibility bus process" >&2
+if ! python3 "$SCRIPT_DIR/private_bus.py" "$AGENT_DESKTOP_PRIVATE_SESSION"; then
+  echo "run-consumer: FAIL code=BUS_NOT_FOUND private accessibility bus did not stop" >&2
   wait "$BUS_PID" 2>/dev/null || true
   exit 1
 fi
-for pid in $BUS_PIDS; do
-  kill "$pid" 2>/dev/null || true
-done
-sleep 0.5
 touch "$WORK/bus/killed"
 
 for _ in $(seq 1 300); do

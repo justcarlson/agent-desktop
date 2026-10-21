@@ -16,11 +16,13 @@ cd "$ROOT"
 
 case "$(uname -s)" in
   Darwin)
+    EXPECT_HELPER=AD_EXPECT_MACOS_HELPER
     LIB="target/release-ffi/libagent_desktop_ffi.dylib"
     HELPER="target/release/agent-desktop-macos-helper"
     hash_file() { shasum -a 256 "$1" | awk '{print $1}'; }
     ;;
   Linux)
+    EXPECT_HELPER=AD_EXPECT_LINUX_HELPER
     if [ -f target/release-ffi/libagent_desktop_ffi.so ]; then
       LIB="target/release-ffi/libagent_desktop_ffi.so"
     else
@@ -44,7 +46,8 @@ for file in "$LIB" "$HELPER"; do
 done
 
 STAGE=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-ffi-helper.XXXXXX")
-trap 'rm -rf "$STAGE"' EXIT
+trap 'trash -- "$STAGE"' EXIT
+mkdir "$STAGE/nopath"
 cp "$LIB" "$STAGE/"
 cp "$HELPER" "$STAGE/"
 chmod +x "$STAGE/$(basename "$HELPER")"
@@ -53,9 +56,8 @@ STAGED_HELPER="$STAGE/$(basename "$HELPER")"
 LIB_SHA=$(hash_file "$STAGED_LIB")
 HELPER_SHA=$(hash_file "$STAGED_HELPER")
 
-AD_DYLIB_PATH="$STAGED_LIB" \
+env "$EXPECT_HELPER=1" AD_HELPER_EMPTY_PATH="$STAGE/nopath" AD_DYLIB_PATH="$STAGED_LIB" \
   AD_HEADER_PATH=crates/ffi/include/agent_desktop.h \
-  AD_EXPECT_MACOS_HELPER=1 \
   python3 tests/ffi-python/smoke.py
 
 test "$LIB_SHA" = "$(hash_file "$STAGED_LIB")"

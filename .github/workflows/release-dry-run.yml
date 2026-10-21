@@ -13,12 +13,18 @@ on:
       - '.github/workflows/release-dry-run.yml'
       - 'npm/**'
       - 'crates/ffi/Cargo.toml'
+      - 'crates/ffi/src/**'
+      - 'crates/ffi/include/**'
+      - 'crates/linux/src/input/clipboard/**'
+      - 'crates/linux/src/bin/**'
       - 'scripts/check-elf-glibc-floor.sh'
       - 'scripts/check-elf-glibc-floor-selftest.sh'
       - 'scripts/check-linux-archive-contents.sh'
       - 'scripts/ffi-archive-readme-linux.md'
       - 'scripts/private-session.sh'
       - 'tests/linux-dist/**'
+      - 'tests/ffi-python/**'
+      - 'scripts/ci-ffi-helper-discovery-smoke.sh'
 
 permissions: {}
 
@@ -418,7 +424,22 @@ jobs:
         run: |
           apt-get install -y --no-install-recommends \
             at-spi2-core dbus-x11 xvfb x11-utils openbox gnome-calculator \
-            python3-gi gir1.2-atspi-2.0 gcc
+            python3-gi gir1.2-atspi-2.0 gir1.2-gtk-3.0 trash-cli gcc
+
+      - name: Deterministic packaged owner contracts
+        run: |
+          python3 -I -m unittest discover -s tests/ffi-python -p 'test_linux_helper.py'
+          python3 -I -m unittest discover -s tests/linux-dist -p 'test_*.py'
+
+      - name: FFI library-adjacent helper discovery from this archive
+        run: |
+          set -euo pipefail
+          FFI_DIR=$(ls -d extracted/agent-desktop-ffi-v/agent-desktop-ffi-v*)
+          mkdir -p target/release-ffi target/release
+          cp "$FFI_DIR/lib/libagent_desktop_ffi.so" target/release-ffi/
+          cp "$FFI_DIR/lib/agent-desktop-linux-clipboard-owner" target/release/
+          AGENT_DESKTOP_WM_ROOT=/ scripts/private-session.sh --wm -- \
+            scripts/ci-ffi-helper-discovery-smoke.sh
 
       - name: Real C consumer against the extracted FFI archive
         run: |

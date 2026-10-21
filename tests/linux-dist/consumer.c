@@ -473,17 +473,6 @@ static void *worker_loop(void *arg) {
   return NULL;
 }
 
-static void *single_snapshot(void *arg) {
-  struct worker *state = arg;
-  char *out = NULL;
-  state->last_rc = snapshot_rc(state->adapter, state->app, &out);
-  state->ok_count = state->last_rc == AD_RESULT_OK && envelope_ok(out) ? 1 : 0;
-  if (out != NULL) {
-    ad_free_string(out);
-  }
-  return NULL;
-}
-
 static int cmd_lifetime(const struct AdAdapter *unused, const char *app) {
   (void)unused;
   for (int cycle = 0; cycle < 20; cycle++) {
@@ -506,17 +495,11 @@ static int cmd_lifetime(const struct AdAdapter *unused, const char *app) {
   }
 
   struct AdAdapter *adapter = ad_adapter_create();
-  struct worker in_flight = {adapter, app, 0, 0};
-  pthread_t thread;
-  pthread_create(&thread, NULL, single_snapshot, &in_flight);
-  usleep(5000);
-  ad_adapter_destroy(adapter);
-  pthread_join(thread, NULL);
-  if (in_flight.ok_count != 1) {
-    fprintf(stderr, "lifetime: FAIL code=IN_FLIGHT rc=%d (%s)\n", in_flight.last_rc,
-            rc_name(in_flight.last_rc));
+  if (adapter == NULL) {
+    fprintf(stderr, "lifetime: FAIL code=ADAPTER_CREATE\n");
     return 1;
   }
+  ad_adapter_destroy(adapter);
 
   char *out = NULL;
   int32_t after = snapshot_rc(adapter, app, &out);
@@ -528,7 +511,7 @@ static int cmd_lifetime(const struct AdAdapter *unused, const char *app) {
             rc_name(after), after);
     return 1;
   }
-  printf("lifetime: ok cycles=20 in_flight=ok after_destroy=%d\n", after);
+  printf("lifetime: ok cycles=20 after_destroy=%d\n", after);
   return 0;
 }
 

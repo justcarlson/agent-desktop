@@ -62,7 +62,7 @@ cleanup() {
     kill "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
   fi
-  rm -rf "$WORK"
+  trash -- "$WORK"
 }
 trap cleanup EXIT
 
@@ -137,6 +137,10 @@ WRAPPER="$PREFIX/lib/node_modules/agent-desktop/bin/agent-desktop.js"
 check_version symlink "$("$BIN" version)"
 check_version wrapper "$(node "$WRAPPER" version)"
 echo "run-npm-install: symlink and wrapper report os=linux target=$ARCH"
+
+NODE_BIN=$(command -v node)
+mkdir "$WORK/nopath"
+python3 "$ROOT/tests/ffi-python/linux_helper.py" "$NODE_BIN" "$WRAPPER" "$WORK/nopath"
 
 "$APP" >/dev/null 2>&1 &
 APP_PID=$!
