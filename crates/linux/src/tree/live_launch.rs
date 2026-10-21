@@ -62,8 +62,6 @@ impl Launched {
     }
 }
 
-const ACTIVATED_SERVERS: [&str; 1] = ["gnome-terminal-"];
-
 /// Ends the servers that D-Bus started for a launched client and that outlive
 /// it: `gnome-terminal` only asks its server to open a window, so killing the
 /// client leaves the server and its window for every later test of the
@@ -102,9 +100,7 @@ fn stop_activated_servers() {
 }
 
 fn is_activated_server(comm: &str) -> bool {
-    ACTIVATED_SERVERS
-        .iter()
-        .any(|prefix| comm.starts_with(prefix))
+    comm.starts_with("gnome-terminal-")
 }
 
 impl Drop for Launched {

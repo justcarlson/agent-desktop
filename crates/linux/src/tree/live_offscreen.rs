@@ -14,7 +14,6 @@ use super::toolkit_trust::{read_toolkit, reports_global_position};
 use super::window_extents::read_window_extents;
 use super::{AtspiElement, Extents};
 use crate::system::display_server::{DisplayServer, session_server};
-use crate::system::registry::toolkit;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
 use crate::system::x11::window_x11_state::WindowX11State;
@@ -46,10 +45,6 @@ pub(crate) fn toolkit_of(bus: &SharedBus, element: &AtspiElement, deadline: Dead
     };
     let root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
     let read = within(deadline, async {
-        let whole = toolkit(connection.inner(), &root).await;
-        if whole.name.is_some() {
-            return Ok(whole);
-        }
         Ok(read_toolkit(connection.inner(), &root).await)
     });
     let read = read.unwrap_or_default();
@@ -68,26 +63,13 @@ pub(crate) fn global_position(bus: &SharedBus, element: &AtspiElement, deadline:
     reports_global_position(&toolkit_of(bus, element, deadline))
 }
 
-/// What the frame said. A part that could not be read is `None`, never a
-/// value: an unreadable state is not "not iconified" and an unreadable title is
-/// not an empty one.
-#[derive(Debug, PartialEq, Eq)]
+/// The frame's iconified bit, title and screen extents. A missing or unreadable
+/// state has no iconified bit and is treated as not iconified; unreadable title
+/// and extents remain absent rather than becoming empty values.
 pub(crate) struct FrameRead {
-    pub(crate) iconified: Option<bool>,
+    pub(crate) iconified: bool,
     pub(crate) title: Option<String>,
     pub(crate) screen: Option<Extents>,
-}
-
-pub(crate) fn decode_frame(
-    words: Option<Vec<u32>>,
-    title: Option<String>,
-    screen: Option<Extents>,
-) -> FrameRead {
-    FrameRead {
-        iconified: words.map(|words| StateBits::new(&words).has(ICONIFIED)),
-        title,
-        screen,
-    }
 }
 
 async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead {
@@ -106,10 +88,10 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
     let words = state
         .ok()
         .and_then(|reply| reply.body().deserialize::<Vec<u32>>().ok());
-    decode_frame(
-        words,
-        title.ok().and_then(|field| field.present().cloned()),
-        extents
+    FrameRead {
+        iconified: words.is_some_and(|words| StateBits::new(&words).has(ICONIFIED)),
+        title: title.ok().and_then(|field| field.present().cloned()),
+        screen: extents
             .ok()
             .and_then(|reply| reply.body().deserialize::<(i32, i32, i32, i32)>().ok())
             .map(|(x, y, width, height)| Extents {
@@ -118,18 +100,7 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
                 width,
                 height,
             }),
-    )
-}
-
-/// Whether the display server need not be asked: the window is known
-/// minimized, or the node is already provably off the window and the toolkit's
-/// own positions are global, so no client origin is wanted either.
-pub(crate) fn skips_display_server(
-    iconified: bool,
-    wholly_outside: bool,
-    global_position: bool,
-) -> bool {
-    iconified || (wholly_outside && global_position)
+    }
 }
 
 fn wholly_outside(placement: &Placement) -> bool {
@@ -184,9 +155,9 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     let Ok(read) = read else {
         return placed;
     };
-    placed.frame_iconified = read.iconified == Some(true);
+    placed.frame_iconified = read.iconified;
     let global = reports_global_position(&placed.toolkit);
-    let skipped = skips_display_server(placed.frame_iconified, wholly_outside(&placed), global);
+    let skipped = placed.frame_iconified || (wholly_outside(&placed) && global);
     let (popup_origin, x11) = select_frame_origin(
         element.is_menu_target(),
         &placed.toolkit,
