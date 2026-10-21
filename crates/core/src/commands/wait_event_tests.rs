@@ -37,8 +37,11 @@ impl SequenceAdapter {
 }
 
 impl ObservationOps for SequenceAdapter {
-    fn list_apps(&self, _deadline: crate::Deadline) -> Result<Vec<AppInfo>, AdapterError> {
+    fn list_apps(&self, deadline: crate::Deadline) -> Result<Vec<AppInfo>, AdapterError> {
         *self.app_calls.lock().unwrap() += 1;
+        if deadline.is_expired() {
+            return Err(deadline.timeout_error());
+        }
         Ok(self.apps.clone())
     }
 }

@@ -77,7 +77,7 @@ pub(crate) fn press_for_process(
 ) -> Result<ActionResult, AdapterError> {
     ensure_budget(deadline)?;
     let backend = world.backend()?;
-    gate().map_err(|error| worded_for(error, policy))?;
+    gate().map_err(|error| worded_for(error, policy, &backend))?;
     send_combo(world, &backend, combo, gate, deadline)?;
     Ok(ActionResult::from_execution(
         &Action::PressKey(combo.clone()),
@@ -85,7 +85,11 @@ pub(crate) fn press_for_process(
     ))
 }
 
-fn worded_for(mut error: AdapterError, policy: InteractionPolicy) -> AdapterError {
+fn worded_for(
+    mut error: AdapterError,
+    policy: InteractionPolicy,
+    backend: &Backend,
+) -> AdapterError {
     let focus = error
         .details
         .as_ref()
@@ -95,7 +99,12 @@ fn worded_for(mut error: AdapterError, policy: InteractionPolicy) -> AdapterErro
     if !focus {
         return error;
     }
-    let (message, suggestion) = if policy.allow_focus_steal {
+    let (message, suggestion) = if matches!(backend, Backend::Wayland) {
+        (
+            "The target application's active window could not be confirmed, so no key was sent",
+            "On Wayland, bring the target window to the front yourself, then use global press without --app, --window-id or --headed; global keys go to the focused window and automatic activation is unavailable",
+        )
+    } else if policy.allow_focus_steal {
         (
             "Focus did not reach the target application, so no key was sent",
             "Retry once the target application owns the active window; a menu or dialog of another application can hold the keyboard",

@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 
 pub(crate) const PORTAL_SERVICE: &str = "org.freedesktop.portal.Desktop";
 
@@ -51,12 +51,9 @@ fn refused(code: u32, waited: Duration) -> AdapterError {
         );
     }
     if waited >= PORTAL_PATIENCE {
-        return AdapterError::timeout(
+        return timed_out(AdapterError::timeout(
             "The desktop portal stopped waiting for an answer to its screenshot dialog",
-        )
-        .with_suggestion(
-            "The desktop asks to allow screenshots in a dialog; a person must approve it before the portal stops waiting",
-        );
+        ));
     }
     AdapterError::new(
         ErrorCode::PermDenied,
@@ -68,9 +65,16 @@ fn refused(code: u32, waited: Duration) -> AdapterError {
 }
 
 fn timed_out(error: AdapterError) -> AdapterError {
-    error.with_suggestion(
-        "The desktop asks to allow screenshots in a dialog; a person must approve it before the time limit",
-    )
+    error
+        .with_suggestion(
+            "A person must answer or dismiss the desktop's screenshot consent dialog. It may still be open; wait until it closes before requesting another screenshot. Do not retry automatically",
+        )
+        .with_details(serde_json::json!({
+            "kind": "portal_consent_timeout",
+            "retryable": false,
+            "dialog_may_be_open": true,
+        }))
+        .with_disposition(DeliverySemantics::uncertain())
 }
 
 fn no_uri() -> AdapterError {
@@ -102,7 +106,11 @@ pub(crate) fn screenshot_uri(
         Ok(handle) => handle,
         Err(error) => {
             pending.cancel();
-            return Err(error);
+            return Err(if error.code == ErrorCode::Timeout {
+                timed_out(error)
+            } else {
+                error
+            });
         }
     };
     if handle != path {

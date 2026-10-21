@@ -171,6 +171,31 @@ fn on_wayland_the_gate_is_the_frame_alone() {
 }
 
 #[test]
+fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
+    let physical = FakeWorld::wayland();
+    let mut keys = Keys::owning(&physical);
+    keys.focused = None;
+    let error = press(&physical, &keys, InteractionPolicy::headless()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.details.as_ref().unwrap()["cause"], "frame_not_active");
+    assert!(not_delivered(&error));
+    assert!(physical.sent_nothing());
+    let hint = error.suggestion.as_deref().unwrap();
+    assert!(
+        hint.contains("bring the target window to the front yourself"),
+        "{hint}"
+    );
+    assert!(
+        hint.contains("global press without --app, --window-id or --headed"),
+        "{hint}"
+    );
+
+    crate::actions::physical_keyboard::press_key_global_steps(&physical, &combo(), deadline())
+        .unwrap();
+    assert_eq!(physical.count("sent"), 1);
+}
+
+#[test]
 fn a_background_target_fails_by_policy_and_neither_case_calls_synthesis() {
     let allowed = FakeWorld::x11();
     let mut keys = Keys::owning(&allowed);
