@@ -157,12 +157,7 @@ fn collect(pending: Pending<'_>, atoms: &WindowAtoms) -> Got<StackedWindow> {
     };
     let extents = {
         let (format, bytes) = extents?;
-        decode_frame_extents(format, &bytes).unwrap_or(crate::system::x11::FrameExtents {
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-        })
+        decode_frame_extents(format, &bytes).unwrap_or_default()
     };
     Ok(StackedWindow {
         id: pending.id,

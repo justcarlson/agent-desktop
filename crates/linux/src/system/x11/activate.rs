@@ -10,14 +10,8 @@ use x11rb::protocol::xproto::{
 use x11rb::rust_connection::RustConnection;
 
 use super::activate_error::ActivateError;
-use super::client_message::{FORMAT_LONGS, MESSAGE_LONGS};
+use super::client_message::FORMAT_LONGS;
 use super::stacking::bounded;
-
-/// The source indication of the request: 2 says a pager or automation tool
-/// is asking, the form `xdotool windowactivate` sends. Openbox and mutter
-/// accepted 0, 1 and 2 alike when they honoured the request at all (`L27-3`,
-/// `L27-10`).
-pub(crate) const ACTIVATION_SOURCE: u32 = 2;
 
 /// How long a window manager gets to make the window active before the
 /// request counts as ignored. Openbox answered within 2 to 4 ms (`L27-3`).
@@ -26,28 +20,6 @@ pub(crate) const ACTIVATION_GRACE: Duration = Duration::from_millis(2_000);
 const SERVER_TIME_BUDGET: Duration = Duration::from_millis(1_000);
 const CONFIRM_BUDGET: Duration = Duration::from_millis(500);
 const EVENT_POLL: Duration = Duration::from_millis(2);
-
-/// The five data longs of a `_NET_ACTIVE_WINDOW` request: the source
-/// indication, the time of the user action, and the window that is active
-/// now, which 0 leaves unnamed.
-pub(crate) fn activation_data(source: u32, timestamp: u32) -> [u32; MESSAGE_LONGS] {
-    [source, timestamp, 0, 0, 0]
-}
-
-/// The client message that asks for `client` to become active.
-pub(crate) fn activation_event(
-    client: u32,
-    active_window: Atom,
-    source: u32,
-    timestamp: u32,
-) -> ClientMessageEvent {
-    ClientMessageEvent::new(
-        FORMAT_LONGS,
-        client,
-        active_window,
-        activation_data(source, timestamp),
-    )
-}
 
 pub(super) fn connect() -> Result<(RustConnection, u32), ActivateError> {
     let display = match crate::system::display_server::session_server() {
@@ -155,8 +127,13 @@ pub(crate) fn prepare(deadline: agent_desktop_core::Deadline) -> Result<Prepared
 /// window manager can drop a request whose sender has already gone. That wait
 /// runs on a worker that holds the connection, so a server that stops
 /// answering costs the confirmation budget and the request still stands.
-pub(crate) fn send(prepared: &Prepared, client: u32, source: u32) -> Result<(), ActivateError> {
-    let message = activation_event(client, prepared.active, source, prepared.timestamp);
+pub(crate) fn send(prepared: &Prepared, client: u32) -> Result<(), ActivateError> {
+    let message = ClientMessageEvent::new(
+        FORMAT_LONGS,
+        client,
+        prepared.active,
+        [2, prepared.timestamp, 0, 0, 0],
+    );
     let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
     prepared
         .connection
@@ -212,9 +189,7 @@ fn deadline_of(budget: Duration) -> Option<agent_desktop_core::Deadline> {
 /// caller was told it failed.
 pub(crate) fn request_activation(client: u32) -> Result<(), ActivateError> {
     let deadline = deadline_of(SERVER_TIME_BUDGET).ok_or(ActivateError::SendFailed)?;
-    request_via(deadline, prepare, |prepared| {
-        send(&prepared, client, ACTIVATION_SOURCE)
-    })
+    request_via(deadline, prepare, |prepared| send(&prepared, client))
 }
 
 /// The two phases apart: `prepare` runs on a worker the deadline can abandon,

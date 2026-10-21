@@ -3,17 +3,9 @@ use x11rb::rust_connection::RustConnection;
 
 use super::grab_error::{GrabError, unreadable};
 
-pub(crate) fn selection_name(screen: usize) -> String {
-    format!("_NET_WM_CM_S{screen}")
-}
-
-pub(crate) fn is_compositing(owner: u32) -> bool {
-    owner != x11rb::NONE
-}
-
 pub(crate) fn read(connection: &RustConnection, screen: usize) -> Result<bool, GrabError> {
     let atom = connection
-        .intern_atom(false, selection_name(screen).as_bytes())
+        .intern_atom(false, format!("_NET_WM_CM_S{screen}").as_bytes())
         .map_err(unreadable)?
         .reply()
         .map_err(unreadable)?
@@ -24,5 +16,5 @@ pub(crate) fn read(connection: &RustConnection, screen: usize) -> Result<bool, G
         .reply()
         .map_err(unreadable)?
         .owner;
-    Ok(is_compositing(owner))
+    Ok(owner != x11rb::NONE)
 }
