@@ -11,6 +11,7 @@ use super::physical_live_scripts::{
     GTK3_BUTTON, GTK3_DRAG, GTK3_GRAB, GTK4_BUTTON, QT_BUTTON, QT_ENTRY,
 };
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
+use crate::actions::frame_active::frame_active;
 use crate::input::x11::live_tests::{GTK3, GTK4, device_state, window_center};
 
 const ENTRY_ROLES: &[&str] = &["textfield", "text", "entry"];
@@ -30,10 +31,32 @@ fn combo(key: &str, modifiers: Vec<Modifier>) -> KeyCombo {
 }
 
 fn focus_by_click(scene: &Scene, target: &Tgt) {
+    let client = wait_for_viewable_client(scene.pid, Duration::from_secs(8));
+    activate(client.id);
+    wait_until("the fixture frame active", Duration::from_secs(8), || {
+        active_window() == Some(client.id)
+            && frame_active(
+                &scene.bus,
+                &scene.frame,
+                super::physical_live_rig::deadline(3_000),
+            )
+            .ok()
+            .flatten()
+                == Some(true)
+    });
     scene
         .act(&target.handle, Action::Click)
         .expect("the focusing click is delivered");
-    std::thread::sleep(Duration::from_millis(300));
+    wait_until("the clicked frame active", Duration::from_secs(8), || {
+        frame_active(
+            &scene.bus,
+            &scene.frame,
+            super::physical_live_rig::deadline(3_000),
+        )
+        .ok()
+        .flatten()
+            == Some(true)
+    });
 }
 
 fn type_text(kit: Kit, source: &str) {
@@ -91,14 +114,14 @@ fn click_button(kit: Kit, source: &str) {
 fn wheel(kit: Kit, source: &str, anchor: &str) {
     let scene = Scene::open(kit, source, 20);
     let row = scene.find(&["button", "option", "listitem"], Some(anchor));
-    let before = scene.settled_y(&row);
+    let before = wait_y(&scene, &row, "the initial row bounds", |_| true);
     scene
         .act(
             &row.handle,
             Action::Scroll(agent_desktop_core::Direction::Down, 1),
         )
         .expect("the wheel is delivered");
-    let moved = scene.settled_y(&row);
+    let moved = wait_y(&scene, &row, "the row moving down", |y| before - y > 30.0);
     assert!(before - moved > 30.0, "content moved {before} -> {moved}");
     scene
         .act(
@@ -106,11 +129,29 @@ fn wheel(kit: Kit, source: &str, anchor: &str) {
             Action::Scroll(agent_desktop_core::Direction::Up, 1),
         )
         .expect("the wheel is delivered");
-    let back = scene.settled_y(&row);
+    let back = wait_y(&scene, &row, "the row returning", |y| {
+        (y - before).abs() < 3.0
+    });
     assert!(
         (back - before).abs() < 3.0,
         "content returned to {back}, not {before}"
     );
+}
+
+fn wait_y(scene: &Scene, row: &Tgt, what: &str, ready: impl Fn(f64) -> bool) -> f64 {
+    let mut last = None;
+    let mut stable = 0;
+    let mut value = None;
+    wait_until(what, Duration::from_secs(8), || {
+        value = scene.adapter_bounds(row).map(|bounds| bounds.y);
+        stable = match (last, value) {
+            (Some(before), Some(now)) if ready(now) && (now - before).abs() < 0.5 => stable + 1,
+            _ => 0,
+        };
+        last = value;
+        stable >= 3
+    });
+    value.expect("the condition read bounds")
 }
 
 fn pointer_buttons_down() -> bool {

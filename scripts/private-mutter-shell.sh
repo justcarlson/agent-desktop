@@ -70,6 +70,9 @@ overview_active() {
     sed -n 's/^b \(.*\)$/\1/p'
 }
 
+# Accessibility services activated by the shell or primer must synthesize input on this display.
+dbus-update-activation-environment "DISPLAY=$display"
+
 for _ in $(seq 1 5); do
   DISPLAY=$display setsid gnome-shell --x11 --replace > "$log/gnome-shell-mutter.log" 2>&1 < /dev/null &
   shell_pid=$!
@@ -116,8 +119,6 @@ done
 kill "$primer_pid"
 wait "$primer_pid" 2>/dev/null || true
 primer_pid=
-
-dbus-update-activation-environment "DISPLAY=$display"
 
 # The session's displayfd names the display its tests must drive; this display now owns that role.
 echo "${display#:}" > "$AGENT_DESKTOP_PRIVATE_SESSION/displayfd"

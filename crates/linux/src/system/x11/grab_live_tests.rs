@@ -171,9 +171,10 @@ fn grab_live_describes_the_window_and_names_each_refusal() {
         .describe(flat.window, deadline())
         .expect("describes");
     println!("grab_live info={info:?}");
+    let origin = root_origin(&flat);
     assert_eq!(
         (info.rect.x, info.rect.y, info.rect.width, info.rect.height),
-        (100, 90, 200, 120)
+        (origin.0, origin.1, 200, 120)
     );
     assert_eq!(info.map_state, MapState::Viewable);
     assert!(info.override_redirect);

@@ -122,6 +122,25 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   requires every destroyed row ref to return `STALE_REF`. This replaces a
   fixed 600 ms sleep with a bounded condition wait.
 
+### Replaced fixture assumptions in retained cases
+
+The eight initial Mutter failures all passed their sole isolated rerun. Keep
+both Chrome menu cases: their Escape helper is routed by the private AT-SPI
+registry, so the Mutter helper now updates bus activation `DISPLAY` before
+starting the shell or primer. The registry must never inherit the outer Xvfb
+display while the applications use Mutter's display.
+
+The three Unicode typing and three key-combination cases in
+`tree::physical_live_tests` now establish the fixture's viewable active window,
+click the entry, and wait for its frame to report active instead of sleeping
+300 ms. The separate Mutter raw-click/Overview case still proves activation
+by a raw click. The three wheel cases wait for available bounds, actual
+movement and return, with stable observations after the requested condition;
+an unchanged pre-event sample is no longer accepted as completed movement.
+`grab_live_describes_the_window_and_names_each_refusal` compares root coordinates
+with an independent X11 query instead of assuming the requested origin survives
+the WM; exact size, map state, parent and every refusal assertion remain.
+
 ## Safety rules
 
 Each worker owns a display, session bus, AT-SPI bus, 0700 runtime directory,
