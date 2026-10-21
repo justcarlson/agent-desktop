@@ -14,10 +14,6 @@ TEXT_EDITOR = "Text Editor"
 TERMINAL = "Terminal"
 
 
-def app_names(data) -> list[str]:
-    return sorted(item["name"] for item in ((data or {}).get("apps") or []))
-
-
 def error_code(envelope) -> str:
     return str((envelope.error or {}).get("code", ""))
 
@@ -94,13 +90,13 @@ def list_apps_alias(ctx: LegContext) -> None:
     try:
         before = read()
         ctx.before("atspi.apps", before)
-        envelope = ctx.product(["list-apps", "--app", CALCULATOR])
-        assert envelope.ok, envelope.raw
-        assert app_names(envelope.data), "list-apps returned no Calculator"
-        other = ctx.product(["list-apps", "--app", "calculator"])
-        assert other.ok, other.raw
-        assert app_names(envelope.data) == app_names(other.data), "alias changed the app result"
-        assert "complete" not in (envelope.data or {}) or envelope.data.get("complete") is not False
+        expected = [(app_root(ctx.tier, "gnome-calculator").name, app.pid)]
+        for alias in (CALCULATOR, "calculator"):
+            envelope = ctx.product(["list-apps", "--app", alias])
+            assert envelope.ok, envelope.raw
+            data = envelope.data or {}
+            assert [(row.get("name"), row.get("pid")) for row in data.get("apps", [])] == expected, envelope.raw
+            assert data.get("complete") is not False, envelope.raw
         ctx.after("atspi.apps", read())
         assert read() == before, "query changed registered applications"
         ctx.restored("atspi.apps", read())

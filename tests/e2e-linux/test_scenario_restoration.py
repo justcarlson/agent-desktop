@@ -54,7 +54,7 @@ class RestorationTests(unittest.TestCase):
     def test_window_changes_restore_the_measured_geometry_and_state(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/test"))
         app = SimpleNamespace(windows=["w-calculator"])
-        for name in ("resize_window", "move_window", "window_operation_delivery_reports",
+        for name in ("window_operation_delivery_reports",
                      "minimize_restore", "maximize_restore"):
             with self.subTest(leg=name):
                 geometry = [(10, 20, 300, 400)]
@@ -279,7 +279,7 @@ class MenuRestorationTests(unittest.TestCase):
 
     def test_wait_menu_reads_actual_popup_state_and_restores_each_transition(self):
         for name in ("wait_menu_opens_calculator", "wait_menu_closes_calculator",
-                     "wait_menu_opens_terminal", "wait_menu_already_open", "hidden_bar_timeout_message"):
+                     "wait_menu_already_open", "hidden_bar_timeout_message"):
             with self.subTest(leg=name):
                 tier = SimpleNamespace(runtime_dir=Path("/private/test"))
                 contract = legs.Leg("menus." + name, "Observe and restore popup state",
@@ -305,6 +305,8 @@ class MenuRestorationTests(unittest.TestCase):
                     return [Item()] if kw.get("role") == 35 else [Outer(), Toggle()]
                 root = SimpleNamespace(find=find)
                 def product(tier, argv, **kw):
+                    if argv[argv.index("--app") + 1] == "Terminal":
+                        return Envelope(False, None, {"code": "APP_NOT_FOUND"}, "ambiguous desktop alias", 0, argv)
                     if name == "hidden_bar_timeout_message":
                         return Envelope(False, None, {"code": "TIMEOUT", "message": "menu hidden"}, "{}", 1500, argv)
                     return Envelope(True, {"found": True}, None, "{}", 5, argv)

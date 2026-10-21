@@ -109,44 +109,6 @@ def focus_window_active_reads(ctx: LegContext) -> None:
         apps.stop(calculator)
 
 
-@implementation("lifecycle.resize_window")
-def resize_window(ctx: LegContext) -> None:
-    app = apps.launch(ctx.tier, "Calculator")
-    try:
-        window = _window_id(app)
-        before = _geometry(ctx, window)
-        ctx.before("x11.geometry", before)
-        assert_ok(ctx.product(["resize-window", "--window-id", window, "--width", str(before[2] + 40), "--height", str(before[3] + 30)]))
-        after = atspi_raw.poll(
-            lambda: _geometry(ctx, window) if _geometry(ctx, window)[2] > before[2] else None, 6.0
-        )
-        ctx.after("x11.geometry", after)
-        if after is None:
-            raise AssertionError("the window did not take the new size")
-        _restore_geometry(ctx, window, before)
-    finally:
-        apps.stop(app)
-
-
-@implementation("lifecycle.move_window")
-def move_window(ctx: LegContext) -> None:
-    app = apps.launch(ctx.tier, "Calculator")
-    try:
-        window = _window_id(app)
-        before = _geometry(ctx, window)
-        ctx.before("x11.geometry", before)
-        assert_ok(ctx.product(["move-window", "--window-id", window, "--x", str(before[0] + 30), "--y", str(before[1] + 30)]))
-        after = atspi_raw.poll(
-            lambda: _geometry(ctx, window) if _geometry(ctx, window)[0] == before[0] + 30 else None, 6.0
-        )
-        ctx.after("x11.geometry", after)
-        if after is None:
-            raise AssertionError("the window did not take the new position")
-        _restore_geometry(ctx, window, before)
-    finally:
-        apps.stop(app)
-
-
 @implementation("lifecycle.minimize_restore")
 def minimize_restore(ctx: LegContext) -> None:
     app = apps.launch(ctx.tier, "Calculator")

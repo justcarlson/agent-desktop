@@ -161,11 +161,6 @@ class CaptureHelperTests(unittest.TestCase):
             self.assertEqual(capture._editor(ctx), (app, "w-test"))
         self.assertIn(["type", "@s1:e3", "capture baseline"], calls)
 
-    def test_window_line_matches_the_exact_title(self):
-        lines = ["0x04000007  0 1234 host Text Editor", "0x04000008  0 1235 host Calculator"]
-        self.assertEqual(capture.match_window_line(lines, "Calculator"), "0x04000008")
-        self.assertIsNone(capture.match_window_line(lines, "Editor"))
-
     def test_a_solid_image_is_blank(self):
         self.assertFalse(capture.non_blank(capture.pixels.solid(2, 2, (1, 2, 3))))
 

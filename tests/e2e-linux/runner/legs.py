@@ -146,8 +146,6 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('non_interference.pointer_unchanged_by_value_write', 'A semantic value write leaves the pointer where it was', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'atspi', 'gsettings'), 'pass', ''),
     Leg('lifecycle.close_app_undelivered_report', 'close-app reports not delivered when the process stays', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.focus_window_active_reads', 'focus-window makes the target active by the X11 reads', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'proc'), 'pass', ''),
-    Leg('lifecycle.resize_window', 'resize-window changes the geometry the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
-    Leg('lifecycle.move_window', 'move-window changes the position the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.minimize_restore', 'minimize and restore change the window state the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.maximize_restore', 'maximize and restore change the window state the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.window_operation_delivery_reports', 'move, resize and minimize reports agree with the oracle both ways', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),

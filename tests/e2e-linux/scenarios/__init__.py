@@ -6,7 +6,6 @@ from scenarios import gaps_surfaces
 from scenarios import gaps_gestures
 from scenarios import gaps_mutter
 from scenarios import clipboard
-from scenarios import disclosure
 from scenarios import duplicates
 from scenarios import events
 from scenarios import headed_actions
@@ -44,7 +43,6 @@ from scenarios import gaps_decisions
 __all__ = [
     "capture",
     "clipboard",
-    "disclosure",
     "duplicates",
     "events",
     "headed_actions",

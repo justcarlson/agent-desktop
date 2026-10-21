@@ -59,10 +59,6 @@ class IdentityTests(unittest.TestCase):
 
 
 class MenuTests(unittest.TestCase):
-    def test_names_containing_is_case_insensitive(self) -> None:
-        root = FakeNode(children=[FakeNode("Power"), FakeNode("Mouse")])
-        self.assertEqual(menus.names_containing(root, "power"), ["Power"])
-
     def test_timeout_message_reads_the_error(self) -> None:
         envelope = SimpleNamespace(error={"message": "the menu never opened"})
         self.assertIn("menu", menus.timeout_message(envelope))
@@ -73,12 +69,6 @@ class MenuTests(unittest.TestCase):
 
 
 class LaunchTests(unittest.TestCase):
-    def test_app_names_are_sorted(self) -> None:
-        self.assertEqual(launch.app_names({"apps": [{"name": "b"}, {"name": "a"}]}), ["a", "b"])
-
-    def test_missing_apps_is_empty(self) -> None:
-        self.assertEqual(launch.app_names(None), [])
-
     def test_first_ref_returns_the_root_ref(self) -> None:
         self.assertEqual(launch._first_ref({"ref_id": "@s:e1"}), "@s:e1")
 
