@@ -134,9 +134,6 @@ mod live_rig;
 mod navigate_live_tests;
 
 #[cfg(test)]
-mod perf_live_tests;
-
-#[cfg(test)]
 mod physical_live_apps_tests;
 
 #[cfg(test)]
