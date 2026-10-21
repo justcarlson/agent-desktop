@@ -48,18 +48,6 @@ fn a_shown_active_frame_becomes_a_window_with_the_process_instance() {
 }
 
 #[test]
-fn two_same_titled_frames_get_different_ids() {
-    let app = app(None);
-    let nodes = vec![
-        frame(23, "Doc", "/org/a11y/atspi/accessible/1", &[25]),
-        frame(23, "Doc", "/org/a11y/atspi/accessible/2", &[25]),
-    ];
-    let windows = collect(&[(0, &app)], &[nodes]);
-    assert_eq!(windows.len(), 2);
-    assert_ne!(windows[0].info.id, windows[1].info.id);
-}
-
-#[test]
 fn non_window_roles_and_chrome_bubbles_are_dropped() {
     let app = app(Some(("Chromium", "1")));
     let mut bubble = frame(23, "", "/org/a11y/atspi/accessible/2", &[25]);

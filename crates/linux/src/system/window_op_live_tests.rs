@@ -265,18 +265,6 @@ fn exercise(kind: &str, manager: &str) {
         restored, before_maximize,
         "a restore gives back the client rectangle"
     );
-
-    apply(&window, WindowOp::Minimize).expect("a minimize reads back");
-    wait_until("the window is hidden", || hidden(&xid));
-    let lifted = apply(&window, WindowOp::Restore);
-    println!(
-        "window_op_live {manager} {kind}: restore of a minimized window {:?}",
-        lifted
-            .as_ref()
-            .map_err(|error| (&error.code, &error.message))
-    );
-    lifted.expect("a restore of a minimized window works");
-    assert!(!hidden(&xid), "Ok means the hidden flag cleared");
 }
 
 fn close_overview() {

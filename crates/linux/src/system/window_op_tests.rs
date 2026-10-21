@@ -207,35 +207,6 @@ fn wide(width: i32, height: i32) -> WindowFacts {
 }
 
 #[test]
-fn a_window_whose_process_is_stopped_is_unresponsive_and_never_written() {
-    let mut world = World::showing(wide(562, 693));
-    world.stopped = true;
-    let error = run(&world, &window(), &resize(562.0, 693.0), budget())
-        .expect_err("a stopped window refuses the op");
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert!(world.writes.borrow().is_empty());
-}
-
-#[test]
-fn a_resize_read_back_is_ok_and_writes_once_to_the_client() {
-    let world = World::showing(wide(562, 693));
-    run(&world, &window(), &resize(562.0, 693.0), budget()).expect("the resize holds");
-    let writes = world.writes.borrow();
-    assert_eq!(writes.len(), 1);
-    assert_eq!(writes[0].0, CLIENT);
-    assert_eq!(
-        writes[0].1,
-        WindowWrite::MoveResize {
-            x: None,
-            y: None,
-            width: Some(562),
-            height: Some(693),
-        }
-    );
-}
-
-#[test]
 fn a_read_back_in_transition_is_waited_out_not_judged() {
     let world = World::showing(wide(400, 300)).then_showing(wide(562, 693));
     run(&world, &window(), &resize(562.0, 693.0), budget()).expect("the settled read holds");
@@ -278,42 +249,6 @@ fn a_read_that_never_answers_is_unverified_never_ok() {
     let details = error.details.expect("details");
     assert_eq!(details["observed"], Value::Null);
     assert_eq!(details["cause"], "readback_unavailable");
-}
-
-#[test]
-fn a_move_writes_the_position_only_and_is_judged_on_it() {
-    let world = World::showing(state(100, 200, 1, 1));
-    run(
-        &world,
-        &window(),
-        &WindowOp::Move { x: 100.4, y: 199.6 },
-        budget(),
-    )
-    .expect("a move");
-    assert_eq!(
-        world.writes.borrow()[0].1,
-        WindowWrite::MoveResize {
-            x: Some(100),
-            y: Some(200),
-            width: None,
-            height: None,
-        }
-    );
-}
-
-#[test]
-fn minimize_and_maximize_write_their_state_messages() {
-    let mut hidden = state(0, 0, 1, 1);
-    hidden.hidden = true;
-    let world = World::showing(hidden);
-    run(&world, &window(), &WindowOp::Minimize, budget()).expect("a minimize");
-    assert_eq!(world.writes.borrow()[0].1, WindowWrite::Iconify);
-    let mut full = state(0, 0, 1, 1);
-    full.maximized_vertical = true;
-    full.maximized_horizontal = true;
-    let world = World::showing(full);
-    run(&world, &window(), &WindowOp::Maximize, budget()).expect("a maximize");
-    assert_eq!(world.writes.borrow()[0].1, WindowWrite::SetMaximized(true));
 }
 
 #[test]

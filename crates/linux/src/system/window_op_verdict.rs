@@ -107,38 +107,30 @@ pub(super) fn unverified(
     observed: Option<&WindowFacts>,
     displays: &[Rect],
 ) -> AdapterError {
-    if observed.is_none() {
-        return AdapterError::new(
-            ErrorCode::ActionFailed,
+    let (cause, message, suggestion) = match observed {
+        Some(_) => (
+            "readback_mismatch",
+            "The window manager left the window other than requested",
+            "The window manager or the window's size hints constrained the request, and a window cannot be larger than the screen; read the held size from 'list-windows'",
+        ),
+        None => (
+            "readback_unavailable",
             "The window could not be read back after the request, so its effect is unknown",
-        )
-        .with_suggestion(
             "Run 'list-windows' to see the window as it is now before sending the request again",
-        )
-        .with_details(json!({
-            "cause": "readback_unavailable",
-            "requested": requested_of(write),
-            "observed": Value::Null,
-        }))
-        .with_disposition(DeliverySemantics::delivered_unverified());
-    }
+        ),
+    };
     let mut details = json!({
-        "cause": "readback_mismatch",
+        "cause": cause,
         "requested": requested_of(write),
         "observed": observed_of(observed),
     });
-    if matches!(write, WindowWrite::MoveResize { .. }) {
+    if observed.is_some() && matches!(write, WindowWrite::MoveResize { .. }) {
         details["display_bounds"] = displays.iter().map(rectangle).collect();
     }
-    AdapterError::new(
-        ErrorCode::ActionFailed,
-        "The window manager left the window other than requested",
-    )
-    .with_suggestion(
-        "The window manager or the window's size hints constrained the request, and a window cannot be larger than the screen; read the held size from 'list-windows'",
-    )
-    .with_details(details)
-    .with_disposition(DeliverySemantics::delivered_unverified())
+    AdapterError::new(ErrorCode::ActionFailed, message)
+        .with_suggestion(suggestion)
+        .with_details(details)
+        .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
 fn invalid(message: &str) -> AdapterError {
@@ -149,7 +141,7 @@ fn invalid(message: &str) -> AdapterError {
 /// The write an operation asks for, or `None` for a restore, which reads the
 /// window first. A size or place that is not one is refused.
 pub(super) fn requested(op: &WindowOp) -> Result<Option<WindowWrite>, AdapterError> {
-    match *op {
+    Ok(match *op {
         WindowOp::Resize { width, height } => {
             let valid = |side: f64| (0.5..=MAX_DIMENSION).contains(&side);
             if !valid(width) || !valid(height) {
@@ -157,12 +149,12 @@ pub(super) fn requested(op: &WindowOp) -> Result<Option<WindowWrite>, AdapterErr
                     "Window width and height must be finite, at least one pixel, and at most 1000000",
                 ));
             }
-            Ok(Some(WindowWrite::MoveResize {
+            Some(WindowWrite::MoveResize {
                 x: None,
                 y: None,
                 width: Some(width.round() as u32),
                 height: Some(height.round() as u32),
-            }))
+            })
         }
         WindowOp::Move { x, y } => {
             let valid = |axis: f64| axis.is_finite() && axis.abs() <= MAX_COORDINATE;
@@ -171,17 +163,17 @@ pub(super) fn requested(op: &WindowOp) -> Result<Option<WindowWrite>, AdapterErr
                     "Window coordinates must be finite and within -1000000..=1000000",
                 ));
             }
-            Ok(Some(WindowWrite::MoveResize {
+            Some(WindowWrite::MoveResize {
                 x: Some(x.round() as i32),
                 y: Some(y.round() as i32),
                 width: None,
                 height: None,
-            }))
+            })
         }
-        WindowOp::Minimize => Ok(Some(WindowWrite::Iconify)),
-        WindowOp::Maximize => Ok(Some(WindowWrite::SetMaximized(true))),
-        WindowOp::Restore => Ok(None),
-    }
+        WindowOp::Minimize => Some(WindowWrite::Iconify),
+        WindowOp::Maximize => Some(WindowWrite::SetMaximized(true)),
+        WindowOp::Restore => None,
+    })
 }
 
 #[cfg(test)]

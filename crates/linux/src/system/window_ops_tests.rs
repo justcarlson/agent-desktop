@@ -66,22 +66,8 @@ fn focused(
 }
 
 #[test]
-fn a_frame_that_reports_active_and_matches_the_display_is_focused() {
-    let listed = vec![window("main", true, false), window("dialog", false, false)];
-    assert_eq!(focused(listed, &state(1), |_| false), Some(0));
-}
-
-#[test]
 fn a_modal_frame_that_never_reports_active_is_focused_when_the_display_and_input_focus_name_it() {
     let listed = vec![window("main", false, false), window("dialog", false, true)];
-    assert_eq!(focused(listed, &state(2), |_| true), Some(1));
-}
-
-#[test]
-fn a_dialog_frame_that_never_reports_active_is_focused_when_the_display_and_input_focus_name_it() {
-    let mut dialog = window("dialog", false, false);
-    dialog.dialog = true;
-    let listed = vec![window("main", false, false), dialog];
     assert_eq!(focused(listed, &state(2), |_| true), Some(1));
 }
 

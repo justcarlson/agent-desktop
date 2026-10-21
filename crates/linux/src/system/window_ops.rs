@@ -9,7 +9,7 @@ use super::registry_app::RegistryApp;
 use super::signal_inventory::{Pass, read_selected, run_pass_with};
 use super::unresponsive::{require_known_target, settle_scoped, stopped_target};
 use super::window_filter::is_helper_app;
-use super::window_position::{mark_minimized, mark_other_desktop, place_windows, trim_shadows};
+use super::window_position::place_windows;
 use super::x11::desktops::{self, Desktops};
 use super::x11::{self, DisplayReader, X11Source, X11State};
 
@@ -34,10 +34,7 @@ pub(crate) fn windows_of(
 /// drew, marks the minimized ones, those on another desktop and the focused
 /// one, and returns the index of the focused window.
 fn finish_listing(pass: &mut Pass, state: &X11State, desktops: Option<&Desktops>) -> Option<usize> {
-    place_windows(&mut pass.windows, state);
-    trim_shadows(&mut pass.windows, state);
-    mark_minimized(&mut pass.windows, state);
-    mark_other_desktop(&mut pass.windows, state, desktops);
+    place_windows(&mut pass.windows, state, desktops);
     if let Some(index) = pass.focused {
         pass.windows[index].info.state.is_focused = true;
     }

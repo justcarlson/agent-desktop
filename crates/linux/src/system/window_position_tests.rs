@@ -57,7 +57,7 @@ fn ready(clients: Vec<X11Client>) -> X11State {
 fn a_window_without_global_position_takes_the_origin_of_its_unique_client() {
     let mut listed = windows(("gtk", "4.14.5"));
     assert_eq!(listed[0].info.bounds, None);
-    place_windows(&mut listed, &ready(vec![client(7, 460, 165)]));
+    place_windows(&mut listed, &ready(vec![client(7, 460, 165)]), None);
     let bounds = listed[0].info.bounds.expect("a position");
     assert_eq!((bounds.x, bounds.y), (460.0, 165.0));
     assert_eq!((bounds.width, bounds.height), (10.0, 10.0));
@@ -69,6 +69,7 @@ fn a_window_that_maps_to_two_clients_has_no_position() {
     place_windows(
         &mut listed,
         &ready(vec![client(7, 460, 165), client(8, 20, 20)]),
+        None,
     );
     assert_eq!(listed[0].info.bounds, None);
 }
@@ -77,7 +78,7 @@ fn a_window_that_maps_to_two_clients_has_no_position() {
 fn a_window_has_no_position_when_the_display_server_did_not_answer() {
     for state in [X11State::Unavailable, X11State::NoWindowManager] {
         let mut listed = windows(("gtk", "4.14.5"));
-        place_windows(&mut listed, &state);
+        place_windows(&mut listed, &state, None);
         assert_eq!(listed[0].info.bounds, None);
     }
 }
@@ -85,7 +86,7 @@ fn a_window_has_no_position_when_the_display_server_did_not_answer() {
 #[test]
 fn an_unreadable_toolkit_is_treated_as_having_no_global_position() {
     let mut listed = windows(("clutter", "1.0"));
-    place_windows(&mut listed, &ready(vec![client(7, 300, 90)]));
+    place_windows(&mut listed, &ready(vec![client(7, 300, 90)]), None);
     assert_eq!(listed[0].info.bounds.map(|rect| rect.x), Some(300.0));
 }
 
@@ -94,7 +95,7 @@ fn a_global_position_toolkit_keeps_the_extents_it_reported() {
     let mut listed = windows(("gtk", "3.24.41"));
     let reported = listed[0].info.bounds;
     assert!(reported.is_some());
-    place_windows(&mut listed, &ready(vec![client(7, 460, 165)]));
+    place_windows(&mut listed, &ready(vec![client(7, 460, 165)]), None);
     assert_eq!(listed[0].info.bounds, reported);
 }
 
@@ -104,7 +105,7 @@ fn a_hidden_client_marks_its_window_minimized_and_not_visible() {
     assert_eq!(listed[0].info.state.minimized, Some(false));
     let mut hidden = client(7, 460, 165);
     hidden.hidden = true;
-    mark_minimized(&mut listed, &ready(vec![hidden]));
+    place_windows(&mut listed, &ready(vec![hidden]), None);
     assert_eq!(listed[0].info.state.minimized, Some(true));
     assert_eq!(listed[0].info.state.visible, Some(false));
 }
@@ -117,7 +118,7 @@ fn a_shown_client_or_a_silent_display_server_leaves_the_toolkit_state() {
         X11State::NoWindowManager,
     ] {
         let mut listed = windows(("gtk", "4.14.5"));
-        mark_minimized(&mut listed, &state);
+        place_windows(&mut listed, &state, None);
         assert_eq!(listed[0].info.state.minimized, Some(false));
         assert_eq!(listed[0].info.state.visible, Some(true));
     }
@@ -128,7 +129,7 @@ fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
     let mut listed = windows(("gtk", "4.14.5"));
     let mut hidden = client(7, 460, 165);
     hidden.hidden = true;
-    mark_minimized(&mut listed, &ready(vec![hidden, client(8, 20, 20)]));
+    place_windows(&mut listed, &ready(vec![hidden, client(8, 20, 20)]), None);
     assert_eq!(listed[0].info.state.minimized, Some(false));
 }
 
@@ -138,7 +139,7 @@ fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
     shadowed.shadow = (61, 55, 0, 0);
     let mut listed = windows(("gtk", "4.14.5"));
 
-    place_windows(&mut listed, &ready(vec![shadowed]));
+    place_windows(&mut listed, &ready(vec![shadowed]), None);
 
     let bounds = listed[0].info.bounds.expect("a position");
     assert_eq!((bounds.x, bounds.y), (98.0, 119.0));
@@ -162,7 +163,7 @@ fn a_gtk_window_with_a_shadow_has_the_size_of_its_client_less_the_shadow() {
         height: 460,
     });
 
-    place_windows(&mut listed, &ready(vec![shadowed]));
+    place_windows(&mut listed, &ready(vec![shadowed]), None);
 
     let bounds = listed[0].info.bounds.expect("a position");
     assert_eq!(
@@ -189,7 +190,7 @@ fn gtk3_window_with_shadow(shadow: (i32, i32, i32, i32)) -> (Vec<ListedWindow>, 
 fn a_gtk3_window_with_a_client_side_shadow_is_reported_without_the_shadow() {
     let (mut listed, state) = gtk3_window_with_shadow((26, 23, 26, 29));
 
-    trim_shadows(&mut listed, &state);
+    place_windows(&mut listed, &state, None);
 
     let bounds = listed[0].info.bounds.expect("bounds");
     assert_eq!(
@@ -202,7 +203,7 @@ fn a_gtk3_window_with_a_client_side_shadow_is_reported_without_the_shadow() {
 fn a_gtk3_window_without_a_shadow_keeps_its_bounds() {
     let (mut listed, state) = gtk3_window_with_shadow((0, 0, 0, 0));
 
-    trim_shadows(&mut listed, &state);
+    place_windows(&mut listed, &state, None);
 
     let bounds = listed[0].info.bounds.expect("bounds");
     assert_eq!(
@@ -223,7 +224,7 @@ fn on_desktop(current: u32, window_on: u32) -> Desktops {
 fn a_window_on_another_desktop_is_not_visible() {
     let mut listed = windows(("gtk", "3.24.41"));
     assert_eq!(listed[0].info.state.visible, Some(true));
-    mark_other_desktop(
+    place_windows(
         &mut listed,
         &ready(vec![client(7, 0, 0)]),
         Some(&on_desktop(0, 1)),
@@ -235,8 +236,8 @@ fn a_window_on_another_desktop_is_not_visible() {
 fn a_window_on_the_current_desktop_or_with_no_desktop_evidence_keeps_what_the_toolkit_said() {
     let mut listed = windows(("gtk", "3.24.41"));
     let state = ready(vec![client(7, 0, 0)]);
-    mark_other_desktop(&mut listed, &state, Some(&on_desktop(1, 1)));
+    place_windows(&mut listed, &state, Some(&on_desktop(1, 1)));
     assert_eq!(listed[0].info.state.visible, Some(true));
-    mark_other_desktop(&mut listed, &state, None);
+    place_windows(&mut listed, &state, None);
     assert_eq!(listed[0].info.state.visible, Some(true));
 }

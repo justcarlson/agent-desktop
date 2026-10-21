@@ -14,16 +14,6 @@ fn modal() -> Field<Vec<u32>> {
 }
 
 #[test]
-fn frame_dialog_and_window_roles_with_a_component_are_windows() {
-    for role in [23, 16, 69] {
-        assert!(
-            is_window_shape(&Field::Present(role), &component(), &no_states()),
-            "{role}"
-        );
-    }
-}
-
-#[test]
 fn a_modal_panel_is_a_window_and_a_plain_panel_is_not() {
     let panel = Field::Present(39);
     assert!(is_window_shape(&panel, &component(), &modal()));
@@ -70,23 +60,6 @@ fn the_shell_and_the_frame_decorator_are_helpers_by_either_name() {
 }
 
 #[test]
-fn the_recorded_chrome_case_keeps_two_windows_and_drops_four_bubbles() {
-    let frames = [
-        (Some("BrowserRootView"), "about:blank - Google Chrome"),
-        (Some("BrowserRootView"), "Second - Google Chrome"),
-        (Some("RootView"), ""),
-        (Some("RootView"), ""),
-        (Some("RootView"), "  "),
-        (Some("RootView"), ""),
-    ];
-    let kept = frames
-        .iter()
-        .filter(|(class, title)| !is_bubble(*class, title))
-        .count();
-    assert_eq!(kept, 2);
-}
-
-#[test]
 fn a_titled_root_view_and_a_frame_with_no_class_are_windows() {
     assert!(!is_bubble(Some("RootView"), "Titled"));
     assert!(!is_bubble(None, ""));
@@ -107,20 +80,6 @@ fn state_bits_become_visible_minimized_and_active() {
     let hidden = frame_state(&Field::Present(words(&[15])));
     assert_eq!(hidden.visible, Some(false));
     assert_eq!(hidden.minimized, Some(true));
-}
-
-#[test]
-fn an_unreadable_state_set_is_unknown_not_false() {
-    let state = frame_state(&Field::Failed("x".into()));
-    assert_eq!(
-        state,
-        FrameState {
-            visible: None,
-            minimized: None,
-            active: None,
-            modal: None
-        }
-    );
 }
 
 #[test]

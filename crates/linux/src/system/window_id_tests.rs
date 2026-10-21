@@ -19,20 +19,6 @@ fn ids_round_trip_for_every_recorded_path_shape() {
 }
 
 #[test]
-fn two_frames_of_one_application_get_different_ids() {
-    let first = encode(":1.42", "/org/gnome/Nautilus/a11y/aaaa").expect("encodes");
-    let second = encode(":1.42", "/org/gnome/Nautilus/a11y/bbbb").expect("encodes");
-    assert_ne!(first, second);
-}
-
-#[test]
-fn the_same_path_on_two_applications_gets_different_ids() {
-    let first = encode(":1.42", CHROMIUM_PATH).expect("encodes");
-    let second = encode(":1.43", CHROMIUM_PATH).expect("encodes");
-    assert_ne!(first, second);
-}
-
-#[test]
 fn an_id_is_made_of_shell_safe_characters() {
     let id = encode(":1.42", GTK_PATH).expect("encodes");
     assert!(

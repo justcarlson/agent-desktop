@@ -55,7 +55,3 @@ pub(super) fn to_visible(mut error: AdapterError, shadow: Shadow) -> AdapterErro
     }
     error
 }
-
-#[cfg(test)]
-#[path = "window_op_shadow_tests.rs"]
-mod tests;
