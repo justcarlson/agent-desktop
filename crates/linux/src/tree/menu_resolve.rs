@@ -134,7 +134,8 @@ pub(crate) fn resolve_menu(
         let owner = owner_process_id(&connection, window.bus()).await;
         window.check_owner(owner, entry)
     })?;
-    let popups = popups_at(bus, &window.frame(), false, deadline).map_err(settle_gone)?;
+    let popups = popups_at(bus, &window.frame(), false, deadline)
+        .map_err(|error| settle_gone(error, window.pid()))?;
     if popups.is_empty() {
         return Err(menu_closed());
     }

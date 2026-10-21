@@ -59,7 +59,7 @@ impl Source for BusSource<'_> {
         within(self.deadline, async {
             let (_, liveness) = read_node_with_liveness(connection, &frame)
                 .await
-                .map_err(settle_gone)?;
+                .map_err(|error| settle_gone(error, window.pid()))?;
             if liveness == Liveness::TimedOut {
                 return Err(unanswered());
             }

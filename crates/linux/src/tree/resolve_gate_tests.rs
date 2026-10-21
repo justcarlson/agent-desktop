@@ -110,12 +110,25 @@ fn an_owner_with_another_pid_is_a_different_process() {
 }
 
 #[test]
-fn an_owner_the_bus_cannot_name_is_exited_or_retryable_never_a_match() {
-    let gone = window()
-        .check_owner(Err(method_error(NAME_HAS_NO_OWNER)), &entry())
-        .expect_err("no owner");
-    assert_eq!(kind(&gone), "resolve_owning_process_exited");
+fn a_missing_bus_owner_is_only_exited_when_its_process_is_gone() {
+    for (pid, expected) in [
+        (std::process::id(), "resolve_owner_unreachable"),
+        (u32::MAX, "resolve_owning_process_exited"),
+    ] {
+        let mut entry = entry();
+        entry.process.pid = pid.into();
+        let error = stored_window(&entry)
+            .expect("stored window")
+            .check_owner(Err(method_error(NAME_HAS_NO_OWNER)), &entry)
+            .expect_err("no owner");
+        assert_eq!(kind(&error), expected);
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        assert!(!error.is_explicitly_retryable());
+    }
+}
 
+#[test]
+fn an_owner_the_bus_cannot_identify_is_retryable_never_a_match() {
     let slow = window()
         .check_owner(Err(client_timeout()), &entry())
         .expect_err("slow");
