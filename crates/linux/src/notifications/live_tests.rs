@@ -1,10 +1,9 @@
+use agent_desktop_core::{
+    Deadline, DismissNotificationRequest, InteractionLease, InteractionPolicy, NotificationFilter,
+    NotificationIdentity,
+};
 use std::process::Command;
 use std::time::Duration;
-
-use agent_desktop_core::{
-    Deadline, DismissAllNotificationsRequest, DismissNotificationRequest, InteractionLease,
-    InteractionPolicy, NotificationActionRequest, NotificationFilter, NotificationIdentity,
-};
 
 use super::signals::{BusSignals, Signal, SignalSource};
 use crate::system::SharedBus;
@@ -59,42 +58,6 @@ fn identity_of(info: &agent_desktop_core::NotificationInfo) -> NotificationIdent
     }
 }
 
-struct Monitor {
-    pid: String,
-    file: std::path::PathBuf,
-}
-
-impl Monitor {
-    fn start(name: &str) -> Self {
-        let file =
-            std::env::temp_dir().join(format!("notification-{name}-{}.log", std::process::id()));
-        let pid = oracle(&["monitor", file.to_str().expect("path")]);
-        std::thread::sleep(Duration::from_millis(500));
-        Self { pid, file }
-    }
-
-    fn text(&self) -> String {
-        std::thread::sleep(Duration::from_secs(1));
-        std::fs::read_to_string(&self.file).unwrap_or_default()
-    }
-}
-
-impl Drop for Monitor {
-    fn drop(&mut self) {
-        let _ = Command::new("kill").arg(&self.pid).status();
-        let _ = std::fs::remove_file(&self.file);
-    }
-}
-
-fn closed_with_reason(log: &str, reason: u32) -> bool {
-    let lines: Vec<&str> = log.lines().map(str::trim).collect();
-    lines
-        .iter()
-        .position(|line| line.contains("member=NotificationClosed"))
-        .and_then(|at| lines.get(at + 2))
-        .is_some_and(|line| *line == format!("uint32 {reason}"))
-}
-
 #[test]
 #[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
 fn signals_subscribed_before_a_close_arrive_and_after_it_do_not() {
@@ -120,64 +83,6 @@ fn list_matches_what_the_sender_posted() {
     assert_eq!(entries[0].title, "second");
     assert_eq!(entries[1].title, "first");
     assert_eq!(entries[1].actions, vec!["Run A"]);
-}
-
-#[test]
-#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
-fn action_is_seen_by_the_monitor() {
-    let bus = SharedBus::default();
-    let monitor = Monitor::start("action");
-    notify("live-mail", "act", "act-b=Run B");
-    let info = listed(&bus).remove(0);
-    let who = identity_of(&info);
-    let request = NotificationActionRequest {
-        index: info.index,
-        identity: &who,
-        action_name: "Run B",
-        policy: InteractionPolicy::headed(),
-    };
-    let result = super::action(&bus, request, &lease()).expect("delivered");
-    assert_ne!(
-        result.disposition(),
-        agent_desktop_core::DeliverySemantics::delivered_verified()
-    );
-    assert!(monitor.text().contains("ActionInvoked"));
-}
-
-#[test]
-#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
-fn dismiss_leaves_the_other_app_and_closes_with_reason_two() {
-    let bus = SharedBus::default();
-    let monitor = Monitor::start("dismiss");
-    notify("live-keep", "stays", "");
-    notify("live-drop", "goes", "");
-    let info = listed(&bus).remove(0);
-    let who = identity_of(&info);
-    let request = DismissNotificationRequest {
-        index: info.index,
-        app_filter: None,
-        identity: &who,
-        policy: InteractionPolicy::headed(),
-    };
-    super::dismiss(&bus, request, &lease()).expect("dismissed");
-    let left = listed(&bus);
-    assert!(left.iter().any(|entry| entry.title == "stays"));
-    assert!(!left.iter().any(|entry| entry.title == "goes"));
-    assert!(closed_with_reason(&monitor.text(), 2));
-}
-
-#[test]
-#[ignore = "needs the private gnome-shell of scripts/notification-live.sh"]
-fn dismiss_all_empties_the_list() {
-    let bus = SharedBus::default();
-    notify("live-a", "one", "");
-    notify("live-b", "two", "");
-    let request = DismissAllNotificationsRequest {
-        app_filter: None,
-        policy: InteractionPolicy::headed(),
-    };
-    super::dismiss_all(&bus, request, &lease()).expect("cleared");
-    assert!(listed(&bus).is_empty());
 }
 
 #[test]

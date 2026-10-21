@@ -1,12 +1,12 @@
 use agent_desktop_core::{
-    AccessibilityNode, ObservationSource, ObservedSubtree, ObservedTree, ProcessId, RefEntry, Role,
+    AccessibilityNode, ObservationSource, ObservedSubtree, ObservedTree, ProcessId, RefEntry,
     SnapshotSurface, WindowInfo, WindowState, ref_alloc::is_ref_able,
 };
 
 use super::menu_layout::{Prop, RawEntry, parse};
-use super::node_evidence::{ENTRY_ROLE, ITEM_ROLE, SEPARATOR_ROLE, fresh};
+use super::node_evidence::{SEPARATOR_ROLE, fresh};
 use super::view::{TrayItem, TrayView};
-use super::{TrayTarget, identity, item_props::ItemProps, owns, resolve};
+use super::{TrayTarget, item_props::ItemProps, owns, resolve};
 use crate::tree::test_support::ref_entry;
 
 fn raw(id: i32, label: &str, extra: &[(&str, Prop)], children: Vec<RawEntry>) -> RawEntry {
@@ -23,35 +23,29 @@ fn raw(id: i32, label: &str, extra: &[(&str, Prop)], children: Vec<RawEntry>) ->
 }
 
 fn projected() -> AccessibilityNode {
-    let layout = parse(
-        6,
-        &raw(
-            0,
-            "",
-            &[],
-            vec![
-                raw(1, "Open", &[], vec![]),
-                raw(2, "", &[("type", Prop::Text("separator".into()))], vec![]),
-                raw(3, "Off", &[("enabled", Prop::Flag(false))], vec![]),
-                raw(4, "More", &[], vec![raw(5, "Deep", &[], vec![])]),
-            ],
-        ),
-    );
+    let layout = parse(&raw(
+        0,
+        "",
+        &[],
+        vec![
+            raw(1, "Open", &[], vec![]),
+            raw(2, "", &[("type", Prop::Text("separator".into()))], vec![]),
+            raw(3, "Off", &[("enabled", Prop::Flag(false))], vec![]),
+            raw(4, "More", &[], vec![raw(5, "Deep", &[], vec![])]),
+        ],
+    ));
     let item = TrayItem {
         target: TrayTarget {
             owner: ":1.7".into(),
             object_path: "/org/ayatana/NotificationItem/x".into(),
             menu_path: None,
             entry_id: None,
-            revision: None,
             label_path: Vec::new(),
         },
         props: ItemProps {
             title: "Dropbox".into(),
-            id: "dropbox".into(),
             passive: false,
             menu: Some("/MenuBar".into()),
-            item_is_menu: false,
         },
         methods: vec!["Activate".into()],
         layout: Some(layout),
@@ -101,13 +95,6 @@ fn stored(node: &AccessibilityNode) -> RefEntry {
     entry.identity.name = node.identity.name.clone();
     entry.identity.native_id = node.identity.native_id.clone();
     entry
-}
-
-#[test]
-fn every_role_a_tray_node_uses_is_canonical() {
-    for role in [ITEM_ROLE, ENTRY_ROLE, SEPARATOR_ROLE] {
-        assert!(Role::is_canonical(role), "{role}");
-    }
 }
 
 #[test]
@@ -174,25 +161,6 @@ fn a_disabled_entry_advertises_click_with_its_disabled_state_and_a_separator_non
         .expect("the separator is projected");
     assert!(separator.presentation.available_actions.is_empty());
     assert!(!is_ref_able(separator));
-}
-
-#[test]
-fn the_persisted_identity_does_not_move_with_the_layout_revision() {
-    let nodes = all();
-    let open = nodes
-        .iter()
-        .find(|node| node.identity.name.as_deref() == Some("Open"))
-        .expect("Open is projected");
-    let id = open.identity.native_id.clone().expect("an identity");
-    let mut target = identity::decode(&id.value).expect("decodes");
-    target.revision = Some(99);
-    assert_eq!(identity::encode(&target), id.value);
-    assert_eq!(
-        super::node_evidence::identifiers(&target)
-            .preferred_value()
-            .map(str::to_owned),
-        Some(id.value)
-    );
 }
 
 #[test]

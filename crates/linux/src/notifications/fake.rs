@@ -96,60 +96,27 @@ pub(crate) fn reading(specs: &[Spec], clear_all: bool) -> Reading {
     let mut nodes = vec![node(0, Role::Other, "", "/root", LAID_OUT)];
     for (position, entry) in specs.iter().enumerate() {
         let n = position + 1;
-        nodes.push(node(1, Role::Notification, "", &format!("/e{n}"), LAID_OUT));
-        nodes.push(node(2, Role::Other, "", &format!("/e{n}/header"), LAID_OUT));
-        nodes.push(node(
-            3,
-            Role::Label,
-            entry.app,
-            &format!("/e{n}/app"),
-            LAID_OUT,
-        ));
-        nodes.push(node(
-            3,
-            Role::PushButton,
-            "",
-            &format!("/e{n}/expand"),
-            LAID_OUT,
-        ));
-        nodes.push(node(
-            3,
-            Role::PushButton,
-            "",
-            &format!("/e{n}/close"),
-            LAID_OUT,
-        ));
+        let mut push = |depth, role, name, suffix: &str, extents| {
+            nodes.push(node(depth, role, name, &format!("/e{n}{suffix}"), extents));
+        };
+        push(1, Role::Notification, "", "", LAID_OUT);
+        push(2, Role::Other, "", "/header", LAID_OUT);
+        push(3, Role::Label, entry.app, "/app", LAID_OUT);
+        push(3, Role::PushButton, "", "/expand", LAID_OUT);
+        push(3, Role::PushButton, "", "/close", LAID_OUT);
         if let Some(time) = entry.time {
-            nodes.push(node(3, Role::Label, time, &format!("/e{n}/time"), LAID_OUT));
+            push(3, Role::Label, time, "/time", LAID_OUT);
         }
-        nodes.push(node(
-            2,
-            Role::Other,
-            "",
-            &format!("/e{n}/content"),
-            LAID_OUT,
-        ));
-        nodes.push(node(
-            3,
-            Role::Label,
-            entry.title,
-            &format!("/e{n}/title"),
-            LAID_OUT,
-        ));
+        push(2, Role::Other, "", "/content", LAID_OUT);
+        push(3, Role::Label, entry.title, "/title", LAID_OUT);
         if let Some(body) = entry.body {
-            nodes.push(node(3, Role::Label, body, &format!("/e{n}/body"), LAID_OUT));
+            push(3, Role::Label, body, "/body", LAID_OUT);
         }
         for action in &entry.actions {
             let extents = if entry.expanded { LAID_OUT } else { HIDDEN };
-            let path = format!("/e{n}/act/{action}");
-            nodes.push(node(3, Role::PushButton, action, &path, extents));
-            nodes.push(node(
-                4,
-                Role::Label,
-                action,
-                &format!("{path}/label"),
-                extents,
-            ));
+            let suffix = format!("/act/{action}");
+            push(3, Role::PushButton, action, &suffix, extents);
+            push(4, Role::Label, action, &format!("{suffix}/label"), extents);
         }
     }
     if specs.is_empty() {
@@ -242,25 +209,22 @@ impl ShellWorld for FakeWorld {
     fn require_daemon(&self, _: Deadline) -> Result<(), AdapterError> {
         use crate::system::shell::detect::{Fact, Need, ShellEnvironment, require};
 
-        let environment = match &self.faults.daemon {
-            Some(DaemonFailure::Absent) => ShellEnvironment {
-                daemon: Fact::Absent("no service owns org.freedesktop.Notifications".to_owned()),
-                tree: Fact::Present,
-                watcher: Fact::Present,
-                server: None,
-            },
-            Some(DaemonFailure::Unsupported) => ShellEnvironment {
-                daemon: Fact::Absent("unsupported notification service".to_owned()),
-                tree: Fact::Present,
-                watcher: Fact::Present,
-                server: Some("other".to_owned()),
-            },
-            None => ShellEnvironment {
-                daemon: Fact::Present,
-                tree: Fact::Present,
-                watcher: Fact::Present,
-                server: Some("gnome-shell".to_owned()),
-            },
+        let (daemon, server) = match &self.faults.daemon {
+            Some(DaemonFailure::Absent) => (
+                Fact::Absent("no service owns org.freedesktop.Notifications".to_owned()),
+                None,
+            ),
+            Some(DaemonFailure::Unsupported) => (
+                Fact::Absent("unsupported notification service".to_owned()),
+                Some("other".to_owned()),
+            ),
+            None => (Fact::Present, Some("gnome-shell".to_owned())),
+        };
+        let environment = ShellEnvironment {
+            daemon,
+            tree: Fact::Present,
+            watcher: Fact::Present,
+            server,
         };
         require(&environment, Need::Daemon)
     }
@@ -302,14 +266,8 @@ impl ShellWorld for FakeWorld {
             } else {
                 "the list never showed"
             };
-            let mut details = serde_json::Map::new();
-            details.insert(
-                "surface_opened_by_call".to_owned(),
-                serde_json::json!(opened_by_call),
-            );
-            return Err(
-                AdapterError::timeout(message).with_details(serde_json::Value::Object(details))
-            );
+            return Err(AdapterError::timeout(message)
+                .with_details(serde_json::json!({"surface_opened_by_call": opened_by_call})));
         }
         self.showing.set(true);
         let window = WindowInfo {

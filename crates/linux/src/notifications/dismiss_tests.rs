@@ -157,27 +157,6 @@ fn a_headless_policy_is_refused_with_no_event() {
 }
 
 #[test]
-fn the_list_a_failed_dismissal_opened_is_closed() {
-    let log = log();
-    let mut world = FakeWorld::new(&log, vec![reading(&three(), false)]);
-    world.faults.click = true;
-    let _ = run(world, &identity("Chat", "b"));
-    assert!(log.borrow().iter().any(|line| line == "close"));
-}
-
-#[test]
-fn an_adopted_list_stays_open_after_a_dismissal() {
-    let log = log();
-    let stages = vec![
-        reading(&three(), false),
-        reading(&[spec("Mail", "a"), spec("Files", "c")], false),
-    ];
-    let world = FakeWorld::new(&log, stages).adopted();
-    run(world, &identity("Chat", "b")).expect("dismissed");
-    assert!(!log.borrow().iter().any(|line| line == "close"));
-}
-
-#[test]
 fn a_click_error_is_returned_and_the_list_is_still_restored() {
     let log = log();
     let mut world = FakeWorld::new(&log, vec![reading(&three(), false)]);

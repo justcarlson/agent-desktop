@@ -143,13 +143,11 @@ pub(crate) fn apply_filter(
     entries: Vec<NotificationInfo>,
     filter: &NotificationFilter,
 ) -> Vec<NotificationInfo> {
-    let kept = entries
+    entries
         .into_iter()
-        .filter(|info| matches_filters(info, filter));
-    match filter.limit {
-        Some(limit) => kept.take(limit).collect(),
-        None => kept.collect(),
-    }
+        .filter(|info| matches_filters(info, filter))
+        .take(filter.limit.unwrap_or(usize::MAX))
+        .collect()
 }
 
 pub(crate) fn matches_app(info: &NotificationInfo, app: &str) -> bool {

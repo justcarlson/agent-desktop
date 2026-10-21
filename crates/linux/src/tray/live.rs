@@ -9,45 +9,6 @@ use super::{
     TrayTarget, call, capability, introspect, item_props, menu_layout, menu_nodes, menu_resolve,
 };
 
-struct Read {
-    name: String,
-    state: ElementState,
-    actions: Vec<String>,
-    bounds: Option<Rect>,
-}
-
-fn read_item(target: &TrayTarget, deadline: Deadline) -> Result<Read, AdapterError> {
-    let connection = call::session(deadline)?;
-    call::require_owner(&connection, &target.owner, deadline)?;
-    let props = item_props::read(&connection, &target.owner, &target.object_path, deadline)?;
-    let methods = introspect::item_methods(&call::introspect(
-        &connection,
-        &target.owner,
-        &target.object_path,
-        deadline,
-    )?);
-    let observed = LiveWorld::new(shared_bus()).panel_extents(&props.title, deadline);
-    let (bounds, offscreen) = presence(observed);
-    let on_screen_states = if offscreen {
-        vec![state::OFFSCREEN.to_owned()]
-    } else {
-        Vec::new()
-    };
-    Ok(Read {
-        name: props.title,
-        state: ElementState {
-            role: ITEM_ROLE.to_owned(),
-            states: item_states(props.passive, on_screen_states),
-            value: None,
-            enabled: Some(true),
-            hidden: Some(props.passive),
-            offscreen: Some(offscreen),
-        },
-        actions: capability::actions(&methods),
-        bounds,
-    })
-}
-
 pub(super) fn entry_state(entry: &LayoutEntry, role: &str, offscreen: bool) -> ElementState {
     let mut states = menu_nodes::states_of(entry);
     if !offscreen {
@@ -63,69 +24,84 @@ pub(super) fn entry_state(entry: &LayoutEntry, role: &str, offscreen: bool) -> E
     }
 }
 
-fn read_entry(target: &TrayTarget, menu: &str, deadline: Deadline) -> Result<Read, AdapterError> {
-    let connection = call::session(deadline)?;
-    call::require_owner(&connection, &target.owner, deadline)?;
-    let layout = menu_layout::read(&connection, &target.owner, menu, deadline)?;
-    let entry = menu_resolve::find(&layout, target)?;
-    let role = menu_nodes::role_of(entry);
-    let props = item_props::read(&connection, &target.owner, &target.object_path, deadline)?;
-    let observed = LiveWorld::new(shared_bus()).panel_extents(&props.title, deadline);
-    let (bounds, offscreen) = presence(observed);
-    Ok(Read {
-        name: entry.label.clone(),
-        state: entry_state(entry, role, offscreen),
-        actions: capability::entry_actions(entry),
-        bounds,
-    })
-}
-
-fn read(target: &TrayTarget, deadline: Deadline) -> Result<Read, AdapterError> {
-    match target.menu_path.as_deref() {
-        Some(menu) => read_entry(target, menu, deadline),
-        None => read_item(target, deadline),
-    }
-}
-
-pub(super) fn actions(
-    target: &TrayTarget,
-    deadline: Deadline,
-) -> Result<Vec<String>, AdapterError> {
-    read(target, deadline).map(|read| read.actions)
-}
-
-pub(super) fn state(target: &TrayTarget, deadline: Deadline) -> Result<ElementState, AdapterError> {
-    read(target, deadline).map(|read| read.state)
-}
-
-/// A bound item reports the extents of the shell panel node that shows it, and
-/// so does each of its menu entries: an entry is delivered through the item's
-/// menu on the bus and has no geometry of its own. An item with no panel node,
-/// and the entries under it, have no on-screen presence, so they report no
-/// rectangle and are marked offscreen.
-pub(super) fn element(
+pub(crate) fn element(
     target: &TrayTarget,
     deadline: Deadline,
 ) -> Result<LiveElement, AdapterError> {
-    let read = read(target, deadline)?;
+    let connection = call::session(deadline)?;
+    call::require_owner(&connection, &target.owner, deadline)?;
+    let layout = target
+        .menu_path
+        .as_deref()
+        .map(|menu| menu_layout::read(&connection, &target.owner, menu, deadline))
+        .transpose()?;
+    let entry = match (target.menu_path.as_deref(), layout.as_ref()) {
+        (Some(_), Some(layout)) => Some(menu_resolve::find(layout, target)?),
+        _ => None,
+    };
+    let props = item_props::read(&connection, &target.owner, &target.object_path, deadline)?;
+    let (name, actions) = if let Some(entry) = entry {
+        (entry.label.clone(), capability::entry_actions(entry))
+    } else {
+        let methods = introspect::item_methods(&call::introspect(
+            &connection,
+            &target.owner,
+            &target.object_path,
+            deadline,
+        )?);
+        (props.title.clone(), capability::actions(&methods))
+    };
+    let observed = LiveWorld::new(shared_bus()).panel_extents(&props.title, deadline);
+    let (bounds, offscreen) = presence(observed);
+    let element_state = if let Some(entry) = entry {
+        entry_state(entry, menu_nodes::role_of(entry), offscreen)
+    } else {
+        let on_screen_states = if offscreen {
+            vec![state::OFFSCREEN.to_owned()]
+        } else {
+            Vec::new()
+        };
+        ElementState {
+            role: ITEM_ROLE.to_owned(),
+            states: item_states(props.passive, on_screen_states),
+            value: None,
+            enabled: Some(true),
+            hidden: Some(props.passive),
+            offscreen: Some(offscreen),
+        }
+    };
     Ok(LiveElement {
         identity: LiveIdentity {
-            name: name_field(&read.name),
+            name: name_field(&name),
             description: LocatorField::Absent,
             identifiers: identifiers(target),
         },
-        state: read.state,
+        state: element_state,
         states_complete: true,
-        bounds: read.bounds,
-        available_actions: read.actions,
+        bounds,
+        available_actions: actions,
     })
 }
 
-pub(super) fn bounds(
+pub(crate) fn actions(
+    target: &TrayTarget,
+    deadline: Deadline,
+) -> Result<Option<Vec<String>>, AdapterError> {
+    element(target, deadline).map(|element| Some(element.available_actions))
+}
+
+pub(crate) fn state(
+    target: &TrayTarget,
+    deadline: Deadline,
+) -> Result<Option<ElementState>, AdapterError> {
+    element(target, deadline).map(|element| Some(element.state))
+}
+
+pub(crate) fn bounds(
     target: &TrayTarget,
     deadline: Deadline,
 ) -> Result<Option<Rect>, AdapterError> {
-    read(target, deadline).map(|read| read.bounds)
+    element(target, deadline).map(|element| element.bounds)
 }
 
 #[cfg(test)]

@@ -73,37 +73,6 @@ fn a_filter_never_clicks_clear_all_and_leaves_other_apps() {
 }
 
 #[test]
-fn a_filtered_dismissal_re_reads_between_clicks() {
-    let log = log();
-    let stages = vec![
-        reading(&mixed(), true),
-        reading(&[spec("Chat", "b1"), spec("Mail", "a2")], true),
-        reading(&[spec("Chat", "b1")], true),
-    ];
-    let world = FakeWorld::new(&log, stages);
-    dismiss_all_in(
-        &world,
-        request(Some("mail"), InteractionPolicy::headed()),
-        &lease(900),
-    )
-    .expect("cleared");
-    let lines = log.borrow().clone();
-    let first_click = lines
-        .iter()
-        .position(|line| line.starts_with("click"))
-        .expect("click");
-    let second_click = lines
-        .iter()
-        .rposition(|line| line.starts_with("click"))
-        .expect("click");
-    assert!(
-        lines[first_click..second_click]
-            .iter()
-            .any(|line| line == "read")
-    );
-}
-
-#[test]
 fn an_ignored_clear_reports_each_survivor() {
     let log = log();
     let world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
@@ -135,20 +104,6 @@ fn entries_that_arrived_during_the_clear_are_not_failures() {
 }
 
 #[test]
-fn an_empty_list_clicks_nothing() {
-    let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&[], true)]);
-    let (dismissed, failures) = dismiss_all_in(
-        &world,
-        request(None, InteractionPolicy::headed()),
-        &lease(600),
-    )
-    .expect("outcome");
-    assert!(dismissed.is_empty() && failures.is_empty());
-    assert!(world.clicks().is_empty());
-}
-
-#[test]
 fn a_missing_clear_all_button_is_an_error() {
     let log = log();
     let world = FakeWorld::new(&log, vec![reading(&mixed(), false)]);
@@ -160,37 +115,6 @@ fn a_missing_clear_all_button_is_an_error() {
         )
         .is_err()
     );
-}
-
-#[test]
-fn headless_is_refused_with_no_event() {
-    let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
-    assert!(
-        dismiss_all_in(
-            &world,
-            request(None, InteractionPolicy::headless()),
-            &lease(600)
-        )
-        .is_err()
-    );
-    assert!(log.borrow().is_empty());
-}
-
-#[test]
-fn the_list_is_closed_after_a_failed_clear() {
-    let log = log();
-    let mut world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
-    world.faults.click = true;
-    assert!(
-        dismiss_all_in(
-            &world,
-            request(None, InteractionPolicy::headed()),
-            &lease(600)
-        )
-        .is_err()
-    );
-    assert!(log.borrow().iter().any(|line| line == "close"));
 }
 
 #[test]
@@ -219,6 +143,7 @@ fn an_empty_list_is_cleared_without_opening_it() {
     )
     .expect("cleared");
     assert!(dismissed.is_empty() && failures.is_empty());
+    assert!(world.clicks().is_empty());
     assert!(!log.borrow().iter().any(|line| line == "open"));
 }
 

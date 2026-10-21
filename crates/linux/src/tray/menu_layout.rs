@@ -23,7 +23,6 @@ pub(crate) struct LayoutEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Layout {
-    pub(crate) revision: u32,
     pub(crate) root: LayoutEntry,
 }
 
@@ -98,23 +97,9 @@ fn entry_of(raw: &RawEntry) -> LayoutEntry {
     }
 }
 
-pub(crate) fn parse(revision: u32, root: &RawEntry) -> Layout {
+pub(crate) fn parse(root: &RawEntry) -> Layout {
     Layout {
-        revision,
         root: entry_of(root),
-    }
-}
-
-impl Layout {
-    #[cfg(test)]
-    pub(crate) fn walk(&self) -> Vec<&LayoutEntry> {
-        let mut found = Vec::new();
-        let mut pending = vec![&self.root];
-        while let Some(entry) = pending.pop() {
-            found.push(entry);
-            pending.extend(entry.children.iter().rev());
-        }
-        found
     }
 }
 
@@ -210,7 +195,7 @@ pub(crate) fn read(
         &(0i32, -1i32, Vec::<String>::new()),
         deadline,
     )?;
-    let (revision, (id, props, children)): Body = reply
+    let (_revision, (id, props, children)): Body = reply
         .body()
         .deserialize()
         .map_err(|error| call::fault(&error))?;
@@ -218,7 +203,7 @@ pub(crate) fn read(
         AdapterError::internal("The tray item's menu layout could not be read")
             .with_platform_detail("dbusmenu GetLayout returned a tree that did not parse")
     })?;
-    Ok(parse(revision, &raw))
+    Ok(parse(&raw))
 }
 
 #[cfg(test)]

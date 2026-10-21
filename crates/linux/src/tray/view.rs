@@ -29,7 +29,6 @@ fn item_target(owner: String, object_path: String) -> TrayTarget {
         object_path,
         menu_path: None,
         entry_id: None,
-        revision: None,
         label_path: Vec::new(),
     }
 }

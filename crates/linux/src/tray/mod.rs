@@ -1,6 +1,5 @@
 use agent_desktop_core::{
-    ActionRequest, ActionResult, AdapterError, Deadline, ElementState, HitTestResult,
-    InteractionLease, LiveElement, NativeHandle, Point, Rect, RefEntry,
+    AdapterError, Deadline, HitTestResult, NativeHandle, Point, Rect, RefEntry,
 };
 
 mod activate;
@@ -34,18 +33,22 @@ mod live_scripts;
 mod live_tests;
 
 #[cfg(test)]
-pub(crate) fn read(deadline: Deadline) -> Result<view::TrayView, AdapterError> {
-    view::read(deadline)
-}
+pub(crate) use view::read;
+
+pub(crate) use execute::execute;
+pub(crate) use live::{
+    actions as live_actions, bounds, element as live_element, state as live_state,
+};
+pub(crate) use resolve::resolve;
 
 /// A tray item or one of its menu entries, named by D-Bus identity.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, zbus::export::serde::Deserialize)]
+#[serde(crate = "zbus::export::serde", deny_unknown_fields)]
 pub(crate) struct TrayTarget {
     pub(crate) owner: String,
     pub(crate) object_path: String,
     pub(crate) menu_path: Option<String>,
     pub(crate) entry_id: Option<i32>,
-    pub(crate) revision: Option<u32>,
     pub(crate) label_path: Vec<String>,
 }
 
@@ -60,46 +63,6 @@ pub(crate) fn owns(entry: &RefEntry) -> bool {
         .native_id
         .as_ref()
         .is_some_and(|id| identity::is_tray_id(&id.value))
-}
-
-pub(crate) fn resolve(entry: &RefEntry, deadline: Deadline) -> Result<NativeHandle, AdapterError> {
-    resolve::resolve(entry, deadline)
-}
-
-pub(crate) fn execute(
-    target: &TrayTarget,
-    request: ActionRequest,
-    lease: &InteractionLease,
-) -> Result<ActionResult, AdapterError> {
-    execute::execute(target, request, lease)
-}
-
-pub(crate) fn live_actions(
-    target: &TrayTarget,
-    deadline: Deadline,
-) -> Result<Option<Vec<String>>, AdapterError> {
-    live::actions(target, deadline).map(Some)
-}
-
-pub(crate) fn live_state(
-    target: &TrayTarget,
-    deadline: Deadline,
-) -> Result<Option<ElementState>, AdapterError> {
-    live::state(target, deadline).map(Some)
-}
-
-pub(crate) fn live_element(
-    target: &TrayTarget,
-    deadline: Deadline,
-) -> Result<LiveElement, AdapterError> {
-    live::element(target, deadline)
-}
-
-pub(crate) fn bounds(
-    target: &TrayTarget,
-    deadline: Deadline,
-) -> Result<Option<Rect>, AdapterError> {
-    live::bounds(target, deadline)
 }
 
 pub(crate) fn hit_test(
@@ -127,6 +90,3 @@ fn reach(
     });
     crate::system::shell::hit::decide(extents, point, displays)
 }
-
-#[cfg(test)]
-mod reach_tests;

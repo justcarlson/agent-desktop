@@ -55,8 +55,7 @@ fn sample() -> RawEntry {
 
 #[test]
 fn entries_keep_their_ids_order_and_stripped_labels() {
-    let layout = parse(3, &sample());
-    assert_eq!(layout.revision, 3);
+    let layout = parse(&sample());
     let labels: Vec<&str> = layout
         .root
         .children
@@ -69,38 +68,32 @@ fn entries_keep_their_ids_order_and_stripped_labels() {
 
 #[test]
 fn an_entry_is_enabled_unless_it_says_otherwise() {
-    let layout = parse(1, &sample());
+    let layout = parse(&sample());
     assert!(layout.root.children[0].enabled);
     assert!(!layout.root.children[2].enabled);
 }
 
 #[test]
 fn a_separator_is_recognised_by_its_type() {
-    let layout = parse(1, &sample());
+    let layout = parse(&sample());
     assert!(layout.root.children[1].separator);
     assert!(!layout.root.children[0].separator);
 }
 
 #[test]
 fn a_checkable_entry_reads_its_toggle_state_and_a_plain_one_has_none() {
-    let layout = parse(1, &sample());
+    let layout = parse(&sample());
     assert_eq!(layout.root.children[3].checked, Some(true));
     assert_eq!(layout.root.children[0].checked, None);
 }
 
 #[test]
 fn a_submenu_parent_is_marked_and_keeps_its_child() {
-    let layout = parse(1, &sample());
+    let layout = parse(&sample());
     let more = &layout.root.children[4];
     assert!(more.submenu);
     assert_eq!(more.children.len(), 1);
     assert_eq!(more.children[0].label, "Child");
-}
-
-#[test]
-fn an_invisible_entry_is_dropped() {
-    let layout = parse(1, &sample());
-    assert!(layout.walk().iter().all(|entry| entry.label != "Hidden"));
 }
 
 #[test]
@@ -109,10 +102,4 @@ fn mnemonic_underscores_are_removed_and_doubled_ones_kept() {
     assert_eq!(strip_mnemonic("Save __As"), "Save _As");
     assert_eq!(strip_mnemonic("plain"), "plain");
     assert_eq!(strip_mnemonic("trailing_"), "trailing");
-}
-
-#[test]
-fn the_walk_lists_every_entry_in_document_order() {
-    let ids: Vec<i32> = parse(1, &sample()).walk().iter().map(|e| e.id).collect();
-    assert_eq!(ids, [0, 1, 2, 3, 4, 5, 6]);
 }

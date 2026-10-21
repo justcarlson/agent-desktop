@@ -51,19 +51,28 @@ pub(crate) fn lost(
     before: &[NotificationInfo],
     after: &[NotificationInfo],
 ) -> Vec<NotificationInfo> {
-    let mut unmatched: Vec<bool> = vec![true; after.len()];
-    let mut gone = Vec::new();
-    for member in before {
-        let hit = after
-            .iter()
-            .enumerate()
-            .find(|(position, entry)| unmatched[*position] && same_identity(entry, member));
-        match hit {
-            Some((position, _)) => unmatched[position] = false,
-            None => gone.push(member.clone()),
-        }
-    }
-    gone
+    matched(before, after, false)
+}
+
+fn matched(
+    source: &[NotificationInfo],
+    candidates: &[NotificationInfo],
+    present: bool,
+) -> Vec<NotificationInfo> {
+    let mut unmatched: Vec<&NotificationInfo> = candidates.iter().collect();
+    source
+        .iter()
+        .filter(|member| {
+            let position = unmatched
+                .iter()
+                .position(|candidate| same_identity(candidate, member));
+            if let Some(position) = position {
+                unmatched.swap_remove(position);
+            }
+            position.is_some() == present
+        })
+        .cloned()
+        .collect()
 }
 
 /// A dismissal is settled only when exactly the target left. Nothing gone is
@@ -87,21 +96,7 @@ pub(crate) fn survivors(
     captured: &[NotificationInfo],
     current: &[NotificationInfo],
 ) -> Vec<NotificationInfo> {
-    let mut free: Vec<bool> = vec![true; current.len()];
-    captured
-        .iter()
-        .filter(|member| {
-            let hit = current
-                .iter()
-                .enumerate()
-                .find(|(position, entry)| free[*position] && same_identity(entry, member));
-            hit.is_some_and(|(position, _)| {
-                free[position] = false;
-                true
-            })
-        })
-        .cloned()
-        .collect()
+    matched(captured, current, true)
 }
 
 pub(crate) fn survivor_line(index: usize) -> String {

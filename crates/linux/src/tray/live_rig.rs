@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, InteractionLease, ObservationOps, RefEntry};
 
 use super::live_scripts::SNI_FIXTURE;
-use super::menu_nodes::entry_target;
 use super::view::{TrayItem, TrayView};
 use super::{TrayTarget, identity, read};
 use crate::LinuxAdapter;
@@ -118,9 +117,13 @@ impl Rig {
 
     pub(super) fn menu_entry(&self, item: &TrayItem, id: i32, labels: &[&str]) -> RefEntry {
         let menu = item.props.menu.as_deref().expect("the item has a menu");
-        let revision = item.layout.as_ref().map_or(0, |layout| layout.revision);
         let labels: Vec<String> = labels.iter().map(|label| (*label).to_owned()).collect();
-        let target = entry_target(&item.target, menu, revision, labels.clone(), id);
+        let target = TrayTarget {
+            menu_path: Some(menu.to_owned()),
+            entry_id: Some(id),
+            label_path: labels.clone(),
+            ..item.target.clone()
+        };
         let name = labels.last().cloned().unwrap_or_default();
         self.entry_for(&target, "menuitem", &name)
     }

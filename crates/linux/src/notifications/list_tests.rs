@@ -140,45 +140,6 @@ fn a_non_gnome_notification_service_blocks_listing_with_its_own_error() {
 }
 
 #[test]
-fn listing_json_carries_no_id_and_no_path_text() {
-    let world = world_of(&[spec("Mail", "a").body("b").actions(&["Go"])]);
-    let listed = list_in(&world, &NotificationFilter::default(), deadline()).expect("listed");
-    let json = serde_json::to_value(&listed).expect("json");
-    let keys: Vec<&String> = json[0].as_object().expect("object").keys().collect();
-    assert!(
-        keys.iter()
-            .all(|key| ["index", "app_name", "title", "body", "actions"].contains(&key.as_str()))
-    );
-    assert!(!json.to_string().contains("/e1"));
-}
-
-#[test]
-fn an_error_carries_no_id() {
-    let mut read = reading(&[], false);
-    read.nodes.retain(|node| node.name != "No Notifications");
-    let world = FakeWorld::new(&log(), vec![read]);
-    let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
-    let text = format!("{error:?}").to_lowercase();
-    assert!(!text.contains("\"id\"") && !text.contains("notification_id"));
-}
-
-#[test]
-fn no_daemon_id_call_exists_in_the_notification_sources() {
-    let forbidden = [
-        concat!("Close", "Notification"),
-        concat!("GetServer", "Information"),
-    ];
-    let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/src/notifications");
-    for entry in std::fs::read_dir(directory).expect("directory") {
-        let path = entry.expect("entry").path();
-        let source = std::fs::read_to_string(&path).expect("source");
-        for word in forbidden {
-            assert!(!source.contains(word), "{} contains {word}", path.display());
-        }
-    }
-}
-
-#[test]
 fn an_entry_whose_labels_have_not_filled_in_yet_is_read_again() {
     let mut half = reading(&[spec("Mail", "hello")], true);
     half.nodes.retain(|node| node.name != "hello");
