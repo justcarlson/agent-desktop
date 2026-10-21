@@ -1,127 +1,117 @@
 from __future__ import annotations
 
-from scenarios.headed_actions import find_ref as qualified_ref
-
 import json
 
-from runner.apps import launch, stop
+from oracle import atspi_raw as raw
+from runner.helper import activate, changed, managed, nodes, require, root, snapshot
 from runner.legs import implementation
-from runner.verdict import LegContext
-from oracle.atspi_raw import app_root, poll
-
-CALCULATOR = "Calculator"
+from scenarios.menus import _toggle
 
 
-def find_ref(tree: dict | None, *, name: str | None = None, role: str | None = None) -> str | None:
-    return qualified_ref(tree, name=name, role=role)
+def dialogs(ctx, app):
+    return [node for node in root(ctx, app).children()
+            if "SHOWING" in node.states and (node.role == 16 or "MODAL" in node.states)]
 
 
-def surface_ids(surfaces: list[dict]) -> dict[str, list[str]]:
-    grouped: dict[str, list[str]] = {}
-    for surface in surfaces:
-        grouped.setdefault(surface["id"], []).append(surface["type"])
-    return grouped
+def dialog_state(ctx, app):
+    return tuple(sorted((node.role, node.name, "MODAL" in node.states)
+                        for node in dialogs(ctx, app)))
 
 
-def batch_failed(envelope) -> str:
-    return str((envelope.error or {}).get("code", ""))
+def about_items(ctx, app):
+    _toggle(ctx.tier, app.owner_names[0])
+    previous = [0]
+
+    def settled():
+        items = [node for node in root(ctx, app).find(role=35) if "SHOWING" in node.states]
+        ready = bool(items) and previous[0] == len(items)
+        previous[0] = len(items)
+        return items if ready else None
+
+    items = raw.poll(settled, 4)
+    require(items, "Calculator menu items did not settle")
+    return items
 
 
-def _open_about(tier) -> None:
-    matches = app_root(tier, "gnome-calculator").find(name="Main Menu")
-    assert matches, "Calculator Main Menu missing from the raw tree"
-    matches[0].do_action("click")
+def open_about(ctx, app):
+    activate(about_items(ctx, app)[-1])
+    require(raw.poll(lambda: len(dialogs(ctx, app)) == 1, 5), "About did not show")
+    require("About" in dialog_state(ctx, app)[0][1], "the opener produced another dialog")
 
 
-def _surfaces(ctx: LegContext, app: str) -> list[dict]:
-    envelope = ctx.product(["list-surfaces", "--app", app])
-    assert envelope.ok, envelope.raw
-    return (envelope.data or {}).get("surfaces", [])
+def dismiss_about(ctx, app):
+    showing = dialogs(ctx, app)
+    require(len(showing) == 1 and "About" in showing[0].name, "one showing About required")
+    close = showing[0].find(role=43, name="Close")
+    require(len(close) == 1, "one About Close control required")
+    activate(close[0])
+    changed(lambda: dialog_state(ctx, app), ())
+
+
+def prepare_about(ctx, app):
+    about_items(ctx, app)
+    tree = snapshot(ctx, app, "--surface", "menu")
+    entries = [node for node in nodes(tree.get("tree"))
+               if node.get("role") == "menuitem" and node.get("name") == "About Calculator"
+               and "ref_id" in node]
+    require(len(entries) == 1, f"expected one About Calculator ref: {tree}")
+    return entries[0]["ref_id"]
+
+
+def seeded_wait(ctx, token, target, surface):
+    response = ctx.product(["batch", json.dumps([
+        {"command": "click", "args": {"ref_id": target}},
+        {"command": "wait", "args": {"event": token, "app": "Calculator", "timeout": 8000}},
+    ])])
+    require(response.ok, response.raw)
+    entries = (response.data or {}).get("results", [])
+    require(len(entries) == 2 and all(entry.get("ok") is True for entry in entries), response.raw)
+    event = (entries[-1].get("data") or {}).get("event") or {}
+    require(event.get("kind") == token.replace("-", "_") and event.get("surface") == surface,
+            response.raw)
+    return event
+
+
+def assert_owner(event, app):
+    require(event.get("pid") == app.pid, f"surface event belongs to another process: {event}")
+    require("calculat" in event.get("app", "").casefold(), f"wrong surface app: {event}")
 
 
 @implementation("surfaces.batch_seed_opener_about")
-def batch_seed_opener_about(ctx: LegContext) -> None:
-    app = launch(ctx.tier, CALCULATOR)
-    snapshot = ctx.product(["snapshot", "--app", CALCULATOR, "-i"])
-    assert snapshot.ok, snapshot.raw
-    ref = find_ref((snapshot.data or {}).get("tree"), name="Main Menu")
-    assert ref, "Main Menu has no ref"
-    batch = json.dumps(
-        [
-            {"command": "click", "args": {"ref": ref}},
-            {"command": "wait", "args": {"event": "surface-appeared", "timeout": 8000}},
-        ]
-    )
-    ctx.before("atspi.surfaces", len(_surfaces(ctx, CALCULATOR)))
-    envelope = ctx.product(["batch", batch])
-    assert envelope.ok, envelope.raw
-    entries = (envelope.data or {}).get("results") or envelope.data or []
-    assert entries, envelope.raw
-    wait_entry = entries[-1]
-    assert wait_entry.get("ok") is True, envelope.raw
-    event = (wait_entry.get("data") or {}).get("event") or {}
-    assert event.get("kind") == "surface_appeared", envelope.raw
-    assert event.get("window_id"), envelope.raw
-    grouped = surface_ids(_surfaces(ctx, CALCULATOR))
-    matches = [ids for ids, kinds in grouped.items() if ids == event["window_id"]]
-    ctx.after("atspi.surfaces", len(grouped))
-    assert matches, f"the appeared surface {event['window_id']} is not listed"
-    stop(app)
+def batch_seed_opener_about(ctx):
+    with managed(ctx, "Calculator") as app:
+        read = lambda: dialog_state(ctx, app)
+        before = read()
+        require(before == (), "About already open")
+        ctx.before("atspi.dialogs", before)
+        target = prepare_about(ctx, app)
+        try:
+            event = seeded_wait(ctx, "surface-appeared", target, "sheet")
+            assert_owner(event, app)
+            require(raw.poll(lambda: len(read()) == 1, 5), "seeded opener added no raw dialog")
+            require("About" in read()[0][1], "the batch opener produced another dialog")
+            require(event.get("title") == (read()[0][1] or None), "event names another dialog")
+            ctx.after("atspi.dialogs", read())
+        finally:
+            if read():
+                dismiss_about(ctx, app)
+            ctx.restored("atspi.dialogs", changed(read, before))
 
 
 @implementation("surfaces.baseline_after_opener_fails")
-def baseline_after_opener_fails(ctx: LegContext) -> None:
-    app = launch(ctx.tier, CALCULATOR)
-    _open_about(ctx.tier)
-    ctx.before("atspi.surfaces", len(_surfaces(ctx, CALCULATOR)))
-    batch = json.dumps(
-        [{"command": "wait", "args": {"event": "surface-appeared", "timeout": 1500}}]
-    )
-    envelope = ctx.product(["batch", batch])
-    ctx.after("atspi.surfaces", len(_surfaces(ctx, CALCULATOR)))
-    assert not envelope.ok, envelope.raw
-    assert batch_failed(envelope) == "TIMEOUT", envelope.raw
-    stop(app)
-
-
-def window_and_sheet_dedupe_one_id(ctx: LegContext) -> None:
-    app = launch(ctx.tier, CALCULATOR)
-    ctx.before("atspi.surfaces", len(_surfaces(ctx, CALCULATOR)))
-    _open_about(ctx.tier)
-    surfaces = poll(
-        lambda: [
-            item
-            for item in _surfaces(ctx, CALCULATOR)
-            if item["type"] in ("window", "sheet")
-        ],
-        5.0,
-    )
-    grouped = surface_ids(surfaces)
-    ctx.after("atspi.surfaces", len(grouped))
-    assert grouped, "no window or sheet surfaced"
-    assert len(grouped) == 1, f"the dialog did not dedupe to one id: {grouped!r}"
-    kinds = next(iter(grouped.values()))
-    assert "window" in kinds and "sheet" in kinds, kinds
-    stop(app)
-
-
-def files_properties_surface_scope(ctx: LegContext) -> None:
-    files = launch(ctx.tier, "Files")
-    envelope = ctx.product(["list-windows", "--app", "Files"])
-    assert envelope.ok and envelope.data, envelope.raw
-    window_id = envelope.data[0]["id"]
-    ctx.before("atspi.surfaces", len(_surfaces(ctx, "Files")))
-    ctx.product(["press", "alt+Return", "--window-id", window_id])
-    observed = poll(
-        lambda: [item for item in _surfaces(ctx, "Files") if item["type"] == "sheet"],
-        5.0,
-    )
-    ctx.after("atspi.surfaces", len(_surfaces(ctx, "Files")))
-    assert observed, "Properties did not appear as a sheet"
-    listing = ctx.product(["list-surfaces", "--app", "Files"])
-    assert listing.ok, listing.raw
-    pid = (listing.data or {}).get("pid")
-    windows = ctx.product(["list-windows", "--app", "Files"])
-    owners = {item["pid"] for item in (windows.data or [])}
-    assert pid in owners, f"surface pid {pid} is not a Files owner {owners!r}"
-    stop(files)
+def baseline_after_opener_fails(ctx):
+    with managed(ctx, "Calculator") as app:
+        open_about(ctx, app)
+        read = lambda: dialog_state(ctx, app)
+        before = read()
+        require(len(before) == 1, "one raw showing About dialog required before baseline")
+        ctx.before("atspi.dialogs", before)
+        response = ctx.product(["batch", json.dumps([
+            {"command": "wait", "args": {"event": "surface-appeared", "app": "Calculator", "timeout": 1500}},
+        ])])
+        require(response.ok, response.raw)
+        entries = (response.data or {}).get("results", [])
+        require(len(entries) == 1 and entries[0].get("ok") is False, response.raw)
+        require((entries[0].get("error") or {}).get("code") == "TIMEOUT", response.raw)
+        ctx.after("atspi.dialogs", changed(read, before))
+        ctx.restored("atspi.dialogs", read())

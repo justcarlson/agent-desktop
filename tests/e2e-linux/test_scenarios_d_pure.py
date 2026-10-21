@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scenarios import events, identity, launch, menus, surfaces
+from scenarios import events, identity, launch, menus
 from scenarios import shell_surfaces, wayland_actions, wayland_focus, wayland_input
 
 
@@ -56,32 +56,6 @@ class IdentityTests(unittest.TestCase):
 
     def test_empty_data_has_no_ids(self) -> None:
         self.assertEqual(identity.window_ids(None), [])
-
-
-class SurfaceTests(unittest.TestCase):
-    TREE = {
-        "role": "window",
-        "children": [
-            {"role": "button", "name": "7", "ref_id": "@s:e1"},
-            {"role": "group", "children": [{"role": "button", "name": "Main Menu", "ref_id": "@s:e2"}]},
-        ],
-    }
-
-    def test_find_ref_walks_the_tree(self) -> None:
-        self.assertEqual(surfaces.find_ref(self.TREE, name="Main Menu"), "@s:e2")
-
-    def test_find_ref_requires_a_name_match(self) -> None:
-        self.assertIsNone(surfaces.find_ref(self.TREE, name="About"))
-
-    def test_surface_ids_group_by_id(self) -> None:
-        grouped = surfaces.surface_ids(
-            [{"id": "w-1", "type": "window"}, {"id": "w-1", "type": "sheet"}]
-        )
-        self.assertEqual(grouped, {"w-1": ["window", "sheet"]})
-
-    def test_surface_ids_keep_distinct_ids_apart(self) -> None:
-        grouped = surfaces.surface_ids([{"id": "a", "type": "window"}, {"id": "b", "type": "window"}])
-        self.assertEqual(len(grouped), 2)
 
 
 class MenuTests(unittest.TestCase):
@@ -150,8 +124,7 @@ class WaylandTests(unittest.TestCase):
             {"role": "button", "name": "7", "ref_id": "@s:e7"}]}
         for read in (lambda: wayland_actions.named_ref(tree, "7"),
                      lambda: wayland_focus.first_ref(tree),
-                     lambda: launch._first_ref(tree),
-                     lambda: surfaces.find_ref(tree, name="7")):
+                     lambda: launch._first_ref(tree)):
             with self.subTest(read=read):
                 self.assertEqual(read(), "@s:e7")
 
