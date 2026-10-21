@@ -20,6 +20,9 @@ fn a_select_whose_read_back_is_unchanged_is_a_write_ignored_failure() {
         .expect_err("unchanged is ignored");
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    let hint = error.suggestion.expect("recovery hint");
+    assert!(!hint.contains("headed"), "{hint}");
+    assert!(hint.contains("fresh snapshot"), "{hint}");
     assert_eq!(error.details.expect("details")["cause"], "write_ignored");
     for kept in [
         DeliveryOutcome::Delivered(Observed::Matched),
