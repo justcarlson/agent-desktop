@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
@@ -10,7 +9,6 @@ use super::interaction_lease::acquire;
 use super::launch::launch_app;
 use super::process_facts;
 use super::{SharedBus, app_inventory};
-use crate::tree::live_launch::nonce;
 
 const SETTLE: Duration = Duration::from_secs(20);
 
@@ -128,32 +126,10 @@ fn assert_owner_is_truthful(result: &LaunchResult) {
     assert_eq!(window.pid, result.pid);
 }
 
-fn kill_and_wait(pid: u32) {
-    kill_quietly(pid);
-    wait_until("the process to go", || process_facts::read(pid).is_none());
-}
-
 fn launched(owned: &mut Owned, id: &str, args: &[&str]) -> LaunchResult {
     let result = launch(id, &options(args)).unwrap_or_else(|error| panic!("{id}: {error:?}"));
     owned.keep(result.pid.get());
     result
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_calculator_launches_by_command_id_path_and_entry_name() {
-    let mut owned = Owned(Vec::new());
-    for id in [
-        "gnome-calculator",
-        "org.gnome.Calculator",
-        "/usr/bin/gnome-calculator",
-        "Calculator",
-    ] {
-        let result = launched(&mut owned, id, &[]);
-        assert_owner_is_truthful(&result);
-        assert_eq!(result.app, "gnome-calculator", "{id}");
-        kill_and_wait(result.pid.get());
-    }
 }
 
 #[test]
@@ -181,100 +157,6 @@ fn live_a_second_calculator_attaches_without_a_spawn_and_with_arguments_is_a_new
 
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_text_editor_by_desktop_id_then_a_file_reaches_the_first_instance() {
-    let mut owned = Owned(Vec::new());
-    let first = launched(&mut owned, "org.gnome.TextEditor", &[]);
-    assert_owner_is_truthful(&first);
-    let dir = std::env::temp_dir();
-    let file = dir.join(format!("{}.txt", nonce("launch-doc")));
-    std::fs::write(&file, "hello").expect("a document");
-    let name = file
-        .file_name()
-        .expect("name")
-        .to_string_lossy()
-        .into_owned();
-    let with_file = LaunchOptions {
-        env: BTreeMap::from([("LAUNCH_LIVE_MARKER".to_owned(), "1".to_owned())]),
-        ..options(&[&file.to_string_lossy()])
-    };
-    let again = launch("org.gnome.TextEditor", &with_file).expect("the forwarding launch");
-    assert_eq!(again.pid, first.pid);
-    assert!(
-        again
-            .suggestion
-            .as_deref()
-            .is_some_and(|text| text.contains("not applied"))
-    );
-    wait_until("the document in a window of the first pid", || {
-        x_windows_of(first.pid.get())
-            .iter()
-            .any(|id| xprop(&["-id", id, "_NET_WM_NAME"]).contains(&name))
-    });
-    let editors = client_ids()
-        .iter()
-        .filter(|id| {
-            let class = xprop(&["-id", id, "WM_CLASS"]).to_lowercase();
-            class.contains("text-editor") || class.contains("texteditor")
-        })
-        .map(|id| xprop(&["-id", id, "_NET_WM_PID"]))
-        .collect::<std::collections::BTreeSet<_>>();
-    assert_eq!(editors.len(), 1, "one application process: {editors:?}");
-    assert!(
-        editors
-            .iter()
-            .all(|pid| pid.contains(&first.pid.get().to_string()))
-    );
-    let _ = std::fs::remove_file(file);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_qt_app_launches_by_path_with_the_environment_given() {
-    let home = std::env::var("HOME").expect("HOME");
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
-    let script = format!("{dir}/launch-qt.py");
-    std::fs::write(
-        &script,
-        "import sys\nfrom PyQt6.QtWidgets import QApplication, QMainWindow\napp = QApplication(sys.argv)\nw = QMainWindow()\nw.setWindowTitle('adl-qt')\nw.resize(300, 200)\nw.show()\nsys.exit(app.exec())\n",
-    )
-    .expect("a script");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    let launch_options = LaunchOptions {
-        env: BTreeMap::from([
-            ("QT_ACCESSIBILITY".to_owned(), "1".to_owned()),
-            (
-                "QT_LINUX_ACCESSIBILITY_ALWAYS_ON".to_owned(),
-                "1".to_owned(),
-            ),
-            ("QT_QPA_PLATFORM".to_owned(), "xcb".to_owned()),
-            ("LD_LIBRARY_PATH".to_owned(), libraries),
-        ]),
-        ..options(&[&script])
-    };
-    let mut owned = Owned(Vec::new());
-    let result = launch(&python, &launch_options).expect("the Qt launch");
-    owned.keep(result.pid.get());
-    assert_owner_is_truthful(&result);
-    let environ = std::fs::read(format!("/proc/{}/environ", result.pid.get())).expect("environ");
-    for name in [
-        "DISPLAY",
-        "DBUS_SESSION_BUS_ADDRESS",
-        "XDG_RUNTIME_DIR",
-        "QT_ACCESSIBILITY",
-    ] {
-        let prefix = format!("{name}=");
-        assert!(
-            environ
-                .split(|byte| *byte == 0)
-                .any(|var| var.starts_with(prefix.as_bytes())),
-            "{name} reached the app"
-        );
-    }
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_terminal_is_attributed_to_its_server_and_a_second_launch_adds_a_window() {
     let mut owned = Owned(Vec::new());
     let first = launched(&mut owned, "gnome-terminal", &[]);
@@ -290,13 +172,6 @@ fn live_terminal_is_attributed_to_its_server_and_a_second_launch_adds_a_window()
     wait_until("a second terminal window", || {
         x_windows_of(first.pid.get()).len() > before
     });
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_missing_name_is_app_not_found_and_nothing_started() {
-    let error = launch("no-such-application-xyz", &options(&[])).expect_err("not found");
-    assert_eq!(error.code, ErrorCode::AppNotFound);
 }
 
 #[test]

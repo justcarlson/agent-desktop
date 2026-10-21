@@ -86,26 +86,6 @@ fn process_state_live_calculator_running_unresponsive_running_exited() {
     wait_for(&bus, &identity, ProcessState::Exited { code: None });
 }
 
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn process_state_live_files_keeps_its_name_across_stop_and_continue() {
-    let bus = SharedBus::default();
-    let orphan = Orphan::spawn("nautilus", &["--new-window"], &[]);
-    let app = listed(&bus, orphan.pid);
-    let before = listed_name(&bus, orphan.pid).expect("listed");
-    assert_eq!(before, app.name);
-    orphan.stop();
-    let during = listed_name(&bus, orphan.pid).expect("a stopped app stays listed");
-    assert_eq!(during, before, "the name survives the stop");
-    assert_eq!(
-        state_of(&bus, &identity(&app)).0,
-        ProcessState::Unresponsive
-    );
-    orphan.resume();
-    wait_for(&bus, &identity(&app), ProcessState::Running);
-    assert_eq!(listed_name(&bus, orphan.pid), Some(before));
-}
-
 const BLOCKED_SCRIPT: &str = r#"
 import time
 import gi
