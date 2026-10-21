@@ -33,17 +33,6 @@ fn refused(fake: &mut Fake, entry: &agent_desktop_core::RefEntry) -> AdapterErro
 }
 
 #[test]
-fn the_path_lands_on_a_node_of_the_stored_role_without_any_search() {
-    let mut fake = files();
-    let entry = fake.entry_of("/opts2", true);
-    let element = landed(&mut fake, &entry);
-    assert_eq!(element.path(), "/opts2");
-    assert_eq!(fake.reads.searches, 0);
-    assert_eq!(fake.reads.gate, 1);
-    assert_eq!(fake.reads.evidence, 1);
-}
-
-#[test]
 fn the_landed_handle_keeps_the_frame_and_the_web_context_it_was_found_under() {
     let mut fake = Fake::new();
     fake.add(

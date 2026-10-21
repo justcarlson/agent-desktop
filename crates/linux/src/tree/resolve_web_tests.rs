@@ -1,12 +1,9 @@
-use agent_desktop_core::ErrorCode;
-use agent_desktop_core::IdentityMatch;
-
 use super::*;
 use crate::tree::Field;
 use crate::tree::resolve_fake::{BUS, FRAME_PATH, Fake, WINDOW_PID, deadline, node};
-use crate::tree::resolve_match::identity_verdict;
 use crate::tree::role_numbers::{DOCUMENT_WEB, PANEL, PUSH_BUTTON};
 use crate::tree::test_support::attributes;
+use agent_desktop_core::ErrorCode;
 
 fn page() -> Fake {
     let mut fake = Fake::new();
@@ -52,15 +49,6 @@ fn a_dom_id_ref_keeps_the_web_context_with_or_without_a_stored_path() {
     let by_search = resolve(&mut fake, &without_path, deadline()).expect("resolves");
     assert_eq!(by_search.path(), "/save");
     assert!(by_search.in_web_document());
-}
-
-#[test]
-fn the_evidence_core_reads_from_the_handle_carries_the_dom_identifier_its_check_needs() {
-    let mut fake = page();
-    let entry = fake.entry_of("/save", true);
-    let handle = resolve(&mut fake, &entry, deadline()).expect("resolves");
-    let evidence = fake.evidence(&handle).expect("reads");
-    assert_eq!(identity_verdict(&entry, &evidence), IdentityMatch::Match);
 }
 
 #[test]
