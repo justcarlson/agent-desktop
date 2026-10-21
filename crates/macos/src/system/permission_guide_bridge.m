@@ -10,9 +10,12 @@ static const uint8_t ADGuideAccessibility = 1;
 static const uint8_t ADGuideScreenRecording = 2;
 static const NSTimeInterval ADGuideLifetime = 600;
 static const NSTimeInterval ADGuideDropRetry = 15;
-static const CGFloat ADGuideWidth = 320;
+static const CGFloat ADGuideWidth = 340;
 static const CGFloat ADGuideGap = 16;
-static const CGFloat ADGuideIconSize = 64;
+static const CGFloat ADGuideAuroraHeight = 130;
+static const int ADGuideRayCount = 64;
+static const CGFloat ADGuideIconSize = 48;
+static const CGFloat ADGuideTileSize = 76;
 static const CGFloat ADGuideGhostSize = 48;
 static const int ADGuideMaxAncestors = 64;
 
@@ -132,12 +135,44 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 - (BOOL)canBecomeKeyWindow {
     return YES;
 }
+
+- (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)__unused screen {
+    return frameRect;
+}
 @end
+
+static NSColor *ADGuideGray(CGFloat white) {
+    return [NSColor colorWithWhite:white alpha:1];
+}
 
 @interface ADGuideButton : NSButton
 @end
 
 @implementation ADGuideButton
+- (instancetype)initWithTitle:(NSString *)title target:(id)target action:(SEL)action {
+    self = [super initWithFrame:NSZeroRect];
+    if (self == nil) {
+        return nil;
+    }
+    self.target = target;
+    self.action = action;
+    self.bordered = NO;
+    self.wantsLayer = YES;
+    self.layer.backgroundColor = NSColor.blackColor.CGColor;
+    self.layer.borderColor = ADGuideGray(0.45).CGColor;
+    self.layer.borderWidth = 1;
+    self.layer.cornerRadius = 8;
+    self.attributedTitle = [[NSAttributedString alloc]
+        initWithString:title
+            attributes:@{
+                NSForegroundColorAttributeName : NSColor.whiteColor,
+                NSFontAttributeName : [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold],
+            }];
+    [self.widthAnchor constraintEqualToConstant:104].active = YES;
+    [self.heightAnchor constraintEqualToConstant:34].active = YES;
+    return self;
+}
+
 - (BOOL)acceptsFirstMouse:(NSEvent *)__unused event {
     return YES;
 }
@@ -147,9 +182,98 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 }
 @end
 
+@interface ADGuideAurora : NSView
+@property(nonatomic) CGFloat builtWidth;
+@end
+
+@implementation ADGuideAurora
+- (instancetype)init {
+    self = [super initWithFrame:NSZeroRect];
+    if (self != nil) {
+        self.layer = [CALayer layer];
+        self.wantsLayer = YES;
+        self.layerUsesCoreImageFilters = YES;
+    }
+    return self;
+}
+
+- (NSView *)hitTest:(NSPoint)__unused point {
+    return nil;
+}
+
+- (void)layout {
+    [super layout];
+    CGRect bounds = NSRectToCGRect(self.bounds);
+    if (bounds.size.width <= 0 || bounds.size.width == self.builtWidth) {
+        return;
+    }
+    self.builtWidth = bounds.size.width;
+    self.layer.sublayers = nil;
+    BOOL still = NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion;
+    CAGradientLayer *colors = [CAGradientLayer layer];
+    colors.frame = bounds;
+    colors.startPoint = CGPointMake(0, 0.5);
+    colors.endPoint = CGPointMake(1, 0.5);
+    colors.colors = @[
+        (id)[NSColor colorWithRed:1.00 green:0.13 blue:0.30 alpha:1].CGColor,
+        (id)[NSColor colorWithRed:0.93 green:0.20 blue:0.85 alpha:1].CGColor,
+        (id)[NSColor colorWithRed:0.52 green:0.27 blue:1.00 alpha:1].CGColor,
+        (id)[NSColor colorWithRed:0.20 green:0.42 blue:1.00 alpha:1].CGColor,
+        (id)[NSColor colorWithRed:0.35 green:0.70 blue:1.00 alpha:1].CGColor,
+    ];
+    CALayer *rays = [CALayer layer];
+    rays.frame = bounds;
+    CGFloat step = bounds.size.width / ADGuideRayCount;
+    for (int index = 0; index < ADGuideRayCount; index++) {
+        [rays addSublayer:[self rayAt:index * step width:step * 1.8 height:bounds.size.height still:still]];
+    }
+    colors.mask = rays;
+    [self.layer addSublayer:colors];
+    CIFilter *blur = [CIFilter filterWithName:@"CIGaussianBlur"];
+    [blur setValue:@3 forKey:kCIInputRadiusKey];
+    self.layer.filters = blur == nil ? nil : @[ blur ];
+    if (!still) {
+        CABasicAnimation *drift = [CABasicAnimation animationWithKeyPath:@"locations"];
+        drift.fromValue = @[ @0.0, @0.25, @0.5, @0.75, @1.0 ];
+        drift.toValue = @[ @0.0, @0.32, @0.58, @0.8, @1.0 ];
+        drift.duration = 6;
+        drift.autoreverses = YES;
+        drift.repeatCount = HUGE_VALF;
+        drift.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        [colors addAnimation:drift forKey:@"drift"];
+    }
+}
+
+- (CALayer *)rayAt:(CGFloat)x width:(CGFloat)width height:(CGFloat)height still:(BOOL)still {
+    CAGradientLayer *ray = [CAGradientLayer layer];
+    ray.anchorPoint = CGPointMake(0.5, 0);
+    ray.bounds = CGRectMake(0, 0, width, height);
+    ray.position = CGPointMake(x + width / 4, 0);
+    ray.colors = @[ (id)NSColor.whiteColor.CGColor, (id)[NSColor colorWithWhite:1 alpha:0].CGColor ];
+    ray.startPoint = CGPointMake(0.5, 0);
+    ray.endPoint = CGPointMake(0.5, 1);
+    CGFloat low = 0.25 + arc4random_uniform(40) / 100.0;
+    CGFloat high = MIN(0.92, low + 0.2 + arc4random_uniform(35) / 100.0);
+    ray.opacity = 0.55 + arc4random_uniform(45) / 100.0;
+    ray.transform = CATransform3DMakeScale(1, high, 1);
+    if (!still) {
+        CABasicAnimation *flicker = [CABasicAnimation animationWithKeyPath:@"transform.scale.y"];
+        flicker.fromValue = @(low);
+        flicker.toValue = @(high);
+        flicker.duration = 1.2 + arc4random_uniform(220) / 100.0;
+        flicker.beginTime = CACurrentMediaTime() - arc4random_uniform(300) / 100.0;
+        flicker.autoreverses = YES;
+        flicker.repeatCount = HUGE_VALF;
+        flicker.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        [ray addAnimation:flicker forKey:@"flicker"];
+    }
+    return ray;
+}
+@end
+
 @interface ADGuide : NSObject
 @property(nonatomic, strong) NSPanel *panel;
-@property(nonatomic, strong) NSVisualEffectView *card;
+@property(nonatomic, strong) NSView *card;
 @property(nonatomic, strong) NSWindow *stage;
 @property(nonatomic, strong) CALayer *carrier;
 @property(nonatomic, strong) NSTextField *stepLabel;
@@ -198,22 +322,18 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
     self.panel.opaque = NO;
     self.panel.backgroundColor = NSColor.clearColor;
     self.panel.hasShadow = YES;
+    self.panel.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
     self.panel.movableByWindowBackground = YES;
     self.panel.hidesOnDeactivate = NO;
     self.panel.collectionBehavior =
         NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
-    self.card = [[NSVisualEffectView alloc] init];
-    self.card.material = NSVisualEffectMaterialHUDWindow;
-    self.card.state = NSVisualEffectStateActive;
-    self.card.wantsLayer = YES;
-    self.card.layer.cornerRadius = 14;
-    self.card.layer.masksToBounds = YES;
-    self.panel.contentView = self.card;
+    [self buildFrame];
     self.stepLabel = [NSTextField labelWithString:@""];
-    self.stepLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
-    self.stepLabel.textColor = NSColor.secondaryLabelColor;
+    self.stepLabel.font = [NSFont monospacedSystemFontOfSize:10.5 weight:NSFontWeightMedium];
+    self.stepLabel.textColor = ADGuideGray(0.56);
     self.titleLabel = [NSTextField labelWithString:@""];
-    self.titleLabel.font = [NSFont systemFontOfSize:16 weight:NSFontWeightSemibold];
+    self.titleLabel.font = [NSFont systemFontOfSize:22 weight:NSFontWeightBold];
+    self.titleLabel.textColor = NSColor.whiteColor;
     self.icon = [[ADGuideIcon alloc] init];
     self.icon.fileURL = hostURL;
     self.icon.image = self.hostImage;
@@ -225,23 +345,26 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
         [weakSelf showDropped];
     };
     self.captionLabel = [NSTextField labelWithString:[NSString stringWithFormat:@"Drag %@", self.hostName]];
-    self.captionLabel.font = [NSFont systemFontOfSize:11];
-    self.captionLabel.textColor = NSColor.secondaryLabelColor;
+    self.captionLabel.font = [NSFont monospacedSystemFontOfSize:10.5 weight:NSFontWeightRegular];
+    self.captionLabel.textColor = ADGuideGray(0.56);
     self.bodyLabel = [NSTextField wrappingLabelWithString:@""];
     self.bodyLabel.alignment = NSTextAlignmentCenter;
-    self.bodyLabel.preferredMaxLayoutWidth = ADGuideWidth - 40;
-    self.bodyLabel.textColor = NSColor.secondaryLabelColor;
-    NSButton *close = [ADGuideButton buttonWithTitle:@"Not Now" target:self action:@selector(finish)];
-    close.bezelStyle = NSBezelStyleRounded;
+    self.bodyLabel.preferredMaxLayoutWidth = ADGuideWidth - 56;
+    self.bodyLabel.textColor = ADGuideGray(0.86);
+    self.bodyLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    NSButton *close = [[ADGuideButton alloc] initWithTitle:@"Not Now" target:self action:@selector(finish)];
+    NSView *tile = [self tileFor:self.icon];
     NSStackView *stack = [NSStackView stackViewWithViews:@[
-        self.stepLabel, self.titleLabel, self.icon, self.captionLabel, self.bodyLabel, close
+        tile, self.captionLabel, self.stepLabel, self.titleLabel, self.bodyLabel, close
     ]];
     stack.orientation = NSUserInterfaceLayoutOrientationVertical;
     stack.alignment = NSLayoutAttributeCenterX;
     stack.spacing = 8;
-    stack.edgeInsets = NSEdgeInsetsMake(18, 20, 18, 20);
-    [stack setCustomSpacing:14 afterView:self.titleLabel];
-    [stack setCustomSpacing:14 afterView:self.bodyLabel];
+    stack.edgeInsets = NSEdgeInsetsMake(30, 28, 52, 28);
+    [stack setCustomSpacing:20 afterView:self.captionLabel];
+    [stack setCustomSpacing:6 afterView:self.stepLabel];
+    [stack setCustomSpacing:10 afterView:self.titleLabel];
+    [stack setCustomSpacing:30 afterView:self.bodyLabel];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.card addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
@@ -251,6 +374,44 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
         [stack.bottomAnchor constraintEqualToAnchor:self.card.bottomAnchor],
         [stack.widthAnchor constraintEqualToConstant:ADGuideWidth],
     ]];
+}
+
+- (void)buildFrame {
+    self.card = [[NSView alloc] init];
+    self.card.wantsLayer = YES;
+    self.card.layer.backgroundColor = NSColor.blackColor.CGColor;
+    self.card.layer.cornerRadius = 14;
+    self.card.layer.masksToBounds = YES;
+    self.card.layer.borderWidth = 1;
+    self.card.layer.borderColor = ADGuideGray(0.16).CGColor;
+    self.panel.contentView = self.card;
+    ADGuideAurora *aurora = [[ADGuideAurora alloc] init];
+    aurora.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.card addSubview:aurora];
+    [NSLayoutConstraint activateConstraints:@[
+        [aurora.leadingAnchor constraintEqualToAnchor:self.card.leadingAnchor],
+        [aurora.trailingAnchor constraintEqualToAnchor:self.card.trailingAnchor],
+        [aurora.bottomAnchor constraintEqualToAnchor:self.card.bottomAnchor],
+        [aurora.heightAnchor constraintEqualToConstant:ADGuideAuroraHeight],
+    ]];
+}
+
+- (NSView *)tileFor:(NSView *)icon {
+    NSView *tile = [[NSView alloc] init];
+    tile.wantsLayer = YES;
+    tile.layer.backgroundColor = NSColor.blackColor.CGColor;
+    tile.layer.cornerRadius = 18;
+    tile.layer.borderWidth = 1.5;
+    tile.layer.borderColor = ADGuideGray(0.85).CGColor;
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    [tile addSubview:icon];
+    [NSLayoutConstraint activateConstraints:@[
+        [tile.widthAnchor constraintEqualToConstant:ADGuideTileSize],
+        [tile.heightAnchor constraintEqualToConstant:ADGuideTileSize],
+        [icon.centerXAnchor constraintEqualToAnchor:tile.centerXAnchor],
+        [icon.centerYAnchor constraintEqualToAnchor:tile.centerYAnchor],
+    ]];
+    return tile;
 }
 
 - (void)buildStage {
@@ -298,7 +459,7 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
     self.current = (self.remaining & ADGuideAccessibility) ? ADGuideAccessibility : ADGuideScreenRecording;
     BOOL accessibility = self.current == ADGuideAccessibility;
     self.stepLabel.stringValue =
-        [NSString stringWithFormat:@"Step %d of %d", self.completed + 1, self.total];
+        [NSString stringWithFormat:@"STEP %d OF %d", self.completed + 1, self.total];
     self.titleLabel.stringValue = accessibility ? @"Allow Accessibility" : @"Allow Screen Recording";
     [self showInstructions];
     NSString *pane = accessibility ? @"Privacy_Accessibility" : @"Privacy_ScreenCapture";
