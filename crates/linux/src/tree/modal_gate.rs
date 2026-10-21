@@ -34,7 +34,7 @@ pub(crate) fn ensure_unblocked(
     target: &AtspiElement,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    if crate::system::shell::is_shell_element(target) {
+    if reader.is_verified_shell(target, deadline) {
         return Ok(());
     }
     let owner = target.menu_owner();
