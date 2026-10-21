@@ -1,6 +1,8 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
+use crate::system::display_server::{DisplayCause, display_cause_error};
+
 const DETAIL_CAP: usize = 512;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +50,12 @@ fn bounded(text: &str) -> String {
     text.chars().take(DETAIL_CAP).collect()
 }
 
+fn display_failure(cause: DisplayCause, reason: &str) -> AdapterError {
+    let mut error = display_cause_error(&cause);
+    error.details.get_or_insert_with(|| json!({}))["reason"] = reason.into();
+    error
+}
+
 /// The error for a tool that ran and failed. `unknown` carries the delivery
 /// of a failure nothing explains: a write that failed for an unknown cause
 /// may still have reached the clipboard.
@@ -66,18 +74,18 @@ pub(crate) fn failure_error(failure: &Failure, unknown: DeliverySemantics) -> Ad
             "Use a headless session that has a virtual keyboard or other input device",
         )
         .with_disposition(known),
-        Failure::SocketMissing => reasoned(
-            ErrorCode::PlatformNotSupported,
-            "The Wayland socket does not exist",
+        Failure::SocketMissing => display_failure(
+            DisplayCause::Missing {
+                address: "the Wayland socket".into(),
+            },
             "socket_missing",
-            "Check that WAYLAND_DISPLAY and XDG_RUNTIME_DIR name a running compositor",
         )
         .with_disposition(known),
-        Failure::SocketRefused => reasoned(
-            ErrorCode::PlatformNotSupported,
-            "The Wayland socket refused the connection",
+        Failure::SocketRefused => display_failure(
+            DisplayCause::Refused {
+                detail: "the Wayland socket".into(),
+            },
             "socket_refused",
-            "The compositor behind WAYLAND_DISPLAY has stopped; start it again",
         )
         .with_disposition(known),
         Failure::Other(text) => {

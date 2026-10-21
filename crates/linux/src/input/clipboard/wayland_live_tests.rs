@@ -344,3 +344,4 @@ fn images_and_file_lists_round_trip() {
         "a file set must replace the image offer"
     );
 }
+use crate::input::clipboard::command_runner::ProcessRunner;

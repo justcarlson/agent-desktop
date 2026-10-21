@@ -20,6 +20,25 @@ const STATE_LONGS: u32 = 64;
 /// would outlive a server that has stopped answering.
 pub(crate) struct DisplayReader;
 
+impl DisplayReader {
+    pub(crate) fn connect(
+        display: &str,
+    ) -> Result<(RustConnection, usize), x11rb::errors::ConnectError> {
+        super::bounded::connect(display)
+    }
+
+    pub(crate) fn reachable(display: &str) -> Result<(), super::MonitorFault> {
+        let (connection, _) =
+            Self::connect(display).map_err(|error| super::fault_of_connect(&error))?;
+        connection
+            .get_input_focus()
+            .map_err(|_| super::MonitorFault::Unreadable)?
+            .reply()
+            .map_err(|_| super::MonitorFault::Unreadable)?;
+        Ok(())
+    }
+}
+
 impl super::stacking_source::StackingSource for DisplayReader {
     fn read_within(&self, target_client: u32, caller: Deadline) -> StackingRead {
         route(session_server(), |display| {
@@ -262,7 +281,7 @@ fn client(connection: &RustConnection, atoms: &Atoms, root: Window, window: Wind
 }
 
 fn read_display(display: &str) -> X11State {
-    let Ok((connection, screen)) = RustConnection::connect(Some(display)) else {
+    let Ok((connection, screen)) = super::bounded::connect(display) else {
         return X11State::Unavailable;
     };
     let Some(root) = connection

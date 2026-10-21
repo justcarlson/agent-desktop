@@ -55,7 +55,7 @@ pub(super) fn connect() -> Result<(RustConnection, u32), ActivateError> {
         _ => return Err(ActivateError::NoDisplay),
     };
     let (connection, screen) =
-        RustConnection::connect(Some(&display)).map_err(|_| ActivateError::NoDisplay)?;
+        super::bounded::connect(&display).map_err(|_| ActivateError::NoDisplay)?;
     let root = connection
         .setup()
         .roots

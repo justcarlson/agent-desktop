@@ -254,7 +254,14 @@ fn a_refused_connection_and_an_unreachable_one_are_told_apart() {
         Fault::Connect(MonitorFault::Unreachable("gone".into())),
         None,
     );
-    assert!(denied.message.contains("refused"), "{}", denied.message);
-    assert!(gone.message.contains("not reachable"), "{}", gone.message);
+    assert_eq!(
+        denied.details.expect("cause")["display_unavailable"],
+        "auth_refused"
+    );
+    assert_eq!(
+        gone.details.expect("cause")["display_unavailable"],
+        "missing"
+    );
     assert_eq!(denied.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(gone.code, ErrorCode::PlatformNotSupported);
 }

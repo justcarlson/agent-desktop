@@ -42,7 +42,7 @@ fn atom(connection: &RustConnection, name: &str) -> Result<u32, Fault> {
 
 impl X11Requestor {
     pub(crate) fn connect(display: &str) -> Result<Self, Fault> {
-        let (connection, screen) = RustConnection::connect(Some(display))
+        let (connection, screen) = x11::DisplayReader::connect(display)
             .map_err(|error| Fault::Connect(fault_of_connect(&error)))?;
         let root = connection
             .setup()

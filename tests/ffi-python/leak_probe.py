@@ -9,8 +9,8 @@ Usage:
     python3 tests/ffi-python/leak_probe.py <library.so> [--calls N]
 
 Exit codes:
-    0   the probe ran every call
-    1   the library could not be loaded or the adapter could not be created
+    0   every call timed out with flat host threads and descriptors
+    1   setup failed or a resource/deadline assertion failed
     2   usage error
 """
 
@@ -19,9 +19,10 @@ import ctypes
 import os
 import socket
 import sys
-import threading
+import multiprocessing
+import time
 
-AD_RESULT_OK = 0
+AD_RESULT_TIMEOUT = -9
 
 
 class SilentServer:
@@ -41,9 +42,11 @@ class SilentServer:
         self.listener.listen(64)
         self.port = 6000 + self.number
         self.held = []
-        self.stopped = threading.Event()
-        self.worker = threading.Thread(target=self.serve, daemon=True)
+        context = multiprocessing.get_context("fork")
+        self.stopped = context.Event()
+        self.worker = context.Process(target=self.serve, daemon=True)
         self.worker.start()
+        self.listener.close()
 
     def serve(self):
         self.listener.settimeout(0.2)
@@ -57,9 +60,10 @@ class SilentServer:
     def close(self):
         self.stopped.set()
         self.worker.join(timeout=2)
-        for connection in self.held:
-            connection.close()
-        self.listener.close()
+        if self.worker.is_alive():
+            self.worker.terminate()
+            self.worker.join()
+        self.worker.close()
 
 
 def count(directory):
@@ -81,7 +85,7 @@ def bind(lib, name, restype, argtypes):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("library")
-    parser.add_argument("--calls", type=int, default=10)
+    parser.add_argument("--calls", type=int, default=50)
     args = parser.parse_args()
     if args.calls < 1:
         parser.error("--calls must be at least 1")
@@ -110,29 +114,35 @@ def main():
         server.close()
         return 1
 
-    threads = count("/proc/self/task")
-    descriptors = count("/proc/self/fd")
-    print(f"baseline threads={threads} descriptors={descriptors}")
     failures = 0
     try:
+        warm = ctypes.c_void_p()
+        assert list_displays(adapter, ctypes.byref(warm)) == AD_RESULT_TIMEOUT
+        if warm:
+            free_list(warm)
+        baseline = (count("/proc/self/task"), count("/proc/self/fd"))
+        print(f"baseline threads={baseline[0]} descriptors={baseline[1]}", flush=True)
         for index in range(1, args.calls + 1):
             out = ctypes.c_void_p()
+            started = time.monotonic()
             result = list_displays(adapter, ctypes.byref(out))
+            elapsed = time.monotonic() - started
             if out:
                 free_list(out)
-            if result == AD_RESULT_OK:
-                failures += 1
             threads = count("/proc/self/task")
             descriptors = count("/proc/self/fd")
+            if result != AD_RESULT_TIMEOUT or (threads, descriptors) != baseline or not 4.9 <= elapsed <= 6.3:
+                failures += 1
             print(
-                f"call={index} result={result} threads={threads} descriptors={descriptors}"
+                f"call={index} result={result} threads={threads} descriptors={descriptors} elapsed={elapsed:.3f}",
+                flush=True,
             )
     finally:
         destroy(adapter)
         server.close()
 
-    print(f"calls={args.calls} unexpected_successes={failures}")
-    return 0
+    print(f"calls={args.calls} failures={failures}")
+    return int(failures != 0)
 
 
 if __name__ == "__main__":

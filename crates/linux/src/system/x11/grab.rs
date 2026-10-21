@@ -67,7 +67,7 @@ fn on_display<T: Send + 'static>(
 ) -> Result<T, GrabError> {
     let display = display_of(session_server())?;
     bounded_grab(deadline, move || {
-        let (connection, screen) = RustConnection::connect(Some(&display))
+        let (connection, screen) = super::bounded::connect(&display)
             .map_err(|error| GrabError::Fault(fault_of_connect(&error)))?;
         work(&connection, screen)
     })

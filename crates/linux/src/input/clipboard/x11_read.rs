@@ -48,18 +48,7 @@ pub(crate) fn fault_error(fault: Fault, owner_pid: Option<u32>) -> AdapterError 
                 None => error,
             }
         }
-        Fault::Connect(MonitorFault::Unreadable) => AdapterError::new(
-            ErrorCode::ActionFailed,
-            "The display server's replies could not be used",
-        ),
-        Fault::Connect(MonitorFault::Denied(reason)) => AdapterError::new(
-            ErrorCode::PlatformNotSupported,
-            format!("The display server refused this client: {reason}"),
-        ),
-        Fault::Connect(MonitorFault::Unreachable(reason)) => AdapterError::new(
-            ErrorCode::PlatformNotSupported,
-            format!("The display server is not reachable: {reason}"),
-        ),
+        Fault::Connect(fault) => crate::system::display_server::fault_error("X11", Some(fault)),
         Fault::Protocol(message) => AdapterError::new(ErrorCode::ActionFailed, message),
         Fault::OverCap => AdapterError::new(
             ErrorCode::ActionFailed,

@@ -68,13 +68,13 @@ fn wayland_no_display_and_no_manager_are_refused_before_any_send() {
     );
     let mut none = World::new(Some(OTHER));
     none.session = Session::NoDisplay;
-    assert_refused(&failure(&none), "no_display");
+    assert_eq!(failure(&none).code, ErrorCode::PlatformNotSupported);
     let mut bare = World::new(Some(OTHER));
     bare.state = X11State::NoWindowManager;
     assert_refused(&failure(&bare), "no_window_manager");
     let mut dark = World::new(Some(OTHER));
     dark.state = X11State::Unavailable;
-    assert_refused(&failure(&dark), "x11_unavailable");
+    assert_eq!(failure(&dark).code, ErrorCode::Timeout);
     assert_eq!(
         wayland.sends() + none.sends() + bare.sends() + dark.sends(),
         0

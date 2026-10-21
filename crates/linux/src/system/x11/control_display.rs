@@ -61,7 +61,7 @@ pub(super) fn route_for<T: Send + 'static>(
 }
 
 pub(crate) fn open(display: &str) -> Option<(RustConnection, Window)> {
-    let (connection, screen) = RustConnection::connect(Some(display)).ok()?;
+    let (connection, screen) = super::bounded::connect(display).ok()?;
     let root = connection.setup().roots.get(screen)?.root;
     Some((connection, root))
 }

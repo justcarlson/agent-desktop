@@ -164,6 +164,8 @@ pub(crate) fn press_key_for_app(
     policy: InteractionPolicy,
     lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
+    super::display_server::require(lease.deadline())
+        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
     press_in(Press {
         physical: &LiveWorld { bus },
         keys: &LiveKeys { bus },

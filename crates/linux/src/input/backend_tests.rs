@@ -55,12 +55,41 @@ fn no_display_is_a_platform_error_that_names_both_variables() {
     let error = select(DisplayServer::Unavailable(unavailable)).expect_err("no display");
 
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert!(error.message.contains("WAYLAND_DISPLAY"));
-    assert!(error.message.contains("DISPLAY"));
+    assert!(
+        error
+            .suggestion
+            .as_deref()
+            .expect("suggestion")
+            .contains("WAYLAND_DISPLAY")
+    );
     assert_eq!(
         error.details.expect("details")["physical_delivery_started"],
         false
     );
+}
+
+#[test]
+fn every_unreachable_input_cause_uses_the_shared_display_error() {
+    for cause in [Cause::NotConfigured, Cause::Missing, Cause::Refused] {
+        let unavailable = Unavailable {
+            cause,
+            detail: "test endpoint".into(),
+        };
+        let expected =
+            crate::system::route::resolve(DisplayServer::Unavailable(unavailable.clone()))
+                .expect_err("unreachable");
+        let actual = select(DisplayServer::Unavailable(unavailable)).expect_err("unreachable");
+        assert_eq!(actual.code, expected.code);
+        assert_eq!(actual.message, expected.message);
+        assert_eq!(
+            actual.details.as_ref().expect("details")["display_unavailable"],
+            expected.details.expect("details")["display_unavailable"]
+        );
+        assert_eq!(
+            actual.disposition,
+            agent_desktop_core::DeliverySemantics::not_delivered()
+        );
+    }
 }
 
 #[test]

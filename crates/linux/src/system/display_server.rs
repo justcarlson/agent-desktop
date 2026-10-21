@@ -1,5 +1,8 @@
 use std::path::{Path, PathBuf};
 
+pub(crate) use super::display::fault_error;
+pub(crate) use super::display_error::{DisplayCause, display_cause_error};
+
 /// What a probe of one display endpoint found: a server accepting connections,
 /// nothing at the address, or an address whose connection was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,16 +18,6 @@ pub(crate) enum Cause {
     NotConfigured,
     Missing,
     Refused,
-}
-
-impl Cause {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::NotConfigured => "not_configured",
-            Self::Missing => "missing",
-            Self::Refused => "refused",
-        }
-    }
 }
 
 /// A session with no reachable display server: the cause, and the variables
@@ -142,6 +135,24 @@ pub(crate) fn session_server() -> DisplayServer {
         &DisplayEnv::from_process(),
         &super::display_probe::SocketProbe,
     )
+}
+
+/// Proves the selected X11 server completed its handshake and answered a
+/// read before an operation depends on its window or input evidence.
+pub(crate) fn require(
+    deadline: agent_desktop_core::Deadline,
+) -> Result<super::route::Route, agent_desktop_core::AdapterError> {
+    let route = super::route::current()?;
+    if let super::route::Route::X11(display) = &route {
+        let name = display.clone();
+        let pending = super::x11::start(move || super::x11::DisplayReader::reachable(&name));
+        match pending.finish(deadline) {
+            Some(Ok(_)) => {}
+            Some(Err(fault)) => return Err(fault_error(display, Some(fault))),
+            None => return Err(display_cause_error(&DisplayCause::Silent)),
+        }
+    }
+    Ok(route)
 }
 
 #[cfg(test)]

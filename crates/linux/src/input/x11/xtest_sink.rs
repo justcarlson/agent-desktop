@@ -1,13 +1,11 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use std::os::fd::AsFd;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use x11rb::connection::{Connection, RequestConnection};
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::protocol::xtest::{self, ConnectionExt as _};
-use x11rb::reexports::x11rb_protocol::parse_display::parse_display;
-use x11rb::reexports::x11rb_protocol::xauth::get_auth;
-use x11rb::rust_connection::{DefaultStream, RustConnection};
+use x11rb::rust_connection::RustConnection;
 
 use super::io_cutoff::IoCutoff;
 
@@ -51,41 +49,36 @@ fn no_xtest() -> AdapterError {
 }
 
 fn unreachable_display(display: &str, error: impl std::fmt::Display) -> AdapterError {
-    AdapterError::new(
-        ErrorCode::ActionFailed,
-        "The display server could not be reached for input",
-    )
-    .with_platform_detail(format!("{display}: {error}"))
-    .with_details(serde_json::json!({ "physical_delivery_started": false }))
-    .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
+    let mut error = crate::system::display_server::display_cause_error(
+        &crate::system::display_server::DisplayCause::Refused {
+            detail: format!("{display}: {error}"),
+        },
+    );
+    error.details.get_or_insert_with(|| serde_json::json!({}))["physical_delivery_started"] =
+        false.into();
+    error.with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
 }
 
 fn open_connection(
     display: &str,
     cutoff_after: Duration,
-) -> Result<(RustConnection, usize, IoCutoff), String> {
-    let parsed = parse_display(Some(display)).map_err(|error| error.to_string())?;
-    let screen = usize::from(parsed.screen);
-    let mut last: Option<String> = None;
-    for address in parsed.connect_instruction() {
-        let (stream, (family, name)) = match DefaultStream::connect(&address) {
-            Ok(connected) => connected,
-            Err(error) => {
-                last = Some(error.to_string());
-                continue;
-            }
-        };
-        let cutoff =
-            IoCutoff::arm(stream.as_fd(), cutoff_after).map_err(|error| error.to_string())?;
-        let (auth_name, auth_data) = get_auth(family, &name, parsed.display)
-            .unwrap_or(None)
-            .unwrap_or_default();
-        let connection =
-            RustConnection::connect_to_stream_with_auth_info(stream, screen, auth_name, auth_data)
-                .map_err(|error| error.to_string())?;
-        return Ok((connection, screen, cutoff));
-    }
-    Err(last.unwrap_or_else(|| "no address to connect to".to_owned()))
+) -> Result<(RustConnection, usize, IoCutoff), AdapterError> {
+    let started = Instant::now();
+    let (connection, screen) =
+        crate::system::x11::DisplayReader::connect(display).map_err(|error| {
+            crate::system::display_server::fault_error(
+                display,
+                Some(crate::system::x11::fault_of_connect(&error)),
+            )
+        })?;
+    let cutoff = IoCutoff::arm(
+        connection.stream().as_fd(),
+        cutoff_after.saturating_sub(started.elapsed()),
+    )
+    .map_err(|error| {
+        AdapterError::internal(format!("The display cutoff could not be armed: {error}"))
+    })?;
+    Ok((connection, screen, cutoff))
 }
 
 impl XtestSink {
@@ -97,16 +90,18 @@ impl XtestSink {
         let name = display.to_owned();
         let pending = crate::system::x11::start(move || Self::open(&name, cutoff_after));
         pending.finish(deadline).unwrap_or_else(|| {
-            Err(unreachable_display(
-                display,
-                "the display did not answer before the deadline",
-            ))
+            Err(crate::system::display_server::display_cause_error(
+                &crate::system::display_server::DisplayCause::Silent,
+            )
+            .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered()))
         })
     }
 
     fn open(display: &str, cutoff_after: Duration) -> Result<Self, AdapterError> {
-        let (connection, screen, cutoff) = open_connection(display, cutoff_after)
-            .map_err(|error| unreachable_display(display, error))?;
+        let (connection, screen, cutoff) = open_connection(display, cutoff_after).map_err(|mut error| {
+            error.details.get_or_insert_with(|| serde_json::json!({}))["physical_delivery_started"] = false.into();
+            error.with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
+        })?;
         let has_xtest = connection
             .extension_information(xtest::X11_EXTENSION_NAME)
             .map_err(|error| unreachable_display(display, error))?

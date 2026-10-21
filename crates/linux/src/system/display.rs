@@ -16,56 +16,20 @@ fn wayland_missing() -> AdapterError {
 }
 
 pub(crate) fn unreachable(why: Unavailable) -> AdapterError {
-    let (message, suggestion) = match why.cause {
-        Cause::NotConfigured => (
-            "No display server is configured in this session".to_owned(),
-            "Run inside a desktop session with DISPLAY or WAYLAND_DISPLAY set",
-        ),
-        Cause::Missing => (
-            format!(
-                "The session's display server is not running: {}",
-                why.detail
-            ),
-            "Start the display server, or correct DISPLAY and WAYLAND_DISPLAY",
-        ),
-        Cause::Refused => (
-            format!(
-                "The session's display server refused the connection: {}",
-                why.detail
-            ),
-            "Check that the display server accepts this user, or correct DISPLAY and WAYLAND_DISPLAY",
-        ),
+    use super::display_error::{DisplayCause, display_cause_error};
+    let cause = match why.cause {
+        Cause::NotConfigured => DisplayCause::NotConfigured,
+        Cause::Missing => DisplayCause::Missing {
+            address: why.detail,
+        },
+        Cause::Refused => DisplayCause::Refused { detail: why.detail },
     };
-    AdapterError::new(ErrorCode::PlatformNotSupported, message)
-        .with_suggestion(suggestion)
-        .with_details(serde_json::json!({
-            "display_unavailable": why.cause.as_str(),
-            "detail": why.detail,
-        }))
+    display_cause_error(&cause)
 }
 
 fn unreadable() -> AdapterError {
     AdapterError::internal("The display server's monitor list could not be read")
         .with_suggestion("Retry once the X session answers")
-}
-
-fn denied(display: &str, reason: &str) -> AdapterError {
-    unreachable(Unavailable {
-        cause: Cause::Refused,
-        detail: format!("DISPLAY={display} refused this client: {reason}"),
-    })
-}
-
-fn not_answering(display: &str, detail: &str) -> AdapterError {
-    unreachable(Unavailable {
-        cause: Cause::Missing,
-        detail: format!("DISPLAY={display} did not answer: {detail}"),
-    })
-}
-
-fn silent() -> AdapterError {
-    AdapterError::timeout("The display server did not answer in time")
-        .with_suggestion("Retry, or check that DISPLAY names a server that is running")
 }
 
 /// The answer for a monitor read that failed or never finished: a refusal and
@@ -74,10 +38,23 @@ fn silent() -> AdapterError {
 /// generic read failure.
 pub(crate) fn fault_error(display: &str, fault: Option<MonitorFault>) -> AdapterError {
     match fault {
-        Some(MonitorFault::Denied(reason)) => denied(display, &reason),
-        Some(MonitorFault::Unreachable(detail)) => not_answering(display, &detail),
+        Some(MonitorFault::Denied(reason)) => super::display_error::display_cause_error(
+            &super::display_error::DisplayCause::AuthRefused { reason },
+        ),
+        Some(MonitorFault::Unreachable(detail)) => {
+            use super::display_error::{DisplayCause, display_cause_error};
+            let detail = format!("DISPLAY={display}: {detail}");
+            let cause = if detail.to_ascii_lowercase().contains("connection refused") {
+                DisplayCause::Refused { detail }
+            } else {
+                DisplayCause::Missing { address: detail }
+            };
+            display_cause_error(&cause)
+        }
         Some(MonitorFault::Unreadable) => unreadable(),
-        None => silent(),
+        None => {
+            super::display_error::display_cause_error(&super::display_error::DisplayCause::Silent)
+        }
     }
 }
 

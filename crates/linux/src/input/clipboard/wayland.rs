@@ -6,7 +6,7 @@ use agent_desktop_core::{
     InteractionLease,
 };
 
-use super::command_runner::{CommandRunner, ProcessRunner, RunOutcome, RunSpec};
+use super::command_runner::{CommandRunner, RunOutcome, RunSpec};
 use super::formats::{PNG, TEXT_UTF8, URI_LIST};
 use super::owner_spawn_spec::protect_lease_descriptor;
 use super::payload::payload_of;
@@ -52,11 +52,10 @@ fn not_delivered(error: AdapterError) -> AdapterError {
 }
 
 fn timed_out(delivery: DeliverySemantics) -> AdapterError {
-    AdapterError::timeout("The Wayland compositor did not answer the clipboard request in time")
-        .with_suggestion(
-            "The compositor may have stopped serving clients; check that the session is healthy",
-        )
-        .with_disposition(delivery)
+    crate::system::display_server::display_cause_error(
+        &crate::system::display_server::DisplayCause::Silent,
+    )
+    .with_disposition(delivery)
 }
 
 fn not_started(reason: &str) -> AdapterError {
@@ -247,40 +246,6 @@ impl Wayland<'_> {
             )),
         }
     }
-}
-
-fn process_path() -> Option<OsString> {
-    std::env::var_os("PATH")
-}
-
-pub(crate) fn read_wayland(
-    format: ClipboardFormat,
-    deadline: Deadline,
-) -> Result<Option<ClipboardContent>, AdapterError> {
-    Wayland {
-        runner: &ProcessRunner { env: Vec::new() },
-        search_path: process_path(),
-    }
-    .read(format, deadline)
-}
-
-pub(crate) fn set_wayland(
-    content: &ClipboardContent,
-    lease: &InteractionLease,
-) -> Result<(), AdapterError> {
-    Wayland {
-        runner: &ProcessRunner { env: Vec::new() },
-        search_path: process_path(),
-    }
-    .set(content, lease)
-}
-
-pub(crate) fn clear_wayland(lease: &InteractionLease) -> Result<(), AdapterError> {
-    Wayland {
-        runner: &ProcessRunner { env: Vec::new() },
-        search_path: process_path(),
-    }
-    .clear(lease)
 }
 
 #[cfg(test)]

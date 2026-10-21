@@ -27,7 +27,7 @@ fn output_name(
 
 fn monitors(display: &str) -> Result<Vec<X11Monitor>, MonitorFault> {
     let (connection, screen) =
-        RustConnection::connect(Some(display)).map_err(|error| fault_of_connect(&error))?;
+        super::bounded::connect(display).map_err(|error| fault_of_connect(&error))?;
     read_monitors(&connection, screen).ok_or(MonitorFault::Unreadable)
 }
 

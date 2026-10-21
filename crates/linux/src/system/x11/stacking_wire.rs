@@ -296,7 +296,7 @@ fn titles(connection: &RustConnection, receiving: &[(u32, Extents)]) -> Got<Vec<
 /// override-redirect windows above the target's frame. Evidence that is short
 /// by a failed reply or a cap is `Unavailable`, never a smaller `Ready`.
 pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
-    let Ok((connection, screen)) = RustConnection::connect(Some(display)) else {
+    let Ok((connection, screen)) = super::bounded::connect(display) else {
         return StackingRead::Unavailable;
     };
     let Some(root) = connection

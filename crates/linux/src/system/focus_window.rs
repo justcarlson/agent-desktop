@@ -316,6 +316,8 @@ pub(crate) fn focus_window(
         return Ok(());
     }
     let deadline = lease.deadline();
+    super::display_server::require(deadline)
+        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
     let world = focus_world::LiveWorld::new(bus, win, deadline)?;
     run(&world, win, deadline)
 }

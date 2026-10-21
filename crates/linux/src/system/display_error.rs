@@ -32,7 +32,7 @@ impl DisplayCause {
 /// permanent and reports `PLATFORM_NOT_SUPPORTED`; `Silent` is `TIMEOUT`.
 #[allow(dead_code)]
 pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
-    match cause {
+    let mut error = match cause {
         DisplayCause::NotConfigured => AdapterError::new(
             ErrorCode::PlatformNotSupported,
             "No display server is configured in this session",
@@ -77,5 +77,12 @@ pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
             "display_unavailable": cause.as_str(),
             "detail": reason,
         })),
-    }
+    };
+    let mut details = error
+        .details
+        .take()
+        .unwrap_or_else(|| serde_json::json!({}));
+    details["display_unavailable"] = cause.as_str().into();
+    details["retryable"] = matches!(cause, DisplayCause::Silent).into();
+    error.with_details(details)
 }

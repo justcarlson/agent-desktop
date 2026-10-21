@@ -228,7 +228,7 @@ fn a_display_that_refuses_this_client_is_a_permanent_refusal_and_not_a_retry() {
         Some(MonitorFault::Denied("Authorization required".to_owned())),
     );
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert_eq!(cause(&error).as_deref(), Some("refused"));
+    assert_eq!(cause(&error).as_deref(), Some("auth_refused"));
     assert!(error.message.contains("Authorization required"));
     assert!(!error.is_explicitly_retryable());
     assert!(
@@ -246,8 +246,50 @@ fn a_display_nothing_answers_at_names_the_address_and_a_silent_one_is_a_timeout(
         Some(MonitorFault::Unreachable("connection refused".to_owned())),
     );
     assert_eq!(missing.code, ErrorCode::PlatformNotSupported);
-    assert_eq!(cause(&missing).as_deref(), Some("missing"));
+    assert_eq!(cause(&missing).as_deref(), Some("refused"));
     assert!(missing.message.contains("remote:0"));
     let silent = fault_error("remote:0", None);
     assert_eq!(silent.code, ErrorCode::Timeout);
+}
+
+#[test]
+fn display_causes_have_one_code_and_permanent_causes_are_not_retried() {
+    use crate::system::display_error::{DisplayCause, display_cause_error};
+    for (cause, label, code) in [
+        (
+            DisplayCause::NotConfigured,
+            "not_configured",
+            ErrorCode::PlatformNotSupported,
+        ),
+        (
+            DisplayCause::Missing {
+                address: "missing".into(),
+            },
+            "missing",
+            ErrorCode::PlatformNotSupported,
+        ),
+        (
+            DisplayCause::Refused {
+                detail: "refused".into(),
+            },
+            "refused",
+            ErrorCode::PlatformNotSupported,
+        ),
+        (
+            DisplayCause::AuthRefused {
+                reason: "auth".into(),
+            },
+            "auth_refused",
+            ErrorCode::PlatformNotSupported,
+        ),
+        (DisplayCause::Silent, "silent", ErrorCode::Timeout),
+    ] {
+        let error = display_cause_error(&cause);
+        assert_eq!(error.code, code);
+        assert_eq!(
+            error.details.as_ref().expect("cause")["display_unavailable"],
+            label
+        );
+        assert_eq!(error.permits_retry_by_default(), code == ErrorCode::Timeout);
+    }
 }

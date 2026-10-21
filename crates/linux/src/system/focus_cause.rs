@@ -145,6 +145,16 @@ pub(crate) fn modal_refusal(dialog: &str) -> AdapterError {
 }
 
 pub(crate) fn refusal(cause: Cause) -> AdapterError {
+    use super::display_error::{DisplayCause, display_cause_error};
+    let display_cause = match cause {
+        Cause::NoDisplay => Some(DisplayCause::NotConfigured),
+        Cause::X11Unavailable => Some(DisplayCause::Silent),
+        _ => None,
+    };
+    if let Some(display_cause) = display_cause {
+        return display_cause_error(&display_cause)
+            .with_disposition(DeliverySemantics::not_delivered());
+    }
     let code = if cause == Cause::WaylandSession {
         ErrorCode::ActionNotSupported
     } else {
