@@ -26,6 +26,8 @@ mod live_tests;
 #[cfg(test)]
 mod live_wayland_tests;
 #[cfg(test)]
+mod outage_live_tests;
+#[cfg(test)]
 #[path = "tray_observation_tests.rs"]
 mod tray_observation_tests;
 

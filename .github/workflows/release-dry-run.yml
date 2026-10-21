@@ -415,7 +415,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             at-spi2-core dbus-x11 xvfb x11-utils openbox gnome-calculator \
-            python3-gi gir1.2-atspi-2.0 gir1.2-gtk-3.0 gcc
+            python3-gi gir1.2-atspi-2.0 gir1.2-gtk-3.0 gcc trash-cli
 
       - name: Deterministic packaged owner contracts
         run: |

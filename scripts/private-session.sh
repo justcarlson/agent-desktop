@@ -88,10 +88,7 @@ cleanup() {
   done
   case "$rt" in
     "$base"/rt.?*)
-      if [ -d "$rt" ] && command -v trash >/dev/null 2>&1; then
-        trash "$rt"
-      fi
-      ;;
+      [ ! -d "$rt" ] || rm -rf -- "$rt" ;;
   esac
 }
 trap cleanup EXIT

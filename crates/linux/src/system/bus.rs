@@ -193,3 +193,7 @@ impl SharedBus {
 #[cfg(test)]
 #[path = "bus_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "bus_live_tests.rs"]
+mod live_tests;
