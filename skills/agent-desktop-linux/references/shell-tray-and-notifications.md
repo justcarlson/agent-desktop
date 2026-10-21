@@ -57,6 +57,15 @@ open and that wait returned `TIMEOUT`, `kind: wait_timeout`, `predicate: menu`,
 “Menu did not close before the deadline”. The isolated recheck closed it; do
 not treat the key's success as a closure guarantee.
 
+In the measured headless Wayland setup, global `press` can leave the seat without
+a keyboard after its temporary RemoteDesktop session ends. Calculator's GTK4
+opener can then become expanded without presenting a native menu; a direct AT-SPI
+action has the same outcome. The tool reports `ACTION_FAILED`, `popup_not_observed`,
+with unverified delivery and unsafe retry. A keyboard present from app launch and
+retained across the commands avoids this measured limitation; adding one after
+the failure did not recover the popup. An expanded opener alone is never proof
+of an open menu; inspect the native menu before continuing.
+
 GTK4 raw menu items can be unnamed while the snapshot shows their labels.
 A readable label does not establish a safe physical click position. Ordinary app pointer actions on Wayland
 refuse with `ACTION_NOT_SUPPORTED`, cause `wayland_session`. On X11, only use
