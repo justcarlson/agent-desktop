@@ -89,12 +89,20 @@ fn focus_authorized_press_keeps_menu_shortcuts_for_modified_keys() {
 
 #[test]
 fn a_missing_focused_element_names_both_recovery_routes() {
-    let error = super::no_focused_element_error();
+    let error = super::no_focused_element_error(agent_desktop_core::InteractionPolicy::headless());
     let suggestion = error
         .suggestion
         .expect("the error carries a recovery suggestion");
     assert!(suggestion.contains("--headed"), "{suggestion}");
     assert!(suggestion.contains("--surface menubar"), "{suggestion}");
+}
+
+#[test]
+fn a_headed_missing_focused_element_does_not_suggest_enabling_headed() {
+    let error = super::no_focused_element_error(agent_desktop_core::InteractionPolicy::headed());
+    let hint = error.suggestion.expect("recovery suggestion");
+    assert!(!hint.contains("--headed"), "{hint}");
+    assert!(hint.contains("--surface menubar"), "{hint}");
 }
 
 #[test]
