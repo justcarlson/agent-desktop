@@ -130,13 +130,6 @@ impl Scene {
             .execute_action(handle, ActionRequest::headed(action), &lease)
     }
 
-    pub(super) fn adapter_bounds(&self, target: &NativeHandle) -> Option<agent_desktop_core::Rect> {
-        self.adapter
-            .get_element_bounds(target, deadline(5_000))
-            .ok()
-            .flatten()
-    }
-
     pub(super) fn log_text(&self) -> String {
         std::fs::read_to_string(&self.log).unwrap_or_default()
     }

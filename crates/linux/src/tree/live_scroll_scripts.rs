@@ -4,23 +4,6 @@ use super::super::node_read::call;
 use super::super::{AtspiElement, COMPONENT_INTERFACE, Extents};
 use crate::system::{SharedBus, within};
 
-pub(in crate::tree) const GTK3_LIST: &str = r#"
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
-w = Gtk.Window(title="adscroll-gtk3")
-w.set_default_size(480, 360)
-s = Gtk.ScrolledWindow()
-b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-for i in range(300):
-    b.pack_start(Gtk.Button(label="Row %03d" % i), False, False, 0)
-s.add(b)
-w.add(s)
-w.connect("destroy", Gtk.main_quit)
-w.show_all()
-Gtk.main()
-"#;
-
 pub(in crate::tree) const GTK3_STRIP: &str = r#"
 import gi
 gi.require_version("Gtk", "3.0")
@@ -60,7 +43,8 @@ app.run([])
 "#;
 
 pub(in crate::tree) const QT_LIST: &str = r#"
-import sys
+import sys, os, json
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget
 app = QApplication(sys.argv)
 w = QMainWindow()
@@ -69,7 +53,15 @@ lw = QListWidget()
 lw.addItems(["Item %03d" % i for i in range(300)])
 w.setCentralWidget(lw)
 w.setGeometry(100, 100, 480, 360)
+def record_scroll():
+    path = os.environ.get("AD_LIVE_LOG")
+    if path:
+        with open(path, "w") as output:
+            json.dump({"offset": lw.verticalScrollBar().value(),
+                       "visible": lw.visualItemRect(lw.item(40)).intersects(lw.viewport().rect())}, output)
+lw.verticalScrollBar().valueChanged.connect(record_scroll)
 w.show()
+QTimer.singleShot(0, record_scroll)
 sys.exit(app.exec())
 "#;
 

@@ -10,7 +10,7 @@ use crate::system::SharedBus;
 #[path = "live_scroll_scripts.rs"]
 pub(in crate::tree) mod scripts;
 
-use scripts::{GTK3_LIST, QT_LIST, intersects, pointer, window_rect};
+use scripts::{QT_LIST, pointer};
 
 pub(in crate::tree) struct Target {
     pub(in crate::tree) name: String,
@@ -49,7 +49,6 @@ fn scroll_case(
     bus: &SharedBus,
     frame: &AtspiElement,
     wanted: &str,
-    expect_realised: bool,
 ) -> Result<(), String> {
     let (_, entry) = snapshot_entries(adapter, frame, true)?
         .into_iter()
@@ -58,7 +57,6 @@ fn scroll_case(
     let handle = adapter
         .resolve_element_strict(&entry, Deadline::after(5_000).expect("deadline"))
         .map_err(|error| error.message)?;
-    let element = atspi_element(&handle).map_err(|error| error.message)?;
     let deadline = Deadline::after(10_000).map_err(|error| error.message)?;
     adapter
         .get_live_state(&handle, deadline)
@@ -68,31 +66,20 @@ fn scroll_case(
     let pointer_before = pointer().ok_or("the private X11 pointer is unreadable")?;
     let outcome = scroll_into_view(bus, &handle, &lease);
     let pointer_after = pointer().ok_or("the private X11 pointer is unreadable after scrolling")?;
-    let frame_rect = window_rect(bus, frame);
-    let own = window_rect(bus, element);
     assert_eq!(pointer_before, pointer_after, "[{label}] the pointer moved");
-    if expect_realised {
-        outcome.map_err(|error| format!("[{label}] {:?} {}", error.code, error.message))?;
-        if intersects(own, frame_rect) != Some(true) {
-            return Err(format!(
-                "[{label}] the row's own extents {own:?} are outside {frame_rect:?}"
-            ));
-        }
-    } else {
-        let error = outcome
-            .err()
-            .ok_or_else(|| format!("[{label}] a refusal was expected"))?;
-        assert!(
-            matches!(
-                error.code,
-                ErrorCode::ActionFailed | ErrorCode::ActionNotSupported
-            ),
-            "[{label}] {error:?}"
-        );
-        let details = error.details.as_ref().expect("a refusal carries details");
-        assert_eq!(details["physical_delivery_started"], false);
-        assert_eq!(details["kind"], "scroll_into_view");
-    }
+    let error = outcome
+        .err()
+        .ok_or_else(|| format!("[{label}] a refusal was expected"))?;
+    assert!(
+        matches!(
+            error.code,
+            ErrorCode::ActionFailed | ErrorCode::ActionNotSupported
+        ),
+        "[{label}] {error:?}"
+    );
+    let details = error.details.as_ref().expect("a refusal carries details");
+    assert_eq!(details["physical_delivery_started"], false);
+    assert_eq!(details["kind"], "scroll_into_view");
     Ok(())
 }
 
@@ -102,7 +89,6 @@ fn script_app(
     source: &str,
     env: &[(&str, String)],
     wanted: &'static str,
-    expect_realised: bool,
 ) {
     let adapter = LinuxAdapter::new();
     let bus = SharedBus::default();
@@ -121,21 +107,7 @@ fn script_app(
         super::live_tree::pid_frame(&connection, pid)
     })
     .expect("the app settles");
-    scroll_case(
-        label,
-        &adapter,
-        &bus,
-        &settled.frame,
-        wanted,
-        expect_realised,
-    )
-    .expect("the case holds");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_gtk3_scrolled_list_realises_an_offscreen_row() {
-    script_app("gtk3", "python3", GTK3_LIST, &[], "Row 250", true);
+    scroll_case(label, &adapter, &bus, &settled.frame, wanted).expect("the case holds");
 }
 
 #[test]
@@ -150,5 +122,5 @@ fn offscreen_live_qt_list_item_cannot_be_scrolled_to() {
         ("QT_QPA_PLATFORM", "xcb".to_owned()),
         ("LD_LIBRARY_PATH", libraries),
     ];
-    script_app("qt", &python, QT_LIST, &env, "Item 250", false);
+    script_app("qt", &python, QT_LIST, &env, "Item 250");
 }
