@@ -116,7 +116,7 @@ The Verification Contract (below) passes on the candidate commit, and the Closur
 **Resolve before building:**
 
 - Q1. The decision for `bundle_id` is made (desktop id, adapter side). U6 verifies that `close-app org.gnome.Calculator` and `launch org.gnome.Calculator` accept the same identifier.
-- Q2. Decision 42 (a bus lost after connection: keep `INTERNAL` or map like a cold start) is open. U1 item 7 measures what an agent sees. The default if the owner is silent: map it to the same bus-lost recovery text as a cold start and keep `retry: safe` only when `not_delivered` is true.
+- Q2. Decision 42: a bus lost after connection remains `INTERNAL` with a retry suggestion; `PLATFORM_NOT_SUPPORTED` means the bus was unavailable at detection. Delivery stays unknown, so the mapper cannot declare retry safe. A permission probe drops the failed cached connection and a later call reconnects; the long-lived [C consumer's lost-bus leg](../../tests/linux-dist/consumer.c) verifies loss and recovery on the same adapter.
 
 **Owner decisions that the plan cannot make:**
 

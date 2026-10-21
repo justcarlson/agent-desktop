@@ -17,7 +17,7 @@ fn shell_live_lost_role_connection_is_not_a_destroyed_node() {
     use std::io::{BufRead, BufReader};
     use std::process::{Child, Command, Stdio};
 
-    use agent_desktop_core::{Deadline, ErrorCode};
+    use agent_desktop_core::{Deadline, DeliverySemantics, ErrorCode};
 
     struct Daemon(Child);
     impl Drop for Daemon {
@@ -66,7 +66,7 @@ fn shell_live_lost_role_connection_is_not_a_destroyed_node() {
     daemon.0.kill().expect("kill owned bus");
     assert!(!daemon.0.wait().expect("process exit oracle").success());
     let error = read().expect_err("lost role transport cannot mean a destroyed node");
-    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert!(!error.permits_retry_by_default());
+    assert_eq!(error.code, ErrorCode::Internal);
+    assert_eq!(error.disposition, DeliverySemantics::unknown());
     println!("owned daemon exited: required shell role = {error:?}");
 }

@@ -74,7 +74,9 @@ suggestion naming the next step. The raw D-Bus error is in `platform_detail`.
 
 A call that times out is `TIMEOUT`, not one of these: nothing was learned about
 the bus. A bus that dies mid-session returns `INTERNAL` with a retry
-suggestion, and the next call reconnects.
+suggestion. A permission probe drops the failed cached connection so a later
+call reconnects. The loss alone does not prove whether an action was delivered;
+do not retry an action unless its disposition says retry is safe.
 
 Do not run the restart suggestion on a machine where another process owns the
 bus. The suggestion is right on your own desktop. On a shared host, a second

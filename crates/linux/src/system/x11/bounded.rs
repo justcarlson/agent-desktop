@@ -164,6 +164,15 @@ impl ReaderPool {
             .name("x11-read".to_owned())
             .spawn(move || {
                 let _permit = permit;
+                let masked = unsafe {
+                    let mut signals = std::mem::zeroed();
+                    libc::sigemptyset(&mut signals);
+                    libc::sigaddset(&mut signals, libc::SIGPIPE);
+                    libc::pthread_sigmask(libc::SIG_BLOCK, &signals, std::ptr::null_mut())
+                };
+                if masked != 0 {
+                    return;
+                }
                 CURRENT.with_borrow_mut(|current| *current = Some(registered));
                 let _ = sender.send(read());
                 CURRENT.with_borrow_mut(|current| *current = None);

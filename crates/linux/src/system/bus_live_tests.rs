@@ -53,7 +53,7 @@ fn deadline() -> Deadline {
 
 #[test]
 #[ignore = "owns a private bus; run inside scripts/private-session.sh --wm"]
-fn bus_live_loss_keeps_cold_start_recovery_without_claiming_delivery() {
+fn bus_live_loss_is_internal_without_claiming_delivery() {
     let runtime = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("private session");
     let socket = format!("{runtime}/loss-bus");
     let mut daemon = PrivateDaemon(
@@ -156,27 +156,23 @@ fn bus_live_loss_keeps_cold_start_recovery_without_claiming_delivery() {
         crate::tree::read_node(connection.inner(), &root),
     )
     .expect_err("transport failure must not become a partial tree");
-    assert_eq!(node_error.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(node_error.code, ErrorCode::Internal);
     let nodes = crate::system::shell::light::LiveNodes::new(connection.inner().clone(), deadline());
     let shell_error = crate::system::shell::identity::content_window(&nodes, &root)
         .expect_err("an unreadable shell is not a missing window");
-    assert_eq!(shell_error.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(shell_error.code, ErrorCode::Internal);
     for _ in 0..2 {
         let error = app_inventory(&bus, deadline()).expect_err("lost bus");
-        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-        let cold = classify(&zbus::Error::InputOutput(std::sync::Arc::new(
-            std::io::Error::from(ErrorKind::NotFound),
-        )));
-        assert_eq!(error.suggestion, cold.suggestion);
+        assert_eq!(error.code, ErrorCode::Internal);
         assert!(
             error
                 .suggestion
                 .as_deref()
                 .expect("recovery")
-                .contains("new adapter")
+                .contains("Retry")
         );
+        assert_eq!(error.disposition, DeliverySemantics::unknown());
         assert_ne!(error.disposition.retry(), RetryDisposition::Safe);
-        assert!(!error.permits_retry_by_default());
         println!("owned daemon exited: lost bus = {error:?}");
     }
     drop(server);

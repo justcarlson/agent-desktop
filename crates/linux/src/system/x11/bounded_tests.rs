@@ -42,6 +42,72 @@ fn a_reader_that_panics_is_unavailable_not_a_caller_failure() {
 }
 
 #[test]
+fn a_cancelled_reader_does_not_send_sigpipe_to_its_host() {
+    use std::io::Read;
+    use std::os::unix::net::UnixStream;
+    use std::process::Command;
+    use x11rb::rust_connection::{DefaultStream, Stream};
+
+    const CHILD: &str = "AGENT_DESKTOP_X11_CANCEL_SIGPIPE_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let status = Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "system::x11::bounded::tests::a_cancelled_reader_does_not_send_sigpipe_to_its_host",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .status()
+            .expect("foreign signal policy host");
+        assert!(
+            status.success(),
+            "cancelled reader terminated its host: {status}"
+        );
+        return;
+    }
+    assert_ne!(
+        unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) },
+        libc::SIG_ERR
+    );
+    let unmasked = unsafe {
+        let mut signals = std::mem::zeroed();
+        libc::sigemptyset(&mut signals);
+        libc::sigaddset(&mut signals, libc::SIGPIPE);
+        libc::pthread_sigmask(libc::SIG_UNBLOCK, &signals, std::ptr::null_mut())
+    };
+    assert_eq!(unmasked, 0);
+    let (entered, ready) = channel();
+    let (wrote, observed) = channel();
+    let pending = start(move || {
+        let (socket, mut peer) = UnixStream::pair().expect("socket pair");
+        peer.set_read_timeout(Some(Duration::from_secs(2)))
+            .expect("bounded cancellation oracle");
+        super::register(&socket).expect("cancellable transport");
+        let (stream, _) = DefaultStream::from_unix_stream(socket).expect("X11 transport");
+        entered.send(()).expect("transport ready");
+        assert_eq!(peer.read(&mut [0]).expect("cancellation closes socket"), 0);
+        let error = stream
+            .write(b"request", &mut Vec::new())
+            .expect_err("cancelled write");
+        wrote.send(error.kind()).expect("write result");
+    });
+    ready
+        .recv_timeout(Duration::from_secs(2))
+        .expect("reader ready");
+    drop(pending);
+    assert_eq!(
+        observed
+            .recv_timeout(Duration::from_secs(2))
+            .expect("host survives"),
+        std::io::ErrorKind::BrokenPipe
+    );
+    assert_eq!(
+        unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) },
+        libc::SIG_DFL
+    );
+}
+
+#[test]
 fn work_done_before_the_wait_overlaps_the_read() {
     let (done, ready) = channel();
     let pending = start(move || {
