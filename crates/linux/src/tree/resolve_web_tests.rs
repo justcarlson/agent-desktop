@@ -36,7 +36,7 @@ fn rows() -> Fake {
 }
 
 #[test]
-fn a_dom_id_ref_resolves_by_the_path_and_by_the_search_with_the_web_context_on_the_handle() {
+fn a_dom_id_ref_keeps_the_web_context_with_or_without_a_stored_path() {
     let mut fake = page();
     let entry = fake.entry_of("/save", true);
     assert_eq!(
@@ -46,14 +46,12 @@ fn a_dom_id_ref_resolves_by_the_path_and_by_the_search_with_the_web_context_on_t
     let by_path = resolve(&mut fake, &entry, deadline()).expect("resolves");
     assert_eq!(by_path.path(), "/save");
     assert!(by_path.in_web_document());
-    assert_eq!(fake.reads.searches, 0);
 
     let mut without_path = entry.clone();
     without_path.scope.path.clear();
     let by_search = resolve(&mut fake, &without_path, deadline()).expect("resolves");
     assert_eq!(by_search.path(), "/save");
     assert!(by_search.in_web_document());
-    assert_eq!(fake.reads.searches, 1);
 }
 
 #[test]

@@ -43,23 +43,23 @@ fn kind(error: &AdapterError) -> &str {
 }
 
 #[test]
-fn the_path_lands_on_the_second_twin_and_nothing_is_searched() {
+fn the_search_separates_the_second_twin_by_stored_size() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", true);
     assert_eq!(entry.scope.path.as_slice(), [0, 1]);
     assert_eq!(resolved(&mut fake, &entry), "/opts2");
-    assert_eq!(fake.reads.searches, 0);
+    assert_eq!(fake.reads.searches, 1);
     assert_eq!(fake.reads.levels, 2);
     assert_eq!(fake.reads.evidence, 1);
 }
 
 #[test]
-fn a_ref_with_no_stored_size_still_lands_positionally_on_its_twin() {
+fn a_ref_with_no_stored_size_cannot_distinguish_its_twin() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", false);
     assert!(entry.geometry.bounds.is_none());
-    assert_eq!(resolved(&mut fake, &entry), "/opts2");
-    assert_eq!(fake.reads.searches, 0);
+    assert_eq!(refusal(&mut fake, &entry).code, ErrorCode::AmbiguousTarget);
+    assert_eq!(fake.reads.searches, 1);
 }
 
 #[test]
@@ -68,12 +68,12 @@ fn a_moved_window_changes_no_answer_for_the_path_or_for_the_size_search() {
     let entry = fake.entry_of("/opts2", true);
     fake.shift_every_position(120, 64);
     assert_eq!(resolved(&mut fake, &entry), "/opts2");
-    assert_eq!(fake.reads.searches, 0);
+    assert_eq!(fake.reads.searches, 1);
 
     let mut without_path = entry.clone();
     without_path.scope.path.clear();
     assert_eq!(resolved(&mut fake, &without_path), "/opts2");
-    assert_eq!(fake.reads.searches, 1);
+    assert_eq!(fake.reads.searches, 2);
 }
 
 #[test]

@@ -1,3 +1,4 @@
+use agent_desktop_core::ref_identity::has_meaningful_identity;
 use agent_desktop_core::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rect, RefEntry};
 
@@ -112,7 +113,9 @@ fn attempt<S: Source>(
     let frame = source.open_window(entry)?;
     let path_unread = if path_tier_applies(entry) {
         let (landed, unread) = path_tier(source, &frame, entry, deadline)?;
-        if let Some(element) = landed {
+        if let Some(element) = landed
+            && (entry.identity.retained_object.is_some() || !has_meaningful_identity(entry))
+        {
             return Ok(element);
         }
         unread
@@ -163,9 +166,9 @@ fn attempt<S: Source>(
 /// A ref with no identity evidence is refused before any read: a child index
 /// cannot distinguish an unnamed node from a replacement or reordered sibling.
 /// The window gate proves the process and window are the stored ones; the
-/// stored child-index path is followed and its landing accepted when
-/// it still answers to the stored identity and size; otherwise a bounded
-/// search of the window's tree decides among zero, one and several candidates.
+/// stored child-index path can identify a retained object or a geometry-only
+/// ref. Named and identifier-bearing refs always search the bounded window
+/// tree: a positional landing cannot prove that no matching sibling exists.
 /// An application that left, a destroyed object and a timeout are told apart
 /// at this boundary, and a timeout on a stopped process is `APP_UNRESPONSIVE`.
 pub(crate) fn resolve<S: Source>(
@@ -214,3 +217,7 @@ mod refusal_tests;
 #[cfg(test)]
 #[path = "resolve_web_tests.rs"]
 mod web_tests;
+
+#[cfg(test)]
+#[path = "resolve_shift_tests.rs"]
+mod shift_tests;
