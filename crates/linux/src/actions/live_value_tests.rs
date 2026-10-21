@@ -1,4 +1,4 @@
-use agent_desktop_core::{Action, ErrorCode};
+use agent_desktop_core::{Action, DeliverySemantics};
 
 use super::live_bench::{Toolkit, each_toolkit};
 
@@ -6,7 +6,7 @@ const SCROLL_BAR: u32 = 48;
 
 #[test]
 #[ignore = "needs lane A's write engine; run through scripts/private-session.sh --wm"]
-fn a_spin_button_takes_a_whole_number_and_refuses_a_fraction_in_every_toolkit() {
+fn spin_writes_follow_toolkit_readback_instead_of_the_step_increment() {
     each_toolkit(|toolkit, bench| {
         let spin = bench.named("spin");
         bench
@@ -14,14 +14,19 @@ fn a_spin_button_takes_a_whole_number_and_refuses_a_fraction_in_every_toolkit() 
             .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
         assert_eq!(bench.number_of(&spin), 7.0, "{toolkit:?}");
         let fraction = bench.act(&spin, Action::SetValue("7.5".to_owned()));
-        if matches!(toolkit, Toolkit::Gtk4) {
-            let result = fraction.expect("an unreadable increment cannot refuse the fraction");
-            let proved = result.steps.iter().any(|step| step.verified == Some(true));
-            assert!(!proved, "{toolkit:?}: a fraction is never proven committed");
+        if matches!(toolkit, Toolkit::Qt) {
+            let rounded = fraction.expect("integer widget rounds the write");
+            assert_eq!(
+                rounded.disposition(),
+                DeliverySemantics::delivered_unverified()
+            );
+            assert_eq!(bench.number_of(&spin), 8.0, "{toolkit:?}");
         } else {
-            let refused = fraction.expect_err("a fraction is refused");
-            assert_eq!(refused.code, ErrorCode::InvalidArgs, "{toolkit:?}");
-            assert_eq!(bench.number_of(&spin), 7.0, "{toolkit:?}");
+            let result = fraction.expect("step increment does not forbid fractions");
+            assert_eq!(bench.number_of(&spin), 7.5, "{toolkit:?}");
+            if matches!(toolkit, Toolkit::Gtk4) {
+                assert!(result.steps.iter().all(|step| step.verified != Some(true)));
+            }
         }
     });
 }

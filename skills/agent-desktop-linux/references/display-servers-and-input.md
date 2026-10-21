@@ -111,6 +111,10 @@ in the CLI help; `agent-desktop press <combo>` shows the refusal per combo.
 
 ## `type`
 
+Empty typing sends no keys and does not request focus on the target. It reports
+`not_delivered`; `--headed` can still activate the source window before the
+empty insertion is dispatched.
+
 Reveal a search field with the app's search button or Ctrl+F before taking its
 ref. Headed typing proves focus on the field or its own internal editor. In
 Nautilus, the editor is omitted from the normal tree, and the enclosing search
@@ -188,6 +192,8 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
   page-size dependent (about two rows on GTK, exactly three items on Qt), so
   `--amount` counts clicks, not rows. A `scrollarea` with no ref cannot take
   `scroll @ref`; use `scroll-to` on a child or `mouse-wheel` at coordinates.
+  Each wheel burst uses click's pointer gate at that point. A hit-test result
+  naming an interceptor refuses the burst.
 - `scroll-to` scrolls through the bar on GTK3 and GTK4 and through `ScrollTo` on
   Chromium. It does not work on Qt: use `scroll --headed`. A container with no
   scrollable axis has no ref. If target visibility is unknown, `scroll-to`

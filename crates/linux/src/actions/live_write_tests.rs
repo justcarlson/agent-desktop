@@ -23,6 +23,21 @@ const TOGGLE_VERBS: [&str; 4] = ["toggle", "click", "press", "activate"];
 const VALUE_INTERFACE: &str = "org.a11y.atspi.Value";
 const SETTLE: Duration = Duration::from_secs(5);
 
+fn assert_stays<T: std::fmt::Debug + PartialEq>(
+    label: &str,
+    before: T,
+    mut read: impl FnMut() -> Option<T>,
+) {
+    let started = Instant::now();
+    loop {
+        assert_eq!(read().expect("state remains readable"), before, "[{label}]");
+        if started.elapsed() >= SETTLE {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
 fn set_current_value(
     target: &super::context::Target<'_>,
     value: f64,
@@ -99,13 +114,12 @@ fn write_live_a_read_only_value_never_reads_back_as_written() {
         let probe = probe();
         let bar = probe.with_role(app.pid, ROLE_PROGRESS_BAR, None);
         let handle = NativeHandle::new(bar.clone());
-        let before = probe.value(&bar);
+        let before = probe.value(&bar).expect("the progress value reads");
         let reply = set_current_value(&target(&probe, &handle, &bar, 5_000), 90.0);
-        std::thread::sleep(Duration::from_millis(600));
-        let after = probe.value(&bar);
         let shown = reply.as_ref().map_err(describe);
-        println!("write_live {label}: progress {before:?} -> {after:?} reply {shown:?}");
-        assert_eq!(before, after, "[{label}] a read-only value stays put");
+        println!("write_live {label}: progress {before:?} reply {shown:?}");
+        assert!(matches!(reply, Ok(WriteReply::Done)), "[{label}] {shown:?}");
+        assert_stays(label, before, || probe.value(&bar));
     }
 }
 
@@ -117,7 +131,7 @@ fn write_live_an_index_the_node_does_not_have_changes_nothing() {
         let probe = probe();
         let flag = probe.toggle(app.pid);
         let handle = NativeHandle::new(flag.clone());
-        let before = probe.checked(&flag);
+        let before = probe.checked(&flag).expect("the toggle state reads");
         let reply = invoke(
             &target(&probe, &handle, &flag, 5_000),
             Call {
@@ -127,16 +141,17 @@ fn write_live_an_index_the_node_does_not_have_changes_nothing() {
                 kind: WriteKind::DoAction,
             },
         );
-        std::thread::sleep(Duration::from_millis(600));
         let shown = reply.as_ref().map_err(describe);
         println!("write_live {label}: index 99 reply {shown:?}");
-        if label == "gtk4" {
+        if label == "gtk3" {
+            assert!(matches!(reply, Ok(WriteReply::Done)), "[{label}] {shown:?}");
+        } else {
             assert!(
                 matches!(reply, Ok(WriteReply::Absent)),
                 "[{label}] {shown:?}"
             );
         }
-        assert_eq!(probe.checked(&flag), before, "[{label}]");
+        assert_stays(label, before, || probe.checked(&flag));
     }
 }
 

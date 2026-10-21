@@ -17,8 +17,7 @@ use crate::input::plan::Plan;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
-/// Everything a physical leg reads from or sends to the desktop, so each leg
-/// runs against a fixed desktop in a test.
+/// The desktop observations and input used by each physical leg.
 pub(crate) trait PhysicalWorld {
     fn backend(&self) -> Result<Backend, AdapterError>;
     fn focus_target(&self, element: &AtspiElement, deadline: Deadline) -> Result<(), AdapterError>;
@@ -135,19 +134,30 @@ impl PhysicalWorld for LiveWorld<'_> {
         let placed = crate::tree::live_offscreen::placement(self.bus, element, deadline);
         super::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
         let handle = element.clone().into_native_handle();
-        let hit = crate::tree::hit_test(self.bus, &handle, point.clone(), deadline)?;
-        if hit == HitTestResult::ReachesTarget {
-            return Ok(());
+        match crate::tree::hit_test(self.bus, &handle, point.clone(), deadline)? {
+            HitTestResult::ReachesTarget => Ok(()),
+            HitTestResult::InterceptedBy { role, name, bounds } => Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "Another element intercepts the pointer target",
+            )
+            .with_details(json!({
+                "check": "receives_events",
+                "interceptor": { "role": role, "name": name, "bounds": bounds },
+                "physical_delivery_started": false,
+            }))
+            .with_suggestion("Reveal the target and refresh the snapshot before retrying")
+            .with_disposition(DeliverySemantics::not_delivered())),
+            hit => Err(
+                AdapterError::new(ErrorCode::ActionFailed, "Pointer delivery is unproven")
+                    .with_details(json!({
+                        "kind": "pointer_hit_unproven",
+                        "hit_test": hit,
+                        "physical_delivery_started": false,
+                    }))
+                    .with_suggestion("Expose readable, unobstructed target geometry and retry")
+                    .with_disposition(DeliverySemantics::not_delivered()),
+            ),
         }
-        Err(
-            AdapterError::new(ErrorCode::ActionFailed, "Pointer delivery is unproven")
-                .with_details(json!({
-                    "kind": "pointer_hit_unproven",
-                    "hit_test": hit,
-                }))
-                .with_suggestion("Expose readable, unobstructed target geometry and retry")
-                .with_disposition(DeliverySemantics::not_delivered()),
-        )
     }
 
     fn plan_combo(&self, map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError> {
