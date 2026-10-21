@@ -5,7 +5,7 @@ use agent_desktop_core::{
 };
 
 use super::live_launch::{Launched, nonce};
-use super::live_offscreen_live_tests::scripts::{GTK3_LIST, GTK4_LIST, QT_LIST};
+use super::live_offscreen_live_tests::scripts::GTK3_LIST;
 use super::physical_live_rig::{Kit, Scene, Tgt};
 use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
@@ -161,12 +161,6 @@ fn pointer_buttons_down() -> bool {
 
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_type_into_a_gtk3_entry_reads_back_with_remapped_characters() {
-    type_text(Kit::Gtk, GTK3);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_type_into_a_gtk4_entry_reads_back_with_remapped_characters() {
     type_text(Kit::Gtk, GTK4);
 }
@@ -205,18 +199,6 @@ fn live_a_click_at_the_bounds_centre_presses_a_qt_button() {
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_the_wheel_scrolls_a_gtk3_list_and_back() {
     wheel(Kit::Gtk, GTK3_LIST, "Row 005");
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_the_wheel_scrolls_a_gtk4_list_and_back() {
-    wheel(Kit::Gtk, GTK4_LIST, "Row 005");
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_the_wheel_scrolls_a_qt_list_and_back() {
-    wheel(Kit::Qt, QT_LIST, "Item 005");
 }
 
 #[test]

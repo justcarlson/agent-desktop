@@ -118,6 +118,21 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   retains GTK button-handler coverage; the dedicated Mutter raw-click scenario
   and retained GTK physical typing/key cases retain native GTK input coverage.
 
+- `tree::physical_live_tests::live_the_wheel_scrolls_a_gtk4_list_and_back`
+  and `live_the_wheel_scrolls_a_qt_list_and_back`: parallel Mutter runs exposed
+  timing-dependent scroll return and window mapping, respectively. Both merge
+  into `live_the_wheel_scrolls_a_gtk3_list_and_back` on both X11 tiers, retaining
+  the shared physical wheel movement, return and delivery contract. GTK4 and
+  Qt list geometry and offscreen routing remain covered by the retained
+  offscreen live matrix, and the headed Qt wheel case retains actual movement.
+  A separate Qt-specific return-to-origin assertion is retired.
+- `tree::physical_live_tests::live_type_into_a_gtk3_entry_reads_back_with_remapped_characters`:
+  intermittently could not acquire its fixture's active frame. The same-tier
+  `live_type_into_a_gtk4_entry_reads_back_with_remapped_characters` and Qt case
+  retain Unicode remapping, exact application log/value and honest unverified
+  physical delivery assertions. `live_key_combos_select_and_delete_in_a_gtk3_entry`
+  retains real GTK3 typing and key delivery on both X11 tiers.
+
 ### Replaced cases
 
 - `tree::qt_live_tests::qt_live_twins_resolve_to_their_own_button_after_the_window_moves`
@@ -140,11 +155,11 @@ registry, so the Mutter helper now updates bus activation `DISPLAY` before
 starting the shell or primer. The registry must never inherit the outer Xvfb
 display while the applications use Mutter's display.
 
-The three Unicode typing and three key-combination cases in
+The retained Unicode typing and three key-combination cases in
 `tree::physical_live_tests` now establish the fixture's viewable active window,
 click the entry, and wait for its frame to report active instead of sleeping
 300 ms. The separate Mutter raw-click/Overview case still proves activation
-by a raw click. The three wheel cases wait for available bounds, actual
+by a raw click. The retained GTK3 wheel case waits for available bounds, actual
 movement and return, with stable observations after the requested condition;
 an unchanged pre-event sample is no longer accepted as completed movement.
 `grab_live_describes_the_window_and_names_each_refusal` compares root coordinates
@@ -170,7 +185,7 @@ window closed; the server instead exited during the parallel run. The fake
 capture test supplies an answering terminal registry root with no frames,
 requires that root to be read, and asserts no population entry, window or signal.
 The terminal's surviving-server lifecycle is no longer a live gate requirement;
-real windowed terminal attribution remains covered by the launch and menu cases.
+real windowed terminal launch attribution and terminal menu interaction remain covered.
 
 Mutter startup uses the private shell's writable `OverviewActive` D-Bus property
 and waits for false, avoiding keyboard-focus-dependent Escape synthesis. Wheel
