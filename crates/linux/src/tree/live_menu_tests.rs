@@ -10,19 +10,13 @@ use crate::tree::{AtspiElement, menu_context::MenuContext};
 
 struct MenuReader {
     context: Result<Option<MenuContext>, AdapterError>,
-    actual_object: Option<String>,
     context_reads: usize,
 }
 
 impl NodeReader for MenuReader {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
         let read = read_of(PUSH_BUTTON, "Open", &["click"]);
-        let mut evidence = evidence_for(&read, element);
-        let actual = self
-            .actual_object
-            .clone()
-            .unwrap_or_else(|| element.path().to_owned());
-        evidence.identifiers = evidence.identifiers.clone().with_retained_object(actual);
+        let evidence = evidence_for(&read, element);
         Ok(NodeEvidence {
             read,
             evidence,
@@ -56,8 +50,8 @@ fn deadline() -> Deadline {
     Deadline::after(5_000).expect("a deadline builds")
 }
 
-fn menu_handle() -> NativeHandle {
-    let mut element = AtspiElement::new(":1.1", "/menu/open", 40);
+fn menu_handle(path: &str) -> NativeHandle {
+    let mut element = AtspiElement::new(":1.1", path, 40);
     element.set_ancestry(ancestry::of_root(&AtspiElement::new(":1.1", "/menu", 40)));
     element.set_menu_owner(&AtspiElement::new(":1.1", "/window", 40));
     element.into_native_handle()
@@ -101,7 +95,6 @@ fn verdict(
 fn reader(context: Option<MenuContext>) -> MenuReader {
     MenuReader {
         context: Ok(context),
-        actual_object: None,
         context_reads: 0,
     }
 }
@@ -111,7 +104,8 @@ fn menu_live_identity_uses_the_fresh_context_and_actual_live_object_path() {
     let captured = MenuContext::test("/menu", 42);
     let mut reader = reader(Some(captured.clone()));
 
-    let live = element_via(&mut reader, &menu_handle(), deadline()).expect("live menu item");
+    let live =
+        element_via(&mut reader, &menu_handle("/menu/open"), deadline()).expect("live menu item");
 
     assert_eq!(verdict(&menu_ref(&captured), &live), IdentityMatch::Match);
     let expected = captured.encode("/menu/open");
@@ -130,7 +124,8 @@ fn changed_incomplete_or_unavailable_menu_context_mismatches_the_snapshot() {
         None,
     ] {
         let mut reader = reader(current);
-        let live = element_via(&mut reader, &menu_handle(), deadline()).expect("live item");
+        let live =
+            element_via(&mut reader, &menu_handle("/menu/open"), deadline()).expect("live item");
         assert_eq!(verdict(&menu_ref(&captured), &live), IdentityMatch::NoMatch);
     }
 }
@@ -139,9 +134,8 @@ fn changed_incomplete_or_unavailable_menu_context_mismatches_the_snapshot() {
 fn the_same_context_does_not_hide_a_changed_live_object_path() {
     let captured = MenuContext::test("/menu", 42);
     let mut reader = reader(Some(captured.clone()));
-    reader.actual_object = Some("/menu/replacement".to_owned());
-
-    let live = element_via(&mut reader, &menu_handle(), deadline()).expect("live item");
+    let live =
+        element_via(&mut reader, &menu_handle("/menu/replacement"), deadline()).expect("live item");
 
     assert_eq!(verdict(&menu_ref(&captured), &live), IdentityMatch::NoMatch);
 }
@@ -151,7 +145,8 @@ fn a_menu_context_read_error_is_preserved() {
     let mut reader = reader(None);
     reader.context = Err(AdapterError::timeout("popup scan timed out"));
 
-    let error = element_via(&mut reader, &menu_handle(), deadline()).expect_err("timeout");
+    let error =
+        element_via(&mut reader, &menu_handle("/menu/open"), deadline()).expect_err("timeout");
 
     assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
 }
@@ -163,8 +158,5 @@ fn an_ordinary_window_read_preserves_raw_identity_without_querying_popup_context
     let live = element_via(&mut reader, &window_handle(), deadline()).expect("live window item");
 
     assert_eq!(reader.context_reads, 0);
-    assert_eq!(
-        live.identity.identifiers.retained_object(),
-        Some("/menu/open")
-    );
+    assert_eq!(live.identity.identifiers.retained_object(), None);
 }
