@@ -1,0 +1,128 @@
+# Linux Troubleshooting
+
+Start with `agent-desktop status` and `agent-desktop list-apps`. Most Linux
+problems are a bus problem, an app that is not on the bus, or an input route the
+display server does not give.
+
+## Symptom to cause
+
+| Symptom | Cause | What to do |
+|---------|-------|------------|
+| `PLATFORM_NOT_SUPPORTED` "The AT-SPI accessibility bus is not available in this session" | Session bus or accessibility bus unreachable | Read `references/bus-and-permissions.md`; run inside the desktop session |
+| `status` shows empty `supported_surfaces` | Same: the bus did not answer | Same |
+| `list-apps` is empty but `status` is healthy | Bus up, no app registered | Start an app; restart one that started before the bus |
+| App runs but `--app` finds nothing | Not on the bus, or wrong name | See "Apps that are not on the bus" and use the `list-apps` name |
+| Chromium shows a bus entry but no windows | Renderer accessibility is off | Add `--force-renderer-accessibility` |
+| Window appears but `snapshot` is thin | Content not ready | `wait --window`, then `wait --text`; raise `--timeout-ms` |
+| `TIMEOUT` on `snapshot` | `--timeout-ms` shorter than the first read | Raise it; a partial tree is never returned |
+| `ACTION_FAILED` `activation_not_granted` | Window manager never activated the window | `references/windows-and-lifecycle.md`, Focus |
+| `ACTION_FAILED` `overview_open` | GNOME Activities Overview is open | Close the overview, retry |
+| `ACTION_FAILED` `frame_not_active` or `check: window_active` | Window manager made the window active but the app does not report it | Run `snapshot` on the app once, then retry; it is intermittent on Electron |
+| `POLICY_DENIED` on `click`, `type`, tray `click` | Needs `--headed` | Pass `--headed` if that is acceptable |
+| `POLICY_DENIED` on `press` | Blocked combo | Do not use `--force` unless you mean it |
+| `ACTION_NOT_SUPPORTED` `wayland_session` | X11 window control on a Wayland-native window | Use an Xwayland client, or act through the app's own UI |
+| `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Pointer input on Wayland | Use a semantic action, `set-value` or a global `press` |
+| `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
+| `STALE_REF` | UI changed or the window closed | Take a new `snapshot`; see `details.kind` |
+| `INTERNAL` "private file parent is accessible by group or other users" | The state root is group-writable or world-accessible | `chmod 700` it; see `references/bus-and-permissions.md` |
+
+## Apps that are not on the bus
+
+An app shows up in `list-apps` only when its toolkit registered with the
+accessibility bus. The CLI says so itself when a process is running but not on the
+bus.
+
+- **GTK3 and GTK4:** register by default when `toolkit-accessibility` is on or
+  the bus exists. An app that started before the bus never registers; restart it.
+- **Qt:** needs `QT_ACCESSIBILITY=1` in the environment of the process.
+- **Chromium browsers (Chrome, Chromium):** need `--force-renderer-accessibility`
+  on the command line. `ACCESSIBILITY_ENABLED=1` alone puts the browser on the bus
+  with no windows.
+- **Electron apps:** need no accessibility flag. Where `chrome-sandbox` is not
+  setuid, they need `--no-sandbox`.
+- **Flatpak and snap apps:** the sandbox must share the bus. See
+  `references/shell-tray-and-notifications.md`.
+
+Pass launch flags through `launch`:
+
+```bash
+agent-desktop launch google-chrome --arg=--force-renderer-accessibility
+```
+
+Chrome lists as `chrome`, so use `--app chrome` afterwards; the `launch` result carries
+`renderer: chromium`.
+
+Chromium and Electron apps read thin before they settle. Pass `--timeout-ms` to
+`snapshot` rather than concluding the tree is empty. A Chromium menu frame is a
+nameless top-level frame, not a window: it does not count as a window event.
+
+## Observation details
+
+- `--max-depth` and `--skeleton` count semantic levels. Empty layout wrappers do
+  not count, so output nesting can exceed the number you passed. `-i --compact`
+  still shows nested nameless `group` nodes on GTK4; read past them.
+- `--root @ref` takes the window and the options from the ref's snapshot.
+- `status` shows the snapshot that the latest `find` wrote.
+- `find --first` returns `data.match` (singular), not `data.matches`.
+- `--text` in `wait` and `find` matches the text of a subtree, so ancestors of the
+  text match too.
+- A nested cell under a cell (a list row with a cell inside a cell) is two refs.
+- A node with no usable position reports no `bounds` and is not hit-tested.
+- A password field is withheld only where the toolkit reports a password role. A
+  GTK4 `Gtk.Entry` with visibility off, an entry with `InputPurpose.PASSWORD` and
+  `Adw.PasswordEntryRow` all show their text: observation commands read them.
+- A `scrollarea` with no ref cannot take `scroll @ref`.
+
+## Toolkit limits
+
+| Toolkit | Limit |
+|---------|-------|
+| GTK4 | Bounds carry a reliable size and a position only where the node maps to a unique X11 client origin; elsewhere no position is reported. Menu item labels come from the labelling node. Secret entries show text. |
+| GTK3 | `scroll-to` works through the scrollbar. A held handle answers stale values for 16 to 17 s after its object is destroyed, so waits re-resolve on every poll. |
+| Qt | `scroll-to` does not work: use `scroll --headed`. A `QLineEdit` context menu is not observable. The combo popup takes no semantic selection. A Qt process registers twice; the apps list shows one entry per process. |
+| Chromium and Electron | `scroll-to` works through `ScrollTo`. `hit_test` answers unknown for an Electron host. Needs the flags above. |
+
+`hit_test` answers `Unknown` on Wayland, with no window manager, for GTK4 where the
+X11 mapping is not unique, and for an Electron host. A blocking `Unknown` refuses a
+headed click. A covered button is still `visible` and headless-actionable:
+occlusion is checked only before pointer delivery.
+
+## Errors and `platform_detail`
+
+Errors keep the standard envelope. Linux fills `platform_detail` with the raw
+D-Bus or X11 error:
+
+| `error.code` | Typical `platform_detail` | Meaning |
+|--------------|---------------------------|---------|
+| `PLATFORM_NOT_SUPPORTED` | `org.freedesktop.DBus.Error.ServiceUnknown` | AT-SPI not installed or not visible |
+| `PLATFORM_NOT_SUPPORTED` | `org.freedesktop.DBus.Error.Spawn.*` | The bus launcher cannot start |
+| `PLATFORM_NOT_SUPPORTED` | ``Failed to connect to address `unix:path=/run/user/1000/at-spi/bus_0,guid=...`: No such file or directory (os error 2)`` | The accessibility bus socket is missing (suggestion: restart the bus launcher). The same text with the session bus address means no session bus |
+| `TIMEOUT` | "The accessibility bus did not answer in time" | A hung or slow bus: nothing learned |
+| `INTERNAL` | "The accessibility bus returned an unexpected error" | An unclassified bus reply: retry once, then report it |
+| `INVALID_ARGS` | "Native handle does not contain a Linux accessibility element" | A ref of another kind than the command accepts |
+
+The error text never carries an argument or an environment value.
+
+## Commands that refuse by design
+
+- `key-down`, `key-up`, `mouse-down`, `mouse-up`: `ACTION_NOT_SUPPORTED` everywhere.
+- `cursor-overlay`: succeeds as a setting only. `enable` returns `data.rendered:
+  false` and no overlay is drawn, so do not wait for one.
+- `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`; open
+  `system-tray`, `action-center` or `quick-settings` instead.
+- Pointer commands and window screenshots on Wayland.
+
+## Missing tools
+
+The binary needs no outside tool on X11. On Wayland the clipboard needs the
+`wl-clipboard` package. The X11 clipboard needs the helper
+`agent-desktop-linux-clipboard-owner` beside the binary. For the bus itself,
+install `at-spi2-core`. A missing tool is reported by name with the package to
+install, never as an empty result.
+
+## Shared hosts
+
+The interaction lock (`/tmp/agent-desktop-<uid>/interaction.lock`) serializes
+input per user. `TIMEOUT` with `lock_timeout` and a high `contention_count` means
+another agent of the same user holds it. Do not restart the user's accessibility
+bus, and run a second bus only in a private runtime directory.

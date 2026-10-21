@@ -13,6 +13,7 @@ agent-desktop permissions
 
 - On macOS, the terminal needs Accessibility permission, and Screen Recording for screenshots. If `permissions` reports `denied`, run `agent-desktop permissions --request` and grant the permission in System Settings.
 - On Windows, there is no permission dialog for same-integrity targets. Input into an elevated target needs an equally elevated terminal.
+- On Linux, there is no permission dialog. The session needs a running AT-SPI bus and `status` must report `accessibility` as `granted`. Run the tool in the same desktop session as the target app. If `status` reports it denied, read the bus section of the Linux skill.
 
 Then run `agent-desktop skills get platform` for the details of your OS.
 
