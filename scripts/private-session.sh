@@ -82,6 +82,7 @@ export XDG_CACHE_HOME=$rt/cache
 export GSETTINGS_BACKEND=keyfile
 export XDG_CURRENT_DESKTOP=GNOME
 export AGENT_DESKTOP_PRIVATE_SESSION=$rt
+export AGENT_DESKTOP_HOME=$rt/agent-desktop
 
 bus_address="unix:path=$rt/bus"
 dbus-daemon --session --nofork --address="$bus_address" 2> "$rt/bus.log" &
@@ -117,7 +118,7 @@ done
 export DISPLAY=":$display_number"
 
 dbus-update-activation-environment DISPLAY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_DATA_HOME \
-  XDG_CACHE_HOME GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION
+  XDG_CACHE_HOME GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION AGENT_DESKTOP_HOME
 
 if [ "$wm" = 1 ]; then
   wm_root=${AGENT_DESKTOP_WM_ROOT:-$HOME/ad-wt/wm-pkgs/root}
