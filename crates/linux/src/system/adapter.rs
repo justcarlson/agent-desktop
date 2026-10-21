@@ -175,6 +175,10 @@ impl SystemOps for LinuxAdapter {
         notifications::dismiss(self.bus(), request, lease)
     }
 
+    fn check_notification_support(&self, deadline: Deadline) -> Result<(), AdapterError> {
+        shell::detect::require_daemon(deadline)
+    }
+
     fn list_notifications(
         &self,
         filter: &NotificationFilter,

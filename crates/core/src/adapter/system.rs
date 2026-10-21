@@ -230,6 +230,12 @@ pub trait SystemOps: Send + Sync {
         Err(AdapterError::not_supported("resolve_window_strict"))
     }
 
+    /// Checks runtime prerequisites without reading or opening notifications.
+    /// Waits call this with an operation budget before starting their polling timeout.
+    fn check_notification_support(&self, _deadline: Deadline) -> Result<(), AdapterError> {
+        Ok(())
+    }
+
     fn list_notifications(
         &self,
         _filter: &NotificationFilter,

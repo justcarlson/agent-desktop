@@ -16,6 +16,7 @@ pub(crate) fn wait_for_notification(
     adapter: &dyn PlatformAdapter,
     context: &CommandContext,
 ) -> Result<Value, AppError> {
+    adapter.check_notification_support(crate::Deadline::standard()?)?;
     let filter = NotificationFilter {
         app: app.clone(),
         text: text.clone(),
