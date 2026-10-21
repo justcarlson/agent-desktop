@@ -63,13 +63,12 @@ impl KeySession for FakeSession {
 
     fn keysym(&mut self, keysym: u32, down: bool, _deadline: Deadline) -> Result<(), AdapterError> {
         let edge = if down { "down" } else { "up" };
-        self.record(format!("{edge}:{keysym:x}"))?;
         let first = self.keys_seen == 0;
         self.keys_seen += 1;
         if !(self.drops_first_key && first) {
             self.arrived.push((keysym, down));
         }
-        Ok(())
+        self.record(format!("{edge}:{keysym:x}"))
     }
 
     fn stop(&mut self, _deadline: Deadline) -> Result<(), AdapterError> {

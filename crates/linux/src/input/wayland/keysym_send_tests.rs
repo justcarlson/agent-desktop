@@ -27,6 +27,29 @@ fn ctrl_a() -> Vec<KeysymStep> {
 }
 
 #[test]
+fn received_key_with_lost_reply_is_uncertain_and_cannot_replay() {
+    let keys = tap(KEY_A);
+    let mut session = FakeSession::failing_on("down:61");
+    session.resumed = true;
+    let error = run_chunks(&mut session, &[&keys], &mut || Ok(()), live())
+        .expect_err("the first key arrived but its reply was lost");
+    assert_eq!(session.arrived, [(KEY_A, true)]);
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert!(!sent_nothing(&error), "a reused session must not replay");
+    let details = error.details.expect("delivery evidence");
+    assert_eq!(details["physical_delivery_started"], true);
+    assert_eq!(details["delivered_events"], 0);
+
+    let mut unattempted = FakeSession::new();
+    unattempted.resumed = true;
+    let expired = Deadline::after(0).expect("zero deadline builds");
+    let error = run_chunks(&mut unattempted, &[&keys], &mut || Ok(()), expired)
+        .expect_err("deadline prevents dispatch");
+    assert!(unattempted.arrived.is_empty());
+    assert!(sent_nothing(&error));
+}
+
+#[test]
 fn delivery_lifecycle_and_failures() {
     let keys = ctrl_a();
     let mut session = FakeSession::new();
@@ -50,13 +73,13 @@ fn delivery_lifecycle_and_failures() {
     assert!(position("up:61") < position("up:ffe3"));
     assert_eq!(events.last().map(String::as_str), Some("stop"));
 
-    for (failure, count) in [
-        ("create", 0),
-        ("start", 0),
-        ("down:ffe1", 0),
-        ("down:ffe3", 0),
-        ("down:61", 1),
-        ("up:ffe3", 3),
+    for (failure, count, attempted) in [
+        ("create", 0, false),
+        ("start", 0, false),
+        ("down:ffe1", 0, true),
+        ("down:ffe3", 2, true),
+        ("down:61", 3, true),
+        ("up:ffe3", 5, true),
     ] {
         let mut failed = FakeSession::failing_on(failure);
         let error =
@@ -64,16 +87,16 @@ fn delivery_lifecycle_and_failures() {
         assert_eq!(error.code, ErrorCode::Internal, "{failure}");
         assert_eq!(
             error.disposition,
-            if count == 0 {
-                DeliverySemantics::not_delivered()
-            } else {
+            if attempted {
                 DeliverySemantics::uncertain()
+            } else {
+                DeliverySemantics::not_delivered()
             },
             "{failure}"
         );
         let details = error.details.expect("progress evidence");
-        assert_eq!(details["physical_delivery_started"], count > 0, "{failure}");
-        if count > 0 {
+        assert_eq!(details["physical_delivery_started"], attempted, "{failure}");
+        if attempted {
             assert_eq!(details["delivered_events"], count, "{failure}");
         }
         let events = failed.events();
@@ -113,6 +136,7 @@ fn delivery_lifecycle_and_failures() {
     )
     .expect_err("gate refuses");
     assert_eq!(gate_error.message, "window is not active");
+    assert_eq!(gate_error.disposition, DeliverySemantics::uncertain());
     assert_eq!(
         gate_failure.events().last().map(String::as_str),
         Some("stop")
@@ -125,7 +149,7 @@ fn delivery_lifecycle_and_failures() {
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert_eq!(
         error.details.expect("delivered prefix")["delivered_events"],
-        2
+        4
     );
     let events = release_failure.events();
     let last = &events[events.len() - 3..];
@@ -141,10 +165,10 @@ fn delivery_lifecycle_and_failures() {
     )
     .expect_err("gate times out");
     assert_eq!(error.code, ErrorCode::Timeout);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert_eq!(
         error.details.expect("details")["physical_delivery_started"],
-        false
+        true
     );
 }
 
@@ -173,7 +197,7 @@ fn chunks_preserve_progress() {
     assert!(!sent_nothing(&error));
     let details = error.details.expect("delivery details");
     assert_eq!(details["physical_delivery_started"], true);
-    assert_eq!(details["delivered_events"], 2);
+    assert_eq!(details["delivered_events"], 4);
 
     let mut session = FakeSession::new();
     let mut calls = 0;
@@ -190,7 +214,7 @@ fn chunks_preserve_progress() {
     assert_eq!(error.message, "window lost");
     assert_eq!(
         error.details.expect("delivery details")["delivered_events"],
-        2
+        4
     );
 }
 
@@ -226,10 +250,10 @@ fn success_drains_and_refusal_is_private() {
 
     let mut failing = FakeSession::failing_on("down:61");
     let error = run_chunks(&mut failing, &[&keys], &mut || Ok(()), live()).expect_err("fails");
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert_eq!(
         error.details.expect("delivery evidence")["physical_delivery_started"],
-        false
+        true
     );
     let events = failing.events();
     assert_eq!(&events[events.len() - 2..], ["down:61", "stop"]);
