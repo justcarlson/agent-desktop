@@ -121,10 +121,12 @@ fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64
             .as_ref()
             .zip(live_rect(evidence))
             .map(|(stored, live)| rects_within(stored, live, tolerance))
-    } else {
+    } else if stored_space(entry) == BoundsSpace::Screen {
         stored_size(entry)
             .zip(live_size(evidence))
             .map(|(stored, live)| sizes_within(stored, live, tolerance))
+    } else {
+        None
     }
 }
 

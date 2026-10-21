@@ -229,16 +229,23 @@ fn a_window_relative_ref_resolves_its_field_after_the_siblings_swap() {
 
 #[test]
 fn a_window_relative_ref_refuses_a_replacement_sibling_of_the_same_size() {
-    let mut fake = Fake::new();
-    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
-    fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
-    let mut entry = fake.entry_of("/first", true);
-    entry.scope.path.clear();
-    let children = &mut fake.nodes.get_mut(FRAME_PATH).expect("frame").children;
-    children.remove(0);
-    fake.add(FRAME_PATH, "/replacement", window_field(0, 200, 420, 34));
-    let error = resolve(&mut fake, &entry, deadline()).expect_err("the replacement moved");
-    assert_eq!(error.code, ErrorCode::StaleRef);
+    for window_space in [true, false] {
+        let mut fake = Fake::new();
+        fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+        fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
+        let mut entry = fake.entry_of("/first", true);
+        entry.scope.path.clear();
+        let children = &mut fake.nodes.get_mut(FRAME_PATH).expect("frame").children;
+        children.remove(0);
+        let replacement = if window_space {
+            window_field(0, 200, 420, 34)
+        } else {
+            node(LIST, "", 420, 34)
+        };
+        fake.add(FRAME_PATH, "/replacement", replacement);
+        let error = resolve(&mut fake, &entry, deadline()).expect_err("the replacement moved");
+        assert_eq!(error.code, ErrorCode::StaleRef);
+    }
 }
 
 #[test]
