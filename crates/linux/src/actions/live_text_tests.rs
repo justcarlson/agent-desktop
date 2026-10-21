@@ -1,6 +1,7 @@
 use agent_desktop_core::{Action, ActionResult};
 
-use super::live_bench::each_toolkit;
+use super::live_bench::{Toolkit, each_toolkit};
+use super::live_scroll_tests::read;
 
 fn verified(result: &ActionResult) -> Vec<Option<bool>> {
     result.steps.iter().map(|step| step.verified).collect()
@@ -51,17 +52,23 @@ fn type_inserts_non_ascii_text_into_an_empty_field_exactly() {
 fn type_after_a_wide_character_lands_at_the_caret_exactly() {
     each_toolkit(|toolkit, bench| {
         let field = bench.named("field");
-        bench
-            .act(&field, Action::SetValue("a\u{1F600}".to_owned()))
-            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
+        let state = bench.fixture_file("state.json");
+        let expected_caret = if matches!(toolkit, Toolkit::Qt) { 3 } else { 2 };
+        assert!(
+            bench
+                .wait_for(|| {
+                    let observed = read(&state);
+                    (observed["text"] == "a😀z" && observed["caret"] == expected_caret)
+                        .then_some(())
+                })
+                .is_some(),
+            "fixture establishes an interior caret after the wide character"
+        );
         bench
             .act(&field, Action::TypeText("\u{e9}".to_owned()))
             .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
-        let read = bench.text_of(&field);
-        assert!(
-            read == "a\u{1F600}\u{e9}" || read == "\u{e9}a\u{1F600}",
-            "{toolkit:?}: {read:?}"
-        );
+        assert_eq!(bench.text_of(&field), "a😀éz", "{toolkit:?}");
+        assert_eq!(read(&state)["text"], "a😀éz", "fixture-side text");
     });
 }
 
@@ -71,14 +78,21 @@ fn a_password_field_write_lands_and_the_result_never_carries_the_text() {
     const SECRET: &str = "zx-secret-7731";
     each_toolkit(|toolkit, bench| {
         let secret = bench.named("secret");
+        let state = bench.fixture_file("state.json");
+        assert_eq!(read(&state)["secret_length"], 0);
         let outcome = bench.act(&secret, Action::SetValue(SECRET.to_owned()));
         let rendered = match &outcome {
             Ok(result) => serde_json::to_string(result).expect("a result serializes"),
             Err(error) => format!("{error:?}"),
         };
         assert!(!rendered.contains(SECRET), "{toolkit:?}: {rendered}");
-        if let Ok(result) = &outcome {
-            assert!(!verified(result).contains(&Some(true)), "{toolkit:?}");
-        }
+        let result = outcome.expect("the fixture supports secure text writes");
+        assert!(
+            bench
+                .wait_for(|| (read(&state)["secret_matches"] == true).then_some(()))
+                .is_some(),
+            "fixture must observe the write"
+        );
+        assert!(!verified(&result).contains(&Some(true)), "{toolkit:?}");
     });
 }

@@ -1,8 +1,8 @@
 pub(super) const GTK3_SCRIPT: &str = r#"
-import sys
+import sys, json, pathlib
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 window = Gtk.Window(title="adv-" + sys.argv[1])
 window.connect("destroy", Gtk.main_quit)
@@ -26,15 +26,26 @@ pane.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
 pane.add(Gtk.Label(label="\n".join(str(n) for n in range(200))))
 box.add(pane)
 window.add(box)
+def record(*_):
+    path = pathlib.Path(__file__).with_name("state.json")
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"text": field.get_text(), "caret": field.get_position(), "secret_matches": secret.get_text() == "zx-secret-7731", "secret_length": len(secret.get_text())}))
+    temporary.replace(path)
+field.connect("changed", record)
+secret.connect("changed", record)
 window.show_all()
+field.grab_focus()
+field.set_text("a😀z")
+field.set_position(2)
+record()
 Gtk.main()
 "#;
 
 pub(super) const GTK4_SCRIPT: &str = r#"
-import sys
+import sys, json, pathlib
 import gi
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 def label(widget, text):
     widget.update_property([Gtk.AccessibleProperty.LABEL], [text])
@@ -57,7 +68,21 @@ def activate(app):
     bar = Gtk.Scrollbar(orientation=Gtk.Orientation.VERTICAL, adjustment=Gtk.Adjustment(value=0, lower=0, upper=1000, step_increment=10, page_increment=100, page_size=100))
     box.append(bar)
     window.set_child(box)
+    def record(*_):
+        path = pathlib.Path(__file__).with_name("state.json")
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"text": field.get_text(), "caret": field.get_position(), "secret_matches": secret.get_text() == "zx-secret-7731", "secret_length": len(secret.get_text())}))
+        temporary.replace(path)
+    field.connect("changed", record)
+    secret.connect("changed", record)
+    def ready():
+        field.grab_focus()
+        field.set_text("a😀z")
+        field.set_position(2)
+        record()
+        return False
     window.present()
+    GLib.idle_add(ready)
 
 app = Gtk.Application(application_id="org.agentdesktop.ValueFixture4")
 app.connect("activate", activate)
@@ -65,7 +90,7 @@ app.run([])
 "#;
 
 pub(super) const QT_SCRIPT: &str = r#"
-import sys
+import sys, json, pathlib
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLineEdit, QSpinBox, QSlider, QScrollBar)
 from PyQt6.QtCore import Qt
 app = QApplication(sys.argv)
@@ -90,6 +115,17 @@ lay.addWidget(scale)
 bar = QScrollBar(Qt.Orientation.Vertical)
 bar.setRange(0, 1000)
 lay.addWidget(bar)
+def record(*_):
+    path = pathlib.Path(__file__).with_name("state.json")
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"text": field.text(), "caret": field.cursorPosition(), "secret_matches": secret.text() == "zx-secret-7731", "secret_length": len(secret.text())}))
+    temporary.replace(path)
+field.textChanged.connect(record)
+secret.textChanged.connect(record)
 w.show()
+field.setFocus()
+field.setText("a😀z")
+field.setCursorPosition(3)
+record()
 sys.exit(app.exec())
 "#;

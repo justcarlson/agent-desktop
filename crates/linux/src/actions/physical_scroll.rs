@@ -4,6 +4,7 @@ use agent_desktop_core::{
 
 use super::physical_target::{PhysicalWorld, aim_point, ensure_budget, ensure_headed_click_policy};
 use crate::input::backend::Backend;
+use crate::input::step::Step;
 use crate::tree::AtspiElement;
 
 const SCROLL_LABEL: &str = "XTEST.scroll";
@@ -22,8 +23,7 @@ pub(crate) fn wheel_deltas(direction: &Direction, amount: u32) -> (f64, f64) {
     }
 }
 
-/// Proves the initial receiver before dispatch. Scrolling can move the
-/// referenced item away from the fixed wheel position during this action.
+/// Proves the receiver at the fixed wheel position before every burst.
 pub(crate) fn scroll_steps(
     world: &impl PhysicalWorld,
     element: &AtspiElement,
@@ -39,14 +39,27 @@ pub(crate) fn scroll_steps(
     let at = aim_point(world, element, None, deadline)?;
     let map = world.keymap(deadline)?;
     let plans = world.plan_wheel(&map, at.clone(), deltas)?;
-    let mut before_dispatch = true;
+    let clicks: Vec<u32> = plans
+        .iter()
+        .map(|plan| {
+            plan.steps
+                .iter()
+                .filter(|step| matches!(step, Step::Button { down: true, .. }))
+                .count() as u32
+        })
+        .collect();
+    let mut next = 0;
     world.send_plans(
         plans,
         &mut || {
-            if before_dispatch {
-                world.validate_pointer(element, &at, deadline)?;
-                before_dispatch = false;
-            }
+            world
+                .validate_pointer(element, &at, deadline)
+                .map_err(|mut error| {
+                    let details = error.details.get_or_insert_with(|| serde_json::json!({}));
+                    details["delivered_clicks"] = clicks[..next].iter().sum::<u32>().into();
+                    error
+                })?;
+            next += 1;
             Ok(())
         },
         deadline,

@@ -9,7 +9,8 @@ use super::x11::stacking_source::StackingSource;
 use super::x11::{DisplayReader, X11State};
 use super::{SharedBus, listed_app_name, proc_stat, process_facts};
 use crate::actions::physical_keyboard::press_for_process;
-use crate::actions::physical_target::{LiveWorld, PhysicalWorld};
+use crate::actions::physical_live_world::LiveWorld;
+use crate::actions::physical_target::PhysicalWorld;
 use crate::input::backend::Backend;
 use crate::system::process_lookup::Lookup;
 

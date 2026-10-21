@@ -192,6 +192,10 @@ impl Bench {
         crate::actions::execute_action(self.adapter.bus(), handle, request, &lease)
     }
 
+    pub(super) fn fixture_file(&self, name: &str) -> std::path::PathBuf {
+        self.launched.scratch[0].join(name)
+    }
+
     pub(super) fn adapter(&self) -> &LinuxAdapter {
         &self.adapter
     }

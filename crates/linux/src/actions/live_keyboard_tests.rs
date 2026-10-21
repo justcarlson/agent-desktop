@@ -72,6 +72,53 @@ fn open() -> (Bench, std::path::PathBuf) {
 
 #[test]
 #[ignore = "drives GTK in scripts/private-session.sh --wm"]
+fn focus_transport_timeouts_survive_and_a_responsive_target_still_focuses() {
+    use agent_desktop_core::{Deadline, ErrorCode};
+    let (bench, state) = open();
+    let target = bench.named("Target");
+    let element = crate::tree::atspi_element(&target).unwrap();
+    let pid = bench.frame().pid();
+    let before = read(&state);
+    assert!(
+        std::process::Command::new("kill")
+            .args(["-STOP", &pid.to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
+    let paused = super::live_scroll_tests::Paused(pid);
+    assert!(
+        bench
+            .wait_for(|| crate::system::proc_stat::is_stopped(pid).then_some(()))
+            .is_some()
+    );
+    let bus = bench.adapter().bus();
+    let read_error =
+        super::keyboard_focus::read(bus, element, Deadline::after(150).unwrap()).unwrap_err();
+    let grab_error =
+        super::keyboard_focus::grab(bus, element, Deadline::after(150).unwrap()).unwrap_err();
+    for error in [read_error, grab_error] {
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(error.details.is_some(), "deadline evidence survives");
+    }
+    assert_eq!(read(&state), before, "no keyboard input was sent");
+    drop(paused);
+    super::keyboard_focus::grab(bus, element, Deadline::after(3000).unwrap()).unwrap();
+    assert!(
+        bench
+            .wait_for(
+                || super::keyboard_focus::read(bus, element, Deadline::after(3000).unwrap())
+                    .unwrap()
+                    .then_some(())
+            )
+            .is_some()
+    );
+    assert_eq!(read(&state)["clicks"], 0);
+    assert_eq!(read(&state)["entry"], "unchanged");
+}
+
+#[test]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
 fn ref_space_focuses_its_button_and_refuses_an_unfocusable_target() {
     let (bench, state) = open();
     let blocked = bench.named("Unfocusable");
