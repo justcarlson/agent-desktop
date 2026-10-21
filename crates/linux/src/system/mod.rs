@@ -9,6 +9,7 @@ mod app_name;
 mod app_names;
 mod app_ops;
 pub(crate) mod app_outcome;
+mod app_read;
 mod bus;
 mod bus_deadline;
 mod bus_fault;

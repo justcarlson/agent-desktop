@@ -8,6 +8,7 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use super::app_names::AppNames;
+use super::app_read::AppRead;
 use super::bus_slice::within_slice;
 use super::proc_stat;
 use super::process_facts::{self, ProcessFacts};
@@ -27,12 +28,6 @@ const APPS_IN_FLIGHT: usize = 32;
 pub(crate) struct Registry {
     pub(crate) apps: Vec<RegistryApp>,
     pub(crate) skipped: Vec<Value>,
-}
-
-enum AppRead {
-    Listed(Box<RegistryApp>),
-    Skipped(Value),
-    Excluded,
 }
 
 async fn root_name(connection: &Connection, root: &AtspiElement) -> Option<Option<String>> {
