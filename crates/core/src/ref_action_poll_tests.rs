@@ -158,10 +158,8 @@ fn incomplete_live_reads_report_the_tool_limitation() {
     assert_eq!(details["kind"], "live_read_incomplete");
     assert_eq!(details["native_read_failures"], 2);
     assert_eq!(details["nodes_visited"], 1);
-    assert!(
-        !error
-            .suggestion
-            .expect("recovery suggestion")
-            .contains("busy or unresponsive")
-    );
+    let hint = error.suggestion.expect("recovery suggestion");
+    assert!(!hint.contains("busy or unresponsive"));
+    assert!(!hint.contains("--headed"), "{hint}");
+    assert!(hint.contains("fresh ref"), "{hint}");
 }
