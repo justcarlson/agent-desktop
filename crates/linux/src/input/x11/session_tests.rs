@@ -215,7 +215,11 @@ fn a_failure_in_a_later_plan_is_delivered_unverified_with_the_whole_count() {
     assert_eq!(error.details.expect("evidence")["delivered_events"], 2);
     assert_eq!(
         events(&fake),
-        [Recorded::Key(38, true), Recorded::Key(38, false)]
+        [
+            Recorded::Key(38, true),
+            Recorded::Key(38, false),
+            Recorded::Key(39, false)
+        ]
     );
 }
 

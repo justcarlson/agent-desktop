@@ -65,7 +65,7 @@ fn drag_safety_and_refusals() {
             (error.code, error.message.as_str()),
             (ErrorCode::InvalidArgs, message.as_str())
         );
-        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(error.disposition, DeliverySemantics::unknown());
     }
     let mut non_finite = params(None, None);
     non_finite.to.x = f64::INFINITY;

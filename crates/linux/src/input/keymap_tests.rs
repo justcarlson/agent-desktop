@@ -35,7 +35,7 @@ fn lookup_layout_boundaries() {
         1,
         vec![1],
         2,
-        vec![0, 8, 0, 9, 0, 12, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0],
+        vec![0, 8, 0, 0, 0, 9, 0, 12, 0, 0, 0, 0, 0, 15, 0, 0],
     );
     for (modifier, code) in [
         (Modifier::Shift, 8),
