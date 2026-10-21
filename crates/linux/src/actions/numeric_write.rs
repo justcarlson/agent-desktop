@@ -38,11 +38,6 @@ pub(crate) fn plan(
         .filter(|number| number.is_finite())
         .ok_or_else(|| invalid("The value is not a finite number"))?;
     let increment = increment.filter(|step| *step > 0.0);
-    let steps_are_whole = increment.is_some_and(whole);
-    if spin_button && !whole(value) && steps_are_whole {
-        return Err(invalid("This spin button takes whole numbers only")
-            .with_suggestion("Give a whole number; a fractional value is never committed"));
-    }
     Ok(Plan {
         value,
         readback_proves_commit: whole(value) || !spin_button || increment.is_some(),

@@ -7,7 +7,6 @@ use crate::actions::chain::DeliveryOutcome;
 
 struct Control {
     maximum: f64,
-    spin_step: Option<f64>,
     reply: WriteReply,
     held: RefCell<f64>,
     sets: Cell<usize>,
@@ -18,7 +17,6 @@ impl Control {
     fn slider() -> Self {
         Self {
             maximum: 100.0,
-            spin_step: None,
             reply: WriteReply::Done,
             held: RefCell::new(0.0),
             sets: Cell::new(0),
@@ -31,11 +29,7 @@ impl NumericPort for Control {
     fn set(&self, value: f64) -> Result<WriteReply, AdapterError> {
         self.sets.set(self.sets.get() + 1);
         if self.reply == WriteReply::Done {
-            let stored = match self.spin_step {
-                Some(step) if step >= 1.0 => value.round(),
-                _ => value,
-            };
-            *self.held.borrow_mut() = stored.min(self.maximum);
+            *self.held.borrow_mut() = value.min(self.maximum);
         }
         Ok(self.reply)
     }
@@ -63,12 +57,12 @@ fn a_value_above_the_range_reads_back_clamped_and_is_a_mismatch() {
 }
 
 #[test]
-fn a_whole_step_spin_button_refuses_a_fraction_before_any_write() {
+fn a_whole_step_spin_button_can_commit_a_fraction() {
     let control = Control::slider();
-    let error = plan("7.5", true, Some(1.0)).expect_err("refused");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert_eq!(control.sets.get(), 0);
+    let outcome = write(&control, planned("7.5", true, Some(1.0))).expect("written");
+    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Matched));
+    assert_eq!(*control.held.borrow(), 7.5);
+    assert_eq!(control.sets.get(), 1);
 }
 
 #[test]
