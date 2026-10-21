@@ -78,7 +78,7 @@ fn key_combo(kit: Kit, source: &str) {
     scene
         .act(&entry, Action::TypeText("abc".to_owned()))
         .expect("typed");
-    scene.wait_log(|log| log == "abc");
+    assert_eq!(scene.wait_log(|log| log == "abc"), "abc");
     scene
         .act(&entry, Action::PressKey(combo("a", vec![Modifier::Ctrl])))
         .expect("select all");

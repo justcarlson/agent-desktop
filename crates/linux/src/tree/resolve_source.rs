@@ -3,18 +3,20 @@ use agent_desktop_core::{
 };
 use zbus::Connection;
 
-use super::absence::Liveness;
+use super::level::Level;
+use super::liveness::Liveness;
 use super::menu_resolve::resolve_menu;
 use super::node_evidence::read_evidence_placed;
 use super::node_position::place_nodes;
 use super::node_read::read_node_with_liveness;
 use super::observe::is_web_process;
-use super::path_descent::{Level, Levels};
+use super::path_descent::Levels;
 use super::resolve::{Source, resolve};
 use super::resolve_anchor::resolve_anchor;
 use super::resolve_errors::{settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
-use super::resolve_search::{Searched, evaluate};
+use super::resolve_search::evaluate;
+use super::searched::Searched;
 use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits};
 use crate::system::{SharedBus, owner_process_id, process_facts, shell, within};
@@ -66,6 +68,26 @@ impl Source for BusSource<'_> {
             let owner = owner_process_id(connection, window.bus()).await;
             window.check_owner(owner, entry)
         })?;
+        let frame = if entry.source.source_surface == SnapshotSurface::Sheet {
+            let walk = walk_tree(self.bus, &frame, &WalkLimits::default(), self.deadline)?;
+            if super::surfaces::is_sheet(&walk.root.payload.node) {
+                frame
+            } else {
+                if !walk.complete {
+                    return Err(agent_desktop_core::resolve_errors::identity_unknown_error(
+                        entry,
+                    ));
+                }
+                let dialogs = super::nested_dialog::find(&walk.root);
+                match dialogs.as_slice() {
+                    [dialog] => dialog.element.clone(),
+                    [] => return Err(super::resolve_errors::no_candidate()),
+                    _ => return Err(super::resolve_errors::ambiguous(dialogs.len())),
+                }
+            }
+        } else {
+            frame
+        };
         self.levels = Some(Levels::new(connection.clone(), &frame, self.deadline));
         Ok(frame)
     }

@@ -5,7 +5,7 @@ use agent_desktop_core::Deadline;
 use futures_util::future::join4;
 use zbus::Connection;
 
-use super::absence::Liveness;
+use super::liveness::Liveness;
 use super::node_read::{COMPONENT_INTERFACE, call, get_one, string_value};
 use super::offscreen::{OffscreenInput, offscreen};
 use super::placement::Placement;

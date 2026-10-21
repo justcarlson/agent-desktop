@@ -1,7 +1,7 @@
 use zbus::Connection;
 use zbus::zvariant::OwnedObjectPath;
 
-use super::absence::Liveness;
+use super::liveness::Liveness;
 use super::node_read::{NAME, call, get_one, string_value};
 use super::roles::role_of;
 use super::{AtspiElement, Field, LabelOutcome, RawNode};
@@ -46,7 +46,7 @@ const TEXT_INTERFACE: &str = "org.a11y.atspi.Text";
 /// The text a label node holds when its own `Name` is blank: GTK 4 puts the
 /// visible label of a menu item in the `Text` of its label node and leaves
 /// the `Name` empty.
-async fn text_of(connection: &Connection, target: &AtspiElement) -> Option<String> {
+async fn text_of(connection: &Connection, target: &AtspiElement) -> Result<String, zbus::Error> {
     let reply = call(
         connection,
         target,
@@ -54,10 +54,8 @@ async fn text_of(connection: &Connection, target: &AtspiElement) -> Option<Strin
         "GetText",
         &(0_i32, -1_i32),
     )
-    .await
-    .ok()?;
-    let text = reply.body().deserialize::<String>().ok()?;
-    (!text.trim().is_empty()).then_some(text)
+    .await?;
+    reply.body().deserialize::<String>()
 }
 
 /// Whether the node's label is worth reading: its own `Name` is blank, and its
@@ -110,10 +108,18 @@ fn from_name(name: Option<Field<String>>) -> Option<LabelOutcome> {
     }
 }
 
-fn from_text(text: Option<String>) -> LabelOutcome {
-    text.map_or(LabelOutcome::Unlabelled, LabelOutcome::Text)
+fn from_text(text: Result<String, zbus::Error>) -> LabelOutcome {
+    match text {
+        Ok(text) if text.trim().is_empty() => LabelOutcome::Unlabelled,
+        Ok(text) => LabelOutcome::Text(text),
+        Err(_) => LabelOutcome::Failed,
+    }
 }
 
 #[cfg(test)]
 #[path = "label_read_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "label_transport_tests.rs"]
+mod transport_tests;

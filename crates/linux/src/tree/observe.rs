@@ -9,7 +9,7 @@ use super::ancestry;
 use super::decorate::{Decorate, Plain};
 use super::nested_dialog::find as find_nested;
 use super::node_position::place_nodes;
-use super::observe_menu::{observe_menu, rooted};
+use super::observe_menu::observe_menu;
 use super::projection::project_with;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
@@ -142,7 +142,7 @@ fn nested_sheet(
     let dialog = find_nested(&window_walk.root)
         .into_iter()
         .next()
-        .map(|nested| rooted(nested.element))
+        .map(|nested| nested.element.clone())
         .ok_or_else(sheet_absent)?;
     let walk = (host.walker)(&dialog, limits, request.deadline)?;
     Ok((walk, true))
@@ -223,7 +223,7 @@ pub(crate) fn observe_tree(
                 bus,
                 root,
                 request,
-                &mut super::menu_context::MenuIdentity::new(context),
+                &mut super::menu_identity::MenuIdentity::new(context),
             );
         }
     }

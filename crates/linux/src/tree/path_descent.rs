@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use zbus::Connection;
 
+use super::landing::Landing;
+use super::level::Level;
 use super::node_read::read_node_with_liveness;
 use super::observe::is_web_process;
 use super::walker_expand::{UNKNOWN_PID, child_elements, learn_pids};
@@ -10,40 +12,6 @@ use super::{AtspiElement, RawNode};
 use crate::system::within;
 
 const UNIDENTIFIED: &str = "The owning process of the bus name could not be identified";
-
-/// What reading one node on the way down a stored path yields: its children
-/// in the order the walk indexes them, and what the read could not settle.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Level<K> {
-    pub(crate) children: Vec<K>,
-    pub(crate) children_unread: bool,
-    pub(crate) empty_means_unread: bool,
-}
-
-/// Where a stored path ended. `element` is the node it reached, if any;
-/// `unread` says a level could not be read, so a missing element is not proof
-/// that the path leads nowhere.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Landing<K> {
-    pub(crate) element: Option<K>,
-    pub(crate) unread: bool,
-}
-
-impl<K> Landing<K> {
-    fn nowhere() -> Self {
-        Self {
-            element: None,
-            unread: false,
-        }
-    }
-
-    fn unread() -> Self {
-        Self {
-            element: None,
-            unread: true,
-        }
-    }
-}
 
 /// Follows a stored child-index path from `root`, one full node read per
 /// level. The path indexes the child list the walk stored it from, so the

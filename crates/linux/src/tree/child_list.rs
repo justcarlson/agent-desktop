@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 use zbus::Connection;
 
-use super::absence::Liveness;
+use super::liveness::Liveness;
 use super::node_read::{call, read_children};
 use super::{AtspiElement, ChildAddress, Field};
 use crate::system::ACCESSIBLE_INTERFACE;

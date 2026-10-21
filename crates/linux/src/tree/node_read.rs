@@ -6,8 +6,9 @@ use zbus::export::serde::Serialize;
 use zbus::zvariant::{DynamicDeserialize, DynamicType, OwnedValue};
 use zbus::{Connection, Message};
 
-use super::absence::{Liveness, gone_error};
+use super::absence::gone_error;
 use super::bounded::collect_bounded;
+use super::liveness::Liveness;
 use super::{AtspiElement, ChildAddress, Extents, Field, NodeProperties, NodeTraits, RawNode};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE};
 

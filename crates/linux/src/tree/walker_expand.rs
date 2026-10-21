@@ -5,10 +5,10 @@ use futures_util::future::join;
 use futures_util::stream::{self, StreamExt};
 use zbus::Connection;
 
-use super::absence::Liveness;
 use super::ancestry;
 use super::bounded::collect_bounded;
 use super::label_read::read_label_if_needed;
+use super::liveness::Liveness;
 use super::node_read::read_node_with_liveness;
 use super::value_read::read_value;
 use super::{AtspiElement, Expansion, ObservedRead, RawNode, WalkLimits};

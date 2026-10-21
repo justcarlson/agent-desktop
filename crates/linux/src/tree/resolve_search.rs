@@ -1,30 +1,13 @@
-use agent_desktop_core::{BoundsSpace, LocatorField, Rect, RefEntry};
+use agent_desktop_core::{BoundsSpace, LocatorField, RefEntry};
 
+use super::candidate::Candidate;
 use super::projection::project_node;
 use super::resolve_match::{
     Admission, accepts_landing, admit_node, provisional_geometry_candidate,
 };
 use super::role_numbers::is_web_document;
-use super::{AtspiElement, ObservedRead, Walk, WalkLimits, WalkedNode};
-
-/// A live node that answers to the stored evidence, with its extents for the
-/// size tie-break and its depth below the window frame (the frame is 0, so a
-/// node's depth is the length of its child-index path).
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Candidate {
-    pub(crate) element: AtspiElement,
-    pub(crate) bounds: Option<Rect>,
-    pub(crate) bounds_space: BoundsSpace,
-    pub(crate) depth: usize,
-}
-
-/// What a search over a finished walk found and whether any region of the
-/// tree stayed unread.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Searched {
-    pub(crate) candidates: Vec<Candidate>,
-    pub(crate) unread_region: bool,
-}
+use super::searched::Searched;
+use super::{ObservedRead, Walk, WalkLimits, WalkedNode};
 
 fn childless_web_region(node: &WalkedNode<ObservedRead>, is_root: bool, web_process: bool) -> bool {
     let role = node.payload.node.traits.role.present().copied();

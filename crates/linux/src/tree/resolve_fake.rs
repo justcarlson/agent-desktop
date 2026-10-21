@@ -2,12 +2,14 @@ use std::collections::HashMap;
 
 use agent_desktop_core::{AdapterError, Deadline, LocatorEvidence, RefEntry};
 
+use super::level::Level;
 use super::node_evidence::evidence_for;
-use super::path_descent::{Level, level_of};
+use super::path_descent::level_of;
 use super::projection::project_node;
 use super::resolve::Source;
-use super::resolve_search::{Searched, evaluate};
+use super::resolve_search::evaluate;
 use super::role_numbers::FRAME;
+use super::searched::Searched;
 use super::test_support::{read_of, ref_entry};
 use super::walker::walk_levels;
 use super::walker_expand::UNKNOWN_PID;
