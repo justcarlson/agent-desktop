@@ -100,6 +100,12 @@ in the CLI help; `agent-desktop press <combo>` shows the refusal per combo.
 
 ## `type`
 
+Reveal a search field with the app's search button or Ctrl+F before taking its
+ref. Headed typing proves focus on the field or its own internal editor. In
+Nautilus, the editor is omitted from the normal tree, and the enclosing search
+field can report no value even while keys reach it. Verify the search results
+after typing. Focus elsewhere in the window does not authorize ref typing.
+
 Headless `type @ref text` writes through `EditableText.InsertText`. Under `--headed` it
 sends physical keys first (step `XTEST.type_text` on X11, `RemoteDesktop.type_text` on
 Wayland, `physical_synthetic`; the result still reads the field back when it can)
