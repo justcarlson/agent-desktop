@@ -201,6 +201,50 @@ pub trait SystemOps: Send + Sync {
         Err(AdapterError::not_supported("press_key_for_app"))
     }
 
+    /// Checks the exact focused window before process-scoped key delivery.
+    /// Adapters can override this to retain the window identity through their
+    /// native delivery gates.
+    fn press_key_for_window(
+        &self,
+        window: &WindowInfo,
+        combo: &KeyCombo,
+        policy: InteractionPolicy,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        let refusal = || {
+            AdapterError::stale_ref_because(
+                "The named window's exact focus could not be confirmed, so no key was sent",
+            )
+            .with_suggestion("Retry with --headed so the named window is brought forward first, or name the active window")
+            .with_details(serde_json::json!({
+                "check": "window_active",
+                "cause": "exact_window_focus_unconfirmed",
+                "physical_delivery_started": false,
+                "window_id": window.id,
+            }))
+            .with_disposition(crate::DeliverySemantics::not_delivered())
+        };
+        let instance = window
+            .process_instance
+            .as_deref()
+            .filter(|instance| !instance.is_empty())
+            .ok_or_else(refusal)?;
+        let focused = self.focused_window(lease.deadline()).ok().flatten();
+        if !focused.is_some_and(|focused| {
+            focused.id == window.id
+                && focused.pid == window.pid
+                && focused.process_instance.as_deref() == Some(instance)
+        }) {
+            return Err(refusal());
+        }
+        self.press_key_for_app(
+            ProcessIdentity::new(window.pid, instance),
+            combo,
+            policy,
+            lease,
+        )
+    }
+
     fn wait_for_menu(
         &self,
         _process: ProcessIdentity,
