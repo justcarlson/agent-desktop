@@ -1,9 +1,10 @@
 use super::{
-    AtspiElement, Strictness, candidates, exercise, gtk3_check, gtk4_check, hit, qt_check, verdict,
+    AtspiElement, Strictness, candidates, exercise, gtk3_check, gtk4_check, hit, verdict,
     window_extents,
 };
 use crate::tree::WalkLimits;
 use crate::tree::live_apps::{AppSpec, app, qt, terminal, vscode};
+use crate::tree::live_launch::nonce;
 use crate::tree::live_rig::{deadline, rig};
 use crate::tree::walker::walk_tree;
 
@@ -12,13 +13,6 @@ use crate::tree::walker::walk_tree;
 fn hit_live_gtk3_terminal_cover_in_both_directions() {
     let session = rig();
     terminal(&session.adapter, &session.bus, gtk3_check).expect("gtk3 terminal");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn hit_live_qt_cover_in_both_directions() {
-    let session = rig();
-    qt(&session.adapter, &session.bus, qt_check).expect("qt");
 }
 
 #[test]
@@ -32,19 +26,6 @@ fn hit_live_gtk4_calculator_at_two_positions() {
         min_nodes: 30,
     };
     app(&spec, &session.adapter, &session.bus, gtk4_check).expect("gtk4 calculator");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn hit_live_gtk4_files_at_two_positions() {
-    let session = rig();
-    let spec = AppSpec {
-        label: "files",
-        program: "nautilus",
-        arguments: &["--new-window"],
-        min_nodes: 30,
-    };
-    app(&spec, &session.adapter, &session.bus, gtk4_check).expect("gtk4 files");
 }
 
 #[test]

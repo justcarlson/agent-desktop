@@ -202,13 +202,18 @@ fn a_cover_that_maps_to_one_client_is_named_by_its_title() {
 
 #[test]
 fn the_cross_window_leg_is_what_separates_reaches_from_intercepted() {
-    let covered = stacked(20, rect(200, 100, 600, 400));
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![covered])));
-    reaching(&mut world);
-    assert_ne!(test(&mut world, (310, 154)), HitTestResult::ReachesTarget);
-    let mut raised = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
-    reaching(&mut raised);
-    assert_eq!(test(&mut raised, (310, 154)), HitTestResult::ReachesTarget);
+    for (name, version) in [("gtk", "3.24.41"), ("Qt", "6.10")] {
+        let mut facts = gtk3_facts();
+        facts.toolkit = toolkit(name, version);
+        let covered = stacked(20, rect(200, 100, 600, 400));
+        let mut world = World::new(facts.clone(), Some(windowing((100, 137), vec![covered])));
+        reaching(&mut world);
+        let result = test(&mut world, (310, 154));
+        assert!(matches!(result, HitTestResult::InterceptedBy { .. }));
+        let mut raised = World::new(facts, Some(windowing((100, 137), vec![])));
+        reaching(&mut raised);
+        assert_eq!(test(&mut raised, (310, 154)), HitTestResult::ReachesTarget);
+    }
 }
 
 #[test]

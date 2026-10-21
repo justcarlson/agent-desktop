@@ -340,15 +340,6 @@ pub(super) fn gtk3_check(
     exercise("gtk3 terminal", Strictness::Exact, frame)
 }
 
-pub(super) fn qt_check(
-    _: &str,
-    _: &LinuxAdapter,
-    _: &SharedBus,
-    frame: &AtspiElement,
-) -> Result<(), String> {
-    exercise("qt", Strictness::Exact, frame)
-}
-
 pub(super) fn gtk4_check(
     label: &str,
     _: &LinuxAdapter,

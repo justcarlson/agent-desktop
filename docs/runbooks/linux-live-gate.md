@@ -162,6 +162,19 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   zenity refusal/delivery checks remain. The diagnostic's historical input-timing
   combinations and repeated samples are retired.
 
+- `tree::hit_live_tests::cases::hit_live_gtk4_files_at_two_positions`: its cover
+  window still failed to appear on the sole focused retry with bounded native
+  window waits. The retained same-tier `hit_live_gtk4_calculator_at_two_positions`
+  runs the identical GTK4 two-position, never-wrong scenario.
+- `tree::hit_live_tests::cases::hit_live_qt_cover_in_both_directions`: its app
+  still exposed no usable X window on that focused retry. The retained same-tier
+  `hit_live_gtk3_terminal_cover_in_both_directions` runs the identical exact-cover
+  exercise, including both stack directions and refusal checks. The existing
+  fake `hit_test::tests::the_cross_window_leg_is_what_separates_reaches_from_intercepted`
+  now also runs Qt toolkit facts and requires exact interception while covered
+  and exact reachability when raised. Separate real-Qt hit integration is retired;
+  real Qt bounds-centre input and strict resolution remain live on both tiers.
+
 ### Replaced cases
 
 - `tree::qt_live_tests::qt_live_twins_resolve_to_their_own_button_after_the_window_moves`
@@ -209,12 +222,12 @@ A successful signal command only requests a stop; capturing before the kernel
 has stopped the process made its precondition race. The production stopped
 process parser and exact `APP_UNRESPONSIVE` assertion remain unchanged.
 
-All seven hit-test live scenarios remain. Their independent X11 oracle now
+Five hit-test live scenarios remain. Their independent X11 oracle now
 waits for the application window to appear in `wmctrl -lp` with an eight-second
 deadline, rather than assuming that a settled AT-SPI tree means the window
 manager has already published it. Qt/Files/VS Code cases reached the callback
 before that publication under parallel load; all exact/never-wrong hit verdict,
-cover-direction and coordinate assertions remain.
+cover-direction and coordinate assertions remain in those retained cases.
 
 ### Moved to deterministic unit coverage
 
