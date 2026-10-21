@@ -1,8 +1,7 @@
-use agent_desktop_core::Deadline;
-use futures_util::future::join_all;
-
 use agent_desktop_core::BoundsSpace;
+use agent_desktop_core::Deadline;
 
+use super::bounded::collect_bounded;
 use super::frame_geometry::{pointer_bounds, popup_origin};
 use super::toolkit_trust::{
     ToolkitKind, kind as toolkit_kind, read_toolkit, reports_global_position,
@@ -92,18 +91,13 @@ async fn window_rectangles(
     connection: &zbus::Connection,
     elements: &[AtspiElement],
 ) -> Vec<Option<Extents>> {
-    let mut all = Vec::with_capacity(elements.len());
-    for chunk in elements.chunks(IN_FLIGHT) {
-        all.extend(
-            join_all(
-                chunk
-                    .iter()
-                    .map(|element| read_window_extents_async(connection, element)),
-            )
-            .await,
-        );
-    }
-    all
+    collect_bounded(
+        IN_FLIGHT,
+        elements
+            .iter()
+            .map(|element| read_window_extents_async(connection, element)),
+    )
+    .await
 }
 
 async fn frame_facts(

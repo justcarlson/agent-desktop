@@ -49,13 +49,7 @@ impl AtspiElement {
     /// The same element without its ancestry: what gets stored inside another
     /// element's ancestry, which never nests ancestry of its own.
     pub(crate) fn address(&self) -> Self {
-        Self {
-            bus_name: self.bus_name.clone(),
-            path: self.path.clone(),
-            pid: self.pid,
-            ancestry: Ancestry::default(),
-            menu_owner: None,
-        }
+        Self::new(self.bus_name.clone(), self.path.clone(), self.pid)
     }
 
     pub(crate) fn ancestry(&self) -> &Ancestry {

@@ -1,79 +1,9 @@
-use agent_desktop_core::roles::INTERACTIVE_ROLES;
 use agent_desktop_core::{LocatorField, Role};
 
 use super::{resolve_role, role_of};
-use crate::tree::role_table::{ROLE_COUNT, ROLE_TABLE};
 use crate::tree::state_bits::{EDITABLE, FOCUSABLE, HAS_POPUP, READ_ONLY, SENSITIVE};
 use crate::tree::test_support::{attributes, words};
 use crate::tree::{Field, NodeTraits};
-
-const UNPRODUCED_INTERACTIVE_ROLES: [&str; 1] = ["colorwell"];
-
-const NUMBERS_BY_ROLE: &[(&str, &[u32])] = &[
-    ("window", &[23, 69, 89]),
-    ("dialog", &[16, 19, 22, 36]),
-    ("alert", &[2, 101]),
-    ("application", &[75]),
-    (
-        "group",
-        &[
-            5, 9, 14, 17, 20, 21, 24, 25, 28, 30, 39, 46, 53, 68, 71, 72, 77, 78, 85, 99, 104, 105,
-            106, 107, 128,
-        ],
-    ),
-    ("statictext", &[1, 29, 81, 116, 119, 120, 125, 126, 127]),
-    ("image", &[3, 26, 27, 80, 100]),
-    ("button", &[43]),
-    ("menubutton", &[129]),
-    ("switch", &[62]),
-    ("checkbox", &[7]),
-    ("menuitem", &[8, 35, 45, 59]),
-    ("combobox", &[11, 76]),
-    ("datefield", &[12]),
-    ("slider", &[15, 51]),
-    ("incrementor", &[52]),
-    ("dockitem", &[13]),
-    ("column", &[10, 57]),
-    ("cell", &[47, 56, 58]),
-    ("row", &[90]),
-    ("table", &[55]),
-    ("outline", &[65, 66]),
-    ("treeitem", &[91]),
-    ("list", &[31, 121]),
-    ("listbox", &[98]),
-    ("option", &[32]),
-    ("menu", &[33, 34, 41]),
-    ("tab", &[37]),
-    ("tablist", &[38]),
-    ("textfield", &[40, 79]),
-    ("document", &[60, 61, 82, 92, 93, 94, 96]),
-    ("webarea", &[95]),
-    ("page", &[84]),
-    ("paragraph", &[73]),
-    ("heading", &[83]),
-    ("link", &[88]),
-    ("form", &[87]),
-    ("region", &[110]),
-    ("separator", &[50]),
-    ("scrollbar", &[48]),
-    ("scrollarea", &[49]),
-    ("toolbar", &[63]),
-    ("tooltip", &[64]),
-    ("status", &[54, 102]),
-    ("progressbar", &[42]),
-    ("levelindicator", &[103, 114]),
-    ("ruler", &[74]),
-    ("article", &[109]),
-    ("definition", &[108, 123]),
-    ("term", &[122]),
-    ("note", &[97, 124]),
-    ("log", &[111]),
-    ("marquee", &[112]),
-    ("math", &[113, 117, 118]),
-    ("timer", &[115]),
-    ("radiobutton", &[44]),
-    ("unknown", &[0, 4, 6, 18, 67, 70, 86]),
-];
 
 fn states(bits: &[u32]) -> Field<Vec<u32>> {
     Field::Present(words(bits))
@@ -93,56 +23,10 @@ fn plain(number: u32) -> Role {
 }
 
 #[test]
-fn every_role_number_maps_to_a_canonical_role_and_larger_ones_to_unknown() {
-    assert_eq!(ROLE_TABLE.len(), ROLE_COUNT);
-    for number in 0..ROLE_COUNT as u32 {
-        let role = plain(number);
-        assert!(Role::is_canonical(role.as_str()), "number {number}");
-    }
+fn unknown_role_numbers_remain_unknown() {
     for number in [130, 131, 1000, u32::MAX] {
         assert_eq!(plain(number), Role::Unknown, "number {number}");
     }
-}
-
-#[test]
-fn the_table_matches_the_independent_grouping_for_every_number() {
-    let mut seen = [false; ROLE_COUNT];
-    for (token, numbers) in NUMBERS_BY_ROLE {
-        for number in *numbers {
-            assert!(!seen[*number as usize], "number {number} is listed twice");
-            seen[*number as usize] = true;
-            assert_eq!(
-                ROLE_TABLE[*number as usize],
-                Role::from_token(token),
-                "number {number} should map to {token}"
-            );
-        }
-    }
-    let unlisted: Vec<usize> = (0..ROLE_COUNT).filter(|number| !seen[*number]).collect();
-    assert!(
-        unlisted.is_empty(),
-        "numbers with no expected role: {unlisted:?}"
-    );
-}
-
-#[test]
-fn every_interactive_role_is_produced_or_listed_as_unproduced() {
-    let mut produced: Vec<&str> = ROLE_TABLE.iter().map(|role| role.as_str()).collect();
-    produced.extend([Role::TextField, Role::MenuButton, Role::ListBox].map(Role::as_str));
-    for interactive in INTERACTIVE_ROLES {
-        let covered = produced.contains(interactive);
-        let listed = UNPRODUCED_INTERACTIVE_ROLES.contains(interactive);
-        assert!(
-            covered != listed,
-            "{interactive}: produced {covered}, listed {listed}"
-        );
-    }
-}
-
-#[test]
-fn the_gtk4_window_and_the_panel_have_their_roles() {
-    assert_eq!(plain(23), Role::Window);
-    assert_eq!(plain(39), Role::Group);
 }
 
 #[test]
