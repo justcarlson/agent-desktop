@@ -13,6 +13,7 @@ pub(super) fn app(index: u32, name: &str, answered: bool) -> RegistryApp {
             100 + index,
         ),
         ProcessFacts {
+            executable: None,
             comm: name.to_owned(),
             exe_basename: Some(name.to_owned()),
             instance: format!("boot:{index}"),

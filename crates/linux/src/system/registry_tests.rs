@@ -19,6 +19,7 @@ impl AppReads for Counting {
     fn facts(&self, _pid: u32) -> Option<ProcessFacts> {
         self.facts.set(self.facts.get() + 1);
         Some(ProcessFacts {
+            executable: None,
             comm: "x".to_owned(),
             exe_basename: Some("x".to_owned()),
             instance: "boot:1".to_owned(),
@@ -103,7 +104,7 @@ fn a_running_process_is_read_for_its_name_and_toolkit() {
 }
 
 #[test]
-fn a_stopped_process_resolves_by_the_name_its_root_answered_to() {
+fn a_stopped_process_keeps_its_registry_label_without_using_it_as_identity() {
     let reads = Counting {
         stopped: true,
         remembered: Some("QtApp".to_owned()),
@@ -114,7 +115,8 @@ fn a_stopped_process_resolves_by_the_name_its_root_answered_to() {
     };
     assert!(!app.answered);
     assert_eq!(app.registry_name.as_deref(), Some("QtApp"));
-    assert!(app.matches("qtapp"));
+    assert!(!app.matches("qtapp"));
+    assert!(app.matches("x"));
     assert!(!app.matches("unknown-app"));
     assert_eq!((reads.names.get(), reads.toolkits.get()), (0, 0));
 }

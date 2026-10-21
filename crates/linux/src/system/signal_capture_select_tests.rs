@@ -10,6 +10,7 @@ fn unanswering_app(pid: u32, comm: &str) -> RegistryApp {
     assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", pid),
         ProcessFacts {
+            executable: None,
             comm: comm.to_owned(),
             exe_basename: Some(comm.to_owned()),
             instance: "boot:1".to_owned(),

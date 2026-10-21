@@ -2,6 +2,7 @@ use super::*;
 
 fn facts() -> ProcessFacts {
     ProcessFacts {
+        executable: None,
         comm: "gnome-calculato".to_owned(),
         exe_basename: Some("gnome-calculator".to_owned()),
         instance: "boot:42".to_owned(),
@@ -24,6 +25,7 @@ fn a_stopped_app_that_never_answers_is_kept_and_named_from_proc() {
 
 fn nautilus_facts() -> ProcessFacts {
     ProcessFacts {
+        executable: None,
         comm: "nautilus".to_owned(),
         exe_basename: Some("nautilus".to_owned()),
         instance: "boot:7".to_owned(),
@@ -47,7 +49,7 @@ fn the_listed_name_is_identical_whether_the_root_answers_or_the_app_is_stopped()
 }
 
 #[test]
-fn the_registry_name_finds_an_answering_app_and_the_stable_name_finds_both() {
+fn registry_labels_do_not_select_apps_without_verified_aliases() {
     let mut answering = assemble(
         root(),
         nautilus_facts(),
@@ -57,7 +59,7 @@ fn the_registry_name_finds_an_answering_app_and_the_stable_name_finds_both() {
     answering.aliases.clear();
     let mut stopped = assemble(root(), nautilus_facts(), None, ToolkitId::default());
     stopped.aliases.clear();
-    assert!(answering.matches("org.gnome.Nautilus"));
+    assert!(!answering.matches("org.gnome.Nautilus"));
     assert!(!stopped.matches("org.gnome.Nautilus"));
     assert!(answering.matches("nautilus"));
     assert!(stopped.matches("nautilus"));

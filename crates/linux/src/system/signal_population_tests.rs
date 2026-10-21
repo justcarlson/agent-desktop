@@ -12,6 +12,7 @@ fn app(bus: &str, pid: u32, instance: &str, name: &str) -> RegistryApp {
     assemble(
         AtspiElement::new(bus, "/org/a11y/atspi/accessible/root", pid),
         ProcessFacts {
+            executable: None,
             comm: name.to_owned(),
             exe_basename: Some(name.to_owned()),
             instance: instance.to_owned(),

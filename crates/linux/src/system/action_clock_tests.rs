@@ -17,18 +17,32 @@ fn only_a_focused_window_with_a_recent_action_waits_for_a_popup() {
 fn only_started_actions_advance_the_popup_clock() {
     use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
     *LAST_ACTION.lock().expect("clock") = None;
-    let refused: Result<(), _> = Err(AdapterError::new(ErrorCode::ActionFailed, "refused")
-        .with_disposition(DeliverySemantics::not_delivered()));
+    let refused: Result<agent_desktop_core::ActionResult, _> =
+        Err(AdapterError::new(ErrorCode::ActionFailed, "refused")
+            .with_disposition(DeliverySemantics::not_delivered()));
     mark_outcome(Some(42), &refused);
     assert!(LAST_ACTION.lock().expect("clock").is_none());
-    let uncertain: Result<(), _> = Err(AdapterError::new(ErrorCode::ActionFailed, "unconfirmed")
-        .with_disposition(DeliverySemantics::uncertain()));
+    let already_satisfied =
+        Ok(agent_desktop_core::ActionResult::satisfied_without_delivery("check"));
+    mark_outcome(Some(42), &already_satisfied);
+    assert!(
+        LAST_ACTION.lock().expect("clock").is_none(),
+        "a successful no-op did not deliver an action"
+    );
+    let uncertain: Result<agent_desktop_core::ActionResult, _> =
+        Err(AdapterError::new(ErrorCode::ActionFailed, "unconfirmed")
+            .with_disposition(DeliverySemantics::uncertain()));
     mark_outcome(Some(42), &uncertain);
     assert!(settles(true));
     assert!(!settles(false));
     let before = *LAST_ACTION.lock().expect("clock");
     mark_outcome(Some(42), &refused);
     assert_eq!(*LAST_ACTION.lock().expect("clock"), before);
-    mark_outcome(Some(42), &Ok::<_, AdapterError>(()));
+    mark_outcome(
+        Some(42),
+        &Ok::<_, AdapterError>(agent_desktop_core::ActionResult::delivered_unverified(
+            "check",
+        )),
+    );
     assert!(LAST_ACTION.lock().expect("clock").is_some());
 }

@@ -11,6 +11,7 @@ fn app(pid: u32, answered: bool) -> RegistryApp {
     assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", pid),
         ProcessFacts {
+            executable: None,
             comm: "gnome-calculator".to_owned(),
             exe_basename: Some("gnome-calculator".to_owned()),
             instance: "boot:1".to_owned(),

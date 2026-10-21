@@ -6,6 +6,7 @@ use crate::system::process_lookup::Lookup;
 
 fn facts(instance: &str) -> Lookup {
     Lookup::Found(ProcessFacts {
+        executable: None,
         comm: "app".to_owned(),
         exe_basename: None,
         instance: instance.to_owned(),

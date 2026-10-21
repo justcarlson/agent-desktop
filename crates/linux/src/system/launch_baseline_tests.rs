@@ -11,18 +11,18 @@ use crate::tree::AtspiElement;
 #[test]
 fn an_old_frame_omitted_by_an_incomplete_baseline_cannot_be_a_launch_window() {
     let owner = Running {
+        executable: None,
         pid: 5,
         instance: "boot:9".to_owned(),
         name: "tool".to_owned(),
-        registry_name: None,
-        comm: "tool".to_owned(),
     };
     let registry = Registry {
         apps: vec![assemble(
             AtspiElement::new(":1.5", "/root", owner.pid),
             ProcessFacts {
-                comm: owner.comm.clone(),
-                exe_basename: Some(owner.comm.clone()),
+                executable: None,
+                comm: "tool".to_owned(),
+                exe_basename: Some("tool".to_owned()),
                 instance: owner.instance.clone(),
                 web_family: None,
             },

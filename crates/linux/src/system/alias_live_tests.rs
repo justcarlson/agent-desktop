@@ -32,7 +32,7 @@ fn ambiguous_exec_and_try_exec_names_cannot_close_another_app() {
     ] {
         std::fs::write(
             entries.join(format!("{id}.desktop")),
-            format!("[Desktop Entry]\nType=Application\nName={name}\nExec={exec}\n{extra}"),
+            format!("[Desktop Entry]\nType=Application\nName={name}\nExec={exec} --info \"--text={} owner\"\n{extra}", if id == "ad-client" { "unique" } else { "alias" }),
         )
         .expect("entry");
     }

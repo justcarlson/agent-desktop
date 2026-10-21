@@ -9,9 +9,9 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use self::errors::{tree_error, unreadable};
-use super::identity::{SHELL_BUS_NAME, pick_shell_app, registry_apps};
+use super::identity::{SHELL_BUS_NAME, pick_shell_app, registry_apps, shell_owner};
 use crate::system::session_bus::SessionBus;
-use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, owner_process_id, within};
+use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, within};
 
 const SERVER_NAME: &str = "gnome-shell";
 const NOTIFICATIONS: &str = "org.freedesktop.Notifications";
@@ -137,7 +137,7 @@ pub(crate) fn detect(bus: &SharedBus, deadline: Deadline) -> Fact {
         Ok(connection) => connection,
         Err(error) => return Fact::Unreadable(error.message),
     };
-    let owner = call(deadline, owner_process_id(&session, SHELL_BUS_NAME));
+    let owner = call(deadline, shell_owner(&session));
     let registered = owner.as_ref().ok().map(|pid| {
         let accessibility = bus
             .get(deadline)

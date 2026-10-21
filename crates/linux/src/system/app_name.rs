@@ -1,5 +1,4 @@
 use super::app_alias::{AliasIndex, current_index};
-use super::launch_attach::KEY_TABLE;
 use super::process_facts::ProcessFacts;
 
 fn non_blank(text: Option<&str>) -> Option<&str> {
@@ -35,8 +34,7 @@ pub(crate) fn aliases_of(facts: &ProcessFacts) -> Vec<String> {
 }
 
 pub(crate) fn desktop_id_in(index: &AliasIndex, facts: &ProcessFacts) -> Option<String> {
-    let basename = live_basename(facts.exe_basename.as_deref()?);
-    index.ids_for(basename).into_iter().next()
+    index.ids_for(facts.executable.as_ref()?).into_iter().next()
 }
 
 pub(crate) fn desktop_id(facts: &ProcessFacts) -> Option<String> {
@@ -46,48 +44,19 @@ pub(crate) fn desktop_id(facts: &ProcessFacts) -> Option<String> {
 /// As [`aliases_of`] over an index the caller already holds, for a caller that
 /// asks about many processes.
 pub(crate) fn aliases_in(index: &AliasIndex, facts: &ProcessFacts) -> Vec<String> {
-    let Some(basename) = facts
-        .exe_basename
-        .as_deref()
-        .map(live_basename)
-        .filter(|basename| !basename.is_empty())
-    else {
+    let Some(actual) = facts.executable.as_ref() else {
         return Vec::new();
     };
-    let mut aliases = index.names_for(basename);
-    aliases.extend(index.ids_for(basename));
+    let mut aliases = index.names_for(actual);
+    aliases.extend(index.ids_for(actual));
     aliases
 }
 
-/// Whether `query` names this application: exactly, ignoring case, its
-/// listed name, the accessibility root's registry name while the root
-/// answered, its `comm`, its executable basename or one of the desktop entry
-/// names or ids in `aliases`, including the launcher's known server names.
-pub(crate) fn name_matches(
-    query: &str,
-    name: &str,
-    registry_name: Option<&str>,
-    facts: &ProcessFacts,
-    aliases: &[String],
-) -> bool {
-    [
-        Some(name),
-        non_blank(registry_name),
-        Some(facts.comm.as_str()),
-        facts.exe_basename.as_deref().map(live_basename),
-    ]
-    .into_iter()
-    .flatten()
-    .chain(aliases.iter().map(String::as_str))
-    .any(|candidate| {
-        candidate.eq_ignore_ascii_case(query)
-            || KEY_TABLE.iter().any(|(launcher, servers)| {
-                launcher.eq_ignore_ascii_case(query)
-                    && servers
-                        .iter()
-                        .any(|server| server.eq_ignore_ascii_case(candidate))
-            })
-    })
+/// Exact listed executable name or an alias backed by executable evidence.
+pub(crate) fn name_matches(query: &str, name: &str, aliases: &[String]) -> bool {
+    std::iter::once(name)
+        .chain(aliases.iter().map(String::as_str))
+        .any(|candidate| candidate.eq_ignore_ascii_case(query))
 }
 
 #[cfg(test)]

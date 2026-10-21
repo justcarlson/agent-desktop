@@ -157,25 +157,6 @@ fn live_a_second_calculator_attaches_without_a_spawn_and_with_arguments_is_a_new
 
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_terminal_is_attributed_to_its_server_and_a_second_launch_adds_a_window() {
-    let mut owned = Owned(Vec::new());
-    let first = launched(&mut owned, "gnome-terminal", &[]);
-    let comm = std::fs::read_to_string(format!("/proc/{}/comm", first.pid.get())).expect("comm");
-    assert!(
-        comm.starts_with("gnome-terminal-"),
-        "the owner is the server: {comm}"
-    );
-    assert_owner_is_truthful(&first);
-    let before = x_windows_of(first.pid.get()).len();
-    let second = launched(&mut owned, "gnome-terminal", &["--window"]);
-    assert_eq!(second.pid, first.pid);
-    wait_until("a second terminal window", || {
-        x_windows_of(first.pid.get()).len() > before
-    });
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_an_app_that_exits_after_registering_and_before_a_window_is_not_a_launch() {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let script = format!("{dir}/launch-early-exit.py");

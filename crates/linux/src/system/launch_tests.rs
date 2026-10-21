@@ -11,11 +11,10 @@ fn options() -> LaunchOptions {
 
 fn owner() -> Running {
     Running {
+        executable: None,
         pid: 4_000_000,
         instance: "boot:9".to_owned(),
         name: "tool".to_owned(),
-        registry_name: None,
-        comm: "tool".to_owned(),
     }
 }
 
@@ -35,7 +34,7 @@ fn plan_of(argv: &[&str]) -> Plan {
     Plan {
         argv: argv.iter().map(|word| (*word).to_owned()).collect(),
         cwd: None,
-        keys: vec!["tool".to_owned()],
+        identity: None,
     }
 }
 

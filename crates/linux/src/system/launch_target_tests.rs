@@ -2,7 +2,6 @@ use std::os::unix::fs::PermissionsExt;
 
 use super::*;
 use crate::system::alias_cache::AliasCache;
-use crate::system::app_alias::basename_lower;
 use crate::tree::live_launch::nonce;
 
 pub(super) struct Fixture {
@@ -58,9 +57,9 @@ const CALCULATOR: (&str, &str) = (
     "Name=Calculator\nType=Application\nExec=gnome-calculator",
 );
 
-pub(super) fn keys_in(fixture: &Fixture, identifier: &str) -> Result<Vec<String>, ErrorCode> {
+pub(super) fn argv_in(fixture: &Fixture, identifier: &str) -> Result<Vec<String>, ErrorCode> {
     resolve(identifier, &[], &fixture.search, &fixture.index)
-        .map(|plan| plan.keys)
+        .map(|plan| plan.argv)
         .map_err(|error| error.code)
 }
 
@@ -72,16 +71,25 @@ fn code_of(result: Result<Vec<String>, ErrorCode>) -> ErrorCode {
 fn a_name_reaches_the_entry_the_command_name_reaches() {
     let fixture = fixture(&[CALCULATOR], &["gnome-calculator"]);
     assert_eq!(
-        keys_in(&fixture, "Calculator").unwrap()[0],
-        "org.gnome.calculator"
+        argv_in(&fixture, "Calculator").unwrap()[0],
+        fixture.search.path_dirs[0]
+            .join("gnome-calculator")
+            .to_str()
+            .unwrap()
     );
     assert_eq!(
-        keys_in(&fixture, "calculator").unwrap()[0],
-        "org.gnome.calculator"
+        argv_in(&fixture, "calculator").unwrap()[0],
+        fixture.search.path_dirs[0]
+            .join("gnome-calculator")
+            .to_str()
+            .unwrap()
     );
     assert_eq!(
-        keys_in(&fixture, "gnome-calculator").unwrap(),
-        ["gnome-calculator"]
+        argv_in(&fixture, "gnome-calculator").unwrap(),
+        [fixture.search.path_dirs[0]
+            .join("gnome-calculator")
+            .to_str()
+            .unwrap()]
     );
 }
 
@@ -91,18 +99,27 @@ fn a_path_file_beats_an_entry_name_and_a_desktop_id_beats_a_path_file() {
         &[CALCULATOR],
         &["Calculator", "org.gnome.Calculator", "gnome-calculator"],
     );
-    assert_eq!(keys_in(&fixture, "Calculator").unwrap(), ["calculator"]);
     assert_eq!(
-        keys_in(&fixture, "org.gnome.Calculator").unwrap()[0],
-        "org.gnome.calculator"
+        argv_in(&fixture, "Calculator").unwrap(),
+        [fixture.search.path_dirs[0]
+            .join("Calculator")
+            .to_str()
+            .unwrap()]
+    );
+    assert_eq!(
+        argv_in(&fixture, "org.gnome.Calculator").unwrap()[0],
+        fixture.search.path_dirs[0]
+            .join("gnome-calculator")
+            .to_str()
+            .unwrap()
     );
 }
 
 #[test]
 fn a_part_of_a_name_matches_nothing() {
     let fixture = fixture(&[CALCULATOR], &[]);
-    assert_eq!(code_of(keys_in(&fixture, "Calc")), ErrorCode::AppNotFound);
-    assert_eq!(code_of(keys_in(&fixture, "gnome")), ErrorCode::AppNotFound);
+    assert_eq!(code_of(argv_in(&fixture, "Calc")), ErrorCode::AppNotFound);
+    assert_eq!(code_of(argv_in(&fixture, "gnome")), ErrorCode::AppNotFound);
 }
 
 #[test]
@@ -115,7 +132,7 @@ fn a_name_two_entries_share_is_ambiguous() {
         &[],
     );
     assert_eq!(
-        code_of(keys_in(&fixture, "files")),
+        code_of(argv_in(&fixture, "files")),
         ErrorCode::AmbiguousTarget
     );
 }
@@ -124,12 +141,12 @@ fn a_name_two_entries_share_is_ambiguous() {
 fn a_relative_path_and_a_nul_are_invalid() {
     let fixture = fixture(&[], &[]);
     assert_eq!(
-        code_of(keys_in(&fixture, "bin/tool")),
+        code_of(argv_in(&fixture, "bin/tool")),
         ErrorCode::InvalidArgs
     );
-    assert_eq!(code_of(keys_in(&fixture, "./tool")), ErrorCode::InvalidArgs);
-    assert_eq!(code_of(keys_in(&fixture, "to\0ol")), ErrorCode::InvalidArgs);
-    assert_eq!(code_of(keys_in(&fixture, "")), ErrorCode::InvalidArgs);
+    assert_eq!(code_of(argv_in(&fixture, "./tool")), ErrorCode::InvalidArgs);
+    assert_eq!(code_of(argv_in(&fixture, "to\0ol")), ErrorCode::InvalidArgs);
+    assert_eq!(code_of(argv_in(&fixture, "")), ErrorCode::InvalidArgs);
 }
 
 #[test]
@@ -144,9 +161,12 @@ fn an_absolute_file_is_a_path_and_a_missing_one_is_not_found() {
     )
     .expect("executable path");
     assert_eq!(plan.argv, [tool.to_string_lossy().as_ref()]);
-    assert_eq!(plan.keys, ["tool"]);
     assert_eq!(
-        code_of(keys_in(&fixture, "/nonexistent/tool")),
+        plan.identity.unwrap().executable,
+        tool.canonicalize().unwrap()
+    );
+    assert_eq!(
+        code_of(argv_in(&fixture, "/nonexistent/tool")),
         ErrorCode::AppNotFound
     );
 }
@@ -185,8 +205,11 @@ fn a_desktop_file_outside_the_data_directories_is_refused() {
             &fixture.index
         )
         .expect("trusted entry")
-        .keys[0],
-        "org.gnome.calculator"
+        .argv[0],
+        fixture.search.path_dirs[0]
+            .join("gnome-calculator")
+            .to_str()
+            .unwrap()
     );
 }
 
@@ -260,7 +283,7 @@ fn a_hidden_entry_a_link_and_a_missing_try_exec_are_not_found() {
 }
 
 #[test]
-fn an_entry_plan_expands_resolves_and_keys_the_entry() {
+fn an_entry_plan_expands_and_resolves_the_entry() {
     let fixture = fixture(
         &[(
             "org.gnome.TextEditor",
@@ -287,14 +310,6 @@ fn an_entry_plan_expands_resolves_and_keys_the_entry() {
         ]
     );
     assert_eq!(plan.cwd, Some(PathBuf::from("/tmp")));
-    assert_eq!(
-        plan.keys,
-        [
-            "org.gnome.texteditor",
-            "gnome-text-editor",
-            "gnome-text-editor"
-        ]
-    );
 }
 
 #[test]
@@ -303,7 +318,13 @@ fn a_command_and_a_path_plan_pass_the_arguments_through() {
     let arguments = vec!["-x".to_owned(), "y".to_owned()];
     let command = resolve("tool", &arguments, &fixture.search, &fixture.index).expect("command");
     assert_eq!(command.argv[1..], ["-x", "y"]);
-    assert_eq!(command.keys, ["tool"]);
+    assert_eq!(
+        command.identity.unwrap().executable,
+        fixture.search.path_dirs[0]
+            .join("tool")
+            .canonicalize()
+            .unwrap()
+    );
     let path = fixture.search.path_dirs[0].join("tool");
     let by_path = resolve(
         &path.to_string_lossy(),
@@ -313,7 +334,10 @@ fn a_command_and_a_path_plan_pass_the_arguments_through() {
     )
     .expect("path");
     assert_eq!(by_path.argv, [path.to_string_lossy().as_ref(), "-x", "y"]);
-    assert_eq!(by_path.keys, ["tool"]);
+    assert_eq!(
+        by_path.identity.unwrap().executable,
+        path.canonicalize().unwrap()
+    );
 }
 
 #[test]
@@ -323,32 +347,4 @@ fn a_program_missing_from_path_is_not_found() {
         .err()
         .expect("not found");
     assert_eq!(error.code, ErrorCode::AppNotFound);
-}
-
-#[test]
-fn launch_and_alias_keys_share_executable_basename_normalization() {
-    let fixture = fixture(
-        &[(
-            "tool",
-            "Name=Tool\nType=Application\nExec=/opt/SomeDir/MiXeD\nTryExec=/",
-        )],
-        &[],
-    );
-    let actual = executable(&fixture.root.join("SomeDir"), "MiXeD");
-    let launched = resolve(
-        &actual.to_string_lossy(),
-        &[],
-        &fixture.search,
-        &fixture.index,
-    )
-    .expect("existing executable path");
-    assert_eq!(launched.keys, ["mixed"]);
-    assert_eq!(fixture.index.names_for("mixed"), ["Tool"]);
-    assert!(fixture.index.names_for("SomeDir").is_empty());
-    assert_eq!(basename_lower("/"), None);
-    assert_eq!(
-        code_of(keys_in(&fixture, "/")),
-        ErrorCode::AppNotFound,
-        "a directory is not accepted as an executable path"
-    );
 }

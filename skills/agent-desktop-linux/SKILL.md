@@ -60,7 +60,8 @@ tool for observation or semantic actions.
   accessibility bus did not answer, not that the desktop is empty. Read
   `references/bus-and-permissions.md` and do not restart a bus you did not start.
 - **`--app` takes the name `list-apps` prints** (`gnome-calculator`,
-  `nautilus`) or the registry name (`org.gnome.Nautilus`), never a window title.
+  `nautilus`) or a desktop-entry name/id backed by verified executable and
+  argument identity, never a window title or an arbitrary registry label.
   A desktop-entry name such as `Files` is accepted once the entry exists. The
   rule differs per command: `list-windows --app` is exact (aliases included),
   while `list-apps --app` combines a substring of the listed name with exact

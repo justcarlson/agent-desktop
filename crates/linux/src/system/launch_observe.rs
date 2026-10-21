@@ -25,7 +25,7 @@ fn pick(mut found: Vec<&Running>) -> Option<Step> {
 }
 
 /// The next move of a launch. The owner is the child while it runs and shows
-/// on the registry, else an application matching the identity keys that was
+/// on the registry, else an application matching the executable identity that was
 /// absent before the spawn, else (when the launcher exited cleanly after
 /// forwarding) the one that was already running. A launcher killed by a signal
 /// or exiting with a failure and no owner is a failed launch, and a clean
@@ -34,7 +34,7 @@ pub(crate) fn step(sample: &Sample<'_>) -> Step {
     let candidates: Vec<&Running> = sample
         .apps
         .iter()
-        .filter(|app| matches(sample.keys, app))
+        .filter(|app| matches(sample.identity, app))
         .collect();
     let new: Vec<&Running> = candidates
         .iter()
@@ -75,11 +75,10 @@ pub(crate) fn running_of(registry: &Registry) -> Vec<Running> {
         .iter()
         .filter(|app| seen.insert(app.root.pid()))
         .map(|app| Running {
+            executable: app.facts.executable.clone(),
             pid: app.root.pid(),
             instance: app.facts.instance.clone(),
             name: app.name.clone(),
-            registry_name: app.registry_name.clone(),
-            comm: app.facts.comm.clone(),
         })
         .collect()
 }
@@ -162,11 +161,11 @@ fn after_spawn(error: AdapterError) -> AdapterError {
 pub(crate) fn find_owner(
     bus: &SharedBus,
     spawned: &mut Spawned,
-    keys: &[String],
+    identity: &Option<super::executable_identity::ExecutableIdentity>,
     before: &HashSet<u32>,
     deadline: Deadline,
 ) -> Result<Option<Running>, AdapterError> {
-    let identifier = keys.first().map_or("the application", String::as_str);
+    let identifier = "the application";
     let mut interval = POLL_INTERVAL;
     let mut exited_at: Option<Instant> = None;
     loop {
@@ -187,7 +186,7 @@ pub(crate) fn find_owner(
             child,
             apps: &apps,
             before,
-            keys,
+            identity,
             settled,
         };
         match step(&sample) {

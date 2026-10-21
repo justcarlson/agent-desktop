@@ -8,8 +8,7 @@ use crate::tree::AtspiElement;
 /// One application on the accessibility registry. `answered` is false when
 /// the application's own root did not reply in time; it is still an
 /// application, named from `/proc` like every other. `registry_name` is the
-/// root's own `Name` while it answered, kept only so a query by that name
-/// still finds the application.
+/// root's own `Name` while it answered, retained as diagnostic evidence.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RegistryApp {
     pub(crate) root: AtspiElement,
@@ -47,13 +46,7 @@ pub(crate) fn assemble(
 impl RegistryApp {
     /// Whether `query` names this application.
     pub(crate) fn matches(&self, query: &str) -> bool {
-        name_matches(
-            query,
-            &self.name,
-            self.registry_name.as_deref(),
-            &self.facts,
-            &self.aliases,
-        )
+        name_matches(query, &self.name, &self.aliases)
     }
 }
 

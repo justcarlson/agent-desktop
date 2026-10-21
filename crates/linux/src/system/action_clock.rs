@@ -30,12 +30,15 @@ pub(crate) fn mark_target(target: Option<u32>) {
     target.map_or_else(mark, mark_process);
 }
 
-pub(crate) fn mark_outcome<T>(
+pub(crate) fn mark_outcome(
     target: Option<u32>,
-    result: &Result<T, agent_desktop_core::AdapterError>,
+    result: &Result<agent_desktop_core::ActionResult, agent_desktop_core::AdapterError>,
 ) {
-    if !matches!(result, Err(error) if error.disposition == agent_desktop_core::DeliverySemantics::not_delivered())
-    {
+    let disposition = match result {
+        Ok(action) => action.disposition(),
+        Err(error) => error.disposition,
+    };
+    if disposition != agent_desktop_core::DeliverySemantics::not_delivered() {
         mark_target(target);
     }
 }
@@ -62,3 +65,7 @@ fn settles_at(focused: bool, last: Option<Instant>, now: Instant) -> bool {
 #[cfg(test)]
 #[path = "action_clock_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "action_clock_live_tests.rs"]
+mod live_tests;

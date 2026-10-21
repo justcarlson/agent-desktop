@@ -8,6 +8,6 @@ pub(crate) struct Sample<'a> {
     pub(crate) child: Option<ExitStatus>,
     pub(crate) apps: &'a [Running],
     pub(crate) before: &'a HashSet<u32>,
-    pub(crate) keys: &'a [String],
+    pub(crate) identity: &'a Option<super::executable_identity::ExecutableIdentity>,
     pub(crate) settled: bool,
 }

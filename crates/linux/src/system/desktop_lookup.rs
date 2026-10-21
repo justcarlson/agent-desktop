@@ -1,5 +1,5 @@
+use super::desktop_stamp::DesktopStamp;
 use std::path::{Component, Path, PathBuf};
-use std::time::SystemTime;
 
 const SUFFIX: &str = ".desktop";
 const DEFAULT_DATA_DIRS: &str = "/usr/local/share:/usr/share";
@@ -105,11 +105,23 @@ pub(crate) fn read_all(dirs: &[PathBuf]) -> Vec<(String, String)> {
     entries
 }
 
-/// The modification time of each directory, which changes when a desktop file
-/// is added or removed.
-pub(crate) fn stamps(dirs: &[PathBuf]) -> Vec<Option<SystemTime>> {
+/// Directory and entry versions, including in-place desktop file edits.
+pub(crate) fn stamps(dirs: &[PathBuf]) -> Vec<DesktopStamp> {
     dirs.iter()
-        .map(|dir| std::fs::metadata(dir).and_then(|meta| meta.modified()).ok())
+        .flat_map(|dir| {
+            let mut files: Vec<_> = std::fs::read_dir(dir)
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    id_of(entry.file_name().to_str()?)?;
+                    Some(entry.path())
+                })
+                .collect();
+            files.sort();
+            std::iter::once(dir.clone()).chain(files)
+        })
+        .map(DesktopStamp::read)
         .collect()
 }
 

@@ -12,6 +12,7 @@ fn app() -> RegistryApp {
     assemble(
         AtspiElement::new(":1.4", "/org/a11y/atspi/accessible/root", 77),
         ProcessFacts {
+            executable: None,
             comm: "calc".to_owned(),
             exe_basename: Some("calc".to_owned()),
             instance: "boot:77".to_owned(),

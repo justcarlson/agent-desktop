@@ -35,6 +35,7 @@ pub(super) fn dialog(id: u32) -> Toplevel {
 
 pub(super) fn facts(comm: &str) -> Lookup {
     Lookup::Found(ProcessFacts {
+        executable: None,
         comm: comm.to_owned(),
         exe_basename: Some(comm.to_owned()),
         instance: "t".to_owned(),

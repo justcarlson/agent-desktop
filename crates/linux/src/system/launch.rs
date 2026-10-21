@@ -12,7 +12,7 @@ use agent_desktop_core::{
 
 use super::app_alias::current_index;
 use super::focus_window::focus_window;
-use super::launch_attach::{Decision, decide, identity_keys, matches};
+use super::launch_attach::{Decision, decide, matches};
 use super::launch_observe::{POLL_INTERVAL, Spawned, find_owner, pids_of, running_of};
 use super::launch_target::{Plan, resolve};
 use super::liveness::{Liveness, liveness};
@@ -256,10 +256,10 @@ impl Launch<'_> {
 
     fn known_windows(
         &self,
-        keys: &[String],
+        identity: &Option<super::executable_identity::ExecutableIdentity>,
         running: &[Running],
     ) -> Result<HashSet<String>, AdapterError> {
-        match running.iter().find(|owner| matches(keys, owner)) {
+        match running.iter().find(|owner| matches(identity, owner)) {
             Some(owner) => baseline::capture(self.bus, owner, self.deadline).map_err(before_spawn),
             None => Ok(HashSet::new()),
         }
@@ -284,12 +284,12 @@ impl Launch<'_> {
         &self,
         owner: &Running,
         plan: &Plan,
-        keys: &[String],
+        identity: &Option<super::executable_identity::ExecutableIdentity>,
         running: &[Running],
     ) -> Result<LaunchResult, AdapterError> {
         match self.window_of(owner, false, &HashSet::new())? {
             Some(window) => Ok(self.conclude_with(owner, Some(window), false)),
-            None => self.start(plan, keys, running),
+            None => self.start(plan, identity, running),
         }
     }
 
@@ -313,13 +313,13 @@ impl Launch<'_> {
     fn start(
         &self,
         plan: &Plan,
-        keys: &[String],
+        identity: &Option<super::executable_identity::ExecutableIdentity>,
         running: &[Running],
     ) -> Result<LaunchResult, AdapterError> {
         let before: HashSet<u32> = running.iter().map(|app| app.pid).collect();
-        let known = self.known_windows(keys, running)?;
+        let known = self.known_windows(identity, running)?;
         let mut spawned = spawn(self.id, plan, self.options)?;
-        match find_owner(self.bus, &mut spawned, keys, &before, self.deadline)? {
+        match find_owner(self.bus, &mut spawned, identity, &before, self.deadline)? {
             Some(owner) => {
                 let window = self.window_of(&owner, true, &known)?;
                 Ok(self.conclude_with(&owner, window, owner.pid == spawned.pid))
@@ -343,7 +343,6 @@ pub(crate) fn launch_app(
     let deadline = bounded(lease.deadline(), options.timeout_ms);
     let search = Search::from_env();
     let plan = resolve(id, &options.args, &search, &current_index())?;
-    let keys = identity_keys(&plan.keys);
     let running = running_of(&read_registry(bus, deadline).map_err(before_spawn)?);
     let launch = Launch {
         bus,
@@ -353,7 +352,7 @@ pub(crate) fn launch_app(
         deadline,
     };
     match decide(
-        &keys,
+        &plan.identity,
         &running,
         options.attach_if_running,
         !options.args.is_empty(),
@@ -369,8 +368,8 @@ pub(crate) fn launch_app(
             format!("'{id}' matches several running applications"),
             &pids_of(&pids),
         )),
-        Decision::Attach(owner) => launch.attach(&owner, &plan, &keys, &running),
-        Decision::Forward | Decision::Spawn => launch.start(&plan, &keys, &running),
+        Decision::Attach(owner) => launch.attach(&owner, &plan, &plan.identity, &running),
+        Decision::Forward | Decision::Spawn => launch.start(&plan, &plan.identity, &running),
     }
 }
 

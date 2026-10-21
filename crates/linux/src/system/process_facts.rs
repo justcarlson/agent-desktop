@@ -13,6 +13,7 @@ const CHROMIUM_PAYLOAD: [&str; 2] = ["resources/app.asar", "libffmpeg.so"];
 /// What `/proc` knows about one process.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProcessFacts {
+    pub(crate) executable: Option<super::executable_identity::ExecutableIdentity>,
     pub(crate) comm: String,
     pub(crate) exe_basename: Option<String>,
     pub(crate) instance: String,
@@ -85,34 +86,37 @@ fn has_chromium_payload(exe: &Path) -> bool {
 /// The facts of a running process, or `None` when it has gone or could not be
 /// read.
 pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
-    inspect(pid, true).ok()
+    match inspect(pid, true) {
+        Lookup::Found(facts) => Some(facts),
+        _ => None,
+    }
 }
 
 /// Looks one process up. A made-up start time would let a recycled id pass,
 /// so a stat line without a readable start time is `Unreadable`, and only a
 /// read that failed because the process has gone is `Gone`.
 pub(crate) fn lookup(pid: u32) -> Lookup {
-    match inspect(pid, true) {
-        Ok(facts) => Lookup::Found(facts),
-        Err(lookup) => lookup,
-    }
+    inspect(pid, true)
 }
 
 /// The facts a name is matched on: the same as [`read`] without the check for
 /// a Chromium payload next to the executable, which a name never needs.
 pub(crate) fn read_names(pid: u32) -> Option<ProcessFacts> {
-    inspect(pid, false).ok()
+    match inspect(pid, false) {
+        Lookup::Found(facts) => Some(facts),
+        _ => None,
+    }
 }
 
-fn inspect(pid: u32, check_payload: bool) -> Result<ProcessFacts, Lookup> {
+fn inspect(pid: u32, check_payload: bool) -> Lookup {
     let stat = match proc_stat::read_stat(pid) {
         Ok(Some(stat)) => stat,
-        Ok(None) => return Err(Lookup::Gone),
-        Err(()) => return Err(Lookup::Unreadable),
+        Ok(None) => return Lookup::Gone,
+        Err(()) => return Lookup::Unreadable,
     };
     let comm = match std::fs::read_to_string(format!("/proc/{pid}/comm")) {
         Ok(comm) => comm.trim_end().to_owned(),
-        Err(error) => return Err(lookup_for_error(&error)),
+        Err(error) => return lookup_for_error(&error),
     };
     let exe = std::fs::read_link(format!("/proc/{pid}/exe")).ok();
     let exe_basename = exe
@@ -121,12 +125,13 @@ fn inspect(pid: u32, check_payload: bool) -> Result<ProcessFacts, Lookup> {
         .map(|name| name.to_string_lossy().into_owned());
     let payload = check_payload && exe.as_deref().is_some_and(has_chromium_payload);
     let facts = ProcessFacts {
+        executable: super::executable_identity::ExecutableIdentity::read(pid),
         web_family: classify_web(&comm, exe_basename.as_deref(), payload),
         comm,
         exe_basename,
         instance: process_instance(boot_id(), stat.start_time),
     };
-    Ok(facts)
+    Lookup::Found(facts)
 }
 
 #[cfg(test)]

@@ -4,16 +4,17 @@ use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
-use super::app_alias::{AliasIndex, basename_lower};
+use super::app_alias::AliasIndex;
 use super::desktop_entry::{DesktopEntry, parse};
 use super::desktop_exec::{ExecContext, expand, program_word};
 use super::desktop_lookup::{find, is_trusted};
+use super::executable_identity::ExecutableIdentity;
 
 /// The program to run, its arguments and the facts attach decisions read.
 pub(crate) struct Plan {
     pub(crate) argv: Vec<String>,
     pub(crate) cwd: Option<PathBuf>,
-    pub(crate) keys: Vec<String>,
+    pub(crate) identity: Option<ExecutableIdentity>,
 }
 
 fn refuse(code: ErrorCode, message: String) -> AdapterError {
@@ -90,14 +91,9 @@ fn resolve_program(program: &str, path_dirs: &[PathBuf]) -> Result<String, Adapt
         })
 }
 
-fn entry_plan(
-    id: &str,
-    arguments: &[String],
-    search: &Search,
-    index: &AliasIndex,
-) -> Result<Plan, AdapterError> {
+fn entry_plan(id: &str, arguments: &[String], search: &Search) -> Result<Plan, AdapterError> {
     let file = find(id, &search.data_dirs).ok_or_else(|| not_found(id))?;
-    plan_file(&file, id, arguments, search, index)
+    plan_file(&file, id, arguments, search)
 }
 
 fn plan_file(
@@ -105,7 +101,6 @@ fn plan_file(
     id: &str,
     arguments: &[String],
     search: &Search,
-    index: &AliasIndex,
 ) -> Result<Plan, AdapterError> {
     let text = std::fs::read_to_string(file).map_err(|_| not_found(id))?;
     let entry = parse(id, &text).ok_or_else(|| {
@@ -134,35 +129,28 @@ fn plan_file(
     );
     let at = argv.iter().position(|word| *word == program).unwrap_or(0);
     argv[at] = resolve_program(&program, &search.path_dirs)?;
-    let keys = [Some(entry.id.to_lowercase())]
-        .into_iter()
-        .chain([basename_lower(&program).filter(|program| {
-            index
-                .ids_for(program)
-                .iter()
-                .any(|id| id.eq_ignore_ascii_case(&entry.id))
-        })])
-        .chain([entry.traits.wm_class.as_deref().map(str::to_lowercase)])
-        .flatten()
-        .collect();
+    argv[0] = resolve_program(&argv[0], &search.path_dirs)?;
+    let identity = ExecutableIdentity::requested(&argv, true, &search.path_dirs);
     Ok(Plan {
         argv,
         cwd: entry.path.map(PathBuf::from),
-        keys,
+        identity,
     })
 }
 
-fn direct_plan(program: String, arguments: &[String], keys: Vec<String>) -> Plan {
+fn direct_plan(program: String, arguments: &[String]) -> Plan {
+    let argv: Vec<String> = std::iter::once(program)
+        .chain(arguments.iter().cloned())
+        .collect();
+    let identity = ExecutableIdentity::requested(&argv, false, &[]);
     Plan {
-        argv: std::iter::once(program)
-            .chain(arguments.iter().cloned())
-            .collect(),
+        argv,
         cwd: None,
-        keys,
+        identity,
     }
 }
 
-/// Resolve an identifier directly to the command and identity keys to launch.
+/// Resolve an identifier directly to the command and executable identity to launch.
 /// The order is: absolute path, relative path refusal, installed desktop id,
 /// executable on `PATH`, then an exact case-insensitive desktop `Name`.
 pub(crate) fn resolve(
@@ -188,11 +176,10 @@ pub(crate) fn resolve(
                     "'{identifier}' is a desktop file outside the XDG data directories and is not launched"
                 )));
             }
-            return plan_file(&file, id, arguments, search, index);
+            return plan_file(&file, id, arguments, search);
         }
         if file.is_file() {
-            let keys = basename_lower(identifier).into_iter().collect();
-            return Ok(direct_plan(identifier.to_owned(), arguments, keys));
+            return Ok(direct_plan(identifier.to_owned(), arguments));
         }
         return Err(not_found(identifier));
     }
@@ -203,20 +190,16 @@ pub(crate) fn resolve(
     }
     if let Some(file) = find(identifier, &search.data_dirs) {
         let id = file.file_stem().and_then(|stem| stem.to_str());
-        return entry_plan(id.unwrap_or(identifier), arguments, search, index);
+        return entry_plan(id.unwrap_or(identifier), arguments, search);
     }
     if find_on_path(identifier, &search.path_dirs).is_some() {
         let program = resolve_program(identifier, &search.path_dirs)?;
-        return Ok(direct_plan(
-            program,
-            arguments,
-            vec![identifier.to_lowercase()],
-        ));
+        return Ok(direct_plan(program, arguments));
     }
     let mut ids = index.ids_named(identifier);
     match ids.len() {
         0 => Err(not_found(identifier)),
-        1 => entry_plan(&ids.remove(0), arguments, search, index),
+        1 => entry_plan(&ids.remove(0), arguments, search),
         _ => Err(AdapterError::ambiguous_target(format!(
             "'{identifier}' is the name of several desktop entries: {}",
             ids.join(", ")

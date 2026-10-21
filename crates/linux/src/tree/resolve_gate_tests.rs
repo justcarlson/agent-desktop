@@ -16,6 +16,7 @@ fn entry() -> RefEntry {
 
 fn running(instance: &str) -> Lookup {
     Lookup::Found(ProcessFacts {
+        executable: None,
         comm: "app".to_owned(),
         exe_basename: None,
         instance: instance.to_owned(),
