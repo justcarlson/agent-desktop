@@ -65,7 +65,6 @@ pub(super) fn fresh(
         ref_evidence: LocatorRefEvidence {
             bounds: LocatorField::Absent,
             window_bounds: LocatorField::Absent,
-            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             available_actions: LocatorField::Known(actions),
             descriptors: Default::default(),
         },

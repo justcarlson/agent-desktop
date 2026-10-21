@@ -263,7 +263,6 @@ mod tests {
             states: LocatorField::Unknown,
             ref_evidence: LocatorRefEvidence {
                 window_bounds: LocatorField::Absent,
-                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 bounds: LocatorField::Unknown,
                 available_actions: LocatorField::Known(vec!["Click".into()]),
                 descriptors: Default::default(),

@@ -259,7 +259,6 @@ pub(crate) fn observed_tree(
             states: LocatorField::Known(node.presentation.states),
             ref_evidence: LocatorRefEvidence {
                 window_bounds: LocatorField::Absent,
-                bounds_space: crate::BoundsSpace::Screen,
                 bounds: node
                     .presentation
                     .bounds

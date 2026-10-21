@@ -204,7 +204,6 @@ fn locator_evidence(role: &str, bounds: LocatorField<Rect>) -> LocatorEvidence {
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds,
             available_actions: LocatorField::Absent,
             descriptors: NodeDescriptor::default(),

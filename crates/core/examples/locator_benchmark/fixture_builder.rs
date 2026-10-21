@@ -142,7 +142,6 @@ fn node_evidence(node: &FixtureNode, requirements: EvidenceRequirements) -> Loca
         },
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: if requirements.ref_evidence.bounds {
                 LocatorField::Known(node.bounds)
             } else {
