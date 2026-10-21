@@ -9,10 +9,6 @@ use super::x11::FrameFacts;
 use crate::tree::RawNode;
 use crate::tree::role_numbers::DIALOG;
 
-fn rect(node: &RawNode) -> Option<Rect> {
-    node.extents.present().map(|extents| Rect::from(*extents))
-}
-
 fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindow> {
     if !is_window_shape(
         &node.traits.role,
@@ -42,7 +38,9 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
             app: app.name.clone(),
             pid: app.root.pid().into(),
             process_instance: Some(app.facts.instance.clone()),
-            bounds: global_position.then(|| rect(node)).flatten(),
+            bounds: global_position
+                .then(|| node.extents.present().copied().map(Rect::from))
+                .flatten(),
             state: WindowState {
                 is_focused: false,
                 accessible: true,
