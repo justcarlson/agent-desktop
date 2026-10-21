@@ -69,7 +69,7 @@ Distribution is already mostly wired. The CLI and FFI crates select `LinuxAdapte
 - R11. The Linux perf method is applied and reported: min-of-seven with the warm-up discarded (min, median and max), release size on both architectures against 15 MiB, FFI call serialisation, wrapper-versus-symlink start-up.
 - R12. `docs/phases.md` states what was built and no longer states what the evidence disproved; the `L22` rows enter `probes/linux/FINDINGS.md` and every row naming 3.13 is disposed of; every deferral is written into the receiving sub-phase's scope in the same PR.
 - R13. Isolation: `git diff -- crates/core` is empty, no crate or npm dependency is added, no shipped source names a plan, a phase or a decision id.
-- R14. A stranger dogfood is run from three perspectives and its judged report committed with every finding disposed of.
+- R14. A stranger dogfood is run from three perspectives; its judged report stays outside version control, with every finding disposed of in the PR description.
 
 ### Key Decisions
 
@@ -291,7 +291,7 @@ U1 settles runner capability, the observer and the jammy Calculator addressabili
 - **Goal:** find what a new agent hits using only the shipped artifacts and docs.
 - **Requirements:** R14.
 - **Dependencies:** U7, U8; U9 for leg 3.
-- **Files:** `docs/dogfood-reports/<date>-<serial>-feat-linux-3-13-ffi-npm-release-dogfood.md`.
+- **Files:** none. The judged report and its evidence stay outside version control; findings and dispositions go in the PR description.
 - **Approach:** KD8, KTD14. Each operator is a subagent briefed that it holds only the artifact for its leg and the shipped docs, repository withheld, working in `scripts/private-session.sh --wm`; every example runs verbatim in the default shell; every step's `ok` is read; waiting uses the tool's own primitives; any undocumented flag, variable or ordering is a finding; a failure counts after a second independent observation; a behavioural claim is measured in both directions. Legs:
   1. **npm:** a clean environment with only the dry-run archives and the packed package; the README install section verbatim; first command, first snapshot, first action; missing-`curl`/`tar`, read-only prefix, `--ignore-scripts` as negatives (`L22-13`).
   2. **Foreign FFI embedding:** only the extracted FFI archive and header; a C and a Python consumer written from the docs alone; ABI mismatch, destroy-then-use, two threads, bus loss, stale id, clipboard per KTD7.
@@ -299,7 +299,7 @@ U1 settles runner capability, the observer and the jammy Calculator addressabili
   4. Adversarial pass: an unsupported architecture key, an old glibc userland (the jammy userland of `L22-2` extracted unprivileged), a path with spaces, a stale `SHA256SUMS`.
   The report is judged: at least one finding, else the targets are made harder.
 - **Test expectation:** none -- a run and a report; each finding is fixed (a named test that fails when the fix is broken), owned elsewhere (the receiving scope written into `docs/phases.md` in this PR) or accepted with a reason.
-- **Verification:** the report is committed, every finding has one disposition, every fixed finding's test was seen to fail with the fix removed.
+- **Verification:** the judged report stays outside version control, every finding has one disposition in the PR description, every fixed finding's test was seen to fail with the fix removed.
 
 ### U11. Close-out
 
@@ -332,7 +332,7 @@ U1 settles runner capability, the observer and the jammy Calculator addressabili
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.13` lists no `DEFERRED` row | R12 |
 | Perf | min-of-seven with the warm-up discarded (min, median, max); size on both architectures against 15 MiB | R11 |
 | Skill | `skills`, `skills get platform`, `--full` on Linux; every example verbatim | R9, once O1 lands |
-| Dogfood | the committed report with every finding disposed of | R14 |
+| Dogfood | PR description with every finding disposed of; no report file committed | R14 |
 
 Requirement-to-check map: R1 → U3 gate and self-test, U7 per-file maxima; R2 → U3 workflow and `check-npm-package.js` rows; R3 → U3 dry-run legs, U7 dispatch; R4 → U4 legs 1-9 on the box and both runners; R5 → U3 README paragraph, U4 clipboard and serialise legs, U8; R6 → U5 tests and install leg; R7 → U5 failure-mode cases, U8 README; R8 → U6 archive-contents test and clipboard leg; R9 → U9 and the Skill row; R10 → U2, U8, dogfood legs; R11 → U7 Perf; R12 → U2, U10, Ledger; R13 → Isolation, Dependency, Source rules; R14 → U10.
 
@@ -351,7 +351,7 @@ Requirement-to-check map: R1 → U3 gate and self-test, U7 per-file maxima; R2 �
   - `L22-14`: implemented when O1 lands (U9); otherwise owned elsewhere (O1) with the receiving scope written into `docs/phases.md`.
   - `L22-15`: closed in part or owned by 3.15, per U1 item 3.
   - U1's new rows: each with its verdict and a disposition.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified; a skill-only leg that could not run because O1 is open is listed as open, not passed.
+- The judged dogfood report stays outside version control, with every finding disposed of in the PR description and every fixed finding's test invert-verified; a skill-only leg that could not run because O1 is open is listed as open, not passed.
 - `crates/core` diff is empty, no dependency was added, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - `docs/phases.md` states what was built and no longer states what the evidence disproved; every deferral is written into the receiving sub-phase's scope.
 - Nothing was published, nothing merged to `main`, and no abandoned experiment code remains (the throwaway runner-probe branch is deleted).

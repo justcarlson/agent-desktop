@@ -392,7 +392,7 @@ Size: Windows' resolver and live-read code is about 2.3k non-test lines across n
 | Source rules | `scripts/check-rust-file-size.sh`, `scripts/check-no-phase-references.sh`, `scripts/check-stale-ref-constructor-misuse.sh`, `cargo fmt --all -- --check` | 400-line cap, no plan ids in source, direct `StaleRef` construction |
 | Ledger | `python3 scripts/check-linux-findings.py` exits 0, then `--sub-phase 3.5` lists the L17 rows, the four re-tagged rows and `L20-3`, none `DEFERRED` | citations valid, dispositions possible |
 | Perf and size | min-of-seven with the warm-up discarded, min with median and max, for the rows in U8; release size against 15 MiB | R15 |
-| Dogfood | the committed report with every finding disposed | R14 |
+| Dogfood | PR description with every finding disposed; no report file committed | R14 |
 
 Requirement-to-check map: R1 → U6 scenarios and U9 apps; R2 → U4, U6 verdict scenarios; R3 → U6 gate and landing scenarios, U9 navigation, relaunch and hidden-page; R4 → U4 size scenarios, U6 twin scenarios, U9 twins including the window move; R5 → U4, U6 shared-id scenarios, U9 Qt rows; R6 → U4, U6 unverifiable scenarios, U9; R7 → U7 anchor scenarios and live `find`; R8 → U8 scenarios, U9 values and visibility; R9 → U7 `find`, U9 drill-down, `get`, `is`; R10 → U3 scenarios, U9 destroy and kill; R11 → U5, U6 deadline scenarios, U9 SIGSTOP; R12 → isolation and source rules; R13 → U2, U11 and the ledger check; R14 → U10; R15 → perf and size.
 
@@ -409,7 +409,7 @@ Requirement-to-check map: R1 → U6 scenarios and U9 apps; R2 → U4, U6 verdict
   - `L2-2`, `L8-7`, `L11-15`: implemented, descent from the frame only, the gate, and the deadline race (U5, U6, U3).
   - `L20-3`: fixed, `resolve_locator_anchor` and the live `find` test (U7).
   - `L17-1` to `L17-26`: each with its verdict and a disposition; the three `DEFERRED` rows (`L17-16`, `L17-24`, `L17-25`) are closed by U9's numbers, none stays `DEFERRED`.
-- The dogfood report is committed with every finding disposed of and every fixed finding's test invert-verified.
+- The judged dogfood report stays outside version control, with every finding disposed of in the PR description and every fixed finding's test invert-verified.
 - `crates/core` diff is empty, no shipped source names a plan, phase or decision id, and no probe script, capture or box identity is committed.
 - `docs/phases.md` states what was built and no longer states what the evidence disproved.
 - No abandoned experiment code remains.

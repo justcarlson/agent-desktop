@@ -59,7 +59,7 @@ two removed invalid contracts (HTML setting and the Qt choice target). The separ
 | R28 | Implement only registered live families. FFI belongs to 3.13; shell/notification/tray to 3.14; cursor/hardware/integration hardening to 3.15. |
 | R29 | Decide missing/retired target rows now; transferred requirements are in the receiving scope in docs/phases.md in the same commit. |
 | R30 | Roadmap, this plan, README and findings ledger state measured behaviour; no removed check counts as a pass. |
-| R31 | Stranger dogfood with a committed report and disposed findings; no performance baseline is required for this harness integration. |
+| R31 | Stranger dogfood with a judged report outside version control and findings disposed of in the PR description; no performance baseline is required for this harness integration. |
 | R32 | Retained GTK4/Qt gesture contracts use real app effects and pointer/focus restoration. The remaining toolkit × position × gesture stress matrix is explicitly required by 3.15. |
 | R33 | Retained launch/close/focus/geometry/state and delivery-report cells use raw X11/process evidence. Mutter throttle/maximize/lift fixture hardening is explicit in 3.15. |
 | R34 | All registered shell, tray and notification acceptance rows remain outstanding on the landed product, including bystander/no-signal and exact refusal twins. |
