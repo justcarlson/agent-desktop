@@ -1,7 +1,7 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{ErrorCode, WindowInfo};
+use agent_desktop_core::ErrorCode;
 
 use super::lift_live_tests::*;
 use super::*;
@@ -16,117 +16,6 @@ fn wait_active(pid: u32) -> bool {
         std::thread::sleep(Duration::from_millis(100));
     }
     false
-}
-
-fn user_time(xid: &str) -> String {
-    xprop(&["-id", xid, "_NET_WM_USER_TIME"])
-        .split('=')
-        .nth(1)
-        .unwrap_or("unset")
-        .trim()
-        .to_owned()
-}
-
-fn report(label: &str, run: usize, bus: &SharedBus, target: &WindowInfo) {
-    let xid = xid_of(target.pid.get());
-    let before = xprop(&["-root", "_NET_ACTIVE_WINDOW"]);
-    let user = user_time(&xid);
-    let result = focus(bus, target);
-    let detail = match &result {
-        Ok(()) => "granted".to_owned(),
-        Err(error) => format!(
-            "{} cause={}",
-            error.message,
-            error
-                .details
-                .as_ref()
-                .map_or("none", |d| d["cause"].as_str().unwrap_or("none"))
-        ),
-    };
-    let state = xprop(&["-id", &xid, "_NET_WM_STATE"]);
-    let line = format!(
-        "F1 {label} run{run}: wm_state=[{}] before=[{}] target_user_time={user} -> {detail}; after=[{}] target_active={}",
-        state.trim(),
-        before.trim(),
-        xprop(&["-root", "_NET_ACTIVE_WINDOW"]).trim(),
-        active_pid() == Some(target.pid.get())
-    );
-    println!("{line}");
-    let honest_refusal = window_manager().contains("GNOME Shell")
-        && result.as_ref().is_err_and(|error| {
-            error.details.as_ref().is_some_and(|details| {
-                matches!(
-                    details["cause"].as_str(),
-                    Some("activation_refused" | "activation_not_granted")
-                )
-            })
-        });
-    assert!(result.is_ok() || honest_refusal, "{line}");
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn focus_window_live_f1_never_focused_conditions_are_measured() {
-    close_overview();
-    println!("F1 manager: {}", window_manager());
-    for run in 1..=3 {
-        {
-            close_overview();
-            let bus = SharedBus::default();
-            let mut launched = Launched::new();
-            let other = spawn(&mut launched, &bus, "other");
-            if !wait_active(other.pid.get()) {
-                println!("F1 precondition: a fresh window was not made active by the manager");
-            }
-            let target = spawn_with(&mut launched, &bus, "target", true);
-            std::thread::sleep(Duration::from_secs(2));
-            report("a never-focused, other active", run, &bus, &target);
-        }
-        {
-            close_overview();
-            let bus = SharedBus::default();
-            let mut launched = Launched::new();
-            let target = spawn(&mut launched, &bus, "target");
-            if !wait_active(target.pid.get()) {
-                println!("F1 precondition: a fresh window was not made active by the manager");
-            }
-            let other = spawn(&mut launched, &bus, "other");
-            if !wait_active(other.pid.get()) {
-                println!("F1 precondition: a fresh window was not made active by the manager");
-            }
-            std::thread::sleep(Duration::from_secs(1));
-            report("b held-focus-before, other active", run, &bus, &target);
-        }
-        {
-            close_overview();
-            let bus = SharedBus::default();
-            let mut launched = Launched::new();
-            let target = spawn(&mut launched, &bus, "target");
-            if !wait_active(target.pid.get()) {
-                println!("F1 precondition: a fresh window was not made active by the manager");
-            }
-            let other = spawn(&mut launched, &bus, "other");
-            if !wait_active(other.pid.get()) {
-                println!("F1 precondition: a fresh window was not made active by the manager");
-            }
-            std::thread::sleep(Duration::from_secs(1));
-            let _ = tool("xdotool").args(["key", "shift"]).status();
-            report(
-                "d held-focus-before, other active, input just before",
-                run,
-                &bus,
-                &target,
-            );
-        }
-        {
-            close_overview();
-            let bus = SharedBus::default();
-            let mut launched = Launched::new();
-            let target = spawn_with(&mut launched, &bus, "target", true);
-            std::thread::sleep(Duration::from_secs(2));
-            report("c never-focused, nothing active", run, &bus, &target);
-        }
-    }
 }
 
 fn names_of_active() -> String {

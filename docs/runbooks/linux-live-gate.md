@@ -133,6 +133,17 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   physical delivery assertions. `live_key_combos_select_and_delete_in_a_gtk3_entry`
   retains real GTK3 typing and key delivery on both X11 tiers.
 
+- `system::focus_window::fallback_live_tests::focus_window_live_f1_never_focused_conditions_are_measured`:
+  repeated diagnostic scenarios timed out acquiring the shared interaction lease
+  under parallel load. The same-tier
+  `system::focus_window_live_tests::focus_window_live_activates_a_background_window_per_toolkit`
+  retains first/background activation and independently checks that a reported
+  success means the requested window is actually focused. The retained
+  `focus_activation_live_tests::focus_window_takes_focus_back_from_a_window_another_tool_activated`
+  covers focus theft and reacquisition. Modal, stopped-app, cross-desktop and
+  zenity refusal/delivery checks remain. The diagnostic's historical input-timing
+  combinations and repeated samples are retired.
+
 ### Replaced cases
 
 - `tree::qt_live_tests::qt_live_twins_resolve_to_their_own_button_after_the_window_moves`
