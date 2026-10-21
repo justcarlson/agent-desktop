@@ -6,6 +6,7 @@ use agent_desktop_core::{
 };
 
 use self::hold::{give_back_place, hold_place, is_resize, remember_place};
+use self::owner::{ensure_owned_after, ensure_owned_before};
 use self::refuse::{no_client, refused, unreadable, unsupported_session, write_failed};
 use self::window_place::PlaceStore;
 use super::display_server::{DisplayServer, session_server};
@@ -119,48 +120,6 @@ impl OpWorld for Live<'_> {
             .map(|displays| displays.into_iter().map(|display| display.bounds).collect())
             .unwrap_or_default()
     }
-}
-
-fn same_instance(world: &impl OpWorld, win: &WindowInfo) -> Option<bool> {
-    match world.lookup(win.pid.get()) {
-        Lookup::Found(facts) => Some(win.process_instance.as_deref() == Some(&facts.instance)),
-        Lookup::Gone => Some(false),
-        Lookup::Unreadable => None,
-    }
-}
-
-fn ensure_owned_before(world: &impl OpWorld, win: &WindowInfo) -> Result<(), AdapterError> {
-    if win.process_instance.is_none() {
-        return Err(AdapterError::stale_ref_because(
-            "A window operation needs the process instance the window was listed with",
-        )
-        .with_disposition(DeliverySemantics::not_delivered()));
-    }
-    if same_instance(world, win) == Some(false) {
-        return Err(AdapterError::stale_ref_because(
-            "The window belongs to a different process instance or the process has exited",
-        )
-        .with_disposition(DeliverySemantics::not_delivered()));
-    }
-    Ok(())
-}
-
-fn ensure_owned_after(
-    world: &impl OpWorld,
-    win: &WindowInfo,
-    client: u32,
-) -> Result<(), AdapterError> {
-    let owned = matches!(world.clients(), ControlRead::Ready(clients)
-        if clients.iter().any(|candidate| candidate.id == client && candidate.pid == Some(win.pid.get())));
-    if same_instance(world, win) != Some(true) || !owned {
-        return Err(AdapterError::new(
-            ErrorCode::WindowNotFound,
-            "The window's process changed or exited during the operation",
-        )
-        .with_suggestion("Run 'list-windows' to find the window again")
-        .with_disposition(DeliverySemantics::delivered_unverified()));
-    }
-    Ok(())
 }
 
 fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), AdapterError> {
@@ -390,6 +349,8 @@ pub(crate) fn window_op(
 
 #[path = "window_op_hold.rs"]
 mod hold;
+#[path = "window_op_owner.rs"]
+mod owner;
 #[path = "window_op_refuse.rs"]
 mod refuse;
 #[path = "window_place.rs"]

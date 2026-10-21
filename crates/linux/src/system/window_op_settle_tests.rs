@@ -1,6 +1,41 @@
 use super::*;
 
 #[test]
+fn unreadable_ownership_after_a_write_is_unverified_not_missing() {
+    let mut unreadable_client = client(CLIENT, "Doc");
+    unreadable_client.pid = None;
+    for (lookup, clients) in [
+        (
+            Lookup::Unreadable,
+            ControlRead::Ready(vec![client(CLIENT, "Doc")]),
+        ),
+        (process(INSTANCE), ControlRead::Unavailable),
+        (
+            process(INSTANCE),
+            ControlRead::Ready(vec![unreadable_client]),
+        ),
+    ] {
+        let mut maximized = state(0, 0, 400, 300);
+        maximized.maximized_vertical = true;
+        maximized.maximized_horizontal = true;
+        let world = World::showing(maximized);
+        world.lookups.replace([process(INSTANCE), lookup].into());
+        world
+            .clients
+            .replace([ControlRead::Ready(vec![client(CLIENT, "Doc")]), clients].into());
+        let error = run(&world, &window(), &WindowOp::Maximize, budget())
+            .expect_err("ownership cannot be verified");
+        assert_eq!(error.code, ErrorCode::ActionFailed);
+        assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+        assert_eq!(
+            error.details.expect("cause")["cause"],
+            "ownership_unverified"
+        );
+        assert_eq!(world.writes(), 1);
+    }
+}
+
+#[test]
 fn a_move_seen_only_in_passing_is_not_the_held_result() {
     let world = World::showing(state(10, 10, 400, 300))
         .then_showing(state(300, 200, 400, 300))

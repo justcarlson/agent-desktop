@@ -83,7 +83,7 @@ fn script_path(name: &str, source: &str) -> String {
     path
 }
 
-fn spawn(launched: &mut Launched, kind: &str) -> u32 {
+pub(super) fn spawn(launched: &mut Launched, kind: &str) -> u32 {
     let script = script_path(
         &format!("adw-{kind}"),
         match kind {
@@ -127,7 +127,7 @@ fn windows(bus: &SharedBus) -> Vec<WindowInfo> {
     list_windows(bus, &everything, deadline(10_000)).unwrap_or_default()
 }
 
-fn wait_for(bus: &SharedBus, pid: u32) -> WindowInfo {
+pub(super) fn wait_for(bus: &SharedBus, pid: u32) -> WindowInfo {
     let started = Instant::now();
     while started.elapsed() < SETTLE {
         if let Some(window) = windows(bus).into_iter().find(|w| w.pid == pid) {
@@ -138,7 +138,7 @@ fn wait_for(bus: &SharedBus, pid: u32) -> WindowInfo {
     panic!("pid {pid} never listed a window");
 }
 
-fn text(program: &str, args: &[&str]) -> String {
+pub(super) fn text(program: &str, args: &[&str]) -> String {
     let output = Command::new(program)
         .args(args)
         .output()
@@ -146,7 +146,7 @@ fn text(program: &str, args: &[&str]) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
-fn xid_of(pid: u32) -> String {
+pub(super) fn xid_of(pid: u32) -> String {
     let started = Instant::now();
     while started.elapsed() < SETTLE {
         let listed = text("xprop", &["-root", "_NET_CLIENT_LIST"]);
@@ -183,7 +183,7 @@ fn state(xid: &str) -> String {
     text("xprop", &["-id", xid, "_NET_WM_STATE"])
 }
 
-fn maximized(xid: &str) -> (bool, bool) {
+pub(super) fn maximized(xid: &str) -> (bool, bool) {
     let state = state(xid);
     (
         state.contains("_NET_WM_STATE_MAXIMIZED_VERT"),
@@ -203,7 +203,7 @@ fn frame_extents(xid: &str) -> String {
     .replace('\n', " ")
 }
 
-fn apply(window: &WindowInfo, op: WindowOp) -> Result<(), AdapterError> {
+pub(super) fn apply(window: &WindowInfo, op: WindowOp) -> Result<(), AdapterError> {
     let lease = acquire(deadline(10_000)).expect("a lease");
     window_op(&SharedBus::default(), window, op, &lease).map(|_| ())
 }

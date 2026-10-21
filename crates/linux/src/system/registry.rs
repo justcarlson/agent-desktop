@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline};
 use futures_util::future::join;
-use futures_util::stream::{self, StreamExt};
+use futures_util::stream::{self, StreamExt, TryStreamExt};
 use serde_json::Value;
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
@@ -15,7 +15,7 @@ use super::registry_app::{RegistryApp, assemble, skipped};
 use super::toolkit_id::ToolkitId;
 use super::{
     ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus,
-    process_id, within,
+    owner_process_id, within,
 };
 use crate::tree::AtspiElement;
 use crate::tree::toolkit_trust::read_toolkit;
@@ -126,21 +126,34 @@ async fn read_known(reads: &impl AppReads, root: AtspiElement, only: Option<u32>
 }
 
 async fn read_app(
-    connection: &Connection,
-    bus: String,
+    shared: &SharedBus,
+    connection: &zbus::blocking::Connection,
+    bus_name: String,
     path: String,
     only: Option<u32>,
-) -> AppRead {
-    let pid = match process_id(connection, bus.clone()).await.1 {
+) -> Result<AppRead, AdapterError> {
+    let pid = match owner_process_id(connection.inner(), &bus_name).await {
         Ok(pid) => pid,
-        Err(error) => return AppRead::Skipped(skipped(&bus, None, &error.message)),
+        Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == super::NAME_HAS_NO_OWNER => {
+            return Ok(AppRead::Skipped(skipped(
+                &bus_name,
+                None,
+                "the bus name has no owner",
+            )));
+        }
+        Err(error) => {
+            if super::bus::is_connection_failure(&error) {
+                shared.forget(connection);
+            }
+            return Err(super::bus::classify(&error));
+        }
     };
-    read_known(
-        &BusReads(connection),
-        AtspiElement::new(bus, path, pid),
+    Ok(read_known(
+        &BusReads(connection.inner()),
+        AtspiElement::new(bus_name, path, pid),
         only,
     )
-    .await
+    .await)
 }
 
 /// One pass over the registry. An application whose bus name or process is
@@ -185,11 +198,11 @@ pub(crate) fn read_registry_for(
             children
                 .into_iter()
                 .filter(|(bus, path)| !bus.is_empty() && path.as_str() != "/org/a11y/atspi/null")
-                .map(|(bus, path)| read_app(connection.inner(), bus, path.to_string(), pid)),
+                .map(|(name, path)| read_app(bus, &connection, name, path.to_string(), pid)),
         )
         .buffered(APPS_IN_FLIGHT)
-        .collect()
-        .await;
+        .try_collect()
+        .await?;
         let mut listed = Registry {
             apps: Vec::new(),
             skipped: Vec::new(),

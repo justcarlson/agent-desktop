@@ -3,6 +3,7 @@ use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, M
 use x11rb::rust_connection::RustConnection;
 
 use super::control_display::property;
+use super::popup_window::PopupWindow;
 use super::snapshot::{decode_cardinals, decode_frame_extents, decode_shadow, decode_title};
 use super::stacking::{bounded, capped, route};
 use super::stacking_read::StackingRead;
@@ -58,12 +59,6 @@ impl super::stacking_source::StackingSource for DisplayReader {
         };
         bounded(deadline, X11State::Unavailable, || X11Source::read(&Self))
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PopupWindow {
-    pub(crate) id: u32,
-    pub(crate) bounds: Extents,
 }
 
 impl DisplayReader {
