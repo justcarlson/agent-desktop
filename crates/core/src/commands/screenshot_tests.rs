@@ -255,6 +255,7 @@ fn incomplete_process_identity_carries_a_suggestion_and_a_safe_disposition() {
         displays: vec![display("main", true, 2.0)],
         windows: vec![incomplete],
         target: Mutex::new(None),
+        stopped: false,
     };
     let mut request = args();
     request.window_id = Some("w-42".into());
