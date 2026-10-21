@@ -25,7 +25,7 @@ execution: code
 
 ### Summary
 
-After 3.15 an agent on Ubuntu 22.04+ GNOME gets the same command surface as on macOS and Windows, and every claim that the README, the Linux skill and `docs/phases.md` make about Linux is backed by a receipt from the real box. Where Linux cannot do a thing, the product says so with the right code, and the document says why with a ledger row.
+After 3.15 an agent on Ubuntu 24.04+ GNOME gets the documented Linux command surface, and every claim that the README, the Linux skill and `docs/phases.md` make about Linux is backed by a receipt from the real box. The archive loader floor remains glibc 2.35; other distributions need the at-spi2-core bridge fix dc0dc33. Where Linux cannot do a thing, the product says so with the right code, and the document says why with a ledger row.
 
 ### Problem Frame
 
@@ -335,7 +335,7 @@ Count: 74 rows in 7 groups. "Src" is the source line: `P` = `docs/phases.md` (se
 | 33 | README platform table Linux **Yes** | P README b1 |
 | 34 | README Linux install (npm, binary, source) | P README b2, b5 |
 | 35 | README Linux permissions section | P README b3 |
-| 36 | README minimum OS (Ubuntu 22.04+, Fedora 38+) | P README b4 |
+| 36 | README live-desktop floor (Ubuntu 24.04+) and archive loader floor (glibc 2.35); other distributions unverified | P README b4 |
 | 37 | Skill notes owed by rows: GTK4 role-61 secret limit (O security item), stopped-app registry-name query (L24-17), stamp-free focus (decision), Wayland refusals | O, L24-17 |
 
 **G5. Testing section and inherited contradictions (16)**

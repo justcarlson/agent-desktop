@@ -13,7 +13,7 @@
   <video src="https://github.com/user-attachments/assets/9b2c9f8c-a49d-4b69-b6cf-11d9e0d40ceb" controls width="800"></video>
 </p>
 
-agent-desktop is a command-line tool and C library that lets an AI agent read and operate desktop apps on macOS and Windows through the operating system's accessibility tree. It prints JSON. Each element the agent can act on gets a ref such as `@s8f3k2p9:e3`, which names the snapshot it came from. Linux is planned.
+agent-desktop is a command-line tool and C library that lets an AI agent read and operate desktop apps on macOS, Windows and Linux through the operating system's accessibility tree. It prints JSON. Each element the agent can act on gets a ref such as `@s8f3k2p9:e3`, which names the snapshot it came from.
 
 It ships 60 command names, 56 operational commands. The other four (`key-down`, `key-up`, `mouse-down`, `mouse-up`) refuse to run until a daemon can release a held key or button.
 
@@ -23,7 +23,7 @@ It ships 60 command names, 56 operational commands. The other four (`key-down`, 
 npm install -g agent-desktop
 ```
 
-This works on macOS (ARM64, x64) and Windows (x64, ARM64). The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256 against the release's `checksums.txt`. npm 11 runs that script but warns that it is not covered by `allowScripts`. An npm that blocks install scripts leaves no binary, and the first run fails with binary-not-found. The installer runs `curl` and `tar` from your `PATH`, and GNU `tar` needs `gzip` to read the archive, so on Linux all three must be installed. To allow the script:
+This works on macOS, Windows and Linux (x64 and ARM64). The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256 against the release's `checksums.txt`. npm 11 runs that script but warns that it is not covered by `allowScripts`. An npm that blocks install scripts leaves no binary, and the first run fails with binary-not-found. The installer runs `curl` and `tar` from your `PATH`, and GNU `tar` needs `gzip` to read the archive, so on Linux all three must be installed. To allow the script:
 
 ```bash
 npm install -g --allow-scripts=agent-desktop agent-desktop
@@ -36,18 +36,22 @@ Release archives are also on the [releases page](https://github.com/lahfir/agent
 gh attestation verify <downloaded-archive> --repo lahfir/agent-desktop
 ```
 
-To build from source you need Rust 1.89 or later, plus the Xcode command-line tools on macOS 13+ or the MSVC build tools on Windows:
+To build from source you need Rust 1.89 or later, plus the Xcode command-line tools on macOS 13+, the MSVC build tools on Windows, or a C linker on Linux. Linux needs no native D-Bus development library:
 
 ```bash
 git clone https://github.com/lahfir/agent-desktop && cd agent-desktop
 cargo build --release -p agent-desktop
 ```
 
+On Linux, also build the clipboard helper with `cargo build --release -p agent-desktop-linux --bins`. Keep `agent-desktop-linux-clipboard-owner` beside the CLI when installing it; npm and release archives include it.
+
 ### Permissions
 
 macOS needs Accessibility permission. Screenshots also need Screen Recording, and opening Notification Center needs Automation permission for System Events. `agent-desktop permissions` reports the state without prompting; `agent-desktop permissions --request` asks for what is missing.
 
 Windows needs no grant for apps at your terminal's integrity level. An app running as administrator can be read, but only an elevated agent can send it input. The binary is unsigned, so SmartScreen may warn on a browser download, antivirus may quarantine it, and Smart App Control on a clean Windows 11 install blocks it. The npm install path does not trigger SmartScreen.
+
+Linux requires Ubuntu 24.04+ as the supported live desktop; GNOME 46 is the primary target. The archive loader floor is glibc 2.35. Ubuntu 22.04's ATK bridge aborts on `Action.GetActions`; other distributions need the at-spi2-core bridge fix dc0dc33 and remain unverified. Run inside the target user's graphical session with `at-spi2-core` installed. `agent-desktop status` activates and checks the accessibility bus; a TTY or SSH shell without the session's bus, display and runtime environment cannot see its apps. X11 keys need XTEST; Wayland keys need GNOME Mutter RemoteDesktop. Wayland clipboard access also needs `wl-clipboard`. See the [Linux skill](skills/agent-desktop-linux/SKILL.md) for setup and limits.
 
 ## Language bindings
 
@@ -108,24 +112,26 @@ The skills are bundled in the binary and match its version. `agent-desktop skill
 
 | | macOS | Windows | Linux |
 |---|:---:|:---:|:---:|
-| Accessibility tree | **Yes** | Yes\* | Planned |
-| Click / type / keyboard | **Yes** | **Yes** | Planned |
-| Mouse input | **Yes** | **Yes** | Planned |
-| Screenshot | **Yes** | **Yes** | Planned |
-| Clipboard | **Yes** | **Yes** | Planned |
-| App & window management | **Yes** | Yes\*\* | Planned |
-| Notifications | **Yes** | **Yes** | Planned |
-| Shell surfaces (`open-system-surface`) | Planned | **Yes** | Planned |
+| Accessibility tree | **Yes** | Yes\* | Yes (AT-SPI) |
+| Click / type / keyboard | **Yes** | **Yes** | AT-SPI; X11 / GNOME keys |
+| Mouse input | **Yes** | **Yes** | X11, `--headed` |
+| Screenshot | **Yes** | **Yes** | X11 windows; Wayland portal |
+| Clipboard | **Yes** | **Yes** | Yes; Wayland needs `wl-clipboard` |
+| App & window management | **Yes** | Yes\*\* | Launch/list; X11 window control |
+| Notifications | **Yes** | **Yes** | GNOME Shell |
+| Shell surfaces (`open-system-surface`) | Planned | **Yes** | GNOME Shell |
 
 \* On Windows, `list-surfaces` lists each process's `window`, `focused`, `sheet` and `menu` surfaces. `snapshot --surface` also reads the shell surfaces `taskbar`, `system-tray`, `system-tray-overflow`, `start-menu` and `action-center` without `--app`. `quick-settings` returns `PLATFORM_NOT_SUPPORTED` on every Windows build and names `action-center`, which carries those controls.
 \*\* `launch` on Windows takes an absolute path, or a bare name under System32 or the Windows directory, with or without `.exe`. It cannot resolve a display name such as "Google Chrome".
+
+On Linux, semantic actions work on X11 and Wayland. Ordinary app pointer input refuses on Wayland; native Wayland window control and graceful close are unsupported. Wayland screenshots require portal consent and cannot target a single window. X11 display screenshots require a non-compositing window manager. GNOME shell surfaces are `system-tray`, `action-center` and `quick-settings`; the tray also needs an AppIndicator/StatusNotifierWatcher service. See the [Linux capability table](skills/agent-desktop-linux/SKILL.md#capability-table).
 
 ## Development
 
 Each platform adapter builds only on its own OS, so scope cargo to the host's packages. On macOS:
 
 ```bash
-HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi"
+HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi"
 cargo test $HOST_PKGS
 cargo clippy $HOST_PKGS --all-targets -- -D warnings
 ```

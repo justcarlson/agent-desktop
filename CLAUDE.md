@@ -498,7 +498,7 @@ targets the same surface. Adding a command: see the Extensibility Pattern above.
 
 ## Definition of Done: Performance Baseline
 
-Every substantive change ends with a performance baseline check before merge, reviewed against the merge-base. Latency deltas must be intentional and explainable — never discovered by users.
+Every substantive change ends with a performance baseline check before merge, reviewed against the merge-base. Latency deltas must be intentional and explainable — never discovered by users. Linux hardening instead uses the [budget and correctness checks](docs/plans/2026-10-20-0700-feat-linux-hardening-integration-plan.md#appendix-b-budget-and-correctness-checks-replace-the-perf-baseline) without a baseline comparison.
 
 **The vehicle is platform-specific.** On macOS: `bash scripts/perf-baseline-compare.sh` (optionally `--apps "Slack,Google Chrome"` for dense Electron/Chromium coverage) → `report.html`. On Windows that script does not run — it is structurally macOS-bound, opening the `.app` fixture bundle — so the vehicle is the probe corpus cost methodology: min-of-seven with the warm-up discarded, reported as min with median and max beside it (`probes/windows/FINDINGS.md` A15-13, applied in A18-7). Naming the macOS script in a Windows plan names a gate that platform cannot run.
 
