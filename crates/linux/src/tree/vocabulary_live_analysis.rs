@@ -54,7 +54,7 @@ fn analyze(label: &'static str, connection: &AsyncConnection, settled: &Settled)
     for (node, in_web) in flat {
         let outcome = if name_is_blank(&node) {
             label_reads += 1;
-            zbus::block_on(read_label(connection, &node.element))
+            zbus::block_on(read_label(connection, &node.element)).expect("label read")
         } else {
             LabelOutcome::Unlabelled
         };

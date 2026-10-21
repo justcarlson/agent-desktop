@@ -1,6 +1,20 @@
 use super::{ACTION_INTERFACE, COMPONENT_INTERFACE, skipped_without};
 use crate::tree::Field;
 
+#[test]
+fn action_name_transport_loss_cannot_use_the_listed_fallback() {
+    let connection = crate::tree::test_support::closed_connection();
+    let element = crate::tree::AtspiElement::new(":1.1", "/button", 1);
+    let error = zbus::block_on(super::action_name(
+        &connection,
+        &element,
+        0,
+        "click".to_owned(),
+    ))
+    .expect_err("transport loss must end observation");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);
+}
+
 fn listed(names: &[&str]) -> Field<Vec<String>> {
     Field::Present(names.iter().map(|name| (*name).to_owned()).collect())
 }

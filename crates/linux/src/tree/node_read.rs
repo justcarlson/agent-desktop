@@ -221,18 +221,21 @@ async fn action_name(
     element: &AtspiElement,
     index: i32,
     listed: String,
-) -> String {
+) -> Result<String, AdapterError> {
     let reply = call(connection, element, ACTION_INTERFACE, "GetName", &(index,)).await;
-    deserialize::<String>(reply)
-        .ok()
-        .filter(|name| !name.is_empty())
-        .unwrap_or(listed)
+    match deserialize::<String>(reply) {
+        Ok(name) if !name.is_empty() => Ok(name),
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            Err(crate::system::classify(&error))
+        }
+        _ => Ok(listed),
+    }
 }
 
 /// `GetName(i)` is the only call that returns the machine name on every
 /// toolkit: `GetActions` returns empty names on Chromium and junk on Gecko.
 /// `GetActions` supplies the count and the fallback for an index whose
-/// `GetName` fails.
+/// `GetName` method is refused. Connection loss ends the read.
 async fn read_actions(
     connection: &Connection,
     element: &AtspiElement,
@@ -258,7 +261,9 @@ async fn read_actions(
                         action_name(connection, element, index as i32, name)
                     }),
             )
-            .await,
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?,
         ),
         Field::Absent => Field::Absent,
         Field::Failed(detail) => Field::Failed(detail),

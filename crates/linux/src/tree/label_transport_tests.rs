@@ -31,6 +31,24 @@ impl Text {
 
 struct MalformedText;
 
+#[test]
+fn label_connection_loss_is_not_field_uncertainty() {
+    let connection = crate::tree::test_support::closed_connection();
+    let error = zbus::block_on(read_label(
+        &connection,
+        &AtspiElement::new(OWNER, "/button", 1),
+    ))
+    .expect_err("a lost bus must end observation");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);
+    let lost = zbus::Error::InputOutput(std::sync::Arc::new(std::io::Error::from(
+        std::io::ErrorKind::BrokenPipe,
+    )));
+    assert_eq!(
+        super::from_text(Err(lost)).unwrap_err().code,
+        agent_desktop_core::ErrorCode::Internal
+    );
+}
+
 #[zbus::interface(name = "org.a11y.atspi.Text")]
 impl MalformedText {
     fn get_text(&self, _start: i32, _end: i32) -> u32 {
@@ -68,7 +86,8 @@ fn label_text_transport_failures_preserve_name_uncertainty() {
         let label = zbus::block_on(read_label(
             &client.unwrap(),
             &AtspiElement::new(OWNER, "/button", 1),
-        ));
+        ))
+        .unwrap();
         assert_eq!(label, expected, "text={text:?} malformed={malformed}");
         let mut read = crate::tree::test_support::read_of(
             crate::tree::role_numbers::PUSH_BUTTON,
