@@ -155,16 +155,7 @@ fn interrupted(error: AdapterError, progress: &Progress, releasing: bool) -> Ada
     let delivered = progress.delivered();
     let started = progress.has_started();
     let error = worker::mark_started(error, started);
-    let mut error = ReleaseState::resumed(delivered, releasing && delivered > 0)
-        .enrich_error(error, ABORT_SUGGESTION);
-    if started {
-        error = error
-            .with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified())
-            .with_suggestion(ABORT_SUGGESTION);
-        error.details.get_or_insert_with(|| serde_json::json!({}))["delivered_events"] =
-            delivered.into();
-    }
-    error
+    ReleaseState::resumed(delivered, releasing && started).enrich_error(error, ABORT_SUGGESTION)
 }
 
 #[cfg(test)]

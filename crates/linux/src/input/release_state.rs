@@ -4,11 +4,16 @@ use agent_desktop_core::{AdapterError, DeliverySemantics};
 pub(crate) struct ReleaseState {
     armed: bool,
     delivered: u32,
+    started: bool,
 }
 
 impl ReleaseState {
     pub(crate) fn resumed(delivered: u32, armed: bool) -> Self {
-        Self { armed, delivered }
+        Self {
+            armed,
+            delivered,
+            started: delivered > 0,
+        }
     }
 
     pub(crate) fn arm(&mut self) {
@@ -20,7 +25,12 @@ impl ReleaseState {
     }
 
     pub(crate) fn mark_delivered(&mut self) {
+        self.started = true;
         self.delivered = self.delivered.saturating_add(1);
+    }
+
+    pub(crate) fn mark_started(&mut self) {
+        self.started = true;
     }
 
     pub(crate) fn delivered(&self) -> u32 {
@@ -32,7 +42,12 @@ impl ReleaseState {
     }
 
     pub(crate) fn enrich_error(&self, error: AdapterError, suggestion: &str) -> AdapterError {
-        if self.delivered == 0 {
+        let started = self.started
+            || error
+                .details
+                .as_ref()
+                .is_some_and(|details| details["physical_delivery_started"] == true);
+        if self.delivered == 0 && !started {
             return error.with_disposition(DeliverySemantics::not_delivered());
         }
         let mut details = error
@@ -40,6 +55,7 @@ impl ReleaseState {
             .clone()
             .unwrap_or_else(|| serde_json::json!({}));
         if let Some(map) = details.as_object_mut() {
+            map.insert("physical_delivery_started".into(), started.into());
             map.insert("delivered_events".into(), self.delivered.into());
             if self.armed {
                 map.insert("emergency_release_posted".into(), true.into());
@@ -47,7 +63,11 @@ impl ReleaseState {
             }
         }
         error
-            .with_disposition(DeliverySemantics::delivered_unverified())
+            .with_disposition(if self.delivered == 0 {
+                DeliverySemantics::uncertain()
+            } else {
+                DeliverySemantics::delivered_unverified()
+            })
             .with_details(details)
             .with_suggestion(suggestion)
     }

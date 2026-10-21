@@ -5,6 +5,116 @@ use crate::input::step::Step;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, deadline, events, run};
 
 #[test]
+fn a_failed_first_dispatch_is_uncertain_and_unsafe_to_retry() {
+    let fake = FakeSink::new().failing_on(1);
+    let plan = Plan {
+        steps: vec![Step::Key {
+            code: 38,
+            down: true,
+        }],
+        release_origin: None,
+    };
+    let error = run(&fake, vec![plan], &mut || Ok(()), deadline(5_000), None).unwrap_err();
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::uncertain()
+    );
+    assert_eq!(error.details.unwrap()["physical_delivery_started"], true);
+    assert_eq!(error.suggestion.as_deref(), Some(super::ABORT_SUGGESTION));
+
+    let dir =
+        std::env::temp_dir().join(format!("ad-worker-blocked-journal-{}", std::process::id()));
+    let _ = std::fs::remove_file(&dir);
+    std::fs::write(&dir, "not a directory").unwrap();
+    let refused = FakeSink::new();
+    let sink = refused.clone();
+    let error = super::super::session::run_journaled(
+        move || Ok(sink),
+        vec![Plan {
+            steps: vec![Step::Key {
+                code: 38,
+                down: true,
+            }],
+            release_origin: None,
+        }],
+        &mut || Ok(()),
+        super::super::session::CallEnv {
+            deadline: deadline(5_000),
+            journal: Some(super::super::held_journal::HeldJournal::at(
+                dir.clone(),
+                ":7",
+                std::process::id(),
+            )),
+            slot: std::sync::Arc::default(),
+            release_on_signal: false,
+            lease: None,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    assert!(events(&refused).is_empty());
+    std::fs::remove_file(dir).unwrap();
+}
+
+#[test]
+fn failed_stale_recovery_blocks_the_next_plan_and_keeps_the_record() {
+    use crate::input::held_input::HeldInput;
+    use crate::input::x11::{held_journal::HeldJournal, session, worker_slot::WorkerSlot};
+    for pid in [4_000_000_000, std::process::id()] {
+        let dir = std::env::temp_dir().join(format!("ad-stale-block-{}-{pid}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        HeldJournal::at(dir.clone(), ":7", pid)
+            .record(
+                &HeldInput {
+                    keys: vec![38],
+                    buttons: vec![],
+                },
+                &[],
+            )
+            .unwrap();
+        let journal = HeldJournal::at(dir.clone(), ":7", std::process::id());
+        let fake = FakeSink::new().failing_on(1);
+        let sink = fake.clone();
+        let plan = Plan {
+            steps: vec![Step::Key {
+                code: 39,
+                down: true,
+            }],
+            release_origin: None,
+        };
+        let mut gated = false;
+        session::run_journaled(
+            move || Ok(sink),
+            vec![plan],
+            &mut || {
+                gated = true;
+                Ok(())
+            },
+            session::CallEnv {
+                deadline: deadline(5_000),
+                journal: Some(journal.clone()),
+                slot: std::sync::Arc::new(WorkerSlot::default()),
+                release_on_signal: false,
+                lease: None,
+            },
+        )
+        .expect_err("stale release was not acknowledged");
+        assert!(!gated);
+        assert!(!events(&fake).contains(&Recorded::Key(39, true)));
+        let pending = dir.join(format!("{pid}.json"));
+        assert!(pending.exists());
+        journal
+            .release_stale(&mut fake.clone())
+            .expect("recovery can be retried");
+        assert!(!pending.exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[test]
 fn a_gate_that_refuses_the_first_plan_is_not_delivered() {
     let fake = FakeSink::new();
     let only = Plan {

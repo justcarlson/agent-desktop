@@ -29,8 +29,9 @@ impl Recording {
     }
     fn step(&mut self, event: &str) -> Result<(), AdapterError> {
         self.log.push(event.into());
-        if self.fail == Some(event) {
-            return Err(if event == "up" || event == "stop" {
+        let denied_down = self.fail == Some("denied_down") && event == "down";
+        if self.fail == Some(event) || denied_down {
+            return Err(if event == "up" || event == "stop" || denied_down {
                 crate::input::wayland::remote_desktop::semantic_action_refusal("refused")
             } else {
                 AdapterError::new(ErrorCode::ActionFailed, "failed")
@@ -131,12 +132,18 @@ fn check(absolute: bool, stage: &'static str) {
     assert_eq!(
         error.disposition,
         match stage {
-            "up" => DeliverySemantics::uncertain(),
+            "down" | "up" => DeliverySemantics::uncertain(),
             "stop" => DeliverySemantics::delivered_unverified(),
             _ => DeliverySemantics::unknown(),
         }
     );
-    if stage == "up" || stage == "stop" {
+    if matches!(stage, "down" | "up" | "stop") {
+        assert!(
+            error
+                .suggestion
+                .as_deref()
+                .is_some_and(|suggestion| suggestion.contains("before retrying"))
+        );
         assert_eq!(error.details.unwrap()["physical_delivery_started"], true);
     }
 }
@@ -169,6 +176,12 @@ fn pointer_routing_and_failures() {
     for stage in ["absolute", "down", "up", "stop"] {
         check(true, stage);
     }
+
+    let mut denied = Recording::fail("denied_down");
+    let error = run_pointer(&mut denied, &target(), &MouseButton::Left, deadline()).unwrap_err();
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
+    assert_eq!(denied.log.last().map(String::as_str), Some("stop"));
 
     let mut modal = Recording::default();
     let e =

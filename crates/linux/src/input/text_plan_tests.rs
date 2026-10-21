@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn mapped_text_controls_are_refused_before_dispatch() {
+    let map = Keymap::new(8, 1, vec![0x61, 0x62, 0xff09, 0xff0d], 0, vec![]);
+    for text in ["a\tb", "a\nb", "a\rb"] {
+        let error = plan_text(&map, text).expect_err("controls can change the target");
+        assert_eq!(error.code, ErrorCode::InvalidArgs);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        let details = error.details.unwrap();
+        assert_eq!(details["physical_delivery_started"], false);
+        assert_eq!(
+            details["refused_character_classes"],
+            serde_json::json!(["control"])
+        );
+    }
+    assert!(plan_text(&map, "ab").is_ok());
+}
+
+#[test]
 fn text_planning_safety() {
     let map = Keymap::sample();
     let plans = plan_text(&map, "aA!").unwrap();

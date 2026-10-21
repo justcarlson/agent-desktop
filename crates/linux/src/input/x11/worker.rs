@@ -140,10 +140,7 @@ fn run_step(
             return pause(*duration, deadline, progress, guard.delivered());
         }
         Step::Keymap(edit) => {
-            return guard
-                .edit_keymap(edit)
-                .and_then(|()| guard.sink().round_trip())
-                .map_err(SinkError::into_adapter);
+            return guard.edit_keymap(edit).map_err(SinkError::into_adapter);
         }
     };
     sent.map_err(SinkError::into_adapter)

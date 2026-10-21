@@ -34,6 +34,13 @@ struct Remap {
 pub(crate) const MAX_REMAP_SLOTS: usize = 32;
 
 pub(crate) fn plan_text(map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError> {
+    let controls: Vec<_> = text
+        .chars()
+        .filter(|character| character.is_control())
+        .collect();
+    if !controls.is_empty() {
+        return Err(refusal(&controls));
+    }
     let typings: Vec<Typing> = text.chars().map(|c| classify(map, c)).collect();
     let unmapped: Vec<char> = typings
         .iter()
@@ -60,9 +67,6 @@ fn classify(map: &Keymap, character: char) -> Typing {
 }
 
 fn remap_for(map: &Keymap, unmapped: &[char]) -> Result<Remap, AdapterError> {
-    if unmapped.iter().any(|character| character.is_control()) {
-        return Err(refusal(unmapped));
-    }
     let distinct_count = unmapped
         .iter()
         .map(|character| keysym_for_char(*character))
@@ -210,15 +214,15 @@ fn refusal(unmapped: &[char]) -> AdapterError {
     classes.dedup();
     AdapterError::new(
         ErrorCode::InvalidArgs,
-        "Text contains characters the active keyboard layout cannot type",
+        "Text contains characters that cannot be sent safely as physical text",
     )
     .with_details(serde_json::json!({
         "physical_delivery_started": false,
-        "unmapped_character_classes": classes,
-        "unmapped_character_count": unmapped.len(),
+        "refused_character_classes": classes,
+        "refused_character_count": unmapped.len(),
     }))
     .with_suggestion(
-        "Type only characters on the active keyboard layout, or set the value directly",
+        "Use headless 'type' or 'set-value' for literal text, or 'press' for navigation keys",
     )
     .with_disposition(DeliverySemantics::not_delivered())
 }

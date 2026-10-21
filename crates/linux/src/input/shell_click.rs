@@ -90,7 +90,13 @@ fn press<S: PointerSession>(
     code: u32,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    session.button(code, true, deadline)?;
+    session.button(code, true, deadline).map_err(|error| {
+        if error.disposition == DeliverySemantics::not_delivered() {
+            error
+        } else {
+            delivery_error(error, DeliverySemantics::uncertain())
+        }
+    })?;
     session.pause(PRESS_PAUSE);
     session
         .button(code, false, recovery_deadline(deadline))
@@ -107,6 +113,7 @@ fn delivery_error(error: AdapterError, disposition: DeliverySemantics) -> Adapte
     error
         .with_details(serde_json::Value::Object(details))
         .with_disposition(disposition)
+        .with_suggestion("Inspect the target with 'snapshot' before retrying; a button press may already have been delivered")
 }
 
 fn execute_created_session<S: PointerSession>(
