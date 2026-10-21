@@ -1,19 +1,45 @@
-use std::process::Command;
+#[cfg(target_os = "linux")]
+static SESSION_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-pub(super) fn private_bus_binary() -> Command {
+pub(super) fn run_in_private_session() -> bool {
     #[cfg(target_os = "linux")]
     {
-        let mut command = Command::new("bash");
-        command
+        if std::env::var_os("AGENT_DESKTOP_CLI_TEST_PRIVATE").is_some() {
+            assert!(std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some());
+            return false;
+        }
+        let _lock = SESSION_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let thread = std::thread::current();
+        let name = thread.name().expect("the test has a name");
+        let output = std::process::Command::new("bash")
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../scripts/private-session.sh"
             ))
-            .args(["--", env!("CARGO_BIN_EXE_agent-desktop")]);
-        command
+            .arg("--")
+            .arg(std::env::current_exe().expect("the test executable"))
+            .args(["--exact", name, "--nocapture"])
+            .env("AGENT_DESKTOP_CLI_TEST_PRIVATE", "1")
+            .output()
+            .expect("start the test in a private session");
+        assert!(
+            output.status.success(),
+            "private test exited {}: stdout={} stderr={}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+            "the private test must execute exactly one case: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        true
     }
     #[cfg(not(target_os = "linux"))]
-    super::binary()
+    false
 }
 
 #[cfg(target_os = "linux")]

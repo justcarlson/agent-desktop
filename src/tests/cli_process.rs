@@ -267,7 +267,7 @@ fn start_session_in_dir(dir: &std::path::Path) -> String {
 }
 
 fn run_batch(dir: &std::path::Path, cmds: serde_json::Value, extra: &[&str]) -> serde_json::Value {
-    let mut c = support::private_bus_binary();
+    let mut c = binary();
     c.arg("batch")
         .arg(cmds.to_string())
         .args(extra)
@@ -283,6 +283,9 @@ fn run_batch(dir: &std::path::Path, cmds: serde_json::Value, extra: &[&str]) -> 
 
 #[test]
 fn batch_entry_after_mid_batch_session_end_is_skipped_without_aborting_batch() {
+    if support::run_in_private_session() {
+        return;
+    }
     let dir = unique_temp_dir("cli-batch-session-end");
     let session_id = start_session_in_dir(&dir);
     let data = run_batch(
@@ -337,6 +340,9 @@ fn batch_entry_after_mid_batch_session_end_is_skipped_without_aborting_batch() {
 
 #[test]
 fn batch_session_ended_skip_leaves_a_following_entry_of_another_session_running() {
+    if support::run_in_private_session() {
+        return;
+    }
     let dir = unique_temp_dir("cli-batch-session-end-wait-cross");
     let sid_a = start_session_in_dir(&dir);
     let sid_b = start_session_in_dir(&dir);
@@ -363,6 +369,9 @@ fn batch_session_ended_skip_leaves_a_following_entry_of_another_session_running(
 
 #[test]
 fn batch_session_ended_skip_covers_a_following_entry_of_the_same_session() {
+    if support::run_in_private_session() {
+        return;
+    }
     let dir = unique_temp_dir("cli-batch-session-end-wait-same");
     let sid_a = start_session_in_dir(&dir);
     let env = run_batch(

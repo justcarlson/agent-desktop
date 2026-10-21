@@ -27,7 +27,7 @@ pub(super) use launch::{
     launch_qt, main_menu_toggle, open_gtk4_menu_item, open_terminal_about, scratch_dir, terminal_server,
 };
 pub(super) use oracle::{
-    FRAME, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, STATE_CHECKED, STATE_SHOWING, TOGGLE,
+    FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, STATE_CHECKED, STATE_SHOWING, TOGGLE,
     app_root, descendants, do_action, process_gone, process_state, showing_of, top_level, within,
     x11_active_pid, x11_windows,
 };
