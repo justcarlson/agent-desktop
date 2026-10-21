@@ -21,13 +21,6 @@ fn the_shell_app_is_the_one_owned_by_the_shell_process() {
 }
 
 #[test]
-fn only_the_shell_command_name_is_the_shell() {
-    assert!(is_shell_comm("gnome-shell"));
-    assert!(!is_shell_comm("gnome-shell-cal"));
-    assert!(!is_shell_comm("gjs"));
-}
-
-#[test]
 fn the_content_window_is_the_child_with_the_window_role() {
     let mut tree = FakeTree::new();
     tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
@@ -93,6 +86,9 @@ fn a_window_of_the_remembered_shell_is_a_shell_window_and_another_never_is() {
         u32::MAX - 1
     )));
     assert!(!is_shell_owner(BUS, std::process::id()));
+    assert!(is_shell_comm("gnome-shell"));
+    assert!(!is_shell_comm("gnome-shell-cal"));
+    assert!(!is_shell_comm("gjs"));
 }
 
 fn deadline() -> agent_desktop_core::Deadline {

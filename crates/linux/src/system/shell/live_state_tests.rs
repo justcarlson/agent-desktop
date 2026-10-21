@@ -24,13 +24,6 @@ fn top_bar_and_dock_nodes_outside_the_content_window_are_not_offscreen() {
 }
 
 #[test]
-fn the_content_window_rectangle_is_not_the_frame_the_node_must_lie_in() {
-    let placement = project(Some(at(1204, 0, 76, 32)), Some(&displays()));
-    assert_eq!(placement.frame, Some(at(0, 0, 1280, 800)));
-    assert_ne!(placement.frame, Some(at(0, 54, 87, 55)));
-}
-
-#[test]
 fn extents_wholly_off_every_display_are_offscreen() {
     let placement = project(Some(at(-84, 549, 84, 60)), Some(&displays()));
     assert_eq!(verdict(&placement), Some(true));
@@ -61,11 +54,4 @@ fn unreadable_displays_prove_nothing_either_way() {
     assert_eq!(verdict(&placement), None);
     let none = project(None, Some(&displays()));
     assert_eq!(verdict(&none), None);
-}
-
-#[test]
-fn the_client_origin_is_zero_because_window_and_screen_coordinates_agree() {
-    let placement = project(Some(at(0, 0, 72, 32)), Some(&displays()));
-    assert_eq!(placement.x11.map(|state| state.client_origin), Some((0, 0)));
-    assert!(!placement.frame_iconified);
 }

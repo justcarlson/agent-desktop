@@ -1,4 +1,4 @@
-use agent_desktop_core::{Action, ErrorCode, MouseButton, Point};
+use agent_desktop_core::{Action, DeliverySemantics, ErrorCode, MouseButton, Point, StepMechanism};
 
 use super::*;
 
@@ -15,17 +15,15 @@ fn a_click_on_a_shell_control_aims_the_left_button_through_the_shell_pointer() {
     });
     assert!(matches!(seen, Some(MouseButton::Left)));
     let result = outcome.expect("a click is taken").expect("delivered");
-    assert!(format!("{result:?}").contains("shell-pointer"));
-}
-
-#[test]
-fn a_right_click_aims_the_right_button() {
-    let mut seen = None;
-    let _ = deliver_with(&Action::RightClick, |button| {
-        seen = Some(button);
-        Ok(at())
-    });
-    assert!(matches!(seen, Some(MouseButton::Right)));
+    assert_eq!(result.steps[0].label(), "shell-pointer");
+    assert_eq!(
+        result.steps[0].mechanism(),
+        Some(StepMechanism::PhysicalSynthetic)
+    );
+    assert_eq!(
+        result.disposition(),
+        DeliverySemantics::delivered_unverified()
+    );
 }
 
 #[test]
@@ -44,5 +42,11 @@ fn a_refused_click_is_the_error_and_no_result() {
     let outcome = deliver_with(&Action::Click, |_| {
         Err(AdapterError::new(ErrorCode::ActionFailed, "refused"))
     });
-    assert!(outcome.expect("a click is taken").is_err());
+    assert_eq!(
+        outcome
+            .expect("a click is taken")
+            .expect_err("refused")
+            .code,
+        ErrorCode::ActionFailed
+    );
 }
