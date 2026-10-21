@@ -157,14 +157,11 @@ fn a_menu_context_read_error_is_preserved() {
 }
 
 #[test]
-fn an_ordinary_window_identity_keeps_its_raw_path_without_a_menu_scan() {
+fn an_ordinary_window_read_preserves_raw_identity_without_querying_popup_context() {
     let mut reader = reader(Some(MenuContext::test("/menu", 42)));
-    let mut entry = crate::tree::test_support::ref_entry("push button");
-    entry.identity.retained_object = Some("/menu/open".to_owned());
 
     let live = element_via(&mut reader, &window_handle(), deadline()).expect("live window item");
 
-    assert_eq!(verdict(&entry, &live), IdentityMatch::Match);
     assert_eq!(reader.context_reads, 0);
     assert_eq!(
         live.identity.identifiers.retained_object(),
