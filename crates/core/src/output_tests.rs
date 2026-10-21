@@ -149,6 +149,29 @@ fn recovery_absent_for_non_retryable_errors() {
 }
 
 #[test]
+fn explicit_nonretryable_refusals_never_acquire_a_retry_token() {
+    for code in [
+        ErrorCode::StaleRef,
+        ErrorCode::Timeout,
+        ErrorCode::AppUnresponsive,
+    ] {
+        let err = AppError::Adapter(
+            AdapterError::new(code, "terminal refusal")
+                .with_details(json!({ "retryable": false }))
+                .with_disposition(DeliverySemantics::not_delivered()),
+        );
+        let payload = ErrorPayload::from_app_error(&err);
+        assert_eq!(payload.details.unwrap()["retryable"], false);
+        assert!(
+            payload.recovery.is_none(),
+            "{} must not invite a retry",
+            payload.code
+        );
+        assert_eq!(payload.disposition, DeliverySemantics::not_delivered());
+    }
+}
+
+#[test]
 fn ok_response_json_shape_has_version_ok_command_data_and_no_error_field() {
     let resp = Response::ok("snapshot", json!({"app": "Finder"}));
     let map: serde_json::Map<String, serde_json::Value> =

@@ -95,11 +95,11 @@ pub(crate) fn write(
 pub(crate) fn resolve(lookup: &impl IndexLookup, item: &AtspiElement) -> Result<i32, AdapterError> {
     if !lookup.accessible_indices() {
         return Err(AdapterError::new(
-            ErrorCode::StaleRef,
+            ErrorCode::ActionNotSupported,
             "The container's selection indices cannot be mapped to accessible rows safely",
         )
-        .with_suggestion("Find the intended row and use its own click action")
-        .with_details(serde_json::json!({ "kind": "selection_index_unproven" }))
+        .with_suggestion("On X11, find the intended row and use '--headed click' with its row ref, then verify the selected category. Refreshing or retrying select cannot establish a safe index mapping.")
+        .with_details(serde_json::json!({ "kind": "selection_index_unproven", "retryable": false }))
         .with_disposition(DeliverySemantics::not_delivered()));
     }
     let index = lookup.index(item)?;
@@ -178,8 +178,10 @@ mod tests {
             writes: Default::default(),
         };
         let error = write(&gtk, &item).unwrap_err();
-        assert_eq!(error.code, ErrorCode::StaleRef);
-        assert_eq!(error.details.unwrap()["kind"], "selection_index_unproven");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        let details = error.details.unwrap();
+        assert_eq!(details["kind"], "selection_index_unproven");
+        assert_eq!(details["retryable"], false);
         assert_eq!(gtk.writes.get(), 0);
     }
 }

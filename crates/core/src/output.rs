@@ -105,11 +105,13 @@ impl ErrorPayload {
             payload.platform_detail = adapter_error.platform_detail.clone();
             payload.details = adapter_error.details.clone();
             payload.disposition = adapter_error.disposition;
-            payload.recovery = recovery_for_code(
-                &adapter_error.code,
-                adapter_error.disposition,
-                adapter_error.details.as_ref(),
-            );
+            if adapter_error.permits_retry_by_default() {
+                payload.recovery = recovery_for_code(
+                    &adapter_error.code,
+                    adapter_error.disposition,
+                    adapter_error.details.as_ref(),
+                );
+            }
         }
         payload
     }
