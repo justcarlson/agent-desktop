@@ -87,7 +87,14 @@ fn connect(deadline: Deadline) -> Result<Connection, AdapterError> {
             .await
             .map_err(|error| classify(&error))
     })?;
-    let _ = within(deadline, announce_listener(&connection));
+    register_connection(connection, deadline)
+}
+
+fn register_connection(
+    connection: AsyncConnection,
+    deadline: Deadline,
+) -> Result<Connection, AdapterError> {
+    within(deadline, announce_listener(&connection))?;
     Ok(connection.into())
 }
 

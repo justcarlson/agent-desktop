@@ -1,6 +1,80 @@
 use super::*;
 use zbus::Message;
 
+struct Registry {
+    attempts: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+#[zbus::interface(name = "org.a11y.atspi.Registry")]
+impl Registry {
+    fn register_event(
+        &self,
+        event: &str,
+        properties: Vec<String>,
+        app: &str,
+    ) -> zbus::fdo::Result<()> {
+        assert_eq!(event, "window:activate");
+        assert!(properties.is_empty());
+        assert!(app.is_empty());
+        if self
+            .attempts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            == 0
+        {
+            Err(zbus::fdo::Error::Failed("registration refused".into()))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[test]
+fn failed_event_registration_propagates_and_a_later_attempt_succeeds() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let mut servers = Vec::new();
+    for attempt in 0..2 {
+        let (client, server) = std::os::unix::net::UnixStream::pair().expect("socket pair");
+        let (client, server) = zbus::block_on(async {
+            futures_lite::future::zip(
+                Builder::async_io_unix_stream(client).p2p().build(),
+                Builder::async_io_unix_stream(server)
+                    .server(zbus::Guid::generate())
+                    .expect("server guid")
+                    .p2p()
+                    .serve_at(
+                        REGISTRY_PATH,
+                        Registry {
+                            attempts: attempts.clone(),
+                        },
+                    )
+                    .expect("registry interface")
+                    .build(),
+            )
+            .await
+        });
+        servers.push(server.expect("server connection"));
+        let ready = register_connection(
+            client.expect("client connection"),
+            Deadline::after(5_000).expect("registration deadline"),
+        );
+        if attempt == 0 {
+            let error = ready.expect_err("a refused registration must reject the connection");
+            assert!(
+                error
+                    .platform_detail
+                    .unwrap()
+                    .contains("registration refused")
+            );
+        } else {
+            let _connection = ready.expect("registration retry");
+        }
+        assert_eq!(attempts.load(Ordering::SeqCst), attempt + 1);
+    }
+}
+
 fn method_error(name: &str) -> zbus::Error {
     let call = Message::method_call("/probe", "Probe")
         .and_then(|builder| builder.build(&()))
