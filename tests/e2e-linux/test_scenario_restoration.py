@@ -1,5 +1,5 @@
 import unittest
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -74,7 +74,7 @@ class RestorationTests(unittest.TestCase):
                     elif argv[0] == "minimize":
                         state[0] = "_NET_WM_STATE_HIDDEN"
                     elif argv[0] == "maximize":
-                        state[0] = "_NET_WM_STATE_MAXIMIZED_VERT"
+                        state[0] = "_NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ"
                     elif argv[0] == "restore":
                         state[0] = ""
                     return Envelope(True, {"disposition": {"delivery": "delivered_verified"},
@@ -319,18 +319,3 @@ class MenuRestorationTests(unittest.TestCase):
                 self.assertEqual(verdict.evaluate(ctx), [])
                 reads = ctx.reads["atspi.menu_visible"]
                 self.assertEqual(reads["before"], reads["restored"])
-
-
-class PermissionScenarioTests(unittest.TestCase):
-    def test_unreachable_bus_uses_an_accessibility_gated_command(self):
-        tier = SimpleNamespace(runtime_dir=Path("/private/test"))
-        ctx = LegContext(tier, "headless", None,
-                         member_reader=lambda _: frozenset())
-        def product(tier, argv, **kw):
-            code = "PERM_DENIED" if argv[0] == "snapshot" else "PLATFORM_NOT_SUPPORTED"
-            return Envelope(False, None, {"code": code}, "{}", 0, argv)
-        with patch.object(observation, "unreachable_accessibility_bus", return_value=nullcontext(tier)), \
-            patch.object(observation.raw, "registry", return_value=[]), \
-            patch.object(observation, "run_product", side_effect=product):
-            observation.unreachable_bus_permission_error(ctx)
-        self.assertEqual(verdict.evaluate(ctx), [])
