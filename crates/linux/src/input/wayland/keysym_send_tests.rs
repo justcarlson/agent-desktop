@@ -210,11 +210,44 @@ fn chunks_preserve_progress() {
     };
     let error = run_chunks(&mut session, &[&first, &second], &mut gate, live())
         .expect_err("gate stops later chunk");
-    assert_eq!(error.message, "window lost");
+    assert!(error.message.contains("4 keyboard events were confirmed"));
     assert_eq!(
         error.details.expect("delivery details")["delivered_events"],
         4
     );
+}
+
+#[test]
+fn refusal_after_bootstrap_reports_the_sent_keys_in_message_and_evidence() {
+    let keys = tap(KEY_A);
+    let mut session = FakeSession::new();
+    let log = session.log();
+    let mut gate = || {
+        if log.borrow().iter().any(|event| event == "up:ffe1") {
+            Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "The target window is not active, so no key was sent",
+            )
+            .with_details(json!({ "cause": "not_active", "physical_delivery_started": false }))
+            .with_disposition(DeliverySemantics::not_delivered()))
+        } else {
+            Ok(())
+        }
+    };
+    let error = run_chunks(&mut session, &[&keys], &mut gate, live()).unwrap_err();
+    assert_eq!(
+        session.arrived,
+        [(KEYSYM_SHIFT_L, true), (KEYSYM_SHIFT_L, false)]
+    );
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert!(error.message.contains("2 keyboard events were confirmed"));
+    assert!(error.message.contains("bootstrap"));
+    assert!(!error.message.contains("no key was sent"));
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    let details = error.details.unwrap();
+    assert_eq!(details["cause"], "not_active");
+    assert_eq!(details["physical_delivery_started"], true);
+    assert_eq!(details["delivered_events"], 2);
 }
 
 #[test]
