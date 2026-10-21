@@ -197,10 +197,14 @@ decide whether that is acceptable before you call it.
 window. A headless press to a background or minimized app is refused with
 `ACTION_FAILED` ("The target application is in the background and focus changes are
 not allowed, so no key was sent"), cause `display_active_window`,
-`not_delivered`. `--headed` brings
-the window forward, un-minimizes it and sends the keys. A headless
-`press --window-id` that names another window of the process than the active one
-is refused with cause `other_window_of_target` and a suggestion to use `--headed`.
+`not_delivered`. On X11, `--headed` brings the window forward, un-minimizes it
+and sends the keys. In a Wayland session, this applies to Xwayland clients;
+native Wayland windows refuse app- or window-scoped press with
+`ACTION_NOT_SUPPORTED`, cause `wayland_session`. Bring a native Wayland target
+forward yourself and use global `press` without `--app`, `--window-id` or
+`--headed`. A headless `press --window-id` that names another window of the
+process than the active one is refused with cause `other_window_of_target` and a
+suggestion to use `--headed`.
 
 ## Stopped apps
 
