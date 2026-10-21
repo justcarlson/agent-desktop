@@ -95,6 +95,7 @@ fn a_frame_that_loses_active_before_the_third_chunk_stops_after_two() {
         Some(true),
         Some(true),
         Some(true),
+        Some(true),
         Some(false),
     ]);
     let error = type_text_steps(
@@ -143,7 +144,7 @@ fn an_expired_deadline_fails_before_any_event() {
 }
 
 #[test]
-fn wayland_keys_go_through_the_keysym_sender_and_are_gated_after_the_lead_key() {
+fn wayland_keys_go_through_the_keysym_sender_after_target_focus_preflight() {
     let world = FakeWorld::wayland().with_chunks(2);
     let steps = type_text_steps(
         &world,
@@ -157,6 +158,47 @@ fn wayland_keys_go_through_the_keysym_sender_and_are_gated_after_the_lead_key() 
     assert_eq!(world.count("keymap"), 0);
     assert_eq!(world.count("plan_text_keysyms"), 1);
     assert_eq!(world.count("sent"), 2);
+}
+
+#[test]
+fn headed_type_focuses_the_target_and_refuses_unproven_or_lost_focus() {
+    for wayland in [false, true] {
+        for reads in [
+            vec![false, true, true, true],
+            vec![false],
+            vec![true, false],
+            vec![true, true, false],
+        ] {
+            let world = if wayland {
+                FakeWorld::wayland()
+            } else {
+                FakeWorld::x11()
+            };
+            *world.focus_reads.borrow_mut() = reads.iter().copied().collect();
+            let outcome = type_text_steps(
+                &world,
+                &element(),
+                " ",
+                InteractionPolicy::headed(),
+                deadline(),
+            );
+            assert_eq!(world.count("focus_target"), usize::from(!reads[0]));
+            if !reads[0] && reads.len() > 1 {
+                outcome.expect("focus is acquired and proven before typing");
+                let entries = world.entries();
+                assert!(
+                    entries.iter().position(|e| e == "focus_target").unwrap()
+                        < entries.iter().position(|e| e == "sent").unwrap()
+                );
+                assert_eq!(world.count("sent"), 1);
+            } else {
+                let error = outcome.expect_err("an active window alone never authorizes typing");
+                assert_eq!(check_of(&error).as_deref(), Some("target_focus"));
+                assert!(not_delivered(&error));
+                assert!(world.sent_nothing());
+            }
+        }
+    }
 }
 
 #[test]

@@ -21,6 +21,12 @@ use crate::tree::AtspiElement;
 /// runs against a fixed desktop in a test.
 pub(crate) trait PhysicalWorld {
     fn backend(&self) -> Result<Backend, AdapterError>;
+    fn focus_target(&self, element: &AtspiElement, deadline: Deadline) -> Result<(), AdapterError>;
+    fn target_focused(
+        &self,
+        element: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<bool, AdapterError>;
     fn keymap(&self, deadline: Deadline) -> Result<Keymap, AdapterError>;
     fn frame_active(
         &self,
@@ -79,6 +85,18 @@ pub(crate) struct LiveWorld<'a> {
 impl PhysicalWorld for LiveWorld<'_> {
     fn backend(&self) -> Result<Backend, AdapterError> {
         crate::input::backend::backend()
+    }
+
+    fn focus_target(&self, element: &AtspiElement, deadline: Deadline) -> Result<(), AdapterError> {
+        super::keyboard_focus::grab(self.bus, element, deadline)
+    }
+
+    fn target_focused(
+        &self,
+        element: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<bool, AdapterError> {
+        super::keyboard_focus::read(self.bus, element, deadline)
     }
 
     fn keymap(&self, deadline: Deadline) -> Result<Keymap, AdapterError> {

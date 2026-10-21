@@ -18,6 +18,7 @@ use crate::tree::AtspiElement;
 pub(crate) struct FakeWorld {
     pub(crate) backend: Backend,
     pub(crate) reads: RefCell<VecDeque<Option<bool>>>,
+    pub(crate) focus_reads: RefCell<VecDeque<bool>>,
     pub(crate) bounds: Option<Rect>,
     pub(crate) chunks: usize,
     pub(crate) log: RefCell<Vec<String>>,
@@ -37,6 +38,7 @@ impl FakeWorld {
         Self {
             backend,
             reads: RefCell::new(VecDeque::from([Some(true)])),
+            focus_reads: RefCell::new(VecDeque::from([true])),
             bounds: Some(Rect {
                 x: 100.0,
                 y: 200.0,
@@ -105,6 +107,21 @@ impl FakeWorld {
 }
 
 impl PhysicalWorld for FakeWorld {
+    fn focus_target(&self, _: &AtspiElement, _: Deadline) -> Result<(), AdapterError> {
+        self.note("focus_target");
+        Ok(())
+    }
+
+    fn target_focused(&self, _: &AtspiElement, _: Deadline) -> Result<bool, AdapterError> {
+        self.note("target_focused");
+        let mut reads = self.focus_reads.borrow_mut();
+        Ok(if reads.len() > 1 {
+            reads.pop_front().unwrap()
+        } else {
+            *reads.front().unwrap()
+        })
+    }
+
     fn backend(&self) -> Result<Backend, AdapterError> {
         Ok(self.backend.clone())
     }

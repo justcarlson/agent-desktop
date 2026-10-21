@@ -20,16 +20,26 @@ pub(crate) fn type_text_steps(
     ensure_budget(deadline)?;
     let backend = world.backend()?;
     let mut gate = ActiveGate::new(world, element, deadline);
+    gate.check()?;
+    super::keyboard_focus::prepare(world, element, deadline)?;
+    let mut target_gate = || {
+        gate.check()?;
+        if world.target_focused(element, deadline)? {
+            Ok(())
+        } else {
+            Err(super::keyboard_focus::refused())
+        }
+    };
+    target_gate()?;
     match &backend {
         Backend::X11(_) => {
             let map = world.keymap(deadline)?;
             let plans = world.plan_text(&map, text)?;
-            gate.check()?;
-            world.send_plans(plans, &mut || gate.check(), deadline)?;
+            world.send_plans(plans, &mut target_gate, deadline)?;
         }
         Backend::Wayland => {
             let chunks = world.plan_text_keysyms(text);
-            world.send_keysyms(&chunks, &mut || gate.check(), deadline)?;
+            world.send_keysyms(&chunks, &mut target_gate, deadline)?;
         }
     }
     Ok(vec![physical_step(&backend, "type_text")])
