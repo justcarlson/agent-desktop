@@ -20,13 +20,7 @@ fn grab_live_the_window_unit_follows_the_manager() {
     let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
-    let pid = paint(
-        &mut launched,
-        "adcap-unit",
-        "#ff0000",
-        &window_at(200, 150),
-        false,
-    );
+    let pid = paint(&mut launched, "adcap-unit", "#ff0000", &window_at(200, 150));
     let window = wait_for_listed(&bus, pid);
     let framed = screenshot_window_frame(&bus, &window, deadline(20_000));
     let whole = screenshot(
@@ -60,7 +54,6 @@ fn grab_live_a_window_partly_off_screen_reports_off_screen() {
         "adcap-edge",
         "#ff0000",
         &window_at(1200, 700),
-        false,
     );
     let window = wait_for_listed(&bus, pid);
     let bounds = window.bounds.expect("the window reports bounds");
@@ -129,7 +122,6 @@ fn grab_live_a_stopped_window_is_app_unresponsive() {
         "adcap-frozen",
         "#ff0000",
         &window_at(200, 150),
-        false,
     );
     let window = wait_for_listed(&bus, pid);
     let xid = x_window_id("adcap-frozen");

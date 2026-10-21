@@ -150,13 +150,9 @@ impl PortalWire for BusWire {
     }
 }
 
-type BusGetter = fn(Deadline) -> Result<Connection, AdapterError>;
-
-pub(super) const PORTAL_BUS: BusGetter = SessionBus::get;
-
 pub(crate) fn connect(deadline: Deadline) -> Result<Box<dyn PortalWire>, AdapterError> {
     Ok(Box::new(BusWire {
-        connection: PORTAL_BUS(deadline)?,
+        connection: SessionBus::get(deadline)?,
     }))
 }
 

@@ -1,10 +1,7 @@
-use std::io::Cursor;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{
-    AdapterError, Deadline, DisplayInfo, ImageBuffer, WindowFilter, WindowInfo,
-};
+use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, WindowFilter, WindowInfo};
 
 use super::window_context::WindowLookup;
 use super::window_xid::XidOutcome;
@@ -19,9 +16,8 @@ const PAINTER: &str = r##"
 import sys, gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
-title, color, x, y, w, h, popup = sys.argv[1:8]
-kind = Gtk.WindowType.POPUP if popup == "1" else Gtk.WindowType.TOPLEVEL
-win = Gtk.Window(type=kind)
+title, color, x, y, w, h = sys.argv[1:7]
+win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
 win.set_title(title)
 win.set_default_size(int(w), int(h))
 css = Gtk.CssProvider()
@@ -33,10 +29,6 @@ win.show_all()
 GLib.timeout_add(500, lambda: (win.move(int(x), int(y)), False)[1])
 Gtk.main()
 "##;
-
-pub(super) const RED: [u8; 3] = [0xff, 0x00, 0x00];
-pub(super) const BLUE: [u8; 3] = [0x00, 0x00, 0xff];
-pub(super) const BLACK: [u8; 3] = [0x00, 0x00, 0x00];
 
 pub(super) fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("a deadline builds")
@@ -69,17 +61,7 @@ pub(super) struct Geometry {
     pub(super) height: i32,
 }
 
-pub(super) fn paint(
-    launched: &mut Launched,
-    title: &str,
-    color: &str,
-    at: &Geometry,
-    popup: bool,
-) -> u32 {
-    paint_as(launched, title, color, at, if popup { "1" } else { "0" })
-}
-
-fn paint_as(launched: &mut Launched, title: &str, color: &str, at: &Geometry, mode: &str) -> u32 {
+pub(super) fn paint(launched: &mut Launched, title: &str, color: &str, at: &Geometry) -> u32 {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let script = format!("{dir}/capture-painter.py");
     std::fs::write(&script, PAINTER).expect("the painter script writes");
@@ -91,7 +73,6 @@ fn paint_as(launched: &mut Launched, title: &str, color: &str, at: &Geometry, mo
         &at.y.to_string(),
         &at.width.to_string(),
         &at.height.to_string(),
-        mode,
     ];
     launched.spawn("python3", &args)
 }
@@ -121,23 +102,6 @@ pub(super) fn stop(pid: u32) {
     }
 }
 
-pub(super) fn wait_for_x_window(title: &str) {
-    let started = Instant::now();
-    while started.elapsed() < SETTLE {
-        let found = Command::new("xwininfo")
-            .args(["-name", title])
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false);
-        if found {
-            std::thread::sleep(Duration::from_millis(1_200));
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    panic!("no X window titled {title} appeared");
-}
-
 pub(super) fn wait_for_listed(bus: &SharedBus, pid: u32) -> WindowInfo {
     let everything = WindowFilter {
         focused_only: false,
@@ -156,58 +120,6 @@ pub(super) fn wait_for_listed(bus: &SharedBus, pid: u32) -> WindowInfo {
         std::thread::sleep(Duration::from_millis(200));
     }
     panic!("pid {pid} never listed a window");
-}
-
-pub(super) struct Decoded {
-    pub(super) width: usize,
-    pub(super) height: usize,
-    channels: usize,
-    pixels: Vec<u8>,
-}
-
-impl Decoded {
-    pub(super) fn at(&self, x: usize, y: usize) -> [u8; 3] {
-        let start = (y * self.width + x) * self.channels;
-        [
-            self.pixels[start],
-            self.pixels[start + 1],
-            self.pixels[start + 2],
-        ]
-    }
-
-    pub(super) fn region_is(
-        &self,
-        x: usize,
-        y: usize,
-        width: usize,
-        height: usize,
-        color: [u8; 3],
-    ) -> bool {
-        (y..y + height).all(|row| (x..x + width).all(|column| self.at(column, row) == color))
-    }
-}
-
-pub(super) fn decode(image: &ImageBuffer) -> Decoded {
-    let decoder = png::Decoder::new(Cursor::new(&image.data));
-    let mut reader = decoder.read_info().expect("a PNG header");
-    let mut pixels = vec![0; reader.output_buffer_size().expect("a buffer size")];
-    let info = reader.next_frame(&mut pixels).expect("a PNG frame");
-    let channels = match info.color_type {
-        png::ColorType::Rgb => 3,
-        png::ColorType::Rgba => 4,
-        other => panic!("unexpected PNG colour type {other:?}"),
-    };
-    assert_eq!(
-        (info.width, info.height),
-        (image.width, image.height),
-        "the PNG header and the buffer agree"
-    );
-    Decoded {
-        width: info.width as usize,
-        height: info.height as usize,
-        channels,
-        pixels,
-    }
 }
 
 pub(super) fn reason(error: &agent_desktop_core::AdapterError) -> String {
