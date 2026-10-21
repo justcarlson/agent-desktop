@@ -12,6 +12,8 @@ use crate::{
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
+#[path = "drag_timing_tests.rs"]
+mod timing_tests;
 
 struct DragCaptureAdapter {
     captured: Mutex<Option<DragParams>>,

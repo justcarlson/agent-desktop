@@ -73,6 +73,8 @@ Ref actions use `ActionRequest { action, policy }`. The default `InteractionPoli
 - Expected OS denials return specific error codes such as `PERM_DENIED`, `SNAPSHOT_NOT_FOUND`, or `POLICY_DENIED`, not generic `INTERNAL`.
 - **Auto-wait is on by default (Phase 1.6).** Every ref-consuming action waits, bounded, for its target to become actionable — visible, enabled, stable, unoccluded, and receiving events — before acting, the same default-on model as Playwright's actionability checks. The bound is 5000ms; `--timeout-ms 0` restores pre-1.6 single-shot behavior (act immediately, fail fast, no retry loop). A three-way occlusion gate (`hit_test` → `ReachesTarget` / `InterceptedBy { role, name, bounds }` / `Unknown`) blocks delivery when another element visibly intercepts the target point, but an inconclusive probe reports `Unknown` and never false-fails the action. Every action step reports a typed `ActionStep { label, outcome, mechanism: Option<StepMechanism>, verified: Option<bool> }`, so callers can see whether delivery was `SemanticApi` or `PhysicalSynthetic` and whether the effect was independently verified — no command claims success it did not observe.
 
+For `drag`, `--timeout-ms` bounds target preparation and the physical gesture together. Explicit `--duration` plus `--drop-delay` at or above that budget is `INVALID_ARGS` before endpoint work; the budget must also leave room for platform pickup/default delays and completion. Optional post-action waits retain their separate wait budget. See the [drag budget proof](dogfood-reports/2026-10-21-fix-drag-budget.md).
+
 Windows and Linux should implement the same signatures rather than copying macOS-specific fallback decisions.
 
 ---
