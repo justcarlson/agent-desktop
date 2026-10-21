@@ -28,7 +28,7 @@ pub(super) use launch::{
 };
 pub(super) use oracle::{
     FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, STATE_CHECKED, STATE_SHOWING, TOGGLE,
-    app_root, descendants, do_action, process_gone, process_state, showing_of, top_level, within,
+    descendants, do_action, process_gone, process_state, showing_of, top_level, within,
     x11_active_pid, x11_windows,
 };
 

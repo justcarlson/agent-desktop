@@ -4,9 +4,9 @@ use agent_desktop_core::{SystemOps, WindowFilter};
 
 use super::list_windows;
 use super::signal_live_apps::{
-    FRAME, Rig, app_root, capture, close_newest_frame, count_of, deadline, diff, found_event,
-    identity_of, outcome, poll, press, process_gone, signal, terminal_server, tokens, top_level,
-    wait_event, window_ids, x11_active_pid, x11_windows,
+    Rig, capture, close_newest_frame, count_of, deadline, diff, found_event,
+    identity_of, outcome, poll, press, process_gone, signal, tokens, wait_event, window_ids, x11_active_pid,
+    x11_windows,
 };
 
 const OPEN_MS: u64 = 15_000;
@@ -227,32 +227,6 @@ fn signal_live_sigkilled_calculator_is_window_closed_and_app_terminated() {
         "{:?}",
         tokens(&events)
     );
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn signal_live_helper_with_no_frames_is_not_an_app() {
-    let mut rig = Rig::new();
-    let seed = capture(&rig, None, None, 10_000).expect("the seed capture");
-    let pid = terminal_server(&mut rig);
-    let (_, identity) = identity_of(&rig, pid);
-    press(&rig, "gnome-terminal-server", "ctrl+shift+w").expect("the terminal window closes");
-    poll("an alive server with no frame", || {
-        let bare = top_level(&rig.connection, pid)
-            .iter()
-            .all(|node| node.role != FRAME);
-        (bare && app_root(&rig.connection, pid).is_some() && !process_gone(pid)).then_some(())
-    });
-    let after = capture(&rig, None, None, 10_000).expect("capture");
-    assert!(
-        after.apps.iter().all(|app| app.pid != pid),
-        "a helper with no frame is not in the population (instance {:?})",
-        identity.instance
-    );
-    assert!(after.windows.iter().all(|w| w.pid != pid));
-    let events = diff(&seed, &after);
-    let about_helper = events.iter().filter(|e| e.pid.is_some_and(|p| p == pid));
-    assert_eq!(about_helper.count(), 0, "{:?}", tokens(&events));
 }
 
 #[test]

@@ -160,6 +160,23 @@ the same explicit active-window setup; the button still receives exactly one
 click, and wheel origin is sampled after setup. Private GNOME animations are
 disabled so window-map transitions cannot move a fixture underneath its input.
 
+### Moved to deterministic unit coverage
+
+`system::signal_live_tests::signal_live_helper_with_no_frames_is_not_an_app`
+is replaced by
+`system::signal_capture::tests::windowless::an_answering_registry_app_without_frames_adds_no_population_or_signals`.
+The live test depended on GNOME Terminal leaving its server alive after the last
+window closed; the server instead exited during the parallel run. The fake
+capture test supplies an answering terminal registry root with no frames,
+requires that root to be read, and asserts no population entry, window or signal.
+The terminal's surviving-server lifecycle is no longer a live gate requirement;
+real windowed terminal attribution remains covered by the launch and menu cases.
+
+Mutter startup uses the private shell's writable `OverviewActive` D-Bus property
+and waits for false, avoiding keyboard-focus-dependent Escape synthesis. Wheel
+setup activates the window without an unrelated mouse click; actual wheel
+movement, return, delivery and release checks remain unchanged.
+
 ## Safety rules
 
 Each worker owns a display, session bus, AT-SPI bus, 0700 runtime directory,

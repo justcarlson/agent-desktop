@@ -15,6 +15,9 @@ use crate::system::signal_inventory::{AppOutcome, Pass};
 use crate::system::x11::{FrameFacts, X11Evidence};
 use crate::system::{listed_window::ListedWindow, nested_scan::NestedScan};
 
+#[path = "signal_windowless_tests.rs"]
+mod windowless;
+
 struct World {
     apps: Vec<RegistryApp>,
     windows: Vec<Scripted>,

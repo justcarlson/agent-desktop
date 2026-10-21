@@ -133,10 +133,6 @@ fn app_roots(c: &Connection, pid: u32) -> Vec<(String, String)> {
         .collect()
 }
 
-pub(crate) fn app_root(c: &Connection, pid: u32) -> Option<(String, String)> {
-    app_roots(c, pid).into_iter().next()
-}
-
 fn walk(c: &Connection, pid: u32, limit: usize, deep: bool) -> Vec<Node> {
     let mut found = Vec::new();
     let mut stack: Vec<(String, String)> = app_roots(c, pid)
