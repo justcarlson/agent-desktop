@@ -11,7 +11,7 @@ struct TwoInstancesAdapter {
     pressed_pid: Mutex<Option<u32>>,
     focused_window: Mutex<Option<String>>,
     active: Mutex<Option<crate::WindowInfo>>,
-    active_read_failures: Mutex<usize>,
+    active_read_error: Mutex<Option<AdapterError>>,
 }
 
 fn instance(pid: u32) -> crate::AppInfo {
@@ -93,10 +93,8 @@ impl SystemOps for TwoInstancesAdapter {
         &self,
         _deadline: crate::Deadline,
     ) -> Result<Option<crate::WindowInfo>, AdapterError> {
-        let mut failures = self.active_read_failures.lock().unwrap();
-        if *failures > 0 {
-            *failures -= 1;
-            return Err(AdapterError::not_supported("focused_window"));
+        if let Some(error) = self.active_read_error.lock().unwrap().take() {
+            return Err(error);
         }
         Ok(self.active.lock().unwrap().clone())
     }
@@ -281,27 +279,39 @@ fn a_focused_window_of_another_process_is_refused_without_delivery() {
 }
 
 #[test]
-fn failed_first_focus_read_with_a_sibling_active_refuses_without_delivery() {
-    let adapter = with_active("w-42", 42);
-    *adapter.active_read_failures.lock().unwrap() = 1;
+fn failed_focus_read_preserves_diagnostics_without_delivery() {
+    for code in [crate::ErrorCode::Timeout, crate::ErrorCode::PermDenied] {
+        let adapter = with_active("w-42", 42);
+        *adapter.active_read_error.lock().unwrap() = Some(
+            AdapterError::new(code.clone(), "Exact focus read failed")
+                .with_suggestion("Restore access to the focused window")
+                .with_platform_detail("native focus lookup failed")
+                .with_details(serde_json::json!({ "check": "native_focus_read" })),
+        );
 
-    let error = press(None, Some("w-42-prefs"), &adapter).unwrap_err();
+        let error = press(None, Some("w-42-prefs"), &adapter).unwrap_err();
 
-    assert_eq!(error.code(), "STALE_REF");
-    let crate::AppError::Adapter(error) = error else {
-        panic!("an adapter error")
-    };
-    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
-    assert!(adapter.pressed_pid.lock().unwrap().is_none());
-    assert!(adapter.focused_window.lock().unwrap().is_none());
-    assert_eq!(
-        adapter
-            .focused_window(crate::Deadline::standard().unwrap())
-            .unwrap()
-            .unwrap()
-            .id,
-        "w-42"
-    );
+        let crate::AppError::Adapter(error) = error else {
+            panic!("an adapter error")
+        };
+        assert_eq!(error.code, code);
+        assert_eq!(error.message, "Exact focus read failed");
+        assert_eq!(
+            error.suggestion.as_deref(),
+            Some("Restore access to the focused window")
+        );
+        assert_eq!(
+            error.platform_detail.as_deref(),
+            Some("native focus lookup failed")
+        );
+        assert_eq!(
+            error.details.unwrap(),
+            serde_json::json!({ "check": "native_focus_read" })
+        );
+        assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+        assert!(adapter.pressed_pid.lock().unwrap().is_none());
+        assert!(adapter.focused_window.lock().unwrap().is_none());
+    }
 }
 
 #[test]

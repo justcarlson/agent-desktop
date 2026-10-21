@@ -233,7 +233,9 @@ pub trait SystemOps: Send + Sync {
             .as_deref()
             .filter(|instance| !instance.is_empty())
             .ok_or_else(refusal)?;
-        let focused = self.focused_window(lease.deadline()).ok().flatten();
+        let focused = self
+            .focused_window(lease.deadline())
+            .map_err(AdapterError::unsent)?;
         if !focused.is_some_and(|focused| {
             focused.id == window.id
                 && focused.pid == window.pid
