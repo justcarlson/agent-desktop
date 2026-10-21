@@ -42,7 +42,8 @@ class EventScenarioTests(unittest.TestCase):
                     patch.object(events, "delayed", side_effect=delayed), \
                     patch("runner.verdict.run_product", side_effect=product):
                     getattr(events, kind)(ctx)
-                self.assertEqual(verdict.evaluate(ctx), [])
+                expected = ["oracle proc.apps needs exactly one restored read; got 0"] if kind.endswith("quiet") else []
+                self.assertEqual(verdict.evaluate(ctx), expected)
                 self.assertEqual(owners, set())
 
     def test_new_window_cycle_closes_only_added_frame_and_preserves_seed(self):
@@ -69,4 +70,5 @@ class EventScenarioTests(unittest.TestCase):
             events.open_and_close_inside_one_wait(ctx)
         self.assertEqual(frames, ["seed"])
         self.assertEqual(stopped, [app])
-        self.assertEqual(verdict.evaluate(ctx), [])
+        self.assertEqual(verdict.evaluate(ctx), [
+            "oracle atspi.root_children needs exactly one restored read; got 0"])

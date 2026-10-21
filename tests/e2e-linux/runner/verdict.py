@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from copy import deepcopy
 from typing import Callable
 
 from runner.legs import ORACLE_NAMES
@@ -43,7 +44,7 @@ class LegContext:
             raise ValueError(
                 f"leg {self.leg.id} read oracle channel {channel} it did not declare"
             )
-        self._reads.setdefault(channel, {}).setdefault(stage, []).append(value)
+        self._reads.setdefault(channel, {}).setdefault(stage, []).append(deepcopy(value))
 
     def before(self, channel: str, value: object) -> None:
         self._record("before", channel, value)
@@ -93,29 +94,16 @@ def evaluate(ctx: LegContext) -> list[str]:
         failures.append("no oracle recorded an after read")
     for channel in sorted(reads):
         entry = reads[channel]
-        befores = entry.get("before", [])
-        afters = entry.get("after", [])
-        restores = entry.get("restored", [])
-        if not befores:
-            failures.append(f"oracle {channel} is missing its before read")
-            continue
-        if not afters:
-            failures.append(f"oracle {channel} is missing its after read")
-            continue
-        changed = any(before != after for before, after in zip(befores, afters))
-        if not changed:
-            if restores and any(restored not in befores for restored in restores):
-                failures.append(
-                    f"oracle {channel} drifted: the restoration read disagrees with the before read"
-                )
-        elif not restores:
-            failures.append(
-                f"oracle {channel} changed during the leg but recorded no restoration read"
-            )
-        elif any(restored not in befores for restored in restores):
-            failures.append(
-                f"oracle {channel} changed during the leg and was not restored"
-            )
+        if (all(len(entry.get(stage, [])) == 1 for stage in ("before", "after", "restored"))
+                and list(entry) != ["before", "after", "restored"]):
+            failures.append(f"oracle {channel} reads must be ordered before, after, final restored")
+        for stage in ("before", "after", "restored"):
+            count = len(entry.get(stage, []))
+            if count != 1:
+                failures.append(f"oracle {channel} needs exactly one {stage} read; got {count}")
+        if all(len(entry.get(stage, [])) == 1 for stage in ("before", "after", "restored")):
+            if entry["restored"][0] != entry["before"][0]:
+                failures.append(f"oracle {channel} drifted and was not restored")
     current = ctx.owned()
     extra = sorted(current.members - ctx._baseline.members)
     gone = sorted(ctx._baseline.members - current.members)

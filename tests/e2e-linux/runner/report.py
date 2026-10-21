@@ -12,7 +12,7 @@ FAIL = "fail"
 ERROR = "error"
 TIER_UNAVAILABLE = "tier-unavailable"
 
-_NONFAILING = {PASS, REFUSED, OWNER}
+_NONFAILING = {PASS, REFUSED}
 
 
 @dataclass

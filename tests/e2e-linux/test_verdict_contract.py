@@ -137,6 +137,7 @@ class VerdictRuleTests(unittest.TestCase):
         ctx = self.ctx()
         ctx.before("atspi", {"display": "7"})
         ctx.after("atspi", {"display": "7"})
+        ctx.restored("atspi", {"display": "7"})
         self.assertEqual(verdict.evaluate(ctx), [])
 
     def test_change_with_matching_restoration_passes(self):
@@ -151,7 +152,7 @@ class VerdictRuleTests(unittest.TestCase):
         ctx.before("atspi", "off")
         ctx.after("atspi", "on")
         failures = verdict.evaluate(ctx)
-        self.assertTrue(any("no restoration" in f for f in failures))
+        self.assertTrue(any("restored read" in f for f in failures))
 
     def test_change_with_wrong_restoration_fails(self):
         ctx = self.ctx()
@@ -220,7 +221,7 @@ class ReadDisciplineTests(unittest.TestCase):
         ctx = self.ctx(leg=atspi_leg())
         ctx.before("atspi.selection", False)
         ctx.after("atspi.selection", True)
-        self.assertTrue(any("restoration" in message for message in verdict.evaluate(ctx)))
+        self.assertTrue(any("restored read" in message for message in verdict.evaluate(ctx)))
         ctx.restored("atspi.selection", False)
         self.assertEqual(verdict.evaluate(ctx), [])
         for channel in ("laser.selection", "x11.pointer"):

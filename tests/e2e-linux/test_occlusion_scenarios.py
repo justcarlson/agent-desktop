@@ -68,6 +68,7 @@ class OcclusionScenarioTests(unittest.TestCase):
                     patch.object(occlusion.apps, "stop"), \
                     patch("runner.verdict.run_product", side_effect=product):
                     getattr(occlusion, name)(ctx)
-                self.assertEqual(verdict.evaluate(ctx), [])
+                self.assertEqual(verdict.evaluate(ctx), [
+                    "oracle atspi.cover_display needs exactly one restored read; got 0"])
                 self.assertEqual(state, {"document": ("baseline", 8), "above": False,
                                          "stack": ["w-target", "w-cover"]})

@@ -4,15 +4,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from oracle import atspi_raw as raw, x11
-from runner import legs, verdict
-from runner.legs import Leg
+from runner import verdict
 from runner.session import Tier
 from runner.verdict import LegContext
 
@@ -42,32 +38,49 @@ class RepeatedReadTests(unittest.TestCase):
     def ctx(self, leg=None) -> LegContext:
         return LegContext(self.tier, "headless", leg, member_reader=lambda tier: frozenset())
 
-    def test_repeated_reads_accept_none_tuples_and_dicts(self):
+    def test_each_observation_key_needs_one_before_after_and_final_read(self):
+        for stages in (
+            {"before": [0], "after": [0, 1], "restored": [0]},
+            {"before": [0, 1], "after": [0], "restored": [0]},
+            {"before": [0], "after": [0]},
+            {"before": [0], "after": [1], "restored": [0, 0]},
+        ):
+            with self.subTest(stages=stages):
+                ctx = self.ctx()
+                for stage, values in stages.items():
+                    for value in values:
+                        getattr(ctx, stage)("atspi.display", value)
+                self.assertTrue(verdict.evaluate(ctx))
+
+    def test_restoration_must_be_read_after_the_effect(self):
         ctx = self.ctx()
-        ctx.before("atspi", None)
-        ctx.before("atspi", ("a", (1, 2)))
-        ctx.before("atspi", {"window": (3, 4)})
-        ctx.after("atspi", None)
-        ctx.restored("atspi", None)
+        ctx.before("atspi.display", 0)
+        ctx.restored("atspi.display", 0)
+        ctx.after("atspi.display", 1)
+        self.assertTrue(verdict.evaluate(ctx))
+
+    def test_restoration_matches_its_own_key_not_another_baseline(self):
+        ctx = self.ctx()
+        for stage, first, second in (("before", 0, 1), ("after", 2, 3), ("restored", 1, 0)):
+            getattr(ctx, stage)("atspi.first", first)
+            getattr(ctx, stage)("atspi.second", second)
+        self.assertTrue(verdict.evaluate(ctx))
+
+    def test_a_mutable_observation_cannot_rewrite_its_baseline(self):
+        ctx = self.ctx()
+        value = {"state": 0}
+        ctx.before("atspi.state", value)
+        value["state"] = 1
+        ctx.after("atspi.state", value)
+        ctx.restored("atspi.state", value)
+        self.assertTrue(verdict.evaluate(ctx))
+
+    def test_independent_keyed_reads_accept_none_tuples_and_dicts(self):
+        ctx = self.ctx()
+        for key, value in (("empty", None), ("window", ("a", (1, 2))), ("state", {"window": (3, 4)})):
+            for stage in ("before", "after", "restored"):
+                getattr(ctx, stage)("atspi." + key, value)
         self.assertEqual(verdict.evaluate(ctx), [])
-
-    def test_a_mutation_still_needs_a_restoration_on_the_channel(self):
-        ctx = self.ctx()
-        ctx.before("atspi", None)
-        ctx.before("atspi", {"window": (3, 4)})
-        ctx.after("atspi", {"window": (5, 6)})
-        failures = verdict.evaluate(ctx)
-        self.assertTrue(any("no restoration read" in failure for failure in failures))
-
-    def test_repeated_unchanged_reads_pass_without_a_restoration(self):
-        ctx = self.ctx()
-        ctx.before("atspi", (1, 2))
-        ctx.before("atspi", {"a": None})
-        ctx.after("atspi", (1, 2))
-        ctx.after("atspi", {"a": None})
-        self.assertEqual(verdict.evaluate(ctx), [])
-
-
 
 
 if __name__ == "__main__":
