@@ -71,7 +71,7 @@ fn window(bus: &str, pid: u32) -> WindowInfo {
 
 #[test]
 fn a_window_of_the_remembered_shell_is_a_shell_window_and_another_never_is() {
-    crate::system::shell::identity_remember_for_tests(&ShellRoot {
+    crate::system::shell::identity::remember(&ShellRoot {
         bus_name: ":77.77".to_owned(),
         path: "/w".to_owned(),
         pid: PID,
