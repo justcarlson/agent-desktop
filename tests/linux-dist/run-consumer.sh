@@ -81,32 +81,7 @@ snapshot_target() {
   return 1
 }
 
-find_ref() {
-  python3 - "$1" "$2" "$3" <<'PY'
-import json
-import sys
-
-path, role, name = sys.argv[1], sys.argv[2], sys.argv[3]
-
-def walk(node):
-    if isinstance(node, dict):
-        if node.get("role") == role and node.get("name") == name and node.get("ref_id"):
-            yield node["ref_id"]
-        for value in node.values():
-            if isinstance(value, (dict, list)):
-                yield from walk(value)
-    elif isinstance(node, list):
-        for item in node:
-            yield from walk(item)
-
-with open(path, encoding="utf-8") as stream:
-    document = json.load(stream)
-refs = list(walk(document))
-if len(refs) != 1:
-    raise SystemExit(f"expected one {role} named {name!r}, found {refs}")
-print(refs[0])
-PY
-}
+. "$SCRIPT_DIR/observations.sh"
 
 read_clipboard() {
   python3 - <<'PY'
@@ -172,21 +147,7 @@ PY
 echo "run-consumer: leg snapshot ok"
 
 echo "run-consumer: leg click"
-BEFORE=$(read_display 20) || BEFORE=""
-REF=$(find_ref "$SNAP" button 7)
-"$CONSUMER" click "$REF" > "$WORK/click.json"
-expected=7
-shown=""
-for _ in $(seq 1 100); do
-  shown=$(read_display 5) || shown=""
-  [ "$shown" = "$expected" ] && break
-  sleep 0.05
-done
-if [ "$shown" != "$expected" ]; then
-  echo "run-consumer: FAIL code=ACTION_NOT_DELIVERED display=$shown expected=$expected before=$BEFORE" >&2
-  exit 1
-fi
-echo "run-consumer: leg click ok display=$shown before=$BEFORE"
+click_display_transition "$SNAP" "$WORK/click.json" "$CONSUMER" click
 
 stop_app
 wait_target_absent
