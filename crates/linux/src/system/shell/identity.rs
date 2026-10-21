@@ -47,14 +47,6 @@ pub(super) fn remember(root: &ShellRoot) {
     *KNOWN.lock().unwrap_or_else(PoisonError::into_inner) = Some(root.clone());
 }
 
-fn known_bus_name() -> Option<String> {
-    KNOWN
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .as_ref()
-        .map(|root| root.bus_name.clone())
-}
-
 pub(crate) fn is_shell_comm(comm: &str) -> bool {
     comm == SHELL_COMM
 }
@@ -63,7 +55,12 @@ pub(crate) fn is_shell_comm(comm: &str) -> bool {
 /// reads no bus: the name found by the last root lookup, then the command
 /// name of the process.
 pub(crate) fn is_shell_owner(bus_name: &str, pid: u32) -> bool {
-    if known_bus_name().as_deref() == Some(bus_name) {
+    if KNOWN
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .as_ref()
+        .is_some_and(|root| root.bus_name == bus_name)
+    {
         return true;
     }
     process_facts::read(pid).is_some_and(|facts| is_shell_comm(&facts.comm))

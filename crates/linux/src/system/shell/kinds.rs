@@ -1,6 +1,6 @@
 use agent_desktop_core::SnapshotSurface;
 
-use super::detect::{Fact, ShellEnvironment};
+use super::detect::Fact;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum ShellKind {
@@ -50,8 +50,8 @@ pub(crate) fn is_presented(kind: ShellKind) -> bool {
 
 /// The kinds a session can snapshot: those whose container lives in the shell
 /// tree, which is the only fact they depend on.
-pub(crate) fn advertised(env: &ShellEnvironment) -> Vec<SnapshotSurface> {
-    match env.tree {
+pub(crate) fn advertised(tree: &Fact) -> Vec<SnapshotSurface> {
+    match tree {
         Fact::Present => PRESENTED.iter().copied().map(surface_of).collect(),
         Fact::Absent(_) | Fact::Unreadable(_) => Vec::new(),
     }

@@ -84,16 +84,11 @@ pub(crate) fn open_with<W: Surface>(
     policy: InteractionPolicy,
     deadline: Deadline,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
-    if opener_of(kind).is_none() {
-        return world
-            .window(kind, deadline)
-            .map(|window| (window, Opened::Adopted))
-            .map_err(|error| with_open_progress(error, false));
-    }
-    let showing = world
-        .showing(kind, deadline)
-        .map_err(|error| with_open_progress(error, false))?;
-    if showing {
+    if opener_of(kind).is_none()
+        || world
+            .showing(kind, deadline)
+            .map_err(|error| with_open_progress(error, false))?
+    {
         return world
             .window(kind, deadline)
             .map(|window| (window, Opened::Adopted))

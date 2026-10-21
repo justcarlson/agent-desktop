@@ -68,7 +68,7 @@ pub(crate) fn resolve_surface(
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(AdapterError::not_supported("resolve_shell_surface"));
     };
-    detect::require(&detect::detect(bus, deadline), detect::Need::Tree)?;
+    detect::require_tree(bus, deadline)?;
     let root = identity::find_root(bus, deadline)?;
     let landmark = open::container_landmark(kind);
     let located =
@@ -107,7 +107,7 @@ pub(crate) fn observe_shell(
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
         detect::require_watcher(request.deadline)?;
         let view = crate::tray::view::read(request.deadline)?;
-        let mut decorator = tray_decorator::TrayDecorator::new(Some(view));
+        let mut decorator = tray_decorator::TrayDecorator::new(view);
         return crate::tree::observe_tree_with(bus, root, &inner, &mut decorator);
     }
     crate::tree::observe_tree(bus, root, &inner)

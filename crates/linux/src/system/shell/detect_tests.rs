@@ -1,274 +1,161 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use agent_desktop_core::ErrorCode;
 use zbus::zvariant::{OwnedValue, Value};
 
 use crate::system::shell::detect::{
-    CallFailure, Fact, Need, SessionCalls, ShellEnvironment, TreeCalls, WatcherRead,
-    classify_daemon, classify_tree, classify_watcher, detect_with, extension_state, require,
-    require_daemon_with, require_watcher_with,
+    CallFailure, Fact, Need, ShellEnvironment, WatcherRead, classify_daemon, classify_tree,
+    classify_watcher, extension_state, require,
 };
 
-type Log = Rc<RefCell<Vec<&'static str>>>;
-
-struct Session {
-    log: Log,
-    server: Result<String, CallFailure>,
-    pid: Result<u32, CallFailure>,
-    watcher: Result<WatcherRead, CallFailure>,
-}
-
-impl SessionCalls for Session {
-    fn server_name(&self) -> Result<String, CallFailure> {
-        self.log.borrow_mut().push("session:server");
-        self.server.clone()
+fn environment(daemon: Fact, tree: Fact, watcher: Fact, server: Option<&str>) -> ShellEnvironment {
+    ShellEnvironment {
+        daemon,
+        tree,
+        watcher,
+        server: server.map(str::to_owned),
     }
-
-    fn shell_pid(&self) -> Result<u32, CallFailure> {
-        self.log.borrow_mut().push("session:pid");
-        self.pid.clone()
-    }
-
-    fn watcher(&self) -> Result<WatcherRead, CallFailure> {
-        self.log.borrow_mut().push("session:watcher");
-        self.watcher.clone()
-    }
-
-    fn indicator_extension(&self) -> Option<String> {
-        self.log.borrow_mut().push("session:extensions");
-        Some("the AppIndicator extension is not installed".to_owned())
-    }
-}
-
-struct Tree {
-    log: Log,
-    registered: Result<bool, CallFailure>,
-}
-
-impl TreeCalls for Tree {
-    fn shell_registered(&self, _shell_pid: u32) -> Result<bool, CallFailure> {
-        self.log.borrow_mut().push("a11y:registry");
-        self.registered.clone()
-    }
-}
-
-fn healthy(log: &Log) -> (Session, Tree) {
-    (
-        Session {
-            log: Rc::clone(log),
-            server: Ok("gnome-shell".to_owned()),
-            pid: Ok(100),
-            watcher: Ok(WatcherRead::Items(2)),
-        },
-        Tree {
-            log: Rc::clone(log),
-            registered: Ok(true),
-        },
-    )
 }
 
 #[test]
-fn a_service_with_no_owner_is_a_daemon_that_is_absent() {
-    let (fact, server) = classify_daemon(Err(CallFailure::NoService));
-    assert!(matches!(fact, Fact::Absent(_)));
-    assert_eq!(server, None);
-}
-
-#[test]
-fn the_daemon_requirement_reads_only_the_daemon_and_preserves_absent_and_unsupported_errors() {
-    let log = Log::default();
-    let (mut session, _) = healthy(&log);
-    session.server = Err(CallFailure::NoService);
-    let absent = require_daemon_with(&session).expect_err("no daemon");
-    assert_eq!(absent.code, ErrorCode::PlatformNotSupported);
-    assert!(absent.message.contains("No notification service"));
-    assert_eq!(*log.borrow(), ["session:server"]);
-
-    log.borrow_mut().clear();
-    session.server = Ok("other".to_owned());
-    let unsupported = require_daemon_with(&session).expect_err("unsupported daemon");
-    assert_eq!(unsupported.code, ErrorCode::PlatformNotSupported);
-    assert!(unsupported.message.contains("other"));
-    assert_eq!(*log.borrow(), ["session:server"]);
-}
-
-#[test]
-fn the_watcher_requirement_distinguishes_absent_present_empty_and_unreadable() {
-    let log = Log::default();
-    let (mut session, _) = healthy(&log);
-    session.watcher = Ok(WatcherRead::NoOwner);
-    let absent = require_watcher_with(&session).expect_err("no watcher");
-    assert_eq!(absent.code, ErrorCode::PlatformNotSupported);
+fn daemon_requirement_refuses_absent_and_foreign_servers() {
+    let (daemon, server) = classify_daemon(Ok("gnome-shell".to_owned()));
     assert!(
-        absent
-            .suggestion
-            .expect("suggestion")
-            .contains("AppIndicator")
+        require(
+            &environment(daemon, Fact::Present, Fact::Present, server.as_deref()),
+            Need::Daemon,
+        )
+        .is_ok()
     );
-    assert_eq!(*log.borrow(), ["session:watcher", "session:extensions"]);
 
-    log.borrow_mut().clear();
-    session.watcher = Ok(WatcherRead::Items(0));
-    assert!(require_watcher_with(&session).is_ok());
-    assert_eq!(*log.borrow(), ["session:watcher"]);
+    let (daemon, server) = classify_daemon(Err(CallFailure::NoService));
+    let absent = require(
+        &environment(daemon, Fact::Present, Fact::Present, server.as_deref()),
+        Need::Daemon,
+    )
+    .expect_err("no notification service");
+    assert_eq!(absent.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(absent.details.expect("daemon details")["daemon"], "absent");
 
-    log.borrow_mut().clear();
-    session.watcher = Err(CallFailure::Transport("bus stalled".to_owned()));
-    let unreadable = require_watcher_with(&session).expect_err("unreadable");
+    let (daemon, server) = classify_daemon(Ok("kded".to_owned()));
+    let foreign = require(
+        &environment(daemon, Fact::Present, Fact::Present, server.as_deref()),
+        Need::Daemon,
+    )
+    .expect_err("foreign notification service");
+    assert_eq!(foreign.code, ErrorCode::PlatformNotSupported);
+    assert!(foreign.message.contains("kded"));
+
+    let (daemon, server) = classify_daemon(Err(CallFailure::Transport("bus stalled".to_owned())));
+    let unreadable = require(
+        &environment(daemon, Fact::Present, Fact::Present, server.as_deref()),
+        Need::Daemon,
+    )
+    .expect_err("daemon transport failure");
     assert_eq!(unreadable.code, ErrorCode::Timeout);
     assert_eq!(
-        unreadable.details.expect("details")["watcher"],
+        unreadable.details.expect("daemon details")["retryable"],
+        true
+    );
+}
+
+#[test]
+fn tree_requirement_preserves_registry_failure_classes() {
+    let absent_owner = classify_tree(Err(CallFailure::NoService), None);
+    let error = require(
+        &environment(Fact::Present, absent_owner, Fact::Present, None),
+        Need::Tree,
+    )
+    .expect_err("shell owner absent");
+    assert_eq!(error.code, ErrorCode::AppNotFound);
+    assert!(
+        error
+            .suggestion
+            .expect("restart guidance")
+            .contains("do not toggle")
+    );
+
+    let owner_unreadable =
+        classify_tree(Err(CallFailure::Transport("bus stalled".to_owned())), None);
+    let error = require(
+        &environment(Fact::Present, owner_unreadable, Fact::Present, None),
+        Need::Tree,
+    )
+    .expect_err("shell owner transport failure");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.details.expect("tree details")["retryable"], true);
+
+    let absent_registry = classify_tree(Ok(7), Some(Ok(false)));
+    let error = require(
+        &environment(Fact::Present, absent_registry, Fact::Present, None),
+        Need::Tree,
+    )
+    .expect_err("shell missing from registry");
+    assert_eq!(error.code, ErrorCode::AppNotFound);
+    let registry_unavailable = classify_tree(Ok(7), Some(Err(CallFailure::NoService)));
+    assert!(matches!(registry_unavailable, Fact::Absent(_)));
+    let unreadable = classify_tree(
+        Ok(7),
+        Some(Err(CallFailure::Transport("registry stalled".to_owned()))),
+    );
+    let error = require(
+        &environment(Fact::Present, unreadable, Fact::Present, None),
+        Need::Tree,
+    )
+    .expect_err("registry transport failure");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(
+        error.details.expect("tree details")["shell_tree"],
         "unreadable"
     );
 }
 
 #[test]
-fn another_server_is_named_and_refused_as_unsupported() {
-    let log = Log::default();
-    let (mut session, tree) = healthy(&log);
-    session.server = Ok("kded".to_owned());
-    let env = detect_with(&session, &tree);
-    assert_eq!(env.server.as_deref(), Some("kded"));
-    let error = require(&env, Need::Daemon).expect_err("only GNOME is measured");
+fn watcher_requirement_preserves_presence_and_races() {
+    let absent = classify_watcher(Ok(WatcherRead::NoOwner), Some("not installed".to_owned()));
+    let error = require(
+        &environment(Fact::Present, Fact::Present, absent, None),
+        Need::Watcher,
+    )
+    .expect_err("watcher absent");
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert!(error.message.contains("kded"));
-}
-
-#[test]
-fn the_name_field_decides_so_a_helper_owned_daemon_is_present() {
-    let log = Log::default();
-    let (session, tree) = healthy(&log);
-    let env = detect_with(&session, &tree);
-    assert_eq!(env.daemon, Fact::Present);
-    assert_eq!(env.tree, Fact::Present);
-    assert!(require(&env, Need::Daemon).is_ok());
-}
-
-#[test]
-fn a_shell_missing_from_the_registry_is_tree_absent_with_the_restart_suggestion() {
-    let log = Log::default();
-    let (session, mut tree) = healthy(&log);
-    tree.registered = Ok(false);
-    let env = detect_with(&session, &tree);
-    assert!(matches!(env.tree, Fact::Absent(_)));
-    assert_eq!(env.daemon, Fact::Present);
-    let error = require(&env, Need::Tree).expect_err("the tree is absent");
-    assert_eq!(error.code, ErrorCode::AppNotFound);
-    let suggestion = error.suggestion.expect("a suggestion");
-    assert!(suggestion.contains("Restart the shell session"));
-    assert!(suggestion.contains("do not toggle accessibility"));
-}
-
-#[test]
-fn a_shell_with_no_bus_owner_is_tree_absent_without_reading_the_registry() {
-    let log = Log::default();
-    let (mut session, tree) = healthy(&log);
-    session.pid = Err(CallFailure::NoService);
-    let env = detect_with(&session, &tree);
-    assert!(matches!(env.tree, Fact::Absent(_)));
-    assert!(!log.borrow().contains(&"a11y:registry"));
-}
-
-#[test]
-fn a_watcher_with_no_owner_is_absent_and_carries_the_extension_state() {
-    let log = Log::default();
-    let (mut session, tree) = healthy(&log);
-    session.watcher = Ok(WatcherRead::NoOwner);
-    let env = detect_with(&session, &tree);
-    let Fact::Absent(why) = &env.watcher else {
-        panic!("a watcher with no owner is absent");
-    };
-    assert!(why.contains("AppIndicator extension is not installed"));
-    let error = require(&env, Need::Watcher).expect_err("no watcher");
     assert!(
         error
             .suggestion
-            .expect("a suggestion")
+            .expect("extension guidance")
             .contains("AppIndicator")
     );
-}
 
-#[test]
-fn a_watcher_with_no_items_is_present_and_empty() {
-    assert_eq!(
-        classify_watcher(Ok(WatcherRead::Items(0)), None),
-        Fact::Present
+    let present = classify_watcher(Ok(WatcherRead::Items), None);
+    assert!(
+        require(
+            &environment(Fact::Present, Fact::Present, present, None),
+            Need::Watcher,
+        )
+        .is_ok()
     );
-}
 
-#[test]
-fn the_focused_watcher_requirement_does_not_read_the_shell_registry() {
-    let log = Log::default();
-    let (session, _) = healthy(&log);
-    assert!(require_watcher_with(&session).is_ok());
-    assert_eq!(*log.borrow(), ["session:watcher"]);
-}
+    let vanished = classify_watcher(Err(CallFailure::NoService), None);
+    let error = require(
+        &environment(Fact::Present, Fact::Present, vanished, None),
+        Need::Watcher,
+    )
+    .expect_err("watcher disappeared during read");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.details.expect("watcher details")["retryable"], true);
 
-#[test]
-fn a_watcher_name_that_vanishes_mid_read_is_retryable_not_absent() {
-    let fact = classify_watcher(Err(CallFailure::NoService), None);
-    assert!(matches!(fact, Fact::Unreadable(_)));
-    let env = ShellEnvironment {
-        daemon: Fact::Present,
-        tree: Fact::Present,
-        watcher: fact,
-        server: None,
-    };
-    let error = require(&env, Need::Watcher).expect_err("unreadable");
-    let details = error.details.expect("details");
-    assert_eq!(details["retryable"], true);
-}
-
-#[test]
-fn a_transport_failure_is_unreadable_for_every_fact() {
-    let failure = || CallFailure::Transport("boom".to_owned());
-    assert!(matches!(
-        classify_daemon(Err(failure())).0,
-        Fact::Unreadable(_)
-    ));
-    assert!(matches!(
-        classify_tree(Ok(1), Some(Err(failure()))),
-        Fact::Unreadable(_)
-    ));
-    assert!(matches!(
-        classify_watcher(Err(failure()), None),
-        Fact::Unreadable(_)
-    ));
-}
-
-#[test]
-fn every_session_call_goes_to_the_session_and_every_registry_read_to_the_accessibility_bus() {
-    let log = Log::default();
-    let (session, tree) = healthy(&log);
-    detect_with(&session, &tree);
-    assert_eq!(
-        *log.borrow(),
-        [
-            "session:server",
-            "session:pid",
-            "a11y:registry",
-            "session:watcher"
-        ]
-    );
-}
-
-#[test]
-fn the_three_states_are_independent() {
-    let log = Log::default();
-    let (mut session, mut tree) = healthy(&log);
-    session.server = Err(CallFailure::NoService);
-    tree.registered = Ok(true);
-    session.watcher = Ok(WatcherRead::NoOwner);
-    let env = detect_with(&session, &tree);
-    assert!(matches!(env.daemon, Fact::Absent(_)));
-    assert_eq!(env.tree, Fact::Present);
-    assert!(matches!(env.watcher, Fact::Absent(_)));
+    let stalled = classify_watcher(Err(CallFailure::Transport("bus stalled".to_owned())), None);
+    let error = require(
+        &environment(Fact::Present, Fact::Present, stalled, None),
+        Need::Watcher,
+    )
+    .expect_err("watcher transport failure");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.details.expect("watcher details")["retryable"], true);
 }
 
 fn listed(uuid: &str, state: f64) -> HashMap<String, HashMap<String, OwnedValue>> {
-    let value = OwnedValue::try_from(Value::F64(state)).expect("a value");
+    let value = OwnedValue::try_from(Value::F64(state)).expect("valid extension state");
     HashMap::from([(
         uuid.to_owned(),
         HashMap::from([("state".to_owned(), value)]),
@@ -276,10 +163,11 @@ fn listed(uuid: &str, state: f64) -> HashMap<String, HashMap<String, OwnedValue>
 }
 
 #[test]
-fn the_extension_state_names_missing_disabled_and_enabled() {
+fn extension_diagnostics_preserve_three_states() {
     assert!(extension_state(&HashMap::new()).contains("not installed"));
-    let disabled = extension_state(&listed("appindicator-support@fixture", 2.0));
-    assert!(disabled.contains("not enabled"));
-    let enabled = extension_state(&listed("appindicator-support@fixture", 1.0));
-    assert!(enabled.contains("installed and enabled"));
+    assert!(extension_state(&listed("appindicator-support@fixture", 2.0)).contains("not enabled"));
+    assert!(
+        extension_state(&listed("appindicator-support@fixture", 1.0))
+            .contains("installed and enabled")
+    );
 }

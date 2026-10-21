@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use agent_desktop_core::{AdapterError, ErrorCode};
 
@@ -34,7 +34,6 @@ pub(super) fn element(path: &str) -> AtspiElement {
 
 pub(super) struct FakeTree {
     nodes: BTreeMap<String, Light>,
-    gone: BTreeSet<String>,
     reads: RefCell<Vec<String>>,
     any_bus: bool,
 }
@@ -43,7 +42,6 @@ impl FakeTree {
     pub(super) fn new() -> Self {
         Self {
             nodes: BTreeMap::new(),
-            gone: BTreeSet::new(),
             reads: RefCell::default(),
             any_bus: false,
         }
@@ -92,19 +90,7 @@ impl FakeTree {
     }
 
     pub(super) fn vanish(&mut self, path: &str) {
-        self.gone.insert(path.to_owned());
-    }
-
-    pub(super) fn rename(&mut self, path: &str, name: &str) {
-        if let Some(node) = self.nodes.get_mut(path) {
-            node.name = name.to_owned();
-        }
-    }
-
-    pub(super) fn set_showing(&mut self, path: &str, showing: bool) {
-        if let Some(node) = self.nodes.get_mut(path) {
-            node.showing = showing;
-        }
+        self.nodes.remove(path);
     }
 
     pub(super) fn reads(&self) -> Vec<String> {
@@ -123,7 +109,7 @@ impl FakeTree {
 impl Nodes for FakeTree {
     fn read(&self, element: &AtspiElement) -> Result<Light, AdapterError> {
         self.reads.borrow_mut().push(element.path().to_owned());
-        if (!self.any_bus && element.bus_name() != BUS) || self.gone.contains(element.path()) {
+        if !self.any_bus && element.bus_name() != BUS {
             return Err(AdapterError::new(ErrorCode::ElementNotFound, "gone"));
         }
         self.nodes
@@ -138,58 +124,62 @@ impl Nodes for FakeTree {
 /// message list and its footer, and the system menu popup.
 pub(super) fn gnome_shell(list_open: bool, system_open: bool) -> FakeTree {
     let mut tree = FakeTree::new();
-    tree.add(None, "/w", WINDOW, "", at(0, 54, 87, 55));
-    tree.add(Some("/w"), "/p2", PANEL, "", at(0, 0, 1280, 800));
-    tree.add(
-        Some("/p2"),
-        "/overview",
-        PANEL,
-        "Overview",
-        at(0, 0, 1280, 800),
-    );
-    tree.add(
-        Some("/overview"),
-        "/ov_clear",
-        PUSH_BUTTON,
-        "Clear all notifications",
-        SENTINEL,
-    );
-    tree.add(
-        Some("/overview"),
-        "/ov_apps",
-        TOGGLE_BUTTON,
-        "Show Apps",
-        at(674, 704, 64, 72),
-    );
-    tree.add(Some("/p2"), "/top", PANEL, "", at(0, 0, 1280, 32));
-    tree.add(Some("/top"), "/bar", PANEL, "", at(0, 0, 1280, 32));
-    tree.add(Some("/bar"), "/left", PANEL, "", at(0, 0, 72, 32));
-    tree.add(
-        Some("/left"),
-        "/activities",
-        TOGGLE_BUTTON,
-        "Activities",
-        at(0, 0, 72, 32),
-    );
-    tree.add(Some("/bar"), "/center", PANEL, "", at(569, 0, 142, 32));
-    tree.add(Some("/center"), "/date", MENU, "", at(569, 0, 142, 32));
-    tree.add(Some("/bar"), "/right", PANEL, "", at(1204, 0, 76, 32));
-    tree.add(Some("/right"), "/tray_wrap", PANEL, "", at(1204, 0, 0, 32));
-    tree.add(
-        Some("/tray_wrap"),
-        "/tray_item",
-        MENU,
-        "Dropbox",
-        at(1204, 0, 24, 32),
-    );
-    tree.add(Some("/right"), "/sys_wrap", PANEL, "", at(1204, 0, 76, 32));
-    tree.add(
-        Some("/sys_wrap"),
-        "/system",
-        MENU,
-        "System",
-        at(1204, 0, 76, 32),
-    );
+    for (parent, path, role, name, extents) in [
+        (None, "/w", WINDOW, "", at(0, 54, 87, 55)),
+        (Some("/w"), "/p2", PANEL, "", at(0, 0, 1280, 800)),
+        (
+            Some("/p2"),
+            "/overview",
+            PANEL,
+            "Overview",
+            at(0, 0, 1280, 800),
+        ),
+        (
+            Some("/overview"),
+            "/ov_clear",
+            PUSH_BUTTON,
+            "Clear all notifications",
+            SENTINEL,
+        ),
+        (
+            Some("/overview"),
+            "/ov_apps",
+            TOGGLE_BUTTON,
+            "Show Apps",
+            at(674, 704, 64, 72),
+        ),
+        (Some("/p2"), "/top", PANEL, "", at(0, 0, 1280, 32)),
+        (Some("/top"), "/bar", PANEL, "", at(0, 0, 1280, 32)),
+        (Some("/bar"), "/left", PANEL, "", at(0, 0, 72, 32)),
+        (
+            Some("/left"),
+            "/activities",
+            TOGGLE_BUTTON,
+            "Activities",
+            at(0, 0, 72, 32),
+        ),
+        (Some("/bar"), "/center", PANEL, "", at(569, 0, 142, 32)),
+        (Some("/center"), "/date", MENU, "", at(569, 0, 142, 32)),
+        (Some("/bar"), "/right", PANEL, "", at(1204, 0, 76, 32)),
+        (Some("/right"), "/tray_wrap", PANEL, "", at(1204, 0, 0, 32)),
+        (
+            Some("/tray_wrap"),
+            "/tray_item",
+            MENU,
+            "Dropbox",
+            at(1204, 0, 24, 32),
+        ),
+        (Some("/right"), "/sys_wrap", PANEL, "", at(1204, 0, 76, 32)),
+        (
+            Some("/sys_wrap"),
+            "/system",
+            MENU,
+            "System",
+            at(1204, 0, 76, 32),
+        ),
+    ] {
+        tree.add(parent, path, role, name, extents);
+    }
     let (popup, clear, power) = ("/datepopup", "/clear", "/power");
     tree.add(Some("/p2"), popup, PANEL, "", at(277, 32, 726, 550));
     let list = tree.chain(
@@ -212,7 +202,6 @@ pub(super) fn gnome_shell(list_open: bool, system_open: bool) -> FakeTree {
         "Clear all notifications",
         shown,
     );
-    tree.set_showing(clear, list_open);
     tree.add(Some("/p2"), "/layer", PANEL, "", at(0, 0, 0, 0));
     tree.add(Some("/layer"), "/syspop", PANEL, "", at(872, 32, 402, 202));
     let last = tree.chain(
@@ -226,6 +215,5 @@ pub(super) fn gnome_shell(list_open: bool, system_open: bool) -> FakeTree {
         SENTINEL
     };
     tree.add(Some(&last), power, PUSH_BUTTON, "Power Off Menu", shown);
-    tree.set_showing(power, system_open);
     tree
 }

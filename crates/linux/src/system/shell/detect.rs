@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::future::Future;
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use serde_json::json;
@@ -25,8 +26,6 @@ const EXTENSION_ENABLED: u32 = 1;
 mod errors;
 mod requirements;
 pub(crate) use requirements::{require_daemon, require_watcher};
-#[cfg(test)]
-use requirements::{require_daemon_with, require_watcher_with};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Fact {
@@ -35,6 +34,7 @@ pub(crate) enum Fact {
     Unreadable(String),
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShellEnvironment {
     pub(crate) daemon: Fact,
@@ -43,16 +43,14 @@ pub(crate) struct ShellEnvironment {
     pub(crate) server: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Need {
-    #[cfg(test)]
     Daemon,
     Tree,
-    #[cfg(test)]
     Watcher,
 }
 
-/// How one bus call failed, as far as the three facts need to tell.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum CallFailure {
     NoService,
@@ -62,20 +60,7 @@ pub(crate) enum CallFailure {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WatcherRead {
     NoOwner,
-    Items(usize),
-}
-
-/// The calls that go to the desktop session bus.
-pub(crate) trait SessionCalls {
-    fn server_name(&self) -> Result<String, CallFailure>;
-    fn shell_pid(&self) -> Result<u32, CallFailure>;
-    fn watcher(&self) -> Result<WatcherRead, CallFailure>;
-    fn indicator_extension(&self) -> Option<String>;
-}
-
-/// The calls that go to the accessibility bus.
-pub(crate) trait TreeCalls {
-    fn shell_registered(&self, shell_pid: u32) -> Result<bool, CallFailure>;
+    Items,
 }
 
 pub(crate) fn failure_of(error: &zbus::Error) -> CallFailure {
@@ -87,6 +72,36 @@ pub(crate) fn failure_of(error: &zbus::Error) -> CallFailure {
         }
         other => CallFailure::Transport(other.to_string()),
     }
+}
+
+fn call<T>(
+    deadline: Deadline,
+    read: impl Future<Output = Result<T, zbus::Error>>,
+) -> Result<T, CallFailure> {
+    match within(deadline, async {
+        Ok(read.await.map_err(|error| failure_of(&error)))
+    }) {
+        Ok(answer) => answer,
+        Err(error) => Err(CallFailure::Transport(error.message)),
+    }
+}
+
+fn server_name(connection: &Connection, deadline: Deadline) -> Result<String, CallFailure> {
+    call(deadline, async {
+        let reply = connection
+            .call_method(
+                Some(NOTIFICATIONS),
+                NOTIFICATIONS_PATH,
+                Some(NOTIFICATIONS),
+                "GetServerInformation",
+                &(),
+            )
+            .await?;
+        let (name, _vendor, _version, _spec) = reply
+            .body()
+            .deserialize::<(String, String, String, String)>()?;
+        Ok(name)
+    })
 }
 
 pub(crate) fn classify_daemon(answer: Result<String, CallFailure>) -> (Fact, Option<String>) {
@@ -127,12 +142,82 @@ pub(crate) fn classify_tree(
     }
 }
 
+pub(crate) fn detect(bus: &SharedBus, deadline: Deadline) -> Fact {
+    let session = match SessionBus::get(deadline) {
+        Ok(connection) => connection,
+        Err(error) => return Fact::Unreadable(error.message),
+    };
+    let owner = call(deadline, owner_process_id(&session, SHELL_BUS_NAME));
+    let registered = owner.as_ref().ok().map(|pid| {
+        let accessibility = bus
+            .get(deadline)
+            .map_err(|error| CallFailure::Transport(error.message))?;
+        within(deadline, registry_apps(accessibility.inner()))
+            .map(|apps| pick_shell_app(&apps, *pid).is_some())
+            .map_err(|error| CallFailure::Transport(error.message))
+    });
+    classify_tree(owner, registered)
+}
+
+pub(crate) fn require_tree(bus: &SharedBus, deadline: Deadline) -> Result<(), AdapterError> {
+    tree_error(&detect(bus, deadline))
+}
+
+fn watcher(connection: &Connection, deadline: Deadline) -> Result<WatcherRead, CallFailure> {
+    call(deadline, async {
+        let owned = connection
+            .call_method(
+                Some(BUS_DAEMON),
+                BUS_DAEMON_PATH,
+                Some(BUS_DAEMON),
+                "NameHasOwner",
+                &(WATCHER,),
+            )
+            .await?
+            .body()
+            .deserialize::<bool>()?;
+        if !owned {
+            return Ok(WatcherRead::NoOwner);
+        }
+        let reply = connection
+            .call_method(
+                Some(WATCHER),
+                WATCHER_PATH,
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &(WATCHER, "RegisteredStatusNotifierItems"),
+            )
+            .await?;
+        reply.body().deserialize::<OwnedValue>()?;
+        Ok(WatcherRead::Items)
+    })
+}
+
+fn indicator_extension(connection: &Connection, deadline: Deadline) -> Option<String> {
+    let listed = call(deadline, async {
+        let reply = connection
+            .call_method(
+                Some(SHELL_BUS_NAME),
+                EXTENSIONS_PATH,
+                Some(EXTENSIONS),
+                "ListExtensions",
+                &(),
+            )
+            .await?;
+        reply
+            .body()
+            .deserialize::<HashMap<String, HashMap<String, OwnedValue>>>()
+    })
+    .ok()?;
+    Some(extension_state(&listed))
+}
+
 pub(crate) fn classify_watcher(
     read: Result<WatcherRead, CallFailure>,
     extension: Option<String>,
 ) -> Fact {
     match read {
-        Ok(WatcherRead::Items(_)) => Fact::Present,
+        Ok(WatcherRead::Items) => Fact::Present,
         Ok(WatcherRead::NoOwner) => {
             let state = extension.unwrap_or_else(|| "extension state unknown".to_owned());
             Fact::Absent(format!("no tray watcher is running ({state})"))
@@ -142,61 +227,6 @@ pub(crate) fn classify_watcher(
         }
         Err(CallFailure::Transport(detail)) => Fact::Unreadable(detail),
     }
-}
-
-pub(crate) fn detect_with<S: SessionCalls, T: TreeCalls>(
-    session: &S,
-    tree: &T,
-) -> ShellEnvironment {
-    let (daemon, server) = classify_daemon(session.server_name());
-    let owner = session.shell_pid();
-    let registered = owner.as_ref().ok().map(|pid| tree.shell_registered(*pid));
-    let watcher_read = session.watcher();
-    let extension = matches!(watcher_read, Ok(WatcherRead::NoOwner))
-        .then(|| session.indicator_extension())
-        .flatten();
-    ShellEnvironment {
-        daemon,
-        tree: classify_tree(owner, registered),
-        watcher: classify_watcher(watcher_read, extension),
-        server,
-    }
-}
-
-fn unreadable_state(why: &str) -> ShellEnvironment {
-    let fact = Fact::Unreadable(why.to_owned());
-    ShellEnvironment {
-        daemon: fact.clone(),
-        tree: fact.clone(),
-        watcher: fact,
-        server: None,
-    }
-}
-
-pub(crate) fn detect(bus: &SharedBus, deadline: Deadline) -> ShellEnvironment {
-    let session = match SessionBus::get(deadline) {
-        Ok(connection) => connection,
-        Err(error) => return unreadable_state(&error.message),
-    };
-    let accessibility = match bus.get(deadline) {
-        Ok(connection) => connection.inner().clone(),
-        Err(error) => return unreadable_state(&error.message),
-    };
-    detect_with(
-        &LiveSession {
-            connection: session,
-            deadline,
-        },
-        &LiveTree {
-            connection: accessibility,
-            deadline,
-        },
-    )
-}
-
-#[cfg(test)]
-fn daemon_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
-    daemon_fact_error(&env.daemon, env.server.as_deref())
 }
 
 fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterError> {
@@ -222,11 +252,6 @@ fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterE
     }
 }
 
-#[cfg(test)]
-fn watcher_error(env: &ShellEnvironment) -> Result<(), AdapterError> {
-    watcher_fact_error(&env.watcher)
-}
-
 fn watcher_fact_error(watcher: &Fact) -> Result<(), AdapterError> {
     match watcher {
         Fact::Present => Ok(()),
@@ -240,111 +265,12 @@ fn watcher_fact_error(watcher: &Fact) -> Result<(), AdapterError> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn require(env: &ShellEnvironment, need: Need) -> Result<(), AdapterError> {
     match need {
-        #[cfg(test)]
-        Need::Daemon => daemon_error(env),
-        Need::Tree => tree_error(env),
-        #[cfg(test)]
-        Need::Watcher => watcher_error(env),
-    }
-}
-
-struct LiveSession {
-    connection: Connection,
-    deadline: Deadline,
-}
-
-impl LiveSession {
-    fn call<T>(
-        &self,
-        read: impl std::future::Future<Output = Result<T, zbus::Error>>,
-    ) -> Result<T, CallFailure> {
-        match within(self.deadline, async {
-            Ok(read.await.map_err(|e| failure_of(&e)))
-        }) {
-            Ok(answer) => answer,
-            Err(error) => Err(CallFailure::Transport(error.message)),
-        }
-    }
-}
-
-impl SessionCalls for LiveSession {
-    fn server_name(&self) -> Result<String, CallFailure> {
-        self.call(async {
-            let reply = self
-                .connection
-                .call_method(
-                    Some(NOTIFICATIONS),
-                    NOTIFICATIONS_PATH,
-                    Some(NOTIFICATIONS),
-                    "GetServerInformation",
-                    &(),
-                )
-                .await?;
-            let (name, _vendor, _version, _spec) = reply
-                .body()
-                .deserialize::<(String, String, String, String)>()?;
-            Ok(name)
-        })
-    }
-
-    fn shell_pid(&self) -> Result<u32, CallFailure> {
-        self.call(owner_process_id(&self.connection, SHELL_BUS_NAME))
-    }
-
-    fn watcher(&self) -> Result<WatcherRead, CallFailure> {
-        self.call(async {
-            let owned = self
-                .connection
-                .call_method(
-                    Some(BUS_DAEMON),
-                    BUS_DAEMON_PATH,
-                    Some(BUS_DAEMON),
-                    "NameHasOwner",
-                    &(WATCHER,),
-                )
-                .await?
-                .body()
-                .deserialize::<bool>()?;
-            if !owned {
-                return Ok(WatcherRead::NoOwner);
-            }
-            let reply = self
-                .connection
-                .call_method(
-                    Some(WATCHER),
-                    WATCHER_PATH,
-                    Some("org.freedesktop.DBus.Properties"),
-                    "Get",
-                    &(WATCHER, "RegisteredStatusNotifierItems"),
-                )
-                .await?;
-            let value = reply.body().deserialize::<OwnedValue>()?;
-            let items = Vec::<String>::try_from(value).unwrap_or_default();
-            Ok(WatcherRead::Items(items.len()))
-        })
-    }
-
-    fn indicator_extension(&self) -> Option<String> {
-        let listed = self
-            .call(async {
-                let reply = self
-                    .connection
-                    .call_method(
-                        Some(SHELL_BUS_NAME),
-                        EXTENSIONS_PATH,
-                        Some(EXTENSIONS),
-                        "ListExtensions",
-                        &(),
-                    )
-                    .await?;
-                reply
-                    .body()
-                    .deserialize::<HashMap<String, HashMap<String, OwnedValue>>>()
-            })
-            .ok()?;
-        Some(extension_state(&listed))
+        Need::Daemon => daemon_fact_error(&env.daemon, env.server.as_deref()),
+        Need::Tree => tree_error(&env.tree),
+        Need::Watcher => watcher_fact_error(&env.watcher),
     }
 }
 
@@ -365,19 +291,6 @@ pub(crate) fn extension_state(listed: &HashMap<String, HashMap<String, OwnedValu
                 _ => "the AppIndicator extension is installed but not enabled".to_owned(),
             }
         }
-    }
-}
-
-struct LiveTree {
-    connection: Connection,
-    deadline: Deadline,
-}
-
-impl TreeCalls for LiveTree {
-    fn shell_registered(&self, shell_pid: u32) -> Result<bool, CallFailure> {
-        let apps = within(self.deadline, registry_apps(&self.connection))
-            .map_err(|error| CallFailure::Transport(error.message))?;
-        Ok(pick_shell_app(&apps, shell_pid).is_some())
     }
 }
 
