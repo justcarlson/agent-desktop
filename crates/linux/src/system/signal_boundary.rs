@@ -1,7 +1,5 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
-use super::SharedBus;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Scope {
     Unscoped,
@@ -28,15 +26,6 @@ fn as_timeout(error: &AdapterError) -> AdapterError {
 /// arrived as `INTERNAL` also drops the cached connection so the next poll
 /// reconnects.
 pub(crate) fn narrow(
-    error: AdapterError,
-    scope: Scope,
-    bus: &SharedBus,
-    deadline: Deadline,
-) -> AdapterError {
-    narrow_with(error, scope, deadline, || bus.forget_cached())
-}
-
-pub(super) fn narrow_with(
     error: AdapterError,
     scope: Scope,
     deadline: Deadline,

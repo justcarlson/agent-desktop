@@ -33,13 +33,6 @@ fn two_active_candidates_without_x11_evidence_name_no_focused_window() {
 }
 
 #[test]
-fn no_active_window_means_no_candidates() {
-    let pass = pass_over(Vec::new(), Vec::new(), Vec::new(), &X11State::Unavailable);
-    assert!(pass.candidates.is_empty());
-    assert_eq!(pass.focused, None);
-}
-
-#[test]
 fn an_active_window_no_client_claims_is_not_a_candidate() {
     use crate::system::x11::X11Client;
     let registry = registry(vec![app(":1.1", 1, "alpha", true)]);

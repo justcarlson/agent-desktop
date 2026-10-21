@@ -43,14 +43,11 @@ fn dialog_case(rig: &Rig, pid: u32, app: &str, identity: &ProcessIdentity, open:
     let after = capture(rig, Some(app), Some(identity), 10_000).expect("capture");
     let events = diff(&seed, &after);
     assert_eq!(
-        count_of(&events, "surface-appeared"),
-        1,
-        "{:?}",
-        tokens(&events)
-    );
-    assert_eq!(
-        count_of(&events, "window-opened"),
-        1,
+        (
+            count_of(&events, "surface-appeared"),
+            count_of(&events, "window-opened")
+        ),
+        (1, 1),
         "{:?}",
         tokens(&events)
     );
@@ -61,11 +58,6 @@ fn dialog_case(rig: &Rig, pid: u32, app: &str, identity: &ProcessIdentity, open:
         .find(|w| w.id == sheet.id)
         .expect("the sheet carries a listed window's id");
     assert!(seed.windows.iter().all(|w| w.id != window.id));
-    println!(
-        "signal_live dialog id={} sheet_title={:?} window_title={:?}",
-        sheet.id, sheet.title, window.title
-    );
-
     dismiss_dialog(rig, app, pid, before);
     let result = wait_event(
         rig,
@@ -83,14 +75,11 @@ fn dialog_case(rig: &Rig, pid: u32, app: &str, identity: &ProcessIdentity, open:
     let closed = capture(rig, Some(app), Some(identity), 10_000).expect("capture");
     let events = diff(&after, &closed);
     assert_eq!(
-        count_of(&events, "surface-dismissed"),
-        1,
-        "{:?}",
-        tokens(&events)
-    );
-    assert_eq!(
-        count_of(&events, "window-closed"),
-        1,
+        (
+            count_of(&events, "surface-dismissed"),
+            count_of(&events, "window-closed")
+        ),
+        (1, 1),
         "{:?}",
         tokens(&events)
     );

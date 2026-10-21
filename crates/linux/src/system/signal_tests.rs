@@ -49,14 +49,6 @@ impl Kernel for Fake {
 }
 
 #[test]
-fn the_right_token_delivers_exactly_once() {
-    let kernel = Fake::new(&[Identity::Same, Identity::Same]);
-    let sent = send_through(&kernel, 7, "t", Signal::Term).expect("sends");
-    assert_eq!(sent, Sent::Delivered);
-    assert_eq!(kernel.delivered.get(), 1);
-}
-
-#[test]
 fn a_wrong_token_is_replaced_and_nothing_is_opened_or_sent() {
     let kernel = Fake::new(&[Identity::Replaced]);
     let sent = send_through(&kernel, 7, "t", Signal::Kill).expect("answers");

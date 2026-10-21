@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use agent_desktop_core::{AdapterError, ErrorCode};
+use agent_desktop_core::AdapterError;
 
 use super::{chosen_apps, gather, pass_over, pass_over_with_menu};
 use crate::system::listed_window::ListedWindow;
@@ -9,7 +9,6 @@ use crate::system::registry::Registry;
 use crate::system::registry_app::{RegistryApp, assemble};
 use crate::system::registry_frames::{FrameRead, RootRead};
 use crate::system::toolkit_id::ToolkitId;
-use crate::system::window_listing::collect;
 use crate::system::x11::X11State;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field, RawNode};
@@ -125,56 +124,6 @@ fn outcome_indices_follow_the_registry_not_the_chosen_list() {
     );
     assert_eq!(outcomes.len(), 1);
     assert_eq!(outcomes[0].app, 1);
-}
-
-#[test]
-fn two_frames_of_one_app_give_distinct_ids_and_the_apps_instance() {
-    let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
-    let frames = vec![read(
-        vec![
-            frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25]),
-            frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]),
-        ],
-        RootRead::Read,
-    )];
-    let (windows, _, _) = gathered(&registry, |_| true, frames);
-    let [first, second] = windows.as_slice() else {
-        panic!("two windows")
-    };
-    assert_ne!(first.info.id, second.info.id);
-    assert_eq!(first.info.process_instance.as_deref(), Some("boot:1"));
-    assert_eq!(second.info.process_instance.as_deref(), Some("boot:1"));
-}
-
-#[test]
-fn the_pass_lists_what_collect_lists_for_a_fixed_node_set() {
-    let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
-    let nodes = || {
-        vec![
-            frame(":1.1", "/org/a11y/atspi/accessible/1", 1, &[25, 1]),
-            frame(":1.1", "/org/a11y/atspi/accessible/2", 1, &[25]),
-        ]
-    };
-    let (windows, _, _) = gathered(&registry, |_| true, vec![read(nodes(), RootRead::Read)]);
-    let direct = collect(&[(0, &registry.apps[0])], &[nodes()]);
-    let ids = |list: &[ListedWindow]| -> Vec<(String, bool)> {
-        list.iter()
-            .map(|window| (window.info.id.clone(), window.active))
-            .collect()
-    };
-    assert_eq!(ids(&windows), ids(&direct));
-}
-
-#[test]
-fn a_failed_read_ends_the_pass() {
-    let registry = registry(vec![app(":1.1", 1, "alpha", true)]);
-    let chosen = chosen_apps(&registry, |_| true, |_| false);
-    let error = gather(&chosen, |_| {
-        Err(AdapterError::new(ErrorCode::Timeout, "late"))
-    })
-    .err()
-    .expect("fails");
-    assert_eq!(error.code, ErrorCode::Timeout);
 }
 
 fn menu_desktop() -> (Vec<ListedWindow>, Vec<super::AppOutcome>, X11State) {

@@ -4,9 +4,6 @@ use super::listed_window::ListedWindow;
 use super::nested_scan::NestedScan;
 use super::registry_app::RegistryApp;
 
-pub(crate) const SIGNAL_SURFACE_KINDS: [SnapshotSurface; 2] =
-    [SnapshotSurface::Sheet, SnapshotSurface::Menu];
-
 fn surface_signal(
     app: &RegistryApp,
     kind: SnapshotSurface,
@@ -46,50 +43,30 @@ pub(crate) fn sheet_signals(
         .collect()
 }
 
-/// One `Menu` signal for every open menu a window is or holds, keyed on the
-/// window's own id for a menu that is a window and on the popup's address for
-/// a menu inside one. A menu that is itself a window is also one
-/// `window-opened` and one `window-closed`; the surface signal is how its open
-/// and close announce what the window was.
-pub(crate) fn menu_signals(
+/// Maps dialogs and menus found inside windows to their owning process.
+/// Sheets precede menus so callers preserve the established signal ordering.
+pub(crate) fn nested_surface_signals(
     scan: &NestedScan,
     windows: &[ListedWindow],
     registry_apps: &[RegistryApp],
 ) -> Vec<SurfaceSignal> {
-    scan.menus
-        .iter()
-        .filter_map(|menu| {
-            let app = registry_apps.get(windows.get(menu.window)?.app)?;
-            Some(surface_signal(
-                app,
-                SnapshotSurface::Menu,
-                menu.id.clone(),
-                menu.title.clone(),
-            ))
-        })
-        .collect()
-}
-
-/// One `Sheet` signal for every dialog drawn inside a window, keyed on the
-/// dialog's own address. It is announced while it shows and gone when it does
-/// not, whether its node stays in the tree or leaves it.
-pub(crate) fn nested_signals(
-    scan: &NestedScan,
-    windows: &[ListedWindow],
-    registry_apps: &[RegistryApp],
-) -> Vec<SurfaceSignal> {
-    scan.found
-        .iter()
-        .filter_map(|nested| {
+    [
+        (SnapshotSurface::Sheet, scan.found.as_slice()),
+        (SnapshotSurface::Menu, scan.menus.as_slice()),
+    ]
+    .into_iter()
+    .flat_map(|(kind, entries)| {
+        entries.iter().filter_map(move |nested| {
             let app = registry_apps.get(windows.get(nested.window)?.app)?;
             Some(surface_signal(
                 app,
-                SnapshotSurface::Sheet,
+                kind,
                 nested.id.clone(),
                 nested.title.clone(),
             ))
         })
-        .collect()
+    })
+    .collect()
 }
 
 #[cfg(test)]
