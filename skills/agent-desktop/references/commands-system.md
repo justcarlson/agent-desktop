@@ -160,8 +160,7 @@ Batch runs entries in order in one process. It is not a transaction. Entries use
 A session is an on-disk container under `<state root>/sessions/<id>/` with a manifest, snapshot refmaps and, when tracing is on, a `trace/` directory. The state root is `~/.agent-desktop`. `AGENT_DESKTOP_HOME` relocates it. It must be an absolute path, or the command fails with `INVALID_ARGS`. `status` reports it as `state_root`.
 
 ```bash
-agent-desktop session start --name "invoice-bot"
-export AGENT_DESKTOP_SESSION=<session_id>    # PowerShell: $env:AGENT_DESKTOP_SESSION = "<session_id>"
+export AGENT_DESKTOP_SESSION="$(agent-desktop session start --name "invoice-bot" | jq -r '.data.session_id')"
 agent-desktop session end "$AGENT_DESKTOP_SESSION"
 ```
 

@@ -44,9 +44,8 @@ uncertain delivery. The CLI's Wayland pointer gate runs before that fallback. On
 Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
-`double-click`, `mouse-wheel` and `mouse-down`). A headed `type` is not a
-pointer command: it waits for the node's bounds, finds none and ends `TIMEOUT`
-(`actionability_timeout`) after 5 s with nothing sent. Headless `type` writes
+`double-click`, `mouse-wheel` and `mouse-down`). A headed `type` sends Wayland
+keys through `RemoteDesktop.type_text`. Headless `type` writes
 through `EditableText`. A headless action reports `semantic_api` and leaves the
 pointer still. Windows works the other way round (semantic first), so do not
 carry that assumption across platforms.
@@ -102,9 +101,10 @@ in the CLI help; `agent-desktop press <combo>` shows the refusal per combo.
 ## `type`
 
 Headless `type @ref text` writes through `EditableText.InsertText`. Under `--headed` it
-sends physical keys first (step `XTEST.type_text`, `physical_synthetic`; the result still
-reads the field back when it can) and falls back to `EditableText` only where keys
-cannot be sent. A terminal's text node is a `textfield` named `Terminal` with only
+sends physical keys first (step `XTEST.type_text` on X11, `RemoteDesktop.type_text` on
+Wayland, `physical_synthetic`; the result still reads the field back when it can)
+and falls back to `EditableText` only where keys cannot be sent. A terminal's
+text node is a `textfield` named `Terminal` with only
 `RightClick`: headless `type` on it answers `POLICY_DENIED` with check
 `supported_action`, and it takes keys only under `--headed`. Its value is null, so
 terminal output cannot be read through a ref; verify what a terminal command did
@@ -132,10 +132,8 @@ opens its own session. Ending a session releases its held keys.
   refused. A refusal is safe: nothing was sent.
 - **App pointer.** AT-SPI gives no global window origin on Wayland, so ordinary
   app pointer commands refuse at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
-  before anything is sent. A `--headed` ref `type` is not a pointer command: it
-  stops at the missing bounds and ends in `TIMEOUT` (`actionability_timeout`)
-  after 5 s with no keys sent. Use headless `type` or `set-value`, or a global
-  `press`, which sends keys with no element gate. GNOME Shell ref clicks and
+  before anything is sent. A `--headed` ref `type` sends keys through
+  `RemoteDesktop.type_text`. GNOME Shell ref clicks and
   popup openers use their own pointer route; see
   `references/shell-tray-and-notifications.md`.
 - **No active window.** On a Wayland session with no seat keyboard no window carries

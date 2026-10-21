@@ -23,9 +23,9 @@ matches `gnome-terminal-server`). `list-windows --app` uses that exact rule.
 adapter aliases; an alias need not be part of the displayed process name.
 
 Window ids are opaque addresses of 34 to 70 characters, valid for the life of the
-window's process. `list-apps` rows carry `name`, `pid` and `process_instance`
-and no `bundle_id`. `list-windows` rows carry `id`, `title`, `pid`, `is_focused`,
-`minimized`, `visible`, `accessible` and `process_instance`, plus `bounds` when
+window's process. `list-apps` rows carry `name`, `pid`, `bundle_id` (desktop id
+when known) and `process_instance`. `list-windows` rows carry `id`, `title`, `pid`,
+`is_focused`, `minimized`, `visible`, `accessible` and `process_instance`, plus `bounds` when
 the display maps one. Several instances of one app share a name: use `--window-id`
 to pick one. Two windows of one process with the same title and bounds make
 `focus-window --window-id` answer `ambiguous_window`.

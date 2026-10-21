@@ -42,14 +42,14 @@ tool for observation or semantic actions.
 | Focus | `focus` | Needs `--headed` for the focus permission; delivered through the node's own focus action, not the pointer |
 | Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and Wayland; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed: `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
-| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Works for X11 and Xwayland windows; a Wayland-native window is refused with cause `wayland_session`. See `references/windows-and-lifecycle.md` |
+| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; native Wayland window control and graceful close refuse with cause `wayland_session`. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` with identity guards. See the shell reference |
 | Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed`. See the shell reference |
-| Cursor overlay | `cursor-overlay` | Records the session setting but never renders: `enable` returns `ok` with `data.rendered: false` and logs a skipped-update warning with `PLATFORM_NOT_SUPPORTED` |
+| Cursor overlay | `cursor-overlay` | Renders on X11: `enable` returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
 ## First Contact
@@ -65,7 +65,7 @@ tool for observation or semantic actions.
   adapter aliases, ignoring case.
 - **Window ids are opaque addresses** of 34 to 70 characters, valid for the
   life of the window's process. Run `list-windows` again after a restart.
-  `list-apps` rows carry no `bundle_id` and add `process_instance`.
+  `list-apps` rows carry `bundle_id` (desktop id when known) and `process_instance`.
 - **GTK4 apps nest deeply.** `--max-depth` and `--skeleton` count semantic
   levels, so empty layout wrappers add output levels. `-i --compact` still
   shows nested nameless `group` nodes: read past them.
@@ -104,10 +104,9 @@ tool for observation or semantic actions.
   adapter fallback: ordinary-app headed
   pointer commands (`click`, `hover`, `double-click`, `mouse-*`, wheel) are refused
   at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
-  `physical_delivery_started: false`. A headed `type` is not refused there: it
-  stops at the missing bounds with `TIMEOUT` (`actionability_timeout`) after 5 s
-  and sends nothing. Windows works the other way round. Read the step in `data` to
-  see which ran.
+  `physical_delivery_started: false`. A headed `type` sends Wayland keys through
+  `RemoteDesktop.type_text`. Windows works the other way round. Read the step in
+  `data` to see which ran.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.
