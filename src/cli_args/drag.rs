@@ -43,7 +43,7 @@ pub(crate) struct DragCliArgs {
     #[arg(
         long = "timeout-ms",
         default_value_t = 5000,
-        help = "Maximum ref-resolution and transient-actionability wait in milliseconds; terminal failures return immediately"
+        help = "Drag action budget in milliseconds, including resolution, actionability, pickup, duration and drop delay; allow headroom for completion"
     )]
     #[serde(default = "default_ref_timeout_ms")]
     pub timeout_ms: u64,
