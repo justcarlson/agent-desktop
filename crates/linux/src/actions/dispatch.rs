@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     Action, ActionRequest, ActionResult, AdapterError, DeliverySemantics, ErrorCode,
-    InteractionLease, NativeHandle,
+    InteractionLease, InteractionPolicy, NativeHandle,
 };
 use serde_json::json;
 
@@ -87,6 +87,18 @@ pub(crate) fn physical_first(
     }
 }
 
+fn right_click_dispatch(
+    policy: InteractionPolicy,
+    physical: impl FnOnce() -> Result<ActionResult, AdapterError>,
+    semantic: impl FnOnce() -> Result<ActionResult, AdapterError>,
+) -> Result<ActionResult, AdapterError> {
+    if policy.is_headed() {
+        physical_first(physical, semantic)
+    } else {
+        semantic()
+    }
+}
+
 pub(crate) fn execute_action(
     bus: &SharedBus,
     handle: &NativeHandle,
@@ -112,7 +124,11 @@ pub(crate) fn execute_action(
             || click(&target),
         ),
         Action::Click => click(&target),
-        Action::RightClick => right_click(&target),
+        Action::RightClick => right_click_dispatch(
+            request.policy,
+            || physical_delivery(bus, &request.action, Some(element), &request, lease),
+            || right_click(&target),
+        ),
         Action::Toggle => toggle(&target, None),
         Action::Check => toggle(&target, Some(true)),
         Action::Uncheck => toggle(&target, Some(false)),

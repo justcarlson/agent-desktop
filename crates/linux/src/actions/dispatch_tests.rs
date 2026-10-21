@@ -1,4 +1,6 @@
-use agent_desktop_core::{Action, ActionRequest, Deadline, ErrorCode, NativeHandle, SystemOps};
+use agent_desktop_core::{
+    Action, ActionRequest, Deadline, ErrorCode, InteractionPolicy, NativeHandle, SystemOps,
+};
 
 use super::execute_action;
 use crate::adapter::LinuxAdapter;
@@ -86,6 +88,48 @@ fn a_headed_click_that_the_pointer_delivers_never_runs_the_semantic_call() {
     )
     .expect("delivered");
     assert_eq!(result.steps[0].label(), "XTEST.click");
+}
+
+#[test]
+fn a_headed_right_click_uses_physical_delivery_before_semantic_delivery() {
+    use super::right_click_dispatch;
+
+    let result = right_click_dispatch(
+        InteractionPolicy::headed(),
+        || Ok(done("XTEST.click")),
+        || panic!("the semantic call must not run after physical delivery"),
+    )
+    .expect("the headed pointer delivery succeeds");
+
+    assert_eq!(result.steps[0].label(), "XTEST.click");
+}
+
+#[test]
+fn a_headless_right_click_stays_semantic() {
+    use super::right_click_dispatch;
+
+    let result = right_click_dispatch(
+        InteractionPolicy::headless(),
+        || panic!("headless right-click must not move the pointer"),
+        || Ok(done("Action.DoAction")),
+    )
+    .expect("semantic delivery");
+
+    assert_eq!(result.steps[0].label(), "Action.DoAction");
+}
+
+#[test]
+fn a_headed_right_click_keeps_the_existing_not_delivered_fallback() {
+    use super::right_click_dispatch;
+
+    let result = right_click_dispatch(
+        InteractionPolicy::headed(),
+        || Err(refusal(ErrorCode::ActionNotSupported, None)),
+        || Ok(done("Action.DoAction")),
+    )
+    .expect("semantic fallback after a refused pointer delivery");
+
+    assert_eq!(result.steps[0].label(), "Action.DoAction");
 }
 
 #[test]
