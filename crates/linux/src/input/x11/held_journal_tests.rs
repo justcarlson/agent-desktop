@@ -20,11 +20,11 @@ fn held(keys: &[u8], buttons: &[u8]) -> HeldInput {
     }
 }
 
-fn dead(_pid: u32) -> bool {
+fn dead(_pid: u32, _instance: &str) -> bool {
     false
 }
 
-fn alive(_pid: u32) -> bool {
+fn alive(_pid: u32, _instance: &str) -> bool {
     true
 }
 
@@ -246,4 +246,74 @@ fn a_sweep_releases_what_a_dead_call_held_and_leaves_an_unreadable_record_for_th
     assert!(fake.recorded().contains(&Recorded::Key(38, false)));
     assert!(dir.join("4000000001.json").exists());
     assert!(!sweeper.has_stale_entries());
+}
+
+#[test]
+fn reused_pids_recover_input_even_when_the_pid_is_our_own() {
+    for same_pid in [false, true] {
+        let dir = scratch(if same_pid {
+            "reused-own"
+        } else {
+            "reused-other"
+        });
+        let pid = std::process::id();
+        let mut old = HeldJournal::at(dir.clone(), ":7", pid);
+        old.instance = "previous-boot:1".into();
+        old.record(
+            &held(&[38], &[1]),
+            &[KeymapEdit {
+                keycode: 12,
+                keysyms: vec![0, 0],
+            }],
+        )
+        .unwrap();
+        let next = HeldJournal::at(dir.clone(), ":7", if same_pid { pid } else { 222 });
+        let fake = FakeSink::new();
+        next.release_stale(&mut fake.clone()).unwrap();
+        assert!(fake.recorded().contains(&Recorded::Key(38, false)));
+        assert!(fake.recorded().contains(&Recorded::Button(1, false)));
+        assert!(fake.recorded().contains(&Recorded::Keymap(KeymapEdit {
+            keycode: 12,
+            keysyms: vec![0, 0]
+        })));
+        assert!(!dir.join(format!("{pid}.json")).exists());
+    }
+}
+
+#[test]
+fn a_matching_process_instance_is_preserved_by_recovery() {
+    let dir = scratch("live-instance");
+    let owner = HeldJournal::at(dir.clone(), ":7", std::process::id());
+    owner.record(&held(&[38], &[]), &[]).unwrap();
+    let saved: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(owner.own_path()).unwrap()).unwrap();
+    assert_eq!(saved["instance"], owner.instance);
+    let fake = FakeSink::new();
+    HeldJournal::at(dir, ":7", 222)
+        .release_stale(&mut fake.clone())
+        .unwrap();
+    assert!(fake.recorded().is_empty());
+    assert!(owner.own_path().exists());
+}
+
+#[test]
+fn a_same_pid_record_without_a_process_token_is_quarantined() {
+    let dir = scratch("missing-instance");
+    let journal = HeldJournal::at(dir.clone(), ":7", std::process::id());
+    journal.record(&held(&[38], &[]), &[]).unwrap();
+    let path = journal.own_path();
+    let mut saved: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    saved.as_object_mut().unwrap().remove("instance");
+    std::fs::write(&path, saved.to_string()).unwrap();
+    let fake = FakeSink::new();
+    let error = journal
+        .release_stale(&mut fake.clone())
+        .expect_err("unverifiable identity must refuse input");
+    assert_eq!(
+        error.details.unwrap()["cause"],
+        "held_input_record_unreadable"
+    );
+    assert!(fake.recorded().is_empty());
+    assert!(path.with_extension("unreadable").exists());
 }

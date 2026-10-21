@@ -196,9 +196,9 @@ fn a_press_is_journaled_before_it_is_sent_and_cleared_when_released() {
     guard.key(38, true).expect("press");
     let observer = HeldJournal::at(dir, ":7", 222);
 
-    assert_eq!(observer.stale_entries(&|_| false).len(), 1);
+    assert_eq!(observer.stale_entries(&|_, _| false).len(), 1);
     guard.key(38, false).expect("release");
-    assert!(observer.stale_entries(&|_| false).is_empty());
+    assert!(observer.stale_entries(&|_, _| false).is_empty());
 }
 
 #[test]
@@ -229,9 +229,9 @@ fn a_remap_is_journaled_with_the_original_keysyms_before_it_is_sent() {
     guard.edit_keymap(&remap()).expect("remap");
     let observer = HeldJournal::at(dir, ":7", 222);
 
-    let pending = observer.stale_entries(&|_| false);
+    let pending = observer.stale_entries(&|_, _| false);
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].remaps, [restore()]);
     guard.finish().expect("finish");
-    assert!(observer.stale_entries(&|_| false).is_empty());
+    assert!(observer.stale_entries(&|_, _| false).is_empty());
 }

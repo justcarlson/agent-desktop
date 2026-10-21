@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use super::sink::X11Sink;
 use crate::input::held_input::HeldInput;
 use crate::input::keymap_edit::KeymapEdit;
+use crate::system::{liveness, proc_stat, process_facts};
 
 const JOURNAL_DIR: &str = "agent-desktop-input";
 const RECORD_EXTENSION: &str = "json";
@@ -18,6 +19,7 @@ pub(crate) struct HeldJournal {
     dir: PathBuf,
     display: String,
     pid: u32,
+    instance: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -64,8 +66,14 @@ fn remaps(value: &Value) -> Vec<KeymapEdit> {
         .unwrap_or_default()
 }
 
-fn process_is_alive(pid: u32) -> bool {
-    Path::new(&format!("/proc/{pid}")).exists()
+fn process_is_alive(pid: u32, instance: &str) -> bool {
+    if instance.is_empty() {
+        return Path::new(&format!("/proc/{pid}")).exists();
+    }
+    matches!(
+        liveness::identity(pid, instance),
+        liveness::Identity::Same | liveness::Identity::Unreadable
+    )
 }
 
 impl HeldJournal {
@@ -83,6 +91,11 @@ impl HeldJournal {
             dir,
             display: display.to_owned(),
             pid,
+            instance: proc_stat::read_stat(std::process::id())
+                .ok()
+                .flatten()
+                .map(|stat| process_facts::instance_token(stat.start_time))
+                .unwrap_or_default(),
         }
     }
 
@@ -95,9 +108,15 @@ impl HeldJournal {
             self.clear();
             return Ok(());
         }
+        if self.instance.is_empty() {
+            return Err(std::io::Error::other(
+                "The input process identity could not be read",
+            ));
+        }
         let entry = json!({
             "display": self.display,
             "pid": self.pid,
+            "instance": self.instance,
             "keys": held.keys,
             "buttons": held.buttons,
             "remaps": remaps
@@ -125,20 +144,31 @@ impl HeldJournal {
         let _ = std::fs::remove_file(self.own_path());
     }
 
-    fn classify(&self, path: PathBuf, alive: &dyn Fn(u32) -> bool) -> Option<Record> {
+    fn classify(&self, path: PathBuf, alive: &dyn Fn(u32, &str) -> bool) -> Option<Record> {
         if path.extension()?.to_str()? != RECORD_EXTENSION {
             return None;
         }
         let pid: u32 = path.file_stem()?.to_str()?.parse().ok()?;
-        if pid == self.pid {
-            return Some(Record::Own);
-        }
-        if alive(pid) {
-            return None;
-        }
         let parsed: Option<Value> = std::fs::read(&path)
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok());
+        let instance = parsed
+            .as_ref()
+            .and_then(|value| value["instance"].as_str())
+            .unwrap_or_default();
+        if parsed
+            .as_ref()
+            .is_some_and(|value| value["display"].is_string())
+            && instance.is_empty()
+        {
+            return Some(Record::Unreadable(path));
+        }
+        if pid == self.pid && !instance.is_empty() && instance == self.instance {
+            return Some(Record::Own);
+        }
+        if alive(pid, instance) {
+            return None;
+        }
         let Some(value) = parsed.filter(|value| value["display"].is_string()) else {
             return Some(Record::Unreadable(path));
         };
@@ -152,7 +182,7 @@ impl HeldJournal {
         })
     }
 
-    fn scan(&self, alive: &dyn Fn(u32) -> bool) -> Vec<Record> {
+    fn scan(&self, alive: &dyn Fn(u32, &str) -> bool) -> Vec<Record> {
         let Ok(listing) = std::fs::read_dir(&self.dir) else {
             return Vec::new();
         };
@@ -163,7 +193,7 @@ impl HeldJournal {
             .collect()
     }
 
-    pub(crate) fn stale_entries(&self, alive: &dyn Fn(u32) -> bool) -> Vec<StaleEntry> {
+    pub(crate) fn stale_entries(&self, alive: &dyn Fn(u32, &str) -> bool) -> Vec<StaleEntry> {
         self.scan(alive)
             .into_iter()
             .filter_map(|record| match record {
@@ -192,7 +222,7 @@ impl HeldJournal {
     pub(crate) fn release_stale_where(
         &self,
         sink: &mut dyn X11Sink,
-        alive: &dyn Fn(u32) -> bool,
+        alive: &dyn Fn(u32, &str) -> bool,
     ) -> Result<(), AdapterError> {
         let mut unreadable = 0_usize;
         for record in self.scan(alive) {

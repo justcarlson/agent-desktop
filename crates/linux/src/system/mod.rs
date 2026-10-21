@@ -35,7 +35,7 @@ mod launch_attach;
 mod launch_observe;
 mod launch_target;
 mod listed_window;
-mod liveness;
+pub(crate) mod liveness;
 mod menu_anchor;
 mod menu_focus;
 mod menu_popup;
