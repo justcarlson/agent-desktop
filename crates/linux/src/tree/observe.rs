@@ -139,11 +139,23 @@ fn nested_sheet(
     request: &ObservationRequest,
     host: &mut SettleHost<'_>,
 ) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
-    let dialog = find_nested(&window_walk.root)
-        .into_iter()
-        .next()
-        .map(|nested| nested.element.clone())
-        .ok_or_else(sheet_absent)?;
+    if !window_walk.complete || super::nested_dialog::is_cut_short(&window_walk.root) {
+        return Err(AdapterError::timeout(
+            "Sheet discovery did not read the complete window",
+        ));
+    }
+    let dialogs = find_nested(&window_walk.root);
+    let dialog = match dialogs.as_slice() {
+        [dialog] => dialog.element.clone(),
+        [] => return Err(sheet_absent()),
+        _ => {
+            return Err(AdapterError::new(
+                ErrorCode::AmbiguousTarget,
+                "The window presents multiple sheet surfaces",
+            )
+            .with_suggestion("Snapshot the window and select a dialog by ref"));
+        }
+    };
     let walk = (host.walker)(&dialog, limits, request.deadline)?;
     Ok((walk, true))
 }

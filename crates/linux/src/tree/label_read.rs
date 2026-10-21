@@ -6,8 +6,8 @@ use super::node_read::{NAME, call, get_one, string_value};
 use super::roles::role_of;
 use super::{AtspiElement, Field, LabelOutcome, RawNode};
 use crate::system::ACCESSIBLE_INTERFACE;
-use agent_desktop_core::AdapterError;
 use agent_desktop_core::roles::is_interactive_role;
+use agent_desktop_core::{AdapterError, ErrorCode};
 
 const LABELLED_BY: u32 = 2;
 
@@ -76,25 +76,45 @@ pub(crate) fn needs_label(node: &RawNode) -> bool {
 }
 
 /// Reads the label when the node needs it; any other node is unlabelled.
-pub(crate) async fn read_label_if_needed(connection: &Connection, node: &RawNode) -> LabelOutcome {
+pub(crate) async fn read_label_if_needed(
+    connection: &Connection,
+    node: &RawNode,
+) -> Result<LabelOutcome, AdapterError> {
     if needs_label(node) {
         read_label(connection, &node.element).await
     } else {
-        LabelOutcome::Unlabelled
+        Ok(LabelOutcome::Unlabelled)
     }
 }
 
 /// Reads the text of the node's `LabelledBy` target. Meant for a node whose
 /// own `Name` is blank: it costs one relation read and one name read.
-pub(crate) async fn read_label(connection: &Connection, element: &AtspiElement) -> LabelOutcome {
+pub(crate) async fn read_label(
+    connection: &Connection,
+    element: &AtspiElement,
+) -> Result<LabelOutcome, AdapterError> {
     let target = match first_label_target(connection, element).await {
         Ok(Some(target)) => target,
-        Ok(None) => return LabelOutcome::Unlabelled,
-        Err(_) => return LabelOutcome::Failed,
+        Ok(None) => return Ok(LabelOutcome::Unlabelled),
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            return Err(crate::system::classify(&error));
+        }
+        Err(_) => return Ok(LabelOutcome::Failed),
     };
-    let name = name_of(connection, &target).await.ok();
+    let name = match name_of(connection, &target).await {
+        Ok(name) => Some(name),
+        Err(error)
+            if matches!(
+                error.code,
+                ErrorCode::AppNotFound | ErrorCode::ElementNotFound
+            ) =>
+        {
+            None
+        }
+        Err(error) => return Err(error),
+    };
     match from_name(name) {
-        Some(outcome) => outcome,
+        Some(outcome) => Ok(outcome),
         None => from_text(text_of(connection, &target).await),
     }
 }
@@ -108,11 +128,14 @@ fn from_name(name: Option<Field<String>>) -> Option<LabelOutcome> {
     }
 }
 
-fn from_text(text: Result<String, zbus::Error>) -> LabelOutcome {
+fn from_text(text: Result<String, zbus::Error>) -> Result<LabelOutcome, AdapterError> {
     match text {
-        Ok(text) if text.trim().is_empty() => LabelOutcome::Unlabelled,
-        Ok(text) => LabelOutcome::Text(text),
-        Err(_) => LabelOutcome::Failed,
+        Ok(text) if text.trim().is_empty() => Ok(LabelOutcome::Unlabelled),
+        Ok(text) => Ok(LabelOutcome::Text(text)),
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            Err(crate::system::classify(&error))
+        }
+        Err(_) => Ok(LabelOutcome::Failed),
     }
 }
 

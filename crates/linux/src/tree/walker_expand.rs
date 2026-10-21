@@ -42,7 +42,7 @@ pub(super) async fn learn_pids<'a>(
 
 /// Stores each resolved process id. A lookup that failed because the bus
 /// name is gone or unanswerable leaves that name unrecorded, so its children
-/// are kept as unreadable nodes; only an exhausted budget fails the level.
+/// are kept as unreadable nodes; budget exhaustion and bus loss fail the level.
 pub(super) fn record_pids(
     pids: &mut HashMap<String, u32>,
     lookups: Vec<(String, Result<u32, AdapterError>)>,
@@ -52,7 +52,9 @@ pub(super) fn record_pids(
             Ok(pid) => {
                 pids.insert(bus, pid);
             }
-            Err(error) if error.code == ErrorCode::Timeout => return Err(error),
+            Err(error) if matches!(error.code, ErrorCode::Timeout | ErrorCode::Internal) => {
+                return Err(error);
+            }
             Err(_) => {}
         }
     }
@@ -101,9 +103,9 @@ impl<'a> LevelReader<'a> {
     }
 
     /// Reads one level of the tree with at most `NODES_IN_FLIGHT` nodes (about
-    /// sixty calls) outstanding at a time. Only the root being gone fails the
-    /// walk. Below the root a node that is gone, or whose process id could not
-    /// be found, is kept as an unreadable node marked gone.
+    /// sixty calls) outstanding at a time. Below the root a node that is gone,
+    /// or whose process id could not be found, is kept as an unreadable node
+    /// marked gone. Transport failures abort the walk at every depth.
     pub(super) fn expand(
         &mut self,
         level: &[AtspiElement],
@@ -129,7 +131,15 @@ impl<'a> LevelReader<'a> {
             for (element, read) in level.iter().zip(reads) {
                 match read {
                     Ok(read) => nodes.push((read, false)),
-                    Err(error) if at_root => return Err(error),
+                    Err(error)
+                        if at_root
+                            || !matches!(
+                                error.code,
+                                ErrorCode::ElementNotFound | ErrorCode::AppNotFound
+                            ) =>
+                    {
+                        return Err(error);
+                    }
                     Err(error) => nodes.push((
                         ObservedRead::unreadable(element.clone(), &error.message),
                         true,
@@ -168,10 +178,59 @@ pub(super) async fn read_observed_with_liveness(
     Ok((
         ObservedRead {
             node,
-            label,
-            value,
+            label: label?,
+            value: value?,
             evidence_bounds: None,
         },
         liveness,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Accessible;
+
+    #[zbus::interface(name = "org.a11y.atspi.Accessible")]
+    impl Accessible {
+        fn get_role(&self) -> u32 {
+            crate::tree::role_numbers::FRAME
+        }
+
+        fn get_children(&self) -> Vec<(String, zbus::zvariant::OwnedObjectPath)> {
+            vec![(":1.1".to_owned(), "/child".try_into().unwrap())]
+        }
+    }
+
+    #[test]
+    fn descendant_connection_loss_aborts_the_walk_instead_of_marking_a_node_gone() {
+        use zbus::connection::Builder;
+        let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+        let (connection, server) = zbus::block_on(futures_lite::future::zip(
+            Builder::async_io_unix_stream(near).p2p().build(),
+            Builder::async_io_unix_stream(far)
+                .server(zbus::Guid::generate())
+                .unwrap()
+                .p2p()
+                .serve_at("/frame", Accessible)
+                .unwrap()
+                .build(),
+        ));
+        let connection = connection.unwrap();
+        let _server = server.unwrap();
+        let root = AtspiElement::new(":1.1", "/frame", 1);
+        let limits = WalkLimits::default();
+        let mut reader =
+            LevelReader::new(&connection, &root, &limits, Deadline::standard().unwrap());
+        let root_read = reader
+            .expand(&[root])
+            .expect("the frame answers before transport loss");
+        let child = root_read[0].children[0].clone();
+        zbus::block_on(connection.clone().close()).unwrap();
+        let error = reader
+            .expand(&[child])
+            .expect_err("a lost transport is not a vanished child");
+        assert_eq!(error.code, ErrorCode::Internal);
+    }
 }

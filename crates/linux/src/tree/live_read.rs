@@ -21,6 +21,13 @@ use crate::system::{SharedBus, within};
 /// substitutes in-memory nodes and counts the reads.
 pub(crate) trait NodeReader {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError>;
+    fn native_tree(
+        &mut self,
+        _element: &AtspiElement,
+        _deadline: Deadline,
+    ) -> Result<super::Walk<super::ObservedRead>, AdapterError> {
+        Err(AdapterError::not_supported("modal tree observation"))
+    }
     fn is_verified_shell(&mut self, _element: &AtspiElement, _deadline: Deadline) -> bool {
         false
     }
@@ -56,6 +63,14 @@ struct BusReader<'a> {
 impl NodeReader for BusReader<'_> {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
         within(self.deadline, read_evidence(self.connection, element))
+    }
+
+    fn native_tree(
+        &mut self,
+        element: &AtspiElement,
+        deadline: Deadline,
+    ) -> Result<super::Walk<super::ObservedRead>, AdapterError> {
+        super::walker::walk_native_tree(self.bus, element, deadline)
     }
 
     fn is_verified_shell(&mut self, element: &AtspiElement, deadline: Deadline) -> bool {

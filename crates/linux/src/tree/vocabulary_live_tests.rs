@@ -155,7 +155,8 @@ fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
             ))
     });
     let entry = labelled.ok_or("calculator: no named node with a LabelledBy target")?;
-    let label = zbus::block_on(read_label(async_connection.inner(), &entry.node.element));
+    let label = zbus::block_on(read_label(async_connection.inner(), &entry.node.element))
+        .expect("label read");
     let LabelOutcome::Text(label_text) = &label else {
         return Err(format!("calculator: the label read returned {label:?}"));
     };

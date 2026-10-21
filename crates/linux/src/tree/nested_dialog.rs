@@ -62,7 +62,11 @@ pub(crate) fn find(window: &Node) -> Vec<NestedDialog<'_>> {
 /// Whether the walk left any subtree unread, so a dialog may sit where it did
 /// not reach.
 pub(crate) fn is_cut_short(node: &Node) -> bool {
-    node.truncated || node.children.iter().any(is_cut_short)
+    node.truncated
+        || node
+            .child_count
+            .is_some_and(|count| count as usize > node.children.len())
+        || node.children.iter().any(is_cut_short)
 }
 
 #[cfg(test)]

@@ -78,9 +78,69 @@ fn a_role_without_a_value_is_never_read() {
 }
 
 #[test]
-fn a_node_whose_role_read_failed_has_no_value_source() {
+fn a_node_whose_role_read_failed_has_an_unknown_value_source() {
     let unreadable = RawNode::unreadable(AtspiElement::new(":1.1", "/p", 1), "failed");
-    assert_eq!(value_source(&unreadable), ValueSource::None);
+    assert_eq!(value_source(&unreadable), ValueSource::Unknown);
+}
+
+#[test]
+fn unread_value_prerequisites_cannot_verify_a_click_effect() {
+    use crate::tree::action_read::NodeView;
+    use crate::tree::liveness::Liveness;
+    use crate::tree::node_evidence::{NodeEvidence, evidence_for};
+    use crate::tree::test_support::read_of;
+    use zbus::connection::Builder;
+
+    let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+    let (client, server) = zbus::block_on(futures_lite::future::zip(
+        Builder::async_io_unix_stream(near).p2p().build(),
+        Builder::async_io_unix_stream(far)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .build(),
+    ));
+    let client = client.unwrap();
+    let _server = server.unwrap();
+    let view = |read: crate::tree::ObservedRead| {
+        NodeView::new(NodeEvidence {
+            evidence: evidence_for(&read, &read.node.element),
+            read,
+            liveness: Liveness::Alive,
+        })
+    };
+    let mut before = read_of(ENTRY, "Entry", &["click"]);
+    before.value.value = Field::Present("unchanged".to_owned());
+    let previous = view(before.clone()).observation();
+    for prerequisite in ["interfaces", "role", "states"] {
+        let mut after = before.clone();
+        if prerequisite == "role" {
+            after.node.traits.role = Field::Failed("unreadable".to_owned());
+        } else if prerequisite == "states" {
+            after.node.traits.role = Field::Present(TEXT);
+            after.node.traits.interfaces = Field::Present(vec!["org.a11y.atspi.Text".to_owned()]);
+            after.node.traits.states = Field::Failed("unreadable".to_owned());
+        } else {
+            after.node.traits.interfaces = Field::Failed("unreadable".to_owned());
+        }
+        after.value = zbus::block_on(super::read_value(&client, &after.node, 64)).unwrap();
+        assert!(after.value.value.is_failed(), "{prerequisite}");
+        assert_eq!(
+            view(after).observation().changed_since(&previous),
+            None,
+            "{prerequisite}"
+        );
+    }
+}
+
+#[test]
+fn value_connection_loss_is_not_field_uncertainty() {
+    let connection = crate::tree::test_support::closed_connection();
+    for node in [node(ENTRY, &["Text"], &[]), node(SLIDER, &["Value"], &[])] {
+        let error = zbus::block_on(super::read_value(&connection, &node, 64))
+            .expect_err("a lost bus must end observation");
+        assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);
+    }
 }
 
 #[test]

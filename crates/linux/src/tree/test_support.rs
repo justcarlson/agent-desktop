@@ -7,6 +7,23 @@ use agent_desktop_core::{
 
 use super::{AtspiElement, Extents, Field, NodeProperties, NodeTraits, ObservedRead, RawNode};
 
+pub(crate) fn closed_connection() -> zbus::Connection {
+    use zbus::connection::Builder;
+    let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+    let (client, server) = zbus::block_on(futures_lite::future::zip(
+        Builder::async_io_unix_stream(near).p2p().build(),
+        Builder::async_io_unix_stream(far)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .build(),
+    ));
+    let client = client.unwrap();
+    zbus::block_on(client.clone().close()).unwrap();
+    drop(server.unwrap());
+    client
+}
+
 pub(crate) fn attributes(pairs: &[(&str, &str)]) -> Field<BTreeMap<String, String>> {
     Field::Present(
         pairs

@@ -1,3 +1,4 @@
+use agent_desktop_core::AdapterError;
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
@@ -18,6 +19,7 @@ const MAX_TEXT_CHARACTERS: i32 = 64 * 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ValueSource {
     None,
+    Unknown,
     Numeric,
     Text,
 }
@@ -65,18 +67,23 @@ fn editable(node: &RawNode) -> bool {
 /// read-only text node is content, not a control value.
 pub(crate) fn value_source(node: &RawNode) -> ValueSource {
     let Some(role) = node.traits.role.present() else {
-        return ValueSource::None;
+        return ValueSource::Unknown;
     };
-    match *role {
-        SLIDER | SPIN_BUTTON | PROGRESS_BAR | SCROLL_BAR | LEVEL_BAR | DIAL
-            if advertises(node, VALUE_INTERFACE) =>
-        {
-            ValueSource::Numeric
+    let (source, interface) = match *role {
+        SLIDER | SPIN_BUTTON | PROGRESS_BAR | SCROLL_BAR | LEVEL_BAR | DIAL => {
+            (ValueSource::Numeric, VALUE_INTERFACE)
         }
-        ENTRY if advertises(node, TEXT_INTERFACE) => ValueSource::Text,
-        TEXT | TERMINAL if advertises(node, TEXT_INTERFACE) && editable(node) => ValueSource::Text,
-        COMBO_BOX if advertises(node, TEXT_INTERFACE) => ValueSource::Text,
-        _ => ValueSource::None,
+        ENTRY | COMBO_BOX => (ValueSource::Text, TEXT_INTERFACE),
+        TEXT | TERMINAL if node.traits.states.is_failed() => return ValueSource::Unknown,
+        TEXT | TERMINAL if editable(node) => (ValueSource::Text, TEXT_INTERFACE),
+        _ => return ValueSource::None,
+    };
+    if node.traits.interfaces.is_failed() {
+        ValueSource::Unknown
+    } else if advertises(node, interface) {
+        source
+    } else {
+        ValueSource::None
     }
 }
 
@@ -159,13 +166,24 @@ pub(crate) async fn read_value(
     connection: &Connection,
     node: &RawNode,
     max_bytes: usize,
-) -> ValueRead {
+) -> Result<ValueRead, AdapterError> {
     let outcome = match value_source(node) {
-        ValueSource::None => return ValueRead::absent(),
+        ValueSource::None => return Ok(ValueRead::absent()),
+        ValueSource::Unknown => {
+            return Ok(ValueRead::failed(
+                "Value prerequisites were unreadable".to_owned(),
+            ));
+        }
         ValueSource::Numeric => read_number(connection, &node.element).await,
         ValueSource::Text => read_text(connection, &node.element, max_bytes).await,
     };
-    outcome.unwrap_or_else(|error| ValueRead::failed(error.to_string()))
+    match outcome {
+        Ok(value) => Ok(value),
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            Err(crate::system::classify(&error))
+        }
+        Err(error) => Ok(ValueRead::failed(error.to_string())),
+    }
 }
 
 #[cfg(test)]
