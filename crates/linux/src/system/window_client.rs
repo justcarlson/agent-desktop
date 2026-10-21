@@ -14,6 +14,7 @@ pub(crate) trait ClientWorld {
 
 pub(crate) fn facts_of(win: &WindowInfo, global_position: bool) -> FrameFacts {
     FrameFacts {
+        size_identity: false,
         pid: win.pid.get(),
         title: win.title.clone(),
         extents: win.bounds.map(|rect| Extents {

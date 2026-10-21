@@ -172,6 +172,14 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
                 &DisplayReader,
                 deadline,
                 &FrameFacts {
+                    size_identity: title.is_empty()
+                        && crate::system::frame_identity::permits_on_bus(
+                            bus,
+                            frame,
+                            &placed.toolkit,
+                            read.screen,
+                            deadline,
+                        ),
                     pid: frame.pid(),
                     title,
                     extents: read.screen,

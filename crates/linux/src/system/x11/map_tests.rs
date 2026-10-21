@@ -25,6 +25,7 @@ fn client(id: u32, pid: u32, title: &str, y: i32, top: u32) -> X11Client {
 
 fn frame(pid: u32, title: &str, extents: Option<Extents>, global: bool) -> FrameFacts {
     FrameFacts {
+        size_identity: false,
         pid,
         title: title.to_owned(),
         extents,
@@ -146,5 +147,62 @@ fn no_active_window_and_no_window_manager_are_distinct_answers() {
     assert_eq!(
         evidence(&X11State::Unavailable, &[]),
         X11Evidence::Unavailable
+    );
+}
+
+#[test]
+fn an_unnamed_local_frame_needs_one_exact_same_process_size_match() {
+    let size = Some(Extents {
+        x: 0,
+        y: 0,
+        width: 320,
+        height: 200,
+    });
+    let unnamed = |size| {
+        let mut panel = frame(10, "", size, false);
+        panel.size_identity = true;
+        panel
+    };
+    let panel = unnamed(size);
+    let mut main = client(1, 10, "Calculator", 157, 0);
+    main.bounds.as_mut().unwrap().width = 360;
+    let shortcuts = client(2, 10, "gnome-calculator", 400, 0);
+    let foreign = client(3, 11, "gnome-calculator", 400, 0);
+    let clients = [main, shortcuts.clone(), foreign];
+    assert_eq!(match_client(&panel, &clients), ClientMatch::One(2));
+    assert_eq!(
+        match_client(&panel, &[shortcuts, client(4, 10, "Another", 500, 0)]),
+        ClientMatch::Several(vec![2, 4])
+    );
+    assert_eq!(
+        match_client(&unnamed(None), &clients),
+        ClientMatch::NoClient
+    );
+    assert_eq!(
+        match_client(&frame(10, "", size, false), &clients),
+        ClientMatch::NoClient
+    );
+    assert_eq!(
+        match_client(&frame(10, "", size, false), &[client(7, 10, "", 500, 0)]),
+        ClientMatch::NoClient
+    );
+    assert_eq!(
+        match_client(&frame(10, "Unrelated", size, false), &clients),
+        ClientMatch::NoClient
+    );
+    assert_eq!(
+        match_client(
+            &unnamed(Some(Extents {
+                width: 0,
+                ..Extents {
+                    x: 0,
+                    y: 0,
+                    width: 320,
+                    height: 200
+                }
+            })),
+            &clients
+        ),
+        ClientMatch::NoClient
     );
 }

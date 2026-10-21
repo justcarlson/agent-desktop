@@ -61,6 +61,7 @@ pub(crate) fn of_stopped_apps(
                 modal: false,
                 dialog: false,
                 frame: FrameFacts {
+                    size_identity: false,
                     pid,
                     title: client.title.clone(),
                     extents: client.bounds,

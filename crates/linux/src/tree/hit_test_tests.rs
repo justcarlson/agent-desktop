@@ -27,6 +27,7 @@ fn toolkit(name: &str, version: &str) -> ToolkitId {
 
 fn frame_facts() -> FrameFacts {
     FrameFacts {
+        size_identity: false,
         pid: 1,
         title: "Terminal".to_owned(),
         extents: None,

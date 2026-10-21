@@ -9,7 +9,12 @@ use super::x11::FrameFacts;
 use crate::tree::RawNode;
 use crate::tree::role_numbers::DIALOG;
 
-fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindow> {
+fn listed(
+    index: usize,
+    app: &RegistryApp,
+    node: &RawNode,
+    siblings: &[RawNode],
+) -> Option<ListedWindow> {
     if !is_window_shape(
         &node.traits.role,
         &node.traits.interfaces,
@@ -52,6 +57,12 @@ fn listed(index: usize, app: &RegistryApp, node: &RawNode) -> Option<ListedWindo
         modal: state.modal == Some(true),
         dialog: node.traits.role.present() == Some(&DIALOG),
         frame: FrameFacts {
+            size_identity: super::frame_identity::permits_size_match(
+                node,
+                siblings,
+                &app.toolkit,
+                node.extents.present().copied(),
+            ),
             pid: app.root.pid(),
             title,
             extents: node.extents.present().copied(),
@@ -71,7 +82,11 @@ pub(crate) fn collect(
 ) -> Vec<ListedWindow> {
     apps.iter()
         .zip(frames)
-        .flat_map(|((index, app), nodes)| nodes.iter().filter_map(|node| listed(*index, app, node)))
+        .flat_map(|((index, app), nodes)| {
+            nodes
+                .iter()
+                .filter_map(|node| listed(*index, app, node, nodes))
+        })
         .collect()
 }
 

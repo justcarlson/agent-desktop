@@ -20,6 +20,7 @@ fn window(title: &str, active: bool, modal: bool) -> ListedWindow {
         modal,
         dialog: false,
         frame: FrameFacts {
+            size_identity: false,
             pid: 7,
             title: title.to_owned(),
             extents: None,

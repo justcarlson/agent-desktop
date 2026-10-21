@@ -84,6 +84,7 @@ fn an_old_frame_omitted_by_an_incomplete_baseline_cannot_be_a_launch_window() {
             modal: false,
             dialog: false,
             frame: crate::system::x11::FrameFacts {
+                size_identity: false,
                 pid: owner.pid,
                 title: "old".to_owned(),
                 extents: None,

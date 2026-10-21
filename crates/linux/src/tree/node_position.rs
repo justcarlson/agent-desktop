@@ -128,8 +128,10 @@ fn select_origin(
 /// display-server read then runs here, outside any polled future, under the
 /// caller's deadline.
 fn origin_of(
+    bus: &SharedBus,
     connection: &zbus::Connection,
     frame: &AtspiElement,
+    toolkit: &ToolkitId,
     deadline: Deadline,
 ) -> Option<(i32, i32)> {
     let facts = within(deadline, async { Ok(frame_facts(connection, frame).await) })
@@ -161,9 +163,13 @@ fn origin_of(
         },
         || {
             let facts = FrameFacts {
+                size_identity: title.is_empty()
+                    && crate::system::frame_identity::permits_on_bus(
+                        bus, frame, toolkit, screen, deadline,
+                    ),
                 pid: frame.pid(),
                 title,
-                extents: None,
+                extents: screen,
                 global_position: false,
             };
             let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
@@ -196,7 +202,8 @@ pub(crate) fn place_nodes(bus: &SharedBus, walk: &mut Walk<ObservedRead>, deadli
         return;
     }
     let frame = element.frame().cloned();
-    let origin = frame.and_then(|frame| origin_of(connection.inner(), &frame, deadline));
+    let origin =
+        frame.and_then(|frame| origin_of(bus, connection.inner(), &frame, &toolkit, deadline));
     let elements = placed_elements(&mut walk.root);
     let windows = within(deadline, async {
         Ok(window_rectangles(connection.inner(), &elements).await)
@@ -223,7 +230,7 @@ pub(crate) fn place_single(bus: &SharedBus, read: &mut ObservedRead, deadline: D
     };
     let origin = element
         .frame()
-        .and_then(|frame| origin_of(connection.inner(), frame, deadline));
+        .and_then(|frame| origin_of(bus, connection.inner(), frame, &toolkit, deadline));
     let window = super::window_extents::read_window_extents(bus, &element, deadline);
     place_read_bounds(read, &toolkit, origin, window);
 }

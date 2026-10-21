@@ -36,12 +36,48 @@ fn sits_at(client: &X11Client, extents: Extents) -> bool {
         .is_some_and(|frame| frame == extents || without_shadow(client, frame) == extents)
 }
 
+fn same_size(left: Extents, right: Extents) -> bool {
+    left.width == right.width && left.height == right.height
+}
+
+fn unnamed_client(frame: &FrameFacts, clients: &[X11Client]) -> ClientMatch {
+    let Some(size) = frame.extents.filter(|size| {
+        size.width > 0 && size.height > 0 && size.x != i32::MIN && size.y != i32::MIN
+    }) else {
+        return ClientMatch::NoClient;
+    };
+    let matching: Vec<u32> = clients
+        .iter()
+        .filter(|client| client.pid == Some(frame.pid))
+        .filter(|client| {
+            frame_around(client).is_some_and(|outer| {
+                same_size(size, outer) || same_size(size, without_shadow(client, outer))
+            })
+        })
+        .map(|client| client.id)
+        .collect();
+    match matching.as_slice() {
+        [] => ClientMatch::NoClient,
+        [only] => ClientMatch::One(*only),
+        _ => ClientMatch::Several(matching),
+    }
+}
+
 /// The client of a window, by process id and title first. A tie is broken by
 /// the window's extents only when the toolkit reports them in screen
 /// coordinates: the accessibility rectangle then equals the client rectangle
 /// grown upward by the top frame extent. A tie that extents cannot break
-/// stays a tie, and child order is never used.
+/// stays a tie, and child order is never used. An unnamed frame with local
+/// extents needs an exact, unique same-process size match, including the
+/// toolkit's client-side shadow convention; a missing size identifies nothing.
 pub(crate) fn match_client(frame: &FrameFacts, clients: &[X11Client]) -> ClientMatch {
+    if frame.title.is_empty() && !frame.global_position {
+        return if frame.size_identity {
+            unnamed_client(frame, clients)
+        } else {
+            ClientMatch::NoClient
+        };
+    }
     let named: Vec<&X11Client> = clients
         .iter()
         .filter(|client| client.pid == Some(frame.pid) && client.title == frame.title)
