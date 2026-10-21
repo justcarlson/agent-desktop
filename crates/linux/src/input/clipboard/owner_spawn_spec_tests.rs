@@ -9,10 +9,11 @@ fn none(_: &str) -> Option<String> {
 }
 
 fn command_with(parent: &dyn Fn(&str) -> Option<String>) -> Command {
+    let nonce = crate::input::clipboard::owner_spawn::new_nonce();
     build_command(
         Path::new("/opt/x/agent-desktop-linux-clipboard-owner"),
         ":77",
-        "abcdef0123456789",
+        &nonce,
         9,
         parent,
     )

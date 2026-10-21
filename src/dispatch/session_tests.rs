@@ -69,8 +69,7 @@ fn session_start_reports_the_adapter_overlay_result() {
         .expect("session starts even when the renderer is unavailable");
         assert_eq!(
             value.get("rendered").and_then(serde_json::Value::as_bool),
-            rendered,
-            "{value}"
+            rendered
         );
         let id = value["session_id"].as_str().unwrap();
         let manifest = agent_desktop_core::session::read_manifest(id)
