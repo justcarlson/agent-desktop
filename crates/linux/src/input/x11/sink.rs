@@ -14,7 +14,3 @@ pub(crate) trait X11Sink {
     fn edit_keymap(&mut self, edit: &KeymapEdit) -> Result<(), SinkError>;
     fn root_size(&mut self) -> Result<(u16, u16), SinkError>;
 }
-
-#[cfg(test)]
-#[path = "sink_tests.rs"]
-mod tests;

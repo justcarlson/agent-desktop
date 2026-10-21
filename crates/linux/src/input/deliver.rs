@@ -4,12 +4,12 @@ use agent_desktop_core::{
 
 use super::backend::{Backend, backend};
 use super::delivery::{Delivery, Gate};
+use super::drag_plan::plan_drag;
 use super::keysym_step::KeysymStep;
 use super::plan::Plan;
 use super::pointer_report::with_event_count;
-use super::standalone::reject_standalone;
 use super::wayland::keysym_send;
-use super::x11::{drag_send, mouse_send, session};
+use super::x11::{mouse_send, session};
 
 pub(crate) fn send_plans(
     plans: Vec<Plan>,
@@ -38,13 +38,16 @@ pub(crate) fn mouse_event(
     deadline: Deadline,
 ) -> Result<OperationReport, AdapterError> {
     match &event.kind {
-        MouseEventKind::Down => return Err(reject_standalone("mouse_event down")),
-        MouseEventKind::Up => return Err(reject_standalone("mouse_event up")),
+        MouseEventKind::Down => {
+            return Err(super::standalone::reject_standalone("mouse_event down"));
+        }
+        MouseEventKind::Up => return Err(super::standalone::reject_standalone("mouse_event up")),
         _ => {}
     }
     match backend()? {
         Backend::X11(display) => {
-            let delivery = mouse_send::mouse_event(&display, event, deadline)?;
+            let plans = mouse_send::plans_for(&display, event, deadline)?;
+            let delivery = session::run(&display, plans, &mut || Ok(()), deadline)?;
             Ok(with_event_count(
                 OperationReport::pointer_dispatched(event, false),
                 &delivery,
@@ -60,7 +63,8 @@ pub(crate) fn drag(
 ) -> Result<OperationReport, AdapterError> {
     match backend()? {
         Backend::X11(display) => {
-            let delivery = drag_send::drag(&display, params, deadline)?;
+            let plan = plan_drag(params, deadline)?;
+            let delivery = session::run(&display, vec![plan], &mut || Ok(()), deadline)?;
             Ok(with_event_count(
                 OperationReport::drag_dispatched(params),
                 &delivery,
