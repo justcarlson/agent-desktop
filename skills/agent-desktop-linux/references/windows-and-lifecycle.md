@@ -148,8 +148,15 @@ state agree.
   `is_focused: true`. A headed ref action runs `focus-window` for you and ends
   the same way.
 - A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
-- A hidden window refuses a pointer action with the same reason as `click`
-  ("the window manager reports the window hidden"): run `restore --app <name>`.
+- A headless ref `click` on a minimized window refuses with live `offscreen`
+  evidence and leaves it minimized. On X11, `--headed click` first focuses the
+  ref's exact source window, restoring it if minimized, then delivers the click.
+  It refuses if the window manager cannot show and activate that window, or if
+  the target remains hidden, offscreen or occluded after focus. An unsupported
+  physical route or geometry refusal can fall back to semantic click only when
+  it proves nothing was sent. Ordinary-app headed pointer actions on Wayland
+  refuse with cause `wayland_session` before delivery. Use `restore` when you want
+  to restore a window without clicking it.
 
 ## Workspaces
 
