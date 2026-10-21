@@ -42,21 +42,6 @@ pub(crate) trait NodeSource {
     fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum End {
-    Landed,
-    Empty,
-    DepthCap,
-    Failed,
-}
-
-/// The objects a descent passed through, outermost first, and why it stopped.
-#[derive(Debug, Clone)]
-pub(crate) struct Descent {
-    chain: Vec<AtspiElement>,
-    end: End,
-}
-
 pub(crate) fn same(a: &AtspiElement, b: &AtspiElement) -> bool {
     a.bus_name() == b.bus_name() && a.path() == b.path()
 }
@@ -69,53 +54,36 @@ fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
     }
 }
 
-/// Follows `GetAccessibleAtPoint` from the window until an object answers
-/// itself or null, or the cap. A null at the first level means nothing is
-/// there; a null later means the previous object is the landing.
+/// Follows point queries from the window. `None` means no verified landing;
+/// a later null or a self-hit returns the verified chain.
 pub(crate) fn descend<S: NodeSource>(
     source: &mut S,
     frame: &AtspiElement,
     point: (i32, i32),
     deadline: Deadline,
-) -> Result<Descent, AdapterError> {
+) -> Result<Option<Vec<AtspiElement>>, AdapterError> {
     let mut chain: Vec<AtspiElement> = Vec::new();
     let mut from = frame.clone();
     for _ in 0..DEPTH_CAP {
         ensure_budget(deadline)?;
         match source.at_point(&from, point)? {
-            Hit::Failed => {
-                return Ok(Descent {
-                    chain,
-                    end: End::Failed,
-                });
-            }
+            Hit::Failed => return Ok(None),
             Hit::Null => {
-                let end = if chain.is_empty() {
-                    End::Empty
-                } else {
-                    End::Landed
-                };
-                return Ok(Descent { chain, end });
+                return Ok((!chain.is_empty()).then_some(chain));
             }
             Hit::Object(next) => {
                 if same(&next, &from) {
                     if chain.is_empty() {
                         chain.push(next);
                     }
-                    return Ok(Descent {
-                        chain,
-                        end: End::Landed,
-                    });
+                    return Ok(Some(chain));
                 }
                 chain.push(next.clone());
                 from = next;
             }
         }
     }
-    Ok(Descent {
-        chain,
-        end: End::DepthCap,
-    })
+    Ok(None)
 }
 
 enum Climb {
@@ -174,14 +142,12 @@ pub(crate) struct Probe<'a> {
     pub(crate) window_point: (i32, i32),
 }
 
-/// Classifies a finished descent. The ancestry is proved only on an outside
-/// landing: first that the landing is not below the target, then that the
-/// target is not below the landing. A step that cannot be verified makes the
-/// landing unresolved rather than foreign.
+/// Classifies a verified chain. An outside landing requires both ancestry
+/// directions to be verified; any missing edge stays unresolved.
 pub(crate) fn locate<S: NodeSource>(
     source: &mut S,
     probe: &Probe,
-    descent: &Descent,
+    chain: Option<&[AtspiElement]>,
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
     let Probe {
@@ -189,13 +155,13 @@ pub(crate) fn locate<S: NodeSource>(
         frame,
         window_point,
     } = *probe;
-    let Some(lander) = descent.chain.last() else {
+    let Some(chain) = chain else {
         return Ok(resolved(Landing::Unresolved));
     };
-    if descent.end != End::Landed {
+    let Some(lander) = chain.last() else {
         return Ok(resolved(Landing::Unresolved));
-    }
-    if descent.chain.iter().any(|node| same(node, target)) {
+    };
+    if chain.iter().any(|node| same(node, target)) {
         return Ok(resolved(Landing::OnTarget));
     }
     if same(lander, frame) {

@@ -155,7 +155,7 @@ pub(crate) fn hit_test_via<W: HitWorld>(
                 frame,
                 window_point: window_at,
             },
-            &descent,
+            descent.as_deref(),
             deadline,
         )?;
         (located.landing, located.lander)
@@ -204,4 +204,4 @@ pub(crate) fn hit_test(
 
 #[cfg(test)]
 #[path = "hit_test_tests.rs"]
-mod tests;
+pub(crate) mod tests;

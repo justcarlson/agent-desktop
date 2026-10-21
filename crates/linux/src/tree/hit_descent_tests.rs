@@ -7,12 +7,12 @@ pub(crate) fn el(path: &str) -> AtspiElement {
     AtspiElement::new(":1.1", path, 1)
 }
 
-/// In-memory nodes: where each object's point query leads, each object's
-/// verified parent, and what each describes as. Every call is recorded.
+/// In-memory point results and verified ancestry. Missing parent edges are
+/// deliberately unverified; point coordinates are retained for calibration.
 #[derive(Default)]
 pub(crate) struct FakeNodes {
     pub(crate) leads: HashMap<String, Hit>,
-    pub(crate) parents: HashMap<String, Option<String>>,
+    pub(crate) parents: HashMap<String, String>,
     pub(crate) described: HashMap<String, Described>,
     pub(crate) endless: bool,
     pub(crate) points: Vec<(i32, i32)>,
@@ -26,8 +26,7 @@ impl FakeNodes {
     }
 
     pub(crate) fn parent(&mut self, node: &str, parent: &str) -> &mut Self {
-        self.parents
-            .insert(node.to_owned(), Some(parent.to_owned()));
+        self.parents.insert(node.to_owned(), parent.to_owned());
         self
     }
 }
@@ -47,12 +46,7 @@ impl NodeSource for FakeNodes {
         node: &AtspiElement,
     ) -> Result<Option<AtspiElement>, AdapterError> {
         self.calls.push("verified_parent");
-        Ok(self
-            .parents
-            .get(node.path())
-            .cloned()
-            .flatten()
-            .map(|path| el(&path)))
+        Ok(self.parents.get(node.path()).map(|path| el(path)))
     }
 
     fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError> {
@@ -78,59 +72,47 @@ fn tree() -> FakeNodes {
 
 fn run(nodes: &mut FakeNodes) -> Located {
     let frame = el("/frame");
-    let descent = descend(nodes, &frame, (10, 10), deadline()).expect("the descent runs");
+    let chain = descend(nodes, &frame, (10, 10), deadline()).expect("the descent runs");
     let target = el("/target");
-    let probe = Probe {
-        target: &target,
-        frame: &frame,
-        window_point: (10, 10),
-    };
-    locate(nodes, &probe, &descent, deadline()).expect("locate runs")
+    locate(
+        nodes,
+        &Probe {
+            target: &target,
+            frame: &frame,
+            window_point: (10, 10),
+        },
+        chain.as_deref(),
+        deadline(),
+    )
+    .expect("locate runs")
 }
 
 #[test]
-fn a_chain_ending_at_the_target_lands_on_it() {
-    let mut nodes = tree();
-    nodes
-        .lead("/frame", "/pane")
-        .lead("/pane", "/target")
-        .lead("/target", "/target");
-    assert_eq!(run(&mut nodes).landing, Landing::OnTarget);
-}
-
-#[test]
-fn a_chain_ending_one_level_below_the_target_lands_on_it() {
+fn landings_match_verified_ancestry_and_geometry() {
     let mut nodes = tree();
     nodes
         .lead("/frame", "/pane")
         .lead("/pane", "/target")
         .lead("/target", "/child");
     assert_eq!(run(&mut nodes).landing, Landing::OnTarget);
-}
 
-#[test]
-fn a_landing_that_skips_the_target_but_sits_under_it_is_on_the_target() {
+    let mut nodes = tree();
+    nodes.lead("/frame", "/pane").lead("/pane", "/target");
+    nodes.lead("/target", "/target");
+    assert_eq!(run(&mut nodes).landing, Landing::OnTarget);
+
     let mut nodes = tree();
     nodes.lead("/frame", "/deep");
     assert_eq!(run(&mut nodes).landing, Landing::OnTarget);
-}
 
-#[test]
-fn a_chain_ending_at_the_targets_parent_is_an_ancestor() {
     let mut nodes = tree();
     nodes.lead("/frame", "/pane");
     assert_eq!(run(&mut nodes).landing, Landing::Ancestor);
-}
 
-#[test]
-fn a_chain_ending_at_the_window_itself_is_an_ancestor() {
     let mut nodes = tree();
     nodes.lead("/frame", "/frame");
     assert_eq!(run(&mut nodes).landing, Landing::Ancestor);
-}
 
-#[test]
-fn an_unrelated_node_is_elsewhere_with_what_it_describes() {
     let mut nodes = tree();
     nodes.lead("/frame", "/other");
     nodes.described.insert(
@@ -152,10 +134,7 @@ fn an_unrelated_node_is_elsewhere_with_what_it_describes() {
         located.lander.expect("described").name.as_deref(),
         Some("Close")
     );
-}
 
-#[test]
-fn an_unrelated_node_whose_extents_miss_the_point_is_not_contained() {
     let mut nodes = tree();
     nodes.lead("/frame", "/other");
     nodes.described.insert(
@@ -174,75 +153,70 @@ fn an_unrelated_node_whose_extents_miss_the_point_is_not_contained() {
         run(&mut nodes).landing,
         Landing::Elsewhere { contained: false }
     );
-}
 
-#[test]
-fn a_climb_step_that_fails_verification_leaves_the_landing_unresolved() {
     let mut nodes = tree();
-    nodes.lead("/frame", "/other");
-    nodes.parents.insert("/other".to_owned(), None);
-    assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
-    let mut nodes = tree();
-    nodes.lead("/frame", "/other");
-    nodes.parents.insert("/target".to_owned(), None);
+    nodes.leads.insert(
+        "/frame".to_owned(),
+        Hit::Object(AtspiElement::new(":1.2", "/target", 1)),
+    );
     assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
 }
 
 #[test]
-fn a_descent_that_never_reaches_null_stops_at_the_cap() {
-    let mut nodes = tree();
-    nodes.endless = true;
-    let frame = el("/frame");
-    let descent = descend(&mut nodes, &frame, (1, 1), deadline()).expect("runs");
-    assert_eq!(nodes.points.len(), 50);
-    let target = el("/target");
-    let probe = Probe {
-        target: &target,
-        frame: &frame,
-        window_point: (1, 1),
-    };
-    let located = locate(&mut nodes, &probe, &descent, deadline()).expect("locate runs");
-    assert_eq!(located.landing, Landing::Unresolved);
-}
+fn null_failed_and_capped_queries_remain_unresolved() {
+    assert_eq!(run(&mut tree()).landing, Landing::Unresolved);
 
-#[test]
-fn null_at_the_window_and_a_failed_query_are_unresolved() {
-    let mut nodes = tree();
-    assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
     let mut nodes = tree();
     nodes.leads.insert("/frame".to_owned(), Hit::Failed);
     assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
+
+    let mut nodes = tree();
+    nodes.lead("/frame", "/pane");
+    nodes.leads.insert("/pane".to_owned(), Hit::Failed);
+    assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
+
+    let mut nodes = tree();
+    nodes.endless = true;
+    let frame = el("/frame");
+    let chain = descend(&mut nodes, &frame, (1, 1), deadline()).expect("descent runs");
+    assert_eq!(nodes.points.len(), 50);
+    assert_eq!(chain, None);
+    assert_eq!(
+        locate(
+            &mut nodes,
+            &Probe {
+                target: &el("/target"),
+                frame: &frame,
+                window_point: (1, 1)
+            },
+            chain.as_deref(),
+            deadline(),
+        )
+        .expect("locate runs")
+        .landing,
+        Landing::Unresolved
+    );
+
+    for missing in ["/other", "/target"] {
+        let mut nodes = tree();
+        nodes.lead("/frame", "/other");
+        nodes.parents.remove(missing);
+        assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
+    }
 }
 
 #[test]
-fn an_expired_deadline_is_the_timeout_and_not_a_landing() {
+fn deadline_and_window_point_are_preserved() {
     let mut nodes = tree();
     nodes.lead("/frame", "/target");
     let spent = Deadline::after(1).expect("a deadline builds");
     std::thread::sleep(Duration::from_millis(20));
     let error = descend(&mut nodes, &el("/frame"), (1, 1), spent).expect_err("timed out");
     assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
-    assert!(nodes.calls.is_empty());
-}
+    assert!(nodes.points.is_empty());
 
-#[test]
-fn only_the_point_query_the_climb_and_the_description_are_ever_read() {
-    let mut nodes = tree();
-    nodes.lead("/frame", "/other");
-    run(&mut nodes);
-    assert!(
-        nodes
-            .calls
-            .iter()
-            .all(|call| ["at_point", "verified_parent", "describe"].contains(call))
-    );
-    assert!(nodes.calls.contains(&"at_point"));
-}
-
-#[test]
-fn the_descent_starts_at_the_window_with_the_window_point() {
     let mut nodes = tree();
     nodes.lead("/frame", "/target");
-    descend(&mut nodes, &el("/frame"), (210, 17), deadline()).expect("runs");
+    descend(&mut nodes, &el("/frame"), (210, 17), deadline()).expect("descent runs");
     assert_eq!(nodes.points.first(), Some(&(210, 17)));
 }

@@ -10,7 +10,7 @@ use crate::tree::hit_descent::{Described, Hit};
 
 const CLIENT: u32 = 10;
 
-fn rect(x: i32, y: i32, width: i32, height: i32) -> Extents {
+pub(crate) fn rect(x: i32, y: i32, width: i32, height: i32) -> Extents {
     Extents {
         x,
         y,
