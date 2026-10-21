@@ -43,7 +43,8 @@ fn live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call() {
             ],
             release_origin: None,
         };
-        let _ = run(&display, vec![hold], &mut || Ok(()), deadline(70_000));
+        let lease = crate::system::interaction_lease::acquire(deadline(70_000)).expect("lease");
+        let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
     let mut child = Command::new(std::env::current_exe().expect("exe"))
@@ -76,7 +77,8 @@ fn live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call() {
         steps: vec![Step::MoveTo { x: 3, y: 3 }],
         release_origin: None,
     };
-    run(&display, vec![nudge], &mut || Ok(()), deadline(8_000)).expect("next call");
+    let lease = crate::system::interaction_lease::acquire(deadline(8_000)).expect("lease");
+    run(&display, vec![nudge], &mut || Ok(()), &lease).expect("next call");
     assert!(
         wait_for_keysyms(&display, code, &original),
         "the next call did not restore the keymap a killed client left remapped"

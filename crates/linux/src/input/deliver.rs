@@ -1,5 +1,6 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, DragParams, MouseEvent, MouseEventKind, OperationReport,
+    AdapterError, Deadline, DragParams, InteractionLease, MouseEvent, MouseEventKind,
+    OperationReport,
 };
 
 use super::backend::{Backend, backend};
@@ -14,10 +15,10 @@ use super::x11::{mouse_send, session};
 pub(crate) fn send_plans(
     plans: Vec<Plan>,
     gate: Gate<'_>,
-    deadline: Deadline,
+    lease: &InteractionLease,
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
-        Backend::X11(display) => session::run(&display, plans, gate, deadline),
+        Backend::X11(display) => session::run(&display, plans, gate, lease),
         Backend::Wayland => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
     }
 }
@@ -35,8 +36,9 @@ pub(crate) fn send_keysyms(
 
 pub(crate) fn mouse_event(
     event: &MouseEvent,
-    deadline: Deadline,
+    lease: &InteractionLease,
 ) -> Result<OperationReport, AdapterError> {
+    let deadline = lease.deadline();
     match &event.kind {
         MouseEventKind::Down => {
             return Err(super::standalone::reject_standalone("mouse_event down"));
@@ -47,7 +49,7 @@ pub(crate) fn mouse_event(
     match backend()? {
         Backend::X11(display) => {
             let plans = mouse_send::plans_for(&display, event, deadline)?;
-            let delivery = session::run(&display, plans, &mut || Ok(()), deadline)?;
+            let delivery = session::run(&display, plans, &mut || Ok(()), lease)?;
             Ok(with_event_count(
                 OperationReport::pointer_dispatched(event, false),
                 &delivery,
@@ -59,12 +61,13 @@ pub(crate) fn mouse_event(
 
 pub(crate) fn drag(
     params: &DragParams,
-    deadline: Deadline,
+    lease: &InteractionLease,
 ) -> Result<OperationReport, AdapterError> {
+    let deadline = lease.deadline();
     match backend()? {
         Backend::X11(display) => {
             let plan = plan_drag(params, deadline)?;
-            let delivery = session::run(&display, vec![plan], &mut || Ok(()), deadline)?;
+            let delivery = session::run(&display, vec![plan], &mut || Ok(()), lease)?;
             Ok(with_event_count(
                 OperationReport::drag_dispatched(params),
                 &delivery,

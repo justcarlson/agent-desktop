@@ -1,5 +1,7 @@
 use super::*;
-use agent_desktop_core::{Deadline, Modifier, MouseButton, MouseEvent, MouseEventKind, Point};
+use agent_desktop_core::{
+    Deadline, InteractionLease, Modifier, MouseButton, MouseEvent, MouseEventKind, Point,
+};
 
 #[test]
 fn the_error_carries_all_three_details_and_the_not_delivered_disposition() {
@@ -24,6 +26,7 @@ fn the_error_carries_all_three_details_and_the_not_delivered_disposition() {
 #[test]
 fn standalone_edges_refuse_before_backend_lookup() {
     let deadline = Deadline::detached_after(2_000).unwrap();
+    let lease = InteractionLease::guarded(deadline, ()).unwrap();
     for (kind, direction) in [(MouseEventKind::Down, "down"), (MouseEventKind::Up, "up")] {
         let event = MouseEvent {
             kind: kind.clone(),
@@ -32,7 +35,7 @@ fn standalone_edges_refuse_before_backend_lookup() {
             modifiers: vec![Modifier::Ctrl],
         };
         let error =
-            crate::input::deliver::mouse_event(&event, deadline).expect_err("held edge refusal");
+            crate::input::deliver::mouse_event(&event, &lease).expect_err("held edge refusal");
         assert_eq!(error.code, ErrorCode::ActionNotSupported);
         assert_eq!(
             error.message,

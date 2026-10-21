@@ -224,6 +224,7 @@ pub(crate) fn run(
             journal: None,
             slot: slot.unwrap_or_default(),
             release_on_signal: false,
+            lease: None,
         },
     )
 }

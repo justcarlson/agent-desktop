@@ -1,9 +1,10 @@
+use std::os::fd::{AsRawFd, OwnedFd};
 use std::sync::Arc;
 use std::sync::mpsc::{RecvTimeoutError, channel};
 use std::thread;
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, InteractionLease};
 
 use super::held_journal::HeldJournal;
 use super::progress::Progress;
@@ -21,19 +22,21 @@ use crate::input::release_state::ReleaseState;
 const WORKER_GRACE: Duration = Duration::from_millis(250);
 const RELEASE_ALLOWANCE: Duration = Duration::from_secs(2);
 
-pub(crate) struct CallEnv {
+pub(crate) struct CallEnv<'a> {
     pub(crate) deadline: Deadline,
     pub(crate) journal: Option<HeldJournal>,
     pub(crate) slot: Arc<WorkerSlot>,
     pub(crate) release_on_signal: bool,
+    pub(crate) lease: Option<&'a InteractionLease>,
 }
 
 pub(crate) fn run(
     display: &str,
     plans: Vec<Plan>,
     gate: Gate<'_>,
-    deadline: Deadline,
+    lease: &InteractionLease,
 ) -> Result<Delivery, AdapterError> {
+    let deadline = lease.deadline();
     let display = display.to_owned();
     let journal = HeldJournal::in_runtime_dir(&display);
     let cutoff = deadline.remaining() + RELEASE_ALLOWANCE;
@@ -46,6 +49,7 @@ pub(crate) fn run(
             journal,
             slot: worker_slot::shared(),
             release_on_signal: true,
+            lease: Some(lease),
         },
     )
 }
@@ -65,15 +69,17 @@ pub(crate) fn run_journaled<S: X11Sink + 'static>(
     open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
     plans: Vec<Plan>,
     gate: Gate<'_>,
-    env: CallEnv,
+    env: CallEnv<'_>,
 ) -> Result<Delivery, AdapterError> {
     let CallEnv {
         deadline,
         journal,
         slot,
         release_on_signal,
+        lease,
     } = env;
     let claim = slot.claim(deadline)?;
+    let lease = lease.map(retain_lease).transpose()?;
     let progress = Arc::new(Progress::default());
     let _armed =
         release_on_signal.then(|| signal_release::arm(Arc::clone(&progress), Arc::clone(&slot)));
@@ -89,6 +95,7 @@ pub(crate) fn run_journaled<S: X11Sink + 'static>(
         .name("x11-input".to_owned())
         .spawn(move || {
             let _claim = claim;
+            let _lease = lease;
             match open() {
                 Ok(sink) => worker::work(sink, plans, &link, deadline, &worker_progress),
                 Err(error) => {
@@ -130,6 +137,17 @@ pub(crate) fn run_journaled<S: X11Sink + 'static>(
     }
 }
 
+fn retain_lease(lease: &InteractionLease) -> Result<OwnedFd, AdapterError> {
+    let fd = lease.duplicate_inheritable_fd()?;
+    if unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } < 0 {
+        return Err(AdapterError::internal(format!(
+            "The input worker could not retain the interaction lease: {}",
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(fd)
+}
+
 fn abandoned(deadline: Deadline, progress: &Progress) -> AdapterError {
     let delivered = progress.delivered();
     let error = worker::mark_started(deadline.timeout_error(), delivered);
@@ -139,3 +157,7 @@ fn abandoned(deadline: Deadline, progress: &Progress) -> AdapterError {
 #[cfg(test)]
 #[path = "session_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "session_lease_tests.rs"]
+mod lease_tests;

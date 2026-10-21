@@ -270,7 +270,7 @@ impl InputOps for LinuxAdapter {
         event: MouseEvent,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        crate::input::deliver::mouse_event(&event, lease.deadline())
+        crate::input::deliver::mouse_event(&event, lease)
     }
 
     fn drag(
@@ -278,7 +278,7 @@ impl InputOps for LinuxAdapter {
         params: DragParams,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        crate::input::deliver::drag(&params, lease.deadline())
+        crate::input::deliver::drag(&params, lease)
     }
 
     fn key_event(

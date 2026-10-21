@@ -236,8 +236,9 @@ fn deliver(
     point: &Point,
     displays: &[DisplayInfo],
     button: &MouseButton,
-    deadline: Deadline,
+    lease: &InteractionLease,
 ) -> Result<(), AdapterError> {
+    let deadline = lease.deadline();
     match backend()? {
         Backend::X11(_) => mouse_event(
             &MouseEvent {
@@ -246,7 +247,7 @@ fn deliver(
                 button: button.clone(),
                 modifiers: Vec::new(),
             },
-            deadline,
+            lease,
         )
         .map(|_| ()),
         Backend::Wayland => {
@@ -280,7 +281,7 @@ pub(crate) fn click(
     let extents = read_extents(bus, node, deadline)?;
     let displays = list_displays(deadline)?;
     let point = aim(extents, &displays)?;
-    deliver(&point, &displays, &button, deadline)?;
+    deliver(&point, &displays, &button, lease)?;
     Ok(point)
 }
 
