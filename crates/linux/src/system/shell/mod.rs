@@ -73,7 +73,7 @@ pub(crate) fn resolve_surface(
     let landmark = open::container_landmark(kind);
     let located =
         container::locate_anchor(bus, &root, container::Anchor::Landmark(landmark), deadline)?;
-    open::window_info(kind, &root, &located.container)
+    open::window_info(kind, &root, &located)
 }
 
 pub(crate) fn open_surface(
@@ -101,6 +101,13 @@ pub(crate) fn observe_shell(
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
     window_gate::verify(bus, &window.id, request.deadline)?;
+    let current = resolve_surface(bus, request.surface, request.deadline)?;
+    if current.id != window.id {
+        return Err(AdapterError::new(
+            ErrorCode::WindowNotFound,
+            "The shell surface changed before it could be observed",
+        ));
+    }
     let mut inner = *request;
     inner.surface = SnapshotSurface::Window;
     let root = ObservationRoot::Window(window);
