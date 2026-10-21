@@ -129,10 +129,11 @@ the input reference; this X11 focus recovery is not a Wayland focus promise.
 The shell's top bar uses a separate input route.
 
 On X11 Mutter, shell clicks use XTEST. On Wayland, headed shell clicks use
-Mutter RemoteDesktop; clicks inside a popup additionally need a ScreenCast
+Mutter RemoteDesktop with absolute targeting; every click needs a ScreenCast
 stream/PipeWire. This shell route can work while ordinary app pointer commands
 refuse. Missing stream gives `ACTION_FAILED`, cause `no_screencast_stream`,
-before delivery. Shell controls need usable on-screen bounds. Shell landmarks
+before any button press. Shell controls need usable bounds whose centre lies on
+a monitor; relative pointer motion is never used to guess a ref's position. Shell landmarks
 are English (`System`, `Power Off Menu`, `Clear all notifications`); other
 languages and non-GNOME desktops are not covered by this guide.
 

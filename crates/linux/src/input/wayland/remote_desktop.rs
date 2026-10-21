@@ -87,25 +87,6 @@ impl RemoteDesktop {
 }
 
 impl RemoteDesktop {
-    pub(crate) fn pointer_motion_relative(
-        &mut self,
-        dx: f64,
-        dy: f64,
-        deadline: Deadline,
-    ) -> Result<(), AdapterError> {
-        let path = self.session_path()?;
-        within(deadline, async {
-            call_session_method(
-                &self.connection,
-                path,
-                "NotifyPointerMotionRelative",
-                &(dx, dy),
-            )
-            .await
-            .map_err(|error| classify_call(&error))
-        })
-    }
-
     pub(crate) fn pointer_button(
         &mut self,
         button: u32,
@@ -126,8 +107,7 @@ impl RemoteDesktop {
 impl RemoteDesktop {
     /// Links a screen-cast stream of the monitor on `connector` to the created
     /// session, which is what lets the pointer move to an absolute position.
-    /// `false` when the compositor offers no such stream; the session is then
-    /// still good for relative motion.
+    /// `false` when the compositor offers no such stream.
     pub(crate) fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> bool {
         let Ok(path) = self.session_path().map(str::to_owned) else {
             return false;

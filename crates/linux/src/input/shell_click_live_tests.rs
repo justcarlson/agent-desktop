@@ -45,12 +45,17 @@ struct Session(CallLog);
 
 #[zbus::interface(name = "org.gnome.Mutter.RemoteDesktop.Session")]
 impl Session {
+    #[zbus(property)]
+    fn session_id(&self) -> &str {
+        "private-pointer-session"
+    }
+
     fn start(&self) {
         self.0.record("start");
     }
 
-    fn notify_pointer_motion_relative(&self, dx: f64, dy: f64) {
-        self.0.record(format!("motion:{dx}:{dy}"));
+    fn notify_pointer_motion_absolute(&self, _stream: &str, x: f64, y: f64) {
+        self.0.record(format!("motion:{x}:{y}"));
     }
 
     fn notify_pointer_button(&self, button: i32, down: bool) {
@@ -65,16 +70,47 @@ impl Session {
     }
 }
 
+struct ScreenCast;
+
+#[zbus::interface(name = "org.gnome.Mutter.ScreenCast")]
+impl ScreenCast {
+    fn create_session(
+        &self,
+        _options: std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+    ) -> OwnedObjectPath {
+        OwnedObjectPath::try_from(SESSION_PATH).unwrap()
+    }
+}
+
+struct CastSession;
+
+#[zbus::interface(name = "org.gnome.Mutter.ScreenCast.Session")]
+impl CastSession {
+    fn record_monitor(
+        &self,
+        _connector: &str,
+        _options: std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+    ) -> OwnedObjectPath {
+        OwnedObjectPath::try_from("/private/stream").unwrap()
+    }
+}
+
 fn private_service(log: CallLog) -> zbus::Connection {
     zbus::block_on(async {
         Builder::session()
             .expect("the private session bus is available")
             .name(SERVICE)
             .expect("the fixture owns the RemoteDesktop name")
+            .name("org.gnome.Mutter.ScreenCast")
+            .unwrap()
             .serve_at(ROOT_PATH, Manager(log.clone()))
             .expect("the manager interface is served")
             .serve_at(SESSION_PATH, Session(log))
             .expect("the session interface is served")
+            .serve_at("/org/gnome/Mutter/ScreenCast", ScreenCast)
+            .unwrap()
+            .serve_at(SESSION_PATH, CastSession)
+            .unwrap()
             .build()
             .await
             .expect("the private compositor service starts")
@@ -101,6 +137,17 @@ fn a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_r
     let error = run_pointer(
         &mut pointer,
         &Point { x: 640.0, y: 16.0 },
+        &[agent_desktop_core::DisplayInfo {
+            id: "private".into(),
+            bounds: agent_desktop_core::Rect {
+                x: 0.,
+                y: 0.,
+                width: 1280.,
+                height: 800.,
+            },
+            is_primary: true,
+            scale: 1.,
+        }],
         &MouseButton::Left,
         deadline(),
     )

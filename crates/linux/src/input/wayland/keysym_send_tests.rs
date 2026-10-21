@@ -36,6 +36,12 @@ fn received_key_with_lost_reply_is_uncertain_and_cannot_replay() {
     assert_eq!(session.arrived, [(KEY_A, true)]);
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert!(!sent_nothing(&error), "a reused session must not replay");
+    assert!(
+        error
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("before retrying"))
+    );
     let details = error.details.expect("delivery evidence");
     assert_eq!(details["physical_delivery_started"], true);
     assert_eq!(details["delivered_events"], 0);

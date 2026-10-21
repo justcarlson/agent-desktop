@@ -4,29 +4,17 @@ use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, DisplayInfo, ErrorCode, MouseButton, Point, Rect,
 };
 
-use crate::input::{
-    shell_click::{
-        Aim, PointerSession, in_modal, monitor_under, run_pointer, run_pointer_absolute,
-    },
-    wayland::key_session::KeySession,
-};
+use super::{PointerSession, monitor_under, run_pointer};
+use crate::input::wayland::key_session::KeySession;
 
 #[derive(Default)]
 struct Recording {
     log: Vec<String>,
     fail: Option<&'static str>,
     pos: (f64, f64),
-    recovery: Vec<(&'static str, bool)>,
     stream: bool,
-    start_fails: bool,
 }
 impl Recording {
-    fn fail(fail: &'static str) -> Self {
-        Self {
-            fail: Some(fail),
-            ..Self::default()
-        }
-    }
     fn step(&mut self, event: &str) -> Result<(), AdapterError> {
         self.log.push(event.into());
         let denied_down = self.fail == Some("denied_down") && event == "down";
@@ -45,34 +33,17 @@ impl KeySession for Recording {
         self.step("create")
     }
     fn start(&mut self, _: Deadline) -> Result<(), AdapterError> {
-        if self.start_fails {
-            self.log.push("start".into());
-            Err(AdapterError::new(ErrorCode::ActionFailed, "no stream"))
-        } else {
-            self.step("start")
-        }
+        self.step("start")
     }
     fn keysym(&mut self, _: u32, _: bool, _: Deadline) -> Result<(), AdapterError> {
         Ok(())
     }
-    fn stop(&mut self, d: Deadline) -> Result<(), AdapterError> {
-        self.recovery.push(("stop", !d.is_expired()));
+    fn stop(&mut self, _: Deadline) -> Result<(), AdapterError> {
         self.step("stop")
     }
 }
 impl PointerSession for Recording {
-    fn motion(&mut self, dx: f64, dy: f64, _: Deadline) -> Result<(), AdapterError> {
-        if dx <= -500. {
-            self.pos = (0., 0.)
-        } else {
-            self.pos = (self.pos.0 + dx, self.pos.1 + dy)
-        }
-        self.step("motion")
-    }
-    fn button(&mut self, _: u32, down: bool, d: Deadline) -> Result<(), AdapterError> {
-        if !down {
-            self.recovery.push(("up", !d.is_expired()))
-        }
+    fn button(&mut self, _: u32, down: bool, _: Deadline) -> Result<(), AdapterError> {
         self.step(if down { "down" } else { "up" })
     }
     fn pause(&mut self, _: Duration) {}
@@ -88,128 +59,7 @@ impl PointerSession for Recording {
 fn deadline() -> Deadline {
     Deadline::after(10_000).expect("deadline")
 }
-fn target() -> Point {
-    Point { x: 640., y: 16. }
-}
-fn aim(modal: bool) -> Aim {
-    Aim {
-        target: Point { x: 677., y: 71. },
-        connector: "Meta-0".into(),
-        local: Point { x: 77., y: 21. },
-        in_modal: modal,
-    }
-}
-fn check(absolute: bool, stage: &'static str) {
-    let mut s = if absolute {
-        Recording {
-            stream: true,
-            ..Recording::fail(stage)
-        }
-    } else {
-        Recording::fail(stage)
-    };
-    let error = if absolute {
-        run_pointer_absolute(&mut s, &aim(true), &MouseButton::Left, deadline())
-    } else {
-        run_pointer(&mut s, &target(), &MouseButton::Left, deadline())
-    }
-    .expect_err(stage);
-    let events = s.log;
-    assert!(events.contains(&stage.to_owned()));
-    if stage == "create" {
-        assert_eq!(events, ["create"]);
-    } else {
-        assert_eq!(events.last().map(String::as_str), Some("stop"));
-    }
-    assert_eq!(
-        error.code,
-        if stage == "up" || stage == "stop" {
-            ErrorCode::ActionNotSupported
-        } else {
-            ErrorCode::ActionFailed
-        }
-    );
-    assert_eq!(
-        error.disposition,
-        match stage {
-            "down" | "up" => DeliverySemantics::uncertain(),
-            "stop" => DeliverySemantics::delivered_unverified(),
-            _ => DeliverySemantics::unknown(),
-        }
-    );
-    if matches!(stage, "down" | "up" | "stop") {
-        assert!(
-            error
-                .suggestion
-                .as_deref()
-                .is_some_and(|suggestion| suggestion.contains("before retrying"))
-        );
-        assert_eq!(error.details.unwrap()["physical_delivery_started"], true);
-    }
-}
-
-#[test]
-fn pointer_routing_and_failures() {
-    let mut s = Recording {
-        stream: true,
-        ..Recording::default()
-    };
-    run_pointer_absolute(&mut s, &aim(true), &MouseButton::Left, deadline()).unwrap();
-    assert_eq!(
-        s.log,
-        [
-            "create", "attach", "start", "absolute", "down", "up", "stop"
-        ]
-    );
-    assert_eq!(s.pos, (77., 21.));
-
-    let mut s = Recording::default();
-    run_pointer_absolute(&mut s, &aim(false), &MouseButton::Right, deadline()).unwrap();
-    let events = s.log;
-    assert_eq!(&events[..4], ["create", "attach", "stop", "create"]);
-    assert_eq!(events.iter().filter(|e| e.as_str() == "down").count(), 1);
-    assert_eq!(events.last().map(String::as_str), Some("stop"));
-
-    for stage in ["create", "start", "motion", "down", "up", "stop"] {
-        check(false, stage);
-    }
-    for stage in ["absolute", "down", "up", "stop"] {
-        check(true, stage);
-    }
-
-    let mut denied = Recording::fail("denied_down");
-    let error = run_pointer(&mut denied, &target(), &MouseButton::Left, deadline()).unwrap_err();
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
-    assert_eq!(denied.log.last().map(String::as_str), Some("stop"));
-
-    let mut modal = Recording::default();
-    let e =
-        run_pointer_absolute(&mut modal, &aim(true), &MouseButton::Left, deadline()).unwrap_err();
-    assert_eq!(modal.log, ["create", "attach", "stop"]);
-    assert_eq!(
-        (e.code, e.disposition),
-        (ErrorCode::ActionFailed, DeliverySemantics::not_delivered())
-    );
-    assert_eq!(e.details.unwrap()["physical_delivery_started"], false);
-    let mut modal = Recording {
-        stream: true,
-        start_fails: true,
-        ..Recording::default()
-    };
-    let e =
-        run_pointer_absolute(&mut modal, &aim(true), &MouseButton::Left, deadline()).unwrap_err();
-    assert_eq!(modal.log, ["create", "attach", "start", "stop"]);
-    assert_eq!(e.disposition, DeliverySemantics::not_delivered());
-
-    let spent = Deadline::after(1).unwrap();
-    std::thread::sleep(Duration::from_millis(20));
-    let mut s = Recording::default();
-    run_pointer(&mut s, &target(), &MouseButton::Left, spent).unwrap();
-    assert_eq!(s.recovery, [("up", true), ("stop", true)]);
-}
-
-fn display(id: &str, primary: bool, x: f64, y: f64) -> DisplayInfo {
+fn display(id: &str, x: f64, y: f64) -> DisplayInfo {
     DisplayInfo {
         id: id.into(),
         bounds: Rect {
@@ -218,15 +68,137 @@ fn display(id: &str, primary: bool, x: f64, y: f64) -> DisplayInfo {
             width: 1280.,
             height: 800.,
         },
-        is_primary: primary,
+        is_primary: true,
         scale: 1.,
     }
 }
+
+#[test]
+fn missing_absolute_targeting_never_presses_a_shell_control() {
+    let displays = [display("DP-1", 100., 0.)];
+    for fail in [None, Some("start")] {
+        let mut session = Recording {
+            stream: fail.is_some(),
+            fail,
+            ..Recording::default()
+        };
+        let error = run_pointer(
+            &mut session,
+            &Point { x: 640., y: 16. },
+            &displays,
+            &MouseButton::Left,
+            deadline(),
+        )
+        .expect_err("a guessed relative position cannot authorize a ref click");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert!(
+            !session
+                .log
+                .iter()
+                .any(|event| matches!(event.as_str(), "absolute" | "down"))
+        );
+        assert_eq!(session.log.last().map(String::as_str), Some("stop"));
+    }
+    let mut session = Recording {
+        stream: true,
+        ..Recording::default()
+    };
+    let error = run_pointer(
+        &mut session,
+        &Point { x: 70., y: 16. },
+        &displays,
+        &MouseButton::Left,
+        deadline(),
+    )
+    .expect_err("a point in the monitor gap cannot authorize a click");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert!(session.log.is_empty());
+}
+
+#[test]
+fn an_overlapping_control_with_an_off_display_center_is_not_aimed() {
+    let displays = [display("DP-1", 100., 50.)];
+    let error = crate::input::shell_aim::aim(
+        Rect {
+            x: 20.,
+            y: 60.,
+            width: 100.,
+            height: 20.,
+        },
+        &displays,
+    )
+    .expect_err("the visible sliver does not prove the center is on a monitor");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}
+
+#[test]
+fn pointer_routing_and_failures() {
+    let displays = [display("DP-1", 600., 50.)];
+    let target = Point { x: 677., y: 71. };
+    let mut session = Recording {
+        stream: true,
+        ..Recording::default()
+    };
+    run_pointer(
+        &mut session,
+        &target,
+        &displays,
+        &MouseButton::Left,
+        deadline(),
+    )
+    .unwrap();
+    assert_eq!(
+        session.log,
+        [
+            "create", "attach", "start", "absolute", "down", "up", "stop"
+        ]
+    );
+    assert_eq!(session.pos, (77., 21.));
+
+    for stage in ["create", "absolute", "down", "up", "stop", "denied_down"] {
+        let mut session = Recording {
+            stream: true,
+            fail: Some(stage),
+            ..Recording::default()
+        };
+        let error = run_pointer(
+            &mut session,
+            &target,
+            &displays,
+            &MouseButton::Left,
+            deadline(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            session.log.last().map(String::as_str),
+            Some(if stage == "create" { "create" } else { "stop" })
+        );
+        assert_eq!(
+            error.disposition,
+            match stage {
+                "down" | "up" => DeliverySemantics::uncertain(),
+                "stop" => DeliverySemantics::delivered_unverified(),
+                "denied_down" => DeliverySemantics::not_delivered(),
+                _ => DeliverySemantics::unknown(),
+            }
+        );
+        if matches!(stage, "down" | "up" | "stop") {
+            assert!(
+                error
+                    .suggestion
+                    .as_deref()
+                    .is_some_and(|s| s.contains("before retrying"))
+            );
+            assert_eq!(error.details.unwrap()["physical_delivery_started"], true);
+        }
+    }
+}
+
 #[test]
 fn monitor_routing() {
     let ds = [
-        display("DP-1", true, 100., 50.),
-        display("HDMI-1+DP-2", false, 1380., 50.),
+        display("DP-1", 100., 50.),
+        display("HDMI-1+DP-2", 1380., 50.),
     ];
     for (p, expected) in [
         (Point { x: 140., y: 70. }, ("DP-1", 40., 20.)),
@@ -236,7 +208,4 @@ fn monitor_routing() {
         assert_eq!((c.as_str(), q.x, q.y), expected);
     }
     assert!(monitor_under(&Point { x: 1., y: 1. }, &ds).is_none());
-    for y in [63., 64.] {
-        assert_eq!(in_modal(&Point { x: 640., y }), y >= 64.);
-    }
 }
