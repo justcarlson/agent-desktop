@@ -20,6 +20,8 @@ mod capture_live_tests;
 #[cfg(test)]
 mod wayland_portal_live_monitors;
 #[cfg(test)]
+mod wayland_portal_live_process;
+#[cfg(test)]
 mod wayland_portal_live_support;
 #[cfg(test)]
 mod wayland_portal_live_tests;

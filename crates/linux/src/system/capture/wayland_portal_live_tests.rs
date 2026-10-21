@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ScreenshotTarget};
@@ -9,12 +8,12 @@ use super::wayland_portal_bus::PORTAL_BUS;
 use super::wayland_portal_live_monitors::{allow_screenshots, capture_target, set_first_scale};
 use super::wayland_portal_live_support::{
     BLUE, BUS_DAEMON, DIALOG_SHOWN, Endpoint, FRONTEND, KEY_RETURN, KEY_TAB, Keys, World, boot,
-    boot_with, bus_call, stored_screenshot_grants,
+    boot_with, bus_call, runtime_dir, stored_screenshot_grants,
 };
 use crate::system::bus_deadline::within;
 
 fn home_screenshots() -> BTreeSet<String> {
-    let home = PathBuf::from(std::env::var("HOME").expect("a home directory"));
+    let home = runtime_dir().join("portal-home");
     std::fs::read_dir(home)
         .map(|entries| {
             entries
