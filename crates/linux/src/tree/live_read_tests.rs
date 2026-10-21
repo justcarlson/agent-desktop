@@ -66,19 +66,19 @@ fn kind(error: &AdapterError) -> &str {
 }
 
 #[test]
-fn a_destroyed_object_is_retryable_and_an_exited_application_settles() {
+fn a_destroyed_object_and_an_exited_application_are_terminal() {
     for (answer, expected, retryable) in [
         (
             Err(AdapterError::new(ErrorCode::ElementNotFound, "gone")),
             "resolve_target_destroyed",
-            true,
+            false,
         ),
         (
             Err(AdapterError::new(ErrorCode::AppNotFound, "left")),
             "resolve_owning_process_exited",
             false,
         ),
-        (Ok(Liveness::ObjectGone), "resolve_target_destroyed", true),
+        (Ok(Liveness::ObjectGone), "resolve_target_destroyed", false),
         (
             Ok(Liveness::AppGone),
             "resolve_owning_process_exited",

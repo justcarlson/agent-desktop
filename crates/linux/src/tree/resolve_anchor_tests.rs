@@ -103,7 +103,7 @@ fn a_level_that_cannot_be_read_keeps_an_incomplete_retryable_ref() {
 }
 
 #[test]
-fn a_node_on_the_path_that_answers_as_destroyed_is_stale_and_retryable() {
+fn a_node_on_the_path_that_answers_as_destroyed_is_terminal() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", true);
     fake.faults.level_errors.insert(
@@ -112,7 +112,7 @@ fn a_node_on_the_path_that_answers_as_destroyed_is_stale_and_retryable() {
     );
     let error = refused(&mut fake, &entry);
     assert_eq!(kind(&error), "resolve_target_destroyed");
-    assert!(error.is_explicitly_retryable());
+    assert!(!error.permits_retry_by_default());
 
     let mut fake = files();
     fake.faults.evidence_errors.insert(
@@ -121,6 +121,7 @@ fn a_node_on_the_path_that_answers_as_destroyed_is_stale_and_retryable() {
     );
     let error = refused(&mut fake, &entry);
     assert_eq!(kind(&error), "resolve_target_destroyed");
+    assert!(!error.permits_retry_by_default());
 }
 
 #[test]

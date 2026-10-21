@@ -44,10 +44,7 @@ fn navigate_live_a_settings_panel_ref_is_stale_after_another_panel_replaces_it()
     assert_eq!(error.code, agent_desktop_core::ErrorCode::StaleRef);
     assert_eq!(
         error.is_explicitly_retryable(),
-        matches!(
-            kind(&error).as_str(),
-            "resolve_no_candidate" | "resolve_target_destroyed"
-        )
+        kind(&error) == "resolve_no_candidate"
     );
     assert!(
         rig.resolve(&sidebar_row).is_ok(),
@@ -84,10 +81,7 @@ fn navigate_live_every_ref_of_a_relaunched_app_is_stale_through_the_gate() {
         assert_eq!(error.code, agent_desktop_core::ErrorCode::StaleRef, "{id}");
         assert_eq!(
             error.is_explicitly_retryable(),
-            matches!(
-                kind(&error).as_str(),
-                "resolve_no_candidate" | "resolve_target_destroyed"
-            ),
+            kind(&error) == "resolve_no_candidate",
             "{id}"
         );
         kinds.insert(kind(&error));
@@ -145,10 +139,7 @@ fn navigate_live_closing_one_files_window_leaves_its_refs_stale_and_the_other_wi
     assert_eq!(error.code, agent_desktop_core::ErrorCode::StaleRef);
     assert_eq!(
         error.is_explicitly_retryable(),
-        matches!(
-            kind(&error).as_str(),
-            "resolve_no_candidate" | "resolve_target_destroyed"
-        )
+        kind(&error) == "resolve_no_candidate"
     );
     let survivor = in_second
         .iter()

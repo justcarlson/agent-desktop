@@ -20,7 +20,7 @@ fn retryable(error: &AdapterError) -> Option<bool> {
 }
 
 #[test]
-fn an_exited_application_settles_while_a_destroyed_object_may_be_drawn_again() {
+fn an_exited_application_and_a_destroyed_object_are_terminal() {
     let exited = settle_gone(AdapterError::new(ErrorCode::AppNotFound, "left"), u32::MAX);
     let destroyed = settle_gone(
         AdapterError::new(ErrorCode::ElementNotFound, "gone"),
@@ -37,8 +37,8 @@ fn an_exited_application_settles_while_a_destroyed_object_may_be_drawn_again() {
     assert_eq!(kind(&destroyed), "resolve_target_destroyed");
     assert_eq!(retryable(&exited), Some(false));
     assert!(!exited.is_explicitly_retryable());
-    assert_eq!(retryable(&destroyed), Some(true));
-    assert!(destroyed.is_explicitly_retryable());
+    assert_eq!(retryable(&destroyed), Some(false));
+    assert!(!destroyed.is_explicitly_retryable());
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn ambiguity_carries_the_candidate_count_and_is_settled() {
 fn every_refusal_is_a_stale_ref_that_a_snapshot_repairs() {
     for (error, expected) in [
         (no_candidate(), true),
-        (object_gone(), true),
+        (object_gone(), false),
         (window_replaced(), false),
         (window_unverifiable(), false),
         (unverifiable_entry(), false),

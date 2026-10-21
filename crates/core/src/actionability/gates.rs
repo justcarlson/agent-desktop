@@ -105,7 +105,7 @@ pub(super) fn stability(
         if observed_hash == expected {
             pass("stable")
         } else {
-            unknown("stable", "bounds changed since snapshot")
+            unknown("stable", "live bounds stability has not been sampled")
         }
     };
     let mut check = check;
