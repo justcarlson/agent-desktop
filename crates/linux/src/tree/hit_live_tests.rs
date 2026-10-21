@@ -148,14 +148,17 @@ fn scene(rig: &Rig, frame: &AtspiElement, walk: &Walk<ObservedRead>) -> Result<S
 }
 
 fn cover(rig: &mut Rig, point: (i32, i32)) -> u32 {
+    let title = super::live_launch::nonce("hit-cover");
     let geometry = format!(
         "500x400+{}+{}",
         (point.0 - 250).max(0),
         (point.1 - 200).max(0)
     );
-    x_tools::appeared(|| {
-        rig.launched
-            .spawn("xclock", &["-geometry", &geometry, "-update", "1"]);
+    x_tools::appeared(&title, || {
+        rig.launched.spawn(
+            "xclock",
+            &["-title", &title, "-geometry", &geometry, "-update", "1"],
+        );
     })
     .expect("the cover window appears")
 }

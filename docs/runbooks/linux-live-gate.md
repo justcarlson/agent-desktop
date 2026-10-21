@@ -229,6 +229,12 @@ manager has already published it. Qt/Files/VS Code cases reached the callback
 before that publication under parallel load; all exact/never-wrong hit verdict,
 cover-direction and coordinate assertions remain in those retained cases.
 
+Each cover clock has a unique fixture title. Its readiness wait requires that
+exact title, rather than an XID absent from a pre-launch list: X11 can reuse
+the previous clock's ID while the window-manager list still includes it. This
+retains the GTK4 two-position scenario without relying on clock/XID lifecycle
+timing or changing any hit verdict.
+
 ### Moved to deterministic unit coverage
 
 `tree::resolve_twin_live_tests::resolve_live_files_row_refs_survive_a_sibling_row_leaving`

@@ -116,15 +116,14 @@ pub(super) fn minimize(id: u32) {
     run("xdotool", &["windowminimize", &id.to_string()]);
 }
 
-/// A new X window that appears within the limit after `start` runs.
-pub(super) fn appeared(start: impl FnOnce()) -> Option<u32> {
-    let known: Vec<u32> = windows().iter().map(|window| window.id).collect();
+/// The uniquely titled fixture window, even when the server reuses a former XID.
+pub(super) fn appeared(title: &str, start: impl FnOnce()) -> Option<u32> {
     start();
     let mut found = None;
     wait_until(Duration::from_secs(8), || {
         found = windows()
             .into_iter()
-            .find(|window| !known.contains(&window.id))
+            .find(|window| window.title == title)
             .map(|window| window.id);
         found.is_some()
     });
