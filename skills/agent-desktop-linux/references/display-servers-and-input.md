@@ -19,10 +19,11 @@ of `not_configured`, `missing` or `refused` and list the variables they tried.
 |------------|-----|-----------------|
 | Observation and semantic ref actions | AT-SPI, no tool | AT-SPI, no tool |
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
-| Pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
+| App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
 | Window ops, `focus-window`, `press --app` | EWMH on the X11 display | Xwayland clients only; native windows refused |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` selects a monitor |
 | Clipboard | Native selection owner | `wl-clipboard` |
+| GNOME Shell ref click / popup opener | XTEST, `--headed` | Separate Mutter pointer route, `--headed`; see shell reference |
 
 No tool is needed on X11 beyond the binary and its clipboard helper. `xdotool`,
 `ydotool`, `xclip` and `wmctrl` are not used. `wl-clipboard` is the one outside
@@ -40,7 +41,7 @@ Under `--headed`, `click` and `type` use physical input on X11 and report
 After an unsupported-input or geometry refusal on X11 that proves nothing was
 sent, the adapter can fall back to the semantic call; it never repeats an
 uncertain delivery. The CLI's Wayland pointer gate runs before that fallback. On
-Wayland every headed pointer command is refused at once with
+Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
 `double-click`, `mouse-wheel` and `mouse-down`). A headed `type` is not a
@@ -129,12 +130,14 @@ opens its own session. Ending a session releases its held keys.
   `character_outside_layout`; set the value directly with `set-value` instead.
   The rule is measured on a US layout, so a character your keymap holds can be
   refused. A refusal is safe: nothing was sent.
-- **Pointer.** AT-SPI gives no global window origin on Wayland, so every pointer
-  command refuses at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
+- **App pointer.** AT-SPI gives no global window origin on Wayland, so ordinary
+  app pointer commands refuse at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
   before anything is sent. A `--headed` ref `type` is not a pointer command: it
   stops at the missing bounds and ends in `TIMEOUT` (`actionability_timeout`)
   after 5 s with no keys sent. Use headless `type` or `set-value`, or a global
-  `press`, which sends keys with no element gate.
+  `press`, which sends keys with no element gate. GNOME Shell ref clicks and
+  popup openers use their own pointer route; see
+  `references/shell-tray-and-notifications.md`.
 - **No active window.** On a Wayland session with no seat keyboard no window carries
   `ACTIVE`, so `focus-changed` waits time out.
 

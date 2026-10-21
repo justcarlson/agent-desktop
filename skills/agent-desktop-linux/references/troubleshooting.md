@@ -21,7 +21,10 @@ display server does not give.
 | `POLICY_DENIED` on `click`, `type`, tray `click` | Needs `--headed` | Pass `--headed` if that is acceptable |
 | `POLICY_DENIED` on `press` | Blocked combo | Do not use `--force` unless you mean it |
 | `ACTION_NOT_SUPPORTED` `wayland_session` | X11 window control on a Wayland-native window | Use an Xwayland client, or act through the app's own UI |
-| `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Pointer input on Wayland | Use a semantic action, `set-value` or a global `press` |
+| `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland | Use a semantic action, `set-value` or a global `press` |
+| `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | GNOME notification service missing or another daemon owns it | See `references/shell-tray-and-notifications.md` |
+| `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | Shell tree is readable but no SNI watcher exists | Enable AppIndicator in GNOME; see the shell reference |
+| `APP_UNRESPONSIVE` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref’s live identity | Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
 | `STALE_REF` | UI changed or the window closed | Take a new `snapshot`; see `details.kind` |
 | `INTERNAL` "private file parent is accessible by group or other users" | The state root is group-writable or world-accessible | `chmod 700` it; see `references/bus-and-permissions.md` |
@@ -115,10 +118,10 @@ The error text never carries an argument or an environment value.
   are `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed`.
 - `cursor-overlay`: succeeds as a setting only. `enable` returns `data.rendered:
   false` and no overlay is drawn, so do not wait for one.
-- `open-system-surface`: unavailable in this build. Shell surfaces, tray and
-  notification commands await pass C (3.14); no alternative shell surface is
-  currently supported.
-- Pointer commands and window screenshots on Wayland.
+- `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`. Use the
+  advertised GNOME surfaces; see `references/shell-tray-and-notifications.md`.
+- Ordinary app pointer commands and window screenshots on Wayland. Shell ref
+  clicks use a separate route.
 
 ## Missing tools
 

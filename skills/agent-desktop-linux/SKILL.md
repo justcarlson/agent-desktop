@@ -34,9 +34,9 @@ tool for observation or semantic actions.
 
 | Group | Commands | Status on Linux |
 |-------|----------|-----------------|
-| Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. This build supports `window` and `sheet`; `status` lists the available surfaces |
-| Surfaces | `list-surfaces` | Works for `window` and `sheet`. Menu, popover and shell surfaces await pass C (3.14) |
-| Ref interaction | `click`, `right-click`, `type`, `set-value`, `clear`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll-to` | Works headless where the node exposes the required AT-SPI capability. A node with no usable semantic action needs `--headed` physical input on X11 |
+| Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. Supports `window`, `sheet` and `menu`; GNOME adds shell surfaces. Virtual tray getters have limits; see the shell reference and check `status` |
+| Surfaces | `list-surfaces` | Lists an app’s windows, sheets and open menus; shell reads use `snapshot --surface` |
+| Ref interaction | `click`, `right-click`, `type`, `set-value`, `clear`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll-to` | Needs readable live identity and the required AT-SPI capability. See the shell reference for menu-ref resolution limits; X11 headed fallback also needs usable geometry and does not bypass identity checks |
 | Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; X11 and `--headed` only |
 | Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, X11 only. On Wayland the pointer cannot be aimed and these refuse with `ACTION_NOT_SUPPORTED` |
 | Focus | `focus` | Needs `--headed` for the focus permission; delivered through the node's own focus action, not the pointer |
@@ -46,9 +46,9 @@ tool for observation or semantic actions.
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
-| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu detection works before menu snapshots; notifications await pass C (3.14) |
-| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Unavailable in this build; pass C (3.14) |
-| Shell surfaces | `open-system-surface` | Unavailable in this build; pass C (3.14) covers shell, tray and notification surfaces |
+| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` with identity guards. See the shell reference |
+| Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed`. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Records the session setting but never renders: `enable` returns `ok` with `data.rendered: false` and logs a skipped-update warning with `PLATFORM_NOT_SUPPORTED` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
@@ -83,8 +83,12 @@ tool for observation or semantic actions.
   command.
 - **Blocked key combos refuse without `--force`.** See
   `references/display-servers-and-input.md`.
-- **Menus, popovers, tray, notifications and shell surfaces await pass C (3.14).**
-  Their retained reference is future guidance, not this build's capability list.
+- **After opening a menu, inspect `data.surfaces`.** A `menu` entry leads to
+  `snapshot --surface menu --app <name> -i`. If absent, use `wait --menu`
+  and `list-surfaces` before assuming the opener failed. See the shell reference.
+- **GNOME shell input has its own route on Wayland.** Headed shell clicks can
+  work while ordinary app pointer commands refuse. Notifications need the
+  GNOME notification service; tray snapshots also need a StatusNotifierWatcher.
 - **The state root must be private.** A group-writable or world-accessible
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
   `INTERNAL`; run `chmod 700` on it or let the tool create it.
@@ -97,8 +101,8 @@ tool for observation or semantic actions.
   or keys, step `physical_synthetic`, `verified: false`), falling back to the
   semantic call only after a safe unsupported-input or geometry refusal on that
   X11 path. On Wayland the CLI rejects headed pointer actions before that
-  adapter fallback: every headed
-  pointer command (`click`, `hover`, `double-click`, `mouse-*`, wheel) is refused
+  adapter fallback: ordinary-app headed
+  pointer commands (`click`, `hover`, `double-click`, `mouse-*`, wheel) are refused
   at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
   `physical_delivery_started: false`. A headed `type` is not refused there: it
   stops at the missing bounds with `TIMEOUT` (`actionability_timeout`) after 5 s
@@ -126,9 +130,9 @@ tool for observation or semantic actions.
   focus, workspaces, stopped apps, background `press`.
 - `references/capture-and-clipboard.md`: `screenshot` on X11 and Wayland,
   the Wayland consent dialog, clipboard owner and helper.
-- `references/shell-tray-and-notifications.md`: retained pass C (3.14) guidance
-  for menus, tray, notifications and shell surfaces; those surfaces are not
-  shipped in this build. Also contains sandbox setup guidance.
+- `references/shell-tray-and-notifications.md`: menus and GTK4 popovers, GNOME
+  Overview/top bar, shell reads and input, notification identity guards, SNI
+  and AppIndicator requirements and refusals. Also contains sandbox guidance.
 - `references/troubleshooting.md`: symptom-to-cause map, Chromium, Electron
   and Qt flags, toolkit limits, error codes with `platform_detail`.
 
