@@ -158,9 +158,16 @@ agent-desktop batch '[
   {"command":"wait","args":{"ms":200}},
   {"command":"type","args":{"ref_id":"@s8f3k2p9:e2","text":"hello"}}
 ]' --stop-on-error
+
+agent-desktop batch '[
+  {"command":"click","args":{"ref_id":"@s8f3k2p9:e1"}},
+  {"command":"wait","args":{"event":"window-opened","app":"TextEdit","timeout":5000}}
+]' --stop-on-error
 ```
 
 Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. Snapshot args use `skeleton`, `root`, `interactive_only`.
+
+Wait entries use flat JSON keys matching the wait argument fields. For event waits, use `event` and optional `app`, `timeout` (milliseconds; defaults to 30000), `window`, and `window_id`. For example, the batch above waits up to five seconds for a new TextEdit window. `window` and `window_id` narrow only window lifecycle events (`window-opened`, `window-closed`, `focus-changed`); they do not scope text waits. In an action-then-event sequence, the batch captures the event baseline before the action, and does not start the action if that baseline read fails.
 
 ## Sessions and traces
 
