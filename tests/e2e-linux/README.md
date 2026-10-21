@@ -333,7 +333,7 @@ Historical pre-review lane measurements (not a receipt for the integrated head):
 | Headless Wayland | 3 | 0 | 0 |
 
 The historical 36 outstanding instances had no menu/popover, shell, tray or
-notification acceptance measurement; the current inventory below records 52 outstanding cells on landed surfaces. The refresh removes 192 of the original
+notification acceptance measurement; the historical integration receipt below recorded 52 outstanding cells on landed surfaces. The refresh removes 192 of the original
 377 mode instances under the owner rule. Removed checks are not passes.
 Wayland retains refusal/observation checks; no headed seat-input coverage
 is claimed. See the removal reasons above and the `test:` commit body.
@@ -393,7 +393,36 @@ All 76 review OWNER rows are resolved in
 contracts, one exact default-timeout refusal, 50 required 3.15 hardening cells,
 and two removed invalid contracts (HTML setting and the Qt choice target). The separate unsupported HTML-import live leg is also retired, outside these 76 decision rows. The receiving scope lists every
 transferred row in `docs/phases.md` §3.15. No transferred cell counts as a pass.
-Surface/modal/shell/notification/tray live acceptance remains outstanding on the landed product. Registration is not a measured pass.
+Surface/modal/shell/tray live acceptance remains outstanding on the landed product. Registration is not a measured pass.
+
+Notification scenarios use the private session's own notification server, verified
+by its process runtime directory, and a separate sender's IDs and signal monitor.
+They compare complete sender records, retain unfiltered indices under app filters,
+assert exact refusal codes without daemon mutation signals, and close every owned
+ID with restoration checked before the next leg. Wrong-app and empty-target
+lookups run headed; headless mutation checks require `POLICY_DENIED` for dismiss,
+dismiss-all and action. The conditional `delivered_mutation_internal_fails` leg
+is deleted because a non-INTERNAL response could pass without proving an outcome.
+
+Notification cleanup retains the original interaction lease on its detached
+recovery deadline, so the X11 input worker can retain the canonical lock.
+`notification_cleanup_retains_the_input_workers_interaction_lease` rejects the
+old synthetic cleanup lease; the independent daemon close signals remain the live
+dismissal oracle.
+
+The bystander-dismiss live specimen is deleted after a private-shell stall:
+the target closed with reason 2 and the bystander remained, then both the next
+AT-SPI-backed list and independent daemon close timed out. Its sole singleton
+rerun passed, so it is flaky rather than a retained pass. Deterministic
+`the_close_button_of_the_target_is_clicked_and_nothing_else` and
+`a_different_entry_leaving_with_the_target_fails_the_call` tests retain
+bystander protection at the Linux mutation boundary.
+
+The action-signal live specimen is also deleted: the repaired image passed it
+once, then a later private session timed out before physical delivery and its
+independent daemon close stalled. Deterministic Linux action tests retain
+expansion, exact action selection and signal evidence; no live action acceptance
+is claimed by the retained notification inventory.
 
 Capture, quiet events, identity queries, failed-launch/stale-ref queries,
 lifecycle and non-interference now record independent final reads. Duplicate
@@ -411,7 +440,7 @@ Runtime verdict tests and executable registry coverage retain the actual
 contracts. The assertion requiring an unlanded surface dependency is also removed: the rebased product includes those surfaces, while unmeasured acceptance remains nonzero. The owner-retirement splitter test is removed with that obsolete
 mechanism; there are no executable OWNER rows to split.
 
-## Integration validation receipt
+## Historical integration validation receipt
 
 Measured on 2026-10-21 UTC against the rebased release CLI and adjacent
 `agent-desktop-linux-clipboard-owner`. Release build and four-package all-target
@@ -420,8 +449,8 @@ Clippy pass. The Linux library gate passes: 2,673 tests, zero failures,
 fake was deleted after the sole diagnostic rerun confirmed its invalid success
 expectation; resolver safety checks remain intact.
 
-The final registry has 185 IDs: 244 executable tier/mode cells and 52 outstanding
-surface acceptance cells. Every retained executable cell has a live result:
+That registry had 185 IDs: 244 executable tier/mode cells and 52 outstanding
+surface acceptance cells. Every executable cell in that receipt has a live result:
 242 pass and two deterministic workspace failures. Removed specimens do not count
 as passes. Outstanding acceptance is on landed product surfaces, not a missing
 product implementation. Full-tier commands correctly exit nonzero for failures

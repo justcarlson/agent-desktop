@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import re
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 
 from runner.session import Tier
+from oracle import atspi_raw as raw, proc
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ORACLE_SCRIPT = REPO_ROOT / "scripts" / "notification-oracle.sh"
@@ -23,18 +25,15 @@ def notification_argv(
     script: Path | None = None,
 ) -> list[str]:
     path = script or _script_path()
-    argv = ["bash", str(path), "notify", "--app", app, "--summary", summary]
-    if body:
-        argv += ["--body", body]
-    for key, label in actions:
-        argv += ["--action", f"{key}={label}"]
-    return argv
+    return ["bash", str(path), "notify", app, summary, body,
+            ",".join(f"{key}={label}" for key, label in actions)]
 
 
 def monitor_argv() -> list[str]:
     return [
         "dbus-monitor",
         "--session",
+        "type='signal',interface='org.freedesktop.DBus',member='NameLost'",
         "type='signal',interface='org.freedesktop.Notifications'",
     ]
 
@@ -64,7 +63,7 @@ def send(
     return parse_notification_id(completed.stdout)
 
 
-def monitor(tier: Tier, path: Path) -> int:
+def monitor(tier: Tier, path: Path) -> subprocess.Popen:
     handle = open(path, "w", encoding="utf-8")
     try:
         spawned = subprocess.Popen(
@@ -76,12 +75,12 @@ def monitor(tier: Tier, path: Path) -> int:
         )
     finally:
         handle.close()
-    return spawned.pid
+    return spawned
 
 
 def parse_monitor_text(text: str) -> list[tuple[str, dict]]:
     signals: list[tuple[str, dict]] = []
-    for block in re.split(r"\n\s*\n", text):
+    for block in re.split(r"(?=^signal )", text, flags=re.M):
         member = re.search(r"member=(\w+)", block)
         if not member:
             continue
@@ -101,6 +100,65 @@ def parse_monitor_text(text: str) -> list[tuple[str, dict]]:
                     )
                 )
     return signals
+
+
+class Sender:
+    def __init__(self, tier, path):
+        self.tier = tier
+        self.path = path
+        self.records = {}
+
+    def signals(self):
+        return parse_monitor_text(self.path.read_text())
+
+    def active(self):
+        closed = {data["id"] for name, data in self.signals() if name == "NotificationClosed"}
+        return [record for identifier, record in self.records.items() if identifier not in closed]
+
+    def send(self, app, summary, body="", actions=()):
+        identifier = send(self.tier, app, summary, body, actions)
+        assert identifier not in self.records, f"daemon reused {identifier}"
+        self.records[identifier] = {"id": identifier, "app": app, "summary": summary,
+                                    "body": body, "actions": [label for _, label in actions]}
+        return identifier
+
+    def wait_closed(self, identifiers):
+        expected = set(identifiers)
+        assert raw.poll(lambda: expected <= {
+            data["id"] for name, data in self.signals() if name == "NotificationClosed"
+        }, 5), self.signals()
+        return [data for name, data in self.signals()
+                if name == "NotificationClosed" and data["id"] in expected]
+
+
+@contextmanager
+def observing(ctx):
+    tier = ctx.tier
+    assert tier.env["AGENT_DESKTOP_PRIVATE_SESSION"] == str(tier.runtime_dir)
+    connection = raw.connect(tier.bus_address)
+    pid = raw.call(connection, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                   "org.freedesktop.DBus", "GetConnectionUnixProcessID", "(s)",
+                   ("org.freedesktop.Notifications",))[0]
+    assert proc.facts(pid)[3].get("XDG_RUNTIME_DIR") == str(tier.runtime_dir), \
+        "notification server escaped the private runtime"
+    path = Path(tier.runtime_dir) / "notification-signals.log"
+    watcher = monitor(tier, path)
+    sender = Sender(tier, path)
+    try:
+        assert raw.poll(lambda: "member=NameLost" in path.read_text(), 5), path.read_text()
+        ctx.before("dbus.notifications", sender.active())
+        try:
+            yield sender
+        finally:
+            for record in sender.active():
+                subprocess.run(["bash", str(_script_path()), "close", str(record["id"])],
+                               env=tier.env, capture_output=True, text=True, timeout=10, check=True)
+            sender.wait_closed(sender.records)
+            assert not sender.active(), sender.active()
+            ctx.restored("dbus.notifications", sender.active())
+    finally:
+        watcher.terminate()
+        watcher.wait(timeout=5)
 
 
 def compare_records(expected: list[dict], listed: list[dict]) -> list[str]:
