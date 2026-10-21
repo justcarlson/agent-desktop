@@ -98,10 +98,6 @@ function Add-RedactionGateFailure {
     the code that wrote it, not in this list.
 #>
 $script:PreexistingUnredactedAllowlist = @(
-    'docs/dogfood-reports/2026-08-03-001-captures/live-dogfood-run.json',
-    'docs/dogfood-reports/2026-08-06-001-captures/actionability-dogfood-run.json',
-    'docs/dogfood-reports/2026-08-07-001-captures/semantic-dogfood-run.json',
-    'docs/dogfood-reports/2026-08-15-001-captures/signals-wait-parity-dogfood-run.json',
     'probes/windows/21-system-lifecycle/captures/lifecycle-manifest-ci.json',
     'probes/windows/21-system-lifecycle/captures/lifecycle-manifest-devbox.json',
     'probes/windows/22-capture-clipboard/captures/capture-manifest-devbox.json',
