@@ -176,9 +176,7 @@ fn a_timeout_names_the_dialog_a_person_must_approve() {
 
 #[test]
 fn response_two_after_the_portal_patience_is_a_timeout_not_a_refusal() {
-    let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 2 }));
-    let error =
-        screenshot_uri_after(&wire, TOKEN, deadline(), Duration::ZERO).expect_err("gave up");
+    let error = refused(2, PORTAL_PATIENCE);
     assert_eq!(error.code, ErrorCode::Timeout);
     assert!(
         error
@@ -186,16 +184,13 @@ fn response_two_after_the_portal_patience_is_a_timeout_not_a_refusal() {
             .as_deref()
             .is_some_and(|text| text.contains("dialog"))
     );
-    let instant = FakeWire::answering(Ok(PortalAnswer::Refused { code: 2 }));
-    let error = screenshot_uri_after(&instant, TOKEN, deadline(), Duration::from_secs(60))
-        .expect_err("refused at once");
+    let error = refused(2, Duration::ZERO);
     assert_eq!(error.code, ErrorCode::PermDenied);
 }
 
 #[test]
 fn response_one_never_reads_as_a_timeout_and_names_deny_and_dismissal() {
-    let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 1 }));
-    let error = screenshot_uri_after(&wire, TOKEN, deadline(), Duration::ZERO).expect_err("deny");
+    let error = refused(1, PORTAL_PATIENCE);
     assert_eq!(error.code, ErrorCode::PermDenied);
     let hint = error.suggestion.expect("a hint");
     assert!(hint.contains("chose Deny or closed"), "{hint}");

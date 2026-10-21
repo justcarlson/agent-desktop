@@ -6,7 +6,7 @@ use super::display::scale_for;
 use super::pixels::MAX_PIXELS;
 use super::window_context::{CaptureEnv, WindowContext, grab_failure};
 use super::window_obstruction::{Cover, cover};
-use super::window_unit::{Unit, choose, for_screenshot};
+use super::window_unit::{Unit, choose};
 use super::window_xid::xid_or_error;
 use crate::system::bus::ensure_budget;
 use crate::system::x11::FrameExtents;
@@ -59,41 +59,27 @@ fn covered() -> AdapterError {
 }
 
 fn inside_shadow(rect: Extents, shadow: Option<FrameExtents>) -> (Extents, (i16, i16)) {
-    let Some(shadow) = shadow else {
-        return (rect, (0, 0));
-    };
-    let grown = |value: u32| i32::try_from(value).ok();
-    let (Some(left), Some(right), Some(top), Some(bottom)) = (
-        grown(shadow.left),
-        grown(shadow.right),
-        grown(shadow.top),
-        grown(shadow.bottom),
-    ) else {
-        return (rect, (0, 0));
-    };
-    let (Some(width), Some(height)) = (
-        rect.width
-            .checked_sub(left)
-            .and_then(|n| n.checked_sub(right)),
-        rect.height
-            .checked_sub(top)
-            .and_then(|n| n.checked_sub(bottom)),
-    ) else {
-        return (rect, (0, 0));
-    };
-    let offset = (i16::try_from(left), i16::try_from(top));
-    match offset {
-        (Ok(x), Ok(y)) if width > 0 && height > 0 => (
-            Extents {
-                x: rect.x + left,
-                y: rect.y + top,
-                width,
-                height,
-            },
-            (x, y),
-        ),
-        _ => (rect, (0, 0)),
-    }
+    let inset = shadow.and_then(|shadow| {
+        let left = i32::try_from(shadow.left).ok()?;
+        let right = i32::try_from(shadow.right).ok()?;
+        let top = i32::try_from(shadow.top).ok()?;
+        let bottom = i32::try_from(shadow.bottom).ok()?;
+        let width = rect.width.checked_sub(left)?.checked_sub(right)?;
+        let height = rect.height.checked_sub(top)?.checked_sub(bottom)?;
+        let inset = (i16::try_from(left).ok()?, i16::try_from(top).ok()?);
+        (width > 0 && height > 0).then(|| {
+            (
+                Extents {
+                    x: rect.x + left,
+                    y: rect.y + top,
+                    width,
+                    height,
+                },
+                inset,
+            )
+        })
+    });
+    inset.unwrap_or((rect, (0, 0)))
 }
 
 fn survey(ctx: &WindowContext) -> Result<Geometry, AdapterError> {
@@ -131,7 +117,11 @@ fn unit_of(geometry: &Geometry, bounds: Option<Rect>, strict: bool) -> Result<Un
             "Capture the window with 'screenshot --window-id' instead",
         ));
     }
-    Ok(for_screenshot(proven, geometry.frame.is_some()))
+    Ok(match (proven, geometry.frame.is_some()) {
+        (Unit::Unproven, true) => Unit::Frame,
+        (Unit::Unproven, false) => Unit::Client,
+        (unit, _) => unit,
+    })
 }
 
 fn target_of(geometry: &Geometry, unit: Unit, xid: u32) -> (u32, Extents, (i16, i16)) {
@@ -162,20 +152,12 @@ fn grab_rect_of(rect: Extents, inset: (i16, i16)) -> Result<GrabRect, AdapterErr
     })
 }
 
-enum Clearance {
-    Clear,
-    Hidden,
-}
-
-fn clearance(ctx: &WindowContext, rect: Extents) -> Clearance {
+fn clear(ctx: &WindowContext, rect: Extents) -> bool {
     if ctx.compositing {
-        return Clearance::Clear;
+        return true;
     }
     let read = ctx.env.stacking.read_within(ctx.xid, ctx.deadline);
-    match cover(&read, ctx.xid, rect) {
-        Cover::Clear => Clearance::Clear,
-        Cover::Covered | Cover::Unknown => Clearance::Hidden,
-    }
+    matches!(cover(&read, ctx.xid, rect), Cover::Clear)
 }
 
 fn changed() -> AdapterError {
@@ -203,9 +185,10 @@ fn recheck(
     let Some(rect) = plain_over else {
         return Ok(());
     };
-    match clearance(ctx, rect) {
-        Clearance::Clear => Ok(()),
-        Clearance::Hidden => Err(covered()),
+    if clear(ctx, rect) {
+        Ok(())
+    } else {
+        Err(covered())
     }
 }
 
@@ -252,7 +235,7 @@ pub(crate) fn capture(
     let (drawable, rect, inset) = target_of(&before, unit, xid);
     let area = grab_rect_of(rect, inset)?;
     ensure_budget(deadline)?;
-    let plain = matches!(clearance(&ctx, rect), Clearance::Clear);
+    let plain = clear(&ctx, rect);
     let raw = if plain {
         env.grabber.grab(drawable, area, deadline)
     } else {

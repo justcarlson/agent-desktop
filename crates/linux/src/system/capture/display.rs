@@ -2,7 +2,7 @@ use agent_desktop_core::{
     AdapterError, Deadline, DisplayInfo, ErrorCode, ImageBuffer, Rect, ScreenshotTarget,
 };
 
-use super::fullscreen_route::{choose, paint};
+use super::fullscreen_route::paint;
 use super::window_context::{CaptureEnv, grab_failure};
 use crate::system::bus::ensure_budget;
 use crate::system::x11::grab_rect::GrabRect;
@@ -124,10 +124,6 @@ pub(crate) fn grab_rect(area: Extents) -> Result<GrabRect, AdapterError> {
     }
 }
 
-fn unchanged(displays: &[DisplayInfo], index: usize, before: &DisplayInfo) -> bool {
-    displays.get(index) == Some(before)
-}
-
 /// Captures one display, proving before and after the grab that it is still
 /// the display the target named.
 pub(crate) fn capture(
@@ -144,16 +140,19 @@ pub(crate) fn capture(
         .grabber
         .compositing(deadline)
         .map_err(|error| grab_failure(error, deadline))?;
-    let painted = paint(env, choose(compositing), area, deadline)?;
+    let raw = paint(env, compositing, area, deadline)?;
+    let (width, height) = (raw.width, raw.height);
+    let rgb = (env.decode)(&raw)?;
+    drop(raw);
     ensure_budget(deadline)?;
     let after = env.lookup.displays(deadline)?;
-    if !unchanged(&after, index, &display) {
+    if after.get(index) != Some(&display) {
         return Err(invalid(
             "The display changed while it was being captured".to_owned(),
             after.len(),
         ));
     }
-    (env.encode)(&painted.rgb, painted.width, painted.height, display.scale)
+    (env.encode)(&rgb, width, height, display.scale)
 }
 
 #[cfg(test)]

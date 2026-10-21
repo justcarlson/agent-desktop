@@ -134,12 +134,39 @@ fn bounds_no_drawable_matches_refuse_the_debug_frame_without_a_grab() {
 
 #[test]
 fn missing_bounds_refuse_the_debug_frame_but_not_screenshot() {
-    let rig = Rig::standard();
-    rig.lookup.resolved.set(vec![Some(window_info(None))]);
-    capture(&rig.env(), &target(), false, deadline()).expect("captured");
-    let strict = Rig::standard();
-    strict.lookup.resolved.set(vec![Some(window_info(None))]);
-    assert!(capture(&strict.env(), &target(), true, deadline()).is_err());
+    for (has_frame, expected_drawable) in [(true, FRAME), (false, CLIENT)] {
+        let rig = Rig::standard();
+        if !has_frame {
+            rig.grabber.describe_as(
+                CLIENT,
+                vec![Drawn {
+                    rect: extents(100, 138, 1000, 700),
+                    parent: None,
+                    state: 0,
+                }],
+            );
+        }
+        rig.lookup.resolved.set(vec![Some(window_info(None))]);
+        capture(&rig.env(), &target(), false, deadline()).expect("captured");
+        assert_eq!(rig.grabber.last_grab().0, expected_drawable);
+        assert_eq!(rig.grabber.grab_count(), 1);
+
+        let strict = Rig::standard();
+        if !has_frame {
+            strict.grabber.describe_as(
+                CLIENT,
+                vec![Drawn {
+                    rect: extents(100, 138, 1000, 700),
+                    parent: None,
+                    state: 0,
+                }],
+            );
+        }
+        strict.lookup.resolved.set(vec![Some(window_info(None))]);
+        let error = capture(&strict.env(), &target(), true, deadline()).expect_err("unproven");
+        assert_eq!(error.code, ErrorCode::ActionFailed);
+        assert_eq!(strict.grabber.grab_count(), 0);
+    }
 }
 
 #[test]

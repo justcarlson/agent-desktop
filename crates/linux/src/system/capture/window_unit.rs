@@ -39,16 +39,6 @@ pub(crate) fn choose(client: Extents, frame: Option<Extents>, bounds: Option<Rec
     Unit::Unproven
 }
 
-/// The unit a plain screenshot takes: a proven one, else the frame when the
-/// window has one.
-pub(crate) fn for_screenshot(proven: Unit, has_frame: bool) -> Unit {
-    match (proven, has_frame) {
-        (Unit::Unproven, true) => Unit::Frame,
-        (Unit::Unproven, false) => Unit::Client,
-        (unit, _) => unit,
-    }
-}
-
 #[cfg(test)]
 #[path = "window_unit_tests.rs"]
 mod tests;
