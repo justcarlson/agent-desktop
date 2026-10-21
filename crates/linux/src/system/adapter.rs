@@ -103,7 +103,7 @@ impl SystemOps for LinuxAdapter {
     ) -> Result<ActionResult, AdapterError> {
         let pid = process.pid.get();
         let result = key_dispatch::press_key_for_app(self.bus(), process, combo, policy, lease);
-        action_clock::mark_process(pid);
+        action_clock::mark_outcome(Some(pid), &result);
         result
     }
 
@@ -115,7 +115,7 @@ impl SystemOps for LinuxAdapter {
         lease: &InteractionLease,
     ) -> Result<ActionResult, AdapterError> {
         let result = key_dispatch::press_key_for_window(self.bus(), window, combo, policy, lease);
-        action_clock::mark_process(window.pid.get());
+        action_clock::mark_outcome(Some(window.pid.get()), &result);
         result
     }
 

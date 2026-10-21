@@ -51,22 +51,32 @@ fn a_clear_window_is_a_plain_grab_and_never_a_redirect() {
 }
 
 #[test]
-fn a_redirect_that_times_out_is_a_covered_window_not_a_deadline() {
-    let rig = Rig::standard();
-    rig.stacking.reads.set(vec![covering()]);
-    *rig.grabber.redirect_with.lock().expect("redirect lock") =
-        Box::new(|_, _| Err(crate::system::x11::grab_error::GrabError::Timeout));
-    let error = capture(&rig.env(), &target(), false, deadline()).expect_err("covered");
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(reason_of(&error), Some("covered"));
-    assert!(
-        error
-            .suggestion
-            .as_deref()
-            .is_some_and(|text| text.contains("focus-window")),
-        "{:?}",
-        error.suggestion
-    );
+fn a_redirect_transport_timeout_preserves_the_timeout_without_focus_advice() {
+    use crate::system::x11::grab_error::GrabError;
+    for (failure, code, reason) in [
+        (GrabError::Timeout, ErrorCode::Timeout, None),
+        (
+            GrabError::UnprovenPaint,
+            ErrorCode::ActionFailed,
+            Some("covered"),
+        ),
+    ] {
+        let rig = Rig::standard();
+        rig.stacking.reads.set(vec![covering()]);
+        *rig.grabber.redirect_with.lock().expect("redirect lock") =
+            Box::new(move |_, _| Err(failure.clone()));
+        let error = capture(&rig.env(), &target(), false, deadline()).expect_err("no image");
+        assert_eq!(error.code, code);
+        assert_eq!(reason_of(&error), reason);
+        assert_eq!(
+            error
+                .suggestion
+                .as_deref()
+                .unwrap_or_default()
+                .contains("focus-window"),
+            reason.is_some()
+        );
+    }
 }
 
 #[test]

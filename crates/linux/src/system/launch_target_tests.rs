@@ -189,6 +189,42 @@ fn a_desktop_file_outside_the_data_directories_is_refused() {
     );
 }
 
+#[test]
+fn an_explicit_desktop_path_is_not_shadowed_by_an_earlier_xdg_entry() {
+    let mut fixture = fixture(
+        &[("tool", "Name=First\nType=Application\nExec=first")],
+        &["first", "second"],
+    );
+    let later = fixture.root.join("later");
+    std::fs::create_dir(&later).expect("later directory");
+    let exact = later.join("tool.desktop");
+    std::fs::write(
+        &exact,
+        "[Desktop Entry]\nName=Second\nType=Application\nExec=second %k\n",
+    )
+    .expect("second entry");
+    fixture.search.data_dirs.push(later);
+    let plan = resolve(
+        exact.to_str().expect("path"),
+        &[],
+        &fixture.search,
+        &fixture.index,
+    )
+    .expect("explicit entry");
+    assert_eq!(
+        plan.argv,
+        [
+            fixture.search.path_dirs[0].join("second").to_string_lossy(),
+            exact.to_string_lossy()
+        ]
+    );
+    let by_id = resolve("tool", &[], &fixture.search, &fixture.index).expect("desktop id");
+    assert_eq!(
+        by_id.argv,
+        [fixture.search.path_dirs[0].join("first").to_string_lossy()]
+    );
+}
+
 fn entry_of(body: &str) -> DesktopEntry {
     parse("x", &format!("[Desktop Entry]\n{body}\n")).expect("entry")
 }

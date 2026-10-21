@@ -225,7 +225,7 @@ impl LinuxAdapter {
                 }
             }
         };
-        crate::system::action_clock::mark_target(target);
+        crate::system::action_clock::mark_outcome(target, &result);
         result
     }
 }

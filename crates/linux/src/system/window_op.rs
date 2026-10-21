@@ -47,6 +47,7 @@ trait OpWorld: ClientWorld {
 
 struct Live<'a> {
     frame: FrameWorld<'a>,
+    owner: agent_desktop_core::ProcessIdentity,
     deadline: Deadline,
 }
 
@@ -82,15 +83,15 @@ impl OpWorld for Live<'_> {
     }
 
     fn facts(&self, client: u32) -> ControlRead<WindowFacts> {
-        read_facts(client, self.deadline)
+        read_facts(client, &self.owner, self.deadline)
     }
 
     fn write(&self, client: u32, write: &WindowWrite) -> Result<(), ControlError> {
-        write_window(client, write, self.deadline)
+        write_window(client, write, &self.owner, self.deadline)
     }
 
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError> {
-        lift(client, self.deadline)
+        lift(client, &self.owner, self.deadline)
     }
 
     fn remember(&self, win: &WindowInfo, client: u32, rectangle: Option<Extents>) {
@@ -144,8 +145,14 @@ fn ensure_owned_before(world: &impl OpWorld, win: &WindowInfo) -> Result<(), Ada
     Ok(())
 }
 
-fn ensure_owned_after(world: &impl OpWorld, win: &WindowInfo) -> Result<(), AdapterError> {
-    if same_instance(world, win) == Some(false) {
+fn ensure_owned_after(
+    world: &impl OpWorld,
+    win: &WindowInfo,
+    client: u32,
+) -> Result<(), AdapterError> {
+    let owned = matches!(world.clients(), ControlRead::Ready(clients)
+        if clients.iter().any(|candidate| candidate.id == client && candidate.pid == Some(win.pid.get())));
+    if same_instance(world, win) != Some(true) || !owned {
         return Err(AdapterError::new(
             ErrorCode::WindowNotFound,
             "The window's process changed or exited during the operation",
@@ -224,7 +231,7 @@ fn apply(
 ) -> Result<(), AdapterError> {
     world.write(client, write).map_err(write_failed)?;
     let (verdict, observed) = settle(world, client, write, deadline);
-    ensure_owned_after(world, win)?;
+    ensure_owned_after(world, win, client)?;
     match verdict {
         Verdict::Satisfied => Ok(()),
         Verdict::Pending | Verdict::Mismatch => {
@@ -365,7 +372,20 @@ pub(crate) fn window_op(
     let deadline = lease.deadline();
     let frame = FrameWorld::new(bus, win, deadline)
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
-    run(&Live { frame, deadline }, win, &op, deadline)
+    let owner = agent_desktop_core::ProcessIdentity::new(
+        win.pid,
+        win.process_instance.clone().unwrap_or_default(),
+    );
+    run(
+        &Live {
+            frame,
+            owner,
+            deadline,
+        },
+        win,
+        &op,
+        deadline,
+    )
 }
 
 #[path = "window_op_hold.rs"]

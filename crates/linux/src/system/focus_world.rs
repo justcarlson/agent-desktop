@@ -35,6 +35,7 @@ const ACTIVE_READ: Duration = Duration::from_millis(500);
 pub(super) struct LiveWorld<'a> {
     bus: &'a SharedBus,
     frame: AtspiElement,
+    owner: agent_desktop_core::ProcessIdentity,
     deadline: Deadline,
 }
 
@@ -48,6 +49,10 @@ impl<'a> LiveWorld<'a> {
         Ok(Self {
             bus,
             frame: AtspiElement::new(bus_name, path, win.pid.get()),
+            owner: agent_desktop_core::ProcessIdentity::new(
+                win.pid,
+                win.process_instance.clone().unwrap_or_default(),
+            ),
             deadline,
         })
     }
@@ -162,7 +167,7 @@ impl FocusWorld for LiveWorld<'_> {
     }
 
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError> {
-        restore_minimized::lift(client, self.deadline)
+        restore_minimized::lift(client, &self.owner, self.deadline)
     }
 }
 

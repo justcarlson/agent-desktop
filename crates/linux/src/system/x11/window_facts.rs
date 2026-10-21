@@ -1,4 +1,4 @@
-use agent_desktop_core::Deadline;
+use agent_desktop_core::{Deadline, ProcessIdentity};
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt};
 
 use super::control::ControlRead;
@@ -31,11 +31,23 @@ pub(super) fn decode_state(
 
 /// The client rectangle in root coordinates and the window manager state of
 /// `window`, read on a bounded thread.
-pub(crate) fn read_facts(window: u32, deadline: Deadline) -> ControlRead<WindowFacts> {
-    route(deadline, move |display| read_display(&display, window))
+pub(crate) fn read_facts(
+    window: u32,
+    owner: &ProcessIdentity,
+    deadline: Deadline,
+) -> ControlRead<WindowFacts> {
+    let owner = owner.clone();
+    route(deadline, move |display| {
+        read_display(&display, window, &owner, deadline)
+    })
 }
 
-fn read_display(display: &str, window: u32) -> ControlRead<WindowFacts> {
+fn read_display(
+    display: &str,
+    window: u32,
+    owner: &ProcessIdentity,
+    deadline: Deadline,
+) -> ControlRead<WindowFacts> {
     let Some((connection, root)) = open(display) else {
         return ControlRead::Unavailable;
     };
@@ -43,6 +55,7 @@ fn read_display(display: &str, window: u32) -> ControlRead<WindowFacts> {
         &connection,
         &[
             b"_NET_SUPPORTING_WM_CHECK",
+            b"_NET_WM_PID",
             b"_NET_WM_STATE",
             b"_NET_WM_STATE_HIDDEN",
             b"_NET_WM_STATE_MAXIMIZED_VERT",
@@ -51,7 +64,7 @@ fn read_display(display: &str, window: u32) -> ControlRead<WindowFacts> {
     ) else {
         return ControlRead::Unavailable;
     };
-    let [check, state, hidden, vertical, horizontal] = names.as_slice() else {
+    let [check, pid_atom, state, hidden, vertical, horizontal] = names.as_slice() else {
         return ControlRead::Unavailable;
     };
     let Some(manager) = property(&connection, root, *check, AtomEnum::WINDOW, 1) else {
@@ -60,8 +73,32 @@ fn read_display(display: &str, window: u32) -> ControlRead<WindowFacts> {
     if manager.value.is_empty() {
         return ControlRead::NoManager;
     }
+    super::control_owner::with_owner(
+        owner,
+        || super::control_grab::ServerGrab::acquire(&connection, deadline),
+        || super::control::pid_of(&connection, window, *pid_atom),
+        crate::system::liveness::identity,
+        || {
+            Ok(read_current(
+                &connection,
+                root,
+                window,
+                [*state, *hidden, *vertical, *horizontal],
+            ))
+        },
+    )
+    .unwrap_or(ControlRead::Unavailable)
+}
+
+fn read_current(
+    connection: &x11rb::rust_connection::RustConnection,
+    root: u32,
+    window: u32,
+    names: [u32; 4],
+) -> ControlRead<WindowFacts> {
+    let [state, hidden, vertical, horizontal] = names;
     let pending = (
-        connection.get_property(false, window, *state, AtomEnum::ATOM, 0, STATE_LONGS),
+        connection.get_property(false, window, state, AtomEnum::ATOM, 0, STATE_LONGS),
         connection.translate_coordinates(window, root, 0, 0),
         connection.get_geometry(window),
     );
@@ -79,7 +116,7 @@ fn read_display(display: &str, window: u32) -> ControlRead<WindowFacts> {
         state_reply.format,
         &state_reply.value,
         state_reply.bytes_after,
-        [*hidden, *vertical, *horizontal],
+        [hidden, vertical, horizontal],
     ) else {
         return ControlRead::Unavailable;
     };

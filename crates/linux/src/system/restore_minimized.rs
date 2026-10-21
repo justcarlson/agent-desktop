@@ -23,15 +23,15 @@ trait LiftWorld {
     fn manager(&self, deadline: Deadline) -> Option<String>;
 }
 
-struct Live;
+struct Live<'a>(&'a agent_desktop_core::ProcessIdentity);
 
-impl LiftWorld for Live {
+impl LiftWorld for Live<'_> {
     fn activate(&self, client: u32, deadline: Deadline) -> Result<(), ControlError> {
-        raise_window(client, deadline)
+        raise_window(client, self.0, deadline)
     }
 
     fn facts(&self, client: u32, deadline: Deadline) -> ControlRead<WindowFacts> {
-        read_facts(client, deadline)
+        read_facts(client, self.0, deadline)
     }
 
     fn manager(&self, deadline: Deadline) -> Option<String> {
@@ -50,7 +50,28 @@ pub(super) fn still_hidden(manager: &str) -> AdapterError {
     .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
-fn not_sent() -> AdapterError {
+fn activation_failed(error: ControlError) -> AdapterError {
+    if error == ControlError::SendFailed {
+        return AdapterError::new(
+            ErrorCode::ActionFailed,
+            "The restore request was not confirmed by the display server",
+        )
+        .with_suggestion(
+            "Run 'list-windows' to read the window state before deciding whether to retry",
+        )
+        .with_details(json!({ "cause": "activation_unconfirmed" }))
+        .with_disposition(DeliverySemantics::uncertain());
+    }
+    if error == ControlError::TimedOut {
+        return AdapterError::timeout(
+            "The display server did not accept the restore request in time",
+        )
+        .with_disposition(DeliverySemantics::not_delivered());
+    }
+    if error == ControlError::StaleWindow {
+        return AdapterError::stale_ref_because("The window owner changed before restoration")
+            .with_disposition(DeliverySemantics::not_delivered());
+    }
     AdapterError::new(
         ErrorCode::ActionFailed,
         "The request to show the window could not be sent to the window manager",
@@ -75,7 +96,9 @@ fn lift_via(
     client: u32,
     deadline: Deadline,
 ) -> Result<Lifted, AdapterError> {
-    world.activate(client, deadline).map_err(|_| not_sent())?;
+    world
+        .activate(client, deadline)
+        .map_err(activation_failed)?;
     let settle = deadline.capped(SETTLE_BUDGET);
     let mut read_once = false;
     loop {
@@ -102,8 +125,12 @@ fn lift_via(
 /// Asks the window manager to show a hidden window and reports whether the
 /// hidden flag cleared inside the settle budget. The request is
 /// judged by the flag, never by having been sent.
-pub(crate) fn lift(client: u32, deadline: Deadline) -> Result<Lifted, AdapterError> {
-    lift_via(&Live, client, deadline)
+pub(crate) fn lift(
+    client: u32,
+    owner: &agent_desktop_core::ProcessIdentity,
+    deadline: Deadline,
+) -> Result<Lifted, AdapterError> {
+    lift_via(&Live(owner), client, deadline)
 }
 
 #[cfg(test)]

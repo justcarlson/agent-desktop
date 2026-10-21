@@ -5,14 +5,15 @@ use super::*;
 #[test]
 fn a_recycled_xid_is_not_closed() {
     let current_pid = Cell::new(Some(42));
-    let target = CloseOwner {
-        pid: current_pid.get().expect("the inventoried owner"),
+    let target = agent_desktop_core::ProcessIdentity {
+        pid: current_pid.get().expect("the inventoried owner").into(),
         instance: "original".to_owned(),
     };
     for replacement in [Some(99), None] {
         current_pid.set(replacement);
         let sent = Cell::new(false);
-        let outcome = target.send(
+        let outcome = with_owner(
+            &target,
             || Ok(()),
             || current_pid.get(),
             |_, _| Identity::Same,
@@ -28,13 +29,14 @@ fn a_recycled_xid_is_not_closed() {
 
 #[test]
 fn a_recycled_or_unreadable_process_is_not_closed() {
-    let target = CloseOwner {
-        pid: 42,
+    let target = agent_desktop_core::ProcessIdentity {
+        pid: 42.into(),
         instance: "original".to_owned(),
     };
     for identity in [Identity::Replaced, Identity::Gone, Identity::Unreadable] {
         let sent = Cell::new(false);
-        let outcome = target.send(
+        let outcome = with_owner(
+            &target,
             || Ok(()),
             || Some(42),
             |pid, instance| {
@@ -53,13 +55,14 @@ fn a_recycled_or_unreadable_process_is_not_closed() {
 
 #[test]
 fn a_current_owner_receives_close_and_retains_send_errors() {
-    let target = CloseOwner {
-        pid: 42,
+    let target = agent_desktop_core::ProcessIdentity {
+        pid: 42.into(),
         instance: "original".to_owned(),
     };
     for result in [Ok(()), Err(ControlError::SendFailed)] {
         let sent = Cell::new(0);
-        let outcome = target.send(
+        let outcome = with_owner(
+            &target,
             || Ok(()),
             || Some(42),
             |pid, instance| {
@@ -97,35 +100,35 @@ fn close_validation_and_dispatch_hold_the_server_grab() {
     let pid = Cell::new(42);
     let pending_reuse = Cell::new(false);
     let sent_to = Cell::new(None);
-    let target = CloseOwner {
-        pid: 42,
+    let target = agent_desktop_core::ProcessIdentity {
+        pid: 42.into(),
         instance: "original".to_owned(),
     };
-    target
-        .send(
-            || {
-                grabbed.set(true);
-                Ok(Grab {
-                    grabbed: &grabbed,
-                    pid: &pid,
-                    pending_reuse: &pending_reuse,
-                })
-            },
-            || Some(pid.get()),
-            |_, _| {
-                if grabbed.get() {
-                    pending_reuse.set(true);
-                } else {
-                    pid.set(99);
-                }
-                Identity::Same
-            },
-            || {
-                sent_to.set(Some(pid.get()));
-                Ok(())
-            },
-        )
-        .expect("close dispatched before reuse");
+    with_owner(
+        &target,
+        || {
+            grabbed.set(true);
+            Ok(Grab {
+                grabbed: &grabbed,
+                pid: &pid,
+                pending_reuse: &pending_reuse,
+            })
+        },
+        || Some(pid.get()),
+        |_, _| {
+            if grabbed.get() {
+                pending_reuse.set(true);
+            } else {
+                pid.set(99);
+            }
+            Identity::Same
+        },
+        || {
+            sent_to.set(Some(pid.get()));
+            Ok(())
+        },
+    )
+    .expect("close dispatched before reuse");
     assert_eq!(sent_to.get(), Some(42));
     assert!(!grabbed.get());
     assert_eq!(pid.get(), 99, "reuse resumes after dispatch");
@@ -133,11 +136,12 @@ fn close_validation_and_dispatch_hold_the_server_grab() {
 
 #[test]
 fn a_failed_server_grab_sends_nothing() {
-    let target = CloseOwner {
-        pid: 42,
+    let target = agent_desktop_core::ProcessIdentity {
+        pid: 42.into(),
         instance: "original".to_owned(),
     };
-    let outcome = target.send(
+    let outcome: Result<(), _> = with_owner(
+        &target,
         || Err::<(), _>(ControlError::SendFailed),
         || panic!("must not read the owner without a server grab"),
         |_, _| panic!("must not read the process without a server grab"),

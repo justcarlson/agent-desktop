@@ -28,6 +28,7 @@ pub(super) trait PopupReader {
     fn window(&mut self) -> Result<Option<Node>, AdapterError>;
     fn top_levels(&mut self) -> Result<Vec<Node>, AdapterError>;
     fn pause(&mut self, gap: Duration);
+    fn incomplete(&self) -> bool;
 }
 
 /// The menu surface kinds this session can snapshot.
@@ -58,6 +59,11 @@ fn scan(reader: &mut impl PopupReader) -> Result<Vec<MenuPopup>, AdapterError> {
             .filter_map(menu_popup::top_level)
             .map(popup_of),
     );
+    if reader.incomplete() {
+        return Err(AdapterError::timeout(
+            "The menu inventory could not be read in full",
+        ));
+    }
     Ok(popups)
 }
 

@@ -35,6 +35,8 @@ agent-desktop screenshot /tmp/everything.png
 - The area no X window owns (wallpaper, shell chrome) cannot be read under a
   compositor. Do not expect a screenshot to show it.
 - `screenshot` has no timeout flag.
+- A display-server or caller-deadline timeout stays `TIMEOUT`, including when
+  capturing a covered window. It does not prove coverage or advise focus.
 
 ## `screenshot` on Wayland
 

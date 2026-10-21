@@ -107,7 +107,16 @@ fn resolve_program(program: &str, path_dirs: &[PathBuf]) -> Result<String, Adapt
 
 fn entry_plan(id: &str, arguments: &[String], search: &Search) -> Result<Plan, AdapterError> {
     let file = find(id, &search.data_dirs).ok_or_else(|| not_found(id))?;
-    let text = std::fs::read_to_string(&file).map_err(|_| not_found(id))?;
+    plan_file(&file, id, arguments, search)
+}
+
+fn plan_file(
+    file: &Path,
+    id: &str,
+    arguments: &[String],
+    search: &Search,
+) -> Result<Plan, AdapterError> {
+    let text = std::fs::read_to_string(file).map_err(|_| not_found(id))?;
     let entry = parse(id, &text).ok_or_else(|| {
         refuse(
             ErrorCode::AppNotFound,
@@ -184,7 +193,7 @@ pub(crate) fn resolve(
                     "'{identifier}' is a desktop file outside the XDG data directories and is not launched"
                 )));
             }
-            return entry_plan(id, arguments, search);
+            return plan_file(&file, id, arguments, search);
         }
         if file.is_file() {
             let keys = basename_lower(identifier).into_iter().collect();

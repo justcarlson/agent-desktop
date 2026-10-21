@@ -89,11 +89,25 @@ fn a_flag_that_stays_set_is_still_hidden_and_names_the_manager() {
 #[test]
 fn a_request_that_cannot_be_sent_is_not_delivered_and_reads_nothing() {
     let mut world = World::never_clearing();
-    world.activation = Err(ControlError::SendFailed);
+    world.activation = Err(ControlError::NoDisplay);
     let error = lift_via(&world, 7, deadline(5_000)).expect_err("a refusal");
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(world.hidden_reads.get(), 0);
+}
+
+#[test]
+fn a_restore_send_without_confirmation_is_uncertain_and_requires_readback() {
+    let mut world = World::never_clearing();
+    world.activation = Err(ControlError::SendFailed);
+    let error = lift_via(&world, 7, deadline(5_000)).expect_err("unknown delivery");
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert!(
+        error
+            .suggestion
+            .expect("readback advice")
+            .contains("list-windows")
+    );
 }
 
 #[test]

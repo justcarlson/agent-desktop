@@ -1,4 +1,4 @@
-use agent_desktop_core::Deadline;
+use agent_desktop_core::{Deadline, ProcessIdentity};
 use x11rb::errors::ReplyError;
 use x11rb::protocol::xproto::{Atom, ClientMessageEvent, ConnectionExt, EventMask};
 use x11rb::rust_connection::RustConnection;
@@ -11,7 +11,7 @@ use super::client_message::{
 use super::control::{ControlError, pid_of};
 use super::control_display::{atoms, connect};
 use super::control_grab::ServerGrab;
-use super::control_owner::CloseOwner;
+use super::control_owner::with_owner;
 use super::stacking::bounded;
 use crate::system::liveness;
 
@@ -33,7 +33,7 @@ struct Ready {
     connection: RustConnection,
     root: u32,
     event: ClientMessageEvent,
-    close_owner: Option<(CloseOwner, Atom)>,
+    owner: (ProcessIdentity, Atom),
 }
 
 fn names_of(write: &WindowWrite) -> &'static [&'static [u8]] {
@@ -90,6 +90,7 @@ fn live(connection: &RustConnection, window: u32) -> Result<(), ControlError> {
 fn prepare_write(
     window: u32,
     write: WindowWrite,
+    owner: ProcessIdentity,
 ) -> impl FnOnce(Deadline) -> Result<Result<Ready, ControlError>, ActivateError> + Send + 'static {
     move |_| {
         let (connection, root) = connect()?;
@@ -98,18 +99,19 @@ fn prepare_write(
         }
         let interned = atoms(&connection, names_of(&write)).ok_or(ActivateError::SendFailed)?;
         let event = event_of(window, &write, &interned).ok_or(ActivateError::SendFailed)?;
+        let pid_atom = single(&connection, b"_NET_WM_PID")?;
         Ok(Ok(Ready {
             connection,
             root,
             event,
-            close_owner: None,
+            owner: (owner, pid_atom),
         }))
     }
 }
 
 fn prepare_close(
     window: u32,
-    owner: CloseOwner,
+    owner: ProcessIdentity,
 ) -> impl FnOnce(Deadline) -> Result<Result<Ready, ControlError>, ActivateError> + Send + 'static {
     move |deadline| {
         let (connection, root) = connect()?;
@@ -123,7 +125,7 @@ fn prepare_close(
             connection,
             root,
             event: message(window, kind, close(stamp)),
-            close_owner: Some((owner, pid_atom)),
+            owner: (owner, pid_atom),
         }))
     }
 }
@@ -150,15 +152,14 @@ fn emit_within(deadline: Deadline) -> impl FnOnce(Ready) -> Result<(), ControlEr
 }
 
 fn emit(ready: Ready, deadline: Deadline) -> Result<(), ControlError> {
-    if let Some((owner, atom)) = &ready.close_owner {
-        return owner.send(
-            || ServerGrab::acquire(&ready.connection, deadline),
-            || pid_of(&ready.connection, ready.event.window, *atom),
-            liveness::identity,
-            || emit_event(&ready, deadline),
-        );
-    }
-    emit_event(&ready, deadline)
+    let (owner, atom) = &ready.owner;
+    with_owner(
+        owner,
+        || ServerGrab::acquire(&ready.connection, deadline),
+        || pid_of(&ready.connection, ready.event.window, *atom),
+        liveness::identity,
+        || emit_event(&ready, deadline),
+    )
 }
 
 fn emit_event(ready: &Ready, deadline: Deadline) -> Result<(), ControlError> {
@@ -200,17 +201,19 @@ pub(super) fn deliver<P: Send + 'static>(
 pub(crate) fn write_window(
     window: u32,
     write: &WindowWrite,
+    owner: &ProcessIdentity,
     deadline: Deadline,
 ) -> Result<(), ControlError> {
     deliver(
         deadline,
-        prepare_write(window, write.clone()),
+        prepare_write(window, write.clone(), owner.clone()),
         emit_within(deadline),
     )
 }
 
 fn prepare_raise(
     window: u32,
+    owner: ProcessIdentity,
 ) -> impl FnOnce(Deadline) -> Result<Result<Ready, ControlError>, ActivateError> + Send + 'static {
     move |_| {
         let (connection, root) = connect()?;
@@ -218,11 +221,12 @@ fn prepare_raise(
             return Ok(Err(error));
         }
         let kind = single(&connection, b"_NET_ACTIVE_WINDOW")?;
+        let pid_atom = single(&connection, b"_NET_WM_PID")?;
         Ok(Ok(Ready {
             connection,
             root,
             event: message(window, kind, activate()),
-            close_owner: None,
+            owner: (owner, pid_atom),
         }))
     }
 }
@@ -239,8 +243,16 @@ fn message(window: u32, kind: Atom, data: MessageData) -> ClientMessageEvent {
 
 /// Asks the window manager to activate `window`, which un-minimizes it
 /// under EWMH. The caller judges the effect by the hidden flag.
-pub(crate) fn raise_window(window: u32, deadline: Deadline) -> Result<(), ControlError> {
-    deliver(deadline, prepare_raise(window), emit_within(deadline))
+pub(crate) fn raise_window(
+    window: u32,
+    owner: &ProcessIdentity,
+    deadline: Deadline,
+) -> Result<(), ControlError> {
+    deliver(
+        deadline,
+        prepare_raise(window, owner.clone()),
+        emit_within(deadline),
+    )
 }
 
 /// Asks the window manager to close `window`, the request `wmctrl -c` sends.
@@ -250,10 +262,7 @@ pub(super) fn close_window(
     instance: &str,
     deadline: Deadline,
 ) -> Result<(), ControlError> {
-    let owner = CloseOwner {
-        pid,
-        instance: instance.to_owned(),
-    };
+    let owner = ProcessIdentity::new(pid, instance);
     deliver(
         deadline,
         prepare_close(window, owner),

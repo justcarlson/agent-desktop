@@ -241,9 +241,11 @@ pub(crate) fn capture(
     } else {
         env.grabber.grab_redirected(drawable, area, deadline)
     };
+    ensure_budget(deadline)?;
     let raw = match raw {
         Ok(raw) => raw,
         Err(GrabError::Gone) => return Err(grab_failure(GrabError::Gone, deadline)),
+        Err(GrabError::Timeout) => return Err(grab_failure(GrabError::Timeout, deadline)),
         Err(_) if !plain => return Err(covered()),
         Err(error) => return Err(grab_failure(error, deadline)),
     };

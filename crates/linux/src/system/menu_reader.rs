@@ -52,6 +52,10 @@ fn may_hide_a_menu(candidate: &Node) -> bool {
 }
 
 impl PopupReader for BusReader<'_> {
+    fn incomplete(&self) -> bool {
+        self.incomplete
+    }
+
     fn window(&mut self) -> Result<Option<Node>, AdapterError> {
         let web =
             process_facts::read(self.window.pid()).is_some_and(|facts| facts.web_family.is_some());

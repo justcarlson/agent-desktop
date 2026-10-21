@@ -12,6 +12,7 @@ pub(crate) enum GrabError {
     Resource,
     Fault(MonitorFault),
     Timeout,
+    UnprovenPaint,
 }
 
 pub(crate) fn unreadable<E>(_: E) -> GrabError {
@@ -59,6 +60,7 @@ impl From<GrabError> for AdapterError {
             GrabError::Timeout => {
                 AdapterError::timeout("The display server did not answer in time")
             }
+            GrabError::UnprovenPaint => failed("The window's own paint could not be proven"),
         }
     }
 }

@@ -9,6 +9,9 @@ use super::interaction_lease::acquire;
 use super::window_op::window_op;
 use super::x11::control::{ControlError, manager_name};
 use super::x11::control_send::{WindowWrite, write_window};
+
+#[path = "window_owner_live_tests.rs"]
+mod owner;
 use super::{SharedBus, list_windows};
 use crate::tree::live_launch::Launched;
 
@@ -320,11 +323,23 @@ fn window_op_live_a_destroyed_window_is_bad_window_and_not_success() {
     wait_until("the window is gone", || {
         !text("xprop", &["-root", "_NET_CLIENT_LIST"]).contains(&xid)
     });
-    let sent = write_window(id, &WindowWrite::Iconify, deadline(5_000));
+    let sent = write_window(
+        id,
+        &WindowWrite::Iconify,
+        &agent_desktop_core::ProcessIdentity::new(
+            pid,
+            window.process_instance.clone().expect("instance"),
+        ),
+        deadline(5_000),
+    );
     assert_eq!(sent, Err(ControlError::BadWindow));
     let sent = write_window(
         0x07ff_fff0,
         &WindowWrite::SetMaximized(true),
+        &agent_desktop_core::ProcessIdentity::new(
+            pid,
+            window.process_instance.clone().expect("instance"),
+        ),
         deadline(5_000),
     );
     assert_eq!(sent, Err(ControlError::BadWindow));
