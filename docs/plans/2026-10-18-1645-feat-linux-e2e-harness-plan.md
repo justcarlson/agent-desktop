@@ -21,9 +21,9 @@ passes. No owner-decision row remains.
 The integration is local on `feat/linux-3.12-e2e-harness`. Rebase onto shipped core-delivery `7dc6500f`, preserve both intents in conflicts,
 commit as Lahfir, and do not push.
 `docs/phases.md` §3.12 and this plan describe the same delivered scope.
-`3.12-integration-decisions.md` resolves all 76 review decision rows: 24 live
+`3.12-integration-decisions.md` resolves all 76 review decision rows: 23 live
 contracts, one asserted refusal, 50 transferred to explicit 3.15 scope, and
-one removed HTML-setter requirement. None is a deferred owner choice.
+two removed invalid contracts (HTML setting and the Qt choice target). The separate unsupported HTML-import live leg is also retired; it is not an extra decision row. None is a deferred owner choice.
 
 ## Requirements
 
@@ -41,16 +41,16 @@ one removed HTML-setter requirement. None is a deferred owner choice.
 | R10 | Files/Settings zero-axis containers are raw geometry/no-ref evidence; Terminal hidden items assert not visible and immediate refusal. Named zero-axis actions and version-specific Calculator history are 3.15 adversarial/version hardening, not claimed passes. |
 | R11 | Distinct Calculator owner/window IDs, exact snapshot/focus and restart invalidation; Calculator Main Menu roles resolve separately. Engineered same-role/name resolver ambiguity belongs to 3.15, with exact AMBIGUOUS_TARGET and neither effect required. |
 | R12 | Retained Settings viewport scroll and scroll-to reveal actual controls and restore the scrollbar. The retired Files 300-entry runtime specimen is not live scroll evidence. |
-| R13 | Settings and Terminal state/value writes use raw checked/value and backing GSettings reads, with final restoration. Tier/mode coverage is exactly the registry. |
+| R13 | Settings and Terminal state/value writes use raw checked/value and backing GSettings reads, with final restoration. Tier/mode coverage is exactly the registry. Workspace-count writes retain a deterministic safe STALE_REF finding after preparatory scrolling, owned by 3.15; no positive pass is claimed for a failing cell. |
 | R14 | Retained Calculator disclosure legs read menu visibility/children in both directions. No Files tree-view success is inferred. |
-| R15 | Qt display-value select reads the chosen display text and application log; Settings no-route select asserts ACTION_NOT_SUPPORTED with its semantic-route reason. |
+| R15 | Settings no-route select asserts ACTION_NOT_SUPPORTED with its semantic-route reason. The unobservable Qt choice fixture is removed; native selection route/verification tests remain, without claiming positive live selection. |
 | R16 | Settings Applications placeholder and Files absence use raw attributes and product snapshots. |
 | R17 | Retained Calculator/Qt menu predicates and Terminal hidden-menu timeout; no unimplemented Terminal Preferences success is claimed. |
-| R18 | Retained X11 ordinary/ABOVE cover controls compare editor caret/document, covering app, stacking and final state. Modal opener/surface cases stay outstanding for 3.14. |
-| R19 | Retained seeded event transition/quiet cells, including the eleven restored Mutter owner/name/frame-timeout rows, assert token, scope and independent state; failed environment specimens are removed or received by 3.15. All surface-appeared/dismissed scoped/unscoped transition/quiet cells stay outstanding for 3.14. |
-| R20 | Seed-before/after About surface cases stay outstanding for the 3.14 opener; registry presence is not dedupe/baseline live proof. |
+| R18 | Retained X11 ordinary/ABOVE cover controls compare editor caret/document, covering app, stacking and final state. Modal opener/surface acceptance remains outstanding on the landed product. |
+| R19 | Retained seeded event transition/quiet cells, including the eleven restored Mutter owner/name/frame-timeout rows, assert token, scope and independent state; failed environment specimens are removed or received by 3.15. All surface-appeared/dismissed scoped/unscoped transition/quiet acceptance cells remain outstanding on the landed product. |
+| R20 | Seed-before/after About surface acceptance remains outstanding on the landed opener; registry presence is not dedupe/baseline live proof. |
 | R21 | Retained text-entry and held-modifier checks read actual document/key state. Product focus is never rescued by the harness. Search/replace version hardening is in 3.15. |
-| R22 | Compare decoded supported capture pixels to XWD and assert exact unavailable-route refusals. Text/image clipboard content, setter lifetime and clear use foreign clients. Foreign HTML import is a read contract, not an HTML setter. Wayland keyboard-seat and consent runs belong to 3.15. |
+| R22 | Compare decoded supported capture pixels to XWD and assert exact unavailable-route refusals. Text/image clipboard content, setter lifetime and clear use foreign clients. HTML-only import is outside the supported target whitelist and is not claimed. Wayland keyboard-seat and consent runs belong to 3.15. |
 | R23 | Private seatless Wayland observation/focus/capture/headed-ref refusal cells only. No first-key, seat/ACTIVE, direct hit-test or portal success is inferred. |
 | R24 | Headless semantic click/value effects must succeed while pointer/active window remain unchanged, then all channels receive independent final reads. |
 | R25 | Report each Openbox X11, Mutter X11 and headless Wayland mode independently. KDE and interactive runner provisioning/dispatch are 3.15 work. |
@@ -62,8 +62,8 @@ one removed HTML-setter requirement. None is a deferred owner choice.
 | R31 | Stranger dogfood with a committed report and disposed findings; no performance baseline is required for this harness integration. |
 | R32 | Retained GTK4/Qt gesture contracts use real app effects and pointer/focus restoration. The remaining toolkit × position × gesture stress matrix is explicitly required by 3.15. |
 | R33 | Retained launch/close/focus/geometry/state and delivery-report cells use raw X11/process evidence. Mutter throttle/maximize/lift fixture hardening is explicit in 3.15. |
-| R34 | All registered shell, tray and notification rows remain outstanding for 3.14, including bystander/no-signal and exact refusal twins. |
-| R35 | Qt snapshot/action/menu/choice/enable contracts on registered cells. VS Code and failed Mutter Qt launch cells require 3.15 generation-attributed private frames before dispatch. |
+| R34 | All registered shell, tray and notification acceptance rows remain outstanding on the landed product, including bystander/no-signal and exact refusal twins. |
+| R35 | Qt snapshot/action/menu/enable contracts on registered cells. VS Code and failed Mutter Qt launch cells require 3.15 generation-attributed private frames before dispatch. |
 | R36 | Box access only through scripts/remote-linux.sh -c; bounded calls below 15 minutes; cargo starts with export CARGO_INCREMENTAL=0; owned PID kills only. |
 | R37 | Compare delivery reports with actual effects and no-effect twins. A no-op reporting success or delivered flags cannot pass. |
 
@@ -84,7 +84,7 @@ one removed HTML-setter requirement. None is a deferred owner choice.
 | U11 | Source-of-truth synchronization | docs/phases.md, this plan, integration-decisions.md, README, probes/linux/FINDINGS.md |
 | U12 | Bounded live validation | Every retained leg once per registered tier/mode; sole diagnostic rerun on failure |
 | U13 | Stranger dogfood | Operator uses only the shipped skill, binary and README; source withheld; root owns box calls |
-| U14 | Outstanding surface contracts | scenarios/shell_surfaces.py, notifications.py, tray.py, surfaces.py; execute when 3.14 supplies surfaces |
+| U14 | Outstanding surface contracts | scenarios/shell_surfaces.py, notifications.py, tray.py, surfaces.py; pending live acceptance on landed surfaces |
 | U15 | Qt toolkit probe | apps/qt_window.py, toolkit_qt.py, controlled_targets.py; own log is an independent effect channel |
 
 ## Evidence and failure policy
@@ -95,7 +95,7 @@ or real observed-state wait, in a `test:` commit naming the reason. Do not tune
 a flaky test until it passes. Fix product code only for a deterministic defect,
 especially wrong-element dispatch or false delivery. Retain deterministic
 product repros as README findings. Transferred/removed checks never count as
-passes. Keep 3.14 surface dependencies outstanding.
+passes. Keep unmeasured surface acceptance outstanding; the rebase includes the product surfaces.
 
 Use separate named observables for separate state. Qt lifecycle log evidence
 has the same members/log shape before launch, after effect, and after teardown.

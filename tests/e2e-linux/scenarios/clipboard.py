@@ -66,17 +66,6 @@ def text_roundtrip(ctx: LegContext) -> None:
         require(text_of(_get(ctx)) == "foreign text", "the product did not read foreign text")
 
 
-@implementation("clipboard.html_roundtrip")
-def html_roundtrip(ctx: LegContext) -> None:
-    payload = b"<b>foreign</b>"
-    with _selection(ctx, "text/html") as owners:
-        owners.append(oracle_clipboard.foreign_set(ctx.tier, "text/html", payload))
-        require(oracle_clipboard.foreign_get(ctx.tier, "text/html") == payload)
-        auto = _get(ctx, "auto")
-        require(auto.get("type") == "text" and auto.get("text") == payload.decode(),
-                "the product's auto read missed the HTML text")
-
-
 def _small_image():
     return pixels.Image(2, 2, bytes((255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255)))
 

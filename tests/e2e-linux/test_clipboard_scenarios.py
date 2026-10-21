@@ -43,7 +43,7 @@ class ClipboardScenarioTests(unittest.TestCase):
                             path.write_bytes(selection["image/png"])
                             data = {"path": str(path)}
                         else:
-                            payload = selection.get("text/plain", selection.get("text/html", b""))
+                            payload = selection.get("text/plain", b"")
                             data = {"type": "text", "text": payload.decode()}
                     return Envelope(True, data, None, "{}", 0, argv)
                 with patch.object(clipboard.oracle_clipboard, "foreign_set", side_effect=foreign_set), \

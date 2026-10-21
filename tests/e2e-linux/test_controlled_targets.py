@@ -1,6 +1,5 @@
 import contextlib
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,41 +36,6 @@ class ControlledTargetTests(unittest.TestCase):
                     else:
                         with self.assertRaises(AssertionError):
                             run()
-
-    def test_positive_select_requires_the_displayed_choice_and_restores_it(self):
-        for delivers in (False, True):
-            with self.subTest(delivers=delivers), tempfile.TemporaryDirectory() as directory:
-                ctx = LegContext(SimpleNamespace(runtime_dir=Path(directory)), "headless",
-                                 member_reader=lambda _: frozenset())
-                selected, records = ["Alpha"], []
-                combo = SimpleNamespace(text=lambda: selected[0])
-                @contextlib.contextmanager
-                def app(_):
-                    ctx.before("applog", None)
-                    yield object()
-                    records.clear()
-                    ctx.restored("applog", None)
-                def command(ctx, argv, *a):
-                    if delivers:
-                        selected[0] = argv[-1]
-                        records.append("choice:" + selected[0])
-                    return Envelope(True, {}, None, "{}", 0, argv)
-                with patch.object(scenarios.toolkit_qt, "qt_app", side_effect=app), \
-                    patch.object(scenarios, "desktop_restored", return_value=contextlib.nullcontext()), \
-                    patch.object(scenarios, "root", return_value=object()), \
-                    patch.object(scenarios, "one", return_value=combo), \
-                    patch.object(scenarios, "ref", return_value="@s:e1"), \
-                    patch.object(scenarios, "command", side_effect=command), \
-                    patch.object(scenarios.toolkit_qt, "events", side_effect=lambda _: list(records)), \
-                    patch.object(scenarios.toolkit_qt, "log_state", side_effect=lambda _: list(records)), \
-                    patch("runner.helper.raw.poll", side_effect=lambda read, *a, **kw: read()):
-                    if delivers:
-                        scenarios.display_value_select_success(ctx)
-                        self.assertEqual(evaluate(ctx), [])
-                    else:
-                        with self.assertRaises(AssertionError):
-                            scenarios.display_value_select_success(ctx)
-                self.assertEqual(selected[0], "Alpha")
 
     def test_seatless_click_rejects_a_lying_success_and_restores_the_display(self):
         for delivers in (False, True):

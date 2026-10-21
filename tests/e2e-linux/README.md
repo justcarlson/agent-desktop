@@ -138,8 +138,8 @@ is a fixture/environment failure; preserve its evidence when retiring it.
 Rerun a failed leg at most once to distinguish a deterministic product defect
 from timing, load, session setup, or environment behavior. Delete an unstable
 leg or replace it with a deterministic fake or an observed-state wait. Record
-the reason in a `test:` commit. Keep legs requiring future product surfaces
-outstanding with that dependency. Fix product code only for a deterministic
+the reason in a `test:` commit. Keep unmeasured surface acceptance
+outstanding with its explicit reason. Fix product code only for a deterministic
 product defect, especially wrong-target input or false delivery evidence.
 
 For a bounded negative control, use the documented remote-run form with a
@@ -332,8 +332,7 @@ swapped-widget identity, replacement refusal, complete-search miss and equal-twi
 ambiguity (`resolve_refusal_tests` and `resolve_tests`).
 
 The two twin fixtures now use the same search-probe helper, clearing exact
-object tokens before testing size or ambiguity. The fake probe also checks
-that two equal candidates remain ambiguous. The Qt resort fixture was
+object tokens before testing size or ambiguity. Canonical native resolver tests check that equal candidates remain ambiguous. The Qt resort fixture was
 deleted: every replaced row correctly returned StaleRef, but the fixture
 incorrectly demanded at least one success. Deterministic replacement-refusal
 and reordered-row tests remain; no wrong-target result was observed.
@@ -351,18 +350,18 @@ findings validation and secret scans pass. Headless/headed live passes are
 ## Integration review decisions
 
 All 76 review OWNER rows are resolved in
-[the decision table](../../docs/plans/3.12-integration-decisions.md): 24 live
+[the decision table](../../docs/plans/3.12-integration-decisions.md): 23 live
 contracts, one exact default-timeout refusal, 50 required 3.15 hardening cells,
-and one removed HTML-setter requirement. The receiving scope lists every
+and two removed invalid contracts (HTML setting and the Qt choice target). The separate unsupported HTML-import live leg is also retired, outside these 76 decision rows. The receiving scope lists every
 transferred row in `docs/phases.md` §3.15. No transferred cell counts as a pass.
-The 3.14 surface/modal/shell/notification/tray rows remain outstanding.
+Surface/modal/shell/notification/tray live acceptance remains outstanding on the landed product. Registration is not a measured pass.
 
 Capture, quiet events, identity queries, failed-launch/stale-ref queries,
 lifecycle and non-interference now record independent final reads. Duplicate
 non-interference after records are removed. Qt evidence consistently reads the
 actual log and process members, including log removal after app teardown.
 Transient window events match the independently observed frame and owner PID;
-registry-derived reads are labeled AT-SPI. Controlled Qt activation/selection
+registry-derived reads are labeled AT-SPI. Controlled Qt activation
 and seatless Wayland semantic-click tests
 reject lying successes in portable tests and have been invert-checked.
 
@@ -370,7 +369,7 @@ Two integration-only structural tests are retired: the source AST pairing
 scanner could not see cross-module context-manager observations, and the lane
 source restriction rejected legitimate implementations after lane integration.
 Runtime verdict tests and executable registry coverage retain the actual
-contracts. The owner-retirement splitter test is removed with that obsolete
+contracts. The assertion requiring an unlanded surface dependency is also removed: the rebased product includes those surfaces, while unmeasured acceptance remains nonzero. The owner-retirement splitter test is removed with that obsolete
 mechanism; there are no executable OWNER rows to split.
 
 ## Integration validation receipt
@@ -421,3 +420,11 @@ Rebased with rerere onto shipped core-delivery `7dc6500f`.
 | `tests/e2e-linux/test_runner_contract.py` | Keep tests moved into the workflow contract module; preserve behavioral lock timeout coverage there. |
 | `tests/e2e-linux/runner/legs.py` | Combine the ref-action and gap inventories without losing either family. |
 | `docs/phases.md` | Preserve shipped shell/notification/tray contracts and the explicit outstanding harness follow-through. |
+
+## Current integration findings
+
+| Repro | Observation and disposition |
+| --- | --- |
+| `--tier x11-openbox --leg clipboard.html_roundtrip` | Both attempts offered only text/html; auto reads no supported content. Removed this unsupported import expectation and its permissive fake HTML fallback. `formats::TEXT_TARGETS`, `targets::choose_target`, and `x11_read_tests::an_owner_without_the_wanted_target_reads_as_absent` define the intentional supported-target boundary. Text/image/lifetime/clear legs remain. |
+| `--tier x11-openbox --leg gaps.display_value_select_success` | Both modes and their sole rerun find zero raw role-11 nodes named Delivery choice; no product select dispatch occurs. Removed the unavailable Qt selection leg and its mocked positive-select check. Native `select_tests`, `select_search_tests`, and the existing Qt write_ignored check retain route, identity, effect and refusal coverage. |
+| `--tier x11-openbox --leg values.workspace_count_commit` | Both modes and their sole rerun return STALE_REF/resolve_no_candidate, complete=true, preparatory_scroll=may_have_changed_view, process_state=running, not_delivered/safe. The GSettings value is unchanged and restored. Retained as a deterministic product finding, owned by 3.15 scroll/identity hardening; no resolver safety check is weakened and no positive workspace-write pass is claimed. |

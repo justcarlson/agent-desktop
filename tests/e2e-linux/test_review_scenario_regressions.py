@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from runner import legs, verdict, session
 from runner.product import Envelope
 from runner.verdict import LegContext
-from scenarios import clipboard, lifecycle, text_entry, wayland_actions as wayland
+from scenarios import lifecycle, text_entry, wayland_actions as wayland
 
 
 def envelope(argv, data=None, error=None):
@@ -21,33 +21,6 @@ def context(root, name):
 
 
 class ScenarioRegressionTests(unittest.TestCase):
-    def test_html_requires_the_foreign_payload_and_text_type(self):
-        for data in ({}, {"type": "empty"}, {"type": "text", "text": None},
-                     {"type": "text", "text": "wrong foreign content"},
-                     {"type": "image", "text": "<b>foreign</b>"},
-                     {"type": "text", "text": "<b>foreign</b>"}):
-            with self.subTest(data=data), tempfile.TemporaryDirectory() as directory:
-                ctx = context(directory, "clipboard.html_roundtrip")
-                selection = [None]
-                def product(tier, argv, **kw):
-                    if argv[0] == "clipboard-clear":
-                        selection[0] = None
-                    return envelope(argv, data)
-                def foreign_set(tier, fmt, payload):
-                    selection[0] = payload
-                    return 1
-                with patch.object(clipboard.oracle_clipboard, "foreign_get", side_effect=lambda *a: selection[0]), \
-                     patch.object(clipboard.oracle_clipboard, "foreign_set", side_effect=foreign_set), \
-                     patch.object(clipboard, "stop_owner"), \
-                     patch("runner.verdict.run_product", side_effect=product):
-                    if data == {"type": "text", "text": "<b>foreign</b>"}:
-                        clipboard.html_roundtrip(ctx)
-                        self.assertEqual(verdict.evaluate(ctx), [])
-                    else:
-                        with self.assertRaisesRegex(AssertionError, "HTML text"):
-                            clipboard.html_roundtrip(ctx)
-                self.assertIsNone(selection[0])
-
     def test_wayland_windows_are_real_and_bounds_key_is_absent(self):
         for data, count, accepted in (([{"id": "w-1.7-frame"}], 1, True),
                                       ([{"id": "w-1.7-frame", "bounds": None}], 1, False),

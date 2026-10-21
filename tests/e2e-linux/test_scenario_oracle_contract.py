@@ -3,19 +3,10 @@ import ast
 import unittest
 from pathlib import Path
 
-from runner.legs import ORACLE_NAMES, REGISTRY, leg_by_id
+from runner.legs import ORACLE_NAMES, leg_by_id
 
 
 class ScenarioOracleContractTests(unittest.TestCase):
-    def test_unlanded_shell_surfaces_are_explicitly_outstanding(self):
-        for leg in REGISTRY:
-            if leg.id.startswith(("shell_surfaces.", "notifications.", "tray.")):
-                with self.subTest(leg=leg.id):
-                    self.assertEqual(leg.disposition, "outstanding")
-                    self.assertIn("3.14", leg.reason)
-        self.assertNotEqual(leg_by_id("menus.wait_menu_opens_calculator").disposition,
-                            "outstanding")
-
     def test_constant_observation_channels_are_declared_oracles(self):
         problems = []
         for path in (Path(__file__).parent / "scenarios").glob("*.py"):

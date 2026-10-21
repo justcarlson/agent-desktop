@@ -42,27 +42,6 @@ def delayed_enable(ctx):
                 trash(ctx, log.with_suffix(suffix))
 
 
-@implementation("gaps.display_value_select_success")
-def display_value_select_success(ctx):
-    with toolkit_qt.qt_app(ctx) as app, desktop_restored(ctx):
-        tree = root(ctx, app)
-        combo = one(tree, role=11, name="Delivery choice")
-        target = ref(ctx, app, role="combobox", name="Delivery choice")
-        read = combo.text
-        before = read()
-        require(before == "Alpha", "choice must start at Alpha")
-        ctx.before("atspi.choice", before)
-        try:
-            command(ctx, ["select", target, "Bravo"], app)
-            ctx.after("atspi.choice", changed(read, "Bravo"))
-            records = toolkit_qt.events(ctx.tier.runtime_dir / "qt-window.log")
-            require(records.count("choice:Bravo") == 1, "selection did not commit exactly once")
-            ctx.after("applog", toolkit_qt.log_state(ctx))
-        finally:
-            command(ctx, ["select", target, before], app)
-            ctx.restored("atspi.choice", changed(read, before))
-
-
 @implementation("gaps.timeout_default")
 def default_timeout(ctx):
     from scenarios.gaps_actions import disabled_timeout

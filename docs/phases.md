@@ -2222,19 +2222,19 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 **Goal:** An executable, fail-closed live harness against privately launched GNOME apps and a permitted Qt toolkit probe, judged through independent observations.
 
 **Scope:**
-- `tests/e2e-linux/runner/legs.py` enumerates the shipped IDs, targets, supported tiers, modes and exact refusal contracts. No owner-decision row remains. `docs/plans/3.12-integration-decisions.md` resolves the 76 review decision rows individually: 24 live contracts, one default-timeout refusal, 50 transferred to 3.15, and one removed HTML-setter claim.
+- `tests/e2e-linux/runner/legs.py` enumerates the shipped IDs, targets, supported tiers, modes and exact refusal contracts. No owner-decision row remains. `docs/plans/3.12-integration-decisions.md` resolves the 76 review decision rows individually: 23 live contracts, one default-timeout refusal, 50 transferred to 3.15, and two removed invalid contracts (HTML setting and the Qt choice target).
 - Private Openbox X11, Mutter X11 and headless GNOME Wayland sessions, with separate runtime directories, session/accessibility buses, display, product state and GSettings store. Stage and hash the CLI and adjacent clipboard helper. Hold the interaction lease, attribute app generations independently and reap only owned PIDs. Skip attributed shell/decoration helpers before remote property reads, isolate unrelated owner timeouts, and resolve explicit accessibility bus names directly. Gate WM/AT-SPI responsiveness before baselines and after mapping; close Overview only when observed true and report gate expiry as tier unavailable.
 - Exactly one independent before, after and final-restored read per observable. All final values must equal their own baselines, including unchanged/read-only queries. Qt log evidence records the actual log and process membership before launch, after the effect and after log removal/app teardown. No command response establishes an effect.
 - Retained observation, qualified-ref/session/trace, duplicate owner/window identity, raw zero-axis geometry, hidden-menu visibility, placeholder, state/value writes, semantic typing, policy refusals, ref selection/context menus/focus/hover, Settings scrolling/disclosure and non-interference legs. Actual coverage is the registry's tier/mode matrix; this scope does not promise every toolkit or position on every tier (L14, L23, L34).
-- Disabled Calculator Undo tests default, explicit, short and immediate timeout contracts. A controlled Qt enable target checks one activation; Qt display-value selection checks displayed text and the application log. Unsupported Settings selection remains an asserted refusal, not positive selection coverage.
+- Disabled Calculator Undo tests default, explicit, short and immediate timeout contracts. A controlled Qt enable target checks one activation. Positive Qt display-value selection is not claimed: the installed probe exposes no unique raw choice target, and native Qt coverage expects write_ignored. Unsupported Settings selection remains an asserted refusal, not positive selection coverage.
 - X11 ordinary/ABOVE cover legs independently check document/caret, covering app, stacking and restoration. Capture compares decoded window/display pixels against XWD where supported, with exact compositing/Wayland refusals where the route is unavailable. Text/image clipboard legs use a foreign producer/reader and check owner lifetime and clear; there is no HTML-setter claim.
-- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. Menu/popover surface events, seeded About baseline cases, modal opener cases, notification, tray and shell surfaces remain outstanding for 3.14, never passing by registration alone.
+- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. Menu/popover surface events, seeded About baseline cases, modal opener cases, notification, tray and shell surfaces remain outstanding live acceptance on the landed product, never passing by registration alone.
 - Wayland observation and exact focus/capture/headed-ref refusal contracts run on the private seatless tier. Successful keyboard-seat, portal-consent and physical input tests require 3.15's owner-run environments. Direct adapter `hit_test` is not exposed by the CLI and is not claimed by a mouse-click substitute (L27-46).
 - `linux-e2e` workflow_dispatch wiring and hosted portable self-tests. An interactive runner and KDE/Plasma validation remain 3.15 infrastructure/hardware work, not measured CI coverage.
 
 **Owner validation rule:** A failing live leg is run at most once more. Delete a flaky/load/timing/session/environment specimen or replace it with a deterministic fake contract or observed-state wait, in a `test:` commit naming the reason. Product repairs require a deterministic defect, especially wrong-target actions or false delivery. Never count removed or transferred checks as passes.
 
-**Depends on:** 3.4 through 3.11. Outstanding shell surfaces require 3.14.
+**Depends on:** 3.4 through 3.11 and landed 3.14 surfaces. Unmeasured surface acceptance remains outstanding.
 
 **Exit criteria:** Portable suites and source/findings/secret/author gates pass. Python files remain below 400 lines. Every retained executable tier/mode is measured in bounded private-session batches, with pass/fail/outstanding counts and deterministic product repros in the README. The plan and README claim only the retained measured inventory. A stranger dogfood report records and disposes of actual findings.
 
@@ -2348,6 +2348,21 @@ System tray interaction is built from scratch here.
 - Merge `feat/linux-adapter` → `main` as one release-noted `feat!`
 - Re-run 3.5's ignored live tests (`cargo test -p agent-desktop-linux -- --include-ignored --test-threads=1`) on the live session once the owner restores its AT-SPI bus: 3.5 ran them in a private session only, so the legs a private session cannot show (the owner's real desktop apps, the shell's own windows, a real Chrome or Chromium password field whose value must be withheld) are not yet proven. The legs and rows are `L25-1` to `L25-10` and `L20-3`
 - Re-run 3.6's ignored live tests (`hit_live`, `offscreen_live`, `focus_window_live`, `scroll_into_view_live`) on the live session once the owner restores its AT-SPI bus. 3.6 ran them in a private session under openbox and `gnome-shell --x11`, Firefox included as its inner snap binary (L27-44), because the box's live bus is down and must not be restarted from here
+
+#### Workspace incrementor recovery received from the live harness
+
+The retained `values.workspace_count_commit` leg deterministically fails on
+Openbox in both modes and its sole diagnostic rerun: the Settings Multitasking
+incrementor is found, actionability preparation scrolls, and strict resolution
+then returns `STALE_REF`, `resolve_no_candidate`, `complete: true`,
+`preparatory_scroll: may_have_changed_view`, `not_delivered`/`safe`. The backing
+`num-workspaces` value remains unchanged. Reproduce with the release harness
+`--tier x11-openbox --leg values.workspace_count_commit`; evidence and dispositions
+are in `tests/e2e-linux/README.md`. Own the scroll/identity recovery here, preserving
+strict target identity and no-dispatch on uncertainty. Add a deterministic moving
+incrementor fake before a product repair; retain wrong-target and exactly-once
+checks, then validate this existing live repro. Do not loosen identity to make
+the positive write pass. This is a product finding, not a retired timing test.
 
 #### Harness hardening received from 3.12
 
