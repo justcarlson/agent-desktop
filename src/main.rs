@@ -45,6 +45,10 @@ fn main() -> ExitCode {
         return exit_code;
     }
     #[cfg(target_os = "macos")]
+    if let Some(exit_code) = agent_desktop_macos::permission_guide_from_env() {
+        return ExitCode::from(exit_code);
+    }
+    #[cfg(target_os = "macos")]
     if command_host::is_host_process() {
         init_tracing(false);
         return match command_host::run() {

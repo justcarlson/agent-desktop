@@ -58,6 +58,13 @@ pub trait SystemOps: Send + Sync {
         self.permission_report(lease.deadline())
     }
 
+    /// Starts a detached, on-screen guide that walks the user through granting
+    /// the missing permissions, and returns without waiting for it. The result
+    /// is `started`, `already_running`, or `not_needed`.
+    fn start_permission_guide(&self) -> Result<&'static str, AdapterError> {
+        Err(AdapterError::not_supported("start_permission_guide"))
+    }
+
     /// Performs the platform-native focus/raise operation for the exact window.
     /// Core decides when focus is required; implementations must return only
     /// after that window is confirmed focused, or return an error.

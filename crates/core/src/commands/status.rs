@@ -12,8 +12,14 @@ pub fn execute_with_report_with_context(
     report: &PermissionReport,
     context: &CommandContext,
 ) -> Result<Value, AppError> {
-    let permissions =
-        permissions::execute_with_report(PermissionsArgs { request: false }, adapter, report)?;
+    let permissions = permissions::execute_with_report(
+        PermissionsArgs {
+            request: false,
+            guide: false,
+        },
+        adapter,
+        report,
+    )?;
 
     let store = RefStore::for_session(context.session_id())?;
     let snapshot_id = store.latest_snapshot_id()?;

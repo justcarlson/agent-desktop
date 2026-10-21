@@ -55,6 +55,7 @@ pub(super) fn permissions(
     permissions_command::execute_with_report(
         permissions_command::PermissionsArgs {
             request: args.request,
+            guide: args.guide,
         },
         adapter,
         permission_report,

@@ -58,6 +58,10 @@ impl SystemOps for MacOSAdapter {
         crate::system::permissions::request_report(lease.deadline())
     }
 
+    fn start_permission_guide(&self) -> Result<&'static str, AdapterError> {
+        crate::system::permission_guide::start()
+    }
+
     fn unknown_accessibility_means_unsupported(&self) -> bool {
         false
     }
