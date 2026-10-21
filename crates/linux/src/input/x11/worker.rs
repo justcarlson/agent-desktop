@@ -16,8 +16,7 @@ use crate::input::release_guard::ReleaseGuard;
 use crate::input::step::Step;
 
 const PAUSE_SLICE: Duration = Duration::from_millis(10);
-pub(super) const ABORT_SUGGESTION: &str =
-    "Run 'snapshot' to read the real state before retrying: some input was already delivered";
+pub(super) const ABORT_SUGGESTION: &str = "Run 'snapshot' to read the real state before retrying: some input may already have been delivered";
 
 pub(crate) enum Report {
     Gate,
@@ -30,10 +29,10 @@ pub(crate) struct Link {
     pub(crate) journal: Option<HeldJournal>,
 }
 
-pub(crate) fn mark_started(error: AdapterError, delivered: u32) -> AdapterError {
+pub(crate) fn mark_started(error: AdapterError, started: bool) -> AdapterError {
     let mut details = error.details.clone().unwrap_or_else(|| json!({}));
     if let Some(map) = details.as_object_mut() {
-        map.insert("physical_delivery_started".into(), (delivered > 0).into());
+        map.insert("physical_delivery_started".into(), started.into());
     }
     error.with_details(details)
 }
@@ -126,6 +125,12 @@ fn run_step(
     deadline: Deadline,
     progress: &Progress,
 ) -> Result<(), AdapterError> {
+    if !matches!(step, Step::Pause(_)) && !progress.begin_dispatch() {
+        return Err(mark_started(
+            deadline.timeout_error(),
+            progress.has_started(),
+        ));
+    }
     let sent = match step {
         Step::Key { code, down } => guard.key(*code, *down),
         Step::Button { code, down } => guard.button(*code, *down),
@@ -150,7 +155,10 @@ fn check_alive(
     delivered: u32,
 ) -> Result<(), AdapterError> {
     if progress.is_cancelled() || deadline.is_expired() {
-        return Err(mark_started(deadline.timeout_error(), delivered));
+        return Err(mark_started(
+            deadline.timeout_error(),
+            progress.has_started() || delivered > 0,
+        ));
     }
     Ok(())
 }
@@ -174,3 +182,7 @@ fn pause(
 #[cfg(test)]
 #[path = "worker_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "worker_cancel_tests.rs"]
+mod cancel_tests;

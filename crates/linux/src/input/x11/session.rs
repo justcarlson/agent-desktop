@@ -62,7 +62,7 @@ pub(crate) fn live_keymap(display: &str, deadline: Deadline) -> Result<Keymap, A
         sink.keymap().map_err(SinkError::into_adapter)
     });
     read.finish(deadline)
-        .unwrap_or_else(|| Err(worker::mark_started(deadline.timeout_error(), 0)))
+        .unwrap_or_else(|| Err(worker::mark_started(deadline.timeout_error(), false)))
 }
 
 pub(crate) fn run_journaled<S: X11Sink + 'static>(
@@ -116,8 +116,7 @@ pub(crate) fn run_journaled<S: X11Sink + 'static>(
                 Err(error) => {
                     let _ = proceed_tx.send(false);
                     progress.cancel();
-                    return Err(ReleaseState::resumed(progress.delivered(), false)
-                        .enrich_error(error, ABORT_SUGGESTION));
+                    return Err(interrupted(error, &progress, false));
                 }
             },
             Ok(Report::Done(outcome)) => return outcome,
@@ -126,12 +125,12 @@ pub(crate) fn run_journaled<S: X11Sink + 'static>(
                 return Err(abandoned(deadline, &progress));
             }
             Err(RecvTimeoutError::Disconnected) => {
+                progress.cancel();
                 let lost = AdapterError::new(
                     ErrorCode::Internal,
                     "The input worker ended without an answer",
                 );
-                return Err(ReleaseState::resumed(progress.delivered(), true)
-                    .enrich_error(lost, ABORT_SUGGESTION));
+                return Err(interrupted(lost, &progress, true));
             }
         }
     }
@@ -149,9 +148,23 @@ fn retain_lease(lease: &InteractionLease) -> Result<OwnedFd, AdapterError> {
 }
 
 fn abandoned(deadline: Deadline, progress: &Progress) -> AdapterError {
+    interrupted(deadline.timeout_error(), progress, true)
+}
+
+fn interrupted(error: AdapterError, progress: &Progress, releasing: bool) -> AdapterError {
     let delivered = progress.delivered();
-    let error = worker::mark_started(deadline.timeout_error(), delivered);
-    ReleaseState::resumed(delivered, delivered > 0).enrich_error(error, ABORT_SUGGESTION)
+    let started = progress.has_started();
+    let error = worker::mark_started(error, started);
+    let mut error = ReleaseState::resumed(delivered, releasing && delivered > 0)
+        .enrich_error(error, ABORT_SUGGESTION);
+    if started {
+        error = error
+            .with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified())
+            .with_suggestion(ABORT_SUGGESTION);
+        error.details.get_or_insert_with(|| serde_json::json!({}))["delivered_events"] =
+            delivered.into();
+    }
+    error
 }
 
 #[cfg(test)]
@@ -161,3 +174,7 @@ mod tests;
 #[cfg(test)]
 #[path = "session_lease_tests.rs"]
 mod lease_tests;
+
+#[cfg(test)]
+#[path = "session_cancel_tests.rs"]
+mod cancel_tests;
