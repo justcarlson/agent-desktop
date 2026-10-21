@@ -162,16 +162,30 @@ fn a_handle_that_is_not_the_subscribed_path_is_refused() {
 }
 
 #[test]
-fn a_timeout_names_the_dialog_a_person_must_approve() {
+fn unanswered_portal_consent_requires_dialog_resolution_before_another_capture() {
     let wire = FakeWire::answering(Err(AdapterError::timeout("late")));
-    let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("a timeout");
-    assert_eq!(error.code, ErrorCode::Timeout);
-    assert!(
-        error
-            .suggestion
-            .as_deref()
-            .is_some_and(|text| text.contains("dialog"))
-    );
+    let mut call_timeout = FakeWire::answering(granted("file:///tmp/x.png"));
+    call_timeout.call_error = Some(AdapterError::timeout("call timed out"));
+    for error in [
+        screenshot_uri(&wire, TOKEN, deadline()).unwrap_err(),
+        screenshot_uri(&call_timeout, TOKEN, deadline()).unwrap_err(),
+        refused(2, PORTAL_PATIENCE),
+    ] {
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert_eq!(
+            error.disposition,
+            agent_desktop_core::DeliverySemantics::uncertain()
+        );
+        assert!(!error.permits_retry_by_default());
+        let payload = agent_desktop_core::ErrorPayload::from_app_error(&error.into());
+        let json = serde_json::to_value(payload).unwrap();
+        assert_eq!(json["disposition"]["retry"], "unsafe");
+        assert_eq!(json["details"]["dialog_may_be_open"], true);
+        assert!(json.get("recovery").is_none());
+        let hint = json["suggestion"].as_str().unwrap();
+        assert!(hint.contains("answer or dismiss"), "{hint}");
+        assert!(hint.contains("wait until it closes"), "{hint}");
+    }
 }
 
 #[test]
