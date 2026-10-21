@@ -122,13 +122,6 @@ fn an_x11_display_that_answers_needs_no_screen_recording_permission() {
 }
 
 #[test]
-fn a_compositing_x11_display_also_answers() {
-    let grabber = grabber_answering(Ok(true));
-    let state = screen_recording_of(Ok(Route::X11(":0".into())), &grabber);
-    assert_eq!(state, PermissionState::NotRequired);
-}
-
-#[test]
 fn wayland_is_unknown_and_the_display_is_never_asked() {
     let grabber = grabber_answering(Ok(true));
     let state = screen_recording_of(Ok(Route::Wayland), &grabber);

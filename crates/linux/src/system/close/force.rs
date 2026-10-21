@@ -5,7 +5,8 @@ use agent_desktop_core::{AdapterError, DeliverySemantics};
 use super::Request;
 use super::refusal;
 use super::world::World;
-use crate::system::close_plan::{Step, grace_within, next};
+use crate::system::close_plan::grace_within;
+use crate::system::liveness::Liveness;
 use crate::system::signal::{Sent, Signal};
 
 struct Progress {
@@ -50,28 +51,32 @@ pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<bool, A
         killed: false,
     };
     loop {
-        let since_term = progress
-            .term_at
-            .map(|at| world.elapsed().saturating_sub(at));
-        match next(true, world.liveness(), since_term, progress.grace) {
-            Step::Done => return Ok(progress.sent_anything()),
-            Step::Term | Step::Kill if world.remaining().is_zero() && !progress.sent_anything() => {
+        let signal = match world.liveness() {
+            Liveness::Gone => return Ok(progress.sent_anything()),
+            Liveness::Stopped if !progress.killed => Some(Signal::Kill),
+            Liveness::Alive if progress.term_at.is_none() => Some(Signal::Term),
+            Liveness::Alive if !progress.killed => {
+                let since_term = progress
+                    .term_at
+                    .map(|at| world.elapsed().saturating_sub(at))
+                    .unwrap_or_default();
+                (since_term >= progress.grace).then_some(Signal::Kill)
+            }
+            Liveness::Alive | Liveness::Stopped => None,
+        };
+        if let Some(signal) = signal {
+            if world.remaining().is_zero() && !progress.sent_anything() {
                 return Err(expired(world, request, &progress));
             }
-            Step::Term => match deliver(world, Signal::Term, &progress)? {
-                Sent::Delivered => {
-                    progress.term_at = Some(world.elapsed());
-                    progress.grace = grace_within(world.remaining());
-                }
+            match deliver(world, signal, &progress)? {
+                Sent::Delivered => match signal {
+                    Signal::Term => {
+                        progress.term_at = Some(world.elapsed());
+                        progress.grace = grace_within(world.remaining());
+                    }
+                    Signal::Kill => progress.killed = true,
+                },
                 Sent::AlreadyGone | Sent::Replaced => return Ok(progress.sent_anything()),
-            },
-            Step::Kill if !progress.killed => match deliver(world, Signal::Kill, &progress)? {
-                Sent::Delivered => progress.killed = true,
-                Sent::AlreadyGone | Sent::Replaced => return Ok(progress.sent_anything()),
-            },
-            Step::Kill | Step::Wait => {}
-            Step::Request | Step::Unresponsive => {
-                return Err(AdapterError::internal("a forced close planned a request"));
             }
         }
         if world.remaining().is_zero() {

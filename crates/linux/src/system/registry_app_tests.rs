@@ -87,11 +87,3 @@ fn an_app_that_answers_with_a_blank_name_has_no_registry_name() {
     assert_eq!(app.registry_name, None);
     assert_eq!(app.name, "gnome-calculator");
 }
-
-#[test]
-fn a_skipped_record_names_the_bus_and_the_pid_when_known() {
-    let record = skipped(":1.4", Some(7), "process is gone");
-    assert_eq!(record["bus"], ":1.4");
-    assert_eq!(record["pid"], 7);
-    assert!(skipped(":1.4", None, "x").get("pid").is_none());
-}

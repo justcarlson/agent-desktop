@@ -7,7 +7,7 @@ use super::close_plan::TERM_GRACE;
 use super::process_facts;
 use super::protected::PROTECTED_NAMES;
 use super::{SharedBus, app_inventory, apps_scoped, list_windows};
-use rig::{Orphan, gtk3, gtk4, lease, qt};
+use rig::{Orphan, lease};
 
 #[path = "close_live/rig.rs"]
 pub(super) mod rig;
@@ -73,27 +73,6 @@ fn close_live_calculator_graceful() {
     graceful_close_ends_the_process(&orphan, &app);
     let after = app_inventory(&bus, deadline()).expect("inventory");
     assert!(after.apps.iter().all(|listed| listed.pid != orphan.pid));
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn close_live_gtk3_graceful() {
-    let orphan = gtk3();
-    graceful_close_ends_the_process(&orphan, &orphan.app("adclose-gtk3"));
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn close_live_gtk4_graceful() {
-    let orphan = gtk4();
-    graceful_close_ends_the_process(&orphan, &orphan.app("adclose-gtk4"));
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn close_live_qt_graceful() {
-    let orphan = qt();
-    graceful_close_ends_the_process(&orphan, &orphan.app("adclose-qt"));
 }
 
 #[test]

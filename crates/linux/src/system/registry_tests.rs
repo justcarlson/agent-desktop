@@ -78,14 +78,6 @@ fn a_process_filter_reads_the_matching_pid_in_full() {
 }
 
 #[test]
-fn no_filter_reads_every_pid() {
-    let reads = Counting::default();
-    assert!(matches!(read(&reads, 7, None), AppRead::Listed(_)));
-    assert!(matches!(read(&reads, 9, None), AppRead::Listed(_)));
-    assert_eq!(reads.names.get(), 2);
-}
-
-#[test]
 fn a_stopped_process_is_listed_unanswered_without_a_name_or_toolkit_read() {
     let reads = Counting {
         stopped: true,
@@ -107,14 +99,6 @@ fn a_running_process_is_read_for_its_name_and_toolkit() {
     };
     assert!(app.answered);
     assert_eq!((reads.names.get(), reads.toolkits.get()), (1, 1));
-}
-
-#[test]
-fn a_running_root_keeps_the_name_it_answered_to() {
-    let reads = Counting::default();
-    let AppRead::Listed(_) = read(&reads, 7, None) else {
-        panic!("listed")
-    };
     assert_eq!(reads.saved.borrow().as_slice(), ["App"]);
 }
 

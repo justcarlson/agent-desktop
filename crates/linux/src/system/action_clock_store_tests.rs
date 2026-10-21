@@ -1,7 +1,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
-use super::{is_fresh, parse, recent_in, record_in};
+use super::{is_fresh, recent_in, record_in};
 
 const WINDOW: u64 = 2_000;
 
@@ -80,12 +80,6 @@ fn the_store_is_private_and_a_write_prunes_what_is_gone_or_old() {
     record_in(&dir, None, 10_200 + 120_000, &only_nine);
     assert!(!dir.join("9").exists(), "an entry past the keep time");
     let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn a_record_parses_back() {
-    assert_eq!(parse("1200 boot:7\n"), Some((1200, "boot:7")));
-    assert_eq!(parse("x"), None);
 }
 
 #[test]

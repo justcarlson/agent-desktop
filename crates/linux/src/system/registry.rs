@@ -59,15 +59,11 @@ trait AppReads {
     fn is_stopped(&self, pid: u32) -> bool;
     async fn name(&self, root: &AtspiElement) -> Option<Option<String>>;
     async fn toolkit(&self, root: &AtspiElement) -> ToolkitId;
-    /// The name this root answered to before its process stopped, kept because
-    /// a stopped process cannot be asked again. `None` is the default for
-    /// readers with no memory of one.
-    fn remembered_name(&self, _root: &AtspiElement, _instance: &str) -> Option<String> {
-        None
-    }
+    /// The name this root answered to before its process stopped.
+    fn remembered_name(&self, root: &AtspiElement, instance: &str) -> Option<String>;
     /// Keeps the name this root answered to, against the process instance, so
     /// the application still resolves by it after the process stops.
-    fn remember_name(&self, _root: &AtspiElement, _instance: &str, _name: &str) {}
+    fn remember_name(&self, root: &AtspiElement, instance: &str, name: &str);
 }
 
 struct BusReads<'a>(&'a Connection);

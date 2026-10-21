@@ -1,79 +1,36 @@
 use super::{Identity, Liveness, identity_of, verdict};
 use crate::system::proc_stat::{ProcStat, ProcState};
-
-fn token(start: u64) -> String {
-    format!("boot:{start}")
-}
+use crate::system::process_facts::instance_token;
 
 fn stat(state: ProcState, start_time: u64) -> Option<ProcStat> {
     Some(ProcStat { state, start_time })
 }
 
 #[test]
-fn a_sleeping_process_with_the_expected_token_is_alive() {
-    assert_eq!(
-        verdict(stat(ProcState::Sleeping, 9), "boot:9", token),
-        Liveness::Alive
-    );
-}
+fn process_liveness_and_identity_cover_every_proc_stat_verdict() {
+    let expected = instance_token(9);
+    for (state, start_time, wanted) in [
+        (ProcState::Sleeping, 9, Liveness::Alive),
+        (ProcState::Running, 9, Liveness::Alive),
+        (ProcState::Other, 9, Liveness::Alive),
+        (ProcState::Stopped, 9, Liveness::Stopped),
+        (ProcState::Zombie, 9, Liveness::Gone),
+        (ProcState::Dead, 9, Liveness::Gone),
+        (ProcState::Running, 10, Liveness::Gone),
+    ] {
+        assert_eq!(verdict(stat(state, start_time), &expected), wanted);
+    }
+    assert_eq!(verdict(None, &expected), Liveness::Gone);
 
-#[test]
-fn a_zombie_is_gone_though_kill_zero_would_succeed() {
-    assert_eq!(
-        verdict(stat(ProcState::Zombie, 9), "boot:9", token),
-        Liveness::Gone
-    );
-    assert_eq!(
-        verdict(stat(ProcState::Dead, 9), "boot:9", token),
-        Liveness::Gone
-    );
-}
-
-#[test]
-fn a_missing_entry_is_gone() {
-    assert_eq!(verdict(None, "boot:9", token), Liveness::Gone);
-}
-
-#[test]
-fn a_token_that_differs_is_gone_even_for_a_live_process() {
-    assert_eq!(
-        verdict(stat(ProcState::Running, 10), "boot:9", token),
-        Liveness::Gone
-    );
-    assert_eq!(
-        verdict(stat(ProcState::Running, 9), "other:9", token),
-        Liveness::Gone
-    );
-}
-
-#[test]
-fn a_process_stopped_by_signal_or_tracer_is_stopped() {
-    assert_eq!(
-        verdict(stat(ProcState::Stopped, 9), "boot:9", token),
-        Liveness::Stopped
-    );
-}
-
-#[test]
-fn an_unknown_state_is_alive_not_gone() {
-    assert_eq!(
-        verdict(stat(ProcState::Other, 9), "boot:9", token),
-        Liveness::Alive
-    );
-}
-
-#[test]
-fn identity_keeps_a_replaced_process_apart_from_one_that_left() {
-    let same = identity_of(Ok(stat(ProcState::Sleeping, 9)), "boot:9", token);
-    let replaced = identity_of(Ok(stat(ProcState::Sleeping, 10)), "boot:9", token);
-    let left = identity_of(Ok(None), "boot:9", token);
-    let zombie = identity_of(Ok(stat(ProcState::Zombie, 9)), "boot:9", token);
-    let unread = identity_of(Err(()), "boot:9", token);
-    assert_eq!(same, Identity::Same);
-    assert_eq!(replaced, Identity::Replaced);
-    assert_eq!(left, Identity::Gone);
-    assert_eq!(zombie, Identity::Gone);
-    assert_eq!(unread, Identity::Unreadable);
+    for (read, wanted) in [
+        (Ok(stat(ProcState::Sleeping, 9)), Identity::Same),
+        (Ok(stat(ProcState::Sleeping, 10)), Identity::Replaced),
+        (Ok(None), Identity::Gone),
+        (Ok(stat(ProcState::Zombie, 9)), Identity::Gone),
+        (Err(()), Identity::Unreadable),
+    ] {
+        assert_eq!(identity_of(read, &expected), wanted);
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -110,36 +67,12 @@ mod live {
     }
 
     #[test]
-    fn a_spawned_sleep_is_alive() {
-        let mut child = spawn_sleep();
-        let token = token_of(child.id());
-        assert_eq!(liveness(child.id(), &token), Liveness::Alive);
-        let _ = child.kill();
-        let _ = child.wait();
-    }
-
-    #[test]
-    fn an_exited_child_nobody_reaped_is_gone() {
+    fn a_live_process_moves_between_stopped_running_and_gone() {
         let mut child = spawn_sleep();
         let pid = child.id();
         let token = token_of(pid);
-        Command::new("kill")
-            .args(["-KILL", &pid.to_string()])
-            .status()
-            .expect("kill runs");
-        assert_eq!(wait_for(pid, &token, Liveness::Gone), Liveness::Gone);
-        assert!(
-            std::path::Path::new(&format!("/proc/{pid}")).exists(),
-            "the child is a zombie, not yet reaped"
-        );
-        let _ = child.wait();
-    }
-
-    #[test]
-    fn a_stopped_child_is_stopped_and_a_continued_one_alive() {
-        let mut child = spawn_sleep();
-        let pid = child.id();
-        let token = token_of(pid);
+        assert_eq!(liveness(pid, &token), Liveness::Alive);
+        assert_eq!(liveness(pid, "0000:1"), Liveness::Gone);
         Command::new("kill")
             .args(["-STOP", &pid.to_string()])
             .status()
@@ -150,15 +83,15 @@ mod live {
             .status()
             .expect("kill runs");
         assert_eq!(wait_for(pid, &token, Liveness::Alive), Liveness::Alive);
-        let _ = child.kill();
-        let _ = child.wait();
-    }
-
-    #[test]
-    fn the_token_of_another_run_makes_a_live_pid_gone() {
-        let mut child = spawn_sleep();
-        assert_eq!(liveness(child.id(), "0000:1"), Liveness::Gone);
-        let _ = child.kill();
+        Command::new("kill")
+            .args(["-KILL", &pid.to_string()])
+            .status()
+            .expect("kill runs");
+        assert_eq!(wait_for(pid, &token, Liveness::Gone), Liveness::Gone);
+        assert!(
+            std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            "the child is a zombie, not yet reaped"
+        );
         let _ = child.wait();
     }
 }
