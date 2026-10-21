@@ -10,14 +10,13 @@ use super::action_call::resolve_verb;
 use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::click::{POLL_STEP, deliver, invoke_verb, names_of, poll_until, refusal};
 use super::context::Target;
-use super::mutation::WriteKind;
 use super::select_exclusive::{
-    SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
+    SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, select_child,
+    selected_count,
 };
 use super::select_popup::{is_popup_dropdown, select_in_popup};
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, search};
 use super::select_verify::{commit_unobserved, read_verification};
-use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::{NodeView, read_node_view};
@@ -169,14 +168,10 @@ fn keep_only_the_item(
     if !needs_replacement(count) {
         return exclusive_verdict(count);
     }
-    replace_with_only(holder, index).ok()?;
-    let reread = read_verification(
-        target.bus,
-        target,
-        item,
-        display_value,
-        Some((holder, index)),
-    );
+    if !replace_with_only(holder, index, item).ok()? {
+        return None;
+    }
+    let reread = read_verification(target.bus, target, item, display_value, Some(holder));
     match reread {
         Some(true) => exclusive_verdict(selected_count(holder)),
         other => other,
@@ -215,10 +210,7 @@ fn select_through(
                     target,
                     &verified_node,
                     display_value,
-                    holder
-                        .as_ref()
-                        .zip(container)
-                        .map(|(holder, c)| (holder, c.index)),
+                    holder.as_ref(),
                 )
             },
             |verified| *verified == Some(true),
@@ -237,18 +229,11 @@ fn select_through(
     };
     let mut rungs = Vec::new();
     if let (Some(holder), Some(container)) = (&holder, container) {
+        let row = &verified_node;
         rungs.push(Rung {
             label: SELECT_CHILD_LABEL,
             run: Box::new(move || {
-                let reply = invoke(
-                    holder,
-                    Call {
-                        interface: SELECTION_INTERFACE,
-                        method: "SelectChild",
-                        body: &(container.index,),
-                        kind: WriteKind::SelectChild,
-                    },
-                );
+                let reply = select_child(holder, container.index, row);
                 deliver(reply, observe).and_then(unchanged_is_ignored)
             }),
         });
@@ -313,7 +298,7 @@ pub(super) fn miss_error(miss: &Search<AtspiElement>) -> AdapterError {
             json!({ "searched": true }),
         ),
         Search::Incomplete => refusal(
-            ErrorCode::ElementNotFound,
+            ErrorCode::AmbiguousTarget,
             "The search for the item ended at its limit before it covered the container",
             json!({ "search_incomplete": true }),
         ),

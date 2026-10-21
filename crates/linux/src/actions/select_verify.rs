@@ -1,6 +1,7 @@
 use super::context::Target;
 use super::select::handle_of;
-use super::select_exclusive::child_selected;
+use super::select_exclusive::selected_child;
+use super::select_identity::verification;
 use super::select_search::name_matches;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
@@ -11,10 +12,6 @@ use crate::tree::state_bits::SELECTED;
 use crate::tree::toolkit_trust::{combo_name_is_value, combo_selection_is_live};
 
 const OBJECT_REPLACEMENT: char = '\u{fffc}';
-
-pub(super) fn verification(combo_value: Option<bool>, item_selected: Option<bool>) -> Option<bool> {
-    combo_value.or(item_selected)
-}
 
 /// A select that Gecko applies moves the page's value and fires no `change`
 /// or `input` event, so the page's own logic never runs: the state read-back
@@ -70,7 +67,7 @@ pub(super) fn read_verification(
     root: &Target<'_>,
     item: &AtspiElement,
     wanted: &str,
-    container: Option<(&Target<'_>, i32)>,
+    container: Option<&Target<'_>>,
 ) -> Option<bool> {
     let name_is_value = combo_name_is_value(&toolkit_of(bus, root.element, root.deadline));
     let combo = read_node_view(bus, root.handle, root.deadline)
@@ -80,7 +77,7 @@ pub(super) fn read_verification(
         .ok()
         .and_then(|view| view.state(SELECTED));
     let child = container
-        .filter(|(holder, _)| holder_selection_is_live(holder))
-        .and_then(|(holder, index)| child_selected(holder, index));
-    verification(combo, child.or(selected))
+        .filter(|holder| holder_selection_is_live(holder))
+        .and_then(selected_child);
+    verification(combo, selected, child.as_ref(), item)
 }
