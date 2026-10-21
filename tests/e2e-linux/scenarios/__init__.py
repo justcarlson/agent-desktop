@@ -1,4 +1,9 @@
 from scenarios import capture
+from scenarios import gaps_actions
+from scenarios import gaps_capture
+from scenarios import gaps_events
+from scenarios import gaps_gestures
+from scenarios import gaps_mutter
 from scenarios import clipboard
 from scenarios import disclosure
 from scenarios import duplicates
@@ -33,6 +38,7 @@ from scenarios import wayland_actions
 from scenarios import wayland_focus
 from scenarios import wayland_input
 from scenarios import zero_bounds
+from scenarios import gaps_decisions
 
 __all__ = [
     "capture",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland")
@@ -51,6 +51,9 @@ ASSERTED_REFUSALS = frozenset({
     "ref_actions.hover_headless_refusal",
     "ref_actions.drag_headless_refusal",
     "ref_actions.scroll_headless_refusal",
+    "gaps.mutter_display_capture_refused",
+    "gaps.mutter_qt_scroll_refused_no_container",
+    "gaps.mutter_window_operation_refusals",
     "capture.wayland_route_gated",
     "headed_actions.never_focused_window_refusal",
     "menus.hidden_bar_timeout_message",
@@ -68,6 +71,8 @@ ASSERTED_REFUSALS = frozenset({
 })
 
 OUTSTANDING_REASONS = {
+    **{f"gaps.event_{token}_{scope}_{kind}": "requires menu/popover surface discovery on the 3.14 branch"
+       for token in ("surface-appeared", "surface-dismissed") for scope in ("scoped", "unscoped") for kind in ("success", "quiet")},
     'surfaces.batch_seed_opener_about': "requires a CLI popover/menu opener on the 3.14 branch",
     'surfaces.baseline_after_opener_fails': "requires a CLI popover/menu opener on the 3.14 branch",
 
@@ -77,6 +82,58 @@ OUTSTANDING_REASONS = {
 
 HEADED_ACTION_PREFIXES = ("state.", "values.", "disclosure.", "select.", "scroll.")
 HEADED_ACTION_LEGS = frozenset({"zero_bounds.history_listbox_outcome"})
+
+OWNER_REASONS = {
+    "gaps.event_window-closed_scoped_success": "after correcting the batch field, tracker-extract exited during the sole diagnostic rerun; remove the environment-dependent live close fixture and retain the fake frame/transport contract",
+    "gaps.event_window-closed_unscoped_success": "the sole diagnostic rerun reached the Close ref but its bounds stayed unavailable and the product honestly timed out without delivery; retire this version-dependent multiwindow Close target",
+    "gaps.event_window-opened_unscoped_quiet": "tracker-extract exited during the quiet wait and changed private process membership; retire this environment-dependent cell and retain the deterministic quiet-baseline contract test",
+    "toolkit_electron.refs_and_completeness": "private VS Code never registered a new AT-SPI window within the 35-second observed-window deadline across three launches; launcher exit 0 or still running is not a usable frame; retain deterministic frame-generation checks",
+    "toolkit_electron.menu_action_and_waits": "private VS Code has no independently attributed frame in three launch attempts, so no menu/action target exists; do not count launcher success as menu coverage",
+    "gaps.gesture_gtk3_first_mouse-click": "Terminal with --show-menubar exposes no raw role-35 Edit target on this installation; retire the version-dependent menu fixture instead of substituting a guessed node",
+}
+
+OWNER_GAPS = {
+    "delayed_enable": ("R9 controlled delayed enable and exactly-once dispatch", "Calculator Undo",
+                       "L14-1 presents only next-event enable; the removed Undo fixture coalesces actions, so its display cannot distinguish one dispatch from two; a deterministic delayed target needs an owner-approved extension to the toolkit probe"),
+    "replace_all_gating": ("R9 Replace All enables and disables with search text", "Text Editor",
+                           "the retired search fixture matched the first field and longest toast text; those are not independent search/replacement state oracles; an unambiguous search-control target remains an owner decision"),
+    "named_zero_size_action": ("R10 named ref-able zero-size action", "Files, Settings, Terminal, Calculator",
+                               "L14-4 found only unnamed zero-axis containers and hidden sentinel geometry; none is a named ref-able zero-size action target"),
+    "calculator_history_outcome": ("R10 Calculator history listbox CLI outcome", "Calculator",
+                                   "the installed Calculator version has no stable history-listbox role; raw container checks cannot substitute for a CLI action on a missing control"),
+    "same_role_name_ambiguous_pair": ("R11 same-role/name pair answers AMBIGUOUS_TARGET without an effect", "Qt probe",
+                                     "L14-5 stock duplicates have different canonical roles; the permitted Qt probe has one button, and adding twins requires an explicit target extension; deterministic resolver ambiguity tests remain the owner-boundary proof"),
+    "display_value_select_success": ("R15 display-value select success on a supporting toolkit", "Settings, Qt probe",
+                                     "L14-10 libadwaita combo exposes no semantic choices; the existing Qt probe has no combo; the executed Settings refusal cannot count as selection success"),
+    "wayland_display_capture_consent": ("R22 Wayland display capture with portal consent", "private GNOME portal",
+                                        "L13-21 and L29-29 require a person to answer the portal; this headless tier has no consenting seat, and the lane may not touch a live session; window-route refusal is a separate measured contract"),
+    "wayland_clipboard_html": ("R22 Wayland HTML content roundtrip", "foreign wl-clipboard client",
+                               "the CLI exposes text/image setters and the retired HTML oracle allowed an empty product result; no verified Wayland HTML content route is measured by the text/image legs"),
+    "wayland_clipboard_with_seat": ("R22 Wayland successful content/lifetime/clear with a keyboard seat", "foreign wl-clipboard client",
+                                    "all four private headless clipboard attempts returned no_keyboard_seat; the foreign offer reader is also unavailable, so neither successful content nor refusal/no-effect is proven; require a private session with an observable keyboard seat"),
+    "mutter_minimized_lift": ("R33 minimized lift and refused-activation outcome set", "Calculator",
+                             "L31-53/L31-54 minimize/restore throttling invalidated the old timer fixture; a minimized lift requires an independently ready compositor transition, not a retry or an already-active focus target"),
+}
+
+OWNER_ACTION_GAPS = frozenset({"delayed_enable", "replace_all_gating", "named_zero_size_action",
+                               "same_role_name_ambiguous_pair", "display_value_select_success"})
+
+MUTTER_OWNER_REASONS = {
+    "gaps.mutter_maximize_restore": "Calculator did not satisfy the old maximized-state oracle; the sole replacement run on resizable Text Editor then lost tracker-extract during cleanup; retire the live timing/environment cell and retain the deterministic comma-delimited, both-axis state oracle",
+    **{f"gaps.event_{token}_{scope}_{kind}": "the raw accessibility owner/name or frame read timed out before any product command; retire the private-bus/environment-dependent Mutter cell and retain the portable event contracts"
+       for token in ("app-launched", "window-closed", "window-opened") for scope in ("scoped", "unscoped") for kind in ("success", "quiet")
+       if not (token == "window-opened" and scope == "unscoped" and kind == "quiet")},
+    **{"gaps.mutter_qt_" + name: "Mutter created a mutter-x11-frames accessibility owner alongside the Qt owner, so launch attribution failed before any product command; remove this environment-dependent launch cell and retain the log/menu contracts"
+       for name in ("headed_click_logged_once", "scroll_refused_no_container", "wait_menu_opens", "wait_menu_closes", "menu_already_open")},
+    "gaps.gesture_qt_first_mouse-click": "raw accessibility bus timeout prevented attribution of the Qt target; no product input was observed, so this Mutter fixture is retired",
+    "gaps.gesture_gtk4_second_mouse-click": "tracker-extract exited during the second-position gesture and changed private process membership; remove the environment-dependent cell without counting its partial effect as a pass",
+}
+
+
+def _owner_gap(name, row, *, modes=HEADLESS, tiers=X11):
+    requirement, target, reason = row
+    return Leg("gaps.owner_" + name, requirement, target, tiers, modes,
+               ("atspi",), "owner-decision", reason)
 
 
 def _row(leg_id, requirement, target, tiers, modes, oracles):
@@ -89,6 +146,9 @@ def _row(leg_id, requirement, target, tiers, modes, oracles):
     elif leg_id in OUTSTANDING_REASONS:
         disposition = "outstanding"
         reason = OUTSTANDING_REASONS[leg_id]
+    elif leg_id in OWNER_REASONS:
+        disposition = "owner-decision"
+        reason = OWNER_REASONS[leg_id]
     elif leg_id in ASSERTED_REFUSALS:
         disposition = "asserted-refusal"
         reason = "the leg asserts the product's refusal as its expected outcome"
@@ -124,6 +184,35 @@ REGISTRY: tuple[Leg, ...] = (
     _row("ref_actions.drag", "Ref drag selects document text and restores selection", "Text Editor", OPENBOX_ONLY, HEADED, "atspi,x11"),
     _row("ref_actions.drag_headless_refusal", "Headless ref drag is refused without selecting text", "Text Editor", OPENBOX_ONLY, HEADLESS, "atspi,x11"),
     _row("capture.window_pixels_match_xwd", "A window capture matches the pixels xwd reads", "Text Editor", X11, HEADLESS, "pixels,x11"),
+    *(_owner_gap(name, row, modes=BOTH_MODES if name in OWNER_ACTION_GAPS else HEADLESS,
+                tiers=MUTTER_ONLY if name == "mutter_minimized_lift" else WAYLAND_ONLY if name.startswith("wayland_") else X11) for name, row in OWNER_GAPS.items()),
+    *(_owner_gap(f"gesture_{toolkit}_{position}_{verb}", (f"R32 {toolkit} {position} {verb}", toolkit,
+                "the retired generic gesture oracle used numeric names/tab counters and omitted restoration; this cell has no independently measured app effect; requires a deterministic toolkit-specific target before it can pass"),
+                modes=HEADED)
+      for toolkit in ("gtk3", "gtk4", "qt") for position in (("first", "second") if toolkit == "gtk4" else ("first",))
+      for verb in ("click", "double-click", "triple-click", "right-click", "hover", "drag", "mouse-move", "mouse-wheel", "scroll")),
+    *(_row(f"gaps.event_{token}_{scope}_{kind}", f"R19 {token} {scope} {kind}", "Calculator About / Terminal Preferences", X11, HEADLESS, "atspi")
+      for token in ("surface-appeared", "surface-dismissed") for scope in ("scoped", "unscoped") for kind in ("success", "quiet")),
+    *(_row(f"gaps.gesture_{toolkit}_{position}_{verb}", f"R32 {toolkit} {position} {verb} with pointer and raw geometry/effect reads", toolkit, X11, HEADED, "x11,atspi,applog")
+      for toolkit in ("gtk3", "gtk4", "qt") for position in (("first", "second") if toolkit == "gtk4" else ("first",)) for verb in ("mouse-click",)),
+    *(_row(f"gaps.event_{token}_{scope}_{kind}", f"R19 {token} {scope} {kind} with independent restoration", "Calculator and Text Editor", X11, HEADLESS, "atspi,x11,proc")
+      for token in ("window-opened", "window-closed", "app-launched", "app-terminated", "focus-changed")
+      for scope in ("scoped", "unscoped") for kind in ("success", "quiet")),
+    *(Leg(f"gaps.timeout_{name}", f"R9 disabled action uses {name} timeout without an effect",
+          "Calculator Undo", X11, BOTH_MODES, ("atspi",), "owner-decision" if name == "default" else "asserted-refusal",
+          "private tracker-extract exited during the default-timeout leg and changed its process baseline; remove the environment-dependent live check and retain the deterministic timeout-band/no-effect test" if name == "default" else
+          "permanently disabled Undo must refuse without changing text/state; zero timeout is one immediate ACTION_FAILED check")
+      for name in ("default", "explicit", "short", "zero")),
+    _row("gaps.value_write_preserves_active_window", "R24 a background value write preserves the active window and pointer", "Settings behind Text Editor", X11, HEADLESS, "gsettings,x11"),
+    _row("gaps.display_capture", "R22 display pixels match XWD", "Calculator", OPENBOX_ONLY, HEADLESS, "pixels,x11"),
+    _row("gaps.mutter_display_capture_refused", "R22 display capture asserts the compositing refusal", "Calculator", MUTTER_ONLY, HEADLESS, "pixels,x11"),
+    Leg("gaps.wayland_window_capture_refused", "R22 Wayland window capture fails closed without changing the app", "Calculator", WAYLAND_ONLY, HEADLESS, ("atspi",), "asserted-refusal", "Wayland has no window-position capture route"),
+    *(Leg("gaps.wayland_clipboard_" + name, "R22 Wayland clipboard refusal/content observation: " + name, "foreign wl-paste client", WAYLAND_ONLY, HEADLESS, ("clipboard", "proc"), "owner-decision", "a private process joined during PNG creation/refusal/cleanup; retire the environment-dependent image-file leg without relaxing process membership" if name == "image" else "the product reports no_keyboard_seat, but a foreign reader can be unavailable on that same seat; its failure cannot prove empty offers, so no live no-effect or content pass is accepted") for name in ("text", "image", "lifetime", "clear")),
+    *(_row("gaps.mutter_" + name, "R33 Mutter " + name + " has an independently restored effect", "Text Editor" if name == "maximize_restore" else "Calculator", MUTTER_ONLY, HEADLESS, "x11,proc") for name in ("move", "resize", "minimize_restore", "maximize_restore")),
+    _row("gaps.mutter_window_operation_refusals", "R33 missing-window move/resize/minimize report not_delivered and leave the real window unchanged", "Calculator", MUTTER_ONLY, HEADLESS, "x11"),
+    *(_row("gaps.mutter_qt_" + name, "R35 Qt on Mutter " + name, "Qt window", MUTTER_ONLY, HEADED if name.startswith("headed_") else HEADLESS, "applog") for name in ("headless_click_logged_once", "headed_click_logged_once", "scroll_refused_no_container", "wait_menu_opens", "wait_menu_closes", "menu_already_open")),
+    _row("toolkit_electron.refs_and_completeness", "R35 VS Code first snapshot has refs while its frame remains registered", "VS Code", X11, HEADLESS, "atspi,proc"),
+    _row("toolkit_electron.menu_action_and_waits", "R35 VS Code File action opens its dropdown and menu predicates succeed and time out both ways", "VS Code", X11, BOTH_MODES, "atspi,proc"),
     _row("modal.terminal_preferences_blocks_parent", "Preferences blocks a ref action on its parent", "Files, Terminal, Calculator", X11, HEADED, "atspi,x11"),
     _row("modal.calculator_about_blocks_parent", "About blocks a ref action on its parent", "Files, Terminal, Calculator", X11, HEADED, "atspi,x11"),
     _row("observation.qualified_refs_survive_snapshots", "A qualified ref still resolves after unrelated snapshots", "Calculator", X11, HEADLESS, "atspi"),
@@ -240,6 +329,20 @@ REGISTRY: tuple[Leg, ...] = (
     _row("wayland_actions.unhealthy_shell_named_reason", "A shell that never becomes healthy fails the tier with its named reason", "Calculator", WAYLAND_ONLY, HEADLESS, "proc"),
 )
 
+def _retained_cells(registry):
+    for leg in registry:
+        reason = MUTTER_OWNER_REASONS.get(leg.id)
+        if not reason or "x11-mutter" not in leg.tiers:
+            yield leg
+            continue
+        retained = tuple(tier for tier in leg.tiers if tier != "x11-mutter")
+        if retained:
+            yield replace(leg, tiers=retained)
+        yield replace(leg, id=leg.id + ".mutter_owner" if retained else leg.id,
+                      tiers=MUTTER_ONLY, disposition="owner-decision", reason=reason)
+
+
+REGISTRY = tuple(_retained_cells(REGISTRY))
 _BY_ID = {leg.id: leg for leg in REGISTRY}
 if len(_BY_ID) != len(REGISTRY):
     raise ValueError("duplicate leg id in the registry")
