@@ -112,6 +112,14 @@ for _ in $(seq 1 100); do
   sleep 0.1
 done
 [ -f "$log/mutter-mapped" ] || { echo "private-mutter-shell: primer never mapped" >&2; exit 1; }
+# Shell exports its property before runStartupAnimation sets Overview visible.
+# Closing the initial false value can therefore race the later startup show.
+# Observe that one startup show before issuing the hide request.
+for _ in $(seq 1 40); do
+  [ "$(overview_active)" = true ] && break
+  sleep 0.25
+done
+[ "$(overview_active)" = true ] || { echo "private-mutter-shell: startup Overview never appeared" >&2; exit 1; }
 busctl --user --timeout=3 set-property org.gnome.Shell /org/gnome/Shell org.gnome.Shell OverviewActive b false
 for _ in $(seq 1 40); do
   [ "$(overview_active)" = false ] && break

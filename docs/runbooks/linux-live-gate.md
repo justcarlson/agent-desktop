@@ -200,7 +200,10 @@ The terminal's surviving-server lifecycle is no longer a live gate requirement;
 real windowed terminal launch attribution and terminal menu interaction remain covered.
 
 Mutter startup uses the private shell's writable `OverviewActive` D-Bus property
-and waits for false, avoiding keyboard-focus-dependent Escape synthesis. Wheel
+and observes its startup true value before requesting false: Shell exports the
+property before its asynchronous startup animation shows Overview. This avoids
+both closing an initial false value too early and keyboard-focus-dependent
+Escape synthesis. Wheel
 setup activates the window without an unrelated mouse click; actual wheel
 movement, return, delivery and release checks remain unchanged.
 
