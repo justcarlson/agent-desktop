@@ -15,9 +15,9 @@ const TOP_LEVEL_NODES: usize = 80;
 
 /// Reads the popups of one window from the accessibility bus.
 pub(super) struct BusReader<'a> {
-    bus: &'a SharedBus,
-    window: &'a AtspiElement,
-    deadline: Deadline,
+    pub(super) bus: &'a SharedBus,
+    pub(super) window: &'a AtspiElement,
+    pub(super) deadline: Deadline,
     /// Set when a read failed or was cut short in a place a popup could be
     /// hiding, so that an empty answer is not a closed one.
     pub(super) incomplete: bool,

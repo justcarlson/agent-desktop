@@ -3,7 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo, WindowState};
 
 use super::menu_popup::Node;
-use super::{MAX_POLLS, MenuPopup, PopupReader, entries, entries_across, find_popups};
+use super::{MAX_POLLS, MenuPopup, PopupReader, entries_across, entry, find_popups};
 use crate::system::menu_fixture::*;
 
 struct Fake {
@@ -83,10 +83,7 @@ fn a_closed_menu_lists_no_entry_though_its_nodes_are_present() {
 #[test]
 fn an_open_menu_lists_one_menu_entry_on_the_owner_window_with_its_item_count() {
     let open = popups(frame_with(vec![gtk4_popover(true)]));
-    let listed = entries(&open, &owner(false));
-    let [entry] = listed.as_slice() else {
-        panic!("one entry")
-    };
+    let entry = entry(&open[0], &owner(false));
     assert_eq!(entry.id, "w-1-2");
     assert_eq!(entry.kind, "menu");
     assert_eq!(entry.item_count, Some(2));
@@ -114,7 +111,7 @@ fn the_first_popup_of_a_chain_is_the_outermost_and_the_entry_counts_it() {
     assert_eq!(found.len(), 2);
     assert_eq!(found[0].items, 2);
     assert_eq!(found[1].items, 5);
-    assert_eq!(entries(&found, &owner(true))[0].item_count, Some(2));
+    assert_eq!(entry(&found[0], &owner(true)).item_count, Some(2));
 }
 
 #[test]

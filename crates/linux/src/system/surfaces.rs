@@ -44,11 +44,9 @@ pub(crate) fn surfaces_of(windows: &[ListedWindow]) -> Vec<SurfaceInfo> {
         .iter()
         .flat_map(|window| {
             let title = (!window.info.title.is_empty()).then(|| window.info.title.clone());
-            let mut entries = vec![surface(&window.info.id, "window", &title)];
-            if window.sheet {
-                entries.push(surface(&window.info.id, "sheet", &title));
-            }
-            entries
+            std::iter::once("window")
+                .chain(window.sheet.then_some("sheet"))
+                .map(move |kind| surface(&window.info.id, kind, &title))
         })
         .collect()
 }
