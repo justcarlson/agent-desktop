@@ -28,11 +28,15 @@ fn unreadable(error: AdapterError) -> AdapterError {
 /// Semantic actions can bypass toolkit input grabs. A showing modal in the
 /// application blocks other frames even when their controls remain enabled.
 /// Without a proven owner relationship, other same-app frames are refused.
+/// Shell surfaces are compositor controls, not application top-level windows.
 pub(crate) fn ensure_unblocked(
     reader: &mut impl NodeReader,
     target: &AtspiElement,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
+    if crate::system::shell::is_shell_element(target) {
+        return Ok(());
+    }
     let owner = target.menu_owner();
     let frame = owner
         .as_ref()
