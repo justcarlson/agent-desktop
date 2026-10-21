@@ -370,7 +370,6 @@ jobs:
     needs: [cli, ffi]
     if: ${{ !cancelled() }}
     runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -380,18 +379,9 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-24.04
-            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
-            container: ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
     steps:
-      - name: Install container build tools
-        if: runner.os == 'Linux'
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl build-essential git xz-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -422,7 +412,8 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          apt-get install -y --no-install-recommends \
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
             at-spi2-core dbus-x11 xvfb x11-utils openbox gnome-calculator \
             python3-gi gir1.2-atspi-2.0 gir1.2-gtk-3.0 gcc
 
