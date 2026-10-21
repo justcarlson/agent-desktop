@@ -88,10 +88,13 @@ struct CastSession;
 impl CastSession {
     fn record_monitor(
         &self,
-        _connector: &str,
+        connector: &str,
         _options: std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
-    ) -> OwnedObjectPath {
-        OwnedObjectPath::try_from("/private/stream").unwrap()
+    ) -> zbus::fdo::Result<OwnedObjectPath> {
+        if connector == "refused" {
+            return Err(zbus::fdo::Error::AccessDenied("stream refused".into()));
+        }
+        Ok(OwnedObjectPath::try_from("/private/stream").unwrap())
     }
 }
 
@@ -121,6 +124,32 @@ fn deadline() -> Deadline {
     Deadline::after(30_000).expect("a deadline builds")
 }
 
+fn assert_stream_error_is_preserved(pointer: &mut RemoteDesktop, log: &CallLog) {
+    let error = run_pointer(
+        pointer,
+        &Point { x: 640.0, y: 16.0 },
+        &[agent_desktop_core::DisplayInfo {
+            id: "refused".into(),
+            bounds: agent_desktop_core::Rect {
+                x: 0.,
+                y: 0.,
+                width: 1280.,
+                height: 800.,
+            },
+            is_primary: true,
+            scale: 1.,
+        }],
+        &MouseButton::Left,
+        deadline(),
+    )
+    .expect_err("the stream service refuses access");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert!(error.platform_detail.unwrap().contains("AccessDenied"));
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
+    assert_eq!(log.calls(), ["create", "stop:denied"]);
+}
+
 #[test]
 #[ignore = "requires scripts/private-session.sh; starts only a private RemoteDesktop D-Bus fixture"]
 fn a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry() {
@@ -134,6 +163,7 @@ fn a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_r
     let log = CallLog(Arc::new(Mutex::new(Vec::new())));
     let _service = private_service(log.clone());
     let mut pointer = RemoteDesktop::open(deadline()).expect("the private session bus opens");
+    assert_stream_error_is_preserved(&mut pointer, &log);
     let error = run_pointer(
         &mut pointer,
         &Point { x: 640.0, y: 16.0 },
