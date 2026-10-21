@@ -71,11 +71,16 @@ def build():
     env = dict(os.environ, CARGO_INCREMENTAL="0")
     subprocess.run(["cargo", "build", "-p", "agent-desktop", "-p", "agent-desktop-linux",
                     "--bins"], env=env, check=True)
-    output = subprocess.check_output(
+    result = subprocess.run(
         ["cargo", "test", "-p", "agent-desktop-linux", "--lib", "--no-run",
-         "--message-format=json"], env=env, text=True,
+         "--message-format=json"], env=env, text=True, stdout=subprocess.PIPE,
     )
-    binaries = [row["executable"] for row in map(json.loads, output.splitlines())
+    rows = [json.loads(line) for line in result.stdout.splitlines()]
+    for row in rows:
+        if row.get("reason") == "compiler-message":
+            print(row["message"]["rendered"], file=sys.stderr, end="")
+    result.check_returncode()
+    binaries = [row["executable"] for row in rows
                 if row.get("reason") == "compiler-artifact" and row.get("executable")
                 and row["target"]["name"] == "agent_desktop_linux"]
     if len(binaries) != 1:

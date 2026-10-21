@@ -139,7 +139,7 @@ fn wheel(kit: Kit, source: &str, anchor: &str) {
 }
 
 fn wait_y(scene: &Scene, row: &Tgt, what: &str, ready: impl Fn(f64) -> bool) -> f64 {
-    let mut last = None;
+    let mut last: Option<f64> = None;
     let mut stable = 0;
     let mut value = None;
     wait_until(what, Duration::from_secs(8), || {
