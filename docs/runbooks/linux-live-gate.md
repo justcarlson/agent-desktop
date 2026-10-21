@@ -16,7 +16,9 @@ or authorize an agent to touch the owner's desktop.
 Use the Linux box through `bash scripts/remote-linux.sh -c '...'`. The helper's
 box lock covers all concurrent shards. Do not overlap calls from one worktree.
 The packaged openbox and desktop fixture apps must already be installed. Keep
-`HOME` pointing at the box user's home so the packaged toolkit tools are found.
+`HOME` pointing at the box user's home for private session and artifact storage.
+Supply tool executables through `PATH` and shared libraries through `LD_LIBRARY_PATH`.
+Set `AGENT_DESKTOP_QT_PYTHON` if PyQt6 uses a separate Python interpreter.
 The runner builds the CLI and Linux library test executable once, then freezes
 the latter in its output directory. Later chunks verify source and executable
 hashes and reuse it without rebuilding or taking cargo's lock per module.

@@ -69,7 +69,7 @@ def check_prerequisites(
 ) -> list[str]:
     env = dict(os.environ if env is None else env)
     platform = sys.platform if platform is None else platform
-    extra_paths = (session.AD_TOOLS_BIN,) if extra_paths is None else extra_paths
+    extra_paths = () if extra_paths is None else extra_paths
     gi_probe = _default_gi_probe if gi_probe is None else gi_probe
     selected = tuple(tiers) if tiers else tuple(session._INNER_WRAPPERS)
     missing = []

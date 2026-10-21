@@ -72,10 +72,6 @@ fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("a deadline builds")
 }
 
-fn home() -> String {
-    std::env::var("HOME").expect("HOME")
-}
-
 fn script_path(name: &str, source: &str) -> String {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let path = format!("{dir}/{name}.py");
@@ -93,9 +89,9 @@ fn spawn(launched: &mut Launched, kind: &str) -> u32 {
         },
     );
     if kind == "qt" {
-        let home = home();
-        let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-        let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
+        let python =
+            std::env::var("AGENT_DESKTOP_QT_PYTHON").unwrap_or_else(|_| "python3".to_owned());
+
         return launched.spawn_with_env(
             &python,
             &[&script],
@@ -103,7 +99,6 @@ fn spawn(launched: &mut Launched, kind: &str) -> u32 {
                 ("QT_ACCESSIBILITY", "1".to_owned()),
                 ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
                 ("QT_QPA_PLATFORM", "xcb".to_owned()),
-                ("LD_LIBRARY_PATH", libraries),
             ]
             .into_iter()
             .chain(app_display())
@@ -272,13 +267,8 @@ fn exercise(kind: &str, manager: &str) {
 }
 
 fn close_overview() {
-    let home = home();
-    let status = Command::new(format!("{home}/.local/ad-tools/root/usr/bin/xdotool"))
+    let status = Command::new("xdotool")
         .args(["key", "Escape"])
-        .env(
-            "LD_LIBRARY_PATH",
-            format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu"),
-        )
         .status()
         .expect("xdotool runs");
     assert!(status.success());

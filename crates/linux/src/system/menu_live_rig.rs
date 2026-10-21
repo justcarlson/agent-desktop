@@ -44,19 +44,8 @@ pub(super) fn poll<T>(what: &str, mut attempt: impl FnMut() -> Option<T>) -> T {
 }
 
 pub(super) fn tool(program: &str, args: &[&str]) -> String {
-    let home = std::env::var("HOME").expect("HOME");
-    let root = format!("{home}/.local/ad-tools/root");
-    let path = format!(
-        "{root}/usr/bin:{}",
-        std::env::var("PATH").unwrap_or_default()
-    );
     let output = Command::new(program)
         .args(args)
-        .env("PATH", path)
-        .env(
-            "LD_LIBRARY_PATH",
-            format!("{root}/usr/lib/x86_64-linux-gnu"),
-        )
         .output()
         .unwrap_or_else(|error| panic!("{program} did not run: {error}"));
     String::from_utf8_lossy(&output.stdout).into_owned()

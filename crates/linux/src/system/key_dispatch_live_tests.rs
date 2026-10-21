@@ -73,13 +73,7 @@ fn active_pid() -> Option<u32> {
 }
 
 fn tool(name: &str) -> Command {
-    let home = std::env::var("HOME").expect("HOME");
-    let mut command = Command::new(format!("{home}/.local/ad-tools/root/usr/bin/{name}"));
-    command.env(
-        "LD_LIBRARY_PATH",
-        format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu"),
-    );
-    command
+    Command::new(name)
 }
 
 fn close_overview() {

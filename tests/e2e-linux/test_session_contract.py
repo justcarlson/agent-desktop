@@ -196,22 +196,19 @@ class StraySweepTests(unittest.TestCase):
 
 
 class EnvFileTests(unittest.TestCase):
-    def test_tier_tools_keep_their_private_shared_library_path(self):
+    def test_tier_inherits_configured_tools_and_private_shared_libraries(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
-            binary = base / "tools/usr/bin"
-            library = base / "tools/usr/lib/x86_64-linux-gnu"
-            binary.mkdir(parents=True)
-            library.mkdir(parents=True)
             state = base / "state"
             state.mkdir()
             values = {"AGENT_DESKTOP_PRIVATE_SESSION": str(base),
                       "AGENT_DESKTOP_HOME": str(state), "DBUS_SESSION_BUS_ADDRESS": "unix:path=/private/bus",
                       "LD_LIBRARY_PATH": "/private/wrapper-libraries"}
-            with mock.patch.object(session, "AD_TOOLS_BIN", binary):
+            with mock.patch.dict(os.environ, {"PATH": "/private/tools/bin"}):
                 tier = session._build_tier("x11-openbox", values)
+            self.assertEqual(tier.env["PATH"], "/private/tools/bin")
             self.assertEqual(tier.env["LD_LIBRARY_PATH"].split(os.pathsep),
-                             [str(library), "/private/wrapper-libraries"])
+                             ["/private/wrapper-libraries"])
 
     def test_wayland_tier_cannot_inherit_the_outer_x11_display(self):
         with tempfile.TemporaryDirectory() as directory:

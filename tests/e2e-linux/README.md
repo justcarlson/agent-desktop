@@ -40,15 +40,15 @@ AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
 A lock-wait expiry is infrastructure contention before any test runs. Keep
 failed suites for diagnosis; the runner removes a successful suite.
 Use another fresh suite for the sole diagnostic rerun. Do not reuse a suite
-with a different binary image. `run.sh` adds the extracted tool directory to
-PATH; Qt launches through the venv path below without activating it in the shell.
+with a different binary image. The runner inherits the caller's tool paths and
+libraries; Qt can use its own interpreter without changing the harness interpreter.
 
 Prerequisites include Python 3 with PyGObject, the GNOME apps, Xvfb, DBus,
 AT-SPI, openbox, xdotool, wmctrl, xclip, xwd, wl-clipboard, gnome-shell, and
-private-session cleanup. Extracted tools may live under
-`~/.local/ad-tools/root/usr/bin`; openbox defaults to
+private-session cleanup. Supply tools through `PATH` and shared libraries through
+`LD_LIBRARY_PATH`; openbox defaults to
 `~/ad-wt/wm-pkgs/root` (`AGENT_DESKTOP_WM_ROOT` overrides it).
-Qt legs use `~/.local/ad-tools/qtvenv`.
+Qt legs use `python3`; set `AGENT_DESKTOP_QT_PYTHON` when PyQt6 uses a separate interpreter.
 A missing prerequisite exits 2 before any leg runs.
 
 ## Tiers

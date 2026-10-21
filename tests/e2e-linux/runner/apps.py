@@ -119,7 +119,7 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
         before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
     env = dict(tier.env)
     if app.endswith("qt_window.py"):
-        command = [str(Path.home() / ".local/ad-tools/qtvenv/bin/python"), app]
+        command = [os.environ.get("AGENT_DESKTOP_QT_PYTHON", "python3"), app]
         env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1", QT_QPA_PLATFORM="xcb")
     else:
         command = [COMMANDS.get(app, app)]
@@ -229,7 +229,7 @@ def prime_desktop(tier: Tier) -> None:
 
 
 def launch_vscode(tier: Tier) -> OwnedApp:
-    executable = str(Path.home() / ".local/ad-tools/vscode/app/code")
+    executable = "code"
     args = ("--no-sandbox", "--password-store=basic", "--user-data-dir",
             str(tier.runtime_dir / "vscode-profile"), "--extensions-dir",
             str(tier.runtime_dir / "vscode-extensions"), "--disable-extensions", "--disable-gpu",

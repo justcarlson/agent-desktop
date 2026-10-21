@@ -186,13 +186,6 @@ impl World {
     }
 }
 
-fn tools_path() -> OsString {
-    let home = std::env::var("HOME").expect("a home directory");
-    let tools = format!("{home}/.local/ad-tools/root/usr/bin");
-    let inherited = std::env::var("PATH").unwrap_or_default();
-    OsString::from(format!("{tools}:{inherited}"))
-}
-
 fn boot() -> World {
     assert!(
         std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
@@ -202,7 +195,7 @@ fn boot() -> World {
         std::env::var_os("WAYLAND_DISPLAY").is_none(),
         "the live Wayland display must not be inherited"
     );
-    let search_path = Some(tools_path());
+    let search_path = std::env::var_os("PATH");
     for _ in 0..ATTEMPTS {
         let Some(shell) = spawn_shell() else { continue };
         let Some(seat) = bounded_seat() else { continue };

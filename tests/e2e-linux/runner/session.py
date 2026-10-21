@@ -16,7 +16,6 @@ from runner.session_environment import _PAYLOAD, _ENV_KEYS
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = HARNESS_ROOT.parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
-AD_TOOLS_BIN = Path.home() / ".local" / "ad-tools" / "root" / "usr" / "bin"
 
 SCRIPT_PRIVATE_SESSION = SCRIPTS_DIR / "private-session.sh"
 SCRIPT_MUTTER_SHELL = SCRIPTS_DIR / "private-mutter-shell.sh"
@@ -201,15 +200,13 @@ def _build_tier(name: str, env_values: dict[str, str]) -> Tier:
     state_root.chmod(0o700)
     env = {
         "HOME": os.environ.get("HOME", str(Path.home())),
-        "PATH": f"{AD_TOOLS_BIN}:{os.environ.get('PATH', os.defpath)}",
+        "PATH": os.environ.get("PATH", os.defpath),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
     }
     for key in _ENV_KEYS:
         if env_values.get(key):
             env[key] = env_values[key]
-    libraries = [str(path) for path in sorted((AD_TOOLS_BIN.parent / "lib").glob("*-linux-gnu"))
-                 if path.is_dir()]
-    libraries += env.get("LD_LIBRARY_PATH", os.environ.get("LD_LIBRARY_PATH", "")).split(os.pathsep)
+    libraries = env.get("LD_LIBRARY_PATH", os.environ.get("LD_LIBRARY_PATH", "")).split(os.pathsep)
     libraries = list(dict.fromkeys(path for path in libraries if path))
     if libraries:
         env["LD_LIBRARY_PATH"] = os.pathsep.join(libraries)

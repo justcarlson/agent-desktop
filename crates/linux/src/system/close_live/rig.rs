@@ -166,11 +166,8 @@ pub(in crate::system) fn lease(timeout_ms: u64) -> InteractionLease {
 }
 
 fn xdotool(args: &[&str]) -> bool {
-    let home = std::env::var("HOME").expect("HOME");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    Command::new(format!("{home}/.local/ad-tools/root/usr/bin/xdotool"))
+    Command::new("xdotool")
         .args(args)
-        .env("LD_LIBRARY_PATH", libraries)
         .stdin(Stdio::null())
         .status()
         .is_ok_and(|status| status.success())

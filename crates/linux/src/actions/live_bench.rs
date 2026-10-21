@@ -72,7 +72,7 @@ impl Bench {
             Toolkit::Gtk3 => ("python3".to_owned(), scripts.gtk3, Vec::new()),
             Toolkit::Gtk4 => ("python3".to_owned(), scripts.gtk4, Vec::new()),
             Toolkit::Qt => {
-                let (python, environment) = qt_environment()?;
+                let (python, environment) = qt_environment();
                 (python, scripts.qt, environment)
             }
         };

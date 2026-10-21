@@ -207,7 +207,6 @@ pub(super) fn launch(toolkit: &str) -> App {
     std::fs::write(&commands, "").expect("the command file is written");
     let (program, env) = if toolkit == "qt" {
         crate::actions::live_bench_env::qt_environment()
-            .expect("the Qt test environment is available")
     } else {
         ("python3".to_owned(), Vec::new())
     };

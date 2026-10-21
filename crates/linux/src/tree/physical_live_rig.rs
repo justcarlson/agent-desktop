@@ -31,9 +31,8 @@ pub(super) struct Scene {
 }
 
 fn qt_launch(launched: &mut Launched, script: &str, log: &str) -> u32 {
-    let home = std::env::var("HOME").expect("HOME");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
+    let python = std::env::var("AGENT_DESKTOP_QT_PYTHON").unwrap_or_else(|_| "python3".to_owned());
+
     launched.spawn_with_env(
         &python,
         &[script],
@@ -43,7 +42,6 @@ fn qt_launch(launched: &mut Launched, script: &str, log: &str) -> u32 {
             ("QT_ACCESSIBILITY", "1".to_owned()),
             ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
             ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", libraries),
         ],
     )
 }

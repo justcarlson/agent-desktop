@@ -152,7 +152,6 @@ check "the setsid-started shell is gone after the session group is cancelled" "$
 
 # shellcheck disable=SC2016
 "$helper" -- "$mutter" -- sh -c '
-  PATH="$HOME/.local/ad-tools/root/usr/bin:$PATH"
   busctl --user call org.gnome.Terminal /org/gnome/Terminal \
     org.freedesktop.Application Activate "a{sv}" 0 >/dev/null 2>&1
   found=1

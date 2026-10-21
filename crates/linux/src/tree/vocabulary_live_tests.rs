@@ -266,11 +266,7 @@ fn vscode_attribute_checks(analysis: &Analysis) -> Result<(), String> {
 }
 
 fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
-    let home = std::env::var("HOME").map_err(|error| error.to_string())?;
-    let program = format!("{home}/.local/ad-tools/vscode/app/code");
-    if !std::path::Path::new(&program).exists() {
-        return Err(format!("vscode is required and was not found at {program}"));
-    }
+    let program = "code".to_owned();
     let mut launched = Launched::new();
     let data = std::env::temp_dir().join(nonce("vocabulary-vscode"));
     launched.scratch.push(data.clone());

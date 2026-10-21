@@ -88,11 +88,7 @@ pub(super) fn qt(adapter: &LinuxAdapter, bus: &SharedBus, check: Check) -> Resul
 }
 
 pub(super) fn vscode(adapter: &LinuxAdapter, bus: &SharedBus, check: Check) -> Result<(), String> {
-    let home = std::env::var("HOME").map_err(|error| error.to_string())?;
-    let program = format!("{home}/.local/ad-tools/vscode/app/code");
-    if !std::path::Path::new(&program).exists() {
-        return Err(format!("vscode is required and was not found at {program}"));
-    }
+    let program = "code".to_owned();
     let data = std::env::temp_dir().join(nonce("resolve-vscode"));
     let data_arg = data.to_string_lossy().into_owned();
     let arguments = vscode_arguments(&data_arg);

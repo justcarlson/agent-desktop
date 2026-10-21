@@ -39,23 +39,13 @@ pub(super) fn launch(launched: &mut Launched) -> Result<u32, String> {
 }
 
 fn launch_script(launched: &mut Launched, source: &str) -> Result<u32, String> {
-    let home = std::env::var("HOME").map_err(|error| error.to_string())?;
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    if !std::path::Path::new(&python).exists() {
-        return Err(format!(
-            "the Qt test environment is required and was not found at {python}"
-        ));
-    }
+    let python = std::env::var("AGENT_DESKTOP_QT_PYTHON").unwrap_or_else(|_| "python3".to_owned());
     let dir = std::env::temp_dir().join(nonce("qt"));
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     launched.scratch.push(dir.clone());
     let script = dir.join("app.py");
     std::fs::write(&script, source).map_err(|error| error.to_string())?;
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    let library_path = match std::env::var("LD_LIBRARY_PATH") {
-        Ok(existing) if !existing.is_empty() => format!("{libraries}:{existing}"),
-        _ => libraries,
-    };
+
     let script_arg = script.to_string_lossy().into_owned();
     Ok(launched.spawn_with_env(
         &python,
@@ -64,7 +54,6 @@ fn launch_script(launched: &mut Launched, source: &str) -> Result<u32, String> {
             ("QT_ACCESSIBILITY", "1".to_owned()),
             ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
             ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", library_path),
         ],
     ))
 }
