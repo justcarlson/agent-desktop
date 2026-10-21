@@ -12,41 +12,6 @@ use crate::system::x11::control::{ControlRead, toplevels_of};
 
 const SETTLE: Duration = Duration::from_secs(40);
 
-const GTK3_SCRIPT: &str = r#"
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
-w = Gtk.Window(title="adclose-gtk3")
-w.add(Gtk.Button(label="Press"))
-w.connect("destroy", Gtk.main_quit)
-w.show_all()
-Gtk.main()
-"#;
-
-const GTK4_SCRIPT: &str = r#"
-import gi
-gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
-def activate(app):
-    w = Gtk.ApplicationWindow(application=app, title="adclose-gtk4")
-    w.set_child(Gtk.Button(label="Press"))
-    w.present()
-app = Gtk.Application(application_id="dev.agentdesktop.closeprobe")
-app.connect("activate", activate)
-app.run(None)
-"#;
-
-const QT_SCRIPT: &str = r#"
-import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton
-app = QApplication(sys.argv)
-w = QMainWindow()
-w.setWindowTitle("adclose-qt")
-w.setCentralWidget(QPushButton("Press"))
-w.show()
-sys.exit(app.exec())
-"#;
-
 /// A process started so that it is not a child of the test: a child nobody
 /// reaps stays a zombie, which would hide whether the close ended it. Drop
 /// ends it by pid and token, through the same signal path under test.
@@ -198,49 +163,6 @@ fn signal_by_name(name: &str, pid: u32) {
 pub(in crate::system) fn lease(timeout_ms: u64) -> InteractionLease {
     let deadline = Deadline::after(timeout_ms).expect("a deadline builds");
     interaction_lease::acquire(deadline).expect("the lease is free")
-}
-
-fn scratch_dir(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("ad-close-{label}-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("scratch dir");
-    dir
-}
-
-fn script_app(program: &str, source: &str, env: &[(&str, String)]) -> Orphan {
-    let dir = scratch_dir("script");
-    let script = dir.join("app.py");
-    std::fs::write(&script, source).expect("script written");
-    let arg = script.to_string_lossy().into_owned();
-    let mut orphan = Orphan::spawn(program, &[&arg], env);
-    orphan.keep(dir);
-    orphan
-}
-
-pub(in crate::system) fn gtk3() -> Orphan {
-    script_app("python3", GTK3_SCRIPT, &[])
-}
-
-pub(in crate::system) fn gtk4() -> Orphan {
-    script_app("python3", GTK4_SCRIPT, &[])
-}
-
-pub(in crate::system) fn qt() -> Orphan {
-    let home = std::env::var("HOME").expect("HOME");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    let library_path = match std::env::var("LD_LIBRARY_PATH") {
-        Ok(existing) if !existing.is_empty() => format!("{libraries}:{existing}"),
-        _ => libraries,
-    };
-    script_app(
-        &python,
-        QT_SCRIPT,
-        &[
-            ("QT_ACCESSIBILITY", "1".to_owned()),
-            ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", library_path),
-        ],
-    )
 }
 
 fn xdotool(args: &[&str]) -> bool {
