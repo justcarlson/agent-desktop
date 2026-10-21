@@ -1,3 +1,4 @@
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
@@ -14,6 +15,8 @@ use crate::input::keymap::Keymap;
 use crate::input::keymap_edit::KeymapEdit;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
+
+type EventBarrier = (Sender<()>, Receiver<()>);
 
 fn update_edge(held: &mut Vec<u8>, code: u8, down: bool) {
     held.retain(|held| *held != code);
@@ -49,6 +52,7 @@ pub(crate) struct FakeWorld {
 #[derive(Clone)]
 pub(crate) struct FakeSink {
     world: Arc<Mutex<FakeWorld>>,
+    before_event: Arc<Mutex<Option<EventBarrier>>>,
 }
 
 pub(crate) fn start_keymap() -> Keymap {
@@ -78,6 +82,7 @@ impl FakeSink {
                 held_buttons: Vec::new(),
                 at: (0, 0),
             })),
+            before_event: Arc::default(),
         }
     }
 
@@ -101,7 +106,19 @@ impl FakeSink {
         self
     }
 
+    pub(crate) fn block_next_event(&self) -> (Receiver<()>, Sender<()>) {
+        let (started, ready) = channel();
+        let (resume, wait) = channel();
+        *self.before_event.lock().unwrap() = Some((started, wait));
+        (ready, resume)
+    }
+
     fn admit(&self, recorded: Recorded) -> Result<(), SinkError> {
+        let barrier = self.before_event.lock().unwrap().take();
+        if let Some((started, resume)) = barrier {
+            started.send(()).unwrap();
+            resume.recv().unwrap();
+        }
         let mut world = self.world();
         world.sent += 1;
         if world.panic_on_event == Some(world.sent) {
@@ -224,6 +241,7 @@ pub(crate) fn run(
             journal: None,
             slot: slot.unwrap_or_default(),
             release_on_signal: false,
+            lease: None,
         },
     )
 }

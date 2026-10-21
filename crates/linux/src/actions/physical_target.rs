@@ -67,6 +67,7 @@ pub(crate) trait PhysicalWorld {
 
 pub(crate) struct LiveWorld<'a> {
     pub(crate) bus: &'a SharedBus,
+    pub(crate) lease: &'a InteractionLease,
 }
 
 impl PhysicalWorld for LiveWorld<'_> {
@@ -140,9 +141,9 @@ impl PhysicalWorld for LiveWorld<'_> {
         &self,
         plans: Vec<Plan>,
         gate: Gate<'_>,
-        deadline: Deadline,
+        _deadline: Deadline,
     ) -> Result<Delivery, AdapterError> {
-        crate::input::deliver::send_plans(plans, gate, deadline)
+        crate::input::deliver::send_plans(plans, gate, self.lease)
     }
 
     fn send_keysyms(
@@ -171,7 +172,7 @@ pub(crate) fn deliver(
     lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
     deliver_in(
-        &LiveWorld { bus },
+        &LiveWorld { bus, lease },
         action,
         element,
         request,

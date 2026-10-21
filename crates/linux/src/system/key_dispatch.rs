@@ -201,7 +201,7 @@ pub(crate) fn press_key_for_app(
     super::display_server::require(lease.deadline())
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
     press_in(Press {
-        physical: &LiveWorld { bus },
+        physical: &LiveWorld { bus, lease },
         keys: &LiveKeys { bus },
         process: &process,
         window: None,
