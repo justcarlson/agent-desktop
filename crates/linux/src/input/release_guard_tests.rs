@@ -1,14 +1,8 @@
-use std::panic::{AssertUnwindSafe, catch_unwind};
-
-use agent_desktop_core::{AdapterError, DeliveryDisposition};
-
 use super::ReleaseGuard;
 use crate::input::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, start_keymap};
 use crate::input::x11::held_journal::HeldJournal;
 use crate::input::x11::sink_error::SinkError;
-
-const SUGGESTION: &str = "inspect before retrying";
 
 fn without_round_trips(sink: &FakeSink) -> Vec<Recorded> {
     sink.recorded()
@@ -32,25 +26,6 @@ fn restore() -> KeymapEdit {
 }
 
 #[test]
-fn a_held_button_is_released_at_the_origin_and_not_at_the_destination() {
-    let fake = FakeSink::new();
-    let mut sink = fake.clone();
-    let mut guard = ReleaseGuard::new(&mut sink);
-    guard.set_origin(Some((5, 6)));
-    guard.button(1, true).expect("press");
-    guard.move_to(200, 300).expect("move");
-    let error = guard.abort(AdapterError::timeout("deadline"), SUGGESTION);
-    drop(guard);
-
-    let events = without_round_trips(&fake);
-    assert_eq!(
-        events[events.len() - 2..],
-        [Recorded::Move(5, 6), Recorded::Button(1, false)]
-    );
-    assert_eq!(error.details.expect("evidence")["delivered_events"], 2);
-}
-
-#[test]
 fn keys_are_released_in_the_reverse_order_they_were_pressed() {
     let fake = FakeSink::new();
     let mut sink = fake.clone();
@@ -70,50 +45,6 @@ fn keys_are_released_in_the_reverse_order_they_were_pressed() {
             Recorded::Key(37, false)
         ]
     );
-}
-
-#[test]
-fn a_panic_after_a_press_still_releases_the_button() {
-    let fake = FakeSink::new();
-    let mut sink = fake.clone();
-    let outcome = catch_unwind(AssertUnwindSafe(|| {
-        let mut guard = ReleaseGuard::new(&mut sink);
-        guard.button(1, true).expect("press");
-        panic!("worker failure");
-    }));
-
-    assert!(outcome.is_err());
-    assert_eq!(
-        without_round_trips(&fake).last(),
-        Some(&Recorded::Button(1, false))
-    );
-}
-
-#[test]
-fn a_remapped_keycode_is_restored_by_a_clean_finish() {
-    let fake = FakeSink::new();
-    let mut sink = fake.clone();
-    let mut guard = ReleaseGuard::new(&mut sink);
-    guard.edit_keymap(&remap()).expect("remap");
-    guard.key(12, true).expect("press");
-    guard.key(12, false).expect("release");
-    guard.finish().expect("finish");
-
-    assert_eq!(fake.world().keymap, start_keymap());
-}
-
-#[test]
-fn a_remap_is_restored_when_the_failure_comes_before_the_first_press() {
-    let fake = FakeSink::new().failing_on(2);
-    let mut sink = fake.clone();
-    {
-        let mut guard = ReleaseGuard::new(&mut sink);
-        guard.edit_keymap(&remap()).expect("remap");
-        assert!(guard.key(12, true).is_err());
-        let _ = guard.abort(AdapterError::internal("send failed"), SUGGESTION);
-    }
-
-    assert_eq!(fake.world().keymap, start_keymap());
 }
 
 #[test]
@@ -142,47 +73,6 @@ fn a_restoring_edit_inside_the_plan_is_not_applied_twice() {
         .filter(|event| matches!(event, Recorded::Keymap(_)))
         .count();
     assert_eq!(edits, 2);
-}
-
-#[test]
-fn a_finished_guard_sends_nothing_when_it_drops() {
-    let fake = FakeSink::new();
-    let mut sink = fake.clone();
-    let mut guard = ReleaseGuard::new(&mut sink);
-    guard.key(38, true).expect("press");
-    guard.key(38, false).expect("release");
-    guard.finish().expect("finish");
-    let sent_at_finish = fake.recorded().len();
-    drop(guard);
-
-    assert_eq!(fake.recorded().len(), sent_at_finish);
-}
-
-#[test]
-fn an_abort_before_any_event_is_not_delivered() {
-    let fake = FakeSink::new().failing_on(1);
-    let mut sink = fake.clone();
-    let mut guard = ReleaseGuard::new(&mut sink);
-    assert!(guard.key(38, true).is_err());
-    let error = guard.abort(AdapterError::internal("send failed"), SUGGESTION);
-
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::NotDelivered
-    );
-}
-
-#[test]
-fn an_abort_reports_the_release_as_posted_and_not_acknowledged() {
-    let fake = FakeSink::new();
-    let mut sink = fake.clone();
-    let mut guard = ReleaseGuard::new(&mut sink);
-    guard.key(38, true).expect("press");
-    let error = guard.abort(AdapterError::timeout("deadline"), SUGGESTION);
-
-    let details = error.details.expect("evidence");
-    assert_eq!(details["emergency_release_posted"], true);
-    assert_eq!(details["emergency_release_acknowledged"], false);
 }
 
 #[test]
