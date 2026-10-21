@@ -3,7 +3,8 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::Deadline;
 
-use super::session::{live_keymap, run};
+use super::live_remap_tests::observed_keymap;
+use super::session::run;
 use crate::input::keymap::Keymap;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
@@ -98,7 +99,21 @@ pub(crate) fn device_state(device: &str) -> String {
         .args(["query-state", device])
         .output()
         .expect("xinput runs");
-    String::from_utf8_lossy(&output.stdout).into_owned()
+    assert!(output.status.success(), "xinput failed: {output:?}");
+    String::from_utf8(output.stdout).expect("xinput state is UTF-8")
+}
+
+fn input_down(device: &str, input: &str) -> bool {
+    let text = device_state(device);
+    let state = text.lines().find_map(|line| {
+        let (name, state) = line.trim().split_once('=')?;
+        (name == input).then_some(state)
+    });
+    match state {
+        Some("down") => true,
+        Some("up") => false,
+        _ => panic!("xinput did not report {input} up or down: {text}"),
+    }
 }
 
 #[test]
@@ -106,7 +121,7 @@ pub(crate) fn device_state(device: &str) -> String {
 fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let display = private_display();
     if std::env::var("AD_HOLD_HELPER").is_ok() {
-        let map = live_keymap(&display, deadline(8_000)).expect("keymap");
+        let map = observed_keymap(&display);
         let code = keycode_for(&map, u32::from('a'));
         let hold = Plan {
             steps: vec![
@@ -123,7 +138,7 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
-    let map = live_keymap(&display, deadline(8_000)).expect("keymap");
+    let map = observed_keymap(&display);
     let code = keycode_for(&map, u32::from('a'));
     let device = "Virtual core XTEST keyboard";
     let mut child = Command::new(std::env::current_exe().expect("exe"))
@@ -136,12 +151,11 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         .env("AD_HOLD_HELPER", "1")
         .spawn()
         .expect("helper");
-    let marker = format!("key[{code}]=down");
+    let key = format!("key[{code}]");
     let pointer = "Virtual core XTEST pointer";
-    let button_marker = "button[1]=down";
+    let button = "button[1]";
     let started = Instant::now();
-    while !(device_state(device).contains(&marker) && device_state(pointer).contains(button_marker))
-    {
+    while !(input_down(device, &key) && input_down(pointer, button)) {
         assert!(
             started.elapsed() < Duration::from_secs(20),
             "key never went down"
@@ -156,7 +170,7 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let _ = child.wait();
     std::thread::sleep(Duration::from_millis(500));
     assert!(
-        device_state(device).contains(&marker) && device_state(pointer).contains(button_marker),
+        input_down(device, &key) && input_down(pointer, button),
         "the server released the input by itself, so the journal is not needed"
     );
     let nudge = Plan {
@@ -166,7 +180,7 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let lease = crate::system::interaction_lease::acquire(deadline(8_000)).expect("lease");
     run(&display, vec![nudge], &mut || Ok(()), &lease).expect("next call");
     assert!(
-        !device_state(device).contains(&marker) && !device_state(pointer).contains(button_marker),
+        !input_down(device, &key) && !input_down(pointer, button),
         "the next call did not release the input a killed client left held"
     );
 }

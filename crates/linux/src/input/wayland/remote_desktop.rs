@@ -107,11 +107,12 @@ impl RemoteDesktop {
 impl RemoteDesktop {
     /// Links a screen-cast stream of the monitor on `connector` to the created
     /// session, which is what lets the pointer move to an absolute position.
-    /// `false` when the compositor offers no such stream.
-    pub(crate) fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> bool {
-        let Ok(path) = self.session_path().map(str::to_owned) else {
-            return false;
-        };
+    pub(crate) fn attach_stream(
+        &mut self,
+        connector: &str,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let path = self.session_path()?.to_owned();
         let stream = within(deadline, async {
             let id: zbus::zvariant::OwnedValue = self
                 .connection
@@ -123,10 +124,10 @@ impl RemoteDesktop {
                     &(SESSION_INTERFACE, "SessionId"),
                 )
                 .await
-                .map_err(|error| classify_call(&error))?
+                .map_err(|error| self.failed(&error))?
                 .body()
                 .deserialize()
-                .map_err(|error| classify_call(&error))?;
+                .map_err(|error| self.failed(&error))?;
             let id = String::try_from(id).map_err(|_| AdapterError::internal("no session id"))?;
             let mut options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
                 std::collections::HashMap::new();
@@ -141,10 +142,10 @@ impl RemoteDesktop {
                     &(options,),
                 )
                 .await
-                .map_err(|error| classify_call(&error))?
+                .map_err(|error| self.failed(&error))?
                 .body()
                 .deserialize()
-                .map_err(|error| classify_call(&error))?;
+                .map_err(|error| self.failed(&error))?;
             let none: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
                 std::collections::HashMap::new();
             self.connection
@@ -156,13 +157,13 @@ impl RemoteDesktop {
                     &(connector, none),
                 )
                 .await
-                .map_err(|error| classify_call(&error))?
+                .map_err(|error| self.failed(&error))?
                 .body()
                 .deserialize::<OwnedObjectPath>()
-                .map_err(|error| classify_call(&error))
+                .map_err(|error| self.failed(&error))
         });
-        self.stream = stream.ok();
-        self.stream.is_some()
+        self.stream = Some(stream.map_err(|error| self.forget_on_timeout(error))?);
+        Ok(())
     }
 
     pub(crate) fn pointer_motion_absolute(

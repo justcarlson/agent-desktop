@@ -47,9 +47,16 @@ impl PointerSession for Recording {
         self.step(if down { "down" } else { "up" })
     }
     fn pause(&mut self, _: Duration) {}
-    fn attach_stream(&mut self, _: &str, _: Deadline) -> bool {
-        self.log.push("attach".into());
-        self.stream
+    fn attach_stream(&mut self, _: &str, _: Deadline) -> Result<(), AdapterError> {
+        self.step("attach")?;
+        if self.stream {
+            Ok(())
+        } else {
+            Err(AdapterError::new(
+                ErrorCode::ActionNotSupported,
+                "no stream",
+            ))
+        }
     }
     fn motion_absolute(&mut self, x: f64, y: f64, _: Deadline) -> Result<(), AdapterError> {
         self.pos = (x, y);

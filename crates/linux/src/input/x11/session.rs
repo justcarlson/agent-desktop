@@ -54,11 +54,36 @@ pub(crate) fn run(
     )
 }
 
-pub(crate) fn live_keymap(display: &str, deadline: Deadline) -> Result<Keymap, AdapterError> {
+pub(crate) fn live_keymap(display: &str, lease: &InteractionLease) -> Result<Keymap, AdapterError> {
+    let deadline = lease.deadline();
     let display = display.to_owned();
+    let journal = HeldJournal::in_runtime_dir(&display);
     let cutoff = deadline.remaining() + RELEASE_ALLOWANCE;
+    read_keymap(
+        move || XtestSink::connect(&display, deadline, cutoff),
+        journal,
+        worker_slot::shared(),
+        deadline,
+        Some(lease),
+    )
+}
+
+fn read_keymap<S: X11Sink + 'static>(
+    open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
+    journal: Option<HeldJournal>,
+    slot: Arc<WorkerSlot>,
+    deadline: Deadline,
+    lease: Option<&InteractionLease>,
+) -> Result<Keymap, AdapterError> {
+    let claim = slot.claim(deadline)?;
+    let lease = lease.map(retain_lease).transpose()?;
     let read = crate::system::x11::start(move || {
-        let mut sink = XtestSink::connect(&display, deadline, cutoff)?;
+        let _claim = claim;
+        let _lease = lease;
+        let mut sink = open()?;
+        if let Some(journal) = journal {
+            journal.release_stale(&mut sink)?;
+        }
         sink.keymap().map_err(SinkError::into_adapter)
     });
     read.finish(deadline)

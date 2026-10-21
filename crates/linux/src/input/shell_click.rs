@@ -27,9 +27,7 @@ pub(crate) trait PointerSession: KeySession {
     fn pause(&mut self, duration: Duration) {
         std::thread::sleep(duration);
     }
-    fn attach_stream(&mut self, _connector: &str, _deadline: Deadline) -> bool {
-        false
-    }
+    fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> Result<(), AdapterError>;
     fn motion_absolute(&mut self, x: f64, y: f64, deadline: Deadline) -> Result<(), AdapterError>;
 }
 impl PointerSession for RemoteDesktop {
@@ -37,7 +35,7 @@ impl PointerSession for RemoteDesktop {
         self.pointer_button(button, down, deadline)
     }
 
-    fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> bool {
+    fn attach_stream(&mut self, connector: &str, deadline: Deadline) -> Result<(), AdapterError> {
         RemoteDesktop::attach_stream(self, connector, deadline)
     }
 
@@ -104,19 +102,6 @@ fn recovery_deadline(spent: Deadline) -> Deadline {
     Deadline::detached_after(RECOVERY_MS).unwrap_or(spent)
 }
 
-fn no_screencast_stream() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::ActionFailed,
-        "A shell click needs absolute pointer targeting through a screen-cast stream, and none could be started",
-    )
-    .with_suggestion("Run the desktop session with PipeWire, which a GNOME session starts by default")
-    .with_details(json!({
-        "cause": "no_screencast_stream",
-        "physical_delivery_started": false,
-    }))
-    .with_disposition(DeliverySemantics::not_delivered())
-}
-
 pub(crate) fn run_pointer<S: PointerSession>(
     session: &mut S,
     target: &Point,
@@ -127,9 +112,13 @@ pub(crate) fn run_pointer<S: PointerSession>(
     let (connector, local) = monitor_under(target, displays).ok_or_else(unreadable_extents)?;
     session.create(deadline)?;
     execute_created_session(session, deadline, |session| {
-        if !session.attach_stream(&connector, deadline) {
-            return Err(no_screencast_stream());
-        }
+        session
+            .attach_stream(&connector, deadline)
+            .map_err(|mut error| {
+                error.details.get_or_insert_with(|| json!({}))["physical_delivery_started"] =
+                    false.into();
+                error.with_disposition(DeliverySemantics::not_delivered())
+            })?;
         session.start(deadline).map_err(|mut error| {
             error.details.get_or_insert_with(|| json!({}))["physical_delivery_started"] =
                 false.into();

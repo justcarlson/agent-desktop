@@ -98,9 +98,9 @@ impl PhysicalWorld for LiveWorld<'_> {
         super::keyboard_focus::read(self.bus, element, deadline)
     }
 
-    fn keymap(&self, deadline: Deadline) -> Result<Keymap, AdapterError> {
+    fn keymap(&self, _deadline: Deadline) -> Result<Keymap, AdapterError> {
         match self.backend()? {
-            Backend::X11(display) => crate::input::x11::session::live_keymap(&display, deadline),
+            Backend::X11(display) => crate::input::x11::session::live_keymap(&display, self.lease),
             Backend::Wayland => Err(self.pointer_refusal("keymap")),
         }
     }
