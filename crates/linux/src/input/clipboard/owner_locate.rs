@@ -123,7 +123,7 @@ pub(crate) fn locate_in(maps: &str, address: usize) -> Result<PathBuf, AdapterEr
 pub(crate) fn locate_helper() -> Result<PathBuf, AdapterError> {
     let maps = fs::read_to_string("/proc/self/maps")
         .map_err(|error| refusal(format!("The loaded images could not be listed: {error}")))?;
-    locate_in(&maps, locate_helper as usize)
+    locate_in(&maps, locate_helper as *const () as usize)
 }
 
 #[cfg(test)]
