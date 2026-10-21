@@ -27,7 +27,7 @@ fn combo(key: &str, modifiers: Vec<Modifier>) -> KeyCombo {
     }
 }
 
-fn activate_scene(scene: &Scene) {
+pub(super) fn activate_scene(scene: &Scene) {
     let client = wait_for_viewable_client(scene.pid, Duration::from_secs(8));
     activate(client.id);
     wait_until("the fixture frame active", Duration::from_secs(8), || {

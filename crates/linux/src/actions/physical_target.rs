@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use agent_desktop_core::{
     Action, ActionRequest, ActionResult, AdapterError, Deadline, DeliverySemantics, ErrorCode,
-    InteractionLease, InteractionPolicy, KeyCombo, MouseButton, Point, Rect,
+    HitTestResult, InteractionLease, InteractionPolicy, KeyCombo, MouseButton, Point, Rect,
 };
 use serde_json::json;
 
@@ -133,7 +133,21 @@ impl PhysicalWorld for LiveWorld<'_> {
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
         let placed = crate::tree::live_offscreen::placement(self.bus, element, deadline);
-        super::physical_aim::validate(point, &placed, element.scroll_container().is_some())
+        super::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
+        let handle = element.clone().into_native_handle();
+        let hit = crate::tree::hit_test(self.bus, &handle, point.clone(), deadline)?;
+        if hit == HitTestResult::ReachesTarget {
+            return Ok(());
+        }
+        Err(
+            AdapterError::new(ErrorCode::ActionFailed, "Pointer delivery is unproven")
+                .with_details(json!({
+                    "kind": "pointer_hit_unproven",
+                    "hit_test": hit,
+                }))
+                .with_suggestion("Expose readable, unobstructed target geometry and retry")
+                .with_disposition(DeliverySemantics::not_delivered()),
+        )
     }
 
     fn plan_combo(&self, map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError> {

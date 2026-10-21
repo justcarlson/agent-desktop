@@ -22,6 +22,8 @@ mod hit_cover;
 pub(crate) mod hit_descent;
 pub(crate) mod hit_guard;
 pub(crate) mod hit_occlusion;
+#[cfg(test)]
+mod hit_overlap_live_tests;
 pub(crate) mod hit_test;
 pub(crate) mod hit_verdict;
 mod identity;

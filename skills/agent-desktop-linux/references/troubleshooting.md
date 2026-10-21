@@ -140,9 +140,20 @@ paste report alone does not prove that the intended field received it.
 | Chromium and Electron | `scroll-to` works through `ScrollTo`. `hit_test` answers unknown for an Electron host. Needs the flags above. |
 
 `hit_test` answers `Unknown` on Wayland, with no window manager, for GTK4 where the
-X11 mapping is not unique, and for an Electron host. A blocking `Unknown` refuses a
-headed click. A covered button is still `visible` and headless-actionable:
+X11 mapping is not unique, and for an Electron host. Ref-addressed physical
+clicks and wheels refuse unproven hit results with `ACTION_FAILED`,
+`details.kind: pointer_hit_unproven`. A covered button is still `visible` and headless-actionable:
 occlusion is checked only before pointer delivery.
+
+Same-window sibling overlap refuses physical input with `ACTION_FAILED`,
+`details.kind: hit_test_unproven`, `reason: sibling_overlap` and
+`physical_delivery_started: false`. GTK3 and Qt can name an underlying child
+in their native point queries; their child order, component layer and z-order
+do not establish which overlapping sibling receives input. The same conservative
+check applies to GTK4. Remove the overlap, then take a fresh snapshot before
+retrying. The check follows live child lists; GTK4's `Parent` property can
+disagree with them. Missing child bounds or an unreadable branch also refuse
+as unproven; a snapshot alone cannot repair overlapping widgets.
 
 ## Errors and `platform_detail`
 
