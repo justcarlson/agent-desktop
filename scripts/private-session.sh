@@ -40,7 +40,7 @@ fi
 pids=()
 # shellcheck disable=SC2317,SC2329
 session_members() {
-  local root=${1:-/proc} environ pid start
+  local root=/proc environ pid start
   for environ in "$root"/[0-9]*/environ; do
     pid=${environ%/environ}
     pid=${pid##*/}
@@ -54,12 +54,12 @@ session_members() {
 }
 # shellcheck disable=SC2317,SC2329
 process_start() {
-  local stat
+  local stat fields
   stat=$(cat "${2:-/proc}/$1/stat" 2>/dev/null) || return 1
   stat=${stat##*) }
-  set -- $stat
-  [ -n "${20:-}" ] || return 1
-  printf '%s\n' "${20}"
+  read -r -a fields <<< "$stat"
+  [ -n "${fields[19]:-}" ] || return 1
+  printf '%s\n' "${fields[19]}"
 }
 # shellcheck disable=SC2317,SC2329
 session_signal() {
