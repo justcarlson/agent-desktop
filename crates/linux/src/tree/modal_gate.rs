@@ -42,7 +42,7 @@ pub(crate) fn ensure_unblocked(
         .as_ref()
         .or_else(|| target.frame())
         .ok_or_else(unknown)?;
-    let windows = reader.top_levels(target, deadline).map_err(unreadable)?;
+    let windows = reader.top_levels(frame, deadline).map_err(unreadable)?;
     if !windows.iter().any(|window| window == frame) {
         return Err(unknown());
     }

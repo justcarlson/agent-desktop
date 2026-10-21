@@ -19,9 +19,7 @@ impl NodeReader for MenuReader {
         element: &AtspiElement,
         _: Deadline,
     ) -> Result<Vec<AtspiElement>, AdapterError> {
-        Ok(vec![element.menu_owner().unwrap_or_else(|| {
-            element.frame().expect("frame").clone()
-        })])
+        Ok(vec![element.clone()])
     }
 
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
@@ -79,7 +77,7 @@ fn window_handle() -> NativeHandle {
 
 fn menu_ref(context: &MenuContext) -> agent_desktop_core::RefEntry {
     let mut entry = crate::tree::test_support::ref_entry("button");
-    entry.identity.retained_object = Some(context.encode("/menu/open"));
+    entry.identity.retained_object = Some(context.encode(":1.1/menu/open"));
     entry
 }
 
@@ -118,7 +116,7 @@ fn menu_live_identity_uses_the_fresh_context_and_actual_live_object_path() {
         element_via(&mut reader, &menu_handle("/menu/open"), deadline()).expect("live menu item");
 
     assert_eq!(verdict(&menu_ref(&captured), &live), IdentityMatch::Match);
-    let expected = captured.encode("/menu/open");
+    let expected = captured.encode(":1.1/menu/open");
     assert_eq!(
         live.identity.identifiers.retained_object(),
         Some(expected.as_str())
