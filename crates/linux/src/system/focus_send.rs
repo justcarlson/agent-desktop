@@ -112,35 +112,20 @@ pub(super) fn dialog_over(client: u32, deadline: Deadline) -> Option<String> {
 /// Whether the input focus lies in `client`: the focus window is the client or
 /// one of its descendants.
 pub(crate) fn input_focus_in(client: u32, deadline: Deadline) -> bool {
-    bounded(deadline, false, move || {
-        let Ok((connection, root)) = connect() else {
-            return false;
-        };
-        let Some(mut window) = connection
-            .get_input_focus()
-            .ok()
-            .and_then(|cookie| cookie.reply().ok())
-            .map(|reply| reply.focus)
-        else {
-            return false;
-        };
+    bounded(deadline, None, move || {
+        let (connection, root) = connect().ok()?;
+        let mut window = connection.get_input_focus().ok()?.reply().ok()?.focus;
         for _ in 0..FOCUS_DEPTH {
             if window == client {
-                return true;
+                return Some(true);
             }
             if window == root {
-                return false;
+                return Some(false);
             }
-            let Some(parent) = connection
-                .query_tree(window)
-                .ok()
-                .and_then(|cookie| cookie.reply().ok())
-                .map(|reply| reply.parent)
-            else {
-                return false;
-            };
+            let parent = connection.query_tree(window).ok()?.reply().ok()?.parent;
             window = parent;
         }
-        false
+        Some(false)
     })
+    .unwrap_or(false)
 }

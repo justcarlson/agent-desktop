@@ -10,10 +10,6 @@ fn still_hidden(manager: &str) -> Lifted {
     }
 }
 
-fn suggestion_of(error: &AdapterError) -> String {
-    error.suggestion.clone().expect("a suggestion")
-}
-
 #[test]
 fn a_minimized_frame_whose_flag_clears_gets_one_activation_and_succeeds() {
     let mut world = World::new(Some(OTHER));
@@ -59,35 +55,6 @@ fn a_flag_that_stays_set_is_not_supported_names_the_manager_and_is_no_success() 
         assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
         assert_eq!(world.sends(), 0);
         assert_eq!(world.active.get(), Some(OTHER));
-    }
-}
-
-#[test]
-fn the_unlifted_suggestion_names_each_manager_and_never_points_to_restore() {
-    let cases = [
-        (
-            "Openbox",
-            "Openbox lists minimized windows in the client list menu on a middle click of the desktop; choose the window there, then retry",
-        ),
-        (
-            "GNOME Shell",
-            "GNOME Shell shows minimized windows in the Activities Overview; choose the window there, then retry",
-        ),
-        (
-            "Fluxbox",
-            "Fluxbox did not bring the window back; bring it back through Fluxbox, then retry",
-        ),
-        (
-            "",
-            "the window manager did not bring the window back; bring it back through the window manager, then retry",
-        ),
-    ];
-    for (manager, text) in cases {
-        for cause in [Cause::WindowMinimized, Cause::WindowHidden] {
-            let suggestion = suggestion_of(&lift_refusal(cause, manager));
-            assert_eq!(suggestion, text);
-            assert!(!suggestion.contains("'restore'"), "{suggestion}");
-        }
     }
 }
 

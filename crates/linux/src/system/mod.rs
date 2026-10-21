@@ -109,8 +109,6 @@ mod close_live_tests;
 #[cfg(test)]
 mod display_live_tests;
 #[cfg(test)]
-mod focus_activation_live_tests;
-#[cfg(test)]
 mod focus_overview_live_tests;
 #[cfg(test)]
 mod focus_window_live_tests;

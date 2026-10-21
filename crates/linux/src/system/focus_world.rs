@@ -116,8 +116,10 @@ impl FocusWorld for LiveWorld<'_> {
         menu_focus::open_at(self.bus, &self.frame, self.deadline).unwrap_or(false)
     }
 
-    fn app_frame_active(&self) -> Option<bool> {
-        let shared = self.bus.get(self.deadline).ok()?;
+    fn app_frame_active(&self) -> bool {
+        let Ok(shared) = self.bus.get(self.deadline) else {
+            return false;
+        };
         within(self.deadline, async {
             let roots = AtspiElement::new(
                 super::REGISTRY_SERVICE,
@@ -125,7 +127,6 @@ impl FocusWorld for LiveWorld<'_> {
                 self.frame.pid(),
             );
             let apps = list_children(shared.inner(), &roots).await?;
-            let mut read_any = false;
             for (bus_name, path) in apps {
                 if bus_name != self.frame.bus_name() {
                     continue;
@@ -142,16 +143,14 @@ impl FocusWorld for LiveWorld<'_> {
                     let Some(states) = node.traits.states.present() else {
                         continue;
                     };
-                    read_any = true;
                     if StateBits::new(states).has(ACTIVE) {
-                        return Ok(Some(true));
+                        return Ok(true);
                     }
                 }
             }
-            Ok(if read_any { Some(false) } else { None })
+            Ok(false)
         })
-        .ok()
-        .flatten()
+        .unwrap_or(false)
     }
 
     fn overview_open(&self) -> Option<bool> {

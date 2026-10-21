@@ -1,11 +1,8 @@
-use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{Deadline, ErrorCode, WindowFilter, WindowInfo};
+use agent_desktop_core::{WindowFilter, WindowInfo};
 
-use super::focus_window::focus_window;
-use super::interaction_lease::acquire;
-use super::overview::overview_open;
+use super::focus_window::lift_live_tests::{deadline, focus, xprop};
 use super::x11::stacking_read::StackingRead;
 use super::x11::stacking_source::StackingSource;
 use super::x11::{DisplayReader, X11State};
@@ -65,17 +62,6 @@ w.show_all()
 Gtk.main()
 "#;
 
-fn deadline(ms: u64) -> Deadline {
-    Deadline::after(ms).expect("a deadline builds")
-}
-
-fn tools() -> String {
-    format!(
-        "{}/.local/ad-tools/root/usr/bin",
-        std::env::var("HOME").expect("HOME")
-    )
-}
-
 fn script_path(name: &str, source: &str) -> String {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let path = format!("{dir}/{name}.py");
@@ -129,149 +115,8 @@ fn wait_for(bus: &SharedBus, pid: u32) -> WindowInfo {
     panic!("pid {pid} never listed a window");
 }
 
-fn is_focused(bus: &SharedBus, id: &str) -> bool {
-    windows(bus)
-        .iter()
-        .any(|window| window.id == id && window.state.is_focused)
-}
-
-fn focus(window: &WindowInfo) -> Result<(), agent_desktop_core::AdapterError> {
-    let lease = acquire(deadline(8_000)).expect("a lease");
-    focus_window(&SharedBus::default(), window, &lease)
-}
-
-fn press_escape() {
-    let library = format!(
-        "{}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu",
-        std::env::var("HOME").expect("HOME")
-    );
-    let status = Command::new(format!("{}/xdotool", tools()))
-        .env("LD_LIBRARY_PATH", &library)
-        .args(["key", "Escape"])
-        .status()
-        .expect("xdotool runs");
-    assert!(status.success());
-}
-
-fn wait_for_closed_overview() {
-    let started = Instant::now();
-    while started.elapsed() < Duration::from_secs(8) {
-        if overview_open() == Some(false) {
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(150));
-    }
-    panic!("the overview never read closed");
-}
-
-fn cause(error: &agent_desktop_core::AdapterError) -> String {
-    error
-        .details
-        .as_ref()
-        .and_then(|details| details["cause"].as_str())
-        .unwrap_or("none")
-        .to_owned()
-}
-
-fn wait_until_focused(bus: &SharedBus, id: &str) -> bool {
-    let started = Instant::now();
-    while started.elapsed() < Duration::from_secs(5) {
-        if is_focused(bus, id) {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    false
-}
-
-fn check(kind: &str, manager: &str) {
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let blocker_pid = spawn(&mut launched, "gtk3");
-    let blocker = wait_for(&bus, blocker_pid);
-    let target_pid = spawn(&mut launched, kind);
-    let target = wait_for(&bus, target_pid);
-    std::thread::sleep(Duration::from_millis(1_500));
-    let focused_blocker = is_focused(&bus, &blocker.id);
-    let focused_target = is_focused(&bus, &target.id);
-    println!(
-        "focus_window_live {manager} {kind}: after map blocker_focused={focused_blocker} target_focused={focused_target}"
-    );
-    let foreground = if focused_target { &blocker } else { &target };
-    let started = Instant::now();
-    let first = focus(foreground);
-    match &first {
-        Ok(()) => println!(
-            "focus_window_live {manager} {kind}: first focus Ok in {}ms",
-            started.elapsed().as_millis()
-        ),
-        Err(error) => println!(
-            "focus_window_live {manager} {kind}: first focus {:?} cause={} in {}ms",
-            error.code,
-            cause(error),
-            started.elapsed().as_millis()
-        ),
-    }
-    match first {
-        Ok(()) => assert!(
-            wait_until_focused(&bus, &foreground.id),
-            "Ok means the window lists as focused"
-        ),
-        Err(error) => {
-            assert_eq!(error.code, ErrorCode::ActionFailed);
-            if manager == "mutter" {
-                assert_eq!(
-                    overview_open(),
-                    Some(true),
-                    "only an open overview refuses a first activation: {error:?}"
-                );
-                assert_eq!(cause(&error), "overview_open");
-                press_escape();
-                wait_for_closed_overview();
-                focus(foreground)
-                    .expect("a never-focused window is granted once the overview is closed");
-                assert!(wait_until_focused(&bus, &foreground.id));
-            }
-        }
-    }
-    let background = if is_focused(&bus, &target.id) {
-        &blocker
-    } else {
-        &target
-    };
-    let started = Instant::now();
-    focus(background).unwrap_or_else(|error| {
-        panic!(
-            "a background window activates once another is active ({manager} {kind}): {:?} {}",
-            error.code,
-            cause(&error)
-        )
-    });
-    assert!(wait_until_focused(&bus, &background.id));
-    println!(
-        "focus_window_live {manager} {kind}: background window active in {}ms",
-        started.elapsed().as_millis()
-    );
-    focus(background).expect("an already-active window is a success");
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
-fn focus_window_live_activates_a_background_window_per_toolkit() {
-    let manager = std::env::var("AGENT_DESKTOP_LIVE_WM").unwrap_or_else(|_| "openbox".to_owned());
-    let wanted =
-        std::env::var("AGENT_DESKTOP_LIVE_KINDS").unwrap_or_else(|_| "gtk3,gtk4,qt".to_owned());
-    for kind in wanted.split(',') {
-        check(kind, &manager);
-    }
-}
-
 fn root_stack() -> Vec<u32> {
-    let output = Command::new("xprop")
-        .args(["-root", "_NET_CLIENT_LIST_STACKING"])
-        .output()
-        .expect("xprop runs");
-    String::from_utf8_lossy(&output.stdout)
+    xprop(&["-root", "_NET_CLIENT_LIST_STACKING"])
         .split("# ")
         .nth(1)
         .unwrap_or("")
@@ -312,26 +157,13 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         .iter()
         .find(|id| ids.contains(id))
         .expect("a launched client is stacked");
-    let started = Instant::now();
     let StackingRead::Ready(snapshot) = StackingSource::read(&DisplayReader, lowest) else {
         panic!("the stacking read must be ready under a window manager");
     };
     let position = listed.iter().position(|id| *id == lowest).expect("listed");
     let seen: Vec<u32> = snapshot.stack.iter().map(|window| window.id).collect();
-    println!(
-        "focus_window_live stacking: {} entries in {}ms, xprop tail {:?}, read {:?}, desktop {:?}",
-        seen.len(),
-        started.elapsed().as_millis(),
-        &listed[position..],
-        seen,
-        snapshot.current_desktop
-    );
     assert_eq!(seen, listed[position..].to_vec());
     assert!(snapshot.stack.iter().all(|window| window.flags.mapped));
-    println!(
-        "focus_window_live stacking: baseline overlays {:?}",
-        snapshot.override_redirect_above
-    );
     assert!(
         snapshot
             .override_redirect_above
@@ -357,7 +189,6 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         );
         std::thread::sleep(Duration::from_millis(200));
     };
-    println!("focus_window_live stacking: override-redirect cover {cover:?}");
     assert!(cover.width >= 200 && cover.height >= 100);
 
     let lowest_window = windows_by_pid
@@ -365,17 +196,8 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         .find(|(pid, _)| client_of(*pid) == lowest)
         .map(|(_, window)| window.clone())
         .expect("the lowest window");
-    if let Err(error) = focus(&lowest_window) {
-        panic!(
-            "focus_window_live stacking: the raise was refused, so the stack was never reordered: {}",
-            cause(&error)
-        );
-    }
+    focus(&SharedBus::default(), &lowest_window).expect("the lowest window activates");
     let raised = root_stack();
-    println!(
-        "focus_window_live stacking: after activation top is {:?}",
-        raised.last()
-    );
     assert_eq!(raised.last(), Some(&lowest));
     let StackingRead::Ready(after) = StackingSource::read(&DisplayReader, lowest) else {
         panic!("ready");

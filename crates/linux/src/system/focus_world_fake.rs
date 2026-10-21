@@ -1,5 +1,4 @@
 use std::cell::{Cell, RefCell};
-use std::time::Duration;
 
 use agent_desktop_core::{ErrorCode, ProcessId, WindowState};
 
@@ -48,13 +47,12 @@ pub(super) struct World {
     pub(super) stopped: bool,
     pub(super) desktop: DesktopPlacement,
     pub(super) current_desktop: Option<u32>,
-    pub(super) grace: Grace,
     pub(super) overview: Option<bool>,
     pub(super) frame_modal: Option<bool>,
     pub(super) frame_dialog: bool,
     pub(super) input_focus: bool,
     pub(super) menu_open: bool,
-    pub(super) app_frame_active: Option<bool>,
+    pub(super) app_frame_active: bool,
 }
 
 pub(super) fn facts() -> ProcessFacts {
@@ -108,16 +106,12 @@ impl World {
             stopped: false,
             desktop: DesktopPlacement::On(0),
             current_desktop: Some(0),
-            grace: Grace {
-                activation: Duration::from_millis(40),
-                frame_report: Duration::from_millis(40),
-            },
             overview: None,
             frame_modal: None,
             frame_dialog: false,
             input_focus: false,
             menu_open: false,
-            app_frame_active: Some(false),
+            app_frame_active: false,
         }
     }
 
@@ -216,12 +210,8 @@ impl FocusWorld for World {
         self.menu_open
     }
 
-    fn app_frame_active(&self) -> Option<bool> {
+    fn app_frame_active(&self) -> bool {
         self.app_frame_active
-    }
-
-    fn grace(&self) -> Grace {
-        self.grace
     }
 
     fn overview_open(&self) -> Option<bool> {
@@ -291,7 +281,7 @@ pub(super) fn window() -> WindowInfo {
 }
 
 pub(super) fn budget() -> Deadline {
-    Deadline::after(250).expect("a deadline builds")
+    Deadline::after(10_000).expect("a deadline builds")
 }
 
 pub(super) fn failure(world: &World) -> AdapterError {

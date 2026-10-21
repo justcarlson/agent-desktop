@@ -30,11 +30,11 @@ if os.environ.get("ADL_MODAL"):
 Gtk.main()
 "#;
 
-pub(super) fn deadline(ms: u64) -> Deadline {
+pub(in crate::system) fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("a deadline builds")
 }
 
-pub(super) fn tool(name: &str) -> Command {
+pub(in crate::system) fn tool(name: &str) -> Command {
     let home = std::env::var("HOME").expect("HOME");
     let mut command = Command::new(format!("{home}/.local/ad-tools/root/usr/bin/{name}"));
     command.env(
@@ -44,7 +44,7 @@ pub(super) fn tool(name: &str) -> Command {
     command
 }
 
-pub(super) fn xprop(args: &[&str]) -> String {
+pub(in crate::system) fn xprop(args: &[&str]) -> String {
     let output = Command::new("xprop")
         .args(args)
         .output()
@@ -146,7 +146,7 @@ pub(super) fn spawn(launched: &mut Launched, bus: &SharedBus, name: &str) -> Win
     spawn_with(launched, bus, name, false)
 }
 
-pub(super) fn spawn_with(
+pub(in crate::system) fn spawn_with(
     launched: &mut Launched,
     bus: &SharedBus,
     name: &str,
@@ -186,7 +186,7 @@ pub(super) fn spawn_env(
     panic!("{name} never listed a window");
 }
 
-pub(super) fn focus(bus: &SharedBus, window: &WindowInfo) -> Result<(), AdapterError> {
+pub(in crate::system) fn focus(bus: &SharedBus, window: &WindowInfo) -> Result<(), AdapterError> {
     let lease = acquire(deadline(8_000)).expect("a lease");
     focus_window(bus, window, &lease)
 }
