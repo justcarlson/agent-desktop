@@ -30,35 +30,12 @@ w.show()
 sys.exit(app.exec())
 "#;
 
-const TWINS_SCRIPT: &str = r#"
-import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QPushButton
-app = QApplication(sys.argv)
-w = QMainWindow()
-w.setWindowTitle("adq-" + sys.argv[1])
-c = QWidget()
-lay = QHBoxLayout(c)
-for width in (80, 140):
-    b = QPushButton("Twin")
-    b.setFixedWidth(width)
-    lay.addWidget(b)
-w.setCentralWidget(c)
-w.show()
-sys.exit(app.exec())
-"#;
-
 pub(super) const BUTTON_LABEL: &str = "Press";
 
 /// Starts a small Qt 6 window with accessibility forced on and returns its
 /// process id.
 pub(super) fn launch(launched: &mut Launched) -> Result<u32, String> {
     launch_script(launched, QT_SCRIPT)
-}
-
-/// Starts a Qt 6 window holding two buttons with the same name and different
-/// widths, and returns its process id.
-pub(super) fn launch_twins(launched: &mut Launched) -> Result<u32, String> {
-    launch_script(launched, TWINS_SCRIPT)
 }
 
 fn launch_script(launched: &mut Launched, source: &str) -> Result<u32, String> {

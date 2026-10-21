@@ -21,13 +21,13 @@ fn path_emptied(entries: &[RefEntry]) -> Vec<RefEntry> {
     entries.iter().map(super::live_rig::search_entry).collect()
 }
 
-fn size_cleared(entries: &[RefEntry]) -> Vec<RefEntry> {
+fn object_identity_cleared(entries: &[RefEntry]) -> Vec<RefEntry> {
     entries
         .iter()
         .cloned()
         .map(|mut entry| {
-            entry.geometry.bounds = None;
-            entry.geometry.bounds_hash = None;
+            entry.identity.retained_object = None;
+            entry.identity.native_id = None;
             entry
         })
         .collect()
@@ -35,7 +35,7 @@ fn size_cleared(entries: &[RefEntry]) -> Vec<RefEntry> {
 
 #[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn qt_live_twins_resolve_to_their_own_button_after_the_window_moves() {
+fn qt_live_moved_twin_refs_stay_distinct_and_shared_text_only_evidence_is_ambiguous() {
     let mut rig = rig();
     let fixture = live_fixture::qt(&mut rig.launched).expect("the fixture starts");
     let settled = rig.settled(fixture.pid, 8);
@@ -67,9 +67,18 @@ fn qt_live_twins_resolve_to_their_own_button_after_the_window_moves() {
     assert_eq!(
         widths(&rig, &path_emptied(&twins)),
         stored,
-        "the stored size after a move"
+        "the retained object after a move"
     );
-    let nothing = size_cleared(&path_emptied(&twins));
+    let mut nothing = object_identity_cleared(&path_emptied(&twins));
+    assert_eq!(
+        widths(&rig, &nothing),
+        stored,
+        "the shared text and stored size"
+    );
+    for entry in &mut nothing {
+        entry.geometry.bounds = None;
+        entry.geometry.bounds_hash = None;
+    }
     let error = refused(rig.resolve(&nothing[0]), "nothing separates the twins");
     assert_eq!(error.code, ErrorCode::AmbiguousTarget);
     assert_eq!(
