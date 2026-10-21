@@ -2,7 +2,7 @@ use crate::tree::role_numbers::is_web_document;
 use crate::tree::role_numbers::{
     CHECK_MENU_ITEM, FILLER, FRAME, PANEL, PUSH_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON, WINDOW,
 };
-use crate::tree::state_bits::{CHECKED, MODAL, SHOWING, StateBits};
+use crate::tree::state_bits::{CHECKED, EXPANDED, HAS_POPUP, MODAL, PRESSED, SHOWING, StateBits};
 use crate::tree::{ObservedRead, WalkedNode};
 
 pub(super) type Node = WalkedNode<ObservedRead>;
@@ -92,6 +92,10 @@ fn collect<'a>(node: &'a Node, in_bar: bool, found: &mut Vec<Found<'a>>) {
         return;
     }
     let kind = role(node);
+    if let Some(popup) = button_popover(node) {
+        found.push(popup);
+        return;
+    }
     if let Some(items) = open_menu(node) {
         let family = match kind {
             Some(POPUP_MENU) => MenuFamily::Qt,
@@ -121,6 +125,34 @@ fn showing_buttons(node: &Node, depth: usize) -> usize {
             usize::from(own) + showing_buttons(child, depth + 1)
         })
         .sum()
+}
+
+fn button_popover(node: &Node) -> Option<Found<'_>> {
+    if role(node) != Some(PUSH_BUTTON)
+        || !has_state(node, HAS_POPUP)
+        || !has_state(node, EXPANDED)
+        || !has_state(node, SHOWING)
+        || !node
+            .children
+            .iter()
+            .any(|child| role(child) == Some(TOGGLE_BUTTON) && has_state(child, PRESSED))
+    {
+        return None;
+    }
+    let mut panels = node
+        .children
+        .iter()
+        .filter(|child| role(child) == Some(PANEL) && has_state(child, SHOWING));
+    let root = panels.next()?;
+    if panels.next().is_some() {
+        return None;
+    }
+    let items = showing_buttons(root, 0);
+    (items > 0).then_some(Found {
+        root,
+        items,
+        family: MenuFamily::Gtk4Popover,
+    })
 }
 
 fn has_checked_toggle(node: &Node) -> bool {
