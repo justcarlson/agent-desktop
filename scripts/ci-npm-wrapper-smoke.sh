@@ -25,29 +25,33 @@ digest() {
 
 SOURCE=target/release/agent-desktop
 HELPER_SOURCE="target/release/${HELPER_NAME}"
-VERSION_JSON=$(mktemp "${TMPDIR:-/tmp}/agent-desktop-version.XXXXXX")
+PACKAGE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-npm.XXXXXX")
+VERSION_JSON="$PACKAGE_DIR/version.json"
 cleanup() {
-  rm -f "$VERSION_JSON" "npm/bin/${NAME}" "npm/bin/${HELPER_NAME}"
+  trash "$PACKAGE_DIR"
 }
 trap cleanup EXIT
+mkdir -p "$PACKAGE_DIR/bin"
+cp npm/bin/agent-desktop.js "$PACKAGE_DIR/bin/"
+cp -R npm/lib "$PACKAGE_DIR/lib"
 
 SOURCE_SHA=$(digest "$SOURCE")
 HELPER_SOURCE_SHA=$(digest "$HELPER_SOURCE")
-cp "$SOURCE" "npm/bin/${NAME}"
-cp "$HELPER_SOURCE" "npm/bin/${HELPER_NAME}"
-chmod +x "npm/bin/${NAME}"
-chmod +x "npm/bin/${HELPER_NAME}"
-COPY_SHA=$(digest "npm/bin/${NAME}")
-HELPER_COPY_SHA=$(digest "npm/bin/${HELPER_NAME}")
+cp "$SOURCE" "$PACKAGE_DIR/bin/${NAME}"
+cp "$HELPER_SOURCE" "$PACKAGE_DIR/bin/${HELPER_NAME}"
+chmod +x "$PACKAGE_DIR/bin/${NAME}"
+chmod +x "$PACKAGE_DIR/bin/${HELPER_NAME}"
+COPY_SHA=$(digest "$PACKAGE_DIR/bin/${NAME}")
+HELPER_COPY_SHA=$(digest "$PACKAGE_DIR/bin/${HELPER_NAME}")
 if [ "$SOURCE_SHA" != "$COPY_SHA" ] || [ "$HELPER_SOURCE_SHA" != "$HELPER_COPY_SHA" ]; then
   echo "NPM smoke executable copy failed immutable identity verification" >&2
   exit 1
 fi
-if [ ! -x "npm/bin/${HELPER_NAME}" ]; then
+if [ ! -x "$PACKAGE_DIR/bin/${HELPER_NAME}" ]; then
   echo "NPM smoke helper ${HELPER_NAME} is not executable beside ${NAME}" >&2
   exit 1
 fi
-node npm/bin/agent-desktop.js version > "$VERSION_JSON"
+node "$PACKAGE_DIR/bin/agent-desktop.js" version > "$VERSION_JSON"
 EXPECTED_OS="$EXPECTED_OS" VERSION_JSON="$VERSION_JSON" node -e "
   const out = require('fs').readFileSync(process.env.VERSION_JSON, 'utf8');
   const json = JSON.parse(out);
@@ -59,9 +63,9 @@ EXPECTED_OS="$EXPECTED_OS" VERSION_JSON="$VERSION_JSON" node -e "
   }
 "
 if [ "$SOURCE_SHA" != "$(digest "$SOURCE")" ] || \
-   [ "$COPY_SHA" != "$(digest "npm/bin/${NAME}")" ] || \
+   [ "$COPY_SHA" != "$(digest "$PACKAGE_DIR/bin/${NAME}")" ] || \
    [ "$HELPER_SOURCE_SHA" != "$(digest "$HELPER_SOURCE")" ] || \
-   [ "$HELPER_COPY_SHA" != "$(digest "npm/bin/${HELPER_NAME}")" ]; then
+   [ "$HELPER_COPY_SHA" != "$(digest "$PACKAGE_DIR/bin/${HELPER_NAME}")" ]; then
   echo "NPM smoke executable changed while it was executed" >&2
   exit 1
 fi
