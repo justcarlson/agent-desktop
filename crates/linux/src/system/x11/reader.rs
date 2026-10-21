@@ -87,7 +87,7 @@ impl DisplayReader {
 }
 
 fn read_popup_window(display: &str, pid: u32, size: (i32, i32)) -> Option<PopupWindow> {
-    let (connection, screen) = RustConnection::connect(Some(display)).ok()?;
+    let (connection, screen) = DisplayReader::connect(display).ok()?;
     let root = connection.setup().roots.get(screen)?.root;
     let pid_atom = atom(&connection, b"_NET_WM_PID")?;
     let windows = connection.query_tree(root).ok()?.reply().ok()?.children;
