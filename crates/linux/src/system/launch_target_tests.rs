@@ -86,7 +86,10 @@ fn a_name_reaches_the_entry_the_command_name_reaches() {
 
 #[test]
 fn a_path_file_beats_an_entry_name_and_a_desktop_id_beats_a_path_file() {
-    let fixture = fixture(&[CALCULATOR], &["Calculator", "org.gnome.Calculator"]);
+    let fixture = fixture(
+        &[CALCULATOR],
+        &["Calculator", "org.gnome.Calculator", "gnome-calculator"],
+    );
     assert_eq!(keys_in(&fixture, "Calculator").unwrap(), ["calculator"]);
     assert_eq!(
         keys_in(&fixture, "org.gnome.Calculator").unwrap()[0],
@@ -149,7 +152,7 @@ fn an_absolute_file_is_a_path_and_a_missing_one_is_not_found() {
 
 #[test]
 fn a_desktop_file_outside_the_data_directories_is_refused() {
-    let fixture = fixture(&[CALCULATOR], &[]);
+    let fixture = fixture(&[CALCULATOR], &["gnome-calculator"]);
     let outside = fixture.root.join("evil.desktop");
     std::fs::write(
         &outside,
