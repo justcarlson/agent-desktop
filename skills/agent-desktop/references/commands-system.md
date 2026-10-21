@@ -127,7 +127,7 @@ Use `wait`, not a fixed sleep. `--timeout` defaults to 30000 ms. Modes:
 - **Time.** `wait <ms>` pauses.
 - **Element.** `--predicate` is `exists` (default), `enabled`, `visible`, `actionable`, or `value` (with `--value`). `actionable` checks readiness for `--action` (`click` default, `type`, `set-value`, `clear`). Use `--action type` before a wait-then-type flow. The editability check runs only for editing actions. `--element` takes a qualified ref (`@<snapshot_id>:eN`); the wait polls the snapshot embedded in the ref.
 - **Window.** Waits for a window whose title contains the text. `--app` narrows. On timeout, `details.last_observed` lists the scoped window count and up to eight titles.
-- **Text.** Selects one app window, then waits for text in that tree. `--count` adds a count to the result. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. For a dialog, use `wait --window` for its title, then `snapshot --surface sheet` (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined; `--window-id` narrows event waits only.
+- **Text.** Selects one app window, then waits for text in that tree. `--count` adds a count to the result. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. `wait --window-id` is not supported for text waits; `--window-id` narrows eligible window lifecycle event waits only. To recover, use `list-windows --app <app>` to identify the target, then `snapshot --app <app> --window-id <id> -i` to inspect it. For a dialog, `wait --window <title> --app <app>` followed by `snapshot --surface sheet` is another option (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined.
 - **Menu.** `--menu` waits for a menu surface to open. `--menu-closed` waits for it to close.
 - **Event.** `--event` is one of `window-opened`, `window-closed`, `app-launched`, `app-terminated`, `focus-changed`, `surface-appeared`, `surface-dismissed`. It diffs a baseline taken at wait start against fresh reads, so you need no window id up front. `--window-id` and `--window` narrow it.
 
@@ -158,9 +158,16 @@ agent-desktop batch '[
   {"command":"wait","args":{"ms":200}},
   {"command":"type","args":{"ref_id":"@s8f3k2p9:e2","text":"hello"}}
 ]' --stop-on-error
+
+agent-desktop batch '[
+  {"command":"click","args":{"ref_id":"@s8f3k2p9:e1"}},
+  {"command":"wait","args":{"event":"window-opened","app":"TextEdit","timeout":5000}}
+]' --stop-on-error
 ```
 
 Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. Snapshot args use `skeleton`, `root`, `interactive_only`.
+
+Wait entries use flat JSON keys matching the wait argument fields. For event waits, use `event` and optional `app`, `timeout` (milliseconds; defaults to 30000), `window`, and `window_id`. For example, the batch above waits up to five seconds for a new TextEdit window. `window` and `window_id` narrow only window lifecycle events (`window-opened`, `window-closed`, `focus-changed`); they do not scope text waits. In an action-then-event sequence, the batch captures the event baseline before the action, and does not start the action if that baseline read fails.
 
 ## Sessions and traces
 

@@ -6,6 +6,9 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+#[path = "trace_observer_tests.rs"]
+mod observer_tests;
+
 fn fixture_trace_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/trace_show/trace")
 }

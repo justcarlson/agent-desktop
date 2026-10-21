@@ -2,6 +2,7 @@ mod html;
 mod merge;
 mod segment;
 
+pub(crate) use html::export_html_for_command;
 pub use html::{ExportOptions, ExportStats, TRACE_EXPORT_DEFAULT_LIMIT, export_html};
 
 use crate::AppError;
@@ -64,6 +65,14 @@ pub struct MergedTrace {
 const METADATA_LIST_CAP: usize = 500;
 
 pub fn read_merged(trace_dir: &Path, options: &ReadOptions) -> Result<MergedTrace, AppError> {
+    read_merged_for_command(trace_dir, options, None)
+}
+
+pub(crate) fn read_merged_for_command(
+    trace_dir: &Path,
+    options: &ReadOptions,
+    current_command: Option<(u32, u64, &str)>,
+) -> Result<MergedTrace, AppError> {
     if !trace_dir.is_dir() {
         return Err(AppError::invalid_input_with_suggestion(
             "Trace directory does not exist",
@@ -136,7 +145,7 @@ pub fn read_merged(trace_dir: &Path, options: &ReadOptions) -> Result<MergedTrac
     let all_events: Vec<Value> = merged.iter().map(annotate_provenance).collect();
     let total_events = all_events.len();
 
-    for msg in detect_unpaired_commands(&all_events) {
+    for msg in detect_unpaired_commands(&all_events, current_command) {
         warnings.push(TraceWarning {
             kind: TraceWarningKind::UnpairedCommand,
             message: msg,

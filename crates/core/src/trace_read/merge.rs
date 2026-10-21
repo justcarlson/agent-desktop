@@ -92,7 +92,10 @@ pub(crate) fn apply_tail_limit(mut events: Vec<Value>, limit: usize) -> (Vec<Val
     (events.split_off(start), true)
 }
 
-pub(crate) fn detect_unpaired_commands(events: &[Value]) -> Vec<String> {
+pub(crate) fn detect_unpaired_commands(
+    events: &[Value],
+    current_command: Option<(u32, u64, &str)>,
+) -> Vec<String> {
     let mut open: Map<String, Value> = Map::new();
     let mut warnings = Vec::new();
 
@@ -115,7 +118,12 @@ pub(crate) fn detect_unpaired_commands(events: &[Value]) -> Vec<String> {
         if name == "command.start" {
             open.insert(
                 key.clone(),
-                json!({ "command": command, "segment": segment, "writer_pid": writer_pid }),
+                json!({
+                    "command": command,
+                    "segment": segment,
+                    "writer_pid": writer_pid,
+                    "writer_proc_start_ms": event.get("writer_proc_start_ms")
+                }),
             );
         } else if name == "command.end" {
             if open.remove(&key).is_none() {
@@ -131,6 +139,13 @@ pub(crate) fn detect_unpaired_commands(events: &[Value]) -> Vec<String> {
             .get("command")
             .and_then(Value::as_str)
             .unwrap_or("unknown");
+        if current_command.is_some_and(|(pid, proc_start_ms, current)| {
+            command == current
+                && info.get("writer_pid").and_then(Value::as_u64) == Some(pid as u64)
+                && info.get("writer_proc_start_ms").and_then(Value::as_u64) == Some(proc_start_ms)
+        }) {
+            continue;
+        }
         warnings.push(format!(
             "Unpaired command.start for '{command}' in segment {}",
             info.get("segment").and_then(Value::as_str).unwrap_or("")

@@ -1,4 +1,4 @@
-use super::{ReadOptions, read_merged};
+use super::ReadOptions;
 use crate::AppError;
 use crate::trace_artifacts::read_screenshot_for_embed;
 use base64::Engine;
@@ -64,12 +64,22 @@ pub fn export_html(
     session_id: &str,
     options: &ExportOptions,
 ) -> Result<(String, ExportStats), AppError> {
-    let merged = read_merged(
+    export_html_for_command(trace_dir, session_id, options, None)
+}
+
+pub(crate) fn export_html_for_command(
+    trace_dir: &Path,
+    session_id: &str,
+    options: &ExportOptions,
+    current_command: Option<(u32, u64, &str)>,
+) -> Result<(String, ExportStats), AppError> {
+    let merged = super::read_merged_for_command(
         trace_dir,
         &ReadOptions {
             limit: options.limit,
             event_prefix: None,
         },
+        current_command,
     )?;
     if merged.segments.is_empty() {
         return Err(empty_trace_dir_error(session_id));
