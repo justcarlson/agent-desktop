@@ -9,6 +9,7 @@ pub(crate) mod focus;
 pub(crate) mod frame_active;
 pub(crate) mod mutation;
 pub(crate) mod numeric_write;
+mod physical_aim;
 pub(crate) mod physical_click;
 pub(crate) mod physical_keyboard;
 pub(crate) mod physical_scroll;

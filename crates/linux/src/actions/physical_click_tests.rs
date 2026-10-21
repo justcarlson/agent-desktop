@@ -132,3 +132,66 @@ fn the_step_is_a_physical_unverified_click() {
     assert_eq!(steps[0].label(), "XTEST.click");
     assert_eq!(steps[0].verified(), Some(false));
 }
+
+#[test]
+fn a_clipped_sidebar_row_never_receives_a_click_outside_its_viewport() {
+    use crate::tree::{Extents, ancestry::Ancestry, placement::Placement};
+
+    let mut target = element();
+    target.set_ancestry(Ancestry::of(Some(element()), Some(element()), false));
+    for viewport_height in [105, 99] {
+        for point in [None, Some(Point { x: 120.0, y: 210.0 })] {
+            let mut world = FakeWorld::x11();
+            world.clip = Some(Placement {
+                x11: Some(crate::system::x11::window_x11_state::WindowX11State {
+                    client_origin: (100, 100),
+                    client_id: 7,
+                    shadow: (0, 0, 0, 0),
+                    hidden: false,
+                }),
+                node: Some(Extents {
+                    x: 0,
+                    y: 100,
+                    width: 40,
+                    height: 20,
+                }),
+                frame: Some(Extents {
+                    x: 0,
+                    y: 0,
+                    width: 500,
+                    height: 500,
+                }),
+                container: Some(Extents {
+                    x: 0,
+                    y: 0,
+                    width: 200,
+                    height: viewport_height,
+                }),
+                ..Placement::default()
+            });
+            let error = click_steps(
+                &world,
+                &target,
+                ClickSpec::left(1, point),
+                InteractionPolicy::headed(),
+                deadline(),
+            )
+            .unwrap_err();
+            assert_eq!(error.code, ErrorCode::StaleRef);
+            assert_eq!(error.details.unwrap()["kind"], "pointer_target_not_visible");
+            assert!(world.sent_nothing());
+
+            if viewport_height == 105 {
+                click_steps(
+                    &world,
+                    &target,
+                    ClickSpec::left(1, Some(Point { x: 120.0, y: 202.0 })),
+                    InteractionPolicy::headed(),
+                    deadline(),
+                )
+                .unwrap();
+                assert_eq!(world.count("sent"), 1);
+            }
+        }
+    }
+}
