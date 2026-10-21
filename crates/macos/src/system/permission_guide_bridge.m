@@ -448,6 +448,14 @@ static NSColor *ADGuideGray(CGFloat white) {
     [self.panel center];
     [self follow:ADGuideSettingsFrame()];
     [self.panel orderFrontRegardless];
+    [NSNotificationCenter.defaultCenter addObserverForName:NSWindowDidMoveNotification
+                                                    object:self.panel
+                                                     queue:nil
+                                                usingBlock:^(NSNotification *__unused note) {
+                                                  if (!NSIsEmptyRect(self.lastSettings)) {
+                                                      [self animateInto:self.lastSettings];
+                                                  }
+                                                }];
     [NSTimer scheduledTimerWithTimeInterval:1
                                     repeats:YES
                                       block:^(NSTimer *__unused timer) {
@@ -473,9 +481,7 @@ static NSColor *ADGuideGray(CGFloat white) {
 }
 
 - (void)showInstructions {
-    self.bodyLabel.stringValue = [NSString
-        stringWithFormat:@"Drag %@ into the list, then turn on its switch. If %@ is already in the list, just turn on its switch.",
-                         self.hostName, self.hostName];
+    self.bodyLabel.stringValue = [NSString stringWithFormat:@"Drag %@ into the list.", self.hostName];
     self.icon.image = self.hostImage;
     self.icon.contentTintColor = nil;
     self.captionLabel.hidden = NO;
@@ -587,7 +593,7 @@ static NSColor *ADGuideGray(CGFloat white) {
     self.captionLabel.hidden = YES;
     [self.stage orderOut:nil];
     self.bodyLabel.stringValue =
-        [NSString stringWithFormat:@"Now turn on the switch next to %@.", self.hostName];
+        @"Confirm with Touch ID or your password.";
     [self resizePanel];
 }
 
