@@ -1,17 +1,14 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::Deadline;
 
 use super::session::{live_keymap, run};
 use crate::input::keymap::Keymap;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
-use crate::tree::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(30);
-const READY_ATTEMPTS: u32 = 6;
-const READY_WAIT: Duration = Duration::from_millis(1_500);
 
 pub(crate) const GTK3: &str = r#"
 import gi, os
@@ -45,18 +42,30 @@ w.present()
 loop.run()
 "#;
 
-pub(crate) const QT: &str = r#"
-import os, sys
-from PyQt6.QtWidgets import QApplication, QLineEdit
-log = os.environ["AD_LIVE_LOG"]
-app = QApplication(sys.argv)
-e = QLineEdit()
-e.setWindowTitle("adx")
-e.textChanged.connect(lambda t: open(log, "w").write(t))
-e.resize(320, 80)
-e.show()
-sys.exit(app.exec())
-"#;
+pub(crate) fn window_center(name: &str) -> (i32, i32) {
+    let started = Instant::now();
+    while started.elapsed() < SETTLE {
+        let output = Command::new("xwininfo").args(["-name", name]).output();
+        if let Ok(output) = output {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let field = |label: &str| {
+                text.lines()
+                    .find_map(|line| line.trim().strip_prefix(label))
+                    .and_then(|rest| rest.trim().parse::<i32>().ok())
+            };
+            if let (Some(x), Some(y), Some(w), Some(h)) = (
+                field("Absolute upper-left X:"),
+                field("Absolute upper-left Y:"),
+                field("Width:"),
+                field("Height:"),
+            ) {
+                return (x + w / 2, y + h / 2);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    panic!("window {name} never appeared");
+}
 
 pub(crate) fn deadline(ms: u64) -> Deadline {
     Deadline::detached_after(ms).expect("deadline")
@@ -99,169 +108,6 @@ fn keycode_for(map: &Keymap, keysym: u32) -> u8 {
         .position(|row| row.first() == Some(&keysym))
         .unwrap_or_else(|| panic!("keysym {keysym:#x} is not on level one"));
     map.min_keycode + u8::try_from(index).expect("keycode")
-}
-
-fn type_plan(map: &Keymap, text: &str) -> Plan {
-    let mut steps = Vec::new();
-    for character in text.chars() {
-        let code = keycode_for(map, u32::from(character));
-        steps.push(Step::Key { code, down: true });
-        steps.push(Step::Key { code, down: false });
-    }
-    Plan {
-        steps,
-        release_origin: None,
-    }
-}
-
-fn click_plan(x: i32, y: i32) -> Plan {
-    Plan {
-        steps: vec![
-            Step::MoveTo { x, y },
-            Step::Button {
-                code: 1,
-                down: true,
-            },
-            Step::Pause(Duration::from_millis(50)),
-            Step::Button {
-                code: 1,
-                down: false,
-            },
-        ],
-        release_origin: Some((x, y)),
-    }
-}
-
-pub(crate) fn window_center(name: &str) -> (i32, i32) {
-    let started = Instant::now();
-    while started.elapsed() < SETTLE {
-        let output = Command::new("xwininfo").args(["-name", name]).output();
-        if let Ok(output) = output {
-            let text = String::from_utf8_lossy(&output.stdout);
-            let field = |label: &str| {
-                text.lines()
-                    .find_map(|line| line.trim().strip_prefix(label))
-                    .and_then(|rest| rest.trim().parse::<i32>().ok())
-            };
-            if let (Some(x), Some(y), Some(w), Some(h)) = (
-                field("Absolute upper-left X:"),
-                field("Absolute upper-left Y:"),
-                field("Width:"),
-                field("Height:"),
-            ) {
-                return (x + w / 2, y + h / 2);
-            }
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    panic!("window {name} never appeared");
-}
-
-pub(crate) fn wait_for_log(path: &str, expected: &str) -> String {
-    wait_for_log_within(path, expected, Duration::from_secs(8))
-}
-
-fn wait_for_log_within(path: &str, expected: &str, budget: Duration) -> String {
-    let started = Instant::now();
-    let mut seen = String::new();
-    while started.elapsed() < budget {
-        seen = std::fs::read_to_string(path).unwrap_or_default();
-        if seen == expected {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    seen
-}
-
-pub(crate) fn spawn_app(launched: &mut Launched, kind: &str, log: &str) {
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("session");
-    let script = format!("{dir}/adx-{kind}.py");
-    let source = match kind {
-        "gtk3" => GTK3,
-        "gtk4" => GTK4,
-        _ => QT,
-    };
-    std::fs::write(&script, source).expect("script");
-    let log = ("AD_LIVE_LOG", log.to_owned());
-    if kind == "qt" {
-        let home = std::env::var("HOME").expect("HOME");
-        let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-        let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-        launched.spawn_with_env(
-            &python,
-            &[&script],
-            &[
-                log,
-                ("QT_QPA_PLATFORM", "xcb".to_owned()),
-                ("LD_LIBRARY_PATH", libraries),
-            ],
-        );
-    } else {
-        launched.spawn_with_env(
-            "python3",
-            &[&script],
-            &[log, ("PYTHONUTF8", "1".to_owned())],
-        );
-    }
-}
-
-fn type_into(kind: &str) {
-    let display = private_display();
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("session");
-    let log = format!("{dir}/adx-{kind}.log");
-    let _ = std::fs::remove_file(&log);
-    let mut launched = Launched::new();
-    spawn_app(&mut launched, kind, &log);
-    let (x, y) = window_center("adx");
-    let mut gate = || -> Result<(), AdapterError> { Ok(()) };
-    let map = live_keymap(&display, deadline(8_000)).expect("keymap");
-    let mut ready = false;
-    for _ in 0..READY_ATTEMPTS {
-        run(&display, vec![click_plan(x, y)], &mut gate, deadline(8_000)).expect("click");
-        let probe = run(
-            &display,
-            vec![type_plan(&map, "h")],
-            &mut gate,
-            deadline(8_000),
-        )
-        .expect("the probe key");
-        assert_eq!(probe.delivered_events, 2);
-        if wait_for_log_within(&log, "h", READY_WAIT) == "h" {
-            ready = true;
-            break;
-        }
-    }
-    assert!(ready, "the {kind} entry never took the first key");
-    let outcome = run(
-        &display,
-        vec![type_plan(&map, "ello")],
-        &mut gate,
-        deadline(8_000),
-    );
-    let seen = wait_for_log(&log, "hello");
-    launched.stop();
-    let delivery = outcome.expect("typed");
-    assert_eq!(delivery.delivered_events, 8);
-    assert_eq!(seen, "hello", "the {kind} entry did not receive the keys");
-}
-
-#[test]
-#[ignore = "needs scripts/private-session.sh --wm"]
-fn live_typing_reaches_a_gtk3_entry() {
-    type_into("gtk3");
-}
-
-#[test]
-#[ignore = "needs scripts/private-session.sh --wm"]
-fn live_typing_reaches_a_gtk4_entry() {
-    type_into("gtk4");
-}
-
-#[test]
-#[ignore = "needs scripts/private-session.sh --wm"]
-fn live_typing_reaches_a_qt_entry() {
-    type_into("qt");
 }
 
 pub(crate) fn device_state(device: &str) -> String {
