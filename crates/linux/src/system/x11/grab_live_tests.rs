@@ -166,16 +166,18 @@ fn grab_live_a_flat_window_reads_back_its_fill_and_matches_an_independent_captur
 fn grab_live_describes_the_window_and_names_each_refusal() {
     let display = super::super::live_display::private_display();
     let flat = Flat::new(&display);
+    let unmapped = DisplayGrabber
+        .describe(flat.window, deadline())
+        .expect("describes the unmapped client");
+    assert_eq!((unmapped.rect.x, unmapped.rect.y), root_origin(&flat));
+    assert_eq!(unmapped.map_state, MapState::Unmapped);
     flat.map();
+    wait_viewable(&flat.connection, flat.window);
     let info = DisplayGrabber
         .describe(flat.window, deadline())
         .expect("describes");
     println!("grab_live info={info:?}");
-    let origin = root_origin(&flat);
-    assert_eq!(
-        (info.rect.x, info.rect.y, info.rect.width, info.rect.height),
-        (origin.0, origin.1, 200, 120)
-    );
+    assert_eq!((info.rect.width, info.rect.height), (200, 120));
     assert_eq!(info.map_state, MapState::Viewable);
     assert!(info.override_redirect);
     assert_eq!(info.parent, None);

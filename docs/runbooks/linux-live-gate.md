@@ -208,8 +208,11 @@ click the entry, and wait for its frame to report active instead of sleeping
 by a raw click. Retained Files and Chromium wheel cases independently measure
 actual movement and return to their initial positions.
 `grab_live_describes_the_window_and_names_each_refusal` compares root coordinates
-with an independent X11 query instead of assuming the requested origin survives
-the WM; exact size, map state, parent and every refusal assertion remain.
+with an independent X11 query before mapping, when the WM cannot move the client
+between reads. It then waits for viewability and checks exact size, map state,
+parent and every refusal. The separate framed-window case retains mapped root
+coordinate checks. Sequential product/oracle reads during WM placement are not
+an atomic geometry observation.
 
 The GTK menu-grab fixture maps both windows before a file handshake requests
 the popup. Its readiness flag follows the popup call and mapped-state check;
