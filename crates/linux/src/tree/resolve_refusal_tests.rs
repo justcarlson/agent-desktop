@@ -59,12 +59,31 @@ fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
 }
 
 #[test]
-fn an_application_that_left_during_the_gate_is_a_settled_stale_ref() {
+fn an_owner_unreachable_on_this_bus_is_refused_without_claiming_it_exited() {
     let mut fake = one_button();
-    let entry = fake.entry_of("/back", true);
+    let mut entry = fake.entry_of("/back", true);
+    entry.process.pid = std::process::id().into();
     fake.faults.gate_error = Some(AdapterError::new(ErrorCode::AppNotFound, "left"));
     let error = resolve(&mut fake, &entry, deadline()).expect_err("gone");
-    assert_eq!(kind(&error), "resolve_owning_process_exited");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(kind(&error), "resolve_owner_unreachable");
+    assert_eq!(
+        error.message,
+        "Stored ref's owning application is not reachable on this session's accessibility bus"
+    );
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some(
+            "Return to the desktop session where this ref was captured, run 'snapshot', then retry with the new ref."
+        )
+    );
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    assert!(!error.is_explicitly_retryable());
+    assert_eq!(fake.reads.gate, 1);
+    no_reads(&fake);
 }
 
 #[test]

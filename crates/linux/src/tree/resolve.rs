@@ -196,7 +196,7 @@ pub(super) fn settle_outcome<S: Source>(
     outcome: Result<AtspiElement, AdapterError>,
 ) -> Result<AtspiElement, AdapterError> {
     outcome.map_err(|error| {
-        let error = settle_gone(error);
+        let error = settle_gone(error, entry.process.pid.get());
         if error.code == ErrorCode::Timeout || is_incomplete(&error) {
             let stopped = source.stopped_app(entry.process.pid.get());
             stopped_aware(error, stopped.as_deref())

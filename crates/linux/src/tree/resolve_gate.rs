@@ -2,7 +2,7 @@ use agent_desktop_core::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, RefEntry};
 
 use super::absence::{Failure, failure};
-use super::resolve_errors::{app_exited, window_replaced, window_unverifiable};
+use super::resolve_errors::{app_exited, owner_unreachable, window_replaced, window_unverifiable};
 use super::{AtspiElement, ancestry};
 use crate::system::process_facts::Lookup;
 use crate::system::window_id;
@@ -86,7 +86,7 @@ impl StoredWindow {
             Ok(pid) if pid == self.pid => Ok(()),
             Ok(_) => Err(window_replaced()),
             Err(error) => match failure(&error) {
-                Failure::AppGone => Err(app_exited()),
+                Failure::AppGone => Err(owner_unreachable(self.pid)),
                 Failure::TimedOut => Err(AdapterError::timeout(
                     "The bus did not name the owner of the window in time",
                 )

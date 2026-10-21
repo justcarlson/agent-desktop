@@ -51,7 +51,7 @@ impl NodeReader for Counting {
 }
 
 fn handle() -> NativeHandle {
-    let mut element = AtspiElement::new(":1.1", "/p", 40);
+    let mut element = AtspiElement::new(":1.1", "/p", u32::MAX);
     element.set_ancestry(ancestry::of_root(&element.clone()));
     element.into_native_handle()
 }

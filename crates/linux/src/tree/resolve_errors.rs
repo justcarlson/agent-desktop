@@ -29,11 +29,25 @@ pub(crate) fn no_candidate() -> AdapterError {
     )
 }
 
-/// The application that owned the ref has left the accessibility bus.
+/// The process that owned the ref no longer exists.
 pub(crate) fn app_exited() -> AdapterError {
     settled(
         "Stored ref's owning application has exited",
         "resolve_owning_process_exited",
+    )
+}
+
+/// A missing bus owner does not prove that its process exited.
+pub(crate) fn owner_unreachable(pid: u32) -> AdapterError {
+    if matches!(process_facts::lookup(pid), process_facts::Lookup::Gone) {
+        return app_exited();
+    }
+    settled(
+        "Stored ref's owning application is not reachable on this session's accessibility bus",
+        "resolve_owner_unreachable",
+    )
+    .with_suggestion(
+        "Return to the desktop session where this ref was captured, run 'snapshot', then retry with the new ref.",
     )
 }
 
@@ -83,11 +97,11 @@ pub(crate) fn ambiguous(candidates: usize) -> AdapterError {
     )
 }
 
-/// A read error mapped to the answer a ref gets: an application that left the
-/// bus is settled, a destroyed object stays retryable, and anything else is unchanged.
-pub(crate) fn settle_gone(error: AdapterError) -> AdapterError {
+/// A bus departure is settled against process liveness, a destroyed object
+/// stays retryable, and anything else is unchanged.
+pub(crate) fn settle_gone(error: AdapterError, pid: u32) -> AdapterError {
     match error.code {
-        ErrorCode::AppNotFound => app_exited(),
+        ErrorCode::AppNotFound => owner_unreachable(pid),
         ErrorCode::ElementNotFound => object_gone(),
         _ => error,
     }

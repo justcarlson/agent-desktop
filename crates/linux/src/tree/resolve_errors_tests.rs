@@ -21,8 +21,11 @@ fn retryable(error: &AdapterError) -> Option<bool> {
 
 #[test]
 fn an_exited_application_settles_while_a_destroyed_object_may_be_drawn_again() {
-    let exited = settle_gone(AdapterError::new(ErrorCode::AppNotFound, "left"));
-    let destroyed = settle_gone(AdapterError::new(ErrorCode::ElementNotFound, "gone"));
+    let exited = settle_gone(AdapterError::new(ErrorCode::AppNotFound, "left"), u32::MAX);
+    let destroyed = settle_gone(
+        AdapterError::new(ErrorCode::ElementNotFound, "gone"),
+        u32::MAX,
+    );
     for error in [&exited, &destroyed] {
         assert_eq!(error.code, ErrorCode::StaleRef);
         assert_eq!(
@@ -40,7 +43,7 @@ fn an_exited_application_settles_while_a_destroyed_object_may_be_drawn_again() {
 
 #[test]
 fn an_error_that_is_not_a_departure_passes_through_unchanged() {
-    let timeout = settle_gone(AdapterError::timeout("slow"));
+    let timeout = settle_gone(AdapterError::timeout("slow"), u32::MAX);
     assert_eq!(timeout.code, ErrorCode::Timeout);
 }
 

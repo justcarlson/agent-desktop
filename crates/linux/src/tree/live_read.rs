@@ -11,7 +11,9 @@ use super::live_project::{
 use super::menu_context::MenuContext;
 use super::node_evidence::{NodeEvidence, read_evidence};
 use super::placement::Placement;
-use super::resolve_errors::{app_exited, object_gone, settle_gone, stopped_app, stopped_aware};
+use super::resolve_errors::{
+    object_gone, owner_unreachable, settle_gone, stopped_app, stopped_aware,
+};
 use super::{AtspiElement, atspi_element};
 use crate::system::{SharedBus, within};
 
@@ -91,10 +93,10 @@ pub(crate) fn read_live<R: NodeReader>(
             "The accessible object did not answer in time",
         )),
         Liveness::ObjectGone => Err(object_gone()),
-        Liveness::AppGone => Err(app_exited()),
+        Liveness::AppGone => Err(owner_unreachable(pid)),
     });
     outcome.map_err(|error| {
-        let error = settle_gone(error);
+        let error = settle_gone(error, pid);
         if error.code == ErrorCode::Timeout {
             let stopped = reader.stopped_app(pid);
             stopped_aware(error, stopped.as_deref())
