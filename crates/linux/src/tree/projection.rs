@@ -131,7 +131,6 @@ impl Projector<'_> {
             ref_evidence: LocatorRefEvidence {
                 window_bounds,
                 bounds,
-                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 available_actions: capabilities(&read.node),
                 descriptors: vocabulary.descriptor,
             },

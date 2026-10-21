@@ -49,7 +49,6 @@ fn descriptor_evidence_projects_onto_the_accessibility_node() {
         states: LocatorField::Known(Vec::new()),
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: crate::BoundsSpace::Screen,
             bounds: LocatorField::Known(Rect {
                 x: 0.0,
                 y: 0.0,

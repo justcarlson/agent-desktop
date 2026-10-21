@@ -204,7 +204,6 @@ pub(crate) fn read_node(
         },
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: if requirements.ref_evidence.bounds {
                 option_field(tree.bounds_for(attrs.bounds), read.status.bounds_unknown())
             } else {

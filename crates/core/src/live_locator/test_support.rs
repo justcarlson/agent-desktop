@@ -31,7 +31,6 @@ pub(crate) fn evidence(role: &str, name: Option<&str>) -> LocatorEvidence {
         states: LocatorField::Known(Vec::new()),
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: crate::BoundsSpace::Screen,
             bounds: LocatorField::Absent,
             available_actions: LocatorField::Known(Vec::new()),
             descriptors: Default::default(),

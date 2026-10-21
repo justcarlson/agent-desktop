@@ -209,7 +209,6 @@ fn role_only_evidence(role: &str) -> LocatorEvidence {
         states: LocatorField::Unknown,
         ref_evidence: LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: crate::BoundsSpace::Screen,
             bounds: LocatorField::Unknown,
             available_actions: LocatorField::Unknown,
             descriptors: Default::default(),

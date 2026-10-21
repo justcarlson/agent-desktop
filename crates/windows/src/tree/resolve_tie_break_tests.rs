@@ -313,7 +313,6 @@ fn a_path_landing_with_an_unreadable_live_bounds_hash_is_still_accepted() {
         states: LocatorField::Absent,
         ref_evidence: agent_desktop_core::LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Unknown,
             available_actions: LocatorField::Absent,
             descriptors: agent_desktop_core::NodeDescriptor::default(),

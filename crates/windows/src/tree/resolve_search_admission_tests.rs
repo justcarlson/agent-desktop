@@ -46,7 +46,6 @@ fn live(
         states: LocatorField::Absent,
         ref_evidence: agent_desktop_core::LocatorRefEvidence {
             window_bounds: LocatorField::Absent,
-            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds,
             available_actions: LocatorField::Absent,
             descriptors: NodeDescriptor::default(),
