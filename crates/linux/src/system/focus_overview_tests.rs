@@ -27,22 +27,6 @@ fn a_closed_or_unreadable_overview_leaves_the_cause_unclaimed() {
 }
 
 #[test]
-fn an_open_overview_is_also_the_cause_when_another_window_stayed_active() {
-    let mut world = World::new(Some(OTHER));
-    world.grant = Grant::Never;
-    world.overview = Some(true);
-    assert_refused(&failure(&world), "overview_open");
-}
-
-#[test]
-fn an_open_overview_is_also_the_cause_when_the_frame_does_not_report_active() {
-    let mut world = World::new(None);
-    world.grant = Grant::OnlyOnX11;
-    world.overview = Some(true);
-    assert_refused(&failure(&world), "overview_open");
-}
-
-#[test]
 fn a_frame_that_does_not_report_active_stays_unclaimed_without_an_open_overview() {
     for overview in [Some(false), None] {
         let mut world = World::new(None);

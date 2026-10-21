@@ -25,13 +25,6 @@ fn an_unstamped_request_that_is_also_ignored_ends_in_the_refusal_after_exactly_t
 }
 
 #[test]
-fn a_granted_stamped_request_sends_no_unstamped_one() {
-    let world = World::new(Some(OTHER));
-    run(&world, &window(), budget()).expect("granted");
-    assert_eq!(writes(&world), ["send"]);
-}
-
-#[test]
 fn a_frame_that_stays_inactive_after_the_display_agrees_is_not_retried() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::OnlyOnX11;

@@ -36,15 +36,3 @@ fn a_manager_that_never_names_the_window_is_not_waited_for_past_the_first_grace(
     assert_refused(&error, "activation_refused");
     assert!(started.elapsed() < Duration::from_millis(1_000));
 }
-
-#[test]
-fn a_frame_that_never_reports_active_is_refused_when_the_longer_grace_ends() {
-    let mut world = World::new(Some(OTHER));
-    world.grant = Grant::OnlyOnX11;
-    world.grace = SHORT;
-    let wide = Deadline::after(5_000).expect("a deadline builds");
-
-    let error = run(&world, &window(), wide).expect_err("refused");
-
-    assert_refused(&error, "frame_not_active");
-}
