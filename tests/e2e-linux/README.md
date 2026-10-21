@@ -415,13 +415,13 @@ recovery deadline, so the X11 input worker can retain the canonical lock.
 old synthetic cleanup lease; the independent daemon close signals remain the live
 dismissal oracle.
 
-The bystander-dismiss live specimen is deleted after a private-shell stall:
-the target closed with reason 2 and the bystander remained, then both the next
-AT-SPI-backed list and independent daemon close timed out. Its sole singleton
-rerun passed, so it is flaky rather than a retained pass. Deterministic
+The single-item dismissal live specimen is retired: its private-shell
+precondition read is unreliable, and a single seeded notification cannot
+establish bystander protection. Native
 `the_close_button_of_the_target_is_clicked_and_nothing_else` and
 `a_different_entry_leaving_with_the_target_fails_the_call` tests retain
-bystander protection at the Linux mutation boundary.
+deterministic bystander protection at the Linux mutation boundary. Single-item
+daemon reason-2 live acceptance is not claimed.
 
 The action-signal live specimen is also deleted: the repaired image passed it
 once, then a later private session timed out before physical delivery and its

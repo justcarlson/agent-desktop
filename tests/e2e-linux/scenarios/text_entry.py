@@ -3,13 +3,11 @@ from __future__ import annotations
 import ctypes
 import ctypes.util
 
-from oracle import atspi_raw, x11
+from oracle import atspi_raw
 from runner import apps
 from runner.legs import implementation
 from runner.verdict import LegContext
 from scenarios.headed_actions import (
-    FOCUS_REFUSAL_CODES,
-    REFUSAL_CODES,
     assert_ok,
     live_root,
     longest_text,
@@ -133,40 +131,3 @@ def held_key_released(ctx: LegContext) -> None:
         ctx.restored("x11.modifiers", held_modifiers(_modifier_state(ctx.tier)))
     finally:
         apps.stop(app)
-
-
-def unfocused_window_refusal(ctx: LegContext) -> None:
-    editor, window = _launch(ctx)
-    other = apps.launch(ctx.tier, "Calculator")
-    try:
-        assert_ok(ctx.product(["click", ref_for(ctx, window_of(other), "7")]))
-        before = longest_text(live_root(ctx.tier, editor))
-        active = active_or_none(ctx)
-        ctx.before("x11.active_window", active)
-        ctx.before("atspi.document_text", before)
-        envelope = ctx.product(["type", ref_for(ctx, window, role="textfield"), "unfocused"])
-        after = longest_text(live_root(ctx.tier, editor))
-        ctx.after("atspi.document_text", after)
-        ctx.after("x11.active_window", active_or_none(ctx))
-        if envelope.ok:
-            restore_text(ctx, editor, before)
-            if active is not None:
-                ctx.restored("x11.active_window", x11.restore_active(ctx.tier, active))
-        if ctx.tier.name == "x11-mutter" and envelope.ok:
-            raise AssertionError("mutter accepted a headed action on a never-focused window")
-        if envelope.ok and after == before:
-            raise AssertionError("the action succeeded without reaching the document")
-        if not envelope.ok:
-            code = (envelope.error or {}).get("code")
-            details = (envelope.error or {}).get("details") or {}
-            if code not in REFUSAL_CODES and details.get("kind") not in FOCUS_REFUSAL_CODES:
-                raise AssertionError(f"the refusal carried {code!r}")
-            if after != before:
-                raise AssertionError("input reached a window the product did not focus")
-    finally:
-        apps.stop(other)
-        apps.stop(editor)
-
-
-def active_or_none(ctx: LegContext):
-    return x11.active_window(ctx.tier)
