@@ -2415,8 +2415,12 @@ A deterministic moving-control regression commits exactly once; replacement
 controls receive zero writes. Recovery requires GTK4 UUID context paths,
 unchanged scrollbar identity/range/orientation, pure viewport translation,
 and strict same-object/ancestry resolution. Unknown evidence retains the
-original refusal. `values.workspace_count_commit` remains in the closing
-Openbox headless/headed selection; its measured result is in the harness README.
+original refusal. Retained identity uses the canonical bus-qualified object key
+(`9571a28a`). The workspace-count reopen leg was retired after its second
+Settings launch exhausted the oracle attribution deadline following a verified
+write; its sole rerun repeated that fixture failure. Deterministic canonical
+identity and moving-control/replacement regressions remain. Live persistence
+after reopening Settings is not certified.
 
 #### Harness hardening received from 3.12
 

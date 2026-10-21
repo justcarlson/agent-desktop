@@ -72,21 +72,6 @@ def pointer_speed_commit(ctx: LegContext) -> None:
     numeric_commit(ctx, "mouse", "Pointer Speed", schema, key, wanted, "slider", 51)
 
 
-@implementation("values.workspace_count_commit")
-def workspace_count_commit(ctx: LegContext) -> None:
-    schema, key = "org.gnome.desktop.wm.preferences", "num-workspaces"
-    initial = key_number(gsettings.get(ctx.tier, schema, key))
-    wanted = 5 if initial != 5 else 4
-    dynamic_schema = "org.gnome.mutter"
-    dynamic = gsettings.get(ctx.tier, dynamic_schema, "dynamic-workspaces")
-    try:
-        gsettings.set(ctx.tier, dynamic_schema, "dynamic-workspaces", "false")
-        numeric_commit(ctx, "multitasking", None, schema, key, wanted, "incrementor", 52)
-    finally:
-        gsettings.set(ctx.tier, dynamic_schema, "dynamic-workspaces", dynamic)
-        require(gsettings.get(ctx.tier, dynamic_schema, "dynamic-workspaces") == dynamic)
-
-
 @implementation("values.terminal_read_only_flip")
 def terminal_read_only_flip(ctx: LegContext) -> None:
     with managed(ctx, "Terminal", ("--show-menubar",)) as app:
