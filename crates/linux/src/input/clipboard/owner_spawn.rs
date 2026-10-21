@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::os::fd::OwnedFd;
 use std::path::Path;
 use std::process::Child;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -83,12 +84,21 @@ pub(crate) fn kill_and_reap(child: &mut Child) {
 /// Collects the owner's exit status whenever it ends, so a long-lived host
 /// that sets the clipboard many times keeps no zombies. The waiting thread
 /// ends with the owner or with the host.
-pub(crate) fn reap_when_done(mut child: Child) {
-    let _ = std::thread::Builder::new()
+pub(crate) fn reap_when_done(child: Child) -> std::io::Result<()> {
+    let child = Arc::new(Mutex::new(child));
+    let waiting = Arc::clone(&child);
+    std::thread::Builder::new()
         .name("clipboard-owner-reaper".to_owned())
         .spawn(move || {
-            let _ = child.wait();
-        });
+            let _ = waiting
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .wait();
+        })
+        .map(|_| ())
+        .inspect_err(|_| {
+            kill_and_reap(&mut child.lock().unwrap_or_else(PoisonError::into_inner));
+        })
 }
 
 fn payload_error(message: String) -> AdapterError {
