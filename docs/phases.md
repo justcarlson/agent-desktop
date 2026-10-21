@@ -504,7 +504,7 @@ The `ErrorCode` enum in `crates/core/src/error_code.rs` (`AdapterError` lives in
 | `STALE_REF` | Ref | Element could not be re-identified from the requested snapshot | Run 'snapshot' (or `snapshot --skeleton`) to refresh |
 | `AMBIGUOUS_TARGET` | Ref | Ref identity maps to more than one live candidate | Run 'snapshot' to refresh, then retry with a more specific ref |
 | `WINDOW_NOT_FOUND` | Window | --window w-999 does not exist | Run 'list-windows' to see available windows |
-| `PLATFORM_NOT_SUPPORTED` | Platform | Desktop command on the Linux stub adapter, or an adapter method the platform does not implement | Use macOS or Windows; the Linux adapter ships in Phase 3 |
+| `PLATFORM_NOT_SUPPORTED` | Platform | A capability is unavailable on the current platform or desktop session | Follow the error's capability-specific recovery suggestion; on Linux consult `agent-desktop skills get platform` ([Linux platform skill](../skills/agent-desktop-linux/SKILL.md)) for supported session routes and prerequisites |
 | `TIMEOUT` | Wait / Traversal / Auto-wait | wait --element exceeded timeout; auto-wait exceeded 5000ms without the target becoming actionable | Increase --timeout or --timeout-ms, or check app state |
 | `INVALID_ARGS` | Input | Bad CLI argument, unknown ref format, or protected-process close refusal | Fix the argument per CLI help; target a regular application when closing |
 | `NOTIFICATION_NOT_FOUND` | Notification | Notification ID not found / NC reordered | Run 'list-notifications' to see current notifications |
