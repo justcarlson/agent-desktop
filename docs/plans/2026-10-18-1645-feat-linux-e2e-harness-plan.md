@@ -132,3 +132,21 @@ no owner-decision row remains, every transfer is in the receiving roadmap
 scope, and all claimed passes carry independent effect and final-state reads.
 The stranger report contains dispositions. Missing box access or unavailable
 hardware is reported plainly; it is not converted into a green receipt.
+
+## Final validation receipt
+
+The retained registry has 185 IDs, 244 executable tier/mode cells and 52
+outstanding live surface acceptance cells on landed product surfaces. Live
+results are 242 pass and two safe deterministic workspace STALE_REF failures
+(Openbox headless/headed), retained as a product finding owned by 3.15.
+Mutter's second-position fixture and legacy app-launched teardown-race variants
+are deleted after their sole diagnostic reruns; Openbox and deterministic
+contract coverage remain. No deleted cell counts as a pass. The 11 restored
+Mutter owner event cells, four ref actions and canonical Qt headed click pass.
+
+Release build, box Clippy and Linux library gate (2,673 pass, 251 ignored),
+Mac portable harness (311 tests, one skip), shared E2E (58), line/source/findings,
+secret and author gates are the targeted contract. README has per-mode counts,
+release hashes, repros and artifact locations. The source-withheld operator
+ran the documented clipboard selection and blanket-response negative control;
+normal and failure cleanup were observed, while live cancellation was not.

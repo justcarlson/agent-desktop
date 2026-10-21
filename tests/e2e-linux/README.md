@@ -76,7 +76,7 @@ A pass requires independent before/after observations, restoration where state
 changed, and the same private process membership after cleanup. A refusal leg
 must assert its expected error and absence of effect.
 Unimplemented, blocked, outstanding, failed, and unavailable-tier outcomes exit 1.
-Outstanding surface legs still need their owning product surface to land.
+Outstanding surface legs still need live acceptance on the landed product.
 
 To list registered IDs, modes and dispositions for a tier without starting apps:
 
@@ -145,8 +145,10 @@ product defect, especially wrong-target input or false delivery evidence.
 For a bounded negative control, use the documented remote-run form with a
 fresh suite and payload `bash tests/e2e-linux/run.sh --tier x11-openbox --leg
 state.text_editor_semantic_type --lying-actions`. This is an expected failure.
-Run `--lying-actions` as a negative control: its fake program always says
-`ok:true`, and independent effect checks must still fail. Send SIGTERM to the
+Run `--lying-actions` as a blanket-response negative control: its fake program
+always says `ok:true` without real refs or effects, so the selection must fail.
+It may fail at ref acquisition before an action; portable lying-effect tests
+separately exercise effect and restoration checks. Send SIGTERM to the
 runner's own PID to test cancellation; cleanup must leave no private members.
 Identify that PID and its start token in your private runtime's `harness-owner`
 marker, verify it is your `runner/main.py` process, and signal only that PID.
@@ -293,8 +295,8 @@ Historical pre-review lane measurements (not a receipt for the integrated head):
 | Mutter X11 | 58 | 0 | 32 |
 | Headless Wayland | 3 | 0 | 0 |
 
-The 36 outstanding instances need the menu/popover, shell, tray or
-notification surfaces on 3.14. The refresh removes 192 of the original
+The historical 36 outstanding instances had no menu/popover, shell, tray or
+notification acceptance measurement; the current inventory below records 52 outstanding cells on landed surfaces. The refresh removes 192 of the original
 377 mode instances under the owner rule. Removed checks are not passes.
 Wayland retains refusal/observation checks; no headed seat-input coverage
 is claimed. See the removal reasons above and the `test:` commit body.
@@ -374,34 +376,64 @@ mechanism; there are no executable OWNER rows to split.
 
 ## Integration validation receipt
 
-The rebased release CLI and adjacent clipboard helper build successfully. The
-four-package all-target Clippy gate passes with warnings denied. The library
-run exposed the obsolete fake described above; its sole retry reproduced the
-invalid success expectation. Final library validation follows its deletion.
-Live validation of this inventory is in progress; no pending cell counts as a
-pass. Historical lane numbers above do not certify this head.
+Measured on 2026-10-21 UTC against the rebased release CLI and adjacent
+`agent-desktop-linux-clipboard-owner`. Release build and four-package all-target
+Clippy pass. The Linux library gate passes: 2,673 tests, zero failures,
+251 ignored; no ignored Rust live tests were executed. Its obsolete retained-object
+fake was deleted after the sole diagnostic rerun confirmed its invalid success
+expectation; resolver safety checks remain intact.
 
-| Tier | Mode | Pending executable cells | Outstanding surface cells |
-| --- | --- | ---: | ---: |
-| Openbox X11 | headless | 104 | 10 |
-| Openbox X11 | headed | 38 | 2 |
-| Mutter X11 | headless | 81 | 30 |
-| Mutter X11 | headed | 23 | 10 |
-| Headless Wayland | headless | 5 | 0 |
-| Headless Wayland | headed | 1 | 0 |
+The final registry has 185 IDs: 244 executable tier/mode cells and 52 outstanding
+surface acceptance cells. Every retained executable cell has a live result:
+242 pass and two deterministic workspace failures. Removed specimens do not count
+as passes. Outstanding acceptance is on landed product surfaces, not a missing
+product implementation. Full-tier commands correctly exit nonzero for failures
+or outstanding rows.
+
+| Tier | Mode | Pass | Fail | Outstanding |
+| --- | --- | ---: | ---: | ---: |
+| Openbox X11 | headless | 101 | 1 | 10 |
+| Openbox X11 | headed | 36 | 1 | 2 |
+| Mutter X11 | headless | 78 | 0 | 30 |
+| Mutter X11 | headed | 21 | 0 | 10 |
+| Headless Wayland | headless | 5 | 0 | 0 |
+| Headless Wayland | headed | 1 | 0 | 0 |
+
+All four restored ref actions (`triple_click`, `scroll`, `right_click`, `hover`)
+and `toolkit_qt.headed_click_logged_once` pass on both X11 tiers in their
+registered modes. All eleven restored `.mutter_owner` window/app event rows
+pass on Mutter headless. Cross-toolkit/position stress, portal consent and
+VS Code registration remain in the 50 receiving hardening rows.
 
 The supplied Mutter diagnosis is implemented: exclude attributed shell/decoration
 processes before property reads, isolate unrelated name timeouts while retaining
 plausible target failures, resolve explicit unique bus names directly, and bound
 WM/AT-SPI responsiveness before baselines and after mapping. Overview is closed
-only on observed true; an expired gate makes the tier unavailable. Portable
+only on observed true; an expired gate makes the tier unavailable. Eleven portable
 regressions in `test_runtime_readiness.py` and the mapped-launch test in
 `test_oracle_apps.py` fail under intentional inversions.
 
-Local gates pass: portable Linux harness 314 tests (one live-only skip), shared
-E2E 58, Python files below 400 lines, source-reference policy, findings validator
-(701 rows), and Lahfir author/committer checks. Final secret scanning uses
-`7dc6500f..HEAD`. Live stranger dogfood is pending.
+Immutable release hashes:
+
+- CLI: `a7b4388811cace3a69f0b0d75242197b49f1fd94430afa99e9b79ed74ee7aa83`.
+- Clipboard helper: `921ecc9c7d11cd256d038c964c3adce37ad3c550eef029b77bb126c85018f755`.
+
+Failure evidence remains under `~/ad-wt/e2e-312-openbox.r5865e`,
+`e2e-312-openbox-retry.nIbLEh`, `e2e-312-mutter.RKK0H7`, and
+`e2e-312-mutter-retry.kxRGwE`. The all-pass Wayland suite
+`e2e-312-wayland.UtQDPl` and operator clipboard suite `e2e-docs.8ffTxD`
+are recoverable under `~/ad-wt/linux-validation-trash/Trash/files/`.
+The blanket-response negative control `e2e-docs-negative.nIRJM7` exits 1 in both
+modes at missing qualified refs, before action dispatch; it is not a live
+lying-effect proof. No private runtime directory or process referencing the
+owned session base remains. Cancellation was not measured in this receipt.
+
+Local gates pass: portable Linux harness 311 tests (one live-only skip), shared
+E2E 58, all 104 Python files below 400 lines (maximum 384), source-reference
+policy, findings validator (701 rows), and Lahfir author/committer checks.
+Secret scanning covers `7dc6500f..HEAD`. The source-withheld operator receipt
+and disposed findings are in
+[the dogfood report](../../docs/dogfood-reports/2026-10-20-312-integration-docs-review.md).
 
 ## Rebase resolutions
 
@@ -428,3 +460,5 @@ Rebased with rerere onto shipped core-delivery `7dc6500f`.
 | `--tier x11-openbox --leg clipboard.html_roundtrip` | Both attempts offered only text/html; auto reads no supported content. Removed this unsupported import expectation and its permissive fake HTML fallback. `formats::TEXT_TARGETS`, `targets::choose_target`, and `x11_read_tests::an_owner_without_the_wanted_target_reads_as_absent` define the intentional supported-target boundary. Text/image/lifetime/clear legs remain. |
 | `--tier x11-openbox --leg gaps.display_value_select_success` | Both modes and their sole rerun find zero raw role-11 nodes named Delivery choice; no product select dispatch occurs. Removed the unavailable Qt selection leg and its mocked positive-select check. Native `select_tests`, `select_search_tests`, and the existing Qt write_ignored check retain route, identity, effect and refusal coverage. |
 | `--tier x11-openbox --leg values.workspace_count_commit` | Both modes and their sole rerun return STALE_REF/resolve_no_candidate, complete=true, preparatory_scroll=may_have_changed_view, process_state=running, not_delivered/safe. The GSettings value is unchanged and restored. Retained as a deterministic product finding, owned by 3.15 scroll/identity hardening; no resolver safety check is weakened and no positive workspace-write pass is claimed. |
+| `--tier x11-mutter --leg gaps.gesture_gtk4_second_mouse-click` | Both attempts stop at the fixture's wmctrl visible-position poll before gesture dispatch. Cleanup resize/move succeeds and pointer, active window, geometry and owned membership restore. Removed only this Mutter specimen; Openbox stays live, and the receiving cross-position hardening row requires deterministic positioning. |
+| `--tier x11-mutter --leg events.app_launched_transition` | Both attempts match the launched Calculator PID and independently see the app; after stopping it, a raw registry name read hits a retired owner's NoReply. Removed only this Mutter teardown-race specimen. Openbox, portable transition/restoration tests and the restored scoped/unscoped app-launched event cells retain the contract. |

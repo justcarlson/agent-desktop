@@ -1,19 +1,34 @@
-# Linux harness stranger documentation review
+# Linux harness stranger operator receipt
 
-Scope: the operator received only the harness README and shipped core skill,
-with product source and plans withheld. This is a documentation review, not a
-live dogfood receipt. The shared box lock prevented the build/live commands
-from starting. U13 remains incomplete until real private-session commands and
-cleanup are observed.
+The operator received only the harness README and shipped core skill; product
+source and plans were withheld. Root executed the operator's documented
+selections through the bounded remote wrapper, using the documented external
+binary option with the frozen release pair. Shared-lock expiries before
+execution were infrastructure contention, not test attempts.
 
 | Finding | Disposition | Reviewable result |
 | --- | --- | --- |
-| The shared-host instructions name a wrapper and timeout but provide no complete invocation, fresh suite creation, or distinction between lock-wait and command timeout. | Fixed here | README gives separate build and single-leg calls, whole-second 720/60 budgets, mktemp under ~/ad-wt, binary/helper adjacency, automatic tool PATH and explicit Qt venv launch. |
-| The KDE table looks like executable steps despite unresolved apps/refs, omitted executable prefix/headed policy and an X11-only active-window oracle. | Fixed here | README calls it an acceptance checklist owned by 3.15, states executable/headed/fingerprint requirements and separates X11 and Wayland oracles. The receiving roadmap requires concrete hardware/session setup and per-cell outcomes; no Plasma pass is claimed. |
-| An operator cannot discover a tier's IDs/modes from the run examples. | Fixed here | README supplies an isolated Python inventory command and explains that a selected ID runs every registered mode. The command was executed locally and listed 136 Openbox IDs with modes/dispositions. |
-| Negative-control, failure-reading and cancellation guidance omit the runnable selection, evidence fields and distinction between wrapper PID and runner PID. | Fixed here | README supplies a bounded negative-control payload, JSON report-reading guidance, same-repro/independent-read triage rules, and PID/start-token verification through the private harness-owner marker. Live cancellation/cleanup still requires measurement; the instructions themselves are not a passed cancellation test. |
+| Shared-host instructions lacked a complete invocation, fresh suite creation and separate lock/execution budgets. | Fixed | README supplies separate bounded build/single-leg forms, fresh suites, adjacent helper, tool PATH and Qt venv details. Release build and the single-leg form were exercised. |
+| KDE guidance resembled executable steps despite missing hardware/session/refs and an X11-only oracle. | Fixed; hardware acceptance owned by 3.15 | README labels an acceptance checklist, requires concrete executable/headed/fingerprint setup, and separates X11/Wayland oracles. No KDE pass is claimed. |
+| An operator could not discover tier IDs and registered modes. | Fixed | README's isolated inventory command ran; it lists registry IDs, modes and dispositions without starting apps. Selected IDs run all registered modes. |
+| Failure and cancellation guidance omitted evidence fields and runner identity. | Fixed; live cancellation unmeasured | README identifies products/reads/traceback and PID/start-token checks. Normal and failure teardown were observed below; no cancellation result is inferred. |
+| The blanket-response negative control could be read as a live lying-effect proof. | Fixed | README now says it may fail at ref acquisition; portable effect/refusal/restoration controls supply the separate deterministic proof. Actual negative run stopped before action dispatch. |
 
-Validation: the inventory command ran verbatim. Documentation diff checks
-pass. The portable suites validate the existing registry/verdict/cleanup
-contracts separately; they do not establish that a stranger completed a live
-run, portal consent, KDE walk, or cleanup on the box.
+`clipboard.text_roundtrip` on Openbox headless exited 0 (one pass). Independent
+clipboard reads were null → foreign text → null. Set/clear responses honestly
+reported delivered_unverified; foreign-reader observations establish the harness
+result. Owned PID generations matched before/after. The fresh suite
+`~/ad-wt/e2e-docs.8ffTxD` was recovered in
+`~/ad-wt/linux-validation-trash/Trash/files/e2e-docs.8ffTxD` after its original
+path disappeared.
+
+The documented `state.text_editor_semantic_type --lying-actions` selection
+exited 1 with failures in both modes. Each failed at qualified-ref discovery
+(`found set()`); only the blanket-success find response ran and reads were empty.
+This is a failure-path smoke check, not a live effect-oracle test. Evidence is
+retained at `~/ad-wt/e2e-docs-negative.nIRJM7`. Both modes retained their baseline
+owned process generations. After both selections, the owned session base had
+no runtime directories and no process environment referenced it.
+
+The operator accepted the normal live pass and bounded failure-path result with
+those limitations. Cancellation, portal consent and KDE were not measured.
