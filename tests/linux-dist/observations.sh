@@ -52,3 +52,21 @@ click_display_transition() {
   fi
   echo "click: ok display=$shown before=$before"
 }
+
+observe_clipboard_clear() {
+  local status
+  for _ in $(seq 1 100); do
+    status=0
+    read_clipboard >/dev/null || status=$?
+    case "$status" in
+      3) return 0 ;;
+      0) sleep 0.05 ;;
+      *)
+        echo "clipboard: FAIL code=OBSERVER_ERROR status=$status" >&2
+        return 1
+        ;;
+    esac
+  done
+  echo "clipboard: FAIL code=CLIPBOARD_CLEAR the selection survived the clear" >&2
+  return 1
+}

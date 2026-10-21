@@ -67,3 +67,46 @@ click_display_transition "$snapshot" "$output" click
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("expected one button", result.stderr)
         self.assertFalse(clicked)
+
+
+class ClipboardObservationTests(unittest.TestCase):
+    def run_clear(self, statuses):
+        with TemporaryDirectory() as directory:
+            reads = Path(directory) / "reads"
+            result = subprocess.run([
+                "bash", "-c", '''
+source "$1"
+reads=$2
+shift 2
+statuses=("$@")
+read_clipboard() {
+  printf 'read\n' >> "$reads"
+  return "${statuses[0]}"
+}
+sleep() { statuses=("${statuses[@]:1}"); }
+observe_clipboard_clear
+''', "observation-test", str(SCRIPT), str(reads), *map(str, statuses),
+            ], capture_output=True, text=True, timeout=10)
+            return result, len(reads.read_text().splitlines())
+
+    def test_only_no_text_status_confirms_clear(self):
+        result, reads = self.run_clear([3])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(reads, 1)
+
+    def test_observer_error_never_confirms_clear(self):
+        result, reads = self.run_clear([1])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("OBSERVER_ERROR status=1", result.stderr)
+        self.assertEqual(reads, 1)
+
+    def test_remaining_text_is_polled_until_no_text(self):
+        result, reads = self.run_clear([0, 0, 3])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(reads, 3)
+
+    def test_persistent_text_fails_clear(self):
+        result, reads = self.run_clear([0] * 100)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CLIPBOARD_CLEAR", result.stderr)
+        self.assertEqual(reads, 100)

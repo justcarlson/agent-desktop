@@ -228,13 +228,6 @@ if ! CLIP_OUT=$(env PATH="$WORK/nopath" "$CONSUMER" clipboard-clear 2>&1); then
   echo "run-consumer: FAIL code=$(printf '%s' "$CLIP_OUT" | sed -n 's/.*code=\([A-Z_]*\).*/\1/p' | tail -1) target=clipboard-clear" >&2
   exit 1
 fi
-for _ in $(seq 1 100); do
-  if ! read_clipboard >/dev/null; then
-    echo "run-consumer: leg clipboard ok (text=$CLIP_TEXT, cleared)"
-    echo "run-consumer: all legs passed"
-    exit 0
-  fi
-  sleep 0.05
-done
-echo "run-consumer: FAIL code=CLIPBOARD_CLEAR the selection survived the clear" >&2
-exit 1
+observe_clipboard_clear
+echo "run-consumer: leg clipboard ok (text=$CLIP_TEXT, cleared)"
+echo "run-consumer: all legs passed"
