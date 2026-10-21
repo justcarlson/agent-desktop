@@ -82,9 +82,13 @@ bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
 Pass `--leg id1,id2,id3` to run a bounded batch in one private tier session.
 Every requested ID must be registered for the selected tier; a mismatch exits 2.
 A pass requires independent before/after observations, restoration where state
-changed, and the same private process membership after cleanup. A refusal leg
+changed, and the same attributed app process generations after cleanup. A refusal leg
 must assert its expected error and absence of effect.
 Unimplemented, blocked, outstanding, failed, and unavailable-tier outcomes exit 1.
+
+Per-leg cleanup stops each attributed app generation. Private background services
+may start or exit independently; their membership is not an app-leak oracle.
+Private-session teardown sweeps all runtime members and fails if any survive.
 
 `placeholder.files_search_none` also runs headed on both X11 tiers. Its raw
 AT-SPI oracle verifies that Nautilus's unfocused editable search wrapper owns
