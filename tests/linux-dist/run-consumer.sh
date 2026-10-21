@@ -146,6 +146,10 @@ assert data["ref_count"] > 0, "snapshot allocated no refs"
 PY
 echo "run-consumer: leg snapshot ok"
 
+echo "run-consumer: leg real ctypes main/worker"
+AD_EXPECT_REAL=1 AD_APP="$APP" AD_DYLIB_PATH="$LIBRARY" AD_HEADER_PATH="$HEADER" \
+  python3 "$SCRIPT_DIR/../ffi-python/smoke.py"
+
 echo "run-consumer: leg click"
 click_display_transition "$SNAP" "$WORK/click.json" "$CONSUMER" click
 

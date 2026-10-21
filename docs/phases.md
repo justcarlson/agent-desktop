@@ -2278,6 +2278,11 @@ click, missing-app refusal, and foreign clipboard readback after CLI exit.
 No helper is borrowed from an older branch. The test commit replaces the C
 lifetime scheduling race with deterministic stale-handle checks, pins the
 reader's GTK/GDK versions, and uses PID handles for private-bus cleanup.
+Acceptance requires a successful baseline display read different from the
+click target, followed by an independently observed transition. Clipboard
+clear accepts only the reader's explicit no-text result and fails on observer
+errors. The private consumer session runs the extracted library and header
+through ctypes main-thread and worker-thread snapshots on both dry-run jobs.
 All thirteen new fake tests fail under intentional breaks and pass after
 restoration. Rebase conflict resolutions and exact repro commands are in
 `tests/linux-dist/README.md`.

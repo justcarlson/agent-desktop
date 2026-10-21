@@ -19,6 +19,15 @@ npm check applies the same contract after the installed CLI process exits.
 The release dry-run installs the GTK 3 typelib and `trash-cli`, runs the fake
 contracts, and stages the discovery check from that job's extracted archive.
 
+The consumer also runs the real ctypes smoke against the extracted library
+and header while Calculator is registered, requiring complete main-thread
+and worker-thread snapshots with refs. A smoke failure fails the consumer.
+Both C and npm click checks require a readable baseline different from `7`
+before dispatch, a unique button ref, and an independent readback of `7`.
+Clipboard clear accepts only the reader's no-text status; observer errors
+fail the check. Ten deterministic regression cases cover these contracts,
+and each was individually inverted and restored.
+
 To invert discovery, stage only the library, point `AD_DYLIB_PATH` at it, set
 `AD_EXPECT_LINUX_HELPER=1` and `AD_HELPER_EMPTY_PATH` to an empty directory, and
 run `python3 tests/ffi-python/smoke.py` in a private session. It must fail with
