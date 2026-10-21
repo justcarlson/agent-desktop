@@ -38,6 +38,13 @@ fn several_clients_are_ambiguous_with_the_candidate_count() {
     rig.lookup.xids.set(vec![XidOutcome::Several(vec![1, 2])]);
     let error = capture(&rig.env(), &target(), false, deadline()).expect_err("ambiguous");
     assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+    assert_eq!(
+        error
+            .details
+            .as_ref()
+            .and_then(|details| details["candidates"].as_u64()),
+        Some(2)
+    );
     assert_eq!(rig.grabber.grab_count(), 0);
 }
 

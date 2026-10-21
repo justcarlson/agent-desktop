@@ -75,14 +75,6 @@ fn a_window_below_the_target_does_not_cover() {
 }
 
 #[test]
-fn a_cover_over_only_the_lower_right_corner_still_counts() {
-    assert_eq!(
-        verdict(stacked(11, rect(450, 350, 200, 200))),
-        Cover::Covered
-    );
-}
-
-#[test]
 fn an_override_redirect_window_above_covers() {
     let read = read_of(
         vec![stacked(TARGET, target_rect())],

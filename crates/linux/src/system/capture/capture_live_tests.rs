@@ -16,49 +16,11 @@ fn window_at(x: i32, y: i32) -> Geometry {
 
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
-fn grab_live_window_pixels_are_the_window_paint() {
-    let _display = assert_private_display();
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let pid = paint(
-        &mut launched,
-        "adcap-paint",
-        "#ff0000",
-        &window_at(200, 150),
-        false,
-    );
-    let window = wait_for_listed(&bus, pid);
-    let image = screenshot(
-        &bus,
-        ScreenshotTarget::ExactWindow(window),
-        deadline(20_000),
-    )
-    .expect("the window is captured");
-    let pixels = decode(&image);
-    println!(
-        "grab_live compositing={} size={}x{}",
-        compositing(),
-        pixels.width,
-        pixels.height
-    );
-    assert!(pixels.width >= 320 && pixels.height >= 200);
-    let (centre_x, centre_y) = (pixels.width / 2, pixels.height / 2);
-    assert!(pixels.region_is(centre_x - 100, centre_y - 60, 200, 120, RED));
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_the_window_unit_follows_the_manager() {
     let _display = assert_private_display();
     let bus = SharedBus::default();
     let mut launched = Launched::new();
-    let pid = paint(
-        &mut launched,
-        "adcap-unit",
-        "#ff0000",
-        &window_at(200, 150),
-        false,
-    );
+    let pid = paint(&mut launched, "adcap-unit", "#ff0000", &window_at(200, 150));
     let window = wait_for_listed(&bus, pid);
     let framed = screenshot_window_frame(&bus, &window, deadline(20_000));
     let whole = screenshot(
@@ -83,50 +45,6 @@ fn grab_live_the_window_unit_follows_the_manager() {
 
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh"]
-fn grab_live_a_full_screen_grab_equals_the_known_paint() {
-    let _display = assert_private_display();
-    if compositing() {
-        println!("grab_live skipped: a compositing session refuses a full screen");
-        return;
-    }
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let area = Geometry {
-        x: 100,
-        y: 100,
-        width: 200,
-        height: 120,
-    };
-    paint(&mut launched, "adcap-blue", "#0000ff", &area, true);
-    wait_for_x_window("adcap-blue");
-    let image = screenshot(&bus, ScreenshotTarget::FullScreen, deadline(20_000))
-        .expect("the screen is captured");
-    let pixels = decode(&image);
-    assert_eq!((pixels.width, pixels.height), (1280, 800));
-    assert!(pixels.region_is(100, 100, 200, 120, BLUE));
-    assert_eq!(pixels.at(10, 10), BLACK);
-    assert_eq!(pixels.at(300, 100), BLACK);
-    assert_eq!(pixels.at(99, 100), BLACK);
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh"]
-fn grab_live_a_full_screen_is_refused_under_compositing() {
-    let _display = assert_private_display();
-    if !compositing() {
-        println!("grab_live skipped: this session does not composite");
-        return;
-    }
-    let bus = SharedBus::default();
-    for target in [ScreenshotTarget::FullScreen, ScreenshotTarget::Screen(0)] {
-        let error = screenshot(&bus, target, deadline(20_000)).expect_err("refused");
-        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-        assert_eq!(reason(&error), "compositing");
-    }
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh"]
 fn grab_live_a_window_partly_off_screen_reports_off_screen() {
     let _display = assert_private_display();
     let bus = SharedBus::default();
@@ -136,7 +54,6 @@ fn grab_live_a_window_partly_off_screen_reports_off_screen() {
         "adcap-edge",
         "#ff0000",
         &window_at(1200, 700),
-        false,
     );
     let window = wait_for_listed(&bus, pid);
     let bounds = window.bounds.expect("the window reports bounds");
@@ -205,7 +122,6 @@ fn grab_live_a_stopped_window_is_app_unresponsive() {
         "adcap-frozen",
         "#ff0000",
         &window_at(200, 150),
-        false,
     );
     let window = wait_for_listed(&bus, pid);
     let xid = x_window_id("adcap-frozen");

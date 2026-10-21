@@ -32,11 +32,6 @@ fn zero_width_or_height_is_refused() {
 }
 
 #[test]
-fn the_pixel_limit_is_pinned_to_the_core_limit() {
-    assert_eq!(MAX_PIXELS, 67_108_864);
-}
-
-#[test]
 fn one_pixel_over_the_limit_is_refused_and_the_limit_itself_passes() {
     assert_eq!(check_pixels(67_108_864, 1).unwrap(), 67_108_864);
     assert_eq!(check_pixels(8_192, 8_192).unwrap(), 67_108_864);

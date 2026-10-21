@@ -4,13 +4,13 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ScreenshotTarget};
 
 use super::wayland_portal::capture_wayland;
-use super::wayland_portal_bus::PORTAL_BUS;
 use super::wayland_portal_live_monitors::{allow_screenshots, capture_target, set_first_scale};
 use super::wayland_portal_live_support::{
     BLUE, BUS_DAEMON, DIALOG_SHOWN, Endpoint, FRONTEND, KEY_RETURN, KEY_TAB, Keys, World, boot,
     boot_with, bus_call, runtime_dir, stored_screenshot_grants,
 };
 use crate::system::bus_deadline::within;
+use crate::system::session_bus::SessionBus;
 
 fn home_screenshots() -> BTreeSet<String> {
     let home = runtime_dir().join("portal-home");
@@ -252,7 +252,7 @@ fn the_portal_calls_go_to_the_session_bus_and_not_the_accessibility_bus() {
             .unwrap_or(false)
     };
     let used = within(Deadline::after(10_000).expect("a deadline"), async {
-        let connection = PORTAL_BUS(Deadline::after(10_000).expect("a deadline"))?;
+        let connection = SessionBus::get(Deadline::after(10_000).expect("a deadline"))?;
         let reply = connection
             .call_method(
                 Some("org.freedesktop.DBus"),

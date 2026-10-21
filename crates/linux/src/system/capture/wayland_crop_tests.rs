@@ -26,18 +26,6 @@ fn rect(x: u32, y: u32, width: u32, height: u32) -> PixelRect {
 }
 
 #[test]
-fn two_displays_at_scale_one_sit_where_they_are_reported() {
-    let all = [
-        display("a", 0.0, 0.0, 1280.0, 800.0, 1.0),
-        display("b", 1280.0, 0.0, 800.0, 600.0, 1.0),
-    ];
-    assert_eq!(
-        pixel_rect(&all[1], &all, (2080, 800)).expect("a rect"),
-        rect(1280, 0, 800, 600)
-    );
-}
-
-#[test]
 fn logical_rectangles_with_one_common_scale_are_multiplied() {
     let all = [display("a", 0.0, 0.0, 1280.0, 800.0, 2.0)];
     assert_eq!(

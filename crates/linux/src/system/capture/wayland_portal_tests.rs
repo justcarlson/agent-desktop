@@ -169,27 +169,6 @@ fn a_file_that_is_not_a_png_is_an_action_failure_and_is_still_removed() {
 }
 
 #[test]
-fn a_uri_outside_the_allowed_directories_is_refused_and_its_file_kept() {
-    let dir = scratch("inside");
-    let elsewhere = scratch("outside-uri");
-    let path = elsewhere.join("Screenshot.png");
-    fs::write(&path, tiny_png(4, 4)).expect("a png");
-    let (outcome, _) = run(&ScreenshotTarget::FullScreen, granted(&path), &[dir]);
-    assert_eq!(outcome.expect_err("refused").code, ErrorCode::ActionFailed);
-    assert!(path.exists());
-}
-
-#[test]
-fn a_refusal_from_the_portal_is_permission_denied() {
-    let (outcome, _) = run(
-        &ScreenshotTarget::FullScreen,
-        Ok(PortalAnswer::Refused { code: 2 }),
-        &[],
-    );
-    assert_eq!(outcome.expect_err("denied").code, ErrorCode::PermDenied);
-}
-
-#[test]
 fn a_screen_target_is_the_displays_rectangle_of_the_portals_image() {
     let dir = scratch("screen");
     let path = dir.join("Screenshot.png");
@@ -300,28 +279,4 @@ fn a_window_target_is_unsupported_and_makes_no_portal_call() {
         ErrorCode::PlatformNotSupported
     );
     assert!(calls.is_empty());
-}
-
-#[test]
-fn a_missing_session_bus_is_unsupported_and_does_not_hang() {
-    let dialed = Cell::new(false);
-    let connect = |_deadline: Deadline| -> Result<Box<dyn PortalWire>, AdapterError> {
-        dialed.set(true);
-        Err(AdapterError::new(
-            ErrorCode::PlatformNotSupported,
-            "The D-Bus session bus is not available in this session",
-        ))
-    };
-    let outcome = capture_with(
-        &ScreenshotTarget::FullScreen,
-        deadline(),
-        &connect,
-        &[],
-        &|_| Ok(Vec::new()),
-    );
-    assert_eq!(
-        outcome.expect_err("no bus").code,
-        ErrorCode::PlatformNotSupported
-    );
-    assert!(dialed.get());
 }

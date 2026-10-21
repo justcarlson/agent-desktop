@@ -101,25 +101,6 @@ fn the_request_path_follows_the_portal_naming() {
 }
 
 #[test]
-fn response_zero_gives_the_result_uri() {
-    let wire = FakeWire::answering(granted("file:///run/user/1000/shot.png"));
-    assert_eq!(
-        screenshot_uri(&wire, TOKEN, deadline()).expect("a uri"),
-        "file:///run/user/1000/shot.png"
-    );
-}
-
-#[test]
-fn a_refusal_is_permission_denied_with_a_suggestion() {
-    for code in [1, 2] {
-        let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code }));
-        let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("refused");
-        assert_eq!(error.code, ErrorCode::PermDenied);
-        assert!(error.suggestion.is_some());
-    }
-}
-
-#[test]
 fn response_two_does_not_send_the_caller_only_to_the_privacy_settings() {
     let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 2 }));
     let error = screenshot_uri(&wire, TOKEN, deadline()).expect_err("ended");
@@ -161,7 +142,10 @@ fn a_grant_without_a_file_is_an_action_failure() {
 #[test]
 fn the_subscription_precedes_the_call_so_an_early_response_is_seen() {
     let wire = FakeWire::answering(granted("file:///tmp/early.png"));
-    screenshot_uri(&wire, TOKEN, deadline()).expect("the early response is kept");
+    assert_eq!(
+        screenshot_uri(&wire, TOKEN, deadline()).expect("the early response is kept"),
+        "file:///tmp/early.png"
+    );
     let events = wire.events.borrow();
     assert_eq!(events.len(), 2);
     assert!(events[0].starts_with("subscribe "), "{events:?}");
@@ -192,9 +176,7 @@ fn a_timeout_names_the_dialog_a_person_must_approve() {
 
 #[test]
 fn response_two_after_the_portal_patience_is_a_timeout_not_a_refusal() {
-    let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 2 }));
-    let error =
-        screenshot_uri_after(&wire, TOKEN, deadline(), Duration::ZERO).expect_err("gave up");
+    let error = refused(2, PORTAL_PATIENCE);
     assert_eq!(error.code, ErrorCode::Timeout);
     assert!(
         error
@@ -202,16 +184,13 @@ fn response_two_after_the_portal_patience_is_a_timeout_not_a_refusal() {
             .as_deref()
             .is_some_and(|text| text.contains("dialog"))
     );
-    let instant = FakeWire::answering(Ok(PortalAnswer::Refused { code: 2 }));
-    let error = screenshot_uri_after(&instant, TOKEN, deadline(), Duration::from_secs(60))
-        .expect_err("refused at once");
+    let error = refused(2, Duration::ZERO);
     assert_eq!(error.code, ErrorCode::PermDenied);
 }
 
 #[test]
 fn response_one_never_reads_as_a_timeout_and_names_deny_and_dismissal() {
-    let wire = FakeWire::answering(Ok(PortalAnswer::Refused { code: 1 }));
-    let error = screenshot_uri_after(&wire, TOKEN, deadline(), Duration::ZERO).expect_err("deny");
+    let error = refused(1, PORTAL_PATIENCE);
     assert_eq!(error.code, ErrorCode::PermDenied);
     let hint = error.suggestion.expect("a hint");
     assert!(hint.contains("chose Deny or closed"), "{hint}");

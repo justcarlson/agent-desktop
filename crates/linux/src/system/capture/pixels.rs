@@ -13,10 +13,6 @@ pub(crate) struct VisualFormat {
     pub(crate) msb_first: bool,
 }
 
-struct Channel {
-    shift: u32,
-}
-
 impl VisualFormat {
     fn describe(&self) -> String {
         format!(
@@ -25,7 +21,7 @@ impl VisualFormat {
         )
     }
 
-    fn channels(&self) -> Option<[Channel; 3]> {
+    fn channels(&self) -> Option<[u32; 3]> {
         Some([
             byte_channel(self.red_mask)?,
             byte_channel(self.green_mask)?,
@@ -34,11 +30,9 @@ impl VisualFormat {
     }
 }
 
-fn byte_channel(mask: u32) -> Option<Channel> {
-    let shifted = mask >> mask.trailing_zeros().min(31);
-    (mask != 0 && shifted == 0xff).then(|| Channel {
-        shift: mask.trailing_zeros(),
-    })
+fn byte_channel(mask: u32) -> Option<u32> {
+    let shift = mask.trailing_zeros();
+    (mask != 0 && mask >> shift == 0xff).then_some(shift)
 }
 
 fn unsupported(format: &VisualFormat) -> AdapterError {
@@ -98,8 +92,8 @@ pub(crate) fn to_rgb(
     for line in data.chunks(stride).take(height as usize) {
         for pixel in line[..row].chunks_exact(bytes_per_pixel) {
             let value = word(pixel, format.msb_first);
-            for channel in &channels {
-                rgb.push((value >> channel.shift) as u8);
+            for &shift in &channels {
+                rgb.push((value >> shift) as u8);
             }
         }
     }

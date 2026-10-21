@@ -30,11 +30,7 @@ pub(crate) trait PortalWire {
 }
 
 pub(crate) fn request_path(unique_name: &str, token: &str) -> String {
-    let sender: String = unique_name
-        .trim_start_matches(':')
-        .chars()
-        .map(|c| if c == '.' { '_' } else { c })
-        .collect();
+    let sender = unique_name.trim_start_matches(':').replace('.', "_");
     format!("/org/freedesktop/portal/desktop/request/{sender}/{token}")
 }
 
@@ -44,7 +40,7 @@ pub(crate) fn request_path(unique_name: &str, token: &str) -> String {
 /// earlier response 2 means the portal refused the request at once.
 pub(crate) const PORTAL_PATIENCE: Duration = Duration::from_secs(20);
 
-fn refused(code: u32, waited: Duration, patience: Duration) -> AdapterError {
+fn refused(code: u32, waited: Duration) -> AdapterError {
     if code == 1 {
         return AdapterError::new(
             ErrorCode::PermDenied,
@@ -54,7 +50,7 @@ fn refused(code: u32, waited: Duration, patience: Duration) -> AdapterError {
             "A person chose Deny or closed the dialog. Allow screenshots in the dialog the desktop shows; if a Deny was remembered, reset it in the desktop's privacy settings first",
         );
     }
-    if waited >= patience {
+    if waited >= PORTAL_PATIENCE {
         return AdapterError::timeout(
             "The desktop portal stopped waiting for an answer to its screenshot dialog",
         )
@@ -99,15 +95,6 @@ pub(crate) fn screenshot_uri(
     token: &str,
     deadline: Deadline,
 ) -> Result<String, AdapterError> {
-    screenshot_uri_after(wire, token, deadline, PORTAL_PATIENCE)
-}
-
-pub(crate) fn screenshot_uri_after(
-    wire: &dyn PortalWire,
-    token: &str,
-    deadline: Deadline,
-    patience: Duration,
-) -> Result<String, AdapterError> {
     let started = Instant::now();
     let path = request_path(&wire.unique_name(), token);
     let pending = wire.subscribe(&path, deadline)?;
@@ -125,7 +112,7 @@ pub(crate) fn screenshot_uri_after(
     match pending.wait(deadline) {
         Ok(PortalAnswer::Granted { uri: Some(uri) }) => Ok(uri),
         Ok(PortalAnswer::Granted { uri: None }) => Err(no_uri()),
-        Ok(PortalAnswer::Refused { code }) => Err(refused(code, started.elapsed(), patience)),
+        Ok(PortalAnswer::Refused { code }) => Err(refused(code, started.elapsed())),
         Err(error) if error.code == ErrorCode::Timeout => Err(timed_out(error)),
         Err(error) => Err(error),
     }
