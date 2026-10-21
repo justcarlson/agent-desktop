@@ -16,7 +16,6 @@ fn app() -> RegistryApp {
             comm: "calc".to_owned(),
             exe_basename: Some("calc".to_owned()),
             instance: "boot:77".to_owned(),
-            web_family: None,
         },
         Some(Some("Calculator".to_owned())),
         ToolkitId::default(),

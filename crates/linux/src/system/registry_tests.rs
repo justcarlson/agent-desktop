@@ -23,7 +23,6 @@ impl AppReads for Counting {
             comm: "x".to_owned(),
             exe_basename: Some("x".to_owned()),
             instance: "boot:1".to_owned(),
-            web_family: None,
         })
     }
 

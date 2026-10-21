@@ -61,7 +61,6 @@ pub(super) fn facts() -> ProcessFacts {
         comm: "app".to_owned(),
         exe_basename: None,
         instance: INSTANCE.to_owned(),
-        web_family: None,
     }
 }
 

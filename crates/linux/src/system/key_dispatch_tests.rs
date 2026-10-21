@@ -30,7 +30,6 @@ fn facts(instance: &str) -> ProcessFacts {
         comm: "app".to_owned(),
         exe_basename: None,
         instance: instance.to_owned(),
-        web_family: None,
     }
 }
 

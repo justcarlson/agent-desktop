@@ -24,7 +24,6 @@ fn an_old_frame_omitted_by_an_incomplete_baseline_cannot_be_a_launch_window() {
                 comm: "tool".to_owned(),
                 exe_basename: Some("tool".to_owned()),
                 instance: owner.instance.clone(),
-                web_family: None,
             },
             Some(Some(owner.name.clone())),
             ToolkitId::default(),

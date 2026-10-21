@@ -15,7 +15,6 @@ fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
             comm: "x".to_owned(),
             exe_basename: Some("x".to_owned()),
             instance: "boot:42".to_owned(),
-            web_family: None,
         },
         Some(Some("App".to_owned())),
         ToolkitId {

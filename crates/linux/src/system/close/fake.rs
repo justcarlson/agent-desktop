@@ -39,7 +39,6 @@ pub(super) fn facts(comm: &str) -> Lookup {
         comm: comm.to_owned(),
         exe_basename: Some(comm.to_owned()),
         instance: "t".to_owned(),
-        web_family: None,
     })
 }
 

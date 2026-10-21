@@ -17,7 +17,6 @@ pub(super) fn app(index: u32, name: &str, answered: bool) -> RegistryApp {
             comm: name.to_owned(),
             exe_basename: Some(name.to_owned()),
             instance: format!("boot:{index}"),
-            web_family: None,
         },
         answered.then(|| Some(name.to_owned())),
         ToolkitId::default(),

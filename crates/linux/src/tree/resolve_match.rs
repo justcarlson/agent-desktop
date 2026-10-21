@@ -24,21 +24,8 @@ pub(crate) fn usable_size(rect: &Rect) -> Option<(f64, f64)> {
     (rect.width > 0.0 && rect.height > 0.0).then_some((rect.width, rect.height))
 }
 
-/// How far a node's size may drift between a snapshot and a landing on its
-/// stored path before the landing is a different element. A toolkit lays a
-/// text view out one pixel shorter once its first text lands (Text Editor,
-/// 690x464 to 690x463), and the path, the role and the window already say
-/// which element it is.
-const LAYOUT_JITTER_PX: f64 = 2.0;
-
-const SAME_SIZE_PX: f64 = 0.5;
-
-fn sizes_within(left: (f64, f64), right: (f64, f64), tolerance: f64) -> bool {
-    (left.0 - right.0).abs() < tolerance && (left.1 - right.1).abs() < tolerance
-}
-
 pub(crate) fn same_size(left: (f64, f64), right: (f64, f64)) -> bool {
-    sizes_within(left, right, SAME_SIZE_PX)
+    left == right
 }
 
 fn live_size(evidence: &LocatorEvidence) -> Option<(f64, f64)> {
@@ -89,9 +76,8 @@ pub(crate) fn provisional_geometry_candidate(entry: &RefEntry) -> bool {
 
 /// Whether the candidate's size equals the stored one under the promotion's
 /// eligibility rule.
-fn geometry_matches_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> bool {
-    provisional_geometry_candidate(entry)
-        && rectangles_match(entry, evidence, tolerance) == Some(true)
+fn geometry_matches(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
+    provisional_geometry_candidate(entry) && rectangles_match(entry, evidence) == Some(true)
 }
 
 pub(crate) fn stored_space(entry: &RefEntry) -> BoundsSpace {
@@ -106,25 +92,18 @@ fn live_rect(evidence: &LocatorEvidence) -> Option<&Rect> {
         .or_else(|| evidence.ref_evidence.bounds.known())
 }
 
-fn rects_within(left: &Rect, right: &Rect, tolerance: f64) -> bool {
-    (left.x - right.x).abs() < tolerance
-        && (left.y - right.y).abs() < tolerance
-        && (left.width - right.width).abs() < tolerance
-        && (left.height - right.height).abs() < tolerance
-}
-
-fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> Option<bool> {
+fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<bool> {
     if comparable_rectangles(entry, evidence) {
         entry
             .geometry
             .bounds
             .as_ref()
             .zip(live_rect(evidence))
-            .map(|(stored, live)| rects_within(stored, live, tolerance))
+            .map(|(stored, live)| stored == live)
     } else if stored_space(entry) == BoundsSpace::Screen {
         stored_size(entry)
             .zip(live_size(evidence))
-            .map(|(stored, live)| sizes_within(stored, live, tolerance))
+            .map(|(stored, live)| same_size(stored, live))
     } else {
         None
     }
@@ -139,13 +118,12 @@ pub(crate) fn comparable_rectangles(entry: &RefEntry, evidence: &LocatorEvidence
         && matches!(evidence.ref_evidence.window_bounds, LocatorField::Known(_))
 }
 
-/// Whether the stored and live evidence describe different rectangles by more
-/// than a layout jitter. A window-relative rectangle is compared whole, so a
+/// Whether the stored and live evidence describe unequal rectangles. A window-relative rectangle is compared whole, so a
 /// reordered or replaced same-role sibling is refuted; a screen rectangle is
 /// compared by size alone, because its position is not stable. An unknown
 /// rectangle on either side refutes nothing.
 pub(crate) fn size_contradicts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    rectangles_match(entry, evidence, LAYOUT_JITTER_PX) == Some(false)
+    rectangles_match(entry, evidence) == Some(false)
 }
 
 /// Whether nothing any tier could verify a live node against is stored: no
@@ -164,10 +142,6 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
     if entry.identity.retained_object.is_some() && size_contradicts(entry, evidence) {
         return Admission::Reject;
     }
-    admit_node_within(entry, evidence, SAME_SIZE_PX)
-}
-
-fn admit_node_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f64) -> Admission {
     match evidence.role.known() {
         None if evidence.role.is_unknown() => return Admission::Unread,
         Some(role) if role == &entry.identity.role => {}
@@ -175,9 +149,7 @@ fn admit_node_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f6
     }
     match identity_verdict(entry, evidence) {
         IdentityMatch::Match => Admission::Collect,
-        IdentityMatch::Unknown if geometry_matches_within(entry, evidence, tolerance) => {
-            Admission::Collect
-        }
+        IdentityMatch::Unknown if geometry_matches(entry, evidence) => Admission::Collect,
         IdentityMatch::Unknown
             if provisional_geometry_candidate(entry)
                 && !evidence.ref_evidence.bounds.is_unknown() =>
@@ -194,8 +166,7 @@ fn admit_node_within(entry: &RefEntry, evidence: &LocatorEvidence, tolerance: f6
 /// still answers to the stored identity and has not changed size. It is not a
 /// claim that no twin exists elsewhere.
 pub(crate) fn accepts_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    !size_contradicts(entry, evidence)
-        && admit_node_within(entry, evidence, LAYOUT_JITTER_PX) == Admission::Collect
+    !size_contradicts(entry, evidence) && admit_node(entry, evidence) == Admission::Collect
 }
 
 #[cfg(test)]

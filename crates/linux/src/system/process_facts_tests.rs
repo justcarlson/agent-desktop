@@ -1,4 +1,4 @@
-use super::{Lookup, WebFamily, classify_web, lookup_for_error, process_instance, read};
+use super::{Lookup, lookup_for_error, process_instance, read};
 
 #[test]
 fn different_start_times_give_different_tokens() {
@@ -14,20 +14,6 @@ fn a_different_boot_gives_a_different_token_for_the_same_start_time() {
         process_instance("aaaaaaaa-1111", 10),
         process_instance("bbbbbbbb-1111", 10)
     );
-}
-
-#[test]
-fn executable_name_command_name_and_payload_choose_the_browser_family() {
-    assert_eq!(
-        classify_web("Isolated Web Co", Some("Chrome"), false),
-        Some(WebFamily::Chromium)
-    );
-    assert_eq!(classify_web("firefox", None, false), Some(WebFamily::Gecko));
-    assert_eq!(
-        classify_web("slack", Some("slack"), true),
-        Some(WebFamily::Chromium)
-    );
-    assert_eq!(classify_web("nautilus", Some("nautilus"), false), None);
 }
 
 #[test]

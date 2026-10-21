@@ -6,8 +6,9 @@ use zbus::zvariant::OwnedValue;
 use super::AtspiElement;
 use super::node_read::call;
 use super::text_units::LengthUnit;
-use crate::system::PROPERTIES_INTERFACE;
 use crate::system::toolkit_id::ToolkitId;
+use crate::system::web_family::WebFamily;
+use crate::system::{PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH};
 
 const APPLICATION_INTERFACE: &str = "org.a11y.atspi.Application";
 
@@ -54,6 +55,25 @@ pub(crate) async fn read_toolkit(
         name: name?,
         version: version?,
     })
+}
+
+/// The web engine the application reports, independent of process identity.
+pub(crate) fn web_family(toolkit: &ToolkitId) -> Option<WebFamily> {
+    if kind(toolkit) == ToolkitKind::Chromium {
+        Some(WebFamily::Chromium)
+    } else if is_gecko(toolkit) {
+        Some(WebFamily::Gecko)
+    } else {
+        None
+    }
+}
+
+pub(crate) async fn read_web_family(
+    connection: &Connection,
+    element: &AtspiElement,
+) -> Result<Option<WebFamily>, AdapterError> {
+    let root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
+    Ok(web_family(&read_toolkit(connection, &root).await?))
 }
 
 /// The toolkits whose accessibility geometry has been measured.

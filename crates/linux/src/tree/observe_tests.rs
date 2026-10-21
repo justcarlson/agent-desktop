@@ -25,7 +25,7 @@ pub(super) fn observe_plain(
         request,
         SettleHost {
             walker: &mut walker,
-            is_web_process: &|_| false,
+            is_web_process: &|_| Ok(false),
             stopped: &|_| false,
             pause: &mut |_| {},
         },

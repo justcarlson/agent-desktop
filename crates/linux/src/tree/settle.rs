@@ -6,7 +6,6 @@ use super::{ObservedRead, WalkedNode};
 /// Gap between two full reads of a filling tree.
 pub(crate) const POLL: Duration = Duration::from_millis(200);
 const EQUAL_READS: usize = 3;
-const SHELL_CEILING: usize = 32;
 const BUDGET_PERCENT: u32 = 70;
 
 /// What to do after a walk of a tree that may still be filling.
@@ -18,8 +17,8 @@ pub(crate) enum Step {
 }
 
 /// Decides when a web tree has stopped growing. A tree is settled when three
-/// consecutive full reads count the same nodes and the count is above the
-/// size of the empty browser shell; the wait never spends more than a share
+/// consecutive full reads count the same nodes and document evidence or a
+/// requested depth cut establishes readiness; the wait spends at most a share
 /// of the budget the observation started with.
 #[derive(Debug, Clone)]
 pub(crate) struct Settle {
@@ -38,20 +37,16 @@ impl Settle {
         }
     }
 
-    /// Takes the node count of the walk just finished and the time spent
-    /// waiting so far.
-    /// `depth_cut` is true when the requested logical depth cut a subtree
-    /// the walk then reported complete: such a count is bounded by the
-    /// request, not by the page still filling, so the shell ceiling does not
-    /// apply to it.
-    pub(crate) fn after_walk(&mut self, nodes: usize, waited: Duration, depth_cut: bool) -> Step {
+    /// Takes a full walk's count, elapsed wait, and whether a web document or
+    /// requested depth cut proves the tree is more than an unfilled shell.
+    pub(crate) fn after_walk(&mut self, nodes: usize, waited: Duration, ready: bool) -> Step {
         self.equal = if self.last == Some(nodes) {
             self.equal + 1
         } else {
             1
         };
         self.last = Some(nodes);
-        if self.equal >= EQUAL_READS && (depth_cut || nodes > SHELL_CEILING) {
+        if self.equal >= EQUAL_READS && ready {
             Step::Settled
         } else if waited + POLL > self.budget {
             Step::GiveUp
@@ -75,7 +70,7 @@ pub(crate) fn has_depth_cut(root: &WalkedNode<ObservedRead>) -> bool {
 }
 
 /// Whether the walked tree contains a web document, which marks a web
-/// process whose binary name gave no hint.
+/// host regardless of how its process is named.
 pub(crate) fn has_web_document(root: &WalkedNode<ObservedRead>) -> bool {
     let mut pending = vec![root];
     while let Some(node) = pending.pop() {

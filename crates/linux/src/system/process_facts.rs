@@ -1,14 +1,10 @@
 use crate::system::process_lookup::Lookup;
-use crate::system::web_family::WebFamily;
 use std::path::Path;
 use std::sync::OnceLock;
 
 use super::proc_stat;
 
 const BOOT_ID_PREFIX_LEN: usize = 8;
-const CHROMIUM_NAMES: [&str; 5] = ["code", "chrome", "chromium", "electron", "google-chrome"];
-const GECKO_NAMES: [&str; 3] = ["firefox", "firefox-bin", "firefox-esr"];
-const CHROMIUM_PAYLOAD: [&str; 2] = ["resources/app.asar", "libffmpeg.so"];
 
 /// What `/proc` knows about one process.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,7 +13,6 @@ pub(crate) struct ProcessFacts {
     pub(crate) comm: String,
     pub(crate) exe_basename: Option<String>,
     pub(crate) instance: String,
-    pub(crate) web_family: Option<WebFamily>,
 }
 
 pub(crate) const ESRCH: i32 = 3;
@@ -39,30 +34,6 @@ pub(crate) fn process_instance(boot_id: &str, start_time: u64) -> String {
     format!("{prefix}:{start_time}")
 }
 
-/// The engine family of a process, from its command name, executable name,
-/// and whether a Chromium payload sits beside the executable. The payload
-/// signal classifies an application that ships under its own binary name.
-pub(crate) fn classify_web(
-    comm: &str,
-    exe_basename: Option<&str>,
-    chromium_payload: bool,
-) -> Option<WebFamily> {
-    let names = [Some(comm), exe_basename];
-    let named = |list: &[&str]| {
-        names
-            .iter()
-            .flatten()
-            .any(|name| list.iter().any(|known| name.eq_ignore_ascii_case(known)))
-    };
-    if named(&CHROMIUM_NAMES) || chromium_payload {
-        Some(WebFamily::Chromium)
-    } else if named(&GECKO_NAMES) {
-        Some(WebFamily::Gecko)
-    } else {
-        None
-    }
-}
-
 /// The token for a start time on this boot.
 pub(crate) fn instance_token(start_time: u64) -> String {
     process_instance(boot_id(), start_time)
@@ -75,18 +46,10 @@ fn boot_id() -> &'static str {
     })
 }
 
-fn has_chromium_payload(exe: &Path) -> bool {
-    exe.parent().is_some_and(|dir| {
-        CHROMIUM_PAYLOAD
-            .iter()
-            .any(|relative| dir.join(relative).exists())
-    })
-}
-
 /// The facts of a running process, or `None` when it has gone or could not be
 /// read.
 pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
-    match inspect(pid, true) {
+    match inspect(pid) {
         Lookup::Found(facts) => Some(facts),
         _ => None,
     }
@@ -96,19 +59,10 @@ pub(crate) fn read(pid: u32) -> Option<ProcessFacts> {
 /// so a stat line without a readable start time is `Unreadable`, and only a
 /// read that failed because the process has gone is `Gone`.
 pub(crate) fn lookup(pid: u32) -> Lookup {
-    inspect(pid, true)
+    inspect(pid)
 }
 
-/// The facts a name is matched on: the same as [`read`] without the check for
-/// a Chromium payload next to the executable, which a name never needs.
-pub(crate) fn read_names(pid: u32) -> Option<ProcessFacts> {
-    match inspect(pid, false) {
-        Lookup::Found(facts) => Some(facts),
-        _ => None,
-    }
-}
-
-fn inspect(pid: u32, check_payload: bool) -> Lookup {
+fn inspect(pid: u32) -> Lookup {
     let stat = match proc_stat::read_stat(pid) {
         Ok(Some(stat)) => stat,
         Ok(None) => return Lookup::Gone,
@@ -123,10 +77,8 @@ fn inspect(pid: u32, check_payload: bool) -> Lookup {
         .as_deref()
         .and_then(Path::file_name)
         .map(|name| name.to_string_lossy().into_owned());
-    let payload = check_payload && exe.as_deref().is_some_and(has_chromium_payload);
     let facts = ProcessFacts {
         executable: super::executable_identity::ExecutableIdentity::read(pid),
-        web_family: classify_web(&comm, exe_basename.as_deref(), payload),
         comm,
         exe_basename,
         instance: process_instance(boot_id(), stat.start_time),

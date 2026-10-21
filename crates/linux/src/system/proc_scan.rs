@@ -59,7 +59,7 @@ fn find_in_session(query: &str, session: &SessionKey) -> Option<(u32, String)> {
         .filter_map(Result::ok)
         .filter_map(|entry| entry.file_name().to_string_lossy().parse::<u32>().ok())
         .find_map(|pid| {
-            let facts = process_facts::read_names(pid)?;
+            let facts = process_facts::read(pid)?;
             let matched = name_matches(query, &app_name(&facts), &aliases_in(&index, &facts));
             (matched
                 && session.owns(

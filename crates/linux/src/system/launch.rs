@@ -109,11 +109,15 @@ fn bounded(deadline: Deadline, timeout_ms: u64) -> Deadline {
     }
 }
 
-fn chromium_renderer(pid: u32) -> Option<RendererKind> {
-    process_facts::read(pid)
-        .and_then(|facts| facts.web_family)
-        .filter(|family| *family == WebFamily::Chromium)
-        .map(|_| RendererKind::Chromium)
+fn chromium_renderer(bus: &SharedBus, pid: u32, deadline: Deadline) -> Option<RendererKind> {
+    super::registry::read_registry_for(bus, Some(pid), deadline)
+        .ok()?
+        .apps
+        .iter()
+        .any(|app| {
+            crate::tree::toolkit_trust::web_family(&app.toolkit) == Some(WebFamily::Chromium)
+        })
+        .then_some(RendererKind::Chromium)
 }
 
 /// The result for an owner and its window. A window is brought forward once,
@@ -147,7 +151,7 @@ fn conclude(
         process_instance: Some(owner.instance.clone()),
         window,
         cdp: None,
-        renderer: chromium_renderer(owner.pid),
+        renderer: None,
         suggestion: (!notes.is_empty()).then(|| notes.join(" ")),
     }
 }
@@ -271,9 +275,12 @@ impl Launch<'_> {
         window: Option<WindowInfo>,
         created: bool,
     ) -> LaunchResult {
-        conclude(owner, window, self.options, created, |window| {
-            focus_window(self.bus, window, self.lease)
-        })
+        LaunchResult {
+            renderer: chromium_renderer(self.bus, owner.pid, self.deadline),
+            ..conclude(owner, window, self.options, created, |window| {
+                focus_window(self.bus, window, self.lease)
+            })
+        }
     }
 
     /// A running application is reported with its window. One that shows no
@@ -303,7 +310,7 @@ impl Launch<'_> {
             process_instance: facts.map(|facts| facts.instance),
             window: None,
             cdp: None,
-            renderer: chromium_renderer(spawned.pid),
+            renderer: None,
             suggestion: Some(
                 "The process started but is not on the accessibility bus yet. Its pid is the spawned process's and may be a wrapper of the application. Run 'list-apps' to see whether it appears.".to_owned(),
             ),

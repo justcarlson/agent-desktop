@@ -35,9 +35,7 @@ pub(crate) fn select_by_stored_size(
     let mut matching = candidates.iter().enumerate().filter_map(|(index, rect)| {
         let rect = rect.as_ref()?;
         let same = if whole {
-            (rect.x - stored.x).abs() < 0.5
-                && (rect.y - stored.y).abs() < 0.5
-                && same_size((rect.width, rect.height), (stored.width, stored.height))
+            rect == stored
         } else {
             usable_size(rect).is_some_and(|size| same_size(size, (stored.width, stored.height)))
         };
