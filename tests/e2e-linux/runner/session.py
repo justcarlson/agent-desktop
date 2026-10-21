@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import proc as process
+from runner.session_environment import _PAYLOAD, _ENV_KEYS
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = HARNESS_ROOT.parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -31,34 +32,6 @@ RELEASE_FILE_VAR = "AD_TIER_RELEASE_FILE"
 RUNNER_PID_VAR = "AD_RUNNER_PID"
 RUNNER_START_VAR = "AD_RUNNER_START"
 OWNER_MARKER = "harness-owner"
-
-_PAYLOAD = r"""
-rt=$AGENT_DESKTOP_PRIVATE_SESSION
-mkdir -p "$rt/ad-home"
-env | grep -E '^(XDG_RUNTIME_DIR|DISPLAY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_CONFIG_HOME|XDG_DATA_HOME|XDG_CACHE_HOME|TMPDIR|LD_LIBRARY_PATH|GSETTINGS_BACKEND|XDG_CURRENT_DESKTOP|AGENT_DESKTOP_PRIVATE_SESSION|AGENT_DESKTOP_HOME)=' > "$AD_TIER_ENV_FILE.tmp"
-mv "$AD_TIER_ENV_FILE.tmp" "$AD_TIER_ENV_FILE"
-printf '%s %s\n' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"
-trap 'exit 0' TERM INT
-mkfifo "$rt/release-pipe"
-exec 9<>"$rt/release-pipe"
-while [ ! -f "$AD_TIER_RELEASE_FILE" ]; do read -t 0.2 -u 9 || :; done
-"""
-
-_ENV_KEYS = (
-    "XDG_RUNTIME_DIR",
-    "DBUS_SESSION_BUS_ADDRESS",
-    "XDG_CONFIG_HOME",
-    "XDG_DATA_HOME",
-    "XDG_CACHE_HOME",
-    "TMPDIR",
-    "LD_LIBRARY_PATH",
-    "GSETTINGS_BACKEND",
-    "XDG_CURRENT_DESKTOP",
-    "AGENT_DESKTOP_PRIVATE_SESSION",
-    "AGENT_DESKTOP_HOME",
-    "DISPLAY",
-    "WAYLAND_DISPLAY",
-)
 
 
 @dataclass
@@ -303,7 +276,14 @@ def _stderr_tail(proc: subprocess.Popen) -> str:
     return data[-800:].decode("utf-8", "replace").strip()
 
 
-def _env_runtime_dir(env_file: Path) -> Path | None:
+def _env_runtime_dir(env_file: Path, base: Path, existing: set[Path]) -> Path | None:
+    owner = f"{os.getpid()} {_own_start_time()}"
+    for runtime in set(base.glob("rt.*")) - existing:
+        try:
+            if (runtime / OWNER_MARKER).read_text().strip() == owner:
+                return runtime
+        except OSError:
+            continue
     if not env_file.exists():
         return None
     value = _parse_env_file(env_file.read_text()).get("AGENT_DESKTOP_PRIVATE_SESSION", "")
@@ -328,6 +308,9 @@ def _teardown(
         try:
             proc.wait(timeout=4)
         except subprocess.TimeoutExpired:
+            remaining = _sweep_members(runtime_dir, proc_root)
+            if remaining:
+                errors.append(f"members survived before wrapper escalation: {remaining}")
             _signal_process(proc.pid, signal.SIGKILL)
             try:
                 proc.wait(timeout=5)
@@ -353,6 +336,8 @@ def start_tier(name: str, deadline: float):
     release_file = work_dir / f"{name}.release"
     for marker in (env_file, Path(f"{env_file}.tmp"), release_file):
         marker.unlink(missing_ok=True)
+    base = Path(os.environ.get("AGENT_DESKTOP_SESSION_BASE") or Path.home() / "ad-wt")
+    existing = set(base.glob("rt.*"))
     child_env = dict(os.environ)
     child_env.update({
         ENV_FILE_VAR: str(env_file),
@@ -385,7 +370,7 @@ def start_tier(name: str, deadline: float):
     finally:
         if proc.poll() is None:
             _signal_process(proc.pid, signal.SIGTERM)
-        runtime_dir = tier.runtime_dir if tier is not None else _env_runtime_dir(env_file)
+        runtime_dir = tier.runtime_dir if tier is not None else _env_runtime_dir(env_file, base, existing)
         if runtime_dir is not None:
             _teardown(proc, runtime_dir, release_file)
         else:

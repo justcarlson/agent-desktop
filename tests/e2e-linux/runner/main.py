@@ -61,7 +61,7 @@ def _acquire_lease(env: dict[str, str]) -> str | None:
 
 
 def _sigterm(_signum, _frame):
-    raise SystemExit(143)
+    raise SystemExit(128 + _signum)
 
 
 def _write_lying_binary(suite_dir: Path) -> Path:
@@ -275,6 +275,7 @@ def main(argv: list[str]) -> int:
         return report.exit_code(0, True)
 
     signal.signal(signal.SIGTERM, _sigterm)
+    signal.signal(signal.SIGHUP, _sigterm)
 
     suite_dir = Path(env.get(SUITE_ENV) or tempfile.mkdtemp(prefix="ad-e2e-suite-"))
     suite_dir.mkdir(parents=True, exist_ok=True)
