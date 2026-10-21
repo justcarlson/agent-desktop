@@ -14,7 +14,7 @@ const {
   unlinkSync,
   writeFileSync,
 } = require('fs');
-const { delimiter, dirname, isAbsolute, join } = require('path');
+const { dirname, isAbsolute, join } = require('path');
 const { platform, arch } = require('os');
 const { execFileSync } = require('child_process');
 const { createHash } = require('crypto');
@@ -39,37 +39,12 @@ function log(msg) {
   process.stderr.write(`agent-desktop: ${msg}\n`);
 }
 
-function trashRecoverably(path, trashCommand = 'trash') {
+function cleanupStaging(path) {
   try {
-    execFileSync(trashCommand, [path], { stdio: 'pipe', timeout: 30000 });
+    rmSync(path, { recursive: true, force: true });
   } catch (err) {
-    if (!existsSync(path)) return;
-    const reason = err.code === 'ENOENT'
-      ? `trash command is unavailable: ${trashCommand}`
-      : `trash exited with status ${err.status ?? 'unknown'}`;
-    log(`Could not move cleanup artifact to Trash; retained at ${path}: ${reason}`);
+    log(`Could not remove staging directory; retained at ${path}: ${err.message}`);
   }
-}
-
-function commandAvailable(command) {
-  if (command.includes('/')) return existsSync(command);
-  return (process.env.PATH || '')
-    .split(delimiter)
-    .some((directory) => directory !== '' && existsSync(join(directory, command)));
-}
-
-// A stock Linux install has no trash command. Leaving the staging directory
-// there would keep a second copy of every executable under bin/.
-function cleanupStaging(path, trashCommand = 'trash') {
-  if (platform() === 'win32' || (platform() === 'linux' && !commandAvailable(trashCommand))) {
-    try {
-      rmSync(path, { recursive: true, force: true });
-    } catch (err) {
-      log(`Could not remove staging directory; retained at ${path}: ${err.message}`);
-    }
-    return;
-  }
-  trashRecoverably(path, trashCommand);
 }
 
 function getPlatformKey() {
@@ -163,7 +138,7 @@ function validateArchive(tarballPath, expectedEntries) {
   }
 }
 
-function installArchive(tarballPath, binaryPath, helperPath, entry, trashCommand) {
+function installArchive(tarballPath, binaryPath, helperPath, entry) {
   const [helperName] = helperNames(entry);
   validateArchive(tarballPath, entry.entries);
   const staging = mkdtempSync(join(binDir, '.extract-'));
@@ -190,7 +165,7 @@ function installArchive(tarballPath, binaryPath, helperPath, entry, trashCommand
     }
     installExecutable(extractedBinary, binaryPath);
   } finally {
-    cleanupStaging(staging, trashCommand);
+    cleanupStaging(staging);
   }
 }
 
@@ -384,6 +359,5 @@ module.exports = {
   matchesRecordedDigest,
   printManualFallback,
   promptSkillInstall,
-  trashRecoverably,
   validateArchive,
 };

@@ -15,11 +15,7 @@ for skill_dir in "$REPO_ROOT"/skills/*/; do
   link="$CLAUDE_SKILLS/$name"
 
   if [ -L "$link" ]; then
-    if ! command -v trash >/dev/null 2>&1; then
-      printf 'Cannot replace %s because trash is unavailable\n' "$link" >&2
-      exit 1
-    fi
-    trash "$link"
+    rm -- "$link"
   fi
 
   ln -s "$target" "$link"

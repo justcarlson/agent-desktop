@@ -298,38 +298,21 @@ test('AGENT_DESKTOP_BINARY_PATH on Linux installs the helper found beside the bi
   assert.match(missing.stderr, new RegExp(`${LINUX_HELPER_NAME} not found at`));
 });
 
-test('cleanup on Linux uses trash when it is present and removes the directory itself when it is not', { skip: POSIX_ONLY }, () => {
-  const linux = postinstallAs('linux');
-  const withTrash = temporaryDirectory();
-  const staged = join(withTrash, 'staged');
-  mkdirSync(staged);
-  const trash = join(withTrash, 'trash');
-  writeFileSync(trash, '#!/bin/sh\nmv "$1" "$1.trashed"\n', { mode: 0o755 });
-  linux.cleanupStaging(staged, trash);
-  assert.equal(existsSync(staged), false);
-  assert.equal(existsSync(`${staged}.trashed`), true, 'a present trash command must still be used');
-
-  const without = temporaryDirectory();
-  const leftover = join(without, 'staged');
-  mkdirSync(leftover);
-  writeFileSync(join(leftover, 'agent-desktop'), 'copy');
+test('staging cleanup removes nested files on every platform without external tools', () => {
   const priorPath = process.env.PATH;
   process.env.PATH = temporaryDirectory();
   try {
-    linux.cleanupStaging(leftover);
+    for (const platform of ['linux', 'darwin', 'win32']) {
+      const installer = postinstallAs(platform);
+      const staged = join(temporaryDirectory(), 'staged');
+      mkdirSync(staged);
+      writeFileSync(join(staged, 'agent-desktop'), 'copy');
+      installer.cleanupStaging(staged);
+      assert.equal(existsSync(staged), false, platform);
+    }
   } finally {
     process.env.PATH = priorPath;
   }
-  assert.equal(existsSync(leftover), false, 'with no trash command the directory must be removed outright');
-});
-
-test('cleanup on macOS keeps its retain-and-warn behaviour when trash is unavailable', { skip: POSIX_ONLY }, () => {
-  const darwin = postinstallAs('darwin');
-  const dir = temporaryDirectory();
-  const staged = join(dir, 'staged');
-  mkdirSync(staged);
-  darwin.cleanupStaging(staged, '/definitely-missing-agent-desktop-trash');
-  assert.equal(existsSync(staged), true, 'only Linux and Windows remove the directory themselves');
 });
 
 test('the manual fallback on Linux names both destinations', () => {

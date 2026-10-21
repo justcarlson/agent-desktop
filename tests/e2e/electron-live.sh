@@ -26,8 +26,8 @@ cleanup() {
         contaminated=1
     fi
     if [ "$contaminated" -ne 0 ] && [ "$report_started" -eq 1 ] && [ -n "$out" ]; then
-        if trash_recoverably "$out"; then
-            echo "measurement was contaminated; report moved to recoverable Trash" >&2
+        if remove_artifact "$out"; then
+            echo "measurement was contaminated; report removed" >&2
         else
             echo "measurement was contaminated; retained report must not be used: $out" >&2
         fi

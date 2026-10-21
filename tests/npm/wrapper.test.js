@@ -4,13 +4,13 @@ const {
   closeSync,
   openSync,
   readFileSync,
+  rmSync,
   unlinkSync,
   writeFileSync,
 } = require('node:fs');
 const { join } = require('node:path');
 const { afterEach, test } = require('node:test');
 
-const postinstall = require('../../npm/scripts/postinstall.js');
 const { resolve } = require('../../npm/lib/platform.js');
 const {
   createTemporaryRoots,
@@ -34,7 +34,7 @@ afterEach(() => {
     try { unlinkSync(`${installed}.sha256`); } catch {}
   }
   for (const root of drainRoots()) {
-    postinstall.trashRecoverably(root);
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

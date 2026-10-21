@@ -29,7 +29,7 @@ const { temporaryDirectory, trackRoot, drainRoots } = createTemporaryRoots();
 afterEach(() => {
   delete process.env.AGENT_DESKTOP_MACOS_HELPER_PATH;
   for (const root of drainRoots()) {
-    postinstall.trashRecoverably(root);
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -51,13 +51,6 @@ function archive(entries) {
     ...Object.keys(entries),
   ]);
   return { root, tarball };
-}
-
-function executable(contents) {
-  const root = temporaryDirectory();
-  const path = join(root, 'trash');
-  writeFileSync(path, contents, { mode: 0o755 });
-  return path;
 }
 
 function captureWarnings(run) {
@@ -207,46 +200,7 @@ test('staging cleanup removes its own extract directory and a planted survivor i
   }
 });
 
-// POSIX-only branch via shell script; skipped on Windows to preserve coverage on native host.
-const POSIX_CLEANUP_ONLY = process.platform === 'win32'
-  ? 'trashRecoverably is the POSIX branch and its stand-in is a shell script'
-  : false;
-
-test('recoverable cleanup invokes trash and removes the original path', { skip: POSIX_CLEANUP_ONLY }, () => {
-  const target = temporaryDirectory();
-  const recovered = `${target}.recovered`;
-  trackRoot(recovered);
-  const fakeTrash = executable('#!/bin/sh\nmv "$1" "$1.recovered"\n');
-
-  postinstall.trashRecoverably(target, fakeTrash);
-  assert.equal(existsSync(target), false);
-  assert.equal(existsSync(recovered), true);
-});
-
-test('recoverable cleanup retains artifacts and warns when trash is unavailable or fails', { skip: POSIX_CLEANUP_ONLY }, () => {
-  const unavailable = temporaryDirectory();
-  const failing = temporaryDirectory();
-  const fakeTrash = executable('#!/bin/sh\nexit 9\n');
-
-  for (const [target, command, reason] of [
-    [
-      unavailable,
-      '/definitely-missing-agent-desktop-trash',
-      'trash command is unavailable: /definitely-missing-agent-desktop-trash',
-    ],
-    [failing, fakeTrash, 'trash exited with status 9'],
-  ]) {
-    const warnings = captureWarnings(() =>
-      postinstall.trashRecoverably(target, command),
-    );
-    assert.equal(existsSync(target), true);
-    assert.ok(warnings.includes(`retained at ${target}:`));
-    assert.ok(warnings.includes(reason));
-  }
-});
-
-// Windows staging cleanup uses a direct rmSync that logs and retains on failure; this test exercises the trash path only.
-test('cleanup failure does not mask a successful archive install', { skip: POSIX_CLEANUP_ONLY }, () => {
+test('archive installation removes its staging directory on macOS', () => {
   const payload = archive({
     'agent-desktop': 'cli-build-v2',
     'agent-desktop-macos-helper': 'helper-build-v2',
@@ -262,17 +216,13 @@ test('cleanup failure does not mask a successful archive install', { skip: POSIX
       binary,
       helper,
       resolve('darwin', 'arm64'),
-      '/definitely-missing-agent-desktop-trash',
     ),
   );
 
   assert.equal(readFileSync(binary, 'utf8'), 'cli-build-v2');
   assert.equal(readFileSync(helper, 'utf8'), 'helper-build-v2');
-  assert.match(warnings, /Could not move cleanup artifact to Trash; retained at .*\.extract-/);
-  const retained = warnings.match(/retained at (.*\.extract-[^:]+):/)?.[1];
-  assert.ok(retained);
-  assert.equal(existsSync(retained), true);
-  trackRoot(retained);
+  assert.equal(warnings, '');
+  assert.deepEqual(readdirSync(destination).filter((name) => name.startsWith('.extract-')), []);
 });
 
 test('custom helper override must be absolute', () => {

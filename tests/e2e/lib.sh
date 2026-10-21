@@ -263,7 +263,7 @@ cleanup() {
         "$bin" close-app "$app" --force >/dev/null 2>&1 || true
     fi
     for file in "${cleanup_files[@]}"; do
-        trash_recoverably "$file" || true
+        remove_artifact "$file" || true
     done
     if [ -n "$raw_bin" ] && ! verify_immutable_binary "$raw_bin" "$raw_bin_sha"; then
         contaminated=1
