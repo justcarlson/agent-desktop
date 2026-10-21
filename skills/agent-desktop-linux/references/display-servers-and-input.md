@@ -25,7 +25,7 @@ of `not_configured`, `missing` or `refused` and list the variables they tried.
 | Headless scoped `press` | Live display and frame focus guards; no activation | Live frame focus guard; no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` selects a monitor |
 | Clipboard | Native selection owner | `wl-clipboard` |
-| GNOME Shell ref click / popup opener | XTEST, `--headed` | Separate Mutter pointer route, `--headed`; see shell reference |
+| GNOME Shell ref click / popup opener | `--headed`, shared structural receiver proof required | Refused: receiver cannot be proven; see shell reference |
 
 No tool is needed on X11 beyond the binary and its clipboard helper. `xdotool`,
 `ydotool`, `xclip` and `wmctrl` are not used. `wl-clipboard` is the one outside
@@ -47,7 +47,7 @@ Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
 `double-click`, `mouse-wheel` and `mouse-down`). A headed `type` sends Wayland
-keys through `RemoteDesktop.type_text`. Headless `type` writes
+keys through `RemoteDesktop.type_text` after the Mutter capability probe succeeds. Headless `type` writes
 through `EditableText`. A headless action reports `semantic_api` and leaves the
 pointer still. Windows works the other way round (semantic first), so do not
 carry that assumption across platforms.
@@ -158,7 +158,12 @@ only when the UI you address has changed for another reason.
 
 ## Wayland keys
 
-Wayland keys go through `org.gnome.Mutter.RemoteDesktop` on the session bus.
+Wayland keys use one detected backend: `org.gnome.Mutter.RemoteDesktop` on the
+session bus. Before creating a session or emitting an event, the adapter probes
+that interface's typed `Version` property. A missing service or capability
+returns `PLATFORM_NOT_SUPPORTED`, `not_delivered` and
+`physical_delivery_started: false`; another compositor never falls back to X11.
+A probe timeout remains `TIMEOUT`.
 Calls send keysyms and wait 150 ms so the compositor drains them. A long-lived
 host can retain the keyboard session for later deliveries; a new CLI process
 opens its own session. Ending a session releases its held keys.
@@ -176,7 +181,8 @@ opens its own session. Ending a session releases its held keys.
   app pointer commands refuse at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
   before anything is sent. A `--headed` ref `type` sends keys through
   `RemoteDesktop.type_text`. GNOME Shell ref clicks and
-  popup openers use their own pointer route; see
+  popup openers also require the shared structural receiver proof and refuse
+  when that proof is unavailable; see
   `references/shell-tray-and-notifications.md`.
 - **No active window.** On a Wayland session with no seat keyboard no window carries
   `ACTIVE`, so `focus-changed` waits time out.

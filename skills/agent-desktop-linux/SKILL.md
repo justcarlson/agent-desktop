@@ -42,15 +42,15 @@ tool for observation or semantic actions.
 | Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; X11 and `--headed` only |
 | Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, X11 only. On Wayland the pointer cannot be aimed and these refuse with `ACTION_NOT_SUPPORTED` |
 | Focus | `focus` | Needs `--headed` for the focus permission; delivered through the node's own focus action, not the pointer |
-| Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and Wayland; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
+| Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and capability-detected Mutter Wayland sessions; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed: `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
 | App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; `focus-window` requires X11. Other window control and graceful close need an X11 client. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
-| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` with identity guards. See the shell reference |
-| Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed`. See the shell reference |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` with identity and pointer receiver guards. See the shell reference |
+| Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed` and structural pointer receiver proof. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Renders on X11: `enable` returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
@@ -90,8 +90,10 @@ tool for observation or semantic actions.
   `snapshot --surface menu --app <name> -i`. If absent, use `wait --menu`
   and `list-surfaces` before assuming the opener failed. A list-backed dropdown
   is part of the window, not a menu surface; see the shell reference.
-- **GNOME shell input has its own route on Wayland.** Headed shell clicks can
-  work while ordinary app pointer commands refuse. Notifications need the
+- **Shell pointer input requires receiver proof.** Headed shell clicks use the
+  same structural hit test as app clicks. An unknown receiver or overlapping
+  sibling refuses before any pointer event; Wayland shell clicks therefore refuse.
+  Notifications need the
   GNOME notification service; tray snapshots also need a StatusNotifierWatcher.
 - **The state root must be private.** A group-writable or world-accessible
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
@@ -113,7 +115,9 @@ tool for observation or semantic actions.
   pointer commands (`click`, `hover`, `double-click`, `mouse-*`, wheel) are refused
   at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
   `physical_delivery_started: false`. A headed `type` sends Wayland keys through
-  `RemoteDesktop.type_text`. Windows works the other way round. Read the step in
+  `RemoteDesktop.type_text` only after detecting the Mutter RemoteDesktop
+  capability; other compositors return `PLATFORM_NOT_SUPPORTED` before input.
+  Windows works the other way round. Read the step in
   `data` to see which ran.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`

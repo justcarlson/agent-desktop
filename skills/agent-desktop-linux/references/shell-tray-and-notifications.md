@@ -97,16 +97,13 @@ choice was committed.
 | Surface | Meaning | How to use it |
 |---------|---------|---------------|
 | `system-tray` | Top bar plus paired SNI items and their virtual menus | Snapshot headless; watcher required even when there are no items |
-| `quick-settings` | System menu | Headed open through the top bar's `System` control; snapshot reads the menu container |
-| `action-center` | Message list | Headed open through the date menu; snapshot reads the message-list container |
+| `quick-settings` | System menu | Guarded headed open; an unproven receiver refuses. Snapshot reads existing menu content |
+| `action-center` | Message list | Guarded headed open; an unproven receiver refuses. Snapshot reads existing message-list content |
 | `taskbar` | Dock | Not advertised or openable by this build, even with a dock extension |
 
 ```bash
 agent-desktop status
-agent-desktop --headed open-system-surface --surface quick-settings
 agent-desktop snapshot --surface quick-settings -i
-agent-desktop press escape
-agent-desktop --headed open-system-surface --surface action-center
 agent-desktop snapshot --surface action-center -i
 agent-desktop press escape
 ```
@@ -114,8 +111,10 @@ agent-desktop press escape
 These snapshots need no `--app`. `list-surfaces` inventories the app selected
 with `--app`. The shell is not an ordinary app window:
 `list-windows --app gnome-shell` does not enumerate these containers.
-`open-system-surface` returns the container's window identity and leaves it
-open. A snapshot reads current state without opening a hidden popup.
+`open-system-surface` returns the container's window identity only after the
+popup is observed. Opening requires structural receiver proof; an unproven
+receiver refuses before input, so open the popup manually when needed. These
+snapshots inspect existing content and can refuse when the popup is closed.
 Notification mutations close a popup they opened, and preserve one already open.
 
 Opening a hidden popup headless returns `POLICY_DENIED`. An already open popup
@@ -133,15 +132,20 @@ action. Native Wayland app window control has its own refusal described in
 the input reference; this X11 focus recovery is not a Wayland focus promise.
 The shell's top bar uses a separate input route.
 
-On X11 Mutter, shell clicks use XTEST. On Wayland, headed shell clicks use
-Mutter RemoteDesktop with absolute targeting; every click needs a ScreenCast
-stream/PipeWire. This shell route can work while ordinary app pointer commands
-refuse. Stream-setup timeouts return `TIMEOUT`; D-Bus failures retain their
-classified error and `platform_detail`. Both refuse before any button press,
-with safe retry. Shell controls need usable bounds whose centre lies on
-a monitor; relative pointer motion is never used to guess a ref's position. Shell landmarks
-are English (`System`, `Power Off Menu`, `Clear all notifications`); other
-languages and non-GNOME desktops are not covered by this guide.
+Shell clicks require the same structural receiver proof as ordinary app clicks,
+including separation from same-window siblings, before any pointer event. Bounds
+alone cannot authorize input. Overlap, unreadable ancestry or an unknown receiver
+returns `ACTION_FAILED`, `not_delivered` and `physical_delivery_started: false`.
+On X11, a proven target can use XTEST. On Wayland the shared hit test cannot
+prove the receiver, so shell ref clicks and popup openers refuse before opening
+an input session. Inspect the error before retrying; repeated snapshots cannot
+supply missing receiver proof.
+
+Wayland keyboard input is available only after detecting the session-bus
+`org.gnome.Mutter.RemoteDesktop` capability. Other compositors return
+`PLATFORM_NOT_SUPPORTED` before any event. Shell landmarks are English (`System`,
+`Power Off Menu`, `Clear all notifications`); other languages and non-GNOME
+shell observation remain outside this guide.
 
 ## Service requirements and exact refusals
 
@@ -239,7 +243,8 @@ A tray item supports headless `click` through advertised `Activate`, and
 `right-click` through `ContextMenu`. `SecondaryActivate` is never substituted.
 AppIndicator items can omit those primary methods: use a virtual menu entry.
 Without a permitted semantic route, the headless CLI returns `POLICY_DENIED`.
-A headed panel click worked on Mutter X11. On Wayland this virtual item ref's
+A headed panel click on Mutter X11 requires the shared structural receiver
+proof and refuses before input when that proof is unavailable. On Wayland this virtual item ref's
 headed click instead hit the generic pointer gate: `ACTION_NOT_SUPPORTED`,
 cause `wayland_session`, `physical_delivery_started: false`. The dedicated
 shell-popup route does not imply that a virtual tray item's fallback works.

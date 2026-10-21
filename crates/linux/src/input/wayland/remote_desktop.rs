@@ -42,7 +42,39 @@ pub(crate) struct RemoteDesktop {
 
 impl RemoteDesktop {
     pub(crate) fn open(deadline: Deadline) -> Result<Self, AdapterError> {
-        Ok(Self::over(SessionBus::get(deadline)?))
+        let desktop = Self::over(SessionBus::get(deadline)?);
+        within(deadline, async {
+            let reply = desktop
+                .connection
+                .call_method(
+                    Some(SERVICE),
+                    PATH,
+                    Some(PROPERTIES),
+                    "Get",
+                    &(SERVICE, "Version"),
+                )
+                .await
+                .map_err(|error| {
+                    if is_transport_failure(&error) {
+                        desktop.failed(&error)
+                    } else {
+                        unsupported_backend(error)
+                    }
+                })?;
+            let version = reply
+                .body()
+                .deserialize::<zbus::zvariant::OwnedValue>()
+                .map_err(unsupported_backend)?;
+            i32::try_from(version).map_err(unsupported_backend)?;
+            Ok(())
+        })
+        .map_err(|error| {
+            desktop
+                .forget_on_timeout(error)
+                .with_details(json!({ "backend": SERVICE, "physical_delivery_started": false }))
+                .with_disposition(DeliverySemantics::not_delivered())
+        })?;
+        Ok(desktop)
     }
 
     pub(crate) fn over(connection: Connection) -> Self {
@@ -249,6 +281,17 @@ impl KeySession for RemoteDesktop {
         }
         stopped
     }
+}
+
+fn unsupported_backend(error: impl std::fmt::Display) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::PlatformNotSupported,
+        "The Mutter RemoteDesktop input capability could not be verified in this Wayland session",
+    )
+    .with_platform_detail(error.to_string())
+    .with_suggestion(
+        "Use semantic AT-SPI actions, or a session exposing org.gnome.Mutter.RemoteDesktop",
+    )
 }
 
 pub(crate) fn semantic_action_refusal(message: impl Into<String>) -> AdapterError {

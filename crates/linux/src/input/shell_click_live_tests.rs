@@ -34,6 +34,11 @@ struct Manager(CallLog);
 
 #[zbus::interface(name = "org.gnome.Mutter.RemoteDesktop")]
 impl Manager {
+    #[zbus(property)]
+    fn version(&self) -> i32 {
+        1
+    }
+
     fn create_session(&self) -> zbus::fdo::Result<OwnedObjectPath> {
         self.0.record("create");
         OwnedObjectPath::try_from(SESSION_PATH)
@@ -122,6 +127,41 @@ fn private_service(log: CallLog) -> zbus::Connection {
 
 fn deadline() -> Deadline {
     Deadline::after(30_000).expect("a deadline builds")
+}
+
+#[test]
+#[ignore = "requires scripts/private-session.sh without a compositor service"]
+fn a_missing_mutter_capability_refuses_before_session_creation() {
+    assert!(std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some());
+    let check = || {
+        let error = RemoteDesktop::open(deadline())
+            .err()
+            .expect("unsupported backend");
+        assert_eq!(error.code, ErrorCode::PlatformNotSupported, "{error:?}");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
+    };
+    check();
+    let owner = zbus::block_on(async {
+        Builder::session()
+            .unwrap()
+            .name(SERVICE)
+            .unwrap()
+            .serve_at(ROOT_PATH, ScreenCast)
+            .unwrap()
+            .build()
+            .await
+            .unwrap()
+    });
+    check();
+    drop(owner);
+    let log = CallLog(Arc::new(Mutex::new(Vec::new())));
+    let _service = private_service(log.clone());
+    assert!(RemoteDesktop::open(deadline()).is_ok());
+    assert!(
+        log.calls().is_empty(),
+        "capability detection must not create a session or send input"
+    );
 }
 
 fn assert_stream_error_is_preserved(pointer: &mut RemoteDesktop, log: &CallLog) {
