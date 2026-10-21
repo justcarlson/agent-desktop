@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Modifier};
@@ -14,18 +15,10 @@ pub(crate) const CHUNK_CHARS: usize = 32;
 const REMAP_SETTLE: Duration = Duration::from_millis(30);
 pub(crate) const REMAP_RESTORE_HOLD: Duration = Duration::from_millis(50);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum UnmappedRoute {
-    Remap,
-    Refuse,
-}
-
-pub(crate) const UNMAPPED_ROUTE: UnmappedRoute = UnmappedRoute::Remap;
-
 #[derive(Clone, Copy)]
 enum Typing {
     Mapped(KeyLookup),
-    Unmapped(u32),
+    Unmapped(char),
 }
 
 struct Slot {
@@ -41,39 +34,20 @@ struct Remap {
 pub(crate) const MAX_REMAP_SLOTS: usize = 32;
 
 pub(crate) fn plan_text(map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError> {
-    plan_text_with(map, text, UNMAPPED_ROUTE)
-}
-
-pub(crate) fn plan_text_with(
-    map: &Keymap,
-    text: &str,
-    route: UnmappedRoute,
-) -> Result<Vec<Plan>, AdapterError> {
-    let characters: Vec<char> = text.chars().collect();
-    let typings: Vec<Typing> = characters.iter().map(|c| classify(map, *c)).collect();
-    let unmapped: Vec<char> = characters
+    let typings: Vec<Typing> = text.chars().map(|c| classify(map, c)).collect();
+    let unmapped: Vec<char> = typings
         .iter()
-        .zip(&typings)
-        .filter(|(_, typing)| matches!(typing, Typing::Unmapped(_)))
-        .map(|(character, _)| *character)
+        .filter_map(|typing| match typing {
+            Typing::Unmapped(character) => Some(*character),
+            Typing::Mapped(_) => None,
+        })
         .collect();
-    let mut distinct: Vec<u32> = Vec::new();
-    for typing in &typings {
-        if let Typing::Unmapped(keysym) = typing
-            && !distinct.contains(keysym)
-        {
-            distinct.push(*keysym);
-        }
-    }
-    let remap = if unmapped.is_empty() {
-        None
-    } else {
-        Some(remap_for(map, &unmapped, &distinct, route)?)
-    };
-    characters
+    let remap = (!unmapped.is_empty())
+        .then(|| remap_for(map, &unmapped))
+        .transpose()?;
+    typings
         .chunks(CHUNK_CHARS)
-        .zip(typings.chunks(CHUNK_CHARS))
-        .map(|(_, chunk)| chunk_plan(map, chunk, remap.as_ref()))
+        .map(|chunk| chunk_plan(map, chunk, remap.as_ref()))
         .collect()
 }
 
@@ -81,20 +55,20 @@ fn classify(map: &Keymap, character: char) -> Typing {
     let keysym = keysym_for_char(character);
     match map.lookup(keysym) {
         Some(lookup) => Typing::Mapped(lookup),
-        None => Typing::Unmapped(keysym),
+        None => Typing::Unmapped(character),
     }
 }
 
-fn remap_for(
-    map: &Keymap,
-    unmapped: &[char],
-    keysyms: &[u32],
-    route: UnmappedRoute,
-) -> Result<Remap, AdapterError> {
-    if route == UnmappedRoute::Refuse || unmapped.iter().any(|c| c.is_control()) {
+fn remap_for(map: &Keymap, unmapped: &[char]) -> Result<Remap, AdapterError> {
+    if unmapped.iter().any(|character| character.is_control()) {
         return Err(refusal(unmapped));
     }
-    let spare = map.spare_keycodes(keysyms.len().min(MAX_REMAP_SLOTS));
+    let distinct_count = unmapped
+        .iter()
+        .map(|character| keysym_for_char(*character))
+        .collect::<HashSet<_>>()
+        .len();
+    let spare = map.spare_keycodes(distinct_count.min(MAX_REMAP_SLOTS));
     if spare.is_empty() {
         return Err(AdapterError::new(
             ErrorCode::ActionNotSupported,
@@ -171,14 +145,14 @@ fn chunk_plan(map: &Keymap, chunk: &[Typing], remap: Option<&Remap>) -> Result<P
     for typing in chunk {
         match *typing {
             Typing::Mapped(lookup) => mapped_steps(&mut steps, lookup, shift)?,
-            Typing::Unmapped(keysym) => {
+            Typing::Unmapped(character) => {
                 let Some(assignments) = assignments.as_mut() else {
                     return Err(AdapterError::new(
                         ErrorCode::Internal,
                         "An unmapped character reached planning without a remap",
                     ));
                 };
-                let code = assignments.keycode_for(&mut steps, keysym);
+                let code = assignments.keycode_for(&mut steps, keysym_for_char(character));
                 steps.push(Step::Key { code, down: true });
                 steps.push(Step::Key { code, down: false });
             }
@@ -228,7 +202,10 @@ fn mapped_steps(
 }
 
 fn refusal(unmapped: &[char]) -> AdapterError {
-    let mut classes: Vec<&'static str> = unmapped.iter().map(|c| character_class(*c)).collect();
+    let mut classes: Vec<_> = unmapped
+        .iter()
+        .map(|character| character_class(*character))
+        .collect();
     classes.sort_unstable();
     classes.dedup();
     AdapterError::new(

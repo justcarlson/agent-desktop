@@ -98,12 +98,12 @@ impl Keymap {
     }
 
     pub(crate) fn keysyms_of(&self, keycode: u8) -> Option<Vec<u32>> {
-        let index = usize::from(keycode).checked_sub(usize::from(self.min_keycode))?;
-        (index < self.keycode_count()).then(|| {
-            (0..self.width())
-                .filter_map(|level| self.column(index, level))
-                .collect()
-        })
+        let width = self.width();
+        if width == 0 {
+            return None;
+        }
+        let start = usize::from(keycode).checked_sub(usize::from(self.min_keycode))? * width;
+        self.keysyms.get(start..start + width).map(<[u32]>::to_vec)
     }
 }
 

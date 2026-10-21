@@ -4,8 +4,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::key_session::KeySession;
-use super::keysym_send::{run, send_keys};
-use super::lead_key::LeadPolicy;
+use super::keysym_send::send_chunks;
 use super::live_shell::Shell;
 use super::remote_desktop::RemoteDesktop;
 use crate::input::keysym_step::KeysymStep;
@@ -148,10 +147,6 @@ fn keys(text: &str) -> Vec<KeysymStep> {
 }
 
 fn close_overview() {
-    let none = LeadPolicy {
-        tap: None,
-        settle: Duration::ZERO,
-    };
     let escape = [
         KeysymStep {
             keysym: 0xff1b,
@@ -163,7 +158,17 @@ fn close_overview() {
         },
     ];
     let mut session = RemoteDesktop::open(deadline()).expect("the session bus opens");
-    run(&mut session, none, &escape, &mut || Ok(()), deadline()).expect("Escape delivers");
+    session.create(deadline()).expect("the session is created");
+    let sent = (|| {
+        session.start(deadline())?;
+        for key in escape {
+            session.keysym(key.keysym, key.down, deadline())?;
+        }
+        Ok::<(), AdapterError>(())
+    })();
+    let stopped = session.stop(deadline());
+    sent.and(stopped)
+        .expect("Escape delivers and the session stops");
     std::thread::sleep(Duration::from_millis(1500));
 }
 
@@ -184,7 +189,7 @@ fn send(pid: u32, steps: &[KeysymStep]) -> Result<u32, AdapterError> {
             }
         }
     };
-    send_keys(steps, &mut gate, deadline()).map(|delivery| delivery.delivered_events)
+    send_chunks(&[steps.to_vec()], &mut gate, deadline()).map(|delivery| delivery.delivered_events)
 }
 
 #[test]

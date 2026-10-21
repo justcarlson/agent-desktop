@@ -3,6 +3,7 @@ use std::io::ErrorKind;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 use zbus::Connection;
+use zbus::zvariant::DynamicType;
 use zbus::zvariant::OwnedObjectPath;
 
 use super::key_session::KeySession;
@@ -17,6 +18,18 @@ const SCREEN_CAST_PATH: &str = "/org/gnome/Mutter/ScreenCast";
 const SCREEN_CAST_SESSION: &str = "org.gnome.Mutter.ScreenCast.Session";
 const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
 const ACCESS_DENIED: &str = "org.freedesktop.DBus.Error.AccessDenied";
+
+async fn call_session_method<B: zbus::export::serde::Serialize + DynamicType>(
+    connection: &Connection,
+    path: &str,
+    member: &str,
+    body: &B,
+) -> Result<(), zbus::Error> {
+    connection
+        .call_method(Some(SERVICE), path, Some(SESSION_INTERFACE), member, body)
+        .await
+        .map(|_| ())
+}
 
 /// A typed view of Mutter's RemoteDesktop service over the session bus
 /// connection. It never holds the accessibility connection.
@@ -65,10 +78,8 @@ impl RemoteDesktop {
     fn call_session(&self, member: &'static str, deadline: Deadline) -> Result<(), AdapterError> {
         let path = self.session_path()?;
         within(deadline, async {
-            self.connection
-                .call_method(Some(SERVICE), path, Some(SESSION_INTERFACE), member, &())
+            call_session_method(&self.connection, path, member, &())
                 .await
-                .map(|_| ())
                 .map_err(|error| self.failed(&error))
         })
         .map_err(|error| self.forget_on_timeout(error))
@@ -84,17 +95,14 @@ impl RemoteDesktop {
     ) -> Result<(), AdapterError> {
         let path = self.session_path()?;
         within(deadline, async {
-            self.connection
-                .call_method(
-                    Some(SERVICE),
-                    path,
-                    Some(SESSION_INTERFACE),
-                    "NotifyPointerMotionRelative",
-                    &(dx, dy),
-                )
-                .await
-                .map(|_| ())
-                .map_err(|error| classify_call(&error))
+            call_session_method(
+                &self.connection,
+                path,
+                "NotifyPointerMotionRelative",
+                &(dx, dy),
+            )
+            .await
+            .map_err(|error| classify_call(&error))
         })
     }
 
@@ -108,16 +116,8 @@ impl RemoteDesktop {
         let code = i32::try_from(button)
             .map_err(|_| AdapterError::internal("The pointer button code is out of range"))?;
         within(deadline, async {
-            self.connection
-                .call_method(
-                    Some(SERVICE),
-                    path,
-                    Some(SESSION_INTERFACE),
-                    "NotifyPointerButton",
-                    &(code, down),
-                )
+            call_session_method(&self.connection, path, "NotifyPointerButton", &(code, down))
                 .await
-                .map(|_| ())
                 .map_err(|error| classify_call(&error))
         })
     }
@@ -198,17 +198,14 @@ impl RemoteDesktop {
             .ok_or_else(|| AdapterError::internal("No screen-cast stream is linked"))?
             .as_str();
         within(deadline, async {
-            self.connection
-                .call_method(
-                    Some(SERVICE),
-                    path,
-                    Some(SESSION_INTERFACE),
-                    "NotifyPointerMotionAbsolute",
-                    &(stream, x, y),
-                )
-                .await
-                .map(|_| ())
-                .map_err(|error| classify_call(&error))
+            call_session_method(
+                &self.connection,
+                path,
+                "NotifyPointerMotionAbsolute",
+                &(stream, x, y),
+            )
+            .await
+            .map_err(|error| classify_call(&error))
         })
     }
 }
@@ -249,17 +246,14 @@ impl KeySession for RemoteDesktop {
     fn keysym(&mut self, keysym: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError> {
         let path = self.session_path()?;
         within(deadline, async {
-            self.connection
-                .call_method(
-                    Some(SERVICE),
-                    path,
-                    Some(SESSION_INTERFACE),
-                    "NotifyKeyboardKeysym",
-                    &(keysym, down),
-                )
-                .await
-                .map(|_| ())
-                .map_err(|error| self.failed(&error))
+            call_session_method(
+                &self.connection,
+                path,
+                "NotifyKeyboardKeysym",
+                &(keysym, down),
+            )
+            .await
+            .map_err(|error| self.failed(&error))
         })
         .map_err(|error| self.forget_on_timeout(error))
     }

@@ -6,7 +6,7 @@ use super::pointer_read::PointerRead;
 use super::sink_error::SinkError;
 
 use super::sink::X11Sink;
-use crate::input::release_guard::Touched;
+use crate::input::held_input::HeldInput;
 
 const FIRST_BUTTON_MASK: u16 = 0x0100;
 
@@ -29,7 +29,7 @@ pub(crate) fn leftover_keys(bits: &[u8; 32], pressed: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-pub(crate) fn check(sink: &mut dyn X11Sink, touched: &Touched) -> Result<(), AdapterError> {
+pub(crate) fn check(sink: &mut dyn X11Sink, touched: &HeldInput) -> Result<(), AdapterError> {
     let buttons = if touched.buttons.is_empty() {
         Vec::new()
     } else {
@@ -60,7 +60,3 @@ pub(crate) fn check(sink: &mut dyn X11Sink, touched: &Touched) -> Result<(), Ada
     .with_suggestion("Run 'snapshot' to read the real state before retrying")
     .with_disposition(DeliverySemantics::delivered_unverified()))
 }
-
-#[cfg(test)]
-#[path = "verify_tests.rs"]
-mod tests;

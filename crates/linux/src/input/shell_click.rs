@@ -26,9 +26,6 @@ const RECOVERY_MS: u64 = 1_000;
 const BTN_LEFT: u32 = 272;
 const BTN_RIGHT: u32 = 273;
 const BTN_MIDDLE: u32 = 274;
-
-/// A compositor pointer session: the keyboard session's lifecycle plus
-/// relative motion and button edges.
 pub(crate) trait PointerSession: KeySession {
     fn motion(&mut self, dx: f64, dy: f64, deadline: Deadline) -> Result<(), AdapterError>;
     fn button(&mut self, button: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError>;
@@ -38,16 +35,8 @@ pub(crate) trait PointerSession: KeySession {
     fn attach_stream(&mut self, _connector: &str, _deadline: Deadline) -> bool {
         false
     }
-    fn motion_absolute(
-        &mut self,
-        _x: f64,
-        _y: f64,
-        _deadline: Deadline,
-    ) -> Result<(), AdapterError> {
-        Err(AdapterError::internal("Absolute motion is not available"))
-    }
+    fn motion_absolute(&mut self, x: f64, y: f64, deadline: Deadline) -> Result<(), AdapterError>;
 }
-
 impl PointerSession for RemoteDesktop {
     fn motion(&mut self, dx: f64, dy: f64, deadline: Deadline) -> Result<(), AdapterError> {
         self.pointer_motion_relative(dx, dy, deadline)
@@ -120,30 +109,25 @@ fn delivery_error(error: AdapterError, disposition: DeliverySemantics) -> Adapte
         .with_disposition(disposition)
 }
 
-fn stop_after_delivery(
-    delivered: Result<(), AdapterError>,
-    stopped: Result<(), AdapterError>,
+fn execute_created_session<S: PointerSession>(
+    session: &mut S,
+    deadline: Deadline,
+    execute: impl FnOnce(&mut S) -> Result<(), AdapterError>,
 ) -> Result<(), AdapterError> {
-    match (delivered, stopped) {
-        (Ok(()), Ok(())) => Ok(()),
-        (Err(error), _) => Err(error),
+    match (execute(session), session.stop(recovery_deadline(deadline))) {
         (Ok(()), Err(error)) => Err(delivery_error(
             error,
             DeliverySemantics::delivered_unverified(),
         )),
+        (result, _) => result,
     }
 }
 
-/// A press that went down must come up, and a session that was created must
-/// stop, even when the click spent its whole budget: both run on a short
-/// deadline of their own, or the compositor keeps the button held.
+/// Release and Stop get their own budget after a click exhausts its deadline.
 fn recovery_deadline(spent: Deadline) -> Deadline {
     Deadline::detached_after(RECOVERY_MS).unwrap_or(spent)
 }
 
-/// Where a click goes on a Wayland session: the point in the compositor's
-/// space, the monitor under it with the point in that monitor's own
-/// coordinates, and whether the point lies in a shell modal.
 pub(crate) struct Aim {
     pub(crate) target: Point,
     pub(crate) connector: String,
@@ -153,8 +137,6 @@ pub(crate) struct Aim {
 
 const TOP_BAR_HEIGHT: f64 = 64.0;
 
-/// The monitor that holds the point and the point in its own coordinates.
-/// The connector is the first one driving the logical monitor.
 pub(crate) fn monitor_under(point: &Point, displays: &[DisplayInfo]) -> Option<(String, Point)> {
     let display = displays.iter().find(|display| {
         let bounds = &display.bounds;
@@ -173,8 +155,7 @@ pub(crate) fn monitor_under(point: &Point, displays: &[DisplayInfo]) -> Option<(
     ))
 }
 
-/// A point below the top bar belongs to a popup: the open message list or the
-/// system menu, which hold a pointer grab that relative motion does not reach.
+/// Popups grab the pointer below the top bar and require absolute motion.
 pub(crate) fn in_modal(point: &Point) -> bool {
     point.y >= TOP_BAR_HEIGHT
 }
@@ -192,11 +173,6 @@ fn no_screencast_stream() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
-/// Clicks with absolute motion on a screen-cast stream of the monitor under
-/// the point, which a modal that holds a pointer grab honours. When no stream
-/// can be linked or started, nothing has been sent: a click on the top bar
-/// goes on with relative motion, and a click inside a popup is refused, since
-/// relative motion does not reach it.
 pub(crate) fn run_pointer_absolute<S: PointerSession>(
     session: &mut S,
     aim: &Aim,
@@ -205,14 +181,11 @@ pub(crate) fn run_pointer_absolute<S: PointerSession>(
 ) -> Result<(), AdapterError> {
     session.create(deadline)?;
     if session.attach_stream(&aim.connector, deadline) && session.start(deadline).is_ok() {
-        let delivered = session
-            .motion_absolute(aim.local.x, aim.local.y, deadline)
-            .and_then(|()| {
-                session.pause(SETTLE_PAUSE);
-                press(session, button_code(button), deadline)
-            });
-        let stopped = session.stop(recovery_deadline(deadline));
-        return stop_after_delivery(delivered, stopped);
+        return execute_created_session(session, deadline, |session| {
+            session.motion_absolute(aim.local.x, aim.local.y, deadline)?;
+            session.pause(SETTLE_PAUSE);
+            press(session, button_code(button), deadline)
+        });
     }
     let _ = session.stop(recovery_deadline(deadline));
     if aim.in_modal {
@@ -221,9 +194,6 @@ pub(crate) fn run_pointer_absolute<S: PointerSession>(
     run_pointer(session, &aim.target, button, deadline)
 }
 
-/// Moves the compositor pointer to `target` and clicks. The session is
-/// stopped on every path once it was created; a refused creation sends no
-/// event.
 pub(crate) fn run_pointer<S: PointerSession>(
     session: &mut S,
     target: &Point,
@@ -231,15 +201,12 @@ pub(crate) fn run_pointer<S: PointerSession>(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     session.create(deadline)?;
-    let delivered = session
-        .start(deadline)
-        .and_then(|()| travel(session, target, deadline))
-        .and_then(|()| {
-            session.pause(SETTLE_PAUSE);
-            press(session, button_code(button), deadline)
-        });
-    let stopped = session.stop(recovery_deadline(deadline));
-    stop_after_delivery(delivered, stopped)
+    execute_created_session(session, deadline, |session| {
+        session.start(deadline)?;
+        travel(session, target, deadline)?;
+        session.pause(SETTLE_PAUSE);
+        press(session, button_code(button), deadline)
+    })
 }
 
 fn unreadable_extents() -> AdapterError {
@@ -300,8 +267,6 @@ fn deliver(
     }
 }
 
-/// A pointer click at the centre of a shell control, headed only. The point
-/// is validated against the displays before any event is sent.
 pub(crate) fn click(
     bus: &SharedBus,
     node: &AtspiElement,

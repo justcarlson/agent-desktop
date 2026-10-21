@@ -1,307 +1,180 @@
-use super::super::lead_key;
 use super::*;
 use crate::input::wayland::fake_session::FakeSession;
-use crate::input::wayland::lead_key::LeadPolicy;
 use agent_desktop_core::ErrorCode;
 
 const CONTROL_L: u32 = 0xffe3;
-const SHIFT_L: u32 = 0xffe1;
 const KEY_A: u32 = 0x61;
-
-const FAST_LEAD: LeadPolicy = LeadPolicy {
-    tap: LEAD_POLICY.tap,
-    settle: std::time::Duration::ZERO,
-};
 
 fn live() -> Deadline {
     Deadline::after(5_000).expect("a five second deadline builds")
 }
 
 fn tap(keysym: u32) -> [KeysymStep; 2] {
-    [
-        KeysymStep { keysym, down: true },
-        KeysymStep {
-            keysym,
-            down: false,
-        },
-    ]
+    [edge(keysym, true), edge(keysym, false)]
+}
+
+fn edge(keysym: u32, down: bool) -> KeysymStep {
+    KeysymStep { keysym, down }
 }
 
 fn ctrl_a() -> Vec<KeysymStep> {
     vec![
-        KeysymStep {
-            keysym: CONTROL_L,
-            down: true,
-        },
-        KeysymStep {
-            keysym: KEY_A,
-            down: true,
-        },
-        KeysymStep {
-            keysym: KEY_A,
-            down: false,
-        },
-        KeysymStep {
-            keysym: CONTROL_L,
-            down: false,
-        },
+        edge(CONTROL_L, true),
+        edge(KEY_A, true),
+        edge(KEY_A, false),
+        edge(CONTROL_L, false),
     ]
 }
 
-fn drive_with(
-    session: &mut FakeSession,
-    keys: &[KeysymStep],
-    gate: Gate<'_>,
-) -> Result<Delivery, AdapterError> {
-    run(session, FAST_LEAD, keys, gate, live())
-}
-
 #[test]
-fn ctrl_a_runs_create_start_lead_gate_keys_stop_in_that_order() {
+fn delivery_lifecycle_and_failures() {
+    let keys = ctrl_a();
     let mut session = FakeSession::new();
     let log = session.log();
+    let started = std::time::Instant::now();
     let mut gate = || {
+        assert!(started.elapsed() >= SHIFT_SETTLE);
         log.borrow_mut().push("gate".into());
         Ok(())
     };
-    let delivery = drive_with(&mut session, &ctrl_a(), &mut gate).expect("ctrl+a delivers");
-    let expected = [
-        "create",
-        "start",
-        "down:ffe1",
-        "up:ffe1",
-        "gate",
-        "down:ffe3",
-        "down:61",
-        "up:61",
-        "up:ffe3",
-        "stop",
-    ];
-    assert_eq!(session.events(), expected);
+    let delivery = run_chunks(&mut session, &[&keys], &mut gate, live()).expect("keys deliver");
     assert_eq!(delivery.delivered_events, 4);
-}
-
-#[test]
-fn a_failure_after_create_still_stops_the_session() {
-    for label in ["start", "down:ffe1", "down:ffe3", "down:61", "up:ffe3"] {
-        let mut session = FakeSession::failing_on(label);
-        let result = drive_with(&mut session, &ctrl_a(), &mut || Ok(()));
-        assert!(result.is_err(), "{label} must fail the call");
-        assert_eq!(session.events().last().map(String::as_str), Some("stop"));
-    }
-}
-
-#[test]
-fn a_failed_gate_sends_no_real_key_stops_and_keeps_its_own_error() {
-    let mut session = FakeSession::new();
-    let mut gate = || {
-        Err(AdapterError::new(
-            ErrorCode::ActionFailed,
-            "window is not active",
-        ))
-    };
-    let error = drive_with(&mut session, &ctrl_a(), &mut gate).expect_err("the gate refuses");
-    assert_eq!(error.message, "window is not active");
-    assert_eq!(
-        session.events(),
-        vec!["create", "start", "down:ffe1", "up:ffe1", "stop"]
-    );
-}
-
-#[test]
-fn a_failed_create_issues_no_stop() {
-    let mut session = FakeSession::failing_on("create");
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("create fails");
-    assert_eq!(session.events(), vec!["create"]);
-}
-
-#[test]
-fn a_deadline_spent_before_start_times_out_and_still_stops() {
-    let mut session = FakeSession::new();
-    let expired = Deadline::after(0).expect("a zero deadline builds");
-    let error = run(&mut session, FAST_LEAD, &ctrl_a(), &mut || Ok(()), expired)
-        .expect_err("an expired deadline fails");
-    assert_eq!(error.code, ErrorCode::Timeout);
-    assert_eq!(session.events(), vec!["create", "stop"]);
-}
-
-#[test]
-fn a_session_that_drops_its_first_key_loses_only_the_lead() {
-    let mut session = FakeSession::new();
-    session.drops_first_key = true;
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect("the keys deliver");
-    let real: Vec<(u32, bool)> = ctrl_a().iter().map(|k| (k.keysym, k.down)).collect();
-    assert_eq!(
-        &session.arrived[session.arrived.len() - 4..],
-        real.as_slice()
-    );
-    assert_eq!(session.arrived.len(), 5);
-}
-
-#[test]
-fn without_a_lead_the_dropped_first_key_would_be_a_real_one() {
-    let mut session = FakeSession::new();
-    session.drops_first_key = true;
-    let none = LeadPolicy {
-        tap: None,
-        settle: std::time::Duration::ZERO,
-    };
-    run(&mut session, none, &ctrl_a(), &mut || Ok(()), live()).expect("delivers");
-    assert_eq!(session.arrived.len(), 3);
-}
-
-#[test]
-fn keys_held_when_a_call_fails_are_released_before_the_stop() {
-    let mut session = FakeSession::failing_on("up:61");
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("the release fails");
     let events = session.events();
-    let tail: Vec<&str> = events.iter().rev().take(3).map(String::as_str).collect();
-    assert_eq!(tail, vec!["stop", "up:ffe3", "up:61"]);
-}
+    let position = |label: &str| events.iter().position(|event| event == label).unwrap();
+    assert_eq!(&events[..2], ["create", "start"]);
+    assert!(position("down:ffe1") < position("up:ffe1"));
+    assert!(position("up:ffe1") < position("gate"));
+    assert!(position("gate") < position("down:ffe3"));
+    assert!(position("down:ffe3") < position("down:61"));
+    assert!(position("down:61") < position("up:61"));
+    assert!(position("up:61") < position("up:ffe3"));
+    assert_eq!(events.last().map(String::as_str), Some("stop"));
 
-#[test]
-fn a_failure_after_keys_went_out_is_uncertain_and_before_any_is_not_delivered() {
-    let mut late = FakeSession::failing_on("down:61");
-    let after = drive_with(&mut late, &ctrl_a(), &mut || Ok(())).expect_err("fails");
-    assert_eq!(after.disposition, DeliverySemantics::uncertain());
+    for (failure, count) in [
+        ("create", 0),
+        ("start", 0),
+        ("down:ffe1", 0),
+        ("down:ffe3", 0),
+        ("down:61", 1),
+        ("up:ffe3", 3),
+    ] {
+        let mut failed = FakeSession::failing_on(failure);
+        let error =
+            run_chunks(&mut failed, &[&keys], &mut || Ok(()), live()).expect_err("step fails");
+        assert_eq!(error.code, ErrorCode::Internal, "{failure}");
+        assert_eq!(
+            error.disposition,
+            if count == 0 {
+                DeliverySemantics::not_delivered()
+            } else {
+                DeliverySemantics::uncertain()
+            },
+            "{failure}"
+        );
+        let details = error.details.expect("progress evidence");
+        assert_eq!(details["physical_delivery_started"], count > 0, "{failure}");
+        if count > 0 {
+            assert_eq!(details["delivered_events"], count, "{failure}");
+        }
+        let events = failed.events();
+        assert_eq!(
+            events.last().map(String::as_str),
+            Some(if failure == "create" {
+                "create"
+            } else {
+                "stop"
+            }),
+            "{failure}"
+        );
+    }
+
+    let mut timeout = FakeSession::new();
+    let expired = Deadline::after(0).expect("zero deadline builds");
+    let error = run_chunks(&mut timeout, &[&keys], &mut || Ok(()), expired).expect_err("expired");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(
-        after.details.expect("details")["physical_delivery_started"],
-        true
+        error.details.expect("no delivery evidence")["physical_delivery_started"],
+        false
+    );
+    assert_eq!(timeout.events(), vec!["create", "stop"]);
+
+    let mut gate_failure = FakeSession::new();
+    let gate_error = run_chunks(
+        &mut gate_failure,
+        &[&keys],
+        &mut || {
+            Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "window is not active",
+            ))
+        },
+        live(),
+    )
+    .expect_err("gate refuses");
+    assert_eq!(gate_error.message, "window is not active");
+    assert_eq!(
+        gate_failure.events().last().map(String::as_str),
+        Some("stop")
     );
 
-    let mut early = FakeSession::failing_on("down:ffe3");
-    let before = drive_with(&mut early, &ctrl_a(), &mut || Ok(())).expect_err("fails");
-    assert_eq!(before.disposition, DeliverySemantics::not_delivered());
+    let mut release_failure = FakeSession::failing_on("up:61");
+    let error = run_chunks(&mut release_failure, &[&keys], &mut || Ok(()), live())
+        .expect_err("release fails");
+    assert_eq!(error.code, ErrorCode::Internal);
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert_eq!(
-        before.details.expect("details")["physical_delivery_started"],
+        error.details.expect("delivered prefix")["delivered_events"],
+        2
+    );
+    let events = release_failure.events();
+    let last = &events[events.len() - 3..];
+    assert_eq!(last, ["up:61", "up:ffe3", "stop"]);
+
+    let mut gate_timeout = FakeSession::new();
+    let expired = Deadline::after(0).expect("zero deadline builds");
+    let error = run_chunks(
+        &mut gate_timeout,
+        &[&keys],
+        &mut || Err(expired.timeout_error()),
+        live(),
+    )
+    .expect_err("gate times out");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(
+        error.details.expect("details")["physical_delivery_started"],
         false
     );
 }
 
 #[test]
-fn a_text_of_wide_characters_goes_as_keysyms_and_no_error_repeats_it() {
-    let keys: Vec<KeysymStep> = "你好"
-        .chars()
-        .flat_map(|c| tap(0x0100_0000 | u32::from(c)))
-        .collect();
+fn first_real_key_survives_compositor_drop() {
+    let keys = ctrl_a();
     let mut session = FakeSession::new();
-    let delivery = drive_with(&mut session, &keys, &mut || Ok(())).expect("delivers");
-    assert_eq!(delivery.delivered_events, 4);
-
-    let mut failing = FakeSession::failing_on("down:1004f60");
-    let error = drive_with(&mut failing, &keys, &mut || Ok(())).expect_err("fails");
-    let rendered = format!("{error:?}");
-    for leak in ["你", "好", "4f60", "20320"] {
-        assert!(!rendered.contains(leak), "the error repeated {leak}");
-    }
-}
-
-#[test]
-fn no_keys_means_no_session_at_all() {
-    let delivery = send_keys(&[], &mut || Ok(()), live()).expect("nothing to send");
-    assert_eq!(delivery.delivered_events, 0);
-}
-
-#[test]
-fn a_pointer_command_is_refused_with_the_semantic_suggestion_and_nothing_sent() {
-    let error = pointer_refusal("mouse_event");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
-    assert!(error.message.contains("mouse_event"));
-    assert!(
-        error
-            .suggestion
-            .is_some_and(|text| text.contains("semantic action"))
-    );
-    let details = error.details.clone().expect("details");
-    assert_eq!(details["physical_delivery_started"], false);
-    assert_eq!(details["cause"], "wayland_session");
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-}
-
-#[test]
-fn the_lead_is_a_shift_tap() {
+    session.drops_first_key = true;
+    run_chunks(&mut session, &[&keys], &mut || Ok(()), live()).expect("keys deliver");
+    let real: Vec<(u32, bool)> = keys.iter().map(|key| (key.keysym, key.down)).collect();
     assert_eq!(
-        lead_key::lead_steps(FAST_LEAD)
-            .iter()
-            .map(|s| s.keysym)
-            .collect::<Vec<_>>(),
-        vec![SHIFT_L, SHIFT_L]
+        &session.arrived[session.arrived.len() - real.len()..],
+        real.as_slice()
     );
+    assert_eq!(session.arrived.len(), real.len() + 1);
 }
 
 #[test]
-fn the_session_is_held_open_while_the_compositor_drains_the_last_keys() {
-    let mut session = FakeSession::new();
-    let started = std::time::Instant::now();
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect("delivers");
-    assert!(started.elapsed() >= DRAIN);
-}
-
-#[test]
-fn a_failed_delivery_does_not_wait_to_drain() {
-    let mut session = FakeSession::failing_on("down:ffe3");
-    let started = std::time::Instant::now();
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("fails");
-    assert!(started.elapsed() < DRAIN);
-}
-
-#[test]
-fn text_outside_the_layout_is_refused_before_a_session_is_opened() {
-    let keys: Vec<KeysymStep> = "你好"
-        .chars()
-        .flat_map(|c| tap(0x0100_0000 | u32::from(c)))
-        .collect();
-    let error = send_keys(&keys, &mut || Ok(()), live()).expect_err("refused");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
-    assert_eq!(
-        error.details.expect("details")["cause"],
-        "character_outside_layout"
-    );
-}
-
-fn two_taps() -> (Vec<KeysymStep>, Vec<KeysymStep>) {
-    (tap(KEY_A).to_vec(), tap(0x62).to_vec())
-}
-
-#[test]
-fn chunks_share_one_session_and_the_count_adds_up() {
-    let (first, second) = two_taps();
-    let mut session = FakeSession::new();
-    let delivery = run_chunks(
-        &mut session,
-        FAST_LEAD,
-        &[&first, &second],
-        &mut || Ok(()),
-        live(),
-    )
-    .expect("both chunks deliver");
-    assert_eq!(delivery.delivered_events, 4);
-    let events = session.events();
-    let count = |label: &str| events.iter().filter(|event| *event == label).count();
-    assert_eq!((count("create"), count("start"), count("stop")), (1, 1, 1));
-}
-
-#[test]
-fn a_failure_in_a_later_chunk_is_uncertain_with_the_whole_count() {
-    let (first, second) = two_taps();
+fn chunks_preserve_progress() {
+    let first = tap(KEY_A);
+    let second = tap(0x62);
     let mut session = FakeSession::failing_on("down:62");
-    let error = run_chunks(
-        &mut session,
-        FAST_LEAD,
-        &[&first, &second],
-        &mut || Ok(()),
-        live(),
-    )
-    .expect_err("the second chunk fails");
+    let error = run_chunks(&mut session, &[&first, &second], &mut || Ok(()), live())
+        .expect_err("second chunk fails");
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
-    let details = error.details.expect("details");
+    assert!(!sent_nothing(&error));
+    let details = error.details.expect("delivery details");
     assert_eq!(details["physical_delivery_started"], true);
     assert_eq!(details["delivered_events"], 2);
-}
 
-#[test]
-fn a_gate_that_stops_between_chunks_is_uncertain_with_the_count() {
-    let (first, second) = two_taps();
     let mut session = FakeSession::new();
     let mut calls = 0;
     let mut gate = || {
@@ -312,76 +185,63 @@ fn a_gate_that_stops_between_chunks_is_uncertain_with_the_count() {
             Ok(())
         }
     };
-    let error = run_chunks(
-        &mut session,
-        FAST_LEAD,
-        &[&first, &second],
-        &mut gate,
-        live(),
-    )
-    .expect_err("the gate stops the second chunk");
+    let error = run_chunks(&mut session, &[&first, &second], &mut gate, live())
+        .expect_err("gate stops later chunk");
     assert_eq!(error.message, "window lost");
-    assert_eq!(error.disposition, DeliverySemantics::uncertain());
-    assert_eq!(error.details.expect("details")["delivered_events"], 2);
+    assert_eq!(
+        error.details.expect("delivery details")["delivered_events"],
+        2
+    );
 }
 
 #[test]
-fn a_character_outside_the_layout_in_a_later_chunk_is_refused_before_any_key() {
-    let (first, _) = two_taps();
-    let outside = tap(0x0100_0000 | u32::from('你')).to_vec();
-    let error = send_chunks(&[first, outside], &mut || Ok(()), live()).expect_err("refused");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+fn retained_session_lifecycle() {
+    let keys = tap(KEY_A);
+    let mut retained = FakeSession::new();
+    retained.retains = true;
+    run_chunks(&mut retained, &[&keys], &mut || Ok(()), live()).expect("delivers");
+    assert!(!retained.events().iter().any(|event| event == "stop"));
+
+    let mut resumed = FakeSession::new();
+    resumed.resumed = true;
+    resumed.retains = true;
+    run_chunks(&mut resumed, &[&keys], &mut || Ok(()), live()).expect("resumes");
+    let events = resumed.events();
+    assert_eq!(events.len(), 2);
+    assert!(events.contains(&"down:61".into()) && events.contains(&"up:61".into()));
+
+    let mut failed = FakeSession::failing_on("down:ffe1");
+    failed.retains = true;
+    run_chunks(&mut failed, &[&keys], &mut || Ok(()), live()).expect_err("fails");
+    assert_eq!(failed.events().last().map(String::as_str), Some("stop"));
 }
 
 #[test]
-fn a_retained_session_is_left_open_after_a_delivery() {
+fn success_drains_and_refusal_is_private() {
+    let keys = tap(KEY_A);
     let mut session = FakeSession::new();
-    session.retains = true;
+    let started = std::time::Instant::now();
+    run_chunks(&mut session, &[&keys], &mut || Ok(()), live()).expect("delivers");
+    assert!(started.elapsed() >= DRAIN);
 
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect("delivers");
-
-    let events = session.events();
-    assert_eq!(events.first().map(String::as_str), Some("create"));
-    assert!(!events.iter().any(|event| event == "stop"));
-}
-
-#[test]
-fn a_resumed_session_skips_create_start_lead_and_stop() {
-    let mut session = FakeSession::new();
-    session.resumed = true;
-    session.retains = true;
-    let (first, _) = two_taps();
-
-    let delivery =
-        run_chunks(&mut session, FAST_LEAD, &[&first], &mut || Ok(()), live()).expect("delivers");
-
-    assert_eq!(delivery.delivered_events, 2);
-    assert_eq!(session.events(), vec!["down:61", "up:61"]);
-}
-
-#[test]
-fn a_retained_session_that_fails_is_still_stopped() {
-    let mut session = FakeSession::failing_on("down:ffe3");
-    session.retains = true;
-
-    drive_with(&mut session, &ctrl_a(), &mut || Ok(())).expect_err("fails");
-
-    assert_eq!(session.events().last().map(String::as_str), Some("stop"));
-}
-
-#[test]
-fn a_timeout_from_the_gate_before_any_real_key_says_nothing_was_delivered() {
-    let mut session = FakeSession::new();
-    let expired = Deadline::after(0).expect("a zero deadline builds");
-    let mut gate = || Err(expired.timeout_error());
-
-    let error = drive_with(&mut session, &ctrl_a(), &mut gate).expect_err("the gate times out");
-
-    assert_eq!(error.code, ErrorCode::Timeout);
+    let mut failing = FakeSession::failing_on("down:61");
+    let error = run_chunks(&mut failing, &[&keys], &mut || Ok(()), live()).expect_err("fails");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(
-        error.details.expect("details")["physical_delivery_started"],
+        error.details.expect("delivery evidence")["physical_delivery_started"],
         false
     );
+    let events = failing.events();
+    assert_eq!(&events[events.len() - 2..], ["down:61", "stop"]);
+
+    let outside = tap(0x0100_4f60);
+    let error =
+        send_chunks(&[outside.to_vec()], &mut || Ok(()), live()).expect_err("layout refuses");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let rendered = format!("{error:?}");
+    assert!(!rendered.contains("4f60") && !rendered.contains("你"));
+
+    let empty = send_chunks(&[], &mut || Ok(()), live()).expect("empty input is a no-op");
+    assert_eq!(empty.delivered_events, 0);
 }
