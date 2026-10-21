@@ -86,12 +86,15 @@ pub(crate) fn element(
 pub(crate) fn actions(
     target: &TrayTarget,
     deadline: Deadline,
-) -> Result<Vec<String>, AdapterError> {
-    element(target, deadline).map(|element| element.available_actions)
+) -> Result<Option<Vec<String>>, AdapterError> {
+    element(target, deadline).map(|element| Some(element.available_actions))
 }
 
-pub(crate) fn state(target: &TrayTarget, deadline: Deadline) -> Result<ElementState, AdapterError> {
-    element(target, deadline).map(|element| element.state)
+pub(crate) fn state(
+    target: &TrayTarget,
+    deadline: Deadline,
+) -> Result<Option<ElementState>, AdapterError> {
+    element(target, deadline).map(|element| Some(element.state))
 }
 
 pub(crate) fn bounds(
