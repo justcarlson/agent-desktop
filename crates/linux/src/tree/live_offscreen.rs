@@ -64,10 +64,10 @@ pub(crate) fn global_position(bus: &SharedBus, element: &AtspiElement, deadline:
 }
 
 /// The frame's iconified bit, title and screen extents. A missing or unreadable
-/// state has no iconified bit and is treated as not iconified; unreadable title
+/// state leaves iconification unknown; unreadable title
 /// and extents remain absent rather than becoming empty values.
 pub(crate) struct FrameRead {
-    pub(crate) iconified: bool,
+    pub(crate) iconified: Option<bool>,
     role: Option<u32>,
     pub(crate) title: Option<String>,
     pub(crate) screen: Option<Extents>,
@@ -89,12 +89,13 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
     .await;
     let words = state
         .ok()
-        .and_then(|reply| reply.body().deserialize::<Vec<u32>>().ok());
+        .and_then(|reply| reply.body().deserialize::<Vec<u32>>().ok())
+        .filter(|words| !words.is_empty());
     FrameRead {
         role: role
             .ok()
             .and_then(|reply| reply.body().deserialize::<u32>().ok()),
-        iconified: words.is_some_and(|words| StateBits::new(&words).has(ICONIFIED)),
+        iconified: words.map(|words| StateBits::new(&words).has(ICONIFIED)),
         title: title.ok().and_then(|field| field.present().cloned()),
         screen: extents
             .ok()
@@ -178,7 +179,7 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
         return placed;
     }
     let global = reports_global_position(&placed.toolkit);
-    let skipped = placed.frame_iconified || (wholly_outside(&placed) && global);
+    let skipped = placed.frame_iconified == Some(true) || (wholly_outside(&placed) && global);
     let (popup_origin, x11) = select_frame_origin(
         element.is_menu_target(),
         &placed.toolkit,

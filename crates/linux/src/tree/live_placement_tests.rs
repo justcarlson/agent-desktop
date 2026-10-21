@@ -161,7 +161,7 @@ fn a_partly_clipped_row_is_offscreen_when_its_center_is_outside_the_container() 
 fn an_iconified_frame_or_a_hidden_x11_window_makes_every_node_offscreen() {
     let read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(0, 0, 10, 10)));
     let mut iconified = window(rect(2, 100, 420, 22));
-    iconified.frame_iconified = true;
+    iconified.frame_iconified = Some(true);
     assert_eq!(derived_offscreen(&read, &iconified), Some(true));
     let mut hidden = window(rect(2, 100, 420, 22));
     hidden.x11 = mapped(true);

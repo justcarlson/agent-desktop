@@ -93,13 +93,14 @@ pub(crate) fn settled_by_read(read: &ObservedRead) -> bool {
 pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> Option<bool> {
     let (visible, showing) = state_bits(read)?;
     let hidden = !visible && !showing;
-    let minimized = if placement.frame_iconified || placement.x11.is_some_and(|x11| x11.hidden) {
-        Some(true)
-    } else if placement.popup_origin.is_some() {
-        Some(false)
-    } else {
-        placement.x11.map(|_| false)
-    };
+    let minimized =
+        if placement.frame_iconified == Some(true) || placement.x11.is_some_and(|x11| x11.hidden) {
+            Some(true)
+        } else if placement.popup_origin.is_some() {
+            Some(false)
+        } else {
+            placement.x11.map(|_| false)
+        };
     let verdict = offscreen(OffscreenInput {
         node: placement.node,
         frame: placement.frame,
@@ -177,7 +178,7 @@ fn on_a_mapped_wayland_frame(read: &ObservedRead, placement: &Placement) -> bool
     placement.wayland_unplaced
         && placement.x11.is_none()
         && placement.frame.is_some()
-        && !placement.frame_iconified
+        && placement.frame_iconified == Some(false)
         && state_bits(read) == Some((true, true))
 }
 
