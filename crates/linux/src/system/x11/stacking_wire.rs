@@ -9,12 +9,13 @@ use x11rb::rust_connection::RustConnection;
 
 use self::selection::{Overlays, frame_of, read_override_selection};
 use crate::system::x11::desktop_placement::DesktopPlacement;
-use crate::system::x11::snapshot::{decode_frame_extents, decode_shadow, decode_title};
+use crate::system::x11::snapshot::{
+    decode_cardinals, decode_frame_extents, decode_shadow, decode_title,
+};
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_atoms::{WindowAtoms, names};
 use crate::system::x11::stacking_decode::{
-    complete_value, decode_current_desktop, decode_desktop, decode_kind, decode_stack,
-    decode_state, exceeds_cap,
+    complete_value, decode_current_desktop, decode_desktop, decode_kind, decode_state, exceeds_cap,
 };
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
@@ -326,7 +327,7 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     }
     let Some(listed) = value(stack)
         .ok()
-        .and_then(|(format, bytes)| decode_stack(format, &bytes))
+        .and_then(|(format, bytes)| decode_cardinals(format, &bytes))
     else {
         return StackingRead::Unavailable;
     };

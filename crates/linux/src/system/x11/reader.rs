@@ -2,6 +2,7 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, MapState, Window};
 use x11rb::rust_connection::RustConnection;
 
+use super::control_display::property;
 use super::snapshot::{decode_cardinals, decode_frame_extents, decode_shadow, decode_title};
 use super::stacking::{bounded, capped, route};
 use super::stacking_read::StackingRead;
@@ -192,26 +193,12 @@ fn atoms(connection: &RustConnection) -> Option<Atoms> {
     })
 }
 
-fn property(
-    connection: &RustConnection,
-    window: Window,
-    name: Atom,
-    kind: impl Into<Atom>,
-    longs: u32,
-) -> Option<GetPropertyReply> {
-    connection
-        .get_property(false, window, name, kind, 0, longs)
-        .ok()?
-        .reply()
-        .ok()
-}
-
 fn cardinals(reply: Option<GetPropertyReply>) -> Option<Vec<u32>> {
     let reply = reply?;
     decode_cardinals(reply.format, &reply.value)
 }
 
-fn bounds(connection: &RustConnection, root: Window, window: Window) -> Option<Extents> {
+pub(super) fn bounds(connection: &RustConnection, root: Window, window: Window) -> Option<Extents> {
     let origin = connection
         .translate_coordinates(window, root, 0, 0)
         .ok()?

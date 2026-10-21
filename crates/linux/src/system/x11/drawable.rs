@@ -6,7 +6,7 @@ use x11rb::rust_connection::RustConnection;
 use super::MonitorFault;
 use super::drawable_info::DrawableInfo;
 use super::frame_extents::FrameExtents;
-use super::grab_error::GrabError;
+use super::grab_error::{GrabError, unreadable};
 use super::map_state::MapState;
 use super::snapshot::decode_frame_extents;
 use crate::tree::Extents;
@@ -65,13 +65,14 @@ pub(crate) fn describe(
     root: Window,
     window: Window,
 ) -> Result<DrawableInfo, GrabError> {
-    let wire = |_| GrabError::Fault(MonitorFault::Unreadable);
-    let geometry = connection.get_geometry(window).map_err(wire)?;
-    let attributes = connection.get_window_attributes(window).map_err(wire)?;
-    let tree = connection.query_tree(window).map_err(wire)?;
+    let geometry = connection.get_geometry(window).map_err(unreadable)?;
+    let attributes = connection
+        .get_window_attributes(window)
+        .map_err(unreadable)?;
+    let tree = connection.query_tree(window).map_err(unreadable)?;
     let origin = connection
         .translate_coordinates(window, root, 0, 0)
-        .map_err(wire)?;
+        .map_err(unreadable)?;
     let geometry = geometry
         .reply()
         .map_err(|error| reply_error(connection, window, error))?;

@@ -9,7 +9,6 @@ use super::snapshot::{decode_frame_extents, decode_shadow, decode_title};
 use super::stacking_atoms::names;
 use super::stacking_decode::decode_kind;
 use super::window_kind::WindowKind;
-use crate::tree::Extents;
 
 const MAX_TOPLEVELS: u32 = 4_096;
 const MAX_NAME_LONGS: u32 = 1_024;
@@ -129,14 +128,6 @@ fn read_clients(display: &str) -> ControlRead<Vec<X11Client>> {
         .into_iter()
         .map(|window| {
             let pid = pid_of(&connection, window, *pid);
-            let wide = property(&connection, window, *name, *utf8, MAX_NAME_LONGS);
-            let narrow = property(
-                &connection,
-                window,
-                AtomEnum::WM_NAME.into(),
-                AtomEnum::STRING,
-                MAX_NAME_LONGS,
-            );
             let extents = property(&connection, window, *frame, AtomEnum::CARDINAL, 4)
                 .and_then(|reply| decode_frame_extents(reply.format, &reply.value));
             let is_hidden = property(&connection, window, *state, AtomEnum::ATOM, 64)
@@ -150,35 +141,14 @@ fn read_clients(display: &str) -> ControlRead<Vec<X11Client>> {
                 id: window,
                 shadow,
                 pid,
-                title: decode_title(
-                    wide.as_ref()
-                        .map(|reply| (reply.format, reply.value.as_slice())),
-                    narrow
-                        .as_ref()
-                        .map(|reply| (reply.format, reply.value.as_slice())),
-                ),
+                title: title_of(&connection, window, *name, *utf8),
                 extents,
-                bounds: client_bounds(&connection, root, window),
+                bounds: super::reader::bounds(&connection, root, window),
                 hidden: is_hidden,
             }
         })
         .collect();
     ControlRead::Ready(clients)
-}
-
-fn client_bounds(connection: &RustConnection, root: u32, window: u32) -> Option<Extents> {
-    let origin = connection
-        .translate_coordinates(window, root, 0, 0)
-        .ok()?
-        .reply()
-        .ok()?;
-    let size = connection.get_geometry(window).ok()?.reply().ok()?;
-    Some(Extents {
-        x: i32::from(origin.dst_x),
-        y: i32::from(origin.dst_y),
-        width: i32::from(size.width),
-        height: i32::from(size.height),
-    })
 }
 
 fn title_of(connection: &RustConnection, window: u32, name: u32, utf8: u32) -> String {
