@@ -75,13 +75,13 @@ def id_survives_unrelated_launch(ctx: LegContext) -> None:
     original = window_ids(_wait_windows(ctx, CALCULATOR))
     assert original
     read = lambda: len(app_root(ctx.tier, "gnome-calculator").children())
-    ctx.before("proc.calculator", read())
+    ctx.before("atspi.root_children", read())
     files = launch(ctx.tier, "Files")
     envelope = ctx.product(["snapshot", "--window-id", original[0], "-i"])
     assert envelope.ok, envelope.raw
     still = window_ids(_windows(ctx, CALCULATOR))
-    ctx.after("proc.calculator", read())
+    ctx.after("atspi.root_children", read())
     assert original[0] in still
     stop(files)
-    ctx.restored("proc.calculator", read())
+    ctx.restored("atspi.root_children", read())
     stop(calculator)

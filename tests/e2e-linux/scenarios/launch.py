@@ -93,7 +93,7 @@ def list_apps_alias(ctx: LegContext) -> None:
     read = lambda: sorted(node.name for node in registry(ctx.tier))
     try:
         before = read()
-        ctx.before("proc.apps", before)
+        ctx.before("atspi.apps", before)
         envelope = ctx.product(["list-apps", "--app", CALCULATOR])
         assert envelope.ok, envelope.raw
         assert app_names(envelope.data), "list-apps returned no Calculator"
@@ -101,9 +101,9 @@ def list_apps_alias(ctx: LegContext) -> None:
         assert other.ok, other.raw
         assert app_names(envelope.data) == app_names(other.data), "alias changed the app result"
         assert "complete" not in (envelope.data or {}) or envelope.data.get("complete") is not False
-        ctx.after("proc.apps", read())
+        ctx.after("atspi.apps", read())
         assert read() == before, "query changed registered applications"
-        ctx.restored("proc.apps", read())
+        ctx.restored("atspi.apps", read())
     finally:
         stop(app)
 

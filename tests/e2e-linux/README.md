@@ -291,7 +291,9 @@ Capture, quiet events, identity queries, failed-launch/stale-ref queries,
 lifecycle and non-interference now record independent final reads. Duplicate
 non-interference after records are removed. Qt evidence consistently reads the
 actual log and process members, including log removal after app teardown.
-Controlled Qt activation/selection and seatless Wayland semantic-click tests
+Transient window events match the independently observed frame and owner PID;
+registry-derived reads are labeled AT-SPI. Controlled Qt activation/selection
+and seatless Wayland semantic-click tests
 reject lying successes in portable tests and have been invert-checked.
 
 Two integration-only structural tests are retired: the source AST pairing

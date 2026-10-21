@@ -124,40 +124,42 @@ def window_closed_quiet(ctx: LegContext) -> None:
 
 @implementation("events.app_launched_transition")
 def app_launched_transition(ctx: LegContext) -> None:
-    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.before("atspi.apps", _names(ctx.tier, "gnome-calculator"))
     launched = []
     trigger = delayed(0.5, lambda: launched.append(launch(ctx.tier, CALCULATOR)))
     envelope = _wait(ctx, "app-launched")
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "app-launched", envelope.raw
-    ctx.after("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
+    assert (envelope.data.get("event") or {}).get("pid") == launched[0].pid, envelope.raw
+    ctx.after("atspi.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
     stop(launched[0])
-    ctx.restored("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), []))
+    ctx.restored("atspi.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), []))
 
 
 @implementation("events.app_launched_quiet")
 def app_launched_quiet(ctx: LegContext) -> None:
-    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.before("atspi.apps", _names(ctx.tier, "gnome-calculator"))
     envelope = ctx.product(["wait", "--event", "app-launched", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
-    ctx.after("proc.apps", _names(ctx.tier, "gnome-calculator"))
-    ctx.restored("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.after("atspi.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.restored("atspi.apps", _names(ctx.tier, "gnome-calculator"))
 
 
 @implementation("events.app_terminated_transition")
 def app_terminated_transition(ctx: LegContext) -> None:
     app, _root = _calculator(ctx.tier)
-    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.before("atspi.apps", _names(ctx.tier, "gnome-calculator"))
     trigger = delayed(0.8, lambda: stop(app))
     envelope = _wait(ctx, "app-terminated")
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "app-terminated", envelope.raw
-    ctx.after("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), []))
+    assert (envelope.data.get("event") or {}).get("pid") == app.pid, envelope.raw
+    ctx.after("atspi.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), []))
     replacement = launch(ctx.tier, CALCULATOR)
     try:
-        ctx.restored("proc.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
+        ctx.restored("atspi.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
     finally:
         stop(replacement)
 
@@ -165,11 +167,11 @@ def app_terminated_transition(ctx: LegContext) -> None:
 @implementation("events.app_terminated_quiet")
 def app_terminated_quiet(ctx: LegContext) -> None:
     app, _root = _calculator(ctx.tier)
-    ctx.before("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.before("atspi.apps", _names(ctx.tier, "gnome-calculator"))
     envelope = ctx.product(["wait", "--event", "app-terminated", "--timeout", "1500"])
     assert timed_out(envelope), envelope.raw
-    ctx.after("proc.apps", _names(ctx.tier, "gnome-calculator"))
-    ctx.restored("proc.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.after("atspi.apps", _names(ctx.tier, "gnome-calculator"))
+    ctx.restored("atspi.apps", _names(ctx.tier, "gnome-calculator"))
     stop(app)
 
 
@@ -295,8 +297,12 @@ def open_and_close_inside_one_wait(ctx: LegContext) -> None:
     ctx.before("atspi.root_children", len(root.children()))
 
     existing = _window_ids(ctx.tier)
+    transient = []
     def cycle() -> None:
         _new_editor_window(ctx.tier)
+        added = set(_window_ids(ctx.tier)) - set(existing)
+        assert len(added) == 1, "transient cycle needs exactly one independently observed new frame"
+        transient.extend(added)
         _close_added_windows(ctx.tier, existing)
 
     trigger = delayed(0.6, cycle)
@@ -304,6 +310,8 @@ def open_and_close_inside_one_wait(ctx: LegContext) -> None:
     trigger.join()
     assert envelope.ok, envelope.raw
     assert event_kind(envelope.data) == "window-closed", envelope.raw
+    event = envelope.data.get("event") or {}
+    assert event.get("window_id") in transient and event.get("pid") == app.pid, envelope.raw
     ctx.after("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     ctx.restored("atspi.root_children", root_windows(ctx.tier, "gnome-text-editor"))
     stop(app)
@@ -314,7 +322,7 @@ def target_killed_mid_wait(ctx: LegContext) -> None:
     app, root = _editor(ctx.tier)
     read = lambda: _names(ctx.tier, "gnome-text-editor")
     before = read()
-    ctx.before("proc.text_editor", before)
+    ctx.before("atspi.text_editor", before)
     trigger = delayed(0.5, lambda: stop(app))
     envelope = ctx.product(
         ["wait", "--event", "window-closed", "--app", TEXT_EDITOR, "--timeout", "8000"]
@@ -322,12 +330,14 @@ def target_killed_mid_wait(ctx: LegContext) -> None:
     trigger.join()
     if envelope.ok:
         assert envelope.data, envelope.raw
-        assert envelope.data.get("target_unresolved") is True or envelope.data.get("found") is True
+        event = envelope.data.get("event") or {}
+        assert envelope.data.get("target_unresolved") is True or (
+            event.get("pid") == app.pid and event.get("window_id") in app.windows), envelope.raw
     else:
         assert timed_out(envelope), envelope.raw
-    ctx.after("proc.text_editor", changed(read, []))
+    ctx.after("atspi.text_editor", changed(read, []))
     replacement = launch(ctx.tier, TEXT_EDITOR)
     try:
-        ctx.restored("proc.text_editor", changed(read, before))
+        ctx.restored("atspi.text_editor", changed(read, before))
     finally:
         stop(replacement)
