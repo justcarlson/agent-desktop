@@ -80,7 +80,8 @@ nameless top-level frame, not a window: it does not count as a window event.
   container or every display. `VISIBLE` without `SHOWING` alone proves neither
   hidden nor offscreen. A proven intersection in a non-minimized window can
   report false; missing placement evidence stays unknown. Snapshots carry
-  neither live `offscreen` nor `hidden`; use live `get`/`is` checks.
+  neither live `offscreen` nor `hidden`. `offscreen` is not a supported
+  `get`/`is` property; use the live evidence in an actionability refusal.
 
 ## GTK editor tabs
 
