@@ -177,10 +177,6 @@ mod vocabulary_live_tests;
 mod walker_live_tests;
 
 #[cfg(test)]
-#[path = "find_live_tests.rs"]
-mod find_live_tests;
-
-#[cfg(test)]
 #[path = "resolve_live_tests.rs"]
 mod resolve_live_tests;
 

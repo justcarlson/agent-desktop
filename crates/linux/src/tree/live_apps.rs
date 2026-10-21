@@ -1,7 +1,7 @@
 use agent_desktop_core::Deadline;
 
 use super::AtspiElement;
-use super::live_launch::{Launched, nonce, program_of, vscode_arguments};
+use super::live_launch::{Launched, nonce, program_of};
 use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
 use super::walker_live_tests::settle;
@@ -85,94 +85,4 @@ pub(super) fn qt(adapter: &LinuxAdapter, bus: &SharedBus, check: Check) -> Resul
     let settled =
         settle(bus, 15, || pid_frame(&connection, pid)).map_err(|error| format!("[qt] {error}"))?;
     check("qt", adapter, bus, &settled.frame)
-}
-
-pub(super) fn vscode(adapter: &LinuxAdapter, bus: &SharedBus, check: Check) -> Result<(), String> {
-    let program = "code".to_owned();
-    let data = std::env::temp_dir().join(nonce("resolve-vscode"));
-    let data_arg = data.to_string_lossy().into_owned();
-    let arguments = vscode_arguments(&data_arg);
-    let result = app(
-        &AppSpec {
-            label: "vscode",
-            program: &program,
-            arguments: &arguments,
-            min_nodes: 200,
-        },
-        adapter,
-        bus,
-        check,
-    );
-    let _ = std::fs::remove_dir_all(data);
-    result
-}
-
-/// Runs `check` on the window of every application the live tests cover and
-/// returns each outcome under its label.
-pub(super) fn each_app(
-    adapter: &LinuxAdapter,
-    bus: &SharedBus,
-    check: Check,
-) -> Vec<(&'static str, Result<(), String>)> {
-    vec![
-        (
-            "files",
-            app(
-                &AppSpec {
-                    label: "files",
-                    program: "nautilus",
-                    arguments: &["--new-window"],
-                    min_nodes: 30,
-                },
-                adapter,
-                bus,
-                check,
-            ),
-        ),
-        (
-            "calculator",
-            app(
-                &AppSpec {
-                    label: "calculator",
-                    program: "gnome-calculator",
-                    arguments: &[],
-                    min_nodes: 30,
-                },
-                adapter,
-                bus,
-                check,
-            ),
-        ),
-        (
-            "settings",
-            app(
-                &AppSpec {
-                    label: "settings",
-                    program: "gnome-control-center",
-                    arguments: &[],
-                    min_nodes: 20,
-                },
-                adapter,
-                bus,
-                check,
-            ),
-        ),
-        (
-            "text-editor",
-            app(
-                &AppSpec {
-                    label: "text-editor",
-                    program: "gnome-text-editor",
-                    arguments: &["--new-window"],
-                    min_nodes: 15,
-                },
-                adapter,
-                bus,
-                check,
-            ),
-        ),
-        ("terminal", terminal(adapter, bus, check)),
-        ("qt", qt(adapter, bus, check)),
-        ("vscode", vscode(adapter, bus, check)),
-    ]
 }

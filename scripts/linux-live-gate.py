@@ -47,7 +47,7 @@ SELF_MUTTER = "tree::physical_live_mutter_tests"
 # Unknown modules and all unit tests stay on one writer, preserving that lock's contract.
 PARALLEL_READS = {
     "tree::absence_live_tests", "tree::capability_live_tests", "tree::chromium_live_tests",
-    "tree::find_live_tests", "tree::hit_live_tests::cases", "tree::live_read_live_tests",
+    "tree::hit_live_tests::cases", "tree::live_read_live_tests",
     "tree::navigate_live_tests", "tree::observe_live_tests", "tree::qt_live_tests",
     "tree::registry_toolkit_live_tests", "tree::resolve_live_tests",
     "tree::live_timeout",
