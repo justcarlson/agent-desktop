@@ -273,7 +273,12 @@ fn run_batch(dir: &std::path::Path, cmds: serde_json::Value, extra: &[&str]) -> 
         .args(extra)
         .env("AGENT_DESKTOP_HOME", dir);
     let o = c.output().expect("batch runs");
-    serde_json::from_slice(&o.stdout).unwrap()
+    serde_json::from_slice(&o.stdout).unwrap_or_else(|error| {
+        panic!(
+            "batch stdout is not JSON: {error}; stderr: {}",
+            String::from_utf8_lossy(&o.stderr)
+        )
+    })
 }
 
 #[test]

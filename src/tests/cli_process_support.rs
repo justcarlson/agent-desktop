@@ -5,15 +5,11 @@ pub(super) fn private_bus_binary() -> Command {
     {
         let mut command = Command::new("bash");
         command
-            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/private-session.sh"))
-            .args([
-                "--",
-                "bash",
-                "-c",
-                "gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.a11y.Bus.GetAddress >/dev/null && exec \"$@\"",
-                "private-atspi",
-                env!("CARGO_BIN_EXE_agent-desktop"),
-            ]);
+            .arg(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../scripts/private-session.sh"
+            ))
+            .args(["--", env!("CARGO_BIN_EXE_agent-desktop")]);
         command
     }
     #[cfg(not(target_os = "linux"))]
