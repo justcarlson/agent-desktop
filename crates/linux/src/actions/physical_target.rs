@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use agent_desktop_core::{
     Action, ActionRequest, ActionResult, AdapterError, Deadline, DeliverySemantics, ErrorCode,
-    InteractionLease, InteractionPolicy, KeyCombo, MouseButton, Point, Rect,
+    HitTestResult, InteractionLease, InteractionPolicy, KeyCombo, MouseButton, Point, Rect,
 };
 use serde_json::json;
 
@@ -17,8 +17,7 @@ use crate::input::plan::Plan;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
-/// Everything a physical leg reads from or sends to the desktop, so each leg
-/// runs against a fixed desktop in a test.
+/// The desktop observations and input used by each physical leg.
 pub(crate) trait PhysicalWorld {
     fn backend(&self) -> Result<Backend, AdapterError>;
     fn focus_target(&self, element: &AtspiElement, deadline: Deadline) -> Result<(), AdapterError>;
@@ -133,7 +132,22 @@ impl PhysicalWorld for LiveWorld<'_> {
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
         let placed = crate::tree::live_offscreen::placement(self.bus, element, deadline);
-        super::physical_aim::validate(point, &placed, element.scroll_container().is_some())
+        super::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
+        let handle = element.clone().into_native_handle();
+        match crate::tree::hit_test(self.bus, &handle, point.clone(), deadline)? {
+            HitTestResult::InterceptedBy { role, name, bounds } => Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "Another element intercepts the pointer target",
+            )
+            .with_details(json!({
+                "check": "receives_events",
+                "interceptor": { "role": role, "name": name, "bounds": bounds },
+                "physical_delivery_started": false,
+            }))
+            .with_suggestion("Reveal the target and refresh the snapshot before retrying")
+            .with_disposition(DeliverySemantics::not_delivered())),
+            HitTestResult::ReachesTarget | HitTestResult::Unknown => Ok(()),
+        }
     }
 
     fn plan_combo(&self, map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError> {

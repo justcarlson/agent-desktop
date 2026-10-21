@@ -40,9 +40,9 @@ pub(crate) fn validate(
     inside().ok_or_else(|| {
         AdapterError::new(
             ErrorCode::StaleRef,
-            "The click point is outside the target's proven visible area; no input was sent",
+            "The pointer point is outside the target's proven visible area",
         )
-        .with_suggestion("Scroll the row into view and find it again before clicking")
+        .with_suggestion("Reveal the target and find it again before sending pointer input")
         .with_details(json!({
             "kind": "pointer_target_not_visible",
             "physical_delivery_started": false,

@@ -63,7 +63,7 @@ fn live_calculator_evaluates_typed_keys() {
 fn live_qt_headless_reveal_has_no_container_while_the_headed_wheel_moves_the_content() {
     let scene = Scene::open(Kit::Qt, QT_LIST, 20);
     let far = scene.find(&["option"], Some("Item 040"));
-    let near = scene.find(&["option"], Some("Item 005"));
+    let list = scene.find(&["listbox"], None);
     let baseline = scene.wait_log(|text| serde_json::from_str::<serde_json::Value>(text).is_ok());
     let before: serde_json::Value = serde_json::from_str(&baseline).expect("Qt scroll baseline");
     let offset = before["offset"].as_i64().expect("Qt content offset");
@@ -84,7 +84,7 @@ fn live_qt_headless_reveal_has_no_container_while_the_headed_wheel_moves_the_con
         "headless refusal did not scroll"
     );
     scene
-        .act(&near, Action::Scroll(Direction::Down, 13))
+        .act(&list, Action::Scroll(Direction::Down, 13))
         .expect("the headed wheel is delivered");
     let observed = scene.wait_log(|text| {
         serde_json::from_str::<serde_json::Value>(text).is_ok_and(|state| {

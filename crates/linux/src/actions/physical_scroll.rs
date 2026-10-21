@@ -36,8 +36,12 @@ pub(crate) fn scroll_steps(
     }
     let at = aim_point(world, element, None, deadline)?;
     let map = world.keymap(deadline)?;
-    let plans = world.plan_wheel(&map, at, deltas)?;
-    world.send_plans(plans, &mut || Ok(()), deadline)?;
+    let plans = world.plan_wheel(&map, at.clone(), deltas)?;
+    world.send_plans(
+        plans,
+        &mut || world.validate_pointer(element, &at, deadline),
+        deadline,
+    )?;
     Ok(vec![
         ActionStep::succeeded(SCROLL_LABEL)
             .with_mechanism(StepMechanism::PhysicalSynthetic)
