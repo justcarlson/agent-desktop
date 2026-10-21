@@ -55,7 +55,18 @@ static const char *rc_name(int32_t rc) {
 }
 
 static int envelope_ok(const char *json) {
-  return json != NULL && strstr(json, "\"ok\":true") != NULL;
+  if (json == NULL) {
+    return 0;
+  }
+  FILE *validator = popen("python3 -c 'import json, sys; doc = json.load(sys.stdin); "
+                          "sys.exit(0 if isinstance(doc, dict) and doc.get(\"ok\") is True else 1)'", "w");
+  if (validator == NULL) {
+    return 0;
+  }
+  size_t length = strlen(json);
+  size_t written = fwrite(json, 1, length, validator);
+  int status = pclose(validator);
+  return written == length && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 static long envelope_int(const char *json, const char *key) {

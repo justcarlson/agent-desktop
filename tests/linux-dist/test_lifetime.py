@@ -47,7 +47,11 @@ int main(int argc, char **argv) {
                             f"-I{root / 'tests/linux-dist'}", f"-I{root / 'crates/ffi/include'}",
                             str(source), "-o", str(binary)], check=True, capture_output=True)
             for cycle in (1, 20):
-                for payload, expected in ((None, 1), ('{"ok":false}', 1), ('{"ok":true}', 0)):
+                for payload, expected in ((None, 1), ('{"ok":false}', 1),
+                        ('{"ok":false,"error":{"details":{"ok":true}}}', 1),
+                        ('{"data":{"ok":true}}', 1), ('{"ok":1}', 1),
+                        ('{"ok":true} trailing', 1), ('{"ok": true,"data":{"ok":false}}', 0),
+                        ('{"ok":true}', 0)):
                     with self.subTest(cycle=cycle, payload=payload):
                         result = subprocess.run([str(binary), str(cycle),
                                                  *([] if payload is None else [payload])],

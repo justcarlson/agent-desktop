@@ -10,8 +10,6 @@ import sys
 import tempfile
 import time
 
-from PIL import Image, ImageChops
-
 PAINTER = """
 import sys, gi
 gi.require_version("Gtk", "3.0")
@@ -31,10 +29,6 @@ GLib.timeout_add(500, lambda: (win.move(int(x), int(y)), False)[1])
 Gtk.main()
 """
 
-AD = sys.argv[1]
-WORK = tempfile.mkdtemp(prefix="adcap-cli-", dir=os.environ["AGENT_DESKTOP_PRIVATE_SESSION"])
-SCRIPT = os.path.join(WORK, "painter.py")
-open(SCRIPT, "w").write(PAINTER)
 CHILDREN = []
 FAILURES = []
 
@@ -45,9 +39,13 @@ def check(name, ok, detail=""):
         FAILURES.append(name)
 
 
-def ad(*args):
-    out = subprocess.run([AD, *args], capture_output=True, text=True, timeout=60)
-    return json.loads(out.stdout)
+def ad(*args, env=None):
+    out = subprocess.run([AD, *args], capture_output=True, text=True, timeout=60, env=env)
+    reply = json.loads(out.stdout)
+    assert reply.get("ok") is True or reply.get("ok") is False, out.stdout
+    expected = 0 if reply["ok"] else 1
+    assert out.returncode == expected, (out.returncode, out.stdout, out.stderr)
+    return reply
 
 
 def paint(title, color, x, y, w, h, popup=False):
@@ -77,6 +75,7 @@ def listed(title):
 
 
 def xwd_root():
+    from PIL import Image
     path = os.path.join(WORK, "root.xwd")
     subprocess.run(["xwd", "-silent", "-root", "-out", path], check=True)
     data = open(path, "rb").read()
@@ -89,6 +88,7 @@ def xwd_root():
 
 
 def shot(*args):
+    from PIL import Image
     path = os.path.join(WORK, "shot.png")
     if os.path.exists(path):
         os.remove(path)
@@ -98,6 +98,7 @@ def shot(*args):
 
 
 def same(image, oracle):
+    from PIL import ImageChops
     if image.size != oracle.size:
         print("  size", image.size, oracle.size)
         return False
@@ -186,24 +187,35 @@ def permissions_leg():
     listener.bind(path)
     listener.listen(4)
     env = dict(os.environ, WAYLAND_DISPLAY=path)
-    out = subprocess.run([AD, "permissions"], capture_output=True, text=True, env=env, timeout=60)
-    state = json.loads(out.stdout).get("data", {}).get("screen_recording", {}).get("state")
-    check("Wayland screen_recording is unknown", state == "unknown", out.stdout)
+    reply = ad("permissions", env=env)
+    state = reply.get("data", {}).get("screen_recording", {}).get("state")
+    check("Wayland screen_recording is unknown", state == "unknown", str(reply))
     listener.close()
 
 
-try:
-    print("compositing =", compositing())
-    window, before = window_leg()
-    covered_leg(window, before)
-    full_screen_leg()
-    off_screen_leg()
-    permissions_leg()
-finally:
-    for child in CHILDREN:
-        try:
-            os.killpg(child.pid, 9)
-        except ProcessLookupError:
-            pass
-print("FAILURES:", FAILURES)
-sys.exit(1 if FAILURES else 0)
+def main():
+    global AD, WORK, SCRIPT
+    AD = sys.argv[1]
+    WORK = tempfile.mkdtemp(prefix="adcap-cli-", dir=os.environ["AGENT_DESKTOP_PRIVATE_SESSION"])
+    SCRIPT = os.path.join(WORK, "painter.py")
+    with open(SCRIPT, "w") as painter:
+        painter.write(PAINTER)
+    try:
+        print("compositing =", compositing())
+        window, before = window_leg()
+        covered_leg(window, before)
+        full_screen_leg()
+        off_screen_leg()
+        permissions_leg()
+    finally:
+        for child in CHILDREN:
+            try:
+                os.killpg(child.pid, 9)
+            except ProcessLookupError:
+                pass
+    print("FAILURES:", FAILURES)
+    sys.exit(1 if FAILURES else 0)
+
+
+if __name__ == "__main__":
+    main()

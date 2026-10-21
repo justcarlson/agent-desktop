@@ -321,8 +321,8 @@ jobs:
       - name: Status reports accessibility granted on a live bus
         run: |
           cat > "$RUNNER_TEMP/status-granted.sh" <<'SCRIPT'
-          set -u
-          JSON=$(target/release/agent-desktop status) || true
+          set -eu
+          JSON=$(target/release/agent-desktop status)
           printf '%s\n' "$JSON"
           printf '%s' "$JSON" | python3 -c '
           import json, sys
@@ -339,7 +339,7 @@ jobs:
           XDG_RUNTIME_DIR=$(mktemp -d)
           export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent XDG_RUNTIME_DIR
           for command in status permissions; do
-            JSON=$(target/release/agent-desktop "$command") || true
+            JSON=$(target/release/agent-desktop "$command")
             printf '%s\n' "$JSON"
             printf '%s' "$JSON" | python3 -c '
           import json, sys
@@ -351,7 +351,9 @@ jobs:
           assert "session bus" in access["suggestion"], "suggestion does not name the session bus"
           '
           done
-          JSON=$(target/release/agent-desktop click @s8f3k2p9:e1) || true
+          RC=0
+          JSON=$(target/release/agent-desktop click @s8f3k2p9:e1) || RC=$?
+          test "$RC" -eq 1
           printf '%s\n' "$JSON"
           printf '%s' "$JSON" | python3 -c '
           import json, sys
