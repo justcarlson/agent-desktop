@@ -10,7 +10,6 @@ use super::signal_live_apps::{
 };
 
 const MENU_MS: u64 = 15_000;
-const SAMPLES: usize = 8;
 const CHECK_MENU_ITEM: u32 = 8;
 
 fn elapsed_ms(result: &Result<serde_json::Value, agent_desktop_core::AppError>) -> u64 {
@@ -25,21 +24,6 @@ fn found(result: &Result<serde_json::Value, agent_desktop_core::AppError>) -> &s
         }
         Err(error) => panic!("the menu wait failed: {}", error.code()),
     }
-}
-
-fn poll_cost(rig: &Rig, label: &str, app: &str, open: bool) {
-    let mut samples: Vec<u64> = (0..SAMPLES)
-        .map(|_| elapsed_ms(&wait_menu(rig, app, open, 5_000)))
-        .skip(1)
-        .collect();
-    samples.sort_unstable();
-    println!(
-        "menu_wait_live poll {label} state={} min={}ms median={}ms max={}ms",
-        if open { "open" } else { "closed" },
-        samples[0],
-        samples[samples.len() / 2],
-        samples[samples.len() - 1]
-    );
 }
 
 fn flips(
@@ -88,8 +72,6 @@ fn both_directions(rig: &Rig, legs: &Legs) {
         legs.label,
         outcome(&closed)
     );
-    poll_cost(rig, legs.label, legs.app, false);
-
     flips(rig, legs.app, true, || (legs.open)(), || (legs.is_open)());
     let already = wait_menu(rig, legs.app, true, MENU_MS);
     assert!(
@@ -98,8 +80,6 @@ fn both_directions(rig: &Rig, legs: &Legs) {
         legs.label,
         outcome(&already)
     );
-    poll_cost(rig, legs.label, legs.app, true);
-
     flips(rig, legs.app, false, || (legs.close)(), || (legs.is_open)());
 }
 
@@ -120,12 +100,6 @@ fn gtk4_menu(rig: &mut Rig, program: &str, args: &[&str]) {
         is_open: &|| showing_of(&rig.connection, pid, &[MENU]) > idle,
     };
     both_directions(rig, &legs);
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn menu_wait_live_calculator_main_menu_both_directions() {
-    gtk4_menu(&mut Rig::new(), "gnome-calculator", &[]);
 }
 
 #[test]
