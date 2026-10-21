@@ -49,8 +49,7 @@ Ordinary ignored X11 cases run on both openbox and mutter. Non-ignored unit
 cases run once, with the openbox tier. The native Wayland input, clipboard and
 portal cases boot their own compositor and must inherit no `WAYLAND_DISPLAY`;
 they run on the Wayland tier inside the common private bus/runtime envelope.
-The Wayland cursor refusals and no-input signal case use the external private
-Wayland shell helper; the signal case deliberately omits input devices.
+The Wayland cursor refusals use the external private Wayland shell helper.
 The physical mutter fixture boots its own X11 shell in a nested private
 session and runs on the mutter tier. Tests that replace a window manager run
 in a nested session so they cannot damage the remaining shard's environment.

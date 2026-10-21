@@ -25,8 +25,7 @@ WAYLAND_MODULES = (
 )
 CURSOR_WAYLAND = "system::cursor_overlay::tests::live_wayland_cursor_refusal_reports_unrendered_without_an_x11_window"
 CLI_WAYLAND = "system::cursor_overlay::cli_tests::live_wayland_cursor_cli_reports_unrendered_without_x11_fallback"
-SIGNAL_WAYLAND = "system::signal_live_tests::signal_live_wayland_without_input_times_out_with_baseline_counts"
-EXTERNAL_WAYLAND = (CURSOR_WAYLAND, CLI_WAYLAND, SIGNAL_WAYLAND)
+EXTERNAL_WAYLAND = (CURSOR_WAYLAND, CLI_WAYLAND)
 BARE_CASES = (
     "system::close_live_tests::close_live_a_private_gnome_shell_is_refused_and_keeps_running",
 )
@@ -261,10 +260,7 @@ def worker(manifest_path, tier, shard):
                    "--logfile", str(results), "--exact",
                    *task["tests"]]
         if any(name in EXTERNAL_WAYLAND for name in task["tests"]):
-            options = ["--no-input"] if SIGNAL_WAYLAND in task["tests"] else []
-            command = ["bash", str(ROOT / "scripts/private-wayland-shell.sh"), *options, "--", *command]
-            if SIGNAL_WAYLAND in task["tests"]:
-                command = ["env", "GDK_BACKEND=wayland", *command]
+            command = ["bash", str(ROOT / "scripts/private-wayland-shell.sh"), "--", *command]
         if task["module"] == SELF_MUTTER or any(name in BARE_CASES for name in task["tests"]):
             command = ["bash", str(ROOT / "scripts/private-session.sh"), "--", *command]
         code, seconds = run_bounded(command, log, manifest["timeout"])
