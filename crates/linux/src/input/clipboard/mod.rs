@@ -17,6 +17,7 @@ pub(crate) mod payload;
 pub(crate) mod release_gate;
 pub(crate) mod route_fallback;
 pub(crate) mod set_clear;
+pub(crate) mod target;
 pub(crate) mod targets;
 #[cfg(test)]
 pub(crate) mod test_nonce;

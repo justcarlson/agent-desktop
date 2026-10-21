@@ -3,7 +3,8 @@ use std::os::fd::IntoRawFd;
 use std::os::unix::fs::MetadataExt;
 
 use super::*;
-use crate::input::clipboard::payload::{Target, frame};
+use crate::input::clipboard::payload::frame;
+use crate::input::clipboard::target::Target;
 
 fn framed() -> Vec<u8> {
     frame(&Payload {
