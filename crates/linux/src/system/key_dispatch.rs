@@ -226,7 +226,7 @@ pub(crate) fn press_key_for_window(
         .filter(|instance| !instance.is_empty())
         .ok_or_else(|| window_not_active(window))?;
     press_in(Press {
-        physical: &LiveWorld { bus },
+        physical: &LiveWorld { bus, lease },
         keys: &LiveKeys { bus },
         process: &ProcessIdentity::new(window.pid, instance),
         window: Some(window),
