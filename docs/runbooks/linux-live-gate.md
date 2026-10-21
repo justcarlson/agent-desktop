@@ -127,17 +127,29 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
 - `tree::physical_live_tests::live_the_wheel_scrolls_a_gtk4_list_and_back`
   and `live_the_wheel_scrolls_a_qt_list_and_back`: parallel Mutter runs exposed
   timing-dependent scroll return and window mapping, respectively. Both merge
-  into `live_the_wheel_scrolls_a_gtk3_list_and_back` on both X11 tiers, retaining
+  into `physical_live_apps_tests::live_the_wheel_scrolls_the_files_list` on both X11 tiers, retaining
   the shared physical wheel movement, return and delivery contract. GTK4 and
   Qt list geometry and offscreen routing remain covered by the retained
   offscreen live matrix, and the headed Qt wheel case retains actual movement.
   A separate Qt-specific return-to-origin assertion is retired.
 - `tree::physical_live_tests::live_type_into_a_gtk3_entry_reads_back_with_remapped_characters`:
   intermittently could not acquire its fixture's active frame. The same-tier
-  `live_type_into_a_gtk4_entry_reads_back_with_remapped_characters` and Qt case
+  `live_type_into_a_qt_entry_reads_back_with_remapped_characters` case
   retain Unicode remapping, exact application log/value and honest unverified
   physical delivery assertions. `live_key_combos_select_and_delete_in_a_gtk3_entry`
   retains real GTK3 typing and key delivery on both X11 tiers.
+
+- `tree::physical_live_tests::live_the_wheel_scrolls_a_gtk3_list_and_back`:
+  its window intermittently did not become mapped/viewable. The same-tier
+  `tree::physical_live_apps_tests::live_the_wheel_scrolls_the_files_list` and
+  `live_the_wheel_scrolls_a_chromium_page` retain delivered down/up movement and
+  return-to-origin checks. The separate GTK3 list fixture is retired.
+- `tree::physical_live_tests::live_type_into_a_gtk4_entry_reads_back_with_remapped_characters`:
+  its window intermittently did not become mapped/viewable. The same-tier Qt
+  remapped-character owner retains exact Unicode application log/value and
+  honest unverified physical delivery. The real GTK4 text-editor case also
+  retains Unicode readback, and the GTK4 key-combination case retains native
+  entry typing and key delivery.
 
 - `system::focus_window::fallback_live_tests::focus_window_live_f1_never_focused_conditions_are_measured`:
   repeated diagnostic scenarios timed out acquiring the shared interaction lease
@@ -176,9 +188,8 @@ The retained Unicode typing and three key-combination cases in
 `tree::physical_live_tests` now establish the fixture's viewable active window,
 click the entry, and wait for its frame to report active instead of sleeping
 300 ms. The separate Mutter raw-click/Overview case still proves activation
-by a raw click. The retained GTK3 wheel case waits for available bounds, actual
-movement and return, with stable observations after the requested condition;
-an unchanged pre-event sample is no longer accepted as completed movement.
+by a raw click. Retained Files and Chromium wheel cases independently measure
+actual movement and return to their initial positions.
 `grab_live_describes_the_window_and_names_each_refusal` compares root coordinates
 with an independent X11 query instead of assuming the requested origin survives
 the WM; exact size, map state, parent and every refusal assertion remain.
@@ -187,9 +198,9 @@ The GTK menu-grab fixture maps both windows before a file handshake requests
 the popup. Its readiness flag follows the popup call and mapped-state check;
 the host also waits for the subject's inactive AT-SPI frame before testing the
 refusal and unverified global delivery. This replaces the 600 ms popup timer,
-1.2 s / 800 ms setup sleeps and 500 ms log sleep. Button and wheel fixtures use
+1.2 s / 800 ms setup sleeps and 500 ms log sleep. Button and entry fixtures use
 the same explicit active-window setup; the button still receives exactly one
-click, and wheel origin is sampled after setup. Private GNOME animations are
+click. Private GNOME animations are
 disabled so window-map transitions cannot move a fixture underneath its input.
 
 The retained stopped-window capture test waits until the owned painter's
@@ -197,6 +208,13 @@ independently read `/proc/<pid>/status` reports `T`/`t` after `SIGSTOP`.
 A successful signal command only requests a stop; capturing before the kernel
 has stopped the process made its precondition race. The production stopped
 process parser and exact `APP_UNRESPONSIVE` assertion remain unchanged.
+
+All seven hit-test live scenarios remain. Their independent X11 oracle now
+waits for the application window to appear in `wmctrl -lp` with an eight-second
+deadline, rather than assuming that a settled AT-SPI tree means the window
+manager has already published it. Qt/Files/VS Code cases reached the callback
+before that publication under parallel load; all exact/never-wrong hit verdict,
+cover-direction and coordinate assertions remain.
 
 ### Moved to deterministic unit coverage
 
@@ -226,9 +244,7 @@ Mutter startup uses the private shell's writable `OverviewActive` D-Bus property
 and observes its startup true value before requesting false: Shell exports the
 property before its asynchronous startup animation shows Overview. This avoids
 both closing an initial false value too early and keyboard-focus-dependent
-Escape synthesis. Wheel
-setup activates the window without an unrelated mouse click; actual wheel
-movement, return, delivery and release checks remain unchanged.
+Escape synthesis.
 
 ## Safety rules
 

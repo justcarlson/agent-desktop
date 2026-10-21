@@ -57,12 +57,17 @@ pub(super) fn windows() -> Vec<XWindow> {
 
 /// The X window of an application's frame: its process, then its title.
 pub(super) fn window_of(pid: u32, title: &str) -> Option<XWindow> {
-    let owned: Vec<XWindow> = windows().into_iter().filter(|w| w.pid == pid).collect();
-    owned
-        .iter()
-        .find(|window| window.title == title)
-        .or_else(|| owned.iter().max_by_key(|window| window.id))
-        .cloned()
+    let mut found = None;
+    wait_until(Duration::from_secs(8), || {
+        let owned: Vec<XWindow> = windows().into_iter().filter(|w| w.pid == pid).collect();
+        found = owned
+            .iter()
+            .find(|window| window.title == title)
+            .or_else(|| owned.iter().max_by_key(|window| window.id))
+            .cloned();
+        found.is_some()
+    });
+    found
 }
 
 /// The client area in root coordinates, from `xwininfo`.

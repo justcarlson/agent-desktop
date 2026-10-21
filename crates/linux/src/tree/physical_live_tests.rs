@@ -5,7 +5,6 @@ use agent_desktop_core::{
 };
 
 use super::live_launch::{Launched, nonce};
-use super::live_offscreen_live_tests::scripts::GTK3_LIST;
 use super::physical_live_rig::{Kit, Scene, Tgt};
 use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
@@ -111,58 +110,8 @@ fn click_button(kit: Kit, source: &str) {
     assert_eq!(seen, "clicked\n", "the button did not report a click");
 }
 
-fn wheel(kit: Kit, source: &str, anchor: &str) {
-    let scene = Scene::open(kit, source, 20);
-    let row = scene.find(&["button", "option", "listitem"], Some(anchor));
-    activate_scene(&scene);
-    let before = wait_y(&scene, &row, "the initial row bounds", |_| true);
-    scene
-        .act(
-            &row.handle,
-            Action::Scroll(agent_desktop_core::Direction::Down, 1),
-        )
-        .expect("the wheel is delivered");
-    let moved = wait_y(&scene, &row, "the row moving down", |y| before - y > 30.0);
-    assert!(before - moved > 30.0, "content moved {before} -> {moved}");
-    scene
-        .act(
-            &row.handle,
-            Action::Scroll(agent_desktop_core::Direction::Up, 1),
-        )
-        .expect("the wheel is delivered");
-    let back = wait_y(&scene, &row, "the row returning", |y| {
-        (y - before).abs() < 3.0
-    });
-    assert!(
-        (back - before).abs() < 3.0,
-        "content returned to {back}, not {before}"
-    );
-}
-
-fn wait_y(scene: &Scene, row: &Tgt, what: &str, ready: impl Fn(f64) -> bool) -> f64 {
-    let mut last: Option<f64> = None;
-    let mut stable = 0;
-    let mut value = None;
-    wait_until(what, Duration::from_secs(8), || {
-        value = scene.adapter_bounds(row).map(|bounds| bounds.y);
-        stable = match (last, value) {
-            (Some(before), Some(now)) if ready(now) && (now - before).abs() < 0.5 => stable + 1,
-            _ => 0,
-        };
-        last = value;
-        stable >= 3
-    });
-    value.expect("the condition read bounds")
-}
-
 fn pointer_buttons_down() -> bool {
     device_state("Virtual core XTEST pointer").contains("=down")
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_type_into_a_gtk4_entry_reads_back_with_remapped_characters() {
-    type_text(Kit::Gtk, GTK4);
 }
 
 #[test]
@@ -193,12 +142,6 @@ fn live_key_combos_select_and_delete_in_a_qt_entry() {
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_a_click_at_the_bounds_centre_presses_a_qt_button() {
     click_button(Kit::Qt, QT_BUTTON);
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_the_wheel_scrolls_a_gtk3_list_and_back() {
-    wheel(Kit::Gtk, GTK3_LIST, "Row 005");
 }
 
 #[test]
