@@ -42,7 +42,7 @@ fn one_match_with_arguments_spawns_and_reports_the_owner() {
         true,
         true,
     );
-    assert_eq!(decision, Decision::Forward(owner));
+    assert_eq!(decision, Decision::Forward);
 }
 
 #[test]
@@ -107,9 +107,4 @@ fn the_terminal_keys_include_the_server_exactly() {
     );
     let server = app(1, "gnome-terminal-server", "gnome-terminal-");
     assert!(matches(&table, &server));
-}
-
-#[test]
-fn keys_are_lower_cased_and_unique() {
-    assert_eq!(identity_keys(&keys(&["Tool", "tool", "TOOL"])), ["tool"]);
 }

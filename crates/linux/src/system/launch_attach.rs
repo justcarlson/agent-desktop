@@ -23,7 +23,7 @@ pub(crate) struct Running {
 pub(crate) enum Decision {
     Spawn,
     Attach(Running),
-    Forward(Running),
+    Forward,
     Refuse(Vec<u32>),
     Ambiguous(Vec<u32>),
 }
@@ -73,7 +73,7 @@ pub(crate) fn decide(
     match found.as_slice() {
         [] => Decision::Spawn,
         _ if !attach_if_running => Decision::Refuse(pids()),
-        [one] if has_arguments => Decision::Forward((*one).clone()),
+        [_] if has_arguments => Decision::Forward,
         [one] => Decision::Attach((*one).clone()),
         _ => Decision::Ambiguous(pids()),
     }

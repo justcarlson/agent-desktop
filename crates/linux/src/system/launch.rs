@@ -376,7 +376,7 @@ pub(crate) fn launch_app(
             &pids_of(&pids),
         )),
         Decision::Attach(owner) => launch.attach(&owner, &plan, &keys, &running),
-        Decision::Forward(_) | Decision::Spawn => launch.start(&plan, &keys, &running),
+        Decision::Forward | Decision::Spawn => launch.start(&plan, &keys, &running),
     }
 }
 
