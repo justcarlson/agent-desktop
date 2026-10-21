@@ -91,6 +91,8 @@ impl MenuContext {
 
 fn tree_complete(node: &WalkedNode<ObservedRead>) -> bool {
     !node.truncated
+        && !node.payload.node.traits.role.is_failed()
+        && !node.payload.node.properties.name.is_failed()
         && node.payload.label != super::LabelOutcome::Failed
         && node.children.iter().all(tree_complete)
 }

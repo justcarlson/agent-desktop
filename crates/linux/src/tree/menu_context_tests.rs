@@ -1,6 +1,6 @@
 use super::MenuContext;
 use crate::tree::test_support::ref_entry;
-use crate::tree::{AtspiElement, LabelOutcome, ObservedRead, WalkedNode};
+use crate::tree::{AtspiElement, Field, LabelOutcome, ObservedRead, WalkedNode};
 
 fn labelled_popup(label: LabelOutcome) -> WalkedNode<ObservedRead> {
     fn node(path: &str, label: LabelOutcome) -> WalkedNode<ObservedRead> {
@@ -23,6 +23,32 @@ fn labelled_popup(label: LabelOutcome) -> WalkedNode<ObservedRead> {
         node("/popup/context", label),
     ];
     root
+}
+
+#[test]
+fn unreadable_popup_role_or_name_cannot_certify_a_reused_item_path() {
+    let complete = MenuContext::from_walk(&labelled_popup(LabelOutcome::Unlabelled));
+    assert!(complete.matches(&complete));
+
+    for field in ["role", "name"] {
+        let mut popup = labelled_popup(LabelOutcome::Unlabelled);
+        let context = &mut popup.children[1].payload.node;
+        match field {
+            "role" => context.traits.role = Field::Failed("read failed".to_owned()),
+            "name" => context.properties.name = Field::Failed("read failed".to_owned()),
+            _ => unreachable!(),
+        }
+        let captured = MenuContext::from_walk(&popup);
+        let replacement = MenuContext::from_walk(&popup);
+        let mut entry = ref_entry("menuitem");
+        entry.identity.retained_object = Some(captured.encode("/popup/shared"));
+
+        assert!(!captured.matches(&replacement), "unreadable {field}");
+        assert!(
+            replacement.entry_for(&entry).is_none(),
+            "unreadable {field}"
+        );
+    }
 }
 
 #[test]
