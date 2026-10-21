@@ -75,11 +75,9 @@ qdir=$(printf '%q' "$DIR")
 # Every box dir shares one CARGO_TARGET_DIR, so cargo can take another worktree's build for fresh;
 # touching the sources inside the lock makes it rebuild this worktree's own.
 wrap=
-case "$cmd" in *cargo*) wrap='sh -c '"'"'find crates src -name \*.rs -exec touch {} + ; exec "$@"'"'"' sh' ;; esac
-# One timeout owns lock acquisition and execution; a nested timeout would move the command
-# into another process group that can outlive the outer deadline and the released lock.
-lock="timeout -k 30 $TIMEOUT flock -o -w $LOCK_TIMEOUT \$HOME/ad-wt/.box.lock"
-[ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock="timeout -k 30 $TIMEOUT"
+case "$cmd" in *cargo*|*linux-live-gate*) wrap='sh -c '"'"'find crates src -name \*.rs -exec touch {} + ; exec "$@"'"'"' sh' ;; esac
+lock="flock -o -w $TIMEOUT \$HOME/ad-wt/.box.lock"
+[ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p \$HOME/ad-wt $qdir"
 filter=$(mktemp)
 trap 'rm -f -- "$filter"' EXIT
@@ -87,6 +85,6 @@ git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ 'function esc(s){gsub(/
 rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
   && export CARGO_TARGET_DIR=\$HOME/ad-target CARGO_INCREMENTAL=0 && . ./scripts/session-env.sh \
-  && { $lock $wrap $cmd; rc=\$?; \
+  && { timeout -k 30 $TIMEOUT $lock $wrap $cmd; rc=\$?; \
   ls \$XDG_RUNTIME_DIR/at-spi/bus* >/dev/null 2>&1 || echo 'remote-linux: WARNING the live session AT-SPI bus socket is missing' >&2; \
   exit \$rc; }"

@@ -15,6 +15,8 @@ set -euo pipefail
   echo "private-wayland-shell: run it through scripts/private-session.sh" >&2
   exit 2
 }
+no_input=0
+[ "${1:-}" != "--no-input" ] || { no_input=1; shift; }
 [ "${1:-}" = "--" ] && shift
 [ $# -gt 0 ] || { echo "usage: private-wayland-shell.sh [--] command [args...]" >&2; exit 2; }
 
@@ -168,6 +170,7 @@ PY
 start_shell() {
   find "$rt" -maxdepth 1 -name 'wayland-*' -exec rm -f -- {} +
   local before
+  socket=
   before=$(sockets)
   setsid env -u DISPLAY gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 \
     > "$AGENT_DESKTOP_PRIVATE_SESSION/gnome-shell-wayland.log" 2>&1 < /dev/null &
@@ -182,7 +185,7 @@ start_shell() {
 }
 
 for _ in $(seq 1 "$attempts"); do
-  if start_shell && healthy && close_overview; then
+  if start_shell && healthy && { [ "$no_input" = 1 ] || close_overview; }; then
     export WAYLAND_DISPLAY=$socket
     start_portals || { stop_shell; continue; }
     "$@"

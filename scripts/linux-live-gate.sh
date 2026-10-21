@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# The Linux live gate: one row per leg, run on the owner's live session only.
-# Usage: scripts/linux-live-gate.sh [--dry-run] [--owner]
+# The Linux live gate: isolated library suite, or the attended owner-window registry.
+# Usage: scripts/linux-live-gate.sh [--tier all|openbox|mutter|wayland] [--jobs N] [--output DIR]
 #
 # --dry-run prints every leg id and exits without touching a display. A run
 # without --owner refuses a live session, because the legs read the owner's
 # desktop apps, shell windows, clipboard and consent dialogs.
 set -euo pipefail
+
+case "${1:-}" in
+  --owner|--dry-run) ;;
+  *) exec python3 "$(dirname "$0")/linux-live-gate.py" "$@" ;;
+esac
 
 legs() {
   cat <<'TABLE'

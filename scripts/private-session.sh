@@ -87,7 +87,11 @@ cleanup() {
     fusermount -u "$mount" 2>/dev/null || true
   done
   case "$rt" in
-    "$base"/rt.?*) [ -d "$rt" ] && rm -rf -- "$rt" ;;
+    "$base"/rt.?*)
+      if [ -d "$rt" ] && command -v trash >/dev/null 2>&1; then
+        trash "$rt"
+      fi
+      ;;
   esac
 }
 trap cleanup EXIT
@@ -119,9 +123,11 @@ done
 # The display number is chosen from :100 up, never by Xvfb's own lowest-free search: a low number can
 # be the owner's live display or another session's, and the live tests refuse :0, :1 and :99.
 display_number=
+exec 9> "$base/display.lock"
+flock 9
 for candidate in $(seq 100 149); do
   [ -e "/tmp/.X11-unix/X$candidate" ] || [ -e "/tmp/.X$candidate-lock" ] && continue
-  Xvfb ":$candidate" -screen 0 "$screen" -nolisten tcp 2> "$rt/xvfb.log" &
+  Xvfb ":$candidate" -screen 0 "$screen" -nolisten tcp 9>&- 2> "$rt/xvfb.log" &
   xvfb_pid=$!
   for _ in $(seq 1 50); do
     [ -S "/tmp/.X11-unix/X$candidate" ] && break
@@ -136,6 +142,8 @@ for candidate in $(seq 100 149); do
   fi
   kill "$xvfb_pid" 2>/dev/null || true
 done
+flock -u 9
+exec 9>&-
 [ -n "$display_number" ] || { echo "private-session: Xvfb did not start" >&2; exit 1; }
 export DISPLAY=":$display_number"
 
