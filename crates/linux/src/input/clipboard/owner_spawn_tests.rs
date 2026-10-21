@@ -84,7 +84,7 @@ fn nonces_are_valid_record_nonces_and_differ() {
 fn a_finished_owner_is_reaped_and_leaves_no_zombie() {
     let child = std::process::Command::new("true").spawn().expect("a child");
     let pid = child.id();
-    reap_when_done(child);
+    reap_when_done(child).expect("a reaper thread");
     let gone = (0..200).any(|_| {
         sleep(Duration::from_millis(25));
         !Path::new(&format!("/proc/{pid}")).exists()

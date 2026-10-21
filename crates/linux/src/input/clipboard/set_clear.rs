@@ -162,7 +162,13 @@ pub(crate) fn set_with(
             );
         }
     };
-    reap_when_done(child);
+    if let Err(error) = reap_when_done(child) {
+        discard(env.record_dir, display, env.nonce);
+        return Err(failed(
+            format!("The clipboard owner reaper could not start: {error}"),
+            DeliverySemantics::uncertain(),
+        ));
+    }
     if !verified(env, display, &record, &payload, deadline) {
         return Err(unresponsive(
             "The clipboard owner was not seen serving every target",

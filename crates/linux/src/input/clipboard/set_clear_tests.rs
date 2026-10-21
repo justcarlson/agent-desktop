@@ -343,3 +343,6 @@ fn no_payload_descriptor_stays_open_after_a_failed_set() {
 
 #[path = "set_clear_clear_tests.rs"]
 mod clear_tests;
+
+#[path = "set_clear_reaper_tests.rs"]
+mod reaper_tests;
