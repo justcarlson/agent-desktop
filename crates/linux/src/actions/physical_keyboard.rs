@@ -16,6 +16,9 @@ pub(crate) fn type_text_steps(
     policy: InteractionPolicy,
     deadline: Deadline,
 ) -> Result<Vec<ActionStep>, AdapterError> {
+    if text.is_empty() {
+        return Ok(Vec::new());
+    }
     ensure_keyboard_policy(policy)?;
     ensure_budget(deadline)?;
     let backend = world.backend()?;

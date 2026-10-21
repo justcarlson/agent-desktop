@@ -13,6 +13,27 @@ fn combo() -> KeyCombo {
 }
 
 #[test]
+fn empty_typing_is_satisfied_without_delivery_or_focus_changes() {
+    use agent_desktop_core::{Action, ActionRequest, DeliverySemantics};
+    for world in [FakeWorld::x11(), FakeWorld::wayland()] {
+        let result = crate::actions::physical_target::deliver_in(
+            &world,
+            &Action::TypeText(String::new()),
+            Some(&element()),
+            &ActionRequest::headed(Action::TypeText(String::new())),
+            deadline(),
+        )
+        .expect("empty insertion is already satisfied");
+        assert_eq!(result.disposition(), DeliverySemantics::not_delivered());
+        assert!(
+            world.entries().is_empty(),
+            "no focus, planning or input: {:?}",
+            world.entries()
+        );
+    }
+}
+
+#[test]
 fn headless_type_is_denied_by_policy_and_sends_nothing() {
     let world = FakeWorld::x11();
     let error = type_text_steps(

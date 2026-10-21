@@ -17,11 +17,14 @@ entry = Gtk.Entry()
 entry.get_accessible().set_name("Sibling")
 entry.set_text("unchanged")
 box.add(entry)
+empty = Gtk.Entry()
+empty.get_accessible().set_name("Empty")
+box.add(empty)
 clicks = 0
 def record(*_):
     path = pathlib.Path(sys.argv[2])
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"entry": entry.get_text(), "clicks": clicks, "sibling_focused": entry.has_focus()}))
+    temporary.write_text(json.dumps({"entry": entry.get_text(), "empty": empty.get_text(), "clicks": clicks, "sibling_focused": entry.has_focus()}))
     temporary.replace(path)
 def clicked(*_):
     global clicks
@@ -35,6 +38,7 @@ for label, focusable in [("Unfocusable", False), ("Target", True)]:
 entry.connect("changed", record)
 entry.connect("focus-in-event", record)
 entry.connect("focus-out-event", record)
+empty.connect("changed", record)
 window.add(box)
 window.show_all()
 entry.grab_focus()
@@ -47,9 +51,7 @@ fn read(path: &Path) -> serde_json::Value {
         .expect("app state")
 }
 
-#[test]
-#[ignore = "drives GTK in scripts/private-session.sh --wm"]
-fn ref_space_focuses_its_button_and_refuses_an_unfocusable_target() {
+fn open() -> (Bench, std::path::PathBuf) {
     let mut launched = Launched::new();
     let tag = nonce("keyboard");
     let scratch = std::env::temp_dir().join(&tag);
@@ -60,6 +62,18 @@ fn ref_space_focuses_its_button_and_refuses_an_unfocusable_target() {
     let adapter = crate::LinuxAdapter::new();
     let frame = Bench::wait_for_frame(&adapter, &tag, pid, 20).expect("GTK window");
     let bench = Bench::attach(launched, frame);
+    assert!(
+        bench
+            .wait_for(|| (read(&state)["sibling_focused"] == true).then_some(()))
+            .is_some()
+    );
+    (bench, state)
+}
+
+#[test]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
+fn ref_space_focuses_its_button_and_refuses_an_unfocusable_target() {
+    let (bench, state) = open();
     let blocked = bench.named("Unfocusable");
     let target = bench.named("Target");
     let press = || {
@@ -88,6 +102,44 @@ fn ref_space_focuses_its_button_and_refuses_an_unfocusable_target() {
     assert!(
         bench
             .wait_for(|| (read(&state)["clicks"] == 1).then_some(()))
+            .is_some()
+    );
+    assert_eq!(read(&state)["entry"], "unchanged");
+}
+
+#[test]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
+fn empty_ref_typing_preserves_focus_and_content_without_claiming_delivery() {
+    let (bench, state) = open();
+    let empty = bench.named("Empty");
+    let before = read(&state);
+    let result = bench
+        .act_with(
+            &empty,
+            ActionRequest::headed(Action::TypeText(String::new())),
+        )
+        .expect("empty insertion is satisfied");
+    assert_eq!(result.disposition(), DeliverySemantics::not_delivered());
+    assert_eq!(read(&state), before, "no focus or text changed");
+    let blocked = bench.named("Unfocusable");
+    let error = bench
+        .act_with(
+            &blocked,
+            ActionRequest::headed(Action::TypeText("x".to_owned())),
+        )
+        .expect_err("nonempty input still requires target focus");
+    assert_eq!(error.details.expect("details")["check"], "target_focus");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(read(&state), before);
+    bench
+        .act_with(
+            &empty,
+            ActionRequest::headed(Action::TypeText("x".to_owned())),
+        )
+        .expect("nonempty input reaches its target");
+    assert!(
+        bench
+            .wait_for(|| (read(&state)["empty"] == "x").then_some(()))
             .is_some()
     );
     assert_eq!(read(&state)["entry"], "unchanged");
