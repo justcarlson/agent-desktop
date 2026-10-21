@@ -7,13 +7,13 @@ use crate::system::{SharedBus, within};
 
 pub(crate) const WINDOW_COORDINATES: u32 = 1;
 
-/// One `GetExtents` in window coordinates. Any failed or malformed reply is
-/// `None`: the position is evidence only when it was read.
+/// One `GetExtents` in window coordinates. Unavailable or malformed geometry
+/// is unknown; a lost connection ends the read.
 pub(crate) async fn read_window_extents_async(
     connection: &Connection,
     element: &AtspiElement,
-) -> Option<Extents> {
-    let reply = call(
+) -> Result<Option<Extents>, AdapterError> {
+    let reply = match call(
         connection,
         element,
         COMPONENT_INTERFACE,
@@ -21,14 +21,22 @@ pub(crate) async fn read_window_extents_async(
         &(WINDOW_COORDINATES,),
     )
     .await
-    .ok()?;
-    let (x, y, width, height) = reply.body().deserialize::<(i32, i32, i32, i32)>().ok()?;
-    Some(Extents {
+    {
+        Ok(reply) => reply,
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            return Err(crate::system::classify(&error));
+        }
+        Err(_) => return Ok(None),
+    };
+    let Ok((x, y, width, height)) = reply.body().deserialize::<(i32, i32, i32, i32)>() else {
+        return Ok(None);
+    };
+    Ok(Some(Extents {
         x,
         y,
         width,
         height,
-    })
+    }))
 }
 
 /// An element's rectangle in window coordinates, or `None` when it cannot be
@@ -39,9 +47,10 @@ pub(crate) fn read_window_extents(
     deadline: Deadline,
 ) -> Option<Extents> {
     let connection = bus.get(deadline).ok()?;
-    within(deadline, async {
-        Ok::<_, AdapterError>(read_window_extents_async(connection.inner(), element).await)
-    })
+    within(
+        deadline,
+        read_window_extents_async(connection.inner(), element),
+    )
     .ok()
     .flatten()
 }

@@ -5,7 +5,7 @@ use super::listed_window::ListedWindow;
 use super::menu_popup;
 use super::{SharedBus, window_id};
 use crate::tree::AtspiElement;
-use crate::tree::nested_dialog::{Node, find, is_cut_short};
+use crate::tree::nested_dialog::{Node, find, is_incomplete};
 use crate::tree::observe_menu::{rooted, scan_walk};
 
 const NESTED_NODES: usize = 1000;
@@ -61,7 +61,7 @@ pub(crate) fn scan_windows(
             scan.unread.push(index);
             continue;
         };
-        let mut whole = !is_cut_short(&root);
+        let mut whole = !is_incomplete(&root);
         for dialog in find(&root) {
             match window_id::encode(dialog.element.bus_name(), dialog.element.path()) {
                 Some(id) => scan.found.push(Nested {

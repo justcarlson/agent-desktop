@@ -56,4 +56,34 @@ fn observe_live_calculator_returns_a_complete_reffed_tree() {
     );
     assert!(complete);
     assert!(refs(&root) >= 20, "a calculator has many buttons");
+
+    let oracle = || {
+        let output = std::process::Command::new("python3")
+            .args([
+                "-c",
+                "import gi,sys; gi.require_version('Atspi','2.0'); from gi.repository import Atspi; d=Atspi.get_desktop(0); apps=[d.get_child_at_index(i) for i in range(d.get_child_count())]; a=next(a for a in apps if a.get_process_id()==int(sys.argv[1])); assert a.get_child_count()>0; print(a.get_name())",
+                &pid.to_string(),
+            ])
+            .output()
+            .expect("independent AT-SPI observer");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+    oracle();
+    let mut walk = super::walker::walk_tree(
+        &bus,
+        &settled.frame,
+        &super::WalkLimits::default(),
+        Deadline::after(10_000).unwrap(),
+    )
+    .expect("a complete live walk before placement");
+    assert!(walk.complete);
+    zbus::block_on(connection.inner().clone().close()).unwrap();
+    let error = super::node_position::place_nodes(&bus, &mut walk, Deadline::after(5_000).unwrap())
+        .expect_err("placement cannot publish a complete tree after transport loss");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);
+    oracle();
 }

@@ -139,7 +139,7 @@ fn nested_sheet(
     request: &ObservationRequest,
     host: &mut SettleHost<'_>,
 ) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
-    if !window_walk.complete || super::nested_dialog::is_cut_short(&window_walk.root) {
+    if !window_walk.complete || super::nested_dialog::is_incomplete(&window_walk.root) {
         return Err(AdapterError::timeout(
             "Sheet discovery did not read the complete window",
         ));
@@ -252,7 +252,7 @@ pub(crate) fn observe_tree_with(
 ) -> Result<ObservedTree, AdapterError> {
     let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline| {
         let mut walk = walk_tree(bus, element, limits, deadline)?;
-        place_nodes(bus, &mut walk, deadline);
+        place_nodes(bus, &mut walk, deadline)?;
         Ok(walk)
     };
     let mut pause = std::thread::sleep;

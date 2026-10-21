@@ -133,7 +133,7 @@ impl NodeSource for BusNodes<'_> {
             Ok(Described {
                 role,
                 name,
-                window_extents: read_window_extents_async(self.connection, node).await,
+                window_extents: read_window_extents_async(self.connection, node).await?,
             })
         })
     }
