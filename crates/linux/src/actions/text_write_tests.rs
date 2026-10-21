@@ -228,11 +228,39 @@ fn a_qt_field_is_sent_the_utf16_length_so_it_reads_no_garbage_past_the_text() {
 
 #[test]
 fn the_gecko_refusal_is_not_supported_not_delivered_and_names_its_cause() {
-    let error = editable_text_ignored();
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert_eq!(
-        error.details.expect("details")["cause"],
-        "toolkit_ignores_editable_text"
+    for policy in [
+        InteractionPolicy::headless(),
+        InteractionPolicy::focus_fallback(),
+        InteractionPolicy::headed(),
+    ] {
+        let error = editable_text_ignored(policy, "set-value");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(
+            error.details.expect("details")["cause"],
+            "toolkit_ignores_editable_text"
+        );
+        let hint = error.suggestion.expect("recovery hint");
+        assert_eq!(
+            hint.contains("--headed type"),
+            !policy.is_headed(),
+            "{hint}"
+        );
+        if policy.is_headed() {
+            assert!(hint.contains("'type' in the current headed mode"), "{hint}");
+            assert!(!hint.contains("--headed"), "{hint}");
+        }
+    }
+}
+
+#[test]
+fn ignored_semantic_type_does_not_repeat_an_exhausted_physical_route() {
+    let error = editable_text_ignored(InteractionPolicy::headed(), "type");
+    let hint = error.suggestion.expect("recovery hint");
+    assert!(
+        hint.contains("physical route and semantic text writes are unavailable"),
+        "{hint}"
     );
+    assert!(!hint.contains("Use 'type'"), "{hint}");
+    assert!(!hint.contains("--headed"), "{hint}");
 }

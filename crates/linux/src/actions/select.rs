@@ -267,7 +267,7 @@ pub(super) fn unchanged_is_ignored(
             ErrorCode::ActionFailed,
             "The selection write was accepted but the requested choice was not observed",
         )
-        .with_suggestion("Choose the item with a headed click and key route")
+        .with_suggestion("Inspect the current selection, take a fresh snapshot, and choose an item that advertises a selection or activation action")
         .with_details(json!({ "cause": "write_ignored" }))
         .with_disposition(DeliverySemantics::delivered_unverified())),
         other => Ok(other),

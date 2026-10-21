@@ -81,7 +81,7 @@ pub(super) fn check_with_stability(
     deadline: crate::Deadline,
 ) -> Result<ActionabilityReport, AdapterError> {
     let report = build_report(stability, evidence, request, hit_test, deadline)?;
-    finish(evidence, report)
+    finish(evidence, request, report)
 }
 
 /// Like [`check_with_stability`], but a report whose only unmet requirement
@@ -104,7 +104,7 @@ pub(super) fn check_with_stability_or_gap(
     if !report.actionable && report.only_blocking_check_is_stability() {
         return Ok(report);
     }
-    finish(evidence, report)
+    finish(evidence, request, report)
 }
 
 pub(super) fn build_report(
@@ -193,6 +193,7 @@ fn center_point(bounds: crate::Rect) -> Option<crate::Point> {
 
 fn finish(
     evidence: &ActionabilityEvidence,
+    request: &ActionRequest,
     report: ActionabilityReport,
 ) -> Result<ActionabilityReport, AdapterError> {
     if report.actionable {
@@ -206,7 +207,23 @@ fn finish(
             check.check == "editable" && check.status == super::status::ActionabilityStatus::Fail
         })
     {
-        "This cell is not directly editable. Activate it, take a fresh snapshot, and target the text editor if one appears; otherwise the application may accept only keyboard input (--headed)."
+        "This cell is not directly editable. Activate it, take a fresh snapshot, and target the text editor if one appears."
+    } else if code == ErrorCode::ActionNotSupported
+        && matches!(request.action, crate::Action::SetFocus)
+    {
+        "Choose an element advertising SetFocus in a fresh snapshot. To focus the owning window instead, use focus-window."
+    } else if code == ErrorCode::ActionNotSupported
+        && matches!(
+            request.action,
+            crate::Action::SetValue(_) | crate::Action::Clear
+        )
+        && matches!(evidence.state.role.as_str(), "textfield" | "combobox")
+    {
+        if request.policy.is_headed() {
+            "This field has no semantic text-write action. Use 'type' in the current headed mode for physical keyboard input; select the existing text first if you intend to replace it."
+        } else {
+            "This field has no semantic text-write action. Use '--headed type' for physical keyboard input; select the existing text first if you intend to replace it."
+        }
     } else {
         "Waiting will not help: this element cannot satisfy the action as targeted. Target an element that advertises the action (check available_actions in a fresh snapshot). For a dropdown without select support, open it with click, inspect its choices, and use explicit keyboard input."
     };
@@ -226,6 +243,10 @@ fn finish(
     .with_suggestion(suggestion)
     .with_disposition(crate::DeliverySemantics::not_delivered()))
 }
+
+#[cfg(test)]
+#[path = "evaluate_recovery_tests.rs"]
+mod recovery_tests;
 
 #[cfg(test)]
 mod tests {
@@ -270,14 +291,15 @@ mod tests {
             super::super::pointer_delivery::PointerDelivery::NotApplicable,
         );
 
-        let error = finish(&evidence, report).expect_err("non-actionable report must fail");
+        let request = ActionRequest::headed(crate::Action::SetValue("value".into()));
+        let error =
+            finish(&evidence, &request, report).expect_err("non-actionable report must fail");
 
         assert_eq!(
             error.suggestion.as_deref(),
             Some(
                 "This cell is not directly editable. Activate it, take a fresh snapshot, and \
-                 target the text editor if one appears; otherwise the application may accept \
-                 only keyboard input (--headed)."
+                 target the text editor if one appears."
             )
         );
         assert!(!error.suggestion.unwrap().contains("it exposes"));

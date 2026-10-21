@@ -229,6 +229,34 @@ fn another_window_of_the_process_is_refused_headless_and_nothing_is_pressed() {
 }
 
 #[test]
+fn exact_window_refusal_respects_the_actual_interaction_mode() {
+    for policy in [
+        crate::InteractionPolicy::headless(),
+        crate::InteractionPolicy::focus_fallback(),
+        crate::InteractionPolicy::headed(),
+    ] {
+        let adapter = with_active("w-42", 42);
+        let deadline = crate::Deadline::standard().unwrap();
+        let lease = crate::InteractionLease::guarded(deadline, ()).unwrap();
+        let error = adapter
+            .press_key_for_window(
+                &window(41),
+                &KeyCombo {
+                    key: "a".into(),
+                    modifiers: Vec::new(),
+                },
+                policy,
+                &lease,
+            )
+            .unwrap_err();
+        assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+        let hint = error.suggestion.unwrap();
+        assert_eq!(hint.contains("--headed"), !policy.is_headed(), "{hint}");
+        assert!(adapter.pressed_pid.lock().unwrap().is_none());
+    }
+}
+
+#[test]
 fn headed_brings_the_named_window_forward_instead_of_refusing() {
     let adapter = with_active("w-42", 42);
     let context = CommandContext::default().with_headed(true);

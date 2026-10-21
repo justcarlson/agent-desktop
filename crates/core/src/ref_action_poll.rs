@@ -197,9 +197,7 @@ fn live_read_incomplete(state: &RefActionPollState, deadline: Deadline) -> Adapt
         ErrorCode::ActionFailed,
         "Live reads were incomplete before actionability could be determined",
     )
-    .with_suggestion(
-        "Re-snapshot the window and act on a fresh ref, or fall back to --headed coordinate input from the ref bounds.",
-    )
+    .with_suggestion("Re-snapshot the window and act on a fresh ref once live reads are complete.")
     .with_details(json!({
         "kind": "live_read_incomplete",
         "retryable": false,

@@ -1,4 +1,6 @@
-use agent_desktop_core::{Action, ActionResult, AdapterError, DeliverySemantics, ErrorCode};
+use agent_desktop_core::{
+    Action, ActionResult, AdapterError, DeliverySemantics, ErrorCode, InteractionPolicy,
+};
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::chain::{ChainDef, execute_chain};
@@ -171,9 +173,13 @@ fn ensure_writable(view: &NodeView) -> Result<(), AdapterError> {
     }
 }
 
-fn ensure_toolkit_applies_writes(target: &Target<'_>) -> Result<(), AdapterError> {
+fn ensure_toolkit_applies_writes(
+    target: &Target<'_>,
+    policy: InteractionPolicy,
+    action: &str,
+) -> Result<(), AdapterError> {
     if is_gecko(&toolkit_of(target.bus, target.element, target.deadline)) {
-        return Err(text_write::editable_text_ignored());
+        return Err(text_write::editable_text_ignored(policy, action));
     }
     Ok(())
 }
@@ -195,7 +201,11 @@ const TYPE: ChainDef = ChainDef {
     suggestion: "Focus the field and retry, or use set-value to replace the whole text",
 };
 
-pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult, AdapterError> {
+pub(crate) fn set_value(
+    target: &Target<'_>,
+    text: &str,
+    policy: InteractionPolicy,
+) -> Result<ActionResult, AdapterError> {
     let view = target.view()?;
     match route(view.role(), view.interfaces()) {
         Route::Unsupported => Err(unsupported("set a value")),
@@ -208,7 +218,7 @@ pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult,
         }
         Route::Text => {
             ensure_writable(&view)?;
-            ensure_toolkit_applies_writes(target)?;
+            ensure_toolkit_applies_writes(target, policy, SET_VALUE.action)?;
             let port = LiveText { target };
             let mut rungs = text_write::replace_rungs(&port, text, secure_view(&view));
             execute_chain(&SET_VALUE, &mut rungs, target.deadline)
@@ -216,19 +226,26 @@ pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult,
     }
 }
 
-pub(crate) fn clear(target: &Target<'_>) -> Result<ActionResult, AdapterError> {
+pub(crate) fn clear(
+    target: &Target<'_>,
+    policy: InteractionPolicy,
+) -> Result<ActionResult, AdapterError> {
     let view = target.view()?;
     if !text_advertised(view.interfaces()) {
         return Err(unsupported("clear"));
     }
     ensure_writable(&view)?;
-    ensure_toolkit_applies_writes(target)?;
+    ensure_toolkit_applies_writes(target, policy, CLEAR.action)?;
     let port = LiveText { target };
     let mut rungs = text_write::replace_rungs(&port, "", secure_view(&view));
     execute_chain(&CLEAR, &mut rungs, target.deadline)
 }
 
-pub(crate) fn type_text(target: &Target<'_>, text: &str) -> Result<ActionResult, AdapterError> {
+pub(crate) fn type_text(
+    target: &Target<'_>,
+    text: &str,
+    policy: InteractionPolicy,
+) -> Result<ActionResult, AdapterError> {
     let view = target.view()?;
     if !text_advertised(view.interfaces()) {
         return Err(super::click::no_semantic_verb(&Action::TypeText(
@@ -236,7 +253,7 @@ pub(crate) fn type_text(target: &Target<'_>, text: &str) -> Result<ActionResult,
         )));
     }
     ensure_writable(&view)?;
-    ensure_toolkit_applies_writes(target)?;
+    ensure_toolkit_applies_writes(target, policy, TYPE.action)?;
     let port = LiveText { target };
     let mut rungs = text_write::insert_rungs(&port, text, secure_view(&view));
     execute_chain(&TYPE, &mut rungs, target.deadline)

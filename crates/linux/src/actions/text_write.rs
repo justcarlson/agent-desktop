@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, InteractionPolicy};
 
 use super::chain::{DeliveryOutcome, Observed, Rung};
 use super::mutation::{WriteReply, with_value_chars};
@@ -34,12 +34,18 @@ pub(crate) fn read_only_field() -> AdapterError {
         .with_disposition(DeliverySemantics::not_delivered())
 }
 
-pub(crate) fn editable_text_ignored() -> AdapterError {
+pub(crate) fn editable_text_ignored(policy: InteractionPolicy, action: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionNotSupported,
         "This toolkit accepts EditableText writes and applies none of them",
     )
-    .with_suggestion("Click the field and type with --headed, which sends real key events")
+    .with_suggestion(if policy.is_headed() && action == "type" {
+        "The headed physical route and semantic text writes are unavailable; choose another input-capable target"
+    } else if policy.is_headed() {
+        "Use 'type' in the current headed mode to send real key events; select the existing text first if you intend to replace it"
+    } else {
+        "Use '--headed type' to send real key events; select the existing text first if you intend to replace it"
+    })
     .with_details(serde_json::json!({ "cause": "toolkit_ignores_editable_text" }))
     .with_disposition(DeliverySemantics::not_delivered())
 }
