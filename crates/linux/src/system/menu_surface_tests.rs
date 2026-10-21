@@ -3,7 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo, WindowState};
 
 use super::menu_popup::Node;
-use super::{MAX_POLLS, MenuPopup, PopupReader, entries_across, entry, find_popups};
+use super::{MAX_POLLS, MenuPopup, PopupReader, entries_across, entry, find_popups, inventory};
 use crate::system::menu_fixture::*;
 
 struct Fake {
@@ -58,13 +58,21 @@ impl PopupReader for Fake {
 }
 
 #[test]
+fn an_observed_popup_remains_positive_when_other_candidates_are_unread() {
+    let mut reader = Fake::new(frame_with(vec![gtk4_popover(true)]));
+    reader.incomplete = true;
+    let found = find_popups(&mut reader, false, deadline()).expect("observed popup");
+    assert_eq!(found.len(), 1);
+}
+
+#[test]
 fn an_unread_menu_inventory_marks_the_window_unclassified() {
     let owner = owner(false);
     let mut reader = Fake::new(frame_with(Vec::new()));
-    let complete = find_popups(&mut reader, false, deadline()).expect("observed absence");
+    let complete = inventory(&mut reader, false, deadline()).expect("observed absence");
     assert!(complete.is_empty());
     reader.incomplete = true;
-    let menu = entries_across(&[&owner], |_| find_popups(&mut reader, false, deadline()));
+    let menu = entries_across(&[&owner], |_| inventory(&mut reader, false, deadline()));
     let window_entry = agent_desktop_core::SurfaceInfo {
         id: owner.id,
         kind: "window".to_owned(),

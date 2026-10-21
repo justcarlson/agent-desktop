@@ -59,11 +59,6 @@ fn scan(reader: &mut impl PopupReader) -> Result<Vec<MenuPopup>, AdapterError> {
             .filter_map(menu_popup::top_level)
             .map(popup_of),
     );
-    if reader.incomplete() {
-        return Err(AdapterError::timeout(
-            "The menu inventory could not be read in full",
-        ));
-    }
     Ok(popups)
 }
 
@@ -89,6 +84,20 @@ pub(super) fn find_popups(
         }
         reader.pause(POLL_GAP);
         popups = scan(reader)?;
+    }
+    Ok(popups)
+}
+
+fn inventory(
+    reader: &mut impl PopupReader,
+    settle: bool,
+    deadline: Deadline,
+) -> Result<Vec<MenuPopup>, AdapterError> {
+    let popups = find_popups(reader, settle, deadline)?;
+    if reader.incomplete() {
+        return Err(AdapterError::timeout(
+            "The menu inventory could not be read in full",
+        ));
     }
     Ok(popups)
 }
@@ -148,9 +157,10 @@ pub(crate) fn surfaces_of(
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
     entries_across(owners, |owner| {
-        popups_of(
-            bus,
-            owner,
+        let (bus_name, path) = window_id::decode(&owner.id)?;
+        let window = AtspiElement::new(bus_name, path, owner.pid.get());
+        inventory(
+            &mut BusReader::new(bus, &window, deadline),
             super::action_clock::settles(owner.state.is_focused),
             deadline,
         )
