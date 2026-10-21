@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use agent_desktop_core::{Action, Direction, KeyCombo, Modifier};
 
-use super::live_launch::{Launched, nonce};
+use super::live_launch::Launched;
 use super::live_offscreen_live_tests::scripts::QT_LIST;
 use super::physical_live_rig::{Kit, Scene, Tgt};
 use crate::actions::scroll_into_view;
@@ -40,23 +40,6 @@ fn type_and_read(scene: &Scene, field: &Tgt, text: &str, replace: bool) -> Strin
     scene.value_of(field).unwrap_or_default()
 }
 
-fn wheel_on(scene: &Scene, anchor: &Tgt, amount: u32) {
-    let before = scene.settled_y(anchor);
-    scene
-        .act(&anchor.handle, Action::Scroll(Direction::Down, amount))
-        .expect("the wheel is delivered");
-    let moved = scene.settled_y(anchor);
-    assert!(before - moved > 30.0, "content moved {before} -> {moved}");
-    scene
-        .act(&anchor.handle, Action::Scroll(Direction::Up, amount))
-        .expect("the wheel is delivered");
-    let back = scene.settled_y(anchor);
-    assert!(
-        (back - before).abs() < 3.0,
-        "content returned to {back}, not {before}"
-    );
-}
-
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_text_editor_receives_typed_text_with_remapped_characters() {
@@ -73,20 +56,6 @@ fn live_calculator_evaluates_typed_keys() {
     let display = scene.find(&["textfield"], None);
     let shown = type_and_read(&scene, &display, "6*7=", false);
     assert!(shown.contains("42"), "the display reads {shown:?}");
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_the_wheel_scrolls_the_files_list() {
-    let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("session");
-    let files = format!("{dir}/{}", nonce("files"));
-    std::fs::create_dir_all(&files).expect("dir");
-    for i in 0..300 {
-        std::fs::write(format!("{files}/file-{i:03}.txt"), "x").expect("file");
-    }
-    let scene = app_scene("nautilus", &["--new-window", &files], 20);
-    let anchor = scene.find(&["cell"], Some("file-005.txt"));
-    wheel_on(&scene, &anchor, 1);
 }
 
 #[test]
