@@ -121,23 +121,6 @@ pub(crate) fn popups_of(
     popups_at(bus, &window, settle, deadline)
 }
 
-/// The popups open in a window and the top-level popups of its application,
-/// outermost first. A listing waits for a popup to appear only when this
-/// process has just delivered an action and the window holds the focus: that
-/// is the one case where a popup may be on its way.
-pub(crate) fn open_popups(
-    bus: &SharedBus,
-    owner: &WindowInfo,
-    deadline: Deadline,
-) -> Result<Vec<MenuPopup>, AdapterError> {
-    popups_of(
-        bus,
-        owner,
-        super::action_clock::settles(owner.state.is_focused),
-        deadline,
-    )
-}
-
 /// One `menu` entry for the outermost open popup.
 pub(crate) fn entry(popup: &MenuPopup, owner: &WindowInfo) -> SurfaceInfo {
     SurfaceInfo {
@@ -158,7 +141,14 @@ pub(crate) fn surfaces_of(
     owners: &[&WindowInfo],
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
-    entries_across(owners, |owner| open_popups(bus, owner, deadline))
+    entries_across(owners, |owner| {
+        popups_of(
+            bus,
+            owner,
+            super::action_clock::settles(owner.state.is_focused),
+            deadline,
+        )
+    })
 }
 
 fn entries_across(
