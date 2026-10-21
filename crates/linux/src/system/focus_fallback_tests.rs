@@ -121,11 +121,8 @@ fn a_lease_spent_before_the_fallback_sends_no_unstamped_request_and_times_out_un
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::Never;
     world.untimed_grants = true;
-    world.grace = Grace {
-        activation: std::time::Duration::from_millis(400),
-        frame_report: std::time::Duration::from_millis(400),
-    };
-    let error = run(&world, &window(), budget()).expect_err("the lease ran out");
+    let deadline = Deadline::after(250).expect("a deadline builds");
+    let error = run(&world, &window(), deadline).expect_err("the lease ran out");
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(writes(&world), ["send"]);
@@ -136,10 +133,6 @@ fn an_ignored_stamped_request_is_resent_after_the_first_look_not_after_the_whole
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::Never;
     world.untimed_grants = true;
-    world.grace = Grace {
-        activation: std::time::Duration::from_millis(3_000),
-        frame_report: std::time::Duration::from_millis(3_000),
-    };
     let deadline = Deadline::after(10_000).expect("a deadline builds");
     let started = std::time::Instant::now();
     run(&world, &window(), deadline).expect("the unstamped request is honoured");
@@ -155,14 +148,10 @@ fn an_ignored_stamped_request_is_resent_after_the_first_look_not_after_the_whole
 fn a_display_that_already_names_the_window_is_waited_on_for_the_whole_grace() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::OnlyOnX11;
-    world.grace = Grace {
-        activation: std::time::Duration::from_millis(900),
-        frame_report: std::time::Duration::from_millis(900),
-    };
     let deadline = Deadline::after(10_000).expect("a deadline builds");
     let started = std::time::Instant::now();
     let error = run(&world, &window(), deadline).expect_err("the frame never follows");
-    assert!(started.elapsed() >= std::time::Duration::from_millis(850));
+    assert!(started.elapsed() >= std::time::Duration::from_millis(5_900));
     assert_eq!(error.details.expect("details")["cause"], "frame_not_active");
     assert_eq!(writes(&world), ["send"]);
 }

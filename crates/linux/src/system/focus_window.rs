@@ -23,17 +23,6 @@ const FIRST_LOOK: Duration = Duration::from_millis(400);
 /// event, which took 1.8 s on an idle box and more on a loaded one.
 const FRAME_REPORT_GRACE: Duration = Duration::from_millis(6_000);
 
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Grace {
-    pub(super) activation: Duration,
-    pub(super) frame_report: Duration,
-}
-
-const GRACE: Grace = Grace {
-    activation: ACTIVATION_GRACE,
-    frame_report: FRAME_REPORT_GRACE,
-};
-
 /// Which display server the session uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Session {
@@ -71,10 +60,7 @@ pub(super) trait FocusWorld: ClientWorld {
     /// Whether any accessibility frame owned by this process reports ACTIVE.
     /// Chromium can move ACTIVE from its main frame to an application-owned
     /// popup while the X11 window manager continues to name the main client.
-    fn app_frame_active(&self) -> Option<bool>;
-    fn grace(&self) -> Grace {
-        GRACE
-    }
+    fn app_frame_active(&self) -> bool;
     fn overview_open(&self) -> Option<bool>;
 }
 
@@ -117,23 +103,6 @@ fn client_view(world: &impl FocusWorld, client: u32) -> Result<ClientView, Cause
     })
 }
 
-fn held_cause(frame: FrameView, hidden: bool) -> Option<Cause> {
-    if frame.minimized == Some(true) {
-        Some(Cause::WindowMinimized)
-    } else if hidden {
-        Some(Cause::WindowHidden)
-    } else {
-        None
-    }
-}
-
-fn lift_held(world: &impl FocusWorld, client: u32, cause: Cause) -> Result<(), AdapterError> {
-    match world.lift(client)? {
-        Lifted::Cleared => Ok(()),
-        Lifted::StillHidden { manager } => Err(lift_refusal(cause, &manager)),
-    }
-}
-
 /// Whether the window is active by both measures. A dialog that its toolkit
 /// marks modal or presents as a dialog frame and never reports active has no
 /// frame measure to give; for it the display server naming the window active
@@ -144,8 +113,7 @@ fn is_active(world: &impl FocusWorld, client: u32) -> (Option<u32>, bool) {
         return (active, false);
     }
     let view = world.frame().ok();
-    let reported =
-        view.and_then(|view| view.active) == Some(true) || world.app_frame_active() == Some(true);
+    let reported = view.and_then(|view| view.active) == Some(true) || world.app_frame_active();
     let silent_dialog = view
         .is_some_and(|view| (view.modal == Some(true) || view.dialog) && view.active != Some(true));
     let done = reported || world.menu_open() || (silent_dialog && world.input_focus_in(client));
@@ -190,11 +158,7 @@ fn wait_for_focus(
 }
 
 fn overview_aware(world: &impl FocusWorld, cause: Cause) -> Cause {
-    let held_back = matches!(
-        cause,
-        Cause::ActivationNotGranted | Cause::ActivationRefused | Cause::FrameNotActive
-    );
-    if held_back && world.overview_open() == Some(true) {
+    if world.overview_open() == Some(true) {
         Cause::OverviewOpen
     } else {
         cause
@@ -214,11 +178,10 @@ fn ask_and_wait(
         world.send(client)
     };
     sent.map_err(|_| refusal(Cause::ActivationNotSent))?;
-    let grace = world.grace();
-    let first_look = (!untimed).then_some(FIRST_LOOK.min(grace.activation));
+    let first_look = (!untimed).then_some(FIRST_LOOK);
     let deadlines = (
-        deadline.capped(grace.activation),
-        deadline.capped(grace.frame_report),
+        deadline.capped(ACTIVATION_GRACE),
+        deadline.capped(FRAME_REPORT_GRACE),
     );
     match wait_for_focus(world, client, before, deadlines, first_look) {
         Ok(()) => Ok(()),
@@ -275,9 +238,14 @@ pub(super) fn run(
             .switch_desktop(desktop)
             .map_err(|_| refusal(Cause::ActivationNotSent))?;
     }
-    let active = match held_cause(frame, view.hidden) {
+    let active = match (frame.minimized == Some(true))
+        .then_some(Cause::WindowMinimized)
+        .or_else(|| view.hidden.then_some(Cause::WindowHidden))
+    {
         Some(cause) => {
-            lift_held(world, client, cause)?;
+            if let Lifted::StillHidden { manager } = world.lift(client)? {
+                return Err(lift_refusal(cause, &manager));
+            }
             if is_active(world, client).1 {
                 return Ok(());
             }
@@ -285,9 +253,7 @@ pub(super) fn run(
         }
         None if view.other_desktop.is_none()
             && active == Some(client)
-            && (frame.active == Some(true)
-                || world.app_frame_active() == Some(true)
-                || world.menu_open()) =>
+            && (frame.active == Some(true) || world.app_frame_active() || world.menu_open()) =>
         {
             return Ok(());
         }
@@ -340,7 +306,7 @@ mod lift_tests;
 
 #[cfg(test)]
 #[path = "focus_lift_live_tests.rs"]
-mod lift_live_tests;
+pub(super) mod lift_live_tests;
 
 #[cfg(test)]
 #[path = "focus_fallback_live_tests.rs"]
