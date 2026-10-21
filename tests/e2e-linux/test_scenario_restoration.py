@@ -1,5 +1,5 @@
 import unittest
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -218,6 +218,58 @@ class RegistryRestorationTests(unittest.TestCase):
 
 
 class MenuRestorationTests(unittest.TestCase):
+    def test_registered_preferences_click_requires_an_independent_unique_dialog(self):
+        for source in ("snapshot", "find"):
+            for dialog_count in (0, 1, 2):
+                with self.subTest(source=source, dialog_count=dialog_count):
+                    tier = SimpleNamespace(runtime_dir=Path("/private/test"), display=None)
+                    leg_id = f"menus.preferences_{source}_ref"
+                    ctx = LegContext(tier, "headless", legs.leg_by_id(leg_id),
+                                     member_reader=lambda _: frozenset())
+                    app = SimpleNamespace(windows=["w-calculator"], owner_names=[":1.8"])
+                    dialogs, stopped = [], []
+                    dialog = SimpleNamespace(name="Preferences", role=16, states={"SHOWING"})
+                    owner = SimpleNamespace(bus=":1.8", walk=lambda: list(dialogs))
+
+                    @contextmanager
+                    def managed(*args):
+                        try:
+                            yield app
+                        finally:
+                            dialogs.clear()
+                            stopped.append(True)
+
+                    def product(tier, argv, **kw):
+                        data = {}
+                        if argv[0] == "snapshot":
+                            data = {"complete": True, "tree": {
+                                "name": "Preferences", "ref_id": "@menu:e3"}}
+                        elif argv[0] == "find":
+                            name = argv[argv.index("--name") + 1]
+                            if name == "Main Menu":
+                                self.assertEqual(argv[argv.index("--role") + 1], "switch")
+                            data = {"matches": [{"ref_id": "@opener:e2" if name == "Main Menu"
+                                                 else "@found:e4"}]}
+                        elif argv[0] == "click" and argv[1] != "@opener:e2":
+                            self.assertEqual(argv[1], "@menu:e3" if source == "snapshot"
+                                             else "@found:e4")
+                            dialogs.extend([dialog] * dialog_count)
+                        return Envelope(True, data, None, "{}", 0, argv)
+
+                    with patch.object(menus, "managed", managed), \
+                        patch.object(menus, "registry", return_value=[owner]), \
+                        patch.object(lifecycle.atspi_raw, "poll", side_effect=lambda read, *a, **kw: read()), \
+                        patch("runner.verdict.run_product", side_effect=product):
+                        run = legs.implementations()[leg_id]
+                        if dialog_count == 1:
+                            run(ctx)
+                            self.assertEqual(verdict.evaluate(ctx), [])
+                            self.assertEqual(ctx.reads["atspi.preferences_dialogs"]["after"], [1])
+                        else:
+                            with self.assertRaisesRegex(AssertionError, "oracle never reached 1"):
+                                run(ctx)
+                    self.assertEqual(stopped, [True])
+
     def test_wait_menu_reads_actual_popup_state_and_restores_each_transition(self):
         for name in ("wait_menu_opens_calculator", "wait_menu_closes_calculator",
                      "wait_menu_opens_terminal", "wait_menu_already_open", "hidden_bar_timeout_message"):

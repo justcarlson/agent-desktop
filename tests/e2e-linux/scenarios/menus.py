@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from runner.apps import launch, stop
+from runner.helper import changed, command, managed, nodes, ref, require, snapshot
 from runner.legs import implementation
 from runner.verdict import LegContext
-from oracle.atspi_raw import app_root, poll
+from oracle.atspi_raw import app_root, poll, registry
 
 CALCULATOR = "Calculator"
 TERMINAL = "Terminal"
@@ -52,7 +53,6 @@ def _terminal(tier):
 
 
 def _menu_case(ctx, name, operation):
-    from runner.helper import changed
     owner = "gnome-calculator" if name == CALCULATOR else "gnome-terminal-server"
     app = launch(ctx.tier, name)
     read = lambda: _visible(ctx.tier, owner)
@@ -107,6 +107,43 @@ def wait_menu_already_open(ctx: LegContext) -> None:
 @implementation("menus.hidden_bar_timeout_message")
 def hidden_bar_timeout_message(ctx: LegContext) -> None:
     _menu_case(ctx, TERMINAL, "hidden")
+
+
+def _preferences_click(ctx, from_find):
+    with managed(ctx, CALCULATOR) as app:
+        def read():
+            return sum(node.name == "Preferences" and node.role in (16, 23)
+                       and "SHOWING" in node.states
+                       for owner in registry(ctx.tier) if owner.bus in app.owner_names
+                       for node in owner.walk())
+
+        command(ctx, ["focus-window", "--app", CALCULATOR])
+        require(read() == 0, "Preferences was already open")
+        ctx.before("atspi.preferences_dialogs", 0)
+        opener = ref(ctx, app, name="Main Menu", role="switch")
+        command(ctx, ["click", opener])
+        command(ctx, ["wait", "--menu", "--app", CALCULATOR, "--timeout", "5000"])
+        menu = snapshot(ctx, app, "--surface", "menu")
+        if from_find:
+            target = ref(ctx, app, name="Preferences", surface="menu")
+        else:
+            matches = {node["ref_id"] for node in nodes(menu)
+                       if node.get("name") == "Preferences" and "ref_id" in node}
+            require(len(matches) == 1, "expected one Preferences menu ref")
+            target = matches.pop()
+        command(ctx, ["click", target])
+        ctx.after("atspi.preferences_dialogs", changed(read, 1, seconds=8))
+    ctx.restored("atspi.preferences_dialogs", changed(read, 0, seconds=5))
+
+
+@implementation("menus.preferences_snapshot_ref")
+def preferences_snapshot_ref(ctx: LegContext) -> None:
+    _preferences_click(ctx, False)
+
+
+@implementation("menus.preferences_find_ref")
+def preferences_find_ref(ctx: LegContext) -> None:
+    _preferences_click(ctx, True)
 
 
 def terminal_preferences_modal(ctx: LegContext) -> None:
