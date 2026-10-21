@@ -5,6 +5,7 @@ from runner.helper import changed, delayed
 from runner.legs import implementation
 from runner.verdict import LegContext
 from oracle.atspi_raw import app_root, registry
+from oracle.proc import members
 from oracle.x11 import active_window
 from scenarios.launch import _close_added_windows, _window_ids
 
@@ -219,10 +220,12 @@ def open_and_close_inside_one_wait(ctx: LegContext) -> None:
 
 @implementation("events.target_killed_mid_wait")
 def target_killed_mid_wait(ctx: LegContext) -> None:
-    app, root = _editor(ctx.tier)
-    read = lambda: _names(ctx.tier, "gnome-text-editor")
+    app, _root = _editor(ctx.tier)
+    read = lambda: any(pid == app.pid and start == app.start_time
+                       for pid, start, _ in members(ctx.tier.runtime_dir))
     before = read()
-    ctx.before("atspi.text_editor", before)
+    assert before, "the target process generation was not alive before the wait"
+    ctx.before("proc.text_editor_alive", before)
     trigger = delayed(0.5, lambda: stop(app))
     envelope = ctx.product(
         ["wait", "--event", "window-closed", "--app", TEXT_EDITOR, "--timeout", "8000"]
@@ -235,9 +238,9 @@ def target_killed_mid_wait(ctx: LegContext) -> None:
         assert event.get("app") == TEXT_EDITOR, envelope.raw
     else:
         assert event.get("pid") == app.pid and event.get("window_id") in app.windows, envelope.raw
-    ctx.after("atspi.text_editor", changed(read, []))
-    replacement = launch(ctx.tier, TEXT_EDITOR)
+    ctx.after("proc.text_editor_alive", changed(read, False))
+    app = launch(ctx.tier, TEXT_EDITOR)
     try:
-        ctx.restored("atspi.text_editor", changed(read, before))
+        ctx.restored("proc.text_editor_alive", changed(read, before))
     finally:
-        stop(replacement)
+        stop(app)

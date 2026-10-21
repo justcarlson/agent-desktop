@@ -13,12 +13,12 @@ from scenarios import events
 class EventScenarioTests(unittest.TestCase):
     def test_killed_target_requires_requested_kind_and_independent_identity(self):
         for unresolved in (False, True):
-            for fault in (None, "kind", "identity", "timeout"):
+            for fault in (None, "kind", "identity", "timeout", "dead-owner"):
                 with self.subTest(unresolved=unresolved, fault=fault):
                     tier = SimpleNamespace(runtime_dir=Path("/private/test"))
                     ctx = LegContext(tier, "headless", legs.leg_by_id("events.target_killed_mid_wait"),
                                      member_reader=lambda _: frozenset())
-                    owners, pending = ["gnome-text-editor"], []
+                    owners, pending, generation = ["gnome-text-editor"], [], [123, 99]
                     event = {"kind": "app_launched" if fault == "kind" else "window_closed"}
                     if unresolved:
                         event["app"] = "Calculator" if fault == "identity" else "Text Editor"
@@ -32,15 +32,25 @@ class EventScenarioTests(unittest.TestCase):
                                         None, str(event), 1, argv)
                     def launch(*a):
                         owners[:] = ["gnome-text-editor"]
-                        return object()
+                        generation[:] = [321, 100]
+                        return SimpleNamespace(pid=321, start_time=100)
+                    class DeadOwner:
+                        @property
+                        def name(self):
+                            raise TimeoutError("destroyed AT-SPI owner cannot answer Name")
+                    def registry(_):
+                        if fault == "dead-owner" and not owners:
+                            return [DeadOwner()]
+                        return [SimpleNamespace(name=n) for n in owners]
                     root = SimpleNamespace(pid=123, children=lambda: [])
-                    with patch.object(events, "_editor", return_value=(SimpleNamespace(pid=123, windows=["raw-frame"]), root)), \
-                        patch.object(events, "registry", side_effect=lambda _: [SimpleNamespace(name=n) for n in owners]), \
+                    with patch.object(events, "_editor", return_value=(SimpleNamespace(pid=123, start_time=99, windows=["raw-frame"]), root)), \
+                        patch.object(events, "registry", side_effect=registry), \
+                        patch.object(events, "members", side_effect=lambda _: [(generation[0], generation[1], "editor")] if owners else []), \
                         patch.object(events, "launch", side_effect=launch), \
                         patch.object(events, "stop", side_effect=lambda _: owners.clear()), \
                         patch.object(events, "delayed", side_effect=lambda _, action: (pending.append(action) or SimpleNamespace(join=lambda: None))), \
                         patch("runner.verdict.run_product", side_effect=product):
-                        if fault is None:
+                        if fault in (None, "dead-owner"):
                             events.target_killed_mid_wait(ctx)
                             self.assertEqual(verdict.evaluate(ctx), [])
                         else:
@@ -100,7 +110,7 @@ class EventScenarioTests(unittest.TestCase):
                 def launch(tier, name, *a):
                     owner = "gnome-calculator" if name == "Calculator" else "gnome-text-editor"
                     owners.add(owner)
-                    return SimpleNamespace(name=owner, pid=123, windows=["w-editor"])
+                    return SimpleNamespace(name=owner, pid=123, start_time=99, windows=["w-editor"])
                 def stop(app):
                     owners.discard(app.name)
                 def delayed(seconds, action):
@@ -118,6 +128,7 @@ class EventScenarioTests(unittest.TestCase):
                     patch.object(events, "stop", side_effect=stop), \
                     patch.object(events, "app_root", return_value=object()), \
                     patch.object(events, "registry", side_effect=lambda _: [SimpleNamespace(name=n) for n in owners]), \
+                    patch.object(events, "members", side_effect=lambda _: [(123, 99, name) for name in owners]), \
                     patch.object(events, "delayed", side_effect=delayed), \
                     patch("runner.verdict.run_product", side_effect=product):
                     getattr(events, kind)(ctx)
