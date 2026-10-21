@@ -96,6 +96,7 @@ impl HitWorld for LiveWorld<'_> {
             screen,
             window,
             frame: FrameFacts {
+                size_identity: false,
                 pid: frame.pid(),
                 title,
                 extents: frame_node.extents.present().copied(),

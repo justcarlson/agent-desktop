@@ -68,11 +68,9 @@ fn tree_requirement_preserves_registry_failure_classes() {
     )
     .expect_err("shell owner absent");
     assert_eq!(error.code, ErrorCode::AppNotFound);
-    assert!(
-        error
-            .suggestion
-            .expect("restart guidance")
-            .contains("do not toggle")
+    assert_eq!(
+        error.details.expect("absence evidence")["shell_tree"],
+        "absent"
     );
 
     let owner_unreadable =

@@ -63,6 +63,7 @@ fn listed(app: &RegistryApp, scripted: &Scripted) -> ListedWindow {
         modal: false,
         dialog: false,
         frame: FrameFacts {
+            size_identity: false,
             pid: app.root.pid(),
             title: scripted.id.to_owned(),
             extents: None,

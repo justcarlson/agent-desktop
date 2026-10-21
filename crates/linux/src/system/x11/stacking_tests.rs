@@ -69,6 +69,7 @@ fn client(id: u32, pid: u32, title: &str) -> X11Client {
 
 fn facts(pid: u32, title: &str) -> FrameFacts {
     FrameFacts {
+        size_identity: false,
         pid,
         title: title.to_owned(),
         extents: None,

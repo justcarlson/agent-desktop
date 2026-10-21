@@ -143,6 +143,25 @@ fn a_missing_shell_window_is_named_apart_from_an_absent_shell_and_is_safe_to_ret
 }
 
 #[test]
+fn absent_gnome_capability_guidance_names_the_requirement_without_a_restart() {
+    let error = super::tree_absent("org.gnome.Shell has no owner on the session bus");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::AppNotFound);
+    assert!(
+        error
+            .message
+            .contains("GNOME Shell accessibility capability")
+    );
+    let suggestion = error.suggestion.expect("capability guidance");
+    assert!(suggestion.contains("GNOME Shell session"));
+    assert!(suggestion.contains("org.gnome.Shell"));
+    assert!(!suggestion.to_lowercase().contains("restart"));
+    assert_eq!(
+        error.details.expect("absence evidence")["shell_tree"],
+        "absent"
+    );
+}
+
+#[test]
 fn a_lookup_in_the_same_outage_probes_once_and_a_fresh_one_retries() {
     let now = std::time::Instant::now();
     assert_eq!(retries_after(Some(now), now), 0);

@@ -250,3 +250,33 @@ fn showing_uses_the_surface_specific_visibility_source() {
         assert_eq!(showing_of(kind, &located), expected, "{kind:?}");
     }
 }
+
+#[test]
+fn closed_popups_have_no_observable_window_even_when_their_nodes_exist() {
+    let root = crate::system::shell::identity::ShellRoot {
+        bus_name: ":1.2".into(),
+        path: "/root".into(),
+        pid: 7,
+    };
+    for (kind, anchor_showing, container_showing, open) in [
+        (ShellKind::MessageList, false, false, false),
+        (ShellKind::SystemMenu, false, true, false),
+        (ShellKind::MessageList, false, true, true),
+        (ShellKind::SystemMenu, true, false, true),
+        (ShellKind::Tray, false, false, true),
+    ] {
+        let located = Located {
+            anchor: light(anchor_showing),
+            container: light(container_showing),
+        };
+        let result = super::window_info(kind, &root, &located);
+        if open {
+            assert!(result.expect("an open surface has a window").state.visible == Some(true));
+        } else {
+            assert_eq!(
+                result.expect_err("the popup is closed").code,
+                ErrorCode::WindowNotFound
+            );
+        }
+    }
+}

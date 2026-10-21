@@ -7,4 +7,7 @@ pub(crate) struct FrameFacts {
     pub(crate) title: String,
     pub(crate) extents: Option<Extents>,
     pub(crate) global_position: bool,
+    /// A complete application-frame read proved this is an unnamed GTK4
+    /// modal panel whose size no other accessible window can claim.
+    pub(crate) size_identity: bool,
 }

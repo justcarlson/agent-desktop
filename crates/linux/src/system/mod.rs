@@ -112,6 +112,7 @@ mod display_live_tests;
 mod focus_overview_live_tests;
 #[cfg(test)]
 mod focus_window_live_tests;
+pub(crate) mod frame_identity;
 #[cfg(test)]
 mod key_dispatch_live_tests;
 #[cfg(test)]

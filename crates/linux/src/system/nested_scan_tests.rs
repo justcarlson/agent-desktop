@@ -25,6 +25,7 @@ fn window(id: &str, sheet: bool) -> ListedWindow {
         modal: false,
         dialog: false,
         frame: FrameFacts {
+            size_identity: false,
             pid: 7,
             title: "App".to_owned(),
             extents: None,

@@ -43,6 +43,7 @@ fn window(owner: usize, id: &str, visible: bool) -> ListedWindow {
         modal: false,
         dialog: false,
         frame: FrameFacts {
+            size_identity: false,
             pid: 1,
             title: String::new(),
             extents: None,

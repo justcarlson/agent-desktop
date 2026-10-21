@@ -40,7 +40,13 @@ pub fn build(
     let windows = surface_windows(adapter, app_name, window_id, opts.surface, deadline)?;
     let observation_options = opts.with_ref_identity_bounds();
     let request = ObservationRequest::snapshot(&observation_options, deadline).validate()?;
-    let (window, observed) = observe_first_owner(adapter, windows, &request)?;
+    let (window, observed) = first_surface_owner(windows, |window| {
+        crate::renderer_accessibility::observe_tree(
+            adapter,
+            ObservationRoot::Window(window),
+            &request,
+        )
+    })?;
     let (raw_tree, complete, nodes_observed) = observed.into_accessibility_tree_partial()?;
 
     let mut refmap = RefMap::new();
@@ -136,7 +142,7 @@ fn is_shell_surface(surface: crate::SnapshotSurface) -> bool {
     )
 }
 
-fn surface_windows(
+pub(crate) fn surface_windows(
     adapter: &dyn PlatformAdapter,
     app_name: Option<&str>,
     window_id: Option<&str>,
@@ -174,15 +180,13 @@ fn frontmost_process_windows(
     Ok(windows)
 }
 
-fn observe_first_owner(
-    adapter: &dyn PlatformAdapter,
+pub(crate) fn first_surface_owner<T>(
     windows: Vec<WindowInfo>,
-    request: &ObservationRequest,
-) -> Result<(WindowInfo, crate::live_locator::ObservedTree), AppError> {
+    mut observe: impl FnMut(&WindowInfo) -> Result<T, AppError>,
+) -> Result<(WindowInfo, T), AppError> {
     let mut windows = windows.into_iter().peekable();
     while let Some(window) = windows.next() {
-        let root = ObservationRoot::Window(&window);
-        match crate::renderer_accessibility::observe_tree(adapter, root, request) {
+        match observe(&window) {
             Err(AppError::Adapter(error))
                 if error.code == crate::ErrorCode::ElementNotFound && windows.peek().is_some() => {}
             result => return result.map(|observed| (window, observed)),

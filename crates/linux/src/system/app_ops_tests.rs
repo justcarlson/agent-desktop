@@ -80,7 +80,11 @@ fn processes_that_differ_in_pid_or_start_time_stay_separate() {
 fn a_shell_process_off_this_sessions_bus_is_not_this_sessions_shell_and_gets_no_browser_advice() {
     let error = missing_connection("gnome-shell", 2012, "gnome-shell");
     assert_eq!(error.code, ErrorCode::AppNotFound);
-    assert!(error.message.contains("not on the accessibility registry"));
+    assert!(
+        error
+            .message
+            .contains("GNOME Shell accessibility capability")
+    );
     let advice = error.suggestion.expect("a suggestion");
     assert!(!advice.contains("Chromium") && !advice.contains("Electron"));
     assert_eq!(error.details.expect("details")["shell_tree"], "absent");

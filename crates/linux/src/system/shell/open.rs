@@ -140,8 +140,16 @@ pub(crate) fn close_with<W: Surface>(
 pub(crate) fn window_info(
     kind: ShellKind,
     root: &ShellRoot,
-    container: &super::light::Light,
+    located: &Located,
 ) -> Result<WindowInfo, AdapterError> {
+    if !showing_of(kind, located) {
+        return Err(AdapterError::new(
+            ErrorCode::WindowNotFound,
+            format!("The shell's {} surface is closed", title_of(kind)),
+        )
+        .with_suggestion("Run 'open-system-surface' for this surface before observing it"));
+    }
+    let container = &located.container;
     let id = window_id::encode(container.element.bus_name(), container.element.path())
         .ok_or_else(|| AdapterError::internal("The shell container has no window id"))?;
     Ok(WindowInfo {
@@ -200,7 +208,7 @@ impl Surface for LiveSurface<'_> {
     fn window(&self, kind: ShellKind, deadline: Deadline) -> Result<WindowInfo, AdapterError> {
         let anchor = Anchor::Landmark(container_landmark(kind));
         let (root, located) = self.located(anchor, deadline)?;
-        window_info(kind, &root, &located.container)
+        window_info(kind, &root, &located)
     }
 
     fn pause(&self, duration: Duration) {

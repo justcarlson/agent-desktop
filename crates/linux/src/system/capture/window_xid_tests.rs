@@ -4,6 +4,7 @@ use crate::tree::Extents;
 
 fn frame(pid: u32, title: &str) -> FrameFacts {
     FrameFacts {
+        size_identity: false,
         pid,
         title: title.to_owned(),
         extents: None,

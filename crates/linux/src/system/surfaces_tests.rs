@@ -21,6 +21,7 @@ fn window(id: &str, title: &str, sheet: bool) -> ListedWindow {
         modal: false,
         dialog: false,
         frame: FrameFacts {
+            size_identity: false,
             pid: 7,
             title: title.to_owned(),
             extents: None,
