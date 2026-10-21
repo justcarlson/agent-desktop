@@ -114,6 +114,33 @@ def empty_list_not_found(ctx):
         ctx.after("dbus.notifications", sender.active())
 
 
+@implementation("notifications.dismiss_notification_closes_only_target")
+def dismiss_notification_closes_only_target(ctx):
+    with _observing(ctx) as sender:
+        target = sender.send("HarnessTarget", "Target summary")
+        bystander = sender.send("HarnessBystander", "Bystander summary")
+        assert target != bystander
+        _await(ctx, "HarnessBystander")
+        entry = _await(ctx, "HarnessTarget")[0]
+        assert (entry["app_name"], entry["title"]) == ("HarnessTarget", "Target summary"), entry
+        before = _list(ctx)
+        assert len(before) == 2, before
+        _refusal(ctx.product(["dismiss-notification", str(entry["index"]),
+                              "--expected-app", "HarnessWrong"]), "NOTIFICATION_NOT_FOUND")
+        assert _list(ctx) == before and not sender.signals(), sender.signals()
+        envelope = ctx.product(["dismiss-notification", str(entry["index"]),
+                                "--expected-app", "HarnessTarget"])
+        assert envelope.ok, envelope.raw
+        assert sender.wait_closed({target}) == [{"id": target, "reason": 2}], sender.signals()
+        assert [(record["id"], record["app"], record["summary"]) for record in sender.active()] == [
+            (bystander, "HarnessBystander", "Bystander summary")], sender.signals()
+        assert sender.signals() == [("NotificationClosed", {"id": target, "reason": 2})], sender.signals()
+        remaining = _list(ctx)
+        assert [(entry["app_name"], entry["title"]) for entry in remaining] == [
+            ("HarnessBystander", "Bystander summary")], remaining
+        ctx.after("dbus.notifications", sender.active())
+
+
 @implementation("notifications.dismiss_all_closes_every_notification")
 def dismiss_all_closes_every_notification(ctx):
     with _observing(ctx) as sender:

@@ -415,13 +415,12 @@ recovery deadline, so the X11 input worker can retain the canonical lock.
 old synthetic cleanup lease; the independent daemon close signals remain the live
 dismissal oracle.
 
-The single-item dismissal live specimen is retired: its private-shell
-precondition read is unreliable, and a single seeded notification cannot
-establish bystander protection. Native
-`the_close_button_of_the_target_is_clicked_and_nothing_else` and
-`a_different_entry_leaving_with_the_target_fails_the_call` tests retain
-deterministic bystander protection at the Linux mutation boundary. Single-item
-daemon reason-2 live acceptance is not claimed.
+The headed `notifications.dismiss_notification_closes_only_target` leg seeds an
+owned target and bystander with distinct IDs from the private notification
+server. A wrong expected app must refuse without a signal or list change.
+Single dismissal then requires only the target's daemon reason-2 closure, the
+sender's surviving bystander record, and a list containing only that bystander.
+Replacing single dismissal with dismiss-all must fail the leg.
 
 The action-signal live specimen is also deleted: the repaired image passed it
 once, then a later private session timed out before physical delivery and its
