@@ -34,6 +34,9 @@ struct Remap {
 pub(crate) const MAX_REMAP_SLOTS: usize = 32;
 
 pub(crate) fn plan_text(map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError> {
+    if !text.is_empty() {
+        map.ensure_text_state()?;
+    }
     let controls: Vec<_> = text
         .chars()
         .filter(|character| character.is_control())
@@ -144,7 +147,7 @@ impl<'a> Assignments<'a> {
 
 fn chunk_plan(map: &Keymap, chunk: &[Typing], remap: Option<&Remap>) -> Result<Plan, AdapterError> {
     let shift = map.modifier_code(&Modifier::Shift);
-    let mut steps = Vec::new();
+    let mut steps = vec![Step::CheckTextState];
     let mut assignments = remap.map(Assignments::new);
     for typing in chunk {
         match *typing {

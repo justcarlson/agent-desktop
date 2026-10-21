@@ -46,7 +46,8 @@ impl FakeSession {
     fn record(&mut self, label: String) -> Result<(), AdapterError> {
         self.log.borrow_mut().push(label.clone());
         if self.fail_on == Some(label.as_str()) {
-            return Err(AdapterError::internal("the fake failed this step"));
+            return Err(AdapterError::internal("the fake failed this step")
+                .with_suggestion("Retry the command"));
         }
         Ok(())
     }

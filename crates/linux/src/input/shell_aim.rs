@@ -6,11 +6,22 @@ fn is_sentinel(extents: Rect) -> bool {
     extents.x <= lowest || extents.y <= lowest
 }
 
-fn intersects(extents: Rect, display: Rect) -> bool {
-    extents.x < display.x + display.width
-        && extents.x + extents.width > display.x
-        && extents.y < display.y + display.height
-        && extents.y + extents.height > display.y
+pub(crate) fn monitor_under(point: &Point, displays: &[DisplayInfo]) -> Option<(String, Point)> {
+    let display = displays.iter().find(|display| {
+        let bounds = &display.bounds;
+        point.x >= bounds.x
+            && point.x < bounds.x + bounds.width
+            && point.y >= bounds.y
+            && point.y < bounds.y + bounds.height
+    })?;
+    let connector = display.id.split('+').next().unwrap_or_default().to_owned();
+    Some((
+        connector,
+        Point {
+            x: point.x - display.bounds.x,
+            y: point.y - display.bounds.y,
+        },
+    ))
 }
 
 fn refusal(extents: Rect, why: &str) -> AdapterError {
@@ -34,8 +45,7 @@ fn refusal(extents: Rect, why: &str) -> AdapterError {
 
 /// The point a pointer click on a shell control lands at: the centre of its
 /// screen extents. Extents with no area, the invalid sentinel position, or
-/// no overlap with any display are refused; a negative origin that still
-/// overlaps a display is accepted.
+/// a centre outside every display are refused.
 pub(crate) fn aim(extents: Rect, displays: &[DisplayInfo]) -> Result<Point, AdapterError> {
     if is_sentinel(extents) {
         return Err(refusal(extents, "at the invalid position"));
@@ -43,16 +53,13 @@ pub(crate) fn aim(extents: Rect, displays: &[DisplayInfo]) -> Result<Point, Adap
     if extents.width <= 0.0 || extents.height <= 0.0 {
         return Err(refusal(extents, "without area"));
     }
-    if !displays
-        .iter()
-        .any(|display| intersects(extents, display.bounds))
-    {
-        return Err(refusal(extents, "outside every display"));
-    }
     let point = Point {
         x: extents.x + extents.width / 2.0,
         y: extents.y + extents.height / 2.0,
     };
+    if monitor_under(&point, displays).is_none() {
+        return Err(refusal(extents, "centred outside every display"));
+    }
     point.validate()?;
     Ok(point)
 }

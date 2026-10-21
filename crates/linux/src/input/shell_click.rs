@@ -8,7 +8,7 @@ use serde_json::json;
 
 use super::backend::{Backend, backend};
 use super::deliver::mouse_event;
-use super::shell_aim::aim;
+use super::shell_aim::{aim, monitor_under};
 use super::wayland::key_session::KeySession;
 use super::wayland::remote_desktop::RemoteDesktop;
 use crate::actions::physical_target::{ensure_budget, ensure_headed_click_policy};
@@ -16,10 +16,6 @@ use crate::system::shell::light::live_extents;
 use crate::system::{SharedBus, list_displays};
 use crate::tree::AtspiElement;
 
-const CLAMP_MOTIONS: usize = 4;
-const CLAMP_DELTA: f64 = -4_000.0;
-const STEP_PIXELS: f64 = 40.0;
-const MOTION_PAUSE: Duration = Duration::from_millis(10);
 const SETTLE_PAUSE: Duration = Duration::from_millis(150);
 const PRESS_PAUSE: Duration = Duration::from_millis(60);
 const RECOVERY_MS: u64 = 1_000;
@@ -27,7 +23,6 @@ const BTN_LEFT: u32 = 272;
 const BTN_RIGHT: u32 = 273;
 const BTN_MIDDLE: u32 = 274;
 pub(crate) trait PointerSession: KeySession {
-    fn motion(&mut self, dx: f64, dy: f64, deadline: Deadline) -> Result<(), AdapterError>;
     fn button(&mut self, button: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError>;
     fn pause(&mut self, duration: Duration) {
         std::thread::sleep(duration);
@@ -38,10 +33,6 @@ pub(crate) trait PointerSession: KeySession {
     fn motion_absolute(&mut self, x: f64, y: f64, deadline: Deadline) -> Result<(), AdapterError>;
 }
 impl PointerSession for RemoteDesktop {
-    fn motion(&mut self, dx: f64, dy: f64, deadline: Deadline) -> Result<(), AdapterError> {
-        self.pointer_motion_relative(dx, dy, deadline)
-    }
-
     fn button(&mut self, button: u32, down: bool, deadline: Deadline) -> Result<(), AdapterError> {
         self.pointer_button(button, down, deadline)
     }
@@ -61,28 +52,6 @@ fn button_code(button: &MouseButton) -> u32 {
         MouseButton::Right => BTN_RIGHT,
         MouseButton::Middle => BTN_MIDDLE,
     }
-}
-
-fn travel<S: PointerSession>(
-    session: &mut S,
-    target: &Point,
-    deadline: Deadline,
-) -> Result<(), AdapterError> {
-    for _ in 0..CLAMP_MOTIONS {
-        session.motion(CLAMP_DELTA, CLAMP_DELTA, deadline)?;
-        session.pause(MOTION_PAUSE);
-    }
-    let (mut x, mut y) = (0.0_f64, 0.0_f64);
-    let (goal_x, goal_y) = (target.x.round(), target.y.round());
-    while (x, y) != (goal_x, goal_y) {
-        let dx = (goal_x - x).clamp(-STEP_PIXELS, STEP_PIXELS);
-        let dy = (goal_y - y).clamp(-STEP_PIXELS, STEP_PIXELS);
-        session.motion(dx, dy, deadline)?;
-        x += dx;
-        y += dy;
-        session.pause(MOTION_PAUSE);
-    }
-    Ok(())
 }
 
 fn press<S: PointerSession>(
@@ -135,42 +104,10 @@ fn recovery_deadline(spent: Deadline) -> Deadline {
     Deadline::detached_after(RECOVERY_MS).unwrap_or(spent)
 }
 
-pub(crate) struct Aim {
-    pub(crate) target: Point,
-    pub(crate) connector: String,
-    pub(crate) local: Point,
-    pub(crate) in_modal: bool,
-}
-
-const TOP_BAR_HEIGHT: f64 = 64.0;
-
-pub(crate) fn monitor_under(point: &Point, displays: &[DisplayInfo]) -> Option<(String, Point)> {
-    let display = displays.iter().find(|display| {
-        let bounds = &display.bounds;
-        point.x >= bounds.x
-            && point.x < bounds.x + bounds.width
-            && point.y >= bounds.y
-            && point.y < bounds.y + bounds.height
-    })?;
-    let connector = display.id.split('+').next().unwrap_or_default().to_owned();
-    Some((
-        connector,
-        Point {
-            x: point.x - display.bounds.x,
-            y: point.y - display.bounds.y,
-        },
-    ))
-}
-
-/// Popups grab the pointer below the top bar and require absolute motion.
-pub(crate) fn in_modal(point: &Point) -> bool {
-    point.y >= TOP_BAR_HEIGHT
-}
-
 fn no_screencast_stream() -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
-        "A click inside the shell's open popup needs a screen-cast stream, and none could be started",
+        "A shell click needs absolute pointer targeting through a screen-cast stream, and none could be started",
     )
     .with_suggestion("Run the desktop session with PipeWire, which a GNOME session starts by default")
     .with_details(json!({
@@ -180,37 +117,25 @@ fn no_screencast_stream() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
-pub(crate) fn run_pointer_absolute<S: PointerSession>(
-    session: &mut S,
-    aim: &Aim,
-    button: &MouseButton,
-    deadline: Deadline,
-) -> Result<(), AdapterError> {
-    session.create(deadline)?;
-    if session.attach_stream(&aim.connector, deadline) && session.start(deadline).is_ok() {
-        return execute_created_session(session, deadline, |session| {
-            session.motion_absolute(aim.local.x, aim.local.y, deadline)?;
-            session.pause(SETTLE_PAUSE);
-            press(session, button_code(button), deadline)
-        });
-    }
-    let _ = session.stop(recovery_deadline(deadline));
-    if aim.in_modal {
-        return Err(no_screencast_stream());
-    }
-    run_pointer(session, &aim.target, button, deadline)
-}
-
 pub(crate) fn run_pointer<S: PointerSession>(
     session: &mut S,
     target: &Point,
+    displays: &[DisplayInfo],
     button: &MouseButton,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
+    let (connector, local) = monitor_under(target, displays).ok_or_else(unreadable_extents)?;
     session.create(deadline)?;
     execute_created_session(session, deadline, |session| {
-        session.start(deadline)?;
-        travel(session, target, deadline)?;
+        if !session.attach_stream(&connector, deadline) {
+            return Err(no_screencast_stream());
+        }
+        session.start(deadline).map_err(|mut error| {
+            error.details.get_or_insert_with(|| json!({}))["physical_delivery_started"] =
+                false.into();
+            error.with_disposition(DeliverySemantics::not_delivered())
+        })?;
+        session.motion_absolute(local.x, local.y, deadline)?;
         session.pause(SETTLE_PAUSE);
         press(session, button_code(button), deadline)
     })
@@ -259,18 +184,7 @@ fn deliver(
         .map(|_| ()),
         Backend::Wayland => {
             let mut session = RemoteDesktop::open(deadline)?;
-            match monitor_under(point, displays) {
-                Some((connector, local)) => {
-                    let aim = Aim {
-                        target: point.clone(),
-                        connector,
-                        local,
-                        in_modal: in_modal(point),
-                    };
-                    run_pointer_absolute(&mut session, &aim, button, deadline)
-                }
-                None => run_pointer(&mut session, point, button, deadline),
-            }
+            run_pointer(&mut session, point, displays, button, deadline)
         }
     }
 }

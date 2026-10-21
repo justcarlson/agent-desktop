@@ -37,12 +37,16 @@ fn with_fields(error: AdapterError, fields: serde_json::Value) -> AdapterError {
 }
 
 fn with_progress(mut error: AdapterError, delivered_events: u32) -> AdapterError {
-    if delivered_events > 0 {
-        error.message = format!(
-            "At least {delivered_events} keyboard events were confirmed before Wayland delivery stopped (including any bootstrap keys); further delivery is uncertain"
-        );
+    if delivered_events > 0 || error.disposition == DeliverySemantics::uncertain() {
+        error.message = if delivered_events == 0 {
+            "A keyboard event was attempted but its delivery could not be confirmed".to_owned()
+        } else {
+            format!(
+                "At least {delivered_events} keyboard events were confirmed before Wayland delivery stopped (including any bootstrap keys); further delivery is uncertain"
+            )
+        };
         error.suggestion = Some(
-            "Read the target's state before retrying; some keyboard input has already been sent"
+            "Read the target's state before retrying; keyboard input may already have been sent"
                 .to_owned(),
         );
         return with_fields(

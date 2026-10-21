@@ -1,6 +1,21 @@
 use super::*;
 
 #[test]
+fn text_under_a_changed_keyboard_group_or_modifiers_is_refused_before_planning() {
+    for (group, modifiers) in [(0, 2), (1, 0), (0, 1), (0, 128)] {
+        let mut map = Keymap::sample();
+        map.group = group;
+        map.modifiers = modifiers;
+        let error =
+            plan_text(&map, "aA!").expect_err("state-blind keycodes would type different text");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
+    }
+    assert!(plan_text(&Keymap::sample(), "aA!").is_ok());
+}
+
+#[test]
 fn mapped_text_controls_are_refused_before_dispatch() {
     let map = Keymap::new(8, 1, vec![0x61, 0x62, 0xff09, 0xff0d], 0, vec![]);
     for text in ["a\tb", "a\nb", "a\rb"] {
@@ -23,7 +38,7 @@ fn text_planning_safety() {
     let plans = plan_text(&map, "aA!").unwrap();
     assert_eq!(plans.len(), 1);
     assert_eq!(
-        plans[0].steps.first(),
+        plans[0].steps.get(1),
         Some(&Step::Key {
             code: 10,
             down: true
@@ -40,8 +55,8 @@ fn text_planning_safety() {
 
     let boundary = plan_text(&map, &"é".repeat(CHUNK_CHARS + 1)).unwrap();
     assert_eq!(boundary.len(), 2);
-    assert_eq!(boundary[0].steps.len(), CHUNK_CHARS * 2);
-    assert_eq!(boundary[1].steps.len(), 2);
+    assert_eq!(boundary[0].steps.len(), CHUNK_CHARS * 2 + 1);
+    assert_eq!(boundary[1].steps.len(), 3);
 
     let remapped = plan_text(&map, "你你").unwrap();
     let edits: Vec<_> = remapped[0]

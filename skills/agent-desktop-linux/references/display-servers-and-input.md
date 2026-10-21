@@ -133,6 +133,13 @@ Use headless `type` or `set-value` for literal text containing those characters;
 use an explicit `press tab` or `press return` when navigation or submission is
 intended.
 
+X11 physical text also requires the first keyboard group and no active modifiers
+or locks, checked through XKB before planning and after the focus gate before each
+text chunk. Unsupported state refuses the
+physical route before any key; an editable field can fall back to semantic text.
+Release modifiers, turn off locks and select the first layout for physical text,
+or use headless `type`.
+
 The first `type` into a fresh document changes the window title. The ref from the
 snapshot still resolves: `get` on it reads the typed value. Take a fresh snapshot
 only when the UI you address has changed for another reason.

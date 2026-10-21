@@ -44,6 +44,7 @@ pub(crate) struct FakeWorld {
     pub(crate) sticky_buttons: Vec<u8>,
     pub(crate) sticky_keys: Vec<u8>,
     pub(crate) move_stall: Duration,
+    pub(crate) fail_verification: bool,
     sent: usize,
     held_keys: Vec<u8>,
     key_reads: VecDeque<[u8; 32]>,
@@ -79,6 +80,7 @@ impl FakeSink {
                 sticky_buttons: Vec::new(),
                 sticky_keys: Vec::new(),
                 move_stall: Duration::ZERO,
+                fail_verification: false,
                 sent: 0,
                 held_keys: Vec::new(),
                 key_reads: VecDeque::new(),
@@ -170,6 +172,9 @@ impl X11Sink for FakeSink {
 
     fn pointer(&mut self) -> Result<PointerRead, SinkError> {
         let world = self.world();
+        if world.fail_verification {
+            return Err(SinkError::Closed);
+        }
         let mut mask = 0u16;
         for code in world.held_buttons.iter().chain(world.sticky_buttons.iter()) {
             mask |= 0x80 << code;
@@ -183,6 +188,9 @@ impl X11Sink for FakeSink {
 
     fn keys_down(&mut self) -> Result<[u8; 32], SinkError> {
         let mut world = self.world();
+        if world.fail_verification {
+            return Err(SinkError::Closed);
+        }
         if let Some(read) = world.key_reads.pop_front() {
             return Ok(read);
         }

@@ -3,6 +3,7 @@ use std::os::fd::AsFd;
 use std::time::{Duration, Instant};
 use x11rb::connection::{Connection, RequestConnection};
 use x11rb::protocol::Event;
+use x11rb::protocol::xkb::{ConnectionExt as _, ID};
 use x11rb::protocol::xproto::{ConnectionExt as _, Window};
 use x11rb::protocol::xtest::{self, ConnectionExt as _};
 use x11rb::rust_connection::RustConnection;
@@ -198,13 +199,27 @@ impl X11Sink for XtestSink {
             .map_err(request)?
             .reply()
             .map_err(request)?;
-        Ok(Keymap::new(
+        self.connection
+            .xkb_use_extension(1, 0)
+            .map_err(request)?
+            .reply()
+            .map_err(request)?;
+        let state = self
+            .connection
+            .xkb_get_state(ID::USE_CORE_KBD.into())
+            .map_err(request)?
+            .reply()
+            .map_err(request)?;
+        let mut map = Keymap::new(
             self.min_keycode,
             keys.keysyms_per_keycode,
             keys.keysyms,
             u8::try_from(modifiers.keycodes.len() / 8).map_err(request)?,
             modifiers.keycodes,
-        ))
+        );
+        map.group = state.group.into();
+        map.modifiers = state.mods.into();
+        Ok(map)
     }
 
     fn edit_keymap(&mut self, edit: &KeymapEdit) -> Result<(), SinkError> {

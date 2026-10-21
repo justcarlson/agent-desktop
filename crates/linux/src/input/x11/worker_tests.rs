@@ -5,6 +5,79 @@ use crate::input::step::Step;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, deadline, events, run};
 
 #[test]
+fn keyboard_state_changed_after_planning_refuses_before_the_first_key() {
+    let fake = FakeSink::new();
+    let plans = crate::input::text_plan::plan_text(&fake.world().keymap, "a").unwrap();
+    let error = run(
+        &fake,
+        plans,
+        &mut || {
+            fake.world().keymap.modifiers = 2;
+            Ok(())
+        },
+        deadline(5_000),
+        None,
+    )
+    .expect_err("CapsLock changed while waiting for the target gate");
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    assert!(events(&fake).is_empty());
+}
+
+#[test]
+fn failed_post_dispatch_queries_keep_delivery_evidence_and_refuse_replay() {
+    for steps in [
+        vec![
+            Step::Key {
+                code: 38,
+                down: true,
+            },
+            Step::Key {
+                code: 38,
+                down: false,
+            },
+        ],
+        vec![
+            Step::Button {
+                code: 1,
+                down: true,
+            },
+            Step::Button {
+                code: 1,
+                down: false,
+            },
+        ],
+    ] {
+        let fake = FakeSink::new();
+        fake.world().fail_verification = true;
+        let error = run(
+            &fake,
+            vec![Plan {
+                steps,
+                release_origin: None,
+            }],
+            &mut || Ok(()),
+            deadline(5_000),
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(events(&fake).len(), 2);
+        assert_eq!(
+            error.disposition,
+            agent_desktop_core::DeliverySemantics::delivered_unverified()
+        );
+        let details = error
+            .details
+            .expect("dispatch evidence survives a failed query");
+        assert_eq!(details["delivered_events"], 2);
+        assert_eq!(details["physical_delivery_started"], true);
+        assert_eq!(error.suggestion.as_deref(), Some(super::ABORT_SUGGESTION));
+    }
+}
+
+#[test]
 fn a_failed_first_dispatch_is_uncertain_and_unsafe_to_retry() {
     let fake = FakeSink::new().failing_on(1);
     let plan = Plan {

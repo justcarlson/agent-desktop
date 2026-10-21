@@ -1,4 +1,4 @@
-use agent_desktop_core::Modifier;
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Modifier};
 
 use super::key_lookup::KeyLookup;
 
@@ -15,9 +15,24 @@ pub(crate) struct Keymap {
     pub(crate) keysyms: Vec<u32>,
     pub(crate) modifier_codes_per_modifier: u8,
     pub(crate) modifier_codes: Vec<u8>,
+    pub(crate) group: u8,
+    pub(crate) modifiers: u16,
 }
 
 impl Keymap {
+    pub(crate) fn ensure_text_state(&self) -> Result<(), AdapterError> {
+        if self.group == 0 && self.modifiers == 0 {
+            return Ok(());
+        }
+        Err(AdapterError::new(
+            ErrorCode::ActionNotSupported,
+            "Physical text input requires the first keyboard group with no active modifiers",
+        )
+        .with_details(serde_json::json!({ "check": "keyboard_state", "physical_delivery_started": false }))
+        .with_suggestion("Release modifiers, turn off keyboard locks and select the first layout, or use headless type")
+        .with_disposition(DeliverySemantics::not_delivered()))
+    }
+
     pub(crate) fn new(
         min_keycode: u8,
         keysyms_per_keycode: u8,
@@ -31,6 +46,8 @@ impl Keymap {
             keysyms,
             modifier_codes_per_modifier,
             modifier_codes,
+            group: 0,
+            modifiers: 0,
         }
     }
 

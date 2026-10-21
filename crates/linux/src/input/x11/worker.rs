@@ -13,6 +13,7 @@ use super::verify;
 use crate::input::delivery::Delivery;
 use crate::input::plan::Plan;
 use crate::input::release_guard::ReleaseGuard;
+use crate::input::release_state::ReleaseState;
 use crate::input::step::Step;
 
 const PAUSE_SLICE: Duration = Duration::from_millis(10);
@@ -76,7 +77,10 @@ fn execute(
         return Err(guard.abort(error, ABORT_SUGGESTION));
     }
     let touched = guard.touched().clone();
-    verify::check(guard.sink(), &touched, deadline)?;
+    let delivered = guard.delivered();
+    verify::check(guard.sink(), &touched, deadline).map_err(|error| {
+        ReleaseState::resumed(delivered, false).enrich_error(error, ABORT_SUGGESTION)
+    })?;
     Ok(Delivery {
         delivered_events: guard.delivered(),
     })
@@ -125,13 +129,20 @@ fn run_step(
     deadline: Deadline,
     progress: &Progress,
 ) -> Result<(), AdapterError> {
-    if !matches!(step, Step::Pause(_)) && !progress.begin_dispatch() {
+    if !matches!(step, Step::Pause(_) | Step::CheckTextState) && !progress.begin_dispatch() {
         return Err(mark_started(
             deadline.timeout_error(),
             progress.has_started(),
         ));
     }
     let sent = match step {
+        Step::CheckTextState => {
+            return guard
+                .sink()
+                .keymap()
+                .map_err(SinkError::into_adapter)?
+                .ensure_text_state();
+        }
         Step::Key { code, down } => guard.key(*code, *down),
         Step::Button { code, down } => guard.button(*code, *down),
         Step::MoveTo { x, y } => guard.move_to(*x, *y),

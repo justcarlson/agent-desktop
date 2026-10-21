@@ -173,8 +173,14 @@ fn a_remote_desktop_pointer_click_opens_and_closes_the_list_on_a_wayland_shell()
     println!("list started showing={started}");
     for expected in [!started, started] {
         let mut session = RemoteDesktop::open(deadline()).expect("the session bus answers");
-        run_pointer(&mut session, &target, &MouseButton::Left, deadline())
-            .expect("the pointer route delivers");
+        run_pointer(
+            &mut session,
+            &target,
+            &crate::system::list_wayland_displays(deadline()).expect("displays"),
+            &MouseButton::Left,
+            deadline(),
+        )
+        .expect("the pointer route delivers");
         let flipped = wait_for(&bus, expected);
         println!("expected {expected}, flipped {flipped}");
         assert!(flipped, "the list is now {expected}");
