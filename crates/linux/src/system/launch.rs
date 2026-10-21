@@ -13,8 +13,8 @@ use agent_desktop_core::{
 use super::app_alias::current_index;
 use super::focus_window::focus_window;
 use super::launch_attach::{Decision, Running, decide, identity_keys};
-use super::launch_observe::{Found, POLL_INTERVAL, Spawned, find_owner, pids_of, running_of};
-use super::launch_target::{Plan, Search, classify, plan};
+use super::launch_observe::{POLL_INTERVAL, Spawned, find_owner, pids_of, running_of};
+use super::launch_target::{Plan, Search, resolve};
 use super::liveness::{Liveness, liveness};
 use super::process_facts::{self, WebFamily};
 use super::registry::read_registry;
@@ -168,12 +168,7 @@ fn exited_early(owner: &Running, liveness: Liveness) -> Result<(), AdapterError>
 /// that was not open before the launch, or, for an application the launch
 /// started, its first. A window that was already open is not the launch's.
 fn choose_window(own: Vec<WindowInfo>, known: &HashSet<String>) -> Option<WindowInfo> {
-    let fresh = own.iter().position(|window| !known.contains(&window.id));
-    match fresh {
-        Some(index) => own.into_iter().nth(index),
-        None if known.is_empty() => own.into_iter().next(),
-        None => None,
-    }
+    own.into_iter().find(|window| !known.contains(&window.id))
 }
 
 /// How long a launch that was not asked to bring the window forward waits for
@@ -270,16 +265,6 @@ impl Launch<'_> {
         })
     }
 
-    fn report(
-        &self,
-        owner: &Running,
-        created: bool,
-        known: &HashSet<String>,
-    ) -> Result<LaunchResult, AdapterError> {
-        let window = self.window_of(owner, true, known)?;
-        Ok(self.conclude_with(owner, window, created))
-    }
-
     /// A running application is reported with its window. One that shows no
     /// window, such as a file manager that stays resident after its last
     /// window closed, is started again so that its launcher forwards to it
@@ -328,8 +313,11 @@ impl Launch<'_> {
         };
         let mut spawned = spawn(self.id, plan, self.options)?;
         match find_owner(self.bus, &mut spawned, keys, &before, self.deadline)? {
-            Found::Owner(owner) => self.report(&owner, owner.pid == spawned.pid, &known),
-            Found::NotOnBus => Ok(self.report_unlisted(&spawned)),
+            Some(owner) => {
+                let window = self.window_of(&owner, true, &known)?;
+                Ok(self.conclude_with(&owner, window, owner.pid == spawned.pid))
+            }
+            None => Ok(self.report_unlisted(&spawned)),
         }
     }
 }
@@ -347,8 +335,7 @@ pub(crate) fn launch_app(
     validate(options)?;
     let deadline = bounded(lease.deadline(), options.timeout_ms);
     let search = Search::from_env();
-    let target = classify(id, &search, &current_index())?;
-    let plan = plan(&target, &options.args, &search)?;
+    let plan = resolve(id, &options.args, &search, &current_index())?;
     let keys = identity_keys(&plan.keys);
     let running = running_of(&read_registry(bus, deadline).map_err(before_spawn)?);
     let launch = Launch {

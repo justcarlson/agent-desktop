@@ -1,8 +1,7 @@
 use std::os::unix::fs::PermissionsExt;
 
 use super::*;
-use crate::system::app_alias::AliasCache;
-use crate::system::desktop_lookup::read_all;
+use crate::system::app_alias::{AliasCache, basename_lower};
 use crate::tree::live_launch::nonce;
 
 struct Fixture {
@@ -17,11 +16,12 @@ impl Drop for Fixture {
     }
 }
 
-fn executable(dir: &Path, name: &str) {
+fn executable(dir: &Path, name: &str) -> PathBuf {
     std::fs::create_dir_all(dir).expect("bin dir");
     let file = dir.join(name);
     std::fs::write(&file, "#!/bin/sh\n").expect("exe");
     std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).expect("mode");
+    file
 }
 
 fn fixture(entries: &[(&str, &str)], programs: &[&str]) -> Fixture {
@@ -44,7 +44,7 @@ fn fixture(entries: &[(&str, &str)], programs: &[&str]) -> Fixture {
         data_dirs: vec![apps],
         path_dirs: vec![bin],
     };
-    let index = AliasCache::new().index(&search.data_dirs, read_all);
+    let index = AliasCache::new().index(&search.data_dirs);
     Fixture {
         root,
         search,
@@ -57,11 +57,13 @@ const CALCULATOR: (&str, &str) = (
     "Name=Calculator\nType=Application\nExec=gnome-calculator",
 );
 
-fn classify_in(fixture: &Fixture, identifier: &str) -> Result<Target, ErrorCode> {
-    classify(identifier, &fixture.search, &fixture.index).map_err(|error| error.code)
+fn keys_in(fixture: &Fixture, identifier: &str) -> Result<Vec<String>, ErrorCode> {
+    resolve(identifier, &[], &fixture.search, &fixture.index)
+        .map(|plan| plan.keys)
+        .map_err(|error| error.code)
 }
 
-fn code_of(result: Result<Target, ErrorCode>) -> ErrorCode {
+fn code_of(result: Result<Vec<String>, ErrorCode>) -> ErrorCode {
     result.expect_err("an error")
 }
 
@@ -69,43 +71,34 @@ fn code_of(result: Result<Target, ErrorCode>) -> ErrorCode {
 fn a_name_reaches_the_entry_the_command_name_reaches() {
     let fixture = fixture(&[CALCULATOR], &["gnome-calculator"]);
     assert_eq!(
-        classify_in(&fixture, "Calculator"),
-        Ok(Target::Entry("org.gnome.Calculator".to_owned()))
+        keys_in(&fixture, "Calculator").unwrap()[0],
+        "org.gnome.calculator"
     );
     assert_eq!(
-        classify_in(&fixture, "calculator"),
-        Ok(Target::Entry("org.gnome.Calculator".to_owned()))
+        keys_in(&fixture, "calculator").unwrap()[0],
+        "org.gnome.calculator"
     );
     assert_eq!(
-        classify_in(&fixture, "gnome-calculator"),
-        Ok(Target::Command("gnome-calculator".to_owned()))
+        keys_in(&fixture, "gnome-calculator").unwrap(),
+        ["gnome-calculator"]
     );
 }
 
 #[test]
 fn a_path_file_beats_an_entry_name_and_a_desktop_id_beats_a_path_file() {
     let fixture = fixture(&[CALCULATOR], &["Calculator", "org.gnome.Calculator"]);
+    assert_eq!(keys_in(&fixture, "Calculator").unwrap(), ["calculator"]);
     assert_eq!(
-        classify_in(&fixture, "Calculator"),
-        Ok(Target::Command("Calculator".to_owned()))
-    );
-    assert_eq!(
-        classify_in(&fixture, "org.gnome.Calculator"),
-        Ok(Target::Entry("org.gnome.Calculator".to_owned()))
+        keys_in(&fixture, "org.gnome.Calculator").unwrap()[0],
+        "org.gnome.calculator"
     );
 }
 
 #[test]
 fn a_part_of_a_name_matches_nothing() {
     let fixture = fixture(&[CALCULATOR], &[]);
-    assert_eq!(
-        code_of(classify_in(&fixture, "Calc")),
-        ErrorCode::AppNotFound
-    );
-    assert_eq!(
-        code_of(classify_in(&fixture, "gnome")),
-        ErrorCode::AppNotFound
-    );
+    assert_eq!(code_of(keys_in(&fixture, "Calc")), ErrorCode::AppNotFound);
+    assert_eq!(code_of(keys_in(&fixture, "gnome")), ErrorCode::AppNotFound);
 }
 
 #[test]
@@ -118,7 +111,7 @@ fn a_name_two_entries_share_is_ambiguous() {
         &[],
     );
     assert_eq!(
-        code_of(classify_in(&fixture, "files")),
+        code_of(keys_in(&fixture, "files")),
         ErrorCode::AmbiguousTarget
     );
 }
@@ -127,30 +120,29 @@ fn a_name_two_entries_share_is_ambiguous() {
 fn a_relative_path_and_a_nul_are_invalid() {
     let fixture = fixture(&[], &[]);
     assert_eq!(
-        code_of(classify_in(&fixture, "bin/tool")),
+        code_of(keys_in(&fixture, "bin/tool")),
         ErrorCode::InvalidArgs
     );
-    assert_eq!(
-        code_of(classify_in(&fixture, "./tool")),
-        ErrorCode::InvalidArgs
-    );
-    assert_eq!(
-        code_of(classify_in(&fixture, "to\0ol")),
-        ErrorCode::InvalidArgs
-    );
-    assert_eq!(code_of(classify_in(&fixture, "")), ErrorCode::InvalidArgs);
+    assert_eq!(code_of(keys_in(&fixture, "./tool")), ErrorCode::InvalidArgs);
+    assert_eq!(code_of(keys_in(&fixture, "to\0ol")), ErrorCode::InvalidArgs);
+    assert_eq!(code_of(keys_in(&fixture, "")), ErrorCode::InvalidArgs);
 }
 
 #[test]
 fn an_absolute_file_is_a_path_and_a_missing_one_is_not_found() {
     let fixture = fixture(&[], &["tool"]);
     let tool = fixture.search.path_dirs[0].join("tool");
+    let plan = resolve(
+        &tool.to_string_lossy(),
+        &[],
+        &fixture.search,
+        &fixture.index,
+    )
+    .expect("executable path");
+    assert_eq!(plan.argv, [tool.to_string_lossy().as_ref()]);
+    assert_eq!(plan.keys, ["tool"]);
     assert_eq!(
-        classify_in(&fixture, &tool.to_string_lossy()),
-        Ok(Target::Path(tool))
-    );
-    assert_eq!(
-        code_of(classify_in(&fixture, "/nonexistent/tool")),
+        code_of(keys_in(&fixture, "/nonexistent/tool")),
         ErrorCode::AppNotFound
     );
 }
@@ -164,12 +156,33 @@ fn a_desktop_file_outside_the_data_directories_is_refused() {
         "[Desktop Entry]\nName=E\nType=Application\nExec=sh\n",
     )
     .expect("file");
-    let error = classify_in(&fixture, &outside.to_string_lossy()).expect_err("refused");
-    assert_eq!(error, ErrorCode::InvalidArgs);
+    let error = resolve(
+        &outside.to_string_lossy(),
+        &[],
+        &fixture.search,
+        &fixture.index,
+    )
+    .err()
+    .expect("refused");
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+    assert_eq!(
+        error.message,
+        format!(
+            "'{}' is a desktop file outside the XDG data directories and is not launched",
+            outside.display()
+        )
+    );
     let inside = fixture.search.data_dirs[0].join("org.gnome.Calculator.desktop");
     assert_eq!(
-        classify_in(&fixture, &inside.to_string_lossy()),
-        Ok(Target::Entry("org.gnome.Calculator".to_owned()))
+        resolve(
+            &inside.to_string_lossy(),
+            &[],
+            &fixture.search,
+            &fixture.index
+        )
+        .expect("trusted entry")
+        .keys[0],
+        "org.gnome.calculator"
     );
 }
 
@@ -216,10 +229,11 @@ fn an_entry_plan_expands_resolves_and_keys_the_entry() {
         &["gnome-text-editor"],
     );
     let arguments = vec!["--flag".to_owned(), "/a.txt".to_owned()];
-    let plan = plan(
-        &Target::Entry("org.gnome.TextEditor".to_owned()),
+    let plan = resolve(
+        "org.gnome.TextEditor",
         &arguments,
         &fixture.search,
+        &fixture.index,
     )
     .expect("plan");
     let program = fixture.search.path_dirs[0].join("gnome-text-editor");
@@ -247,34 +261,27 @@ fn an_entry_plan_expands_resolves_and_keys_the_entry() {
 fn a_command_and_a_path_plan_pass_the_arguments_through() {
     let fixture = fixture(&[], &["tool"]);
     let arguments = vec!["-x".to_owned(), "y".to_owned()];
-    let command = plan(
-        &Target::Command("tool".to_owned()),
-        &arguments,
-        &fixture.search,
-    )
-    .expect("plan");
+    let command = resolve("tool", &arguments, &fixture.search, &fixture.index).expect("command");
     assert_eq!(command.argv[1..], ["-x", "y"]);
     assert_eq!(command.keys, ["tool"]);
-    let by_path = plan(
-        &Target::Path(PathBuf::from("/opt/App/Run")),
+    let path = fixture.search.path_dirs[0].join("tool");
+    let by_path = resolve(
+        &path.to_string_lossy(),
         &arguments,
         &fixture.search,
+        &fixture.index,
     )
-    .expect("plan");
-    assert_eq!(by_path.argv, ["/opt/App/Run", "-x", "y"]);
-    assert_eq!(by_path.keys, ["run"]);
+    .expect("path");
+    assert_eq!(by_path.argv, [path.to_string_lossy().as_ref(), "-x", "y"]);
+    assert_eq!(by_path.keys, ["tool"]);
 }
 
 #[test]
 fn a_program_missing_from_path_is_not_found() {
     let fixture = fixture(&[CALCULATOR], &[]);
-    let error = plan(
-        &Target::Entry("org.gnome.Calculator".to_owned()),
-        &[],
-        &fixture.search,
-    )
-    .err()
-    .expect("not found");
+    let error = resolve("org.gnome.Calculator", &[], &fixture.search, &fixture.index)
+        .err()
+        .expect("not found");
     assert_eq!(error.code, ErrorCode::AppNotFound);
 }
 
@@ -287,19 +294,21 @@ fn launch_and_alias_keys_share_executable_basename_normalization() {
         )],
         &[],
     );
-    let launched = plan(
-        &Target::Path(PathBuf::from("/opt/SomeDir/MiXeD")),
+    let actual = executable(&fixture.root.join("SomeDir"), "MiXeD");
+    let launched = resolve(
+        &actual.to_string_lossy(),
         &[],
         &fixture.search,
+        &fixture.index,
     )
-    .unwrap();
+    .expect("existing executable path");
     assert_eq!(launched.keys, ["mixed"]);
     assert_eq!(fixture.index.names_for("mixed"), ["Tool"]);
     assert!(fixture.index.names_for("SomeDir").is_empty());
-    assert!(
-        plan(&Target::Path(PathBuf::from("/")), &[], &fixture.search)
-            .unwrap()
-            .keys
-            .is_empty()
+    assert_eq!(basename_lower("/"), None);
+    assert_eq!(
+        code_of(keys_in(&fixture, "/")),
+        ErrorCode::AppNotFound,
+        "a directory is not accepted as an executable path"
     );
 }

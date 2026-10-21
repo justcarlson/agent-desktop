@@ -1,5 +1,6 @@
 use super::*;
 use crate::system::process_facts::ProcessFacts;
+use crate::tree::live_launch::nonce;
 
 fn facts(comm: &str, exe: Option<&str>) -> ProcessFacts {
     ProcessFacts {
@@ -139,23 +140,25 @@ fn an_alias_matches_exactly_ignoring_case_and_never_renames_the_app() {
 
 #[test]
 fn desktop_identity_uses_the_unique_executable_mapping_even_after_an_upgrade() {
+    let dir = std::env::temp_dir().join(nonce("app-name-desktop-id"));
+    std::fs::create_dir_all(&dir).expect("desktop directory");
+    std::fs::write(
+        dir.join("org.example.Files.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Files\nExec=files %U\n",
+    )
+    .expect("files entry");
+    std::fs::write(
+        dir.join("org.example.SharedOne.desktop"),
+        "[Desktop Entry]\nType=Application\nName=One\nExec=shared\n",
+    )
+    .expect("first shared entry");
+    std::fs::write(
+        dir.join("org.example.SharedTwo.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Two\nExec=shared\n",
+    )
+    .expect("second shared entry");
     let cache = super::super::app_alias::AliasCache::new();
-    let index = cache.index(&[], |_| {
-        vec![
-            (
-                "org.example.Files".into(),
-                "[Desktop Entry]\nType=Application\nName=Files\nExec=files %U\n".into(),
-            ),
-            (
-                "org.example.SharedOne".into(),
-                "[Desktop Entry]\nType=Application\nName=One\nExec=shared\n".into(),
-            ),
-            (
-                "org.example.SharedTwo".into(),
-                "[Desktop Entry]\nType=Application\nName=Two\nExec=shared\n".into(),
-            ),
-        ]
-    });
+    let index = cache.index(std::slice::from_ref(&dir));
     for executable in ["files", "files (deleted)"] {
         assert_eq!(
             desktop_id_in(&index, &facts("files", Some(executable))).as_deref(),
@@ -167,4 +170,5 @@ fn desktop_identity_uses_the_unique_executable_mapping_even_after_an_upgrade() {
         None
     );
     assert_eq!(desktop_id_in(&index, &facts("files", None)), None);
+    let _ = std::fs::remove_dir_all(dir);
 }
