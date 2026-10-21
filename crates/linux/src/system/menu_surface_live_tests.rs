@@ -268,9 +268,9 @@ fn menu_live_gtk3_menu_bar_flips_state_inside_the_frame() {
 fn menu_live_qt_menu_bar_popup_is_a_child_of_its_item() {
     let mut launched = Launched::new();
     let (script, log) = script_log(QT_SCRIPT);
-    let home = std::env::var("HOME").expect("HOME");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
+
+    let python = std::env::var("AGENT_DESKTOP_QT_PYTHON").unwrap_or_else(|_| "python3".to_owned());
+
     let pid = launched.spawn_with_env(
         &python,
         &[&script, &nonce("q")],
@@ -279,7 +279,6 @@ fn menu_live_qt_menu_bar_popup_is_a_child_of_its_item() {
             ("QT_ACCESSIBILITY", "1".to_owned()),
             ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
             ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", libraries),
         ],
     );
     let rig = Rig::attach(pid);

@@ -179,6 +179,7 @@ fn shell_live_stopped_process_is_unresponsive_instead_of_a_window_outage() {
     let connection = accessibility(&session);
     let bus = SharedBus::default();
     wait_for_root(&bus, &connection, pid);
+    let root = find_root(&bus, deadline()).expect("live shell root");
     assert!(
         Command::new("kill")
             .args(["-STOP", &pid.to_string()])
@@ -203,6 +204,30 @@ fn shell_live_stopped_process_is_unresponsive_instead_of_a_window_outage() {
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     println!("/proc confirms stopped shell {pid}: {error:?}");
+    let landmark = super::anchor::Anchor::Landmark(super::container::Landmark::DateMenu);
+    let error = super::container::locate_anchor(
+        &bus,
+        &root,
+        landmark,
+        Deadline::after(150).expect("read deadline"),
+    )
+    .expect_err("cached shell landmark cannot be read while its process is stopped");
+    assert_eq!(error.code, ErrorCode::Timeout, "{error:?}");
     drop(stopped);
     wait_for_root(&bus, &connection, pid);
+    let found = super::container::locate_anchor(&bus, &root, landmark, deadline())
+        .expect("responsive shell landmark");
+    let role: u32 = connection
+        .call_method(
+            Some(found.anchor.element.bus_name()),
+            found.anchor.element.path(),
+            Some(ACCESSIBLE),
+            "GetRole",
+            &(),
+        )
+        .expect("independent landmark read")
+        .body()
+        .deserialize()
+        .expect("landmark role");
+    assert_eq!(role, super::container::MENU);
 }

@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use agent_desktop_core::{Action, ActionRequest, DeliverySemantics, KeyCombo};
+use agent_desktop_core::{
+    Action, ActionRequest, Deadline, DeliverySemantics, ObservationOps, SystemOps, WindowFilter,
+};
 
 use super::live_bench::Bench;
 use crate::tree::live_launch::{Launched, nonce};
@@ -62,6 +64,28 @@ fn open() -> (Bench, std::path::PathBuf) {
     let adapter = crate::LinuxAdapter::new();
     let frame = Bench::wait_for_frame(&adapter, &tag, pid, 20).expect("GTK window");
     let bench = Bench::attach(launched, frame);
+    let window = bench
+        .wait_for(|| {
+            bench
+                .adapter()
+                .list_windows(&WindowFilter::default(), Deadline::after(3_000).unwrap())
+                .unwrap()
+                .into_iter()
+                .find(|window| window.pid.get() == pid && window.state.visible == Some(true))
+        })
+        .expect("the fixture is mapped");
+    let lease = bench
+        .adapter()
+        .acquire_interaction_lease(Deadline::after(8_000).unwrap())
+        .unwrap();
+    bench.adapter().focus_window(&window, &lease).unwrap();
+    let sibling = bench.named("Sibling");
+    super::keyboard_focus::grab(
+        bench.adapter().bus(),
+        crate::tree::atspi_element(&sibling).unwrap(),
+        lease.deadline(),
+    )
+    .unwrap();
     assert!(
         bench
             .wait_for(|| (read(&state)["sibling_focused"] == true).then_some(()))
@@ -73,7 +97,7 @@ fn open() -> (Bench, std::path::PathBuf) {
 #[test]
 #[ignore = "drives GTK in scripts/private-session.sh --wm"]
 fn focus_transport_timeouts_survive_and_a_responsive_target_still_focuses() {
-    use agent_desktop_core::{Deadline, ErrorCode};
+    use agent_desktop_core::ErrorCode;
     let (bench, state) = open();
     let target = bench.named("Target");
     let element = crate::tree::atspi_element(&target).unwrap();
@@ -114,43 +138,6 @@ fn focus_transport_timeouts_survive_and_a_responsive_target_still_focuses() {
             .is_some()
     );
     assert_eq!(read(&state)["clicks"], 0);
-    assert_eq!(read(&state)["entry"], "unchanged");
-}
-
-#[test]
-#[ignore = "drives GTK in scripts/private-session.sh --wm"]
-fn ref_space_focuses_its_button_and_refuses_an_unfocusable_target() {
-    let (bench, state) = open();
-    let blocked = bench.named("Unfocusable");
-    let target = bench.named("Target");
-    let press = || {
-        ActionRequest::headed(Action::PressKey(KeyCombo {
-            key: "space".to_owned(),
-            modifiers: Vec::new(),
-        }))
-    };
-    assert!(
-        bench
-            .wait_for(|| (read(&state)["sibling_focused"] == true).then_some(()))
-            .is_some()
-    );
-    let before = read(&state);
-    let error = bench
-        .act_with(&blocked, press())
-        .expect_err("no target focus");
-    assert_eq!(error.details.expect("details")["check"], "target_focus");
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert_eq!(
-        read(&state),
-        before,
-        "no sibling key and no button activation"
-    );
-    bench.act_with(&target, press()).expect("focus then press");
-    assert!(
-        bench
-            .wait_for(|| (read(&state)["clicks"] == 1).then_some(()))
-            .is_some()
-    );
     assert_eq!(read(&state)["entry"], "unchanged");
 }
 

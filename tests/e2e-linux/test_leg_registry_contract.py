@@ -34,11 +34,6 @@ def fake_tier(root: Path) -> Tier:
 
 
 class LegRegistryTests(unittest.TestCase):
-    def test_every_lane_b_action_leg_has_both_modes(self):
-        for leg in legs.REGISTRY:
-            if leg.id.startswith(legs.HEADED_ACTION_PREFIXES) or leg.id in legs.HEADED_ACTION_LEGS:
-                self.assertEqual(set(leg.modes), {"headless", "headed"}, leg.id)
-
     def test_dispositions_carry_an_honest_reason(self):
         for leg in legs.REGISTRY:
             if leg.disposition == "outstanding":

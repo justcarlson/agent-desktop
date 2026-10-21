@@ -70,7 +70,7 @@ class GateTests(unittest.TestCase):
                    "actions::live_widget_tests::live", "tree::physical_live_tests::live",
                    "system::focus_window_live_tests::live",
                    "tree::resolve_source::action_live_tests::live"]
-        readers = ["tree::resolve_live_tests::live", "tree::find_live_tests::live",
+        readers = ["tree::resolve_live_tests::live", "tree::qt_live_tests::live",
                    "system::capture::capture_live_tests::live"]
         names = writers + readers
         ignored = set(names[2:])
@@ -87,7 +87,7 @@ class GateTests(unittest.TestCase):
         wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
                    "input::wayland::live_tests::reply_loss::case",
                    "system::shell::live_wayland_tests::native_case"]
-        mutter = [gate.SELF_MUTTER + "::case", "notifications::live_tests::case",
+        mutter = ["notifications::live_tests::case",
                   "system::shell::outage_live_tests::case"]
         cases = ["unit::fast", "tree::live::one", "tree::live::two", *wayland, *mutter]
         ignored = set(cases[1:])

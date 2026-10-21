@@ -113,17 +113,13 @@ fn translated(entry: &RefEntry, before: &Witness, after: &Witness) -> Option<Ref
     })
 }
 
-pub(crate) fn scroll(
-    bus: &SharedBus,
+fn eligible(
     entry: &RefEntry,
-    handle: &NativeHandle,
-    lease: &InteractionLease,
-) -> Result<Option<NativeHandle>, AdapterError> {
-    let element = atspi_element(handle)?;
-    let mut port = BusPort::new(bus, handle, element, lease.deadline());
-    let toolkit = port.toolkit();
-    let eligible = entry.identity.role == "incrementor"
-        && entry.identity.retained_object.as_deref() == Some(element.path())
+    element: &AtspiElement,
+    toolkit: &crate::system::toolkit_id::ToolkitId,
+) -> bool {
+    entry.identity.role == "incrementor"
+        && entry.identity.retained_object.as_deref() == Some(element.object_identity().as_str())
         && uuid_context(element.path())
         && element
             .scroll_container()
@@ -139,8 +135,21 @@ pub(crate) fn scroll(
             .version
             .as_deref()
             .and_then(|version| version.split('.').next())
-            == Some("4");
-    let before = eligible.then(|| Witness::read(&mut port)).flatten();
+            == Some("4")
+}
+
+pub(crate) fn scroll(
+    bus: &SharedBus,
+    entry: &RefEntry,
+    handle: &NativeHandle,
+    lease: &InteractionLease,
+) -> Result<Option<NativeHandle>, AdapterError> {
+    let element = atspi_element(handle)?;
+    let mut port = BusPort::new(bus, handle, element, lease.deadline());
+    let toolkit = port.toolkit();
+    let before = eligible(entry, element, &toolkit)
+        .then(|| Witness::read(&mut port))
+        .flatten();
     super::scroll_into_view(bus, handle, lease)?;
     let Some(before) = before else {
         return Ok(None);

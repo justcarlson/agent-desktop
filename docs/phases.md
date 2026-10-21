@@ -2234,7 +2234,7 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 - Retained observation, qualified-ref/session/trace, duplicate owner/window identity, raw zero-axis geometry, hidden-menu visibility, placeholder, state/value writes, semantic typing, policy refusals, ref selection/context menus/focus/hover, Settings scrolling/disclosure and non-interference legs. Actual coverage is the registry's tier/mode matrix; this scope does not promise every toolkit or position on every tier (L14, L23, L34).
 - Disabled Calculator Undo tests default, explicit, short and immediate timeout contracts. A controlled Qt enable target checks one activation. Positive Qt display-value selection is not claimed: the installed probe exposes no unique raw choice target, and native Qt coverage expects write_ignored. Unsupported Settings selection remains an asserted refusal, not positive selection coverage.
 - X11 ordinary/ABOVE cover legs independently check document/caret, covering app, stacking and restoration. Capture compares decoded window/display pixels against XWD where supported, with exact compositing/Wayland refusals where the route is unavailable. Text/image clipboard legs use a foreign producer/reader and check owner lifetime and clear; there is no HTML-setter claim.
-- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. App-scoped surface events, the seeded About opener and baseline, the Calculator About modal, the shell System button, tray activation, menu events and refusals, and the notification filter, wait and dismiss legs are measured live on the landed product; unscoped surface waits, unproven tray entries and notification lookups are asserted refusals. No leg passes by registration alone.
+- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. App-scoped surface events, the seeded About opener and baseline, the Calculator About modal, tray activation, menu events and refusals, and the notification filter, wait, target-only dismissal and dismiss-all legs are measured live on the landed product; unscoped surface waits, unproven tray entries and notification identity mismatches are asserted refusals. No leg passes by registration alone.
 - Wayland observation and exact focus/capture/headed-ref refusal contracts run on the private seatless tier. Successful keyboard-seat, portal-consent and physical input tests require 3.15's owner-run environments. Direct adapter `hit_test` is not exposed by the CLI and is not claimed by a mouse-click substitute (L27-46).
 - `linux-e2e` workflow_dispatch wiring and hosted portable self-tests. An interactive runner and KDE/Plasma validation remain 3.15 infrastructure/hardware work, not measured CI coverage.
 
@@ -2359,6 +2359,14 @@ On Wayland every shell click requires absolute motion on a screen-cast stream of
 
 **Exit criteria:** on a private `gnome-shell --x11`, driven through the release binary, `list-notifications` equals the sender's own record and `notification-action`, `dismiss-notification` and `dismiss-all-notifications` deliver with the effect read from a separate `dbus-monitor` and a re-read list, and a closed id answers `NOTIFICATION_NOT_FOUND` (L32-31); tray items and menu entries receive refs, a headless `click` delivers `Activate` and `Event(id,"clicked")` as the receiver's own log shows, a disabled entry and an item without `Activate` are refused with no call logged, and a headed click on an item without `Activate` opens the shell popup (L32-34 to L32-37); the System button opens and closes by ref (L32-38); the `menu` surface lists, snapshots and resolves refs on Calculator, Text Editor, a GTK 3 context menu and menu bar, a Qt menu bar and Chrome (L32-39); an unsupported desktop or a missing daemon, shell tree or watcher answers `PLATFORM_NOT_SUPPORTED` or the detector's own error with its suggestion rather than an empty result. Menu item `click` through the CLI is owned here, including GTK4 popup positioning and Chromium popup focus. A non-English shell and the tray corner cases remain owned by 3.15 (L32-40, L32-16).
 
+The L32 measurements above are historical implementation evidence. Current
+closing-gate acceptance excludes the full headed System-button open/close flow:
+its live specimen was retired under the owner test policy. That exit-criteria
+clause is not currently certified. The rebuilt single-dismiss leg proves target
+reason-2 closure, bystander preservation and wrong-app refusal through daemon
+signals and list readback. Native shell/dismissal/restoration tests and the
+retained live dismiss-all case remain.
+
 **Est. PR size:** ~2k LOC
 
 #### Notification Management (Linux Implementation)
@@ -2415,8 +2423,23 @@ A deterministic moving-control regression commits exactly once; replacement
 controls receive zero writes. Recovery requires GTK4 UUID context paths,
 unchanged scrollbar identity/range/orientation, pure viewport translation,
 and strict same-object/ancestry resolution. Unknown evidence retains the
-original refusal. `values.workspace_count_commit` remains in the closing
-Openbox headless/headed selection; its measured result is in the harness README.
+original refusal. Retained identity uses the canonical bus-qualified object key
+(`9571a28a`). The workspace-count reopen leg was retired after its second
+Settings launch exhausted the oracle attribution deadline following a verified
+write; its sole rerun repeated that fixture failure. Deterministic canonical
+identity and moving-control/replacement regressions remain. Live persistence
+after reopening Settings is not certified.
+
+Closing-gate live qualification follows the retained executable registry.
+Retired specimens do not certify headed Terminal Copy-state reads, the headed
+System-button flow, the initial-empty-list notification refusal, Mutter scoped
+surface-appeared success, or Mutter multiwindow Close-button event triggers.
+The initial-empty-list specimen timed out during setup before dismissal and
+passed its sole isolated rerun; deterministic empty/gone-notification refusal
+coverage remains. The rebuilt single-dismiss target/bystander leg is retained.
+Preferences find-ref remains on Mutter; snapshot-ref specimens on both X11
+tiers have unstable raw oracle reads. Native
+projection, shell, notification and event contracts remain deterministic tests.
 
 #### Harness hardening received from 3.12
 

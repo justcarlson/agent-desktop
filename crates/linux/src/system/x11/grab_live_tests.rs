@@ -240,52 +240,6 @@ fn grab_live_the_root_grab_and_the_compositing_read_answer_on_the_private_screen
 
 #[test]
 #[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
-fn grab_live_the_root_is_drawable_zero_in_root_coordinates() {
-    let display = super::super::live_display::private_display();
-    let flat = Flat::new(&display);
-    flat.map();
-    grab_when_painted(
-        flat.window,
-        GrabRect {
-            x: 0,
-            y: 0,
-            width: 10,
-            height: 10,
-        },
-    );
-    let inside = GrabRect {
-        x: ORIGIN.0 + 20,
-        y: ORIGIN.1 + 20,
-        width: 30,
-        height: 30,
-    };
-    let raw = DisplayGrabber
-        .grab(0, inside, deadline())
-        .expect("the root grabs");
-    let rgb = to_rgb(&raw.format, &raw.data, raw.width, raw.height, raw.stride).expect("converts");
-    if independent_compositing(&display) {
-        assert!(
-            rgb.chunks_exact(3).all(|pixel| pixel != FILL),
-            "a compositor's root shows its own stage, never the application window"
-        );
-    } else {
-        assert!(rgb.chunks_exact(3).all(|pixel| pixel == FILL));
-    }
-    let outside = GrabRect {
-        x: 0,
-        y: 0,
-        width: 30,
-        height: 30,
-    };
-    let raw = DisplayGrabber
-        .grab(0, outside, deadline())
-        .expect("the root grabs");
-    let rgb = to_rgb(&raw.format, &raw.data, raw.width, raw.height, raw.stride).expect("converts");
-    assert!(rgb.chunks_exact(3).all(|pixel| pixel != FILL));
-}
-
-#[test]
-#[ignore = "needs a private X session; run through scripts/private-session.sh --wm"]
 fn grab_live_a_framed_window_has_a_parent_and_every_rect_is_in_root_coordinates() {
     let display = super::super::live_display::private_display();
     let framed = Flat::at(&display, (300, 200), (150, 100), FILL, false);

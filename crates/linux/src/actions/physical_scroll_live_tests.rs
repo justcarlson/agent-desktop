@@ -82,8 +82,7 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
             launched.scratch.push(scratch.clone());
             let state = scratch.join("state.json");
             let uncover = scratch.join("uncover");
-            let (python, environment) =
-                super::live_bench_env::qt_environment().expect("Qt fixture");
+            let (python, environment) = super::live_bench_env::qt_environment();
             let pid = launched.spawn_with_env(
                 &python,
                 &[

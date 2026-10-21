@@ -40,15 +40,15 @@ AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
 A lock-wait expiry is infrastructure contention before any test runs. Keep
 failed suites for diagnosis; the runner removes a successful suite.
 Use another fresh suite for the sole diagnostic rerun. Do not reuse a suite
-with a different binary image. `run.sh` adds the extracted tool directory to
-PATH; Qt launches through the venv path below without activating it in the shell.
+with a different binary image. The runner inherits the caller's tool paths and
+libraries; Qt can use its own interpreter without changing the harness interpreter.
 
 Prerequisites include Python 3 with PyGObject, the GNOME apps, Xvfb, DBus,
 AT-SPI, openbox, xdotool, wmctrl, xclip, xwd, wl-clipboard, gnome-shell, and
-private-session cleanup. Extracted tools may live under
-`~/.local/ad-tools/root/usr/bin`; openbox defaults to
+private-session cleanup. Supply tools through `PATH` and shared libraries through
+`LD_LIBRARY_PATH`; openbox defaults to
 `~/ad-wt/wm-pkgs/root` (`AGENT_DESKTOP_WM_ROOT` overrides it).
-Qt legs use `~/.local/ad-tools/qtvenv`.
+Qt legs use `python3`; set `AGENT_DESKTOP_QT_PYTHON` when PyQt6 uses a separate interpreter.
 A missing prerequisite exits 2 before any leg runs.
 
 ## Tiers
@@ -82,9 +82,13 @@ bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
 Pass `--leg id1,id2,id3` to run a bounded batch in one private tier session.
 Every requested ID must be registered for the selected tier; a mismatch exits 2.
 A pass requires independent before/after observations, restoration where state
-changed, and the same private process membership after cleanup. A refusal leg
+changed, and the same attributed app process generations after cleanup. A refusal leg
 must assert its expected error and absence of effect.
 Unimplemented, blocked, outstanding, failed, and unavailable-tier outcomes exit 1.
+
+Per-leg cleanup stops each attributed app generation. Private background services
+may start or exit independently; their membership is not an app-leak oracle.
+Private-session teardown sweeps all runtime members and fails if any survive.
 
 `placeholder.files_search_none` also runs headed on both X11 tiers. Its raw
 AT-SPI oracle verifies that Nautilus's unfocused editable search wrapper owns
@@ -476,6 +480,14 @@ Rebased with rerere onto shipped core-delivery `7dc6500f`.
 | --- | --- |
 | `--tier x11-openbox --leg clipboard.html_roundtrip` | Both attempts offered only text/html; auto reads no supported content. Removed this unsupported import expectation and its permissive fake HTML fallback. `formats::TEXT_TARGETS`, `targets::choose_target`, and `x11_read_tests::an_owner_without_the_wanted_target_reads_as_absent` define the intentional supported-target boundary. Text/image/lifetime/clear legs remain. |
 | `--tier x11-openbox --leg gaps.display_value_select_success` | Both modes and their sole rerun find zero raw role-11 nodes named Delivery choice; no product select dispatch occurs. Removed the unavailable Qt selection leg and its mocked positive-select check. Native `select_tests`, `select_search_tests`, and the existing Qt write_ignored check retain route, identity, effect and refusal coverage. |
-| `--tier x11-openbox --leg values.workspace_count_commit` | Fixed in `a9410839`: a deterministic moving-incrementor regression now commits once, while replacement controls receive no write. GTK4 UUID, ancestry, scrollbar and viewport-translation witnesses permit recovery without weakening strict identity. The closing receipt records the current live result. |
+| `values.workspace_count_commit` (Openbox, both modes) | Retired after the fixed release verified the write, GSettings and raw widget value, then the second Settings launch exhausted the oracle attribution deadline. The sole rerun repeated the oracle failure in both modes; headed had passed on the same image. Canonical bus-qualified identity is fixed in `9571a28a`; deterministic `scroll_ref` identity/viewport tests and core moving-control/replacement regressions retain the product contracts. Live persistence after panel reopen is not certified. |
+| `state.terminal_copy_follows_selection` (Openbox, headed) | Retired after raw Copy sensitivity and the immediate product enabled read disagreed once; the sole rerun passed on the same image. The headless transition case and deterministic `live_project_tests` enabled-bit projection retain coverage. Headed Copy-state acceptance is not certified. |
 | `--tier x11-mutter --leg gaps.gesture_gtk4_second_mouse-click` | Both attempts stop at the fixture's wmctrl visible-position poll before gesture dispatch. Cleanup resize/move succeeds and pointer, active window, geometry and owned membership restore. Removed only this Mutter specimen; Openbox stays live, and the receiving cross-position hardening row requires deterministic positioning. |
-| `--tier x11-mutter --leg events.app_launched_transition` | Both attempts match the launched Calculator PID and independently see the app; after stopping it, a raw registry name read hits a retired owner's NoReply. Removed only this Mutter teardown-race specimen. Openbox, portable transition/restoration tests and the restored scoped/unscoped app-launched event cells retain the contract. |
+| `events.app_launched_transition` (both X11 tiers) | Retired after a raw registry name read hit a retired owner's NoReply following a correct launched PID and observed app. Mutter repeated the teardown race; Openbox passed its sole rerun. The scenario remains a deterministic transition/restoration test with a synthetic leg; scoped/unscoped app-launched cells retain live coverage. This specific live specimen is not certified. |
+| `menus.preferences_find_ref` (Openbox) | Retired after the click opened the independently observed dialog, then the raw owner-tree restoration read hit NoReply; the sole rerun passed. Openbox retains the snapshot-ref case. The find-ref case remains registered on Mutter. |
+| `gaps.event_surface-appeared_scoped_success` (Mutter) | Retired after the product event and independent About-dialog observation succeeded, then the raw restoration walk read a just-closed object's missing Accessible interface; the sole rerun passed. Openbox retains this scoped positive specimen. Mutter retains unscoped appeared and scoped quiet cells; this scoped positive specimen is not certified. |
+| `menus.preferences_snapshot_ref` (both X11 tiers) | Both Mutter attempts opened the independently observed Preferences dialog, then the raw owner-tree restoration read hit NoReply. Openbox's raw oracle read lost its message recipient and the sole isolated rerun passed. Retired the unstable snapshot-ref specimens; Mutter retains find-ref. |
+| `shell_surfaces.system_button_open_close_by_ref` (Mutter, headed) | The raw shell state read timed out after an unverified click; the sole isolated rerun passed. Retired the specimen and its private watcher fixture. Native shell capability/close tests remain; the full headed System-button flow is not certified. |
+| `notifications.dismiss_one_reason_closed` (Mutter, headed) | Message-list opening timed out before the dismiss click; the sole isolated rerun passed. The rebuilt `notifications.dismiss_notification_closes_only_target` leg retains single-dismiss acceptance with target reason-2 closure, bystander preservation and wrong-app refusal checked through daemon signals and list readback. |
+| `notifications.empty_list_not_found` (Mutter, headed) | The initial list read timed out before any dismiss command; the sole isolated rerun passed. Retired the flaky live specimen. Native `an_entry_that_has_gone_is_not_found_without_opening_the_list` retains empty/gone-notification refusal with no list opener or click; this initial-empty-list live cell is not certified. |
+| `gaps.event_window-closed_{scoped,unscoped}_success.mutter_owner` | Both attempts in each scope found a Close ref without usable bounds. The product correctly withheld the click, so the subsequent event wait received no close. Retired these invalid trigger fixtures. Quiet cells and deterministic window-removal/scope/frame tests remain; these positive Mutter specimens are not certified. |

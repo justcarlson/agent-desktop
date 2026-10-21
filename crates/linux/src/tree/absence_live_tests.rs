@@ -158,7 +158,10 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
         assert!(
             wait_until(Duration::from_secs(5), || {
                 let (outcome, elapsed) = subject.rig.timed_resolve(&subject.victim);
-                gone = outcome.err().map(|error| (error, elapsed));
+                gone = outcome
+                    .err()
+                    .filter(|error| kind(error) == "resolve_no_candidate")
+                    .map(|error| (error, elapsed));
                 gone.is_some()
             }),
             "[{label}] the removed element stops resolving"

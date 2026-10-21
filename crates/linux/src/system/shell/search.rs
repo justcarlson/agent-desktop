@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::light::{Light, Nodes};
 use crate::tree::AtspiElement;
@@ -54,8 +54,10 @@ pub(crate) fn find<N: Nodes>(
         let reads = nodes.read_level(&elements);
         let mut next = Vec::new();
         for ((_, parent), read) in frontier.drain(..).zip(reads) {
-            let Ok(light) = read else {
-                continue;
+            let light = match read {
+                Ok(light) => light,
+                Err(error) if error.code == ErrorCode::ElementNotFound => continue,
+                Err(error) => return Err(error),
             };
             if (query.prune)(&light) {
                 continue;

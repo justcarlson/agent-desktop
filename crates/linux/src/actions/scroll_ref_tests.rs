@@ -1,6 +1,36 @@
 use super::*;
 use crate::tree::Extents;
 
+#[test]
+fn recovery_requires_the_retained_bus_and_object_identity() {
+    let path = "/org/gnome/Settings/a11y/58a7ffe5_8929_4d89_a213_005c4ebcc910";
+    let mut element = AtspiElement::new(":1.2", path, 40);
+    element.set_ancestry(crate::tree::ancestry::Ancestry::of(
+        Some(AtspiElement::new(
+            ":1.2",
+            "/org/gnome/Settings/a11y/58a7ffe5_8929_4d89_a213_005c4ebcc911",
+            40,
+        )),
+        Some(AtspiElement::new(
+            ":1.2",
+            "/org/gnome/Settings/a11y/58a7ffe5_8929_4d89_a213_005c4ebcc912",
+            40,
+        )),
+        false,
+    ));
+    let toolkit = crate::system::toolkit_id::ToolkitId {
+        name: Some("GTK".to_owned()),
+        version: Some("4.14.5".to_owned()),
+    };
+    let mut entry = crate::tree::test_support::ref_entry("incrementor");
+    entry.identity.retained_object = Some(format!(":1.2{path}"));
+    assert!(eligible(&entry, &element, &toolkit));
+    for other in [path.to_owned(), format!(":1.3{path}")] {
+        entry.identity.retained_object = Some(other);
+        assert!(!eligible(&entry, &element, &toolkit));
+    }
+}
+
 fn bounds(y: i32) -> Extents {
     Extents {
         x: 492,

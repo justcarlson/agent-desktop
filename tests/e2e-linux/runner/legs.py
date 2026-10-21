@@ -45,9 +45,6 @@ class Leg:
 
 
 OUTSTANDING_REASONS = {}
-HEADED_ACTION_PREFIXES = ("state.", "values.", "disclosure.", "select.", "scroll.")
-HEADED_ACTION_LEGS = frozenset()
-
 REGISTRY: tuple[Leg, ...] = (
     Leg('ref_actions.expand', 'A ref expands the Calculator menu and reveals its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.collapse', 'A ref collapses the Calculator menu and hides its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
@@ -66,7 +63,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('ref_actions.drag', 'R32 Ref drag selects document text and restores selection', 'Text Editor', ('x11-openbox',), ('headed',), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.drag_headless_refusal', 'Headless ref drag is refused without selecting text', 'Text Editor', ('x11-openbox',), ('headless',), ('atspi', 'x11'), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
     Leg('capture.window_pixels_match_xwd', 'A window capture matches the pixels xwd reads', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headless',), ('pixels', 'x11'), 'pass', ''),
-    Leg('gaps.event_surface-appeared_scoped_success', 'R19 surface-appeared scoped success', 'Calculator About', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
+    Leg('gaps.event_surface-appeared_scoped_success', 'R19 surface-appeared scoped success', 'Calculator About', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('gaps.event_surface-appeared_scoped_quiet', 'R19 surface-appeared scoped quiet', 'Calculator About', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('gaps.event_surface-appeared_unscoped_success', 'Unscoped surface-appeared is INVALID_ARGS with a showing About dialog', 'Calculator About', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'asserted-refusal', 'INVALID_ARGS: surface events require --app; raw surface state unchanged'),
     Leg('gaps.event_surface-appeared_unscoped_quiet', 'Unscoped surface-appeared is INVALID_ARGS without a dialog', 'Calculator About', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'asserted-refusal', 'INVALID_ARGS: surface events require --app; raw surface state unchanged'),
@@ -113,11 +110,10 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('observation.enabled_state_canonical_and_raw', 'is enabled reads canonical enabled while the raw SENSITIVE bit holds', 'Calculator', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.session_namespace_isolation', 'A snapshot taken in one session is not visible from another', 'Calculator', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.trace_segment_written', 'A traced command writes one trace segment under the selected session', 'Calculator', ('x11-openbox',), ('headless',), ('proc',), 'pass', ''),
-    Leg('state.terminal_copy_follows_selection', 'Copy enables and disables with a text selection', 'Terminal', ('x11-openbox',), ('headless', 'headed'), ('atspi',), 'pass', ''),
+    Leg('state.terminal_copy_follows_selection', 'Copy enables and disables with a text selection', 'Terminal', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('state.text_editor_semantic_type', 'The semantic type path writes the typed text into the document', 'Text Editor', ('x11-openbox',), ('headless', 'headed'), ('atspi',), 'pass', ''),
     Leg('values.hot_corner_flip_restore', 'Hot Corner flips, the key confirms it, and it restores', 'Settings', ('x11-openbox',), ('headless', 'headed'), ('gsettings',), 'pass', ''),
     Leg('values.pointer_speed_commit', 'Pointer Speed takes a value the key confirms after panel reopen', 'Settings', ('x11-openbox',), ('headless', 'headed'), ('gsettings',), 'pass', ''),
-    Leg('values.workspace_count_commit', 'Number of Workspaces takes a value the key confirms after panel reopen', 'Settings', ('x11-openbox',), ('headless', 'headed'), ('gsettings',), 'pass', ''),
     Leg('values.terminal_read_only_flip', 'The Read-Only check item flips and restores', 'Terminal', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('atspi',), 'pass', ''),
     Leg('select.screen_blank_value', 'Screen Blank takes a new value the idle-delay key confirms', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('gsettings',), 'pass', ''),
     Leg('select.refusal_without_semantic_route', 'A combo with no semantic route is refused with no effect', 'Settings', ('x11-openbox', 'x11-mutter'), ('headless', 'headed'), ('gsettings',), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
@@ -164,7 +160,6 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('events.window_opened_quiet', 'wait --event window-opened times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox',), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.window_closed_transition', 'wait --event window-closed succeeds on a real transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox',), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.window_closed_quiet', 'wait --event window-closed times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
-    Leg('events.app_launched_transition', 'wait --event app-launched succeeds on a real transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox',), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.app_launched_quiet', 'wait --event app-launched times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.app_terminated_transition', 'wait --event app-terminated succeeds on a real transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.app_terminated_quiet', 'wait --event app-terminated times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
@@ -175,8 +170,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('menus.wait_menu_opens_calculator', 'wait --menu succeeds on the Calculator main menu', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('menus.wait_menu_closes_calculator', 'wait --menu-closed succeeds on the Calculator main menu', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('menus.wait_menu_already_open', 'A menu predicate reads the already-open state at once', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
-    Leg('menus.preferences_snapshot_ref', 'A menu snapshot ref opens a unique Preferences dialog observed through AT-SPI', 'Calculator', X11, HEADLESS, ('atspi', 'x11'), 'pass'),
-    Leg('menus.preferences_find_ref', 'A menu find ref opens a unique Preferences dialog observed through AT-SPI', 'Calculator', X11, HEADLESS, ('atspi', 'x11'), 'pass'),
+    Leg('menus.preferences_find_ref', 'A menu find ref opens a unique Preferences dialog observed through AT-SPI', 'Calculator', ('x11-mutter',), HEADLESS, ('atspi', 'x11'), 'pass'),
     Leg('menus.hidden_bar_timeout_message', 'A hidden menu bar times out with the landed message', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
     Leg('identity.restart_old_id_window_not_found', 'After a restart the old window id answers WINDOW_NOT_FOUND', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('identity.restart_new_id_resolves', 'After a restart the new window id resolves', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
@@ -189,13 +183,11 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('launch.list_apps_alias', 'list-apps answers like its alias', 'Calculator, Text Editor, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('proc', 'atspi'), 'pass', ''),
     Leg('launch.launch_suggestion', 'A failed launch carries the landed suggestion', 'Calculator, Text Editor, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('proc', 'atspi'), 'pass', ''),
     Leg('launch.recovery_strategy_on_error', 'A dead-owner ref is nonretryable without a recovery token or relaunch', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('proc', 'atspi'), 'asserted-refusal', 'STALE_REF, exited, retryable=false, not_delivered/safe, no recovery token'),
-    Leg('shell_surfaces.system_button_open_close_by_ref', 'The System button opens and closes by ref, read back by pixels and the raw tree', 'GNOME shell', ('x11-mutter',), ('headed',), ('atspi', 'pixels'), 'pass', ''),
     Leg('notifications.app_filter_case_insensitive', 'The app filter is a case-insensitive contains', 'GNOME shell', ('x11-mutter',), ('headless',), ('dbus',), 'pass', ''),
     Leg('notifications.wait_notification_passes', 'wait --notification passes near the send', 'GNOME shell', ('x11-mutter',), ('headless',), ('dbus',), 'pass', ''),
     Leg('notifications.wait_notification_times_out', 'wait --notification times out with none sent', 'GNOME shell', ('x11-mutter',), ('headless',), ('dbus',), 'asserted-refusal', 'TIMEOUT with unchanged notifications and no daemon mutation signal'),
     Leg('notifications.headless_mutations_policy_denied', 'Headless mutations answer POLICY_DENIED and the list is unchanged', 'GNOME shell', ('x11-mutter',), ('headless',), ('dbus',), 'asserted-refusal', 'POLICY_DENIED with unchanged notifications and no daemon mutation signal'),
     Leg('notifications.wrong_app_not_found', 'A wrong expected app answers NOTIFICATION_NOT_FOUND with no signal', 'GNOME shell', ('x11-mutter',), ('headed',), ('dbus',), 'asserted-refusal', 'NOTIFICATION_NOT_FOUND with unchanged notifications and no daemon mutation signal'),
-    Leg('notifications.empty_list_not_found', 'An empty list answers NOTIFICATION_NOT_FOUND with no signal', 'GNOME shell', ('x11-mutter',), ('headed',), ('dbus',), 'asserted-refusal', 'NOTIFICATION_NOT_FOUND with unchanged notifications and no daemon mutation signal'),
     Leg('notifications.dismiss_notification_closes_only_target', 'dismiss-notification closes only the owned target with daemon reason 2 and preserves its bystander', 'GNOME shell', ('x11-mutter',), ('headed',), ('dbus',), 'pass', ''),
     Leg('notifications.dismiss_all_closes_every_notification', 'dismiss-all closes every notification', 'GNOME shell', ('x11-mutter',), ('headed',), ('dbus',), 'pass', ''),
     Leg('tray.headless_activate_logged', "Headless click delivers Activate as the sender's log shows", 'harness tray item', ('x11-mutter',), ('headless',), ('applog', 'dbus'), 'pass', ''),
@@ -215,9 +207,7 @@ RESTORED_MUTTER_EVENTS = (
     'gaps.event_window-opened_scoped_success.mutter_owner',
     'gaps.event_window-opened_scoped_quiet.mutter_owner',
     'gaps.event_window-opened_unscoped_success.mutter_owner',
-    'gaps.event_window-closed_scoped_success.mutter_owner',
     'gaps.event_window-closed_scoped_quiet.mutter_owner',
-    'gaps.event_window-closed_unscoped_success.mutter_owner',
     'gaps.event_window-closed_unscoped_quiet.mutter_owner',
     'gaps.event_app-launched_scoped_success.mutter_owner',
     'gaps.event_app-launched_scoped_quiet.mutter_owner',

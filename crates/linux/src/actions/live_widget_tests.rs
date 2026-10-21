@@ -324,8 +324,7 @@ fn a_gecko_page_takes_a_click_and_a_check() {
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
 fn a_plain_qwidget_and_a_qmainwindow_are_both_listed_windows() {
-    let (python, environment) =
-        super::live_bench_env::qt_environment().expect("the Qt environment");
+    let (python, environment) = super::live_bench_env::qt_environment();
     let tag = nonce("qtlist");
     let dir = std::env::temp_dir().join(&tag);
     std::fs::create_dir_all(&dir).expect("a directory");

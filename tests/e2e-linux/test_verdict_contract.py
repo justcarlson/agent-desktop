@@ -11,7 +11,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from runner import main, report, session, verdict
+from runner import apps, main, report, session, verdict
 from runner.legs import Leg
 from runner.product import Envelope
 from runner.session import Tier
@@ -92,6 +92,7 @@ class VerdictRuleTests(unittest.TestCase):
                 def leak(ctx):
                     ctx.before("atspi", "unchanged")
                     ctx.after("atspi", "unchanged")
+                    ctx.restored("atspi", "unchanged")
                     self.members[0] |= {(12, 120)}
 
                 def kill(pid, sig, start, runtime, proc_root):
@@ -100,7 +101,8 @@ class VerdictRuleTests(unittest.TestCase):
                     self.members[0] -= {(pid, 120)}
 
                 suite = Path(self.root.name) / str(reused)
-                with mock.patch.object(verdict, "_proc_members", side_effect=lambda _: list(self.members[0])), \
+                with mock.patch.dict(apps._TIERS, {(12, 120): self.tier}, clear=True), \
+                    mock.patch.object(verdict, "_proc_members", side_effect=lambda _: list(self.members[0])), \
                     mock.patch.object(session, "_process_start_time", return_value=121 if reused else 120), \
                     mock.patch.object(session, "_kill", side_effect=kill) as send, \
                     mock.patch.object(main.time, "monotonic", side_effect=[0, 2, 3, 5]):
@@ -109,12 +111,28 @@ class VerdictRuleTests(unittest.TestCase):
                 self.assertEqual(outcome.outcome, "fail")
                 evidence = json.loads(main._evidence_path(suite, "x11-openbox", "headless", "t.leg").read_text())
                 self.assertIn([12, 120], evidence["owned_final"])
+                self.assertIn("owned-process set changed", outcome.detail)
                 if reused:
                     send.assert_not_called()
                     self.assertTrue(any("recovery" in item for item in outcome.findings))
                 else:
                     send.assert_called_once_with(12, signal.SIGTERM, 120, self.tier.runtime_dir, Path("/proc"))
                     self.assertEqual(self.members[0], {(10, 100)})
+
+    def test_private_service_churn_is_not_an_attributed_app_leak(self):
+        self.members[0] = frozenset({(10, 100), (12, 120)})
+        with mock.patch.dict(apps._TIERS, {(12, 120): self.tier}, clear=True), \
+             mock.patch.object(verdict, "_proc_members", side_effect=lambda _: list(self.members[0])), \
+             mock.patch.object(session, "_kill") as send:
+            ctx = LegContext(self.tier, "headless", atspi_leg())
+            ctx.before("atspi", "unchanged")
+            ctx.after("atspi", "unchanged")
+            ctx.restored("atspi", "unchanged")
+            self.members[0] = frozenset({(11, 110), (12, 120)})
+            self.assertEqual(verdict.evaluate(ctx), [])
+            main._recover_failed_members(ctx)
+            send.assert_not_called()
+            self.assertEqual(ctx.owned().members, {(12, 120)})
 
     def test_evidence_write_failure_is_an_error_even_for_a_passing_leg(self):
         from runner import gate, stage
@@ -203,19 +221,21 @@ class VerdictRuleTests(unittest.TestCase):
         failures = verdict.evaluate(ctx)
         self.assertNotEqual(failures, [])
 
-    def test_joined_process_fails_the_leg(self):
+    def test_joined_attributed_app_fails_the_leg(self):
         ctx = self.ctx()
         ctx.before("atspi", "a")
         ctx.after("atspi", "a")
+        ctx.restored("atspi", "a")
         self.members[0] = self.members[0] | {(12, 120)}
         failures = verdict.evaluate(ctx)
         self.assertTrue(any("owned-process set changed" in f for f in failures))
         self.assertTrue(any("joined" in f for f in failures))
 
-    def test_departed_process_fails_the_leg(self):
+    def test_departed_attributed_app_fails_the_leg(self):
         ctx = self.ctx()
         ctx.before("atspi", "a")
         ctx.after("atspi", "a")
+        ctx.restored("atspi", "a")
         self.members[0] = frozenset({(10, 100)})
         failures = verdict.evaluate(ctx)
         self.assertTrue(any("owned-process set changed" in f for f in failures))
@@ -225,6 +245,7 @@ class VerdictRuleTests(unittest.TestCase):
         ctx = self.ctx()
         ctx.before("atspi", "a")
         ctx.after("atspi", "a")
+        ctx.restored("atspi", "a")
         self.members[0] = frozenset({(10, 100), (11, 999)})
         failures = verdict.evaluate(ctx)
         self.assertTrue(any("owned-process set changed" in f for f in failures))

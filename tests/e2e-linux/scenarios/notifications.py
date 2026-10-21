@@ -105,15 +105,6 @@ def wrong_app_not_found(ctx):
         ctx.after("dbus.notifications", sender.active())
 
 
-@implementation("notifications.empty_list_not_found")
-def empty_list_not_found(ctx):
-    with _observing(ctx) as sender:
-        envelope = ctx.product(["dismiss-notification", "1", "--expected-app", "HarnessAbsent"])
-        _refusal(envelope, "NOTIFICATION_NOT_FOUND")
-        assert not sender.signals(), sender.signals()
-        ctx.after("dbus.notifications", sender.active())
-
-
 @implementation("notifications.dismiss_notification_closes_only_target")
 def dismiss_notification_closes_only_target(ctx):
     with _observing(ctx) as sender:

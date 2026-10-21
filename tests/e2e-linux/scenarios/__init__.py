@@ -27,7 +27,6 @@ from scenarios import ref_disclosure
 from scenarios import ref_scroll
 from scenarios import scroll
 from scenarios import select
-from scenarios import shell_surfaces
 from scenarios import state
 from scenarios import surfaces
 from scenarios import text_entry
@@ -66,7 +65,6 @@ __all__ = [
     "ref_scroll",
     "scroll",
     "select",
-    "shell_surfaces",
     "state",
     "surfaces",
     "text_entry",

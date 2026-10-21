@@ -74,22 +74,13 @@ pub(crate) fn terminal_server(rig: &mut Rig) -> u32 {
 }
 
 pub(crate) fn launch_qt(rig: &mut Rig, flag: &str) -> u32 {
-    let home = std::env::var("HOME").expect("HOME is set");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    assert!(
-        std::path::Path::new(&python).exists(),
-        "precondition: the Qt test environment was not found at {python}"
-    );
+    let python = std::env::var("AGENT_DESKTOP_QT_PYTHON").unwrap_or_else(|_| "python3".to_owned());
     let dir = std::env::temp_dir().join(nonce("l311d-qt"));
     std::fs::create_dir_all(&dir).expect("scratch dir");
     rig.launched.scratch.push(dir.clone());
     let script = dir.join("app.py");
     std::fs::write(&script, QT_SCRIPT).expect("script");
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    let library_path = match std::env::var("LD_LIBRARY_PATH") {
-        Ok(existing) if !existing.is_empty() => format!("{libraries}:{existing}"),
-        _ => libraries,
-    };
+
     let script_arg = script.to_string_lossy().into_owned();
     rig.launched.spawn_with_env(
         &python,
@@ -98,7 +89,6 @@ pub(crate) fn launch_qt(rig: &mut Rig, flag: &str) -> u32 {
             ("QT_ACCESSIBILITY", "1".to_owned()),
             ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
             ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", library_path),
         ],
     )
 }

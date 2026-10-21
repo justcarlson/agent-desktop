@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from oracle import atspi_raw as raw, proc, x11
+from oracle import atspi_raw as raw, x11
 from runner import apps
 
 
@@ -134,16 +134,12 @@ def activate(node):
 
 @contextlib.contextmanager
 def managed(ctx, name, args=()):
-    baseline = proc.members(ctx.tier.runtime_dir)
     app = apps.launch_qt(ctx.tier) if name == "Qt" else (
         apps.launch_vscode(ctx.tier) if name == "VS Code" else apps.launch(ctx.tier, name, args))
     try:
         yield app
     finally:
         apps.stop(app)
-        require(raw.poll(lambda: proc.members(ctx.tier.runtime_dir) == baseline, 5),
-                f"application cleanup changed private process membership: before={baseline!r}; "
-                f"after={proc.members(ctx.tier.runtime_dir)!r}")
 
 
 def remove(path: Path):

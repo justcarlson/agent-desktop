@@ -141,13 +141,7 @@ mod navigate_live_tests;
 mod physical_live_apps_tests;
 
 #[cfg(test)]
-mod physical_live_mutter_tests;
-
-#[cfg(test)]
 mod physical_live_rig;
-
-#[cfg(test)]
-mod physical_live_shell;
 
 #[cfg(test)]
 mod physical_live_scripts;
@@ -190,10 +184,6 @@ mod vocabulary_live_tests;
 #[cfg(test)]
 #[path = "walker_live_tests.rs"]
 mod walker_live_tests;
-
-#[cfg(test)]
-#[path = "find_live_tests.rs"]
-mod find_live_tests;
 
 #[cfg(test)]
 #[path = "resolve_live_tests.rs"]

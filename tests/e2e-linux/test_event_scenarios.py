@@ -92,7 +92,9 @@ class EventScenarioTests(unittest.TestCase):
                      "app_terminated_quiet", "target_killed_mid_wait"):
             with self.subTest(leg=kind):
                 tier = SimpleNamespace(runtime_dir=Path("/private/test"))
-                ctx = LegContext(tier, "headless", legs.leg_by_id("events." + kind),
+                leg = legs.Leg("events." + kind, "Process event restores private registry state",
+                               "Calculator", ("x11-openbox",), ("headless",), ("atspi",), "pass")
+                ctx = LegContext(tier, "headless", leg,
                                  member_reader=lambda _: frozenset())
                 owners, pending = set(), []
                 def launch(tier, name, *a):

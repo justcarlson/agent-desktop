@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from runner.apps import launch, stop
-from runner.helper import changed, command, managed, nodes, ref, require, snapshot
+from runner.helper import changed, command, managed, ref, require, snapshot
 from runner.legs import implementation
 from runner.verdict import LegContext
 from oracle.atspi_raw import app_root, poll, registry
@@ -110,7 +110,8 @@ def hidden_bar_timeout_message(ctx: LegContext) -> None:
     _menu_case(ctx, TERMINAL, "hidden")
 
 
-def _preferences_click(ctx, from_find):
+@implementation("menus.preferences_find_ref")
+def preferences_find_ref(ctx: LegContext) -> None:
     with managed(ctx, CALCULATOR) as app:
         def dialogs():
             return [node for owner in registry(ctx.tier) if owner.bus in app.owner_names
@@ -126,14 +127,8 @@ def _preferences_click(ctx, from_find):
         opener = ref(ctx, app, name="Main Menu", role="switch")
         command(ctx, ["click", opener])
         command(ctx, ["wait", "--menu", "--app", CALCULATOR, "--timeout", "5000"])
-        menu = snapshot(ctx, app, "--surface", "menu")
-        if from_find:
-            target = ref(ctx, app, name="Preferences", surface="menu")
-        else:
-            matches = {node["ref_id"] for node in nodes(menu)
-                       if node.get("name") == "Preferences" and "ref_id" in node}
-            require(len(matches) == 1, "expected one Preferences menu ref")
-            target = matches.pop()
+        snapshot(ctx, app, "--surface", "menu")
+        target = ref(ctx, app, name="Preferences", surface="menu")
         pointer = x11.pointer(ctx.tier)
         active = x11.active_window(ctx.tier)
         response = ctx.product(["click", target])
@@ -150,16 +145,6 @@ def _preferences_click(ctx, from_find):
                 require(focused and x11.product_window(ctx.tier, focused) in allowed,
                         "modal click focused a window other than the new Preferences dialog")
     ctx.restored("atspi.preferences_dialogs", changed(read, 0, seconds=5))
-
-
-@implementation("menus.preferences_snapshot_ref")
-def preferences_snapshot_ref(ctx: LegContext) -> None:
-    _preferences_click(ctx, False)
-
-
-@implementation("menus.preferences_find_ref")
-def preferences_find_ref(ctx: LegContext) -> None:
-    _preferences_click(ctx, True)
 
 
 def terminal_preferences_modal(ctx: LegContext) -> None:

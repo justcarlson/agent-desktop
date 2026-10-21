@@ -2,7 +2,6 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::Deadline;
 
-use crate::system::overview::overview_open;
 use crate::system::x11::activate::active_window_within;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
@@ -41,14 +40,6 @@ pub(super) fn wait_until(what: &str, budget: Duration, mut ready: impl FnMut() -
     }
 }
 
-pub(super) fn holds_for(what: &str, window: Duration, mut holds: impl FnMut() -> bool) {
-    let started = Instant::now();
-    while started.elapsed() < window {
-        assert!(holds(), "{what}");
-        std::thread::sleep(POLL);
-    }
-}
-
 pub(super) fn wait_for_viewable_client(pid: u32, budget: Duration) -> X11Client {
     wait_until("the window listed, mapped and viewable", budget, || {
         client_of(pid).is_some_and(|client| viewable(&client))
@@ -73,10 +64,4 @@ pub(super) fn activate(client: u32) {
     let owner = agent_desktop_core::ProcessIdentity::new(pid, facts.instance);
     crate::system::x11::control_send::activate_window(client, &owner, read_deadline(), true)
         .expect("the activation request is sent");
-}
-
-pub(super) fn wait_for_closed_overview(budget: Duration) {
-    wait_until("the Overview reading closed", budget, || {
-        overview_open() == Some(false)
-    });
 }

@@ -89,9 +89,6 @@ for _ in $(seq 1 5); do
 done
 [ -n "$shell_pid" ] || { echo "private-mutter-shell: no healthy gnome-shell --x11" >&2; exit 1; }
 
-ad_tools=$HOME/.local/ad-tools/root/usr
-export PATH="$ad_tools/bin:$PATH"
-export LD_LIBRARY_PATH="$ad_tools/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 DISPLAY=$display /usr/bin/python3 - "$log/mutter-mapped" <<'PY' &
 import pathlib
 import sys

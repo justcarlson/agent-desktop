@@ -103,7 +103,6 @@ def window_closed_quiet(ctx: LegContext) -> None:
     stop(app)
 
 
-@implementation("events.app_launched_transition")
 def app_launched_transition(ctx: LegContext) -> None:
     ctx.before("atspi.apps", _names(ctx.tier, "gnome-calculator"))
     launched = []

@@ -33,13 +33,7 @@ pub(in crate::system) fn deadline(ms: u64) -> Deadline {
 }
 
 pub(in crate::system) fn tool(name: &str) -> Command {
-    let home = std::env::var("HOME").expect("HOME");
-    let mut command = Command::new(format!("{home}/.local/ad-tools/root/usr/bin/{name}"));
-    command.env(
-        "LD_LIBRARY_PATH",
-        format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu"),
-    );
-    command
+    Command::new(name)
 }
 
 pub(in crate::system) fn xprop(args: &[&str]) -> String {

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 from typing import Callable
 
+from runner import apps
 from runner.legs import ORACLE_NAMES
 from runner.product import Envelope, run_product
 from runner.session import Tier, _proc_members
@@ -15,7 +16,9 @@ class OwnedSet:
 
 
 def _session_members(tier: Tier) -> frozenset[tuple[int, int]]:
-    return frozenset(_proc_members(tier.runtime_dir))
+    attributed = {key for key, owner in apps._TIERS.items()
+                  if owner.runtime_dir == tier.runtime_dir}
+    return frozenset(_proc_members(tier.runtime_dir)).intersection(attributed)
 
 
 class LegContext:

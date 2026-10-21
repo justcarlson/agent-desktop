@@ -6,8 +6,7 @@ use super::live_launch::{nonce, vscode_arguments};
 use super::live_rig::{Rig, kind, refused, rig, signal};
 
 fn launch(rig: &mut Rig) -> u32 {
-    let home = std::env::var("HOME").expect("HOME");
-    let program = format!("{home}/.local/ad-tools/vscode/app/code");
+    let program = "code".to_owned();
     let data = std::env::temp_dir()
         .join(nonce("chromium"))
         .to_string_lossy()

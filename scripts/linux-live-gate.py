@@ -42,12 +42,11 @@ HELPER_PARENTS = {
     "system::window_op_live_tests::environment::window_op_live_child_xwayland":
         "system::window_op_live_tests::environment::window_op_live_an_xwayland_window_is_operated_and_a_native_wayland_window_is_refused",
 }
-SELF_MUTTER = "tree::physical_live_mutter_tests"
 # Reviewed module groups whose fixtures never acquire the global interaction lease.
 # Unknown modules and all unit tests stay on one writer, preserving that lock's contract.
 PARALLEL_READS = {
     "tree::absence_live_tests", "tree::capability_live_tests", "tree::chromium_live_tests",
-    "tree::find_live_tests", "tree::hit_live_tests::cases", "tree::live_read_live_tests",
+    "tree::hit_live_tests::cases", "tree::live_read_live_tests",
     "tree::navigate_live_tests", "tree::observe_live_tests", "tree::qt_live_tests",
     "tree::registry_toolkit_live_tests", "tree::resolve_live_tests",
     "tree::live_timeout",
@@ -105,7 +104,7 @@ def tiers_for(name, ignored):
         return ("wayland",)
     if name in OPENBOX_CASES:
         return ("openbox",)
-    if any(name.startswith(module + "::") for module in (*MUTTER_MODULES, SELF_MUTTER)):
+    if any(name.startswith(module + "::") for module in MUTTER_MODULES):
         return ("mutter",)
     return ("openbox", "mutter")
 
@@ -114,7 +113,7 @@ def validate_tiers(names):
     required = set((*EXTERNAL_WAYLAND, *BARE_CASES, *OPENBOX_CASES, *HELPER_PARENTS,
                     *HELPER_PARENTS.values()))
     missing = required - set(names)
-    modules = (*WAYLAND_MODULES, *MUTTER_MODULES, SELF_MUTTER)
+    modules = (*WAYLAND_MODULES, *MUTTER_MODULES)
     missing.update(module for module in modules if not any(
         name.startswith(module + "::") for name in names))
     if missing:
@@ -274,7 +273,7 @@ def worker(manifest_path, tier, shard):
                    *task["tests"]]
         if any(name in EXTERNAL_WAYLAND for name in task["tests"]):
             command = ["bash", str(ROOT / "scripts/private-wayland-shell.sh"), "--", *command]
-        if task["module"] == SELF_MUTTER or any(name in BARE_CASES for name in task["tests"]):
+        if any(name in BARE_CASES for name in task["tests"]):
             command = ["bash", str(ROOT / "scripts/private-session.sh"), "--", *command]
         code, seconds = run_bounded(command, log, manifest["timeout"])
         reported = [(name, status) for status, name in RESULT.findall(
