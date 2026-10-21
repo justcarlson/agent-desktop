@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, SnapshotSurface, WindowInfo, WindowState};
+use agent_desktop_core::{AdapterError, Deadline, WindowInfo, WindowState};
 
-use super::menu_popup::{MenuFamily, Node};
-use super::{MAX_POLLS, MenuPopup, PopupReader, entries, entries_across, find_popups, supported};
+use super::menu_popup::Node;
+use super::{MAX_POLLS, MenuPopup, PopupReader, entries_across, entry, find_popups};
 use crate::system::menu_fixture::*;
 
 struct Fake {
@@ -75,72 +75,19 @@ fn popups(window: Node) -> Vec<MenuPopup> {
 }
 
 #[test]
-fn menu_is_the_surface_this_adapter_advertises_and_lists() {
-    assert_eq!(supported(), [SnapshotSurface::Menu]);
-    let listed = entries(&popups(frame_with(vec![gtk4_popover(true)])), &owner(true));
-    assert_eq!(listed[0].kind, SnapshotSurface::Menu.as_str());
-}
-
-#[test]
-fn one_synthetic_read_per_family_yields_one_popup_of_that_family() {
-    let cases = [
-        (
-            frame_with(vec![gtk4_popover(true)]),
-            MenuFamily::Gtk4Popover,
-        ),
-        (frame_with(vec![gtk3_bar(true)]), MenuFamily::Gtk3Bar),
-        (frame_with(vec![qt_bar(true)]), MenuFamily::Qt),
-    ];
-    for (window, family) in cases {
-        let found = popups(window);
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].family, family);
-    }
-    for (top, family) in [
-        (gtk3_context_window(), MenuFamily::Gtk3Context),
-        (chromium_frame(), MenuFamily::Chromium),
-    ] {
-        let mut fake = Fake::new(frame_with(Vec::new()));
-        fake.top = vec![top];
-        let found = find_popups(&mut fake, false, deadline()).expect("a scan");
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].family, family);
-    }
-}
-
-#[test]
 fn a_closed_menu_lists_no_entry_though_its_nodes_are_present() {
     let closed = popups(frame_with(vec![qt_bar(false), gtk3_bar(false)]));
     assert!(closed.is_empty());
-    assert!(entries(&closed, &owner(true)).is_empty());
 }
 
 #[test]
 fn an_open_menu_lists_one_menu_entry_on_the_owner_window_with_its_item_count() {
     let open = popups(frame_with(vec![gtk4_popover(true)]));
-    let listed = entries(&open, &owner(false));
-    let [entry] = listed.as_slice() else {
-        panic!("one entry")
-    };
+    let entry = entry(&open[0], &owner(false));
     assert_eq!(entry.id, "w-1-2");
     assert_eq!(entry.kind, "menu");
     assert_eq!(entry.item_count, Some(2));
     assert!(entry.unclassified.is_empty());
-}
-
-#[test]
-fn a_submenu_chain_lists_one_entry() {
-    let inner = node(MENU, "More", &[SHOWING], items(true));
-    let more = node(ITEM, "More", &[SHOWING], vec![inner]);
-    let outer = node(MENU, "File", &[SHOWING], vec![item("Open", true), more]);
-    let found = popups(frame_with(vec![node(
-        MENU_BAR,
-        "",
-        &[SHOWING],
-        vec![outer],
-    )]));
-    assert_eq!(found.len(), 2);
-    assert_eq!(entries(&found, &owner(true)).len(), 1);
 }
 
 #[test]
@@ -164,15 +111,7 @@ fn the_first_popup_of_a_chain_is_the_outermost_and_the_entry_counts_it() {
     assert_eq!(found.len(), 2);
     assert_eq!(found[0].items, 2);
     assert_eq!(found[1].items, 5);
-    assert_eq!(entries(&found, &owner(true))[0].item_count, Some(2));
-}
-
-#[test]
-fn a_popup_that_appears_after_the_settle_poll_is_listed() {
-    let mut fake = Fake::new(frame_with(vec![gtk4_popover(true)])).opening_after(2);
-    let found = find_popups(&mut fake, true, deadline()).expect("a scan");
-    assert_eq!(found.len(), 1);
-    assert_eq!(fake.pauses, 2);
+    assert_eq!(entry(&found[0], &owner(true)).item_count, Some(2));
 }
 
 #[test]

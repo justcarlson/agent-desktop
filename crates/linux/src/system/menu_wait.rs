@@ -111,15 +111,6 @@ fn verify_process(world: &impl MenuWorld) -> Result<(), AdapterError> {
     }
 }
 
-/// Whether a read that matches the wanted state may end the wait. A menu
-/// that an action of this process has just asked to open stays closed for
-/// the first few hundred milliseconds, so a closed read right after such an
-/// action proves nothing until the menu has been seen open or the settle
-/// window of the action has passed.
-fn settled(open: bool, seen_open: bool, world: &impl MenuWorld) -> bool {
-    open || seen_open || !world.recent_action()
-}
-
 pub(super) fn run(
     world: &impl MenuWorld,
     open: bool,
@@ -130,7 +121,7 @@ pub(super) fn run(
     loop {
         verify_process(world)?;
         match world.menu_open(deadline) {
-            Ok(state) if state == open && settled(open, seen_open, world) => {
+            Ok(state) if state == open && (open || seen_open || !world.recent_action()) => {
                 verify_process(world)?;
                 return Ok(());
             }

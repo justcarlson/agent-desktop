@@ -121,36 +121,15 @@ pub(crate) fn popups_of(
     popups_at(bus, &window, settle, deadline)
 }
 
-/// The popups open in a window and the top-level popups of its application,
-/// outermost first. A listing waits for a popup to appear only when this
-/// process has just delivered an action and the window holds the focus: that
-/// is the one case where a popup may be on its way.
-pub(crate) fn open_popups(
-    bus: &SharedBus,
-    owner: &WindowInfo,
-    deadline: Deadline,
-) -> Result<Vec<MenuPopup>, AdapterError> {
-    popups_of(
-        bus,
-        owner,
-        super::action_clock::settles(owner.state.is_focused),
-        deadline,
-    )
-}
-
 /// One `menu` entry for the outermost open popup.
-pub(crate) fn entries(popups: &[MenuPopup], owner: &WindowInfo) -> Vec<SurfaceInfo> {
-    popups
-        .first()
-        .map(|popup| SurfaceInfo {
-            id: owner.id.clone(),
-            kind: "menu".to_owned(),
-            title: None,
-            item_count: Some(popup.items),
-            unclassified: Vec::new(),
-        })
-        .into_iter()
-        .collect()
+pub(crate) fn entry(popup: &MenuPopup, owner: &WindowInfo) -> SurfaceInfo {
+    SurfaceInfo {
+        id: owner.id.clone(),
+        kind: "menu".to_owned(),
+        title: None,
+        item_count: Some(popup.items),
+        unclassified: Vec::new(),
+    }
 }
 
 /// The `menu` entries of one process's windows. A popup that is a top-level
@@ -162,7 +141,14 @@ pub(crate) fn surfaces_of(
     owners: &[&WindowInfo],
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
-    entries_across(owners, |owner| open_popups(bus, owner, deadline))
+    entries_across(owners, |owner| {
+        popups_of(
+            bus,
+            owner,
+            super::action_clock::settles(owner.state.is_focused),
+            deadline,
+        )
+    })
 }
 
 fn entries_across(
@@ -172,14 +158,13 @@ fn entries_across(
     let mut listed = Vec::new();
     let mut claimed = false;
     for owner in owners {
-        let popups: Vec<MenuPopup> = read(owner)?
+        if let Some(popup) = read(owner)?
             .into_iter()
-            .filter(|popup| !(claimed && popup.family.is_top_level()))
-            .collect();
-        claimed |= popups
-            .first()
-            .is_some_and(|popup| popup.family.is_top_level());
-        listed.extend(entries(&popups, owner));
+            .find(|popup| !(claimed && popup.family.is_top_level()))
+        {
+            claimed |= popup.family.is_top_level();
+            listed.push(entry(&popup, owner));
+        }
     }
     Ok(listed)
 }
