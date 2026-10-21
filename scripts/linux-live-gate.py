@@ -203,6 +203,8 @@ def merge(manifest_path):
         summaries.append(summary)
         passed &= summary["passed"]
         for shard in range(len(manifest["shards"][tier])):
+            if not manifest["shards"][tier][shard]:
+                continue
             receipt = directory / f"shard-{shard}.json"
             if not receipt.exists():
                 passed = False

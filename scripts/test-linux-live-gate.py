@@ -17,6 +17,23 @@ spec.loader.exec_module(gate)
 
 
 class GateTests(unittest.TestCase):
+    def test_merge_allows_unscheduled_shards_but_requires_scheduled_results(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            name = "notifications::live_tests::one"
+            manifest = directory / "manifest.json"
+            shards = gate.plan([name], {name}, 3)
+            gate.save(manifest, dict(tests=[name], ignored=[name], shards=shards,
+                                     binary_sha256="binary", source_sha256="source"))
+            for tier in gate.TIERS:
+                (directory / tier).mkdir()
+                gate.save(directory / tier / "summary.json", dict(passed=True))
+            with redirect_stdout(io.StringIO()):
+                self.assertFalse(gate.merge(manifest))
+                gate.save(directory / "mutter/shard-0.json",
+                          [dict(passed=True, results=[[name, "ok"]])])
+                self.assertTrue(gate.merge(manifest))
+
     def test_targeted_selection_is_ignored_only_and_rejects_mistyped_modules(self):
         names = ["tree::focus::unit", "tree::focus::live", "tree::focus_other::live",
                  "notifications::live_tests::live"]
