@@ -9,6 +9,7 @@ typedef bool (*ADGuideGranted)(uint8_t step);
 static const uint8_t ADGuideAccessibility = 1;
 static const uint8_t ADGuideScreenRecording = 2;
 static const NSTimeInterval ADGuideLifetime = 600;
+static const NSTimeInterval ADGuideDropRetry = 15;
 static const CGFloat ADGuideWidth = 320;
 static const CGFloat ADGuideGap = 16;
 static const CGFloat ADGuideIconSize = 64;
@@ -124,6 +125,28 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 }
 @end
 
+@interface ADGuidePanel : NSPanel
+@end
+
+@implementation ADGuidePanel
+- (BOOL)canBecomeKeyWindow {
+    return YES;
+}
+@end
+
+@interface ADGuideButton : NSButton
+@end
+
+@implementation ADGuideButton
+- (BOOL)acceptsFirstMouse:(NSEvent *)__unused event {
+    return YES;
+}
+
+- (void)mouseDown:(NSEvent *)__unused event {
+    [self sendAction:self.action to:self.target];
+}
+@end
+
 @interface ADGuide : NSObject
 @property(nonatomic, strong) NSPanel *panel;
 @property(nonatomic, strong) NSVisualEffectView *card;
@@ -137,6 +160,8 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 @property(nonatomic, strong) NSImage *hostImage;
 @property(nonatomic, copy) NSString *hostName;
 @property(nonatomic, strong) NSDate *deadline;
+@property(nonatomic, strong) NSDate *droppedAt;
+@property(nonatomic) BOOL coversScreenRecording;
 @property(nonatomic) ADGuideGranted granted;
 @property(nonatomic) uint8_t remaining;
 @property(nonatomic) uint8_t current;
@@ -154,6 +179,7 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
     }
     _granted = granted;
     _remaining = steps;
+    _coversScreenRecording = (steps & ADGuideScreenRecording) != 0;
     _total = ((steps & ADGuideAccessibility) ? 1 : 0) + ((steps & ADGuideScreenRecording) ? 1 : 0);
     _deadline = [NSDate dateWithTimeIntervalSinceNow:ADGuideLifetime];
     _hostImage = [NSWorkspace.sharedWorkspace iconForFile:hostPath];
@@ -164,7 +190,7 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 }
 
 - (void)buildPanel:(NSURL *)hostURL {
-    self.panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, ADGuideWidth, 300)
+    self.panel = [[ADGuidePanel alloc] initWithContentRect:NSMakeRect(0, 0, ADGuideWidth, 300)
                                             styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
                                               backing:NSBackingStoreBuffered
                                                 defer:NO];
@@ -205,7 +231,7 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
     self.bodyLabel.alignment = NSTextAlignmentCenter;
     self.bodyLabel.preferredMaxLayoutWidth = ADGuideWidth - 40;
     self.bodyLabel.textColor = NSColor.secondaryLabelColor;
-    NSButton *close = [NSButton buttonWithTitle:@"Not Now" target:self action:@selector(finish)];
+    NSButton *close = [ADGuideButton buttonWithTitle:@"Not Now" target:self action:@selector(finish)];
     close.bezelStyle = NSBezelStyleRounded;
     NSStackView *stack = [NSStackView stackViewWithViews:@[
         self.stepLabel, self.titleLabel, self.icon, self.captionLabel, self.bodyLabel, close
@@ -258,6 +284,8 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 
 - (void)start {
     [self beginStep];
+    [self.panel center];
+    [self follow:ADGuideSettingsFrame()];
     [self.panel orderFrontRegardless];
     [NSTimer scheduledTimerWithTimeInterval:1
                                     repeats:YES
@@ -272,13 +300,7 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
     self.stepLabel.stringValue =
         [NSString stringWithFormat:@"Step %d of %d", self.completed + 1, self.total];
     self.titleLabel.stringValue = accessibility ? @"Allow Accessibility" : @"Allow Screen Recording";
-    NSString *body = accessibility
-        ? @"Drag %@ into the list, then turn on its switch. If %@ is already in the list, just turn on its switch."
-        : @"Drag %@ into the list, then turn on its switch. macOS can ask you to quit and reopen %@.";
-    self.bodyLabel.stringValue = [NSString stringWithFormat:body, self.hostName, self.hostName];
-    self.icon.image = self.hostImage;
-    self.captionLabel.hidden = NO;
-    [self resizePanel];
+    [self showInstructions];
     NSString *pane = accessibility ? @"Privacy_Accessibility" : @"Privacy_ScreenCapture";
     NSOperatingSystemVersion ventura = {13, 0, 0};
     NSString *anchor = [NSProcessInfo.processInfo isOperatingSystemAtLeastVersion:ventura]
@@ -286,8 +308,25 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
         : @"x-apple.systempreferences:com.apple.preference.security?";
     NSString *link = [anchor stringByAppendingString:pane];
     [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:link]];
-    self.lastSettings = NSZeroRect;
     self.advancing = NO;
+}
+
+- (void)showInstructions {
+    self.bodyLabel.stringValue = [NSString
+        stringWithFormat:@"Drag %@ into the list, then turn on its switch. If %@ is already in the list, just turn on its switch.",
+                         self.hostName, self.hostName];
+    self.icon.image = self.hostImage;
+    self.icon.contentTintColor = nil;
+    self.captionLabel.hidden = NO;
+    self.droppedAt = nil;
+    self.lastSettings = NSZeroRect;
+    [self resizePanel];
+}
+
+- (void)retryStalledDrop {
+    if (self.droppedAt != nil && [self.droppedAt timeIntervalSinceNow] < -ADGuideDropRetry) {
+        [self showInstructions];
+    }
 }
 
 - (void)resizePanel {
@@ -304,7 +343,11 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
         return;
     }
     [self follow:ADGuideSettingsFrame()];
-    if (self.advancing || !self.granted(self.current)) {
+    if (self.advancing) {
+        return;
+    }
+    if (!self.granted(self.current)) {
+        [self retryStalledDrop];
         return;
     }
     self.advancing = YES;
@@ -379,6 +422,7 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 }
 
 - (void)showDropped {
+    self.droppedAt = [NSDate date];
     self.captionLabel.hidden = YES;
     [self.stage orderOut:nil];
     self.bodyLabel.stringValue =
@@ -404,7 +448,9 @@ static NSScreen *ADGuideScreenFor(NSRect frame) {
 - (void)showDone {
     self.stepLabel.stringValue = @"";
     self.titleLabel.stringValue = @"You are all set";
-    self.bodyLabel.stringValue = @"agent-desktop can now see and use your apps.";
+    self.bodyLabel.stringValue = self.coversScreenRecording
+        ? [NSString stringWithFormat:@"Quit and reopen %@ before agent-desktop takes screenshots.", self.hostName]
+        : @"agent-desktop can now see and use your apps.";
     [self resizePanel];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self finish];
