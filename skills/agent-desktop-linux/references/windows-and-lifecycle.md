@@ -76,7 +76,32 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 
 ## `close-app`
 
-`close-app` succeeds only when the process is gone.
+`close-app` closes the app, including all its windows, and succeeds only when the
+process is gone. There is no `close-window` command. To close just one of several
+windows, click that window's own Close button ref. For the last window, use
+`close-app` when you intend to exit the app.
+
+For example, with Text Editor windows titled `a.txt` and `b.txt` already open, this
+Bash recipe uses `jq` to select the unique `b.txt` window and its Close button.
+It stops if either selection is ambiguous; it does not pick the first match.
+
+```bash
+(
+  set -euo pipefail
+  window_id=$(agent-desktop list-windows --app gnome-text-editor |
+    jq -er '[.data[] | select(.title == "b.txt")] |
+      if length == 1 then .[0].id else error("choose one window") end')
+  close_ref=$(agent-desktop snapshot --app gnome-text-editor --window-id "$window_id" -i --compact |
+    jq -er '[.. | objects | select(.role? == "button" and .name? == "Close" and .ref_id?) | .ref_id] |
+      if length == 1 then .[0] else error("choose the window Close button") end')
+  agent-desktop click "$close_ref"
+  agent-desktop list-windows --app gnome-text-editor
+)
+```
+
+Check that only the intended window disappeared. If a save prompt appears,
+snapshot `--surface sheet`, answer it, then list the windows again. Ctrl+W may
+close only a document or tab and leave its window open.
 
 - Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and no
   signal. A file manager that outlives its windows ends in `TIMEOUT` with

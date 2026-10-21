@@ -49,6 +49,13 @@ Keep these on agent-desktop even with CDP connected: the native menu bar, file d
 
 ## close-app
 
+`close-app` closes the app and all its windows. There is no `close-window`
+command. To close one of several windows, snapshot the intended `--window-id`
+and click its own Close button ref, then verify with `list-windows`. Answer any
+save prompt through its sheet. For the last window, use `close-app` if you intend
+to exit the app. Ctrl+W may close only a tab or document, leaving the window open.
+The Linux windows reference includes a Bash recipe that selects a fresh Close ref.
+
 ```bash
 agent-desktop close-app "TextEdit"
 agent-desktop close-app "TextEdit" --force
