@@ -59,3 +59,36 @@ fn shifted_unique_name_without_bounds_resolves_original() {
     let element = resolve(&mut fake, &entry, deadline()).expect("the only Save still resolves");
     assert_eq!(element.path(), "/save-a");
 }
+
+#[test]
+fn shifted_anonymous_siblings_with_only_screen_geometry_are_ambiguous() {
+    for shrink in [0, 1] {
+        let mut fake = Fake::new();
+        fake.add(FRAME_PATH, "/other", node(PUSH_BUTTON, "Other", 30, 20));
+        fake.add(FRAME_PATH, "/first", node(PUSH_BUTTON, "", 80, 20));
+        fake.add(FRAME_PATH, "/second", node(PUSH_BUTTON, "", 80, 20));
+        let entry = fake.entry_of("/first", true);
+        assert_eq!(entry.scope.path.as_slice(), [1]);
+        assert!(!agent_desktop_core::ref_identity::has_meaningful_identity(
+            &entry
+        ));
+        assert_ne!(
+            entry.geometry.bounds_space,
+            Some(agent_desktop_core::BoundsSpace::Window)
+        );
+        remove_other(&mut fake);
+        for path in ["/first", "/second"] {
+            fake.nodes.get_mut(path).expect("sibling").read.node.extents =
+                crate::tree::Field::Present(crate::tree::Extents {
+                    x: 0,
+                    y: 0,
+                    width: 80,
+                    height: 20 - shrink,
+                });
+        }
+        let error = resolve(&mut fake, &entry, deadline())
+            .expect_err("the shifted path cannot identify an anonymous sibling");
+        assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+        assert_eq!(error.details.expect("details")["candidate_count"], 2);
+    }
+}

@@ -1,7 +1,9 @@
 use agent_desktop_core::{BoundsSpace, LocatorField, Rect, RefEntry};
 
 use super::projection::project_node;
-use super::resolve_match::{Admission, admit_node};
+use super::resolve_match::{
+    Admission, accepts_landing, admit_node, provisional_geometry_candidate,
+};
 use super::role_numbers::is_web_document;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, WalkedNode};
 
@@ -40,7 +42,12 @@ fn visit(
     let is_root = depth == 0;
     let limits = WalkLimits::default();
     let evidence = project_node(&node.payload, node.in_web_document, &limits);
-    match admit_node(entry, &evidence) {
+    let admission = if provisional_geometry_candidate(entry) && accepts_landing(entry, &evidence) {
+        Admission::Collect
+    } else {
+        admit_node(entry, &evidence)
+    };
+    match admission {
         Admission::Collect => found.candidates.push(Candidate {
             element: node.payload.node.element.clone(),
             bounds: match evidence.ref_evidence.window_bounds {

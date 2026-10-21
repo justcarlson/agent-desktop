@@ -114,7 +114,7 @@ fn attempt<S: Source>(
     let path_unread = if path_tier_applies(entry) {
         let (landed, unread) = path_tier(source, &frame, entry, deadline)?;
         if let Some(element) = landed
-            && (entry.identity.retained_object.is_some() || !has_meaningful_identity(entry))
+            && entry.identity.retained_object.is_some()
         {
             return Ok(element);
         }
@@ -146,7 +146,11 @@ fn attempt<S: Source>(
     match classify(
         &rects,
         &spaces,
-        entry.geometry.bounds.as_ref(),
+        entry
+            .geometry
+            .bounds
+            .as_ref()
+            .filter(|_| has_meaningful_identity(entry)),
         super::resolve_match::stored_space(entry),
         unread,
     ) {
@@ -166,9 +170,9 @@ fn attempt<S: Source>(
 /// A ref with no identity evidence is refused before any read: a child index
 /// cannot distinguish an unnamed node from a replacement or reordered sibling.
 /// The window gate proves the process and window are the stored ones; the
-/// stored child-index path can identify a retained object or a geometry-only
-/// ref. Named and identifier-bearing refs always search the bounded window
-/// tree: a positional landing cannot prove that no matching sibling exists.
+/// stored child-index path can identify a retained object. Every other ref
+/// searches the bounded window tree: a positional landing cannot prove that
+/// no matching sibling exists.
 /// An application that left, a destroyed object and a timeout are told apart
 /// at this boundary, and a timeout on a stopped process is `APP_UNRESPONSIVE`.
 pub(crate) fn resolve<S: Source>(
