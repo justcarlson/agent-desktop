@@ -5,9 +5,9 @@ use crate::system::alias_cache::AliasCache;
 use crate::system::app_alias::basename_lower;
 use crate::tree::live_launch::nonce;
 
-struct Fixture {
+pub(super) struct Fixture {
     root: PathBuf,
-    search: Search,
+    pub(super) search: Search,
     index: std::sync::Arc<AliasIndex>,
 }
 
@@ -25,7 +25,7 @@ fn executable(dir: &Path, name: &str) -> PathBuf {
     file
 }
 
-fn fixture(entries: &[(&str, &str)], programs: &[&str]) -> Fixture {
+pub(super) fn fixture(entries: &[(&str, &str)], programs: &[&str]) -> Fixture {
     let root = std::env::temp_dir().join(nonce("target"));
     let apps = root.join("apps");
     let bin = root.join("bin");
@@ -58,7 +58,7 @@ const CALCULATOR: (&str, &str) = (
     "Name=Calculator\nType=Application\nExec=gnome-calculator",
 );
 
-fn keys_in(fixture: &Fixture, identifier: &str) -> Result<Vec<String>, ErrorCode> {
+pub(super) fn keys_in(fixture: &Fixture, identifier: &str) -> Result<Vec<String>, ErrorCode> {
     resolve(identifier, &[], &fixture.search, &fixture.index)
         .map(|plan| plan.keys)
         .map_err(|error| error.code)

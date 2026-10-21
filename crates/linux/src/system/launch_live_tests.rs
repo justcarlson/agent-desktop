@@ -197,3 +197,6 @@ fn live_an_app_that_exits_after_registering_and_before_a_window_is_not_a_launch(
 
 #[path = "launch_resident_live_tests.rs"]
 mod resident;
+
+#[path = "launch_identity_live_tests.rs"]
+mod identity;

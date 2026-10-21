@@ -90,9 +90,14 @@ fn resolve_program(program: &str, path_dirs: &[PathBuf]) -> Result<String, Adapt
         })
 }
 
-fn entry_plan(id: &str, arguments: &[String], search: &Search) -> Result<Plan, AdapterError> {
+fn entry_plan(
+    id: &str,
+    arguments: &[String],
+    search: &Search,
+    index: &AliasIndex,
+) -> Result<Plan, AdapterError> {
     let file = find(id, &search.data_dirs).ok_or_else(|| not_found(id))?;
-    plan_file(&file, id, arguments, search)
+    plan_file(&file, id, arguments, search, index)
 }
 
 fn plan_file(
@@ -100,6 +105,7 @@ fn plan_file(
     id: &str,
     arguments: &[String],
     search: &Search,
+    index: &AliasIndex,
 ) -> Result<Plan, AdapterError> {
     let text = std::fs::read_to_string(file).map_err(|_| not_found(id))?;
     let entry = parse(id, &text).ok_or_else(|| {
@@ -130,8 +136,12 @@ fn plan_file(
     argv[at] = resolve_program(&program, &search.path_dirs)?;
     let keys = [Some(entry.id.to_lowercase())]
         .into_iter()
-        .chain([basename_lower(&program)])
-        .chain(entry.try_exec.as_deref().map(basename_lower))
+        .chain([basename_lower(&program).filter(|program| {
+            index
+                .ids_for(program)
+                .iter()
+                .any(|id| id.eq_ignore_ascii_case(&entry.id))
+        })])
         .chain([entry.traits.wm_class.as_deref().map(str::to_lowercase)])
         .flatten()
         .collect();
@@ -178,7 +188,7 @@ pub(crate) fn resolve(
                     "'{identifier}' is a desktop file outside the XDG data directories and is not launched"
                 )));
             }
-            return plan_file(&file, id, arguments, search);
+            return plan_file(&file, id, arguments, search, index);
         }
         if file.is_file() {
             let keys = basename_lower(identifier).into_iter().collect();
@@ -193,7 +203,7 @@ pub(crate) fn resolve(
     }
     if let Some(file) = find(identifier, &search.data_dirs) {
         let id = file.file_stem().and_then(|stem| stem.to_str());
-        return entry_plan(id.unwrap_or(identifier), arguments, search);
+        return entry_plan(id.unwrap_or(identifier), arguments, search, index);
     }
     if find_on_path(identifier, &search.path_dirs).is_some() {
         let program = resolve_program(identifier, &search.path_dirs)?;
@@ -206,7 +216,7 @@ pub(crate) fn resolve(
     let mut ids = index.ids_named(identifier);
     match ids.len() {
         0 => Err(not_found(identifier)),
-        1 => entry_plan(&ids.remove(0), arguments, search),
+        1 => entry_plan(&ids.remove(0), arguments, search, index),
         _ => Err(AdapterError::ambiguous_target(format!(
             "'{identifier}' is the name of several desktop entries: {}",
             ids.join(", ")
@@ -218,3 +228,7 @@ pub(crate) fn resolve(
 #[cfg(test)]
 #[path = "launch_target_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "launch_identity_tests.rs"]
+mod identity_tests;
