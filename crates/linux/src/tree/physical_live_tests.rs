@@ -28,7 +28,7 @@ fn combo(key: &str, modifiers: Vec<Modifier>) -> KeyCombo {
     }
 }
 
-fn focus_by_click(scene: &Scene, target: &Tgt) {
+fn activate_scene(scene: &Scene) {
     let client = wait_for_viewable_client(scene.pid, Duration::from_secs(8));
     activate(client.id);
     wait_until("the fixture frame active", Duration::from_secs(8), || {
@@ -42,6 +42,10 @@ fn focus_by_click(scene: &Scene, target: &Tgt) {
             .flatten()
                 == Some(true)
     });
+}
+
+fn focus_by_click(scene: &Scene, target: &Tgt) {
+    activate_scene(scene);
     scene
         .act(&target.handle, Action::Click)
         .expect("the focusing click is delivered");
@@ -110,7 +114,7 @@ fn click_button(kit: Kit, source: &str) {
 fn wheel(kit: Kit, source: &str, anchor: &str) {
     let scene = Scene::open(kit, source, 20);
     let row = scene.find(&["button", "option", "listitem"], Some(anchor));
-    focus_by_click(&scene, &row);
+    activate_scene(&scene);
     let before = wait_y(&scene, &row, "the initial row bounds", |_| true);
     scene
         .act(

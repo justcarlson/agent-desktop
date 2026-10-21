@@ -3,8 +3,8 @@
 # manager of a default GNOME desktop, on its own Xvfb display.
 # Usage: scripts/private-session.sh -- scripts/private-mutter-shell.sh [--] command [args...]
 # A fresh shell opens Activities Overview when its first window maps. Map an owned primer, wait
-# for that event, and close Overview before handing the display to tests. xdotool is taken from
-# ~/.local/ad-tools. DISPLAY names the new display for the
+# for that event, and close Overview through its D-Bus property before handing the display to tests.
+# DISPLAY names the new display for the
 # command; :200 up avoids the embedded mutter fixture's :150-199 range.
 set -euo pipefail
 
@@ -99,6 +99,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 window = Gtk.Window(title="Private Mutter startup")
+window.set_default_size(320, 120)
+window.add(Gtk.Label(label="Private desktop ready"))
 window.connect("map-event", lambda *_: pathlib.Path(sys.argv[1]).touch())
 window.show_all()
 Gtk.main()
@@ -110,9 +112,9 @@ for _ in $(seq 1 100); do
   sleep 0.1
 done
 [ -f "$log/mutter-mapped" ] || { echo "private-mutter-shell: primer never mapped" >&2; exit 1; }
+busctl --user --timeout=3 set-property org.gnome.Shell /org/gnome/Shell org.gnome.Shell OverviewActive b false
 for _ in $(seq 1 40); do
   [ "$(overview_active)" = false ] && break
-  DISPLAY=$display xdotool key Escape
   sleep 0.25
 done
 [ "$(overview_active)" = false ] || { echo "private-mutter-shell: Overview never closed" >&2; exit 1; }
