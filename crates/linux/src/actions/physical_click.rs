@@ -1,5 +1,6 @@
 use agent_desktop_core::{
     ActionStep, AdapterError, Deadline, InteractionPolicy, MouseButton, Point, StepMechanism,
+    validate_mouse_click_count,
 };
 
 use super::physical_target::{PhysicalWorld, aim_point, ensure_budget, ensure_headed_click_policy};
@@ -46,10 +47,24 @@ pub(crate) fn click_steps(
     }
     let at = aim_point(world, element, spec.verified.as_ref(), deadline)?;
     let map = world.keymap(deadline)?;
-    let plan = world.plan_click(&map, at.clone(), &spec.button, spec.count)?;
+    validate_mouse_click_count(spec.count)?;
+    let plans = (0..spec.count)
+        .map(|_| world.plan_click(&map, at.clone(), &spec.button, 1))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut next = 0u32;
     world.send_plans(
-        vec![plan],
-        &mut || world.validate_pointer(element, &at, deadline),
+        plans,
+        &mut || {
+            world
+                .validate_pointer(element, &at, deadline)
+                .map_err(|mut error| {
+                    let details = error.details.get_or_insert_with(|| serde_json::json!({}));
+                    details["delivered_clicks"] = next.into();
+                    error
+                })?;
+            next += 1;
+            Ok(())
+        },
         deadline,
     )?;
     Ok(vec![

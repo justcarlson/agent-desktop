@@ -6,12 +6,80 @@ use crate::actions::physical_target::tests::fake::{
 };
 
 #[test]
+fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
+    use crate::input::x11::fake_sink::{FakeSink, Recorded};
+    use agent_desktop_core::{AdapterError, DeliverySemantics};
+    use serde_json::json;
+
+    for count in [2, 3] {
+        for details in [
+            json!({"check": "receives_events", "interceptor": {"role": "button", "name": "Cover", "bounds": null}}),
+            json!({"kind": "pointer_hit_unproven", "hit_test": "unknown"}),
+        ] {
+            for allowed in (1..=count).chain(std::iter::once(0)) {
+                let mut world = FakeWorld::x11();
+                let sink = FakeSink::new();
+                world.sink = Some(sink.clone());
+                world
+                    .pointer_reads
+                    .borrow_mut()
+                    .extend((0..allowed).map(|_| Ok(())));
+                world
+                    .pointer_reads
+                    .borrow_mut()
+                    .push_back(Err(AdapterError::new(
+                        ErrorCode::ActionFailed,
+                        "receiver changed",
+                    )
+                    .with_details(details.clone())
+                    .with_disposition(DeliverySemantics::not_delivered())));
+                let result = click_steps(
+                    &world,
+                    &element(),
+                    ClickSpec::left(count, None),
+                    InteractionPolicy::headed(),
+                    deadline(),
+                );
+                let sent = sink
+                    .recorded()
+                    .iter()
+                    .filter(|event| matches!(event, Recorded::Button(1, true)))
+                    .count();
+                assert_eq!(
+                    sent, allowed as usize,
+                    "requested {count}, allowed {allowed}"
+                );
+                if allowed == count {
+                    result.expect("every click receiver was proven");
+                } else {
+                    let error = result.expect_err("receiver refusal stops the gesture");
+                    assert_eq!(
+                        error.disposition,
+                        if allowed == 0 {
+                            DeliverySemantics::not_delivered()
+                        } else {
+                            DeliverySemantics::delivered_unverified()
+                        }
+                    );
+                    let observed = error.details.expect("refusal evidence");
+                    assert_eq!(observed["delivered_clicks"], allowed);
+                    assert_eq!(observed["physical_delivery_started"], allowed > 0);
+                    for (key, value) in details.as_object().unwrap() {
+                        assert_eq!(&observed[key], value);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn a_click_without_a_verified_point_is_aimed_at_the_centre_of_the_bounds() {
     let world = FakeWorld::x11();
     click_steps(
         &world,
         &element(),
-        ClickSpec::left(2, None),
+        ClickSpec::left(1, None),
         InteractionPolicy::headed(),
         deadline(),
     )
@@ -19,7 +87,7 @@ fn a_click_without_a_verified_point_is_aimed_at_the_centre_of_the_bounds() {
     assert!(
         world
             .entries()
-            .contains(&"plan_click 120,210 Left 2".to_owned())
+            .contains(&"plan_click 120,210 Left 1".to_owned())
     );
     assert_eq!(world.count("sent"), 1);
 }

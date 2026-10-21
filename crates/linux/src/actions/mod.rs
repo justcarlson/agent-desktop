@@ -86,4 +86,7 @@ mod live_selection_tests;
 mod physical_scroll_live_tests;
 
 #[cfg(test)]
+mod physical_click_live_tests;
+
+#[cfg(test)]
 mod scroll_bar_live_tests;
