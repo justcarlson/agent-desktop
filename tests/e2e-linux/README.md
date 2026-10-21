@@ -368,8 +368,35 @@ Runtime verdict tests and executable registry coverage retain the actual
 contracts. The owner-retirement splitter test is removed with that obsolete
 mechanism; there are no executable OWNER rows to split.
 
-Current integration live measurements are pending the shared box lock. The
-build has not yet acquired it; no earlier lane count is claimed as a fresh
-integration pass. Batches will use all registered modes automatically, with a
-single diagnostic rerun per failed cell. The independent Mutter diagnosis is
-applied when its report becomes available.
+## Integration validation receipt
+
+The integration build did not acquire the shared `~/ad-wt/.box.lock` in four
+bounded attempts (30, 180, 180 and 600 seconds of lock wait). The observed
+holder was the separate 3.14 reviewed-suite process, PID 584345. The final
+attempt expired at 2026-10-21 03:57:48 UTC before cargo started. No private app
+or live leg ran in this integration session. No live product finding or pass
+is established; historical lane numbers above are not current results.
+
+| Tier | Mode | Passed | Failed | Unrun: box lock | Outstanding: 3.14 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Openbox X11 | headless | 0 | 0 | 104 | 10 |
+| Openbox X11 | headed | 0 | 0 | 38 | 2 |
+| Mutter X11 | headless | 0 | 0 | 70 | 30 |
+| Mutter X11 | headed | 0 | 0 | 23 | 10 |
+| Headless Wayland | headless | 0 | 0 | 5 | 0 |
+| Headless Wayland | headed | 0 | 0 | 1 | 0 |
+
+The separate `312-mutter-diagnosis.md` report was absent at the final check;
+its repair has not been assessed or applied. Live stranger dogfood also remains
+incomplete. The committed documentation review is explicit about that boundary.
+Resume by building and freezing this checkout's CLI/helper together under the
+box lock, then execute every retained ID/mode in small per-tier batches. Rerun
+each failed cell at most once; retire/replace environment-dependent specimens
+or preserve a deterministic product repro here. Do not count unrun cells as
+failures, passes, or fulfilled 3.14 dependencies.
+
+Local gates: portable Linux harness 303 tests (one live skip), shared E2E 58,
+Python files below 400 lines, source-reference policy, findings validator (655
+rows), secret scan over `64ccca5a..HEAD`, and Lahfir author/committer checks pass.
+New effect/identity unit tests were invert-checked. No product Rust was changed
+by this integration. No push or rebase was performed.
