@@ -80,22 +80,12 @@ pub(crate) struct FrameState {
 }
 
 pub(crate) fn frame_state(states: &Field<Vec<u32>>) -> FrameState {
-    match states.present() {
-        Some(words) => {
-            let bits = StateBits::new(words);
-            FrameState {
-                visible: Some(bits.has(SHOWING)),
-                minimized: Some(bits.has(ICONIFIED)),
-                active: Some(bits.has(ACTIVE)),
-                modal: Some(bits.has(MODAL)),
-            }
-        }
-        None => FrameState {
-            visible: None,
-            minimized: None,
-            active: None,
-            modal: None,
-        },
+    let bits = states.present().map(|words| StateBits::new(words));
+    FrameState {
+        visible: bits.map(|bits| bits.has(SHOWING)),
+        minimized: bits.map(|bits| bits.has(ICONIFIED)),
+        active: bits.map(|bits| bits.has(ACTIVE)),
+        modal: bits.map(|bits| bits.has(MODAL)),
     }
 }
 

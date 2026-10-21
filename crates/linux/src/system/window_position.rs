@@ -50,93 +50,38 @@ fn at(origin: (i32, i32), size: Extents) -> Rect {
     })
 }
 
-/// Gives a window of a toolkit that reports no global position the place its
-/// X11 client occupies, keeping the size the toolkit reported. The window
-/// stays without bounds when the display server did not answer or the window
-/// maps to no single client: the toolkit's own position is `[0, 0]` there and
-/// is never a position.
-pub(crate) fn place_windows(listed: &mut [ListedWindow], state: &X11State) {
+/// Places and annotates windows using one X11 client match per window.
+/// Missing display evidence leaves global bounds and toolkit state intact;
+/// a non-global toolkit has no trustworthy position without one unique client.
+pub(crate) fn place_windows(
+    listed: &mut [ListedWindow],
+    state: &X11State,
+    desktops: Option<&Desktops>,
+) {
     let clients: &[X11Client] = match state {
         X11State::Ready { clients, .. } => clients,
         _ => &[],
     };
-    for window in listed
-        .iter_mut()
-        .filter(|window| !window.frame.global_position)
-    {
-        window.info.bounds = window
-            .frame
-            .extents
-            .zip(single_client(&window.frame, clients))
-            .and_then(|(size, client)| {
+    for window in listed {
+        let client = single_client(&window.frame, clients);
+        if !window.frame.global_position {
+            window.info.bounds = window.frame.extents.zip(client).and_then(|(size, client)| {
                 client_origin(client).map(|origin| at(origin, visible_size(client).unwrap_or(size)))
             });
-    }
-}
-
-/// Takes the client-side shadow off the bounds of a window whose toolkit
-/// reports global extents that include it, as GTK 3 does: the bounds then
-/// cover the pixels the window draws, as the ones of every other window do.
-/// A window with no single client, no shadow or no bounds keeps what it has.
-pub(crate) fn trim_shadows(listed: &mut [ListedWindow], state: &X11State) {
-    let X11State::Ready { clients, .. } = state else {
-        return;
-    };
-    for window in listed
-        .iter_mut()
-        .filter(|window| window.frame.global_position)
-    {
-        let Some(client) = single_client(&window.frame, clients) else {
-            continue;
-        };
-        let (left, top, right, bottom) = client.shadow;
-        if let Some(bounds) = window.info.bounds.as_mut() {
+        } else if let (Some(client), Some(bounds)) = (client, window.info.bounds.as_mut()) {
+            let (left, top, right, bottom) = client.shadow;
             bounds.x += f64::from(left);
             bounds.y += f64::from(top);
             bounds.width -= f64::from(left + right);
             bounds.height -= f64::from(top + bottom);
         }
-    }
-}
-
-/// Marks the windows whose single X11 client the window manager keeps on a
-/// desktop other than the one shown as not visible: the display server has
-/// them unmapped, whatever the toolkit says.
-pub(crate) fn mark_other_desktop(
-    listed: &mut [ListedWindow],
-    state: &X11State,
-    desktops: Option<&Desktops>,
-) {
-    let (X11State::Ready { clients, .. }, Some(desktops)) = (state, desktops) else {
-        return;
-    };
-    for window in listed {
-        let ClientMatch::One(id) = match_client(&window.frame, clients) else {
-            continue;
-        };
-        if desktops.hides(id) {
+        if client.is_some_and(|client| client.hidden) {
+            window.info.state.minimized = Some(true);
             window.info.state.visible = Some(false);
         }
-    }
-}
-
-/// Marks the windows whose single X11 client the window manager reports hidden
-/// as minimized and not visible, as a toolkit that reports no iconified state
-/// leaves them. A window the display server cannot place keeps what the
-/// toolkit said.
-pub(crate) fn mark_minimized(listed: &mut [ListedWindow], state: &X11State) {
-    let X11State::Ready { clients, .. } = state else {
-        return;
-    };
-    for window in listed {
-        let ClientMatch::One(id) = match_client(&window.frame, clients) else {
-            continue;
-        };
-        if clients
-            .iter()
-            .any(|client| client.id == id && client.hidden)
+        if let (Some(client), Some(desktops)) = (client, desktops)
+            && desktops.hides(client.id)
         {
-            window.info.state.minimized = Some(true);
             window.info.state.visible = Some(false);
         }
     }

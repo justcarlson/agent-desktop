@@ -6,15 +6,13 @@ const PATH_SEPARATOR: char = '/';
 const PATH_ESCAPE: char = '-';
 
 fn is_unique_bus_name(bus: &str) -> bool {
-    bus.strip_prefix(':').is_some_and(|rest| {
-        let mut parts = rest.split('.');
-        let (Some(first), Some(second), None) = (parts.next(), parts.next(), parts.next()) else {
-            return false;
-        };
-        [first, second]
-            .iter()
-            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
-    })
+    bus.strip_prefix(':')
+        .and_then(|rest| rest.split_once('.'))
+        .is_some_and(|(first, second)| {
+            [first, second]
+                .iter()
+                .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
+        })
 }
 
 fn is_object_path(path: &str) -> bool {

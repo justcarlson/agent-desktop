@@ -17,14 +17,13 @@ pub(super) fn refused(
         .with_disposition(DeliverySemantics::not_delivered())
 }
 
-pub(super) fn unreadable(disposition: DeliverySemantics) -> AdapterError {
+pub(super) fn unreadable() -> AdapterError {
     refused(
         ErrorCode::ActionFailed,
         "x11_unavailable",
         "The display server did not describe the window in time",
         "Run 'list-windows' to confirm the window, then retry",
     )
-    .with_disposition(disposition)
 }
 
 pub(super) fn unsupported_session(read: &ControlRead<Vec<X11Client>>) -> AdapterError {
@@ -41,9 +40,7 @@ pub(super) fn unsupported_session(read: &ControlRead<Vec<X11Client>>) -> Adapter
             "No window manager is running, so nothing can apply the request",
             "Run the desktop session with a window manager, or operate the window yourself",
         ),
-        ControlRead::Ready(_) | ControlRead::Unavailable => {
-            unreadable(DeliverySemantics::not_delivered())
-        }
+        ControlRead::Ready(_) | ControlRead::Unavailable => unreadable(),
     }
 }
 
@@ -72,7 +69,7 @@ pub(super) fn write_failed(error: ControlError) -> AdapterError {
             "The window no longer exists on the display",
             "Run 'list-windows' to find the window again",
         ),
-        ControlError::NoDisplay => unreadable(DeliverySemantics::not_delivered()),
+        ControlError::NoDisplay => unreadable(),
         ControlError::TimedOut => {
             AdapterError::timeout("The display server did not accept the request in time")
                 .with_disposition(DeliverySemantics::not_delivered())
