@@ -108,12 +108,17 @@ pub(crate) fn is_incomplete(error: &AdapterError) -> bool {
 
 /// A timeout, or an observation left incomplete, on a process that `/proc`
 /// shows stopped is `APP_UNRESPONSIVE` naming the application, the answer the
-/// scoped listings give for the same state; without a stopped process both
-/// stay as they were. Every other error passes through.
-pub(crate) fn stopped_aware(error: AdapterError, stopped_app: Option<&str>) -> AdapterError {
+/// scoped listings give for the same state. An incomplete identity on an
+/// answering process is a retryable stale ref, never proof of an unresponsive
+/// application. Every other error passes through.
+pub(crate) fn stopped_aware(mut error: AdapterError, stopped_app: Option<&str>) -> AdapterError {
     match stopped_app {
         Some(name) if error.code == ErrorCode::Timeout || is_incomplete(&error) => {
             AdapterError::app_unresponsive(name)
+        }
+        None if is_incomplete(&error) => {
+            error.code = ErrorCode::StaleRef;
+            error
         }
         _ => error,
     }

@@ -82,6 +82,28 @@ fn a_timeout_is_never_stale_and_a_stopped_process_makes_it_unresponsive() {
 }
 
 #[test]
+fn a_candidate_vanishing_during_search_does_not_make_its_answering_app_unresponsive() {
+    let mut fake = one_button();
+    let mut entry = fake.entry_of("/back", true);
+    entry.scope.path.clear();
+    let candidate = fake.nodes.get_mut("/back").expect("snapshot candidate");
+    candidate.read = crate::tree::ObservedRead::unreadable(
+        candidate.read.node.element.clone(),
+        "The accessible object no longer exists",
+    );
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("vanished candidate");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(
+        error.details.as_ref().expect("incomplete evidence")["complete"],
+        false
+    );
+    assert!(error.is_explicitly_retryable());
+    fake.stopped = Some("files".into());
+    let error = resolve(&mut fake, &entry, deadline()).expect_err("stopped twin");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+}
+
+#[test]
 fn a_timeout_while_the_gate_waits_on_a_stopped_process_is_unresponsive() {
     let mut fake = one_button();
     let entry = fake.entry_of("/back", true);

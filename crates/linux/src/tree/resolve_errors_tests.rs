@@ -63,7 +63,10 @@ fn an_incomplete_observation_on_a_stopped_process_names_the_stopped_application(
     };
     let stopped = stopped_aware(incomplete(), Some("files"));
     assert!(stopped.message.contains("files"));
-    assert_eq!(stopped_aware(incomplete(), None).message, "tree unreadable");
+    let answering = stopped_aware(incomplete(), None);
+    assert_eq!(answering.code, ErrorCode::StaleRef);
+    assert_eq!(answering.message, "tree unreadable");
+    assert!(answering.is_explicitly_retryable());
 }
 
 #[test]

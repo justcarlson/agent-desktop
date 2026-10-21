@@ -71,7 +71,7 @@ fn a_region_left_unread_withholds_the_depth_pick() {
     without_row(&mut fake, "alpha");
     fake.nodes.get_mut("/list").expect("list").children_unread = true;
     let error = resolve(&mut fake, &outer, deadline()).expect_err("incomplete");
-    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
 }
 

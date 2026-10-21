@@ -101,7 +101,7 @@ fn the_empty_path_lands_on_the_window_frame() {
 }
 
 #[test]
-fn a_level_that_cannot_be_read_is_retried_and_never_stale() {
+fn a_level_that_cannot_be_read_keeps_an_incomplete_retryable_ref() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", true);
     fake.nodes
@@ -109,7 +109,7 @@ fn a_level_that_cannot_be_read_is_retried_and_never_stale() {
         .expect("toolbar")
         .children_unread = true;
     let error = refused(&mut fake, &entry);
-    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
 }
 
@@ -143,7 +143,7 @@ fn a_landing_whose_evidence_cannot_be_read_is_retried() {
         AdapterError::internal("a field failed"),
     );
     let error = refused(&mut fake, &entry);
-    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
 }
 
