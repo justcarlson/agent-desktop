@@ -277,3 +277,29 @@ fn a_program_missing_from_path_is_not_found() {
     .expect("not found");
     assert_eq!(error.code, ErrorCode::AppNotFound);
 }
+
+#[test]
+fn launch_and_alias_keys_share_executable_basename_normalization() {
+    let fixture = fixture(
+        &[(
+            "tool",
+            "Name=Tool\nType=Application\nExec=/opt/SomeDir/MiXeD\nTryExec=/",
+        )],
+        &[],
+    );
+    let launched = plan(
+        &Target::Path(PathBuf::from("/opt/SomeDir/MiXeD")),
+        &[],
+        &fixture.search,
+    )
+    .unwrap();
+    assert_eq!(launched.keys, ["mixed"]);
+    assert_eq!(fixture.index.names_for("mixed"), ["Tool"]);
+    assert!(fixture.index.names_for("SomeDir").is_empty());
+    assert!(
+        plan(&Target::Path(PathBuf::from("/")), &[], &fixture.search)
+            .unwrap()
+            .keys
+            .is_empty()
+    );
+}

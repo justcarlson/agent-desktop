@@ -20,7 +20,7 @@ pub(crate) struct AliasIndex {
     entries: Vec<IndexedEntry>,
 }
 
-fn basename_lower(program: &str) -> Option<String> {
+pub(super) fn basename_lower(program: &str) -> Option<String> {
     Path::new(program)
         .file_name()
         .map(|name| name.to_string_lossy().to_lowercase())

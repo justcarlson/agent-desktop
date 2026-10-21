@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
-use super::app_alias::AliasIndex;
+use super::app_alias::{AliasIndex, basename_lower};
 use super::desktop_entry::{DesktopEntry, parse};
 use super::desktop_exec::{ExecContext, expand, program_word};
 use super::desktop_lookup::{absolute_dirs, current_dirs, find, is_trusted};
@@ -161,12 +161,6 @@ pub(crate) fn check_entry(entry: &DesktopEntry, path_dirs: &[PathBuf]) -> Result
         ));
     }
     Ok(())
-}
-
-fn basename_lower(program: &str) -> Option<String> {
-    Path::new(program)
-        .file_name()
-        .map(|name| name.to_string_lossy().to_lowercase())
 }
 
 fn resolve_program(program: &str, path_dirs: &[PathBuf]) -> Result<String, AdapterError> {
