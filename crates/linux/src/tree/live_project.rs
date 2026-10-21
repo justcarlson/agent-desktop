@@ -102,6 +102,8 @@ pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> O
     let hidden = !visible && !showing;
     let minimized = if placement.frame_iconified || placement.x11.is_some_and(|x11| x11.hidden) {
         Some(true)
+    } else if placement.popup_origin.is_some() {
+        Some(false)
     } else {
         placement.x11.map(|_| false)
     };
@@ -142,11 +144,13 @@ fn pointer_extents(read: &ObservedRead, placement: &Placement) -> Option<Extents
         return None;
     };
     let window: Extents = placement.node?;
-    let origin = placement.x11.and_then(|x11| {
-        Some((
-            x11.client_origin.0.checked_add(x11.shadow.0)?,
-            x11.client_origin.1.checked_add(x11.shadow.1)?,
-        ))
+    let origin = placement.popup_origin.or_else(|| {
+        placement.x11.and_then(|x11| {
+            Some((
+                x11.client_origin.0.checked_add(x11.shadow.0)?,
+                x11.client_origin.1.checked_add(x11.shadow.1)?,
+            ))
+        })
     });
     pointer_bounds(&placement.toolkit, *screen, window, origin)
 }

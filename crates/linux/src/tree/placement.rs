@@ -10,6 +10,9 @@ pub(crate) struct Placement {
     pub(crate) container: Option<Extents>,
     pub(crate) frame_iconified: bool,
     pub(crate) toolkit: ToolkitId,
+    /// The origin of a uniquely matched, viewable override-redirect popup,
+    /// relative to its AT-SPI frame's window-coordinate rectangle.
+    pub(crate) popup_origin: Option<(i32, i32)>,
     pub(crate) x11: Option<WindowX11State>,
     pub(crate) displays: Option<Vec<Extents>>,
     pub(crate) wayland_unplaced: bool,

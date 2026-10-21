@@ -17,6 +17,7 @@ use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::registry::toolkit;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
+use crate::system::x11::window_x11_state::WindowX11State;
 use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, shell, within};
 
@@ -186,19 +187,54 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     placed.frame_iconified = read.iconified == Some(true);
     let global = reports_global_position(&placed.toolkit);
     let skipped = skips_display_server(placed.frame_iconified, wholly_outside(&placed), global);
-    if let (false, Some(title)) = (skipped, read.title) {
-        placed.x11 = frame_window_state(
-            &DisplayReader,
-            deadline,
-            &FrameFacts {
-                pid: frame.pid(),
-                title,
-                extents: read.screen,
-                global_position: global,
-            },
-        );
-    }
+    let (popup_origin, x11) = select_frame_origin(
+        element.is_menu_target(),
+        &placed.toolkit,
+        placed.frame,
+        |size| DisplayReader::popup_origin(frame.pid(), size, deadline),
+        || {
+            if skipped {
+                return None;
+            }
+            let title = read.title.clone()?;
+            frame_window_state(
+                &DisplayReader,
+                deadline,
+                &FrameFacts {
+                    pid: frame.pid(),
+                    title,
+                    extents: read.screen,
+                    global_position: global,
+                },
+            )
+        },
+    );
+    placed.popup_origin = popup_origin;
+    placed.x11 = x11;
     placed
+}
+
+/// Chooses the origin used to place one frame's nodes. A GTK4 menu is its own
+/// override-redirect window: it can only use the uniquely matched popup origin
+/// and never falls back to the owning managed window. Other frames keep the
+/// ordinary X11 client state.
+pub(crate) fn select_frame_origin(
+    menu_target: bool,
+    toolkit: &ToolkitId,
+    frame: Option<Extents>,
+    popup: impl FnOnce((i32, i32)) -> Option<(i32, i32)>,
+    managed: impl FnOnce() -> Option<WindowX11State>,
+) -> (Option<(i32, i32)>, Option<WindowX11State>) {
+    if menu_target && super::toolkit_trust::kind(toolkit) == super::toolkit_trust::ToolkitKind::Gtk4
+    {
+        let origin = frame.and_then(|frame| {
+            popup((frame.width, frame.height))
+                .and_then(|origin| super::frame_geometry::popup_origin(origin, frame))
+        });
+        (origin, None)
+    } else {
+        (None, managed())
+    }
 }
 
 #[cfg(test)]

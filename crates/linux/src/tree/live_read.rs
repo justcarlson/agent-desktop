@@ -256,3 +256,7 @@ mod tests;
 #[cfg(test)]
 #[path = "live_menu_tests.rs"]
 mod menu_tests;
+
+#[cfg(test)]
+#[path = "live_popup_bounds_tests.rs"]
+mod popup_bounds_tests;
