@@ -113,18 +113,9 @@ pub(crate) fn fault_of(error: &zbus::Error) -> Fault {
     }
 }
 
-pub(crate) fn needs_corroboration(fault: Fault, advertised: bool) -> bool {
-    match fault {
-        Fault::ObjectUnknown => true,
-        Fault::InterfaceMissing => advertised,
-        _ => false,
-    }
-}
-
 pub(crate) fn classify_write(
     fault: Fault,
     kind: WriteKind,
-    advertised: bool,
     corroboration: Corroboration,
 ) -> Verdict {
     match fault {
@@ -136,7 +127,6 @@ pub(crate) fn classify_write(
         Fault::AccessDenied => Verdict::Abort(Abort::Denied),
         Fault::TimedOut => Verdict::Abort(Abort::TimedOut),
         Fault::Uncertain => Verdict::Abort(Abort::Uncertain),
-        Fault::InterfaceMissing if !advertised => Verdict::Absent,
         Fault::ObjectUnknown | Fault::InterfaceMissing => match corroboration {
             Corroboration::Alive => Verdict::Absent,
             Corroboration::Dead => Verdict::Abort(Abort::Stale),

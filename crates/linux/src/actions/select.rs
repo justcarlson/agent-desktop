@@ -248,7 +248,6 @@ fn select_through(
                         body: &(container.index,),
                         kind: WriteKind::SelectChild,
                     },
-                    true,
                 );
                 deliver(reply, observe).and_then(unchanged_is_ignored)
             }),

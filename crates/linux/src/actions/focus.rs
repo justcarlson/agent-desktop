@@ -3,10 +3,8 @@ use std::time::Duration;
 use agent_desktop_core::{Action, ActionResult, AdapterError, InteractionPolicy};
 use serde_json::json;
 
-use super::chain::DeliveryOutcome;
 use super::click::{POLL_STEP, deliver, invoke_verb, names_of, poll_until, run_single_rung};
 use super::context::Target;
-use super::mutation::WriteReply;
 use crate::tree::action_names::verbs_for;
 use crate::tree::state_bits::FOCUSED;
 
@@ -30,15 +28,6 @@ pub(super) fn corroborated(first: Option<bool>, second: Option<bool>) -> Option<
     }
 }
 
-pub(super) fn focus_judged_for(
-    policy: InteractionPolicy,
-    invoke: impl FnOnce() -> Result<WriteReply, AdapterError>,
-    focused_after: impl FnOnce() -> Option<bool>,
-) -> Result<DeliveryOutcome, AdapterError> {
-    focus_policy_gate(policy)?;
-    deliver(invoke(), focused_after)
-}
-
 pub(crate) fn focus(
     target: &Target<'_>,
     policy: InteractionPolicy,
@@ -49,20 +38,16 @@ pub(crate) fn focus(
     let names = names_of(&view)?;
     let verbs = verbs_for(&action);
     let run = || {
-        focus_judged_for(
-            policy,
-            || invoke_verb(target, &action, names, verbs),
-            || {
-                let read = || target.view().ok().and_then(|after| after.state(FOCUSED));
-                let first = poll_until(target.deadline, FOCUS_SETTLE, POLL_STEP, read, |focused| {
-                    *focused == Some(true)
-                });
-                if first == Some(true) {
-                    std::thread::sleep(POLL_STEP);
-                }
-                corroborated(first, read())
-            },
-        )
+        deliver(invoke_verb(target, &action, names, verbs), || {
+            let read = || target.view().ok().and_then(|after| after.state(FOCUSED));
+            let first = poll_until(target.deadline, FOCUS_SETTLE, POLL_STEP, read, |focused| {
+                *focused == Some(true)
+            });
+            if first == Some(true) {
+                std::thread::sleep(POLL_STEP);
+            }
+            corroborated(first, read())
+        })
     };
     run_single_rung(action.name(), target.deadline, run)
 }

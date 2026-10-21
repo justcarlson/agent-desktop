@@ -70,7 +70,6 @@ fn a_client_timeout_and_a_dropped_connection_are_both_uncertain() {
         let abort = abort_of(classify_write(
             fault,
             WriteKind::DoAction,
-            true,
             Corroboration::Alive,
         ));
         let error = abort_error(abort, WriteKind::DoAction, None);
@@ -87,8 +86,7 @@ fn a_client_timeout_and_a_dropped_connection_are_both_uncertain() {
 #[test]
 fn a_suspect_error_on_an_advertised_interface_is_decided_by_the_corroboration() {
     for fault in [Fault::ObjectUnknown, Fault::InterfaceMissing] {
-        let decide =
-            |corroboration| classify_write(fault, WriteKind::DoAction, true, corroboration);
+        let decide = |corroboration| classify_write(fault, WriteKind::DoAction, corroboration);
         assert_eq!(decide(Corroboration::Alive), Verdict::Absent);
         assert_eq!(decide(Corroboration::Dead), Verdict::Abort(Abort::Stale));
         assert_eq!(
@@ -120,7 +118,6 @@ fn each_write_error_row_carries_its_code_and_disposition() {
         let abort = abort_of(classify_write(
             fault,
             WriteKind::DoAction,
-            true,
             Corroboration::Alive,
         ));
         let error = abort_error(abort, WriteKind::SetProperty, None);
@@ -130,7 +127,6 @@ fn each_write_error_row_carries_its_code_and_disposition() {
     let dead = abort_of(classify_write(
         Fault::ObjectUnknown,
         WriteKind::DoAction,
-        true,
         Corroboration::Dead,
     ));
     assert_eq!(
@@ -187,7 +183,7 @@ fn a_text_write_error_keeps_the_error_name_and_drops_the_reply_text() {
 
 #[test]
 fn a_missing_action_index_falls_through_for_an_action_and_stays_uncertain_for_text() {
-    let decide = |kind| classify_write(Fault::NoSuchAction, kind, true, Corroboration::NotRead);
+    let decide = |kind| classify_write(Fault::NoSuchAction, kind, Corroboration::NotRead);
     assert_eq!(decide(WriteKind::DoAction), Verdict::Absent);
     for kind in [
         WriteKind::InsertText,

@@ -3,6 +3,8 @@ use std::cell::Cell;
 use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use super::*;
+use crate::actions::chain::DeliveryOutcome;
+use crate::actions::mutation::WriteReply;
 
 fn judged(
     policy: InteractionPolicy,
@@ -10,14 +12,15 @@ fn judged(
     focused: Option<bool>,
 ) -> (Result<DeliveryOutcome, AdapterError>, u32) {
     let writes = Cell::new(0);
-    let outcome = focus_judged_for(
-        policy,
-        || {
-            writes.set(writes.get() + 1);
-            reply
-        },
-        || focused,
-    );
+    let outcome = focus_policy_gate(policy).and_then(|()| {
+        deliver(
+            {
+                writes.set(writes.get() + 1);
+                reply
+            },
+            || focused,
+        )
+    });
     (outcome, writes.get())
 }
 

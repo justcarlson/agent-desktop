@@ -35,7 +35,6 @@ fn set_current_value(
             body: &(VALUE_INTERFACE, "CurrentValue", Value::F64(value)),
             kind: WriteKind::SetProperty,
         },
-        true,
     )
 }
 
@@ -127,7 +126,6 @@ fn write_live_an_index_the_node_does_not_have_changes_nothing() {
                 body: &(99i32,),
                 kind: WriteKind::DoAction,
             },
-            true,
         );
         std::thread::sleep(Duration::from_millis(600));
         let shown = reply.as_ref().map_err(describe);

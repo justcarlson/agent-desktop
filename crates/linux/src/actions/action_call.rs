@@ -32,7 +32,6 @@ pub(crate) fn do_action(
                 body: &(index,),
                 kind: WriteKind::DoAction,
             },
-            true,
         ),
         None => Ok(WriteReply::Absent),
     }

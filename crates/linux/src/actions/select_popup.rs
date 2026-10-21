@@ -127,7 +127,6 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
                 body: &(container.index,),
                 kind: WriteKind::SelectChild,
             },
-            true,
         )?;
         if chosen == super::mutation::WriteReply::Absent {
             return Ok(DeliveryOutcome::NotDelivered);
