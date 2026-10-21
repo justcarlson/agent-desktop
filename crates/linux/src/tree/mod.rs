@@ -192,10 +192,6 @@ mod find_live_tests;
 #[path = "resolve_live_tests.rs"]
 mod resolve_live_tests;
 
-#[cfg(test)]
-#[path = "resolve_twin_live_tests.rs"]
-mod resolve_twin_live_tests;
-
 pub(crate) use child_list::list_children;
 pub(crate) use element::AtspiElement;
 pub(crate) use element::atspi_element;

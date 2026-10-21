@@ -45,6 +45,30 @@ fn nested_twins_resolve_by_the_depth_the_ref_was_taken_at_after_a_sibling_row_le
 }
 
 #[test]
+fn removed_sibling_refs_stay_stale_while_surviving_twins_keep_identity() {
+    let mut fake = rows(&["alpha", "beta"]);
+    let removed = [
+        fake.entry_of("/alpha", false),
+        fake.entry_of("/alpha-inner", false),
+    ];
+    let survivors = [
+        fake.entry_of("/beta", false),
+        fake.entry_of("/beta-inner", false),
+    ];
+    without_row(&mut fake, "alpha");
+    for mut entry in removed {
+        entry.scope.path.clear();
+        let error = resolve(&mut fake, &entry, deadline()).expect_err("removed row");
+        assert_eq!(error.code, ErrorCode::StaleRef);
+    }
+    assert_eq!(resolved(&mut fake, &survivors[0]), "/beta");
+    assert_eq!(resolved(&mut fake, &survivors[1]), "/beta-inner");
+    fake.stopped = Some("files".to_owned());
+    let error = resolve(&mut fake, &survivors[0], deadline()).expect_err("stopped app");
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+}
+
+#[test]
 fn twins_at_neither_the_stored_depth_nor_one_of_them_stay_ambiguous() {
     let mut fake = rows(&["beta"]);
     let mut entry = fake.entry_of("/beta", false);

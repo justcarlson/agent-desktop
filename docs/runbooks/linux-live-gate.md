@@ -177,6 +177,18 @@ disabled so window-map transitions cannot move a fixture underneath its input.
 
 ### Moved to deterministic unit coverage
 
+`tree::resolve_twin_live_tests::resolve_live_files_row_refs_survive_a_sibling_row_leaving`
+is replaced by
+`tree::resolve::depth_tests::removed_sibling_refs_stay_stale_while_surviving_twins_keep_identity`.
+Nautilus failed to reflect an independently deleted file within its existing
+deadline, before any resolver assertion ran. The fake changes the tree directly
+and exercises the real resolver: removed sibling refs return `STALE_REF`, both
+surviving nested twins resolve to their exact original objects after index shift,
+and a stopped owner returns `APP_UNRESPONSIVE`. The retained live Qt twin and
+recreated-row cases still verify real bus identity, ambiguity and stale refs on
+both X11 tiers; the live absence matrix retains removed-element and stopped-app
+refusals. No retry or longer Files timeout is required.
+
 `system::signal_live_tests::signal_live_helper_with_no_frames_is_not_an_app`
 is replaced by
 `system::signal_capture::tests::windowless::an_answering_registry_app_without_frames_adds_no_population_or_signals`.
