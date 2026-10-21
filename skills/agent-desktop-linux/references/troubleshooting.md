@@ -20,7 +20,7 @@ display server does not give.
 | `ACTION_FAILED` `frame_not_active` or `check: window_active` | Window manager made the window active but the app does not report it | Run `snapshot` on the app once, then retry; it is intermittent on Electron |
 | `POLICY_DENIED` on `click`, `type`, tray `click` | Needs `--headed` | Pass `--headed` if that is acceptable |
 | `POLICY_DENIED` on `press` | Blocked combo | Do not use `--force` unless you mean it |
-| `ACTION_NOT_SUPPORTED` `wayland_session` | X11 window control on a Wayland-native window | Use an Xwayland client, or act through the app's own UI |
+| `ACTION_NOT_SUPPORTED` `wayland_session` | Unavailable Wayland focus, headed scoped `press` or control of native Wayland windows | Bring the target forward yourself; use global `press` or the app's own UI |
 | `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland | Use a semantic action, `set-value` or a global `press` |
 | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | GNOME notification service missing or another daemon owns it | See `references/shell-tray-and-notifications.md` |
 | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | Shell tree is readable but no SNI watcher exists | Enable AppIndicator in GNOME; see the shell reference |

@@ -20,7 +20,9 @@ of `not_configured`, `missing` or `refused` and list the variables they tried.
 | Observation and semantic ref actions | AT-SPI, no tool | AT-SPI, no tool |
 | Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
 | App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
-| Window ops, `focus-window`, `press --app` | EWMH on the X11 display | Xwayland clients only; native windows refused |
+| Window ops | EWMH on the X11 display | Xwayland clients only; native windows and un-minimize refused |
+| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, including Xwayland clients |
+| Headless scoped `press` | Live display and frame focus guards; no activation | Live frame focus guard; no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` selects a monitor |
 | Clipboard | Native selection owner | `wl-clipboard` |
 | GNOME Shell ref click / popup opener | XTEST, `--headed` | Separate Mutter pointer route, `--headed`; see shell reference |
@@ -65,8 +67,10 @@ or use headless `type` through `EditableText`. A `target_focus` refusal with
 `physical_delivery_started: false` sent no keys; waiting does not supply the
 missing focus action. Headless semantic actions do not need the frame active:
 a headless `type` into a background window succeeds. A headless `press --app` to
-a background app fails with `display_active_window`, and `press --window-id` on
-another window of the active process fails with `other_window_of_target`.
+a background app on X11 fails with `display_active_window`. When headless
+`press --window-id` cannot confirm the named window's exact focus, it returns
+`STALE_REF`, `check: exact_window_focus`, `cause: exact_window_focus_unconfirmed`.
+Bring that window forward, refresh `list-windows`, and retry.
 The gate is necessary, not sufficient: while a popup menu holds the grab, keys
 reach the menu even if the frame reads active, so key steps stay unverified.
 Pointer forms aim at the centre of the ref's bounds, which the adapter withholds
@@ -86,9 +90,10 @@ agent-desktop press return --app gnome-text-editor
   A single character is its own key. An unknown name lists the accepted forms.
 - In combos, `meta`, `cmd`, `command`, `super` and `win` name the Super modifier.
   For a bare key use `super` or `meta`, not `cmd`, `command` or `win`.
-- `press` with no `--app` sends to the focused window. `press --app` or
-  `--window-id` delivers only while the target process owns the active window;
-  a headless press to a background or minimized target is refused. See
+- `press` without `--app` or `--window-id` sends to the focused window.
+  Headless `press --app` requires the target process to own the active window;
+  `press --window-id` also requires the exact window's focus. A background or
+  minimized target is refused. See
   `references/windows-and-lifecycle.md`.
 - Keys carry the Shift level the live keymap needs. A character the layout
   cannot produce is typed through spare keycodes, so `type` handles accents and

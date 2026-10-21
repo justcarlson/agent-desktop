@@ -206,18 +206,22 @@ decide whether that is acceptable before you call it.
 
 ## `press --app` and background targets
 
-`press --app <name>` delivers only while the target process owns the active
-window. A headless press to a background or minimized app is refused with
+Headless `press --app <name>` delivers only while the target process owns the
+active window. On X11, a background or minimized app is refused with
 `ACTION_FAILED` ("The target application is in the background and focus changes are
 not allowed, so no key was sent"), cause `display_active_window`,
 `not_delivered`. On X11, `--headed` brings the window forward, un-minimizes it
-and sends the keys. In a Wayland session, this applies to Xwayland clients;
-native Wayland windows refuse app- or window-scoped press with
-`ACTION_NOT_SUPPORTED`, cause `wayland_session`. Bring a native Wayland target
-forward yourself and use global `press` without `--app`, `--window-id` or
-`--headed`. A headless `press --window-id` that names another window of the
-process than the active one is refused with cause `other_window_of_target` and a
-suggestion to use `--headed`.
+and sends the keys. On Wayland, `focus-window` and headed app- or window-scoped
+`press` refuse with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, including
+for Xwayland clients. Headless scoped `press` does not activate a window: it
+requires the live focus guard to confirm the target. If focus cannot be
+confirmed, bring the target forward yourself and use global `press` without
+`--app`, `--window-id` or `--headed`.
+
+A headless `press --window-id` whose exact window focus cannot be confirmed
+returns `STALE_REF`, `check: exact_window_focus`,
+`cause: exact_window_focus_unconfirmed`, with `not_delivered`. Bring the named
+window forward, refresh `list-windows`, and retry with its current id.
 
 ## Stopped apps
 
