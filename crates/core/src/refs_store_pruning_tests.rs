@@ -69,13 +69,17 @@ fn duplicate_snapshot_id_across_sessions_remains_isolated() {
 }
 
 #[test]
-fn prune_never_removes_trace_segments() {
+fn snapshot_pruning_preserves_trace_segments_and_refmaps() {
     let _guard = HomeGuard::new();
     let store = RefStore::for_session(Some("trace-retention")).unwrap();
     let trace_dir = store.trace_dir();
     crate::trace::ensure_trace_dir(&trace_dir).unwrap();
     let segment = trace_dir.join("1234-5678.jsonl");
     std::fs::write(&segment, b"{}\n").unwrap();
+    let refmaps = trace_dir.join("refmaps");
+    std::fs::create_dir(&refmaps).unwrap();
+    let archived_refmap = refmaps.join("snap-0000.json");
+    std::fs::write(&archived_refmap, b"saved refmap").unwrap();
     for index in 0..=MAX_SAVED_SNAPSHOTS {
         let snapshot_id = format!("snap-{index:04}");
         store
@@ -83,7 +87,12 @@ fn prune_never_removes_trace_segments() {
             .unwrap();
         store.set_latest(&snapshot_id).unwrap();
     }
+    store
+        .save_new_snapshot(&map_with("Trigger pruning"))
+        .unwrap();
     assert!(segment.is_file());
+    assert_eq!(std::fs::read(archived_refmap).unwrap(), b"saved refmap");
+    assert!(!store.snapshots_dir().join("snap-0000").exists());
     assert!(trace_dir.is_dir());
 }
 

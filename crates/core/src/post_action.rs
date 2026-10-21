@@ -92,8 +92,16 @@ pub fn execute_verified_action(
         expected_text.as_deref(),
         &observed,
     );
-    if verified.is_none() {
-        let reason = if secure_value_is_redacted(&action, &observed) {
+    let physical_text_mismatch = verified == Some(false)
+        && matches!(action, Action::TypeText(_))
+        && result.steps.iter().any(|step| {
+            matches!(&step.outcome, crate::ActionStepOutcome::Succeeded)
+                && step.mechanism() == Some(crate::StepMechanism::PhysicalSynthetic)
+        });
+    if verified.is_none() || physical_text_mismatch {
+        let reason = if physical_text_mismatch {
+            "postcondition_mismatch"
+        } else if secure_value_is_redacted(&action, &observed) {
             "secure_field"
         } else {
             "insufficient_evidence"

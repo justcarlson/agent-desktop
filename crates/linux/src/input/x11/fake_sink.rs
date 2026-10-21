@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
@@ -45,6 +46,7 @@ pub(crate) struct FakeWorld {
     pub(crate) move_stall: Duration,
     sent: usize,
     held_keys: Vec<u8>,
+    key_reads: VecDeque<[u8; 32]>,
     held_buttons: Vec<u8>,
     at: (i16, i16),
 }
@@ -79,6 +81,7 @@ impl FakeSink {
                 move_stall: Duration::ZERO,
                 sent: 0,
                 held_keys: Vec::new(),
+                key_reads: VecDeque::new(),
                 held_buttons: Vec::new(),
                 at: (0, 0),
             })),
@@ -104,6 +107,10 @@ impl FakeSink {
     pub(crate) fn panicking_on(self, event: usize) -> Self {
         self.world().panic_on_event = Some(event);
         self
+    }
+
+    pub(crate) fn scripted_key_reads(&self, reads: Vec<[u8; 32]>) {
+        self.world().key_reads = reads.into();
     }
 
     pub(crate) fn block_next_event(&self) -> (Receiver<()>, Sender<()>) {
@@ -175,7 +182,10 @@ impl X11Sink for FakeSink {
     }
 
     fn keys_down(&mut self) -> Result<[u8; 32], SinkError> {
-        let world = self.world();
+        let mut world = self.world();
+        if let Some(read) = world.key_reads.pop_front() {
+            return Ok(read);
+        }
         let mut bits = [0u8; 32];
         for code in world.held_keys.iter().chain(world.sticky_keys.iter()) {
             bits[usize::from(*code / 8)] |= 1 << (code % 8);

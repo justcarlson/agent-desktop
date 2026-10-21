@@ -76,7 +76,7 @@ fn execute(
         return Err(guard.abort(error, ABORT_SUGGESTION));
     }
     let touched = guard.touched().clone();
-    verify::check(guard.sink(), &touched)?;
+    verify::check(guard.sink(), &touched, deadline)?;
     Ok(Delivery {
         delivered_events: guard.delivered(),
     })

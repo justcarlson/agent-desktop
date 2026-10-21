@@ -153,40 +153,6 @@ fn refmap_copy_is_idempotent_and_byte_equal() {
 }
 
 #[test]
-fn refmap_budget_skip_then_prune_leaves_prior_copy() {
-    let (_home, _lock) = setup_artifacts_test();
-    set_test_budgets(128 * 1024 * 1024, 200, 8192);
-    let manifest = artifacts_session();
-    let context = CommandContext::new(Some(manifest.id.clone()), None, false).unwrap();
-    let store = RefStore::for_session(Some(&manifest.id)).unwrap();
-    let mut refmap = RefMap::new();
-    refmap.allocate(entry(1));
-    let first = store.save_new_snapshot(&refmap).unwrap();
-    copy_refmap_if_full(&context, &store, &first, &refmap).unwrap();
-    let copied = store
-        .trace_dir()
-        .join("refmaps")
-        .join(format!("{first}.json"));
-    assert!(copied.is_file());
-    for i in 0..600 {
-        let mut map = RefMap::new();
-        map.allocate(entry(i + 1));
-        let id = store.save_new_snapshot(&map).unwrap();
-        copy_refmap_if_full(&context, &store, &id, &map).unwrap();
-    }
-    assert!(copied.is_file());
-    assert!(
-        !store
-            .base_dir()
-            .join("snapshots")
-            .join(&first)
-            .join("refmap.json")
-            .is_file()
-    );
-    clear_test_budgets();
-}
-
-#[test]
 fn copy_refmap_internal_failure_is_best_effort() {
     let (_home, _lock) = setup_artifacts_test();
     let manifest = artifacts_session();

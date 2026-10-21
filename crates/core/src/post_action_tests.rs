@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ActionOps, Deadline, InputOps, ObservationOps, SystemOps};
+use crate::{ActionOps, ActionStep, Deadline, InputOps, ObservationOps, SystemOps};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct Adapter {
@@ -352,6 +352,9 @@ mod focus_tests;
 
 #[path = "post_action_budget_tests.rs"]
 mod budget_tests;
+
+#[path = "post_action_text_tests.rs"]
+mod text_tests;
 
 /// A newline left in a field is content, so a clear that leaves one is not
 /// verified; a RichEdit's own terminator is removed where the value is read.
