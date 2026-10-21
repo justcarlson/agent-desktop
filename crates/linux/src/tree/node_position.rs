@@ -3,10 +3,13 @@ use futures_util::future::join_all;
 
 use agent_desktop_core::BoundsSpace;
 
-use super::frame_geometry::pointer_bounds;
-use super::toolkit_trust::{read_toolkit, reports_global_position};
+use super::frame_geometry::{pointer_bounds, popup_origin};
+use super::toolkit_trust::{
+    ToolkitKind, kind as toolkit_kind, read_toolkit, reports_global_position,
+};
 use super::window_extents::read_window_extents_async;
 use super::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode, read_node};
+use crate::system::shell::container::MENU;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::window_position::frame_origin;
 use crate::system::x11::stacking_source::StackingSource;
@@ -103,9 +106,28 @@ async fn window_rectangles(
     all
 }
 
-async fn frame_title(connection: &zbus::Connection, frame: &AtspiElement) -> Option<String> {
+async fn frame_facts(
+    connection: &zbus::Connection,
+    frame: &AtspiElement,
+) -> Option<(String, Option<u32>, Option<Extents>)> {
     let node = read_node(connection, frame).await.ok()?;
-    Some(node.properties.name.present().cloned().unwrap_or_default())
+    Some((
+        node.properties.name.present().cloned().unwrap_or_default(),
+        node.traits.role.present().copied(),
+        node.extents.present().copied(),
+    ))
+}
+
+fn select_origin(
+    gtk4_menu: bool,
+    popup_origin: impl FnOnce() -> Option<(i32, i32)>,
+    managed_origin: impl FnOnce() -> Option<(i32, i32)>,
+) -> Option<(i32, i32)> {
+    if gtk4_menu {
+        popup_origin()
+    } else {
+        managed_origin()
+    }
 }
 
 /// The origin of the frame's X11 client. The title is read on the bus; the
@@ -116,19 +138,46 @@ fn origin_of(
     frame: &AtspiElement,
     deadline: Deadline,
 ) -> Option<(i32, i32)> {
-    let title = within(deadline, async { Ok(frame_title(connection, frame).await) })
+    let facts = within(deadline, async { Ok(frame_facts(connection, frame).await) })
         .ok()
         .flatten()?;
-    let facts = FrameFacts {
-        pid: frame.pid(),
-        title,
-        extents: None,
-        global_position: false,
+    let (title, role, screen) = facts;
+    let gtk4_menu = if role == Some(MENU) {
+        let app_root = AtspiElement::new(frame.bus_name(), REGISTRY_ROOT_PATH, frame.pid());
+        let toolkit = within(deadline, async {
+            Ok(read_toolkit(connection, &app_root).await)
+        })
+        .ok();
+        toolkit.is_some_and(|toolkit| toolkit_kind(&toolkit) == ToolkitKind::Gtk4)
+    } else {
+        false
     };
-    let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
-        return None;
-    };
-    frame_origin(&facts, &clients)
+    select_origin(
+        gtk4_menu,
+        || {
+            let window = within(deadline, async {
+                Ok(read_window_extents_async(connection, frame).await)
+            })
+            .ok()
+            .flatten()
+            .or(screen)?;
+            let origin =
+                DisplayReader::popup_origin(frame.pid(), (window.width, window.height), deadline)?;
+            popup_origin(origin, window)
+        },
+        || {
+            let facts = FrameFacts {
+                pid: frame.pid(),
+                title,
+                extents: None,
+                global_position: false,
+            };
+            let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
+                return None;
+            };
+            frame_origin(&facts, &clients)
+        },
+    )
 }
 
 /// Puts the node rectangles of a finished walk where a pointer can be aimed

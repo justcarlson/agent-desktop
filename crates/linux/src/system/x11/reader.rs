@@ -1,12 +1,12 @@
 use x11rb::connection::Connection;
-use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, Window};
+use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, MapState, Window};
 use x11rb::rust_connection::RustConnection;
 
 use super::snapshot::{decode_cardinals, decode_frame_extents, decode_shadow, decode_title};
 use super::stacking::{bounded, capped, route};
 use super::stacking_read::StackingRead;
 use super::{X11Client, X11Source, X11State};
-use crate::system::display_server::session_server;
+use crate::system::display_server::{DisplayServer, session_server};
 use crate::tree::Extents;
 use agent_desktop_core::Deadline;
 
@@ -39,6 +39,100 @@ impl super::stacking_source::StackingSource for DisplayReader {
         bounded(deadline, X11State::Unavailable, || X11Source::read(&Self))
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PopupWindow {
+    pub(crate) id: u32,
+    pub(crate) bounds: Extents,
+}
+
+impl DisplayReader {
+    pub(crate) fn popup_origin(pid: u32, size: (i32, i32), caller: Deadline) -> Option<(i32, i32)> {
+        Self::popup_window(pid, size, caller).map(|window| (window.bounds.x, window.bounds.y))
+    }
+
+    pub(crate) fn popup_window(
+        pid: u32,
+        size: (i32, i32),
+        caller: Deadline,
+    ) -> Option<PopupWindow> {
+        let deadline = capped(caller)?;
+        match session_server() {
+            DisplayServer::X11(display) => bounded(deadline, None, move || {
+                read_popup_window(&display, pid, size)
+            }),
+            DisplayServer::Wayland | DisplayServer::Unavailable(_) => None,
+        }
+    }
+}
+
+fn read_popup_window(display: &str, pid: u32, size: (i32, i32)) -> Option<PopupWindow> {
+    let (connection, screen) = RustConnection::connect(Some(display)).ok()?;
+    let root = connection.setup().roots.get(screen)?.root;
+    let pid_atom = atom(&connection, b"_NET_WM_PID")?;
+    let windows = connection.query_tree(root).ok()?.reply().ok()?.children;
+    let mut popups = Vec::new();
+    for window in windows {
+        let attributes = connection
+            .get_window_attributes(window)
+            .ok()?
+            .reply()
+            .ok()?;
+        if !attributes.override_redirect || attributes.map_state != MapState::VIEWABLE {
+            continue;
+        }
+        let owner = cardinals(property(
+            &connection,
+            window,
+            pid_atom,
+            AtomEnum::CARDINAL,
+            1,
+        ))
+        .and_then(|values| values.first().copied());
+        let geometry = connection.get_geometry(window).ok()?.reply().ok()?;
+        let rect = Extents {
+            x: 0,
+            y: 0,
+            width: i32::from(geometry.width),
+            height: i32::from(geometry.height),
+        };
+        if !popup_candidate(pid, size, owner, rect, attributes.override_redirect) {
+            continue;
+        }
+        let origin = connection
+            .translate_coordinates(window, root, 0, 0)
+            .ok()?
+            .reply()
+            .ok()?;
+        popups.push(PopupWindow {
+            id: window,
+            bounds: Extents {
+                x: i32::from(origin.dst_x),
+                y: i32::from(origin.dst_y),
+                ..rect
+            },
+        });
+    }
+    unique_popup(&popups)
+}
+
+fn unique_popup(popups: &[PopupWindow]) -> Option<PopupWindow> {
+    (popups.len() == 1).then(|| popups[0])
+}
+
+fn popup_candidate(
+    pid: u32,
+    size: (i32, i32),
+    owner: Option<u32>,
+    rect: Extents,
+    override_redirect: bool,
+) -> bool {
+    owner == Some(pid) && override_redirect && (rect.width, rect.height) == size
+}
+
+#[cfg(test)]
+#[path = "popup_reader_tests.rs"]
+mod popup_tests;
 
 struct Atoms {
     wm_check: Atom,

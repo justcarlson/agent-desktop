@@ -42,15 +42,14 @@ pub(crate) fn inside_popup(bus: &SharedBus, handle: &NativeHandle, deadline: Dea
     .is_ok_and(|node| node.traits.role.present() == Some(&MENU))
 }
 
-/// The answer for a popup item whose toolkit gives it no screen position: a
-/// GTK 4 popup reports every item at the screen origin, so nothing can aim a
-/// pointer at it, and waiting for a position would only run out the budget.
+/// The answer when the popup's own window cannot prove a screen position.
+/// Waiting for the same missing geometry would only run out the budget.
 pub(crate) fn no_position() -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
         "The menu item has no usable screen position, so a pointer click cannot be aimed at it",
     )
-    .with_suggestion("Use the item's semantic click where the platform delivers it")
+    .with_suggestion("Keep the menu open and take a fresh menu snapshot before clicking the item")
     .with_details(
         json!({ "check": "geometry", "physical_delivery_started": false, "retryable": false }),
     )

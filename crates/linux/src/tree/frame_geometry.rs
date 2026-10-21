@@ -92,6 +92,12 @@ pub(crate) fn window_point(window_origin: (i32, i32), point: (i32, i32)) -> Opti
     ))
 }
 
+/// The popup's window-coordinate origin can be nonzero. Translate its local
+/// root to its own X11 origin before placing an item in screen coordinates.
+pub(crate) fn popup_origin(origin: (i32, i32), root: Extents) -> Option<(i32, i32)> {
+    window_point((root.x, root.y), origin)
+}
+
 /// A rectangle in window coordinates moved into the pointer frame.
 pub(crate) fn to_pointer_frame(window_origin: (i32, i32), rect: Extents) -> Option<Extents> {
     moved(rect, window_origin)

@@ -7,6 +7,8 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::rust_connection::RustConnection;
 
+use self::selection::{Overlays, frame_of, read_override_selection};
+use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::snapshot::{decode_frame_extents, decode_shadow, decode_title};
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_atoms::{WindowAtoms, names};
@@ -25,12 +27,8 @@ const TYPE_LONGS: u32 = 8;
 const STATE_LONGS: u32 = 64;
 const MAX_TITLE_LONGS: u32 = 1_024;
 
-#[derive(Default)]
-struct Overlays {
-    bounds: Vec<Extents>,
-    receiving: Vec<(u32, Extents)>,
-    names: Vec<(u32, String)>,
-}
+#[path = "stacking_wire_select.rs"]
+mod selection;
 
 type Property<'c> = Cookie<'c, RustConnection, GetPropertyReply>;
 
@@ -181,20 +179,19 @@ fn collect(pending: Pending<'_>, atoms: &WindowAtoms) -> Got<StackedWindow> {
     })
 }
 
-fn frame_of(connection: &RustConnection, root: Window, client: Window) -> Got<Window> {
-    let parent = answer(connection.query_tree(client).ok())?.parent;
-    Ok(if parent == root || parent == 0 {
-        client
-    } else {
-        parent
-    })
-}
-
 /// The mapped override-redirect windows above `frame`. A sibling that is gone
 /// is skipped; a read that failed, or more siblings than are probed, leaves
 /// the answer unknown.
 fn overlays(connection: &RustConnection, root: Window, frame: Window) -> Got<Overlays> {
     let siblings = answer(connection.query_tree(root).ok())?.children;
+    overlays_from_siblings(connection, &siblings, frame)
+}
+
+fn overlays_from_siblings(
+    connection: &RustConnection,
+    siblings: &[Window],
+    frame: Window,
+) -> Got<Overlays> {
     let position = siblings
         .iter()
         .position(|window| *window == frame)
@@ -338,20 +335,25 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     else {
         return StackingRead::Unavailable;
     };
-    let Some(position) = listed.iter().position(|window| *window == target) else {
-        return StackingRead::Unavailable;
-    };
-    let from_target = &listed[position..];
-    if exceeds_cap(from_target.len()) {
-        return StackingRead::Unavailable;
-    }
-    let pending: Vec<_> = from_target
-        .iter()
-        .map(|window| request(&connection, &names.window, root, *window))
-        .collect();
     let current_desktop = value(desktop)
         .ok()
         .and_then(|(format, bytes)| decode_current_desktop(format, &bytes));
+    let (selected_ids, is_override_target, override_overlays) =
+        if let Some(position) = listed.iter().position(|window| *window == target) {
+            (listed[position..].to_vec(), false, None)
+        } else {
+            let Ok(selection) = read_override_selection(&connection, root, target, &listed) else {
+                return StackingRead::Unavailable;
+            };
+            (selection.ids, true, Some(selection.overlays))
+        };
+    if exceeds_cap(selected_ids.len()) {
+        return StackingRead::Unavailable;
+    }
+    let pending: Vec<_> = selected_ids
+        .iter()
+        .map(|window| request(&connection, &names.window, root, *window))
+        .collect();
     let mut stack = Vec::with_capacity(pending.len());
     for entry in pending {
         match collect(entry, &names.window) {
@@ -363,10 +365,22 @@ pub(super) fn read_stacking(display: &str, target: u32) -> StackingRead {
     if stack.first().is_none_or(|window| window.id != target) {
         return StackingRead::Unavailable;
     }
-    let Ok(overlays) =
-        frame_of(&connection, root, target).and_then(|frame| overlays(&connection, root, frame))
-    else {
-        return StackingRead::Unavailable;
+    if is_override_target {
+        let Some(target_window) = stack.first_mut().filter(|window| window.flags.mapped) else {
+            return StackingRead::Unavailable;
+        };
+        target_window.desktop =
+            current_desktop.map_or(DesktopPlacement::Unknown, DesktopPlacement::On);
+    };
+    let overlays = if let Some(overlays) = override_overlays {
+        overlays
+    } else {
+        let Ok(overlays) = frame_of(&connection, root, target)
+            .and_then(|frame| overlays(&connection, root, frame))
+        else {
+            return StackingRead::Unavailable;
+        };
+        overlays
     };
     StackingRead::Ready(StackingSnapshot {
         current_desktop,

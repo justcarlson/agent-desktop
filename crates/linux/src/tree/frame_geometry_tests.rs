@@ -35,6 +35,22 @@ fn gtk_four_position_is_the_window_extents_plus_the_client_origin() {
 }
 
 #[test]
+fn a_popup_item_is_offset_from_its_popup_root_not_from_the_owner_frame() {
+    let origin = popup_origin((541, 189), rect(196, 6, 274, 418));
+    assert_eq!(origin, Some((345, 183)));
+    assert_eq!(
+        pointer_bounds(
+            &toolkit("gtk", "4.14"),
+            rect(0, 0, 214, 32),
+            rect(208, 50, 214, 32),
+            origin
+        ),
+        Some(rect(553, 233, 214, 32))
+    );
+    assert_eq!(popup_origin((i32::MIN, 0), rect(1, 0, 1, 1)), None);
+}
+
+#[test]
 fn gtk_four_without_a_client_origin_has_no_position_and_never_the_screen_extents() {
     let bounds = pointer_bounds(
         &toolkit("gtk", "4.14"),

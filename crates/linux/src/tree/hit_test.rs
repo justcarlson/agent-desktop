@@ -31,6 +31,9 @@ pub(crate) struct Windowing {
     pub(crate) client: u32,
     pub(crate) snapshot: StackingSnapshot,
     pub(crate) clients: Vec<X11Client>,
+    /// Popup WINDOW coordinates can start inside the owning frame. Keep that
+    /// translation separate from the physical X11 rectangles used for covers.
+    pub(crate) coordinate_origin: Option<(i32, i32)>,
 }
 
 /// Everything a hit test reads. The bus implements it; a test substitutes
@@ -128,7 +131,9 @@ pub(crate) fn hit_test_via<W: HitWorld>(
     } else {
         own.shadow
     };
-    let origin = (own.client.x + shadow.0, own.client.y + shadow.1);
+    let origin = windowing
+        .coordinate_origin
+        .unwrap_or((own.client.x + shadow.0, own.client.y + shadow.1));
     let Some(calibrated) = calibrate(&facts.toolkit, facts.screen, facts.window, Some(origin))
     else {
         return Ok(HitTestResult::Unknown);

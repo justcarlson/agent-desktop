@@ -3,6 +3,7 @@ use futures_util::future::join4;
 use zbus::Connection;
 
 use super::{Facts, HitWorld, Windowing};
+use crate::system::shell::container::MENU;
 use crate::system::x11::map::{ClientMatch, match_client};
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
@@ -11,9 +12,9 @@ use crate::system::{REGISTRY_ROOT_PATH, within};
 use crate::tree::hit_descent::{BusNodes, Described, Hit, NodeSource};
 use crate::tree::resolve_errors::{stopped_app, stopped_aware};
 use crate::tree::state_bits::{ICONIFIED, StateBits};
-use crate::tree::toolkit_trust::read_toolkit;
+use crate::tree::toolkit_trust::{ToolkitKind, kind, read_toolkit};
 use crate::tree::window_extents::read_window_extents_async;
-use crate::tree::{AtspiElement, read_node};
+use crate::tree::{AtspiElement, Extents, read_node};
 
 pub(super) fn stopped_aware_for(error: AdapterError, frame: &AtspiElement) -> AdapterError {
     if error.code == agent_desktop_core::ErrorCode::Timeout {
@@ -29,6 +30,8 @@ pub(super) struct LiveWorld<'a> {
     connection: &'a Connection,
     deadline: Deadline,
     nodes: BusNodes<'a>,
+    popup: bool,
+    popup_rect: Option<Extents>,
 }
 
 impl<'a> LiveWorld<'a> {
@@ -40,6 +43,8 @@ impl<'a> LiveWorld<'a> {
                 connection,
                 deadline,
             },
+            popup: false,
+            popup_rect: None,
         }
     }
 }
@@ -93,6 +98,15 @@ impl HitWorld for LiveWorld<'_> {
             .cloned()
             .unwrap_or_default();
         let global_position = crate::tree::toolkit_trust::reports_global_position(&toolkit);
+        self.popup =
+            frame_node.traits.role.present() == Some(&MENU) && kind(&toolkit) == ToolkitKind::Gtk4;
+        self.popup_rect = if self.popup {
+            within(self.deadline, async {
+                Ok(read_window_extents_async(self.connection, frame).await)
+            })?
+        } else {
+            None
+        };
         Ok(Some(Facts {
             screen,
             window,
@@ -112,11 +126,22 @@ impl HitWorld for LiveWorld<'_> {
         let X11State::Ready { clients, .. } = state else {
             return None;
         };
-        let ClientMatch::One(client) = match_client(frame, &clients) else {
-            return None;
+        let (client, coordinate_origin) = if self.popup {
+            let rect = self.popup_rect?;
+            let popup =
+                DisplayReader::popup_window(frame.pid, (rect.width, rect.height), self.deadline)?;
+            let origin =
+                crate::tree::frame_geometry::popup_origin((popup.bounds.x, popup.bounds.y), rect)?;
+            (popup.id, Some(origin))
+        } else {
+            let ClientMatch::One(client) = match_client(frame, &clients) else {
+                return None;
+            };
+            (client, None)
         };
         match DisplayReader.read_within(client, self.deadline) {
             StackingRead::Ready(snapshot) => Some(Windowing {
+                coordinate_origin,
                 client,
                 snapshot,
                 clients,

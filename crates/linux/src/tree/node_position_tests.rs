@@ -26,6 +26,22 @@ fn gtk4() -> ToolkitId {
     }
 }
 
+#[test]
+fn gtk4_menu_origin_selection_uses_the_popup_source() {
+    assert_eq!(
+        select_origin(true, || Some((730, 410)), || Some((120, 80))),
+        Some((730, 410))
+    );
+}
+
+#[test]
+fn ordinary_window_origin_selection_uses_the_managed_client_source() {
+    assert_eq!(
+        select_origin(false, || Some((730, 410)), || Some((120, 80))),
+        Some((120, 80))
+    );
+}
+
 fn window(x: i32, y: i32) -> Option<Extents> {
     Some(Extents {
         x,
@@ -53,6 +69,20 @@ fn a_gtk4_node_is_placed_at_its_window_rectangle_moved_to_the_client_origin() {
     );
     assert_eq!(extents_of(&root), Some((460, 165)));
     assert_eq!(extents_of(&root.children[0]), Some((640, 211)));
+}
+
+#[test]
+fn a_gtk4_menu_uses_the_owning_popup_origin_for_pointer_bounds() {
+    let mut menu = node(0, 0, vec![node(0, 0, Vec::new())]);
+    apply(
+        &mut menu,
+        &gtk4(),
+        Some((730, 410)),
+        &[window(0, 0), window(26, 38)],
+    );
+
+    assert_eq!(extents_of(&menu), Some((730, 410)));
+    assert_eq!(extents_of(&menu.children[0]), Some((756, 448)));
 }
 
 #[test]

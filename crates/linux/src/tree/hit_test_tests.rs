@@ -82,6 +82,7 @@ fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
     let mut stack = vec![stacked(CLIENT, rect(origin.0, origin.1, 800, 600))];
     stack.extend(above);
     Windowing {
+        coordinate_origin: None,
         client: CLIENT,
         snapshot: StackingSnapshot {
             current_desktop: Some(0),
@@ -393,3 +394,6 @@ fn a_spent_deadline_with_no_x11_answer_is_the_timeout_and_not_unknown() {
 
 #[path = "hit_test_shadow_tests.rs"]
 mod shadow;
+
+#[path = "hit_test_popup_tests.rs"]
+mod popup;
