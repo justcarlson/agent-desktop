@@ -1,5 +1,7 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
+use std::thread;
+use std::time::Duration;
 
 use super::pointer_read::PointerRead;
 
@@ -9,6 +11,8 @@ use super::sink::X11Sink;
 use crate::input::held_input::HeldInput;
 
 const FIRST_BUTTON_MASK: u16 = 0x0100;
+const KEY_SETTLE_LIMIT: Duration = Duration::from_millis(250);
+const KEY_SETTLE_POLL: Duration = Duration::from_millis(10);
 
 pub(crate) fn leftover_buttons(read: &PointerRead, pressed: &[u8]) -> Vec<u8> {
     pressed
@@ -29,19 +33,18 @@ pub(crate) fn leftover_keys(bits: &[u8; 32], pressed: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-pub(crate) fn check(sink: &mut dyn X11Sink, touched: &HeldInput) -> Result<(), AdapterError> {
+pub(crate) fn check(
+    sink: &mut dyn X11Sink,
+    touched: &HeldInput,
+    deadline: agent_desktop_core::Deadline,
+) -> Result<(), AdapterError> {
     let buttons = if touched.buttons.is_empty() {
         Vec::new()
     } else {
         let read = sink.pointer().map_err(SinkError::into_adapter)?;
         leftover_buttons(&read, &touched.buttons)
     };
-    let keys = if touched.keys.is_empty() {
-        Vec::new()
-    } else {
-        let bits = sink.keys_down().map_err(SinkError::into_adapter)?;
-        leftover_keys(&bits, &touched.keys)
-    };
+    let keys = observe_leftover_keys(sink, &touched.keys, deadline)?;
     if buttons.is_empty() && keys.is_empty() {
         return Ok(());
     }
@@ -60,3 +63,26 @@ pub(crate) fn check(sink: &mut dyn X11Sink, touched: &HeldInput) -> Result<(), A
     .with_suggestion("Run 'snapshot' to read the real state before retrying")
     .with_disposition(DeliverySemantics::delivered_unverified()))
 }
+
+fn observe_leftover_keys(
+    sink: &mut dyn X11Sink,
+    touched: &[u8],
+    deadline: agent_desktop_core::Deadline,
+) -> Result<Vec<u8>, AdapterError> {
+    if touched.is_empty() {
+        return Ok(Vec::new());
+    }
+    let settle = deadline.capped(KEY_SETTLE_LIMIT);
+    loop {
+        let bits = sink.keys_down().map_err(SinkError::into_adapter)?;
+        let keys = leftover_keys(&bits, touched);
+        if keys.is_empty() || settle.is_expired() {
+            return Ok(keys);
+        }
+        thread::sleep(settle.remaining().min(KEY_SETTLE_POLL));
+    }
+}
+
+#[cfg(test)]
+#[path = "verify_tests.rs"]
+mod tests;
