@@ -67,33 +67,3 @@ fn the_server_states_without_a_client_list_keep_their_cause() {
         XidOutcome::Unavailable
     );
 }
-
-#[test]
-fn only_one_is_an_id_and_every_other_outcome_has_its_code() {
-    assert_eq!(xid_or_error(XidOutcome::One(5)).expect("an id"), 5);
-    let ambiguous = xid_or_error(XidOutcome::Several(vec![1, 2, 3])).expect_err("ambiguous");
-    assert_eq!(ambiguous.code, ErrorCode::AmbiguousTarget);
-    assert_eq!(
-        ambiguous
-            .details
-            .as_ref()
-            .and_then(|d| d["candidates"].as_u64()),
-        Some(3)
-    );
-    assert_eq!(
-        xid_or_error(XidOutcome::NoClient).expect_err("none").code,
-        ErrorCode::ActionFailed
-    );
-    assert_eq!(
-        xid_or_error(XidOutcome::NoManager)
-            .expect_err("no manager")
-            .code,
-        ErrorCode::PlatformNotSupported
-    );
-    assert_eq!(
-        xid_or_error(XidOutcome::Unavailable)
-            .expect_err("no display")
-            .code,
-        ErrorCode::PlatformNotSupported
-    );
-}

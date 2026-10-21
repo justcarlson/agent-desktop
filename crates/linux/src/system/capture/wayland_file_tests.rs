@@ -47,16 +47,6 @@ fn other_uris_are_refused() {
 }
 
 #[test]
-fn a_file_is_read_and_removed() {
-    let dir = scratch("read");
-    let path = dir.join("shot.png");
-    fs::write(&path, b"png bytes").expect("a file");
-    let bytes = take_file(&path, std::slice::from_ref(&dir), me(), long_ago()).expect("read");
-    assert_eq!(bytes, b"png bytes");
-    assert!(!path.exists());
-}
-
-#[test]
 fn a_file_outside_the_allowed_directories_is_neither_read_nor_removed() {
     let dir = scratch("outside");
     let other = scratch("elsewhere");

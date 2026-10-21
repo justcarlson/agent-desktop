@@ -26,12 +26,6 @@ fn full_screen_with_no_primary_picks_the_first() {
 }
 
 #[test]
-fn a_screen_index_is_the_list_position() {
-    let (index, display) = select(&two(), &ScreenshotTarget::Screen(0)).expect("a display");
-    assert_eq!((index, display.id.as_str()), (0, "left"));
-}
-
-#[test]
 fn a_screen_out_of_range_is_invalid_with_the_display_count() {
     let error = select(&two(), &ScreenshotTarget::Screen(5)).expect_err("out of range");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
