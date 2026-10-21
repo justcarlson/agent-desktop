@@ -1,10 +1,8 @@
-use std::process::Command;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{Deadline, WindowFilter, WindowInfo};
+use agent_desktop_core::{WindowFilter, WindowInfo};
 
-use super::focus_window::focus_window;
-use super::interaction_lease::acquire;
+use super::focus_window::lift_live_tests::{deadline, focus, xprop};
 use super::x11::stacking_read::StackingRead;
 use super::x11::stacking_source::StackingSource;
 use super::x11::{DisplayReader, X11State};
@@ -64,10 +62,6 @@ w.show_all()
 Gtk.main()
 "#;
 
-fn deadline(ms: u64) -> Deadline {
-    Deadline::after(ms).expect("a deadline builds")
-}
-
 fn script_path(name: &str, source: &str) -> String {
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("a private session");
     let path = format!("{dir}/{name}.py");
@@ -121,26 +115,8 @@ fn wait_for(bus: &SharedBus, pid: u32) -> WindowInfo {
     panic!("pid {pid} never listed a window");
 }
 
-fn focus(window: &WindowInfo) -> Result<(), agent_desktop_core::AdapterError> {
-    let lease = acquire(deadline(8_000)).expect("a lease");
-    focus_window(&SharedBus::default(), window, &lease)
-}
-
-fn cause(error: &agent_desktop_core::AdapterError) -> String {
-    error
-        .details
-        .as_ref()
-        .and_then(|details| details["cause"].as_str())
-        .unwrap_or("none")
-        .to_owned()
-}
-
 fn root_stack() -> Vec<u32> {
-    let output = Command::new("xprop")
-        .args(["-root", "_NET_CLIENT_LIST_STACKING"])
-        .output()
-        .expect("xprop runs");
-    String::from_utf8_lossy(&output.stdout)
+    xprop(&["-root", "_NET_CLIENT_LIST_STACKING"])
         .split("# ")
         .nth(1)
         .unwrap_or("")
@@ -181,26 +157,13 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         .iter()
         .find(|id| ids.contains(id))
         .expect("a launched client is stacked");
-    let started = Instant::now();
     let StackingRead::Ready(snapshot) = StackingSource::read(&DisplayReader, lowest) else {
         panic!("the stacking read must be ready under a window manager");
     };
     let position = listed.iter().position(|id| *id == lowest).expect("listed");
     let seen: Vec<u32> = snapshot.stack.iter().map(|window| window.id).collect();
-    println!(
-        "focus_window_live stacking: {} entries in {}ms, xprop tail {:?}, read {:?}, desktop {:?}",
-        seen.len(),
-        started.elapsed().as_millis(),
-        &listed[position..],
-        seen,
-        snapshot.current_desktop
-    );
     assert_eq!(seen, listed[position..].to_vec());
     assert!(snapshot.stack.iter().all(|window| window.flags.mapped));
-    println!(
-        "focus_window_live stacking: baseline overlays {:?}",
-        snapshot.override_redirect_above
-    );
     assert!(
         snapshot
             .override_redirect_above
@@ -226,7 +189,6 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         );
         std::thread::sleep(Duration::from_millis(200));
     };
-    println!("focus_window_live stacking: override-redirect cover {cover:?}");
     assert!(cover.width >= 200 && cover.height >= 100);
 
     let lowest_window = windows_by_pid
@@ -234,17 +196,8 @@ fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirec
         .find(|(pid, _)| client_of(*pid) == lowest)
         .map(|(_, window)| window.clone())
         .expect("the lowest window");
-    if let Err(error) = focus(&lowest_window) {
-        panic!(
-            "focus_window_live stacking: the raise was refused, so the stack was never reordered: {}",
-            cause(&error)
-        );
-    }
+    focus(&SharedBus::default(), &lowest_window).expect("the lowest window activates");
     let raised = root_stack();
-    println!(
-        "focus_window_live stacking: after activation top is {:?}",
-        raised.last()
-    );
     assert_eq!(raised.last(), Some(&lowest));
     let StackingRead::Ready(after) = StackingSource::read(&DisplayReader, lowest) else {
         panic!("ready");
