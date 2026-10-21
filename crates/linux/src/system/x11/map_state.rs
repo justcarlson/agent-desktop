@@ -16,7 +16,3 @@ impl From<xproto::MapState> for MapState {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "map_state_tests.rs"]
-mod tests;

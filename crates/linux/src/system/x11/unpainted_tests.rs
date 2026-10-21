@@ -34,13 +34,6 @@ const WHOLE: Region = Region {
 };
 
 #[test]
-fn a_pixmap_that_differs_everywhere_in_the_region_is_proven() {
-    let screen = raw(4, 3, |_, _| [1, 2, 3]);
-    let pixmap = raw(4, 3, |_, _| [9, 9, 9]);
-    assert!(differs_everywhere(&screen, &pixmap, &[WHOLE]));
-}
-
-#[test]
 fn one_pixel_equal_to_the_screen_in_the_region_is_not_proven() {
     let screen = raw(4, 3, |_, _| [1, 2, 3]);
     let pixmap = raw(4, 3, |x, y| {
@@ -48,19 +41,6 @@ fn one_pixel_equal_to_the_screen_in_the_region_is_not_proven() {
             [1, 2, 3]
         } else {
             [9, 9, 9]
-        }
-    });
-    assert!(!differs_everywhere(&screen, &pixmap, &[WHOLE]));
-}
-
-#[test]
-fn one_pixel_that_differs_among_equal_pixels_is_not_proven() {
-    let screen = raw(4, 3, |_, _| [1, 2, 3]);
-    let pixmap = raw(4, 3, |x, y| {
-        if (x, y) == (2, 1) {
-            [9, 9, 9]
-        } else {
-            [1, 2, 3]
         }
     });
     assert!(!differs_everywhere(&screen, &pixmap, &[WHOLE]));

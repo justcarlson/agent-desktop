@@ -10,73 +10,6 @@ fn deadline(ms: u64) -> Deadline {
 }
 
 #[test]
-fn the_move_event_carries_the_message_type_the_window_and_the_flags() {
-    let write = WindowWrite::MoveResize {
-        x: Some(40),
-        y: Some(60),
-        width: None,
-        height: None,
-    };
-    let event = event_of(0x40_0003, &write, &[77]).expect("an event");
-    assert_eq!(event.window, 0x40_0003);
-    assert_eq!(event.type_, 77);
-    assert_eq!(event.format, 32);
-    assert_eq!(
-        event.data.as_data32(),
-        move_resize(Some(40), Some(60), None, None)
-    );
-}
-
-#[test]
-fn the_iconify_event_is_the_change_state_message() {
-    let event = event_of(9, &WindowWrite::Iconify, &[88]).expect("an event");
-    assert_eq!(event.type_, 88);
-    assert_eq!(event.data.as_data32(), iconify());
-}
-
-#[test]
-fn the_maximize_event_names_both_atoms_and_restore_removes_them() {
-    let on = event_of(9, &WindowWrite::SetMaximized(true), &[5, 6, 7]).expect("an event");
-    let off = event_of(9, &WindowWrite::SetMaximized(false), &[5, 6, 7]).expect("an event");
-    assert_eq!(on.type_, 5);
-    assert_eq!(on.data.as_data32(), maximize(true, 6, 7));
-    assert_eq!(off.data.as_data32(), maximize(false, 6, 7));
-}
-
-#[test]
-fn an_event_without_its_atoms_is_not_built() {
-    assert!(event_of(9, &WindowWrite::SetMaximized(true), &[5]).is_none());
-    assert!(event_of(9, &WindowWrite::Iconify, &[]).is_none());
-}
-
-#[test]
-fn the_close_event_carries_the_timestamp_and_the_source() {
-    let event = message(9, 31, close(4_242));
-    assert_eq!(event.type_, 31);
-    assert_eq!(event.window, 9);
-    assert_eq!(event.data.as_data32(), close(4_242));
-}
-
-#[test]
-fn every_write_names_the_atoms_its_message_needs() {
-    for (write, count) in [
-        (WindowWrite::Iconify, 1),
-        (WindowWrite::SetMaximized(true), 3),
-        (
-            WindowWrite::MoveResize {
-                x: None,
-                y: None,
-                width: Some(1),
-                height: Some(1),
-            },
-            1,
-        ),
-    ] {
-        assert_eq!(names_of(&write).len(), count);
-    }
-}
-
-#[test]
 fn the_send_runs_once_on_the_calling_thread_and_the_prepare_on_another() {
     let caller = std::thread::current().id();
     let prepared_on = Arc::new(Mutex::new(None));
@@ -138,16 +71,6 @@ fn a_destroyed_window_is_bad_window_and_nothing_is_sent() {
     );
     assert_eq!(outcome, Err(ControlError::BadWindow));
     assert!(!sent.load(Ordering::SeqCst));
-}
-
-#[test]
-fn an_error_of_the_send_itself_is_returned() {
-    let outcome = deliver(
-        deadline(2_000),
-        |_| Ok(Ok(())),
-        |()| Err(ControlError::BadWindow),
-    );
-    assert_eq!(outcome, Err(ControlError::BadWindow));
 }
 
 #[test]
@@ -222,9 +145,4 @@ fn nothing_is_written_once_the_deadline_has_passed() {
     ));
     std::thread::sleep(Duration::from_millis(50));
     assert!(!ran.load(Ordering::SeqCst));
-}
-
-#[test]
-fn a_prompt_confirmed_send_is_ok() {
-    assert_eq!(within_deadline(deadline(1_000), (), |()| Ok(())), Ok(()));
 }

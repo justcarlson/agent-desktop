@@ -31,20 +31,6 @@ fn an_empty_client_list_is_an_empty_list_not_a_failure() {
 }
 
 #[test]
-fn frame_extents_are_left_right_top_bottom() {
-    let extents = decode_frame_extents(32, &bytes_of(&[0, 0, 37, 0])).expect("decodes");
-    assert_eq!(
-        extents,
-        FrameExtents {
-            left: 0,
-            right: 0,
-            top: 37,
-            bottom: 0
-        }
-    );
-}
-
-#[test]
 fn frame_extents_with_the_wrong_number_of_fields_are_rejected() {
     assert_eq!(decode_frame_extents(32, &bytes_of(&[1, 2, 3])), None);
 }

@@ -31,12 +31,10 @@ pub(crate) trait Grabber: Send + Sync {
     fn compositing(&self, deadline: Deadline) -> Result<bool, GrabError>;
     fn grab_redirected(
         &self,
-        _window: u32,
-        _rect: GrabRect,
-        _deadline: Deadline,
-    ) -> Result<Raw, GrabError> {
-        Err(GrabError::Fault(MonitorFault::Unreadable))
-    }
+        window: u32,
+        rect: GrabRect,
+        deadline: Deadline,
+    ) -> Result<Raw, GrabError>;
 }
 
 /// The real grabber: it connects on every call and keeps nothing, because a

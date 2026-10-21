@@ -44,12 +44,6 @@ pub(crate) fn complete_value(
     (bytes_after == 0).then_some((format, value))
 }
 
-/// `_NET_CLIENT_LIST_STACKING`: window ids bottom to top. A value that ends
-/// inside an id or is not 32-bit is rejected.
-pub(crate) fn decode_stack(format: u8, bytes: &[u8]) -> Option<Vec<u32>> {
-    decode_cardinals(format, bytes)
-}
-
 /// Whether `_NET_WM_STATE` carries the hidden and above atoms. An atom the
 /// verdict does not read is ignored; a property that cannot be decoded
 /// carries neither.

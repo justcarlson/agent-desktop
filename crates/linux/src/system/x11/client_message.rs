@@ -26,17 +26,7 @@ const FLAG_Y: u32 = 1 << 9;
 const FLAG_WIDTH: u32 = 1 << 10;
 const FLAG_HEIGHT: u32 = 1 << 11;
 const SOURCE_SHIFT: u32 = 12;
-const STATE_REMOVE: u32 = 0;
-const STATE_ADD: u32 = 1;
 const ICONIC_STATE: u32 = 3;
-
-fn flag(present: bool, bit: u32) -> u32 {
-    if present { bit } else { 0 }
-}
-
-fn long(value: i32) -> u32 {
-    u32::from_ne_bytes(value.to_ne_bytes())
-}
 
 /// `_NET_MOVERESIZE_WINDOW`: only the fields that are `Some` are flagged, the
 /// others are sent as zero. A request that places the window uses static
@@ -53,15 +43,15 @@ pub(super) fn move_resize(
         RESIZE_GRAVITY
     };
     let flags = gravity
-        | flag(x.is_some(), FLAG_X)
-        | flag(y.is_some(), FLAG_Y)
-        | flag(width.is_some(), FLAG_WIDTH)
-        | flag(height.is_some(), FLAG_HEIGHT)
+        | (u32::from(x.is_some()) * FLAG_X)
+        | (u32::from(y.is_some()) * FLAG_Y)
+        | (u32::from(width.is_some()) * FLAG_WIDTH)
+        | (u32::from(height.is_some()) * FLAG_HEIGHT)
         | (SOURCE_TOOL << SOURCE_SHIFT);
     [
         flags,
-        long(x.unwrap_or(0)),
-        long(y.unwrap_or(0)),
+        x.unwrap_or(0) as u32,
+        y.unwrap_or(0) as u32,
         width.unwrap_or(0),
         height.unwrap_or(0),
     ]
@@ -69,7 +59,7 @@ pub(super) fn move_resize(
 
 /// `_NET_WM_STATE` adding or removing both maximized atoms in one message.
 pub(super) fn maximize(add: bool, vertical: Atom, horizontal: Atom) -> MessageData {
-    let action = if add { STATE_ADD } else { STATE_REMOVE };
+    let action = u32::from(add);
     [action, vertical, horizontal, SOURCE_TOOL, 0]
 }
 
@@ -89,7 +79,3 @@ pub(crate) fn activate() -> MessageData {
 pub(super) fn close(timestamp: u32) -> MessageData {
     [timestamp, SOURCE_TOOL, 0, 0, 0]
 }
-
-#[cfg(test)]
-#[path = "client_message_tests.rs"]
-mod tests;

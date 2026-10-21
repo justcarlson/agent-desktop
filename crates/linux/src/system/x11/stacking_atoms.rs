@@ -1,9 +1,9 @@
-use x11rb::protocol::xproto::{Atom, ConnectionExt};
+use x11rb::protocol::xproto::Atom;
 use x11rb::rust_connection::RustConnection;
 
 use crate::system::x11::stacking_decode::{StateAtoms, TypeAtoms};
 
-const NAMES: [&[u8]; 16] = [
+const NAMES: [&[u8]; 18] = [
     b"_NET_SUPPORTING_WM_CHECK",
     b"_NET_CLIENT_LIST_STACKING",
     b"_NET_CURRENT_DESKTOP",
@@ -20,6 +20,8 @@ const NAMES: [&[u8]; 16] = [
     b"_NET_WM_WINDOW_TYPE_POPUP_MENU",
     b"_NET_WM_WINDOW_TYPE_DOCK",
     b"_NET_WM_WINDOW_TYPE_DESKTOP",
+    b"_NET_FRAME_EXTENTS",
+    b"_GTK_FRAME_EXTENTS",
 ];
 
 /// The atoms read off the root window.
@@ -46,26 +48,9 @@ pub(super) struct Names {
 }
 
 pub(super) fn names(connection: &RustConnection) -> Option<Names> {
-    let cookies: Vec<_> = NAMES
-        .iter()
-        .map(|name| connection.intern_atom(false, name).ok())
-        .collect::<Option<_>>()?;
-    let ids: Vec<Atom> = cookies
-        .into_iter()
-        .map(|cookie| cookie.reply().ok().map(|reply| reply.atom))
-        .collect::<Option<_>>()?;
-    let frame_extents = connection
-        .intern_atom(false, b"_NET_FRAME_EXTENTS")
-        .ok()?
-        .reply()
-        .ok()?
-        .atom;
-    let gtk_extents = connection
-        .intern_atom(false, b"_GTK_FRAME_EXTENTS")
-        .ok()?
-        .reply()
-        .ok()?
-        .atom;
+    let ids: [Atom; 18] = super::control_display::atoms(connection, &NAMES)?
+        .try_into()
+        .ok()?;
     let [
         wm_check,
         stacking,
@@ -83,33 +68,29 @@ pub(super) fn names(connection: &RustConnection) -> Option<Names> {
         popup,
         dock,
         desktop_type,
-    ] = ids.as_slice()
-    else {
-        return None;
-    };
+        frame_extents,
+        gtk_extents,
+    ] = ids;
     Some(Names {
         root: RootAtoms {
-            wm_check: *wm_check,
-            stacking: *stacking,
-            current_desktop: *current_desktop,
+            wm_check,
+            stacking,
+            current_desktop,
         },
         window: WindowAtoms {
-            state: *state,
-            desktop: *desktop,
-            kind: *kind,
+            state,
+            desktop,
+            kind,
             frame_extents,
             gtk_extents,
-            states: StateAtoms {
-                hidden: *hidden,
-                above: *above,
-            },
+            states: StateAtoms { hidden, above },
             types: TypeAtoms {
-                normal: *normal,
-                dialog: *dialog,
-                utility: *utility,
-                menu: [*menu, *dropdown, *popup],
-                dock: *dock,
-                desktop: *desktop_type,
+                normal,
+                dialog,
+                utility,
+                menu: [menu, dropdown, popup],
+                dock,
+                desktop: desktop_type,
             },
         },
     })

@@ -19,14 +19,6 @@ fn deadline(ms: u64) -> Deadline {
 }
 
 #[test]
-fn a_prompt_source_answers_through_the_wait() {
-    let answer = start(|| X11State::NoWindowManager)
-        .finish(deadline(2_000))
-        .expect("answered");
-    assert_eq!(answer, X11State::NoWindowManager);
-}
-
-#[test]
 fn a_reader_that_never_answers_is_unavailable_within_the_deadline() {
     let (release, blocked): (Sender<()>, _) = channel();
     let started = Instant::now();

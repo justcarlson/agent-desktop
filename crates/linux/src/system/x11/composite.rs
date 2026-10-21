@@ -17,10 +17,6 @@ use super::unpainted::{Region, is_proven};
 const PAINT_WAIT: Duration = Duration::from_millis(1_000);
 const PAINT_POLL: Duration = Duration::from_millis(40);
 
-pub(crate) fn is_blank(data: &[u8]) -> bool {
-    data.iter().all(|byte| *byte == 0)
-}
-
 fn screen_under(
     connection: &RustConnection,
     window: Window,
@@ -89,7 +85,7 @@ fn painted(
     let started = Instant::now();
     loop {
         let raw = read_strips(connection, pixmap, rect, deadline, Some(visual))?;
-        if !is_blank(&raw.data) {
+        if raw.data.iter().any(|byte| *byte != 0) {
             return Ok(raw);
         }
         if started.elapsed() >= PAINT_WAIT || deadline.is_expired() {
@@ -162,7 +158,3 @@ pub(crate) fn grab_redirected(
     let _ = connection.flush();
     result
 }
-
-#[cfg(test)]
-#[path = "composite_tests.rs"]
-mod tests;

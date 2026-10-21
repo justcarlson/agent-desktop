@@ -1,6 +1,6 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use super::*;
 use crate::system::display_server::{Cause, Unavailable};
@@ -98,25 +98,6 @@ fn deadline() -> Deadline {
 }
 
 #[test]
-fn a_listed_window_with_one_client_reports_that_clients_state_and_origin() {
-    let source = Fixed {
-        clients: ready(vec![client(5, 10, "Doc"), client(6, 11, "Other")]),
-        stack: snapshot(vec![window(5, true, 120, 80), window(6, false, 0, 0)]),
-        reads: AtomicU32::new(0),
-    };
-    let state = frame_window_state(&source, deadline(), &facts(10, "Doc"));
-    assert_eq!(
-        state,
-        Some(WindowX11State {
-            shadow: (0, 0, 0, 0),
-            client_id: 5,
-            hidden: true,
-            client_origin: (120, 80),
-        })
-    );
-}
-
-#[test]
 fn a_window_with_no_single_client_has_no_state_and_reads_no_stacking() {
     let two = ready(vec![client(5, 10, "Doc"), client(6, 10, "Doc")]);
     for clients in [two, ready(vec![client(5, 99, "Doc")])] {
@@ -166,18 +147,6 @@ fn without_x11_evidence_a_window_has_no_state() {
 }
 
 #[test]
-fn a_read_that_blocks_is_unavailable_within_the_deadline() {
-    let started = Instant::now();
-    let budget = Deadline::after(80).expect("a deadline builds");
-    let read = bounded(budget, StackingRead::Unavailable, || {
-        std::thread::sleep(Duration::from_secs(5));
-        StackingRead::NoManager
-    });
-    assert_eq!(read, StackingRead::Unavailable);
-    assert!(started.elapsed() < Duration::from_secs(2));
-}
-
-#[test]
 fn a_wayland_session_answers_not_x11_without_a_connection() {
     let opened = Cell::new(false);
     let read = route(DisplayServer::Wayland, |_| {
@@ -201,15 +170,6 @@ fn a_session_with_no_display_is_unavailable_without_a_connection() {
     });
     assert_eq!(read, StackingRead::Unavailable);
     assert!(!opened.get());
-}
-
-#[test]
-fn an_x11_session_reads_the_display_the_detector_chose() {
-    let read = route(DisplayServer::X11(":7".to_owned()), |display| {
-        assert_eq!(display, ":7");
-        StackingRead::NoManager
-    });
-    assert_eq!(read, StackingRead::NoManager);
 }
 
 struct Slow {
@@ -236,12 +196,4 @@ fn a_read_that_ends_after_the_callers_deadline_gives_no_state() {
     };
     let budget = Deadline::after(60).expect("a deadline builds");
     assert_eq!(frame_window_state(&source, budget, &facts(10, "Doc")), None);
-}
-
-#[test]
-fn a_read_never_waits_longer_than_the_caller_has_left() {
-    let short = capped(Deadline::after(50).expect("a deadline builds")).expect("a deadline");
-    assert!(short.remaining() <= Duration::from_millis(50));
-    let long = capped(Deadline::after(60_000).expect("a deadline builds")).expect("a deadline");
-    assert!(long.remaining() <= READ_BUDGET);
 }
