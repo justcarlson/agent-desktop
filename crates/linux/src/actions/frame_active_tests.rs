@@ -23,9 +23,7 @@ fn the_active_bit_is_read_from_its_own_position_only() {
     assert_eq!(active_of(&Field::Present(words(&[33]))), Some(false));
 }
 
-use std::time::Duration;
-
-use super::{ACTIVE_BUDGET, ActiveGate, poll_active};
+use super::ActiveGate;
 use crate::actions::physical_target::tests::fake::{
     FakeWorld, check_of, deadline, element, not_delivered,
 };

@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{ActionResult, AdapterError, Deadline, ErrorCode};
 use zbus::blocking::Connection;
 
-use super::click::{click, right_click};
+use super::click::right_click;
 use super::context::Target;
 use crate::adapter::LinuxAdapter;
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
