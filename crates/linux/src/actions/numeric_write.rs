@@ -49,8 +49,8 @@ pub(crate) fn plan(
     })
 }
 
-pub(crate) fn agrees(stored: f64, requested: f64) -> bool {
-    (stored - requested).abs() <= 1e-9 * requested.abs().max(1.0)
+fn agrees(stored: f64, requested: f64) -> bool {
+    agent_desktop_core::value_matches("slider", &requested.to_string(), Some(&stored.to_string()))
 }
 
 fn write_ignored() -> AdapterError {

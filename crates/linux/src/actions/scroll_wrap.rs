@@ -17,7 +17,7 @@ pub(crate) enum Visibility {
 
 pub(crate) trait ScrollPort {
     fn visibility(&mut self) -> Visibility;
-    fn scroll(&mut self) -> Result<(), AdapterError>;
+    fn scroll(&mut self) -> Result<bool, AdapterError>;
 }
 
 struct BusPort<'a> {
@@ -38,7 +38,7 @@ impl ScrollPort for BusPort<'_> {
         }
     }
 
-    fn scroll(&mut self) -> Result<(), AdapterError> {
+    fn scroll(&mut self) -> Result<bool, AdapterError> {
         super::scroll_into_view(self.bus, self.handle, self.lease)
     }
 }
@@ -55,7 +55,9 @@ pub(crate) fn scroll_with(
         if port.visibility() == Visibility::OnScreen {
             return Ok(DeliveryOutcome::Satisfied);
         }
-        port.scroll()?;
+        if !port.scroll()? {
+            return Ok(DeliveryOutcome::Satisfied);
+        }
         Ok(DeliveryOutcome::Delivered(match port.visibility() {
             Visibility::OnScreen => Observed::Matched,
             Visibility::OffScreen => Observed::Unchanged,

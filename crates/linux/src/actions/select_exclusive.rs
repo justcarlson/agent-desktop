@@ -1,4 +1,4 @@
-use agent_desktop_core::AdapterError;
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 
 use super::context::Target;
@@ -81,7 +81,7 @@ pub(super) fn exclusive_verdict(count: Option<i32>) -> Option<bool> {
 pub(super) fn replace_with_only(
     holder: &Target<'_>,
     item: &crate::tree::AtspiElement,
-) -> Result<bool, AdapterError> {
+) -> Result<(), AdapterError> {
     super::select_index::resolve(holder, item)?;
     let cleared = invoke(
         holder,
@@ -93,11 +93,22 @@ pub(super) fn replace_with_only(
         },
     )? == WriteReply::Done;
     if !cleared {
-        return Ok(false);
+        return Err(replacement_refused());
     }
-    Ok(super::select_index::write(holder, item).map_err(|error| {
-        error.with_disposition(agent_desktop_core::DeliverySemantics::uncertain())
-    })? == WriteReply::Done)
+    match super::select_index::write(holder, item)
+        .map_err(|error| error.with_disposition(DeliverySemantics::uncertain()))?
+    {
+        WriteReply::Done => Ok(()),
+        WriteReply::Absent => Err(replacement_refused()),
+    }
+}
+
+fn replacement_refused() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The container did not replace its selection with only the requested item",
+    )
+    .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
 #[cfg(test)]

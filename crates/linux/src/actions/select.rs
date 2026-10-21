@@ -8,8 +8,9 @@ use zbus::zvariant::{OwnedValue, Structure, Value};
 
 use super::action_call::resolve_verb;
 use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
-use super::click::{POLL_STEP, deliver, invoke_verb, names_of, poll_until, refusal};
+use super::click::{POLL_STEP, invoke_verb, names_of, observed_of, poll_until, refusal};
 use super::context::Target;
+use super::mutation::WriteReply;
 use super::select_exclusive::{
     SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
 };
@@ -158,19 +159,23 @@ fn keep_only_the_item(
     holder: &Target<'_>,
     item: &AtspiElement,
     display_value: &str,
-) -> Option<bool> {
+) -> Result<Option<bool>, AdapterError> {
     let count = selected_count(holder);
     if !needs_replacement(count) {
-        return exclusive_verdict(count);
+        return Ok(exclusive_verdict(count));
     }
-    if !replace_with_only(holder, item).ok()? {
-        return None;
-    }
+    replace_with_only(holder, item).map_err(|error| {
+        if error.disposition == DeliverySemantics::not_delivered() {
+            error.with_disposition(DeliverySemantics::delivered_unverified())
+        } else {
+            error
+        }
+    })?;
     let reread = read_verification(target.bus, target, item, display_value, Some(holder));
-    match reread {
+    Ok(match reread {
         Some(true) => exclusive_verdict(selected_count(holder)),
         other => other,
-    }
+    })
 }
 
 fn select_through(
@@ -201,7 +206,7 @@ fn select_through(
     };
     let application_fires_no_change =
         is_gecko(&toolkit_of(target.bus, target.element, target.deadline));
-    let observe = || {
+    let observe = || -> Result<Option<bool>, AdapterError> {
         let verified = poll_until(
             target.deadline,
             SELECT_SETTLE,
@@ -219,21 +224,27 @@ fn select_through(
         );
         let decided = match (&holder, container) {
             (Some(holder), Some(_)) if verified == Some(true) => {
-                keep_only_the_item(target, holder, &verified_node, display_value)
+                keep_only_the_item(target, holder, &verified_node, display_value)?
             }
             _ => verified,
         };
-        commit_unobserved(application_fires_no_change, decided)
+        Ok(commit_unobserved(application_fires_no_change, decided))
+    };
+    let deliver = |reply: Result<WriteReply, AdapterError>| {
+        Ok(match reply? {
+            WriteReply::Absent => DeliveryOutcome::NotDelivered,
+            WriteReply::Done => DeliveryOutcome::Delivered(observed_of(observe()?)),
+        })
     };
     let mut rungs = Vec::new();
     if let Some(holder) = &holder {
         let verified_node = &verified_node;
-        let observe = &observe;
+        let deliver = &deliver;
         rungs.push(Rung {
             label: SELECT_CHILD_LABEL,
             run: Box::new(move || {
                 let reply = super::select_index::write(holder, verified_node);
-                deliver(reply, observe).and_then(unchanged_is_ignored)
+                deliver(reply).and_then(unchanged_is_ignored)
             }),
         });
     }
@@ -244,7 +255,7 @@ fn select_through(
                 label: SELECT_VERB_LABEL,
                 run: Box::new(|| {
                     let reply = invoke_verb(&item, &action, names, verbs);
-                    deliver(reply, observe).and_then(unchanged_is_ignored)
+                    deliver(reply).and_then(unchanged_is_ignored)
                 }),
             },
         );

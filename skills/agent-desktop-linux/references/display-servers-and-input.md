@@ -52,8 +52,9 @@ carry that assumption across platforms.
 
 Before a physical ref-addressed key or click, the target frame must report
 `active` within a short wait; a frame that never does fails with
-`check: window_active`. Headed `type` also requires the target or its proven
-internal editor to report `focused`, including before the bootstrap Shift and
+`check: window_active`. Headed `type` and ref-addressed key presses also require
+the target or its proven internal editor to report `focused`, including before
+the bootstrap Shift and
 each subsequent key-down. The internal-editor proof requires an editable target,
 a same-owner hit, a parent chain back to the target, and a focused editor that
 advertises `EditableText`.
@@ -177,7 +178,9 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
   `scroll @ref`; use `scroll-to` on a child or `mouse-wheel` at coordinates.
 - `scroll-to` scrolls through the bar on GTK3 and GTK4 and through `ScrollTo` on
   Chromium. It does not work on Qt: use `scroll --headed`. A container with no
-  scrollable axis has no ref.
+  scrollable axis has no ref. If target visibility is unknown, `scroll-to`
+  refuses before scrolling. A scroll that moved the viewport but failed to reveal the target
+  is unsafe to retry; inspect the target and disposition first.
 
 ## Drag
 

@@ -117,3 +117,13 @@ fn a_value_that_stays_at_its_old_reading_is_write_ignored_and_not_delivered() {
     let cause = error.details.as_ref().and_then(|d| d.get("cause"));
     assert_eq!(cause.and_then(|c| c.as_str()), Some("write_ignored"));
 }
+
+#[test]
+fn a_large_clamped_change_is_delivered_even_when_it_is_close_to_the_old_value() {
+    let mut control = Control::slider();
+    control.maximum = 1_000_000_001.0;
+    *control.held.borrow_mut() = 1_000_000_000.0;
+    let outcome = write(&control, planned("2000000000", false, None)).expect("the value changed");
+    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unchanged));
+    assert_eq!(*control.held.borrow(), 1_000_000_001.0);
+}

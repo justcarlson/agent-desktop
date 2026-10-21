@@ -48,14 +48,13 @@ fn a_slider_is_clamped_and_the_stored_value_is_not_reported_as_verified() {
 #[ignore = "needs lane A's write engine; run through scripts/private-session.sh --wm"]
 fn a_scroll_bar_write_moves_the_content() {
     each_toolkit(|toolkit, bench| {
-        let movable = bench
+        let bar = bench
             .all_with_role(SCROLL_BAR)
             .into_iter()
-            .find(|bar| bench.maximum_of(bar) > 0.0);
-        let Some(bar) = movable else {
-            println!("skipped {toolkit:?}: no scroll bar in the fixture");
-            return;
-        };
+            .find(|bar| bench.maximum_of(bar) > 0.0)
+            .unwrap_or_else(|| {
+                panic!("{toolkit:?}: fixture must expose a positive-range scrollbar")
+            });
         let before = bench.number_of(&bar);
         let advertised = bench.maximum_of(&bar);
         bench

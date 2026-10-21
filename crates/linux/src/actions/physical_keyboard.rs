@@ -56,10 +56,18 @@ pub(crate) fn press_key_element_steps(
     ensure_budget(deadline)?;
     let backend = world.backend()?;
     let mut gate = ActiveGate::new(world, element, deadline);
-    if matches!(backend, Backend::X11(_)) {
+    gate.check()?;
+    super::keyboard_focus::prepare(world, element, deadline)?;
+    let mut target_gate = || {
         gate.check()?;
-    }
-    send_combo(world, &backend, combo, &mut || gate.check(), deadline)?;
+        if world.target_focused(element, deadline)? {
+            Ok(())
+        } else {
+            Err(super::keyboard_focus::refused())
+        }
+    };
+    target_gate()?;
+    send_combo(world, &backend, combo, &mut target_gate, deadline)?;
     Ok(vec![physical_step(&backend, "press_key")])
 }
 
