@@ -102,7 +102,6 @@ pub(crate) struct Item<'a> {
     pub(crate) title: &'a str,
     pub(crate) methods: &'a [String],
     pub(crate) request: &'a ActionRequest,
-    pub(crate) deadline: Deadline,
 }
 
 fn step(label: &'static str, mechanism: StepMechanism) -> ActionStep {
@@ -132,7 +131,7 @@ pub(crate) fn run(
             step("sni-method", StepMechanism::SemanticApi)
         }
         Route::Pointer(button) => {
-            let node = world.panel_node(item.title, item.deadline)?;
+            let node = world.panel_node(item.title, lease.deadline())?;
             world.click(&node, button, item.request.policy, lease)?;
             step("panel-pointer", StepMechanism::PhysicalSynthetic)
         }

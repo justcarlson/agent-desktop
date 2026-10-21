@@ -8,9 +8,7 @@ use crate::system::shell::identity::find_root;
 use crate::system::shell::kinds::ShellKind;
 use crate::system::shell::open::{Opened, close, is_showing, open};
 use crate::tree::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
-use crate::tree::{
-    AtspiElement, Extents, Field, ObservedRead, Walk, WalkLimits, WalkedNode, walk_tree,
-};
+use crate::tree::{AtspiElement, Extents, ObservedRead, Walk, WalkLimits, WalkedNode, walk_tree};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Role {
@@ -130,7 +128,7 @@ fn flatten(
     nodes.push(Node {
         depth,
         role: role_of(raw.traits.role.present().copied()),
-        name: name_of(&raw.properties.name),
+        name: raw.properties.name.present().cloned().unwrap_or_default(),
         extents: raw.extents.present().copied(),
         element: raw.element.clone(),
     });
@@ -146,10 +144,6 @@ fn role_of(number: Option<u32>) -> Role {
         Some(PUSH_BUTTON) => Role::PushButton,
         _ => Role::Other,
     }
-}
-
-fn name_of(name: &Field<String>) -> String {
-    name.present().cloned().unwrap_or_default()
 }
 
 #[cfg(test)]

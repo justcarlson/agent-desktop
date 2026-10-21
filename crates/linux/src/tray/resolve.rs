@@ -20,13 +20,12 @@ pub(super) fn target_of_entry(entry: &RefEntry) -> Result<TrayTarget, AdapterErr
 /// unique bus name, so an owner that left, or a restarted service under the
 /// same well-known name, never reaches a process the snapshot did not see.
 pub(crate) fn resolve(entry: &RefEntry, deadline: Deadline) -> Result<NativeHandle, AdapterError> {
-    let mut target = target_of_entry(entry)?;
+    let target = target_of_entry(entry)?;
     let connection = call::session(deadline)?;
     call::require_owner(&connection, &target.owner, deadline)?;
     if let Some(menu) = target.menu_path.clone() {
         let layout = menu_layout::read(&connection, &target.owner, &menu, deadline)?;
         menu_resolve::find(&layout, &target)?;
-        target.revision = Some(layout.revision);
     }
     Ok(NativeHandle::new(target))
 }

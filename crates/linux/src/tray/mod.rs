@@ -39,13 +39,13 @@ pub(crate) fn read(deadline: Deadline) -> Result<view::TrayView, AdapterError> {
 }
 
 /// A tray item or one of its menu entries, named by D-Bus identity.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, zbus::export::serde::Deserialize)]
+#[serde(crate = "zbus::export::serde", deny_unknown_fields)]
 pub(crate) struct TrayTarget {
     pub(crate) owner: String,
     pub(crate) object_path: String,
     pub(crate) menu_path: Option<String>,
     pub(crate) entry_id: Option<i32>,
-    pub(crate) revision: Option<u32>,
     pub(crate) label_path: Vec<String>,
 }
 

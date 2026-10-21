@@ -10,7 +10,6 @@ fn target(owner: &str) -> TrayTarget {
         object_path: "/StatusNotifierItem".into(),
         menu_path: None,
         entry_id: None,
-        revision: None,
         label_path: Vec::new(),
     }
 }
@@ -18,10 +17,8 @@ fn target(owner: &str) -> TrayTarget {
 fn props(title: &str, passive: bool, menu: Option<&str>) -> ItemProps {
     ItemProps {
         title: title.into(),
-        id: title.to_lowercase(),
         passive,
         menu: menu.map(str::to_owned),
-        item_is_menu: false,
     }
 }
 
@@ -37,14 +34,11 @@ fn entry(id: i32, label: &str) -> RawEntry {
 
 fn item(owner: &str, title: &str, passive: bool, methods: &[&str], with_menu: bool) -> TrayItem {
     let layout = with_menu.then(|| {
-        parse(
-            3,
-            &RawEntry {
-                id: 0,
-                props: Default::default(),
-                children: vec![entry(1, "Open"), entry(2, "Quit")],
-            },
-        )
+        parse(&RawEntry {
+            id: 0,
+            props: Default::default(),
+            children: vec![entry(1, "Open"), entry(2, "Quit")],
+        })
     });
     TrayItem {
         target: target(owner),
@@ -96,8 +90,6 @@ fn unique_titles_bind_and_duplicates_bind_to_nothing() {
     let bound = view().bind(&titles(&["Slack", "Twin", "Dropbox", "AnyDesk"]));
     assert_eq!(bound, vec![Some(3), None, Some(0), None]);
 
-    // Dropbox is unique among watcher items, so this independently proves
-    // duplicate panel nodes cannot claim it by position.
     let panel_twins = view().bind(&titles(&["Dropbox", "Dropbox"]));
     assert_eq!(panel_twins, vec![None, None]);
 

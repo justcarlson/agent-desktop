@@ -77,7 +77,6 @@ fn run_with(
         title: "Dropbox",
         methods,
         request: &request,
-        deadline: Deadline::after(1_000).expect("deadline"),
     };
     run(&item, wire, world, &lease)
 }

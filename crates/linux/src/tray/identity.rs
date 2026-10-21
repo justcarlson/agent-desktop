@@ -1,93 +1,34 @@
 use super::TrayTarget;
 
-const PREFIX: &str = "tray:v1:";
-const ITEM: &str = "item";
-const ENTRY: &str = "entry";
-
-fn escape(text: &str, slash: bool) -> String {
-    let mut out = String::with_capacity(text.len());
-    for ch in text.chars() {
-        match ch {
-            '%' => out.push_str("%25"),
-            '|' => out.push_str("%7C"),
-            '/' if slash => out.push_str("%2F"),
-            other => out.push(other),
-        }
-    }
-    out
-}
-
-fn unescape(text: &str) -> Option<String> {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars();
-    while let Some(ch) = chars.next() {
-        if ch != '%' {
-            out.push(ch);
-            continue;
-        }
-        let code: String = chars.by_ref().take(2).collect();
-        out.push(match code.as_str() {
-            "25" => '%',
-            "7C" => '|',
-            "2F" => '/',
-            _ => return None,
-        });
-    }
-    Some(out)
-}
+const PREFIX: &str = "tray:";
 
 pub(super) fn is_tray_id(value: &str) -> bool {
     value.starts_with(PREFIX)
 }
 
 pub(super) fn encode(target: &TrayTarget) -> String {
-    let owner = escape(&target.owner, false);
-    let path = escape(&target.object_path, false);
-    let (Some(menu), Some(id)) = (&target.menu_path, target.entry_id) else {
-        return format!("{PREFIX}{ITEM}|{owner}|{path}");
-    };
-    let labels = target
-        .label_path
-        .iter()
-        .map(|label| escape(label, true))
-        .collect::<Vec<_>>()
-        .join("/");
-    format!(
-        "{PREFIX}{ENTRY}|{owner}|{path}|{}|{id}|{labels}",
-        escape(menu, false)
-    )
-}
-
-fn well_formed(target: &TrayTarget) -> bool {
-    !target.owner.is_empty() && target.object_path.starts_with('/')
+    let value = serde_json::json!({
+        "owner": target.owner,
+        "object_path": target.object_path,
+        "menu_path": target.menu_path,
+        "entry_id": target.entry_id,
+        "label_path": target.label_path,
+    });
+    format!("{PREFIX}{value}")
 }
 
 pub(super) fn decode(value: &str) -> Option<TrayTarget> {
     let body = value.strip_prefix(PREFIX)?;
-    let parts: Vec<&str> = body.split('|').collect();
-    let target = match parts.as_slice() {
-        [ITEM, owner, path] => TrayTarget {
-            owner: unescape(owner)?,
-            object_path: unescape(path)?,
-            menu_path: None,
-            entry_id: None,
-            revision: None,
-            label_path: Vec::new(),
-        },
-        [ENTRY, owner, path, menu, id, labels] => TrayTarget {
-            owner: unescape(owner)?,
-            object_path: unescape(path)?,
-            menu_path: Some(unescape(menu)?),
-            entry_id: Some(id.parse().ok()?),
-            revision: None,
-            label_path: labels
-                .split('/')
-                .map(unescape)
-                .collect::<Option<Vec<_>>>()?,
-        },
-        _ => return None,
-    };
-    well_formed(&target).then_some(target)
+    let target: TrayTarget = serde_json::from_str(body).ok()?;
+    (!target.owner.is_empty()
+        && target.object_path.starts_with('/')
+        && target.menu_path.is_some() == target.entry_id.is_some()
+        && target
+            .menu_path
+            .as_deref()
+            .is_none_or(|path| path.starts_with('/'))
+        && target.entry_id.is_none() == target.label_path.is_empty())
+    .then_some(target)
 }
 
 #[cfg(test)]

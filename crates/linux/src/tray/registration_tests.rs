@@ -1,10 +1,9 @@
 use super::*;
 
-fn reg(name: &str, path: &str, unmeasured: bool) -> Registration {
+fn reg(name: &str, path: &str) -> Registration {
     Registration {
         bus_name: name.into(),
         object_path: path.into(),
-        unmeasured,
     }
 }
 
@@ -12,11 +11,7 @@ fn reg(name: &str, path: &str, unmeasured: bool) -> Registration {
 fn name_at_path_splits_on_the_at_sign() {
     assert_eq!(
         parse(":1.55@/org/ayatana/NotificationItem/l21probe"),
-        Some(reg(
-            ":1.55",
-            "/org/ayatana/NotificationItem/l21probe",
-            false
-        ))
+        Some(reg(":1.55", "/org/ayatana/NotificationItem/l21probe"))
     );
 }
 
@@ -24,15 +19,15 @@ fn name_at_path_splits_on_the_at_sign() {
 fn a_bare_bus_name_takes_the_default_item_path() {
     assert_eq!(
         parse("org.l21.KdeItem"),
-        Some(reg("org.l21.KdeItem", "/StatusNotifierItem", false))
+        Some(reg("org.l21.KdeItem", "/StatusNotifierItem"))
     );
 }
 
 #[test]
-fn the_slash_form_parses_and_is_marked_unmeasured() {
+fn the_slash_form_keeps_its_bus_name_and_object_path() {
     assert_eq!(
         parse(":1.9/org/kde/Item"),
-        Some(reg(":1.9", "/org/kde/Item", true))
+        Some(reg(":1.9", "/org/kde/Item"))
     );
 }
 

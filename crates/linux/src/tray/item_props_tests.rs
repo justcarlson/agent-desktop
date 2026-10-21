@@ -17,23 +17,19 @@ fn map(pairs: Vec<(&str, Value<'_>)>) -> HashMap<String, OwnedValue> {
 fn every_property_is_read_when_present() {
     let props = from_map(&map(vec![
         ("Title", "Dropbox".into()),
-        ("Id", "dropbox-1".into()),
         ("Status", "Active".into()),
         (
             "Menu",
             Value::ObjectPath(ObjectPath::from_static_str_unchecked("/MenuBar")),
         ),
-        ("ItemIsMenu", false.into()),
         ("IconName", "dropbox".into()),
     ]));
     assert_eq!(
         props,
         ItemProps {
             title: "Dropbox".into(),
-            id: "dropbox-1".into(),
             passive: false,
             menu: Some("/MenuBar".into()),
-            item_is_menu: false,
         }
     );
 }
@@ -64,12 +60,5 @@ fn the_no_menu_sentinel_is_no_menu() {
 fn an_absent_tooltip_and_every_other_optional_property_is_not_an_error() {
     let props = from_map(&map(Vec::new()));
     assert_eq!(props.title, "");
-    assert_eq!(props.id, "");
     assert!(!props.passive);
-    assert!(!props.item_is_menu);
-}
-
-#[test]
-fn item_is_menu_is_read_as_a_flag() {
-    assert!(from_map(&map(vec![("ItemIsMenu", true.into())])).item_is_menu);
 }

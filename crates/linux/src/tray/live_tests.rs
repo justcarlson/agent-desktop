@@ -1,8 +1,6 @@
-use agent_desktop_core::{
-    Action, ActionOps, ActionRequest, DeliveryDisposition, ErrorCode, ObservationOps,
-};
+use agent_desktop_core::{Action, ActionOps, ActionRequest, DeliveryDisposition, ErrorCode};
 
-use super::live_rig::{Rig, deadline, lease};
+use super::live_rig::{Rig, lease};
 
 fn rig_with_two_items(name: &str) -> Rig {
     let mut rig = Rig::new(name);

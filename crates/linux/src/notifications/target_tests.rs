@@ -6,13 +6,6 @@ fn deadline() -> Deadline {
     Deadline::after(1_000).expect("a deadline")
 }
 
-fn identity(app: &str, title: &str) -> NotificationIdentity {
-    NotificationIdentity {
-        expected_app: Some(app.to_owned()),
-        expected_title: Some(title.to_owned()),
-    }
-}
-
 #[test]
 fn an_empty_identity_accepts_the_entry() {
     let world = FakeWorld::new(&log(), vec![reading(&[spec("A", "one")], false)]);

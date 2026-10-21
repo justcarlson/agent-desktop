@@ -4,7 +4,6 @@ const DEFAULT_PATH: &str = "/StatusNotifierItem";
 pub(crate) struct Registration {
     pub(crate) bus_name: String,
     pub(crate) object_path: String,
-    pub(crate) unmeasured: bool,
 }
 
 fn valid_bus_name(name: &str) -> bool {
@@ -25,23 +24,22 @@ fn valid_object_path(path: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '/'))
 }
 
-fn registration(name: &str, path: &str, unmeasured: bool) -> Option<Registration> {
+fn registration(name: &str, path: &str) -> Option<Registration> {
     (valid_bus_name(name) && valid_object_path(path)).then(|| Registration {
         bus_name: name.to_owned(),
         object_path: path.to_owned(),
-        unmeasured,
     })
 }
 
 pub(crate) fn parse(text: &str) -> Option<Registration> {
     let text = text.trim();
     if let Some((name, path)) = text.split_once('@') {
-        return registration(name, path, false);
+        return registration(name, path);
     }
     match text.find('/') {
         Some(0) => None,
-        Some(split) => registration(&text[..split], &text[split..], true),
-        None => registration(text, DEFAULT_PATH, false),
+        Some(split) => registration(&text[..split], &text[split..]),
+        None => registration(text, DEFAULT_PATH),
     }
 }
 

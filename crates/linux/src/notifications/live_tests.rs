@@ -3,6 +3,7 @@ use agent_desktop_core::{
     NotificationIdentity,
 };
 use std::process::Command;
+use std::time::Duration;
 
 use super::signals::{BusSignals, Signal, SignalSource};
 use crate::system::SharedBus;

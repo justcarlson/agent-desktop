@@ -128,8 +128,8 @@ fn restore_failed() -> AdapterError {
     .with_suggestion("Close the message list by hand with Escape or a click on the date menu")
 }
 
-fn with_restore(error: AdapterError, restore: Restore) -> AdapterError {
-    let mut details = match error.details.clone() {
+fn with_restore(mut error: AdapterError, restore: Restore) -> AdapterError {
+    let mut details = match error.details.take() {
         Some(serde_json::Value::Object(map)) => map,
         _ => serde_json::Map::new(),
     };

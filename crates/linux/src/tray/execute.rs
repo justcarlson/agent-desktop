@@ -38,7 +38,6 @@ pub(crate) fn execute(
         title: &props.title,
         methods: &methods,
         request: &request,
-        deadline,
     };
     activate::run(&item, &wire, &world, lease)
 }
