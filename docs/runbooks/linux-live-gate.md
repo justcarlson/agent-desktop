@@ -141,6 +141,15 @@ an unchanged pre-event sample is no longer accepted as completed movement.
 with an independent X11 query instead of assuming the requested origin survives
 the WM; exact size, map state, parent and every refusal assertion remain.
 
+The GTK menu-grab fixture maps both windows before a file handshake requests
+the popup. Its readiness flag follows the popup call and mapped-state check;
+the host also waits for the subject's inactive AT-SPI frame before testing the
+refusal and unverified global delivery. This replaces the 600 ms popup timer,
+1.2 s / 800 ms setup sleeps and 500 ms log sleep. Button and wheel fixtures use
+the same explicit active-window setup; the button still receives exactly one
+click, and wheel origin is sampled after setup. Private GNOME animations are
+disabled so window-map transitions cannot move a fixture underneath its input.
+
 ## Safety rules
 
 Each worker owns a display, session bus, AT-SPI bus, 0700 runtime directory,

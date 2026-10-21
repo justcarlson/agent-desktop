@@ -32,7 +32,7 @@ mkdir -p "$base"
 rt=$(mktemp -d "$base/rt.XXXXXX")
 chmod 700 "$rt"
 mkdir -p "$rt/cfg/glib-2.0/settings" "$rt/data" "$rt/cache" "$rt/ad-home" "$rt/tmp"
-printf '[org/gnome/desktop/interface]\ntoolkit-accessibility=true\n' > "$rt/cfg/glib-2.0/settings/keyfile"
+printf '[org/gnome/desktop/interface]\ntoolkit-accessibility=true\nenable-animations=false\n' > "$rt/cfg/glib-2.0/settings/keyfile"
 if [ -n "${AD_RUNNER_PID:-}" ] && [ -n "${AD_RUNNER_START:-}" ]; then
   printf '%s %s\n' "$AD_RUNNER_PID" "$AD_RUNNER_START" > "$rt/harness-owner"
 fi

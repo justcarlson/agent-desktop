@@ -104,9 +104,7 @@ fn key_combo(kit: Kit, source: &str) {
 fn click_button(kit: Kit, source: &str) {
     let scene = Scene::open(kit, source, 2);
     let button = scene.find(CLICK_ROLES, Some("Go"));
-    scene
-        .act(&button.handle, Action::Click)
-        .expect("the click is delivered");
+    focus_by_click(&scene, &button);
     let seen = scene.wait_log(|log| log == "clicked\n");
     assert_eq!(seen, "clicked\n", "the button did not report a click");
 }
@@ -114,6 +112,7 @@ fn click_button(kit: Kit, source: &str) {
 fn wheel(kit: Kit, source: &str, anchor: &str) {
     let scene = Scene::open(kit, source, 20);
     let row = scene.find(&["button", "option", "listitem"], Some(anchor));
+    focus_by_click(&scene, &row);
     let before = wait_y(&scene, &row, "the initial row bounds", |_| true);
     scene
         .act(
@@ -311,12 +310,38 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
     let script = format!("{dir}/{}.py", nonce("grab"));
     std::fs::write(&script, GTK3_GRAB).expect("script");
     let grab_log = format!("{script}.log");
-    let pid = launched.spawn_with_env("python3", &[&script], &[("AD_LIVE_LOG", grab_log.clone())]);
+    let trigger = format!("{script}.trigger");
+    let ready = format!("{script}.ready");
+    let pid = launched.spawn_with_env(
+        "python3",
+        &[&script],
+        &[
+            ("AD_LIVE_LOG", grab_log.clone()),
+            ("AD_LIVE_GRAB", trigger.clone()),
+            ("AD_LIVE_GRAB_READY", ready.clone()),
+        ],
+    );
     let grab = Scene::attach(launched, pid, grab_log, 1);
-    std::thread::sleep(Duration::from_millis(1200));
+    wait_for_viewable_client(grab.pid, Duration::from_secs(15));
     let (scene, entry) = entry_scene(Kit::Gtk, GTK3);
-    std::thread::sleep(Duration::from_millis(800));
     let client = wait_for_viewable_client(scene.pid, Duration::from_secs(15));
+    focus_by_click(&scene, &entry);
+    std::fs::write(&trigger, "open").expect("request the menu only after both windows map");
+    wait_until(
+        "the menu mapped and took focus",
+        Duration::from_secs(8),
+        || {
+            std::path::Path::new(&ready).exists()
+                && frame_active(
+                    &scene.bus,
+                    &scene.frame,
+                    super::physical_live_rig::deadline(3_000),
+                )
+                .ok()
+                .flatten()
+                    == Some(false)
+        },
+    );
     activate(client.id);
     wait_until(
         "the window manager naming the window active",
@@ -339,7 +364,10 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
         result.steps.iter().all(|step| step.verified == Some(false)),
         "{result:?}"
     );
-    std::thread::sleep(Duration::from_millis(500));
-    assert!(grab.log_text().contains("menukey"), "the menu got no key");
+    assert!(
+        grab.wait_log(|log| log.contains("menukey"))
+            .contains("menukey"),
+        "the menu got no key"
+    );
     assert_eq!(scene.log_text(), "");
 }

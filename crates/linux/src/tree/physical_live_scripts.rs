@@ -95,7 +95,19 @@ menu.show_all()
 menu.connect("key-press-event", lambda a, e: open(log, "a").write("menukey\n"))
 w.connect("destroy", Gtk.main_quit)
 w.show_all()
-GLib.timeout_add(600, lambda: (menu.popup(None, None, None, None, 0, Gtk.get_current_event_time()), False)[1])
+popup_started = False
+def popup_when_requested():
+    global popup_started
+    if not os.path.exists(os.environ["AD_LIVE_GRAB"]):
+        return True
+    if not popup_started:
+        menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+        popup_started = True
+    if not menu.get_mapped():
+        return True
+    open(os.environ["AD_LIVE_GRAB_READY"], "w").write("ready")
+    return False
+GLib.timeout_add(50, popup_when_requested)
 Gtk.main()
 "#;
 
