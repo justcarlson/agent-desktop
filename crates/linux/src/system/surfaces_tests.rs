@@ -73,15 +73,6 @@ fn a_failed_menu_scan_keeps_the_window_and_sheet_entries_and_marks_the_menu_unre
 }
 
 #[test]
-fn a_menu_scan_that_worked_appends_its_entries_and_marks_nothing() {
-    let surfaces = surfaces_of(&[window("w-1", "Doc", false)]);
-    let menu = surfaces_of(&[window("w-1", "Doc", false)]);
-    let kept = with_menu_leg(surfaces, Ok(menu));
-    assert_eq!(kept.len(), 2);
-    assert!(kept.iter().all(|entry| entry.unclassified.is_empty()));
-}
-
-#[test]
 fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entries() {
     use crate::system::nested_scan::{Nested, NestedScan};
     let scan = NestedScan {

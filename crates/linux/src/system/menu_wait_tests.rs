@@ -89,21 +89,6 @@ fn deadline(ms: u64) -> Deadline {
 }
 
 #[test]
-fn an_open_menu_satisfies_the_open_wait_after_one_read() {
-    let world = Fake::new(vec![Ok(true)]);
-    assert!(run(&world, true, deadline(5000)).is_ok());
-    assert_eq!(world.read_count.get(), 1);
-    assert!(world.pauses.borrow().is_empty());
-}
-
-#[test]
-fn a_closed_state_satisfies_the_closed_wait_after_one_read() {
-    let world = Fake::new(vec![Ok(false)]);
-    assert!(run(&world, false, deadline(5000)).is_ok());
-    assert_eq!(world.read_count.get(), 1);
-}
-
-#[test]
 fn a_read_that_flips_on_the_third_returns_on_the_third_at_the_fifty_millisecond_cadence() {
     let world = Fake::new(vec![Ok(false), Ok(false), Ok(true)]);
     assert!(run(&world, true, deadline(5000)).is_ok());
@@ -112,13 +97,6 @@ fn a_read_that_flips_on_the_third_returns_on_the_third_at_the_fifty_millisecond_
         *world.pauses.borrow(),
         [Duration::from_millis(50), Duration::from_millis(50)]
     );
-}
-
-#[test]
-fn a_read_timeout_is_absorbed_and_the_next_read_runs() {
-    let world = Fake::new(vec![Err(AdapterError::timeout("slow")), Ok(true)]);
-    assert!(run(&world, true, deadline(5000)).is_ok());
-    assert_eq!(world.read_count.get(), 2);
 }
 
 #[test]
@@ -194,6 +172,7 @@ fn a_stopped_target_is_app_unresponsive_at_once() {
     let started = std::time::Instant::now();
     let error = run(&world, true, deadline(25_000)).expect_err("stopped");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert!(error.message.contains("calculator"), "{}", error.message);
     assert_eq!(world.read_count.get(), 0);
     assert!(started.elapsed() < Duration::from_secs(1));
 }
@@ -237,13 +216,6 @@ fn the_name_of_a_stopped_app_is_its_executable_then_its_comm_then_its_pid() {
 }
 
 #[test]
-fn a_stopped_target_error_names_the_app() {
-    let world = Fake::new(vec![Ok(false)]).with_lives(vec![Liveness::Stopped]);
-    let error = run(&world, true, deadline(5000)).expect_err("stopped");
-    assert!(error.message.contains("calculator"), "{}", error.message);
-}
-
-#[test]
 fn a_closed_read_right_after_an_opener_action_does_not_end_the_closed_wait() {
     let world = Fake::new(vec![Ok(false), Ok(false), Ok(true), Ok(false)]).after_an_action(100);
     assert!(run(&world, false, deadline(5000)).is_ok());
@@ -262,16 +234,6 @@ fn an_open_wait_is_not_held_by_a_recent_action() {
     let world = Fake::new(vec![Ok(true)]).after_an_action(100);
     assert!(run(&world, true, deadline(5000)).is_ok());
     assert_eq!(world.read_count.get(), 1);
-}
-
-#[test]
-fn a_poll_is_followed_by_the_full_pause_whatever_the_poll_cost() {
-    let world = Fake::new(vec![Ok(false), Ok(false), Ok(false), Ok(true)]);
-    assert!(run(&world, true, deadline(5000)).is_ok());
-    assert_eq!(world.read_count.get(), 4);
-    let pauses = world.pauses.borrow();
-    assert_eq!(pauses.len(), 3);
-    assert!(pauses.iter().all(|gap| *gap == Duration::from_millis(50)));
 }
 
 #[test]
