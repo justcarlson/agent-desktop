@@ -176,6 +176,8 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('menus.wait_menu_opens_calculator', 'wait --menu succeeds on the Calculator main menu', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('menus.wait_menu_closes_calculator', 'wait --menu-closed succeeds on the Calculator main menu', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
     Leg('menus.wait_menu_already_open', 'A menu predicate reads the already-open state at once', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'pass', ''),
+    Leg('menus.preferences_snapshot_ref', 'A menu snapshot ref opens a unique Preferences dialog observed through AT-SPI', 'Calculator', X11, HEADLESS, ('atspi', 'x11'), 'pass'),
+    Leg('menus.preferences_find_ref', 'A menu find ref opens a unique Preferences dialog observed through AT-SPI', 'Calculator', X11, HEADLESS, ('atspi', 'x11'), 'pass'),
     Leg('menus.hidden_bar_timeout_message', 'A hidden menu bar times out with the landed message', 'Calculator, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi',), 'asserted-refusal', "the leg asserts the product's refusal as its expected outcome"),
     Leg('identity.restart_old_id_window_not_found', 'After a restart the old window id answers WINDOW_NOT_FOUND', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('identity.restart_new_id_resolves', 'After a restart the new window id resolves', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),

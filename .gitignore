@@ -92,8 +92,7 @@ docs/*
 !docs/residual-review-findings/**
 !docs/plans/
 !docs/plans/**
-!docs/dogfood-reports/
-!docs/dogfood-reports/**
+/docs/dogfood-reports/
 !docs/brainstorms/
 !docs/brainstorms/**
 !docs/runbooks/
@@ -128,7 +127,5 @@ probes/windows/scratch/capture-clipboard-surface/Cargo.lock
 # evidence diff for no added information.
 probes/*/captures/**/*.normalized
 
-# Sub-phase 2.3 dogfood census output. Regenerate with
-# probes/windows/scratch/run-dogfood.ps1 -- the durable record is the report
-# under docs/dogfood-reports/, not the raw JSON.
+# Dogfood census output stays local, along with judged reports.
 docs/plans/2026-07-31-001-captures/

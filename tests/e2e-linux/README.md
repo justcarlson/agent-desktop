@@ -469,8 +469,8 @@ Local gates pass: portable Linux harness 311 tests (one live-only skip), shared
 E2E 58, all 104 Python files below 400 lines (maximum 384), source-reference
 policy, findings validator (701 rows), and Lahfir author/committer checks.
 Secret scanning covers `7dc6500f..HEAD`. The source-withheld operator receipt
-and disposed findings are in
-[the dogfood report](../../docs/dogfood-reports/2026-10-20-312-integration-docs-review.md).
+and disposed findings belong to the `2026-10-20-312-integration-docs-review`
+dogfood run; its report stays outside version control.
 
 ## Rebase resolutions
 
