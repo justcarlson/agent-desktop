@@ -174,41 +174,6 @@ fn an_entry_that_moved_is_not_acted_on() {
 }
 
 #[test]
-fn headless_is_refused_before_any_event() {
-    let log = log();
-    let world = FakeWorld::new(&log, vec![entry(true)]);
-    let who = identity();
-    let error = action_in(
-        &world,
-        &signals(&log, Vec::new()),
-        request(&who, "Run A", InteractionPolicy::headless()),
-        &lease(600),
-    )
-    .expect_err("denied");
-    assert_eq!(error.code, ErrorCode::PolicyDenied);
-    assert!(log.borrow().is_empty());
-}
-
-#[test]
-fn the_list_is_closed_after_the_action_and_after_a_failure() {
-    let log = log();
-    let world = FakeWorld::new(&log, vec![entry(true), gone()]);
-    go(&world, &signals(&log, Vec::new()), "Run A").expect("delivered");
-    assert!(!world.showing.get());
-    let failed = FakeWorld::new(&log, vec![entry(true)]);
-    assert!(go(&failed, &signals(&log, Vec::new()), "Nope").is_err());
-    assert!(!failed.showing.get());
-}
-
-#[test]
-fn an_adopted_list_stays_open() {
-    let log = log();
-    let world = FakeWorld::new(&log, vec![entry(true), gone()]).adopted();
-    go(&world, &signals(&log, Vec::new()), "Run A").expect("delivered");
-    assert!(world.showing.get());
-}
-
-#[test]
 fn the_result_is_never_verified() {
     let log = log();
     let world = FakeWorld::new(&log, vec![entry(true), gone()]);

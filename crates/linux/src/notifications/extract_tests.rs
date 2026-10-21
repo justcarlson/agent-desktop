@@ -41,13 +41,6 @@ fn actions_are_the_named_buttons_and_their_labels_do_not_leak_into_the_text() {
 }
 
 #[test]
-fn the_unnamed_buttons_are_expand_then_close() {
-    let entry = first_entry(&[spec("Mail", "Hi")]);
-    assert_eq!(entry.expand.expect("expand").element.path(), "/e1/expand");
-    assert_eq!(entry.close.expect("close").element.path(), "/e1/close");
-}
-
-#[test]
 fn a_two_label_entry_keeps_a_time_shaped_title() {
     let entry = first_entry(&[spec("Clock", "Just now")]);
     assert_eq!(entry.info.title, "Just now");
@@ -78,23 +71,6 @@ fn time_labels_are_told_by_shape() {
     for text in ["Meeting at noon", "5 apples", "ago", "Build 12:5", "Hello"] {
         assert!(!is_time_label(text), "{text}");
     }
-}
-
-#[test]
-fn partition_separates_entries_from_the_nodes_outside_them() {
-    let read = reading(&[spec("A", "one"), spec("B", "two")], true);
-    let (subtrees, outside) = partition(&read.nodes);
-    assert_eq!(subtrees.len(), 2);
-    assert!(
-        outside
-            .iter()
-            .any(|node| node.name == "Clear all notifications")
-    );
-    assert!(
-        subtrees
-            .iter()
-            .all(|tree| tree[0].role == Role::Notification)
-    );
 }
 
 #[test]

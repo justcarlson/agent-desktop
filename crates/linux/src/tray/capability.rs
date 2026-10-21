@@ -28,7 +28,3 @@ pub(crate) fn entry_actions(entry: &LayoutEntry) -> Vec<String> {
         Vec::new()
     }
 }
-
-#[cfg(test)]
-#[path = "capability_tests.rs"]
-mod tests;

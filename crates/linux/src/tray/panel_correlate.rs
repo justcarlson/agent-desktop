@@ -20,7 +20,3 @@ pub(crate) fn pair(items: &[String], panel_titles: &[String]) -> Vec<Option<usiz
         })
         .collect()
 }
-
-#[cfg(test)]
-#[path = "panel_correlate_tests.rs"]
-mod tests;

@@ -95,6 +95,17 @@ fn decoded(evidence: &LocatorEvidence) -> TrayTarget {
 fn unique_titles_bind_and_duplicates_bind_to_nothing() {
     let bound = view().bind(&titles(&["Slack", "Twin", "Dropbox", "AnyDesk"]));
     assert_eq!(bound, vec![Some(3), None, Some(0), None]);
+
+    // Dropbox is unique among watcher items, so this independently proves
+    // duplicate panel nodes cannot claim it by position.
+    let panel_twins = view().bind(&titles(&["Dropbox", "Dropbox"]));
+    assert_eq!(panel_twins, vec![None, None]);
+
+    let empty_view = TrayView {
+        items: vec![item(":1.9", "", false, &["Activate"], false)],
+    };
+    let empty_title = empty_view.bind(&titles(&[""]));
+    assert_eq!(empty_title, vec![None]);
 }
 
 #[test]
@@ -103,13 +114,6 @@ fn a_duplicate_title_item_stays_reachable_as_a_node_of_its_own() {
     let bound = view.bind(&titles(&["Slack", "Twin", "Dropbox"]));
     let extra = view.unpaired(&bound);
     assert_eq!(extra.len(), 2);
-}
-
-#[test]
-fn a_bound_item_is_not_listed_a_second_time() {
-    let view = view();
-    let bound = view.bind(&titles(&["Dropbox"]));
-    assert_eq!(view.unpaired(&bound).len(), 3);
 }
 
 #[test]

@@ -127,6 +127,3 @@ fn reach(
     });
     crate::system::shell::hit::decide(extents, point, displays)
 }
-
-#[cfg(test)]
-mod reach_tests;

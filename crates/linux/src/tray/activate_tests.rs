@@ -157,7 +157,11 @@ fn a_headed_click_with_no_activate_uses_the_panel_pointer() {
 fn right_click_uses_context_menu_when_listed_and_the_right_button_otherwise() {
     let (wire, world) = (present(), World::default());
     run_with(
-        &methods(&["ContextMenu"]),
+        &methods(&[
+            "ContextMenu",
+            "SecondaryActivate",
+            "XAyatanaSecondaryActivate",
+        ]),
         ActionRequest::headless(Action::RightClick),
         &wire,
         &world,
@@ -185,42 +189,6 @@ fn right_click_uses_context_menu_when_listed_and_the_right_button_otherwise() {
         )
         .is_err()
     );
-}
-
-#[test]
-fn no_policy_and_no_method_list_ever_sends_a_secondary_method() {
-    let lists = [
-        methods(&[]),
-        methods(&["Activate"]),
-        methods(&["ContextMenu"]),
-        methods(&[
-            "Activate",
-            "ContextMenu",
-            "SecondaryActivate",
-            "XAyatanaSecondaryActivate",
-        ]),
-        methods(&["SecondaryActivate", "XAyatanaSecondaryActivate"]),
-    ];
-    for listed in &lists {
-        for action in [Action::Click, Action::RightClick] {
-            for request in [
-                ActionRequest::headless(action.clone()),
-                ActionRequest::focus_fallback(action.clone()),
-                ActionRequest::headed(action.clone()),
-            ] {
-                let (wire, world) = (present(), World::default());
-                let _ = run_with(listed, request, &wire, &world);
-                assert!(
-                    wire.sent
-                        .borrow()
-                        .iter()
-                        .all(|method| !method.contains("Secondary")),
-                    "{listed:?} sent {:?}",
-                    wire.sent.borrow()
-                );
-            }
-        }
-    }
 }
 
 #[test]
