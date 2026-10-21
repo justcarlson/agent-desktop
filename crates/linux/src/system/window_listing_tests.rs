@@ -9,6 +9,7 @@ fn app(toolkit: Option<(&str, &str)>) -> RegistryApp {
     assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", 321),
         ProcessFacts {
+            executable: None,
             comm: "x".to_owned(),
             exe_basename: Some("x".to_owned()),
             instance: "boot:42".to_owned(),

@@ -7,6 +7,7 @@ fn app(pid: u32) -> RegistryApp {
     assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", pid),
         ProcessFacts {
+            executable: None,
             comm: "x".to_owned(),
             exe_basename: Some("x".to_owned()),
             instance: "boot:1".to_owned(),

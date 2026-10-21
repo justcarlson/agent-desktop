@@ -61,6 +61,7 @@ fn both_the_command_name_and_the_executable_name_are_consulted() {
     world.protected = TABLE;
     world.facts =
         crate::system::process_lookup::Lookup::Found(crate::system::process_facts::ProcessFacts {
+            executable: None,
             comm: "renamed".to_owned(),
             exe_basename: Some("gnome-shell".to_owned()),
             instance: "t".to_owned(),

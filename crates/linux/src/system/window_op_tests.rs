@@ -47,6 +47,7 @@ pub(super) struct World {
 
 pub(super) fn process(instance: &str) -> Lookup {
     Lookup::Found(ProcessFacts {
+        executable: None,
         comm: "app".to_owned(),
         exe_basename: None,
         instance: instance.to_owned(),

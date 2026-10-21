@@ -26,6 +26,7 @@ struct Keys<'a> {
 
 fn facts(instance: &str) -> ProcessFacts {
     ProcessFacts {
+        executable: None,
         comm: "app".to_owned(),
         exe_basename: None,
         instance: instance.to_owned(),

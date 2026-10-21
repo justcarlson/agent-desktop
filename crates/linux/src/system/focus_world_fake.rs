@@ -57,6 +57,7 @@ pub(super) struct World {
 
 pub(super) fn facts() -> ProcessFacts {
     ProcessFacts {
+        executable: None,
         comm: "app".to_owned(),
         exe_basename: None,
         instance: INSTANCE.to_owned(),

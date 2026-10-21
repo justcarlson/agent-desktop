@@ -197,6 +197,7 @@ fn the_deadline_is_consulted_only_after_a_mismatch() {
 
 fn facts(comm: &str, exe: Option<&str>) -> ProcessFacts {
     ProcessFacts {
+        executable: None,
         comm: comm.to_owned(),
         exe_basename: exe.map(str::to_owned),
         instance: "boot:1".to_owned(),

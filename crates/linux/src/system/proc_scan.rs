@@ -1,5 +1,5 @@
 use super::app_alias::current_index;
-use super::app_name::{aliases_in, name_matches};
+use super::app_name::{aliases_in, app_name, name_matches};
 use super::process_facts;
 
 const BUS_VARIABLE: &str = "DBUS_SESSION_BUS_ADDRESS";
@@ -60,13 +60,7 @@ fn find_in_session(query: &str, session: &SessionKey) -> Option<(u32, String)> {
         .filter_map(|entry| entry.file_name().to_string_lossy().parse::<u32>().ok())
         .find_map(|pid| {
             let facts = process_facts::read_names(pid)?;
-            let matched = name_matches(
-                query,
-                &facts.comm,
-                None,
-                &facts,
-                &aliases_in(&index, &facts),
-            );
+            let matched = name_matches(query, &app_name(&facts), &aliases_in(&index, &facts));
             (matched
                 && session.owns(
                     std::fs::read(format!("/proc/{pid}/environ"))

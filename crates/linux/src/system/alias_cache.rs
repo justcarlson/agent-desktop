@@ -1,9 +1,9 @@
 use super::app_alias::AliasIndex;
 use super::desktop_lookup::{read_all, stamps};
+use super::desktop_stamp::DesktopStamp;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::SystemTime;
-type Stamps = Vec<Option<SystemTime>>;
+type Stamps = Vec<DesktopStamp>;
 
 /// An index that is rebuilt only when a directory it was read from changes.
 pub(crate) struct AliasCache {
@@ -25,7 +25,7 @@ impl AliasCache {
         {
             return Arc::clone(index);
         }
-        let index = Arc::new(AliasIndex::build(&read_all(dirs)));
+        let index = Arc::new(AliasIndex::build(&read_all(dirs), dirs));
         *state = Some((now, Arc::clone(&index)));
         index
     }

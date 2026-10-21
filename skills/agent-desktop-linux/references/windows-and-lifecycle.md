@@ -7,22 +7,16 @@ display of a Wayland session). `wmctrl` and `xdotool` are not used.
 
 ## Naming an app
 
-`--app` accepts three kinds of name:
-
-- the process name `list-apps` prints (`gnome-calculator`, `nautilus`,
-  `gnome-text-editor`);
-- the registry name (`org.gnome.Nautilus`);
-- the `Name` of a desktop entry (`Files`, `Text Editor`) as an alias, when the
-  entry's `Exec` program uniquely identifies the process. Entries sharing an
-  executable basename receive no name alias; `TryExec` helpers receive none.
-  The listed name does not change.
+`--app` accepts the process name `list-apps` prints, or a desktop entry's
+`Name` or id backed by verified executable identity. Desktop aliases require
+canonical `Exec` executable equality with `/proc/<pid>/exe` and matching full
+arguments. A desktop name shared by several entries receives no name alias;
+`TryExec` only checks installation. Registry labels and truncated `comm` names
+supply no additional aliases. The listed name does not change.
 
 Scoped app matching is exact, ignoring case, and the process must belong to this
-session. It accepts the listed name, registry name, executable basename, `comm`,
-desktop-entry name or id, and known launcher/server pairs (`gnome-terminal`
-matches `gnome-terminal-server`). `list-windows --app` uses that exact rule.
-`list-apps --app` combines a substring match on the listed name with those exact
-adapter aliases; an alias need not be part of the displayed process name.
+session. `list-windows --app` uses that exact rule. `list-apps --app` combines a
+substring match on the listed name with those exact adapter aliases.
 
 Window ids are opaque addresses of 34 to 70 characters, valid for the life of the
 window's process. `list-apps` rows carry `name`, `pid`, `bundle_id` (desktop id
@@ -52,17 +46,24 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 - An absolute `.desktop` path launches that exact file inside the trusted XDG
   data directories. Desktop ids use XDG directory precedence. A truncated
   process-name prefix alone never identifies an app for attachment.
-- `launch` attaches to a running app by default: one match with no arguments
-  returns the owner. Arguments do not force a new process: a running Text Editor
-  took `--arg=--new-window` and opened a second window in the same pid. `--no-attach`
-  on a running app fails with `ACTION_FAILED` naming the pid. A second
-  `launch zenity` starts a new process, because each dialog is its own process.
+- `launch` attaches by default only when the canonical executable the request
+  resolves to equals the running process's canonical `/proc/<pid>/exe` path.
+  Desktop entries also require matching full arguments and invocation name, including for shared
+  interpreters and launchers. Missing evidence starts a new process. Names,
+  basenames, registry labels, `comm` and `TryExec` never establish attachment.
+  A launcher that hands off to another executable cannot identify that process
+  by name; if no verified owner appears, launch reports the unresolved handoff.
+  One verified match with no arguments returns the owner; arguments spawn the
+  command to forward them. `--no-attach` refuses a verified running match with
+  `ACTION_FAILED` naming its pid; several verified matches are `AMBIGUOUS_TARGET`.
 - `--arg` passes one argument and repeats; `--arg --info` works as written, and
   `--arg=-x` is the safe form for a value that starts with a hyphen. A handoff to
   a running instance applies the arguments but not `--env` or `--cwd`, and the
   result says so.
-- The pid reported is the owner of the new window, found from `_NET_WM_PID` and
-  the registry, never the launcher's pid. The command waits for a window. A
+- A window result names its registry owner, verified by process identity. An
+  unresolved launcher that exits returns `ACTION_FAILED`; a spawned process
+  still running outside the registry can be returned without a window, and may
+  be a wrapper. The command waits for a window. A
   registry owner gets a 2 s first-window grace, or 5 s for a new window when
   windows were already open. Both are capped by `--timeout` (default 30000).
   If the spawned process never registers on the accessibility bus, owner lookup

@@ -5,16 +5,18 @@ use super::*;
 
 fn app(pid: u32, name: &str) -> Running {
     Running {
+        executable: keys(&[name]),
         pid,
         instance: format!("boot:{pid}"),
         name: name.to_owned(),
-        registry_name: None,
-        comm: name.chars().take(15).collect(),
     }
 }
 
-fn keys(items: &[&str]) -> Vec<String> {
-    items.iter().map(|item| (*item).to_owned()).collect()
+fn keys(items: &[&str]) -> Option<super::super::executable_identity::ExecutableIdentity> {
+    Some(super::super::executable_identity::ExecutableIdentity {
+        executable: std::path::PathBuf::from(format!("/apps/{}", items[0])),
+        argv: None,
+    })
 }
 
 fn exited(code: u8) -> ExitStatus {
@@ -123,7 +125,7 @@ fn launch_observation_selects_the_owner_or_reports_the_exact_failure() {
             child,
             apps: &apps,
             before: &before,
-            keys: &wanted,
+            identity: &wanted,
             settled,
         });
         assert_eq!(actual, expected, "case {index}");

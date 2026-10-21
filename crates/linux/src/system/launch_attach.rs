@@ -1,12 +1,4 @@
 use crate::system::running_app::Running;
-/// Extra identity keys for launchers whose application runs under another
-/// name than the one launched: the launcher of a terminal exits and the
-/// terminal server it started owns the windows.
-pub(super) const KEY_TABLE: &[(&str, &[&str])] = &[
-    ("gnome-terminal", &["gnome-terminal-server"]),
-    ("org.gnome.terminal", &["gnome-terminal-server"]),
-];
-
 /// What a launch does about the applications already running.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Decision {
@@ -17,32 +9,15 @@ pub(crate) enum Decision {
     Ambiguous(Vec<u32>),
 }
 
-/// The lower-cased keys of a target with the table's extra keys, once each.
-pub(super) fn identity_keys(raw: &[String]) -> Vec<String> {
-    let mut keys: Vec<String> = Vec::new();
-    for key in raw.iter().map(|key| key.to_lowercase()) {
-        let extra = KEY_TABLE
-            .iter()
-            .filter(|(known, _)| *known == key)
-            .flat_map(|(_, more)| more.iter().map(|more| (*more).to_owned()));
-        for candidate in std::iter::once(key.clone()).chain(extra) {
-            if !keys.contains(&candidate) {
-                keys.push(candidate);
-            }
-        }
-    }
-    keys
-}
-
-/// Whether a key names the application exactly: its listed name, its registry
-/// name or its `comm`. A truncated prefix never establishes identity.
-pub(crate) fn matches(keys: &[String], app: &Running) -> bool {
-    keys.iter().any(|key| {
-        let same = |name: &str| name.eq_ignore_ascii_case(key);
-        same(&app.name)
-            || app.registry_name.as_deref().is_some_and(same)
-            || (app.comm.len() < 15 && same(&app.comm))
-    })
+/// Only verified canonical executable identity can establish attachment.
+pub(crate) fn matches(
+    identity: &Option<super::executable_identity::ExecutableIdentity>,
+    app: &Running,
+) -> bool {
+    identity
+        .as_ref()
+        .zip(app.executable.as_ref())
+        .is_some_and(|(wanted, actual)| wanted.matches(actual))
 }
 
 /// Decides before anything is spawned. No match spawns. One match is attached
@@ -51,12 +26,15 @@ pub(crate) fn matches(keys: &[String], app: &Running) -> bool {
 /// `attach_if_running` false, any match refuses; otherwise several matches
 /// are ambiguous.
 pub(crate) fn decide(
-    keys: &[String],
+    identity: &Option<super::executable_identity::ExecutableIdentity>,
     running: &[Running],
     attach_if_running: bool,
     has_arguments: bool,
 ) -> Decision {
-    let found: Vec<&Running> = running.iter().filter(|app| matches(keys, app)).collect();
+    let found: Vec<&Running> = running
+        .iter()
+        .filter(|app| matches(identity, app))
+        .collect();
     let pids = || found.iter().map(|app| app.pid).collect::<Vec<_>>();
     match found.as_slice() {
         [] => Decision::Spawn,
