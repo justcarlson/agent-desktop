@@ -105,10 +105,10 @@ fn the_real_control_signals_a_matching_child_and_spares_a_mismatched_one() {
         .expect("a sleeping child");
     let ticks = start_ticks_of(child.id()).expect("the child's start time");
     let wrong = record(child.id(), ticks.wrapping_add(7));
-    assert_eq!(PidfdSignaller.stop(&wrong), Stopped::Stale);
+    assert_eq!(stop_by_identity(&PidfdControl, &wrong), Stopped::Stale);
     assert!(child.try_wait().expect("a status").is_none());
     let right = record(child.id(), ticks);
-    assert_eq!(PidfdSignaller.stop(&right), Stopped::Signalled);
+    assert_eq!(stop_by_identity(&PidfdControl, &right), Stopped::Signalled);
     let status = child.wait().expect("the child ends");
     assert!(!status.success());
 }

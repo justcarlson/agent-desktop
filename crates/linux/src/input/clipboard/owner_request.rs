@@ -192,11 +192,6 @@ impl Transfers {
     pub(crate) fn drop_requestor(&mut self, requestor: u32) {
         self.active.retain(|(window, _), _| *window != requestor);
     }
-
-    #[cfg(test)]
-    pub(crate) fn in_flight(&self) -> usize {
-        self.active.len()
-    }
 }
 
 #[cfg(test)]

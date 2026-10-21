@@ -76,18 +76,6 @@ impl ProcessControl for PidfdControl {
     }
 }
 
-pub(crate) trait Signaller {
-    fn stop(&self, record: &OwnerRecord) -> Stopped;
-}
-
-pub(crate) struct PidfdSignaller;
-
-impl Signaller for PidfdSignaller {
-    fn stop(&self, record: &OwnerRecord) -> Stopped {
-        stop_by_identity(&PidfdControl, record)
-    }
-}
-
 #[cfg(test)]
 #[path = "owner_signal_tests.rs"]
 mod tests;
