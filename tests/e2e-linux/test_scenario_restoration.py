@@ -220,15 +220,16 @@ class RegistryRestorationTests(unittest.TestCase):
 class MenuRestorationTests(unittest.TestCase):
     def test_registered_preferences_click_requires_an_independent_unique_dialog(self):
         for source in ("snapshot", "find"):
-            for dialog_count in (0, 1, 2):
-                with self.subTest(source=source, dialog_count=dialog_count):
-                    tier = SimpleNamespace(runtime_dir=Path("/private/test"), display=None)
+            for dialog_count, owns_focus in ((0, True), (1, True), (2, True), (1, False)):
+                with self.subTest(source=source, dialog_count=dialog_count, owns_focus=owns_focus):
+                    tier = SimpleNamespace(runtime_dir=Path("/private/test"), display=":1")
                     leg_id = f"menus.preferences_{source}_ref"
                     ctx = LegContext(tier, "headless", legs.leg_by_id(leg_id),
                                      member_reader=lambda _: frozenset())
                     app = SimpleNamespace(windows=["w-calculator"], owner_names=[":1.8"])
-                    dialogs, stopped = [], []
-                    dialog = SimpleNamespace(name="Preferences", role=16, states={"SHOWING"})
+                    dialogs, stopped, active = [], [], ["0x1"]
+                    dialog = SimpleNamespace(name="Preferences", role=16, states={"SHOWING"},
+                                             bus=":1.8", path="/dialog")
                     owner = SimpleNamespace(bus=":1.8", walk=lambda: list(dialogs))
 
                     @contextmanager
@@ -254,19 +255,27 @@ class MenuRestorationTests(unittest.TestCase):
                             self.assertEqual(argv[1], "@menu:e3" if source == "snapshot"
                                              else "@found:e4")
                             dialogs.extend([dialog] * dialog_count)
+                            active[0] = "0x2"
+                            data = {"steps": [{"mechanism": "semantic_api"}]}
                         return Envelope(True, data, None, "{}", 0, argv)
 
                     with patch.object(menus, "managed", managed), \
                         patch.object(menus, "registry", return_value=[owner]), \
+                        patch.object(menus.x11, "pointer", return_value=(0, 0)), \
+                        patch.object(menus.x11, "active_window", side_effect=lambda _: active[0]), \
+                        patch.object(menus.x11, "product_window",
+                                     return_value="w-1.8-dialog" if owns_focus else "w-foreign"), \
                         patch.object(lifecycle.atspi_raw, "poll", side_effect=lambda read, *a, **kw: read()), \
                         patch("runner.verdict.run_product", side_effect=product):
                         run = legs.implementations()[leg_id]
-                        if dialog_count == 1:
+                        if dialog_count == 1 and owns_focus:
                             run(ctx)
                             self.assertEqual(verdict.evaluate(ctx), [])
                             self.assertEqual(ctx.reads["atspi.preferences_dialogs"]["after"], [1])
                         else:
-                            with self.assertRaisesRegex(AssertionError, "oracle never reached 1"):
+                            message = ("oracle never reached 1" if dialog_count != 1 else
+                                       "other than the new Preferences dialog")
+                            with self.assertRaisesRegex(AssertionError, message):
                                 run(ctx)
                     self.assertEqual(stopped, [True])
 

@@ -95,7 +95,8 @@ def terminal_read_only_flip(ctx: LegContext) -> None:
         initial = "CHECKED" in item.states
         menu = ref(ctx, app, role="menu", name="Terminal")
         command(ctx, ["click", menu], app)
-        target = ref(ctx, app, role="menuitem", name="Read-Only")
+        command(ctx, ["wait", "--menu", "--app", "Terminal", "--timeout", "5000"])
+        target = ref(ctx, app, role="menuitem", name="Read-Only", surface="menu")
         ctx.before("atspi", initial)
         try:
             command(ctx, ["click", target], app)
@@ -103,8 +104,10 @@ def terminal_read_only_flip(ctx: LegContext) -> None:
             ctx.after("atspi", "CHECKED" in item.states)
             stale_twin(ctx, app, target, lambda: "CHECKED" in item.states)
         finally:
-            command(ctx, ["click", menu], app)
-            target = ref(ctx, app, role="menuitem", name="Read-Only")
-            command(ctx, ["click", target], app)
+            if ("CHECKED" in item.states) != initial:
+                command(ctx, ["click", menu], app)
+                command(ctx, ["wait", "--menu", "--app", "Terminal", "--timeout", "5000"])
+                target = ref(ctx, app, role="menuitem", name="Read-Only", surface="menu")
+                command(ctx, ["click", target], app)
             changed(lambda: "CHECKED" in item.states, initial)
             ctx.restored("atspi", "CHECKED" in item.states)

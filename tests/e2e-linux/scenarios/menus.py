@@ -5,6 +5,7 @@ from runner.helper import changed, command, managed, nodes, ref, require, snapsh
 from runner.legs import implementation
 from runner.verdict import LegContext
 from oracle.atspi_raw import app_root, poll, registry
+from oracle import x11
 
 CALCULATOR = "Calculator"
 TERMINAL = "Terminal"
@@ -111,11 +112,13 @@ def hidden_bar_timeout_message(ctx: LegContext) -> None:
 
 def _preferences_click(ctx, from_find):
     with managed(ctx, CALCULATOR) as app:
+        def dialogs():
+            return [node for owner in registry(ctx.tier) if owner.bus in app.owner_names
+                    for node in owner.walk() if node.name == "Preferences"
+                    and node.role in (16, 23) and "SHOWING" in node.states]
+
         def read():
-            return sum(node.name == "Preferences" and node.role in (16, 23)
-                       and "SHOWING" in node.states
-                       for owner in registry(ctx.tier) if owner.bus in app.owner_names
-                       for node in owner.walk())
+            return len(dialogs())
 
         command(ctx, ["focus-window", "--app", CALCULATOR])
         require(read() == 0, "Preferences was already open")
@@ -131,8 +134,21 @@ def _preferences_click(ctx, from_find):
                        if node.get("name") == "Preferences" and "ref_id" in node}
             require(len(matches) == 1, "expected one Preferences menu ref")
             target = matches.pop()
-        command(ctx, ["click", target])
+        pointer = x11.pointer(ctx.tier)
+        active = x11.active_window(ctx.tier)
+        response = ctx.product(["click", target])
+        require(response.ok, response.raw)
         ctx.after("atspi.preferences_dialogs", changed(read, 1, seconds=8))
+        if ctx.mode == "headless":
+            require(x11.pointer(ctx.tier) == pointer, "headless modal click moved the pointer")
+            steps = response.data.get("steps", [])
+            require(steps and all(step.get("mechanism") == "semantic_api" for step in steps),
+                    "headless modal click used physical input")
+            focused = x11.active_window(ctx.tier)
+            if focused != active:
+                allowed = {x11.encode_product_id(node.bus, node.path) for node in dialogs()}
+                require(focused and x11.product_window(ctx.tier, focused) in allowed,
+                        "modal click focused a window other than the new Preferences dialog")
     ctx.restored("atspi.preferences_dialogs", changed(read, 0, seconds=5))
 
 
