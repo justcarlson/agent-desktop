@@ -4,6 +4,34 @@ use crate::session::{SessionTraceMode, StartSessionOptions, start_session};
 use serde_json::json;
 
 #[test]
+fn ended_session_refuses_command_scopes_before_dispatch() {
+    let _guard = crate::refs_test_support::HomeGuard::new();
+    let session = start_session(StartSessionOptions::default()).unwrap();
+    let existing = CommandContext::new(Some(session.id.clone()), None, false).unwrap();
+    existing.mutating_command_scope("click").unwrap();
+    crate::session::end_session(&session.id).unwrap();
+    let fresh = CommandContext::new(Some(session.id.clone()), None, false).unwrap();
+
+    for context in [&existing, &fresh] {
+        for result in [
+            context.mutating_command_scope("click"),
+            context.command_scope("snapshot"),
+        ] {
+            let error = match result {
+                Ok(_) => panic!("an ended session must refuse dispatch"),
+                Err(error) => error,
+            };
+            assert_eq!(error.code(), "INVALID_ARGS");
+            let AppError::Adapter(error) = error else {
+                panic!("a session refusal must carry delivery evidence")
+            };
+            assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+            assert_eq!(error.details.unwrap()["session_id"], session.id);
+        }
+    }
+}
+
+#[test]
 fn command_scope_emits_start_and_success_end() {
     let path = std::env::temp_dir().join(format!(
         "agent-desktop-scope-ok-{}",
