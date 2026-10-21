@@ -150,12 +150,9 @@ impl HitWorld for World {
     }
 }
 
-fn deadline() -> Deadline {
-    Deadline::after(5_000).expect("a deadline builds")
-}
-
 fn test(world: &mut World, point: (i32, i32)) -> HitTestResult {
-    hit_test_via(world, &el("/target"), &el("/frame"), point, deadline()).expect("no timeout")
+    let deadline = Deadline::after(5_000).expect("a deadline builds");
+    hit_test_via(world, &el("/target"), &el("/frame"), point, deadline).expect("no timeout")
 }
 
 fn reaching(world: &mut World) {
@@ -202,7 +199,7 @@ fn a_cover_that_maps_to_one_client_is_named_by_its_title() {
 
 #[test]
 fn the_cross_window_leg_is_what_separates_reaches_from_intercepted() {
-    for (name, version) in [("gtk", "3.24.41"), ("Qt", "6.10")] {
+    for (name, version) in [("gtk", "3.24.41"), ("Qt", "6.10"), ("Chromium", "1.0")] {
         let mut facts = gtk3_facts();
         facts.toolkit = toolkit(name, version);
         let covered = stacked(20, rect(200, 100, 600, 400));
@@ -213,6 +210,7 @@ fn the_cross_window_leg_is_what_separates_reaches_from_intercepted() {
         let mut raised = World::new(facts, Some(windowing((100, 137), vec![])));
         reaching(&mut raised);
         assert_eq!(test(&mut raised, (310, 154)), HitTestResult::ReachesTarget);
+        assert_eq!(raised.nodes.points.first(), Some(&(210, 17)));
     }
 }
 

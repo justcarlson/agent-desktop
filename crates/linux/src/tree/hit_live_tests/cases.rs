@@ -1,7 +1,6 @@
-use super::{AtspiElement, candidates, exercise, gtk3_check, hit, verdict, window_extents};
+use super::{AtspiElement, candidates, gtk3_check, hit, verdict, window_extents};
 use crate::tree::WalkLimits;
 use crate::tree::live_apps::{AppSpec, app, qt, terminal};
-use crate::tree::live_launch::nonce;
 use crate::tree::live_rig::{deadline, rig};
 use crate::tree::walker::walk_tree;
 
@@ -10,32 +9,6 @@ use crate::tree::walker::walk_tree;
 fn hit_live_gtk3_terminal_cover_in_both_directions() {
     let session = rig();
     terminal(&session.adapter, &session.bus, gtk3_check).expect("gtk3 terminal");
-}
-
-#[test]
-#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn hit_live_chrome_cover_in_both_directions() {
-    let session = rig();
-    let data = std::env::temp_dir().join(nonce("hit-chrome"));
-    let data_arg = format!("--user-data-dir={}", data.display());
-    let spec = AppSpec {
-        label: "chrome",
-        program: "google-chrome",
-        arguments: &[
-            "--force-renderer-accessibility",
-            "--no-first-run",
-            "--no-sandbox",
-            "--password-store=basic",
-            &data_arg,
-            "about:blank",
-        ],
-        min_nodes: 30,
-    };
-    let outcome = app(&spec, &session.adapter, &session.bus, |_, _, _, frame| {
-        exercise("chrome", frame)
-    });
-    let _ = std::fs::remove_dir_all(data);
-    outcome.expect("chrome");
 }
 
 #[test]

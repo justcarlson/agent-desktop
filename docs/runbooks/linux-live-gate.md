@@ -174,13 +174,18 @@ libtest pass; the gate does not turn that into proof of the guarded behavior.
   and exact reachability when raised. Separate real-Qt hit integration is retired;
   real Qt bounds-centre input and strict resolution remain live on both tiers.
 
-- `tree::hit_live_tests::cases::hit_live_vscode_is_never_a_wrong_verdict`:
-  the cover window never appeared in a full Mutter run after the app geometry
-  was successfully read. The same-tier `hit_live_chrome_cover_in_both_directions`
-  uses the same Chromium toolkit and the identical exercise with exact verdicts,
-  rather than permitting `Unknown`. It retains both stacking directions,
-  minimized-window refusal and bounded stopped-app failure. The separate VS Code
-  hit integration is retired; its observation and resolution coverage remains.
+- `tree::hit_live_tests::cases::hit_live_vscode_is_never_a_wrong_verdict` and
+  `hit_live_chrome_cover_in_both_directions`: VS Code's cover window never
+  appeared after app geometry was read; Chrome later exposed no owned X window
+  within the native readiness deadline despite passing the preceding full tier.
+  Both fail during fixture setup. The retained same-tier
+  `hit_live_gtk3_terminal_cover_in_both_directions` runs the identical exact
+  exercise, retaining both stacking directions, minimized `Unknown` and bounded
+  stopped-app failure. The existing cross-window fake matrix also includes
+  Chromium and requires exact interception under a cover, exact reachability
+  when clear, and independently checked client descent coordinates `(210, 17)`.
+  Chrome/Electron-specific live hit integration is retired; real Chromium
+  observation, resolution, geometry and physical-input coverage remains.
 
 ### Replaced cases
 
@@ -232,12 +237,12 @@ A successful signal command only requests a stop; capturing before the kernel
 has stopped the process made its precondition race. The production stopped
 process parser and exact `APP_UNRESPONSIVE` assertion remain unchanged.
 
-Three hit-test live scenarios remain. Their independent X11 oracle waits for
+Two hit-test live scenarios remain. Their independent X11 oracle waits for
 an owned application window to appear in `wmctrl -lp` with an eight-second
 deadline. A settled AT-SPI tree alone does not establish that precondition.
 The failed app fixtures exposed no usable window at the oracle query; later
 focused retries still failed app/cover lifecycle setup and their dispositions
-are listed above. The retained terminal and Chrome cases require exact verdicts
+are listed above. The retained terminal case requires exact verdicts
 in both cover directions; Files retains zero-axis `Unknown` checks.
 
 Each cover clock has a unique fixture title. Its readiness wait requires that
@@ -256,7 +261,7 @@ retries. The fake moves the same target between both original window positions,
 independently checks the calibrated local point, requires exact interception
 under a cover, exact reachability after its removal, and `Unknown` outside the
 calibrated target. Native GTK4 zero-axis refusal, real GTK4 physical input,
-terminal/Chromium exact-cover hit scenarios and other live geometry checks remain.
+the terminal exact-cover hit scenario and other live geometry checks remain.
 These app/cover lifecycle scenarios are no longer live gate requirements.
 
 `tree::resolve_twin_live_tests::resolve_live_files_row_refs_survive_a_sibling_row_leaving`
