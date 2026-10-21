@@ -204,3 +204,7 @@ mod tests;
 #[cfg(test)]
 #[path = "bus_live_tests.rs"]
 mod live_tests;
+
+#[cfg(test)]
+#[path = "registry_pid_tests.rs"]
+mod registry_pid_tests;
