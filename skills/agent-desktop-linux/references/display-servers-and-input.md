@@ -52,7 +52,7 @@ through `EditableText`. A headless action reports `semantic_api` and leaves the
 pointer still. Windows works the other way round (semantic first), so do not
 carry that assumption across platforms.
 
-Before a physical ref-addressed key or click, the target frame must report
+Before a physical ref-addressed key, the target frame must report
 `active` within a short wait; a frame that never does fails with
 `check: window_active`. Headed `type` and ref-addressed key presses also require
 the target or its proven internal editor to report `focused`: before each X11 text
@@ -75,6 +75,9 @@ The gate is necessary, not sufficient: while a popup menu holds the grab, keys
 reach the menu even if the frame reads active, so key steps stay unverified.
 Pointer forms aim at the centre of the ref's bounds, which the adapter withholds
 where the position is not proved. Read the result with a fresh `get`.
+Ref-addressed double and triple clicks prove the pointer receiver before each
+click. A later refusal reports `delivered_clicks` and `delivered_unverified`
+when earlier clicks were sent; inspect the app before retrying.
 
 ## Keys and `press`
 

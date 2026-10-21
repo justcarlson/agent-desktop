@@ -209,13 +209,13 @@ impl PhysicalWorld for FakeWorld {
 
     fn plan_click(
         &self,
-        _map: &Keymap,
+        map: &Keymap,
         at: Point,
         button: &MouseButton,
         count: u32,
     ) -> Result<Plan, AdapterError> {
         self.note(format!("plan_click {},{} {button:?} {count}", at.x, at.y));
-        Ok(Self::plan())
+        crate::input::pointer_plan::plan_click(map, at, button, count, &[])
     }
 
     fn plan_wheel(
