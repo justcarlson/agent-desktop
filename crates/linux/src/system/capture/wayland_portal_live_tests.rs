@@ -12,6 +12,9 @@ use super::wayland_portal_live_support::{
 use crate::system::bus_deadline::within;
 use crate::system::session_bus::SessionBus;
 
+#[path = "portal_layout_live_tests.rs"]
+mod layout;
+
 fn home_screenshots() -> BTreeSet<String> {
     let home = runtime_dir().join("portal-home");
     std::fs::read_dir(home)

@@ -76,7 +76,7 @@ pub(crate) fn capture_with(
     let chosen = match target {
         ScreenshotTarget::FullScreen => {
             let all = displays(deadline).unwrap_or_default();
-            if all.len() > 1 {
+            if !all.is_empty() {
                 let (_, display) = select(&all, target)?;
                 Some((display, all))
             } else {
@@ -101,6 +101,9 @@ pub(crate) fn capture_with(
     };
     if displays(deadline)? != all {
         return Err(layout_changed());
+    }
+    if all.len() == 1 && matches!(target, ScreenshotTarget::FullScreen) {
+        return Ok(whole);
     }
     let rect = pixel_rect(&display, &all, (whole.width, whole.height))?;
     crop_png(&whole.data, rect, display.scale)

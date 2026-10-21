@@ -3,7 +3,7 @@ use serde_json::json;
 
 use super::window_op_verdict::{POLL, SETTLE_BUDGET};
 use super::x11::control::{ControlRead, manager_name};
-use super::x11::control_send::raise_window;
+use super::x11::control_send::activate_window;
 use super::x11::window_facts::{WindowFacts, read_facts};
 use crate::system::x11::control_error::ControlError;
 
@@ -28,7 +28,7 @@ struct Live<'a>(&'a agent_desktop_core::ProcessIdentity);
 
 impl LiftWorld for Live<'_> {
     fn activate(&self, client: u32, deadline: Deadline) -> Result<(), ControlError> {
-        raise_window(client, self.0, deadline)
+        activate_window(client, self.0, deadline, false)
     }
 
     fn facts(&self, client: u32, deadline: Deadline) -> ControlRead<WindowFacts> {

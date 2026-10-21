@@ -14,8 +14,10 @@ use crate::system::restore_minimized::{self, Lifted};
 use crate::system::toolkit::reports_global_position;
 use crate::system::window_client::ClientWorld;
 use crate::system::window_filter::frame_state;
-use crate::system::x11::activate::{active_window_within, request_activation};
+use crate::system::x11::activate::active_window_within;
 use crate::system::x11::activate_error::ActivateError;
+use crate::system::x11::control_error::ControlError;
+use crate::system::x11::control_send::activate_window;
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
@@ -94,8 +96,8 @@ impl FocusWorld for LiveWorld<'_> {
         DisplayReader.read_within(client, self.deadline)
     }
 
-    fn send(&self, client: u32) -> Result<(), ActivateError> {
-        request_activation(client)
+    fn send(&self, client: u32) -> Result<(), ControlError> {
+        activate_window(client, &self.owner, self.deadline, true)
     }
 
     fn active(&self) -> Option<u32> {
@@ -106,8 +108,8 @@ impl FocusWorld for LiveWorld<'_> {
         proc_stat::is_stopped(pid)
     }
 
-    fn send_untimed(&self, client: u32) -> Result<(), ActivateError> {
-        focus_send::request_untimed(client, self.deadline)
+    fn send_untimed(&self, client: u32) -> Result<(), ControlError> {
+        activate_window(client, &self.owner, self.deadline, false)
     }
 
     fn switch_desktop(&self, desktop: u32) -> Result<(), ActivateError> {

@@ -1,26 +1,10 @@
+use crate::system::x11::overlays::Overlays;
+use crate::system::x11::root_stack_evidence::RootStackEvidence;
+use crate::system::x11::stack_selection::StackSelection;
 use x11rb::protocol::xproto::{ConnectionExt, MapState, Window};
 use x11rb::rust_connection::RustConnection;
 
 use super::{Got, Stop};
-
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub(super) struct Overlays {
-    pub(super) bounds: Vec<crate::tree::Extents>,
-    pub(super) receiving: Vec<(u32, crate::tree::Extents)>,
-    pub(super) names: Vec<(u32, String)>,
-}
-
-struct RootStackEvidence {
-    viewable: bool,
-    override_redirect: bool,
-    siblings: Vec<Window>,
-    managed_frames: Vec<(Window, Window)>,
-}
-
-pub(super) struct StackSelection {
-    pub(super) ids: Vec<Window>,
-    pub(super) overlays: Overlays,
-}
 
 fn unique_position(windows: &[Window], target: Window) -> Option<usize> {
     let mut positions = windows

@@ -20,8 +20,10 @@ fn reason_of(error: &AdapterError) -> Option<&str> {
 }
 
 #[test]
-fn a_cover_without_a_redirect_route_refuses_and_issues_no_plain_grab() {
+fn an_unproven_redirect_refuses_and_issues_no_plain_grab() {
     let rig = Rig::standard();
+    *rig.grabber.redirect_with.lock().expect("redirect lock") =
+        Box::new(|_, _| Err(GrabError::UnprovenPaint));
     rig.stacking.reads.set(vec![covering()]);
     let error = capture(&rig.env(), &target(), false, deadline()).expect_err("covered");
     assert_eq!(error.code, ErrorCode::ActionFailed);
@@ -51,10 +53,29 @@ fn a_clear_window_is_a_plain_grab_and_never_a_redirect() {
 }
 
 #[test]
-fn a_redirect_transport_timeout_preserves_the_timeout_without_focus_advice() {
+fn redirect_failures_preserve_the_cause_without_false_focus_advice() {
     use crate::system::x11::grab_error::GrabError;
     for (failure, code, reason) in [
         (GrabError::Timeout, ErrorCode::Timeout, None),
+        (GrabError::Resource, ErrorCode::ActionFailed, None),
+        (GrabError::Unviewable, ErrorCode::ActionFailed, None),
+        (
+            GrabError::OffScreen,
+            ErrorCode::ActionFailed,
+            Some("off_screen"),
+        ),
+        (
+            GrabError::Fault(crate::system::x11::MonitorFault::Unreadable),
+            ErrorCode::ActionFailed,
+            None,
+        ),
+        (
+            GrabError::Fault(crate::system::x11::MonitorFault::Unreachable(
+                ":missing".to_owned(),
+            )),
+            ErrorCode::PlatformNotSupported,
+            None,
+        ),
         (
             GrabError::UnprovenPaint,
             ErrorCode::ActionFailed,
@@ -74,7 +95,7 @@ fn a_redirect_transport_timeout_preserves_the_timeout_without_focus_advice() {
                 .as_deref()
                 .unwrap_or_default()
                 .contains("focus-window"),
-            reason.is_some()
+            reason == Some("covered")
         );
     }
 }

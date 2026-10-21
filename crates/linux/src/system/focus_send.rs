@@ -7,7 +7,6 @@ use x11rb::rust_connection::RustConnection;
 use crate::system::display_server::{DisplayServer, session_server};
 use crate::system::x11::activate::first_window;
 use crate::system::x11::activate_error::ActivateError;
-use crate::system::x11::client_message::activate;
 use crate::system::x11::control_display::open;
 use crate::system::x11::stacking::bounded;
 
@@ -54,14 +53,6 @@ fn send_to_root(
             .map(|_| ())
             .ok_or(ActivateError::SendFailed)
     })
-}
-
-/// Asks for `client` to become active the way a pager does: source
-/// indication 2 and no timestamp, which a manager that refuses a stamped
-/// request for a window that never held focus still honours. The reply to a
-/// round trip after the write means the manager has read the request.
-pub(super) fn request_untimed(client: u32, deadline: Deadline) -> Result<(), ActivateError> {
-    send_to_root(move |_| client, b"_NET_ACTIVE_WINDOW", activate(), deadline)
 }
 
 pub(super) fn switch_desktop(desktop: u32, deadline: Deadline) -> Result<(), ActivateError> {

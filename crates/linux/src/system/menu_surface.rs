@@ -119,7 +119,7 @@ pub(crate) fn popups_at(
     deadline: Deadline,
 ) -> Result<Vec<MenuPopup>, AdapterError> {
     let mut reader = BusReader::new(bus, window, deadline);
-    match find_popups(&mut reader, settle, deadline) {
+    match inventory(&mut reader, settle, deadline) {
         Err(error) if vanished(&error) => Ok(Vec::new()),
         other => other,
     }

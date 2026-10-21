@@ -17,8 +17,8 @@ use super::{
     ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus,
     process_id, within,
 };
+use crate::tree::AtspiElement;
 use crate::tree::toolkit_trust::read_toolkit;
-use crate::tree::{AtspiElement, list_children};
 
 pub(crate) const ROOT_SLICE: Duration = Duration::from_millis(300);
 const APPS_IN_FLIGHT: usize = 32;
@@ -161,12 +161,31 @@ pub(crate) fn read_registry_for(
 ) -> Result<Registry, AdapterError> {
     let connection = bus.get(deadline)?;
     within(deadline, async {
-        let registry = AtspiElement::new(REGISTRY_SERVICE, REGISTRY_ROOT_PATH, 0);
-        let children = list_children(connection.inner(), &registry).await?;
+        let reply = connection
+            .inner()
+            .call_method(
+                Some(REGISTRY_SERVICE),
+                REGISTRY_ROOT_PATH,
+                Some(ACCESSIBLE_INTERFACE),
+                "GetChildren",
+                &(),
+            )
+            .await
+            .map_err(|error| {
+                if super::bus::is_connection_failure(&error) {
+                    bus.forget(&connection);
+                }
+                super::bus::classify(&error)
+            })?;
+        let children = reply
+            .body()
+            .deserialize::<Vec<(String, zbus::zvariant::OwnedObjectPath)>>()
+            .map_err(|error| super::bus::classify(&error))?;
         let reads: Vec<AppRead> = stream::iter(
             children
                 .into_iter()
-                .map(|(bus, path)| read_app(connection.inner(), bus, path, pid)),
+                .filter(|(bus, path)| !bus.is_empty() && path.as_str() != "/org/a11y/atspi/null")
+                .map(|(bus, path)| read_app(connection.inner(), bus, path.to_string(), pid)),
         )
         .buffered(APPS_IN_FLIGHT)
         .collect()

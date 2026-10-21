@@ -37,6 +37,8 @@ agent-desktop screenshot /tmp/everything.png
 - `screenshot` has no timeout flag.
 - A display-server or caller-deadline timeout stays `TIMEOUT`, including when
   capturing a covered window. It does not prove coverage or advise focus.
+- Redirected capture preserves resource, connection and visibility failures;
+  only unproven window paint receives the `covered` advice.
 
 ## `screenshot` on Wayland
 
@@ -67,6 +69,8 @@ agent-desktop screenshot /tmp/desktop.png
 - `--screen N` and a display target crop the whole-desktop image to that monitor.
   When the image does not confirm the monitor layout the call answers
   `PLATFORM_NOT_SUPPORTED` with reason `display_mapping`.
+- A known display layout is checked again after consent, including when it had
+  only one monitor. A changed layout returns `ACTION_FAILED` without pixels.
 - A window target (`--app`, `--window-id`) is `PLATFORM_NOT_SUPPORTED` on Wayland
   for good, not a gap to retry. Capture a display, or read the window
   with `snapshot`.

@@ -20,7 +20,9 @@ fn a_refused_stamped_request_is_followed_by_one_unstamped_request_that_succeeds(
 fn an_unstamped_request_that_is_also_ignored_ends_in_the_refusal_after_exactly_two_requests() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::Never;
-    assert_refused(&failure(&world), "activation_refused");
+    let error = failure(&world);
+    assert_refused(&error, "activation_refused");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(writes(&world), ["send", "send_untimed"]);
 }
 
@@ -29,7 +31,9 @@ fn a_frame_that_stays_inactive_after_the_display_agrees_is_not_retried() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::OnlyOnX11;
     world.untimed_grants = true;
-    assert_refused(&failure(&world), "frame_not_active");
+    let error = failure(&world);
+    assert_refused(&error, "frame_not_active");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(writes(&world), ["send"]);
 }
 
@@ -38,7 +42,9 @@ fn a_request_that_cannot_be_sent_is_not_retried() {
     let mut world = World::new(Some(OTHER));
     world.send_fails = true;
     world.untimed_grants = true;
-    assert_refused(&failure(&world), "activation_not_sent");
+    let error = failure(&world);
+    assert_refused(&error, "activation_not_sent");
+    assert_eq!(error.disposition, DeliverySemantics::uncertain());
     assert_eq!(writes(&world), ["send"]);
 }
 
@@ -50,6 +56,7 @@ fn a_modal_dialog_that_took_the_focus_is_named_and_never_a_success() {
     world.modal = Some("Save changes?".to_owned());
     let error = failure(&world);
     assert_refused(&error, "blocked_by_modal_dialog");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     let details = error.details.as_ref().expect("details");
     assert_eq!(details["dialog"], "Save changes?");
     assert!(
@@ -63,11 +70,21 @@ fn a_modal_dialog_that_took_the_focus_is_named_and_never_a_success() {
 
 #[test]
 fn a_window_on_another_desktop_gets_the_desktop_switched_before_the_request() {
-    let mut world = World::new(Some(OTHER));
-    world.desktop = DesktopPlacement::On(2);
-    world.current_desktop = Some(0);
-    run(&world, &window(), budget()).expect("granted after the switch");
-    assert_eq!(writes(&world), ["desktop 2", "send"]);
+    for send_fails in [false, true] {
+        let mut world = World::new(Some(OTHER));
+        world.desktop = DesktopPlacement::On(2);
+        world.current_desktop = Some(0);
+        world.send_fails = send_fails;
+        let outcome = run(&world, &window(), budget());
+        if send_fails {
+            let error = outcome.expect_err("the activation send failed after the desktop changed");
+            assert_refused(&error, "activation_not_sent");
+            assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+        } else {
+            outcome.expect("granted after the switch");
+        }
+        assert_eq!(writes(&world), ["desktop 2", "send"]);
+    }
 }
 
 #[test]
@@ -117,14 +134,14 @@ fn a_window_the_manager_hides_because_its_desktop_is_not_current_is_switched_to_
 }
 
 #[test]
-fn a_lease_spent_before_the_fallback_sends_no_unstamped_request_and_times_out_undelivered() {
+fn a_lease_spent_before_the_fallback_preserves_the_first_send() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::Never;
     world.untimed_grants = true;
     let deadline = Deadline::after(250).expect("a deadline builds");
     let error = run(&world, &window(), deadline).expect_err("the lease ran out");
     assert_eq!(error.code, ErrorCode::Timeout);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(writes(&world), ["send"]);
 }
 

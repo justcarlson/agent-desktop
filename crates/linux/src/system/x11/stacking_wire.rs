@@ -7,7 +7,8 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::rust_connection::RustConnection;
 
-use self::selection::{Overlays, frame_of, read_override_selection};
+use self::selection::{frame_of, read_override_selection};
+use super::overlays::Overlays;
 use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::snapshot::{
     decode_cardinals, decode_frame_extents, decode_shadow, decode_title,
