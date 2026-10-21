@@ -30,9 +30,12 @@ Neither option starts the private suite.
 ## Legs
 
 Default: `bash scripts/linux-live-gate.sh --jobs 3`. For shared-box calls below
-15 minutes, split the same gate into three chunks with one output directory:
+15 minutes, prepare the frozen manifest in its own call, then split the same
+gate into three tier chunks with one output directory. This keeps compilation
+from consuming the first tier's execution budget:
 
 ```bash
+AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --list --output "$HOME/ad-wt/live-gate-fast"'
 AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --tier openbox --output "$HOME/ad-wt/live-gate-fast"'
 AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --tier mutter --output "$HOME/ad-wt/live-gate-fast"'
 AGENT_DESKTOP_REMOTE_TIMEOUT=840 AGENT_DESKTOP_REMOTE_LOCK_WAIT=15 bash scripts/remote-linux.sh -c 'export CARGO_INCREMENTAL=0 && timeout 800 bash scripts/linux-live-gate.sh --tier wayland --output "$HOME/ad-wt/live-gate-fast"'
