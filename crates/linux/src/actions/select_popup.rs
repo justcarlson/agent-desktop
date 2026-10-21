@@ -9,14 +9,11 @@ use super::click::{
 };
 use super::context::Target;
 use super::disclosure::set_expanded;
-use super::mutation::WriteKind;
 use super::select::{
     BusReader, SELECT_SETTLE, advertises_selection, children_of, container_target, handle_of,
     miss_error, no_route, parent_of, unchanged_is_ignored,
 };
-use super::select_exclusive::SELECTION_INTERFACE;
 use super::select_search::{Search, name_matches, search};
-use super::write_call::{Call, invoke};
 use crate::tree::AtspiElement;
 use crate::tree::action_names::verbs_for;
 use crate::tree::action_read::read_node_view;
@@ -119,15 +116,8 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
     let names = names_of(&popover_view)?;
     let action = Action::Select(display_value.to_owned());
     let run = || {
-        let chosen = invoke(
-            &list,
-            Call {
-                interface: SELECTION_INTERFACE,
-                method: "SelectChild",
-                body: &(container.index,),
-                kind: WriteKind::SelectChild,
-            },
-        )?;
+        let row = hit.row.as_ref().unwrap_or(&hit.item);
+        let chosen = super::select_index::write(&list, row)?;
         if chosen == super::mutation::WriteReply::Absent {
             return Ok(DeliveryOutcome::NotDelivered);
         }

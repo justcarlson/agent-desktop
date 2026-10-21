@@ -25,6 +25,7 @@ pub(crate) mod scroll_wrap;
 pub(crate) mod secure_write;
 pub(crate) mod select;
 pub(crate) mod select_exclusive;
+mod select_index;
 pub(crate) mod select_popup;
 pub(crate) mod select_search;
 pub(crate) mod select_verify;

@@ -31,7 +31,10 @@ pub(super) fn selected_count(holder: &Target<'_>) -> Option<i32> {
     .flatten()
 }
 
-pub(super) fn child_selected(holder: &Target<'_>, index: i32) -> Option<bool> {
+pub(super) fn item_selected(holder: &Target<'_>, item: &crate::tree::AtspiElement) -> Option<bool> {
+    if selected_count(holder) != Some(1) {
+        return None;
+    }
     let connection = holder.bus.get(holder.deadline).ok()?;
     let element = holder.element;
     within(holder.deadline, async {
@@ -41,13 +44,15 @@ pub(super) fn child_selected(holder: &Target<'_>, index: i32) -> Option<bool> {
                 Some(element.bus_name()),
                 element.path(),
                 Some(SELECTION_INTERFACE),
-                "IsChildSelected",
-                &(index,),
+                "GetSelectedChild",
+                &(0i32,),
             )
             .await;
-        Ok(reply
-            .ok()
-            .and_then(|message| message.body().deserialize::<bool>().ok()))
+        Ok(reply.ok().and_then(|message| {
+            let (bus, path): (String, zbus::zvariant::OwnedObjectPath) =
+                message.body().deserialize().ok()?;
+            Some(bus == item.bus_name() && path.as_str() == item.path())
+        }))
     })
     .ok()
     .flatten()
@@ -64,7 +69,11 @@ pub(super) fn exclusive_verdict(count: Option<i32>) -> Option<bool> {
     }
 }
 
-pub(super) fn replace_with_only(holder: &Target<'_>, index: i32) -> Result<bool, AdapterError> {
+pub(super) fn replace_with_only(
+    holder: &Target<'_>,
+    item: &crate::tree::AtspiElement,
+) -> Result<bool, AdapterError> {
+    super::select_index::resolve(holder, item)?;
     let cleared = invoke(
         holder,
         Call {
@@ -77,15 +86,9 @@ pub(super) fn replace_with_only(holder: &Target<'_>, index: i32) -> Result<bool,
     if !cleared {
         return Ok(false);
     }
-    Ok(invoke(
-        holder,
-        Call {
-            interface: SELECTION_INTERFACE,
-            method: "SelectChild",
-            body: &(index,),
-            kind: WriteKind::SelectChild,
-        },
-    )? == WriteReply::Done)
+    Ok(super::select_index::write(holder, item).map_err(|error| {
+        error.with_disposition(agent_desktop_core::DeliverySemantics::uncertain())
+    })? == WriteReply::Done)
 }
 
 #[cfg(test)]
