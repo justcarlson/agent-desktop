@@ -17,6 +17,15 @@ spec.loader.exec_module(gate)
 
 
 class GateTests(unittest.TestCase):
+    def test_targeted_selection_is_ignored_only_and_rejects_mistyped_modules(self):
+        names = ["tree::focus::unit", "tree::focus::live", "tree::focus_other::live",
+                 "notifications::live_tests::live"]
+        ignored = set(names[1:])
+        self.assertEqual(gate.select_tests(names, ignored, ["tree::focus"], True), [names[1]])
+        self.assertEqual(gate.select_tests(names, ignored, [], False), names)
+        with self.assertRaises(ValueError):
+            gate.select_tests(names, ignored, ["tree::typo"], True)
+
     def test_private_services_and_window_manager_replacement_get_their_own_session(self):
         cases = (
             "system::close_live_tests::close_live_a_private_gnome_shell_is_refused_and_keeps_running",

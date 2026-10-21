@@ -165,6 +165,16 @@ def save(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
+def select_tests(names, ignored, modules, ignored_only):
+    selected = [name for name in names if (not ignored_only or name in ignored)
+                and (not modules or any(name.startswith(module + "::") for module in modules))]
+    missing = [module for module in modules if not any(
+        name.startswith(module + "::") for name in selected)]
+    if not selected or missing:
+        raise ValueError(f"empty test selection or unmatched modules: {missing}")
+    return selected
+
+
 def source_hash():
     files = [ROOT / "Cargo.lock", ROOT / "Cargo.toml", ROOT / "rust-toolchain.toml"]
     if (ROOT / ".cargo/config.toml").exists():
@@ -335,6 +345,8 @@ def main():
     parser.add_argument("--timeout", type=int, default=780)
     parser.add_argument("--binary", type=Path, help="use an already built library test executable")
     parser.add_argument("--list", action="store_true", help="write the manifest without starting sessions")
+    parser.add_argument("--module", action="append", default=[], help="select a Rust module prefix; repeatable")
+    parser.add_argument("--ignored-only", action="store_true", help="select only ignored live tests")
     parser.add_argument("--merge", action="store_true", help="verify and merge three completed tier receipts")
     args = parser.parse_args()
     if args.timeout <= 0:
@@ -355,6 +367,8 @@ def main():
                 raise ValueError(f"the frozen artifact changed: {path}")
         if args.jobs != len(manifest["shards"]["openbox"]) or args.timeout != manifest["timeout"]:
             raise ValueError("output contains a different shard or deadline configuration")
+        if manifest.get("selection", {}) != dict(modules=args.module, ignored_only=args.ignored_only):
+            raise ValueError("output contains a different test selection")
     else:
         if args.merge:
             parser.error("--merge requires --output with an existing manifest")
@@ -363,6 +377,9 @@ def main():
         ignored = set(read_tests(binary, ignored=True))
         if not ignored <= set(names):
             raise ValueError("ignored tests are missing from the complete inventory")
+        validate_tiers(names)
+        names = select_tests(names, ignored, args.module, args.ignored_only)
+        ignored.intersection_update(names)
         frozen = output / "debug/deps/libtest"
         frozen.parent.mkdir(parents=True)
         shutil.copy2(binary, frozen)
@@ -375,11 +392,11 @@ def main():
         manifest = dict(binary=str(frozen), binary_sha256=hashlib.sha256(frozen.read_bytes()).hexdigest(),
                         cli=str(output / "debug/agent-desktop"), artifacts=artifacts,
                         source_sha256=source_hash(), tests=names, ignored=sorted(ignored),
+                        selection=dict(modules=args.module, ignored_only=args.ignored_only),
                         timeout=args.timeout, shards=plan(names, ignored, args.jobs))
         save(manifest_path, manifest)
     print(f"Manifest: {manifest_path}; {len(manifest['tests'])} tests, "
           f"{len(manifest['ignored'])} ignored", flush=True)
-    validate_tiers(manifest["tests"])
     if args.merge:
         return 0 if merge(manifest_path) else 1
     if args.list:
