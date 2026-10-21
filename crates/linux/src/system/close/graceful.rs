@@ -3,7 +3,6 @@ use agent_desktop_core::{AdapterError, DeliverySemantics};
 use super::Request;
 use super::refusal;
 use super::world::World;
-use crate::system::close_plan::{Step, next};
 use crate::system::liveness::Liveness;
 use crate::system::x11::control::{ControlError, ControlRead, Toplevel};
 
@@ -130,14 +129,10 @@ fn wait_gone(world: &impl World) -> Waited {
 /// deadline is a `TIMEOUT` with the request delivered and its effect
 /// unverified.
 pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<bool, AdapterError> {
-    let liveness = world.liveness();
-    match next(false, liveness, None, std::time::Duration::ZERO) {
-        Step::Done => return Ok(false),
-        Step::Unresponsive => return Err(AdapterError::app_unresponsive(request.name)),
-        Step::Request => {}
-        Step::Term | Step::Kill | Step::Wait => {
-            return Err(AdapterError::internal("a graceful close planned a signal"));
-        }
+    match world.liveness() {
+        Liveness::Gone => return Ok(false),
+        Liveness::Stopped => return Err(AdapterError::app_unresponsive(request.name)),
+        Liveness::Alive => {}
     }
     let sent = request_close(world, request)?;
     if !sent && world.liveness() == Liveness::Gone {

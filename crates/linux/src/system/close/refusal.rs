@@ -11,6 +11,10 @@ const PROMPT: &str = "A prompt, such as one asking to save, may be open. Answer 
 const FORCE: &str =
     "Retry with --force to end the process without a close request; it discards unsaved work.";
 
+fn refused(code: ErrorCode, message: impl Into<String>) -> AdapterError {
+    AdapterError::new(code, message).with_disposition(DeliverySemantics::not_delivered())
+}
+
 pub(super) fn protected(identifier: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::InvalidArgs,
@@ -23,38 +27,35 @@ pub(super) fn protected(identifier: &str) -> AdapterError {
 }
 
 pub(super) fn missing_token(request: &Request<'_>) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::InvalidArgs,
         "Exact close requires a process instance token",
     )
     .with_suggestion("Take the app from 'list-apps' and pass its process_instance.")
     .with_details(json!({ "app": request.name, "pid": request.pid }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn unreadable(request: &Request<'_>) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::ActionFailed,
         format!(
             "Process {} could not be read, so it was not closed",
             request.pid
         ),
     )
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn no_route(request: &Request<'_>) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::ActionNotSupported,
         "A close request needs an X11 session with a window manager; this session has none",
     )
     .with_suggestion(FORCE)
     .with_details(json!({ "app": request.name, "pid": request.pid }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn wayland_session(request: &Request<'_>) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::ActionNotSupported,
         "A Wayland compositor has no close request for another client's window",
     )
@@ -64,11 +65,10 @@ pub(super) fn wayland_session(request: &Request<'_>) -> AdapterError {
         "app": request.name,
         "pid": request.pid,
     }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn windowless(request: &Request<'_>) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::ActionFailed,
         format!(
             "No window of process {} could receive a close request",
@@ -77,28 +77,25 @@ pub(super) fn windowless(request: &Request<'_>) -> AdapterError {
     )
     .with_suggestion(RESIDENT)
     .with_details(json!({ "app": request.name, "pid": request.pid }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn send_failed(request: &Request<'_>, error: ControlError) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::ActionFailed,
         format!("The close request to process {} failed", request.pid),
     )
     .with_platform_detail(format!("{error:?}"))
     .with_suggestion(FORCE)
     .with_details(json!({ "app": request.name, "pid": request.pid }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn unavailable(request: &Request<'_>) -> AdapterError {
-    AdapterError::new(
+    refused(
         ErrorCode::ActionFailed,
         "The display server could not be reached for a close request",
     )
     .with_suggestion(FORCE)
     .with_details(json!({ "app": request.name, "pid": request.pid }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 pub(super) fn is_dialog(window: &Toplevel) -> bool {

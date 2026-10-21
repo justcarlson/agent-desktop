@@ -46,11 +46,7 @@ pub(crate) fn settles(focused: bool) -> bool {
 }
 
 fn settles_at(focused: bool, last: Option<Instant>, now: Instant) -> bool {
-    focused && within(last, now)
-}
-
-fn within(last: Option<Instant>, now: Instant) -> bool {
-    last.is_some_and(|at| now.saturating_duration_since(at) < WINDOW)
+    focused && last.is_some_and(|at| now.saturating_duration_since(at) < WINDOW)
 }
 
 #[cfg(test)]
