@@ -18,9 +18,7 @@ pub(crate) trait TextPort {
     fn delete(&self, start: i32, end: i32) -> Result<WriteReply, AdapterError>;
     fn insert(&self, position: i32, text: &str, length: i32) -> Result<WriteReply, AdapterError>;
     fn read(&self) -> Option<String>;
-    fn length_unit(&self) -> LengthUnit {
-        LengthUnit::Utf8Bytes
-    }
+    fn length_unit(&self) -> LengthUnit;
     fn caret(&self) -> Result<Option<CaretAndSelection>, AdapterError>;
 }
 

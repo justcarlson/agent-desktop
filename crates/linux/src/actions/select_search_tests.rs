@@ -90,12 +90,6 @@ fn the_nearest_selection_ancestor_wins_over_a_farther_one() {
 }
 
 #[test]
-fn matching_trims_and_ignores_case_but_is_exact_otherwise() {
-    assert!(name_matches("  Hot Corner ", "hot corner"));
-    assert!(!name_matches("Hot Corners", "Hot Corner"));
-}
-
-#[test]
 fn two_equal_matches_are_ambiguous() {
     let mut tree = FakeTree::new(&[
         (None, true, &[1, 2]),

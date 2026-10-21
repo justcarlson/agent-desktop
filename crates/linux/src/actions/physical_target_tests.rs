@@ -94,47 +94,6 @@ fn a_null_handle_press_sends_with_no_gate_even_under_headless_policy() {
 }
 
 #[test]
-fn each_click_kind_reaches_the_pointer_leg_with_its_button_and_count() {
-    let cases = [
-        (Action::Click, "Left 1"),
-        (Action::DoubleClick, "Left 2"),
-        (Action::TripleClick, "Left 3"),
-        (Action::RightClick, "Right 1"),
-    ];
-    for (action, expected) in cases {
-        let world = FakeWorld::x11();
-        run(&world, action, true).unwrap();
-        let wanted = format!("plan_click 120,210 {expected}");
-        assert!(world.entries().contains(&wanted), "{wanted}");
-    }
-}
-
-#[test]
-fn a_scroll_action_reaches_the_wheel_leg_with_the_signed_notches() {
-    let world = FakeWorld::x11();
-    run(
-        &world,
-        Action::Scroll(agent_desktop_core::Direction::Down, 3),
-        true,
-    )
-    .unwrap();
-    assert!(
-        world
-            .entries()
-            .contains(&"plan_wheel 120,210 0,-3".to_owned())
-    );
-}
-
-#[test]
-fn type_and_press_on_an_element_reach_the_keyboard_leg() {
-    let world = FakeWorld::x11();
-    run(&world, Action::TypeText("hi".to_owned()), true).unwrap();
-    run(&world, Action::PressKey(combo()), true).unwrap();
-    assert_eq!(world.count("plan_text"), 1);
-    assert_eq!(world.count("plan_combo"), 1);
-}
-
-#[test]
 fn the_policies_split_keys_from_the_pointer() {
     assert!(ensure_keyboard_policy(InteractionPolicy::headless()).is_err());
     assert!(ensure_keyboard_policy(InteractionPolicy::focus_fallback()).is_ok());

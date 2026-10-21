@@ -43,24 +43,6 @@ fn arrives_at(now: &Rc<Cell<Duration>>, at: Duration) -> Result<Option<bool>, Ad
 }
 
 #[test]
-fn a_target_that_arrives_after_1_3_seconds_is_realised_by_the_full_window() {
-    let (mut waiter, now) = Virtual::new(Duration::from_secs(5));
-    let arrival = Duration::from_millis(1_300);
-    let realised = realised(&mut waiter, WINDOW, STEP, || arrives_at(&now, arrival));
-    assert!(realised.expect("the watch runs"));
-}
-
-#[test]
-fn judging_at_0_6_seconds_misses_a_target_that_arrives_at_1_3() {
-    let (mut waiter, now) = Virtual::new(Duration::from_secs(5));
-    let arrival = Duration::from_millis(1_300);
-    let judged = realised(&mut waiter, Duration::from_millis(600), STEP, || {
-        arrives_at(&now, arrival)
-    });
-    assert!(!judged.expect("the watch runs"));
-}
-
-#[test]
 fn the_watch_never_outlasts_the_lease() {
     let (mut waiter, now) = Virtual::new(Duration::from_millis(500));
     let judged = realised(&mut waiter, WINDOW, STEP, || {

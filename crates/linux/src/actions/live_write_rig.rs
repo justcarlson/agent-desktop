@@ -13,8 +13,6 @@ pub(super) const ROLE_CHECK_BOX: u32 = 7;
 pub(super) const ROLE_TOGGLE_BUTTON: u32 = 62;
 pub(super) const ROLE_PROGRESS_BAR: u32 = 42;
 pub(super) const ROLE_PUSH_BUTTON: u32 = 43;
-pub(super) const ROLE_SLIDER: u32 = 51;
-pub(super) const EDITABLE_TEXT: &str = "org.a11y.atspi.EditableText";
 const CHECKED: u32 = 4;
 const PRESSED: u32 = 20;
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
@@ -87,13 +85,6 @@ impl Probe {
         reply.body().deserialize::<u32>().ok()
     }
 
-    pub(super) fn interfaces(&self, element: &AtspiElement) -> Vec<String> {
-        self.call(element, ACCESSIBLE, "GetInterfaces", &())
-            .ok()
-            .and_then(|reply| reply.body().deserialize::<Vec<String>>().ok())
-            .unwrap_or_default()
-    }
-
     pub(super) fn action_names(&self, element: &AtspiElement) -> Vec<String> {
         let Ok(reply) = self.call(element, "org.a11y.atspi.Action", "GetActions", &()) else {
             return Vec::new();
@@ -115,16 +106,6 @@ impl Probe {
         let reply = self.call(element, ACCESSIBLE, "GetState", &()).ok()?;
         let words = reply.body().deserialize::<Vec<u32>>().ok()?;
         Some(words.first()? & ((1 << CHECKED) | (1 << PRESSED)) != 0)
-    }
-
-    pub(super) fn text(&self, element: &AtspiElement) -> Option<String> {
-        let count = self
-            .property(element, "org.a11y.atspi.Text", "CharacterCount")
-            .and_then(|value| i32::try_from(value).ok())?;
-        let reply = self
-            .call(element, "org.a11y.atspi.Text", "GetText", &(0i32, count))
-            .ok()?;
-        reply.body().deserialize::<String>().ok()
     }
 
     pub(super) fn value(&self, element: &AtspiElement) -> Option<f64> {
@@ -218,15 +199,6 @@ impl Probe {
         self.find(pid, &|probe, element| {
             probe.role(element) == Some(role)
                 && name.is_none_or(|expected| probe.name(element) == expected)
-        })
-    }
-
-    pub(super) fn editable(&self, pid: u32) -> AtspiElement {
-        self.find(pid, &|probe, element| {
-            probe
-                .interfaces(element)
-                .iter()
-                .any(|name| name == EDITABLE_TEXT)
         })
     }
 

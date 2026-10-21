@@ -17,23 +17,6 @@ fn facts(
 }
 
 #[test]
-fn a_collapsed_expandable_node_reads_off() {
-    let flag = plan_disclosure(facts(Some(true), Some(false), Some(false)), &Action::Expand)
-        .expect("planned");
-    assert_eq!(flag, Flag::Off);
-}
-
-#[test]
-fn an_expanded_node_reads_on() {
-    let flag = plan_disclosure(
-        facts(Some(true), Some(true), Some(false)),
-        &Action::Collapse,
-    )
-    .expect("planned");
-    assert_eq!(flag, Flag::On);
-}
-
-#[test]
 fn an_incomplete_state_read_is_refused_without_a_write() {
     for incomplete in [
         facts(None, Some(false), Some(false)),

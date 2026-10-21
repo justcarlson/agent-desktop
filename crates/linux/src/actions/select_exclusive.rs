@@ -1,6 +1,5 @@
 use agent_desktop_core::AdapterError;
-use zbus::export::serde::Serialize;
-use zbus::zvariant::{DynamicType, OwnedValue};
+use zbus::zvariant::OwnedValue;
 
 use super::context::Target;
 use super::mutation::{WriteKind, WriteReply};
@@ -65,15 +64,8 @@ pub(super) fn exclusive_verdict(count: Option<i32>) -> Option<bool> {
     }
 }
 
-fn write(
-    holder: &Target<'_>,
-    call: Call<'_, impl Serialize + DynamicType>,
-) -> Result<bool, AdapterError> {
-    Ok(invoke(holder, call, true)? == WriteReply::Done)
-}
-
 pub(super) fn replace_with_only(holder: &Target<'_>, index: i32) -> Result<bool, AdapterError> {
-    let cleared = write(
+    let cleared = invoke(
         holder,
         Call {
             interface: SELECTION_INTERFACE,
@@ -81,11 +73,11 @@ pub(super) fn replace_with_only(holder: &Target<'_>, index: i32) -> Result<bool,
             body: &(),
             kind: WriteKind::ClearSelection,
         },
-    )?;
+    )? == WriteReply::Done;
     if !cleared {
         return Ok(false);
     }
-    write(
+    Ok(invoke(
         holder,
         Call {
             interface: SELECTION_INTERFACE,
@@ -93,7 +85,7 @@ pub(super) fn replace_with_only(holder: &Target<'_>, index: i32) -> Result<bool,
             body: &(index,),
             kind: WriteKind::SelectChild,
         },
-    )
+    )? == WriteReply::Done)
 }
 
 #[cfg(test)]

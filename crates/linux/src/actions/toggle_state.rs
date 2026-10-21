@@ -91,10 +91,6 @@ fn guard_role(role: Option<u32>, action: &Action) -> Result<(), AdapterError> {
     }
 }
 
-fn wanted_of(desired: Option<bool>, current: Flag) -> bool {
-    desired.unwrap_or(current == Flag::Off)
-}
-
 pub(super) fn drive_to(
     wanted: bool,
     current: Flag,
@@ -121,14 +117,6 @@ pub(super) fn drive_to(
     }
 }
 
-pub(super) fn reported_name(action: &Action, clicked: bool) -> &'static str {
-    if clicked {
-        Action::Click.name()
-    } else {
-        action.name()
-    }
-}
-
 pub(crate) fn toggle(
     target: &Target<'_>,
     desired: Option<bool>,
@@ -151,7 +139,7 @@ pub(super) fn toggle_reporting(
     let current = read_flag(&view)?;
     let names = names_of(&view)?;
     let verbs = toggle_verbs(desired);
-    let wanted = wanted_of(desired, current);
+    let wanted = desired.unwrap_or(current == Flag::Off);
     let run = || {
         drive_to(
             wanted,
@@ -174,7 +162,15 @@ pub(super) fn toggle_reporting(
             },
         )
     };
-    run_single_rung(reported_name(&action, clicked), target.deadline, run)
+    run_single_rung(
+        if clicked {
+            Action::Click.name()
+        } else {
+            action.name()
+        },
+        target.deadline,
+        run,
+    )
 }
 
 #[cfg(test)]

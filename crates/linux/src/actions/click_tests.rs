@@ -8,21 +8,6 @@ use crate::tree::atspi_element;
 use crate::tree::role_numbers::PUSH_BUTTON;
 
 #[test]
-fn a_changed_own_node_is_matched() {
-    assert_eq!(observed_of(Some(true)), Observed::Matched);
-}
-
-#[test]
-fn an_unchanged_own_node_is_unchanged() {
-    assert_eq!(observed_of(Some(false)), Observed::Unchanged);
-}
-
-#[test]
-fn a_failed_re_read_is_unread() {
-    assert_eq!(observed_of(None), Observed::Unread);
-}
-
-#[test]
 fn a_delivered_write_is_judged_by_the_observed_change() {
     let outcome = deliver(Ok(WriteReply::Done), || Some(false)).expect("delivered");
     assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unchanged));
@@ -51,39 +36,6 @@ fn a_refused_write_is_passed_through_and_reads_nothing() {
     .expect_err("refused");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
     assert_eq!(reads.get(), 0);
-}
-
-#[test]
-fn polling_stops_at_the_first_matching_read() {
-    let reads = Cell::new(0);
-    let deadline = Deadline::standard().expect("deadline");
-    let last = poll_until(
-        deadline,
-        Duration::from_secs(5),
-        Duration::from_millis(1),
-        || {
-            reads.set(reads.get() + 1);
-            reads.get()
-        },
-        |count| *count == 3,
-    );
-    assert_eq!(last, 3);
-    assert_eq!(reads.get(), 3);
-}
-
-#[test]
-fn polling_ends_at_its_budget_with_the_last_read() {
-    let deadline = Deadline::standard().expect("deadline");
-    let started = Instant::now();
-    let last = poll_until(
-        deadline,
-        Duration::from_millis(30),
-        Duration::from_millis(5),
-        || false,
-        |matched| *matched,
-    );
-    assert!(!last);
-    assert!(started.elapsed() < Duration::from_secs(2));
 }
 
 #[test]

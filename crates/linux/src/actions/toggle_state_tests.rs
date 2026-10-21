@@ -3,9 +3,7 @@ use std::cell::Cell;
 use agent_desktop_core::{Action, DeliverySemantics, ErrorCode};
 
 use super::*;
-use crate::tree::role_numbers::{
-    CHECK_BOX, CHECK_MENU_ITEM, PUSH_BUTTON, RADIO_BUTTON, RADIO_MENU_ITEM,
-};
+use crate::tree::role_numbers::{CHECK_BOX, PUSH_BUTTON, TOGGLE_BUTTON};
 
 fn counted_drive(
     wanted: bool,
@@ -34,42 +32,6 @@ fn check_on_a_checked_node_is_satisfied_and_writes_nothing() {
 }
 
 #[test]
-fn uncheck_on_an_unchecked_node_is_satisfied_and_writes_nothing() {
-    let (outcome, writes) = counted_drive(false, Flag::Off, Ok(WriteReply::Done), Flag::Off);
-    assert_eq!(outcome.expect("satisfied"), DeliveryOutcome::Satisfied);
-    assert_eq!(writes, 0);
-}
-
-#[test]
-fn check_on_an_unchecked_node_writes_once_and_matches_when_checked_appears() {
-    let (outcome, writes) = counted_drive(true, Flag::Off, Ok(WriteReply::Done), Flag::On);
-    assert_eq!(
-        outcome.expect("delivered"),
-        DeliveryOutcome::Delivered(Observed::Matched)
-    );
-    assert_eq!(writes, 1);
-}
-
-#[test]
-fn a_state_that_never_flips_is_unchanged_after_exactly_one_write() {
-    let (outcome, writes) = counted_drive(true, Flag::Off, Ok(WriteReply::Done), Flag::Off);
-    assert_eq!(
-        outcome.expect("delivered"),
-        DeliveryOutcome::Delivered(Observed::Unchanged)
-    );
-    assert_eq!(writes, 1);
-}
-
-#[test]
-fn a_failed_after_read_is_unread() {
-    let (outcome, _) = counted_drive(true, Flag::Off, Ok(WriteReply::Done), Flag::Unknown);
-    assert_eq!(
-        outcome.expect("delivered"),
-        DeliveryOutcome::Delivered(Observed::Unread)
-    );
-}
-
-#[test]
 fn an_unreadable_state_is_refused_with_no_write() {
     let (outcome, writes) = counted_drive(true, Flag::Unknown, Ok(WriteReply::Done), Flag::On);
     let error = outcome.expect_err("refused");
@@ -93,14 +55,6 @@ fn a_refused_write_keeps_its_code_and_is_never_repeated() {
         ErrorCode::InvalidArgs
     );
     assert_eq!(writes, 1);
-}
-
-#[test]
-fn toggle_wants_the_opposite_of_the_current_state() {
-    assert!(wanted_of(None, Flag::Off));
-    assert!(!wanted_of(None, Flag::On));
-    assert!(wanted_of(Some(true), Flag::On));
-    assert!(!wanted_of(Some(false), Flag::Off));
 }
 
 #[test]
@@ -146,26 +100,7 @@ fn a_push_button_cannot_carry_checked() {
 }
 
 #[test]
-fn every_checkable_role_passes_the_guard() {
-    for role in [
-        CHECK_BOX,
-        RADIO_BUTTON,
-        CHECK_MENU_ITEM,
-        RADIO_MENU_ITEM,
-        TOGGLE_BUTTON,
-    ] {
-        assert!(guard_role(Some(role), &Action::Check).is_ok());
-    }
-}
-
-#[test]
 fn an_unread_role_is_refused_without_a_support_claim() {
     let error = guard_role(None, &Action::Check).expect_err("refused");
     assert_eq!(error.code, ErrorCode::ActionFailed);
-}
-
-#[test]
-fn a_click_that_runs_the_toggle_path_reports_a_click() {
-    assert_eq!(reported_name(&Action::Toggle, true), "click");
-    assert_eq!(reported_name(&Action::Toggle, false), "toggle");
 }

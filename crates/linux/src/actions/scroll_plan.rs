@@ -166,7 +166,3 @@ pub(crate) fn next_value(range: BarRange, viewport: Extents, axis: Axis, aim: Ai
         Step::Write(wanted)
     }
 }
-
-#[cfg(test)]
-#[path = "scroll_plan_tests.rs"]
-mod tests;

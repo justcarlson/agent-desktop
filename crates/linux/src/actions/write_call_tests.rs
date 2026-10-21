@@ -82,7 +82,6 @@ fn a_deadline_spent_before_the_message_leaves_is_not_delivered() {
             body: &(0i32,),
             kind: WriteKind::DoAction,
         },
-        true,
     )
     .expect_err("no budget is left");
     assert_eq!(error.code, ErrorCode::Timeout);

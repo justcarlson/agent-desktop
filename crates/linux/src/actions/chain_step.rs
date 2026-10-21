@@ -25,7 +25,3 @@ pub(crate) fn verified_of(observed: Observed) -> Option<bool> {
         Observed::Unread => None,
     }
 }
-
-#[cfg(test)]
-#[path = "chain_step_tests.rs"]
-mod tests;

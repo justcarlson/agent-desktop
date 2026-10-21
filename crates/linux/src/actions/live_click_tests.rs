@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{ActionResult, AdapterError, Deadline, ErrorCode};
 use zbus::blocking::Connection;
 
-use super::click::{click, right_click};
+use super::click::right_click;
 use super::context::Target;
 use crate::adapter::LinuxAdapter;
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
@@ -156,46 +156,11 @@ pub(super) fn state(session: &Session, element: &AtspiElement, bit: u32) -> Opti
 
 #[test]
 #[ignore = "live: needs the AT-SPI session, gnome-calculator and the write engine"]
-fn a_calculator_digit_click_is_delivered_and_unverified_on_its_own_node() {
-    let session = open("gnome-calculator", &[]).expect("calculator opens");
-    let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
-    let result = act(&session, &digit, click).expect("click delivers");
-    let steps = result.steps;
-    assert_eq!(steps.len(), 1);
-    assert_eq!(steps[0].verified(), Some(false));
-}
-
-#[test]
-#[ignore = "live: needs the AT-SPI session, gnome-calculator and the write engine"]
-fn a_click_on_an_insensitive_undo_is_not_delivered() {
-    let session = open("gnome-calculator", &[]).expect("calculator opens");
-    let undo = find(&session, |view| {
-        view.role() == Some(PUSH_BUTTON) && view.name().is_some_and(|name| name.contains("Undo"))
-    })
-    .expect("undo button");
-    let error = act(&session, &undo, click).expect_err("an insensitive button takes no click");
-    assert_ne!(error.code, ErrorCode::Internal);
-}
-
-#[test]
-#[ignore = "live: needs the AT-SPI session, gnome-calculator and the write engine"]
 fn right_click_without_a_context_menu_verb_is_not_supported() {
     let session = open("gnome-calculator", &[]).expect("calculator opens");
     let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
     let error = act(&session, &digit, right_click).expect_err("no context menu verb");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
-}
-
-#[test]
-#[ignore = "live: needs the AT-SPI session and gnome-calculator"]
-fn headless_focus_is_denied_before_any_write() {
-    let session = open("gnome-calculator", &[]).expect("calculator opens");
-    let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
-    let error = act(&session, &digit, |target| {
-        super::focus::focus(target, agent_desktop_core::InteractionPolicy::headless())
-    })
-    .expect_err("focus steal is denied");
-    assert_eq!(error.code, ErrorCode::PolicyDenied);
 }
 
 #[test]

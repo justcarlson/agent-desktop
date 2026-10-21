@@ -12,13 +12,9 @@ window = Gtk.Window(title="adw-" + sys.argv[1])
 outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 flag = Gtk.CheckButton(label="Flag")
 victim = Gtk.Button(label="Victim")
-entry = Gtk.Entry()
-entry.set_text("start")
-scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
-scale.set_value(10)
 progress = Gtk.ProgressBar()
 progress.set_fraction(0.5)
-for part in (flag, victim, entry, scale, progress):
+for part in (flag, victim, progress):
     outer.pack_start(part, False, False, 0)
 window.add(outer)
 parts.update(window=window, victim=victim)
@@ -34,13 +30,9 @@ def activate(app):
     outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     flag = Gtk.ToggleButton(label="Flag")
     victim = Gtk.Button(label="Victim")
-    entry = Gtk.Entry()
-    entry.set_text("start")
-    scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
-    scale.set_value(10)
     progress = Gtk.ProgressBar()
     progress.set_fraction(0.5)
-    for part in (flag, victim, entry, scale, progress):
+    for part in (flag, victim, progress):
         outer.append(part)
     window.set_child(outer)
     parts.update(window=window, outer=outer, victim=victim)
@@ -104,9 +96,9 @@ def poll():
 
 const QT: &str = r#"
 import sys
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton,
-                             QLineEdit, QCheckBox, QSlider, QProgressBar)
+                             QCheckBox, QProgressBar)
 commands = sys.argv[2]
 app = QApplication(sys.argv)
 window = QMainWindow()
@@ -115,15 +107,10 @@ central = QWidget()
 column = QVBoxLayout(central)
 flag = QCheckBox("Flag")
 victim = QPushButton("Victim")
-entry = QLineEdit()
-entry.setText("start")
-scale = QSlider(Qt.Orientation.Horizontal)
-scale.setRange(0, 100)
-scale.setValue(10)
 progress = QProgressBar()
 progress.setRange(0, 100)
 progress.setValue(50)
-for part in (flag, victim, entry, scale, progress):
+for part in (flag, victim, progress):
     column.addWidget(part)
 window.setCentralWidget(central)
 window.setGeometry(100, 100, 480, 360)
@@ -204,29 +191,6 @@ impl Drop for App {
     }
 }
 
-fn qt_environment() -> (String, Vec<(&'static str, String)>) {
-    let home = std::env::var("HOME").expect("HOME is set");
-    let python = format!("{home}/.local/ad-tools/qtvenv/bin/python");
-    assert!(
-        std::path::Path::new(&python).exists(),
-        "the Qt test environment was not found at {python}"
-    );
-    let libraries = format!("{home}/.local/ad-tools/root/usr/lib/x86_64-linux-gnu");
-    let library_path = match std::env::var("LD_LIBRARY_PATH") {
-        Ok(existing) if !existing.is_empty() => format!("{libraries}:{existing}"),
-        _ => libraries,
-    };
-    (
-        python,
-        vec![
-            ("QT_ACCESSIBILITY", "1".to_owned()),
-            ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
-            ("QT_QPA_PLATFORM", "xcb".to_owned()),
-            ("LD_LIBRARY_PATH", library_path),
-        ],
-    )
-}
-
 pub(super) fn launch(toolkit: &str) -> App {
     let mut launched = Launched::new();
     let dir = std::env::temp_dir().join(nonce("write"));
@@ -242,7 +206,8 @@ pub(super) fn launch(toolkit: &str) -> App {
     let commands = dir.join("commands");
     std::fs::write(&commands, "").expect("the command file is written");
     let (program, env) = if toolkit == "qt" {
-        qt_environment()
+        crate::actions::live_bench_env::qt_environment()
+            .expect("the Qt test environment is available")
     } else {
         ("python3".to_owned(), Vec::new())
     };

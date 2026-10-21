@@ -8,8 +8,8 @@ use zbus::zvariant::DynamicType;
 
 use super::context::Target;
 use super::mutation::{
-    Abort, Corroboration, Verdict, WriteKind, WriteReply, abort_error, classify_write,
-    deadline_error, fault_of, needs_corroboration,
+    Abort, Corroboration, Fault, Verdict, WriteKind, WriteReply, abort_error, classify_write,
+    deadline_error, fault_of,
 };
 use crate::system::{ensure_budget, within};
 use crate::tree::action_read::corroborate;
@@ -33,15 +33,14 @@ fn judge_failure(
     target: &Target<'_>,
     error: &zbus::Error,
     kind: WriteKind,
-    advertised: bool,
 ) -> Result<WriteReply, AdapterError> {
     let fault = fault_of(error);
-    let corroboration = if needs_corroboration(fault, advertised) {
+    let corroboration = if matches!(fault, Fault::ObjectUnknown | Fault::InterfaceMissing) {
         corroborate(target.bus, target.element, target.deadline)
     } else {
         Corroboration::NotRead
     };
-    match classify_write(fault, kind, advertised, corroboration) {
+    match classify_write(fault, kind, corroboration) {
         Verdict::Absent => Ok(WriteReply::Absent),
         Verdict::Abort(abort) => Err(abort_error(abort, kind, Some(error))),
     }
@@ -57,7 +56,6 @@ pub(crate) struct Call<'a, B> {
 pub(crate) fn invoke<B: Serialize + DynamicType>(
     target: &Target<'_>,
     call: Call<'_, B>,
-    advertised: bool,
 ) -> Result<WriteReply, AdapterError> {
     let Call {
         interface,
@@ -92,7 +90,7 @@ pub(crate) fn invoke<B: Serialize + DynamicType>(
             if connection_lost(&error) {
                 target.bus.forget(&connection);
             }
-            judge_failure(target, &error, kind, advertised)
+            judge_failure(target, &error, kind)
         }
     }
 }

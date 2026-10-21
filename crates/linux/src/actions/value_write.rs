@@ -48,7 +48,6 @@ pub(crate) fn route(role: Option<u32>, interfaces: Option<&[String]>) -> Route {
 
 struct LiveText<'a> {
     target: &'a Target<'a>,
-    advertised: bool,
 }
 
 impl LiveText<'_> {
@@ -67,7 +66,6 @@ impl LiveText<'_> {
                 body,
                 kind,
             },
-            self.advertised,
         )
     }
 }
@@ -121,7 +119,6 @@ impl NumericPort for LiveNumeric<'_> {
                 body: &(VALUE_INTERFACE, "CurrentValue", Value::from(value)),
                 kind: WriteKind::SetProperty,
             },
-            true,
         )
     }
 
@@ -166,10 +163,6 @@ fn unsupported(action: &str) -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
-fn view_of(target: &Target<'_>) -> Result<NodeView, AdapterError> {
-    target.view()
-}
-
 fn ensure_writable(view: &NodeView) -> Result<(), AdapterError> {
     if writable(view.state(READ_ONLY), view.state(EDITABLE)) {
         Ok(())
@@ -203,7 +196,7 @@ const TYPE: ChainDef = ChainDef {
 };
 
 pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult, AdapterError> {
-    let view = view_of(target)?;
+    let view = target.view()?;
     match route(view.role(), view.interfaces()) {
         Route::Unsupported => Err(unsupported("set a value")),
         Route::Numeric { spin_button } => {
@@ -216,10 +209,7 @@ pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult,
         Route::Text => {
             ensure_writable(&view)?;
             ensure_toolkit_applies_writes(target)?;
-            let port = LiveText {
-                target,
-                advertised: text_advertised(view.interfaces()),
-            };
+            let port = LiveText { target };
             let mut rungs = text_write::replace_rungs(&port, text, secure_view(&view));
             execute_chain(&SET_VALUE, &mut rungs, target.deadline)
         }
@@ -227,22 +217,19 @@ pub(crate) fn set_value(target: &Target<'_>, text: &str) -> Result<ActionResult,
 }
 
 pub(crate) fn clear(target: &Target<'_>) -> Result<ActionResult, AdapterError> {
-    let view = view_of(target)?;
+    let view = target.view()?;
     if !text_advertised(view.interfaces()) {
         return Err(unsupported("clear"));
     }
     ensure_writable(&view)?;
     ensure_toolkit_applies_writes(target)?;
-    let port = LiveText {
-        target,
-        advertised: true,
-    };
+    let port = LiveText { target };
     let mut rungs = text_write::replace_rungs(&port, "", secure_view(&view));
     execute_chain(&CLEAR, &mut rungs, target.deadline)
 }
 
 pub(crate) fn type_text(target: &Target<'_>, text: &str) -> Result<ActionResult, AdapterError> {
-    let view = view_of(target)?;
+    let view = target.view()?;
     if !text_advertised(view.interfaces()) {
         return Err(super::click::no_semantic_verb(&Action::TypeText(
             String::new(),
@@ -250,10 +237,7 @@ pub(crate) fn type_text(target: &Target<'_>, text: &str) -> Result<ActionResult,
     }
     ensure_writable(&view)?;
     ensure_toolkit_applies_writes(target)?;
-    let port = LiveText {
-        target,
-        advertised: true,
-    };
+    let port = LiveText { target };
     let mut rungs = text_write::insert_rungs(&port, text, secure_view(&view));
     execute_chain(&TYPE, &mut rungs, target.deadline)
 }

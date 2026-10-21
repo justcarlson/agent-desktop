@@ -8,7 +8,7 @@ use super::click::{click, right_click};
 use super::context::Target;
 use super::disclosure::set_expanded;
 use super::focus::focus;
-use super::physical_delivery::physical_delivery;
+use super::physical_target::deliver;
 use super::process_check::verify_process;
 use super::scroll_wrap::scroll_to;
 use super::select::select;
@@ -109,7 +109,7 @@ pub(crate) fn execute_action(
     let element = target_element(handle, &request.action)?;
     ensure_budget(deadline)?;
     let Some(element) = element else {
-        return physical_delivery(bus, &request.action, None, &request, lease);
+        return deliver(bus, &request.action, None, &request, lease);
     };
     verify_process(bus, element, request.expected_process(), deadline)?;
     let target = Target {
@@ -120,13 +120,13 @@ pub(crate) fn execute_action(
     };
     let semantic = match &request.action {
         Action::Click if request.policy.is_headed() => physical_first(
-            || physical_delivery(bus, &request.action, Some(element), &request, lease),
+            || deliver(bus, &request.action, Some(element), &request, lease),
             || click(&target),
         ),
         Action::Click => click(&target),
         Action::RightClick => right_click_dispatch(
             request.policy,
-            || physical_delivery(bus, &request.action, Some(element), &request, lease),
+            || deliver(bus, &request.action, Some(element), &request, lease),
             || right_click(&target),
         ),
         Action::Toggle => toggle(&target, None),
@@ -139,13 +139,13 @@ pub(crate) fn execute_action(
         Action::SetValue(text) => set_value(&target, text),
         Action::Clear => clear(&target),
         Action::TypeText(text) if request.policy.is_headed() => physical_first(
-            || physical_delivery(bus, &request.action, Some(element), &request, lease),
+            || deliver(bus, &request.action, Some(element), &request, lease),
             || type_text(&target, text),
         ),
         Action::TypeText(text) => type_text(&target, text),
         Action::ScrollTo => scroll_to(bus, handle, lease),
         Action::DoubleClick | Action::TripleClick | Action::Scroll(_, _) | Action::PressKey(_) => {
-            physical_delivery(bus, &request.action, Some(element), &request, lease)
+            deliver(bus, &request.action, Some(element), &request, lease)
         }
         Action::Hover | Action::Drag(_) | Action::KeyDown(_) | Action::KeyUp(_) => {
             Err(handled_by_core(&request.action))
@@ -153,7 +153,7 @@ pub(crate) fn execute_action(
     };
     match semantic {
         Err(error) if reaches_physical_without_verb(&request.action) && has_no_verb(&error) => {
-            physical_delivery(bus, &request.action, Some(element), &request, lease)
+            deliver(bus, &request.action, Some(element), &request, lease)
         }
         other => other.map_err(|error| {
             name_stopped_target(error, element.pid(), crate::system::proc_stat::is_stopped)

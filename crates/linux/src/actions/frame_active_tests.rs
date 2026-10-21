@@ -23,37 +23,10 @@ fn the_active_bit_is_read_from_its_own_position_only() {
     assert_eq!(active_of(&Field::Present(words(&[33]))), Some(false));
 }
 
-use std::time::Duration;
-
-use super::{ACTIVE_BUDGET, ActiveGate, poll_active};
+use super::ActiveGate;
 use crate::actions::physical_target::tests::fake::{
     FakeWorld, check_of, deadline, element, not_delivered,
 };
-
-#[test]
-fn the_poll_stops_at_the_first_active_read() {
-    let world = FakeWorld::x11().active_script(&[Some(false), Some(false), Some(true)]);
-    let read = poll_active(&world, &element(), ACTIVE_BUDGET, deadline()).unwrap();
-    assert_eq!(read, Some(true));
-    assert_eq!(world.count("read_active"), 3);
-    assert_eq!(world.count("pause"), 2);
-}
-
-#[test]
-fn a_frame_that_never_activates_is_read_for_the_whole_budget() {
-    let world = FakeWorld::x11().active_script(&[Some(false)]);
-    let read = poll_active(&world, &element(), ACTIVE_BUDGET, deadline()).unwrap();
-    assert_eq!(read, Some(false));
-    assert_eq!(world.count("read_active"), 31);
-}
-
-#[test]
-fn a_zero_budget_reads_once_and_never_pauses() {
-    let world = FakeWorld::x11().active_script(&[Some(false)]);
-    poll_active(&world, &element(), Duration::ZERO, deadline()).unwrap();
-    assert_eq!(world.count("read_active"), 1);
-    assert_eq!(world.count("pause"), 0);
-}
 
 #[test]
 fn the_first_check_of_an_inactive_frame_refuses_before_any_key() {

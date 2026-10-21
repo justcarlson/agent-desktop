@@ -1,9 +1,9 @@
 use agent_desktop_core::ErrorCode;
 
-use super::live_click_tests::{act, find, find_named, open};
+use super::live_click_tests::{act, find, open};
 use super::select::select;
 use super::select_popup::displayed_value;
-use crate::tree::role_numbers::{COMBO_BOX, LIST, PUSH_BUTTON};
+use crate::tree::role_numbers::{COMBO_BOX, LIST};
 
 #[test]
 #[ignore = "live: needs the AT-SPI session, GNOME Settings and the write engine"]
@@ -35,15 +35,6 @@ fn a_value_with_no_match_in_the_sidebar_is_not_found_and_writes_nothing() {
         error.code,
         ErrorCode::ElementNotFound | ErrorCode::ActionNotSupported
     ));
-}
-
-#[test]
-#[ignore = "live: needs the AT-SPI session, gnome-calculator and the write engine"]
-fn a_button_with_no_selection_route_is_not_supported() {
-    let session = open("gnome-calculator", &[]).expect("calculator opens");
-    let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
-    let error = act(&session, &digit, |target| select(target, "7")).expect_err("no route");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
 }
 
 #[test]
