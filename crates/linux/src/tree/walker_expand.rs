@@ -117,7 +117,9 @@ impl<'a> LevelReader<'a> {
                     if !at_root && element.pid() == UNKNOWN_PID {
                         Err(AdapterError::new(ErrorCode::ElementNotFound, UNIDENTIFIED))
                     } else {
-                        read_observed(connection, element, max_bytes).await
+                        read_observed_with_liveness(connection, element, max_bytes)
+                            .await
+                            .map(|(read, _)| read)
                     }
                 }))
                 .buffered(NODES_IN_FLIGHT)
@@ -149,16 +151,6 @@ impl<'a> LevelReader<'a> {
                 .collect())
         })
     }
-}
-
-pub(super) async fn read_observed(
-    connection: &Connection,
-    element: &AtspiElement,
-    max_field_bytes: usize,
-) -> Result<ObservedRead, AdapterError> {
-    read_observed_with_liveness(connection, element, max_field_bytes)
-        .await
-        .map(|(read, _)| read)
 }
 
 /// The walk's own per-node read, with the liveness the node's `GetRole` showed.

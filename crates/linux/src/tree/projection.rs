@@ -36,23 +36,6 @@ fn window_bounds(read: &ObservedRead) -> LocatorField<Rect> {
     }
 }
 
-/// The identifiers a ref can store. A node its own identifier or stable text
-/// names is left alone: the AT-SPI object path moves when siblings are
-/// reordered, so it is not identity evidence and must not override a name. A
-/// node that has neither stores the object path as a retained object, so a
-/// bare ref can still name one widget; a ref that carries neither identity nor
-/// a retained object stays unverifiable.
-fn identifiers_with_retained_object(
-    read: &ObservedRead,
-    identifiers: IdentifierEvidence,
-    named: bool,
-) -> IdentifierEvidence {
-    if named {
-        return identifiers;
-    }
-    identifiers.with_retained_object(read.node.element.path().to_owned())
-}
-
 /// Whether the node's read settled enough to say its identifier and stable
 /// text do not name it. An unreadable field could hide a name, so it withholds
 /// the claim.
@@ -109,10 +92,6 @@ impl Projector<'_> {
             as u64
     }
 
-    fn evidence(&mut self, node: &WalkedNode<ObservedRead>) -> LocatorEvidence {
-        self.evidence_of(&node.payload, node.in_web_document)
-    }
-
     fn evidence_of(&mut self, read: &ObservedRead, in_web_document: bool) -> LocatorEvidence {
         let vocabulary = resolve_vocabulary(&read.node, &read.label, in_web_document);
         let truncated_value = u64::from(read.value.truncated);
@@ -128,14 +107,20 @@ impl Projector<'_> {
         let value = value_of(read);
         let window_bounds = window_bounds(read);
         let bounds = bounds_of(&read.node.extents);
-        let named = !identity_is_absent(
+        let identity_is_absent = identity_is_absent(
             &vocabulary.role,
             &name,
             &description,
             &value,
             &vocabulary.identifiers,
         );
-        let identifiers = identifiers_with_retained_object(read, vocabulary.identifiers, named);
+        let identifiers = if identity_is_absent {
+            vocabulary
+                .identifiers
+                .with_retained_object(read.node.element.path().to_owned())
+        } else {
+            vocabulary.identifiers
+        };
         LocatorEvidence {
             role: vocabulary.role,
             name,
@@ -159,7 +144,7 @@ impl Projector<'_> {
         is_root: bool,
         decorate: &mut dyn Decorate,
     ) -> ObservedSubtree {
-        let mut evidence = self.evidence(&node);
+        let mut evidence = self.evidence_of(&node.payload, node.in_web_document);
         let WalkedNode {
             payload,
             children,

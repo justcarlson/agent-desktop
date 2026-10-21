@@ -6,7 +6,7 @@ use agent_desktop_core::{
     ObservedTree, Rect, WindowInfo, WindowState,
 };
 
-use super::{Projector, project};
+use super::{Projector, project, project_node};
 use crate::tree::role_numbers::{PANEL, PUSH_BUTTON, SLIDER};
 use crate::tree::test_support::read_of;
 use crate::tree::value_read::ValueRead;
@@ -36,11 +36,7 @@ fn node_of(read: ObservedRead) -> WalkedNode<ObservedRead> {
 
 fn evidence_of(read: ObservedRead) -> agent_desktop_core::LocatorEvidence {
     let limits = WalkLimits::default();
-    let mut projector = Projector {
-        limits: &limits,
-        stats: LocatorStats::default(),
-    };
-    projector.evidence(&node_of(read))
+    project_node(&read, false, &limits)
 }
 
 fn walk(
@@ -222,11 +218,8 @@ fn a_name_over_the_field_budget_is_cut_and_counted() {
         limits: &limits,
         stats: LocatorStats::default(),
     };
-    let evidence = projector.evidence(&node_of(read_of(
-        PUSH_BUTTON,
-        "a very long name",
-        &["click"],
-    )));
+    let read = read_of(PUSH_BUTTON, "a very long name", &["click"]);
+    let evidence = projector.evidence_of(&read, false);
     assert_eq!(evidence.name, LocatorField::Known("a very l".to_owned()));
     assert_eq!(projector.stats.traversal.limits.text_hits, 1);
 }
