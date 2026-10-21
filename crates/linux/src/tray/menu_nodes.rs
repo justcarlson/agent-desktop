@@ -6,7 +6,7 @@ use super::menu_layout::{Layout, LayoutEntry};
 use super::node_evidence::{ENTRY_ROLE, SEPARATOR_ROLE, fresh};
 
 pub(crate) fn states_of(entry: &LayoutEntry) -> Vec<String> {
-    let mut states = vec![state::OFFSCREEN.to_owned()];
+    let mut states = Vec::new();
     if !entry.enabled {
         states.push(state::DISABLED.to_owned());
     }

@@ -13,6 +13,6 @@ fn a_watcher_that_vanishes_during_the_read_is_not_treated_as_an_empty_list() {
             .suggestion
             .as_deref()
             .unwrap_or_default()
-            .contains("AppIndicator")
+            .contains("org.kde.StatusNotifierWatcher")
     );
 }

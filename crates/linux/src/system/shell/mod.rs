@@ -20,7 +20,7 @@ pub(crate) mod light;
 pub(crate) mod live_state;
 pub(crate) mod open;
 pub(crate) mod search;
-pub(crate) mod tray_decorator;
+mod tray_tree;
 pub(crate) mod window_gate;
 
 #[cfg(test)]
@@ -29,6 +29,8 @@ mod fake_tree;
 mod live_wayland_tests;
 #[cfg(test)]
 mod outage_live_tests;
+#[cfg(test)]
+mod owner_live_tests;
 
 const SUPPORT_BUDGET_MS: u64 = 3_000;
 
@@ -38,6 +40,9 @@ pub(crate) fn supported(bus: &SharedBus) -> Vec<SnapshotSurface> {
         return Vec::new();
     };
     kinds::advertised(&detect::detect(bus, deadline))
+        .into_iter()
+        .filter(|surface| resolve_surface(bus, *surface, deadline).is_ok())
+        .collect()
 }
 
 /// The answer for a gnome-shell process that this session's accessibility
@@ -47,8 +52,8 @@ pub(crate) fn not_this_sessions_shell() -> AdapterError {
     identity::tree_absent("the shell process is not on this session's accessibility bus")
 }
 
-pub(crate) fn is_shell_comm(comm: &str) -> bool {
-    identity::is_shell_comm(comm)
+pub(crate) fn is_shell_process(pid: u32) -> bool {
+    identity::is_shell_process(pid)
 }
 
 /// Whether the element belongs to the desktop shell rather than to an application.
@@ -120,8 +125,7 @@ pub(crate) fn observe_shell(
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
         detect::require_watcher(request.deadline)?;
         let view = crate::tray::view::read(request.deadline)?;
-        let mut decorator = tray_decorator::TrayDecorator::new(view);
-        return crate::tree::observe_tree_with(bus, root, &inner, &mut decorator);
+        return tray_tree::logical_tree(&view, window, request.surface);
     }
     crate::tree::observe_tree(bus, root, &inner)
 }

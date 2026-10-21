@@ -1,26 +1,22 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, ElementState, LiveElement, LiveIdentity, LocatorField, Rect, state,
+    AdapterError, Deadline, ElementState, LiveElement, LiveIdentity, LocatorField, Rect,
 };
 
 use super::menu_layout::LayoutEntry;
-use super::node_evidence::{ITEM_ROLE, identifiers, item_states, name_field, presence};
-use super::world::{LiveWorld, ShellWorld, shared_bus};
+use super::node_evidence::{ITEM_ROLE, identifiers, item_states, name_field};
 use super::{
     TrayTarget, call, capability, introspect, item_props, menu_layout, menu_nodes, menu_resolve,
 };
 
-pub(super) fn entry_state(entry: &LayoutEntry, role: &str, offscreen: bool) -> ElementState {
-    let mut states = menu_nodes::states_of(entry);
-    if !offscreen {
-        states.retain(|token| token != state::OFFSCREEN);
-    }
+pub(super) fn entry_state(entry: &LayoutEntry, role: &str) -> ElementState {
+    let states = menu_nodes::states_of(entry);
     ElementState {
         role: role.to_owned(),
         states,
         value: None,
         enabled: Some(entry.enabled),
         hidden: Some(false),
-        offscreen: offscreen.then_some(true),
+        offscreen: None,
     }
 }
 
@@ -51,23 +47,16 @@ pub(crate) fn element(
         )?);
         (props.title.clone(), capability::actions(&methods))
     };
-    let observed = LiveWorld::new(shared_bus()).panel_extents(&props.title, deadline);
-    let (bounds, offscreen) = presence(observed);
     let element_state = if let Some(entry) = entry {
-        entry_state(entry, menu_nodes::role_of(entry), offscreen)
+        entry_state(entry, menu_nodes::role_of(entry))
     } else {
-        let on_screen_states = if offscreen {
-            vec![state::OFFSCREEN.to_owned()]
-        } else {
-            Vec::new()
-        };
         ElementState {
             role: ITEM_ROLE.to_owned(),
-            states: item_states(props.passive, on_screen_states),
+            states: item_states(props.passive, Vec::new()),
             value: None,
             enabled: Some(true),
             hidden: Some(props.passive),
-            offscreen: Some(offscreen),
+            offscreen: None,
         }
     };
     Ok(LiveElement {
@@ -78,7 +67,7 @@ pub(crate) fn element(
         },
         state: element_state,
         states_complete: true,
-        bounds,
+        bounds: None,
         available_actions: actions,
     })
 }

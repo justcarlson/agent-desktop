@@ -1,10 +1,10 @@
 use agent_desktop_core::{
-    AccessibilityNode, ObservationSource, ObservedSubtree, ObservedTree, ProcessId, RefEntry,
-    SnapshotSurface, WindowInfo, WindowState, ref_alloc::is_ref_able,
+    AccessibilityNode, ObservationSource, ObservedTree, ProcessId, RefEntry, SnapshotSurface,
+    WindowInfo, WindowState, ref_alloc::is_ref_able,
 };
 
 use super::menu_layout::{Prop, RawEntry, parse};
-use super::node_evidence::{SEPARATOR_ROLE, fresh};
+use super::node_evidence::SEPARATOR_ROLE;
 use super::view::{TrayItem, TrayView};
 use super::{TrayTarget, item_props::ItemProps, owns, resolve};
 use crate::tree::test_support::ref_entry;
@@ -51,9 +51,7 @@ fn projected() -> AccessibilityNode {
         layout: Some(layout),
     };
     let view = TrayView { items: vec![item] };
-    let mut panel = fresh("menu", "Dropbox", &view.items[0].target, vec![], vec![]);
-    let children = view.decorate(0, &mut panel, 0);
-    let root = ObservedSubtree::new(panel, children, true, None);
+    let root = view.subtrees().pop().expect("one watcher item");
     let window = WindowInfo {
         id: "w-1".into(),
         title: "Tray".into(),

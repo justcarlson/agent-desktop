@@ -86,6 +86,47 @@ fn tray_live_context_menu_uses_the_primary_context_method() {
 }
 
 #[test]
+#[ignore = "protocol receivers with colliding shell labels; private session only"]
+fn tray_live_system_titles_use_only_their_own_advertised_protocol_methods() {
+    let mut rig = Rig::new("system-title");
+    rig.spawn(&["watcher", "watcher"]);
+    rig.spawn(&["kde", "KdeItem", "System", "menu"]);
+    rig.spawn(&["ayatana", "AyaItem", "System", "menu"]);
+    let view = rig.view();
+    assert_eq!(view.items.len(), 2);
+    assert_ne!(view.items[0].target.owner, view.items[1].target.owner);
+    for item in &view.items {
+        let live = super::live::element(&item.target, super::live_rig::deadline(5_000)).unwrap();
+        assert!(live.bounds.is_none());
+        assert_eq!(live.state.offscreen, None);
+        let handle = rig.resolve(&rig.item_entry(item)).unwrap();
+        for request in [
+            ActionRequest::headless(Action::Click),
+            ActionRequest::headed(Action::Click),
+        ] {
+            let result = rig.adapter.execute_action(&handle, request, &lease());
+            if item.methods.iter().any(|method| method == "Activate") {
+                result.expect("the item's own method is supported");
+            } else {
+                let error = result.expect_err("title equality cannot prove a native receiver");
+                assert_eq!(error.code, ErrorCode::ActionNotSupported);
+                assert_eq!(
+                    error.disposition.delivery(),
+                    DeliveryDisposition::NotDelivered
+                );
+            }
+        }
+    }
+    rig.wait_for_nth("item KdeItem method Activate 0 0", 2);
+    assert_eq!(
+        rig.count("item AyaItem method"),
+        0,
+        "unsupported item receives no call"
+    );
+    println!("independent receiver log: {:?}", rig.log());
+}
+
+#[test]
 #[ignore = "needs a private session bus; run through scripts/private-session.sh"]
 fn tray_live_menu_pick_validates_then_sends_the_event() {
     let rig = rig_with_two_items("menu");

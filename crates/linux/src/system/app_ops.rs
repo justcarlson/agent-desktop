@@ -85,7 +85,7 @@ pub(crate) fn inventory(bus: &SharedBus, deadline: Deadline) -> Result<AppInvent
 /// The error for a name that no registry application has but a running
 /// process does.
 pub(crate) fn missing_connection(query: &str, pid: u32, comm: &str) -> AdapterError {
-    if super::shell::is_shell_comm(comm) {
+    if super::shell::is_shell_process(pid) {
         return super::shell::not_this_sessions_shell();
     }
     AdapterError::new(

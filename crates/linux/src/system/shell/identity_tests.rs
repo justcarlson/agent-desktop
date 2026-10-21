@@ -1,12 +1,8 @@
 use super::{Deadline, SessionBus, shell_pid, within};
-use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
-
-use crate::system::shell::fake_tree::{BUS, FakeTree, PANEL, PID, WINDOW, at, element};
+use crate::system::shell::fake_tree::{FakeTree, PANEL, WINDOW, at, element};
 use crate::system::shell::identity::{
-    ShellRoot, content_window, is_shell_comm, is_shell_owner, pick_shell_app, retries_after,
-    retry_until, window_missing,
+    content_window, pick_shell_app, retries_after, retry_until, window_missing,
 };
-use crate::system::window_id;
 use crate::tree::AtspiElement;
 
 fn app(bus: &str, pid: u32) -> (AtspiElement, u32) {
@@ -19,6 +15,7 @@ fn the_shell_app_is_the_one_owned_by_the_shell_process() {
     let picked = pick_shell_app(&apps, 20).expect("pid 20 owns an app");
     assert_eq!(picked.bus_name(), ":1.3");
     assert!(pick_shell_app(&apps, 99).is_none());
+    assert!(pick_shell_app(&[app(":1.2", 20), app(":1.3", 20)], 20).is_none());
 }
 
 #[test]
@@ -58,38 +55,16 @@ fn a_destroyed_sibling_does_not_hide_the_live_content_window() {
     assert_eq!(window.path(), "/w");
 }
 
-fn window(bus: &str, pid: u32) -> WindowInfo {
-    WindowInfo {
-        id: window_id::encode(bus, "/org/a11y/atspi/accessible/5").expect("an id"),
-        title: String::new(),
-        app: "x".to_owned(),
-        pid: ProcessId::from(pid),
-        process_instance: None,
-        bounds: None,
-        state: WindowState::default(),
-    }
-}
-
 #[test]
-fn a_window_of_the_remembered_shell_is_a_shell_window_and_another_never_is() {
-    crate::system::shell::identity::remember(&ShellRoot {
-        bus_name: ":77.77".to_owned(),
-        path: "/w".to_owned(),
-        pid: PID,
-    });
-    assert!(is_shell_owner(":77.77", u32::MAX));
-    assert!(crate::system::shell::is_shell_window(&window(
-        ":77.77",
-        u32::MAX
-    )));
-    assert!(!crate::system::shell::is_shell_window(&window(
-        ":77.78",
-        u32::MAX - 1
-    )));
-    assert!(!is_shell_owner(BUS, std::process::id()));
-    assert!(is_shell_comm("gnome-shell"));
-    assert!(!is_shell_comm("gnome-shell-cal"));
-    assert!(!is_shell_comm("gjs"));
+fn multiple_shell_windows_are_ambiguous_instead_of_selected_by_child_order() {
+    let mut tree = FakeTree::new();
+    tree.add(None, "/root", 75, "", at(0, 0, 0, 0));
+    tree.add(Some("/root"), "/a", WINDOW, "", at(0, 0, 1, 1));
+    tree.add(Some("/root"), "/b", WINDOW, "", at(0, 0, 1, 1));
+    assert_eq!(
+        content_window(&tree, &element("/root")).unwrap_err().code,
+        agent_desktop_core::ErrorCode::AmbiguousTarget
+    );
 }
 
 fn deadline() -> agent_desktop_core::Deadline {

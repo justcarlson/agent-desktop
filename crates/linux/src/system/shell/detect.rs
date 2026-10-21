@@ -1,6 +1,5 @@
 use crate::system::shell::call_failure::CallFailure;
 use crate::system::shell::watcher_read::WatcherRead;
-use std::collections::HashMap;
 use std::future::Future;
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
@@ -9,21 +8,16 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use self::errors::{tree_error, unreadable};
-use super::identity::{SHELL_BUS_NAME, pick_shell_app, registry_apps, shell_owner};
+use super::identity::{pick_shell_app, registry_apps, shell_owner};
 use crate::system::session_bus::SessionBus;
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, within};
 
-const SERVER_NAME: &str = "gnome-shell";
 const NOTIFICATIONS: &str = "org.freedesktop.Notifications";
 const NOTIFICATIONS_PATH: &str = "/org/freedesktop/Notifications";
 const WATCHER: &str = "org.kde.StatusNotifierWatcher";
 const WATCHER_PATH: &str = "/StatusNotifierWatcher";
 const BUS_DAEMON: &str = "org.freedesktop.DBus";
 const BUS_DAEMON_PATH: &str = "/org/freedesktop/DBus";
-const EXTENSIONS: &str = "org.gnome.Shell.Extensions";
-const EXTENSIONS_PATH: &str = "/org/gnome/Shell/Extensions";
-const INDICATOR_EXTENSION: &str = "appindicator";
-const EXTENSION_ENABLED: u32 = 1;
 
 mod errors;
 mod requirements;
@@ -96,13 +90,7 @@ fn server_name(connection: &Connection, deadline: Deadline) -> Result<String, Ca
 
 pub(crate) fn classify_daemon(answer: Result<String, CallFailure>) -> (Fact, Option<String>) {
     match answer {
-        Ok(name) if name == SERVER_NAME => (Fact::Present, Some(name)),
-        Ok(name) => (
-            Fact::Absent(format!(
-                "the notification service is '{name}', not {SERVER_NAME}"
-            )),
-            Some(name),
-        ),
+        Ok(name) => (Fact::Present, Some(name)),
         Err(CallFailure::NoService) => (
             Fact::Absent("no service owns org.freedesktop.Notifications".to_owned()),
             None,
@@ -183,35 +171,10 @@ fn watcher(connection: &Connection, deadline: Deadline) -> Result<WatcherRead, C
     })
 }
 
-fn indicator_extension(connection: &Connection, deadline: Deadline) -> Option<String> {
-    let listed = call(deadline, async {
-        let reply = connection
-            .call_method(
-                Some(SHELL_BUS_NAME),
-                EXTENSIONS_PATH,
-                Some(EXTENSIONS),
-                "ListExtensions",
-                &(),
-            )
-            .await?;
-        reply
-            .body()
-            .deserialize::<HashMap<String, HashMap<String, OwnedValue>>>()
-    })
-    .ok()?;
-    Some(extension_state(&listed))
-}
-
-pub(crate) fn classify_watcher(
-    read: Result<WatcherRead, CallFailure>,
-    extension: Option<String>,
-) -> Fact {
+pub(crate) fn classify_watcher(read: Result<WatcherRead, CallFailure>) -> Fact {
     match read {
         Ok(WatcherRead::Items) => Fact::Present,
-        Ok(WatcherRead::NoOwner) => {
-            let state = extension.unwrap_or_else(|| "extension state unknown".to_owned());
-            Fact::Absent(format!("no tray watcher is running ({state})"))
-        }
+        Ok(WatcherRead::NoOwner) => Fact::Absent("no tray watcher is running".to_owned()),
         Err(CallFailure::NoService) => {
             Fact::Unreadable("the tray watcher left the bus while it was read".to_owned())
         }
@@ -220,23 +183,19 @@ pub(crate) fn classify_watcher(
 }
 
 fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterError> {
-    if let Some(server) = server.filter(|name| *name != SERVER_NAME) {
-        return Err(AdapterError::new(
-            ErrorCode::PlatformNotSupported,
-            format!("The notification service is '{server}'; only GNOME Shell is supported"),
-        )
-        .with_suggestion(
-            "Use a GNOME Shell session, or install a GNOME-compatible notification service",
-        )
-        .with_details(json!({ "daemon": "unsupported", "server": server })));
-    }
     match daemon {
         Fact::Present => Ok(()),
+        Fact::Absent(why) if server.is_some() => Err(AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            "The notification service is not owned by the detected shell; only GNOME Shell is supported",
+        )
+        .with_suggestion("Use the notification service owned by the detected GNOME session backend")
+        .with_details(json!({ "daemon": "unsupported", "detail": why, "server": server }))),
         Fact::Absent(why) => Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
             "No notification service is running in this session",
         )
-        .with_suggestion("Install and start a GNOME-compatible notification service")
+        .with_suggestion("Start a notification service implementing org.freedesktop.Notifications")
         .with_details(json!({ "daemon": "absent", "detail": why }))),
         Fact::Unreadable(why) => Err(unreadable("notification service", why, "daemon")),
     }
@@ -249,7 +208,9 @@ fn watcher_fact_error(watcher: &Fact) -> Result<(), AdapterError> {
             ErrorCode::PlatformNotSupported,
             "No system tray watcher is running in this session",
         )
-        .with_suggestion("Enable the AppIndicator extension so tray items register")
+        .with_suggestion(
+            "Start a tray backend providing org.kde.StatusNotifierWatcher in this session",
+        )
         .with_details(json!({ "watcher": "absent", "detail": why }))),
         Fact::Unreadable(why) => Err(unreadable("system tray watcher", why, "watcher")),
     }
@@ -261,26 +222,6 @@ pub(crate) fn require(env: &ShellEnvironment, need: Need) -> Result<(), AdapterE
         Need::Daemon => daemon_fact_error(&env.daemon, env.server.as_deref()),
         Need::Tree => tree_error(&env.tree),
         Need::Watcher => watcher_fact_error(&env.watcher),
-    }
-}
-
-pub(crate) fn extension_state(listed: &HashMap<String, HashMap<String, OwnedValue>>) -> String {
-    let found = listed
-        .iter()
-        .find(|(uuid, _)| uuid.contains(INDICATOR_EXTENSION));
-    match found {
-        None => "the AppIndicator extension is not installed".to_owned(),
-        Some((_, properties)) => {
-            let state = properties
-                .get("state")
-                .and_then(|value| value.downcast_ref::<f64>().ok());
-            match state {
-                Some(state) if state as u32 == EXTENSION_ENABLED => {
-                    "the AppIndicator extension is installed and enabled".to_owned()
-                }
-                _ => "the AppIndicator extension is installed but not enabled".to_owned(),
-            }
-        }
     }
 }
 

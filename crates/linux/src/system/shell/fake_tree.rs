@@ -1,16 +1,16 @@
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use agent_desktop_core::{AdapterError, ErrorCode};
 
-use super::container::{MENU, PUSH_BUTTON, TOGGLE_BUTTON};
 use super::identity::ShellRoot;
 use super::light::{Light, Nodes};
+use crate::tree::role_numbers::{PUSH_BUTTON, TOGGLE_BUTTON};
 use crate::tree::{AtspiElement, Extents};
 
 pub(super) const BUS: &str = ":1.7";
 pub(super) const PID: u32 = 4242;
 pub(super) const PANEL: u32 = 39;
+pub(super) const MENU: u32 = 33;
 pub(super) const WINDOW: u32 = 69;
 pub(super) const SENTINEL: Extents = Extents {
     x: i32::MIN,
@@ -34,7 +34,6 @@ pub(super) fn element(path: &str) -> AtspiElement {
 
 pub(super) struct FakeTree {
     nodes: BTreeMap<String, Light>,
-    reads: RefCell<Vec<String>>,
     any_bus: bool,
 }
 
@@ -42,7 +41,6 @@ impl FakeTree {
     pub(super) fn new() -> Self {
         Self {
             nodes: BTreeMap::new(),
-            reads: RefCell::default(),
             any_bus: false,
         }
     }
@@ -93,10 +91,6 @@ impl FakeTree {
         self.nodes.remove(path);
     }
 
-    pub(super) fn reads(&self) -> Vec<String> {
-        self.reads.borrow().clone()
-    }
-
     pub(super) fn root() -> ShellRoot {
         ShellRoot {
             bus_name: BUS.to_owned(),
@@ -108,7 +102,6 @@ impl FakeTree {
 
 impl Nodes for FakeTree {
     fn read(&self, element: &AtspiElement) -> Result<Light, AdapterError> {
-        self.reads.borrow_mut().push(element.path().to_owned());
         if !self.any_bus && element.bus_name() != BUS {
             return Err(AdapterError::new(ErrorCode::ElementNotFound, "gone"));
         }

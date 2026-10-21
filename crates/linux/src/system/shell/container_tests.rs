@@ -1,82 +1,89 @@
 use agent_desktop_core::{Deadline, ErrorCode};
 
+use super::{Landmark, locate_in};
 use crate::system::shell::anchor::Anchor;
-use crate::system::shell::container::{Landmark, MENU, locate_in};
-use crate::system::shell::fake_tree::{FakeTree, at, gnome_shell};
+use crate::system::shell::fake_tree::{FakeTree, PANEL, WINDOW, at, gnome_shell};
+use crate::tree::role_numbers::{LIST, NOTIFICATION};
 
-fn deadline() -> Deadline {
-    Deadline::after(10_000).expect("a deadline builds")
-}
-
-fn find(tree: &FakeTree, landmark: Landmark) -> crate::system::shell::located::Located {
+fn locate(
+    tree: &FakeTree,
+    landmark: Landmark,
+) -> Result<super::Located, agent_desktop_core::AdapterError> {
     locate_in(
         tree,
         &FakeTree::root(),
         Anchor::Landmark(landmark),
-        deadline(),
+        Deadline::after(5_000).unwrap(),
     )
-    .expect("the landmark is in the tree")
 }
 
 #[test]
-fn a_copy_of_the_landmark_inside_the_overview_is_never_read() {
-    let tree = gnome_shell(true, false);
-    find(&tree, Landmark::MessageList);
-    assert!(!tree.reads().iter().any(|path| path == "/ov_clear"));
-}
-
-#[test]
-fn landmark_containers_follow_the_measured_tree() {
-    for open in [true, false] {
-        let tree = gnome_shell(open, false);
-        let located = find(&tree, Landmark::MessageList);
-        assert_eq!(located.container.element.path(), "/list");
-        assert_eq!(located.anchor.element.path(), "/clear");
-        assert_eq!(located.anchor.showing, open);
+fn labels_depths_and_panel_geometry_do_not_prove_popup_identity() {
+    let tree = gnome_shell(true, true);
+    for landmark in [
+        Landmark::MessageList,
+        Landmark::SystemMenu,
+        Landmark::DateMenu,
+        Landmark::DockPanel,
+    ] {
+        let error =
+            locate(&tree, landmark).expect_err("generic panels and labels prove no popup identity");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported, "{landmark:?}");
+        assert_eq!(error.details.unwrap()["kind"], "shell_container_unproven");
     }
+}
 
-    let tree = gnome_shell(true, false);
-    let located = find(&tree, Landmark::SystemMenu);
-    assert_eq!(located.container.element.path(), "/syspop");
-    assert_eq!(located.anchor.element.path(), "/power");
-
+#[test]
+fn an_unproven_native_tray_uses_only_the_logical_shell_root() {
     let tree = gnome_shell(false, false);
-    let located = find(&tree, Landmark::TrayPanel);
-    assert_eq!(located.container.element.path(), "/right");
+    let located =
+        locate(&tree, Landmark::TrayPanel).expect("a logical tray is independent of panel layout");
+    assert_eq!(located.container.element.path(), "/w");
+    assert_eq!(located.container.role, WINDOW);
 }
 
 #[test]
-fn the_date_menu_is_the_unnamed_menu_near_the_middle_of_the_top_bar() {
-    let mut tree = gnome_shell(false, false);
-    tree.add(Some("/right"), "/odd", MENU, "", at(1230, 0, 20, 32));
-    let located = find(&tree, Landmark::DateMenu);
-    assert_eq!(located.anchor.element.path(), "/date");
+fn notification_list_identity_follows_roles_through_wrappers_in_any_locale() {
+    for wrappers in [0, 1, 7] {
+        let mut tree = FakeTree::new();
+        tree.add(None, "/w", WINDOW, "", at(-300, 500, 230, 90));
+        tree.add(
+            Some("/w"),
+            "/overview",
+            PANEL,
+            "Overview",
+            at(100, -50, 20, 200),
+        );
+        let mut parent = "/overview".to_owned();
+        for index in 0..wrappers {
+            let path = format!("/wrapper{index}");
+            tree.add(Some(&parent), &path, PANEL, "", at(0, 0, 0, 0));
+            parent = path;
+        }
+        tree.add(Some(&parent), "/history", LIST, "履歴", at(0, 0, 0, 0));
+        tree.add(Some("/history"), "/row", PANEL, "", at(0, 0, 0, 0));
+        tree.add(
+            Some("/row"),
+            "/notification",
+            NOTIFICATION,
+            "通知",
+            at(0, 0, 0, 0),
+        );
+        let located = locate(&tree, Landmark::MessageList).expect("roles prove the list");
+        assert_eq!(located.container.element.path(), "/history");
+    }
 }
 
 #[test]
-fn a_missing_landmark_is_an_error_naming_what_was_not_found() {
-    let mut tree = gnome_shell(false, false);
-    tree.vanish("/clear");
-    let error = locate_in(
-        &tree,
-        &FakeTree::root(),
-        Anchor::Landmark(Landmark::MessageList),
-        deadline(),
-    )
-    .expect_err("no list is no result");
-    assert_eq!(error.code, ErrorCode::ElementNotFound);
-    assert!(error.message.contains("message list"));
-}
-
-#[test]
-fn a_dock_that_exists_only_in_the_overview_is_not_a_dock() {
-    let tree = gnome_shell(false, false);
-    let error = locate_in(
-        &tree,
-        &FakeTree::root(),
-        Anchor::Landmark(Landmark::DockPanel),
-        deadline(),
-    )
-    .expect_err("the overview copy is skipped");
-    assert_eq!(error.code, ErrorCode::ElementNotFound);
+fn two_notification_lists_refuse_instead_of_selecting_by_order() {
+    let mut tree = FakeTree::new();
+    tree.add(None, "/w", WINDOW, "", at(0, 0, 0, 0));
+    for (list, notice) in [("/a", "/n1"), ("/b", "/n2")] {
+        tree.add(Some("/w"), list, LIST, "", at(0, 0, 0, 0));
+        tree.add(Some(list), notice, NOTIFICATION, "", at(0, 0, 0, 0));
+    }
+    assert_eq!(
+        locate(&tree, Landmark::MessageList).unwrap_err().code,
+        ErrorCode::AmbiguousTarget
+    );
 }
