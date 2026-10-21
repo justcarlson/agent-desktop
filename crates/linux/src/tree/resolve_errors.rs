@@ -52,11 +52,10 @@ pub(crate) fn owner_unreachable(pid: u32) -> AdapterError {
     )
 }
 
-/// The element the ref names was destroyed while its application kept
-/// running. The element may be drawn again, so the answer stays retryable the
-/// way the other platforms keep it.
+/// The element the ref names was destroyed while its application kept running.
+/// A replacement needs a fresh snapshot rather than another resolution attempt.
 pub(crate) fn object_gone() -> AdapterError {
-    unsettled(
+    settled(
         "Stored ref's element no longer exists",
         "resolve_target_destroyed",
     )
@@ -114,7 +113,7 @@ pub(crate) fn ambiguous(candidates: usize) -> AdapterError {
 }
 
 /// A bus departure is settled against process liveness, a destroyed object
-/// stays retryable, and anything else is unchanged.
+/// is terminal, and anything else is unchanged.
 pub(crate) fn settle_gone(error: AdapterError, pid: u32) -> AdapterError {
     match error.code {
         ErrorCode::AppNotFound => owner_unreachable(pid),

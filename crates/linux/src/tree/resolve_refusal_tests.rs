@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 use super::*;
-use crate::tree::resolve_errors::{app_exited, object_gone, window_replaced};
+use crate::tree::resolve_errors::{app_exited, window_replaced};
 use crate::tree::resolve_fake::{FRAME_PATH, Fake, deadline, node};
 use crate::tree::role_numbers::{LIST, PUSH_BUTTON};
 use crate::tree::test_support::{rect, ref_entry};
@@ -40,11 +40,17 @@ fn a_ref_with_nothing_to_match_is_refused_before_any_read_of_any_kind() {
 }
 
 #[test]
-fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
-    for (refusal, expected, retryable) in [
-        (window_replaced(), "resolve_window_replaced", false),
-        (app_exited(), "resolve_owning_process_exited", false),
-        (object_gone(), "resolve_target_destroyed", true),
+fn a_destroyed_or_replaced_window_is_terminal_before_any_target_reads() {
+    for (refusal, expected) in [
+        (window_replaced(), "resolve_window_replaced"),
+        (app_exited(), "resolve_owning_process_exited"),
+        (
+            AdapterError::new(
+                ErrorCode::ElementNotFound,
+                "the stored window was destroyed",
+            ),
+            "resolve_target_destroyed",
+        ),
     ] {
         let mut fake = one_button();
         let entry = fake.entry_of("/back", true);
@@ -52,7 +58,12 @@ fn a_gate_that_refuses_ends_the_resolution_before_the_path_or_the_search() {
         let error = resolve(&mut fake, &entry, deadline()).expect_err("refused");
         assert_eq!(error.code, ErrorCode::StaleRef);
         assert_eq!(kind(&error), expected);
-        assert_eq!(error.is_explicitly_retryable(), retryable);
+        assert!(!error.is_explicitly_retryable());
+        assert!(!error.permits_retry_by_default());
+        assert_eq!(
+            error.disposition,
+            agent_desktop_core::DeliverySemantics::not_delivered()
+        );
         assert_eq!(fake.reads.gate, 1);
         no_reads(&fake);
     }
