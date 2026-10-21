@@ -60,7 +60,7 @@ fn unanswered() -> AdapterError {
     AdapterError::timeout("The accessible object did not answer in time")
 }
 
-fn menu_closed() -> AdapterError {
+pub(crate) fn menu_closed() -> AdapterError {
     AdapterError::stale_ref_because("The menu the ref was taken in is no longer open").with_details(
         json!({
             "kind": "menu_closed",
@@ -96,7 +96,11 @@ impl Source for MenuSource<'_> {
 
     fn evidence(&mut self, element: &AtspiElement) -> Result<LocatorEvidence, AdapterError> {
         let connection = &self.connection;
-        let read = within(self.deadline, read_evidence(connection, element))?;
+        let mut read = within(self.deadline, read_evidence(connection, element))?;
+        read.evidence.identifiers = read
+            .evidence
+            .identifiers
+            .with_retained_object(element.path().to_owned());
         match read.liveness {
             Liveness::TimedOut => Err(unanswered()),
             _ => Ok(read.evidence),

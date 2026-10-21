@@ -214,6 +214,19 @@ pub(crate) fn observe_tree(
             return shell::observe_shell(bus, window, request);
         }
     }
+    if let ObservationRoot::Element { handle, .. } = &root {
+        let element = atspi_element(handle)?;
+        if element.is_menu_target() {
+            let context = super::menu_context::for_element(bus, element, request.deadline)?
+                .ok_or_else(super::menu_resolve::menu_closed)?;
+            return observe_tree_with(
+                bus,
+                root,
+                request,
+                &mut super::menu_context::MenuIdentity::new(context),
+            );
+        }
+    }
     observe_tree_with(bus, root, request, &mut Plain)
 }
 

@@ -63,15 +63,7 @@ impl NodeReader for BusReader<'_> {
         element: &AtspiElement,
         deadline: Deadline,
     ) -> Result<Option<MenuContext>, AdapterError> {
-        let (Some(frame), Some(owner)) = (element.frame(), element.menu_owner()) else {
-            return Ok(None);
-        };
-        let popups = crate::system::menu_surface::popups_at(self.bus, &owner, false, deadline)?;
-        let mut candidates = popups.into_iter().filter(|popup| popup.root == *frame);
-        let Some(popup) = candidates.next() else {
-            return Ok(None);
-        };
-        Ok(candidates.next().is_none().then_some(popup.context))
+        super::menu_context::for_element(self.bus, element, deadline)
     }
 }
 
@@ -153,18 +145,11 @@ pub(crate) fn element_via<R: NodeReader>(
     let mut live = live_element(&node.read, &node.evidence, &placed, global)?;
     if element.is_menu_target() {
         let context = reader.menu_context(element, deadline)?;
-        if let (Some(context), Some(object_path)) = (
-            context,
-            live.identity
-                .identifiers
-                .retained_object()
-                .map(str::to_owned),
-        ) {
-            live.identity.identifiers = live
-                .identity
-                .identifiers
-                .with_retained_object(context.encode(&object_path));
-        }
+        let object = context.map_or_else(
+            || element.path().to_owned(),
+            |context| context.encode(element.path()),
+        );
+        live.identity.identifiers = live.identity.identifiers.with_retained_object(object);
     }
     Ok(live)
 }

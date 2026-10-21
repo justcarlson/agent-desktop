@@ -29,14 +29,11 @@ agent-desktop wait --menu-closed --app gnome-calculator --timeout 5000
 
 `list-surfaces` lists the app's windows, sheets and open menu, with
 `item_count` on the menu. `snapshot --surface menu` roots at the popup, and
-`find --surface menu` uses the same scope, but returning matches and acting on
-items can fail strict identity checks even when the snapshot is readable. In the
-measured build, GTK3, GTK4 and Qt menu-item clicks returned `TIMEOUT` with
-`kind: actionability_timeout`; `last_report.code: APP_UNRESPONSIVE` and
-`last_report.details.kind: resolution_identity_unknown`. A GTK4 menu `find`
-returned that `APP_UNRESPONSIVE` directly. These were `not_delivered` for the
-click, with no item effect observed; `--headed` did not fix the GTK4 case.
-Do not infer that the app is hung or that a named snapshot ref is actionable.
+`find --surface menu` uses the same scope. Menu refs identify the actual AT-SPI
+object within a freshly verified, complete popup context, including its labels
+and tree shape. A named GTK4 popover item such as Calculator's Preferences can
+be found and clicked through that identity even without usable screen bounds.
+An unreadable context or multiple matching targets is refused before delivery.
 After closure the same ref returns `STALE_REF`, `details.kind: menu_closed`. A
 snapshot of a closed menu returns `ELEMENT_NOT_FOUND`, “The window does not present an
 open menu”. Open again and take new refs.

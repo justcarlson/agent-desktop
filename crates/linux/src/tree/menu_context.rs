@@ -1,11 +1,28 @@
 use std::hash::{Hash, Hasher};
 
-use agent_desktop_core::{LocatorEvidence, ObservedSubtree, RefEntry};
+use agent_desktop_core::{AdapterError, Deadline, LocatorEvidence, ObservedSubtree, RefEntry};
 
 use super::decorate::Decorate;
-use super::{ObservedRead, WalkedNode};
+use super::{AtspiElement, ObservedRead, WalkedNode};
+use crate::system::SharedBus;
 
 const PREFIX: &str = "linux-menu:v1:";
+
+pub(crate) fn for_element(
+    bus: &SharedBus,
+    element: &AtspiElement,
+    deadline: Deadline,
+) -> Result<Option<MenuContext>, AdapterError> {
+    let (Some(frame), Some(owner)) = (element.frame(), element.menu_owner()) else {
+        return Ok(None);
+    };
+    let popups = crate::system::menu_surface::popups_at(bus, &owner, false, deadline)?;
+    let mut candidates = popups.into_iter().filter(|popup| popup.root == *frame);
+    let Some(popup) = candidates.next() else {
+        return Ok(None);
+    };
+    Ok(candidates.next().is_none().then_some(popup.context))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MenuContext {

@@ -41,7 +41,12 @@ fn visit(
 ) {
     let is_root = depth == 0;
     let limits = WalkLimits::default();
-    let evidence = project_node(&node.payload, node.in_web_document, &limits);
+    let mut evidence = project_node(&node.payload, node.in_web_document, &limits);
+    if entry.source.source_surface == agent_desktop_core::SnapshotSurface::Menu {
+        evidence.identifiers = evidence
+            .identifiers
+            .with_retained_object(node.payload.node.element.path().to_owned());
+    }
     let admission = if provisional_geometry_candidate(entry) && accepts_landing(entry, &evidence) {
         Admission::Collect
     } else {
