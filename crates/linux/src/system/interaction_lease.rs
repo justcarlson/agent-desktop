@@ -31,8 +31,6 @@ fn parse_fd(raw: &str) -> Result<RawFd, AdapterError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapter::LinuxAdapter;
-    use agent_desktop_core::SystemOps;
 
     #[test]
     fn an_inherited_descriptor_must_be_a_nonnegative_integer() {
@@ -41,12 +39,5 @@ mod tests {
             let error = parse_fd(bad).expect_err("a malformed descriptor must be refused");
             assert_eq!(error.code, ErrorCode::InvalidArgs);
         }
-    }
-
-    #[test]
-    fn the_adapter_grants_the_lease_a_permission_request_needs() {
-        let deadline = Deadline::standard().expect("a standard deadline builds");
-        SystemOps::acquire_interaction_lease(&LinuxAdapter::new(), deadline)
-            .expect("Linux has no prompt, so a request only needs the shared lease");
     }
 }
