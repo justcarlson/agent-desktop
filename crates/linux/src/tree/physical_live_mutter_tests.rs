@@ -32,7 +32,7 @@ fn window_manager_name() -> String {
 }
 
 fn is_active(scene: &Scene) -> Option<bool> {
-    let deadline = super::physical_live_rig::deadline(5_000);
+    let deadline = super::live_rig::deadline(5_000);
     frame_active(&scene.bus, &scene.frame, deadline).expect("the frame state reads")
 }
 
@@ -89,14 +89,14 @@ fn click_scenario() {
     );
     let overview_window = active_window();
     target
-        .act(&entry.handle, Action::Click)
+        .act(&entry, Action::Click)
         .expect("the raw click is delivered");
     holds_for(
         "the Overview took the click",
         Duration::from_secs(1),
         || is_active(&target) == Some(false) && active_window() == overview_window,
     );
-    let refused = target.act(&entry.handle, Action::TypeText("no".to_owned()));
+    let refused = target.act(&entry, Action::TypeText("no".to_owned()));
     assert!(refused.is_err(), "keys reached a window under the Overview");
     assert_eq!(target.log_text(), "");
     let escape = KeyCombo {
@@ -109,13 +109,13 @@ fn click_scenario() {
     wait_for_closed_overview(SETTLE);
     wait_for_viewable_client(target.pid, SETTLE);
     target
-        .act(&entry.handle, Action::Click)
+        .act(&entry, Action::Click)
         .expect("the raw click is delivered");
     wait_until("the click activating the frame", SETTLE, || {
         is_active(&target) == Some(true)
     });
     target
-        .act(&entry.handle, Action::TypeText("ok".to_owned()))
+        .act(&entry, Action::TypeText("ok".to_owned()))
         .expect("the keys follow the click");
     assert_eq!(target.wait_log(|log| log == "ok"), "ok");
 }

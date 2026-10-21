@@ -38,7 +38,8 @@ pub(crate) struct Windowing {
 
 /// Everything a hit test reads. The bus implements it; a test substitutes
 /// in-memory nodes and records the calls.
-pub(crate) trait HitWorld: NodeSource {
+pub(crate) trait HitWorld {
+    fn nodes(&mut self) -> &mut impl NodeSource;
     /// The target's extents in both coordinate types and its window's facts,
     /// or `None` when any of them cannot be read.
     fn facts(
@@ -52,27 +53,11 @@ pub(crate) trait HitWorld: NodeSource {
     fn windowing(&mut self, frame: &FrameFacts) -> Option<Windowing>;
 }
 
-fn standing(toolkit: &ToolkitId) -> Standing {
-    Standing {
-        calibrated: true,
-        descends: trusts_descent(toolkit),
-        same_window: trusts_same_window_landing(toolkit),
-    }
-}
-
 fn pre_guard(facts: &Facts, point: (i32, i32)) -> bool {
     if reports_global_position(&facts.toolkit) {
         admits(facts.screen, point)
     } else {
         aimable(facts.window)
-    }
-}
-
-fn intercepted_by_window(frame: Extents, name: Option<String>) -> HitTestResult {
-    HitTestResult::InterceptedBy {
-        role: Some("window".to_owned()),
-        name,
-        bounds: Some(frame.into()),
     }
 }
 
@@ -145,17 +130,20 @@ pub(crate) fn hit_test_via<W: HitWorld>(
         return Ok(HitTestResult::Unknown);
     }
     let stacking = occlusion(&windowing.snapshot, windowing.client, point);
-    let standing = standing(&facts.toolkit);
+    let standing = Standing {
+        descends: trusts_descent(&facts.toolkit),
+        same_window: trusts_same_window_landing(&facts.toolkit),
+    };
     let (landing, lander) = if needs_landing(standing, stacking) {
-        let descent = descend(world, frame, window_at, deadline)?;
+        let descent = descend(world.nodes(), frame, window_at, deadline)?;
         let located = locate(
-            world,
+            world.nodes(),
             &Probe {
                 target,
                 frame,
                 window_point: window_at,
             },
-            &descent,
+            descent.as_deref(),
             deadline,
         )?;
         (located.landing, located.lander)
@@ -172,7 +160,11 @@ pub(crate) fn hit_test_via<W: HitWorld>(
                     window,
                 )
             });
-            intercepted_by_window(frame, name)
+            HitTestResult::InterceptedBy {
+                role: Some("window".to_owned()),
+                name,
+                bounds: Some(frame.into()),
+            }
         }
         Verdict::SameWindowLander => intercepted_by_lander(lander, calibrated.window_origin),
         Verdict::Unknown => HitTestResult::Unknown,
@@ -204,4 +196,4 @@ pub(crate) fn hit_test(
 
 #[cfg(test)]
 #[path = "hit_test_tests.rs"]
-mod tests;
+pub(crate) mod tests;

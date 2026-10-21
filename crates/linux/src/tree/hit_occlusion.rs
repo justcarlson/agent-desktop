@@ -26,10 +26,6 @@ pub(crate) enum Occlusion {
 
 /// The border drawn around a client, so the rectangle tested is the frame and
 /// not the client: a title bar covers a point the client rectangle does not.
-fn frame_of(window: &StackedWindow) -> Extents {
-    frame_rectangle(window.client, Some(window.extents))
-}
-
 fn on_screen_now(window: &StackedWindow, current: Option<u32>) -> Option<bool> {
     match (window.desktop, current) {
         (DesktopPlacement::Sticky, _) => Some(true),
@@ -58,7 +54,7 @@ pub(crate) fn occlusion(snapshot: &StackingSnapshot, target: u32, point: (i32, i
         if window.flags.hidden || !window.flags.mapped || window.kind == WindowKind::Desktop {
             continue;
         }
-        let frame = frame_of(window);
+        let frame = frame_rectangle(window.client, Some(window.extents));
         if !admits(frame, point) {
             continue;
         }

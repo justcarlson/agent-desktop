@@ -48,11 +48,14 @@ fn gtk4_inside_a_client_side_shadow_is_calibrated_from_the_origin_after_the_shad
 
 #[test]
 fn a_hidden_or_unmapped_window_is_unknown() {
-    let mut stacking = windowing((100, 137), vec![]);
-    stacking.snapshot.stack[0].flags.hidden = true;
-    let mut world = World::new(gtk3_facts(), Some(stacking));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
+    for (hidden, mapped) in [(true, true), (false, false)] {
+        let mut stacking = windowing((100, 137), vec![]);
+        stacking.snapshot.stack[0].flags.hidden = hidden;
+        stacking.snapshot.stack[0].flags.mapped = mapped;
+        let mut world = World::new(gtk3_facts(), Some(stacking));
+        reaching(&mut world);
+        assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
+    }
 }
 
 #[test]

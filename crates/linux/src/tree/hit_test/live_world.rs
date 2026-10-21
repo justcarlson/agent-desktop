@@ -9,7 +9,7 @@ use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, within};
-use crate::tree::hit_descent::{BusNodes, Described, Hit, NodeSource};
+use crate::tree::hit_descent::{BusNodes, NodeSource};
 use crate::tree::resolve_errors::{stopped_app, stopped_aware};
 use crate::tree::state_bits::{ICONIFIED, StateBits};
 use crate::tree::toolkit_trust::{ToolkitKind, kind, read_toolkit};
@@ -27,8 +27,6 @@ pub(super) fn stopped_aware_for(error: AdapterError, frame: &AtspiElement) -> Ad
 
 /// The bus and the display server behind one hit test.
 pub(super) struct LiveWorld<'a> {
-    connection: &'a Connection,
-    deadline: Deadline,
     nodes: BusNodes<'a>,
     popup: bool,
     popup_rect: Option<Extents>,
@@ -37,8 +35,6 @@ pub(super) struct LiveWorld<'a> {
 impl<'a> LiveWorld<'a> {
     pub(super) fn new(connection: &'a Connection, deadline: Deadline) -> Self {
         Self {
-            connection,
-            deadline,
             nodes: BusNodes {
                 connection,
                 deadline,
@@ -49,36 +45,25 @@ impl<'a> LiveWorld<'a> {
     }
 }
 
-impl NodeSource for LiveWorld<'_> {
-    fn at_point(&mut self, from: &AtspiElement, point: (i32, i32)) -> Result<Hit, AdapterError> {
-        self.nodes.at_point(from, point)
-    }
-
-    fn verified_parent(
-        &mut self,
-        node: &AtspiElement,
-    ) -> Result<Option<AtspiElement>, AdapterError> {
-        self.nodes.verified_parent(node)
-    }
-
-    fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError> {
-        self.nodes.describe(node)
-    }
-}
-
 impl HitWorld for LiveWorld<'_> {
+    fn nodes(&mut self) -> &mut impl NodeSource {
+        &mut self.nodes
+    }
+
     fn facts(
         &mut self,
         target: &AtspiElement,
         frame: &AtspiElement,
     ) -> Result<Option<Facts>, AdapterError> {
         let root = AtspiElement::new(frame.bus_name(), REGISTRY_ROOT_PATH, frame.pid());
-        let (screen, window, frame_node, toolkit) = within(self.deadline, async {
+        let connection = self.nodes.connection;
+        let deadline = self.nodes.deadline;
+        let (screen, window, frame_node, toolkit) = within(deadline, async {
             Ok(join4(
-                read_node(self.connection, target),
-                read_window_extents_async(self.connection, target),
-                read_node(self.connection, frame),
-                read_toolkit(self.connection, &root),
+                read_node(connection, target),
+                read_window_extents_async(connection, target),
+                read_node(connection, frame),
+                read_toolkit(connection, &root),
             )
             .await)
         })?;
@@ -101,8 +86,8 @@ impl HitWorld for LiveWorld<'_> {
         self.popup =
             frame_node.traits.role.present() == Some(&MENU) && kind(&toolkit) == ToolkitKind::Gtk4;
         self.popup_rect = if self.popup {
-            within(self.deadline, async {
-                Ok(read_window_extents_async(self.connection, frame).await)
+            within(deadline, async {
+                Ok(read_window_extents_async(connection, frame).await)
             })?
         } else {
             None
@@ -122,14 +107,17 @@ impl HitWorld for LiveWorld<'_> {
     }
 
     fn windowing(&mut self, frame: &FrameFacts) -> Option<Windowing> {
-        let state = DisplayReader.clients_within(self.deadline);
+        let state = DisplayReader.clients_within(self.nodes.deadline);
         let X11State::Ready { clients, .. } = state else {
             return None;
         };
         let (client, coordinate_origin) = if self.popup {
             let rect = self.popup_rect?;
-            let popup =
-                DisplayReader::popup_window(frame.pid, (rect.width, rect.height), self.deadline)?;
+            let popup = DisplayReader::popup_window(
+                frame.pid,
+                (rect.width, rect.height),
+                self.nodes.deadline,
+            )?;
             let origin =
                 crate::tree::frame_geometry::popup_origin((popup.bounds.x, popup.bounds.y), rect)?;
             (popup.id, Some(origin))
@@ -139,7 +127,7 @@ impl HitWorld for LiveWorld<'_> {
             };
             (client, None)
         };
-        match DisplayReader.read_within(client, self.deadline) {
+        match DisplayReader.read_within(client, self.nodes.deadline) {
             StackingRead::Ready(snapshot) => Some(Windowing {
                 coordinate_origin,
                 client,

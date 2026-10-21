@@ -7,6 +7,7 @@ use agent_desktop_core::{
 
 use super::AtspiElement;
 use super::live_launch::{Launched, nonce};
+use super::live_rig::deadline;
 use super::live_tree::pid_frame;
 use super::resolve_live_tests::snapshot_entries;
 use super::walker_live_tests::settle;
@@ -27,14 +28,6 @@ pub(super) struct Scene {
     pub(super) frame: AtspiElement,
     pub(super) log: String,
     pub(super) pid: u32,
-}
-
-pub(super) struct Tgt {
-    pub(super) handle: NativeHandle,
-}
-
-pub(super) fn deadline(ms: u64) -> Deadline {
-    Deadline::after(ms).expect("the deadline builds")
 }
 
 fn qt_launch(launched: &mut Launched, script: &str, log: &str) -> u32 {
@@ -100,25 +93,25 @@ impl Scene {
         }
     }
 
-    pub(super) fn find(&self, roles: &[&str], name: Option<&str>) -> Tgt {
+    pub(super) fn find(&self, roles: &[&str], name: Option<&str>) -> NativeHandle {
         let entries = snapshot_entries(&self.adapter, &self.frame, true).expect("a snapshot");
-        let summary: Vec<String> = entries
-            .iter()
-            .map(|(_, entry)| format!("{}:{:?}", entry.identity.role, entry.identity.name))
-            .collect();
         let entry = entries
-            .into_iter()
-            .map(|(_, entry)| entry)
-            .find(|entry| {
-                roles.contains(&entry.identity.role.as_str())
-                    && name.is_none_or(|wanted| entry.identity.name.as_deref() == Some(wanted))
+            .iter()
+            .find_map(|(_, entry)| {
+                (roles.contains(&entry.identity.role.as_str())
+                    && name.is_none_or(|wanted| entry.identity.name.as_deref() == Some(wanted)))
+                .then_some(entry)
             })
-            .unwrap_or_else(|| panic!("no {roles:?} {name:?} among {summary:?}"));
-        let handle = self
-            .adapter
-            .resolve_element_strict(&entry, deadline(10_000))
-            .expect("the entry resolves");
-        Tgt { handle }
+            .unwrap_or_else(|| {
+                let summary: Vec<String> = entries
+                    .iter()
+                    .map(|(_, entry)| format!("{}:{:?}", entry.identity.role, entry.identity.name))
+                    .collect();
+                panic!("no {roles:?} {name:?} among {summary:?}")
+            });
+        self.adapter
+            .resolve_element_strict(entry, deadline(10_000))
+            .expect("the entry resolves")
     }
 
     pub(super) fn lease(&self) -> InteractionLease {
@@ -137,32 +130,11 @@ impl Scene {
             .execute_action(handle, ActionRequest::headed(action), &lease)
     }
 
-    pub(super) fn adapter_bounds(&self, target: &Tgt) -> Option<agent_desktop_core::Rect> {
+    pub(super) fn adapter_bounds(&self, target: &NativeHandle) -> Option<agent_desktop_core::Rect> {
         self.adapter
-            .get_element_bounds(&target.handle, deadline(5_000))
+            .get_element_bounds(target, deadline(5_000))
             .ok()
             .flatten()
-    }
-
-    pub(super) fn bounds_y(&self, target: &Tgt) -> f64 {
-        self.adapter
-            .get_element_bounds(&target.handle, deadline(5_000))
-            .expect("bounds read")
-            .expect("bounds present")
-            .y
-    }
-
-    pub(super) fn settled_y(&self, target: &Tgt) -> f64 {
-        let mut last = self.bounds_y(target);
-        for _ in 0..30 {
-            std::thread::sleep(Duration::from_millis(150));
-            let now = self.bounds_y(target);
-            if (now - last).abs() < 0.5 {
-                return now;
-            }
-            last = now;
-        }
-        last
     }
 
     pub(super) fn log_text(&self) -> String {
@@ -180,9 +152,9 @@ impl Scene {
         }
     }
 
-    pub(super) fn value_of(&self, target: &Tgt) -> Option<String> {
+    pub(super) fn value_of(&self, target: &NativeHandle) -> Option<String> {
         self.adapter
-            .get_live_value(&target.handle, deadline(5_000))
+            .get_live_value(target, deadline(5_000))
             .ok()
             .flatten()
     }

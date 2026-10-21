@@ -5,7 +5,7 @@ use agent_desktop_core::{
 };
 
 use super::live_launch::{Launched, nonce};
-use super::physical_live_rig::{Kit, Scene, Tgt};
+use super::physical_live_rig::{Kit, Scene};
 use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
 use crate::actions::frame_active::frame_active;
@@ -14,7 +14,7 @@ use crate::input::x11::live_tests::{GTK3, GTK4, device_state, window_center};
 const ENTRY_ROLES: &[&str] = &["textfield", "text", "entry"];
 const CLICK_ROLES: &[&str] = &["button"];
 
-fn entry_scene(kit: Kit, source: &str) -> (Scene, Tgt) {
+fn entry_scene(kit: Kit, source: &str) -> (Scene, NativeHandle) {
     let scene = Scene::open(kit, source, 2);
     let entry = scene.find(ENTRY_ROLES, None);
     (scene, entry)
@@ -32,30 +32,22 @@ fn activate_scene(scene: &Scene) {
     activate(client.id);
     wait_until("the fixture frame active", Duration::from_secs(8), || {
         active_window() == Some(client.id)
-            && frame_active(
-                &scene.bus,
-                &scene.frame,
-                super::physical_live_rig::deadline(3_000),
-            )
-            .ok()
-            .flatten()
+            && frame_active(&scene.bus, &scene.frame, super::live_rig::deadline(3_000))
+                .ok()
+                .flatten()
                 == Some(true)
     });
 }
 
-fn focus_by_click(scene: &Scene, target: &Tgt) {
+fn focus_by_click(scene: &Scene, target: &NativeHandle) {
     activate_scene(scene);
     scene
-        .act(&target.handle, Action::Click)
+        .act(target, Action::Click)
         .expect("the focusing click is delivered");
     wait_until("the clicked frame active", Duration::from_secs(8), || {
-        frame_active(
-            &scene.bus,
-            &scene.frame,
-            super::physical_live_rig::deadline(3_000),
-        )
-        .ok()
-        .flatten()
+        frame_active(&scene.bus, &scene.frame, super::live_rig::deadline(3_000))
+            .ok()
+            .flatten()
             == Some(true)
     });
 }
@@ -65,8 +57,9 @@ fn type_text(kit: Kit, source: &str) {
     focus_by_click(&scene, &entry);
     let text = "h\u{e9}llo \u{65e5}\u{672c}";
     let result = scene
-        .act(&entry.handle, Action::TypeText(text.to_owned()))
+        .act(&entry, Action::TypeText(text.to_owned()))
         .expect("the text is typed");
+    assert!(!result.steps.is_empty(), "{result:?}");
     assert!(result.steps.iter().all(|step| step.verified == Some(false)));
     assert!(
         result
@@ -83,21 +76,18 @@ fn key_combo(kit: Kit, source: &str) {
     let (scene, entry) = entry_scene(kit, source);
     focus_by_click(&scene, &entry);
     scene
-        .act(&entry.handle, Action::TypeText("abc".to_owned()))
+        .act(&entry, Action::TypeText("abc".to_owned()))
         .expect("typed");
     scene.wait_log(|log| log == "abc");
     scene
-        .act(
-            &entry.handle,
-            Action::PressKey(combo("a", vec![Modifier::Ctrl])),
-        )
+        .act(&entry, Action::PressKey(combo("a", vec![Modifier::Ctrl])))
         .expect("select all");
     scene
-        .act(&entry.handle, Action::TypeText("X".to_owned()))
+        .act(&entry, Action::TypeText("X".to_owned()))
         .expect("typed over the selection");
     assert_eq!(scene.wait_log(|log| log == "X"), "X");
     scene
-        .act(&entry.handle, Action::PressKey(combo("BackSpace", vec![])))
+        .act(&entry, Action::PressKey(combo("BackSpace", vec![])))
         .expect("backspace");
     assert_eq!(scene.wait_log(str::is_empty), "");
 }
@@ -206,7 +196,7 @@ fn live_a_frame_that_is_not_active_refuses_with_window_active() {
     let decoy = Scene::attach(launched, pid, decoy_log, 2);
     std::thread::sleep(Duration::from_secs(1));
     let error = scene
-        .act(&entry.handle, Action::TypeText("zz".to_owned()))
+        .act(&entry, Action::TypeText("zz".to_owned()))
         .expect_err("a frame that is not active refuses");
     assert_eq!(error.code, ErrorCode::ActionFailed, "{error:?}");
     let details = error.details.as_ref().expect("details");
@@ -247,13 +237,9 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
         Duration::from_secs(8),
         || {
             std::path::Path::new(&ready).exists()
-                && frame_active(
-                    &scene.bus,
-                    &scene.frame,
-                    super::physical_live_rig::deadline(3_000),
-                )
-                .ok()
-                .flatten()
+                && frame_active(&scene.bus, &scene.frame, super::live_rig::deadline(3_000))
+                    .ok()
+                    .flatten()
                     == Some(false)
         },
     );
@@ -264,7 +250,7 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
         || active_window() == Some(client.id),
     );
     let refused = scene
-        .act(&entry.handle, Action::TypeText("zq".to_owned()))
+        .act(&entry, Action::TypeText("zq".to_owned()))
         .expect_err("the AT-SPI frame state is stricter than _NET_ACTIVE_WINDOW under a grab");
     assert_eq!(refused.details.expect("details")["check"], "window_active");
     assert_eq!(grab.log_text(), "");
@@ -275,6 +261,7 @@ fn live_keys_under_a_menu_grab_are_reported_unverified() {
     let result = scene
         .act(&NativeHandle::null(), Action::PressKey(combo))
         .expect("a global press has no gate");
+    assert!(!result.steps.is_empty(), "{result:?}");
     assert!(
         result.steps.iter().all(|step| step.verified == Some(false)),
         "{result:?}"

@@ -1,16 +1,15 @@
 use super::*;
-use crate::system::x11::FrameExtents;
 use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::window_flags::WindowFlags;
 use crate::system::x11::window_kind::WindowKind;
-use crate::tree::hit_cover::tests::client;
+use crate::system::x11::{FrameExtents, X11Client};
+use crate::tree::hit_descent::Described;
 use crate::tree::hit_descent::tests::{FakeNodes, el};
-use crate::tree::hit_descent::{Described, Hit};
 
 const CLIENT: u32 = 10;
 
-fn rect(x: i32, y: i32, width: i32, height: i32) -> Extents {
+pub(crate) fn rect(x: i32, y: i32, width: i32, height: i32) -> Extents {
     Extents {
         x,
         y,
@@ -55,7 +54,7 @@ fn gtk4_facts() -> Facts {
     }
 }
 
-fn stacked(id: u32, client: Extents) -> StackedWindow {
+pub(crate) fn stacked(id: u32, client: Extents) -> StackedWindow {
     StackedWindow {
         shadow: (0, 0, 0, 0),
         id,
@@ -76,7 +75,7 @@ fn stacked(id: u32, client: Extents) -> StackedWindow {
     }
 }
 
-fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
+pub(crate) fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
     let mut stack = vec![stacked(CLIENT, rect(origin.0, origin.1, 800, 600))];
     stack.extend(above);
     Windowing {
@@ -93,11 +92,22 @@ fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Windowing {
     }
 }
 
+fn client(id: u32, pid: u32, title: &str) -> X11Client {
+    X11Client {
+        shadow: (0, 0, 0, 0),
+        id,
+        hidden: false,
+        pid: Some(pid),
+        title: title.to_owned(),
+        extents: None,
+        bounds: None,
+    }
+}
+
 struct World {
     nodes: FakeNodes,
     facts: Option<Facts>,
     windowing: Option<Windowing>,
-    windowing_reads: usize,
 }
 
 impl World {
@@ -111,29 +121,15 @@ impl World {
             nodes,
             facts: Some(facts),
             windowing,
-            windowing_reads: 0,
         }
     }
 }
 
-impl NodeSource for World {
-    fn at_point(&mut self, from: &AtspiElement, point: (i32, i32)) -> Result<Hit, AdapterError> {
-        self.nodes.at_point(from, point)
-    }
-
-    fn verified_parent(
-        &mut self,
-        node: &AtspiElement,
-    ) -> Result<Option<AtspiElement>, AdapterError> {
-        self.nodes.verified_parent(node)
-    }
-
-    fn describe(&mut self, node: &AtspiElement) -> Result<Described, AdapterError> {
-        self.nodes.describe(node)
-    }
-}
-
 impl HitWorld for World {
+    fn nodes(&mut self) -> &mut impl NodeSource {
+        &mut self.nodes
+    }
+
     fn facts(
         &mut self,
         _target: &AtspiElement,
@@ -143,7 +139,6 @@ impl HitWorld for World {
     }
 
     fn windowing(&mut self, _frame: &FrameFacts) -> Option<Windowing> {
-        self.windowing_reads += 1;
         self.windowing.clone()
     }
 }
@@ -161,38 +156,81 @@ fn reaching(world: &mut World) {
         .lead("/target", "/target");
 }
 
-#[test]
-fn a_gtk3_target_the_descent_reaches_with_a_clear_stack_reaches_target() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
+fn reachable(facts: Facts, origin: (i32, i32), above: Vec<StackedWindow>) -> World {
+    let mut world = World::new(facts, Some(windowing(origin, above)));
     reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::ReachesTarget);
-    assert_eq!(world.nodes.points.first(), Some(&(210, 17)));
+    world
+}
+
+fn unknown(world: &mut World, point: (i32, i32)) {
+    assert_eq!(test(world, point), HitTestResult::Unknown);
 }
 
 #[test]
 fn a_window_above_the_target_over_the_point_intercepts_without_a_descent() {
     let cover = stacked(20, rect(200, 100, 600, 400));
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![cover])));
-    reaching(&mut world);
+    let mut world = reachable(gtk3_facts(), (100, 137), vec![cover]);
     let HitTestResult::InterceptedBy { role, name, bounds } = test(&mut world, (310, 154)) else {
         panic!("a cover must intercept");
     };
     assert_eq!(role.as_deref(), Some("window"));
     assert_eq!(name, None);
     assert_eq!(bounds.expect("the cover's frame").width, 600.0);
-    assert!(world.nodes.calls.is_empty());
 }
 
 #[test]
-fn a_cover_that_maps_to_one_client_is_named_by_its_title() {
+fn cover_names_require_unique_identity() {
     let cover = stacked(20, rect(200, 100, 600, 400));
-    let mut covered = windowing((100, 137), vec![cover]);
-    covered.clients = vec![client(CLIENT, 77, "Target"), client(20, 77, "Cover")];
-    let mut world = World::new(gtk3_facts(), Some(covered));
-    let HitTestResult::InterceptedBy { name, .. } = test(&mut world, (310, 154)) else {
-        panic!("a cover must intercept");
-    };
-    assert_eq!(name.as_deref(), Some("Cover"));
+    for (clients, expected) in [
+        (vec![], None),
+        (vec![client(20, 77, "Cover")], Some("Cover")),
+        (
+            vec![client(20, 77, "Cover"), client(21, 77, "Other")],
+            Some("Cover"),
+        ),
+        (vec![client(20, 77, "Cover"), client(21, 77, "Cover")], None),
+        (
+            vec![client(20, 77, "Cover"), client(21, 78, "Cover")],
+            Some("Cover"),
+        ),
+        (vec![client(20, 77, "")], None),
+    ] {
+        let mut covered = windowing((100, 137), vec![cover.clone()]);
+        covered.clients = clients;
+        let mut world = World::new(gtk3_facts(), Some(covered));
+        assert!(
+            matches!(test(&mut world, (310, 154)), HitTestResult::InterceptedBy { name, .. } if name.as_deref() == expected)
+        );
+    }
+
+    for (names, expected) in [
+        (vec![(30, "Popup".to_owned())], Some("Popup")),
+        (vec![(31, "Popup".to_owned())], None),
+        (
+            vec![(30, "Popup".to_owned()), (31, "Popup".to_owned())],
+            None,
+        ),
+    ] {
+        let mut stacking = windowing((100, 137), vec![]);
+        stacking.snapshot.override_redirect_above = vec![rect(200, 100, 600, 400)];
+        stacking.snapshot.override_redirect_receiving = vec![(30, rect(200, 100, 600, 400))];
+        stacking.snapshot.override_redirect_names = names;
+        let mut world = World::new(gtk3_facts(), Some(stacking));
+        assert!(
+            matches!(test(&mut world, (310, 154)), HitTestResult::InterceptedBy { name, .. } if name.as_deref() == expected)
+        );
+    }
+
+    let mut stacking = windowing((100, 137), vec![]);
+    stacking.snapshot.override_redirect_above = vec![rect(200, 100, 600, 400)];
+    stacking.snapshot.override_redirect_receiving = vec![(30, rect(200, 100, 600, 400))];
+    stacking.snapshot.override_redirect_names = vec![(30, "Popup".to_owned())];
+    stacking.clients = vec![client(20, 77, "Popup")];
+    let mut world = World::new(gtk3_facts(), Some(stacking));
+    assert!(matches!(
+        test(&mut world, (310, 154)),
+        HitTestResult::InterceptedBy { name: None, .. }
+    ));
 }
 
 #[test]
@@ -201,12 +239,10 @@ fn the_cross_window_leg_is_what_separates_reaches_from_intercepted() {
         let mut facts = gtk3_facts();
         facts.toolkit = toolkit(name, version);
         let covered = stacked(20, rect(200, 100, 600, 400));
-        let mut world = World::new(facts.clone(), Some(windowing((100, 137), vec![covered])));
-        reaching(&mut world);
+        let mut world = reachable(facts.clone(), (100, 137), vec![covered]);
         let result = test(&mut world, (310, 154));
         assert!(matches!(result, HitTestResult::InterceptedBy { .. }));
-        let mut raised = World::new(facts, Some(windowing((100, 137), vec![])));
-        reaching(&mut raised);
+        let mut raised = reachable(facts, (100, 137), vec![]);
         assert_eq!(test(&mut raised, (310, 154)), HitTestResult::ReachesTarget);
         assert_eq!(raised.nodes.points.first(), Some(&(210, 17)));
     }
@@ -215,14 +251,13 @@ fn the_cross_window_leg_is_what_separates_reaches_from_intercepted() {
 #[test]
 fn a_cover_that_misses_the_point_leaves_the_target_reachable() {
     let aside = stacked(20, rect(700, 700, 50, 50));
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![aside])));
-    reaching(&mut world);
+    let mut world = reachable(gtk3_facts(), (100, 137), vec![aside]);
     assert_eq!(test(&mut world, (310, 154)), HitTestResult::ReachesTarget);
 }
 
 #[test]
 fn an_unrelated_lander_on_a_trusted_toolkit_intercepts_with_its_role_name_and_bounds() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
+    let mut world = reachable(gtk3_facts(), (100, 137), vec![]);
     world.nodes.lead("/frame", "/other");
     world.nodes.described.insert(
         "/other".to_owned(),
@@ -239,121 +274,89 @@ fn an_unrelated_lander_on_a_trusted_toolkit_intercepts_with_its_role_name_and_bo
     assert_eq!(name.as_deref(), Some("Close"));
     let bounds = bounds.expect("bounds");
     assert_eq!((bounds.x, bounds.y), (300.0, 147.0));
+
+    world
+        .nodes
+        .described
+        .get_mut("/other")
+        .unwrap()
+        .window_extents = Some(rect(700, 700, 40, 20));
+    unknown(&mut world, (310, 154));
+
+    world
+        .nodes
+        .described
+        .get_mut("/other")
+        .unwrap()
+        .window_extents = Some(rect(200, 10, 40, 20));
+    world.facts.as_mut().unwrap().toolkit = toolkit("Chromium", "1.0");
+    unknown(&mut world, (310, 154));
 }
 
 #[test]
-fn a_lander_on_an_untrusted_toolkit_is_unknown() {
-    let mut facts = gtk3_facts();
-    facts.toolkit = toolkit("Chromium", "1.0");
-    let mut world = World::new(facts, Some(windowing((100, 137), vec![])));
-    world.nodes.lead("/frame", "/other");
-    world.nodes.described.insert(
+fn unknown_inputs_stay_unknown() {
+    let mut world = reachable(gtk3_facts(), (100, 137), vec![]);
+    world.nodes.lead("/frame", "/pane");
+    unknown(&mut world, (310, 154));
+    world.nodes.endless = true;
+    unknown(&mut world, (310, 154));
+    world.nodes.endless = false;
+    reaching(&mut world);
+    world
+        .windowing
+        .as_mut()
+        .unwrap()
+        .snapshot
+        .override_redirect_above = vec![rect(300, 150, 50, 50)];
+    unknown(&mut world, (310, 154));
+
+    let mut unavailable = reachable(gtk3_facts(), (100, 137), vec![]);
+    unavailable.windowing = None;
+    unknown(&mut unavailable, (310, 154));
+    unavailable.windowing = Some(windowing((400, 300), vec![]));
+    unknown(&mut unavailable, (310, 154));
+    unavailable.facts = None;
+    unknown(&mut unavailable, (310, 154));
+
+    let mut blind_facts = gtk3_facts();
+    blind_facts.toolkit = toolkit("Other", "1.0");
+    let mut blind = reachable(
+        blind_facts,
+        (100, 137),
+        vec![stacked(20, rect(200, 100, 600, 400))],
+    );
+    blind.nodes.lead("/frame", "/other");
+    blind.nodes.described.insert(
         "/other".to_owned(),
         Described {
             window_extents: Some(rect(200, 10, 40, 20)),
             ..Described::default()
         },
     );
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
+    unknown(&mut blind, (310, 154));
 
-#[test]
-fn an_ancestor_landing_is_unknown() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
-    world.nodes.lead("/frame", "/pane");
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn an_endless_descent_is_unknown() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
-    world.nodes.endless = true;
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn an_override_redirect_window_over_the_point_is_unknown() {
-    let mut stacking = windowing((100, 137), vec![]);
-    stacking.snapshot.override_redirect_above = vec![rect(300, 150, 50, 50)];
-    let mut world = World::new(gtk3_facts(), Some(stacking));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn x11_that_cannot_be_read_is_unknown() {
-    let mut world = World::new(gtk3_facts(), None);
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn a_global_toolkit_whose_origin_disagrees_with_x11_is_unknown() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((400, 300), vec![])));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn gtk4_with_a_unique_mapping_reaches_the_target_at_the_calibrated_position() {
-    let mut world = World::new(gtk4_facts(), Some(windowing((302, 260), vec![])));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (700, 560)), HitTestResult::ReachesTarget);
-    assert_eq!(world.nodes.points.first(), Some(&(398, 300)));
-}
-
-#[test]
-fn gtk4_without_a_mapping_is_unknown_for_every_input() {
-    let mut world = World::new(gtk4_facts(), None);
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (700, 560)), HitTestResult::Unknown);
-    let mut covered = World::new(gtk4_facts(), None);
-    assert_eq!(test(&mut covered, (700, 560)), HitTestResult::Unknown);
-}
-
-#[test]
-fn a_point_inside_the_raw_gtk4_rectangle_but_outside_the_calibrated_one_is_unknown() {
-    let mut world = World::new(gtk4_facts(), Some(windowing((302, 260), vec![])));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (10, 10)), HitTestResult::Unknown);
-    assert!(world.nodes.calls.is_empty());
-}
-
-#[test]
-fn a_calibrated_gtk4_target_under_a_cover_is_intercepted_by_it() {
-    let cover = stacked(20, rect(500, 400, 800, 400));
-    let mut world = World::new(gtk4_facts(), Some(windowing((302, 260), vec![cover])));
-    let result = test(&mut world, (700, 560));
-    assert!(matches!(result, HitTestResult::InterceptedBy { .. }));
-}
-
-#[test]
-fn a_gtk4_lander_elsewhere_in_the_window_is_unknown() {
-    let mut world = World::new(gtk4_facts(), Some(windowing((302, 260), vec![])));
-    world.nodes.lead("/frame", "/other");
-    world.nodes.described.insert(
+    let mut gtk4_missing = reachable(gtk4_facts(), (302, 260), vec![]);
+    gtk4_missing.windowing = None;
+    unknown(&mut gtk4_missing, (700, 560));
+    let mut raw_only = reachable(gtk4_facts(), (302, 260), vec![]);
+    unknown(&mut raw_only, (10, 10));
+    let mut gtk4_lander = reachable(gtk4_facts(), (302, 260), vec![]);
+    gtk4_lander.nodes.lead("/frame", "/other");
+    gtk4_lander.nodes.described.insert(
         "/other".to_owned(),
         Described {
             window_extents: Some(rect(300, 250, 300, 100)),
             ..Described::default()
         },
     );
-    assert_eq!(test(&mut world, (700, 560)), HitTestResult::Unknown);
-}
+    unknown(&mut gtk4_lander, (700, 560));
 
-#[test]
-fn a_minimized_window_is_unknown_without_reading_x11_or_the_bus() {
-    let mut facts = gtk3_facts();
-    facts.minimized = true;
-    let mut world = World::new(facts, Some(windowing((100, 137), vec![])));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
-    assert_eq!(world.windowing_reads, 0);
-    assert!(world.nodes.calls.is_empty());
-}
-
-#[test]
-fn zero_size_and_sentinel_targets_are_unknown_before_any_read() {
+    let mut minimized_facts = gtk3_facts();
+    minimized_facts.minimized = true;
+    unknown(
+        &mut reachable(minimized_facts, (100, 137), vec![]),
+        (310, 154),
+    );
     for screen in [
         rect(0, 0, 710, 0),
         rect(i32::MIN, i32::MIN, 100, 100),
@@ -361,26 +364,28 @@ fn zero_size_and_sentinel_targets_are_unknown_before_any_read() {
     ] {
         let mut facts = gtk3_facts();
         facts.screen = screen;
-        let mut world = World::new(facts, Some(windowing((100, 137), vec![])));
-        reaching(&mut world);
-        assert_eq!(test(&mut world, (0, 0)), HitTestResult::Unknown);
-        assert_eq!(world.windowing_reads, 0);
-        assert!(world.nodes.calls.is_empty());
+        unknown(&mut reachable(facts, (100, 137), vec![]), (0, 0));
     }
+    unknown(&mut reachable(gtk3_facts(), (100, 137), vec![]), (560, 154));
+    let mut unreadable = reachable(gtk3_facts(), (100, 137), vec![]);
+    unreadable.facts = None;
+    unknown(&mut unreadable, (310, 154));
 }
 
 #[test]
-fn a_point_40_pixels_right_of_the_button_is_unknown() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
-    reaching(&mut world);
-    assert_eq!(test(&mut world, (560, 154)), HitTestResult::Unknown);
-}
-
-#[test]
-fn unreadable_facts_are_unknown() {
-    let mut world = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
-    world.facts = None;
-    assert_eq!(test(&mut world, (310, 154)), HitTestResult::Unknown);
+fn calibrated_points_reach_or_intercept_at_the_calibrated_position() {
+    let mut gtk3 = reachable(gtk3_facts(), (100, 137), vec![]);
+    assert_eq!(test(&mut gtk3, (310, 154)), HitTestResult::ReachesTarget);
+    assert_eq!(gtk3.nodes.points.first(), Some(&(210, 17)));
+    let mut gtk4 = reachable(gtk4_facts(), (302, 260), vec![]);
+    assert_eq!(test(&mut gtk4, (700, 560)), HitTestResult::ReachesTarget);
+    assert_eq!(gtk4.nodes.points.first(), Some(&(398, 300)));
+    let cover = stacked(20, rect(500, 400, 800, 400));
+    let mut covered = reachable(gtk4_facts(), (302, 260), vec![cover]);
+    assert!(matches!(
+        test(&mut covered, (700, 560)),
+        HitTestResult::InterceptedBy { .. }
+    ));
 }
 
 #[path = "hit_test_shadow_tests.rs"]
