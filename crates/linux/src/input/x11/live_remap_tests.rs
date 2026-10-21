@@ -35,37 +35,67 @@ fn wait_for_keysyms(display: &str, code: u8, wanted: &[u32]) -> bool {
 fn live_text_after_own_pending_remap_reaches_the_editor_and_bad_recovery_refuses() {
     use super::{held_journal::HeldJournal, sink::X11Sink, xtest_sink::XtestSink};
     use crate::input::{held_input::HeldInput, text_plan::plan_text};
+    use crate::system::x11::stacking_source::StackingSource;
     let display = private_display();
     let runtime = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").unwrap();
     let log = std::path::Path::new(&runtime).join("typed.txt");
+    let focus = std::path::Path::new(&runtime).join("entry-focused");
     std::fs::write(&log, "").unwrap();
+    std::fs::write(&focus, "False").unwrap();
+    let source = super::live_tests::GTK3.replace(
+        "w.show_all()",
+        "e.connect('notify::has-focus', lambda x, p: open(os.environ['AD_FOCUS_LOG'], 'w').write(str(x.has_focus())))\nw.show_all()\ne.grab_focus()",
+    );
     let mut app = Command::new("python3")
-        .args(["-c", super::live_tests::GTK3])
+        .args(["-c", &source])
         .env("AD_LIVE_LOG", &log)
+        .env("AD_FOCUS_LOG", &focus)
         .spawn()
         .unwrap();
-    let (x, y) = super::live_tests::window_center("adx");
+    let started = Instant::now();
+    let client = loop {
+        if let crate::system::x11::X11State::Ready { clients, .. } =
+            crate::system::x11::DisplayReader.clients_within(deadline(3_000))
+        {
+            if let Some(client) = clients.into_iter().find(|client| {
+                client.pid == Some(app.id()) && !client.hidden && client.bounds.is_some()
+            }) {
+                break client;
+            }
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "fixture not mapped"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let facts = crate::system::process_facts::read(app.id()).unwrap();
+    let owner = agent_desktop_core::ProcessIdentity::new(app.id(), facts.instance);
+    crate::system::x11::control_send::activate_window(client.id, &owner, deadline(8_000), true)
+        .unwrap();
+    let started = Instant::now();
+    loop {
+        let active = Command::new("xprop")
+            .args(["-root", "_NET_ACTIVE_WINDOW"])
+            .output()
+            .unwrap();
+        assert!(active.status.success());
+        let text = String::from_utf8(active.stdout).unwrap();
+        let active = text
+            .split_whitespace()
+            .last()
+            .and_then(|id| id.strip_prefix("0x"))
+            .and_then(|id| u32::from_str_radix(id, 16).ok());
+        if active == Some(client.id) && std::fs::read_to_string(&focus).unwrap() == "True" {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "fixture not focused"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
     let lease = crate::system::interaction_lease::acquire(deadline(30_000)).unwrap();
-    run(
-        &display,
-        vec![Plan {
-            steps: vec![
-                Step::MoveTo { x, y },
-                Step::Button {
-                    code: 1,
-                    down: true,
-                },
-                Step::Button {
-                    code: 1,
-                    down: false,
-                },
-            ],
-            release_origin: None,
-        }],
-        &mut || Ok(()),
-        &lease,
-    )
-    .unwrap();
     let map = live_keymap(&display, &lease).unwrap();
     let code = map.spare_keycodes(1)[0];
     let original = map.keysyms_of(code).unwrap();
@@ -118,6 +148,7 @@ fn live_text_after_own_pending_remap_reaches_the_editor_and_bad_recovery_refuses
     app.kill().unwrap();
     app.wait().unwrap();
     std::fs::remove_file(log).unwrap();
+    std::fs::remove_file(focus).unwrap();
 }
 
 #[test]
