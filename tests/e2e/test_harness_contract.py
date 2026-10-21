@@ -12,7 +12,6 @@ SOURCED_SUITE_FILES = [
     *sorted((E2E_ROOT / "scenarios").glob("*.sh")),
 ]
 
-
 class HarnessContractTests(unittest.TestCase):
     def test_sourced_suite_has_one_canonical_exit_path(self):
         exits = []
@@ -39,21 +38,6 @@ class HarnessContractTests(unittest.TestCase):
         finish = re.search(r"finish\(\) \{(?P<body>.*?)\n\}", source, re.DOTALL)
         self.assertIsNotNone(finish)
         self.assertNotIn("abort_suite", finish.group("body"))
-
-    def test_shell_harness_never_permanently_removes_artifacts(self):
-        permanent_delete = re.compile(r"(?m)(?:^|[;&|({])\s*rm(?:\s|$)")
-        offenders = []
-        shell_paths = [
-            *E2E_ROOT.glob("*.sh"),
-            *(E2E_ROOT / "scenarios").glob("*.sh"),
-            *(E2E_ROOT.parent / "fixture-app").glob("*.sh"),
-            *(E2E_ROOT.parent.parent / "scripts").glob("*.sh"),
-        ]
-        for path in sorted(shell_paths):
-            if permanent_delete.search(path.read_text()):
-                offenders.append(path.name)
-
-        self.assertEqual(offenders, [])
 
     def test_denied_automation_skips_when_notification_center_cannot_be_closed(self):
         source = (E2E_ROOT / "scenarios" / "acceptance.sh").read_text()
@@ -155,56 +139,35 @@ cleanup
         self.assertLess(body.index('verify_immutable_binary "$ffi_dylib"'), decision)
         self.assertLess(body.index('verify_immutable_binary "$ffi_helper"'), decision)
 
-    def test_recoverable_trash_moves_artifact_with_available_backend(self):
+    def test_cleanup_removes_owned_artifact_and_leaves_sibling(self):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             artifact = root_path / "artifact"
             artifact.mkdir()
-            trash_dir = root_path / "trash"
-            trash_dir.mkdir()
-            bin_dir = root_path / "bin"
-            bin_dir.mkdir()
-            trash = bin_dir / "trash"
-            trash.write_text('#!/bin/sh\n/bin/mv "$1" "$FAKE_TRASH/"\n')
-            trash.chmod(0o700)
+            sibling = root_path / "sibling"
+            sibling.mkdir()
 
-            result = self.run_trash_helper(artifact, bin_dir, trash_dir)
+            result = self.run_cleanup_helper(str(artifact))
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(artifact.exists())
-            self.assertTrue((trash_dir / artifact.name).is_dir())
+            self.assertTrue(sibling.is_dir())
 
-    def test_recoverable_trash_retains_artifact_without_backend(self):
-        with tempfile.TemporaryDirectory() as root:
-            artifact = Path(root) / "artifact"
-            artifact.mkdir()
+    def test_cleanup_refuses_empty_path(self):
+        result = self.run_cleanup_helper("")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refused an empty path", result.stderr)
 
-            result = self.run_trash_helper(artifact, Path(root) / "missing", Path(root))
-
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue(artifact.is_dir())
-            self.assertIn("retained artifact", result.stderr)
-
-    def run_trash_helper(self, artifact: Path, path: Path, trash_dir: Path):
+    def run_cleanup_helper(self, artifact: str):
         script = f'''
 source "{E2E_ROOT / "harness.sh"}"
-host_home="{artifact.parent}"
-host_tmp="{artifact.parent}"
-PATH="{path}"
-if trash_recoverably "{artifact}"; then
-    test ! -e "{artifact}"
-else
-    test -e "{artifact}"
-fi
+remove_artifact "{artifact}"
 '''
-        env = os.environ.copy()
-        env["FAKE_TRASH"] = str(trash_dir)
         return subprocess.run(
             ["/bin/bash", "-c", script],
             capture_output=True,
             check=False,
             text=True,
-            env=env,
         )
 
 

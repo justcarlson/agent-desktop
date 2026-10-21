@@ -32,6 +32,8 @@ fn complete_evidence() -> LocatorEvidence {
         ),
         states: LocatorField::Known(vec!["enabled".to_string()]),
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Known(Rect {
                 x: 0.0,
                 y: 0.0,
@@ -115,6 +117,8 @@ fn an_unknown_value_states_bounds_or_actions_fail_the_gate() {
         },
         LocatorEvidence {
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
+                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 bounds: LocatorField::Unknown,
                 ..complete_evidence().ref_evidence
             },
@@ -122,6 +126,8 @@ fn an_unknown_value_states_bounds_or_actions_fail_the_gate() {
         },
         LocatorEvidence {
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
+                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 available_actions: LocatorField::Unknown,
                 ..complete_evidence().ref_evidence
             },

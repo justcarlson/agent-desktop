@@ -394,6 +394,7 @@ fn entry_hash() -> u64 {
 
 #[path = "ref_alloc_bounds_tests.rs"]
 mod bounds_tests;
-
 #[path = "ref_alloc_ordering_tests.rs"]
 mod ordering_tests;
+#[path = "ref_alloc_window_bounds_tests.rs"]
+mod window_bounds_tests;

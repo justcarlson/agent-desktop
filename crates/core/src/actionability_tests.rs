@@ -25,6 +25,7 @@ fn entry() -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: Some(bounds),
             bounds_hash: bounds.bounds_hash(),
         },
@@ -74,7 +75,11 @@ fn visibility_evidence(
 
 #[test]
 fn explicit_typed_hidden_state_wins() {
-    let check = gates::visibility(&visibility_evidence(Some(true), Vec::new(), true), true);
+    let check = gates::visibility(
+        &visibility_evidence(Some(true), Vec::new(), true),
+        true,
+        false,
+    );
 
     assert_eq!(check.status, ActionabilityStatus::Fail);
     assert_eq!(check.reason.as_deref(), Some("live hidden state is true"));
@@ -85,6 +90,7 @@ fn complete_canonical_hidden_state_fails_when_typed_state_is_absent() {
     let check = gates::visibility(
         &visibility_evidence(None, vec![crate::state::HIDDEN.into()], true),
         true,
+        false,
     );
 
     assert_eq!(check.status, ActionabilityStatus::Fail);
@@ -96,14 +102,14 @@ fn complete_canonical_hidden_state_fails_when_typed_state_is_absent() {
 
 #[test]
 fn complete_canonical_states_without_hidden_allow_visibility_checks_to_continue() {
-    let check = gates::visibility(&visibility_evidence(None, Vec::new(), true), true);
+    let check = gates::visibility(&visibility_evidence(None, Vec::new(), true), true, false);
 
     assert_eq!(check.status, ActionabilityStatus::Pass);
 }
 
 #[test]
 fn incomplete_canonical_states_keep_missing_typed_hidden_unknown() {
-    let check = gates::visibility(&visibility_evidence(None, Vec::new(), false), true);
+    let check = gates::visibility(&visibility_evidence(None, Vec::new(), false), true, false);
 
     assert_eq!(check.status, ActionabilityStatus::Unknown);
     assert_eq!(

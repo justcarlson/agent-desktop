@@ -17,6 +17,9 @@ pub(crate) mod capture_test_support;
 #[cfg(target_os = "windows")]
 pub(crate) mod capture_window;
 pub(crate) mod close;
+#[cfg(target_os = "windows")]
+pub(crate) mod close_dispatch;
+pub(crate) mod close_outcome;
 pub(crate) mod com_runtime;
 pub(crate) mod cursor_overlay;
 pub(crate) mod display;
@@ -75,6 +78,7 @@ pub(crate) mod window_activate;
 pub(crate) mod window_enum;
 pub(crate) mod window_identity;
 pub(crate) mod window_op;
+pub(crate) mod window_op_readback;
 pub(crate) mod window_op_verb;
 pub(crate) mod window_ops;
 pub(crate) mod window_resolve;

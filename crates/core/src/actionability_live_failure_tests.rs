@@ -1,6 +1,58 @@
 use super::*;
 
 #[test]
+fn offscreen_refusal_does_not_claim_movement_from_one_live_sample() {
+    let mut snapshot = entry();
+    snapshot.geometry.bounds = Some(Rect {
+        x: -184.0,
+        y: 512.0,
+        width: 90.0,
+        height: 44.0,
+    });
+    snapshot.geometry.bounds_hash = snapshot.geometry.bounds.unwrap().bounds_hash();
+    let adapter = LiveAdapter {
+        state: Some(ElementState {
+            role: "button".into(),
+            states: vec![],
+            value: None,
+            enabled: Some(true),
+            hidden: Some(false),
+            offscreen: Some(true),
+        }),
+        bounds: Some(Rect {
+            x: -183.0,
+            ..snapshot.geometry.bounds.unwrap()
+        }),
+        actions: Some(vec![]),
+    };
+    let error = check_live(
+        &snapshot,
+        &NativeHandle::null(),
+        &adapter,
+        &ActionRequest::headed(Action::Click),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+    assert!(error.message.contains("live offscreen state is true"));
+    assert!(!error.message.contains("bounds changed"));
+    let details = error.details.unwrap();
+    let checks = details["checks"].as_array().unwrap();
+    let stability = checks
+        .iter()
+        .find(|check| check["check"] == "stable")
+        .unwrap();
+    assert_eq!(stability["status"], "unknown");
+    assert_eq!(stability["stability"]["samples"], 1);
+    assert_eq!(stability["stability"]["span_ms"], 0);
+    assert_eq!(
+        stability["reason"],
+        "live bounds stability has not been sampled"
+    );
+}
+
+#[test]
 fn empty_live_actions_replace_stale_snapshot_capabilities() {
     let stale = entry();
     let adapter = LiveAdapter {

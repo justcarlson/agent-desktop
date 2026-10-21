@@ -108,6 +108,16 @@ impl Action {
         )
     }
 
+    /// Whether the action is delivered as keyboard input. Such an action never
+    /// aims a pointer, so it needs no element geometry and no window
+    /// activation on a session whose keys reach the focused element.
+    pub(crate) fn delivered_by_keyboard(&self) -> bool {
+        matches!(
+            self,
+            Self::TypeText(_) | Self::PressKey(_) | Self::KeyDown(_) | Self::KeyUp(_)
+        )
+    }
+
     /// Whether the action can leave the application showing a sheet, menu, or
     /// alert. Listing surfaces costs a walk of the application's overlays, so
     /// only the actions that can raise one pay for it.

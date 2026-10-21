@@ -27,6 +27,7 @@ pub(crate) fn resolve_app(
                 ErrorCode::AppNotFound,
                 "No focused application was found when --app was omitted",
             )
+            .unsent()
             .into());
         }
         [window] => window,
@@ -81,6 +82,7 @@ fn select_unique_app(mut candidates: Vec<AppInfo>, label: &str) -> Result<AppInf
         .with_suggestion(
             "Application name as reported by list-apps, with or without .exe suffix on Windows",
         )
+        .unsent()
         .into()),
         1 => Ok(candidates.swap_remove(0)),
         _ => {

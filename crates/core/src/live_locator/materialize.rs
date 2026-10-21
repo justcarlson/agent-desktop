@@ -56,7 +56,8 @@ pub(crate) fn ref_entry(
         .known()
         .cloned()
         .unwrap_or_else(|| "unknown".into());
-    let bounds = node.evidence.ref_evidence.bounds.known().copied();
+    let window = node.evidence.ref_evidence.window_bounds.known().copied();
+    let bounds = window.or_else(|| node.evidence.ref_evidence.bounds.known().copied());
     let identifier = selected_identifier(&node.evidence, query.identity.native_id.as_deref());
     let mut entry = RefEntry {
         process: crate::RefProcess {
@@ -78,6 +79,7 @@ pub(crate) fn ref_entry(
         geometry: crate::RefGeometry {
             bounds,
             bounds_hash: bounds.as_ref().and_then(|value| value.bounds_hash()),
+            bounds_space: window.map(|_| crate::BoundsSpace::Window),
         },
         capabilities: crate::RefCapabilities {
             states: node.evidence.states.known().cloned().unwrap_or_default(),

@@ -46,7 +46,9 @@ pub fn execute(args: LaunchArgs, adapter: &dyn PlatformAdapter) -> Result<Value,
         let granted = deadline.remaining();
         launched.cdp = Some(verify_cdp_endpoint(port, deadline, granted, &launched)?);
     }
-    launched.suggestion = launch_suggestion(requested_cdp_port.is_some(), &launched);
+    if launched.suggestion.is_none() {
+        launched.suggestion = launch_suggestion(requested_cdp_port.is_some(), &launched);
+    }
     Ok(serde_json::to_value(launched)?)
 }
 

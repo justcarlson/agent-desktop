@@ -239,6 +239,39 @@ fn window_source_materialization_preserves_geometry_generation_evidence() {
 }
 
 #[test]
+fn ref_entry_prefers_the_window_rectangle_and_tags_its_space() {
+    let window_bounds = crate::Rect {
+        x: 4.0,
+        y: 8.0,
+        width: 120.0,
+        height: 24.0,
+    };
+    let screen_bounds = crate::Rect {
+        x: 304.0,
+        y: 208.0,
+        width: 120.0,
+        height: 24.0,
+    };
+    let mut button = evidence("button", Some("Save"));
+    button.ref_evidence.window_bounds = LocatorField::Known(window_bounds);
+    button.ref_evidence.bounds = LocatorField::Known(screen_bounds);
+    let observed = tree(vec![node(0, button, vec![], &[])], vec![0], true);
+
+    let entry = super::materialize::ref_entry(
+        &observed.nodes[0],
+        &observed.source,
+        &LocatorQuery::default(),
+    );
+
+    assert_eq!(entry.geometry.bounds, Some(window_bounds));
+    assert_eq!(entry.geometry.bounds_hash, window_bounds.bounds_hash());
+    assert_eq!(
+        entry.geometry.bounds_space,
+        Some(crate::BoundsSpace::Window)
+    );
+}
+
+#[test]
 fn scoped_refmap_extends_source_path_without_index_correlation() {
     let root = evidence("group", Some("Scope"));
     let button = evidence("button", Some("Save"));
@@ -282,6 +315,7 @@ fn source_entry() -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

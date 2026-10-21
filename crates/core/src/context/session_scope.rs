@@ -12,3 +12,21 @@ impl Clone for SessionScope {
         }
     }
 }
+
+impl SessionScope {
+    pub(super) fn ensure_active(&self) -> Result<(), crate::AppError> {
+        if crate::session::read_manifest(&self.id)?
+            .is_some_and(|manifest| manifest.ended_at.is_some())
+        {
+            return Err(crate::AdapterError::new(
+                crate::ErrorCode::InvalidArgs,
+                format!("Session '{}' has ended", self.id),
+            )
+            .with_suggestion("Unset AGENT_DESKTOP_SESSION and omit --session, then run the command or start a new session")
+            .with_details(serde_json::json!({ "kind": "session_ended", "session_id": self.id }))
+            .with_disposition(crate::DeliverySemantics::not_delivered())
+            .into());
+        }
+        Ok(())
+    }
+}

@@ -275,6 +275,7 @@ mod tests {
                 native_id: None,
             },
             geometry: RefGeometry {
+                bounds_space: None,
                 bounds: None,
                 bounds_hash: None,
             },

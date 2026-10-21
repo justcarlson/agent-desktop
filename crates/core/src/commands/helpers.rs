@@ -84,6 +84,9 @@ pub(crate) fn execute_ref_action_with_context(
 ) -> Result<Value, AppError> {
     let request = request.with_timeout_ms(args.timeout_ms);
     validate_post_action_wait(context)?;
+    if request.policy.is_headed() && request.action.headed_requirement().requires_cursor() {
+        super::point_resolve::require_pointer_capability(adapter)?;
+    }
     let entry = load_ref_entry(&args.ref_id, context)?;
     let (result, lease, pre, deadline, lease_started) =
         crate::ref_action_wait::execute_with_auto_wait_and_lease(
@@ -180,13 +183,12 @@ pub(crate) fn apply_scoped_post_action_wait(
         }
         Err(AppError::Adapter(mut adapter_err)) => {
             let mut details = adapter_err.details.take().unwrap_or_else(|| json!({}));
+            let delivery = super::operation_response::delivery_in(&result);
             if let Some(obj) = details.as_object_mut() {
                 obj.insert("after_action".into(), result);
             }
             Err(AppError::Adapter(
-                adapter_err
-                    .with_details(details)
-                    .with_disposition(crate::DeliverySemantics::delivered_unverified()),
+                adapter_err.with_details(details).with_disposition(delivery),
             ))
         }
         Err(err) => Err(post_delivery_error(err, result)),
@@ -235,13 +237,14 @@ fn post_delivery_error(error: AppError, result: Value) -> AppError {
         other => crate::AdapterError::internal(other.to_string()),
     };
     let mut details = adapter_error.details.take().unwrap_or_else(|| json!({}));
+    let delivery = super::operation_response::delivery_in(&result);
     if let Some(object) = details.as_object_mut() {
         object.insert("after_action".into(), result);
     }
     AppError::Adapter(
         adapter_error
             .with_details(details)
-            .with_disposition(crate::DeliverySemantics::delivered_unverified()),
+            .with_disposition(delivery),
     )
 }
 

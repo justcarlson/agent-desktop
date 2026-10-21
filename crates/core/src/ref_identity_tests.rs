@@ -26,6 +26,7 @@ fn entry() -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -392,3 +393,6 @@ fn unknown_stable_text_field_does_not_collapse_to_absence() {
 }
 #[path = "ref_identity_scroll_tests.rs"]
 mod scroll_tests;
+
+#[path = "ref_identity_fields_tests.rs"]
+mod fields_tests;

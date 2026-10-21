@@ -2,9 +2,9 @@ use crate::{
     AdapterError, AdapterSession, AppInfo, CursorOverlayControl, Deadline,
     DismissAllNotificationsRequest, DismissNotificationRequest, ImageBuffer, InteractionLease,
     InteractionPolicy, KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo,
-    PermissionReport, PermissionState, ProcessIdentity, SessionAffinity, SignalBaseline,
-    SignalFilter, WindowInfo, WindowOp, action_result::ActionResult, display_info::DisplayInfo,
-    screenshot_target::ScreenshotTarget,
+    OperationReport, PermissionReport, PermissionState, ProcessIdentity, SessionAffinity,
+    SignalBaseline, SignalFilter, WindowInfo, WindowOp, action_result::ActionResult,
+    display_info::DisplayInfo, screenshot_target::ScreenshotTarget,
 };
 
 pub trait SystemOps: Send + Sync {
@@ -144,7 +144,7 @@ pub trait SystemOps: Send + Sync {
         _app: &AppInfo,
         _force: bool,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("close_app"))
     }
 
@@ -201,6 +201,54 @@ pub trait SystemOps: Send + Sync {
         Err(AdapterError::not_supported("press_key_for_app"))
     }
 
+    /// Checks the exact focused window before process-scoped key delivery.
+    /// Adapters can override this to retain the window identity through their
+    /// native delivery gates.
+    fn press_key_for_window(
+        &self,
+        window: &WindowInfo,
+        combo: &KeyCombo,
+        policy: InteractionPolicy,
+        lease: &InteractionLease,
+    ) -> Result<ActionResult, AdapterError> {
+        let refusal = || {
+            AdapterError::stale_ref_because(
+                "The named window's exact focus could not be confirmed, so no key was sent",
+            )
+            .with_suggestion(if policy.is_headed() {
+                "Ensure the named window remains active before retrying; a sibling window or another application's menu can hold the keyboard"
+            } else {
+                "Retry with --headed so the named window is brought forward first, or name the active window"
+            })
+            .with_details(serde_json::json!({
+                "check": "window_active",
+                "cause": "exact_window_focus_unconfirmed",
+                "physical_delivery_started": false,
+                "window_id": window.id,
+            }))
+            .with_disposition(crate::DeliverySemantics::not_delivered())
+        };
+        let instance = window
+            .process_instance
+            .as_deref()
+            .filter(|instance| !instance.is_empty())
+            .ok_or_else(refusal)?;
+        let focused = self.focused_window(lease.deadline()).ok().flatten();
+        if !focused.is_some_and(|focused| {
+            focused.id == window.id
+                && focused.pid == window.pid
+                && focused.process_instance.as_deref() == Some(instance)
+        }) {
+            return Err(refusal());
+        }
+        self.press_key_for_app(
+            ProcessIdentity::new(window.pid, instance),
+            combo,
+            policy,
+            lease,
+        )
+    }
+
     fn wait_for_menu(
         &self,
         _process: ProcessIdentity,
@@ -215,7 +263,7 @@ pub trait SystemOps: Send + Sync {
         _win: &WindowInfo,
         _op: WindowOp,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<OperationReport, AdapterError> {
         Err(AdapterError::not_supported("window_op"))
     }
 
@@ -228,6 +276,12 @@ pub trait SystemOps: Send + Sync {
         _deadline: Deadline,
     ) -> Result<WindowInfo, AdapterError> {
         Err(AdapterError::not_supported("resolve_window_strict"))
+    }
+
+    /// Checks runtime prerequisites without reading or opening notifications.
+    /// Waits call this with an operation budget before starting their polling timeout.
+    fn check_notification_support(&self, _deadline: Deadline) -> Result<(), AdapterError> {
+        Ok(())
     }
 
     fn list_notifications(

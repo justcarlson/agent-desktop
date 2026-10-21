@@ -20,7 +20,7 @@ const {
   tarCommand,
   tarballName,
 } = require('../../npm/lib/platform.js');
-const { createTemporaryRoots, runScriptWithOsStub } = require('./helpers.js');
+const { createTemporaryRoots, postinstallAs, runScriptWithOsStub } = require('./helpers.js');
 
 const postinstallScriptPath = join(__dirname, '..', '..', 'npm', 'scripts', 'postinstall.js');
 
@@ -29,7 +29,7 @@ const { temporaryDirectory, trackRoot, drainRoots } = createTemporaryRoots();
 afterEach(() => {
   delete process.env.AGENT_DESKTOP_MACOS_HELPER_PATH;
   for (const root of drainRoots()) {
-    postinstall.trashRecoverably(root);
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -51,13 +51,6 @@ function archive(entries) {
     ...Object.keys(entries),
   ]);
   return { root, tarball };
-}
-
-function executable(contents) {
-  const root = temporaryDirectory();
-  const path = join(root, 'trash');
-  writeFileSync(path, contents, { mode: 0o755 });
-  return path;
 }
 
 function captureWarnings(run) {
@@ -207,46 +200,7 @@ test('staging cleanup removes its own extract directory and a planted survivor i
   }
 });
 
-// POSIX-only branch via shell script; skipped on Windows to preserve coverage on native host.
-const POSIX_CLEANUP_ONLY = process.platform === 'win32'
-  ? 'trashRecoverably is the POSIX branch and its stand-in is a shell script'
-  : false;
-
-test('recoverable cleanup invokes trash and removes the original path', { skip: POSIX_CLEANUP_ONLY }, () => {
-  const target = temporaryDirectory();
-  const recovered = `${target}.recovered`;
-  trackRoot(recovered);
-  const fakeTrash = executable('#!/bin/sh\nmv "$1" "$1.recovered"\n');
-
-  postinstall.trashRecoverably(target, fakeTrash);
-  assert.equal(existsSync(target), false);
-  assert.equal(existsSync(recovered), true);
-});
-
-test('recoverable cleanup retains artifacts and warns when trash is unavailable or fails', { skip: POSIX_CLEANUP_ONLY }, () => {
-  const unavailable = temporaryDirectory();
-  const failing = temporaryDirectory();
-  const fakeTrash = executable('#!/bin/sh\nexit 9\n');
-
-  for (const [target, command, reason] of [
-    [
-      unavailable,
-      '/definitely-missing-agent-desktop-trash',
-      'trash command is unavailable: /definitely-missing-agent-desktop-trash',
-    ],
-    [failing, fakeTrash, 'trash exited with status 9'],
-  ]) {
-    const warnings = captureWarnings(() =>
-      postinstall.trashRecoverably(target, command),
-    );
-    assert.equal(existsSync(target), true);
-    assert.ok(warnings.includes(`retained at ${target}:`));
-    assert.ok(warnings.includes(reason));
-  }
-});
-
-// Windows staging cleanup uses a direct rmSync that logs and retains on failure; this test exercises the trash path only.
-test('cleanup failure does not mask a successful archive install', { skip: POSIX_CLEANUP_ONLY }, () => {
+test('archive installation removes its staging directory on macOS', () => {
   const payload = archive({
     'agent-desktop': 'cli-build-v2',
     'agent-desktop-macos-helper': 'helper-build-v2',
@@ -255,23 +209,20 @@ test('cleanup failure does not mask a successful archive install', { skip: POSIX
   const binary = join(destination, 'agent-desktop-darwin-arm64');
   const helper = join(destination, 'agent-desktop-macos-helper');
 
+  const darwin = postinstallAs('darwin');
   const warnings = captureWarnings(() =>
-    postinstall.installArchive(
+    darwin.installArchive(
       payload.tarball,
       binary,
       helper,
       resolve('darwin', 'arm64'),
-      '/definitely-missing-agent-desktop-trash',
     ),
   );
 
   assert.equal(readFileSync(binary, 'utf8'), 'cli-build-v2');
   assert.equal(readFileSync(helper, 'utf8'), 'helper-build-v2');
-  assert.match(warnings, /Could not move cleanup artifact to Trash; retained at .*\.extract-/);
-  const retained = warnings.match(/retained at (.*\.extract-[^:]+):/)?.[1];
-  assert.ok(retained);
-  assert.equal(existsSync(retained), true);
-  trackRoot(retained);
+  assert.equal(warnings, '');
+  assert.deepEqual(readdirSync(destination).filter((name) => name.startsWith('.extract-')), []);
 });
 
 test('custom helper override must be absolute', () => {
@@ -298,14 +249,14 @@ const EXPECTED_PLATFORM_ROWS = {
   'linux-arm64': {
     target: 'aarch64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-arm64',
-    entries: ['agent-desktop'],
-    released: false,
+    entries: ['agent-desktop', 'agent-desktop-linux-clipboard-owner'],
+    released: true,
   },
   'linux-x64': {
     target: 'x86_64-unknown-linux-gnu',
     binaryName: 'agent-desktop-linux-x64',
-    entries: ['agent-desktop'],
-    released: false,
+    entries: ['agent-desktop', 'agent-desktop-linux-clipboard-owner'],
+    released: true,
   },
   'win32-arm64': {
     target: 'aarch64-pc-windows-msvc',
@@ -382,8 +333,8 @@ test('tarball name matches the template postinstall previously constructed inlin
   assert.equal(tarballName('0.8.3', 'x86_64-pc-windows-msvc'), 'agent-desktop-v0.8.3-x86_64-pc-windows-msvc.tar.gz');
 });
 
-test('postinstall refuses unreleased platforms with exit code 0 and names the released keys', async () => {
-  for (const [osPlatform, osArch] of [['linux', 'x64'], ['linux', 'arm64']]) {
+test('postinstall refuses unsupported platforms with exit code 0 and names the released keys', async () => {
+  for (const [osPlatform, osArch] of [['linux', 'riscv64'], ['freebsd', 'x64']]) {
     const { code, stderr } = await runScriptWithOsStub(postinstallScriptPath, osPlatform, osArch);
     assert.equal(code, 0, `expected exit 0 for ${osPlatform}-${osArch}`);
     const lines = stderr.split('\n').filter((line) => line.startsWith('agent-desktop: '));
@@ -392,7 +343,7 @@ test('postinstall refuses unreleased platforms with exit code 0 and names the re
       `agent-desktop: agent-desktop has no released native binary for ${osPlatform}-${osArch}.`,
       `unexpected refusal output for ${osPlatform}-${osArch}`,
     );
-    assert.match(lines[1], /^agent-desktop: Released platform keys today: darwin-arm64, darwin-x64, win32-arm64, win32-x64\.$/);
+    assert.match(lines[1], /^agent-desktop: Released platform keys today: darwin-arm64, darwin-x64, linux-arm64, linux-x64, win32-arm64, win32-x64\.$/);
     assert.equal(lines[2], 'agent-desktop: See: https://github.com/lahfir/agent-desktop');
   }
 });
@@ -454,9 +405,6 @@ test('prompted skills are a subset of the skill packages that exist', () => {
   assert.match(promptSkillOutputFor('win32'), /lahfir\/agent-desktop-windows/);
   assert.match(promptSkillOutputFor('darwin'), /lahfir\/agent-desktop-macos/);
   assert.doesNotMatch(promptSkillOutputFor('darwin'), /agent-desktop-windows/);
-  assert.doesNotMatch(
-    promptSkillOutputFor('linux'),
-    /agent-desktop-(macos|windows|linux)/,
-    'linux must not advertise a platform skill until one exists',
-  );
+  assert.match(promptSkillOutputFor('linux'), /lahfir\/agent-desktop-linux/);
+  assert.doesNotMatch(promptSkillOutputFor('linux'), /agent-desktop-(macos|windows)/);
 });

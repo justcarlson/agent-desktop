@@ -1,0 +1,206 @@
+from __future__ import annotations
+
+from runner.apps import launch, stop
+from runner.helper import changed, command, managed, nodes, ref, require, snapshot
+from runner.legs import implementation
+from runner.verdict import LegContext
+from oracle.atspi_raw import app_root, poll, registry
+from oracle import x11
+
+CALCULATOR = "Calculator"
+TERMINAL = "Terminal"
+
+
+def timeout_message(envelope) -> str:
+    error = envelope.error or {}
+    return str(error.get("message", ""))
+
+
+def is_timeout(envelope) -> bool:
+    return (not envelope.ok) and (envelope.error or {}).get("code") == "TIMEOUT"
+
+
+def names_containing(root, needle: str) -> list[str]:
+    return [node.name for node in root.find() if needle.lower() in node.name.lower()]
+
+
+def _click_named(tier, owner: str, name: str) -> bool:
+    matches = app_root(tier, owner).find(name=name)
+    toggles = [node for node in matches if node.role == 62]
+    if toggles:
+        assert len(toggles) == 1, "ambiguous menu toggle"
+        return toggles[0].do_action("click")
+    if not matches:
+        return False
+    return matches[0].do_action("click")
+
+
+def _visible(tier, owner):
+    return any("SHOWING" in node.states for node in app_root(tier, owner).find(role=35))
+
+
+def _toggle(tier, owner):
+    assert _click_named(tier, owner, "Main Menu") or _click_named(tier, owner, "Menu"), "menu opener missing"
+
+
+def _calculator(tier):
+    app = launch(tier, CALCULATOR)
+    return app, app_root(tier, "gnome-calculator")
+
+
+def _terminal(tier):
+    app = launch(tier, TERMINAL)
+    return app, app_root(tier, "gnome-terminal-server")
+
+
+def _menu_case(ctx, name, operation):
+    owner = "gnome-calculator" if name == CALCULATOR else "gnome-terminal-server"
+    app = launch(ctx.tier, name)
+    read = lambda: _visible(ctx.tier, owner)
+    try:
+        if operation in ("close", "already"):
+            _toggle(ctx.tier, owner)
+            changed(read, True)
+        before = read()
+        assert before == (operation in ("close", "already")), "unexpected initial menu visibility"
+        ctx.before("atspi.menu_visible", before)
+        if operation in ("open", "close"):
+            _toggle(ctx.tier, owner)
+        args = ["wait", "--menu-closed" if operation == "close" else "--menu", "--app", name,
+                "--timeout", "1500" if operation == "hidden" else "4000"]
+        envelope = ctx.product(args)
+        if operation == "hidden":
+            assert is_timeout(envelope), envelope.raw
+            message = timeout_message(envelope).lower()
+            assert "menu" in message or "hidden" in message, envelope.raw
+        else:
+            assert envelope.ok, envelope.raw
+            if operation == "already":
+                assert envelope.elapsed_ms < 1500, f"already-open menu took {envelope.elapsed_ms} ms"
+        expected = operation in ("open", "already")
+        ctx.after("atspi.menu_visible", changed(read, expected))
+        if read() != before:
+            _toggle(ctx.tier, owner)
+        ctx.restored("atspi.menu_visible", changed(read, before))
+    finally:
+        stop(app)
+
+
+@implementation("menus.wait_menu_opens_calculator")
+def wait_menu_opens_calculator(ctx: LegContext) -> None:
+    _menu_case(ctx, CALCULATOR, "open")
+
+
+@implementation("menus.wait_menu_closes_calculator")
+def wait_menu_closes_calculator(ctx: LegContext) -> None:
+    _menu_case(ctx, CALCULATOR, "close")
+
+
+def wait_menu_opens_terminal(ctx: LegContext) -> None:
+    _menu_case(ctx, TERMINAL, "open")
+
+
+@implementation("menus.wait_menu_already_open")
+def wait_menu_already_open(ctx: LegContext) -> None:
+    _menu_case(ctx, CALCULATOR, "already")
+
+
+@implementation("menus.hidden_bar_timeout_message")
+def hidden_bar_timeout_message(ctx: LegContext) -> None:
+    _menu_case(ctx, TERMINAL, "hidden")
+
+
+def _preferences_click(ctx, from_find):
+    with managed(ctx, CALCULATOR) as app:
+        def dialogs():
+            return [node for owner in registry(ctx.tier) if owner.bus in app.owner_names
+                    for node in owner.walk() if node.name == "Preferences"
+                    and node.role in (16, 23) and "SHOWING" in node.states]
+
+        def read():
+            return len(dialogs())
+
+        command(ctx, ["focus-window", "--app", CALCULATOR])
+        require(read() == 0, "Preferences was already open")
+        ctx.before("atspi.preferences_dialogs", 0)
+        opener = ref(ctx, app, name="Main Menu", role="switch")
+        command(ctx, ["click", opener])
+        command(ctx, ["wait", "--menu", "--app", CALCULATOR, "--timeout", "5000"])
+        menu = snapshot(ctx, app, "--surface", "menu")
+        if from_find:
+            target = ref(ctx, app, name="Preferences", surface="menu")
+        else:
+            matches = {node["ref_id"] for node in nodes(menu)
+                       if node.get("name") == "Preferences" and "ref_id" in node}
+            require(len(matches) == 1, "expected one Preferences menu ref")
+            target = matches.pop()
+        pointer = x11.pointer(ctx.tier)
+        active = x11.active_window(ctx.tier)
+        response = ctx.product(["click", target])
+        require(response.ok, response.raw)
+        ctx.after("atspi.preferences_dialogs", changed(read, 1, seconds=8))
+        if ctx.mode == "headless":
+            require(x11.pointer(ctx.tier) == pointer, "headless modal click moved the pointer")
+            steps = response.data.get("steps", [])
+            require(steps and all(step.get("mechanism") == "semantic_api" for step in steps),
+                    "headless modal click used physical input")
+            focused = x11.active_window(ctx.tier)
+            if focused != active:
+                allowed = {x11.encode_product_id(node.bus, node.path) for node in dialogs()}
+                require(focused and x11.product_window(ctx.tier, focused) in allowed,
+                        "modal click focused a window other than the new Preferences dialog")
+    ctx.restored("atspi.preferences_dialogs", changed(read, 0, seconds=5))
+
+
+@implementation("menus.preferences_snapshot_ref")
+def preferences_snapshot_ref(ctx: LegContext) -> None:
+    _preferences_click(ctx, False)
+
+
+@implementation("menus.preferences_find_ref")
+def preferences_find_ref(ctx: LegContext) -> None:
+    _preferences_click(ctx, True)
+
+
+def terminal_preferences_modal(ctx: LegContext) -> None:
+    app, root = _terminal(ctx.tier)
+    before = len(root.children())
+    ctx.before("atspi.root_children", before)
+    assert _click_named(ctx.tier, "gnome-terminal-server", "Main Menu") or _click_named(
+        ctx.tier, "gnome-terminal-server", "Menu"
+    )
+    entry = poll(
+        lambda: app_root(ctx.tier, "gnome-terminal-server").find(name="Preferences"),
+        4.0,
+        floor_s=0.6,
+    )
+    assert entry, "Preferences did not appear in the Terminal menu"
+    entry[0].do_action("click")
+    dialog = poll(
+        lambda: names_containing(app_root(ctx.tier, "gnome-terminal-server"), "Preferences"),
+        4.0,
+    )
+    ctx.after("atspi.root_children", len(app_root(ctx.tier, "gnome-terminal-server").children()))
+    assert dialog
+    stop(app)
+
+
+def settings_panel_navigation(ctx: LegContext) -> None:
+    before = names_containing(app_root(ctx.tier, "gnome-control-center"), "Power") if _registered(ctx.tier) else []
+    ctx.before("atspi.panel", before)
+    app = launch(ctx.tier, "Settings", ("power",))
+    observed = poll(
+        lambda: names_containing(app_root(ctx.tier, "gnome-control-center"), "Power"),
+        8.0,
+    )
+    ctx.after("atspi.panel", observed)
+    assert observed
+    stop(app)
+
+
+def _registered(tier) -> bool:
+    try:
+        app_root(tier, "gnome-control-center")
+    except Exception:
+        return False
+    return True

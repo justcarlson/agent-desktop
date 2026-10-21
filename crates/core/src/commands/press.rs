@@ -45,7 +45,13 @@ pub fn execute(
                 )?,
             };
         }
-        adapter.press_key_for_app(process, &combo, context.physical_input_policy(), &lease)?
+        if !context.physical_input_policy().is_headed()
+            && let Some(window) = &window
+        {
+            adapter.press_key_for_window(window, &combo, context.physical_input_policy(), &lease)?
+        } else {
+            adapter.press_key_for_app(process, &combo, context.physical_input_policy(), &lease)?
+        }
     } else {
         let lease = adapter.acquire_interaction_lease(deadline)?;
         let handle = crate::adapter::NativeHandle::null();

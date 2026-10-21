@@ -1,5 +1,7 @@
 use agent_desktop_core::{AdapterError, AppInfo, Deadline, ErrorCode, ProcessIdentity};
 
+pub(crate) use crate::system::close_outcome::CloseOutcome;
+
 #[cfg(target_os = "macos")]
 pub(crate) fn pid_from_element(
     element: &crate::tree::AXElement,
@@ -35,7 +37,7 @@ pub(crate) fn close_app_impl(
     app: &AppInfo,
     force: bool,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     ensure_not_protected(&app.name)?;
     if let Some(bundle_id) = &app.bundle_id {
         ensure_not_protected(bundle_id)?;
@@ -59,7 +61,7 @@ fn terminate_running_application(
     identity: crate::system::process_identity::ProcessIdentity,
     force: bool,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     if deadline.is_expired() {
         return Err(before_termination_request(deadline.timeout_error()));
     }
@@ -69,7 +71,7 @@ fn terminate_running_application(
         .still_matches()
         .map_err(before_termination_request)?
     {
-        return Ok(());
+        return Ok(CloseOutcome::AlreadyGone);
     }
     let outcome = crate::system::appkit_bridge::terminate(
         identity.pid(),
@@ -88,7 +90,7 @@ fn terminate_running_application(
                 )
                 .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered()))
             } else {
-                Ok(())
+                Ok(CloseOutcome::AlreadyGone)
             };
         }
         crate::system::appkit_bridge::TerminationOutcome::Rejected => {
@@ -98,7 +100,7 @@ fn terminate_running_application(
             {
                 return Err(termination_request_not_accepted(id, identity.pid(), force));
             }
-            return Ok(());
+            return Ok(CloseOutcome::AlreadyGone);
         }
         crate::system::appkit_bridge::TerminationOutcome::IdentityMismatch => {
             return Err(AdapterError::new(
@@ -131,13 +133,13 @@ fn wait_for_exit(
     identity: crate::system::process_identity::ProcessIdentity,
     force: bool,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     loop {
         if !identity
             .still_matches()
             .map_err(after_termination_request)?
         {
-            return Ok(());
+            return Ok(CloseOutcome::Exited);
         }
         if deadline.is_expired() {
             return Err(deadline
@@ -171,7 +173,7 @@ pub(crate) fn close_app_impl(
     _app: &AppInfo,
     _force: bool,
     _deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<CloseOutcome, AdapterError> {
     Err(AdapterError::not_supported("close_app"))
 }
 

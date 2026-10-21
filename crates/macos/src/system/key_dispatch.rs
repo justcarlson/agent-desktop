@@ -58,7 +58,7 @@ fn press_for_app(
         crate::system::focus::verify_app_focused(pid, deadline)?;
     }
     crate::system::process_identity::require_core(&process)?;
-    require_focused_element(&app, deadline)?;
+    require_focused_element(&app, policy, deadline)?;
     crate::system::process_identity::require_core(&process)?;
     crate::input::keyboard::synthesize_key(combo, Some(pid), deadline)?;
     post_delivery_process_result(
@@ -113,19 +113,25 @@ fn simple_key_action(combo: &KeyCombo) -> Option<&'static str> {
     }
 }
 
-fn no_focused_element_error() -> AdapterError {
+fn no_focused_element_error(policy: InteractionPolicy) -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
         "Application has no verified focused element for keyboard delivery",
     )
     .with_details(serde_json::json!({ "physical_delivery_started": false }))
-    .with_suggestion(
+    .with_suggestion(if policy.allow_focus_steal {
+        "Ensure the target field has keyboard focus before retrying, or run the menu command without keys: find the item with 'snapshot --app <app> --surface menubar' and click its ref."
+    } else {
         "Retry with --headed so the app can take focus, or run the menu command without \
-         keys: find the item with 'snapshot --app <app> --surface menubar' and click its ref.",
-    )
+         keys: find the item with 'snapshot --app <app> --surface menubar' and click its ref."
+    })
 }
 
-fn require_focused_element(app: &AXElement, deadline: Deadline) -> Result<AXElement, AdapterError> {
+fn require_focused_element(
+    app: &AXElement,
+    policy: InteractionPolicy,
+    deadline: Deadline,
+) -> Result<AXElement, AdapterError> {
     let local_deadline = local_deadline(deadline, Duration::from_millis(500))?;
     loop {
         if let Some(focused) = focused_element(app, deadline)? {
@@ -133,7 +139,7 @@ fn require_focused_element(app: &AXElement, deadline: Deadline) -> Result<AXElem
         }
         ensure_budget(deadline)?;
         if Instant::now() >= local_deadline {
-            return Err(no_focused_element_error());
+            return Err(no_focused_element_error(policy));
         }
         let pause = deadline.remaining_slice(Duration::from_millis(5))?;
         std::thread::sleep(pause.min(Duration::from_millis(5)));

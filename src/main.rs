@@ -33,6 +33,13 @@ use std::process::ExitCode;
 const EXIT_INVALID_ARGS: u8 = 2;
 
 fn main() -> ExitCode {
+    let code = run_command();
+    #[cfg(target_os = "linux")]
+    agent_desktop_linux::end_input_session();
+    code
+}
+
+fn run_command() -> ExitCode {
     if let Some(result) = build_adapter().run_cursor_overlay_child() {
         return if result.is_ok() {
             ExitCode::SUCCESS
@@ -350,6 +357,7 @@ fn build_adapter() -> impl agent_desktop_core::PlatformAdapter {
 
     #[cfg(target_os = "linux")]
     {
+        agent_desktop_linux::release_input_on_signals();
         agent_desktop_linux::LinuxAdapter::new()
     }
 

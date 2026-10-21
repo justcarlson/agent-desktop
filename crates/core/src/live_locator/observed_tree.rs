@@ -181,6 +181,7 @@ impl ObservedTree {
                     .take_known()
                     .unwrap_or_default(),
                 bounds: node.evidence.ref_evidence.bounds.known().copied(),
+                ref_bounds: node.evidence.ref_evidence.window_bounds.known().copied(),
                 descriptors: node.evidence.ref_evidence.descriptors.clone(),
             },
             children_count: node.children_count,

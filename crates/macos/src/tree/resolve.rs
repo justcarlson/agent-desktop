@@ -276,7 +276,7 @@ fn stale_ref_error(entry: &RefEntry, cause: &AdapterError) -> AdapterError {
 
 #[cfg(target_os = "macos")]
 fn is_retryable_resolution_error(error: &AdapterError) -> bool {
-    error.code == ErrorCode::AppUnresponsive && error.is_explicitly_retryable()
+    error.is_transient_incomplete_read()
 }
 
 #[cfg(target_os = "macos")]

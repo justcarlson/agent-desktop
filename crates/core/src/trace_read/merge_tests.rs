@@ -119,7 +119,7 @@ fn unpaired_command_start_is_detected() {
         json!({"event":"command.end","command":"click","segment":"100-1","writer_pid":100,"ts_ms":2}),
         json!({"event":"command.start","command":"type","segment":"100-1","writer_pid":100,"ts_ms":3}),
     ];
-    let warnings = detect_unpaired_commands(&events);
+    let warnings = detect_unpaired_commands(&events, None);
     assert_eq!(warnings.len(), 1);
     assert!(warnings[0].contains("type"));
 }

@@ -2,14 +2,23 @@ use super::segment::{MAX_LINE_BYTES, parse_segment_filename, read_segment_events
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
 
 fn temp_dir(prefix: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    std::env::temp_dir().join(format!("agent-desktop-{prefix}-{nanos}"))
+    loop {
+        let dir = std::env::temp_dir().join(format!(
+            "agent-desktop-{prefix}-{}-{}",
+            std::process::id(),
+            NEXT_DIR.fetch_add(1, Ordering::Relaxed)
+        ));
+        match fs::create_dir(&dir) {
+            Ok(()) => return dir,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("create a private segment directory: {error}"),
+        }
+    }
 }
 
 fn write_segment(dir: &Path, name: &str, lines: &[&str]) -> std::path::PathBuf {
@@ -36,20 +45,6 @@ fn parse_rejects_invalid_filenames() {
     assert!(parse_segment_filename("1.jsonl").is_none());
     assert!(parse_segment_filename("notes.txt").is_none());
     assert!(parse_segment_filename("123-9.jsonl.tmp").is_none());
-}
-
-#[test]
-fn truncated_final_line_is_skipped() {
-    let dir = temp_dir("trace-seg-trunc");
-    fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("100-1000.jsonl");
-    let mut file = fs::File::create(&path).unwrap();
-    writeln!(file, r#"{{"event":"click","ts_ms":1000,"seq":1}}"#).unwrap();
-    write!(file, r#"{{"event":"click","ts_ms":1001,"seq":2,"trunc"#).unwrap();
-
-    let (_, stats) = read_segment_events(&path).unwrap();
-    assert_eq!(stats.skipped_lines, 1);
-    assert_eq!(stats.event_count, 1);
 }
 
 #[test]
@@ -101,22 +96,6 @@ fn oversized_line_is_skipped() {
     let (events, stats) = read_segment_events(&path).unwrap();
     assert_eq!(stats.skipped_lines, 1);
     assert_eq!(events.len(), 1);
-}
-
-#[test]
-fn trace_meta_sets_schema() {
-    let dir = temp_dir("trace-seg-trunc");
-    let path = write_segment(
-        &dir,
-        "100-1000.jsonl",
-        &[
-            r#"{"event":"trace.meta","schema":1,"pid":100,"ts_ms":0,"seq":0}"#,
-            r#"{"event":"click","ts_ms":1,"seq":1}"#,
-        ],
-    );
-
-    let (_, stats) = read_segment_events(&path).unwrap();
-    assert_eq!(stats.schema, 1);
 }
 
 #[test]
@@ -199,4 +178,28 @@ fn invalid_utf8_line_is_skipped_not_fatal() {
         .map(|e| e.value["event"].as_str().unwrap())
         .collect();
     assert_eq!(names, vec!["a", "b"]);
+}
+
+#[test]
+fn metadata_and_unfinished_tail_preserve_complete_events() {
+    let dir = temp_dir("trace-seg-closed");
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("100-1000.jsonl");
+    fs::write(
+        &path,
+        concat!(
+            "{\"event\":\"trace.meta\",\"schema\":1,\"ts_ms\":0}\n",
+            "{\"event\":\"click\",\"ts_ms\":1000,\"seq\":1}\n",
+            "{\"event\":\"click\",\"ts_ms\":1001,\"seq\":2}"
+        ),
+    )
+    .unwrap();
+
+    let (events, stats) = read_segment_events(&path).unwrap();
+    assert_eq!(stats.schema, 1);
+    assert_eq!(stats.skipped_lines, 1);
+    assert_eq!(stats.event_count, 2);
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[1].value["seq"], 1);
+    assert!(stats.schema_warning.is_none());
 }

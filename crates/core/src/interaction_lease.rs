@@ -1,16 +1,17 @@
 #[cfg(unix)]
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::{AdapterError, Deadline};
 #[cfg(unix)]
 use crate::{ErrorCode, file_lock::FileLock};
 
 pub struct InteractionLease {
-    _guard: Option<Box<dyn Send + Sync>>,
+    _guard: Option<Arc<dyn Send + Sync>>,
     #[cfg(unix)]
-    file_guard: Option<FileLock>,
+    file_guard: Option<Arc<FileLock>>,
     #[cfg(unix)]
-    _process_guard: Option<crate::process_lease_guard::ProcessLeaseGuard>,
+    _process_guard: Option<Arc<crate::process_lease_guard::ProcessLeaseGuard>>,
     deadline: Deadline,
     contention_count: u64,
 }
@@ -24,7 +25,7 @@ impl InteractionLease {
         guard: impl Send + Sync + 'static,
     ) -> Result<Self, AdapterError> {
         Ok(Self {
-            _guard: Some(Box::new(guard)),
+            _guard: Some(Arc::new(guard)),
             #[cfg(unix)]
             file_guard: None,
             #[cfg(unix)]
@@ -36,6 +37,19 @@ impl InteractionLease {
 
     pub fn deadline(&self) -> Deadline {
         self.deadline
+    }
+
+    /// Shares the held interaction ownership with a fresh recovery deadline.
+    pub fn with_deadline(&self, deadline: Deadline) -> Self {
+        Self {
+            _guard: self._guard.clone(),
+            #[cfg(unix)]
+            file_guard: self.file_guard.clone(),
+            #[cfg(unix)]
+            _process_guard: self._process_guard.clone(),
+            deadline,
+            contention_count: self.contention_count,
+        }
     }
 
     pub fn contention_count(&self) -> u64 {
@@ -61,8 +75,8 @@ impl InteractionLease {
             .saturating_add(process_guard.contention_count());
         Self {
             _guard: None,
-            file_guard: Some(file_guard),
-            _process_guard: Some(process_guard),
+            file_guard: Some(Arc::new(file_guard)),
+            _process_guard: Some(Arc::new(process_guard)),
             deadline,
             contention_count,
         }
@@ -79,7 +93,7 @@ impl InteractionLease {
         contention_count: u64,
     ) -> Self {
         Self {
-            _guard: Some(Box::new(guard)),
+            _guard: Some(Arc::new(guard)),
             #[cfg(unix)]
             file_guard: None,
             #[cfg(unix)]

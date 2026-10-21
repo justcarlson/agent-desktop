@@ -1,4 +1,5 @@
 use super::*;
+use crate::SignalFilter;
 use crate::process_state::ProcessState;
 
 struct LivenessAdapter {

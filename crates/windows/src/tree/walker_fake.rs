@@ -196,6 +196,7 @@ pub(crate) fn ref_entry(role: &str) -> RefEntry {
             native_id: None,
         },
         geometry: agent_desktop_core::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

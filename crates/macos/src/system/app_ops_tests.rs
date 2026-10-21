@@ -50,3 +50,25 @@ fn native_termination_rejection_does_not_blame_the_target_application() {
     assert_eq!(error.details.as_ref().unwrap()["pid"], 42);
     assert_eq!(error.details.as_ref().unwrap()["force"], false);
 }
+
+#[test]
+fn adapter_close_without_a_process_instance_keeps_the_invalid_args_contract() {
+    use agent_desktop_core::{InteractionLease, SystemOps};
+
+    let app = AppInfo {
+        name: "TextEdit".into(),
+        pid: agent_desktop_core::ProcessId::new(42),
+        bundle_id: None,
+        process_instance: None,
+        presentation: None,
+    };
+    let deadline = Deadline::detached_after(1_000).expect("deadline");
+    let lease = InteractionLease::guarded(deadline, ()).expect("lease");
+
+    let error = crate::adapter::MacOSAdapter::new()
+        .close_app(&app, false, &lease)
+        .unwrap_err();
+
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::InvalidArgs);
+    assert!(error.message.contains("process instance"));
+}

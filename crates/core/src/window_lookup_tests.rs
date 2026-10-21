@@ -139,3 +139,19 @@ fn shared_window_selector_prefers_an_accessible_window() {
 
     assert_eq!(selected.id, "w-1");
 }
+
+#[test]
+fn an_empty_window_selection_is_not_delivered_and_safe_to_retry() {
+    let error = match select_window(
+        Vec::new(),
+        crate::AdapterError::new(ErrorCode::WindowNotFound, "none"),
+        "many",
+    ) {
+        Err(AppError::Adapter(error)) => error,
+        other => panic!("expected an adapter error, got {other:?}"),
+    };
+
+    assert_eq!(error.code, ErrorCode::WindowNotFound);
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition.retry(), crate::RetryDisposition::Safe);
+}

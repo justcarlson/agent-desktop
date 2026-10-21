@@ -1,0 +1,111 @@
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
+use serde_json::json;
+
+use super::window_op_verdict::{POLL, SETTLE_BUDGET};
+use super::x11::control::{ControlError, ControlRead, manager_name};
+use super::x11::control_send::raise_window;
+use super::x11::window_facts::{WindowFacts, read_facts};
+
+const UNNAMED_MANAGER: &str = "the window manager";
+
+/// What lifting a hidden window found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Lifted {
+    Cleared,
+    StillHidden { manager: String },
+}
+
+/// What a lift sends and reads, so the judgement can be driven by a fixed
+/// desktop.
+trait LiftWorld {
+    fn activate(&self, client: u32, deadline: Deadline) -> Result<(), ControlError>;
+    fn facts(&self, client: u32, deadline: Deadline) -> ControlRead<WindowFacts>;
+    fn manager(&self, deadline: Deadline) -> Option<String>;
+}
+
+struct Live;
+
+impl LiftWorld for Live {
+    fn activate(&self, client: u32, deadline: Deadline) -> Result<(), ControlError> {
+        raise_window(client, deadline)
+    }
+
+    fn facts(&self, client: u32, deadline: Deadline) -> ControlRead<WindowFacts> {
+        read_facts(client, deadline)
+    }
+
+    fn manager(&self, deadline: Deadline) -> Option<String> {
+        manager_name(deadline)
+    }
+}
+
+/// The refusal of a window the manager left hidden after the request.
+pub(super) fn still_hidden(manager: &str) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionNotSupported,
+        format!("The window manager {manager} did not show the minimized window"),
+    )
+    .with_suggestion("Show the window yourself, for example from the taskbar or the overview")
+    .with_details(json!({ "cause": "restore_refused", "manager": manager }))
+    .with_disposition(DeliverySemantics::delivered_unverified())
+}
+
+fn not_sent() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The request to show the window could not be sent to the window manager",
+    )
+    .with_suggestion("Retry once the display server answers")
+    .with_details(json!({ "cause": "activation_not_sent" }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
+fn unreadable() -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The window could not be read after the request to show it, so its state is unknown",
+    )
+    .with_suggestion("Run 'list-windows' to see the window as it is now")
+    .with_details(json!({ "cause": "readback_unavailable" }))
+    .with_disposition(DeliverySemantics::delivered_unverified())
+}
+
+fn lift_via(
+    world: &impl LiftWorld,
+    client: u32,
+    deadline: Deadline,
+) -> Result<Lifted, AdapterError> {
+    world.activate(client, deadline).map_err(|_| not_sent())?;
+    let settle = deadline.capped(SETTLE_BUDGET);
+    let mut read_once = false;
+    loop {
+        if let ControlRead::Ready(facts) = world.facts(client, deadline) {
+            read_once = true;
+            if !facts.hidden {
+                return Ok(Lifted::Cleared);
+            }
+        }
+        if settle.is_expired() {
+            break;
+        }
+        std::thread::sleep(POLL.min(settle.remaining()));
+    }
+    if !read_once {
+        return Err(unreadable());
+    }
+    let manager = world
+        .manager(deadline)
+        .unwrap_or_else(|| UNNAMED_MANAGER.to_owned());
+    Ok(Lifted::StillHidden { manager })
+}
+
+/// Asks the window manager to show a hidden window and reports whether the
+/// hidden flag cleared inside the settle budget. The request is
+/// judged by the flag, never by having been sent.
+pub(crate) fn lift(client: u32, deadline: Deadline) -> Result<Lifted, AdapterError> {
+    lift_via(&Live, client, deadline)
+}
+
+#[cfg(test)]
+#[path = "restore_minimized_tests.rs"]
+mod tests;

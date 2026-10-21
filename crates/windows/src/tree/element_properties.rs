@@ -229,6 +229,8 @@ impl ElementProperties {
             identifiers: self.identifier_evidence(),
             states: vocabulary.states,
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
+                bounds_space: agent_desktop_core::BoundsSpace::Screen,
                 bounds,
                 available_actions: vocabulary.available_actions,
                 descriptors: super::descriptor::descriptors(self),

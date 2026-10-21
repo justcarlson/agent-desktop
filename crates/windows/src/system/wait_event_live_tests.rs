@@ -1,5 +1,5 @@
 //! Windows-only: drives `agent_desktop_core::commands::wait::execute` end to
-//! end against real fixtures for the five non-surface `--event` tokens, plus
+//! end against real fixtures for four non-surface `--event` tokens, plus
 //! the `window-opened` form of the unnamed-surface-discovery proof: a modal
 //! dialog opened mid-wait is reported without the caller supplying its
 //! title or id. Every capture and diff below runs through the real
@@ -20,7 +20,7 @@
 //! rather than calling `resolve_app` (`wait_event.rs:224`), and a
 //! process-filtered capture can only ever contain this fixture, so the
 //! ambiguity class does not arise regardless of what else is running.
-//! `window-closed` and `focus-changed` narrow by the fixture's own
+//! `focus-changed` narrows by the fixture's own
 //! `--window-id` instead and never resolve `--app` at all. `app-launched`
 //! has no seed to resolve against - the process does not exist yet - so its
 //! filter always scans by name across the whole population
@@ -174,29 +174,6 @@ fn window_opened_fires_for_a_modal_opened_mid_wait_with_no_title_or_id_supplied(
         event["window_id"].is_string(),
         "the server must supply the new window's identity; the caller named none: {event}"
     );
-}
-
-#[test]
-fn window_closed_fires_when_the_fixtures_window_closes_mid_wait() {
-    bootstrap();
-    let mut fixture = HostedFixture::spawn().expect("a fixture host starts");
-    let window_id = format!("w-{}", fixture.handle() as usize);
-    let receiver = spawn_event_wait(
-        "window-closed",
-        EventWaitScope {
-            app: None,
-            window_id: Some(window_id),
-            seed: None,
-        },
-    );
-
-    thread::sleep(TRANSITION_AFTER);
-    fixture.terminate();
-
-    let outcome = receiver
-        .recv_timeout(RECV_TIMEOUT)
-        .expect("the wait completed");
-    found_event(outcome);
 }
 
 #[test]

@@ -15,6 +15,7 @@ pub(super) fn entry(role: &str, name: Option<&str>) -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -70,6 +71,7 @@ fn test_get_existing() {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: Some(bounds),
             bounds_hash: bounds.bounds_hash(),
         },
@@ -241,6 +243,7 @@ fn test_save_load_roundtrip_with_home_override() {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: Some(bounds),
             bounds_hash: bounds.bounds_hash(),
         },

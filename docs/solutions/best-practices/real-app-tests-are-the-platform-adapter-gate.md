@@ -10,7 +10,7 @@ applies_when:
   - "Changing a platform adapter's tree, resolution, window, input, or accessibility code"
   - "Changing release-binary integration behavior"
   - "Fixing a bug that a mock adapter could not expose"
-tags: [e2e, fixture-app, accessibility, macos, windows, regression, adapters]
+tags: [e2e, fixture-app, accessibility, macos, windows, linux, regression, adapters]
 ---
 
 # Make permissioned fixture and real-app checks the adapter gate
@@ -124,6 +124,20 @@ defect share one. Report:
 A run substitutes for the fixture app only while it keeps the fixture app's discipline — real
 software, effects verified independently, skips recorded honestly, and raw captures kept out of
 the repository while the judgement drawn from them is kept in it.
+
+## Standing practice on Linux
+
+The Linux adapter has no single fixture-app gate; it uses live tests with controlled GTK/Qt helper applications and dogfood against off-the-shelf software (GNOME apps, VS Code) on the remote box. Live tests run only inside `scripts/private-session.sh`, which gives them a private bus, Xvfb display and runtime directory: the launcher in `crates/linux/src/tree/live_launch.rs` asserts the `AGENT_DESKTOP_PRIVATE_SESSION` marker and refuses to start without it. Tests that depend on stacking or window activation pass `--wm` to get openbox; mutter coverage nests `scripts/private-mutter-shell.sh` inside the private session. Both managers are required evidence for lifecycle behavior: they disagree on activation, restoring minimized windows, placement and animation. A fresh private mutter also opens the Activities Overview, which refuses input until `Escape` closes it (L28-2, L28-17); the helper checks for an already-open Overview, and a test that maps the first window must check it again.
+
+The lifecycle gate must cover the identities and final states that a successful native request alone cannot establish:
+
+- **Launch and close share application identity.** A launcher can exit while its server owns the window. The launch key table in `crates/linux/src/system/launch_attach.rs` and the desktop-entry alias index in `app_alias.rs` include `gnome-terminal` / `gnome-terminal-server`, so both `Terminal` and the launcher name reach the server for `close-app` (L31-40; `app_name.rs::name_matches`). Exercise a running app with no window and a forwarded launch: reopening must actually start the launcher, and forwarding must wait for a window absent before the spawn rather than report the old window (L31-63, L31-66). Name resolution must also exclude processes of another session (L31-61).
+- **A close request is not process exit.** Observe the expected process instance leaving, preserve a resident process with no windows, and report save dialogs without answering them. A dialog opened by this call carries `delivered_unverified`; a dialog already open blocks the repeated close before dispatch and carries `not_delivered` (L31-62, L31-65). Graceful close without a Wayland/Xwayland route returns `ACTION_NOT_SUPPORTED` with `details.cause = "wayland_session"`, including when Xwayland is absent (L31-66).
+- **Focus is an observed postcondition.** On X11, lift a minimized window and judge the hidden flag, then require the display's active client and the toolkit's active frame to agree. An ignored stamped activation gets one stamp-free pager resend (source 2, timestamp 0), never a click; a manager that already names the window gets time for the toolkit's frame report. A modal frame that never reports active instead requires the active client plus X input focus inside it. Test Overview and modal refusals, and the Wayland `ACTION_NOT_SUPPORTED` / `wayland_session` refusal (L31-1, L31-5, L31-64; `focus_window.rs`).
+- **Window commands share one rectangle.** Move, resize, maximize and restore must speak the visible bounds reported by `list-windows`: X11 client geometry minus the GTK client-side shadow. Compare against independent X11 geometry with that conversion, keep resize position where the window fits a display, and judge placement only after a full confirmation pause. See [A matching window rectangle can be mid-animation](../runtime-errors/a-matching-window-rectangle-can-be-mid-animation.md) (L31-60, L31-67).
+- **Stopped is not missing.** Preserve the listed window ID per client and process instance through `SIGSTOP`, and check every lifecycle/window target route for `APP_UNRESPONSIVE` / `not_delivered` rather than `WINDOW_NOT_FOUND`. Process-state tests separately distinguish exit, a stopped process, a blocked loop, one timeout and unavailable evidence (L31-17, L31-18, L31-59; `process_state_classify.rs`).
+
+Box setup and the remote loop are in [remote-dev-boxes-over-tailscale.md](remote-dev-boxes-over-tailscale.md); the hazards of the shared session, including the nested mutter display's D-Bus activation environment, are in [a-shared-live-desktop-is-shared-state.md](a-shared-live-desktop-is-shared-state.md). Measurements are recorded as rows in `probes/linux/FINDINGS.md`, and committed reports in `docs/dogfood-reports/` are the per-sub-phase record.
 
 ## Related
 

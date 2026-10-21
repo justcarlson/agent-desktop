@@ -18,10 +18,7 @@ pub struct ActionResult {
     pub surfaces: Vec<crate::SurfaceInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<serde_json::Value>,
-    #[serde(
-        default = "default_action_disposition",
-        deserialize_with = "deserialize_action_disposition"
-    )]
+    #[serde(deserialize_with = "deserialize_action_disposition")]
     disposition: DeliverySemantics,
 }
 

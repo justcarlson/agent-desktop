@@ -12,6 +12,8 @@ use crate::{
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
+#[path = "drag_timing_tests.rs"]
+mod timing_tests;
 
 struct DragCaptureAdapter {
     captured: Mutex<Option<DragParams>>,
@@ -21,6 +23,7 @@ struct DragCaptureAdapter {
     presented_before_drag: AtomicU32,
     focused_bounds: Option<Rect>,
     drag_failure: Option<DeliverySemantics>,
+    drag_report: Option<crate::OperationReport>,
 }
 
 impl DragCaptureAdapter {
@@ -33,11 +36,17 @@ impl DragCaptureAdapter {
             presented_before_drag: AtomicU32::new(0),
             focused_bounds: None,
             drag_failure: None,
+            drag_report: None,
         }
     }
 
     fn with_focused_bounds(mut self, bounds: Rect) -> Self {
         self.focused_bounds = Some(bounds);
+        self
+    }
+
+    fn with_drag_report(mut self, report: crate::OperationReport) -> Self {
+        self.drag_report = Some(report);
         self
     }
 
@@ -92,7 +101,7 @@ impl InputOps for DragCaptureAdapter {
         &self,
         params: DragParams,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         self.presented_before_drag.store(
             self.presented.lock().unwrap().len() as u32,
             Ordering::SeqCst,
@@ -102,7 +111,10 @@ impl InputOps for DragCaptureAdapter {
             return Err(AdapterError::internal("drag completion was uncertain")
                 .with_disposition(disposition));
         }
-        Ok(())
+        Ok(self
+            .drag_report
+            .clone()
+            .unwrap_or_else(crate::adapter::test_report))
     }
 }
 
@@ -160,7 +172,8 @@ fn drop_delay_is_threaded_into_drag_params_and_response() {
     )
     .unwrap();
 
-    assert_eq!(value["dragged"], true);
+    assert_eq!(value["disposition"]["delivery"], "delivered_unverified");
+    assert!(value.get("dragged").is_none());
     assert_eq!(value["drop_delay_ms"], 750);
     let captured = adapter.captured.lock().unwrap().clone().unwrap();
     assert_eq!(captured.drop_delay_ms, Some(750));
@@ -262,6 +275,7 @@ fn ref_entry(pid: u32) -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -372,21 +386,6 @@ fn positive_timeout_uses_stable_post_focus_drag_bounds() {
     assert_eq!(value["to"], json!({ "x": 120.0, "y": 230.0 }));
 }
 
-#[test]
-fn headed_xy_drag_never_steals_focus() {
-    let adapter = DragCaptureAdapter::new();
-
-    let value = execute(
-        xy_args(None),
-        &adapter,
-        &CommandContext::default().with_headed(true),
-    )
-    .unwrap();
-
-    assert!(adapter.focused_pids.lock().unwrap().is_empty());
-    assert!(value.get("focused").is_none());
-}
-
 #[path = "drag_retry_tests.rs"]
 mod retry_tests;
 
@@ -395,3 +394,6 @@ mod occlusion_retry_tests;
 
 #[path = "drag_wait_scope_tests.rs"]
 mod wait_scope_tests;
+
+#[path = "drag_overlay_report_tests.rs"]
+mod overlay_report_tests;

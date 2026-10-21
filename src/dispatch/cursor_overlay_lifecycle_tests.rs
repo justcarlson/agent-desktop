@@ -41,12 +41,21 @@ impl InputOps for RecordingOverlayAdapter {
         &self,
         _content: &ClipboardContent,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        Ok(())
+    ) -> Result<agent_desktop_core::OperationReport, AdapterError> {
+        Ok(agent_desktop_core::OperationReport::delivered_unverified(
+            "test",
+            agent_desktop_core::OperationTarget::Clipboard,
+        ))
     }
 
-    fn clear_clipboard(&self, _lease: &InteractionLease) -> Result<(), AdapterError> {
-        Ok(())
+    fn clear_clipboard(
+        &self,
+        _lease: &InteractionLease,
+    ) -> Result<agent_desktop_core::OperationReport, AdapterError> {
+        Ok(agent_desktop_core::OperationReport::delivered_unverified(
+            "test",
+            agent_desktop_core::OperationTarget::Clipboard,
+        ))
     }
 }
 
@@ -124,8 +133,14 @@ impl ActionOps for FailingOverlayAdapter {
 }
 
 impl InputOps for FailingOverlayAdapter {
-    fn clear_clipboard(&self, _lease: &InteractionLease) -> Result<(), AdapterError> {
-        Ok(())
+    fn clear_clipboard(
+        &self,
+        _lease: &InteractionLease,
+    ) -> Result<agent_desktop_core::OperationReport, AdapterError> {
+        Ok(agent_desktop_core::OperationReport::delivered_unverified(
+            "test",
+            agent_desktop_core::OperationTarget::Clipboard,
+        ))
     }
 }
 

@@ -16,3 +16,4 @@ mod mouse_drag_state;
 pub(crate) mod mouse_move;
 pub(crate) mod mouse_scroll;
 mod owned_object;
+pub(crate) mod pointer_report;

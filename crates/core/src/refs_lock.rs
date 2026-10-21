@@ -96,6 +96,19 @@ mod tests {
     }
 
     #[test]
+    fn lock_timeout_details_name_the_lock_file_without_its_directory() {
+        let path = lock_path("redacted-directory");
+        let inherited = Deadline::after(0).unwrap();
+        let _scope = crate::deadline::enter_scope(Some(inherited));
+        let AppError::Adapter(adapter_err) = RefStoreLock::acquire(&path).err().unwrap() else {
+            panic!("expected adapter error");
+        };
+        let reported = adapter_err.details.expect("lock timeout details")["path"].to_string();
+        let directory = path.parent().unwrap().to_string_lossy().into_owned();
+        assert!(!reported.contains(&directory), "{reported}");
+    }
+
+    #[test]
     fn acquire_detached_survives_an_expired_inherited_deadline() {
         let path = lock_path("detached");
         let inherited = Deadline::after(0).unwrap();

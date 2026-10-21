@@ -93,6 +93,7 @@ fn duplicate_evidence_candidates_settle_ambiguous_target_carrying_no_application
     entry.identity.name = Some(name);
     entry.identity.native_id = native_id;
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(rect),
         bounds_hash: Some(hash),
     };

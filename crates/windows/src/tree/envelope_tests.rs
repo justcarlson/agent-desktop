@@ -187,6 +187,7 @@ fn entry_for(live: &LiveElement) -> RefEntry {
             native_id: None,
         },
         geometry: RefGeometry {
+            bounds_space: None,
             bounds: Some(bounds),
             bounds_hash: bounds.bounds_hash(),
         },
@@ -286,10 +287,11 @@ fn zero_bounds_click_reports_visible_fail_after_scroll_seam() {
         ActionRequest::headless(Action::Click).with_timeout_ms(Some(0)),
     );
     assert_eq!(adapter.scroll_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.dispatch_calls.load(Ordering::SeqCst), 0);
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_ne!(error.code, ErrorCode::PlatformNotSupported);
-    assert_eq!(error.disposition, DeliverySemantics::uncertain());
-    assert_eq!(error.disposition.retry(), RetryDisposition::Unsafe);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition.retry(), RetryDisposition::Safe);
     let details = error.details.expect("actionability details");
     assert_eq!(details["preparatory_scroll"], "may_have_changed_view");
     let visible = find_check(&details, "visible");
@@ -311,6 +313,7 @@ fn zero_bounds_without_scroll_impl_is_not_platform_not_supported() {
         ActionRequest::headless(Action::Click).with_timeout_ms(Some(0)),
     );
     assert_eq!(adapter.scroll_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.dispatch_calls.load(Ordering::SeqCst), 0);
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_ne!(error.code, ErrorCode::PlatformNotSupported);
     assert_not_delivered(&error);

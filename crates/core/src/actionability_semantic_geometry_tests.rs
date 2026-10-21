@@ -125,7 +125,6 @@ fn headed_and_physical_actions_still_require_geometry() {
         Action::DoubleClick,
         Action::TripleClick,
         Action::Hover,
-        Action::TypeText("x".into()),
         Action::Clear,
         Action::SetValue("x".into()),
         Action::Drag(crate::DragParams {
@@ -142,10 +141,43 @@ fn headed_and_physical_actions_still_require_geometry() {
     let err = evaluate(
         &target,
         &adapter,
-        ActionRequest::focus_fallback(Action::TypeText("x".into())),
+        ActionRequest::focus_fallback(Action::SetValue("x".into())),
     )
     .unwrap_err();
     assert!(err.message.contains("visible"));
+}
+
+#[test]
+fn headed_typing_needs_no_geometry_but_still_needs_a_known_on_screen_state() {
+    let (target, adapter) = target("textfield", &[capability::TYPE_TEXT]);
+    let report = evaluate(
+        &target,
+        &adapter,
+        ActionRequest::headed(Action::TypeText("x".into())),
+    )
+    .expect("keyboard delivery never aims a pointer");
+    assert!(report.actionable);
+
+    let mut hidden = adapter.0.clone();
+    hidden.state.offscreen = Some(true);
+    let err = evaluate(
+        &target,
+        &GeometryAdapter(hidden),
+        ActionRequest::headed(Action::TypeText("x".into())),
+    )
+    .unwrap_err();
+    assert!(err.message.contains("offscreen"));
+
+    let mut unreadable = adapter.0.clone();
+    unreadable.bounds = None;
+    unreadable.state.offscreen = None;
+    let err = evaluate(
+        &target,
+        &GeometryAdapter(unreadable),
+        ActionRequest::headed(Action::TypeText("x".into())),
+    )
+    .unwrap_err();
+    assert!(err.message.contains("bounds unavailable"));
 }
 
 #[test]

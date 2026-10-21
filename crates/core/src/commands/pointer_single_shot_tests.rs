@@ -91,16 +91,20 @@ impl InputOps for SingleShotScrollAdapter {
         &self,
         event: MouseEvent,
         _lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         self.mouse_moves.fetch_add(1, Ordering::SeqCst);
         *self.mouse_point.lock().unwrap() = Some(event.point);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 
-    fn drag(&self, params: DragParams, _lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn drag(
+        &self,
+        params: DragParams,
+        _lease: &InteractionLease,
+    ) -> Result<crate::OperationReport, AdapterError> {
         self.drags.fetch_add(1, Ordering::SeqCst);
         *self.drag_params.lock().unwrap() = Some(params);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -145,6 +149,7 @@ fn ref_entry(pid: u32) -> RefEntry {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

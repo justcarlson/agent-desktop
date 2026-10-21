@@ -114,6 +114,25 @@ fn app_unresponsive_payload_carries_declarative_recovery() {
 }
 
 #[test]
+fn safe_timeout_payload_carries_inspect_recovery() {
+    let err = AppError::Adapter(
+        AdapterError::new(ErrorCode::Timeout, "identity read incomplete")
+            .with_disposition(crate::DeliverySemantics::not_delivered()),
+    );
+    let recovery = ErrorPayload::from_app_error(&err)
+        .recovery
+        .expect("safe timeout carries recovery");
+    assert_eq!(recovery.strategy, "inspect_state_then_retry_original");
+    assert_eq!(recovery.retry_after_ms, Some(250));
+}
+
+#[test]
+fn unsafe_timeout_payload_carries_no_recovery() {
+    let err = AppError::Adapter(AdapterError::new(ErrorCode::Timeout, "wait expired"));
+    assert!(ErrorPayload::from_app_error(&err).recovery.is_none());
+}
+
+#[test]
 fn recovery_absent_for_non_retryable_errors() {
     for err in [
         AppError::Adapter(AdapterError::new(ErrorCode::InvalidArgs, "bad input")),
@@ -126,6 +145,29 @@ fn recovery_absent_for_non_retryable_errors() {
             "non-retryable error {} must not carry a retry token",
             payload.code
         );
+    }
+}
+
+#[test]
+fn explicit_nonretryable_refusals_never_acquire_a_retry_token() {
+    for code in [
+        ErrorCode::StaleRef,
+        ErrorCode::Timeout,
+        ErrorCode::AppUnresponsive,
+    ] {
+        let err = AppError::Adapter(
+            AdapterError::new(code, "terminal refusal")
+                .with_details(json!({ "retryable": false }))
+                .with_disposition(DeliverySemantics::not_delivered()),
+        );
+        let payload = ErrorPayload::from_app_error(&err);
+        assert_eq!(payload.details.unwrap()["retryable"], false);
+        assert!(
+            payload.recovery.is_none(),
+            "{} must not invite a retry",
+            payload.code
+        );
+        assert_eq!(payload.disposition, DeliverySemantics::not_delivered());
     }
 }
 

@@ -20,6 +20,7 @@ fn entry(token: Option<String>) -> RefEntry {
             native_id: None,
         },
         geometry: agent_desktop_core::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -51,6 +52,8 @@ fn text_evidence(name: &str) -> agent_desktop_core::LocatorEvidence {
         identifiers: IdentifierEvidence::absent(),
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Absent,
             available_actions: LocatorField::Absent,
             descriptors: Default::default(),

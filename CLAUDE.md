@@ -10,7 +10,7 @@ workspace names all three. `.githooks/pre-commit` picks the host's package set;
 `HOST_PKGS` below is the macOS one.
 
 ```bash
-HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop-linux -p agent-desktop -p agent-desktop-ffi"
+HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi"
 
 cargo build $HOST_PKGS                         # Debug build
 cargo build --release -p agent-desktop         # Release build (<15MB target)
@@ -350,7 +350,7 @@ Every command produces a response envelope:
 
 ```json
 {
-  "version": "2.4",
+  "version": "2.5",
   "ok": true,
   "command": "snapshot",
   "data": {
@@ -371,11 +371,13 @@ cut short carries `"subtree_truncated": true`, serialized only when true. A
 `--root` drill-down replaces refs inside an existing snapshot, so an incomplete
 observation there returns `TIMEOUT` rather than a partial tree.
 
+Pointer, drag, clipboard, close-app and window-operation commands return the adapter's `OperationReport` as `data`: `action`, `disposition`, `steps`, `target` and evidence in `details`. `delivered_verified` is claimed only after a postcondition read, `delivered_unverified` after a completed dispatch without one, and `not_delivered` only for an observed already-satisfied operation. Core never adds an unconditional success flag (`clicked`, `dragged`, `closed`, `cleared`, ...); version 2.5 removed them. A report read back from JSON must carry an explicit `disposition`.
+
 Error responses:
 
 ```json
 {
-  "version": "2.4",
+  "version": "2.5",
   "ok": false,
   "command": "click",
   "error": {
@@ -502,7 +504,7 @@ Every substantive change ends with a performance baseline check before merge, re
 
 ## Definition of Done: Dogfood Is a Gate
 
-Phase 2/3 sub-phases carry an additional, non-negotiable gate, stated in full under **Cross-cutting sub-phase DoD** in `docs/phases.md` and summarized here so it is not missed: every sub-phase drives its own surface against real software and commits a judged report; **a report with no findings is a failed dogfood, not a passed one**; and every finding takes exactly one of three dispositions — *fixed here* with a named test that is invert-verified (break the fix, watch that test fail, restore), *owned elsewhere* and written into the receiving sub-phase's scope in `docs/phases.md` in the same PR, or *accepted* with a stated reason. **"Recorded" is not a disposition.**
+Phase 2/3 sub-phases carry an additional, non-negotiable gate, stated in full under **Cross-cutting sub-phase DoD** in `docs/phases.md` and summarized here so it is not missed: every sub-phase drives its own surface against real software and keeps a judged report outside version control; dogfood reports and their evidence are never committed; **a report with no findings is a failed dogfood, not a passed one**; and every finding takes exactly one of three dispositions — *fixed here* with a named test that is invert-verified (break the fix, watch that test fail, restore), *owned elsewhere* and written into the receiving sub-phase's scope in `docs/phases.md` in the same PR, or *accepted* with a stated reason. **"Recorded" is not a disposition.**
 
 **Run it as a stranger, or it is not a dogfood.** The operator gets the shipped skill and the built binary and nothing else — not the source, not the plan. A subagent doing it is told so and denied the repo. Every example the shipped docs contain is executed **verbatim in the platform's default shell**, because that is what a new agent will actually type; an example that cannot run as written is a defect of the same weight as a broken command. **Reaching for any flag, variable or ordering the skill does not document ends the run as a finding** — author reflexes are precisely what the run exists to strip out. The evidence for this rule is its own: an author-run dogfood passed, and the same surface driven from the skill alone yielded five defects in twenty minutes.
 

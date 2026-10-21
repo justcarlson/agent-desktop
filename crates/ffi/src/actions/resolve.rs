@@ -244,6 +244,7 @@ unsafe fn decode_core_ref_entry(
             native_id,
         },
         geometry: RefGeometry {
+            bounds_space: None,
             bounds,
             bounds_hash,
         },

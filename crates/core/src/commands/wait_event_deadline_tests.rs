@@ -18,16 +18,28 @@ fn late_matching_observation_is_discarded() {
 }
 
 #[test]
-fn zero_timeout_does_not_start_an_observation() {
-    let adapter = SequenceAdapter::new(vec![empty_baseline()]);
-    let mut request = input("window-opened", None);
-    request.timeout_ms = 0;
+fn zero_timeout_has_one_event_wait_shape_without_starting_observation() {
+    for &event in EventKind::all_tokens() {
+        for app in [None, Some("TextEdit")] {
+            let adapter = SequenceAdapter::new(vec![empty_baseline()]);
+            let mut request = input(event, app);
+            request.timeout_ms = 0;
 
-    let error = wait_for_event(request, &adapter, None)
-        .expect_err("a zero timeout must expire before baseline capture");
-
-    assert_eq!(error.code(), "TIMEOUT");
-    assert_eq!(*adapter.calls.lock().unwrap(), 0);
+            let error = wait_for_event(request, &adapter, None).unwrap_err();
+            assert_eq!(error.code(), "TIMEOUT");
+            let AppError::Adapter(error) = error else {
+                panic!("expected a wait timeout")
+            };
+            let details = error.details.unwrap();
+            assert_eq!(details["kind"], "wait_timeout");
+            assert_eq!(details["predicate"], "event");
+            assert_eq!(details["event"], event);
+            assert_eq!(details["timeout_ms"], 0);
+            assert!(details.get("baseline_counts").unwrap().is_null());
+            assert_eq!(*adapter.app_calls.lock().unwrap(), 0);
+            assert_eq!(*adapter.calls.lock().unwrap(), 0);
+        }
+    }
 }
 
 #[test]

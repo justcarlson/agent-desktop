@@ -12,7 +12,7 @@ use super::window_ops::parse_handle;
 const MAX_DIMENSION: f64 = 1_000_000.0;
 const MAX_COORDINATE: f64 = 1_000_000.0;
 /// Placement re-read tolerance pinned by A21-5 (DWM animation headroom floor).
-const PLACEMENT_TOLERANCE_PX: i32 = 8;
+pub(crate) const PLACEMENT_TOLERANCE_PX: i32 = 8;
 /// Wait-then-re-read delay pinned by A21-5 so an in-flight DWM animation is
 /// not misread as a placement mismatch.
 const PLACEMENT_REREAD_MS: u64 = 80;

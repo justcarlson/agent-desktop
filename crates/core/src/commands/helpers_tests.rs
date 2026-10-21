@@ -80,11 +80,11 @@ impl SystemOps for TargetedWindowAdapter {
         win: &WindowInfo,
         op: WindowOp,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         assert_eq!(win.id, "w-real");
         assert!(matches!(op, WindowOp::Restore));
         self.operated.fetch_add(1, Ordering::SeqCst);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -133,11 +133,11 @@ impl SystemOps for RestoreWithoutWindowAdapter {
         win: &WindowInfo,
         op: WindowOp,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         assert_eq!(win.pid, 42);
         assert!(matches!(op, WindowOp::Restore));
         self.op_count.fetch_add(1, Ordering::SeqCst);
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -224,7 +224,6 @@ fn restore_fails_closed_when_no_window_is_currently_listed() {
         },
         &adapter,
         WindowOp::Restore,
-        "restored",
     )
     .unwrap_err();
 
@@ -249,11 +248,11 @@ fn window_id_targets_one_window_in_an_ambiguous_app_inventory() {
         },
         &adapter,
         WindowOp::Restore,
-        "restored",
     )
     .unwrap();
 
-    assert_eq!(value["restored"], true);
+    assert_eq!(value["action"], "test");
+    assert!(value.get("restored").is_none());
     assert_eq!(adapter.operated.load(Ordering::SeqCst), 1);
 }
 

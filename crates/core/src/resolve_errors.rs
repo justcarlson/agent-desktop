@@ -10,10 +10,11 @@ use crate::{AdapterError, ErrorCode, RefEntry};
 /// once, here, instead of by two copies that can drift apart.
 pub fn identity_unknown_error(entry: &RefEntry) -> AdapterError {
     AdapterError::new(
-        ErrorCode::AppUnresponsive,
+        ErrorCode::Timeout,
         "Strict resolution could not determine candidate identity from the live accessibility evidence",
     )
     .with_suggestion("Retry after the target application finishes updating its accessibility tree")
+    .with_disposition(crate::DeliverySemantics::not_delivered())
     .with_details(json!({
         "kind": "resolution_identity_unknown",
         "role": entry.identity.role,

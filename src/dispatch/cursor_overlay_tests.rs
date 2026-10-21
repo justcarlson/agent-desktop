@@ -208,3 +208,14 @@ fn disable_reports_uncertain_when_overlay_teardown_fails_after_persisting() {
     assert_eq!(saved.cursor_overlay, Default::default());
     assert!(home.path().join("sessions").join(manifest.id).is_dir());
 }
+
+#[test]
+fn tear_down_forgives_only_an_adapter_without_an_overlay() {
+    let control = agent_desktop_core::CursorOverlayControl::disable("session".to_owned());
+
+    tear_down(&NoopAdapter, &control).expect("an adapter with no overlay has nothing to tear down");
+
+    let error = tear_down(&FailingOverlayAdapter, &control)
+        .expect_err("any other teardown failure must surface");
+    assert_eq!(error.code(), "ACTION_FAILED");
+}

@@ -4,6 +4,7 @@ pub(crate) mod app_ops;
 pub(crate) mod appkit_bridge;
 pub(crate) mod cg_window;
 pub(crate) mod cg_window_exact;
+pub(crate) mod close_outcome;
 pub(crate) mod cocoa_runtime;
 pub(crate) mod cursor_overlay;
 pub(crate) mod display;
@@ -32,6 +33,7 @@ pub(crate) mod window_inventory;
 pub(crate) mod window_inventory_global;
 pub(crate) mod window_ops;
 pub(crate) mod window_postcondition;
+pub(crate) mod window_report;
 pub(crate) mod window_resolve;
 pub(crate) mod workspace_apps;
 

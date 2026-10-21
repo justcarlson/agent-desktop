@@ -151,6 +151,7 @@ pub(crate) fn minimal_ref_entry(role: &str, name: Option<&str>) -> crate::RefEnt
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },
@@ -257,6 +258,8 @@ pub(crate) fn observed_tree(
             identifiers: IdentifierEvidence::typed(native_id, Some(0), true),
             states: LocatorField::Known(node.presentation.states),
             ref_evidence: LocatorRefEvidence {
+                window_bounds: LocatorField::Absent,
+                bounds_space: crate::BoundsSpace::Screen,
                 bounds: node
                     .presentation
                     .bounds
@@ -281,4 +284,8 @@ pub(crate) fn observed_tree(
         LocatorStats::default(),
         true,
     )
+}
+
+pub(crate) fn test_report() -> crate::OperationReport {
+    crate::OperationReport::delivered_unverified("test", crate::OperationTarget::Clipboard)
 }

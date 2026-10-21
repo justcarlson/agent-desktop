@@ -146,6 +146,7 @@ fn element_root_derives_surface_with_relative_depth_budgets() {
             native_id: None,
         },
         geometry: crate::RefGeometry {
+            bounds_space: None,
             bounds: None,
             bounds_hash: None,
         },

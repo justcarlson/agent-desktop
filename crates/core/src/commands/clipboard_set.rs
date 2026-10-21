@@ -1,6 +1,6 @@
 use crate::{
     AppError, ClipboardContent, ImageBuffer, ImageFormat, adapter::PlatformAdapter,
-    parse_png_dimensions,
+    commands::operation_response::operation_response, parse_png_dimensions,
 };
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -15,8 +15,8 @@ pub fn execute(args: ClipboardSetArgs, adapter: &dyn PlatformAdapter) -> Result<
     let content = build_content(args)?;
     let format = content.format();
     let lease = crate::commands::helpers::acquire_interaction_lease(adapter)?;
-    adapter.set_clipboard_content(&content, &lease)?;
-    Ok(json!({ "ok": true, "type": format.as_str() }))
+    let report = adapter.set_clipboard_content(&content, &lease)?;
+    operation_response(&report, json!({ "type": format.as_str() }))
 }
 
 fn build_content(args: ClipboardSetArgs) -> Result<ClipboardContent, AppError> {

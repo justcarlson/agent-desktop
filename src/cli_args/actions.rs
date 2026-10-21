@@ -161,7 +161,10 @@ pub(crate) struct HoverArgs {
         help = "Element ref to hover over; requires --headed"
     )]
     pub ref_id: Option<String>,
-    #[arg(long, help = "Absolute coordinates as x,y; requires --headed")]
+    #[arg(
+        long,
+        help = "Absolute coordinates as x,y; requires --headed; write a negative value with = (--xy=-100,50)"
+    )]
     pub xy: Option<String>,
     #[arg(
         long,
@@ -180,14 +183,20 @@ pub(crate) struct HoverArgs {
 #[derive(Parser, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MouseMoveArgs {
-    #[arg(long, help = "Absolute coordinates as x,y; requires --headed")]
+    #[arg(
+        long,
+        help = "Absolute coordinates as x,y; requires --headed; write a negative value with = (--xy=-100,50)"
+    )]
     pub xy: String,
 }
 
 #[derive(Parser, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MouseClickArgs {
-    #[arg(long, help = "Absolute coordinates as x,y; requires --headed")]
+    #[arg(
+        long,
+        help = "Absolute coordinates as x,y; requires --headed; write a negative value with = (--xy=-100,50)"
+    )]
     pub xy: String,
     #[arg(
         long,
@@ -211,7 +220,10 @@ pub(crate) struct MouseClickArgs {
 #[derive(Parser, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MousePointArgs {
-    #[arg(long, help = "Absolute coordinates as x,y; requires --headed")]
+    #[arg(
+        long,
+        help = "Absolute coordinates as x,y; requires --headed; write a negative value with = (--xy=-100,50)"
+    )]
     pub xy: String,
     #[arg(
         long,

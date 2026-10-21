@@ -158,8 +158,11 @@ fn clipboard_get_set_clear_data_shapes_match_core_serialization() {
                 &adapter,
             )
             .expect("clipboard-set");
-            assert_eq!(keys_of(&set), ["ok", "type"]);
-            assert_eq!(set["ok"], true);
+            assert_eq!(
+                keys_of(&set),
+                ["action", "disposition", "steps", "target", "type"]
+            );
+            assert_eq!(set["disposition"]["delivery"], "delivered_unverified");
             assert_eq!(set["type"], "text");
 
             let got = clipboard_get::execute(
@@ -210,8 +213,11 @@ fn clipboard_get_set_clear_data_shapes_match_core_serialization() {
             let _ = std::fs::remove_file(&written);
 
             let cleared = clipboard_clear::execute(&adapter).expect("clipboard-clear");
-            assert_eq!(keys_of(&cleared), ["cleared"]);
-            assert_eq!(cleared["cleared"], true);
+            assert_eq!(
+                keys_of(&cleared),
+                ["action", "disposition", "steps", "target"]
+            );
+            assert_eq!(cleared["disposition"]["delivery"], "delivered_unverified");
         });
     });
 }

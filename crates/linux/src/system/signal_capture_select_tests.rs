@@ -1,0 +1,43 @@
+use agent_desktop_core::{ProcessIdentity, SignalFilter};
+
+use super::selector;
+use crate::system::process_facts::ProcessFacts;
+use crate::system::registry_app::{RegistryApp, assemble};
+use crate::system::toolkit_id::ToolkitId;
+use crate::tree::AtspiElement;
+
+fn unanswering_app(pid: u32, comm: &str) -> RegistryApp {
+    assemble(
+        AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", pid),
+        ProcessFacts {
+            comm: comm.to_owned(),
+            exe_basename: Some(comm.to_owned()),
+            instance: "boot:1".to_owned(),
+            web_family: None,
+        },
+        None,
+        ToolkitId::default(),
+    )
+}
+
+#[test]
+fn a_pinned_process_is_selected_by_its_pid_whatever_name_the_app_now_has() {
+    let filter = SignalFilter {
+        app: Some("busy.py".to_owned()),
+        process: Some(ProcessIdentity::new(7u32, "boot:1")),
+    };
+    let select = selector(&filter);
+    assert!(select(&unanswering_app(7, "python3")));
+    assert!(!select(&unanswering_app(8, "python3")));
+}
+
+#[test]
+fn an_unpinned_filter_selects_by_the_app_query() {
+    let filter = SignalFilter {
+        app: Some("python3".to_owned()),
+        process: None,
+    };
+    let select = selector(&filter);
+    assert!(select(&unanswering_app(7, "python3")));
+    assert!(!select(&unanswering_app(8, "other")));
+}

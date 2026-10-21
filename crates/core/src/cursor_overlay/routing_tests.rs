@@ -25,8 +25,8 @@ impl InputOps for RoutingCaptureAdapter {
         &self,
         _event: MouseEvent,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), crate::AdapterError> {
-        Ok(())
+    ) -> Result<crate::OperationReport, crate::AdapterError> {
+        Ok(crate::adapter::test_report())
     }
 }
 

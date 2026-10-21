@@ -37,6 +37,7 @@ fn blank_entry_with_path(fixture: &HostedFixture, path: Vec<usize>) -> RefEntry 
         process_instance: Some(token),
     };
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(*rect),
         bounds_hash: Some(hash),
     };
@@ -154,6 +155,7 @@ fn a_zero_extent_id_less_entry_settles_on_the_first_attempt() {
         .bounds_hash()
         .expect("a zero-extent rect is still a valid rect, and still hashes");
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(zero_extent),
         bounds_hash: Some(hash),
     };
@@ -184,6 +186,7 @@ fn locator_entry(role: &str, positive_area_hash: Option<Rect>) -> RefEntry {
     };
     let mut entry = ref_entry(role);
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds,
         bounds_hash,
     };
@@ -200,6 +203,8 @@ fn locator_evidence(role: &str, bounds: LocatorField<Rect>) -> LocatorEvidence {
         identifiers: IdentifierEvidence::absent(),
         states: LocatorField::Absent,
         ref_evidence: LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds,
             available_actions: LocatorField::Absent,
             descriptors: NodeDescriptor::default(),
@@ -274,7 +279,12 @@ fn a_role_read_that_comes_back_unknown_is_retryable_not_settled() {
         Err(error) => error,
         Ok(()) => panic!("an unknown role must never verify as a match"),
     };
-    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+    assert!(error.is_transient_incomplete_read());
     assert_eq!(
         error
             .details

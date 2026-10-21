@@ -49,12 +49,19 @@ Keep these on agent-desktop even with CDP connected: the native menu bar, file d
 
 ## close-app
 
+`close-app` closes the app and all its windows. There is no `close-window`
+command. To close one of several windows, snapshot the intended `--window-id`
+and click its own Close button ref, then verify with `list-windows`. Answer any
+save prompt through its sheet. For the last window, use `close-app` if you intend
+to exit the app. Ctrl+W may close only a tab or document, leaving the window open.
+The Linux windows reference includes a Bash recipe that selects a fresh Close ref.
+
 ```bash
 agent-desktop close-app "TextEdit"
 agent-desktop close-app "TextEdit" --force
 ```
 
-Success is reported only after the process is seen gone: `{ "method": "graceful" | "force", "requested": true, "closed": true }`. If a save dialog appears, snapshot it and answer it. `--force` ends the process. Protected system processes return `INVALID_ARGS` with `not_delivered`, not `PERM_DENIED`.
+Success is reported only after the process is seen gone: `{ "method": "graceful" | "force", "disposition": { "delivery": "delivered_unverified" | "delivered_verified" | "not_delivered" }, "target": { "kind": "app", ... } }`. `not_delivered` means the app had already exited. Read `disposition`, not `ok`, to learn what was proved. If a save dialog appears, snapshot it and answer it. `--force` ends the process. Protected system processes return `INVALID_ARGS` with `not_delivered`, not `PERM_DENIED`.
 
 ## list-apps
 
@@ -120,7 +127,7 @@ Use `wait`, not a fixed sleep. `--timeout` defaults to 30000 ms. Modes:
 - **Time.** `wait <ms>` pauses.
 - **Element.** `--predicate` is `exists` (default), `enabled`, `visible`, `actionable`, or `value` (with `--value`). `actionable` checks readiness for `--action` (`click` default, `type`, `set-value`, `clear`). Use `--action type` before a wait-then-type flow. The editability check runs only for editing actions. `--element` takes a qualified ref (`@<snapshot_id>:eN`); the wait polls the snapshot embedded in the ref.
 - **Window.** Waits for a window whose title contains the text. `--app` narrows. On timeout, `details.last_observed` lists the scoped window count and up to eight titles.
-- **Text.** Waits for text anywhere in the app's tree. `--count` adds a count to the result.
+- **Text.** Selects one app window, then waits for text in that tree. `--count` adds a count to the result. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. `wait --window-id` is not supported for text waits; `--window-id` narrows eligible window lifecycle event waits only. To recover, use `list-windows --app <app>` to identify the target, then `snapshot --app <app> --window-id <id> -i` to inspect it. For a dialog, `wait --window <title> --app <app>` followed by `snapshot --surface sheet` is another option (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined.
 - **Menu.** `--menu` waits for a menu surface to open. `--menu-closed` waits for it to close.
 - **Event.** `--event` is one of `window-opened`, `window-closed`, `app-launched`, `app-terminated`, `focus-changed`, `surface-appeared`, `surface-dismissed`. It diffs a baseline taken at wait start against fresh reads, so you need no window id up front. `--window-id` and `--window` narrow it.
 
@@ -129,6 +136,17 @@ For `wait --event` only, `--app` resolves once, at wait start, to one process in
 - `app-launched`, `window-opened`, `surface-appeared`: keep polling until the timeout. Use these when you race a launch.
 - `app-terminated`, `window-closed`, `surface-dismissed`: return `"found": true` with `"target_unresolved": true` at once. A misspelled `--app` gives the same answer, so check the name.
 - `focus-changed`: returns `APP_NOT_FOUND`.
+
+Wait outcomes depend on the mode and the platform's native reads. On macOS and Windows, an existing window can still satisfy `--window` while its app is unresponsive. A wait can return top-level `APP_UNRESPONSIVE` before its timeout; handle that error directly. `wait --event` keeps polling after retryable read failures and includes the latest failure in `details.last_error` if it times out. A non-retryable error ends the event wait immediately.
+
+On Linux the event and menu waits follow these rules:
+
+- An app counts as launched when it owns a window. A helper process that registers with no window never produces `app-launched`, and a second window of a running app (`--new-window`, Ctrl+N) is `window-opened` and never `app-launched`.
+- `focus-changed` needs a window that reports it is active. On a Wayland session no window does until a keyboard device exists, so the wait times out there and its `baseline_counts` show the windows it saw.
+- A dialog is `window-opened` and `surface-appeared` once. A dialog drawn inside its window is found only when `--app` scopes the wait, and it appears 0.7 to 1.5 s after the action that opened it.
+- A wait scoped to a stopped app fails at once with top-level `APP_UNRESPONSIVE`, including `--event`; it is not a `TIMEOUT`. A batch of an action followed by such a wait does not start the action (`pre_action_baseline_failed`, cause `APP_UNRESPONSIVE`). An app that is alive but slow keeps the wait polling; the classes it could not read are left out of the diff and no event is invented from them.
+- `--menu-closed` on a menu you have not opened yet is true at once. Wait for `--menu` first, then close the menu, then wait for `--menu-closed`. After an action of your own the closed wait holds until the menu was seen open, or for 2 s.
+- A menu bar that is hidden opens nothing, so `--menu` times out with "No menu opened before the deadline".
 
 A `TIMEOUT` from `wait` carries `details.kind: "wait_timeout"`, `last_observed` or `last_error`, and `baseline_counts` for events.
 
@@ -140,17 +158,23 @@ agent-desktop batch '[
   {"command":"wait","args":{"ms":200}},
   {"command":"type","args":{"ref_id":"@s8f3k2p9:e2","text":"hello"}}
 ]' --stop-on-error
+
+agent-desktop batch '[
+  {"command":"click","args":{"ref_id":"@s8f3k2p9:e1"}},
+  {"command":"wait","args":{"event":"window-opened","app":"TextEdit","timeout":5000}}
+]' --stop-on-error
 ```
 
 Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. Snapshot args use `skeleton`, `root`, `interactive_only`.
+
+Wait entries use flat JSON keys matching the wait argument fields. For event waits, use `event` and optional `app`, `timeout` (milliseconds; defaults to 30000), `window`, and `window_id`. For example, the batch above waits up to five seconds for a new TextEdit window. `window` and `window_id` narrow only window lifecycle events (`window-opened`, `window-closed`, `focus-changed`); they do not scope text waits. In an action-then-event sequence, the batch captures the event baseline before the action, and does not start the action if that baseline read fails.
 
 ## Sessions and traces
 
 A session is an on-disk container under `<state root>/sessions/<id>/` with a manifest, snapshot refmaps and, when tracing is on, a `trace/` directory. The state root is `~/.agent-desktop`. `AGENT_DESKTOP_HOME` relocates it. It must be an absolute path, or the command fails with `INVALID_ARGS`. `status` reports it as `state_root`.
 
 ```bash
-agent-desktop session start --name "invoice-bot"
-export AGENT_DESKTOP_SESSION=<session_id>    # PowerShell: $env:AGENT_DESKTOP_SESSION = "<session_id>"
+export AGENT_DESKTOP_SESSION="$(agent-desktop session start --name "invoice-bot" | jq -r '.data.session_id')"
 agent-desktop session end "$AGENT_DESKTOP_SESSION"
 ```
 

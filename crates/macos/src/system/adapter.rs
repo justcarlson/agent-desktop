@@ -1,11 +1,13 @@
 use agent_desktop_core::{
     ActionResult, AdapterError, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, ImageBuffer, InteractionLease, NotificationActionRequest,
-    NotificationFilter, NotificationInfo, PermissionReport, ProcessIdentity, ScreenshotTarget,
-    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    NotificationFilter, NotificationInfo, OperationReport, PermissionReport, ProcessIdentity,
+    ScreenshotTarget, SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo,
+    WindowOp,
 };
 
 use crate::adapter::MacOSAdapter;
+use crate::system::close_outcome::CloseOutcome;
 
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(
@@ -111,8 +113,10 @@ impl SystemOps for MacOSAdapter {
         app: &agent_desktop_core::AppInfo,
         force: bool,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::app_ops::close_app_impl(app, force, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let dispatched = crate::system::app_ops::close_app_impl(app, force, lease.deadline())
+            .map(|outcome| outcome == CloseOutcome::Exited);
+        OperationReport::from_close_dispatch(app, dispatched)
     }
 
     fn is_protected_process(&self, identifier: &str) -> bool {
@@ -198,8 +202,10 @@ impl SystemOps for MacOSAdapter {
         win: &WindowInfo,
         op: WindowOp,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::window_ops::execute(win, op, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let readback = crate::system::window_report::window_readback(&op);
+        let dispatched = crate::system::window_ops::execute(win, op.clone(), lease.deadline());
+        OperationReport::from_window_dispatch(win, &op, readback, dispatched)
     }
 
     fn list_notifications(

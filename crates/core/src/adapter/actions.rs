@@ -21,4 +21,18 @@ pub trait ActionOps: Send + Sync {
         let _ = (handle, lease);
         Err(AdapterError::not_supported("scroll_into_view"))
     }
+
+    /// Prepare a ref for dispatch. An adapter may return a strictly verified
+    /// handle when its own scroll supplies independent evidence of the same
+    /// native object's movement. Otherwise the caller resolves the original
+    /// ref again; scrolling alone never authorizes rebinding a target.
+    fn scroll_ref_into_view(
+        &self,
+        _entry: &crate::RefEntry,
+        handle: &NativeHandle,
+        lease: &InteractionLease,
+    ) -> Result<Option<NativeHandle>, AdapterError> {
+        self.scroll_into_view(handle, lease)?;
+        Ok(None)
+    }
 }

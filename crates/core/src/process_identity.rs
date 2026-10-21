@@ -1,6 +1,7 @@
 use crate::ProcessId;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProcessIdentity {
     pub pid: ProcessId,
     pub instance: String,

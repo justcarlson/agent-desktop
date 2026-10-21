@@ -190,6 +190,8 @@ fn optional_identity_gaps_do_not_poison_complete_actionability_evidence() {
         identifiers: agent_desktop_core::IdentifierEvidence::unknown(),
         states: LocatorField::Known(Vec::new()),
         ref_evidence: agent_desktop_core::LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds: LocatorField::Known(Rect {
                 x: 0.0,
                 y: 0.0,

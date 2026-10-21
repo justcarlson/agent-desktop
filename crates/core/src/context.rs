@@ -199,6 +199,9 @@ impl CommandContext {
         command: &'static str,
         success_disposition: crate::DeliverySemantics,
     ) -> Result<CommandScope<'_>, AppError> {
+        if let Some(session) = &self.session {
+            session.ensure_active()?;
+        }
         let deadline_scope = crate::deadline::enter_scope(self.inherited_deadline);
         self.trace("command.start", json!({ "command": command }))
             .map_err(|error| {

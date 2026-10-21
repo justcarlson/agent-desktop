@@ -1,0 +1,92 @@
+use agent_desktop_core::{
+    AdapterError, Deadline, HitTestResult, NativeHandle, Point, Rect, RefEntry,
+};
+
+mod activate;
+mod call;
+mod capability;
+mod execute;
+mod identity;
+mod introspect;
+mod item_props;
+mod live;
+mod menu_event;
+mod menu_layout;
+mod menu_nodes;
+mod menu_resolve;
+mod node_evidence;
+pub(crate) mod observe;
+mod panel_correlate;
+mod registration;
+mod resolve;
+pub(crate) mod view;
+mod watcher;
+mod world;
+
+#[cfg(test)]
+mod fit_tests;
+#[cfg(test)]
+mod live_rig;
+#[cfg(test)]
+mod live_scripts;
+#[cfg(test)]
+mod live_tests;
+
+#[cfg(test)]
+pub(crate) use view::read;
+
+pub(crate) use execute::execute;
+pub(crate) use live::{
+    actions as live_actions, bounds, element as live_element, state as live_state,
+};
+pub(crate) use resolve::resolve;
+
+/// A tray item or one of its menu entries, named by D-Bus identity.
+#[derive(Debug, Clone, PartialEq, Eq, zbus::export::serde::Deserialize)]
+#[serde(crate = "zbus::export::serde", deny_unknown_fields)]
+pub(crate) struct TrayTarget {
+    pub(crate) owner: String,
+    pub(crate) object_path: String,
+    pub(crate) menu_path: Option<String>,
+    pub(crate) entry_id: Option<i32>,
+    pub(crate) label_path: Vec<String>,
+}
+
+pub(crate) fn target_of(handle: &NativeHandle) -> Option<&TrayTarget> {
+    handle.downcast_ref::<TrayTarget>()
+}
+
+/// Whether a stored ref names a tray item or one of its menu entries.
+pub(crate) fn owns(entry: &RefEntry) -> bool {
+    entry
+        .identity
+        .native_id
+        .as_ref()
+        .is_some_and(|id| identity::is_tray_id(&id.value))
+}
+
+pub(crate) fn hit_test(
+    target: &TrayTarget,
+    point: Point,
+    deadline: Deadline,
+) -> Result<HitTestResult, AdapterError> {
+    let rect = live::bounds(target, deadline)?;
+    let displays = crate::system::shell::hit::display_extents(deadline);
+    Ok(reach(rect, &point, displays.as_deref()))
+}
+
+/// A tray item is reached when the point lies inside its panel node's extents
+/// on a display; an item with no panel node and a menu entry cannot be told.
+fn reach(
+    rect: Option<Rect>,
+    point: &Point,
+    displays: Option<&[crate::tree::Extents]>,
+) -> HitTestResult {
+    let extents = rect.map(|rect| crate::tree::Extents {
+        x: rect.x as i32,
+        y: rect.y as i32,
+        width: rect.width as i32,
+        height: rect.height as i32,
+    });
+    crate::system::shell::hit::decide(extents, point, displays)
+}

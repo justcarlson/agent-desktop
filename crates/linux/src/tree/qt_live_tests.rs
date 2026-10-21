@@ -1,0 +1,116 @@
+use std::time::Duration;
+
+use agent_desktop_core::{ErrorCode, RefEntry};
+
+use super::live_fixture;
+use super::live_rig::{Rig, deadline, refused, rig, wait_until, width_of};
+use super::live_tree::{children_of, pid_of};
+use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
+
+fn widths(rig: &Rig, entries: &[RefEntry]) -> Vec<f64> {
+    entries
+        .iter()
+        .map(|entry| {
+            let handle = rig.resolve(entry).expect("the twin resolves");
+            width_of(&rig.raw(&handle).expect("a second read"))
+        })
+        .collect()
+}
+
+fn path_emptied(entries: &[RefEntry]) -> Vec<RefEntry> {
+    entries.iter().map(super::live_rig::search_entry).collect()
+}
+
+fn object_identity_cleared(entries: &[RefEntry]) -> Vec<RefEntry> {
+    entries
+        .iter()
+        .cloned()
+        .map(|mut entry| {
+            entry.identity.retained_object = None;
+            entry.identity.native_id = None;
+            entry
+        })
+        .collect()
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn qt_live_moved_twin_refs_stay_distinct_and_shared_text_only_evidence_is_ambiguous() {
+    let mut rig = rig();
+    let fixture = live_fixture::qt(&mut rig.launched).expect("the fixture starts");
+    let settled = rig.settled(fixture.pid, 8);
+    let twins = rig.named(&settled.frame, true, "Twin");
+    assert_eq!(twins.len(), 2);
+    let stored: Vec<f64> = twins
+        .iter()
+        .map(|entry| entry.geometry.bounds.expect("a rectangle").width)
+        .collect();
+    let position = |rig: &Rig| {
+        let handle = rig.resolve(&twins[0]).expect("resolves");
+        rig.raw(&handle).expect("read").extents.present().copied()
+    };
+    let before = position(&rig).expect("extents");
+
+    fixture.send("move 420 260");
+    assert!(
+        wait_until(Duration::from_secs(8), || position(&rig)
+            .is_some_and(|now| (now.x, now.y) != (before.x, before.y))),
+        "the window moved"
+    );
+    let after = position(&rig).expect("extents");
+    println!(
+        "qt_live move: ({}, {}) -> ({}, {})",
+        before.x, before.y, after.x, after.y
+    );
+
+    assert_eq!(widths(&rig, &twins), stored, "the intact path after a move");
+    assert_eq!(
+        widths(&rig, &path_emptied(&twins)),
+        stored,
+        "the retained object after a move"
+    );
+    let mut nothing = object_identity_cleared(&path_emptied(&twins));
+    assert_eq!(
+        widths(&rig, &nothing),
+        stored,
+        "the shared text and stored size"
+    );
+    for entry in &mut nothing {
+        entry.geometry.bounds = None;
+        entry.geometry.bounds_hash = None;
+    }
+    let error = refused(rig.resolve(&nothing[0]), "nothing separates the twins");
+    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+    assert_eq!(
+        error.details.as_ref().expect("details")["candidate_count"],
+        2
+    );
+    assert!(!error.is_explicitly_retryable());
+}
+
+#[test]
+#[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
+fn qt_live_a_process_with_two_bus_connections_resolves_through_the_window_owning_one() {
+    let mut rig = rig();
+    let fixture = live_fixture::qt(&mut rig.launched).expect("the fixture starts");
+    let settled = rig.settled(fixture.pid, 8);
+    let connection = rig.bus.get(deadline(5_000)).expect("the bus");
+    let owners: Vec<String> = children_of(&connection, REGISTRY_SERVICE, REGISTRY_ROOT_PATH)
+        .into_iter()
+        .filter(|(bus, _)| pid_of(&connection, bus) == Some(fixture.pid))
+        .map(|(bus, _)| bus)
+        .collect();
+    println!(
+        "qt_live connections: {} registry entries for pid {}: {owners:?}",
+        owners.len(),
+        fixture.pid
+    );
+    let entries = rig.entries(&settled.frame, true);
+    assert!(!entries.is_empty());
+    for (_, entry) in &entries {
+        assert!(rig.resolve(entry).is_ok(), "{:?}", entry.identity.name);
+    }
+    for owner in &owners {
+        assert!(owners.iter().filter(|other| *other == owner).count() == 1);
+    }
+}

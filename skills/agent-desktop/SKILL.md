@@ -5,7 +5,7 @@ tags: computer-use, desktop-automation, accessibility, ai-agent, gui-automation,
 requirements:
   - agent-desktop
 description: >
-  Operate desktop applications on macOS and Windows through native accessibility trees,
+  Operate desktop applications on macOS, Windows and Linux through native accessibility trees,
   using the agent-desktop CLI. Use when an AI agent must see or act on a desktop GUI:
   click buttons, fill forms, read UI state, navigate menus, toggle checkboxes, scroll,
   drag, type text, press shortcuts, take screenshots, manage windows, use the clipboard,
@@ -13,7 +13,7 @@ description: >
   Triggers on: "click button", "fill form", "open app", "read UI", "computer use",
   "operate desktop", "accessibility tree", "snapshot app", "type into field", "navigate menu",
   "toggle checkbox", "take screenshot", "desktop automation", "agent-desktop",
-  or any desktop GUI task on macOS or Windows.
+  or any desktop GUI task on macOS, Windows or Linux.
 ---
 
 # agent-desktop
@@ -27,7 +27,7 @@ Examples use a POSIX shell. In PowerShell, quote every ref (`'@s8f3k2p9:e1'`), b
 ## First run
 
 1. Run `agent-desktop status`. It reports the platform, permissions and `supported_surfaces`.
-2. Run `agent-desktop skills get platform`. It loads the skill for the OS the binary runs on (macOS or Windows). Linux has no platform skill yet.
+2. Run `agent-desktop skills get platform`. It loads the skill for the OS the binary runs on (macOS, Windows or Linux).
 3. For flags and syntax, run `agent-desktop <command> --help`. This skill does not repeat flag lists.
 
 ## The loop

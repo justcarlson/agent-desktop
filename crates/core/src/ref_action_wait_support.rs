@@ -94,7 +94,36 @@ fn attach_process_state_detail(
         }
         None => details = json!({ "process_state": state.label() }),
     }
-    err.with_details(details)
+    let exited_stale = err.code == ErrorCode::StaleRef
+        && matches!(state, crate::process_state::ProcessState::Exited { .. });
+    let err = err.with_details(details);
+    if exited_stale {
+        return err.with_suggestion(EXITED_PROCESS_SUGGESTION);
+    }
+    err
+}
+
+const EXITED_PROCESS_SUGGESTION: &str = "The target process exited. Run 'list-apps' to see \
+     whether the application runs again, launch it if it does not, then take a new snapshot";
+
+const PROCESS_STATE_PROBE_BUDGET: std::time::Duration = std::time::Duration::from_secs(1);
+
+pub(crate) fn with_exited_process_state(
+    adapter: &dyn PlatformAdapter,
+    process: crate::ProcessIdentity,
+    err: AdapterError,
+    deadline: crate::Deadline,
+) -> AdapterError {
+    if err.code != ErrorCode::StaleRef {
+        return err;
+    }
+    let probe = deadline.capped(PROCESS_STATE_PROBE_BUDGET);
+    match adapter.process_state(process, probe) {
+        Ok(state @ crate::process_state::ProcessState::Exited { .. }) => {
+            attach_process_state_detail(err, state)
+        }
+        _ => err,
+    }
 }
 
 pub(crate) fn trace_resolve_error(context: &CommandContext, ref_id: &str, err: &AdapterError) {
@@ -108,12 +137,12 @@ pub(crate) fn trace_resolve_error(context: &CommandContext, ref_id: &str, err: &
     });
 }
 
+/// The preparatory scroll moves the view, never the requested action, so a
+/// refusal after it writes nothing: the disposition says so, and the
+/// `preparatory_scroll` detail records that the view may have changed.
 pub(crate) fn after_scroll(mut error: AdapterError) -> AdapterError {
-    if matches!(
-        error.disposition,
-        crate::DeliverySemantics::NotDelivered | crate::DeliverySemantics::Unknown
-    ) {
-        error.disposition = crate::DeliverySemantics::uncertain();
+    if error.disposition == crate::DeliverySemantics::Unknown {
+        error.disposition = crate::DeliverySemantics::not_delivered();
     }
     let details = error.details.get_or_insert_with(|| json!({}));
     if let Some(details) = details.as_object_mut() {

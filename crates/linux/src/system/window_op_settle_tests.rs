@@ -1,0 +1,65 @@
+use super::*;
+
+#[test]
+fn a_move_seen_only_in_passing_is_not_the_held_result() {
+    let world = World::showing(state(10, 10, 400, 300))
+        .then_showing(state(300, 200, 400, 300))
+        .then_showing(state(60, 90, 400, 300));
+    let error = run(
+        &world,
+        &window(),
+        &WindowOp::Move { x: 300.0, y: 200.0 },
+        budget(),
+    )
+    .expect_err("the slide kept going past the asked place");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    let details = error.details.expect("details");
+    assert_eq!(details["observed"]["x"], 60);
+    assert_eq!(details["observed"]["y"], 90);
+}
+
+#[test]
+fn a_move_without_time_for_the_confirmation_pause_is_unverified() {
+    let world = World::showing(state(300, 200, 400, 300));
+    let error = run(
+        &world,
+        &window(),
+        &WindowOp::Move { x: 300.0, y: 200.0 },
+        Deadline::after(100).expect("a deadline builds"),
+    )
+    .expect_err("two immediate reads cannot prove the place held");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(world.writes(), 1);
+}
+
+#[test]
+fn a_confirmation_that_returns_after_the_limit_reports_its_latest_rectangle() {
+    fn delayed_confirmation(written: &[WindowWrite]) -> WindowFacts {
+        thread_local! {
+            static READS: Cell<u32> = const { Cell::new(0) };
+        }
+        if written.is_empty() {
+            return state(10, 10, 400, 300);
+        }
+        let first = READS.with(|reads| reads.replace(reads.get() + 1) == 0);
+        if first {
+            state(300, 200, 400, 300)
+        } else {
+            std::thread::sleep(SETTLE_BUDGET);
+            state(60, 90, 400, 300)
+        }
+    }
+    let mut world = World::showing(state(10, 10, 400, 300));
+    world.reaction = Some(delayed_confirmation);
+    let error = run(
+        &world,
+        &window(),
+        &WindowOp::Move { x: 300.0, y: 200.0 },
+        Deadline::after(2_000).expect("a deadline builds"),
+    )
+    .expect_err("the confirmation disproved the earlier rectangle");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    let details = error.details.expect("details");
+    assert_eq!(details["observed"]["x"], 60);
+    assert_eq!(details["observed"]["y"], 90);
+}

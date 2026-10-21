@@ -64,7 +64,7 @@ impl InputOps for WheelCaptureAdapter {
         &self,
         event: MouseEvent,
         _lease: &crate::InteractionLease,
-    ) -> Result<(), AdapterError> {
+    ) -> Result<crate::OperationReport, AdapterError> {
         let MouseEventKind::Wheel { delta_x, delta_y } = event.kind else {
             return Err(AdapterError::not_supported("non-wheel mouse event"));
         };
@@ -78,7 +78,7 @@ impl InputOps for WheelCaptureAdapter {
         if let Some(disposition) = self.failure {
             return Err(AdapterError::not_supported("mouse_wheel").with_disposition(disposition));
         }
-        Ok(())
+        Ok(crate::adapter::test_report())
     }
 }
 
@@ -132,7 +132,10 @@ fn returns_scrolled_envelope_with_requested_deltas() {
     )
     .unwrap();
 
-    assert_eq!(value, json!({ "scrolled": true, "dy": 7.0, "dx": -2.0 }));
+    assert_eq!(value["dy"], 7.0);
+    assert_eq!(value["dx"], -2.0);
+    assert_eq!(value["disposition"]["delivery"], "delivered_unverified");
+    assert!(value.get("scrolled").is_none());
 }
 
 #[test]

@@ -2,12 +2,13 @@ use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
     KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, ObservationOps,
-    PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline,
-    SignalFilter, SnapshotSurface, SystemOps, WindowFilter, WindowInfo, WindowOp,
+    OperationReport, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
+    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowFilter, WindowInfo, WindowOp,
     launch_options::LaunchOptions, process_state::ProcessState,
 };
 
 use crate::adapter::WindowsAdapter;
+use crate::system::close_outcome::CloseOutcome;
 
 impl SystemOps for WindowsAdapter {
     fn update_cursor_overlay(
@@ -186,8 +187,10 @@ impl SystemOps for WindowsAdapter {
         app: &AppInfo,
         force: bool,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::close::close_app_impl(app, force, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let dispatched = crate::system::close::close_app_impl(app, force, lease.deadline())
+            .map(|outcome| outcome == CloseOutcome::Exited);
+        OperationReport::from_close_dispatch(app, dispatched)
     }
 
     /// `SetWindowPos`/`ShowWindow` with Win32 placement re-read verification
@@ -197,8 +200,11 @@ impl SystemOps for WindowsAdapter {
         win: &WindowInfo,
         op: WindowOp,
         lease: &InteractionLease,
-    ) -> Result<(), AdapterError> {
-        crate::system::window_op::window_op_impl(win, op, lease.deadline())
+    ) -> Result<OperationReport, AdapterError> {
+        let readback = crate::system::window_op_readback::window_readback(&op);
+        let dispatched =
+            crate::system::window_op::window_op_impl(win, op.clone(), lease.deadline());
+        OperationReport::from_window_dispatch(win, &op, readback, dispatched)
     }
 
     fn resolve_window_strict(

@@ -122,6 +122,7 @@ fn a_blank_secure_ref_resolves_through_the_path_and_geometry_tier() {
         process_instance: Some(token),
     };
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(*rect),
         bounds_hash: Some(hash),
     };
@@ -222,6 +223,7 @@ fn a_ref_whose_window_belongs_to_another_process_never_resolves_into_it() {
         process_instance: Some(token),
     };
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds: Some(*rect),
         bounds_hash: Some(hash),
     };

@@ -293,3 +293,19 @@ fn app_not_found_carries_a_suggestion_naming_the_accepted_forms() {
             .is_some_and(|suggestion| !suggestion.is_empty())
     );
 }
+
+#[test]
+fn an_unknown_application_name_is_not_delivered_and_safe_to_retry() {
+    let adapter = InventoryAdapter {
+        apps: Vec::new(),
+        windows: Vec::new(),
+    };
+    let error = match resolve_app(Some("Missing"), &adapter, Deadline::after(1_000).unwrap()) {
+        Err(AppError::Adapter(error)) => error,
+        other => panic!("expected an adapter error, got {other:?}"),
+    };
+
+    assert_eq!(error.code, ErrorCode::AppNotFound);
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition.retry(), crate::RetryDisposition::Safe);
+}

@@ -56,6 +56,15 @@ impl AdapterError {
         self.retryability == crate::retryability::Retryability::Retryable
     }
 
+    /// Whether the error is an incomplete read an adapter's own loop retries
+    /// inside the operation budget: an explicitly retryable `TIMEOUT` or
+    /// `APP_UNRESPONSIVE`. Deadline exhaustion carries no retryable stamp, so
+    /// it is not one.
+    pub fn is_transient_incomplete_read(&self) -> bool {
+        matches!(self.code, ErrorCode::Timeout | ErrorCode::AppUnresponsive)
+            && self.is_explicitly_retryable()
+    }
+
     pub(crate) fn is_retryable_resolution_failure(&self) -> bool {
         matches!(
             self.code,
@@ -68,6 +77,16 @@ impl AdapterError {
 
     pub fn permits_retry_by_default(&self) -> bool {
         self.retryability != crate::retryability::Retryability::NonRetryable
+    }
+
+    /// Marks a lookup refusal raised before anything was sent to the
+    /// application as `not_delivered`, keeping any stronger evidence the
+    /// error already carries.
+    pub(crate) fn unsent(mut self) -> Self {
+        if self.disposition == DeliverySemantics::unknown() {
+            self.disposition = DeliverySemantics::not_delivered();
+        }
+        self
     }
 
     pub fn stale_ref(ref_id: &str) -> Self {

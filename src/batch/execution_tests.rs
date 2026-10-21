@@ -14,9 +14,15 @@ impl agent_desktop_core::ObservationOps for CountingAdapter {}
 impl agent_desktop_core::ActionOps for CountingAdapter {}
 
 impl agent_desktop_core::InputOps for CountingAdapter {
-    fn clear_clipboard(&self, _lease: &InteractionLease) -> Result<(), AdapterError> {
+    fn clear_clipboard(
+        &self,
+        _lease: &InteractionLease,
+    ) -> Result<agent_desktop_core::OperationReport, AdapterError> {
         self.clears.fetch_add(1, Ordering::SeqCst);
-        Ok(())
+        Ok(agent_desktop_core::OperationReport::delivered_unverified(
+            "test",
+            agent_desktop_core::OperationTarget::Clipboard,
+        ))
     }
 }
 

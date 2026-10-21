@@ -3,7 +3,8 @@ use crate::{
     adapter::PlatformAdapter,
     commands::{
         helpers::{apply_post_action_wait, validate_post_action_wait},
-        point_resolve::{PointResolveArgs, require_cursor_policy},
+        operation_response::operation_response,
+        point_resolve::{PointResolveArgs, require_cursor_policy, require_pointer_capability},
         pointer_action::{
             PointResolveAttempt, ensure_point_deadline, focus_point_under_lease, point_deadline,
             resolve_point_under_lease, retry_leased_point_phase, wait_for_point_with_deadline,
@@ -47,8 +48,10 @@ pub fn execute(
     context: &CommandContext,
 ) -> Result<Value, AppError> {
     require_cursor_policy(context, "drag")?;
+    require_pointer_capability(adapter)?;
     validate_post_action_wait(context)?;
     let deadline = point_deadline(args.timeout_ms)?;
+    DragParams::validate_timing(args.duration_ms, args.drop_delay_ms, deadline)?;
     let from_args = PointResolveArgs {
         ref_id: args.from.ref_id.as_deref(),
         xy: args.from.xy,
@@ -140,14 +143,17 @@ pub fn execute(
         &lease,
     );
     let result = adapter.drag(params, &lease);
-    if result.is_ok() && drag_tracking {
+    let delivered = result
+        .as_ref()
+        .is_ok_and(|report| crate::cursor_overlay::confirms_delivery(report.disposition()));
+    if delivered && drag_tracking {
         crate::cursor_overlay::submit_drag_effect(
             adapter,
             context,
             from.point.clone(),
             to.point.clone(),
         );
-    } else if result.is_ok() {
+    } else if delivered {
         crate::cursor_overlay::submit(
             adapter,
             context,
@@ -159,12 +165,13 @@ pub fn execute(
     } else {
         crate::cursor_overlay::cancel_drag(adapter, context);
     }
-    result?;
-    let mut response = json!({
-        "dragged": true,
-        "from": { "x": from.point.x, "y": from.point.y },
-        "to": { "x": to.point.x, "y": to.point.y }
-    });
+    let mut response = operation_response(
+        &result?,
+        json!({
+            "from": { "x": from.point.x, "y": from.point.y },
+            "to": { "x": to.point.x, "y": to.point.y }
+        }),
+    )?;
     if let Some(drop_delay_ms) = args.drop_delay_ms {
         response["drop_delay_ms"] = json!(drop_delay_ms);
     }

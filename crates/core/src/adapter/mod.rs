@@ -14,7 +14,7 @@ pub(crate) use system::SystemOps;
 pub(crate) use test_support::{
     NoopAdapter, complete_live_observation, exact_window_focus, guarded_interaction_lease,
     live_identity, minimal_accessibility_node, minimal_ref_entry, observed_tree,
-    recorded_action_state,
+    recorded_action_state, test_report,
 };
 
 pub(crate) use crate::live_element::LiveElement;

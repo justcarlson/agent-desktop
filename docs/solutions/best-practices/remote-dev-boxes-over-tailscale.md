@@ -40,7 +40,7 @@ Three constraints break the obvious setups:
 ## Resolution
 
 Tailscale for transport, `rsync` + `ssh` for the loop, and a stolen session environment for
-AT-SPI. Two scripts, 23 lines total.
+AT-SPI. Two scripts: `scripts/session-env.sh` and `scripts/remote-linux.sh`.
 
 `scripts/session-env.sh` reads the graphical environment from the running session process
 instead of a guess:
@@ -54,11 +54,26 @@ eval "$(tr '\0' '\n' < "/proc/$pid/environ" | grep -E '^(DISPLAY|...)=' | sed 's
 ```
 
 `scripts/remote-linux.sh` syncs the tree, then runs a command inside that environment.
-`target/` stays on the box, so builds stay incremental.
+Each worktree syncs to its own `~/ad-wt/<worktree>` folder, so parallel worktrees do not
+overwrite each other. All of them build into one shared `~/ad-target`, so builds stay
+incremental and the box disk holds one set of dependencies.
+
+The script is the only sanctioned way to run on the box:
+
+- Only files git tracks or would add (`git ls-files -co --exclude-standard`) are synced, so gitignored files (`.env`, `.claude/`, `target/`) never leave the workstation.
+- Arguments pass through quoted one by one; `-c` runs a single string under `bash`; stdin reaches the remote command.
+- A command that contains `sudo` is refused. The box is shared and runs unattended.
+- A command that starts `dbus-run-session` without setting `XDG_RUNTIME_DIR` is refused, and a warning prints after every run if the live AT-SPI bus socket is gone.
+- One `flock` on the box serializes every run, because two runs on one X display corrupt each other's input and focus. `AGENT_DESKTOP_REMOTE_LOCK=0` skips it for read-only commands.
+- `AGENT_DESKTOP_REMOTE_TIMEOUT` (default 3600 s) stops a command that hangs and bounds the wait for the lock.
+- Every command is appended to the local `.claude/remote-linux.log`.
+
+Commands that start a bus, a display or an app run through `scripts/private-session.sh`, never against the live session. See [a shared live desktop is shared state](a-shared-live-desktop-is-shared-state.md).
 
 ```bash
 scripts/remote-linux.sh                                  # cargo test -p agent-desktop-linux
 scripts/remote-linux.sh cargo clippy -p agent-desktop-linux --all-targets
+scripts/remote-linux.sh -c 'busctl --user list | grep a11y'
 ```
 
 ## Setup — on the Ubuntu box
@@ -90,9 +105,12 @@ remote-desktop paste, and the failure looks like a missing command.
 Warning: this reboots the box. Auto-login leaves the console unlocked, so keep the box off
 the open internet.
 
-Ubuntu 24.04 defaults to Wayland. AT-SPI reads the tree on Wayland, but XTest input
-synthesis does not work there, and AnyDesk refuses the session outright. Xorg is required
-for Phase 3, not a preference.
+Ubuntu 24.04 defaults to Wayland. AT-SPI reads the tree on Wayland, but XTest does not
+reach native Wayland windows, and AnyDesk refuses the session outright. The live box stays on
+Xorg because the physical pointer and every XTest-driven leg depend on it. Keys on a Wayland
+session take a different route, mutter's `org.gnome.Mutter.RemoteDesktop` service, and the
+Wayland tests start their own private `gnome-shell --headless --wayland` instead of using the
+live session (L28-9, L28-21).
 
 ```bash
 sudo sed -i 's/^#*WaylandEnable=.*/WaylandEnable=false/' /etc/gdm3/custom.conf
@@ -194,14 +212,16 @@ env-steal is load-bearing.
 ## Rules
 
 - Never hardcode `DISPLAY=:0`. Read it from a live session process.
-- Keep the Linux box on Xorg for the whole of Phase 3. Revisit Wayland only when input
-  synthesis moves to libei or a portal.
+- Keep the live Linux box on Xorg. Wayland key input is covered by RemoteDesktop in a
+  private headless shell, never by switching the live session.
 - Source `~/.cargo/env` explicitly in any `ssh` command. Ubuntu's `.bashrc` returns early
   for a non-interactive shell, so rustup's PATH line never runs.
 - Keep `cargo check --target x86_64-unknown-linux-gnu` on the workstation. Only tests need
   the roundtrip; a type error does not.
 - Leave `target/` on the box and exclude it from `rsync`. A full rebuild per sync makes the
   loop useless.
+- Touch the sources on the box before a test run when the build dir is shared. See
+  [a shared build dir serves another tree's binary](a-shared-build-dir-serves-another-trees-binary.md).
 - On Windows, branch on SIDs, never on localized group names.
 - Keep the Windows console session `Active` for the whole of Phase 2. Log out, never
   disconnect.
@@ -214,6 +234,7 @@ env-steal is load-bearing.
 | Tailscale: `device with nodekey ... already exists` | Stale state from an earlier install. Run `tailscale logout`, then log in again. |
 | `/usr/local/bin/tailscale` is a broken stub on macOS | The cask ships the CLI as `Tailscale` with a capital T. Repoint the stub. |
 | `sudo: a terminal is required to read the password` | A non-TTY shell. Run the command on the box console, or add a `sudoers.d` entry. |
+| A test run reports old behaviour after a source edit | The shared `~/ad-target` reused a test binary built from other sources. Touch the sources on the box first. |
 | Empty AT-SPI tree, no error | The command ran without `session-env.sh`. |
 | Windows: port 22 closed while 5985 answers | Tailscale routes packets, but Windows runs no SSH server by default. |
 | Windows: key auth still prompts for a password | The account is an administrator. `sshd` reads `administrators_authorized_keys`, not the home folder. |

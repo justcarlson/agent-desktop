@@ -24,6 +24,7 @@ fn stored(role: &str, name: Option<&str>, bounds: Option<Rect>) -> RefEntry {
     let mut entry = crate::tree::walker_fake::ref_entry(role);
     entry.identity.name = name.map(str::to_string);
     entry.geometry = agent_desktop_core::RefGeometry {
+        bounds_space: None,
         bounds,
         bounds_hash: bounds.and_then(|rect| rect.bounds_hash()),
     };
@@ -44,6 +45,8 @@ fn live(
         identifiers: IdentifierEvidence::absent(),
         states: LocatorField::Absent,
         ref_evidence: agent_desktop_core::LocatorRefEvidence {
+            window_bounds: LocatorField::Absent,
+            bounds_space: agent_desktop_core::BoundsSpace::Screen,
             bounds,
             available_actions: LocatorField::Absent,
             descriptors: NodeDescriptor::default(),
