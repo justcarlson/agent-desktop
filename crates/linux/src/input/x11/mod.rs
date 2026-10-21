@@ -1,4 +1,3 @@
-pub(crate) mod drag_send;
 #[cfg(test)]
 pub(crate) mod fake_sink;
 pub(crate) mod held_journal;

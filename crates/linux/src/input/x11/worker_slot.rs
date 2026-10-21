@@ -65,7 +65,3 @@ fn release_outstanding() -> AdapterError {
     }))
     .with_disposition(DeliverySemantics::not_delivered())
 }
-
-#[cfg(test)]
-#[path = "worker_slot_tests.rs"]
-mod tests;

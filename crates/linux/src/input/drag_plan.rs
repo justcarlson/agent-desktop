@@ -58,23 +58,16 @@ fn interpolate(from: &Point, to: &Point, progress: f64) -> (i32, i32) {
 }
 
 fn validate_timing(params: &DragParams) -> Result<(), AdapterError> {
-    if params
-        .duration_ms
-        .is_some_and(|value| value > MAX_DRAG_DURATION_MS)
-    {
-        return Err(AdapterError::new(
-            ErrorCode::InvalidArgs,
-            format!("Drag duration must not exceed {MAX_DRAG_DURATION_MS}ms"),
-        ));
-    }
-    if params
-        .drop_delay_ms
-        .is_some_and(|value| value > MAX_DRAG_DROP_DELAY_MS)
-    {
-        return Err(AdapterError::new(
-            ErrorCode::InvalidArgs,
-            format!("Drag drop delay must not exceed {MAX_DRAG_DROP_DELAY_MS}ms"),
-        ));
+    for (value, cap, label) in [
+        (params.duration_ms, MAX_DRAG_DURATION_MS, "duration"),
+        (params.drop_delay_ms, MAX_DRAG_DROP_DELAY_MS, "drop delay"),
+    ] {
+        if value.is_some_and(|value| value > cap) {
+            return Err(AdapterError::new(
+                ErrorCode::InvalidArgs,
+                format!("Drag {label} must not exceed {cap}ms"),
+            ));
+        }
     }
     Ok(())
 }

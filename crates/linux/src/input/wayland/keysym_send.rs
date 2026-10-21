@@ -7,13 +7,14 @@ use serde_json::json;
 use super::kept_session;
 use super::key_session::KeySession;
 use super::layout::refuse_unreachable;
-use super::lead_key::{LEAD_POLICY, LeadPolicy, send_lead};
 use super::remote_desktop::{RemoteDesktop, semantic_action_refusal};
 use crate::input::delivery::{Delivery, Gate};
+use crate::input::key_names::KEYSYM_SHIFT_L;
 use crate::input::keysym_step::KeysymStep;
 
 const RECOVERY_BUDGET_MS: u64 = 1_000;
 const DRAIN: Duration = Duration::from_millis(150);
+const SHIFT_SETTLE: Duration = Duration::from_millis(100);
 
 fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
     if deadline.is_expired() {
@@ -89,7 +90,6 @@ fn send_each(
 
 fn drive(
     session: &mut dyn KeySession,
-    lead: LeadPolicy,
     chunks: &[&[KeysymStep]],
     gate: Gate<'_>,
     deadline: Deadline,
@@ -98,35 +98,34 @@ fn drive(
     if !session.resumed() {
         session
             .start(deadline)
-            .and_then(|()| send_lead(session, lead, deadline))
             .map_err(|error| with_progress(error, 0))?;
+        let shift = [
+            KeysymStep {
+                keysym: KEYSYM_SHIFT_L,
+                down: true,
+            },
+            KeysymStep {
+                keysym: KEYSYM_SHIFT_L,
+                down: false,
+            },
+        ];
+        send_each(session, &shift, 0, deadline).map_err(|error| with_progress(error, 0))?;
+        sleep(
+            deadline
+                .remaining_slice(SHIFT_SETTLE)
+                .map_err(|error| with_progress(error, 0))?,
+        );
     }
     let mut delivered = 0_u32;
     for chunk in chunks {
-        gate().map_err(|error| with_progress_kept(error, delivered))?;
+        gate().map_err(|error| with_progress(error, delivered))?;
         delivered += send_each(session, chunk, delivered, deadline)?;
     }
     Ok(delivered)
 }
 
-fn with_progress_kept(error: AdapterError, delivered: u32) -> AdapterError {
-    with_progress(error, delivered)
-}
-
-#[cfg(test)]
-pub(crate) fn run(
-    session: &mut dyn KeySession,
-    lead: LeadPolicy,
-    keys: &[KeysymStep],
-    gate: Gate<'_>,
-    deadline: Deadline,
-) -> Result<Delivery, AdapterError> {
-    run_chunks(session, lead, &[keys], gate, deadline)
-}
-
 pub(crate) fn run_chunks(
     session: &mut dyn KeySession,
-    lead: LeadPolicy,
     chunks: &[&[KeysymStep]],
     gate: Gate<'_>,
     deadline: Deadline,
@@ -136,7 +135,7 @@ pub(crate) fn run_chunks(
             .create(deadline)
             .map_err(|error| with_progress(error, 0))?;
     }
-    let outcome = drive(session, lead, chunks, gate, deadline);
+    let outcome = drive(session, chunks, gate, deadline);
     if outcome.as_ref().is_ok_and(|delivered| *delivered > 0) {
         sleep(deadline.remaining().min(DRAIN));
     }
@@ -171,10 +170,10 @@ pub(crate) fn send_chunks(
         Some(session) => session,
         None => RemoteDesktop::open(deadline).map_err(|error| with_progress(error, 0))?,
     };
-    let mut outcome = run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline);
+    let mut outcome = run_chunks(&mut session, &chunks, gate, deadline);
     if reused && outcome.as_ref().is_err_and(sent_nothing) {
         session = RemoteDesktop::open(deadline).map_err(|error| with_progress(error, 0))?;
-        outcome = run_chunks(&mut session, LEAD_POLICY, &chunks, gate, deadline);
+        outcome = run_chunks(&mut session, &chunks, gate, deadline);
     }
     if outcome.is_ok() && session.resumed() {
         kept_session::keep(session);
@@ -184,15 +183,6 @@ pub(crate) fn send_chunks(
 
 fn sent_nothing(error: &AdapterError) -> bool {
     error.disposition == DeliverySemantics::not_delivered()
-}
-
-#[cfg(test)]
-pub(crate) fn send_keys(
-    keys: &[KeysymStep],
-    gate: Gate<'_>,
-    deadline: Deadline,
-) -> Result<Delivery, AdapterError> {
-    send_chunks(&[keys.to_vec()], gate, deadline)
 }
 
 pub(crate) fn pointer_refusal(what: &'static str) -> AdapterError {

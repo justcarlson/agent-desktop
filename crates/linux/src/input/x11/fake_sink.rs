@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
+use crate::input::delivery::Delivery;
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::pointer_read::PointerRead;
@@ -13,6 +14,13 @@ use crate::input::keymap::Keymap;
 use crate::input::keymap_edit::KeymapEdit;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
+
+fn update_edge(held: &mut Vec<u8>, code: u8, down: bool) {
+    held.retain(|held| *held != code);
+    if down {
+        held.push(code);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Recorded {
@@ -30,6 +38,7 @@ pub(crate) struct FakeWorld {
     pub(crate) panic_on_event: Option<usize>,
     pub(crate) root: (u16, u16),
     pub(crate) sticky_buttons: Vec<u8>,
+    pub(crate) sticky_keys: Vec<u8>,
     pub(crate) move_stall: Duration,
     sent: usize,
     held_keys: Vec<u8>,
@@ -62,6 +71,7 @@ impl FakeSink {
                 panic_on_event: None,
                 root: (1280, 800),
                 sticky_buttons: Vec::new(),
+                sticky_keys: Vec::new(),
                 move_stall: Duration::ZERO,
                 sent: 0,
                 held_keys: Vec::new(),
@@ -110,20 +120,14 @@ impl X11Sink for FakeSink {
     fn key(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
         self.admit(Recorded::Key(code, down))?;
         let mut world = self.world();
-        world.held_keys.retain(|held| *held != code);
-        if down {
-            world.held_keys.push(code);
-        }
+        update_edge(&mut world.held_keys, code, down);
         Ok(())
     }
 
     fn button(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
         self.admit(Recorded::Button(code, down))?;
         let mut world = self.world();
-        world.held_buttons.retain(|held| *held != code);
-        if down {
-            world.held_buttons.push(code);
-        }
+        update_edge(&mut world.held_buttons, code, down);
         Ok(())
     }
 
@@ -156,7 +160,7 @@ impl X11Sink for FakeSink {
     fn keys_down(&mut self) -> Result<[u8; 32], SinkError> {
         let world = self.world();
         let mut bits = [0u8; 32];
-        for code in &world.held_keys {
+        for code in world.held_keys.iter().chain(world.sticky_keys.iter()) {
             bits[usize::from(*code / 8)] |= 1 << (code % 8);
         }
         Ok(bits)
@@ -184,23 +188,9 @@ pub(crate) fn deadline(ms: u64) -> Deadline {
     Deadline::detached_after(ms).expect("deadline")
 }
 
-pub(crate) fn open(
-    fake: &FakeSink,
-) -> impl FnOnce() -> Result<FakeSink, AdapterError> + Send + 'static {
-    let fake = fake.clone();
-    move || Ok(fake)
-}
-
-pub(crate) fn plan(steps: Vec<Step>, origin: Option<(i32, i32)>) -> Plan {
-    Plan {
-        steps,
-        release_origin: origin,
-    }
-}
-
 pub(crate) fn drag_plan() -> Plan {
-    plan(
-        vec![
+    Plan {
+        steps: vec![
             Step::MoveTo { x: 10, y: 10 },
             Step::Button {
                 code: 1,
@@ -213,7 +203,28 @@ pub(crate) fn drag_plan() -> Plan {
                 down: false,
             },
         ],
-        Some((10, 10)),
+        release_origin: Some((10, 10)),
+    }
+}
+
+pub(crate) fn run(
+    fake: &FakeSink,
+    plans: Vec<Plan>,
+    gate: crate::input::delivery::Gate<'_>,
+    deadline: Deadline,
+    slot: Option<Arc<super::worker_slot::WorkerSlot>>,
+) -> Result<Delivery, AdapterError> {
+    let fake = fake.clone();
+    super::session::run_journaled(
+        move || Ok(fake),
+        plans,
+        gate,
+        super::session::CallEnv {
+            deadline,
+            journal: None,
+            slot: slot.unwrap_or_default(),
+            release_on_signal: false,
+        },
     )
 }
 
@@ -222,8 +233,4 @@ pub(crate) fn events(fake: &FakeSink) -> Vec<Recorded> {
         .into_iter()
         .filter(|event| *event != Recorded::RoundTrip)
         .collect()
-}
-
-pub(crate) fn no_gate() -> impl FnMut() -> Result<(), AdapterError> {
-    || Ok(())
 }

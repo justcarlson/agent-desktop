@@ -61,46 +61,6 @@ pub(crate) fn live_keymap(display: &str, deadline: Deadline) -> Result<Keymap, A
         .unwrap_or_else(|| Err(worker::mark_started(deadline.timeout_error(), 0)))
 }
 
-#[cfg(test)]
-pub(crate) fn run_with<S: X11Sink + 'static>(
-    open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
-    plans: Vec<Plan>,
-    gate: Gate<'_>,
-    deadline: Deadline,
-) -> Result<Delivery, AdapterError> {
-    run_journaled(
-        open,
-        plans,
-        gate,
-        CallEnv {
-            deadline,
-            journal: None,
-            slot: Arc::new(WorkerSlot::default()),
-            release_on_signal: false,
-        },
-    )
-}
-
-#[cfg(test)]
-pub(crate) fn run_with_slot<S: X11Sink + 'static>(
-    open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
-    plans: Vec<Plan>,
-    gate: Gate<'_>,
-    (deadline, slot): (Deadline, Arc<WorkerSlot>),
-) -> Result<Delivery, AdapterError> {
-    run_journaled(
-        open,
-        plans,
-        gate,
-        CallEnv {
-            deadline,
-            journal: None,
-            slot,
-            release_on_signal: false,
-        },
-    )
-}
-
 pub(crate) fn run_journaled<S: X11Sink + 'static>(
     open: impl FnOnce() -> Result<S, AdapterError> + Send + 'static,
     plans: Vec<Plan>,

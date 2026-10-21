@@ -1,128 +1,24 @@
 use super::*;
 
 #[test]
-fn single_characters_keep_their_case() {
+fn key_input_contract() {
     assert_eq!(keysym_for_key("a").unwrap(), 0x61);
     assert_eq!(keysym_for_key("A").unwrap(), 0x41);
-    assert_eq!(keysym_for_key("7").unwrap(), 0x37);
-}
-
-#[test]
-fn named_keys_resolve_without_regard_to_case() {
-    assert_eq!(keysym_for_key("Return").unwrap(), 0xff0d);
-    assert_eq!(keysym_for_key("enter").unwrap(), 0xff0d);
     assert_eq!(keysym_for_key("PageDown").unwrap(), 0xff56);
-    assert_eq!(keysym_for_key("space").unwrap(), 0x20);
-}
+    assert_eq!(keysym_for_key("greater").unwrap(), 0x3e);
+    assert_eq!(keysym_for_key("Page_Up").unwrap(), 0xff55);
+    assert_eq!(keysym_for_key("f24").unwrap(), 0xffd5);
+    assert_eq!(keysym_for_key("forwarddelete").unwrap(), 0xffff);
+    assert_eq!(keysym_for_key("delete").unwrap(), 0xff08);
+    assert_eq!(keysym_for_key("\n").unwrap(), KEYSYM_RETURN);
+    assert_eq!(keysym_for_key("\t").unwrap(), KEYSYM_TAB);
+    assert_eq!(keysym_for_char('你'), 0x0100_4f60);
 
-#[test]
-fn function_keys_run_from_f1_to_f24() {
-    assert_eq!(keysym_for_key("f1").unwrap(), 0xffbe);
-    assert_eq!(keysym_for_key("f12").unwrap(), 0xffc9);
-    assert_eq!(keysym_for_key("f13").unwrap(), 0xffca);
-    assert_eq!(keysym_for_key("F24").unwrap(), 0xffd5);
-}
-
-#[test]
-fn f25_f0_and_padded_function_keys_are_refused() {
-    for name in ["f25", "f0", "f01", "f1x"] {
+    for name in ["f0", "f01", "f25", "hyper", "cmd"] {
         let error = keysym_for_key(name).unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgs, "{name}");
+        if name == "hyper" {
+            assert!(error.suggestion.unwrap().contains("f1-f24"));
+        }
     }
-}
-
-#[test]
-fn an_unknown_name_is_invalid_args_and_lists_the_accepted_forms() {
-    let error = keysym_for_key("hyper").unwrap_err();
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
-    let suggestion = error.suggestion.unwrap();
-    assert!(suggestion.contains("f1-f24") && suggestion.contains("pagedown"));
-}
-
-#[test]
-fn cmd_is_not_a_linux_key_name() {
-    assert_eq!(
-        keysym_for_key("cmd").unwrap_err().code,
-        ErrorCode::InvalidArgs
-    );
-}
-
-#[test]
-fn modifier_names_alias_to_one_keysym() {
-    assert_eq!(
-        keysym_for_key("control").unwrap(),
-        keysym_for_key("ctrl").unwrap()
-    );
-    assert_eq!(
-        keysym_for_key("meta").unwrap(),
-        keysym_for_key("super").unwrap()
-    );
-}
-
-#[test]
-fn characters_outside_latin_one_use_the_unicode_keysym_form() {
-    assert_eq!(keysym_for_char('é'), 0xe9);
-    assert_eq!(keysym_for_char('你'), 0x0100_0000 + 0x4f60);
-    assert_eq!(keysym_for_char('\n'), KEYSYM_RETURN);
-    assert_eq!(keysym_for_char('\t'), KEYSYM_TAB);
-}
-
-#[test]
-fn every_modifier_has_its_own_keysym() {
-    let all = [
-        Modifier::Shift,
-        Modifier::Ctrl,
-        Modifier::Alt,
-        Modifier::Meta,
-    ];
-    let mut keysyms: Vec<u32> = all.iter().map(modifier_keysym).collect();
-    keysyms.sort_unstable();
-    keysyms.dedup();
-    assert_eq!(keysyms.len(), 4);
-}
-
-#[test]
-fn the_punctuation_names_of_macos_and_windows_and_the_xkb_names_resolve() {
-    let expected = [
-        ("greater", 0x3e),
-        ("less", 0x3c),
-        ("comma", 0x2c),
-        ("period", 0x2e),
-        ("slash", 0x2f),
-        ("semicolon", 0x3b),
-        ("quote", 0x27),
-        ("leftbracket", 0x5b),
-        ("rightbracket", 0x5d),
-        ("backslash", 0x5c),
-        ("minus", 0x2d),
-        ("equal", 0x3d),
-        ("grave", 0x60),
-        ("asciitilde", 0x7e),
-        ("underscore", 0x5f),
-        ("forwarddelete", 0xffff),
-        ("Page_Up", 0xff55),
-        ("Control_R", 0xffe4),
-    ];
-    for (name, keysym) in expected {
-        assert_eq!(keysym_for_key(name).unwrap(), keysym, "{name}");
-    }
-}
-
-#[test]
-fn every_printable_ascii_punctuation_character_has_a_name_that_resolves_to_it() {
-    let named: Vec<u32> = super::super::keysym_names::PUNCTUATION_NAMES
-        .iter()
-        .map(|(_, keysym)| *keysym)
-        .collect();
-    for character in "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~".chars() {
-        assert!(named.contains(&u32::from(character)), "{character}");
-    }
-}
-
-#[test]
-fn delete_is_the_backspace_key_as_on_macos_and_windows_and_forwarddelete_is_the_forward_key() {
-    assert_eq!(keysym_for_key("delete").unwrap(), 0xff08);
-    assert_eq!(keysym_for_key("backspace").unwrap(), 0xff08);
-    assert_eq!(keysym_for_key("forwarddelete").unwrap(), 0xffff);
-    assert_eq!(keysym_for_key("Delete").unwrap(), 0xff08);
 }

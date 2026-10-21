@@ -13,16 +13,10 @@ pub(crate) struct ReleaseGuard<'a> {
     sink: &'a mut dyn X11Sink,
     state: ReleaseState,
     held: HeldInput,
-    touched: Touched,
+    touched: HeldInput,
     origin: Option<(i32, i32)>,
     remaps: Vec<KeymapEdit>,
     journal: Option<HeldJournal>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct Touched {
-    pub(crate) keys: Vec<u8>,
-    pub(crate) buttons: Vec<u8>,
 }
 
 fn remember(list: &mut Vec<u8>, code: u8) {
@@ -50,7 +44,7 @@ impl<'a> ReleaseGuard<'a> {
             sink,
             state: ReleaseState::default(),
             held: HeldInput::default(),
-            touched: Touched::default(),
+            touched: HeldInput::default(),
             origin: None,
             remaps: Vec::new(),
             journal: None,
@@ -78,7 +72,7 @@ impl<'a> ReleaseGuard<'a> {
         self.state.delivered()
     }
 
-    pub(crate) fn touched(&self) -> &Touched {
+    pub(crate) fn touched(&self) -> &HeldInput {
         &self.touched
     }
 
@@ -87,47 +81,51 @@ impl<'a> ReleaseGuard<'a> {
     }
 
     pub(crate) fn key(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
+        self.edge(true, code, down)
+    }
+
+    pub(crate) fn button(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
+        self.edge(false, code, down)
+    }
+
+    fn edge(&mut self, keyboard: bool, code: u8, down: bool) -> Result<(), SinkError> {
         if down {
             self.state.arm();
-            let was_held = self.held.keys.contains(&code);
-            remember(&mut self.held.keys, code);
-            remember(&mut self.touched.keys, code);
+            let (held, touched) = if keyboard {
+                (&mut self.held.keys, &mut self.touched.keys)
+            } else {
+                (&mut self.held.buttons, &mut self.touched.buttons)
+            };
+            let was_held = held.contains(&code);
+            remember(held, code);
+            remember(touched, code);
             if let Err(error) = self.sync_journal() {
                 if !was_held {
-                    self.held.keys.retain(|held| *held != code);
+                    self.remove_held(keyboard, code);
                 }
                 return Err(error);
             }
         }
-        self.sink.key(code, down)?;
+        if keyboard {
+            self.sink.key(code, down)?;
+        } else {
+            self.sink.button(code, down)?;
+        }
         self.state.mark_delivered();
         if !down {
-            self.held.keys.retain(|held| *held != code);
+            self.remove_held(keyboard, code);
             let _ = self.sync_journal();
         }
         Ok(())
     }
 
-    pub(crate) fn button(&mut self, code: u8, down: bool) -> Result<(), SinkError> {
-        if down {
-            self.state.arm();
-            let was_held = self.held.buttons.contains(&code);
-            remember(&mut self.held.buttons, code);
-            remember(&mut self.touched.buttons, code);
-            if let Err(error) = self.sync_journal() {
-                if !was_held {
-                    self.held.buttons.retain(|held| *held != code);
-                }
-                return Err(error);
-            }
-        }
-        self.sink.button(code, down)?;
-        self.state.mark_delivered();
-        if !down {
-            self.held.buttons.retain(|held| *held != code);
-            let _ = self.sync_journal();
-        }
-        Ok(())
+    fn remove_held(&mut self, keyboard: bool, code: u8) {
+        let held = if keyboard {
+            &mut self.held.keys
+        } else {
+            &mut self.held.buttons
+        };
+        held.retain(|held| *held != code);
     }
 
     pub(crate) fn move_to(&mut self, x: i32, y: i32) -> Result<(), SinkError> {
