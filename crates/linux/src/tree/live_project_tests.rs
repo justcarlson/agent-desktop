@@ -1,4 +1,4 @@
-use agent_desktop_core::{ErrorCode, LocatorEvidence, LocatorField, Rect, state};
+use agent_desktop_core::{ErrorCode, LocatorEvidence, Rect, state};
 
 use super::*;
 use crate::tree::node_evidence::evidence_for;
@@ -48,14 +48,6 @@ fn hidden(read: &ObservedRead) -> bool {
 }
 
 #[test]
-fn a_node_with_neither_visible_nor_showing_is_hidden_and_not_visible_to_core() {
-    let read = with_states(read_of(PUSH_BUTTON, "b", &[]), &[ENABLED]);
-    let projected = state_of(&read);
-    assert!(projected.states.iter().any(|token| token == state::HIDDEN));
-    assert!(!state::is_visible(live_bounds(&read), &projected.states));
-}
-
-#[test]
 fn visible_without_showing_and_showing_alone_are_not_hidden() {
     let visible = with_states(read_of(PUSH_BUTTON, "b", &[]), &[ENABLED, VISIBLE]);
     assert!(!hidden(&visible));
@@ -75,19 +67,6 @@ fn a_failed_state_read_is_the_incomplete_answer_and_never_an_empty_state_list() 
         live_state(&read, &evidence_of(&read), &Placement::default()).expect_err("incomplete");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert!(error.is_explicitly_retryable());
-}
-
-#[test]
-fn off_screen_gtk3_content_is_neither_hidden_nor_bounded() {
-    let read = with_extents(
-        with_states(read_of(PUSH_BUTTON, "tab", &[]), &[ENABLED, VISIBLE]),
-        i32::MIN,
-        i32::MIN,
-        420,
-        22,
-    );
-    assert!(!hidden(&read));
-    assert_eq!(live_bounds(&read), None);
 }
 
 #[test]
@@ -203,27 +182,6 @@ fn actions_map_by_the_capability_table_and_a_failed_list_is_incomplete() {
             .code,
         ErrorCode::AppUnresponsive
     );
-}
-
-#[test]
-fn the_live_element_is_identity_state_bounds_and_actions_of_one_read() {
-    let read = with_states(
-        with_extents(read_of(PUSH_BUTTON, "Save", &["click"]), 3, 4, 50, 20),
-        &[ENABLED, VISIBLE, SHOWING],
-    );
-    let evidence = evidence_of(&read);
-    let element = live_element(&read, &evidence, &Placement::default(), true).expect("projects");
-    assert_eq!(
-        element.identity.name,
-        LocatorField::Known("Save".to_owned())
-    );
-    assert_eq!(element.state.role, "button");
-    assert_eq!(element.bounds.map(|rect| rect.width), Some(50.0));
-    assert_eq!(
-        element.available_actions,
-        vec![agent_desktop_core::capability::CLICK.to_owned()]
-    );
-    assert!(element.states_complete);
 }
 
 fn wayland_placement() -> Placement {

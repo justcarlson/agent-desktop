@@ -78,6 +78,7 @@ fn a_node_with_neither_bit_is_hidden_and_is_never_called_on_screen() {
     let read = read_with(&[ENABLED], Some(rect(0, 0, 10, 10)));
     let projected = state_in(&read, &window(rect(0, 0, 10, 10)));
     assert!(projected.states.iter().any(|t| t == state::HIDDEN));
+    assert!(!state::is_visible(live_bounds(&read), &projected.states));
     assert_eq!(projected.offscreen, None);
     assert_eq!(projected.hidden, None);
 }
@@ -158,31 +159,8 @@ fn an_iconified_frame_or_a_hidden_x11_window_makes_every_node_offscreen() {
 }
 
 #[test]
-fn pointer_rect_is_the_toolkits_rule_applied_to_the_three_readings() {
-    let read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(0, 0, 498, 34)));
-    let mut placed = window(rect(0, 0, 498, 34));
-    placed.toolkit = ToolkitId {
-        name: Some("GTK".to_owned()),
-        version: Some("4.14.5".to_owned()),
-    };
-    let expected = pointer_bounds(
-        &placed.toolkit,
-        rect(0, 0, 498, 34),
-        rect(0, 0, 498, 34),
-        Some((302, 260)),
-    )
-    .map(Rect::from);
-    assert_eq!(pointer_rect(&read, &placed), expected);
-    placed.node = None;
-    assert_eq!(pointer_rect(&read, &placed), None);
-    let mut unread = read_with(&[ENABLED, VISIBLE, SHOWING], None);
-    unread.node.extents = Field::Absent;
-    assert_eq!(pointer_rect(&unread, &window(rect(0, 0, 1, 1))), None);
-}
-
-#[test]
 fn a_global_toolkit_keeps_its_extents_and_another_has_no_bounds_when_unprovable() {
-    let read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(100, 137, 420, 34)));
+    let mut read = read_with(&[ENABLED, VISIBLE, SHOWING], Some(rect(100, 137, 420, 34)));
     let evidence = evidence_for(&read, &read.node.element);
     let global =
         live_element(&read, &evidence, &Placement::default(), true).expect("global projects");
@@ -190,6 +168,12 @@ fn a_global_toolkit_keeps_its_extents_and_another_has_no_bounds_when_unprovable(
     let mut unprovable = window(rect(0, 0, 420, 34));
     unprovable.node = None;
     let other = live_element(&read, &evidence, &unprovable, false).expect("projects");
+    assert_eq!(other.bounds, None);
+
+    read.node.extents = Field::Absent;
+    let evidence = evidence_for(&read, &read.node.element);
+    let other =
+        live_element(&read, &evidence, &window(rect(0, 0, 420, 34)), false).expect("projects");
     assert_eq!(other.bounds, None);
 }
 

@@ -75,10 +75,6 @@ impl NodeReader for BusReader<'_> {
     }
 }
 
-fn unanswered() -> AdapterError {
-    AdapterError::timeout("The accessible object did not answer in time")
-}
-
 /// Reads the node a handle names once and maps what the read shows. An
 /// application that left and a destroyed object are a settled `STALE_REF`; a
 /// node that did not answer is a timeout, `APP_UNRESPONSIVE` when `/proc`
@@ -91,7 +87,9 @@ pub(crate) fn read_live<R: NodeReader>(
     let pid = element.frame().map_or_else(|| element.pid(), |f| f.pid());
     let outcome = reader.read(element).and_then(|node| match node.liveness {
         Liveness::Alive => Ok(node),
-        Liveness::TimedOut => Err(unanswered()),
+        Liveness::TimedOut => Err(AdapterError::timeout(
+            "The accessible object did not answer in time",
+        )),
         Liveness::ObjectGone => Err(object_gone()),
         Liveness::AppGone => Err(app_exited()),
     });
@@ -122,13 +120,6 @@ fn with_reader<T>(
     project(&mut reader, handle)
 }
 
-pub(crate) fn value_via<R: NodeReader>(
-    reader: &mut R,
-    handle: &NativeHandle,
-) -> Result<Option<String>, AdapterError> {
-    live_value(&read_live(reader, handle)?.evidence)
-}
-
 pub(crate) fn state_via<R: NodeReader>(
     reader: &mut R,
     handle: &NativeHandle,
@@ -141,13 +132,6 @@ pub(crate) fn state_via<R: NodeReader>(
         reader.placement(atspi_element(handle)?, deadline)
     };
     live_state(&node.read, &node.evidence, &placed).map(Some)
-}
-
-pub(crate) fn actions_via<R: NodeReader>(
-    reader: &mut R,
-    handle: &NativeHandle,
-) -> Result<Option<Vec<String>>, AdapterError> {
-    live_actions(&read_live(reader, handle)?.evidence).map(Some)
 }
 
 /// The one placement a live element needs, read only when the state or the
@@ -205,7 +189,7 @@ pub(crate) fn get_live_value(
     deadline: Deadline,
 ) -> Result<Option<String>, AdapterError> {
     with_reader(bus, handle, deadline, |reader, handle| {
-        value_via(reader, handle)
+        live_value(&read_live(reader, handle)?.evidence)
     })
 }
 
@@ -225,7 +209,7 @@ pub(crate) fn get_live_actions(
     deadline: Deadline,
 ) -> Result<Option<Vec<String>>, AdapterError> {
     with_reader(bus, handle, deadline, |reader, handle| {
-        actions_via(reader, handle)
+        live_actions(&read_live(reader, handle)?.evidence).map(Some)
     })
 }
 

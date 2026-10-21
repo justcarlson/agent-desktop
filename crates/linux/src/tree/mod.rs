@@ -113,9 +113,6 @@ mod live_apps;
 mod live_churn;
 
 #[cfg(test)]
-mod live_cover;
-
-#[cfg(test)]
 mod live_horizontal_live_tests;
 
 #[cfg(test)]

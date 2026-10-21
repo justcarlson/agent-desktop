@@ -1,6 +1,4 @@
-use std::time::{Duration, Instant};
-
-use agent_desktop_core::{Deadline, ErrorCode, NativeHandle, ObservationOps, SystemOps, state};
+use agent_desktop_core::{Deadline, ErrorCode, NativeHandle, ObservationOps, SystemOps};
 
 use super::live_apps::{self, AppSpec};
 use super::live_launch::{Launched, nonce};
@@ -54,7 +52,6 @@ fn survey(
     frame: &AtspiElement,
 ) {
     let frame_rect = window_rect(bus, frame);
-    let (mut yes, mut no, mut unknown, mut hidden) = (0, 0, 0, 0);
     let mut contradictions = Vec::new();
     for node in nodes.iter().take(800) {
         let Ok(Some(read)) =
@@ -62,7 +59,6 @@ fn survey(
         else {
             continue;
         };
-        hidden += usize::from(read.states.iter().any(|token| token == state::HIDDEN));
         let node_rect = window_rect(bus, &node.element);
         let container_rect = node
             .element
@@ -74,13 +70,11 @@ fn survey(
         let oracle_off = far_outside(node_rect, frame_rect);
         match read.offscreen {
             Some(true) => {
-                yes += 1;
                 if oracle_on == Some(true) {
                     contradictions.push(format!("{} reported offscreen but intersects", node.name));
                 }
             }
             Some(false) => {
-                no += 1;
                 if oracle_off == Some(true) {
                     contradictions.push(format!(
                         "{} reported on screen but is far outside",
@@ -88,16 +82,8 @@ fn survey(
                     ));
                 }
             }
-            None => unknown += 1,
+            None => {}
         }
-    }
-    println!(
-        "offscreen_live {label}: nodes={} offscreen={yes} on_screen={no} unknown={unknown} hidden={hidden} contradictions={}",
-        nodes.len().min(800),
-        contradictions.len()
-    );
-    for line in contradictions.iter().take(10) {
-        println!("offscreen_live {label}: CONTRADICTION {line}");
     }
     assert!(contradictions.is_empty(), "[{label}] {contradictions:?}");
 }
@@ -125,37 +111,16 @@ fn scroll_case(
     .ok_or_else(|| format!("[{label}] no target {wanted:?} in {} nodes", nodes.len()))?;
     let handle = &target.handle;
     let deadline = Deadline::after(10_000).map_err(|error| error.message)?;
-    let before = adapter
+    adapter
         .get_live_state(handle, deadline)
         .map_err(|error| error.message)?
         .ok_or("no state")?;
-    println!(
-        "scroll_live {label}: target {:?} before: offscreen={:?} states={:?} window={:?}",
-        target.name,
-        before.offscreen,
-        before.states,
-        window_rect(bus, &target.element)
-    );
     let lease = SystemOps::acquire_interaction_lease(adapter, deadline).map_err(|e| e.message)?;
     let pointer_before = pointer();
-    let started = Instant::now();
     let outcome = scroll_into_view(bus, handle, &lease);
-    let elapsed = started.elapsed();
     let pointer_after = pointer();
-    let after = adapter
-        .get_live_state(handle, Deadline::after(5_000).expect("deadline"))
-        .ok()
-        .flatten();
     let frame_rect = window_rect(bus, frame);
     let own = window_rect(bus, &target.element);
-    println!(
-        "scroll_live {label}: outcome={:?} in {} ms; after: offscreen={:?} own={own:?} frame={frame_rect:?}; pointer {pointer_before:?} -> {pointer_after:?}",
-        outcome
-            .as_ref()
-            .map_err(|e| (e.code.clone(), e.details.clone())),
-        elapsed.as_millis(),
-        after.as_ref().map(|read| read.offscreen),
-    );
     assert_eq!(pointer_before, pointer_after, "[{label}] the pointer moved");
     if expect_realised {
         outcome.map_err(|error| format!("[{label}] {:?} {}", error.code, error.message))?;
@@ -309,17 +274,14 @@ fn offscreen_live_terminal_survey_agrees_with_the_oracle() {
 
 #[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn offscreen_live_vscode_scroll_rungs_are_measured() {
+fn offscreen_live_vscode_survey_agrees_with_the_oracle() {
     live_apps::vscode(
         &LinuxAdapter::new(),
         &SharedBus::default(),
         |label, adapter, bus, frame| {
             let nodes = nodes_of(adapter, bus, frame)?;
             survey(label, adapter, bus, &nodes, frame);
-            let _ = Duration::ZERO;
-            match scroll_case(label, adapter, bus, frame, None, true) {
-                Ok(()) | Err(_) => Ok(()),
-            }
+            Ok(())
         },
     )
     .expect("vscode is measured");

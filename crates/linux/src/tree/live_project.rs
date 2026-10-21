@@ -29,10 +29,7 @@ pub(crate) fn incomplete_live_evidence() -> AdapterError {
 /// `VISIBLE` without `SHOWING` (L3-27), and `SHOWING` is a strict subset of
 /// `VISIBLE` (L3-7).
 fn is_hidden(read: &ObservedRead) -> bool {
-    read.node.traits.states.present().is_some_and(|words| {
-        let bits = StateBits::new(words);
-        !bits.has(VISIBLE) && !bits.has(SHOWING)
-    })
+    state_bits(read) == Some((false, false))
 }
 
 /// `ENABLED` or `SENSITIVE` (GTK4 sets only the second) makes a control
@@ -65,13 +62,9 @@ pub(crate) fn live_value(evidence: &LocatorEvidence) -> Result<Option<String>, A
     Ok(evidence.value.known().cloned())
 }
 
-fn has_position(read: &ObservedRead) -> bool {
-    matches!(&read.node.extents, Field::Present(extents)
-        if extents.x != i32::MIN && extents.y != i32::MIN)
-}
-
 fn is_sentinel(read: &ObservedRead) -> bool {
-    matches!(&read.node.extents, Field::Present(_)) && !has_position(read)
+    matches!(&read.node.extents, Field::Present(extents)
+        if extents.x == i32::MIN || extents.y == i32::MIN)
 }
 
 fn state_bits(read: &ObservedRead) -> Option<(bool, bool)> {
