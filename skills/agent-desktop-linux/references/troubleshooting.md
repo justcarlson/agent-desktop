@@ -116,7 +116,7 @@ The error text never carries an argument or an environment value.
 
 - `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`. `mouse-down` and `mouse-up`
   are `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed`.
-- `cursor-overlay`: succeeds as a setting only. `enable` returns `data.rendered:
+- `cursor-overlay` on Wayland: succeeds as a setting only. `enable` returns `data.rendered:
   false` and no overlay is drawn, so do not wait for one.
 - `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`. Use the
   advertised GNOME surfaces; see `references/shell-tray-and-notifications.md`.
