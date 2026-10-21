@@ -45,9 +45,6 @@ class Leg:
 
 
 OUTSTANDING_REASONS = {}
-HEADED_ACTION_PREFIXES = ("state.", "values.", "disclosure.", "select.", "scroll.")
-HEADED_ACTION_LEGS = frozenset()
-
 REGISTRY: tuple[Leg, ...] = (
     Leg('ref_actions.expand', 'A ref expands the Calculator menu and reveals its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.collapse', 'A ref collapses the Calculator menu and hides its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
@@ -113,7 +110,7 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('observation.enabled_state_canonical_and_raw', 'is enabled reads canonical enabled while the raw SENSITIVE bit holds', 'Calculator', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.session_namespace_isolation', 'A snapshot taken in one session is not visible from another', 'Calculator', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('observation.trace_segment_written', 'A traced command writes one trace segment under the selected session', 'Calculator', ('x11-openbox',), ('headless',), ('proc',), 'pass', ''),
-    Leg('state.terminal_copy_follows_selection', 'Copy enables and disables with a text selection', 'Terminal', ('x11-openbox',), ('headless', 'headed'), ('atspi',), 'pass', ''),
+    Leg('state.terminal_copy_follows_selection', 'Copy enables and disables with a text selection', 'Terminal', ('x11-openbox',), ('headless',), ('atspi',), 'pass', ''),
     Leg('state.text_editor_semantic_type', 'The semantic type path writes the typed text into the document', 'Text Editor', ('x11-openbox',), ('headless', 'headed'), ('atspi',), 'pass', ''),
     Leg('values.hot_corner_flip_restore', 'Hot Corner flips, the key confirms it, and it restores', 'Settings', ('x11-openbox',), ('headless', 'headed'), ('gsettings',), 'pass', ''),
     Leg('values.pointer_speed_commit', 'Pointer Speed takes a value the key confirms after panel reopen', 'Settings', ('x11-openbox',), ('headless', 'headed'), ('gsettings',), 'pass', ''),
