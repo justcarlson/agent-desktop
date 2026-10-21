@@ -2,8 +2,8 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
 use super::Request;
-use crate::system::x11::control::ControlError;
-use crate::system::x11::control::Toplevel;
+use crate::system::x11::control_error::ControlError;
+use crate::system::x11::toplevel::Toplevel;
 use crate::system::x11::window_kind::WindowKind;
 
 const RESIDENT: &str = "The app has no open window and may stay resident after its last window closes. Use --force to end the process.";

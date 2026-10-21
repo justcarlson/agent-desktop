@@ -1,5 +1,5 @@
-use super::control::ControlError;
 use crate::system::liveness::Identity;
+use crate::system::x11::control_error::ControlError;
 
 pub(super) fn with_owner<G, T>(
     target: &agent_desktop_core::ProcessIdentity,

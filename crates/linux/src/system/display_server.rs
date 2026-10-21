@@ -1,32 +1,11 @@
+use crate::system::display_cause::Cause;
+use crate::system::display_env::DisplayEnv;
+use crate::system::display_reach::Reach;
+use crate::system::display_unavailable::Unavailable;
 use std::path::{Path, PathBuf};
 
 pub(crate) use super::display::fault_error;
 pub(crate) use super::display_error::{DisplayCause, display_cause_error};
-
-/// What a probe of one display endpoint found: a server accepting connections,
-/// nothing at the address, or an address whose connection was refused.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Reach {
-    Connected,
-    Missing,
-    Refused,
-}
-
-/// Why no display server can be reached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Cause {
-    NotConfigured,
-    Missing,
-    Refused,
-}
-
-/// A session with no reachable display server: the cause, and the variables
-/// and addresses that were tried.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Unavailable {
-    pub(crate) cause: Cause,
-    pub(crate) detail: String,
-}
 
 /// Which display server this session's reads may reach. A configured server
 /// is only chosen when its endpoint answers, so a `WAYLAND_DISPLAY` left over
@@ -38,25 +17,6 @@ pub(crate) enum DisplayServer {
     Wayland,
     X11(String),
     Unavailable(Unavailable),
-}
-
-/// The environment the choice reads. An empty value counts as unset (L13-2).
-#[derive(Debug, Clone, Default)]
-pub(crate) struct DisplayEnv {
-    pub(crate) wayland: Option<String>,
-    pub(crate) display: Option<String>,
-    pub(crate) runtime_dir: Option<PathBuf>,
-}
-
-impl DisplayEnv {
-    pub(crate) fn from_process() -> Self {
-        let text = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
-        Self {
-            wayland: text("WAYLAND_DISPLAY"),
-            display: text("DISPLAY"),
-            runtime_dir: text("XDG_RUNTIME_DIR").map(PathBuf::from),
-        }
-    }
 }
 
 /// How an endpoint is tried.

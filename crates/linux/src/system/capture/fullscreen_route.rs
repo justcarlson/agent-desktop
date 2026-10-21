@@ -1,7 +1,8 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::display::grab_rect;
-use super::window_context::{CaptureEnv, grab_failure};
+use super::window_context::grab_failure;
+use crate::system::capture::capture_env::CaptureEnv;
 use crate::system::x11::grab::Raw;
 use crate::tree::Extents;
 

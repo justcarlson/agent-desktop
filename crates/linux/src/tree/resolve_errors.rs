@@ -40,7 +40,10 @@ pub(crate) fn app_exited() -> AdapterError {
 
 /// A missing bus owner does not prove that its process exited.
 pub(crate) fn owner_unreachable(pid: u32) -> AdapterError {
-    if matches!(process_facts::lookup(pid), process_facts::Lookup::Gone) {
+    if matches!(
+        process_facts::lookup(pid),
+        crate::system::process_lookup::Lookup::Gone
+    ) {
         return app_exited();
     }
     settled(

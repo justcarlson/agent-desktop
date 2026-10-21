@@ -2,13 +2,13 @@ use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
 
-use super::focus_window::{FocusWorld, FrameView, Session};
+use super::focus_window::{FocusWorld, Session};
 use super::menu_focus;
 use crate::system::bus_deadline::within;
 use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::focus_frame_view::FrameView;
 use crate::system::overview::overview_open;
-use crate::system::proc_stat;
-use crate::system::process_facts::{self, Lookup};
+use crate::system::process_lookup::Lookup;
 use crate::system::registry::toolkit;
 use crate::system::restore_minimized::{self, Lifted};
 use crate::system::toolkit::reports_global_position;
@@ -20,6 +20,7 @@ use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window_id};
+use crate::system::{proc_stat, process_facts};
 use crate::tree::role_numbers::DIALOG;
 use crate::tree::state_bits::{ACTIVE, StateBits};
 use crate::tree::{AtspiElement, list_children, read_node};

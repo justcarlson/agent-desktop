@@ -8,12 +8,13 @@ use super::activate_error::ActivateError;
 use super::client_message::{
     FORMAT_LONGS, MessageData, activate, close, iconify, maximize, move_resize,
 };
-use super::control::{ControlError, pid_of};
+use super::control::pid_of;
 use super::control_display::{atoms, connect};
 use super::control_grab::ServerGrab;
 use super::control_owner::with_owner;
 use super::stacking::bounded;
 use crate::system::liveness;
+use crate::system::x11::control_error::ControlError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WindowWrite {

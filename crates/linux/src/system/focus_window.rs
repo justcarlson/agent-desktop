@@ -1,14 +1,16 @@
+use crate::system::focus_client_view::ClientView;
+use crate::system::focus_frame_view::FrameView;
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, InteractionLease, WindowInfo};
 
-use super::process_facts::Lookup;
 use super::window_op_verdict::POLL;
 use super::x11::X11State;
 use super::x11::activate::ACTIVATION_GRACE;
 use super::x11::activate_error::ActivateError;
 use super::x11::stacking_read::StackingRead;
 use super::{SharedBus, shell, window_id};
+use crate::system::process_lookup::Lookup;
 
 use super::focus_cause::{Cause, lift_refusal, modal_refusal, refusal};
 use super::focus_world;
@@ -29,15 +31,6 @@ pub(super) enum Session {
     X11,
     Wayland,
     NoDisplay,
-}
-
-/// What the window's own frame says about itself.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct FrameView {
-    pub(super) minimized: Option<bool>,
-    pub(super) active: Option<bool>,
-    pub(super) modal: Option<bool>,
-    pub(super) dialog: bool,
 }
 
 /// Everything `focus_window` reads and writes, so the decision can be driven
@@ -74,11 +67,6 @@ fn check_process(world: &impl FocusWorld, win: &WindowInfo) -> Result<(), Adapte
         )),
         Lookup::Found(_) | Lookup::Unreadable => Ok(()),
     }
-}
-
-struct ClientView {
-    hidden: bool,
-    other_desktop: Option<u32>,
 }
 
 fn client_view(world: &impl FocusWorld, client: u32) -> Result<ClientView, Cause> {

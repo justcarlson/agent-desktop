@@ -1,3 +1,4 @@
+use crate::system::menu_found::Found;
 use crate::tree::role_numbers::is_web_document;
 use crate::tree::role_numbers::{
     CHECK_MENU_ITEM, FILLER, FRAME, PANEL, PUSH_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON, WINDOW,
@@ -33,12 +34,6 @@ impl MenuFamily {
     pub(crate) fn is_top_level(self) -> bool {
         matches!(self, Self::Gtk3Context | Self::Chromium)
     }
-}
-
-pub(super) struct Found<'a> {
-    pub(super) root: &'a Node,
-    pub(super) family: MenuFamily,
-    pub(super) items: usize,
 }
 
 fn role(node: &Node) -> Option<u32> {

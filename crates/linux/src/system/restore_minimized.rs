@@ -2,9 +2,10 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
 use super::window_op_verdict::{POLL, SETTLE_BUDGET};
-use super::x11::control::{ControlError, ControlRead, manager_name};
+use super::x11::control::{ControlRead, manager_name};
 use super::x11::control_send::raise_window;
 use super::x11::window_facts::{WindowFacts, read_facts};
+use crate::system::x11::control_error::ControlError;
 
 const UNNAMED_MANAGER: &str = "the window manager";
 

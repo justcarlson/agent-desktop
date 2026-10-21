@@ -1,7 +1,8 @@
 use std::os::unix::fs::PermissionsExt;
 
 use super::*;
-use crate::system::app_alias::{AliasCache, basename_lower};
+use crate::system::alias_cache::AliasCache;
+use crate::system::app_alias::basename_lower;
 use crate::tree::live_launch::nonce;
 
 struct Fixture {

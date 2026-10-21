@@ -1,10 +1,10 @@
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
-use std::time::SystemTime;
+use crate::system::alias_cache::AliasCache;
+use std::path::Path;
+use std::sync::Arc;
 
 use super::desktop_entry::parse;
 use super::desktop_exec::program_word;
-use super::desktop_lookup::{current_dirs, read_all, stamps};
+use super::desktop_lookup::current_dirs;
 use super::launch_attach::KEY_TABLE;
 
 struct IndexedEntry {
@@ -27,7 +27,7 @@ pub(super) fn basename_lower(program: &str) -> Option<String> {
 }
 
 impl AliasIndex {
-    fn build(files: &[(String, String)]) -> Self {
+    pub(super) fn build(files: &[(String, String)]) -> Self {
         let entries = files
             .iter()
             .filter_map(|(id, text)| parse(id, text))
@@ -99,34 +99,6 @@ impl AliasIndex {
             .filter(|entry| entry.name.eq_ignore_ascii_case(name))
             .map(|entry| entry.id.clone())
             .collect()
-    }
-}
-
-type Stamps = Vec<Option<SystemTime>>;
-
-/// An index that is rebuilt only when a directory it was read from changes.
-pub(crate) struct AliasCache {
-    state: Mutex<Option<(Stamps, Arc<AliasIndex>)>>,
-}
-
-impl AliasCache {
-    pub(crate) const fn new() -> Self {
-        Self {
-            state: Mutex::new(None),
-        }
-    }
-
-    pub(crate) fn index(&self, dirs: &[PathBuf]) -> Arc<AliasIndex> {
-        let now = stamps(dirs);
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some((seen, index)) = state.as_ref()
-            && *seen == now
-        {
-            return Arc::clone(index);
-        }
-        let index = Arc::new(AliasIndex::build(&read_all(dirs)));
-        *state = Some((now, Arc::clone(&index)));
-        index
     }
 }
 

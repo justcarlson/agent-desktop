@@ -7,11 +7,12 @@ use agent_desktop_core::{
 
 use super::signal_capture_fixture::{Reads, Scripted, app, window};
 use super::{CaptureWorld, capture};
+use crate::system::app_outcome::AppOutcome;
 use crate::system::focus::decide_focus;
 use crate::system::registry::Registry;
 use crate::system::registry_app::RegistryApp;
 use crate::system::registry_frames::RootRead;
-use crate::system::signal_inventory::{AppOutcome, Pass};
+use crate::system::signal_inventory::Pass;
 use crate::system::x11::{FrameFacts, X11Evidence};
 use crate::system::{listed_window::ListedWindow, nested_scan::NestedScan};
 

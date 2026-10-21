@@ -1,10 +1,11 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics};
 
-use super::Request;
-use super::refusal;
 use super::world::World;
+use super::{Request, refusal};
 use crate::system::liveness::Liveness;
-use crate::system::x11::control::{ControlError, ControlRead, Toplevel};
+use crate::system::x11::control::ControlRead;
+use crate::system::x11::control_error::ControlError;
+use crate::system::x11::toplevel::Toplevel;
 
 const DIALOG_LOOK_EVERY: u32 = 4;
 

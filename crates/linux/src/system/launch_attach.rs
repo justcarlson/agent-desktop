@@ -1,3 +1,4 @@
+use crate::system::running_app::Running;
 /// Extra identity keys for launchers whose application runs under another
 /// name than the one launched: the launcher of a terminal exits and the
 /// terminal server it started owns the windows.
@@ -5,16 +6,6 @@ pub(super) const KEY_TABLE: &[(&str, &[&str])] = &[
     ("gnome-terminal", &["gnome-terminal-server"]),
     ("org.gnome.terminal", &["gnome-terminal-server"]),
 ];
-
-/// A running application as the registry lists it, once per process.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Running {
-    pub(crate) pid: u32,
-    pub(crate) instance: String,
-    pub(crate) name: String,
-    pub(crate) registry_name: Option<String>,
-    pub(crate) comm: String,
-}
 
 /// What a launch does about the applications already running.
 #[derive(Debug, Clone, PartialEq, Eq)]

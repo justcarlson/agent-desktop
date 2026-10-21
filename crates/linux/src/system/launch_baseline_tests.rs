@@ -1,8 +1,9 @@
 use super::*;
+use crate::system::app_outcome::AppOutcome;
 use crate::system::launch::choose_window;
 use crate::system::process_facts::ProcessFacts;
 use crate::system::registry_app::assemble;
-use crate::system::signal_inventory::{AppOutcome, pass_over};
+use crate::system::signal_inventory::pass_over;
 use crate::system::toolkit_id::ToolkitId;
 use crate::system::x11::X11State;
 use crate::tree::AtspiElement;

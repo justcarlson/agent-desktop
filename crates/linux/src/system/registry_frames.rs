@@ -1,3 +1,4 @@
+use crate::system::frame_read::FrameRead;
 use std::future::Future;
 use std::time::Duration;
 
@@ -21,27 +22,12 @@ pub(crate) enum RootRead {
     TimedOut,
 }
 
-/// The frames read for one application root and how far the read got.
-pub(crate) struct FrameRead {
-    pub(crate) nodes: Vec<RawNode>,
-    pub(crate) read: RootRead,
-}
-
 /// Whether a frame was read without the fields that decide if it is a window,
 /// which one failed read leaves unanswered and not absent.
 fn is_unclassified(node: &RawNode) -> bool {
     node.traits.role.is_failed()
         || node.traits.interfaces.is_failed()
         || node.traits.states.is_failed()
-}
-
-impl FrameRead {
-    fn empty(read: RootRead) -> Self {
-        Self {
-            nodes: Vec::new(),
-            read,
-        }
-    }
 }
 
 /// Whether a failed read says the object or its application left, which is an

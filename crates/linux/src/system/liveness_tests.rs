@@ -1,5 +1,6 @@
 use super::{Identity, Liveness, identity_of, verdict};
-use crate::system::proc_stat::{ProcStat, ProcState};
+use crate::system::proc_stat::ProcStat;
+use crate::system::proc_state::ProcState;
 use crate::system::process_facts::instance_token;
 
 fn stat(state: ProcState, start_time: u64) -> Option<ProcStat> {

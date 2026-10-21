@@ -1,3 +1,5 @@
+use crate::system::process_lookup::Lookup;
+use crate::system::web_family::WebFamily;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -8,13 +10,6 @@ const CHROMIUM_NAMES: [&str; 5] = ["code", "chrome", "chromium", "electron", "go
 const GECKO_NAMES: [&str; 3] = ["firefox", "firefox-bin", "firefox-esr"];
 const CHROMIUM_PAYLOAD: [&str; 2] = ["resources/app.asar", "libffmpeg.so"];
 
-/// A browser engine family whose accessibility tree fills in after launch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum WebFamily {
-    Chromium,
-    Gecko,
-}
-
 /// What `/proc` knows about one process.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProcessFacts {
@@ -22,16 +17,6 @@ pub(crate) struct ProcessFacts {
     pub(crate) exe_basename: Option<String>,
     pub(crate) instance: String,
     pub(crate) web_family: Option<WebFamily>,
-}
-
-/// What a lookup of one process id found. A process that is gone and one
-/// that could not be read are different answers: only the first may end a
-/// ref's life.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Lookup {
-    Found(ProcessFacts),
-    Gone,
-    Unreadable,
 }
 
 pub(crate) const ESRCH: i32 = 3;

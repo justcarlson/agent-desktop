@@ -5,8 +5,8 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::rust_connection::RustConnection;
 
-use super::control::ControlError;
 use crate::input::x11::io_cutoff::IoCutoff;
+use crate::system::x11::control_error::ControlError;
 
 pub(super) struct ServerGrab<'a> {
     connection: &'a RustConnection,

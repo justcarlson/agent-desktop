@@ -5,9 +5,9 @@ use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionPolicy, WindowInfo, WindowState,
 };
 
-use crate::system::shell::container::Located;
 use crate::system::shell::kinds::ShellKind;
 use crate::system::shell::light::Light;
+use crate::system::shell::located::Located;
 use crate::system::shell::open::{Opened, Surface, close_with, open_with, showing_of};
 use crate::tree::AtspiElement;
 

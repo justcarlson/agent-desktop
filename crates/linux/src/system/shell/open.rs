@@ -6,11 +6,13 @@ use agent_desktop_core::{
 };
 use serde_json::json;
 
-use super::container::{Anchor, Landmark, Located, locate_anchor};
+use super::container::{Landmark, locate_anchor};
 use super::identity::{ShellRoot, find_root};
 use super::kinds::{ShellKind, title_of};
 use crate::actions::physical_target::ensure_headed_click_policy;
 use crate::input::shell_click;
+use crate::system::shell::anchor::Anchor;
+use crate::system::shell::located::Located;
 use crate::system::{SharedBus, process_facts, window_id};
 
 const POLL: Duration = Duration::from_millis(40);
@@ -247,7 +249,10 @@ pub(crate) fn is_showing(
 /// The message list is told by its own container: its clear-all button, the
 /// anchor, is hidden while the list is empty even when the list is open. The
 /// system menu is told by its anchor.
-pub(super) fn showing_of(kind: ShellKind, located: &super::container::Located) -> bool {
+pub(super) fn showing_of(
+    kind: ShellKind,
+    located: &crate::system::shell::located::Located,
+) -> bool {
     match kind {
         ShellKind::MessageList => located.container.showing,
         ShellKind::SystemMenu => located.anchor.showing,

@@ -1,3 +1,4 @@
+use crate::system::launch_search::Search;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
@@ -6,23 +7,7 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use super::app_alias::{AliasIndex, basename_lower};
 use super::desktop_entry::{DesktopEntry, parse};
 use super::desktop_exec::{ExecContext, expand, program_word};
-use super::desktop_lookup::{absolute_dirs, current_dirs, find, is_trusted};
-
-/// The directories an identifier is looked up in.
-pub(crate) struct Search {
-    pub(crate) data_dirs: Vec<PathBuf>,
-    pub(crate) path_dirs: Vec<PathBuf>,
-}
-
-impl Search {
-    pub(crate) fn from_env() -> Self {
-        let path = std::env::var("PATH").unwrap_or_default();
-        Self {
-            data_dirs: current_dirs(),
-            path_dirs: absolute_dirs(&path).collect(),
-        }
-    }
-}
+use super::desktop_lookup::{find, is_trusted};
 
 /// The program to run, its arguments and the facts attach decisions read.
 pub(crate) struct Plan {

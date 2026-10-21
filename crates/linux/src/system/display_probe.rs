@@ -1,7 +1,8 @@
 use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 
-use super::display_server::{Probe, Reach};
+use super::display_server::Probe;
+use crate::system::display_reach::Reach;
 
 const UNIX_TABLE: &str = "/proc/net/unix";
 const X11_SOCKET_DIR: &str = "/tmp/.X11-unix";

@@ -1,3 +1,5 @@
+use crate::system::x11::control_error::ControlError;
+use crate::system::x11::toplevel::Toplevel;
 use agent_desktop_core::Deadline;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt};
 use x11rb::rust_connection::RustConnection;
@@ -20,24 +22,6 @@ pub(crate) enum ControlRead<T> {
     NotX11,
     NoManager,
     Unavailable,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ControlError {
-    NoDisplay,
-    SendFailed,
-    BadWindow,
-    StaleWindow,
-    TimedOut,
-}
-
-/// One top-level window of a process.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Toplevel {
-    pub(crate) id: u32,
-    pub(crate) title: String,
-    pub(crate) kind: WindowKind,
-    pub(crate) transient: bool,
 }
 
 impl<T> ControlRead<T> {

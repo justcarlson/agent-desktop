@@ -80,8 +80,9 @@ fn grab_live_a_window_partly_off_screen_reports_off_screen() {
 fn grab_live_the_capture_permission_follows_the_session() {
     use agent_desktop_core::Deadline;
 
+    use crate::system::display_env::DisplayEnv;
     use crate::system::display_probe::SocketProbe;
-    use crate::system::display_server::{DisplayEnv, detect};
+    use crate::system::display_server::detect;
     use crate::system::permissions::{CaptureAvailability, capture_availability};
     use crate::system::route::resolve;
     use crate::system::x11::grab::DisplayGrabber;
@@ -108,9 +109,10 @@ fn grab_live_the_capture_permission_follows_the_session() {
 fn grab_live_a_stopped_window_is_app_unresponsive() {
     use agent_desktop_core::ErrorCode;
 
+    use crate::system::capture::capture_env::CaptureEnv;
     use crate::system::capture::png_encode::encode_png;
     use crate::system::capture::window::capture;
-    use crate::system::capture::window_context::{CaptureEnv, real_decode};
+    use crate::system::capture::window_context::real_decode;
     use crate::system::x11::DisplayReader;
     use crate::system::x11::grab::DisplayGrabber;
 

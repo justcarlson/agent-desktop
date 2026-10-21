@@ -36,7 +36,7 @@ pub(crate) fn supported() -> Vec<SnapshotSurface> {
     vec![SnapshotSurface::Menu]
 }
 
-fn popup_of(found: menu_popup::Found<'_>) -> MenuPopup {
+fn popup_of(found: crate::system::menu_found::Found<'_>) -> MenuPopup {
     MenuPopup {
         root: found.root.payload.node.element.clone(),
         family: found.family,

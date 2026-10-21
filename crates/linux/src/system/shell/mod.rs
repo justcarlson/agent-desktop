@@ -1,3 +1,7 @@
+pub(crate) mod anchor;
+pub(crate) mod call_failure;
+pub(crate) mod located;
+pub(crate) mod watcher_read;
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, ObservationRequest,
     ObservationRoot, ObservedTree, SnapshotSurface, WindowInfo,
@@ -69,8 +73,12 @@ pub(crate) fn resolve_surface(
     detect::require_tree(bus, deadline)?;
     let root = identity::find_root(bus, deadline)?;
     let landmark = open::container_landmark(kind);
-    let located =
-        container::locate_anchor(bus, &root, container::Anchor::Landmark(landmark), deadline)?;
+    let located = container::locate_anchor(
+        bus,
+        &root,
+        crate::system::shell::anchor::Anchor::Landmark(landmark),
+        deadline,
+    )?;
     open::window_info(kind, &root, &located)
 }
 

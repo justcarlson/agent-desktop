@@ -11,20 +11,20 @@ use self::window_place::PlaceStore;
 use super::display_server::{DisplayServer, session_server};
 use super::focus_cause::Cause;
 use super::focus_world::LiveWorld as FrameWorld;
-use super::proc_stat;
-use super::process_facts::{self, Lookup};
 use super::restore_minimized::{Lifted, lift, still_hidden};
 use super::window_client::{ClientWorld, client_of};
 use super::window_op_shadow::{Shadow, to_client, to_visible};
 use super::window_op_verdict::{
     POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, observed_of, requested, unverified,
 };
-use super::x11::control::{ControlError, ControlRead, xwayland_clients};
+use super::x11::control::{ControlRead, xwayland_clients};
 use super::x11::control_send::{WindowWrite, write_window};
 use super::x11::stacking_source::StackingSource;
 use super::x11::window_facts::{WindowFacts, read_facts};
 use super::x11::{DisplayReader, X11Client, X11State};
-use super::{SharedBus, list_displays};
+use super::{SharedBus, list_displays, proc_stat, process_facts};
+use crate::system::process_lookup::Lookup;
+use crate::system::x11::control_error::ControlError;
 use crate::tree::Extents;
 
 const CONFIRM_PAUSE: Duration = Duration::from_millis(120);

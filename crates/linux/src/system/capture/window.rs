@@ -4,11 +4,12 @@ use agent_desktop_core::{
 
 use super::display::scale_for;
 use super::pixels::MAX_PIXELS;
-use super::window_context::{CaptureEnv, WindowContext, grab_failure};
+use super::window_context::{WindowContext, grab_failure};
 use super::window_obstruction::{Cover, cover};
 use super::window_unit::{Unit, choose};
 use super::window_xid::xid_or_error;
 use crate::system::bus::ensure_budget;
+use crate::system::capture::capture_env::CaptureEnv;
 use crate::system::x11::FrameExtents;
 use crate::system::x11::grab_error::GrabError;
 use crate::system::x11::grab_rect::GrabRect;
