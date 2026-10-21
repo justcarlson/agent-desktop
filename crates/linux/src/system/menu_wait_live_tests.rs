@@ -5,8 +5,9 @@ use agent_desktop_core::ErrorCode;
 use super::signal_live_apps::{
     FRAME, MENU, MENU_BUTTON, MENU_ITEM, Node, POPUP_MENU, Rig, STATE_CHECKED, STATE_SHOWING,
     Stopped, TOGGLE, chrome_profile, close_chrome_menu, close_with_escape, descendants, details_of,
-    do_action, identity_of, launch_chrome, launch_qt, main_menu_toggle, poll, process_state,
-    scratch_dir, showing_of, signal, terminal_server, top_level, wait_menu, x11_windows,
+    do_action, identity_of, launch_chrome, launch_qt, main_menu_toggle, outcome, poll,
+    process_state, scratch_dir, showing_of, signal, terminal_server, top_level, wait_menu,
+    x11_windows,
 };
 
 const MENU_MS: u64 = 15_000;
@@ -20,10 +21,10 @@ fn elapsed_ms(result: &Result<serde_json::Value, agent_desktop_core::AppError>) 
 fn found(result: &Result<serde_json::Value, agent_desktop_core::AppError>) -> &serde_json::Value {
     match result {
         Ok(value) => {
-            assert_eq!(value["found"], true, "{value}");
+            assert_eq!(value["found"], true, "{}", outcome(result));
             value
         }
-        Err(error) => panic!("the menu wait failed: {} {error}", error.code()),
+        Err(error) => panic!("the menu wait failed: {}", error.code()),
     }
 }
 
@@ -84,8 +85,9 @@ fn both_directions(rig: &Rig, legs: &Legs) {
     let closed = wait_menu(rig, legs.app, false, MENU_MS);
     assert!(
         elapsed_ms(&closed) < 1_500,
-        "{}: a closed menu satisfies --menu-closed at once: {closed:?}",
-        legs.label
+        "{}: a closed menu satisfies --menu-closed at once: {}",
+        legs.label,
+        outcome(&closed)
     );
     poll_cost(rig, legs.label, legs.app, false);
 
@@ -93,8 +95,9 @@ fn both_directions(rig: &Rig, legs: &Legs) {
     let already = wait_menu(rig, legs.app, true, MENU_MS);
     assert!(
         elapsed_ms(&already) < 1_500,
-        "{}: an open menu satisfies --menu at once: {already:?}",
-        legs.label
+        "{}: an open menu satisfies --menu at once: {}",
+        legs.label,
+        outcome(&already)
     );
     poll_cost(rig, legs.label, legs.app, true);
 

@@ -280,9 +280,17 @@ pub(super) fn details_of(error: &AppError) -> Value {
 pub(super) fn found_event(result: &Result<Value, AppError>) -> &Value {
     match result {
         Ok(value) => {
-            assert_eq!(value["found"], true, "wait reported {value}");
+            assert_eq!(value["found"], true, "{}", outcome(result));
             &value["event"]
         }
-        Err(error) => panic!("the wait failed: {} {error}", error.code()),
+        Err(error) => panic!("the wait failed: {}", error.code()),
+    }
+}
+
+pub(super) fn outcome(result: &Result<Value, AppError>) -> String {
+    match result {
+        Ok(value) if value["found"] == true => "wait found its event".into(),
+        Ok(_) => "wait ended without its event".into(),
+        Err(error) => format!("wait failed with {}", error.code()),
     }
 }

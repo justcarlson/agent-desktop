@@ -5,7 +5,7 @@ use agent_desktop_core::{ErrorCode, SystemOps, WindowFilter};
 use super::list_windows;
 use super::signal_live_apps::{
     FRAME, Rig, app_root, capture, close_newest_frame, count_of, deadline, details_of, diff,
-    found_event, identity_of, poll, press, process_gone, signal, terminal_server, tokens,
+    found_event, identity_of, outcome, poll, press, process_gone, signal, terminal_server, tokens,
     top_level, wait_event, window_ids, x11_active_pid, x11_windows,
 };
 
@@ -49,7 +49,8 @@ fn signal_live_text_editor_new_window_handoff_is_window_opened_without_app_launc
     let result = wait_event(&rig, "window-opened", None, OPEN_MS, Some(Ok(seed.clone())));
     assert!(
         pid_is(found_event(&result), pid),
-        "the new frame belongs to the old pid {pid}: {result:?}"
+        "the new frame belongs to the old pid {pid}: {}",
+        outcome(&result)
     );
     let after = capture(&rig, None, None, 10_000).expect("the capture after");
     let events = diff(&seed, &after);
@@ -75,7 +76,7 @@ fn signal_live_calculator_launch_and_close_are_app_and_window_events() {
     let seed = capture(&rig, None, None, 10_000).expect("the seed capture");
     let pid = rig.spawn("gnome-calculator", &[]);
     let result = wait_event(&rig, "app-launched", None, OPEN_MS, Some(Ok(seed.clone())));
-    assert!(pid_is(found_event(&result), pid), "{result:?}");
+    assert!(pid_is(found_event(&result), pid), "{}", outcome(&result));
     poll("the calculator window", || {
         (x11_windows(pid).len() == 1).then_some(())
     });
@@ -104,7 +105,7 @@ fn signal_live_calculator_launch_and_close_are_app_and_window_events() {
         OPEN_MS,
         Some(Ok(opened.clone())),
     );
-    assert!(pid_is(found_event(&result), pid), "{result:?}");
+    assert!(pid_is(found_event(&result), pid), "{}", outcome(&result));
     let closed = capture(&rig, None, None, 10_000).expect("capture");
     let events = diff(&opened, &closed);
     assert_eq!(
@@ -134,7 +135,7 @@ fn signal_live_second_calculator_process_is_a_new_app_with_a_distinct_id() {
         (x11_windows(second).len() == 1).then_some(())
     });
     let result = wait_event(&rig, "app-launched", None, OPEN_MS, Some(Ok(seed.clone())));
-    assert!(pid_is(found_event(&result), second), "{result:?}");
+    assert!(pid_is(found_event(&result), second), "{}", outcome(&result));
     let after = capture(&rig, None, None, 10_000).expect("capture");
     let events = diff(&seed, &after);
     assert_eq!(
@@ -172,7 +173,7 @@ fn signal_live_text_editor_ctrl_n_is_window_opened_under_the_same_pid() {
         OPEN_MS,
         Some(Ok(seed.clone())),
     );
-    assert!(pid_is(found_event(&result), pid), "{result:?}");
+    assert!(pid_is(found_event(&result), pid), "{}", outcome(&result));
     let after = capture(&rig, None, None, 10_000).expect("capture");
     let events = diff(&seed, &after);
     assert_eq!(
@@ -205,7 +206,7 @@ fn signal_live_sigkilled_calculator_is_window_closed_and_app_terminated() {
         Some(Ok(seed.clone())),
     );
     let seen_after = killed.elapsed();
-    assert!(pid_is(found_event(&result), pid), "{result:?}");
+    assert!(pid_is(found_event(&result), pid), "{}", outcome(&result));
     println!(
         "signal_live sigkill: app-terminated seen {}ms after the kill",
         seen_after.as_millis()
@@ -282,7 +283,11 @@ fn signal_live_two_windows_focus_changes_under_the_window_manager() {
         (x11_active_pid() == Some(editor_pid)).then_some(())
     });
     let result = wait_event(&rig, "focus-changed", None, OPEN_MS, Some(Ok(seed)));
-    assert!(pid_is(found_event(&result), editor_pid), "{result:?}");
+    assert!(
+        pid_is(found_event(&result), editor_pid),
+        "{}",
+        outcome(&result)
+    );
 }
 
 #[test]

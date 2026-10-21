@@ -6,7 +6,7 @@ use super::list_windows;
 use super::signal_live_apps::{
     FRAME, MENU_BUTTON, Rig, STATE_SHOWING, Stopped, capture, chrome_profile, close_chrome_menu,
     count_of, deadline, descendants, details_of, diff, dismiss_dialog, do_action, found_event,
-    identity_of, launch_chrome, launch_qt, open_gtk4_menu_item, open_terminal_about, poll,
+    identity_of, launch_chrome, launch_qt, open_gtk4_menu_item, open_terminal_about, outcome, poll,
     process_state, terminal_server, tokens, top_level, wait_event, x11_windows,
 };
 
@@ -35,7 +35,12 @@ fn dialog_case(rig: &Rig, pid: u32, app: &str, identity: &ProcessIdentity, open:
         OPEN_MS,
         Some(Ok(seed.clone())),
     );
-    assert_eq!(found_event(&result)["surface"], "sheet", "{result:?}");
+    assert_eq!(
+        found_event(&result)["surface"],
+        "sheet",
+        "{}",
+        outcome(&result)
+    );
     let after = capture(rig, Some(app), Some(identity), 10_000).expect("capture");
     let events = diff(&seed, &after);
     assert_eq!(
@@ -70,7 +75,12 @@ fn dialog_case(rig: &Rig, pid: u32, app: &str, identity: &ProcessIdentity, open:
         OPEN_MS,
         Some(Ok(after.clone())),
     );
-    assert_eq!(found_event(&result)["surface"], "sheet", "{result:?}");
+    assert_eq!(
+        found_event(&result)["surface"],
+        "sheet",
+        "{}",
+        outcome(&result)
+    );
     let closed = capture(rig, Some(app), Some(identity), 10_000).expect("capture");
     let events = diff(&after, &closed);
     assert_eq!(
