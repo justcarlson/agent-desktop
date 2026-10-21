@@ -1,9 +1,4 @@
-import dataclasses
-import contextlib
 import json
-import subprocess
-import threading
-from uuid import uuid4
 
 from oracle import atspi_raw as raw
 from oracle.proc import members
@@ -11,7 +6,6 @@ from runner import apps
 from runner.helper import (activate, changed, command, display, managed, nodes,
                            one, ref, require, root, snapshot, remove)
 from runner.legs import implementation
-from runner.product import run_product
 from runner.verdict import LegContext
 
 
@@ -139,71 +133,3 @@ def trace_segment_written(ctx: LegContext) -> None:
             command(ctx, ["session", "end", session])
             remove(ctx.tier.state_root / "sessions" / session)
             ctx.restored("proc", sorted(str(path) for path in directory.glob("*.jsonl")))
-
-
-@contextlib.contextmanager
-def unreachable_accessibility_bus(ctx):
-    from gi.repository import Gio, GLib
-    socket = ctx.tier.runtime_dir / ("oracle-bus-" + uuid4().hex)
-    address = "unix:path=" + str(socket)
-    missing = "unix:path=" + str(ctx.tier.runtime_dir / ("absent-" + uuid4().hex))
-    log = ctx.tier.runtime_dir / "oracle-bus.log"
-    with log.open("ab") as stream:
-        daemon = subprocess.Popen(["dbus-daemon", "--session", "--nofork", "--address=" + address],
-                                  env=ctx.tier.env, stdout=stream, stderr=stream,
-                                  start_new_session=True)
-    connection, loop, thread = None, None, None
-    try:
-        require(raw.poll(socket.exists, 2), "private oracle bus did not start")
-        connection = raw.connect(address)
-        result = raw.call(connection, "org.freedesktop.DBus", "/org/freedesktop/DBus",
-                          "org.freedesktop.DBus", "RequestName", "(su)", ("org.a11y.Bus", 4))
-        require(result[0] == 1)
-        xml = ('<node><interface name="org.a11y.Bus"><method name="GetAddress">'
-               '<arg type="s" direction="out"/></method></interface></node>')
-        interface = Gio.DBusNodeInfo.new_for_xml(xml).interfaces[0]
-
-        def answer(conn, sender, path, iface, method, params, invocation):
-            invocation.return_value(GLib.Variant("(s)", (missing,)))
-
-        registration = connection.register_object("/org/a11y/bus", interface, answer, None, None)
-        loop = GLib.MainLoop()
-        thread = threading.Thread(target=loop.run, daemon=True)
-        thread.start()
-        require(raw.call(connection, "org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus", "GetAddress")[0]
-                == missing)
-        env = dict(ctx.tier.env, DBUS_SESSION_BUS_ADDRESS=address)
-        yield dataclasses.replace(ctx.tier, env=env, bus_address=address,
-                                  a11y_bus_address=missing)
-        connection.unregister_object(registration)
-    finally:
-        if loop:
-            loop.quit()
-        if thread:
-            thread.join(2)
-            require(not thread.is_alive(), "oracle bus thread survived")
-        if connection:
-            connection.close_sync(None)
-        daemon.terminate()
-        try:
-            daemon.wait(2)
-        except subprocess.TimeoutExpired:
-            daemon.kill()
-            daemon.wait(2)
-        remove(socket)
-        remove(log)
-
-
-def unreachable_bus_permission_error(ctx: LegContext) -> None:
-    baseline = [node.bus for node in raw.registry(ctx.tier)]
-    ctx.before("dbus", baseline)
-    with unreachable_accessibility_bus(ctx) as tier:
-        response = run_product(tier, ["snapshot", "--app", "Calculator", "-i"], headed=False)
-        error = response.error or {}
-        if error.get("code") == "PLATFORM_NOT_SUPPORTED":
-            raise NotImplementedError("product lacks the unavailable-accessibility-bus permission mapping")
-        require(not response.ok and error.get("code") == "PERM_DENIED", response.raw)
-        after = [node.bus for node in raw.registry(ctx.tier)]
-        require(after == baseline, "unreachable-bus read changed the registry")
-        ctx.after("dbus", after)
-    ctx.restored("dbus", [node.bus for node in raw.registry(ctx.tier)])

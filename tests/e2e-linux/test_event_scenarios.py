@@ -11,6 +11,40 @@ from scenarios import events
 
 
 class EventScenarioTests(unittest.TestCase):
+    def test_killed_target_requires_requested_kind_and_independent_identity(self):
+        for unresolved in (False, True):
+            for fault in (None, "kind", "identity"):
+                with self.subTest(unresolved=unresolved, fault=fault):
+                    tier = SimpleNamespace(runtime_dir=Path("/private/test"))
+                    ctx = LegContext(tier, "headless", legs.leg_by_id("events.target_killed_mid_wait"),
+                                     member_reader=lambda _: frozenset())
+                    owners, pending = ["gnome-text-editor"], []
+                    event = {"kind": "app_launched" if fault == "kind" else "window_closed"}
+                    if unresolved:
+                        event["app"] = "Calculator" if fault == "identity" else "Text Editor"
+                    else:
+                        event.update(pid=999 if fault == "identity" else 123, window_id="raw-frame")
+                    def product(tier, argv, **kw):
+                        pending.pop()()
+                        return Envelope(True, {"event": event, "target_unresolved": unresolved},
+                                        None, str(event), 1, argv)
+                    def launch(*a):
+                        owners[:] = ["gnome-text-editor"]
+                        return object()
+                    root = SimpleNamespace(pid=123, children=lambda: [])
+                    with patch.object(events, "_editor", return_value=(SimpleNamespace(pid=123, windows=["raw-frame"]), root)), \
+                        patch.object(events, "registry", side_effect=lambda _: [SimpleNamespace(name=n) for n in owners]), \
+                        patch.object(events, "launch", side_effect=launch), \
+                        patch.object(events, "stop", side_effect=lambda _: owners.clear()), \
+                        patch.object(events, "delayed", side_effect=lambda _, action: (pending.append(action) or SimpleNamespace(join=lambda: None))), \
+                        patch("runner.verdict.run_product", side_effect=product):
+                        if fault is None:
+                            events.target_killed_mid_wait(ctx)
+                            self.assertEqual(verdict.evaluate(ctx), [])
+                        else:
+                            with self.assertRaises(AssertionError):
+                                events.target_killed_mid_wait(ctx)
+
     def test_window_events_require_the_observed_kind_owner_and_frame(self):
         for scenario in ("scoped_and_unscoped_forms", "window_closed_transition"):
             for field in (None, "kind", "pid", "window_id"):

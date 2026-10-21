@@ -17,7 +17,8 @@ def _run(tier, argv: list[str]) -> subprocess.CompletedProcess:
 
 
 def parse_wm_state(text: str) -> set[str]:
-    return {token for token in text.replace("=", " ").split() if token.startswith("_NET_WM_STATE_")}
+    return {token for token in text.replace("=", " ").replace(",", " ").split()
+            if token.startswith("_NET_WM_STATE_")}
 
 
 def is_hidden(text: str) -> bool:
@@ -26,7 +27,7 @@ def is_hidden(text: str) -> bool:
 
 def is_maximised(text: str) -> bool:
     states = parse_wm_state(text)
-    return "_NET_WM_STATE_MAXIMIZED_VERT" in states or "_NET_WM_STATE_MAXIMIZED_HORZ" in states
+    return {"_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ"} <= states
 
 
 def member_pids(members) -> set[int]:
@@ -174,18 +175,21 @@ def maximize_restore(ctx: LegContext) -> None:
     app = apps.launch(ctx.tier, "Calculator")
     try:
         window = _window_id(app)
-        ctx.before("x11.wm_state", is_maximised(_wm_state(ctx.tier, window)))
+        before = parse_wm_state(_wm_state(ctx.tier, window))
+        axes = {"_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ"}
+        assert not before & axes, before
+        ctx.before("x11.wm_state", before & axes)
         assert_ok(ctx.product(["maximize", "--window-id", window]))
         maximised = atspi_raw.poll(
             lambda: True if is_maximised(_wm_state(ctx.tier, window)) else None, 6.0
         )
-        ctx.after("x11.wm_state", maximised)
+        ctx.after("x11.wm_state", parse_wm_state(_wm_state(ctx.tier, window)) & axes)
         if not maximised:
             raise AssertionError("the window did not read as maximised")
         assert_ok(ctx.product(["restore", "--window-id", window]))
         ctx.restored(
             "x11.wm_state",
-            changed(lambda: is_maximised(_wm_state(ctx.tier, window)), False, seconds=6),
+            changed(lambda: parse_wm_state(_wm_state(ctx.tier, window)) & axes, set(), seconds=6),
         )
     finally:
         apps.stop(app)
