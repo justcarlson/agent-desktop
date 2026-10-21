@@ -87,6 +87,16 @@ impl DisplayReader {
 }
 
 fn read_popup_window(display: &str, pid: u32, size: (i32, i32)) -> Option<PopupWindow> {
+    let popups = read_popup_windows(display, pid)?;
+    unique_popup(
+        &popups
+            .into_iter()
+            .filter(|popup| (popup.bounds.width, popup.bounds.height) == size)
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn read_popup_windows(display: &str, pid: u32) -> Option<Vec<PopupWindow>> {
     let (connection, screen) = DisplayReader::connect(display).ok()?;
     let root = connection.setup().roots.get(screen)?.root;
     let pid_atom = atom(&connection, b"_NET_WM_PID")?;
@@ -116,7 +126,7 @@ fn read_popup_window(display: &str, pid: u32, size: (i32, i32)) -> Option<PopupW
             width: i32::from(geometry.width),
             height: i32::from(geometry.height),
         };
-        if !popup_candidate(pid, size, owner, rect, attributes.override_redirect) {
+        if owner != Some(pid) {
             continue;
         }
         let origin = connection
@@ -133,21 +143,49 @@ fn read_popup_window(display: &str, pid: u32, size: (i32, i32)) -> Option<PopupW
             },
         });
     }
-    unique_popup(&popups)
+    Some(popups)
 }
 
 fn unique_popup(popups: &[PopupWindow]) -> Option<PopupWindow> {
     (popups.len() == 1).then(|| popups[0])
 }
 
-fn popup_candidate(
-    pid: u32,
-    size: (i32, i32),
-    owner: Option<u32>,
-    rect: Extents,
-    override_redirect: bool,
-) -> bool {
-    owner == Some(pid) && override_redirect && (rect.width, rect.height) == size
+impl DisplayReader {
+    pub(crate) fn popup_containing(
+        pid: u32,
+        screen: Extents,
+        window: Extents,
+        caller: Deadline,
+    ) -> Option<PopupWindow> {
+        let deadline = capped(caller)?;
+        let DisplayServer::X11(display) = session_server() else {
+            return None;
+        };
+        bounded(deadline, None, move || {
+            matching_popup(&read_popup_windows(&display, pid)?, screen, window)
+        })
+    }
+}
+
+fn matching_popup(popups: &[PopupWindow], screen: Extents, window: Extents) -> Option<PopupWindow> {
+    let matching = popups
+        .iter()
+        .copied()
+        .filter(|popup| {
+            crate::tree::frame_geometry::origins_agree(
+                screen,
+                window,
+                (popup.bounds.x, popup.bounds.y),
+            ) && crate::tree::hit_guard::aimable(screen)
+                && crate::tree::hit_guard::aimable(window)
+                && (screen.width, screen.height) == (window.width, window.height)
+                && window.x >= 0
+                && window.y >= 0
+                && i64::from(window.x) + i64::from(window.width) <= i64::from(popup.bounds.width)
+                && i64::from(window.y) + i64::from(window.height) <= i64::from(popup.bounds.height)
+        })
+        .collect::<Vec<_>>();
+    unique_popup(&matching)
 }
 
 #[cfg(test)]

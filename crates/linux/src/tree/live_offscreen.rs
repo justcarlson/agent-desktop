@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock, PoisonError};
 
 use agent_desktop_core::Deadline;
-use futures_util::future::join3;
+use futures_util::future::join4;
 use zbus::Connection;
 
 use super::absence::Liveness;
@@ -68,12 +68,13 @@ pub(crate) fn global_position(bus: &SharedBus, element: &AtspiElement, deadline:
 /// and extents remain absent rather than becoming empty values.
 pub(crate) struct FrameRead {
     pub(crate) iconified: bool,
+    role: Option<u32>,
     pub(crate) title: Option<String>,
     pub(crate) screen: Option<Extents>,
 }
 
 async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead {
-    let (state, title, extents) = join3(
+    let (state, title, extents, role) = join4(
         call(connection, frame, ACCESSIBLE_INTERFACE, "GetState", &()),
         get_one(connection, frame, "Name", string_value, Liveness::Alive),
         call(
@@ -83,12 +84,16 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
             "GetExtents",
             &(SCREEN_COORDINATES,),
         ),
+        call(connection, frame, ACCESSIBLE_INTERFACE, "GetRole", &()),
     )
     .await;
     let words = state
         .ok()
         .and_then(|reply| reply.body().deserialize::<Vec<u32>>().ok());
     FrameRead {
+        role: role
+            .ok()
+            .and_then(|reply| reply.body().deserialize::<u32>().ok()),
         iconified: words.is_some_and(|words| StateBits::new(&words).has(ICONIFIED)),
         title: title.ok().and_then(|field| field.present().cloned()),
         screen: extents
@@ -156,6 +161,22 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
         return placed;
     };
     placed.frame_iconified = read.iconified;
+    if element.is_menu_target()
+        && read.role == Some(crate::system::shell::container::MENU)
+        && super::toolkit_trust::kind(&placed.toolkit) == super::toolkit_trust::ToolkitKind::Gtk3
+    {
+        let popup = within(deadline, async {
+            Ok(read_frame(connection.inner(), element).await)
+        })
+        .ok()
+        .and_then(|read| read.screen)
+        .zip(placed.node)
+        .and_then(|(screen, window)| {
+            DisplayReader::popup_containing(element.pid(), screen, window, deadline)
+        });
+        apply_popup(&mut placed, popup);
+        return placed;
+    }
     let global = reports_global_position(&placed.toolkit);
     let skipped = placed.frame_iconified || (wholly_outside(&placed) && global);
     let (popup_origin, x11) = select_frame_origin(
@@ -207,3 +228,21 @@ pub(crate) fn select_frame_origin(
         (None, managed())
     }
 }
+
+fn apply_popup(placed: &mut Placement, popup: Option<crate::system::x11::PopupWindow>) {
+    placed.frame = popup.map(|popup| Extents {
+        x: 0,
+        y: 0,
+        ..popup.bounds
+    });
+    placed.x11 = popup.map(|popup| WindowX11State {
+        client_id: popup.id,
+        hidden: false,
+        client_origin: (popup.bounds.x, popup.bounds.y),
+        shadow: (0, 0, 0, 0),
+    });
+}
+
+#[cfg(test)]
+#[path = "popup_placement_tests.rs"]
+mod popup_tests;

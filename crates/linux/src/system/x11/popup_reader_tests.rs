@@ -1,4 +1,4 @@
-use super::{PopupWindow, popup_candidate, unique_popup};
+use super::{PopupWindow, matching_popup, unique_popup};
 use crate::tree::Extents;
 
 fn bounds(width: i32, height: i32) -> Extents {
@@ -11,35 +11,49 @@ fn bounds(width: i32, height: i32) -> Extents {
 }
 
 #[test]
-fn a_popup_origin_requires_the_owning_process_and_its_override_redirect_window() {
-    assert!(popup_candidate(
-        42,
-        (280, 190),
-        Some(42),
-        bounds(280, 190),
-        true
-    ));
-    assert!(!popup_candidate(
-        42,
-        (280, 190),
-        Some(42),
-        bounds(280, 190),
-        false
-    ));
-    assert!(!popup_candidate(
-        42,
-        (280, 190),
-        Some(43),
-        bounds(280, 190),
-        true
-    ));
-    assert!(!popup_candidate(
-        42,
-        (280, 190),
-        Some(42),
-        bounds(281, 190),
-        true
-    ));
+fn gtk3_menu_items_match_their_popup_origin_instead_of_the_bar_label() {
+    let popup = PopupWindow {
+        id: 7,
+        bounds: Extents {
+            x: 479,
+            y: 185,
+            width: 118,
+            height: 54,
+        },
+    };
+    let screen = Extents {
+        x: 479,
+        y: 212,
+        width: 118,
+        height: 27,
+    };
+    let local = Extents {
+        x: 0,
+        y: 27,
+        width: 118,
+        height: 27,
+    };
+    let decoy = PopupWindow {
+        id: 8,
+        bounds: Extents {
+            x: 251,
+            y: 51,
+            ..popup.bounds
+        },
+    };
+    assert_eq!(matching_popup(&[decoy, popup], screen, local), Some(popup));
+    assert_eq!(matching_popup(&[decoy], screen, local), None);
+    assert_eq!(matching_popup(&[popup, popup], screen, local), None);
+    for width in [-1, 0, 117] {
+        assert_eq!(
+            matching_popup(&[popup], screen, Extents { width, ..local }),
+            None
+        );
+    }
+    assert_eq!(
+        matching_popup(&[popup], screen, Extents { y: 60, ..local }),
+        None
+    );
 }
 
 #[test]

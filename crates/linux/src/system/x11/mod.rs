@@ -63,6 +63,6 @@ pub(crate) use monitor::X11Monitor;
 pub(crate) use monitor_fault::{MonitorFault, fault_of_connect};
 pub(crate) use monitor_reader::MonitorReader;
 pub(crate) use monitor_source::MonitorSource;
-pub(crate) use reader::DisplayReader;
+pub(crate) use reader::{DisplayReader, PopupWindow};
 pub(crate) use source::X11Source;
 pub(crate) use state::X11State;

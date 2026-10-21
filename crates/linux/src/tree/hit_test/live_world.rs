@@ -30,6 +30,7 @@ pub(super) struct LiveWorld<'a> {
     nodes: BusNodes<'a>,
     popup: bool,
     popup_rect: Option<Extents>,
+    native_popup: Option<crate::system::x11::PopupWindow>,
 }
 
 impl<'a> LiveWorld<'a> {
@@ -41,6 +42,7 @@ impl<'a> LiveWorld<'a> {
             },
             popup: false,
             popup_rect: None,
+            native_popup: None,
         }
     }
 }
@@ -83,9 +85,18 @@ impl HitWorld for LiveWorld<'_> {
             .cloned()
             .unwrap_or_default();
         let global_position = crate::tree::toolkit_trust::reports_global_position(&toolkit);
-        self.popup =
-            frame_node.traits.role.present() == Some(&MENU) && kind(&toolkit) == ToolkitKind::Gtk4;
-        self.popup_rect = if self.popup {
+        self.native_popup = if target.is_menu_target()
+            && frame_node.traits.role.present() == Some(&MENU)
+            && kind(&toolkit) == ToolkitKind::Gtk3
+        {
+            DisplayReader::popup_containing(target.pid(), screen, window, deadline)
+        } else {
+            None
+        };
+        self.popup = frame_node.traits.role.present() == Some(&MENU)
+            && (kind(&toolkit) == ToolkitKind::Gtk4
+                || (target.is_menu_target() && kind(&toolkit) == ToolkitKind::Gtk3));
+        self.popup_rect = if self.popup && kind(&toolkit) == ToolkitKind::Gtk4 {
             within(deadline, async {
                 Ok(read_window_extents_async(connection, frame).await)
             })?
@@ -111,7 +122,9 @@ impl HitWorld for LiveWorld<'_> {
         let X11State::Ready { clients, .. } = state else {
             return None;
         };
-        let (client, coordinate_origin) = if self.popup {
+        let (client, coordinate_origin) = if let Some(popup) = self.native_popup {
+            (popup.id, Some((popup.bounds.x, popup.bounds.y)))
+        } else if self.popup {
             let rect = self.popup_rect?;
             let popup = DisplayReader::popup_window(
                 frame.pid,
