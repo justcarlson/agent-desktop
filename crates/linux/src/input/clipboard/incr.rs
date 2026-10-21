@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use agent_desktop_core::{AdapterError, ErrorCode};
-
 /// The chunks of one INCR transfer on the owner's side. The transfer ends
 /// with a zero-length chunk, also when the data is empty or an exact multiple
 /// of the chunk size.
@@ -35,49 +33,6 @@ impl IncrSender {
         let chunk = self.data[self.sent..end].to_vec();
         self.sent = end;
         Some(chunk)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Push {
-    More,
-    Complete,
-}
-
-/// The reassembly of one INCR transfer on the reader's side.
-#[derive(Debug)]
-pub(crate) struct IncrReceiver {
-    bytes: Vec<u8>,
-    cap: usize,
-    complete: bool,
-}
-
-impl IncrReceiver {
-    pub(crate) fn new(cap: usize) -> Self {
-        Self {
-            bytes: Vec::new(),
-            cap,
-            complete: false,
-        }
-    }
-
-    pub(crate) fn push(&mut self, chunk: &[u8]) -> Result<Push, AdapterError> {
-        if chunk.is_empty() {
-            self.complete = true;
-            return Ok(Push::Complete);
-        }
-        if self.bytes.len() + chunk.len() > self.cap {
-            return Err(AdapterError::new(
-                ErrorCode::ActionFailed,
-                "The clipboard holds more than the size cap",
-            ));
-        }
-        self.bytes.extend_from_slice(chunk);
-        Ok(Push::More)
-    }
-
-    pub(crate) fn into_bytes(self) -> Option<Vec<u8>> {
-        self.complete.then_some(self.bytes)
     }
 }
 

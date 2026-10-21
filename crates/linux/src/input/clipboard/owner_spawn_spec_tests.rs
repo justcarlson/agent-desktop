@@ -1,4 +1,6 @@
+use std::ffi::OsStr;
 use std::path::Path;
+use std::process::Command;
 
 use super::*;
 
@@ -6,16 +8,20 @@ fn none(_: &str) -> Option<String> {
     None
 }
 
-fn spec_with(parent: &dyn Fn(&str) -> Option<String>) -> SpawnSpec {
-    build_spec(
-        &SpawnRequest {
-            helper: Path::new("/opt/x/agent-desktop-linux-clipboard-owner"),
-            display: ":77",
-            nonce: "abcdef0123456789",
-            payload_fd: 9,
-        },
+fn command_with(parent: &dyn Fn(&str) -> Option<String>) -> Command {
+    build_command(
+        Path::new("/opt/x/agent-desktop-linux-clipboard-owner"),
+        ":77",
+        "abcdef0123456789",
+        9,
         parent,
     )
+}
+
+fn env_value<'a>(command: &'a Command, name: &str) -> Option<&'a OsStr> {
+    command
+        .get_envs()
+        .find_map(|(key, value)| (key == OsStr::new(name)).then_some(value).flatten())
 }
 
 #[test]
@@ -25,25 +31,24 @@ fn an_unrelated_parent_variable_is_dropped_and_an_unset_one_stays_unset() {
         "HOME" => Some("/home/u".to_owned()),
         _ => None,
     };
-    let spec = spec_with(&parent);
-    assert!(!spec.env.contains_key("SSH_AUTH_SOCK"));
-    assert!(!spec.env.contains_key("PATH"));
-    assert!(!spec.env.contains_key("AGENT_DESKTOP_INTERACTION_LEASE_FD"));
-    assert!(!spec.env.contains_key("XAUTHORITY"));
-    assert_eq!(spec.env.get("HOME").map(String::as_str), Some("/home/u"));
+    let command = command_with(&parent);
+    assert_eq!(env_value(&command, "HOME"), Some(OsStr::new("/home/u")));
+    for name in [
+        "SSH_AUTH_SOCK",
+        "PATH",
+        "AGENT_DESKTOP_INTERACTION_LEASE_FD",
+        "XAUTHORITY",
+    ] {
+        assert_eq!(env_value(&command, name), None, "{name}");
+    }
 }
 
 #[test]
 fn the_display_is_the_one_the_setter_resolved_and_not_the_parents() {
     let parent = |name: &str| (name == "DISPLAY").then(|| ":0".to_owned());
-    let spec = spec_with(&parent);
-    assert_eq!(spec.env.get("DISPLAY").map(String::as_str), Some(":77"));
-    assert_eq!(
-        spec.env
-            .get("AGENT_DESKTOP_SELECTION_DISPLAY")
-            .map(String::as_str),
-        Some(":77")
-    );
+    let command = command_with(&parent);
+    assert_eq!(env_value(&command, "DISPLAY"), Some(OsStr::new(":77")));
+    assert_eq!(env_value(&command, DISPLAY_ENV), Some(OsStr::new(":77")));
 }
 
 #[test]

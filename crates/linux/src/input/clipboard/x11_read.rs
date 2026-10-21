@@ -4,8 +4,6 @@ use agent_desktop_core::{
 };
 use serde_json::json;
 
-use super::formats::PNG;
-use super::incr::{IncrReceiver, Push};
 use super::targets::{Wanted, choose_target, content_of};
 use super::x11_requestor::X11Requestor;
 use crate::system::x11::{self, MonitorFault};
@@ -61,26 +59,18 @@ pub(crate) fn fault_error(fault: Fault, owner_pid: Option<u32>) -> AdapterError 
     error.with_disposition(DeliverySemantics::not_delivered())
 }
 
-fn target_name(wanted: &Wanted) -> &'static str {
-    match wanted {
-        Wanted::FileUrls(name) | Wanted::Text(name) => name,
-        Wanted::Image => PNG,
-    }
-}
-
 fn collect_incr(requestor: &mut dyn Requestor, deadline: Deadline) -> Result<Vec<u8>, Fault> {
-    let mut receiver = IncrReceiver::new(MAX_PNG_INPUT_BYTES);
+    let mut bytes = Vec::new();
     loop {
         let chunk = requestor.next_chunk(deadline)?;
-        match receiver.push(&chunk) {
-            Ok(Push::More) => {}
-            Ok(Push::Complete) => break,
-            Err(_) => return Err(Fault::OverCap),
+        if chunk.is_empty() {
+            return Ok(bytes);
         }
+        if chunk.len() > MAX_PNG_INPUT_BYTES - bytes.len() {
+            return Err(Fault::OverCap);
+        }
+        bytes.extend_from_slice(&chunk);
     }
-    receiver
-        .into_bytes()
-        .ok_or_else(|| Fault::Protocol("The INCR transfer ended without its final chunk".into()))
 }
 
 fn fetch(
@@ -94,7 +84,7 @@ fn fetch(
     let Some(wanted) = choose_target(&offered, format) else {
         return Ok(None);
     };
-    let bytes = match requestor.request(target_name(&wanted), deadline)? {
+    let bytes = match requestor.request(wanted.target_name(), deadline)? {
         Converted::Refused => return Ok(None),
         Converted::Value(bytes) => bytes,
         Converted::Incr => collect_incr(requestor, deadline)?,
@@ -130,15 +120,6 @@ pub(crate) fn read_with(
     }
 }
 
-fn read_on_connection(
-    display: &str,
-    format: ClipboardFormat,
-    deadline: Deadline,
-) -> Result<Option<ClipboardContent>, AdapterError> {
-    let mut requestor = X11Requestor::connect(display).map_err(|fault| fault_error(fault, None))?;
-    read_with(&mut requestor, format, deadline)
-}
-
 pub(crate) fn read_x11(
     display: &str,
     format: ClipboardFormat,
@@ -147,9 +128,13 @@ pub(crate) fn read_x11(
     let remaining = deadline.remaining();
     let inner = deadline.capped(remaining - remaining / INNER_DEADLINE_SHARE);
     let display_name = display.to_owned();
-    x11::start(move || read_on_connection(&display_name, format, inner))
-        .finish(deadline)
-        .unwrap_or_else(|| Err(fault_error(Fault::Timeout, None)))
+    x11::start(move || {
+        let mut requestor =
+            X11Requestor::connect(&display_name).map_err(|fault| fault_error(fault, None))?;
+        read_with(&mut requestor, format, inner)
+    })
+    .finish(deadline)
+    .unwrap_or_else(|| Err(fault_error(Fault::Timeout, None)))
 }
 
 #[cfg(test)]

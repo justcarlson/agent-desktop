@@ -12,7 +12,7 @@ use super::owner_signal::{PidfdSignaller, Signaller};
 use super::owner_spawn::{
     ChildProbe, Handshake, await_handshake, kill_and_reap, new_nonce, payload_file, reap_when_done,
 };
-use super::owner_spawn_spec::{SpawnRequest, build_spec, protect_lease_descriptor};
+use super::owner_spawn_spec::{build_command, protect_lease_descriptor};
 use super::payload::{Payload, payload_of};
 use super::route_fallback::ClipboardTools;
 use super::x11_read::{fault_error, read_x11};
@@ -100,13 +100,14 @@ fn start_owner(
 ) -> Result<std::process::Child, AdapterError> {
     let descriptor = payload_file(payload, env.nonce)?;
     protect_lease_descriptor(env.parent_env);
-    let request = SpawnRequest {
-        helper: env.helper,
+    let spawned = build_command(
+        env.helper,
         display,
-        nonce: env.nonce,
-        payload_fd: descriptor.as_raw_fd(),
-    };
-    let spawned = build_spec(&request, env.parent_env).command().spawn();
+        env.nonce,
+        descriptor.as_raw_fd(),
+        env.parent_env,
+    )
+    .spawn();
     drop(descriptor);
     spawned.map_err(|error| {
         failed(

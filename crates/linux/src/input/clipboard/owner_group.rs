@@ -19,17 +19,16 @@ fn accounts(passwd: &str) -> impl Iterator<Item = Account<'_>> {
     })
 }
 
-fn members_of(group: &str, gid: u32) -> Vec<&str> {
+fn members_of(group: &str, gid: u32) -> impl Iterator<Item = &str> {
     group
         .lines()
-        .filter_map(|line| {
+        .filter_map(move |line| {
             let mut fields = line.split(':');
             let found: u32 = fields.nth(2)?.parse().ok()?;
             let members = fields.next().unwrap_or("");
             (found == gid).then_some(members)
         })
         .flat_map(|members| members.split(',').filter(|member| !member.is_empty()))
-        .collect()
 }
 
 /// Whether `file_gid` is the caller's own primary group and no other account belongs to it.
@@ -48,9 +47,7 @@ pub(crate) fn is_private_group(
         .map(|account| account.name);
     let another_primary =
         accounts(passwd).any(|account| account.gid == file_gid && account.uid != caller_uid);
-    let another_member = members_of(group, file_gid)
-        .into_iter()
-        .any(|member| Some(member) != caller_name);
+    let another_member = members_of(group, file_gid).any(|member| Some(member) != caller_name);
     !another_primary && !another_member
 }
 
