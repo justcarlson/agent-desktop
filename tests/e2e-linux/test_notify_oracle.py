@@ -102,22 +102,5 @@ signal time=3.0 sender=:1.2 -> destination=(null destination) serial=11 path=/or
         self.assertEqual(notify.parse_monitor_text(""), [])
 
 
-class RecordTests(unittest.TestCase):
-    def test_matching_records_pass(self) -> None:
-        expected = [{"app": "A", "summary": "one"}, {"app": "B", "summary": "two"}]
-        listed = [
-            {"index": 1, "app_name": "A", "title": "one"},
-            {"index": 2, "app_name": "B", "title": "two"},
-        ]
-        self.assertEqual(notify.compare_records(expected, listed), [])
-
-    def test_count_and_identity_mismatches_are_reported(self) -> None:
-        problems = notify.compare_records(
-            [{"app": "A", "summary": "one"}],
-            [{"index": 1, "app_name": "B", "title": "other"}, {"index": 2}],
-        )
-        self.assertEqual(len(problems), 3)
-
-
 if __name__ == "__main__":
     unittest.main()

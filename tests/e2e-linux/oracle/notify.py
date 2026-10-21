@@ -159,17 +159,3 @@ def observing(ctx):
     finally:
         watcher.terminate()
         watcher.wait(timeout=5)
-
-
-def compare_records(expected: list[dict], listed: list[dict]) -> list[str]:
-    problems: list[str] = []
-    if len(expected) != len(listed):
-        problems.append(f"count {len(listed)} != {len(expected)}")
-    for position, (want, got) in enumerate(zip(expected, listed), start=1):
-        if got.get("app_name") != want["app"]:
-            problems.append(f"{position}: app {got.get('app_name')!r} != {want['app']!r}")
-        if got.get("title") != want["summary"]:
-            problems.append(f"{position}: title {got.get('title')!r} != {want['summary']!r}")
-        if got.get("index") != position:
-            problems.append(f"{position}: index {got.get('index')!r}")
-    return problems

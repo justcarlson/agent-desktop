@@ -136,11 +136,13 @@ def recovery_strategy_on_error(ctx: LegContext) -> None:
     ctx.after("proc.calculator", read())
     assert not read(), "stale click relaunched the dead owner"
     assert not envelope.ok, envelope.raw
-    assert error_code(envelope) in ("STALE_REF", "ELEMENT_NOT_FOUND"), envelope.raw
+    assert error_code(envelope) == "STALE_REF", envelope.raw
     error = envelope.error or {}
-    disposition = error.get("disposition") or {}
-    if disposition.get("retry") == "safe":
-        assert (error.get("recovery") or {}).get("strategy"), envelope.raw
+    details = error.get("details") or {}
+    assert details.get("process_state") == "exited", envelope.raw
+    assert details.get("retryable") is False, envelope.raw
+    assert error.get("disposition") == {"delivery": "not_delivered", "retry": "safe"}, envelope.raw
+    assert "recovery" not in error, envelope.raw
     ctx.restored("proc.calculator", read())
 
 

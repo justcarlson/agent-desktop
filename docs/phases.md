@@ -2234,7 +2234,7 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 - Retained observation, qualified-ref/session/trace, duplicate owner/window identity, raw zero-axis geometry, hidden-menu visibility, placeholder, state/value writes, semantic typing, policy refusals, ref selection/context menus/focus/hover, Settings scrolling/disclosure and non-interference legs. Actual coverage is the registry's tier/mode matrix; this scope does not promise every toolkit or position on every tier (L14, L23, L34).
 - Disabled Calculator Undo tests default, explicit, short and immediate timeout contracts. A controlled Qt enable target checks one activation. Positive Qt display-value selection is not claimed: the installed probe exposes no unique raw choice target, and native Qt coverage expects write_ignored. Unsupported Settings selection remains an asserted refusal, not positive selection coverage.
 - X11 ordinary/ABOVE cover legs independently check document/caret, covering app, stacking and restoration. Capture compares decoded window/display pixels against XWD where supported, with exact compositing/Wayland refusals where the route is unavailable. Text/image clipboard legs use a foreign producer/reader and check owner lifetime and clear; there is no HTML-setter claim.
-- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. App-scoped surface events, the seeded About opener and baseline, the Calculator About modal, the shell System button, tray activation, menu events and refusals, and the notification list, wait and dismiss legs are measured live on the landed product; unscoped surface waits, unproven tray entries and notification lookups are asserted refusals. No leg passes by registration alone.
+- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. App-scoped surface events, the seeded About opener and baseline, the Calculator About modal, the shell System button, tray activation, menu events and refusals, and the notification filter, wait and dismiss legs are measured live on the landed product; unscoped surface waits, unproven tray entries and notification lookups are asserted refusals. No leg passes by registration alone.
 - Wayland observation and exact focus/capture/headed-ref refusal contracts run on the private seatless tier. Successful keyboard-seat, portal-consent and physical input tests require 3.15's owner-run environments. Direct adapter `hit_test` is not exposed by the CLI and is not claimed by a mouse-click substitute (L27-46).
 - `linux-e2e` workflow_dispatch wiring and hosted portable self-tests. An interactive runner and KDE/Plasma validation remain 3.15 infrastructure/hardware work, not measured CI coverage.
 
@@ -2244,7 +2244,18 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 
 **Exit criteria:** Portable suites and source/findings/secret/author gates pass. Python files remain below 400 lines. Every retained executable tier/mode is measured in bounded private-session batches, with pass/fail/outstanding counts and deterministic product repros in the README. The plan and README claim only the retained measured inventory. A stranger dogfood report records and disposes of actual findings.
 
-**Validation:** The historical full-tier receipt covers 244 executable tier/mode cells (242 pass, two safe deterministic workspace STALE_REF failures) and predates notification closure. Notification rows now exercise private-sender ordering, filters, waits, exact mutation refusals and daemon-observed dismiss effects, with restoration. The conditional INTERNAL leg is deleted because it had no required outcome. The bystander live specimen is deleted after a private-shell stall followed by a passing singleton rerun; deterministic Linux mutation tests retain its safety contract. The action live specimen is also deleted after a pass followed by pre-delivery and independent-daemon timeouts on the repaired image; native action tests remain. `runner/legs.py` defines the current inventory; `tests/e2e-linux/README.md` documents its contracts and historical measurements. Historical lane counts do not certify this head.
+**Validation:** The full private live suite passed at `a9410839`. The closing gate
+runs only affected ignored modules and E2E cells after that baseline; measured
+counts are in `tests/e2e-linux/README.md`. The registry has zero outstanding rows.
+Retired specimens are not passes. The Mutter scoped About-dismissal E2E cell
+is retired after a batch identity timeout and a passing sole rerun; Openbox
+retains the positive contract. Headed tray-popup acceptance is also retired
+after watcher restoration failed in the batch and passed its sole rerun; the
+four headless tray contracts remain. Notification acceptance uses sender records,
+exact refusal codes, daemon signals and final restoration; the full-record list, action and bystander live notification
+specimens remain retired, with deterministic mutation
+coverage retained. Interactive GNOME, consenting Wayland seats and KDE hardware
+remain unmeasured and deferred outside the private-session registry.
 
 ### 3.13 — FFI, npm, Release
 
@@ -2375,7 +2386,9 @@ System tray interaction is built from scratch here.
 
 ### 3.15 — Hardening & Integration Review
 
-**Goal:** Prove the assembled `feat/linux-adapter` branch is production-grade as a whole, then merge it — closing out the three-platform story.
+**Goal:** Close the targeted validation of `feat/linux-3.15-hardening` before its PR opens, with shipped behavior and remaining environment limits recorded accurately.
+
+**Status:** The full private live suite passed at `a9410839`; subsequent changes receive targeted native/live/E2E validation. Owner-desktop, consent, root-input and hardware measurements below are deferred work, not shipped coverage or outstanding executable registry rows. This gate does not merge or push.
 
 **Scope:**
 - Full-branch multi-agent review
@@ -2392,29 +2405,23 @@ System tray interaction is built from scratch here.
 - The GNOME shell outage is an unanswering accessibility service: across two private X11 and two private Wayland runs, direct reads timed out while the same process, start token and registered shell root remained. A further run per tier timed out concurrently on both Name and GetChildren, excluding a name-only read stall. Blank cached names and child count -1 did not establish window removal. The adapter preserves read errors, including `TIMEOUT`, instead of reporting `window_missing`; a genuinely readable app without a window keeps the bounded `APP_NOT_FOUND` refusal, and a destroyed sibling does not hide a live window. A verified stopped shell answers `APP_UNRESPONSIVE` with `not_delivered` before tree reads. The internal GNOME reason for the stalls is not isolated; inability to read an unanswering shell is an accepted limit, without a guessed replacement window (L32-48, L32-49).
 - Measure the Wayland shell click on a second monitor and on a monitor at scale 2: the stream of a second virtual monitor maps to its own coordinates (5 of 5 sessions), but the first press after the first move onto it was lost in a client in 3 of 3 cold runs and no shell control sits on it to test the adapter path, and the headless virtual monitor offers scale 1 only, so scale 2 needs a real display configuration (L32-46).
 - Measure what 3.14 could not: the shell landmarks on a non-English shell (the container finder compares `Clear all notifications`, `System`, `Overview`, `Power Off Menu` and `Show Apps`; the box has no shell translation catalogue, L32-40), the Wayland `RemoteDesktop` refusal shape, a scale-2 pointer mode, the tray corner cases (`NeedsAttention`, `ItemIsMenu`, a missing `Menu`, a submenu filled only by `AboutToShow`, a revision change between read and pick), Gecko and VS Code menus, and the GTK 3 header-bar popover (L32-16)
-- Merge `feat/linux-adapter` → `main` as one release-noted `feat!`
-- Re-run 3.5's ignored live tests (`cargo test -p agent-desktop-linux -- --include-ignored --test-threads=1`) on the live session once the owner restores its AT-SPI bus: 3.5 ran them in a private session only, so the legs a private session cannot show (the owner's real desktop apps, the shell's own windows, a real Chrome or Chromium password field whose value must be withheld) are not yet proven. The legs and rows are `L25-1` to `L25-10` and `L20-3`
-- Re-run 3.6's ignored live tests (`hit_live`, `offscreen_live`, `focus_window_live`, `scroll_into_view_live`) on the live session once the owner restores its AT-SPI bus. 3.6 ran them in a private session under openbox and `gnome-shell --x11`, Firefox included as its inner snap binary (L27-44), because the box's live bus is down and must not be restarted from here
+- Deferred owner-desktop measurement: re-run 3.5's ignored live tests (`cargo test -p agent-desktop-linux -- --include-ignored --test-threads=1`) on the live session once the owner restores its AT-SPI bus: 3.5 ran them in a private session only, so the legs a private session cannot show (the owner's real desktop apps, the shell's own windows, a real Chrome or Chromium password field whose value must be withheld) are not yet proven. The legs and rows are `L25-1` to `L25-10` and `L20-3`
+- Deferred owner-desktop measurement: re-run 3.6's ignored live tests (`hit_live`, `offscreen_live`, `focus_window_live`, `scroll_into_view_live`) on the live session once the owner restores its AT-SPI bus. 3.6 ran them in a private session under openbox and `gnome-shell --x11`, Firefox included as its inner snap binary (L27-44), because the box's live bus is down and must not be restarted from here
 
-#### Workspace incrementor recovery received from the live harness
+#### Shipped workspace incrementor recovery
 
-The retained `values.workspace_count_commit` leg deterministically fails on
-Openbox in both modes and its sole diagnostic rerun: the Settings Multitasking
-incrementor is found, actionability preparation scrolls, and strict resolution
-then returns `STALE_REF`, `resolve_no_candidate`, `complete: true`,
-`preparatory_scroll: may_have_changed_view`, `not_delivered`/`safe`. The backing
-`num-workspaces` value remains unchanged. Reproduce with the release harness
-`--tier x11-openbox --leg values.workspace_count_commit`; evidence and dispositions
-are in `tests/e2e-linux/README.md`. Own the scroll/identity recovery here, preserving
-strict target identity and no-dispatch on uncertainty. Add a deterministic moving
-incrementor fake before a product repair; retain wrong-target and exactly-once
-checks, then validate this existing live repro. Do not loosen identity to make
-the positive write pass. This is a product finding, not a retired timing test.
+`a9410839` fixes preparatory scrolling of the Settings workspace incrementor.
+A deterministic moving-control regression commits exactly once; replacement
+controls receive zero writes. Recovery requires GTK4 UUID context paths,
+unchanged scrollbar identity/range/orientation, pure viewport translation,
+and strict same-object/ancestry resolution. Unknown evidence retains the
+original refusal. `values.workspace_count_commit` remains in the closing
+Openbox headless/headed selection; its measured result is in the harness README.
 
 #### Harness hardening received from 3.12
 
-These are required 3.15 work, not owner-decision placeholders and not passing
-3.12 coverage. Evidence is the assigned row in
+These transferred measurements remain deferred and are not shipped or passing
+3.12 coverage. They are outside the executable closing-gate registry. Evidence is the assigned row in
 `docs/plans/3.12-integration-decisions.md` and the measured failures/retirements
 in `docs/plans/3.12-gaps-review-closure.md`. Rebuild the target/readiness setup
 before product dispatch. Do not relax attribution, membership, identity,
@@ -2484,20 +2491,19 @@ before dispatch; launcher exit or status is not window evidence.
 | `toolkit_electron.refs_and_completeness` | VS Code: R35 VS Code first snapshot has refs while its frame remains registered; tiers x11-openbox, x11-mutter, modes headless | private VS Code never registered a new AT-SPI window within the 35-second observed-window deadline across three launches; launcher exit 0 or still running is not a usable frame; retain deterministic frame-generation checks Evidence: docs/plans/3.12-gaps-review-closure.md. |
 | `toolkit_electron.menu_action_and_waits` | VS Code: R35 VS Code File action opens its dropdown and menu predicates succeed and time out both ways; tiers x11-openbox, x11-mutter, modes headless, headed | private VS Code has no independently attributed frame in three launch attempts, so no menu/action target exists; do not count launcher success as menu coverage Evidence: docs/plans/3.12-gaps-review-closure.md. |
 
-The KDE/Plasma 5.24+ manual matrix in the harness README is also owned here:
-walk snapshot, semantic click, wheel/drag, focus, notifications/dismiss, tray,
+Deferred outside this PR gate: the KDE/Plasma 5.24+ manual matrix in the harness README. On suitable hardware, walk snapshot, semantic click, wheel/drag, focus, notifications/dismiss, tray,
 menu surface and Wayland snapshot/click/focus on real Plasma hardware, recording
-each outcome and refusal. Provision the interactive GNOME workflow runner and
+each outcome and refusal. The interactive GNOME workflow runner also remains deferred; provision it and
 record an actual dispatch. Live portal consent and RemoteDesktop policy need
 a person and a private consenting desktop; root uinput setup remains the
 explicit privileged investigation already listed above. No shared live bus,
 clipboard or user app is an authorized fixture for these checks (the harness README KDE matrix and gaps closure report).
 
-**Key APIs:** none — verification and merge only
+**Key APIs:** none — verification and documentation only
 
 **Depends on:** 3.0 through 3.14 — all of them merged; no Linux sub-phase may lag past this gate
 
-**Exit criteria:** every item in the Cross-cutting sub-phase DoD holds for the whole branch; `main` gains Linux support in one commit, completing the three-platform matrix.
+**Exit criteria:** the requested native, cross-platform, targeted live/E2E and source-policy gates pass, the registry has zero outstanding rows, and this section and the README match the measured shipped scope. Deferred owner/hardware checks above remain explicitly unmeasured; opening or merging a PR is a separate action.
 
 **Est. PR size:** small diff, large verification effort
 

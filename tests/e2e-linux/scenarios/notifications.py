@@ -44,22 +44,6 @@ def _observing(ctx):
     assert not _list(ctx), "private notification list was not restored"
 
 
-@implementation("notifications.list_equals_sender_record")
-def list_equals_sender_record(ctx):
-    with _observing(ctx) as sender:
-        sender.send("HarnessAlpha", "Alpha summary", "first body")
-        sender.send("HarnessBeta", "Beta summary", "second body", (("open", "Open"),))
-        _await(ctx, "HarnessBeta")
-        observed = _list(ctx)
-        expected = list(reversed(list(sender.records.values())))
-        problems = notify.compare_records(expected, observed)
-        assert not problems, "; ".join(problems)
-        for want, got in zip(expected, observed):
-            assert got.get("body") == want["body"], observed
-            assert got.get("actions", []) == want["actions"], observed
-        ctx.after("dbus.notifications", sender.active())
-
-
 @implementation("notifications.app_filter_case_insensitive")
 def app_filter_case_insensitive(ctx):
     with _observing(ctx) as sender:

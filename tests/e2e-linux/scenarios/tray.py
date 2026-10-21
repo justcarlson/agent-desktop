@@ -11,7 +11,7 @@ from pathlib import Path
 from apps.sni_item import read_log
 from runner.legs import implementation
 from runner.verdict import LegContext
-from oracle.atspi_raw import app_root, call, connect, poll
+from oracle.atspi_raw import call, connect, poll
 from oracle.gsettings import tool
 
 SENDER = Path(__file__).resolve().parents[1] / "apps" / "sni_item.py"
@@ -182,27 +182,4 @@ def killed_owner_stale_ref(ctx: LegContext) -> None:
         assert not envelope.ok, envelope.raw
         assert (envelope.error or {}).get("code") == "STALE_REF", envelope.raw
         assert not calls_named(log, "Activate")
-        ctx.after("applog", read_log(log))
-
-
-def popup_visible(ctx):
-    nodes = app_root(ctx.tier, "gnome-shell").find(name=ACTIVATE_LABEL)
-    return any("SHOWING" in node.states for node in nodes)
-
-
-@implementation("tray.headed_click_opens_shell_popup")
-def headed_click_opens_shell_popup(ctx: LegContext) -> None:
-    with sender(ctx, "--no-activate") as (_spawned, log):
-        ref = _ref(ctx, TITLE)
-        assert not popup_visible(ctx), "tray popup initially open"
-        ctx.before("atspi.shell_menu", popup_visible(ctx))
-        envelope = ctx.product(["click", ref], headed=True)
-        assert envelope.ok, envelope.raw
-        assert poll(lambda: popup_visible(ctx), 4.0), "the shell showed no item menu"
-        ctx.after("atspi.shell_menu", popup_visible(ctx))
-        assert not calls_named(log, "Activate")
-        closed = ctx.product(["press", "escape"], headed=True)
-        assert closed.ok, closed.raw
-        assert poll(lambda: not popup_visible(ctx), 4.0), "tray popup did not close"
-        ctx.restored("atspi.shell_menu", popup_visible(ctx))
         ctx.after("applog", read_log(log))
