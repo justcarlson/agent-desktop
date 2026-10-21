@@ -130,9 +130,11 @@ pub(crate) fn search<R: ItemReader>(
             });
         }
     }
+    if incomplete {
+        return Ok(Search::Incomplete);
+    }
     Ok(match found {
         Some(hit) => Search::Found(hit),
-        None if incomplete => Search::Incomplete,
         None => Search::NotFound { selectable },
     })
 }

@@ -313,7 +313,7 @@ pub(super) fn miss_error(miss: &Search<AtspiElement>) -> AdapterError {
             json!({ "searched": true }),
         ),
         Search::Incomplete => refusal(
-            ErrorCode::ElementNotFound,
+            ErrorCode::AmbiguousTarget,
             "The search for the item ended at its limit before it covered the container",
             json!({ "search_incomplete": true }),
         ),

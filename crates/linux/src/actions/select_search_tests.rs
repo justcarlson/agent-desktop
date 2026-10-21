@@ -179,6 +179,42 @@ fn an_unreadable_descendant_makes_a_miss_incomplete_not_absent() {
 }
 
 #[test]
+fn a_sole_match_in_an_incomplete_search_never_authorizes_selection() {
+    let mut unreadable = FakeTree::new(&[
+        (None, true, &[1, 2]),
+        (Some("Match"), false, &[]),
+        (None, false, &[]),
+    ]);
+    unreadable.unreadable.push(2);
+    let mut deep = FakeTree::new(&[
+        (None, true, &[1, 2]),
+        (Some("Match"), false, &[]),
+        (None, false, &[]),
+    ]);
+    for level in 2..=DEPTH_LIMIT + 1 {
+        deep.children[level] = vec![level + 1];
+        deep.names.push(None);
+        deep.selection.push(false);
+        deep.children.push(Vec::new());
+    }
+    let mut wide = FakeTree {
+        names: vec![None; NODE_LIMIT + 1],
+        selection: vec![false; NODE_LIMIT + 1],
+        children: vec![Vec::new(); NODE_LIMIT + 1],
+        unreadable: Vec::new(),
+    };
+    wide.selection[0] = true;
+    wide.names[1] = Some("Match");
+    wide.children[0] = (1..=NODE_LIMIT).collect();
+    for mut tree in [unreadable, deep, wide] {
+        assert_eq!(
+            search(&mut tree, &0, "Match").expect("searched"),
+            Search::Incomplete
+        );
+    }
+}
+
+#[test]
 fn an_unreadable_root_is_an_error() {
     let mut tree = FakeTree::new(&[(Some("A"), false, &[])]);
     tree.unreadable.push(0);
