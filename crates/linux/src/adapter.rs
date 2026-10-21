@@ -231,6 +231,15 @@ impl LinuxAdapter {
 }
 
 impl ActionOps for LinuxAdapter {
+    fn scroll_ref_into_view(
+        &self,
+        entry: &agent_desktop_core::RefEntry,
+        handle: &NativeHandle,
+        lease: &InteractionLease,
+    ) -> Result<Option<NativeHandle>, AdapterError> {
+        crate::actions::scroll_ref::scroll(self.bus(), entry, handle, lease)
+    }
+
     fn execute_action(
         &self,
         handle: &NativeHandle,

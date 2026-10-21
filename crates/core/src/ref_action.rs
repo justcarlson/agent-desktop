@@ -85,20 +85,29 @@ pub(crate) fn dispatch_resolved(
             if !crate::ref_action_wait_evidence::should_scroll_after_preflight(&request, &error) {
                 return Err(error.into());
             }
-            if let Err(scroll_error) = target.adapter.scroll_into_view(&handle, lease) {
-                trace_scroll_error(&target, &scroll_error);
-                return Err(
-                    crate::ref_action_wait_evidence::attach_scroll_recovery_failure(
-                        error,
-                        &scroll_error,
-                    )
-                    .into(),
-                );
-            }
-            handle = target
+            let recovered = match target
                 .adapter
-                .resolve_element_strict(target.entry, target.deadline)
-                .map_err(after_scroll)?;
+                .scroll_ref_into_view(target.entry, &handle, lease)
+            {
+                Ok(recovered) => recovered,
+                Err(scroll_error) => {
+                    trace_scroll_error(&target, &scroll_error);
+                    return Err(
+                        crate::ref_action_wait_evidence::attach_scroll_recovery_failure(
+                            error,
+                            &scroll_error,
+                        )
+                        .into(),
+                    );
+                }
+            };
+            handle = match recovered {
+                Some(handle) => handle,
+                None => target
+                    .adapter
+                    .resolve_element_strict(target.entry, target.deadline)
+                    .map_err(after_scroll)?,
+            };
             let scrolled_target = ResolvedRefAction::new(target, &handle);
             stable_preflight(&scrolled_target, &request)
                 .map_err(|error| after_scroll(into_adapter_error(error)))?
@@ -377,6 +386,10 @@ mod cursor_overlay_tests;
 #[cfg(test)]
 #[path = "ref_action_scroll_recovery_tests.rs"]
 mod scroll_recovery_tests;
+
+#[cfg(test)]
+#[path = "ref_action_moving_incrementor_tests.rs"]
+mod moving_incrementor_tests;
 
 #[cfg(test)]
 #[path = "ref_action_keyboard_tests.rs"]

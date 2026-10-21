@@ -4,7 +4,7 @@ use zbus::Connection;
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::scroll_crawl::{Crawl, orientation_of, role_of};
-use super::scroll_find_bar::{Site, choose_bar};
+use super::scroll_find_bar::{Orientation, Site, choose_bar};
 use super::scroll_into_view::{BarFound, Geometry, ScrollPort, View};
 use super::scroll_plan::{Axis, BarRange};
 use crate::system::toolkit_id::ToolkitId;
@@ -49,6 +49,20 @@ impl<'a> BusPort<'a> {
             bar: None,
             crawl: None,
         }
+    }
+
+    pub(crate) fn bar(&self) -> Option<&AtspiElement> {
+        self.bar.as_ref()
+    }
+
+    pub(crate) fn bar_orientation(&self) -> Result<Orientation, AdapterError> {
+        let Some(bar) = self.bar.as_ref() else {
+            return Ok(Orientation::Unknown);
+        };
+        let connection = self.connection()?;
+        within(self.deadline, async {
+            Ok(orientation_of(connection.inner(), bar).await)
+        })
     }
 
     fn window_minimized(&self) -> bool {
