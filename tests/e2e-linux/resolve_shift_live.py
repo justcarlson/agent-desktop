@@ -13,7 +13,7 @@ gi.require_version("Atspi", "2.0")
 from gi.repository import Atspi, GLib
 
 
-def fixture():
+def fixture(reparent=False):
     gi.require_version("Gtk", "4.0")
     from gi.repository import Gtk
 
@@ -28,12 +28,23 @@ def fixture():
             status.set_label("counts:" + ":".join(map(str, counts)))
 
         other = Gtk.Button(label="Remove other")
-        other.connect("clicked", lambda button: column.remove(button))
+        saves = []
+
+        def rearrange(button):
+            column.remove(button)
+            if reparent:
+                column.remove(saves[0])
+                wrapper = Gtk.Frame()
+                wrapper.set_child(saves[0])
+                column.append(wrapper)
+
+        other.connect("clicked", rearrange)
         column.append(other)
         for index in range(2):
             button = Gtk.Button(label="Save")
             button.connect("clicked", clicked, index)
             column.append(button)
+            saves.append(button)
         barrier = Gtk.Button(label="Barrier")
         barrier.connect("clicked", clicked, 2)
         column.append(barrier)
@@ -91,10 +102,17 @@ def wait_for(read, message):
 
 class ResolveShiftLive(unittest.TestCase):
     def test_old_ref_refuses_shifted_twin_without_firing_either_button(self):
+        self.assert_old_ref_refuses(False)
+
+    def test_old_ref_refuses_reparented_twin_without_firing_either_button(self):
+        self.assert_old_ref_refuses(True)
+
+    def assert_old_ref_refuses(self, reparent):
         self.assertIn("AGENT_DESKTOP_PRIVATE_SESSION", os.environ)
         self.assertNotIn(os.environ["DISPLAY"], (":0", ":1", ":99"))
         binary = os.environ["AGENT_DESKTOP_E2E_BIN"]
-        with subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--fixture"]) as app:
+        mode = "--fixture-depth" if reparent else "--fixture"
+        with subprocess.Popen([sys.executable, str(Path(__file__).resolve()), mode]) as app:
             try:
                 Atspi.init()
                 Atspi.set_timeout(1000, 1000)
@@ -146,6 +164,18 @@ class ResolveShiftLive(unittest.TestCase):
                 self.assertTrue(Atspi.Action.do_action(buttons("Remove other")[0], 0))
                 wait_for(lambda: not buttons("Remove other") and len(buttons("Save")) == 2,
                          "the preceding sibling leaves the independent AT-SPI tree")
+                if reparent:
+                    def depth(node):
+                        count = 0
+                        while node.get_role() != Atspi.Role.FRAME:
+                            node = node.get_parent()
+                            count += 1
+                        return count
+
+                    stored_depth = len(entry["path"])
+                    wait_for(lambda: sorted(depth(node) for node in buttons("Save")) ==
+                             [stored_depth, stored_depth + 1],
+                             "the original moves below a wrapper; its twin stays at the old depth")
 
                 outcome = product("click", old_ref, "--timeout-ms", "2000")
                 self.assertTrue(Atspi.Action.do_action(buttons("Barrier")[0], 0))
@@ -164,7 +194,7 @@ class ResolveShiftLive(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["--fixture"]:
-        fixture()
+    if sys.argv[1:] in (["--fixture"], ["--fixture-depth"]):
+        fixture(sys.argv[1] == "--fixture-depth")
     else:
         unittest.main()

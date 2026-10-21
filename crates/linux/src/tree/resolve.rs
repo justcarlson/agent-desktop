@@ -66,27 +66,6 @@ fn path_tier<S: Source>(
     }
 }
 
-/// The one candidate that sits as deep as the stored path is long, when
-/// several answer to the stored evidence. A control that exposes a twin of
-/// itself as its own child (a Files row's cell holds a cell of the same name
-/// and size) puts the twins at different depths, and a sibling removed from
-/// the list shifts every index but no depth. It only ever picks among several
-/// candidates and never refutes one.
-fn sole_at_stored_depth<'a>(
-    candidates: &'a [Candidate],
-    entry: &RefEntry,
-) -> Option<&'a Candidate> {
-    if candidates.len() < 2 {
-        return None;
-    }
-    let depth = entry.scope.path.len();
-    let mut at_depth = candidates
-        .iter()
-        .filter(|candidate| candidate.depth == depth);
-    let first = at_depth.next()?;
-    at_depth.next().is_none().then_some(first)
-}
-
 /// The verified window frame, when the ref stored an empty path and the frame
 /// answers to the stored evidence. The gate has proved the process and the
 /// window, and exactly one node sits at depth zero, so no twin can exist
@@ -137,12 +116,6 @@ fn attempt<S: Source>(
         return Ok(frame.element.clone());
     }
     let unread = path_unread || searched.unread_region;
-    if window_rooted(entry)
-        && !unread
-        && let Some(candidate) = sole_at_stored_depth(&searched.candidates, entry)
-    {
-        return Ok(candidate.element.clone());
-    }
     match classify(
         &rects,
         &spaces,
