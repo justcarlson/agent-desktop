@@ -147,8 +147,18 @@ pub(crate) fn tree_absent(detail: &str) -> AdapterError {
     .with_details(json!({ "shell_tree": "absent", "detail": detail }))
 }
 
+pub(super) async fn shell_owner(session: &Connection) -> Result<u32, zbus::Error> {
+    owner_process_id(session, SHELL_BUS_NAME)
+        .await
+        .inspect_err(|error| {
+            if crate::system::session_bus::is_transport_failure(error) {
+                SessionBus::forget(session);
+            }
+        })
+}
+
 async fn shell_pid(session: &Connection) -> Result<Option<u32>, AdapterError> {
-    match owner_process_id(session, SHELL_BUS_NAME).await {
+    match shell_owner(session).await {
         Ok(pid) => Ok(Some(pid)),
         Err(zbus::Error::MethodError(name, _, _))
             if name.as_str() == crate::system::NAME_HAS_NO_OWNER

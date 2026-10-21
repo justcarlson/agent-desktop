@@ -1,3 +1,4 @@
+use super::{Deadline, SessionBus, shell_pid, within};
 use agent_desktop_core::{ProcessId, WindowInfo, WindowState};
 
 use crate::system::shell::fake_tree::{BUS, FakeTree, PANEL, PID, WINDOW, at, element};
@@ -168,4 +169,85 @@ fn a_lookup_in_the_same_outage_probes_once_and_a_fresh_one_retries() {
     assert_eq!(retries_after(None, now), 10);
     let long_ago = now - std::time::Duration::from_millis(5_000);
     assert_eq!(retries_after(Some(long_ago), now), 10);
+}
+
+#[test]
+#[ignore = "closes only an owned client connection; run in scripts/private-session.sh"]
+fn shell_pid_transport_loss_reopens_the_cached_session_connection() {
+    assert!(std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some());
+    for _ in 0..2 {
+        let deadline = Deadline::after(5000).unwrap();
+        let session = SessionBus::get(deadline).unwrap();
+        let previous = session.unique_name().unwrap().to_owned();
+        let oracle = std::process::Command::new("busctl")
+            .args([
+                "--address",
+                &std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap(),
+                "call",
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus",
+                "GetConnectionUnixProcessID",
+                "s",
+                "org.gnome.Shell",
+            ])
+            .output()
+            .unwrap();
+        let expected_pid = oracle.status.success().then(|| {
+            String::from_utf8_lossy(&oracle.stdout)
+                .split_whitespace()
+                .next_back()
+                .unwrap()
+                .parse::<u32>()
+                .unwrap()
+        });
+        within(deadline, async {
+            session
+                .clone()
+                .close()
+                .await
+                .map_err(|e| crate::system::classify(&e))
+        })
+        .unwrap();
+        assert!(within(deadline, shell_pid(&session)).is_err());
+        let reopened = SessionBus::get(deadline).expect("fresh client");
+        assert_ne!(
+            reopened.unique_name().unwrap(),
+            &previous,
+            "failed shell transport evicts cached connection"
+        );
+        let output = std::process::Command::new("busctl")
+            .args([
+                "--address",
+                &std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap(),
+                "--no-pager",
+                "list",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(
+            String::from_utf8_lossy(&output.stdout)
+                .contains(reopened.unique_name().unwrap().as_str())
+        );
+        assert_eq!(
+            within(deadline, shell_pid(&reopened)).unwrap(),
+            expected_pid,
+            "shell lookup agrees with independent busctl after reconnection"
+        );
+        let kept = SessionBus::get(deadline).unwrap();
+        assert_eq!(kept.unique_name(), reopened.unique_name());
+        if let Some(pid) = expected_pid {
+            let root = super::find_root(
+                &crate::system::SharedBus::default(),
+                Deadline::after(5000).unwrap(),
+            )
+            .expect("live shell tree reconnects");
+            assert_eq!(root.pid, pid);
+        }
+        println!(
+            "busctl confirms new live client {} after closing {previous}; healthy shell lookup keeps client",
+            reopened.unique_name().unwrap()
+        );
+    }
 }
