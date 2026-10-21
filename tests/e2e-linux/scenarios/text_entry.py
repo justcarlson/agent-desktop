@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import subprocess
+import ctypes
+import ctypes.util
 
 from oracle import atspi_raw, x11
 from runner import apps
@@ -22,11 +23,17 @@ SEARCH_NAMES = ("Find", "Search", "Replace", "Find and Replace")
 
 
 def held_modifiers(text: str) -> list[str]:
-    held = []
+    held, seen = [], set()
     for line in text.splitlines():
-        name, _, state = line.partition(":")
-        if state.strip().lower() not in ("off", "up", ""):
-            held.append(name.strip())
+        name, sep, state = line.partition(":")
+        name, state = name.strip(), state.strip().lower()
+        if not sep or name in seen or name not in MODIFIERS or state not in ("off", "up", "on", "down"):
+            raise AssertionError(f"invalid modifier oracle state: {text!r}")
+        seen.add(name)
+        if state in ("on", "down"):
+            held.append(name)
+    if seen != set(MODIFIERS):
+        raise AssertionError("incomplete modifier oracle state")
     return held
 
 
@@ -79,16 +86,38 @@ def typed_text_reaches_document(ctx: LegContext) -> None:
         apps.stop(app)
 
 
+MODIFIERS = {"Shift": (0xffe1, 0xffe2), "Control": (0xffe3, 0xffe4),
+             "Alt": (0xffe9, 0xffea), "Super": (0xffeb, 0xffec)}
+
+
 def _modifier_state(tier) -> str:
-    process = subprocess.run(
-        ["xdotool", "getmodifierstate"],
-        capture_output=True,
-        text=True,
-        env=tier.env,
-        timeout=5,
-        check=False,
-    )
-    return process.stdout
+    library = ctypes.util.find_library("X11")
+    if not library:
+        raise AssertionError("modifier oracle needs libX11")
+    xlib = ctypes.CDLL(library)
+    xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    xlib.XOpenDisplay.restype = ctypes.c_void_p
+    xlib.XQueryKeymap.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    xlib.XKeysymToKeycode.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    xlib.XKeysymToKeycode.restype = ctypes.c_ubyte
+    xlib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    display = xlib.XOpenDisplay(tier.env["DISPLAY"].encode())
+    if not display:
+        raise AssertionError("modifier oracle could not open the private display")
+    try:
+        keys = (ctypes.c_ubyte * 32)()
+        if not xlib.XQueryKeymap(display, keys):
+            raise AssertionError("modifier oracle keymap query failed")
+        result = []
+        for name, symbols in MODIFIERS.items():
+            codes = [xlib.XKeysymToKeycode(display, symbol) for symbol in symbols]
+            if any(code <= 0 or code >= 256 for code in codes):
+                raise AssertionError(f"modifier oracle has no keycode for {name}")
+            down = any(keys[code // 8] & (1 << (code % 8)) for code in codes)
+            result.append(f"{name}: {'on' if down else 'off'}")
+        return "\n".join(result)
+    finally:
+        xlib.XCloseDisplay(display)
 
 
 @implementation("text_entry.held_key_released")
@@ -97,10 +126,11 @@ def held_key_released(ctx: LegContext) -> None:
     try:
         ctx.before("x11.modifiers", held_modifiers(_modifier_state(ctx.tier)))
         assert_ok(ctx.product(["press", "shift+a", "--window-id", window]))
-        after = atspi_raw.poll(lambda: held_modifiers(_modifier_state(ctx.tier)), 3.0)
+        after = held_modifiers(_modifier_state(ctx.tier))
         ctx.after("x11.modifiers", after)
-        if held_modifiers(_modifier_state(ctx.tier)):
+        if after:
             raise AssertionError("a modifier was left pressed after the key combo")
+        ctx.restored("x11.modifiers", held_modifiers(_modifier_state(ctx.tier)))
     finally:
         apps.stop(app)
 

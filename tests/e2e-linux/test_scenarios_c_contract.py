@@ -207,7 +207,7 @@ class TextEntryHelperTests(unittest.TestCase):
         self.assertEqual(text_entry.held_modifiers(text), ["Control"])
 
     def test_all_released_is_empty(self):
-        self.assertEqual(text_entry.held_modifiers("Shift: off\nControl: off"), [])
+        self.assertEqual(text_entry.held_modifiers("Shift: off\nControl: off\nAlt: off\nSuper: off"), [])
 
 
 class ClipboardHelperTests(unittest.TestCase):

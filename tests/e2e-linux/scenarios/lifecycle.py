@@ -196,18 +196,62 @@ def window_operation_delivery_reports(ctx: LegContext) -> None:
     try:
         window = _window_id(app)
         before = _geometry(ctx, window)
-        ctx.before("x11.geometry", before)
-        moved = assert_ok(ctx.product(["move-window", "--window-id", window, "--x", str(before[0] + 20), "--y", str(before[1] + 20)]))
-        moved_report = delivery_fields(moved)
-        ctx.after("x11.geometry", _geometry(ctx, window))
-        if moved_report["delivery"] == "not_delivered":
-            raise AssertionError("a moved window was reported not delivered")
-        missing = ctx.product(["resize-window", "--window-id", "w-missing", "--width", "100", "--height", "100"])
-        if missing.ok:
-            raise AssertionError("resizing a missing window succeeded")
-        if error_delivery(missing)["delivery"] != "not_delivered":
-            raise AssertionError("a missing window was not reported as not delivered")
-        _restore_geometry(ctx, window, before)
+        negative_keys = []
+        try:
+            for operation, expected, args in (
+                ("move-window", (before[0] + 20, before[1] + 20, *before[2:]),
+                 ["--x", str(before[0] + 20), "--y", str(before[1] + 20)]),
+                ("resize-window", (before[0], before[1], before[2] + 40, before[3] + 30),
+                 ["--width", str(before[2] + 40), "--height", str(before[3] + 30)]),
+            ):
+                key = "x11.geometry" if operation == "move-window" else "x11.resize"
+                ctx.before(key, _geometry(ctx, window))
+                data = assert_ok(ctx.product([operation, "--window-id", window, *args]))
+                observed = changed(lambda: _geometry(ctx, window), expected, seconds=6)
+                ctx.after(key, observed)
+                if delivery_fields(data)["delivery"] != "delivered_verified":
+                    raise AssertionError(f"{operation} took effect but was not reported verified")
+                if operation == "move-window":
+                    assert_ok(ctx.product(["move-window", "--window-id", window, "--x", str(before[0]), "--y", str(before[1])]))
+                    changed(lambda: _geometry(ctx, window), before, seconds=6)
+            assert_ok(ctx.product(["resize-window", "--window-id", window, "--width", str(before[2]), "--height", str(before[3])]))
+            changed(lambda: _geometry(ctx, window), before, seconds=6)
+            baseline_hidden = is_hidden(_wm_state(ctx.tier, window))
+            if baseline_hidden:
+                raise AssertionError("the fresh window was already minimized")
+            ctx.before("x11.minimized", baseline_hidden)
+            data = assert_ok(ctx.product(["minimize", "--window-id", window]))
+            ctx.after("x11.minimized", changed(lambda: is_hidden(_wm_state(ctx.tier, window)), True, seconds=6))
+            if delivery_fields(data)["delivery"] != "delivered_verified":
+                raise AssertionError("minimize took effect but was not reported verified")
+            assert_ok(ctx.product(["restore", "--window-id", window]))
+            changed(lambda: is_hidden(_wm_state(ctx.tier, window)), False, seconds=6)
+            for operation, args in (("move-window", ["--x", "100", "--y", "100"]),
+                                    ("resize-window", ["--width", "100", "--height", "100"]),
+                                    ("minimize", [])):
+                read = lambda: (_geometry(ctx, window), is_hidden(_wm_state(ctx.tier, window)))
+                key = "x11.missing_" + operation
+                baseline = read()
+                ctx.before(key, baseline)
+                negative_keys.append(key)
+                missing = ctx.product([operation, "--window-id", "w-missing", *args])
+                after = read()
+                ctx.after(key, after)
+                if after != baseline:
+                    raise AssertionError(f"{operation} on a missing window changed a real window")
+                if missing.ok or error_delivery(missing)["delivery"] != "not_delivered":
+                    raise AssertionError(f"{operation} on a missing window was not refused as not delivered")
+        finally:
+            assert_ok(ctx.product(["restore", "--window-id", window]))
+            ctx.restored("x11.minimized", changed(lambda: is_hidden(_wm_state(ctx.tier, window)), False, seconds=6))
+            x, y, width, height = before
+            assert_ok(ctx.product(["resize-window", "--window-id", window, "--width", str(width), "--height", str(height)]))
+            assert_ok(ctx.product(["move-window", "--window-id", window, "--x", str(x), "--y", str(y)]))
+            ctx.restored("x11.resize", changed(lambda: _geometry(ctx, window), before, seconds=6))
+            ctx.restored("x11.geometry", _geometry(ctx, window))
+            for key in negative_keys:
+                ctx.restored(key, (_geometry(ctx, window), is_hidden(_wm_state(ctx.tier, window))))
+
     finally:
         apps.stop(app)
 

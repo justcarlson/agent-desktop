@@ -157,5 +157,3 @@ class EnvelopeTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"AGENT_DESKTOP_E2E_BIN": str(binary)}):
                 envelope = product.run_product(tier, ["click", "@e1"])
         self.assertTrue(envelope.ok)
-
-

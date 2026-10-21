@@ -73,7 +73,7 @@ def html_roundtrip(ctx: LegContext) -> None:
         owners.append(oracle_clipboard.foreign_set(ctx.tier, "text/html", payload))
         require(oracle_clipboard.foreign_get(ctx.tier, "text/html") == payload)
         auto = _get(ctx, "auto")
-        require(auto.get("text") is None or "foreign" in auto["text"],
+        require(auto.get("type") == "text" and auto.get("text") == payload.decode(),
                 "the product's auto read missed the HTML text")
 
 

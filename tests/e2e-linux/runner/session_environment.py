@@ -25,4 +25,3 @@ _ENV_KEYS = (
     "DISPLAY",
     "WAYLAND_DISPLAY",
 )
-
