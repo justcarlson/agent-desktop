@@ -13,19 +13,19 @@ def terminal_copy_follows_selection(ctx: LegContext) -> None:
         interface = "org.a11y.atspi.Text"
         length = terminal.get_property(interface, "CharacterCount")
         require(length > 0 and "SENSITIVE" not in copy.states, "Copy not initially disabled")
-        ctx.before("atspi", False)
+        ctx.before("atspi", "SENSITIVE" in copy.states)
         require(command(ctx, ["is", target, "--property", "enabled"], app).data["result"] is False)
         try:
             require(terminal.invoke(interface, "AddSelection", "(ii)", (0, length))[0])
             changed(lambda: "SENSITIVE" in copy.states, True)
             require(command(ctx, ["is", target, "--property", "enabled"], app).data["result"] is True)
-            ctx.after("atspi", True)
+            ctx.after("atspi", "SENSITIVE" in copy.states)
         finally:
             count = terminal.invoke(interface, "GetNSelections")[0]
             for index in reversed(range(count)):
                 require(terminal.invoke(interface, "RemoveSelection", "(i)", (index,))[0])
             changed(lambda: "SENSITIVE" in copy.states, False)
-            ctx.restored("atspi", False)
+            ctx.restored("atspi", "SENSITIVE" in copy.states)
 
 
 @implementation("state.text_editor_semantic_type")

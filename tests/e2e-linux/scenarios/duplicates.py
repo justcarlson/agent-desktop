@@ -35,7 +35,8 @@ def two_processes_distinct_window_ids(ctx: LegContext) -> None:
                            for item in apps.owners_named(ctx.tier, "Calculator"))
             require(after == evidence)
             ctx.after("atspi", after)
-            ctx.restored("atspi", after)
+            ctx.restored("atspi", sorted((item.pid, item.start_time, item.windows)
+                                         for item in apps.owners_named(ctx.tier, "Calculator")))
 
 
 @implementation("duplicates.main_menu_nodes_separate")
@@ -54,4 +55,4 @@ def main_menu_nodes_separate(ctx: LegContext) -> None:
         after = [(item.path, item.role) for item in tree.find(name="Main Menu")]
         require(after == evidence)
         ctx.after("atspi", after)
-        ctx.restored("atspi", after)
+        ctx.restored("atspi", [(item.path, item.role) for item in tree.find(name="Main Menu")])
