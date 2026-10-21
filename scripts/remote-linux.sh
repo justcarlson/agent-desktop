@@ -16,7 +16,9 @@
 # each other's input, focus and hit-test results. AGENT_DESKTOP_REMOTE_LOCK=0 skips the lock;
 # use it only for read-only commands that touch no display, input or app state. -o keeps the
 # lock out of children that outlive the command, such as xclip serving a selection, and -w
-# bounds the wait for the lock separately when AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT is set.
+# bounds the wait for the lock by the same timeout as the command.
+# AGENT_DESKTOP_REMOTE_SYNC=0 reuses the existing checkout for reading receipts or recovering
+# a full disk, where even rsync cannot finish. Builds use the default sync.
 # Two runs from the same worktree share one remote folder, and the sync happens before the lock,
 # so runs from one worktree must not overlap.
 set -euo pipefail
@@ -79,10 +81,12 @@ case "$cmd" in *cargo*|*linux-live-gate*) wrap='sh -c '"'"'find crates src -name
 lock="flock -o -w $TIMEOUT \$HOME/ad-wt/.box.lock"
 [ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p \$HOME/ad-wt $qdir"
-filter=$(mktemp)
-trap 'rm -f -- "$filter"' EXIT
-git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ 'function esc(s){gsub(/[][*?\\]/, "\\\\&", s); return s} {p=""; for(i=1;i<NF;i++){p=p $i "/"; if(!(p in d)){d[p]=1; print "+ /" esc(p)}} print "+ /" esc($0)} END{print "- *"}' > "$filter"
-rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
+if [ "${AGENT_DESKTOP_REMOTE_SYNC:-1}" != 0 ]; then
+  filter=$(mktemp)
+  trap 'rm -f -- "$filter"' EXIT
+  git -C "$ROOT" ls-files -co --exclude-standard | awk -F/ 'function esc(s){gsub(/[][*?\\]/, "\\\\&", s); return s} {p=""; for(i=1;i<NF;i++){p=p $i "/"; if(!(p in d)){d[p]=1; print "+ /" esc(p)}} print "+ /" esc($0)} END{print "- *"}' > "$filter"
+  rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
+fi
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
   && export CARGO_TARGET_DIR=\$HOME/ad-target CARGO_INCREMENTAL=0 && . ./scripts/session-env.sh \
   && { timeout -k 30 $TIMEOUT $lock $wrap $cmd; rc=\$?; \
