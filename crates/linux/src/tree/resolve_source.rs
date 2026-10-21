@@ -132,3 +132,7 @@ pub(crate) fn resolve_locator_anchor(
 #[cfg(test)]
 #[path = "resolve_source_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "resolve_action_live_tests.rs"]
+mod action_live_tests;
