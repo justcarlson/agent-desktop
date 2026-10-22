@@ -205,7 +205,7 @@ fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
     let error = press(&physical, &keys, InteractionPolicy::headless()).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.details.as_ref().unwrap()["cause"], "frame_not_active");
-    assert!(not_delivered(&error));
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert!(physical.sent_nothing());
     let hint = error.suggestion.as_deref().unwrap();
     assert!(

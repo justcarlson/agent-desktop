@@ -13,36 +13,29 @@ fn children(count: usize) -> Vec<(String, String)> {
 
 #[test]
 fn one_stalled_frame_costs_one_slice_keeps_its_peers_and_reads_timed_out() {
-    for process_gone in [false, true] {
-        let started = Instant::now();
-        let (frames, read) = zbus::block_on(collect_frames(
-            children(4),
-            Duration::from_millis(100),
-            move || process_gone,
-            |_| false,
-            |(bus, _)| async move {
-                if bus == ":1.1" {
-                    Timer::after(Duration::from_secs(30)).await;
-                }
-                Ok(bus)
-            },
-        ));
-        assert_eq!(frames, [":1.0", ":1.2", ":1.3"]);
-        assert_eq!(read, RootRead::TimedOut);
-        assert!(started.elapsed() < Duration::from_secs(5));
-    }
+    let started = Instant::now();
+    let (frames, read) = zbus::block_on(collect_frames(
+        children(4),
+        Duration::from_millis(100),
+        |_| false,
+        |(bus, _)| async move {
+            if bus == ":1.1" {
+                Timer::after(Duration::from_secs(30)).await;
+            }
+            Ok(bus)
+        },
+    ));
+    assert_eq!(frames, [":1.0", ":1.2", ":1.3"]);
+    assert_eq!(read, RootRead::TimedOut);
+    assert!(started.elapsed() < Duration::from_secs(5));
 }
 
 #[test]
 fn a_frame_that_fails_for_another_reason_reads_timed_out() {
-    for (code, process_gone, expected) in [
-        (ErrorCode::Internal, false, RootRead::TimedOut),
-        (ErrorCode::Timeout, false, RootRead::TimedOut),
-    ] {
+    for code in [ErrorCode::Internal, ErrorCode::Timeout] {
         let (frames, read) = zbus::block_on(collect_frames(
             children(2),
             Duration::from_millis(100),
-            move || process_gone,
             |_| false,
             move |(bus, _)| {
                 let code = code.clone();
@@ -56,7 +49,7 @@ fn a_frame_that_fails_for_another_reason_reads_timed_out() {
             },
         ));
         assert_eq!(frames, [":1.1"]);
-        assert_eq!(read, expected);
+        assert_eq!(read, RootRead::TimedOut);
     }
 }
 
@@ -70,7 +63,6 @@ fn a_gone_frame_is_left_out_and_the_read_is_complete() {
         let (frames, read) = zbus::block_on(collect_frames(
             children(3),
             Duration::from_millis(100),
-            || false,
             |_| false,
             move |(bus, _)| {
                 let code = code.clone();
@@ -89,11 +81,10 @@ fn a_gone_frame_is_left_out_and_the_read_is_complete() {
 }
 
 #[test]
-fn a_frame_that_fails_after_its_process_left_reads_complete() {
+fn a_failed_frame_read_keeps_the_inventory_incomplete() {
     let (frames, read) = zbus::block_on(collect_frames(
         children(2),
         Duration::from_millis(100),
-        || true,
         |_| false,
         |(bus, _)| async move {
             if bus == ":1.0" {
@@ -104,7 +95,7 @@ fn a_frame_that_fails_after_its_process_left_reads_complete() {
         },
     ));
     assert_eq!(frames, [":1.1"]);
-    assert_eq!(read, RootRead::Read);
+    assert_eq!(read, RootRead::TimedOut);
 }
 
 #[test]
@@ -117,7 +108,6 @@ fn a_frame_whose_classifying_field_failed_is_kept_and_marks_the_read_incomplete(
     let (frames, read) = zbus::block_on(collect_frames(
         children(2),
         Duration::from_millis(100),
-        || false,
         super::is_unclassified,
         |(bus, _)| {
             let node: RawNode = if bus == ":1.0" {
