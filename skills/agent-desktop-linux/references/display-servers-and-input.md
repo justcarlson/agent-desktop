@@ -39,8 +39,8 @@ commands (`hover`, `drag`, `double-click`, `triple-click`, `mouse-move`,
 synthetic pointer path moves the user's real cursor.
 
 - Under `--headed`, ref `click`, `right-click` and `type` try physical input
-  first. Success is `physical_synthetic` with `verified: false` (XTEST has no
-  read-back).
+  first. Physical success is `physical_synthetic` with `verified: false` (XTEST
+  has no read-back).
 - The adapter falls back to the semantic action only when the physical attempt
   returns `ACTION_NOT_SUPPORTED` or a geometry refusal (`check: geometry`) with
   `not_delivered`; `details.physical_fallback` records the skipped
@@ -104,7 +104,7 @@ agent-desktop press return --app gnome-text-editor
 
 - Key names: the macOS and Windows names (`return`, `escape`, `tab`, `space`,
   `home`, `pageup`, `f1`-`f24`), punctuation names (`comma`, `period`,
-  `greater`, `leftbracket`) and X keysym names (`Page_Up`). `delete` is
+  `greater`, `leftbracket`) and X keysym names such as `Page_Up`. `delete` is
   Backspace; `forwarddelete` is the forward Delete key. A single character is
   its own key. An unknown name is `INVALID_ARGS`, `not_delivered`, and lists the
   accepted forms.
@@ -183,8 +183,8 @@ its own. Ending a session releases its held keys.
 
 - **Lead Shift.** A new session sends a lone Shift tap and waits 100 ms before
   the real keys so the compositor can attach its keyboard. It inserts no text,
-  but a handler that watches bare Shift sees it. Reusing a still-live session
-  skips the lead tap.
+  but a handler that watches bare Shift can observe it. Reusing a still-live
+  session skips the lead tap.
 - **Characters.** Only printable ASCII, function, modifier and vendor keysyms;
   anything else is `ACTION_NOT_SUPPORTED`, cause `character_outside_layout`.
   Set the value directly with `set-value` instead. The rule was measured on a US
@@ -208,7 +208,7 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
   `--dy=-5`.
 - With no `--dy`, the default is three lines down when `--dx` is zero (explicit
   `--dx 0` included) and no vertical scroll when `--dx` is nonzero. Zero on both
-  axes, or more than 1000 clicks on one axis, is `INVALID_ARGS`, `not_delivered`.
+  axes, or more than 1000 clicks on an axis, is `INVALID_ARGS`, `not_delivered`.
 - The result carries `dy`, `dx`, `target`, `steps` and `disposition`, with no
   `scrolled` success flag. Wheel delivery is `delivered_unverified`: read the
   content afterwards.

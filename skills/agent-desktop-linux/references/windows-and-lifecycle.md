@@ -9,9 +9,9 @@ are not used.
 - `--app` takes the process name `list-apps` prints, or a desktop entry's `Name`
   or id backed by verified executable identity. A desktop alias needs canonical
   `Exec` executable equality with `/proc/<pid>/exe` and matching full arguments;
-  a `Name` shared by several entries gets no name alias. `TryExec` only checks
-  installation. Registry labels and truncated `comm` names add no aliases. The
-  listed name does not change.
+  a desktop name shared by several entries gets no name alias. `TryExec` only
+  checks installation. Registry labels and truncated `comm` names add no
+  aliases. The listed name does not change.
 - Scoped matching is exact and case-insensitive, and the process must belong to
   this session. `list-windows --app` uses that exact rule. `list-apps --app`
   combines a substring match on the listed name with those exact adapter aliases.
@@ -146,17 +146,17 @@ close only a document or tab and leave its window open.
   `not_delivered`, for:
   - the owner of the active display socket, or of the X root's supporting-WM
     window;
-  - an app on the accessibility bus with no managed window that the session
-    started (it owns a session-bus name, runs as a user service unit, or is a
-    child of the display owner: portal backends, shell helpers, decoration
-    hosts), unless this tool launched it.
+  - an app that answers on the accessibility bus, has no managed window and was
+    started by the session (it owns a session-bus name, runs as a user service
+    unit, or is a child of the display owner: portal backends, shell helpers,
+    decoration hosts), unless this tool launched it.
 
   A process that does not answer on the accessibility bus is protected when it
   owns a session-bus name, whether or not a launch of this tool started it.
-  Missing ownership evidence (an unreadable `/proc` entry, no session bus) is
-  `ACTION_NOT_SUPPORTED` before anything is sent; an unreachable display is
-  `PLATFORM_NOT_SUPPORTED`. X11 manager ownership needs XRes process IDs; missing
-  server support refuses.
+  Missing ownership evidence (such as an unreadable `/proc` entry or no session
+  bus) is `ACTION_NOT_SUPPORTED` before anything is sent; an unreachable display
+  is `PLATFORM_NOT_SUPPORTED`. X11 manager ownership needs XRes process IDs;
+  missing server support refuses.
 
 ## Window operations
 

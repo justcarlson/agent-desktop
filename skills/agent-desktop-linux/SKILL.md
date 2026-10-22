@@ -81,17 +81,18 @@ Observation and semantic actions need no helper tool.
   wait budget ends. A `--timeout` shorter than the first read returns `TIMEOUT`,
   never a partial tree.
 - **Geometry-only refs require unchanged geometry.** A changed size, even one
-  pixel, cannot prove identity. Position and size must both match, compared only
-  in the recorded coordinate frame. A window move can make screen-relative
-  geometry unable to distinguish twins, so refresh screen-coordinate refs with a
-  fresh snapshot rather than retrying the old ref. Take a fresh snapshot after
-  layout changes and use stable identity where available. Indistinguishable
-  siblings stay `AMBIGUOUS_TARGET`. The tab pages of one window are such
-  siblings when the toolkit marks every page showing: in a Text Editor window
-  with three tabs the text views share one rectangle and one state, so a ref to
-  any of them answers `AMBIGUOUS_TARGET` with `candidate_count` 3 until the extra
-  tabs are closed. A ref belongs to the window it was taken in: two windows with
-  the same title each resolve their own refs.
+  pixel, cannot prove identity. Position and size must both match; ref geometry
+  compares them only in its recorded coordinate frame. A window move can make
+  screen-relative geometry unable to distinguish twins, so refresh
+  screen-coordinate refs with a fresh snapshot rather than retrying the old ref.
+  Take a fresh snapshot after layout changes and use stable identity where
+  available. Indistinguishable siblings stay `AMBIGUOUS_TARGET`. The tab pages
+  of one window are such siblings when the toolkit marks every page showing: in
+  a Text Editor window with three tabs the text views share one rectangle and
+  one state, so a ref to any of them answers `AMBIGUOUS_TARGET` with
+  `candidate_count` 3 until the extra tabs are closed. A ref belongs to the
+  window it was taken in: two windows with the same title each resolve their own
+  refs.
 - **Chromium and Qt apps need a launch flag or variable** to appear on the bus;
   Electron apps need none, only `--no-sandbox` where `chrome-sandbox` is not
   setuid. See `references/troubleshooting.md`.
@@ -134,7 +135,7 @@ agent-desktop batch '[{"command":"close-app","args":{"app":"gnome-calculator"}},
 
 To watch someone else close a window, start
 `agent-desktop wait --event window-closed --app gnome-text-editor --timeout 10000`
-first. There is no `--window-closed` flag.
+before they close the window. There is no `--window-closed` flag.
 
 ## Cursor overlay
 

@@ -34,8 +34,8 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 An app is in `list-apps` only when its toolkit registered with the accessibility
 bus. The CLI says so when a process is running but not on the bus.
 
-| Toolkit | Needs |
-|---------|-------|
+| App | Needs |
+|-----|-------|
 | GTK3, GTK4 | Registers by default when `toolkit-accessibility` is on or the bus exists. An app that started before the bus never registers: restart it |
 | Qt | `QT_ACCESSIBILITY=1` in the process environment |
 | Chromium browsers (Chrome, Chromium) | `--force-renderer-accessibility` on the command line. `ACCESSIBILITY_ENABLED=1` alone puts the browser on the bus with no windows |
