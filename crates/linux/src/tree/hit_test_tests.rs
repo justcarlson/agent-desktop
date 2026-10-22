@@ -378,3 +378,17 @@ fn a_gtk4_point_query_that_stops_at_a_container_reaches_the_target() {
         HitTestResult::ReachesTarget
     );
 }
+
+#[test]
+fn a_gtk4_landing_outside_the_walked_tree_reaches_the_target_and_a_gtk3_one_does_not() {
+    let unlisted = |facts, origin| {
+        let mut world = World::new(facts, Some(windowing(origin, vec![])));
+        world.nodes.lead("/frame", "/other");
+        world.nodes.parents.remove("/other");
+        world
+    };
+    let mut gtk4 = unlisted(gtk4_facts(), (302, 260));
+    assert_eq!(test(&mut gtk4, (700, 560)), HitTestResult::ReachesTarget);
+    let mut gtk3 = unlisted(gtk3_facts(), (100, 137));
+    unknown(&mut gtk3, (310, 154));
+}

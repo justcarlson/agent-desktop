@@ -194,35 +194,10 @@ pub(crate) fn require_unambiguous_branch<S: NodeSource>(
     Err(unproven("ancestry_limit"))
 }
 
-fn holds(outer: Extents, inner: Extents) -> bool {
-    inner.x >= outer.x
-        && inner.y >= outer.y
-        && inner.x.saturating_add(inner.width) <= outer.x.saturating_add(outer.width)
-        && inner.y.saturating_add(inner.height) <= outer.y.saturating_add(outer.height)
-}
-
-/// A lander whose `Parent` cannot be verified still sits inside the target
-/// when both rectangles are read, the lander's lies within the target's and
-/// it holds the point.
-fn inside_or_unresolved<S: NodeSource>(
-    source: &mut S,
-    probe: &Probe,
-    lander: &AtspiElement,
-) -> Result<Located, AdapterError> {
-    let landing = source.describe(lander)?.window_extents;
-    let target = source.describe(probe.target)?.window_extents;
-    let inside = landing.zip(target).is_some_and(|(landing, target)| {
-        admits(landing, probe.window_point) && holds(target, landing)
-    });
-    Ok(resolved(if inside {
-        Landing::Inside
-    } else {
-        Landing::Unresolved
-    }))
-}
-
 /// Classifies a verified chain. An outside landing requires both ancestry
-/// directions to be verified; any missing edge stays unresolved.
+/// directions to be verified; any missing edge stays unresolved, except that
+/// a lander of the target's own application whose parent edge is missing is
+/// `Unproved`: the toolkit named a node the walk does not list.
 pub(crate) fn locate<S: NodeSource>(
     source: &mut S,
     probe: &Probe,
@@ -248,7 +223,14 @@ pub(crate) fn locate<S: NodeSource>(
     }
     match climb(source, lander, target, frame, deadline)? {
         Climb::Met => return Ok(resolved(Landing::OnTarget)),
-        Climb::Unproved => return inside_or_unresolved(source, probe, lander),
+        Climb::Unproved => {
+            let same_application = lander.bus_name() == target.bus_name();
+            return Ok(resolved(if same_application {
+                Landing::Unproved
+            } else {
+                Landing::Unresolved
+            }));
+        }
         Climb::Passed => {}
     }
     match climb(source, target, lander, frame, deadline)? {
