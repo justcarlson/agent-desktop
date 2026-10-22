@@ -15,6 +15,7 @@ use crate::system::x11::xwd_oracle::{wait_viewable, xwd_pixel};
 const FILL: [u8; 3] = [0x33, 0x66, 0x99];
 const ORIGIN: (i16, i16) = (100, 90);
 const SIZE: (u16, u16) = (200, 120);
+const RELEASED_WITHIN: Duration = Duration::from_secs(5);
 
 fn deadline() -> Deadline {
     Deadline::after(10_000).expect("a deadline builds")
@@ -53,16 +54,55 @@ struct Flat {
     window: u32,
 }
 
+/// A window manager tears a framed window down after its client is gone and
+/// still sends requests for the client's id then. The next connection is given
+/// the same id, so a window it creates before the teardown ends is moved and
+/// resized by those requests. The manager destroys the frame after them.
+fn wait_released(connection: &RustConnection, frame: u32) {
+    let started = Instant::now();
+    while connection
+        .get_window_attributes(frame)
+        .ok()
+        .and_then(|cookie| cookie.reply().ok())
+        .is_some()
+    {
+        if started.elapsed() >= RELEASED_WITHIN {
+            assert!(
+                std::thread::panicking(),
+                "the window manager still holds frame {frame:#x} of a destroyed window"
+            );
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
 impl Drop for Flat {
     fn drop(&mut self) {
+        let frame = self.frame();
         let _ = self.connection.destroy_window(self.window);
         let _ = self.connection.sync();
+        if let Some(frame) = frame {
+            wait_released(&self.connection, frame);
+        }
     }
 }
 
 impl Flat {
     fn new(display: &str) -> Self {
         Self::at(display, ORIGIN, SIZE, FILL, true)
+    }
+
+    fn frame(&self) -> Option<u32> {
+        let root = self.connection.setup().roots[0].root;
+        let parent = self
+            .connection
+            .query_tree(self.window)
+            .ok()?
+            .reply()
+            .ok()?
+            .parent;
+        (parent != root).then_some(parent)
     }
 
     fn at(display: &str, origin: (i16, i16), size: (u16, u16), fill: [u8; 3], bare: bool) -> Self {
