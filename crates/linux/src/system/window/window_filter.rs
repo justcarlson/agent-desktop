@@ -109,16 +109,19 @@ fn native_group(
         .filter(|client| client.pid == Some(frame.pid))
         .map(|client| client.id)
         .collect();
-    if owned.is_empty()
-        || owned.len() != frames.iter().filter(|other| other.pid == frame.pid).count()
-    {
+    if owned.is_empty() {
         return Err(unproven(frame.pid));
     }
     if owned.is_subset(user_ids) {
-        return Ok(true);
+        return (owned.len() == frames.iter().filter(|other| other.pid == frame.pid).count())
+            .then_some(true)
+            .ok_or_else(|| unproven(frame.pid));
     }
-    if owned.is_subset(helper_ids) {
-        return Ok(false);
+    if owned
+        .iter()
+        .any(|id| !user_ids.contains(id) && !helper_ids.contains(id))
+    {
+        return Err(unproven(frame.pid));
     }
     let matching = |frame: &crate::system::x11::FrameFacts| -> std::collections::HashSet<u32> {
         clients
@@ -128,6 +131,14 @@ fn native_group(
             .collect()
     };
     let ids = matching(frame);
+    if owned.intersection(user_ids).any(|id| {
+        !frames
+            .iter()
+            .filter(|other| other.pid == frame.pid)
+            .any(|other| matching(other).contains(id))
+    }) {
+        return Err(unproven(frame.pid));
+    }
     let user = !ids.is_empty() && ids.is_subset(user_ids);
     if !user && (ids.is_empty() || !ids.is_subset(helper_ids)) {
         return Err(unproven(frame.pid));
@@ -173,7 +184,7 @@ pub(in crate::system) fn without_helpers(
             .collect());
     }
     let pending = crate::system::x11::start(|| DisplayReader.read());
-    let Some(X11State::Ready { clients, .. }) = pending.finish(deadline) else {
+    let Some(X11State::Ready { mut clients, .. }) = pending.finish(deadline) else {
         return Err(unproven(windows[0].frame.pid));
     };
     let pids: std::collections::HashSet<_> =
@@ -181,12 +192,23 @@ pub(in crate::system) fn without_helpers(
     let mut user_ids = std::collections::HashSet::new();
     let mut helper_ids = std::collections::HashSet::new();
     let mut absent = std::collections::HashSet::new();
+    let mut complete = std::collections::HashSet::new();
     for pid in pids {
-        if !clients.iter().any(|client| client.pid == Some(pid))
-            && crate::system::x11::client_population::complete(pid, Vec::new(), deadline)
+        let managed: Vec<_> = clients
+            .iter()
+            .filter(|client| client.pid == Some(pid))
+            .map(|client| client.id)
+            .collect();
+        if let crate::system::x11::native_population::NativePopulation::Complete { menus } =
+            crate::system::x11::native_population::read(pid, managed.clone(), deadline)
         {
-            absent.insert(pid);
-            continue;
+            if managed.is_empty() && menus.is_empty() {
+                absent.insert(pid);
+                continue;
+            }
+            complete.insert(pid);
+            helper_ids.extend(menus.iter().map(|menu| menu.id));
+            clients.extend(menus);
         }
         let Some(native) = control::toplevels_of(pid, deadline).ready() else {
             return Err(unproven(pid));
@@ -209,20 +231,6 @@ pub(in crate::system) fn without_helpers(
         .filter(|window| !window.unshown)
         .map(|window| window.frame.clone())
         .collect();
-    let mut complete = std::collections::HashSet::new();
-    for frame in &frames {
-        let owned: Vec<_> = clients
-            .iter()
-            .filter(|client| client.pid == Some(frame.pid))
-            .map(|client| client.id)
-            .collect();
-        if !complete.contains(&frame.pid)
-            && !owned.is_empty()
-            && crate::system::x11::client_population::complete(frame.pid, owned, deadline)
-        {
-            complete.insert(frame.pid);
-        }
-    }
     for window in &windows {
         if window.unshown {
             listed.push(window.clone());
