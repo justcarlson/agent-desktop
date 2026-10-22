@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use zbus::zvariant::OwnedValue;
 
 use super::call;
@@ -32,6 +32,11 @@ pub(crate) fn registered_items(deadline: Deadline) -> Result<Vec<String>, Adapte
     })
 }
 
+pub(crate) fn require(deadline: Deadline) -> Result<(), AdapterError> {
+    let connection = call::session(deadline)?;
+    require_owner(call::unique_owner(&connection, WATCHER, deadline)?)
+}
+
 fn require_owner(owner: Option<String>) -> Result<(), AdapterError> {
     owner.map(|_| ()).ok_or_else(watcher_absent)
 }
@@ -43,6 +48,7 @@ fn watcher_absent() -> AdapterError {
     )
     .with_suggestion("Start a tray backend providing org.kde.StatusNotifierWatcher in this session")
     .with_details(serde_json::json!({ "watcher": "absent" }))
+    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 #[cfg(test)]

@@ -43,6 +43,7 @@ pub(super) fn container_landmark(kind: ShellKind) -> Landmark {
 /// What opening a surface needs from the shell, so the rules
 /// run against a fixed shell in a test.
 pub(crate) trait Surface {
+    fn backed(&self, kind: ShellKind, deadline: Deadline) -> Result<(), AdapterError>;
     fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError>;
     fn press_opener(&self, kind: ShellKind, policy: InteractionPolicy) -> Result<(), AdapterError>;
     fn window(&self, kind: ShellKind, deadline: Deadline) -> Result<WindowInfo, AdapterError>;
@@ -77,6 +78,9 @@ pub(crate) fn open_with<W: Surface>(
     policy: InteractionPolicy,
     deadline: Deadline,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
+    world
+        .backed(kind, deadline)
+        .map_err(|error| with_open_progress(error, false))?;
     if opener_of(kind).is_none()
         || world
             .showing(kind, deadline)
@@ -167,6 +171,13 @@ impl LiveSurface<'_> {
 }
 
 impl Surface for LiveSurface<'_> {
+    fn backed(&self, kind: ShellKind, deadline: Deadline) -> Result<(), AdapterError> {
+        match kind {
+            ShellKind::Tray => crate::system::tray::require_watcher(deadline),
+            ShellKind::Dock | ShellKind::MessageList | ShellKind::SystemMenu => Ok(()),
+        }
+    }
+
     fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError> {
         is_showing(self.bus, kind, deadline)
     }
