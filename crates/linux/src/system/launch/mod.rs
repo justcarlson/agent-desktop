@@ -7,20 +7,21 @@ use agent_desktop_core::launch_options::LaunchOptions;
 use agent_desktop_core::launch_result::LaunchResult;
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, InteractionLease, ProcessId,
-    RendererKind, WindowFilter, WindowInfo,
+    RendererKind, WindowInfo,
 };
 
 use self::launch_attach::{Decision, decide, matches};
 use self::launch_observe::{POLL_INTERVAL, Spawned, find_owner, pids_of, running_of};
 use self::launch_search::Search;
 use self::launch_target::{Plan, resolve};
-use super::{SharedBus, list_windows, registry::read_registry};
+use super::SharedBus;
 use crate::system::app::app_alias::current_index;
 use crate::system::focus::focus_window::focus_window;
 use crate::system::process::liveness::{Liveness, liveness};
 use crate::system::process::process_facts;
 use crate::system::process::running_app::Running;
 use crate::system::process::web_family::WebFamily;
+use crate::system::window::window_ops::windows_of_process;
 
 #[path = "launch_baseline.rs"]
 mod baseline;
@@ -203,13 +204,9 @@ impl Launch<'_> {
         waits: bool,
         known: &HashSet<String>,
     ) -> Result<Option<WindowInfo>, AdapterError> {
-        let filter = WindowFilter {
-            focused_only: false,
-            app: Some(owner.name.clone()),
-        };
         let limit = self.wait_limit(known);
         loop {
-            match list_windows(self.bus, &filter, self.deadline) {
+            match windows_of_process(self.bus, owner.pid, self.deadline) {
                 Ok(windows) => {
                     let own: Vec<WindowInfo> = windows
                         .into_iter()
@@ -322,7 +319,7 @@ impl Launch<'_> {
         identity: &Option<crate::system::process::executable_identity::ExecutableIdentity>,
         running: &[Running],
     ) -> Result<LaunchResult, AdapterError> {
-        let before: HashSet<u32> = running.iter().map(|app| app.pid).collect();
+        let before = running.iter().map(Running::identity).collect();
         let known = self.known_windows(identity, running)?;
         let mut spawned = spawn(self.id, plan, self.options)?;
         match find_owner(self.bus, &mut spawned, identity, &before, self.deadline)? {
@@ -349,7 +346,8 @@ pub(crate) fn launch_app(
     let deadline = bounded(lease.deadline(), options.timeout_ms);
     let search = Search::from_env();
     let plan = resolve(id, &options.args, &search, &current_index())?;
-    let running = running_of(&read_registry(bus, deadline).map_err(before_spawn)?);
+    let registry = crate::system::registry::read_processes(bus, deadline).map_err(before_spawn)?;
+    let running = running_of(&registry).map_err(before_spawn)?;
     let launch = Launch {
         bus,
         id,
@@ -382,6 +380,9 @@ pub(crate) fn launch_app(
 #[cfg(test)]
 #[path = "launch_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "launch_window_tests.rs"]
+mod window_tests;
 
 pub(super) mod desktop_entry;
 pub(crate) mod desktop_entry_traits;

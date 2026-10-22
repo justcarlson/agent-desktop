@@ -13,8 +13,10 @@ use super::{
 };
 use crate::system::app::app_names::AppNames;
 use crate::system::bus::bus_slice::within_slice;
+use crate::system::context::read_view::ReadView;
 use crate::system::process::proc_stat;
-use crate::system::process::process_facts::{self, ProcessFacts};
+use crate::system::process::process_facts;
+use crate::system::process::process_lookup::Lookup;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::registry::app_read::AppRead;
 use crate::system::registry::registry_app::{RegistryApp, assemble, skipped};
@@ -50,7 +52,7 @@ pub(crate) async fn toolkit(connection: &Connection, root: &AtspiElement) -> Too
 }
 
 trait AppReads {
-    fn facts(&self, pid: u32) -> Option<ProcessFacts>;
+    fn facts(&self, pid: u32) -> Lookup;
     fn is_stopped(&self, pid: u32) -> bool;
     async fn name(&self, root: &AtspiElement) -> Option<Option<String>>;
     async fn toolkit(&self, root: &AtspiElement) -> ToolkitId;
@@ -64,8 +66,8 @@ trait AppReads {
 struct BusReads<'a>(&'a Connection);
 
 impl AppReads for BusReads<'_> {
-    fn facts(&self, pid: u32) -> Option<ProcessFacts> {
-        process_facts::read(pid)
+    fn facts(&self, pid: u32) -> Lookup {
+        process_facts::lookup(pid)
     }
 
     fn is_stopped(&self, pid: u32) -> bool {
@@ -95,38 +97,66 @@ impl AppReads for BusReads<'_> {
     }
 }
 
-async fn read_known(reads: &impl AppReads, root: AtspiElement, only: Option<u32>) -> AppRead {
+async fn read_known(
+    reads: &impl AppReads,
+    root: AtspiElement,
+    query: &app_query::AppQuery<'_>,
+) -> AppRead {
     let pid = root.pid();
-    if only.is_some_and(|wanted| wanted != pid) {
+    if query.pid.is_some_and(|wanted| wanted != pid) {
         return AppRead::Excluded;
     }
-    let Some(facts) = reads.facts(pid) else {
+    let facts = match reads.facts(pid) {
+        Lookup::Found(facts) => facts,
+        result => {
+            return AppRead::Skipped(skipped(
+                root.bus_name(),
+                Some(pid),
+                "the process identity could not be read",
+                result == Lookup::Gone,
+            ));
+        }
+    };
+    let mut candidate = if query.enrich {
+        assemble(root.clone(), facts, None, ToolkitId::default())
+    } else {
+        RegistryApp::from_process(root.clone(), facts)
+    };
+    if !(query.select)(&candidate) {
+        return AppRead::Excluded;
+    }
+    if query.enrich && !reads.is_stopped(pid) {
+        let (name, toolkit) = join(reads.name(&root), reads.toolkit(&root)).await;
+        candidate.answered = name.is_some();
+        candidate.registry_name = name.flatten().filter(|text| !text.trim().is_empty());
+        candidate.toolkit = toolkit;
+    } else if query.enrich {
+        candidate.registry_name = reads.remembered_name(&root, &candidate.facts.instance);
+    }
+    let current = reads.facts(pid);
+    if !matches!(&current, Lookup::Found(current) if current.instance == candidate.facts.instance) {
         return AppRead::Skipped(skipped(
             root.bus_name(),
             Some(pid),
-            "the process has exited",
+            "the process changed during the read",
+            current == Lookup::Gone,
         ));
-    };
-    if reads.is_stopped(pid) {
-        let mut app = assemble(root.clone(), facts, None, ToolkitId::default());
-        app.registry_name = reads.remembered_name(&root, &app.facts.instance);
-        return AppRead::Listed(Box::new(app));
     }
-    let (name, toolkit) = join(reads.name(&root), reads.toolkit(&root)).await;
-    let app = assemble(root.clone(), facts, name, toolkit);
-    if let Some(answered) = app.registry_name.as_deref() {
-        reads.remember_name(&root, &app.facts.instance, answered);
+    if let Some(answered) = candidate.registry_name.as_deref()
+        && candidate.answered
+    {
+        reads.remember_name(&root, &candidate.facts.instance, answered);
     }
-    AppRead::Listed(Box::new(app))
+    AppRead::Listed(Box::new(candidate))
 }
 
 async fn read_app(
     shared: &SharedBus,
     connection: &zbus::blocking::Connection,
-    bus_name: String,
-    path: String,
-    only: Option<u32>,
+    address: (String, String),
+    query: &app_query::AppQuery<'_>,
 ) -> Result<AppRead, AdapterError> {
+    let (bus_name, path) = address;
     let pid = match owner_process_id(connection.inner(), &bus_name).await {
         Ok(pid) => pid,
         Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == super::NAME_HAS_NO_OWNER => {
@@ -134,6 +164,7 @@ async fn read_app(
                 &bus_name,
                 None,
                 "the bus name has no owner",
+                true,
             )));
         }
         Err(error) => {
@@ -146,7 +177,7 @@ async fn read_app(
     Ok(read_known(
         &BusReads(connection.inner()),
         AtspiElement::new(bus_name, path, pid),
-        only,
+        query,
     )
     .await)
 }
@@ -159,6 +190,21 @@ pub(crate) fn read_registry(bus: &SharedBus, deadline: Deadline) -> Result<Regis
     read_registry_for(bus, None, deadline)
 }
 
+pub(crate) fn read_processes(
+    bus: &SharedBus,
+    deadline: Deadline,
+) -> Result<Registry, AdapterError> {
+    read_registry_query(
+        bus,
+        &app_query::AppQuery {
+            pid: None,
+            select: &|_| true,
+            enrich: false,
+        },
+        deadline,
+    )
+}
+
 /// One pass over the registry for one process, or for every process when
 /// `pid` is `None`. Another process's application is left out of the result
 /// and its facts, name and toolkit are never read.
@@ -167,8 +213,25 @@ pub(crate) fn read_registry_for(
     pid: Option<u32>,
     deadline: Deadline,
 ) -> Result<Registry, AdapterError> {
-    let connection = bus.get(deadline)?;
-    within(deadline, async {
+    read_registry_query(
+        bus,
+        &app_query::AppQuery {
+            pid,
+            select: &|_| true,
+            enrich: true,
+        },
+        deadline,
+    )
+}
+
+pub(crate) fn read_registry_query(
+    bus: &SharedBus,
+    query: &app_query::AppQuery<'_>,
+    deadline: Deadline,
+) -> Result<Registry, AdapterError> {
+    let view = ReadView::begin(bus, deadline)?;
+    let connection = &view.connection;
+    let listed = within(deadline, async {
         let reply = connection
             .inner()
             .call_method(
@@ -181,7 +244,7 @@ pub(crate) fn read_registry_for(
             .await
             .map_err(|error| {
                 if super::bus::is_connection_failure(&error) {
-                    bus.forget(&connection);
+                    bus.forget(connection);
                 }
                 super::bus::classify(&error)
             })?;
@@ -193,7 +256,7 @@ pub(crate) fn read_registry_for(
             children
                 .into_iter()
                 .filter(|(bus, path)| !bus.is_empty() && path.as_str() != "/org/a11y/atspi/null")
-                .map(|(name, path)| read_app(bus, &connection, name, path.to_string(), pid)),
+                .map(|(name, path)| read_app(bus, connection, (name, path.to_string()), query)),
         )
         .buffered(APPS_IN_FLIGHT)
         .try_collect()
@@ -210,7 +273,9 @@ pub(crate) fn read_registry_for(
             }
         }
         Ok(listed)
-    })
+    })?;
+    view.finish(deadline)?;
+    Ok(listed)
 }
 
 #[cfg(test)]
@@ -225,3 +290,5 @@ pub(super) mod registry_app;
 pub(super) mod registry_frames;
 #[cfg(test)]
 pub(super) mod registry_live_tests;
+
+pub(crate) mod app_query;

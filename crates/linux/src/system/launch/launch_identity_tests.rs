@@ -3,29 +3,22 @@ use super::tests::fixture;
 use crate::system::launch::launch_attach::{Decision, decide};
 use crate::system::process::running_app::Running;
 
-fn real_process(program: &str, args: &[&str]) -> (std::process::Child, Running) {
-    let child = std::process::Command::new(program)
-        .args(args)
-        .spawn()
-        .expect("child");
-    let expected = std::fs::canonicalize(program).expect("program");
-    let limit = std::time::Instant::now() + std::time::Duration::from_secs(2);
-    while std::fs::canonicalize(format!("/proc/{}/exe", child.id()))
-        .ok()
-        .as_ref()
-        != Some(&expected)
-    {
-        assert!(std::time::Instant::now() < limit, "exec did not complete");
-        std::thread::yield_now();
-    }
-    let facts = crate::system::process::process_facts::read(child.id()).expect("process facts");
-    let owner = Running {
-        executable: facts.executable,
-        pid: child.id(),
-        instance: facts.instance,
+fn owner(program: &str, args: &[&str]) -> Running {
+    Running {
+        executable: Some(
+            crate::system::process::executable_identity::ExecutableIdentity {
+                executable: std::fs::canonicalize(program).expect("program"),
+                argv: Some(
+                    std::iter::once(std::ffi::OsString::from(program))
+                        .chain(args.iter().map(std::ffi::OsString::from))
+                        .collect(),
+                ),
+            },
+        ),
+        pid: 1,
+        instance: "fixture:1".into(),
         name: program.rsplit('/').next().unwrap().to_owned(),
-    };
-    (child, owner)
+    }
 }
 
 fn rejects_wrong_process(class: &str) {
@@ -39,7 +32,7 @@ fn rejects_wrong_process(class: &str) {
     let other = a.join("editor");
     std::fs::copy("/bin/sleep", &target).unwrap();
     std::fs::copy("/bin/sleep", &other).unwrap();
-    let (mut child, mut owner) = real_process(other.to_str().unwrap(), &["30"]);
+    let mut owner = owner(other.to_str().unwrap(), &["30"]);
     let id = match class {
         "comm" => {
             owner.name = "unrelated".into();
@@ -63,11 +56,7 @@ fn rejects_wrong_process(class: &str) {
             "sole-app".into()
         }
         "interpreter" | "direct-interpreter" => {
-            child.kill().unwrap();
-            child.wait().unwrap();
-            let pair = real_process("/usr/bin/python3", &["-c", "import time; time.sleep(30)"]);
-            child = pair.0;
-            owner = pair.1;
+            owner = self::owner("/usr/bin/python3", &["-c", "import time; time.sleep(30)"]);
             std::fs::write(fixture.search.data_dirs[0].join("sole-app.desktop"), "[Desktop Entry]\nType=Application\nName=Sole App\nExec=/usr/bin/python3 /opt/other.py\nTryExec=/bin/sleep\n").unwrap();
             if class == "direct-interpreter" {
                 "/usr/bin/python3".into()
@@ -80,8 +69,6 @@ fn rejects_wrong_process(class: &str) {
     let index = crate::system::app::alias_cache::AliasCache::new().index(&fixture.search.data_dirs);
     let plan = resolve(&id, &[], &fixture.search, &index).expect("resolve");
     let actual = decide(&plan.identity, &[owner], true, false);
-    child.kill().unwrap();
-    child.wait().unwrap();
     assert_eq!(actual, Decision::Spawn, "wrong-process class {class}");
 }
 
@@ -106,7 +93,7 @@ fn direct_launch_never_attaches_to_another_interpreter_invocation() {
     rejects_wrong_process("direct-interpreter");
     let fixture = fixture(&[], &[]);
     let args = ["-c", "import time; time.sleep(30)"];
-    let (mut child, owner) = real_process("/usr/bin/python3", &args);
+    let owner = owner("/usr/bin/python3", &args);
     let arguments = args.map(String::from);
     let index = crate::system::app::alias_cache::AliasCache::new().index(&fixture.search.data_dirs);
     let plan = resolve("/usr/bin/python3", &arguments, &fixture.search, &index).unwrap();
@@ -114,8 +101,6 @@ fn direct_launch_never_attaches_to_another_interpreter_invocation() {
     let mut unknown = plan.identity.clone();
     unknown.as_mut().unwrap().argv = None;
     let missing_arguments = decide(&unknown, std::slice::from_ref(&owner), true, false);
-    child.kill().unwrap();
-    child.wait().unwrap();
     assert_eq!(decision, Decision::Forward);
     assert_eq!(missing_arguments, Decision::Spawn);
 }
@@ -134,7 +119,7 @@ fn launch_rejects_a_different_interpreter_invocation_name() {
         std::os::unix::fs::symlink("/bin/bash", path).unwrap();
     }
     let args = ["-c", "while :; do :; done"];
-    let (mut child, owner) = real_process(other.to_str().unwrap(), &args);
+    let mut owner = owner(other.to_str().unwrap(), &args);
     std::fs::write(
         fixture.search.data_dirs[0].join("shell-app.desktop"),
         format!(
@@ -147,15 +132,11 @@ fn launch_rejects_a_different_interpreter_invocation_name() {
     let plan = resolve("shell-app", &[], &fixture.search, &index).unwrap();
     let wrong = decide(&plan.identity, std::slice::from_ref(&owner), true, false);
     let aliases = index.names_for(owner.executable.as_ref().unwrap());
-    child.kill().unwrap();
-    child.wait().unwrap();
     assert_eq!(wrong, Decision::Spawn);
     assert!(aliases.is_empty());
-    let (mut child, owner) = real_process(requested.to_str().unwrap(), &args);
+    owner.executable.as_mut().unwrap().argv.as_mut().unwrap()[0] = requested.into_os_string();
     let correct = decide(&plan.identity, std::slice::from_ref(&owner), true, false);
     let aliases = index.names_for(owner.executable.as_ref().unwrap());
-    child.kill().unwrap();
-    child.wait().unwrap();
     assert_eq!(correct, Decision::Attach(owner));
     assert_eq!(aliases, ["Shell App"]);
 }

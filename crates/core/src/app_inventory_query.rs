@@ -10,6 +10,19 @@ pub enum AppInventoryQuery<'a> {
     },
 }
 
+impl AppInventoryQuery<'_> {
+    /// Matches the listed name; adapters add their verified exact aliases.
+    pub fn matches_display_name(self, actual: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::NameOrAlias(name) => {
+                crate::search_text::contains(actual, &crate::search_text::normalize(name))
+            }
+            Self::Exact { name, .. } => crate::app_name_matches(actual, name),
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "app_inventory_query_tests.rs"]
 mod tests;

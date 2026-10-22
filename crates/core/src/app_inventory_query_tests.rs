@@ -112,3 +112,17 @@ fn incomplete_post_lease_inventory_refuses_close_before_delivery() {
     .unwrap_err();
     assert_eq!(error.code(), "APP_UNRESPONSIVE");
 }
+#[test]
+fn adapters_can_share_the_display_name_query_contract() {
+    use crate::AppInventoryQuery;
+    let query = AppInventoryQuery::NameOrAlias("\u{2067}ÉDITOR\u{2069}   app");
+    assert!(query.matches_display_name("My Éditor\nApp Helper"));
+    assert!(!query.matches_display_name("Éditor Different App"));
+    assert!(
+        !AppInventoryQuery::Exact {
+            name: "editor",
+            bundle_id: None
+        }
+        .matches_display_name("editor-helper")
+    );
+}

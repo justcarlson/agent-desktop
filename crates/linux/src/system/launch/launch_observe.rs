@@ -10,7 +10,7 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, P
 use super::launch_attach::matches;
 use crate::system::SharedBus;
 use crate::system::process::running_app::Running;
-use crate::system::registry::{Registry, read_registry};
+use crate::system::registry::Registry;
 
 pub(in crate::system) const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const POLL_LIMIT: Duration = Duration::from_millis(250);
@@ -39,7 +39,7 @@ pub(crate) fn step(sample: &Sample<'_>) -> Step {
     let new: Vec<&Running> = candidates
         .iter()
         .copied()
-        .filter(|app| !sample.before.contains(&app.pid))
+        .filter(|app| !sample.before.contains(&app.identity()))
         .collect();
     let own = sample.apps.iter().find(|app| app.pid == sample.child_pid);
     match sample.child {
@@ -68,19 +68,29 @@ pub(crate) fn step(sample: &Sample<'_>) -> Step {
 }
 
 /// The registry as one record per process, with the facts launching reads.
-pub(crate) fn running_of(registry: &Registry) -> Vec<Running> {
+pub(crate) fn running_of(registry: &Registry) -> Result<Vec<Running>, AdapterError> {
+    if registry
+        .skipped
+        .iter()
+        .any(|record| record["confirmed_gone"] != true)
+    {
+        return Err(
+            AdapterError::timeout("The running process inventory could not be fully read")
+                .with_details(serde_json::json!({ "skipped": registry.skipped })),
+        );
+    }
     let mut seen = HashSet::new();
-    registry
+    Ok(registry
         .apps
         .iter()
-        .filter(|app| seen.insert(app.root.pid()))
+        .filter(|app| seen.insert((app.root.pid(), app.facts.instance.clone())))
         .map(|app| Running {
             executable: app.facts.executable.clone(),
             pid: app.root.pid(),
             instance: app.facts.instance.clone(),
             name: app.name.clone(),
         })
-        .collect()
+        .collect())
 }
 
 /// A spawned process that is reaped when this guard goes, so an application
@@ -164,7 +174,7 @@ pub(crate) fn find_owner(
     bus: &SharedBus,
     spawned: &mut Spawned,
     identity: &Option<crate::system::process::executable_identity::ExecutableIdentity>,
-    before: &HashSet<u32>,
+    before: &HashSet<agent_desktop_core::ProcessIdentity>,
     deadline: Deadline,
 ) -> Result<Option<Running>, AdapterError> {
     let identifier = "the application";
@@ -176,12 +186,17 @@ pub(crate) fn find_owner(
             exited_at.get_or_insert_with(Instant::now);
         }
         let expired = deadline.is_expired();
-        let registry = match read_registry(bus, deadline) {
+        let registry = match crate::system::registry::read_processes(bus, deadline) {
             Ok(registry) => Some(registry),
             Err(error) if error.code == ErrorCode::Timeout => None,
             Err(error) => return Err(after_spawn(error)),
         };
-        let apps = registry.as_ref().map(running_of).unwrap_or_default();
+        let apps = registry
+            .as_ref()
+            .map(running_of)
+            .transpose()
+            .map_err(after_spawn)?
+            .unwrap_or_default();
         let settled = expired || exited_at.is_some_and(|at| at.elapsed() >= EXIT_GRACE);
         let sample = Sample {
             child_pid: spawned.pid,

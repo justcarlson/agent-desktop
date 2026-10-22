@@ -87,7 +87,8 @@ fn process_state_live_calculator_running_unresponsive_running_exited() {
 }
 
 const BLOCKED_SCRIPT: &str = r#"
-import time
+import time, sys
+from pathlib import Path
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
@@ -95,7 +96,13 @@ w = Gtk.Window(title="adblock")
 w.add(Gtk.Button(label="Press"))
 w.connect("destroy", Gtk.main_quit)
 w.show_all()
-GLib.timeout_add(4000, lambda: time.sleep(120))
+def block_when_requested():
+    if not Path(sys.argv[1]).exists():
+        return True
+    Path(sys.argv[2]).write_text("entered")
+    time.sleep(120)
+    return False
+GLib.timeout_add(20, block_when_requested)
 Gtk.main()
 "#;
 
@@ -108,10 +115,25 @@ fn process_state_live_a_blocked_main_loop_is_unresponsive_while_it_sleeps_in_pro
     let script = dir.join("app.py");
     std::fs::write(&script, BLOCKED_SCRIPT).expect("script");
     let arg = script.to_string_lossy().into_owned();
-    let mut orphan = Orphan::spawn("python3", &[&arg], &[]);
+    let trigger = dir.join("block");
+    let entered = dir.join("entered");
+    let mut orphan = Orphan::spawn(
+        "python3",
+        &[&arg, &trigger.to_string_lossy(), &entered.to_string_lossy()],
+        &[],
+    );
     orphan.keep(dir);
     let app = listed(&bus, orphan.pid);
     let identity = identity(&app);
+    std::fs::write(trigger, "block").expect("request main-loop block");
+    let started = Instant::now();
+    while !entered.exists() && started.elapsed() < SETTLE {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(
+        entered.exists(),
+        "the main loop entered its blocking callback"
+    );
     let started = Instant::now();
     let mut seen = None;
     while started.elapsed() < Duration::from_secs(20) {

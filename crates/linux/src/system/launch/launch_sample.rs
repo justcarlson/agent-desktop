@@ -7,7 +7,7 @@ pub(crate) struct Sample<'a> {
     pub(crate) child_pid: u32,
     pub(crate) child: Option<ExitStatus>,
     pub(crate) apps: &'a [Running],
-    pub(crate) before: &'a HashSet<u32>,
+    pub(crate) before: &'a HashSet<agent_desktop_core::ProcessIdentity>,
     pub(crate) identity:
         &'a Option<crate::system::process::executable_identity::ExecutableIdentity>,
     pub(crate) settled: bool,

@@ -63,7 +63,24 @@ fn an_unknown_state_letter_is_other_and_not_a_known_class() {
 }
 
 #[test]
-fn a_process_that_cannot_be_read_or_is_a_zombie_is_gone() {
-    assert!(super::is_gone(u32::MAX));
-    assert!(!super::is_gone(std::process::id()));
+fn a_failed_stat_read_cannot_turn_an_unread_frame_into_a_departed_process() {
+    assert!(!super::is_gone(Err(())));
+    assert!(super::is_gone(Ok(None)));
+    for (state, gone) in [
+        (ProcState::Running, false),
+        (ProcState::Sleeping, false),
+        (ProcState::Stopped, false),
+        (ProcState::Other, false),
+        (ProcState::Zombie, true),
+        (ProcState::Dead, true),
+    ] {
+        assert_eq!(
+            super::is_gone(Ok(Some(super::ProcStat {
+                state,
+                start_time: 1
+            }))),
+            gone,
+            "{state:?}"
+        );
+    }
 }

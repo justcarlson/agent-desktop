@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{DeliverySemantics, RetryDisposition, WindowFilter};
+use agent_desktop_core::{DeliverySemantics, WindowFilter};
 
 use super::*;
 use crate::system::{app_inventory, list_windows};
@@ -15,6 +15,13 @@ impl Drop for PrivateDaemon {
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
+}
+
+struct Listener;
+
+#[zbus::interface(name = "org.a11y.atspi.Registry")]
+impl Listener {
+    fn register_event(&self, _event: &str, _properties: Vec<String>, _app: &str) {}
 }
 
 struct EmptyRegistry {
@@ -53,7 +60,7 @@ fn deadline() -> Deadline {
 
 #[test]
 #[ignore = "owns a private bus; run inside scripts/private-session.sh --wm"]
-fn bus_live_loss_is_internal_without_claiming_delivery() {
+fn bus_live_loss_reconnects_without_treating_failed_reads_as_absence() {
     let runtime = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("private session");
     let socket = format!("{runtime}/loss-bus");
     let mut daemon = PrivateDaemon(
@@ -90,15 +97,15 @@ fn bus_live_loss_is_internal_without_claiming_delivery() {
                 },
             )
             .expect("registry")
+            .serve_at(REGISTRY_PATH, Listener)
+            .expect("listener")
             .build()
             .await
             .expect("server")
     });
     let client =
         zbus::block_on(Builder::address(address).expect("address").build()).expect("connection");
-    let bus = SharedBus {
-        slot: Mutex::new(Some(client.into())),
-    };
+    let bus = super::tests::connected(client);
     let connection = bus.get(deadline()).expect("cached connection");
     let root = crate::tree::AtspiElement::new(REGISTRY_SERVICE, REGISTRY_ROOT_PATH, 0);
     let read = within(
@@ -168,28 +175,15 @@ fn bus_live_loss_is_internal_without_claiming_delivery() {
     let shell_error = crate::system::shell::identity::content_window(&nodes, &root)
         .expect_err("an unreadable shell is not a missing window");
     assert_eq!(shell_error.code, ErrorCode::Internal);
-    {
-        let error = app_inventory(&bus, deadline()).expect_err("lost bus");
-        assert_eq!(error.code, ErrorCode::Internal);
-        assert!(
-            error
-                .suggestion
-                .as_deref()
-                .expect("recovery")
-                .contains("Retry")
-        );
-        assert_eq!(error.disposition, DeliverySemantics::unknown());
-        assert_ne!(error.disposition.retry(), RetryDisposition::Safe);
-        println!("owned daemon exited: lost bus = {error:?}");
-    }
-    assert!(
-        bus.cached().is_none(),
-        "normal inventory evicts the dead connection"
-    );
     for _ in 0..2 {
         app_inventory(&bus, deadline())
             .expect("the next inventory reconnects to the private session");
         let fresh = bus.get(deadline()).expect("recovered connection");
+        assert_ne!(
+            fresh.inner().server_guid(),
+            connection.inner().server_guid(),
+            "a failed transport cannot authorize an inventory"
+        );
         probe_registry(&bus, &fresh, deadline()).expect("independent registry readback");
     }
     drop(server);

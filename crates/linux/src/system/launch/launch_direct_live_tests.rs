@@ -103,6 +103,18 @@ sys.exit(1)
         before_refusal,
         "the refused exact invocation spawned no additional app"
     );
+    let clean_exit = launch(&executable, &options(&["-c", "pass"]))
+        .expect_err("a clean script exit must not adopt an unrelated interpreter owner");
+    assert_eq!(clean_exit.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        clean_exit.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+    assert_eq!(
+        processes(),
+        before_refusal,
+        "the two independent GUI owners remain"
+    );
     println!(
         "independent /proc argv and Atspi: GTK3 {other_pid} != GTK4 {}; exact repeated argv refuses before spawn",
         target.pid

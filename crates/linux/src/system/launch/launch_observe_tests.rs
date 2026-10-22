@@ -30,6 +30,39 @@ fn killed(signal: i32) -> ExitStatus {
 }
 
 #[test]
+fn a_new_process_instance_with_a_reused_pid_is_a_new_launch_owner() {
+    let mut replacement = app(7, "tool");
+    replacement.instance = "boot:replacement".into();
+    let before = HashSet::from([agent_desktop_core::ProcessIdentity::new(7, "boot:7")]);
+    let identity = keys(&["tool"]);
+    let actual = step(&Sample {
+        child_pid: 100,
+        child: None,
+        apps: std::slice::from_ref(&replacement),
+        before: &before,
+        identity: &identity,
+        settled: false,
+    });
+    assert_eq!(actual, Step::Owner(replacement));
+}
+
+#[test]
+fn unreadable_owners_cannot_be_treated_as_absent_before_or_after_spawn() {
+    let mut registry = Registry {
+        apps: Vec::new(),
+        skipped: vec![serde_json::json!({ "pid": 7, "reason": "identity unavailable" })],
+    };
+    let error = running_of(&registry).unwrap_err();
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.details.unwrap()["skipped"][0]["pid"], 7);
+    registry.skipped[0]["confirmed_gone"] = serde_json::json!(true);
+    assert!(
+        running_of(&registry).unwrap().is_empty(),
+        "a positively observed departure is absence"
+    );
+}
+
+#[test]
 fn launch_observation_selects_the_owner_or_reports_the_exact_failure() {
     use Step::{Ambiguous, Failed, Owner, Wait};
 
@@ -120,7 +153,10 @@ fn launch_observation_selects_the_owner_or_reports_the_exact_failure() {
     ];
 
     for (index, (child, apps, before, wanted, settled, expected)) in cases.into_iter().enumerate() {
-        let before = before.into_iter().collect();
+        let before = before
+            .into_iter()
+            .map(|pid| agent_desktop_core::ProcessIdentity::new(pid, format!("boot:{pid}")))
+            .collect();
         let wanted = keys(&[wanted]);
         let actual = step(&Sample {
             child_pid: 100,

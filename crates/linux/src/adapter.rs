@@ -188,6 +188,14 @@ impl ObservationOps for LinuxAdapter {
         crate::system::app_inventory(self.bus(), deadline)
     }
 
+    fn query_app_inventory(
+        &self,
+        query: agent_desktop_core::AppInventoryQuery<'_>,
+        deadline: Deadline,
+    ) -> Result<AppInventory, AdapterError> {
+        crate::system::context::inventory::query(self.bus(), query, deadline)
+    }
+
     fn list_apps_scoped(
         &self,
         name: &str,

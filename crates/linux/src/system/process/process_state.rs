@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, Deadline, ProcessIdentity};
 use super::liveness::{Liveness, liveness};
 use super::process_state_classify::Probe;
 use crate::system::SharedBus;
-use crate::system::registry::read_registry;
+use crate::system::registry::read_registry_for;
 
 /// What `process_state` reads: kernel liveness and accessibility probes.
 /// Split out so the order of the reads can be tested.
@@ -30,7 +30,7 @@ impl Observer for Live<'_> {
         if self.deadline.is_expired() {
             return Probe::Unavailable;
         }
-        let Ok(registry) = read_registry(self.bus, self.deadline) else {
+        let Ok(registry) = read_registry_for(self.bus, Some(self.pid), self.deadline) else {
             return Probe::Unavailable;
         };
         let mut found = registry

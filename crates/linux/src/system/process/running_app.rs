@@ -6,3 +6,9 @@ pub(crate) struct Running {
     pub(crate) instance: String,
     pub(crate) name: String,
 }
+
+impl Running {
+    pub(crate) fn identity(&self) -> agent_desktop_core::ProcessIdentity {
+        agent_desktop_core::ProcessIdentity::new(self.pid, self.instance.clone())
+    }
+}

@@ -29,31 +29,40 @@ pub(crate) fn assemble(
     root_name: Option<Option<String>>,
     toolkit: ToolkitId,
 ) -> RegistryApp {
-    let answered = root_name.is_some();
-    let name = app_name(&facts);
-    let registry_name = root_name.flatten().filter(|text| !text.trim().is_empty());
-    RegistryApp {
-        root,
-        name,
-        registry_name,
-        answered,
-        aliases: aliases_of(&facts),
-        facts,
-        toolkit,
-    }
+    let mut app = RegistryApp::from_process(root, facts);
+    app.answered = root_name.is_some();
+    app.registry_name = root_name.flatten().filter(|text| !text.trim().is_empty());
+    app.toolkit = toolkit;
+    app.aliases = aliases_of(&app.facts);
+    app
 }
 
 impl RegistryApp {
+    pub(crate) fn from_process(root: AtspiElement, facts: ProcessFacts) -> Self {
+        Self {
+            name: app_name(&facts),
+            root,
+            facts,
+            registry_name: None,
+            answered: false,
+            toolkit: ToolkitId::default(),
+            aliases: Vec::new(),
+        }
+    }
+
     /// Whether `query` names this application.
     pub(crate) fn matches(&self, query: &str) -> bool {
         name_matches(query, &self.name, &self.aliases)
     }
 }
 
-pub(crate) fn skipped(bus: &str, pid: Option<u32>, reason: &str) -> Value {
+pub(crate) fn skipped(bus: &str, pid: Option<u32>, reason: &str, confirmed_gone: bool) -> Value {
     let mut record = json!({ "bus": bus, "reason": reason });
     if let Some(pid) = pid {
         record["pid"] = json!(pid);
+    }
+    if confirmed_gone {
+        record["confirmed_gone"] = json!(true);
     }
     record
 }
