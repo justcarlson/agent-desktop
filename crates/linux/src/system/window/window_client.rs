@@ -39,16 +39,15 @@ pub(crate) fn client_of(
     world: &impl ClientWorld,
     win: &WindowInfo,
     clients: &[X11Client],
-    active_client: Option<u32>,
+    active_client: impl FnOnce() -> Option<u32>,
 ) -> Result<u32, Cause> {
     let mut found = match_client(&facts_of(win, false), clients);
     if matches!(found, ClientMatch::Several(_)) {
         found = match_client(&facts_of(win, world.global_position()), clients);
     }
     if let ClientMatch::Several(ids) = &found
-        && let Some(id) = world
-            .twins(win)
-            .and_then(|twins| broken_tie(ids, active_client, &twins))
+        && let Some(twins) = world.twins(win)
+        && let Some(id) = broken_tie(ids, active_client(), &twins)
     {
         found = ClientMatch::One(id);
     }

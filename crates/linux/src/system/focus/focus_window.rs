@@ -235,7 +235,7 @@ pub(in crate::system) fn run(
         X11State::NoWindowManager => return Err(refusal(Cause::NoWindowManager)),
         X11State::Unavailable => return Err(refusal(Cause::X11Unavailable)),
     };
-    let client = client_of(world, win, &clients, active).map_err(refusal)?;
+    let client = client_of(world, win, &clients, || active).map_err(refusal)?;
     if world.overview_open() == Some(true) {
         return Err(refusal(Cause::OverviewOpen));
     }

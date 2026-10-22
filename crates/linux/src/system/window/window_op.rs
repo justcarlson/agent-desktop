@@ -18,6 +18,7 @@ use super::window_op_verdict::{
 };
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::focus::focus_cause::Cause;
+use crate::system::focus::focus_window::FocusWorld;
 use crate::system::focus::focus_world::LiveWorld as FrameWorld;
 use crate::system::focus::restore_minimized::{Lifted, lift, still_hidden};
 use crate::system::process::process_lookup::Lookup;
@@ -25,6 +26,7 @@ use crate::system::x11::control::{ControlRead, xwayland_clients};
 use crate::system::x11::control_error::ControlError;
 use crate::system::x11::control_send::{WindowWrite, write_window};
 use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::twin_tie::Twins;
 use crate::system::x11::window_facts::{WindowFacts, read_facts};
 use crate::system::x11::{DisplayReader, X11Client, X11State};
 use crate::system::{
@@ -42,6 +44,8 @@ trait OpWorld: ClientWorld {
     fn lookup(&self, pid: u32) -> Lookup;
     fn stopped(&self, pid: u32) -> bool;
     fn clients(&self) -> ControlRead<Vec<X11Client>>;
+    /// The client the window manager reports active.
+    fn active_client(&self) -> Option<u32>;
     fn facts(&self, client: u32) -> ControlRead<WindowFacts>;
     fn write(&self, client: u32, write: &WindowWrite) -> Result<(), ControlError>;
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError>;
@@ -60,6 +64,10 @@ struct Live<'a> {
 impl ClientWorld for Live<'_> {
     fn global_position(&self) -> bool {
         self.frame.global_position()
+    }
+
+    fn twins(&self, win: &WindowInfo) -> Option<Twins> {
+        self.frame.twins(win)
     }
 }
 
@@ -82,6 +90,10 @@ impl OpWorld for Live<'_> {
             DisplayServer::Wayland => xwayland_clients(self.deadline),
             DisplayServer::Unavailable(..) => ControlRead::Unavailable,
         }
+    }
+
+    fn active_client(&self) -> Option<u32> {
+        self.frame.active()
     }
 
     fn on_wayland(&self) -> bool {
@@ -135,7 +147,7 @@ fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), Adapt
         }
         return Err(unsupported_session(&read));
     };
-    let id = client_of(world, win, clients, None).map_err(|cause| {
+    let id = client_of(world, win, clients, || world.active_client()).map_err(|cause| {
         if cause == Cause::WindowNotMapped && world.on_wayland() {
             unsupported_session(&ControlRead::NotX11)
         } else {
