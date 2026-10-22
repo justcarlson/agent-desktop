@@ -1,4 +1,4 @@
-use agent_desktop_core::{Deadline, ErrorCode};
+use agent_desktop_core::{Deadline, DeliverySemantics, ErrorCode};
 
 use super::{Landmark, locate_in};
 use crate::system::shell::anchor::Anchor;
@@ -83,6 +83,29 @@ fn a_second_unnamed_showing_menu_makes_the_date_menu_ambiguous() {
         locate(&tree, Landmark::DateMenu).unwrap_err().code,
         ErrorCode::AmbiguousTarget
     );
+}
+
+#[test]
+fn a_walk_that_lost_a_node_proves_no_uniqueness() {
+    let whole = gnome_shell(true, false);
+    let mut cut = gnome_shell(true, false);
+    cut.vanish("/left");
+    for landmark in [Landmark::MessageList, Landmark::DateMenu] {
+        assert!(
+            locate(&whole, landmark).is_ok(),
+            "{landmark:?} is found when the walk is whole"
+        );
+        let error = locate(&cut, landmark).expect_err("a second match may hide in the unread node");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported, "{landmark:?}");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert!(
+            error
+                .platform_detail
+                .is_some_and(|detail| detail.contains("left the tree")),
+            "{landmark:?} names the lost node"
+        );
+        assert_eq!(error.details.unwrap()["kind"], "shell_container_unproven");
+    }
 }
 
 #[test]

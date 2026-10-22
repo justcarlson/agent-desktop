@@ -31,6 +31,12 @@ fn unproven(anchor: Anchor) -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
+fn lost_a_node(anchor: Anchor) -> AdapterError {
+    unproven(anchor)
+        .with_suggestion("Retry the command; the shell tree changed while it was read")
+        .with_platform_detail("A shell node left the tree or answered no role during the read")
+}
+
 fn locate_in<N: Nodes>(
     nodes: &N,
     root: &ShellRoot,
@@ -38,7 +44,7 @@ fn locate_in<N: Nodes>(
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
     let start = AtspiElement::new(&root.bus_name, &root.path, root.pid);
-    let (mut found, many) = match anchor {
+    let (mut found, complete, many) = match anchor {
         Anchor::Landmark(Landmark::TrayPanel) => {
             let node = nodes.read(&start)?;
             return Ok(Located {
@@ -46,19 +52,28 @@ fn locate_in<N: Nodes>(
                 container: node,
             });
         }
-        Anchor::Landmark(Landmark::MessageList) => (
-            lists(&walk(nodes, &start, deadline, &|_| false)?.visits),
-            "Several shell containers have the requested role chain",
-        ),
-        Anchor::Landmark(Landmark::DateMenu) => (
-            date_menus(&walk(nodes, &start, deadline, &|light| !light.showing)?.visits),
-            "Several unnamed menus are showing in the shell",
-        ),
+        Anchor::Landmark(Landmark::MessageList) => {
+            let walked = walk(nodes, &start, deadline, &|_| false)?;
+            (
+                lists(&walked.visits),
+                walked.complete,
+                "Several shell containers have the requested role chain",
+            )
+        }
+        Anchor::Landmark(Landmark::DateMenu) => {
+            let walked = walk(nodes, &start, deadline, &|light| !light.showing)?;
+            (
+                date_menus(&walked.visits),
+                walked.complete,
+                "Several unnamed menus are showing in the shell",
+            )
+        }
         _ => return Err(unproven(anchor)),
     };
-    match found.len() {
-        0 => Err(unproven(anchor)),
-        1 => {
+    match (found.len(), complete) {
+        (0 | 1, false) => Err(lost_a_node(anchor)),
+        (0, true) => Err(unproven(anchor)),
+        (1, true) => {
             let light = found.remove(0);
             Ok(Located {
                 anchor: light.clone(),
