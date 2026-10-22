@@ -94,6 +94,8 @@ pub(crate) fn capture_frame_with(
 
 fn with_env<T>(
     bus: &SharedBus,
+    route: &Route,
+    deadline: Deadline,
     run: impl FnOnce(&CaptureEnv) -> Result<T, AdapterError>,
 ) -> Result<T, AdapterError> {
     let lookup = BusLookup { bus };
@@ -105,7 +107,10 @@ fn with_env<T>(
         encode: encode_png,
         stopped: crate::system::proc_stat::is_stopped,
     };
-    run(&env)
+    match route {
+        Route::X11(display) => super::cursor_overlay::with_hidden(display, deadline, || run(&env)),
+        Route::Wayland => run(&env),
+    }
 }
 
 pub(crate) fn screenshot(
@@ -114,7 +119,10 @@ pub(crate) fn screenshot(
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
     let route = current().map_err(not_delivered)?;
-    with_env(bus, |env| capture_with(env, &route, target, deadline))
+    with_env(bus, &route, deadline, |env| {
+        capture_with(env, &route, target, deadline)
+    })
+    .map_err(not_delivered)
 }
 
 pub(crate) fn screenshot_window_frame(
@@ -123,7 +131,10 @@ pub(crate) fn screenshot_window_frame(
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
     let route = current().map_err(not_delivered)?;
-    with_env(bus, |env| capture_frame_with(env, &route, window, deadline))
+    with_env(bus, &route, deadline, |env| {
+        capture_frame_with(env, &route, window, deadline)
+    })
+    .map_err(not_delivered)
 }
 
 #[cfg(test)]
