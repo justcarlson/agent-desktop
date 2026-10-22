@@ -15,21 +15,17 @@ fn settled(message: &str, kind: &str) -> AdapterError {
     }))
 }
 
-fn unsettled(message: &str, kind: &str) -> AdapterError {
-    AdapterError::stale_ref_because(message).with_details(json!({
-        "kind": kind,
-        "complete": true,
-        "retryable": true,
-    }))
-}
-
 /// The search read the whole tree and no node answers to the stored evidence.
-/// The element may be drawn again, so the answer stays retryable the way the
-/// other platforms keep it.
+/// A wait cannot make the ref true again, so the answer is not marked
+/// retryable and the caller learns it at once instead of after the whole wait
+/// budget. A fresh snapshot repairs it, so it is not marked terminal either
+/// and keeps its snapshot recovery hint.
 pub(crate) fn no_candidate() -> AdapterError {
-    unsettled(
-        "Stored ref does not match any live element",
-        "resolve_no_candidate",
+    AdapterError::stale_ref_because("Stored ref does not match any live element").with_details(
+        json!({
+            "kind": "resolve_no_candidate",
+            "complete": true,
+        }),
     )
 }
 

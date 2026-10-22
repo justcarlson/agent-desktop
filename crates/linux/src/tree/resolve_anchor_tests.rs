@@ -65,7 +65,7 @@ fn a_path_that_now_leads_to_another_role_is_stale_even_though_the_role_exists_el
     let error = refused(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert_eq!(kind(&error), "resolve_no_candidate");
-    assert!(error.is_explicitly_retryable());
+    assert!(!error.is_explicitly_retryable());
     assert_eq!(fake.reads.searches, 0);
 }
 
@@ -76,7 +76,7 @@ fn a_path_that_leads_nowhere_is_stale_at_once() {
     entry.scope.path = [0, 7].into_iter().collect();
     let error = refused(&mut fake, &entry);
     assert_eq!(kind(&error), "resolve_no_candidate");
-    assert!(error.is_explicitly_retryable());
+    assert!(!error.is_explicitly_retryable());
     assert_eq!(fake.reads.searches, 0);
     assert_eq!(fake.reads.evidence, 0);
 }
