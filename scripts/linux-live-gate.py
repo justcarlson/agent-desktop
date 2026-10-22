@@ -34,6 +34,7 @@ BARE_CASES = (
 )
 OPENBOX_CASES = (
     "system::close_live_tests::close_live_the_private_sessions_own_processes_are_refused",
+    "notifications::backend_live_tests::a_missing_daemon_keeps_its_detected_backend_refusal",
 )
 HELPER_PARENTS = {
     "system::window_op_live_tests::environment::window_op_live_child_stale_wayland":

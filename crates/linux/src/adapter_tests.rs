@@ -1,6 +1,22 @@
 use super::*;
 use agent_desktop_core::{AppError, CommandContext, ErrorCode, SnapshotSurface, SystemOps};
 
+fn run_without_session_bus(test: &str) -> bool {
+    const CHILD: &str = "AD_ADAPTER_NO_BUS_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return false;
+    }
+    let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+        .args(["--exact", &format!("adapter::tests::{test}"), "--nocapture"])
+        .env(CHILD, "1")
+        .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent")
+        .env_remove("AT_SPI_BUS_ADDRESS")
+        .output()
+        .expect("isolated test starts");
+    assert!(output.status.success(), "{output:?}");
+    true
+}
+
 fn snapshot_args(surface: SnapshotSurface) -> agent_desktop_core::commands::snapshot::SnapshotArgs {
     agent_desktop_core::commands::snapshot::SnapshotArgs {
         app: None,
@@ -19,6 +35,11 @@ fn snapshot_args(surface: SnapshotSurface) -> agent_desktop_core::commands::snap
 
 #[test]
 fn supported_surfaces_advertises_window_sheet_and_menu_and_rejects_the_rest() {
+    if run_without_session_bus(
+        "supported_surfaces_advertises_window_sheet_and_menu_and_rejects_the_rest",
+    ) {
+        return;
+    }
     let adapter = LinuxAdapter::new();
     assert_eq!(
         adapter.supported_surfaces(),
@@ -53,6 +74,9 @@ fn supported_surfaces_advertises_window_sheet_and_menu_and_rejects_the_rest() {
 
 #[test]
 fn a_window_surface_passes_validation_and_reaches_the_adapter() {
+    if run_without_session_bus("a_window_surface_passes_validation_and_reaches_the_adapter") {
+        return;
+    }
     let adapter = LinuxAdapter::new();
     let error = agent_desktop_core::commands::snapshot::execute(
         snapshot_args(SnapshotSurface::Window),

@@ -4,10 +4,10 @@ use agent_desktop_core::{AdapterError, Deadline, NativeHandle, ObservationOps, R
 
 use super::live_launch::Launched;
 use super::live_tree::pid_frame;
-use super::node_read::{call, read_node};
+use super::node_read::call;
 use super::resolve_live_tests::snapshot_entries;
 use super::walker_live_tests::{Settled, settle};
-use super::{AtspiElement, RawNode, atspi_element};
+use super::{AtspiElement, atspi_element};
 use crate::LinuxAdapter;
 use crate::system::{SharedBus, within};
 
@@ -85,14 +85,6 @@ impl Rig {
         (outcome, started.elapsed())
     }
 
-    pub(super) fn raw(&self, handle: &NativeHandle) -> Result<RawNode, AdapterError> {
-        let element = atspi_element(handle)?;
-        let budget = deadline(5_000);
-        let connection = self.bus.get(budget)?;
-        let fresh = AtspiElement::new(element.bus_name(), element.path(), element.pid());
-        within(budget, read_node(connection.inner(), &fresh))
-    }
-
     pub(super) fn do_action(&self, handle: &NativeHandle, index: i32) -> Result<(), AdapterError> {
         self.invoke(handle, ACTION_INTERFACE, "DoAction", index)
     }
@@ -114,10 +106,6 @@ impl Rig {
                 .map_err(|error| AdapterError::internal(error.to_string()))
         })
     }
-}
-
-pub(super) fn width_of(raw: &RawNode) -> f64 {
-    f64::from(raw.extents.present().expect("the node has extents").width)
 }
 
 pub(super) fn wait_until(limit: Duration, mut condition: impl FnMut() -> bool) -> bool {

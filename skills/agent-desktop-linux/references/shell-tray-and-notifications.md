@@ -94,77 +94,55 @@ choice was committed.
 
 ## GNOME Shell: Overview, top bar and popups
 
-| Surface | Meaning | How to use it |
-|---------|---------|---------------|
-| `system-tray` | Top bar plus paired SNI items and their virtual menus | Snapshot headless; watcher required even when there are no items |
-| `quick-settings` | System menu | Guarded headed open; an unproven receiver refuses. Snapshot reads existing menu content |
-| `action-center` | Message list | Guarded headed open; an unproven receiver refuses. Snapshot reads existing message-list content |
-| `taskbar` | Dock | Not advertised or openable by this build, even with a dock extension |
+Shell identity comes from the session-bus owner of `org.gnome.Shell`, correlated
+with its accessibility-bus process. Process names and translated labels cannot
+prove it. Advertised surfaces also require a resolvable structural container.
 
-```bash
-agent-desktop status
-agent-desktop snapshot --surface quick-settings -i
-agent-desktop snapshot --surface action-center -i
-agent-desktop press escape
-```
+| Surface | Meaning | Availability |
+|---------|---------|--------------|
+| `system-tray` | Logical watcher items and their virtual menus | Headless snapshot with a StatusNotifierWatcher; no native panel binding |
+| `action-center` | A unique `LIST` ancestor of `NOTIFICATION` rows | Existing content only when this role chain proves the container |
+| `quick-settings` | System menu | Refuses: the exposed generic panel chain cannot prove its container |
+| `taskbar` | Dock | Not advertised or openable by this build |
 
-These snapshots need no `--app`. `list-surfaces` inventories the app selected
-with `--app`. The shell is not an ordinary app window:
-`list-windows --app gnome-shell` does not enumerate these containers.
-`open-system-surface` returns the container's window identity only after the
-popup is observed. Opening requires structural receiver proof; an unproven
-receiver refuses before input, so open the popup manually when needed. These
-snapshots inspect existing content and can refuse when the popup is closed.
-Notification mutations close a popup they opened, and preserve one already open.
-
-Opening a hidden popup headless returns `POLICY_DENIED`. An already open popup
-can be adopted without another click. Shell ref clicks require `--headed`.
-Close one popup with `press escape` before opening the other. Inspect any
-`physical_delivery_started` / delivery disposition before retrying a failed
-opener.
+Shell snapshots need no `--app`; `list-surfaces` inventories an app selected
+with `--app`. Shell containers do not appear in `list-windows`. Empty history,
+English labels, wrapper depth and screen position do not prove a message-list
+container. Unproven containers and date-menu/system-button openers return
+`ACTION_NOT_SUPPORTED`, `shell_container_unproven`, before input. Opening a
+hidden popup headless still requires headed permission; that permission does
+not establish a missing opener identity.
 
 Overview is not a `--surface` value (`INVALID_ARGS`). On Mutter X11, while
 Activities Overview is open, headed app focus returns `ACTION_FAILED`, cause
-`overview_open`. Send global
-`agent-desktop press escape`, then
+`overview_open`. Send global `agent-desktop press escape`, then
 `agent-desktop --headed focus-window --app gnome-calculator` before the app
-action. Native Wayland app window control has its own refusal described in
-the input reference; this X11 focus recovery is not a Wayland focus promise.
-The shell's top bar uses a separate input route.
+action. This X11 recovery does not establish Wayland window-control support.
 
-Shell clicks require the same structural receiver proof as ordinary app clicks,
-including separation from same-window siblings, before any pointer event. Bounds
-alone cannot authorize input. Overlap, unreadable ancestry or an unknown receiver
-returns `ACTION_FAILED`, `not_delivered` and `physical_delivery_started: false`.
-On X11, a proven target can use XTEST. On Wayland the shared hit test cannot
-prove the receiver, so shell ref clicks and popup openers refuse before opening
-an input session. Inspect the error before retrying; repeated snapshots cannot
-supply missing receiver proof.
-
-Wayland keyboard input is available only after detecting the session-bus
-`org.gnome.Mutter.RemoteDesktop` capability. Other compositors return
-`PLATFORM_NOT_SUPPORTED` before any event. Shell landmarks are English (`System`,
-`Power Off Menu`, `Clear all notifications`); other languages and non-GNOME
-shell observation remain outside this guide.
+Native shell clicks require the same structural receiver and sibling-separation
+proof as app clicks before any pointer event. Bounds alone cannot authorize
+input. Overlap, unreadable ancestry or an unknown receiver refuses without
+delivery. On Wayland the shared hit test cannot prove the receiver, so shell
+ref clicks refuse before opening an input session. Wayland keyboard input
+requires the session-bus `org.gnome.Mutter.RemoteDesktop` capability; an
+unsupported backend returns `PLATFORM_NOT_SUPPORTED` before any event.
 
 ## Service requirements and exact refusals
 
-The GNOME Shell accessibility tree, notification daemon and tray watcher are
-separate requirements. A healthy app bus does not establish any of them.
+The shell accessibility tree, notification daemon and tray watcher are separate
+requirements. A healthy app bus does not establish any of them.
 
 | Missing requirement | Result |
 |---------------------|--------|
-| Shell surface absent from `status` (for example Openbox) | `snapshot` refuses `PLATFORM_NOT_SUPPORTED` at surface validation; headed open can reach `APP_NOT_FOUND`, “The desktop shell is not on the accessibility registry”; `details.shell_tree: absent` |
-| No notification service | `PLATFORM_NOT_SUPPORTED`, “No notification service is running in this session”; `details.daemon: absent` |
-| Notification server name other than `gnome-shell` | `PLATFORM_NOT_SUPPORTED`, “The notification service is '<name>'; only GNOME Shell is supported”; `details.daemon: unsupported`, `server: <name>` |
-| No `org.kde.StatusNotifierWatcher` | Tray snapshot: `PLATFORM_NOT_SUPPORTED`, “No system tray watcher is running in this session”; `details.watcher: absent`; suggestion enables AppIndicator |
-| Notification service or watcher cannot be read | `TIMEOUT`, “The notification service could not be read” or “The system tray watcher could not be read”; corresponding `daemon` / `watcher` detail is `unreadable`, `retryable: true` |
-| `open-system-surface --surface taskbar` | `PLATFORM_NOT_SUPPORTED`, “The taskbar surface is not offered: no stock shell shows a dock” |
+| Shell session owner or matching accessibility tree | Cause-specific missing-tree refusal; no guessed shell identity |
+| Unproven shell container or opener | `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
+| No notification service | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` |
+| Notification service owner differs from the detected shell owner | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported`; server branding is not identity |
+| No `org.kde.StatusNotifierWatcher` | `PLATFORM_NOT_SUPPORTED`, `watcher: absent`; guidance names the required protocol backend |
+| Unreadable notification service or watcher | `TIMEOUT`, corresponding `daemon` or `watcher` detail `unreadable` |
 
-An unavailable daemon is not an empty notification list. An absent watcher is
-not an empty tray. `status` can advertise `system-tray` from a healthy shell
-while its snapshot refuses for the missing watcher. Do not restart the user's
-shell or accessibility bus to repair these errors.
+An unavailable daemon is not an empty notification list; an absent watcher is
+not an empty tray. Do not restart a shell or accessibility bus you do not own.
 
 ## Notifications
 
@@ -192,36 +170,27 @@ remain available through the ref-based observe-act loop.
 
 ## StatusNotifierItem and AppIndicator tray
 
-Tray snapshots require `org.kde.StatusNotifierWatcher`. On GNOME, enable
-AppIndicator to provide the watcher and panel integration; stock GNOME has no
-native SNI watcher.
-This implementation reads the watcher's registered items and their
-`org.kde.StatusNotifierItem` properties. It does not make arbitrary XEmbed icons
-into SNI items. KDE and other notification daemons are not GNOME notification
-support merely because they implement the standard D-Bus interface.
+Tray snapshots require `org.kde.StatusNotifierWatcher`. The adapter reads its
+registered items and `org.kde.StatusNotifierItem` properties; arbitrary XEmbed
+icons are not SNI items. Install or enable a backend only for the session you
+own; GNOME commonly obtains one through AppIndicator.
 
-`snapshot --surface system-tray -i` combines the top-bar nodes with watcher
-items. Entries from `com.canonical.dbusmenu` are virtual children in this same snapshot; use their
-refs rather than looking for an app `menu` surface. A `Passive` item remains in
-the snapshot with `states: [hidden]`.
+`snapshot --surface system-tray -i` exposes watcher items beneath a logical
+root, with `com.canonical.dbusmenu` entries as virtual children. Titles,
+including `System` and duplicate titles, never bind a native panel node. A
+`Passive` item remains in the snapshot with `states: [hidden]`.
 
-Read virtual item/menu names from the snapshot. Default `get` (text) on a
-virtual tray ref fails `INVALID_ARGS`, “Native handle does not contain a Linux
-accessibility element”, `details.kind: invalid_native_handle`. This is not an
-ordinary AT-SPI node. On the paired visible item, `get --property bounds` and
-`is --property visible` worked; that does not make the default text getter work.
+These refs are virtual protocol identities, not AT-SPI elements. Native text
+getters can return `INVALID_ARGS`, `invalid_native_handle`. Bounds, placement
+and offscreen state are unknown; no paired native item supplies geometry.
 
-A tray item supports headless `click` through advertised `Activate`, and
-`right-click` through `ContextMenu`. `SecondaryActivate` is never substituted.
-AppIndicator items can omit those primary methods: use a virtual menu entry.
-Without a permitted semantic route, the headless CLI returns `POLICY_DENIED`.
-A headed panel click on Mutter X11 requires the shared structural receiver
-proof and refuses before input when that proof is unavailable. On Wayland this virtual item ref's
-headed click instead hit the generic pointer gate: `ACTION_NOT_SUPPORTED`,
-cause `wayland_session`, `physical_delivery_started: false`. The dedicated
-shell-popup route does not imply that a virtual tray item's fallback works.
-SNI methods and ordinary leaf picks report `delivered_unverified`, so observe
-the receiving app before deciding whether to repeat them.
+Headless `click` uses advertised `Activate`; `right-click` uses `ContextMenu`.
+`SecondaryActivate` and physical panel clicks never substitute for a missing
+primary method. Use a virtual menu entry when the item omits those methods.
+Headed permission supplies neither native geometry nor a pointer fallback;
+Wayland headed pointer policy can refuse earlier with `wayland_session`.
+SNI methods and leaf picks report `delivered_unverified`; independently observe
+the receiving application before deciding whether to repeat them.
 
 A menu-entry `click` re-resolves the label path and entry ID in a fresh layout;
 a changed revision alone does not invalidate an otherwise identical entry.

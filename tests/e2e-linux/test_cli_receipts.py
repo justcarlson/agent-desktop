@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,7 @@ class CliReceiptTests(unittest.TestCase):
             binary.chmod(0o700)
             for name, body in (("dbus-run-session", 'shift; exec "$@"'),
                                ("xvfb-run", 'shift; exec "$@"'),
+                               ("python3", f'exec {shlex.quote(sys.executable)} "$@"'),
                                ("mktemp", f'exec /usr/bin/mktemp -d "{root}/runtime.XXXXXX"')):
                 script = root / name
                 script.write_text("#!/bin/sh\n" + body + "\n")
@@ -48,10 +50,9 @@ class CliReceiptTests(unittest.TestCase):
                     controls += [("permissions", "17", False), ("click", "17", False), ("click", "0", False)]
                 for command, status, accepted in controls:
                     with self.subTest(step=name, command=command, status=status):
-                        env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ["PATH"],
+                        env = dict(PATH=str(root) + os.pathsep + os.defpath,
                                    RUNNER_TEMP=str(root), BAD_COMMAND=command, BAD_EXIT=status)
-                        env.pop("DBUS_SESSION_BUS_ADDRESS", None)
-                        result = subprocess.run(["bash", "-e", "-c", block], cwd=root,
+                        result = subprocess.run(["/bin/bash", "-e", "-c", block], cwd=root,
                                                 env=env, capture_output=True, text=True, timeout=10)
                         self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
 

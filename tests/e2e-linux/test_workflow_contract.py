@@ -39,7 +39,7 @@ class SourceRuleTests(unittest.TestCase):
                                      "-c", "true"], env=env, capture_output=True, text=True,
                                     timeout=10, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("flock -o -w 30", result.stdout)
+        self.assertIn("sh ./scripts/box-slot.sh 30", result.stdout)
         self.assertIn("timeout -k 30 780", result.stdout)
 
     def test_harness_cleanup_does_not_depend_on_a_trash_command(self):

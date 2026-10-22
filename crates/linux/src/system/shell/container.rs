@@ -100,16 +100,6 @@ pub(crate) fn locate_anchor(
     locate_in(&nodes, root, anchor, deadline)
 }
 
-pub(crate) fn locate(
-    bus: &SharedBus,
-    root: &ShellRoot,
-    landmark: Landmark,
-    deadline: Deadline,
-) -> Result<AtspiElement, AdapterError> {
-    locate_anchor(bus, root, Anchor::Landmark(landmark), deadline)
-        .map(|located| located.container.element)
-}
-
 #[cfg(test)]
 #[path = "container_tests.rs"]
 mod tests;

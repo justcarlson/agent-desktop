@@ -50,7 +50,7 @@ tool for observation or semantic actions.
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` refuses because notification identity cannot be established |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Refuse with `ACTION_NOT_SUPPORTED` on GNOME: notification identity and control semantics cannot be proven. See the shell reference |
-| Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed` and structural pointer receiver proof. See the shell reference |
+| Shell surfaces | `open-system-surface` | Watcher-backed `system-tray`; `action-center` needs proven role ancestry. Unproven popup containers and openers refuse before input. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Requires an active session; see below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 

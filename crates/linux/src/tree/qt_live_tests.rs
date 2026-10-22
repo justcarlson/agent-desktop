@@ -1,18 +1,44 @@
 use std::time::Duration;
 
-use agent_desktop_core::{ErrorCode, RefEntry};
+use agent_desktop_core::{ErrorCode, NativeHandle, RefEntry};
 
 use super::live_fixture;
-use super::live_rig::{Rig, deadline, refused, rig, wait_until, width_of};
+use super::live_rig::{Rig, deadline, refused, rig, wait_until};
 use super::live_tree::{children_of, pid_of};
 use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
+
+fn oracle_bounds(handle: &NativeHandle) -> [i32; 4] {
+    let element = super::atspi_element(handle).expect("Linux handle");
+    let output = std::process::Command::new("python3")
+        .args([
+            "-c",
+            r#"
+import json, sys
+from gi.repository import Gio, GLib
+session = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+address = session.call_sync('org.a11y.Bus', '/org/a11y/bus', 'org.a11y.Bus',
+    'GetAddress', None, None, Gio.DBusCallFlags.NONE, 2000, None).unpack()[0]
+flags = Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION
+bus = Gio.DBusConnection.new_for_address_sync(address, flags, None, None)
+bounds = bus.call_sync(sys.argv[1], sys.argv[2], 'org.a11y.atspi.Component',
+    'GetExtents', GLib.Variant('(u)', (0,)), None, Gio.DBusCallFlags.NONE, 2000, None).unpack()[0]
+print(json.dumps(bounds))
+"#,
+            element.bus_name(),
+            element.path(),
+        ])
+        .output()
+        .expect("independent AT-SPI oracle starts");
+    assert!(output.status.success(), "{output:?}");
+    serde_json::from_slice(&output.stdout).expect("oracle rectangle")
+}
 
 fn widths(rig: &Rig, entries: &[RefEntry]) -> Vec<f64> {
     entries
         .iter()
         .map(|entry| {
             let handle = rig.resolve(entry).expect("the twin resolves");
-            width_of(&rig.raw(&handle).expect("a second read"))
+            f64::from(oracle_bounds(&handle)[2])
         })
         .collect()
 }
@@ -46,19 +72,18 @@ fn qt_live_moved_screen_twins_refuse_old_geometry_and_fresh_refs_stay_distinct()
         .map(|entry| entry.geometry.bounds.expect("a rectangle").width)
         .collect();
     let handle = rig.resolve(&twins[0]).expect("resolves before the move");
-    let position = |rig: &Rig| rig.raw(&handle).expect("read").extents.present().copied();
-    let before = position(&rig).expect("extents");
+    let before = oracle_bounds(&handle);
 
     fixture.send("move 420 260");
     assert!(
-        wait_until(Duration::from_secs(8), || position(&rig)
-            .is_some_and(|now| (now.x, now.y) != (before.x, before.y))),
+        wait_until(Duration::from_secs(8), || oracle_bounds(&handle)[..2]
+            != before[..2]),
         "the window moved"
     );
-    let after = position(&rig).expect("extents");
+    let after = oracle_bounds(&handle);
     println!(
         "qt_live move: ({}, {}) -> ({}, {})",
-        before.x, before.y, after.x, after.y
+        before[0], before[1], after[0], after[1]
     );
 
     for entry in &twins {
