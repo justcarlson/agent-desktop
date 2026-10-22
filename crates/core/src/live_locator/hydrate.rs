@@ -30,6 +30,7 @@ pub(super) fn selected_matches(
     for matched in &mut resolution.matches {
         ensure_remaining(deadline)?;
         let preliminary = matched.entry.clone();
+        let bounds_space = preliminary.geometry.bounds_space.unwrap_or_default();
         let has_identity = crate::ref_identity::has_meaningful_identity(&preliminary);
         let has_bounds = preliminary.geometry.bounds_hash.is_some();
         tracing::debug!(
@@ -59,7 +60,7 @@ pub(super) fn selected_matches(
             hydrated.stats.reads.counts.observation_attempts.max(1);
         resolution.stats.merge_observation(&hydrated.stats);
         if hydrated.roots.len() != 1 {
-            return Err(evidence_incomplete(&hydrated, None, query).into());
+            return Err(evidence_incomplete(&hydrated, None, query, bounds_space).into());
         }
         let root_index = hydrated.roots[0] as usize;
         let (entry, name, value, root_order) = {
@@ -67,8 +68,8 @@ pub(super) fn selected_matches(
                 .nodes
                 .get(root_index)
                 .ok_or_else(|| AdapterError::internal("hydrated locator root is missing"))?;
-            if !evidence_complete(query, node) {
-                return Err(evidence_incomplete(&hydrated, Some(node), query).into());
+            if !evidence_complete(query, node, bounds_space) {
+                return Err(evidence_incomplete(&hydrated, Some(node), query, bounds_space).into());
             }
             if node.evidence.role.known().map(String::as_str)
                 != Some(preliminary.identity.role.as_str())
@@ -135,24 +136,35 @@ fn ensure_remaining(deadline: crate::Deadline) -> Result<(), AppError> {
     Ok(())
 }
 
-fn evidence_complete(query: &LocatorQuery, node: &ObservedNode) -> bool {
+fn evidence_complete(query: &LocatorQuery, node: &ObservedNode, space: crate::BoundsSpace) -> bool {
     !node.evidence.role.is_unknown()
         && (query.identity.name.is_none() || !node.evidence.name.is_unknown())
         && (query.identity.description.is_none() || !node.evidence.description.is_unknown())
         && (query.identity.value.is_none() || !node.evidence.value.is_unknown())
         && (query.identity.native_id.is_none() || node.evidence.identifiers.is_complete())
         && !node.evidence.states.is_unknown()
-        && !node.evidence.ref_evidence.bounds.is_unknown()
+        && geometry_complete(&node.evidence.ref_evidence, space)
         && super::materialize::addressability(&node.evidence).1
 }
 
+fn geometry_complete(evidence: &super::LocatorRefEvidence, space: crate::BoundsSpace) -> bool {
+    match space {
+        crate::BoundsSpace::Screen => !evidence.bounds.is_unknown(),
+        crate::BoundsSpace::Window => {
+            evidence.window_bounds.known().is_some()
+                || (!evidence.window_bounds.is_unknown() && !evidence.bounds.is_unknown())
+        }
+    }
+}
+
 fn anchor_matches(preliminary: &RefEntry, node: &ObservedNode) -> bool {
-    let actual_bounds_hash = node
-        .evidence
-        .ref_evidence
-        .bounds
-        .known()
-        .and_then(crate::Rect::bounds_hash);
+    let geometry = &node.evidence.ref_evidence;
+    let actual_bounds_hash = match preliminary.geometry.bounds_space.unwrap_or_default() {
+        crate::BoundsSpace::Window => &geometry.window_bounds,
+        crate::BoundsSpace::Screen => &geometry.bounds,
+    }
+    .known()
+    .and_then(crate::Rect::bounds_hash);
     if crate::ref_identity::has_meaningful_identity(preliminary) {
         return match crate::ref_identity::identity_match(
             preliminary,
@@ -245,6 +257,7 @@ fn evidence_incomplete(
     tree: &ObservedTree,
     node: Option<&ObservedNode>,
     query: &LocatorQuery,
+    space: crate::BoundsSpace,
 ) -> AdapterError {
     AdapterError::timeout("Selected locator evidence was incomplete")
         .with_details(json!({
@@ -268,7 +281,7 @@ fn evidence_incomplete(
                 "value": node.evidence.value.is_unknown(),
                 "identifiers": !node.evidence.identifiers.is_complete(),
                 "states": node.evidence.states.is_unknown(),
-                "bounds": node.evidence.ref_evidence.bounds.is_unknown(),
+                "bounds": !geometry_complete(&node.evidence.ref_evidence, space),
                 "actions": node.evidence.ref_evidence.available_actions.is_unknown(),
             })),
             "query_stats": &tree.stats,
@@ -280,6 +293,45 @@ fn evidence_incomplete(
 mod retained_tests {
     use super::*;
     use crate::live_locator::test_support::{evidence, node, tree};
+
+    #[test]
+    fn selected_hydration_preserves_window_geometry_and_refuses_unread_or_mixed_frames() {
+        use crate::{BoundsSpace, LocatorField, Rect};
+        let bounds = Rect {
+            x: 10.0,
+            y: 20.0,
+            width: 80.0,
+            height: 30.0,
+        };
+        let query = LocatorQuery::default();
+        let mut observed = node(0, evidence("button", None), vec![], &[]);
+        observed.evidence.ref_evidence.bounds = LocatorField::Unknown;
+        observed.evidence.ref_evidence.window_bounds = LocatorField::Known(bounds);
+        let source = tree(vec![observed.clone()], vec![0], true).source;
+        let mut entry = super::super::materialize::ref_entry(&observed, &source, &query);
+        assert_eq!(entry.geometry.bounds_space, Some(BoundsSpace::Window));
+        assert!(evidence_complete(&query, &observed, BoundsSpace::Window));
+        assert!(anchor_matches(&entry, &observed));
+
+        observed.evidence.ref_evidence.window_bounds =
+            LocatorField::Known(Rect { x: 110.0, ..bounds });
+        observed.evidence.ref_evidence.bounds = LocatorField::Known(bounds);
+        assert!(!anchor_matches(&entry, &observed));
+        observed.evidence.ref_evidence.bounds = LocatorField::Unknown;
+        for window in [LocatorField::Unknown, LocatorField::Absent] {
+            observed.evidence.ref_evidence.window_bounds = window;
+            assert!(!evidence_complete(&query, &observed, BoundsSpace::Window));
+            assert!(!anchor_matches(&entry, &observed));
+        }
+        observed.evidence.ref_evidence.window_bounds = LocatorField::Unknown;
+        observed.evidence.ref_evidence.bounds = LocatorField::Known(bounds);
+        assert!(!evidence_complete(&query, &observed, BoundsSpace::Window));
+        observed.evidence.ref_evidence.window_bounds = LocatorField::Known(bounds);
+        observed.evidence.ref_evidence.bounds = LocatorField::Unknown;
+        entry.geometry.bounds_space = Some(BoundsSpace::Screen);
+        assert!(!evidence_complete(&query, &observed, BoundsSpace::Screen));
+        assert!(!anchor_matches(&entry, &observed));
+    }
 
     #[test]
     fn missing_retained_identity_cannot_pass_hydration_through_geometry() {
