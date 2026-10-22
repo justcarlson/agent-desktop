@@ -243,7 +243,7 @@ impl X11Sink for XtestSink {
     }
 
     fn ensure_text_state(&mut self) -> Result<(), AdapterError> {
-        self.text_state()
+        self.keymap()
             .map_err(SinkError::into_adapter)?
             .ensure_text_state()
     }

@@ -59,3 +59,38 @@ fn spare_rows_are_bounded() {
     assert_eq!(full.keysyms_of(200), None);
     assert_eq!(full.keysyms_of(3), None);
 }
+
+#[test]
+fn num_lock_and_scroll_lock_bits_are_harmless_and_caps_lock_is_not() {
+    #[rustfmt::skip]
+    let keysyms = vec![
+        0x61,   0x41,
+        0xff7f, 0,
+        0xff14, 0,
+        0xffe5, 0,
+        0xff7f, 0xff7e,
+    ];
+    let mut modifier_codes = vec![0u8; 8];
+    modifier_codes[1] = 11;
+    modifier_codes[4] = 9;
+    modifier_codes[5] = 10;
+    modifier_codes[7] = 12;
+    let mut map = Keymap::new(8, 2, keysyms, 1, modifier_codes);
+    assert_eq!(map.harmless_lock_bits(), 0b0011_0000);
+    for modifiers in [0, 0x10, 0x20, 0x30] {
+        map.modifiers = modifiers;
+        assert!(map.ensure_text_state().is_ok(), "modifiers {modifiers:#x}");
+    }
+    for modifiers in [0x2, 0x12, 0x1, 0x80] {
+        map.modifiers = modifiers;
+        let error = map
+            .ensure_text_state()
+            .expect_err("the keys would type other text");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert_eq!(error.details.unwrap()["check"], "keyboard_state");
+    }
+    map.modifiers = 0x10;
+    map.group = 1;
+    assert!(map.ensure_text_state().is_err());
+    assert_eq!(Keymap::sample().harmless_lock_bits(), 0);
+}

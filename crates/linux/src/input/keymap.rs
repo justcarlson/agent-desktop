@@ -6,7 +6,10 @@ const SHIFT_ROW: usize = 0;
 const CONTROL_ROW: usize = 2;
 const ALT_ROW: usize = 3;
 const SUPER_ROW: usize = 6;
+const MODIFIER_ROWS: usize = 8;
 const GROUP_ONE_LEVELS: usize = 2;
+const NUM_LOCK: u32 = 0xff7f;
+const SCROLL_LOCK: u32 = 0xff14;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Keymap {
@@ -20,17 +23,46 @@ pub(crate) struct Keymap {
 }
 
 impl Keymap {
+    /// Refuses a keyboard state under which the planned keycodes would type
+    /// other text: a second layout group, a held modifier, or Caps Lock. Num
+    /// Lock and Scroll Lock change no key the text plan uses, so their
+    /// modifier bits are harmless.
     pub(crate) fn ensure_text_state(&self) -> Result<(), AdapterError> {
-        if self.group == 0 && self.modifiers == 0 {
+        if self.group == 0 && self.modifiers & !self.harmless_lock_bits() == 0 {
             return Ok(());
         }
         Err(AdapterError::new(
             ErrorCode::ActionNotSupported,
-            "Physical text input requires the first keyboard group with no active modifiers",
+            "Physical text input requires the first keyboard group with no held modifier and Caps Lock off",
         )
         .with_details(serde_json::json!({ "check": "keyboard_state", "physical_delivery_started": false }))
-        .with_suggestion("Release modifiers, turn off keyboard locks and select the first layout, or use headless type")
+        .with_suggestion("Release modifiers, turn off Caps Lock and select the first layout, or use headless type")
         .with_disposition(DeliverySemantics::not_delivered()))
+    }
+
+    /// The modifier bits of every row whose keys all carry only Num Lock or
+    /// Scroll Lock keysyms. A row that also holds another keysym is not
+    /// harmless, because its bit may stand for that other key.
+    fn harmless_lock_bits(&self) -> u16 {
+        let width = usize::from(self.modifier_codes_per_modifier);
+        (0..MODIFIER_ROWS)
+            .filter(|row| {
+                let codes: Vec<u8> = self
+                    .modifier_codes
+                    .get(row * width..(row + 1) * width)
+                    .map(|codes| codes.iter().copied().filter(|code| *code != 0).collect())
+                    .unwrap_or_default();
+                !codes.is_empty()
+                    && codes.iter().all(|code| {
+                        self.keysyms_of(*code).is_some_and(|keysyms| {
+                            keysyms.iter().any(|keysym| *keysym != 0)
+                                && keysyms
+                                    .iter()
+                                    .all(|keysym| matches!(*keysym, 0 | NUM_LOCK | SCROLL_LOCK))
+                        })
+                    })
+            })
+            .fold(0, |bits, row| bits | (1 << row))
     }
 
     pub(crate) fn new(
