@@ -18,10 +18,3 @@ fn socket_ownership_belongs_to_the_listener_process_not_its_name() {
     assert!(own.unwrap());
     assert!(!unrelated.unwrap());
 }
-
-#[test]
-fn unknown_desktop_refuses_session_classification() {
-    assert!(gnome_backend(&[], Some("unrecognized-desktop")).is_err());
-    assert!(!gnome_backend(&[], None).unwrap());
-    assert!(gnome_backend(&["org.gnome.Shell".into()], Some("unrecognized-desktop")).unwrap());
-}

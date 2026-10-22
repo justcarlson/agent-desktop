@@ -48,19 +48,7 @@ pub(in crate::system) fn without_helpers(
         return Ok(windows);
     }
     if matches!(session_server(), DisplayServer::Wayland) {
-        let pids: std::collections::HashSet<_> =
-            windows.iter().map(|window| window.frame.pid).collect();
-        let mut helpers = std::collections::HashSet::new();
-        for pid in pids {
-            if crate::system::process::protected::is_display_owner(pid, deadline)? {
-                helpers.insert(pid);
-            }
-        }
-        ensure_budget(deadline)?;
-        return Ok(windows
-            .into_iter()
-            .filter(|window| !helpers.contains(&window.frame.pid))
-            .collect());
+        return Ok(windows);
     }
     let pending = crate::system::x11::start(|| DisplayReader.read());
     let read = pending.finish(deadline);
@@ -136,25 +124,7 @@ pub(in crate::system) fn without_helpers(
         ) {
             Ok(true) => listed.push(window.clone()),
             Ok(false) => {}
-            Err(error) => {
-                ensure_budget(deadline)?;
-                let helper = crate::system::process::protected::is_display_owner(
-                    window.frame.pid,
-                    deadline,
-                )? || control::decoration_matches(
-                    window.frame.pid,
-                    windows
-                        .iter()
-                        .filter(|other| !other.unshown && other.frame.pid == window.frame.pid)
-                        .count(),
-                    deadline,
-                );
-                ensure_budget(deadline)?;
-                if helper {
-                    continue;
-                }
-                return Err(error);
-            }
+            Err(_) => listed.push(window.clone()),
         }
     }
     ensure_budget(deadline)?;

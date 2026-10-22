@@ -19,7 +19,7 @@ use super::restore_minimized::Lifted;
 use crate::system::window::window_client::{ClientWorld, client_of};
 use crate::system::x11::desktop_placement::DesktopPlacement;
 
-const FIRST_LOOK: Duration = Duration::from_millis(400);
+const FIRST_LOOK: Duration = Duration::from_millis(100);
 
 /// How long a frame gets to report itself active once the window manager
 /// already names it. Chromium and Electron report it after their own focus
