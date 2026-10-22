@@ -95,6 +95,22 @@ fn ambiguity_carries_the_candidate_count_and_is_settled() {
 }
 
 #[test]
+fn ambiguity_names_identical_tabs_as_the_usual_cause_and_what_to_change() {
+    let text = ambiguous(3).suggestion.expect("a suggestion");
+    assert!(text.contains("tabs or pages"), "{text}");
+    assert!(text.contains("Close the extra pages"), "{text}");
+}
+
+#[test]
+fn a_tied_window_tells_the_agent_what_to_change() {
+    let error = window_tied();
+    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+    let text = error.suggestion.expect("a suggestion");
+    assert!(text.contains("Close one of them"), "{text}");
+    assert!(text.contains("whose title differs"), "{text}");
+}
+
+#[test]
 fn every_refusal_is_a_stale_ref_that_a_snapshot_repairs() {
     for (error, expected) in [
         (no_candidate(), true),

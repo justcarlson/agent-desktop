@@ -227,8 +227,8 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
         },
     );
     placed.tie = match window.get() {
-        FrameWindow::Tied { hidden } => Some(WindowTie { hidden }),
-        FrameWindow::Client(_) | FrameWindow::Unknown => None,
+        FrameWindow::Tied { hidden } if !global => Some(WindowTie { hidden }),
+        FrameWindow::Tied { .. } | FrameWindow::Client(_) | FrameWindow::Unknown => None,
     };
     placed.popup_origin = popup_origin;
     placed.x11 = x11;
