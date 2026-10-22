@@ -1,6 +1,7 @@
 use agent_desktop_core::{
-    ActionStep, AdapterError, Deadline, DeliverySemantics, Direction, ErrorCode, InteractionPolicy,
-    MouseButton, Point, StepMechanism, validate_mouse_click_count,
+    ActionStep, AdapterError, Deadline, DeliverySemantics, Direction, ErrorCode, InteractionLease,
+    InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, Point, Rect, StepMechanism,
+    validate_mouse_click_count,
 };
 use serde_json::json;
 
@@ -9,7 +10,8 @@ use super::keymap::Keymap;
 use super::plan::Plan;
 use super::step::Step;
 use crate::input::deliver::{ensure_budget, ensure_headed_click_policy};
-use crate::input::target_world::PhysicalWorld;
+use crate::input::target_world::{LiveWorld, PhysicalWorld};
+use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
 pub(crate) struct ClickSpec {
@@ -188,6 +190,54 @@ fn geometry_refusal() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
+pub(crate) fn click_shell(
+    bus: &SharedBus,
+    node: &AtspiElement,
+    button: MouseButton,
+    policy: InteractionPolicy,
+    lease: &InteractionLease,
+) -> Result<Point, AdapterError> {
+    ensure_headed_click_policy(policy)?;
+    let deadline = lease.deadline();
+    ensure_budget(deadline)?;
+    let extents = crate::system::shell::light::live_extents(bus, node, deadline)?
+        .map(Rect::from)
+        .ok_or_else(geometry_refusal)?;
+    let displays = crate::system::list_displays(deadline)?;
+    let point = super::shell_aim::aim(extents, &displays)?;
+    let world = LiveWorld { bus, lease };
+    match world.backend()? {
+        Backend::X11(_) => {
+            click_steps(
+                &world,
+                node,
+                ClickSpec {
+                    button,
+                    count: 1,
+                    verified: Some(point.clone()),
+                },
+                policy,
+                deadline,
+            )?;
+        }
+        Backend::Wayland => {
+            world.validate_pointer(node, &point, deadline)?;
+            super::wayland::pointer_send::send(
+                &MouseEvent {
+                    point: point.clone(),
+                    button,
+                    kind: MouseEventKind::Click { count: 1 },
+                    modifiers: Vec::new(),
+                },
+                &displays,
+                &mut || world.validate_pointer(node, &point, deadline),
+                deadline,
+            )?;
+        }
+    }
+    Ok(point)
+}
+
 #[cfg(test)]
 #[path = "target_click_tests.rs"]
 mod click_tests;
@@ -195,3 +245,7 @@ mod click_tests;
 #[cfg(test)]
 #[path = "target_scroll_tests.rs"]
 mod scroll_tests;
+
+#[cfg(test)]
+#[path = "shell_click_live_tests.rs"]
+mod shell_live_tests;

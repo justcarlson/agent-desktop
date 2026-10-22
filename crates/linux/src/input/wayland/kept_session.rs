@@ -87,7 +87,9 @@ pub(crate) fn keep(session: RemoteDesktop) {
 }
 
 /// Stops the kept session now, for a process that is about to end.
-pub(crate) fn end() {
+/// Ends the retained keyboard session before CLI exit so delayed compositor
+/// teardown cannot take keyboard focus from the next process.
+pub fn end() {
     GENERATION.fetch_add(1, Ordering::SeqCst);
     if let Taken::Fresh(session) | Taken::Expired(session) = KEPT.take(Duration::ZERO) {
         stop_quietly(session);

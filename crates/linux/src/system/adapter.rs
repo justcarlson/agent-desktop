@@ -3,10 +3,10 @@ use agent_desktop_core::launch_result::LaunchResult;
 use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
-    DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
-    KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, OperationReport,
-    PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline,
-    SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    DismissNotificationRequest, DisplayInfo, ErrorCode, ImageBuffer, InteractionLease,
+    InteractionPolicy, KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo,
+    OperationReport, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
+    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
@@ -175,6 +175,28 @@ impl SystemOps for LinuxAdapter {
         surfaces.extend(menu_surface::supported());
         surfaces.extend(shell::supported(self.bus()));
         surfaces
+    }
+
+    fn check_surface_support(&self, requested: SnapshotSurface) -> Result<(), AdapterError> {
+        if matches!(
+            requested,
+            SnapshotSurface::Window | SnapshotSurface::Sheet | SnapshotSurface::Menu
+        ) {
+            return Ok(());
+        }
+        let supported = self.supported_surfaces();
+        if supported.contains(&requested) {
+            return Ok(());
+        }
+        Err(AdapterError::new(
+            ErrorCode::PlatformNotSupported,
+            format!("Snapshot surface '{}' is not supported on this platform", requested.as_str()),
+        )
+        .with_details(serde_json::json!({
+            "requested_surface": requested.as_str(),
+            "supported_surfaces": supported.into_iter().map(SnapshotSurface::as_str).collect::<Vec<_>>()
+        }))
+        .with_suggestion("Choose one of the supported snapshot surfaces"))
     }
 
     fn open_session(

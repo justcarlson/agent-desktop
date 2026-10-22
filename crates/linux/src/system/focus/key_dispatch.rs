@@ -4,12 +4,11 @@ use agent_desktop_core::{
 };
 use serde_json::json;
 
-use crate::actions::physical_keyboard::press_for_process;
-use crate::actions::physical_live_world::LiveWorld;
-use crate::actions::physical_target::PhysicalWorld;
 use crate::input::backend::Backend;
+use crate::input::target_keyboard::press_for_process;
+use crate::input::target_world::{LiveWorld, PhysicalWorld};
 use crate::system::process::process_lookup::Lookup;
-use crate::system::window::window_ops::focused_window;
+use crate::system::window::window_ops::windows_of_process;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{
@@ -22,7 +21,11 @@ use crate::system::{
 trait KeyWorld {
     fn lookup(&self, pid: u32) -> Lookup;
     fn stopped(&self, pid: u32) -> bool;
-    fn focused_window(&self, deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError>;
+    fn focused_window(
+        &self,
+        pid: u32,
+        deadline: Deadline,
+    ) -> Result<Option<WindowInfo>, AdapterError>;
     fn active_client_pid(&self, deadline: Deadline) -> Option<u32>;
 }
 
@@ -39,8 +42,14 @@ impl KeyWorld for LiveKeys<'_> {
         proc_stat::is_stopped(pid)
     }
 
-    fn focused_window(&self, deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError> {
-        focused_window(self.bus, deadline)
+    fn focused_window(
+        &self,
+        pid: u32,
+        deadline: Deadline,
+    ) -> Result<Option<WindowInfo>, AdapterError> {
+        Ok(windows_of_process(self.bus, pid, deadline)?
+            .into_iter()
+            .find(|window| window.state.is_focused))
     }
 
     fn active_client_pid(&self, deadline: Deadline) -> Option<u32> {
@@ -110,7 +119,7 @@ fn require_active(
             None => not_active(process, "display_active_window"),
         });
     }
-    let focused = world.focused_window(deadline);
+    let focused = world.focused_window(pid, deadline);
     if let Some(window) = window {
         return if focused.ok().flatten().is_some_and(|focused| {
             focused.id == window.id

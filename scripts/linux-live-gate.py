@@ -29,8 +29,8 @@ CURSOR_WAYLAND = "system::overlay::cursor_overlay::tests::live_wayland_cursor_re
 CLI_WAYLAND = "system::overlay::cursor_overlay::cli_tests::live_wayland_cursor_cli_reports_unrendered_without_x11_fallback"
 EXTERNAL_WAYLAND = (CURSOR_WAYLAND, CLI_WAYLAND)
 BARE_CASES = (
-    "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
-    "input::shell_click::live_tests::a_missing_mutter_capability_refuses_before_session_creation",
+    "input::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+    "input::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
 )
 OPENBOX_CASES = (
     "system::close::close_live_tests::close_live_the_private_sessions_own_processes_are_refused",

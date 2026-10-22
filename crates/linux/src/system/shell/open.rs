@@ -9,8 +9,8 @@ use serde_json::json;
 use super::container::{Landmark, locate_anchor};
 use super::identity::{ShellRoot, find_root};
 use super::kinds::{ShellKind, title_of};
-use crate::actions::physical_target::ensure_headed_click_policy;
-use crate::input::shell_click;
+use crate::input::deliver::ensure_headed_click_policy;
+use crate::input::target_pointer::click_shell;
 use crate::system::shell::anchor::Anchor;
 use crate::system::shell::located::Located;
 use crate::system::{SharedBus, process::process_facts, window::window_id};
@@ -176,7 +176,7 @@ impl Surface for LiveSurface<'_> {
             return Ok(());
         };
         let (_, located) = self.located(opener, self.lease.deadline())?;
-        shell_click::click(
+        click_shell(
             self.bus,
             &located.anchor.element,
             MouseButton::Left,

@@ -5,9 +5,10 @@ use crate::system::SharedBus;
 use crate::system::process::proc_scan::find_running;
 use crate::system::process::proc_stat;
 use crate::system::process::unresponsive::{require_known_target, settle_scoped, stopped_target};
+use crate::system::registry::app_query::AppQuery;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_app::RegistryApp;
-use crate::system::registry::{Registry, read_registry, read_registry_for};
+use crate::system::registry::{Registry, read_registry_for, read_registry_query};
 use crate::system::signal::signal_inventory::{Pass, read_selected, run_pass_with};
 use crate::system::x11::desktops::{self, Desktops};
 use crate::system::x11::{self, DisplayReader, X11Source, X11State};
@@ -41,8 +42,16 @@ pub(crate) fn list_windows(
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     let pending = x11::start(|| DisplayReader.read());
     let desktops = x11::start(desktops::read);
-    let registry = read_registry(bus, deadline)?;
     let select = |app: &RegistryApp| filter.app.as_deref().is_none_or(|query| app.matches(query));
+    let registry = read_registry_query(
+        bus,
+        &AppQuery {
+            pid: None,
+            select: &select,
+            enrich: true,
+        },
+        deadline,
+    )?;
     let stopped = match filter.app.as_deref() {
         Some(query) => {
             require_known_target(&registry, select, query, find_running)?;

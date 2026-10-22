@@ -6,8 +6,8 @@ use agent_desktop_core::{
     NativeHandle, Rect, RefEntry,
 };
 
-use crate::actions::physical_click::{ClickSpec, click_steps};
 use crate::actions::physical_target::tests::fake::FakeWorld;
+use crate::input::target_pointer::{ClickSpec, click_steps};
 use crate::system::x11::window_x11_state::WindowX11State;
 use crate::tree::ancestry::Ancestry;
 use crate::tree::live_project::{live_element, pointer_rect};

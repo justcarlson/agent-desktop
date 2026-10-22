@@ -10,7 +10,7 @@ use crate::system::SharedBus;
 use crate::system::process::process_facts;
 use crate::system::process::unresponsive::scoped_windows_of;
 use crate::system::registry::listed_window::ListedWindow;
-use crate::system::registry::read_registry;
+use crate::system::registry::read_registry_for;
 
 fn require_same_process(process: &ProcessIdentity) -> Result<(), AdapterError> {
     let Some(facts) = process_facts::read(process.pid.get()) else {
@@ -89,8 +89,8 @@ pub(crate) fn list_surfaces(
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
     require_same_process(process)?;
-    let registry = read_registry(bus, deadline)?;
     let pid = process.pid.get();
+    let registry = read_registry_for(bus, Some(pid), deadline)?;
     let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
     let mut inventory = Inventory::new(bus, deadline);
     let scan = scan_windows(&windows, |window| inventory.read(window));

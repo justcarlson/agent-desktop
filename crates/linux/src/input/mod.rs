@@ -21,7 +21,6 @@ pub(crate) mod pointer_report;
 pub(crate) mod release_guard;
 pub(crate) mod release_state;
 pub(crate) mod shell_aim;
-pub(crate) mod shell_click;
 pub(crate) mod standalone;
 pub(crate) mod step;
 pub(crate) mod target_keyboard;

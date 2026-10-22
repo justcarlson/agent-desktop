@@ -3,7 +3,7 @@ use agent_desktop_core::{
     Point, StepMechanism,
 };
 
-use crate::input::shell_click;
+use crate::input::target_pointer::click_shell;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
@@ -25,7 +25,7 @@ pub(crate) fn deliver(
     lease: &InteractionLease,
 ) -> Option<Result<ActionResult, AdapterError>> {
     deliver_with(&request.action, |button| {
-        shell_click::click(bus, element, button, request.policy, lease)
+        click_shell(bus, element, button, request.policy, lease)
     })
 }
 
