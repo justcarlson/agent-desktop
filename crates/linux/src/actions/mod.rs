@@ -45,6 +45,8 @@ mod live_bench;
 #[cfg(test)]
 mod live_bench_env;
 #[cfg(test)]
+mod live_bench_iteration;
+#[cfg(test)]
 mod live_click_tests;
 #[cfg(test)]
 mod live_disclosure_tests;

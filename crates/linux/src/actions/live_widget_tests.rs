@@ -5,7 +5,8 @@ use agent_desktop_core::{
     WindowFilter,
 };
 
-use super::live_bench::{Bench, Scripts, Toolkit, each_scripts};
+use super::live_bench::{Bench, Scripts, Toolkit};
+use super::live_bench_iteration::each_scripts;
 use super::live_widget_scripts::{
     BROWSER_PAGE, GTK3_WIDGETS, GTK4_WIDGETS, QT_MAIN, QT_PLAIN, QT_WIDGETS,
 };
