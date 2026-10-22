@@ -98,7 +98,10 @@ impl Bench {
             let windows = adapter
                 .list_windows(&WindowFilter::default(), deadline(5_000))
                 .unwrap_or_default();
-            if let Some(window) = windows.iter().find(|window| window.title.contains(tag)) {
+            if let Some(window) = windows
+                .iter()
+                .find(|window| window.pid.get() == pid && window.title.contains(tag))
+            {
                 let (bus, path) = window_id::decode(&window.id).map_err(|e| e.message)?;
                 return Ok(AtspiElement::new(bus, path, window.pid.get()));
             }
