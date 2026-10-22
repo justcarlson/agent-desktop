@@ -137,7 +137,7 @@ requirements. A healthy app bus does not establish any of them.
 | Shell session owner or matching accessibility tree | Cause-specific missing-tree refusal; no guessed shell identity |
 | Unproven shell container or opener | `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
 | No notification service | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` |
-| Notification service owner differs from the detected shell owner | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported`; server branding is not identity |
+| Notification service owner is neither the shell nor a process of the same user whose argv names the shell's own notification module | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported`; server branding is not identity |
 | No `org.kde.StatusNotifierWatcher` | `PLATFORM_NOT_SUPPORTED`, `watcher: absent`; guidance names the required protocol backend |
 | Unreadable notification service or watcher | `TIMEOUT`, corresponding `daemon` or `watcher` detail `unreadable` |
 
@@ -152,8 +152,12 @@ notification_identity_unavailable`, `retryable: false`, with `not_delivered`
 and safe retry. The refusal happens before reading or opening the message list
 and before any input. `wait --notification` returns the same refusal immediately.
 Missing, unsupported or unreadable services retain the backend errors above.
-A separately owned GNOME notification process also retains the ownership
-refusal; its branding cannot establish delegation to the detected shell.
+Stock GNOME hands the notification name to a helper process that runs the
+shell's own notification module. That owner counts as the shell's service when
+it runs for the same user as the shell and its argv names that module as
+`gnome-shell/org.gnome.Shell.Notifications`. Any other owner keeps the
+`daemon: unsupported` refusal; its branding cannot establish delegation to the
+detected shell.
 
 The standard `org.freedesktop.Notifications` protocol supplies an ID in the
 `Notify` reply and app name, summary, body and action keys in the call, but no
@@ -169,6 +173,21 @@ Single-item mutations still require `--headed` and at least one of
 headless mutation is `POLICY_DENIED`. Supplying these flags does not bypass the
 identity refusal. Ordinary application controls with supported AT-SPI actions
 remain available through the ref-based observe-act loop.
+
+## Surfaces that `open-system-surface` accepts
+
+`open-system-surface --help` shows the values of every platform. On Linux only
+three can work:
+
+| Value | Result |
+|-------|--------|
+| `system-tray` | Needs `org.kde.StatusNotifierWatcher`. Without it: `PLATFORM_NOT_SUPPORTED`, `watcher: absent`, the same refusal as `snapshot --surface system-tray`. No window is returned |
+| `action-center` | Opens the GNOME message list when its container and opener are proven; otherwise `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
+| `quick-settings` | Opens the GNOME system menu with the same proof rule |
+| `taskbar` | `PLATFORM_NOT_SUPPORTED`: no stock shell shows a dock |
+| `start-menu`, `system-tray-overflow`, other values | `PLATFORM_NOT_SUPPORTED`, not supported on this platform |
+
+Retrying an unsupported value gives the same refusal.
 
 ## StatusNotifierItem and AppIndicator tray
 

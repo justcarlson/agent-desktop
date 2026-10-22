@@ -50,7 +50,7 @@ tool for observation or semantic actions.
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` refuses because notification identity cannot be established |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Refuse: an admitted backend returns `ACTION_NOT_SUPPORTED` for unproven identity; a service with a different owner than the shell returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
-| Shell surfaces | `open-system-surface` | Watcher-backed `system-tray`; `action-center` needs proven role ancestry. Unproven popup containers and openers refuse before input. See the shell reference |
+| Shell surfaces | `open-system-surface` | Only `system-tray`, `action-center` and `quick-settings` can work. `system-tray` needs a StatusNotifierWatcher and refuses with `watcher: absent` without one; `action-center` needs proven role ancestry. `taskbar` always refuses, and `start-menu` and `system-tray-overflow` are not supported, although `--help` lists them. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Requires an active session; see below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
