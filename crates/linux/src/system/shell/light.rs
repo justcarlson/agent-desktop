@@ -34,6 +34,12 @@ impl Light {
     }
 }
 
+/// Whether two addresses name the same accessibility object, whatever else
+/// each was built with.
+pub(crate) fn same_object(left: &AtspiElement, right: &AtspiElement) -> bool {
+    left.bus_name() == right.bus_name() && left.path() == right.path()
+}
+
 /// Reads shell nodes. The bus implements it; a test substitutes a tree.
 pub(crate) trait Nodes {
     fn read(&self, element: &AtspiElement) -> Result<Light, AdapterError>;

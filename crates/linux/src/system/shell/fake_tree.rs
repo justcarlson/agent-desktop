@@ -87,6 +87,12 @@ impl FakeTree {
         above
     }
 
+    pub(super) fn hide(&mut self, path: &str) {
+        if let Some(node) = self.nodes.get_mut(path) {
+            node.showing = false;
+        }
+    }
+
     pub(super) fn vanish(&mut self, path: &str) {
         self.nodes.remove(path);
     }

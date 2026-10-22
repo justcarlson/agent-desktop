@@ -119,10 +119,15 @@ Activities Overview is open, headed app focus returns `ACTION_FAILED`, cause
 `agent-desktop --headed focus-window --app gnome-calculator` before the app
 action. This X11 recovery does not establish Wayland window-control support.
 
-Native shell clicks need headed permission and an aim point inside the target's
-own extents on a display; the shell answers no point query finer than a
-container, so no sibling proof exists for a shell node, and each effect is read
-back from the shell. On Wayland the shared hit test cannot prove the receiver, so shell
+Native shell clicks need headed permission and, on X11, a tree hit test before
+any pointer event. The shell answers no point query finer than a container, so
+the adapter reads every showing shell node in paint order. The last node over the
+aim point must be the target or lie below it, and the target's extents must read
+the same twice, at least 50 ms apart. A node painted over the target, a target
+that is still moving, or a node that cannot be read refuses with
+`ACTION_FAILED`, `pointer_hit_unproven` and no delivery; retry once the shell
+settles. Each effect is read back from the shell. On Wayland the shared hit test
+cannot prove the receiver, so shell
 ref clicks refuse before opening an input session. Wayland keyboard input
 requires the session-bus `org.gnome.Mutter.RemoteDesktop` capability; an
 unsupported backend returns `PLATFORM_NOT_SUPPORTED` before any event.
