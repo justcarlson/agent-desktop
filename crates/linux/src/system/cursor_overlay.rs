@@ -1,13 +1,18 @@
 //! A session-scoped X11 overlay retained by the server between adapter calls.
 use x11rb::connection::Connection;
+use x11rb::protocol::shape::{ConnectionExt as _, SK};
 use x11rb::protocol::xproto::*;
 
 use agent_desktop_core::{AdapterError, CursorOverlayControl, Deadline, FileLock};
 
+#[path = "cursor_overlay_capture.rs"]
+mod capture;
 #[path = "cursor_overlay_draw.rs"]
 mod draw;
 #[path = "cursor_overlay_visual.rs"]
 mod visual;
+
+pub(crate) use capture::with_hidden;
 
 fn error(detail: impl std::fmt::Display) -> AdapterError {
     AdapterError::internal("The X11 cursor overlay could not be updated")
@@ -57,6 +62,42 @@ mod tests;
 mod cli_tests;
 
 const OWNER: &[u8] = b"_AGENT_DESKTOP_CURSOR_OWNER";
+
+pub(in crate::system) fn is_overlay(
+    connection: &x11rb::rust_connection::RustConnection,
+    window: Window,
+    attributes: &GetWindowAttributesReply,
+    geometry: &GetGeometryReply,
+) -> Result<bool, AdapterError> {
+    if !attributes.override_redirect || geometry.depth != 32 {
+        return Ok(false);
+    }
+    let atom = connection
+        .intern_atom(false, OWNER)
+        .map_err(error)?
+        .reply()
+        .map_err(error)?
+        .atom;
+    let owner = connection
+        .get_property(false, window, atom, AtomEnum::STRING, 0, 1024)
+        .map_err(error)?
+        .reply()
+        .map_err(error)?;
+    if owner.format != 8
+        || owner.bytes_after != 0
+        || !serde_json::from_slice::<(String, Option<String>)>(&owner.value)
+            .is_ok_and(|(session, _)| !session.is_empty())
+    {
+        return Ok(false);
+    }
+    Ok(connection
+        .shape_get_rectangles(window, SK::INPUT)
+        .map_err(error)?
+        .reply()
+        .map_err(error)?
+        .rectangles
+        .is_empty())
+}
 
 fn apply(display: &str, control: &CursorOverlayControl) -> Result<(), AdapterError> {
     let (connection, index) = connect(display)?;

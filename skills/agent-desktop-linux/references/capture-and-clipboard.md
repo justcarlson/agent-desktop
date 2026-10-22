@@ -20,6 +20,8 @@ agent-desktop screenshot /tmp/everything.png
 - A window is read from its own drawable. Under a compositing window manager
   (mutter) a covered window and a minimized window are both captured; each
   measured 360x504 with a 900x700 editor over the calculator.
+- The tool temporarily hides its own cursor overlays during capture and restores
+  them afterward. They neither block the screenshot nor appear in its pixels.
 - Under a non-compositing window manager (openbox) that read is not possible. A
   covered window answers `ACTION_FAILED` with `details.reason: "covered"` and the
   suggestion to raise it with `--headed focus-window`; the same capture after the

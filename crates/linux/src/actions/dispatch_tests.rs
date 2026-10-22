@@ -128,7 +128,10 @@ fn a_headed_right_click_keeps_the_existing_not_delivered_fallback() {
     )
     .expect("semantic fallback after a refused pointer delivery");
 
-    assert_eq!(result.steps[0].label(), "Action.DoAction");
+    assert_eq!(
+        result.steps.last().expect("semantic step").label(),
+        "Action.DoAction"
+    );
 }
 
 #[test]
@@ -140,8 +143,47 @@ fn an_unaimable_or_unsupported_pointer_falls_back_to_the_semantic_call() {
     ] {
         let result =
             physical_first(|| Err(error), || Ok(done("Action.DoAction"))).expect("falls back");
-        assert_eq!(result.steps[0].label(), "Action.DoAction");
+        assert_eq!(
+            result.steps.last().expect("semantic step").label(),
+            "Action.DoAction"
+        );
     }
+}
+
+#[test]
+fn a_safe_keyboard_refusal_is_reported_before_semantic_fallback() {
+    use agent_desktop_core::{ActionStepOutcome, StepMechanism};
+    let result = super::physical_first(
+        || {
+            Err(crate::input::keymap::Keymap {
+                modifiers: 2,
+                ..Default::default()
+            }
+            .ensure_text_state()
+            .expect_err("a lock prevents physical text"))
+        },
+        || {
+            Ok(done("EditableText.InsertText")
+                .with_details(serde_json::json!({"verification_scope": "element_value"})))
+        },
+    )
+    .expect("a proven unsent request may use semantic insertion");
+    assert_eq!(result.steps.len(), 2);
+    assert!(matches!(
+        result.steps[0].outcome,
+        ActionStepOutcome::Skipped
+    ));
+    assert_eq!(
+        result.steps[0].mechanism(),
+        Some(StepMechanism::PhysicalSynthetic)
+    );
+    assert_eq!(result.steps[1].label(), "EditableText.InsertText");
+    let details = result.details.expect("fallback evidence");
+    assert_eq!(
+        details["physical_fallback"]["details"]["check"],
+        "keyboard_state"
+    );
+    assert_eq!(details["verification_scope"], "element_value");
 }
 
 #[test]
@@ -152,6 +194,12 @@ fn any_other_pointer_refusal_is_returned_and_the_semantic_call_stays_unused() {
         refusal(ErrorCode::PolicyDenied, None),
         agent_desktop_core::AdapterError::new(ErrorCode::ActionNotSupported, "sent")
             .with_disposition(agent_desktop_core::DeliverySemantics::uncertain()),
+        agent_desktop_core::AdapterError::new(
+            ErrorCode::ActionNotSupported,
+            "later text chunk refused",
+        )
+        .with_details(serde_json::json!({"check": "keyboard_state", "delivered_events": 2}))
+        .with_disposition(agent_desktop_core::DeliverySemantics::delivered_unverified()),
     ] {
         let kept = error.code.clone();
         let outcome = physical_first(|| Err(error), || panic!("the semantic call must not run"));

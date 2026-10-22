@@ -1,6 +1,6 @@
 use agent_desktop_core::{
-    Action, ActionRequest, ActionResult, AdapterError, DeliverySemantics, ErrorCode,
-    InteractionLease, InteractionPolicy, NativeHandle,
+    Action, ActionRequest, ActionResult, ActionStep, AdapterError, DeliverySemantics, ErrorCode,
+    InteractionLease, InteractionPolicy, NativeHandle, StepMechanism,
 };
 use serde_json::json;
 
@@ -82,7 +82,19 @@ pub(crate) fn physical_first(
     semantic: impl FnOnce() -> Result<ActionResult, AdapterError>,
 ) -> Result<ActionResult, AdapterError> {
     match physical() {
-        Err(error) if falls_back_to_semantic(&error) => semantic(),
+        Err(error) if falls_back_to_semantic(&error) => semantic().map(|mut result| {
+            result.steps.insert(
+                0,
+                ActionStep::skipped("physical_input")
+                    .with_mechanism(StepMechanism::PhysicalSynthetic),
+            );
+            result.details.get_or_insert_with(|| json!({}))["physical_fallback"] = json!({
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            });
+            result
+        }),
         other => other,
     }
 }

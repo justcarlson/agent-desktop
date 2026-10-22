@@ -223,6 +223,11 @@ fn overlays_from_siblings(
             Err(Stop::Gone) => continue,
             Err(Stop::Failed) => return Err(Stop::Failed),
         };
+        if crate::system::cursor_overlay::is_overlay(connection, *window, &attributes, &size)
+            .map_err(|_| Stop::Failed)?
+        {
+            continue;
+        }
         let border = i32::from(size.border_width) * 2;
         found.bounds.push(Extents {
             x: i32::from(size.x),

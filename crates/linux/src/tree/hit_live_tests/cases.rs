@@ -9,6 +9,58 @@ use agent_desktop_core::{ErrorCode, ObservationOps, Point};
 use std::time::{Duration, Instant};
 
 #[test]
+#[ignore = "proves a real GTK4 editor receiver on private X11"]
+fn a_text_editor_document_has_a_proven_pointer_receiver() {
+    use crate::tree::live_launch::Launched;
+    use crate::tree::physical_live_rig::Scene;
+    use agent_desktop_core::{
+        CursorOverlayConfig, CursorOverlayControl, CursorOverlayInstruction, SystemOps,
+    };
+    let mut launched = Launched::new();
+    let pid = launched.spawn("gnome-text-editor", &["--new-window"]);
+    let scene = Scene::attach(launched, pid, String::new(), 30);
+    crate::tree::physical_live_tests::activate_scene(&scene);
+    let handle = scene.find(&["textfield"], None);
+    let bounds = scene
+        .adapter
+        .get_element_bounds(&handle, deadline(10_000))
+        .expect("target geometry")
+        .expect("positioned editor");
+    let point = Point {
+        x: bounds.x + bounds.width / 2.0,
+        y: bounds.y + bounds.height / 2.0,
+    };
+    scene
+        .adapter
+        .update_cursor_overlay(&CursorOverlayControl::enable(
+            "hit-cursor".into(),
+            Default::default(),
+        ))
+        .expect("cursor enabled");
+    scene
+        .adapter
+        .update_cursor_overlay(&CursorOverlayControl::present(
+            "hit-cursor".into(),
+            CursorOverlayInstruction::new(
+                point.clone(),
+                &CursorOverlayConfig::enabled(None, 8).expect("cursor config"),
+                false,
+            )
+            .expect("cursor position"),
+        ))
+        .expect("cursor placed over target");
+    let result = scene.adapter.hit_test(&handle, point, deadline(10_000));
+    scene
+        .adapter
+        .update_cursor_overlay(&CursorOverlayControl::disable("hit-cursor".into()))
+        .expect("retire cursor");
+    assert_eq!(
+        result.expect("hit test"),
+        agent_desktop_core::HitTestResult::ReachesTarget
+    );
+}
+
+#[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
 fn stopped_application_returns_bounded_timeout() {
     let session = rig();

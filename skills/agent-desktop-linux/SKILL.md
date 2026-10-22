@@ -51,7 +51,7 @@ tool for observation or semantic actions.
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` refuses because notification identity cannot be established |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Refuse with `ACTION_NOT_SUPPORTED` on GNOME: notification identity and control semantics cannot be proven. See the shell reference |
 | Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed` and structural pointer receiver proof. See the shell reference |
-| Cursor overlay | `cursor-overlay` | Renders on X11: `enable` returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
+| Cursor overlay | `cursor-overlay` | Requires an active session; see below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
 ## First Contact
@@ -72,7 +72,7 @@ tool for observation or semantic actions.
 - **GTK4 apps nest deeply.** `--max-depth` and `--skeleton` count semantic
   levels, so empty layout wrappers add output levels. `-i --compact` still
   shows nested nameless `group` nodes: read past them.
-- **A window appears before its content.** `wait --window` first, then
+- **A window appears before its content.** `wait --window "Text Editor" --app gnome-text-editor` first, then
   `wait --text`. Web-engine detection reads the application's AT-SPI toolkit
   metadata, independent of executable names or installed payload files. Window
   observations wait for three equal full reads and a web-document role (or a
@@ -107,6 +107,45 @@ tool for observation or semantic actions.
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
   `INTERNAL`; run `chmod 700` on it or let the tool create it.
 
+## Wait for a window
+
+Wait for an app window to appear (`--window` requires a title or title substring):
+
+```bash
+agent-desktop wait --window "Text Editor" --app gnome-text-editor --timeout 10000
+```
+
+Wait for an app window to close after the next close action. This example uses
+Calculator so no unsaved-document prompt interrupts the close. Batch records
+the window baseline before closing it:
+
+```bash
+agent-desktop batch '[{"command":"close-app","args":{"app":"gnome-calculator"}},{"command":"wait","args":{"event":"window-closed","app":"gnome-calculator","timeout":10000}}]' --stop-on-error
+```
+
+To observe a close performed by someone else, start
+`agent-desktop wait --event window-closed --app gnome-text-editor --timeout 10000`
+before they close the window. There is no `--window-closed` flag.
+
+## Cursor overlay
+
+Start a session, then activate its returned ID for subsequent commands. Starting
+a session alone does not activate it. Replace the example ID below with
+`data.session_id` from the first command:
+
+```bash
+agent-desktop session start --name demo
+export AGENT_DESKTOP_SESSION=run-REPLACE-WITH-RETURNED-ID
+agent-desktop cursor-overlay enable
+agent-desktop cursor-overlay disable
+agent-desktop session end
+```
+
+Alternatively pass `--session <returned-id>` on every command. Without a session,
+`cursor-overlay enable` and `disable` return `INVALID_ARGS`. On X11, enable
+returns `data.rendered: true`; on Wayland it saves the setting and returns
+`data.rendered: false` without drawing an overlay.
+
 ## What differs on Linux
 
 - Firefox/Gecko `select` can change the selected value without firing `change`
@@ -118,7 +157,10 @@ tool for observation or semantic actions.
 - Under `--headed`, `click` and `type` use physical input on X11 (a real click
   or keys, step `physical_synthetic`, `verified: false`), falling back to the
   semantic call only after a safe unsupported-input or geometry refusal on that
-  X11 path. On Wayland the CLI rejects headed pointer actions before that
+  X11 path. The fallback reports a skipped `physical_input` step and
+  `details.physical_fallback` explaining the refusal, followed by the semantic
+  API step. Focus, policy, timeout and partial-delivery refusals never fall back.
+  On Wayland the CLI rejects headed pointer actions before that
   adapter fallback: ordinary-app headed
   pointer commands (`click`, `hover`, `double-click`, `mouse-*`, wheel) are refused
   at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,

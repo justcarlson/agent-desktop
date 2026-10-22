@@ -42,7 +42,10 @@ Under `--headed`, `click` and `type` use physical input on X11 and report
 `physical_synthetic` with `verified: false`, because XTEST has no read-back.
 After an unsupported-input or geometry refusal on X11 that proves nothing was
 sent, the adapter can fall back to the semantic call; it never repeats an
-uncertain delivery. The CLI's Wayland pointer gate runs before that fallback. On
+uncertain delivery. A fallback includes a skipped `physical_input` step and
+`details.physical_fallback` with the physical refusal's code, message and details;
+the following step names the semantic API that ran. Focus, policy and timeout
+refusals do not authorize fallback. The CLI's Wayland pointer gate runs before that fallback. On
 Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
@@ -149,6 +152,9 @@ X11 physical text also requires the first keyboard group and no active modifiers
 or locks, checked through XKB before planning and after the focus gate before each
 text chunk. Unsupported state refuses the
 physical route before any key; an editable field can fall back to semantic text.
+This applies on every X11 window manager, including Openbox and Mutter; keyboard
+state, not the desktop's name, decides whether physical text is safe. The result's
+`details.physical_fallback.details.check` is `keyboard_state` in that case.
 Release modifiers, turn off locks and select the first layout for physical text,
 or use headless `type`.
 

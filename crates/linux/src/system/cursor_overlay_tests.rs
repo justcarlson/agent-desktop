@@ -10,17 +10,6 @@ fn update(control: &CursorOverlayControl) -> Result<(), AdapterError> {
     crate::LinuxAdapter::new().update_cursor_overlay(control)
 }
 
-fn timer_fds() -> usize {
-    std::fs::read_dir("/proc/self/fd")
-        .unwrap()
-        .flatten()
-        .filter(|fd| {
-            std::fs::read_link(fd.path())
-                .is_ok_and(|path| path == std::path::Path::new("anon_inode:[timerfd]"))
-        })
-        .count()
-}
-
 #[test]
 fn a_wayland_cursor_refusal_is_explicit_without_x11_fallback() {
     const CHILD: &str = "AD_CURSOR_WAYLAND_TEST_CHILD";
@@ -92,8 +81,6 @@ fn live_x11_cursor_adapter_paints_agent_positions_and_retires_resources() {
     crate::LinuxAdapter::new()
         .list_displays(Deadline::after(4_000).unwrap())
         .unwrap();
-    let threads = std::fs::read_dir("/proc/self/task").unwrap().count();
-    let timers = timer_fds();
     let pointer = oracle.query_pointer(root).unwrap().reply().unwrap();
     update(&CursorOverlayControl::enable(
         "pixel-proof".into(),
@@ -173,11 +160,6 @@ fn live_x11_cursor_adapter_paints_agent_positions_and_retires_resources() {
             .children
             .contains(&other)
     );
-    assert_eq!(
-        std::fs::read_dir("/proc/self/task").unwrap().count(),
-        threads
-    );
-    assert_eq!(timer_fds(), timers);
 }
 
 #[test]

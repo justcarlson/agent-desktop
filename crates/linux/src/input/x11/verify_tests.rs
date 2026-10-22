@@ -46,3 +46,45 @@ fn a_persistent_touched_key_still_fails_and_runs_release_cleanup() {
         [Recorded::Key(64, false), Recorded::RoundTrip]
     );
 }
+
+#[test]
+fn button_release_settles_without_reinjection_but_a_held_button_still_refuses() {
+    use crate::input::x11::pointer_read::PointerRead;
+    let mut fake = FakeSink::new();
+    fake.scripted_pointer_reads(vec![
+        PointerRead {
+            x: 0,
+            y: 0,
+            mask: 0x0100,
+        },
+        PointerRead {
+            x: 0,
+            y: 0,
+            mask: 0,
+        },
+    ]);
+    let touched = HeldInput {
+        keys: Vec::new(),
+        buttons: vec![1],
+    };
+    verify::check(&mut fake, &touched, deadline(1_000)).expect("button release settles");
+    assert!(
+        fake.recorded().is_empty(),
+        "a delayed read must not inject another release"
+    );
+    fake.world().sticky_buttons.push(1);
+    let error =
+        verify::check(&mut fake, &touched, deadline(1_000)).expect_err("button remains held");
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+    assert_eq!(
+        error.details.expect("held input evidence")["leftover_buttons"],
+        serde_json::json!([1])
+    );
+    assert_eq!(
+        fake.recorded(),
+        [Recorded::Button(1, false), Recorded::RoundTrip]
+    );
+}
