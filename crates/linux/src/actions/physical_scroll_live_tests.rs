@@ -1,10 +1,13 @@
 use super::live_bench::Bench;
 use super::live_scroll_tests::read;
 use super::physical_receiver_world::ReceiverWorld;
+use super::physical_x11_oracle::{cover_above, cover_viewable, wait_for_free_keyboard_focus};
 use crate::input::target_pointer::{scroll_steps, wheel_deltas};
 use crate::input::target_world::LiveWorld;
+use crate::input::x11::live_tests::shell_stage_has_focus;
 use crate::tree::live_launch::{Launched, nonce};
 use agent_desktop_core::{DeliverySemantics, InteractionPolicy, SystemOps};
+use std::time::Duration;
 
 const WHEEL_APP: &str = r#"
 import gi, json, pathlib, sys
@@ -106,6 +109,8 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
             agent_desktop_core::Direction::Up,
         ] {
             use agent_desktop_core::{Deadline, ErrorCode, HitTestResult, ObservationOps, Point};
+            wait_for_free_keyboard_focus(Duration::from_secs(8))
+                .unwrap_or_else(|reason| panic!("{mode} {direction:?}: {reason}"));
             let mut launched = Launched::new();
             let tag = nonce("wheel-cover");
             let scratch = std::env::temp_dir().join(&tag);
@@ -153,13 +158,25 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                     .unwrap()
             };
             let intercepted = || matches!(hit(), HitTestResult::InterceptedBy { name, .. } if name.as_deref() == Some("Cover"));
+            let aim = || {
+                let bounds = bench
+                    .adapter()
+                    .get_element_bounds(&target, Deadline::after(3_000).unwrap())
+                    .unwrap()
+                    .unwrap();
+                (
+                    (bounds.x + bounds.width / 2.0).round() as i32,
+                    (bounds.y + bounds.height / 2.0).round() as i32,
+                )
+            };
             let covered = bench.wait_for(|| {
                 (read(&state)["ready"] == true
                     && if mode == "late" {
                         read(&state)["active"] == true
                             && matches!(hit(), HitTestResult::ReachesTarget)
+                            && cover_viewable() == Ok(false)
                     } else {
-                        intercepted()
+                        cover_above(&tag, aim()).is_ok() && intercepted()
                     })
                 .then_some(())
             });
@@ -195,9 +212,12 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                     );
                 }
                 panic!(
-                    "{mode} {direction:?}: bounds={bounds:?}, state={}, hit={:?}",
+                    "{mode} {direction:?}: bounds={bounds:?}, state={}, hit={:?}, x11 cover above target={:?}, x11 cover viewable={:?}, shell popup holds the focus={}",
                     read(&state),
-                    hit()
+                    hit(),
+                    cover_above(&tag, aim()),
+                    cover_viewable(),
+                    shell_stage_has_focus()
                 );
             }
             let lease = bench
@@ -208,9 +228,18 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                 if mode == "late" && checks == 2 {
                     bench
                         .wait_for(|| {
-                            (read(&state)["covered"] == true && intercepted()).then_some(())
+                            (read(&state)["covered"] == true
+                                && cover_above(&tag, aim()).is_ok()
+                                && intercepted())
+                            .then_some(())
                         })
-                        .expect("the app acknowledged its first-burst cover");
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "{mode} {direction:?}: the first-burst cover never stood above the target: x11={:?}, state={}",
+                                cover_above(&tag, aim()),
+                                read(&state)
+                            )
+                        });
                 }
             };
             let world = ReceiverWorld::new(
@@ -257,7 +286,10 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                 bench
                     .wait_for(|| {
                         let observed = read(&state);
-                        (observed["covered"] == false && observed["active"] == true).then_some(())
+                        (observed["covered"] == false
+                            && observed["active"] == true
+                            && cover_viewable() == Ok(false))
+                        .then_some(())
                     })
                     .is_some(),
                 "{mode} {direction:?}: the app never reported the cover gone and its window active: {}",

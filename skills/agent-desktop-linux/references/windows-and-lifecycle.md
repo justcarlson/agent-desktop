@@ -74,6 +74,12 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   5 s for a new window when windows were already open. `--timeout` (default
   30000) caps both; `--activate` uses the full remaining timeout for the window
   wait.
+- A window read that cannot prove the native window type of a frame
+  (`details.kind: native_window_unproven`, which a window gives for the moment it
+  changes during the read) counts as no window yet and is read again until the
+  timeout, for an attach as well as a new launch. If no window is proven by then,
+  `launch` answers `ACTION_NOT_SUPPORTED` with that kind: `not_delivered` when it
+  spawned nothing, `delivered_unverified` after the spawn.
 - If the spawned process never registers on the accessibility bus, owner lookup
   can consume the full timeout, and the result then has no `window`. A spawned
   process still running outside the registry can be returned without a window,

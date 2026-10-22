@@ -49,14 +49,30 @@ pub(super) fn same_geometry(
     })
 }
 
-pub(super) fn unproven(pid: u32) -> agent_desktop_core::AdapterError {
+const UNPROVEN_KIND: &str = "native_window_unproven";
+
+pub(crate) fn unproven(pid: u32) -> agent_desktop_core::AdapterError {
     agent_desktop_core::AdapterError::new(
         agent_desktop_core::ErrorCode::ActionNotSupported,
         format!(
             "The native window type of accessibility frame owned by pid {pid} could not be proven"
         ),
     )
+    .with_details(serde_json::json!({ "kind": UNPROVEN_KIND }))
     .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
+}
+
+/// Whether the error is the refusal for a frame whose native window could not
+/// be proven. A window that changes while the listing reads gives it for that
+/// moment, so a caller that waits for a window reads again instead of ending
+/// on it.
+pub(crate) fn is_unproven(error: &agent_desktop_core::AdapterError) -> bool {
+    error
+        .details
+        .as_ref()
+        .and_then(|details| details.get("kind"))
+        .and_then(serde_json::Value::as_str)
+        == Some(UNPROVEN_KIND)
 }
 
 /// Classify a complete, uniform group without choosing a native window identity.

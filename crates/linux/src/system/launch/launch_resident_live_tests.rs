@@ -48,11 +48,10 @@ fn live_a_running_app_with_no_window_is_started_again_and_a_window_is_reported()
     resident.wait_for_window();
     let resident_pid = resident.pid;
     std::fs::write(hide, "hide").expect("request window destruction");
-    let started = Instant::now();
-    while started.elapsed() < SETTLE && windows_of_pid(resident_pid) > 0 {
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    assert_eq!(windows_of_pid(resident_pid), 0, "the window is gone");
+    wait_until("the resident window to leave the display", || {
+        x_windows_of(resident_pid).is_empty()
+    });
+    wait_for_no_listed_window(resident_pid);
     assert!(
         process_facts::read(resident_pid).is_some(),
         "the process stays"
@@ -75,14 +74,28 @@ fn live_a_running_app_with_no_window_is_started_again_and_a_window_is_reported()
     assert!(!x_windows_of(second.pid.get()).is_empty());
 }
 
-fn windows_of_pid(pid: u32) -> usize {
+fn windows_of_pid(pid: u32) -> Result<usize, AdapterError> {
     crate::system::list_windows(
         &SharedBus::default(),
         &agent_desktop_core::WindowFilter::default(),
         deadline(8_000),
     )
     .map(|windows| windows.iter().filter(|w| w.pid.get() == pid).count())
-    .expect("a successful window read")
+}
+
+fn wait_for_no_listed_window(pid: u32) {
+    let started = Instant::now();
+    loop {
+        let read = windows_of_pid(pid);
+        if matches!(read, Ok(0)) {
+            return;
+        }
+        assert!(
+            started.elapsed() < SETTLE,
+            "the listing never showed pid {pid} without a window: {read:?}"
+        );
+        std::thread::sleep(Duration::from_millis(200));
+    }
 }
 
 #[test]

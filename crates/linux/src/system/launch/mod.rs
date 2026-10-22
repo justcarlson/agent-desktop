@@ -20,6 +20,7 @@ use crate::system::process::liveness::{Liveness, liveness};
 use crate::system::process::process_facts;
 use crate::system::process::running_app::Running;
 use crate::system::process::web_family::WebFamily;
+use crate::system::window::native_group::is_unproven;
 use crate::system::window::window_ops::windows_of_process;
 
 #[path = "launch_baseline.rs"]
@@ -98,6 +99,20 @@ fn exited_early(owner: &Running, liveness: Liveness) -> Result<(), AdapterError>
     .with_disposition(DeliverySemantics::delivered_unverified()))
 }
 
+/// The refusal a launch ends on when the deadline passed with no window
+/// proven. An application the launch started has been delivered to, whatever
+/// the read could prove.
+fn unproven_at_deadline(error: AdapterError, started: bool) -> AdapterError {
+    let error = error.with_suggestion(
+        "Run 'list-windows' to see whether the window of the application is open.",
+    );
+    if started {
+        error.with_disposition(DeliverySemantics::delivered_unverified())
+    } else {
+        before_spawn(error)
+    }
+}
+
 /// The window a launch reports among the windows of its application: one
 /// that was not open before the launch, or, for an application the launch
 /// started, its first. A window that was already open is not the launch's.
@@ -128,10 +143,29 @@ impl Launch<'_> {
         waits: bool,
         known: &HashSet<String>,
     ) -> Result<Option<WindowInfo>, AdapterError> {
+        self.wait_for_window(owner, waits, known, || {
+            windows_of_process(self.bus, owner.pid, self.deadline)
+        })
+    }
+
+    /// Reads the owner's windows until one is reported. `waits` is true for an
+    /// application this launch spawned: the read goes on for a window and ends
+    /// if the owner exits. An attach passes false and reads only until it has
+    /// an answer. A read that could not prove a window is read again until the
+    /// launch deadline.
+    fn wait_for_window(
+        &self,
+        owner: &Running,
+        waits: bool,
+        known: &HashSet<String>,
+        mut read: impl FnMut() -> Result<Vec<WindowInfo>, AdapterError>,
+    ) -> Result<Option<WindowInfo>, AdapterError> {
         let limit = self.wait_limit(known);
+        let mut unproven = None;
         loop {
-            match windows_of_process(self.bus, owner.pid, self.deadline) {
+            match read() {
                 Ok(windows) => {
+                    unproven = None;
                     let own: Vec<WindowInfo> = windows
                         .into_iter()
                         .filter(|window| {
@@ -144,6 +178,7 @@ impl Launch<'_> {
                         return Ok(Some(window));
                     }
                 }
+                Err(error) if is_unproven(&error) => unproven = Some(error),
                 Err(error)
                     if matches!(
                         error.code,
@@ -159,10 +194,15 @@ impl Launch<'_> {
             if waits {
                 exited_early(owner, liveness(owner.pid, &owner.instance))?;
             }
-            if !waits || limit.is_expired() {
-                return Ok(None);
+            let until = if unproven.is_some() {
+                self.deadline
+            } else {
+                limit
+            };
+            if until.is_expired() || (unproven.is_none() && !waits) {
+                return unproven.map_or(Ok(None), |error| Err(unproven_at_deadline(error, waits)));
             }
-            std::thread::sleep(POLL_INTERVAL.min(limit.remaining()));
+            std::thread::sleep(POLL_INTERVAL.min(until.remaining()));
         }
     }
 

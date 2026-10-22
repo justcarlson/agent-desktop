@@ -1,7 +1,47 @@
+use std::cell::Cell;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+use crate::system::window::native_group::{is_unproven, unproven};
+
+fn this_process() -> Running {
+    let facts = process_facts::read(std::process::id()).unwrap();
+    Running {
+        name: crate::system::app::app_name::app_name(&facts),
+        pid: std::process::id(),
+        instance: facts.instance,
+        executable: facts.executable,
+    }
+}
+
+fn window_of_owner(owner: &Running) -> WindowInfo {
+    WindowInfo {
+        id: "w-proven".to_owned(),
+        title: String::new(),
+        app: owner.name.clone(),
+        pid: ProcessId::new(owner.pid),
+        process_instance: Some(owner.instance.clone()),
+        bounds: None,
+        state: Default::default(),
+    }
+}
+
+fn waiting_for_window<T>(timeout_ms: u64, body: impl FnOnce(&Launch<'_>, &Running) -> T) -> T {
+    let deadline = Deadline::after(timeout_ms).unwrap();
+    let options = LaunchOptions::default();
+    let lease = InteractionLease::guarded(deadline, ()).unwrap();
+    let bus = SharedBus::default();
+    let launch = Launch {
+        bus: &bus,
+        id: "fixture",
+        options: &options,
+        lease: &lease,
+        deadline,
+    };
+    body(&launch, &this_process())
+}
 
 struct Roots {
     children: Vec<(String, zbus::zvariant::OwnedObjectPath)>,
@@ -84,13 +124,7 @@ fn launch_window_lookup_never_enriches_an_unrelated_process() {
     let _server = server.unwrap();
     let bus = crate::system::bus::tests::connected(client.unwrap());
     let deadline = Deadline::after(5_000).unwrap();
-    let facts = process_facts::read(std::process::id()).unwrap();
-    let owner = Running {
-        name: crate::system::app::app_name::app_name(&facts),
-        pid: std::process::id(),
-        instance: facts.instance,
-        executable: facts.executable,
-    };
+    let owner = this_process();
     let options = LaunchOptions::default();
     let lease = InteractionLease::guarded(deadline, ()).unwrap();
     let launch = Launch {
@@ -108,4 +142,62 @@ fn launch_window_lookup_never_enriches_an_unrelated_process() {
     );
     assert_eq!(unrelated.load(Ordering::SeqCst), 0);
     assert!(target.load(Ordering::SeqCst) > 0, "the owner was enriched");
+}
+
+#[test]
+fn a_window_read_the_display_could_not_prove_is_read_again_and_the_window_is_reported() {
+    let calls = Cell::new(0);
+    let found = waiting_for_window(5_000, |launch, owner| {
+        let mut reads =
+            VecDeque::from([Err(unproven(owner.pid)), Ok(vec![window_of_owner(owner)])]);
+        launch
+            .wait_for_window(owner, true, &HashSet::new(), || {
+                calls.set(calls.get() + 1);
+                reads.pop_front().expect("no read after the window")
+            })
+            .expect("a refused read does not end the launch")
+    });
+    assert_eq!(found.expect("the proven window").id, "w-proven");
+    assert_eq!(calls.get(), 2);
+}
+
+#[test]
+fn a_window_never_proven_ends_in_its_refusal_with_the_report_of_how_far_the_launch_went() {
+    for (started, delivery) in [
+        (true, DeliverySemantics::delivered_unverified()),
+        (false, DeliverySemantics::not_delivered()),
+    ] {
+        let calls = Cell::new(0);
+        let error = waiting_for_window(300, |launch, owner| {
+            launch
+                .wait_for_window(owner, started, &HashSet::new(), || {
+                    calls.set(calls.get() + 1);
+                    Err(unproven(owner.pid))
+                })
+                .expect_err("no window was proven before the deadline")
+        });
+        assert!(is_unproven(&error), "started {started}: {error:?}");
+        assert_eq!(error.disposition, delivery, "started {started}");
+        assert!(error.suggestion.is_some(), "started {started}");
+        assert!(calls.get() > 1, "started {started}: {} reads", calls.get());
+    }
+}
+
+#[test]
+fn any_other_refusal_of_the_window_read_still_ends_the_launch_at_once() {
+    let calls = Cell::new(0);
+    let error = waiting_for_window(5_000, |launch, owner| {
+        launch
+            .wait_for_window(owner, true, &HashSet::new(), || {
+                calls.set(calls.get() + 1);
+                Err(AdapterError::new(
+                    ErrorCode::ActionNotSupported,
+                    "another refusal",
+                ))
+            })
+            .expect_err("an unrelated refusal ends the wait")
+    });
+    assert_eq!(calls.get(), 1);
+    assert!(!is_unproven(&error));
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
 }
