@@ -12,9 +12,7 @@ fn deadline() -> Deadline {
 }
 
 fn lease() -> InteractionLease {
-    crate::LinuxAdapter::new()
-        .acquire_interaction_lease(deadline())
-        .expect("lease")
+    InteractionLease::guarded(deadline(), ()).expect("bounded refusal probe")
 }
 
 fn refused<T: std::fmt::Debug>(result: Result<T, AdapterError>) {

@@ -19,6 +19,7 @@ pub(crate) mod kinds;
 pub(crate) mod light;
 pub(crate) mod live_state;
 pub(crate) mod open;
+mod registry;
 pub(crate) mod search;
 mod tray_tree;
 pub(crate) mod window_gate;
@@ -75,7 +76,6 @@ pub(crate) fn resolve_surface(
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(AdapterError::not_supported("resolve_shell_surface"));
     };
-    detect::require_tree(bus, deadline)?;
     let root = identity::find_root(bus, deadline)?;
     let landmark = open::container_landmark(kind);
     let located = container::locate_anchor(

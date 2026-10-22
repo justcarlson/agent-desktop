@@ -7,9 +7,9 @@ use zbus::Connection;
 
 use super::light::{LiveNodes, Nodes};
 use crate::system::bus::session_bus::SessionBus;
-use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus, owner_process_id, within};
+use crate::system::{SharedBus, owner_process_id, within};
+use crate::tree::AtspiElement;
 use crate::tree::role_numbers::{FRAME, WINDOW};
-use crate::tree::{AtspiElement, list_children};
 
 pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
 const WINDOW_RETRIES: usize = 10;
@@ -177,26 +177,12 @@ async fn shell_pid(session: &Connection) -> Result<Option<u32>, AdapterError> {
     }
 }
 
-pub(super) async fn registry_apps(
-    accessibility: &Connection,
-) -> Result<Vec<(AtspiElement, u32)>, AdapterError> {
-    let registry = AtspiElement::new(REGISTRY_SERVICE, REGISTRY_ROOT_PATH, 0);
-    let children = list_children(accessibility, &registry).await?;
-    let mut apps = Vec::with_capacity(children.len());
-    for (bus, path) in children {
-        if let Ok(pid) = owner_process_id(accessibility, &bus).await {
-            apps.push((AtspiElement::new(bus, path, pid), pid));
-        }
-    }
-    Ok(apps)
-}
-
 pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot, AdapterError> {
     let session = SessionBus::get(deadline)?;
     let accessibility = bus.get(deadline)?.inner().clone();
     let pid = within(deadline, shell_pid(&session))?
         .ok_or_else(|| tree_absent("org.gnome.Shell has no owner on the session bus"))?;
-    let apps = within(deadline, registry_apps(&accessibility))?;
+    let apps = within(deadline, super::registry::read(&accessibility))?;
     let app = pick_shell_app(&apps, pid).ok_or_else(|| {
         tree_absent("no unique registry application identifies the shell process")
     })?;
