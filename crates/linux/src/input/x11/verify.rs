@@ -11,8 +11,8 @@ use super::sink::X11Sink;
 use crate::input::held_input::HeldInput;
 
 const FIRST_BUTTON_MASK: u16 = 0x0100;
-const KEY_SETTLE_LIMIT: Duration = Duration::from_millis(250);
-const KEY_SETTLE_POLL: Duration = Duration::from_millis(10);
+const INPUT_SETTLE_LIMIT: Duration = Duration::from_millis(250);
+const INPUT_SETTLE_POLL: Duration = Duration::from_millis(10);
 
 pub(crate) fn leftover_buttons(read: &PointerRead, pressed: &[u8]) -> Vec<u8> {
     pressed
@@ -38,13 +38,7 @@ pub(crate) fn check(
     touched: &HeldInput,
     deadline: agent_desktop_core::Deadline,
 ) -> Result<(), AdapterError> {
-    let buttons = if touched.buttons.is_empty() {
-        Vec::new()
-    } else {
-        let read = sink.pointer().map_err(SinkError::into_adapter)?;
-        leftover_buttons(&read, &touched.buttons)
-    };
-    let keys = observe_leftover_keys(sink, &touched.keys, deadline)?;
+    let HeldInput { buttons, keys } = observe_leftovers(sink, touched, deadline)?;
     if buttons.is_empty() && keys.is_empty() {
         return Ok(());
     }
@@ -64,22 +58,29 @@ pub(crate) fn check(
     .with_disposition(DeliverySemantics::delivered_unverified()))
 }
 
-fn observe_leftover_keys(
+fn observe_leftovers(
     sink: &mut dyn X11Sink,
-    touched: &[u8],
+    touched: &HeldInput,
     deadline: agent_desktop_core::Deadline,
-) -> Result<Vec<u8>, AdapterError> {
-    if touched.is_empty() {
-        return Ok(Vec::new());
-    }
-    let settle = deadline.capped(KEY_SETTLE_LIMIT);
+) -> Result<HeldInput, AdapterError> {
+    let settle = deadline.capped(INPUT_SETTLE_LIMIT);
     loop {
-        let bits = sink.keys_down().map_err(SinkError::into_adapter)?;
-        let keys = leftover_keys(&bits, touched);
-        if keys.is_empty() || settle.is_expired() {
-            return Ok(keys);
+        let buttons = if touched.buttons.is_empty() {
+            Vec::new()
+        } else {
+            let read = sink.pointer().map_err(SinkError::into_adapter)?;
+            leftover_buttons(&read, &touched.buttons)
+        };
+        let keys = if touched.keys.is_empty() {
+            Vec::new()
+        } else {
+            let bits = sink.keys_down().map_err(SinkError::into_adapter)?;
+            leftover_keys(&bits, &touched.keys)
+        };
+        if (buttons.is_empty() && keys.is_empty()) || settle.is_expired() {
+            return Ok(HeldInput { buttons, keys });
         }
-        thread::sleep(settle.remaining().min(KEY_SETTLE_POLL));
+        thread::sleep(settle.remaining().min(INPUT_SETTLE_POLL));
     }
 }
 

@@ -48,6 +48,7 @@ pub(crate) struct FakeWorld {
     sent: usize,
     held_keys: Vec<u8>,
     key_reads: VecDeque<[u8; 32]>,
+    pointer_reads: VecDeque<PointerRead>,
     held_buttons: Vec<u8>,
     at: (i16, i16),
 }
@@ -84,6 +85,7 @@ impl FakeSink {
                 sent: 0,
                 held_keys: Vec::new(),
                 key_reads: VecDeque::new(),
+                pointer_reads: VecDeque::new(),
                 held_buttons: Vec::new(),
                 at: (0, 0),
             })),
@@ -113,6 +115,10 @@ impl FakeSink {
 
     pub(crate) fn scripted_key_reads(&self, reads: Vec<[u8; 32]>) {
         self.world().key_reads = reads.into();
+    }
+
+    pub(crate) fn scripted_pointer_reads(&self, reads: Vec<PointerRead>) {
+        self.world().pointer_reads = reads.into();
     }
 
     pub(crate) fn block_next_event(&self) -> (Receiver<()>, Sender<()>) {
@@ -171,9 +177,12 @@ impl X11Sink for FakeSink {
     }
 
     fn pointer(&mut self) -> Result<PointerRead, SinkError> {
-        let world = self.world();
+        let mut world = self.world();
         if world.fail_verification {
             return Err(SinkError::Closed);
+        }
+        if let Some(read) = world.pointer_reads.pop_front() {
+            return Ok(read);
         }
         let mut mask = 0u16;
         for code in world.held_buttons.iter().chain(world.sticky_buttons.iter()) {
