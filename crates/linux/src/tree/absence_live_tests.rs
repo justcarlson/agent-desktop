@@ -105,6 +105,18 @@ fn assert_settled_stale(error: &AdapterError, label: &str, what: &str) {
     );
 }
 
+fn assert_retryable_stale(error: &AdapterError, label: &str, what: &str) {
+    assert_eq!(
+        error.code,
+        ErrorCode::StaleRef,
+        "[{label}] {what}: {error:?}"
+    );
+    assert!(
+        error.is_explicitly_retryable(),
+        "[{label}] {what} may be drawn again"
+    );
+}
+
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
 fn absence_live_a_killed_app_is_a_settled_stale_ref_in_one_pass_for_a_ref_and_a_held_handle() {
@@ -228,7 +240,7 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
             kind(&error),
             elapsed.as_millis()
         );
-        assert_settled_stale(&error, label, "the ref");
+        assert_retryable_stale(&error, label, "the ref");
         assert_eq!(kind(&error), "resolve_no_candidate", "[{label}]");
         assert!(
             elapsed < Duration::from_millis(1_500),
@@ -275,7 +287,7 @@ fn absence_live_a_gtk4_page_that_leaves_the_tree_is_stale_and_returns_at_the_sam
         "the page that left stops resolving"
     );
     let error = refused(rig.resolve(&on_a), "the hidden page is stale");
-    assert_settled_stale(&error, "gtk4", "the hidden page");
+    assert_retryable_stale(&error, "gtk4", "the hidden page");
     assert_eq!(kind(&error), "resolve_no_candidate");
     let on_b = rig.named(&settled.frame, true, "ButtonPageB").remove(0);
     assert!(rig.resolve(&on_b).is_ok());

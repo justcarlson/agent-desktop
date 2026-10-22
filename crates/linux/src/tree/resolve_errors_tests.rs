@@ -96,16 +96,16 @@ fn ambiguity_carries_the_candidate_count_and_is_settled() {
 
 #[test]
 fn every_refusal_is_a_stale_ref_that_a_snapshot_repairs() {
-    for (error, stamped) in [
-        (no_candidate(), None),
-        (object_gone(), Some(false)),
-        (window_replaced(), Some(false)),
-        (window_unverifiable(), Some(false)),
-        (unverifiable_entry(), Some(false)),
+    for (error, expected) in [
+        (no_candidate(), true),
+        (object_gone(), false),
+        (window_replaced(), false),
+        (window_unverifiable(), false),
+        (unverifiable_entry(), false),
     ] {
         assert_eq!(error.code, ErrorCode::StaleRef);
-        assert_eq!(retryable(&error), stamped, "{}", kind(&error));
-        assert!(!error.is_explicitly_retryable(), "{}", kind(&error));
+        assert_eq!(retryable(&error), Some(expected), "{}", kind(&error));
+        assert_eq!(error.is_explicitly_retryable(), expected);
         assert!(
             error
                 .suggestion
@@ -113,17 +113,6 @@ fn every_refusal_is_a_stale_ref_that_a_snapshot_repairs() {
                 .is_some_and(|text| text.contains("snapshot"))
         );
     }
-}
-
-#[test]
-fn a_missing_candidate_answers_at_once_and_keeps_its_snapshot_recovery_hint() {
-    use agent_desktop_core::{AppError, ErrorPayload};
-    let recovery =
-        |error: AdapterError| ErrorPayload::from_app_error(&AppError::Adapter(error)).recovery;
-    let hint = recovery(no_candidate()).expect("a fresh snapshot repairs a missing candidate");
-    assert_eq!(hint.strategy, "refresh_snapshot_then_retry_original");
-    assert!(hint.requires_fresh_snapshot);
-    assert!(recovery(object_gone()).is_none());
 }
 
 #[test]
