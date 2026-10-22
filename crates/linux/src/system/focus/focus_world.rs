@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{cell::RefCell, time::Duration};
 
-use agent_desktop_core::{AdapterError, Deadline, WindowInfo};
+use agent_desktop_core::{AdapterError, Deadline, SignalFilter, WaitWakeup, WindowInfo};
 
 use super::focus_window::{FocusWorld, Session};
 use crate::system::bus::bus_deadline::within;
@@ -32,6 +32,7 @@ pub(in crate::system) mod focus_send;
 
 const ROOT_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACTIVE_READ: Duration = Duration::from_millis(500);
+const WAKE_POLL: Duration = Duration::from_millis(100);
 
 /// The live desktop `focus_window` reads and writes: the accessibility bus
 /// for the frame and the display server for the window manager.
@@ -40,6 +41,7 @@ pub(in crate::system) struct LiveWorld<'a> {
     frame: AtspiElement,
     owner: agent_desktop_core::ProcessIdentity,
     deadline: Deadline,
+    wake: RefCell<Option<crate::system::signal::subscription::Subscription>>,
 }
 
 impl<'a> LiveWorld<'a> {
@@ -57,11 +59,40 @@ impl<'a> LiveWorld<'a> {
                 win.process_instance.clone().unwrap_or_default(),
             ),
             deadline,
+            wake: RefCell::new(None),
         })
     }
 }
 
 impl FocusWorld for LiveWorld<'_> {
+    fn arm_wake(&self) {
+        if self.wake.borrow().is_some() {
+            return;
+        }
+        let filter = SignalFilter {
+            process: Some(self.owner.clone()),
+            ..Default::default()
+        };
+        *self.wake.borrow_mut() = crate::system::signal::subscription::Subscription::open(
+            self.bus,
+            &filter,
+            self.deadline,
+        )
+        .ok();
+    }
+
+    fn wait_for_change(&self, deadline: Deadline) {
+        let deadline = deadline.capped(WAKE_POLL);
+        let mut wake = self.wake.borrow_mut();
+        if let Some(subscription) = wake.as_mut() {
+            if subscription.wait(deadline).is_ok() {
+                return;
+            }
+            *wake = None;
+        }
+        std::thread::sleep(deadline.remaining());
+    }
+
     fn session(&self) -> Session {
         match session_server() {
             DisplayServer::X11(_) => Session::X11,
