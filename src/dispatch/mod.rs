@@ -5,6 +5,7 @@ mod interaction;
 mod keyboard_mouse;
 mod notifications;
 mod observation;
+mod overlay_skipped;
 mod parse;
 mod session;
 mod system;

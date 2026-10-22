@@ -17,6 +17,7 @@ struct World {
     window_fails: bool,
     press_cleanup_fails: bool,
     presses: Cell<usize>,
+    unbacked: bool,
 }
 
 impl World {
@@ -27,6 +28,7 @@ impl World {
             window_fails: false,
             press_cleanup_fails: false,
             presses: Cell::new(0),
+            unbacked: false,
         }
     }
 
@@ -42,6 +44,17 @@ impl World {
 }
 
 impl Surface for World {
+    fn backed(&self, _kind: ShellKind, _deadline: Deadline) -> Result<(), AdapterError> {
+        if self.unbacked {
+            return Err(AdapterError::new(
+                ErrorCode::PlatformNotSupported,
+                "No system tray watcher is running in this session",
+            )
+            .with_details(serde_json::json!({ "watcher": "absent" })));
+        }
+        Ok(())
+    }
+
     fn showing(&self, _kind: ShellKind, _deadline: Deadline) -> Result<bool, AdapterError> {
         Ok(self.showing.get())
     }
@@ -256,4 +269,25 @@ fn closed_popups_have_no_observable_window_even_when_their_nodes_exist() {
             );
         }
     }
+}
+
+#[test]
+fn a_surface_without_its_backing_service_is_refused_before_it_is_adopted() {
+    let world = World {
+        unbacked: true,
+        ..World::open()
+    };
+    let error = open_with(
+        &world,
+        ShellKind::Tray,
+        InteractionPolicy::headless(),
+        deadline(1_000),
+    )
+    .expect_err("no watcher means no tray");
+
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    let details = error.details.expect("refusal details");
+    assert_eq!(details["watcher"], "absent");
+    assert_eq!(details["surface_opened_by_call"], false);
+    assert_eq!(world.presses(), 0);
 }

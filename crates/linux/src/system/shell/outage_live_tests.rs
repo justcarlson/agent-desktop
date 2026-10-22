@@ -215,8 +215,9 @@ fn shell_live_stopped_process_is_unresponsive_instead_of_a_window_outage() {
     assert_eq!(error.code, ErrorCode::Timeout, "{error:?}");
     drop(stopped);
     wait_for_root(&bus, &connection, pid);
-    let error = super::container::locate_anchor(&bus, &root, landmark, deadline())
-        .expect_err("a responsive tree does not prove the popup opener");
+    let unproven = super::anchor::Anchor::Landmark(super::container::Landmark::SystemMenu);
+    let error = super::container::locate_anchor(&bus, &root, unproven, deadline())
+        .expect_err("a responsive tree does not prove the system menu");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     let role: u32 = connection

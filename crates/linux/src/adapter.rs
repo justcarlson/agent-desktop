@@ -119,11 +119,7 @@ impl ObservationOps for LinuxAdapter {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::live_element(target, deadline);
         }
-        let element = crate::tree::get_live_element(self.bus(), handle, deadline)?;
-        if element.bounds.is_none() && crate::tree::inside_popup(self.bus(), handle, deadline) {
-            return Err(crate::tree::no_position());
-        }
-        Ok(element)
+        crate::tree::get_live_element(self.bus(), handle, deadline)
     }
 
     fn get_element_bounds(

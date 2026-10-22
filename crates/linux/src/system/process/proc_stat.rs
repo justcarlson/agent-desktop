@@ -5,10 +5,12 @@ use crate::system::process::process_lookup::Lookup;
 const START_TIME_FIELD: usize = 22;
 const FIELDS_BEFORE_STATE: usize = 3;
 
-/// What one stat line says: the state and the start time in clock ticks.
+/// What one stat line says: the state, the parent process id and the start
+/// time in clock ticks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ProcStat {
     pub(crate) state: ProcState,
+    pub(crate) parent: u32,
     pub(crate) start_time: u64,
 }
 
@@ -24,11 +26,16 @@ pub(crate) fn parse(stat: &str) -> Option<ProcStat> {
     }
     let mut fields = stat[close + 1..].split_whitespace();
     let state = ProcState::from_letter(fields.next()?);
+    let parent = fields.next()?.parse().ok()?;
     let start_time = fields
-        .nth(START_TIME_FIELD - FIELDS_BEFORE_STATE - 1)?
+        .nth(START_TIME_FIELD - FIELDS_BEFORE_STATE - 2)?
         .parse()
         .ok()?;
-    Some(ProcStat { state, start_time })
+    Some(ProcStat {
+        state,
+        parent,
+        start_time,
+    })
 }
 
 /// What a read of `/proc/<pid>/stat` found: the parse, `None` for a process

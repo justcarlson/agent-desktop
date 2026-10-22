@@ -122,7 +122,16 @@ impl PhysicalWorld for LiveWorld<'_> {
     ) -> Result<(), AdapterError> {
         let placed = crate::tree::live_offscreen::placement(self.bus, element, deadline);
         crate::input::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
-        match crate::tree::hit_test::pointer_hit_test(self.bus, element, point.clone(), deadline)? {
+        let on_x11 = matches!(self.backend(), Ok(Backend::X11(_)));
+        let verdict = if on_x11
+            && element.frame().is_none()
+            && crate::system::shell::is_shell_element(element)
+        {
+            crate::system::shell::hit::hit_test(self.bus, element, point.clone(), deadline)?
+        } else {
+            crate::tree::hit_test::pointer_hit_test(self.bus, element, point.clone(), deadline)?
+        };
+        match verdict {
             HitTestResult::ReachesTarget => Ok(()),
             HitTestResult::InterceptedBy { role, name, bounds } => Err(AdapterError::new(
                 ErrorCode::ActionFailed,

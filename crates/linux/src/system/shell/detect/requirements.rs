@@ -1,5 +1,6 @@
 use agent_desktop_core::{AdapterError, Deadline};
 
+use super::service::is_shell_service;
 use super::{
     CallFailure, Fact, NOTIFICATIONS, call, classify_daemon, daemon_fact_error, server_name,
     shell_owner, unreadable,
@@ -16,11 +17,20 @@ pub(crate) fn require_daemon(deadline: Deadline) -> Result<(), AdapterError> {
         crate::system::owner_process_id(&connection, NOTIFICATIONS),
     );
     let backend = call(deadline, shell_owner(&connection));
+    check_owners(owner, backend, server.as_deref(), is_shell_service)
+}
+
+pub(super) fn check_owners(
+    owner: Result<u32, CallFailure>,
+    backend: Result<u32, CallFailure>,
+    server: Option<&str>,
+    is_shell_service: impl FnOnce(u32, u32) -> bool,
+) -> Result<(), AdapterError> {
     match (owner, backend) {
-        (Ok(owner), Ok(backend)) if owner == backend => Ok(()),
+        (Ok(owner), Ok(backend)) if owner == backend || is_shell_service(owner, backend) => Ok(()),
         (Ok(_), Ok(_) | Err(CallFailure::NoService)) => daemon_fact_error(
             &Fact::Absent("notification and shell service owners differ".to_owned()),
-            server.as_deref(),
+            server,
         ),
         (Err(error), _) | (_, Err(error)) => Err(unreadable(
             "notification service ownership",
