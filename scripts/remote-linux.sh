@@ -12,11 +12,12 @@
 # After every run it warns if the live AT-SPI bus socket is gone: a second bus launcher sharing
 # XDG_RUNTIME_DIR removes it on exit, and every later AT-SPI client then fails. For that reason a
 # command that starts dbus-run-session is refused unless it also sets XDG_RUNTIME_DIR.
-# One lock serializes every run, because two runs driving the same X display corrupt
-# each other's input, focus and hit-test results. AGENT_DESKTOP_REMOTE_LOCK=0 skips the lock;
-# use it only for read-only commands that touch no display, input or app state. -o keeps the
-# lock out of children that outlive the command, such as xclip serving a selection, and -w
-# bounds the wait for the lock by the same timeout as the command.
+# Two box slots bound concurrent runs (scripts/box-slot.sh). Runs never share an X display:
+# each drives its own private session, and physical input on any display is serialized by
+# the product's interaction lease. AGENT_DESKTOP_REMOTE_LOCK=0 skips the slots; use it only
+# for read-only commands that touch no display, input or app state. -o keeps the slot lock
+# out of children that outlive the command, such as xclip serving a selection, and the wait
+# for a slot is bounded by the same timeout as the command.
 # AGENT_DESKTOP_REMOTE_SYNC=0 reuses the existing checkout for reading receipts or recovering
 # a full disk, where even rsync cannot finish. Builds use the default sync.
 # Two runs from the same worktree share one remote folder, and the sync happens before the lock,
@@ -78,7 +79,7 @@ qdir=$(printf '%q' "$DIR")
 # touching the sources inside the lock makes it rebuild this worktree's own.
 wrap=
 case "$cmd" in *cargo*|*linux-live-gate*) wrap='sh -c '"'"'find crates src -name \*.rs -exec touch {} + ; exec "$@"'"'"' sh' ;; esac
-lock="flock -o -w $LOCK_WAIT \$HOME/ad-wt/.box.lock"
+lock="sh ./scripts/box-slot.sh $LOCK_WAIT"
 [ "${AGENT_DESKTOP_REMOTE_LOCK:-1}" = 0 ] && lock=""
 ssh -n -o BatchMode=yes "$HOST" "mkdir -p \$HOME/ad-wt $qdir"
 if [ "${AGENT_DESKTOP_REMOTE_SYNC:-1}" != 0 ]; then
