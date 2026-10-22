@@ -146,6 +146,15 @@ not an empty tray. Do not restart a shell or accessibility bus you do not own.
 
 ## Notifications
 
+**Every notification field comes from the shell's widget layout.** Neither the
+notification protocol nor GNOME's accessibility tree names a notification's
+app, title, body, age or controls, so the adapter reads them from where the
+shell puts them. This was verified on GNOME Shell 46.0 (Ubuntu 24.04) in
+private Mutter X11 and native Wayland sessions, and on no other version. A
+shell that lays an entry out differently is refused (`INTERNAL`, "no readable
+title") or misread; it is never repaired by guessing. No text, no English word
+and no position of a button in the footer is used to find anything.
+
 `list-notifications` reads GNOME Shell's message list headless, including when
 closed. Banner copies are excluded. Indices are 1-based positions in the
 unfiltered list, newest first; filtering does not renumber them. `--app` is
@@ -153,19 +162,23 @@ case-insensitive contains; `--text` searches app, title and body. Empty is a
 successful empty list. `wait --notification` establishes a baseline and waits
 for a matching entry new to that baseline.
 
-No text identifies anything. The adapter finds the list by its footer row, a
-label, a toggle and a push button in that order, and the entry fields by the
-shell's layout: the header holds the app (its first label) and the age, which
-is dropped; the title and body follow; named buttons are the actions. The
-header's last unnamed button is close and the one before it is expand. An entry
-whose header does not show those buttons cannot be read and the command fails
-rather than guessing. The notification owner must be the shell or its own
-helper process; any other owner is `PLATFORM_NOT_SUPPORTED`.
+How an entry is read:
 
-The notification protocol has no history query and GNOME exposes no
-notification ID in its accessibility tree, so an index is a position and not an
-identity. Every mutation re-reads the list and checks the expected app and title
-at the index.
+- The list is the container two levels above a footer row of a label, a toggle
+  and a push button. An empty list is that container with no entry in it.
+- The header is the container that holds an entry's unnamed push buttons. Its
+  first label is the app; later labels are the age and are dropped.
+- Labels outside the header are the title, then the body.
+- Named push buttons outside the header are the actions.
+- An entry with no such header cannot be read, and the command fails.
+- The notification owner must be the shell or its own helper process; any other
+  owner is `PLATFORM_NOT_SUPPORTED`.
+
+The protocol has no history query and GNOME exposes no notification ID, so an
+index is a position and not an identity. Within one command an entry is its
+accessibility object plus its words: every mutation reads the list twice, checks
+the expected app and title at the index, and checks that both reads found the
+same object. It then proves the effect by the object leaving the list.
 
 This example assumes exactly one disposable notification from `Skill Example`,
 titled `Beta`, already exists. `jq` selects the actual index and the mutation guards
@@ -182,29 +195,45 @@ Single-item `dismiss-notification` and `notification-action` require
 `--headed` and at least one of `--expected-app` / `--expected-title`.
 Missing identity is `INVALID_ARGS`; headless mutation is `POLICY_DENIED`.
 Missing index or changed identity is `NOTIFICATION_NOT_FOUND`. Re-list after
-each mutation; an index can now name another notification. The shell pointer
-needs X11: on Wayland a mutation fails with `ACTION_FAILED`,
-`pointer_hit_unproven`, before any input.
+each mutation; an index can now name another notification.
 
-Dismissal clicks the notification's close button, then proves that only the
-target left. A partial post-click read can instead return `ACTION_FAILED`,
-“The click was delivered but the message list could not be read afterwards”,
-with `delivery: delivered_unverified` and `retry: unsafe`. The target may
+Mutations press the shell's controls with the pointer, which needs X11: on
+Wayland a mutation fails with `ACTION_FAILED`, `pointer_hit_unproven`, before
+any input. The command opens the message list by a click on the clock menu and
+closes it again. If it cannot open the list, the error suggestion says so: open
+the list by hand and retry, because a list that is already showing is used as it
+is.
+
+Dismissal presses the entry's header buttons, the last one first. The two
+buttons look alike, so which one closes the entry is told by its effect: after a
+press the entry's own object must be gone from the list and no other entry's
+may be. A button that only expands the entry leaves it standing, so the other
+button is pressed next. An entry that still stands after both is
+`ACTION_FAILED` with `delivery: delivered_unverified`, never success. A partial
+post-click read gives the same code with “The click was delivered but the
+message list could not be read afterwards” and `retry: unsafe`; the target may
 already be gone. Re-list before deciding what remains; do not repeat the old
-index blindly. A filtered dismiss-all may stop after one delivered click and
-leave later matches in place; re-list the remaining set.
+index blindly.
 
-`dismiss-all-notifications` clicks clear-all without a filter, or closes
-matching entries individually with `--app`. A headed empty dismiss-all returns
-zero without opening the message list. Headless dismiss-all is `POLICY_DENIED`,
-even with an empty list.
+`dismiss-all-notifications` closes each entry in scope through its own header
+buttons, one at a time, and counts an entry as dismissed only when its own
+object has left the list. It never presses the footer button, which has no
+property but its place. `--app` limits the scope. A headed empty dismiss-all
+returns zero without opening the message list. Headless dismiss-all is
+`POLICY_DENIED`, even with an empty list. Entries that could not be closed are
+listed in the result's failures.
 
 For `notification-action`, pass the exact name in the row's `actions` list,
 for example `Open`. A missing action is `ACTION_NOT_SUPPORTED` with
-`available_actions`. An accepted action reports `delivered_unverified`;
-`details.evidence` is `action_invoked` when the daemon's own `ActionInvoked`
-signal was seen, `entry_removed` when only the entry's disappearance was seen,
-and `settle_elapsed` otherwise. None proves the receiving app's effect.
+`available_actions`. The command expands the entry first when its buttons are
+not laid out, using the header button before the last one; if pressing it
+removes the entry instead, the result is `ACTION_FAILED`. An action counts only
+when the entry's object leaves the list, which GNOME does after an action unless
+the notification is resident. `details.evidence` is `action_invoked` when
+the daemon's own `ActionInvoked` signal was also seen once, and `entry_removed`
+otherwise; the result is always `delivered_unverified`, and the receiving app's
+effect is never claimed. A button that was pressed while the entry stayed in the
+list is `ACTION_FAILED` with `delivered_unverified`.
 
 ## Surfaces that `open-system-surface` accepts
 
