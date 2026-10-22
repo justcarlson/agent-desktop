@@ -5,7 +5,9 @@ use agent_desktop_core::{
     OperationTarget, Rect, WindowInfo, WindowOp,
 };
 
-use self::hold::{give_back_place, hold_place, is_resize, remember_place};
+use self::hold::{
+    confirm_rectangle, fits_a_display, give_back_place, is_resize, move_client, remember_place,
+};
 use self::owner::{ensure_owned_after, ensure_owned_before};
 use self::refuse::{no_client, refused, unreadable, unsupported_session, write_failed};
 use self::window_place::PlaceStore;
@@ -167,10 +169,13 @@ fn settle(
                 if limit.remaining() < CONFIRM_PAUSE {
                     return (Verdict::Mismatch, observed);
                 }
-                std::thread::sleep(CONFIRM_PAUSE);
-                observed = world.facts(client).ready();
+                let Some(first) = observed else {
+                    return (Verdict::Mismatch, None);
+                };
+                let (stable, latest) = confirm_rectangle(world, client, first, limit);
+                observed = latest;
                 match observed {
-                    Some(facts) if judge(write, &facts, true) == Verdict::Satisfied => {
+                    Some(facts) if stable && judge(write, &facts, true) == Verdict::Satisfied => {
                         return (Verdict::Satisfied, Some(facts));
                     }
                     _ if limit.is_expired() => return (Verdict::Mismatch, observed),
@@ -191,16 +196,36 @@ fn apply(
     write: &WindowWrite,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
+    if *write == WindowWrite::SetMaximized(true) {
+        remember_place(world, win, client);
+    }
+    let before = if is_resize(write) {
+        world.facts(client).ready().map(|facts| facts.client)
+    } else {
+        None
+    };
     world.write(client, write).map_err(write_failed)?;
     let (verdict, observed) = settle(world, client, write, deadline);
     ensure_owned_after(world, win, client)?;
-    match verdict {
+    let outcome = match verdict {
         Verdict::Satisfied => Ok(()),
         Verdict::Pending | Verdict::Mismatch => {
             let displays = world.displays();
             Err(unverified(write, observed.as_ref(), &displays))
         }
-    }
+    };
+    let correction = match (before, observed) {
+        (Some(place), Some(facts))
+            if fits_a_display(&facts.client, &world.displays())
+                && ((facts.client.x - place.x).abs() > POSITION_TOLERANCE
+                    || (facts.client.y - place.y).abs() > POSITION_TOLERANCE) =>
+        {
+            move_client(world, win, client, place, deadline)
+        }
+        _ => Ok(()),
+    };
+    outcome.map_err(|error| reobserve(world, client, error))?;
+    correction
 }
 
 fn read_before(world: &impl OpWorld, client: u32) -> Result<WindowFacts, AdapterError> {
@@ -260,30 +285,6 @@ fn reobserve(world: &impl OpWorld, client: u32, mut error: AdapterError) -> Adap
     error
 }
 
-fn write_and_hold(
-    world: &impl OpWorld,
-    win: &WindowInfo,
-    client: u32,
-    write: WindowWrite,
-    deadline: Deadline,
-) -> Result<(), AdapterError> {
-    if write == WindowWrite::SetMaximized(true) {
-        remember_place(world, win, client);
-    }
-    let before = match world.facts(client) {
-        ControlRead::Ready(facts) if is_resize(&write) => Some(facts.client),
-        _ => None,
-    };
-    let outcome = apply(world, win, client, &write, deadline);
-    let held = hold_place(world, win, client, before, deadline);
-    let outcome = match (outcome, before) {
-        (Err(error), Some(_)) => Err(reobserve(world, client, error)),
-        (outcome, _) => outcome,
-    };
-    outcome?;
-    held
-}
-
 fn dispatch(
     world: &impl OpWorld,
     win: &WindowInfo,
@@ -303,7 +304,7 @@ fn dispatch(
             .with_disposition(DeliverySemantics::not_delivered()));
     }
     let done = match write {
-        Some(write) => write_and_hold(world, win, client, to_client(write, shadow), deadline),
+        Some(write) => apply(world, win, client, &to_client(write, shadow), deadline),
         None => restore(world, win, client, deadline),
     };
     done.map_err(|error| to_visible(error, shadow))

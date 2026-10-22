@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn a_resize_with_continuous_rectangle_drift_is_not_verified() {
+    fn drifting(_: &[WindowWrite]) -> WindowFacts {
+        thread_local! {
+            static POSITION: Cell<bool> = const { Cell::new(false) };
+        }
+        let x = POSITION.with(|position| i32::from(position.replace(!position.get())) * 20);
+        state(x, 0, 520, 380)
+    }
+    let mut world = World::showing(state(0, 0, 400, 300));
+    world.reaction = Some(drifting);
+    let (verdict, _) = super::super::settle(
+        &world,
+        CLIENT,
+        &requested(&resize(520.0, 380.0)).unwrap().unwrap(),
+        Deadline::after(500).unwrap(),
+    );
+    assert_eq!(verdict, Verdict::Mismatch);
+}
+
+#[test]
 fn unreadable_ownership_after_a_write_is_unverified_not_missing() {
     let mut unreadable_client = client(CLIENT, "Doc");
     unreadable_client.pid = None;
