@@ -1,174 +1,110 @@
 use agent_desktop_core::NotificationInfo;
 
-use super::world::{Node, Role};
-use crate::tree::{AtspiElement, Extents};
-
-const OFF_SCREEN_FLOOR: i32 = -1_000_000;
-
-#[derive(Debug, Clone)]
-pub(crate) struct Control {
-    pub(crate) name: String,
-    pub(crate) extents: Option<Extents>,
-    pub(crate) element: AtspiElement,
-}
+use crate::system::shell::light::Light;
+use crate::system::shell::search::Walk;
+use crate::tree::AtspiElement;
+use crate::tree::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
     pub(crate) info: NotificationInfo,
     pub(crate) node: AtspiElement,
-    pub(crate) header: Vec<Control>,
-    pub(crate) expand: Option<Control>,
-    pub(crate) actions: Vec<Control>,
+    pub(crate) header: Vec<Light>,
+    pub(crate) actions: Vec<Light>,
 }
 
 impl Entry {
     /// The header buttons in the order a dismissal tries them, the last
     /// first. Which of them closes the entry is told by its effect.
-    pub(crate) fn close_candidates(&self) -> impl Iterator<Item = &Control> {
+    pub(crate) fn close_candidates(&self) -> impl Iterator<Item = &Light> {
         self.header.iter().rev()
     }
+
+    /// The header button before the last one, which reveals the actions.
+    pub(crate) fn expand(&self) -> Option<&Light> {
+        self.header
+            .len()
+            .checked_sub(2)
+            .and_then(|at| self.header.get(at))
+    }
 }
 
-/// Splits a container reading into the subtree of each notification node.
-pub(crate) fn partition(nodes: &[Node]) -> Vec<&[Node]> {
-    let mut entries = Vec::new();
-    let mut position = 0;
-    while position < nodes.len() {
-        let node = &nodes[position];
-        if node.role == Role::Notification {
-            let end = nodes[position + 1..]
-                .iter()
-                .position(|next| next.depth <= node.depth)
-                .map_or(nodes.len(), |offset| position + 1 + offset);
-            entries.push(&nodes[position..end]);
-            position = end;
-        } else {
-            position += 1;
+/// The notification nodes of a reading that stand under no other one.
+pub(crate) fn roots(walk: &Walk) -> Vec<usize> {
+    let mut roots: Vec<usize> = Vec::new();
+    for (at, visit) in walk.visits.iter().enumerate() {
+        let nested = roots.iter().any(|root| walk.within(at, *root));
+        if visit.light.role == NOTIFICATION && !nested {
+            roots.push(at);
         }
     }
-    entries
+    roots
 }
 
-/// Whether the shell has laid the control out. Hidden controls report a
-/// sentinel or empty rectangle until their entry is expanded.
-pub(crate) fn is_laid_out(extents: Option<Extents>) -> bool {
-    extents.is_some_and(|rect| {
-        rect.width > 0 && rect.height > 0 && rect.x > OFF_SCREEN_FLOOR && rect.y > OFF_SCREEN_FLOOR
-    })
-}
-
-/// The index of each node's parent within the slice, from depths alone.
-fn parents(subtree: &[Node]) -> Vec<Option<usize>> {
-    let mut stack: Vec<usize> = Vec::new();
-    subtree
-        .iter()
-        .enumerate()
-        .map(|(position, node)| {
-            while stack
-                .last()
-                .is_some_and(|top| subtree[*top].depth >= node.depth)
-            {
-                stack.pop();
-            }
-            let parent = stack.last().copied();
-            stack.push(position);
-            parent
-        })
-        .collect()
-}
-
-fn inside(parents: &[Option<usize>], mut node: usize, ancestor: usize) -> bool {
-    while let Some(parent) = parents[node] {
-        if parent == ancestor {
-            return true;
-        }
-        node = parent;
-    }
-    false
-}
-
-fn control_of(node: &Node) -> Control {
-    Control {
-        name: node.name.clone(),
-        extents: node.extents,
-        element: node.element.clone(),
-    }
-}
-
-/// Reads one entry from its subtree. The first node is the notification node.
+/// Reads one entry from the nodes under its notification node.
 ///
 /// The shell lays an entry out as a header, the body and the action row. The
 /// header is the one container that holds the unnamed push buttons, so it is
 /// found by the controls it carries and not by any text: its first label is
 /// the app and later labels are the age. Labels outside the header are the
 /// title, then the body. Named push buttons outside the header are the
-/// actions. The header's buttons are kept in tree order; the one before the
-/// last is the expand control, and which button closes the entry is left to
-/// the effect of pressing it.
-pub(crate) fn extract(subtree: &[Node], index: usize) -> Option<Entry> {
-    let parents = parents(subtree);
-    let mut buttons = Vec::new();
-    for (position, node) in subtree.iter().enumerate().skip(1) {
-        let nested = buttons
-            .iter()
-            .any(|(outer, _)| inside(&parents, position, *outer));
-        if node.role == Role::PushButton && !nested {
-            buttons.push((position, node.name.trim().is_empty()));
-        }
-    }
+/// actions.
+pub(crate) fn extract(walk: &Walk, root: usize, index: usize) -> Option<Entry> {
+    let below: Vec<usize> = (root + 1..walk.visits.len())
+        .take_while(|at| walk.within(*at, root))
+        .collect();
+    let light = |at: usize| &walk.visits[at].light;
+    let is_button = |at: &usize| light(*at).role == PUSH_BUTTON;
+    let buttons: Vec<usize> = below
+        .iter()
+        .copied()
+        .filter(is_button)
+        .filter(|at| {
+            let nested = below
+                .iter()
+                .filter(|outer| is_button(outer) && *outer != at)
+                .any(|outer| walk.within(*at, *outer));
+            !nested
+        })
+        .collect();
+    let unnamed = |at: &usize| light(*at).name.trim().is_empty();
     let header = buttons
         .iter()
-        .find(|(_, unnamed)| *unnamed)
-        .and_then(|(position, _)| parents[*position])?;
-    let in_header = |position: usize| position == header || inside(&parents, position, header);
-    let in_button = |position: usize| {
-        buttons
-            .iter()
-            .any(|(button, _)| *button == position || inside(&parents, position, *button))
-    };
-    let mut header_labels = Vec::new();
-    let mut content_labels = Vec::new();
-    for (position, node) in subtree.iter().enumerate().skip(1) {
-        if node.role != Role::Label || node.name.trim().is_empty() || in_button(position) {
+        .find(|at| unnamed(at))
+        .and_then(|at| walk.visits[*at].parent)?;
+    let (mut heading, mut content) = (Vec::new(), Vec::new());
+    for at in &below {
+        let label = light(*at);
+        let pressable = buttons.iter().any(|button| walk.within(*at, *button));
+        if label.role != LABEL || label.name.trim().is_empty() || pressable {
             continue;
         }
-        if in_header(position) {
-            header_labels.push(node.name.clone());
+        if walk.within(*at, header) {
+            heading.push(label.name.as_str());
         } else {
-            content_labels.push(node.name.clone());
+            content.push(label.name.as_str());
         }
     }
-    let mut unnamed = Vec::new();
-    let mut actions = Vec::new();
-    for (position, is_unnamed) in &buttons {
-        let control = control_of(&subtree[*position]);
-        if !in_header(*position) {
-            if !is_unnamed {
-                actions.push(control);
-            }
-        } else if *is_unnamed {
-            unnamed.push(control);
+    let (mut controls, mut actions) = (Vec::new(), Vec::new());
+    for at in &buttons {
+        match (walk.within(*at, header), unnamed(at)) {
+            (true, true) => controls.push(light(*at).clone()),
+            (false, false) => actions.push(light(*at).clone()),
+            _ => {}
         }
     }
-    let app_name = header_labels.into_iter().next()?;
-    let mut content = content_labels.into_iter();
-    let title = content.next()?;
-    let body: Vec<String> = content.collect();
-    let expand = unnamed
-        .len()
-        .checked_sub(2)
-        .and_then(|at| unnamed.get(at).cloned());
+    let (app_name, title) = (heading.first()?, content.first()?);
+    let body: Vec<&str> = content.iter().skip(1).copied().collect();
     Some(Entry {
         info: NotificationInfo {
             index,
-            app_name,
-            title,
+            app_name: (*app_name).to_owned(),
+            title: (*title).to_owned(),
             body: (!body.is_empty()).then(|| body.join("\n")),
             actions: actions.iter().map(|action| action.name.clone()).collect(),
         },
-        node: subtree[0].element.clone(),
-        header: unnamed,
-        expand,
+        node: light(root).element.clone(),
+        header: controls,
         actions,
     })
 }

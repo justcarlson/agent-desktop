@@ -5,8 +5,7 @@ use agent_desktop_core::{
     NotificationInfo,
 };
 
-use super::extract::{Entry, extract, partition};
-use super::seen::Seen;
+use super::extract::{Entry, extract, roots};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
 use crate::system::shell::container::Landmark;
@@ -16,29 +15,8 @@ const PARTIAL_READ: &str = "The message list could only be read in part";
 const LABEL_RETRIES: usize = 12;
 const LABEL_RETRY_GAP: Duration = Duration::from_millis(100);
 
-/// What one read of the message list found: its entries in tree order, with
-/// indices over the unfiltered list.
-pub(crate) struct Listing {
-    pub(crate) entries: Vec<Entry>,
-}
-
-impl Listing {
-    pub(crate) fn infos(&self) -> Vec<NotificationInfo> {
-        self.entries
-            .iter()
-            .map(|entry| entry.info.clone())
-            .collect()
-    }
-
-    pub(crate) fn seen(&self) -> Vec<Seen> {
-        self.entries
-            .iter()
-            .map(|entry| Seen {
-                info: entry.info.clone(),
-                node: entry.node.clone(),
-            })
-            .collect()
-    }
+pub(crate) fn infos(entries: &[Entry]) -> Vec<NotificationInfo> {
+    entries.iter().map(|entry| entry.info.clone()).collect()
 }
 
 pub(crate) fn list(
@@ -56,8 +34,7 @@ pub(crate) fn list_in(
     filter: &NotificationFilter,
     deadline: Deadline,
 ) -> Result<Vec<NotificationInfo>, AdapterError> {
-    let listing = read_listing(world, deadline)?;
-    Ok(apply_filter(listing.infos(), filter))
+    Ok(apply_filter(infos(&read_listing(world, deadline)?), filter))
 }
 
 /// Reads the message list through its container only, so banner copies never
@@ -67,7 +44,7 @@ pub(crate) fn list_in(
 pub(crate) fn read_listing(
     world: &dyn ShellWorld,
     deadline: Deadline,
-) -> Result<Listing, AdapterError> {
+) -> Result<Vec<Entry>, AdapterError> {
     world.require_daemon(deadline)?;
     let mut tries = 0;
     loop {
@@ -87,30 +64,30 @@ pub(crate) fn read_listing(
     }
 }
 
-fn read_listing_once(world: &dyn ShellWorld, deadline: Deadline) -> Result<Listing, AdapterError> {
+fn read_listing_once(
+    world: &dyn ShellWorld,
+    deadline: Deadline,
+) -> Result<Vec<Entry>, AdapterError> {
     let container = world.locate(Landmark::MessageList, deadline)?;
-    let reading = world.read(&container, deadline)?;
-    if !reading.complete {
-        return Err(incomplete_read(deadline));
+    let walked = world.read(&container, deadline)?;
+    if !walked.complete {
+        return Err(if deadline.is_expired() {
+            deadline.timeout_error()
+        } else {
+            AdapterError::new(ErrorCode::Internal, PARTIAL_READ)
+                .with_suggestion("Retry the command; the shell tree changed while it was read")
+        });
     }
-    let mut entries = Vec::new();
-    for (position, subtree) in partition(&reading.nodes).into_iter().enumerate() {
-        entries.push(extract(subtree, position + 1).ok_or_else(unreadable_entry)?);
-    }
-    Ok(Listing { entries })
-}
-
-fn incomplete_read(deadline: Deadline) -> AdapterError {
-    if deadline.is_expired() {
-        return deadline.timeout_error();
-    }
-    AdapterError::new(ErrorCode::Internal, PARTIAL_READ)
-        .with_suggestion("Retry the command; the shell tree changed while it was read")
-}
-
-fn unreadable_entry() -> AdapterError {
-    AdapterError::new(ErrorCode::Internal, UNREADABLE_ENTRY)
-        .with_suggestion("Retry the command; report the platform detail if it persists")
+    roots(&walked)
+        .into_iter()
+        .enumerate()
+        .map(|(position, root)| {
+            extract(&walked, root, position + 1).ok_or_else(|| {
+                AdapterError::new(ErrorCode::Internal, UNREADABLE_ENTRY)
+                    .with_suggestion("Retry the command; report the platform detail if it persists")
+            })
+        })
+        .collect()
 }
 
 /// Filters keep the indices the unfiltered read assigned, then apply the
@@ -131,24 +108,17 @@ pub(crate) fn matches_app(info: &NotificationInfo, app: &str) -> bool {
 }
 
 fn matches_filters(info: &NotificationInfo, filter: &NotificationFilter) -> bool {
-    if let Some(app) = filter.app.as_deref()
-        && !matches_app(info, app)
-    {
-        return false;
-    }
-    if let Some(text) = filter.text.as_deref() {
-        let haystack = format!(
-            "{} {} {}",
-            info.title,
-            info.body.as_deref().unwrap_or(""),
-            info.app_name
-        )
-        .to_lowercase();
-        if !haystack.contains(&text.to_lowercase()) {
-            return false;
-        }
-    }
-    true
+    let words = |text: &str| {
+        let body = info.body.as_deref().unwrap_or("");
+        format!("{} {body} {}", info.title, info.app_name)
+            .to_lowercase()
+            .contains(&text.to_lowercase())
+    };
+    filter
+        .app
+        .as_deref()
+        .is_none_or(|app| matches_app(info, app))
+        && filter.text.as_deref().is_none_or(words)
 }
 
 #[cfg(test)]

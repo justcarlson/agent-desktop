@@ -1,5 +1,6 @@
 use super::*;
 use crate::notifications::fake::{FakeWorld, Spec, lease, log, reading, spec};
+use crate::system::shell::search::Walk;
 use agent_desktop_core::InteractionPolicy;
 
 fn mixed() -> Vec<Spec> {
@@ -13,7 +14,7 @@ fn request(app: Option<&str>, policy: InteractionPolicy) -> DismissAllNotificati
     }
 }
 
-fn staged_removals() -> Vec<crate::notifications::world::Reading> {
+fn staged_removals() -> Vec<Walk> {
     vec![
         reading(&mixed()),
         reading(&[spec("Chat", "b1"), spec("Mail", "a2")]),
@@ -44,13 +45,10 @@ fn without_a_filter_every_entry_is_closed_through_its_own_control() {
 fn the_footer_button_is_never_pressed_whatever_it_is_called() {
     let log = log();
     let mut full = reading(&mixed());
-    for node in full
-        .nodes
+    full.visits
         .iter_mut()
-        .filter(|node| node.element.path() == "/clear")
-    {
-        node.name = "Clear all notifications".to_owned();
-    }
+        .filter(|visit| visit.light.element.path() == "/clear")
+        .for_each(|visit| visit.light.name = "Clear all notifications".to_owned());
     let mut stages = staged_removals();
     stages[0] = full;
     let world = FakeWorld::new(&log, stages);

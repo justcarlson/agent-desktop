@@ -121,7 +121,10 @@ fn an_unproven_notification_service_blocks_listing_with_its_own_error() {
 #[test]
 fn an_entry_whose_labels_have_not_filled_in_yet_is_read_again() {
     let mut half = reading(&[spec("Mail", "hello")]);
-    half.nodes.retain(|node| node.name != "hello");
+    half.visits
+        .iter_mut()
+        .filter(|visit| visit.light.name == "hello")
+        .for_each(|visit| visit.light.name.clear());
     let good = reading(&[spec("Mail", "hello")]);
     let world = FakeWorld::new(&log(), vec![half, good]).staged_by_reads();
     let listed = list_in(&world, &NotificationFilter::default(), deadline()).expect("listed");
@@ -141,7 +144,10 @@ fn a_read_cut_short_by_a_vanishing_node_is_read_again() {
 #[test]
 fn an_entry_that_stays_unreadable_is_an_error_after_the_retries() {
     let mut half = reading(&[spec("Mail", "hello")]);
-    half.nodes.retain(|node| node.name != "hello");
+    half.visits
+        .iter_mut()
+        .filter(|visit| visit.light.name == "hello")
+        .for_each(|visit| visit.light.name.clear());
     let world = FakeWorld::new(&log(), vec![half]);
     let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
     assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);

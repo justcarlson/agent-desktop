@@ -1,7 +1,7 @@
 use super::*;
 use crate::notifications::fake::{FakeSignals, FakeWorld, Log, lease, log, reading, spec};
-use crate::notifications::signals::Signal;
-use crate::notifications::world::Reading;
+use crate::notifications::signal::Signal;
+use crate::system::shell::search::Walk;
 use agent_desktop_core::{ErrorCode, InteractionPolicy, NotificationIdentity};
 
 fn identity() -> NotificationIdentity {
@@ -24,7 +24,7 @@ fn request<'a>(
     }
 }
 
-fn entry(expanded: bool) -> Reading {
+fn entry(expanded: bool) -> Walk {
     let base = spec("Mail", "a").actions(&["Run A", "Run B"]);
     reading(&[
         if expanded { base.expanded() } else { base },
@@ -32,7 +32,7 @@ fn entry(expanded: bool) -> Reading {
     ])
 }
 
-fn gone() -> Reading {
+fn gone() -> Walk {
     reading(&[spec("Chat", "z")])
 }
 

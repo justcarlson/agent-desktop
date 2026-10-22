@@ -1,15 +1,15 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, DismissAllNotificationsRequest, InteractionLease, NotificationFilter,
-    NotificationInfo,
+    AdapterError, DismissAllNotificationsRequest, InteractionLease, NotificationInfo,
 };
 
-use super::close::{Unclosed, close_entry};
-use super::list::{apply_filter, read_listing};
-use super::seen::{Seen, same_object};
-use super::session::Session;
-use super::verify::{bystander_error, departed, remaining, survivor_line, unconfirmed_read};
+use super::close::close_entry;
+use super::extract::Entry;
+use super::list::{matches_app, read_listing};
+use super::session::{Session, require_headed};
+use super::verify::{holds, unconfirmed_read};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
+use crate::system::shell::light::same_object;
 
 type Outcome = (Vec<NotificationInfo>, Vec<String>);
 
@@ -25,64 +25,40 @@ pub(crate) fn dismiss_all(
 /// entry is closed through its own header control and only counts as
 /// dismissed when its own object has left the list. No button that acts on
 /// the whole list is pressed, because none can be told apart by anything but
-/// its place. The outcome is judged against the set captured first.
+/// its place. The closed list is read first: an empty list, or an app filter
+/// that matches nothing, needs no press and no open.
 pub(crate) fn dismiss_all_in(
     world: &dyn ShellWorld,
     request: DismissAllNotificationsRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<Outcome, AdapterError> {
-    if request.policy.is_headed() && nothing_to_clear(world, &request, lease.deadline())? {
-        return Ok((Vec::new(), Vec::new()));
-    }
-    let session = Session::open(world, request.policy, lease)?;
-    let result = run(world, &request, lease);
-    session.finish(result)
-}
-
-/// Reads the closed list first: an empty list, or an app filter that matches
-/// nothing, needs no click and no open, and the open is the step that fails
-/// on a list that has just emptied.
-fn nothing_to_clear(
-    world: &dyn ShellWorld,
-    request: &DismissAllNotificationsRequest<'_>,
-    deadline: Deadline,
-) -> Result<bool, AdapterError> {
-    let listing = read_listing(world, deadline)?;
-    Ok(apply_filter(listing.infos(), &app_scope(request)).is_empty())
-}
-
-fn app_scope(request: &DismissAllNotificationsRequest<'_>) -> NotificationFilter {
-    NotificationFilter {
-        app: request.app_filter.map(str::to_owned),
-        ..NotificationFilter::default()
-    }
-}
-
-fn run(
-    world: &dyn ShellWorld,
-    request: &DismissAllNotificationsRequest<'_>,
-    lease: &InteractionLease,
-) -> Result<Outcome, AdapterError> {
-    let deadline = lease.deadline();
-    let listing = read_listing(world, deadline)?;
-    let wanted: Vec<usize> = apply_filter(listing.infos(), &app_scope(request))
-        .iter()
-        .map(|info| info.index)
-        .collect();
-    let captured: Vec<Seen> = listing
-        .seen()
+    require_headed(request.policy)?;
+    let captured: Vec<Entry> = read_listing(world, lease.deadline())?
         .into_iter()
-        .filter(|seen| wanted.contains(&seen.info.index))
+        .filter(|entry| {
+            request
+                .app_filter
+                .is_none_or(|app| matches_app(&entry.info, app))
+        })
         .collect();
     if captured.is_empty() {
         return Ok((Vec::new(), Vec::new()));
     }
-    let mut recorded: Vec<(usize, String)> = Vec::new();
-    for target in &captured {
-        let now = read_listing(world, deadline)?;
-        let before = now.seen();
-        let Some(entry) = now
-            .entries
+    let session = Session::open(world, request.policy, lease)?;
+    let result = close_each(world, &captured, request, lease);
+    session.finish(result)
+}
+
+fn close_each(
+    world: &dyn ShellWorld,
+    captured: &[Entry],
+    request: DismissAllNotificationsRequest<'_>,
+    lease: &InteractionLease,
+) -> Result<Outcome, AdapterError> {
+    let mut failures: Vec<(usize, String)> = Vec::new();
+    for target in captured {
+        let before = read_listing(world, lease.deadline())?;
+        let Some(entry) = before
             .iter()
             .find(|entry| same_object(&entry.node, &target.node))
         else {
@@ -90,35 +66,28 @@ fn run(
         };
         match close_entry(world, entry, &before, request.policy, lease) {
             Ok(_) => {}
-            Err(Unclosed::Unread(error)) => return Err(error),
-            Err(Unclosed::Press(error)) => recorded.push((target.info.index, error.message)),
-            Err(Unclosed::Survived) => recorded.push((
-                target.info.index,
-                "no header control removed the notification".to_owned(),
-            )),
-            Err(Unclosed::Bystander) => {
-                recorded.push((target.info.index, bystander_error().message));
-            }
+            Err(unclosed) if unclosed.unread => return Err(unclosed.error),
+            Err(unclosed) => failures.push((target.info.index, unclosed.error.message)),
         }
     }
-    let current = read_listing(world, deadline)
-        .map_err(unconfirmed_read)?
-        .seen();
-    let mut failures: Vec<String> = recorded
+    let after = read_listing(world, lease.deadline()).map_err(unconfirmed_read)?;
+    let (gone, left): (Vec<&Entry>, Vec<&Entry>) = captured
         .iter()
-        .map(|(index, message)| format!("#{index}: {message}"))
-        .collect();
-    failures.extend(
-        remaining(&captured, &current)
-            .iter()
-            .filter(|seen| !recorded.iter().any(|(index, _)| *index == seen.info.index))
-            .map(|seen| survivor_line(seen.info.index)),
-    );
-    let dismissed = departed(&captured, &current)
-        .into_iter()
-        .map(|seen| seen.info.clone())
-        .collect();
-    Ok((dismissed, failures))
+        .partition(|entry| !holds(&after, &entry.node));
+    for entry in left {
+        let recorded = failures.iter().any(|(index, _)| *index == entry.info.index);
+        if !recorded {
+            let message = "notification from the captured set is still present".to_owned();
+            failures.push((entry.info.index, message));
+        }
+    }
+    Ok((
+        gone.into_iter().map(|entry| entry.info.clone()).collect(),
+        failures
+            .into_iter()
+            .map(|(index, message)| format!("#{index}: {message}"))
+            .collect(),
+    ))
 }
 
 #[cfg(test)]

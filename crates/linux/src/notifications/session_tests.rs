@@ -7,24 +7,15 @@ fn world(log: &crate::notifications::fake::Log) -> FakeWorld {
 }
 
 #[test]
-fn a_headless_policy_is_refused_before_any_event() {
-    let log = log();
-    let world = world(&log);
-    let lease = lease(500);
-    let error = Session::open(&world, InteractionPolicy::headless(), &lease)
-        .err()
-        .expect("refused");
-    assert_eq!(error.code, ErrorCode::PolicyDenied);
-    assert!(log.borrow().is_empty());
-}
-
-#[test]
-fn a_focus_only_policy_is_refused_too() {
-    let log = log();
-    let world = world(&log);
-    let lease = lease(500);
-    assert!(Session::open(&world, InteractionPolicy::focus_fallback(), &lease).is_err());
-    assert!(log.borrow().is_empty());
+fn a_policy_that_does_not_move_the_pointer_is_refused() {
+    for policy in [
+        InteractionPolicy::headless(),
+        InteractionPolicy::focus_fallback(),
+    ] {
+        let error = require_headed(policy).expect_err("refused");
+        assert_eq!(error.code, ErrorCode::PolicyDenied);
+    }
+    assert!(require_headed(InteractionPolicy::headed()).is_ok());
 }
 
 #[test]
@@ -86,15 +77,6 @@ fn a_close_that_does_not_stick_turns_a_success_into_an_error_naming_it() {
         error.details.expect("details")["list_restore"],
         "unverified"
     );
-}
-
-#[test]
-fn dropping_an_unfinished_session_closes_what_it_opened() {
-    let log = log();
-    let world = world(&log);
-    let lease = lease(500);
-    drop(Session::open(&world, InteractionPolicy::headed(), &lease).expect("open"));
-    assert!(!world.showing.get());
 }
 
 #[test]

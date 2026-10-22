@@ -7,11 +7,16 @@ use agent_desktop_core::{
     ProcessId, WindowInfo, WindowState,
 };
 
-use super::signals::{Signal, SignalSource, Subscription};
-use super::world::{Node, Reading, Role, ShellWorld};
+use super::signal::{Held, Signal, SignalSource};
+use super::world::ShellWorld;
 use crate::system::shell::container::Landmark;
+use crate::system::shell::light::Light;
 use crate::system::shell::open::Opened;
+use crate::system::shell::search::{Visit, Walk};
+use crate::tree::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
 use crate::tree::{AtspiElement, Extents};
+
+const PANEL: u32 = 39;
 
 pub(crate) type Log = Rc<RefCell<Vec<String>>>;
 
@@ -35,6 +40,7 @@ pub(crate) struct Spec {
     pub(crate) actions: Vec<&'static str>,
     pub(crate) expanded: bool,
     pub(crate) object: Option<&'static str>,
+    pub(crate) buttons: usize,
 }
 
 pub(crate) fn spec(app: &'static str, title: &'static str) -> Spec {
@@ -46,6 +52,7 @@ pub(crate) fn spec(app: &'static str, title: &'static str) -> Spec {
         actions: Vec::new(),
         expanded: false,
         object: None,
+        buttons: 2,
     }
 }
 
@@ -74,6 +81,11 @@ impl Spec {
         self.object = Some(key);
         self
     }
+
+    pub(crate) fn header_buttons(mut self, count: usize) -> Self {
+        self.buttons = count;
+        self
+    }
 }
 
 const LAID_OUT: Extents = Extents {
@@ -89,18 +101,35 @@ const HIDDEN: Extents = Extents {
     height: -1,
 };
 
-fn node(depth: usize, role: Role, name: &str, path: &str, extents: Extents) -> Node {
-    Node {
-        depth,
-        role,
-        name: name.to_owned(),
-        extents: Some(extents),
-        element: element(path),
+fn add(
+    visits: &mut Vec<Visit>,
+    parent: Option<usize>,
+    (role, name, path): (u32, &str, &str),
+    extents: Extents,
+) -> usize {
+    let index = visits.len();
+    visits.push(Visit {
+        light: Light {
+            element: element(path),
+            role,
+            name: name.to_owned(),
+            extents: Some(extents),
+            showing: true,
+            visible: true,
+            children: Vec::new(),
+        },
+        parent,
+        children: Vec::new(),
+    });
+    if let Some(parent) = parent {
+        visits[parent].children.push(index);
     }
+    index
 }
 
-pub(crate) fn reading(specs: &[Spec]) -> Reading {
-    let mut nodes = vec![node(0, Role::Other, "", "/root", LAID_OUT)];
+pub(crate) fn reading(specs: &[Spec]) -> Walk {
+    let mut visits = Vec::new();
+    let root = add(&mut visits, None, (PANEL, "", "/root"), LAID_OUT);
     let mut keys: Vec<String> = Vec::new();
     for entry in specs {
         let base = format!("{}:{}", entry.app, entry.title);
@@ -111,37 +140,52 @@ pub(crate) fn reading(specs: &[Spec]) -> Reading {
             (None, 0) => base,
             (None, _) => format!("{base}#{}", twins + 1),
         };
-        let mut push = |depth, role, name, suffix: &str, extents| {
-            nodes.push(node(depth, role, name, &format!("/{key}{suffix}"), extents));
+        let at = |suffix: &str| format!("/{key}{suffix}");
+        let mut put = |parent: usize, role: u32, name: &str, suffix: &str, extents: Extents| {
+            add(
+                &mut visits,
+                Some(parent),
+                (role, name, &at(suffix)),
+                extents,
+            )
         };
-        push(1, Role::Notification, "", "", LAID_OUT);
-        push(2, Role::Other, "", "/header", LAID_OUT);
-        push(3, Role::Other, "", "/header/texts", LAID_OUT);
-        push(4, Role::Label, entry.app, "/app", LAID_OUT);
+        let notification = put(root, NOTIFICATION, "", "", LAID_OUT);
+        let header = put(notification, PANEL, "", "/header", LAID_OUT);
+        let texts = put(header, PANEL, "", "/header/texts", LAID_OUT);
+        put(texts, LABEL, entry.app, "/app", LAID_OUT);
         if let Some(time) = entry.time {
-            push(4, Role::Label, time, "/time", LAID_OUT);
+            put(texts, LABEL, time, "/time", LAID_OUT);
         }
-        push(3, Role::PushButton, "", "/expand", LAID_OUT);
-        push(3, Role::PushButton, "", "/close", LAID_OUT);
-        push(2, Role::Other, "", "/content", LAID_OUT);
-        push(3, Role::Label, entry.title, "/title", LAID_OUT);
+        if entry.buttons >= 2 {
+            put(header, PUSH_BUTTON, "", "/expand", LAID_OUT);
+        }
+        if entry.buttons >= 1 {
+            put(header, PUSH_BUTTON, "", "/close", LAID_OUT);
+        }
+        let content = put(notification, PANEL, "", "/content", LAID_OUT);
+        put(content, LABEL, entry.title, "/title", LAID_OUT);
         if let Some(body) = entry.body {
-            push(3, Role::Other, "", "/body_box", LAID_OUT);
-            push(4, Role::Label, body, "/body", LAID_OUT);
+            let boxed = put(content, PANEL, "", "/body_box", LAID_OUT);
+            put(boxed, LABEL, body, "/body", LAID_OUT);
         }
         if !entry.actions.is_empty() {
-            push(2, Role::Other, "", "/actions", LAID_OUT);
-        }
-        for action in &entry.actions {
-            let extents = if entry.expanded { LAID_OUT } else { HIDDEN };
-            let suffix = format!("/act/{action}");
-            push(3, Role::PushButton, action, &suffix, extents);
-            push(4, Role::Label, action, &format!("{suffix}/label"), extents);
+            let row = put(notification, PANEL, "", "/actions", LAID_OUT);
+            for action in &entry.actions {
+                let extents = if entry.expanded { LAID_OUT } else { HIDDEN };
+                let suffix = format!("/act/{action}");
+                let button = put(row, PUSH_BUTTON, action, &suffix, extents);
+                put(button, LABEL, action, &format!("{suffix}/label"), extents);
+            }
         }
     }
-    nodes.push(node(1, Role::PushButton, "", "/clear", LAID_OUT));
-    Reading {
-        nodes,
+    add(
+        &mut visits,
+        Some(root),
+        (PUSH_BUTTON, "", "/clear"),
+        LAID_OUT,
+    );
+    Walk {
+        visits,
         complete: true,
     }
 }
@@ -169,7 +213,7 @@ struct Counts {
 
 pub(crate) struct FakeWorld {
     pub(crate) log: Log,
-    stages: Vec<Reading>,
+    stages: Vec<Walk>,
     counts: Counts,
     by_reads: bool,
     pub(crate) opened: Opened,
@@ -178,7 +222,7 @@ pub(crate) struct FakeWorld {
 }
 
 impl FakeWorld {
-    pub(crate) fn new(log: &Log, stages: Vec<Reading>) -> Self {
+    pub(crate) fn new(log: &Log, stages: Vec<Walk>) -> Self {
         Self {
             log: Rc::clone(log),
             stages,
@@ -233,7 +277,7 @@ impl ShellWorld for FakeWorld {
         Ok(element("/root"))
     }
 
-    fn read(&self, _: &AtspiElement, _: Deadline) -> Result<Reading, AdapterError> {
+    fn read(&self, _: &AtspiElement, _: Deadline) -> Result<Walk, AdapterError> {
         self.note("read");
         if self.faults.read_after_click && self.counts.clicks.get() > 0 {
             return Err(AdapterError::new(
@@ -322,20 +366,20 @@ pub(crate) struct FakeSignals {
     pub(crate) fails: bool,
 }
 
-struct Held(Vec<Signal>);
+struct Heard(Vec<Signal>);
 
-impl Subscription for Held {
+impl Held for Heard {
     fn collect(self: Box<Self>, _: Duration) -> Vec<Signal> {
         self.0
     }
 }
 
 impl SignalSource for FakeSignals {
-    fn subscribe(&self, _: Deadline) -> Result<Box<dyn Subscription>, AdapterError> {
+    fn subscribe(&self, _: Deadline) -> Result<Box<dyn Held>, AdapterError> {
         self.log.borrow_mut().push("subscribe".to_owned());
         if self.fails {
             return Err(AdapterError::new(ErrorCode::Internal, "no session bus"));
         }
-        Ok(Box::new(Held(self.signals.clone())))
+        Ok(Box::new(Heard(self.signals.clone())))
     }
 }

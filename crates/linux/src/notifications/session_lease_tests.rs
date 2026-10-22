@@ -5,9 +5,10 @@ use agent_desktop_core::{
 
 use super::Session;
 use crate::notifications::fake::{FakeWorld, log, reading, spec};
-use crate::notifications::world::{Reading, ShellWorld};
+use crate::notifications::world::ShellWorld;
 use crate::system::shell::container::Landmark;
 use crate::system::shell::open::Opened;
+use crate::system::shell::search::Walk;
 use crate::tree::AtspiElement;
 
 struct RetainingWorld(FakeWorld);
@@ -21,7 +22,7 @@ impl ShellWorld for RetainingWorld {
         self.0.locate(landmark, deadline)
     }
 
-    fn read(&self, root: &AtspiElement, deadline: Deadline) -> Result<Reading, AdapterError> {
+    fn read(&self, root: &AtspiElement, deadline: Deadline) -> Result<Walk, AdapterError> {
         self.0.read(root, deadline)
     }
 

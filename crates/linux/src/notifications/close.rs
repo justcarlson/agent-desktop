@@ -3,31 +3,24 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, InteractionLease, InteractionPolicy, MouseButton};
 
 use super::extract::Entry;
-use super::seen::{Seen, holds};
 use super::target::missing_control;
-use super::verify::{REMOVAL_SETTLE, bystander_error, bystanders, settle_read, survived_error};
+use super::verify::{REMOVAL_SETTLE, bystanders, holds, pressed_without_effect, settle_read};
 use super::world::ShellWorld;
 
 const PRESS_SETTLE: Duration = Duration::from_millis(2_500);
 const MAX_PRESSES: usize = 2;
 
-/// Why an entry was not closed, split by what the caller does with it: a
-/// press that never went out, a list unreadable afterwards, an entry that
-/// stayed, or another entry that left with it.
-pub(crate) enum Unclosed {
-    Press(AdapterError),
-    Unread(AdapterError),
-    Survived,
-    Bystander,
+/// Why an entry was not closed. `unread` marks a list that could not be read
+/// after a press, which leaves the delivery in doubt for everything else.
+pub(crate) struct Unclosed {
+    pub(crate) error: AdapterError,
+    pub(crate) unread: bool,
 }
 
-impl Unclosed {
-    pub(crate) fn into_error(self) -> AdapterError {
-        match self {
-            Self::Press(error) | Self::Unread(error) => error,
-            Self::Survived => survived_error("close control of the notification"),
-            Self::Bystander => bystander_error(),
-        }
+fn failed(error: AdapterError) -> Unclosed {
+    Unclosed {
+        error,
+        unread: false,
     }
 }
 
@@ -40,42 +33,41 @@ impl Unclosed {
 pub(crate) fn close_entry(
     world: &dyn ShellWorld,
     entry: &Entry,
-    before: &[Seen],
+    before: &[Entry],
     policy: InteractionPolicy,
     lease: &InteractionLease,
-) -> Result<Vec<Seen>, Unclosed> {
-    let target = Seen {
-        info: entry.info.clone(),
-        node: entry.node.clone(),
-    };
-    let deadline = lease.deadline();
+) -> Result<Vec<Entry>, Unclosed> {
     let candidates: Vec<_> = entry.close_candidates().take(MAX_PRESSES).collect();
     if candidates.is_empty() {
-        return Err(Unclosed::Press(missing_control(
-            "close button",
-            entry.info.index,
-        )));
+        return Err(failed(missing_control("close button", entry.info.index)));
     }
-    let count = candidates.len();
-    for (position, control) in candidates.into_iter().enumerate() {
+    for (position, control) in candidates.iter().enumerate() {
         world
             .click(&control.element, MouseButton::Left, policy, lease)
-            .map_err(Unclosed::Press)?;
-        let window = if position + 1 == count {
-            REMOVAL_SETTLE
-        } else {
-            PRESS_SETTLE
-        };
-        let after = settle_read(world, deadline, window, |now| !holds(now, &target.node))
-            .map_err(Unclosed::Unread)?;
-        if !bystanders(before, &after, &target).is_empty() {
-            return Err(Unclosed::Bystander);
+            .map_err(failed)?;
+        let last = position + 1 == candidates.len();
+        let window = if last { REMOVAL_SETTLE } else { PRESS_SETTLE };
+        let after = settle_read(world, lease.deadline(), window, |now| {
+            !holds(now, &entry.node)
+        })
+        .map_err(|error| Unclosed {
+            error,
+            unread: true,
+        })?;
+        if !bystanders(before, &after, entry).is_empty() {
+            return Err(failed(pressed_without_effect(
+                "A notification other than the target left the message list during the dismissal",
+                "Run list-notifications to see what the message list holds now",
+            )));
         }
-        if !holds(&after, &target.node) {
+        if !holds(&after, &entry.node) {
             return Ok(after);
         }
     }
-    Err(Unclosed::Survived)
+    Err(failed(pressed_without_effect(
+        "The close control of the notification was pressed but the notification is still in the message list",
+        "Run list-notifications and retry if the entry is still there",
+    )))
 }
 
 #[cfg(test)]

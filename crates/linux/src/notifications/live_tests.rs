@@ -6,7 +6,7 @@ use agent_desktop_core::{
 use std::process::Command;
 use std::time::Duration;
 
-use super::signals::{BusSignals, Signal, SignalSource};
+use super::signal::{BusSignals, Signal, SignalSource};
 use crate::system::SharedBus;
 
 fn oracle(args: &[&str]) -> String {

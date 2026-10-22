@@ -2,9 +2,8 @@ use super::*;
 use crate::notifications::fake::{reading, spec};
 
 fn first_entry(specs: &[crate::notifications::fake::Spec]) -> Entry {
-    let read = reading(specs);
-    let subtrees = partition(&read.nodes);
-    extract(subtrees[0], 1).expect("an entry")
+    let walked = reading(specs);
+    extract(&walked, roots(&walked)[0], 1).expect("an entry")
 }
 
 #[test]
@@ -48,9 +47,8 @@ fn a_two_label_entry_keeps_a_time_shaped_title() {
 
 #[test]
 fn an_entry_with_no_title_is_none() {
-    let read = reading(&[spec("Mail", "")]);
-    let subtrees = partition(&read.nodes);
-    assert!(extract(subtrees[0], 1).is_none());
+    let walked = reading(&[spec("Mail", "")]);
+    assert!(extract(&walked, roots(&walked)[0], 1).is_none());
 }
 
 #[test]
@@ -65,16 +63,14 @@ fn the_age_label_is_dropped_by_its_place_in_the_header_in_any_language() {
 
 #[test]
 fn the_header_is_found_by_its_buttons_and_close_is_tried_last_button_first() {
-    let read = reading(&[spec("Mail", "Hi")]);
-    let subtrees = partition(&read.nodes);
-    let entry = extract(subtrees[0], 1).expect("an entry");
+    let entry = first_entry(&[spec("Mail", "Hi")]);
     let order: Vec<&str> = entry
         .close_candidates()
         .map(|control| control.element.path())
         .collect();
     assert_eq!(order, vec!["/Mail:Hi/close", "/Mail:Hi/expand"]);
     assert_eq!(
-        entry.expand.expect("expand").element.path(),
+        entry.expand().expect("expand").element.path(),
         "/Mail:Hi/expand"
     );
     assert_eq!(entry.node.path(), "/Mail:Hi");
@@ -82,40 +78,19 @@ fn the_header_is_found_by_its_buttons_and_close_is_tried_last_button_first() {
 
 #[test]
 fn a_header_with_one_button_proves_no_expand_control() {
-    let mut read = reading(&[spec("Mail", "Hi")]);
-    read.nodes
-        .retain(|node| node.element.path() != "/Mail:Hi/expand");
-    let subtrees = partition(&read.nodes);
-    let entry = extract(subtrees[0], 1).expect("an entry");
-    assert!(entry.expand.is_none());
+    let entry = first_entry(&[spec("Mail", "Hi").header_buttons(1)]);
+    assert!(entry.expand().is_none());
     assert_eq!(entry.close_candidates().count(), 1);
 }
 
 #[test]
 fn an_entry_with_no_header_buttons_has_no_provable_fields() {
-    let mut read = reading(&[spec("Mail", "Hi")]);
-    read.nodes.retain(|node| {
-        !node.element.path().ends_with("/expand") && !node.element.path().ends_with("/close")
-    });
-    let subtrees = partition(&read.nodes);
-    assert!(extract(subtrees[0], 1).is_none());
+    let walked = reading(&[spec("Mail", "Hi").header_buttons(0)]);
+    assert!(extract(&walked, roots(&walked)[0], 1).is_none());
 }
 
 #[test]
-fn laid_out_rejects_sentinels_and_empty_rectangles() {
-    let good = Extents {
-        x: 1,
-        y: 1,
-        width: 5,
-        height: 5,
-    };
-    assert!(is_laid_out(Some(good)));
-    assert!(!is_laid_out(None));
-    assert!(!is_laid_out(Some(Extents {
-        x: i32::MIN,
-        y: i32::MIN,
-        width: -1,
-        height: -1
-    })));
-    assert!(!is_laid_out(Some(Extents { width: 0, ..good })));
+fn notification_nodes_nested_in_another_are_not_entries_of_their_own() {
+    let walked = reading(&[spec("Mail", "a"), spec("Chat", "b")]);
+    assert_eq!(roots(&walked).len(), 2);
 }

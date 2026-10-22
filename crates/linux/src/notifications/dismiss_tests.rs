@@ -70,11 +70,7 @@ fn a_mismatched_identity_clicks_nothing() {
 fn a_reflow_between_the_reads_is_refused_before_the_click() {
     let log = log();
     let moved = vec![spec("New", "n"), spec("Mail", "a"), spec("Chat", "b")];
-    let world = FakeWorld::new(
-        &log,
-        vec![reading(&three()), reading(&three()), reading(&moved)],
-    )
-    .staged_by_reads();
+    let world = FakeWorld::new(&log, vec![reading(&three()), reading(&moved)]).staged_by_reads();
     let error = run(world, &NotificationIdentity::default()).expect_err("moved");
     assert_eq!(error.code, ErrorCode::NotificationNotFound);
     assert!(!log.borrow().iter().any(|line| line.starts_with("click")));
