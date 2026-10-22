@@ -90,4 +90,7 @@ mod physical_click_live_tests;
 mod physical_receiver_world;
 
 #[cfg(test)]
+mod physical_x11_oracle;
+
+#[cfg(test)]
 mod scroll_bar_live_tests;
