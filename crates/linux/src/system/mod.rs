@@ -3,6 +3,7 @@ pub(crate) mod app;
 pub(crate) mod bus;
 pub(crate) mod capture;
 pub(crate) mod close;
+pub(crate) mod context;
 pub(crate) mod display;
 pub(crate) mod focus;
 pub(crate) mod interaction;

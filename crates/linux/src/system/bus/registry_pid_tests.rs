@@ -1,12 +1,19 @@
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 
 use super::{Builder, Deadline, ErrorCode, SharedBus};
 use crate::system::registry::read_registry;
 
 struct Registry;
+
+struct Events;
+
+#[zbus::interface(name = "org.a11y.atspi.Registry")]
+impl Events {
+    fn register_event(&self, _event: &str, _properties: Vec<String>, _app: &str) {}
+}
 
 #[zbus::interface(name = "org.a11y.atspi.Accessible")]
 impl Registry {
@@ -26,8 +33,15 @@ struct Owners {
 
 #[zbus::interface(name = "org.freedesktop.DBus")]
 impl Owners {
+    fn get_name_owner(&self, _name: &str) -> String {
+        ":1.registry".into()
+    }
+
     #[zbus(name = "GetConnectionUnixProcessID")]
     fn process_id(&self, name: &str) -> zbus::fdo::Result<u32> {
+        if name == ":1.registry" {
+            return Ok(std::process::id());
+        }
         assert_eq!(name, ":1.23");
         self.calls.fetch_add(1, Ordering::SeqCst);
         if self.disconnect {
@@ -52,6 +66,8 @@ fn peer(disconnect: bool) -> (SharedBus, zbus::Connection, Arc<AtomicUsize>) {
                 .server(zbus::Guid::generate())
                 .expect("server guid")
                 .p2p()
+                .serve_at(super::REGISTRY_PATH, Events)
+                .expect("event registration")
                 .serve_at(super::REGISTRY_ROOT_PATH, Registry)
                 .expect("registry")
                 .serve_at(
@@ -68,9 +84,7 @@ fn peer(disconnect: bool) -> (SharedBus, zbus::Connection, Arc<AtomicUsize>) {
         .await
     });
     let server = server.expect("server connection");
-    let bus = SharedBus {
-        slot: Mutex::new(Some(client.expect("client connection").into())),
-    };
+    let bus = super::tests::connected(client.expect("client connection"));
     (bus, server, calls)
 }
 

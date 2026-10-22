@@ -116,7 +116,9 @@ pub(crate) fn read_frames(
         let connection = shared.inner();
         let reads = roots.iter().map(|root| async move {
             let listed = within_slice(CHILDREN_SLICE, list_children(connection, root)).await;
-            let children = match outcome(listed, || proc_stat::is_gone(root.pid())) {
+            let children = match outcome(listed, || {
+                proc_stat::is_gone(proc_stat::read_stat(root.pid()))
+            }) {
                 Outcome::Read(children) => children,
                 Outcome::Gone => return FrameRead::empty(RootRead::Read),
                 Outcome::Slow => return FrameRead::empty(RootRead::TimedOut),
@@ -124,7 +126,7 @@ pub(crate) fn read_frames(
             let (nodes, read) = collect_frames(
                 children,
                 FRAME_SLICE,
-                || proc_stat::is_gone(root.pid()),
+                || proc_stat::is_gone(proc_stat::read_stat(root.pid())),
                 is_unclassified,
                 |(bus_name, path)| async move {
                     let frame = AtspiElement::new(bus_name, path, root.pid());

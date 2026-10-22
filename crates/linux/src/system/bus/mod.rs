@@ -10,6 +10,8 @@ use zbus::connection::Builder;
 use crate::system::bus::bus_deadline::within;
 use crate::system::bus::bus_fault::BusFault;
 use crate::system::bus::bus_stage::Stage;
+use crate::system::context::cached_connection::{self, CachedConnection};
+use crate::system::context::service_owner::ServiceOwner;
 
 const BUS_SERVICE: &str = "org.a11y.Bus";
 const BUS_PATH: &str = "/org/a11y/bus";
@@ -161,45 +163,70 @@ pub(crate) fn is_connection_failure(error: &zbus::Error) -> bool {
 /// is kept; a failure is returned and the next call tries again.
 #[derive(Default)]
 pub(crate) struct SharedBus {
-    slot: Mutex<Option<Connection>>,
+    slot: Mutex<Option<CachedConnection>>,
+    owner: Mutex<Option<ServiceOwner>>,
 }
 
 impl SharedBus {
+    #[cfg(test)]
     fn cached(&self) -> Option<Connection> {
         self.slot
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+            .as_ref()
+            .map(|cached| cached.connection.clone().into())
     }
 
     pub(crate) fn get(&self, deadline: Deadline) -> Result<Connection, AdapterError> {
-        ensure_budget(deadline)?;
-        if let Some(connection) = self.cached() {
-            return Ok(connection);
-        }
-        let connection = connect(deadline)?;
-        let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
-        Ok(slot.get_or_insert(connection).clone())
+        cached_connection::get(&self.slot, deadline, || {
+            connect(deadline).map(|connection| connection.inner().clone())
+        })
+        .map(Into::into)
     }
 
     pub(crate) fn forget_cached(&self) {
         *self.slot.lock().unwrap_or_else(PoisonError::into_inner) = None;
     }
 
-    pub(crate) fn forget(&self, connection: &Connection) {
-        let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
-        let same = slot
-            .as_ref()
-            .is_some_and(|held| held.inner().unique_name() == connection.inner().unique_name());
-        if same {
-            *slot = None;
+    pub(crate) fn registry_owner(
+        &self,
+        connection: &Connection,
+        deadline: Deadline,
+    ) -> Result<ServiceOwner, AdapterError> {
+        let known = self
+            .owner
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        ServiceOwner::read(connection.inner(), known.as_ref(), deadline)
+    }
+
+    pub(crate) fn register_owner(
+        &self,
+        connection: &Connection,
+        owner: &ServiceOwner,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let registered = self
+            .owner
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        if registered.as_ref() != Some(owner) {
+            let _registered = register_connection(connection.inner().clone(), deadline)?;
+            *self.owner.lock().unwrap_or_else(PoisonError::into_inner) = Some(owner.clone());
         }
+        Ok(())
+    }
+
+    pub(crate) fn forget(&self, connection: &Connection) {
+        cached_connection::forget(&self.slot, connection.inner());
     }
 }
 
 #[cfg(test)]
 #[path = "bus_tests.rs"]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
 #[path = "bus_live_tests.rs"]
@@ -209,9 +236,88 @@ mod live_tests;
 #[path = "registry_pid_tests.rs"]
 mod registry_pid_tests;
 
-pub(super) mod bus_deadline;
+pub(super) mod bus_deadline {
+    use std::future::Future;
+    use std::time::Duration;
+
+    use agent_desktop_core::{AdapterError, Deadline};
+    use async_io::Timer;
+    use futures_lite::future::or;
+
+    /// Drives `future` to completion, giving up with the deadline's timeout error
+    /// once the caller's remaining budget is spent.
+    pub(crate) fn within<T>(
+        deadline: Deadline,
+        future: impl Future<Output = Result<T, AdapterError>>,
+    ) -> Result<T, AdapterError> {
+        let slice = deadline.remaining_slice(Duration::MAX)?;
+        zbus::block_on(or(future, async move {
+            Timer::after(slice).await;
+            Err(deadline.timeout_error())
+        }))
+    }
+}
 pub(super) mod bus_fault;
-pub(super) mod bus_process;
-pub(super) mod bus_slice;
+pub(super) mod bus_process {
+    use agent_desktop_core::AdapterError;
+    use zbus::Connection;
+
+    use crate::system::classify;
+
+    const BUS_DAEMON: &str = "org.freedesktop.DBus";
+    const BUS_DAEMON_PATH: &str = "/org/freedesktop/DBus";
+
+    /// The process id behind a unique bus name as the bus daemon reports it, with
+    /// the daemon's own error. A name nobody owns is `NameHasNoOwner`, which means
+    /// the application left, so a caller that must tell that from an unreachable
+    /// bus reads the error itself.
+    pub(crate) async fn owner_process_id(
+        connection: &Connection,
+        bus_name: &str,
+    ) -> Result<u32, zbus::Error> {
+        connection
+            .call_method(
+                Some(BUS_DAEMON),
+                BUS_DAEMON_PATH,
+                Some(BUS_DAEMON),
+                "GetConnectionUnixProcessID",
+                &(bus_name,),
+            )
+            .await
+            .and_then(|reply| reply.body().deserialize::<u32>())
+    }
+
+    /// The process id behind a unique bus name, asked of the bus daemon, which
+    /// answers even for a process that has stopped answering its own calls.
+    pub(crate) async fn process_id(
+        connection: &Connection,
+        bus_name: String,
+    ) -> (String, Result<u32, AdapterError>) {
+        let pid = owner_process_id(connection, &bus_name)
+            .await
+            .map_err(|error| classify(&error));
+        (bus_name, pid)
+    }
+}
+pub(super) mod bus_slice {
+    use std::future::Future;
+    use std::time::Duration;
+
+    use async_io::Timer;
+    use futures_lite::future::or;
+
+    /// Awaits `future` for at most `slice`; `None` means it did not answer in
+    /// time, which is how a stopped application looks from the bus.
+    pub(crate) async fn within_slice<T>(
+        slice: Duration,
+        future: impl Future<Output = T>,
+    ) -> Option<T> {
+        or(async { Some(future.await) }, async {
+            Timer::after(slice).await;
+            None
+        })
+        .await
+    }
+}
 pub(super) mod bus_stage;
 pub(crate) mod session_bus;

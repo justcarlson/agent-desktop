@@ -16,7 +16,12 @@ w = Gtk.Window(title='adl-resident')
 w.set_default_size(200, 100)
 w.show_all()
 if os.environ.get('ADL_MODE') == 'resident':
-    GLib.timeout_add(1200, lambda: (w.destroy(), False)[1])
+    def hide_when_requested():
+        if not os.path.exists(os.environ['ADL_HIDE']):
+            return True
+        w.destroy()
+        return False
+    GLib.timeout_add(20, hide_when_requested)
     GLib.timeout_add(60000, Gtk.main_quit)
 else:
     w.connect('destroy', Gtk.main_quit)
@@ -31,13 +36,18 @@ fn live_a_running_app_with_no_window_is_started_again_and_a_window_is_reported()
     let script = format!("{dir}/adl-resident");
     std::fs::write(&script, RESIDENT_APP).expect("a script");
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("modes");
-    let mut owned = Owned(Vec::new());
-    let resident = LaunchOptions {
-        env: BTreeMap::from([("ADL_MODE".to_owned(), "resident".to_owned())]),
-        ..options(&[])
-    };
-    let first = launch(&script, &resident).expect("the first launch");
-    let resident_pid = owned.keep(first.pid.get());
+    let hide = format!("{dir}/hide-resident");
+    let resident = crate::system::close::close_live_tests::rig::Orphan::spawn(
+        &script,
+        &[],
+        &[
+            ("ADL_MODE", "resident".to_owned()),
+            ("ADL_HIDE", hide.clone()),
+        ],
+    );
+    resident.wait_for_window();
+    let resident_pid = resident.pid;
+    std::fs::write(hide, "hide").expect("request window destruction");
     let started = Instant::now();
     while started.elapsed() < SETTLE && windows_of_pid(resident_pid) > 0 {
         std::thread::sleep(Duration::from_millis(200));
@@ -49,10 +59,12 @@ fn live_a_running_app_with_no_window_is_started_again_and_a_window_is_reported()
     );
 
     let normal = LaunchOptions {
+        activate: true,
         env: BTreeMap::from([("ADL_MODE".to_owned(), "normal".to_owned())]),
         ..options(&[])
     };
     let second = launch(&script, &normal).expect("a launch of an app with no window");
+    let mut owned = Owned(Vec::new());
     owned.keep(second.pid.get());
     assert!(second.window.is_some(), "a window is reported: {second:?}");
     assert_ne!(
@@ -60,6 +72,7 @@ fn live_a_running_app_with_no_window_is_started_again_and_a_window_is_reported()
         resident_pid,
         "the app that shows the window is reported, not the one with none"
     );
+    assert!(!x_windows_of(second.pid.get()).is_empty());
 }
 
 fn windows_of_pid(pid: u32) -> usize {
@@ -69,7 +82,7 @@ fn windows_of_pid(pid: u32) -> usize {
         deadline(8_000),
     )
     .map(|windows| windows.iter().filter(|w| w.pid.get() == pid).count())
-    .unwrap_or(0)
+    .expect("a successful window read")
 }
 
 #[test]
@@ -78,6 +91,7 @@ fn live_a_forwarded_launch_without_matching_argv_does_not_claim_an_owner() {
     let mut owned = Owned(Vec::new());
     let first = launch("nautilus", &options(&[])).expect("the first launch");
     let pid = owned.keep(first.pid.get());
+    wait_until("the initial native window", || x_windows_of(pid).len() == 1);
     let before = x_windows_of(pid);
     assert_eq!(before.len(), 1);
     let refusal = launch("nautilus", &options(&["--new-window"]))
