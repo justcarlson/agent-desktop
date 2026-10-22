@@ -181,7 +181,11 @@ impl CommandContext {
     }
 
     pub fn command_scope(&self, command: &'static str) -> Result<CommandScope<'_>, AppError> {
-        self.command_scope_with_disposition(command, crate::DeliverySemantics::not_delivered())
+        self.command_scope_with_disposition(
+            command,
+            crate::DeliverySemantics::not_delivered(),
+            false,
+        )
     }
 
     pub fn mutating_command_scope(
@@ -191,6 +195,7 @@ impl CommandContext {
         self.command_scope_with_disposition(
             command,
             crate::DeliverySemantics::delivered_unverified(),
+            false,
         )
     }
 
@@ -198,8 +203,9 @@ impl CommandContext {
         &self,
         command: &'static str,
         success_disposition: crate::DeliverySemantics,
+        allow_ended_session: bool,
     ) -> Result<CommandScope<'_>, AppError> {
-        if let Some(session) = &self.session {
+        if !allow_ended_session && let Some(session) = &self.session {
             session.ensure_active()?;
         }
         let deadline_scope = crate::deadline::enter_scope(self.inherited_deadline);
