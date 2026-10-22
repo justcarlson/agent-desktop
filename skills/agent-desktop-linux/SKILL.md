@@ -129,19 +129,16 @@ before they close the window. There is no `--window-closed` flag.
 
 ## Cursor overlay
 
-Start a session, then activate its returned ID for subsequent commands. Starting
-a session alone does not activate it. Replace the example ID below with
-`data.session_id` from the first command:
+Start a session and pass its returned ID to every overlay command:
 
 ```bash
-agent-desktop session start --name demo
-export AGENT_DESKTOP_SESSION=run-REPLACE-WITH-RETURNED-ID
-agent-desktop cursor-overlay enable
-agent-desktop cursor-overlay disable
-agent-desktop session end
+session_id=$(agent-desktop session start --name docs-example | jq -r '.data.session_id')
+agent-desktop cursor-overlay enable --session "$session_id"
+agent-desktop cursor-overlay disable --session "$session_id"
+agent-desktop session end "$session_id"
 ```
 
-Alternatively pass `--session <returned-id>` on every command. Without a session,
+Without a session,
 `cursor-overlay enable` and `disable` return `INVALID_ARGS`. On X11, enable
 returns `data.rendered: true`; on Wayland it saves the setting and returns
 `data.rendered: false` without drawing an overlay.
@@ -153,13 +150,14 @@ returns `data.rendered: true`; on Wayland it saves the setting and returns
   `delivered_unverified` even when value readback matches. Check the dependent
   application effect before continuing; value readback alone is no commit proof.
 - Ref actions are semantic AT-SPI calls that never move the pointer or change
-  the active window. `--headed` adds physical input and focus.
-- Under `--headed`, `click` and `type` use physical input on X11 (a real click
-  or keys, step `physical_synthetic`, `verified: false`), falling back to the
-  semantic call only after a safe unsupported-input or geometry refusal on that
-  X11 path. The fallback reports a skipped `physical_input` step and
-  `details.physical_fallback` explaining the refusal, followed by the semantic
-  API step. Focus, policy, timeout and partial-delivery refusals never fall back.
+  the active window. `--headed` enables physical-first input for ref `click`,
+  `right-click` and `type`, with the required focus permission.
+- Under `--headed`, these actions attempt physical input first. The adapter
+  falls back to the semantic action only after `ACTION_NOT_SUPPORTED` or a
+  geometry refusal (`check: geometry`) with `not_delivered`; it records the
+  skipped physical step and refusal in `details.physical_fallback`. Focus,
+  policy, timeout, uncertain or partial-delivery refusals never fall back.
+  Physical success reports `physical_synthetic` and is unverified.
   On Wayland the CLI rejects headed pointer actions before that
   adapter fallback: ordinary-app headed
   pointer commands (`click`, `hover`, `double-click`, `mouse-*`, wheel) are refused
