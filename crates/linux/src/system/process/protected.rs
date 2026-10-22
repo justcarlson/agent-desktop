@@ -7,6 +7,8 @@ use crate::system::bus::bus_process::owner_process_id;
 use crate::system::bus::session_bus::SessionBus;
 use crate::system::display::display_env::DisplayEnv;
 use crate::system::display::display_server::{DisplayServer, session_server};
+use crate::system::process::process_facts;
+use crate::system::process::process_lookup::Lookup;
 
 fn unknown() -> AdapterError {
     AdapterError::new(
@@ -93,28 +95,6 @@ pub(in crate::system) fn is_display_owner(
     Ok(false)
 }
 
-fn gnome_backend(names: &[String], desktop: Option<&str>) -> Result<bool, AdapterError> {
-    if names.iter().any(|name| {
-        matches!(
-            name.as_str(),
-            "org.gnome.Shell" | "org.gnome.SessionManager"
-        )
-    }) {
-        return Ok(true);
-    }
-    match desktop.filter(|desktop| !desktop.is_empty()) {
-        Some(desktop)
-            if desktop
-                .split(':')
-                .any(|name| name.eq_ignore_ascii_case("GNOME")) =>
-        {
-            Ok(true)
-        }
-        Some(_) => Err(unknown()),
-        None => Ok(false),
-    }
-}
-
 async fn service_owner(pid: u32, connection: &zbus::Connection) -> Result<bool, AdapterError> {
     let reply = connection
         .call_method(
@@ -130,27 +110,7 @@ async fn service_owner(pid: u32, connection: &zbus::Connection) -> Result<bool, 
         .body()
         .deserialize::<Vec<String>>()
         .map_err(|_| unknown())?;
-    let desktop = std::env::var("XDG_CURRENT_DESKTOP").ok();
-    let gnome = gnome_backend(&names, desktop.as_deref())?;
-    for name in names.iter().filter(|name| {
-        matches!(
-            name.as_str(),
-            "org.freedesktop.DBus"
-                | "org.freedesktop.systemd1"
-                | "org.freedesktop.ScreenSaver"
-                | "org.a11y.Bus"
-                | "org.freedesktop.portal.Desktop"
-                | "org.freedesktop.Notifications"
-                | "org.freedesktop.secrets"
-        ) || name.starts_with("org.freedesktop.impl.portal.")
-            || (gnome
-                && (matches!(
-                    name.as_str(),
-                    "org.gnome.Shell" | "org.gnome.SessionManager"
-                ) || name.starts_with("org.gnome.Shell.")
-                    || name.starts_with("org.gnome.Mutter.")
-                    || name.starts_with("org.gnome.SettingsDaemon.")))
-    }) {
+    for name in names.iter().filter(|name| !name.starts_with(':')) {
         match owner_process_id(connection, name).await {
             Ok(owner) if owner == pid => return Ok(true),
             Ok(_) => {}
@@ -159,28 +119,47 @@ async fn service_owner(pid: u32, connection: &zbus::Connection) -> Result<bool, 
             Err(_) => return Err(unknown()),
         }
     }
-    if !gnome {
-        for name in names.iter().filter(|name| !name.starts_with(':')) {
-            match owner_process_id(connection, name).await {
-                Ok(owner) if owner == pid => return Err(unknown()),
-                Ok(_) => {}
-                Err(zbus::Error::MethodError(name, _, _))
-                    if name.as_str() == "org.freedesktop.DBus.Error.NameHasNoOwner" => {}
-                Err(_) => return Err(unknown()),
-            }
-        }
-    }
     Ok(false)
 }
 
-pub(crate) fn is_protected(pid: u32, deadline: Deadline) -> Result<bool, AdapterError> {
-    if is_display_owner(pid, deadline)? {
+pub(crate) fn is_protected(
+    bus: &crate::system::SharedBus,
+    pid: u32,
+    instance: &str,
+    deadline: Deadline,
+) -> Result<bool, AdapterError> {
+    let instance_matches =
+        || matches!(process_facts::lookup(pid), Lookup::Found(facts) if facts.instance == instance);
+    if !instance_matches() {
+        return Err(unknown());
+    }
+    let display_owner = is_display_owner(pid, deadline)?;
+    if !instance_matches() {
+        return Err(unknown());
+    }
+    if display_owner {
         return Ok(true);
+    }
+    let registry = crate::system::registry::read_registry_for(bus, Some(pid), deadline)
+        .map_err(|error| unknown().with_platform_detail(error.to_string()))?;
+    if !instance_matches() {
+        return Err(unknown());
+    }
+    if registry
+        .apps
+        .iter()
+        .any(|app| app.root.pid() == pid && app.answered)
+    {
+        return Ok(false);
     }
     let connection = SessionBus::get(deadline)
         .map_err(|error| unknown().with_platform_detail(error.to_string()))?;
-    crate::system::within(deadline, async { service_owner(pid, &connection).await })
-        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))
+    let owner = crate::system::within(deadline, async { service_owner(pid, &connection).await })
+        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
+    if !instance_matches() {
+        return Err(unknown());
+    }
+    Ok(owner)
 }
 
 #[cfg(test)]

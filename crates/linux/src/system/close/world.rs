@@ -38,6 +38,7 @@ pub(super) trait World {
 }
 
 pub(super) struct Live<'a> {
+    pub(super) bus: &'a crate::system::SharedBus,
     pub(super) pid: u32,
     pub(super) instance: &'a str,
     pub(super) deadline: Deadline,
@@ -46,7 +47,7 @@ pub(super) struct Live<'a> {
 
 impl World for Live<'_> {
     fn is_protected(&self) -> Result<bool, AdapterError> {
-        protected::is_protected(self.pid, self.deadline)
+        protected::is_protected(self.bus, self.pid, self.instance, self.deadline)
     }
 
     fn facts(&self) -> Lookup {

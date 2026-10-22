@@ -65,13 +65,14 @@ fn run_report(
 }
 
 pub(crate) fn close_app(
-    _bus: &SharedBus,
+    bus: &SharedBus,
     app: &AppInfo,
     force: bool,
     lease: &InteractionLease,
 ) -> Result<OperationReport, AdapterError> {
     let pid = app.pid.get();
     let live = Live {
+        bus,
         pid,
         instance: app.process_instance.as_deref().unwrap_or_default(),
         deadline: lease.deadline(),

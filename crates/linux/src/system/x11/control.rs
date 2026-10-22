@@ -97,38 +97,6 @@ pub(crate) fn manager_pid(deadline: Deadline) -> ControlRead<Option<u32>> {
     })
 }
 
-pub(crate) fn decoration_matches(pid: u32, claims: usize, deadline: Deadline) -> bool {
-    route(deadline, move |display| {
-        let read = || {
-            let (connection, root) = open(&display)?;
-            let names = atoms(&connection, &[b"_NET_CLIENT_LIST"])?;
-            let reply = property(&connection, root, names[0], AtomEnum::WINDOW, MAX_TOPLEVELS)?;
-            let clients = longs(reply.format, &reply.value, reply.bytes_after)?;
-            let mut parents = std::collections::HashSet::new();
-            for client in clients {
-                if super::resource_owner::pid(&connection, client)? == pid {
-                    return Some(false);
-                }
-                let parent = connection.query_tree(client).ok()?.reply().ok()?.parent;
-                if parent != root
-                    && parent != client
-                    && super::resource_owner::pid(&connection, parent)? == pid
-                {
-                    parents.insert(parent);
-                }
-            }
-            Some(
-                !parents.is_empty()
-                    && parents.len() == claims
-                    && matches!(super::native_population::read(pid, parents.into_iter().collect(), deadline), super::native_population::NativePopulation::Complete { menus } if menus.is_empty()),
-            )
-        };
-        read().map_or(ControlRead::Unavailable, ControlRead::Ready)
-    })
-    .ready()
-        == Some(true)
-}
-
 /// The managed clients of an Xwayland display, as the window listing reads
 /// them from an X11 session.
 pub(crate) fn xwayland_clients(deadline: Deadline) -> ControlRead<Vec<X11Client>> {
