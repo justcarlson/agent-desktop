@@ -13,34 +13,26 @@ pub(in crate::tree) mod scripts;
 use scripts::{QT_LIST, pointer};
 
 pub(in crate::tree) struct Target {
-    pub(in crate::tree) name: String,
     pub(in crate::tree) handle: NativeHandle,
     pub(in crate::tree) element: AtspiElement,
 }
 
-pub(in crate::tree) fn nodes_of(
+pub(in crate::tree) fn target_named(
     adapter: &LinuxAdapter,
-    _bus: &SharedBus,
     frame: &AtspiElement,
-) -> Result<Vec<Target>, String> {
-    let entries = snapshot_entries(adapter, frame, true)?;
-    let mut found = Vec::new();
-    for (_, entry) in entries {
-        let Ok(handle) =
-            adapter.resolve_element_strict(&entry, Deadline::after(5_000).expect("deadline"))
-        else {
-            continue;
-        };
-        let Ok(element) = atspi_element(&handle).cloned() else {
-            continue;
-        };
-        found.push(Target {
-            name: entry.identity.name.clone().unwrap_or_default(),
-            handle,
-            element,
-        });
-    }
-    Ok(found)
+    wanted: &str,
+) -> Result<Target, String> {
+    let (_, entry) = snapshot_entries(adapter, frame, true)?
+        .into_iter()
+        .find(|(_, entry)| entry.identity.name.as_deref() == Some(wanted))
+        .ok_or_else(|| format!("no target {wanted:?}"))?;
+    let handle = adapter
+        .resolve_element_strict(&entry, Deadline::after(5_000).expect("deadline"))
+        .map_err(|error| error.message)?;
+    let element = atspi_element(&handle)
+        .cloned()
+        .map_err(|error| error.message)?;
+    Ok(Target { handle, element })
 }
 
 fn scroll_case(
@@ -50,13 +42,7 @@ fn scroll_case(
     frame: &AtspiElement,
     wanted: &str,
 ) -> Result<(), String> {
-    let (_, entry) = snapshot_entries(adapter, frame, true)?
-        .into_iter()
-        .find(|(_, entry)| entry.identity.name.as_deref() == Some(wanted))
-        .ok_or_else(|| format!("[{label}] no target {wanted:?}"))?;
-    let handle = adapter
-        .resolve_element_strict(&entry, Deadline::after(5_000).expect("deadline"))
-        .map_err(|error| error.message)?;
+    let handle = target_named(adapter, frame, wanted)?.handle;
     let deadline = Deadline::after(10_000).map_err(|error| error.message)?;
     adapter
         .get_live_state(&handle, deadline)

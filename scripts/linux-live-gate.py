@@ -39,8 +39,8 @@ OPENBOX_CASES = (
 HELPER_PARENTS = {
     "system::window::window_op_live_tests::environment::window_op_live_child_stale_wayland":
         "system::window::window_op_live_tests::environment::window_op_live_a_stale_wayland_display_still_proceeds_on_x11",
-    "system::window::window_op_live_tests::environment::window_op_live_child_no_display":
-        "system::window::window_op_live_tests::environment::window_op_live_a_session_without_a_display_is_refused_before_any_write",
+    "system::window::window_op_live_tests::environment::no_display::window_op_live_child_no_display":
+        "system::window::window_op_live_tests::environment::no_display::window_op_live_a_session_without_a_display_is_refused_before_any_write",
     "system::window::window_op_live_tests::environment::window_op_live_child_xwayland":
         "system::window::window_op_live_tests::environment::window_op_live_an_xwayland_window_is_operated_and_a_native_wayland_window_is_refused",
 }

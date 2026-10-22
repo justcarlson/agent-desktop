@@ -2,8 +2,8 @@ use agent_desktop_core::{AdapterError, Deadline, SystemOps};
 use zbus::zvariant::OwnedValue;
 
 use super::live_launch::{Launched, nonce};
-use super::live_offscreen_live_tests::nodes_of;
 use super::live_offscreen_live_tests::scripts::{GTK3_STRIP, GTK4_STRIP, intersects, window_rect};
+use super::live_offscreen_live_tests::target_named;
 use super::role_numbers::SCROLL_BAR;
 use super::{AtspiElement, list_children};
 use crate::LinuxAdapter;
@@ -102,11 +102,7 @@ fn strip_case(label: &str, source: &str) {
     })
     .expect("the app settles");
     let frame = settled.frame;
-    let nodes = nodes_of(&adapter, &bus, &frame).expect("the tree reads");
-    let target = nodes
-        .iter()
-        .find(|node| node.name == "Col 250")
-        .expect("Col 250 is in the tree");
+    let target = target_named(&adapter, &frame, "Col 250").expect("Col 250 is in the tree");
     assert!(
         target.element.scroll_container().is_some(),
         "the strip sits in a scroll container"
