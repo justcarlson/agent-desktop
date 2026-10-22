@@ -42,7 +42,9 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   `ACTION_NOT_SUPPORTED`.
 - The `Exec` line is parsed in process and spawned with null stdio in its own
   process group, so a caller that reads the output through a pipe sees end of
-  file at exit.
+  file at exit. Every spawn adds `AGENT_DESKTOP_LAUNCHED=1` to the child's
+  environment; `close-app` reads it to tell an app you started from a session
+  service.
 - An absolute `.desktop` path launches that exact file inside the trusted XDG
   data directories. Desktop ids use XDG directory precedence. A truncated
   process-name prefix alone never identifies an app for attachment.
@@ -131,16 +133,18 @@ close only a document or tab and leave its window open.
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
   cause `wayland_session`.
-- Protection follows the target process instance, never its name: owners of the
-  active display socket, the X root supporting-WM window, and session-bus
-  infrastructure and portal services are refused with `INVALID_ARGS` and
-  `not_delivered`. GNOME session-service owners are protected when the session
-  bus exposes that backend or the session declares GNOME. Another declared
-  desktop, or an unclassified service owner without a detected backend,
-  refuses with `ACTION_NOT_SUPPORTED`. Missing ownership evidence refuses with
-  `ACTION_NOT_SUPPORTED` before any close request or signal. An unrelated app
-  named like a session service remains a regular app. X11 manager and decoration
-  ownership needs XRes process IDs; missing server support refuses honestly.
+- Protection follows the target process instance, never its name. The owners of
+  the active display socket and of the X root supporting-WM window are refused
+  with `INVALID_ARGS` and `not_delivered`. So is an app that answers on the
+  accessibility bus, has no managed window and was started by the session: it
+  owns a session-bus name, runs as a user service unit, or is a child of the
+  display owner, as portal backends, shell helpers and decoration hosts are. An
+  app with a managed window, or one a launch of this tool started, is a regular
+  app. A process that does not answer on the accessibility bus is protected when
+  it owns a session-bus name. Missing ownership evidence, such as an unreadable
+  `/proc` entry or no session bus, refuses with `ACTION_NOT_SUPPORTED` before
+  any close request or signal. X11 manager ownership needs XRes process IDs;
+  missing server support refuses honestly.
 
 ## Window operations
 
