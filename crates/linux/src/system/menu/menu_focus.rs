@@ -24,5 +24,5 @@ pub(crate) fn open_at(
     window: &AtspiElement,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    menu_surface::popups_at(bus, window, false, deadline).map(|popups| !popups.is_empty())
+    menu_surface::popups_at(bus, window, deadline).map(|popups| !popups.is_empty())
 }

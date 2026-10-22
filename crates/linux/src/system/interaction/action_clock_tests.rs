@@ -1,48 +1,23 @@
-use std::time::Instant;
+use agent_desktop_core::{ActionResult, AdapterError, DeliverySemantics, ErrorCode};
 
-use super::{LAST_ACTION, WINDOW, mark_outcome, settles, settles_at};
-
-#[test]
-fn only_a_focused_window_with_a_recent_action_waits_for_a_popup() {
-    let now = Instant::now();
-    let recent_action = Some(now);
-    let old_action = Some(now - WINDOW);
-    assert!(settles_at(true, recent_action, now));
-    assert!(!settles_at(false, recent_action, now));
-    assert!(!settles_at(true, old_action, now));
-    assert!(!settles_at(true, None, now));
-}
+use super::started;
 
 #[test]
-fn only_started_actions_advance_the_popup_clock() {
-    use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
-    *LAST_ACTION.lock().expect("clock") = None;
-    let refused: Result<agent_desktop_core::ActionResult, _> =
+fn only_started_actions_are_recorded() {
+    let refused: Result<ActionResult, _> =
         Err(AdapterError::new(ErrorCode::ActionFailed, "refused")
             .with_disposition(DeliverySemantics::not_delivered()));
-    mark_outcome(Some(42), &refused);
-    assert!(LAST_ACTION.lock().expect("clock").is_none());
-    let already_satisfied =
-        Ok(agent_desktop_core::ActionResult::satisfied_without_delivery("check"));
-    mark_outcome(Some(42), &already_satisfied);
+    assert!(!started(&refused));
+    let already_satisfied = Ok(ActionResult::satisfied_without_delivery("check"));
     assert!(
-        LAST_ACTION.lock().expect("clock").is_none(),
+        !started(&already_satisfied),
         "a successful no-op did not deliver an action"
     );
-    let uncertain: Result<agent_desktop_core::ActionResult, _> =
+    let uncertain: Result<ActionResult, _> =
         Err(AdapterError::new(ErrorCode::ActionFailed, "unconfirmed")
             .with_disposition(DeliverySemantics::uncertain()));
-    mark_outcome(Some(42), &uncertain);
-    assert!(settles(true));
-    assert!(!settles(false));
-    let before = *LAST_ACTION.lock().expect("clock");
-    mark_outcome(Some(42), &refused);
-    assert_eq!(*LAST_ACTION.lock().expect("clock"), before);
-    mark_outcome(
-        Some(42),
-        &Ok::<_, AdapterError>(agent_desktop_core::ActionResult::delivered_unverified(
-            "check",
-        )),
-    );
-    assert!(LAST_ACTION.lock().expect("clock").is_some());
+    assert!(started(&uncertain));
+    assert!(started(&Ok::<_, AdapterError>(
+        ActionResult::delivered_unverified("check")
+    )));
 }

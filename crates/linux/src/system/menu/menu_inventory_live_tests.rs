@@ -81,7 +81,6 @@ assert widest(app) >= int(sys.argv[2])
         let outcome = super::menu_surface::popups_at(
             &bus,
             &element,
-            false,
             Deadline::after(60_000).expect("budget"),
         );
         if count == 3 {

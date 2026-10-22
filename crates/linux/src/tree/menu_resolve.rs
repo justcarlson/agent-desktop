@@ -140,7 +140,7 @@ pub(crate) fn resolve_menu(
         let owner = owner_process_id(&connection, window.bus()).await;
         window.check_owner(owner, entry)
     })?;
-    let popups = popups_at(bus, &window.frame(), false, deadline)
+    let popups = popups_at(bus, &window.frame(), deadline)
         .map_err(|error| settle_gone(error, window.pid()))?;
     let mut candidates = Vec::new();
     for popup in popups {

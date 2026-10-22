@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use crate::system::app::runtime_store::{runtime_subdir, write_private_atomically};
 
 const DIR_NAME: &str = "agent-desktop-actions";
-const ANY: &str = "any";
 const NO_TOKEN: &str = "-";
 const KEEP_MS: u64 = 60_000;
 
@@ -39,10 +38,6 @@ fn parse(text: &str) -> Option<(u64, &str)> {
 
 fn is_fresh(at_ms: u64, now_ms: u64, window_ms: u64) -> bool {
     now_ms >= at_ms && now_ms - at_ms < window_ms
-}
-
-fn name_of(target: Option<u32>) -> String {
-    target.map_or_else(|| ANY.to_owned(), |pid| pid.to_string())
 }
 
 fn is_stale(
@@ -94,50 +89,46 @@ fn prune(dir: &Path, now_ms: u64, token_now: &dyn Fn(u32) -> Option<String>) {
 
 pub(in crate::system) fn record_in(
     dir: &Path,
-    target: Option<u32>,
+    pid: u32,
     now_ms: u64,
     token_now: &dyn Fn(u32) -> Option<String>,
 ) {
-    let token = target
-        .and_then(token_now)
-        .unwrap_or_else(|| NO_TOKEN.to_owned());
+    let token = token_now(pid).unwrap_or_else(|| NO_TOKEN.to_owned());
     prune(dir, now_ms, token_now);
     let _ = write_private_atomically(
         dir,
-        &dir.join(name_of(target)),
+        &dir.join(pid.to_string()),
         encode(now_ms, &token).as_bytes(),
     );
 }
 
 pub(in crate::system) fn recent_in(
     dir: &Path,
-    target: Option<u32>,
+    pid: u32,
     now_ms: u64,
     window_ms: u64,
     token_now: &dyn Fn(u32) -> Option<String>,
 ) -> bool {
-    let Ok(text) = fs::read_to_string(dir.join(name_of(target))) else {
+    let Ok(text) = fs::read_to_string(dir.join(pid.to_string())) else {
         return false;
     };
     let Some((at, token)) = parse(&text) else {
         return false;
     };
-    let same_process = target.is_none_or(|pid| token_now(pid).as_deref() == Some(token));
-    same_process && is_fresh(at, now_ms, window_ms)
+    token_now(pid).as_deref() == Some(token) && is_fresh(at, now_ms, window_ms)
 }
 
-/// Writes that an action was just delivered, for the whole session when
-/// `target` is `None` and for one process otherwise. A directory that cannot
-/// be written leaves no record, which reads as no recent action.
-pub(in crate::system) fn record(target: Option<u32>) {
+/// Writes that an action was just delivered to the process. A directory that
+/// cannot be written leaves no record, which reads as no recent action.
+pub(in crate::system) fn record(pid: u32) {
     if let (Some(dir), Some(now)) = (runtime_dir(), boot_ms()) {
-        record_in(&dir, target, now, &token_of);
+        record_in(&dir, pid, now, &token_of);
     }
 }
 
-pub(in crate::system) fn recent(target: Option<u32>, window_ms: u64) -> bool {
+pub(in crate::system) fn recent(pid: u32, window_ms: u64) -> bool {
     match (runtime_dir(), boot_ms()) {
-        (Some(dir), Some(now)) => recent_in(&dir, target, now, window_ms, &token_of),
+        (Some(dir), Some(now)) => recent_in(&dir, pid, now, window_ms, &token_of),
         _ => false,
     }
 }

@@ -25,10 +25,10 @@ fn contains(extents: Extents, point: &Point) -> bool {
 /// the showing nodes are listed in paint order, the last one over the point
 /// is the one a click lands on, and it must be the target or stand below it.
 /// A target whose extents differ between two reads `MOTION_GAP` apart is
-/// still moving. Anything that cannot be read, anything on top of the target
-/// and anything moving is unproven; the answer is never "intercepted",
-/// because paint order cannot tell a cover from an overlay that takes no
-/// pointer events.
+/// still moving. Anything that cannot be read, a tree that lost a node while
+/// it was read, anything on top of the target and anything moving is
+/// unproven; the answer is never "intercepted", because paint order cannot
+/// tell a cover from an overlay that takes no pointer events.
 pub(super) fn verdict<N: Nodes>(
     nodes: &N,
     root: &AtspiElement,
@@ -47,6 +47,9 @@ pub(super) fn verdict<N: Nodes>(
     };
     pause(MOTION_GAP);
     let tree = walk(nodes, root, deadline, &|light| !light.showing)?;
+    if !tree.complete {
+        return Ok(HitTestResult::Unknown);
+    }
     let Some(at) = tree.position(target) else {
         return Ok(HitTestResult::Unknown);
     };
