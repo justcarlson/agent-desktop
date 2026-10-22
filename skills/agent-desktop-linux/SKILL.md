@@ -172,7 +172,8 @@ returns `data.rendered: true`; on Wayland it saves the setting and returns
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.
   It receives keys only under `--headed`.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
-  Windows names plus X keysym names.
+  Windows names plus X keysym names. `press` takes mapped keys only; `type`
+  handles characters the layout cannot produce.
 - X11 and Wayland differ in input, capture and window control; the Wayland
   limits are stated where they apply.
 - Window ops act on X11 clients; `focus-window` and headed scoped `press` require
