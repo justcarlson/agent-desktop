@@ -11,6 +11,8 @@ use super::deliver::mouse_event;
 use super::shell_aim::{aim, monitor_under};
 use super::wayland::key_session::KeySession;
 use super::wayland::remote_desktop::RemoteDesktop;
+use crate::actions::physical_live_world::LiveWorld;
+use crate::actions::physical_target::PhysicalWorld;
 use crate::actions::physical_target::{ensure_budget, ensure_headed_click_policy};
 use crate::system::shell::light::live_extents;
 use crate::system::{SharedBus, list_displays};
@@ -191,6 +193,7 @@ pub(crate) fn click(
     let extents = read_extents(bus, node, deadline)?;
     let displays = list_displays(deadline)?;
     let point = aim(extents, &displays)?;
+    LiveWorld { bus, lease }.validate_pointer(node, &point, deadline)?;
     deliver(&point, &displays, &button, lease)?;
     Ok(point)
 }

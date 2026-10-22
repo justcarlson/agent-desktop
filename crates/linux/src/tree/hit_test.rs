@@ -180,6 +180,15 @@ pub(crate) fn hit_test(
     if shell::is_shell_element(target) {
         return shell::hit::hit_test(bus, target, point, deadline);
     }
+    pointer_hit_test(bus, target, point, deadline)
+}
+
+pub(crate) fn pointer_hit_test(
+    bus: &SharedBus,
+    target: &AtspiElement,
+    point: Point,
+    deadline: Deadline,
+) -> Result<HitTestResult, AdapterError> {
     let (Some(frame), Some(pixel)) = (target.frame(), pixel(point.x, point.y)) else {
         return Ok(HitTestResult::Unknown);
     };
@@ -195,3 +204,7 @@ pub(crate) fn hit_test(
 #[cfg(test)]
 #[path = "hit_test_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "../input/shell_click_receiver_live_tests.rs"]
+mod shell_click_live_tests;

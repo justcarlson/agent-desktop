@@ -178,7 +178,7 @@ D-Bus or X11 error:
 - `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`. Use the
   advertised GNOME surfaces; see `references/shell-tray-and-notifications.md`.
 - Ordinary app pointer commands and window screenshots on Wayland. Shell ref
-  clicks use a separate route.
+  clicks also refuse unless the shared structural hit test proves the receiver.
 
 ## Missing tools
 
