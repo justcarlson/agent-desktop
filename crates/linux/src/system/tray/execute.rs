@@ -1,7 +1,10 @@
-use agent_desktop_core::{Action, ActionRequest, ActionResult, AdapterError, InteractionLease};
+use agent_desktop_core::{
+    Action, ActionRequest, ActionResult, AdapterError, DeliverySemantics, ErrorCode,
+    InteractionLease,
+};
 
 use super::activate::{self, BusWire, Item};
-use super::{TrayTarget, call, introspect, item_props, menu_event};
+use super::{TrayTarget, call, item, menu_event};
 
 pub(crate) fn execute(
     target: &TrayTarget,
@@ -11,6 +14,13 @@ pub(crate) fn execute(
     let deadline = lease.deadline();
     let connection = call::session(deadline)?;
     call::require_owner(&connection, &target.owner, deadline)?;
+    let evidence = item::read(&connection, target, deadline)?;
+    if evidence.passive {
+        return Err(
+            AdapterError::new(ErrorCode::ActionFailed, "The tray item is hidden")
+                .with_disposition(DeliverySemantics::not_delivered()),
+        );
+    }
     if target.entry_id.is_some() {
         if !matches!(request.action, Action::Click) {
             return Err(activate::unsupported_action(
@@ -20,21 +30,14 @@ pub(crate) fn execute(
         }
         return menu_event::deliver(&connection, target, deadline);
     }
-    let props = item_props::read(&connection, &target.owner, &target.object_path, deadline)?;
-    let methods = introspect::item_methods(&call::introspect(
-        &connection,
-        &target.owner,
-        &target.object_path,
-        deadline,
-    )?);
     let wire = BusWire {
         connection: &connection,
         target,
         deadline,
     };
     let item = Item {
-        title: &props.title,
-        methods: &methods,
+        title: &evidence.title,
+        methods: &evidence.methods,
         request: &request,
     };
     activate::run(&item, &wire)

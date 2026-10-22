@@ -28,6 +28,14 @@ fn is_live_read_unsupported(err: &AdapterError) -> bool {
 }
 
 pub trait ObservationOps: Send + Sync {
+    /// Whether this resolved handle denotes a protocol object with no screen
+    /// position, rather than a native control whose geometry is unreadable.
+    /// Only headless semantic delivery can use this fact; fresh identity,
+    /// complete state and action capability are still required.
+    fn is_nonspatial_target(&self, _handle: &NativeHandle) -> bool {
+        false
+    }
+
     fn observe_tree(
         &self,
         _root: ObservationRoot<'_>,

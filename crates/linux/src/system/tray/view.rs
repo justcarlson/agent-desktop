@@ -1,16 +1,10 @@
-use agent_desktop_core::{AdapterError, Deadline, ObservedSubtree};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ObservedSubtree};
 
-use super::item_props::{self, ItemProps};
-use super::menu_layout::{self, Layout};
+use super::item;
+use super::menu_layout;
 use super::node_evidence::{ITEM_ROLE, fresh, item_states};
-use super::{TrayTarget, call, capability, introspect, menu_nodes, registration, watcher};
-
-pub(crate) struct TrayItem {
-    pub(crate) target: TrayTarget,
-    pub(crate) props: ItemProps,
-    pub(crate) methods: Vec<String>,
-    pub(crate) layout: Option<Layout>,
-}
+use super::tray_item::TrayItem;
+use super::{TrayTarget, call, capability, menu_nodes, registration, watcher};
 
 /// One read of every item the watcher lists, with identity, capabilities and
 /// menu, without inferring a native widget from its title.
@@ -33,18 +27,15 @@ fn describe(
     target: TrayTarget,
     deadline: Deadline,
 ) -> Result<TrayItem, AdapterError> {
-    let props = item_props::read(connection, &target.owner, &target.object_path, deadline)?;
-    let methods = call::introspect(connection, &target.owner, &target.object_path, deadline)
-        .map(|xml| introspect::item_methods(&xml))
-        .unwrap_or_default();
-    let layout = props
+    let evidence = item::read(connection, &target, deadline)?;
+    let layout = evidence
         .menu
         .as_deref()
-        .and_then(|menu| menu_layout::read(connection, &target.owner, menu, deadline).ok());
+        .map(|menu| menu_layout::read(connection, &target.owner, menu, deadline))
+        .transpose()?;
     Ok(TrayItem {
         target,
-        props,
-        methods,
+        evidence,
         layout,
     })
 }
@@ -63,19 +54,21 @@ pub(crate) fn read(deadline: Deadline) -> Result<TrayView, AdapterError> {
         if known {
             continue;
         }
-        if let Ok(item) = describe(
+        match describe(
             &connection,
             item_target(owner, registered.object_path),
             deadline,
         ) {
-            items.push(item);
+            Ok(item) => items.push(item),
+            Err(error) if error.code == ErrorCode::StaleRef => {}
+            Err(error) => return Err(error),
         }
     }
     Ok(TrayView { items })
 }
 
 fn menu_children(item: &TrayItem, first_index: usize) -> Vec<ObservedSubtree> {
-    let (Some(layout), Some(menu)) = (&item.layout, &item.props.menu) else {
+    let (Some(layout), Some(menu)) = (&item.layout, &item.evidence.menu) else {
         return Vec::new();
     };
     menu_nodes::subtrees(&item.target, menu, layout)
@@ -93,10 +86,10 @@ impl TrayView {
             .map(|item| {
                 let evidence = fresh(
                     ITEM_ROLE,
-                    &item.props.title,
+                    &item.evidence.title,
                     &item.target,
-                    item_states(item.props.passive, Vec::new()),
-                    capability::actions(&item.methods),
+                    item_states(item.evidence.passive, Vec::new()),
+                    capability::actions(&item.evidence.methods),
                 );
                 ObservedSubtree::new(evidence, menu_children(item, 0), true, None)
             })
@@ -107,3 +100,7 @@ impl TrayView {
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "read_tests.rs"]
+mod read_tests;

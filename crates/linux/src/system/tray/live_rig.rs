@@ -6,7 +6,8 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, InteractionLease, ObservationOps, RefEntry};
 
 use super::live_scripts::SNI_FIXTURE;
-use super::view::{TrayItem, TrayView};
+use super::tray_item::TrayItem;
+use super::view::TrayView;
 use super::{TrayTarget, identity, read};
 use crate::LinuxAdapter;
 use crate::tree::test_support::ref_entry;
@@ -83,10 +84,10 @@ impl Rig {
         panic!("the fixture never logged '{needle}': {:?}", self.log());
     }
 
-    pub(super) fn signal(&self, child: usize) {
+    pub(super) fn signal(&self, child: usize, signal: &str) {
         let pid = self.children[child].id();
         let status = Command::new("kill")
-            .args(["-USR1", &pid.to_string()])
+            .args([signal, &pid.to_string()])
             .status()
             .expect("kill runs");
         assert!(status.success());
@@ -112,11 +113,11 @@ impl Rig {
     }
 
     pub(super) fn item_entry(&self, item: &TrayItem) -> RefEntry {
-        self.entry_for(&item.target, "menubutton", &item.props.title)
+        self.entry_for(&item.target, "menubutton", &item.evidence.title)
     }
 
     pub(super) fn menu_entry(&self, item: &TrayItem, id: i32, labels: &[&str]) -> RefEntry {
-        let menu = item.props.menu.as_deref().expect("the item has a menu");
+        let menu = item.evidence.menu.as_deref().expect("the item has a menu");
         let labels: Vec<String> = labels.iter().map(|label| (*label).to_owned()).collect();
         let target = TrayTarget {
             menu_path: Some(menu.to_owned()),

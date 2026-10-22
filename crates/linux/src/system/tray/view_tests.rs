@@ -1,5 +1,6 @@
 use agent_desktop_core::{AccessibilityNode, ObservationSource, ObservedTree, state};
 
+use super::super::item::ItemEvidence;
 use super::super::menu_layout::{Prop, RawEntry, parse};
 use super::super::{TrayTarget, identity};
 use super::*;
@@ -11,14 +12,6 @@ fn target(owner: &str) -> TrayTarget {
         menu_path: None,
         entry_id: None,
         label_path: Vec::new(),
-    }
-}
-
-fn props(title: &str, passive: bool, menu: Option<&str>) -> ItemProps {
-    ItemProps {
-        title: title.into(),
-        passive,
-        menu: menu.map(str::to_owned),
     }
 }
 
@@ -42,8 +35,12 @@ fn item(owner: &str, title: &str, passive: bool, methods: &[&str], with_menu: bo
     });
     TrayItem {
         target: target(owner),
-        props: props(title, passive, with_menu.then_some("/MenuBar")),
-        methods: methods.iter().map(|m| (*m).to_owned()).collect(),
+        evidence: ItemEvidence {
+            title: title.to_owned(),
+            passive,
+            menu: with_menu.then(|| "/MenuBar".to_owned()),
+            methods: methods.iter().map(|m| (*m).to_owned()).collect(),
+        },
         layout,
     }
 }

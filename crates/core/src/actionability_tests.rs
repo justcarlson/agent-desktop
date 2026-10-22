@@ -54,6 +54,7 @@ fn visibility_evidence(
     states_complete: bool,
 ) -> evidence::ActionabilityEvidence {
     evidence::ActionabilityEvidence {
+        nonspatial: false,
         state: crate::ElementState {
             role: "button".into(),
             states,
@@ -343,6 +344,7 @@ fn command_aliases_match_platform_capabilities() {
 
 fn select_evidence(role: &str, actions: Vec<String>) -> evidence::ActionabilityEvidence {
     evidence::ActionabilityEvidence {
+        nonspatial: false,
         state: crate::ElementState {
             role: role.into(),
             states: Vec::new(),

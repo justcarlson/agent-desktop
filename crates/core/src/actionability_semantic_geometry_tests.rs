@@ -1,5 +1,8 @@
 use super::*;
 
+#[path = "actionability_nonspatial_tests.rs"]
+mod nonspatial_tests;
+
 struct GeometryAdapter(LiveElement);
 
 impl ObservationOps for GeometryAdapter {

@@ -7,8 +7,8 @@ use serde_json::json;
 use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
-use self::errors::{tree_error, unreadable};
-use super::identity::{pick_shell_app, registry_apps, shell_owner};
+use self::errors::unreadable;
+use super::identity::{pick_shell_app, shell_owner};
 use crate::system::bus::session_bus::SessionBus;
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, within};
 
@@ -28,23 +28,6 @@ pub(crate) enum Fact {
     Present,
     Absent(String),
     Unreadable(String),
-}
-
-#[cfg(test)]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ShellEnvironment {
-    pub(crate) daemon: Fact,
-    pub(crate) tree: Fact,
-    pub(crate) watcher: Fact,
-    pub(crate) server: Option<String>,
-}
-
-#[cfg(test)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Need {
-    Daemon,
-    Tree,
-    Watcher,
 }
 
 pub(crate) fn failure_of(error: &zbus::Error) -> CallFailure {
@@ -130,15 +113,11 @@ pub(crate) fn detect(bus: &SharedBus, deadline: Deadline) -> Fact {
         let accessibility = bus
             .get(deadline)
             .map_err(|error| CallFailure::Transport(error.message))?;
-        within(deadline, registry_apps(accessibility.inner()))
+        within(deadline, super::registry::read(accessibility.inner()))
             .map(|apps| pick_shell_app(&apps, *pid).is_some())
             .map_err(|error| CallFailure::Transport(error.message))
     });
     classify_tree(owner, registered)
-}
-
-pub(crate) fn require_tree(bus: &SharedBus, deadline: Deadline) -> Result<(), AdapterError> {
-    tree_error(&detect(bus, deadline))
 }
 
 fn watcher(connection: &Connection, deadline: Deadline) -> Result<WatcherRead, CallFailure> {
@@ -213,15 +192,6 @@ fn watcher_fact_error(watcher: &Fact) -> Result<(), AdapterError> {
         )
         .with_details(json!({ "watcher": "absent", "detail": why }))),
         Fact::Unreadable(why) => Err(unreadable("system tray watcher", why, "watcher")),
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn require(env: &ShellEnvironment, need: Need) -> Result<(), AdapterError> {
-    match need {
-        Need::Daemon => daemon_fact_error(&env.daemon, env.server.as_deref()),
-        Need::Tree => tree_error(&env.tree),
-        Need::Watcher => watcher_fact_error(&env.watcher),
     }
 }
 
