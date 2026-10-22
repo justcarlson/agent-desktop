@@ -21,11 +21,26 @@ fn unknown() -> AdapterError {
     .with_disposition(DeliverySemantics::not_delivered())
 }
 
-fn unreadable(error: AdapterError) -> AdapterError {
+fn unreadable(error: AdapterError, deadline: Deadline) -> AdapterError {
     if error.code == ErrorCode::Internal {
         return error;
     }
+    if error.code == ErrorCode::Timeout && deadline.is_expired() {
+        return error;
+    }
     unknown().with_platform_detail(format!("{}: {}", error.code.as_str(), error.message))
+}
+
+/// A read that ended unfinished because the budget ran out says nothing about
+/// whether a modal dialog blocks the target: the wait is over, which is the
+/// deadline's own answer. An unfinished read with budget left could not
+/// establish the state.
+fn cut_short(deadline: Deadline) -> AdapterError {
+    if deadline.is_expired() {
+        deadline.timeout_error()
+    } else {
+        unknown()
+    }
 }
 
 /// Semantic actions can bypass toolkit input grabs. A showing modal in the
@@ -45,13 +60,17 @@ pub(crate) fn ensure_unblocked(
         .as_ref()
         .or_else(|| target.frame())
         .ok_or_else(unknown)?;
-    let windows = reader.top_levels(frame, deadline).map_err(unreadable)?;
+    let windows = reader
+        .top_levels(frame, deadline)
+        .map_err(|error| unreadable(error, deadline))?;
     let mut found_frame = false;
     for mut window in windows {
         window.set_ancestry(super::ancestry::of_root(&window));
-        let walk = reader.native_tree(&window, deadline).map_err(unreadable)?;
+        let walk = reader
+            .native_tree(&window, deadline)
+            .map_err(|error| unreadable(error, deadline))?;
         if !walk.complete || super::nested_dialog::is_cut_short(&walk.root) {
-            return Err(unknown());
+            return Err(cut_short(deadline));
         }
         found_frame |= contains(&walk.root, frame);
         if let Some(dialog) = blocker(&walk.root, owner.as_ref().unwrap_or(target))? {
@@ -121,3 +140,7 @@ fn blocked(reader: &mut impl NodeReader, dialog: &AtspiElement) -> AdapterError 
     }))
     .with_disposition(DeliverySemantics::not_delivered())
 }
+
+#[cfg(test)]
+#[path = "modal_gate_tests.rs"]
+mod tests;
