@@ -4,9 +4,11 @@ use agent_desktop_core::Deadline;
 
 use crate::system::display::display_server::DisplayServer;
 
-use super::map::{ClientMatch, match_client};
+use super::frame_window::FrameWindow;
+use super::map::ClientMatch;
 use super::stacking_read::StackingRead;
 use super::stacking_source::StackingSource;
+use super::twin_tie::{Twins, client_among_twins, tied_hidden};
 use super::window_x11_state::WindowX11State;
 use super::{FrameFacts, X11State, start};
 
@@ -51,34 +53,40 @@ pub(super) fn route(
     }
 }
 
-/// The X11 client of a listed window and its state, or `None` when the
-/// session is not X11, no manager answers, or the window maps to no single
-/// client.
+/// The X11 client of a listed window and its state. Several clients that
+/// share the frame's process and title are told apart by `twins`, which is
+/// read only for such a tie; a tie nothing breaks is reported as one.
 pub(crate) fn frame_window_state(
     source: &dyn StackingSource,
     deadline: Deadline,
     frame: &FrameFacts,
-) -> Option<WindowX11State> {
-    let X11State::Ready { clients, .. } = source.clients_within(deadline) else {
-        return None;
+    twins: impl FnOnce() -> Option<Twins>,
+) -> FrameWindow {
+    let X11State::Ready { active, clients } = source.clients_within(deadline) else {
+        return FrameWindow::Unknown;
     };
-    let ClientMatch::One(client_id) = match_client(frame, &clients) else {
-        return None;
+    let client_id = match client_among_twins(frame, &clients, active, twins) {
+        ClientMatch::One(id) => id,
+        ClientMatch::Several(ids) => {
+            return FrameWindow::Tied {
+                hidden: tied_hidden(&clients, &ids),
+            };
+        }
+        ClientMatch::NoClient => return FrameWindow::Unknown,
     };
     if deadline.is_expired() {
-        return None;
+        return FrameWindow::Unknown;
     }
     let StackingRead::Ready(snapshot) = source.read_within(client_id, deadline) else {
-        return None;
+        return FrameWindow::Unknown;
     };
     if deadline.is_expired() {
-        return None;
+        return FrameWindow::Unknown;
     }
-    let window = snapshot
-        .stack
-        .iter()
-        .find(|window| window.id == client_id)?;
-    Some(WindowX11State {
+    let Some(window) = snapshot.stack.iter().find(|window| window.id == client_id) else {
+        return FrameWindow::Unknown;
+    };
+    FrameWindow::Client(WindowX11State {
         client_id,
         hidden: window.flags.hidden,
         client_origin: (window.client.x, window.client.y),

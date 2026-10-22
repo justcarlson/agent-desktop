@@ -70,39 +70,6 @@ fn the_server_states_without_a_client_list_keep_their_cause() {
     );
 }
 
-#[test]
-fn the_active_window_of_a_tie_takes_the_active_client() {
-    let peers = [("w-a", true), ("w-b", false)];
-    assert_eq!(broken_tie("w-a", &[7, 8], Some(8), &peers), Some(8));
-}
-
-#[test]
-fn the_other_window_of_a_two_way_tie_takes_the_other_client() {
-    let peers = [("w-a", true), ("w-b", false)];
-    assert_eq!(broken_tie("w-b", &[7, 8], Some(8), &peers), Some(7));
-    assert_eq!(broken_tie("w-b", &[7, 8], Some(7), &peers), Some(8));
-}
-
-#[test]
-fn a_tie_stays_when_the_active_state_proves_nothing() {
-    let none_active = [("w-a", false), ("w-b", false)];
-    let both_active = [("w-a", true), ("w-b", true)];
-    let peers = [("w-a", true), ("w-b", false)];
-    assert_eq!(broken_tie("w-a", &[7, 8], Some(8), &none_active), None);
-    assert_eq!(broken_tie("w-a", &[7, 8], Some(8), &both_active), None);
-    assert_eq!(broken_tie("w-a", &[7, 8], Some(9), &peers), None);
-    assert_eq!(broken_tie("w-a", &[7, 8], None, &peers), None);
-}
-
-#[test]
-fn a_tie_stays_when_a_client_has_no_window_or_three_share_a_title() {
-    let two = [("w-a", true), ("w-b", false)];
-    let three = [("w-a", true), ("w-b", false), ("w-c", false)];
-    assert_eq!(broken_tie("w-b", &[7, 8, 9], Some(8), &two), None);
-    assert_eq!(broken_tie("w-b", &[7, 8, 9], Some(8), &three), None);
-    assert_eq!(broken_tie("w-a", &[7, 8, 9], Some(8), &three), Some(8));
-}
-
 fn listed(id: &str, title: &str, active: bool) -> ListedWindow {
     ListedWindow {
         app: 0,

@@ -7,7 +7,7 @@ use super::live_launch::Launched;
 use super::live_tree::pid_frame;
 use super::walker::walk_levels;
 use super::walker_expand::LevelReader;
-use super::walker_live_tests::settle;
+use super::walker_live_tests::settle_watching;
 use super::{WalkLimits, WalkedNode};
 use crate::system::SharedBus;
 
@@ -39,7 +39,7 @@ fn walker_live_stopped_app_returns_a_partial_walk_at_the_deadline() {
         .expect("the accessibility bus must be reachable");
     let mut launched = Launched::new();
     let pid = launched.spawn("gnome-calculator", &[]);
-    let settled = settle(&bus, 30, || pid_frame(&connection, pid))
+    let settled = settle_watching(&bus, 30, Some(pid), || pid_frame(&connection, pid))
         .unwrap_or_else(|error| panic!("calculator did not settle: {error}"));
     let full_nodes = settled.walk.node_count;
 

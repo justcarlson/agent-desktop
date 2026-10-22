@@ -84,11 +84,16 @@ fn removed_sibling_refs_stay_stale_while_surviving_twins_keep_identity() {
 }
 
 #[test]
-fn nested_twins_without_distinguishing_evidence_stay_ambiguous() {
+fn nested_twins_resolve_by_the_stored_path_and_stay_ambiguous_without_it() {
     for keep_bounds in [false, true] {
         let mut fake = rows(&["beta"]);
         let entry = fake.entry_of("/beta", keep_bounds);
-        let error = resolve(&mut fake, &entry, deadline()).expect_err("ambiguous");
+        assert_eq!(resolved(&mut fake, &entry), "/beta");
+        let inner = fake.entry_of("/beta-inner", keep_bounds);
+        assert_eq!(resolved(&mut fake, &inner), "/beta-inner");
+        let mut shifted = fake.entry_of("/beta", keep_bounds);
+        shifted.scope.path = [9].into_iter().collect();
+        let error = resolve(&mut fake, &shifted, deadline()).expect_err("ambiguous");
         assert_eq!(error.code, ErrorCode::AmbiguousTarget);
     }
 }

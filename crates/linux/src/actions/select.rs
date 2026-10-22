@@ -14,7 +14,10 @@ use super::mutation::WriteReply;
 use super::select_exclusive::{
     SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
 };
+use super::select_pointer::{Pointer, after_unproven_index};
+use super::select_pointer_combo::{is_pointer_combo, select_in_pointer_combo};
 use super::select_popup::{is_popup_dropdown, select_in_popup};
+use super::select_row::click_row;
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, search};
 use super::select_verify::{commit_unobserved, read_verification};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
@@ -321,9 +324,14 @@ pub(super) fn miss_error(miss: &Search<AtspiElement>) -> AdapterError {
 pub(crate) fn select(
     target: &Target<'_>,
     display_value: &str,
+    pointer: Option<&dyn Pointer>,
 ) -> Result<ActionResult, AdapterError> {
-    if is_popup_dropdown(target)? {
+    let view = target.view()?;
+    if is_popup_dropdown(target, &view)? {
         return select_in_popup(target, display_value);
+    }
+    if is_pointer_combo(&view) {
+        return select_in_pointer_combo(target, display_value, pointer);
     }
     let mut reader = BusReader {
         bus: target.bus,
@@ -356,7 +364,11 @@ pub(crate) fn select(
                 own: hit.own && container.is_none(),
                 ..hit
             };
-            select_through(target, &hit, container.as_ref(), display_value)
+            after_unproven_index(
+                pointer,
+                || select_through(target, &hit, container.as_ref(), display_value),
+                |pointer| click_row(target, &hit, display_value, pointer),
+            )
         }
         miss => Err(miss_error(&miss)),
     }

@@ -4,9 +4,10 @@ use zbus::Connection;
 
 use super::{Facts, HitWorld, Windowing};
 use crate::system::shell::container::MENU;
-use crate::system::x11::map::{ClientMatch, match_client};
+use crate::system::x11::map::ClientMatch;
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::twin_tie::client_among_twins;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, within};
 use crate::tree::hit_descent::{BusNodes, NodeSource};
@@ -15,6 +16,7 @@ use crate::tree::read_purpose::ReadPurpose;
 use crate::tree::resolve_errors::{stopped_app, stopped_aware};
 use crate::tree::state_bits::{ICONIFIED, StateBits};
 use crate::tree::toolkit_trust::{ToolkitKind, kind, read_toolkit};
+use crate::tree::twin_frames::read_twins;
 use crate::tree::window_extents::read_window_extents_async;
 use crate::tree::{AtspiElement, Extents};
 
@@ -33,6 +35,7 @@ pub(super) struct LiveWorld<'a> {
     popup: bool,
     popup_rect: Option<Extents>,
     native_popup: Option<crate::system::x11::PopupWindow>,
+    frame: Option<AtspiElement>,
 }
 
 impl<'a> LiveWorld<'a> {
@@ -45,6 +48,7 @@ impl<'a> LiveWorld<'a> {
             popup: false,
             popup_rect: None,
             native_popup: None,
+            frame: None,
         }
     }
 }
@@ -88,6 +92,7 @@ impl HitWorld for LiveWorld<'_> {
             .cloned()
             .unwrap_or_default();
         let toolkit = toolkit?;
+        self.frame = Some(frame.clone());
         let global_position = crate::tree::toolkit_trust::reports_global_position(&toolkit);
         self.native_popup = if target.is_menu_target()
             && frame_node.traits.role.present() == Some(&MENU)
@@ -124,7 +129,7 @@ impl HitWorld for LiveWorld<'_> {
 
     fn windowing(&mut self, frame: &FrameFacts) -> Option<Windowing> {
         let state = DisplayReader.clients_within(self.nodes.deadline);
-        let X11State::Ready { clients, .. } = state else {
+        let X11State::Ready { active, clients } = state else {
             return None;
         };
         let (client, coordinate_origin) = if let Some(popup) = self.native_popup {
@@ -140,7 +145,15 @@ impl HitWorld for LiveWorld<'_> {
                 crate::tree::frame_geometry::popup_origin((popup.bounds.x, popup.bounds.y), rect)?;
             (popup.id, Some(origin))
         } else {
-            let ClientMatch::One(client) = match_client(frame, &clients) else {
+            let found = client_among_twins(frame, &clients, active, || {
+                let element = self.frame.as_ref()?;
+                within(self.nodes.deadline, async {
+                    Ok(read_twins(self.nodes.connection, element, &frame.title).await)
+                })
+                .ok()
+                .flatten()
+            });
+            let ClientMatch::One(client) = found else {
                 return None;
             };
             (client, None)

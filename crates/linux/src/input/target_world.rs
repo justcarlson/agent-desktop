@@ -65,6 +65,47 @@ pub(crate) trait PhysicalWorld {
     fn pause(&self, duration: Duration);
 }
 
+pub(crate) fn validate_pointer_receiver(
+    bus: &SharedBus,
+    element: &AtspiElement,
+    point: &Point,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    let placed = crate::tree::live_offscreen::placement(bus, element, deadline);
+    crate::input::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
+    let on_x11 = matches!(crate::input::backend::backend(), Ok(Backend::X11(_)));
+    let verdict =
+        if on_x11 && element.frame().is_none() && crate::system::shell::is_shell_element(element) {
+            crate::system::shell::hit::hit_test(bus, element, point.clone(), deadline)?
+        } else {
+            crate::tree::hit_test::pointer_hit_test(bus, element, point.clone(), deadline)?
+        };
+    match verdict {
+        HitTestResult::ReachesTarget => Ok(()),
+        HitTestResult::InterceptedBy { role, name, bounds } => Err(AdapterError::new(
+            ErrorCode::ActionFailed,
+            "Another element intercepts the pointer target",
+        )
+        .with_details(json!({
+            "check": "receives_events",
+            "interceptor": { "role": role, "name": name, "bounds": bounds },
+            "physical_delivery_started": false,
+        }))
+        .with_suggestion("Reveal the target and refresh the snapshot before retrying")
+        .with_disposition(DeliverySemantics::not_delivered())),
+        hit => Err(
+            AdapterError::new(ErrorCode::ActionFailed, "Pointer delivery is unproven")
+                .with_details(json!({
+                    "kind": "pointer_hit_unproven",
+                    "hit_test": hit,
+                    "physical_delivery_started": false,
+                }))
+                .with_suggestion("Expose readable, unobstructed target geometry and retry")
+                .with_disposition(DeliverySemantics::not_delivered()),
+        ),
+    }
+}
+
 pub(crate) struct LiveWorld<'a> {
     pub(crate) bus: &'a SharedBus,
     pub(crate) lease: &'a InteractionLease,
@@ -120,41 +161,7 @@ impl PhysicalWorld for LiveWorld<'_> {
         point: &Point,
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
-        let placed = crate::tree::live_offscreen::placement(self.bus, element, deadline);
-        crate::input::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
-        let on_x11 = matches!(self.backend(), Ok(Backend::X11(_)));
-        let verdict = if on_x11
-            && element.frame().is_none()
-            && crate::system::shell::is_shell_element(element)
-        {
-            crate::system::shell::hit::hit_test(self.bus, element, point.clone(), deadline)?
-        } else {
-            crate::tree::hit_test::pointer_hit_test(self.bus, element, point.clone(), deadline)?
-        };
-        match verdict {
-            HitTestResult::ReachesTarget => Ok(()),
-            HitTestResult::InterceptedBy { role, name, bounds } => Err(AdapterError::new(
-                ErrorCode::ActionFailed,
-                "Another element intercepts the pointer target",
-            )
-            .with_details(json!({
-                "check": "receives_events",
-                "interceptor": { "role": role, "name": name, "bounds": bounds },
-                "physical_delivery_started": false,
-            }))
-            .with_suggestion("Reveal the target and refresh the snapshot before retrying")
-            .with_disposition(DeliverySemantics::not_delivered())),
-            hit => Err(
-                AdapterError::new(ErrorCode::ActionFailed, "Pointer delivery is unproven")
-                    .with_details(json!({
-                        "kind": "pointer_hit_unproven",
-                        "hit_test": hit,
-                        "physical_delivery_started": false,
-                    }))
-                    .with_suggestion("Expose readable, unobstructed target geometry and retry")
-                    .with_disposition(DeliverySemantics::not_delivered()),
-            ),
-        }
+        validate_pointer_receiver(self.bus, element, point, deadline)
     }
 
     fn send_plans(

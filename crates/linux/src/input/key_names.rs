@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, ErrorCode, Modifier};
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Modifier};
 
 pub(crate) const KEYSYM_SHIFT_L: u32 = 0xffe1;
 pub(crate) const KEYSYM_CONTROL_L: u32 = 0xffe3;
@@ -71,7 +71,8 @@ pub(crate) fn keysym_for_key(name: &str) -> Result<u32, AdapterError> {
     }
     Err(
         AdapterError::new(ErrorCode::InvalidArgs, format!("Unknown key name '{name}'"))
-            .with_suggestion(format!("Use {ACCEPTED_FORMS}")),
+            .with_suggestion(format!("Use {ACCEPTED_FORMS}"))
+            .with_disposition(DeliverySemantics::not_delivered()),
     )
 }
 

@@ -80,6 +80,7 @@ pub mod permission_report;
 pub mod permission_state;
 mod point;
 mod pointer_observation;
+mod pointer_timeout;
 mod post_action;
 mod private_file;
 mod private_file_ops;

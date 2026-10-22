@@ -12,7 +12,11 @@ pub(crate) enum Landing {
     /// landing node's own window extents have positive area and hold the
     /// point.
     Elsewhere { contained: bool },
-    /// Cut short, null at the frame, or an ancestry that could not be proved.
+    /// On a node whose own ancestry could not be verified up to the target or
+    /// the window, so nothing is known about how it relates to the target.
+    Unproved,
+    /// Cut short, null at the frame, or the target's own ancestry could not
+    /// be verified.
     Unresolved,
     /// Not read because the stacking order already decided.
     NotRead,
@@ -25,6 +29,11 @@ pub(crate) struct Standing {
     pub(crate) descends: bool,
     /// The toolkit's landings on unrelated nodes are trusted as interception.
     pub(crate) same_window: bool,
+    /// The toolkit's point query answers with a container of the target or an
+    /// internal node outside the walked tree instead of the node under the
+    /// point, so such a landing refutes nothing once sibling separation is
+    /// proved.
+    pub(crate) shallow: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,9 +65,12 @@ pub(crate) fn decide(standing: Standing, landing: Landing, occlusion: Occlusion)
     }
     match landing {
         Landing::OnTarget => Verdict::Reaches,
+        Landing::Ancestor | Landing::Unproved if standing.shallow => Verdict::Reaches,
         Landing::Elsewhere { contained: true } if standing.same_window => Verdict::SameWindowLander,
-        Landing::Elsewhere { .. } | Landing::Ancestor | Landing::Unresolved | Landing::NotRead => {
-            Verdict::Unknown
-        }
+        Landing::Elsewhere { .. }
+        | Landing::Ancestor
+        | Landing::Unproved
+        | Landing::Unresolved
+        | Landing::NotRead => Verdict::Unknown,
     }
 }

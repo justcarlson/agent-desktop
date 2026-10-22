@@ -122,7 +122,12 @@ fn showing_buttons(node: &Node, depth: usize) -> usize {
         .sum()
 }
 
-fn button_popover(node: &Node) -> Option<Found<'_>> {
+/// The showing panel of a menu button whose popover is open: the button
+/// advertises a popup and is expanded and showing, its inner toggle is
+/// pressed, and exactly one of its panels shows. The states alone are what a
+/// toolkit can set without opening anything; the panel is the part that exists
+/// only while the popover does.
+fn opened_button_popover(node: &Node) -> Option<&Node> {
     if role(node) != Some(PUSH_BUTTON)
         || !has_state(node, HAS_POPUP)
         || !has_state(node, EXPANDED)
@@ -139,9 +144,11 @@ fn button_popover(node: &Node) -> Option<Found<'_>> {
         .iter()
         .filter(|child| role(child) == Some(PANEL) && has_state(child, SHOWING));
     let root = panels.next()?;
-    if panels.next().is_some() {
-        return None;
-    }
+    panels.next().is_none().then_some(root)
+}
+
+fn button_popover(node: &Node) -> Option<Found<'_>> {
+    let root = opened_button_popover(node)?;
     let items = showing_buttons(root, 0);
     (items > 0).then_some(Found {
         root,
@@ -201,6 +208,23 @@ pub(in crate::system) fn in_window(frame: &Node) -> Vec<Found<'_>> {
         found.extend(gtk3_popover(frame));
     }
     found
+}
+
+/// The roots of the popups open below an opener: the menus `in_window` finds,
+/// and when there is none, the open popover of a menu button whose popover
+/// holds no menu, such as an explanation or a form. That popover is a popup to
+/// verify an opener against and no menu surface, so it has no item count and
+/// `in_window` never reports it. An opener that advertises a popup and shows
+/// no popover node is never one, whatever its own states say.
+pub(in crate::system) fn popup_roots(opener: &Node) -> Vec<&Node> {
+    let menus: Vec<&Node> = in_window(opener)
+        .into_iter()
+        .map(|popup| popup.root)
+        .collect();
+    if menus.is_empty() {
+        return opened_button_popover(opener).into_iter().collect();
+    }
+    menus
 }
 
 fn is_popup_content(role: Option<u32>) -> bool {

@@ -6,17 +6,17 @@ use crate::actions::physical_target::tests::fake::{
 };
 
 #[test]
-fn each_click_burst_revalidates_before_and_after_motion() {
+fn every_press_of_a_click_gesture_revalidates_the_receiver() {
     use crate::input::x11::fake_sink::{FakeSink, Recorded};
     use agent_desktop_core::{AdapterError, DeliverySemantics};
     use serde_json::json;
 
-    for count in [2, 3] {
+    for count in [1u32, 2, 3] {
         for details in [
             json!({"check": "receives_events", "interceptor": {"role": "button", "name": "Cover", "bounds": null}}),
             json!({"kind": "pointer_hit_unproven", "hit_test": "unknown"}),
         ] {
-            for allowed in 0..=2 {
+            for allowed in 0..=count + 1 {
                 let mut world = FakeWorld::x11();
                 let sink = FakeSink::new();
                 world.sink = Some(sink.clone());
@@ -45,29 +45,33 @@ fn each_click_burst_revalidates_before_and_after_motion() {
                     .iter()
                     .filter(|event| matches!(event, Recorded::Button(1, true)))
                     .count();
-                assert_eq!(
-                    sent,
-                    if allowed == 2 { count as usize } else { 0 },
-                    "requested {count}, allowed {allowed}"
-                );
-                if allowed == 2 {
-                    result.expect("the click burst receiver was proven");
+                let expected = if allowed > count {
+                    count as usize
                 } else {
-                    let error = result.expect_err("receiver refusal stops the gesture");
-                    assert_eq!(
-                        error.disposition,
-                        if allowed == 0 {
-                            DeliverySemantics::not_delivered()
-                        } else {
-                            DeliverySemantics::delivered_unverified()
-                        }
-                    );
-                    let observed = error.details.expect("refusal evidence");
-                    assert_eq!(observed["delivered_clicks"], 0);
-                    assert_eq!(observed["physical_delivery_started"], allowed > 0);
-                    for (key, value) in details.as_object().unwrap() {
-                        assert_eq!(&observed[key], value);
+                    allowed.saturating_sub(1) as usize
+                };
+                assert_eq!(
+                    sent, expected,
+                    "requested {count}, receiver proven {allowed} times"
+                );
+                if allowed > count {
+                    result.expect("every press had a proven receiver");
+                    continue;
+                }
+                let error = result.expect_err("receiver refusal stops the gesture");
+                assert_eq!(
+                    error.disposition,
+                    if allowed == 0 {
+                        DeliverySemantics::not_delivered()
+                    } else {
+                        DeliverySemantics::delivered_unverified()
                     }
+                );
+                let observed = error.details.expect("refusal evidence");
+                assert_eq!(observed["delivered_clicks"], expected);
+                assert_eq!(observed["physical_delivery_started"], allowed > 0);
+                for (key, value) in details.as_object().unwrap() {
+                    assert_eq!(&observed[key], value);
                 }
             }
         }

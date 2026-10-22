@@ -11,10 +11,13 @@ use super::offscreen::{OffscreenInput, offscreen};
 use super::placement::Placement;
 use super::state_bits::{ICONIFIED, StateBits};
 use super::toolkit_trust::{read_toolkit, reports_global_position};
+use super::twin_frames::read_twins;
 use super::window_extents::read_window_extents;
+use super::window_tie::WindowTie;
 use super::{AtspiElement, Extents};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::process::toolkit_id::ToolkitId;
+use crate::system::x11::frame_window::FrameWindow;
 use crate::system::x11::stacking::frame_window_state;
 use crate::system::x11::window_x11_state::WindowX11State;
 use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
@@ -180,6 +183,30 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     }
     let global = reports_global_position(&placed.toolkit);
     let skipped = placed.frame_iconified == Some(true) || (wholly_outside(&placed) && global);
+    let facts = || {
+        read.title.clone().map(|title| FrameFacts {
+            size_identity: title.is_empty()
+                && crate::system::window::frame_identity::permits_on_bus(
+                    bus,
+                    frame,
+                    &placed.toolkit,
+                    read.screen,
+                    deadline,
+                ),
+            pid: frame.pid(),
+            title,
+            extents: read.screen,
+            global_position: global,
+        })
+    };
+    let twins = |title: &str| {
+        within(deadline, async {
+            Ok(read_twins(connection.inner(), frame, title).await)
+        })
+        .ok()
+        .flatten()
+    };
+    let window = std::cell::Cell::new(FrameWindow::Unknown);
     let (popup_origin, x11) = select_frame_origin(
         element.is_menu_target(),
         &placed.toolkit,
@@ -189,27 +216,20 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
             if skipped {
                 return None;
             }
-            let title = read.title.clone()?;
-            frame_window_state(
-                &DisplayReader,
-                deadline,
-                &FrameFacts {
-                    size_identity: title.is_empty()
-                        && crate::system::window::frame_identity::permits_on_bus(
-                            bus,
-                            frame,
-                            &placed.toolkit,
-                            read.screen,
-                            deadline,
-                        ),
-                    pid: frame.pid(),
-                    title,
-                    extents: read.screen,
-                    global_position: global,
-                },
-            )
+            let facts = facts()?;
+            let found =
+                frame_window_state(&DisplayReader, deadline, &facts, || twins(&facts.title));
+            window.set(found);
+            match found {
+                FrameWindow::Client(state) => Some(state),
+                FrameWindow::Tied { .. } | FrameWindow::Unknown => None,
+            }
         },
     );
+    placed.tie = match window.get() {
+        FrameWindow::Tied { hidden } if !global => Some(WindowTie { hidden }),
+        FrameWindow::Tied { .. } | FrameWindow::Client(_) | FrameWindow::Unknown => None,
+    };
     placed.popup_origin = popup_origin;
     placed.x11 = x11;
     placed

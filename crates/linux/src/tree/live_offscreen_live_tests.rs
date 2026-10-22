@@ -89,10 +89,10 @@ fn script_app(
     launched.scratch.push(dir);
     let script_arg = script.to_string_lossy().into_owned();
     let pid = launched.spawn_with_env(program, &[&script_arg], env);
-    let settled = super::walker_live_tests::settle(&bus, 40, || {
+    let settled = super::walker_live_tests::settle_watching(&bus, 40, Some(pid), || {
         super::live_tree::pid_frame(&connection, pid)
     })
-    .expect("the app settles");
+    .unwrap_or_else(|error| panic!("the app settles: {error}"));
     scroll_case(label, &adapter, &bus, &settled.frame, wanted).expect("the case holds");
 }
 

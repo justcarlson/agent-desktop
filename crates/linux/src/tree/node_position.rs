@@ -8,12 +8,15 @@ use super::read_purpose::ReadPurpose;
 use super::toolkit_trust::{
     ToolkitKind, kind as toolkit_kind, read_toolkit, reports_global_position,
 };
+use super::twin_frames::read_twins;
 use super::window_extents::read_window_extents_async;
 use super::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode};
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::shell::container::MENU;
-use crate::system::window::window_position::frame_origin;
+use crate::system::window::window_position::origin_of_client;
+use crate::system::x11::map::ClientMatch;
 use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::twin_tie::client_among_twins;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, shell, within};
 
@@ -174,10 +177,20 @@ fn origin_of(
         extents: screen,
         global_position: false,
     };
-    let X11State::Ready { clients, .. } = DisplayReader.clients_within(deadline) else {
+    let X11State::Ready { active, clients } = DisplayReader.clients_within(deadline) else {
         return Ok(None);
     };
-    Ok(frame_origin(&facts, &clients))
+    let found = client_among_twins(&facts, &clients, active, || {
+        within(deadline, async {
+            Ok(read_twins(connection, frame, &facts.title).await)
+        })
+        .ok()
+        .flatten()
+    });
+    Ok(match found {
+        ClientMatch::One(id) => origin_of_client(&clients, id),
+        ClientMatch::Several(_) | ClientMatch::NoClient => None,
+    })
 }
 
 /// Puts the node rectangles of a finished walk where a pointer can be aimed

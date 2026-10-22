@@ -8,7 +8,9 @@ use super::hit_descent::{
 use super::hit_guard::{admits, aimable, pixel};
 use super::hit_occlusion::occlusion;
 use super::hit_verdict::{Landing, Standing, Verdict, decide, needs_landing};
-use super::toolkit_trust::{reports_global_position, trusts_descent, trusts_same_window_landing};
+use super::toolkit_trust::{
+    reports_global_position, stops_above_target, trusts_descent, trusts_same_window_landing,
+};
 use super::{AtspiElement, Extents, atspi_element};
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
@@ -134,6 +136,7 @@ pub(crate) fn hit_test_via<W: HitWorld>(
     let standing = Standing {
         descends: trusts_descent(&facts.toolkit),
         same_window: trusts_same_window_landing(&facts.toolkit),
+        shallow: stops_above_target(&facts.toolkit),
     };
     let (landing, lander) = if needs_landing(standing, stacking) {
         let probe = Probe {

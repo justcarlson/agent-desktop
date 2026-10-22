@@ -23,6 +23,7 @@ pub(crate) struct FakeWorld {
     pub(crate) log: RefCell<Vec<String>>,
     pub(crate) clip: Option<crate::tree::placement::Placement>,
     pub(crate) pointer_reads: RefCell<VecDeque<Result<(), AdapterError>>>,
+    pub(crate) pointer_delays: RefCell<VecDeque<Duration>>,
     pub(crate) sink: Option<crate::input::x11::fake_sink::FakeSink>,
 }
 
@@ -49,6 +50,7 @@ impl FakeWorld {
             log: RefCell::new(Vec::new()),
             clip: None,
             pointer_reads: RefCell::default(),
+            pointer_delays: RefCell::default(),
             sink: None,
         }
     }
@@ -154,8 +156,14 @@ impl PhysicalWorld for FakeWorld {
         &self,
         element: &AtspiElement,
         point: &Point,
-        _: Deadline,
+        deadline: Deadline,
     ) -> Result<(), AdapterError> {
+        if let Some(delay) = self.pointer_delays.borrow_mut().pop_front() {
+            std::thread::sleep(delay);
+            if deadline.is_expired() {
+                return Err(deadline.timeout_error());
+            }
+        }
         if let Some(result) = self.pointer_reads.borrow_mut().pop_front() {
             return result;
         }

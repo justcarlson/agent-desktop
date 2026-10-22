@@ -59,7 +59,9 @@ pub(crate) fn execute_poll_loop(
                     let error = into_adapter_error(error);
                     let focus_pending = request.headed_requirement().requires_focus()
                         && failed_check(&error, "receives_events");
-                    if !focus_pending && !should_scroll_after_preflight(request, &error) {
+                    let scroll_can_help = should_scroll_after_preflight(request, &error)
+                        && !failed_check(&error, "enabled");
+                    if !focus_pending && !scroll_can_help {
                         handle_actionability_failure(&mut state, error, deadline)?;
                         continue;
                     }
@@ -78,6 +80,9 @@ fn handle_actionability_failure(
 ) -> Result<(), AdapterError> {
     if is_permanent_actionability_error(&error.code) || !error.permits_retry_by_default() {
         return Err(error);
+    }
+    if error.code == ErrorCode::Timeout && deadline.is_expired() {
+        return Err(timeout(state, deadline));
     }
     let stability_changed = failed_check(&error, "stable");
     state.record_preflight_error(&error);

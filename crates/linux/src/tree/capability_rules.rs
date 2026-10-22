@@ -125,6 +125,33 @@ fn popup_dropdown(facts: &Facts) -> bool {
         && popup_button_children(facts)
 }
 
+/// Whether a combo box offers no route of its own: no popup state to open it
+/// by, no `Selection` and no action. Its choices exist in the tree only while
+/// a popup that a pointer opened shows, as the combo row of libadwaita does,
+/// so a select on it needs the pointer and is delivered only to a headed
+/// request.
+pub(crate) fn pointer_only_combo(
+    role: u32,
+    has_popup: bool,
+    selection: bool,
+    action_names: &[String],
+    child_count: i32,
+) -> bool {
+    role == COMBO_BOX && !has_popup && !selection && action_names.is_empty() && child_count > 0
+}
+
+fn pointer_combo(facts: &Facts) -> bool {
+    facts.child_count.is_some_and(|count| {
+        pointer_only_combo(
+            facts.role,
+            facts.bits.has(HAS_POPUP),
+            facts.advertises(SELECTION),
+            facts.names,
+            count,
+        )
+    })
+}
+
 /// The tokens that need more than an action name: the text and numeric
 /// writes, the disclosure pair, selection, the click of a switch that
 /// advertises only a toggle verb and the click of a disabled button, whose
@@ -157,7 +184,8 @@ pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
         (collapse, capability::COLLAPSE),
         (
             facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0)
-                || popup_dropdown(facts),
+                || popup_dropdown(facts)
+                || pointer_combo(facts),
             capability::SELECT,
         ),
         (

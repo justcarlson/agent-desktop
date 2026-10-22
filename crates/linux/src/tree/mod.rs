@@ -58,6 +58,7 @@ mod path_descent;
 mod placed_states;
 mod placeholder;
 pub(crate) mod placement;
+pub(crate) mod pointer_refusal;
 mod popup_position;
 pub(crate) mod projection;
 mod raw_node;
@@ -87,6 +88,7 @@ pub(crate) mod surfaces;
 pub(crate) mod text_selection;
 pub(crate) mod text_units;
 pub(crate) mod toolkit_trust;
+pub(crate) mod twin_frames;
 mod value_read;
 mod vocabulary;
 mod walk;
@@ -96,6 +98,7 @@ mod walked_node;
 mod walker;
 mod walker_expand;
 pub(crate) mod window_extents;
+pub(crate) mod window_tie;
 mod wrapper;
 
 #[cfg(test)]
@@ -169,6 +172,9 @@ mod registry_toolkit_live_tests;
 
 #[cfg(test)]
 pub(crate) mod live_launch;
+
+#[cfg(test)]
+pub(crate) mod live_process;
 
 #[cfg(test)]
 mod live_qt;

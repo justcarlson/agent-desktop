@@ -163,3 +163,35 @@ fn incomplete_live_reads_report_the_tool_limitation() {
     assert!(!hint.contains("--headed"), "{hint}");
     assert!(hint.contains("fresh ref"), "{hint}");
 }
+
+#[test]
+fn a_read_cut_off_by_the_deadline_keeps_the_last_complete_report() {
+    let mut state = RefActionPollState::default();
+    state.record_preflight_error(
+        &AdapterError::new(
+            ErrorCode::ActionFailed,
+            "Target is not actionable: enabled (live enabled state is false)",
+        )
+        .with_details(json!({
+            "actionable": false,
+            "checks": [{
+                "check": "enabled",
+                "status": "fail",
+                "reason": "live enabled state is false",
+            }],
+        })),
+    );
+    let deadline = Deadline::after(1).expect("deadline");
+    std::thread::sleep(Duration::from_millis(5));
+
+    let error = handle_actionability_failure(&mut state, deadline.timeout_error(), deadline)
+        .expect_err("the deadline ended the wait");
+
+    assert_eq!(error.code, ErrorCode::Timeout);
+    let details = error.details.expect("timeout details");
+    assert_eq!(details["kind"], "actionability_timeout");
+    assert_eq!(
+        details["last_report"]["report"]["checks"][0]["check"],
+        "enabled"
+    );
+}

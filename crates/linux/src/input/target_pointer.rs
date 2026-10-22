@@ -1,18 +1,20 @@
 use agent_desktop_core::{
     ActionStep, AdapterError, Deadline, DeliverySemantics, Direction, ErrorCode, InteractionLease,
-    InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, Point, Rect, StepMechanism,
-    validate_mouse_click_count,
+    InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, NativeHandle, Point, Rect,
+    StepMechanism, validate_mouse_click_count,
 };
 use serde_json::json;
 
 use super::backend::Backend;
+use super::gesture::Gesture;
 use super::keymap::Keymap;
 use super::plan::Plan;
+use super::press_clock::PressClock;
 use super::step::Step;
 use crate::input::deliver::{ensure_budget, ensure_headed_click_policy};
 use crate::input::target_world::{LiveWorld, PhysicalWorld};
 use crate::system::SharedBus;
-use crate::tree::AtspiElement;
+use crate::tree::{AtspiElement, atspi_element};
 
 pub(crate) struct ClickSpec {
     pub(crate) button: MouseButton,
@@ -54,7 +56,7 @@ pub(crate) fn click_steps(
     let map = Keymap::default();
     validate_mouse_click_count(spec.count)?;
     let plans = vec![world.plan_click(&map, at.clone(), &spec.button, spec.count)?];
-    send_bursts(world, element, &at, plans, deadline)?;
+    send_bursts(world, element, &at, Gesture::clicks(plans), deadline)?;
     Ok(vec![
         ActionStep::succeeded("XTEST.click")
             .with_mechanism(StepMechanism::PhysicalSynthetic)
@@ -91,7 +93,7 @@ pub(crate) fn scroll_steps(
     let at = aim_point(world, element, None, deadline)?;
     let map = Keymap::default();
     let plans = super::wheel_plan::plan_wheel(&map, at.clone(), deltas.0, deltas.1, &[])?;
-    send_bursts(world, element, &at, plans, deadline)?;
+    send_bursts(world, element, &at, Gesture::unbounded(plans), deadline)?;
     Ok(vec![
         ActionStep::succeeded("XTEST.scroll")
             .with_mechanism(StepMechanism::PhysicalSynthetic)
@@ -103,9 +105,13 @@ pub(crate) fn send_bursts(
     world: &impl PhysicalWorld,
     element: &AtspiElement,
     at: &Point,
-    plans: Vec<Plan>,
+    gesture: Gesture,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
+    let Gesture {
+        plans,
+        press_budget,
+    } = gesture;
     let plans: Vec<Plan> = plans
         .into_iter()
         .flat_map(|mut plan| {
@@ -133,23 +139,51 @@ pub(crate) fn send_bursts(
                 .count() as u32
         })
         .collect();
+    let mut clock = PressClock::new(press_budget);
     let mut next = 0;
     world.send_plans(
         plans,
         &mut || {
-            world
-                .validate_pointer(element, at, deadline)
-                .map_err(|mut error| {
-                    let details = error.details.get_or_insert_with(|| serde_json::json!({}));
-                    details["delivered_clicks"] = clicks[..next].iter().sum::<u32>().into();
-                    error
-                })?;
+            let pressing = clicks[next] > 0;
+            let proven = if pressing {
+                clock.check_deadline(deadline)
+            } else {
+                Ok(deadline)
+            }
+            .and_then(|check| {
+                world
+                    .validate_pointer(element, at, check)
+                    .map_err(|error| clock.explain(error, check, deadline))
+            });
+            proven.map_err(|mut error| {
+                let details = error.details.get_or_insert_with(|| serde_json::json!({}));
+                details["delivered_clicks"] = clicks[..next].iter().sum::<u32>().into();
+                error
+            })?;
+            if pressing {
+                clock.pressed();
+            }
             next += 1;
             Ok(())
         },
         deadline,
     )?;
     Ok(())
+}
+
+pub(crate) fn confirm_receiver(
+    bus: &SharedBus,
+    handle: &NativeHandle,
+    point: &Point,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if crate::system::tray::target_of(handle).is_some()
+        || matches!(crate::input::backend::backend(), Ok(Backend::Wayland))
+    {
+        return Ok(());
+    }
+    let element = atspi_element(handle)?;
+    super::target_world::validate_pointer_receiver(bus, element, point, deadline)
 }
 
 pub(crate) fn aim_point(
@@ -239,6 +273,10 @@ pub(crate) fn click_shell(
 #[cfg(test)]
 #[path = "target_click_tests.rs"]
 mod click_tests;
+
+#[cfg(test)]
+#[path = "click_window_tests.rs"]
+mod window_tests;
 
 #[cfg(test)]
 #[path = "target_scroll_tests.rs"]

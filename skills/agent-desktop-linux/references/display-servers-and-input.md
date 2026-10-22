@@ -49,7 +49,7 @@ CLI's Wayland pointer gate runs before that fallback. On
 Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
-`double-click`, `mouse-wheel` and `mouse-down`). A headed `type` sends Wayland
+`double-click`, `mouse-wheel`, `mouse-down` and `select`). A headed `type` sends Wayland
 keys through `RemoteDesktop.type_text` after the Mutter capability probe succeeds. Headless `type` writes
 through `EditableText`. A headless action reports `semantic_api` and leaves the
 pointer still. Windows works the other way round (semantic first), so do not
@@ -78,9 +78,16 @@ The gate is necessary, not sufficient: while a popup menu holds the grab, keys
 reach the menu even if the frame reads active, so key steps stay unverified.
 Pointer forms aim at the centre of the ref's bounds, which the adapter withholds
 where the position is not proved. Read the result with a fresh `get`.
-Ref-addressed double and triple clicks prove the pointer receiver before each
-click. A later refusal reports `delivered_clicks` and `delivered_unverified`
-when earlier clicks were sent; inspect the app before retrying.
+Ref-addressed double and triple clicks prove the pointer receiver before every
+press, so a window raised by the first click is seen before the second. The
+checks share a 300 ms press-to-press budget, inside the 400 ms in which GTK, Qt
+and GNOME read two presses as one gesture. A changed receiver, or a check that
+outruns the budget (`details.kind: multi_click_window`), stops the gesture with
+`ACTION_FAILED`, the clicks already sent in `delivered_clicks` and
+`delivered_unverified`; inspect the app before retrying.
+`hover @ref` proves the receiver the same way before the move. A covered target
+or an unproven receiver is refused with `ACTION_FAILED` and `not_delivered`, and
+the cursor does not move. `hover --xy` has no target element to prove.
 
 ## Keys and `press`
 
@@ -94,6 +101,8 @@ agent-desktop press return --app gnome-text-editor
   `period`, `greater`, `leftbracket`) and X keysym names such as `Page_Up`.
   `delete` is the backspace key; `forwarddelete` is the forward Delete key.
   A single character is its own key. An unknown name lists the accepted forms.
+  A bare upper-case letter (`H`) is the shifted key (`shift+h`); with other
+  modifiers the case is ignored (`ctrl+A` is `ctrl+a`).
 - In combos, `meta`, `cmd`, `command`, `super` and `win` name the Super modifier.
   For a bare key use `super` or `meta`, not `cmd`, `command` or `win`.
 - `press` without `--app` or `--window-id` sends to the focused window.
@@ -101,9 +110,11 @@ agent-desktop press return --app gnome-text-editor
   `press --window-id` also requires the exact window's focus. A background or
   minimized target is refused. See
   `references/windows-and-lifecycle.md`.
-- Keys carry the Shift level the live keymap needs. A character the layout
-  cannot produce is typed through spare keycodes, so `type` handles accents and
-  non-Latin text.
+- Keys carry the Shift level the live keymap needs. `press` takes only keys the
+  active layout maps and the named keysyms above. A character the layout cannot
+  produce (`é`, `你`) is refused and not delivered (`INVALID_ARGS` on X11,
+  `ACTION_NOT_SUPPORTED` with `character_outside_layout` on Wayland); `type`
+  sends it through spare keycodes, so use `type` for accents and non-Latin text.
 
 ### Blocked combos
 
@@ -221,7 +232,10 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
 `drag` picks up, moves along an interpolated path, holds still for a dwell, and
 releases. The dwell holds still on purpose: a hovered folder or drop target can
 open under the pointer, and any later motion then lands inside it and copies
-instead of moving. The default drop delay on Linux is 150 ms; pass
+instead of moving. The default duration is 300 ms and the minimum is 100 ms: a
+shorter `--duration` is refused with `INVALID_ARGS` and `not_delivered`, because
+a toolkit such as GTK needs several motion events to start a drag (Files and a
+GTK3 drop target both ignored a 0 ms or 30 ms gesture and accepted 60 ms and up). The default drop delay on Linux is 150 ms; pass
 `--drop-delay` only to give a slow drop target time to arm. The result reports the
 gesture, not the outcome: verify the effect (a file moved, a list changed) with
 a fresh `snapshot`.

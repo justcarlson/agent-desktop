@@ -8,6 +8,8 @@ use crate::{
 };
 use serde_json::{Value, json};
 
+use crate::pointer_timeout::point_actionability_timeout;
+
 struct EntryPointResolve<'a> {
     ref_id: &'a str,
     entry: &'a RefEntry,
@@ -306,18 +308,6 @@ fn point_requires_scroll(err: &AppError) -> bool {
         .and_then(|details| details.get("requires_scroll"))
         .and_then(Value::as_bool)
         .unwrap_or(false)
-}
-
-fn point_actionability_timeout(last_report: Option<Value>) -> AppError {
-    let mut details = json!({ "kind": "actionability_timeout" });
-    if let Some(last_report) = last_report
-        && let Some(object) = details.as_object_mut()
-    {
-        object.insert("last_report".into(), last_report);
-    }
-    crate::AdapterError::timeout("Pointer target did not become actionable within the wait budget")
-        .with_details(details)
-        .into()
 }
 
 fn point_error_report(error: &AppError) -> Value {
