@@ -199,13 +199,6 @@ function isNodeWrapper(path) {
   }
 }
 
-/**
- * Replaces the JS wrapper at the package bin entry with a hard link to the
- * native binary so package-manager shims exec it directly. Leaves the wrapper
- * in place unless the package sits directly in node_modules, on win32, and
- * whenever linking fails. A failure that leaves the entry on an older native
- * binary fails the install.
- */
 function linkBinEntry(directory, binaryName, osPlatform = platform()) {
   if (osPlatform === 'win32' || !isInstalledPackage(directory)) return false;
   const entryPath = join(directory, BIN_ENTRY_NAME);
