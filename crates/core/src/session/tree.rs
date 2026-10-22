@@ -7,9 +7,9 @@ use crate::AppError;
 /// written into it: a root that group or other users can reach is refused
 /// here exactly as it is for a snapshot.
 pub(super) fn create(dir: &Path) -> Result<(), AppError> {
-    crate::private_file_parent::ensure_private(
-        &crate::state_root::resolve_configured_state_root()?
-    )?;
+    let root = crate::state_root::resolve_configured_state_root()?;
+    crate::private_file_parent::ensure_private(&root)
+        .map_err(|error| AppError::Internal(error.to_string()))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;
