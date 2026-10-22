@@ -60,6 +60,14 @@ fn a_cover_inside_the_popup_but_after_the_target_is_unproven() {
 }
 
 #[test]
+fn a_node_that_could_not_be_read_may_be_a_cover_so_the_verdict_is_unproven() {
+    let mut tree = gnome_shell(true, false);
+    tree.add(Some("/p2"), "/banner", PANEL, "", at(600, 520, 200, 60));
+    tree.vanish("/banner");
+    assert_eq!(verdict_on(&tree), HitTestResult::Unknown);
+}
+
+#[test]
 fn nodes_under_the_target_or_not_showing_do_not_count() {
     let mut tree = gnome_shell(true, false);
     tree.add(Some("/p2"), "/ghost", PANEL, "", at(600, 520, 200, 60));
