@@ -13,6 +13,9 @@ case "$(uname -s)-$(uname -m)" in
     ;;
 esac
 HELPER_NAME=agent-desktop-macos-helper
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+TARBALL="$WORK/$(npm pack ./npm --pack-destination "$WORK" --silent)"
 SOURCE=target/release/agent-desktop
 HELPER_SOURCE=target/release/agent-desktop-macos-helper
 SOURCE_SHA=$(shasum -a 256 "$SOURCE" | awk '{print $1}')
@@ -42,3 +45,18 @@ if [ "$SOURCE_SHA" != "$(shasum -a 256 "$SOURCE" | awk '{print $1}')" ] || \
   echo "NPM smoke executable changed while it was executed" >&2
   exit 1
 fi
+
+PREFIX="$WORK/prefix"
+AGENT_DESKTOP_BINARY_PATH="$ROOT/$SOURCE" npm install -g "$TARBALL" --prefix "$PREFIX" --no-audit --no-fund
+INSTALLED_ENTRY="$PREFIX/lib/node_modules/agent-desktop/bin/agent-desktop"
+if [ "$(head -c 2 "$INSTALLED_ENTRY")" = '#!' ]; then
+  echo "Installed bin entry is still the Node wrapper, not the native binary" >&2
+  exit 1
+fi
+PATH="$PREFIX/bin:/usr/bin:/bin" agent-desktop version > "$WORK/installed-version.json"
+node -e "
+  const json = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+  if (json.ok !== true || typeof json.data?.version !== 'string') {
+    throw new Error('installed agent-desktop command did not return version JSON');
+  }
+" "$WORK/installed-version.json"
