@@ -12,7 +12,7 @@ fn twins() -> Vec<Option<Rect>> {
 fn a_zero_area_stored_size_cannot_separate_twins() {
     let flat = rect(10.0, 10.0, 34.0, 0.0);
     assert_eq!(
-        select_by_stored_size(&twins(), &[], Some(&flat), BoundsSpace::Screen),
+        select_by_stored_geometry(&twins(), &[], Some(&flat), BoundsSpace::Screen),
         None
     );
 }

@@ -63,14 +63,14 @@ fn a_ref_with_no_stored_size_cannot_distinguish_its_twin() {
 }
 
 #[test]
-fn a_moved_window_changes_no_answer_for_the_path_or_for_the_size_search() {
+fn moved_screen_geometry_cannot_separate_twins_until_refreshed() {
     let mut fake = files();
     let entry = fake.entry_of("/opts2", true);
     fake.shift_every_position(120, 64);
-    assert_eq!(resolved(&mut fake, &entry), "/opts2");
+    assert_eq!(refusal(&mut fake, &entry).code, ErrorCode::AmbiguousTarget);
     assert_eq!(fake.reads.searches, 1);
 
-    let mut without_path = entry.clone();
+    let mut without_path = fake.entry_of("/opts2", true);
     without_path.scope.path.clear();
     assert_eq!(resolved(&mut fake, &without_path), "/opts2");
     assert_eq!(fake.reads.searches, 2);
@@ -233,7 +233,7 @@ fn a_nameless_ref_whose_element_changed_size_is_a_retryable_miss() {
 }
 
 #[test]
-fn a_nameless_ref_whose_element_shrank_by_one_pixel_still_resolves_by_its_path() {
+fn a_nameless_ref_whose_rectangle_changed_refuses_its_old_path() {
     let mut fake = Fake::new();
     fake.add(FRAME_PATH, "/editor", node(PANEL, "", 690, 464));
     let entry = fake.entry_of("/editor", true);
@@ -248,7 +248,7 @@ fn a_nameless_ref_whose_element_shrank_by_one_pixel_still_resolves_by_its_path()
         width: 690,
         height: 463,
     });
-    assert_eq!(resolved(&mut fake, &entry), "/editor");
+    assert_eq!(refusal(&mut fake, &entry).code, ErrorCode::StaleRef);
 }
 
 #[test]
@@ -298,4 +298,52 @@ fn a_destroyed_landing_declines_settled_and_any_other_failed_read_leaves_the_reg
     let (landed, unread) = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
     assert!(landed.is_none());
     assert!(unread);
+}
+
+#[test]
+fn geometry_requires_the_recorded_frame_and_position() {
+    use agent_desktop_core::BoundsSpace::{Screen, Window};
+
+    for named in [true, false] {
+        for (stored_space, live_window, shifted, resolves) in [
+            (Some(Screen), false, false, true),
+            (Some(Screen), false, true, false),
+            (Some(Window), false, false, false),
+            (Some(Window), true, false, true),
+            (Some(Window), true, true, false),
+            (None, false, false, true),
+            (None, false, true, false),
+        ] {
+            let mut fake = Fake::new();
+            let name = if named { "target" } else { "" };
+            fake.add(FRAME_PATH, "/first", node(PUSH_BUTTON, name, 80, 20));
+            fake.add(FRAME_PATH, "/second", node(PUSH_BUTTON, name, 140, 20));
+            let mut entry = fake.entry_of("/first", true);
+            entry.geometry.bounds_space = stored_space;
+            for path in ["/first", "/second"] {
+                let read = &mut fake.nodes.get_mut(path).expect("candidate").read;
+                let mut bounds = *read.node.extents.present().expect("rectangle");
+                bounds.x += if shifted { 100 } else { 0 };
+                read.node.extents = crate::tree::Field::Present(bounds);
+                if live_window {
+                    read.evidence_bounds = Some((bounds, Window));
+                }
+            }
+            let result = resolve(&mut fake, &entry, deadline());
+            if resolves {
+                assert_eq!(result.expect("same recorded rectangle").path(), "/first");
+            } else {
+                let expected = if named {
+                    ErrorCode::AmbiguousTarget
+                } else {
+                    ErrorCode::StaleRef
+                };
+                assert_eq!(
+                    result.expect_err("unproven geometry must refuse").code,
+                    expected,
+                    "{named:?} {stored_space:?} {live_window} {shifted}"
+                );
+            }
+        }
+    }
 }

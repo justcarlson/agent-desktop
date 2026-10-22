@@ -246,10 +246,15 @@ unsafe fn decode_core_ref_entry(
     } else {
         agent_desktop_core::BoundsSpace::Screen
     };
-    if !cfg!(target_os = "linux") && bounds_hash.is_some() && bounds_space != Some(required_space) {
+    if bounds_hash.is_some() && bounds_space != Some(required_space) {
+        let frame = if cfg!(target_os = "linux") {
+            "window"
+        } else {
+            "screen"
+        };
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
-            "Ref geometry requires screen-relative bounds on this platform",
+            format!("Ref geometry requires {frame}-relative bounds on this platform"),
         ));
     }
     let decoded = CoreRefEntry {

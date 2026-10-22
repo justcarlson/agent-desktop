@@ -88,7 +88,11 @@ fn shifted_anonymous_siblings_with_only_screen_geometry_are_ambiguous() {
         }
         let error = resolve(&mut fake, &entry, deadline())
             .expect_err("the shifted path cannot identify an anonymous sibling");
-        assert_eq!(error.code, ErrorCode::AmbiguousTarget);
-        assert_eq!(error.details.expect("details")["candidate_count"], 2);
+        if shrink == 0 {
+            assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+            assert_eq!(error.details.expect("details")["candidate_count"], 2);
+        } else {
+            assert_eq!(error.code, ErrorCode::StaleRef);
+        }
     }
 }
