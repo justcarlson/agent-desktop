@@ -95,7 +95,7 @@ pub(crate) fn open_surface(
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(AdapterError::not_supported("open_system_surface"));
     };
-    if !kinds::is_presented(kind) {
+    if kind == kinds::ShellKind::Dock {
         return Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
             "The taskbar surface is not offered: no stock shell shows a dock",
