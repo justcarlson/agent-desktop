@@ -8,7 +8,7 @@ use futures_util::stream::{self, StreamExt};
 use crate::system::bus::bus_slice::within_slice;
 use crate::system::process::proc_stat;
 use crate::system::{SharedBus, within};
-use crate::tree::{AtspiElement, RawNode, list_children, read_node};
+use crate::tree::{AtspiElement, RawNode, ReadPurpose, list_children, read_node_for};
 
 pub(crate) const CHILDREN_SLICE: Duration = Duration::from_millis(300);
 pub(crate) const FRAME_SLICE: Duration = Duration::from_millis(300);
@@ -130,7 +130,9 @@ pub(crate) fn read_frames(
                 is_unclassified,
                 |(bus_name, path)| async move {
                     let frame = AtspiElement::new(bus_name, path, root.pid());
-                    read_node(connection, &frame).await
+                    read_node_for(connection, &frame, ReadPurpose::Frame)
+                        .await
+                        .map(|(node, _)| node)
                 },
             )
             .await;
@@ -146,3 +148,7 @@ pub(crate) fn read_frames(
 #[cfg(test)]
 #[path = "registry_frames_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "frame_payload_tests.rs"]
+mod frame_payload_tests;
