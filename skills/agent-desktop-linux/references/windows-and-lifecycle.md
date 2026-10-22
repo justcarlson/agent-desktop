@@ -152,7 +152,7 @@ close only a document or tab and leave its window open.
     decoration hosts), unless this tool launched it.
 
   A process that does not answer on the accessibility bus is protected when it
-  owns a session-bus name, whether or not a launch of this tool started it.
+  owns a session-bus name, unless a launch of this tool started it.
   Missing ownership evidence (such as an unreadable `/proc` entry or no session
   bus) is `ACTION_NOT_SUPPORTED` before anything is sent; an unreachable display
   is `PLATFORM_NOT_SUPPORTED`. X11 manager ownership needs XRes process IDs;

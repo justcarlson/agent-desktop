@@ -123,7 +123,7 @@ prove it. Advertised surfaces require a resolvable structural container.
 - Shell snapshots need no `--app`. `list-surfaces` inventories an app selected
   with `--app`. Shell containers do not appear in `list-windows`.
 - Role shape and uniqueness find the message list and the date menu that opens
-  it. English labels, wrapper depth and screen position prove nothing.
+  it. English labels, wrapper depth and screen position prove nothing. A shell read that keeps losing a node refuses with `shell_container_unproven`; retry once the shell settles.
 - Other containers and the system-button opener return `ACTION_NOT_SUPPORTED`,
   `shell_container_unproven`, before input. Opening a hidden popup headless
   still requires headed permission.
@@ -140,7 +140,7 @@ prove it. Advertised surfaces require a resolvable structural container.
 - A node painted over the target, a target that is still moving, or a target
   that is not showing or has left the tree refuses with `ACTION_FAILED`,
   `pointer_hit_unproven` and no delivery. Retry once the shell settles. Another
-  node that leaves the tree or answers no role during the read counts as absent.
+  node that leaves the tree or answers no role during the read leaves the click unproven, because it may have covered the target.
   Each effect is read back from the shell.
 - On Wayland a headed shell ref click refuses with `ACTION_NOT_SUPPORTED`, cause
   `wayland_session`, before any input, and a popup opener refuses with
