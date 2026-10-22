@@ -90,6 +90,32 @@ pub trait SystemOps: Send + Sync {
         Vec::new()
     }
 
+    fn check_surface_support(&self, requested: crate::SnapshotSurface) -> Result<(), AdapterError> {
+        let supported = self.supported_surfaces();
+        if supported.contains(&requested) {
+            return Ok(());
+        }
+        Err(AdapterError::new(
+            crate::ErrorCode::PlatformNotSupported,
+            format!("Snapshot surface '{}' is not supported on this platform", requested.as_str()),
+        )
+        .with_details(serde_json::json!({
+            "requested_surface": requested.as_str(),
+            "supported_surfaces": supported.into_iter().map(crate::SnapshotSurface::as_str).collect::<Vec<_>>()
+        }))
+        .with_suggestion("Choose one of the supported snapshot surfaces"))
+    }
+
+    /// Registers caller-scoped wake hints before the initial predicate read.
+    /// Without a subscription the same predicates run with bounded polling.
+    fn subscribe_wait(
+        &self,
+        _filter: &SignalFilter,
+        _deadline: Deadline,
+    ) -> Result<Option<Box<dyn crate::WaitWakeup>>, AdapterError> {
+        Ok(None)
+    }
+
     /// Raises an OS-chrome surface - the Start menu, the Action Center, the
     /// taskbar - and returns the identity of the window the surface actually
     /// presents, in the same shape the window observation stack consumes. It

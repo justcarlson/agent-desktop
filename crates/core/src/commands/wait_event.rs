@@ -5,7 +5,7 @@ use crate::{
     process_state::ProcessState, signals::merge_signal_baseline,
 };
 use serde_json::{Value, json};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Baseline-diff event wait: captures a `SignalBaseline` at wait start, polls
 /// for a fresh one, and matches the first `diff_signals` event whose kind
@@ -54,6 +54,7 @@ pub(crate) fn wait_for_event(
         Err(err) => return Err(err),
     };
     let disappearance = is_disappearance_class(&requested);
+    let mut scheduler = super::wait_scheduler::WaitScheduler::new(adapter, &filter, deadline);
     let (mut baseline, mut last_error) = match seeded_baseline {
         Some(Ok(baseline)) => {
             validate_signal_scope(&filter, &baseline)?;
@@ -140,7 +141,7 @@ pub(crate) fn wait_for_event(
                 last_error,
             );
         }
-        std::thread::sleep(remaining.min(Duration::from_millis(200)));
+        scheduler.wait(deadline);
     }
 }
 

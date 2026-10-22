@@ -10,10 +10,16 @@ use crate::{
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
-struct SingleShotScrollAdapter {
-    scrolled: AtomicBool,
+#[derive(Default)]
+struct PointerReadCounts {
     scrolls: AtomicU32,
     resolves: AtomicU32,
+    observations: AtomicU32,
+}
+
+struct SingleShotScrollAdapter {
+    scrolled: AtomicBool,
+    reads: PointerReadCounts,
     leases: AtomicU32,
     mouse_moves: AtomicU32,
     drags: AtomicU32,
@@ -25,8 +31,7 @@ impl SingleShotScrollAdapter {
     fn new() -> Self {
         Self {
             scrolled: AtomicBool::new(false),
-            scrolls: AtomicU32::new(0),
-            resolves: AtomicU32::new(0),
+            reads: PointerReadCounts::default(),
             leases: AtomicU32::new(0),
             mouse_moves: AtomicU32::new(0),
             drags: AtomicU32::new(0),
@@ -37,12 +42,23 @@ impl SingleShotScrollAdapter {
 }
 
 impl ObservationOps for SingleShotScrollAdapter {
+    fn observe_pointer(
+        &self,
+        handle: &NativeHandle,
+        deadline: crate::Deadline,
+    ) -> Result<crate::PointerObservation, AdapterError> {
+        self.reads.observations.fetch_add(1, Ordering::SeqCst);
+        Ok(crate::PointerObservation {
+            bounds: self.get_element_bounds(handle, deadline)?,
+            states: Vec::new(),
+        })
+    }
     fn resolve_element_strict(
         &self,
         entry: &RefEntry,
         _deadline: crate::Deadline,
     ) -> Result<NativeHandle, AdapterError> {
-        self.resolves.fetch_add(1, Ordering::SeqCst);
+        self.reads.resolves.fetch_add(1, Ordering::SeqCst);
         Ok(NativeHandle::new(entry.process.pid.get()))
     }
 
@@ -80,7 +96,7 @@ impl ActionOps for SingleShotScrollAdapter {
         _lease: &InteractionLease,
     ) -> Result<(), AdapterError> {
         assert_eq!(*handle.downcast_ref::<u32>().unwrap(), 1);
-        self.scrolls.fetch_add(1, Ordering::SeqCst);
+        self.reads.scrolls.fetch_add(1, Ordering::SeqCst);
         self.scrolled.store(true, Ordering::SeqCst);
         Ok(())
     }
@@ -197,10 +213,11 @@ fn hover_none_scrolls_once_then_dispatches_stable_point_once() {
     )
     .unwrap();
 
-    assert_eq!(adapter.scrolls.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.reads.scrolls.load(Ordering::SeqCst), 1);
     assert_eq!(adapter.leases.load(Ordering::SeqCst), 1);
-    assert_eq!(adapter.resolves.load(Ordering::SeqCst), 3);
+    assert_eq!(adapter.reads.resolves.load(Ordering::SeqCst), 3);
     assert_eq!(adapter.mouse_moves.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.reads.observations.load(Ordering::SeqCst), 3);
     assert_eq!(value["x"], 110.0);
     assert_eq!(value["y"], 205.0);
 }
@@ -229,10 +246,11 @@ fn drag_none_scrolls_once_then_dispatches_revalidated_endpoints_once() {
     )
     .unwrap();
 
-    assert_eq!(adapter.scrolls.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.reads.scrolls.load(Ordering::SeqCst), 1);
     assert_eq!(adapter.leases.load(Ordering::SeqCst), 1);
-    assert_eq!(adapter.resolves.load(Ordering::SeqCst), 5);
+    assert_eq!(adapter.reads.resolves.load(Ordering::SeqCst), 5);
     assert_eq!(adapter.drags.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.reads.observations.load(Ordering::SeqCst), 5);
     assert_eq!(value["from"], serde_json::json!({ "x": 110.0, "y": 205.0 }));
     assert_eq!(value["to"], serde_json::json!({ "x": 210.0, "y": 405.0 }));
 }

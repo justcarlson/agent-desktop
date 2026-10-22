@@ -59,3 +59,4 @@ fn parse_event_kind_accepts_every_documented_token() {
         );
     }
 }
+use std::time::Duration;

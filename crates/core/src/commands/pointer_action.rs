@@ -47,7 +47,10 @@ fn resolve_point_from_entry(
             });
         })?;
     context.trace_lazy("ref.resolve.ok", || json!({ "ref": ref_id }))?;
-    let (mut bounds, mut states) = pointer_live_observation(adapter, &handle, deadline)?;
+    let crate::PointerObservation {
+        mut bounds,
+        mut states,
+    } = adapter.observe_pointer(&handle, deadline)?;
     if !pointer_is_visible(bounds, &states) {
         if deadline.is_expired() {
             return Err(crate::AdapterError::timeout(
@@ -71,7 +74,9 @@ fn resolve_point_from_entry(
         };
         adapter.scroll_into_view(&handle, lease)?;
         handle = resolve_handle_within_deadline(adapter, entry, deadline)?;
-        (bounds, states) = pointer_live_observation(adapter, &handle, deadline)?;
+        let observation = adapter.observe_pointer(&handle, deadline)?;
+        bounds = observation.bounds;
+        states = observation.states;
         if !pointer_is_visible(bounds, &states) {
             return Err(crate::AdapterError::new(
                 crate::ErrorCode::ActionFailed,
@@ -125,18 +130,6 @@ fn resolve_point_from_entry(
         source_entry: Some(entry.clone()),
         bounds_hash: Some(observed_bounds_hash),
     })
-}
-
-fn pointer_live_observation(
-    adapter: &dyn PlatformAdapter,
-    handle: &crate::adapter::NativeHandle,
-    deadline: crate::Deadline,
-) -> Result<(Option<crate::Rect>, Vec<String>), AppError> {
-    let bounds = adapter.get_element_bounds(handle, deadline)?;
-    let states = crate::adapter::optional_live_read(adapter.get_live_state(handle, deadline))?
-        .map(|state| state.states)
-        .unwrap_or_default();
-    Ok((bounds, states))
 }
 
 fn pointer_is_visible(bounds: Option<crate::Rect>, states: &[String]) -> bool {

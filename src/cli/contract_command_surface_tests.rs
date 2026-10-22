@@ -26,6 +26,7 @@ const NON_COMMAND_MODULES: &[&str] = &[
     "wait_mode",
     "wait_notification",
     "wait_predicate",
+    "wait_scheduler",
     "wait_surface",
     "wait_test_support",
     "wait_text_match",

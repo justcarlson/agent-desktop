@@ -54,7 +54,7 @@ pub fn execute(
 ) -> Result<Value, AppError> {
     validate_find_mode(&args)?;
     super::surface_scope::reject_root_with_surface("find", args.root.as_deref(), args.surface)?;
-    super::surface_scope::require_supported(args.surface, adapter)?;
+    adapter.check_surface_support(args.surface)?;
     let query = locator_query_from_args(&args)?;
     query.validate_states().map_err(AppError::Adapter)?;
 

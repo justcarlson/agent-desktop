@@ -80,10 +80,14 @@ pub(crate) mod wait_event_input;
 pub(crate) mod wait_mode;
 pub(crate) mod wait_notification;
 pub(crate) mod wait_predicate;
+pub(crate) mod wait_scheduler;
 pub mod wait_selector;
 pub mod wait_surface;
 pub(crate) mod wait_text_match;
 pub(crate) mod wait_timeout;
+
+#[cfg(test)]
+mod wait_wakeup_tests;
 mod window_target;
 
 #[cfg(test)]
