@@ -3,10 +3,12 @@ use agent_desktop_core::{
     WindowInfo, WindowState, ref_alloc::is_ref_able,
 };
 
+use super::item::ItemEvidence;
 use super::menu_layout::{Prop, RawEntry, parse};
 use super::node_evidence::SEPARATOR_ROLE;
-use super::view::{TrayItem, TrayView};
-use super::{TrayTarget, item_props::ItemProps, owns, resolve};
+use super::tray_item::TrayItem;
+use super::view::TrayView;
+use super::{TrayTarget, owns, resolve};
 use crate::tree::test_support::ref_entry;
 
 fn raw(id: i32, label: &str, extra: &[(&str, Prop)], children: Vec<RawEntry>) -> RawEntry {
@@ -42,12 +44,12 @@ fn projected() -> AccessibilityNode {
             entry_id: None,
             label_path: Vec::new(),
         },
-        props: ItemProps {
+        evidence: ItemEvidence {
             title: "Dropbox".into(),
             passive: false,
             menu: Some("/MenuBar".into()),
+            methods: vec!["Activate".into()],
         },
-        methods: vec!["Activate".into()],
         layout: Some(layout),
     };
     let view = TrayView { items: vec![item] };

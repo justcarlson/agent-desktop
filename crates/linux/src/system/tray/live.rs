@@ -4,18 +4,16 @@ use agent_desktop_core::{
 
 use super::menu_layout::LayoutEntry;
 use super::node_evidence::{ITEM_ROLE, identifiers, item_states, name_field};
-use super::{
-    TrayTarget, call, capability, introspect, item_props, menu_layout, menu_nodes, menu_resolve,
-};
+use super::{TrayTarget, call, capability, item, menu_layout, menu_nodes, menu_resolve};
 
-pub(super) fn entry_state(entry: &LayoutEntry, role: &str) -> ElementState {
-    let states = menu_nodes::states_of(entry);
+pub(super) fn entry_state(entry: &LayoutEntry, role: &str, passive: bool) -> ElementState {
+    let states = item_states(passive, menu_nodes::states_of(entry));
     ElementState {
         role: role.to_owned(),
         states,
         value: None,
         enabled: Some(entry.enabled),
-        hidden: Some(false),
+        hidden: Some(passive),
         offscreen: None,
     }
 }
@@ -26,38 +24,28 @@ pub(crate) fn element(
 ) -> Result<LiveElement, AdapterError> {
     let connection = call::session(deadline)?;
     call::require_owner(&connection, &target.owner, deadline)?;
-    let layout = target
-        .menu_path
-        .as_deref()
-        .map(|menu| menu_layout::read(&connection, &target.owner, menu, deadline))
-        .transpose()?;
-    let entry = match (target.menu_path.as_deref(), layout.as_ref()) {
-        (Some(_), Some(layout)) => Some(menu_resolve::find(layout, target)?),
-        _ => None,
-    };
-    let props = item_props::read(&connection, &target.owner, &target.object_path, deadline)?;
-    let (name, actions) = if let Some(entry) = entry {
-        (entry.label.clone(), capability::entry_actions(entry))
+    let evidence = item::read(&connection, target, deadline)?;
+    let (name, element_state, actions) = if let Some(menu) = target.menu_path.as_deref() {
+        let layout = menu_layout::read(&connection, &target.owner, menu, deadline)?;
+        let entry = menu_resolve::find(&layout, target)?;
+        (
+            entry.label.clone(),
+            entry_state(entry, menu_nodes::role_of(entry), evidence.passive),
+            capability::entry_actions(entry),
+        )
     } else {
-        let methods = introspect::item_methods(&call::introspect(
-            &connection,
-            &target.owner,
-            &target.object_path,
-            deadline,
-        )?);
-        (props.title.clone(), capability::actions(&methods))
-    };
-    let element_state = if let Some(entry) = entry {
-        entry_state(entry, menu_nodes::role_of(entry))
-    } else {
-        ElementState {
-            role: ITEM_ROLE.to_owned(),
-            states: item_states(props.passive, Vec::new()),
-            value: None,
-            enabled: Some(true),
-            hidden: Some(props.passive),
-            offscreen: None,
-        }
+        (
+            evidence.title,
+            ElementState {
+                role: ITEM_ROLE.to_owned(),
+                states: item_states(evidence.passive, Vec::new()),
+                value: None,
+                enabled: Some(true),
+                hidden: Some(evidence.passive),
+                offscreen: None,
+            },
+            capability::actions(&evidence.methods),
+        )
     };
     Ok(LiveElement {
         identity: LiveIdentity {

@@ -6,7 +6,7 @@ mod capability;
 mod execute;
 mod identity;
 mod introspect;
-mod item_props;
+mod item;
 mod live;
 mod menu_event;
 mod menu_layout;
@@ -16,6 +16,7 @@ mod node_evidence;
 pub(crate) mod observe;
 mod registration;
 mod resolve;
+mod tray_item;
 pub(crate) mod view;
 mod watcher;
 

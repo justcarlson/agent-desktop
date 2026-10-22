@@ -31,6 +31,10 @@ impl Default for LinuxAdapter {
 }
 
 impl ObservationOps for LinuxAdapter {
+    fn is_nonspatial_target(&self, handle: &NativeHandle) -> bool {
+        crate::system::tray::target_of(handle).is_some()
+    }
+
     fn observe_tree(
         &self,
         root: ObservationRoot<'_>,

@@ -17,7 +17,7 @@ fn entry() -> LayoutEntry {
 
 #[test]
 fn an_entry_under_a_shown_item_is_not_marked_offscreen() {
-    let shown = entry_state(&entry(), "menuitem");
+    let shown = entry_state(&entry(), "menuitem", false);
     assert_eq!(shown.offscreen, None);
     assert!(!shown.states.iter().any(|token| token == state::OFFSCREEN));
 }
@@ -26,7 +26,7 @@ fn an_entry_under_a_shown_item_is_not_marked_offscreen() {
 fn a_disabled_entry_keeps_its_disabled_state_when_shown() {
     let mut disabled = entry();
     disabled.enabled = false;
-    let shown = entry_state(&disabled, "menuitem");
+    let shown = entry_state(&disabled, "menuitem", false);
     assert_eq!(shown.enabled, Some(false));
     assert!(shown.states.iter().any(|token| token == state::DISABLED));
 }

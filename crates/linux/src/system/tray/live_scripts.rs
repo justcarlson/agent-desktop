@@ -68,7 +68,7 @@ if mode == "watcher":
 
 title = sys.argv[3]
 menu_mode = sys.argv[4]
-state = {"status": "Active", "revision": 1, "checked": 0}
+state = {"status": "Active", "revision": 1, "checked": 0, "fail_layout": False}
 signal_methods = {
     "kde": ["Activate", "ContextMenu", "SecondaryActivate", "Scroll"],
     "ayatana": ["Scroll", "SecondaryActivate", "XAyatanaSecondaryActivate"],
@@ -132,7 +132,7 @@ def layout():
     b = lambda v: GLib.Variant("b", v)
     i = lambda v: GLib.Variant("i", v)
     kids = [
-        tuple_entry(1, {"label": s("_Open L32")}),
+        tuple_entry(1, {"label": s("_Open")}),
         tuple_entry(2, {"type": s("separator")}),
         tuple_entry(3, {"label": s("Disabled"), "enabled": b(False)}),
         tuple_entry(4, {"label": s("Check"), "toggle-type": s("checkmark"), "toggle-state": i(state["checked"])}),
@@ -160,7 +160,10 @@ menu_xml = """<node><interface name="com.canonical.dbusmenu">
 def on_menu_call(conn, sender, path, iface, method, params, invocation):
     if method == "GetLayout":
         log("menu", tag, "GetLayout")
-        invocation.return_value(layout())
+        if state["fail_layout"]:
+            invocation.return_dbus_error("org.freedesktop.DBus.Error.Failed", "layout read refused")
+        else:
+            invocation.return_value(layout())
     elif method == "Event":
         entry_id, kind, _data, _stamp = params.unpack()
         log("menu", tag, "Event", entry_id, kind)
@@ -185,7 +188,7 @@ if menu_mode != "none":
     menu_info = Gio.DBusNodeInfo.new_for_xml(menu_xml).interfaces[0]
     bus.register_object(menu_path, menu_info, on_menu_call, on_menu_get, None)
 
-well_known = "org.l32." + tag
+well_known = "org.agentdesktop.TrayFixture." + tag
 if mode == "kde":
     Gio.bus_own_name_on_connection(bus, well_known, Gio.BusNameOwnerFlags.NONE, None, None)
 GLib.usleep(200000)
@@ -203,6 +206,18 @@ def passive():
 
 
 GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, passive)
+def toggle_layout():
+    state["fail_layout"] = not state["fail_layout"]
+    log("layout", tag, "refused" if state["fail_layout"] else "readable")
+    return True
+
+GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2, toggle_layout)
+def toggle_unknown_status():
+    state["status"] = "Active" if state["status"] == "unreadable" else "unreadable"
+    log("status", tag, state["status"])
+    return True
+
+GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGWINCH, toggle_unknown_status)
 log("ready", tag, bus.get_unique_name())
 loop.run()
 "#;
