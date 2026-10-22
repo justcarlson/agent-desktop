@@ -172,6 +172,14 @@ pub(crate) fn trusts_same_window_landing(toolkit: &ToolkitId) -> bool {
     matches!(kind(toolkit), ToolkitKind::Gtk3 | ToolkitKind::Qt)
 }
 
+/// Whether the point query stops at a container of the target instead of
+/// descending into it. GTK 4 answers a panel of the window and then nothing
+/// for the centre of a list, a row and a cell alike, so the landing alone
+/// cannot tell a covered target from an uncovered one.
+pub(crate) fn stops_above_target(toolkit: &ToolkitId) -> bool {
+    kind(toolkit) == ToolkitKind::Gtk4
+}
+
 #[cfg(test)]
 #[path = "toolkit_trust_tests.rs"]
 mod tests;

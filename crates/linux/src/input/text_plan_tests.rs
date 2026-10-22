@@ -101,3 +101,33 @@ fn text_planning_safety() {
         ErrorCode::ActionNotSupported
     );
 }
+
+fn count(steps: &[Step], wanted: impl Fn(&Step) -> bool) -> usize {
+    steps.iter().filter(|step| wanted(step)).count()
+}
+
+#[test]
+fn spare_keys_keep_their_characters_across_chunks_and_are_restored_once_at_the_end() {
+    let map = Keymap::sample();
+    let plans = plan_text(&map, &"你".repeat(CHUNK_CHARS * 3)).unwrap();
+    assert_eq!(plans.len(), 3);
+    let edits = |plan: &Plan| count(&plan.steps, |step| matches!(step, Step::Keymap(_)));
+    assert_eq!(edits(&plans[0]), 1);
+    assert_eq!(edits(&plans[1]), 0);
+    assert_eq!(edits(&plans[2]), 1);
+    let restore = plans[2]
+        .steps
+        .iter()
+        .position(|step| matches!(step, Step::Keymap(_)))
+        .unwrap();
+    assert_eq!(plans[2].steps[restore - 1], Step::Pause(REMAP_RESTORE_HOLD));
+    let typed: usize = plans
+        .iter()
+        .map(|plan| {
+            count(&plan.steps, |step| {
+                matches!(step, Step::Key { down: true, .. })
+            })
+        })
+        .sum();
+    assert_eq!(typed, CHUNK_CHARS * 3);
+}

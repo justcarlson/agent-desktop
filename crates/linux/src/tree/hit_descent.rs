@@ -195,7 +195,9 @@ pub(crate) fn require_unambiguous_branch<S: NodeSource>(
 }
 
 /// Classifies a verified chain. An outside landing requires both ancestry
-/// directions to be verified; any missing edge stays unresolved.
+/// directions to be verified; any missing edge stays unresolved, except that
+/// a lander of the target's own application whose parent edge is missing is
+/// `Unproved`: the toolkit named a node the walk does not list.
 pub(crate) fn locate<S: NodeSource>(
     source: &mut S,
     probe: &Probe,
@@ -221,7 +223,14 @@ pub(crate) fn locate<S: NodeSource>(
     }
     match climb(source, lander, target, frame, deadline)? {
         Climb::Met => return Ok(resolved(Landing::OnTarget)),
-        Climb::Unproved => return Ok(resolved(Landing::Unresolved)),
+        Climb::Unproved => {
+            let same_application = lander.bus_name() == target.bus_name();
+            return Ok(resolved(if same_application {
+                Landing::Unproved
+            } else {
+                Landing::Unresolved
+            }));
+        }
         Climb::Passed => {}
     }
     match climb(source, target, lander, frame, deadline)? {

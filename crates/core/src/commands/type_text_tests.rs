@@ -115,3 +115,11 @@ fn timeout_none_makes_exactly_one_resolve_attempt() {
     assert_eq!(err.code(), "STALE_REF");
     assert_eq!(adapter.retry.calls(), 1);
 }
+
+#[test]
+fn default_budget_grows_with_the_payload() {
+    assert_eq!(default_timeout_ms(""), 5_000);
+    assert_eq!(default_timeout_ms("abc"), 5_090);
+    assert_eq!(default_timeout_ms("é你"), 5_060);
+    assert_eq!(default_timeout_ms(&"x".repeat(2_000)), 65_000);
+}

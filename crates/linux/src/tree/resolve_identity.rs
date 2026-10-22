@@ -76,13 +76,14 @@ pub(super) fn candidate(
     entry: &RefEntry,
     evidence: &LocatorEvidence,
     element: super::AtspiElement,
-    depth: usize,
+    path: &[usize],
 ) -> super::candidate::Candidate {
     let mut candidate = super::candidate::Candidate {
         element,
         bounds: bounds_in(evidence, stored_space(entry)).known().copied(),
         bounds_space: stored_space(entry),
-        depth,
+        depth: path.len(),
+        path: path.to_vec(),
     };
     if matches!(
         bounds_in(evidence, stored_space(entry)),
