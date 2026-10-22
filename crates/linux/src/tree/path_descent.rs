@@ -5,7 +5,8 @@ use zbus::Connection;
 
 use super::landing::Landing;
 use super::level::Level;
-use super::node_read::read_node_with_liveness;
+use super::node_read::read_node_for;
+use super::read_purpose::ReadPurpose;
 use super::toolkit_trust::read_web_family;
 use super::walker_expand::{UNKNOWN_PID, child_elements, learn_pids};
 use super::{AtspiElement, RawNode};
@@ -108,7 +109,7 @@ impl Levels {
         };
         let (connection, pids) = (&self.connection, &mut self.pids);
         within(self.deadline, async {
-            let (node, _) = read_node_with_liveness(connection, element).await?;
+            let (node, _) = read_node_for(connection, element, ReadPurpose::Snapshot).await?;
             learn_pids(connection, pids, std::iter::once(&node)).await?;
             Ok(level_of(&node, pids, web_process))
         })

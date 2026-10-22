@@ -7,12 +7,13 @@ use super::candidate::Candidate;
 use super::landing::Landing;
 use super::level::Level;
 use super::path_descent::descend;
+use super::resolution::Verdict;
 use super::resolve_errors::{
     ambiguous, descendant_owner_gone, is_incomplete, no_candidate, settle_gone, stopped_aware,
     unverifiable_entry,
 };
-use super::resolve_match::{accepts_landing, entry_is_unverifiable};
-use super::resolve_verdict::{Verdict, classify};
+use super::resolve_identity::classify;
+use super::resolve_identity::entry_is_unverifiable;
 use super::searched::Searched;
 use super::walker_expand::UNKNOWN_PID;
 
@@ -60,29 +61,26 @@ fn path_tier_applies(entry: &RefEntry) -> bool {
     window_rooted(entry) && !entry.scope.path.is_empty()
 }
 
-/// The element the stored path lands on when it still answers to the stored
-/// identity and recorded rectangle, and whether the descent left a region
-/// unread. Declining is never a verdict: the search decides. A landing that
-/// was destroyed is settled gone, as the anchor path settles it, so it
-/// declines without leaving a region unread; any other failed read does.
+/// Whether the stored path leaves a region unread. Its landing never
+/// authorizes resolution: the search decides. A destroyed landing is settled
+/// gone and leaves no region unread; any other failed read does.
 fn path_tier<S: Source>(
     source: &mut S,
     frame: &AtspiElement,
     entry: &RefEntry,
     deadline: Deadline,
-) -> Result<(Option<AtspiElement>, bool), AdapterError> {
+) -> Result<bool, AdapterError> {
     let landing = descend(frame.clone(), &entry.scope.path, deadline, |element| {
         let outcome = source.level(element);
         outcome.map_err(|error| settle_read_error(source, entry, element, error))
     })?;
     let Landing { element, unread } = landing;
     let Some(element) = element.filter(|element| element.pid() != UNKNOWN_PID) else {
-        return Ok((None, unread));
+        return Ok(unread);
     };
     let evidence = source.evidence(&element);
     match evidence.map_err(|error| settle_read_error(source, entry, &element, error)) {
-        Ok(evidence) if accepts_landing(entry, &evidence) => Ok((Some(element), unread)),
-        Ok(_) => Ok((None, unread)),
+        Ok(_) => Ok(unread),
         Err(error)
             if matches!(
                 error.code,
@@ -91,8 +89,8 @@ fn path_tier<S: Source>(
         {
             Err(error)
         }
-        Err(error) if error.code == ErrorCode::ElementNotFound => Ok((None, false)),
-        Err(_) => Ok((None, true)),
+        Err(error) if error.code == ErrorCode::ElementNotFound => Ok(false),
+        Err(_) => Ok(true),
     }
 }
 
@@ -121,13 +119,7 @@ fn attempt<S: Source>(
     }
     let frame = source.open_window(entry)?;
     let path_unread = if path_tier_applies(entry) {
-        let (landed, unread) = path_tier(source, &frame, entry, deadline)?;
-        if let Some(element) = landed
-            && entry.identity.retained_object.is_some()
-        {
-            return Ok(element);
-        }
-        unread
+        path_tier(source, &frame, entry, deadline)?
     } else {
         false
     };
@@ -154,7 +146,7 @@ fn attempt<S: Source>(
             .bounds
             .as_ref()
             .filter(|_| has_meaningful_identity(entry)),
-        super::resolve_match::stored_space(entry),
+        super::resolve_identity::stored_space(entry),
         unread,
     ) {
         Verdict::Resolved(index) => searched
@@ -172,10 +164,9 @@ fn attempt<S: Source>(
 /// Resolves a stored ref to the live element it was taken from, or refuses.
 /// A ref with no identity evidence is refused before any read: a child index
 /// cannot distinguish an unnamed node from a replacement or reordered sibling.
-/// The window gate proves the process and window are the stored ones; the
-/// stored child-index path can identify a retained object. Every other ref
-/// searches the bounded window tree: a positional landing cannot prove that
-/// no matching sibling exists.
+/// The window gate proves the process and window are the stored ones. Every
+/// ref also searches the bounded window tree: a positional landing cannot
+/// prove that no matching sibling exists.
 /// An application that left, a destroyed object and a timeout are told apart
 /// at this boundary, and a timeout on a stopped process is `APP_UNRESPONSIVE`.
 pub(crate) fn resolve<S: Source>(

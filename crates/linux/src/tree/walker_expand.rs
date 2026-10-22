@@ -9,7 +9,8 @@ use super::ancestry;
 use super::bounded::collect_bounded;
 use super::label_read::read_label_if_needed;
 use super::liveness::Liveness;
-use super::node_read::read_node_with_liveness;
+use super::node_read::read_node_for;
+use super::read_purpose::ReadPurpose;
 use super::value_read::read_value;
 use super::{AtspiElement, Expansion, ObservedRead, RawNode, WalkLimits};
 use crate::system::{process_id, within};
@@ -84,6 +85,7 @@ pub(super) struct LevelReader<'a> {
     max_field_bytes: usize,
     deadline: Deadline,
     at_root: bool,
+    purpose: ReadPurpose,
 }
 
 impl<'a> LevelReader<'a> {
@@ -99,7 +101,13 @@ impl<'a> LevelReader<'a> {
             max_field_bytes: limits.max_field_bytes,
             deadline,
             at_root: true,
+            purpose: ReadPurpose::Snapshot,
         }
+    }
+
+    pub(super) fn for_purpose(mut self, purpose: ReadPurpose) -> Self {
+        self.purpose = purpose;
+        self
     }
 
     /// Reads one level of the tree with at most `NODES_IN_FLIGHT` nodes (about
@@ -113,13 +121,14 @@ impl<'a> LevelReader<'a> {
         let at_root = std::mem::replace(&mut self.at_root, false);
         let (connection, max_bytes) = (self.connection, self.max_field_bytes);
         let pids = &mut self.pids;
+        let purpose = self.purpose;
         within(self.deadline, async {
             let reads: Vec<Result<ObservedRead, AdapterError>> =
                 stream::iter(level.iter().map(|element| async move {
                     if !at_root && element.pid() == UNKNOWN_PID {
                         Err(AdapterError::new(ErrorCode::ElementNotFound, UNIDENTIFIED))
                     } else {
-                        read_observed_with_liveness(connection, element, max_bytes)
+                        read_observed(connection, element, max_bytes, purpose)
                             .await
                             .map(|(read, _)| read)
                     }
@@ -164,15 +173,31 @@ impl<'a> LevelReader<'a> {
 }
 
 /// The walk's own per-node read, with the liveness the node's `GetRole` showed.
-pub(super) async fn read_observed_with_liveness(
+pub(super) async fn read_observed(
     connection: &Connection,
     element: &AtspiElement,
     max_field_bytes: usize,
+    purpose: ReadPurpose,
 ) -> Result<(ObservedRead, Liveness), AdapterError> {
-    let (node, liveness) = read_node_with_liveness(connection, element).await?;
+    let (node, liveness) = read_node_for(connection, element, purpose).await?;
     let (label, value) = join(
-        read_label_if_needed(connection, &node),
-        read_value(connection, &node, max_field_bytes),
+        async {
+            if purpose.identity() {
+                read_label_if_needed(connection, &node).await
+            } else {
+                Ok(super::LabelOutcome::Failed)
+            }
+        },
+        async {
+            if purpose.value() {
+                read_value(connection, &node, max_field_bytes).await
+            } else {
+                Ok(super::value_read::ValueRead {
+                    value: super::Field::Failed("field not requested".to_owned()),
+                    truncated: false,
+                })
+            }
+        },
     )
     .await;
     Ok((

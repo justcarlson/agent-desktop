@@ -7,7 +7,7 @@ use crate::tree::test_support::read_of;
 const MS: fn(u64) -> Duration = Duration::from_millis;
 
 fn run(curve: &[usize], remaining: Duration) -> Vec<Step> {
-    let mut settle = Settle::new(remaining);
+    let mut settle = Readiness::new(remaining);
     let mut steps = Vec::new();
     let mut waited = Duration::ZERO;
     for nodes in curve {
@@ -66,11 +66,11 @@ fn settle_and_tree_predicate_boundaries() {
         PANEL,
         vec![node(DOCUMENT_FRAME, vec![])]
     )));
-    let mut settle = Settle::new(MS(60_000));
+    let mut settle = Readiness::new(MS(60_000));
     assert_eq!(settle.after_walk(2, Duration::ZERO, true), Step::Wait(POLL));
     assert_eq!(settle.after_walk(2, Duration::ZERO, true), Step::Wait(POLL));
     assert_eq!(settle.after_walk(2, Duration::ZERO, true), Step::Settled);
-    let mut settle = Settle::new(MS(60_000));
+    let mut settle = Readiness::new(MS(60_000));
     for _ in 0..2 {
         settle.after_walk(2, Duration::ZERO, false);
     }

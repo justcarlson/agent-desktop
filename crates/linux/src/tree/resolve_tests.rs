@@ -4,6 +4,7 @@ use super::*;
 use crate::tree::resolve_fake::{FRAME_PATH, Fake, deadline, node};
 use crate::tree::role_numbers::{PANEL, PUSH_BUTTON};
 use crate::tree::test_support::rect;
+use crate::tree::{Extents, Field};
 
 fn files() -> Fake {
     let mut fake = Fake::new();
@@ -289,16 +290,14 @@ fn a_destroyed_landing_declines_settled_and_any_other_failed_read_leaves_the_reg
         "/opts2".to_owned(),
         AdapterError::new(ErrorCode::ElementNotFound, "destroyed"),
     );
-    let (landed, unread) = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
-    assert!(landed.is_none());
+    let unread = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
     assert!(!unread);
 
     fake.faults.evidence_errors.insert(
         "/opts2".to_owned(),
         AdapterError::new(ErrorCode::Internal, "unreadable"),
     );
-    let (landed, unread) = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
-    assert!(landed.is_none());
+    let unread = path_tier(&mut fake, &frame, &entry, deadline()).expect("declines");
     assert!(unread);
 }
 
@@ -348,4 +347,42 @@ fn geometry_requires_the_recorded_frame_and_position() {
             }
         }
     }
+}
+
+#[test]
+fn twins_with_both_coordinate_frames_use_the_refs_recorded_frame() {
+    use agent_desktop_core::BoundsSpace;
+    let mut fake = Fake::new();
+    for (path, x) in [("/first", 10), ("/second", 40)] {
+        let mut read = node(PUSH_BUTTON, "Same", 23, 34);
+        read.node.extents = Field::Present(Extents {
+            x,
+            y: 10,
+            width: 23,
+            height: 34,
+        });
+        read.evidence_bounds = Some((
+            Extents {
+                x: x - 10,
+                y: 0,
+                width: 23,
+                height: 34,
+            },
+            BoundsSpace::Window,
+        ));
+        fake.add(FRAME_PATH, path, read);
+    }
+    let mut entry = fake.entry_of("/first", false);
+    entry.scope.path.clear();
+    entry.geometry.bounds = Some(crate::tree::test_support::rect(10.0, 10.0, 23.0, 34.0));
+    entry.geometry.bounds_space = Some(BoundsSpace::Screen);
+    assert_eq!(
+        resolve(&mut fake, &entry, deadline()).unwrap().path(),
+        "/first"
+    );
+    entry.geometry.bounds = Some(crate::tree::test_support::rect(90.0, 10.0, 23.0, 34.0));
+    assert_eq!(
+        resolve(&mut fake, &entry, deadline()).unwrap_err().code,
+        ErrorCode::AmbiguousTarget
+    );
 }

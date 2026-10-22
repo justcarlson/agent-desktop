@@ -1,21 +1,12 @@
 use agent_desktop_core::{
-    BoundsSpace, IdentityMatch, LocatorEvidence, Rect, RefEntry,
+    BoundsSpace, IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry,
     ref_identity::{
         has_meaningful_identity, has_stable_text_identity, identity_match, stable_text_match,
     },
 };
 
-/// What a search does with one node it has read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Admission {
-    /// The node answers to the stored evidence and counts as a candidate.
-    Collect,
-    /// The node's evidence could not settle the question, so this region of
-    /// the tree was not read conclusively and a negative verdict is withheld.
-    Unread,
-    /// The node is refuted or its role rules it out.
-    Reject,
-}
+use super::admission::Admission;
+use super::resolution::Verdict;
 
 /// The width and height of a rectangle that has an area. A zero or negative
 /// side is no size: GTK4 containers often report a zero axis, and `-1` is how
@@ -30,7 +21,7 @@ pub(crate) fn stored_size(entry: &RefEntry) -> Option<(f64, f64)> {
 
 /// The identity verdict. An identifier match alone would settle an
 /// identifier-bearing ref, but an identifier can be shared (Qt list rows share
-/// their list's, L3-9) or reused by a different element, so when the ref also
+/// their list's) or reused by a different element, so when the ref also
 /// carries stable text the text must agree: an identifier match with a text
 /// mismatch is a refutation, and an unreadable text is never a mismatch.
 pub(crate) fn identity_verdict(entry: &RefEntry, evidence: &LocatorEvidence) -> IdentityMatch {
@@ -72,11 +63,43 @@ pub(crate) fn stored_space(entry: &RefEntry) -> BoundsSpace {
     entry.geometry.bounds_space.unwrap_or_default()
 }
 
-fn live_rect(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<Rect> {
-    match stored_space(entry) {
-        BoundsSpace::Window => evidence.ref_evidence.window_bounds.known().copied(),
-        BoundsSpace::Screen => evidence.ref_evidence.bounds.known().copied(),
+fn bounds_in(evidence: &LocatorEvidence, space: BoundsSpace) -> &LocatorField<Rect> {
+    match space {
+        BoundsSpace::Window => &evidence.ref_evidence.window_bounds,
+        BoundsSpace::Screen => &evidence.ref_evidence.bounds,
     }
+}
+
+pub(super) fn geometry<'a>(
+    entry: &RefEntry,
+    evidence: &'a LocatorEvidence,
+) -> &'a LocatorField<Rect> {
+    bounds_in(evidence, stored_space(entry))
+}
+
+pub(super) fn candidate(
+    entry: &RefEntry,
+    evidence: &LocatorEvidence,
+    element: super::AtspiElement,
+    depth: usize,
+) -> super::candidate::Candidate {
+    let mut candidate = super::candidate::Candidate {
+        element,
+        bounds: geometry(entry, evidence).known().copied(),
+        bounds_space: stored_space(entry),
+        depth,
+    };
+    if matches!(geometry(entry, evidence), LocatorField::Absent) {
+        let other = match candidate.bounds_space {
+            BoundsSpace::Window => BoundsSpace::Screen,
+            BoundsSpace::Screen => BoundsSpace::Window,
+        };
+        if let Some(bounds) = bounds_in(evidence, other).known() {
+            candidate.bounds = Some(*bounds);
+            candidate.bounds_space = other;
+        }
+    }
+    candidate
 }
 
 pub(crate) fn rectangles_equal(left: &Rect, right: &Rect) -> bool {
@@ -89,7 +112,12 @@ fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<bool
         .bounds
         .as_ref()
         .filter(|rect| usable_size(rect).is_some())
-        .zip(live_rect(entry, evidence).filter(|rect| usable_size(rect).is_some()))
+        .zip(
+            geometry(entry, evidence)
+                .known()
+                .copied()
+                .filter(|rect| usable_size(rect).is_some()),
+        )
         .map(|(stored, live)| rectangles_equal(stored, &live))
 }
 
@@ -125,8 +153,7 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
         IdentityMatch::Match => Admission::Collect,
         IdentityMatch::Unknown if geometry_matches(entry, evidence) => Admission::Collect,
         IdentityMatch::Unknown
-            if provisional_geometry_candidate(entry)
-                && !evidence.ref_evidence.bounds.is_unknown() =>
+            if provisional_geometry_candidate(entry) && !geometry(entry, evidence).is_unknown() =>
         {
             Admission::Reject
         }
@@ -135,14 +162,65 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
     }
 }
 
-/// Decides the node the stored path landed on, from its own evidence alone.
-/// The claim is positional: the ref named this place and the element there
-/// still answers to the stored identity and recorded rectangle. It is not a
-/// claim that no twin exists elsewhere.
-pub(crate) fn accepts_landing(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
-    !geometry_contradicts(entry, evidence) && admit_node(entry, evidence) == Admission::Collect
+/// The one candidate whose whole rectangle matches in its recorded frame.
+/// It only ever picks among several candidates and never refutes one; a ref
+/// with no stored size cannot be separated this way and stays ambiguous. A
+/// candidate whose extents were not read is not a size that differs: it could
+/// be the element, so while any candidate is unread nothing is picked.
+pub(crate) fn select_by_stored_geometry(
+    candidates: &[Option<Rect>],
+    spaces: &[BoundsSpace],
+    stored: Option<&Rect>,
+    stored_space: BoundsSpace,
+) -> Option<usize> {
+    if stored.and_then(usable_size).is_none() || candidates.iter().any(Option::is_none) {
+        return None;
+    }
+    if spaces.len() != candidates.len() || spaces.iter().any(|space| *space != stored_space) {
+        return None;
+    }
+    let stored = stored?;
+    let mut matching = candidates.iter().enumerate().filter_map(|(index, rect)| {
+        let rect = rect.as_ref()?;
+        let same = usable_size(rect).is_some() && rectangles_equal(rect, stored);
+        same.then_some(index)
+    });
+    let first = matching.next()?;
+    matching.next().is_none().then_some(first)
+}
+
+/// Classifies the candidates a search collected. Two or more candidates with
+/// no usable stored size are ambiguous whatever else is unread, because no
+/// unread region can make them anything else. Below that, an unread region
+/// withholds every verdict, so a lone match found while another region could
+/// not be read is retried and not resolved.
+pub(crate) fn classify(
+    candidates: &[Option<Rect>],
+    spaces: &[BoundsSpace],
+    stored: Option<&Rect>,
+    stored_space: BoundsSpace,
+    unread_region: bool,
+) -> Verdict {
+    let separable = stored.and_then(usable_size).is_some();
+    if candidates.len() > 1 && !separable {
+        return Verdict::Ambiguous;
+    }
+    let extents_unread = candidates.len() > 1 && candidates.iter().any(Option::is_none);
+    if unread_region || extents_unread {
+        return Verdict::Incomplete;
+    }
+    match candidates.len() {
+        0 => Verdict::Stale,
+        1 => Verdict::Resolved(0),
+        _ => select_by_stored_geometry(candidates, spaces, stored, stored_space)
+            .map_or(Verdict::Ambiguous, Verdict::Resolved),
+    }
 }
 
 #[cfg(test)]
 #[path = "resolve_match_tests.rs"]
-mod tests;
+mod match_tests;
+
+#[cfg(test)]
+#[path = "resolve_verdict_tests.rs"]
+mod verdict_tests;

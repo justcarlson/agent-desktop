@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::admit::admit_children;
+use super::read_purpose::ReadPurpose;
 use super::walker_expand::LevelReader;
 use super::{
     AtspiElement, Expansion, NodeClass, ObservedRead, Walk, WalkCounts, WalkLimits, WalkedNode,
@@ -218,8 +219,19 @@ pub(crate) fn walk_tree(
     limits: &WalkLimits,
     deadline: Deadline,
 ) -> Result<Walk<ObservedRead>, AdapterError> {
+    walk_tree_for(bus, root, limits, deadline, ReadPurpose::Snapshot)
+}
+
+pub(super) fn walk_tree_for(
+    bus: &SharedBus,
+    root: &AtspiElement,
+    limits: &WalkLimits,
+    deadline: Deadline,
+    purpose: ReadPurpose,
+) -> Result<Walk<ObservedRead>, AdapterError> {
     let connection = bus.get(deadline)?;
-    let mut reader = LevelReader::new(connection.inner(), root, limits, deadline);
+    let mut reader =
+        LevelReader::new(connection.inner(), root, limits, deadline).for_purpose(purpose);
     walk_levels(
         root.clone(),
         limits,
@@ -236,7 +248,8 @@ pub(crate) fn walk_native_tree(
 ) -> Result<Walk<ObservedRead>, AdapterError> {
     let limits = WalkLimits::default();
     let connection = bus.get(deadline)?;
-    let mut reader = LevelReader::new(connection.inner(), root, &limits, deadline);
+    let mut reader = LevelReader::new(connection.inner(), root, &limits, deadline)
+        .for_purpose(ReadPurpose::Structure);
     walk_levels(
         root.clone(),
         &limits,
@@ -252,6 +265,11 @@ pub(crate) fn walk_native_tree(
             }
             Ok(reads)
         },
-        super::wrapper::classify,
+        |read| NodeClass {
+            web_document: super::role_numbers::is_web_document(
+                read.node.traits.role.present().copied(),
+            ),
+            ..NodeClass::default()
+        },
     )
 }

@@ -49,6 +49,50 @@ fn live_read(subject: &Subject) -> Result<(), AdapterError> {
         .map(|_| ())
 }
 
+fn oracle_removed(handle: &NativeHandle) {
+    let element = super::atspi_element(handle).unwrap();
+    let frame = element.frame().unwrap();
+    let output = std::process::Command::new("python3")
+        .args([
+            "-c",
+            r#"
+import sys, gi
+from gi.repository import Gio, GLib
+session = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+address = session.call_sync('org.a11y.Bus', '/org/a11y/bus', 'org.a11y.Bus',
+                            'GetAddress', None, None, Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+bus = Gio.DBusConnection.new_for_address_sync(address,
+    Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+    None, None)
+pending = [(sys.argv[1], sys.argv[2])]
+seen = set()
+while pending:
+    owner, path = pending.pop()
+    if (owner, path) in seen:
+        continue
+    seen.add((owner, path))
+    assert len(seen) < 2000, 'oracle traversal must be complete'
+    name = bus.call_sync(owner, path, 'org.freedesktop.DBus.Properties', 'Get',
+        GLib.Variant('(ss)', ('org.a11y.atspi.Accessible', 'Name')), None,
+        Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+    assert name != 'Victim', 'removed button still appears in native tree'
+    children = bus.call_sync(owner, path, 'org.a11y.atspi.Accessible', 'GetChildren',
+        None, None, Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+    pending.extend((owner, path) for owner, path in children
+                   if owner and path != '/org/a11y/atspi/null')
+"#,
+            frame.bus_name(),
+            frame.path(),
+        ])
+        .output()
+        .expect("independent AT-SPI oracle starts");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn assert_settled_stale(error: &AdapterError, label: &str, what: &str) {
     assert_eq!(
         error.code,
@@ -153,6 +197,11 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
         let subject = subject(make);
         super::action_read::read_node_view(&subject.rig.bus, &subject.handle, deadline(4_000))
             .expect("the live target can be read for an action");
+        subject
+            .rig
+            .adapter
+            .get_element_bounds(&subject.handle, deadline(4_000))
+            .expect("the live target can be read for bounds");
         subject.fixture.send("remove");
         let mut gone = None;
         assert!(
@@ -167,6 +216,7 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
             "[{label}] the removed element stops resolving"
         );
         let (error, elapsed) = gone.expect("recorded");
+        oracle_removed(&subject.handle);
         assert!(
             wait_until(Duration::from_secs(5), || {
                 super::action_read::read_node_view(
@@ -178,6 +228,12 @@ fn absence_live_a_removed_element_is_a_complete_miss_and_a_held_handle_is_record
             }),
             "[{label}] an action read refuses the removed target"
         );
+        let bounds = subject
+            .rig
+            .adapter
+            .get_element_bounds(&subject.handle, deadline(4_000))
+            .expect_err("a bounds read refuses the same removed target");
+        assert_settled_stale(&bounds, label, "held bounds");
         println!(
             "absence_live remove {label}: ref {:?} kind {} in {} ms",
             error.code,

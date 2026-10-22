@@ -1,8 +1,8 @@
-use agent_desktop_core::{BoundsSpace, LocatorField, RefEntry};
+use agent_desktop_core::RefEntry;
 
-use super::candidate::Candidate;
+use super::admission::Admission;
 use super::projection::project_node;
-use super::resolve_match::{Admission, admit_node};
+use super::resolve_identity::{admit_node, candidate};
 use super::role_numbers::is_web_document;
 use super::searched::Searched;
 use super::{ObservedRead, Walk, WalkLimits, WalkedNode};
@@ -30,23 +30,12 @@ fn visit(
     }
     let admission = admit_node(entry, &evidence);
     match admission {
-        Admission::Collect => found.candidates.push(Candidate {
-            element: node.payload.node.element.clone(),
-            bounds: match evidence.ref_evidence.window_bounds {
-                LocatorField::Known(rect) => Some(rect),
-                LocatorField::Absent | LocatorField::Unknown => {
-                    match evidence.ref_evidence.bounds {
-                        LocatorField::Known(rect) => Some(rect),
-                        LocatorField::Absent | LocatorField::Unknown => None,
-                    }
-                }
-            },
-            bounds_space: match evidence.ref_evidence.window_bounds {
-                LocatorField::Known(_) => BoundsSpace::Window,
-                LocatorField::Absent | LocatorField::Unknown => BoundsSpace::Screen,
-            },
+        Admission::Collect => found.candidates.push(candidate(
+            entry,
+            &evidence,
+            node.payload.node.element.clone(),
             depth,
-        }),
+        )),
         Admission::Unread => found.unread_region = true,
         Admission::Reject => {}
     }

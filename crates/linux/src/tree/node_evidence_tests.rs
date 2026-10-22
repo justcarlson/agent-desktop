@@ -71,3 +71,126 @@ fn menu_regression_inner_toggle_parent_keeps_its_frame_for_live_reads() {
         assert_eq!(restored.in_web_document(), web);
     }
 }
+
+#[test]
+fn pointer_evidence_reads_bounds_and_state_once_without_children_or_actions() {
+    use crate::tree::state_bits::{ENABLED, SHOWING, VISIBLE};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    use zbus::connection::Builder;
+    #[derive(Default)]
+    struct Counts {
+        bounds: AtomicUsize,
+        state: AtomicUsize,
+        children: AtomicUsize,
+        actions: AtomicUsize,
+    }
+    struct Accessible(Arc<Counts>);
+    #[zbus::interface(name = "org.a11y.atspi.Accessible")]
+    impl Accessible {
+        fn get_role(&self) -> u32 {
+            crate::tree::role_numbers::LIST
+        }
+        #[zbus(property)]
+        fn child_count(&self) -> i32 {
+            2
+        }
+        fn get_role_name(&self) -> &str {
+            "push button"
+        }
+        fn get_state(&self) -> Vec<u32> {
+            self.0.state.fetch_add(1, Ordering::SeqCst);
+            crate::tree::test_support::words(&[ENABLED, SHOWING, VISIBLE])
+        }
+        fn get_interfaces(&self) -> Vec<String> {
+            vec![
+                "org.a11y.atspi.Component".into(),
+                "org.a11y.atspi.Action".into(),
+                "org.a11y.atspi.Selection".into(),
+            ]
+        }
+        fn get_attributes(&self) -> std::collections::BTreeMap<String, String> {
+            std::collections::BTreeMap::new()
+        }
+        fn get_children(&self) -> Vec<(String, zbus::zvariant::OwnedObjectPath)> {
+            self.0.children.fetch_add(1, Ordering::SeqCst);
+            Vec::new()
+        }
+    }
+    struct Component(Arc<Counts>);
+    #[zbus::interface(name = "org.a11y.atspi.Component")]
+    impl Component {
+        fn get_extents(&self, _coordinates: u32) -> (i32, i32, i32, i32) {
+            self.0.bounds.fetch_add(1, Ordering::SeqCst);
+            (10, 20, 30, 40)
+        }
+    }
+    struct Actions(Arc<Counts>);
+    #[zbus::interface(name = "org.a11y.atspi.Action")]
+    impl Actions {
+        fn get_actions(&self) -> Vec<(String, String, String)> {
+            self.0.actions.fetch_add(1, Ordering::SeqCst);
+            Vec::new()
+        }
+    }
+    let counts = Arc::new(Counts::default());
+    let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+    let (client, server) = zbus::block_on(futures_lite::future::zip(
+        Builder::async_io_unix_stream(near).p2p().build(),
+        Builder::async_io_unix_stream(far)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at("/button", Accessible(counts.clone()))
+            .unwrap()
+            .serve_at("/button", Component(counts.clone()))
+            .unwrap()
+            .serve_at("/button", Actions(counts.clone()))
+            .unwrap()
+            .build(),
+    ));
+    let client = client.unwrap();
+    let _server = server.unwrap();
+    let mut element = AtspiElement::new(":1.1", "/button", 1);
+    element.set_ancestry(ancestry::of_root(&element));
+    let node = zbus::block_on(read_evidence(&client, &element, ReadPurpose::State)).unwrap();
+    assert_eq!(node.evidence.ref_evidence.bounds.known().unwrap().x, 10.0);
+    assert!(node.evidence.states.known().is_some());
+    assert!(
+        node.read.node.children.is_failed(),
+        "an omitted field is unknown"
+    );
+    assert_eq!(counts.bounds.load(Ordering::SeqCst), 1);
+    assert_eq!(counts.state.load(Ordering::SeqCst), 1);
+    assert_eq!(counts.children.load(Ordering::SeqCst), 0);
+    assert_eq!(counts.actions.load(Ordering::SeqCst), 0);
+    let bounds = zbus::block_on(read_evidence(&client, &element, ReadPurpose::Bounds)).unwrap();
+    assert!(
+        bounds.read.node.traits.states.present().is_some(),
+        "bounds reads need fresh state to corroborate a detached object"
+    );
+    assert_eq!(counts.bounds.load(Ordering::SeqCst), 2);
+    assert_eq!(counts.state.load(Ordering::SeqCst), 2);
+    assert_eq!(counts.children.load(Ordering::SeqCst), 0);
+    assert_eq!(counts.actions.load(Ordering::SeqCst), 0);
+    let actions = zbus::block_on(read_evidence(&client, &element, ReadPurpose::Actions)).unwrap();
+    assert!(
+        actions
+            .evidence
+            .ref_evidence
+            .available_actions
+            .known()
+            .unwrap()
+            .iter()
+            .any(|action| action == "Select")
+    );
+    assert_eq!(counts.children.load(Ordering::SeqCst), 0);
+    assert_eq!(counts.actions.load(Ordering::SeqCst), 1);
+    let element = zbus::block_on(read_evidence(&client, &element, ReadPurpose::Element)).unwrap();
+    assert_eq!(element.read.node.properties.child_count.present(), Some(&2));
+    assert!(element.read.node.children.is_failed());
+    assert_eq!(counts.children.load(Ordering::SeqCst), 0);
+    assert_eq!(counts.actions.load(Ordering::SeqCst), 2);
+}

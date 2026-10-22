@@ -280,3 +280,24 @@ fn a_retained_object_ref_refuses_a_replacement_at_the_old_rectangle() {
     let error = resolve(&mut fake, &entry, deadline()).expect_err("a new object at the old place");
     assert_eq!(error.code, ErrorCode::StaleRef);
 }
+
+#[test]
+fn a_retained_path_cannot_authorize_a_search_with_an_unread_region() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+    let mut entry = fake.entry_of("/first", true);
+    entry.identity.retained_object = Some(":1.2/first".to_owned());
+    assert_eq!(
+        resolve(&mut fake, &entry, deadline()).unwrap().path(),
+        "/first"
+    );
+    fake.add(
+        FRAME_PATH,
+        "/unread",
+        node(crate::tree::role_numbers::PANEL, "", 10, 10),
+    );
+    fake.nodes.get_mut("/unread").unwrap().children_unread = true;
+    let error = resolve(&mut fake, &entry, deadline()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert!(error.is_explicitly_retryable());
+}

@@ -5,12 +5,14 @@ use zbus::Connection;
 
 use super::live_offscreen::{global_position, placement};
 use super::live_project::{
-    live_actions, live_bounds, live_element, live_state, live_value, pointer_rect, settled_by_read,
+    live_actions, live_bounds, live_element, live_state, live_value, placed_states, pointer_rect,
+    settled_by_read,
 };
 use super::liveness::Liveness;
 use super::menu_context::MenuContext;
 use super::node_evidence::{NodeEvidence, read_evidence};
 use super::placement::Placement;
+use super::read_purpose::ReadPurpose;
 use super::resolve_errors::{
     object_gone, owner_unreachable, settle_gone, stopped_app, stopped_aware,
 };
@@ -38,6 +40,9 @@ pub(crate) trait NodeReader {
     ) -> Result<Vec<AtspiElement>, AdapterError> {
         Err(AdapterError::not_supported("modal window observation"))
     }
+    fn parent_lacks(&mut self, _element: &AtspiElement) -> bool {
+        false
+    }
     fn stopped_app(&mut self, pid: u32) -> Option<String>;
     /// Where the node sits in its window, read once.
     fn placement(&mut self, element: &AtspiElement, deadline: Deadline) -> Placement;
@@ -54,15 +59,19 @@ pub(crate) trait NodeReader {
     }
 }
 
-struct BusReader<'a> {
+pub(super) struct BusReader<'a> {
     bus: &'a SharedBus,
     connection: &'a Connection,
     deadline: Deadline,
+    purpose: ReadPurpose,
 }
 
 impl NodeReader for BusReader<'_> {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
-        within(self.deadline, read_evidence(self.connection, element))
+        within(
+            self.deadline,
+            read_evidence(self.connection, element, self.purpose),
+        )
     }
 
     fn native_tree(
@@ -106,6 +115,10 @@ impl NodeReader for BusReader<'_> {
         })
     }
 
+    fn parent_lacks(&mut self, element: &AtspiElement) -> bool {
+        super::absence::parent_lacks(self.connection, element, self.deadline)
+    }
+
     fn stopped_app(&mut self, pid: u32) -> Option<String> {
         stopped_app(pid)
     }
@@ -138,6 +151,18 @@ pub(crate) fn read_live<R: NodeReader>(
     let element = atspi_element(handle)?;
     let pid = element.frame().map_or_else(|| element.pid(), |f| f.pid());
     let outcome = reader.read(element).and_then(|node| match node.liveness {
+        Liveness::Alive
+            if node
+                .read
+                .node
+                .traits
+                .states
+                .present()
+                .is_some_and(|words| words.iter().all(|word| *word == 0))
+                && reader.parent_lacks(element) =>
+        {
+            Err(object_gone())
+        }
         Liveness::Alive => Ok(node),
         Liveness::TimedOut => Err(AdapterError::timeout(
             "The accessible object did not answer in time",
@@ -156,10 +181,11 @@ pub(crate) fn read_live<R: NodeReader>(
     })
 }
 
-fn with_reader<T>(
+pub(super) fn with_reader<T>(
     bus: &SharedBus,
     handle: &NativeHandle,
     deadline: Deadline,
+    purpose: ReadPurpose,
     project: impl FnOnce(&mut BusReader<'_>, &NativeHandle) -> Result<T, AdapterError>,
 ) -> Result<T, AdapterError> {
     atspi_element(handle)?;
@@ -168,6 +194,7 @@ fn with_reader<T>(
         bus,
         connection: &connection,
         deadline,
+        purpose,
     };
     project(&mut reader, handle)
 }
@@ -229,14 +256,54 @@ pub(crate) fn bounds_via<R: NodeReader>(
     Ok(pointer_rect(&node.read, &placed))
 }
 
+pub(crate) fn pointer_via<R: NodeReader>(
+    reader: &mut R,
+    handle: &NativeHandle,
+    deadline: Deadline,
+) -> Result<agent_desktop_core::PointerObservation, AdapterError> {
+    let node = read_live(reader, handle)?;
+    let element = atspi_element(handle)?;
+    let global = reader.global_position(element, deadline);
+    let placed = if global && settled_by_read(&node.read) {
+        Placement::default()
+    } else {
+        reader.placement(element, deadline)
+    };
+    let bounds = if global {
+        live_bounds(&node.read)
+    } else {
+        pointer_rect(&node.read, &placed)
+    };
+    let states = placed_states(&node.read, &node.evidence, &placed)?.states;
+    Ok(agent_desktop_core::PointerObservation { bounds, states })
+}
+
+pub(crate) fn observe_pointer(
+    bus: &SharedBus,
+    handle: &NativeHandle,
+    deadline: Deadline,
+) -> Result<agent_desktop_core::PointerObservation, AdapterError> {
+    with_reader(
+        bus,
+        handle,
+        deadline,
+        ReadPurpose::Bounds,
+        |reader, handle| pointer_via(reader, handle, deadline),
+    )
+}
+
 pub(crate) fn get_live_value(
     bus: &SharedBus,
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<String>, AdapterError> {
-    with_reader(bus, handle, deadline, |reader, handle| {
-        live_value(&read_live(reader, handle)?.evidence)
-    })
+    with_reader(
+        bus,
+        handle,
+        deadline,
+        ReadPurpose::Value,
+        |reader, handle| live_value(&read_live(reader, handle)?.evidence),
+    )
 }
 
 pub(crate) fn get_live_state(
@@ -244,9 +311,13 @@ pub(crate) fn get_live_state(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<ElementState>, AdapterError> {
-    with_reader(bus, handle, deadline, |reader, handle| {
-        state_via(reader, handle, deadline)
-    })
+    with_reader(
+        bus,
+        handle,
+        deadline,
+        ReadPurpose::State,
+        |reader, handle| state_via(reader, handle, deadline),
+    )
 }
 
 pub(crate) fn get_live_actions(
@@ -254,9 +325,13 @@ pub(crate) fn get_live_actions(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<Vec<String>>, AdapterError> {
-    with_reader(bus, handle, deadline, |reader, handle| {
-        live_actions(&read_live(reader, handle)?.evidence).map(Some)
-    })
+    with_reader(
+        bus,
+        handle,
+        deadline,
+        ReadPurpose::Actions,
+        |reader, handle| live_actions(&read_live(reader, handle)?.evidence).map(Some),
+    )
 }
 
 pub(crate) fn get_live_element(
@@ -264,9 +339,13 @@ pub(crate) fn get_live_element(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<LiveElement, AdapterError> {
-    with_reader(bus, handle, deadline, |reader, handle| {
-        element_via(reader, handle, deadline)
-    })
+    with_reader(
+        bus,
+        handle,
+        deadline,
+        ReadPurpose::Element,
+        |reader, handle| element_via(reader, handle, deadline),
+    )
 }
 
 pub(crate) fn get_element_bounds(
@@ -274,9 +353,13 @@ pub(crate) fn get_element_bounds(
     handle: &NativeHandle,
     deadline: Deadline,
 ) -> Result<Option<Rect>, AdapterError> {
-    with_reader(bus, handle, deadline, |reader, handle| {
-        bounds_via(reader, handle, deadline)
-    })
+    with_reader(
+        bus,
+        handle,
+        deadline,
+        ReadPurpose::Bounds,
+        |reader, handle| bounds_via(reader, handle, deadline),
+    )
 }
 
 #[cfg(test)]

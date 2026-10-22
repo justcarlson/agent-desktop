@@ -7,7 +7,7 @@ use super::live_rig::{Rig, deadline, refused, rig, wait_until};
 use super::live_tree::{children_of, pid_of};
 use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
 
-fn oracle_bounds(handle: &NativeHandle) -> [i32; 4] {
+pub(super) fn oracle_bounds(handle: &NativeHandle) -> [i32; 4] {
     let element = super::atspi_element(handle).expect("Linux handle");
     let output = std::process::Command::new("python3")
         .args([

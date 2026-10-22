@@ -92,35 +92,6 @@ fn missing_or_empty_stored_rectangles_cannot_refute_geometry() {
 }
 
 #[test]
-fn a_landing_is_positional_so_a_twin_elsewhere_does_not_matter_but_a_resize_declines_it() {
-    let entry = sized(
-        named("button", "View Options"),
-        rect(10.0, 10.0, 34.0, 34.0),
-    );
-    let landed = evidence(
-        "button",
-        Some("View Options"),
-        None,
-        Some(rect(10.0, 10.0, 34.0, 34.0)),
-    );
-    let resized = evidence(
-        "button",
-        Some("View Options"),
-        None,
-        Some(rect(300.0, 20.0, 23.0, 34.0)),
-    );
-    let renamed = evidence(
-        "button",
-        Some("Other"),
-        None,
-        Some(rect(300.0, 20.0, 34.0, 34.0)),
-    );
-    assert!(accepts_landing(&entry, &landed));
-    assert!(!accepts_landing(&entry, &resized));
-    assert!(!accepts_landing(&entry, &renamed));
-}
-
-#[test]
 fn an_unreadable_identity_needs_the_whole_recorded_rectangle() {
     let entry = sized(ref_entry("entry"), rect(5.0, 5.0, 120.0, 24.0));
     let same = evidence("entry", None, None, Some(rect(5.0, 5.0, 120.0, 24.0)));
@@ -189,4 +160,22 @@ fn a_retained_object_is_refuted_by_a_different_rectangle_at_the_same_path() {
 
     let same = retained_evidence("/row", rect(0.0, 38.0, 420.0, 34.0));
     assert_eq!(admit_node(&entry, &same), Admission::Collect);
+}
+
+#[test]
+fn unread_window_geometry_is_not_refuted_by_known_screen_bounds() {
+    let mut entry = sized(ref_entry("textfield"), rect(0.0, 0.0, 80.0, 20.0));
+    entry.geometry.bounds_space = Some(BoundsSpace::Window);
+    let mut live = evidence(
+        "textfield",
+        None,
+        None,
+        Some(rect(500.0, 500.0, 80.0, 20.0)),
+    );
+    live.ref_evidence.window_bounds = LocatorField::Unknown;
+    assert_eq!(admit_node(&entry, &live), Admission::Unread);
+    live.ref_evidence.window_bounds = LocatorField::Known(rect(0.0, 0.0, 80.0, 20.0));
+    assert_eq!(admit_node(&entry, &live), Admission::Collect);
+    live.ref_evidence.window_bounds = LocatorField::Known(rect(0.0, 1.0, 80.0, 20.0));
+    assert_eq!(admit_node(&entry, &live), Admission::Reject);
 }
