@@ -3,7 +3,8 @@ pub(crate) mod fake;
 
 use agent_desktop_core::{Action, ActionRequest, DragParams, ErrorCode, KeyCombo, Point};
 
-use super::{aim_point, deliver_in, ensure_headed_click_policy, ensure_keyboard_policy};
+use super::deliver_in;
+use crate::input::deliver::{ensure_headed_click_policy, ensure_keyboard_policy};
 use agent_desktop_core::InteractionPolicy;
 use fake::{FakeWorld, deadline, element, not_delivered};
 
@@ -111,3 +112,5 @@ fn a_non_finite_verified_point_is_refused_before_it_is_aimed_at() {
     let error = aim_point(&world, &element(), Some(&point), deadline()).unwrap_err();
     assert_eq!(error.code, ErrorCode::InvalidArgs);
 }
+
+use crate::input::target_pointer::aim_point;

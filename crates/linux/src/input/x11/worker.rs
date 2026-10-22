@@ -91,6 +91,13 @@ fn gate_passed(link: &Link) -> bool {
 }
 
 fn preflight(sink: &mut dyn X11Sink, plans: &[Plan]) -> Result<(), AdapterError> {
+    if !plans
+        .iter()
+        .flat_map(|plan| &plan.steps)
+        .any(|step| matches!(step, Step::MoveTo { .. }))
+    {
+        return Ok(());
+    }
     let (width, height) = sink.root_size().map_err(SinkError::into_adapter)?;
     let (width, height) = (i32::from(width), i32::from(height));
     let outside = |step: &Step| {
@@ -137,11 +144,7 @@ fn run_step(
     }
     let sent = match step {
         Step::CheckTextState => {
-            return guard
-                .sink()
-                .keymap()
-                .map_err(SinkError::into_adapter)?
-                .ensure_text_state();
+            return guard.sink().ensure_text_state();
         }
         Step::Key { code, down } => guard.key(*code, *down),
         Step::Button { code, down } => guard.button(*code, *down),

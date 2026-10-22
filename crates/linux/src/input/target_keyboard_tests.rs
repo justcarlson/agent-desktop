@@ -1,6 +1,41 @@
 use agent_desktop_core::{AdapterError, ErrorCode, InteractionPolicy, KeyCombo};
 
-use super::{press_for_process, press_key_element_steps, press_key_global_steps, type_text_steps};
+use super::{press_for_process, press_key_global_steps, target_steps};
+use crate::input::target_world::PhysicalWorld;
+use crate::tree::AtspiElement;
+use agent_desktop_core::{Action, ActionStep, Deadline};
+
+fn type_text_steps(
+    world: &impl PhysicalWorld,
+    element: &AtspiElement,
+    text: &str,
+    policy: InteractionPolicy,
+    deadline: Deadline,
+) -> Result<Vec<ActionStep>, AdapterError> {
+    target_steps(
+        world,
+        element,
+        &Action::TypeText(text.to_owned()),
+        policy,
+        deadline,
+    )
+}
+
+fn press_key_element_steps(
+    world: &impl PhysicalWorld,
+    element: &AtspiElement,
+    combo: &KeyCombo,
+    policy: InteractionPolicy,
+    deadline: Deadline,
+) -> Result<Vec<ActionStep>, AdapterError> {
+    target_steps(
+        world,
+        element,
+        &Action::PressKey(combo.clone()),
+        policy,
+        deadline,
+    )
+}
 use crate::actions::physical_target::tests::fake::{
     FakeWorld, check_of, deadline, element, expired, not_delivered,
 };
@@ -112,7 +147,7 @@ fn a_frame_that_becomes_active_after_two_polls_proceeds() {
 
 #[test]
 fn a_frame_that_loses_active_before_the_third_chunk_stops_after_two() {
-    let world = FakeWorld::x11().with_chunks(3).active_script(&[
+    let world = FakeWorld::x11().active_script(&[
         Some(true),
         Some(true),
         Some(true),
@@ -122,7 +157,7 @@ fn a_frame_that_loses_active_before_the_third_chunk_stops_after_two() {
     let error = type_text_steps(
         &world,
         &element(),
-        "long text",
+        &"a".repeat(65),
         InteractionPolicy::headed(),
         deadline(),
     )
@@ -166,18 +201,17 @@ fn an_expired_deadline_fails_before_any_event() {
 
 #[test]
 fn wayland_keys_go_through_the_keysym_sender_after_target_focus_preflight() {
-    let world = FakeWorld::wayland().with_chunks(2);
+    let world = FakeWorld::wayland();
     let steps = type_text_steps(
         &world,
         &element(),
-        "hi",
+        &"a".repeat(33),
         InteractionPolicy::focus_fallback(),
         deadline(),
     )
     .unwrap();
     assert_eq!(steps[0].label(), "RemoteDesktop.type_text");
     assert_eq!(world.count("keymap"), 0);
-    assert_eq!(world.count("plan_text_keysyms"), 1);
     assert_eq!(world.count("sent"), 2);
 }
 

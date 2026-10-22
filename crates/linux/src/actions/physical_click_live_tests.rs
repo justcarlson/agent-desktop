@@ -1,5 +1,6 @@
 use super::live_bench::Bench;
 use super::live_scroll_tests::read;
+use super::physical_receiver_world::ReceiverWorld;
 use crate::tree::live_launch::{Launched, nonce};
 use agent_desktop_core::{
     Action, ActionRequest, Deadline, DeliverySemantics, HitTestResult, ObservationOps, Point,
@@ -135,5 +136,175 @@ fn ref_multiclick_stops_at_a_changed_receiver_and_preserves_the_gesture() {
             }
             eprintln!("{mode} {count}-click independent app receipt: {observed}");
         }
+    }
+}
+
+const MOTION_APP: &str = r#"
+import gi, json, pathlib, sys
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk, GLib
+path = pathlib.Path(sys.argv[2])
+window = Gtk.Window(title=sys.argv[1])
+window.set_default_size(300, 200)
+window.move(100, 100)
+counts = {'Target': 0, 'Cover': 0, 'covered': False, 'reset': False}
+def record():
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(counts))
+    temporary.replace(path)
+def clicked(name):
+    counts[name] += 1
+    record()
+target = Gtk.Button(label='Target')
+target.connect('clicked', lambda *_: clicked('Target'))
+window.add(target)
+cover = Gtk.Window(type=Gtk.WindowType.POPUP, title='Cover')
+cover.set_decorated(False)
+cover.set_keep_above(True)
+cover.set_default_size(300, 200)
+interceptor = Gtk.Button(label='Cover')
+interceptor.connect('clicked', lambda *_: clicked('Cover'))
+cover.add(interceptor)
+def enter(*_):
+    if path.with_suffix('.arm').exists() and not counts['reset']:
+        cover.move(*window.get_position())
+        cover.show_all()
+        Gdk.Display.get_default().sync()
+        counts['covered'] = True
+        record()
+    return False
+target.connect('enter-notify-event', enter)
+def reset():
+    if path.with_suffix('.reset').exists() and not counts['reset']:
+        counts['reset'] = True
+        cover.hide()
+        Gdk.Display.get_default().sync()
+        counts['covered'] = False
+        record()
+    return True
+GLib.timeout_add(30, reset)
+window.show_all()
+record()
+Gtk.main()
+"#;
+
+#[test]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
+fn a_motion_triggered_cover_is_rechecked_before_the_first_button() {
+    use crate::input::target_pointer::{ClickSpec, click_steps};
+    use agent_desktop_core::{
+        InputOps, InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, SystemOps,
+    };
+
+    for _ in 0..2 {
+        let mut launched = Launched::new();
+        let tag = nonce("motion-receiver");
+        let scratch = std::env::temp_dir().join(&tag);
+        std::fs::create_dir_all(&scratch).unwrap();
+        launched.scratch.push(scratch.clone());
+        let state = scratch.join("state.json");
+        let pid = launched.spawn(
+            "python3",
+            &["-c", MOTION_APP, &tag, state.to_str().unwrap()],
+        );
+        let adapter = crate::LinuxAdapter::new();
+        let frame = Bench::wait_for_frame(&adapter, &tag, pid, 20).expect("GTK window");
+        let bench = Bench::attach(launched, frame);
+        let target = bench.named("Target");
+        {
+            let lease = bench
+                .adapter()
+                .acquire_interaction_lease(Deadline::after(10_000).unwrap())
+                .unwrap();
+            bench
+                .adapter()
+                .mouse_event(
+                    MouseEvent {
+                        point: Point { x: 0., y: 0. },
+                        button: MouseButton::Left,
+                        kind: MouseEventKind::Move,
+                        modifiers: Vec::new(),
+                    },
+                    &lease,
+                )
+                .unwrap();
+        }
+        let pointer = || {
+            std::process::Command::new("xdotool")
+                .args(["getmouselocation", "--shell"])
+                .output()
+                .unwrap()
+                .stdout
+        };
+        let before = pointer();
+        bench
+            .act(&target, Action::Click)
+            .expect("headless semantic click");
+        assert!(
+            bench
+                .wait_for(|| (read(&state)["Target"] == 1).then_some(()))
+                .is_some()
+        );
+        assert_eq!(
+            pointer(),
+            before,
+            "semantic delivery leaves the pointer still"
+        );
+        std::fs::write(state.with_extension("arm"), "").unwrap();
+        let lease = bench
+            .adapter()
+            .acquire_interaction_lease(Deadline::after(30_000).unwrap())
+            .unwrap();
+        let element = crate::tree::atspi_element(&target).unwrap();
+        let await_cover = |checks| {
+            if checks == 1 {
+                bench
+                    .wait_for(|| (read(&state)["covered"] == true).then_some(()))
+                    .expect("the app acknowledged its motion-triggered cover");
+            }
+        };
+        let world = ReceiverWorld::new(
+            crate::input::target_world::LiveWorld {
+                bus: bench.adapter().bus(),
+                lease: &lease,
+            },
+            &await_cover,
+        );
+        let error = click_steps(
+            &world,
+            element,
+            ClickSpec::left(1, None),
+            InteractionPolicy::headed(),
+            lease.deadline(),
+        )
+        .expect_err("the motion-triggered cover must stop the button");
+        assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+        let details = error.details.unwrap();
+        assert_eq!(details["delivered_clicks"], 0);
+        assert_eq!(details["physical_delivery_started"], true);
+        assert_eq!(details["check"], "receives_events");
+        assert_eq!(read(&state)["Target"], 1);
+        assert_eq!(read(&state)["Cover"], 0);
+        std::fs::write(state.with_extension("reset"), "").unwrap();
+        assert!(
+            bench
+                .wait_for(|| (read(&state)["reset"] == true).then_some(()))
+                .is_some()
+        );
+        click_steps(
+            &world.live,
+            element,
+            ClickSpec::left(1, None),
+            InteractionPolicy::headed(),
+            lease.deadline(),
+        )
+        .expect("the uncovered receiver still works");
+        assert!(
+            bench
+                .wait_for(|| (read(&state)["Target"] == 2).then_some(()))
+                .is_some()
+        );
+        assert_eq!(read(&state)["Cover"], 0);
+        eprintln!("independent motion receiver receipt: {}", read(&state));
     }
 }

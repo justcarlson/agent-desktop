@@ -35,7 +35,7 @@ fn remote_desktop_answers_on_the_session_bus_and_not_on_the_accessibility_bus() 
 #[test]
 #[ignore = "starts a headless shell; run inside scripts/private-session.sh"]
 fn real_stream_setup_preserves_monitor_errors_and_accepts_a_real_monitor() {
-    use crate::input::shell_click::run_pointer;
+    use crate::input::wayland::pointer_send::run_pointer;
     use agent_desktop_core::{DeliverySemantics, MouseButton, Point, Rect};
     let runtime = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("private session");
     let mut launched = Launched::new();
@@ -89,9 +89,14 @@ for connector in ('absent-private-monitor', sys.argv[1]):
     let mut desktop = RemoteDesktop::open(deadline()).unwrap();
     let error = run_pointer(
         &mut desktop,
-        &Point { x: 640., y: 16. },
+        &agent_desktop_core::MouseEvent {
+            point: Point { x: 640., y: 16. },
+            button: MouseButton::Left,
+            kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+            modifiers: Vec::new(),
+        },
         &[invalid],
-        &MouseButton::Left,
+        &mut || Ok(()),
         deadline(),
     )
     .unwrap_err();

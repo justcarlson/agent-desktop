@@ -36,6 +36,7 @@ pub(crate) enum Recorded {
 }
 
 pub(crate) struct FakeWorld {
+    pub(crate) queries: Vec<&'static str>,
     pub(crate) events: Vec<Recorded>,
     pub(crate) keymap: Keymap,
     pub(crate) fail_on_event: Option<usize>,
@@ -73,6 +74,7 @@ impl FakeSink {
     pub(crate) fn new() -> Self {
         Self {
             world: Arc::new(Mutex::new(FakeWorld {
+                queries: Vec::new(),
                 events: Vec::new(),
                 keymap: start_keymap(),
                 fail_on_event: None,
@@ -211,7 +213,14 @@ impl X11Sink for FakeSink {
     }
 
     fn keymap(&mut self) -> Result<Keymap, SinkError> {
+        self.world().queries.push("keymap");
         Ok(self.world().keymap.clone())
+    }
+
+    fn ensure_text_state(&mut self) -> Result<(), AdapterError> {
+        let mut world = self.world();
+        world.queries.push("text_state");
+        world.keymap.ensure_text_state()
     }
 
     fn edit_keymap(&mut self, edit: &KeymapEdit) -> Result<(), SinkError> {
@@ -224,6 +233,7 @@ impl X11Sink for FakeSink {
     }
 
     fn root_size(&mut self) -> Result<(u16, u16), SinkError> {
+        self.world().queries.push("root_size");
         Ok(self.world().root)
     }
 }

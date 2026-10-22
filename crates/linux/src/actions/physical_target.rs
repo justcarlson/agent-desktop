@@ -1,81 +1,17 @@
-use std::time::Duration;
-
 use agent_desktop_core::{
     Action, ActionRequest, ActionResult, AdapterError, Deadline, DeliverySemantics, ErrorCode,
-    InteractionLease, InteractionPolicy, KeyCombo, MouseButton, Point, Rect,
+    InteractionLease,
 };
 use serde_json::json;
 
-use super::physical_click::{self, ClickSpec};
-use super::physical_keyboard;
-use super::physical_live_world::LiveWorld;
-use super::physical_scroll;
-use crate::input::backend::Backend;
-use crate::input::delivery::{Delivery, Gate};
-use crate::input::keymap::Keymap;
-use crate::input::keysym_step::KeysymStep;
-use crate::input::plan::Plan;
+use crate::input::deliver::ensure_budget;
+pub(crate) use crate::input::deliver::ensure_headed_click_policy;
+use crate::input::target_keyboard;
+use crate::input::target_pointer::{self, ClickSpec};
+use crate::input::target_world::LiveWorld;
+pub(crate) use crate::input::target_world::PhysicalWorld;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
-
-/// The desktop observations and input used by each physical leg.
-pub(crate) trait PhysicalWorld {
-    fn backend(&self) -> Result<Backend, AdapterError>;
-    fn focus_target(&self, element: &AtspiElement, deadline: Deadline) -> Result<(), AdapterError>;
-    fn target_focused(
-        &self,
-        element: &AtspiElement,
-        deadline: Deadline,
-    ) -> Result<bool, AdapterError>;
-    fn keymap(&self, deadline: Deadline) -> Result<Keymap, AdapterError>;
-    fn frame_active(
-        &self,
-        element: &AtspiElement,
-        deadline: Deadline,
-    ) -> Result<Option<bool>, AdapterError>;
-    fn bounds(
-        &self,
-        element: &AtspiElement,
-        deadline: Deadline,
-    ) -> Result<Option<Rect>, AdapterError>;
-    fn validate_pointer(
-        &self,
-        element: &AtspiElement,
-        point: &Point,
-        deadline: Deadline,
-    ) -> Result<(), AdapterError>;
-    fn plan_combo(&self, map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError>;
-    fn plan_keysyms(&self, combo: &KeyCombo) -> Result<Vec<KeysymStep>, AdapterError>;
-    fn plan_text(&self, map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError>;
-    fn plan_text_keysyms(&self, text: &str) -> Vec<Vec<KeysymStep>>;
-    fn plan_click(
-        &self,
-        map: &Keymap,
-        at: Point,
-        button: &MouseButton,
-        count: u32,
-    ) -> Result<Plan, AdapterError>;
-    fn plan_wheel(
-        &self,
-        map: &Keymap,
-        at: Point,
-        deltas: (f64, f64),
-    ) -> Result<Vec<Plan>, AdapterError>;
-    fn send_plans(
-        &self,
-        plans: Vec<Plan>,
-        gate: Gate<'_>,
-        deadline: Deadline,
-    ) -> Result<Delivery, AdapterError>;
-    fn send_keysyms(
-        &self,
-        chunks: &[Vec<KeysymStep>],
-        gate: Gate<'_>,
-        deadline: Deadline,
-    ) -> Result<Delivery, AdapterError>;
-    fn pointer_refusal(&self, what: &'static str) -> AdapterError;
-    fn pause(&self, duration: Duration);
-}
 
 pub(crate) fn deliver(
     bus: &SharedBus,
@@ -104,130 +40,53 @@ pub(crate) fn deliver_in(
     let verified = request.verified_point().cloned();
     let steps = match (action, element) {
         (Action::PressKey(combo), None) => {
-            physical_keyboard::press_key_global_steps(world, combo, deadline)?
+            target_keyboard::press_key_global_steps(world, combo, deadline)?
         }
         (Action::KeyDown(_) | Action::KeyUp(_) | Action::Hover | Action::Drag(_), _) => {
             return Err(adapter_level_rejection(action.name()));
         }
         (_, None) => return Err(missing_element(action.name())),
-        (Action::TypeText(text), Some(target)) => {
-            physical_keyboard::type_text_steps(world, target, text, request.policy, deadline)?
+        (Action::TypeText(_) | Action::PressKey(_), Some(target)) => {
+            target_keyboard::target_steps(world, target, action, request.policy, deadline)?
         }
-        (Action::PressKey(combo), Some(target)) => physical_keyboard::press_key_element_steps(
-            world,
-            target,
-            combo,
-            request.policy,
-            deadline,
-        )?,
-        (Action::Click, Some(target)) => physical_click::click_steps(
+        (Action::Click, Some(target)) => target_pointer::click_steps(
             world,
             target,
             ClickSpec::left(1, verified),
             request.policy,
             deadline,
         )?,
-        (Action::DoubleClick, Some(target)) => physical_click::click_steps(
+        (Action::DoubleClick, Some(target)) => target_pointer::click_steps(
             world,
             target,
             ClickSpec::left(2, verified),
             request.policy,
             deadline,
         )?,
-        (Action::TripleClick, Some(target)) => physical_click::click_steps(
+        (Action::TripleClick, Some(target)) => target_pointer::click_steps(
             world,
             target,
             ClickSpec::left(3, verified),
             request.policy,
             deadline,
         )?,
-        (Action::RightClick, Some(target)) => physical_click::click_steps(
+        (Action::RightClick, Some(target)) => target_pointer::click_steps(
             world,
             target,
             ClickSpec::right(verified),
             request.policy,
             deadline,
         )?,
-        (Action::Scroll(direction, amount), Some(target)) => physical_scroll::scroll_steps(
+        (Action::Scroll(direction, amount), Some(target)) => target_pointer::scroll_steps(
             world,
             target,
-            physical_scroll::wheel_deltas(direction, *amount),
+            target_pointer::wheel_deltas(direction, *amount),
             request.policy,
             deadline,
         )?,
         (other, Some(_)) => return Err(unsupported_action(other.name())),
     };
     Ok(ActionResult::from_execution(action, steps))
-}
-
-pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        return Err(AdapterError::timeout("Operation exceeded its deadline")
-            .with_details(json!({
-                "kind": "deadline",
-                "timeout_ms": deadline.timeout_ms(),
-                "elapsed_ms": deadline.elapsed().as_millis(),
-                "physical_delivery_started": false,
-            }))
-            .with_disposition(DeliverySemantics::not_delivered()));
-    }
-    Ok(())
-}
-
-pub(crate) fn ensure_keyboard_policy(policy: InteractionPolicy) -> Result<(), AdapterError> {
-    if !policy.allow_focus_steal {
-        return Err(AdapterError::policy_denied_for_policy(
-            "Physical keyboard fallback requires focus permission",
-            policy,
-        ));
-    }
-    Ok(())
-}
-
-pub(crate) fn ensure_headed_click_policy(policy: InteractionPolicy) -> Result<(), AdapterError> {
-    if !policy.allow_cursor_move || !policy.allow_focus_steal {
-        return Err(AdapterError::policy_denied_for_policy(
-            "Physical pointer input is disabled by the current interaction policy",
-            policy,
-        ));
-    }
-    Ok(())
-}
-
-pub(crate) fn aim_point(
-    world: &impl PhysicalWorld,
-    element: &AtspiElement,
-    verified: Option<&Point>,
-    deadline: Deadline,
-) -> Result<Point, AdapterError> {
-    if let Some(point) = verified {
-        point.validate()?;
-        return Ok(point.clone());
-    }
-    match world.bounds(element, deadline)? {
-        Some(rect) if rect.width > 0.0 && rect.height > 0.0 => {
-            let point = Point {
-                x: rect.x + rect.width / 2.0,
-                y: rect.y + rect.height / 2.0,
-            };
-            point.validate()?;
-            Ok(point)
-        }
-        _ => Err(geometry_refusal()),
-    }
-}
-
-fn geometry_refusal() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::ActionFailed,
-        "The pointer position of the target cannot be established, so no event was sent",
-    )
-    .with_suggestion("Run 'snapshot' to refresh, or use the semantic action instead")
-    .with_details(json!({
-        "check": "geometry",
-        "physical_delivery_started": false,
-    }))
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 fn adapter_level_rejection(label: &str) -> AdapterError {

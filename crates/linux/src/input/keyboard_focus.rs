@@ -4,7 +4,8 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 
-use super::physical_target::{PhysicalWorld, ensure_budget};
+use crate::input::deliver::ensure_budget;
+use crate::input::target_world::PhysicalWorld;
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
 use crate::tree::state_bits::{EDITABLE, FOCUSED, StateBits};
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, call};
@@ -22,7 +23,7 @@ pub(super) fn refused() -> AdapterError {
 }
 
 fn bus_error(error: zbus::Error) -> AdapterError {
-    if super::mutation::fault_of(&error) == super::mutation::Fault::TimedOut {
+    if crate::actions::mutation::fault_of(&error) == crate::actions::mutation::Fault::TimedOut {
         AdapterError::timeout("The target focus request did not answer in time")
             .with_platform_detail(error.to_string())
             .with_disposition(DeliverySemantics::not_delivered())
@@ -31,7 +32,7 @@ fn bus_error(error: zbus::Error) -> AdapterError {
     }
 }
 
-pub(super) fn grab(
+pub(crate) fn grab(
     bus: &SharedBus,
     element: &AtspiElement,
     deadline: Deadline,
@@ -53,7 +54,7 @@ pub(super) fn grab(
     })
 }
 
-pub(super) fn read(
+pub(crate) fn read(
     bus: &SharedBus,
     element: &AtspiElement,
     deadline: Deadline,

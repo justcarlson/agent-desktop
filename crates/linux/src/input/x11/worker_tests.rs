@@ -5,6 +5,36 @@ use crate::input::step::Step;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, deadline, events, run};
 
 #[test]
+fn text_chunks_read_fresh_state_without_keyboard_mapping_or_pointer_geometry() {
+    let fake = FakeSink::new();
+    let plans = crate::input::text_plan::plan_text(&fake.world().keymap, &"a".repeat(65)).unwrap();
+    let mut chunks = 0;
+    let error = run(
+        &fake,
+        plans,
+        &mut || {
+            chunks += 1;
+            if chunks == 3 {
+                fake.world().keymap.modifiers = 2;
+            }
+            Ok(())
+        },
+        deadline(5_000),
+        None,
+    )
+    .expect_err("a lock change between chunks must stop text delivery");
+    assert_eq!(events(&fake).len(), 128);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+    assert_eq!(
+        fake.world().queries,
+        ["text_state", "text_state", "text_state"]
+    );
+}
+
+#[test]
 fn keyboard_state_changed_after_planning_refuses_before_the_first_key() {
     let fake = FakeSink::new();
     let plans = crate::input::text_plan::plan_text(&fake.world().keymap, "a").unwrap();

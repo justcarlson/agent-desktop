@@ -81,6 +81,68 @@ fn display(id: &str, x: f64, y: f64) -> DisplayInfo {
 }
 
 #[test]
+fn receiver_loss_before_a_button_stops_dispatch_and_preserves_prior_motion() {
+    for allowed in 0..=2 {
+        let mut session = Recording {
+            stream: true,
+            ..Recording::default()
+        };
+        let mut checks = 0;
+        let result = run_pointer(
+            &mut session,
+            &agent_desktop_core::MouseEvent {
+                point: Point { x: 100., y: 100. },
+                button: MouseButton::Left,
+                kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+                modifiers: Vec::new(),
+            },
+            &[display("DP-1", 0., 0.)],
+            &mut || {
+                checks += 1;
+                if checks > allowed {
+                    Err(
+                        AdapterError::new(ErrorCode::ActionFailed, "sibling overlap")
+                            .with_disposition(DeliverySemantics::not_delivered()),
+                    )
+                } else {
+                    Ok(())
+                }
+            },
+            deadline(),
+        );
+        assert_eq!(
+            session
+                .log
+                .iter()
+                .filter(|event| *event == "absolute")
+                .count(),
+            usize::from(allowed > 0)
+        );
+        assert_eq!(
+            session.log.iter().filter(|event| *event == "down").count(),
+            usize::from(allowed == 2)
+        );
+        if allowed == 2 {
+            result.expect("a proven receiver gets exactly one click");
+        } else {
+            let error = result.expect_err("receiver loss stops the click");
+            assert_eq!(
+                error.disposition,
+                if allowed == 0 {
+                    DeliverySemantics::not_delivered()
+                } else {
+                    DeliverySemantics::delivered_unverified()
+                }
+            );
+            if allowed == 1 {
+                assert_eq!(error.details.unwrap()["physical_delivery_started"], true);
+            }
+        }
+        assert_eq!(session.log.last().map(String::as_str), Some("stop"));
+    }
+}
+
+#[test]
 fn missing_absolute_targeting_never_presses_a_shell_control() {
     let displays = [display("DP-1", 100., 0.)];
     for fail in [None, Some("start")] {
@@ -91,9 +153,14 @@ fn missing_absolute_targeting_never_presses_a_shell_control() {
         };
         let error = run_pointer(
             &mut session,
-            &Point { x: 640., y: 16. },
+            &agent_desktop_core::MouseEvent {
+                point: Point { x: 640., y: 16. },
+                button: MouseButton::Left,
+                kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+                modifiers: Vec::new(),
+            },
             &displays,
-            &MouseButton::Left,
+            &mut || Ok(()),
             deadline(),
         )
         .expect_err("a guessed relative position cannot authorize a ref click");
@@ -112,9 +179,14 @@ fn missing_absolute_targeting_never_presses_a_shell_control() {
     };
     let error = run_pointer(
         &mut session,
-        &Point { x: 70., y: 16. },
+        &agent_desktop_core::MouseEvent {
+            point: Point { x: 70., y: 16. },
+            button: MouseButton::Left,
+            kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+            modifiers: Vec::new(),
+        },
         &displays,
-        &MouseButton::Left,
+        &mut || Ok(()),
         deadline(),
     )
     .expect_err("a point in the monitor gap cannot authorize a click");
@@ -148,9 +220,14 @@ fn pointer_routing_and_failures() {
     };
     run_pointer(
         &mut session,
-        &target,
+        &agent_desktop_core::MouseEvent {
+            point: target.clone(),
+            button: MouseButton::Left,
+            kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+            modifiers: Vec::new(),
+        },
         &displays,
-        &MouseButton::Left,
+        &mut || Ok(()),
         deadline(),
     )
     .unwrap();
@@ -170,9 +247,14 @@ fn pointer_routing_and_failures() {
         };
         let error = run_pointer(
             &mut session,
-            &target,
+            &agent_desktop_core::MouseEvent {
+                point: target.clone(),
+                button: MouseButton::Left,
+                kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+                modifiers: Vec::new(),
+            },
             &displays,
-            &MouseButton::Left,
+            &mut || Ok(()),
             deadline(),
         )
         .unwrap_err();
@@ -183,9 +265,9 @@ fn pointer_routing_and_failures() {
         assert_eq!(
             error.disposition,
             match stage {
-                "down" | "up" => DeliverySemantics::uncertain(),
+                "absolute" | "down" | "up" => DeliverySemantics::uncertain(),
                 "stop" => DeliverySemantics::delivered_unverified(),
-                "denied_down" => DeliverySemantics::not_delivered(),
+                "denied_down" => DeliverySemantics::delivered_unverified(),
                 _ => DeliverySemantics::unknown(),
             }
         );

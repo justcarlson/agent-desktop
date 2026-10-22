@@ -16,7 +16,7 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
             json!({"check": "receives_events", "interceptor": {"role": "button", "name": "Cover", "bounds": null}}),
             json!({"kind": "pointer_hit_unproven", "hit_test": "unknown"}),
         ] {
-            for allowed in (1..=count).chain(std::iter::once(0)) {
+            for allowed in (1..=count * 2).chain(std::iter::once(0)) {
                 let mut world = FakeWorld::x11();
                 let sink = FakeSink::new();
                 world.sink = Some(sink.clone());
@@ -46,10 +46,11 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
                     .filter(|event| matches!(event, Recorded::Button(1, true)))
                     .count();
                 assert_eq!(
-                    sent, allowed as usize,
+                    sent,
+                    (allowed / 2) as usize,
                     "requested {count}, allowed {allowed}"
                 );
-                if allowed == count {
+                if allowed == count * 2 {
                     result.expect("every click receiver was proven");
                 } else {
                     let error = result.expect_err("receiver refusal stops the gesture");
@@ -62,7 +63,7 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
                         }
                     );
                     let observed = error.details.expect("refusal evidence");
-                    assert_eq!(observed["delivered_clicks"], allowed);
+                    assert_eq!(observed["delivered_clicks"], allowed / 2);
                     assert_eq!(observed["physical_delivery_started"], allowed > 0);
                     for (key, value) in details.as_object().unwrap() {
                         assert_eq!(&observed[key], value);
@@ -75,7 +76,9 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
 
 #[test]
 fn a_click_without_a_verified_point_is_aimed_at_the_centre_of_the_bounds() {
-    let world = FakeWorld::x11();
+    let mut world = FakeWorld::x11();
+    let sink = crate::input::x11::fake_sink::FakeSink::new();
+    world.sink = Some(sink.clone());
     click_steps(
         &world,
         &element(),
@@ -85,16 +88,27 @@ fn a_click_without_a_verified_point_is_aimed_at_the_centre_of_the_bounds() {
     )
     .unwrap();
     assert!(
-        world
-            .entries()
-            .contains(&"plan_click 120,210 Left 1".to_owned())
+        sink.recorded()
+            .contains(&crate::input::x11::fake_sink::Recorded::Move(120, 210))
     );
-    assert_eq!(world.count("sent"), 1);
+    assert_eq!(
+        sink.recorded()
+            .iter()
+            .filter(|event| matches!(
+                event,
+                crate::input::x11::fake_sink::Recorded::Button(1, true)
+            ))
+            .count(),
+        1
+    );
+    assert_eq!(world.count("keymap"), 0, "pointer input needs no keymap");
 }
 
 #[test]
 fn a_verified_point_is_used_and_the_bounds_are_not_read() {
-    let world = FakeWorld::x11();
+    let mut world = FakeWorld::x11();
+    let sink = crate::input::x11::fake_sink::FakeSink::new();
+    world.sink = Some(sink.clone());
     let point = Point { x: 7.0, y: 9.0 };
     click_steps(
         &world,
@@ -105,9 +119,12 @@ fn a_verified_point_is_used_and_the_bounds_are_not_read() {
     )
     .unwrap();
     assert!(
-        world
-            .entries()
-            .contains(&"plan_click 7,9 Right 1".to_owned())
+        sink.recorded()
+            .contains(&crate::input::x11::fake_sink::Recorded::Move(7, 9))
+    );
+    assert!(
+        sink.recorded()
+            .contains(&crate::input::x11::fake_sink::Recorded::Button(3, true))
     );
     assert_eq!(world.count("bounds"), 0);
 }
@@ -182,7 +199,6 @@ fn on_wayland_a_click_is_refused_before_anything_is_computed() {
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(error.message, "pointer_refusal click");
     assert_eq!(world.count("bounds"), 0);
-    assert_eq!(world.count("plan_click"), 0);
     assert!(world.sent_nothing());
 }
 

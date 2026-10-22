@@ -13,7 +13,7 @@ fn every_wheel_burst_revalidates_and_a_late_refusal_preserves_sent_clicks() {
         json!({"check": "receives_events", "interceptor": {"role": "button", "name": "Cover", "bounds": null}}),
         json!({"kind": "pointer_hit_unproven", "hit_test": "unknown"}),
     ] {
-        for allowed in 0..=3 {
+        for allowed in 0..=6 {
             let mut world = FakeWorld::x11();
             let sink = FakeSink::new();
             world.sink = Some(sink.clone());
@@ -42,9 +42,9 @@ fn every_wheel_burst_revalidates_and_a_late_refusal_preserves_sent_clicks() {
                 .iter()
                 .filter(|event| matches!(event, Recorded::Button(5, true)))
                 .count();
-            let expected = (allowed * 10).min(21);
+            let expected = (allowed / 2 * 10).min(21);
             assert_eq!(sent, expected, "allowed bursts: {allowed}");
-            if allowed == 3 {
+            if allowed == 6 {
                 result.expect("all three receivers were proven");
             } else {
                 let error = result.expect_err("a receiver refusal stops the wheel");
@@ -71,7 +71,9 @@ fn every_wheel_burst_revalidates_and_a_late_refusal_preserves_sent_clicks() {
 
 #[test]
 fn the_wheel_is_aimed_at_the_centre_of_the_targets_own_bounds() {
-    let world = FakeWorld::x11();
+    let mut world = FakeWorld::x11();
+    let sink = crate::input::x11::fake_sink::FakeSink::new();
+    world.sink = Some(sink.clone());
     scroll_steps(
         &world,
         &element(),
@@ -81,11 +83,20 @@ fn the_wheel_is_aimed_at_the_centre_of_the_targets_own_bounds() {
     )
     .unwrap();
     assert!(
-        world
-            .entries()
-            .contains(&"plan_wheel 120,210 0,-4".to_owned())
+        sink.recorded()
+            .contains(&crate::input::x11::fake_sink::Recorded::Move(120, 210))
     );
-    assert_eq!(world.count("sent"), 1);
+    assert_eq!(
+        sink.recorded()
+            .iter()
+            .filter(|event| matches!(
+                event,
+                crate::input::x11::fake_sink::Recorded::Button(5, true)
+            ))
+            .count(),
+        4
+    );
+    assert_eq!(world.count("keymap"), 0, "wheel input needs no keymap");
 }
 
 #[test]
