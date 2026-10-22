@@ -65,9 +65,9 @@ agent-desktop screenshot /tmp/desktop.png
   gives `PERM_DENIED`.
 - **Nobody answers**: the portal stops waiting after about 25 s (measured 25.0 s
   twice) and the call answers `TIMEOUT` whose suggestion names the dialog. The
-  dialog stays open, and a later call answers `PERM_DENIED` without a dialog; the
-  call made right after the timeout can spend about 16 s while the portal refuses
-  a second dialog. Do not retry in a loop: ask the user to answer the dialog.
+  dialog stays open, and a later call answers `PERM_DENIED` at once, without a second
+  dialog, until a person dismisses it. Do not retry in a loop: ask the user to
+  answer the dialog.
 - The desktop remembers the answer per user for the host process. After an Allow,
   later calls return in about 50 ms with no dialog. After a Deny, every later call
   is `PERM_DENIED` until the user resets it in the desktop's privacy
@@ -119,7 +119,7 @@ carries its `path`, `width` and `height`. An empty clipboard answers `found: fal
 - A file copy serves both `x-special/gnome-copied-files` and `text/uri-list`. A
   paste of a plain-text path pastes nothing in a file manager.
 - Transfers above the server's single-request limit (262140 bytes measured) use
-  `INCR`; large content works but is slower.
+  `INCR`; large content works.
 - "Nothing there" and "target not available" are different answers: an absent
   format is `absent`, not an error.
 
