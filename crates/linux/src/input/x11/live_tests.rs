@@ -124,6 +124,63 @@ pub(crate) fn device_state(device: &str) -> String {
     String::from_utf8(output.stdout).expect("xinput state is UTF-8")
 }
 
+const ESCAPE_KEYSYM: u32 = 0xff1b;
+const POPUP_CLOSE_BUDGET: Duration = Duration::from_secs(5);
+
+/// Whether GNOME Shell's own stage window owns the keyboard focus, which is
+/// what an open shell popup leaves behind: the window manager then activates
+/// no window until the popup closes.
+pub(crate) fn shell_stage_has_focus() -> bool {
+    Command::new("xdotool")
+        .args(["getwindowfocus", "getwindowname"])
+        .output()
+        .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).trim() == "gnome-shell")
+}
+
+fn dismiss_shell_popup(display: &str) -> Result<(), String> {
+    if !shell_stage_has_focus() {
+        return Ok(());
+    }
+    let code = keycode_for(&observed_keymap(display), ESCAPE_KEYSYM);
+    let escape = Plan {
+        steps: vec![
+            Step::Key { code, down: true },
+            Step::Key { code, down: false },
+        ],
+        release_origin: None,
+    };
+    let lease = crate::system::interaction::interaction_lease::acquire(deadline(8_000))
+        .map_err(|error| format!("{error:?}"))?;
+    run(display, vec![escape], &mut || Ok(()), &lease).map_err(|error| format!("{error:?}"))?;
+    let started = Instant::now();
+    while shell_stage_has_focus() {
+        if started.elapsed() >= POPUP_CLOSE_BUDGET {
+            return Err("GNOME Shell kept the keyboard focus after Escape".to_owned());
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    Ok(())
+}
+
+/// A button held for about half a second on the desktop background is a long
+/// press to GNOME Shell, which opens its background menu and keeps it open
+/// for every later test of the session. The guard closes that menu when the
+/// test ends, on a failure too.
+struct ClosesShellPopup<'a>(&'a str);
+
+impl ClosesShellPopup<'_> {
+    fn close(&self) -> Result<(), String> {
+        dismiss_shell_popup(self.0)
+    }
+}
+
+impl Drop for ClosesShellPopup<'_> {
+    fn drop(&mut self) {
+        let display = self.0;
+        let _ = std::panic::catch_unwind(|| dismiss_shell_popup(display));
+    }
+}
+
 fn input_down(device: &str, input: &str) -> bool {
     let text = device_state(device);
     let state = text.lines().find_map(|line| {
@@ -160,6 +217,7 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
+    let popup = ClosesShellPopup(&display);
     let map = observed_keymap(&display);
     let code = keycode_for(&map, u32::from('a'));
     let device = "Virtual core XTEST keyboard";
@@ -196,8 +254,12 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let lease =
         crate::system::interaction::interaction_lease::acquire(deadline(8_000)).expect("lease");
     run(&display, vec![nudge], &mut || Ok(()), &lease).expect("next call");
+    drop(lease);
     assert!(
         !input_down(device, &key) && !input_down(pointer, button),
         "the next call did not release the input a killed client left held"
     );
+    popup
+        .close()
+        .expect("the shell popup the held button opened closes");
 }
