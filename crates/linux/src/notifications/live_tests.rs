@@ -33,7 +33,13 @@ fn refused<T: std::fmt::Debug>(result: Result<T, AdapterError>) {
             .deserialize::<u32>()
             .expect("service pid")
     };
-    if owner("org.freedesktop.Notifications") != owner("org.gnome.Shell") {
+    let notifications = owner("org.freedesktop.Notifications");
+    let shells_helper = std::fs::read(format!("/proc/{notifications}/cmdline"))
+        .map(|raw| {
+            String::from_utf8_lossy(&raw).contains("gnome-shell/org.gnome.Shell.Notifications")
+        })
+        .unwrap_or(false);
+    if notifications != owner("org.gnome.Shell") && !shells_helper {
         assert_eq!(error.code, ErrorCode::PlatformNotSupported, "{error:?}");
         assert_eq!(error.details.as_ref().unwrap()["daemon"], "unsupported");
         return;
