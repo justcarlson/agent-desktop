@@ -23,51 +23,28 @@ fn request(force: bool) -> Request<'static> {
     }
 }
 
-const TABLE: &[&str] = &["gnome-shell", "Xorg"];
-
 #[test]
-fn a_protected_listed_name_is_refused_before_any_read() {
-    let mut world = Fake::new(Liveness::Alive);
-    world.protected = TABLE;
-    let named = Request {
-        name: "gnome-shell",
-        ..request(false)
-    };
-    let error = run(&world, &named).expect_err("refused");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-    assert_eq!(world.count("facts"), 0);
-    assert_eq!(world.count("liveness"), 0);
-}
-
-#[test]
-fn a_benign_name_on_a_protected_process_is_refused_before_any_send() {
+fn session_ownership_refuses_close_before_any_send_regardless_of_names() {
     for force in [false, true] {
         let mut world = Fake::new(Liveness::Alive);
-        world.protected = TABLE;
-        world.facts = facts("Xorg");
+        world.protected = Ok(true);
+        world.facts = facts("arbitrary");
         let error = run(&world, &request(force)).expect_err("refused");
         assert_eq!(error.code, ErrorCode::InvalidArgs);
         assert_eq!(error.disposition, DeliverySemantics::not_delivered());
         for sent in ["toplevels", "close", "term", "kill"] {
-            assert_eq!(world.count(sent), 0, "{sent} force={force}");
+            assert_eq!(world.count(sent), 0);
         }
     }
 }
 
 #[test]
-fn both_the_command_name_and_the_executable_name_are_consulted() {
+fn unreadable_ownership_refuses_close_without_delivery() {
     let mut world = Fake::new(Liveness::Alive);
-    world.protected = TABLE;
-    world.facts =
-        crate::system::process_lookup::Lookup::Found(crate::system::process_facts::ProcessFacts {
-            executable: None,
-            comm: "renamed".to_owned(),
-            exe_basename: Some("gnome-shell".to_owned()),
-            instance: "t".to_owned(),
-        });
-    let error = run(&world, &request(true)).expect_err("refused by executable");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
+    world.protected = Err(agent_desktop_core::AdapterError::not_supported(
+        "session ownership",
+    ));
+    assert!(run(&world, &request(true)).is_err());
     assert_eq!(world.count("term"), 0);
 }
 

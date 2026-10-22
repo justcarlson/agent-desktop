@@ -49,20 +49,30 @@ impl Drop for Stopped {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+#[ignore = "runs an owned GTK app; use scripts/private-session.sh --wm"]
 fn signal_inventory_live_a_stopped_target_is_skipped_slow_roots_read_timed_out_and_resolution_names_it()
  {
     let bus = SharedBus::default();
     let mut launched = Launched::new();
-    let pid = launched.spawn("gnome-calculator", &[]);
-    poll("the calculator's X11 window before SIGSTOP", || {
+    let runtime = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").unwrap();
+    let script = format!("{runtime}/stopped-inventory.py");
+    std::fs::write(
+        &script,
+        "import gi\ngi.require_version('Gtk','3.0')\nfrom gi.repository import Gtk\nw=Gtk.Window()\nw.show_all()\nGtk.main()\n",
+    ).unwrap();
+    let pid = launched.spawn("python3", &[&script]);
+    poll("the owned GTK window before SIGSTOP", || {
         (x11_windows(pid).len() == 1).then_some(())
     });
     let window = window_of(&bus, pid);
 
     let registry = read_registry(&bus, deadline()).expect("registry");
     let pass = run_pass(&bus, &registry, |_| true, deadline()).expect("pass");
-    assert!(pass.outcomes.iter().all(|o| o.read == RootRead::Read));
+    assert!(
+        pass.outcomes
+            .iter()
+            .any(|o| registry.apps[o.app].root.pid() == pid && o.read == RootRead::Read)
+    );
     assert!(pass.windows.iter().any(|w| w.info.pid.get() == pid));
     signal("-STOP", pid);
     let stop = Stopped(pid);

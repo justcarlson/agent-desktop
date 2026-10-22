@@ -8,17 +8,9 @@ use super::registry::{Registry, read_registry, read_registry_for};
 use super::registry_app::RegistryApp;
 use super::signal_inventory::{Pass, read_selected, run_pass_with};
 use super::unresponsive::{require_known_target, settle_scoped, stopped_target};
-use super::window_filter::is_helper_app;
 use super::window_position::place_windows;
 use super::x11::desktops::{self, Desktops};
 use super::x11::{self, DisplayReader, X11Source, X11State};
-
-pub(super) fn is_listable(app: &RegistryApp) -> bool {
-    !is_helper_app(
-        app.registry_name.as_deref().unwrap_or(&app.name),
-        app.facts.exe_basename.as_deref(),
-    )
-}
 
 /// The windows of the applications `select` accepts, in registry order.
 pub(crate) fn windows_of(

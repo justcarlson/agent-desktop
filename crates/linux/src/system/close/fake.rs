@@ -49,7 +49,7 @@ pub(super) struct Fake {
     pub(super) clock: Cell<Duration>,
     pub(super) budget: Duration,
     pub(super) facts: Lookup,
-    pub(super) protected: &'static [&'static str],
+    pub(super) protected: Result<bool, AdapterError>,
     pub(super) windows: ControlRead<Vec<Toplevel>>,
     pub(super) late: ControlRead<Vec<Toplevel>>,
     pub(super) closes: RefCell<Vec<Result<(), ControlError>>>,
@@ -72,7 +72,7 @@ impl Fake {
             clock: Cell::new(Duration::ZERO),
             budget: Duration::from_secs(10),
             facts: facts("calculator"),
-            protected: &[],
+            protected: Ok(false),
             windows: ControlRead::Ready(vec![window(1)]),
             late: ControlRead::Ready(Vec::new()),
             closes: RefCell::new(Vec::new()),
@@ -99,9 +99,9 @@ impl Fake {
 }
 
 impl World for Fake {
-    fn is_protected(&self, identifier: &str) -> bool {
+    fn is_protected(&self) -> Result<bool, AdapterError> {
         self.note("protected");
-        self.protected.contains(&identifier)
+        self.protected.clone()
     }
 
     fn facts(&self) -> Lookup {

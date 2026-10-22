@@ -13,7 +13,7 @@ use crate::adapter::LinuxAdapter;
 use crate::notifications;
 use crate::system::{
     action_clock, close, interaction_lease, key_dispatch, launch, menu_surface, menu_wait,
-    permissions, process_state, protected, session, shell, signal_capture, window_op,
+    permissions, process_state, session, shell, signal_capture, window_op,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -62,10 +62,6 @@ impl SystemOps for LinuxAdapter {
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
         close::close_app(self.bus(), app, force, lease)
-    }
-
-    fn is_protected_process(&self, identifier: &str) -> bool {
-        protected::is_protected(identifier)
     }
 
     fn launch_app(

@@ -23,33 +23,26 @@ struct Request<'a> {
 }
 
 fn refuse_if_protected(world: &impl World, request: &Request<'_>) -> Result<(), AdapterError> {
-    if world.is_protected(request.name) {
+    if world.is_protected()? {
         return Err(refusal::protected(request.name));
     }
     match world.facts() {
-        Lookup::Found(facts) => {
-            let exe = facts.exe_basename.as_deref();
-            [Some(facts.comm.as_str()), exe]
-                .into_iter()
-                .flatten()
-                .find(|name| world.is_protected(name))
-                .map_or(Ok(()), |name| Err(refusal::protected(name)))
-        }
-        Lookup::Gone => Ok(()),
         Lookup::Unreadable => Err(refusal::unreadable(request)),
+        Lookup::Found(_) | Lookup::Gone => Ok(()),
     }
 }
 
-/// The close flow over a world. The protected check comes first, on the
-/// listed name and on what `/proc` says the process is, then the token
-/// requirement, then the process itself. A process that is gone, or that a
-/// changed token shows is not the listed one, is `Ok` and untouched.
+/// Close requires an instance token and proven session ownership before any send.
+/// A process that is gone or replaced is left untouched.
 /// The result is true only if a close request or signal was delivered.
 fn run(world: &impl World, request: &Request<'_>) -> Result<bool, AdapterError> {
-    refuse_if_protected(world, request)?;
     if request.instance.is_none() {
         return Err(refusal::missing_token(request));
     }
+    if world.liveness() == super::liveness::Liveness::Gone {
+        return Ok(false);
+    }
+    refuse_if_protected(world, request)?;
     if request.force {
         force::close(world, request)
     } else {

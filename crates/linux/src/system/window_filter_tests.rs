@@ -52,20 +52,6 @@ fn other_roles_and_frames_without_a_component_are_not() {
 }
 
 #[test]
-fn the_shell_and_the_frame_decorator_are_helpers_by_either_name() {
-    assert!(is_helper_app("mutter-x11-frames", None));
-    assert!(is_helper_app("x", Some("mutter-x11-frames")));
-    assert!(is_helper_app("gnome-shell", Some("gnome-shell")));
-    assert!(!is_helper_app("org.gnome.Nautilus", Some("nautilus")));
-}
-
-#[test]
-fn a_titled_root_view_and_a_frame_with_no_class_are_windows() {
-    assert!(!is_bubble(Some("RootView"), "Titled"));
-    assert!(!is_bubble(None, ""));
-}
-
-#[test]
 fn state_bits_become_visible_minimized_and_active() {
     let shown = frame_state(&Field::Present(words(&[25, 1])));
     assert_eq!(
@@ -97,11 +83,103 @@ fn a_showing_visible_filler_is_a_window_and_a_hidden_one_is_not() {
 }
 
 #[test]
-fn a_nameless_menu_host_frame_is_a_menu_popup_and_nothing_else_is() {
-    assert!(is_menu_popup_frame(Some("MenuHostRootView"), ""));
-    assert!(is_menu_popup_frame(Some("MenuHostRootView"), "  "));
-    assert!(!is_menu_popup_frame(Some("MenuHostRootView"), "Titled"));
-    assert!(!is_menu_popup_frame(Some("BrowserRootView"), ""));
-    assert!(!is_menu_popup_frame(Some("RootView"), ""));
-    assert!(!is_menu_popup_frame(None, ""));
+fn native_window_types_require_complete_uniform_process_or_geometry_groups() {
+    use crate::system::x11::{FrameFacts, X11Client};
+    use crate::tree::Extents;
+    let bounds = Extents {
+        x: 31,
+        y: 47,
+        width: 300,
+        height: 200,
+    };
+    let frame = FrameFacts {
+        pid: 7,
+        title: "arbitrary title".into(),
+        extents: Some(bounds),
+        global_position: true,
+        size_identity: false,
+    };
+    let client = X11Client {
+        id: 20,
+        pid: Some(7),
+        title: "unrelated title".into(),
+        bounds: Some(bounds),
+        extents: None,
+        hidden: false,
+        shadow: (0, 0, 0, 0),
+    };
+    let users = std::collections::HashSet::from([20, 21]);
+    let helpers = std::collections::HashSet::new();
+    let classify = |frames: &[FrameFacts], clients: &[X11Client]| {
+        native_group(&frame, frames, clients, &users, &helpers, true)
+    };
+    let one = std::slice::from_ref(&frame);
+    assert!(classify(one, std::slice::from_ref(&client)).unwrap());
+    assert!(classify(one, &[]).is_err());
+    let wrong = X11Client {
+        bounds: Some(Extents { x: 99, ..bounds }),
+        ..client.clone()
+    };
+    assert!(classify(one, std::slice::from_ref(&wrong)).unwrap());
+    assert!(
+        native_group(
+            &frame,
+            one,
+            std::slice::from_ref(&wrong),
+            &users,
+            &helpers,
+            false
+        )
+        .is_err()
+    );
+    assert!(
+        classify(
+            one,
+            &[X11Client {
+                pid: Some(8),
+                ..wrong
+            }]
+        )
+        .is_err()
+    );
+    let twins = [frame.clone(), frame.clone()];
+    let natives = [client.clone(), X11Client { id: 21, ..client }];
+    assert!(classify(&twins, &natives).unwrap());
+    assert!(native_group(&frame, &twins, &natives, &users, &helpers, false).is_err());
+    assert!(classify(one, &natives).is_err());
+    let separated = [
+        natives[0].clone(),
+        X11Client {
+            bounds: Some(Extents {
+                x: 999,
+                width: 100,
+                ..bounds
+            }),
+            ..natives[1].clone()
+        },
+    ];
+    assert!(
+        native_group(
+            &frame,
+            one,
+            &separated,
+            &std::collections::HashSet::from([20]),
+            &std::collections::HashSet::from([21]),
+            true
+        )
+        .is_err()
+    );
+    assert!(classify(&twins, &natives[..1]).is_err());
+    assert!(
+        native_group(
+            &frame,
+            &twins,
+            &natives,
+            &std::collections::HashSet::from([20]),
+            &std::collections::HashSet::from([21]),
+            true,
+        )
+        .is_err()
+    );
+    assert!(!native_group(&frame, &twins, &natives, &helpers, &users, true).unwrap());
 }

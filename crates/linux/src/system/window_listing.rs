@@ -3,7 +3,7 @@ use agent_desktop_core::{Rect, WindowInfo, WindowState};
 use super::listed_window::ListedWindow;
 use super::registry_app::RegistryApp;
 use super::toolkit::reports_global_position;
-use super::window_filter::{frame_state, is_bubble, is_menu_popup_frame, is_window_shape};
+use super::window_filter::{frame_state, is_window_shape};
 use super::window_id;
 use super::x11::FrameFacts;
 use crate::tree::RawNode;
@@ -23,14 +23,6 @@ fn listed(
         return None;
     }
     let title = node.properties.name.present().cloned().unwrap_or_default();
-    let class = node
-        .attributes
-        .present()
-        .and_then(|attributes| attributes.get("class"))
-        .map(String::as_str);
-    if is_bubble(class, &title) || is_menu_popup_frame(class, &title) {
-        return None;
-    }
     let id = window_id::encode(node.element.bus_name(), node.element.path())?;
     let state = frame_state(&node.traits.states);
     let global_position =

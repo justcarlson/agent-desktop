@@ -48,33 +48,15 @@ fn a_shown_active_frame_becomes_a_window_with_the_process_instance() {
 }
 
 #[test]
-fn non_window_roles_and_chrome_bubbles_are_dropped() {
-    let app = app(Some(("Chromium", "1")));
-    let mut bubble = frame(23, "", "/org/a11y/atspi/accessible/2", &[25]);
-    bubble.attributes = attributes(&[("class", "RootView")]);
-    let mut browser = frame(23, "Page", "/org/a11y/atspi/accessible/1", &[25]);
-    browser.attributes = attributes(&[("class", "BrowserRootView")]);
-    let nodes = vec![
-        browser,
-        bubble,
-        frame(75, "Not a window", "/org/a11y/atspi/accessible/3", &[25]),
-    ];
-    let windows = collect(&[(0, &app)], &[nodes]);
-    assert_eq!(windows.len(), 1);
-    assert_eq!(windows[0].info.title, "Page");
-}
-
-#[test]
-fn an_open_chrome_menu_frame_is_not_a_window() {
-    let app = app(Some(("Chromium", "1")));
-    let mut menu = frame(23, "", "/org/a11y/atspi/accessible/4", &[25, 1]);
-    menu.attributes = attributes(&[("class", "MenuHostRootView")]);
-    let mut browser = frame(23, "Page", "/org/a11y/atspi/accessible/1", &[25]);
-    browser.attributes = attributes(&[("class", "BrowserRootView")]);
-    let windows = collect(&[(0, &app)], &[vec![browser, menu]]);
-    assert_eq!(windows.len(), 1);
-    assert_eq!(windows[0].info.title, "Page");
-    assert!(!windows[0].active);
+fn class_names_and_empty_titles_do_not_establish_window_purpose() {
+    let app = app(Some(("gtk", "3.24")));
+    for class in ["RootView", "MenuHostRootView", "arbitrary"] {
+        let mut node = frame(23, "", "/org/a11y/atspi/accessible/2", &[25]);
+        node.attributes = attributes(&[("class", class)]);
+        assert_eq!(collect(&[(0, &app)], &[vec![node]]).len(), 1);
+    }
+    let nodes = vec![frame(75, "", "/org/a11y/atspi/accessible/3", &[25])];
+    assert!(collect(&[(0, &app)], &[nodes]).is_empty());
 }
 
 #[test]

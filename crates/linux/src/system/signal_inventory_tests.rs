@@ -91,12 +91,6 @@ fn an_unanswering_stopped_app_is_not_read_and_a_slow_alive_one_is() {
 }
 
 #[test]
-fn a_helper_app_is_not_chosen() {
-    let registry = registry(vec![app(":1.1", 1, "gnome-shell", true)]);
-    assert!(chosen_apps(&registry, |_| true, |_| false).is_empty());
-}
-
-#[test]
 fn each_app_keeps_its_own_outcome_and_a_slow_app_never_hides_another() {
     let registry = registry(vec![
         app(":1.1", 1, "alpha", true),

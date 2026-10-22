@@ -108,8 +108,6 @@ fn not_the_default(error: &AdapterError) {
 #[test]
 fn the_lifecycle_overrides_are_wired_to_the_adapter() {
     let adapter = LinuxAdapter::new();
-    assert!(adapter.is_protected_process("gnome-shell"));
-    assert!(!adapter.is_protected_process("gnome-text-editor"));
 
     let gone = std::process::Command::new("true")
         .spawn()
@@ -123,18 +121,6 @@ fn the_lifecycle_overrides_are_wired_to_the_adapter() {
             .expect("an exited process has a state"),
         agent_desktop_core::process_state::ProcessState::Exited { code: None }
     );
-
-    let protected = AppInfo {
-        name: "gnome-shell".to_owned(),
-        pid: gone.into(),
-        bundle_id: None,
-        process_instance: Some("deadbeef:1".to_owned()),
-        presentation: None,
-    };
-    let error = adapter
-        .close_app(&protected, false, &lease())
-        .expect_err("a protected name is refused");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
 
     let mut options = agent_desktop_core::launch_options::LaunchOptions::default();
     options.args.push("a\0b".to_owned());

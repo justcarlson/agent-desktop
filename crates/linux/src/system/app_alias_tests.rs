@@ -113,8 +113,7 @@ fn an_in_place_desktop_edit_invalidates_the_previous_executable_alias() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("owned.desktop");
     let command = "/bin/sleep 30";
-    let actual =
-        ExecutableIdentity::requested(&["/bin/sleep".into(), "30".into()], true, &[]).unwrap();
+    let actual = ExecutableIdentity::requested(&["/bin/sleep".into(), "30".into()], &[]).unwrap();
     std::fs::write(&path, file("owned", "Before", command).1).unwrap();
     let cache = AliasCache::new();
     let dirs = [dir.clone()];
@@ -139,7 +138,7 @@ fn an_in_place_desktop_edit_invalidates_the_previous_executable_alias() {
         "old executable loses the edited alias"
     );
     let replacement =
-        ExecutableIdentity::requested(&["/bin/false".into(), "00".into()], true, &[]).unwrap();
+        ExecutableIdentity::requested(&["/bin/false".into(), "00".into()], &[]).unwrap();
     assert_eq!(after.names_for(&replacement), ["After!"]);
     assert!(!Arc::ptr_eq(&before, &after));
     std::fs::remove_dir_all(dir).unwrap();

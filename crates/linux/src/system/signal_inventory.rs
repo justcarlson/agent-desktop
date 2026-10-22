@@ -11,7 +11,6 @@ use super::registry_frames::read_frames;
 use super::stopped_windows::of_stopped_apps;
 use super::window_ids::WindowIds;
 use super::window_listing::collect;
-use super::window_ops::is_listable;
 use super::x11::map::{ClientMatch, match_client};
 use super::x11::{self, DisplayReader, FrameFacts, X11Evidence, X11Source, X11State};
 use super::{SharedBus, liveness, menu_focus, proc_stat};
@@ -59,7 +58,7 @@ fn chosen_apps(
         .apps
         .iter()
         .enumerate()
-        .filter(|(_, app)| is_listable(app) && select(app))
+        .filter(|(_, app)| select(app))
         .filter(|(_, app)| app.answered || !is_stopped(app.root.pid()))
         .collect()
 }
@@ -101,7 +100,11 @@ fn read_unfiltered(
     deadline: Deadline,
 ) -> Result<(Vec<ListedWindow>, Vec<AppOutcome>), AdapterError> {
     let chosen = chosen_apps(registry, select, proc_stat::is_stopped);
-    gather(&chosen, |roots| read_frames(bus, roots, deadline))
+    let (windows, outcomes) = gather(&chosen, |roots| read_frames(bus, roots, deadline))?;
+    Ok((
+        super::window_filter::without_helpers(windows, deadline)?,
+        outcomes,
+    ))
 }
 
 /// Whether a selected, listable application has no outcome in the pass and no
@@ -114,8 +117,7 @@ pub(crate) fn skipped_selected(
     select: impl Fn(&RegistryApp) -> bool,
 ) -> bool {
     registry.apps.iter().enumerate().any(|(index, app)| {
-        is_listable(app)
-            && select(app)
+        select(app)
             && !pass.outcomes.iter().any(|outcome| outcome.app == index)
             && !pass.recovered.contains(&index)
     })
