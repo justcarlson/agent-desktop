@@ -17,6 +17,7 @@ fn key_input_contract() {
     for name in ["f0", "f01", "f25", "hyper", "cmd"] {
         let error = keysym_for_key(name).unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgs, "{name}");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
         if name == "hyper" {
             assert!(error.suggestion.unwrap().contains("f1-f24"));
         }

@@ -29,7 +29,7 @@ display server does not give.
 | `APP_UNRESPONSIVE` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref’s live identity | Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
 | `STALE_REF` | UI changed or the window closed | See `details.kind`: `resolve_target_destroyed` needs a replacement target; `menu_closed` needs its opener reopened before a fresh menu snapshot. Neither permits retrying the old ref |
-| `ACTION_NOT_SUPPORTED`, `selection_index_unproven` | The toolkit's selection indices cannot identify accessible rows safely | Refreshing cannot help. On X11 use `--headed click` on the intended row's fresh ref, then verify the selected row and pane |
+| `ACTION_NOT_SUPPORTED`, `selection_index_unproven` | The toolkit's selection indices cannot identify accessible rows safely | A headless select cannot map the row and refreshing cannot help. On X11 run `--headed select` with the same ref: it clicks the row and checks the row's selected state; verify the pane too |
 | `INTERNAL` "private file parent is accessible by group or other users" | The state root is group-writable or world-accessible | `chmod 700` it; see `references/bus-and-permissions.md` |
 
 ## Apps that are not on the bus
@@ -120,10 +120,12 @@ and use `--window-id` with fresh snapshots.
 
 ## Toolkit limits
 
-GNOME Settings category rows expose no semantic activation action, so `select`
-on `Settings categories` refuses without changing the selection. On X11, find
-the intended category button and use `--headed click` with that row ref; verify
-both the selected row and its pane. Do not retry `select` with refreshed refs.
+GNOME Settings category rows expose no semantic activation action, and the list
+holds hidden rows that its accessible indices cannot see, so a headless `select`
+on `Settings categories` refuses without changing the selection. On X11,
+`--headed select` clicks the matched row and answers `delivered_verified` when
+the row reads selected; `details.semantic_refusal` records the refusal. Verify
+the pane too. Do not retry a headless `select` with refreshed refs.
 
 A search control may expose no semantic SetValue action, and ref-addressed
 headed typing can refuse `target_focus`. Open search through a fresh observed

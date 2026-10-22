@@ -7,10 +7,11 @@ use agent_desktop_core::{
 
 use super::AtspiElement;
 use super::live_launch::{Launched, nonce};
+use super::live_process::{is_running, process_report};
 use super::live_rig::deadline;
 use super::live_tree::pid_frame;
 use super::resolve_live_tests::snapshot_entries;
-use super::walker_live_tests::settle;
+use super::walker_live_tests::settle_watching;
 use crate::LinuxAdapter;
 use crate::input::x11::live_tests::private_display;
 use crate::system::SharedBus;
@@ -81,8 +82,8 @@ impl Scene {
             .get(Deadline::standard().expect("deadline"))
             .expect("the accessibility bus is reachable");
         let setup_started = Instant::now();
-        let settled =
-            settle(&bus, min_nodes, || pid_frame(&connection, pid)).unwrap_or_else(|error| {
+        let settled = settle_watching(&bus, min_nodes, Some(pid), || pid_frame(&connection, pid))
+            .unwrap_or_else(|error| {
                 launched.stop();
                 panic!("{error}")
             });
@@ -94,8 +95,14 @@ impl Scene {
             window_id::encode(settled.frame.bus_name(), settled.frame.path()).expect("frame id");
         let client = loop {
             assert!(
+                is_running(pid),
+                "the fixture exited before its frame was mapped and listed: {}",
+                process_report(pid)
+            );
+            assert!(
                 !ready.is_expired(),
-                "the fixture frame did not become mapped and listed within its setup budget"
+                "the fixture frame did not become mapped and listed within its setup budget: {}",
+                process_report(pid)
             );
             if let X11State::Ready { clients, .. } = DisplayReader.clients_within(ready)
                 && let Some(client) = clients.into_iter().find(|client| {

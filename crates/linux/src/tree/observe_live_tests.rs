@@ -7,7 +7,7 @@ use agent_desktop_core::{
 use super::live_launch::Launched;
 use super::live_tree::pid_frame;
 use super::observe::observe_tree;
-use super::walker_live_tests::settle;
+use super::walker_live_tests::settle_watching;
 use crate::system::{SharedBus, window::window_id};
 
 fn refs(node: &AccessibilityNode) -> usize {
@@ -27,7 +27,7 @@ fn observe_live_calculator_returns_a_complete_reffed_tree() {
         .expect("the accessibility bus must be reachable");
     let mut launched = Launched::new();
     let pid = launched.spawn("gnome-calculator", &[]);
-    let settled = settle(&bus, 30, || pid_frame(&connection, pid))
+    let settled = settle_watching(&bus, 30, Some(pid), || pid_frame(&connection, pid))
         .unwrap_or_else(|error| panic!("calculator did not settle: {error}"));
     let id = window_id::encode(settled.frame.bus_name(), settled.frame.path())
         .expect("a registry frame has an encodable address");

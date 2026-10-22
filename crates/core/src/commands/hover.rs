@@ -4,7 +4,9 @@ use crate::{
     commands::{
         helpers::{apply_post_action_wait, validate_post_action_wait},
         operation_response::operation_response,
-        point_resolve::{PointResolveArgs, require_cursor_policy, require_pointer_capability},
+        point_resolve::{
+            PointResolveArgs, ResolvedPoint, require_cursor_policy, require_pointer_capability,
+        },
         pointer_action::{
             PointResolveAttempt, ensure_point_deadline, focus_point_under_lease, point_deadline,
             resolve_point_under_lease, retry_leased_point_phase, wait_for_point_with_deadline,
@@ -74,6 +76,7 @@ pub fn execute(
         resolved.focused = focused;
         Ok((resolved, lease))
     })?;
+    confirm_receiver(&resolved, deadline, adapter)?;
     ensure_point_deadline(
         deadline,
         Some(json!({
@@ -102,6 +105,18 @@ pub fn execute(
     }
     drop(lease);
     apply_post_action_wait(response, resolved.source_entry.as_ref(), adapter, context)
+}
+
+fn confirm_receiver(
+    resolved: &ResolvedPoint,
+    deadline: crate::Deadline,
+    adapter: &dyn PlatformAdapter,
+) -> Result<(), AppError> {
+    let Some(entry) = resolved.source_entry.as_ref() else {
+        return Ok(());
+    };
+    adapter.confirm_pointer_receiver(entry, resolved.point.clone(), deadline)?;
+    Ok(())
 }
 
 #[cfg(test)]

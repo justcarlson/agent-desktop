@@ -3,7 +3,10 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, ErrorCode, NativeHandle};
 use zbus::blocking::Connection;
 
-use super::live_launch::{Launched, environment_note, nonce, program_of, vscode_arguments};
+use super::live_launch::{
+    Launched, environment_note, nonce, program_of, run_leg, vscode_arguments,
+};
+use super::live_process::{is_running, process_report};
 use super::live_qt;
 use super::live_tree::{
     action_summary, count_failed, dump, failure_kinds, find_node, frames_where, pid_frame,
@@ -27,6 +30,18 @@ pub(super) struct Settled {
 pub(super) fn settle(
     bus: &SharedBus,
     min_nodes: usize,
+    find_frame: impl FnMut() -> Option<AtspiElement>,
+) -> Result<Settled, String> {
+    settle_watching(bus, min_nodes, None, find_frame)
+}
+
+/// Waits for a stable, complete tree. Given the pid of the launched process
+/// that owns the frame, it stops as soon as that process exits and reports its
+/// exit status and stderr; its timeout message carries the end of that stderr.
+pub(super) fn settle_watching(
+    bus: &SharedBus,
+    min_nodes: usize,
+    watched: Option<u32>,
     mut find_frame: impl FnMut() -> Option<AtspiElement>,
 ) -> Result<Settled, String> {
     let started = Instant::now();
@@ -35,6 +50,14 @@ pub(super) fn settle(
     let mut last_state = String::from("no frame appeared on the registry");
     while started.elapsed() < SETTLE_LIMIT {
         std::thread::sleep(POLL);
+        if let Some(pid) = watched
+            && !is_running(pid)
+        {
+            return Err(format!(
+                "the app exited before its tree settled ({last_state}); {}",
+                process_report(pid)
+            ));
+        }
         let Some(frame) = find_frame() else { continue };
         let deadline = Deadline::after(5_000).map_err(|error| error.message)?;
         match walk_tree(bus, &frame, &WalkLimits::default(), deadline) {
@@ -54,8 +77,9 @@ pub(super) fn settle(
         }
     }
     Err(format!(
-        "tree did not settle within the limit: {last_state}; {}",
-        environment_note()
+        "tree did not settle within the limit: {last_state}; {}{}",
+        environment_note(),
+        watched.map_or_else(String::new, |pid| format!("; {}", process_report(pid)))
     ))
 }
 
@@ -109,10 +133,11 @@ fn walk_app(
     bus: &SharedBus,
     label: &str,
     min_nodes: usize,
+    watched: Option<u32>,
     find_frame: impl FnMut() -> Option<AtspiElement>,
 ) -> Result<Settled, String> {
-    let settled =
-        settle(bus, min_nodes, find_frame).map_err(|error| format!("{label}: {error}"))?;
+    let settled = settle_watching(bus, min_nodes, watched, find_frame)
+        .map_err(|error| format!("{label}: {error}"))?;
     let timing = timed_walks(bus, &settled.frame).map_err(|error| format!("{label}: {error}"))?;
     let failed = report(label, &settled, &timing);
     let mut problems = Vec::new();
@@ -172,8 +197,8 @@ fn check_gone(bus: &SharedBus, frame: &AtspiElement) -> Result<(), String> {
 
 fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
-    let pid = launched.spawn("nautilus", &["--new-window"]);
-    walk_app(bus, "files", 30, || pid_frame(connection, pid)).map(|_| ())
+    let pid = launched.try_spawn("nautilus", &["--new-window"])?;
+    walk_app(bus, "files", 30, Some(pid), || pid_frame(connection, pid)).map(|_| ())
 }
 
 fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
@@ -188,8 +213,8 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         guard.display(),
         std::process::id()
     );
-    launched.spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script]);
-    walk_app(bus, "terminal", 20, || {
+    let client = launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
+    walk_app(bus, "terminal", 20, Some(client), || {
         frames_where(connection, is_server)
             .into_iter()
             .find(|frame| {
@@ -203,8 +228,10 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
-    let pid = launched.spawn("gnome-calculator", &[]);
-    let settled = walk_app(bus, "calculator", 30, || pid_frame(connection, pid))?;
+    let pid = launched.try_spawn("gnome-calculator", &[])?;
+    let settled = walk_app(bus, "calculator", 30, Some(pid), || {
+        pid_frame(connection, pid)
+    })?;
     let button = find_node(&settled.walk.root, &|node| {
         node.actions
             .present()
@@ -230,7 +257,7 @@ fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 fn qt(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
     let pid = live_qt::launch(&mut launched)?;
-    let settled = walk_app(bus, "qt", 15, || pid_frame(connection, pid))?;
+    let settled = walk_app(bus, "qt", 15, Some(pid), || pid_frame(connection, pid))?;
     let button = find_node(&settled.walk.root, &|node| {
         node.traits.role.present() == Some(&PUSH_BUTTON_ROLE)
             && node
@@ -257,8 +284,8 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let data = std::env::temp_dir().join(nonce("vscode"));
     launched.scratch.push(data.clone());
     let data_arg = data.to_string_lossy().into_owned();
-    let pid = launched.spawn(&program, &vscode_arguments(&data_arg));
-    walk_app(bus, "vscode", 200, || pid_frame(connection, pid)).map(|_| ())
+    let pid = launched.try_spawn(&program, &vscode_arguments(&data_arg))?;
+    walk_app(bus, "vscode", 200, Some(pid), || pid_frame(connection, pid)).map(|_| ())
 }
 
 #[test]
@@ -269,15 +296,34 @@ fn walker_live_real_apps() {
         .get(Deadline::standard().expect("a standard deadline builds"))
         .expect("the accessibility bus must be reachable");
     let outcomes = [
-        ("files", files(&bus, &connection)),
-        ("terminal", terminal(&bus, &connection)),
-        ("calculator", calculator(&bus, &connection)),
-        ("qt", qt(&bus, &connection)),
-        ("vscode", vscode(&bus, &connection)),
+        ("files", run_leg(|| files(&bus, &connection))),
+        ("terminal", run_leg(|| terminal(&bus, &connection))),
+        ("calculator", run_leg(|| calculator(&bus, &connection))),
+        ("qt", run_leg(|| qt(&bus, &connection))),
+        ("vscode", run_leg(|| vscode(&bus, &connection))),
     ];
     let failures: Vec<String> = outcomes
         .into_iter()
         .filter_map(|(label, outcome)| outcome.err().map(|error| format!("[{label}] {error}")))
         .collect();
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+#[test]
+fn settle_stops_at_once_when_the_watched_app_has_exited() {
+    let mut launched = Launched::bare();
+    let pid = launched
+        .try_spawn("sh", &["-c", "echo no-module-named-pyqt6 >&2; exit 2"])
+        .expect("sh starts");
+    let started = Instant::now();
+    let error = settle_watching(&SharedBus::default(), 1, Some(pid), || None)
+        .err()
+        .expect("an app that exited cannot settle");
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "settle waited {:?} for an app that had exited",
+        started.elapsed()
+    );
+    assert!(error.contains("no-module-named-pyqt6"), "{error}");
+    assert!(error.contains("exit status: 2"), "{error}");
 }

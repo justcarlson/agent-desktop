@@ -5,6 +5,7 @@ use serde_json::json;
 
 use super::action_call::resolve_verb;
 use super::chain::{DeliveryOutcome, Observed};
+use super::chain_step::satisfied_step;
 use super::click::{
     POLL_STEP, deliver, invoke_verb, names_of, opens_popup, poll_until, popup_inner, refusal,
     run_single_rung,
@@ -17,10 +18,10 @@ use super::select::{
 };
 use super::select_exclusive::selected_child;
 use super::select_identity::with_current_row;
-use super::select_search::{Search, name_matches, search};
+use super::select_search::{Hit, Search, name_matches, search};
 use crate::tree::AtspiElement;
 use crate::tree::action_names::verbs_for;
-use crate::tree::action_read::read_node_view;
+use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::role_numbers::{COMBO_BOX, LABEL};
 use crate::tree::state_bits::EXPANDED;
 
@@ -29,15 +30,17 @@ const POPOVER_CLIMB: usize = 6;
 const LABEL_SCAN_LIMIT: usize = 64;
 const LABEL_DEPTH_LIMIT: usize = 8;
 
-pub(super) fn is_popup_dropdown(target: &Target<'_>) -> Result<bool, AdapterError> {
-    let view = target.view()?;
-    if view.role() != Some(COMBO_BOX) || !opens_popup(&view) || advertises_selection(&view) {
+pub(super) fn is_popup_dropdown(
+    target: &Target<'_>,
+    view: &NodeView,
+) -> Result<bool, AdapterError> {
+    if view.role() != Some(COMBO_BOX) || !opens_popup(view) || advertises_selection(view) {
         return Ok(false);
     }
     Ok(popup_inner(target, verbs_for(&Action::Expand))?.is_some())
 }
 
-fn first_label(reader: &mut BusReader<'_>, root: &AtspiElement) -> Option<String> {
+pub(super) fn first_label(reader: &mut BusReader<'_>, root: &AtspiElement) -> Option<String> {
     let mut stack = vec![(root.clone(), 0usize)];
     let mut seen = 0;
     while let Some((node, depth)) = stack.pop() {
@@ -95,6 +98,25 @@ fn popover_of(
     Ok(None)
 }
 
+/// Where a commit reads the value the control shows afterwards: the label
+/// inside the toggle of a drop down, or the first label of the list a combo
+/// shows its current value in.
+pub(super) enum Shown<'a> {
+    ToggleLabel,
+    ListOf(&'a AtspiElement),
+}
+
+fn shown_value(
+    reader: &mut BusReader<'_>,
+    target: &Target<'_>,
+    shown: &Shown<'_>,
+) -> Option<String> {
+    match shown {
+        Shown::ToggleLabel => displayed_value(target),
+        Shown::ListOf(list) => first_label(reader, list),
+    }
+}
+
 fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, AdapterError> {
     let mut reader = BusReader {
         bus: target.bus,
@@ -105,10 +127,30 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
         Search::Found(hit) => hit,
         miss => return Err(miss_error(&miss)),
     };
-    let container = hit.container.ok_or_else(no_route)?;
+    commit(
+        &mut reader,
+        target,
+        &hit,
+        display_value,
+        &Shown::ToggleLabel,
+    )
+}
+
+/// Commits the choice a search found in the list of an open popup: selects the
+/// row in the list, whose index is proven first, then runs the default action
+/// of the popover that holds the list, and waits for the value the control
+/// shows to be the wanted one.
+pub(super) fn commit(
+    reader: &mut BusReader<'_>,
+    target: &Target<'_>,
+    hit: &Hit<AtspiElement>,
+    display_value: &str,
+    shown: &Shown<'_>,
+) -> Result<ActionResult, AdapterError> {
+    let container = hit.container.clone().ok_or_else(no_route)?;
     let list_handle = handle_of(&container.node);
     let list = container_target(target, &list_handle)?;
-    let popover_handle = popover_of(&mut reader, target, &container.node)?.ok_or_else(|| {
+    let popover_handle = popover_of(reader, target, &container.node)?.ok_or_else(|| {
         refusal(
             ErrorCode::ActionNotSupported,
             "The open popup has no default action that commits a choice",
@@ -121,7 +163,7 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
     let action = Action::Select(display_value.to_owned());
     let row = hit.row.as_ref().unwrap_or(&hit.item);
     let run = || {
-        let chosen = super::select_index::write(&list, row)?;
+        let chosen = super::select_index::write_counted(&list, row)?;
         if chosen == super::mutation::WriteReply::Absent {
             return Ok(DeliveryOutcome::NotDelivered);
         }
@@ -140,7 +182,10 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
                 target.deadline,
                 SELECT_SETTLE,
                 POLL_STEP,
-                || displayed_value(target).map(|shown| name_matches(&shown, display_value)),
+                || {
+                    shown_value(reader, target, shown)
+                        .map(|shown| name_matches(&shown, display_value))
+                },
                 |matched| *matched == Some(true),
             )
         })
@@ -149,10 +194,18 @@ fn choose(target: &Target<'_>, display_value: &str) -> Result<ActionResult, Adap
     run_single_rung(action.name(), target.deadline, run)
 }
 
+fn value_already_shown(shown: Option<String>, display_value: &str) -> bool {
+    shown.is_some_and(|shown| name_matches(&shown, display_value))
+}
+
 pub(super) fn select_in_popup(
     target: &Target<'_>,
     display_value: &str,
 ) -> Result<ActionResult, AdapterError> {
+    if value_already_shown(displayed_value(target), display_value) {
+        return Ok(ActionResult::satisfied_without_delivery("select")
+            .with_steps(vec![satisfied_step("Action.DoAction")]));
+    }
     set_expanded(target, true)?;
     let outcome = choose(target, display_value);
     let still_open = target
@@ -164,4 +217,16 @@ pub(super) fn select_in_popup(
         let _ = set_expanded(target, false);
     }
     outcome
+}
+
+#[cfg(test)]
+mod tests {
+    use super::value_already_shown;
+
+    #[test]
+    fn a_drop_down_that_shows_the_wanted_value_needs_no_popup() {
+        assert!(value_already_shown(Some(" gamma ".to_owned()), "Gamma"));
+        assert!(!value_already_shown(Some("Beta".to_owned()), "Gamma"));
+        assert!(!value_already_shown(None, "Gamma"));
+    }
 }

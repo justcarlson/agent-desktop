@@ -162,17 +162,27 @@ returns `data.rendered: true`; on Wayland it saves the setting and returns
   adapter fallback: ordinary-app headed
   pointer commands (`click`, `hover`, `double-click`, `mouse-*`, wheel) are refused
   at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
-  `physical_delivery_started: false`. A headed `type` sends Wayland keys through
+  `physical_delivery_started: false`; a headed `select` is refused the same
+  way. A headed `type` sends Wayland keys through
   `RemoteDesktop.type_text` only after detecting the Mutter RemoteDesktop
   capability; other compositors return `PLATFORM_NOT_SUPPORTED` before input.
   Windows works the other way round. Read the step in
   `data` to see which ran.
+- `select` tries the semantic route first and the pointer second. A headed
+  `select` on a list whose toolkit index cannot be mapped to the row (a GTK4
+  list) clicks the row and checks its `selected` state. On a combo that has no
+  semantic opener (a libadwaita combo row) it clicks the combo to open it, then
+  selects the choice through the popup's own list and checks the value the combo
+  shows. A headless `select` on either refuses: `selection_index_unproven`, or
+  `POLICY_DENIED` with kind `pointer_required`. The pointer route needs X11: on
+  Wayland a headed `select` is refused at once, before it resolves its target.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.
   It receives keys only under `--headed`.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
-  Windows names plus X keysym names.
+  Windows names plus X keysym names. `press` takes mapped keys only; `type`
+  handles characters the layout cannot produce.
 - X11 and Wayland differ in input, capture and window control; the Wayland
   limits are stated where they apply.
 - Window ops act on X11 clients; `focus-window` and headed scoped `press` require
