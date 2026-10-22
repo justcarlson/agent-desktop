@@ -53,6 +53,21 @@ fn a_typed_popup_preserves_its_window_and_an_unclassified_popup_refuses() {
         app: Some(app),
         focused_only: false,
     };
+    let registry =
+        crate::system::registry::read_registry_for(rig.bus(), Some(pid), deadline()).unwrap();
+    let windows = crate::system::window::window_ops::windows_of(
+        rig.bus(),
+        &registry,
+        |app| app.root.pid() == pid,
+        deadline(),
+    )
+    .unwrap();
+    let expired = super::without_helpers(windows.clone(), Deadline::after(0).unwrap()).unwrap_err();
+    assert_eq!(expired.code, ErrorCode::Timeout);
+    assert_eq!(
+        super::without_helpers(windows, deadline()).unwrap().len(),
+        1
+    );
     let listed = list_windows(rig.bus(), &filter, deadline())
         .expect("a typed native popup must preserve its managed window");
     assert_eq!(listed.len(), 1);
