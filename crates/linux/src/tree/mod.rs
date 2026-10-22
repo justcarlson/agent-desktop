@@ -66,6 +66,7 @@ mod readiness_step;
 mod resolution;
 mod resolve;
 mod resolve_anchor;
+mod resolve_candidates;
 mod resolve_errors;
 #[cfg(test)]
 mod resolve_fake;

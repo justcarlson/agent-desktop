@@ -320,10 +320,13 @@ pub(crate) async fn read_node_for(
             },
             accessible("GetRole", true),
             accessible("GetRoleName", purpose.vocabulary()),
-            accessible("GetState", true),
+            accessible("GetState", purpose != ReadPurpose::Shape),
         ),
         join3(
-            accessible("GetInterfaces", purpose != ReadPurpose::Structure),
+            accessible(
+                "GetInterfaces",
+                !matches!(purpose, ReadPurpose::Structure | ReadPurpose::Shape),
+            ),
             accessible("GetAttributes", purpose.vocabulary()),
             accessible("GetChildren", purpose.children()),
         ),

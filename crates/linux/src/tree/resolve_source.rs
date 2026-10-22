@@ -13,6 +13,7 @@ use super::path_descent::Levels;
 use super::read_purpose::ReadPurpose;
 use super::resolve::{Source, resolve};
 use super::resolve_anchor::resolve_anchor;
+use super::resolve_candidates::read_candidates;
 use super::resolve_errors::{settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
 use super::resolve_search::evaluate;
@@ -120,8 +121,9 @@ impl Source for BusSource<'_> {
             frame,
             &WalkLimits::default(),
             self.deadline,
-            ReadPurpose::Resolve,
+            ReadPurpose::Shape,
         )?;
+        read_candidates(&self.connection, &mut walk, entry, self.deadline)?;
         place_nodes(self.bus, &mut walk, self.deadline)?;
         Ok(evaluate(
             &walk,

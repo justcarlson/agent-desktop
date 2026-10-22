@@ -12,6 +12,7 @@ pub(crate) enum ReadPurpose {
     Actions,
     Frame,
     Structure,
+    Shape,
 }
 
 impl ReadPurpose {
@@ -45,7 +46,11 @@ impl ReadPurpose {
     pub(super) fn children(self) -> bool {
         matches!(
             self,
-            Self::Snapshot | Self::Sampling | Self::Structure | Self::Resolve
+            Self::Snapshot | Self::Sampling | Self::Structure | Self::Shape | Self::Resolve
         )
     }
 }
+
+#[cfg(test)]
+#[path = "read_purpose_tests.rs"]
+mod tests;
