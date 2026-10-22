@@ -2,9 +2,7 @@ use agent_desktop_core::{BoundsSpace, LocatorField, RefEntry};
 
 use super::candidate::Candidate;
 use super::projection::project_node;
-use super::resolve_match::{
-    Admission, accepts_landing, admit_node, provisional_geometry_candidate,
-};
+use super::resolve_match::{Admission, admit_node};
 use super::role_numbers::is_web_document;
 use super::searched::Searched;
 use super::{ObservedRead, Walk, WalkLimits, WalkedNode};
@@ -30,11 +28,7 @@ fn visit(
             .identifiers
             .with_retained_object(node.payload.node.element.object_identity());
     }
-    let admission = if provisional_geometry_candidate(entry) && accepts_landing(entry, &evidence) {
-        Admission::Collect
-    } else {
-        admit_node(entry, &evidence)
-    };
+    let admission = admit_node(entry, &evidence);
     match admission {
         Admission::Collect => found.candidates.push(Candidate {
             element: node.payload.node.element.clone(),

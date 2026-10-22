@@ -53,7 +53,7 @@ fn an_identifier_match_whose_stored_text_cannot_be_read_is_unread() {
 }
 
 #[test]
-fn a_size_contradicts_only_when_both_sizes_are_known_and_differ() {
+fn unknown_or_unusable_rectangles_cannot_refute_geometry() {
     let entry = sized(
         named("button", "View Options"),
         rect(10.0, 10.0, 34.0, 34.0),
@@ -70,22 +70,25 @@ fn a_size_contradicts_only_when_both_sizes_are_known_and_differ() {
         None,
         Some(rect(-1.0, -1.0, -1.0, -1.0)),
     );
-    assert!(!size_contradicts(&entry, &unreadable));
-    assert!(!size_contradicts(&entry, &no_extents));
-    assert!(!size_contradicts(&entry, &minus_one));
+    assert!(!geometry_contradicts(&entry, &unreadable));
+    assert!(!geometry_contradicts(&entry, &no_extents));
+    assert!(!geometry_contradicts(&entry, &minus_one));
 }
 
 #[test]
-fn a_ref_that_stored_no_rectangle_or_an_empty_one_has_no_size_to_contradict() {
+fn missing_or_empty_stored_rectangles_cannot_refute_geometry() {
     let live = evidence(
         "button",
         Some("View Options"),
         None,
         Some(rect(0.0, 0.0, 23.0, 34.0)),
     );
-    assert!(!size_contradicts(&named("button", "View Options"), &live));
+    assert!(!geometry_contradicts(
+        &named("button", "View Options"),
+        &live
+    ));
     let flat = sized(named("button", "View Options"), rect(0.0, 0.0, 34.0, 0.0));
-    assert!(!size_contradicts(&flat, &live));
+    assert!(!geometry_contradicts(&flat, &live));
 }
 
 #[test]
@@ -98,7 +101,7 @@ fn a_landing_is_positional_so_a_twin_elsewhere_does_not_matter_but_a_resize_decl
         "button",
         Some("View Options"),
         None,
-        Some(rect(300.0, 20.0, 34.0, 34.0)),
+        Some(rect(10.0, 10.0, 34.0, 34.0)),
     );
     let resized = evidence(
         "button",
@@ -118,10 +121,10 @@ fn a_landing_is_positional_so_a_twin_elsewhere_does_not_matter_but_a_resize_decl
 }
 
 #[test]
-fn an_unreadable_identity_is_promoted_by_a_matching_size_and_refuted_by_a_different_one() {
+fn an_unreadable_identity_needs_the_whole_recorded_rectangle() {
     let entry = sized(ref_entry("entry"), rect(5.0, 5.0, 120.0, 24.0));
-    let same = evidence("entry", None, None, Some(rect(900.0, 9.0, 120.0, 24.0)));
-    let other = evidence("entry", None, None, Some(rect(5.0, 5.0, 130.0, 24.0)));
+    let same = evidence("entry", None, None, Some(rect(5.0, 5.0, 120.0, 24.0)));
+    let other = evidence("entry", None, None, Some(rect(900.0, 9.0, 120.0, 24.0)));
     let mut unreadable_same = same.clone();
     unreadable_same.name = LocatorField::Unknown;
     let mut unreadable_other = other.clone();
@@ -131,11 +134,11 @@ fn an_unreadable_identity_is_promoted_by_a_matching_size_and_refuted_by_a_differ
 }
 
 #[test]
-fn a_ref_known_only_by_its_size_is_refuted_by_a_node_whose_size_was_read_and_differs() {
+fn a_geometry_only_ref_needs_known_matching_position_and_size() {
     let entry = sized(ref_entry("textfield"), rect(0.0, 0.0, 690.0, 464.0));
     let mut resized = evidence("textfield", None, None, Some(rect(0.0, 0.0, 690.0, 463.0)));
     assert_eq!(admit_node(&entry, &resized), Admission::Reject);
-    let same = evidence("textfield", None, None, Some(rect(5.0, 9.0, 690.0, 464.0)));
+    let same = evidence("textfield", None, None, Some(rect(0.0, 0.0, 690.0, 464.0)));
     assert_eq!(admit_node(&entry, &same), Admission::Collect);
     resized.ref_evidence.bounds = LocatorField::Unknown;
     assert_eq!(admit_node(&entry, &resized), Admission::Unread);

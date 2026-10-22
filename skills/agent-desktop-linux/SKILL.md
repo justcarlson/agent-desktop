@@ -127,6 +127,12 @@ tool for observation or semantic actions.
   an X11 session. Headless scoped `press` requires live target focus on either
   display server. Focusing a window on another workspace can switch the user's
   current desktop.
+- Ref geometry compares position and size only in its recorded coordinate frame.
+  A window move can make screen-relative geometry unable to distinguish twins;
+  refresh the snapshot rather than retrying the old ref. Linux exact FFI refs
+  carrying bounds or a bounds hash require window-relative geometry, even when
+  the ref also carries a name or identifier. Geometry-free identity refs remain
+  supported.
 - Held-input commands fail closed on every platform.
 
 ## References

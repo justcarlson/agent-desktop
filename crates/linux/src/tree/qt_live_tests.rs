@@ -35,7 +35,7 @@ fn object_identity_cleared(entries: &[RefEntry]) -> Vec<RefEntry> {
 
 #[test]
 #[ignore = "drives a real desktop application; run through scripts/private-session.sh"]
-fn qt_live_moved_twin_refs_stay_distinct_and_shared_text_only_evidence_is_ambiguous() {
+fn qt_live_moved_screen_twins_refuse_old_geometry_and_fresh_refs_stay_distinct() {
     let mut rig = rig();
     let fixture = live_fixture::qt(&mut rig.launched).expect("the fixture starts");
     let settled = rig.settled(fixture.pid, 8);
@@ -45,10 +45,8 @@ fn qt_live_moved_twin_refs_stay_distinct_and_shared_text_only_evidence_is_ambigu
         .iter()
         .map(|entry| entry.geometry.bounds.expect("a rectangle").width)
         .collect();
-    let position = |rig: &Rig| {
-        let handle = rig.resolve(&twins[0]).expect("resolves");
-        rig.raw(&handle).expect("read").extents.present().copied()
-    };
+    let handle = rig.resolve(&twins[0]).expect("resolves before the move");
+    let position = |rig: &Rig| rig.raw(&handle).expect("read").extents.present().copied();
     let before = position(&rig).expect("extents");
 
     fixture.send("move 420 260");
@@ -63,17 +61,23 @@ fn qt_live_moved_twin_refs_stay_distinct_and_shared_text_only_evidence_is_ambigu
         before.x, before.y, after.x, after.y
     );
 
-    assert_eq!(widths(&rig, &twins), stored, "the intact path after a move");
+    for entry in &twins {
+        assert_eq!(
+            refused(rig.resolve(entry), "screen position changed").code,
+            ErrorCode::AmbiguousTarget
+        );
+    }
+    let fresh = rig.named(&settled.frame, true, "Twin");
     assert_eq!(
-        widths(&rig, &path_emptied(&twins)),
+        widths(&rig, &fresh),
         stored,
-        "the retained object after a move"
+        "fresh geometry separates twins"
     );
-    let mut nothing = object_identity_cleared(&path_emptied(&twins));
+    let mut nothing = object_identity_cleared(&path_emptied(&fresh));
     assert_eq!(
         widths(&rig, &nothing),
         stored,
-        "the shared text and stored size"
+        "whole recorded screen rectangle"
     );
     for entry in &mut nothing {
         entry.geometry.bounds = None;

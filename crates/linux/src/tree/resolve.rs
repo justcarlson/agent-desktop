@@ -61,7 +61,7 @@ fn path_tier_applies(entry: &RefEntry) -> bool {
 }
 
 /// The element the stored path lands on when it still answers to the stored
-/// identity and has not changed size, and whether the descent left a region
+/// identity and recorded rectangle, and whether the descent left a region
 /// unread. Declining is never a verdict: the search decides. A landing that
 /// was destroyed is settled gone, as the anchor path settles it, so it
 /// declines without leaving a region unread; any other failed read does.

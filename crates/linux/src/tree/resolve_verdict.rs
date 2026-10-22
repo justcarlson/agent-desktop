@@ -1,6 +1,6 @@
 use agent_desktop_core::{BoundsSpace, Rect};
 
-use super::resolve_match::{same_size, usable_size};
+use super::resolve_match::{rectangles_equal, usable_size};
 
 /// What the candidates of a search mean for the ref.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,12 +15,12 @@ pub(crate) enum Verdict {
     Incomplete,
 }
 
-/// The one candidate whose size equals the stored size, when exactly one does.
+/// The one candidate whose whole rectangle matches in its recorded frame.
 /// It only ever picks among several candidates and never refutes one; a ref
 /// with no stored size cannot be separated this way and stays ambiguous. A
 /// candidate whose extents were not read is not a size that differs: it could
 /// be the element, so while any candidate is unread nothing is picked.
-pub(crate) fn select_by_stored_size(
+pub(crate) fn select_by_stored_geometry(
     candidates: &[Option<Rect>],
     spaces: &[BoundsSpace],
     stored: Option<&Rect>,
@@ -29,18 +29,13 @@ pub(crate) fn select_by_stored_size(
     if stored.and_then(usable_size).is_none() || candidates.iter().any(Option::is_none) {
         return None;
     }
-    let whole = stored_space == BoundsSpace::Window
-        && spaces.iter().all(|space| *space == BoundsSpace::Window);
+    if spaces.len() != candidates.len() || spaces.iter().any(|space| *space != stored_space) {
+        return None;
+    }
     let stored = stored?;
     let mut matching = candidates.iter().enumerate().filter_map(|(index, rect)| {
         let rect = rect.as_ref()?;
-        let same = if whole {
-            (rect.x - stored.x).abs() < 0.5
-                && (rect.y - stored.y).abs() < 0.5
-                && same_size((rect.width, rect.height), (stored.width, stored.height))
-        } else {
-            usable_size(rect).is_some_and(|size| same_size(size, (stored.width, stored.height)))
-        };
+        let same = usable_size(rect).is_some() && rectangles_equal(rect, stored);
         same.then_some(index)
     });
     let first = matching.next()?;
@@ -70,7 +65,7 @@ pub(crate) fn classify(
     match candidates.len() {
         0 => Verdict::Stale,
         1 => Verdict::Resolved(0),
-        _ => select_by_stored_size(candidates, spaces, stored, stored_space)
+        _ => select_by_stored_geometry(candidates, spaces, stored, stored_space)
             .map_or(Verdict::Ambiguous, Verdict::Resolved),
     }
 }

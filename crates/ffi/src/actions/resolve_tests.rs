@@ -34,18 +34,19 @@ fn exact_ref_geometry_accepts_only_the_platform_native_frame() {
             agent_desktop_core::BoundsSpace::Screen,
         )
     };
-    for (space, has_bounds, expected) in [
-        (native_space, true, Some(expected_space)),
-        (native_space, false, None),
-        (other_space, true, None),
-        (crate::AD_BOUNDS_SPACE_UNKNOWN, true, None),
-        (99, true, None),
+    for (space, has_bounds, has_hash, expected) in [
+        (native_space, true, false, Some(expected_space)),
+        (native_space, false, false, Some(expected_space)),
+        (native_space, false, true, Some(expected_space)),
+        (other_space, true, false, None),
+        (other_space, false, true, None),
+        (crate::AD_BOUNDS_SPACE_UNKNOWN, true, false, None),
+        (crate::AD_BOUNDS_SPACE_UNKNOWN, false, true, None),
+        (99, true, false, None),
     ] {
         let mut entry = test_ref_entry();
         entry.identity.role = c"button".as_ptr();
-        if space == 99 {
-            entry.identity.name = c"target".as_ptr();
-        }
+        entry.identity.name = c"target".as_ptr();
         entry.geometry.bounds = crate::AdRect {
             x: 12.0,
             y: 24.0,
@@ -53,6 +54,8 @@ fn exact_ref_geometry_accepts_only_the_platform_native_frame() {
             height: 30.0,
         };
         entry.geometry.has_bounds = has_bounds;
+        entry.geometry.has_bounds_hash = has_hash;
+        entry.geometry.bounds_hash = 7;
         entry.geometry.bounds_space = space;
         match expected {
             Some(expected) => {
@@ -96,7 +99,11 @@ fn ffi_ref_entry_preserves_description_identity() {
         height: 4.0,
     };
     entry.geometry.has_bounds = true;
-    entry.geometry.bounds_space = crate::AD_BOUNDS_SPACE_SCREEN;
+    entry.geometry.bounds_space = if cfg!(target_os = "linux") {
+        crate::AD_BOUNDS_SPACE_WINDOW
+    } else {
+        crate::AD_BOUNDS_SPACE_SCREEN
+    };
     entry.geometry.bounds_hash = Rect {
         x: 1.0,
         y: 2.0,
@@ -132,7 +139,11 @@ fn ffi_ref_entry_preserves_description_identity() {
     assert_eq!(core_entry.geometry.bounds.unwrap().width, 3.0);
     assert_eq!(
         core_entry.geometry.bounds_space,
-        Some(agent_desktop_core::BoundsSpace::Screen)
+        Some(if cfg!(target_os = "linux") {
+            agent_desktop_core::BoundsSpace::Window
+        } else {
+            agent_desktop_core::BoundsSpace::Screen
+        })
     );
     assert_eq!(
         core_entry.geometry.bounds_hash,
