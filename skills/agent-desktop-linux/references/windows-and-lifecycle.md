@@ -241,6 +241,8 @@ and the window operations answer `APP_UNRESPONSIVE` in milliseconds, not
 `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`, `not_delivered` and
 `retry: safe`; `--force` ends it. An unscoped `list-windows` still lists its
 windows, marked `accessible: false`.
+A scoped listing of a busy app that left every frame unanswered answers `TIMEOUT`, not an empty
+list.
 
 ## Waiting for lifecycle events
 
