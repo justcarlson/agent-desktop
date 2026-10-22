@@ -190,7 +190,7 @@ impl Probe {
         assert!(
             found.is_some(),
             "the widget never appeared under pid {pid}; alive={}; {}; tree:\n{}",
-            std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            is_running(pid),
             process_report(pid),
             self.dump(pid)
         );
