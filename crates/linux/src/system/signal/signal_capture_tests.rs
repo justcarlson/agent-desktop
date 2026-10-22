@@ -14,7 +14,7 @@ use crate::system::registry::registry_app::RegistryApp;
 use crate::system::registry::registry_frames::RootRead;
 use crate::system::signal::signal_inventory::Pass;
 use crate::system::x11::{FrameFacts, X11Evidence};
-use crate::system::{menu::nested_scan::NestedScan, registry::listed_window::ListedWindow};
+use crate::system::{menu::surface_scan::NestedScan, registry::listed_window::ListedWindow};
 
 #[path = "signal_windowless_tests.rs"]
 mod windowless;

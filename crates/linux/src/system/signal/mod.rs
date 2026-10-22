@@ -130,6 +130,7 @@ pub(super) mod signal_live_apps;
 pub(super) mod signal_live_surfaces_tests;
 #[cfg(test)]
 pub(super) mod signal_live_tests;
-pub(super) mod signal_population;
 pub(crate) mod signal_sent;
 pub(super) mod signal_surfaces;
+pub(crate) mod subscription;
+mod wake_state;

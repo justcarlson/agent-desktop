@@ -111,7 +111,7 @@ fn native_window_types_require_complete_uniform_process_or_geometry_groups() {
     let users = std::collections::HashSet::from([20, 21]);
     let helpers = std::collections::HashSet::new();
     let classify = |frames: &[FrameFacts], clients: &[X11Client]| {
-        native_group(&frame, frames, clients, &users, &helpers, true)
+        native_group::classify(&frame, frames, clients, &users, &helpers, true)
     };
     let one = std::slice::from_ref(&frame);
     assert!(classify(one, std::slice::from_ref(&client)).unwrap());
@@ -122,7 +122,7 @@ fn native_window_types_require_complete_uniform_process_or_geometry_groups() {
     };
     assert!(classify(one, std::slice::from_ref(&wrong)).unwrap());
     assert!(
-        native_group(
+        native_group::classify(
             &frame,
             one,
             std::slice::from_ref(&wrong),
@@ -145,33 +145,11 @@ fn native_window_types_require_complete_uniform_process_or_geometry_groups() {
     let twins = [frame.clone(), frame.clone()];
     let natives = [client.clone(), X11Client { id: 21, ..client }];
     assert!(classify(&twins, &natives).unwrap());
-    assert!(native_group(&frame, &twins, &natives, &users, &helpers, false).is_err());
+    assert!(native_group::classify(&frame, &twins, &natives, &users, &helpers, false).is_err());
     assert!(classify(one, &natives).is_err());
-    let separated = [
-        natives[0].clone(),
-        X11Client {
-            bounds: Some(Extents {
-                x: 999,
-                width: 100,
-                ..bounds
-            }),
-            ..natives[1].clone()
-        },
-    ];
-    assert!(
-        native_group(
-            &frame,
-            one,
-            &separated,
-            &std::collections::HashSet::from([20]),
-            &std::collections::HashSet::from([21]),
-            true
-        )
-        .is_err()
-    );
     assert!(classify(&twins, &natives[..1]).is_err());
     assert!(
-        native_group(
+        native_group::classify(
             &frame,
             &twins,
             &natives,
@@ -181,5 +159,87 @@ fn native_window_types_require_complete_uniform_process_or_geometry_groups() {
         )
         .is_err()
     );
-    assert!(!native_group(&frame, &twins, &natives, &helpers, &users, true).unwrap());
+    assert!(!native_group::classify(&frame, &twins, &natives, &helpers, &users, true).unwrap());
+}
+
+#[test]
+fn a_proven_native_menu_does_not_hide_a_managed_window() {
+    use crate::system::x11::{FrameFacts, X11Client};
+    use crate::tree::Extents;
+    let bounds = Extents {
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 500,
+    };
+    let frame = FrameFacts {
+        pid: 7,
+        title: "document".into(),
+        extents: Some(bounds),
+        global_position: true,
+        size_identity: false,
+    };
+    let managed = X11Client {
+        id: 20,
+        pid: Some(7),
+        title: "document".into(),
+        bounds: Some(bounds),
+        extents: None,
+        hidden: false,
+        shadow: (0, 0, 0, 0),
+    };
+    let menu = X11Client {
+        id: 21,
+        title: String::new(),
+        bounds: Some(Extents {
+            width: 200,
+            height: 300,
+            ..bounds
+        }),
+        ..managed.clone()
+    };
+    let users = std::collections::HashSet::from([20]);
+    let helpers = std::collections::HashSet::from([21]);
+    let frames = std::slice::from_ref(&frame);
+    assert!(
+        native_group::classify(
+            &frame,
+            frames,
+            std::slice::from_ref(&menu),
+            &users,
+            &helpers,
+            true
+        )
+        .is_err(),
+        "a menu at other bounds cannot account for an accessibility frame"
+    );
+    assert!(
+        native_group::classify(
+            &frame,
+            frames,
+            &[managed.clone(), menu.clone()],
+            &users,
+            &helpers,
+            true
+        )
+        .unwrap()
+    );
+    assert!(
+        native_group::classify(
+            &frame,
+            frames,
+            &[managed.clone(), menu.clone()],
+            &users,
+            &helpers,
+            false
+        )
+        .is_err()
+    );
+    let twin = X11Client {
+        bounds: Some(bounds),
+        ..menu
+    };
+    assert!(
+        native_group::classify(&frame, frames, &[managed, twin], &users, &helpers, true).is_err()
+    );
 }

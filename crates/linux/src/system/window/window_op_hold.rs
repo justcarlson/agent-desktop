@@ -1,20 +1,18 @@
 use super::*;
 
-fn rests_at(
+pub(super) fn confirm_rectangle(
     world: &impl OpWorld,
     client: u32,
-    first: &Extents,
-    place: &Extents,
+    first: WindowFacts,
     deadline: Deadline,
-) -> bool {
-    if (first.x - place.x).abs() > POSITION_TOLERANCE
-        || (first.y - place.y).abs() > POSITION_TOLERANCE
-        || deadline.remaining() < CONFIRM_PAUSE
-    {
-        return false;
+) -> (bool, Option<WindowFacts>) {
+    if deadline.remaining() < CONFIRM_PAUSE {
+        return (false, Some(first));
     }
     std::thread::sleep(CONFIRM_PAUSE);
-    matches!(world.facts(client), ControlRead::Ready(next) if next.client == *first)
+    let next = world.facts(client).ready();
+    let stable = !deadline.is_expired() && next.is_some_and(|next| next.client == first.client);
+    (stable, next)
 }
 
 /// Puts the client at `place`, with a second try through a place 40 px away
@@ -30,7 +28,9 @@ pub(super) fn move_client(
     let there = matches!(
         world.facts(client),
         ControlRead::Ready(facts)
-            if rests_at(world, client, &facts.client, &place, deadline)
+            if (facts.client.x - place.x).abs() <= POSITION_TOLERANCE
+                && (facts.client.y - place.y).abs() <= POSITION_TOLERANCE
+                && confirm_rectangle(world, client, facts, deadline).0
     );
     if !there && apply(world, win, client, &back, deadline).is_err() {
         apply(
@@ -59,37 +59,11 @@ pub(super) fn give_back_place(
     Ok(())
 }
 
-/// A resize must not move the window. Some managers resize about the frame
-/// and leave the client shifted by the frame's extents, so the place the
-/// client had is given back when the resize moved it.
-pub(super) fn hold_place(
-    world: &impl OpWorld,
-    win: &WindowInfo,
-    client: u32,
-    before: Option<Extents>,
-    deadline: Deadline,
-) -> Result<(), AdapterError> {
-    let Some(place) = before else {
-        return Ok(());
-    };
-    let displays = world.displays();
-    let moved = match world.facts(client) {
-        ControlRead::Ready(facts) if fits_a_display(&facts.client, &displays) => {
-            !rests_at(world, client, &facts.client, &place, deadline)
-        }
-        _ => false,
-    };
-    if moved {
-        move_client(world, win, client, place, deadline)?;
-    }
-    Ok(())
-}
-
 /// Whether a window of this size can sit on one display. A window wider or
 /// taller than every display is placed by the manager as it likes, so the
 /// place it was given is no measure of it. Without a display list the size is
 /// taken to fit.
-fn fits_a_display(client: &Extents, displays: &[Rect]) -> bool {
+pub(super) fn fits_a_display(client: &Extents, displays: &[Rect]) -> bool {
     displays.is_empty()
         || displays.iter().any(|display| {
             f64::from(client.width) <= display.width && f64::from(client.height) <= display.height

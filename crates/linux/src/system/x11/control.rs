@@ -120,11 +120,7 @@ pub(crate) fn decoration_matches(pid: u32, claims: usize, deadline: Deadline) ->
             Some(
                 !parents.is_empty()
                     && parents.len() == claims
-                    && super::client_population::complete(
-                        pid,
-                        parents.into_iter().collect(),
-                        deadline,
-                    ),
+                    && matches!(super::native_population::read(pid, parents.into_iter().collect(), deadline), super::native_population::NativePopulation::Complete { menus } if menus.is_empty()),
             )
         };
         read().map_or(ControlRead::Unavailable, ControlRead::Ready)

@@ -2,8 +2,10 @@ use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, ProcessIdentity, SurfaceInfo, WindowInfo,
 };
 
+use super::inventory::scan_windows;
+use super::inventory_reader::Inventory;
 use super::menu_surface;
-use super::nested_scan::{NestedScan, bus_read, scan_windows};
+use super::surface_scan::NestedScan;
 use crate::system::SharedBus;
 use crate::system::process::process_facts;
 use crate::system::process::unresponsive::scoped_windows_of;
@@ -90,14 +92,15 @@ pub(crate) fn list_surfaces(
     let registry = read_registry(bus, deadline)?;
     let pid = process.pid.get();
     let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
-    let scan = scan_windows(&windows, bus_read(bus, deadline));
+    let mut inventory = Inventory::new(bus, deadline);
+    let scan = scan_windows(&windows, |window| inventory.read(window));
     let mut surfaces = surfaces_of(&windows);
     mark_unread(&mut surfaces, &windows, &scan);
     surfaces.extend(nested_entries(&scan));
     let owners: Vec<&WindowInfo> = windows.iter().map(|window| &window.info).collect();
     Ok(with_menu_leg(
         surfaces,
-        menu_surface::surfaces_of(bus, &owners, deadline),
+        menu_surface::surfaces_of(&mut inventory, &owners, deadline),
     ))
 }
 

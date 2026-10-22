@@ -25,6 +25,16 @@ use crate::system::{
 };
 
 impl SystemOps for LinuxAdapter {
+    fn subscribe_wait(
+        &self,
+        filter: &SignalFilter,
+        deadline: Deadline,
+    ) -> Result<Option<Box<dyn agent_desktop_core::WaitWakeup>>, AdapterError> {
+        Ok(Some(Box::new(
+            super::signal::subscription::Subscription::open(self.bus(), filter, deadline)?,
+        )))
+    }
+
     fn update_cursor_overlay(
         &self,
         control: &agent_desktop_core::CursorOverlayControl,
