@@ -33,6 +33,7 @@ pub(crate) fn target_steps(
             Err(crate::input::keyboard_focus::refused())
         }
     };
+    gate()?;
     let operation = match action {
         Action::TypeText(text) => {
             match &backend {
@@ -81,8 +82,8 @@ pub(crate) fn press_for_process(
 ) -> Result<ActionResult, AdapterError> {
     ensure_budget(deadline)?;
     let backend = world.backend()?;
-    let mut gate = || gate().map_err(|error| worded_for(error, policy, &backend));
-    send_combo(world, &backend, combo, &mut gate, deadline)?;
+    gate().map_err(|error| worded_for(error, policy, &backend))?;
+    send_combo(world, &backend, combo, gate, deadline)?;
     Ok(ActionResult::from_execution(
         &Action::PressKey(combo.clone()),
         vec![physical_step(&backend, "press_key")],
