@@ -20,6 +20,6 @@ unset DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DI
 while IFS= read -r entry; do
   case "$entry" in
     DISPLAY=*|WAYLAND_DISPLAY=*|XAUTHORITY=*|DBUS_SESSION_BUS_ADDRESS=*|XDG_RUNTIME_DIR=*)
-      export "$entry" ;;
+      export "${entry?}" ;;
   esac
 done <<< "$candidate_env"

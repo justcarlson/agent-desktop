@@ -48,6 +48,7 @@ export PATH="$scratch/bin:$PATH" SESSION_ENV_FAKE_PROC="$scratch/proc"
 export DISPLAY=:stale WAYLAND_DISPLAY=stale XAUTHORITY=stale
 export XDG_RUNTIME_DIR=/private DBUS_SESSION_BUS_ADDRESS=unix:path=/private/bus PARENT_ONLY=kept
 
+# shellcheck source=/dev/null
 observed=$(. "$scratch/session-env.sh"; printf '%s\n' "$DISPLAY|$XDG_RUNTIME_DIR|$DBUS_SESSION_BUS_ADDRESS|$XAUTHORITY|${WAYLAND_DISPLAY-unset}|$PARENT_ONLY")
 expected=':7|/real|unix:path=/real/bus|/real/auth|unset|kept'
 if [ "$observed" != "$expected" ]; then
@@ -56,6 +57,7 @@ if [ "$observed" != "$expected" ]; then
 fi
 
 python3 -c 'import shutil, sys; shutil.rmtree(sys.argv[1])' "$scratch/proc/14"
+# shellcheck source=/dev/null
 if (. "$scratch/session-env.sh") 2>/dev/null; then
   echo 'FAIL: private or unreadable environments cannot establish a live desktop' >&2
   exit 1
