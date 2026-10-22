@@ -11,12 +11,9 @@ fn states_follow_enabled_checked_and_submenu() {
         checked: None,
         children: Vec::new(),
     };
-    assert_eq!(states_of(&entry), ["offscreen"]);
+    assert!(states_of(&entry).is_empty());
     entry.enabled = false;
     entry.checked = Some(true);
     entry.submenu = true;
-    assert_eq!(
-        states_of(&entry),
-        ["offscreen", "disabled", "checked", "haspopup"]
-    );
+    assert_eq!(states_of(&entry), ["disabled", "checked", "haspopup"]);
 }

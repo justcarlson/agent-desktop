@@ -1,12 +1,8 @@
-use std::collections::HashMap;
-
 use agent_desktop_core::ErrorCode;
-use zbus::zvariant::{OwnedValue, Value};
 
 use crate::system::shell::call_failure::CallFailure;
 use crate::system::shell::detect::{
-    Fact, Need, ShellEnvironment, classify_daemon, classify_tree, classify_watcher,
-    extension_state, require,
+    Fact, Need, ShellEnvironment, classify_daemon, classify_tree, classify_watcher, require,
 };
 use crate::system::shell::watcher_read::WatcherRead;
 
@@ -20,7 +16,7 @@ fn environment(daemon: Fact, tree: Fact, watcher: Fact, server: Option<&str>) ->
 }
 
 #[test]
-fn daemon_requirement_refuses_absent_and_foreign_servers() {
+fn daemon_requirement_uses_protocol_presence_instead_of_server_branding() {
     let (daemon, server) = classify_daemon(Ok("gnome-shell".to_owned()));
     assert!(
         require(
@@ -40,13 +36,11 @@ fn daemon_requirement_refuses_absent_and_foreign_servers() {
     assert_eq!(absent.details.expect("daemon details")["daemon"], "absent");
 
     let (daemon, server) = classify_daemon(Ok("kded".to_owned()));
-    let foreign = require(
+    require(
         &environment(daemon, Fact::Present, Fact::Present, server.as_deref()),
         Need::Daemon,
     )
-    .expect_err("foreign notification service");
-    assert_eq!(foreign.code, ErrorCode::PlatformNotSupported);
-    assert!(foreign.message.contains("kded"));
+    .expect("a protocol reply is present regardless of its human-readable name");
 
     let (daemon, server) = classify_daemon(Err(CallFailure::Transport("bus stalled".to_owned())));
     let unreadable = require(
@@ -112,7 +106,7 @@ fn tree_requirement_preserves_registry_failure_classes() {
 
 #[test]
 fn watcher_requirement_preserves_presence_and_races() {
-    let absent = classify_watcher(Ok(WatcherRead::NoOwner), Some("not installed".to_owned()));
+    let absent = classify_watcher(Ok(WatcherRead::NoOwner));
     let error = require(
         &environment(Fact::Present, Fact::Present, absent, None),
         Need::Watcher,
@@ -123,10 +117,10 @@ fn watcher_requirement_preserves_presence_and_races() {
         error
             .suggestion
             .expect("extension guidance")
-            .contains("AppIndicator")
+            .contains("org.kde.StatusNotifierWatcher")
     );
 
-    let present = classify_watcher(Ok(WatcherRead::Items), None);
+    let present = classify_watcher(Ok(WatcherRead::Items));
     assert!(
         require(
             &environment(Fact::Present, Fact::Present, present, None),
@@ -135,7 +129,7 @@ fn watcher_requirement_preserves_presence_and_races() {
         .is_ok()
     );
 
-    let vanished = classify_watcher(Err(CallFailure::NoService), None);
+    let vanished = classify_watcher(Err(CallFailure::NoService));
     let error = require(
         &environment(Fact::Present, Fact::Present, vanished, None),
         Need::Watcher,
@@ -144,7 +138,7 @@ fn watcher_requirement_preserves_presence_and_races() {
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(error.details.expect("watcher details")["retryable"], true);
 
-    let stalled = classify_watcher(Err(CallFailure::Transport("bus stalled".to_owned())), None);
+    let stalled = classify_watcher(Err(CallFailure::Transport("bus stalled".to_owned())));
     let error = require(
         &environment(Fact::Present, Fact::Present, stalled, None),
         Need::Watcher,
@@ -152,22 +146,4 @@ fn watcher_requirement_preserves_presence_and_races() {
     .expect_err("watcher transport failure");
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(error.details.expect("watcher details")["retryable"], true);
-}
-
-fn listed(uuid: &str, state: f64) -> HashMap<String, HashMap<String, OwnedValue>> {
-    let value = OwnedValue::try_from(Value::F64(state)).expect("valid extension state");
-    HashMap::from([(
-        uuid.to_owned(),
-        HashMap::from([("state".to_owned(), value)]),
-    )])
-}
-
-#[test]
-fn extension_diagnostics_preserve_three_states() {
-    assert!(extension_state(&HashMap::new()).contains("not installed"));
-    assert!(extension_state(&listed("appindicator-support@fixture", 2.0)).contains("not enabled"));
-    assert!(
-        extension_state(&listed("appindicator-support@fixture", 1.0))
-            .contains("installed and enabled")
-    );
 }

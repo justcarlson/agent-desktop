@@ -2,7 +2,7 @@ use agent_desktop_core::Deadline;
 
 use crate::system::shell::fake_tree::{FakeTree, gnome_shell};
 use crate::system::shell::light::Light;
-use crate::system::shell::search::{Query, find};
+use crate::system::shell::search::{Query, find_all};
 
 fn deadline() -> Deadline {
     Deadline::after(10_000).expect("a deadline builds")
@@ -23,7 +23,7 @@ fn query(
     accept: &dyn Fn(&[Light], &Light) -> bool,
 ) -> Result<Option<Vec<Light>>, agent_desktop_core::AdapterError> {
     let candidate = named(name);
-    find(
+    find_all(
         tree,
         &crate::system::shell::fake_tree::element("/w"),
         deadline,
@@ -33,6 +33,7 @@ fn query(
             accept,
         },
     )
+    .map(|paths| paths.into_iter().next())
 }
 
 #[test]
@@ -68,5 +69,23 @@ fn an_expired_deadline_is_a_timeout_not_an_empty_result() {
     let expired = Deadline::after(1).expect("a deadline builds");
     std::thread::sleep(std::time::Duration::from_millis(5));
     let error = query(&tree, "Anything", expired, &anywhere).expect_err("no time is no answer");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
+}
+
+#[test]
+fn an_incomplete_search_cannot_claim_no_match() {
+    let mut tree = FakeTree::new();
+    tree.add(None, "/w", 69, "", super::super::fake_tree::at(0, 0, 0, 0));
+    for index in 0..10_000 {
+        tree.add(
+            Some("/w"),
+            &format!("/node{index}"),
+            39,
+            "",
+            super::super::fake_tree::at(0, 0, 0, 0),
+        );
+    }
+    let error = query(&tree, "absent", deadline(), &anywhere)
+        .expect_err("budget exhaustion establishes no absence");
     assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
 }

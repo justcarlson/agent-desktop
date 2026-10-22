@@ -16,7 +16,6 @@ use crate::system::shell::located::Located;
 use crate::system::{SharedBus, process_facts, window_id};
 
 const POLL: Duration = Duration::from_millis(40);
-const SHELL_APP: &str = "gnome-shell";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Opened {
@@ -157,7 +156,7 @@ pub(crate) fn window_info(
     Ok(WindowInfo {
         id,
         title: title_of(kind).to_owned(),
-        app: SHELL_APP.to_owned(),
+        app: super::identity::SHELL_BUS_NAME.to_owned(),
         pid: root.pid.into(),
         process_instance: process_facts::read(root.pid).map(|facts| facts.instance),
         bounds: container.placed().map(Rect::from),
@@ -246,9 +245,7 @@ pub(crate) fn is_showing(
     Ok(showing_of(kind, &located))
 }
 
-/// The message list is told by its own container: its clear-all button, the
-/// anchor, is hidden while the list is empty even when the list is open. The
-/// system menu is told by its anchor.
+/// Visibility belongs to the structurally identified container.
 pub(super) fn showing_of(
     kind: ShellKind,
     located: &crate::system::shell::located::Located,

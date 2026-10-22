@@ -1,7 +1,6 @@
 use agent_desktop_core::{Action, ActionRequest, ActionResult, AdapterError, InteractionLease};
 
 use super::activate::{self, BusWire, Item};
-use super::world::{LiveWorld, shared_bus};
 use super::{TrayTarget, call, introspect, item_props, menu_event};
 
 pub(crate) fn execute(
@@ -33,11 +32,10 @@ pub(crate) fn execute(
         target,
         deadline,
     };
-    let world = LiveWorld::new(shared_bus());
     let item = Item {
         title: &props.title,
         methods: &methods,
         request: &request,
     };
-    activate::run(&item, &wire, &world, lease)
+    activate::run(&item, &wire)
 }

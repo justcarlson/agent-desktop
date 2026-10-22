@@ -215,12 +215,14 @@ fn shell_live_stopped_process_is_unresponsive_instead_of_a_window_outage() {
     assert_eq!(error.code, ErrorCode::Timeout, "{error:?}");
     drop(stopped);
     wait_for_root(&bus, &connection, pid);
-    let found = super::container::locate_anchor(&bus, &root, landmark, deadline())
-        .expect("responsive shell landmark");
+    let error = super::container::locate_anchor(&bus, &root, landmark, deadline())
+        .expect_err("a responsive tree does not prove the popup opener");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     let role: u32 = connection
         .call_method(
-            Some(found.anchor.element.bus_name()),
-            found.anchor.element.path(),
+            Some(root.bus_name.as_str()),
+            root.path.as_str(),
             Some(ACCESSIBLE),
             "GetRole",
             &(),
@@ -229,5 +231,5 @@ fn shell_live_stopped_process_is_unresponsive_instead_of_a_window_outage() {
         .body()
         .deserialize()
         .expect("landmark role");
-    assert_eq!(role, super::container::MENU);
+    assert_eq!(role, 69);
 }

@@ -18,12 +18,14 @@ display server does not give.
 | `ACTION_FAILED` `activation_not_granted` | Window manager never activated the window | `references/windows-and-lifecycle.md`, Focus |
 | `ACTION_FAILED` `overview_open` | GNOME Activities Overview is open | Close the overview, retry |
 | `ACTION_FAILED` `frame_not_active` or `check: window_active` | Window manager made the window active but the app does not report it | Run `snapshot` on the app once, then retry; it is intermittent on Electron |
-| `POLICY_DENIED` on `click`, `type`, tray `click` | Needs `--headed` | Pass `--headed` if that is acceptable |
+| `POLICY_DENIED` on `click` or `type` | Required policy or capability is absent | Read the failed check; headed policy supplies physical input only where the receiver can be proven |
+| Tray item lists no `Activate` or `ContextMenu` | No primary protocol action | Use an advertised virtual menu entry. Headed input does not prove a native receiver from the item's title |
 | `POLICY_DENIED` on `press` | Blocked combo | Do not use `--force` unless you mean it |
 | `ACTION_NOT_SUPPORTED` `wayland_session` | Unavailable Wayland focus, headed scoped `press` or control of native Wayland windows | Bring the target forward yourself; use global `press` or the app's own UI |
 | `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland | Use a semantic action, `set-value` or a global `press` |
-| `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | GNOME notification service missing or another daemon owns it | See `references/shell-tray-and-notifications.md` |
-| `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | Shell tree is readable but no SNI watcher exists | Enable AppIndicator in GNOME; see the shell reference |
+| `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | Notification protocol missing or its owner is not the detected shell backend | Run inside the supported desktop session; see the shell reference |
+| `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | No SNI watcher exists | Start the session's tray backend providing `org.kde.StatusNotifierWatcher`; extension advice requires a detected backend |
+| `ACTION_NOT_SUPPORTED`, `shell_container_unproven` | Roles and parent chains do not establish the shell container or opener | Use an app surface or the logical SNI tray. English labels, wrapper depth and screen position cannot establish popup identity |
 | `APP_UNRESPONSIVE` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref’s live identity | Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
 | `STALE_REF` | UI changed or the window closed | See `details.kind`: `resolve_target_destroyed` needs a replacement target; `menu_closed` needs its opener reopened before a fresh menu snapshot. Neither permits retrying the old ref |
@@ -123,14 +125,15 @@ on `Settings categories` refuses without changing the selection. On X11, find
 the intended category button and use `--headed click` with that row ref; verify
 both the selected row and its pane. Do not retry `select` with refreshed refs.
 
-Nautilus search exposes no semantic SetValue action, and ref-addressed headed
-typing can refuse `target_focus`. On X11, focus the Files window, send
-`--headed press ctrl+f --app nautilus`, then wait for the search UI with
-`wait --text "Search Current Folder" --app nautilus --timeout 8000`. Put the
-query in the clipboard with `clipboard-set`, then send global `press ctrl+v`
-without `--app`. This replaces the clipboard. Verify the window's search query
-and result list. A successful
-paste report alone does not prove that the intended field received it.
+A search control may expose no semantic SetValue action, and ref-addressed
+headed typing can refuse `target_focus`. Open search through a fresh observed
+control or a shortcut documented by that app, then take a fresh snapshot.
+Identify the intended editor by its role, editable capability and live focused
+state; a translated label is not a readiness condition. If the toolkit omits
+the editor or focus cannot be proven, stop before typing or pasting. Once focus
+is independently established, a clipboard paste replaces the clipboard; verify
+the resulting query and results. A paste report alone does not prove the field
+received it.
 
 | Toolkit | Limit |
 |---------|-------|

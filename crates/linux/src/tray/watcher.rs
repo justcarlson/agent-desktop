@@ -41,7 +41,7 @@ fn watcher_absent() -> AdapterError {
         ErrorCode::PlatformNotSupported,
         "No system tray watcher is running in this session",
     )
-    .with_suggestion("Enable the AppIndicator extension so tray items register")
+    .with_suggestion("Start a tray backend providing org.kde.StatusNotifierWatcher in this session")
     .with_details(serde_json::json!({ "watcher": "absent" }))
 }
 

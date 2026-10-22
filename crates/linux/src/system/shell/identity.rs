@@ -7,14 +7,11 @@ use zbus::Connection;
 
 use super::light::{LiveNodes, Nodes};
 use crate::system::session_bus::SessionBus;
-use crate::system::{
-    REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus, owner_process_id, process_facts, within,
-};
-use crate::tree::role_numbers::WINDOW;
+use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus, owner_process_id, within};
+use crate::tree::role_numbers::{FRAME, WINDOW};
 use crate::tree::{AtspiElement, list_children};
 
 pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
-const SHELL_COMM: &str = "gnome-shell";
 const WINDOW_RETRIES: usize = 10;
 const WINDOW_RETRY_GAP: Duration = Duration::from_millis(100);
 const WINDOW_BUDGET: Duration = Duration::from_millis(2_000);
@@ -41,29 +38,34 @@ pub(crate) struct ShellRoot {
     pub(crate) pid: u32,
 }
 
-static KNOWN: Mutex<Option<ShellRoot>> = Mutex::new(None);
-
-pub(super) fn remember(root: &ShellRoot) {
-    *KNOWN.lock().unwrap_or_else(PoisonError::into_inner) = Some(root.clone());
+pub(crate) fn is_shell_process(pid: u32) -> bool {
+    let Ok(deadline) = Deadline::after(1_000) else {
+        return false;
+    };
+    let Ok(session) = SessionBus::get(deadline) else {
+        return false;
+    };
+    within(deadline, shell_pid(&session)).is_ok_and(|owner| owner == Some(pid))
 }
 
-pub(crate) fn is_shell_comm(comm: &str) -> bool {
-    comm == SHELL_COMM
-}
-
-/// Whether an accessibility bus name or a process belongs to the shell. It
-/// reads no bus: the name found by the last root lookup, then the command
-/// name of the process.
+/// Requires both bus owners to identify the same current shell process.
 pub(crate) fn is_shell_owner(bus_name: &str, pid: u32) -> bool {
-    if KNOWN
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .as_ref()
-        .is_some_and(|root| root.bus_name == bus_name)
-    {
-        return true;
+    if !is_shell_process(pid) {
+        return false;
     }
-    process_facts::read(pid).is_some_and(|facts| is_shell_comm(&facts.comm))
+    let Ok(deadline) = Deadline::after(1_000) else {
+        return false;
+    };
+    let bus = SharedBus::default();
+    let Ok(connection) = bus.get(deadline) else {
+        return false;
+    };
+    within(deadline, async {
+        owner_process_id(connection.inner(), bus_name)
+            .await
+            .map_err(|error| crate::system::classify(&error))
+    })
+    .is_ok_and(|owner| owner == pid)
 }
 
 /// The registry application owned by the shell process, from the processes
@@ -72,29 +74,34 @@ pub(crate) fn pick_shell_app(
     apps: &[(AtspiElement, u32)],
     shell_pid: u32,
 ) -> Option<&AtspiElement> {
-    apps.iter()
-        .find(|(_, pid)| *pid == shell_pid)
-        .map(|(app, _)| app)
+    let mut matching = apps.iter().filter(|(_, pid)| *pid == shell_pid);
+    let (app, _) = matching.next()?;
+    matching.next().is_none().then_some(app)
 }
 
-/// The content window among an application's children: the first child the
-/// reader says is a window.
+/// The unique content window among an application's children.
 pub(crate) fn content_window<N: Nodes>(
     nodes: &N,
     app: &AtspiElement,
 ) -> Result<Option<AtspiElement>, AdapterError> {
     let root = nodes.read(app)?;
+    let mut found = None;
     for child in &root.children {
         let light = match nodes.read(child) {
             Ok(light) => light,
             Err(error) if error.code == ErrorCode::ElementNotFound => continue,
             Err(error) => return Err(error),
         };
-        if light.role == WINDOW {
-            return Ok(Some(light.element));
+        if matches!(light.role, WINDOW | FRAME) {
+            if found.is_some() {
+                return Err(AdapterError::ambiguous_target(
+                    "The shell application exposes several content windows",
+                ));
+            }
+            found = Some(light.element);
         }
     }
-    Ok(None)
+    Ok(found)
 }
 
 /// Runs `probe` until it answers, at most `1 + attempts` times, pausing
@@ -190,13 +197,11 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
     let pid = within(deadline, shell_pid(&session))?
         .ok_or_else(|| tree_absent("org.gnome.Shell has no owner on the session bus"))?;
     let apps = within(deadline, registry_apps(&accessibility))?;
-    let app = pick_shell_app(&apps, pid)
-        .ok_or_else(|| tree_absent("no registry application belongs to the shell process"))?;
-    if !process_facts::read(pid).is_some_and(|facts| is_shell_comm(&facts.comm)) {
-        return Err(tree_absent("the shell process is not a gnome-shell"));
-    }
+    let app = pick_shell_app(&apps, pid).ok_or_else(|| {
+        tree_absent("no unique registry application identifies the shell process")
+    })?;
     if crate::system::proc_stat::is_stopped(pid) {
-        return Err(AdapterError::app_unresponsive(SHELL_COMM));
+        return Err(AdapterError::app_unresponsive(SHELL_BUS_NAME));
     }
     let probe_deadline = deadline.capped(WINDOW_BUDGET);
     let nodes = LiveNodes::new(accessibility, probe_deadline);
@@ -215,7 +220,6 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
         path: window.path().to_owned(),
         pid,
     };
-    remember(&root);
     Ok(root)
 }
 

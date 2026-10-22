@@ -32,16 +32,15 @@ pub(crate) struct Query<'a> {
     pub(crate) accept: &'a dyn Fn(&[Light], &Light) -> bool,
 }
 
-/// Breadth-first search from `root`. The result is the chain from the root
-/// to the first accepted node, root first and the match last. A node that
-/// vanishes while the search runs is skipped; the deadline ends the search.
-pub(crate) fn find<N: Nodes>(
+/// Complete bounded search, preserving the role chain of every candidate.
+pub(crate) fn find_all<N: Nodes>(
     nodes: &N,
     root: &AtspiElement,
     deadline: Deadline,
     query: &Query<'_>,
-) -> Result<Option<Vec<Light>>, AdapterError> {
+) -> Result<Vec<Vec<Light>>, AdapterError> {
     let mut arena: Vec<Entry> = Vec::new();
+    let mut found = Vec::new();
     let mut frontier: Vec<(AtspiElement, Option<usize>)> = vec![(root.clone(), None)];
     while !frontier.is_empty() {
         if deadline.is_expired() {
@@ -71,17 +70,19 @@ pub(crate) fn find<N: Nodes>(
                 let matched = &arena[index].light;
                 let above = &path[..path.len() - 1];
                 if (query.accept)(above, matched) {
-                    return Ok(Some(path));
+                    found.push(path);
                 }
             }
             next.extend(children.into_iter().map(|child| (child, Some(index))));
         }
         if arena.len() > MAX_NODES {
-            return Ok(None);
+            return Err(AdapterError::timeout(
+                "The shell tree exceeded the search budget",
+            ));
         }
         frontier = next;
     }
-    Ok(None)
+    Ok(found)
 }
 
 #[cfg(test)]

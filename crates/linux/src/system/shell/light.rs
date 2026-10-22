@@ -31,10 +31,6 @@ impl Light {
     pub(crate) fn placed(&self) -> Option<Extents> {
         self.extents.filter(|extents| is_placed(*extents))
     }
-
-    pub(crate) fn is(&self, role: u32, name: &str) -> bool {
-        self.role == role && self.name == name
-    }
 }
 
 /// Reads shell nodes. The bus implements it; a test substitutes a tree.

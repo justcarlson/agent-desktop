@@ -1,6 +1,4 @@
-use agent_desktop_core::{
-    AdapterError, Deadline, HitTestResult, NativeHandle, Point, Rect, RefEntry,
-};
+use agent_desktop_core::{AdapterError, Deadline, HitTestResult, NativeHandle, Point, RefEntry};
 
 mod activate;
 mod call;
@@ -16,12 +14,10 @@ mod menu_nodes;
 mod menu_resolve;
 mod node_evidence;
 pub(crate) mod observe;
-mod panel_correlate;
 mod registration;
 mod resolve;
 pub(crate) mod view;
 mod watcher;
-mod world;
 
 #[cfg(test)]
 mod fit_tests;
@@ -67,26 +63,9 @@ pub(crate) fn owns(entry: &RefEntry) -> bool {
 
 pub(crate) fn hit_test(
     target: &TrayTarget,
-    point: Point,
+    _point: Point,
     deadline: Deadline,
 ) -> Result<HitTestResult, AdapterError> {
-    let rect = live::bounds(target, deadline)?;
-    let displays = crate::system::shell::hit::display_extents(deadline);
-    Ok(reach(rect, &point, displays.as_deref()))
-}
-
-/// A tray item is reached when the point lies inside its panel node's extents
-/// on a display; an item with no panel node and a menu entry cannot be told.
-fn reach(
-    rect: Option<Rect>,
-    point: &Point,
-    displays: Option<&[crate::tree::Extents]>,
-) -> HitTestResult {
-    let extents = rect.map(|rect| crate::tree::Extents {
-        x: rect.x as i32,
-        y: rect.y as i32,
-        width: rect.width as i32,
-        height: rect.height as i32,
-    });
-    crate::system::shell::hit::decide(extents, point, displays)
+    live::element(target, deadline)?;
+    Ok(HitTestResult::Unknown)
 }

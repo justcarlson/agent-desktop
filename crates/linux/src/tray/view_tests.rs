@@ -1,4 +1,4 @@
-use agent_desktop_core::{LocatorEvidence, LocatorField, Rect, state};
+use agent_desktop_core::{AccessibilityNode, ObservationSource, ObservedTree, state};
 
 use super::super::menu_layout::{Prop, RawEntry, parse};
 use super::super::{TrayTarget, identity};
@@ -51,7 +51,7 @@ fn item(owner: &str, title: &str, passive: bool, methods: &[&str], with_menu: bo
 fn view() -> TrayView {
     TrayView {
         items: vec![
-            item(":1.1", "Dropbox", false, &["Activate", "ContextMenu"], true),
+            item(":1.1", "System", false, &["Activate", "ContextMenu"], true),
             item(":1.2", "Twin", false, &["Activate"], false),
             item(":1.3", "Twin", false, &["SecondaryActivate"], false),
             item(":1.4", "Slack", true, &[], false),
@@ -59,168 +59,68 @@ fn view() -> TrayView {
     }
 }
 
-fn panel_evidence(rect: Rect) -> LocatorEvidence {
-    let mut evidence = fresh(
-        "menu",
-        "Dropbox",
-        &target(":9.9"),
-        vec!["showing".into()],
-        vec![],
-    );
-    evidence.description = LocatorField::Known("panel text".into());
-    evidence.value = LocatorField::Known("panel value".into());
-    evidence.ref_evidence.bounds = LocatorField::Known(rect);
-    evidence
-}
-
-fn titles(strings: &[&str]) -> Vec<String> {
-    strings.iter().map(|title| (*title).to_owned()).collect()
-}
-
-fn decoded(evidence: &LocatorEvidence) -> TrayTarget {
-    let value = evidence
-        .identifiers
-        .preferred_value()
-        .expect("an identifier is set");
-    identity::decode(value).expect("it decodes")
-}
-
-#[test]
-fn unique_titles_bind_and_duplicates_bind_to_nothing() {
-    let bound = view().bind(&titles(&["Slack", "Twin", "Dropbox", "AnyDesk"]));
-    assert_eq!(bound, vec![Some(3), None, Some(0), None]);
-
-    let panel_twins = view().bind(&titles(&["Dropbox", "Dropbox"]));
-    assert_eq!(panel_twins, vec![None, None]);
-
-    let empty_view = TrayView {
-        items: vec![item(":1.9", "", false, &["Activate"], false)],
-    };
-    let empty_title = empty_view.bind(&titles(&[""]));
-    assert_eq!(empty_title, vec![None]);
-}
-
-#[test]
-fn a_duplicate_title_item_stays_reachable_as_a_node_of_its_own() {
-    let view = view();
-    let bound = view.bind(&titles(&["Slack", "Twin", "Dropbox"]));
-    let extra = view.unpaired(&bound);
-    assert_eq!(extra.len(), 2);
-}
-
-#[test]
-fn decorating_a_panel_node_gives_it_the_items_identity_and_clears_panel_text() {
-    let view = view();
-    let mut evidence = panel_evidence(Rect {
-        x: 10.0,
-        y: 0.0,
-        width: 48.0,
-        height: 32.0,
-    });
-    view.decorate(0, &mut evidence, 0);
-    assert_eq!(decoded(&evidence), target(":1.1"));
-    assert_eq!(evidence.role, LocatorField::Known("menubutton".into()));
-    assert_eq!(evidence.description, LocatorField::Absent);
-    assert_eq!(evidence.value, LocatorField::Absent);
-    assert_eq!(
-        evidence.ref_evidence.bounds,
-        LocatorField::Known(Rect {
-            x: 10.0,
-            y: 0.0,
-            width: 48.0,
-            height: 32.0
+fn projected() -> Vec<AccessibilityNode> {
+    view()
+        .subtrees()
+        .into_iter()
+        .map(|node| {
+            ObservedTree::from_roots(
+                vec![node],
+                ObservationSource::Element {
+                    entry: Box::new(crate::tree::test_support::ref_entry("group")),
+                    root_ref: None,
+                },
+                Default::default(),
+                true,
+            )
+            .unwrap()
+            .into_accessibility_tree()
+            .unwrap()
         })
-    );
+        .collect()
 }
 
 #[test]
-fn a_passive_item_is_hidden_while_its_node_keeps_valid_half_height_extents() {
-    let view = view();
-    let mut evidence = panel_evidence(Rect {
-        x: 1094.0,
-        y: 0.0,
-        width: 48.0,
-        height: 16.0,
-    });
-    view.decorate(3, &mut evidence, 0);
-    let states = evidence.states.known().expect("states known");
-    assert!(state::has_state(states, state::HIDDEN), "{states:?}");
-}
-
-#[test]
-fn an_active_item_with_a_collapsed_node_is_not_hidden() {
-    let view = view();
-    let mut evidence = panel_evidence(Rect {
-        x: -1.0,
-        y: -1.0,
-        width: 0.0,
-        height: 0.0,
-    });
-    view.decorate(0, &mut evidence, 0);
-    let states = evidence.states.known().expect("states known");
-    assert!(!state::has_state(states, state::HIDDEN), "{states:?}");
-}
-
-#[test]
-fn capabilities_follow_the_listed_methods() {
-    let view = view();
-    for (index, expected) in [
-        (0, vec!["Click", "RightClick"]),
-        (1, vec!["Click"]),
-        (2, vec![]),
-        (3, vec![]),
-    ] {
-        let mut evidence = panel_evidence(Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 1.0,
-            height: 1.0,
-        });
-        view.decorate(index, &mut evidence, 0);
-        assert_eq!(
-            evidence.ref_evidence.available_actions,
-            LocatorField::Known(expected.iter().map(|a| (*a).to_owned()).collect()),
-            "item {index}"
+fn logical_items_do_not_claim_unobserved_offscreen_state() {
+    fn check(node: &AccessibilityNode) {
+        assert!(
+            !node
+                .presentation
+                .states
+                .iter()
+                .any(|token| token == state::OFFSCREEN)
         );
+        assert!(node.presentation.bounds.is_none());
+        for child in &node.children {
+            check(child);
+        }
+    }
+    for node in projected() {
+        check(&node);
     }
 }
 
 #[test]
-fn an_item_with_a_menu_yields_its_entries_numbered_from_the_first_free_index() {
-    let view = view();
-    let mut evidence = panel_evidence(Rect {
-        x: 0.0,
-        y: 0.0,
-        width: 1.0,
-        height: 1.0,
-    });
-    let children = view.decorate(0, &mut evidence, 5);
-    assert_eq!(children.len(), 2);
-}
-
-#[test]
-fn an_item_with_no_menu_yields_no_children() {
-    let view = view();
-    let mut evidence = panel_evidence(Rect {
-        x: 0.0,
-        y: 0.0,
-        width: 1.0,
-        height: 1.0,
-    });
-    assert!(view.decorate(1, &mut evidence, 0).is_empty());
-}
-
-#[test]
-fn an_unbound_panel_node_is_marked() {
-    let mut evidence = panel_evidence(Rect {
-        x: 0.0,
-        y: 0.0,
-        width: 1.0,
-        height: 1.0,
-    });
-    TrayView::mark_unbound(&mut evidence);
+fn system_and_duplicate_titles_keep_their_protocol_identities_without_native_binding() {
+    let nodes = projected();
+    assert_eq!(nodes[0].identity.name.as_deref(), Some("System"));
     assert_eq!(
-        evidence.description,
-        LocatorField::Known("tray item without D-Bus identity".into())
+        nodes[0].presentation.available_actions,
+        ["Click", "RightClick"]
+    );
+    assert_eq!(nodes[1].identity.name, nodes[2].identity.name);
+    let owner = |node: &AccessibilityNode| {
+        identity::decode(&node.identity.native_id.as_ref().unwrap().value)
+            .unwrap()
+            .owner
+    };
+    assert_eq!(owner(&nodes[0]), ":1.1");
+    assert_ne!(owner(&nodes[1]), owner(&nodes[2]));
+    assert!(
+        nodes[3]
+            .presentation
+            .states
+            .iter()
+            .any(|token| token == state::HIDDEN)
     );
 }
