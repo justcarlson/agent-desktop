@@ -1,7 +1,7 @@
 use agent_desktop_core::{
     ActionStep, AdapterError, Deadline, DeliverySemantics, Direction, ErrorCode, InteractionLease,
-    InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, Point, Rect, StepMechanism,
-    validate_mouse_click_count,
+    InteractionPolicy, MouseButton, MouseEvent, MouseEventKind, NativeHandle, Point, Rect,
+    StepMechanism, validate_mouse_click_count,
 };
 use serde_json::json;
 
@@ -12,7 +12,7 @@ use super::step::Step;
 use crate::input::deliver::{ensure_budget, ensure_headed_click_policy};
 use crate::input::target_world::{LiveWorld, PhysicalWorld};
 use crate::system::SharedBus;
-use crate::tree::AtspiElement;
+use crate::tree::{AtspiElement, atspi_element};
 
 pub(crate) struct ClickSpec {
     pub(crate) button: MouseButton,
@@ -150,6 +150,24 @@ pub(crate) fn send_bursts(
         deadline,
     )?;
     Ok(())
+}
+
+pub(crate) fn confirm_receiver(
+    bus: &SharedBus,
+    handle: &NativeHandle,
+    point: &Point,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if crate::system::tray::target_of(handle).is_some()
+        || matches!(crate::input::backend::backend(), Ok(Backend::Wayland))
+    {
+        return Ok(());
+    }
+    let element = atspi_element(handle)?;
+    if crate::system::shell::is_shell_element(element) {
+        return Ok(());
+    }
+    super::target_world::validate_pointer_receiver(bus, element, point, deadline)
 }
 
 pub(crate) fn aim_point(
