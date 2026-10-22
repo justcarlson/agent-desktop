@@ -4,7 +4,7 @@ use super::AtspiElement;
 use super::live_launch::{Launched, nonce, program_of};
 use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
-use super::walker_live_tests::settle;
+use super::walker_live_tests::settle_watching;
 use crate::LinuxAdapter;
 use crate::system::SharedBus;
 
@@ -38,7 +38,7 @@ pub(super) fn app(
         .map_err(|error| error.message)?;
     let mut launched = Launched::new();
     let pid = launched.try_spawn(program, arguments)?;
-    let settled = settle(bus, min_nodes, || pid_frame(&connection, pid))
+    let settled = settle_watching(bus, min_nodes, Some(pid), || pid_frame(&connection, pid))
         .map_err(|error| format!("[{label}] {error}"))?;
     check(label, adapter, bus, &settled.frame)
 }
@@ -62,8 +62,8 @@ pub(super) fn terminal(
         guard.display(),
         std::process::id()
     );
-    launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
-    let settled = settle(bus, 20, || {
+    let client = launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
+    let settled = settle_watching(bus, 20, Some(client), || {
         frames_where(&connection, is_server)
             .into_iter()
             .find(|frame| {
@@ -82,7 +82,7 @@ pub(super) fn qt(adapter: &LinuxAdapter, bus: &SharedBus, check: Check) -> Resul
         .map_err(|error| error.message)?;
     let mut launched = Launched::new();
     let pid = live_qt::launch(&mut launched)?;
-    let settled =
-        settle(bus, 15, || pid_frame(&connection, pid)).map_err(|error| format!("[qt] {error}"))?;
+    let settled = settle_watching(bus, 15, Some(pid), || pid_frame(&connection, pid))
+        .map_err(|error| format!("[qt] {error}"))?;
     check("qt", adapter, bus, &settled.frame)
 }

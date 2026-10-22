@@ -21,7 +21,7 @@ const NOTIFICATION: u32 = 101;
 fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
     let pid = launched.try_spawn("nautilus", &["--new-window"])?;
-    let (_, analysis) = walk(bus, "files", 30, || pid_frame(connection, pid))?;
+    let (_, analysis) = walk(bus, "files", 30, Some(pid), || pid_frame(connection, pid))?;
     root_is_window(&analysis)?;
     blank_labelled_nodes("files", &analysis)?;
     let enabled_buttons = analysis
@@ -47,8 +47,8 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         guard.display(),
         std::process::id()
     );
-    launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
-    walk(bus, "terminal", 20, || {
+    let client = launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
+    walk(bus, "terminal", 20, Some(client), || {
         frames_where(connection, is_server)
             .into_iter()
             .find(|frame| {
@@ -117,7 +117,9 @@ fn firefox(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
             ("MOZ_ENABLE_WAYLAND", "0".to_owned()),
         ],
     )?;
-    let (_, analysis) = walk(bus, "firefox", 100, || pid_frame(connection, pid))?;
+    let (_, analysis) = walk(bus, "firefox", 100, Some(pid), || {
+        pid_frame(connection, pid)
+    })?;
     if blank_labelled_nodes("firefox", &analysis)? == 0 {
         return Err("firefox: no blank-name node resolved from a LabelledBy target".to_owned());
     }
@@ -127,7 +129,9 @@ fn firefox(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
     let pid = launched.try_spawn("gnome-calculator", &[])?;
-    let (_, analysis) = walk(bus, "calculator", 30, || pid_frame(connection, pid))?;
+    let (_, analysis) = walk(bus, "calculator", 30, Some(pid), || {
+        pid_frame(connection, pid)
+    })?;
     root_is_window(&analysis)?;
     blank_labelled_nodes("calculator", &analysis)?;
     let enabled = analysis
@@ -182,7 +186,7 @@ fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 fn qt(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
     let pid = live_qt::launch(&mut launched)?;
-    let (_, analysis) = walk(bus, "qt", 15, || pid_frame(connection, pid))?;
+    let (_, analysis) = walk(bus, "qt", 15, Some(pid), || pid_frame(connection, pid))?;
     blank_labelled_nodes("qt", &analysis)?;
     let button = analysis
         .entries
@@ -274,7 +278,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     launched.scratch.push(data.clone());
     let data_arg = data.to_string_lossy().into_owned();
     let pid = launched.try_spawn(&program, &vscode_arguments(&data_arg))?;
-    let (settled, analysis) = walk(bus, "vscode", 200, || pid_frame(connection, pid))?;
+    let (settled, analysis) = walk(bus, "vscode", 200, Some(pid), || pid_frame(connection, pid))?;
     if !settled.walk.complete {
         return Err("vscode: walk incomplete".to_owned());
     }

@@ -6,7 +6,7 @@ use zbus::Connection as AsyncConnection;
 
 use super::live_tree::{count_failed, failure_kinds};
 use super::role_numbers::{DOCUMENT_FRAME, DOCUMENT_WEB};
-use super::walker_live_tests::{Settled, settle};
+use super::walker_live_tests::{Settled, settle_watching};
 use super::{
     AtspiElement, LabelOutcome, ObservedRead, RawNode, ResolvedVocabulary, WalkedNode, read_label,
     resolve_vocabulary,
@@ -165,9 +165,11 @@ pub(super) fn walk(
     bus: &SharedBus,
     label: &'static str,
     min_nodes: usize,
+    watched: Option<u32>,
     find: impl FnMut() -> Option<AtspiElement>,
 ) -> Result<(Settled, Analysis), String> {
-    let settled = settle(bus, min_nodes, find).map_err(|error| format!("{label}: {error}"))?;
+    let settled = settle_watching(bus, min_nodes, watched, find)
+        .map_err(|error| format!("{label}: {error}"))?;
     let deadline = Deadline::standard().map_err(|error| error.message)?;
     let connection = bus.get(deadline).map_err(|error| error.message)?;
     let analysis = analyze(label, connection.inner(), &settled);

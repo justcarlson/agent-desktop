@@ -171,6 +171,9 @@ mod registry_toolkit_live_tests;
 pub(crate) mod live_launch;
 
 #[cfg(test)]
+pub(crate) mod live_process;
+
+#[cfg(test)]
 mod live_qt;
 
 #[cfg(test)]

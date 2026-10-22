@@ -6,7 +6,7 @@ use super::live_launch::Launched;
 use super::live_tree::pid_frame;
 use super::node_read::call;
 use super::resolve_live_tests::snapshot_entries;
-use super::walker_live_tests::{Settled, settle};
+use super::walker_live_tests::{Settled, settle_watching};
 use super::{AtspiElement, atspi_element};
 use crate::LinuxAdapter;
 use crate::system::{SharedBus, within};
@@ -48,7 +48,10 @@ impl Rig {
             .bus
             .get(Deadline::standard().expect("a standard deadline builds"))
             .expect("the accessibility bus is reachable");
-        settle(&self.bus, min_nodes, || pid_frame(&connection, pid)).expect("the app settles")
+        settle_watching(&self.bus, min_nodes, Some(pid), || {
+            pid_frame(&connection, pid)
+        })
+        .unwrap_or_else(|error| panic!("the app settles: {error}"))
     }
 
     pub(super) fn entries(

@@ -1,6 +1,9 @@
 use std::ffi::OsStr;
+use std::fs::File;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+
+use super::live_process::stderr_path;
 
 pub(crate) struct Launched {
     children: Vec<Child>,
@@ -57,16 +60,22 @@ impl Launched {
         env: &[(&str, String)],
     ) -> Result<u32, String> {
         use std::os::unix::process::CommandExt;
+        let staging = std::env::temp_dir().join(format!("{}.stderr", nonce("launch")));
+        let stderr = File::create(&staging).map_or_else(|_| Stdio::null(), Stdio::from);
         let child = Command::new(program)
             .args(args)
             .envs(env.iter().map(|(key, value)| (*key, value)))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(stderr)
             .process_group(0)
             .spawn()
-            .map_err(|error| format!("could not launch {program}: {error}"))?;
+            .map_err(|error| {
+                let _ = std::fs::remove_file(&staging);
+                format!("could not launch {program}: {error}")
+            })?;
         let pid = child.id();
+        let _ = std::fs::rename(&staging, stderr_path(pid));
         self.children.push(child);
         Ok(pid)
     }
@@ -77,6 +86,7 @@ impl Launched {
             let _ = Command::new("kill").args(["-KILL", "--", &group]).status();
             let _ = child.kill();
             let _ = child.wait();
+            let _ = std::fs::remove_file(stderr_path(child.id()));
         }
         self.children.clear();
         stop_activated_servers();
@@ -242,7 +252,33 @@ mod activated_tests {
 
 #[cfg(test)]
 mod spawn_tests {
+    use std::time::{Duration, Instant};
+
     use super::{Launched, run_leg};
+    use crate::tree::live_process::{is_running, process_report, stderr_path};
+
+    fn wait_for_exit(pid: u32) {
+        let started = Instant::now();
+        while is_running(pid) {
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "process {pid} did not exit"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn a_missing_program_is_an_error_not_a_panic() {
+        let mut launched = Launched::bare();
+        let error = launched
+            .try_spawn("ad-live-no-such-program", &[])
+            .expect_err("a missing program cannot start");
+        assert!(
+            error.contains("could not launch ad-live-no-such-program"),
+            "{error}"
+        );
+    }
 
     #[test]
     fn a_panicking_leg_is_its_error_and_the_next_leg_still_runs() {
@@ -258,14 +294,37 @@ mod spawn_tests {
     }
 
     #[test]
-    fn a_missing_program_is_an_error_not_a_panic() {
+    fn an_exited_child_is_not_running_and_reports_its_status_and_stderr() {
         let mut launched = Launched::bare();
-        let error = launched
-            .try_spawn("ad-live-no-such-program", &[])
-            .expect_err("a missing program cannot start");
+        let pid = launched
+            .try_spawn(
+                "sh",
+                &[
+                    "-c",
+                    "echo ModuleNotFoundError: no module named PyQt6 >&2; exit 3",
+                ],
+            )
+            .expect("sh starts");
+        wait_for_exit(pid);
+        assert!(!is_running(pid));
+        let report = process_report(pid);
+        assert!(report.contains("exit status: 3"), "{report}");
         assert!(
-            error.contains("could not launch ad-live-no-such-program"),
-            "{error}"
+            report.contains("ModuleNotFoundError: no module named PyQt6"),
+            "{report}"
         );
+        launched.stop();
+        assert!(!stderr_path(pid).exists());
+        assert!(process_report(pid).contains("is gone; no stderr was captured"));
+    }
+
+    #[test]
+    fn a_running_child_is_running_until_stop_ends_it() {
+        let mut launched = Launched::bare();
+        let pid = launched.try_spawn("sleep", &["30"]).expect("sleep starts");
+        assert!(is_running(pid));
+        assert!(process_report(pid).contains("is running; its stderr is empty"));
+        launched.stop();
+        assert!(!is_running(pid));
     }
 }
