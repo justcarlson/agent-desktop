@@ -10,6 +10,7 @@ struct DoubleCheckAdapter {
     prelease_calls: u32,
     timeout_ms: u64,
     expected_deadline: Option<crate::Deadline>,
+    available_action: &'static str,
 }
 
 struct DoubleCheckLeaseGuard(Arc<AtomicBool>);
@@ -57,7 +58,7 @@ impl ObservationOps for DoubleCheckAdapter {
             },
             states_complete: true,
             bounds: Some(bounds()),
-            available_actions: vec![capability::CLICK.into()],
+            available_actions: vec![self.available_action.into()],
         })
     }
 
@@ -174,6 +175,25 @@ fn a_stability_only_mismatch_settles_and_proceeds_to_dispatch() {
     );
 
     assert_eq!(result.action, "click");
+}
+
+/// A headless pointerless action whose live bounds match the snapshot needs
+/// one lease-free read, not a second observation to seed the comparison:
+/// the leased read still validates it, exactly as for a semantic click.
+#[test]
+fn a_matching_snapshot_hash_settles_a_headless_pointerless_action_in_one_read() {
+    let mut adapter = adapter(1, 5_000, None);
+    adapter.available_action = capability::SCROLL;
+    let result = run_with_entry(
+        &adapter,
+        ActionRequest::headless(Action::Scroll(crate::Direction::Down, 1)),
+        5_000,
+        &entry(),
+    );
+
+    assert_eq!(adapter.live_calls.load(Ordering::SeqCst), 2);
+    let metrics = &result.details.as_ref().unwrap()["auto_wait"];
+    assert_eq!(metrics["read_only_preflight_attempts"], 1);
 }
 
 struct DisabledAfterLeaseAdapter {
@@ -326,6 +346,7 @@ fn adapter(
         prelease_calls,
         timeout_ms,
         expected_deadline,
+        available_action: capability::CLICK,
     }
 }
 

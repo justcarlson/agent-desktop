@@ -8,6 +8,9 @@ use super::*;
 
 const CHILD_MARKER: &str = "AGENT_DESKTOP_WINDOW_OP_CHILD";
 
+#[path = "window_op_no_display_live_tests.rs"]
+mod no_display;
+
 fn in_child(test: &str, configure: impl FnOnce(&mut Command)) {
     let mut command = Command::new(std::env::current_exe().expect("the test binary"));
     command
@@ -39,17 +42,6 @@ fn window_op_live_a_stale_wayland_display_still_proceeds_on_x11() {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
-fn window_op_live_a_session_without_a_display_is_refused_before_any_write() {
-    let display = std::env::var("DISPLAY").expect("a private session sets DISPLAY");
-    in_child("window_op_live_child_no_display", |command| {
-        command
-            .env_remove("DISPLAY")
-            .env("AGENT_DESKTOP_APP_DISPLAY", display);
-    });
-}
-
-#[test]
 #[ignore = "runs only inside the parent test that sets its environment"]
 fn window_op_live_child_stale_wayland() {
     if std::env::var_os(CHILD_MARKER).is_none() {
@@ -62,19 +54,6 @@ fn window_op_live_child_stale_wayland() {
     apply(&window, WindowOp::Move { x: 60.0, y: 70.0 }).expect("the move proceeds on X11");
     let placed = geometry(&xid);
     assert!(near(placed.x, 60) && near(placed.y, 70));
-}
-
-#[test]
-#[ignore = "runs only inside the parent test that sets its environment"]
-fn window_op_live_child_no_display() {
-    if std::env::var_os(CHILD_MARKER).is_none() {
-        return;
-    }
-    let bus = SharedBus::default();
-    let mut launched = Launched::new();
-    let window = child_window(&bus, &mut launched);
-    let error = apply(&window, WindowOp::Move { x: 60.0, y: 70.0 }).expect_err("a refusal");
-    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
 
 fn names_in(dir: &std::path::Path, prefix: &str) -> BTreeSet<String> {

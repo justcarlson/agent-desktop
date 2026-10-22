@@ -6,9 +6,8 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use futures_util::stream::{self, StreamExt};
 
 use crate::system::bus::bus_slice::within_slice;
-use crate::system::process::proc_stat;
 use crate::system::{SharedBus, within};
-use crate::tree::{AtspiElement, RawNode, list_children, read_node};
+use crate::tree::{AtspiElement, RawNode, ReadPurpose, list_children, read_node_for};
 
 pub(crate) const CHILDREN_SLICE: Duration = Duration::from_millis(300);
 pub(crate) const FRAME_SLICE: Duration = Duration::from_millis(300);
@@ -49,14 +48,10 @@ enum Outcome<T> {
 /// A read that failed for another reason while its process is no longer
 /// there is an absence: a call in flight when an application is killed fails
 /// with a bus error for a moment before the name leaves the bus.
-fn outcome<T>(
-    answer: Option<Result<T, AdapterError>>,
-    process_gone: impl FnOnce() -> bool,
-) -> Outcome<T> {
+fn outcome<T>(answer: Option<Result<T, AdapterError>>) -> Outcome<T> {
     match answer {
         Some(Ok(value)) => Outcome::Read(value),
         Some(Err(error)) if is_gone(&error) => Outcome::Gone,
-        Some(Err(_)) if process_gone() => Outcome::Gone,
         Some(Err(_)) | None => Outcome::Slow,
     }
 }
@@ -68,7 +63,6 @@ fn outcome<T>(
 async fn collect_frames<T, F, Fut>(
     children: Vec<(String, String)>,
     slice: Duration,
-    process_gone: impl Fn() -> bool,
     is_unclassified: impl Fn(&T) -> bool,
     read: F,
 ) -> (Vec<T>, RootRead)
@@ -82,7 +76,7 @@ where
             .map(|child| within_slice(slice, read(child))),
     )
     .buffered(FRAMES_IN_FLIGHT)
-    .map(|answer| outcome(answer, &process_gone))
+    .map(outcome)
     .collect::<Vec<_>>()
     .await;
     let mut complete = RootRead::Read;
@@ -116,9 +110,7 @@ pub(crate) fn read_frames(
         let connection = shared.inner();
         let reads = roots.iter().map(|root| async move {
             let listed = within_slice(CHILDREN_SLICE, list_children(connection, root)).await;
-            let children = match outcome(listed, || {
-                proc_stat::is_gone(proc_stat::read_stat(root.pid()))
-            }) {
+            let children = match outcome(listed) {
                 Outcome::Read(children) => children,
                 Outcome::Gone => return FrameRead::empty(RootRead::Read),
                 Outcome::Slow => return FrameRead::empty(RootRead::TimedOut),
@@ -126,11 +118,12 @@ pub(crate) fn read_frames(
             let (nodes, read) = collect_frames(
                 children,
                 FRAME_SLICE,
-                || proc_stat::is_gone(proc_stat::read_stat(root.pid())),
                 is_unclassified,
                 |(bus_name, path)| async move {
                     let frame = AtspiElement::new(bus_name, path, root.pid());
-                    read_node(connection, &frame).await
+                    read_node_for(connection, &frame, ReadPurpose::Frame)
+                        .await
+                        .map(|(node, _)| node)
                 },
             )
             .await;
@@ -146,3 +139,7 @@ pub(crate) fn read_frames(
 #[cfg(test)]
 #[path = "registry_frames_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "frame_payload_tests.rs"]
+mod frame_payload_tests;

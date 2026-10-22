@@ -61,26 +61,3 @@ fn an_unknown_state_letter_is_other_and_not_a_known_class() {
         assert_eq!(stat.state, ProcState::Other, "{letter}");
     }
 }
-
-#[test]
-fn a_failed_stat_read_cannot_turn_an_unread_frame_into_a_departed_process() {
-    assert!(!super::is_gone(Err(())));
-    assert!(super::is_gone(Ok(None)));
-    for (state, gone) in [
-        (ProcState::Running, false),
-        (ProcState::Sleeping, false),
-        (ProcState::Stopped, false),
-        (ProcState::Other, false),
-        (ProcState::Zombie, true),
-        (ProcState::Dead, true),
-    ] {
-        assert_eq!(
-            super::is_gone(Ok(Some(super::ProcStat {
-                state,
-                start_time: 1
-            }))),
-            gone,
-            "{state:?}"
-        );
-    }
-}

@@ -73,7 +73,11 @@ impl KeyWorld for Keys<'_> {
         self.lookup.clone()
     }
 
-    fn focused_window(&self, _deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError> {
+    fn focused_window(
+        &self,
+        _pid: u32,
+        _deadline: Deadline,
+    ) -> Result<Option<WindowInfo>, AdapterError> {
         self.reads.borrow_mut().push("focused");
         let mut reads = self.focused.borrow_mut();
         if reads.len() > 1 {
@@ -201,7 +205,7 @@ fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
     let error = press(&physical, &keys, InteractionPolicy::headless()).unwrap_err();
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.details.as_ref().unwrap()["cause"], "frame_not_active");
-    assert!(not_delivered(&error));
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert!(physical.sent_nothing());
     let hint = error.suggestion.as_deref().unwrap();
     assert!(
@@ -213,34 +217,27 @@ fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
         "{hint}"
     );
 
-    crate::actions::physical_keyboard::press_key_global_steps(&physical, &combo(), deadline())
-        .unwrap();
+    crate::input::target_keyboard::press_key_global_steps(&physical, &combo(), deadline()).unwrap();
     assert_eq!(physical.count("sent"), 1);
 }
 
 #[test]
 fn a_background_target_fails_by_policy_and_neither_case_calls_synthesis() {
-    let allowed = FakeWorld::x11();
-    let mut keys = Keys::owning(&allowed);
-    keys.set_focused(Some(OTHER));
-    keys.active = Some(OTHER);
-    let error = press(&allowed, &keys, InteractionPolicy::headed()).unwrap_err();
-    assert!(
-        error.message.contains("Focus did not reach"),
-        "{}",
-        error.message
-    );
-    assert!(allowed.sent_nothing());
-
-    let forbidden = FakeWorld::x11();
-    let mut keys = Keys::owning(&forbidden);
-    keys.set_focused(Some(OTHER));
-    keys.active = Some(OTHER);
-    let error = press(&forbidden, &keys, InteractionPolicy::headless()).unwrap_err();
-    assert!(error.message.contains("background"), "{}", error.message);
-    assert_eq!(check_of(&error).as_deref(), Some("window_active"));
-    assert!(not_delivered(&error));
-    assert!(forbidden.sent_nothing());
+    for policy in [InteractionPolicy::headed(), InteractionPolicy::headless()] {
+        let physical = FakeWorld::x11();
+        let mut keys = Keys::owning(&physical);
+        keys.set_focused(Some(OTHER));
+        keys.active = Some(OTHER);
+        let error = press(&physical, &keys, policy).unwrap_err();
+        assert_eq!(error.code, ErrorCode::ActionFailed);
+        assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+        assert_eq!(
+            error.details.as_ref().unwrap()["cause"],
+            "display_active_window"
+        );
+        assert!(not_delivered(&error));
+        assert!(physical.sent_nothing());
+    }
 }
 
 #[test]

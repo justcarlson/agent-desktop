@@ -91,10 +91,15 @@ pub fn evaluate_locator_tree(
             .nodes
             .get(index)
             .ok_or_else(|| AdapterError::internal("selected locator node is out of bounds"))?;
+        let entry = ref_entry(node, &tree.source, &normalized);
         selected_matches.push(LocatorMatch {
             data,
             document_order: node.document_order,
-            entry: ref_entry(node, &tree.source, &normalized),
+            fully_observed: super::materialize::fully_observed(
+                &node.evidence,
+                entry.geometry.bounds_space.unwrap_or_default(),
+            ),
+            entry,
         });
     }
     let roles_present = if matched_indices.is_empty() {

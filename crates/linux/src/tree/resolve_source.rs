@@ -18,7 +18,7 @@ use super::resolve_gate::stored_window;
 use super::resolve_search::evaluate;
 use super::searched::Searched;
 use super::toolkit_trust::read_web_family;
-use super::walker::walk_tree;
+use super::walker::{walk_tree, walk_tree_for};
 use super::{AtspiElement, WalkLimits};
 use crate::system::{SharedBus, owner_process_id, process::process_facts, shell, within};
 
@@ -115,7 +115,13 @@ impl Source for BusSource<'_> {
     }
 
     fn search(&mut self, frame: &AtspiElement, entry: &RefEntry) -> Result<Searched, AdapterError> {
-        let mut walk = walk_tree(self.bus, frame, &WalkLimits::default(), self.deadline)?;
+        let mut walk = walk_tree_for(
+            self.bus,
+            frame,
+            &WalkLimits::default(),
+            self.deadline,
+            ReadPurpose::Resolve,
+        )?;
         place_nodes(self.bus, &mut walk, self.deadline)?;
         Ok(evaluate(
             &walk,

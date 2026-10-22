@@ -138,7 +138,7 @@ fn a_lease_spent_before_the_fallback_preserves_the_first_send() {
     let mut world = World::new(Some(OTHER));
     world.grant = Grant::Never;
     world.untimed_grants = true;
-    let deadline = Deadline::after(250).expect("a deadline builds");
+    let deadline = Deadline::after(50).expect("a deadline builds");
     let error = run(&world, &window(), deadline).expect_err("the lease ran out");
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());

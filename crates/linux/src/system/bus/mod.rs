@@ -53,33 +53,32 @@ pub(crate) fn classify_at(stage: Stage, error: &zbus::Error) -> AdapterError {
     }
 }
 
-fn discover_address(deadline: Deadline) -> Result<String, AdapterError> {
+fn discover_address(deadline: Deadline, reconnect: bool) -> Result<String, AdapterError> {
     within(deadline, async {
         let session = Builder::session()
             .map_err(|error| classify_at(Stage::SessionBus, &error))?
             .build()
             .await
             .map_err(|error| classify_at(Stage::SessionBus, &error))?;
-        let reply = session
-            .call_method(
-                Some(BUS_SERVICE),
-                BUS_PATH,
-                Some(BUS_SERVICE),
-                "GetAddress",
-                &(),
-            )
+        let proxy = zbus::Proxy::new(&session, BUS_SERVICE, BUS_PATH, BUS_SERVICE)
             .await
             .map_err(|error| classify_at(Stage::SessionBus, &error))?;
-        reply
-            .body()
-            .deserialize::<String>()
-            .map_err(|error| classify_at(Stage::SessionBus, &error))
+        let flags = if reconnect {
+            zbus::proxy::MethodFlags::NoAutoStart.into()
+        } else {
+            Default::default()
+        };
+        proxy
+            .call_with_flags("GetAddress", flags, &())
+            .await
+            .map_err(|error| classify_at(Stage::SessionBus, &error))?
+            .ok_or_else(|| AdapterError::internal("The accessibility bus returned no address"))
     })
 }
 
-fn connect(deadline: Deadline) -> Result<Connection, AdapterError> {
+fn connect(deadline: Deadline, reconnect: bool) -> Result<Connection, AdapterError> {
     ensure_budget(deadline)?;
-    let address = discover_address(deadline)?;
+    let address = discover_address(deadline, reconnect)?;
     ensure_budget(deadline)?;
     let connection: AsyncConnection = within(deadline, async {
         Builder::address(address.as_str())
@@ -174,18 +173,37 @@ impl SharedBus {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .as_ref()
-            .map(|cached| cached.connection.clone().into())
+            .and_then(|cached| cached.connection.clone().map(Into::into))
     }
 
     pub(crate) fn get(&self, deadline: Deadline) -> Result<Connection, AdapterError> {
-        cached_connection::get(&self.slot, deadline, || {
-            connect(deadline).map(|connection| connection.inner().clone())
+        cached_connection::get(&self.slot, deadline, |reconnect| {
+            connect(deadline, reconnect)
+                .map(|connection| connection.inner().clone())
+                .map_err(|error| {
+                    if reconnect && error.code == ErrorCode::PlatformNotSupported {
+                        AdapterError::internal("The established accessibility bus was lost")
+                            .with_suggestion(
+                                "Retry after the application's accessibility connection recovers",
+                            )
+                            .with_platform_detail(error.platform_detail.unwrap_or(error.message))
+                    } else {
+                        error
+                    }
+                })
         })
         .map(Into::into)
     }
 
     pub(crate) fn forget_cached(&self) {
-        *self.slot.lock().unwrap_or_else(PoisonError::into_inner) = None;
+        if let Some(cached) = self
+            .slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+        {
+            cached.connection = None;
+        }
     }
 
     pub(crate) fn registry_owner(
@@ -231,6 +249,9 @@ pub(crate) mod tests;
 #[cfg(test)]
 #[path = "bus_live_tests.rs"]
 mod live_tests;
+
+#[cfg(test)]
+mod recovery_tests;
 
 #[cfg(test)]
 #[path = "registry_pid_tests.rs"]

@@ -1,4 +1,6 @@
-fn same_geometry(
+use crate::system::registry::listed_window::ListedWindow;
+
+pub(super) fn same_geometry(
     frame: &crate::system::x11::FrameFacts,
     client: &crate::system::x11::X11Client,
 ) -> bool {
@@ -59,13 +61,19 @@ pub(super) fn unproven(pid: u32) -> agent_desktop_core::AdapterError {
 
 /// Classify a complete, uniform group without choosing a native window identity.
 pub(super) fn classify(
-    frame: &crate::system::x11::FrameFacts,
-    frames: &[crate::system::x11::FrameFacts],
+    window: &ListedWindow,
+    windows: &[ListedWindow],
     clients: &[crate::system::x11::X11Client],
     user_ids: &std::collections::HashSet<u32>,
     helper_ids: &std::collections::HashSet<u32>,
     complete_process: bool,
 ) -> Result<bool, agent_desktop_core::AdapterError> {
+    let frame = &window.frame;
+    let frames: Vec<_> = windows
+        .iter()
+        .filter(|other| !other.unshown)
+        .map(|other| &other.frame)
+        .collect();
     if !complete_process {
         return Err(unproven(frame.pid));
     }
@@ -76,6 +84,11 @@ pub(super) fn classify(
         .collect();
     if owned.is_empty() {
         return Err(unproven(frame.pid));
+    }
+    if let Some(user) =
+        super::embedded_group::classify(window, windows, clients, user_ids, helper_ids)
+    {
+        return Ok(user);
     }
     if owned.is_subset(user_ids) {
         return (owned.len() == frames.iter().filter(|other| other.pid == frame.pid).count())

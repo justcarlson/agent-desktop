@@ -35,7 +35,9 @@ pub(crate) struct Armed {
 
 /// Turns the signal handling on for the rest of the process. Only the
 /// command-line binary calls it.
-pub(crate) fn enable() {
+/// Releases held keys and buttons before SIGTERM, SIGINT or SIGHUP takes effect.
+/// CLI hosts enable this; library hosts retain their own signal handlers.
+pub fn enable() {
     ENABLED.store(true, Ordering::SeqCst);
 }
 

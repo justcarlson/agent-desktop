@@ -1,7 +1,6 @@
 pub(crate) mod anchor;
 pub(crate) mod call_failure;
 pub(crate) mod located;
-pub(crate) mod watcher_read;
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, ObservationRequest,
     ObservationRoot, ObservedTree, SnapshotSurface, WindowInfo,
@@ -96,7 +95,7 @@ pub(crate) fn open_surface(
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(AdapterError::not_supported("open_system_surface"));
     };
-    if !kinds::is_presented(kind) {
+    if kind == kinds::ShellKind::Dock {
         return Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
             "The taskbar surface is not offered: no stock shell shows a dock",
@@ -123,7 +122,6 @@ pub(crate) fn observe_shell(
     inner.surface = SnapshotSurface::Window;
     let root = ObservationRoot::Window(window);
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
-        detect::require_watcher(request.deadline)?;
         let view = crate::system::tray::view::read(request.deadline)?;
         return tray_tree::logical_tree(&view, window, request.surface);
     }

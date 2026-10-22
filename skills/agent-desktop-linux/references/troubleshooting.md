@@ -13,7 +13,7 @@ display server does not give.
 | `list-apps` is empty but `status` is healthy | Bus up, no app registered | Start an app; restart one that started before the bus |
 | App runs but `--app` finds nothing | Not on the bus, or wrong name | See "Apps that are not on the bus" and use the `list-apps` name |
 | Chromium shows a bus entry but no windows | Renderer accessibility is off | Add `--force-renderer-accessibility` |
-| Window appears but `snapshot` is thin | Content not ready | `wait --window`, then `wait --text`; raise `--timeout-ms` |
+| Window appears but `snapshot` is thin | Content not ready | `wait --window`, then `wait --text`; raise the wait's `--timeout` or the snapshot's `--timeout-ms` |
 | `TIMEOUT` on `snapshot` | Deadline before a usable observation, or an incomplete `--root` drill-down | Raise `--timeout-ms`; a later timeout on a normal snapshot can instead succeed with `complete: false` and `truncated: true` |
 | `ACTION_FAILED` `activation_not_granted` | Window manager never activated the window | `references/windows-and-lifecycle.md`, Focus |
 | `ACTION_FAILED` `overview_open` | GNOME Activities Overview is open | Close the overview, retry |

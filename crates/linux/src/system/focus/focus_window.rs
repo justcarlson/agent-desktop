@@ -19,7 +19,7 @@ use super::restore_minimized::Lifted;
 use crate::system::window::window_client::{ClientWorld, client_of};
 use crate::system::x11::desktop_placement::DesktopPlacement;
 
-const FIRST_LOOK: Duration = Duration::from_millis(400);
+const FIRST_LOOK: Duration = Duration::from_millis(100);
 
 /// How long a frame gets to report itself active once the window manager
 /// already names it. Chromium and Electron report it after their own focus
@@ -56,6 +56,10 @@ pub(in crate::system) trait FocusWorld: ClientWorld {
     /// popup while the X11 window manager continues to name the main client.
     fn app_frame_active(&self) -> bool;
     fn overview_open(&self) -> Option<bool>;
+    fn arm_wake(&self) {}
+    fn wait_for_change(&self, deadline: Deadline) {
+        std::thread::sleep(deadline.remaining());
+    }
 }
 
 fn check_process(world: &impl FocusWorld, win: &WindowInfo) -> Result<(), AdapterError> {
@@ -142,7 +146,12 @@ fn wait_for_focus(
         if (deadline.is_expired() || unanswered) && !waiting_for_the_frame {
             return Err(timeout_cause(before, active, client));
         }
-        std::thread::sleep(POLL.min(frame_deadline.remaining()));
+        let phase_deadline = if active == Some(client) {
+            frame_deadline
+        } else {
+            deadline
+        };
+        world.wait_for_change(phase_deadline.capped(POLL));
     }
 }
 
@@ -161,6 +170,7 @@ fn ask_and_wait(
     deadline: Deadline,
     untimed: bool,
 ) -> Result<(), AdapterError> {
+    world.arm_wake();
     let sent = if untimed {
         world.send_untimed(client)
     } else {

@@ -147,13 +147,7 @@ fn a_frame_that_becomes_active_after_two_polls_proceeds() {
 
 #[test]
 fn a_frame_that_loses_active_before_the_third_chunk_stops_after_two() {
-    let world = FakeWorld::x11().active_script(&[
-        Some(true),
-        Some(true),
-        Some(true),
-        Some(true),
-        Some(false),
-    ]);
+    let world = FakeWorld::x11().active_script(&[Some(true), Some(true), Some(true), Some(false)]);
     let error = type_text_steps(
         &world,
         &element(),

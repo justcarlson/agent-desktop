@@ -53,7 +53,7 @@ fn open(deadline: Deadline) -> Result<Connection, AdapterError> {
 
 impl SessionBus {
     pub(crate) fn get(deadline: Deadline) -> Result<Connection, AdapterError> {
-        cached_connection::get(&SLOT, deadline, || open(deadline))
+        cached_connection::get(&SLOT, deadline, |_| open(deadline))
     }
 
     pub(crate) fn forget(connection: &Connection) {

@@ -1,8 +1,8 @@
 use agent_desktop_core::{AdapterError, Deadline};
 
 use super::{
-    CallFailure, Fact, NOTIFICATIONS, call, classify_daemon, classify_watcher, daemon_fact_error,
-    server_name, shell_owner, unreadable, watcher, watcher_fact_error,
+    CallFailure, Fact, NOTIFICATIONS, call, classify_daemon, daemon_fact_error, server_name,
+    shell_owner, unreadable,
 };
 use crate::system::bus::session_bus::SessionBus as Bus;
 
@@ -28,11 +28,4 @@ pub(crate) fn require_daemon(deadline: Deadline) -> Result<(), AdapterError> {
             "daemon",
         )),
     }
-}
-
-pub(crate) fn require_watcher(deadline: Deadline) -> Result<(), AdapterError> {
-    let connection = Bus::get(deadline)
-        .map_err(|error| unreadable("system tray watcher", &error.message, "watcher"))?;
-    let read = watcher(&connection, deadline);
-    watcher_fact_error(&classify_watcher(read))
 }

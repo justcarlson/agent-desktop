@@ -1,11 +1,9 @@
 use crate::system::shell::call_failure::CallFailure;
-use crate::system::shell::watcher_read::WatcherRead;
 use std::future::Future;
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use serde_json::json;
 use zbus::Connection;
-use zbus::zvariant::OwnedValue;
 
 use self::errors::unreadable;
 use super::identity::{pick_shell_app, shell_owner};
@@ -14,14 +12,10 @@ use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, within};
 
 const NOTIFICATIONS: &str = "org.freedesktop.Notifications";
 const NOTIFICATIONS_PATH: &str = "/org/freedesktop/Notifications";
-const WATCHER: &str = "org.kde.StatusNotifierWatcher";
-const WATCHER_PATH: &str = "/StatusNotifierWatcher";
-const BUS_DAEMON: &str = "org.freedesktop.DBus";
-const BUS_DAEMON_PATH: &str = "/org/freedesktop/DBus";
 
 mod errors;
 mod requirements;
-pub(crate) use requirements::{require_daemon, require_watcher};
+pub(crate) use requirements::require_daemon;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Fact {
@@ -120,47 +114,6 @@ pub(crate) fn detect(bus: &SharedBus, deadline: Deadline) -> Fact {
     classify_tree(owner, registered)
 }
 
-fn watcher(connection: &Connection, deadline: Deadline) -> Result<WatcherRead, CallFailure> {
-    call(deadline, async {
-        let owned = connection
-            .call_method(
-                Some(BUS_DAEMON),
-                BUS_DAEMON_PATH,
-                Some(BUS_DAEMON),
-                "NameHasOwner",
-                &(WATCHER,),
-            )
-            .await?
-            .body()
-            .deserialize::<bool>()?;
-        if !owned {
-            return Ok(WatcherRead::NoOwner);
-        }
-        let reply = connection
-            .call_method(
-                Some(WATCHER),
-                WATCHER_PATH,
-                Some("org.freedesktop.DBus.Properties"),
-                "Get",
-                &(WATCHER, "RegisteredStatusNotifierItems"),
-            )
-            .await?;
-        reply.body().deserialize::<OwnedValue>()?;
-        Ok(WatcherRead::Items)
-    })
-}
-
-pub(crate) fn classify_watcher(read: Result<WatcherRead, CallFailure>) -> Fact {
-    match read {
-        Ok(WatcherRead::Items) => Fact::Present,
-        Ok(WatcherRead::NoOwner) => Fact::Absent("no tray watcher is running".to_owned()),
-        Err(CallFailure::NoService) => {
-            Fact::Unreadable("the tray watcher left the bus while it was read".to_owned())
-        }
-        Err(CallFailure::Transport(detail)) => Fact::Unreadable(detail),
-    }
-}
-
 fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterError> {
     match daemon {
         Fact::Present => Ok(()),
@@ -177,21 +130,6 @@ fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterE
         .with_suggestion("Start a notification service implementing org.freedesktop.Notifications")
         .with_details(json!({ "daemon": "absent", "detail": why }))),
         Fact::Unreadable(why) => Err(unreadable("notification service", why, "daemon")),
-    }
-}
-
-fn watcher_fact_error(watcher: &Fact) -> Result<(), AdapterError> {
-    match watcher {
-        Fact::Present => Ok(()),
-        Fact::Absent(why) => Err(AdapterError::new(
-            ErrorCode::PlatformNotSupported,
-            "No system tray watcher is running in this session",
-        )
-        .with_suggestion(
-            "Start a tray backend providing org.kde.StatusNotifierWatcher in this session",
-        )
-        .with_details(json!({ "watcher": "absent", "detail": why }))),
-        Fact::Unreadable(why) => Err(unreadable("system tray watcher", why, "watcher")),
     }
 }
 

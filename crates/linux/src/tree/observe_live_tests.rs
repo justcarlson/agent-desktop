@@ -82,8 +82,17 @@ fn observe_live_calculator_returns_a_complete_reffed_tree() {
     .expect("a complete live walk before placement");
     assert!(walk.complete);
     zbus::block_on(connection.inner().clone().close()).unwrap();
-    let error = super::node_position::place_nodes(&bus, &mut walk, Deadline::after(5_000).unwrap())
-        .expect_err("placement cannot publish a complete tree after transport loss");
-    assert_eq!(error.code, agent_desktop_core::ErrorCode::Internal);
+    let recovered = bus.get(Deadline::after(5_000).unwrap()).unwrap();
+    assert_eq!(
+        recovered.inner().server_guid(),
+        connection.inner().server_guid()
+    );
+    assert_ne!(
+        recovered.inner().unique_name(),
+        connection.inner().unique_name()
+    );
+    super::node_position::place_nodes(&bus, &mut walk, Deadline::after(5_000).unwrap())
+        .expect("a fresh connection to the same bus can place the live tree");
+    assert!(walk.complete);
     oracle();
 }

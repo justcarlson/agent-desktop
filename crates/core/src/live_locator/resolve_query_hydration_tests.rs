@@ -24,7 +24,7 @@ impl ObservationOps for HydrationRetryAdapter {
         match root {
             ObservationRoot::Window(_) => {
                 self.window_observations.fetch_add(1, Ordering::SeqCst);
-                Ok(button_tree())
+                Ok(lean_button_tree())
             }
             ObservationRoot::Element { .. } => {
                 let attempt = self.hydration_observations.fetch_add(1, Ordering::SeqCst);
@@ -67,6 +67,72 @@ fn button_tree() -> ObservedTree {
     )
 }
 
+fn lean_button_tree() -> ObservedTree {
+    let mut evidence = super::test_support::evidence("button", Some("Save"));
+    evidence.description = super::LocatorField::Unknown;
+    super::test_support::tree(
+        vec![super::test_support::node(0, evidence, Vec::new(), &[])],
+        vec![0],
+        true,
+    )
+}
+
+struct CountingAdapter {
+    element_observations: AtomicUsize,
+}
+
+impl ObservationOps for CountingAdapter {
+    fn observe_tree(
+        &self,
+        root: ObservationRoot<'_>,
+        _request: &ObservationRequest,
+    ) -> Result<ObservedTree, AdapterError> {
+        if matches!(root, ObservationRoot::Element { .. }) {
+            self.element_observations.fetch_add(1, Ordering::SeqCst);
+        }
+        Ok(button_tree())
+    }
+
+    fn resolve_locator_anchor(
+        &self,
+        _entry: &crate::RefEntry,
+        _deadline: crate::Deadline,
+    ) -> Result<crate::NativeHandle, AdapterError> {
+        self.element_observations.fetch_add(1, Ordering::SeqCst);
+        Ok(crate::NativeHandle::null())
+    }
+}
+
+impl ActionOps for CountingAdapter {}
+impl InputOps for CountingAdapter {}
+impl SystemOps for CountingAdapter {}
+
+#[test]
+fn a_match_the_walk_read_in_full_is_not_read_again() {
+    let adapter = CountingAdapter {
+        element_observations: AtomicUsize::new(0),
+    };
+    let request = LocatorResolveRequest {
+        selection: LocatorSelection::Strict,
+        deadline: crate::Deadline::after(5_000).unwrap(),
+        max_raw_depth: 10,
+        surface: None,
+        materialization: LocatorMaterialization::SelectedMatches,
+    };
+
+    let resolution = resolve_query(
+        &adapter,
+        &LocatorQuery::default(),
+        ObservationRoot::Window(&window()),
+        &request,
+    )
+    .unwrap();
+
+    assert_eq!(adapter.element_observations.load(Ordering::SeqCst), 0);
+    assert_eq!(resolution.matches[0].data.name, "Save");
+    assert!(resolution.refmap.is_some());
+}
+
 #[test]
 fn hydration_retry_preserves_failed_attempt_statistics() {
     let adapter = HydrationRetryAdapter {
@@ -105,7 +171,7 @@ impl ObservationOps for IncompleteHydrationAdapter {
         _request: &ObservationRequest,
     ) -> Result<ObservedTree, AdapterError> {
         if matches!(root, ObservationRoot::Window(_)) {
-            return Ok(button_tree());
+            return Ok(lean_button_tree());
         }
         self.hydration_observations.fetch_add(1, Ordering::SeqCst);
         let mut evidence = super::test_support::evidence("button", Some("Save"));

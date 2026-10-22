@@ -48,19 +48,7 @@ pub(in crate::system) fn without_helpers(
         return Ok(windows);
     }
     if matches!(session_server(), DisplayServer::Wayland) {
-        let pids: std::collections::HashSet<_> =
-            windows.iter().map(|window| window.frame.pid).collect();
-        let mut helpers = std::collections::HashSet::new();
-        for pid in pids {
-            if crate::system::process::protected::is_display_owner(pid, deadline)? {
-                helpers.insert(pid);
-            }
-        }
-        ensure_budget(deadline)?;
-        return Ok(windows
-            .into_iter()
-            .filter(|window| !helpers.contains(&window.frame.pid))
-            .collect());
+        return Ok(windows);
     }
     let pending = crate::system::x11::start(|| DisplayReader.read());
     let read = pending.finish(deadline);
@@ -70,7 +58,7 @@ pub(in crate::system) fn without_helpers(
     };
     let pids: std::collections::HashSet<_> =
         windows.iter().map(|window| window.frame.pid).collect();
-    let mut user_ids = std::collections::HashSet::new();
+    let mut user_ids = std::collections::HashMap::new();
     let mut helper_ids = std::collections::HashSet::new();
     let mut absent = std::collections::HashSet::new();
     let mut complete = std::collections::HashSet::new();
@@ -100,10 +88,13 @@ pub(in crate::system) fn without_helpers(
         let Some(native) = native.ready() else {
             return Err(unproven(pid));
         };
+        let users = user_ids
+            .entry(pid)
+            .or_insert_with(std::collections::HashSet::new);
         for native in native {
             match native.kind {
                 WindowKind::Normal | WindowKind::Dialog | WindowKind::Utility => {
-                    user_ids.insert(native.id);
+                    users.insert(native.id);
                 }
                 WindowKind::Menu | WindowKind::Dock | WindowKind::Desktop => {
                     helper_ids.insert(native.id);
@@ -113,11 +104,7 @@ pub(in crate::system) fn without_helpers(
         }
     }
     let mut listed = Vec::new();
-    let frames: Vec<_> = windows
-        .iter()
-        .filter(|window| !window.unshown)
-        .map(|window| window.frame.clone())
-        .collect();
+    let no_users = std::collections::HashSet::new();
     for window in &windows {
         ensure_budget(deadline)?;
         if window.unshown {
@@ -128,34 +115,16 @@ pub(in crate::system) fn without_helpers(
             continue;
         }
         match native_group::classify(
-            &window.frame,
-            &frames,
+            window,
+            &windows,
             &clients,
-            &user_ids,
+            user_ids.get(&window.frame.pid).unwrap_or(&no_users),
             &helper_ids,
             complete.contains(&window.frame.pid),
         ) {
             Ok(true) => listed.push(window.clone()),
             Ok(false) => {}
-            Err(error) => {
-                ensure_budget(deadline)?;
-                let helper = crate::system::process::protected::is_display_owner(
-                    window.frame.pid,
-                    deadline,
-                )? || control::decoration_matches(
-                    window.frame.pid,
-                    frames
-                        .iter()
-                        .filter(|other| other.pid == window.frame.pid)
-                        .count(),
-                    deadline,
-                );
-                ensure_budget(deadline)?;
-                if helper {
-                    continue;
-                }
-                return Err(error);
-            }
+            Err(_) => listed.push(window.clone()),
         }
     }
     ensure_budget(deadline)?;

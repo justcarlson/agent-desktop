@@ -1,10 +1,7 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{
-    Fact, classify_daemon, classify_tree, classify_watcher, daemon_fact_error, watcher_fact_error,
-};
+use super::{Fact, classify_daemon, classify_tree, daemon_fact_error};
 use crate::system::shell::call_failure::CallFailure;
-use crate::system::shell::watcher_read::WatcherRead;
 
 #[test]
 fn daemon_requirement_uses_protocol_presence_instead_of_server_branding() {
@@ -45,28 +42,4 @@ fn tree_detection_preserves_registry_failure_classes() {
         ));
     }
     assert_eq!(classify_tree(Ok(7), Some(Ok(true))), Fact::Present);
-}
-
-#[test]
-fn watcher_requirement_preserves_presence_and_races() {
-    let absent = classify_watcher(Ok(WatcherRead::NoOwner));
-    let error = watcher_fact_error(&absent).expect_err("watcher absent");
-    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-    assert!(
-        error
-            .suggestion
-            .unwrap()
-            .contains("org.kde.StatusNotifierWatcher")
-    );
-    watcher_fact_error(&classify_watcher(Ok(WatcherRead::Items))).expect("present watcher");
-
-    for failure in [
-        CallFailure::NoService,
-        CallFailure::Transport("bus stalled".into()),
-    ] {
-        let error = watcher_fact_error(&classify_watcher(Err(failure)))
-            .expect_err("a failed read cannot prove absence");
-        assert_eq!(error.code, ErrorCode::Timeout);
-        assert_eq!(error.details.unwrap()["retryable"], true);
-    }
 }

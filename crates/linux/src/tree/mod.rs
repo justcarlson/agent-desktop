@@ -208,11 +208,12 @@ pub(crate) use live_read::{
 pub(crate) use menu_resolve::{inside_popup, is_menu_entry, no_position};
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
-pub(crate) use node_read::{COMPONENT_INTERFACE, call, read_node};
+pub(crate) use node_read::{COMPONENT_INTERFACE, call, read_node, read_node_for};
 pub(crate) use node_traits::NodeTraits;
 pub(crate) use observe::observe_tree;
 pub(crate) use observed_read::ObservedRead;
 pub(crate) use raw_node::{ChildAddress, RawNode};
+pub(crate) use read_purpose::ReadPurpose;
 pub(crate) use resolve_source::{resolve_element_strict, resolve_locator_anchor};
 #[cfg(test)]
 pub(crate) use vocabulary::{ResolvedVocabulary, resolve_vocabulary};

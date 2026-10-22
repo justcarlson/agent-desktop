@@ -8,7 +8,7 @@ use super::live_launch::{Launched, nonce};
 use super::physical_live_rig::{Kit, Scene};
 use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
-use crate::actions::frame_active::frame_active;
+use crate::input::frame_active::frame_active;
 use crate::input::x11::live_tests::{GTK3, device_state, window_center};
 
 const ENTRY_ROLES: &[&str] = &["textfield", "text", "entry"];
@@ -28,7 +28,7 @@ fn combo(key: &str, modifiers: Vec<Modifier>) -> KeyCombo {
 }
 
 pub(super) fn activate_scene(scene: &Scene) {
-    let client = wait_for_viewable_client(scene.pid, Duration::from_secs(8));
+    let client = &scene.client;
     activate(client.id);
     wait_until("the fixture frame active", Duration::from_secs(8), || {
         active_window() == Some(client.id)

@@ -15,10 +15,6 @@ pub(crate) fn usable_size(rect: &Rect) -> Option<(f64, f64)> {
     (rect.width > 0.0 && rect.height > 0.0).then_some((rect.width, rect.height))
 }
 
-pub(crate) fn stored_size(entry: &RefEntry) -> Option<(f64, f64)> {
-    entry.geometry.bounds.as_ref().and_then(usable_size)
-}
-
 /// The identity verdict. An identifier match alone would settle an
 /// identifier-bearing ref, but an identifier can be shared (Qt list rows share
 /// their list's) or reused by a different element, so when the ref also
@@ -51,7 +47,13 @@ pub(crate) fn identity_verdict(entry: &RefEntry, evidence: &LocatorEvidence) -> 
 /// zero-area rectangle is shared by every collapsed or virtualised element
 /// and identifies nothing.
 pub(crate) fn provisional_geometry_candidate(entry: &RefEntry) -> bool {
-    stored_size(entry).is_some() && !has_meaningful_identity(entry)
+    entry
+        .geometry
+        .bounds
+        .as_ref()
+        .and_then(usable_size)
+        .is_some()
+        && !has_meaningful_identity(entry)
 }
 
 /// Whether geometry alone proves the same rectangle in its recorded frame.
@@ -70,13 +72,6 @@ fn bounds_in(evidence: &LocatorEvidence, space: BoundsSpace) -> &LocatorField<Re
     }
 }
 
-pub(super) fn geometry<'a>(
-    entry: &RefEntry,
-    evidence: &'a LocatorEvidence,
-) -> &'a LocatorField<Rect> {
-    bounds_in(evidence, stored_space(entry))
-}
-
 pub(super) fn candidate(
     entry: &RefEntry,
     evidence: &LocatorEvidence,
@@ -85,11 +80,14 @@ pub(super) fn candidate(
 ) -> super::candidate::Candidate {
     let mut candidate = super::candidate::Candidate {
         element,
-        bounds: geometry(entry, evidence).known().copied(),
+        bounds: bounds_in(evidence, stored_space(entry)).known().copied(),
         bounds_space: stored_space(entry),
         depth,
     };
-    if matches!(geometry(entry, evidence), LocatorField::Absent) {
+    if matches!(
+        bounds_in(evidence, stored_space(entry)),
+        LocatorField::Absent
+    ) {
         let other = match candidate.bounds_space {
             BoundsSpace::Window => BoundsSpace::Screen,
             BoundsSpace::Screen => BoundsSpace::Window,
@@ -102,10 +100,6 @@ pub(super) fn candidate(
     candidate
 }
 
-pub(crate) fn rectangles_equal(left: &Rect, right: &Rect) -> bool {
-    left == right
-}
-
 fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<bool> {
     entry
         .geometry
@@ -113,12 +107,12 @@ fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<bool
         .as_ref()
         .filter(|rect| usable_size(rect).is_some())
         .zip(
-            geometry(entry, evidence)
+            bounds_in(evidence, stored_space(entry))
                 .known()
                 .copied()
                 .filter(|rect| usable_size(rect).is_some()),
         )
-        .map(|(stored, live)| rectangles_equal(stored, &live))
+        .map(|(stored, live)| stored == &live)
 }
 
 /// Whether the stored and live evidence describe unequal rectangles.
@@ -153,7 +147,8 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
         IdentityMatch::Match => Admission::Collect,
         IdentityMatch::Unknown if geometry_matches(entry, evidence) => Admission::Collect,
         IdentityMatch::Unknown
-            if provisional_geometry_candidate(entry) && !geometry(entry, evidence).is_unknown() =>
+            if provisional_geometry_candidate(entry)
+                && !bounds_in(evidence, stored_space(entry)).is_unknown() =>
         {
             Admission::Reject
         }
@@ -182,7 +177,7 @@ pub(crate) fn select_by_stored_geometry(
     let stored = stored?;
     let mut matching = candidates.iter().enumerate().filter_map(|(index, rect)| {
         let rect = rect.as_ref()?;
-        let same = usable_size(rect).is_some() && rectangles_equal(rect, stored);
+        let same = usable_size(rect).is_some() && rect == stored;
         same.then_some(index)
     });
     let first = matching.next()?;

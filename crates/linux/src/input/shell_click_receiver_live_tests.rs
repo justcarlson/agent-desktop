@@ -1,6 +1,6 @@
 use agent_desktop_core::{DeliverySemantics, ErrorCode, InteractionPolicy, MouseButton};
 
-use crate::input::shell_click::click;
+use crate::input::target_pointer::click_shell as click;
 use crate::tree::physical_live_rig::{Kit, Scene};
 use crate::tree::physical_live_tests::activate_scene;
 

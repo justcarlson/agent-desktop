@@ -175,6 +175,9 @@ fn bus_live_loss_reconnects_without_treating_failed_reads_as_absence() {
     let shell_error = crate::system::shell::identity::content_window(&nodes, &root)
         .expect_err("an unreadable shell is not a missing window");
     assert_eq!(shell_error.code, ErrorCode::Internal);
+    let _replacement = SharedBus::default()
+        .get(deadline())
+        .expect("a new client starts the replacement accessibility service");
     for _ in 0..2 {
         app_inventory(&bus, deadline())
             .expect("the next inventory reconnects to the private session");

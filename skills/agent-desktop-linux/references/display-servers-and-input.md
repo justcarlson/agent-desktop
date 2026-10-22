@@ -38,14 +38,14 @@ window never change. Every X11 synthetic pointer path moves the user's real
 cursor, so pointer commands (`hover`, `drag`, `double-click`, `triple-click`,
 `mouse-move`, `mouse-click`, `mouse-wheel`) require global `--headed`.
 
-Under `--headed`, `click` and `type` use physical input on X11 and report
-`physical_synthetic` with `verified: false`, because XTEST has no read-back.
-After an unsupported-input or geometry refusal on X11 that proves nothing was
-sent, the adapter can fall back to the semantic call; it never repeats an
-uncertain delivery. A fallback includes a skipped `physical_input` step and
-`details.physical_fallback` with the physical refusal's code, message and details;
-the following step names the semantic API that ran. Focus, policy and timeout
-refusals do not authorize fallback. The CLI's Wayland pointer gate runs before that fallback. On
+Under `--headed`, ref `click`, `right-click` and `type` attempt physical input
+first. Physical success reports `physical_synthetic` with `verified: false`,
+because XTEST has no read-back. The adapter falls back to the semantic action
+only when the physical attempt returns `ACTION_NOT_SUPPORTED` or a geometry
+refusal (`check: geometry`) with `not_delivered`; it records the skipped
+`physical_input` step and refusal in `details.physical_fallback`. Focus, policy,
+timeout, uncertain and partial-delivery refusals never authorize fallback. The
+CLI's Wayland pointer gate runs before that fallback. On
 Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
@@ -126,11 +126,9 @@ Empty typing sends no keys and does not request focus on the target. It reports
 `not_delivered`; `--headed` can still activate the source window before the
 empty insertion is dispatched.
 
-Reveal a search field with the app's search button or Ctrl+F before taking its
-ref. Headed typing proves focus on the field or its own internal editor. In
-Nautilus, the editor is omitted from the normal tree, and the enclosing search
-field can report no value even while keys reach it. Verify the search results
-after typing. Focus elsewhere in the window does not authorize ref typing.
+Headed typing proves focus on the field or its proven internal editor. Focus
+elsewhere in the window does not authorize ref typing. Verify the resulting
+value or application effect after typing.
 
 Headless `type @ref text` writes through `EditableText.InsertText`. Under `--headed` it
 sends physical keys first (step `XTEST.type_text` on X11, `RemoteDesktop.type_text` on
@@ -148,15 +146,9 @@ Use headless `type` or `set-value` for literal text containing those characters;
 use an explicit `press tab` or `press return` when navigation or submission is
 intended.
 
-X11 physical text also requires the first keyboard group and no active modifiers
-or locks, checked through XKB before planning and after the focus gate before each
-text chunk. Unsupported state refuses the
-physical route before any key; an editable field can fall back to semantic text.
-This applies on every X11 window manager, including Openbox and Mutter; keyboard
-state, not the desktop's name, decides whether physical text is safe. The result's
-`details.physical_fallback.details.check` is `keyboard_state` in that case.
-Release modifiers, turn off locks and select the first layout for physical text,
-or use headless `type`.
+X11 physical text checks the live keyboard state before sending each chunk. If
+that state is unsupported, the physical route refuses before input; an editable
+field may then use the documented semantic fallback.
 
 The first `type` into a fresh document changes the window title. The ref from the
 snapshot still resolves: `get` on it reads the typed value. Take a fresh snapshot

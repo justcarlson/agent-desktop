@@ -4,6 +4,7 @@ pub(crate) enum ReadPurpose {
     Snapshot,
     Sampling,
     Identity,
+    Resolve,
     Element,
     State,
     Bounds,
@@ -17,7 +18,7 @@ impl ReadPurpose {
     pub(super) fn identity(self) -> bool {
         matches!(
             self,
-            Self::Snapshot | Self::Sampling | Self::Identity | Self::Element
+            Self::Snapshot | Self::Sampling | Self::Identity | Self::Resolve | Self::Element
         )
     }
 
@@ -42,6 +43,9 @@ impl ReadPurpose {
     }
 
     pub(super) fn children(self) -> bool {
-        matches!(self, Self::Snapshot | Self::Sampling | Self::Structure)
+        matches!(
+            self,
+            Self::Snapshot | Self::Sampling | Self::Structure | Self::Resolve
+        )
     }
 }

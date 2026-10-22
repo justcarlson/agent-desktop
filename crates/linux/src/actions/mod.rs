@@ -6,14 +6,8 @@ pub(crate) mod context;
 pub(crate) mod disclosure;
 pub(crate) mod dispatch;
 pub(crate) mod focus;
-#[cfg(test)]
-pub(crate) mod frame_active;
 pub(crate) mod mutation;
 pub(crate) mod numeric_write;
-#[cfg(test)]
-pub(crate) mod physical_click;
-pub(crate) mod physical_keyboard;
-pub(crate) mod physical_live_world;
 pub(crate) mod physical_target;
 mod popup_verify;
 mod process_check;
