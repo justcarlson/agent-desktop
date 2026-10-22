@@ -269,3 +269,15 @@ fn an_incomplete_popup_scan_never_proves_that_the_popup_is_closed() {
     tree.payload.node.children = Field::Failed("children unread".to_owned());
     assert!(super::roots_in_tree(&tree).is_none());
 }
+
+#[test]
+fn an_open_popover_with_only_a_label_is_a_popup_root_below_its_opener() {
+    let open = label_popover_opener(true);
+    assert_eq!(super::roots_in_tree(&open).expect("complete read").len(), 1);
+    let closed = label_popover_opener(false);
+    assert!(
+        super::roots_in_tree(&closed)
+            .expect("complete read")
+            .is_empty()
+    );
+}

@@ -49,7 +49,7 @@ CLI's Wayland pointer gate runs before that fallback. On
 Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
-`double-click`, `mouse-wheel` and `mouse-down`). A headed `type` sends Wayland
+`double-click`, `mouse-wheel`, `mouse-down` and `select`). A headed `type` sends Wayland
 keys through `RemoteDesktop.type_text` after the Mutter capability probe succeeds. Headless `type` writes
 through `EditableText`. A headless action reports `semantic_api` and leaves the
 pointer still. Windows works the other way round (semantic first), so do not

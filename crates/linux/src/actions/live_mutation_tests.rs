@@ -250,7 +250,7 @@ fn a_selection_failure_after_clear_is_returned_with_partial_delivery() {
             element: &element,
             deadline: deadline(),
         };
-        let outcome = super::select::select(&target, "wanted");
+        let outcome = super::select::select(&target, "wanted", None);
         if replacement != "done" {
             let error = outcome.expect_err("clear succeeded and replacement failed");
             let (code, disposition) = match replacement {

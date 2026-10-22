@@ -12,6 +12,7 @@ use super::physical_target::deliver;
 use super::process_check::verify_process;
 use super::scroll_wrap::scroll_to;
 use super::select::select;
+use super::select_pointer::{LivePointer, Pointer};
 use super::toggle_state::toggle;
 use super::value_write::{clear, set_value, type_text};
 use crate::system::{SharedBus, ensure_budget};
@@ -146,7 +147,18 @@ pub(crate) fn execute_action(
         Action::Uncheck => toggle(&target, Some(false)),
         Action::Expand => set_expanded(&target, true),
         Action::Collapse => set_expanded(&target, false),
-        Action::Select(display_value) => select(&target, display_value),
+        Action::Select(display_value) => {
+            let pointer = request.policy.is_headed().then_some(LivePointer {
+                bus,
+                lease,
+                policy: request.policy,
+            });
+            select(
+                &target,
+                display_value,
+                pointer.as_ref().map(|pointer| pointer as &dyn Pointer),
+            )
+        }
         Action::SetFocus => focus(&target, request.policy),
         Action::SetValue(text) => set_value(&target, text, request.policy),
         Action::Clear => clear(&target, request.policy),

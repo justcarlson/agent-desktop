@@ -215,9 +215,9 @@ fn roots_in_tree(tree: &Node) -> Option<Vec<AtspiElement>> {
         return None;
     }
     Some(
-        menu_popup::in_window(tree)
+        menu_popup::popup_roots(tree)
             .into_iter()
-            .map(|popup| popup.root.payload.node.element.address())
+            .map(|root| root.payload.node.element.address())
             .collect(),
     )
 }
