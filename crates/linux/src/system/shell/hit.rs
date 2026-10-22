@@ -1,9 +1,16 @@
-use agent_desktop_core::{AdapterError, Deadline, HitTestResult, Point};
+use std::time::Duration;
 
-use super::light::{is_placed, live_extents};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, HitTestResult, Point};
+
+use super::identity::find_root;
+use super::light::{LiveNodes, Nodes};
+use super::search::walk;
 use crate::system::{SharedBus, list_displays};
-use crate::tree::display_bounds::off_every_display;
 use crate::tree::{AtspiElement, Extents};
+
+/// The least time between the two reads of the target's extents. A target
+/// that is sliding or growing reads differently the second time.
+const MOTION_GAP: Duration = Duration::from_millis(50);
 
 fn contains(extents: Extents, point: &Point) -> bool {
     let (x, y) = (point.x, point.y);
@@ -13,29 +20,49 @@ fn contains(extents: Extents, point: &Point) -> bool {
         && y < f64::from(extents.y) + f64::from(extents.height)
 }
 
-/// A point query on the shell returns a coarse container and cannot confirm
-/// a target, so the verdict rests on the target's own extents: reached when
-/// the point lies inside them and they are on a display, unknown otherwise,
-/// and never intercepted.
-pub(crate) fn decide(
-    extents: Option<Extents>,
+/// Whether a click at `point` reaches `target`. The shell answers a point
+/// query only with a coarse container, so the proof is read from the tree:
+/// the showing nodes are listed in paint order, the last one over the point
+/// is the one a click lands on, and it must be the target or stand below it.
+/// A target whose extents differ between two reads `MOTION_GAP` apart is
+/// still moving. Anything that cannot be read, anything on top of the target
+/// and anything moving is unproven; the answer is never "intercepted",
+/// because paint order cannot tell a cover from an overlay that takes no
+/// pointer events.
+pub(super) fn verdict<N: Nodes>(
+    nodes: &N,
+    root: &AtspiElement,
+    target: &AtspiElement,
     point: &Point,
-    displays: Option<&[Extents]>,
-) -> HitTestResult {
-    let Some(extents) = extents.filter(|extents| is_placed(*extents)) else {
-        return HitTestResult::Unknown;
+    pause: &mut dyn FnMut(Duration),
+    deadline: Deadline,
+) -> Result<HitTestResult, AdapterError> {
+    let before = match nodes.read(target) {
+        Ok(light) if light.showing => light,
+        Ok(_) => return Ok(HitTestResult::Unknown),
+        Err(error) if error.code == ErrorCode::ElementNotFound => {
+            return Ok(HitTestResult::Unknown);
+        }
+        Err(error) => return Err(error),
     };
-    let Some(displays) = displays else {
-        return HitTestResult::Unknown;
+    pause(MOTION_GAP);
+    let tree = walk(nodes, root, deadline, &|light| !light.showing)?;
+    let Some(at) = tree.position(target) else {
+        return Ok(HitTestResult::Unknown);
     };
-    if off_every_display(Some(extents), Some(displays)) || displays.is_empty() {
-        return HitTestResult::Unknown;
+    if tree.visits[at].light.extents != before.extents {
+        return Ok(HitTestResult::Unknown);
     }
-    if contains(extents, point) {
-        HitTestResult::ReachesTarget
-    } else {
-        HitTestResult::Unknown
-    }
+    let top = tree.visits.iter().rposition(|visit| {
+        visit
+            .light
+            .placed()
+            .is_some_and(|extents| contains(extents, point))
+    });
+    Ok(match top {
+        Some(top) if tree.within(top, at) => HitTestResult::ReachesTarget,
+        _ => HitTestResult::Unknown,
+    })
 }
 
 pub(crate) fn display_extents(deadline: Deadline) -> Option<Vec<Extents>> {
@@ -59,9 +86,17 @@ pub(crate) fn hit_test(
     point: Point,
     deadline: Deadline,
 ) -> Result<HitTestResult, AdapterError> {
-    let extents = live_extents(bus, target, deadline)?;
-    let displays = display_extents(deadline);
-    Ok(decide(extents, &point, displays.as_deref()))
+    let root = find_root(bus, deadline)?;
+    let start = AtspiElement::new(&root.bus_name, &root.path, root.pid);
+    let nodes = LiveNodes::new(bus.get(deadline)?.inner().clone(), deadline);
+    verdict(
+        &nodes,
+        &start,
+        target,
+        &point,
+        &mut std::thread::sleep,
+        deadline,
+    )
 }
 
 #[cfg(test)]

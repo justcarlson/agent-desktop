@@ -184,3 +184,15 @@ fn a_failure_names_the_status_and_marks_the_exact_crash_disposition() {
     assert!(exited.message.contains("status 4"));
     assert_eq!(exited.details.expect("details")["status"], 4);
 }
+
+#[test]
+fn a_launcher_that_exited_is_reported_under_the_name_the_caller_asked_for() {
+    let child = std::process::Command::new("/bin/true").spawn().unwrap();
+    let spawned = Spawned::new(child, "gnome-calculator");
+    let error = spawned.failure(exited(0));
+    assert!(
+        error
+            .message
+            .contains("'gnome-calculator' exited with status 0")
+    );
+}

@@ -78,7 +78,7 @@ fn show_default_cursor(
     value["rendered"] = Value::Bool(match adapter.update_cursor_overlay(&control) {
         Ok(()) => true,
         Err(error) => {
-            tracing::warn!(code = %error.code.as_str(), "cursor overlay lifecycle update was skipped");
+            super::overlay_skipped::log(&error);
             false
         }
     });

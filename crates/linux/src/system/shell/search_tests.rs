@@ -1,91 +1,93 @@
-use agent_desktop_core::Deadline;
+use agent_desktop_core::{Deadline, ErrorCode};
 
-use crate::system::shell::fake_tree::{FakeTree, gnome_shell};
-use crate::system::shell::light::Light;
-use crate::system::shell::search::{Query, find_all};
+use crate::system::shell::fake_tree::{FakeTree, PANEL, WINDOW, at, element, gnome_shell};
+use crate::system::shell::search::walk;
 
 fn deadline() -> Deadline {
     Deadline::after(10_000).expect("a deadline builds")
 }
 
-fn named<'a>(name: &'a str) -> impl Fn(&Light) -> bool + 'a {
-    move |light| light.name == name
-}
-
-fn anywhere(_: &[Light], _: &Light) -> bool {
-    true
-}
-
-fn query(
-    tree: &FakeTree,
-    name: &str,
-    deadline: Deadline,
-    accept: &dyn Fn(&[Light], &Light) -> bool,
-) -> Result<Option<Vec<Light>>, agent_desktop_core::AdapterError> {
-    let candidate = named(name);
-    find_all(
-        tree,
-        &crate::system::shell::fake_tree::element("/w"),
-        deadline,
-        &Query {
-            prune: &|_| false,
-            candidate: &candidate,
-            accept,
-        },
-    )
-    .map(|paths| paths.into_iter().next())
+fn small() -> FakeTree {
+    let mut tree = FakeTree::new();
+    tree.add(None, "/w", WINDOW, "", at(0, 0, 10, 10));
+    tree.add(Some("/w"), "/a", PANEL, "", at(0, 0, 10, 10));
+    tree.add(Some("/w"), "/b", PANEL, "", at(0, 0, 10, 10));
+    tree.add(Some("/a"), "/a1", PANEL, "", at(0, 0, 10, 10));
+    tree.add(Some("/a"), "/a2", PANEL, "", at(0, 0, 10, 10));
+    tree.add(Some("/b"), "/b1", PANEL, "", at(0, 0, 10, 10));
+    tree
 }
 
 #[test]
-fn the_chain_runs_from_the_root_to_the_match_in_order() {
-    let tree = gnome_shell(true, false);
-    let path = query(&tree, "Activities", deadline(), &anywhere)
-        .expect("the search runs")
-        .expect("the node exists");
-    let paths: Vec<&str> = path.iter().map(|light| light.element.path()).collect();
-    assert_eq!(paths, ["/w", "/p2", "/top", "/bar", "/left", "/activities"]);
+fn nodes_come_in_paint_order_and_know_their_parents() {
+    let walked = walk(&small(), &element("/w"), deadline(), &|_| false).expect("a walk");
+    let paths: Vec<&str> = walked
+        .visits
+        .iter()
+        .map(|visit| visit.light.element.path())
+        .collect();
+    assert_eq!(paths, ["/w", "/a", "/a1", "/a2", "/b", "/b1"]);
+    let parents: Vec<Option<usize>> = walked.visits.iter().map(|visit| visit.parent).collect();
+    assert_eq!(parents, [None, Some(0), Some(1), Some(1), Some(0), Some(4)]);
+    assert_eq!(walked.visits[1].children, [2, 3]);
+    assert!(walked.complete);
 }
 
 #[test]
-fn a_node_that_vanishes_during_the_search_is_skipped() {
+fn within_follows_the_parents_and_position_finds_an_element() {
+    let walked = walk(&small(), &element("/w"), deadline(), &|_| false).expect("a walk");
+    assert!(walked.within(3, 1));
+    assert!(walked.within(3, 3));
+    assert!(!walked.within(3, 4));
+    assert_eq!(walked.position(&element("/b1")), Some(5));
+    assert_eq!(walked.position(&element("/missing")), None);
+}
+
+#[test]
+fn a_pruned_node_is_neither_listed_nor_entered() {
+    let walked = walk(&small(), &element("/w"), deadline(), &|light| {
+        light.element.path() == "/a"
+    })
+    .expect("a walk");
+    let paths: Vec<&str> = walked
+        .visits
+        .iter()
+        .map(|visit| visit.light.element.path())
+        .collect();
+    assert_eq!(paths, ["/w", "/b", "/b1"]);
+}
+
+#[test]
+fn a_node_that_vanishes_during_the_walk_is_skipped_and_the_walk_says_so() {
     let mut tree = gnome_shell(true, false);
     tree.vanish("/left");
-    let found =
-        query(&tree, "System", deadline(), &anywhere).expect("a vanished node is not an error");
-    assert!(found.is_some());
+    let walked = walk(&tree, &element("/w"), deadline(), &|_| false).expect("a walk");
+    assert!(!walked.complete);
+    assert!(walked.position(&element("/system")).is_some());
+    assert!(walked.position(&element("/left")).is_none());
 }
 
 #[test]
-fn the_acceptance_rule_sees_the_ancestors_and_can_refuse() {
-    let tree = gnome_shell(true, false);
-    let refuse = |above: &[Light], _: &Light| above.iter().any(|node| node.name == "nowhere");
-    let found = query(&tree, "System", deadline(), &refuse).expect("the search runs");
-    assert!(found.is_none());
-}
-
-#[test]
-fn an_expired_deadline_is_a_timeout_not_an_empty_result() {
-    let tree = FakeTree::new();
+fn an_expired_deadline_is_a_timeout_not_an_empty_walk() {
     let expired = Deadline::after(1).expect("a deadline builds");
     std::thread::sleep(std::time::Duration::from_millis(5));
-    let error = query(&tree, "Anything", expired, &anywhere).expect_err("no time is no answer");
-    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
+    let error = walk(&small(), &element("/w"), expired, &|_| false).expect_err("no time");
+    assert_eq!(error.code, ErrorCode::Timeout);
 }
 
 #[test]
-fn an_incomplete_search_cannot_claim_no_match() {
+fn a_walk_over_the_budget_is_an_error_and_never_a_shorter_tree() {
     let mut tree = FakeTree::new();
-    tree.add(None, "/w", 69, "", super::super::fake_tree::at(0, 0, 0, 0));
+    tree.add(None, "/w", WINDOW, "", at(0, 0, 0, 0));
     for index in 0..10_000 {
         tree.add(
             Some("/w"),
             &format!("/node{index}"),
-            39,
+            PANEL,
             "",
-            super::super::fake_tree::at(0, 0, 0, 0),
+            at(0, 0, 0, 0),
         );
     }
-    let error = query(&tree, "absent", deadline(), &anywhere)
-        .expect_err("budget exhaustion establishes no absence");
-    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
+    let error = walk(&tree, &element("/w"), deadline(), &|_| false).expect_err("over budget");
+    assert_eq!(error.code, ErrorCode::Timeout);
 }
