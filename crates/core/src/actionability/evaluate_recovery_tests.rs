@@ -3,6 +3,7 @@ use crate::{Action, InteractionPolicy, Rect};
 
 fn unsupported(action: Action, policy: InteractionPolicy) -> AdapterError {
     let evidence = ActionabilityEvidence {
+        nonspatial: false,
         state: crate::ElementState {
             role: "textfield".into(),
             states: Vec::new(),

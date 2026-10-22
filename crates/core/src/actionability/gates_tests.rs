@@ -7,6 +7,7 @@ use crate::{Action, ActionRequest, ElementState, Rect};
 
 fn evidence(offscreen: Option<bool>, bounds: Option<Rect>) -> ActionabilityEvidence {
     ActionabilityEvidence {
+        nonspatial: false,
         state: ElementState {
             role: "button".into(),
             states: vec![],

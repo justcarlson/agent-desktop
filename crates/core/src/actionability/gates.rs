@@ -32,6 +32,13 @@ pub(super) fn visibility(
         None => {}
         Some(false) => {}
     }
+    if delivered_without_pointer
+        && evidence.nonspatial
+        && evidence.states_complete
+        && evidence.state.hidden == Some(false)
+    {
+        return pass("visible");
+    }
     if !requires_geometry && evidence.state.offscreen.is_none() && evidence.bounds.is_some() {
         return pass("visible");
     }

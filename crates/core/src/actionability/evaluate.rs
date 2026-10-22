@@ -41,6 +41,7 @@ pub(crate) fn check(
     impl SystemOps for TestHitAdapter {}
 
     let evidence = ActionabilityEvidence {
+        nonspatial: false,
         state: crate::ElementState {
             role: entry.identity.role.clone(),
             states: entry.capabilities.states.clone(),
@@ -254,6 +255,7 @@ mod tests {
 
     fn cell_evidence() -> ActionabilityEvidence {
         ActionabilityEvidence {
+            nonspatial: false,
             state: crate::ElementState {
                 role: "cell".to_string(),
                 states: Vec::new(),

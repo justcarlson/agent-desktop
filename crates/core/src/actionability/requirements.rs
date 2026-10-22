@@ -61,8 +61,9 @@ impl ActionabilityRequirements {
     /// without usable bounds stay actionable. The visibility gate applies this
     /// only to targets that report bounds but no owning window (`offscreen`
     /// unknown), the shape macOS closed-menu items have: a zero-size control
-    /// inside a known window, or a target with no bounds at all, still needs
-    /// bounds. Explicit hidden/offscreen state still gates them. Headed pointer
+    /// inside a known window still needs bounds. A separately proven nonspatial
+    /// protocol target needs complete live state instead of geometry. Explicit
+    /// hidden/offscreen state still gates both. Headed pointer
     /// paths keep the geometry requirement, but an action typed through the
     /// keyboard never uses a pointer: a Wayland field reports no bounds, and
     /// waiting for one that can never arrive spends the whole budget on a
