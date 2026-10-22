@@ -2,17 +2,18 @@ use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::Deadline;
+use agent_desktop_core::{Deadline, ErrorCode};
 use zbus::blocking::Connection;
 use zbus::zvariant::OwnedObjectPath;
 
 use super::identity::{find_root, is_shell_owner};
 use crate::system::SharedBus;
+use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 const APP: &str = r#"
 import ctypes,os,sys,gi,signal
 gi.require_version('Gtk','3.0')
-from gi.repository import Gtk,Gio,GLib,Atk
+from gi.repository import Gtk,Gio,GLib
 bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
 owned=False
 if sys.argv[1]=='owner':
@@ -30,10 +31,11 @@ signal.signal(signal.SIGUSR1,release)
 ctypes.CDLL(None).prctl(15,b'renamed-shell' if owned else b'gnome-shell',0,0,0)
 window=Gtk.Window(title='構造')
 history=Gtk.Box()
-history.get_accessible().set_role(Atk.Role.LIST)
-row=Gtk.Button(label='通知')
-row.get_accessible().set_role(Atk.Role.NOTIFICATION)
-history.add(row)
+footer=Gtk.Box()
+footer.add(Gtk.Label(label='通知'))
+footer.add(Gtk.ToggleButton(label='停止'))
+footer.add(Gtk.Button(label='消去'))
+history.add(footer)
 window.add(history)
 window.show_all()
 print(os.getpid(),int(owned),flush=True)
@@ -86,24 +88,45 @@ fn accessibility() -> Connection {
         .unwrap()
 }
 
+fn children(connection: &Connection, name: &str, path: &str) -> Vec<(String, OwnedObjectPath)> {
+    connection
+        .call_method(
+            Some(name),
+            path,
+            Some("org.a11y.atspi.Accessible"),
+            "GetChildren",
+            &(),
+        )
+        .unwrap()
+        .body()
+        .deserialize()
+        .unwrap()
+}
+
+fn role(connection: &Connection, name: &str, path: &str) -> u32 {
+    connection
+        .call_method(
+            Some(name),
+            path,
+            Some("org.a11y.atspi.Accessible"),
+            "GetRole",
+            &(),
+        )
+        .unwrap()
+        .body()
+        .deserialize()
+        .unwrap()
+}
+
 fn window(connection: &Connection, pid: u32) -> (String, String) {
     let until = Instant::now() + Duration::from_secs(10);
     loop {
-        let children = |name: &str, path: &str| {
-            connection
-                .call_method(
-                    Some(name),
-                    path,
-                    Some("org.a11y.atspi.Accessible"),
-                    "GetChildren",
-                    &(),
-                )
-                .unwrap()
-                .body()
-                .deserialize::<Vec<(String, OwnedObjectPath)>>()
-                .unwrap()
-        };
-        for (name, path) in children("org.a11y.atspi.Registry", "/org/a11y/atspi/accessible/root") {
+        let registry = children(
+            connection,
+            "org.a11y.atspi.Registry",
+            "/org/a11y/atspi/accessible/root",
+        );
+        for (name, path) in registry {
             let owner: u32 = connection
                 .call_method(
                     Some("org.freedesktop.DBus"),
@@ -119,20 +142,8 @@ fn window(connection: &Connection, pid: u32) -> (String, String) {
             if owner != pid {
                 continue;
             }
-            for (name, path) in children(&name, path.as_str()) {
-                let role: u32 = connection
-                    .call_method(
-                        Some(name.as_str()),
-                        path.as_str(),
-                        Some("org.a11y.atspi.Accessible"),
-                        "GetRole",
-                        &(),
-                    )
-                    .unwrap()
-                    .body()
-                    .deserialize()
-                    .unwrap();
-                if matches!(role, 23 | 69) {
+            for (name, path) in children(connection, &name, path.as_str()) {
+                if matches!(role(connection, &name, path.as_str()), 23 | 69) {
                     return (name, path.to_string());
                 }
             }
@@ -173,39 +184,22 @@ pub(super) fn shell_identity_follows_both_bus_owners_and_never_the_process_name(
             super::anchor::Anchor::Landmark(super::container::Landmark::MessageList),
             Deadline::after(5_000).unwrap(),
         )
-        .expect("real toolkit notification roles prove the list without text or geometry");
-        let role: u32 = connection
-            .call_method(
-                Some(located.container.element.bus_name()),
-                located.container.element.path(),
-                Some("org.a11y.atspi.Accessible"),
-                "GetRole",
-                &(),
-            )
-            .unwrap()
-            .body()
-            .deserialize()
-            .unwrap();
-        assert_eq!(role, 31);
+        .expect("a footer row of real toolkit controls proves the list without text or geometry");
+        let container = &located.container.element;
+        let rows = children(&connection, container.bus_name(), container.path());
+        assert_eq!(rows.len(), 1);
+        let footer: Vec<u32> = children(&connection, &rows[0].0, rows[0].1.as_str())
+            .iter()
+            .map(|(name, path)| role(&connection, name, path.as_str()))
+            .collect();
+        assert_eq!(footer, [LABEL, TOGGLE_BUTTON, PUSH_BUTTON]);
         super::detect::require_daemon(Deadline::after(5_000).unwrap())
             .expect("notification capability comes from matching owners, not branding");
-        let error = agent_desktop_core::SystemOps::check_notification_support(
+        agent_desktop_core::SystemOps::check_notification_support(
             &crate::LinuxAdapter::new(),
             Deadline::after(5_000).unwrap(),
         )
-        .expect_err("matching owners still cannot prove notification identity");
-        assert_eq!(
-            error.code,
-            agent_desktop_core::ErrorCode::ActionNotSupported
-        );
-        assert_eq!(
-            error.disposition,
-            agent_desktop_core::DeliverySemantics::not_delivered()
-        );
-        assert_eq!(
-            error.details.as_ref().unwrap()["kind"],
-            "notification_identity_unavailable"
-        );
+        .expect("the adapter's support check follows the same owners");
         let session = Connection::session().unwrap();
         let information: (String, String, String, String) = session
             .call_method(
@@ -253,6 +247,7 @@ pub(super) fn shell_identity_follows_both_bus_owners_and_never_the_process_name(
         let (_foreign, _, _) = spawn("notification");
         let error = super::detect::require_daemon(Deadline::after(5_000).unwrap())
             .expect_err("branding cannot authorize a different notification owner");
+        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
         assert_eq!(error.details.unwrap()["daemon"], "unsupported");
     } else {
         assert!(!is_shell_owner(&name, pid));
