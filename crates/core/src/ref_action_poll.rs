@@ -28,7 +28,14 @@ pub(crate) fn execute_poll_loop(
     request: &ActionRequest,
     deadline: Deadline,
 ) -> Result<RefActionPollState, AdapterError> {
-    let mut state = RefActionPollState::default();
+    let mut state = RefActionPollState {
+        expected_bounds_hash: context
+            .entry
+            .geometry
+            .bounds_hash
+            .filter(|_| request.policy == crate::InteractionPolicy::headless()),
+        ..Default::default()
+    };
     loop {
         state.resolve_attempts = state.resolve_attempts.saturating_add(1);
         match resolve_within_deadline(context.adapter, context.entry, deadline) {
