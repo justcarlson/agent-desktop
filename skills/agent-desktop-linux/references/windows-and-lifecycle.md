@@ -122,9 +122,11 @@ close only a document or tab and leave its window open.
   `snapshot --app <name>` or `--surface sheet`, answer it, then close again. When
   a dialog already stands, `close-app` sends nothing and answers `ACTION_FAILED`
   with cause `dialog_pending`, `not_delivered` and `retry: safe`. A dialog that
-  opens in answer to the request ends the wait at once with the same cause and
-  the dialog title in `details.dialog`, but `delivered_unverified` and
-  `retry: unsafe`.
+  opens in answer to the request ends the wait with the same cause and the
+  dialog title in `details.dialog`, but `delivered_unverified` and
+  `retry: unsafe`. One request can open a prompt for every window with unsaved
+  work, so `dialogs`, `windows_remaining` and `dialog_titles` all come from one
+  read taken once the windows stop changing, so they agree with one another.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
