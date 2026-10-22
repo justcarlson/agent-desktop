@@ -100,7 +100,7 @@ pub(crate) fn list_surfaces(
     let owners: Vec<&WindowInfo> = windows.iter().map(|window| &window.info).collect();
     Ok(with_menu_leg(
         surfaces,
-        menu_surface::surfaces_of(&mut inventory, &owners, deadline),
+        menu_surface::surfaces_of(&mut inventory, &owners),
     ))
 }
 

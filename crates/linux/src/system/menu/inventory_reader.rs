@@ -10,7 +10,6 @@ use crate::tree::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
 use agent_desktop_core::{AdapterError, Deadline};
 use std::collections::HashMap;
-use std::time::Duration;
 
 const WINDOW_NODES: usize = 2000;
 const TOP_LEVEL_NODES: usize = 80;
@@ -211,12 +210,6 @@ impl PopupReader for Inventory<'_> {
                 !(element.bus_name() == window.bus_name() && element.path() == window.path())
             })
             .collect())
-    }
-
-    fn pause(&mut self, gap: Duration) {
-        self.trees.clear();
-        self.top_levels.clear();
-        std::thread::sleep(gap);
     }
 }
 

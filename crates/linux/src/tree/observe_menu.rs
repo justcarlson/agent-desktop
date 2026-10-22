@@ -112,7 +112,7 @@ pub(crate) fn observe_menu(
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
-    let popups = popups_of(bus, window, false, request.deadline)?;
+    let popups = popups_of(bus, window, request.deadline)?;
     let popup = outermost(popups)?;
     let root = rooted(&popup.root);
     let limits = WalkLimits {

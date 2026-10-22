@@ -33,13 +33,9 @@ fn targets(
     }
 }
 
-fn popups_at(
-    reader: &mut Inventory<'_>,
-    window: &AtspiElement,
-    deadline: Deadline,
-) -> Result<bool, AdapterError> {
+fn popups_at(reader: &mut Inventory<'_>, window: &AtspiElement) -> Result<bool, AdapterError> {
     reader.select(window);
-    match find_popups(reader, false, deadline) {
+    match find_popups(reader) {
         Ok(popups) => Ok(!popups.is_empty()),
         Err(error) if vanished(&error) => Ok(false),
         Err(error) => Err(error),
@@ -90,7 +86,7 @@ pub(crate) fn menu_open(
     let mut inventory = Inventory::new(bus, deadline);
     let mut incomplete = unread;
     for target in targets {
-        if popups_at(&mut inventory, &target, deadline)? {
+        if popups_at(&mut inventory, &target)? {
             return Ok(true);
         }
         incomplete |= inventory.incomplete();
