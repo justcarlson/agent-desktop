@@ -64,6 +64,23 @@ pub(crate) fn object_gone() -> AdapterError {
     .with_suggestion("The target was destroyed. Choose a replacement from a new snapshot and use its new ref; retrying this ref cannot restore it.")
 }
 
+/// The target's window shares its title and process with another window that
+/// no evidence tells apart, so no position can be proved for the target.
+pub(crate) fn window_tied() -> AdapterError {
+    AdapterError::ambiguous_target(
+        "More than one display window matches this target's window, so its position cannot be proved",
+    )
+    .with_suggestion(
+        "Close the twin windows or give the windows different titles, then take a new snapshot and retry",
+    )
+    .with_details(json!({
+        "kind": "window_position_ambiguous",
+        "complete": true,
+        "retryable": false,
+    }))
+    .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
+}
+
 pub(super) fn descendant_owner_gone(element: &AtspiElement, error: AdapterError) -> AdapterError {
     AdapterError::stale_ref_because(
         "An accessibility owner below the stored window left the bus; the target could not be verified",

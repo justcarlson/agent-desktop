@@ -23,8 +23,12 @@ window's process. `list-apps` rows carry `name`, `pid`, `bundle_id` (desktop id
 when known) and `process_instance`. `list-windows` rows carry `id`, `title`, `pid`,
 `is_focused`, `minimized`, `visible`, `accessible` and `process_instance`, plus `bounds` when
 the display maps one. Several instances of one app share a name: use `--window-id`
-to pick one. Two windows of one process with the same title and bounds make
-`focus-window --window-id` answer `ambiguous_window`.
+to pick one. Two windows of one process with the same title are told apart by
+which one the toolkit reports active: `focus-window --window-id` focuses the active
+one, and its twin when exactly two windows share the title. Any other tie
+(no active window, three or more twins, an active window of another title) makes
+`focus-window --window-id` answer `ambiguous_window`, and the window operations
+(`resize-window`, `move-window`, `minimize`, `restore`) refuse every tie the same way.
 `close-app` and `launch` cannot choose between instances and answer
 `AMBIGUOUS_TARGET`.
 

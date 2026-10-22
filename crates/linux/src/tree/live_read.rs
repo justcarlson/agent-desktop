@@ -14,7 +14,7 @@ use super::node_evidence::{NodeEvidence, read_evidence};
 use super::placement::Placement;
 use super::read_purpose::ReadPurpose;
 use super::resolve_errors::{
-    object_gone, owner_unreachable, settle_gone, stopped_app, stopped_aware,
+    object_gone, owner_unreachable, settle_gone, stopped_app, stopped_aware, window_tied,
 };
 use super::{AtspiElement, atspi_element};
 use crate::system::{SharedBus, within};
@@ -274,6 +274,9 @@ pub(crate) fn pointer_via<R: NodeReader>(
     } else {
         pointer_rect(&node.read, &placed)
     };
+    if bounds.is_none() && placed.tie.is_some() {
+        return Err(window_tied());
+    }
     let states = placed_states(&node.read, &node.evidence, &placed)?.states;
     Ok(agent_desktop_core::PointerObservation { bounds, states })
 }

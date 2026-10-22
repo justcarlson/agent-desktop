@@ -135,7 +135,7 @@ fn locate(world: &impl OpWorld, win: &WindowInfo) -> Result<(u32, Shadow), Adapt
         }
         return Err(unsupported_session(&read));
     };
-    let id = client_of(world, win, clients).map_err(|cause| {
+    let id = client_of(world, win, clients, None).map_err(|cause| {
         if cause == Cause::WindowNotMapped && world.on_wayland() {
             unsupported_session(&ControlRead::NotX11)
         } else {

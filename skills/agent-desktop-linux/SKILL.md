@@ -84,7 +84,13 @@ tool for observation or semantic actions.
   pixel, cannot prove identity. Position and size must both match in the
   recorded coordinate frame; screen-coordinate refs need refreshing after a window move.
   Take a fresh snapshot after layout changes and use stable identity where
-  available. Indistinguishable siblings remain `AMBIGUOUS_TARGET`.
+  available. Indistinguishable siblings remain `AMBIGUOUS_TARGET`. The tab
+  pages of one window are such siblings when the toolkit marks every page
+  showing: the text views of a Text Editor window with three tabs share one
+  rectangle and one state, so a ref to any of them answers `AMBIGUOUS_TARGET`
+  with `candidate_count` 3 until the extra tabs are closed. A ref belongs to the
+  window it was taken in: two windows with the same title each resolve their own
+  refs.
 - **Chromium, Electron and Qt apps need a launch flag or variable** to appear
   on the bus. See `references/troubleshooting.md`.
 - **Headed ref actions need a window that can take focus.** A window the

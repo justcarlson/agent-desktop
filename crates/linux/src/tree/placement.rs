@@ -1,4 +1,5 @@
 use super::Extents;
+use super::window_tie::WindowTie;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::x11::window_x11_state::WindowX11State;
 
@@ -16,4 +17,6 @@ pub(crate) struct Placement {
     pub(crate) x11: Option<WindowX11State>,
     pub(crate) displays: Option<Vec<Extents>>,
     pub(crate) wayland_unplaced: bool,
+    /// The frame maps to several display windows that nothing tells apart.
+    pub(crate) tie: Option<WindowTie>,
 }

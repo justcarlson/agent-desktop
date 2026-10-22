@@ -152,6 +152,17 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::live_read::observe_pointer(self.bus(), handle, deadline)
     }
 
+    fn pointer_position_refusal(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Option<AdapterError> {
+        if crate::system::tray::target_of(handle).is_some() {
+            return None;
+        }
+        crate::tree::pointer_refusal::pointer_position_refusal(self.bus(), handle, deadline)
+    }
+
     fn get_text_selection(
         &self,
         handle: &NativeHandle,

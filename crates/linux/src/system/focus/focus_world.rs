@@ -21,10 +21,12 @@ use crate::system::x11::control_error::ControlError;
 use crate::system::x11::control_send::activate_window;
 use crate::system::x11::stacking_read::StackingRead;
 use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::twin_tie::Twins;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window::window_id};
 use crate::tree::role_numbers::DIALOG;
 use crate::tree::state_bits::{ACTIVE, StateBits};
+use crate::tree::twin_frames::read_twins;
 use crate::tree::{AtspiElement, list_children, read_node};
 
 #[path = "focus_send.rs"]
@@ -206,6 +208,15 @@ impl FocusWorld for LiveWorld<'_> {
 }
 
 impl ClientWorld for LiveWorld<'_> {
+    fn twins(&self, win: &WindowInfo) -> Option<Twins> {
+        let shared = self.bus.get(self.deadline).ok()?;
+        within(self.deadline, async {
+            Ok(read_twins(shared.inner(), &self.frame, &win.title).await)
+        })
+        .ok()
+        .flatten()
+    }
+
     fn global_position(&self) -> bool {
         let Ok(shared) = self.bus.get(self.deadline) else {
             return false;

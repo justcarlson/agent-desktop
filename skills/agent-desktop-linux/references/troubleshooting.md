@@ -138,13 +138,13 @@ received it.
 
 | Toolkit | Limit |
 |---------|-------|
-| GTK4 | Bounds use the window-coordinate rectangle translated to the unique X11 client origin; elsewhere no position is reported. The toolkit's `[0,0,w,h]` screen extents establish no position. Menu item labels come from the labelling node. Secret entries show text. |
+| GTK4 | Bounds use the window-coordinate rectangle translated to the X11 client origin of the window: the unique client of its process and title, or, for two windows that share a title, the client the window manager reports active for the window the toolkit reports active and the other client for the other window. Elsewhere no position is reported: a headless semantic action still acts in its own window, and a request that needs a pointer position answers `AMBIGUOUS_TARGET` with `details.kind: window_position_ambiguous`. The toolkit's `[0,0,w,h]` screen extents establish no position. Menu item labels come from the labelling node. Secret entries show text. |
 | GTK3 | `scroll-to` works through the scrollbar. A held handle answers stale values for 16 to 17 s after its object is destroyed, so waits re-resolve on every poll. |
 | Qt | `scroll-to` does not work: use `scroll --headed`. A `QLineEdit` context menu is not observable. The combo popup takes no semantic selection. A Qt process registers twice; the apps list shows one entry per process. |
 | Chromium and Electron | `scroll-to` works through `ScrollTo`. `hit_test` answers unknown for an Electron host. Needs the flags above. |
 
 `hit_test` answers `Unknown` on Wayland, with no window manager, for GTK4 where the
-X11 mapping is not unique, and for an Electron host. Ref-addressed physical
+X11 mapping stays ambiguous, and for an Electron host. Ref-addressed physical
 clicks and wheels refuse unproven hit results with `ACTION_FAILED`,
 `details.kind: pointer_hit_unproven`. A covered button is still `visible` and headless-actionable:
 occlusion is checked only before pointer delivery.

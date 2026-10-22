@@ -16,6 +16,7 @@ struct Counting {
     parent_checks: usize,
     unread_value: bool,
     unread_state: bool,
+    tied: bool,
 }
 
 impl Counting {
@@ -30,6 +31,7 @@ impl Counting {
             parent_checks: 0,
             unread_value: false,
             unread_state: false,
+            tied: false,
         }
     }
 }
@@ -71,11 +73,16 @@ impl NodeReader for Counting {
     }
 
     fn placement(&mut self, _element: &AtspiElement, _deadline: Deadline) -> Placement {
-        Placement::default()
+        Placement {
+            tie: self.tied.then_some(crate::tree::window_tie::WindowTie {
+                hidden: Some(false),
+            }),
+            ..Placement::default()
+        }
     }
 
     fn global_position(&mut self, _element: &AtspiElement, _deadline: Deadline) -> bool {
-        true
+        !self.tied
     }
 }
 
@@ -213,4 +220,47 @@ fn fresh_reads_corroborate_empty_state_with_parent_removal_and_never_with_failed
         reader.parent_checks, 3,
         "healthy state needs no extra parent read"
     );
+}
+
+fn tied() -> Counting {
+    Counting {
+        tied: true,
+        ..Counting::alive()
+    }
+}
+
+#[test]
+fn a_pointer_aimed_into_a_tied_window_is_an_ambiguous_target_not_missing_bounds() {
+    let deadline = Deadline::after(1_000).expect("deadline");
+    let error = pointer_via(&mut tied(), &handle(), deadline).expect_err("pointer");
+    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+    assert_eq!(kind(&error), "window_position_ambiguous");
+    assert!(!error.is_explicitly_retryable());
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
+}
+
+#[test]
+fn a_tied_window_leaves_the_bounds_read_unanswered_rather_than_refused() {
+    let deadline = Deadline::after(1_000).expect("deadline");
+    assert_eq!(
+        bounds_via(&mut tied(), &handle(), deadline).expect("bounds read"),
+        None
+    );
+}
+
+#[test]
+fn a_tied_window_proves_no_pointer_position_and_a_placed_one_proves_nothing() {
+    use crate::tree::pointer_refusal::pointer_refusal_via;
+    let deadline = Deadline::after(1_000).expect("deadline");
+    let refusal = pointer_refusal_via(&mut tied(), &handle(), deadline)
+        .expect("the read answers")
+        .expect("a tie is proof");
+    assert_eq!(refusal.code, ErrorCode::AmbiguousTarget);
+    assert_eq!(kind(&refusal), "window_position_ambiguous");
+    let placed =
+        pointer_refusal_via(&mut Counting::alive(), &handle(), deadline).expect("the read answers");
+    assert!(placed.is_none());
 }
