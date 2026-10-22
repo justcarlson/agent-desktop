@@ -7,7 +7,7 @@ fn deadline() -> Deadline {
 }
 
 fn world_of(specs: &[crate::notifications::fake::Spec]) -> FakeWorld {
-    FakeWorld::new(&log(), vec![reading(specs, true)])
+    FakeWorld::new(&log(), vec![reading(specs)])
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn a_proven_container_without_entries_is_an_empty_list() {
 
 #[test]
 fn a_cut_short_read_is_an_error_and_never_a_prefix() {
-    let mut read = reading(&[spec("Mail", "a")], false);
+    let mut read = reading(&[spec("Mail", "a")]);
     read.complete = false;
     let world = FakeWorld::new(&log(), vec![read]);
     assert!(list_in(&world, &NotificationFilter::default(), deadline()).is_err());
@@ -80,7 +80,7 @@ fn a_cut_short_read_is_an_error_and_never_a_prefix() {
 #[test]
 fn only_the_message_list_container_is_read() {
     let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")], false)]);
+    let world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")])]);
     list_in(&world, &NotificationFilter::default(), deadline()).expect("listed");
     assert!(log.borrow().iter().any(|line| line == "locate:MessageList"));
     assert!(
@@ -93,7 +93,7 @@ fn only_the_message_list_container_is_read() {
 #[test]
 fn an_absent_notification_service_blocks_listing_before_the_shell_tree_is_read() {
     let log = log();
-    let mut world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")], false)]);
+    let mut world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")])]);
     world.faults.daemon = Some(DaemonFailure::Absent);
     let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
     assert_eq!(
@@ -107,7 +107,7 @@ fn an_absent_notification_service_blocks_listing_before_the_shell_tree_is_read()
 #[test]
 fn an_unproven_notification_service_blocks_listing_with_its_own_error() {
     let log = log();
-    let mut world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")], false)]);
+    let mut world = FakeWorld::new(&log, vec![reading(&[spec("Mail", "a")])]);
     world.faults.daemon = Some(DaemonFailure::Unsupported);
     let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");
     assert_eq!(
@@ -120,9 +120,9 @@ fn an_unproven_notification_service_blocks_listing_with_its_own_error() {
 
 #[test]
 fn an_entry_whose_labels_have_not_filled_in_yet_is_read_again() {
-    let mut half = reading(&[spec("Mail", "hello")], true);
+    let mut half = reading(&[spec("Mail", "hello")]);
     half.nodes.retain(|node| node.name != "hello");
-    let good = reading(&[spec("Mail", "hello")], true);
+    let good = reading(&[spec("Mail", "hello")]);
     let world = FakeWorld::new(&log(), vec![half, good]).staged_by_reads();
     let listed = list_in(&world, &NotificationFilter::default(), deadline()).expect("listed");
     assert_eq!(listed[0].title, "hello");
@@ -130,9 +130,9 @@ fn an_entry_whose_labels_have_not_filled_in_yet_is_read_again() {
 
 #[test]
 fn a_read_cut_short_by_a_vanishing_node_is_read_again() {
-    let mut cut = reading(&[spec("Mail", "hello")], true);
+    let mut cut = reading(&[spec("Mail", "hello")]);
     cut.complete = false;
-    let good = reading(&[spec("Mail", "hello")], true);
+    let good = reading(&[spec("Mail", "hello")]);
     let world = FakeWorld::new(&log(), vec![cut, good]).staged_by_reads();
     let listed = list_in(&world, &NotificationFilter::default(), deadline()).expect("listed");
     assert_eq!(listed[0].title, "hello");
@@ -140,7 +140,7 @@ fn a_read_cut_short_by_a_vanishing_node_is_read_again() {
 
 #[test]
 fn an_entry_that_stays_unreadable_is_an_error_after_the_retries() {
-    let mut half = reading(&[spec("Mail", "hello")], true);
+    let mut half = reading(&[spec("Mail", "hello")]);
     half.nodes.retain(|node| node.name != "hello");
     let world = FakeWorld::new(&log(), vec![half]);
     let error = list_in(&world, &NotificationFilter::default(), deadline()).expect_err("error");

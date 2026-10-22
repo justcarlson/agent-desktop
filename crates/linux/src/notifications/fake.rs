@@ -34,6 +34,7 @@ pub(crate) struct Spec {
     pub(crate) time: Option<&'static str>,
     pub(crate) actions: Vec<&'static str>,
     pub(crate) expanded: bool,
+    pub(crate) object: Option<&'static str>,
 }
 
 pub(crate) fn spec(app: &'static str, title: &'static str) -> Spec {
@@ -44,6 +45,7 @@ pub(crate) fn spec(app: &'static str, title: &'static str) -> Spec {
         time: None,
         actions: Vec::new(),
         expanded: false,
+        object: None,
     }
 }
 
@@ -65,6 +67,11 @@ impl Spec {
 
     pub(crate) fn expanded(mut self) -> Self {
         self.expanded = true;
+        self
+    }
+
+    pub(crate) fn object(mut self, key: &'static str) -> Self {
+        self.object = Some(key);
         self
     }
 }
@@ -92,12 +99,20 @@ fn node(depth: usize, role: Role, name: &str, path: &str, extents: Extents) -> N
     }
 }
 
-pub(crate) fn reading(specs: &[Spec], clear_all: bool) -> Reading {
+pub(crate) fn reading(specs: &[Spec]) -> Reading {
     let mut nodes = vec![node(0, Role::Other, "", "/root", LAID_OUT)];
-    for (position, entry) in specs.iter().enumerate() {
-        let n = position + 1;
+    let mut keys: Vec<String> = Vec::new();
+    for entry in specs {
+        let base = format!("{}:{}", entry.app, entry.title);
+        let twins = keys.iter().filter(|key| **key == base).count();
+        keys.push(base.clone());
+        let key = match (entry.object, twins) {
+            (Some(object), _) => object.to_owned(),
+            (None, 0) => base,
+            (None, _) => format!("{base}#{}", twins + 1),
+        };
         let mut push = |depth, role, name, suffix: &str, extents| {
-            nodes.push(node(depth, role, name, &format!("/e{n}{suffix}"), extents));
+            nodes.push(node(depth, role, name, &format!("/{key}{suffix}"), extents));
         };
         push(1, Role::Notification, "", "", LAID_OUT);
         push(2, Role::Other, "", "/header", LAID_OUT);
@@ -124,9 +139,7 @@ pub(crate) fn reading(specs: &[Spec], clear_all: bool) -> Reading {
             push(4, Role::Label, action, &format!("{suffix}/label"), extents);
         }
     }
-    if clear_all {
-        nodes.push(node(1, Role::PushButton, "", "/clear", LAID_OUT));
-    }
+    nodes.push(node(1, Role::PushButton, "", "/clear", LAID_OUT));
     Reading {
         nodes,
         complete: true,

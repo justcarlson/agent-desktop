@@ -2,8 +2,8 @@ use super::*;
 use crate::notifications::fake::{reading, spec};
 
 fn first_entry(specs: &[crate::notifications::fake::Spec]) -> Entry {
-    let read = reading(specs, false);
-    let (subtrees, _) = partition(&read.nodes);
+    let read = reading(specs);
+    let subtrees = partition(&read.nodes);
     extract(subtrees[0], 1).expect("an entry")
 }
 
@@ -48,8 +48,8 @@ fn a_two_label_entry_keeps_a_time_shaped_title() {
 
 #[test]
 fn an_entry_with_no_title_is_none() {
-    let read = reading(&[spec("Mail", "")], false);
-    let (subtrees, _) = partition(&read.nodes);
+    let read = reading(&[spec("Mail", "")]);
+    let subtrees = partition(&read.nodes);
     assert!(extract(subtrees[0], 1).is_none());
 }
 
@@ -64,32 +64,40 @@ fn the_age_label_is_dropped_by_its_place_in_the_header_in_any_language() {
 }
 
 #[test]
-fn the_header_is_found_by_its_buttons_and_close_is_the_last_of_them() {
-    let read = reading(&[spec("Mail", "Hi")], false);
-    let (subtrees, _) = partition(&read.nodes);
+fn the_header_is_found_by_its_buttons_and_close_is_tried_last_button_first() {
+    let read = reading(&[spec("Mail", "Hi")]);
+    let subtrees = partition(&read.nodes);
     let entry = extract(subtrees[0], 1).expect("an entry");
-    assert_eq!(entry.close.expect("close").element.path(), "/e1/close");
-    assert_eq!(entry.expand.expect("expand").element.path(), "/e1/expand");
+    let order: Vec<&str> = entry
+        .close_candidates()
+        .map(|control| control.element.path())
+        .collect();
+    assert_eq!(order, vec!["/Mail:Hi/close", "/Mail:Hi/expand"]);
+    assert_eq!(
+        entry.expand.expect("expand").element.path(),
+        "/Mail:Hi/expand"
+    );
+    assert_eq!(entry.node.path(), "/Mail:Hi");
 }
 
 #[test]
-fn a_header_with_one_button_proves_neither_expand_nor_close() {
-    let mut read = reading(&[spec("Mail", "Hi")], false);
+fn a_header_with_one_button_proves_no_expand_control() {
+    let mut read = reading(&[spec("Mail", "Hi")]);
     read.nodes
-        .retain(|node| node.element.path() != "/e1/expand");
-    let (subtrees, _) = partition(&read.nodes);
+        .retain(|node| node.element.path() != "/Mail:Hi/expand");
+    let subtrees = partition(&read.nodes);
     let entry = extract(subtrees[0], 1).expect("an entry");
-    assert!(entry.close.is_none() && entry.expand.is_none());
+    assert!(entry.expand.is_none());
+    assert_eq!(entry.close_candidates().count(), 1);
 }
 
 #[test]
 fn an_entry_with_no_header_buttons_has_no_provable_fields() {
-    let mut read = reading(&[spec("Mail", "Hi")], false);
+    let mut read = reading(&[spec("Mail", "Hi")]);
     read.nodes.retain(|node| {
-        !node.element.path().starts_with("/e1/expand")
-            && !node.element.path().starts_with("/e1/close")
+        !node.element.path().ends_with("/expand") && !node.element.path().ends_with("/close")
     });
-    let (subtrees, _) = partition(&read.nodes);
+    let subtrees = partition(&read.nodes);
     assert!(extract(subtrees[0], 1).is_none());
 }
 

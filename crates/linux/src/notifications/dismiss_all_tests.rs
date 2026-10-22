@@ -13,69 +13,80 @@ fn request(app: Option<&str>, policy: InteractionPolicy) -> DismissAllNotificati
     }
 }
 
+fn staged_removals() -> Vec<crate::notifications::world::Reading> {
+    vec![
+        reading(&mixed()),
+        reading(&[spec("Chat", "b1"), spec("Mail", "a2")]),
+        reading(&[spec("Mail", "a2")]),
+        reading(&[]),
+    ]
+}
+
 #[test]
-fn without_a_filter_one_click_clears_everything() {
+fn without_a_filter_every_entry_is_closed_through_its_own_control() {
     let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&mixed(), true), reading(&[], true)]);
+    let world = FakeWorld::new(&log, staged_removals());
     let (dismissed, failures) = dismiss_all_in(
         &world,
         request(None, InteractionPolicy::headed()),
-        &lease(600),
+        &lease(2_000),
     )
     .expect("cleared");
     assert_eq!(dismissed.len(), 3);
     assert!(failures.is_empty());
-    assert_eq!(world.clicks(), vec!["/clear"]);
+    assert_eq!(
+        world.clicks(),
+        ["/Mail:a1/close", "/Chat:b1/close", "/Mail:a2/close"]
+    );
 }
 
 #[test]
-fn the_clear_all_button_is_found_without_its_english_name() {
+fn the_footer_button_is_never_pressed_whatever_it_is_called() {
     let log = log();
-    let mut full = reading(&mixed(), true);
+    let mut full = reading(&mixed());
     for node in full
         .nodes
         .iter_mut()
-        .filter(|node| node.name.starts_with("Clear"))
+        .filter(|node| node.element.path() == "/clear")
     {
-        node.name = "Alle Benachrichtigungen l\u{f6}schen".to_owned();
+        node.name = "Clear all notifications".to_owned();
     }
-    let world = FakeWorld::new(&log, vec![full, reading(&[], true)]);
-    let (dismissed, _) = dismiss_all_in(
+    let mut stages = staged_removals();
+    stages[0] = full;
+    let world = FakeWorld::new(&log, stages);
+    dismiss_all_in(
         &world,
         request(None, InteractionPolicy::headed()),
-        &lease(600),
+        &lease(2_000),
     )
     .expect("cleared");
-    assert_eq!(dismissed.len(), 3);
-    assert_eq!(world.clicks(), vec!["/clear"]);
+    assert!(!world.clicks().iter().any(|path| path == "/clear"));
 }
 
 #[test]
-fn a_filter_never_clicks_clear_all_and_leaves_other_apps() {
+fn a_filter_closes_only_that_apps_entries_and_leaves_the_others() {
     let log = log();
     let stages = vec![
-        reading(&mixed(), true),
-        reading(&[spec("Chat", "b1"), spec("Mail", "a2")], true),
-        reading(&[spec("Chat", "b1")], true),
+        reading(&mixed()),
+        reading(&[spec("Chat", "b1"), spec("Mail", "a2")]),
+        reading(&[spec("Chat", "b1")]),
     ];
     let world = FakeWorld::new(&log, stages);
     let (dismissed, failures) = dismiss_all_in(
         &world,
         request(Some("mail"), InteractionPolicy::headed()),
-        &lease(900),
+        &lease(2_000),
     )
     .expect("cleared");
     assert_eq!(dismissed.len(), 2);
     assert!(failures.is_empty());
-    let clicks = world.clicks();
-    assert!(!clicks.iter().any(|path| path == "/clear"));
-    assert_eq!(clicks, ["/e1/close", "/e2/close"]);
+    assert_eq!(world.clicks(), ["/Mail:a1/close", "/Mail:a2/close"]);
 }
 
 #[test]
-fn an_ignored_clear_reports_each_survivor() {
+fn an_ignored_close_reports_each_survivor() {
     let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
+    let world = FakeWorld::new(&log, vec![reading(&mixed())]);
     let (dismissed, failures) = dismiss_all_in(
         &world,
         request(None, InteractionPolicy::headed()),
@@ -87,11 +98,11 @@ fn an_ignored_clear_reports_each_survivor() {
 }
 
 #[test]
-fn entries_that_arrived_during_the_clear_are_not_failures() {
+fn a_notification_that_arrives_during_the_dismissal_is_not_a_failure() {
     let log = log();
     let world = FakeWorld::new(
         &log,
-        vec![reading(&mixed(), true), reading(&[spec("New", "n")], true)],
+        vec![reading(&[spec("Mail", "a1")]), reading(&[spec("New", "n")])],
     );
     let (dismissed, failures) = dismiss_all_in(
         &world,
@@ -99,28 +110,34 @@ fn entries_that_arrived_during_the_clear_are_not_failures() {
         &lease(600),
     )
     .expect("outcome");
-    assert_eq!(dismissed.len(), 3);
+    assert_eq!(dismissed.len(), 1);
     assert!(failures.is_empty());
 }
 
 #[test]
-fn a_missing_clear_all_button_is_an_error() {
+fn a_bystander_that_leaves_with_a_target_is_recorded_against_it() {
     let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&mixed(), false)]);
+    let world = FakeWorld::new(
+        &log,
+        vec![reading(&mixed()), reading(&[spec("Chat", "b1")])],
+    );
+    let (_, failures) = dismiss_all_in(
+        &world,
+        request(Some("mail"), InteractionPolicy::headed()),
+        &lease(600),
+    )
+    .expect("outcome");
     assert!(
-        dismiss_all_in(
-            &world,
-            request(None, InteractionPolicy::headed()),
-            &lease(600)
-        )
-        .is_err()
+        failures
+            .iter()
+            .any(|line| line.contains("other than the target"))
     );
 }
 
 #[test]
-fn a_filtered_click_error_is_a_per_entry_failure_not_an_abort() {
+fn a_press_error_is_a_per_entry_failure_not_an_abort() {
     let log = log();
-    let mut world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
+    let mut world = FakeWorld::new(&log, vec![reading(&mixed())]);
     world.faults.click = true;
     let (dismissed, failures) = dismiss_all_in(
         &world,
@@ -135,7 +152,7 @@ fn a_filtered_click_error_is_a_per_entry_failure_not_an_abort() {
 #[test]
 fn an_empty_list_is_cleared_without_opening_it() {
     let log = log();
-    let world = FakeWorld::new(&log, vec![reading(&[], true)]);
+    let world = FakeWorld::new(&log, vec![reading(&[])]);
     let (dismissed, failures) = dismiss_all_in(
         &world,
         request(None, InteractionPolicy::headed()),
@@ -148,9 +165,9 @@ fn an_empty_list_is_cleared_without_opening_it() {
 }
 
 #[test]
-fn a_list_that_cannot_be_read_after_the_clear_is_a_delivered_unverified_failure() {
+fn a_list_that_cannot_be_read_after_a_press_is_a_delivered_unverified_failure() {
     let log = log();
-    let mut world = FakeWorld::new(&log, vec![reading(&mixed(), true)]);
+    let mut world = FakeWorld::new(&log, vec![reading(&mixed())]);
     world.faults.read_after_click = true;
     let error = dismiss_all_in(
         &world,

@@ -138,7 +138,7 @@ pub(crate) fn read_subtree<N: Nodes>(
         for ((_, parent), read) in frontier.drain(..).zip(reads) {
             let light = match read {
                 Ok(light) => light,
-                Err(error) if vanished(&error) => {
+                Err(error) if error.code == ErrorCode::ElementNotFound => {
                     complete = false;
                     continue;
                 }
@@ -166,15 +166,6 @@ pub(crate) fn read_subtree<N: Nodes>(
         nodes: flat,
         complete,
     })
-}
-
-fn vanished(error: &AdapterError) -> bool {
-    error.code == ErrorCode::ElementNotFound
-        || (error.code == ErrorCode::Internal
-            && error
-                .platform_detail
-                .as_deref()
-                .is_some_and(|detail| detail.contains("UnknownObject")))
 }
 
 fn flatten(arena: &[(Light, Vec<usize>)], index: usize, depth: usize, out: &mut Vec<Node>) {

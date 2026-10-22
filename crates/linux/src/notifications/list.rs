@@ -5,8 +5,9 @@ use agent_desktop_core::{
     NotificationInfo,
 };
 
-use super::extract::{Control, Entry, extract, partition};
-use super::world::{LiveWorld, Node, Role, ShellWorld};
+use super::extract::{Entry, extract, partition};
+use super::seen::Seen;
+use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
 use crate::system::shell::container::Landmark;
 
@@ -16,10 +17,9 @@ const LABEL_RETRIES: usize = 12;
 const LABEL_RETRY_GAP: Duration = Duration::from_millis(100);
 
 /// What one read of the message list found: its entries in tree order, with
-/// indices over the unfiltered list, and the clear-all control outside them.
+/// indices over the unfiltered list.
 pub(crate) struct Listing {
     pub(crate) entries: Vec<Entry>,
-    pub(crate) clear_all: Option<Control>,
 }
 
 impl Listing {
@@ -27,6 +27,16 @@ impl Listing {
         self.entries
             .iter()
             .map(|entry| entry.info.clone())
+            .collect()
+    }
+
+    pub(crate) fn seen(&self) -> Vec<Seen> {
+        self.entries
+            .iter()
+            .map(|entry| Seen {
+                info: entry.info.clone(),
+                node: entry.node.clone(),
+            })
             .collect()
     }
 }
@@ -83,28 +93,11 @@ fn read_listing_once(world: &dyn ShellWorld, deadline: Deadline) -> Result<Listi
     if !reading.complete {
         return Err(incomplete_read(deadline));
     }
-    let (subtrees, outside) = partition(&reading.nodes);
-    let footer = footer_buttons(&outside);
-    let mut entries = Vec::with_capacity(subtrees.len());
-    for (position, subtree) in subtrees.into_iter().enumerate() {
+    let mut entries = Vec::new();
+    for (position, subtree) in partition(&reading.nodes).into_iter().enumerate() {
         entries.push(extract(subtree, position + 1).ok_or_else(unreadable_entry)?);
     }
-    let clear_all = footer.last().map(|node| Control {
-        name: node.name.clone(),
-        extents: node.extents,
-        element: node.element.clone(),
-    });
-    Ok(Listing { entries, clear_all })
-}
-
-/// The push buttons outside every entry. The shell keeps one there, the
-/// clear-all button, and it is the last of them whatever the language.
-fn footer_buttons<'a>(outside: &[&'a Node]) -> Vec<&'a Node> {
-    outside
-        .iter()
-        .copied()
-        .filter(|node| node.role == Role::PushButton)
-        .collect()
+    Ok(Listing { entries })
 }
 
 fn incomplete_read(deadline: Deadline) -> AdapterError {

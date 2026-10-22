@@ -8,6 +8,7 @@ use crate::system::shell::open::Opened;
 
 const CLEANUP_MS: u64 = 2_000;
 const CLOSED_POLL: Duration = Duration::from_millis(50);
+const OPEN_BY_HAND: &str = "Open the message list by hand, with the clock in the top bar, and retry: a list that is already showing is used as it is. Shell pointer input needs an X11 session";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Restore {
@@ -66,7 +67,7 @@ impl<'a> Session<'a> {
                     finished: false,
                 };
                 let restore = cleanup.restore();
-                Err(with_restore(error, restore))
+                Err(with_restore(error.with_suggestion(OPEN_BY_HAND), restore))
             }
         }
     }

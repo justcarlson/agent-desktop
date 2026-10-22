@@ -15,16 +15,23 @@ pub(crate) struct Control {
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
     pub(crate) info: NotificationInfo,
+    pub(crate) node: AtspiElement,
+    pub(crate) header: Vec<Control>,
     pub(crate) expand: Option<Control>,
-    pub(crate) close: Option<Control>,
     pub(crate) actions: Vec<Control>,
 }
 
-/// Splits a container reading into the subtree of each notification node and
-/// the nodes that sit outside every notification.
-pub(crate) fn partition(nodes: &[Node]) -> (Vec<&[Node]>, Vec<&Node>) {
+impl Entry {
+    /// The header buttons in the order a dismissal tries them, the last
+    /// first. Which of them closes the entry is told by its effect.
+    pub(crate) fn close_candidates(&self) -> impl Iterator<Item = &Control> {
+        self.header.iter().rev()
+    }
+}
+
+/// Splits a container reading into the subtree of each notification node.
+pub(crate) fn partition(nodes: &[Node]) -> Vec<&[Node]> {
     let mut entries = Vec::new();
-    let mut outside = Vec::new();
     let mut position = 0;
     while position < nodes.len() {
         let node = &nodes[position];
@@ -36,11 +43,10 @@ pub(crate) fn partition(nodes: &[Node]) -> (Vec<&[Node]>, Vec<&Node>) {
             entries.push(&nodes[position..end]);
             position = end;
         } else {
-            outside.push(node);
             position += 1;
         }
     }
-    (entries, outside)
+    entries
 }
 
 /// Whether the shell has laid the control out. Hidden controls report a
@@ -96,8 +102,9 @@ fn control_of(node: &Node) -> Control {
 /// found by the controls it carries and not by any text: its first label is
 /// the app and later labels are the age. Labels outside the header are the
 /// title, then the body. Named push buttons outside the header are the
-/// actions. The header's last two unnamed push buttons are expand and close;
-/// a header with fewer proves neither.
+/// actions. The header's buttons are kept in tree order; the one before the
+/// last is the expand control, and which button closes the entry is left to
+/// the effect of pressing it.
 pub(crate) fn extract(subtree: &[Node], index: usize) -> Option<Entry> {
     let parents = parents(subtree);
     let mut buttons = Vec::new();
@@ -147,8 +154,10 @@ pub(crate) fn extract(subtree: &[Node], index: usize) -> Option<Entry> {
     let mut content = content_labels.into_iter();
     let title = content.next()?;
     let body: Vec<String> = content.collect();
-    let close = unnamed.pop().filter(|_| !unnamed.is_empty());
-    let expand = close.as_ref().and_then(|_| unnamed.pop());
+    let expand = unnamed
+        .len()
+        .checked_sub(2)
+        .and_then(|at| unnamed.get(at).cloned());
     Some(Entry {
         info: NotificationInfo {
             index,
@@ -157,8 +166,9 @@ pub(crate) fn extract(subtree: &[Node], index: usize) -> Option<Entry> {
             body: (!body.is_empty()).then(|| body.join("\n")),
             actions: actions.iter().map(|action| action.name.clone()).collect(),
         },
+        node: subtree[0].element.clone(),
+        header: unnamed,
         expand,
-        close,
         actions,
     })
 }

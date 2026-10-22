@@ -2,15 +2,17 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::{
     ActionResult, AdapterError, DeliverySemantics, ErrorCode, InteractionLease, MouseButton,
-    NotificationActionRequest, NotificationInfo,
+    NotificationActionRequest,
 };
 use serde_json::json;
 
-use super::extract::{Control, is_laid_out};
+use super::extract::{Control, Entry, is_laid_out};
+use super::list::read_listing;
+use super::seen::holds;
 use super::session::Session;
 use super::signals::{BusSignals, SETTLE_BUDGET, SignalSource, Subscription};
 use super::target::{Located, Wanted, locate, reconfirm, require};
-use super::verify::{evidence, matching_count, settle_read};
+use super::verify::{REMOVAL_SETTLE, evidence, settle_read, unproven_action_error};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
 
@@ -25,10 +27,11 @@ pub(crate) fn action(
 }
 
 /// Clicks the named action button of the entry at the index, expanding the
-/// entry first when its buttons are not laid out. The result is always
-/// delivered and unverified: the application's effect is out of reach, and a
-/// missed daemon signal weakens the evidence but never turns a delivered
-/// click into a failure.
+/// entry first when its buttons are not laid out. The click only counts when
+/// its effect shows: the entry's own object left the list, with the daemon's
+/// action signal as the sharper proof when exactly one arrived. A click whose
+/// effect never shows is a failure that says it was delivered, and the
+/// application's own effect is never claimed.
 pub(crate) fn action_in(
     world: &dyn ShellWorld,
     signals: &dyn SignalSource,
@@ -60,29 +63,27 @@ fn run(
     let first = locate(world, index, None, request.identity, deadline)?;
     let name = request.action_name;
     require_known(&first, name, index)?;
-    let mut ready = reconfirm(world, wanted_by(request), &first.entry.info, deadline)?;
+    let mut ready = reconfirm(world, wanted_by(request), &first.entry, deadline)?;
     if !laid_out(&ready, name) {
         let expand = require(ready.entry.expand.take(), "expand button", index)?;
         world.click(&expand.element, MouseButton::Left, request.policy, lease)?;
-        ready = expanded(world, request, &first.entry.info, lease)?;
+        ready = expanded(world, request, &first.entry, lease)?;
     }
     let button = pick(&mut ready, name, index)?;
     let subscription = signals.subscribe(deadline).ok();
     world.click(&button.element, MouseButton::Left, request.policy, lease)?;
     let clicked = Instant::now();
-    let target = ready.entry.info;
-    let after = settle_read(world, deadline, |now| {
-        matching_count(now, &target) < matching_count(&ready.all, &target)
-    })
-    .unwrap_or_else(|_| ready.all.clone());
-    let gone = matching_count(&after, &target) < matching_count(&ready.all, &target);
+    let node = ready.entry.node.clone();
+    let after = settle_read(world, deadline, REMOVAL_SETTLE, |now| !holds(now, &node))?;
     let seen = collect(subscription, clicked);
-    let proof = evidence(&seen, gone);
-    Ok(
-        ActionResult::delivered_unverified(name).with_details(json!({
-            "evidence": proof.name(),
-        })),
-    )
+    match evidence(&seen, !holds(&after, &node)) {
+        Some(proof) => Ok(
+            ActionResult::delivered_unverified(name).with_details(json!({
+                "evidence": proof.name(),
+            })),
+        ),
+        None => Err(unproven_action_error(name)),
+    }
 }
 
 fn wanted_by<'a>(request: &NotificationActionRequest<'a>) -> Wanted<'a> {
@@ -105,11 +106,12 @@ fn collect(
 fn expanded(
     world: &dyn ShellWorld,
     request: &NotificationActionRequest<'_>,
-    first: &NotificationInfo,
+    first: &Entry,
     lease: &InteractionLease,
 ) -> Result<Located, AdapterError> {
     loop {
-        let ready = reconfirm(world, wanted_by(request), first, lease.deadline())?;
+        let ready = reconfirm(world, wanted_by(request), first, lease.deadline())
+            .map_err(|error| explain_missing(world, error, first, request, lease))?;
         if laid_out(&ready, request.action_name) {
             return Ok(ready);
         }
@@ -118,6 +120,37 @@ fn expanded(
         }
         std::thread::sleep(EXPAND_POLL);
     }
+}
+
+/// A reconfirm that finds the entry missing after the expand press is told
+/// apart by its object: when the object is gone the press removed the entry,
+/// and any other mismatch keeps its own error.
+fn explain_missing(
+    world: &dyn ShellWorld,
+    error: AdapterError,
+    first: &Entry,
+    request: &NotificationActionRequest<'_>,
+    lease: &InteractionLease,
+) -> AdapterError {
+    if error.code != ErrorCode::NotificationNotFound {
+        return error;
+    }
+    let gone = read_listing(world, lease.deadline())
+        .is_ok_and(|listing| !holds(&listing.seen(), &first.node));
+    if !gone {
+        return error;
+    }
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        format!(
+            "The control pressed to reach the '{}' button removed the notification instead",
+            request.action_name
+        ),
+    )
+    .with_suggestion(
+        "Run list-notifications; the shell's header controls are not in the expected order",
+    )
+    .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
 fn not_laid_out(name: &str) -> AdapterError {

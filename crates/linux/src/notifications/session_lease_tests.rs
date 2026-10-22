@@ -57,7 +57,7 @@ impl ShellWorld for RetainingWorld {
 fn notification_cleanup_retains_the_input_workers_interaction_lease() {
     let world = RetainingWorld(FakeWorld::new(
         &log(),
-        vec![reading(&[spec("Mail", "message")], false)],
+        vec![reading(&[spec("Mail", "message")])],
     ));
     let lease = acquire_unix_interaction_lease(Deadline::after(30_000).unwrap()).unwrap();
     let session = Session::open(&world, InteractionPolicy::headed(), &lease).unwrap();

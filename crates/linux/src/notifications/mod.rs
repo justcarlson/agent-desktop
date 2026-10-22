@@ -1,10 +1,12 @@
 use agent_desktop_core::{AdapterError, Deadline};
 
 mod action;
+mod close;
 mod dismiss;
 mod dismiss_all;
 mod extract;
 mod list;
+mod seen;
 mod session;
 mod signals;
 mod target;

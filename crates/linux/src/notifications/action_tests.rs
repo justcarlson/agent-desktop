@@ -26,17 +26,14 @@ fn request<'a>(
 
 fn entry(expanded: bool) -> Reading {
     let base = spec("Mail", "a").actions(&["Run A", "Run B"]);
-    reading(
-        &[
-            if expanded { base.expanded() } else { base },
-            spec("Chat", "z"),
-        ],
-        false,
-    )
+    reading(&[
+        if expanded { base.expanded() } else { base },
+        spec("Chat", "z"),
+    ])
 }
 
 fn gone() -> Reading {
-    reading(&[spec("Chat", "z")], false)
+    reading(&[spec("Chat", "z")])
 }
 
 fn signals(log: &Log, seen: Vec<Signal>) -> FakeSignals {
@@ -70,7 +67,7 @@ fn it_expands_then_clicks_the_named_button() {
     let world = FakeWorld::new(&log, vec![entry(false), entry(true), gone()]);
     let source = signals(&log, vec![Signal::ActionInvoked(7), Signal::Closed(7)]);
     let result = go(&world, &source, "run b").expect("delivered");
-    assert_eq!(world.clicks(), vec!["/e1/expand", "/e1/act/Run B"]);
+    assert_eq!(world.clicks(), vec!["/Mail:a/expand", "/Mail:a/act/Run B"]);
     assert_eq!(result.action, "run b");
     assert_eq!(evidence_of(&result), "action_invoked");
 }
@@ -80,7 +77,7 @@ fn an_entry_that_is_already_expanded_is_not_expanded_again() {
     let log = log();
     let world = FakeWorld::new(&log, vec![entry(true), gone()]);
     go(&world, &signals(&log, Vec::new()), "Run A").expect("delivered");
-    assert_eq!(world.clicks(), vec!["/e1/act/Run A"]);
+    assert_eq!(world.clicks(), vec!["/Mail:a/act/Run A"]);
 }
 
 #[test]
@@ -95,7 +92,7 @@ fn the_subscription_is_made_before_the_action_click() {
         .expect("subscribed");
     let acted = lines
         .iter()
-        .position(|line| line == "click:/e1/act/Run B")
+        .position(|line| line == "click:/Mail:a/act/Run B")
         .expect("clicked");
     assert!(subscribed < acted);
 }
@@ -153,20 +150,22 @@ fn a_signal_while_the_entry_is_still_listed_does_not_claim_the_effect() {
     let log = log();
     let world = FakeWorld::new(&log, vec![entry(true)]);
     let source = signals(&log, vec![Signal::ActionInvoked(7)]);
-    let result = go(&world, &source, "Run A").expect("delivered");
-    assert_eq!(evidence_of(&result), "settle_elapsed");
+    let error = go(&world, &source, "Run A").expect_err("no proof");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+    assert!(error.message.contains("stayed in the message list"));
 }
 
 #[test]
 fn an_entry_that_moved_is_not_acted_on() {
     let log = log();
-    let moved = reading(
-        &[
-            spec("New", "n"),
-            spec("Mail", "a").actions(&["Run A"]).expanded(),
-        ],
-        false,
-    );
+    let moved = reading(&[
+        spec("New", "n"),
+        spec("Mail", "a").actions(&["Run A"]).expanded(),
+    ]);
     let world = FakeWorld::new(&log, vec![entry(true), moved]).staged_by_reads();
     let error = go(&world, &signals(&log, Vec::new()), "Run A").expect_err("moved");
     assert_eq!(error.code, ErrorCode::NotificationNotFound);
@@ -186,10 +185,24 @@ fn the_result_is_never_verified() {
 }
 
 #[test]
-fn a_list_that_cannot_be_read_after_the_click_still_reports_the_delivery() {
+fn a_list_that_cannot_be_read_after_the_click_is_a_delivered_unverified_failure() {
     let log = log();
     let mut world = FakeWorld::new(&log, vec![entry(true), gone()]);
     world.faults.read_after_click = true;
-    let result = go(&world, &signals(&log, Vec::new()), "Run A").expect("delivered");
-    assert_eq!(evidence_of(&result), "settle_elapsed");
+    let error = go(&world, &signals(&log, Vec::new()), "Run A").expect_err("unconfirmed");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+}
+
+#[test]
+fn an_expand_control_that_removed_the_entry_is_reported_as_what_it_did() {
+    let log = log();
+    let world = FakeWorld::new(&log, vec![entry(false), gone()]);
+    let error = go(&world, &signals(&log, Vec::new()), "Run B").expect_err("removed");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert!(error.message.contains("removed the notification instead"));
+    assert_eq!(world.clicks(), vec!["/Mail:a/expand"]);
 }

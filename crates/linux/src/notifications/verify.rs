@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, NotificationInfo};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 
 use super::list::read_listing;
+use super::seen::{Seen, holds, same_object};
 use super::signals::Signal;
 use super::world::ShellWorld;
 
@@ -10,17 +11,9 @@ const POLL_INTERVAL: Duration = Duration::from_millis(100);
 pub(crate) const REMOVAL_SETTLE: Duration = Duration::from_millis(6_000);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Removal {
-    Pending,
-    Settled,
-    Bystander,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Evidence {
     ActionInvoked,
     EntryRemoved,
-    SettleElapsed,
 }
 
 impl Evidence {
@@ -28,94 +21,63 @@ impl Evidence {
         match self {
             Self::ActionInvoked => "action_invoked",
             Self::EntryRemoved => "entry_removed",
-            Self::SettleElapsed => "settle_elapsed",
         }
     }
 }
 
 /// The identity a mutation verifies against: source application, title and body.
-pub(crate) fn same_identity(left: &NotificationInfo, right: &NotificationInfo) -> bool {
+pub(crate) fn same_identity(
+    left: &agent_desktop_core::NotificationInfo,
+    right: &agent_desktop_core::NotificationInfo,
+) -> bool {
     left.app_name == right.app_name && left.title == right.title && left.body == right.body
 }
 
-pub(crate) fn matching_count(entries: &[NotificationInfo], target: &NotificationInfo) -> usize {
-    entries
+/// The entries of `before`, other than the target, that `after` no longer
+/// holds: notifications that left while only the target should have.
+pub(crate) fn bystanders<'a>(before: &'a [Seen], after: &[Seen], target: &Seen) -> Vec<&'a Seen> {
+    before
         .iter()
-        .filter(|entry| same_identity(entry, target))
-        .count()
-}
-
-/// The members of `before` that `after` no longer holds, matched one for one
-/// by identity so two identical entries lose only the one that left.
-pub(crate) fn lost(
-    before: &[NotificationInfo],
-    after: &[NotificationInfo],
-) -> Vec<NotificationInfo> {
-    matched(before, after, false)
-}
-
-fn matched(
-    source: &[NotificationInfo],
-    candidates: &[NotificationInfo],
-    present: bool,
-) -> Vec<NotificationInfo> {
-    let mut unmatched: Vec<&NotificationInfo> = candidates.iter().collect();
-    source
-        .iter()
-        .filter(|member| {
-            let position = unmatched
-                .iter()
-                .position(|candidate| same_identity(candidate, member));
-            if let Some(position) = position {
-                unmatched.swap_remove(position);
-            }
-            position.is_some() == present
-        })
-        .cloned()
+        .filter(|seen| !same_object(&seen.node, &target.node) && !holds(after, &seen.node))
         .collect()
 }
 
-/// A dismissal is settled only when exactly the target left. Nothing gone is
-/// still pending; anything else gone, with or without the target, is a bystander.
-pub(crate) fn judge_removal(
-    before: &[NotificationInfo],
-    after: &[NotificationInfo],
-    target: &NotificationInfo,
-) -> Removal {
-    let gone = lost(before, after);
-    match gone.as_slice() {
-        [] => Removal::Pending,
-        [only] if same_identity(only, target) => Removal::Settled,
-        _ => Removal::Bystander,
-    }
+/// The captured entries whose object the current list no longer holds.
+pub(crate) fn departed<'a>(captured: &'a [Seen], current: &[Seen]) -> Vec<&'a Seen> {
+    captured
+        .iter()
+        .filter(|seen| !holds(current, &seen.node))
+        .collect()
 }
 
-/// The members of the captured set that the current list still holds,
-/// matched one for one by identity.
-pub(crate) fn survivors(
-    captured: &[NotificationInfo],
-    current: &[NotificationInfo],
-) -> Vec<NotificationInfo> {
-    matched(captured, current, true)
+/// The captured entries whose object the current list still holds.
+pub(crate) fn remaining<'a>(captured: &'a [Seen], current: &[Seen]) -> Vec<&'a Seen> {
+    captured
+        .iter()
+        .filter(|seen| holds(current, &seen.node))
+        .collect()
 }
 
 pub(crate) fn survivor_line(index: usize) -> String {
     format!("#{index}: notification from the captured set is still present")
 }
 
-/// An action signal counts only when it is the single one seen in the window
-/// and the list copy shows the entry gone. No id is held, so a second signal
-/// in the window cannot be told from the clicked entry's own and ends the claim.
-pub(crate) fn evidence(signals: &[Signal], entry_gone: bool) -> Evidence {
+/// What proves an action took effect. The entry leaving the list is the
+/// proof; an action signal only sharpens it, and only when it is the single
+/// one seen in the window, because no id is held to tie a signal to the click.
+pub(crate) fn evidence(signals: &[Signal], target_gone: bool) -> Option<Evidence> {
+    if !target_gone {
+        return None;
+    }
     let invoked = signals
         .iter()
         .filter(|signal| matches!(signal, Signal::ActionInvoked(_)))
         .count();
-    match (entry_gone, invoked) {
-        (true, 1) => Evidence::ActionInvoked,
-        (true, _) => Evidence::EntryRemoved,
-        (false, _) => Evidence::SettleElapsed,
-    }
+    Some(if invoked == 1 {
+        Evidence::ActionInvoked
+    } else {
+        Evidence::EntryRemoved
+    })
 }
 
 /// Re-reads the list until `done` holds or the settle window closes, and
@@ -124,19 +86,20 @@ pub(crate) fn evidence(signals: &[Signal], entry_gone: bool) -> Evidence {
 pub(crate) fn settle_read(
     world: &dyn ShellWorld,
     deadline: Deadline,
-    done: impl Fn(&[NotificationInfo]) -> bool,
-) -> Result<Vec<NotificationInfo>, AdapterError> {
-    let settle = deadline.capped(REMOVAL_SETTLE);
+    window: Duration,
+    done: impl Fn(&[Seen]) -> bool,
+) -> Result<Vec<Seen>, AdapterError> {
+    let settle = deadline.capped(window);
     let mut current = read_listing(world, settle)
         .map_err(unconfirmed_read)?
-        .infos();
+        .seen();
     loop {
         if done(&current) || settle.is_expired() {
             return Ok(current);
         }
         std::thread::sleep(settle.remaining_slice(POLL_INTERVAL)?);
         current = match read_listing(world, settle) {
-            Ok(listing) => listing.infos(),
+            Ok(listing) => listing.seen(),
             Err(error) if error.code == ErrorCode::Timeout => return Ok(current),
             Err(error) => return Err(unconfirmed_read(error)),
         };
@@ -158,7 +121,7 @@ pub(crate) fn unconfirmed_read(error: AdapterError) -> AdapterError {
 pub(crate) fn survived_error(what: &str) -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
-        format!("The {what} was clicked but the entry is still in the message list"),
+        format!("The {what} was pressed but the notification is still in the message list"),
     )
     .with_suggestion("Run list-notifications and retry if the entry is still there")
     .with_disposition(DeliverySemantics::delivered_unverified())
@@ -170,6 +133,15 @@ pub(crate) fn bystander_error() -> AdapterError {
         "A notification other than the target left the message list during the dismissal",
     )
     .with_suggestion("Run list-notifications to see what the message list holds now")
+    .with_disposition(DeliverySemantics::delivered_unverified())
+}
+
+pub(crate) fn unproven_action_error(name: &str) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        format!("The '{name}' button was pressed but the notification stayed in the message list"),
+    )
+    .with_suggestion("Run list-notifications; a notification that stays may keep its actions")
     .with_disposition(DeliverySemantics::delivered_unverified())
 }
 

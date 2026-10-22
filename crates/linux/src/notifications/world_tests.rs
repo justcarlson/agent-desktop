@@ -81,22 +81,3 @@ fn a_child_that_vanishes_makes_the_reading_incomplete() {
     assert!(!reading.complete);
     assert_eq!(reading.nodes.len(), 4);
 }
-
-#[test]
-fn a_node_that_dies_between_listing_and_reading_ends_the_reading_as_incomplete() {
-    struct Dying(Tree);
-    impl Nodes for Dying {
-        fn read(&self, element: &AtspiElement) -> Result<Light, AdapterError> {
-            if element.path() == "/n/run" {
-                return Err(AdapterError::new(
-                    ErrorCode::Internal,
-                    "The children of the accessible object could not be listed",
-                )
-                .with_platform_detail("org.freedesktop.DBus.Error.UnknownObject: gone"));
-            }
-            self.0.read(element)
-        }
-    }
-    let reading = read_subtree(&Dying(sample()), &at("/root"), deadline()).expect("read");
-    assert!(!reading.complete);
-}

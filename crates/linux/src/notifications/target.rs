@@ -1,9 +1,10 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, DeliverySemantics, ErrorCode, NotificationIdentity, NotificationInfo,
+    AdapterError, Deadline, DeliverySemantics, ErrorCode, NotificationIdentity,
 };
 
 use super::extract::{Control, Entry};
 use super::list::{matches_app, read_listing};
+use super::seen::{Seen, same_object};
 use super::verify::same_identity;
 use super::world::ShellWorld;
 
@@ -19,7 +20,7 @@ pub(crate) struct Wanted<'a> {
 /// A fresh read with the entry a mutation targets picked out of it.
 pub(crate) struct Located {
     pub(crate) entry: Entry,
-    pub(crate) all: Vec<NotificationInfo>,
+    pub(crate) all: Vec<Seen>,
 }
 
 /// Reads the list and picks the entry at `index`. The index is a position,
@@ -33,7 +34,7 @@ pub(crate) fn locate(
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
     let listing = read_listing(world, deadline)?;
-    let all = listing.infos();
+    let all = listing.seen();
     let entry = listing
         .entries
         .into_iter()
@@ -56,11 +57,12 @@ pub(crate) fn moved(index: usize) -> AdapterError {
 }
 
 /// Reads again right before a click and refuses it when the entry at the
-/// index is no longer the one the first read found.
+/// index is no longer the one the first read found: the same words on the
+/// same accessibility object.
 pub(crate) fn reconfirm(
     world: &dyn ShellWorld,
     wanted: Wanted<'_>,
-    first: &NotificationInfo,
+    first: &Entry,
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
     let again = locate(
@@ -70,7 +72,9 @@ pub(crate) fn reconfirm(
         wanted.identity,
         deadline,
     )?;
-    if !same_identity(first, &again.entry.info) {
+    if !same_identity(&first.info, &again.entry.info)
+        || !same_object(&first.node, &again.entry.node)
+    {
         return Err(moved(wanted.index));
     }
     Ok(again)

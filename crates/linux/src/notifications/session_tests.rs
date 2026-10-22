@@ -3,7 +3,7 @@ use crate::notifications::fake::{DaemonFailure, FakeWorld, lease, log, reading, 
 use agent_desktop_core::{ErrorCode, InteractionPolicy};
 
 fn world(log: &crate::notifications::fake::Log) -> FakeWorld {
-    FakeWorld::new(log, vec![reading(&[spec("Mail", "a")], false)])
+    FakeWorld::new(log, vec![reading(&[spec("Mail", "a")])])
 }
 
 #[test]
@@ -133,4 +133,18 @@ fn the_list_is_closed_even_when_the_command_spent_its_whole_budget() {
     std::thread::sleep(std::time::Duration::from_millis(30));
     assert_eq!(session.finish(Ok(1)).expect("closed"), 1);
     assert!(!world.showing.get());
+}
+
+#[test]
+fn an_open_that_fails_tells_the_agent_to_open_the_list_by_hand() {
+    let log = log();
+    let mut world = world(&log);
+    world.faults.open = true;
+    let lease = lease(500);
+    let error = Session::open(&world, InteractionPolicy::headed(), &lease)
+        .err()
+        .expect("error");
+    let suggestion = error.suggestion.expect("a suggestion");
+    assert!(suggestion.contains("by hand"), "{suggestion}");
+    assert!(suggestion.contains("already showing"), "{suggestion}");
 }
