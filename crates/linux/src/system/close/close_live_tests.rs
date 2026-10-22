@@ -314,40 +314,52 @@ fn close_live_the_private_sessions_own_processes_are_refused() {
     );
 }
 
-#[test]
-#[ignore = "starts an owned portal backend on a private session bus"]
-fn close_live_service_ownership_protects_an_arbitrarily_named_process() {
+const OWNED_FIXTURE: &str = "org.freedesktop.impl.portal.desktop.OwnedFixture";
+
+fn service_owner(service: &str) -> Option<String> {
+    let owner = std::process::Command::new("busctl")
+        .args([
+            "--user",
+            "call",
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetConnectionUnixProcessID",
+            "s",
+            service,
+        ])
+        .output()
+        .unwrap();
+    owner
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&owner.stdout).trim().to_owned())
+}
+
+/// A process that owns `service` on the session bus and answers nothing on
+/// the accessibility bus, started with `env`.
+pub(in crate::system) fn portal_backend(service: &str, env: &[(&str, String)]) -> Orphan {
     let runtime = std::path::PathBuf::from(std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").unwrap());
-    let script = runtime.join("portal-owner.py");
-    std::fs::write(&script,r#"
+    let script = runtime.join(format!("{service}.py"));
+    std::fs::write(
+        &script,
+        format!(
+            r#"
 import gi
 from gi.repository import Gio,GLib
 bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
-Gio.bus_own_name_on_connection(bus,'org.freedesktop.impl.portal.desktop.OwnedFixture',Gio.BusNameOwnerFlags.NONE,None,None)
+Gio.bus_own_name_on_connection(bus,'{service}',Gio.BusNameOwnerFlags.NONE,None,None)
 GLib.MainLoop().run()
-"#).unwrap();
-    let orphan = Orphan::spawn("python3", &[script.to_str().unwrap()], &[]);
+"#
+        ),
+    )
+    .unwrap();
+    let orphan = Orphan::spawn("python3", &[script.to_str().unwrap()], env);
     let until = Instant::now() + Duration::from_secs(10);
     loop {
-        let owner = std::process::Command::new("busctl")
-            .args([
-                "--user",
-                "call",
-                "org.freedesktop.DBus",
-                "/org/freedesktop/DBus",
-                "org.freedesktop.DBus",
-                "GetConnectionUnixProcessID",
-                "s",
-                "org.freedesktop.impl.portal.desktop.OwnedFixture",
-            ])
-            .output()
-            .unwrap();
-        if owner.status.success() {
-            assert_eq!(
-                String::from_utf8_lossy(&owner.stdout).trim(),
-                format!("u {}", orphan.pid)
-            );
-            break;
+        if let Some(owner) = service_owner(service) {
+            assert_eq!(owner, format!("u {}", orphan.pid));
+            return orphan;
         }
         assert!(
             Instant::now() < until,
@@ -355,6 +367,12 @@ GLib.MainLoop().run()
         );
         std::thread::sleep(Duration::from_millis(50));
     }
+}
+
+#[test]
+#[ignore = "starts an owned portal backend on a private session bus"]
+fn close_live_service_ownership_protects_an_arbitrarily_named_process() {
+    let orphan = portal_backend(OWNED_FIXTURE, &[]);
     for force in [false, true] {
         let error = close_app(
             &SharedBus::default(),
@@ -365,23 +383,9 @@ GLib.MainLoop().run()
         .unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgs);
         assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-        let owner = std::process::Command::new("busctl")
-            .args([
-                "--user",
-                "call",
-                "org.freedesktop.DBus",
-                "/org/freedesktop/DBus",
-                "org.freedesktop.DBus",
-                "GetConnectionUnixProcessID",
-                "s",
-                "org.freedesktop.impl.portal.desktop.OwnedFixture",
-            ])
-            .output()
-            .unwrap();
-        assert!(owner.status.success());
         assert_eq!(
-            String::from_utf8_lossy(&owner.stdout).trim(),
-            format!("u {}", orphan.pid)
+            service_owner(OWNED_FIXTURE),
+            Some(format!("u {}", orphan.pid))
         );
         assert!(orphan.alive());
     }

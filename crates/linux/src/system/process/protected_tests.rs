@@ -19,6 +19,39 @@ fn socket_ownership_belongs_to_the_listener_process_not_its_name() {
     assert!(!unrelated.unwrap());
 }
 
+fn no() -> Result<bool, AdapterError> {
+    Ok(false)
+}
+
+fn yes() -> Result<bool, AdapterError> {
+    Ok(true)
+}
+
+#[test]
+fn a_silent_process_is_protected_by_a_session_bus_name_unless_a_launch_started_it() {
+    assert!(silent_app_is_session_service(no, yes).unwrap());
+    assert!(!silent_app_is_session_service(no, no).unwrap());
+    assert!(!silent_app_is_session_service(yes, yes).unwrap());
+}
+
+#[test]
+fn a_launched_silent_process_is_cleared_without_reading_the_session_bus() {
+    let reads = std::cell::Cell::new(0);
+    let named = || {
+        reads.set(reads.get() + 1);
+        yes()
+    };
+    assert!(!silent_app_is_session_service(yes, named).unwrap());
+    assert_eq!(reads.get(), 0);
+}
+
+#[test]
+fn a_launch_marker_that_cannot_be_read_refuses_instead_of_protecting_by_name() {
+    let unreadable = || Err(unknown());
+    let error = silent_app_is_session_service(unreadable, yes).expect_err("unproven origin");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+}
+
 #[test]
 fn an_unreachable_display_is_reported_as_the_display_not_as_unproven_ownership() {
     use crate::system::display::display_cause::Cause;
