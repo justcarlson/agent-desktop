@@ -1,8 +1,9 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{choose, is_menu_entry, menu_closed, no_position, resolve_contextual};
+use super::{choose, is_menu_entry, menu_closed, no_position, open_handle, resolve_contextual};
 use crate::tree::AtspiElement;
 use crate::tree::menu_context::MenuContext;
+use crate::tree::popup_position::PopupPosition;
 
 fn element(path: &str) -> AtspiElement {
     AtspiElement::new(":1.2", path, 7)
@@ -153,4 +154,36 @@ fn an_unplaced_popup_item_is_refused_at_once_before_any_event() {
     assert_eq!(details["physical_delivery_started"], false);
     assert_eq!(details["check"], "geometry");
     assert_eq!(details["retryable"], false);
+}
+
+#[test]
+fn an_item_found_in_a_popup_that_has_closed_resolves_to_the_closed_menu_refusal() {
+    let error = open_handle(element("/item"), |_| Ok(PopupPosition::Unmapped))
+        .err()
+        .expect("a closed popup's item");
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(kind_of(&error), Some("menu_closed"));
+    assert!(!error.is_explicitly_retryable());
+}
+
+#[test]
+fn an_item_in_an_open_placed_popup_resolves_to_its_own_handle() {
+    let handle = open_handle(element("/item"), |_| Ok(PopupPosition::Placed)).expect("a handle");
+    let landed = crate::tree::atspi_element(&handle).expect("an element");
+    assert_eq!(landed.path(), "/item");
+}
+
+#[test]
+fn an_item_nothing_places_keeps_the_no_position_refusal_and_a_failed_read_its_own() {
+    let error = open_handle(element("/item"), |_| Ok(PopupPosition::Unplaceable))
+        .err()
+        .expect("no rule places it");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.details.expect("details")["check"], "geometry");
+    let slow = open_handle(element("/item"), |_| {
+        Err(agent_desktop_core::AdapterError::timeout("slow"))
+    })
+    .err()
+    .expect("the read failed");
+    assert_eq!(slow.code, ErrorCode::Timeout);
 }

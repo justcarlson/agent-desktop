@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
 use crate::system::SharedBus;
+use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::read_registry;
 use crate::system::window::window_ops::windows_of;
 use crate::system::x11::map::{ClientMatch, match_client};
@@ -31,6 +32,57 @@ pub(crate) fn outcome_of(state: X11State, frame: &FrameFacts) -> XidOutcome {
     }
 }
 
+/// A tie between clients of one process that share a title, broken only when
+/// every client is accounted for: the one window the toolkit reports active
+/// is the window the manager reports active, and with two such windows the
+/// other one is the other client. Any other shape stays a tie.
+pub(crate) fn broken_tie(
+    window_id: &str,
+    ids: &[u32],
+    active_client: Option<u32>,
+    peers: &[(&str, bool)],
+) -> Option<u32> {
+    let active_client = active_client.filter(|client| ids.contains(client))?;
+    if peers.len() != ids.len() {
+        return None;
+    }
+    let mut active = peers.iter().filter(|(_, active)| *active);
+    let (active_window, None) = (active.next()?, active.next()) else {
+        return None;
+    };
+    if active_window.0 == window_id {
+        return Some(active_client);
+    }
+    match ids {
+        [first, second] => Some(if *first == active_client {
+            *second
+        } else {
+            *first
+        }),
+        _ => None,
+    }
+}
+
+fn settled(state: &X11State, listed: &[ListedWindow], window: &WindowInfo) -> XidOutcome {
+    let Some(frame) = listed
+        .iter()
+        .find(|candidate| candidate.info.id == window.id)
+        .map(|candidate| &candidate.frame)
+    else {
+        return XidOutcome::Unavailable;
+    };
+    let outcome = outcome_of(state.clone(), frame);
+    let (XidOutcome::Several(ids), X11State::Ready { active, .. }) = (&outcome, state) else {
+        return outcome;
+    };
+    let peers: Vec<(&str, bool)> = listed
+        .iter()
+        .filter(|candidate| outcome_of(state.clone(), &candidate.frame) == outcome)
+        .map(|candidate| (candidate.info.id.as_str(), candidate.active))
+        .collect();
+    broken_tie(&window.id, ids, *active, &peers).map_or(outcome, XidOutcome::One)
+}
+
 /// The X11 window id of a listed window, from its frame facts and the
 /// managed clients. Nothing is guessed: only one match is an id.
 pub(crate) fn window_xid(bus: &SharedBus, window: &WindowInfo, deadline: Deadline) -> XidOutcome {
@@ -45,14 +97,7 @@ pub(crate) fn window_xid(bus: &SharedBus, window: &WindowInfo, deadline: Deadlin
     ) else {
         return XidOutcome::Unavailable;
     };
-    let Some(frame) = listed
-        .into_iter()
-        .find(|candidate| candidate.info.id == window.id)
-        .map(|candidate| candidate.frame)
-    else {
-        return XidOutcome::Unavailable;
-    };
-    outcome_of(DisplayReader.clients_within(deadline), &frame)
+    settled(&DisplayReader.clients_within(deadline), &listed, window)
 }
 
 fn refusal(code: ErrorCode, message: &str, suggestion: &str) -> AdapterError {

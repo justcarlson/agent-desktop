@@ -98,14 +98,20 @@ pub(crate) fn running_of(registry: &Registry) -> Result<Vec<Running>, AdapterErr
 pub(crate) struct Spawned {
     child: Option<Child>,
     pub(crate) pid: u32,
+    identifier: String,
 }
 
 impl Spawned {
-    pub(crate) fn new(child: Child) -> Self {
+    pub(crate) fn new(child: Child, identifier: &str) -> Self {
         Self {
             pid: child.id(),
             child: Some(child),
+            identifier: identifier.to_owned(),
         }
+    }
+
+    fn failure(&self, status: ExitStatus) -> AdapterError {
+        failed(status, &self.identifier)
     }
 
     fn state(&mut self) -> Option<ExitStatus> {
@@ -177,7 +183,7 @@ pub(crate) fn find_owner(
     before: &HashSet<agent_desktop_core::ProcessIdentity>,
     deadline: Deadline,
 ) -> Result<Option<Running>, AdapterError> {
-    let identifier = "the application";
+    let identifier = spawned.identifier.clone();
     let mut interval = POLL_INTERVAL;
     let mut exited_at: Option<Instant> = None;
     loop {
@@ -208,8 +214,8 @@ pub(crate) fn find_owner(
         };
         match step(&sample) {
             Step::Owner(owner) => return Ok(Some(owner)),
-            Step::Ambiguous(pids) => return Err(ambiguous(&pids, identifier)),
-            Step::Failed(status) => return Err(failed(status, identifier)),
+            Step::Ambiguous(pids) => return Err(ambiguous(&pids, &identifier)),
+            Step::Failed(status) => return Err(spawned.failure(status)),
             Step::Wait if expired => return Ok(None),
             Step::Wait => {}
         }

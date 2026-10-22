@@ -1,15 +1,20 @@
-use agent_desktop_core::{AdapterError, Deadline, WindowFilter, WindowInfo};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, WindowFilter, WindowInfo};
+use serde_json::json;
 
+use super::window_order::front_to_back;
 use super::window_position::place_windows;
 use crate::system::SharedBus;
 use crate::system::process::proc_scan::find_running;
 use crate::system::process::proc_stat;
 use crate::system::process::unresponsive::{require_known_target, settle_scoped, stopped_target};
+use crate::system::registry::app_outcome::AppOutcome;
 use crate::system::registry::app_query::AppQuery;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_app::RegistryApp;
+use crate::system::registry::registry_frames::RootRead;
 use crate::system::registry::{Registry, read_registry_for, read_registry_query};
 use crate::system::signal::signal_inventory::{Pass, read_selected, run_pass_with};
+use crate::system::x11::client_stack;
 use crate::system::x11::desktops::{self, Desktops};
 use crate::system::x11::{self, DisplayReader, X11Source, X11State};
 
@@ -34,6 +39,27 @@ fn finish_listing(pass: &mut Pass, state: &X11State, desktops: Option<&Desktops>
     pass.focused
 }
 
+/// The windows of a pass that named its application, unless none were listed
+/// because the application left a frame unanswered: an empty list would then
+/// read as a closed window, so the caller is told the read ran out instead.
+pub(crate) fn require_answered(
+    windows: Vec<ListedWindow>,
+    outcomes: &[AppOutcome],
+    named: bool,
+) -> Result<Vec<ListedWindow>, AdapterError> {
+    let unanswered = outcomes
+        .iter()
+        .any(|outcome| outcome.read == RootRead::TimedOut);
+    if named && windows.is_empty() && unanswered {
+        return Err(AdapterError::timeout(
+            "The application did not answer in time, so its windows could not be listed",
+        )
+        .with_details(json!({ "kind": "frames_unanswered" }))
+        .with_disposition(DeliverySemantics::not_delivered()));
+    }
+    Ok(windows)
+}
+
 /// Lists top-level windows, marking the one the sources agree is focused.
 pub(crate) fn list_windows(
     bus: &SharedBus,
@@ -42,6 +68,7 @@ pub(crate) fn list_windows(
 ) -> Result<Vec<WindowInfo>, AdapterError> {
     let pending = x11::start(|| DisplayReader.read());
     let desktops = x11::start(desktops::read);
+    let stack = x11::start(client_stack::read);
     let select = |app: &RegistryApp| filter.app.as_deref().is_none_or(|query| app.matches(query));
     let registry = read_registry_query(
         bus,
@@ -61,18 +88,21 @@ pub(crate) fn list_windows(
     };
     let finish = |deadline| pending.finish(deadline).unwrap_or(X11State::Unavailable);
     let (mut pass, state) = run_pass_with(bus, &registry, select, finish, deadline)?;
-    pass.windows = settle_scoped(pass.windows, stopped)?;
-    let focused = finish_listing(
+    let windows = settle_scoped(pass.windows, stopped)?;
+    pass.windows = require_answered(windows, &pass.outcomes, filter.app.is_some())?;
+    finish_listing(
         &mut pass,
         &state,
         desktops.finish(deadline).flatten().as_ref(),
     );
-    Ok(pass
-        .windows
+    let mut windows = pass.windows;
+    if filter.focused_only {
+        windows.retain(|window| window.info.state.is_focused);
+    }
+    let stack = stack.finish(deadline).flatten();
+    Ok(front_to_back(windows, &state, stack.as_deref())
         .into_iter()
-        .enumerate()
-        .filter(|(index, _)| !filter.focused_only || Some(*index) == focused)
-        .map(|(_, window)| window.info)
+        .map(|window| window.info)
         .collect())
 }
 

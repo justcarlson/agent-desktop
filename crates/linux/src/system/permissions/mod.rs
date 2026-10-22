@@ -27,6 +27,14 @@ pub(crate) fn report(
     Ok(report)
 }
 
+/// Whether the accessibility registry answers on the session bus, which is
+/// what every snapshot surface reads through.
+pub(crate) fn accessibility_answers(bus: &SharedBus, deadline: Deadline) -> bool {
+    bus.get(deadline)
+        .and_then(|connection| probe_registry(bus, &connection, deadline))
+        .is_ok()
+}
+
 /// Whether the session's capture route answered. Only an X11 display that
 /// answers inside the deadline is `Reachable`; every other case, Wayland
 /// included, is `Unknown` because nothing was learned about the route.

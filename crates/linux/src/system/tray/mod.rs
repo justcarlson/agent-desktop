@@ -37,6 +37,7 @@ pub(crate) use live::{
     actions as live_actions, bounds, element as live_element, state as live_state,
 };
 pub(crate) use resolve::resolve;
+pub(crate) use watcher::require as require_watcher;
 
 /// A tray item or one of its menu entries, named by D-Bus identity.
 #[derive(Debug, Clone, PartialEq, Eq, zbus::export::serde::Deserialize)]

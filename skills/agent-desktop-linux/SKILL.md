@@ -48,9 +48,9 @@ tool for observation or semantic actions.
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
-| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` refuses because notification identity cannot be established |
-| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Refuse: an admitted backend returns `ACTION_NOT_SUPPORTED` for unproven identity; a service with a different owner than the shell returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
-| Shell surfaces | `open-system-surface` | Watcher-backed `system-tray`; `action-center` needs proven role ancestry. Unproven popup containers and openers refuse before input. See the shell reference |
+| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11 with identity guards. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
+| Shell surfaces | `open-system-surface` | Only `system-tray`, `action-center` and `quick-settings` can work. `system-tray` needs a StatusNotifierWatcher and refuses with `watcher: absent` without one; `action-center` needs proven role ancestry. `taskbar` always refuses, and `start-menu` and `system-tray-overflow` are not supported, although `--help` lists them. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Requires an active session; see below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
@@ -102,7 +102,7 @@ tool for observation or semantic actions.
 - **Shell pointer input requires receiver proof.** Headed shell clicks use the
   same structural hit test as app clicks. An unknown receiver or overlapping
   sibling refuses before any pointer event; Wayland shell clicks therefore refuse.
-  Notification commands refuse unproven protocol identity; tray snapshots also need a StatusNotifierWatcher.
+  Notifications need the GNOME notification service; tray snapshots also need a StatusNotifierWatcher.
 - **The state root must be private.** A group-writable or world-accessible
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
   `INTERNAL`; run `chmod 700` on it or let the tool create it.

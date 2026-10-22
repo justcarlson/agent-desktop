@@ -16,6 +16,7 @@ pub(super) mod window_op_live_tests;
 pub(super) mod window_op_shadow;
 pub(super) mod window_op_verdict;
 pub(super) mod window_ops;
+pub(super) mod window_order;
 pub(crate) mod window_position;
 pub(super) mod window_report;
 pub(super) mod window_resolve;

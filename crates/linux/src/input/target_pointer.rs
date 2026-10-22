@@ -183,9 +183,6 @@ pub(crate) fn confirm_receiver(
         return Ok(());
     }
     let element = atspi_element(handle)?;
-    if crate::system::shell::is_shell_element(element) {
-        return Ok(());
-    }
     super::target_world::validate_pointer_receiver(bus, element, point, deadline)
 }
 
