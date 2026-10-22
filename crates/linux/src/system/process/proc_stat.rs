@@ -50,13 +50,6 @@ pub(crate) fn is_stopped(pid: u32) -> bool {
     matches!(read_stat(pid), Ok(Some(stat)) if stat.state == ProcState::Stopped)
 }
 
-/// Whether the read proves absence or a zombie/dead process. A failed read
-/// leaves the process's state unknown.
-pub(crate) fn is_gone(read: Result<Option<ProcStat>, ()>) -> bool {
-    matches!(read, Ok(None))
-        || matches!(read, Ok(Some(stat)) if matches!(stat.state, ProcState::Zombie | ProcState::Dead))
-}
-
 #[cfg(test)]
 #[path = "proc_stat_tests.rs"]
 mod tests;
