@@ -19,7 +19,7 @@ use crate::tree::state_bits::HAS_POPUP;
 use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
 
 pub(super) const POLL_STEP: Duration = Duration::from_millis(50);
-pub(super) const POPUP_STEP: Duration = Duration::from_millis(250);
+pub(super) const POPUP_STEP: Duration = Duration::from_millis(50);
 pub(super) const POPUP_SETTLE: Duration = Duration::from_millis(1500);
 const CLICK_SETTLE: Duration = Duration::from_millis(300);
 const INNER_TOGGLE_SCAN: usize = 4;
