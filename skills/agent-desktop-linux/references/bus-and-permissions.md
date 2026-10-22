@@ -75,7 +75,10 @@ suggestion naming the next step. The raw D-Bus error is in `platform_detail`.
 A call that times out is `TIMEOUT`, not one of these: nothing was learned about
 the bus. A bus that dies mid-session returns `INTERNAL` with a retry
 suggestion. Registry reads, shell-owner lookups and permission probes drop the failed
-cached connection so a later call reconnects. The loss alone does not prove whether an action was delivered;
+cached connection so a later call reconnects. An established adapter does not
+auto-start a replacement bus during recovery: until the accessibility service
+is running again, repeated calls remain `INTERNAL`. A new adapter retains normal
+bus activation. The loss alone does not prove whether an action was delivered;
 do not retry an action unless its disposition says retry is safe.
 
 Do not run the restart suggestion on a machine where another process owns the

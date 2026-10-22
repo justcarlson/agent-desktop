@@ -22,39 +22,39 @@ fn a_session_change_or_closed_transport_reopens_without_caching_failures() {
     let (fresh, _fresh_server) = pair();
     let slot = Mutex::new(Some(CachedConnection {
         environment: vec![Some("another-session".into())],
-        connection: old.clone(),
+        connection: Some(old.clone()),
     }));
-    let connected = get(&slot, deadline(), || Ok(fresh.clone())).unwrap();
+    let connected = get(&slot, deadline(), |_| Ok(fresh.clone())).unwrap();
     assert_eq!(connected.server_guid(), fresh.server_guid());
     assert_ne!(connected.server_guid(), old.server_guid());
     forget(&slot, &old);
     assert_eq!(
-        get(&slot, deadline(), || panic!("reuse live generation"))
+        get(&slot, deadline(), |_| panic!("reuse live generation"))
             .unwrap()
             .server_guid(),
         fresh.server_guid()
     );
     zbus::block_on(connected.close()).unwrap();
     assert!(
-        get(&slot, deadline(), || Err(AdapterError::internal(
+        get(&slot, deadline(), |_| Err(AdapterError::internal(
             "open failed"
         )))
         .is_err()
     );
-    assert!(slot.lock().unwrap().is_none());
+    assert!(slot.lock().unwrap().as_ref().unwrap().connection.is_none());
     let (replacement, _replacement_server) = pair();
     assert_eq!(
-        get(&slot, deadline(), || Ok(replacement.clone()))
+        get(&slot, deadline(), |_| Ok(replacement.clone()))
             .unwrap()
             .server_guid(),
         replacement.server_guid()
     );
     assert!(
-        get(&slot, Deadline::after(0).unwrap(), || panic!(
+        get(&slot, Deadline::after(0).unwrap(), |_| panic!(
             "expired budget"
         ))
         .is_err()
     );
     forget(&slot, &replacement);
-    assert!(slot.lock().unwrap().is_none());
+    assert!(slot.lock().unwrap().as_ref().unwrap().connection.is_none());
 }

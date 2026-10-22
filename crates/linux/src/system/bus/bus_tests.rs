@@ -4,7 +4,7 @@ use zbus::Message;
 pub(crate) fn connected(client: zbus::Connection) -> SharedBus {
     let bus = SharedBus::default();
     let _connection =
-        cached_connection::get(&bus.slot, Deadline::after(5_000).unwrap(), || Ok(client)).unwrap();
+        cached_connection::get(&bus.slot, Deadline::after(5_000).unwrap(), |_| Ok(client)).unwrap();
     bus
 }
 

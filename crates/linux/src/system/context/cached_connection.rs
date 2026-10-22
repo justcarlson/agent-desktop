@@ -6,7 +6,7 @@ use zbus::Connection;
 
 pub(crate) struct CachedConnection {
     environment: Vec<Option<OsString>>,
-    pub(crate) connection: Connection,
+    pub(crate) connection: Option<Connection>,
 }
 
 fn environment() -> Vec<Option<OsString>> {
@@ -26,42 +26,56 @@ fn environment() -> Vec<Option<OsString>> {
 pub(crate) fn get(
     slot: &Mutex<Option<CachedConnection>>,
     deadline: Deadline,
-    open: impl FnOnce() -> Result<Connection, AdapterError>,
+    open: impl FnOnce(bool) -> Result<Connection, AdapterError>,
 ) -> Result<Connection, AdapterError> {
     crate::system::ensure_budget(deadline)?;
     let scope = environment();
     let mut held = slot.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(cached) = held.as_ref()
-        && cached.environment == scope
-        && !cached.connection.is_closed()
+    if held
+        .as_ref()
+        .is_some_and(|cached| cached.environment != scope)
     {
-        return Ok(cached.connection.clone());
+        *held = None;
     }
-    *held = None;
+    if let Some(connection) = held.as_ref().and_then(|cached| cached.connection.as_ref())
+        && !connection.is_closed()
+    {
+        return Ok(connection.clone());
+    }
+    let reconnect = held.is_some();
+    if let Some(cached) = held.as_mut() {
+        cached.connection = None;
+    }
     drop(held);
-    let connection = open()?;
+    let connection = open(reconnect)?;
     crate::system::ensure_budget(deadline)?;
     let mut held = slot.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(cached) = held.as_ref()
         && cached.environment == scope
-        && !cached.connection.is_closed()
+        && let Some(connection) = cached.connection.as_ref()
+        && !connection.is_closed()
     {
-        return Ok(cached.connection.clone());
+        return Ok(connection.clone());
     }
     *held = Some(CachedConnection {
         environment: scope,
-        connection: connection.clone(),
+        connection: Some(connection.clone()),
     });
     Ok(connection)
 }
 
 pub(crate) fn forget(slot: &Mutex<Option<CachedConnection>>, connection: &Connection) {
     let mut held = slot.lock().unwrap_or_else(PoisonError::into_inner);
-    if held.as_ref().is_some_and(|cached| {
-        cached.connection.server_guid() == connection.server_guid()
-            && cached.connection.unique_name() == connection.unique_name()
-    }) {
-        *held = None;
+    if held
+        .as_ref()
+        .and_then(|cached| cached.connection.as_ref())
+        .is_some_and(|cached| {
+            cached.server_guid() == connection.server_guid()
+                && cached.unique_name() == connection.unique_name()
+        })
+        && let Some(cached) = held.as_mut()
+    {
+        cached.connection = None;
     }
 }
 
