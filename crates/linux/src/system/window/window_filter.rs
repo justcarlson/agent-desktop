@@ -70,7 +70,7 @@ pub(in crate::system) fn without_helpers(
     };
     let pids: std::collections::HashSet<_> =
         windows.iter().map(|window| window.frame.pid).collect();
-    let mut user_ids = std::collections::HashSet::new();
+    let mut user_ids = std::collections::HashMap::new();
     let mut helper_ids = std::collections::HashSet::new();
     let mut absent = std::collections::HashSet::new();
     let mut complete = std::collections::HashSet::new();
@@ -100,10 +100,13 @@ pub(in crate::system) fn without_helpers(
         let Some(native) = native.ready() else {
             return Err(unproven(pid));
         };
+        let users = user_ids
+            .entry(pid)
+            .or_insert_with(std::collections::HashSet::new);
         for native in native {
             match native.kind {
                 WindowKind::Normal | WindowKind::Dialog | WindowKind::Utility => {
-                    user_ids.insert(native.id);
+                    users.insert(native.id);
                 }
                 WindowKind::Menu | WindowKind::Dock | WindowKind::Desktop => {
                     helper_ids.insert(native.id);
@@ -113,11 +116,7 @@ pub(in crate::system) fn without_helpers(
         }
     }
     let mut listed = Vec::new();
-    let frames: Vec<_> = windows
-        .iter()
-        .filter(|window| !window.unshown)
-        .map(|window| window.frame.clone())
-        .collect();
+    let no_users = std::collections::HashSet::new();
     for window in &windows {
         ensure_budget(deadline)?;
         if window.unshown {
@@ -128,10 +127,10 @@ pub(in crate::system) fn without_helpers(
             continue;
         }
         match native_group::classify(
-            &window.frame,
-            &frames,
+            window,
+            &windows,
             &clients,
-            &user_ids,
+            user_ids.get(&window.frame.pid).unwrap_or(&no_users),
             &helper_ids,
             complete.contains(&window.frame.pid),
         ) {
@@ -144,9 +143,9 @@ pub(in crate::system) fn without_helpers(
                     deadline,
                 )? || control::decoration_matches(
                     window.frame.pid,
-                    frames
+                    windows
                         .iter()
-                        .filter(|other| other.pid == window.frame.pid)
+                        .filter(|other| !other.unshown && other.frame.pid == window.frame.pid)
                         .count(),
                     deadline,
                 );

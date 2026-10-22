@@ -12,7 +12,7 @@ use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
 use crate::system::SharedBus;
 
-const SETTLE_LIMIT: Duration = Duration::from_secs(40);
+pub(super) const SETTLE_LIMIT: Duration = Duration::from_secs(40);
 const POLL: Duration = Duration::from_millis(100);
 const STABLE_POLLS: usize = 3;
 const TIMED_RUNS: usize = 7;

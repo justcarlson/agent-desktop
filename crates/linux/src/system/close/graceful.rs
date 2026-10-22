@@ -130,7 +130,7 @@ fn wait_gone(world: &impl World) -> Waited {
         if world.liveness() == Liveness::Gone {
             return Waited::Gone;
         }
-        if ticks % DIALOG_LOOK_EVERY == 0
+        if ticks.is_multiple_of(DIALOG_LOOK_EVERY)
             && let ControlRead::Ready(windows) = world.toplevels()
             && windows.iter().any(refusal::is_dialog)
         {

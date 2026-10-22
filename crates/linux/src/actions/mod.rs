@@ -6,8 +6,6 @@ pub(crate) mod context;
 pub(crate) mod disclosure;
 pub(crate) mod dispatch;
 pub(crate) mod focus;
-#[cfg(test)]
-pub(crate) mod frame_active;
 pub(crate) mod mutation;
 pub(crate) mod numeric_write;
 pub(crate) mod physical_target;

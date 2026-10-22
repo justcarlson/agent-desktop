@@ -14,6 +14,9 @@ use super::walker_live_tests::settle;
 use crate::LinuxAdapter;
 use crate::input::x11::live_tests::private_display;
 use crate::system::SharedBus;
+use crate::system::window::window_id;
+use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::{DisplayReader, X11Client, X11State};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Kit {
@@ -28,6 +31,7 @@ pub(super) struct Scene {
     pub(super) frame: AtspiElement,
     pub(super) log: String,
     pub(super) pid: u32,
+    pub(super) client: X11Client,
 }
 
 fn qt_launch(launched: &mut Launched, script: &str, log: &str) -> u32 {
@@ -76,11 +80,39 @@ impl Scene {
         let connection = bus
             .get(Deadline::standard().expect("deadline"))
             .expect("the accessibility bus is reachable");
+        let setup_started = Instant::now();
         let settled =
             settle(&bus, min_nodes, || pid_frame(&connection, pid)).unwrap_or_else(|error| {
                 launched.stop();
                 panic!("{error}")
             });
+        let ready = Deadline::from_duration(
+            super::walker_live_tests::SETTLE_LIMIT.saturating_sub(setup_started.elapsed()),
+        )
+        .expect("setup budget");
+        let id =
+            window_id::encode(settled.frame.bus_name(), settled.frame.path()).expect("frame id");
+        let client = loop {
+            assert!(
+                !ready.is_expired(),
+                "the fixture frame did not become mapped and listed within its setup budget"
+            );
+            if let X11State::Ready { clients, .. } = DisplayReader.clients_within(ready)
+                && let Some(client) = clients.into_iter().find(|client| {
+                    client.pid == Some(pid)
+                        && !client.hidden
+                        && client
+                            .bounds
+                            .is_some_and(|bounds| bounds.width > 0 && bounds.height > 0)
+                })
+                && adapter
+                    .list_windows(&agent_desktop_core::WindowFilter::default(), ready)
+                    .is_ok_and(|windows| windows.iter().any(|window| window.id == id))
+            {
+                break client;
+            }
+            std::thread::sleep(Duration::from_millis(100).min(ready.remaining()));
+        };
         Self {
             adapter,
             bus,
@@ -88,6 +120,7 @@ impl Scene {
             frame: settled.frame,
             log,
             pid,
+            client,
         }
     }
 

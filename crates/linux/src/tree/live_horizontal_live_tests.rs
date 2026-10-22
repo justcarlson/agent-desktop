@@ -6,7 +6,6 @@ use super::live_offscreen_live_tests::scripts::{GTK3_STRIP, GTK4_STRIP, intersec
 use super::live_offscreen_live_tests::target_named;
 use super::role_numbers::SCROLL_BAR;
 use super::{AtspiElement, list_children};
-use crate::LinuxAdapter;
 use crate::actions::scroll_crawl::{orientation_of, role_of};
 use crate::actions::scroll_find_bar::Orientation;
 use crate::actions::scroll_into_view;
@@ -84,42 +83,36 @@ fn horizontal_bar(bus: &SharedBus, frame: &AtspiElement) -> AtspiElement {
 }
 
 fn strip_case(label: &str, source: &str) {
-    let adapter = LinuxAdapter::new();
-    let bus = SharedBus::default();
     let dir = std::env::temp_dir().join(nonce(label));
     std::fs::create_dir_all(&dir).expect("scratch dir");
     let script = dir.join("app.py");
     std::fs::write(&script, source).expect("script");
-    let connection = bus
-        .get(Deadline::standard().expect("deadline"))
-        .expect("bus");
     let mut launched = Launched::new();
     launched.scratch.push(dir);
     let script_arg = script.to_string_lossy().into_owned();
     let pid = launched.spawn_with_env("python3", &[&script_arg], &[]);
-    let settled = super::walker_live_tests::settle(&bus, 40, || {
-        super::live_tree::pid_frame(&connection, pid)
-    })
-    .expect("the app settles");
-    let frame = settled.frame;
-    let target = target_named(&adapter, &frame, "Col 250").expect("Col 250 is in the tree");
+    let scene = super::physical_live_rig::Scene::attach(launched, pid, String::new(), 40);
+    let adapter = &scene.adapter;
+    let bus = &scene.bus;
+    let frame = &scene.frame;
+    let target = target_named(adapter, frame, "Col 250").expect("Col 250 is in the tree");
     assert!(
         target.element.scroll_container().is_some(),
         "the strip sits in a scroll container"
     );
-    let bar = horizontal_bar(&bus, &frame);
-    let before = current_value(&bus, &bar);
-    let frame_rect = window_rect(&bus, &frame);
+    let bar = horizontal_bar(bus, frame);
+    let before = current_value(bus, &bar);
+    let frame_rect = window_rect(bus, frame);
     assert_ne!(
-        intersects(window_rect(&bus, &target.element), frame_rect),
+        intersects(window_rect(bus, &target.element), frame_rect),
         Some(true),
         "[{label}] Col 250 starts on screen"
     );
     let deadline = Deadline::after(10_000).expect("deadline");
-    let lease = SystemOps::acquire_interaction_lease(&adapter, deadline).expect("lease");
-    scroll_into_view(&bus, &target.handle, &lease).expect("the item scrolls into view");
-    let after = current_value(&bus, &bar);
-    let own = window_rect(&bus, &target.element);
+    let lease = SystemOps::acquire_interaction_lease(adapter, deadline).expect("lease");
+    scroll_into_view(bus, &target.handle, &lease).expect("the item scrolls into view");
+    let after = current_value(bus, &bar);
+    let own = window_rect(bus, &target.element);
     println!("strip_live {label}: bar {before} -> {after}, own {own:?}, frame {frame_rect:?}");
     assert!(after > before, "[{label}] the bar did not move right");
     assert_eq!(intersects(own, frame_rect), Some(true), "[{label}] {own:?}");

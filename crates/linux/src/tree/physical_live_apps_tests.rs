@@ -13,7 +13,13 @@ fn app_scene(program: &str, args: &[&str], min_nodes: usize) -> Scene {
     Scene::attach(launched, pid, String::new(), min_nodes)
 }
 
-fn type_and_read(scene: &Scene, field: &NativeHandle, text: &str, replace: bool) -> String {
+fn type_and_read(
+    scene: &Scene,
+    field: &NativeHandle,
+    text: &str,
+    replace: bool,
+    complete: impl Fn(&str) -> bool,
+) -> String {
     scene
         .act(field, Action::Click)
         .expect("the focusing click is delivered");
@@ -30,14 +36,14 @@ fn type_and_read(scene: &Scene, field: &NativeHandle, text: &str, replace: bool)
     scene
         .act(field, Action::TypeText(text.to_owned()))
         .expect("the text is typed");
-    for _ in 0..40 {
-        if scene.value_of(field).is_some_and(|value| !value.is_empty()) {
-            std::thread::sleep(Duration::from_millis(300));
-            break;
+    let deadline = std::time::Instant::now() + Duration::from_secs(4);
+    loop {
+        let value = scene.value_of(field).unwrap_or_default();
+        if complete(&value) || std::time::Instant::now() >= deadline {
+            return value;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    scene.value_of(field).unwrap_or_default()
 }
 
 #[test]
@@ -46,7 +52,10 @@ fn live_text_editor_receives_typed_text_with_remapped_characters() {
     let scene = app_scene("gnome-text-editor", &[], 5);
     let field = scene.find(&["textfield"], None);
     let text = "h\u{e9}llo \u{65e5}\u{672c}";
-    assert_eq!(type_and_read(&scene, &field, text, true), text);
+    assert_eq!(
+        type_and_read(&scene, &field, text, true, |value| value == text),
+        text
+    );
 }
 
 #[test]
@@ -54,7 +63,9 @@ fn live_text_editor_receives_typed_text_with_remapped_characters() {
 fn live_calculator_evaluates_typed_keys() {
     let scene = app_scene("gnome-calculator", &[], 10);
     let display = scene.find(&["textfield"], None);
-    let shown = type_and_read(&scene, &display, "6*7=", false);
+    let shown = type_and_read(&scene, &display, "6*7=", false, |value| {
+        value.contains("42")
+    });
     assert!(shown.contains("42"), "the display reads {shown:?}");
 }
 

@@ -313,7 +313,7 @@ fn menu_live_chromium_page_menu_is_a_new_top_level_frame() {
             "--no-first-run",
             "--force-renderer-accessibility",
             &format!("--user-data-dir={profile}"),
-            "data:text/html,<title>menuprobe</title><h1>menu probe</h1>",
+            "data:text/html,<title>menuprobe</title><script>document.title='menuprobe-'+performance.timeOrigin</script><h1>menu probe</h1>",
         ],
     );
     let rig = Rig::attach(pid);
@@ -340,7 +340,11 @@ fn menu_live_chromium_page_menu_is_a_new_top_level_frame() {
                 }
             },
             pick: "Reload",
-            effect: &|_| true,
+            effect: &|_| {
+                tool("wmctrl", &["-l"])
+                    .lines()
+                    .any(|line| line.contains("menuprobe-") && !line.contains(&window.title))
+            },
             close: &|_| press_escape(),
         },
     );

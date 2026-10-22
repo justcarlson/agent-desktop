@@ -1,7 +1,6 @@
 pub(crate) mod anchor;
 pub(crate) mod call_failure;
 pub(crate) mod located;
-pub(crate) mod watcher_read;
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, InteractionLease, InteractionPolicy, ObservationRequest,
     ObservationRoot, ObservedTree, SnapshotSurface, WindowInfo,
@@ -123,7 +122,6 @@ pub(crate) fn observe_shell(
     inner.surface = SnapshotSurface::Window;
     let root = ObservationRoot::Window(window);
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
-        detect::require_watcher(request.deadline)?;
         let view = crate::system::tray::view::read(request.deadline)?;
         return tray_tree::logical_tree(&view, window, request.surface);
     }
