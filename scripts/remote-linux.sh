@@ -89,7 +89,7 @@ if [ "${AGENT_DESKTOP_REMOTE_SYNC:-1}" != 0 ]; then
   rsync -az --delete --delete-excluded --filter="merge $filter" "$ROOT/" "$HOST:$DIR/"
 fi
 ssh -o BatchMode=yes "$HOST" "cd $qdir && { [ ! -f \$HOME/.cargo/env ] || . \$HOME/.cargo/env; } \
-  && export CARGO_TARGET_DIR=\$HOME/ad-target CARGO_INCREMENTAL=0 PATH=\$HOME/.local/ad-tools/bin:\$PATH && . ./scripts/session-env.sh \
+  && export CARGO_TARGET_DIR=\$HOME/ad-target CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=3 PATH=\$HOME/.local/ad-tools/bin:\$PATH && . ./scripts/session-env.sh \
   && { timeout -k 30 $TIMEOUT $lock $wrap $cmd; rc=\$?; \
   ls \$XDG_RUNTIME_DIR/at-spi/bus* >/dev/null 2>&1 || echo 'remote-linux: WARNING the live session AT-SPI bus socket is missing' >&2; \
   exit \$rc; }"
