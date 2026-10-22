@@ -28,6 +28,7 @@ mod hit_overlap_live_tests;
 pub(crate) mod hit_test;
 pub(crate) mod hit_verdict;
 mod identity;
+mod interface_reads;
 mod label_outcome;
 mod label_read;
 mod landing;
