@@ -1,24 +1,37 @@
 # Windows and Lifecycle on Linux
 
-Window control uses EWMH on the X11 display: an X11 session's display, or the
-Xwayland display of a Wayland session.
+Window control uses EWMH client messages on the X11 display: an X11 session's
+display, or the Xwayland display of a Wayland session. `wmctrl` and `xdotool`
+are not used.
 
-## Naming apps and windows
+## Naming an app
 
-- `--app` takes the name `list-apps` prints, or a desktop entry's `Name` or id. A
-  desktop alias resolves only when the entry's `Exec` matches the running
-  process; a `Name` shared by several entries gets none. Matching is exact and
-  case-insensitive, within this session. `list-apps --app` also matches a
-  substring.
-- Window ids are opaque and live as long as the window's process.
+- `--app` takes the process name `list-apps` prints, or a desktop entry's `Name`
+  or id backed by verified executable identity. A desktop alias needs canonical
+  `Exec` executable equality with `/proc/<pid>/exe` and matching full arguments;
+  a `Name` shared by several entries gets no name alias. `TryExec` only checks
+  installation. Registry labels and truncated `comm` names add no aliases. The
+  listed name does not change.
+- Scoped matching is exact and case-insensitive, and the process must belong to
+  this session. `list-windows --app` uses that exact rule. `list-apps --app`
+  combines a substring match on the listed name with those exact adapter aliases.
+- Window ids are opaque addresses of 34 to 70 characters, valid for the life of
+  the window's process.
+- `list-apps` rows carry `name`, `pid`, `bundle_id` (desktop id when known) and
+  `process_instance`. `list-windows` rows carry `id`, `title`, `app_name`, `pid`,
+  `is_focused`, `minimized`, `visible`, `accessible` and `process_instance`, plus
+  `bounds` when the display maps one.
 - Several instances of one app share a name: pick one with `--window-id`.
   `close-app` and `launch` cannot choose and answer `AMBIGUOUS_TARGET`.
-- Two windows of one process with the same title: `focus-window --window-id` and
-  the window operations act on the toolkit's active one and, when exactly two
-  share the title, on its twin. Any other tie is refused with cause
+- Two windows of one process with the same title are told apart by the one the
+  toolkit reports active: `focus-window --window-id` and the window operations
+  act on the active one and, when exactly two share the title, on its twin. Any
+  other tie (no active window, a window that is not the active one among three or
+  more twins, an active window of another title) is refused with cause
   `ambiguous_window`.
-- `list-windows` lists the focused window first, then the X11 stacking order from
-  the top. A window with no single X11 client follows in registry order.
+- `list-windows` lists the focused window first, then the others in X11 stacking
+  order, top to bottom. A window with no single X11 client (twins the active
+  window does not separate, a Wayland session) follows in registry order.
 
 ## `launch`
 
@@ -31,42 +44,65 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   `Name` (`launch "Text Editor"`), tried in that order. A relative path, or a
   name with a separator or NUL, is `INVALID_ARGS`; an unknown name is
   `APP_NOT_FOUND`; an entry with `Terminal=true` or no `Exec` is
-  `ACTION_NOT_SUPPORTED`. An absolute `.desktop` path must lie in a trusted XDG
-  data directory.
-- The child gets null stdio, its own process group and `AGENT_DESKTOP_LAUNCHED=1`,
-  so a caller that reads through a pipe sees end of file at exit.
-- `launch` attaches to a running app only when its executable and full arguments
-  match the process; names never match. One match with no arguments returns the
-  owner. One match with arguments spawns the command to forward them, and `--env`
-  and `--cwd` do not apply (the result says so). Several matches are
-  `AMBIGUOUS_TARGET`. `--no-attach` refuses any match: `ACTION_FAILED` naming
-  the pids.
-- `--arg` passes one argument and repeats; write `--arg=-x` for a value that
-  starts with a hyphen. Chromium and Qt need a flag or variable (`--arg`,
-  `--env`): `references/troubleshooting.md`.
-- The result carries `app`, `pid`, `process_instance` and, when one appeared,
-  `window`. Attach with no arguments returns an existing window; a new launch or
-  a handoff reports only a newly opened window, so a tab opened in an existing
-  window gives none.
-- Without `--activate` it waits 2 s for a started app's window and 5 s for a new
-  window of a running app; with `--activate` it waits up to `--timeout`.
-  `--timeout` (default 30000) caps every wait. With no window the result is still
-  `ok`. A process that never registers on the accessibility bus can hold the
-  command for the whole timeout, and its pid may belong to a wrapper.
-- A launcher that exits with no verified owner is `ACTION_FAILED`,
+  `ACTION_NOT_SUPPORTED`.
+- The `Exec` line is parsed in process and spawned with null stdio in its own
+  process group, so a caller that reads through a pipe sees end of file at exit.
+  Every spawn adds `AGENT_DESKTOP_LAUNCHED=1` to the child's environment;
+  `close-app` reads it to tell an app you started from a session service.
+- An absolute `.desktop` path launches that exact file inside the trusted XDG
+  data directories. Desktop ids use XDG directory precedence.
+- `launch` attaches by default only when the canonical executable the request
+  resolves to equals the running process's canonical `/proc/<pid>/exe` path.
+  Every request also needs matching full arguments and invocation name, including
+  direct executable paths, shared interpreters and launchers. Missing evidence
+  starts a new process. Names, basenames, registry labels, `comm` and `TryExec`
+  never establish attachment, and a truncated process-name prefix alone never
+  identifies an app for attachment. A launcher that hands off to another
+  executable cannot identify that process by name; if no verified owner appears,
+  launch reports the unresolved handoff.
+- One verified match with no arguments returns the owner; arguments spawn the
+  command to forward them. `--no-attach` refuses any verified running match with
+  `ACTION_FAILED` naming its pids; without it, several verified matches are
+  `AMBIGUOUS_TARGET`.
+- `--arg` passes one argument and repeats; `--arg --info` works as written, and
+  `--arg=-x` is the safe form for a value that starts with a hyphen. A handoff to
+  a running instance applies the arguments but not `--env` or `--cwd`, and the
+  result says so.
+- Negative numbers need the `=` form: `move-window --x=-100 --y=-20`.
+- A window result names its registry owner, verified by process identity. The
+  command waits for a window: a registry owner gets a 2 s first-window grace, or
+  5 s for a new window when windows were already open. `--timeout` (default
+  30000) caps both; `--activate` uses the full remaining timeout for the window
+  wait.
+- If the spawned process never registers on the accessibility bus, owner lookup
+  can consume the full timeout, and the result then has no `window`. A spawned
+  process still running outside the registry can be returned without a window,
+  and may be a wrapper. When no window appears the result can be `ok` with no
+  `window`.
+- A launcher that exits with no owner is `ACTION_FAILED`,
   `details.kind: exited` (`crashed` after a signal), `delivered_unverified`. An
-  owner that exits before its window appears, or a forwarding launcher whose
-  existing owner has different arguments, is `ACTION_FAILED`,
-  `delivered_unverified`, without that kind. Re-list windows before retrying.
+  owner that exits before its window appears is `ACTION_FAILED`,
+  `delivered_unverified`, without that kind. An exited forwarding launcher whose
+  existing owner has different argv is `ACTION_FAILED`, `delivered_unverified`;
+  re-list windows before retrying.
+- The result carries `app`, `pid`, `process_instance` and, when one appeared,
+  `window`. A no-argument attach returns an existing window of the running app. A
+  new launch or argument handoff reports only a new window, so a handoff that
+  opens a tab in an existing window can return no `window`.
+- Chromium and Qt apps need a flag or an environment variable to appear on the
+  bus; pass them with `--arg` or `--env`. Electron apps need none. See
+  `references/troubleshooting.md`.
 
 ## `close-app`
 
-`close-app` closes the whole app and succeeds only when the process is gone.
-There is no `close-window`: click a window's own Close button ref to close one
-window, and use `close-app` for the last one.
+`close-app` closes the app, including all its windows, and succeeds only when the
+process is gone. There is no `close-window`: click a window's own Close button
+ref to close just one of several windows, and use `close-app` for the last window
+when you intend to exit the app.
 
-Example: with Text Editor windows `a.txt` and `b.txt` open, close only `b.txt`.
-The recipe stops if a selection is ambiguous.
+Example: with Text Editor windows `a.txt` and `b.txt` open, this Bash recipe uses
+`jq` to select the unique `b.txt` window and its Close button. It stops if either
+selection is ambiguous and does not pick the first match.
 
 ```bash
 (
@@ -84,60 +120,72 @@ The recipe stops if a selection is ambiguous.
 
 Check that only the intended window disappeared. If a save prompt appears,
 snapshot `--surface sheet`, answer it, then list the windows again. Ctrl+W may
-close a document or tab and leave its window open.
+close only a document or tab and leave its window open.
 
 - Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and
-  no signal. An app that outlives its windows (Files) ends in `TIMEOUT`,
-  `delivered_unverified`; `--force` ends it. An unconfirmed send is uncertain and
-  unsafe to retry: observe the app first.
-- A save prompt keeps the app open as a new top-level window, counted in
-  `details.dialogs`: read it with `snapshot --app <name> --surface sheet`, answer
-  it, close again. A dialog already standing: `ACTION_FAILED`, cause
-  `dialog_pending`, `not_delivered`, `retry: safe`, nothing sent. A dialog that
-  opens in answer to the request ends the wait with the same cause, the title in
-  `details.dialog`, `delivered_unverified`, `retry: unsafe`.
+  no signal. A file manager that outlives its windows ends in `TIMEOUT`,
+  `delivered_unverified`; `--force` ends it. A terminal server closes like any
+  other app: `close-app gnome-terminal` ended `gnome-terminal-server`.
+- An unconfirmed send is uncertain and unsafe to retry, even if the remaining
+  fan-out runs out of time: observe the app first.
+- A save prompt keeps the app open. The dialog is a new top-level window of the
+  same pid, counted in `details.dialogs`: read it with a plain
+  `snapshot --app <name>` or `--surface sheet`, answer it, close again. A dialog
+  already standing: `ACTION_FAILED`, cause `dialog_pending`, `not_delivered`,
+  `retry: safe`, nothing sent. A dialog that opens in answer to the request ends
+  the wait with the same cause, the title in `details.dialog`,
+  `delivered_unverified`, `retry: unsafe`. One request can open a prompt for
+  every window with unsaved work, so `dialogs`, `windows_remaining` and
+  `dialog_titles` all come from one read taken once the windows stop changing and
+  agree with one another.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
   cause `wayland_session`.
-- Protection follows the process instance, never its name. `INVALID_ARGS`,
+- Protection follows the target process instance, never its name. `INVALID_ARGS`,
   `not_delivered`, for:
-  - the owner of the display socket, or of the X root's supporting-WM window;
+  - the owner of the active display socket, or of the X root's supporting-WM
+    window;
   - an app on the accessibility bus with no managed window that the session
     started (it owns a session-bus name, runs as a user service unit, or is a
     child of the display owner: portal backends, shell helpers, decoration
-    hosts), unless this tool launched it;
-  - any process that owns a session-bus name and does not answer on the
-    accessibility bus, launched or not.
+    hosts), unless this tool launched it.
 
+  A process that does not answer on the accessibility bus is protected when it
+  owns a session-bus name, whether or not a launch of this tool started it.
   Missing ownership evidence (an unreadable `/proc` entry, no session bus) is
   `ACTION_NOT_SUPPORTED` before anything is sent; an unreachable display is
-  `PLATFORM_NOT_SUPPORTED`.
+  `PLATFORM_NOT_SUPPORTED`. X11 manager ownership needs XRes process IDs; missing
+  server support refuses.
 
 ## Window operations
 
 `move-window`, `resize-window`, `minimize`, `maximize` and `restore` use EWMH.
-Move and resize read the geometry back (2 px tolerance); minimize and maximize
-read back their state (`details.verification_scope`). `restore` has no uniform
-read-back and reports `delivered_unverified`: look at the window afterwards.
-Reports carry `action`, `target`, `steps` and `disposition`, with no success
-flag.
+Move and resize read back geometry inside 250 ms with a 2 px tolerance; minimize
+and maximize read back their state. Their successful reports name
+`details.verification_scope`. `restore` has no uniform final read-back across its
+branches and reports `delivered_unverified`: look at the window afterwards.
+Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
+`resized` or other unconditional success flag.
 
 - A clamp or an ignored request is `ACTION_FAILED`, `delivered_unverified`, with
-  the requested, observed and display bounds; the window may have changed in
-  part.
-- Without `--app` or `--window-id` they act on the focused window, and
-  `data.target` names it. Pass one unless you mean that.
+  the requested, observed and display bounds; the window may still have changed
+  in part: read the bounds.
+- Without `--app` or `--window-id` all five act on the focused window, and
+  `data.target` names the window id, title and process identity, even when no
+  selector was supplied. Pass one unless you mean the focused window.
 - A Wayland-native window, and an un-minimize on a Wayland session, are refused
   with cause `wayland_session` before anything is sent.
 - A window the process cannot be mapped to is refused before any write: no client
   is `ACTION_NOT_SUPPORTED`, cause `window_not_mapped`; two clients are
   `AMBIGUOUS_TARGET`, cause `ambiguous_window`.
-- A window manager can ignore a restore sent soon after a minimize, or the
-  reverse: read the state before retrying. An unconfirmed restore send is
-  uncertain and unsafe to retry.
-- `move-window` needs both `--x` and `--y` (a lone one is `INVALID_ARGS`, exit 2).
-  Write negative values with `=`: `move-window --x=-100 --y=20`.
+- A window manager may ignore a restore sent 1 to 2 s after a minimize, or a
+  minimize sent within about 250 ms of a restore: read the window state before
+  retrying. An unconfirmed restore send is uncertain and unsafe to retry; it may
+  already have restored the window.
+- `move-window` needs both `--x` and `--y` (a lone one is `INVALID_ARGS` at parse
+  time, exit 2). Negative coordinates need the `=` form:
+  `move-window --x=-100 --y=20`.
 
 ## Focus
 
@@ -149,57 +197,71 @@ agent-desktop focus-window --app gnome-calculator
 application reports it active: its frame or another frame of the app carries
 `ACTIVE`, one of its menus is open, or it is a modal or dialog frame that holds
 the input focus without `ACTIVE`. After the request is sent, a failed read-back
-or a modal refusal is `delivered_unverified` and unsafe to retry, and a later
-timeout does not make the earlier request safe to repeat.
+or a modal refusal is `delivered_unverified` and unsafe to retry. An unconfirmed
+send is uncertain delivery, and a later timeout does not make the earlier request
+safe to repeat.
 
 - A minimized or hidden target is lifted first. A stopped target is
   `APP_UNRESPONSIVE` before anything is sent.
 - When a modal dialog holds the focus, `focus-window --app <name>` succeeds with
-  the dialog as `data.focused`: act on the dialog, not the window you named.
-- A window the manager never activated ends `ACTION_FAILED` with cause
-  `activation_not_granted` (under mutter, until a window has held focus once),
-  `activation_refused` (another window stayed active) or `frame_not_active` (the
-  manager named the window, but its frame never reported `ACTIVE`).
-- While the GNOME Activities Overview is open (a fresh GNOME shell opens it) the
-  cause is `overview_open`, and every activation is blocked. Send a global
-  `press escape` (no `--app`), then `focus-window --app <name>`. A headed ref
-  action runs `focus-window` for you and ends the same way.
+  the dialog as `data.focused`. Read `data.focused.title` and act on the dialog,
+  not the window you named.
+- A window the manager never activated can end `ACTION_FAILED` with cause
+  `activation_not_granted` (under mutter, until a window has held focus once).
+  Other timeouts end with `activation_refused` (another window stayed active) or
+  `frame_not_active` (the manager named the window, but its frame never reported
+  `ACTIVE`).
+- While the GNOME Activities Overview is open the cause is `overview_open`; close
+  the overview first. A fresh GNOME shell opens it and it blocks activation for
+  every window. Send a global `--headed press escape` (no `--app`), then call
+  `focus-window --app <name>`. Measured: `overview_open` from the first call, the
+  Escape closed the overview, and the second call returned a focused window with
+  `is_focused: true`. A headed ref action runs `focus-window` for you and ends
+  the same way.
 - A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - A headless ref `click` on a minimized window refuses with live `offscreen`
   evidence and leaves it minimized. On X11, `--headed click` first focuses the
-  ref's window, restoring it if minimized, then clicks; it refuses if the window
-  manager cannot show and activate it, or the target stays hidden, offscreen or
-  occluded. A physical-route refusal falls back to the semantic click only when
-  nothing was sent. `restore` restores a window without clicking it.
-- A window on another workspace lists `visible: false` and cannot take a headless
-  `press`. `focus-window` brings it forward by switching the user's workspace:
-  decide first whether that is acceptable.
+  ref's exact source window, restoring it if minimized, then delivers the click;
+  it refuses if the window manager cannot show and activate that window, or if
+  the target stays hidden, offscreen or occluded after focus. An unsupported
+  physical route or geometry refusal can fall back to semantic click only when it
+  proves nothing was sent. Ordinary-app headed pointer actions on Wayland refuse
+  with cause `wayland_session` before delivery. Use `restore` to restore a window
+  without clicking it.
+
+## Workspaces
+
+A window on another workspace lists `visible: false` and cannot take a headless
+`press`. `focus-window` brings it forward by switching the user's workspace:
+decide whether that is acceptable before you call it.
 
 ## `press --app` and background targets
 
 Headless `press --app <name>` delivers only while the target process owns the
 active window. On X11 a background or minimized app is refused: `ACTION_FAILED`,
-`check: window_active`, cause `display_active_window`, `not_delivered`.
-`--headed` brings the window forward, un-minimizes it and sends the keys (X11).
-On Wayland, `focus-window` and headed app- or window-scoped `press` refuse with
+`check: window_active`, cause `display_active_window`, `not_delivered`; the
+message says the application's active window could not be confirmed. `--headed`
+brings the window forward, un-minimizes it and sends the keys (X11). On Wayland,
+`focus-window` and headed app- or window-scoped `press` refuse with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included.
 
-Headless scoped `press` never activates a window. If focus cannot be confirmed,
-bring the target forward yourself and use global `press` (no `--app`,
-`--window-id` or `--headed`). A headless `press --window-id` with unconfirmed
-exact focus returns `STALE_REF`, `check: exact_window_focus`, cause
-`exact_window_focus_unconfirmed`, `not_delivered`: bring the window forward,
-refresh `list-windows`, retry with its current id.
+Headless scoped `press` does not activate a window: it requires the live focus
+guard to confirm the target. If focus cannot be confirmed, bring the target
+forward yourself and use global `press` (no `--app`, `--window-id` or
+`--headed`). A headless `press --window-id` with unconfirmed exact window focus
+returns `STALE_REF`, `check: exact_window_focus`,
+`cause: exact_window_focus_unconfirmed`, `not_delivered`: bring the window
+forward, refresh `list-windows`, retry with its current id.
 
 ## Stopped apps
 
-An app stopped with `SIGSTOP` is detected from `/proc` without a probe. A ref used
-against it, a scoped `snapshot`, `list-windows --app`, `focus-window`, the window
-operations and a scoped `wait` answer `APP_UNRESPONSIVE` at once, not
-`STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`, `not_delivered`,
-`retry: safe`; `--force` ends it. An unscoped `list-windows` still lists its
-windows with `accessible: false`. A scoped listing of a busy app that left every
-frame unanswered is `TIMEOUT`, not an empty list.
+An app stopped with `SIGSTOP` is detected from `/proc` without waiting for a
+probe. A ref used against it, a scoped `snapshot`, `list-windows --app`,
+`focus-window` and the window operations answer `APP_UNRESPONSIVE` in
+milliseconds, not `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`,
+`not_delivered`, `retry: safe`; `--force` ends it. An unscoped `list-windows`
+still lists its windows with `accessible: false`. A scoped listing of a busy app
+that left every frame unanswered is `TIMEOUT`, not an empty list.
 
 ## Waiting for lifecycle events
 
@@ -214,18 +276,37 @@ diffs a baseline taken at the start against fresh reads. On Linux:
 
 - An app counts as launched when it owns a window. A windowless helper never
   produces `app-launched`; a second window of a running app (`--new-window`) is
-  `window-opened`. A Qt process registers twice and counts once.
+  `window-opened`, never `app-launched`. A Qt process registers twice and counts
+  once.
 - A dialog that is its own top-level window is one `window-opened` and one
-  `surface-appeared`. `surface-appeared` and `surface-dismissed` need `--app`
-  (`INVALID_ARGS`, "requires --app"); a dialog drawn inside its window is found
-  only when `--app` scopes the wait.
+  `surface-appeared`. An unscoped `window-opened` sees it (measured on a Nautilus
+  "New Folder" dialog); `surface-appeared` and `surface-dismissed` need `--app`
+  (`INVALID_ARGS`, "requires --app" when unscoped); a dialog drawn inside its
+  window is found only when `--app` scopes the wait.
 - `focus-changed` needs a window that reports `ACTIVE`. On Wayland none does
   until a seat keyboard exists, so it times out with `baseline_counts`.
-- A window that neither shows nor is iconified is a closed window's husk and is
-  left out of every list (unless the window manager lists an unclaimed client of
-  it), so `window-closed` fires when a dialog closes.
+- A wait scoped to a stopped app fails at once with top-level
+  `APP_UNRESPONSIVE`, `not_delivered` and `retry: safe`, not `TIMEOUT`, in every
+  mode (`--event` included). A `batch` of an action followed by such a wait does
+  not start the action (`pre_action_baseline_failed`). An app that is alive but
+  slow keeps the wait polling; classes that could not be read are left out of the
+  diff and no event is invented from them.
+- A `batch` is `ok: true`, exit 0, even when an entry fails: each entry carries
+  its own `ok: false` and `error`. Read every entry.
 - `--menu-closed` on a menu you have not opened is true at once: wait for `--menu`
-  first.
+  first, then close the menu, then wait for `--menu-closed`.
+- For an already-focused menu or Save As dialog, `agent-desktop press escape`
+  sends Escape to the current keyboard focus. Omit `--app` and `--window-id` for
+  this global form: scoped delivery checks the application's active frame, while
+  a popup can own the keyboard grab. Confirm the intended app is focused first,
+  then verify closure with `wait --menu-closed --app <name>` or a fresh
+  window/sheet observation. Escape alone does not prove closure.
+- A window that neither shows nor is iconified is a closed window's husk and is
+  left out of every list (unless the window manager lists a client of it that no
+  shown window claims), so `window-closed` fires when the dialog closes.
+- `wait` pauses at most 100 ms between polls (50 ms for menu waits) and
+  re-resolves a ref on every poll. A wait for a `--window` can finish before its
+  content is ready.
 - `--window` is its own wait mode, not a `--text` filter. With `--event` it
   narrows the event by title, and `--window-id` narrows event waits only. Both
   work only with `window-opened`, `window-closed` and `focus-changed`; any other
@@ -239,32 +320,31 @@ diffs a baseline taken at the start against fresh reads. On Linux:
   agent-desktop snapshot --app gnome-text-editor --surface sheet -i --compact
   ```
 
-- To dismiss an open menu or a Save As dialog, send a global
-  `agent-desktop press escape` (no `--app` or `--window-id`): a popup can own the
-  grab that scoped delivery checks against. Escape alone does not prove closure:
-  check with `wait --menu-closed --app <name>` or a fresh observation.
-- A `batch` is `ok: true`, exit 0, even when an entry fails. Read every entry.
-
 ## Reading the disposition
 
 Read `data.disposition` or `error.disposition` before you retry. A refusal before
 anything was sent (a protected process, a relative path, a background `press`, an
-unknown app or window) is `not_delivered`, `retry: safe`. A timeout after delivery
-or a read-back mismatch is `delivered_unverified`, `retry: unsafe`: look at the
-state with `list-windows` or `snapshot` before repeating.
+unknown app or window in the pre-delivery lookup for `focus-window`, `close-app`
+or the window operations) is `not_delivered`, `retry: safe`. A timeout after
+delivery or a read-back mismatch is `delivered_unverified`, `retry: unsafe`: look
+at the state with `list-windows` or `snapshot` before repeating.
 
 ## Window classification
 
-Windows come from AT-SPI roles, interfaces and state. On X11, managed-client
+Window shapes come from AT-SPI roles, interfaces and state. On X11, managed-client
 ownership, native window type and override-redirect evidence tell user windows
-from decoration, dock and popup frames. Class names, titles and process names
-never classify a window. Mixed classes or incomplete groups are
-`ACTION_NOT_SUPPORTED`.
+from decoration, dock and popup frames. Associations use process identity, a
+complete native population, and uniform process or geometry groups. Class names,
+titles and process names do not classify windows. Mixed classes or incomplete
+groups are `ACTION_NOT_SUPPORTED`.
 
-Where the window manager manages no window of the process, two kinds of frame are
-left out: one whose process owns no visible native window, and one of a process
-the session itself started (the display owner or its child, or a user service
-unit; never one this tool launched), such as the shell's own window or a
-decoration frame. A frame that is neither is never hidden: the call fails with the
-refusal above. Minimized frames stay listed. On Wayland, frames of the compositor
-are left out; other apps keep their AT-SPI classification.
+Two frames are left out when their process has no managed window: one whose
+process owns no visible native window on a complete native read, and one that the
+session itself started, which is the display owner or a child of it, or a user
+service unit, and never a process that a launch of this tool started. The shell's
+own window and the decoration frame a window manager hosts are session frames. A
+frame that is neither is never hidden: the call fails with the same refusal.
+Minimized frames stay listed. An extra override-redirect surface blocks
+association; matching geometry alone never proves that an accessibility frame is
+a popup. On Wayland, the active display-socket owner identifies the compositor
+and its frames are left out; other app frames keep their AT-SPI classification.
