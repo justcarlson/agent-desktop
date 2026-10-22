@@ -78,9 +78,13 @@ The gate is necessary, not sufficient: while a popup menu holds the grab, keys
 reach the menu even if the frame reads active, so key steps stay unverified.
 Pointer forms aim at the centre of the ref's bounds, which the adapter withholds
 where the position is not proved. Read the result with a fresh `get`.
-Ref-addressed double and triple clicks prove the pointer receiver before each
-click. A later refusal reports `delivered_clicks` and `delivered_unverified`
-when earlier clicks were sent; inspect the app before retrying.
+Ref-addressed double and triple clicks prove the pointer receiver before every
+press, so a window raised by the first click is seen before the second. The
+checks share a 300 ms press-to-press budget, inside the 400 ms in which GTK, Qt
+and GNOME read two presses as one gesture. A changed receiver, or a check that
+outruns the budget (`details.kind: multi_click_window`), stops the gesture with
+`ACTION_FAILED`, the clicks already sent in `delivered_clicks` and
+`delivered_unverified`; inspect the app before retrying.
 `hover @ref` proves the receiver the same way before the move. A covered target
 or an unproven receiver is refused with `ACTION_FAILED` and `not_delivered`, and
 the cursor does not move. `hover --xy` has no target element to prove.
