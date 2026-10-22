@@ -97,7 +97,7 @@ fn spawn(identifier: &str, plan: &Plan, options: &LaunchOptions) -> Result<Spawn
     }
     command
         .spawn()
-        .map(Spawned::new)
+        .map(|child| Spawned::new(child, identifier))
         .map_err(|error| spawn_error(identifier, &error))
 }
 
