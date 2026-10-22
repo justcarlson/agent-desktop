@@ -33,6 +33,7 @@ Choose the scope:
 - `--root <REF>` starts from a ref found earlier. Re-drilling a root replaces only the refs from that root's previous drill. Other regions and the skeleton keep their refs. `--root` cannot combine with `--surface` or `--wait-for`.
 - `--max-depth` (default 10) limits depth. Reach deeper subtrees with `--root`.
 - Use `--include-bounds` only when you need coordinates.
+- With `--app` and no `--window-id`, `snapshot` and `find` take the app's only visible window, else its only focused window, and answer `AMBIGUOUS_TARGET` with the candidates when neither settles it. Pass `--window-id` when an app has several windows.
 
 ### Partial trees
 

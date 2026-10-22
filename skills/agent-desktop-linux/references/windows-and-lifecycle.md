@@ -25,6 +25,9 @@ when known) and `process_instance`. `list-windows` rows carry `id`, `title`, `pi
 the display maps one. Several instances of one app share a name: use `--window-id`
 to pick one. Two windows of one process with the same title and bounds make
 `focus-window --window-id` answer `ambiguous_window`.
+`list-windows` lists the focused window first, then the others from the top of the
+X11 stacking order to the bottom. A window with no single X11 client (twins with one
+title, a Wayland session) follows in registry order.
 `close-app` and `launch` cannot choose between instances and answer
 `AMBIGUOUS_TARGET`.
 
@@ -243,6 +246,8 @@ and the window operations answer `APP_UNRESPONSIVE` in milliseconds, not
 `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`, `not_delivered` and
 `retry: safe`; `--force` ends it. An unscoped `list-windows` still lists its
 windows, marked `accessible: false`.
+A scoped listing of a busy app that left every frame unanswered answers `TIMEOUT`, not an empty
+list.
 
 ## Waiting for lifecycle events
 
