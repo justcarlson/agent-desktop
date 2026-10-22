@@ -3,7 +3,7 @@ use agent_desktop_core::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rect, RefEntry};
 
 use super::AtspiElement;
-use super::candidate::Candidate;
+use super::candidate::{Candidate, without_nested_relatives};
 use super::landing::Landing;
 use super::level::Level;
 use super::path_descent::descend;
@@ -123,7 +123,10 @@ fn attempt<S: Source>(
     } else {
         false
     };
-    let searched = source.search(&frame, entry)?;
+    let mut searched = source.search(&frame, entry)?;
+    if path_tier_applies(entry) {
+        without_nested_relatives(&mut searched.candidates, &entry.scope.path);
+    }
     let rects: Vec<Option<Rect>> = searched
         .candidates
         .iter()
@@ -219,3 +222,7 @@ mod web_tests;
 #[cfg(test)]
 #[path = "resolve_shift_tests.rs"]
 mod shift_tests;
+
+#[cfg(test)]
+#[path = "resolve_nested_tests.rs"]
+mod nested_tests;
