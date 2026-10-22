@@ -251,7 +251,7 @@ pub(crate) fn walk_native_tree(
         root,
         &WalkLimits::default(),
         deadline,
-        ReadPurpose::Structure,
+        ReadPurpose::Gate,
     )
 }
 

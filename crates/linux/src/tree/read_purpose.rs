@@ -13,6 +13,7 @@ pub(crate) enum ReadPurpose {
     Frame,
     Structure,
     Shape,
+    Gate,
 }
 
 impl ReadPurpose {
@@ -46,7 +47,12 @@ impl ReadPurpose {
     pub(super) fn children(self) -> bool {
         matches!(
             self,
-            Self::Snapshot | Self::Sampling | Self::Structure | Self::Shape | Self::Resolve
+            Self::Snapshot
+                | Self::Sampling
+                | Self::Structure
+                | Self::Shape
+                | Self::Gate
+                | Self::Resolve
         )
     }
 }

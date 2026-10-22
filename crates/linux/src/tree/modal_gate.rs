@@ -54,7 +54,9 @@ pub(crate) fn ensure_unblocked(
             return Err(unknown());
         }
         found_frame |= contains(&walk.root, frame);
-        inspect(&walk.root, owner.as_ref().unwrap_or(target))?;
+        if let Some(dialog) = blocker(&walk.root, owner.as_ref().unwrap_or(target))? {
+            return Err(blocked(reader, &dialog));
+        }
     }
     if !found_frame {
         return Err(unknown());
@@ -67,14 +69,16 @@ fn contains(node: &super::WalkedNode<super::ObservedRead>, target: &AtspiElement
         || node.children.iter().any(|child| contains(child, target))
 }
 
-fn inspect(
+/// The showing modal node below `node` that does not hold the target. The
+/// walk reads no names, so the caller names the blocker it finds.
+fn blocker(
     node: &super::WalkedNode<super::ObservedRead>,
     target: &AtspiElement,
-) -> Result<(), AdapterError> {
+) -> Result<Option<AtspiElement>, AdapterError> {
     let raw = &node.payload.node;
     let role = raw.traits.role.present().copied().ok_or_else(unknown)?;
     if super::role_numbers::is_web_document(Some(role)) {
-        return Ok(());
+        return Ok(None);
     }
     let words = raw
         .traits
@@ -84,31 +88,36 @@ fn inspect(
         .ok_or_else(unknown)?;
     let bits = StateBits::new(words);
     if bits.has(SHOWING) && bits.has(MODAL) && !contains(node, target) {
-        let dialog = raw
-            .properties
-            .name
-            .non_blank()
-            .map(String::as_str)
-            .unwrap_or("unnamed dialog");
-        return Err(AdapterError::new(
-            ErrorCode::ActionFailed,
-            format!("Target window is blocked by modal dialog '{dialog}'"),
-        )
-        .with_suggestion(format!(
-            "Act in the dialog '{dialog}' or close it, then retry the original target"
-        ))
-        .with_details(json!({
-            "check": "modal",
-            "cause": "blocked_by_modal_dialog",
-            "retryable": false,
-            "dialog": dialog,
-            "physical_delivery_started": false,
-            "semantic_delivery_started": false,
-        }))
-        .with_disposition(DeliverySemantics::not_delivered()));
+        return Ok(Some(raw.element.clone()));
     }
     for child in &node.children {
-        inspect(child, target)?;
+        if let Some(found) = blocker(child, target)? {
+            return Ok(Some(found));
+        }
     }
-    Ok(())
+    Ok(None)
+}
+
+fn blocked(reader: &mut impl NodeReader, dialog: &AtspiElement) -> AdapterError {
+    let named = reader
+        .read(dialog)
+        .ok()
+        .and_then(|read| read.read.node.properties.name.non_blank().cloned());
+    let dialog = named.as_deref().unwrap_or("unnamed dialog");
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        format!("Target window is blocked by modal dialog '{dialog}'"),
+    )
+    .with_suggestion(format!(
+        "Act in the dialog '{dialog}' or close it, then retry the original target"
+    ))
+    .with_details(json!({
+        "check": "modal",
+        "cause": "blocked_by_modal_dialog",
+        "retryable": false,
+        "dialog": dialog,
+        "physical_delivery_started": false,
+        "semantic_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
 }

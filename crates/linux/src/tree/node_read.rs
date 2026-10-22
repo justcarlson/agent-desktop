@@ -325,7 +325,10 @@ pub(crate) async fn read_node_for(
         join3(
             accessible(
                 "GetInterfaces",
-                !matches!(purpose, ReadPurpose::Structure | ReadPurpose::Shape),
+                !matches!(
+                    purpose,
+                    ReadPurpose::Structure | ReadPurpose::Shape | ReadPurpose::Gate
+                ),
             ),
             accessible("GetAttributes", purpose.vocabulary()),
             accessible("GetChildren", purpose.children()),
