@@ -84,6 +84,7 @@ fn spawn(identifier: &str, plan: &Plan, options: &LaunchOptions) -> Result<Spawn
     command
         .args(arguments)
         .envs(&options.env)
+        .env(crate::system::process::session_origin::LAUNCH_MARKER, "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

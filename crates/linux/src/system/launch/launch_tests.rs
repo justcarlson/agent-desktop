@@ -211,3 +211,13 @@ fn the_first_window_of_an_application_the_launch_started_is_its_window() {
     assert_eq!(chosen.id, "w-a");
     assert!(choose_window(Vec::new(), &HashSet::new()).is_none());
 }
+
+#[test]
+fn a_launched_process_carries_the_marker_that_proves_the_caller_started_it() {
+    let spawned = spawn("sleeper", &plan_of(&["/bin/sleep", "30"]), &options()).expect("spawns");
+    let environment = environ_of(spawned.pid, "sleep");
+    kill(&spawned);
+    assert!(crate::system::process::session_origin::has_launch_marker(
+        &environment
+    ));
+}
