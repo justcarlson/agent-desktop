@@ -20,7 +20,7 @@ const LATE_READ_MS: u64 = 300;
 /// `/proc`, talks to the display server and signals through a descriptor; a
 /// test supplies a process and a clock of its own.
 pub(super) trait World {
-    fn is_protected(&self, identifier: &str) -> bool;
+    fn is_protected(&self) -> Result<bool, AdapterError>;
     fn facts(&self) -> Lookup;
     fn liveness(&self) -> Liveness;
     fn elapsed(&self) -> Duration;
@@ -42,8 +42,8 @@ pub(super) struct Live<'a> {
 }
 
 impl World for Live<'_> {
-    fn is_protected(&self, identifier: &str) -> bool {
-        protected::is_protected(identifier)
+    fn is_protected(&self) -> Result<bool, AdapterError> {
+        protected::is_protected(self.pid, self.deadline)
     }
 
     fn facts(&self) -> Lookup {

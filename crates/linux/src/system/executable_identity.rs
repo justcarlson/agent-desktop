@@ -10,7 +10,7 @@ pub(crate) struct ExecutableIdentity {
 }
 
 impl ExecutableIdentity {
-    pub(crate) fn requested(argv: &[String], desktop: bool, path: &[PathBuf]) -> Option<Self> {
+    pub(crate) fn requested(argv: &[String], path: &[PathBuf]) -> Option<Self> {
         let program = argv.first()?;
         let file = if program.contains('/') {
             let file = PathBuf::from(program);
@@ -22,7 +22,7 @@ impl ExecutableIdentity {
             super::launch_target::find_on_path(program, path)?
         };
         let executable = file.canonicalize().ok()?;
-        let argv = desktop.then(|| {
+        let argv = Some({
             std::iter::once(file.into_os_string())
                 .chain(argv[1..].iter().map(OsString::from))
                 .collect()
@@ -47,7 +47,7 @@ impl ExecutableIdentity {
 
     pub(crate) fn matches(&self, running: &Self) -> bool {
         self.executable == running.executable
-            && self.argv.as_ref().is_none_or(|argv| {
+            && self.argv.as_ref().is_some_and(|argv| {
                 running
                     .argv
                     .as_deref()

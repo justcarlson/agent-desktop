@@ -120,7 +120,9 @@ impl Drop for Spawned {
 fn failed(status: ExitStatus, identifier: &str) -> AdapterError {
     let (what, detail) = match status.code() {
         Some(code) => (
-            format!("'{identifier}' exited with status {code} and no application took its place"),
+            format!(
+                "'{identifier}' exited with status {code} without a verified application owner"
+            ),
             serde_json::json!({ "kind": "exited", "status": code }),
         ),
         None => {

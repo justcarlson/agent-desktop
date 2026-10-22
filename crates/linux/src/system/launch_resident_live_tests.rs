@@ -74,17 +74,26 @@ fn windows_of_pid(pid: u32) -> usize {
 
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_forwarded_launch_reports_the_new_window_not_the_old_one() {
+fn live_a_forwarded_launch_without_matching_argv_does_not_claim_an_owner() {
     let mut owned = Owned(Vec::new());
     let first = launch("nautilus", &options(&[])).expect("the first launch");
     let pid = owned.keep(first.pid.get());
-    let first_window = first.window.expect("a window").id;
-    let second = launch("nautilus", &options(&["--new-window"])).expect("a forwarded launch");
-    assert_eq!(second.pid.get(), pid, "the owner is unchanged");
-    assert_ne!(
-        second.window.expect("a window").id,
-        first_window,
-        "the window of a forwarded launch is the new one"
+    let before = x_windows_of(pid);
+    assert_eq!(before.len(), 1);
+    let refusal = launch("nautilus", &options(&["--new-window"]))
+        .expect_err("different argv cannot establish the forwarded owner");
+    assert_eq!(refusal.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        refusal.disposition,
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
+    );
+    wait_until("native forwarding effect", || {
+        x_windows_of(pid).len() > before.len()
+    });
+    let after = x_windows_of(pid);
+    assert!(before.iter().all(|id| after.contains(id)));
+    println!(
+        "independent xprop: pid {pid} opened another window; the unproven argv handoff remains delivered_unverified"
     );
 }
 

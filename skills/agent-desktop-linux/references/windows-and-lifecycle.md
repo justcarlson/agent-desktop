@@ -48,11 +48,13 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   process-name prefix alone never identifies an app for attachment.
 - `launch` attaches by default only when the canonical executable the request
   resolves to equals the running process's canonical `/proc/<pid>/exe` path.
-  Desktop entries also require matching full arguments and invocation name, including for shared
-  interpreters and launchers. Missing evidence starts a new process. Names,
+  Every request also requires matching full arguments and invocation name, including
+  direct executable paths, shared interpreters and launchers. Missing evidence starts a new process. Names,
   basenames, registry labels, `comm` and `TryExec` never establish attachment.
   A launcher that hands off to another executable cannot identify that process
   by name; if no verified owner appears, launch reports the unresolved handoff.
+  An exited forwarding launcher whose existing owner has different argv returns
+  `ACTION_FAILED` with `delivered_unverified`; re-list windows before retrying.
   One verified match with no arguments returns the owner; arguments spawn the
   command to forward them. `--no-attach` refuses a verified running match with
   `ACTION_FAILED` naming its pid; several verified matches are `AMBIGUOUS_TARGET`.
@@ -127,9 +129,16 @@ close only a document or tab and leave its window open.
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
   cause `wayland_session`.
-- Protected processes (the shell, display server, session and system buses, the
-  AT-SPI launcher, audio and keyring daemons, the window manager, portal and
-  settings daemons) are refused with `INVALID_ARGS` and `not_delivered`.
+- Protection follows the target process instance, never its name: owners of the
+  active display socket, the X root supporting-WM window, and session-bus
+  infrastructure and portal services are refused with `INVALID_ARGS` and
+  `not_delivered`. GNOME session-service owners are protected when the session
+  bus exposes that backend or the session declares GNOME. Another declared
+  desktop, or an unclassified service owner without a detected backend,
+  refuses with `ACTION_NOT_SUPPORTED`. Missing ownership evidence refuses with
+  `ACTION_NOT_SUPPORTED` before any close request or signal. An unrelated app
+  named like a session service remains a regular app. X11 manager and decoration
+  ownership needs XRes process IDs; missing server support refuses honestly.
 
 ## Window operations
 
@@ -301,3 +310,17 @@ in the pre-delivery lookup for `focus-window`, `close-app` or window operations
 also carries `not_delivered` and `retry: safe`. A timeout after delivery
 or a read-back mismatch carries `delivered_unverified` and `retry: unsafe`: look
 at the state with `list-windows` or `snapshot` before you repeat it.
+
+## Window classification
+
+Window shapes come from AT-SPI roles, interfaces and state. On X11, managed
+client ownership, native window type, XRes decoration ownership and override-redirect evidence distinguish
+user windows from decoration, dock and popup frames. Associations use process
+identity, a complete native population, and uniform process or geometry groups; class names,
+titles and process names do not classify windows. Mixed classes or incomplete
+groups return `ACTION_NOT_SUPPORTED`. Shown frames without any visible native
+window owned by their process are omitted; minimized frames remain listed.
+An extra override-redirect surface blocks association; matching geometry alone
+never proves that an accessibility frame is a popup.
+On Wayland, the active display-socket owner identifies
+the compositor; other app frames retain their AT-SPI classification.

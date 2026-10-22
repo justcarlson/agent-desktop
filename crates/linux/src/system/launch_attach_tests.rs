@@ -12,7 +12,7 @@ fn app(pid: u32, name: &str) -> Running {
 fn keys(items: &[&str]) -> Option<super::super::executable_identity::ExecutableIdentity> {
     Some(super::super::executable_identity::ExecutableIdentity {
         executable: std::path::PathBuf::from(format!("/apps/{}", items[0])),
-        argv: None,
+        argv: Some(vec![format!("/apps/{}", items[0]).into()]),
     })
 }
 

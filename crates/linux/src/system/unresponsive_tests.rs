@@ -59,12 +59,6 @@ fn only_the_selected_apps_are_considered() {
 }
 
 #[test]
-fn a_helper_app_is_never_the_target() {
-    let registry = registry(vec![app(7, "gnome-shell", false)]);
-    assert!(stopped_target(&registry, |_| true, |_| true).is_none());
-}
-
-#[test]
 fn an_unknown_name_is_app_not_found_suggesting_list_apps() {
     let registry = registry(vec![app(7, "nautilus", true)]);
     let error =

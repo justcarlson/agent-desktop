@@ -5,7 +5,6 @@ use agent_desktop_core::{AppInfo, Deadline, DeliverySemantics, ErrorCode, Window
 use super::close::close_app;
 use super::close_plan::TERM_GRACE;
 use super::process_facts;
-use super::protected::PROTECTED_NAMES;
 use super::{SharedBus, app_inventory, apps_scoped, list_windows};
 use rig::{Orphan, lease};
 
@@ -177,35 +176,24 @@ fn close_live_a_changed_token_leaves_the_live_process_alone() {
 
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh"]
-fn close_live_protected_decoys_are_refused_and_keep_running() {
-    assert_ne!(
-        PROTECTED_NAMES.len(),
-        0,
-        "the protected table is empty: it is filled from the measured session processes"
-    );
-    let dir = std::env::temp_dir().join(format!("ad-decoys-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("decoy dir");
-    for name in PROTECTED_NAMES {
+fn close_live_service_names_do_not_protect_unrelated_processes() {
+    let dir = std::path::PathBuf::from(std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").unwrap())
+        .join("decoys");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["gnome-shell", "mutter-x11-frames", "xdg-desktop-portal"] {
         let decoy = dir.join(name);
-        std::fs::copy("/bin/sleep", &decoy).expect("decoy copied");
-        let program = decoy.to_string_lossy().into_owned();
-        let orphan = Orphan::spawn(&program, &["120"], &[]);
-        for force in [false, true] {
-            for listed_name in ["Harmless", name] {
-                let error = close_app(
-                    &SharedBus::default(),
-                    &orphan.app(listed_name),
-                    force,
-                    &lease(5_000),
-                )
-                .expect_err("a protected process is refused");
-                assert_eq!(error.code, ErrorCode::InvalidArgs, "{name} force={force}");
-                assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-                assert!(orphan.alive(), "{name} is still running");
-            }
-        }
+        std::fs::copy("/bin/sleep", &decoy).unwrap();
+        let orphan = Orphan::spawn(decoy.to_str().unwrap(), &["120"], &[]);
+        close_app(
+            &SharedBus::default(),
+            &orphan.app(name),
+            true,
+            &lease(5_000),
+        )
+        .expect("a name does not establish session ownership");
+        assert!(!orphan.alive());
     }
-    let _ = std::fs::remove_dir_all(dir);
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 fn unsaved_text_editor(bus: &SharedBus) -> (Orphan, AppInfo, std::path::PathBuf) {
@@ -274,47 +262,129 @@ fn close_live_text_editor_unsaved_document_times_out_without_a_signal() {
     assert_eq!(std::fs::read_to_string(&file).expect("read"), "original\n");
 }
 
-fn session_process(comm: &str) -> Option<u32> {
-    let runtime = std::env::var("XDG_RUNTIME_DIR").ok()?;
-    let marker = format!("XDG_RUNTIME_DIR={runtime}");
-    std::fs::read_dir("/proc")
-        .ok()?
-        .filter_map(Result::ok)
-        .filter_map(|entry| entry.file_name().to_string_lossy().parse::<u32>().ok())
-        .find(|pid| {
-            let environ = std::fs::read(format!("/proc/{pid}/environ")).unwrap_or_default();
-            let ours = environ
-                .split(|byte| *byte == 0)
-                .any(|entry| entry == marker.as_bytes());
-            ours && process_facts::read(*pid).is_some_and(|facts| facts.comm == comm)
-        })
-}
-
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
+#[ignore = "reads only an owned display and bus; use a private managed session"]
 fn close_live_the_private_sessions_own_processes_are_refused() {
-    let mut refused = 0;
-    for comm in ["openbox", "dbus-daemon"] {
-        let pid = session_process(comm).unwrap_or_else(|| panic!("no session {comm} found"));
-        let facts = process_facts::read(pid).expect("facts");
+    let output = std::process::Command::new("python3")
+        .args(["-c", include_str!("close_live/owners.py")])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let pids: Vec<u32> = serde_json::from_slice(&output.stdout).unwrap();
+    for pid in pids {
+        let facts = process_facts::read(pid).unwrap();
         let app = AppInfo {
-            name: "Harmless".to_owned(),
+            name: "ordinary application".into(),
             pid: pid.into(),
             bundle_id: None,
             process_instance: Some(facts.instance),
             presentation: None,
         };
         for force in [false, true] {
-            let error = close_app(&SharedBus::default(), &app, force, &lease(5_000))
-                .expect_err("a session process is refused");
-            assert_eq!(error.code, ErrorCode::InvalidArgs, "{comm} force={force}");
+            let error = close_app(&SharedBus::default(), &app, force, &lease(5_000)).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidArgs);
             assert_eq!(error.disposition, DeliverySemantics::not_delivered());
         }
         assert!(
-            super::liveness::liveness(pid, &app.process_instance.expect("t"))
+            super::liveness::liveness(pid, app.process_instance.as_deref().unwrap())
                 != super::liveness::Liveness::Gone
         );
-        refused += 1;
+        println!(
+            "independent xprop/socket/D-Bus owner pid {pid} remains alive after graceful and forced refusal"
+        );
     }
-    assert_eq!(refused, 2);
+    let after = std::process::Command::new("python3")
+        .args(["-c", include_str!("close_live/owners.py")])
+        .output()
+        .unwrap();
+    assert!(
+        after.status.success(),
+        "{}",
+        String::from_utf8_lossy(&after.stderr)
+    );
+    assert_eq!(
+        after.stdout, output.stdout,
+        "independent native session owners did not change"
+    );
+}
+
+#[test]
+#[ignore = "starts an owned portal backend on a private session bus"]
+fn close_live_service_ownership_protects_an_arbitrarily_named_process() {
+    let runtime = std::path::PathBuf::from(std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").unwrap());
+    let script = runtime.join("portal-owner.py");
+    std::fs::write(&script,r#"
+import gi
+from gi.repository import Gio,GLib
+bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+Gio.bus_own_name_on_connection(bus,'org.freedesktop.impl.portal.desktop.OwnedFixture',Gio.BusNameOwnerFlags.NONE,None,None)
+GLib.MainLoop().run()
+"#).unwrap();
+    let orphan = Orphan::spawn("python3", &[script.to_str().unwrap()], &[]);
+    let until = Instant::now() + Duration::from_secs(10);
+    loop {
+        let owner = std::process::Command::new("busctl")
+            .args([
+                "--user",
+                "call",
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus",
+                "GetConnectionUnixProcessID",
+                "s",
+                "org.freedesktop.impl.portal.desktop.OwnedFixture",
+            ])
+            .output()
+            .unwrap();
+        if owner.status.success() {
+            assert_eq!(
+                String::from_utf8_lossy(&owner.stdout).trim(),
+                format!("u {}", orphan.pid)
+            );
+            break;
+        }
+        assert!(
+            Instant::now() < until,
+            "owned portal never acquired the service"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    for force in [false, true] {
+        let error = close_app(
+            &SharedBus::default(),
+            &orphan.app("ordinary application"),
+            force,
+            &lease(5_000),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgs);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        let owner = std::process::Command::new("busctl")
+            .args([
+                "--user",
+                "call",
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus",
+                "GetConnectionUnixProcessID",
+                "s",
+                "org.freedesktop.impl.portal.desktop.OwnedFixture",
+            ])
+            .output()
+            .unwrap();
+        assert!(owner.status.success());
+        assert_eq!(
+            String::from_utf8_lossy(&owner.stdout).trim(),
+            format!("u {}", orphan.pid)
+        );
+        assert!(orphan.alive());
+    }
+    println!(
+        "independent D-Bus credentials: portal backend pid {} remains alive after graceful and forced refusal",
+        orphan.pid
+    );
 }

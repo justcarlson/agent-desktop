@@ -5,7 +5,7 @@ use super::listed_window::ListedWindow;
 use super::proc_stat;
 use super::registry::Registry;
 use super::registry_app::RegistryApp;
-use super::window_ops::{is_listable, windows_of};
+use super::window_ops::windows_of;
 
 /// The first selected application that is stopped: its own root did not
 /// answer and the process is in a stopped state, while the bus daemon still
@@ -29,7 +29,7 @@ pub(crate) fn first_stopped(
     registry
         .apps
         .iter()
-        .filter(|app| is_listable(app) && select(app) && !app.answered)
+        .filter(|app| select(app) && !app.answered)
         .find(|app| is_stopped(app.root.pid()))
 }
 

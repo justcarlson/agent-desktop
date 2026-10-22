@@ -74,7 +74,7 @@ impl AliasIndex {
     fn unique_entry(&self, actual: &ExecutableIdentity) -> Option<&IndexedEntry> {
         let path = super::launch_search::Search::from_env().path_dirs;
         let mut entries = self.entries.iter().filter(|entry| {
-            ExecutableIdentity::requested(&entry.argv, true, &path)
+            ExecutableIdentity::requested(&entry.argv, &path)
                 .is_some_and(|wanted| wanted.matches(actual))
         });
         match (entries.next(), entries.next()) {

@@ -45,26 +45,35 @@ fn rejects_wrong_process(class: &str) {
             owner.name = "unrelated".into();
             target.to_str().unwrap().to_owned()
         }
-        "alias" => {
+        "alias" | "try-exec" => {
             owner.name = "sole-app".into();
+            let extra = if class == "try-exec" {
+                format!("TryExec={}\n", other.display())
+            } else {
+                String::new()
+            };
             std::fs::write(
                 fixture.search.data_dirs[0].join("sole-app.desktop"),
                 format!(
-                    "[Desktop Entry]\nType=Application\nName=Sole App\nExec={}\n",
+                    "[Desktop Entry]\nType=Application\nName=Sole App\nExec={}\n{extra}",
                     target.display()
                 ),
             )
             .unwrap();
             "sole-app".into()
         }
-        "interpreter" => {
+        "interpreter" | "direct-interpreter" => {
             child.kill().unwrap();
             child.wait().unwrap();
             let pair = real_process("/usr/bin/python3", &["-c", "import time; time.sleep(30)"]);
             child = pair.0;
             owner = pair.1;
             std::fs::write(fixture.search.data_dirs[0].join("sole-app.desktop"), "[Desktop Entry]\nType=Application\nName=Sole App\nExec=/usr/bin/python3 /opt/other.py\nTryExec=/bin/sleep\n").unwrap();
-            "sole-app".into()
+            if class == "direct-interpreter" {
+                "/usr/bin/python3".into()
+            } else {
+                "sole-app".into()
+            }
         }
         _ => target.to_str().unwrap().to_owned(),
     };
@@ -85,8 +94,30 @@ fn launch_rejects_sole_entry_alias_without_executable_proof() {
     rejects_wrong_process("alias");
 }
 #[test]
+fn a_running_try_exec_helper_is_not_the_requested_desktop_app() {
+    rejects_wrong_process("try-exec");
+}
+#[test]
 fn launch_rejects_sole_interpreter_with_different_argv() {
     rejects_wrong_process("interpreter");
+}
+#[test]
+fn direct_launch_never_attaches_to_another_interpreter_invocation() {
+    rejects_wrong_process("direct-interpreter");
+    let fixture = fixture(&[], &[]);
+    let args = ["-c", "import time; time.sleep(30)"];
+    let (mut child, owner) = real_process("/usr/bin/python3", &args);
+    let arguments = args.map(String::from);
+    let index = crate::system::alias_cache::AliasCache::new().index(&fixture.search.data_dirs);
+    let plan = resolve("/usr/bin/python3", &arguments, &fixture.search, &index).unwrap();
+    let decision = decide(&plan.identity, std::slice::from_ref(&owner), true, true);
+    let mut unknown = plan.identity.clone();
+    unknown.as_mut().unwrap().argv = None;
+    let missing_arguments = decide(&unknown, std::slice::from_ref(&owner), true, false);
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert_eq!(decision, Decision::Forward);
+    assert_eq!(missing_arguments, Decision::Spawn);
 }
 #[test]
 fn launch_rejects_same_basename_at_another_absolute_path() {

@@ -111,50 +111,6 @@ fn registry_has(pid: u32) -> bool {
         .is_ok_and(|inventory| inventory.apps.iter().any(|app| app.pid == pid))
 }
 
-fn assert_owner_is_truthful(result: &LaunchResult) {
-    let pid = result.pid.get();
-    wait_until("the owner on the registry", || registry_has(pid));
-    wait_until("an X11 window of the owner", || {
-        !x_windows_of(pid).is_empty()
-    });
-    let facts = process_facts::read(pid).expect("the owner runs");
-    assert_eq!(
-        result.process_instance.as_deref(),
-        Some(facts.instance.as_str())
-    );
-    let window = result.window.as_ref().expect("a window inside the budget");
-    assert_eq!(window.pid, result.pid);
-}
-
-fn launched(owned: &mut Owned, id: &str, args: &[&str]) -> LaunchResult {
-    let result = launch(id, &options(args)).unwrap_or_else(|error| panic!("{id}: {error:?}"));
-    owned.keep(result.pid.get());
-    result
-}
-
-#[test]
-#[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_second_calculator_attaches_without_a_spawn_and_with_arguments_is_a_new_owner() {
-    let mut owned = Owned(Vec::new());
-    let first = launched(&mut owned, "gnome-calculator", &[]);
-    assert_owner_is_truthful(&first);
-    let again = launched(&mut owned, "Calculator", &[]);
-    assert_eq!(again.pid, first.pid);
-    let refused = launch(
-        "Calculator",
-        &LaunchOptions {
-            attach_if_running: false,
-            ..options(&[])
-        },
-    )
-    .expect_err("a fresh launch was required");
-    assert_eq!(refused.code, ErrorCode::ActionFailed);
-    assert!(refused.message.contains(&first.pid.get().to_string()));
-    let second = launched(&mut owned, "Calculator", &["--mode=basic"]);
-    assert_ne!(second.pid, first.pid);
-    assert_owner_is_truthful(&second);
-}
-
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
 fn live_an_app_that_exits_after_registering_and_before_a_window_is_not_a_launch() {
@@ -181,3 +137,6 @@ mod resident;
 
 #[path = "launch_identity_live_tests.rs"]
 mod identity;
+
+#[path = "launch_direct_live_tests.rs"]
+mod direct;

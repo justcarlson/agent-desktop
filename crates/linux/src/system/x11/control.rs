@@ -75,6 +75,64 @@ fn read_manager_name(display: &str) -> Option<String> {
     Some(text).filter(|text| !text.is_empty())
 }
 
+pub(crate) fn manager_pid(deadline: Deadline) -> ControlRead<Option<u32>> {
+    route(deadline, |display| {
+        let read = || {
+            let (connection, root) = open(&display)?;
+            let names = atoms(&connection, &[b"_NET_SUPPORTING_WM_CHECK"])?;
+            let check = |window| {
+                let reply = property(&connection, window, names[0], AtomEnum::WINDOW, 1)?;
+                longs(reply.format, &reply.value, reply.bytes_after)
+            };
+            let managers = check(root)?;
+            let Some(&manager) = managers.first() else {
+                return Some(None);
+            };
+            if check(manager)?.as_slice() != [manager] {
+                return None;
+            }
+            super::resource_owner::pid(&connection, manager).map(Some)
+        };
+        read().map_or(ControlRead::Unavailable, ControlRead::Ready)
+    })
+}
+
+pub(crate) fn decoration_matches(pid: u32, claims: usize, deadline: Deadline) -> bool {
+    route(deadline, move |display| {
+        let read = || {
+            let (connection, root) = open(&display)?;
+            let names = atoms(&connection, &[b"_NET_CLIENT_LIST"])?;
+            let reply = property(&connection, root, names[0], AtomEnum::WINDOW, MAX_TOPLEVELS)?;
+            let clients = longs(reply.format, &reply.value, reply.bytes_after)?;
+            let mut parents = std::collections::HashSet::new();
+            for client in clients {
+                if super::resource_owner::pid(&connection, client)? == pid {
+                    return Some(false);
+                }
+                let parent = connection.query_tree(client).ok()?.reply().ok()?.parent;
+                if parent != root
+                    && parent != client
+                    && super::resource_owner::pid(&connection, parent)? == pid
+                {
+                    parents.insert(parent);
+                }
+            }
+            Some(
+                !parents.is_empty()
+                    && parents.len() == claims
+                    && super::client_population::complete(
+                        pid,
+                        parents.into_iter().collect(),
+                        deadline,
+                    ),
+            )
+        };
+        read().map_or(ControlRead::Unavailable, ControlRead::Ready)
+    })
+    .ready()
+        == Some(true)
+}
+
 /// The managed clients of an Xwayland display, as the window listing reads
 /// them from an X11 session.
 pub(crate) fn xwayland_clients(deadline: Deadline) -> ControlRead<Vec<X11Client>> {
@@ -205,10 +263,14 @@ fn read_toplevels(display: &str, pid: u32) -> ControlRead<Vec<Toplevel>> {
         .into_iter()
         .filter(|window| pid_matches(&connection, *window, pid_atom, pid))
     {
-        let kind = property(&connection, window, known.window.kind, AtomEnum::ATOM, 8)
-            .map_or(WindowKind::Normal, |reply| {
-                decode_kind(reply.format, &reply.value, known.window.types)
-            });
+        let Some(reply) = property(&connection, window, known.window.kind, AtomEnum::ATOM, 8)
+        else {
+            return ControlRead::Unavailable;
+        };
+        if longs(reply.format, &reply.value, reply.bytes_after).is_none() {
+            return ControlRead::Unavailable;
+        }
+        let kind = decode_kind(reply.format, &reply.value, known.window.types);
         let transient = connection
             .get_property(
                 false,

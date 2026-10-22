@@ -130,7 +130,7 @@ fn plan_file(
     let at = argv.iter().position(|word| *word == program).unwrap_or(0);
     argv[at] = resolve_program(&program, &search.path_dirs)?;
     argv[0] = resolve_program(&argv[0], &search.path_dirs)?;
-    let identity = ExecutableIdentity::requested(&argv, true, &search.path_dirs);
+    let identity = ExecutableIdentity::requested(&argv, &search.path_dirs);
     Ok(Plan {
         argv,
         cwd: entry.path.map(PathBuf::from),
@@ -142,7 +142,7 @@ fn direct_plan(program: String, arguments: &[String]) -> Plan {
     let argv: Vec<String> = std::iter::once(program)
         .chain(arguments.iter().cloned())
         .collect();
-    let identity = ExecutableIdentity::requested(&argv, false, &[]);
+    let identity = ExecutableIdentity::requested(&argv, &[]);
     Plan {
         argv,
         cwd: None,
