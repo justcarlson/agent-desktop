@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     ActionResult, ActionStep, AdapterError, DeliverySemantics, InteractionLease, InteractionPolicy,
-    StepMechanism,
+    KeyCombo, StepMechanism,
 };
 use serde_json::json;
 
@@ -8,6 +8,7 @@ use super::chain::{DeliveryOutcome, Observed};
 use super::chain_step::verified_of;
 use super::select::unchanged_is_ignored;
 use super::select_index::UNPROVEN_INDEX_KIND;
+use crate::input::target_keyboard::press_key_global_steps;
 use crate::input::target_pointer::{ClickSpec, click_steps};
 use crate::input::target_world::LiveWorld;
 use crate::system::SharedBus;
@@ -15,10 +16,11 @@ use crate::tree::AtspiElement;
 
 const SEMANTIC_ROUTE: &str = "Selection.SelectChild";
 
-/// The pointer a headed select uses once no semantic route can carry it. A
-/// headless select has none, so it never holds one.
+/// The pointer and the keys a headed select uses once no semantic route can
+/// carry it. A headless select has none, so it never holds one.
 pub(crate) trait Pointer {
     fn click(&self, element: &AtspiElement) -> Result<Vec<ActionStep>, AdapterError>;
+    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError>;
 }
 
 pub(crate) struct LivePointer<'a> {
@@ -45,6 +47,14 @@ impl Pointer for LivePointer<'_> {
             self.policy,
             self.lease.deadline(),
         )
+    }
+
+    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError> {
+        let combo = KeyCombo {
+            key: "escape".to_owned(),
+            modifiers: Vec::new(),
+        };
+        press_key_global_steps(&self.world(), &combo, self.lease.deadline())
     }
 }
 
@@ -104,6 +114,17 @@ pub(super) fn by_pointer_result(
         Some(true) => result.with_verified_delivery(),
         _ => result,
     })
+}
+
+pub(super) fn pointer_required() -> AdapterError {
+    AdapterError::policy_denied_for_policy(
+        "Opening this dropdown takes the pointer, which the interaction policy does not allow",
+        InteractionPolicy::headless(),
+    )
+    .with_details(json!({
+        "kind": "pointer_required",
+        "physical_delivery_started": false,
+    }))
 }
 
 #[cfg(test)]

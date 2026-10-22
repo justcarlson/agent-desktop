@@ -17,6 +17,10 @@ impl IndexLookup for NoIndices {
         false
     }
 
+    fn counted_indices(&self) -> Result<bool, AdapterError> {
+        Ok(false)
+    }
+
     fn index(&self, _: &AtspiElement) -> Result<i32, AdapterError> {
         panic!("an unproven toolkit reads no index");
     }
@@ -39,6 +43,10 @@ impl Pointer for Counting {
     fn click(&self, _: &AtspiElement) -> Result<Vec<ActionStep>, AdapterError> {
         self.clicks.set(self.clicks.get() + 1);
         Ok(vec![ActionStep::succeeded("XTEST.click")])
+    }
+
+    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError> {
+        Ok(Vec::new())
     }
 }
 
@@ -132,4 +140,14 @@ fn a_pointer_select_is_verified_only_by_the_read_back() {
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(error.details.expect("details")["cause"], "write_ignored");
+}
+
+#[test]
+fn a_headless_pointer_only_select_is_a_policy_refusal_with_nothing_sent() {
+    let error = pointer_required();
+    assert_eq!(error.code, ErrorCode::PolicyDenied);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let details = error.details.expect("details");
+    assert_eq!(details["kind"], "pointer_required");
+    assert_eq!(details["physical_delivery_started"], false);
 }

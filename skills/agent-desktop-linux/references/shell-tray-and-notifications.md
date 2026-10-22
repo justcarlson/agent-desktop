@@ -83,8 +83,15 @@ A successful input report alone does not prove an item was picked.
 GTK4 list-backed dropdowns, such as Settings' Night Light Schedule, are not
 menu-role popups. Their choices stay in the window tree: `wait --menu` and
 `snapshot --surface menu` do not cover them. Find the combobox, click its fresh
-ref, and use `wait --text` for a choice before taking a window snapshot. If
-`select` refuses, adding `--headed` does not supply a missing semantic action.
+ref, and use `wait --text` for a choice before taking a window snapshot. A
+combobox with no popup state, no selection and no action, such as a libadwaita
+combo row, takes `--headed select @ref "Choice"` on X11: it clicks the
+combobox, finds the choice in the list that appears, selects it through that
+list and the popup's default action, and checks the value the combobox shows.
+A choice that is not there closes the popup with Escape and answers
+`ELEMENT_NOT_FOUND`. Without `--headed` that select is `POLICY_DENIED`, kind
+`pointer_required`, unless the combobox already shows the choice. For a dropdown where `select` still
+refuses, adding `--headed` does not supply a missing semantic action.
 On X11, after a headed click focuses the open dropdown, explicit headed
 `press down` / `press up` and `press return` can choose an item. Inspect the
 current choice first and verify the resulting value before another mutation.

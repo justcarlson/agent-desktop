@@ -25,6 +25,7 @@ pub(crate) mod select_exclusive;
 mod select_identity;
 mod select_index;
 pub(crate) mod select_pointer;
+mod select_pointer_combo;
 pub(crate) mod select_popup;
 mod select_row;
 pub(crate) mod select_search;

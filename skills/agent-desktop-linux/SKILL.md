@@ -169,8 +169,11 @@ returns `data.rendered: true`; on Wayland it saves the setting and returns
   `data` to see which ran.
 - `select` tries the semantic route first and the pointer second. A headed
   `select` on a list whose toolkit index cannot be mapped to the row (a GTK4
-  list) clicks the row and checks its `selected` state. A headless `select`
-  refuses with `selection_index_unproven`.
+  list) clicks the row and checks its `selected` state. On a combo that has no
+  semantic opener (a libadwaita combo row) it clicks the combo to open it, then
+  selects the choice through the popup's own list and checks the value the combo
+  shows. A headless `select` on either refuses: `selection_index_unproven`, or
+  `POLICY_DENIED` with kind `pointer_required`.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.

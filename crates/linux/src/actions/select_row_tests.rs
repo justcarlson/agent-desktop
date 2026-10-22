@@ -27,6 +27,10 @@ impl Pointer for Clicks {
         }
         Ok(vec![ActionStep::succeeded("XTEST.click")])
     }
+
+    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError> {
+        Ok(Vec::new())
+    }
 }
 
 fn row() -> AtspiElement {
