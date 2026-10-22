@@ -71,12 +71,13 @@ target.connect('scroll-event', wheel)
 interceptor.add_events(Gdk.EventMask.SCROLL_MASK)
 interceptor.connect('scroll-event', intercepted)
 def poll():
-    if pathlib.Path(sys.argv[3]).exists():
+    uncovered = pathlib.Path(sys.argv[3]).exists()
+    if uncovered:
         cover.hide()
         window.present()
         counts["covered"] = False
     record()
-    return not (pathlib.Path(sys.argv[3]).exists() and window.is_active())
+    return not (uncovered and window.is_active())
 def ready():
     if not window.is_active():
         return True
@@ -258,12 +259,16 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                         let observed = read(&state);
                         (observed["covered"] == false && observed["active"] == true).then_some(())
                     })
-                    .is_some()
+                    .is_some(),
+                "{mode} {direction:?}: the app never reported the cover gone and its window active: {}",
+                read(&state)
             );
             assert!(
                 bench
                     .wait_for(|| matches!(hit(), HitTestResult::ReachesTarget).then_some(()))
-                    .is_some()
+                    .is_some(),
+                "{mode} {direction:?}: the uncovered target never received the pointer: {:?}",
+                hit()
             );
             scroll_steps(
                 &world.live,
