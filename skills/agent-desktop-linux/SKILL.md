@@ -49,8 +49,8 @@ tool for observation or semantic actions.
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
-| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11 with identity guards. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
-| Shell surfaces | `open-system-surface` | Only `system-tray`, `action-center` and `quick-settings` can work. `system-tray` needs a StatusNotifierWatcher and refuses with `watcher: absent` without one; `action-center` needs proven role ancestry. `taskbar` always refuses, and `start-menu` and `system-tray-overflow` are not supported, although `--help` lists them. See the shell reference |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11, and `dismiss-notification` and `notification-action` also need `--expected-app` or `--expected-title`. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
+| Shell surfaces | `open-system-surface` | Only `system-tray` and `action-center` can work. `system-tray` needs a StatusNotifierWatcher and refuses with `watcher: absent` without one; `action-center` needs proven role ancestry. `quick-settings` refuses with `shell_container_unproven`, `taskbar` always refuses, and `start-menu` and `system-tray-overflow` are not supported, although `--help` lists them. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Requires an active session; see below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
 
@@ -77,8 +77,8 @@ tool for observation or semantic actions.
   metadata, independent of executable names or installed payload files. Window
   observations wait for three equal full reads and a web-document role (or a
   requested depth cut), at any tree size. A shell without document evidence
-  stays incomplete when the wait budget ends. `--text` matches a subtree, so
-  ancestors of the text match. A `--timeout` shorter than the first read returns
+  stays incomplete when the wait budget ends. `wait --text` matches a node's own
+  name, value or description. A `--timeout` shorter than the first read returns
   `TIMEOUT`, never a partial tree.
 - **Geometry-only refs require unchanged geometry.** A changed size, even one
   pixel, cannot prove identity. Position and size must both match in the
@@ -91,8 +91,9 @@ tool for observation or semantic actions.
   with `candidate_count` 3 until the extra tabs are closed. A ref belongs to the
   window it was taken in: two windows with the same title each resolve their own
   refs.
-- **Chromium, Electron and Qt apps need a launch flag or variable** to appear
-  on the bus. See `references/troubleshooting.md`.
+- **Chromium and Qt apps need a launch flag or variable** to appear on the bus;
+  Electron apps need none, only `--no-sandbox` where `chrome-sandbox` is not
+  setuid. See `references/troubleshooting.md`.
 - **Headed ref actions need a window that can take focus.** A window the
   window manager never activated ends `activation_not_granted`. See
   `references/windows-and-lifecycle.md`.
@@ -105,9 +106,10 @@ tool for observation or semantic actions.
   `snapshot --surface menu --app <name> -i`. If absent, use `wait --menu`
   and `list-surfaces` before assuming the opener failed. A list-backed dropdown
   is part of the window, not a menu surface; see the shell reference.
-- **Shell pointer input requires receiver proof.** Headed shell clicks use the
-  same structural hit test as app clicks. An unknown receiver or overlapping
-  sibling refuses before any pointer event; Wayland shell clicks therefore refuse.
+- **Shell pointer input requires receiver proof.** On X11 a headed shell click
+  is proven from the shell's own tree: the receiver must be the target and stand
+  still, or the click refuses before any pointer event. Wayland shell clicks
+  refuse.
   Notifications need the GNOME notification service; tray snapshots also need a StatusNotifierWatcher.
 - **The state root must be private.** A group-writable or world-accessible
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
@@ -179,9 +181,12 @@ returns `data.rendered: true`; on Wayland it saves the setting and returns
   list) clicks the row and checks its `selected` state. On a combo that has no
   semantic opener (a libadwaita combo row) it clicks the combo to open it, then
   selects the choice through the popup's own list and checks the value the combo
-  shows. A headless `select` on either refuses: `selection_index_unproven`, or
-  `POLICY_DENIED` with kind `pointer_required`. The pointer route needs X11: on
-  Wayland a headed `select` is refused at once, before it resolves its target.
+  shows. A headless `select` on a list refuses with `selection_index_unproven`;
+  on a combo with no semantic opener it refuses with `POLICY_DENIED`, kind
+  `pointer_required`, unless the combo already shows the choice. A GTK4
+  drop-down that opens through its own toggle takes `select` without `--headed`
+  and checks the value it shows. The pointer route needs X11: on Wayland a
+  headed `select` is refused at once, before it resolves its target.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.

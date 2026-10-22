@@ -25,7 +25,7 @@ of `not_configured`, `missing` or `refused` and list the variables they tried.
 | Headless scoped `press` | Live display and frame focus guards; no activation | Live frame focus guard; no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` selects a monitor |
 | Clipboard | Native selection owner | `wl-clipboard` |
-| GNOME Shell ref click / popup opener | `--headed`, shared structural receiver proof required | Refused: receiver cannot be proven; see shell reference |
+| GNOME Shell ref click / popup opener | `--headed`, a receiver proof from the shell's own tree | Ref click refused with `wayland_session`, popup opener refused as unproven; see shell reference |
 
 No tool is needed on X11 beyond the binary and its clipboard helper. `xdotool`,
 `ydotool`, `xclip` and `wmctrl` are not used. `wl-clipboard` is the one outside
@@ -50,9 +50,8 @@ Wayland ordinary-app headed pointer commands are refused at once with
 `ACTION_NOT_SUPPORTED`, cause `wayland_session` and
 `physical_delivery_started: false` (measured for `click`, `hover`,
 `double-click`, `mouse-wheel`, `mouse-down` and `select`). A headed `type` sends Wayland
-keys through `RemoteDesktop.type_text` after the Mutter capability probe succeeds. Headless `type` writes
-through `EditableText`. A headless action reports `semantic_api` and leaves the
-pointer still. Windows works the other way round (semantic first), so do not
+keys through `RemoteDesktop.type_text` after the Mutter capability probe succeeds.
+A headless action reports `semantic_api` and leaves the pointer still. Windows works the other way round (semantic first), so do not
 carry that assumption across platforms.
 
 Before a physical ref-addressed key, the target frame must report
@@ -83,8 +82,8 @@ press, so a window raised by the first click is seen before the second. The
 checks share a 300 ms press-to-press budget, inside the 400 ms in which GTK, Qt
 and GNOME read two presses as one gesture. A changed receiver, or a check that
 outruns the budget (`details.kind: multi_click_window`), stops the gesture with
-`ACTION_FAILED`, the clicks already sent in `delivered_clicks` and
-`delivered_unverified`; inspect the app before retrying.
+`ACTION_FAILED`, the clicks already sent counted in `details.delivered_clicks`
+and the disposition `delivered_unverified`; inspect the app before retrying.
 `hover @ref` proves the receiver the same way before the move. A covered target
 or an unproven receiver is refused with `ACTION_FAILED` and `not_delivered`, and
 the cursor does not move. `hover --xy` has no target element to prove.
@@ -100,9 +99,10 @@ agent-desktop press return --app gnome-text-editor
   `space`, `home`, `pageup`, `f1`-`f24`) plus punctuation names (`comma`,
   `period`, `greater`, `leftbracket`) and X keysym names such as `Page_Up`.
   `delete` is the backspace key; `forwarddelete` is the forward Delete key.
-  A single character is its own key. An unknown name lists the accepted forms.
-  A bare upper-case letter (`H`) is the shifted key (`shift+h`); with other
-  modifiers the case is ignored (`ctrl+A` is `ctrl+a`).
+  A single character is its own key. An unknown name lists the accepted forms and
+  is refused with `INVALID_ARGS` and `not_delivered`.
+  A bare upper-case letter (`H`) is the shifted key (`shift+h`) on every platform;
+  with other modifiers the case is ignored (`ctrl+A` is `ctrl+a`).
 - In combos, `meta`, `cmd`, `command`, `super` and `win` name the Super modifier.
   For a bare key use `super` or `meta`, not `cmd`, `command` or `win`.
 - `press` without `--app` or `--window-id` sends to the focused window.
@@ -110,11 +110,14 @@ agent-desktop press return --app gnome-text-editor
   `press --window-id` also requires the exact window's focus. A background or
   minimized target is refused. See
   `references/windows-and-lifecycle.md`.
-- Keys carry the Shift level the live keymap needs. `press` takes only keys the
-  active layout maps and the named keysyms above. A character the layout cannot
-  produce (`é`, `你`) is refused and not delivered (`INVALID_ARGS` on X11,
-  `ACTION_NOT_SUPPORTED` with `character_outside_layout` on Wayland); `type`
-  sends it through spare keycodes, so use `type` for accents and non-Latin text.
+- Keys carry the Shift level the live keymap needs. On X11 `press` takes only
+  keys the active layout maps and the named keysyms above; on Wayland it takes
+  printable ASCII, function and modifier keysyms without reading the layout. A
+  character the layout cannot produce (`é`, `你`) is refused and not delivered
+  (`INVALID_ARGS` on X11, `ACTION_NOT_SUPPORTED` with `character_outside_layout`
+  on Wayland). On X11, `--headed type` sends such a character through spare
+  keycodes; on Wayland it refuses it, so use headless `type` or `set-value` for
+  accents and non-Latin text.
 
 ### Blocked combos
 
@@ -141,7 +144,9 @@ Headed typing proves focus on the field or its proven internal editor. Focus
 elsewhere in the window does not authorize ref typing. Verify the resulting
 value or application effect after typing.
 
-Headless `type @ref text` writes through `EditableText.InsertText`. Under `--headed` it
+Headless `type @ref text` writes through `EditableText.InsertText`. Without
+`--timeout-ms`, `type` waits 5000 ms plus 30 ms for each character of its text;
+an explicit `--timeout-ms` replaces that budget. Under `--headed` it
 sends physical keys first (step `XTEST.type_text` on X11, `RemoteDesktop.type_text` on
 Wayland, `physical_synthetic`; the result still reads the field back when it can)
 and falls back to `EditableText` only where keys cannot be sent. A terminal's
@@ -155,11 +160,14 @@ X11 physical `type` refuses control characters, including Tab and newline, befor
 sending any text: those keys can move focus or submit a form inside a text burst.
 Use headless `type` or `set-value` for literal text containing those characters;
 use an explicit `press tab` or `press return` when navigation or submission is
-intended.
+intended. On Wayland, `--headed type` sends a newline as `Return` and a tab as
+`Tab`, which can submit a form or move focus; other control characters are
+refused with `character_outside_layout`.
 
 X11 physical text checks the live keyboard state before sending each chunk. If
-that state is unsupported, the physical route refuses before input; an editable
-field may then use the documented semantic fallback.
+that state is unsupported, the physical route refuses before that chunk's keys;
+the semantic fallback applies only when no key was sent, because keys sent in
+earlier chunks are reported as `delivered_unverified`.
 
 The first `type` into a fresh document changes the window title. The ref from the
 snapshot still resolves: `get` on it reads the typed value. Take a fresh snapshot
@@ -187,11 +195,8 @@ opens its own session. Ending a session releases its held keys.
   The rule is measured on a US layout, so a character your keymap holds can be
   refused. A refusal is safe: nothing was sent.
 - **App pointer.** AT-SPI gives no global window origin on Wayland, so ordinary
-  app pointer commands refuse at once with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
-  before anything is sent. A `--headed` ref `type` sends keys through
-  `RemoteDesktop.type_text`. GNOME Shell ref clicks and
-  popup openers also require the shared structural receiver proof and refuse
-  when that proof is unavailable; see
+  app pointer commands cannot be aimed; see Headed and headless above. GNOME
+  Shell ref clicks and popup openers refuse too; see
   `references/shell-tray-and-notifications.md`.
 - **No active window.** On a Wayland session with no seat keyboard no window carries
   `ACTIVE`, so `focus-changed` waits time out.
@@ -206,7 +211,9 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
   right and a negative one left, on all three platforms. A negative value
   works as `--dy -5` or `--dy=-5`.
 - With no `--dy`, the default is three lines down when `--dx` is zero (including
-  explicit `--dx 0`), and zero vertical lines when `--dx` is nonzero.
+  explicit `--dx 0`), and zero vertical lines when `--dx` is nonzero. A delta of
+  zero on both axes, or beyond 1000 clicks on an axis, is refused with
+  `INVALID_ARGS` and `not_delivered`.
 - The result carries `dy`, `dx`, `target`, `steps` and `disposition`, with no
   `scrolled` success flag. Wheel delivery is `delivered_unverified`; read the
   scrolled content afterwards.
