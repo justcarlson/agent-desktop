@@ -63,7 +63,7 @@ pub(crate) fn dispatch(
                 if control.is_disable() && !nothing_to_tear_down(&error) {
                     return Err(teardown_error(error));
                 }
-                tracing::warn!(code = %error.code.as_str(), "cursor overlay lifecycle update was skipped");
+                super::overlay_skipped::log(&error);
                 false
             }
         };

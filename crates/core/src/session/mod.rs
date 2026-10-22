@@ -1,6 +1,7 @@
 mod gc;
 mod liveness;
 mod manifest;
+mod tree;
 
 pub use gc::{GcOptions, GcReport, gc, is_live};
 pub use liveness::SessionLivenessLease;
@@ -305,7 +306,7 @@ pub fn start_session(options: StartSessionOptions) -> Result<SessionManifest, Ap
         .map(|name| validate_session_name(&name))
         .transpose()?;
     let dir = session_dir(&id)?;
-    create_session_tree(&dir)?;
+    tree::create(&dir)?;
     let manifest = SessionManifest {
         id: id.clone(),
         name,
@@ -351,26 +352,6 @@ pub(crate) fn acquire_liveness_lease_with_deadline(
 ) -> Result<Option<SessionLivenessLease>, AppError> {
     validate_session_id(session_id)?;
     liveness::acquire(session_id, deadline)
-}
-
-fn create_session_tree(dir: &Path) -> Result<(), AppError> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        std::fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(dir)?;
-        std::fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(dir.join("trace"))?;
-    }
-    #[cfg(not(unix))]
-    {
-        crate::private_file_parent::ensure_private(&dir.join("trace"))?;
-    }
-    Ok(())
 }
 
 fn manifest_path(session_id: &str) -> Result<PathBuf, AppError> {

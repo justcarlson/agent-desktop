@@ -43,22 +43,29 @@ pub(super) fn container_landmark(kind: ShellKind) -> Landmark {
 /// What opening a surface needs from the shell, so the rules
 /// run against a fixed shell in a test.
 pub(crate) trait Surface {
+    fn backed(&self, kind: ShellKind, deadline: Deadline) -> Result<(), AdapterError>;
     fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError>;
     fn press_opener(&self, kind: ShellKind, policy: InteractionPolicy) -> Result<(), AdapterError>;
     fn window(&self, kind: ShellKind, deadline: Deadline) -> Result<WindowInfo, AdapterError>;
     fn pause(&self, duration: Duration);
 }
 
-fn settle<W: Surface>(world: &W, kind: ShellKind, deadline: Deadline) -> Result<(), AdapterError> {
+fn settle<W: Surface>(
+    world: &W,
+    kind: ShellKind,
+    wanted: bool,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
     loop {
-        if world.showing(kind, deadline)? {
+        if world.showing(kind, deadline)? == wanted {
             return Ok(());
         }
         if deadline.is_expired() {
+            let label = if wanted { "visible" } else { "hidden" };
             return Err(AdapterError::new(
                 ErrorCode::Timeout,
                 format!(
-                    "The shell's {} did not become visible in time",
+                    "The shell's {} did not become {label} in time",
                     title_of(kind)
                 ),
             )
@@ -77,6 +84,9 @@ pub(crate) fn open_with<W: Surface>(
     policy: InteractionPolicy,
     deadline: Deadline,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
+    world
+        .backed(kind, deadline)
+        .map_err(|error| with_open_progress(error, false))?;
     if opener_of(kind).is_none()
         || world
             .showing(kind, deadline)
@@ -97,11 +107,23 @@ pub(crate) fn open_with<W: Surface>(
             == Some(true);
         with_open_progress(error, started)
     })?;
-    settle(world, kind, deadline).map_err(|error| with_open_progress(error, true))?;
+    settle(world, kind, true, deadline).map_err(|error| with_open_progress(error, true))?;
     world
         .window(kind, deadline)
         .map(|window| (window, Opened::Opened))
         .map_err(|error| with_open_progress(error, true))
+}
+
+pub(crate) fn close_with<W: Surface>(
+    world: &W,
+    kind: ShellKind,
+    deadline: Deadline,
+) -> Result<(), AdapterError> {
+    if opener_of(kind).is_none() || !world.showing(kind, deadline)? {
+        return Ok(());
+    }
+    world.press_opener(kind, InteractionPolicy::headed())?;
+    settle(world, kind, false, deadline)
 }
 
 fn with_open_progress(error: AdapterError, opened_by_call: bool) -> AdapterError {
@@ -167,6 +189,13 @@ impl LiveSurface<'_> {
 }
 
 impl Surface for LiveSurface<'_> {
+    fn backed(&self, kind: ShellKind, deadline: Deadline) -> Result<(), AdapterError> {
+        match kind {
+            ShellKind::Tray => crate::system::tray::require_watcher(deadline),
+            ShellKind::Dock | ShellKind::MessageList | ShellKind::SystemMenu => Ok(()),
+        }
+    }
+
     fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError> {
         is_showing(self.bus, kind, deadline)
     }
@@ -204,6 +233,14 @@ pub(crate) fn open(
     lease: &InteractionLease,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
     open_with(&LiveSurface { bus, lease }, kind, policy, lease.deadline())
+}
+
+pub(crate) fn close(
+    bus: &SharedBus,
+    kind: ShellKind,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
+    close_with(&LiveSurface { bus, lease }, kind, lease.deadline())
 }
 
 pub(crate) fn is_showing(

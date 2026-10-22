@@ -18,3 +18,16 @@ fn socket_ownership_belongs_to_the_listener_process_not_its_name() {
     assert!(own.unwrap());
     assert!(!unrelated.unwrap());
 }
+
+#[test]
+fn an_unreachable_display_is_reported_as_the_display_not_as_unproven_ownership() {
+    use crate::system::display::display_cause::Cause;
+    use crate::system::display::display_unavailable::Unavailable;
+    let error = socket_of(DisplayServer::Unavailable(Unavailable {
+        cause: Cause::Missing,
+        detail: "DISPLAY=:999 names a server that is not running".to_owned(),
+    }))
+    .expect_err("no socket without a display");
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    assert!(error.message.contains("display server is not running"));
+}

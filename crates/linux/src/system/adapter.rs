@@ -24,6 +24,8 @@ use crate::system::{
     window::window_op,
 };
 
+const SURFACE_PROBE_MS: u64 = 3_000;
+
 impl SystemOps for LinuxAdapter {
     fn subscribe_wait(
         &self,
@@ -171,6 +173,12 @@ impl SystemOps for LinuxAdapter {
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {
+        let Ok(deadline) = Deadline::after(SURFACE_PROBE_MS) else {
+            return Vec::new();
+        };
+        if !permissions::accessibility_answers(self.bus(), deadline) {
+            return Vec::new();
+        }
         let mut surfaces = vec![SnapshotSurface::Window, SnapshotSurface::Sheet];
         surfaces.extend(menu_surface::supported());
         surfaces.extend(shell::supported(self.bus()));

@@ -35,11 +35,23 @@ pub(crate) fn is_window_shape(
             .is_some_and(|list| list.iter().any(|name| name == COMPONENT_INTERFACE))
 }
 
+fn reads_x11(
+    server: crate::system::display::display_server::DisplayServer,
+) -> Result<bool, agent_desktop_core::AdapterError> {
+    use crate::system::display::display_server::DisplayServer;
+    match server {
+        DisplayServer::Wayland => Ok(false),
+        DisplayServer::X11(_) => Ok(true),
+        DisplayServer::Unavailable(why) => Err(crate::system::display::unreachable(why)
+            .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())),
+    }
+}
+
 pub(in crate::system) fn without_helpers(
     windows: Vec<listed_window::ListedWindow>,
     deadline: agent_desktop_core::Deadline,
 ) -> Result<Vec<listed_window::ListedWindow>, agent_desktop_core::AdapterError> {
-    use crate::system::display::display_server::{DisplayServer, session_server};
+    use crate::system::display::display_server::session_server;
     use crate::system::x11::{
         DisplayReader, X11Source, X11State, control, window_kind::WindowKind,
     };
@@ -47,7 +59,7 @@ pub(in crate::system) fn without_helpers(
     if windows.iter().all(|window| window.unshown) {
         return Ok(windows);
     }
-    if matches!(session_server(), DisplayServer::Wayland) {
+    if !reads_x11(session_server())? {
         return Ok(windows);
     }
     let pending = crate::system::x11::start(|| DisplayReader.read());
@@ -153,6 +165,10 @@ pub(crate) fn frame_state(states: &Field<Vec<u32>>) -> FrameState {
 #[cfg(test)]
 #[path = "window_filter_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "window_filter_display_tests.rs"]
+mod display_tests;
 
 #[cfg(test)]
 #[path = "window_filter_live_tests.rs"]

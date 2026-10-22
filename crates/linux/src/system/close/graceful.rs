@@ -8,6 +8,7 @@ use crate::system::x11::control_error::ControlError;
 use crate::system::x11::toplevel::Toplevel;
 
 const DIALOG_LOOK_EVERY: u32 = 4;
+const SETTLE_LOOKS: u32 = 4;
 
 fn unless_gone(world: &impl World, error: AdapterError) -> Result<bool, AdapterError> {
     if world.liveness() == Liveness::Gone {
@@ -144,6 +145,38 @@ fn wait_gone(world: &impl World) -> Waited {
     }
 }
 
+/// The windows of the process as they stand when its prompt is reported. One
+/// close request can raise a prompt for each window with unsaved work, one
+/// after the other, and the wait ends on the first it sees. The windows are
+/// read again until two reads agree, and every count of the result comes from
+/// the last read that still shows a prompt, so the result matches what a
+/// reader of the session sees a moment later. `None` is a process that
+/// exited while it settled.
+fn settled(world: &impl World, first: Vec<Toplevel>) -> Option<Vec<Toplevel>> {
+    let mut latest = first;
+    for _ in 0..SETTLE_LOOKS {
+        if world.liveness() == Liveness::Gone {
+            return None;
+        }
+        if world.remaining().is_zero() {
+            break;
+        }
+        world.pause();
+        let ControlRead::Ready(read) = world.toplevels() else {
+            break;
+        };
+        if !read.iter().any(refusal::is_dialog) {
+            break;
+        }
+        let agreed = read == latest;
+        latest = read;
+        if agreed {
+            break;
+        }
+    }
+    (world.liveness() != Liveness::Gone).then_some(latest)
+}
+
 /// The close that never signals: close requests to every top-level of the
 /// process, then a wait for it to exit. A process that does not exit by the
 /// deadline is a `TIMEOUT` with the request delivered and its effect
@@ -160,8 +193,11 @@ pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<bool, A
     }
     match wait_gone(world) {
         Waited::Gone => return Ok(sent),
-        Waited::Dialog(windows) => {
-            return Err(refusal::dialog_pending(request, &windows, true));
+        Waited::Dialog(first) => {
+            return match settled(world, first) {
+                Some(windows) => Err(refusal::dialog_pending(request, &windows, true)),
+                None => Ok(sent),
+            };
         }
         Waited::TimedOut => {}
     }
