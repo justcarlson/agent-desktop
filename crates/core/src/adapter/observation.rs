@@ -94,10 +94,9 @@ pub trait ObservationOps: Send + Sync {
             crate::AppInventoryQuery::NameOrAlias(name) => name,
         };
         let mut inventory = self.list_apps_inventory(deadline)?;
-        let needle = crate::search_text::normalize(name);
         inventory
             .apps
-            .retain(|app| crate::search_text::contains(&app.name, &needle));
+            .retain(|app| query.matches_display_name(&app.name));
         let aliased = match self.list_apps_scoped(name, None, deadline) {
             Ok(apps) => apps,
             Err(err) if err.code == ErrorCode::PlatformNotSupported => Vec::new(),
