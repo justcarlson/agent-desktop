@@ -217,4 +217,3 @@ pub(crate) use walk::Walk;
 pub(crate) use walk_counts::WalkCounts;
 pub(crate) use walk_limits::WalkLimits;
 pub(crate) use walked_node::WalkedNode;
-pub(crate) use walker::walk_tree;

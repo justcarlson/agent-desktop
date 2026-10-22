@@ -48,8 +48,8 @@ tool for observation or semantic actions.
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. With no selector the primary display is returned. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
-| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
-| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` with identity and pointer receiver guards. See the shell reference |
+| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` refuses because notification identity cannot be established |
+| Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | Refuse with `ACTION_NOT_SUPPORTED` on GNOME: notification identity and control semantics cannot be proven. See the shell reference |
 | Shell surfaces | `open-system-surface` | GNOME: `system-tray`, `action-center`, `quick-settings`; opening popups requires `--headed` and structural pointer receiver proof. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Renders on X11: `enable` returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
 | System | `status`, `permissions`, `version`, `batch`, `skills`, `session`, `trace` | Works |
@@ -102,8 +102,7 @@ tool for observation or semantic actions.
 - **Shell pointer input requires receiver proof.** Headed shell clicks use the
   same structural hit test as app clicks. An unknown receiver or overlapping
   sibling refuses before any pointer event; Wayland shell clicks therefore refuse.
-  Notifications need the
-  GNOME notification service; tray snapshots also need a StatusNotifierWatcher.
+  Notification commands refuse unproven protocol identity; tray snapshots also need a StatusNotifierWatcher.
 - **The state root must be private.** A group-writable or world-accessible
   `AGENT_DESKTOP_HOME` or `~/.agent-desktop` makes `snapshot` fail with
   `INTERNAL`; run `chmod 700` on it or let the tool create it.

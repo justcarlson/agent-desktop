@@ -40,7 +40,7 @@ pub(super) fn container_landmark(kind: ShellKind) -> Landmark {
     }
 }
 
-/// What opening and closing a surface needs from the shell, so the rules
+/// What opening a surface needs from the shell, so the rules
 /// run against a fixed shell in a test.
 pub(crate) trait Surface {
     fn showing(&self, kind: ShellKind, deadline: Deadline) -> Result<bool, AdapterError>;
@@ -49,31 +49,23 @@ pub(crate) trait Surface {
     fn pause(&self, duration: Duration);
 }
 
-fn did_not_flip(kind: ShellKind, wanted: &str, started: bool) -> AdapterError {
-    AdapterError::new(
-        ErrorCode::Timeout,
-        format!(
-            "The shell's {} did not become {wanted} in time",
-            title_of(kind)
-        ),
-    )
-    .with_suggestion("Retry the command; the shell may be busy")
-    .with_details(json!({ "physical_delivery_started": started, "surface": title_of(kind) }))
-}
-
-fn settle<W: Surface>(
-    world: &W,
-    kind: ShellKind,
-    wanted: bool,
-    deadline: Deadline,
-) -> Result<(), AdapterError> {
+fn settle<W: Surface>(world: &W, kind: ShellKind, deadline: Deadline) -> Result<(), AdapterError> {
     loop {
-        if world.showing(kind, deadline)? == wanted {
+        if world.showing(kind, deadline)? {
             return Ok(());
         }
         if deadline.is_expired() {
-            let label = if wanted { "visible" } else { "hidden" };
-            return Err(did_not_flip(kind, label, true));
+            return Err(AdapterError::new(
+                ErrorCode::Timeout,
+                format!(
+                    "The shell's {} did not become visible in time",
+                    title_of(kind)
+                ),
+            )
+            .with_suggestion("Retry the command; the shell may be busy")
+            .with_details(
+                json!({ "physical_delivery_started": true, "surface": title_of(kind) }),
+            ));
         }
         world.pause(POLL);
     }
@@ -105,7 +97,7 @@ pub(crate) fn open_with<W: Surface>(
             == Some(true);
         with_open_progress(error, started)
     })?;
-    settle(world, kind, true, deadline).map_err(|error| with_open_progress(error, true))?;
+    settle(world, kind, deadline).map_err(|error| with_open_progress(error, true))?;
     world
         .window(kind, deadline)
         .map(|window| (window, Opened::Opened))
@@ -124,18 +116,6 @@ fn with_open_progress(error: AdapterError, opened_by_call: bool) -> AdapterError
     };
     details.insert("surface_opened_by_call".to_owned(), json!(opened_by_call));
     error.with_details(serde_json::Value::Object(details))
-}
-
-pub(crate) fn close_with<W: Surface>(
-    world: &W,
-    kind: ShellKind,
-    deadline: Deadline,
-) -> Result<(), AdapterError> {
-    if opener_of(kind).is_none() || !world.showing(kind, deadline)? {
-        return Ok(());
-    }
-    world.press_opener(kind, InteractionPolicy::headed())?;
-    settle(world, kind, false, deadline)
 }
 
 pub(crate) fn window_info(
@@ -224,14 +204,6 @@ pub(crate) fn open(
     lease: &InteractionLease,
 ) -> Result<(WindowInfo, Opened), AdapterError> {
     open_with(&LiveSurface { bus, lease }, kind, policy, lease.deadline())
-}
-
-pub(crate) fn close(
-    bus: &SharedBus,
-    kind: ShellKind,
-    lease: &InteractionLease,
-) -> Result<(), AdapterError> {
-    close_with(&LiveSurface { bus, lease }, kind, lease.deadline())
 }
 
 pub(crate) fn is_showing(

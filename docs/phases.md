@@ -1882,7 +1882,7 @@ Sub-phase 3.14 (shell surfaces, notifications, tray, menus) adds these cross-pla
 - App-less `snapshot --surface menu` resolves its owner from the frontmost process; on X11 the pid owning the active window owned the open menu in 14 of 14 runs (L32-12), and Wayland is unmeasured, so core's `surface_windows` may need `Menu` in the route that `Sheet`, `Popover` and `Alert` use (`crates/core/src/snapshot.rs`).
 - The cost of the menu read behind `list_surfaces` on a large Chromium window is unmeasured against the built code (L32-13); if it is too high the choice is a cheaper opener-state signal with lower recall or the full read with its latency.
 - The window snapshot keeps the nodes of a closed menu: a GTK 3 menu bar and a closed Qt popup stay in the tree with `SHOWING` cleared (L32-9), and dropping them by state changes a 3.4 behaviour for every Linux app.
-- Core rejects headless notification mutations before adapter dispatch (`crates/core/src/commands/notification_policy.rs`), so a headless dismissal never reaches the adapter, which also needs the pointer.
+- Core rejects headless notification mutations before adapter dispatch (`crates/core/src/commands/notification_policy.rs`), and Linux preserves that policy precedence before its capability refusal.
 - A headless refusal for a tray item with no `Activate` reaches the envelope as the generic `POLICY_DENIED`, not `ACTION_NOT_SUPPORTED` (L32-36).
 - App-less `Dock` and `NotificationCenter` requests are not routed to `Taskbar` and `ActionCenter` by core (`crates/core/src/snapshot.rs`, `snapshot_surface.rs`); the Linux adapter answers the `ActionCenter` token and does not advertise `Taskbar` (L32-22).
 - Do Not Disturb has no command or field; the notification identity is app and title only and listing carries no stable token (L32-15).
@@ -2234,7 +2234,7 @@ This sub-phase includes narrow shared core wait fixes: retry decisions honor exp
 - Retained observation, qualified-ref/session/trace, duplicate owner/window identity, raw zero-axis geometry, hidden-menu visibility, placeholder, state/value writes, semantic typing, policy refusals, ref selection/context menus/focus/hover, Settings scrolling/disclosure and non-interference legs. Actual coverage is the registry's tier/mode matrix; this scope does not promise every toolkit or position on every tier (L14, L23, L34).
 - Disabled Calculator Undo tests default, explicit, short and immediate timeout contracts. A controlled Qt enable target checks one activation. Positive Qt display-value selection is not claimed: the installed probe exposes no unique raw choice target, and native Qt coverage expects write_ignored. Unsupported Settings selection remains an asserted refusal, not positive selection coverage.
 - X11 ordinary/ABOVE cover legs independently check document/caret, covering app, stacking and restoration. Capture compares decoded window/display pixels against XWD where supported, with exact compositing/Wayland refusals where the route is unavailable. Text/image clipboard legs use a foreign producer/reader and check owner lifetime and clear; there is no HTML-setter claim.
-- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. App-scoped surface events, the seeded About opener and baseline, the Calculator About modal, tray activation, menu events and refusals, and the notification filter, wait, target-only dismissal and dismiss-all legs are measured live on the landed product; unscoped surface waits, unproven tray entries and notification identity mismatches are asserted refusals. No leg passes by registration alone.
+- Event success/quiet and scoped/unscoped coverage is limited to the retained registry cells. App-scoped surface events, the seeded About opener and baseline, the Calculator About modal, tray activation, menu events and refusals are measured live on the landed product. Notification list, wait and mutation requests assert unproven-identity refusals with independent preservation evidence; unscoped surface waits and unproven tray entries also assert refusals. No leg passes by registration alone.
 - Wayland observation and exact focus/capture/headed-ref refusal contracts run on the private seatless tier. Successful keyboard-seat, portal-consent and physical input tests require 3.15's owner-run environments. Direct adapter `hit_test` is not exposed by the CLI and is not claimed by a mouse-click substitute (L27-46).
 - `linux-e2e` workflow_dispatch wiring and hosted portable self-tests. An interactive runner and KDE/Plasma validation remain 3.15 infrastructure/hardware work, not measured CI coverage.
 
@@ -2251,10 +2251,10 @@ Retired specimens are not passes. The Mutter scoped About-dismissal E2E cell
 is retired after a batch identity timeout and a passing sole rerun; Openbox
 retains the positive contract. Headed tray-popup acceptance is also retired
 after watcher restoration failed in the batch and passed its sole rerun; the
-four headless tray contracts remain. Notification acceptance uses sender records,
-exact refusal codes, daemon signals and final restoration; the full-record list, action and bystander live notification
-specimens remain retired, with deterministic mutation
-coverage retained. Interactive GNOME, consenting Wayland seats and KDE hardware
+four headless tray contracts remain. Notification acceptance uses private-session
+sender records, daemon IDs, an independent bus monitor and pointer reads to prove
+identity refusals preserve notifications without input. Notification mutation
+delivery is not certified. Interactive GNOME, consenting Wayland seats and KDE hardware
 remain unmeasured and deferred outside the private-session registry.
 
 ### 3.13 — FFI, npm, Release
@@ -2346,7 +2346,7 @@ still need a dry-run after publication; those exit criteria remain incomplete
 
 On Wayland shell clicks and popup openers refuse before any pointer event because the shared hit test cannot prove the receiver. A monitor-relative stream or an on-screen centre cannot replace receiver and sibling-separation proof. X11 shell clicks use XTEST only after that same proof succeeds ([shell_click.rs](../crates/linux/src/input/shell_click.rs), [hit_test.rs](../crates/linux/src/tree/hit_test.rs)).
 
-**Notifications (GNOME):** notification protocol presence requires the same session-service owner as the detected shell. `list-notifications` reads a uniquely proven message-list container, in tree order, so banner copies are excluded. The app filter is a case-insensitive contains; the text filter considers title, body and app. A shell without the required role chain refuses instead of claiming an empty history. Mutations requiring an unproven date-menu opener refuse before input. Historical English anchors, fixed ancestor depths and footer positions do not establish a container or opener; generic panel-only shells currently expose no notification popup mutation path.
+**Notifications (GNOME):** notification commands and `wait --notification` detect the backend and then refuse with `ACTION_NOT_SUPPORTED`, `notification_identity_unavailable`, `retryable: false` and `not_delivered`, before tree reads, popup opening or input. GNOME's AT-SPI notification nodes expose no protocol ID or semantic app/summary/body relations; anonymous controls expose no expand/close distinction, and footer position does not identify clear-all. Label order, English time phrases, button ordinals and footer order are not identity evidence. An empty projection does not prove an empty notification history. The standard protocol supplies app name, summary, body and action keys in `Notify` and an ID in its reply, but no history query; a newly started monitor cannot recover earlier notifications. See [the notification backend](../crates/linux/src/notifications/mod.rs) and its private-session refusal tests for the enforced contract. Headless mutation remains `POLICY_DENIED`; missing, unsupported or unreadable daemons retain the detected backend's own error.
 
 **System tray:** `snapshot --surface system-tray` requires a StatusNotifierWatcher and exposes virtual watcher items and menus beneath a logical root. Titles, including `System` and duplicate titles, never bind a native shell control or select a pointer receiver. Virtual refs carry `tray:v1:` RuntimeId identity (L32-34). Introspection determines `Activate` and `ContextMenu`; no secondary method or pointer fallback substitutes for a primary action. Placement and offscreen state remain unknown because the protocol establishes neither. A menu leaf sends `Event(id,"clicked")` only after live layout validation. Missing watcher guidance names the protocol backend without guessing a desktop extension. The shell popup widget is not an application menu surface (L32-37).
 - Harness acceptance: Calculator About must carry raw `MODAL` and `SHOWING` before a parent ref is refused with `ACTION_FAILED` / `blocked_by_modal_dialog`, with no parent effect and a successful same-ref control after closing the dialog. Terminal Preferences is not a modal specimen: its activation adds no dialog (L18-15). App-scoped surface-event legs observe About appearing/dismissing and quiet timeouts through raw showing-dialog state and owner identity, including restoration; unscoped surface waits assert the documented `INVALID_ARGS` / `requires --app` refusal with no effect. A seeded batch captures before its About opener, while a wait first seeded after About is already showing times out inside the batch result.
@@ -2357,12 +2357,14 @@ On Wayland shell clicks and popup openers refuse before any pointer event becaus
 
 **Depends on:** 3.4 (observation), 3.7 (semantic actions), 3.11 (the menu-open predicate the surface reuses)
 
-**Exit criteria:** in private X11 and Wayland sessions, shell identity agrees with independent service-owner and AT-SPI reads, including a renamed service owner and a process-name spoof control. Unproven shell openers and containers refuse before delivery. Notification history is read only from a uniquely established role-chain container; a generic panel tree is an explicit refusal, not an empty list. Logical tray snapshots expose only watcher identities; title `System` and duplicate titles use the same protocol path as other items. Advertised SNI methods and validated menu events retain their independent receiver-log proofs, and disabled or unsupported targets send no call. App menu observation and action keep the toolkit coverage in L32-39. Missing protocol services, shell capability or watcher produce their cause-specific errors. The tray corner cases remain owned by 3.15 (L32-16).
+**Exit criteria:** in private X11 and Wayland sessions, shell identity agrees with independent service-owner and AT-SPI reads, including a renamed service owner and a process-name spoof control. Unproven shell openers and containers refuse before delivery. Notification list, wait and mutation requests refuse unproven protocol identity without input; sender payloads and daemon IDs, a private bus monitor and pointer readback prove preservation. Ordinary semantic controls remain actionable, with effects independently read through AT-SPI. Logical tray snapshots expose only watcher identities; title `System` and duplicate titles use the same protocol path as other items. Advertised SNI methods and validated menu events retain their independent receiver-log proofs, and disabled or unsupported targets send no call. App menu observation and action keep the toolkit coverage in L32-39. Missing protocol services, shell capability or watcher produce their cause-specific errors. The tray corner cases remain owned by 3.15 (L32-16).
 
 Shell popup mutation requires a structurally identified container and opener.
-On a backend exposing only generic panel chains, notification history and popup
-mutations refuse rather than using the historical English landmarks. Generic
+Notification history and mutations refuse unavailable protocol identity; generic
+panel chains and historical English landmarks cannot establish popup semantics. Generic
 app surfaces and watcher-backed tray reads remain independently testable.
+
+Notification dismissal, action delivery and popup restoration are not certified.
 
 **Est. PR size:** ~2k LOC
 
@@ -2370,12 +2372,9 @@ app surfaces and watcher-backed tray reads remain independently testable.
 
 Linux notification management is built from scratch here. The macOS (completed) and Windows (Phase 2) implementations are the reference patterns — same trait methods, same JSON output contract, same 1-based indexing.
 
-- **List notifications:** the standard `org.freedesktop.Notifications` D-Bus interface does NOT provide a "list current notifications" method; the approach varies by desktop environment:
-  - GNOME: no D-Bus method lists notifications (measured on GNOME Shell 46: `org.gnome.Shell` and `org.gnome.Shell.Notifications` expose no `GetNotifications`); list by walking the message-list container of the gnome-shell AT-SPI tree for `notification` nodes (L10-2, L10-3). Hidden-list nodes carry no usable extents, so index by tree order, not coordinates, and read the list copy only, because a banner copy of each new entry lives elsewhere in the tree (L10-3, L10-16)
-  - KDE Plasma: `org.freedesktop.Notifications` with a `GetNotifications()` extension, or the `org.kde.notificationmanager` D-Bus interface
-  - Other DEs: monitor `Notify` D-Bus signals to maintain an in-memory notification history within the daemon session
-- **Dismiss:** on GNOME a headed click on the entry's own close button in the open message list; the daemon then reports `NotificationClosed` with reason 2, and the call reads the list again to prove the target left and nothing else did. `CloseNotification(id)` needs an id that GNOME never shows, so it is not used; "clear all" is one click on the footer button of the open list (L32-31, L10-6)
-- **Interact with actions:** a headed click on the named action button of the expanded entry; `ActionInvoked` is the daemon's report of that click, read from a match rule installed before the click, and is evidence only, since a rule installed after the click receives nothing and no replay exists (L32-15)
+- **List notifications:** the standard `org.freedesktop.Notifications` interface has no history query. GNOME's AT-SPI labels cannot prove protocol field identities, so listing refuses rather than guessing or reporting a false empty list. Other daemons are unsupported behind the detected backend boundary.
+- **Dismiss:** `CloseNotification(id)` requires an independently established daemon ID, absent from GNOME's AT-SPI nodes. Unidentified close and clear-all controls are never clicked; both individual and bulk dismissal refuse before input.
+- **Interact with actions:** a named shell button does not establish a protocol action key or target ID. Notification actions refuse; `ActionInvoked` alone cannot supply the missing identity. A private-session monitor is an independent test oracle for `Notify` calls/replies and daemon signals, not a retrospective product history service.
 - **Do Not Disturb:** GNOME `gsettings get org.gnome.desktop.notifications show-banners`; KDE `org.kde.notificationmanager`'s `inhibited` property
 - **Edge case:** notification daemon varies by DE — detect via `GetServerInformation()`; return `PLATFORM_NOT_SUPPORTED` with daemon-specific guidance if the notification interface is unreachable
 
@@ -2432,8 +2431,8 @@ Retired specimens do not certify headed Terminal Copy-state reads, the headed
 System-button flow, the initial-empty-list notification refusal, Mutter scoped
 surface-appeared success, or Mutter multiwindow Close-button event triggers.
 The initial-empty-list specimen timed out during setup before dismissal and
-passed its sole isolated rerun; deterministic empty/gone-notification refusal
-coverage remains. The rebuilt single-dismiss target/bystander leg is retained.
+passed its sole isolated rerun. Notification coverage requires the explicit
+identity refusal with target and bystander preservation, including an empty projection.
 Preferences find-ref remains on Mutter; snapshot-ref specimens on both X11
 tiers have unstable raw oracle reads. Native
 projection, shell, notification and event contracts remain deterministic tests.
@@ -3291,7 +3290,7 @@ All Phase 2/3 pins above were recorded at 2026-04 research time; re-verify again
 | Clipboard | `NSPasteboard`, typed `ClipboardContent` (shipped, U18) | Win32 Clipboard API, typed (shipped in 2.10; save/restore + lock hermeticity, A22-5) | `wl-clipboard` (Wayland) / native selection requests and detached owner (X11), typed (Phase 3) |
 | Screenshot | `ScreenshotBackend` over secure `screencapture` path today; ScreenCaptureKit planned (P2-O13) | Direct `Windows.Graphics.Capture` with silent `BitBlt` / `PrintWindow` Legacy fallback (shipped in 2.10; A22-1) | Portal `Screenshot` / per-window `XGetImage` (P3-O11, L9-10) |
 | Permissions | `AXIsProcessTrusted()` | COM security / UAC | Bus availability |
-| Notifications | Notification Center AX tree (`com.apple.notificationcenterui`) | UIA tree of Action Center / Toast Manager | D-Bus `org.freedesktop.Notifications` + daemon-specific history; on GNOME the list comes from the gnome-shell AT-SPI tree (L10-2) |
+| Notifications | Notification Center AX tree (`com.apple.notificationcenterui`) | UIA tree of Action Center / Toast Manager | Detected backend refusal: GNOME exposes no provable protocol identity/history or notification-control semantics |
 | System tray | `SystemUIServer` AX tree + `ControlCenter` AX tree | UIA tree of `Shell_TrayWnd` + overflow window | D-Bus `StatusNotifierWatcher` and `StatusNotifierItem`; virtual protocol items and menus, without native title binding |
 
 ---

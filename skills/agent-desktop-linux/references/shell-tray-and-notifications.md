@@ -168,55 +168,27 @@ shell or accessibility bus to repair these errors.
 
 ## Notifications
 
-`list-notifications` reads GNOME Shell's message list headless, including when
-closed. Banner copies are excluded. Indices are 1-based positions in the
-unfiltered list; filtering does not renumber them. `--app` is case-insensitive
-contains; `--text` searches app, title and body. Empty is a successful empty
-list. `wait --notification` establishes a baseline and waits for a matching
-entry new to that baseline; a matching notification already present does not
-satisfy it.
+After policy checks, notification commands check the detected backend. A GNOME
+service answers `ACTION_NOT_SUPPORTED`, `details.kind:
+notification_identity_unavailable`, `retryable: false`, with `not_delivered`
+and safe retry. The refusal happens before reading or opening the message list
+and before any input. `wait --notification` returns the same refusal immediately.
+Missing, unsupported or unreadable services retain the backend errors above.
 
-This example assumes exactly one disposable notification from `Skill Example`,
-titled `Beta`, already exists. `jq` selects the actual index and the mutation guards
-both identity fields:
+The standard `org.freedesktop.Notifications` protocol supplies an ID in the
+`Notify` reply and app name, summary, body and action keys in the call, but no
+history query. GNOME's AT-SPI notification nodes expose neither that ID nor
+relations identifying app, summary and body. Label position and English time
+phrases cannot establish those fields. Anonymous buttons and footer position
+cannot establish expand, close or clear-all semantics. No notification list,
+empty history, target identity or successful delivery is inferred from them.
+A monitor started now cannot recover notifications sent earlier.
 
-```bash
-agent-desktop list-notifications
-notice_index=$(agent-desktop list-notifications --app "Skill Example" --text Beta | jq -r '.data.notifications[] | select(.app_name == "Skill Example" and .title == "Beta") | .index')
-test -n "$notice_index" && agent-desktop --headed dismiss-notification "$notice_index" --expected-app "Skill Example" --expected-title Beta
-agent-desktop list-notifications --app "Skill Example"
-```
-
-Single-item `dismiss-notification` and `notification-action` require
-`--headed` and at least one of `--expected-app` / `--expected-title`.
-Missing identity is `INVALID_ARGS`; headless mutation is `POLICY_DENIED`.
-Missing index or changed identity is `NOTIFICATION_NOT_FOUND`. Re-list after
-each mutation; an index can now name another notification.
-
-Dismissal clicks the notification's close button, then attempts to prove that
-only the target left. A partial post-click read can instead return
-`ACTION_FAILED`, “The click was delivered but the message list could not be
-read afterwards”, with `delivery: delivered_unverified`, `retry: unsafe` and
-`list_restore: closed`. The target may already be gone. Re-list before deciding
-what remains; do not repeat the old index blindly. The same error can follow
-`dismiss-all-notifications` after its clicks; `platform_detail` carries the
-underlying read failure. A filtered dismiss-all may stop after one delivered
-click and leave later matches in place; re-list the remaining set.
-
-`dismiss-all-notifications` clicks clear-all without a filter, or closes
-matching entries individually with `--app`. A headed empty dismiss-all returns
-zero without opening the message list. Success proves removal from the readable
-message-list projection, not disappearance of every raw AT-SPI title node or
-the receiving app's effect. Headless dismiss-all is still
-`POLICY_DENIED`, even with an empty list.
-
-For `notification-action`, pass the exact name in the row's `actions` list,
-for example `Open`. A missing action is `ACTION_NOT_SUPPORTED` with
-`available_actions`. An accepted action reports `delivered_unverified`:
-the observed `details.evidence` was `action_invoked` on Wayland and
-`settle_elapsed` on Mutter X11 (the click went out without confirming removal).
-Neither proves the receiving
-app's effect. It does not synthesize an `ActionInvoked` signal.
+Single-item mutations still require `--headed` and at least one of
+`--expected-app` / `--expected-title`. Missing identity is `INVALID_ARGS`;
+headless mutation is `POLICY_DENIED`. Supplying these flags does not bypass the
+identity refusal. Ordinary application controls with supported AT-SPI actions
+remain available through the ref-based observe-act loop.
 
 ## StatusNotifierItem and AppIndicator tray
 

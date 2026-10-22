@@ -8,13 +8,12 @@ use agent_desktop_core::{
 use crate::system::shell::kinds::ShellKind;
 use crate::system::shell::light::Light;
 use crate::system::shell::located::Located;
-use crate::system::shell::open::{Opened, Surface, close_with, open_with, showing_of};
+use crate::system::shell::open::{Opened, Surface, open_with, showing_of};
 use crate::tree::AtspiElement;
 
 struct World {
     showing: Cell<bool>,
     opens_on_press: bool,
-    closes_on_press: bool,
     window_fails: bool,
     press_cleanup_fails: bool,
     presses: Cell<usize>,
@@ -25,7 +24,6 @@ impl World {
         Self {
             showing: Cell::new(false),
             opens_on_press: true,
-            closes_on_press: true,
             window_fails: false,
             press_cleanup_fails: false,
             presses: Cell::new(0),
@@ -54,9 +52,7 @@ impl Surface for World {
         _policy: InteractionPolicy,
     ) -> Result<(), AdapterError> {
         self.presses.set(self.presses.get() + 1);
-        if self.showing.get() && self.closes_on_press {
-            self.showing.set(false);
-        } else if !self.showing.get() && self.opens_on_press {
+        if !self.showing.get() && self.opens_on_press {
             self.showing.set(true);
         }
         if self.press_cleanup_fails {
@@ -203,25 +199,6 @@ fn the_dock_and_the_tray_need_no_opener_even_headless() {
         assert_eq!(how, Opened::Adopted);
         assert_eq!(world.presses(), 0);
     }
-}
-
-#[test]
-fn close_presses_only_a_showing_surface_and_waits_for_it_to_hide() {
-    let world = World::open();
-    close_with(&world, ShellKind::MessageList, deadline(2_000)).expect("it closes");
-    assert_eq!(world.presses(), 1);
-    assert!(!world.showing.get());
-    close_with(&world, ShellKind::MessageList, deadline(2_000)).expect("a closed one stays");
-    assert_eq!(world.presses(), 1);
-}
-
-#[test]
-fn a_close_that_does_not_take_effect_is_an_error() {
-    let mut world = World::open();
-    world.closes_on_press = false;
-    let error =
-        close_with(&world, ShellKind::MessageList, deadline(60)).expect_err("it stays open");
-    assert_eq!(error.code, ErrorCode::Timeout);
 }
 
 fn light(showing: bool) -> Light {
