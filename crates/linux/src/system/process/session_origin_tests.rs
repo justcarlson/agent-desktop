@@ -105,3 +105,22 @@ fn a_process_whose_parent_is_the_display_owner_is_a_compositor_child() {
     assert!(yes_for_parent.unwrap());
     assert!(!no_for_other.unwrap());
 }
+
+#[test]
+fn the_display_owner_and_its_children_are_on_its_side_and_other_processes_are_not() {
+    let mut child = std::process::Command::new("/bin/sleep")
+        .arg("30")
+        .spawn()
+        .unwrap();
+    let parent = std::process::id();
+    let own_pid = child.id();
+    let is_owner = |owner: u32| move |pid: u32| Ok(pid == owner);
+    let itself = on_display_owner_side(own_pid, is_owner(own_pid));
+    let as_child = on_display_owner_side(own_pid, is_owner(parent));
+    let stranger = on_display_owner_side(own_pid, is_owner(1));
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert!(itself.unwrap());
+    assert!(as_child.unwrap());
+    assert!(!stranger.unwrap());
+}

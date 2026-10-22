@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -20,10 +21,6 @@ fn unknown() -> AdapterError {
     .with_suggestion(
         "Run inside the target desktop session with readable process and session-bus ownership.",
     )
-}
-
-fn display_socket() -> Result<PathBuf, AdapterError> {
-    socket_of(session_server())
 }
 
 fn socket_of(server: DisplayServer) -> Result<PathBuf, AdapterError> {
@@ -51,7 +48,7 @@ fn socket_of(server: DisplayServer) -> Result<PathBuf, AdapterError> {
     }
 }
 
-fn owns_socket(pid: u32, socket: &std::path::Path) -> Result<bool, AdapterError> {
+fn listening_inodes(socket: &std::path::Path) -> Result<HashSet<String>, AdapterError> {
     let table = std::fs::read_to_string("/proc/net/unix").map_err(|_| unknown())?;
     let path = socket.to_str().ok_or_else(unknown)?;
     let abstract_path = format!("@{path}");
@@ -69,6 +66,10 @@ fn owns_socket(pid: u32, socket: &std::path::Path) -> Result<bool, AdapterError>
     if inodes.is_empty() {
         return Err(unknown());
     }
+    Ok(inodes)
+}
+
+fn holds_any(pid: u32, inodes: &HashSet<String>) -> Result<bool, AdapterError> {
     let fds = std::fs::read_dir(format!("/proc/{pid}/fd")).map_err(|_| unknown())?;
     for fd in fds {
         let fd = fd.map_err(|_| unknown())?;
@@ -82,23 +83,61 @@ fn owns_socket(pid: u32, socket: &std::path::Path) -> Result<bool, AdapterError>
     Ok(false)
 }
 
+#[cfg(test)]
+fn owns_socket(pid: u32, socket: &std::path::Path) -> Result<bool, AdapterError> {
+    holds_any(pid, &listening_inodes(socket)?)
+}
+
+/// What names the display server's owner, read once and then asked about any
+/// number of processes: the listeners of the display socket and, on X11, the
+/// owner of the window manager's supporting window.
+pub(in crate::system) struct DisplayOwner {
+    sockets: Result<HashSet<String>, AdapterError>,
+    x11: bool,
+    manager: OnceCell<Result<Option<u32>, AdapterError>>,
+    deadline: Deadline,
+}
+
+impl DisplayOwner {
+    pub(in crate::system) fn read(deadline: Deadline) -> Self {
+        let server = session_server();
+        let x11 = matches!(server, DisplayServer::X11(_));
+        Self {
+            sockets: socket_of(server).and_then(|socket| listening_inodes(&socket)),
+            x11,
+            manager: OnceCell::new(),
+            deadline,
+        }
+    }
+
+    pub(in crate::system) fn is_owner(&self, pid: u32) -> Result<bool, AdapterError> {
+        let inodes = self.sockets.as_ref().map_err(Clone::clone)?;
+        if holds_any(pid, inodes)? {
+            return Ok(true);
+        }
+        if !self.x11 {
+            return Ok(false);
+        }
+        match self.manager.get_or_init(|| manager_owner(self.deadline)) {
+            Ok(owner) => Ok(*owner == Some(pid)),
+            Err(error) => Err(error.clone()),
+        }
+    }
+}
+
+fn manager_owner(deadline: Deadline) -> Result<Option<u32>, AdapterError> {
+    crate::system::x11::control::manager_pid(deadline)
+        .ready()
+        .ok_or_else(|| {
+            unknown().with_platform_detail("The X root supporting-WM resource owner is unavailable")
+        })
+}
+
 pub(in crate::system) fn is_display_owner(
     pid: u32,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    if owns_socket(pid, &display_socket()?)? {
-        return Ok(true);
-    }
-    if matches!(session_server(), DisplayServer::X11(_)) {
-        return crate::system::x11::control::manager_pid(deadline)
-            .ready()
-            .map(|owner| owner == Some(pid))
-            .ok_or_else(|| {
-                unknown()
-                    .with_platform_detail("The X root supporting-WM resource owner is unavailable")
-            });
-    }
-    Ok(false)
+    DisplayOwner::read(deadline).is_owner(pid)
 }
 
 async fn service_owner(pid: u32, connection: &zbus::Connection) -> Result<bool, AdapterError> {
@@ -141,6 +180,24 @@ fn answering_app_is_session_service(pid: u32, deadline: Deadline) -> Result<bool
         || session_origin::runs_as_service(pid),
         || session_origin::child_of_display_owner(pid, |parent| is_display_owner(parent, deadline)),
         || owns_session_bus_name(pid, deadline),
+    )
+}
+
+/// Whether a process whose window frames the listing cannot classify is a
+/// helper surface of the session itself, the compositor or a decoration frame
+/// it hosts. The caller has proven the process has no managed window. One
+/// that a launch of this tool started never is, and one the session did not
+/// start is not proven to be. A fact that cannot be read proves nothing.
+pub(in crate::system) fn is_helper_surface(
+    pid: u32,
+    owner: &DisplayOwner,
+) -> Result<bool, AdapterError> {
+    session_origin::is_session_service(
+        || session_origin::launched_by_agent(pid),
+        || false,
+        || session_origin::runs_as_service(pid),
+        || session_origin::on_display_owner_side(pid, |candidate| owner.is_owner(candidate)),
+        || Ok(false),
     )
 }
 

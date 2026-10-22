@@ -85,22 +85,31 @@ pub(super) fn child_of_display_owner(
     is_display_owner(parent)
 }
 
+/// Whether the process is the display owner or a child of it: the compositor
+/// and the helpers it spawns are on its side of the session.
+pub(super) fn on_display_owner_side(
+    pid: u32,
+    is_display_owner: impl Fn(u32) -> Result<bool, AdapterError>,
+) -> Result<bool, AdapterError> {
+    Ok(is_display_owner(pid)? || child_of_display_owner(pid, &is_display_owner)?)
+}
+
 /// Whether an application that answers on the accessibility bus is really
 /// part of the session: it owns a name on the session bus, runs as a user
-/// service unit, or is a child of the display owner. An application the
+/// service unit, or is on the display owner's side. An application the
 /// caller launched, or one that has a window of its own, is never one. A
 /// fact that cannot be read refuses.
 pub(super) fn is_session_service(
     launched: impl FnOnce() -> Result<bool, AdapterError>,
     windowed: impl FnOnce() -> bool,
     service: impl FnOnce() -> Result<bool, AdapterError>,
-    compositor_child: impl FnOnce() -> Result<bool, AdapterError>,
+    compositor_side: impl FnOnce() -> Result<bool, AdapterError>,
     named: impl FnOnce() -> Result<bool, AdapterError>,
 ) -> Result<bool, AdapterError> {
     if launched()? || windowed() {
         return Ok(false);
     }
-    Ok(service()? || compositor_child()? || named()?)
+    Ok(service()? || compositor_side()? || named()?)
 }
 
 #[cfg(test)]
