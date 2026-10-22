@@ -14,7 +14,6 @@ fn app(pid: u32, exe: &str, answered: bool) -> RegistryApp {
             comm: exe.to_owned(),
             exe_basename: Some(exe.to_owned()),
             instance: "boot:1".to_owned(),
-            web_family: None,
         },
         answered.then(|| Some("Name".to_owned())),
         ToolkitId::default(),

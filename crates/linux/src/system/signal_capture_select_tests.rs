@@ -14,7 +14,6 @@ fn unanswering_app(pid: u32, comm: &str) -> RegistryApp {
             comm: comm.to_owned(),
             exe_basename: Some(comm.to_owned()),
             instance: "boot:1".to_owned(),
-            web_family: None,
         },
         None,
         ToolkitId::default(),

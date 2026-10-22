@@ -11,7 +11,6 @@ fn app(pid: u32) -> RegistryApp {
             comm: "x".to_owned(),
             exe_basename: Some("x".to_owned()),
             instance: "boot:1".to_owned(),
-            web_family: None,
         },
         Some(Some("App".to_owned())),
         ToolkitId::default(),

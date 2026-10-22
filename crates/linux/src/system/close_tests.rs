@@ -65,7 +65,6 @@ fn both_the_command_name_and_the_executable_name_are_consulted() {
             comm: "renamed".to_owned(),
             exe_basename: Some("gnome-shell".to_owned()),
             instance: "t".to_owned(),
-            web_family: None,
         });
     let error = run(&world, &request(true)).expect_err("refused by executable");
     assert_eq!(error.code, ErrorCode::InvalidArgs);

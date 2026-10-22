@@ -7,7 +7,6 @@ fn facts(comm: &str, exe: Option<&str>) -> ProcessFacts {
         comm: comm.to_owned(),
         exe_basename: exe.map(str::to_owned),
         instance: "boot:1".to_owned(),
-        web_family: None,
     }
 }
 

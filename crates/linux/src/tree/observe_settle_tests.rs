@@ -91,7 +91,7 @@ fn observe_limited(limits: &WalkLimits, ms: u64, pause_ms: u64) -> (usize, bool)
         &request(ms),
         SettleHost {
             walker: &mut walker,
-            is_web_process: &|_| true,
+            is_web_process: &|_| Ok(true),
             stopped: &|_| false,
             pause: &mut pause,
         },
@@ -128,7 +128,7 @@ fn observe(web: bool, document: bool, ms: u64, curve: &[Result<usize, AdapterErr
         &request(ms),
         SettleHost {
             walker: &mut walker,
-            is_web_process: &|_| web,
+            is_web_process: &|_| Ok(web),
             stopped: &|_| false,
             pause: &mut pause,
         },
@@ -162,7 +162,7 @@ fn observe_element(web: bool, curve: &[Result<usize, AdapterError>]) -> usize {
         &request(60_000),
         SettleHost {
             walker: &mut walker,
-            is_web_process: &|_| web,
+            is_web_process: &|_| Ok(web),
             stopped: &|_| false,
             pause: &mut pause,
         },
@@ -177,7 +177,7 @@ fn counts(values: &[usize]) -> Vec<Result<usize, AdapterError>> {
 
 #[test]
 fn a_web_process_is_read_again_until_three_reads_agree() {
-    let run = observe(true, false, 60_000, &counts(&[18, 18, 120, 247, 247, 247]));
+    let run = observe(true, true, 60_000, &counts(&[18, 18, 120, 247, 247, 247]));
     assert_eq!(run.walks, 6);
     assert_eq!(run.waited, Duration::from_millis(1_000));
     assert!(run.complete);
@@ -246,7 +246,7 @@ fn a_poll_that_finds_the_window_gone_is_window_not_found() {
         &request(60_000),
         SettleHost {
             walker: &mut walker,
-            is_web_process: &|_| true,
+            is_web_process: &|_| Ok(true),
             stopped: &|_| false,
             pause: &mut |_| {},
         },
@@ -294,7 +294,7 @@ fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
         &request(60_000),
         SettleHost {
             walker: &mut walker,
-            is_web_process: &|_| true,
+            is_web_process: &|_| Ok(true),
             stopped: &|_| false,
             pause: &mut |_| {},
         },
@@ -307,4 +307,13 @@ fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
 #[test]
 fn an_element_in_a_web_process_is_read_once_however_small_its_subtree_is() {
     assert_eq!(observe_element(true, &counts(&[3, 3, 3, 3, 3])), 1);
+}
+
+#[test]
+fn web_readiness_depends_on_document_evidence_not_tree_size() {
+    let small_document = observe(true, true, 1_000, &counts(&[3, 3, 3]));
+    assert!(small_document.complete);
+    assert_eq!(small_document.walks, 3);
+    let large_shell = observe(true, false, 1_000, &counts(&[80, 80, 80]));
+    assert!(!large_shell.complete);
 }

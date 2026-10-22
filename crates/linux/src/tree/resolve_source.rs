@@ -9,7 +9,6 @@ use super::menu_resolve::resolve_menu;
 use super::node_evidence::read_evidence_placed;
 use super::node_position::place_nodes;
 use super::node_read::read_node_with_liveness;
-use super::observe::is_web_process;
 use super::path_descent::Levels;
 use super::resolve::{Source, resolve};
 use super::resolve_anchor::resolve_anchor;
@@ -17,6 +16,7 @@ use super::resolve_errors::{settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
 use super::resolve_search::evaluate;
 use super::searched::Searched;
+use super::toolkit_trust::read_web_family;
 use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits};
 use crate::system::{SharedBus, owner_process_id, process_facts, shell, within};
@@ -116,7 +116,11 @@ impl Source for BusSource<'_> {
     fn search(&mut self, frame: &AtspiElement, entry: &RefEntry) -> Result<Searched, AdapterError> {
         let mut walk = walk_tree(self.bus, frame, &WalkLimits::default(), self.deadline)?;
         place_nodes(self.bus, &mut walk, self.deadline)?;
-        Ok(evaluate(&walk, entry, is_web_process(frame.pid())))
+        Ok(evaluate(
+            &walk,
+            entry,
+            within(self.deadline, read_web_family(&self.connection, frame))?.is_some(),
+        ))
     }
 
     fn stopped_app(&mut self, pid: u32) -> Option<String> {

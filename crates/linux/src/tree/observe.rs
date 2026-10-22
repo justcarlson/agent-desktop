@@ -14,11 +14,7 @@ use super::projection::project_with;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
-use crate::system::{SharedBus, proc_stat, process_facts, shell, window_id};
-
-pub(super) fn is_web_process(pid: u32) -> bool {
-    process_facts::read(pid).is_some_and(|facts| facts.web_family.is_some())
-}
+use crate::system::{SharedBus, proc_stat, shell, window_id};
 
 /// A window of a stopped process cannot be read, so observing it is
 /// `APP_UNRESPONSIVE` at once instead of a walk that waits out its budget.
@@ -82,9 +78,8 @@ type Walker<'a> = dyn FnMut(&AtspiElement, &WalkLimits, Deadline) -> Result<Walk
 
 /// Walks until the tree has stopped growing when the window of a web engine
 /// is observed, otherwise once. An element a ref already names sits in a tree
-/// that has filled, and a small subtree of it never exceeds the size of an
-/// empty browser shell, so waiting for it to grow would spend the whole
-/// budget. The second value is false when the wait ended on its budget with
+/// that has already been observed, so it does not wait for window population.
+/// The second value is false when the wait ended on its budget with
 /// the tree still changing. A later read that fails because the budget ran
 /// out returns the walk before it; any other failure is the failure of the
 /// observation.
@@ -95,7 +90,7 @@ fn settled_walk(
     request: &ObservationRequest,
     host: &mut SettleHost<'_>,
 ) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
-    let web_process = (host.is_web_process)(element.pid());
+    let web_process = matches!(root, ObservationRoot::Window(_)) && (host.is_web_process)(element)?;
     let mut tracker: Option<(Settle, Instant)> = None;
     let mut previous: Option<Walk<ObservedRead>> = None;
     loop {
@@ -119,7 +114,11 @@ fn settled_walk(
         }
         let (settle, since) = tracker
             .get_or_insert_with(|| (Settle::new(request.deadline.remaining()), Instant::now()));
-        match settle.after_walk(walk.node_count, since.elapsed(), has_depth_cut(&walk.root)) {
+        match settle.after_walk(
+            walk.node_count,
+            since.elapsed(),
+            has_depth_cut(&walk.root) || has_web_document(&walk.root),
+        ) {
             Step::Settled => return Ok((walk, true)),
             Step::GiveUp => return Ok((walk, false)),
             Step::Wait(gap) => {
@@ -164,7 +163,7 @@ fn nested_sheet(
 /// a process is a web engine or has stopped, and how to wait.
 struct SettleHost<'a> {
     walker: &'a mut Walker<'a>,
-    is_web_process: &'a dyn Fn(u32) -> bool,
+    is_web_process: &'a dyn Fn(&AtspiElement) -> Result<bool, AdapterError>,
     stopped: &'a dyn Fn(u32) -> bool,
     pause: &'a mut dyn FnMut(Duration),
 }
@@ -261,7 +260,16 @@ pub(crate) fn observe_tree_with(
         request,
         SettleHost {
             walker: &mut walker,
-            is_web_process: &is_web_process,
+            is_web_process: &|element| {
+                let connection = bus.get(request.deadline)?;
+                crate::system::within(request.deadline, async {
+                    Ok(
+                        super::toolkit_trust::read_web_family(connection.inner(), element)
+                            .await?
+                            .is_some(),
+                    )
+                })
+            },
             stopped: &crate::system::proc_stat::is_stopped,
             pause: &mut pause,
         },

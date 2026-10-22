@@ -61,7 +61,7 @@ fn shifted_unique_name_without_bounds_resolves_original() {
 }
 
 #[test]
-fn shifted_anonymous_siblings_with_only_screen_geometry_are_ambiguous() {
+fn shifted_anonymous_siblings_need_unchanged_distinguishing_geometry() {
     for shrink in [0, 1] {
         let mut fake = Fake::new();
         fake.add(FRAME_PATH, "/other", node(PUSH_BUTTON, "Other", 30, 20));

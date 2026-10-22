@@ -233,7 +233,7 @@ fn a_nameless_ref_whose_element_changed_size_is_a_retryable_miss() {
 }
 
 #[test]
-fn a_nameless_ref_whose_rectangle_changed_refuses_its_old_path() {
+fn a_geometry_only_ref_refuses_even_a_one_pixel_resize() {
     let mut fake = Fake::new();
     fake.add(FRAME_PATH, "/editor", node(PANEL, "", 690, 464));
     let entry = fake.entry_of("/editor", true);
@@ -248,7 +248,9 @@ fn a_nameless_ref_whose_rectangle_changed_refuses_its_old_path() {
         width: 690,
         height: 463,
     });
-    assert_eq!(refusal(&mut fake, &entry).code, ErrorCode::StaleRef);
+    let error = refusal(&mut fake, &entry);
+    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(kind(&error), "resolve_no_candidate");
 }
 
 #[test]

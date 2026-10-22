@@ -24,8 +24,6 @@ pub(crate) fn usable_size(rect: &Rect) -> Option<(f64, f64)> {
     (rect.width > 0.0 && rect.height > 0.0).then_some((rect.width, rect.height))
 }
 
-const GEOMETRY_TOLERANCE: f64 = 0.5;
-
 pub(crate) fn stored_size(entry: &RefEntry) -> Option<(f64, f64)> {
     entry.geometry.bounds.as_ref().and_then(usable_size)
 }
@@ -82,10 +80,7 @@ fn live_rect(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<Rect> {
 }
 
 pub(crate) fn rectangles_equal(left: &Rect, right: &Rect) -> bool {
-    (left.x - right.x).abs() < GEOMETRY_TOLERANCE
-        && (left.y - right.y).abs() < GEOMETRY_TOLERANCE
-        && (left.width - right.width).abs() < GEOMETRY_TOLERANCE
-        && (left.height - right.height).abs() < GEOMETRY_TOLERANCE
+    left == right
 }
 
 fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<bool> {
@@ -98,8 +93,8 @@ fn rectangles_match(entry: &RefEntry, evidence: &LocatorEvidence) -> Option<bool
         .map(|(stored, live)| rectangles_equal(stored, &live))
 }
 
-/// Whether the stored and live evidence describe different rectangles by more
-/// than coordinate rounding. Both position and size must agree in the
+/// Whether the stored and live evidence describe unequal rectangles.
+/// Both position and size must agree in the
 /// recorded frame. An unknown rectangle on either side refutes nothing.
 pub(crate) fn geometry_contradicts(entry: &RefEntry, evidence: &LocatorEvidence) -> bool {
     rectangles_match(entry, evidence) == Some(false)

@@ -11,7 +11,7 @@ fn run(curve: &[usize], remaining: Duration) -> Vec<Step> {
     let mut steps = Vec::new();
     let mut waited = Duration::ZERO;
     for nodes in curve {
-        let step = settle.after_walk(*nodes, waited, false);
+        let step = settle.after_walk(*nodes, waited, true);
         steps.push(step);
         match step {
             Step::Wait(gap) => waited += gap,
@@ -35,9 +35,8 @@ fn node(role: u32, children: Vec<WalkedNode<ObservedRead>>) -> WalkedNode<Observ
 #[test]
 fn settle_and_tree_predicate_boundaries() {
     let plateau = run(&[18, 18, 18, 18, 370, 380, 386, 386, 386], MS(60_000));
-    assert_eq!(plateau.len(), 9);
-    assert_eq!(plateau[3], Step::Wait(POLL));
-    assert_eq!(plateau[8], Step::Settled);
+    assert_eq!(plateau.len(), 3);
+    assert_eq!(plateau[2], Step::Settled);
     assert_eq!(
         run(&[66, 120, 226, 247, 247, 247], MS(60_000)).last(),
         Some(&Step::Settled)
@@ -47,7 +46,7 @@ fn settle_and_tree_predicate_boundaries() {
         vec![Step::Wait(POLL), Step::Wait(POLL)]
     );
     assert_eq!(run(&[20, 20], MS(200)), vec![Step::GiveUp]);
-    let capped = run(&[20; 40], MS(1_000));
+    let capped = run(&(0..40).collect::<Vec<_>>(), MS(1_000));
     assert_eq!(capped.last(), Some(&Step::GiveUp));
     assert_eq!(
         capped

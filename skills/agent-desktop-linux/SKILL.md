@@ -73,9 +73,18 @@ tool for observation or semantic actions.
   levels, so empty layout wrappers add output levels. `-i --compact` still
   shows nested nameless `group` nodes: read past them.
 - **A window appears before its content.** `wait --window` first, then
-  `wait --text`. `--text` matches a subtree, so ancestors of the text match.
-  A `--timeout` shorter than the first read returns `TIMEOUT`, never a
-  partial tree.
+  `wait --text`. Web-engine detection reads the application's AT-SPI toolkit
+  metadata, independent of executable names or installed payload files. Window
+  observations wait for three equal full reads and a web-document role (or a
+  requested depth cut), at any tree size. A shell without document evidence
+  stays incomplete when the wait budget ends. `--text` matches a subtree, so
+  ancestors of the text match. A `--timeout` shorter than the first read returns
+  `TIMEOUT`, never a partial tree.
+- **Geometry-only refs require unchanged geometry.** A changed size, even one
+  pixel, cannot prove identity. Position and size must both match in the
+  recorded coordinate frame; screen-coordinate refs need refreshing after a window move.
+  Take a fresh snapshot after layout changes and use stable identity where
+  available. Indistinguishable siblings remain `AMBIGUOUS_TARGET`.
 - **Chromium, Electron and Qt apps need a launch flag or variable** to appear
   on the bus. See `references/troubleshooting.md`.
 - **Headed ref actions need a window that can take focus.** A window the

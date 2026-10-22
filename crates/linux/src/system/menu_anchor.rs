@@ -118,7 +118,9 @@ fn collect_targets(
         .iter()
         .any(|outcome| outcome.read != RootRead::Read);
     let owners: Vec<&RegistryApp> = registry.apps.iter().filter(|app| owned(app)).collect();
-    let web = owners.iter().any(|app| app.facts.web_family.is_some());
+    let web = owners
+        .iter()
+        .any(|app| crate::tree::toolkit_trust::web_family(&app.toolkit).is_some());
     let roots = owners.iter().map(|app| app.root.clone()).collect();
     Ok((
         targets(

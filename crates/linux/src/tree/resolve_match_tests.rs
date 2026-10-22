@@ -147,15 +147,24 @@ fn a_geometry_only_ref_needs_known_matching_position_and_size() {
 }
 
 #[test]
-fn a_one_pixel_shift_is_not_enough_for_a_search_to_collect_a_nameless_node() {
+fn any_rectangle_drift_refuses_a_geometry_only_candidate() {
     let entry = sized(ref_entry("textfield"), rect(290.0, 186.0, 690.0, 464.0));
-    let shifted = evidence(
-        "textfield",
-        None,
-        None,
-        Some(rect(290.0, 187.0, 690.0, 463.0)),
-    );
-    assert_eq!(admit_node(&entry, &shifted), Admission::Reject);
+    for bounds in [
+        rect(290.0, 186.0, 690.0, 464.0),
+        rect(290.0, 187.0, 690.0, 463.0),
+        rect(290.25, 186.0, 690.0, 464.0),
+        rect(290.0, 186.25, 690.0, 464.0),
+        rect(290.0, 186.0, 690.25, 464.0),
+        rect(290.0, 186.0, 690.0, 464.25),
+    ] {
+        let live = evidence("textfield", None, None, Some(bounds));
+        let expected = if bounds == entry.geometry.bounds.expect("stored rectangle") {
+            Admission::Collect
+        } else {
+            Admission::Reject
+        };
+        assert_eq!(admit_node(&entry, &live), expected, "{bounds:?}");
+    }
 }
 
 fn retained_at(path: &str, bounds: Rect) -> RefEntry {

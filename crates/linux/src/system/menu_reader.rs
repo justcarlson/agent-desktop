@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, Deadline};
 
 use super::menu_popup::{Node, only_menu_content};
 use super::menu_surface::{PopupReader, vanished};
-use super::{REGISTRY_ROOT_PATH, SharedBus, process_facts, within};
+use super::{REGISTRY_ROOT_PATH, SharedBus, within};
 use crate::tree::observe_menu::{is_cut_short_beyond_pruning, rooted, scan_walk_pruned};
 use crate::tree::role_numbers::{FRAME, WINDOW};
 use crate::tree::state_bits::{SHOWING, StateBits};
@@ -57,8 +57,14 @@ impl PopupReader for BusReader<'_> {
     }
 
     fn window(&mut self) -> Result<Option<Node>, AdapterError> {
-        let web =
-            process_facts::read(self.window.pid()).is_some_and(|facts| facts.web_family.is_some());
+        let web = within(
+            self.deadline,
+            crate::tree::toolkit_trust::read_web_family(
+                self.bus.get(self.deadline)?.inner(),
+                self.window,
+            ),
+        )?
+        .is_some();
         if web {
             return Ok(None);
         }

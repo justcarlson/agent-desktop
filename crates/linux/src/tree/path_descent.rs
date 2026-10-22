@@ -6,7 +6,7 @@ use zbus::Connection;
 use super::landing::Landing;
 use super::level::Level;
 use super::node_read::read_node_with_liveness;
-use super::observe::is_web_process;
+use super::toolkit_trust::read_web_family;
 use super::walker_expand::{UNKNOWN_PID, child_elements, learn_pids};
 use super::{AtspiElement, RawNode};
 use crate::system::within;
@@ -76,7 +76,7 @@ pub(crate) fn level_of(
 pub(crate) struct Levels {
     connection: Connection,
     pids: HashMap<String, u32>,
-    web: HashMap<u32, bool>,
+    web: HashMap<String, bool>,
     deadline: Deadline,
 }
 
@@ -97,10 +97,15 @@ impl Levels {
         if element.pid() == UNKNOWN_PID {
             return Err(AdapterError::new(ErrorCode::ElementNotFound, UNIDENTIFIED));
         }
-        let web_process = *self
-            .web
-            .entry(element.pid())
-            .or_insert_with(|| is_web_process(element.pid()));
+        let web_process = match self.web.get(element.bus_name()) {
+            Some(web) => *web,
+            None => {
+                let web =
+                    within(self.deadline, read_web_family(&self.connection, element))?.is_some();
+                self.web.insert(element.bus_name().to_owned(), web);
+                web
+            }
+        };
         let (connection, pids) = (&self.connection, &mut self.pids);
         within(self.deadline, async {
             let (node, _) = read_node_with_liveness(connection, element).await?;

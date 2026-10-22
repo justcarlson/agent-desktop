@@ -6,7 +6,6 @@ fn facts() -> ProcessFacts {
         comm: "gnome-calculato".to_owned(),
         exe_basename: Some("gnome-calculator".to_owned()),
         instance: "boot:42".to_owned(),
-        web_family: None,
     }
 }
 
@@ -29,7 +28,6 @@ fn nautilus_facts() -> ProcessFacts {
         comm: "nautilus".to_owned(),
         exe_basename: Some("nautilus".to_owned()),
         instance: "boot:7".to_owned(),
-        web_family: None,
     }
 }
 

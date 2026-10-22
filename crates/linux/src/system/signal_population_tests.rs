@@ -16,7 +16,6 @@ fn app(bus: &str, pid: u32, instance: &str, name: &str) -> RegistryApp {
             comm: name.to_owned(),
             exe_basename: Some(name.to_owned()),
             instance: instance.to_owned(),
-            web_family: None,
         },
         Some(Some(name.to_owned())),
         ToolkitId::default(),

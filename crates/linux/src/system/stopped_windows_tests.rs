@@ -15,7 +15,6 @@ fn app(pid: u32, answered: bool) -> RegistryApp {
             comm: "gnome-calculator".to_owned(),
             exe_basename: Some("gnome-calculator".to_owned()),
             instance: "boot:1".to_owned(),
-            web_family: None,
         },
         answered.then(|| Some("Calculator".to_owned())),
         ToolkitId::default(),
