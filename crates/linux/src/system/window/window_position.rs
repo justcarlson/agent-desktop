@@ -1,28 +1,11 @@
 use agent_desktop_core::Rect;
 
+use super::listed_twins::listed_client;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::x11::desktops::Desktops;
 use crate::system::x11::map::ClientMatch;
-use crate::system::x11::twin_tie::{Twins, client_among_twins};
 use crate::system::x11::{X11Client, X11State};
 use crate::tree::Extents;
-
-/// The listed windows of one process that share the title of window `index`,
-/// and whether the toolkit reports each active.
-fn twins_of(listed: &[ListedWindow], index: usize) -> Option<Twins> {
-    let own = &listed[index].frame;
-    let mut active = Vec::new();
-    let mut me = None;
-    for (at, window) in listed.iter().enumerate() {
-        if window.frame.pid == own.pid && window.frame.title == own.title {
-            if at == index {
-                me = Some(active.len());
-            }
-            active.push(window.active);
-        }
-    }
-    Some(Twins { active, me: me? })
-}
 
 /// Where the X11 client `id` sits, or `None` when it is not listed or its
 /// bounds are unknown.
@@ -71,19 +54,14 @@ pub(crate) fn place_windows(
     state: &X11State,
     desktops: Option<&Desktops>,
 ) {
-    let (active, clients): (Option<u32>, &[X11Client]) = match state {
-        X11State::Ready { active, clients } => (*active, clients),
-        _ => (None, &[]),
+    let clients: &[X11Client] = match state {
+        X11State::Ready { clients, .. } => clients,
+        _ => &[],
     };
     let matched: Vec<Option<&X11Client>> = (0..listed.len())
-        .map(|index| {
-            let found = client_among_twins(&listed[index].frame, clients, active, || {
-                twins_of(listed, index)
-            });
-            match found {
-                ClientMatch::One(id) => clients.iter().find(|client| client.id == id),
-                ClientMatch::Several(_) | ClientMatch::NoClient => None,
-            }
+        .map(|index| match listed_client(listed, index, state) {
+            ClientMatch::One(id) => clients.iter().find(|client| client.id == id),
+            ClientMatch::Several(_) | ClientMatch::NoClient => None,
         })
         .collect();
     for (window, client) in listed.iter_mut().zip(matched) {

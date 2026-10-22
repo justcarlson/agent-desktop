@@ -113,3 +113,22 @@ fn a_focused_window_without_a_single_client_still_leads() {
     let ordered = front_to_back(listed, &state, Some(&[3, 1, 4, 2]));
     assert_eq!(titles(&ordered), ["twin", "b", "a"]);
 }
+
+#[test]
+fn same_title_windows_the_active_one_separates_rank_by_their_own_clients() {
+    let listed = vec![
+        window("twin", false),
+        window("twin", true),
+        window("a", false),
+    ];
+    let state = X11State::Ready {
+        active: Some(4),
+        clients: vec![client(1, "a"), client(3, "twin"), client(4, "twin")],
+    };
+    let ordered = front_to_back(listed, &state, Some(&[1, 3, 4]));
+    let order: Vec<(&str, bool)> = ordered
+        .iter()
+        .map(|window| (window.info.title.as_str(), window.info.state.is_focused))
+        .collect();
+    assert_eq!(order, [("twin", true), ("twin", false), ("a", false)]);
+}

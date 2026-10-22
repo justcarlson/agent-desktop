@@ -125,3 +125,39 @@ fn tied_clients_agree_on_hidden_or_say_nothing() {
     assert_eq!(tied_hidden(&mixed, &[4]), Some(false));
     assert_eq!(tied_hidden(&mixed, &[]), None);
 }
+
+#[test]
+fn the_active_window_of_a_tie_takes_the_active_client() {
+    assert_eq!(
+        broken_tie(&[7, 8], Some(8), &twins(&[true, false], 0)),
+        Some(8)
+    );
+}
+
+#[test]
+fn the_other_window_of_a_two_way_tie_takes_the_other_client() {
+    let peers = twins(&[true, false], 1);
+    assert_eq!(broken_tie(&[7, 8], Some(8), &peers), Some(7));
+    assert_eq!(broken_tie(&[7, 8], Some(7), &peers), Some(8));
+}
+
+#[test]
+fn a_tie_stays_when_the_active_state_proves_nothing() {
+    let none_active = twins(&[false, false], 0);
+    let both_active = twins(&[true, true], 0);
+    let peers = twins(&[true, false], 0);
+    assert_eq!(broken_tie(&[7, 8], Some(8), &none_active), None);
+    assert_eq!(broken_tie(&[7, 8], Some(8), &both_active), None);
+    assert_eq!(broken_tie(&[7, 8], Some(9), &peers), None);
+    assert_eq!(broken_tie(&[7, 8], None, &peers), None);
+}
+
+#[test]
+fn a_tie_stays_when_a_client_has_no_window_or_three_share_a_title() {
+    let two = twins(&[true, false], 1);
+    let three_inactive = twins(&[true, false, false], 1);
+    let three_active = twins(&[true, false, false], 0);
+    assert_eq!(broken_tie(&[7, 8, 9], Some(8), &two), None);
+    assert_eq!(broken_tie(&[7, 8, 9], Some(8), &three_inactive), None);
+    assert_eq!(broken_tie(&[7, 8, 9], Some(8), &three_active), Some(8));
+}

@@ -1,13 +1,20 @@
 use std::cmp::Reverse;
 
+use super::listed_twins::listed_client;
 use crate::system::registry::listed_window::ListedWindow;
-use crate::system::x11::map::{ClientMatch, match_client};
-use crate::system::x11::{X11Client, X11State};
+use crate::system::x11::X11State;
+use crate::system::x11::map::ClientMatch;
 
-/// How far above the bottom of the stacking order the window's one client
-/// sits, or `None` when the window maps to no single client in the stack.
-fn height_in(window: &ListedWindow, clients: &[X11Client], stack: &[u32]) -> Option<usize> {
-    let ClientMatch::One(id) = match_client(&window.frame, clients) else {
+/// How far above the bottom of the stacking order the client of window
+/// `index` sits, or `None` when the window maps to no single client in the
+/// stack.
+fn height_in(
+    windows: &[ListedWindow],
+    index: usize,
+    state: &X11State,
+    stack: &[u32],
+) -> Option<usize> {
+    let ClientMatch::One(id) = listed_client(windows, index, state) else {
         return None;
     };
     stack.iter().rposition(|entry| *entry == id)
@@ -23,17 +30,10 @@ pub(crate) fn front_to_back(
     state: &X11State,
     stack: Option<&[u32]>,
 ) -> Vec<ListedWindow> {
-    let clients: &[X11Client] = match state {
-        X11State::Ready { clients, .. } => clients,
-        _ => &[],
-    };
-    let mut ranked: Vec<(ListedWindow, Option<usize>)> = windows
-        .into_iter()
-        .map(|window| {
-            let height = stack.and_then(|stack| height_in(&window, clients, stack));
-            (window, height)
-        })
+    let heights: Vec<Option<usize>> = (0..windows.len())
+        .map(|index| stack.and_then(|stack| height_in(&windows, index, state, stack)))
         .collect();
+    let mut ranked: Vec<(ListedWindow, Option<usize>)> = windows.into_iter().zip(heights).collect();
     ranked.sort_by_key(|(window, height)| {
         (
             !window.info.state.is_focused,
