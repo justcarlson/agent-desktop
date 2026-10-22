@@ -229,6 +229,18 @@ pub trait ObservationOps: Send + Sync {
         Ok(crate::PointerObservation { bounds, states })
     }
 
+    /// Why no pointer can be aimed at this target, when the adapter has proved
+    /// that its screen position cannot be known, not merely that it is unread
+    /// yet. Waiting cannot help, so a request that needs the position is
+    /// refused with this error instead of retried until its deadline.
+    fn pointer_position_refusal(
+        &self,
+        _handle: &NativeHandle,
+        _deadline: Deadline,
+    ) -> Option<AdapterError> {
+        None
+    }
+
     fn hit_test(
         &self,
         handle: &NativeHandle,
