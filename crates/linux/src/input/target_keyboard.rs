@@ -24,7 +24,6 @@ pub(crate) fn target_steps(
     ensure_budget(deadline)?;
     let backend = world.backend()?;
     let mut active = ActiveGate::new(world, element, deadline);
-    active.check()?;
     crate::input::keyboard_focus::prepare(world, element, deadline)?;
     let mut gate = || {
         active.check()?;
