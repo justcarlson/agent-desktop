@@ -206,6 +206,32 @@ fn a_dialog_that_opens_after_the_request_ends_the_wait_at_once_with_its_title() 
 }
 
 #[test]
+fn a_second_prompt_raised_by_the_same_request_is_counted_from_one_read() {
+    let mut world = Fake::new(Liveness::Alive);
+    world.dialog_after = Some(std::time::Duration::from_millis(100));
+    world.second_dialog_after = Some(std::time::Duration::from_millis(125));
+    let error = close(&world, &request()).expect_err("two save prompts opened");
+    let details = error.details.expect("details");
+    assert_eq!(details["cause"], "dialog_pending");
+    assert_eq!(details["dialogs"], 2);
+    assert_eq!(details["dialog_titles"].as_array().map(Vec::len), Some(2));
+    assert_eq!(details["windows_remaining"], 1);
+    assert!(
+        error.message.contains("2 open dialog(s)"),
+        "{}",
+        error.message
+    );
+}
+
+#[test]
+fn a_prompt_answered_while_the_result_settles_is_an_exit_not_a_refusal() {
+    let mut world = Fake::new(Liveness::Alive);
+    world.dialog_after = Some(std::time::Duration::from_millis(100));
+    world.gone_after = Some(std::time::Duration::from_millis(125));
+    assert!(close(&world, &request()).expect("it left meanwhile"));
+}
+
+#[test]
 fn a_process_that_left_while_a_dialog_was_read_is_ok() {
     let mut world = Fake::new(Liveness::Alive);
     world.windows = ControlRead::Ready(vec![window(1), dialog(2)]);
