@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 
 use super::identity::ShellRoot;
 use super::light::{Light, Nodes};
-use crate::tree::role_numbers::{PUSH_BUTTON, TOGGLE_BUTTON};
+use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 use crate::tree::{AtspiElement, Extents};
 
 pub(super) const BUS: &str = ":1.7";
@@ -188,6 +188,20 @@ pub(super) fn gnome_shell(list_open: bool, system_open: bool) -> FakeTree {
     } else {
         SENTINEL
     };
+    tree.add(
+        Some("/footer"),
+        "/dnd_label",
+        LABEL,
+        "",
+        at(300, 530, 60, 20),
+    );
+    tree.add(
+        Some("/footer"),
+        "/dnd",
+        TOGGLE_BUTTON,
+        "",
+        at(400, 530, 40, 20),
+    );
     tree.add(
         Some("/footer"),
         clear,

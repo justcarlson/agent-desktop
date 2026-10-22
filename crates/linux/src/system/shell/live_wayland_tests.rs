@@ -24,11 +24,14 @@ fn unproven_wayland_popup_openers_refuse_without_pointer_delivery() {
     let bus = SharedBus::default();
     let root = find_root(&bus, Deadline::after(10_000).unwrap()).expect("native shell root");
     super::owner_live_tests::shell_identity_follows_both_bus_owners_and_never_the_process_name();
-    for anchor in [
+    locate_anchor(
+        &bus,
+        &root,
         Anchor::Landmark(Landmark::DateMenu),
-        Anchor::SystemButton,
-        Anchor::Landmark(Landmark::SystemMenu),
-    ] {
+        Deadline::after(5_000).unwrap(),
+    )
+    .expect("the date menu is told by role shape on Wayland too");
+    for anchor in [Anchor::SystemButton, Anchor::Landmark(Landmark::SystemMenu)] {
         let error = locate_anchor(&bus, &root, anchor, Deadline::after(5_000).unwrap())
             .expect_err("labels and position cannot identify a popup opener");
         assert_eq!(error.code, ErrorCode::ActionNotSupported);
