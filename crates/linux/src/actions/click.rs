@@ -172,14 +172,6 @@ pub(super) fn opens_popup(view: &NodeView) -> bool {
     view.state(HAS_POPUP) == Some(true)
 }
 
-fn settle_for(view: &NodeView) -> (Duration, Duration) {
-    if opens_popup(view) {
-        (POPUP_SETTLE, POPUP_STEP)
-    } else {
-        (CLICK_SETTLE, POLL_STEP)
-    }
-}
-
 fn toggles_in_place(role: Option<u32>, names: &[String]) -> bool {
     role.is_some_and(carries_checked) && resolve_verb(names, toggle_verbs(None)).is_some()
 }
@@ -191,8 +183,12 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
         Action::Click => click_verbs(view.role()),
         _ => verbs_for(action),
     };
-    let before = view.observation();
-    let (budget, step) = settle_for(&view);
+    let (budget, step) = if opens_popup(&view) {
+        (POPUP_SETTLE, POPUP_STEP)
+    } else {
+        (CLICK_SETTLE, POLL_STEP)
+    };
+    let before = matches!(action, Action::RightClick).then(|| view.observation());
     let own_verb = resolve_verb(names, verbs).is_some();
     if matches!(action, Action::Click) && !own_verb && toggles_in_place(view.role(), names) {
         return toggle_reporting(target, None, true);
@@ -213,18 +209,20 @@ fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, Adapte
             None => invoke_verb(target, action, names, verbs),
         };
         deliver(reply, || {
-            poll_until(
-                target.deadline,
-                budget,
-                step,
-                || {
-                    target
-                        .view()
-                        .ok()
-                        .and_then(|after| after.observation().changed_since(&before))
-                },
-                |change| *change == Some(true),
-            )
+            before.as_ref().and_then(|before| {
+                poll_until(
+                    target.deadline,
+                    budget,
+                    step,
+                    || {
+                        target
+                            .view()
+                            .ok()
+                            .and_then(|after| after.observation().changed_since(before))
+                    },
+                    |change| *change == Some(true),
+                )
+            })
         })
     };
     if matches!(action, Action::Click) {
