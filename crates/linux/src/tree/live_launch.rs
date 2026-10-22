@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
@@ -16,12 +17,21 @@ impl Launched {
             std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
             "live launches must run inside scripts/private-session.sh"
         );
+        Self::bare()
+    }
+
+    /// A launcher without the private-session guard, for the harness's own
+    /// tests, which start plain shell commands and map no window.
+    pub(crate) fn bare() -> Self {
         Self {
             children: Vec::new(),
             scratch: Vec::new(),
         }
     }
 
+    /// Starts a program and returns its pid; a program that cannot start
+    /// panics. A leg of an aggregate test starts its program with `try_spawn`,
+    /// so a missing program is one entry in the report and hides no other leg.
     pub(crate) fn spawn(&mut self, program: &str, args: &[&str]) -> u32 {
         self.spawn_with_env(program, args, &[])
     }
@@ -32,6 +42,20 @@ impl Launched {
         args: &[&str],
         env: &[(&str, String)],
     ) -> u32 {
+        self.try_spawn_with_env(program, args, env)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub(crate) fn try_spawn(&mut self, program: &str, args: &[&str]) -> Result<u32, String> {
+        self.try_spawn_with_env(program, args, &[])
+    }
+
+    pub(crate) fn try_spawn_with_env(
+        &mut self,
+        program: &str,
+        args: &[&str],
+        env: &[(&str, String)],
+    ) -> Result<u32, String> {
         use std::os::unix::process::CommandExt;
         let child = Command::new(program)
             .args(args)
@@ -41,10 +65,10 @@ impl Launched {
             .stderr(Stdio::null())
             .process_group(0)
             .spawn()
-            .unwrap_or_else(|error| panic!("could not launch {program}: {error}"));
+            .map_err(|error| format!("could not launch {program}: {error}"))?;
         let pid = child.id();
         self.children.push(child);
-        pid
+        Ok(pid)
     }
 
     pub(crate) fn stop(&mut self) {
@@ -66,11 +90,16 @@ impl Launched {
 /// it: `gnome-terminal` only asks its server to open a window, so killing the
 /// client leaves the server and its window for every later test of the
 /// session. Only processes of this session's own runtime directory are
-/// signalled, each by pid.
+/// signalled, each by pid, and only inside a private session: anywhere else the
+/// runtime directory is the owner's live desktop.
 fn stop_activated_servers() {
     let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR") else {
         return;
     };
+    let session = std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION");
+    if !is_private_runtime(&runtime, session.as_deref()) {
+        return;
+    }
     let wanted = format!("XDG_RUNTIME_DIR={}", runtime.to_string_lossy());
     let Ok(entries) = std::fs::read_dir("/proc") else {
         return;
@@ -103,6 +132,10 @@ fn is_activated_server(comm: &str) -> bool {
     comm.starts_with("gnome-terminal-")
 }
 
+fn is_private_runtime(runtime: &OsStr, session: Option<&OsStr>) -> bool {
+    session == Some(runtime)
+}
+
 impl Drop for Launched {
     fn drop(&mut self) {
         self.stop();
@@ -130,6 +163,19 @@ pub(crate) fn nonce(label: &str) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_nanos());
     format!("ad-live-{label}-{}-{nanos}", std::process::id())
+}
+
+/// Runs one leg of an aggregate test. A panic inside the leg becomes its
+/// error, so the legs after it still run and the report lists every outcome.
+pub(crate) fn run_leg(leg: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(leg)).unwrap_or_else(|payload| {
+        let message = payload
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| payload.downcast_ref::<&str>().copied())
+            .unwrap_or("no panic message");
+        Err(format!("panicked: {message}"))
+    })
 }
 
 pub(crate) fn program_of(pid: u32) -> Option<String> {
@@ -171,7 +217,9 @@ pub(crate) fn environment_note() -> String {
 
 #[cfg(test)]
 mod activated_tests {
-    use super::is_activated_server;
+    use std::ffi::OsStr;
+
+    use super::{is_activated_server, is_private_runtime};
 
     #[test]
     fn only_the_terminal_server_is_an_activated_server() {
@@ -180,5 +228,44 @@ mod activated_tests {
         assert!(!is_activated_server("dbus-daemon"));
         assert!(!is_activated_server("Xvfb"));
         assert!(!is_activated_server("openbox"));
+    }
+
+    #[test]
+    fn the_sweep_runs_only_in_the_private_sessions_own_runtime_directory() {
+        let live = OsStr::new("/run/user/1000");
+        let private = OsStr::new("/home/user/ad-wt/rt.AbC123");
+        assert!(!is_private_runtime(live, None));
+        assert!(!is_private_runtime(live, Some(private)));
+        assert!(is_private_runtime(private, Some(private)));
+    }
+}
+
+#[cfg(test)]
+mod spawn_tests {
+    use super::{Launched, run_leg};
+
+    #[test]
+    fn a_panicking_leg_is_its_error_and_the_next_leg_still_runs() {
+        let literal = run_leg(|| panic!("the fixture is missing"));
+        let formatted = run_leg(|| panic!("{} is missing", "the fixture"));
+        let next = run_leg(|| Ok(()));
+        assert_eq!(literal, Err("panicked: the fixture is missing".to_owned()));
+        assert_eq!(
+            formatted,
+            Err("panicked: the fixture is missing".to_owned())
+        );
+        assert_eq!(next, Ok(()));
+    }
+
+    #[test]
+    fn a_missing_program_is_an_error_not_a_panic() {
+        let mut launched = Launched::bare();
+        let error = launched
+            .try_spawn("ad-live-no-such-program", &[])
+            .expect_err("a missing program cannot start");
+        assert!(
+            error.contains("could not launch ad-live-no-such-program"),
+            "{error}"
+        );
     }
 }

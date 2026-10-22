@@ -3,7 +3,9 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, ErrorCode, NativeHandle};
 use zbus::blocking::Connection;
 
-use super::live_launch::{Launched, environment_note, nonce, program_of, vscode_arguments};
+use super::live_launch::{
+    Launched, environment_note, nonce, program_of, run_leg, vscode_arguments,
+};
 use super::live_qt;
 use super::live_tree::{
     action_summary, count_failed, dump, failure_kinds, find_node, frames_where, pid_frame,
@@ -172,7 +174,7 @@ fn check_gone(bus: &SharedBus, frame: &AtspiElement) -> Result<(), String> {
 
 fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
-    let pid = launched.spawn("nautilus", &["--new-window"]);
+    let pid = launched.try_spawn("nautilus", &["--new-window"])?;
     walk_app(bus, "files", 30, || pid_frame(connection, pid)).map(|_| ())
 }
 
@@ -188,7 +190,7 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         guard.display(),
         std::process::id()
     );
-    launched.spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script]);
+    launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
     walk_app(bus, "terminal", 20, || {
         frames_where(connection, is_server)
             .into_iter()
@@ -203,7 +205,7 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
-    let pid = launched.spawn("gnome-calculator", &[]);
+    let pid = launched.try_spawn("gnome-calculator", &[])?;
     let settled = walk_app(bus, "calculator", 30, || pid_frame(connection, pid))?;
     let button = find_node(&settled.walk.root, &|node| {
         node.actions
@@ -257,7 +259,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let data = std::env::temp_dir().join(nonce("vscode"));
     launched.scratch.push(data.clone());
     let data_arg = data.to_string_lossy().into_owned();
-    let pid = launched.spawn(&program, &vscode_arguments(&data_arg));
+    let pid = launched.try_spawn(&program, &vscode_arguments(&data_arg))?;
     walk_app(bus, "vscode", 200, || pid_frame(connection, pid)).map(|_| ())
 }
 
@@ -269,11 +271,11 @@ fn walker_live_real_apps() {
         .get(Deadline::standard().expect("a standard deadline builds"))
         .expect("the accessibility bus must be reachable");
     let outcomes = [
-        ("files", files(&bus, &connection)),
-        ("terminal", terminal(&bus, &connection)),
-        ("calculator", calculator(&bus, &connection)),
-        ("qt", qt(&bus, &connection)),
-        ("vscode", vscode(&bus, &connection)),
+        ("files", run_leg(|| files(&bus, &connection))),
+        ("terminal", run_leg(|| terminal(&bus, &connection))),
+        ("calculator", run_leg(|| calculator(&bus, &connection))),
+        ("qt", run_leg(|| qt(&bus, &connection))),
+        ("vscode", run_leg(|| vscode(&bus, &connection))),
     ];
     let failures: Vec<String> = outcomes
         .into_iter()

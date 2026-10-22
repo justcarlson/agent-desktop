@@ -37,7 +37,7 @@ pub(super) fn app(
         .get(Deadline::standard().map_err(|error| error.message)?)
         .map_err(|error| error.message)?;
     let mut launched = Launched::new();
-    let pid = launched.spawn(program, arguments);
+    let pid = launched.try_spawn(program, arguments)?;
     let settled = settle(bus, min_nodes, || pid_frame(&connection, pid))
         .map_err(|error| format!("[{label}] {error}"))?;
     check(label, adapter, bus, &settled.frame)
@@ -62,7 +62,7 @@ pub(super) fn terminal(
         guard.display(),
         std::process::id()
     );
-    launched.spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script]);
+    launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
     let settled = settle(bus, 20, || {
         frames_where(&connection, is_server)
             .into_iter()

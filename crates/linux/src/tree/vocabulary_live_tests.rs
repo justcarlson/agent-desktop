@@ -5,7 +5,7 @@ use zbus::Connection as AsyncConnection;
 use zbus::blocking::Connection;
 
 use super::label_read::first_label_target;
-use super::live_launch::{Launched, nonce, program_of, vscode_arguments};
+use super::live_launch::{Launched, nonce, program_of, run_leg, vscode_arguments};
 use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
 use super::role_numbers::TEXT;
@@ -20,7 +20,7 @@ const NOTIFICATION: u32 = 101;
 
 fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
-    let pid = launched.spawn("nautilus", &["--new-window"]);
+    let pid = launched.try_spawn("nautilus", &["--new-window"])?;
     let (_, analysis) = walk(bus, "files", 30, || pid_frame(connection, pid))?;
     root_is_window(&analysis)?;
     blank_labelled_nodes("files", &analysis)?;
@@ -47,7 +47,7 @@ fn terminal(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         guard.display(),
         std::process::id()
     );
-    launched.spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script]);
+    launched.try_spawn("gnome-terminal", &["--wait", "--", "bash", "-c", &script])?;
     walk(bus, "terminal", 20, || {
         frames_where(connection, is_server)
             .into_iter()
@@ -102,7 +102,7 @@ fn firefox(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
         "{snap}/usr/lib/firefox:{snap}/usr/lib/x86_64-linux-gnu:{snap}/gnome-platform/usr/lib/x86_64-linux-gnu"
     );
     let profile_arg = profile.to_string_lossy().into_owned();
-    let pid = launched.spawn_with_env(
+    let pid = launched.try_spawn_with_env(
         program,
         &[
             "--no-remote",
@@ -116,7 +116,7 @@ fn firefox(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
             ("GTK_A11Y", "atspi".to_owned()),
             ("MOZ_ENABLE_WAYLAND", "0".to_owned()),
         ],
-    );
+    )?;
     let (_, analysis) = walk(bus, "firefox", 100, || pid_frame(connection, pid))?;
     if blank_labelled_nodes("firefox", &analysis)? == 0 {
         return Err("firefox: no blank-name node resolved from a LabelledBy target".to_owned());
@@ -126,7 +126,7 @@ fn firefox(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 
 fn calculator(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();
-    let pid = launched.spawn("gnome-calculator", &[]);
+    let pid = launched.try_spawn("gnome-calculator", &[])?;
     let (_, analysis) = walk(bus, "calculator", 30, || pid_frame(connection, pid))?;
     root_is_window(&analysis)?;
     blank_labelled_nodes("calculator", &analysis)?;
@@ -273,7 +273,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let data = std::env::temp_dir().join(nonce("vocabulary-vscode"));
     launched.scratch.push(data.clone());
     let data_arg = data.to_string_lossy().into_owned();
-    let pid = launched.spawn(&program, &vscode_arguments(&data_arg));
+    let pid = launched.try_spawn(&program, &vscode_arguments(&data_arg))?;
     let (settled, analysis) = walk(bus, "vscode", 200, || pid_frame(connection, pid))?;
     if !settled.walk.complete {
         return Err("vscode: walk incomplete".to_owned());
@@ -295,12 +295,12 @@ fn vocabulary_live_real_apps() {
         .get(Deadline::standard().expect("a standard deadline builds"))
         .expect("the accessibility bus must be reachable");
     let outcomes = [
-        ("files", files(&bus, &connection)),
-        ("terminal", terminal(&bus, &connection)),
-        ("calculator", calculator(&bus, &connection)),
-        ("qt", qt(&bus, &connection)),
-        ("vscode", vscode(&bus, &connection)),
-        ("firefox", firefox(&bus, &connection)),
+        ("files", run_leg(|| files(&bus, &connection))),
+        ("terminal", run_leg(|| terminal(&bus, &connection))),
+        ("calculator", run_leg(|| calculator(&bus, &connection))),
+        ("qt", run_leg(|| qt(&bus, &connection))),
+        ("vscode", run_leg(|| vscode(&bus, &connection))),
+        ("firefox", run_leg(|| firefox(&bus, &connection))),
     ];
     let failures: Vec<String> = outcomes
         .into_iter()
