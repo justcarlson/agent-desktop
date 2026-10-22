@@ -6,6 +6,11 @@
 # for that event, and close Overview through its D-Bus property before handing the display to tests.
 # DISPLAY names the new display for the
 # command; :200 up avoids the embedded mutter fixture's :150-199 range.
+# The shell runs in a session mode without the polkit agent component. Every private session of
+# one login shares that login's logind session, and logind keeps one polkit agent per session, so
+# the first shell to start would become the agent for all of them. It would then show the colord
+# "Authentication Required" dialog of every other session as a modal that holds keyboard focus,
+# queues the focus of each new window and swallows pointer input until it closes.
 set -euo pipefail
 
 [ -n "${AGENT_DESKTOP_PRIVATE_SESSION:-}" ] || {
@@ -73,8 +78,20 @@ overview_active() {
 # Accessibility services activated by the shell or primer must synthesize input on this display.
 dbus-update-activation-environment "DISPLAY=$display"
 
+# gnome-shell reads custom session modes from the system data directories only, so the mode file
+# sits in a directory prepended to XDG_DATA_DIRS. It lists the user mode's components without
+# polkitAgent; every other property comes from the user mode.
+mode_root="$log/shell-modes"
+mkdir -p "$mode_root/gnome-shell/modes"
+cat > "$mode_root/gnome-shell/modes/ad-private.json" <<'JSON'
+{
+  "parentMode": "user",
+  "components": ["keyring", "autorunManager", "automountManager"]
+}
+JSON
+
 for _ in $(seq 1 5); do
-  DISPLAY=$display setsid gnome-shell --x11 --replace > "$log/gnome-shell-mutter.log" 2>&1 < /dev/null &
+  DISPLAY=$display GNOME_SHELL_SESSION_MODE=ad-private XDG_DATA_DIRS="$mode_root:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" setsid gnome-shell --x11 --replace > "$log/gnome-shell-mutter.log" 2>&1 < /dev/null &
   shell_pid=$!
   for _ in $(seq 1 60); do
     [ -n "$(overview_active)" ] && break
@@ -117,7 +134,9 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 [ "$(overview_active)" = true ] || { echo "private-mutter-shell: startup Overview never appeared" >&2; exit 1; }
-busctl --user --timeout=3 set-property org.gnome.Shell /org/gnome/Shell org.gnome.Shell OverviewActive b false
+for _ in $(seq 1 5); do
+  busctl --user --timeout=3 set-property org.gnome.Shell /org/gnome/Shell org.gnome.Shell OverviewActive b false && break
+done
 for _ in $(seq 1 40); do
   [ "$(overview_active)" = false ] && break
   sleep 0.25

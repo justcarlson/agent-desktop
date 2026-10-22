@@ -64,6 +64,7 @@ agent-desktop find --app "App" --role button --count
 
 - Scope before you widen. `--root` searches one ref's subtree. `--surface` searches an overlay. Both cost a few hundred bytes instead of a full dump. They cannot combine.
 - `--name` and `--text` match fuzzily. Add `--exact` for case-insensitive equality. Use `--limit 2` before a mutation when you need to know the match is unique.
+- `--text` also matches ancestors whose subtree text contains the text. Use `--name` to match the node itself.
 - `--role` is case-insensitive; `textarea`, `textbox` and `searchfield` fold to `textfield`. When a role filter matches nothing, `data.roles_present` lists the roles in the searched tree. Use it to tell a wrong role name from an empty screen.
 - Unnamed elements omit `name`. Their content is in `value`, so search it with `--value`.
 - A large tree, such as a file dialog, can pass the 5000 ms default `--timeout-ms`. Raise it or narrow the search. A timeout here does not mean the app hangs.

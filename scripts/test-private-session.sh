@@ -169,4 +169,14 @@ verdict=ok
 [ "$status" -eq 0 ] || verdict=bad
 check "a bus-activated Terminal under the mutter wrapper maps on its display" "$verdict"
 
+# shellcheck disable=SC2016
+"$helper" -- "$mutter" -- sh -c '
+  [ "$(busctl --user --timeout=3 get-property org.gnome.Shell /org/gnome/Shell org.gnome.Shell Mode)" = "s \"ad-private\"" ] &&
+    ! grep -q AuthenticationAgent "$AGENT_DESKTOP_PRIVATE_SESSION/gnome-shell-mutter.log"
+' 2>/dev/null
+status=$?
+verdict=ok
+[ "$status" -eq 0 ] || verdict=bad
+check "the mutter shell runs in the session mode without the polkit agent" "$verdict"
+
 exit "$failed"

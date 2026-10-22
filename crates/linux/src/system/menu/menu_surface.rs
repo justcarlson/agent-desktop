@@ -1,5 +1,3 @@
-use std::time::{Duration, Instant};
-
 use agent_desktop_core::{
     AdapterError, Deadline, ErrorCode, SnapshotSurface, SurfaceInfo, WindowInfo,
 };
@@ -11,10 +9,6 @@ use crate::system::{SharedBus, window::window_id};
 use crate::tree::AtspiElement;
 use crate::tree::menu_context::MenuContext;
 
-const SETTLE: Duration = Duration::from_millis(500);
-const POLL_GAP: Duration = Duration::from_millis(40);
-const MAX_POLLS: usize = 13;
-
 pub(crate) struct MenuPopup {
     pub(crate) root: AtspiElement,
     pub(crate) family: MenuFamily,
@@ -22,12 +16,11 @@ pub(crate) struct MenuPopup {
     pub(crate) context: MenuContext,
 }
 
-/// What a scan for open popups reads: the walk of one window, the top-level
-/// children of its application root, and how to wait.
+/// What a scan for open popups reads: the walk of one window and the
+/// top-level children of its application root.
 pub(in crate::system) trait PopupReader {
     fn window(&mut self) -> Result<Option<Node>, AdapterError>;
     fn top_levels(&mut self) -> Result<Vec<Node>, AdapterError>;
-    fn pause(&mut self, gap: Duration);
     fn incomplete(&self) -> bool;
 }
 
@@ -45,7 +38,13 @@ fn popup_of(found: crate::system::menu::menu_found::Found<'_>) -> MenuPopup {
     }
 }
 
-fn scan(reader: &mut impl PopupReader) -> Result<Vec<MenuPopup>, AdapterError> {
+/// Scans once for the popups open in the window and among the top-level
+/// children of its application. A popup of GTK 4 shows about 270 ms after the
+/// action that opened it, so an empty answer right after an action does not
+/// prove that no popup is open; `wait --menu` waits for one.
+pub(in crate::system) fn find_popups(
+    reader: &mut impl PopupReader,
+) -> Result<Vec<MenuPopup>, AdapterError> {
     let mut popups = Vec::new();
     let mut unread = false;
     if let Some(frame) = reader.window()? {
@@ -70,38 +69,8 @@ fn scan(reader: &mut impl PopupReader) -> Result<Vec<MenuPopup>, AdapterError> {
     Ok(popups)
 }
 
-/// Scans once, and again while nothing is open and `settle` allows, until
-/// the bound ends. A popup of GTK 4 shows about 270 ms after the action that
-/// opened it, so a scan right after the action sees nothing. The wait is
-/// bounded by the poll count, by the settle time and by the deadline, never a
-/// fixed sleep, and it ends at the first scan that finds a popup.
-pub(in crate::system) fn find_popups(
-    reader: &mut impl PopupReader,
-    settle: bool,
-    deadline: Deadline,
-) -> Result<Vec<MenuPopup>, AdapterError> {
-    let started = Instant::now();
-    let mut popups = scan(reader)?;
-    for _ in 0..MAX_POLLS {
-        let waits = settle
-            && popups.is_empty()
-            && started.elapsed() + POLL_GAP < SETTLE
-            && deadline.remaining() > POLL_GAP;
-        if !waits {
-            break;
-        }
-        reader.pause(POLL_GAP);
-        popups = scan(reader)?;
-    }
-    Ok(popups)
-}
-
-fn inventory(
-    reader: &mut impl PopupReader,
-    settle: bool,
-    deadline: Deadline,
-) -> Result<Vec<MenuPopup>, AdapterError> {
-    let popups = find_popups(reader, settle, deadline)?;
+fn inventory(reader: &mut impl PopupReader) -> Result<Vec<MenuPopup>, AdapterError> {
+    let popups = find_popups(reader)?;
     if reader.incomplete() {
         return Err(AdapterError::timeout(
             "The menu inventory could not be read in full",
@@ -123,12 +92,11 @@ pub(in crate::system) fn vanished(error: &AdapterError) -> bool {
 pub(crate) fn popups_at(
     bus: &SharedBus,
     window: &AtspiElement,
-    settle: bool,
     deadline: Deadline,
 ) -> Result<Vec<MenuPopup>, AdapterError> {
     let mut reader = Inventory::new(bus, deadline);
     reader.select(window);
-    match inventory(&mut reader, settle, deadline) {
+    match inventory(&mut reader) {
         Err(error) if vanished(&error) => Ok(Vec::new()),
         other => other,
     }
@@ -137,12 +105,11 @@ pub(crate) fn popups_at(
 pub(crate) fn popups_of(
     bus: &SharedBus,
     owner: &WindowInfo,
-    settle: bool,
     deadline: Deadline,
 ) -> Result<Vec<MenuPopup>, AdapterError> {
     let (bus_name, path) = window_id::decode(&owner.id)?;
     let window = AtspiElement::new(bus_name, path, owner.pid.get());
-    popups_at(bus, &window, settle, deadline)
+    popups_at(bus, &window, deadline)
 }
 
 /// One `menu` entry for the outermost open popup.
@@ -163,17 +130,12 @@ pub(crate) fn entry(popup: &MenuPopup, owner: &WindowInfo) -> SurfaceInfo {
 pub(in crate::system) fn surfaces_of(
     reader: &mut Inventory<'_>,
     owners: &[&WindowInfo],
-    deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
     entries_across(owners, |owner| {
         let (bus_name, path) = window_id::decode(&owner.id)?;
         let window = AtspiElement::new(bus_name, path, owner.pid.get());
         reader.select(&window);
-        inventory(
-            reader,
-            crate::system::interaction::action_clock::settles(owner.state.is_focused),
-            deadline,
-        )
+        inventory(reader)
     })
 }
 

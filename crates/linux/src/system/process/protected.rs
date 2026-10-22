@@ -183,6 +183,17 @@ fn answering_app_is_session_service(pid: u32, deadline: Deadline) -> Result<bool
     )
 }
 
+/// Whether a process that does not answer on the accessibility bus is a
+/// session service: it owns a name on the session bus. One that a launch of
+/// this tool started never is, whatever name it owns. A fact that cannot be
+/// read refuses.
+fn silent_app_is_session_service(
+    launched: impl FnOnce() -> Result<bool, AdapterError>,
+    named: impl FnOnce() -> Result<bool, AdapterError>,
+) -> Result<bool, AdapterError> {
+    session_origin::is_session_service(launched, || false, || Ok(false), || Ok(false), named)
+}
+
 /// Whether a process whose window frames the listing cannot classify is a
 /// helper surface of the session itself, the compositor or a decoration frame
 /// it hosts. The caller has proven the process has no managed window. One
@@ -242,7 +253,10 @@ pub(crate) fn is_protected(
         }
         return Ok(session_started);
     }
-    let owner = owns_session_bus_name(pid, deadline)?;
+    let owner = silent_app_is_session_service(
+        || session_origin::launched_by_agent(pid),
+        || owns_session_bus_name(pid, deadline),
+    )?;
     if !instance_matches() {
         return Err(unknown());
     }
@@ -252,3 +266,7 @@ pub(crate) fn is_protected(
 #[cfg(test)]
 #[path = "protected_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "protected_live_tests.rs"]
+mod live_tests;

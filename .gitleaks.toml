@@ -78,8 +78,10 @@ regexes = [
   # Well-known localized group principals are OS vocabulary, not identity.
   '''(?i)BUILTIN\\Admin[a-z]*''',
   # Linux desktop vocabulary that has the shape of an address: systemd
-  # template unit names and the id of Ubuntu's own GNOME Shell extension.
+  # template unit names, the per-user service manager unit, and the id of
+  # Ubuntu's own GNOME Shell extension.
   '''\borg\.gnome\.Shell@(x11|wayland)\.service\b''',
+  '''\buser@[0-9]+\.service\b''',
   '''\bubuntu-appindicators@ubuntu\.com\b''',
   # Addresses that are meant to be public.
   '''(?i)[A-Za-z0-9._%+-]+@example\.(com|org|net)''',
