@@ -55,6 +55,27 @@ pub(crate) fn deadline(ms: u64) -> Deadline {
     Deadline::detached_after(ms).expect("deadline")
 }
 
+pub(crate) fn spawn_helper(test: &str, flag: &str) -> std::process::Child {
+    use agent_desktop_core::INTERACTION_LEASE_FD_ENV;
+    use std::os::fd::AsRawFd;
+
+    let inherited = std::env::var_os(INTERACTION_LEASE_FD_ENV).map(|_| {
+        let lease = crate::system::interaction::interaction_lease::acquire(deadline(8_000))
+            .expect("the caller's lease");
+        lease
+            .duplicate_inheritable_fd()
+            .expect("the helper's lease")
+    });
+    let mut command = Command::new(std::env::current_exe().expect("exe"));
+    command
+        .args(["--exact", test, "--include-ignored", "--nocapture"])
+        .env(flag, "1");
+    if let Some(fd) = &inherited {
+        command.env(INTERACTION_LEASE_FD_ENV, fd.as_raw_fd().to_string());
+    }
+    command.spawn().expect("helper")
+}
+
 const OWN_DISPLAY_ENV: &str = "AD_OWN_DISPLAY";
 
 pub(crate) fn refuse_live_display(display: &str) {
@@ -142,16 +163,10 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
     let map = observed_keymap(&display);
     let code = keycode_for(&map, u32::from('a'));
     let device = "Virtual core XTEST keyboard";
-    let mut child = Command::new(std::env::current_exe().expect("exe"))
-        .args([
-            "--exact",
-            "input::x11::live_tests::live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call",
-            "--include-ignored",
-            "--nocapture",
-        ])
-        .env("AD_HOLD_HELPER", "1")
-        .spawn()
-        .expect("helper");
+    let mut child = spawn_helper(
+        "input::x11::live_tests::live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call",
+        "AD_HOLD_HELPER",
+    );
     let key = format!("key[{code}]");
     let pointer = "Virtual core XTEST pointer";
     let button = "button[1]";
