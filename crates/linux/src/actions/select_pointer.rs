@@ -1,0 +1,111 @@
+use agent_desktop_core::{
+    ActionResult, ActionStep, AdapterError, DeliverySemantics, InteractionLease, InteractionPolicy,
+    StepMechanism,
+};
+use serde_json::json;
+
+use super::chain::{DeliveryOutcome, Observed};
+use super::chain_step::verified_of;
+use super::select::unchanged_is_ignored;
+use super::select_index::UNPROVEN_INDEX_KIND;
+use crate::input::target_pointer::{ClickSpec, click_steps};
+use crate::input::target_world::LiveWorld;
+use crate::system::SharedBus;
+use crate::tree::AtspiElement;
+
+const SEMANTIC_ROUTE: &str = "Selection.SelectChild";
+
+/// The pointer a headed select uses once no semantic route can carry it. A
+/// headless select has none, so it never holds one.
+pub(crate) trait Pointer {
+    fn click(&self, element: &AtspiElement) -> Result<Vec<ActionStep>, AdapterError>;
+}
+
+pub(crate) struct LivePointer<'a> {
+    pub(crate) bus: &'a SharedBus,
+    pub(crate) lease: &'a InteractionLease,
+    pub(crate) policy: InteractionPolicy,
+}
+
+impl LivePointer<'_> {
+    fn world(&self) -> LiveWorld<'_> {
+        LiveWorld {
+            bus: self.bus,
+            lease: self.lease,
+        }
+    }
+}
+
+impl Pointer for LivePointer<'_> {
+    fn click(&self, element: &AtspiElement) -> Result<Vec<ActionStep>, AdapterError> {
+        click_steps(
+            &self.world(),
+            element,
+            ClickSpec::left(1, None),
+            self.policy,
+            self.lease.deadline(),
+        )
+    }
+}
+
+pub(super) fn is_unproven_index(error: &AdapterError) -> bool {
+    error.disposition == DeliverySemantics::not_delivered()
+        && error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("kind"))
+            .is_some_and(|kind| kind == UNPROVEN_INDEX_KIND)
+}
+
+fn record_refusal(mut result: ActionResult, refusal: &AdapterError) -> ActionResult {
+    result.steps.insert(
+        0,
+        ActionStep::skipped(SEMANTIC_ROUTE).with_mechanism(StepMechanism::SemanticApi),
+    );
+    result.details.get_or_insert_with(|| json!({}))["semantic_refusal"] = json!({
+        "code": refusal.code,
+        "message": refusal.message,
+        "details": refusal.details,
+    });
+    result
+}
+
+/// A select whose semantic route was refused because the toolkit's index
+/// cannot be mapped to the intended row goes on with the pointer when the
+/// request holds one. Every other answer stands, and so does every answer to a
+/// headless request.
+pub(super) fn after_unproven_index(
+    pointer: Option<&dyn Pointer>,
+    semantic: impl FnOnce() -> Result<ActionResult, AdapterError>,
+    by_pointer: impl FnOnce(&dyn Pointer) -> Result<ActionResult, AdapterError>,
+) -> Result<ActionResult, AdapterError> {
+    match (semantic(), pointer) {
+        (Err(refusal), Some(pointer)) if is_unproven_index(&refusal) => {
+            by_pointer(pointer).map(|result| record_refusal(result, &refusal))
+        }
+        (answer, _) => answer,
+    }
+}
+
+/// The answer for a select the pointer carried: delivered, and verified
+/// exactly when the selection reads back as the wanted one. A read-back that
+/// shows the old choice is the same failure a semantic write gets.
+pub(super) fn by_pointer_result(
+    mut steps: Vec<ActionStep>,
+    observed: Observed,
+) -> Result<ActionResult, AdapterError> {
+    unchanged_is_ignored(DeliveryOutcome::Delivered(observed))?;
+    let verified = verified_of(observed);
+    if let Some(last) = steps.last_mut() {
+        last.verified = verified;
+    }
+    let result = ActionResult::delivered_unverified("select").with_steps(steps);
+    Ok(match verified {
+        Some(true) => result.with_verified_delivery(),
+        _ => result,
+    })
+}
+
+#[cfg(test)]
+#[path = "select_pointer_tests.rs"]
+mod tests;

@@ -167,6 +167,10 @@ returns `data.rendered: true`; on Wayland it saves the setting and returns
   capability; other compositors return `PLATFORM_NOT_SUPPORTED` before input.
   Windows works the other way round. Read the step in
   `data` to see which ran.
+- `select` tries the semantic route first and the pointer second. A headed
+  `select` on a list whose toolkit index cannot be mapped to the row (a GTK4
+  list) clicks the row and checks its `selected` state. A headless `select`
+  refuses with `selection_index_unproven`.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless `type`
   on it is `POLICY_DENIED` with check `supported_action`, and its value is null.

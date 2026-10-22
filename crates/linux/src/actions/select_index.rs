@@ -7,6 +7,8 @@ use crate::system::{ACCESSIBLE_INTERFACE, within};
 use crate::tree::AtspiElement;
 use crate::tree::toolkit_trust::{ToolkitKind, is_gecko, kind};
 
+pub(super) const UNPROVEN_INDEX_KIND: &str = "selection_index_unproven";
+
 fn supports_indices(toolkit: &crate::system::process::toolkit_id::ToolkitId) -> bool {
     match kind(toolkit) {
         ToolkitKind::Gtk4 => false,
@@ -98,8 +100,8 @@ pub(crate) fn resolve(lookup: &impl IndexLookup, item: &AtspiElement) -> Result<
             ErrorCode::ActionNotSupported,
             "The container's selection indices cannot be mapped to accessible rows safely",
         )
-        .with_suggestion("On X11, find the intended row and use '--headed click' with its row ref, then verify the selected category. Refreshing or retrying select cannot establish a safe index mapping.")
-        .with_details(serde_json::json!({ "kind": "selection_index_unproven", "retryable": false }))
+        .with_suggestion("On X11, run select again with --headed: the pointer clicks the row and the result is checked against the row's selected state. A headless select cannot establish a safe index mapping, so refreshing or retrying it does not help.")
+        .with_details(serde_json::json!({ "kind": UNPROVEN_INDEX_KIND, "retryable": false }))
         .with_disposition(DeliverySemantics::not_delivered()));
     }
     let index = lookup.index(item)?;
