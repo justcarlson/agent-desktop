@@ -18,7 +18,7 @@ use super::{
     AtspiElement, Expansion, Extents, Field, ObservedRead, RawNode, Walk, WalkLimits, WalkedNode,
     ancestry,
 };
-use crate::system::window_id;
+use crate::system::window::window_id;
 
 pub(super) const BUS: &str = ":1.2";
 pub(super) const FRAME_PATH: &str = "/frame";

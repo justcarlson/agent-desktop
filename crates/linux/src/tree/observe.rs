@@ -14,7 +14,7 @@ use super::projection::project_with;
 use super::settle::{Settle, Step, has_depth_cut, has_web_document};
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
-use crate::system::{SharedBus, proc_stat, shell, window_id};
+use crate::system::{SharedBus, process::proc_stat, shell, window::window_id};
 
 /// A window of a stopped process cannot be read, so observing it is
 /// `APP_UNRESPONSIVE` at once instead of a walk that waits out its budget.
@@ -270,7 +270,7 @@ pub(crate) fn observe_tree_with(
                     )
                 })
             },
-            stopped: &crate::system::proc_stat::is_stopped,
+            stopped: &crate::system::process::proc_stat::is_stopped,
             pause: &mut pause,
         },
         decorate,

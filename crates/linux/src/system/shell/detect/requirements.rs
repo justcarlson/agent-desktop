@@ -4,7 +4,7 @@ use super::{
     CallFailure, Fact, NOTIFICATIONS, call, classify_daemon, classify_watcher, daemon_fact_error,
     server_name, shell_owner, unreadable, watcher, watcher_fact_error,
 };
-use crate::system::session_bus::SessionBus as Bus;
+use crate::system::bus::session_bus::SessionBus as Bus;
 
 pub(crate) fn require_daemon(deadline: Deadline) -> Result<(), AdapterError> {
     let connection = Bus::get(deadline)

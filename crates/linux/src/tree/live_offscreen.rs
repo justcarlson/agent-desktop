@@ -13,8 +13,8 @@ use super::state_bits::{ICONIFIED, StateBits};
 use super::toolkit_trust::{read_toolkit, reports_global_position};
 use super::window_extents::read_window_extents;
 use super::{AtspiElement, Extents};
-use crate::system::display_server::{DisplayServer, session_server};
-use crate::system::toolkit_id::ToolkitId;
+use crate::system::display::display_server::{DisplayServer, session_server};
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::x11::stacking::frame_window_state;
 use crate::system::x11::window_x11_state::WindowX11State;
 use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
@@ -195,7 +195,7 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
                 deadline,
                 &FrameFacts {
                     size_identity: title.is_empty()
-                        && crate::system::frame_identity::permits_on_bus(
+                        && crate::system::window::frame_identity::permits_on_bus(
                             bus,
                             frame,
                             &placed.toolkit,

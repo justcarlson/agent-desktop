@@ -8,7 +8,7 @@ use super::live_launch::Launched;
 use super::live_tree::pid_frame;
 use super::observe::observe_tree;
 use super::walker_live_tests::settle;
-use crate::system::{SharedBus, window_id};
+use crate::system::{SharedBus, window::window_id};
 
 fn refs(node: &AccessibilityNode) -> usize {
     usize::from(is_ref_able(node)) + node.children.iter().map(refs).sum::<usize>()

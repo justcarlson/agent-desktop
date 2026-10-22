@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, DeliverySemantics};
 
 use super::world::World;
 use super::{Request, refusal};
-use crate::system::liveness::Liveness;
+use crate::system::process::liveness::Liveness;
 use crate::system::x11::control::ControlRead;
 use crate::system::x11::control_error::ControlError;
 use crate::system::x11::toplevel::Toplevel;

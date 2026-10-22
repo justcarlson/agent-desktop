@@ -116,7 +116,7 @@ fn translated(entry: &RefEntry, before: &Witness, after: &Witness) -> Option<Ref
 fn eligible(
     entry: &RefEntry,
     element: &AtspiElement,
-    toolkit: &crate::system::toolkit_id::ToolkitId,
+    toolkit: &crate::system::process::toolkit_id::ToolkitId,
 ) -> bool {
     entry.identity.role == "incrementor"
         && entry.identity.retained_object.as_deref() == Some(element.object_identity().as_str())

@@ -17,8 +17,8 @@ pub(crate) const ACTIVATION_GRACE: Duration = Duration::from_millis(2_000);
 const EVENT_POLL: Duration = Duration::from_millis(2);
 
 pub(super) fn connect() -> Result<(RustConnection, u32), ActivateError> {
-    let display = match crate::system::display_server::session_server() {
-        crate::system::display_server::DisplayServer::X11(display) => display,
+    let display = match crate::system::display::display_server::session_server() {
+        crate::system::display::display_server::DisplayServer::X11(display) => display,
         _ => return Err(ActivateError::NoDisplay),
     };
     let (connection, screen) =

@@ -7,7 +7,7 @@ use crate::system::{ACCESSIBLE_INTERFACE, within};
 use crate::tree::AtspiElement;
 use crate::tree::toolkit_trust::{ToolkitKind, is_gecko, kind};
 
-fn supports_indices(toolkit: &crate::system::toolkit_id::ToolkitId) -> bool {
+fn supports_indices(toolkit: &crate::system::process::toolkit_id::ToolkitId) -> bool {
     match kind(toolkit) {
         ToolkitKind::Gtk4 => false,
         ToolkitKind::Other => is_gecko(toolkit),
@@ -134,7 +134,7 @@ mod tests {
             Ok(WriteReply::Done)
         }
         fn accessible_indices(&self) -> bool {
-            supports_indices(&crate::system::toolkit_id::ToolkitId {
+            supports_indices(&crate::system::process::toolkit_id::ToolkitId {
                 name: Some(self.toolkit.into()),
                 version: Some("4.14.5".into()),
             })

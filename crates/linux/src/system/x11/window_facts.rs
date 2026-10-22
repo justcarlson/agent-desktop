@@ -77,7 +77,7 @@ fn read_display(
         owner,
         || super::control_grab::ServerGrab::acquire(&connection, deadline),
         || super::control::pid_of(&connection, window, *pid_atom),
-        crate::system::liveness::identity,
+        crate::system::process::liveness::identity,
         || {
             Ok(read_current(
                 &connection,

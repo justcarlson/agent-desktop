@@ -467,9 +467,9 @@ Rebased with rerere onto shipped core-delivery `7dc6500f`.
 | `scripts/private-wayland-shell.sh` | Keep recoverable socket cleanup and the socket value shared with the payload; the portable wrapper test catches a local variable hiding it. |
 | `scripts/remote-linux.sh` | Keep the single outer timeout around lock and execution, plus the separate bounded flock wait. |
 | `crates/linux/src/system/capture/capture_live_tests.rs` | Preserve the upstream Qt fixture removal and the harness branch's obsolete Chromium fixture removal. |
-| `crates/linux/src/system/menu_wait_live_tests.rs` | Keep upstream outcome diagnostics and remove imports for retired Chromium checks. |
-| `crates/linux/src/system/signal_live_surfaces_tests.rs` | Keep upstream outcome diagnostics and the branch's retired Chromium surface checks. |
-| `crates/linux/src/system/signal_live_tests.rs` | Keep upstream outcome diagnostics and remove the mismatched-session Wayland check and its unused import. |
+| `crates/linux/src/system/menu/menu_wait_live_tests.rs` | Keep upstream outcome diagnostics and remove imports for retired Chromium checks. |
+| `crates/linux/src/system/signal/signal_live_surfaces_tests.rs` | Keep upstream outcome diagnostics and the branch's retired Chromium surface checks. |
+| `crates/linux/src/system/signal/signal_live_tests.rs` | Keep upstream outcome diagnostics and remove the mismatched-session Wayland check and its unused import. |
 | `tests/e2e-linux/test_runner_contract.py` | Keep tests moved into the workflow contract module; preserve behavioral lock timeout coverage there. |
 | `tests/e2e-linux/runner/legs.py` | Combine the ref-action and gap inventories without losing either family. |
 | `docs/phases.md` | Preserve shipped shell/notification/tray contracts and the explicitly deferred harness measurements. |

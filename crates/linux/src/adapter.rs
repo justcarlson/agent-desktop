@@ -37,9 +37,9 @@ impl ObservationOps for LinuxAdapter {
         request: &ObservationRequest,
     ) -> Result<ObservedTree, AdapterError> {
         if let ObservationRoot::Element { handle, .. } = &root
-            && let Some(target) = crate::tray::target_of(handle)
+            && let Some(target) = crate::system::tray::target_of(handle)
         {
-            return crate::tray::observe::observe(target, root, request.deadline);
+            return crate::system::tray::observe::observe(target, root, request.deadline);
         }
         crate::tree::observe_tree(self.bus(), root, request)
     }
@@ -49,8 +49,8 @@ impl ObservationOps for LinuxAdapter {
         entry: &RefEntry,
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
-        if crate::tray::owns(entry) {
-            return crate::tray::resolve(entry, deadline);
+        if crate::system::tray::owns(entry) {
+            return crate::system::tray::resolve(entry, deadline);
         }
         crate::tree::resolve_element_strict(self.bus(), entry, deadline)
     }
@@ -60,8 +60,8 @@ impl ObservationOps for LinuxAdapter {
         entry: &RefEntry,
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
-        if crate::tray::owns(entry) {
-            return crate::tray::resolve(entry, deadline);
+        if crate::system::tray::owns(entry) {
+            return crate::system::tray::resolve(entry, deadline);
         }
         if crate::tree::is_menu_entry(entry) {
             return crate::tree::resolve_element_strict(self.bus(), entry, deadline);
@@ -90,8 +90,8 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<ElementState>, AdapterError> {
-        if let Some(target) = crate::tray::target_of(handle) {
-            return crate::tray::live_state(target, deadline);
+        if let Some(target) = crate::system::tray::target_of(handle) {
+            return crate::system::tray::live_state(target, deadline);
         }
         crate::tree::get_live_state(self.bus(), handle, deadline)
     }
@@ -101,8 +101,8 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<Vec<String>>, AdapterError> {
-        if let Some(target) = crate::tray::target_of(handle) {
-            return crate::tray::live_actions(target, deadline);
+        if let Some(target) = crate::system::tray::target_of(handle) {
+            return crate::system::tray::live_actions(target, deadline);
         }
         crate::tree::get_live_actions(self.bus(), handle, deadline)
     }
@@ -112,8 +112,8 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<LiveElement, AdapterError> {
-        if let Some(target) = crate::tray::target_of(handle) {
-            return crate::tray::live_element(target, deadline);
+        if let Some(target) = crate::system::tray::target_of(handle) {
+            return crate::system::tray::live_element(target, deadline);
         }
         let element = crate::tree::get_live_element(self.bus(), handle, deadline)?;
         if element.bounds.is_none() && crate::tree::inside_popup(self.bus(), handle, deadline) {
@@ -127,8 +127,8 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<Rect>, AdapterError> {
-        if let Some(target) = crate::tray::target_of(handle) {
-            return crate::tray::bounds(target, deadline);
+        if let Some(target) = crate::system::tray::target_of(handle) {
+            return crate::system::tray::bounds(target, deadline);
         }
         crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
@@ -147,8 +147,8 @@ impl ObservationOps for LinuxAdapter {
         point: Point,
         deadline: Deadline,
     ) -> Result<HitTestResult, AdapterError> {
-        if let Some(target) = crate::tray::target_of(handle) {
-            return crate::tray::hit_test(target, point, deadline);
+        if let Some(target) = crate::system::tray::target_of(handle) {
+            return crate::system::tray::hit_test(target, point, deadline);
         }
         crate::tree::hit_test(self.bus(), handle, point, deadline)
     }
@@ -210,8 +210,8 @@ impl LinuxAdapter {
         let target = crate::tree::atspi_element(handle)
             .ok()
             .map(|element| element.pid());
-        let result = match crate::tray::target_of(handle) {
-            Some(target) => crate::tray::execute(target, request, lease),
+        let result = match crate::system::tray::target_of(handle) {
+            Some(target) => crate::system::tray::execute(target, request, lease),
             None => {
                 let outcome = crate::tree::atspi_element(handle)
                     .ok()
@@ -225,7 +225,7 @@ impl LinuxAdapter {
                 }
             }
         };
-        crate::system::action_clock::mark_outcome(target, &result);
+        crate::system::interaction::action_clock::mark_outcome(target, &result);
         result
     }
 }

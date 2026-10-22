@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ObservationRoot, SnapshotSurface};
 
 use super::tests::{observe_plain, request, rooted_walk, window};
-use crate::system::window_id;
+use crate::system::window::window_id;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::walker::walk_levels;
 use crate::tree::wrapper::classify;

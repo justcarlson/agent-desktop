@@ -73,7 +73,7 @@ impl ReportedToolkit {
 #[ignore = "owned accessibility service; run through scripts/private-session.sh"]
 fn web_family_live_follows_application_metadata_in_an_unrelated_process() {
     use super::toolkit_trust::read_web_family;
-    use crate::system::web_family::WebFamily;
+    use crate::system::process::web_family::WebFamily;
 
     std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").expect("private session");
     let session = zbus::blocking::Connection::session().expect("session bus");

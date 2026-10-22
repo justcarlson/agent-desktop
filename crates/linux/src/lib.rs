@@ -5,7 +5,6 @@ mod adapter;
 mod input;
 mod notifications;
 mod system;
-mod tray;
 mod tree;
 
 pub use adapter::LinuxAdapter;

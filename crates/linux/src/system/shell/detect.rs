@@ -9,7 +9,7 @@ use zbus::zvariant::OwnedValue;
 
 use self::errors::{tree_error, unreadable};
 use super::identity::{pick_shell_app, registry_apps, shell_owner};
-use crate::system::session_bus::SessionBus;
+use crate::system::bus::session_bus::SessionBus;
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, SharedBus, within};
 
 const NOTIFICATIONS: &str = "org.freedesktop.Notifications";

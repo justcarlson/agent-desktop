@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use super::*;
-use crate::system::display_cause::Cause;
-use crate::system::display_unavailable::Unavailable;
+use crate::system::display::display_cause::Cause;
+use crate::system::display::display_unavailable::Unavailable;
 use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;

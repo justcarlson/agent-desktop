@@ -8,9 +8,9 @@ use super::toolkit_trust::{
 };
 use super::window_extents::read_window_extents_async;
 use super::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode, read_node};
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::shell::container::MENU;
-use crate::system::toolkit_id::ToolkitId;
-use crate::system::window_position::frame_origin;
+use crate::system::window::window_position::frame_origin;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, shell, within};
@@ -154,7 +154,9 @@ fn origin_of(
     }
     let facts = FrameFacts {
         size_identity: title.is_empty()
-            && crate::system::frame_identity::permits_on_bus(bus, frame, toolkit, screen, deadline),
+            && crate::system::window::frame_identity::permits_on_bus(
+                bus, frame, toolkit, screen, deadline,
+            ),
         pid: frame.pid(),
         title,
         extents: screen,

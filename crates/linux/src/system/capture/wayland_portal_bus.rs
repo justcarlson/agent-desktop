@@ -6,8 +6,8 @@ use zbus::zvariant::{OwnedValue, Value};
 use zbus::{Connection, Proxy};
 
 use super::wayland_portal_call::{PORTAL_SERVICE, Pending, PortalAnswer, PortalWire};
-use crate::system::bus_deadline::within;
-use crate::system::session_bus::SessionBus;
+use crate::system::bus::bus_deadline::within;
+use crate::system::bus::session_bus::SessionBus;
 
 const DESKTOP_PATH: &str = "/org/freedesktop/portal/desktop";
 const SCREENSHOT: &str = "org.freedesktop.portal.Screenshot";

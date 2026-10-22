@@ -6,7 +6,7 @@ use x11rb::rust_connection::RustConnection;
 use super::activate_error::ActivateError;
 use super::control::ControlRead;
 use super::stacking::bounded;
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 
 /// The display window control reaches: the X11 session's own, or on a
 /// Wayland session the display of its Xwayland, which `DISPLAY` names.

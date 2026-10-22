@@ -8,7 +8,7 @@ use super::role_numbers::{
 use super::scroll_capability::{eligible, wheel_target};
 use super::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, StateBits};
 use super::{Field, RawNode};
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 
 const VALUE: &str = "org.a11y.atspi.Value";
 const TEXT_INTERFACE: &str = "org.a11y.atspi.Text";

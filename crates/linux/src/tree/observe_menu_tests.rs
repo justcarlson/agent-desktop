@@ -1,7 +1,7 @@
 use agent_desktop_core::ErrorCode;
 
 use super::{outermost, rooted};
-use crate::system::menu_surface::{MenuFamily, MenuPopup};
+use crate::system::menu::menu_surface::{MenuFamily, MenuPopup};
 use crate::tree::AtspiElement;
 use crate::tree::menu_context::MenuContext;
 

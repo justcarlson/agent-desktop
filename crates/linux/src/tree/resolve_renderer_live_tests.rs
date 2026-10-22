@@ -6,7 +6,7 @@ use zbus::connection::Builder;
 use zbus::zvariant::OwnedObjectPath;
 
 use super::BusSource;
-use crate::system::{SharedBus, process_facts, window_id, within};
+use crate::system::{SharedBus, process::process_facts, window::window_id, within};
 use crate::tree::AtspiElement;
 use crate::tree::level::Level;
 use crate::tree::resolve::{Source, resolve};

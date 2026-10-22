@@ -5,8 +5,8 @@ use super::absence::failure;
 use super::failure::Failure;
 use super::resolve_errors::{app_exited, owner_unreachable, window_replaced, window_unverifiable};
 use super::{AtspiElement, ancestry};
-use crate::system::process_lookup::Lookup;
-use crate::system::window_id;
+use crate::system::process::process_lookup::Lookup;
+use crate::system::window::window_id;
 
 /// The window a ref was taken in, as its stored evidence names it.
 #[derive(Debug, Clone, PartialEq, Eq)]

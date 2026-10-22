@@ -9,7 +9,7 @@ use super::sink::X11Sink;
 use super::sink_error::SinkError;
 use crate::input::held_input::HeldInput;
 use crate::input::keymap_edit::KeymapEdit;
-use crate::system::{liveness, proc_stat, process_facts};
+use crate::system::process::{liveness, proc_stat, process_facts};
 
 const JOURNAL_DIR: &str = "agent-desktop-input";
 const RECORD_EXTENSION: &str = "json";
@@ -73,7 +73,8 @@ fn process_is_alive(pid: u32, instance: &str) -> bool {
     }
     matches!(
         liveness::identity(pid, instance),
-        crate::system::identity::Identity::Same | crate::system::identity::Identity::Unreadable
+        crate::system::process::identity::Identity::Same
+            | crate::system::process::identity::Identity::Unreadable
     )
 }
 

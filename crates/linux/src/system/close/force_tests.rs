@@ -5,9 +5,9 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use super::super::Request;
 use super::super::fake::Fake;
 use super::close;
-use crate::system::close_plan::TERM_GRACE;
-use crate::system::liveness::Liveness;
-use crate::system::signal_sent::Sent;
+use crate::system::close::close_plan::TERM_GRACE;
+use crate::system::process::liveness::Liveness;
+use crate::system::signal::signal_sent::Sent;
 
 fn request() -> Request<'static> {
     Request {

@@ -18,7 +18,7 @@ fn recovery_requires_the_retained_bus_and_object_identity() {
         )),
         false,
     ));
-    let toolkit = crate::system::toolkit_id::ToolkitId {
+    let toolkit = crate::system::process::toolkit_id::ToolkitId {
         name: Some("GTK".to_owned()),
         version: Some("4.14.5".to_owned()),
     };

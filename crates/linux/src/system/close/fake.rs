@@ -1,15 +1,15 @@
-use crate::system::window_op_verdict::POLL;
+use crate::system::window::window_op_verdict::POLL;
 use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
 use agent_desktop_core::AdapterError;
 
 use super::world::World;
-use crate::system::liveness::Liveness;
-use crate::system::process_facts::ProcessFacts;
-use crate::system::process_lookup::Lookup;
+use crate::system::process::liveness::Liveness;
+use crate::system::process::process_facts::ProcessFacts;
+use crate::system::process::process_lookup::Lookup;
 use crate::system::signal::Signal;
-use crate::system::signal_sent::Sent;
+use crate::system::signal::signal_sent::Sent;
 use crate::system::x11::control::ControlRead;
 use crate::system::x11::control_error::ControlError;
 use crate::system::x11::toplevel::Toplevel;

@@ -65,8 +65,8 @@ fn rect(x: i32, y: i32, width: i32, height: i32) -> Extents {
     }
 }
 
-fn gtk4() -> crate::system::toolkit_id::ToolkitId {
-    crate::system::toolkit_id::ToolkitId {
+fn gtk4() -> crate::system::process::toolkit_id::ToolkitId {
+    crate::system::process::toolkit_id::ToolkitId {
         name: Some("GTK".to_owned()),
         version: Some("4.14.5".to_owned()),
     }

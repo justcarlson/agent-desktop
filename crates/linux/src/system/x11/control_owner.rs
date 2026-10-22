@@ -1,4 +1,4 @@
-use crate::system::identity::Identity;
+use crate::system::process::identity::Identity;
 use crate::system::x11::control_error::ControlError;
 
 pub(super) fn with_owner<G, T>(

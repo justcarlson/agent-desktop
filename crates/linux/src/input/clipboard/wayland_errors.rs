@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
-use crate::system::display_server::{DisplayCause, display_cause_error};
+use crate::system::display::display_server::{DisplayCause, display_cause_error};
 
 const DETAIL_CAP: usize = 512;
 

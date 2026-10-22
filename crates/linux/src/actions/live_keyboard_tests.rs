@@ -113,7 +113,7 @@ fn focus_transport_timeouts_survive_and_a_responsive_target_still_focuses() {
     let paused = super::live_scroll_tests::Paused(pid);
     assert!(
         bench
-            .wait_for(|| crate::system::proc_stat::is_stopped(pid).then_some(()))
+            .wait_for(|| crate::system::process::proc_stat::is_stopped(pid).then_some(()))
             .is_some()
     );
     let bus = bench.adapter().bus();

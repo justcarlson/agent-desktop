@@ -13,7 +13,7 @@ use crate::actions::physical_target::ensure_headed_click_policy;
 use crate::input::shell_click;
 use crate::system::shell::anchor::Anchor;
 use crate::system::shell::located::Located;
-use crate::system::{SharedBus, process_facts, window_id};
+use crate::system::{SharedBus, process::process_facts, window::window_id};
 
 const POLL: Duration = Duration::from_millis(40);
 

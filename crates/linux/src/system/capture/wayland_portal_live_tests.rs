@@ -9,8 +9,8 @@ use super::wayland_portal_live_support::{
     BLUE, BUS_DAEMON, DIALOG_SHOWN, Endpoint, FRONTEND, KEY_RETURN, KEY_TAB, Keys, World, boot,
     boot_with, bus_call, runtime_dir, stored_screenshot_grants,
 };
-use crate::system::bus_deadline::within;
-use crate::system::session_bus::SessionBus;
+use crate::system::bus::bus_deadline::within;
+use crate::system::bus::session_bus::SessionBus;
 
 #[path = "portal_layout_live_tests.rs"]
 mod layout;
@@ -290,9 +290,10 @@ fn a_silent_dialog_ends_at_the_portals_limit_and_a_late_allow_leaves_nothing() {
     let world = boot();
     let before = home_screenshots();
     let started = Instant::now();
-    let budget =
-        crate::system::screenshot::consent_deadline(Deadline::standard().expect("a deadline"))
-            .expect("a deadline");
+    let budget = crate::system::capture::screenshot::consent_deadline(
+        Deadline::standard().expect("a deadline"),
+    )
+    .expect("a deadline");
     let silent = capture_wayland(&ScreenshotTarget::FullScreen, budget)
         .map(|image| image.width)
         .expect_err("no answer ends the request");

@@ -4,7 +4,7 @@ use agent_desktop_core::{
 
 use super::ClipboardTools;
 use crate::input::clipboard::set_clear::{clear_from, get_from, set_from};
-use crate::system::display_server::DisplayServer;
+use crate::system::display::display_server::DisplayServer;
 
 #[test]
 fn missing_wayland_tools_never_redirect_clipboard_to_x11() {

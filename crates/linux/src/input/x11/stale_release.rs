@@ -6,9 +6,9 @@ use agent_desktop_core::{AdapterError, Deadline};
 use super::held_journal::HeldJournal;
 use super::worker_slot::{self, WorkerSlot};
 use super::xtest_sink::XtestSink;
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::{
-    interaction_lease,
+    interaction::interaction_lease,
     x11::{self, PendingRead},
 };
 

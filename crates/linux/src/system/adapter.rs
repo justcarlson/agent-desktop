@@ -12,8 +12,16 @@ use agent_desktop_core::{
 use crate::adapter::LinuxAdapter;
 use crate::notifications;
 use crate::system::{
-    action_clock, close, interaction_lease, key_dispatch, launch, menu_surface, menu_wait,
-    permissions, process_state, session, shell, signal_capture, window_op,
+    close,
+    focus::key_dispatch,
+    interaction::{action_clock, interaction_lease, session},
+    launch,
+    menu::{menu_surface, menu_wait},
+    permissions,
+    process::process_state,
+    shell,
+    signal::signal_capture,
+    window::window_op,
 };
 
 impl SystemOps for LinuxAdapter {
@@ -21,7 +29,7 @@ impl SystemOps for LinuxAdapter {
         &self,
         control: &agent_desktop_core::CursorOverlayControl,
     ) -> Result<(), AdapterError> {
-        super::cursor_overlay::update(control)
+        crate::system::overlay::cursor_overlay::update(control)
     }
 
     fn acquire_interaction_lease(
@@ -52,7 +60,7 @@ impl SystemOps for LinuxAdapter {
     }
 
     fn focus_window(&self, win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
-        crate::system::focus_window::focus_window(self.bus(), win, lease)
+        crate::system::focus::focus_window::focus_window(self.bus(), win, lease)
     }
 
     fn close_app(
@@ -124,7 +132,7 @@ impl SystemOps for LinuxAdapter {
         target: ScreenshotTarget,
         deadline: Deadline,
     ) -> Result<ImageBuffer, AdapterError> {
-        crate::system::screenshot::screenshot(self.bus(), target, deadline)
+        crate::system::capture::screenshot::screenshot(self.bus(), target, deadline)
     }
 
     fn screenshot_window_frame(
@@ -132,7 +140,7 @@ impl SystemOps for LinuxAdapter {
         window: &WindowInfo,
         deadline: Deadline,
     ) -> Result<ImageBuffer, AdapterError> {
-        crate::system::screenshot::screenshot_window_frame(self.bus(), window, deadline)
+        crate::system::capture::screenshot::screenshot_window_frame(self.bus(), window, deadline)
     }
 
     fn capture_signal_baseline(

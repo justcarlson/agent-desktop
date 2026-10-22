@@ -10,8 +10,8 @@ use super::scroll_plan::{
     next_value, rungs_for,
 };
 use crate::system::SharedBus;
-use crate::system::focus_cause::{Cause as FocusCause, refusal};
-use crate::system::toolkit_id::ToolkitId;
+use crate::system::focus::focus_cause::{Cause as FocusCause, refusal};
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::tree::{Extents, atspi_element};
 
 /// What the target reads as before anything is tried.

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::system::toolkit_id::ToolkitId;
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::tree::Extents;
 
 /// How long a scroll is watched for before it is judged not to have moved the

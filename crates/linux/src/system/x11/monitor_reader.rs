@@ -4,7 +4,7 @@ use x11rb::protocol::xproto::ConnectionExt as XprotoExt;
 use x11rb::rust_connection::RustConnection;
 
 use super::{MonitorFault, MonitorSource, X11Monitor, fault_of_connect};
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::tree::Extents;
 
 /// Reads the RandR monitor list off the display named by `DISPLAY`, one

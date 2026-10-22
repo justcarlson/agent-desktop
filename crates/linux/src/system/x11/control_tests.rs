@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::ControlRead;
-use crate::system::display_cause::Cause;
-use crate::system::display_server::DisplayServer;
-use crate::system::display_unavailable::Unavailable;
+use crate::system::display::display_cause::Cause;
+use crate::system::display::display_server::DisplayServer;
+use crate::system::display::display_unavailable::Unavailable;
 use crate::system::x11::control_display::route_for;
 
 fn deadline(ms: u64) -> Deadline {

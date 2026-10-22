@@ -1,6 +1,6 @@
 use super::node_read::COMPONENT_INTERFACE;
 use super::role_numbers::{DOCUMENT_FRAME, DOCUMENT_WEB, LIST, SCROLL_PANE, VIEWPORT};
-use crate::system::display_server::DisplayServer;
+use crate::system::display::display_server::DisplayServer;
 
 const TABLE: u32 = 55;
 const TREE: u32 = 65;

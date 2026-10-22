@@ -50,8 +50,8 @@ fn no_xtest() -> AdapterError {
 }
 
 fn unreachable_display(display: &str, error: impl std::fmt::Display) -> AdapterError {
-    let mut error = crate::system::display_server::display_cause_error(
-        &crate::system::display_server::DisplayCause::Refused {
+    let mut error = crate::system::display::display_server::display_cause_error(
+        &crate::system::display::display_server::DisplayCause::Refused {
             detail: format!("{display}: {error}"),
         },
     );
@@ -67,7 +67,7 @@ fn open_connection(
     let started = Instant::now();
     let (connection, screen) =
         crate::system::x11::DisplayReader::connect(display).map_err(|error| {
-            crate::system::display_server::fault_error(
+            crate::system::display::display_server::fault_error(
                 display,
                 Some(crate::system::x11::fault_of_connect(&error)),
             )
@@ -91,8 +91,8 @@ impl XtestSink {
         let name = display.to_owned();
         let pending = crate::system::x11::start(move || Self::open(&name, cutoff_after));
         pending.finish(deadline).unwrap_or_else(|| {
-            Err(crate::system::display_server::display_cause_error(
-                &crate::system::display_server::DisplayCause::Silent,
+            Err(crate::system::display::display_server::display_cause_error(
+                &crate::system::display::display_server::DisplayCause::Silent,
             )
             .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered()))
         })

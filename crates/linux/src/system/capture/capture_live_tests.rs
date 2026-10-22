@@ -2,7 +2,7 @@ use agent_desktop_core::{ErrorCode, ScreenshotTarget};
 
 use super::capture_live_support::*;
 use crate::system::SharedBus;
-use crate::system::screenshot::{screenshot, screenshot_window_frame};
+use crate::system::capture::screenshot::{screenshot, screenshot_window_frame};
 use crate::tree::live_launch::Launched;
 
 fn window_at(x: i32, y: i32) -> Geometry {
@@ -80,11 +80,11 @@ fn grab_live_a_window_partly_off_screen_reports_off_screen() {
 fn grab_live_the_capture_permission_follows_the_session() {
     use agent_desktop_core::Deadline;
 
-    use crate::system::display_env::DisplayEnv;
-    use crate::system::display_probe::SocketProbe;
-    use crate::system::display_server::detect;
+    use crate::system::display::display_env::DisplayEnv;
+    use crate::system::display::display_probe::SocketProbe;
+    use crate::system::display::display_server::detect;
+    use crate::system::display::route::resolve;
     use crate::system::permissions::{CaptureAvailability, capture_availability};
-    use crate::system::route::resolve;
     use crate::system::x11::grab::DisplayGrabber;
 
     let _display = assert_private_display();
@@ -135,7 +135,7 @@ fn grab_live_a_stopped_window_is_app_unresponsive() {
         lookup: &lookup,
         decode: real_decode,
         encode: encode_png,
-        stopped: crate::system::proc_stat::is_stopped,
+        stopped: crate::system::process::proc_stat::is_stopped,
     };
     let started = std::time::Instant::now();
     let outcome = capture(&env, &window, false, deadline(20_000));

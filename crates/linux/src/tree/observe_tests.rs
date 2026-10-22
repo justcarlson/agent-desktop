@@ -4,7 +4,7 @@ use agent_desktop_core::{
 };
 
 use super::{SettleHost, observe_with, refuse_stopped};
-use crate::system::window_id;
+use crate::system::window::window_id;
 use crate::tree::role_numbers::PUSH_BUTTON;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::walker::walk_levels;

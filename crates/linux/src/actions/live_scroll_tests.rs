@@ -126,7 +126,7 @@ fn scroll_to_timeout_after_dispatch_is_uncertain_and_a_false_reply_is_absent() {
     let paused = Paused(pid);
     assert!(
         bench
-            .wait_for(|| crate::system::proc_stat::is_stopped(pid).then_some(()))
+            .wait_for(|| crate::system::process::proc_stat::is_stopped(pid).then_some(()))
             .is_some()
     );
     let mut port =
@@ -137,7 +137,7 @@ fn scroll_to_timeout_after_dispatch_is_uncertain_and_a_false_reply_is_absent() {
     drop(paused);
     assert!(
         bench
-            .wait_for(|| (!crate::system::proc_stat::is_stopped(pid)).then_some(()))
+            .wait_for(|| (!crate::system::process::proc_stat::is_stopped(pid)).then_some(()))
             .is_some()
     );
     assert_eq!(read(&state), before);

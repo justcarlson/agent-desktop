@@ -10,7 +10,7 @@ use super::grab_rect::GrabRect;
 use super::visual::format_of;
 use super::{MonitorFault, fault_of_connect, start};
 use crate::system::capture::pixels::{MAX_PIXELS, VisualFormat};
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 
 const ROOT: u32 = 0;
 const WIRE_PIXEL_BYTES: usize = 4;

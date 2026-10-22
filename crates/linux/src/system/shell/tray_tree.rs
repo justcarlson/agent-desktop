@@ -3,7 +3,7 @@ use agent_desktop_core::{
     ObservationRoot, ObservationSource, ObservedSubtree, ObservedTree, SnapshotSurface, WindowInfo,
 };
 
-use crate::tray::view::TrayView;
+use crate::system::tray::view::TrayView;
 
 pub(crate) fn logical_tree(
     view: &TrayView,

@@ -52,8 +52,8 @@ fn not_delivered(error: AdapterError) -> AdapterError {
 }
 
 fn timed_out(delivery: DeliverySemantics) -> AdapterError {
-    crate::system::display_server::display_cause_error(
-        &crate::system::display_server::DisplayCause::Silent,
+    crate::system::display::display_server::display_cause_error(
+        &crate::system::display::display_server::DisplayCause::Silent,
     )
     .with_disposition(delivery)
 }

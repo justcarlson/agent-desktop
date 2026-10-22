@@ -2,7 +2,10 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 use serde_json::json;
 
 use super::AtspiElement;
-use crate::system::{listed_app_name, proc_stat, process_facts};
+use crate::system::{
+    listed_app_name,
+    process::{proc_stat, process_facts},
+};
 
 fn settled(message: &str, kind: &str) -> AdapterError {
     AdapterError::stale_ref_because(message).with_details(json!({
@@ -42,7 +45,7 @@ pub(crate) fn app_exited() -> AdapterError {
 pub(crate) fn owner_unreachable(pid: u32) -> AdapterError {
     if matches!(
         process_facts::lookup(pid),
-        crate::system::process_lookup::Lookup::Gone
+        crate::system::process::process_lookup::Lookup::Gone
     ) {
         return app_exited();
     }

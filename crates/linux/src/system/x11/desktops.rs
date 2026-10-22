@@ -3,7 +3,7 @@ use x11rb::protocol::xproto::AtomEnum;
 use super::control_display::{atoms, longs, open, property};
 use super::desktop_placement::DesktopPlacement;
 use super::stacking_decode::{decode_current_desktop, decode_desktop};
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 
 const MAX_CLIENTS: u32 = 4_096;
 

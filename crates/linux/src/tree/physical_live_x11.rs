@@ -60,7 +60,7 @@ pub(super) fn activate(client: u32) {
         .find(|window| window.id == client)
         .and_then(|window| window.pid)
         .expect("the client owner");
-    let facts = crate::system::process_facts::read(pid).expect("the process instance");
+    let facts = crate::system::process::process_facts::read(pid).expect("the process instance");
     let owner = agent_desktop_core::ProcessIdentity::new(pid, facts.instance);
     crate::system::x11::control_send::activate_window(client, &owner, read_deadline(), true)
         .expect("the activation request is sent");

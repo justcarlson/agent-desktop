@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use super::start_sweep;
 use crate::input::x11::worker_slot::WorkerSlot;
-use crate::system::interaction_lease;
+use crate::system::interaction::interaction_lease;
 use agent_desktop_core::Deadline;
 
 fn deadline(ms: u64) -> Deadline {

@@ -6,8 +6,8 @@ use zbus::zvariant::OwnedValue;
 use super::AtspiElement;
 use super::node_read::call;
 use super::text_units::LengthUnit;
-use crate::system::toolkit_id::ToolkitId;
-use crate::system::web_family::WebFamily;
+use crate::system::process::toolkit_id::ToolkitId;
+use crate::system::process::web_family::WebFamily;
 use crate::system::{PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH};
 
 const APPLICATION_INTERFACE: &str = "org.a11y.atspi.Application";

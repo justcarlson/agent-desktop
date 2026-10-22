@@ -69,7 +69,7 @@ fn live_text_after_own_pending_remap_reaches_the_editor_and_bad_recovery_refuses
         );
         std::thread::sleep(Duration::from_millis(20));
     };
-    let facts = crate::system::process_facts::read(app.id()).unwrap();
+    let facts = crate::system::process::process_facts::read(app.id()).unwrap();
     let owner = agent_desktop_core::ProcessIdentity::new(app.id(), facts.instance);
     crate::system::x11::control_send::activate_window(client.id, &owner, deadline(8_000), true)
         .unwrap();
@@ -95,7 +95,7 @@ fn live_text_after_own_pending_remap_reaches_the_editor_and_bad_recovery_refuses
         );
         std::thread::sleep(Duration::from_millis(20));
     }
-    let lease = crate::system::interaction_lease::acquire(deadline(30_000)).unwrap();
+    let lease = crate::system::interaction::interaction_lease::acquire(deadline(30_000)).unwrap();
     let map = live_keymap(&display, &lease).unwrap();
     let code = map.spare_keycodes(1)[0];
     let original = map.keysyms_of(code).unwrap();
@@ -172,7 +172,8 @@ fn live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call() {
             ],
             release_origin: None,
         };
-        let lease = crate::system::interaction_lease::acquire(deadline(70_000)).expect("lease");
+        let lease = crate::system::interaction::interaction_lease::acquire(deadline(70_000))
+            .expect("lease");
         let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
@@ -206,7 +207,8 @@ fn live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call() {
         steps: vec![Step::MoveTo { x: 3, y: 3 }],
         release_origin: None,
     };
-    let lease = crate::system::interaction_lease::acquire(deadline(8_000)).expect("lease");
+    let lease =
+        crate::system::interaction::interaction_lease::acquire(deadline(8_000)).expect("lease");
     run(&display, vec![nudge], &mut || Ok(()), &lease).expect("next call");
     assert!(
         wait_for_keysyms(&display, code, &original),

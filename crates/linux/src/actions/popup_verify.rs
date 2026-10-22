@@ -1,6 +1,6 @@
 use super::click::{POLL_STEP, POPUP_SETTLE, opens_popup, poll_until};
 use super::context::Target;
-use crate::system::menu_surface::roots_below;
+use crate::system::menu::menu_surface::roots_below;
 use crate::tree::AtspiElement;
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::role_numbers::{PUSH_BUTTON, PUSH_BUTTON_MENU, TOGGLE_BUTTON};

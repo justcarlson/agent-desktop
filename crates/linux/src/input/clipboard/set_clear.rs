@@ -17,8 +17,8 @@ use super::payload::{Payload, payload_of};
 use super::route_fallback::ClipboardTools;
 use super::x11_read::{fault_error, read_x11};
 use super::x11_requestor::{SelectionServer, X11Server};
-use crate::system::display_server::{DisplayServer, session_server};
-use crate::system::route::{self, Route};
+use crate::system::display::display_server::{DisplayServer, session_server};
+use crate::system::display::route::{self, Route};
 
 const VERIFY_GRACE_MS: u64 = 1_000;
 

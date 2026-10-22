@@ -4,7 +4,7 @@ use super::key_session::KeySession;
 use super::live_shell::Shell;
 use super::remote_desktop::RemoteDesktop;
 use crate::system::SharedBus;
-use crate::system::session_bus::SessionBus;
+use crate::system::bus::session_bus::SessionBus;
 use crate::tree::live_launch::Launched;
 
 fn deadline() -> Deadline {

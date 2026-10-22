@@ -29,3 +29,5 @@ mod wayland_portal_live_process;
 mod wayland_portal_live_support;
 #[cfg(test)]
 mod wayland_portal_live_tests;
+
+pub(super) mod screenshot;

@@ -13,7 +13,7 @@ use super::control_display::{atoms, connect};
 use super::control_grab::ServerGrab;
 use super::control_owner::with_owner;
 use super::stacking::bounded;
-use crate::system::liveness;
+use crate::system::process::liveness;
 use crate::system::x11::control_error::ControlError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

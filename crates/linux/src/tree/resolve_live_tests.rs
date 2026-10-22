@@ -2,7 +2,7 @@ use agent_desktop_core::{Deadline, ObservationOps, RefEntry, TreeOptions, Window
 
 use super::AtspiElement;
 use crate::LinuxAdapter;
-use crate::system::window_id;
+use crate::system::window::window_id;
 
 fn entries(result: &snapshot::SnapshotResult) -> Vec<(String, RefEntry)> {
     let value = serde_json::to_value(&result.refmap).expect("a refmap serializes");

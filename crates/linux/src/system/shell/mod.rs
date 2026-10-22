@@ -7,7 +7,7 @@ use agent_desktop_core::{
     ObservationRoot, ObservedTree, SnapshotSurface, WindowInfo,
 };
 
-use crate::system::{SharedBus, window_id};
+use crate::system::{SharedBus, window::window_id};
 use crate::tree::AtspiElement;
 
 pub(crate) mod container;
@@ -124,7 +124,7 @@ pub(crate) fn observe_shell(
     let root = ObservationRoot::Window(window);
     if kinds::kind_of(request.surface) == Some(kinds::ShellKind::Tray) {
         detect::require_watcher(request.deadline)?;
-        let view = crate::tray::view::read(request.deadline)?;
+        let view = crate::system::tray::view::read(request.deadline)?;
         return tray_tree::logical_tree(&view, window, request.surface);
     }
     crate::tree::observe_tree(bus, root, &inner)

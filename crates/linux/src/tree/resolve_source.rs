@@ -19,7 +19,7 @@ use super::searched::Searched;
 use super::toolkit_trust::read_web_family;
 use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits};
-use crate::system::{SharedBus, owner_process_id, process_facts, shell, within};
+use crate::system::{SharedBus, owner_process_id, process::process_facts, shell, within};
 
 fn unanswered() -> AdapterError {
     AdapterError::timeout("The accessible object did not answer in time")
@@ -36,7 +36,7 @@ pub(crate) struct BusSource<'a> {
 
 impl<'a> BusSource<'a> {
     pub(crate) fn open(bus: &'a SharedBus, deadline: Deadline) -> Result<Self, AdapterError> {
-        crate::system::display_server::require(deadline)?;
+        crate::system::display::display_server::require(deadline)?;
         let connection = bus.get(deadline)?.inner().clone();
         Ok(Self {
             bus,

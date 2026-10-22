@@ -1,7 +1,7 @@
 use agent_desktop_core::state;
 
 use super::*;
-use crate::system::toolkit_id::ToolkitId;
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::x11::window_x11_state::WindowX11State;
 use crate::tree::ancestry::{self, Ancestry};
 use crate::tree::node_evidence::evidence_for;

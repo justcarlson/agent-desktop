@@ -168,7 +168,11 @@ pub(crate) fn execute_action(
             deliver(bus, &request.action, Some(element), &request, lease)
         }
         other => other.map_err(|error| {
-            name_stopped_target(error, element.pid(), crate::system::proc_stat::is_stopped)
+            name_stopped_target(
+                error,
+                element.pid(),
+                crate::system::process::proc_stat::is_stopped,
+            )
         }),
     }
 }

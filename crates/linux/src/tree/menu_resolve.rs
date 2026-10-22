@@ -18,9 +18,9 @@ use super::resolve_search::evaluate;
 use super::searched::Searched;
 use super::walker::walk_tree;
 use super::{AtspiElement, WalkLimits, atspi_element, read_node};
-use crate::system::menu_surface::popups_at;
+use crate::system::menu::menu_surface::popups_at;
 use crate::system::shell::container::MENU;
-use crate::system::{SharedBus, owner_process_id, process_facts, within};
+use crate::system::{SharedBus, owner_process_id, process::process_facts, within};
 
 pub(crate) fn is_menu_entry(entry: &RefEntry) -> bool {
     entry.source.source_surface == SnapshotSurface::Menu

@@ -6,7 +6,7 @@ use serde_json::json;
 use zbus::Connection;
 
 use super::light::{LiveNodes, Nodes};
-use crate::system::session_bus::SessionBus;
+use crate::system::bus::session_bus::SessionBus;
 use crate::system::{REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus, owner_process_id, within};
 use crate::tree::role_numbers::{FRAME, WINDOW};
 use crate::tree::{AtspiElement, list_children};
@@ -158,7 +158,7 @@ pub(super) async fn shell_owner(session: &Connection) -> Result<u32, zbus::Error
     owner_process_id(session, SHELL_BUS_NAME)
         .await
         .inspect_err(|error| {
-            if crate::system::session_bus::is_transport_failure(error) {
+            if crate::system::bus::session_bus::is_transport_failure(error) {
                 SessionBus::forget(session);
             }
         })
@@ -200,7 +200,7 @@ pub(crate) fn find_root(bus: &SharedBus, deadline: Deadline) -> Result<ShellRoot
     let app = pick_shell_app(&apps, pid).ok_or_else(|| {
         tree_absent("no unique registry application identifies the shell process")
     })?;
-    if crate::system::proc_stat::is_stopped(pid) {
+    if crate::system::process::proc_stat::is_stopped(pid) {
         return Err(AdapterError::app_unresponsive(SHELL_BUS_NAME));
     }
     let probe_deadline = deadline.capped(WINDOW_BUDGET);

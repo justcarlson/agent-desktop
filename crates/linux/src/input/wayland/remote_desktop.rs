@@ -7,7 +7,7 @@ use zbus::zvariant::DynamicType;
 use zbus::zvariant::OwnedObjectPath;
 
 use super::key_session::KeySession;
-use crate::system::session_bus::{SessionBus, is_transport_failure};
+use crate::system::bus::session_bus::{SessionBus, is_transport_failure};
 use crate::system::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN, within};
 
 const SERVICE: &str = "org.gnome.Mutter.RemoteDesktop";

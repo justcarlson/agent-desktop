@@ -8,7 +8,7 @@ use super::snapshot::{decode_cardinals, decode_frame_extents, decode_shadow, dec
 use super::stacking::{bounded, capped, route};
 use super::stacking_read::StackingRead;
 use super::{X11Client, X11Source, X11State};
-use crate::system::display_server::{DisplayServer, session_server};
+use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::tree::Extents;
 use agent_desktop_core::Deadline;
 
@@ -201,8 +201,8 @@ struct Atoms {
 }
 
 fn display_to_read() -> Option<String> {
-    match crate::system::display_server::session_server() {
-        crate::system::display_server::DisplayServer::X11(display) => Some(display),
+    match crate::system::display::display_server::session_server() {
+        crate::system::display::display_server::DisplayServer::X11(display) => Some(display),
         _ => None,
     }
 }

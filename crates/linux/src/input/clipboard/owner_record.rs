@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use super::owner_files;
-use crate::system::proc_stat;
+use crate::system::process::proc_stat;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OwnerRecord {

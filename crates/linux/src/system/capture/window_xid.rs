@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
 use crate::system::SharedBus;
 use crate::system::registry::read_registry;
-use crate::system::window_ops::windows_of;
+use crate::system::window::window_ops::windows_of;
 use crate::system::x11::map::{ClientMatch, match_client};
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};

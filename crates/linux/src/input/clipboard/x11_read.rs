@@ -6,6 +6,7 @@ use serde_json::json;
 
 use super::targets::{Wanted, choose_target, content_of};
 use super::x11_requestor::X11Requestor;
+use crate::system::display::display_server;
 use crate::system::x11::{self, MonitorFault};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,7 +47,7 @@ pub(crate) fn fault_error(fault: Fault, owner_pid: Option<u32>) -> AdapterError 
                 None => error,
             }
         }
-        Fault::Connect(fault) => crate::system::display_server::fault_error("X11", Some(fault)),
+        Fault::Connect(fault) => display_server::fault_error("X11", Some(fault)),
         Fault::Protocol(message) => AdapterError::new(ErrorCode::ActionFailed, message),
         Fault::OverCap => AdapterError::new(
             ErrorCode::ActionFailed,

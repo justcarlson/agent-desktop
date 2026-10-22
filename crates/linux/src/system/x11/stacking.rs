@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use agent_desktop_core::Deadline;
 
-use crate::system::display_server::DisplayServer;
+use crate::system::display::display_server::DisplayServer;
 
 use super::map::{ClientMatch, match_client};
 use super::stacking_read::StackingRead;

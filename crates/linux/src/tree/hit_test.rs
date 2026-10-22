@@ -10,7 +10,7 @@ use super::hit_occlusion::occlusion;
 use super::hit_verdict::{Landing, Standing, Verdict, decide, needs_landing};
 use super::toolkit_trust::{reports_global_position, trusts_descent, trusts_same_window_landing};
 use super::{AtspiElement, Extents, atspi_element};
-use crate::system::toolkit_id::ToolkitId;
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
 use crate::system::x11::{FrameFacts, X11Client};
 use crate::system::{SharedBus, shell};

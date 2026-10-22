@@ -7,7 +7,7 @@ use agent_desktop_core::{
 use zbus::zvariant::OwnedValue;
 
 use crate::LinuxAdapter;
-use crate::system::{PROPERTIES_INTERFACE, window_id, within};
+use crate::system::{PROPERTIES_INTERFACE, window::window_id, within};
 use crate::tree::live_launch::{Launched, nonce};
 use crate::tree::{AtspiElement, list_children, read_node};
 

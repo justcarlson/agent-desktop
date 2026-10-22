@@ -10,7 +10,7 @@ use super::role_numbers::is_bulk_container;
 use super::walker::walk_tree;
 use super::{AtspiElement, ObservedRead, WalkLimits, WalkedNode};
 use crate::system::SharedBus;
-use crate::system::menu_surface::{MenuPopup, popups_of};
+use crate::system::menu::menu_surface::{MenuPopup, popups_of};
 
 /// An element that is the root of its own walk: it is its own frame, so the
 /// refs below it resolve against it and not against a window.

@@ -3,8 +3,8 @@ use agent_desktop_core::{
 };
 
 use super::*;
-use crate::system::display_cause::Cause;
-use crate::system::display_unavailable::Unavailable;
+use crate::system::display::display_cause::Cause;
+use crate::system::display::display_unavailable::Unavailable;
 
 fn no_display() -> DisplayServer {
     DisplayServer::Unavailable(Unavailable {

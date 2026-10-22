@@ -134,7 +134,8 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
             ],
             release_origin: None,
         };
-        let lease = crate::system::interaction_lease::acquire(deadline(70_000)).expect("lease");
+        let lease = crate::system::interaction::interaction_lease::acquire(deadline(70_000))
+            .expect("lease");
         let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
@@ -177,7 +178,8 @@ fn live_a_key_left_held_by_a_killed_client_is_released_by_the_next_call() {
         steps: vec![Step::MoveTo { x: 3, y: 3 }],
         release_origin: None,
     };
-    let lease = crate::system::interaction_lease::acquire(deadline(8_000)).expect("lease");
+    let lease =
+        crate::system::interaction::interaction_lease::acquire(deadline(8_000)).expect("lease");
     run(&display, vec![nudge], &mut || Ok(()), &lease).expect("next call");
     assert!(
         !input_down(device, &key) && !input_down(pointer, button),

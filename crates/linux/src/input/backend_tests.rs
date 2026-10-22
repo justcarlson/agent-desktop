@@ -3,11 +3,11 @@ use std::path::Path;
 use agent_desktop_core::ErrorCode;
 
 use super::{Backend, select};
-use crate::system::display_cause::Cause;
-use crate::system::display_env::DisplayEnv;
-use crate::system::display_reach::Reach;
-use crate::system::display_server::{DisplayServer, Probe, detect};
-use crate::system::display_unavailable::Unavailable;
+use crate::system::display::display_cause::Cause;
+use crate::system::display::display_env::DisplayEnv;
+use crate::system::display::display_reach::Reach;
+use crate::system::display::display_server::{DisplayServer, Probe, detect};
+use crate::system::display::display_unavailable::Unavailable;
 
 struct Fixed {
     wayland: Reach,
@@ -78,7 +78,7 @@ fn every_unreachable_input_cause_uses_the_shared_display_error() {
             detail: "test endpoint".into(),
         };
         let expected =
-            crate::system::route::resolve(DisplayServer::Unavailable(unavailable.clone()))
+            crate::system::display::route::resolve(DisplayServer::Unavailable(unavailable.clone()))
                 .expect_err("unreachable");
         let actual = select(DisplayServer::Unavailable(unavailable)).expect_err("unreachable");
         assert_eq!(actual.code, expected.code);

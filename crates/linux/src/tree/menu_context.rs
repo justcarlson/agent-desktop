@@ -15,7 +15,7 @@ pub(crate) fn for_element(
     let (Some(frame), Some(owner)) = (element.frame(), element.menu_owner()) else {
         return Ok(None);
     };
-    let popups = crate::system::menu_surface::popups_at(bus, &owner, false, deadline)?;
+    let popups = crate::system::menu::menu_surface::popups_at(bus, &owner, false, deadline)?;
     let mut candidates = popups.into_iter().filter(|popup| popup.root == *frame);
     let Some(popup) = candidates.next() else {
         return Ok(None);

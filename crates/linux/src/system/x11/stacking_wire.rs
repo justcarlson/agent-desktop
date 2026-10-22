@@ -223,8 +223,13 @@ fn overlays_from_siblings(
             Err(Stop::Gone) => continue,
             Err(Stop::Failed) => return Err(Stop::Failed),
         };
-        if crate::system::cursor_overlay::is_overlay(connection, *window, &attributes, &size)
-            .map_err(|_| Stop::Failed)?
+        if crate::system::overlay::cursor_overlay::is_overlay(
+            connection,
+            *window,
+            &attributes,
+            &size,
+        )
+        .map_err(|_| Stop::Failed)?
         {
             continue;
         }

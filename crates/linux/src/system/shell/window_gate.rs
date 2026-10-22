@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::identity::{ShellRoot, find_root};
 use super::light::{LiveNodes, Nodes};
-use crate::system::{SharedBus, window_id};
+use crate::system::{SharedBus, window::window_id};
 use crate::tree::AtspiElement;
 
 fn stale(message: &str) -> AdapterError {

@@ -8,7 +8,7 @@ use agent_desktop_core::{
 
 use super::live_rig::{deadline, wait_until};
 use super::physical_live_rig::{Kit, Scene};
-use crate::system::window_id;
+use crate::system::window::window_id;
 
 pub(super) const APP: &str = r#"
 import gi, os
