@@ -33,11 +33,18 @@ pub(crate) struct TypeArgs {
     pub text: String,
     #[arg(
         long = "timeout-ms",
-        default_value_t = 5000,
-        help = "Maximum ref-resolution and transient-actionability wait in milliseconds; terminal failures return immediately"
+        help = "Maximum wait in milliseconds, covering ref resolution, actionability and delivery of the text; default 5000 plus 30 per character of TEXT; 0 disables the wait"
     )]
-    #[serde(default = "default_ref_timeout_ms")]
-    pub timeout_ms: u64,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+}
+
+impl TypeArgs {
+    pub(crate) fn effective_timeout_ms(&self) -> u64 {
+        self.timeout_ms.unwrap_or_else(|| {
+            agent_desktop_core::commands::type_text::default_timeout_ms(&self.text)
+        })
+    }
 }
 
 #[derive(Parser, Debug, Deserialize)]

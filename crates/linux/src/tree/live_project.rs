@@ -100,7 +100,10 @@ pub(crate) fn derived_offscreen(read: &ObservedRead, placement: &Placement) -> O
         } else if placement.popup_origin.is_some() {
             Some(false)
         } else {
-            placement.x11.map(|_| false)
+            placement
+                .x11
+                .map(|_| false)
+                .or_else(|| placement.tie.and_then(|tie| tie.hidden))
         };
     let verdict = offscreen(OffscreenInput {
         node: placement.node,
@@ -293,3 +296,7 @@ mod placement_tests;
 #[cfg(test)]
 #[path = "clipped_row_tests.rs"]
 mod clipped_row_tests;
+
+#[cfg(test)]
+#[path = "live_tie_tests.rs"]
+mod tie_tests;

@@ -20,7 +20,7 @@ fn drag_safety_and_refusals() {
         down,
     };
     let pickup = Step::Pause(Duration::from_millis(PICKUP_DELAY_MS));
-    for (duration, dwell) in [(0, 150), (32, 200)] {
+    for (duration, dwell) in [(MIN_DURATION_MS, 150), (MIN_DURATION_MS + 32, 200)] {
         let plan = plan_drag(&params(Some(duration), Some(dwell)), deadline(5_000)).unwrap();
         let down = plan
             .steps
@@ -65,7 +65,13 @@ fn drag_safety_and_refusals() {
             (error.code, error.message.as_str()),
             (ErrorCode::InvalidArgs, message.as_str())
         );
-        assert_eq!(error.disposition, DeliverySemantics::unknown());
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    }
+    for too_short in [0, 30, MIN_DURATION_MS - 1] {
+        let error = plan_drag(&params(Some(too_short), None), deadline(5_000)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgs);
+        assert!(error.message.contains("at least 100ms"));
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     }
     let mut non_finite = params(None, None);
     non_finite.to.x = f64::INFINITY;

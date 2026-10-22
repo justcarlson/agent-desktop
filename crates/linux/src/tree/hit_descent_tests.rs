@@ -212,12 +212,10 @@ fn null_failed_and_capped_queries_remain_unresolved() {
         Landing::Unresolved
     );
 
-    for missing in ["/other", "/target"] {
-        let mut nodes = tree();
-        nodes.lead("/frame", "/other");
-        nodes.parents.remove(missing);
-        assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
-    }
+    let mut nodes = tree();
+    nodes.lead("/frame", "/other");
+    nodes.parents.remove("/target");
+    assert_eq!(run(&mut nodes).landing, Landing::Unresolved);
 }
 
 #[test]
@@ -234,4 +232,31 @@ fn deadline_and_window_point_are_preserved() {
     nodes.lead("/frame", "/target");
     descend(&mut nodes, &el("/frame"), (210, 17), deadline()).expect("descent runs");
     assert_eq!(nodes.points.first(), Some(&(210, 17)));
+}
+
+#[test]
+fn a_lander_whose_own_ancestry_cannot_be_verified_is_unproved_whatever_its_rectangle() {
+    let extents = |x, y, width, height| Described {
+        window_extents: Some(Extents {
+            x,
+            y,
+            width,
+            height,
+        }),
+        ..Described::default()
+    };
+    for lander in [
+        extents(0, 0, 20, 20),
+        extents(0, 0, 200, 200),
+        Described::default(),
+    ] {
+        let mut nodes = tree();
+        nodes.lead("/frame", "/other");
+        nodes.parents.remove("/other");
+        nodes
+            .described
+            .insert("/target".to_owned(), extents(0, 0, 100, 100));
+        nodes.described.insert("/other".to_owned(), lander);
+        assert_eq!(run(&mut nodes).landing, Landing::Unproved);
+    }
 }

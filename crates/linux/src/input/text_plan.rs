@@ -12,7 +12,7 @@ use super::plan::Plan;
 use super::step::Step;
 
 pub(crate) const CHUNK_CHARS: usize = 32;
-const REMAP_SETTLE: Duration = Duration::from_millis(30);
+const REMAP_SETTLE: Duration = Duration::from_millis(50);
 pub(crate) const REMAP_RESTORE_HOLD: Duration = Duration::from_millis(50);
 
 #[derive(Clone, Copy)]
@@ -55,9 +55,13 @@ pub(crate) fn plan_text(map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterEr
     let remap = (!unmapped.is_empty())
         .then(|| remap_for(map, &unmapped))
         .transpose()?;
-    typings
-        .chunks(CHUNK_CHARS)
-        .map(|chunk| chunk_plan(map, chunk, remap.as_ref()))
+    let mut assignments = remap.as_ref().map(Assignments::new);
+    let chunks: Vec<&[Typing]> = typings.chunks(CHUNK_CHARS).collect();
+    let last = chunks.len().saturating_sub(1);
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(index, chunk)| chunk_plan(map, chunk, assignments.as_mut(), index == last))
         .collect()
 }
 
@@ -145,15 +149,23 @@ impl<'a> Assignments<'a> {
     }
 }
 
-fn chunk_plan(map: &Keymap, chunk: &[Typing], remap: Option<&Remap>) -> Result<Plan, AdapterError> {
+/// The characters the keyboard lacks keep their spare keys across chunks, so a
+/// chunk boundary costs no keymap change: a client that is still refreshing
+/// its keymap for one change is not handed the next one, and every spare key
+/// is restored once, after the last character.
+fn chunk_plan(
+    map: &Keymap,
+    chunk: &[Typing],
+    mut assignments: Option<&mut Assignments<'_>>,
+    last: bool,
+) -> Result<Plan, AdapterError> {
     let shift = map.modifier_code(&Modifier::Shift);
     let mut steps = vec![Step::CheckTextState];
-    let mut assignments = remap.map(Assignments::new);
     for typing in chunk {
         match *typing {
             Typing::Mapped(lookup) => mapped_steps(&mut steps, lookup, shift)?,
             Typing::Unmapped(character) => {
-                let Some(assignments) = assignments.as_mut() else {
+                let Some(assignments) = assignments.as_deref_mut() else {
                     return Err(AdapterError::new(
                         ErrorCode::Internal,
                         "An unmapped character reached planning without a remap",
@@ -165,7 +177,7 @@ fn chunk_plan(map: &Keymap, chunk: &[Typing], remap: Option<&Remap>) -> Result<P
             }
         }
     }
-    if let Some(assignments) = assignments.filter(|a| a.holds.iter().any(Option::is_some)) {
+    if let Some(assignments) = assignments.filter(|a| last && a.holds.iter().any(Option::is_some)) {
         assignments.restore(&mut steps);
     }
     Ok(Plan {

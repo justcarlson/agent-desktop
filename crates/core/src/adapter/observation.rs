@@ -229,6 +229,18 @@ pub trait ObservationOps: Send + Sync {
         Ok(crate::PointerObservation { bounds, states })
     }
 
+    /// Why no pointer can be aimed at this target, when the adapter has proved
+    /// that its screen position cannot be known, not merely that it is unread
+    /// yet. Waiting cannot help, so a request that needs the position is
+    /// refused with this error instead of retried until its deadline.
+    fn pointer_position_refusal(
+        &self,
+        _handle: &NativeHandle,
+        _deadline: Deadline,
+    ) -> Option<AdapterError> {
+        None
+    }
+
     fn hit_test(
         &self,
         handle: &NativeHandle,
@@ -237,6 +249,19 @@ pub trait ObservationOps: Send + Sync {
     ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
         let _ = (handle, point);
         Err(AdapterError::not_supported("hit_test"))
+    }
+
+    /// Strict receiver proof for a physical pointer move that has no element
+    /// action to carry it. An adapter that can prove who receives the pointer
+    /// refuses with a `not_delivered` error when the target does not.
+    fn confirm_pointer_receiver(
+        &self,
+        entry: &RefEntry,
+        point: crate::Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let _ = (entry, point, deadline);
+        Ok(())
     }
 }
 

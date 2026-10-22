@@ -13,6 +13,13 @@ fn pair() -> (Connection, Connection) {
     (client.unwrap(), server.unwrap())
 }
 
+fn atspi() -> (MatchRule<'static>, Relevant) {
+    let rule = MatchRule::builder()
+        .msg_type(zbus::message::Type::Signal)
+        .build();
+    (rule, Box::new(|message| from_application(message, &[])))
+}
+
 fn signal(server: &Connection) {
     let message =
         zbus::Message::signal("/accessible", "org.a11y.atspi.Event.Object", "StateChanged")
@@ -27,8 +34,9 @@ fn signal(server: &Connection) {
 #[test]
 fn a_change_before_blocking_is_latched_and_drop_joins_without_another_event() {
     let (client, server) = pair();
+    let (rule, relevant) = atspi();
     let mut subscription =
-        Subscription::listen(&client, Vec::new(), Deadline::standard().unwrap()).unwrap();
+        Subscription::listen(&client, rule, 0, relevant, Deadline::standard().unwrap()).unwrap();
     for _ in 0..QUEUE * 3 {
         signal(&server);
     }
@@ -47,8 +55,9 @@ fn a_change_before_blocking_is_latched_and_drop_joins_without_another_event() {
 #[test]
 fn disconnect_retires_the_wake_source_instead_of_proving_absence() {
     let (client, server) = pair();
+    let (rule, relevant) = atspi();
     let mut subscription =
-        Subscription::listen(&client, Vec::new(), Deadline::standard().unwrap()).unwrap();
+        Subscription::listen(&client, rule, 0, relevant, Deadline::standard().unwrap()).unwrap();
     zbus::block_on(server.close()).unwrap();
     assert!(subscription.wait(Deadline::after(2_000).unwrap()).is_err());
 }

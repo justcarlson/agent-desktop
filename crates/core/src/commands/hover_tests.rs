@@ -19,6 +19,7 @@ struct HoverCaptureAdapter {
     moved_to: Mutex<Option<MouseEvent>>,
     focused_pids: Mutex<Vec<crate::ProcessId>>,
     focused_bounds: Option<Rect>,
+    refuses_receiver: bool,
 }
 
 impl HoverCaptureAdapter {
@@ -27,7 +28,13 @@ impl HoverCaptureAdapter {
             moved_to: Mutex::new(None),
             focused_pids: Mutex::new(Vec::new()),
             focused_bounds: None,
+            refuses_receiver: false,
         }
+    }
+
+    fn refusing_receiver(mut self) -> Self {
+        self.refuses_receiver = true;
+        self
     }
 
     fn with_focused_bounds(mut self, bounds: Rect) -> Self {
@@ -70,6 +77,23 @@ impl ObservationOps for HoverCaptureAdapter {
         _deadline: crate::Deadline,
     ) -> Result<HitTestResult, AdapterError> {
         Ok(HitTestResult::ReachesTarget)
+    }
+
+    fn confirm_pointer_receiver(
+        &self,
+        _entry: &RefEntry,
+        _point: crate::Point,
+        _deadline: crate::Deadline,
+    ) -> Result<(), AdapterError> {
+        if self.refuses_receiver {
+            return Err(AdapterError::new(
+                crate::ErrorCode::ActionFailed,
+                "Another element intercepts the pointer target",
+            )
+            .with_details(json!({ "check": "receives_events" }))
+            .with_disposition(crate::DeliverySemantics::not_delivered()));
+        }
+        Ok(())
     }
 }
 
@@ -348,6 +372,9 @@ fn transient_stale_ref_retries_then_succeeds_when_timeout_wired() {
     assert!(adapter.retry.calls() >= 3);
     assert_eq!(adapter.lease_acquisitions.load(Ordering::SeqCst), 1);
 }
+
+#[path = "hover_receiver_tests.rs"]
+mod receiver_tests;
 
 #[path = "hover_preflight_tests.rs"]
 mod preflight_tests;

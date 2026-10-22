@@ -127,11 +127,21 @@ pub(super) fn build_report(
         pointer_delivery,
     );
     if requirements.visible {
-        checks.push(gates::visibility(
-            evidence,
-            requirements.requires_geometry(request, &evidence.available_actions),
-            without_pointer,
-        ));
+        let requires_geometry =
+            requirements.requires_geometry(request, &evidence.available_actions);
+        let visibility = gates::visibility(evidence, requires_geometry, without_pointer);
+        if requires_geometry
+            && evidence.bounds.is_none()
+            && matches!(
+                visibility.status,
+                super::status::ActionabilityStatus::Unknown
+            )
+            && let Some((handle, adapter)) = hit_test
+            && let Some(refusal) = adapter.pointer_position_refusal(handle, deadline)
+        {
+            return Err(refusal);
+        }
+        checks.push(visibility);
     }
     if requirements.requires_stability(pointer_delivery) {
         checks.push(if without_pointer {
@@ -248,6 +258,10 @@ fn finish(
 #[cfg(test)]
 #[path = "evaluate_recovery_tests.rs"]
 mod recovery_tests;
+
+#[cfg(test)]
+#[path = "position_refusal_tests.rs"]
+mod position_refusal_tests;
 
 #[cfg(test)]
 mod tests {

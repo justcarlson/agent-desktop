@@ -1,7 +1,9 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, WindowInfo};
 
 use crate::system::SharedBus;
+use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::read_registry;
+use crate::system::window::listed_twins::listed_client;
 use crate::system::window::window_ops::windows_of;
 use crate::system::x11::map::{ClientMatch, match_client};
 use crate::system::x11::stacking_source::StackingSource;
@@ -31,6 +33,23 @@ pub(crate) fn outcome_of(state: X11State, frame: &FrameFacts) -> XidOutcome {
     }
 }
 
+fn settled(state: &X11State, listed: &[ListedWindow], window: &WindowInfo) -> XidOutcome {
+    let Some(index) = listed
+        .iter()
+        .position(|candidate| candidate.info.id == window.id)
+    else {
+        return XidOutcome::Unavailable;
+    };
+    let outcome = outcome_of(state.clone(), &listed[index].frame);
+    if !matches!(outcome, XidOutcome::Several(_)) {
+        return outcome;
+    }
+    match listed_client(listed, index, state) {
+        ClientMatch::One(id) => XidOutcome::One(id),
+        ClientMatch::Several(_) | ClientMatch::NoClient => outcome,
+    }
+}
+
 /// The X11 window id of a listed window, from its frame facts and the
 /// managed clients. Nothing is guessed: only one match is an id.
 pub(crate) fn window_xid(bus: &SharedBus, window: &WindowInfo, deadline: Deadline) -> XidOutcome {
@@ -45,14 +64,7 @@ pub(crate) fn window_xid(bus: &SharedBus, window: &WindowInfo, deadline: Deadlin
     ) else {
         return XidOutcome::Unavailable;
     };
-    let Some(frame) = listed
-        .into_iter()
-        .find(|candidate| candidate.info.id == window.id)
-        .map(|candidate| candidate.frame)
-    else {
-        return XidOutcome::Unavailable;
-    };
-    outcome_of(DisplayReader.clients_within(deadline), &frame)
+    settled(&DisplayReader.clients_within(deadline), &listed, window)
 }
 
 fn refusal(code: ErrorCode, message: &str, suggestion: &str) -> AdapterError {

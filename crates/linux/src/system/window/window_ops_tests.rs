@@ -1,6 +1,9 @@
-use agent_desktop_core::{WindowInfo, WindowState};
+use agent_desktop_core::{ErrorCode, WindowInfo, WindowState};
 
+use super::require_answered;
+use crate::system::registry::app_outcome::AppOutcome;
 use crate::system::registry::listed_window::ListedWindow;
+use crate::system::registry::registry_frames::RootRead;
 use crate::system::signal::signal_inventory::pass_over_with_menu;
 use crate::system::x11::{FrameExtents, FrameFacts, X11Client, X11State};
 
@@ -102,4 +105,37 @@ fn an_inactive_dialog_needs_positive_input_focus_evidence() {
         assert_eq!(focused(listed.clone(), &state(2), |id| id == 2), Some(1));
         assert_eq!(focused(listed, &state(2), |id| id == 1), None);
     }
+}
+
+fn outcome(read: RootRead) -> Vec<AppOutcome> {
+    vec![AppOutcome { app: 0, read }]
+}
+
+#[test]
+fn a_named_application_that_left_a_frame_unanswered_and_listed_nothing_is_a_timeout() {
+    let error = require_answered(Vec::new(), &outcome(RootRead::TimedOut), true)
+        .expect_err("an empty list must not read as a closed window");
+    assert_eq!(error.code, ErrorCode::Timeout);
+}
+
+#[test]
+fn an_empty_list_stays_empty_when_every_frame_answered_or_no_application_was_named() {
+    assert!(
+        require_answered(Vec::new(), &outcome(RootRead::Read), true)
+            .expect("an answered read stays empty")
+            .is_empty()
+    );
+    assert!(
+        require_answered(Vec::new(), &outcome(RootRead::TimedOut), false)
+            .expect("an unnamed listing stays empty")
+            .is_empty()
+    );
+}
+
+#[test]
+fn the_windows_that_did_answer_are_listed_beside_an_unanswered_frame() {
+    let listed = vec![window("main", false, false)];
+    let kept = require_answered(listed, &outcome(RootRead::TimedOut), true)
+        .expect("the answered windows are kept");
+    assert_eq!(kept.len(), 1);
 }

@@ -98,7 +98,10 @@ impl Bench {
             let windows = adapter
                 .list_windows(&WindowFilter::default(), deadline(5_000))
                 .unwrap_or_default();
-            if let Some(window) = windows.iter().find(|window| window.title.contains(tag)) {
+            if let Some(window) = windows
+                .iter()
+                .find(|window| window.pid.get() == pid && window.title.contains(tag))
+            {
                 let (bus, path) = window_id::decode(&window.id).map_err(|e| e.message)?;
                 return Ok(AtspiElement::new(bus, path, window.pid.get()));
             }
@@ -373,27 +376,5 @@ impl Bench {
 impl Drop for Bench {
     fn drop(&mut self) {
         self.launched.stop();
-    }
-}
-
-pub(super) fn each_toolkit(check: impl Fn(Toolkit, &Bench)) {
-    for toolkit in TOOLKITS {
-        match Bench::open(toolkit) {
-            Ok(bench) => check(toolkit, &bench),
-            Err(reason) => panic!("{toolkit:?} fixture unavailable: {reason}"),
-        }
-    }
-}
-
-pub(super) fn each_scripts(
-    scripts: &Scripts<'_>,
-    toolkits: &[Toolkit],
-    check: impl Fn(Toolkit, &Bench),
-) {
-    for toolkit in toolkits {
-        match Bench::open_scripts(*toolkit, scripts) {
-            Ok(bench) => check(*toolkit, &bench),
-            Err(reason) => panic!("{toolkit:?} fixture unavailable: {reason}"),
-        }
     }
 }

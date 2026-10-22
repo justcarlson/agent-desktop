@@ -1,7 +1,10 @@
 use super::menu_popup::{Node, only_menu_content};
 use super::menu_surface::{PopupReader, popup_read_complete, vanished};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, within};
-use crate::tree::observe_menu::{is_cut_short_beyond_pruning, rooted, scan_walk, scan_walk_pruned};
+use crate::tree::observe_menu::{
+    BULK_CHILDREN, is_cut_short_beyond_pruning, rooted, scan_walk, scan_walk_pruned,
+    scan_walk_structure,
+};
 use crate::tree::role_numbers::{FRAME, WINDOW};
 use crate::tree::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
@@ -12,6 +15,23 @@ use std::time::Duration;
 const WINDOW_NODES: usize = 2000;
 const TOP_LEVEL_NODES: usize = 80;
 
+#[derive(Debug, PartialEq, Eq)]
+enum ScanKind {
+    Ordinary,
+    Pruned,
+    Structural { bulk_children: Option<usize> },
+}
+
+fn scan_kind(structural: bool, pruned: bool) -> ScanKind {
+    match (structural, pruned) {
+        (true, _) => ScanKind::Structural {
+            bulk_children: pruned.then_some(BULK_CHILDREN),
+        },
+        (false, true) => ScanKind::Pruned,
+        (false, false) => ScanKind::Ordinary,
+    }
+}
+
 pub(in crate::system) struct Inventory<'a> {
     bus: &'a SharedBus,
     deadline: Deadline,
@@ -19,6 +39,7 @@ pub(in crate::system) struct Inventory<'a> {
     trees: HashMap<(String, String), Result<Node, AdapterError>>,
     top_levels: HashMap<String, (Vec<Node>, bool)>,
     incomplete: bool,
+    structural: bool,
 }
 
 impl<'a> Inventory<'a> {
@@ -30,6 +51,32 @@ impl<'a> Inventory<'a> {
             trees: HashMap::new(),
             top_levels: HashMap::new(),
             incomplete: false,
+            structural: false,
+        }
+    }
+
+    /// An inventory that reads only what classifying surfaces needs, for a
+    /// listing that never keeps a node's identity.
+    pub(in crate::system) fn structural(bus: &'a SharedBus, deadline: Deadline) -> Self {
+        Self {
+            structural: true,
+            ..Self::new(bus, deadline)
+        }
+    }
+
+    fn walk(
+        &self,
+        root: &AtspiElement,
+        max_nodes: usize,
+        pruned: bool,
+    ) -> Result<Node, AdapterError> {
+        let root = rooted(root);
+        match scan_kind(self.structural, pruned) {
+            ScanKind::Structural { bulk_children } => {
+                scan_walk_structure(self.bus, &root, max_nodes, bulk_children, self.deadline)
+            }
+            ScanKind::Pruned => scan_walk_pruned(self.bus, &root, max_nodes, self.deadline),
+            ScanKind::Ordinary => scan_walk(self.bus, &root, max_nodes, self.deadline),
         }
     }
 
@@ -40,10 +87,11 @@ impl<'a> Inventory<'a> {
 
     pub(in crate::system) fn read(&mut self, window: &AtspiElement) -> Result<Node, AdapterError> {
         let key = (window.bus_name().to_owned(), window.path().to_owned());
-        self.trees
-            .entry(key)
-            .or_insert_with(|| scan_walk(self.bus, &rooted(window), WINDOW_NODES, self.deadline))
-            .clone()
+        if !self.trees.contains_key(&key) {
+            let tree = self.walk(window, WINDOW_NODES, false);
+            self.trees.insert(key.clone(), tree);
+        }
+        self.trees[&key].clone()
     }
 
     fn top(&mut self, window: &AtspiElement) -> Result<(Vec<Node>, bool), AdapterError> {
@@ -85,7 +133,7 @@ impl<'a> Inventory<'a> {
             if !is_popup_candidate(&node) {
                 continue;
             }
-            match scan_walk_pruned(self.bus, &rooted(&child), TOP_LEVEL_NODES, self.deadline) {
+            match self.walk(&child, TOP_LEVEL_NODES, true) {
                 Ok(tree) => {
                     incomplete |= may_hide_a_menu(&tree) || !popup_read_complete(&tree);
                     found.push(tree);
@@ -144,7 +192,7 @@ impl PopupReader for Inventory<'_> {
         if web {
             return Ok(None);
         }
-        let tree = scan_walk_pruned(self.bus, &rooted(window), WINDOW_NODES, self.deadline)?;
+        let tree = self.walk(window, WINDOW_NODES, true)?;
         self.incomplete |= is_cut_short_beyond_pruning(&tree) || !popup_read_complete(&tree);
         Ok(Some(tree))
     }

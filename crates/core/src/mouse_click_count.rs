@@ -1,4 +1,4 @@
-use crate::{AdapterError, ErrorCode};
+use crate::{AdapterError, DeliverySemantics, ErrorCode};
 
 pub const MAX_MOUSE_CLICK_COUNT: u32 = 100;
 
@@ -9,7 +9,8 @@ pub fn validate_mouse_click_count(count: u32) -> Result<(), AdapterError> {
     Err(AdapterError::new(
         ErrorCode::InvalidArgs,
         format!("Mouse click count must be between 1 and {MAX_MOUSE_CLICK_COUNT}"),
-    ))
+    )
+    .with_disposition(DeliverySemantics::not_delivered()))
 }
 
 #[cfg(test)]
@@ -24,6 +25,10 @@ mod tests {
 
     #[test]
     fn rejects_zero_and_unbounded_counts() {
+        assert_eq!(
+            validate_mouse_click_count(0).unwrap_err().disposition,
+            DeliverySemantics::not_delivered()
+        );
         assert_eq!(
             validate_mouse_click_count(0).unwrap_err().code,
             ErrorCode::InvalidArgs

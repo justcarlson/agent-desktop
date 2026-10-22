@@ -63,6 +63,8 @@ pub(super) struct Fake {
     pub(super) log: RefCell<Vec<String>>,
     pub(super) wayland: bool,
     pub(super) dialog_after: Option<Duration>,
+    pub(super) second_dialog_after: Option<Duration>,
+    pub(super) gone_after: Option<Duration>,
 }
 
 impl Fake {
@@ -86,6 +88,8 @@ impl Fake {
             log: RefCell::new(Vec::new()),
             wayland: false,
             dialog_after: None,
+            second_dialog_after: None,
+            gone_after: None,
         }
     }
 
@@ -111,6 +115,12 @@ impl World for Fake {
 
     fn liveness(&self) -> Liveness {
         self.note("liveness");
+        if self
+            .gone_after
+            .is_some_and(|after| self.clock.get() >= after)
+        {
+            return Liveness::Gone;
+        }
         self.state.get()
     }
 
@@ -143,6 +153,11 @@ impl World for Fake {
             && self.clock.get() >= after
         {
             windows.push(dialog(99));
+        }
+        if let (ControlRead::Ready(windows), Some(after)) = (&mut read, self.second_dialog_after)
+            && self.clock.get() >= after
+        {
+            windows.push(dialog(98));
         }
         read
     }

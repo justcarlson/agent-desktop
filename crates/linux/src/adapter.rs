@@ -119,11 +119,7 @@ impl ObservationOps for LinuxAdapter {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::live_element(target, deadline);
         }
-        let element = crate::tree::get_live_element(self.bus(), handle, deadline)?;
-        if element.bounds.is_none() && crate::tree::inside_popup(self.bus(), handle, deadline) {
-            return Err(crate::tree::no_position());
-        }
-        Ok(element)
+        crate::tree::get_live_element(self.bus(), handle, deadline)
     }
 
     fn get_element_bounds(
@@ -152,6 +148,17 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::live_read::observe_pointer(self.bus(), handle, deadline)
     }
 
+    fn pointer_position_refusal(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Option<AdapterError> {
+        if crate::system::tray::target_of(handle).is_some() {
+            return None;
+        }
+        crate::tree::pointer_refusal::pointer_position_refusal(self.bus(), handle, deadline)
+    }
+
     fn get_text_selection(
         &self,
         handle: &NativeHandle,
@@ -170,6 +177,16 @@ impl ObservationOps for LinuxAdapter {
             return crate::system::tray::hit_test(target, point, deadline);
         }
         crate::tree::hit_test(self.bus(), handle, point, deadline)
+    }
+
+    fn confirm_pointer_receiver(
+        &self,
+        entry: &RefEntry,
+        point: Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let handle = self.resolve_element_strict(entry, deadline)?;
+        crate::input::target_pointer::confirm_receiver(self.bus(), &handle, &point, deadline)
     }
 
     fn list_windows(

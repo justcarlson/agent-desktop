@@ -1,6 +1,7 @@
 use super::*;
 use crate::system::x11::X11Client;
 use crate::tree::Extents;
+use agent_desktop_core::WindowState;
 
 fn frame(pid: u32, title: &str) -> FrameFacts {
     FrameFacts {
@@ -67,4 +68,69 @@ fn the_server_states_without_a_client_list_keep_their_cause() {
         outcome_of(X11State::Unavailable, &frame(1, "A")),
         XidOutcome::Unavailable
     );
+}
+
+fn listed(id: &str, title: &str, active: bool) -> ListedWindow {
+    ListedWindow {
+        app: 0,
+        info: WindowInfo {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            app: "editor".to_owned(),
+            pid: 1.into(),
+            process_instance: None,
+            bounds: None,
+            state: WindowState::default(),
+        },
+        active,
+        modal: false,
+        dialog: false,
+        frame: frame(1, title),
+        sheet: false,
+        unshown: false,
+    }
+}
+
+fn twins_with_active(active: Option<u32>) -> X11State {
+    X11State::Ready {
+        active,
+        clients: vec![
+            client(7, 1, "Doc"),
+            client(8, 1, "Doc"),
+            client(9, 1, "Other"),
+        ],
+    }
+}
+
+#[test]
+fn two_windows_of_one_title_each_take_their_own_client_by_the_active_one() {
+    let windows = [
+        listed("w-a", "Doc", false),
+        listed("w-b", "Doc", true),
+        listed("w-c", "Other", false),
+    ];
+    let state = twins_with_active(Some(8));
+    assert_eq!(
+        settled(&state, &windows, &windows[0].info),
+        XidOutcome::One(7)
+    );
+    assert_eq!(
+        settled(&state, &windows, &windows[1].info),
+        XidOutcome::One(8)
+    );
+    assert_eq!(
+        settled(&state, &windows, &windows[2].info),
+        XidOutcome::One(9)
+    );
+}
+
+#[test]
+fn twin_windows_stay_several_when_the_manager_names_no_client_of_theirs() {
+    let windows = [listed("w-a", "Doc", false), listed("w-b", "Doc", true)];
+    for active in [None, Some(9)] {
+        assert_eq!(
+            settled(&twins_with_active(active), &windows, &windows[0].info),
+            XidOutcome::Several(vec![7, 8])
+        );
+    }
 }

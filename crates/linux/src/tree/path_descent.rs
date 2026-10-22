@@ -109,7 +109,7 @@ impl Levels {
         };
         let (connection, pids) = (&self.connection, &mut self.pids);
         within(self.deadline, async {
-            let (node, _) = read_node_for(connection, element, ReadPurpose::Snapshot).await?;
+            let (node, _) = read_node_for(connection, element, ReadPurpose::Shape).await?;
             learn_pids(connection, pids, std::iter::once(&node)).await?;
             Ok(level_of(&node, pids, web_process))
         })

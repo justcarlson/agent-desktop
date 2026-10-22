@@ -5,7 +5,8 @@ use agent_desktop_core::{
     WindowFilter,
 };
 
-use super::live_bench::{Bench, Scripts, Toolkit, each_scripts};
+use super::live_bench::{Bench, Scripts, Toolkit};
+use super::live_bench_iteration::each_scripts;
 use super::live_widget_scripts::{
     BROWSER_PAGE, GTK3_WIDGETS, GTK4_WIDGETS, QT_MAIN, QT_PLAIN, QT_WIDGETS,
 };
@@ -38,6 +39,20 @@ fn status_becomes(bench: &Bench, wanted: &str) -> bool {
 fn checked_becomes(bench: &Bench, handle: &NativeHandle, wanted: bool) -> bool {
     bench
         .wait_for(|| (bench.has_state(handle, CHECKED) == wanted).then_some(()))
+        .is_some()
+}
+
+fn checked_stays_at(bench: &Bench, handle: &NativeHandle, wanted: bool) -> bool {
+    let mut agreeing = 0;
+    bench
+        .wait_for(|| {
+            agreeing = if bench.has_state(handle, CHECKED) == wanted {
+                agreeing + 1
+            } else {
+                0
+            };
+            (agreeing == 2).then_some(())
+        })
         .is_some()
 }
 
@@ -87,11 +102,18 @@ fn toggle_check_and_uncheck_move_a_check_box_and_never_write_twice() {
             .act(&flag, Action::Toggle)
             .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
         assert!(checked_becomes(bench, &flag, true), "{toolkit:?}: toggle");
-        bench
+        let again = bench
             .act(&flag, Action::Check)
             .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
-        std::thread::sleep(Duration::from_millis(500));
-        assert!(bench.has_state(&flag, CHECKED), "{toolkit:?}: check twice");
+        assert_eq!(
+            again.disposition(),
+            DeliverySemantics::not_delivered(),
+            "{toolkit:?}: check twice writes nothing"
+        );
+        assert!(
+            checked_stays_at(bench, &flag, true),
+            "{toolkit:?}: check twice"
+        );
         bench
             .act(&flag, Action::Uncheck)
             .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));

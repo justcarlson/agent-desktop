@@ -210,7 +210,7 @@ fn scripted(
     std::fs::write(&commands, "").map_err(|error| error.to_string())?;
     let script_arg = script.to_string_lossy().into_owned();
     let commands_arg = commands.to_string_lossy().into_owned();
-    let pid = launched.spawn_with_env(program, &[&script_arg, "live", &commands_arg], env);
+    let pid = launched.try_spawn_with_env(program, &[&script_arg, "live", &commands_arg], env)?;
     Ok(Fixture { pid, commands })
 }
 

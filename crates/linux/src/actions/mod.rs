@@ -24,7 +24,10 @@ pub(crate) mod select;
 pub(crate) mod select_exclusive;
 mod select_identity;
 mod select_index;
+pub(crate) mod select_pointer;
+mod select_pointer_combo;
 pub(crate) mod select_popup;
+mod select_row;
 pub(crate) mod select_search;
 pub(crate) mod select_verify;
 pub(crate) mod text_write;
@@ -41,6 +44,8 @@ mod action_scan_tests;
 mod live_bench;
 #[cfg(test)]
 mod live_bench_env;
+#[cfg(test)]
+mod live_bench_iteration;
 #[cfg(test)]
 mod live_click_tests;
 #[cfg(test)]

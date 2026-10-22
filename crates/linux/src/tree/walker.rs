@@ -246,13 +246,30 @@ pub(crate) fn walk_native_tree(
     root: &AtspiElement,
     deadline: Deadline,
 ) -> Result<Walk<ObservedRead>, AdapterError> {
-    let limits = WalkLimits::default();
+    walk_structure(
+        bus,
+        root,
+        &WalkLimits::default(),
+        deadline,
+        ReadPurpose::Gate,
+    )
+}
+
+/// Walks the structure under `root`, reading what `purpose` names, and stops at
+/// web documents, whose content a structural scan never classifies.
+pub(crate) fn walk_structure(
+    bus: &SharedBus,
+    root: &AtspiElement,
+    limits: &WalkLimits,
+    deadline: Deadline,
+    purpose: ReadPurpose,
+) -> Result<Walk<ObservedRead>, AdapterError> {
     let connection = bus.get(deadline)?;
-    let mut reader = LevelReader::new(connection.inner(), root, &limits, deadline)
-        .for_purpose(ReadPurpose::Structure);
+    let mut reader =
+        LevelReader::new(connection.inner(), root, limits, deadline).for_purpose(purpose);
     walk_levels(
         root.clone(),
-        &limits,
+        limits,
         deadline,
         |level| {
             let mut reads = reader.expand(level)?;

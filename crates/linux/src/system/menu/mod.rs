@@ -8,6 +8,8 @@ pub(crate) mod menu_found;
 #[cfg(test)]
 pub(super) mod menu_inventory_live_tests;
 #[cfg(test)]
+pub(super) mod menu_item_live_tests;
+#[cfg(test)]
 pub(super) mod menu_live_rig;
 pub(super) mod menu_popup;
 pub(crate) mod menu_surface;

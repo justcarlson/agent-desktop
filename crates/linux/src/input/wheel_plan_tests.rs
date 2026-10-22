@@ -88,3 +88,12 @@ fn wheel_safety_and_refusals() {
     }
     assert!(wheel(0.0, 1000.0, &[]).is_ok());
 }
+
+#[test]
+fn wheel_argument_refusals_are_not_delivered() {
+    for (dx, dy) in [(0.0, 0.0), (0.0, -1_000_000.0), (f64::NAN, 1.0)] {
+        let error = wheel(dx, dy, &[]).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgs);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    }
+}

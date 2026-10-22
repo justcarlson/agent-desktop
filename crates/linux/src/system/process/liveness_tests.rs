@@ -4,7 +4,11 @@ use crate::system::process::proc_state::ProcState;
 use crate::system::process::process_facts::instance_token;
 
 fn stat(state: ProcState, start_time: u64) -> Option<ProcStat> {
-    Some(ProcStat { state, start_time })
+    Some(ProcStat {
+        state,
+        parent: 1,
+        start_time,
+    })
 }
 
 #[test]

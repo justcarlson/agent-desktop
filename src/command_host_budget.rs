@@ -57,7 +57,7 @@ fn budget_ms(cli: &crate::Cli, command: &crate::Commands) -> Result<u64, AppErro
         | Commands::Expand(a)
         | Commands::Collapse(a)
         | Commands::ScrollTo(a) => a.timeout_ms,
-        Commands::Type(a) => a.timeout_ms,
+        Commands::Type(a) => a.effective_timeout_ms(),
         Commands::SetValue(a) => a.timeout_ms,
         Commands::Select(a) => a.timeout_ms,
         Commands::Scroll(a) => a.timeout_ms,

@@ -61,3 +61,9 @@ fn an_unknown_state_letter_is_other_and_not_a_known_class() {
         assert_eq!(stat.state, ProcState::Other, "{letter}");
     }
 }
+
+#[test]
+fn the_parent_process_id_is_the_field_after_the_state() {
+    let text = "4242 (a b) S 777 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 31 0 0";
+    assert_eq!(parse(text).expect("parses").parent, 777);
+}

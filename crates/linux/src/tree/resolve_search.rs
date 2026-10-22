@@ -16,11 +16,11 @@ fn childless_web_region(node: &WalkedNode<ObservedRead>, is_root: bool, web_proc
 fn visit(
     node: &WalkedNode<ObservedRead>,
     entry: &RefEntry,
-    depth: usize,
+    path: &mut Vec<usize>,
     web_process: bool,
     found: &mut Searched,
 ) {
-    let is_root = depth == 0;
+    let is_root = path.is_empty();
     let limits = WalkLimits::default();
     let mut evidence = project_node(&node.payload, node.in_web_document, &limits);
     if entry.source.source_surface == agent_desktop_core::SnapshotSurface::Menu {
@@ -34,14 +34,16 @@ fn visit(
             entry,
             &evidence,
             node.payload.node.element.clone(),
-            depth,
+            path,
         )),
         Admission::Unread => found.unread_region = true,
         Admission::Reject => {}
     }
     found.unread_region |= childless_web_region(node, is_root, web_process);
-    for child in &node.children {
-        visit(child, entry, depth + 1, web_process, found);
+    for (index, child) in node.children.iter().enumerate() {
+        path.push(index);
+        visit(child, entry, path, web_process, found);
+        path.pop();
     }
 }
 
@@ -55,7 +57,7 @@ pub(crate) fn evaluate(walk: &Walk<ObservedRead>, entry: &RefEntry, web_process:
         candidates: Vec::new(),
         unread_region: !walk.complete,
     };
-    visit(&walk.root, entry, 0, web_process, &mut found);
+    visit(&walk.root, entry, &mut Vec::new(), web_process, &mut found);
     found
 }
 

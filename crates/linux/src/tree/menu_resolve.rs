@@ -6,47 +6,32 @@ use serde_json::json;
 use zbus::Connection;
 
 use super::level::Level;
+use super::live_read::with_reader;
 use super::liveness::Liveness;
 use super::menu_context::MenuContext;
 use super::node_evidence::read_evidence;
 use super::observe_menu::rooted;
 use super::path_descent::Levels;
+use super::popup_position::{PopupPosition, popup_position_via};
+use super::read_purpose::ReadPurpose;
 use super::resolve::{Source, resolve};
 use super::resolve_errors::{ambiguous, settle_gone, stopped_app};
 use super::resolve_gate::stored_window;
 use super::resolve_search::evaluate;
 use super::searched::Searched;
 use super::walker::walk_tree;
-use super::{AtspiElement, WalkLimits, atspi_element, read_node};
+use super::{AtspiElement, WalkLimits};
 use crate::system::menu::menu_surface::popups_at;
-use crate::system::shell::container::MENU;
 use crate::system::{SharedBus, owner_process_id, process::process_facts, within};
 
 pub(crate) fn is_menu_entry(entry: &RefEntry) -> bool {
     entry.source.source_surface == SnapshotSurface::Menu
 }
 
-/// Whether a node sits inside a popup menu: the root its walk started from is
-/// itself a menu node, which a window frame never is.
-pub(crate) fn inside_popup(bus: &SharedBus, handle: &NativeHandle, deadline: Deadline) -> bool {
-    let Ok(element) = atspi_element(handle) else {
-        return false;
-    };
-    let Some(frame) = element.frame() else {
-        return false;
-    };
-    let Ok(connection) = bus.get(deadline) else {
-        return false;
-    };
-    within(deadline, async {
-        read_node(connection.inner(), frame).await
-    })
-    .is_ok_and(|node| node.traits.role.present() == Some(&MENU))
-}
-
-/// The answer when the popup's own window cannot prove a screen position.
-/// Waiting for the same missing geometry would only run out the budget.
-pub(crate) fn no_position() -> AdapterError {
+/// The answer when the session has no rule that places the popup, so a
+/// pointer click cannot be aimed at its item. Waiting for the same missing
+/// geometry would only run out the budget.
+fn no_position() -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
         "The menu item has no usable screen position, so a pointer click cannot be aimed at it",
@@ -171,7 +156,37 @@ pub(crate) fn resolve_menu(
         };
         resolve(&mut source, scoped_entry, deadline)
     })
-    .map(AtspiElement::into_native_handle)
+    .and_then(|element| open_handle(element, |element| position_of(bus, element, deadline)))
+}
+
+fn position_of(
+    bus: &SharedBus,
+    element: &AtspiElement,
+    deadline: Deadline,
+) -> Result<PopupPosition, AdapterError> {
+    let handle = element.clone().into_native_handle();
+    with_reader(
+        bus,
+        &handle,
+        deadline,
+        ReadPurpose::Bounds,
+        |reader, handle| popup_position_via(reader, handle, deadline),
+    )
+}
+
+/// An item that was found in a popup the session places by its own window,
+/// and that no window places any more, belongs to a popup that has closed
+/// since the tree was read. A read of the item after an action that closed
+/// its popup is not held to this: only resolution is.
+fn open_handle(
+    element: AtspiElement,
+    position: impl FnOnce(&AtspiElement) -> Result<PopupPosition, AdapterError>,
+) -> Result<NativeHandle, AdapterError> {
+    match position(&element)? {
+        PopupPosition::Placed => Ok(element.into_native_handle()),
+        PopupPosition::Unmapped => Err(menu_closed()),
+        PopupPosition::Unplaceable => Err(no_position()),
+    }
 }
 
 fn resolve_contextual(

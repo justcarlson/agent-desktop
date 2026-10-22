@@ -1,4 +1,5 @@
 use super::menu_popup::Node;
+use crate::tree::state_bits::{EXPANDED, PRESSED};
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{Field, WalkedNode};
 
@@ -78,6 +79,23 @@ pub(in crate::system) fn chromium_frame() -> Node {
     let menu = node(MENU, "", &[SHOWING], items(true));
     let bar = node(MENU_BAR, "", &[SHOWING], vec![menu]);
     node(FRAME, "", &[SHOWING], vec![bar])
+}
+
+/// An expanded menu button whose popover panel holds one label and no button:
+/// the popover of an explanation, not of a menu. `showing` is whether the
+/// popover and its content show.
+pub(in crate::system) fn label_popover_opener(showing: bool) -> Node {
+    let states: &[u32] = if showing { &[SHOWING] } else { &[] };
+    let label = node(LABEL, "Explains the thing", states, Vec::new());
+    let content = node(PANEL, "", states, vec![label]);
+    let popover = node(PANEL, "", states, vec![content]);
+    let inner = node(TOGGLE, "Open", &[SHOWING, PRESSED], Vec::new());
+    node(
+        BUTTON,
+        "Open",
+        &[SHOWING, HAS_POPUP, EXPANDED],
+        vec![inner, popover],
+    )
 }
 
 pub(in crate::system) fn header_toggle(checked: bool) -> Node {

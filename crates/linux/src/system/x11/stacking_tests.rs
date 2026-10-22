@@ -99,19 +99,28 @@ fn deadline() -> Deadline {
     Deadline::after(2_000).expect("a deadline builds")
 }
 
+fn state_of(source: &dyn StackingSource, deadline: Deadline, frame: &FrameFacts) -> FrameWindow {
+    frame_window_state(source, deadline, frame, || None)
+}
+
 #[test]
 fn a_window_with_no_single_client_has_no_state_and_reads_no_stacking() {
-    let two = ready(vec![client(5, 10, "Doc"), client(6, 10, "Doc")]);
-    for clients in [two, ready(vec![client(5, 99, "Doc")])] {
+    let cases = [
+        (
+            ready(vec![client(5, 10, "Doc"), client(6, 10, "Doc")]),
+            FrameWindow::Tied {
+                hidden: Some(false),
+            },
+        ),
+        (ready(vec![client(5, 99, "Doc")]), FrameWindow::Unknown),
+    ];
+    for (clients, expected) in cases {
         let source = Fixed {
             clients,
             stack: snapshot(vec![window(5, false, 0, 0)]),
             reads: AtomicU32::new(0),
         };
-        assert_eq!(
-            frame_window_state(&source, deadline(), &facts(10, "Doc")),
-            None
-        );
+        assert_eq!(state_of(&source, deadline(), &facts(10, "Doc")), expected);
         assert_eq!(source.reads.load(Ordering::SeqCst), 0);
     }
 }
@@ -131,8 +140,8 @@ fn without_x11_evidence_a_window_has_no_state() {
             reads: AtomicU32::new(0),
         };
         assert_eq!(
-            frame_window_state(&source, deadline(), &facts(10, "Doc")),
-            None
+            state_of(&source, deadline(), &facts(10, "Doc")),
+            FrameWindow::Unknown
         );
     }
     for clients in [X11State::Unavailable, X11State::NoWindowManager] {
@@ -142,8 +151,8 @@ fn without_x11_evidence_a_window_has_no_state() {
             reads: AtomicU32::new(0),
         };
         assert_eq!(
-            frame_window_state(&source, deadline(), &facts(10, "Doc")),
-            None
+            state_of(&source, deadline(), &facts(10, "Doc")),
+            FrameWindow::Unknown
         );
     }
 }
@@ -197,5 +206,74 @@ fn a_read_that_ends_after_the_callers_deadline_gives_no_state() {
         stack: snapshot(vec![window(5, true, 120, 80)]),
     };
     let budget = Deadline::after(60).expect("a deadline builds");
-    assert_eq!(frame_window_state(&source, budget, &facts(10, "Doc")), None);
+    assert_eq!(
+        state_of(&source, budget, &facts(10, "Doc")),
+        FrameWindow::Unknown
+    );
+}
+
+#[test]
+fn the_one_client_of_a_window_gives_its_state() {
+    let source = Fixed {
+        clients: ready(vec![client(5, 10, "Doc"), client(6, 10, "Other")]),
+        stack: snapshot(vec![window(5, true, 120, 80)]),
+        reads: AtomicU32::new(0),
+    };
+    assert_eq!(
+        state_of(&source, deadline(), &facts(10, "Doc")),
+        FrameWindow::Client(WindowX11State {
+            client_id: 5,
+            hidden: true,
+            client_origin: (120, 80),
+            shadow: (0, 0, 0, 0),
+        })
+    );
+}
+
+fn tied_source(active: Option<u32>) -> Fixed {
+    Fixed {
+        clients: X11State::Ready {
+            active,
+            clients: vec![client(5, 10, "Doc"), client(6, 10, "Doc")],
+        },
+        stack: snapshot(vec![window(5, false, 10, 20), window(6, false, 300, 400)]),
+        reads: AtomicU32::new(0),
+    }
+}
+
+#[test]
+fn a_tie_the_twins_break_gives_the_state_of_the_client_they_name() {
+    let source = tied_source(Some(6));
+    let twins = || {
+        Some(Twins {
+            active: vec![false, true],
+            me: 0,
+        })
+    };
+    let FrameWindow::Client(state) =
+        frame_window_state(&source, deadline(), &facts(10, "Doc"), twins)
+    else {
+        panic!("the inactive twin is the other client");
+    };
+    assert_eq!((state.client_id, state.client_origin), (5, (10, 20)));
+}
+
+#[test]
+fn a_tie_nothing_breaks_stays_tied_and_reads_no_stacking() {
+    for active in [None, Some(99)] {
+        let source = tied_source(active);
+        let twins = || {
+            Some(Twins {
+                active: vec![false, true],
+                me: 0,
+            })
+        };
+        assert_eq!(
+            frame_window_state(&source, deadline(), &facts(10, "Doc"), twins),
+            FrameWindow::Tied {
+                hidden: Some(false)
+            }
+        );
+        assert_eq!(source.reads.load(Ordering::SeqCst), 0);
+    }
 }

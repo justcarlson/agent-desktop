@@ -7,6 +7,42 @@ use crate::system::x11::desktops::Desktops;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field};
 
+fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
+    let app = assemble(
+        AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", 321),
+        ProcessFacts {
+            executable: None,
+            comm: "x".to_owned(),
+            exe_basename: Some("x".to_owned()),
+            instance: "boot:42".to_owned(),
+        },
+        Some(Some("App".to_owned())),
+        ToolkitId {
+            name: Some("gtk".to_owned()),
+            version: Some("4.14.5".to_owned()),
+        },
+    );
+    let nodes = active
+        .iter()
+        .enumerate()
+        .map(|(index, active)| {
+            let mut node = read_of(23, "Doc", &[]).node;
+            node.element = AtspiElement::new(":1.9", format!("/frame/{index}"), 321);
+            node.traits.interfaces =
+                Field::Present(vec![crate::tree::COMPONENT_INTERFACE.to_owned()]);
+            node.traits.states = Field::Present(words(if *active { &[25, 1] } else { &[25] }));
+            node.extents = Field::Present(Extents {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            });
+            node
+        })
+        .collect();
+    collect(&[(0, &app)], &[nodes])
+}
+
 fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
     let app = assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", 321),
@@ -240,4 +276,47 @@ fn a_window_on_the_current_desktop_or_with_no_desktop_evidence_keeps_what_the_to
     assert_eq!(listed[0].info.state.visible, Some(true));
     place_windows(&mut listed, &state, None);
     assert_eq!(listed[0].info.state.visible, Some(true));
+}
+
+fn active_client(id: u32) -> X11State {
+    X11State::Ready {
+        active: Some(id),
+        clients: vec![client(7, 460, 165), client(8, 20, 20)],
+    }
+}
+
+fn origins(listed: &[ListedWindow]) -> Vec<Option<(f64, f64)>> {
+    listed
+        .iter()
+        .map(|window| window.info.bounds.map(|bounds| (bounds.x, bounds.y)))
+        .collect()
+}
+
+#[test]
+fn two_same_titled_windows_are_placed_by_the_active_frame_and_the_active_client() {
+    let mut listed = twin_windows(&[false, true]);
+    place_windows(&mut listed, &active_client(8), None);
+    assert_eq!(
+        origins(&listed),
+        vec![Some((460.0, 165.0)), Some((20.0, 20.0))]
+    );
+    let mut swapped = twin_windows(&[true, false]);
+    place_windows(&mut swapped, &active_client(8), None);
+    assert_eq!(
+        origins(&swapped),
+        vec![Some((20.0, 20.0)), Some((460.0, 165.0))]
+    );
+}
+
+#[test]
+fn same_titled_windows_nothing_separates_have_no_position() {
+    let mut none_active = twin_windows(&[false, false]);
+    place_windows(&mut none_active, &active_client(8), None);
+    assert_eq!(origins(&none_active), vec![None, None]);
+    let mut stranger = twin_windows(&[false, true]);
+    place_windows(&mut stranger, &active_client(99), None);
+    assert_eq!(origins(&stranger), vec![None, None]);
+    let mut three = twin_windows(&[false, false, true]);
+    place_windows(&mut three, &active_client(8), None);
+    assert_eq!(origins(&three), vec![None, None, None]);
 }

@@ -23,8 +23,15 @@ window's process. `list-apps` rows carry `name`, `pid`, `bundle_id` (desktop id
 when known) and `process_instance`. `list-windows` rows carry `id`, `title`, `pid`,
 `is_focused`, `minimized`, `visible`, `accessible` and `process_instance`, plus `bounds` when
 the display maps one. Several instances of one app share a name: use `--window-id`
-to pick one. Two windows of one process with the same title and bounds make
-`focus-window --window-id` answer `ambiguous_window`.
+to pick one. Two windows of one process with the same title are told apart by
+which one the toolkit reports active: `focus-window --window-id` and the window
+operations (`resize-window`, `move-window`, `minimize`, `maximize`, `restore`) act on
+the active one, and on its twin when exactly two windows share the title. Any other
+tie (no active window, three or more twins, an active window of another title)
+answers `ambiguous_window`.
+`list-windows` lists the focused window first, then the others from the top of the
+X11 stacking order to the bottom. A window with no single X11 client (twins the
+active window does not separate, a Wayland session) follows in registry order.
 `close-app` and `launch` cannot choose between instances and answer
 `AMBIGUOUS_TARGET`.
 
@@ -42,7 +49,9 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   `ACTION_NOT_SUPPORTED`.
 - The `Exec` line is parsed in process and spawned with null stdio in its own
   process group, so a caller that reads the output through a pipe sees end of
-  file at exit.
+  file at exit. Every spawn adds `AGENT_DESKTOP_LAUNCHED=1` to the child's
+  environment; `close-app` reads it to tell an app you started from a session
+  service.
 - An absolute `.desktop` path launches that exact file inside the trusted XDG
   data directories. Desktop ids use XDG directory precedence. A truncated
   process-name prefix alone never identifies an app for attachment.
@@ -122,23 +131,27 @@ close only a document or tab and leave its window open.
   `snapshot --app <name>` or `--surface sheet`, answer it, then close again. When
   a dialog already stands, `close-app` sends nothing and answers `ACTION_FAILED`
   with cause `dialog_pending`, `not_delivered` and `retry: safe`. A dialog that
-  opens in answer to the request ends the wait at once with the same cause and
-  the dialog title in `details.dialog`, but `delivered_unverified` and
-  `retry: unsafe`.
+  opens in answer to the request ends the wait with the same cause and the
+  dialog title in `details.dialog`, but `delivered_unverified` and
+  `retry: unsafe`. One request can open a prompt for every window with unsaved
+  work, so `dialogs`, `windows_remaining` and `dialog_titles` all come from one
+  read taken once the windows stop changing, so they agree with one another.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
   cause `wayland_session`.
-- Protection follows the target process instance, never its name: owners of the
-  active display socket, the X root supporting-WM window, and session-bus
-  infrastructure and portal services are refused with `INVALID_ARGS` and
-  `not_delivered`. GNOME session-service owners are protected when the session
-  bus exposes that backend or the session declares GNOME. Another declared
-  desktop, or an unclassified service owner without a detected backend,
-  refuses with `ACTION_NOT_SUPPORTED`. Missing ownership evidence refuses with
-  `ACTION_NOT_SUPPORTED` before any close request or signal. An unrelated app
-  named like a session service remains a regular app. X11 manager and decoration
-  ownership needs XRes process IDs; missing server support refuses honestly.
+- Protection follows the target process instance, never its name. The owners of
+  the active display socket and of the X root supporting-WM window are refused
+  with `INVALID_ARGS` and `not_delivered`. So is an app that answers on the
+  accessibility bus, has no managed window and was started by the session: it
+  owns a session-bus name, runs as a user service unit, or is a child of the
+  display owner, as portal backends, shell helpers and decoration hosts are. An
+  app with a managed window, or one a launch of this tool started, is a regular
+  app. A process that does not answer on the accessibility bus is protected when
+  it owns a session-bus name. Missing ownership evidence, such as an unreadable
+  `/proc` entry or no session bus, refuses with `ACTION_NOT_SUPPORTED` before
+  any close request or signal. X11 manager ownership needs XRes process IDs;
+  missing server support refuses honestly.
 
 ## Window operations
 
@@ -241,6 +254,8 @@ and the window operations answer `APP_UNRESPONSIVE` in milliseconds, not
 `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`, `not_delivered` and
 `retry: safe`; `--force` ends it. An unscoped `list-windows` still lists its
 windows, marked `accessible: false`.
+A scoped listing of a busy app that left every frame unanswered answers `TIMEOUT`, not an empty
+list.
 
 ## Waiting for lifecycle events
 
@@ -314,13 +329,18 @@ at the state with `list-windows` or `snapshot` before you repeat it.
 ## Window classification
 
 Window shapes come from AT-SPI roles, interfaces and state. On X11, managed
-client ownership, native window type, XRes decoration ownership and override-redirect evidence distinguish
+client ownership, native window type and override-redirect evidence distinguish
 user windows from decoration, dock and popup frames. Associations use process
 identity, a complete native population, and uniform process or geometry groups; class names,
 titles and process names do not classify windows. Mixed classes or incomplete
-groups return `ACTION_NOT_SUPPORTED`. Shown frames without any visible native
-window owned by their process are omitted; minimized frames remain listed.
-An extra override-redirect surface blocks association; matching geometry alone
-never proves that an accessibility frame is a popup.
-On Wayland, the active display-socket owner identifies
-the compositor; other app frames retain their AT-SPI classification.
+groups return `ACTION_NOT_SUPPORTED`. The one exception is a frame whose process
+has no managed window and that the session itself started: the display owner or
+a child of it, or a user service unit, and never a process that a launch of this
+tool started. The shell's own window and the decoration frame a window manager
+hosts are such frames and are left out of the list. A frame that cannot be
+proven one is never hidden: the call fails with the same refusal. Shown frames
+without any visible native window owned by their process are omitted; minimized
+frames remain listed. An extra override-redirect surface blocks association;
+matching geometry alone never proves that an accessibility frame is a popup.
+On Wayland, the active display-socket owner identifies the compositor and its
+frames are left out; other app frames retain their AT-SPI classification.

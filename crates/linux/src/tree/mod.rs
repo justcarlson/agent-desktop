@@ -28,6 +28,7 @@ mod hit_overlap_live_tests;
 pub(crate) mod hit_test;
 pub(crate) mod hit_verdict;
 mod identity;
+mod interface_reads;
 mod label_outcome;
 mod label_read;
 mod landing;
@@ -57,6 +58,8 @@ mod path_descent;
 mod placed_states;
 mod placeholder;
 pub(crate) mod placement;
+pub(crate) mod pointer_refusal;
+mod popup_position;
 pub(crate) mod projection;
 mod raw_node;
 pub(crate) mod read_failure;
@@ -66,6 +69,7 @@ mod readiness_step;
 mod resolution;
 mod resolve;
 mod resolve_anchor;
+mod resolve_candidates;
 mod resolve_errors;
 #[cfg(test)]
 mod resolve_fake;
@@ -84,6 +88,7 @@ pub(crate) mod surfaces;
 pub(crate) mod text_selection;
 pub(crate) mod text_units;
 pub(crate) mod toolkit_trust;
+pub(crate) mod twin_frames;
 mod value_read;
 mod vocabulary;
 mod walk;
@@ -93,6 +98,7 @@ mod walked_node;
 mod walker;
 mod walker_expand;
 pub(crate) mod window_extents;
+pub(crate) mod window_tie;
 mod wrapper;
 
 #[cfg(test)]
@@ -168,6 +174,9 @@ mod registry_toolkit_live_tests;
 pub(crate) mod live_launch;
 
 #[cfg(test)]
+pub(crate) mod live_process;
+
+#[cfg(test)]
 mod live_qt;
 
 #[cfg(test)]
@@ -205,7 +214,7 @@ pub(crate) use label_read::read_label;
 pub(crate) use live_read::{
     get_element_bounds, get_live_actions, get_live_element, get_live_state, get_live_value,
 };
-pub(crate) use menu_resolve::{inside_popup, is_menu_entry, no_position};
+pub(crate) use menu_resolve::is_menu_entry;
 pub(crate) use node_class::NodeClass;
 pub(crate) use node_properties::NodeProperties;
 pub(crate) use node_read::{COMPONENT_INTERFACE, call, read_node, read_node_for};

@@ -103,3 +103,38 @@ fn a_headed_ref_click_is_refused_before_target_resolution() {
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
     assert_eq!(adapter.sent.load(Ordering::SeqCst), 0);
 }
+
+fn select_args() -> select::SelectArgs {
+    select::SelectArgs {
+        ref_id: "@missing:e1".into(),
+        value: "Choice".into(),
+        timeout_ms: Some(5_000),
+    }
+}
+
+#[test]
+fn a_headed_select_is_refused_before_target_resolution() {
+    let adapter = NoPointerAdapter::new();
+    let error = select::execute(
+        select_args(),
+        &adapter,
+        &CommandContext::default().with_headed(true),
+    )
+    .expect_err("the pointer refusal precedes ref loading and actionability");
+    let crate::AppError::Adapter(error) = error else {
+        panic!("the adapter's pointer refusal must reach the caller");
+    };
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(error.details.unwrap()["cause"], "wayland_session");
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    assert_eq!(adapter.sent.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_headless_select_is_not_stopped_by_the_missing_pointer() {
+    let _home = crate::refs_test_support::HomeGuard::new();
+    let adapter = NoPointerAdapter::new();
+    let error = select::execute(select_args(), &adapter, &CommandContext::default())
+        .expect_err("the unknown ref is the only refusal of a headless select");
+    assert_ne!(error.code(), "ACTION_NOT_SUPPORTED");
+}

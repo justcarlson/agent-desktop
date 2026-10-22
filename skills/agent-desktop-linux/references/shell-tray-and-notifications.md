@@ -83,8 +83,15 @@ A successful input report alone does not prove an item was picked.
 GTK4 list-backed dropdowns, such as Settings' Night Light Schedule, are not
 menu-role popups. Their choices stay in the window tree: `wait --menu` and
 `snapshot --surface menu` do not cover them. Find the combobox, click its fresh
-ref, and use `wait --text` for a choice before taking a window snapshot. If
-`select` refuses, adding `--headed` does not supply a missing semantic action.
+ref, and use `wait --text` for a choice before taking a window snapshot. A
+combobox with no popup state, no selection and no action, such as a libadwaita
+combo row, takes `--headed select @ref "Choice"` on X11: it clicks the
+combobox, finds the choice in the list that appears, selects it through that
+list and the popup's default action, and checks the value the combobox shows.
+A choice that is not there closes the popup with Escape and answers
+`ELEMENT_NOT_FOUND`. Without `--headed` that select is `POLICY_DENIED`, kind
+`pointer_required`, unless the combobox already shows the choice. For a dropdown where `select` still
+refuses, adding `--headed` does not supply a missing semantic action.
 On X11, after a headed click focuses the open dropdown, explicit headed
 `press down` / `press up` and `press return` can choose an item. Inspect the
 current choice first and verify the resulting value before another mutation.
@@ -101,17 +108,17 @@ prove it. Advertised surfaces also require a resolvable structural container.
 | Surface | Meaning | Availability |
 |---------|---------|--------------|
 | `system-tray` | Logical watcher items and their virtual menus | Headless snapshot with a StatusNotifierWatcher; no native panel binding |
-| `action-center` | A unique `LIST` ancestor of `NOTIFICATION` rows | Existing content only when this role chain proves the container |
+| `action-center` | The container above the footer row of a label, a toggle and a push button | Content while the list is showing; `open-system-surface` opens it with a click on the date menu |
 | `quick-settings` | System menu | Refuses: the exposed generic panel chain cannot prove its container |
 | `taskbar` | Dock | Not advertised or openable by this build |
 
 Shell snapshots need no `--app`; `list-surfaces` inventories an app selected
-with `--app`. Shell containers do not appear in `list-windows`. Empty history,
-English labels, wrapper depth and screen position do not prove a message-list
-container. Unproven containers and date-menu/system-button openers return
-`ACTION_NOT_SUPPORTED`, `shell_container_unproven`, before input. Opening a
-hidden popup headless still requires headed permission; that permission does
-not establish a missing opener identity.
+with `--app`. Shell containers do not appear in `list-windows`. The message
+list and the date menu that opens it are found by role shape and uniqueness;
+English labels, wrapper depth and screen position prove nothing. Other
+containers and the system-button opener return `ACTION_NOT_SUPPORTED`,
+`shell_container_unproven`, before input. Opening a hidden popup headless still
+requires headed permission.
 
 Overview is not a `--surface` value (`INVALID_ARGS`). On Mutter X11, while
 Activities Overview is open, headed app focus returns `ACTION_FAILED`, cause
@@ -119,10 +126,15 @@ Activities Overview is open, headed app focus returns `ACTION_FAILED`, cause
 `agent-desktop --headed focus-window --app gnome-calculator` before the app
 action. This X11 recovery does not establish Wayland window-control support.
 
-Native shell clicks require the same structural receiver and sibling-separation
-proof as app clicks before any pointer event. Bounds alone cannot authorize
-input. Overlap, unreadable ancestry or an unknown receiver refuses without
-delivery. On Wayland the shared hit test cannot prove the receiver, so shell
+Native shell clicks need headed permission and, on X11, a tree hit test before
+any pointer event. The shell answers no point query finer than a container, so
+the adapter reads every showing shell node in paint order. The last node over the
+aim point must be the target or lie below it, and the target's extents must read
+the same twice, at least 50 ms apart. A node painted over the target, a target
+that is still moving, or a node that cannot be read refuses with
+`ACTION_FAILED`, `pointer_hit_unproven` and no delivery; retry once the shell
+settles. Each effect is read back from the shell. On Wayland the shared hit test
+cannot prove the receiver, so shell
 ref clicks refuse before opening an input session. Wayland keyboard input
 requires the session-bus `org.gnome.Mutter.RemoteDesktop` capability; an
 unsupported backend returns `PLATFORM_NOT_SUPPORTED` before any event.
@@ -137,7 +149,7 @@ requirements. A healthy app bus does not establish any of them.
 | Shell session owner or matching accessibility tree | Cause-specific missing-tree refusal; no guessed shell identity |
 | Unproven shell container or opener | `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
 | No notification service | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` |
-| Notification service owner differs from the detected shell owner | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported`; server branding is not identity |
+| Notification service owner is neither the shell nor a process of the same user whose argv names the shell's own notification module | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported`; server branding is not identity |
 | No `org.kde.StatusNotifierWatcher` | `PLATFORM_NOT_SUPPORTED`, `watcher: absent`; guidance names the required protocol backend |
 | Unreadable notification service or watcher | `TIMEOUT`, corresponding `daemon` or `watcher` detail `unreadable` |
 
@@ -146,29 +158,109 @@ not an empty tray. Do not restart a shell or accessibility bus you do not own.
 
 ## Notifications
 
-After policy checks, notification commands check the detected backend. A service
-with the same process owner as the detected shell answers `ACTION_NOT_SUPPORTED`, `details.kind:
-notification_identity_unavailable`, `retryable: false`, with `not_delivered`
-and safe retry. The refusal happens before reading or opening the message list
-and before any input. `wait --notification` returns the same refusal immediately.
-Missing, unsupported or unreadable services retain the backend errors above.
-A separately owned GNOME notification process also retains the ownership
-refusal; its branding cannot establish delegation to the detected shell.
+**Every notification field comes from the shell's widget layout.** Neither the
+notification protocol nor GNOME's accessibility tree names a notification's
+app, title, body, age or controls, so the adapter reads them from where the
+shell puts them. This was verified on GNOME Shell 46.0 (Ubuntu 24.04) in
+private Mutter X11 and native Wayland sessions, and on no other version. A
+shell that lays an entry out differently is refused (`INTERNAL`, "no readable
+title") or misread; it is never repaired by guessing. No text, no English word
+and no position of a button in the footer is used to find anything.
 
-The standard `org.freedesktop.Notifications` protocol supplies an ID in the
-`Notify` reply and app name, summary, body and action keys in the call, but no
-history query. GNOME's AT-SPI notification nodes expose neither that ID nor
-relations identifying app, summary and body. Label position and English time
-phrases cannot establish those fields. Anonymous buttons and footer position
-cannot establish expand, close or clear-all semantics. No notification list,
-empty history, target identity or successful delivery is inferred from them.
-A monitor started now cannot recover notifications sent earlier.
+`list-notifications` reads GNOME Shell's message list headless, including when
+closed. Banner copies are excluded. Indices are 1-based positions in the
+unfiltered list, newest first; filtering does not renumber them. `--app` is
+case-insensitive contains; `--text` searches app, title and body. Empty is a
+successful empty list. `wait --notification` establishes a baseline and waits
+for a matching entry new to that baseline.
 
-Single-item mutations still require `--headed` and at least one of
-`--expected-app` / `--expected-title`. Missing identity is `INVALID_ARGS`;
-headless mutation is `POLICY_DENIED`. Supplying these flags does not bypass the
-identity refusal. Ordinary application controls with supported AT-SPI actions
-remain available through the ref-based observe-act loop.
+How an entry is read:
+
+- The list is the container two levels above a footer row of a label, a toggle
+  and a push button. An empty list is that container with no entry in it.
+- The header is the container that holds an entry's unnamed push buttons. Its
+  first label is the app; later labels are the age and are dropped.
+- Labels outside the header are the title, then the body.
+- Named push buttons outside the header are the actions.
+- An entry with no such header cannot be read, and the command fails.
+- The notification owner must be the shell or its own helper process; any other
+  owner is `PLATFORM_NOT_SUPPORTED`.
+
+The protocol has no history query and GNOME exposes no notification ID, so an
+index is a position and not an identity. Within one command an entry is its
+accessibility object plus its words: every mutation reads the list twice, checks
+the expected app and title at the index, and checks that both reads found the
+same object. It then proves the effect by the object leaving the list.
+
+This example assumes exactly one disposable notification from `Skill Example`,
+titled `Beta`, already exists. `jq` selects the actual index and the mutation guards
+both identity fields:
+
+```bash
+agent-desktop list-notifications
+notice_index=$(agent-desktop list-notifications --app "Skill Example" --text Beta | jq -r '.data.notifications[] | select(.app_name == "Skill Example" and .title == "Beta") | .index')
+test -n "$notice_index" && agent-desktop --headed dismiss-notification "$notice_index" --expected-app "Skill Example" --expected-title Beta
+agent-desktop list-notifications --app "Skill Example"
+```
+
+Single-item `dismiss-notification` and `notification-action` require
+`--headed` and at least one of `--expected-app` / `--expected-title`.
+Missing identity is `INVALID_ARGS`; headless mutation is `POLICY_DENIED`.
+Missing index or changed identity is `NOTIFICATION_NOT_FOUND`. Re-list after
+each mutation; an index can now name another notification.
+
+Mutations press the shell's controls with the pointer, which needs X11: on
+Wayland a mutation fails with `ACTION_FAILED`, `pointer_hit_unproven`, before
+any input. The command opens the message list by a click on the clock menu and
+closes it again. If it cannot open the list, the error suggestion says so: open
+the list by hand and retry, because a list that is already showing is used as it
+is.
+
+Dismissal presses the entry's header buttons, the last one first. The two
+buttons look alike, so which one closes the entry is told by its effect: after a
+press the entry's own object must be gone from the list and no other entry's
+may be. A button that only expands the entry leaves it standing, so the other
+button is pressed next. An entry that still stands after both is
+`ACTION_FAILED` with `delivery: delivered_unverified`, never success. A partial
+post-click read gives the same code with “The click was delivered but the
+message list could not be read afterwards” and `retry: unsafe`; the target may
+already be gone. Re-list before deciding what remains; do not repeat the old
+index blindly.
+
+`dismiss-all-notifications` closes each entry in scope through its own header
+buttons, one at a time, and counts an entry as dismissed only when its own
+object has left the list. It never presses the footer button, which has no
+property but its place. `--app` limits the scope. A headed empty dismiss-all
+returns zero without opening the message list. Headless dismiss-all is
+`POLICY_DENIED`, even with an empty list. Entries that could not be closed are
+listed in the result's failures.
+
+For `notification-action`, pass the exact name in the row's `actions` list,
+for example `Open`. A missing action is `ACTION_NOT_SUPPORTED` with
+`available_actions`. The command expands the entry first when its buttons are
+not laid out, using the header button before the last one; if pressing it
+removes the entry instead, the result is `ACTION_FAILED`. An action counts only
+when the entry's object leaves the list, which GNOME does after an action unless
+the notification is resident. `details.evidence` is `action_invoked` when
+the daemon's own `ActionInvoked` signal was also seen once, and `entry_removed`
+otherwise; the result is always `delivered_unverified`, and the receiving app's
+effect is never claimed. A button that was pressed while the entry stayed in the
+list is `ACTION_FAILED` with `delivered_unverified`.
+
+## Surfaces that `open-system-surface` accepts
+
+`open-system-surface --help` shows the values of every platform. On Linux only
+three can work:
+
+| Value | Result |
+|-------|--------|
+| `system-tray` | Needs `org.kde.StatusNotifierWatcher`. Without it: `PLATFORM_NOT_SUPPORTED`, `watcher: absent`, the same refusal as `snapshot --surface system-tray`. No window is returned |
+| `action-center` | Opens the GNOME message list when its container and opener are proven; otherwise `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
+| `quick-settings` | Opens the GNOME system menu with the same proof rule |
+| `taskbar` | `PLATFORM_NOT_SUPPORTED`: no stock shell shows a dock |
+| `start-menu`, `system-tray-overflow`, other values | `PLATFORM_NOT_SUPPORTED`, not supported on this platform |
+
+Retrying an unsupported value gives the same refusal.
 
 ## StatusNotifierItem and AppIndicator tray
 

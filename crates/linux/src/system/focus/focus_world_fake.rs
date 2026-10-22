@@ -9,6 +9,7 @@ use crate::system::process::process_facts::ProcessFacts;
 use crate::system::x11::desktop_placement::DesktopPlacement;
 use crate::system::x11::stacked_window::StackedWindow;
 use crate::system::x11::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::twin_tie::Twins;
 use crate::system::x11::window_flags::WindowFlags;
 use crate::system::x11::window_kind::WindowKind;
 use crate::system::x11::{FrameExtents, X11Client};
@@ -53,6 +54,7 @@ pub(super) struct World {
     pub(super) input_focus: bool,
     pub(super) menu_open: bool,
     pub(super) app_frame_active: bool,
+    pub(super) twins: Option<Twins>,
 }
 
 pub(super) fn facts() -> ProcessFacts {
@@ -112,6 +114,7 @@ impl World {
             input_focus: false,
             menu_open: false,
             app_frame_active: false,
+            twins: None,
         }
     }
 
@@ -131,6 +134,10 @@ impl World {
 impl ClientWorld for World {
     fn global_position(&self) -> bool {
         self.global
+    }
+
+    fn twins(&self, _win: &WindowInfo) -> Option<Twins> {
+        self.twins.clone()
     }
 }
 

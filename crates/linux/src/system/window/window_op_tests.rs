@@ -7,6 +7,7 @@ use serde_json::Value;
 use super::*;
 use crate::system::process::process_facts::ProcessFacts;
 use crate::system::window::window_id;
+use crate::system::x11::twin_tie::Twins;
 use crate::tree::Extents;
 
 #[path = "window_op_refusal_tests.rs"]
@@ -23,6 +24,9 @@ mod settle;
 
 #[path = "window_op_wayland_tests.rs"]
 mod wayland;
+
+#[path = "window_op_twin_tests.rs"]
+mod twin;
 
 #[path = "window_op_shadow_world_tests.rs"]
 mod shadow;
@@ -43,6 +47,8 @@ pub(super) struct World {
     pub(super) reaction: Option<fn(&[WindowWrite]) -> WindowFacts>,
     pub(super) remembered: RefCell<Option<Extents>>,
     pub(super) remember_calls: RefCell<Vec<Option<Extents>>>,
+    pub(super) twins: Option<Twins>,
+    pub(super) active: Option<u32>,
 }
 
 pub(super) fn process(instance: &str) -> Lookup {
@@ -97,6 +103,8 @@ impl World {
             reaction: None,
             remembered: RefCell::new(None),
             remember_calls: RefCell::new(Vec::new()),
+            twins: None,
+            active: None,
         }
     }
 
@@ -123,6 +131,10 @@ impl ClientWorld for World {
     fn global_position(&self) -> bool {
         false
     }
+
+    fn twins(&self, _win: &WindowInfo) -> Option<Twins> {
+        self.twins.clone()
+    }
 }
 
 impl OpWorld for World {
@@ -136,6 +148,10 @@ impl OpWorld for World {
 
     fn clients(&self) -> ControlRead<Vec<X11Client>> {
         next(&self.clients)
+    }
+
+    fn active_client(&self) -> Option<u32> {
+        self.active
     }
 
     fn facts(&self, _client: u32) -> ControlRead<WindowFacts> {

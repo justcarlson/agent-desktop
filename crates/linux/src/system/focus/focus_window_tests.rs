@@ -2,6 +2,7 @@ use agent_desktop_core::ErrorCode;
 
 use super::fake::*;
 use super::*;
+use crate::system::x11::twin_tie::Twins;
 
 #[test]
 fn a_window_already_active_by_both_measures_sends_nothing() {
@@ -41,6 +42,58 @@ fn an_ambiguous_mapping_is_refused_before_any_send() {
         active: Some(OTHER),
         clients: vec![x11_client(CLIENT, "Doc"), x11_client(CLIENT + 1, "Doc")],
     };
+    assert_refused(&failure(&world), "ambiguous_window");
+    assert_eq!(world.sends(), 0);
+}
+
+fn twin_world(active: u32, twins: Twins) -> World {
+    let mut world = World::new(Some(active));
+    world.global = false;
+    world.state = X11State::Ready {
+        active: Some(active),
+        clients: vec![x11_client(CLIENT, "Doc"), x11_client(CLIENT + 1, "Doc")],
+    };
+    world.frame_active.set(Some(twins.active[twins.me]));
+    world.twins = Some(twins);
+    world
+}
+
+#[test]
+fn the_inactive_twin_is_the_other_client_and_is_activated() {
+    let world = twin_world(
+        CLIENT + 1,
+        Twins {
+            active: vec![false, true],
+            me: 0,
+        },
+    );
+    run(&world, &window(), budget()).expect("the other client answers to this window");
+    assert_eq!(*world.sent.borrow(), vec![CLIENT]);
+}
+
+#[test]
+fn the_active_twin_is_already_focused_and_sends_nothing() {
+    let world = twin_world(
+        CLIENT,
+        Twins {
+            active: vec![true, false],
+            me: 0,
+        },
+    );
+    run(&world, &window(), budget()).expect("the active client is this window");
+    assert_eq!(world.sends(), 0);
+}
+
+#[test]
+fn a_tie_the_twins_cannot_break_is_refused_before_any_send() {
+    let mut world = twin_world(
+        CLIENT + 1,
+        Twins {
+            active: vec![false, true],
+            me: 0,
+        },
+    );
+    world.twins = None;
     assert_refused(&failure(&world), "ambiguous_window");
     assert_eq!(world.sends(), 0);
 }
