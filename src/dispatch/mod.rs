@@ -37,7 +37,11 @@ pub(crate) fn dispatch(
         } else {
             None
         };
-    let scope = if cmd.is_mutating() {
+    let scope = if matches!(&cmd, Commands::Session(args)
+        if matches!(&args.action, crate::cli_args::session::SessionAction::End(_)))
+    {
+        context.session_end_scope()?
+    } else if cmd.is_mutating() {
         context.mutating_command_scope(cmd.name())?
     } else {
         context.command_scope(cmd.name())?

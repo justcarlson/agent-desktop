@@ -30,3 +30,14 @@ impl SessionScope {
         Ok(())
     }
 }
+
+impl super::CommandContext {
+    /// Allows repeatable session teardown while ordinary commands remain refused.
+    pub fn session_end_scope(&self) -> Result<super::CommandScope<'_>, crate::AppError> {
+        self.command_scope_with_disposition(
+            "session",
+            crate::DeliverySemantics::delivered_unverified(),
+            true,
+        )
+    }
+}

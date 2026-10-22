@@ -183,7 +183,7 @@ agent-desktop session end "$AGENT_DESKTOP_SESSION"
 - Tracing needs a manifest with `trace: on` (the default). `--no-trace`, or a bare `--session <id>` without a manifest, gives a namespace with no trace files. `--trace <path>` overrides to one file. `--trace-strict` fails on trace setup errors.
 - `--screenshots` records pre and post PNGs and refmap copies. They are unredacted and sensitive. They need tracing on.
 - Several agents may share one session id. Each should use qualified refs from its own snapshot.
-- `session list`, `session end [id]` and `session gc` list, seal and reclaim sessions. `gc` never reaps a live session.
+- `session list`, `session end [id]` and `session gc` list, seal and reclaim sessions. `session end` is repeatable, including when the active scope has already ended; other commands refuse an ended scope. `gc` never reaps a live session.
 - `trace show [--limit N] [--event PREFIX]` returns the merged event timeline (default tail 500, `0` for all). `trace export [--out path.html]` writes a self-contained HTML viewer. Both need no OS permission.
 - Trace lines redact sensitive fields (`text`, `value`, `name`, `title`, `url`, ...) to `{ "redacted": true }`.
 - `status` shows `session_id`, `tracing` and `artifacts`.

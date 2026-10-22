@@ -116,6 +116,66 @@ fn session_end_without_any_scope_is_invalid() {
 }
 
 #[test]
+fn scoped_session_end_is_idempotent_without_reopening_commands() {
+    let _home = HomeGuard::new();
+    let manifest =
+        agent_desktop_core::session::start_session(StartSessionOptions::default()).unwrap();
+    let context = CommandContext::new(Some(manifest.id.clone()), None, false).unwrap();
+    let end = |context: &CommandContext, id| {
+        crate::dispatch::dispatch(
+            crate::cli::Commands::Session(SessionArgs {
+                action: SessionAction::End(SessionEndArgs { id }),
+            }),
+            &NoopAdapter,
+            &agent_desktop_core::PermissionReport::default(),
+            context,
+        )
+        .expect("session cleanup remains repeatable")
+    };
+    let ended = end(&context, None);
+    assert!(ended["ended_at"].is_number());
+    let fresh = CommandContext::new(Some(manifest.id.clone()), None, false).unwrap();
+    for context in [&context, &fresh] {
+        assert_eq!(end(context, None), ended);
+        assert_eq!(end(context, Some(manifest.id.clone())), ended);
+        for command in [
+            crate::cli::Commands::Version,
+            crate::cli::Commands::Session(SessionArgs {
+                action: SessionAction::List,
+            }),
+        ] {
+            let error = crate::dispatch::dispatch(
+                command,
+                &NoopAdapter,
+                &agent_desktop_core::PermissionReport::default(),
+                context,
+            )
+            .expect_err("cleanup must not reopen other commands");
+            assert_eq!(error.code(), "INVALID_ARGS");
+        }
+    }
+    let saved = agent_desktop_core::session::read_manifest(&manifest.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(serde_json::json!(saved.ended_at), ended["ended_at"]);
+    let other = agent_desktop_core::session::start_session(StartSessionOptions::default()).unwrap();
+    assert_eq!(
+        end(&context, Some(other.id.clone()))["session_id"],
+        other.id
+    );
+    assert!(
+        agent_desktop_core::session::read_manifest(&other.id)
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_some()
+    );
+    drop(fresh);
+    drop(context);
+    std::fs::remove_dir_all(_home.path()).unwrap();
+}
+
+#[test]
 fn session_end_reports_uncertain_when_overlay_teardown_fails_after_persisting() {
     let home = HomeGuard::new();
     let manifest = agent_desktop_core::session::start_session(StartSessionOptions {
