@@ -147,6 +147,8 @@ fn a_headless_pointer_only_select_is_a_policy_refusal_with_nothing_sent() {
     let error = pointer_required();
     assert_eq!(error.code, ErrorCode::PolicyDenied);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let suggestion = error.suggestion.expect("suggestion");
+    assert!(suggestion.contains("--headed") && suggestion.contains("X11"));
     let details = error.details.expect("details");
     assert_eq!(details["kind"], "pointer_required");
     assert_eq!(details["physical_delivery_started"], false);

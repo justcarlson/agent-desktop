@@ -121,6 +121,9 @@ pub(super) fn pointer_required() -> AdapterError {
         "Opening this dropdown takes the pointer, which the interaction policy does not allow",
         InteractionPolicy::headless(),
     )
+    .with_suggestion(
+        "Run select again with --headed on X11: the pointer opens the dropdown and the choice is checked against the value it shows. A headless request and a Wayland session cannot open it.",
+    )
     .with_details(json!({
         "kind": "pointer_required",
         "physical_delivery_started": false,
