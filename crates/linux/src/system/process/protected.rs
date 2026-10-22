@@ -9,6 +9,7 @@ use crate::system::display::display_env::DisplayEnv;
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::process::process_facts;
 use crate::system::process::process_lookup::Lookup;
+use crate::system::process::session_origin;
 
 fn unknown() -> AdapterError {
     AdapterError::new(
@@ -22,7 +23,11 @@ fn unknown() -> AdapterError {
 }
 
 fn display_socket() -> Result<PathBuf, AdapterError> {
-    match session_server() {
+    socket_of(session_server())
+}
+
+fn socket_of(server: DisplayServer) -> Result<PathBuf, AdapterError> {
+    match server {
         DisplayServer::Wayland => {
             let env = DisplayEnv::from_process();
             let name = env.wayland.ok_or_else(unknown)?;
@@ -41,7 +46,8 @@ fn display_socket() -> Result<PathBuf, AdapterError> {
             }
             Ok(PathBuf::from(format!("/tmp/.X11-unix/X{number}")))
         }
-        DisplayServer::Unavailable(_) => Err(unknown()),
+        DisplayServer::Unavailable(why) => Err(crate::system::display::unreachable(why)
+            .with_disposition(DeliverySemantics::not_delivered())),
     }
 }
 
@@ -122,6 +128,29 @@ async fn service_owner(pid: u32, connection: &zbus::Connection) -> Result<bool, 
     Ok(false)
 }
 
+fn has_managed_window(pid: u32, deadline: Deadline) -> bool {
+    crate::system::x11::control::toplevels_of(pid, deadline)
+        .ready()
+        .is_some_and(|windows| !windows.is_empty())
+}
+
+fn answering_app_is_session_service(pid: u32, deadline: Deadline) -> Result<bool, AdapterError> {
+    session_origin::is_session_service(
+        || session_origin::launched_by_agent(pid),
+        || has_managed_window(pid, deadline),
+        || session_origin::runs_as_service(pid),
+        || session_origin::child_of_display_owner(pid, |parent| is_display_owner(parent, deadline)),
+        || owns_session_bus_name(pid, deadline),
+    )
+}
+
+fn owns_session_bus_name(pid: u32, deadline: Deadline) -> Result<bool, AdapterError> {
+    let connection = SessionBus::get(deadline)
+        .map_err(|error| unknown().with_platform_detail(error.to_string()))?;
+    crate::system::within(deadline, async { service_owner(pid, &connection).await })
+        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))
+}
+
 pub(crate) fn is_protected(
     bus: &crate::system::SharedBus,
     pid: u32,
@@ -150,12 +179,13 @@ pub(crate) fn is_protected(
         .iter()
         .any(|app| app.root.pid() == pid && app.answered)
     {
-        return Ok(false);
+        let session_started = answering_app_is_session_service(pid, deadline)?;
+        if !instance_matches() {
+            return Err(unknown());
+        }
+        return Ok(session_started);
     }
-    let connection = SessionBus::get(deadline)
-        .map_err(|error| unknown().with_platform_detail(error.to_string()))?;
-    let owner = crate::system::within(deadline, async { service_owner(pid, &connection).await })
-        .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
+    let owner = owns_session_bus_name(pid, deadline)?;
     if !instance_matches() {
         return Err(unknown());
     }

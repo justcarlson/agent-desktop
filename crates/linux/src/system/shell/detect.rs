@@ -15,6 +15,7 @@ const NOTIFICATIONS_PATH: &str = "/org/freedesktop/Notifications";
 
 mod errors;
 mod requirements;
+mod service;
 pub(crate) use requirements::require_daemon;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,9 +120,9 @@ fn daemon_fact_error(daemon: &Fact, server: Option<&str>) -> Result<(), AdapterE
         Fact::Present => Ok(()),
         Fact::Absent(why) if server.is_some() => Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,
-            "The notification service is not owned by the detected shell; only GNOME Shell is supported",
+            "The notification service is not the detected shell's own service",
         )
-        .with_suggestion("Use the notification service owned by the detected GNOME session backend")
+        .with_suggestion("Run the session with the shell's own notification service; another daemon cannot be proven to belong to it")
         .with_details(json!({ "daemon": "unsupported", "detail": why, "server": server }))),
         Fact::Absent(why) => Err(AdapterError::new(
             ErrorCode::PlatformNotSupported,

@@ -26,7 +26,6 @@ display server does not give.
 | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | Notification protocol missing or its owner is not the detected shell backend | Run inside the supported desktop session; see the shell reference |
 | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | No SNI watcher exists | Start the session's tray backend providing `org.kde.StatusNotifierWatcher`; extension advice requires a detected backend |
 | `ACTION_NOT_SUPPORTED`, `shell_container_unproven` | Roles and parent chains do not establish the shell container or opener | Use an app surface or the logical SNI tray. English labels, wrapper depth and screen position cannot establish popup identity |
-| `ACTION_NOT_SUPPORTED`, `notification_identity_unavailable` | Notification protocol fields and control semantics cannot be established | Use the application's accessible controls; refreshing the notification list cannot recover missing protocol identity |
 | `APP_UNRESPONSIVE` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref’s live identity | Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
 | `STALE_REF` | UI changed or the window closed | See `details.kind`: `resolve_target_destroyed` needs a replacement target; `menu_closed` needs its opener reopened before a fresh menu snapshot. Neither permits retrying the old ref |
@@ -175,8 +174,6 @@ D-Bus or X11 error:
 
 ## Commands that refuse by design
 
-- Notification list, wait and headed mutations refuse unproven identity with
-  `ACTION_NOT_SUPPORTED`; headless mutations remain `POLICY_DENIED`.
 - `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`. `mouse-down` and `mouse-up`
   are `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed`.
 - `cursor-overlay` on Wayland: succeeds as a setting only. `enable` returns `data.rendered:

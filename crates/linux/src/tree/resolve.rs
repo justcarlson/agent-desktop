@@ -57,8 +57,12 @@ fn window_rooted(entry: &RefEntry) -> bool {
     entry.scope.root_ref.is_none() || entry.scope.path_is_absolute
 }
 
+/// A retained object is an address no other node holds, so the search finds
+/// the one node or none and the stored path adds no region to read. Following
+/// the path costs one sequential round trip per level, which a slow
+/// application answers one at a time.
 fn path_tier_applies(entry: &RefEntry) -> bool {
-    window_rooted(entry) && !entry.scope.path.is_empty()
+    window_rooted(entry) && !entry.scope.path.is_empty() && entry.identity.retained_object.is_none()
 }
 
 /// Whether the stored path leaves a region unread. Its landing never

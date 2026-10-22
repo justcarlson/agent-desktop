@@ -5,10 +5,10 @@ use super::anchor::Anchor;
 use super::identity::ShellRoot;
 use super::light::{Light, LiveNodes, Nodes};
 use super::located::Located;
-use super::search::{Query, find_all};
+use super::search::{Visit, walk};
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
-use crate::tree::role_numbers::{LIST, NOTIFICATION};
+use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 pub(crate) const MENU: u32 = 33;
 
@@ -38,56 +38,74 @@ fn locate_in<N: Nodes>(
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
     let start = AtspiElement::new(&root.bus_name, &root.path, root.pid);
-    let root_node = nodes.read(&start)?;
-    if anchor == Anchor::Landmark(Landmark::TrayPanel) {
-        return Ok(Located {
-            anchor: root_node.clone(),
-            container: root_node,
-        });
-    }
-    if anchor != Anchor::Landmark(Landmark::MessageList) {
-        return Err(unproven(anchor));
-    }
-    let paths = find_all(
-        nodes,
-        &start,
-        deadline,
-        &Query {
-            prune: &|_| false,
-            candidate: &|node| node.role == NOTIFICATION,
-            accept: &|_, _| true,
-        },
-    )?;
-    let mut containers: Vec<Light> = Vec::new();
-    for path in paths {
-        let container = path
-            .iter()
-            .rev()
-            .skip(1)
-            .take_while(|node| node.role != NOTIFICATION)
-            .find(|node| node.role == LIST);
-        if let Some(container) = container {
-            if !containers
-                .iter()
-                .any(|other| other.element == container.element)
-            {
-                containers.push(container.clone());
-            }
+    let (mut found, many) = match anchor {
+        Anchor::Landmark(Landmark::TrayPanel) => {
+            let node = nodes.read(&start)?;
+            return Ok(Located {
+                anchor: node.clone(),
+                container: node,
+            });
         }
-    }
-    let container = match containers.len() {
-        0 => return Err(unproven(anchor)),
-        1 => containers.remove(0),
-        _ => {
-            return Err(AdapterError::ambiguous_target(
-                "Several shell containers have the requested role chain",
-            ));
-        }
+        Anchor::Landmark(Landmark::MessageList) => (
+            lists(&walk(nodes, &start, deadline, &|_| false)?.visits),
+            "Several shell containers have the requested role chain",
+        ),
+        Anchor::Landmark(Landmark::DateMenu) => (
+            date_menus(&walk(nodes, &start, deadline, &|light| !light.showing)?.visits),
+            "Several unnamed menus are showing in the shell",
+        ),
+        _ => return Err(unproven(anchor)),
     };
-    Ok(Located {
-        anchor: container.clone(),
-        container,
-    })
+    match found.len() {
+        0 => Err(unproven(anchor)),
+        1 => {
+            let light = found.remove(0);
+            Ok(Located {
+                anchor: light.clone(),
+                container: light,
+            })
+        }
+        _ => Err(AdapterError::ambiguous_target(many)),
+    }
+}
+
+/// The list's footer is a row of a label, a toggle and a push button, in that
+/// order, and the row sits one level below the container holding the
+/// entries. The roles and the row's shape carry the identity, not any text.
+fn lists(visits: &[Visit]) -> Vec<Light> {
+    let footer = |row: &Visit| {
+        let roles: Vec<u32> = row
+            .children
+            .iter()
+            .map(|child| visits[*child].light.role)
+            .collect();
+        roles == [LABEL, TOGGLE_BUTTON, PUSH_BUTTON]
+    };
+    let mut found: Vec<usize> = Vec::new();
+    for container in visits
+        .iter()
+        .filter(|row| footer(row))
+        .filter_map(|row| row.parent)
+    {
+        if !found.contains(&container) {
+            found.push(container);
+        }
+    }
+    found
+        .into_iter()
+        .map(|index| visits[index].light.clone())
+        .collect()
+}
+
+/// The date menu is the one showing menu in the shell with no accessible
+/// name; every other top bar menu names its indicator.
+fn date_menus(visits: &[Visit]) -> Vec<Light> {
+    visits
+        .iter()
+        .map(|visit| &visit.light)
+        .filter(|light| light.role == MENU && light.name.is_empty() && light.placed().is_some())
+        .cloned()
+        .collect()
 }
 
 pub(crate) fn locate_anchor(

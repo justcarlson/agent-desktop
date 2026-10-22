@@ -24,11 +24,14 @@ when known) and `process_instance`. `list-windows` rows carry `id`, `title`, `pi
 `is_focused`, `minimized`, `visible`, `accessible` and `process_instance`, plus `bounds` when
 the display maps one. Several instances of one app share a name: use `--window-id`
 to pick one. Two windows of one process with the same title are told apart by
-which one the toolkit reports active: `focus-window --window-id` focuses the active
-one, and its twin when exactly two windows share the title. Any other tie
-(no active window, three or more twins, an active window of another title) makes
-`focus-window --window-id` answer `ambiguous_window`, and the window operations
-(`resize-window`, `move-window`, `minimize`, `restore`) refuse every tie the same way.
+which one the toolkit reports active: `focus-window --window-id` and the window
+operations (`resize-window`, `move-window`, `minimize`, `maximize`, `restore`) act on
+the active one, and on its twin when exactly two windows share the title. Any other
+tie (no active window, three or more twins, an active window of another title)
+answers `ambiguous_window`.
+`list-windows` lists the focused window first, then the others from the top of the
+X11 stacking order to the bottom. A window with no single X11 client (twins the
+active window does not separate, a Wayland session) follows in registry order.
 `close-app` and `launch` cannot choose between instances and answer
 `AMBIGUOUS_TARGET`.
 
@@ -126,9 +129,11 @@ close only a document or tab and leave its window open.
   `snapshot --app <name>` or `--surface sheet`, answer it, then close again. When
   a dialog already stands, `close-app` sends nothing and answers `ACTION_FAILED`
   with cause `dialog_pending`, `not_delivered` and `retry: safe`. A dialog that
-  opens in answer to the request ends the wait at once with the same cause and
-  the dialog title in `details.dialog`, but `delivered_unverified` and
-  `retry: unsafe`.
+  opens in answer to the request ends the wait with the same cause and the
+  dialog title in `details.dialog`, but `delivered_unverified` and
+  `retry: unsafe`. One request can open a prompt for every window with unsaved
+  work, so `dialogs`, `windows_remaining` and `dialog_titles` all come from one
+  read taken once the windows stop changing, so they agree with one another.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
@@ -245,6 +250,8 @@ and the window operations answer `APP_UNRESPONSIVE` in milliseconds, not
 `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`, `not_delivered` and
 `retry: safe`; `--force` ends it. An unscoped `list-windows` still lists its
 windows, marked `accessible: false`.
+A scoped listing of a busy app that left every frame unanswered answers `TIMEOUT`, not an empty
+list.
 
 ## Waiting for lifecycle events
 

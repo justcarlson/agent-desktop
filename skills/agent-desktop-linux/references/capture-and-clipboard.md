@@ -20,6 +20,10 @@ agent-desktop screenshot /tmp/everything.png
 - A window is read from its own drawable. Under a compositing window manager
   (mutter) a covered window and a minimized window are both captured; each
   measured 360x504 with a 900x700 editor over the calculator.
+- Two windows of one process with the same title: `--window-id` captures the one
+  the toolkit reports active, and its twin when exactly two windows share the title.
+  Any other tie answers `AMBIGUOUS_TARGET` ("More than one X11 window matches this
+  window") with `candidates` and the suggestion to give the windows distinct titles.
 - The tool temporarily hides its own cursor overlays during capture and restores
   them afterward. They neither block the screenshot nor appear in its pixels.
 - Under a non-compositing window manager (openbox) that read is not possible. A
