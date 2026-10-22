@@ -235,3 +235,31 @@ fn deadline_and_window_point_are_preserved() {
     descend(&mut nodes, &el("/frame"), (210, 17), deadline()).expect("descent runs");
     assert_eq!(nodes.points.first(), Some(&(210, 17)));
 }
+
+#[test]
+fn an_unverified_lander_inside_the_target_rectangle_lands_inside() {
+    let extents = |x, y, width, height| Described {
+        window_extents: Some(Extents {
+            x,
+            y,
+            width,
+            height,
+        }),
+        ..Described::default()
+    };
+    for (lander, landing) in [
+        (extents(0, 0, 20, 20), Landing::Inside),
+        (extents(0, 0, 200, 200), Landing::Unresolved),
+        (extents(50, 50, 10, 10), Landing::Unresolved),
+        (Described::default(), Landing::Unresolved),
+    ] {
+        let mut nodes = tree();
+        nodes.lead("/frame", "/other");
+        nodes.parents.remove("/other");
+        nodes
+            .described
+            .insert("/target".to_owned(), extents(0, 0, 100, 100));
+        nodes.described.insert("/other".to_owned(), lander);
+        assert_eq!(run(&mut nodes).landing, landing);
+    }
+}

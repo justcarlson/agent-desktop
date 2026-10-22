@@ -316,6 +316,9 @@ fn unknown_inputs_stay_unknown() {
     unknown(&mut gtk4_missing, (700, 560));
     let mut raw_only = reachable(gtk4_facts(), (302, 260), vec![]);
     unknown(&mut raw_only, (10, 10));
+    let mut gtk3_stops_above = World::new(gtk3_facts(), Some(windowing((100, 137), vec![])));
+    gtk3_stops_above.nodes.lead("/frame", "/pane");
+    unknown(&mut gtk3_stops_above, (310, 154));
     let mut gtk4_lander = reachable(gtk4_facts(), (302, 260), vec![]);
     gtk4_lander.nodes.lead("/frame", "/other");
     unknown(&mut gtk4_lander, (700, 560));
@@ -365,3 +368,13 @@ mod popup;
 
 #[path = "hit_test_overlap_tests.rs"]
 mod overlap;
+
+#[test]
+fn a_gtk4_point_query_that_stops_at_a_container_reaches_the_target() {
+    let mut stops_above = World::new(gtk4_facts(), Some(windowing((302, 260), vec![])));
+    stops_above.nodes.lead("/frame", "/pane");
+    assert_eq!(
+        test(&mut stops_above, (700, 560)),
+        HitTestResult::ReachesTarget
+    );
+}
