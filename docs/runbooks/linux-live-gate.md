@@ -119,6 +119,10 @@ and accessibility overrides are cleared before any desktop app can launch.
 Cleanup only signals owned child/session PIDs. It never restarts the live
 shell or accessibility bus. Cleanup removes each worker's temporary runtime directory under `~/ad-wt`.
 
+The Mutter shell runs in the `ad-private` session mode: the user mode without the polkit agent. Without it, the first private shell of a login becomes the polkit agent for every private session and shows colord's "Authentication Required" modal, which holds focus and swallows input.
+
+X11 live tests wait until Mutter has destroyed a closed window's frame. The next window can reuse the same id, and Mutter would still move it to the old frame origin.
+
 The Python boundary checks need no display:
 `python3 scripts/test-linux-live-gate.py`.
 
