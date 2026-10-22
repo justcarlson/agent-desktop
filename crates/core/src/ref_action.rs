@@ -392,5 +392,9 @@ mod scroll_recovery_tests;
 mod moving_incrementor_tests;
 
 #[cfg(test)]
+#[path = "ref_action_disabled_offscreen_tests.rs"]
+mod disabled_offscreen_tests;
+
+#[cfg(test)]
 #[path = "ref_action_keyboard_tests.rs"]
 mod keyboard_tests;
