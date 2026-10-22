@@ -1,7 +1,10 @@
 use super::disclosure::set_expanded;
+use super::live_bench::{Bench, Scripts, Toolkit};
 use super::live_click_tests::{act, find, open, state};
 use crate::tree::live_launch::nonce;
+use crate::tree::role_numbers::PUSH_BUTTON;
 use crate::tree::state_bits::{EXPANDABLE, EXPANDED};
+use agent_desktop_core::{Action, DeliveryDisposition};
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -127,4 +130,89 @@ fn a_files_tree_row_expands_and_collapses_in_both_directions() {
     assert_eq!(closed.steps[0].verified(), Some(true));
     assert_eq!(state(&session, &row, EXPANDED), Some(false));
     oracle((false, false));
+}
+
+const POPOVER_APP: &str = r#"
+import json, os, sys
+import gi
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk
+
+STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "popover.json")
+
+def write(visible):
+    with open(STATE, "w") as handle:
+        json.dump({"visible": visible}, handle)
+
+def activate(app):
+    window = Gtk.ApplicationWindow(application=app, title="adv-" + sys.argv[1])
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    button = Gtk.MenuButton(label="Explain")
+    popover = Gtk.Popover()
+    popover.set_child(Gtk.Label(label="Explains the thing"))
+    popover.connect("notify::visible", lambda widget, _: write(widget.get_visible()))
+    button.set_popover(popover)
+    box.append(button)
+    fake = Gtk.Button(label="Opens nothing")
+    fake.update_property([Gtk.AccessibleProperty.HAS_POPUP], [True])
+    fake.update_state([Gtk.AccessibleState.EXPANDED], [False])
+    box.append(fake)
+    window.set_child(box)
+    window.present()
+    write(False)
+
+app = Gtk.Application(application_id="org.agentdesktop.PopoverFixture")
+app.connect("activate", activate)
+app.run([])
+"#;
+
+#[test]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
+fn a_menu_button_popover_with_only_a_label_expands_and_collapses_in_both_directions() {
+    let scripts = Scripts {
+        gtk3: "",
+        gtk4: POPOVER_APP,
+        qt: "",
+    };
+    let bench = Bench::open_scripts(Toolkit::Gtk4, &scripts).expect("the fixture opens");
+    let visible = || {
+        let text = std::fs::read_to_string(bench.fixture_file("popover.json")).expect("state");
+        serde_json::from_str::<serde_json::Value>(&text).expect("json")["visible"] == true
+    };
+    let opener = bench.find(PUSH_BUTTON, "Explain").expect("the menu button");
+    let opened = bench
+        .act(&opener, Action::Expand)
+        .expect("a label popover that is open is observed");
+    assert_eq!(
+        opened.disposition().delivery(),
+        DeliveryDisposition::DeliveredVerified
+    );
+    assert!(visible());
+    let again = bench
+        .act(&opener, Action::Expand)
+        .expect("expanding an open popover is a no-op and no error");
+    assert_eq!(
+        again.disposition().delivery(),
+        DeliveryDisposition::NotDelivered
+    );
+    assert!(visible());
+    let closed = bench
+        .act(&opener, Action::Collapse)
+        .expect("the open popover collapses");
+    assert_eq!(
+        closed.disposition().delivery(),
+        DeliveryDisposition::DeliveredVerified
+    );
+    assert!(!visible());
+    let fake = bench
+        .find(PUSH_BUTTON, "Opens nothing")
+        .expect("the button that opens nothing");
+    let refused = bench
+        .act(&fake, Action::Expand)
+        .expect_err("a button that opens nothing shows no popup");
+    assert_eq!(
+        refused.details.expect("evidence")["kind"],
+        "popup_not_observed"
+    );
+    assert!(!visible());
 }

@@ -73,3 +73,19 @@ fn an_unread_baseline_refuses_before_invoking_the_opener() {
     .expect_err("refusal");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
+
+#[test]
+fn expanding_an_open_popup_is_an_honest_no_op_and_not_an_error() {
+    let popup = AtspiElement::new(":1.1", "/popup", 7);
+    let result = attempt(
+        Some(true),
+        || Some(vec![popup.clone()]),
+        || Ok(ActionResult::satisfied_without_delivery("expand")),
+        |before| Some(before.to_vec()),
+    )
+    .expect("an open popup is the wanted state");
+    assert_eq!(
+        result.disposition().delivery(),
+        DeliveryDisposition::NotDelivered
+    );
+}
