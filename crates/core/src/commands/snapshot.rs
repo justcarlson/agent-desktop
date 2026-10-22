@@ -74,7 +74,7 @@ pub fn execute(
         validate_ref_id(root)?;
     }
 
-    super::surface_scope::require_supported(args.surface, adapter)?;
+    adapter.check_surface_support(args.surface)?;
 
     let opts = tree_options(&args);
 

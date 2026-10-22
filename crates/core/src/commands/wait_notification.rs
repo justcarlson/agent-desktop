@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde_json::{Value, json};
 
@@ -24,6 +24,14 @@ pub(crate) fn wait_for_notification(
     };
     let start = Instant::now();
     let deadline = crate::Deadline::at(start, timeout_ms)?;
+    let mut scheduler = super::wait_scheduler::WaitScheduler::new(
+        adapter,
+        &crate::SignalFilter {
+            app: app.clone(),
+            process: None,
+        },
+        deadline,
+    );
     let mut baseline: Option<std::collections::HashMap<NotificationFingerprint, usize>> = None;
     let mut last_error = None;
 
@@ -71,7 +79,7 @@ pub(crate) fn wait_for_notification(
         if remaining.is_zero() {
             return wait_timeout::notification(app.as_ref(), text.as_ref(), timeout_ms, last_error);
         }
-        std::thread::sleep(remaining.min(Duration::from_millis(500)));
+        scheduler.wait(deadline);
     }
 }
 

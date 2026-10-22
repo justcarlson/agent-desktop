@@ -11,7 +11,7 @@ pub(crate) fn resolve_app(
     deadline: Deadline,
 ) -> Result<AppInfo, AppError> {
     if let Some(name) = app {
-        let candidates = adapter.list_apps_scoped(name, None, deadline)?;
+        let candidates = exact_apps(adapter, name, None, deadline)?;
         return select_unique_app(candidates, name);
     }
     let focused = adapter.list_windows(
@@ -59,8 +59,7 @@ pub(crate) fn resolve_app_owning(
                 "Window has no process-instance identity",
             )
         })?;
-    let same_pid = adapter
-        .list_apps_scoped(&window.app, None, deadline)?
+    let same_pid = exact_apps(adapter, &window.app, None, deadline)?
         .into_iter()
         .filter(|candidate| candidate.pid == window.pid)
         .collect::<Vec<_>>();
@@ -157,11 +156,15 @@ pub(crate) fn revalidate_app_for_mutation(
     deadline: Deadline,
 ) -> Result<AppInfo, AppError> {
     let expected_identity = process_identity(expected)?;
-    let same_pid = adapter
-        .list_apps_scoped(&expected.name, expected.bundle_id.as_deref(), deadline)?
-        .into_iter()
-        .filter(|candidate| candidate.pid == expected.pid)
-        .collect::<Vec<_>>();
+    let same_pid = exact_apps(
+        adapter,
+        &expected.name,
+        expected.bundle_id.as_deref(),
+        deadline,
+    )?
+    .into_iter()
+    .filter(|candidate| candidate.pid == expected.pid)
+    .collect::<Vec<_>>();
     reject_incomplete_app_identity(&same_pid, &expected.name)?;
     let mut exact = same_pid
         .into_iter()
@@ -189,6 +192,27 @@ pub(crate) fn revalidate_app_for_mutation(
         .with_details(json!({ "candidate_count": exact.len() }))
         .into()),
     }
+}
+
+fn exact_apps(
+    adapter: &dyn PlatformAdapter,
+    name: &str,
+    bundle_id: Option<&str>,
+    deadline: Deadline,
+) -> Result<Vec<AppInfo>, AppError> {
+    let inventory = adapter.query_app_inventory(
+        crate::AppInventoryQuery::Exact { name, bundle_id },
+        deadline,
+    )?;
+    if !inventory.skipped.is_empty() {
+        return Err(AdapterError::app_unresponsive(name)
+            .with_details(
+                json!({ "kind": "app_inventory_incomplete", "skipped": inventory.skipped }),
+            )
+            .unsent()
+            .into());
+    }
+    Ok(inventory.apps)
 }
 
 #[cfg(test)]

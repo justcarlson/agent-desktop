@@ -210,7 +210,14 @@ fn wait_for_text(
     let deadline = crate::Deadline::at(start, timeout_ms)?;
     let opts = crate::adapter::TreeOptions::default();
     let normalized_text = search_text::normalize(&text);
-    let mut interval = Duration::from_millis(200);
+    let mut scheduler = super::wait_scheduler::WaitScheduler::new(
+        adapter,
+        &crate::SignalFilter {
+            app: app.clone(),
+            process: None,
+        },
+        deadline,
+    );
     let mut last_error = None;
 
     loop {
@@ -272,8 +279,7 @@ fn wait_for_text(
             return wait_timeout::text(&text, timeout_ms, expected_count, last_error);
         }
 
-        std::thread::sleep(deadline.remaining().min(interval));
-        interval = (interval * 2).min(Duration::from_millis(1000));
+        scheduler.wait(deadline);
     }
 }
 
