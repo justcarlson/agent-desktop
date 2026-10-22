@@ -23,6 +23,7 @@ display server does not give.
 | `ACTION_NOT_SUPPORTED` `wayland_session` | Unavailable Wayland focus, headed scoped `press` or control of native Wayland windows | Bring the target forward yourself; use global `press` or the app's own UI |
 | `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Ordinary app pointer input on Wayland | Use a semantic action, `set-value` or a global `press` |
 | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` or `unsupported` | GNOME notification service missing or another daemon owns it | See `references/shell-tray-and-notifications.md` |
+| `ACTION_NOT_SUPPORTED`, `notification_identity_unavailable` | Notification protocol fields and control semantics cannot be established | Use the application's accessible controls; refreshing the notification list cannot recover missing protocol identity |
 | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` | Shell tree is readable but no SNI watcher exists | Enable AppIndicator in GNOME; see the shell reference |
 | `APP_UNRESPONSIVE` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref’s live identity | Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | App is stopped (`SIGSTOP`) or its main loop is blocked | Resume it; `close-app --force` ends it |
@@ -171,6 +172,8 @@ D-Bus or X11 error:
 
 ## Commands that refuse by design
 
+- Notification list, wait and headed mutations refuse unproven identity with
+  `ACTION_NOT_SUPPORTED`; headless mutations remain `POLICY_DENIED`.
 - `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`. `mouse-down` and `mouse-up`
   are `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed`.
 - `cursor-overlay` on Wayland: succeeds as a setting only. `enable` returns `data.rendered:

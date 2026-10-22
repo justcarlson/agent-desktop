@@ -8,7 +8,7 @@ use super::label_read::first_label_target;
 use super::live_launch::{Launched, nonce, program_of, vscode_arguments};
 use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
-use super::role_numbers::{NOTIFICATION, TEXT};
+use super::role_numbers::TEXT;
 use super::vocabulary_live_analysis::{
     Analysis, is_disabled, name_is_blank, root_is_window, time_pass, token, walk,
 };
@@ -16,6 +16,7 @@ use super::{AtspiElement, LabelOutcome, read_label, resolve_vocabulary};
 use crate::system::SharedBus;
 
 const TERMINAL_SERVER: &str = "gnome-terminal-server";
+const NOTIFICATION: u32 = 101;
 
 fn files(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     let mut launched = Launched::new();

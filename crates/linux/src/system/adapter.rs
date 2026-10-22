@@ -188,7 +188,7 @@ impl SystemOps for LinuxAdapter {
     }
 
     fn check_notification_support(&self, deadline: Deadline) -> Result<(), AdapterError> {
-        shell::detect::require_daemon(deadline)
+        notifications::check_support(deadline)
     }
 
     fn list_notifications(
