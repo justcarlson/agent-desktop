@@ -1,23 +1,18 @@
 # Menus, Shell, Tray and Notifications on Linux
 
-Run inside the target desktop session. `agent-desktop status` lists snapshot
-capabilities, not proof that a popup is open or a tray watcher is running.
-Openbox is an X11 window manager without GNOME Shell; Mutter here means a
-GNOME Shell session on X11. GNOME Shell also supplies the Wayland surfaces.
+Run inside the target desktop session. `status` shows snapshot capabilities, not
+whether a popup is open or a tray watcher runs.
 
 ## App menus and GTK4 popovers
 
-`window`, `sheet` and `menu` are available with a healthy accessibility bus on
-all three backends. After an opener, read its `data.surfaces`: a `type: menu`
-entry means snapshot the menu next. If it is absent, wait for the menu, then
-run `list-surfaces --app gnome-calculator`; GTK4 popovers appear asynchronously.
-An incomplete scan marks `menu` in the window entry's `unclassified` list;
-an absent menu in that result does not prove it is closed.
+After a click that may open a popup, read `data.surfaces`. A `type: menu` entry
+means `snapshot --surface menu --app <name> -i`. Without one, run `wait --menu`,
+then `list-surfaces`; GTK4 popovers appear asynchronously. A scan that could not
+classify every node lists `menu` under `unclassified`, so an absent menu does not
+prove it is closed.
 
-This example needs a running Calculator and `jq`. It discovers a fresh opener
-ref. On Mutter X11, first close Overview and focus Calculator using the recovery
-below: a click can report success without opening its menu while Overview is
-covering the app. Inspect each command's JSON result, including the waits.
+Needs a running Calculator and `jq`. On Mutter X11, close Overview and focus
+Calculator first (see Overview below). Read every result, waits included.
 
 ```bash
 menu_ref=$(agent-desktop snapshot --app gnome-calculator -i | jq -r '.. | objects | select(.role? == "switch" and .name? == "Main Menu") | .ref_id // empty')
@@ -29,181 +24,107 @@ agent-desktop press escape
 agent-desktop wait --menu-closed --app gnome-calculator --timeout 5000
 ```
 
-`list-surfaces` lists the app's windows, sheets and open menu, with
-`item_count` on the menu. `snapshot --surface menu` roots at the popup, and
-`find --surface menu` uses the same scope. Menu refs identify the actual AT-SPI
-object within a freshly verified, complete popup context, including its labels
-and tree shape. A named GTK4 popover item such as Calculator's Preferences can
-be found and clicked through that identity while its popup has a provable
-screen position; on Wayland it has none, and the ref is refused at resolution
-with `ACTION_FAILED`, `details.check` `geometry`.
-An unreadable context or multiple matching targets is refused before delivery.
-After closure the same ref returns `STALE_REF`, `details.kind: menu_closed`. A
-snapshot of a closed menu returns `ELEMENT_NOT_FOUND`, “The window does not present an
-open menu”. Open again and take new refs.
+- `list-surfaces` shows the open menu with `item_count`. `snapshot` and `find`
+  with `--surface menu` root at the popup.
+- A menu ref lives only while its popup stays open and unchanged. Afterwards:
+  `STALE_REF` with `details.kind` `menu_closed` or `menu_context_changed`, or
+  retryable `menu_context_unknown`; a menu snapshot returns `ELEMENT_NOT_FOUND`.
+  Open the menu again and take new refs.
+- A GTK4 popover item (Calculator's Preferences) clicks through its ref when its
+  popup has a provable screen position. On Wayland it has none: `ACTION_FAILED`,
+  `details.check` `geometry`.
+- `click`, `expand` and `collapse` on a popup opener (push button, menu button)
+  are checked against the popup itself. If it does not appear or leave, the
+  result is `ACTION_FAILED`, `popup_not_observed`, `delivered_unverified`: take a
+  fresh snapshot before acting. `expand` on an open popup succeeds without
+  delivery.
+- `press escape` is a global key and its success does not prove closure; use
+  `wait --menu-closed`.
+- Headless Wayland: a global `press` can leave the seat without a keyboard, and a
+  GTK4 opener then fails `popup_not_observed`. A keyboard present from launch
+  avoids it.
+- Physical clicks on menu items work on X11 only, after a popup position is
+  observed, and stay unverified. On Wayland they refuse with
+  `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 
-A menu button whose popover holds only a label verifies `expand` and `collapse`,
-and a second `expand` on it succeeds without delivery. Both take about 0.6 s,
-because the GTK4 popover animates and the check polls it every 50 ms.
-
-An open popup whose content changed returns `menu_context_changed`; an incomplete
-context read returns retryable `menu_context_unknown`. Keep it open and take a
-fresh menu snapshot before using a new ref.
-
-The toolkit comparison below was measured on private Openbox X11; Calculator's
-GTK4 popover was also read on Mutter X11 and Wayland.
-
-| Toolkit | Exposed menu shape and boundary |
-|---------|--------------------------------|
+| Toolkit | Menu shape |
+|---------|------------|
 | GTK3 | Menu-bar child or separate context-menu window |
-| GTK4 / libadwaita | Popover within the frame; item names can be recovered from their labels |
-| Qt | `QMenu` popup; a `QLineEdit` context menu may expose nothing through AT-SPI |
-| Chromium | Native context/toolbar popup in a separate frame; web content is not a general menu-surface API |
+| GTK4, libadwaita | Popover inside the frame |
+| Qt | `QMenu` popup; a `QLineEdit` context menu may expose nothing |
+| Chromium | Native popup in a separate frame; web content is not a menu surface |
 
-A visible menu bar alone is not an open popup. `wait --menu` and
-`wait --menu-closed` use the same detector as menu snapshots; scope them with
-`--app`. `press escape` sends a global key without first activating the parent
-window. Read `wait --menu-closed` before assuming closure: in the headless
-Wayland session, one run reported `delivered_unverified` but the menu remained
-open and that wait returned `TIMEOUT`, `kind: wait_timeout`, `predicate: menu`,
-“Menu did not close before the deadline”. The isolated recheck closed it; do
-not treat the key's success as a closure guarantee.
+GTK4 list-backed dropdowns (Settings' Night Light Schedule) are not menu popups:
+their choices stay in the window tree. Click the combobox ref, `wait --text` for
+a choice, then snapshot the window. `select` rules are in `SKILL.md`. Where
+`select` refuses on X11, click the combobox with `--headed`, then use headed
+`press down`, `press up` and `press return`. Read the value back with
+`snapshot --root` on the combobox ref, because `get` may return only its label.
 
-In the measured headless Wayland setup, global `press` can leave the seat without
-a keyboard after its temporary RemoteDesktop session ends. Calculator's GTK4
-opener can then become expanded without presenting a native menu; a direct AT-SPI
-action has the same outcome. The tool reports `ACTION_FAILED`, `popup_not_observed`,
-with unverified delivery and unsafe retry. A keyboard present from app launch and
-retained across the commands avoids this measured limitation; adding one after
-the failure did not recover the popup. An expanded opener alone is never proof
-of an open menu; inspect the native menu before continuing.
+## GNOME Shell surfaces
 
-GTK4 raw menu items can be unnamed while the snapshot shows their labels.
-A readable label does not establish a safe physical click position. Ordinary app pointer actions on Wayland
-refuse with `ACTION_NOT_SUPPORTED`, cause `wayland_session`. On X11, only use
-physical input after observing a usable popup position and verify its effect.
-A successful input report alone does not prove an item was picked.
+The same values work for `snapshot --surface` and `open-system-surface`.
+`--help` lists the values of every platform.
 
-GTK4 list-backed dropdowns, such as Settings' Night Light Schedule, are not
-menu-role popups. Their choices stay in the window tree: `wait --menu` and
-`snapshot --surface menu` do not cover them. Find the combobox, click its fresh
-ref, and use `wait --text` for a choice before taking a window snapshot. A
-combobox with no popup state, no selection and no action, such as a libadwaita
-combo row, takes `--headed select @ref "Choice"` on X11: it clicks the
-combobox, finds the choice in the list that appears, selects it through that
-list and the popup's default action, and checks the value the combobox shows.
-A choice that is not there closes the popup with Escape and answers
-`ELEMENT_NOT_FOUND`. Without `--headed` that select is `POLICY_DENIED`, kind
-`pointer_required`, unless the combobox already shows the choice. For a dropdown where `select` still
-refuses, adding `--headed` does not supply a missing semantic action.
-On X11, after a headed click focuses the open dropdown, explicit headed
-`press down` / `press up` and `press return` can choose an item. Inspect the
-current choice first and verify the resulting value before another mutation.
-If `get` returns only the combobox label, use `snapshot --root` on its fresh
-ref to read the displayed value. A successful key report does not prove the
-choice was committed.
+| Value | Result |
+|-------|--------|
+| `system-tray` | Needs `org.kde.StatusNotifierWatcher`, else `PLATFORM_NOT_SUPPORTED`, `watcher: absent`. `open-system-surface` returns no window |
+| `action-center` | The message list. `open-system-surface` opens it through the date menu when its container and opener are proven |
+| `quick-settings` | `ACTION_NOT_SUPPORTED`, `shell_container_unproven`, before any input |
+| `taskbar` | `PLATFORM_NOT_SUPPORTED`: no stock shell shows a dock |
+| `start-menu`, `system-tray-overflow`, others | `PLATFORM_NOT_SUPPORTED` |
 
-## GNOME Shell: Overview, top bar and popups
+- Shell snapshots need no `--app`. Shell containers are not in `list-windows`.
+- Containers are found by role shape and uniqueness, never by English labels or
+  screen position. A container or opener that cannot be proven fails
+  `ACTION_NOT_SUPPORTED`, `shell_container_unproven`, before input.
+- Overview is not a `--surface` value (`INVALID_ARGS`). On Mutter X11, with
+  Overview open, headed app focus fails with cause `overview_open`. Run
+  `agent-desktop press escape`, then
+  `agent-desktop --headed focus-window --app gnome-calculator`. Until then a
+  click can report success without opening the menu.
+- Shell clicks need `--headed`. On X11 the adapter first reads the shell tree:
+  a covered, moving, hidden or missing target fails `ACTION_FAILED`,
+  `pointer_hit_unproven`, with nothing sent. Retry after the shell settles. Each
+  effect is read back from the shell.
+- On Wayland a shell ref click fails `ACTION_NOT_SUPPORTED`, cause
+  `wayland_session`, and a popup opener fails `pointer_hit_unproven`.
 
-Shell identity comes from the session-bus owner of `org.gnome.Shell`, correlated
-with its accessibility-bus process. Process names and translated labels cannot
-prove it. Advertised surfaces also require a resolvable structural container.
+## Service requirements
 
-| Surface | Meaning | Availability |
-|---------|---------|--------------|
-| `system-tray` | Logical watcher items and their virtual menus | Headless snapshot with a StatusNotifierWatcher; no native panel binding |
-| `action-center` | The container above the footer row of a label, a toggle and a push button | Content while the list is showing; `open-system-surface` opens it with a click on the date menu |
-| `quick-settings` | System menu | Refuses: the exposed generic panel chain cannot prove its container |
-| `taskbar` | Dock | Not advertised or openable by this build |
+A healthy accessibility bus proves none of these.
 
-Shell snapshots need no `--app`; `list-surfaces` inventories an app selected
-with `--app`. Shell containers do not appear in `list-windows`. The message
-list and the date menu that opens it are found by role shape and uniqueness;
-English labels, wrapper depth and screen position prove nothing. Other
-containers and the system-button opener return `ACTION_NOT_SUPPORTED`,
-`shell_container_unproven`, before input. Opening a hidden popup headless still
-requires headed permission.
-
-Overview is not a `--surface` value (`INVALID_ARGS`). On Mutter X11, while
-Activities Overview is open, headed app focus returns `ACTION_FAILED`, cause
-`overview_open`. Send global `agent-desktop press escape`, then
-`agent-desktop --headed focus-window --app gnome-calculator` before the app
-action. This X11 recovery does not establish Wayland window-control support.
-
-Native shell clicks need headed permission and, on X11, a tree hit test before
-any pointer event. The shell answers no point query finer than a container, so
-the adapter reads every showing shell node in paint order. The last node over the
-aim point must be the target or lie below it, and the target's extents must read
-the same twice, at least 50 ms apart. A node painted over the target, a target
-that is still moving, or a target that is not showing or has left the tree
-refuses with `ACTION_FAILED`, `pointer_hit_unproven` and no delivery; retry once
-the shell settles. Another node that leaves the tree or answers no role during
-the read counts as absent. Each effect is read back from the shell. On Wayland a
-headed shell ref click refuses with `ACTION_NOT_SUPPORTED`, cause
-`wayland_session`, before any input, and a popup opener refuses with
-`pointer_hit_unproven` because the shared hit test cannot prove its receiver.
-Wayland keyboard input
-requires the session-bus `org.gnome.Mutter.RemoteDesktop` capability; an
-unsupported backend returns `PLATFORM_NOT_SUPPORTED` before any event.
-
-## Service requirements and exact refusals
-
-The shell accessibility tree, notification daemon and tray watcher are separate
-requirements. A healthy app bus does not establish any of them.
-
-| Missing requirement | Result |
-|---------------------|--------|
-| Shell session owner or matching accessibility tree | Cause-specific missing-tree refusal; no guessed shell identity |
-| Unproven shell container or opener | `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
-| No notification service | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` |
-| Notification service owner is neither the shell nor a process of the same user whose argv names the shell's own notification module | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported`; server branding is not identity |
-| No `org.kde.StatusNotifierWatcher` | `PLATFORM_NOT_SUPPORTED`, `watcher: absent`; guidance names the required protocol backend |
+| Missing | Result |
+|---------|--------|
+| Shell session owner or matching accessibility tree | Cause-specific missing-tree refusal |
+| Notification service | `PLATFORM_NOT_SUPPORTED`, `daemon: absent` |
+| Notification owner other than GNOME Shell's | `PLATFORM_NOT_SUPPORTED`, `daemon: unsupported` |
+| `org.kde.StatusNotifierWatcher` | `PLATFORM_NOT_SUPPORTED`, `watcher: absent` |
 | Unreadable notification service | `TIMEOUT`, `daemon: unreadable` |
-| Unreadable tray watcher | `TIMEOUT` when its call times out, otherwise `INTERNAL` |
+| Unreadable tray watcher | `TIMEOUT` on a call timeout, else `INTERNAL` |
 
-An unavailable daemon is not an empty notification list; an absent watcher is
-not an empty tray. Do not restart a shell or accessibility bus you do not own.
+An unavailable service is not an empty list. Do not restart a shell or
+accessibility bus you do not own.
 
 ## Notifications
 
-**Every notification field comes from the shell's widget layout.** Neither the
-notification protocol nor GNOME's accessibility tree names a notification's
-app, title, body, age or controls, so the adapter reads them from where the
-shell puts them. This was verified on GNOME Shell 46.0 (Ubuntu 24.04) in
-private Mutter X11 and native Wayland sessions, and on no other version. A
-shell that lays an entry out differently is refused (`INTERNAL`, "no readable
-title") or misread; it is never repaired by guessing. No text, no English word
-and no position of a button in the footer is used to find the list, an entry or
-its parts; `notification-action` only matches the action name you pass.
+GNOME Shell only. Every field comes from the shell's widget layout, which no
+protocol names. It is verified on GNOME Shell 46.0 (Ubuntu 24.04), X11 and
+Wayland, and on no other version. A different layout fails with `INTERNAL`
+("no readable title") or reads wrong; nothing is guessed.
 
-`list-notifications` reads GNOME Shell's message list headless, including when
-closed. Banner copies are excluded. Indices are 1-based positions in the
-unfiltered list, newest first; filtering does not renumber them. `--app` is
-case-insensitive contains; `--text` searches app, title and body; `--limit N`
-keeps the first N entries after the filters, each with its own index. Empty is a
-successful empty list. `wait --notification` establishes a baseline and waits
-for a matching entry new to that baseline.
+- `list-notifications` is headless, works with the list closed and skips banner
+  copies. `index` is the 1-based position in the unfiltered list, newest first;
+  filters never renumber it. `--app` is a case-insensitive contains, `--text`
+  searches app, title and body, `--limit N` keeps the first N after filters. An
+  empty list is a successful empty result.
+- `wait --notification` waits for an entry that is new since its baseline.
+- GNOME exposes no notification ID. An index is a position: re-list after every
+  mutation and never reuse an old index.
 
-How an entry is read:
-
-- The list is the container directly above a footer row whose children are, in
-  order, a label, a toggle and a push button. An empty list is that container
-  with no entry in it.
-- The header is the container that holds an entry's unnamed push buttons. Its
-  first label is the app; later labels are the age and are dropped.
-- Labels outside the header are the title, then the body.
-- Named push buttons outside the header are the actions.
-- An entry with no such header cannot be read, and the command fails.
-
-The protocol has no history query and GNOME exposes no notification ID, so an
-index is a position and not an identity. Within one command an entry is its
-accessibility object plus its words: every single-item mutation reads the list twice, checks
-the expected app and title at the index, and checks that both reads found the
-same object. It then proves the effect by the object leaving the list.
-
-This example assumes exactly one disposable notification from `Skill Example`,
-titled `Beta`, already exists. `jq` selects the actual index and the mutation guards
-both identity fields:
+This example assumes one disposable notification titled `Beta` from
+`Skill Example`. `jq` picks the index, and the mutation guards both identity
+fields:
 
 ```bash
 agent-desktop list-notifications
@@ -212,119 +133,61 @@ test -n "$notice_index" && agent-desktop --headed dismiss-notification "$notice_
 agent-desktop list-notifications --app "Skill Example"
 ```
 
-Single-item `dismiss-notification` and `notification-action` require
-`--headed` and at least one of `--expected-app` / `--expected-title`.
-Missing identity is `INVALID_ARGS`; headless mutation, `dismiss-all-notifications`
-on an empty list included, is `POLICY_DENIED`. Missing index or changed identity
-is `NOTIFICATION_NOT_FOUND`. `--app` does not renumber the list: INDEX stays the
-position in the unfiltered list, and the command answers `NOTIFICATION_NOT_FOUND`
-unless that entry is from the named app. Re-list after each mutation; an index
-can name another notification afterwards.
+| Command | Needs | Notes |
+|---------|-------|-------|
+| `dismiss-notification INDEX` | `--headed`, X11, `--expected-app` or `--expected-title` | Returns the removed entry as `data.dismissed` |
+| `notification-action INDEX ACTION` | Same | `ACTION` is a name from the row's `actions`, case-insensitive |
+| `dismiss-all-notifications` | `--headed`, X11; `--app` limits scope | Returns `data.dismissed_count`, `data.failures`, `data.failed_count` |
 
-Mutations press the shell's controls with the pointer, which needs X11: on
-Wayland a mutation fails with `ACTION_FAILED`, `pointer_hit_unproven`, before
-any input. The command opens a closed message list by a click on the clock menu and
-closes it again after the call. If it cannot open the list, the error suggestion
-says so: open the list by hand and retry, because a list that is already showing
-is used as it is and left showing.
-
-Dismissal presses the entry's header buttons, the last one first. The two
-buttons look alike, so which one closes the entry is told by its effect: after a
-press the entry's own object must be gone from the list and no other entry's
-may be. A button that only expands the entry leaves it standing, so the other
-button is pressed next. An entry that still stands after both is
-`ACTION_FAILED` with `delivery: delivered_unverified`, never success. A partial
-post-click read gives the same code with “The click was delivered but the
-message list could not be read afterwards” and `retry: unsafe`; the target may
-already be gone. Re-list before deciding what remains; do not repeat the old
-index blindly.
-
-`dismiss-all-notifications` closes each entry in scope through its own header
-buttons, one at a time, and counts an entry as dismissed only when its own
-object has left the list. It never presses the footer button, which has no
-property but its place. `--app` limits the scope. A headed empty dismiss-all
-returns zero without opening the message list. `dismiss-all-notifications`
-returns `data.dismissed_count`, and `data.failures` with `data.failed_count` for
-entries that could not be closed; `dismiss-notification` returns the entry it
-removed as `data.dismissed`.
-
-For `notification-action`, pass a name from the row's `actions` list, for
-example `Open`; the match ignores case. A missing action is `ACTION_NOT_SUPPORTED` with
-`available_actions`. The command expands the entry first when its buttons are
-not laid out, using the header button before the last one; if pressing it
-removes the entry instead, the result is `ACTION_FAILED`. An action counts only
-when the entry's object leaves the list, which GNOME does after an action unless
-the notification is resident. `details.evidence` is `action_invoked` when
-the daemon's own `ActionInvoked` signal was also seen once, and `entry_removed`
-otherwise; the result is always `delivered_unverified`, and the receiving app's
-effect is never claimed. A button that was pressed while the entry stayed in the
-list is `ACTION_FAILED` with `delivered_unverified`.
-
-## Surfaces that `open-system-surface` accepts
-
-`open-system-surface --help` shows the values of every platform. On Linux only
-two can work:
-
-| Value | Result |
-|-------|--------|
-| `system-tray` | Needs `org.kde.StatusNotifierWatcher`. Without it: `PLATFORM_NOT_SUPPORTED`, `watcher: absent`, the same refusal as `snapshot --surface system-tray`. No window is returned |
-| `action-center` | Opens the GNOME message list when its container and opener are proven; otherwise `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
-| `quick-settings` | `ACTION_NOT_SUPPORTED`, `shell_container_unproven`, before any input |
-| `taskbar` | `PLATFORM_NOT_SUPPORTED`: no stock shell shows a dock |
-| `start-menu`, `system-tray-overflow`, other values | `PLATFORM_NOT_SUPPORTED`, not supported on this platform |
-
-Retrying an unsupported value gives the same refusal.
+- No identity flag: `INVALID_ARGS`. Headless: `POLICY_DENIED`, an empty
+  `dismiss-all-notifications` included. Missing index, changed identity or an
+  entry from another `--app`: `NOTIFICATION_NOT_FOUND`. Unknown action:
+  `ACTION_NOT_SUPPORTED` with `available_actions`. Wayland: `ACTION_FAILED`,
+  `pointer_hit_unproven`, before any input.
+- A mutation opens a closed message list and closes it again; a list already
+  showing stays showing. If it cannot open the list, the error suggestion says
+  to open it by hand.
+- Dismissal counts only when the entry's own object leaves the list. An entry
+  still standing, or an unreadable list after the click, is `ACTION_FAILED`,
+  `delivered_unverified`, `retry: unsafe`: re-list before acting.
+- `notification-action` expands a collapsed entry first. It counts when the entry
+  leaves the list, which a resident notification does not do. The result is
+  always `delivered_unverified`: the receiving app's effect is never claimed.
+  `details.evidence` is `action_invoked` when exactly one `ActionInvoked` signal
+  was also seen, else `entry_removed`.
+- `dismiss-all-notifications` closes one entry at a time and never presses the
+  footer button. A headed run on an empty list returns zero.
 
 ## StatusNotifierItem and AppIndicator tray
 
-Tray snapshots require `org.kde.StatusNotifierWatcher`. The adapter reads its
-registered items and `org.kde.StatusNotifierItem` properties; arbitrary XEmbed
-icons are not SNI items. Install or enable a backend only for the session you
-own; GNOME commonly obtains one through AppIndicator.
+Needs `org.kde.StatusNotifierWatcher`. XEmbed icons are not SNI items. GNOME
+usually gets a watcher through AppIndicator; install or enable one only in a
+session you own.
 
-`snapshot --surface system-tray -i` exposes watcher items beneath a logical
-root, with `com.canonical.dbusmenu` entries as virtual children. Titles,
-including `System` and duplicate titles, never bind a native panel node. A
-`Passive` item remains in the snapshot with `states: [hidden]`, and a click on
-it refuses with `ACTION_FAILED` before any call is sent.
+`snapshot --surface system-tray -i` shows watcher items under a logical root,
+with `com.canonical.dbusmenu` entries as virtual children. Titles never bind a
+native panel node. A `Passive` item shows `states: [hidden]`, and a click on it
+fails `ACTION_FAILED` before any call.
 
-These refs are virtual protocol identities, not AT-SPI elements. Native text
-getters can return `INVALID_ARGS`, `invalid_native_handle`. Bounds, placement
-and offscreen state are unknown; no paired native item supplies geometry.
-
-Headless `click` uses advertised `Activate`; `right-click` uses `ContextMenu`.
-`SecondaryActivate` and physical panel clicks never substitute for a missing
-primary method. Use a virtual menu entry when the item omits those methods.
-Headed permission supplies neither native geometry nor a pointer fallback;
-Wayland headed pointer policy can refuse earlier with `wayland_session`.
-SNI methods report `delivered_unverified`; a menu pick reports
-`delivered_verified` only when its toggle state flips or its submenu children
-appear, and `delivered_unverified` otherwise. Independently observe the
-receiving application before deciding whether to repeat them.
-
-A menu-entry `click` re-resolves the label path and entry ID in a fresh layout;
-a changed revision alone does not invalidate an otherwise identical entry. An
-entry that is gone or replaced refuses with `STALE_REF`, and a label repeated at
-one level with `AMBIGUOUS_TARGET`, before any event is sent.
-An enabled leaf sends `Event(..., clicked, ...)`; a submenu uses `AboutToShow`
-and rereads for children. Disabled entries are not clicked.
-Disabled entries refuse before delivery; the actionability gate may report
-`TIMEOUT`, `kind: actionability_timeout`, with a failed `enabled` check and
-reason “live enabled state is false” in `last_report.report.checks`.
-`--headed` does not make them enabled; on Wayland its earlier pointer gate can
-return `ACTION_NOT_SUPPORTED`, cause `wayland_session`, instead of waiting.
-Neither route sent the disabled entry's event. Owner exit makes old refs `STALE_REF`.
-Tray items accept click/right-click; menu entries accept click. Other actions
-can be refused by policy first or `ACTION_NOT_SUPPORTED` in the adapter.
+- Refs are virtual: bounds, placement and offscreen state are unknown, and native
+  text getters fail `INVALID_ARGS`, `invalid_native_handle`.
+- Headless `click` calls `Activate`; `right-click` calls `ContextMenu`. Neither
+  falls back to `SecondaryActivate` or a physical click, and `--headed` adds no
+  fallback (on Wayland it can refuse first, `wayland_session`). When an item
+  lacks the method, use a virtual menu entry.
+- Item methods report `delivered_unverified`. A menu pick is `delivered_verified`
+  only when a toggle flips or submenu children appear. Otherwise observe the app
+  before repeating.
+- A menu-entry click re-resolves its label path and entry ID in a fresh layout.
+  A gone or replaced entry fails `STALE_REF`; a label repeated at one level
+  fails `AMBIGUOUS_TARGET`. Both come before any event.
+- Disabled entries are never clicked: `TIMEOUT`, `kind: actionability_timeout`.
+- After the owner exits, old refs fail `STALE_REF`. Items take `click` and
+  `right-click`, entries take `click`; other actions are refused.
 
 ## Sandboxed apps
 
-An app in a sandbox is on the accessibility bus only when the sandbox shares it.
-
-- **Flatpak:** the sandbox needs `--talk-name=org.a11y.Bus`.
-- **snap:** there is no accessibility interface or plug to grant (`snap interface a11y`
-  does not exist). Connect `desktop-legacy` or `unity7`.
-- The adapter's own error for a missing or hidden bus names both fixes. Neither has
-  been measured against a sandboxed app yet (the Flatpak override and the snap
-  disconnect tests are open), so an empty `list-apps` for a sandboxed app is a
-  reason to check these first.
+A sandboxed app is on the accessibility bus only when its sandbox shares it.
+Flatpak: `--talk-name=org.a11y.Bus`. snap: no accessibility plug exists; connect
+`desktop-legacy` or `unity7`. Neither fix is measured. Check them first when a
+sandboxed app is missing from `list-apps`.
