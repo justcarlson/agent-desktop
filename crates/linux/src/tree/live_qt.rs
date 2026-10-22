@@ -47,7 +47,7 @@ fn launch_script(launched: &mut Launched, source: &str) -> Result<u32, String> {
     std::fs::write(&script, source).map_err(|error| error.to_string())?;
 
     let script_arg = script.to_string_lossy().into_owned();
-    Ok(launched.spawn_with_env(
+    launched.try_spawn_with_env(
         &python,
         &[&script_arg, "live"],
         &[
@@ -55,5 +55,5 @@ fn launch_script(launched: &mut Launched, source: &str) -> Result<u32, String> {
             ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".to_owned()),
             ("QT_QPA_PLATFORM", "xcb".to_owned()),
         ],
-    ))
+    )
 }

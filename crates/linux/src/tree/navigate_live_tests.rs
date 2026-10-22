@@ -5,7 +5,7 @@ use agent_desktop_core::RefEntry;
 use super::live_launch::{nonce, program_of};
 use super::live_rig::{deadline, kind, refused, rig, signal, wait_until};
 use super::live_tree::{frames_where, pid_frame};
-use super::walker_live_tests::settle;
+use super::walker_live_tests::{settle, settle_watching};
 
 fn entry_named(entries: &[(String, RefEntry)], role: &str, name: Option<&str>) -> RefEntry {
     entries
@@ -71,7 +71,10 @@ fn navigate_live_every_ref_of_a_relaunched_app_is_stale_through_the_gate() {
     signal(first, "KILL");
     let second = rig.launched.spawn("gnome-calculator", &[]);
     let connection = rig.bus.get(deadline(5_000)).expect("the bus");
-    settle(&rig.bus, 30, || pid_frame(&connection, second)).expect("the new app settles");
+    settle_watching(&rig.bus, 30, Some(second), || {
+        pid_frame(&connection, second)
+    })
+    .unwrap_or_else(|error| panic!("the new app settles: {error}"));
     let mut kinds = std::collections::BTreeSet::new();
     for (id, entry) in &entries {
         let error = refused(
