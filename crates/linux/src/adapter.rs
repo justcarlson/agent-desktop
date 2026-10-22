@@ -10,14 +10,12 @@ use crate::system::SharedBus;
 
 pub struct LinuxAdapter {
     bus: SharedBus,
-    acted_on: crate::system::interaction::acted_on::ActedOn,
 }
 
 impl LinuxAdapter {
     pub fn new() -> Self {
         Self {
             bus: SharedBus::default(),
-            acted_on: Default::default(),
         }
     }
 
@@ -121,17 +119,7 @@ impl ObservationOps for LinuxAdapter {
         if let Some(target) = crate::system::tray::target_of(handle) {
             return crate::system::tray::live_element(target, deadline);
         }
-        let element = crate::tree::get_live_element(self.bus(), handle, deadline)?;
-        let acted = crate::tree::atspi_element(handle)
-            .ok()
-            .is_some_and(|reached| self.acted_on.covers(reached));
-        if element.bounds.is_none()
-            && !acted
-            && crate::tree::inside_popup(self.bus(), handle, deadline)
-        {
-            return Err(crate::tree::no_position());
-        }
-        Ok(element)
+        crate::tree::get_live_element(self.bus(), handle, deadline)
     }
 
     fn get_element_bounds(
@@ -261,8 +249,6 @@ impl LinuxAdapter {
             }
         };
         crate::system::interaction::action_clock::mark_outcome(target, &result);
-        self.acted_on
-            .record(crate::tree::atspi_element(handle).ok(), &result);
         result
     }
 }
