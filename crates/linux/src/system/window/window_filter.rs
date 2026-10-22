@@ -64,8 +64,10 @@ struct Population {
 /// Keeps the windows that belong to an application. A frame whose native
 /// window type cannot be proven is dropped only when the window manager
 /// manages no window of its process and `is_helper` proves that process a
-/// helper surface of the session. For any other process the listing refuses,
-/// because a window that cannot be classified must never be hidden.
+/// helper surface of the session. Any other such frame stays listed on its
+/// accessibility evidence alone: a window that cannot be classified must never
+/// be hidden, and one process whose native surfaces cannot all be accounted
+/// for must not refuse the listing of every other application.
 fn classified(
     windows: &[listed_window::ListedWindow],
     population: &Population,
@@ -95,12 +97,12 @@ fn classified(
         ) {
             Ok(true) => listed.push(window.clone()),
             Ok(false) => {}
-            Err(error) => {
+            Err(_) => {
                 let helper = !population.windowed.contains(&pid)
                     && *proven.entry(pid).or_insert_with(|| is_helper(pid));
                 ensure_budget(deadline)?;
                 if !helper {
-                    return Err(error);
+                    listed.push(window.clone());
                 }
             }
         }

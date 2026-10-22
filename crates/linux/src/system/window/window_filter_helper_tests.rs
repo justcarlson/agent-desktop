@@ -2,7 +2,7 @@ use super::{Population, classified, without_owner_frames};
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::x11::{FrameFacts, X11Client};
 use crate::tree::Extents;
-use agent_desktop_core::{Deadline, ErrorCode, WindowInfo, WindowState};
+use agent_desktop_core::{Deadline, WindowInfo, WindowState};
 use std::collections::{HashMap, HashSet};
 
 const APP: u32 = 5;
@@ -90,19 +90,21 @@ fn an_unprovable_frame_of_a_proven_helper_is_dropped_and_the_real_window_stays()
 }
 
 #[test]
-fn an_unprovable_frame_of_a_process_not_proven_a_helper_refuses_the_listing() {
+fn an_unprovable_frame_of_a_process_not_proven_a_helper_stays_listed() {
     let windows = [window(APP, 0), window(DECORATION_HOST, 500)];
-    let error = classified(&windows, &population(), |_| false, deadline())
-        .expect_err("an unclassified window must not be hidden");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    let listed = classified(&windows, &population(), |_| false, deadline())
+        .expect("an unclassified window is neither hidden nor a refusal");
+    let pids: Vec<_> = listed.iter().map(|window| window.frame.pid).collect();
+    assert_eq!(pids, [APP, DECORATION_HOST]);
 }
 
 #[test]
 fn a_process_the_window_manager_manages_a_window_of_is_never_dropped_as_a_helper() {
     let windows = [window(APP, 0), window(WINDOWED_UNPROVEN, 1000)];
-    let error = classified(&windows, &population(), |_| true, deadline())
-        .expect_err("a process with a managed window is an application");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    let listed = classified(&windows, &population(), |_| true, deadline())
+        .expect("a process with a managed window is an application");
+    let pids: Vec<_> = listed.iter().map(|window| window.frame.pid).collect();
+    assert_eq!(pids, [APP, WINDOWED_UNPROVEN]);
 }
 
 #[test]

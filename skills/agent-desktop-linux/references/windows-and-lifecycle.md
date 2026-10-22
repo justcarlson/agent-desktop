@@ -341,16 +341,17 @@ Window shapes come from AT-SPI roles, interfaces and state. On X11, managed-clie
 ownership, native window type and override-redirect evidence tell user windows
 from decoration, dock and popup frames. Associations use process identity, a
 complete native population, and uniform process or geometry groups. Class names,
-titles and process names do not classify windows. Mixed classes or incomplete
-groups are `ACTION_NOT_SUPPORTED`.
+titles and process names do not classify windows. A frame in a mixed class or an
+incomplete group stays listed on its accessibility evidence alone.
 
 Two frames are left out when their process has no managed window: one whose
 process owns no visible native window on a complete native read, and one that the
 session itself started, which is the display owner or a child of it, or a user
 service unit, and never a process that a launch of this tool started. The shell's
 own window and the decoration frame a window manager hosts are session frames. A
-frame that is neither is never hidden: the call fails with the same refusal.
-Minimized frames stay listed. An extra override-redirect surface blocks
-association; matching geometry alone never proves that an accessibility frame is
-a popup. On Wayland, the active display-socket owner identifies the compositor
+frame that is neither is never hidden, and one process whose native surfaces
+cannot be classified never refuses the listing of the others. Minimized frames
+stay listed. An extra override-redirect surface blocks association; matching
+geometry alone never proves that an accessibility frame is a popup. On Wayland,
+the active display-socket owner identifies the compositor
 and its frames are left out; other app frames keep their AT-SPI classification.

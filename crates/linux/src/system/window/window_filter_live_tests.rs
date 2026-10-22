@@ -42,7 +42,7 @@ print('independent AT-SPI: Calculator menu is showing')
 
 #[test]
 #[ignore = "changes an owned Calculator popup type; run inside private managed X11"]
-fn a_typed_popup_preserves_its_window_and_an_unclassified_popup_refuses() {
+fn a_typed_popup_preserves_its_window_and_an_unclassified_popup_keeps_it_listed() {
     let mut rig = Rig::new();
     let pid = rig.spawn("gnome-calculator", &[]);
     let (app, _) = identity_of(&rig, pid);
@@ -126,10 +126,12 @@ fn a_typed_popup_preserves_its_window_and_an_unclassified_popup_refuses() {
         );
     };
     set("_AGENT_DESKTOP_UNCLASSIFIED_POPUP");
-    let refused = list_windows(rig.bus(), &filter, deadline());
+    let unclassified = list_windows(rig.bus(), &filter, deadline());
     showing_menu(pid);
     set(original);
-    assert_eq!(refused.unwrap_err().code, ErrorCode::ActionNotSupported);
+    let unclassified = unclassified.expect("an unclassified popup must not refuse the listing");
+    assert_eq!(unclassified.len(), 1);
+    assert_eq!(unclassified[0].pid.get(), pid);
     assert_eq!(
         list_windows(rig.bus(), &filter, deadline()).unwrap().len(),
         1
