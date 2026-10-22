@@ -617,7 +617,9 @@ static NSColor *ADGuideGray(CGFloat white) {
 - (void)showGranted {
     [self.stage orderOut:nil];
     self.captionLabel.hidden = YES;
-    if (@available(macOS 11.0, *)) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    if ([NSImage respondsToSelector:@selector(imageWithSystemSymbolName:accessibilityDescription:)]) {
         NSImage *check = [NSImage imageWithSystemSymbolName:@"checkmark.circle.fill"
                                    accessibilityDescription:@"Granted"];
         NSImageSymbolConfiguration *config =
@@ -625,6 +627,7 @@ static NSColor *ADGuideGray(CGFloat white) {
         self.icon.image = [check imageWithSymbolConfiguration:config];
         self.icon.contentTintColor = NSColor.systemGreenColor;
     }
+#pragma clang diagnostic pop
     self.bodyLabel.stringValue = @"Done.";
     [self resizePanel];
 }
