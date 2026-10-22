@@ -267,6 +267,21 @@ fn a_retained_object_ref_follows_its_widget_after_the_siblings_swap() {
 }
 
 #[test]
+fn a_retained_object_ref_is_found_without_following_its_stored_path() {
+    let mut fake = Fake::new();
+    fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
+    fake.add(FRAME_PATH, "/second", window_field(0, 80, 420, 34));
+    let mut entry = fake.entry_of("/second", true);
+    entry.identity.retained_object = Some(":1.2/second".to_owned());
+    assert_eq!(entry.scope.path.as_slice(), [1]);
+
+    let handle = resolve(&mut fake, &entry, deadline()).expect("the object is found");
+    assert_eq!(handle.path(), "/second");
+    assert_eq!(fake.reads.levels, 0);
+    assert_eq!(fake.reads.searches, 1);
+}
+
+#[test]
 fn a_retained_object_ref_refuses_a_replacement_at_the_old_rectangle() {
     let mut fake = Fake::new();
     fake.add(FRAME_PATH, "/first", window_field(0, 38, 420, 34));
