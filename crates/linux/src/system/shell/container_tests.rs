@@ -1,9 +1,13 @@
-use agent_desktop_core::{Deadline, DeliverySemantics, ErrorCode};
+use std::cell::Cell;
 
-use super::{Landmark, locate_in};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
+
+use super::{Landmark, Located, UNREAD_RETRIES, locate_in, locate_settled};
 use crate::system::shell::anchor::Anchor;
 use crate::system::shell::fake_tree::MENU;
 use crate::system::shell::fake_tree::{FakeTree, PANEL, WINDOW, at, gnome_shell};
+use crate::system::shell::light::{Light, Nodes};
+use crate::tree::AtspiElement;
 use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 fn locate(
@@ -106,6 +110,72 @@ fn a_walk_that_lost_a_node_proves_no_uniqueness() {
         );
         assert_eq!(error.details.unwrap()["kind"], "shell_container_unproven");
     }
+}
+
+struct Settling<'a> {
+    tree: &'a FakeTree,
+    losses: Cell<usize>,
+}
+
+impl Nodes for Settling<'_> {
+    fn read(&self, node: &AtspiElement) -> Result<Light, AdapterError> {
+        if node.path() == "/left" && self.losses.get() > 0 {
+            self.losses.set(self.losses.get() - 1);
+            return Err(AdapterError::new(ErrorCode::ElementNotFound, "gone"));
+        }
+        self.tree.read(node)
+    }
+}
+
+fn locate_while_losing(
+    losses: usize,
+    landmark: Landmark,
+) -> (Result<Located, AdapterError>, usize) {
+    let tree = gnome_shell(true, false);
+    let nodes = Settling {
+        tree: &tree,
+        losses: Cell::new(losses),
+    };
+    let mut pauses = 0;
+    let found = locate_settled(
+        &nodes,
+        &FakeTree::root(),
+        Anchor::Landmark(landmark),
+        Deadline::after(5_000).unwrap(),
+        &mut |_| pauses += 1,
+    );
+    (found, pauses)
+}
+
+#[test]
+fn a_node_that_is_gone_from_the_next_walk_does_not_stop_the_lookup() {
+    let (found, pauses) = locate_while_losing(2, Landmark::MessageList);
+    let located = found.expect("the third walk is whole");
+    assert_eq!(located.container.element.path(), "/list");
+    assert_eq!(pauses, 2);
+}
+
+#[test]
+fn a_walk_that_keeps_losing_a_node_refuses_after_the_retries() {
+    let (found, pauses) = locate_while_losing(usize::MAX, Landmark::DateMenu);
+    assert_eq!(found.unwrap_err().code, ErrorCode::ActionNotSupported);
+    assert_eq!(pauses, UNREAD_RETRIES);
+}
+
+#[test]
+fn a_refusal_that_is_not_a_lost_node_is_never_retried() {
+    let tree = gnome_shell(true, false);
+    let mut pauses = 0;
+    let error = locate_settled(
+        &tree,
+        &FakeTree::root(),
+        Anchor::Landmark(Landmark::SystemMenu),
+        Deadline::after(5_000).unwrap(),
+        &mut |_| pauses += 1,
+    )
+    .expect_err("generic panels prove no popup identity");
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    assert_eq!(pauses, 0);
 }
 
 #[test]

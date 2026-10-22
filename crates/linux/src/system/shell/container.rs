@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
@@ -11,6 +13,10 @@ use crate::tree::AtspiElement;
 use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 pub(crate) const MENU: u32 = 33;
+
+const UNREAD_RETRIES: usize = 12;
+const UNREAD_GAP: Duration = Duration::from_millis(100);
+const LOST_NODE: &str = "A shell node left the tree or answered no role during the read";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Landmark {
@@ -34,7 +40,7 @@ fn unproven(anchor: Anchor) -> AdapterError {
 fn lost_a_node(anchor: Anchor) -> AdapterError {
     unproven(anchor)
         .with_suggestion("Retry the command; the shell tree changed while it was read")
-        .with_platform_detail("A shell node left the tree or answered no role during the read")
+        .with_platform_detail(LOST_NODE)
 }
 
 fn locate_in<N: Nodes>(
@@ -123,6 +129,32 @@ fn date_menus(visits: &[Visit]) -> Vec<Light> {
         .collect()
 }
 
+/// Looks the anchor up again while a walk loses a node. A banner or a popup
+/// that closes during one walk is gone from the next, so a walk that keeps
+/// losing a node, past the retries or the deadline, is the one that refuses.
+fn locate_settled<N: Nodes>(
+    nodes: &N,
+    root: &ShellRoot,
+    anchor: Anchor,
+    deadline: Deadline,
+    pause: &mut dyn FnMut(Duration),
+) -> Result<Located, AdapterError> {
+    let mut tries = 0;
+    loop {
+        match locate_in(nodes, root, anchor, deadline) {
+            Err(error)
+                if error.platform_detail.as_deref() == Some(LOST_NODE)
+                    && tries < UNREAD_RETRIES
+                    && !deadline.is_expired() =>
+            {
+                tries += 1;
+                pause(UNREAD_GAP);
+            }
+            other => return other,
+        }
+    }
+}
+
 pub(crate) fn locate_anchor(
     bus: &SharedBus,
     root: &ShellRoot,
@@ -130,7 +162,7 @@ pub(crate) fn locate_anchor(
     deadline: Deadline,
 ) -> Result<Located, AdapterError> {
     let nodes = LiveNodes::new(bus.get(deadline)?.inner().clone(), deadline);
-    locate_in(&nodes, root, anchor, deadline)
+    locate_settled(&nodes, root, anchor, deadline, &mut std::thread::sleep)
 }
 
 #[cfg(test)]
