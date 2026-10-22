@@ -6,7 +6,7 @@ use crate::actions::physical_target::tests::fake::{
 };
 
 #[test]
-fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
+fn each_click_burst_revalidates_before_and_after_motion() {
     use crate::input::x11::fake_sink::{FakeSink, Recorded};
     use agent_desktop_core::{AdapterError, DeliverySemantics};
     use serde_json::json;
@@ -16,7 +16,7 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
             json!({"check": "receives_events", "interceptor": {"role": "button", "name": "Cover", "bounds": null}}),
             json!({"kind": "pointer_hit_unproven", "hit_test": "unknown"}),
         ] {
-            for allowed in (1..=count * 2).chain(std::iter::once(0)) {
+            for allowed in 0..=2 {
                 let mut world = FakeWorld::x11();
                 let sink = FakeSink::new();
                 world.sink = Some(sink.clone());
@@ -47,11 +47,11 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
                     .count();
                 assert_eq!(
                     sent,
-                    (allowed / 2) as usize,
+                    if allowed == 2 { count as usize } else { 0 },
                     "requested {count}, allowed {allowed}"
                 );
-                if allowed == count * 2 {
-                    result.expect("every click receiver was proven");
+                if allowed == 2 {
+                    result.expect("the click burst receiver was proven");
                 } else {
                     let error = result.expect_err("receiver refusal stops the gesture");
                     assert_eq!(
@@ -63,7 +63,7 @@ fn every_click_revalidates_and_a_late_refusal_preserves_delivery() {
                         }
                     );
                     let observed = error.details.expect("refusal evidence");
-                    assert_eq!(observed["delivered_clicks"], allowed / 2);
+                    assert_eq!(observed["delivered_clicks"], 0);
                     assert_eq!(observed["physical_delivery_started"], allowed > 0);
                     for (key, value) in details.as_object().unwrap() {
                         assert_eq!(&observed[key], value);

@@ -53,9 +53,7 @@ pub(crate) fn click_steps(
     let at = aim_point(world, element, spec.verified.as_ref(), deadline)?;
     let map = Keymap::default();
     validate_mouse_click_count(spec.count)?;
-    let plans = (0..spec.count)
-        .map(|_| world.plan_click(&map, at.clone(), &spec.button, 1))
-        .collect::<Result<Vec<_>, _>>()?;
+    let plans = vec![world.plan_click(&map, at.clone(), &spec.button, spec.count)?];
     send_bursts(world, element, &at, plans, deadline)?;
     Ok(vec![
         ActionStep::succeeded("XTEST.click")
