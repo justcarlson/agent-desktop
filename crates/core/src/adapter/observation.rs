@@ -250,6 +250,19 @@ pub trait ObservationOps: Send + Sync {
         let _ = (handle, point);
         Err(AdapterError::not_supported("hit_test"))
     }
+
+    /// Strict receiver proof for a physical pointer move that has no element
+    /// action to carry it. An adapter that can prove who receives the pointer
+    /// refuses with a `not_delivered` error when the target does not.
+    fn confirm_pointer_receiver(
+        &self,
+        entry: &RefEntry,
+        point: crate::Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let _ = (entry, point, deadline);
+        Ok(())
+    }
 }
 
 #[cfg(test)]

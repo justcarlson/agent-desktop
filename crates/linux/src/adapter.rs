@@ -179,6 +179,16 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::hit_test(self.bus(), handle, point, deadline)
     }
 
+    fn confirm_pointer_receiver(
+        &self,
+        entry: &RefEntry,
+        point: Point,
+        deadline: Deadline,
+    ) -> Result<(), AdapterError> {
+        let handle = self.resolve_element_strict(entry, deadline)?;
+        crate::input::target_pointer::confirm_receiver(self.bus(), &handle, &point, deadline)
+    }
+
     fn list_windows(
         &self,
         filter: &WindowFilter,

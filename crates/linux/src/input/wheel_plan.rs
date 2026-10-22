@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use agent_desktop_core::{AdapterError, ErrorCode, Modifier, Point};
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Modifier, Point};
 
 use super::key_plan::{key_down_steps, key_up_steps, modifier_codes};
 use super::keymap::Keymap;
@@ -28,10 +28,10 @@ pub(crate) fn plan_wheel(
     let vertical = clicks(dy)?;
     let horizontal = clicks(dx)?;
     if vertical == 0 && horizontal == 0 {
-        return Err(AdapterError::new(
-            ErrorCode::InvalidArgs,
-            "Wheel delta must be non-zero",
-        ));
+        return Err(
+            AdapterError::new(ErrorCode::InvalidArgs, "Wheel delta must be non-zero")
+                .with_disposition(DeliverySemantics::not_delivered()),
+        );
     }
     let held = modifier_codes(map, mods)?;
     let axes = [
@@ -73,7 +73,8 @@ fn clicks(delta: f64) -> Result<i32, AdapterError> {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
             "Wheel delta must be finite and within -1000..=1000 clicks per axis",
-        ));
+        )
+        .with_disposition(DeliverySemantics::not_delivered()));
     }
     let rounded = delta.round();
     if rounded == 0.0 && delta != 0.0 {

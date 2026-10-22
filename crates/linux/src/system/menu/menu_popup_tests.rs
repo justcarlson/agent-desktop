@@ -1,4 +1,4 @@
-use super::{MenuFamily, in_window, top_level};
+use super::{MenuFamily, in_window, popup_roots, top_level};
 use crate::system::menu::menu_fixture::*;
 
 fn families(found: &[super::Found<'_>]) -> Vec<MenuFamily> {
@@ -240,5 +240,82 @@ fn menu_regression_expanded_popup_button_exposes_its_showing_panel() {
     assert!(
         in_window(&opener).is_empty(),
         "a hidden panel is not an open popup"
+    );
+}
+
+#[test]
+fn an_expanded_menu_button_whose_popover_shows_only_a_label_has_that_popover_as_its_popup() {
+    let opener = label_popover_opener(true);
+    let roots = popup_roots(&opener);
+    assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0].payload.node.traits.role.present(), Some(&PANEL));
+    assert!(
+        in_window(&opener).is_empty(),
+        "a popover with no menu content is no menu surface"
+    );
+}
+
+#[test]
+fn a_menu_found_by_a_menu_rule_keeps_its_own_roots() {
+    use crate::tree::state_bits::{EXPANDED, PRESSED};
+    let panel = node(
+        PANEL,
+        "",
+        &[SHOWING],
+        vec![node(BUTTON, "Browse", &[SHOWING], vec![])],
+    );
+    let inner = node(TOGGLE, "Open", &[SHOWING, PRESSED], vec![]);
+    let opener = node(
+        BUTTON,
+        "Open",
+        &[SHOWING, HAS_POPUP, EXPANDED],
+        vec![inner, panel],
+    );
+    let roots = popup_roots(&opener);
+    assert_eq!(roots.len(), 1);
+    assert_eq!(
+        roots[0].payload.node.traits.role.present(),
+        Some(&PANEL),
+        "the buttons popover keeps its panel as the root"
+    );
+}
+
+#[test]
+fn a_label_popover_is_a_popup_only_while_the_whole_topology_shows() {
+    use crate::tree::Field;
+    use crate::tree::state_bits::EXPANDED;
+    use crate::tree::test_support::words;
+    assert!(
+        popup_roots(&label_popover_opener(false)).is_empty(),
+        "a popover that does not show is closed"
+    );
+    let mut unpressed = label_popover_opener(true);
+    unpressed.children[0].payload.node.traits.states = Field::Present(words(&[SHOWING]));
+    assert!(
+        popup_roots(&unpressed).is_empty(),
+        "an unpressed toggle proves no open popover"
+    );
+    let mut collapsed = label_popover_opener(true);
+    collapsed.payload.node.traits.states = Field::Present(words(&[SHOWING, HAS_POPUP]));
+    assert!(
+        popup_roots(&collapsed).is_empty(),
+        "a button that is not expanded has no open popover"
+    );
+    let mut unexpandable = label_popover_opener(true);
+    unexpandable.payload.node.traits.states = Field::Present(words(&[SHOWING, EXPANDED]));
+    assert!(
+        popup_roots(&unexpandable).is_empty(),
+        "a button that advertises no popup has no popover"
+    );
+    let mut twin = label_popover_opener(true);
+    twin.children.push(node(
+        PANEL,
+        "",
+        &[SHOWING],
+        vec![node(LABEL, "x", &[SHOWING], vec![])],
+    ));
+    assert!(
+        popup_roots(&twin).is_empty(),
+        "two showing panels name no single popover"
     );
 }

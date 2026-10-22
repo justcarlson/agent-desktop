@@ -13,6 +13,7 @@ pub(crate) const DEFAULT_DURATION_MS: u64 = 300;
 pub(crate) const DEFAULT_DROP_DELAY_MS: u64 = 150;
 pub(crate) const PICKUP_DELAY_MS: u64 = 200;
 pub(crate) const TICK_MS: u64 = 16;
+pub(crate) const MIN_DURATION_MS: u64 = 100;
 const MAX_STEPS: u64 = 4_096;
 
 pub(crate) fn plan_drag(params: &DragParams, deadline: Deadline) -> Result<Plan, AdapterError> {
@@ -58,6 +59,18 @@ fn interpolate(from: &Point, to: &Point, progress: f64) -> (i32, i32) {
 }
 
 fn validate_timing(params: &DragParams) -> Result<(), AdapterError> {
+    if params
+        .duration_ms
+        .is_some_and(|duration| duration < MIN_DURATION_MS)
+    {
+        return Err(AdapterError::new(
+            ErrorCode::InvalidArgs,
+            format!(
+                "Drag duration must be at least {MIN_DURATION_MS}ms: a shorter gesture does not start a toolkit drag"
+            ),
+        )
+        .with_disposition(DeliverySemantics::not_delivered()));
+    }
     for (value, cap, label) in [
         (params.duration_ms, MAX_DRAG_DURATION_MS, "duration"),
         (params.drop_delay_ms, MAX_DRAG_DROP_DELAY_MS, "drop delay"),
@@ -66,7 +79,8 @@ fn validate_timing(params: &DragParams) -> Result<(), AdapterError> {
             return Err(AdapterError::new(
                 ErrorCode::InvalidArgs,
                 format!("Drag {label} must not exceed {cap}ms"),
-            ));
+            )
+            .with_disposition(DeliverySemantics::not_delivered()));
         }
     }
     Ok(())
