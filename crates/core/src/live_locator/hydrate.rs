@@ -43,6 +43,12 @@ pub(super) fn selected_matches(
         if !has_identity && !has_bounds {
             return Err(anchor_missing(&preliminary).into());
         }
+        if matched.fully_observed {
+            let name = preliminary.identity.name.clone().unwrap_or_default();
+            let value = preliminary.identity.value.clone();
+            record_match(matched, preliminary, name, value, &mut refmap)?;
+            continue;
+        }
         let handle = adapter.resolve_locator_anchor(&preliminary, deadline)?;
         ensure_remaining(deadline)?;
         let hydration_root = ObservationRoot::Element {
@@ -110,20 +116,31 @@ pub(super) fn selected_matches(
             }
             return Err(query_incomplete(&validation).into());
         }
-        matched.data.role = entry.identity.role.clone();
-        matched.data.name = name;
-        matched.data.value = value;
-        matched.data.states = entry.capabilities.states.clone();
-        matched.data.interactive = crate::ref_alloc::is_ref_able_role_actions(
-            &entry.identity.role,
-            &entry.capabilities.available_actions,
-        );
-        if matched.data.interactive {
-            matched.data.ref_id = Some(refmap.try_allocate(entry.clone())?);
-        }
-        matched.entry = entry;
+        record_match(matched, entry, name, value, &mut refmap)?;
     }
     resolution.refmap = Some(refmap);
+    Ok(())
+}
+
+fn record_match(
+    matched: &mut super::LocatorMatch,
+    entry: RefEntry,
+    name: String,
+    value: Option<String>,
+    refmap: &mut RefMap,
+) -> Result<(), AppError> {
+    matched.data.role = entry.identity.role.clone();
+    matched.data.name = name;
+    matched.data.value = value;
+    matched.data.states = entry.capabilities.states.clone();
+    matched.data.interactive = crate::ref_alloc::is_ref_able_role_actions(
+        &entry.identity.role,
+        &entry.capabilities.available_actions,
+    );
+    if matched.data.interactive {
+        matched.data.ref_id = Some(refmap.try_allocate(entry.clone())?);
+    }
+    matched.entry = entry;
     Ok(())
 }
 
@@ -147,7 +164,10 @@ fn evidence_complete(query: &LocatorQuery, node: &ObservedNode, space: crate::Bo
         && super::materialize::addressability(&node.evidence).1
 }
 
-fn geometry_complete(evidence: &super::LocatorRefEvidence, space: crate::BoundsSpace) -> bool {
+pub(super) fn geometry_complete(
+    evidence: &super::LocatorRefEvidence,
+    space: crate::BoundsSpace,
+) -> bool {
     match space {
         crate::BoundsSpace::Screen => !evidence.bounds.is_unknown(),
         crate::BoundsSpace::Window => {

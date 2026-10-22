@@ -45,6 +45,20 @@ pub(crate) fn addressability(evidence: &LocatorEvidence) -> (bool, bool) {
     }
 }
 
+/// Whether every field a ref entry and a match response carry was read, none
+/// of them unknown. An observation of that kind leaves nothing for a second
+/// read of the same node to add.
+pub(crate) fn fully_observed(evidence: &LocatorEvidence, space: crate::BoundsSpace) -> bool {
+    !evidence.role.is_unknown()
+        && !evidence.name.is_unknown()
+        && !evidence.description.is_unknown()
+        && !evidence.value.is_unknown()
+        && evidence.identifiers.is_complete()
+        && !evidence.states.is_unknown()
+        && super::hydrate::geometry_complete(&evidence.ref_evidence, space)
+        && addressability(evidence).1
+}
+
 pub(crate) fn ref_entry(
     node: &super::ObservedNode,
     source: &ObservationSource,
