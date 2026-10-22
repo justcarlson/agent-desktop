@@ -19,8 +19,28 @@ fn lease() -> InteractionLease {
 
 fn refused<T: std::fmt::Debug>(result: Result<T, AdapterError>) {
     let error = result.expect_err("unproven notification semantics must refuse");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported, "{error:?}");
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let connection = zbus::blocking::Connection::session().expect("independent session oracle");
+    let owner = |name: &str| {
+        connection
+            .call_method(
+                Some("org.freedesktop.DBus"),
+                "/org/freedesktop/DBus",
+                Some("org.freedesktop.DBus"),
+                "GetConnectionUnixProcessID",
+                &(name,),
+            )
+            .expect("independent service credentials")
+            .body()
+            .deserialize::<u32>()
+            .expect("service pid")
+    };
+    if owner("org.freedesktop.Notifications") != owner("org.gnome.Shell") {
+        assert_eq!(error.code, ErrorCode::PlatformNotSupported, "{error:?}");
+        assert_eq!(error.details.as_ref().unwrap()["daemon"], "unsupported");
+        return;
+    }
+    assert_eq!(error.code, ErrorCode::ActionNotSupported, "{error:?}");
     assert_eq!(
         error.details.as_ref().unwrap()["kind"],
         "notification_identity_unavailable"

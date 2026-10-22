@@ -146,12 +146,14 @@ not an empty tray. Do not restart a shell or accessibility bus you do not own.
 
 ## Notifications
 
-After policy checks, notification commands check the detected backend. A GNOME
-service answers `ACTION_NOT_SUPPORTED`, `details.kind:
+After policy checks, notification commands check the detected backend. A service
+with the same process owner as the detected shell answers `ACTION_NOT_SUPPORTED`, `details.kind:
 notification_identity_unavailable`, `retryable: false`, with `not_delivered`
 and safe retry. The refusal happens before reading or opening the message list
 and before any input. `wait --notification` returns the same refusal immediately.
 Missing, unsupported or unreadable services retain the backend errors above.
+A separately owned GNOME notification process also retains the ownership
+refusal; its branding cannot establish delegation to the detected shell.
 
 The standard `org.freedesktop.Notifications` protocol supplies an ID in the
 `Notify` reply and app name, summary, body and action keys in the call, but no

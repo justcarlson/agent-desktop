@@ -189,6 +189,23 @@ pub(super) fn shell_identity_follows_both_bus_owners_and_never_the_process_name(
         assert_eq!(role, 31);
         super::detect::require_daemon(Deadline::after(5_000).unwrap())
             .expect("notification capability comes from matching owners, not branding");
+        let error = agent_desktop_core::SystemOps::check_notification_support(
+            &crate::LinuxAdapter::new(),
+            Deadline::after(5_000).unwrap(),
+        )
+        .expect_err("matching owners still cannot prove notification identity");
+        assert_eq!(
+            error.code,
+            agent_desktop_core::ErrorCode::ActionNotSupported
+        );
+        assert_eq!(
+            error.disposition,
+            agent_desktop_core::DeliverySemantics::not_delivered()
+        );
+        assert_eq!(
+            error.details.as_ref().unwrap()["kind"],
+            "notification_identity_unavailable"
+        );
         let session = Connection::session().unwrap();
         let information: (String, String, String, String) = session
             .call_method(
