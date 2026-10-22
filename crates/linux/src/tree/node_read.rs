@@ -9,6 +9,7 @@ use zbus::{Connection, Message};
 use super::absence::gone_error;
 use super::bounded::collect_bounded;
 use super::liveness::Liveness;
+use super::read_purpose::ReadPurpose;
 use super::{AtspiElement, ChildAddress, Extents, Field, NodeProperties, NodeTraits, RawNode};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE};
 
@@ -270,6 +271,16 @@ async fn read_actions(
     })
 }
 
+fn selected<T>(reply: Option<Reply>, liveness: Liveness) -> Result<Field<T>, AdapterError>
+where
+    T: for<'de> DynamicDeserialize<'de>,
+{
+    match reply {
+        Some(reply) => field(deserialize(reply), liveness),
+        None => Ok(Field::Failed("field not requested".to_owned())),
+    }
+}
+
 /// Reads one node. All fixed calls are in flight together; extents and
 /// actions follow only when the interface list names them. The node's own
 /// `GetRole` outcome, which every live node answers, decides what a failure
@@ -277,62 +288,99 @@ async fn read_actions(
 /// gone fails the read; any other failure stays on the field it hit. The
 /// second value is `Alive`, or `TimedOut` when the role call did not answer
 /// in time, which says nothing about the object.
-pub(crate) async fn read_node_with_liveness(
+pub(crate) async fn read_node_for(
     connection: &Connection,
     element: &AtspiElement,
+    purpose: ReadPurpose,
 ) -> Result<(RawNode, Liveness), AdapterError> {
-    let accessible =
-        |method: &'static str| call(connection, element, ACCESSIBLE_INTERFACE, method, &());
+    let accessible = |method: &'static str, needed| async move {
+        if needed {
+            Some(call(connection, element, ACCESSIBLE_INTERFACE, method, &()).await)
+        } else {
+            None
+        }
+    };
     let (first, second) = join(
         join4(
-            call(
-                connection,
-                element,
-                PROPERTIES_INTERFACE,
-                "GetAll",
-                &(ACCESSIBLE_INTERFACE,),
-            ),
-            accessible("GetRole"),
-            accessible("GetRoleName"),
-            accessible("GetState"),
+            async {
+                if purpose.identity() || purpose == ReadPurpose::Actions {
+                    Some(
+                        call(
+                            connection,
+                            element,
+                            PROPERTIES_INTERFACE,
+                            "GetAll",
+                            &(ACCESSIBLE_INTERFACE,),
+                        )
+                        .await,
+                    )
+                } else {
+                    None
+                }
+            },
+            accessible("GetRole", true),
+            accessible("GetRoleName", purpose.vocabulary()),
+            accessible("GetState", true),
         ),
         join3(
-            accessible("GetInterfaces"),
-            accessible("GetAttributes"),
-            accessible("GetChildren"),
+            accessible("GetInterfaces", purpose != ReadPurpose::Structure),
+            accessible("GetAttributes", purpose.vocabulary()),
+            accessible("GetChildren", purpose.children()),
         ),
     )
     .await;
     let (all, role, role_name, state) = first;
     let (interfaces, attributes, child_reply) = second;
-
-    let role = deserialize::<u32>(role);
-    let liveness = Liveness::of(role.as_ref().err());
-    let role = field(role, liveness)?;
-    let properties = read_properties(connection, element, all, liveness).await?;
-    let interfaces = field(deserialize::<Vec<String>>(interfaces), liveness)?;
+    let role = role.map(deserialize::<u32>);
+    let liveness = Liveness::of(role.as_ref().and_then(|read| read.as_ref().err()));
+    let properties = match all {
+        Some(reply) => read_properties(connection, element, reply, liveness).await?,
+        None => {
+            let mut properties = NodeProperties::failed("field not requested");
+            if matches!(purpose, ReadPurpose::Frame | ReadPurpose::Structure) {
+                properties.name =
+                    get_one(connection, element, NAME, string_value, liveness).await?;
+            }
+            properties
+        }
+    };
+    let interfaces = selected(interfaces, liveness)?;
     let (extents, actions) = join(
-        read_extents(connection, element, &interfaces, liveness),
-        read_actions(connection, element, &interfaces, liveness),
+        async {
+            if purpose.bounds() {
+                read_extents(connection, element, &interfaces, liveness).await
+            } else {
+                Ok(Field::Failed("field not requested".to_owned()))
+            }
+        },
+        async {
+            if purpose.actions() {
+                read_actions(connection, element, &interfaces, liveness).await
+            } else {
+                Ok(Field::Failed("field not requested".to_owned()))
+            }
+        },
     )
     .await;
-
     let node = RawNode {
         element: element.clone(),
         properties,
         traits: NodeTraits {
-            role,
-            role_name: field(deserialize::<String>(role_name), liveness)?,
-            states: field(deserialize::<Vec<u32>>(state), liveness)?,
+            role: role.map_or_else(
+                || Ok(Field::Failed("role not read".to_owned())),
+                |read| field(read, liveness),
+            )?,
+            role_name: selected(role_name, liveness)?,
+            states: selected(state, liveness)?,
             interfaces,
         },
-        attributes: field(
-            deserialize::<BTreeMap<String, String>>(attributes),
-            liveness,
-        )?,
+        attributes: selected::<BTreeMap<String, String>>(attributes, liveness)?,
         extents: extents?,
         actions: actions?,
-        children: read_children(child_reply, liveness)?,
+        children: match child_reply {
+            Some(reply) => read_children(reply, liveness)?,
+            None => Field::Failed("field not requested".to_owned()),
+        },
     };
     Ok((node, liveness))
 }
@@ -341,7 +389,7 @@ pub(crate) async fn read_node(
     connection: &Connection,
     element: &AtspiElement,
 ) -> Result<RawNode, AdapterError> {
-    read_node_with_liveness(connection, element)
+    read_node_for(connection, element, ReadPurpose::Snapshot)
         .await
         .map(|(node, _)| node)
 }

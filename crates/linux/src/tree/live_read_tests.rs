@@ -11,6 +11,11 @@ struct Counting {
     reads: usize,
     stopped: Option<String>,
     stopped_asked: usize,
+    empty_state: bool,
+    parent_absence: Option<bool>,
+    parent_checks: usize,
+    unread_value: bool,
+    unread_state: bool,
 }
 
 impl Counting {
@@ -20,6 +25,11 @@ impl Counting {
             reads: 0,
             stopped: None,
             stopped_asked: 0,
+            empty_state: false,
+            parent_absence: None,
+            parent_checks: 0,
+            unread_value: false,
+            unread_state: false,
         }
     }
 }
@@ -28,12 +38,31 @@ impl NodeReader for Counting {
     fn read(&mut self, element: &AtspiElement) -> Result<NodeEvidence, AdapterError> {
         self.reads += 1;
         let liveness = self.answer.clone()?;
-        let read = read_of(PUSH_BUTTON, "Save", &["click"]);
+        let mut read = read_of(PUSH_BUTTON, "Save", &["click"]);
+        read.node.traits.states = crate::tree::Field::Present(crate::tree::test_support::words(&[
+            crate::tree::state_bits::ENABLED,
+            crate::tree::state_bits::SHOWING,
+            crate::tree::state_bits::FOCUSED,
+        ]));
+        if self.empty_state {
+            read.node.traits.states = crate::tree::Field::Present(vec![0, 0]);
+        }
+        if self.unread_value {
+            read.value.value = crate::tree::Field::Failed("value unavailable".into());
+        }
+        if self.unread_state {
+            read.node.traits.states = crate::tree::Field::Failed("state unavailable".into());
+        }
         Ok(NodeEvidence {
             evidence: evidence_for(&read, element),
             read,
             liveness,
         })
+    }
+
+    fn parent_lacks(&mut self, _: &AtspiElement) -> bool {
+        self.parent_checks += 1;
+        self.parent_absence == Some(true)
     }
 
     fn stopped_app(&mut self, _pid: u32) -> Option<String> {
@@ -123,4 +152,65 @@ fn a_handle_from_another_platform_or_an_empty_one_is_invalid_args() {
         assert_eq!(kind(&error), "invalid_native_handle");
     }
     assert_eq!(reader.reads, 0);
+}
+
+#[test]
+fn a_pointer_observation_uses_one_fresh_node_for_bounds_and_states() {
+    let mut reader = Counting::alive();
+    let observation = pointer_via(&mut reader, &handle(), Deadline::standard().unwrap()).unwrap();
+    assert_eq!(reader.reads, 1);
+    assert_eq!(observation.bounds.unwrap().width, 10.0);
+    assert!(
+        observation
+            .states
+            .iter()
+            .any(|state| state == agent_desktop_core::state::FOCUSED)
+    );
+}
+
+#[test]
+fn pointer_evidence_does_not_require_a_text_value_but_requires_state() {
+    let mut reader = Counting::alive();
+    reader.unread_value = true;
+    let deadline = Deadline::standard().unwrap();
+    let pointer = pointer_via(&mut reader, &handle(), deadline)
+        .expect("a text value cannot change the pointer's receiver or visibility");
+    assert!(pointer.bounds.is_some());
+    assert!(
+        pointer
+            .states
+            .iter()
+            .any(|state| state == agent_desktop_core::state::FOCUSED)
+    );
+    assert!(state_via(&mut reader, &handle(), deadline).is_err());
+    reader.unread_state = true;
+    let error = pointer_via(&mut reader, &handle(), deadline).unwrap_err();
+    assert_eq!(error.code, ErrorCode::AppUnresponsive);
+}
+
+#[test]
+fn fresh_reads_corroborate_empty_state_with_parent_removal_and_never_with_failed_reads() {
+    let mut reader = Counting::alive();
+    reader.empty_state = true;
+    for absence in [None, Some(false), Some(true)] {
+        reader.parent_absence = absence;
+        let outcome = read_live(&mut reader, &handle());
+        if absence == Some(true) {
+            let error = outcome.unwrap_err();
+            assert_eq!(error.code, ErrorCode::StaleRef);
+            assert_eq!(kind(&error), "resolve_target_destroyed");
+        } else {
+            assert!(
+                outcome.is_ok(),
+                "an unread or listing parent is not absence"
+            );
+        }
+    }
+    assert_eq!(reader.parent_checks, 3);
+    reader.empty_state = false;
+    assert!(read_live(&mut reader, &handle()).is_ok());
+    assert_eq!(
+        reader.parent_checks, 3,
+        "healthy state needs no extra parent read"
+    );
 }

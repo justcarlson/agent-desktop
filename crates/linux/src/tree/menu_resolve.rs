@@ -100,7 +100,14 @@ impl Source for MenuSource<'_> {
 
     fn evidence(&mut self, element: &AtspiElement) -> Result<LocatorEvidence, AdapterError> {
         let connection = &self.connection;
-        let mut read = within(self.deadline, read_evidence(connection, element))?;
+        let mut read = within(
+            self.deadline,
+            read_evidence(
+                connection,
+                element,
+                super::read_purpose::ReadPurpose::Identity,
+            ),
+        )?;
         read.evidence.identifiers = read
             .evidence
             .identifiers

@@ -8,8 +8,9 @@ use super::liveness::Liveness;
 use super::menu_resolve::resolve_menu;
 use super::node_evidence::read_evidence_placed;
 use super::node_position::place_nodes;
-use super::node_read::read_node_with_liveness;
+use super::node_read::read_node_for;
 use super::path_descent::Levels;
+use super::read_purpose::ReadPurpose;
 use super::resolve::{Source, resolve};
 use super::resolve_anchor::resolve_anchor;
 use super::resolve_errors::{settle_gone, stopped_app};
@@ -59,7 +60,7 @@ impl Source for BusSource<'_> {
         }
         let connection = &self.connection;
         within(self.deadline, async {
-            let (_, liveness) = read_node_with_liveness(connection, &frame)
+            let (_, liveness) = read_node_for(connection, &frame, ReadPurpose::Frame)
                 .await
                 .map_err(|error| settle_gone(error, window.pid()))?;
             if liveness == Liveness::TimedOut {

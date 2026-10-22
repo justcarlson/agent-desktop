@@ -3,11 +3,13 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::bounded::collect_bounded;
 use super::frame_geometry::{pointer_bounds, popup_origin};
+use super::node_read::read_node_for;
+use super::read_purpose::ReadPurpose;
 use super::toolkit_trust::{
     ToolkitKind, kind as toolkit_kind, read_toolkit, reports_global_position,
 };
 use super::window_extents::read_window_extents_async;
-use super::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode, read_node};
+use super::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode};
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::shell::container::MENU;
 use crate::system::window::window_position::frame_origin;
@@ -19,6 +21,11 @@ const IN_FLIGHT: usize = 64;
 
 fn is_placed(extents: &Field<Extents>) -> bool {
     matches!(extents, Field::Present(extents) if extents.x != i32::MIN && extents.y != i32::MIN)
+}
+
+fn invalidate_position(read: &mut ObservedRead) {
+    read.node.extents = Field::Failed("Geometry placement was not read".to_owned());
+    read.evidence_bounds = None;
 }
 
 fn for_each_read(node: &mut WalkedNode<ObservedRead>, visit: &mut impl FnMut(&mut ObservedRead)) {
@@ -61,7 +68,6 @@ fn place_read_bounds(
 ) {
     let Field::Present(screen) = &read.node.extents else {
         read.evidence_bounds = None;
-        read.node.extents = Field::Absent;
         return;
     };
     read.evidence_bounds = window
@@ -70,7 +76,10 @@ fn place_read_bounds(
     read.node.extents = origin
         .zip(window)
         .and_then(|(origin, window)| pointer_bounds(toolkit, *screen, window, Some(origin)))
-        .map_or(Field::Absent, Field::Present);
+        .map_or_else(
+            || Field::Failed("Screen position could not be established".to_owned()),
+            Field::Present,
+        );
 }
 
 fn is_sentinel(extents: Extents) -> bool {
@@ -106,7 +115,10 @@ async fn frame_facts(
     connection: &zbus::Connection,
     frame: &AtspiElement,
 ) -> Result<Option<super::RawNode>, AdapterError> {
-    let node = match read_node(connection, frame).await {
+    let node = match read_node_for(connection, frame, ReadPurpose::Frame)
+        .await
+        .map(|(node, _)| node)
+    {
         Ok(node) => node,
         Err(error)
             if matches!(
@@ -184,7 +196,10 @@ pub(crate) fn place_nodes(
     }
     let connection = match bus.get(deadline) {
         Ok(connection) => connection,
-        Err(error) if error.code == ErrorCode::Timeout => return Ok(()),
+        Err(error) if error.code == ErrorCode::Timeout => {
+            for_each_read(&mut walk.root, &mut invalidate_position);
+            return Ok(());
+        }
         Err(error) => return Err(error),
     };
     let app_root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());
@@ -231,7 +246,10 @@ pub(crate) fn place_single(
     let element = read.node.element.clone();
     let connection = match bus.get(deadline) {
         Ok(connection) => connection,
-        Err(error) if error.code == ErrorCode::Timeout => return Ok(()),
+        Err(error) if error.code == ErrorCode::Timeout => {
+            invalidate_position(read);
+            return Ok(());
+        }
         Err(error) => return Err(error),
     };
     let app_root = AtspiElement::new(element.bus_name(), REGISTRY_ROOT_PATH, element.pid());

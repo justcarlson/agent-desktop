@@ -5,6 +5,7 @@ use agent_desktop_core::{
 use super::display_bounds::off_every_display;
 use super::frame_geometry::pointer_bounds;
 use super::offscreen::{OffscreenInput, offscreen};
+use super::placed_states::PlacedStates;
 use super::placement::Placement;
 use super::state_bits::{SHOWING, StateBits, VISIBLE};
 use super::toolkit_trust::reports_global_position;
@@ -182,18 +183,12 @@ fn on_a_mapped_wayland_frame(read: &ObservedRead, placement: &Placement) -> bool
         && state_bits(read) == Some((true, true))
 }
 
-/// The state projection. `hidden` is a live-only token. `offscreen` follows
-/// the placement: the token and `Some(true)` together on positive evidence.
-pub(crate) fn live_state(
+/// State tokens and placement facts shared by getters and pointer evidence.
+pub(super) fn placed_states(
     read: &ObservedRead,
     evidence: &LocatorEvidence,
     placement: &Placement,
-) -> Result<ElementState, AdapterError> {
-    let role = evidence
-        .role
-        .known()
-        .cloned()
-        .ok_or_else(incomplete_live_evidence)?;
+) -> Result<PlacedStates, AdapterError> {
     let mut states = evidence
         .states
         .known()
@@ -208,13 +203,33 @@ pub(crate) fn live_state(
     if off == Some(true) && !states.iter().any(|token| token == state::OFFSCREEN) {
         states.push(state::OFFSCREEN.to_owned());
     }
-    Ok(ElementState {
-        role,
+    Ok(PlacedStates {
         states,
-        value: live_value(evidence)?,
-        enabled: enabled(read),
         hidden: mapped.then_some(false),
         offscreen: off,
+    })
+}
+
+/// The state projection. `hidden` is a live-only token. `offscreen` follows
+/// the placement: the token and `Some(true)` together on positive evidence.
+pub(crate) fn live_state(
+    read: &ObservedRead,
+    evidence: &LocatorEvidence,
+    placement: &Placement,
+) -> Result<ElementState, AdapterError> {
+    let role = evidence
+        .role
+        .known()
+        .cloned()
+        .ok_or_else(incomplete_live_evidence)?;
+    let projected = placed_states(read, evidence, placement)?;
+    Ok(ElementState {
+        role,
+        states: projected.states,
+        value: live_value(evidence)?,
+        enabled: enabled(read),
+        hidden: projected.hidden,
+        offscreen: projected.offscreen,
     })
 }
 

@@ -10,11 +10,13 @@ use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, within};
 use crate::tree::hit_descent::{BusNodes, NodeSource};
+use crate::tree::node_read::read_node_for;
+use crate::tree::read_purpose::ReadPurpose;
 use crate::tree::resolve_errors::{stopped_app, stopped_aware};
 use crate::tree::state_bits::{ICONIFIED, StateBits};
 use crate::tree::toolkit_trust::{ToolkitKind, kind, read_toolkit};
 use crate::tree::window_extents::read_window_extents_async;
-use crate::tree::{AtspiElement, Extents, read_node};
+use crate::tree::{AtspiElement, Extents};
 
 pub(super) fn stopped_aware_for(error: AdapterError, frame: &AtspiElement) -> AdapterError {
     if error.code == agent_desktop_core::ErrorCode::Timeout {
@@ -62,14 +64,15 @@ impl HitWorld for LiveWorld<'_> {
         let deadline = self.nodes.deadline;
         let (screen, window, frame_node, toolkit) = within(deadline, async {
             Ok(join4(
-                read_node(connection, target),
+                read_node_for(connection, target, ReadPurpose::Bounds),
                 read_window_extents_async(connection, target),
-                read_node(connection, frame),
+                read_node_for(connection, frame, ReadPurpose::Frame),
                 read_toolkit(connection, &root),
             )
             .await)
         })?;
-        let (Ok(screen), Some(window), Ok(frame_node)) = (screen, window?, frame_node) else {
+        let (Ok((screen, _)), Some(window), Ok((frame_node, _))) = (screen, window?, frame_node)
+        else {
             return Ok(None);
         };
         let (Some(screen), Some(states)) = (

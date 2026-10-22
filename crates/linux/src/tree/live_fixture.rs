@@ -43,6 +43,12 @@ def activate(app):
     outer.append(notebook)
     victim = Gtk.Button(label="Victim")
     outer.append(victim)
+    twins = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+    for width in (80, 140):
+        twin = Gtk.Button(label="Twin")
+        twin.set_size_request(width, -1)
+        twins.append(twin)
+    outer.append(twins)
     hidden = Gtk.Entry()
     hidden.set_visibility(False)
     hidden.set_text("hunter2")

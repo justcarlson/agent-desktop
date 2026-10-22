@@ -7,7 +7,8 @@ use agent_desktop_core::Deadline;
 
 use super::node_position::place_single;
 use super::projection::project_node;
-use super::walker_expand::read_observed_with_liveness;
+use super::read_purpose::ReadPurpose;
+use super::walker_expand::read_observed;
 use super::{AtspiElement, ObservedRead, WalkLimits};
 
 /// One node read once: the walk's own read, the evidence it projects to, and
@@ -50,29 +51,27 @@ pub(crate) async fn read_evidence_placed(
     element: &AtspiElement,
     deadline: Deadline,
 ) -> Result<NodeEvidence, AdapterError> {
-    require_ancestry(element)?;
-    let (mut read, liveness) =
-        read_observed_with_liveness(connection, element, WalkLimits::default().max_field_bytes)
-            .await?;
-    place_single(bus, &mut read, deadline)?;
-    let evidence = evidence_for(&read, element);
-    Ok(NodeEvidence {
-        read,
-        evidence,
-        liveness,
-    })
+    let mut node = read_evidence(connection, element, ReadPurpose::Identity).await?;
+    place_single(bus, &mut node.read, deadline)?;
+    node.evidence = evidence_for(&node.read, element);
+    Ok(node)
 }
 
-/// Reads one node and projects it exactly as the snapshot walk does, so the
-/// identity read later equals the identity a ref was taken with.
+/// Reads the requested fresh fields through the snapshot projection. Fields
+/// outside the request remain unknown.
 pub(crate) async fn read_evidence(
     connection: &Connection,
     element: &AtspiElement,
+    purpose: ReadPurpose,
 ) -> Result<NodeEvidence, AdapterError> {
     require_ancestry(element)?;
-    let (read, liveness) =
-        read_observed_with_liveness(connection, element, WalkLimits::default().max_field_bytes)
-            .await?;
+    let (read, liveness) = read_observed(
+        connection,
+        element,
+        WalkLimits::default().max_field_bytes,
+        purpose,
+    )
+    .await?;
     let evidence = evidence_for(&read, element);
     Ok(NodeEvidence {
         read,

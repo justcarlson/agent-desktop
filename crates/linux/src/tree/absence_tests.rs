@@ -85,3 +85,14 @@ fn timeout_unknown_names_and_undecodable_role_never_prove_object_loss() {
         Liveness::Alive
     );
 }
+
+#[test]
+fn parent_listing_proves_absence_only_when_a_successful_list_omits_the_address() {
+    let sibling = vec![(":1.2".to_owned(), "/other".to_owned())];
+    let listed = vec![(":1.2".to_owned(), "/node".to_owned())];
+    assert!(!listing_verdict(None, ":1.2", "/node"));
+    assert!(listing_verdict(Some(Some(Vec::new())), ":1.2", "/node"));
+    assert!(listing_verdict(Some(Some(sibling)), ":1.2", "/node"));
+    assert!(!listing_verdict(Some(Some(listed)), ":1.2", "/node"));
+    assert!(!listing_verdict(Some(None), ":1.2", "/node"));
+}

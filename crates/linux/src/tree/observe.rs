@@ -11,8 +11,10 @@ use super::nested_dialog::find as find_nested;
 use super::node_position::place_nodes;
 use super::observe_menu::observe_menu;
 use super::projection::project_with;
-use super::settle::{Settle, Step, has_depth_cut, has_web_document};
-use super::walker::walk_tree;
+use super::read_purpose::ReadPurpose;
+use super::readiness::{Readiness, has_web_document};
+use super::readiness_step::Step;
+use super::walker::walk_tree_for;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
 use crate::system::{SharedBus, process::proc_stat, shell, window::window_id};
 
@@ -73,7 +75,12 @@ fn sheet_absent() -> AdapterError {
     .with_suggestion("Open a modal dialog, or snapshot the window surface")
 }
 
-type Walker<'a> = dyn FnMut(&AtspiElement, &WalkLimits, Deadline) -> Result<Walk<ObservedRead>, AdapterError>
+type Walker<'a> = dyn FnMut(
+        &AtspiElement,
+        &WalkLimits,
+        Deadline,
+        ReadPurpose,
+    ) -> Result<Walk<ObservedRead>, AdapterError>
     + 'a;
 
 /// Walks until the tree has stopped growing when the window of a web engine
@@ -91,10 +98,19 @@ fn settled_walk(
     host: &mut SettleHost<'_>,
 ) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
     let web_process = matches!(root, ObservationRoot::Window(_)) && (host.is_web_process)(element)?;
-    let mut tracker: Option<(Settle, Instant)> = None;
+    let mut tracker: Option<(Readiness, Instant)> = None;
     let mut previous: Option<Walk<ObservedRead>> = None;
+    let mut sampling_deadline = request.deadline;
     loop {
-        let walk = match (host.walker)(element, limits, request.deadline) {
+        let purpose = if tracker
+            .as_ref()
+            .is_some_and(|(readiness, _)| !readiness.needs_payload())
+        {
+            ReadPurpose::Sampling
+        } else {
+            ReadPurpose::Snapshot
+        };
+        let walk = match (host.walker)(element, limits, sampling_deadline, purpose) {
             Ok(walk) => walk,
             Err(error) if error.code == ErrorCode::Timeout && previous.is_some() => {
                 return previous.map(|walk| (walk, false)).ok_or(error);
@@ -110,20 +126,43 @@ fn settled_walk(
         let waits = matches!(root, ObservationRoot::Window(_))
             && (web_process || has_web_document(&walk.root));
         if !walk.complete || !waits {
-            return Ok((walk, true));
+            return Ok(if purpose == ReadPurpose::Sampling {
+                (
+                    previous.ok_or_else(|| request.deadline.timeout_error())?,
+                    false,
+                )
+            } else {
+                (walk, true)
+            });
+        }
+        if tracker.is_none() {
+            sampling_deadline = request
+                .deadline
+                .capped(request.deadline.remaining() * 80 / 100);
         }
         let (settle, since) = tracker
-            .get_or_insert_with(|| (Settle::new(request.deadline.remaining()), Instant::now()));
+            .get_or_insert_with(|| (Readiness::new(request.deadline.remaining()), Instant::now()));
         match settle.after_walk(
             walk.node_count,
             since.elapsed(),
-            has_depth_cut(&walk.root) || has_web_document(&walk.root),
+            super::readiness::ready(&walk.root),
         ) {
             Step::Settled => return Ok((walk, true)),
-            Step::GiveUp => return Ok((walk, false)),
+            Step::GiveUp => {
+                return Ok((
+                    if purpose == ReadPurpose::Sampling {
+                        previous.unwrap_or(walk)
+                    } else {
+                        walk
+                    },
+                    false,
+                ));
+            }
             Step::Wait(gap) => {
                 (host.pause)(gap);
-                previous = Some(walk);
+                if purpose == ReadPurpose::Snapshot {
+                    previous = Some(walk);
+                }
             }
         }
     }
@@ -155,7 +194,7 @@ fn nested_sheet(
             .with_suggestion("Snapshot the window and select a dialog by ref"));
         }
     };
-    let walk = (host.walker)(&dialog, limits, request.deadline)?;
+    let walk = (host.walker)(&dialog, limits, request.deadline, ReadPurpose::Snapshot)?;
     Ok((walk, true))
 }
 
@@ -166,6 +205,7 @@ struct SettleHost<'a> {
     is_web_process: &'a dyn Fn(&AtspiElement) -> Result<bool, AdapterError>,
     stopped: &'a dyn Fn(u32) -> bool,
     pause: &'a mut dyn FnMut(Duration),
+    place: &'a mut dyn FnMut(&mut Walk<ObservedRead>) -> Result<(), AdapterError>,
 }
 
 #[cfg(test)]
@@ -196,7 +236,8 @@ fn observe_decorated(
         ..WalkLimits::for_request(&request)
     };
     let started = Instant::now();
-    let (walk, settled) = settled_walk(&root, &element, &limits, &request, &mut host)?;
+    let (mut walk, settled) = settled_walk(&root, &element, &limits, &request, &mut host)?;
+    (host.place)(&mut walk)?;
     let complete = walk.complete && settled;
     let (subtree, mut stats) = project_with(walk, &limits, decorate);
     stats.reads.health.deadline_exhausted += u64::from(!complete && request.deadline.is_expired());
@@ -249,10 +290,8 @@ pub(crate) fn observe_tree_with(
     request: &ObservationRequest,
     decorate: &mut dyn Decorate,
 ) -> Result<ObservedTree, AdapterError> {
-    let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline| {
-        let mut walk = walk_tree(bus, element, limits, deadline)?;
-        place_nodes(bus, &mut walk, deadline)?;
-        Ok(walk)
+    let mut walker = |element: &AtspiElement, limits: &WalkLimits, deadline: Deadline, purpose| {
+        walk_tree_for(bus, element, limits, deadline, purpose)
     };
     let mut pause = std::thread::sleep;
     observe_decorated(
@@ -260,6 +299,7 @@ pub(crate) fn observe_tree_with(
         request,
         SettleHost {
             walker: &mut walker,
+            place: &mut |walk| place_nodes(bus, walk, request.deadline),
             is_web_process: &|element| {
                 let connection = bus.get(request.deadline)?;
                 crate::system::within(request.deadline, async {
@@ -288,3 +328,7 @@ mod nested_tests;
 #[cfg(test)]
 #[path = "observe_settle_tests.rs"]
 mod settle_tests;
+
+#[cfg(test)]
+#[path = "observe_sampling_tests.rs"]
+mod sampling_tests;

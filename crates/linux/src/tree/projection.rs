@@ -32,6 +32,7 @@ fn window_bounds(read: &ObservedRead) -> LocatorField<Rect> {
         Some((extents, agent_desktop_core::BoundsSpace::Window)) => {
             bounds_of(&Field::Present(extents))
         }
+        _ if read.node.extents.is_failed() => LocatorField::Unknown,
         _ => LocatorField::Absent,
     }
 }

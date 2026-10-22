@@ -24,7 +24,8 @@ pub(super) fn observe_plain(
         root,
         request,
         SettleHost {
-            walker: &mut walker,
+            walker: &mut |element, limits, deadline, _| walker(element, limits, deadline),
+            place: &mut |_| Ok(()),
             is_web_process: &|_| Ok(false),
             stopped: &|_| false,
             pause: &mut |_| {},

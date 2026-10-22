@@ -14,7 +14,7 @@ use crate::tree::walker::walk_levels;
 use crate::tree::wrapper::classify;
 use crate::tree::{AtspiElement, Expansion, ObservedRead, Walk, WalkLimits};
 
-fn window() -> WindowInfo {
+pub(super) fn window() -> WindowInfo {
     WindowInfo {
         id: window_id::encode(":1.7", "/org/a11y/atspi/accessible/1").expect("encodes"),
         title: "t".to_owned(),
@@ -26,14 +26,14 @@ fn window() -> WindowInfo {
     }
 }
 
-fn request(ms: u64) -> ObservationRequest {
+pub(super) fn request(ms: u64) -> ObservationRequest {
     ObservationRequest::snapshot(
         &TreeOptions::default(),
         Deadline::after(ms).expect("deadline"),
     )
 }
 
-fn walk_of(nodes: usize, document: bool) -> Result<Walk<ObservedRead>, AdapterError> {
+pub(super) fn walk_of(nodes: usize, document: bool) -> Result<Walk<ObservedRead>, AdapterError> {
     let role = if document { DOCUMENT_WEB } else { PUSH_BUTTON };
     walk_levels(
         0u32,
@@ -80,7 +80,7 @@ fn walk_with(limits: &WalkLimits, nodes: u32) -> Result<Walk<ObservedRead>, Adap
 
 fn observe_limited(limits: &WalkLimits, ms: u64, pause_ms: u64) -> (usize, bool) {
     let calls = Cell::new(0usize);
-    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _, _| {
         calls.set(calls.get() + 1);
         walk_with(limits, 1 + u32::try_from(calls.get()).unwrap_or(1) * 3)
     };
@@ -91,6 +91,7 @@ fn observe_limited(limits: &WalkLimits, ms: u64, pause_ms: u64) -> (usize, bool)
         &request(ms),
         SettleHost {
             walker: &mut walker,
+            place: &mut |_| Ok(()),
             is_web_process: &|_| Ok(true),
             stopped: &|_| false,
             pause: &mut pause,
@@ -109,7 +110,7 @@ struct Run {
 fn observe(web: bool, document: bool, ms: u64, curve: &[Result<usize, AdapterError>]) -> Run {
     let calls = Cell::new(0usize);
     let waited = Cell::new(Duration::ZERO);
-    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _, _| {
         let index = calls.get().min(curve.len() - 1);
         calls.set(calls.get() + 1);
         curve[index]
@@ -128,6 +129,7 @@ fn observe(web: bool, document: bool, ms: u64, curve: &[Result<usize, AdapterErr
         &request(ms),
         SettleHost {
             walker: &mut walker,
+            place: &mut |_| Ok(()),
             is_web_process: &|_| Ok(web),
             stopped: &|_| false,
             pause: &mut pause,
@@ -143,7 +145,7 @@ fn observe(web: bool, document: bool, ms: u64, curve: &[Result<usize, AdapterErr
 
 fn observe_element(web: bool, curve: &[Result<usize, AdapterError>]) -> usize {
     let calls = Cell::new(0usize);
-    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _, _| {
         let index = calls.get().min(curve.len() - 1);
         calls.set(calls.get() + 1);
         curve[index].clone().and_then(|nodes| walk_of(nodes, true))
@@ -162,6 +164,7 @@ fn observe_element(web: bool, curve: &[Result<usize, AdapterError>]) -> usize {
         &request(60_000),
         SettleHost {
             walker: &mut walker,
+            place: &mut |_| Ok(()),
             is_web_process: &|_| Ok(web),
             stopped: &|_| false,
             pause: &mut pause,
@@ -235,7 +238,7 @@ fn a_poll_that_finds_the_window_gone_is_window_not_found() {
         )),
     ];
     let calls = Cell::new(0usize);
-    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _, _| {
         let index = calls.get().min(curve.len() - 1);
         calls.set(calls.get() + 1);
         curve[index].clone().and_then(|nodes| walk_of(nodes, false))
@@ -246,6 +249,7 @@ fn a_poll_that_finds_the_window_gone_is_window_not_found() {
         &request(60_000),
         SettleHost {
             walker: &mut walker,
+            place: &mut |_| Ok(()),
             is_web_process: &|_| Ok(true),
             stopped: &|_| false,
             pause: &mut |_| {},
@@ -284,7 +288,7 @@ fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
     assert!(cut.complete);
     assert!(cut.root.children[0].child_count.is_some());
     let calls = Cell::new(0usize);
-    let mut walker = |_: &AtspiElement, _: &WalkLimits, _| {
+    let mut walker = |_: &AtspiElement, _: &WalkLimits, _, _| {
         calls.set(calls.get() + 1);
         walk_with(&limits, 6)
     };
@@ -294,6 +298,7 @@ fn a_shallow_web_walk_cut_at_the_requested_depth_settles() {
         &request(60_000),
         SettleHost {
             walker: &mut walker,
+            place: &mut |_| Ok(()),
             is_web_process: &|_| Ok(true),
             stopped: &|_| false,
             pause: &mut |_| {},

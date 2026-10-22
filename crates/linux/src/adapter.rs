@@ -133,6 +133,21 @@ impl ObservationOps for LinuxAdapter {
         crate::tree::get_element_bounds(self.bus(), handle, deadline)
     }
 
+    fn observe_pointer(
+        &self,
+        handle: &NativeHandle,
+        deadline: Deadline,
+    ) -> Result<agent_desktop_core::PointerObservation, AdapterError> {
+        if crate::system::tray::target_of(handle).is_some() {
+            let bounds = self.get_element_bounds(handle, deadline)?;
+            let states = self
+                .get_live_state(handle, deadline)?
+                .map_or_else(Vec::new, |state| state.states);
+            return Ok(agent_desktop_core::PointerObservation { bounds, states });
+        }
+        crate::tree::live_read::observe_pointer(self.bus(), handle, deadline)
+    }
+
     fn get_text_selection(
         &self,
         handle: &NativeHandle,

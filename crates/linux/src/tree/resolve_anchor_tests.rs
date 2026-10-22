@@ -159,7 +159,7 @@ fn an_unnamed_zero_area_container_is_landed_by_its_path_for_the_caller_to_verify
     let mut fake = Fake::new();
     fake.add(FRAME_PATH, "/group", node(PANEL, "", 710, 0));
     let entry = fake.entry_of("/group", true);
-    assert!(crate::tree::resolve_match::entry_is_unverifiable(&entry));
+    assert!(crate::tree::resolve_identity::entry_is_unverifiable(&entry));
     assert_eq!(landed(&mut fake, &entry).path(), "/group");
 }
 

@@ -1,4 +1,4 @@
-use super::{NodeView, corroboration_of, listing_verdict};
+use super::{NodeView, corroboration_of};
 use crate::actions::mutation::Corroboration;
 use crate::system::NAME_HAS_NO_OWNER;
 use crate::tree::absence::{UNKNOWN_INTERFACE, UNKNOWN_OBJECT};
@@ -40,8 +40,6 @@ fn absent_and_failed_reads_remain_distinct() {
     let failed_states = view_of(failed_states);
     assert_eq!(failed_states.state(CHECKED), None);
     assert_eq!(failed_states.tokens(), None);
-    assert!(with_bits(PUSH_BUTTON, &[]).state_set_is_empty());
-    assert!(!with_bits(PUSH_BUTTON, &[SHOWING]).state_set_is_empty());
 }
 
 #[test]
@@ -144,15 +142,4 @@ fn corroboration_distinguishes_dead_timed_out_and_unread_nodes() {
         corroboration_of(Some(&method_error("org.freedesktop.DBus.Error.Failed"))),
         Corroboration::NotRead
     );
-}
-
-#[test]
-fn parent_listing_proves_absence_only_when_a_successful_list_omits_the_address() {
-    let sibling = vec![(":1.2".to_owned(), "/other".to_owned())];
-    let listed = vec![(":1.2".to_owned(), "/node".to_owned())];
-    assert!(!listing_verdict(None, ":1.2", "/node"));
-    assert!(listing_verdict(Some(Some(Vec::new())), ":1.2", "/node"));
-    assert!(listing_verdict(Some(Some(sibling)), ":1.2", "/node"));
-    assert!(!listing_verdict(Some(Some(listed)), ":1.2", "/node"));
-    assert!(!listing_verdict(Some(None), ":1.2", "/node"));
 }
