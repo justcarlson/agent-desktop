@@ -58,6 +58,22 @@ impl PopupReader for Fake {
 }
 
 #[test]
+fn a_failed_menu_state_read_never_proves_the_menu_closed() {
+    let mut tree = frame_with(vec![gtk4_popover(true)]);
+    tree.children[0].payload.node.traits.states = crate::tree::Field::Failed("unread".into());
+    let error = inventory(&mut Fake::new(tree), false, deadline())
+        .err()
+        .expect("a failed read cannot establish absence");
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
+    let mut closed = Fake::new(frame_with(vec![gtk4_popover(false)]));
+    assert!(
+        inventory(&mut closed, false, deadline())
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
 fn an_observed_popup_remains_positive_when_other_candidates_are_unread() {
     let mut reader = Fake::new(frame_with(vec![gtk4_popover(true)]));
     reader.incomplete = true;

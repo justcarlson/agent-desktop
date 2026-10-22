@@ -5,18 +5,22 @@ use serde_json::json;
 
 use super::signal_boundary::{Scope, narrow};
 use super::signal_inventory::{Pass, run_pass, skipped_selected};
-use super::signal_population::apps_of;
 use super::signal_surfaces::{nested_surface_signals, sheet_signals};
 use crate::system::SharedBus;
+use crate::system::app::app_ops::{info, one_entry_per_process};
 use crate::system::bus::ensure_budget;
 use crate::system::focus::focus_is_indeterminate;
-use crate::system::menu::nested_scan::{NestedScan, bus_read, scan_windows};
+use crate::system::menu::inventory::scan_windows;
+use crate::system::menu::inventory_reader::Inventory;
+use crate::system::menu::surface_scan::NestedScan;
 use crate::system::process::proc_stat;
 use crate::system::process::unresponsive::first_stopped;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_app::RegistryApp;
 use crate::system::registry::registry_frames::RootRead;
 use crate::system::registry::{Registry, read_registry_for};
+use agent_desktop_core::AppInfo;
+use std::collections::BTreeSet;
 
 trait CaptureWorld {
     fn registry(&self, pid: Option<u32>, deadline: Deadline) -> Result<Registry, AdapterError>;
@@ -51,7 +55,8 @@ impl CaptureWorld for BusWorld<'_> {
     }
 
     fn nested(&self, windows: &[ListedWindow], deadline: Deadline) -> NestedScan {
-        scan_windows(windows, bus_read(self.0, deadline))
+        let mut inventory = Inventory::new(self.0, deadline);
+        scan_windows(windows, |window| inventory.read(window))
     }
 }
 
@@ -173,3 +178,21 @@ mod signal_capture_fixture;
 #[cfg(test)]
 #[path = "signal_capture_select_tests.rs"]
 mod select_tests;
+
+/// The applications that own at least one listed window, one entry per
+/// process. A helper that answers on the registry with no frame never
+/// appears, and a window that opens under a running process adds no app.
+pub(crate) fn apps_of(windows: &[ListedWindow], registry_apps: &[RegistryApp]) -> Vec<AppInfo> {
+    let owners: BTreeSet<usize> = windows.iter().map(|window| window.app).collect();
+    one_entry_per_process(
+        owners
+            .into_iter()
+            .filter_map(|index| registry_apps.get(index))
+            .map(|app| info(app, true))
+            .collect(),
+    )
+}
+
+#[cfg(test)]
+#[path = "signal_population_tests.rs"]
+mod population_tests;

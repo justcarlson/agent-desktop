@@ -1,54 +1,18 @@
 use crate::system::menu::nested_surface::Nested;
-use agent_desktop_core::{AdapterError, Deadline};
+use agent_desktop_core::AdapterError;
 
-use super::menu_popup;
+use super::{menu_popup, surface_scan::NestedScan};
 use crate::system::registry::listed_window::ListedWindow;
-use crate::system::{SharedBus, window::window_id};
+use crate::system::window::window_id;
 use crate::tree::AtspiElement;
 use crate::tree::nested_dialog::{Node, find, is_incomplete};
-use crate::tree::observe_menu::{rooted, scan_walk};
-
-const NESTED_NODES: usize = 1000;
-
-/// What a scan of the windows of one application found, and whether it read
-/// every window to the end.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct NestedScan {
-    pub(crate) found: Vec<Nested>,
-    /// The menus the windows hold or are, keyed on the window's own id for a
-    /// window that is itself a menu and on the popup's address for a menu
-    /// drawn inside a window.
-    pub(crate) menus: Vec<Nested>,
-    pub(crate) complete: bool,
-    /// The windows whose trees were not read to the end, by position.
-    pub(crate) unread: Vec<usize>,
-}
-
-impl NestedScan {
-    pub(crate) fn complete_and_empty() -> Self {
-        Self {
-            found: Vec::new(),
-            menus: Vec::new(),
-            complete: true,
-            unread: Vec::new(),
-        }
-    }
-}
-
-/// Reads one window's tree to a bounded size.
-pub(crate) fn bus_read<'a>(
-    bus: &'a SharedBus,
-    deadline: Deadline,
-) -> impl Fn(&AtspiElement) -> Result<Node, AdapterError> + 'a {
-    move |window| scan_walk(bus, &rooted(window), NESTED_NODES, deadline)
-}
 
 /// The showing dialogs inside the windows, other than windows that are
 /// dialogs themselves. A window that cannot be read, or whose tree was cut
 /// short, makes the scan incomplete: a dialog may sit where it did not look.
 pub(crate) fn scan_windows(
     windows: &[ListedWindow],
-    read: impl Fn(&AtspiElement) -> Result<Node, AdapterError>,
+    mut read: impl FnMut(&AtspiElement) -> Result<Node, AdapterError>,
 ) -> NestedScan {
     let mut scan = NestedScan::complete_and_empty();
     for (index, window) in windows.iter().enumerate().filter(|(_, w)| !w.sheet) {
@@ -61,7 +25,7 @@ pub(crate) fn scan_windows(
             scan.unread.push(index);
             continue;
         };
-        let mut whole = !is_incomplete(&root);
+        let mut whole = !is_incomplete(&root) && super::menu_surface::popup_read_complete(&root);
         for dialog in find(&root) {
             match window_id::encode(dialog.element.bus_name(), dialog.element.path()) {
                 Some(id) => scan.found.push(Nested {
@@ -100,5 +64,5 @@ pub(crate) fn scan_windows(
 }
 
 #[cfg(test)]
-#[path = "nested_scan_tests.rs"]
+#[path = "inventory_tests.rs"]
 mod tests;

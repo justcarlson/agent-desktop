@@ -75,8 +75,8 @@ fn a_failed_menu_scan_keeps_the_window_and_sheet_entries_and_marks_the_menu_unre
 
 #[test]
 fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entries() {
-    use crate::system::menu::nested_scan::NestedScan;
     use crate::system::menu::nested_surface::Nested;
+    use crate::system::menu::surface_scan::NestedScan;
     let scan = NestedScan {
         found: vec![Nested {
             window: 0,
@@ -105,7 +105,7 @@ fn a_nested_dialog_lists_one_sheet_entry_on_its_own_id_beside_its_windows_entrie
 
 #[test]
 fn a_window_whose_tree_was_not_read_in_full_names_the_sheet_kind_unclassified() {
-    use crate::system::menu::nested_scan::NestedScan;
+    use crate::system::menu::surface_scan::NestedScan;
     let windows = [window("w-1", "A", false), window("w-2", "B", false)];
     let scan = NestedScan {
         found: Vec::new(),

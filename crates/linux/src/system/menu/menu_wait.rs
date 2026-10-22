@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessIdentity};
@@ -33,6 +34,7 @@ fn app_label(facts: Option<&ProcessFacts>, pid: u32) -> String {
 struct BusWorld<'a> {
     bus: &'a SharedBus,
     process: ProcessIdentity,
+    wake: RefCell<Option<crate::system::signal::subscription::Subscription>>,
 }
 
 impl MenuWorld for BusWorld<'_> {
@@ -49,6 +51,16 @@ impl MenuWorld for BusWorld<'_> {
     }
 
     fn pause(&self, gap: Duration) {
+        use agent_desktop_core::WaitWakeup;
+        let mut wake = self.wake.borrow_mut();
+        if let Some(subscription) = wake.as_mut()
+            && let Ok(deadline) = Deadline::after(gap.as_millis().try_into().unwrap_or(u64::MAX))
+        {
+            if subscription.wait(deadline).is_err() {
+                *wake = None;
+            }
+            return;
+        }
         std::thread::sleep(gap);
     }
 
@@ -155,7 +167,24 @@ pub(crate) fn wait_for_menu(
     open: bool,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    run(&BusWorld { bus, process }, open, deadline)
+    let wake = crate::system::signal::subscription::Subscription::open(
+        bus,
+        &agent_desktop_core::SignalFilter {
+            process: Some(process.clone()),
+            ..Default::default()
+        },
+        deadline,
+    )
+    .ok();
+    run(
+        &BusWorld {
+            bus,
+            process,
+            wake: RefCell::new(wake),
+        },
+        open,
+        deadline,
+    )
 }
 
 #[cfg(test)]

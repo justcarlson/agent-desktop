@@ -1,6 +1,6 @@
 use agent_desktop_core::{SnapshotSurface, SurfaceSignal};
 
-use crate::system::menu::nested_scan::NestedScan;
+use crate::system::menu::surface_scan::NestedScan;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_app::RegistryApp;
 

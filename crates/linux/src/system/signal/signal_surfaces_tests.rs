@@ -95,8 +95,8 @@ fn nested(id: &str, title: Option<&str>) -> crate::system::menu::nested_surface:
 
 fn scan(
     found: Vec<crate::system::menu::nested_surface::Nested>,
-) -> crate::system::menu::nested_scan::NestedScan {
-    crate::system::menu::nested_scan::NestedScan {
+) -> crate::system::menu::surface_scan::NestedScan {
+    crate::system::menu::surface_scan::NestedScan {
         found,
         menus: Vec::new(),
         complete: true,
@@ -124,7 +124,7 @@ fn a_dialog_inside_a_window_is_one_sheet_signal_on_its_own_id() {
 #[test]
 fn a_menu_maps_its_own_identity() {
     let windows = [window("w-1.4-win", "Editor", false)];
-    let scan = |menus| crate::system::menu::nested_scan::NestedScan {
+    let scan = |menus| crate::system::menu::surface_scan::NestedScan {
         found: Vec::new(),
         menus,
         complete: true,

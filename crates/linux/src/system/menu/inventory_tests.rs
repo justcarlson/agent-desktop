@@ -160,3 +160,13 @@ fn an_idle_window_reports_no_menu() {
     let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree_with(true)));
     assert!(scan.menus.is_empty());
 }
+
+#[test]
+fn unread_menu_state_keeps_surface_inventory_incomplete() {
+    let mut tree = menu_window_tree();
+    tree.children[0].payload.node.traits.states = Field::Failed("state unavailable".into());
+    let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree.clone()));
+    assert!(scan.menus.is_empty());
+    assert!(!scan.complete);
+    assert_eq!(scan.unread, [0]);
+}
