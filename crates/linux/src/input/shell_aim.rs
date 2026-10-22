@@ -6,22 +6,17 @@ fn is_sentinel(extents: Rect) -> bool {
     extents.x <= lowest || extents.y <= lowest
 }
 
-pub(crate) fn monitor_under(point: &Point, displays: &[DisplayInfo]) -> Option<(String, Point)> {
-    let display = displays.iter().find(|display| {
+pub(crate) fn display_under<'a>(
+    point: &Point,
+    displays: &'a [DisplayInfo],
+) -> Option<&'a DisplayInfo> {
+    displays.iter().find(|display| {
         let bounds = &display.bounds;
         point.x >= bounds.x
             && point.x < bounds.x + bounds.width
             && point.y >= bounds.y
             && point.y < bounds.y + bounds.height
-    })?;
-    let connector = display.id.split('+').next().unwrap_or_default().to_owned();
-    Some((
-        connector,
-        Point {
-            x: point.x - display.bounds.x,
-            y: point.y - display.bounds.y,
-        },
-    ))
+    })
 }
 
 fn refusal(extents: Rect, why: &str) -> AdapterError {
@@ -57,7 +52,7 @@ pub(crate) fn aim(extents: Rect, displays: &[DisplayInfo]) -> Result<Point, Adap
         x: extents.x + extents.width / 2.0,
         y: extents.y + extents.height / 2.0,
     };
-    if monitor_under(&point, displays).is_none() {
+    if display_under(&point, displays).is_none() {
         return Err(refusal(extents, "centred outside every display"));
     }
     point.validate()?;

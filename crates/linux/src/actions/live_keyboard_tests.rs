@@ -80,7 +80,7 @@ fn open() -> (Bench, std::path::PathBuf) {
         .unwrap();
     bench.adapter().focus_window(&window, &lease).unwrap();
     let sibling = bench.named("Sibling");
-    super::keyboard_focus::grab(
+    crate::input::keyboard_focus::grab(
         bench.adapter().bus(),
         crate::tree::atspi_element(&sibling).unwrap(),
         lease.deadline(),
@@ -118,23 +118,27 @@ fn focus_transport_timeouts_survive_and_a_responsive_target_still_focuses() {
     );
     let bus = bench.adapter().bus();
     let read_error =
-        super::keyboard_focus::read(bus, element, Deadline::after(150).unwrap()).unwrap_err();
+        crate::input::keyboard_focus::read(bus, element, Deadline::after(150).unwrap())
+            .unwrap_err();
     let grab_error =
-        super::keyboard_focus::grab(bus, element, Deadline::after(150).unwrap()).unwrap_err();
+        crate::input::keyboard_focus::grab(bus, element, Deadline::after(150).unwrap())
+            .unwrap_err();
     for error in [read_error, grab_error] {
         assert_eq!(error.code, ErrorCode::Timeout);
         assert!(error.details.is_some(), "deadline evidence survives");
     }
     assert_eq!(read(&state), before, "no keyboard input was sent");
     drop(paused);
-    super::keyboard_focus::grab(bus, element, Deadline::after(3000).unwrap()).unwrap();
+    crate::input::keyboard_focus::grab(bus, element, Deadline::after(3000).unwrap()).unwrap();
     assert!(
         bench
-            .wait_for(
-                || super::keyboard_focus::read(bus, element, Deadline::after(3000).unwrap())
-                    .unwrap()
-                    .then_some(())
+            .wait_for(|| crate::input::keyboard_focus::read(
+                bus,
+                element,
+                Deadline::after(3000).unwrap()
             )
+            .unwrap()
+            .then_some(()))
             .is_some()
     );
     assert_eq!(read(&state)["clicks"], 0);

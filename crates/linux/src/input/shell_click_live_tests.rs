@@ -4,7 +4,7 @@ use agent_desktop_core::{Deadline, DeliverySemantics, ErrorCode, MouseButton, Po
 use zbus::connection::Builder;
 use zbus::zvariant::OwnedObjectPath;
 
-use super::run_pointer;
+use crate::input::wayland::pointer_send::run_pointer;
 use crate::input::wayland::remote_desktop::RemoteDesktop;
 
 const SERVICE: &str = "org.gnome.Mutter.RemoteDesktop";
@@ -167,7 +167,12 @@ fn a_missing_mutter_capability_refuses_before_session_creation() {
 fn assert_stream_error_is_preserved(pointer: &mut RemoteDesktop, log: &CallLog) {
     let error = run_pointer(
         pointer,
-        &Point { x: 640.0, y: 16.0 },
+        &agent_desktop_core::MouseEvent {
+            point: Point { x: 640.0, y: 16.0 },
+            button: MouseButton::Left,
+            kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+            modifiers: Vec::new(),
+        },
         &[agent_desktop_core::DisplayInfo {
             id: "refused".into(),
             bounds: agent_desktop_core::Rect {
@@ -179,7 +184,7 @@ fn assert_stream_error_is_preserved(pointer: &mut RemoteDesktop, log: &CallLog) 
             is_primary: true,
             scale: 1.,
         }],
-        &MouseButton::Left,
+        &mut || Ok(()),
         deadline(),
     )
     .expect_err("the stream service refuses access");
@@ -206,7 +211,12 @@ fn a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_r
     assert_stream_error_is_preserved(&mut pointer, &log);
     let error = run_pointer(
         &mut pointer,
-        &Point { x: 640.0, y: 16.0 },
+        &agent_desktop_core::MouseEvent {
+            point: Point { x: 640.0, y: 16.0 },
+            button: MouseButton::Left,
+            kind: agent_desktop_core::MouseEventKind::Click { count: 1 },
+            modifiers: Vec::new(),
+        },
         &[agent_desktop_core::DisplayInfo {
             id: "private".into(),
             bounds: agent_desktop_core::Rect {
@@ -218,7 +228,7 @@ fn a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_r
             is_primary: true,
             scale: 1.,
         }],
-        &MouseButton::Left,
+        &mut || Ok(()),
         deadline(),
     )
     .expect_err("Stop is refused after both click edges reached the service");

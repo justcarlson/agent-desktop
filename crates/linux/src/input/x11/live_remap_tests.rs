@@ -1,7 +1,7 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use super::live_tests::{deadline, private_display};
+use super::live_tests::{deadline, private_display, spawn_helper};
 use super::session::{live_keymap, run};
 use crate::input::keymap_edit::KeymapEdit;
 use crate::input::plan::Plan;
@@ -177,16 +177,10 @@ fn live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call() {
         let _ = run(&display, vec![hold], &mut || Ok(()), &lease);
         return;
     }
-    let mut child = Command::new(std::env::current_exe().expect("exe"))
-        .args([
-            "--exact",
-            "input::x11::live_remap_tests::live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call",
-            "--include-ignored",
-            "--nocapture",
-        ])
-        .env("AD_REMAP_HELPER", "1")
-        .spawn()
-        .expect("helper");
+    let mut child = spawn_helper(
+        "input::x11::live_remap_tests::live_a_remap_left_by_a_killed_client_is_restored_by_the_next_call",
+        "AD_REMAP_HELPER",
+    );
     assert!(
         wait_for_keysyms(&display, code, &remapped),
         "the remap never appeared"

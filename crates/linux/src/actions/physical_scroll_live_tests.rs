@@ -1,80 +1,110 @@
 use super::live_bench::Bench;
 use super::live_scroll_tests::read;
+use super::physical_receiver_world::ReceiverWorld;
+use crate::input::target_pointer::{scroll_steps, wheel_deltas};
+use crate::input::target_world::LiveWorld;
 use crate::tree::live_launch::{Launched, nonce};
-use agent_desktop_core::{Action, DeliverySemantics};
+use agent_desktop_core::{DeliverySemantics, InteractionPolicy, SystemOps};
 
 const WHEEL_APP: &str = r#"
-import json, pathlib, sys
-from PyQt6.QtCore import QPoint, QTimer, Qt
-from PyQt6.QtWidgets import QApplication, QWidget, QListWidget, QPushButton
-app = QApplication(sys.argv)
-window = QWidget()
-window.setWindowTitle(sys.argv[1])
-window.setGeometry(100, 100, 300, 200)
+import gi, json, pathlib, sys
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk, GLib
+window = Gtk.Window(title=sys.argv[1])
+window.set_default_size(300, 200)
+window.move(100, 100)
 late = sys.argv[4] == "late"
-counts = {"Target": 0, "Cover": 0, "covered": not late}
+counts = {"Target": 0, "Cover": 0, "delta": 0, "covered": not late, "triggered": False, "ready": False}
 def record():
-    counts["offset"] = target.verticalScrollBar().value()
+    counts["offset"] = adjustment.get_value()
+    counts["active"] = window.is_active()
     path = pathlib.Path(sys.argv[2])
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(counts))
     temporary.replace(path)
-class Target(QListWidget):
-    def wheelEvent(self, event):
-        counts["Target"] += 1
-        super().wheelEvent(event)
-        if late and counts["Target"] == 10:
-            cover.move(target.mapToGlobal(QPoint(0, 0)))
-            cover.show()
-            app.processEvents()
-            counts["covered"] = True
-        record()
-class Cover(QPushButton):
-    def wheelEvent(self, event):
-        counts["Cover"] += 1
-        event.accept()
-        record()
-target = Target(window)
-target.setAccessibleName("Target")
-target.setGeometry(0, 0, 300, 200)
-target.addItems(["Row %s" % i for i in range(100)])
-cover = Cover("Cover", window)
-cover.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-cover.setWindowTitle("Cover")
-cover.setAccessibleName("Cover")
-cover.setGeometry(100, 100, 300, 200)
+    return False
+target = Gtk.ScrolledWindow()
+target.get_accessible().set_name("Target")
+target.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
+column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+for index in range(100):
+    column.pack_start(Gtk.Label(label="Row %s" % index), False, False, 0)
+target.add(column)
+window.add(target)
+adjustment = target.get_vadjustment()
+cover = Gtk.Window(type=Gtk.WindowType.POPUP, title="Cover")
+cover.set_decorated(False)
+cover.set_keep_above(True)
+cover.set_default_size(300, 200)
+interceptor = Gtk.Button(label="Cover")
+cover.add(interceptor)
+def align(*_):
+    native = window.get_window()
+    offset = target.translate_coordinates(window, 0, 0)
+    if native and offset:
+        x, y = native.get_origin()[-2:]
+        cover.move(x + offset[0], y + offset[1])
+        cover.resize(target.get_allocated_width(), target.get_allocated_height())
+        if cover.get_visible():
+            cover.get_window().raise_()
+        Gdk.Display.get_default().sync()
+    return False
+window.connect('configure-event', align)
+target.connect('size-allocate', align)
+def wheel(widget, event):
+    counts["Target"] += 1
+    counts["delta"] += 120 if event.direction == Gdk.ScrollDirection.UP else -120
+    if late and not counts["triggered"] and counts["Target"] == 10:
+        counts["triggered"] = True
+        align()
+        cover.show_all()
+        align()
+        Gdk.Display.get_default().sync()
+        counts["covered"] = True
+    GLib.idle_add(record)
+    return False
+def intercepted(*_):
+    counts["Cover"] += 1
+    record()
+    return True
+target.connect('scroll-event', wheel)
+interceptor.add_events(Gdk.EventMask.SCROLL_MASK)
+interceptor.connect('scroll-event', intercepted)
 def poll():
-    cover.move(target.mapToGlobal(QPoint(0, 0)))
     if pathlib.Path(sys.argv[3]).exists():
         cover.hide()
+        window.present()
         counts["covered"] = False
-        record()
-        timer.stop()
-timer = QTimer()
-timer.timeout.connect(poll)
-timer.start(50)
-window.show()
-app.processEvents()
-if sys.argv[5] == "up":
-    target.verticalScrollBar().setValue(target.verticalScrollBar().maximum())
-counts["initial_offset"] = target.verticalScrollBar().value()
-if not late:
-    cover.show()
-record()
-sys.exit(app.exec())
+    record()
+    return not (pathlib.Path(sys.argv[3]).exists() and window.is_active())
+def ready():
+    if not window.is_active():
+        return True
+    if sys.argv[5] == "up":
+        adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size())
+    counts["initial_offset"] = adjustment.get_value()
+    if not late:
+        align()
+        cover.show_all()
+        align()
+    counts["ready"] = True
+    record()
+    return False
+window.show_all()
+GLib.idle_add(ready)
+GLib.timeout_add(50, poll)
+Gtk.main()
 "#;
 
 #[test]
-#[ignore = "drives Qt in scripts/private-session.sh --wm"]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
 fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
     for mode in ["covered", "late"] {
         for direction in [
             agent_desktop_core::Direction::Down,
             agent_desktop_core::Direction::Up,
         ] {
-            use agent_desktop_core::{
-                ActionRequest, Deadline, ErrorCode, HitTestResult, ObservationOps, Point,
-            };
+            use agent_desktop_core::{Deadline, ErrorCode, HitTestResult, ObservationOps, Point};
             let mut launched = Launched::new();
             let tag = nonce("wheel-cover");
             let scratch = std::env::temp_dir().join(&tag);
@@ -82,9 +112,8 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
             launched.scratch.push(scratch.clone());
             let state = scratch.join("state.json");
             let uncover = scratch.join("uncover");
-            let (python, environment) = super::live_bench_env::qt_environment();
-            let pid = launched.spawn_with_env(
-                &python,
+            let pid = launched.spawn(
+                "python3",
                 &[
                     "-c",
                     WHEEL_APP,
@@ -98,10 +127,9 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                         "down"
                     },
                 ],
-                &environment,
             );
             let adapter = crate::LinuxAdapter::new();
-            let frame = Bench::wait_for_frame(&adapter, &tag, pid, 20).expect("Qt window");
+            let frame = Bench::wait_for_frame(&adapter, &tag, pid, 20).expect("GTK window");
             let bench = Bench::attach(launched, frame);
             let target = bench.named("Target");
             let hit = || {
@@ -124,27 +152,88 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                     .unwrap()
             };
             let intercepted = || matches!(hit(), HitTestResult::InterceptedBy { name, .. } if name.as_deref() == Some("Cover"));
-            assert!(
-                bench
-                    .wait_for(|| (if mode == "late" {
-                        matches!(hit(), HitTestResult::ReachesTarget)
+            let covered = bench.wait_for(|| {
+                (read(&state)["ready"] == true
+                    && if mode == "late" {
+                        read(&state)["active"] == true
+                            && matches!(hit(), HitTestResult::ReachesTarget)
                     } else {
                         intercepted()
                     })
-                    .then_some(()))
-                    .is_some(),
-                "the native cover is mapped above the target: {:?}",
-                hit()
+                .then_some(())
+            });
+            if covered.is_none() {
+                let bounds = bench
+                    .adapter()
+                    .get_element_bounds(&target, Deadline::after(3_000).unwrap())
+                    .unwrap()
+                    .unwrap();
+                let point = [
+                    bounds.x + bounds.width / 2.0,
+                    bounds.y + bounds.height / 2.0,
+                ];
+                std::process::Command::new("xdotool")
+                    .args([
+                        "mousemove",
+                        &point[0].round().to_string(),
+                        &point[1].round().to_string(),
+                    ])
+                    .status()
+                    .unwrap();
+                for args in [
+                    vec!["xdotool", "getmouselocation", "--shell"],
+                    vec!["xwininfo", "-root", "-tree"],
+                ] {
+                    let output = std::process::Command::new(args[0])
+                        .args(&args[1..])
+                        .output()
+                        .unwrap();
+                    eprintln!(
+                        "native receiver oracle: {}",
+                        String::from_utf8_lossy(&output.stdout)
+                    );
+                }
+                panic!(
+                    "{mode} {direction:?}: bounds={bounds:?}, state={}, hit={:?}",
+                    read(&state),
+                    hit()
+                );
+            }
+            let lease = bench
+                .adapter()
+                .acquire_interaction_lease(Deadline::after(30_000).unwrap())
+                .unwrap();
+            let await_cover = |checks| {
+                if mode == "late" && checks == 2 {
+                    bench
+                        .wait_for(|| {
+                            (read(&state)["covered"] == true && intercepted()).then_some(())
+                        })
+                        .expect("the app acknowledged its first-burst cover");
+                }
+            };
+            let world = ReceiverWorld::new(
+                LiveWorld {
+                    bus: bench.adapter().bus(),
+                    lease: &lease,
+                },
+                &await_cover,
             );
-            let wheel = || ActionRequest::headed(Action::Scroll(direction.clone(), 21));
-            let error = bench
-                .act_with(&target, wheel())
-                .expect_err("covering window intercepts wheel");
+            let element = crate::tree::atspi_element(&target).unwrap();
+            let deltas = wheel_deltas(&direction, 21);
+            let error = scroll_steps(
+                &world,
+                element,
+                deltas,
+                InteractionPolicy::headed(),
+                lease.deadline(),
+            )
+            .expect_err("covering window intercepts wheel");
             assert_eq!(error.code, ErrorCode::ActionFailed);
             let details = error.details.expect("interception details");
             assert_eq!(details["check"], "receives_events");
             assert_eq!(details["interceptor"]["name"], "Cover");
-            let sent = if mode == "late" { 10 } else { 0 };
+            let sent: u32 = if mode == "late" { 10 } else { 0 };
             assert_eq!(details["delivered_clicks"], sent);
             assert_eq!(
                 error.disposition,
@@ -154,7 +243,10 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                     DeliverySemantics::not_delivered()
                 }
             );
-            assert_eq!(read(&state)["Target"], sent);
+            assert_eq!(
+                read(&state)["delta"].as_i64().unwrap().unsigned_abs(),
+                u64::from(sent) * 120
+            );
             assert_eq!(read(&state)["Cover"], 0);
             if mode == "covered" {
                 assert_eq!(read(&state)["offset"], read(&state)["initial_offset"]);
@@ -162,7 +254,10 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
             std::fs::write(&uncover, "").unwrap();
             assert!(
                 bench
-                    .wait_for(|| (read(&state)["covered"] == false).then_some(()))
+                    .wait_for(|| {
+                        let observed = read(&state);
+                        (observed["covered"] == false && observed["active"] == true).then_some(())
+                    })
                     .is_some()
             );
             assert!(
@@ -170,16 +265,30 @@ fn ref_wheel_refuses_a_covering_window_and_reaches_the_uncovered_target() {
                     .wait_for(|| matches!(hit(), HitTestResult::ReachesTarget).then_some(()))
                     .is_some()
             );
-            bench.act_with(&target, wheel()).expect("uncovered target");
+            scroll_steps(
+                &world.live,
+                element,
+                deltas,
+                InteractionPolicy::headed(),
+                lease.deadline(),
+            )
+            .expect("uncovered target");
             assert!(
                 bench
-                    .wait_for(|| (read(&state)["Target"] == sent + 21).then_some(()))
-                    .is_some()
+                    .wait_for(|| {
+                        (read(&state)["delta"].as_i64().unwrap().unsigned_abs()
+                            == u64::from(sent + 21) * 120)
+                            .then_some(())
+                    })
+                    .is_some(),
+                "{mode} {direction:?}: {}",
+                read(&state)
             );
             assert_eq!(read(&state)["Cover"], 0);
             let observed = read(&state);
-            let offset = observed["offset"].as_i64().unwrap();
-            let initial = observed["initial_offset"].as_i64().unwrap();
+            eprintln!("{mode} {direction:?} independent wheel receipt: {observed}");
+            let offset = observed["offset"].as_f64().unwrap();
+            let initial = observed["initial_offset"].as_f64().unwrap();
             assert!(if matches!(direction, agent_desktop_core::Direction::Up) {
                 offset < initial
             } else {

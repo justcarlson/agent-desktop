@@ -32,6 +32,7 @@ pub(crate) struct XtestSink {
     root: Window,
     min_keycode: u8,
     max_keycode: u8,
+    xkb_ready: bool,
     _cutoff: IoCutoff,
 }
 
@@ -122,6 +123,7 @@ impl XtestSink {
             root,
             min_keycode,
             max_keycode,
+            xkb_ready: false,
             _cutoff: cutoff,
         })
     }
@@ -131,6 +133,34 @@ impl XtestSink {
             .xtest_fake_input(kind, detail, IMMEDIATELY, self.root, x, y, NO_DEVICE)
             .map_err(request)?;
         self.connection.flush().map_err(|_| SinkError::Closed)
+    }
+
+    fn text_state(&mut self) -> Result<Keymap, SinkError> {
+        if !self.xkb_ready {
+            let reply = self
+                .connection
+                .xkb_use_extension(1, 0)
+                .map_err(request)?
+                .reply()
+                .map_err(request)?;
+            if !reply.supported {
+                return Err(SinkError::Request(
+                    "The display server has no compatible XKB extension".into(),
+                ));
+            }
+            self.xkb_ready = true;
+        }
+        let state = self
+            .connection
+            .xkb_get_state(ID::USE_CORE_KBD.into())
+            .map_err(request)?
+            .reply()
+            .map_err(request)?;
+        Ok(Keymap {
+            group: state.group.into(),
+            modifiers: state.mods.into(),
+            ..Keymap::default()
+        })
     }
 }
 
@@ -199,17 +229,7 @@ impl X11Sink for XtestSink {
             .map_err(request)?
             .reply()
             .map_err(request)?;
-        self.connection
-            .xkb_use_extension(1, 0)
-            .map_err(request)?
-            .reply()
-            .map_err(request)?;
-        let state = self
-            .connection
-            .xkb_get_state(ID::USE_CORE_KBD.into())
-            .map_err(request)?
-            .reply()
-            .map_err(request)?;
+        let state = self.text_state()?;
         let mut map = Keymap::new(
             self.min_keycode,
             keys.keysyms_per_keycode,
@@ -217,9 +237,15 @@ impl X11Sink for XtestSink {
             u8::try_from(modifiers.keycodes.len() / 8).map_err(request)?,
             modifiers.keycodes,
         );
-        map.group = state.group.into();
-        map.modifiers = state.mods.into();
+        map.group = state.group;
+        map.modifiers = state.modifiers;
         Ok(map)
+    }
+
+    fn ensure_text_state(&mut self) -> Result<(), AdapterError> {
+        self.text_state()
+            .map_err(SinkError::into_adapter)?
+            .ensure_text_state()
     }
 
     fn edit_keymap(&mut self, edit: &KeymapEdit) -> Result<(), SinkError> {

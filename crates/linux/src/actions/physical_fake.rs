@@ -3,16 +3,16 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use agent_desktop_core::{
-    AdapterError, Deadline, DeliverySemantics, ErrorCode, KeyCombo, MouseButton, Point, Rect,
+    AdapterError, Deadline, DeliverySemantics, ErrorCode, MouseButton, Point, Rect,
 };
 
-use crate::actions::physical_target::PhysicalWorld;
 use crate::input::backend::Backend;
 use crate::input::delivery::Delivery;
 use crate::input::delivery::Gate;
 use crate::input::keymap::Keymap;
 use crate::input::keysym_step::KeysymStep;
 use crate::input::plan::Plan;
+use crate::input::target_world::PhysicalWorld;
 use crate::tree::AtspiElement;
 
 pub(crate) struct FakeWorld {
@@ -20,7 +20,6 @@ pub(crate) struct FakeWorld {
     pub(crate) reads: RefCell<VecDeque<Option<bool>>>,
     pub(crate) focus_reads: RefCell<VecDeque<bool>>,
     pub(crate) bounds: Option<Rect>,
-    pub(crate) chunks: usize,
     pub(crate) log: RefCell<Vec<String>>,
     pub(crate) clip: Option<crate::tree::placement::Placement>,
     pub(crate) pointer_reads: RefCell<VecDeque<Result<(), AdapterError>>>,
@@ -47,7 +46,6 @@ impl FakeWorld {
                 width: 40.0,
                 height: 20.0,
             }),
-            chunks: 1,
             log: RefCell::new(Vec::new()),
             clip: None,
             pointer_reads: RefCell::default(),
@@ -57,11 +55,6 @@ impl FakeWorld {
 
     pub(crate) fn active_script(self, reads: &[Option<bool>]) -> Self {
         *self.reads.borrow_mut() = reads.iter().copied().collect();
-        self
-    }
-
-    pub(crate) fn with_chunks(mut self, chunks: usize) -> Self {
-        self.chunks = chunks;
         self
     }
 
@@ -83,25 +76,22 @@ impl FakeWorld {
     }
 
     pub(crate) fn sent_nothing(&self) -> bool {
-        self.count("sent") == 0
+        self.count("sent") + self.count("moved") == 0
     }
 
     fn note(&self, entry: impl Into<String>) {
         self.log.borrow_mut().push(entry.into());
     }
 
-    fn plan() -> Plan {
-        Plan {
-            steps: Vec::new(),
-            release_origin: None,
-        }
-    }
-
-    fn deliver(&self, units: usize, gate: Gate<'_>) -> Result<Delivery, AdapterError> {
+    fn deliver(
+        &self,
+        units: impl IntoIterator<Item = bool>,
+        gate: Gate<'_>,
+    ) -> Result<Delivery, AdapterError> {
         let mut delivered = 0u32;
-        for _ in 0..units {
+        for input in units {
             gate()?;
-            self.note("sent");
+            self.note(if input { "sent" } else { "moved" });
             delivered += 1;
         }
         Ok(Delivery {
@@ -132,7 +122,9 @@ impl PhysicalWorld for FakeWorld {
 
     fn keymap(&self, _deadline: Deadline) -> Result<Keymap, AdapterError> {
         self.note("keymap");
-        Ok(Keymap::default())
+        let mut map = Keymap::sample();
+        map.keysyms[16..20].copy_from_slice(&[0x6e, 0x4e, 0, 0]);
+        Ok(map)
     }
 
     fn frame_active(
@@ -168,43 +160,13 @@ impl PhysicalWorld for FakeWorld {
             return result;
         }
         match &self.clip {
-            Some(placed) => crate::actions::physical_aim::validate(
+            Some(placed) => crate::input::physical_aim::validate(
                 point,
                 placed,
                 element.scroll_container().is_some(),
             ),
             None => Ok(()),
         }
-    }
-
-    fn plan_combo(&self, _map: &Keymap, combo: &KeyCombo) -> Result<Plan, AdapterError> {
-        self.note(format!("plan_combo {}", combo.key));
-        Ok(Self::plan())
-    }
-
-    fn plan_keysyms(&self, combo: &KeyCombo) -> Result<Vec<KeysymStep>, AdapterError> {
-        self.note(format!("plan_keysyms {}", combo.key));
-        Ok(vec![KeysymStep {
-            keysym: 0x61,
-            down: true,
-        }])
-    }
-
-    fn plan_text(&self, _map: &Keymap, text: &str) -> Result<Vec<Plan>, AdapterError> {
-        self.note(format!("plan_text {text}"));
-        Ok((0..self.chunks).map(|_| Self::plan()).collect())
-    }
-
-    fn plan_text_keysyms(&self, text: &str) -> Vec<Vec<KeysymStep>> {
-        self.note(format!("plan_text_keysyms {text}"));
-        (0..self.chunks)
-            .map(|_| {
-                vec![KeysymStep {
-                    keysym: 0x61,
-                    down: true,
-                }]
-            })
-            .collect()
     }
 
     fn plan_click(
@@ -218,19 +180,6 @@ impl PhysicalWorld for FakeWorld {
         crate::input::pointer_plan::plan_click(map, at, button, count, &[])
     }
 
-    fn plan_wheel(
-        &self,
-        _map: &Keymap,
-        at: Point,
-        deltas: (f64, f64),
-    ) -> Result<Vec<Plan>, AdapterError> {
-        self.note(format!(
-            "plan_wheel {},{} {},{}",
-            at.x, at.y, deltas.0, deltas.1
-        ));
-        crate::input::wheel_plan::plan_wheel(_map, at, deltas.0, deltas.1, &[])
-    }
-
     fn send_plans(
         &self,
         plans: Vec<Plan>,
@@ -240,7 +189,16 @@ impl PhysicalWorld for FakeWorld {
         if let Some(sink) = &self.sink {
             return crate::input::x11::fake_sink::run(sink, plans, gate, deadline, None);
         }
-        self.deliver(plans.len(), gate)
+        self.deliver(
+            plans.iter().map(|plan| {
+                !plan
+                    .steps
+                    .iter()
+                    .all(|step| matches!(step, crate::input::step::Step::MoveTo { .. }))
+                    || plan.steps.is_empty()
+            }),
+            gate,
+        )
     }
 
     fn send_keysyms(
@@ -249,7 +207,7 @@ impl PhysicalWorld for FakeWorld {
         gate: Gate<'_>,
         _deadline: Deadline,
     ) -> Result<Delivery, AdapterError> {
-        self.deliver(chunks.len(), gate)
+        self.deliver((0..chunks.len()).map(|_| true), gate)
     }
 
     fn pointer_refusal(&self, what: &'static str) -> AdapterError {
