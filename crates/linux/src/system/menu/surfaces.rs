@@ -92,7 +92,7 @@ pub(crate) fn list_surfaces(
     let pid = process.pid.get();
     let registry = read_registry_for(bus, Some(pid), deadline)?;
     let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
-    let mut inventory = Inventory::new(bus, deadline);
+    let mut inventory = Inventory::structural(bus, deadline);
     let scan = scan_windows(&windows, |window| inventory.read(window));
     let mut surfaces = surfaces_of(&windows);
     mark_unread(&mut surfaces, &windows, &scan);

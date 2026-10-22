@@ -6,8 +6,9 @@ use agent_desktop_core::{
 use super::ancestry;
 use super::menu_identity::MenuIdentity;
 use super::node_position::place_nodes;
+use super::read_purpose::ReadPurpose;
 use super::role_numbers::is_bulk_container;
-use super::walker::walk_tree;
+use super::walker::{walk_structure, walk_tree};
 use super::{AtspiElement, ObservedRead, WalkLimits, WalkedNode};
 use crate::system::SharedBus;
 use crate::system::menu::menu_surface::{MenuPopup, popups_of};
@@ -34,7 +35,25 @@ pub(crate) fn scan_walk(
     walk_tree(bus, root, &limits, deadline).map(|walk| walk.root)
 }
 
-const BULK_CHILDREN: usize = 48;
+pub(crate) const BULK_CHILDREN: usize = 48;
+
+/// The structural walk of `scan_walk` or, with `bulk_children`, of
+/// `scan_walk_pruned`, reading only what an inventory of surfaces classifies.
+pub(crate) fn scan_walk_structure(
+    bus: &SharedBus,
+    root: &AtspiElement,
+    max_nodes: usize,
+    bulk_children: Option<usize>,
+    deadline: Deadline,
+) -> Result<WalkedNode<ObservedRead>, AdapterError> {
+    let defaults = WalkLimits::default();
+    let limits = WalkLimits {
+        max_nodes,
+        bulk_children: bulk_children.unwrap_or(defaults.bulk_children),
+        ..defaults
+    };
+    walk_structure(bus, root, &limits, deadline, ReadPurpose::Structure).map(|walk| walk.root)
+}
 
 /// Walks up to `max_nodes` nodes below `root` and reads at most a few dozen
 /// children of any one list, table or tree. The popup of a menu is never one of the many
