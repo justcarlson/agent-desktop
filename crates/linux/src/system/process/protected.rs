@@ -22,7 +22,11 @@ fn unknown() -> AdapterError {
 }
 
 fn display_socket() -> Result<PathBuf, AdapterError> {
-    match session_server() {
+    socket_of(session_server())
+}
+
+fn socket_of(server: DisplayServer) -> Result<PathBuf, AdapterError> {
+    match server {
         DisplayServer::Wayland => {
             let env = DisplayEnv::from_process();
             let name = env.wayland.ok_or_else(unknown)?;
@@ -41,7 +45,8 @@ fn display_socket() -> Result<PathBuf, AdapterError> {
             }
             Ok(PathBuf::from(format!("/tmp/.X11-unix/X{number}")))
         }
-        DisplayServer::Unavailable(_) => Err(unknown()),
+        DisplayServer::Unavailable(why) => Err(crate::system::display::unreachable(why)
+            .with_disposition(DeliverySemantics::not_delivered())),
     }
 }
 
