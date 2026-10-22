@@ -1,6 +1,8 @@
 use crate::system::shell::fake_tree::{SENTINEL, at};
 use crate::system::shell::light::is_placed;
 use crate::tree::AtspiElement;
+use crate::tree::absence::UNKNOWN_OBJECT;
+use agent_desktop_core::{AdapterError, ErrorCode};
 
 #[test]
 fn extents_name_a_place_only_with_area_and_no_sentinel() {
@@ -9,6 +11,22 @@ fn extents_name_a_place_only_with_area_and_no_sentinel() {
     assert!(!is_placed(at(0, 0, 0, 32)));
     assert!(!is_placed(at(0, 0, 10, 0)));
     assert!(!is_placed(SENTINEL));
+}
+
+#[test]
+fn a_node_that_died_between_listing_and_reading_is_missing_and_not_broken() {
+    let dead = AdapterError::new(
+        ErrorCode::Internal,
+        "The children of the accessible object could not be listed",
+    )
+    .with_platform_detail(format!("{UNKNOWN_OBJECT}: the object does not exist"));
+    assert_eq!(
+        super::missing_when_dead(dead).code,
+        ErrorCode::ElementNotFound
+    );
+    let slow = AdapterError::new(ErrorCode::Internal, "The children could not be listed")
+        .with_platform_detail("org.freedesktop.DBus.Error.NoReply: no answer");
+    assert_eq!(super::missing_when_dead(slow).code, ErrorCode::Internal);
 }
 
 #[test]

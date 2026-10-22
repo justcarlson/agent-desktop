@@ -4,6 +4,7 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
+use crate::tree::absence::UNKNOWN_OBJECT;
 use crate::tree::state_bits::{SHOWING, StateBits, VISIBLE};
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, Extents, list_children};
 
@@ -127,6 +128,23 @@ pub(crate) fn live_extents(
     })
 }
 
+/// A node that dies between its parent's listing and its own read answers
+/// `UnknownObject`: it has left the tree and is not broken.
+fn missing_when_dead(error: AdapterError) -> AdapterError {
+    let dead = error.code == ErrorCode::Internal
+        && error
+            .platform_detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains(UNKNOWN_OBJECT));
+    if dead {
+        return AdapterError::new(
+            ErrorCode::ElementNotFound,
+            "The shell node left the tree before it was read",
+        );
+    }
+    error
+}
+
 async fn read_one(connection: &Connection, element: &AtspiElement) -> Result<Light, AdapterError> {
     let (children, name, role, states, extents) = join5(
         list_children(connection, element),
@@ -136,7 +154,7 @@ async fn read_one(connection: &Connection, element: &AtspiElement) -> Result<Lig
         extents_of(connection, element),
     )
     .await;
-    let children = children?;
+    let children = children.map_err(missing_when_dead)?;
     let role = role?.ok_or_else(|| {
         AdapterError::new(ErrorCode::ElementNotFound, "The shell node did not answer")
     })?;
