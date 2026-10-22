@@ -3,12 +3,13 @@ use std::ffi::{CStr, CString, c_char};
 use std::fs::File;
 use std::os::fd::AsRawFd;
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 const STEPS_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE";
 const HOST_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE_HOST";
+const LOCK_ENV: &str = "AGENT_DESKTOP_PERMISSION_GUIDE_LOCK";
 const LOCK_NAME: &str = "agent-desktop-permission-guide.lock";
 const ACCESSIBILITY: u8 = 1;
 const SCREEN_RECORDING: u8 = 2;
@@ -28,8 +29,8 @@ pub(crate) fn start() -> Result<&'static str, AdapterError> {
     if steps == 0 {
         return Ok("not_needed");
     }
-    match single_instance_lock() {
-        Ok(Some(_)) => {}
+    let lock = match single_instance_lock() {
+        Ok(Some(lock)) => lock,
         Ok(None) => return Ok("already_running"),
         Err(error) => {
             return Err(
@@ -37,7 +38,7 @@ pub(crate) fn start() -> Result<&'static str, AdapterError> {
                     .with_platform_detail(error.to_string()),
             );
         }
-    }
+    };
     let executable = std::env::current_exe().map_err(|error| {
         AdapterError::internal("Could not locate the agent-desktop executable")
             .with_platform_detail(error.to_string())
@@ -47,6 +48,7 @@ pub(crate) fn start() -> Result<&'static str, AdapterError> {
     for name in COMMAND_HOST_ENVS {
         command.env_remove(name);
     }
+    hand_over(&mut command, &lock);
     let mut child = command
         .env(STEPS_ENV, steps.to_string())
         .env(HOST_ENV, host)
@@ -79,11 +81,9 @@ fn run_child(steps: &str) -> bool {
     else {
         return false;
     };
-    let _lock = match single_instance_lock() {
-        Ok(Some(lock)) => lock,
-        Ok(None) => return true,
-        Err(_) => return false,
-    };
+    if !keep_inherited_lock() {
+        return false;
+    }
     unsafe { agent_desktop_permission_guide_run(steps, host.as_ptr(), granted) == 0 }
 }
 
@@ -138,12 +138,36 @@ fn host_app() -> Option<PathBuf> {
     path.to_str().ok().map(PathBuf::from)
 }
 
+fn hand_over(command: &mut Command, lock: &File) {
+    let fd = lock.as_raw_fd();
+    command.env(LOCK_ENV, fd.to_string());
+    unsafe {
+        command.pre_exec(move || {
+            if libc::fcntl(fd, libc::F_SETFD, 0) == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+}
+
+fn keep_inherited_lock() -> bool {
+    std::env::var(LOCK_ENV)
+        .ok()
+        .and_then(|fd| fd.parse::<i32>().ok())
+        .is_some_and(|fd| unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } == 0)
+}
+
 fn single_instance_lock() -> std::io::Result<Option<File>> {
+    lock_file(&std::env::temp_dir().join(LOCK_NAME))
+}
+
+fn lock_file(path: &Path) -> std::io::Result<Option<File>> {
     let file = File::options()
         .create(true)
         .truncate(false)
         .write(true)
-        .open(std::env::temp_dir().join(LOCK_NAME))?;
+        .open(path)?;
     if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
         return Ok(Some(file));
     }
@@ -180,6 +204,22 @@ mod tests {
         assert_eq!(parse_steps("3"), Some(3));
         assert_eq!(parse_steps("0"), None);
         assert_eq!(parse_steps("4"), None);
+    }
+
+    #[test]
+    fn the_guide_lock_stays_held_from_the_check_through_the_child() {
+        let path = std::env::temp_dir().join(format!("{LOCK_NAME}.{}.test", std::process::id()));
+        let lock = lock_file(&path).unwrap().unwrap();
+        let mut command = Command::new("/bin/sleep");
+        command.arg("30");
+        hand_over(&mut command, &lock);
+        let mut child = command.spawn().unwrap();
+        drop(lock);
+        assert!(lock_file(&path).unwrap().is_none());
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(lock_file(&path).unwrap().is_some());
+        std::fs::remove_file(&path).unwrap();
     }
 
     #[test]

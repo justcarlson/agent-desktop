@@ -120,7 +120,9 @@ fn run() -> ExitCode {
 
     let cmd_name = cmd.name();
     #[cfg(target_os = "macos")]
-    if std::env::var("AGENT_DESKTOP_INTERNAL_HOST_CLIENT").as_deref() == Ok("1") {
+    if std::env::var("AGENT_DESKTOP_INTERNAL_HOST_CLIENT").as_deref() == Ok("1")
+        && !cmd.needs_caller_process()
+    {
         return match command_host::forward(&cli, &cmd) {
             Ok(response) => match emit_response(&response) {
                 Err(error) => report_output_failure(error),

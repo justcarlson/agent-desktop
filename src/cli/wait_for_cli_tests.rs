@@ -139,6 +139,15 @@ fn typed_metadata_couples_name_and_wait_support_to_each_variant() {
     assert!(!find.supports_post_action_wait());
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn only_the_permission_guide_stays_in_the_caller_process() {
+    assert!(command(&["permissions", "--guide"]).needs_caller_process());
+    assert!(!command(&["permissions"]).needs_caller_process());
+    assert!(!command(&["permissions", "--request"]).needs_caller_process());
+    assert!(!command(&["click", "@e1"]).needs_caller_process());
+}
+
 #[test]
 fn mutation_metadata_distinguishes_read_only_and_file_writing_forms() {
     assert!(command(&["click", "@e1"]).is_mutating());
