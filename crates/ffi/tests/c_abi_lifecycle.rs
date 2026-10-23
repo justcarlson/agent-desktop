@@ -62,18 +62,19 @@ fn null_tolerance_on_list_accessors_and_free() {
 
 #[test]
 fn dirty_out_param_is_cleared_before_early_return_on_worker_thread() {
-    with_adapter(|adapter| unsafe {
-        let fake_ptr = 0xDEAD_BEEF as *mut common::AdAppList;
-        let mut list = fake_ptr;
-        let rc = ad_list_apps(adapter, &mut list);
-        if rc != AdResult::Ok {
-            assert!(
-                list.is_null(),
-                "dirty out-param must be zeroed before early return, got {:?}",
-                list
-            );
-        }
-    });
+    let (rc, list_addr) = std::thread::spawn(|| unsafe {
+        let mut list = 0xDEAD_BEEF as *mut common::AdAppList;
+        let rc = ad_list_apps(std::ptr::null(), &mut list);
+        (rc, list.addr())
+    })
+    .join()
+    .unwrap();
+
+    assert_eq!(rc, AdResult::ErrInvalidArgs);
+    assert_eq!(
+        list_addr, 0,
+        "dirty out-param must be zeroed before the null-adapter early return"
+    );
 }
 
 #[test]
@@ -120,7 +121,7 @@ fn exact_list_out_params_are_zeroed_on_stub_or_platform_failure() {
 }
 
 #[test]
-fn find_returns_not_found_on_empty_query_against_no_window() {
+fn find_exact_rejects_an_unversioned_window_struct() {
     with_adapter(|adapter| unsafe {
         let bad_win: AdExactWindowInfo = std::mem::zeroed();
         let mut query: AdFindQuery = std::mem::zeroed();
@@ -130,6 +131,12 @@ fn find_returns_not_found_on_empty_query_against_no_window() {
         };
         let rc = ad_find_exact(adapter, &bad_win, &query, &mut handle);
         assert_eq!(rc, AdResult::ErrInvalidArgs);
+        let message = CStr::from_ptr(ad_last_error_message()).to_string_lossy();
+        assert!(
+            message.contains("AdExactWindowInfo version or size"),
+            "rejection must come from the window layout gate, got: {message}"
+        );
+        assert!(handle.ptr.is_null(), "no handle may be produced");
     });
 }
 
