@@ -52,7 +52,7 @@ attributes/actions/settable flags through ApplicationServices without Agent
 Desktop internals. It requires the process ID and an exact owned window title
 that starts with `AD Reliability`. It also lists parameterized attribute names
 and reads AXIdentifier and AXDOMIdentifier. Inspect parameterized attributes
-before concluding that an editor exposes no write path, because ordinary setters
+before concluding that an editor exposes no write path. Ordinary setters
 can be no-ops while the element still advertises an operation such as
 `AXReplaceRangeWithText` (Numbers' cell editor advertises AXStringForRange,
 AXAttributedStringForRange, AXLineForIndex, AXReplaceRangeWithText,
@@ -131,11 +131,11 @@ AppKit's default receiver or Numbers can perform the operation in the background
 The cross-process argument is a dictionary: `AXReplacementRange` (an AXValue
 CFRange in UTF-16 units) and `AXReplacementText` (a CFString), read by AppKit's
 `_NSAccessibilityResultForReplaceRangeWithText`. Native success plus `true` does
-not mean the text changed: plain background NSTextView (`--standard`) and Numbers
-both return them and leave the value unchanged; the custom receiver changes it.
+not mean the text changed. Plain background NSTextView (`--standard`) and Numbers
+both return them and leave the value unchanged; only the custom receiver changes it.
 A surrogate-pair check replacing `A😀B` logged UTF-16 range `{0, 4}`.
-AppKit's default path goes through the current input context, nil for a non-key
-window even after the text view becomes first responder (`--standard-focused`).
+AppKit's default path goes through the current input context. That context is nil
+for a non-key window, even after the text view becomes first responder (`--standard-focused`).
 No production write path uses this operation: no Numbers background write was shown to work.
 
 ## Nested scroll regression

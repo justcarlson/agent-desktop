@@ -10,7 +10,7 @@ Build the CLI and its adjacent clipboard owner and run one tier in one call:
 bash tests/e2e-linux/run.sh --tier x11-openbox
 ```
 
-Each run builds (`cargo build --locked --release`) into its own suite's temporary Cargo target, stages both executables in `<suite>/bin/`, and records their SHA256s in adjacent `.sha256` files and in the startup `image:` lines. It then removes the build intermediates. Every leg uses that pinned pair; a staged hash mismatch fails the run, and other worktrees' builds cannot replace either image. An externally supplied `AGENT_DESKTOP_E2E_BIN` (or `AGENT_DESKTOP_E2E_BIN_SRC`) skips the build and freezes that image and its adjacent helper before the interaction lease is taken.
+Each run builds (`cargo build --locked --release`) into its own suite's temporary Cargo target, stages both executables in `<suite>/bin/`, and records their SHA256s in adjacent `.sha256` files and in the startup `image:` lines. It then removes the build intermediates. Every leg uses that pinned pair. A staged hash mismatch fails the run, and other worktrees' builds cannot replace either image. An externally supplied `AGENT_DESKTOP_E2E_BIN` (or `AGENT_DESKTOP_E2E_BIN_SRC`) skips the build and freezes that image and its adjacent helper before the interaction lease is taken.
 
 Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}`. The runner starts its own private sessions and takes the interaction lease.
 
@@ -49,9 +49,9 @@ The runner inherits the caller's tool paths and libraries: supply tools through 
 - `--tier x11-mutter`: private Xvfb and the private mutter shell wrapper.
 - `--tier wayland`: private bus and a health-gated headless GNOME Wayland shell.
 
-Each tier runs the headless and headed modes registered for that leg. A headed mode on a headless compositor means synthetic input inside that private session. It does not mean input to the user's desktop.
+Each tier runs the headless and headed modes registered for that leg. A headed mode on a headless compositor sends synthetic input inside that private session, not to the user's desktop.
 
-`events.open_and_close_inside_one_wait` and `ref_actions.drag` are registered on openbox only. On Mutter the first tore down against a vanished AT-SPI node and the second timed out during editor registry setup before dispatching a product command. Neither counts as a Mutter pass. A leg that is not registered for a tier makes no live claim there.
+`events.open_and_close_inside_one_wait` and `ref_actions.drag` are registered on openbox only. On Mutter, the first leg tore down against a vanished AT-SPI node. The second timed out during editor registry setup before it dispatched a product command. Neither counts as a Mutter pass. A leg that is not registered for a tier makes no live claim there.
 
 ## Legs
 
@@ -65,7 +65,7 @@ bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
 
 A pass requires independent before/after observations, restoration where state changed, and the same attributed app process generations after cleanup. A refusal leg must assert its expected error and absence of effect.
 
-Per-leg cleanup stops each attributed app generation. Private background services may start or exit independently; their membership is not an app-leak oracle. Private-session teardown sweeps all runtime members and fails if any survive.
+Per-leg cleanup stops each attributed app generation. Private background services may start or exit independently; their membership does not show an app leak. Private-session teardown sweeps all runtime members and fails if any survive.
 
 To list registered IDs, modes and dispositions for a tier without starting apps:
 
@@ -122,7 +122,7 @@ The `ref_actions.*` legs observe and restore native application state:
 | Scroll-to | Settings reveals the offscreen monitor checkbox without changing its checked state. |
 | Drag | Text Editor gains a nonempty text selection. |
 
-Headless focus, double-click, triple-click, hover, scroll and drag are separate `asserted-refusal` legs requiring `POLICY_DENIED`, no app effect and unchanged pointer and focus. Right-click, expand/collapse and scroll-to have semantic success legs in both modes. The `pointer.*` legs compare the product's delivery report with an independent read of the app state, delivered and undelivered; a fabricated report or pointer movement alone cannot pass. The `mouse-click`, `drag` and `mouse-wheel` delivery legs read the actual effect: the Calculator digit, the Text Editor selection or the scrollbar position. Text Editor is seeded in memory through raw `EditableText`, and selection cleanup sends Right only after requiring that the exact owned window is active.
+Headless focus, double-click, triple-click, hover, scroll and drag are separate `asserted-refusal` legs requiring `POLICY_DENIED`, no app effect and unchanged pointer and focus. Right-click, expand/collapse and scroll-to have semantic success legs in both modes. The `pointer.*` legs compare the product's delivery report with an independent read of the app state, in both delivered and undelivered cases. A fabricated report or pointer movement alone cannot pass. The `mouse-click`, `drag` and `mouse-wheel` delivery legs read the actual effect: the Calculator digit, the Text Editor selection or the scrollbar position. Text Editor is seeded in memory through raw `EditableText`, and selection cleanup sends Right only after requiring that the exact owned window is active.
 
 ### Notification and tray legs
 

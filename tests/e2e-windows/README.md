@@ -37,10 +37,10 @@ Every file stays under the 400-line cap that `scripts/check-e2e-windows-contract
 - `skip-allowlist.psd1` - every capability token a scenario may pass to
   `Add-Skip`, with a reason. An undeclared token fails the run (a skip must
   never read as a pass).
-- `latency-baseline.psd1` - the committed p99 store that
-  `Initialize-NoEffectWindow` checks the pinned `Assert-NoEffect` window
-  against: the run refuses to start when that window is below 1.5x the largest
-  recorded p99. It holds four whole-CLI cost entries taken from
+- `latency-baseline.psd1` - the committed p99 store. `Initialize-NoEffectWindow`
+  checks the pinned `Assert-NoEffect` window against it: the run refuses to start
+  when that window is below 1.5x the largest recorded p99. It holds four
+  whole-CLI cost entries taken from
   `probes/windows/24-fixture-e2e/captures/cost-baseline-devbox.json`; no
   per-leg entries have been measured, and `BootstrapP99Ms` applies only while
   `Legs` is empty.
@@ -87,9 +87,9 @@ self-tests, and then `Run-E2E.ps1`. It refuses to run off Windows or without
 - Every ref is a target object from `Find-Target`/`Find-TargetById`, carrying
   both `RefId` and `SnapshotId`. No helper accepts or returns a bare `@eN`.
 - Effect assertions go through `Assert-Effect`/`Assert-NoEffect`; envelope
-  assertions go through `Assert-Envelope`. Dotted access to `.ok`/`.error`/
-  `.disposition`/`.data` on a command result is a `Lib.psm1`/`LibEnvelope.psm1`-only
-  privilege (rule 5 gates dotted member access only; bracket indexing is not gated).
+  assertions go through `Assert-Envelope`. Only `Lib.psm1` and `LibEnvelope.psm1` may use
+  dotted access to `.ok`/`.error`/`.disposition`/`.data` on a command result
+  (rule 5 gates dotted member access only; bracket indexing is not gated).
 - Every desktop-touching leg is lexically wrapped in `Enter-Stage`, declaring
   locks in the fixed order `DesktopLease` -> `ForegroundStage` -> `MenuStage`.
 - Every scenario calls `Register-Legs` with its leg names up front; every

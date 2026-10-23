@@ -68,9 +68,10 @@ and needs PyGObject with the GTK 3 typelib (`python3-gi`, `gir1.2-gtk-3.0`).
 
 Legs 1 to 4 gate the permission-independent surface (ABI version, struct sizes,
 `ad_version`) and the `PLATFORM_NOT_SUPPORTED` passthrough path. A successful
-`ad_snapshot` with `ok:true` from the real adapter is covered elsewhere: on
-macOS by the native E2E harness (`tests/e2e/run.sh`, whose `ffi_live.py` drives
-the release FFI library), which requires AX permission, and on Linux by Leg 5.
+`ad_snapshot` with `ok:true` from the real adapter is covered elsewhere. On
+macOS, the native E2E harness covers it (`tests/e2e/run.sh`, whose `ffi_live.py`
+drives the release FFI library) and requires AX permission. On Linux, Leg 5
+covers it.
 
 ## Other files
 
