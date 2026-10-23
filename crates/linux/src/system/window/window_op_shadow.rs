@@ -38,19 +38,29 @@ fn shift(object: &mut Value, key: &str, by: i64) {
     }
 }
 
-/// Rewrites the client rectangles of an error back into the visible window's
-/// rectangle, the one the caller asked in and `list-windows` reports.
-pub(in crate::system) fn to_visible(mut error: AdapterError, shadow: Shadow) -> AdapterError {
+/// Rewrites a client rectangle into the visible window's rectangle, the one
+/// the caller asked in and `list-windows` reports.
+pub(in crate::system) fn visible_of(mut rectangle: Value, shadow: Shadow) -> Value {
     let (left, top, right, bottom) = shadow;
+    shift(&mut rectangle, "x", i64::from(left));
+    shift(&mut rectangle, "y", i64::from(top));
+    shift(&mut rectangle, "width", -i64::from(left) - i64::from(right));
+    shift(
+        &mut rectangle,
+        "height",
+        -i64::from(top) - i64::from(bottom),
+    );
+    rectangle
+}
+
+/// Rewrites the client rectangles of an error back into the visible window's.
+pub(in crate::system) fn to_visible(mut error: AdapterError, shadow: Shadow) -> AdapterError {
     let Some(details) = error.details.as_mut() else {
         return error;
     };
     for key in ["requested", "observed"] {
         if let Some(rectangle) = details.get_mut(key) {
-            shift(rectangle, "x", i64::from(left));
-            shift(rectangle, "y", i64::from(top));
-            shift(rectangle, "width", -i64::from(left) - i64::from(right));
-            shift(rectangle, "height", -i64::from(top) - i64::from(bottom));
+            *rectangle = visible_of(rectangle.take(), shadow);
         }
     }
     error

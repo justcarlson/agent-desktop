@@ -50,7 +50,6 @@ impl LiftWorld for World {
                 width: 1,
                 height: 1,
             },
-            shadow: (0, 0, 0, 0),
             hidden: seen < self.clear_after,
             maximized_vertical: false,
             maximized_horizontal: false,

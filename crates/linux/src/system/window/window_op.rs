@@ -7,17 +7,16 @@ use agent_desktop_core::{
 use serde_json::Value;
 
 use self::hold::{
-    confirm_rectangle, give_back_place, gives_back, is_resize, remember_place, try_give_back,
+    confirm_rectangle, give_back_place, holds_place, is_resize, move_client, remember_place,
 };
 use self::owner::{ensure_owned_after, ensure_owned_before};
 use self::refuse::{no_client, refused, unreadable, unsupported_session, write_failed};
 use self::window_place::PlaceStore;
 use super::window_client::{ClientWorld, client_of};
-use super::window_op_shadow::{Shadow, to_client, to_visible};
+use super::window_op_shadow::{Shadow, to_client, to_visible, visible_of};
 use super::window_op_verdict::{
     POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, observed_of, requested, unverified,
 };
-use super::window_report::{visible_observation, window_readback, with_observed};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::focus::focus_cause::Cause;
 use crate::system::focus::focus_window::FocusWorld;
@@ -221,7 +220,7 @@ fn apply(
         remember_place(world, win, client);
     }
     let before = if is_resize(write) {
-        world.facts(client).ready()
+        world.facts(client).ready().map(|facts| facts.client)
     } else {
         None
     };
@@ -235,10 +234,12 @@ fn apply(
             Err(unverified(write, observed.as_ref(), &displays))
         }
     };
-    if let (Some(place), Some(held)) = (before, observed)
-        && gives_back(&place, &held, &world.displays())
+    if let (Some(place), Some(facts)) = (before, observed)
+        && holds_place(&place, &facts.client, &world.displays())
+        && ((facts.client.x - place.x).abs() > POSITION_TOLERANCE
+            || (facts.client.y - place.y).abs() > POSITION_TOLERANCE)
     {
-        try_give_back(world, win, client, place.client, deadline);
+        let _ = move_client(world, win, client, place, deadline);
     }
     outcome.map_err(|error| reobserve(world, client, error))
 }
@@ -326,7 +327,7 @@ fn dispatch(
         WindowOp::Resize { .. } => world
             .facts(client)
             .ready()
-            .map(|facts| visible_observation(&facts)),
+            .map(|facts| visible_of(observed_of(Some(&facts)), shadow)),
         _ => None,
     })
     .map_err(|error| to_visible(error, shadow))
@@ -340,8 +341,18 @@ fn run(
 ) -> Result<OperationReport, AdapterError> {
     let dispatched = dispatch(world, win, op, deadline);
     let observed = dispatched.as_ref().ok().cloned().flatten();
-    OperationReport::from_window_dispatch(win, op, window_readback(op), dispatched.map(drop))
-        .map(|report| with_observed(report, observed))
+    let mut report = OperationReport::from_window_dispatch(
+        win,
+        op,
+        super::window_report::window_readback(op),
+        dispatched.map(drop),
+    )?;
+    if let (Some(observed), Some(Value::Object(details))) =
+        (observed, report.result.details.as_mut())
+    {
+        details.insert("observed".to_owned(), observed);
+    }
+    Ok(report)
 }
 
 pub(crate) fn window_op(

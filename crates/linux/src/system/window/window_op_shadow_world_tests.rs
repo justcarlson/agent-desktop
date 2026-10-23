@@ -57,7 +57,10 @@ fn a_move_of_a_shadowed_window_reads_back_where_it_was_asked() {
 #[test]
 fn a_resize_of_a_shadowed_window_reads_back_the_size_it_was_asked() {
     let world = shadowed();
-    run(&world, &window(), &resize(814.0, 577.0), budget()).expect("the resize holds");
+    let report = run(&world, &window(), &resize(814.0, 577.0), budget()).expect("the resize holds");
+    let details = report.result.details.expect("details");
+    assert_eq!(details["observed"]["x"], 232);
+    assert_eq!(details["observed"]["width"], 814);
     assert_eq!(
         world.writes.borrow()[0].1,
         WindowWrite::MoveResize {

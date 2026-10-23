@@ -198,10 +198,10 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
 
 - A clamp or an ignored request is `ACTION_FAILED`, `delivered_unverified`, with
   the requested, observed and display bounds; the window may still have changed
-  in part: read the bounds. `details.requested` names only the sides you gave.
+  in part: read the bounds.
 - A resize is judged by its size alone. A window manager that moves the window
   to keep it on the display changes the origin, not the verdict, and the report's
-  `details.observed` names the rectangle read back, origin included.
+  `details.observed` holds the read-back, origin included.
 - A `restore` the window manager answered without showing the window is
   `ACTION_NOT_SUPPORTED`, cause `restore_refused`, `delivered_unverified`, with
   `details.manager`. While the GNOME Activities Overview is open the cause is

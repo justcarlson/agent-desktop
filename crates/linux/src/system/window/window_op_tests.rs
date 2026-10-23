@@ -82,7 +82,6 @@ pub(super) fn state(x: i32, y: i32, width: i32, height: i32) -> WindowFacts {
             width,
             height,
         },
-        shadow: (0, 0, 0, 0),
         hidden: false,
         maximized_vertical: false,
         maximized_horizontal: false,
