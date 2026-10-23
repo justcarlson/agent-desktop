@@ -274,3 +274,30 @@ fn a_pinned_namespace_still_allows_ending_its_own_session() {
         .expect("manifest remains readable");
     assert!(ended.ended_at.is_some());
 }
+
+#[test]
+fn session_gc_ended_reclaims_an_ended_session_that_recorded_trace_events() {
+    let home = HomeGuard::new();
+    let manifest =
+        agent_desktop_core::session::start_session(StartSessionOptions::default()).unwrap();
+    let segment = agent_desktop_core::session::trace_dir(&manifest.id)
+        .unwrap()
+        .join("1-1.jsonl");
+    std::fs::write(&segment, b"{\"event\":\"command.end\"}\n").unwrap();
+    agent_desktop_core::session::end_session(&manifest.id).unwrap();
+
+    let value = super::dispatch(
+        SessionArgs {
+            action: SessionAction::Gc(SessionGcArgs {
+                older_than: Some(0),
+                ended: true,
+            }),
+        },
+        &NoopAdapter,
+        &CommandContext::default(),
+    )
+    .expect("gc of ended sessions runs");
+
+    assert_eq!(value["removed"], serde_json::json!([manifest.id]));
+    assert!(!home.path().join("sessions").join(&manifest.id).exists());
+}
