@@ -1,7 +1,7 @@
 //! Where the committed COM evidence lives, and the normalisation rules it is
 //! held to.
 //!
-//! The captures under `docs/plans/2026-07-27-002-captures/` are produced by
+//! The captures under `crates/windows/src/tree/testdata/` are produced by
 //! `crates/windows/examples/uia_tree_dump.rs` on a developer machine, in the
 //! UIA3 COM stack the adapter ships. Earlier dumps taken on the managed stack
 //! are not comparable: A2-4 measured the identical Notepad window reporting
