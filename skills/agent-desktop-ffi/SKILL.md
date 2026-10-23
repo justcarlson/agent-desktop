@@ -98,8 +98,8 @@ are not exposed over the ABI. A bare `@eN` ref returns
   only as fields embedded in the exact structs. `ad_list_surfaces_exact` keeps the
   surface `id`. From `AD_EXACT_SURFACE_INFO_VERSION` 2, `AdExactSurfaceInfo.unclassified`
   names the surface kinds its probe could not read (for example `sheet,menu`), or
-  is null. On Windows, a missing `sheet` or `menu` next to a listed kind is
-  unknown, not absent.
+  is null. A missing `sheet` or `menu` next to a listed kind is unknown, not
+  absent. Only the Windows adapter fills it today; macOS and Linux return null.
 
 - **Native handles.** `ad_resolve_element_exact` and `ad_find_exact` return an
   `AdNativeHandle`. `ad_execute_action` (headless, no preflight) and
@@ -109,8 +109,12 @@ are not exposed over the ABI. A bare `@eN` ref returns
   zeroes `handle.ptr`, so a second call is a no-op.
 
 - **Action results.** `AdActionResult.steps` mirrors the CLI `steps` array for
-  activation-chain actions; each entry has `label` and `outcome` strings. Release
-  the result with `ad_free_action_result(&out)`.
+  activation-chain actions. Each `AdActionStep` has `label` and `outcome` strings,
+  `mechanism` (`AD_STEP_MECHANISM_SEMANTIC_API` = 1 or
+  `AD_STEP_MECHANISM_PHYSICAL_SYNTHETIC` = 2, valid only when `has_mechanism`),
+  and `verified` (valid only when `has_verified`). `AdActionResult.disposition`
+  carries the same delivery/retry pair as `ad_last_error_delivery_semantics`.
+  Release the result with `ad_free_action_result(&out)`.
 
 - **Display discovery.** Call `ad_list_displays` before using
   `AdScreenshotTarget.screen_index`. List order is the screenshot index order.
@@ -154,12 +158,15 @@ are not exposed over the ABI. A bare `@eN` ref returns
   threads at once and briefly after a `NULL` unregister: keep the callback and
   any data it captures valid for the process lifetime.
 
-- **Wait.** `ad_wait(adapter, args, &out)` runs the full CLI `wait` command
-  (element-appear, window-appear, text-appear, menu-open/close, notification,
-  element predicates). Zero-initialize `AdWaitArgs`, set the fields you need, and
+- **Wait.** `ad_wait(adapter, args, &out)` runs the CLI `wait` command. Set
+  `mode.pause` (`AdOptionalU64`, ms), `mode.element`, `mode.window` (waits for a
+  window with that title), `mode.text`, or one of `mode.surfaces.menu`,
+  `.menu_closed`, `.notification`; add the `predicate` group (`predicate`,
+  `value`, `action`, `count`) and `scope.timeout_ms` / `scope.app`. The CLI event
+  wait (`--event`, `--window-id`) is not exposed. Zero-initialize `AdWaitArgs` and
   validate the struct size against `AD_WAIT_ARGS_SIZE` / `ad_wait_args_size()`
   before calling. The output is a `{version, ok, command, data}` envelope freed with
-  `ad_free_string`. `ad_wait` blocks the calling thread up to `timeout_ms` ms. A
+  `ad_free_string`. `ad_wait` blocks the calling thread up to `scope.timeout_ms` ms. A
   concurrent `ad_adapter_destroy` does not invalidate an in-flight wait.
 
 - **Text input privacy.** On macOS, focus-fallback or headed text insertion may

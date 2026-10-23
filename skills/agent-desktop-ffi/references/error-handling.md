@@ -24,7 +24,9 @@ ad_release_exact_window_fields(&win);
 
 ## Last-error accessors
 
-Five accessors share the same per-thread lifetime contract:
+Six accessors read the calling thread's last-error slot. The first five share
+the per-thread lifetime contract below. `ad_last_error_delivery_semantics`
+copies plain values into caller storage, so no pointer lifetime applies:
 
 | Accessor                        | Returns                                                        |
 |---------------------------------|----------------------------------------------------------------|
@@ -33,6 +35,13 @@ Five accessors share the same per-thread lifetime contract:
 | `ad_last_error_suggestion()`    | Recovery hint, or null                                         |
 | `ad_last_error_platform_detail()` | OS-specific diagnostic (AX codes, HRESULTs, AT-SPI), or null |
 | `ad_last_error_details()`       | Structured JSON details, or null — **sensitive** (see below)   |
+| `ad_last_error_delivery_semantics(&sem)` | Writes `AdDeliverySemantics {delivery, retry}` for the last failure and returns `AD_RESULT_OK`; both fields are `UNKNOWN` (0) when no error is recorded. A null `sem` returns `AD_RESULT_ERR_INVALID_ARGS`. Reading does not clear or replace the slot. |
+
+`delivery` is an `AdDeliveryDisposition`: `AD_DELIVERY_DISPOSITION_UNKNOWN` (0),
+`_NOT_DELIVERED` (1), `_DELIVERY_UNCERTAIN` (2), `_DELIVERED_UNVERIFIED` (3),
+`_DELIVERED_VERIFIED` (4). `retry` is an `AdRetryDisposition`:
+`AD_RETRY_DISPOSITION_UNKNOWN` (0), `_SAFE` (1), `_UNSAFE` (2). Retry only on
+`_SAFE`.
 
 `ad_last_error_details()` returns a JSON string with structured context:
 the actionability check report on `ACTION_FAILED`, candidate element
@@ -133,8 +142,9 @@ last-error diagnostic, instead of undefined behavior. Validated fields: `AdActio
 
 ## Command-backed JSON entrypoints: dual-failure modes
 
-`ad_snapshot`, `ad_execute_by_ref`, `ad_wait`, `ad_status`, and
-`ad_version` have two distinct failure modes:
+`ad_snapshot`, `ad_execute_by_ref`, `ad_execute_by_ref_timeout`, `ad_wait`,
+`ad_status`, `ad_version`, `ad_trace_show`, and `ad_trace_export` have two
+distinct failure modes:
 
 - **Argument / infrastructure failure** (null adapter, invalid UTF-8,
   bad discriminant, context error): `*out` is set to null,

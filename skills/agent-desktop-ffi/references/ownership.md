@@ -17,7 +17,10 @@ Free it with `ad_free_string`. On an infrastructure error `*out` stays null
 | `ad_status(adapter, &out)`                                                        | `ad_free_string(out)`   |
 | `ad_snapshot(adapter, app, surface, max_depth, interactive_only, compact, &out)` | `ad_free_string(out)`   |
 | `ad_execute_by_ref(adapter, ref_id, action, policy, &out)`                       | `ad_free_string(out)`   |
+| `ad_execute_by_ref_timeout(adapter, ref_id, action, policy, timeout_ms, &out)`   | `ad_free_string(out)`   |
 | `ad_wait(adapter, args, &out)`                                                    | `ad_free_string(out)`   |
+| `ad_trace_show(adapter, limit, event_prefix, &out)`                               | `ad_free_string(out)`   |
+| `ad_trace_export(adapter, limit, out_path, &out)`                                 | `ad_free_string(out)`   |
 
 ### Adapter lifecycle
 
@@ -81,10 +84,14 @@ Free it with `ad_free_string`. On an infrastructure error `*out` stays null
 - **`ad_free_handle` is safe to double-call** — it zeroes `handle.ptr`
   after the platform release, so a follow-up call sees `NULL` and
   returns `AD_RESULT_OK` without re-entering `CFRelease`.
-- **Adapters must outlive their handles.** Free every handle with the
-  same adapter and on the same thread that produced it before calling
-  `ad_adapter_destroy`. Destroyed, wrong-adapter, cross-thread, forged, and
-  already-freed tokens are rejected without dereferencing foreign memory.
+- **Free handles before destroying their adapter.** `ad_execute_action*` needs
+  the live adapter that produced the handle, on the same thread.
+  `ad_adapter_destroy` does not release outstanding handles. `ad_free_handle`
+  compares only the adapter pointer value, so it still succeeds after
+  destroy when given that same pointer; the handle stays allocated until
+  then. A wrong-adapter, cross-thread, forged, or unzeroed already-freed
+  copy returns `AD_RESULT_ERR_INVALID_ARGS`, leaves the struct unchanged, and
+  never dereferences foreign memory.
 - Pointers inside a struct (`.id`, `.title`, `.app_name`, each
   `AdNotificationInfo.body`, etc.) are freed by the struct's owning
   free function (list_free / release_fields) — do not call
@@ -114,8 +121,9 @@ In particular:
   struct is a no-op.
 - `ad_screenshot` writes `*out = NULL` before allocating the image
   buffer — no stale pointer when the screenshot fails.
-- `ad_snapshot`, `ad_execute_by_ref`, `ad_wait`, `ad_status`,
-  `ad_version` write `*out = NULL` before any guard, so on
+- `ad_snapshot`, `ad_execute_by_ref`, `ad_execute_by_ref_timeout`, `ad_wait`,
+  `ad_status`, `ad_version`, `ad_trace_show`, `ad_trace_export` write
+  `*out = NULL` before any guard, so on
   infrastructure failures no allocation is made and `ad_free_string(NULL)`
   is a safe no-op.
 - `ad_*_list` and `ad_resolve_element_exact` / `ad_find_exact` all apply the same
