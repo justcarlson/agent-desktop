@@ -21,27 +21,24 @@ fn client_origin(client: &X11Client) -> Option<(i32, i32)> {
     ))
 }
 
-fn visible_size(client: &X11Client) -> Option<Extents> {
+/// The window the client draws, its geometry less the client-side shadow. A
+/// toolkit that reports window coordinates does not move its extents with a
+/// resize or a maximize, so the client is the only source of the size.
+fn visible_rect(client: &X11Client) -> Option<Rect> {
     let (left, top, right, bottom) = client.shadow;
-    if client.shadow == (0, 0, 0, 0) {
+    let bounds = client.bounds?;
+    let width = bounds.width.checked_sub(left)?.checked_sub(right)?;
+    let height = bounds.height.checked_sub(top)?.checked_sub(bottom)?;
+    if width <= 0 || height <= 0 {
         return None;
     }
-    let bounds = client.bounds?;
-    Some(Extents {
-        x: 0,
-        y: 0,
-        width: bounds.width.checked_sub(left)?.checked_sub(right)?,
-        height: bounds.height.checked_sub(top)?.checked_sub(bottom)?,
-    })
-}
-
-fn at(origin: (i32, i32), size: Extents) -> Rect {
-    Rect::from(Extents {
-        x: origin.0,
-        y: origin.1,
-        width: size.width,
-        height: size.height,
-    })
+    let (x, y) = client_origin(client)?;
+    Some(Rect::from(Extents {
+        x,
+        y,
+        width,
+        height,
+    }))
 }
 
 /// Places and annotates windows using one X11 client match per window.
@@ -66,9 +63,7 @@ pub(crate) fn place_windows(
         .collect();
     for (window, client) in listed.iter_mut().zip(matched) {
         if !window.frame.global_position {
-            window.info.bounds = window.frame.extents.zip(client).and_then(|(size, client)| {
-                client_origin(client).map(|origin| at(origin, visible_size(client).unwrap_or(size)))
-            });
+            window.info.bounds = client.and_then(visible_rect);
         } else if let (Some(client), Some(bounds)) = (client, window.info.bounds.as_mut()) {
             let (left, top, right, bottom) = client.shadow;
             bounds.x += f64::from(left);

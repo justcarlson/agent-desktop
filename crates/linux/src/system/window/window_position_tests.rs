@@ -173,6 +173,12 @@ fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
 fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
     let mut shadowed = client(7, 37, 64);
     shadowed.shadow = (61, 55, 0, 0);
+    shadowed.bounds = Some(Extents {
+        x: 37,
+        y: 64,
+        width: 422,
+        height: 346,
+    });
     let mut listed = windows(("gtk", "4.14.5"));
 
     place_windows(&mut listed, &ready(vec![shadowed]), None);
@@ -320,3 +326,6 @@ fn same_titled_windows_nothing_separates_have_no_position() {
     place_windows(&mut three, &active_client(8), None);
     assert_eq!(origins(&three), vec![None, None, None]);
 }
+
+#[path = "window_position_shape_tests.rs"]
+mod shape;
