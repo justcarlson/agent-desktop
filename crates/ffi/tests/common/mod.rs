@@ -232,7 +232,7 @@ pub fn with_isolated_home<F: FnOnce()>(body: F) {
 
 pub fn default_exact_ref_entry() -> AdExactRefEntry {
     let mut entry: AdExactRefEntry = unsafe { std::mem::zeroed() };
-    entry.version = 1;
+    entry.version = agent_desktop_ffi::AD_EXACT_REF_ENTRY_VERSION;
     entry.size = std::mem::size_of::<AdExactRefEntry>() as u32;
     entry
 }
