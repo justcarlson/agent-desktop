@@ -78,9 +78,7 @@ fn select_unique_app(mut candidates: Vec<AppInfo>, label: &str) -> Result<AppInf
             ErrorCode::AppNotFound,
             format!("Application '{label}' was not found with exact process identity"),
         )
-        .with_suggestion(
-            "Application name as reported by list-apps, with or without .exe suffix on Windows",
-        )
+        .with_suggestion("Application name as reported by list-apps")
         .unsent()
         .into()),
         1 => Ok(candidates.swap_remove(0)),

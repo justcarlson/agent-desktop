@@ -287,10 +287,13 @@ fn app_not_found_carries_a_suggestion_naming_the_accepted_forms() {
         resolve_app(Some("NoSuchApp"), &adapter, Deadline::standard().unwrap()).unwrap_err();
 
     assert_eq!(error.code(), "APP_NOT_FOUND");
+    let suggestion = error
+        .suggestion()
+        .expect("an unknown application has a suggestion");
+    assert!(suggestion.contains("list-apps"), "{suggestion}");
     assert!(
-        error
-            .suggestion()
-            .is_some_and(|suggestion| !suggestion.is_empty())
+        !suggestion.contains(".exe") && !suggestion.contains("Windows"),
+        "core words its suggestion for every platform: {suggestion}"
     );
 }
 
