@@ -216,12 +216,6 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
   minimize sent within about 250 ms of a restore: read the window state before
   retrying. An unconfirmed restore send is uncertain and unsafe to retry; it may
   already have restored the window.
-- A minimized window that the window manager does not show after `restore` is
-  `ACTION_NOT_SUPPORTED` with `details.cause: restore_refused` and
-  `details.manager` naming the manager, `delivered_unverified`, `retry: unsafe`.
-  An open Activities Overview is one cause, and the error then names cause
-  `overview_open`: close the overview (see Focus), read the window with
-  `list-windows`, and run `restore` again only if it is still minimized.
 - `move-window` needs both `--x` and `--y` (a lone one is `INVALID_ARGS` at parse
   time, exit 2). Negative coordinates need the `=` form:
   `move-window --x=-100 --y=20`.
