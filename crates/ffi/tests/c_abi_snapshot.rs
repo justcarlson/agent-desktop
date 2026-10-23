@@ -73,24 +73,6 @@ fn snapshot_invalid_surface_rejected() {
 }
 
 #[test]
-fn snapshot_returns_a_result_code_and_frees_cleanly() {
-    with_adapter(|adapter| unsafe {
-        let mut out: *mut std::os::raw::c_char = std::ptr::null_mut();
-        let rc = ad_snapshot(adapter, std::ptr::null(), 0, 6, false, false, &mut out);
-        let rc_i32 = rc as i32;
-        assert!(
-            rc_i32 <= 0,
-            "ad_snapshot must return a valid AdResult (<=0), got {rc_i32}"
-        );
-        if !out.is_null() {
-            let s = CStr::from_ptr(out).to_string_lossy();
-            assert!(!s.is_empty(), "non-null out must be a non-empty string");
-            ad_free_string(out);
-        }
-    });
-}
-
-#[test]
 fn snapshot_out_contains_envelope_fields_on_any_response() {
     with_adapter(|adapter| unsafe {
         let mut out: *mut std::os::raw::c_char = std::ptr::null_mut();

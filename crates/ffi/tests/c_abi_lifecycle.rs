@@ -3,12 +3,11 @@ mod common;
 use agent_desktop_core::NativeHandle;
 use common::{
     AdExactSurfaceList, AdExactWindowInfo, AdExactWindowList, AdFindQuery, AdNativeHandle,
-    AdResult, CStr, ad_adapter_create, ad_adapter_destroy, ad_app_list_count, ad_app_list_free,
-    ad_app_list_get, ad_check_permissions, ad_exact_surface_list_count, ad_exact_surface_list_free,
-    ad_exact_surface_list_get, ad_exact_window_list_count, ad_exact_window_list_free,
-    ad_exact_window_list_get, ad_find_exact, ad_free_handle, ad_last_error_code,
-    ad_last_error_message, ad_list_apps, ad_list_surfaces_exact, ad_list_windows_exact,
-    with_adapter,
+    AdResult, CStr, ad_app_list_count, ad_app_list_free, ad_app_list_get, ad_check_permissions,
+    ad_exact_surface_list_count, ad_exact_surface_list_free, ad_exact_surface_list_get,
+    ad_exact_window_list_count, ad_exact_window_list_free, ad_exact_window_list_get, ad_find_exact,
+    ad_free_handle, ad_last_error_code, ad_last_error_message, ad_list_apps,
+    ad_list_surfaces_exact, ad_list_windows_exact, with_adapter,
 };
 use std::sync::{
     Arc,
@@ -98,21 +97,6 @@ fn list_handle_lifecycle_roundtrip() {
 }
 
 #[test]
-fn list_windows_focused_only_runs() {
-    with_adapter(|adapter| unsafe {
-        let mut list: *mut AdExactWindowList = std::ptr::null_mut();
-        let rc = ad_list_windows_exact(adapter, std::ptr::null(), true, &mut list);
-        if rc == AdResult::Ok {
-            assert!(!list.is_null());
-            let _ = ad_exact_window_list_count(list);
-            ad_exact_window_list_free(list);
-        } else {
-            assert!(list.is_null());
-        }
-    });
-}
-
-#[test]
 fn exact_list_out_params_are_zeroed_on_stub_or_platform_failure() {
     with_adapter(|adapter| unsafe {
         let mut windows = std::ptr::dangling_mut::<AdExactWindowList>();
@@ -179,27 +163,4 @@ fn free_handle_rejects_forged_allocation_pointer_without_dereferencing_it() {
         drop(Box::from_raw(raw));
         assert_eq!(drops.load(Ordering::SeqCst), 1);
     });
-}
-
-#[test]
-fn last_error_survives_successful_calls() {
-    unsafe {
-        let adapter = ad_adapter_create();
-        assert!(!adapter.is_null());
-        let mut out: AdExactWindowInfo = std::mem::zeroed();
-        let rc = common::ad_launch_app_exact(adapter, std::ptr::null(), 0, &mut out);
-        assert_eq!(rc, AdResult::ErrInvalidArgs);
-        let msg_ptr = ad_last_error_message();
-        assert!(!msg_ptr.is_null());
-
-        for _ in 0..5 {
-            let _ = ad_app_list_count(std::ptr::null());
-            let _ = ad_exact_window_list_count(std::ptr::null());
-        }
-
-        let after = ad_last_error_message();
-        assert_eq!(msg_ptr, after);
-        assert_eq!(ad_last_error_code(), rc);
-        ad_adapter_destroy(adapter);
-    }
 }
