@@ -5,7 +5,7 @@ use crate::{
 };
 use base64::Engine;
 use serde_json::{Value, json};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const PROCESS_STATE_PROBE_BUDGET: std::time::Duration = std::time::Duration::from_secs(1);
 
@@ -22,7 +22,8 @@ pub fn execute(args: ScreenshotArgs, adapter: &dyn PlatformAdapter) -> Result<Va
     let buf = adapter.screenshot(target, deadline)?;
 
     if let Some(path) = args.output_path {
-        crate::refs::write_user_file(&path, &buf.data)?;
+        crate::refs::write_user_file(&path, &buf.data)
+            .map_err(|error| unwritable_output(&path, error))?;
         Ok(json!({
             "path": path.to_string_lossy(),
             "format": buf.format.as_str(),
@@ -39,6 +40,19 @@ pub fn execute(args: ScreenshotArgs, adapter: &dyn PlatformAdapter) -> Result<Va
             "height": buf.height,
             "scale_factor": buf.scale_factor
         }))
+    }
+}
+
+/// A write that fails at a path the caller named is a problem with that path,
+/// not a missing OS permission, so it is an argument error rather than the
+/// `PERM_DENIED` or `INTERNAL` the generic io mapping would give it.
+fn unwritable_output(path: &Path, error: AppError) -> AppError {
+    match error {
+        AppError::Io(io) => AppError::invalid_input_with_suggestion(
+            format!("Cannot write the screenshot to '{}': {io}", path.display()),
+            "Pass an output path in a directory this user can write to; missing parent directories are created",
+        ),
+        other => other,
     }
 }
 

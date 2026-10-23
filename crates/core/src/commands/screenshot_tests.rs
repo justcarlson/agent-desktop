@@ -340,3 +340,6 @@ fn output_path() -> PathBuf {
         std::thread::current().id()
     ))
 }
+
+#[path = "screenshot_output_tests.rs"]
+mod output_tests;
