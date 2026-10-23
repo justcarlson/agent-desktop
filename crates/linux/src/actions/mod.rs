@@ -36,7 +36,7 @@ pub(crate) mod value_write;
 pub(crate) mod write_call;
 
 pub(crate) use dispatch::execute_action;
-pub(crate) use scroll_into_view::scroll_into_view;
+pub(crate) use scroll_into_view::{before_pointer, scroll_into_view};
 
 #[cfg(test)]
 mod action_scan_tests;

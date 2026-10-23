@@ -261,6 +261,25 @@ pub(crate) fn drive<P: ScrollPort, W: Waiter>(
     })
 }
 
+/// What the pointer path makes of a scroll it ran before its first pointer
+/// event. A failed scroll leaves the gesture undelivered whatever the scroll
+/// itself delivered. A toolkit that recycles the target's row while the list
+/// moves leaves a stale handle for an element that lives on, so a handle that
+/// went stale after the scroll was delivered ends the scroll and the caller
+/// resolves its ref again to look.
+pub(crate) fn before_pointer(scroll: Result<bool, AdapterError>) -> Result<(), AdapterError> {
+    match scroll {
+        Ok(_) => Ok(()),
+        Err(error)
+            if error.code == ErrorCode::StaleRef
+                && error.disposition == DeliverySemantics::uncertain() =>
+        {
+            Ok(())
+        }
+        Err(error) => Err(error.with_disposition(DeliverySemantics::not_delivered())),
+    }
+}
+
 pub(crate) fn scroll_into_view(
     bus: &SharedBus,
     handle: &NativeHandle,
