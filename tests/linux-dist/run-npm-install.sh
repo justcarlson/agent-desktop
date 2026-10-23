@@ -130,15 +130,19 @@ PY
 }
 
 BIN="$PREFIX/bin/agent-desktop"
-WRAPPER="$PREFIX/lib/node_modules/agent-desktop/bin/agent-desktop.js"
+INSTALLED_BIN="$PREFIX/lib/node_modules/agent-desktop/bin"
+case "$ARCH" in
+  x86_64) NATIVE="$INSTALLED_BIN/agent-desktop-linux-x64" ;;
+  aarch64) NATIVE="$INSTALLED_BIN/agent-desktop-linux-arm64" ;;
+esac
 [ -x "$BIN" ] || { echo "run-npm-install: FAIL code=SYMLINK_MISSING $BIN" >&2; exit 1; }
-[ -f "$WRAPPER" ] || { echo "run-npm-install: FAIL code=WRAPPER_MISSING $WRAPPER" >&2; exit 1; }
+[ "$INSTALLED_BIN/agent-desktop" -ef "$NATIVE" ] || { echo "run-npm-install: FAIL code=ENTRY_NOT_NATIVE $INSTALLED_BIN/agent-desktop" >&2; exit 1; }
 
 version_json=$("$BIN" version)
 check_version symlink "$version_json"
-version_json=$(node "$WRAPPER" version)
-check_version wrapper "$version_json"
-echo "run-npm-install: symlink and wrapper report os=linux target=$ARCH"
+version_json=$("$NATIVE" version)
+check_version native "$version_json"
+echo "run-npm-install: symlink and native entry report os=linux target=$ARCH"
 
 NODE_BIN=$(command -v node)
 mkdir "$WORK/nopath"
