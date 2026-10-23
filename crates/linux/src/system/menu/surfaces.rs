@@ -80,6 +80,32 @@ pub(crate) fn mark_unread(
     }
 }
 
+fn windows_of_process(
+    bus: &SharedBus,
+    pid: u32,
+    deadline: Deadline,
+) -> Result<Vec<ListedWindow>, AdapterError> {
+    let registry = read_registry_for(bus, Some(pid), deadline)?;
+    scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)
+}
+
+/// The titles of the dialogs drawn inside the windows of one process, which
+/// no list of its top-level windows holds. A blank title is an empty string.
+pub(crate) fn nested_dialog_titles(
+    bus: &SharedBus,
+    pid: u32,
+    deadline: Deadline,
+) -> Result<Vec<String>, AdapterError> {
+    let windows = windows_of_process(bus, pid, deadline)?;
+    let mut inventory = Inventory::structural(bus, deadline);
+    let scan = scan_windows(&windows, |window| inventory.read(window));
+    Ok(scan
+        .found
+        .into_iter()
+        .map(|nested| nested.title.unwrap_or_default())
+        .collect())
+}
+
 /// Lists the surfaces the named process presents. The process identity is
 /// checked first so a surface list never answers for a pid that has since
 /// become a different process.
@@ -89,9 +115,7 @@ pub(crate) fn list_surfaces(
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
     require_same_process(process)?;
-    let pid = process.pid.get();
-    let registry = read_registry_for(bus, Some(pid), deadline)?;
-    let windows = scoped_windows_of(bus, &registry, |app| app.root.pid() == pid, deadline)?;
+    let windows = windows_of_process(bus, process.pid.get(), deadline)?;
     let mut inventory = Inventory::structural(bus, deadline);
     let scan = scan_windows(&windows, |window| inventory.read(window));
     let mut surfaces = surfaces_of(&windows);

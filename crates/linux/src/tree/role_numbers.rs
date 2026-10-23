@@ -1,3 +1,4 @@
+pub(crate) const ALERT: u32 = 2;
 pub(crate) const CHECK_BOX: u32 = 7;
 pub(crate) const CHECK_MENU_ITEM: u32 = 8;
 pub(crate) const COMBO_BOX: u32 = 11;

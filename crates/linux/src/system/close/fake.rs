@@ -64,6 +64,7 @@ pub(super) struct Fake {
     pub(super) wayland: bool,
     pub(super) dialog_after: Option<Duration>,
     pub(super) second_dialog_after: Option<Duration>,
+    pub(super) nested_after: Option<Duration>,
     pub(super) gone_after: Option<Duration>,
 }
 
@@ -89,6 +90,7 @@ impl Fake {
             wayland: false,
             dialog_after: None,
             second_dialog_after: None,
+            nested_after: None,
             gone_after: None,
         }
     }
@@ -165,6 +167,14 @@ impl World for Fake {
     fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>> {
         self.note("late");
         self.late.clone()
+    }
+
+    fn nested_dialogs(&self) -> Vec<String> {
+        self.note("nested");
+        match self.nested_after {
+            Some(after) if self.clock.get() >= after => vec!["Save Changes?".to_owned()],
+            _ => Vec::new(),
+        }
     }
 
     fn request_close(&self, _window: u32) -> Result<(), ControlError> {

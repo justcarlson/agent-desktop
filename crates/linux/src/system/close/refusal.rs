@@ -2,6 +2,7 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
 use super::Request;
+use super::standing::Standing;
 use crate::system::x11::control_error::ControlError;
 use crate::system::x11::toplevel::Toplevel;
 use crate::system::x11::window_kind::WindowKind;
@@ -106,19 +107,21 @@ fn dialogs_in(windows: &[Toplevel]) -> usize {
     windows.iter().filter(|window| is_dialog(window)).count()
 }
 
-/// A save prompt or another dialog of the process is open. A close request
-/// to it would answer it for the user, so none is sent. `sent` says whether a
-/// request to the process's other windows went out in this call, which is what
-/// opened the dialog.
+/// A save prompt or another dialog of the process is open, as a top-level
+/// window or drawn inside one. A close request to it would answer it for the
+/// user, so none is sent. `sent` says whether a request to the process's other
+/// windows went out in this call, which is what opened the dialog.
 pub(super) fn dialog_pending(
     request: &Request<'_>,
-    windows: &[Toplevel],
+    standing: &Standing,
     sent: bool,
 ) -> AdapterError {
-    let titles: Vec<&str> = windows
+    let titles: Vec<&str> = standing
+        .windows
         .iter()
         .filter(|window| is_dialog(window))
         .map(|window| window.title.as_str())
+        .chain(standing.nested.iter().map(String::as_str))
         .collect();
     let dialogs = titles.len();
     let delivery = if sent {
@@ -138,7 +141,7 @@ pub(super) fn dialog_pending(
         "cause": "dialog_pending",
         "app": request.name,
         "pid": request.pid,
-        "windows_remaining": windows.len() - dialogs,
+        "windows_remaining": standing.windows.len() - dialogs_in(&standing.windows),
         "dialogs": dialogs,
         "dialog_titles": titles,
         "dialog": titles.first(),

@@ -4,7 +4,7 @@ use super::{Nested, scan_windows};
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::x11::FrameFacts;
 use crate::tree::nested_dialog::Node;
-use crate::tree::role_numbers::{DIALOG, FRAME, PANEL, WINDOW};
+use crate::tree::role_numbers::{ALERT, DIALOG, FRAME, NOTIFICATION, PANEL, WINDOW};
 use crate::tree::state_bits::SHOWING;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field, WalkedNode};
@@ -169,4 +169,19 @@ fn unread_menu_state_keeps_surface_inventory_incomplete() {
     assert!(scan.menus.is_empty());
     assert!(!scan.complete);
     assert_eq!(scan.unread, [0]);
+}
+
+#[test]
+fn an_alert_inside_a_window_is_a_sheet_and_a_notification_is_not() {
+    for (role, found) in [(ALERT, 1), (NOTIFICATION, 0)] {
+        let alert = node(role, "Save Changes?", true, "/org/alert_1", Vec::new());
+        let tree = node(FRAME, "App", true, "/org/win_1", vec![alert]);
+        let scan = scan_windows(&[window(WINDOW_ID, false)], |_| Ok(tree.clone()));
+        assert!(scan.complete);
+        assert_eq!(scan.found.len(), found);
+        if found == 1 {
+            assert_eq!(scan.found[0].title.as_deref(), Some("Save Changes?"));
+            assert_eq!(scan.found[0].id, "w-1.2-org-alert_1");
+        }
+    }
 }

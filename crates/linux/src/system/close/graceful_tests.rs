@@ -206,6 +206,40 @@ fn a_dialog_that_opens_after_the_request_ends_the_wait_at_once_with_its_title() 
 }
 
 #[test]
+fn a_dialog_drawn_inside_a_window_is_reported_and_no_close_request_is_sent() {
+    let mut world = Fake::new(Liveness::Alive);
+    world.nested_after = Some(std::time::Duration::ZERO);
+    world.exits_on_close = true;
+    let error = close(&world, &request()).expect_err("a prompt is open");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let details = error.details.expect("details");
+    assert_eq!(details["cause"], "dialog_pending");
+    assert_eq!(details["dialogs"], 1);
+    assert_eq!(details["windows_remaining"], 1);
+    assert_eq!(details["dialog"], "Save Changes?");
+    assert_eq!(world.count("close"), 0);
+}
+
+#[test]
+fn a_dialog_drawn_inside_a_window_after_the_request_ends_the_wait_at_once() {
+    let mut world = Fake::new(Liveness::Alive);
+    world.nested_after = Some(std::time::Duration::from_millis(100));
+    let error = close(&world, &request()).expect_err("the save prompt appeared");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    let details = error.details.expect("details");
+    assert_eq!(details["cause"], "dialog_pending");
+    assert_eq!(details["dialogs"], 1);
+    assert_eq!(details["dialog"], "Save Changes?");
+    assert_eq!(world.count("close"), 1);
+    assert!(
+        world.clock.get() < std::time::Duration::from_secs(1),
+        "the wait did not run to its budget: {:?}",
+        world.clock.get()
+    );
+}
+
+#[test]
 fn a_second_prompt_raised_by_the_same_request_is_counted_from_one_read() {
     let mut world = Fake::new(Liveness::Alive);
     world.dialog_after = Some(std::time::Duration::from_millis(100));

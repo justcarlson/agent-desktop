@@ -1,5 +1,5 @@
-use super::{Node, find, is_cut_short};
-use crate::tree::role_numbers::{DIALOG, FRAME, PANEL};
+use super::{Node, find, is_cut_short, is_incomplete};
+use crate::tree::role_numbers::{ALERT, DIALOG, FRAME, NOTIFICATION, PANEL};
 use crate::tree::state_bits::SHOWING;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field, WalkedNode};
@@ -87,4 +87,33 @@ fn a_walk_with_an_unread_subtree_is_cut_short() {
     cut.child_count = Some(1);
     assert!(is_cut_short(&window(vec![cut])));
     assert!(!is_cut_short(&window(vec![deep_dialog(true)])));
+}
+
+#[test]
+fn a_showing_alert_below_the_window_is_found_with_its_address_and_title() {
+    let alert = node(ALERT, "Save Changes?", true, "/a", Vec::new());
+    let tree = window(vec![node(PANEL, "", true, "/p", vec![alert])]);
+    let found = find(&tree);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].element.path(), "/a");
+    assert_eq!(found[0].title, Some("Save Changes?"));
+}
+
+#[test]
+fn an_alert_that_does_not_show_and_a_notification_are_not_found() {
+    for (role, showing) in [(ALERT, false), (NOTIFICATION, true)] {
+        let tree = window(vec![node(role, "Heads up", showing, "/a", Vec::new())]);
+        assert!(find(&tree).is_empty());
+    }
+}
+
+#[test]
+fn an_alert_whose_states_never_read_leaves_discovery_incomplete() {
+    let read = |states: Field<Vec<u32>>| {
+        let mut alert = node(ALERT, "Save", true, "/a", Vec::new());
+        alert.payload.node.traits.states = states;
+        is_incomplete(&window(vec![alert]))
+    };
+    assert!(read(Field::Failed("unread".into())));
+    assert!(!read(Field::Present(words(&[SHOWING]))));
 }

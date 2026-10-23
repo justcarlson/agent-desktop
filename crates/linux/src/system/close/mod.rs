@@ -11,6 +11,7 @@ mod fake;
 mod force;
 mod graceful;
 mod refusal;
+mod standing;
 mod world;
 
 /// What the caller asked to close: the listed application and whether to end
