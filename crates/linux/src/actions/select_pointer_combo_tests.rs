@@ -17,9 +17,11 @@ struct World {
     escape_closes: bool,
     commit_closes: bool,
     refuse_commit: bool,
+    overview: Option<bool>,
     clicks: Vec<String>,
     commits: Vec<String>,
     escapes: usize,
+    overview_reads: usize,
 }
 
 impl World {
@@ -34,9 +36,11 @@ impl World {
             escape_closes: true,
             commit_closes: true,
             refuse_commit: false,
+            overview: None,
             clicks: Vec::new(),
             commits: Vec::new(),
             escapes: 0,
+            overview_reads: 0,
         }))
     }
 }
@@ -114,6 +118,12 @@ impl Choices for Fake {
         Ok(ActionResult::delivered_unverified("select")
             .with_steps(vec![step])
             .with_verified_delivery())
+    }
+
+    fn overview_open(&self) -> Option<bool> {
+        let mut world = self.0.borrow_mut();
+        world.overview_reads += 1;
+        world.overview
     }
 }
 
@@ -228,6 +238,46 @@ fn a_popup_that_never_opens_is_reported_as_not_observed() {
     );
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(world.borrow().clicks, ["/combo"]);
+}
+
+#[test]
+fn a_popup_that_never_opens_under_an_open_overview_names_the_overview() {
+    let world = World::dropdown();
+    world.borrow_mut().opens_on_click = false;
+    world.borrow_mut().overview = Some(true);
+    let error = choose(&world, "Never").expect_err("no popup");
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert!(
+        error
+            .suggestion
+            .as_deref()
+            .is_some_and(|text| text.contains("Escape"))
+    );
+    let details = error.details.expect("details");
+    assert_eq!(details["kind"], "popup_not_observed");
+    assert_eq!(details["cause"], "overview_open");
+    assert_eq!(world.borrow().overview_reads, 1);
+}
+
+#[test]
+fn a_popup_that_never_opens_under_a_closed_or_unread_overview_names_no_cause() {
+    for overview in [Some(false), None] {
+        let world = World::dropdown();
+        world.borrow_mut().opens_on_click = false;
+        world.borrow_mut().overview = overview;
+        let error = choose(&world, "Never").expect_err("no popup");
+        assert!(error.details.expect("details").get("cause").is_none());
+        assert_eq!(world.borrow().overview_reads, 1);
+    }
+}
+
+#[test]
+fn a_popup_that_opens_never_reads_the_overview() {
+    let world = World::dropdown();
+    world.borrow_mut().overview = Some(true);
+    choose(&world, "Never").expect("selected");
+    assert_eq!(world.borrow().overview_reads, 0);
 }
 
 #[test]

@@ -72,7 +72,7 @@ impl Cause {
         }
     }
 
-    fn suggestion(self) -> &'static str {
+    pub(crate) fn suggestion(self) -> &'static str {
         match self {
             Self::ActivationNotGranted => {
                 "The window manager granted no activation and no cause could be read; close any overview or lock screen, then retry, or focus the window yourself"
