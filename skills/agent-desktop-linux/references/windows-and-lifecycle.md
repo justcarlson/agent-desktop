@@ -179,6 +179,11 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
 - A clamp or an ignored request is `ACTION_FAILED`, `delivered_unverified`, with
   the requested, observed and display bounds; the window may still have changed
   in part: read the bounds.
+- A `restore` the window manager answered without showing the window is
+  `ACTION_NOT_SUPPORTED`, cause `restore_refused`, `delivered_unverified`, with
+  `details.manager`. While the GNOME Activities Overview is open the cause is
+  `overview_open` (`ACTION_FAILED`): press Escape to close it, then look at the
+  window before you retry.
 - Without `--app` or `--window-id` all five act on the focused window, and
   `data.target` names the window id, title and process identity, even when no
   selector was supplied. Pass one unless you mean the focused window.

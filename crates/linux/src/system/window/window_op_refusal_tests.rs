@@ -146,3 +146,63 @@ fn restore_of_a_hidden_window_that_stays_hidden_names_the_manager_and_is_not_suc
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_eq!(world.writes(), 0);
 }
+
+fn refused_restore(overview: Option<bool>) -> (AdapterError, World) {
+    let mut hidden = state(0, 0, 400, 300);
+    hidden.hidden = true;
+    let mut world = World::showing(hidden);
+    world.lift_result = Lifted::StillHidden {
+        manager: "GNOME Shell".to_owned(),
+    };
+    world.overview = overview;
+    let error = run(&world, &window(), &WindowOp::Restore, budget()).expect_err("refused");
+    (error, world)
+}
+
+#[test]
+fn restore_refused_while_the_overview_is_open_names_the_overview_as_the_cause() {
+    let (error, world) = refused_restore(Some(true));
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(cause(&error), "overview_open");
+    assert!(error.message.contains("Activities Overview"));
+    assert!(error.message.contains("GNOME Shell"));
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some("Close the Activities Overview (press Escape), then retry")
+    );
+    assert_eq!(error.details.expect("details")["manager"], "GNOME Shell");
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+    assert_eq!(world.overview_reads.get(), 1);
+    assert_eq!(world.writes(), 0);
+}
+
+#[test]
+fn restore_refused_with_the_overview_closed_or_unreadable_keeps_restore_refused() {
+    for overview in [Some(false), None] {
+        let (error, world) = refused_restore(overview);
+        assert_eq!(error.code, ErrorCode::ActionNotSupported, "{overview:?}");
+        assert_eq!(cause(&error), "restore_refused", "{overview:?}");
+        assert!(error.message.contains("GNOME Shell"));
+        assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
+        assert_eq!(world.overview_reads.get(), 1, "{overview:?}");
+    }
+}
+
+#[test]
+fn restore_that_shows_the_window_never_reads_the_overview() {
+    let mut hidden = state(0, 0, 400, 300);
+    hidden.hidden = true;
+    let mut world = World::showing(hidden).then_showing(state(0, 0, 400, 300));
+    world.overview = Some(true);
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("the window is shown");
+    assert_eq!(world.lifts.get(), 1);
+    assert_eq!(world.overview_reads.get(), 0);
+}
+
+#[test]
+fn restore_of_a_visible_window_never_reads_the_overview() {
+    let mut world = World::showing(state(0, 0, 400, 300));
+    world.overview = Some(true);
+    run(&world, &window(), &WindowOp::Restore, budget()).expect("nothing to restore");
+    assert_eq!(world.overview_reads.get(), 0);
+}

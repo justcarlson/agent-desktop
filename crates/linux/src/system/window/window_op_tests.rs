@@ -42,6 +42,8 @@ pub(super) struct World {
     pub(super) write_result: Result<(), ControlError>,
     pub(super) lifts: Cell<u32>,
     pub(super) lift_result: Lifted,
+    pub(super) overview: Option<bool>,
+    pub(super) overview_reads: Cell<u32>,
     pub(super) wayland: bool,
     pub(super) stopped: bool,
     pub(super) reaction: Option<fn(&[WindowWrite]) -> WindowFacts>,
@@ -98,6 +100,8 @@ impl World {
             write_result: Ok(()),
             lifts: Cell::new(0),
             lift_result: Lifted::Cleared,
+            overview: None,
+            overview_reads: Cell::new(0),
             wayland: false,
             stopped: false,
             reaction: None,
@@ -175,6 +179,11 @@ impl OpWorld for World {
     fn lift(&self, _client: u32) -> Result<Lifted, AdapterError> {
         self.lifts.set(self.lifts.get() + 1);
         Ok(self.lift_result.clone())
+    }
+
+    fn overview_open(&self) -> Option<bool> {
+        self.overview_reads.set(self.overview_reads.get() + 1);
+        self.overview
     }
 
     fn remember(&self, _win: &WindowInfo, _client: u32, rectangle: Option<Extents>) {

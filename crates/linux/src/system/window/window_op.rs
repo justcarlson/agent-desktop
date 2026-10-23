@@ -49,6 +49,9 @@ trait OpWorld: ClientWorld {
     fn facts(&self, client: u32) -> ControlRead<WindowFacts>;
     fn write(&self, client: u32, write: &WindowWrite) -> Result<(), ControlError>;
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError>;
+    /// Whether GNOME Shell reports its Activities Overview open; read once,
+    /// for a restore the manager refused.
+    fn overview_open(&self) -> Option<bool>;
     fn displays(&self) -> Vec<Rect>;
     fn on_wayland(&self) -> bool;
     fn remember(&self, win: &WindowInfo, client: u32, rectangle: Option<Extents>);
@@ -110,6 +113,10 @@ impl OpWorld for Live<'_> {
 
     fn lift(&self, client: u32) -> Result<Lifted, AdapterError> {
         lift(client, &self.owner, self.deadline)
+    }
+
+    fn overview_open(&self) -> Option<bool> {
+        self.frame.overview_open()
     }
 
     fn remember(&self, win: &WindowInfo, client: u32, rectangle: Option<Extents>) {
@@ -264,7 +271,7 @@ fn restore(
     }
     if current.hidden {
         if let Lifted::StillHidden { manager } = world.lift(client)? {
-            return Err(still_hidden(&manager));
+            return Err(still_hidden(&manager, world.overview_open() == Some(true)));
         }
         current = read_before(world, client)
             .map_err(|error| error.with_disposition(DeliverySemantics::delivered_unverified()))?;
