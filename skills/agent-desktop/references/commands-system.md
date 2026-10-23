@@ -11,7 +11,7 @@ agent-desktop launch "MyTool" --arg /tmp/notes.txt --env KEY=VALUE --no-attach
 agent-desktop launch "Obsidian" --cdp
 ```
 
-`launch` returns once the process runs. The identifier differs by OS: the examples below use macOS display names, and Windows needs an absolute path or a System32 name (platform skill). By default it attaches to a running instance. `--no-attach` starts a fresh instance instead of attaching: on Windows it returns `ACTION_FAILED` if a matching app is already running; on macOS it launches a second instance alongside the running one. For an `--arg` value that starts with `-`, use `--arg=<value>`.
+`launch` returns once the process runs. The identifier differs by OS: the examples use macOS display names, and the platform skill names the form for its OS. By default it attaches to a running instance. `--no-attach` starts a fresh instance instead of attaching: on Windows it returns `ACTION_FAILED` if a matching app is already running; on macOS it launches a second instance alongside the running one. For an `--arg` value that starts with `-`, use `--arg=<value>`.
 
 The process running and the app showing a window are separate facts:
 
@@ -85,15 +85,15 @@ agent-desktop minimize --app "TextEdit"   # maximize, restore likewise
 
 ## Notifications
 
-Commands: `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action`, `wait --notification`. They drive the OS notification surface (Notification Center on macOS, Action Center on Windows). Command shapes and JSON fields are the same on both.
+Commands: `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action`, `wait --notification`. They drive the OS notification surface: Notification Center on macOS, Action Center on Windows, the GNOME Shell message list on Linux. Command shapes and JSON fields are the same on each. The platform skill states its limits.
 
 - Output is verbatim. Titles and bodies are not redacted. Treat anything you route onward as sensitive.
-- Headless listing works only when the surface is already open. When it is closed, a strict-headless call returns `POLICY_DENIED`. Use `--headed`, which may open the surface and restore the earlier foreground app.
+- On macOS and Windows, headless listing works only when the surface is already open. When it is closed, a strict-headless call returns `POLICY_DENIED`. Use `--headed`, which may open the surface and restore the earlier foreground app. Linux lists headless even when the list is closed.
 - Every mutation needs `--headed`. A single-notification mutation also needs a fingerprint from the same listing: `--expected-app` or `--expected-title`. Notifications reorder between listings. When the row at the index no longer matches, the call returns `NOTIFICATION_NOT_FOUND` and presses nothing. Without a fingerprint, `INVALID_ARGS`.
 - `list-notifications` returns `{ index, app_name, title, body, actions }`, with 1-based indexes. `--app`, `--text`, `--limit` filter.
 - `notification-action INDEX "Reply"` clicks a named button. An action the entry lacks returns `ACTION_NOT_SUPPORTED` and changes nothing.
 - `dismiss-all-notifications` returns `{ dismissed_count, failures, failed_count }`. A failure to close the surface afterward is not reported as an error.
-- `wait --notification` detects a new entry against a baseline taken at wait start. Transient errors retry within `--timeout`. A headless wait sees only an already-open surface.
+- `wait --notification` detects a new entry against a baseline taken at wait start. Transient errors retry within `--timeout`. On macOS and Windows, a headless wait sees only an already-open surface.
 
 ## Clipboard
 
@@ -128,7 +128,7 @@ Use `wait`, not a fixed sleep. `--timeout` defaults to 30000 ms. Modes:
 - **Time.** `wait <ms>` pauses.
 - **Element.** `--predicate` is `exists` (default), `enabled`, `visible`, `actionable`, or `value` (with `--value`). `actionable` checks readiness for `--action` (`click` default, `type`, `set-value`, `clear`). Use `--action type` before a wait-then-type flow. The editability check runs only for editing actions. `--element` takes a qualified ref (`@<snapshot_id>:eN`); the wait polls the snapshot embedded in the ref.
 - **Window.** Waits for a window whose title contains the text. `--app` narrows. On timeout, `details.last_observed` lists the scoped window count and up to eight titles.
-- **Text.** Selects one app window, then waits for text in that tree. `--count N` waits until exactly N nodes match. The result then carries `count`. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. `wait --window-id` is not supported for text waits; `--window-id` narrows eligible window lifecycle event waits only. To recover, use `list-windows --app <app>` to identify the target, then `snapshot --app <app> --window-id <id> -i` to inspect it. For a dialog, `wait --window <title> --app <app>` followed by `snapshot --surface sheet` is another option (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined.
+- **Text.** Selects one app window, then waits for text in that tree. `--count N` waits until exactly N nodes match, and the result carries `count`. Several eligible windows, such as a document and its save dialog, return `AMBIGUOUS_TARGET` before any text check. `--window-id` does not narrow a text wait. To recover, find the target with `list-windows --app <app>` and inspect it with `snapshot --app <app> --window-id <id> -i`. For a dialog, use `wait --window <title> --app <app>`, then `snapshot --surface sheet` (see the dialog workflow). `--window` and `--text` are separate modes and cannot combine.
 - **Menu.** `--menu` waits for a menu surface to open. `--menu-closed` waits for it to close.
 - **Event.** `--event` is one of `window-opened`, `window-closed`, `app-launched`, `app-terminated`, `focus-changed`, `surface-appeared`, `surface-dismissed`. It diffs a baseline taken at wait start against fresh reads, so you need no window id up front. `--window-id` and `--window` narrow it.
 
@@ -138,7 +138,7 @@ For `wait --event` only, `--app` resolves once, at wait start, to one process in
 - `app-terminated`, `window-closed`, `surface-dismissed`: return `"found": true` with `"target_unresolved": true` at once. A misspelled `--app` gives the same answer, so check the name.
 - `focus-changed`: returns `APP_NOT_FOUND`.
 
-Wait outcomes depend on the mode and the platform's native reads. On macOS and Windows, an existing window can still satisfy `--window` while its app is unresponsive. A wait can return top-level `APP_UNRESPONSIVE` before its timeout; handle that error directly. `wait --event` keeps polling after retryable read failures and includes the latest failure in `details.last_error` if it times out. A non-retryable error ends the event wait immediately.
+On macOS and Windows, an existing window can still satisfy `--window` while its app is unresponsive. A wait can return top-level `APP_UNRESPONSIVE` before its timeout; handle that error directly. `wait --event` keeps polling after retryable read failures and includes the latest failure in `details.last_error` if it times out. A non-retryable error ends the event wait immediately.
 
 On Linux the event and menu waits follow these rules:
 
@@ -191,11 +191,16 @@ agent-desktop session end "$AGENT_DESKTOP_SESSION"
 
 ### Cursor overlay
 
-`cursor-overlay enable` draws an agent cursor and ripple for actions. It affects presentation only. `enable` returns `data.rendered`. Read it: `false` means the setting was saved but nothing was drawn. The styling flags are listed by `agent-desktop cursor-overlay enable --help`. `session start --cursor` enables it at start.
+`cursor-overlay enable` draws an agent cursor and ripple for actions. It affects presentation only. `enable` returns `data.rendered`: `false` means the setting was saved but nothing was drawn. `session start --cursor` enables it at start. `agent-desktop cursor-overlay enable --help` lists the style, image and motion flags with their ranges and defaults. Settings persist in the session and in per-agent profiles. After an upgrade, run `cursor-overlay disable`, then `enable`, to restart the renderer with the new settings.
 
-On macOS, motion flags on `cursor-overlay enable` are stored with the session or per-agent profile: `--travel-ms MIN,MAX` (default `90,320`, `30 ≤ MIN ≤ MAX`), `--bow N` (0–3, default 1), `--overshoot N` (0–0.15, default 0.035), `--tremor PX` (0–4 points, default 1.1), `--dwell-ms N` (0–300, default 0), and `--motion-seed N` (deterministic variation per move, off by default). Travel max plus dwell must be ≤700 ms or the command returns `INVALID_ARGS`; the arrival budget remains 900 ms. On macOS, Reduce Motion skips travel and dwell, and physical headed drags keep their own motion. After upgrading, run `cursor-overlay disable` then `enable` to restart the renderer with the new settings.
+On macOS:
 
-On macOS, image flags on `cursor-overlay enable`: `--image PATH` replaces the arrow with a PNG of at most 2 MiB and 1024 pixels per side; `--hotspot X,Y` sets its click point in image points from the top-left (default `0,0`). `--pointer-image PATH` and `--pointer-hotspot X,Y` optionally show a second PNG on arrival at a pressable control; text fields keep the arrow, and the next travel departs as the arrow again. Relative paths are resolved at enable; only absolute paths cross the socket. `--fill`/`--rim` conflict with `--image`; `--size` scales the image and `--accent` colours effects. Images rasterize at display backing scale, scale down to fit the stage, draw without an added shadow, and fall back to the arrow if missing or invalid. Settings persist in session and per-agent profiles. Windows accepts these motion and image settings but keeps its built-in motion and arrow. After upgrading, run `cursor-overlay disable` then `enable` to restart the renderer.
+- `--travel-ms MIN,MAX` needs `30 ≤ MIN ≤ MAX`. Travel max plus `--dwell-ms` must be at most 700 ms, or the command returns `INVALID_ARGS`.
+- Reduce Motion skips travel and dwell. Physical headed drags keep their own motion.
+- `--image` and `--pointer-image` take a PNG of at most 2 MiB and 1024 pixels per side. Relative paths resolve at `enable`. `--fill` and `--rim` conflict with `--image`. A missing or invalid image falls back to the arrow.
+- The pointer image shows on arrival at a pressable control. Text fields keep the arrow.
+
+Windows accepts the motion and image settings but keeps its built-in motion and arrow.
 
 Multi-agent cursors (macOS and Windows): start with `session start --cursor --multi-agent`, then pass the returned session id to every subagent.
 

@@ -4,8 +4,7 @@ Commands that change UI state. Run `agent-desktop <command> --help` for flags.
 
 ## Headless and headed
 
-- **Headless (default).** Semantic accessibility calls only. The action does not take focus, move the cursor, synthesize keys or use the clipboard. If the semantic path cannot do the action, it fails closed.
-- **`--headed`.** A global flag (`agent-desktop --headed click @s8f3k2p9:e5`). The action may focus the exact source window first, and pointer actions need a verified target point. The adapter then delivers input in the way the OS supports. It also applies to every `batch` entry.
+`--headed` is global (`agent-desktop --headed click @s8f3k2p9:e5`) and applies to every `batch` entry. A headed action may focus the exact source window first, and a pointer action needs a verified target point.
 
 `press` is always physical keyboard input. `hover`, `drag`, `mouse-move`, `mouse-click` and `mouse-wheel` are physical cursor input and need `--headed`. Raw coordinates carry no window identity, so they never focus an app. `key-down`, `key-up`, `mouse-down` and `mouse-up` are reserved and return `ACTION_NOT_SUPPORTED`. Use `press`, `mouse-click` or `drag`.
 
@@ -35,11 +34,10 @@ Stateful actions (`set-value`, `type`, `clear`, `check`, `uncheck`, `toggle`, `e
 - Secure text is redacted. A delivered write can return `delivered_unverified` with `verification_reason: "secure_field"`. This never turns a native delivery error into success.
 - `set-value` and `type` verify the element value only (`verification_scope: element_value`, `application_commit: not_verified`). Confirm document-level effects, such as a table that should have resized, with an independent read.
 - If `data.surfaces` lists a sheet, menu or alert, the app is waiting on it. Use `find --surface sheet` and answer it. A `delivered_unverified` result with an open surface usually means a confirmation is pending.
-- Never repeat an action whose delivery is uncertain or unverified. `toggle` would undo the first change.
 
 ## Errors
 
-Branch on `error.code` and `disposition`, not on message text. Exit codes: `0` success, `1` structured error, `2` argument error. The `error` object can carry `details`, `recovery` and `disposition`. Ignore unknown keys.
+Exit codes: `0` success, `1` structured error, `2` argument error. The `error` object can carry `details`, `recovery` and `disposition`. Ignore unknown keys.
 
 | Code | Meaning | Recovery |
 |------|---------|----------|
@@ -102,7 +100,7 @@ agent-desktop clear @s8f3k2p9:e2
 agent-desktop focus @s8f3k2p9:e2
 ```
 
-- `type` inserts text. When value and selection are readable it checks the result. A readable mismatch returns `ACTION_FAILED`; an unreadable result succeeds as `delivered_unverified`. Inspect the current value before you write again. Headed typing can change the selection when it focuses an inactive field. In that case the result stays unverified. Typed keys reach the field through the application's event queue, so the check reads the field again while it keeps changing, inside the `--timeout-ms` budget. A field that settles on other text than the one sent, or that never settles in the budget, returns `delivered_unverified` with `verification_reason: postcondition_mismatch`. Read the field with `get` for the final text.
+- `type` inserts text and checks the result when value and selection are readable. A readable mismatch returns `ACTION_FAILED`, and an unreadable result succeeds as `delivered_unverified`. Text sent as keystrokes reaches the field through the app's event queue, so the check re-reads the field while it changes, inside the `--timeout-ms` budget. If it settles on other text, or never settles, the result is `delivered_unverified` with `verification_reason: postcondition_mismatch`. Headed typing that focuses an inactive field can change the selection, and the result then stays unverified. Read the field with `get` before you write again.
 - The default `--timeout-ms` of `type` is 5000 plus 30 ms per character of the text. An explicit `--timeout-ms` wins.
 - `set-value` writes the value directly through the semantic value path. It is faster than `type`, but it may not fire every UI callback. Use it for text fields, text areas and sliders.
 - A cell that exposes no value write is not directly editable. Activate it, take a fresh snapshot, and target the editor that appears. Some apps expose no editor and accept only keyboard input.
