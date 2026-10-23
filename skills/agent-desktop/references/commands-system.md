@@ -140,14 +140,7 @@ For `wait --event` only, `--app` resolves once, at wait start, to one process in
 
 On macOS and Windows, an existing window can still satisfy `--window` while its app is unresponsive. A wait can return top-level `APP_UNRESPONSIVE` before its timeout; handle that error directly. `wait --event` keeps polling after retryable read failures and includes the latest failure in `details.last_error` if it times out. A non-retryable error ends the event wait immediately.
 
-On Linux the event and menu waits follow these rules:
-
-- An app counts as launched when it owns a window. A helper process that registers with no window never produces `app-launched`, and a second window of a running app (`--new-window`, Ctrl+N) is `window-opened` and never `app-launched`.
-- `focus-changed` needs a window that reports it is active. On a Wayland session no window does until a keyboard device exists, so the wait times out there and its `baseline_counts` show the windows it saw.
-- A dialog is `window-opened` and `surface-appeared` once. A dialog drawn inside its window is found only when `--app` scopes the wait, and it appears 0.7 to 1.5 s after the action that opened it.
-- A wait scoped to a stopped app fails at once with top-level `APP_UNRESPONSIVE`, including `--event`; it is not a `TIMEOUT`. A batch of an action followed by such a wait does not start the action (`pre_action_baseline_failed`, cause `APP_UNRESPONSIVE`). An app that is alive but slow keeps the wait polling; the classes it could not read are left out of the diff and no event is invented from them.
-- `--menu-closed` on a menu you have not opened yet is true at once. Wait for `--menu` first, then close the menu, then wait for `--menu-closed`. After an action of your own the closed wait holds until the menu was seen open, or for 2 s.
-- A menu bar that is hidden opens nothing, so `--menu` times out with "No menu opened before the deadline".
+The platform skills state the event and menu wait rules that differ by OS.
 
 A `TIMEOUT` from `wait` carries `details.kind: "wait_timeout"`, `last_observed` or `last_error`, and `baseline_counts` for events.
 

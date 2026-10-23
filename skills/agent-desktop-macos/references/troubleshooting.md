@@ -70,12 +70,6 @@ For Automation, open Privacy & Security > Automation and allow the launching app
 
 **Fix.** Dismiss the open menu with `press escape`, then run `select` again.
 
-## STALE_REF, AMBIGUOUS_TARGET, SNAPSHOT_NOT_FOUND
-
-**Cause.** The UI changed since the snapshot, two live elements match the ref, or the snapshot ID no longer exists.
-
-**Fix.** Run `snapshot` again and use the new refs. For an overlay, snapshot the overlay surface and not the window.
-
 ## APP_NOT_FOUND or WINDOW_NOT_FOUND
 
 **Fix.** Run `agent-desktop launch "App Name"` (display name or bundle ID). Then run `list-windows --app "App"`. A full-screen app still appears in `list-windows`, but its bounds equal the screen and its state can lag behind animations, so use `wait`.

@@ -250,11 +250,3 @@ that display releases what a killed process left before it sends its own events.
 If a button seems stuck after you killed a command, run any input command
 with valid arguments, such as `agent-desktop --headed mouse-move --xy 640,400`,
 to release it before the new input.
-
-## Held input
-
-`key-down` and `key-up` fail closed with `ACTION_NOT_SUPPORTED`,
-`delivery: unknown`. `mouse-down` and `mouse-up` without `--headed` fail with
-`POLICY_DENIED` and `not_delivered`; with `--headed` they fail with
-`ACTION_NOT_SUPPORTED`. No event is sent. Use `press` with modifiers
-(`ctrl+shift+a`) and `drag`.

@@ -40,7 +40,7 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 
 - The identifier is an absolute path, desktop id, bare command or desktop entry
   `Name` (`launch "Text Editor"`), tried in that order. A relative path, or a
-  name with a separator or NUL, is `INVALID_ARGS`; an unknown name is
+  name with a separator or NUL, is `INVALID_ARGS`, `not_delivered`; an unknown name is
   `APP_NOT_FOUND`; an entry with `Terminal=true` or no `Exec` is
   `ACTION_NOT_SUPPORTED`.
 - The app is spawned with null stdio in its own process group, so a caller that
@@ -319,7 +319,8 @@ diffs a baseline taken at the start against fresh reads. On Linux:
   `surface-appeared`. An unscoped `window-opened` sees it (measured on a Nautilus
   "New Folder" dialog); `surface-appeared` and `surface-dismissed` need `--app`
   (`INVALID_ARGS`, "requires --app" when unscoped); a dialog drawn inside its
-  window is found only when `--app` scopes the wait.
+  window is found only when `--app` scopes the wait, and it appears 0.7 to 1.5 s
+  after the action that opened it.
 - `focus-changed` needs a window that reports `ACTIVE`. On Wayland none does
   until a seat keyboard exists, so it times out with `baseline_counts`.
 - A wait scoped to a stopped app fails at once with top-level
@@ -331,7 +332,10 @@ diffs a baseline taken at the start against fresh reads. On Linux:
 - A `batch` is `ok: true`, exit 0, even when an entry fails: each entry carries
   its own `ok: false` and `error`. Read every entry.
 - `--menu-closed` on a menu you have not opened is true at once: wait for `--menu`
-  first, then close the menu, then wait for `--menu-closed`.
+  first, then close the menu, then wait for `--menu-closed`. After an action of
+  your own, the closed wait holds until the menu was seen open, or for 2 s.
+- A hidden menu bar opens nothing, so `--menu` times out with "No menu opened
+  before the deadline".
 - For an already-focused menu or Save As dialog, `agent-desktop press escape`
   sends Escape to the current keyboard focus. Omit `--app` and `--window-id` for
   this global form: scoped delivery checks the application's active frame, while
@@ -359,15 +363,6 @@ diffs a baseline taken at the start against fresh reads. On Linux:
   agent-desktop batch '[{"command":"close-app","args":{"app":"gnome-text-editor"}},{"command":"wait","args":{"event":"surface-appeared","app":"gnome-text-editor","timeout":5000}}]'
   agent-desktop snapshot --app gnome-text-editor --surface sheet -i --compact
   ```
-
-## Reading the disposition
-
-Read `data.disposition` or `error.disposition` before you retry. A refusal before
-anything was sent (a protected process, a relative path, a background `press`, an
-unknown app or window in the pre-delivery lookup for `focus-window`, `close-app`
-or the window operations) is `not_delivered`, `retry: safe`. A timeout after
-delivery or a read-back mismatch is `delivered_unverified`, `retry: unsafe`: look
-at the state with `list-windows` or `snapshot` before repeating.
 
 ## Window classification
 

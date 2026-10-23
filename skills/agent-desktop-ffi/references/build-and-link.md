@@ -232,11 +232,6 @@ rc = ad_execute_by_ref(adapter, "@s8f3k2p9:e3", &type_act,
                        AD_POLICY_KIND_FOCUS_FALLBACK, &result);
 ```
 
-## Threading reminder
-
-See [threading.md](threading.md) for the host-thread contract, native-handle rules,
-and mutation ordering.
-
 ## Minimal Python ctypes example
 
 ```python

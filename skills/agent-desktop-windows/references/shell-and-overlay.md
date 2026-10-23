@@ -38,7 +38,9 @@ windows.
 
 The notification commands read and drive the Action Center through UI
 Automation. The WinRT `UserNotificationListener` is never used, so its
-per-machine consent setting cannot fail a call.
+per-machine consent setting cannot fail a call. The reader keys on landmark
+`AutomationId`s: `MainListView` when notifications are present, an empty-state
+shape when none are, and a top-level `ClearAllButton`.
 
 - **The center must be open for a read.** `list-notifications` reads an
   already-open center headless. When the center is closed, strict headless
