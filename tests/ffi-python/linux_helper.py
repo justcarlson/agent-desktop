@@ -66,11 +66,11 @@ def verify(lib, empty_path, reader=read_foreign_text):
             os.environ["PATH"] = original_path
 
 
-def verify_cli(node, wrapper, empty_path, reader=read_foreign_text, run=subprocess.run):
+def verify_cli(entry, empty_path, reader=read_foreign_text, run=subprocess.run):
     payload = "agent-desktop-installed-owner"
     env = dict(os.environ, PATH=empty_path)
     def command(*args):
-        result = run([node, wrapper, *args], env=env, capture_output=True,
+        result = run([entry, *args], env=env, capture_output=True,
                      text=True, timeout=15, check=False)
         if result.returncode != 0 or json.loads(result.stdout).get("ok") is not True:
             raise AssertionError(f"installed clipboard command failed: {args[0]}: {result.stdout} {result.stderr}")
