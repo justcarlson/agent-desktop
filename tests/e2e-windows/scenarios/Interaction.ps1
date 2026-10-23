@@ -121,6 +121,7 @@ function Invoke-InteractionScenario {
 
                 $assertArgs = @{ Target = $target; StatusTarget = $statusTarget; Action = $leg['Action'] }
                 if ($leg['ActionArgs']) { $assertArgs.ActionArgs = $leg['ActionArgs'] }
+                if ($leg['Mechanism']) { $assertArgs.ExpectedMechanism = $leg['Mechanism'] }
                 if ($leg['IsProperty']) {
                     $assertArgs.IsProperty = $leg['IsProperty']
                     $assertArgs.ExpectedState = $leg['ExpectedState']

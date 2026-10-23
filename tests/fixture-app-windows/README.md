@@ -109,14 +109,10 @@ Measured live against a running build of this fixture (`agent-desktop find
   reason - a `TreeNode` is not a `Control`. A stock `TreeView`'s own
   `AutomationId` (a real `Control`) resolved fine; its child nodes did not.
 
-`FixtureIdentity.Assign(ToolStripItem, string)` exists and does assign
-`.Name`, matching the shape the stock provider would need if this ever
-changes on a future toolchain, but nothing in this fixture relies on it for
-resolvability today. Every target that needs to resolve by native id and
-needed a `ControlType` no stock control produces is instead a real
-`Control` (a `Button`, `Label` or `Panel`) wearing a `WM_GETOBJECT`
-override provider (`UiaProviderHost` and its subclasses in
-`FixtureProviderHost.cs`, `FixtureToggleHost.cs`,
+Every target that needs to resolve by native id and needed a `ControlType`
+no stock control produces is instead a real `Control` (a `Button`, `Label` or
+`Panel`) wearing a `WM_GETOBJECT` override provider (`UiaProviderHost` and its
+subclasses in `FixtureProviderHost.cs`, `FixtureToggleHost.cs`,
 `FixtureExpandCollapseHost.cs` and `FixtureControlTypeOverrideHost.cs`) -
 `menu-disclosure`, `menu-fire-item`, `outline-tree`,
 `outline-parent`, `outline-child-a`, `outline-child-b`, `cell-griditem`,
