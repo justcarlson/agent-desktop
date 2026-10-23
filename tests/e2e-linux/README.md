@@ -371,11 +371,9 @@ and reordered-row tests remain; no wrong-target result was observed.
 
 ## Integration review decisions
 
-All 76 review OWNER rows are resolved in
-[the decision table](../../docs/plans/3.12-integration-decisions.md): 23 live
+All 76 review OWNER rows are resolved: 23 live
 contracts, one exact default-timeout refusal, 50 transferred hardening measurements (now explicitly deferred outside the closing registry),
-and two removed invalid contracts (HTML setting and the Qt choice target). The separate unsupported HTML-import live leg is also retired, outside these 76 decision rows. The receiving scope lists every
-transferred row in `docs/phases.md` §3.15. No transferred cell counts as a pass.
+and two removed invalid contracts (HTML setting and the Qt choice target). The separate unsupported HTML-import live leg is also retired, outside these 76 decision rows. No transferred cell counts as a pass.
 Registration is not a measured pass.
 
 Notification scenarios use the private session's own notification server, verified
@@ -472,7 +470,6 @@ Rebased with rerere onto shipped core-delivery `7dc6500f`.
 | `crates/linux/src/system/signal/signal_live_tests.rs` | Keep upstream outcome diagnostics and remove the mismatched-session Wayland check and its unused import. |
 | `tests/e2e-linux/test_runner_contract.py` | Keep tests moved into the workflow contract module; preserve behavioral lock timeout coverage there. |
 | `tests/e2e-linux/runner/legs.py` | Combine the ref-action and gap inventories without losing either family. |
-| `docs/phases.md` | Preserve shipped shell/notification/tray contracts and the explicitly deferred harness measurements. |
 
 ## Current integration findings
 

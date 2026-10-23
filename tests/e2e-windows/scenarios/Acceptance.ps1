@@ -36,7 +36,7 @@
         this instead; it proves the same property the plan's leg exists to
         prove (the actionability gate is live end to end, not only in lib
         tests) with a deterministic oracle rather than a flaky one.
-      - Zero bounds. `docs/phases.md`/this plan expect
+      - Zero bounds. The acceptance plan expected
         `is --property visible` to answer `result: false` for
         `zero-bounds-button`. `tests/fixture-app-windows/FixtureCards.cs`'s
         own `BuildZeroBounds` doc-comment already records that no

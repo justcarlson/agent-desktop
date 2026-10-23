@@ -98,8 +98,8 @@ change from that base.
 
 ## Validation
 
-Current results are recorded in `docs/phases.md` under the distribution
-section and in findings `L22-16`, `L22-19` and `L22-20`. PR #296 release dry-run
+Current results are recorded in `probes/linux/FINDINGS.md` findings
+`L22-16`, `L22-19` and `L22-20`. PR #296 release dry-run
 `39551893675` passed the pinned-container CLI and FFI builds, glibc gates and
 archive checks on both architectures. Its 22.04 consumer jobs failed on the
 bridge defect above. The hosted 24.04 consumer workflow change still requires
