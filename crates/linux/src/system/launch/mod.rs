@@ -54,21 +54,25 @@ fn conclude(
     options: &LaunchOptions,
     created: bool,
     focus: impl FnOnce(&WindowInfo) -> Result<(), AdapterError>,
+    refresh: impl FnOnce() -> Option<WindowInfo>,
 ) -> LaunchResult {
     let mut notes = Vec::new();
+    let mut window = window;
     if !created && (!options.env.is_empty() || options.cwd.is_some()) {
         notes.push(
             "A running instance was used, so the environment and working directory of this launch were not applied.".to_owned(),
         );
     }
     if options.activate
-        && let Some(window) = &window
-        && let Err(error) = focus(window)
+        && let Some(target) = &window
     {
-        notes.push(format!(
-            "The window could not be brought forward: {}",
-            error.message
-        ));
+        match focus(target) {
+            Ok(()) => window = refresh().or(window),
+            Err(error) => notes.push(format!(
+                "The window could not be brought forward: {}",
+                error.message
+            )),
+        }
     }
     LaunchResult {
         app: owner.name.clone(),
@@ -237,9 +241,14 @@ impl Launch<'_> {
     ) -> LaunchResult {
         LaunchResult {
             renderer: chromium_renderer(self.bus, owner.pid, self.deadline),
-            ..conclude(owner, window, self.options, created, |window| {
-                focus_window(self.bus, window, self.lease)
-            })
+            ..conclude(
+                owner,
+                window,
+                self.options,
+                created,
+                |window| focus_window(self.bus, window, self.lease),
+                || self.window_of(owner, false, &HashSet::new()).ok().flatten(),
+            )
         }
     }
 

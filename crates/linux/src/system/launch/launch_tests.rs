@@ -164,11 +164,38 @@ fn a_refused_focus_still_reports_the_launch_and_says_why() {
         activate: true,
         ..options()
     };
-    let result = conclude(&owner(), Some(window()), &asked, true, |_| {
-        Err(AdapterError::new(ErrorCode::ActionFailed, "no focus"))
-    });
+    let original = window();
+    let result = conclude(
+        &owner(),
+        Some(original.clone()),
+        &asked,
+        true,
+        |_| Err(AdapterError::new(ErrorCode::ActionFailed, "no focus")),
+        || panic!("a refused activation must not re-read the window"),
+    );
     assert!(result.window.is_some());
+    assert_eq!(result.window, Some(original));
     assert!(result.suggestion.expect("note").contains("no focus"));
+}
+
+#[test]
+fn a_successful_activation_reports_the_window_read_after_the_request() {
+    let asked = LaunchOptions {
+        activate: true,
+        ..options()
+    };
+    let mut focused = window();
+    focused.state.is_focused = true;
+    let result = conclude(
+        &owner(),
+        Some(window()),
+        &asked,
+        true,
+        |_| Ok(()),
+        || Some(focused.clone()),
+    );
+    assert_eq!(result.window, Some(focused));
+    assert!(result.window.expect("window").state.is_focused);
 }
 
 #[test]
@@ -177,11 +204,11 @@ fn a_reused_instance_says_the_environment_and_directory_were_dropped() {
         env: BTreeMap::from([("A".to_owned(), "1".to_owned())]),
         ..options()
     };
-    let reused = conclude(&owner(), None, &with_env, false, |_| Ok(()));
+    let reused = conclude(&owner(), None, &with_env, false, |_| Ok(()), || None);
     assert!(reused.suggestion.expect("note").contains("not applied"));
-    let created = conclude(&owner(), None, &with_env, true, |_| Ok(()));
+    let created = conclude(&owner(), None, &with_env, true, |_| Ok(()), || None);
     assert!(created.suggestion.is_none());
-    let plain = conclude(&owner(), None, &options(), false, |_| Ok(()));
+    let plain = conclude(&owner(), None, &options(), false, |_| Ok(()), || None);
     assert!(plain.suggestion.is_none());
 }
 
