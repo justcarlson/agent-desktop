@@ -388,6 +388,37 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
             'assert "$label own fixture process is gone after teardown"', source
         )
 
+    def test_unknown_app_skip_is_gated_on_the_duplicate_pid_inventory_signature(self):
+        source = ERROR_CONTRACT.read_text()
+        self.assertIn('[ "$(json_field "$1" "$2.code")" = "TIMEOUT" ]', source)
+        self.assertIn('= "global_window_inventory_unstable" ]', source)
+        self.assertIn('"$2.details.skipped.0.field")" = "duplicate_pid" ]', source)
+        self.assertIn("crates/macos/src/system/appkit_bridge.m", source)
+        self.assertIn(
+            'assert_error_envelope "unknown app is APP_NOT_FOUND" APP_NOT_FOUND 1 not_delivered',
+            source,
+        )
+        self.assertIn('inventory_duplicate_pid_refusal "$RUN_JSON" data.results.1.error', source)
+
+    def test_ref_churn_sibling_skip_is_gated_on_the_default_cli_alias(self):
+        source = REF_CHURN.read_text()
+        gate = re.search(
+            r'if \[ "\$host_client" = "0" \] && \[ "\$ok" = "True" \]; then'
+            r'\s*skipmsg "\$label sibling kept its value: ([^"]+)"',
+            source,
+        )
+        self.assertIsNotNone(gate)
+        self.assertIn("2026-09-20-xcode-filter-ref-alias.md", gate.group(1))
+        self.assertIn('assert "$label sibling kept its value (independent readout)"', source)
+
+    def test_ref_churn_host_run_stops_the_command_host_it_started(self):
+        source = REF_CHURN.read_text()
+        self.assertIn('for host_pid in $(pgrep -fx "$raw_bin" 2>/dev/null); do', source)
+        self.assertIn(
+            'assert "$label the command host it started is stopped and holds no desktop lease"',
+            source,
+        )
+
     def test_removed_element_leg_accepts_only_stale_ref_not_delivered(self):
         source = RELIABILITY.read_text()
         self.assertNotIn("STALE_REF|TIMEOUT", source)

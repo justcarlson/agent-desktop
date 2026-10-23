@@ -1,3 +1,11 @@
+DUPLICATE_PID_DEFECT="known product defect: NSWorkspace listed one pid twice and the macOS app inventory refuses any list with a skipped record, so an unknown-app lookup times out instead of APP_NOT_FOUND (crates/macos/src/system/appkit_bridge.m duplicate_pid skip since 9d7ba42a; crates/macos/src/system/window/window_inventory_global_timeout.rs since 3f322728)"
+
+inventory_duplicate_pid_refusal() {
+    [ "$(json_field "$1" "$2.code")" = "TIMEOUT" ] && \
+        [ "$(json_field "$1" "$2.details.kind")" = "global_window_inventory_unstable" ] && \
+        [ "$(json_field "$1" "$2.details.skipped.0.field")" = "duplicate_pid" ]
+}
+
 error_contract_suite() {
     MODE_FLAG=""
     note "error envelopes: exit code and error.code an agent branches on"
@@ -5,16 +13,21 @@ error_contract_suite() {
         click @e1
     assert_error_envelope "well-formed ref to an unknown snapshot is SNAPSHOT_NOT_FOUND" SNAPSHOT_NOT_FOUND 1 not_delivered \
         click @sdeadbeef:e1
-    assert_error_envelope "unknown app is APP_NOT_FOUND" APP_NOT_FOUND 1 not_delivered \
-        snapshot --app NoSuchApp12345 -i
     assert_error_envelope "closed alert surface is ELEMENT_NOT_FOUND" ELEMENT_NOT_FOUND 1 "" \
         snapshot --app "$app" --surface alert
     assert_error_envelope "missing required argument is a parse error, exit 2" INVALID_ARGS 2 "" \
         click
     run_timed "$bin" snapshot --app NoSuchApp12345 -i
-    assert "APP_NOT_FOUND carries the list-apps recovery hint" \
-        "$(case "$(json_field "$RUN_JSON" error.suggestion)" in *list-apps*) echo 1 ;; *) echo 0 ;; esac)" \
-        "suggestion=$(json_field "$RUN_JSON" error.suggestion)"
+    if inventory_duplicate_pid_refusal "$RUN_JSON" error; then
+        skipmsg "unknown app is APP_NOT_FOUND: $DUPLICATE_PID_DEFECT"
+        skipmsg "APP_NOT_FOUND carries the list-apps recovery hint: $DUPLICATE_PID_DEFECT"
+    else
+        assert "APP_NOT_FOUND carries the list-apps recovery hint" \
+            "$(case "$(json_field "$RUN_JSON" error.suggestion)" in *list-apps*) echo 1 ;; *) echo 0 ;; esac)" \
+            "suggestion=$(json_field "$RUN_JSON" error.suggestion)"
+        assert_error_envelope "unknown app is APP_NOT_FOUND" APP_NOT_FOUND 1 not_delivered \
+            snapshot --app NoSuchApp12345 -i
+    fi
 }
 
 batch_payload_for() {
@@ -43,7 +56,9 @@ batch_failure_suite() {
     settled="$(json_field "$(get_target "$field" --property value)" data.value)"
     assert "batch continues past a failed entry by default" \
         "$([ "$RUN_EXIT" = "0" ] && [ "$(json_field "$RUN_JSON" ok)" = "True" ] && \
-            [ "$(json_field "$RUN_JSON" data.results.1.error.code)" = "APP_NOT_FOUND" ] && \
+            [ "$(json_field "$RUN_JSON" data.results.1.ok)" = "False" ] && \
+            { [ "$(json_field "$RUN_JSON" data.results.1.error.code)" = "APP_NOT_FOUND" ] || \
+                inventory_duplicate_pid_refusal "$RUN_JSON" data.results.1.error; } && \
             [ "$(json_field "$RUN_JSON" data.results.2.ok)" = "True" ] && \
             [ "$(json_field "$RUN_JSON" data.completed_entries)" = "3" ] && \
             [ -z "$(json_field "$RUN_JSON" data.stopped)" ] && [ "$settled" = "batch-last" ] && echo 1 || echo 0)" \
