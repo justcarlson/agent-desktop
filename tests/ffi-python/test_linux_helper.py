@@ -78,14 +78,14 @@ class InstalledHelperTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 0, '{"ok":true}', "")
         def read():
             return "agent-desktop-installed-owner" if len(calls) == 1 else None
-        verify_cli("/node", "/wrapper", "/empty", read, run)
-        self.assertEqual(calls, [["/node", "/wrapper", "clipboard-set", "agent-desktop-installed-owner"],
-                                 ["/node", "/wrapper", "clipboard-clear"]])
+        verify_cli("/entry", "/empty", read, run)
+        self.assertEqual(calls, [["/entry", "clipboard-set", "agent-desktop-installed-owner"],
+                                 ["/entry", "clipboard-clear"]])
 
     def test_installed_success_requires_foreign_payload(self):
         run = Mock(return_value=subprocess.CompletedProcess([], 0, '{"ok":true}', ""))
         with self.assertRaisesRegex(AssertionError, "foreign reader"):
-            verify_cli("/node", "/wrapper", "/empty", lambda: None, run)
+            verify_cli("/entry", "/empty", lambda: None, run)
         self.assertEqual(run.call_count, 2)
 
     def test_installed_command_errors_fail_closed(self):
@@ -94,11 +94,11 @@ class InstalledHelperTests(unittest.TestCase):
                 run = Mock(return_value=subprocess.CompletedProcess([], rc, body, "missing helper"))
                 reader = Mock()
                 with self.assertRaisesRegex(AssertionError, "command failed"):
-                    verify_cli("/node", "/wrapper", "/empty", reader, run)
+                    verify_cli("/entry", "/empty", reader, run)
                 reader.assert_not_called()
 
     def test_installed_clear_requires_no_foreign_selection(self):
         run = Mock(return_value=subprocess.CompletedProcess([], 0, '{"ok":true}', ""))
         with self.assertRaisesRegex(AssertionError, "clear left"):
-            verify_cli("/node", "/wrapper", "/empty", lambda: "agent-desktop-installed-owner", run)
+            verify_cli("/entry", "/empty", lambda: "agent-desktop-installed-owner", run)
         self.assertEqual(run.call_count, 3)

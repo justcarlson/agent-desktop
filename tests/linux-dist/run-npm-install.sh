@@ -144,9 +144,8 @@ version_json=$("$NATIVE" version)
 check_version native "$version_json"
 echo "run-npm-install: symlink and native entry report os=linux target=$ARCH"
 
-NODE_BIN=$(command -v node)
 mkdir "$WORK/nopath"
-python3 "$ROOT/tests/ffi-python/linux_helper.py" "$NODE_BIN" "$WRAPPER" "$WORK/nopath"
+python3 "$ROOT/tests/ffi-python/linux_helper.py" "$INSTALLED_BIN/agent-desktop" "$WORK/nopath"
 
 "$APP" >/dev/null 2>&1 &
 APP_PID=$!

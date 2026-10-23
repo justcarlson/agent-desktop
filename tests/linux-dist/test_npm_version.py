@@ -10,7 +10,7 @@ import unittest
 
 class InstalledVersionTests(unittest.TestCase):
     def test_valid_stdout_cannot_hide_a_failed_version_process(self):
-        for failed in ("symlink", "wrapper", "none"):
+        for failed in ("symlink", "native", "none"):
             with self.subTest(failed=failed), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 scripts = root / "tests/linux-dist"
@@ -32,14 +32,13 @@ class InstalledVersionTests(unittest.TestCase):
                 version = json.dumps({"ok": True, "data": {"os": "linux", "target": "x86_64"}})
                 executable("uname", "#!/bin/sh\necho x86_64\n")
                 executable("node", f'''#!{sys.executable}
-import os, sys
+import sys
 if sys.argv[1] == "-p": print("1")
-elif sys.argv[-1] == "version":
-    print({version!r})
-    sys.exit(17 if os.environ["FAIL_VERSION"] == "wrapper" else 0)
 ''')
                 binary_script = (f"#!{sys.executable}\nimport os, sys\nprint({version!r})\n"
-                                 'sys.exit(17 if os.environ["FAIL_VERSION"] == "symlink" else 0)\n')
+                                 'failed = os.environ["FAIL_VERSION"]\n'
+                                 'native = sys.argv[0].endswith("agent-desktop-linux-x64")\n'
+                                 'sys.exit(17 if (failed == "native") == native and failed != "none" else 0)\n')
                 executable("npm", f'''#!{sys.executable}
 import os, pathlib, sys
 if sys.argv[1] == "pack":
@@ -48,13 +47,14 @@ if sys.argv[1] == "pack":
     print("package.tgz")
 else:
     prefix = pathlib.Path(sys.argv[sys.argv.index("--prefix") + 1])
-    binary = prefix / "bin/agent-desktop"
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    binary.write_text({binary_script!r})
-    binary.chmod(0o700)
-    wrapper = prefix / "lib/node_modules/agent-desktop/bin/agent-desktop.js"
-    wrapper.parent.mkdir(parents=True, exist_ok=True)
-    wrapper.touch()
+    installed = prefix / "lib/node_modules/agent-desktop/bin"
+    installed.mkdir(parents=True, exist_ok=True)
+    native = installed / "agent-desktop-linux-x64"
+    native.write_text({binary_script!r})
+    native.chmod(0o700)
+    os.link(native, installed / "agent-desktop")
+    (prefix / "bin").mkdir(parents=True, exist_ok=True)
+    os.symlink(installed / "agent-desktop", prefix / "bin/agent-desktop")
     pathlib.Path(os.environ["AD_CURL_DOUBLE_LOG"]).write_text("/agent-desktop-v1-x86_64-unknown-linux-gnu.tar.gz\\n/checksums.txt\\n")
 ''')
                 executable("python3", f'''#!{sys.executable}
