@@ -85,7 +85,7 @@ pub(crate) fn encode_hdrop(paths: &[String]) -> Result<Vec<u8>, AdapterError> {
 }
 
 fn decode_wide_paths(list: &[u8]) -> Result<Vec<String>, AdapterError> {
-    if list.len() % 2 != 0 {
+    if !list.len().is_multiple_of(2) {
         return Err(payload_error(
             "CF_HDROP wide path list length is not a whole number of UTF-16 units",
         ));
