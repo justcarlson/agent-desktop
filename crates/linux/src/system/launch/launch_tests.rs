@@ -165,14 +165,9 @@ fn a_refused_focus_still_reports_the_launch_and_says_why() {
         ..options()
     };
     let original = window();
-    let result = conclude(
-        &owner(),
-        Some(original.clone()),
-        &asked,
-        true,
-        |_| Err(AdapterError::new(ErrorCode::ActionFailed, "no focus")),
-        || panic!("a refused activation must not re-read the window"),
-    );
+    let result = conclude(&owner(), Some(original.clone()), &asked, true, |_| {
+        Err(AdapterError::new(ErrorCode::ActionFailed, "no focus"))
+    });
     let reported = result.window.expect("window");
     assert_eq!(reported.id, original.id);
     assert!(!reported.state.is_focused);
@@ -187,17 +182,25 @@ fn a_successful_activation_reports_the_window_read_after_the_request() {
     };
     let mut focused = window();
     focused.state.is_focused = true;
-    let result = conclude(
-        &owner(),
-        Some(window()),
-        &asked,
-        true,
-        |_| Ok(()),
-        || Some(focused.clone()),
-    );
+    let result = conclude(&owner(), Some(window()), &asked, true, |_| {
+        Ok(Some(focused.clone()))
+    });
     let reported = result.window.expect("window");
     assert_eq!(reported.id, focused.id);
     assert!(reported.state.is_focused);
+}
+
+#[test]
+fn an_activation_with_no_window_read_after_it_keeps_the_window_it_had() {
+    let asked = LaunchOptions {
+        activate: true,
+        ..options()
+    };
+    let original = window();
+    let result = conclude(&owner(), Some(original.clone()), &asked, true, |_| Ok(None));
+    let reported = result.window.expect("window");
+    assert_eq!(reported.id, original.id);
+    assert!(result.suggestion.is_none());
 }
 
 #[test]
@@ -206,11 +209,11 @@ fn a_reused_instance_says_the_environment_and_directory_were_dropped() {
         env: BTreeMap::from([("A".to_owned(), "1".to_owned())]),
         ..options()
     };
-    let reused = conclude(&owner(), None, &with_env, false, |_| Ok(()), || None);
+    let reused = conclude(&owner(), None, &with_env, false, |_| Ok(None));
     assert!(reused.suggestion.expect("note").contains("not applied"));
-    let created = conclude(&owner(), None, &with_env, true, |_| Ok(()), || None);
+    let created = conclude(&owner(), None, &with_env, true, |_| Ok(None));
     assert!(created.suggestion.is_none());
-    let plain = conclude(&owner(), None, &options(), false, |_| Ok(()), || None);
+    let plain = conclude(&owner(), None, &options(), false, |_| Ok(None));
     assert!(plain.suggestion.is_none());
 }
 
