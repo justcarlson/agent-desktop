@@ -13,7 +13,7 @@ Which gestures have a headless path:
 
 | Command | Headless |
 |---------|----------|
-| `click`, `set-value`, `clear`, `select`, `check`, `uncheck`, `toggle`, `expand`, `collapse`, `scroll`, `scroll-to` | Yes, where the element advertises a semantic action |
+| `click`, `set-value`, `clear`, `select`, `check`, `uncheck`, `toggle`, `expand`, `collapse`, `scroll`, `scroll-to` | Yes, where the element advertises a semantic action (not `scroll` on Linux) |
 | `type`, `right-click`, `focus` | OS-dependent. Read the platform skill for which need `--headed` |
 | `double-click`, `triple-click`, `hover`, `drag`, `mouse-*` | No. They need `--headed` |
 
@@ -130,7 +130,7 @@ agent-desktop scroll @s8f3k2p9:e1 --direction down --amount 3
 agent-desktop scroll-to @s8f3k2p9:e8
 ```
 
-- `scroll` moves a scroll area. Headless uses native scroll paths. Headed sends a physical wheel gesture where possible. With no safe mechanism it returns a structured error.
+- `scroll` moves a scroll area. Headless uses native scroll paths, but on Linux `scroll` is physical wheel input and needs `--headed` and X11 (see the Linux skill). Headed sends a physical wheel gesture where possible. With no safe mechanism it returns a structured error.
 - `scroll-to` brings an element into view. Success means a re-read found it visible. It needs a ref. When only `bounds` exist, scroll the container with `scroll` or use `--headed mouse-wheel`.
 - `mouse-wheel --x --y [--dx] [--dy]` posts a raw wheel event at a screen point. Use it for canvases and custom scroll surfaces with no accessibility scroll action.
 

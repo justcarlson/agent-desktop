@@ -51,9 +51,10 @@ Keep these on agent-desktop even with CDP connected: the native menu bar, file d
 
 `close-app` closes the app and all its windows. There is no `close-window`
 command. To close one of several windows, snapshot the intended `--window-id`
-and click its own Close button ref, then verify with `list-windows`. Answer any
-save prompt through its sheet. For the last window, use `close-app` if you intend
-to exit the app. Ctrl+W may close only a tab or document, leaving the window open.
+and click its own Close button ref, then confirm the close with a `batch` of the
+click and `wait --event window-closed`. Answer any save prompt through its
+sheet. For the last window, use `close-app` if you intend to exit the app.
+Ctrl+W may close only a tab or document, leaving the window open.
 The Linux windows reference includes a Bash recipe that selects a fresh Close ref.
 
 ```bash
@@ -127,7 +128,7 @@ Use `wait`, not a fixed sleep. `--timeout` defaults to 30000 ms. Modes:
 - **Time.** `wait <ms>` pauses.
 - **Element.** `--predicate` is `exists` (default), `enabled`, `visible`, `actionable`, or `value` (with `--value`). `actionable` checks readiness for `--action` (`click` default, `type`, `set-value`, `clear`). Use `--action type` before a wait-then-type flow. The editability check runs only for editing actions. `--element` takes a qualified ref (`@<snapshot_id>:eN`); the wait polls the snapshot embedded in the ref.
 - **Window.** Waits for a window whose title contains the text. `--app` narrows. On timeout, `details.last_observed` lists the scoped window count and up to eight titles.
-- **Text.** Selects one app window, then waits for text in that tree. `--count` adds a count to the result. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. `wait --window-id` is not supported for text waits; `--window-id` narrows eligible window lifecycle event waits only. To recover, use `list-windows --app <app>` to identify the target, then `snapshot --app <app> --window-id <id> -i` to inspect it. For a dialog, `wait --window <title> --app <app>` followed by `snapshot --surface sheet` is another option (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined.
+- **Text.** Selects one app window, then waits for text in that tree. `--count N` waits until exactly N nodes match. The result then carries `count`. Multiple eligible windows can return `AMBIGUOUS_TARGET` before matching text, including a document and its save dialog. `wait --window-id` is not supported for text waits; `--window-id` narrows eligible window lifecycle event waits only. To recover, use `list-windows --app <app>` to identify the target, then `snapshot --app <app> --window-id <id> -i` to inspect it. For a dialog, `wait --window <title> --app <app>` followed by `snapshot --surface sheet` is another option (the dialog workflow has an example). `--window` and `--text` are separate modes and cannot be combined.
 - **Menu.** `--menu` waits for a menu surface to open. `--menu-closed` waits for it to close.
 - **Event.** `--event` is one of `window-opened`, `window-closed`, `app-launched`, `app-terminated`, `focus-changed`, `surface-appeared`, `surface-dismissed`. It diffs a baseline taken at wait start against fresh reads, so you need no window id up front. `--window-id` and `--window` narrow it.
 
@@ -165,7 +166,7 @@ agent-desktop batch '[
 ]' --stop-on-error
 ```
 
-Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. Snapshot args use `skeleton`, `root`, `interactive_only`.
+Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. An ended top-level session refuses the whole batch with `INVALID_ARGS` (`details.kind: session_ended`) before any entry runs. Snapshot args use `skeleton`, `root`, `interactive_only`.
 
 Wait entries use flat JSON keys matching the wait argument fields. For event waits, use `event` and optional `app`, `timeout` (milliseconds; defaults to 30000), `window`, and `window_id`. For example, the batch above waits up to five seconds for a new TextEdit window. `window` and `window_id` narrow only window lifecycle events (`window-opened`, `window-closed`, `focus-changed`); they do not scope text waits. In an action-then-event sequence, the batch captures the event baseline before the action, and does not start the action if that baseline read fails.
 
@@ -178,13 +179,13 @@ export AGENT_DESKTOP_SESSION="$(agent-desktop session start --name "invoice-bot"
 agent-desktop session end "$AGENT_DESKTOP_SESSION"
 ```
 
-- `session start` creates the session and prints `{ session_id, name, trace, created_at }`. `session start` does not activate later processes. Pass the id with global `--session <id>` or `AGENT_DESKTOP_SESSION`. `--session` wins over the variable. With neither, commands use the global namespace.
+- `session start` creates the session and prints `{ session_id, name, trace, created_at }`. `--name` must be 1 to 128 bytes with no control characters, or `session start` returns `INVALID_ARGS`. `session start` does not activate later processes. Pass the id with global `--session <id>` or `AGENT_DESKTOP_SESSION`. `--session` wins over the variable. With neither, commands use the global namespace.
 - A session owns its trace and its latest-snapshot namespace. Lookup never searches another session. A session-owned ref still requires the same `--session` or `AGENT_DESKTOP_SESSION` scope, even though a qualified ref embeds its snapshot id.
-- Tracing needs a manifest with `trace: on` (the default). `--no-trace`, or a bare `--session <id>` without a manifest, gives a namespace with no trace files. `--trace <path>` overrides to one file. `--trace-strict` fails on trace setup errors.
+- Tracing needs a manifest with `trace: on` (the default). `--no-trace`, or a bare `--session <id>` without a manifest, gives a namespace with no trace files. `--trace <path>` overrides to one file. `--trace-strict` fails on trace setup errors. `version` and `skills` write no trace events when run from the command line.
 - `--screenshots` records pre and post PNGs and refmap copies. They are unredacted and sensitive. They need tracing on.
 - Several agents may share one session id. Each should use qualified refs from its own snapshot.
-- `session list`, `session end [id]` and `session gc` list, seal and reclaim sessions. `session end` is repeatable, including when the active scope has already ended; other commands refuse an ended scope. `gc` never reaps a live session.
-- `trace show [--limit N] [--event PREFIX]` returns the merged event timeline (default tail 500, `0` for all). `trace export [--out path.html]` writes a self-contained HTML viewer. Both need no OS permission.
+- `session list`, `session end [id]` and `session gc` list, seal and reclaim sessions. `session end` is repeatable, including when the active scope has already ended; other commands refuse an ended scope, except `version` and `skills` when run from the command line. `session gc` never removes a session that a running command uses or that wrote a snapshot or trace segment in the last 5 minutes; by default it removes the other ended sessions.
+- `trace show [--limit N] [--event PREFIX]` returns the merged event timeline (default tail 500, `0` for all). `trace export [--out path.html]` writes a self-contained HTML viewer. Without `--out` it writes `trace-<session>.html` inside the session directory, and `data.path` names the file. Both need no OS permission.
 - Trace lines redact sensitive fields (`text`, `value`, `name`, `title`, `url`, ...) to `{ "redacted": true }`.
 - `status` shows `session_id`, `tracing` and `artifacts`.
 
