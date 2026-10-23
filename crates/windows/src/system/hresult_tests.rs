@@ -107,13 +107,10 @@ fn an_uninitialized_apartment_is_terminal_and_the_only_arm_with_a_hint() {
             carries_suggestion: true,
         },
     );
-}
-
-#[test]
-fn the_uninitialized_apartment_hint_names_joining_the_multithreaded_apartment() {
-    let suggestion = hresult_record(CO_E_NOTINITIALIZED).suggestion;
     assert_eq!(
-        suggestion.map(|hint| hint.contains("multithreaded apartment")),
+        hresult_record(CO_E_NOTINITIALIZED)
+            .suggestion
+            .map(|hint| hint.contains("multithreaded apartment")),
         Some(true)
     );
 }

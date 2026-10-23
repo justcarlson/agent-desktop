@@ -1,5 +1,5 @@
 use super::*;
-use agent_desktop_core::{Deadline, DeliveryDisposition, ErrorCode, ProcessId};
+use agent_desktop_core::{Deadline, ErrorCode, ProcessId};
 
 #[cfg(target_os = "windows")]
 use std::path::{Path, PathBuf};
@@ -84,21 +84,6 @@ fn launch_options_enforce_a_bounded_text_budget() {
     };
     let error = validate_launch_options(&options).expect_err("payload too large");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
-}
-
-#[test]
-fn invalid_identifier_is_not_delivered() {
-    let error = launch_app_impl(
-        r"sub\app.exe",
-        &LaunchOptions::default(),
-        Deadline::after(1_000).expect("deadline"),
-    )
-    .expect_err("relative id");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::NotDelivered
-    );
 }
 
 #[test]

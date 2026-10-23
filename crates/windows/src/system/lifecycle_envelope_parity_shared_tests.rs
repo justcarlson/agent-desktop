@@ -1,5 +1,4 @@
 use super::*;
-use crate::system::window_op::window_op_impl;
 use agent_desktop_core::WindowOp;
 
 /// Wire-shape assertion for a class-(a) condition - one both platforms can
@@ -51,41 +50,6 @@ fn shared_timeout_after_close_delivery_pins_the_windows_envelope() {
         );
         assert_eq!(error_wire(&error)["disposition"]["retry"], "unsafe");
     }
-}
-
-/// Windows raises `StaleRef` here because `window_op_impl` has no
-/// process-instance token to verify before mutating the window, so the
-/// write is refused before any native call. That code choice is not a
-/// verified macOS match: macOS's own "no identity to verify" cases choose
-/// different codes for the same missing-token shape -
-/// `crates/macos/src/system/app_ops.rs::close_app_impl` reports
-/// `InvalidArgs`, and
-/// `crates/macos/src/system/window_resolve.rs::verify_window_record`
-/// reports `WindowNotFound`. This test therefore pins only the Windows wire
-/// shape.
-#[test]
-fn shared_stale_ref_before_window_write_pins_the_windows_envelope() {
-    let win = WindowInfo {
-        id: "w-1".into(),
-        title: String::new(),
-        app: "fixture".into(),
-        pid: ProcessId::from(1u32),
-        process_instance: None,
-        bounds: None,
-        state: WindowState::default(),
-    };
-    let error = window_op_impl(
-        &win,
-        WindowOp::Minimize,
-        Deadline::after(1_000).expect("deadline"),
-    )
-    .expect_err("stale");
-    assert_class_a_envelope(
-        &error,
-        ErrorCode::StaleRef,
-        DeliverySemantics::not_delivered(),
-    );
-    assert_eq!(error_wire(&error)["disposition"]["retry"], "safe");
 }
 
 /// `budget_exhausted(false)` is Windows' own focus-steal-retry-budget
@@ -168,6 +132,16 @@ fn shared_perm_denied_before_delivery_pins_the_windows_envelope() {
     assert_eq!(error_wire(&error)["disposition"]["retry"], "safe");
 }
 
+/// Windows raises `StaleRef` here because `window_op_impl` has no
+/// process-instance token to verify before mutating the window, so the
+/// write is refused before any native call. That code choice is not a
+/// verified macOS match: macOS's own "no identity to verify" cases choose
+/// different codes for the same missing-token shape -
+/// `crates/macos/src/system/app_ops.rs::close_app_impl` reports
+/// `InvalidArgs`, and
+/// `crates/macos/src/system/window_resolve.rs::verify_window_record`
+/// reports `WindowNotFound`. This test therefore pins only the Windows wire
+/// shape.
 #[test]
 fn adapter_window_op_without_a_process_instance_keeps_the_stale_ref_envelope() {
     use agent_desktop_core::{InteractionLease, SystemOps};

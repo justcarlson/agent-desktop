@@ -84,22 +84,6 @@ fn unnamed_hresults_format_without_inventing_a_name() {
     assert!(crate::system::hresult::com_hresult_symbol(0x8007_0002_u32 as i32).is_none());
 }
 
-/// Two representative codes render named through the permission path's own
-/// re-export of the shared table. The whole named set is asserted exhaustively
-/// by `hresult_symbol_tests.rs`; this pins that the permission path reads the
-/// same table rather than a second one of its own.
-#[test]
-fn two_shared_hresults_render_named_through_the_permission_paths_detail() {
-    assert_eq!(
-        com_hresult_detail(0x8004_0201_u32 as i32),
-        "COM HRESULT 0x80040201 (UIA_E_ELEMENTNOTAVAILABLE: The element is not available)"
-    );
-    assert_eq!(
-        com_hresult_detail(0x8004_01F0_u32 as i32),
-        "COM HRESULT 0x800401F0 (CO_E_NOTINITIALIZED: COM has not been initialized)"
-    );
-}
-
 #[test]
 fn request_on_a_denied_probe_is_a_structured_error_not_a_prompt() {
     let error = request_report_with(

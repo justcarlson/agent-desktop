@@ -37,26 +37,6 @@ fn inventory(windows: Vec<WindowInfo>, apps: Vec<AppInfo>) -> SignalWindowInvent
     }
 }
 
-/// Reproduces `validate_signal_scope` in `crates/core/src/commands/wait_event.rs`, its own
-/// predicate rather than paraphrasing it: for a filtered wait, every
-/// observed pid and process instance must equal the expected one exactly.
-fn satisfies_validate_signal_scope(
-    inventory: &SignalWindowInventory,
-    expected: &ProcessIdentity,
-) -> bool {
-    inventory
-        .windows
-        .iter()
-        .map(|window| (window.pid, window.process_instance.as_deref()))
-        .chain(
-            inventory
-                .apps
-                .iter()
-                .map(|app| (app.pid, app.process_instance.as_deref())),
-        )
-        .all(|(pid, instance)| pid == expected.pid && instance == Some(expected.instance.as_str()))
-}
-
 #[test]
 fn a_process_filter_returns_only_the_matching_pid_when_two_entries_share_an_image_name() {
     let source = inventory(
@@ -78,36 +58,13 @@ fn a_process_filter_returns_only_the_matching_pid_when_two_entries_share_an_imag
 
     assert_eq!(filtered.windows.len(), 1);
     assert_eq!(filtered.windows[0].pid, ProcessId::from(100u32));
+    assert_eq!(
+        filtered.windows[0].process_instance.as_deref(),
+        Some("gen-a")
+    );
     assert_eq!(filtered.apps.len(), 1);
     assert_eq!(filtered.apps[0].pid, ProcessId::from(100u32));
-}
-
-#[test]
-fn a_process_filtered_result_satisfies_cores_own_scope_validation_predicate() {
-    let source = inventory(
-        vec![
-            window("w-1", "shared.exe", 100, "gen-a"),
-            window("w-2", "shared.exe", 200, "gen-b"),
-        ],
-        vec![
-            app_info("shared.exe", 100, "gen-a"),
-            app_info("shared.exe", 200, "gen-b"),
-        ],
-    );
-    let expected = ProcessIdentity::new(100u32, "gen-a");
-    let filter = SignalFilter {
-        app: None,
-        process: Some(expected.clone()),
-    };
-
-    let filtered = apply_signal_filter(source, &filter);
-
-    assert!(
-        satisfies_validate_signal_scope(&filtered, &expected),
-        "a process-filtered result must carry no window or app whose pid or \
-         instance differs from the filter's expected process, or core's \
-         validate_signal_scope aborts the wait"
-    );
+    assert_eq!(filtered.apps[0].process_instance.as_deref(), Some("gen-a"));
 }
 
 #[test]

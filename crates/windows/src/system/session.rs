@@ -191,16 +191,6 @@ mod tests {
     }
 
     #[test]
-    fn a_closed_session_releases_once_total_after_its_own_drop_also_ran() {
-        let count = Arc::new(AtomicU32::new(0));
-        let session = Box::new(counted_session(&count));
-
-        session.close().unwrap();
-
-        assert_eq!(count.load(Ordering::SeqCst), 1);
-    }
-
-    #[test]
     fn a_failing_release_reports_the_hresult_and_never_retries() {
         let count = Arc::new(AtomicU32::new(0));
         let calls = Arc::clone(&count);

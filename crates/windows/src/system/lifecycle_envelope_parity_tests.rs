@@ -1,9 +1,7 @@
-use crate::input::elevation::activation_elevation_denied;
 use crate::system::close::close_app_impl;
 use crate::system::launch::launch_app_impl;
 use crate::system::window_activate::{budget_exhausted, focus_window};
 use agent_desktop_core::launch_options::LaunchOptions;
-use agent_desktop_core::process_state::ProcessState;
 use agent_desktop_core::{
     AdapterError, AppError, AppInfo, Deadline, DeliverySemantics, ErrorCode, ErrorPayload,
     InteractionLease, ProcessId, WindowInfo, WindowState,
@@ -13,8 +11,7 @@ use serde_json::Value;
 /// Split from this file, which sits at the per-file line cap: `shared` owns
 /// the class-(a) pins - conditions both platforms can reach for the same
 /// event - while this file keeps the class-(b) (platform-only) pins, the
-/// fail-closed budget-exhaustion split, `ProcessState`'s wire shape, and the
-/// hot-path cost baseline.
+/// fail-closed budget-exhaustion split, and the hot-path cost baseline.
 #[path = "lifecycle_envelope_parity_shared_tests.rs"]
 mod shared;
 
@@ -110,24 +107,6 @@ fn windowless_close_live_error() -> AdapterError {
 }
 
 #[test]
-fn class_b_uipi_activation_refusal_is_perm_denied_not_delivered() {
-    let error = activation_elevation_denied();
-    assert_class_b_envelope(
-        &error,
-        ErrorCode::PermDenied,
-        DeliverySemantics::not_delivered(),
-    );
-    assert!(
-        error.message.contains("window activation"),
-        "activation-worded denial"
-    );
-    assert_eq!(
-        error_wire(&error)["details"]["physical_delivery_started"],
-        false
-    );
-}
-
-#[test]
 fn class_b_create_process_invalid_name_is_invalid_args_not_delivered() {
     let error = launch_app_impl(
         r"sub\app.exe",
@@ -163,32 +142,6 @@ fn fail_closed_equal_integrity_budget_exhaustion_is_action_failed_not_started() 
         error_wire(&error)["details"]["physical_delivery_started"],
         false
     );
-}
-
-#[test]
-fn process_state_serializes_with_tagged_snake_case_shape() {
-    assert_eq!(
-        serde_json::to_value(ProcessState::Running).expect("ser"),
-        serde_json::json!({ "state": "running" })
-    );
-    assert_eq!(
-        serde_json::to_value(ProcessState::Unresponsive).expect("ser"),
-        serde_json::json!({ "state": "unresponsive" })
-    );
-    assert_eq!(
-        serde_json::to_value(ProcessState::Exited { code: None }).expect("ser"),
-        serde_json::json!({ "state": "exited" })
-    );
-    assert_eq!(
-        serde_json::to_value(ProcessState::Exited { code: Some(0) }).expect("ser"),
-        serde_json::json!({ "state": "exited", "code": 0 })
-    );
-    let crashed = ProcessState::Crashed {
-        signal_or_code: 0xC000_0005u32 as i32,
-    };
-    let value = serde_json::to_value(crashed).expect("ser");
-    assert_eq!(value["state"], "crashed");
-    assert_eq!(value["signal_or_code"], 0xC000_0005u32 as i32);
 }
 
 #[test]

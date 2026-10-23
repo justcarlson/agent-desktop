@@ -127,6 +127,15 @@ fn every_named_hresult_renders_its_symbol_and_meaning() {
         );
     }
 
+    assert_eq!(
+        com_hresult_detail(0x8004_0201_u32 as i32),
+        "COM HRESULT 0x80040201 (UIA_E_ELEMENTNOTAVAILABLE: The element is not available)"
+    );
+    assert_eq!(
+        com_hresult_detail(0x8004_01F0_u32 as i32),
+        "COM HRESULT 0x800401F0 (CO_E_NOTINITIALIZED: COM has not been initialized)"
+    );
+
     for (hresult, symbol, _) in named {
         assert!(
             named

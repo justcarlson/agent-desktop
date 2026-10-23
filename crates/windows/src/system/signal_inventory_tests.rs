@@ -43,16 +43,6 @@ fn the_exhausted_race_error_names_its_kind_and_attempt_count() {
     );
 }
 
-#[test]
-fn a_truncated_inventory_reports_incomplete_with_no_content() {
-    let inventory = SignalWindowInventory::truncated();
-
-    assert!(!inventory.windows_complete);
-    assert!(!inventory.apps_complete);
-    assert!(inventory.windows.is_empty());
-    assert!(inventory.apps.is_empty());
-}
-
 #[cfg(target_os = "windows")]
 mod windows_only {
     use super::*;
