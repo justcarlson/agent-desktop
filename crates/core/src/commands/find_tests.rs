@@ -205,28 +205,39 @@ fn unknown_role_is_preserved_until_validation() {
 
 #[test]
 fn roles_present_hint_is_omitted_when_a_match_is_found() {
-    let root = role_node("textfield", Some("body"));
-    let query = query_from_args(&FindArgs {
-        app: None,
-        window_id: None,
-        root: None,
-        surface: crate::SnapshotSurface::Window,
-        filter: FindFilterArgs {
-            role: Some("textfield".into()),
-            ..no_filter()
-        },
-        states: vec![],
-        timeout_ms: None,
-        selection: no_selection(),
-    });
+    let _guard = HomeGuard::new();
+    let adapter = super::test_support::LiveFindAdapter::complete();
+    let first = FindSelectionArgs {
+        first: true,
+        ..no_selection()
+    };
 
-    let mut matches = Vec::new();
-    search_tree(&root, &query, &mut Vec::new(), &mut matches, None);
-    let mut response = json!({ "matches": matches });
-    let is_empty = response["matches"].as_array().unwrap().is_empty();
-    attach_roles_present_hint(&mut response, is_empty, &query, &root);
+    for selection in [no_selection(), first] {
+        let response = execute(
+            FindArgs {
+                app: None,
+                window_id: Some("w-1".into()),
+                root: None,
+                surface: crate::SnapshotSurface::Window,
+                filter: FindFilterArgs {
+                    role: Some("button".into()),
+                    ..no_filter()
+                },
+                states: vec![],
+                timeout_ms: None,
+                selection,
+            },
+            &adapter,
+            &CommandContext::default(),
+        )
+        .expect("a role query that matches should succeed");
 
-    assert!(response.get("roles_present").is_none());
+        let found = response["matches"]
+            .as_array()
+            .map_or(!response["match"].is_null(), |matches| !matches.is_empty());
+        assert!(found, "the button in w-1 must be found: {response}");
+        assert!(response.get("roles_present").is_none());
+    }
 }
 
 fn find_args_scoped_to_window(window_id: &str) -> FindArgs {

@@ -86,7 +86,7 @@ fn byte_budget_exhaustion_skips_with_budget_reason() {
         })
         .flatten()
         .unwrap();
-    assert!(body.contains("\"skipped\":\"budget\"") || body.contains("skipped_pre"));
+    assert!(body.contains("\"skipped\":\"budget\""));
     clear_test_budgets();
 }
 
@@ -111,18 +111,40 @@ fn concurrent_capture_produces_distinct_filenames() {
     for handle in handles {
         handle.join().unwrap().unwrap();
     }
-    let names: Vec<_> = std::fs::read_dir(
-        RefStore::for_session(Some(&manifest.id))
-            .unwrap()
-            .trace_dir()
-            .join("screens"),
-    )
-    .unwrap()
-    .map(|e| e.unwrap().file_name())
-    .collect();
+    let trace_dir = RefStore::for_session(Some(&manifest.id))
+        .unwrap()
+        .trace_dir();
+    let mut on_disk: Vec<String> = std::fs::read_dir(trace_dir.join("screens"))
+        .unwrap()
+        .map(|e| format!("screens/{}", e.unwrap().file_name().to_string_lossy()))
+        .collect();
+    on_disk.sort();
+    let segment = std::fs::read_dir(&trace_dir)
+        .unwrap()
+        .find_map(|e| {
+            let p = e.ok()?.path();
+            p.extension().is_some_and(|ext| ext == "jsonl").then_some(p)
+        })
+        .unwrap();
+    let mut recorded: Vec<String> = std::fs::read_to_string(segment)
+        .unwrap()
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|event| event["event"] == "action.artifacts")
+        .flat_map(|event| {
+            ["screenshot_pre", "screenshot_post"]
+                .into_iter()
+                .filter_map(move |key| event[key].as_str().map(str::to_owned))
+        })
+        .collect();
+    recorded.sort();
+    assert!(
+        !recorded.is_empty(),
+        "at least the capture that won the artifact lock must land"
+    );
     assert_eq!(
-        names.len(),
-        names.iter().collect::<std::collections::HashSet<_>>().len()
+        recorded, on_disk,
+        "every capture the trace reports must be its own file, none overwritten"
     );
 }
 

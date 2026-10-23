@@ -7,10 +7,6 @@ use crate::{
     context::CommandContext, search_text,
 };
 use serde_json::Value;
-#[cfg(test)]
-use serde_json::json;
-#[cfg(test)]
-use std::collections::BTreeSet;
 
 const DEFAULT_LIMIT: usize = 50;
 
@@ -121,34 +117,6 @@ fn locator_query_from_args(args: &FindArgs) -> Result<LocatorQuery, AppError> {
         states: args.states.clone(),
         ..LocatorQuery::default()
     })
-}
-
-#[cfg(test)]
-fn attach_roles_present_hint(
-    response: &mut Value,
-    is_empty: bool,
-    query: &LocatorQuery,
-    tree: &AccessibilityNode,
-) {
-    if !is_empty || query.identity.role.is_none() {
-        return;
-    }
-    let mut present = BTreeSet::new();
-    collect_roles(tree, &mut present);
-    if let Some(obj) = response.as_object_mut() {
-        obj.insert(
-            "roles_present".into(),
-            json!(present.into_iter().collect::<Vec<_>>()),
-        );
-    }
-}
-
-#[cfg(test)]
-fn collect_roles(node: &AccessibilityNode, roles: &mut BTreeSet<String>) {
-    roles.insert(node.role.clone());
-    for child in &node.children {
-        collect_roles(child, roles);
-    }
 }
 
 fn validate_find_mode(args: &FindArgs) -> Result<(), AppError> {

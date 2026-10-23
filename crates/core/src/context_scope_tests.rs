@@ -58,7 +58,7 @@ fn command_scope_emits_start_and_success_end() {
 }
 
 #[test]
-fn command_scope_emits_error_end_with_code_and_message() {
+fn command_scope_emits_error_end_with_code_and_no_message() {
     let path = std::env::temp_dir().join(format!(
         "agent-desktop-scope-err-{}",
         std::time::SystemTime::now()
@@ -74,6 +74,7 @@ fn command_scope_emits_error_end_with_code_and_message() {
     let body = std::fs::read_to_string(&path).unwrap();
     assert!(body.contains(r#""ok":false"#));
     assert!(body.contains(r#""code":"INVALID_ARGS""#));
+    assert!(!body.contains("bad args"));
     let _ = std::fs::remove_file(path);
 }
 
@@ -155,27 +156,6 @@ fn batch_item_with_failed_parent_trace_writes_to_its_own_session_segment() {
         wrote,
         "a batch item targeting a trace-enabled session must write to that session's segment, not inherit the parent's dead --trace writer"
     );
-}
-
-#[test]
-fn wait_text_timeout_message_omits_raw_text_from_trace_segment() {
-    let path = std::env::temp_dir().join(format!(
-        "agent-desktop-scope-wait-text-redact-{}.jsonl",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    let context = CommandContext::new(None, Some(path.clone()), true).unwrap();
-    let marker = "zzq93f_super_secret_marker_do_not_leak";
-    let err = crate::commands::wait_timeout::text(marker, 50, None, None).unwrap_err();
-    let scope = context.command_scope("wait").unwrap();
-    scope.complete(&Err(err)).unwrap();
-
-    let body = std::fs::read_to_string(&path).unwrap();
-    assert!(body.contains(r#""event":"command.end""#));
-    assert!(!body.contains(marker));
-    let _ = std::fs::remove_file(path);
 }
 
 #[test]

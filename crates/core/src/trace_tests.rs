@@ -6,6 +6,8 @@ use std::fs;
 #[cfg(unix)]
 #[test]
 fn trace_open_rejects_symlink_paths() {
+    use std::os::unix::fs::PermissionsExt;
+
     let base = std::env::temp_dir().join(format!(
         "agent-desktop-trace-symlink-{}",
         std::time::SystemTime::now()
@@ -16,6 +18,7 @@ fn trace_open_rejects_symlink_paths() {
     let target = base.with_extension("target");
     let link = base.with_extension("link");
     fs::write(&target, b"existing").unwrap();
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
     std::os::unix::fs::symlink(&target, &link).unwrap();
 
     let result = open_trace_file(&link);

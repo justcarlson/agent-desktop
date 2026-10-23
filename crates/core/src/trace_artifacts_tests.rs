@@ -245,7 +245,9 @@ fn trace_off_with_artifacts_full_captures_nothing() {
     ));
     let context = CommandContext::new(None, Some(path.clone()), true).unwrap();
     run_ref_action(&context, &png_adapter(), 1).unwrap();
-    assert!(!path.parent().unwrap().join("screens").exists());
+    let body = std::fs::read_to_string(&path).unwrap();
+    assert!(body.contains("\"event\":\"action.dispatch.ok\""));
+    assert!(!body.contains("action.artifacts"));
     let _ = std::fs::remove_file(path);
 }
 
@@ -286,6 +288,15 @@ fn count_budget_exhaustion_skips_with_count_budget_reason() {
         .map(|d| d.count())
         .unwrap_or(0);
     assert_eq!(count, 1);
+    let segment = std::fs::read_dir(&trace_dir)
+        .unwrap()
+        .find_map(|e| {
+            let p = e.ok()?.path();
+            p.extension().is_some_and(|ext| ext == "jsonl").then_some(p)
+        })
+        .unwrap();
+    let body = std::fs::read_to_string(segment).unwrap();
+    assert!(body.contains("\"skipped\":\"count_budget\""));
     clear_test_budgets();
 }
 

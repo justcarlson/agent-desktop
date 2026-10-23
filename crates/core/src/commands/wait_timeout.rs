@@ -175,3 +175,7 @@ pub(crate) fn selector(
         details,
     )
 }
+
+#[cfg(test)]
+#[path = "wait_timeout_tests.rs"]
+mod tests;

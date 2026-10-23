@@ -288,7 +288,7 @@ fn ordinal_modes_preserve_live_document_order() {
 }
 
 #[test]
-fn strict_live_resolution_reports_bounded_ambiguous_candidates() {
+fn strict_live_resolution_of_two_matches_is_ambiguous_with_an_exact_count() {
     let adapter = LiveFindAdapter::complete();
     let windows = adapter
         .list_windows(

@@ -338,6 +338,10 @@ fn trace_records_omit_session_id_when_context_has_none() {
     );
 
     let body = std::fs::read_to_string(&trace_path).unwrap();
+    assert!(
+        body.contains("action.dispatch.start"),
+        "expected dispatch trace event"
+    );
     for line in body.lines() {
         let record: serde_json::Value = serde_json::from_str(line).unwrap();
         assert!(
