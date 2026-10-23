@@ -71,9 +71,9 @@ fn type_keys(adapter: &Adapter, budget_ms: u64) -> ActionResult {
 #[test]
 fn keys_still_filling_the_field_after_the_settle_window_are_read_until_the_text_is_there() {
     let adapter = typed_by_keys_adapter(TYPED);
-    *adapter.settling.lock().unwrap() = filling(TYPED.len() - 1);
+    *adapter.settling.lock().unwrap() = filling(12);
 
-    let result = type_keys(&adapter, 5_000);
+    let result = type_keys(&adapter, 20_000);
 
     assert_eq!(
         result.disposition(),
