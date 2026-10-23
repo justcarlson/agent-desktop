@@ -97,6 +97,8 @@ The report groups outcomes by tier and mode. Only `pass` and `asserted-refusal` 
 | `outstanding`, `owner-decision` | Registered but deliberately not run; the reason is printed. |
 | `tier-unavailable` | The tier's private session never became healthy or its desktop warm-up failed, so its legs did not run. |
 
+The `launch.recovery_strategy_on_error` leg is an `asserted-refusal`. It stops Calculator after a snapshot, then requires a click on the dead owner's ref to answer `STALE_REF` with `details.process_state=exited`, `details.retryable=false` and disposition `not_delivered`/`safe`, with no `recovery` object and no relaunch of the owner.
+
 ### Ref-action contracts
 
 The `ref_actions.*` legs observe and restore native application state:
@@ -112,7 +114,7 @@ The `ref_actions.*` legs observe and restore native application state:
 | Scroll-to | Settings reveals the offscreen monitor checkbox without changing its checked state. |
 | Drag | Text Editor gains a nonempty text selection. |
 
-Headless focus, double-click, triple-click, hover, scroll and drag are separate `asserted-refusal` legs requiring `POLICY_DENIED`, no app effect and unchanged pointer and focus. Right-click, expand/collapse and scroll-to have semantic success legs in both modes. The `pointer.*` legs compare the product's delivery report with an independent read of the app state, delivered and undelivered; a fabricated report or pointer movement alone cannot pass.
+Headless focus, double-click, triple-click, hover, scroll and drag are separate `asserted-refusal` legs requiring `POLICY_DENIED`, no app effect and unchanged pointer and focus. Right-click, expand/collapse and scroll-to have semantic success legs in both modes. The `pointer.*` legs compare the product's delivery report with an independent read of the app state, delivered and undelivered; a fabricated report or pointer movement alone cannot pass. The `mouse-click`, `drag` and `mouse-wheel` delivery legs read the actual effect: the Calculator digit, the Text Editor selection or the scrollbar position. Text Editor is seeded in memory through raw `EditableText`, and selection cleanup sends Right only after requiring that the exact owned window is active.
 
 ### Notification and tray legs
 
