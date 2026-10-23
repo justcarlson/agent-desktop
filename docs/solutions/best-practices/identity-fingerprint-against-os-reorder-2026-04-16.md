@@ -26,7 +26,7 @@ list call and a mutation. Windows can destroy a window and hand its `HWND` to
 an unrelated process before the next call that uses it. An index or a handle
 alone is not an identity: either can end up addressing a different resource
 by the time it is used, and wherever the check and the act cannot be issued
-as one atomic operation, that gap is a live window for exactly this.
+as one atomic operation, the gap between them is where the target can change.
 
 ## Guidance
 
@@ -43,13 +43,13 @@ recover by listing again and selecting a fresh entry.
 **Window-handle identity.** A Windows `HWND` is a recyclable handle: once a
 window is destroyed, the OS is free to hand the same numeric value to an
 unrelated process's next window. Verifying identity once, at entry, is not
-enough when the write that follows is not atomic with that check — a handle
+enough when the write that follows is not atomic with that check. A handle
 can be destroyed and recycled in the gap between the check and the native
 write. `focus_window` (`crates/windows/src/system/window/window_activate.rs`)
 re-verifies handle ownership (`owned_for_write`) immediately before every
-native write that follows entry verification: `restore_if_iconic` re-checks ownership before its
-`ShowWindow` call, and `bring_to_foreground` re-checks before `ShowWindow` /
-`SetForegroundWindow`. A recycle caught by either of those internal checks
+native write that follows entry verification. `restore_if_iconic` re-checks
+ownership before its `ShowWindow` call, and `bring_to_foreground` re-checks
+before `ShowWindow` / `SetForegroundWindow`. A recycle caught by either of those internal checks
 fails closed as `WINDOW_NOT_FOUND` / not-delivered, never a foreground write
 to a foreign window.
 
@@ -57,9 +57,10 @@ Re-verifying the precondition before each write is necessary but not
 sufficient on its own: the success check has to be identity-qualified too,
 or a recycle that wins the race between the last write and the result check
 reports success over the wrong window. `is_owned_foreground` requires both
-`is_foreground_window(handle)` **and** `evidence.owns_handle_now()` — the
-handle's live owner is still the stored pid and that pid is still the stored
-process instance — because handle equality alone would accept a recycled HWND
+`is_foreground_window(handle)` **and** `evidence.owns_handle_now()`. The
+second check confirms that the handle's live owner is still the stored pid
+and that pid is still the stored process instance. Handle equality alone is
+not enough, because it would accept a recycled HWND
 that happens to be foreground for an unrelated reason. See `focus_window`'s own
 doc comment in `window_activate.rs` for the stated rationale.
 
@@ -73,7 +74,7 @@ bounds, primary, and scale before capture (`verify_display_identity` in
 `display.rs`), then verifies again after capture so a mid-capture change
 discards the bytes rather than attributing them to the wrong surface
 (identity sandwich in `screenshot.rs`). Exact-window screenshot requires a
-`process_instance` token for the same reason — HWND alone is not enough.
+`process_instance` token for the same reason: HWND alone is not enough.
 Backend choice (Modern vs Legacy) is orthogonal: the fingerprint applies
 regardless of which capture path produces the PNG.
 

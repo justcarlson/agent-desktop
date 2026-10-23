@@ -94,5 +94,5 @@ report an honest failure.
 
 ## Related
 
-- [Exhaustiveness guards over catch-alls in policy mirrors](exhaustiveness-guards-over-catch-alls-in-policy-mirrors.md) — named arms and guard tests protect string-keyed mirrors where the compiler cannot prove coverage.
-- [macOS gesture headless capability](macos-gesture-headless-capability-2026-06-10.md) — the per-gesture policy table whose explicitness this guidance preserves.
+- [Exhaustiveness guards over catch-alls in policy mirrors](exhaustiveness-guards-over-catch-alls-in-policy-mirrors.md): named arms and guard tests protect string-keyed mirrors where the compiler cannot prove coverage.
+- [macOS gesture headless capability](macos-gesture-headless-capability-2026-06-10.md): the per-gesture policy table whose explicitness this guidance preserves.

@@ -39,8 +39,8 @@ hidden change to physical drag.
 Two different `receives_events` hit-tests exist and must not be conflated,
 because they answer different questions. The shared actionability battery
 (`crates/core/src/actionability/receives_events.rs`) tries **five** candidate
-points from the element's bounds — the center plus four quadrant points — and
-passes if *any* of them reaches the target; it is asking whether the element is
+points from the element's bounds (the center plus four quadrant points) and
+passes if *any* of them reaches the target. It asks whether the element is
 reachable at all, so a partially occluded control still passes. The pointer
 pipeline calls `require_receives_events` with the **single** coordinate it has
 already resolved and will actually move the cursor to; it is asking whether
@@ -54,7 +54,7 @@ The core/adapter split has since held under a second, independently written
 implementation: Windows implements `PlatformAdapter::hit_test` in
 `crates/windows/src/tree/hit_test/mod.rs` and `hit_test_classify.rs`, and both the
 battery and the pointer pipeline consume it through the same
-`receives_events_check` core already owned — neither gained a Windows-specific
+`receives_events_check` core already owned. Neither gained a Windows-specific
 branch to accommodate it.
 
 Tests must verify the observed effect, not merely native API success. Native
@@ -72,4 +72,4 @@ proof that an application executed its handler.
 ## Related
 
 - [Preserve command policy semantics during refactor](preserve-command-policy-semantics-during-refactor-2026-05-12.md)
-- [A test that cannot fail is not coverage](a-test-that-cannot-fail-is-not-coverage.md) — the Windows hit-test guard-mirror lesson: a `#[cfg(test)]` copy of a production expression is not a pin on it.
+- [A test that cannot fail is not coverage](a-test-that-cannot-fail-is-not-coverage.md): the Windows hit-test guard-mirror lesson. A `#[cfg(test)]` copy of a production expression is not a pin on it.
