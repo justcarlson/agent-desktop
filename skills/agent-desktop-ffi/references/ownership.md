@@ -1,18 +1,15 @@
 # Pointer ownership
 
-Every `*mut T` / `*const T` returned by the FFI comes with a matching
-free function. Always call it; the allocator the FFI uses is Rust's
-`Box::from_raw` / `CString::from_raw`, which cannot be freed with C's
-`free()`.
+Every `*mut T` / `*const T` returned by the FFI has a matching free function.
+Always call it. Rust allocated the memory, so C's `free()` cannot release it.
 
 ## Allocation / release table
 
 ### Command-backed JSON strings
 
-These entrypoints write an owned, NUL-terminated JSON envelope into
-`*out`; free with `ad_free_string`. See error-handling.md for the
-dual-failure mode (command-level errors write `ok:false` JSON into
-`*out`; infrastructure errors leave `*out` null with no allocation).
+These entrypoints write an owned, NUL-terminated JSON envelope into `*out`.
+Free it with `ad_free_string`. On an infrastructure error `*out` stays null
+(see "dual-failure modes" in error-handling.md).
 
 | Allocates                                                                         | Frees with              |
 |-----------------------------------------------------------------------------------|-------------------------|
