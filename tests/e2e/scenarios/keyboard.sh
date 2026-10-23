@@ -1,6 +1,6 @@
 press_expect() {
     local label="$1" combo="$2" expected="$3" output ok observed
-    output="$("$bin" --headed press "$combo" --app "$app" 2>&1)"
+    output="$("$bin" --headed press "$combo" --app "$app" 2>/dev/null)"
     ok="$(json_field "$output" ok)"
     observed="$(await_value text-echo "$expected")"
     assert "$label" \

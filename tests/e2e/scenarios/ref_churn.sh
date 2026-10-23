@@ -30,7 +30,7 @@ ref_churn_suite() {
     require_target_by_id stable textfield stable-editor
     act_target "$filter" click >/dev/null 2>&1
     "$bin" wait --text "Restore rows" --app "$app" --timeout 5000 >/dev/null 2>&1
-    output="$("$bin" set-value "$(target_ref "$alpha")" poisoned 2>&1)"
+    output="$("$bin" set-value "$(target_ref "$alpha")" poisoned 2>/dev/null)"
     ok="$(json_field "$output" ok)"
     code="$(json_field "$output" error.code)"
     delivery="$(json_field "$output" error.disposition.delivery)"
@@ -41,7 +41,7 @@ ref_churn_suite() {
             "$([ "$ok" = "False" ] && [ "$code" = "STALE_REF" ] && [ "$delivery" = "not_delivered" ] && echo 1 || echo 0)" \
             "ok=$ok code=$code delivery=$delivery"
     fi
-    beta_seen="$("$bin" wait --text "Beta stored: Beta" --app "$app" --timeout 3000 2>&1)"
+    beta_seen="$("$bin" wait --text "Beta stored: Beta" --app "$app" --timeout 3000 2>/dev/null)"
     if [ "$host_client" = "0" ] && [ "$ok" = "True" ]; then
         skipmsg "$label sibling kept its value: same known product defect, the aliased stale write landed on the surviving row (docs/solutions/runtime-errors/2026-09-20-xcode-filter-ref-alias.md)"
     else
@@ -49,12 +49,12 @@ ref_churn_suite() {
             "$([ "$(json_field "$beta_seen" data.found)" = "True" ] && echo 1 || echo 0)" \
             "found=$(json_field "$beta_seen" data.found)"
     fi
-    stable_write="$("$bin" set-value "$(target_ref "$stable")" stable-ok 2>&1)"
-    stable_seen="$(wait_target "$stable" value 3000 --value stable-ok 2>&1)"
+    stable_write="$("$bin" set-value "$(target_ref "$stable")" stable-ok 2>/dev/null)"
+    stable_seen="$(wait_target "$stable" value 3000 --value stable-ok 2>/dev/null)"
     assert "$label an untouched ref still resolves and writes" \
         "$([ "$(json_field "$stable_write" ok)" = "True" ] && [ "$(json_field "$stable_seen" data.found)" = "True" ] && echo 1 || echo 0)" \
         "ok=$(json_field "$stable_write" ok) found=$(json_field "$stable_seen" data.found)"
-    close_output="$("$bin" close-app "$app" --force 2>&1)"
+    close_output="$("$bin" close-app "$app" --force 2>/dev/null)"
     for _ in $(seq 1 25); do
         [ -z "$(pgrep -x "$app" 2>/dev/null || true)" ] && break
         sleep 0.2
