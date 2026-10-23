@@ -251,7 +251,7 @@ An explicit opt-in path that uses screen coordinates or physical input when sema
 
 Ref-targeted physical input lands on the topmost window at the resolved point, so core first ensures the target element's exact window is frontmost — the app being frontmost is not sufficient when the element lives in a background window of that app.
 
-Ref-addressed drag pickup resolves the element's bounds center. On a slider the thumb is rarely at the center, so center pickup can miss it; headed `--from-xy` with a thumb-row offset is the workaround until slider-aware pickup exists (the drag probe in A4-3 picks the thumb up at the left end of the track, 14 px below its top, not at the center).
+Raw `--xy` input carries no window identity: it moves or clicks at the requested coordinates and focuses no application. Ref-addressed drag pickup resolves the element's bounds center. On a slider the thumb is rarely at the center, so center pickup can miss it; headed `--from-xy` with a thumb-row offset is the workaround until slider-aware pickup exists (the drag probe in A4-3 picks the thumb up at the left end of the track, 14 px below its top, not at the center).
 
 ### Release Guard
 An arm-before-commit guard on multi-event physical sequences — drag, modifier chord, chunked text — that posts corrective input at the **origin** on abort: drag-back plus mouse-up for a drag, key-up sweep for held keys and modifiers.
