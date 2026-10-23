@@ -3,9 +3,9 @@ use crate::AccessibilityNode;
 use crate::AdapterError;
 use crate::actions::action_request::ActionRequest;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
-use crate::ref_alloc::ref_entry_from_node;
-use crate::refs_test_support::HomeGuard;
-use crate::{refs::RefMap, refs_store::RefStore};
+use crate::refs::ref_alloc::ref_entry_from_node;
+use crate::refs::refs_test_support::HomeGuard;
+use crate::{refs::RefMap, refs::refs_store::RefStore};
 use std::sync::{
     Arc,
     atomic::{AtomicU32, Ordering},
@@ -37,8 +37,8 @@ fn named(role: &str, name: &str) -> AccessibilityNode {
     n
 }
 
-fn source(app: &'static str) -> crate::ref_alloc_source::RefAllocSource<'static> {
-    crate::ref_alloc_source::RefAllocSource {
+fn source(app: &'static str) -> crate::refs::ref_alloc_source::RefAllocSource<'static> {
+    crate::refs::ref_alloc_source::RefAllocSource {
         pid: crate::ProcessId::new(42),
         app: Some(app),
         window_id: None,
@@ -111,9 +111,9 @@ fn window_info(id: &str, focused: bool) -> crate::WindowInfo {
 impl ObservationOps for StubAdapter {
     fn observe_tree(
         &self,
-        root: crate::live_locator::ObservationRoot<'_>,
-        _request: &crate::live_locator::ObservationRequest,
-    ) -> Result<crate::live_locator::ObservedTree, AdapterError> {
+        root: crate::locator::live_locator::ObservationRoot<'_>,
+        _request: &crate::locator::live_locator::ObservationRequest,
+    ) -> Result<crate::locator::live_locator::ObservedTree, AdapterError> {
         if let Some(error) = &self.subtree_error {
             return Err(error.clone());
         }
@@ -185,7 +185,7 @@ fn load_session_snapshot(session_id: &str, snapshot_id: &str) -> RefMap {
 }
 
 fn local_ref(ref_id: &str) -> String {
-    crate::ref_token::resolve_ref_target(ref_id)
+    crate::refs::ref_token::resolve_ref_target(ref_id)
         .expect("result refs must be snapshot-qualified")
         .1
 }

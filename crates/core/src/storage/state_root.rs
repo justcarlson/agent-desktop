@@ -130,7 +130,7 @@ pub(crate) fn is_owned_by_current_user(_meta: &std::fs::Metadata) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::refs_test_support::TempDir;
+    use crate::refs::refs_test_support::TempDir;
     use std::fs;
 
     fn always_owned(_meta: &std::fs::Metadata) -> bool {

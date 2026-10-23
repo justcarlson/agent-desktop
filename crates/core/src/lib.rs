@@ -4,62 +4,19 @@ pub(crate) mod actionability;
 pub mod actions;
 pub mod adapter;
 pub mod commands;
-mod containment_predicate;
 pub mod context;
 pub mod cursor_overlay;
-mod identity_predicate;
 mod input;
-mod live_locator;
 pub(crate) mod locator;
 mod notifications;
 pub mod ref_action;
-mod ref_action_actionability;
-mod ref_action_context;
-mod ref_action_poll;
-mod ref_action_poll_state;
-mod ref_action_single;
-mod ref_action_wait;
-mod ref_action_wait_context;
-mod ref_action_wait_evidence;
-mod ref_action_wait_support;
-pub mod ref_alloc;
-mod ref_alloc_config;
-mod ref_alloc_options;
-mod ref_alloc_scope;
-mod ref_alloc_source;
-mod ref_allocation;
-mod ref_capabilities;
-mod ref_entry;
-mod ref_entry_identity;
-mod ref_geometry;
-pub mod ref_identity;
-mod ref_identity_match;
-mod ref_process;
-mod ref_resolve_deadline;
-mod ref_scope;
-mod ref_source;
-mod ref_token;
 pub mod refs;
-mod refs_lock;
-pub mod refs_store;
-#[cfg(test)]
-mod refs_test_support;
-mod refs_validate;
-mod resolve_attempt_outcome;
-pub mod resolve_errors;
 pub mod response;
 pub mod session;
 pub mod snapshot;
-mod state_predicate;
 mod storage;
 pub mod system;
-pub(crate) mod trace;
-mod trace_artifact_budget;
-pub(crate) mod trace_artifacts;
-mod trace_file;
-pub mod trace_read;
-pub mod trace_sanitize;
-mod trace_state;
+pub mod trace;
 pub mod tree;
 mod wait;
 
@@ -83,7 +40,6 @@ pub use adapter::live_identity::LiveIdentity;
 pub use adapter::native_handle::NativeHandle;
 pub use adapter::observation::ObservationOps;
 pub use adapter::system::SystemOps;
-pub use containment_predicate::ContainmentPredicate;
 pub use context::{CommandContext, WaitSelector};
 pub use cursor_overlay::{
     CURSOR_ARRIVAL_TIMEOUT_MS, CURSOR_HIGHLIGHT_HOLD_MS, CURSOR_IDLE_REST_MS,
@@ -93,7 +49,6 @@ pub use cursor_overlay::{
     MAX_CURSOR_IMAGE_BYTES, MAX_CURSOR_IMAGE_PATH_BYTES, MAX_CURSOR_IMAGE_PIXELS,
     MAX_CURSOR_LABEL_BYTES, MAX_CURSOR_LABEL_WORDS, place_label,
 };
-pub use identity_predicate::IdentityPredicate;
 pub use input::clipboard_content::ClipboardContent;
 pub use input::clipboard_format::ClipboardFormat;
 pub use input::direction::Direction;
@@ -107,7 +62,9 @@ pub use input::mouse_click_count::{MAX_MOUSE_CLICK_COUNT, validate_mouse_click_c
 pub use input::mouse_event::MouseEvent;
 pub use input::mouse_event_kind::MouseEventKind;
 pub use input::pointer_observation::PointerObservation;
-pub use live_locator::{
+pub use locator::containment_predicate::ContainmentPredicate;
+pub use locator::identity_predicate::IdentityPredicate;
+pub use locator::live_locator::{
     EvidenceRequirements, IdentifierEvidence, LocatorCardinality, LocatorEvidence, LocatorField,
     LocatorIdentifierStats, LocatorLimitStats, LocatorMaterialization, LocatorReadCounts,
     LocatorReadHealth, LocatorReadStats, LocatorRefEvidence, LocatorResolution,
@@ -116,6 +73,7 @@ pub use live_locator::{
     ObservationSource, ObservedSubtree, ObservedTree, classify_query_result, evaluate_locator_tree,
     require_unique, resolve_query,
 };
+pub use locator::state_predicate::StatePredicate;
 pub use locator::{
     LocatorQuery, accessibility_node_matches, node_context, node_matches, role_matches,
 };
@@ -126,16 +84,16 @@ pub use notifications::notification_filter::NotificationFilter;
 pub use notifications::notification_identity::NotificationIdentity;
 pub use notifications::notification_identity_check::verify_notification_identity;
 pub use notifications::notification_info::NotificationInfo;
-pub use ref_capabilities::RefCapabilities;
-pub use ref_entry::RefEntry;
-pub use ref_entry_identity::RefEntryIdentity;
-pub use ref_geometry::RefGeometry;
-pub use ref_identity_match::IdentityMatch;
-pub use ref_process::RefProcess;
-pub use ref_scope::RefScope;
-pub use ref_source::RefSource;
 pub use refs::RefMap;
-pub use refs_store::RefStore;
+pub use refs::ref_capabilities::RefCapabilities;
+pub use refs::ref_entry::RefEntry;
+pub use refs::ref_entry_identity::RefEntryIdentity;
+pub use refs::ref_geometry::RefGeometry;
+pub use refs::ref_identity_match::IdentityMatch;
+pub use refs::ref_process::RefProcess;
+pub use refs::ref_scope::RefScope;
+pub use refs::ref_source::RefSource;
+pub use refs::refs_store::RefStore;
 pub use response::adapter_error::AdapterError;
 pub use response::app_error::AppError;
 pub use response::delivery_disposition::DeliveryDisposition;
@@ -152,7 +110,6 @@ pub use session::interaction_lease::{
 pub use session::process_lease_guard::ProcessLeaseGuard;
 pub use session::session_affinity::SessionAffinity;
 pub use snapshot::snapshot_surface::SnapshotSurface;
-pub use state_predicate::StatePredicate;
 pub use storage::file_lock::FileLock;
 pub use storage::private_file_ops::{
     PrivateFileOps, bounded_read, install_private_file_ops, temporary_file_name,
@@ -177,7 +134,7 @@ pub use system::window_info::WindowInfo;
 pub use system::window_op::WindowOp;
 pub use system::window_readback::WindowReadback;
 pub use system::window_state::WindowState;
-pub use trace_sanitize::sanitize_trace_value;
+pub use trace::trace_sanitize::sanitize_trace_value;
 pub use tree::accname::{compute_description, compute_name, resolve_description, resolve_name};
 pub use tree::bounds_space::BoundsSpace;
 pub use tree::element_identifier::ElementIdentifier;

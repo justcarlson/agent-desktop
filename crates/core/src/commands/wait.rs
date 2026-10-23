@@ -10,9 +10,9 @@ use crate::{
         wait_text_match, wait_timeout,
     },
     context::CommandContext,
-    refs_store::RefStore,
+    refs::refs_store::RefStore,
     snapshot::{self, emit_snapshot_saved},
-    trace_artifacts,
+    trace::trace_artifacts,
     tree::search_text,
 };
 use serde_json::{Value, json};
@@ -123,7 +123,7 @@ fn wait_for_menu(
         .wait_for_menu(process.clone(), open, deadline)
         .map_err(|error| {
             wait_timeout::menu(
-                crate::ref_action_wait_support::with_exited_process_state(
+                crate::ref_action::ref_action_wait_support::with_exited_process_state(
                     adapter, process, error, deadline,
                 ),
                 timeout_ms,
@@ -246,7 +246,7 @@ fn wait_for_text(
                         "text": text,
                         "ref": found
                             .and_then(|found| found.ref_id.as_deref())
-                            .map(|ref_id| crate::ref_token::qualify_ref_id(&snapshot_id, ref_id)),
+                            .map(|ref_id| crate::refs::ref_token::qualify_ref_id(&snapshot_id, ref_id)),
                         "role": found.map(|found| found.role.clone()),
                         "snapshot_id": snapshot_id,
                         "elapsed_ms": elapsed

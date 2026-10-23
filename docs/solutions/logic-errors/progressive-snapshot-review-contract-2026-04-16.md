@@ -28,7 +28,7 @@ makes old refs appear valid after their evidence has changed.
 
 - Resolve `--root` with `ref_token::resolve_ref_target` before loading a map.
   A qualified ref supplies its snapshot; a bare `@eN` ref is rejected as
-  `INVALID_ARGS` (`crates/core/src/ref_token.rs:19-31`). The snapshot is looked
+  `INVALID_ARGS` (`crates/core/src/refs/ref_token.rs:19-31`). The snapshot is looked
   up only through `RefStore::for_session(context.session_id())`.
 - Re-resolve the saved root entry strictly before observing its subtree. A
   missing, stale, or ambiguous live root fails closed; it is never replaced by
@@ -78,7 +78,7 @@ ensuring no stale descendants survive a re-drill.
   A full snapshot may return a partial tree because it writes a fresh map and
   destroys nothing; a rooted replacement deletes descendants it may then be
   unable to re-allocate.
-- Keep ref allocation in `crates/core/src/ref_alloc.rs`; full snapshots and
+- Keep ref allocation in `crates/core/src/refs/ref_alloc.rs`; full snapshots and
   drill-downs must not grow separate allocators.
 
 ## Related

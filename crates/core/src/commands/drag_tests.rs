@@ -6,9 +6,9 @@ use crate::{
     adapter::NativeHandle,
     adapter::hit_test::HitTestResult,
     commands::stale_retry_test_support::StaleRetryCounter,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};

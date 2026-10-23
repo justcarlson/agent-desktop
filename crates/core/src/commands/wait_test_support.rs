@@ -6,8 +6,8 @@ use crate::{
     AdapterError, AppError, Rect,
     adapter::NativeHandle,
     context::CommandContext,
+    refs::refs_store::RefStore,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
     tree::element_state::ElementState,
 };
 use serde_json::Value;
@@ -47,7 +47,7 @@ pub(super) fn wait_for_element_test(
 ) -> Result<Value, AppError> {
     wait_for_element(
         ElementWaitInput {
-            ref_id: crate::ref_token::qualify_for_test(&ref_id, snapshot_id.as_deref()),
+            ref_id: crate::refs::ref_token::qualify_for_test(&ref_id, snapshot_id.as_deref()),
             predicate,
             timeout_ms,
         },

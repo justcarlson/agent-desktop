@@ -11,7 +11,7 @@
 //! (A17-7).
 
 use agent_desktop_core::{
-    AdapterError, Deadline, LocatorEvidence, RefEntry, ref_identity::has_meaningful_identity,
+    AdapterError, Deadline, LocatorEvidence, RefEntry, refs::ref_identity::has_meaningful_identity,
 };
 
 use super::automation::{UiaFailure, uia_failure_disposition};
@@ -51,10 +51,10 @@ pub(crate) fn resolve_walk_budget(deadline: Deadline) -> WalkBudget {
 
 /// The incomplete-and-retryable answer: a candidate that could not be read is
 /// not a non-match. Core owns the payload
-/// (`agent_desktop_core::resolve_errors::identity_unknown_error`) because it
+/// (`agent_desktop_core::refs::resolve_errors::identity_unknown_error`) because it
 /// is byte-identical to macOS's `identity_unknown` - a `complete: false,
 /// retryable: true` stamp so the caller's loop retries it.
-pub(crate) use agent_desktop_core::resolve_errors::identity_unknown_error;
+pub(crate) use agent_desktop_core::refs::resolve_errors::identity_unknown_error;
 
 /// Whether the stored path is scoped to the window root rather than to a
 /// drill-down ancestor: no `root_ref` at all, or an absolute path that

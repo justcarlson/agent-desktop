@@ -25,7 +25,7 @@ refs depending on how it was observed.
 
 ## Guidance
 
-`allocate_refs` in `crates/core/src/ref_alloc.rs` is the only recursive allocator.
+`allocate_refs` in `crates/core/src/refs/ref_alloc.rs` is the only recursive allocator.
 Callers supply a `RefAllocConfig` composed of `RefAllocOptions`,
 `RefAllocSource`, and `RefAllocScope` rather than adding another allocator or a
 positional argument list.

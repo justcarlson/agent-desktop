@@ -15,9 +15,9 @@ use crate::{
     actions::capability,
     adapter::NativeHandle,
     adapter::hit_test::HitTestResult,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 

@@ -15,10 +15,10 @@ pub(super) fn native_identifier_role_reuse(entry: &RefEntry) -> AdapterError {
     }))
 }
 
-/// Core owns the payload (`agent_desktop_core::resolve_errors::identity_unknown_error`)
+/// Core owns the payload (`agent_desktop_core::refs::resolve_errors::identity_unknown_error`)
 /// so both adapters share one definition: an unreadable candidate
 /// means the same thing whichever adapter's search produced it.
-pub(super) use agent_desktop_core::resolve_errors::identity_unknown_error as identity_unknown;
+pub(super) use agent_desktop_core::refs::resolve_errors::identity_unknown_error as identity_unknown;
 
 pub(super) fn incomplete_traversal(phase: &str, depth: u8) -> AdapterError {
     AdapterError::new(

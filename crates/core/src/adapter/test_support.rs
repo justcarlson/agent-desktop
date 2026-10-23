@@ -234,10 +234,10 @@ pub(crate) fn recorded_action_state(requests: &[crate::ActionRequest]) -> crate:
 }
 
 pub(crate) fn observed_tree(
-    root: &crate::live_locator::ObservationRoot<'_>,
+    root: &crate::locator::live_locator::ObservationRoot<'_>,
     node: crate::AccessibilityNode,
-) -> Result<crate::live_locator::ObservedTree, crate::AdapterError> {
-    use crate::live_locator::{
+) -> Result<crate::locator::live_locator::ObservedTree, crate::AdapterError> {
+    use crate::locator::live_locator::{
         IdentifierEvidence, LocatorEvidence, LocatorField, LocatorRefEvidence, LocatorStats,
         ObservationSource, ObservedSubtree, ObservedTree,
     };

@@ -3,7 +3,7 @@ use crate::{
     adapter::PlatformAdapter,
     commands::permissions::{self, PermissionsArgs},
     context::CommandContext,
-    refs_store::RefStore,
+    refs::refs_store::RefStore,
 };
 use serde_json::{Value, json};
 

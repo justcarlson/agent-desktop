@@ -278,10 +278,10 @@ pub(crate) fn is_retryable_resolution_error(error: &AdapterError) -> bool {
 /// Stamps the final incomplete diagnosis with `deadline_elapsed` so the
 /// caller sees why the retries ran out, preserving the incomplete's own
 /// details rather than discarding them for a bare `TIMEOUT`. Core owns the
-/// payload (`agent_desktop_core::resolve_errors::mark_deadline_elapsed`)
+/// payload (`agent_desktop_core::refs::resolve_errors::mark_deadline_elapsed`)
 /// so every platform stamps the same shape.
 #[cfg(target_os = "windows")]
-pub(crate) use agent_desktop_core::resolve_errors::mark_deadline_elapsed;
+pub(crate) use agent_desktop_core::refs::resolve_errors::mark_deadline_elapsed;
 
 /// The non-Windows twin. The crate cross-compiles to the Linux lane with the
 /// resolver reachable, but there are no UI Automation elements there, so every

@@ -1,4 +1,4 @@
-use agent_desktop_core::resolve_errors::identity_unknown_error;
+use agent_desktop_core::refs::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, RefEntry};
 
 use super::AtspiElement;

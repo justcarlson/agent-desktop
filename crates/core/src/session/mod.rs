@@ -11,8 +11,8 @@ pub use liveness::SessionLivenessLease;
 pub use manifest::{ArtifactsMode, SessionManifest, SessionTraceMode};
 
 use crate::{
-    AppError, CursorOverlayConfig, context::validate_session_id, refs::write_private_file,
-    refs_store::RefStore,
+    AppError, CursorOverlayConfig, context::validate_session_id, refs::refs_store::RefStore,
+    refs::write_private_file,
 };
 use serde_json;
 use std::io::ErrorKind;
@@ -339,7 +339,7 @@ pub fn end_session(session_id: &str) -> Result<SessionManifest, AppError> {
         manifest.ended_at = Some(now_millis());
         write_manifest(&manifest)?;
         if manifest.artifacts == ArtifactsMode::Full
-            && let Ok(store) = crate::refs_store::RefStore::for_session(Some(&id))
+            && let Ok(store) = crate::refs::refs_store::RefStore::for_session(Some(&id))
         {
             store.discard_duplicated_ref_scaffolding();
         }

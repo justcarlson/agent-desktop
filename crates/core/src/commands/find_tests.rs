@@ -2,7 +2,7 @@ use super::*;
 use crate::AdapterError;
 use crate::LocatorQuery;
 use crate::context::CommandContext;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 
 fn node(name: Option<&str>, value: Option<&str>, description: Option<&str>) -> AccessibilityNode {
     AccessibilityNode {
@@ -59,7 +59,7 @@ fn no_selection() -> FindSelectionArgs {
 }
 
 fn serialized_match(name: &str, value: Option<&str>, states: &[&str]) -> Value {
-    serde_json::to_value(crate::live_locator::LocatorMatchData {
+    serde_json::to_value(crate::locator::live_locator::LocatorMatchData {
         ref_id: Some("@e1".into()),
         role: "textfield".into(),
         name: name.into(),

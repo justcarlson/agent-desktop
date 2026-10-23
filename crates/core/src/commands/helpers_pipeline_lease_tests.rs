@@ -125,7 +125,7 @@ impl SystemOps for CountingPipelineAdapter {
 #[test]
 fn ref_action_pipeline_resolves_under_lease_before_dispatch() {
     let _guard = HomeGuard::new();
-    let store = crate::refs_store::RefStore::new().unwrap();
+    let store = crate::refs::refs_store::RefStore::new().unwrap();
     let mut refmap = RefMap::new();
     refmap.allocate(entry());
     let snapshot_id = store.save_new_snapshot(&refmap).unwrap();

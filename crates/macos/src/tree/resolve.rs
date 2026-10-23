@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use agent_desktop_core::ref_identity::has_meaningful_identity;
+use agent_desktop_core::refs::ref_identity::has_meaningful_identity;
 use agent_desktop_core::{AdapterError, ErrorCode, NativeHandle, RefEntry, SnapshotSurface};
 use std::time::{Duration, Instant};
 
@@ -237,10 +237,10 @@ fn sleep_before_retry(deadline: Instant) {
     }
 }
 
-/// Core owns the payload (`agent_desktop_core::resolve_errors::mark_deadline_elapsed`)
+/// Core owns the payload (`agent_desktop_core::refs::resolve_errors::mark_deadline_elapsed`)
 /// so both adapters share one definition.
 #[cfg(target_os = "macos")]
-use agent_desktop_core::resolve_errors::mark_deadline_elapsed;
+use agent_desktop_core::refs::resolve_errors::mark_deadline_elapsed;
 
 #[cfg(target_os = "macos")]
 fn stale_ref_error(entry: &RefEntry, cause: &AdapterError) -> AdapterError {

@@ -107,7 +107,7 @@ fn a_named_bounded_boundary_still_has_its_rect_stripped() {
 
     let boundary = &result.children[0];
     let entry = refmap.get(boundary.ref_id.as_deref().unwrap()).unwrap();
-    assert!(crate::ref_identity::has_meaningful_identity(entry));
+    assert!(crate::refs::ref_identity::has_meaningful_identity(entry));
     assert!(entry.geometry.bounds.is_none());
 }
 

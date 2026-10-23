@@ -5,7 +5,7 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps, TreeOptions};
 use crate::commands::wait_selector::{self, WaitSelectorInput};
 use crate::context::WaitSelector;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::{
     AccessibilityNode, AdapterError, CommandContext, DragParams, InteractionLease, ProcessId,
     WindowInfo, WindowState, system::window_filter::WindowFilter,
@@ -75,15 +75,18 @@ impl CrossAppWaitAdapter {
 impl ObservationOps for CrossAppWaitAdapter {
     fn observe_tree(
         &self,
-        root: crate::live_locator::ObservationRoot<'_>,
-        _request: &crate::live_locator::ObservationRequest,
-    ) -> Result<crate::live_locator::ObservedTree, AdapterError> {
-        let crate::live_locator::ObservationRoot::Window(window) = root else {
+        root: crate::locator::live_locator::ObservationRoot<'_>,
+        _request: &crate::locator::live_locator::ObservationRequest,
+    ) -> Result<crate::locator::live_locator::ObservedTree, AdapterError> {
+        let crate::locator::live_locator::ObservationRoot::Window(window) = root else {
             return Err(AdapterError::internal("expected window root"));
         };
         self.observed.lock().unwrap().push(window.id.clone());
         let node = Self::window_node(window);
-        crate::adapter::observed_tree(&crate::live_locator::ObservationRoot::Window(window), node)
+        crate::adapter::observed_tree(
+            &crate::locator::live_locator::ObservationRoot::Window(window),
+            node,
+        )
     }
 
     fn resolve_element_strict(
@@ -175,7 +178,7 @@ fn wait_context(timeout_ms: u64) -> CommandContext {
 /// `from` and `to` `source_entry`s are identical and the scope choice is
 /// invisible. The destination carries the "Dropped" confirmation.
 fn same_window_snapshot() -> String {
-    let store = crate::refs_store::RefStore::new().unwrap();
+    let store = crate::refs::refs_store::RefStore::new().unwrap();
     let mut refmap = crate::refs::RefMap::new();
     refmap.allocate(ref_entry(2));
     refmap.allocate(ref_entry(2));

@@ -11,7 +11,7 @@ fn accepts_filesystem_safe_session_ids() {
 
 #[test]
 fn session_cursor_config_is_loaded_by_commands_and_batch_entries() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let manifest = start_session(StartSessionOptions::default()).expect("session starts");
     let enabled =
         crate::CursorOverlayConfig::enabled(Some("Opening menu".into()), 6).expect("valid config");
@@ -239,11 +239,11 @@ fn batch_item_inherits_or_overrides_session_without_trace_loss() {
 
 #[test]
 fn bare_session_without_manifest_does_not_trace() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let context = CommandContext::new(Some("legacy-session".into()), None, false).unwrap();
     assert!(!context.trace_enabled());
     context.trace("event", json!({})).unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some("legacy-session"))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some("legacy-session"))
         .unwrap()
         .trace_dir();
     assert!(!trace_dir.exists());
@@ -251,7 +251,7 @@ fn bare_session_without_manifest_does_not_trace() {
 
 #[test]
 fn trace_on_session_writes_segment_without_explicit_trace_flag() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let manifest = start_session(StartSessionOptions {
         name: None,
         trace: SessionTraceMode::On,
@@ -263,7 +263,7 @@ fn trace_on_session_writes_segment_without_explicit_trace_flag() {
     context
         .trace("session.event", json!({ "ok": true }))
         .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     let entries: Vec<_> = std::fs::read_dir(trace_dir).unwrap().flatten().collect();
@@ -272,7 +272,7 @@ fn trace_on_session_writes_segment_without_explicit_trace_flag() {
 
 #[test]
 fn no_trace_session_still_namespaces_snapshots() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let manifest = start_session(StartSessionOptions {
         name: None,
         trace: SessionTraceMode::Off,
@@ -287,7 +287,7 @@ fn no_trace_session_still_namespaces_snapshots() {
 
 #[test]
 fn explicit_trace_overrides_session_sink() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let manifest = start_session(StartSessionOptions {
         name: None,
         trace: SessionTraceMode::On,
@@ -305,7 +305,7 @@ fn explicit_trace_overrides_session_sink() {
         CommandContext::new(Some(manifest.id.clone()), Some(path.clone()), false).unwrap();
     context.trace("override.event", json!({})).unwrap();
     assert!(path.exists());
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     let segment_count = std::fs::read_dir(trace_dir)
@@ -317,7 +317,7 @@ fn explicit_trace_overrides_session_sink() {
 
 #[test]
 fn batch_item_session_override_uses_its_own_segment_dir() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let parent_session = start_session(StartSessionOptions {
         name: None,
         trace: SessionTraceMode::On,
@@ -335,7 +335,7 @@ fn batch_item_session_override_uses_its_own_segment_dir() {
         .for_batch_item(Some(child_session.id.clone()))
         .unwrap();
     child.trace("child.event", json!({})).unwrap();
-    let parent_trace = crate::refs_store::RefStore::for_session(Some(&parent_session.id))
+    let parent_trace = crate::refs::refs_store::RefStore::for_session(Some(&parent_session.id))
         .unwrap()
         .trace_dir();
     let parent_segments = std::fs::read_dir(&parent_trace)
@@ -347,7 +347,7 @@ fn batch_item_session_override_uses_its_own_segment_dir() {
         })
         .unwrap_or(0);
     assert_eq!(parent_segments, 0);
-    let child_trace = crate::refs_store::RefStore::for_session(Some(&child_session.id))
+    let child_trace = crate::refs::refs_store::RefStore::for_session(Some(&child_session.id))
         .unwrap()
         .trace_dir();
     assert!(child_trace.is_dir());
@@ -355,7 +355,7 @@ fn batch_item_session_override_uses_its_own_segment_dir() {
 
 #[test]
 fn strict_parent_allows_no_trace_batch_override() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let traced = start_session(StartSessionOptions {
         name: None,
         trace: SessionTraceMode::On,

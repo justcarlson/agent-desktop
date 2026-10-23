@@ -1,4 +1,4 @@
-use agent_desktop_core::ref_alloc::is_ref_able;
+use agent_desktop_core::refs::ref_alloc::is_ref_able;
 use agent_desktop_core::{
     AccessibilityNode, Deadline, ObservationRequest, ObservationRoot, TreeOptions, WindowInfo,
     WindowState,

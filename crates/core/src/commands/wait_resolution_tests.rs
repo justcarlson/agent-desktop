@@ -5,9 +5,9 @@ use crate::{
     actions::capability,
     adapter::NativeHandle,
     commands::wait_predicate,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::Mutex;
 

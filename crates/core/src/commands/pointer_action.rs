@@ -3,8 +3,8 @@ use crate::{
     adapter::PlatformAdapter,
     commands::helpers::{load_ref_entry, resolve_handle_within_deadline},
     context::CommandContext,
-    ref_resolve_deadline::POLL_INTERVAL,
     refs::RefEntry,
+    refs::ref_resolve_deadline::POLL_INTERVAL,
 };
 use serde_json::{Value, json};
 

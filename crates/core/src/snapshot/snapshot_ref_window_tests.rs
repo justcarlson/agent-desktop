@@ -1,7 +1,7 @@
 use super::*;
 
 fn seed_skeleton_refmap_on_window(window_id: Option<&'static str>) -> RefMap {
-    let src = crate::ref_alloc_source::RefAllocSource {
+    let src = crate::refs::ref_alloc_source::RefAllocSource {
         window_id,
         ..source("TestApp")
     };

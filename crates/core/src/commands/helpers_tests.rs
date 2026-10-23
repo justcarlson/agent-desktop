@@ -6,7 +6,7 @@ use crate::actions::capability;
 use crate::adapter::NativeHandle;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::refs::RefMap;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::{AdapterError, ErrorCode, WindowInfo, WindowOp};
 use std::sync::{
     Arc, Mutex,

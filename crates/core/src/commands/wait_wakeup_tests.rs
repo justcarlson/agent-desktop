@@ -187,7 +187,7 @@ fn notification_subscription_precedes_baseline_and_only_new_inventory_matches() 
 
 #[test]
 fn text_and_selector_subscribe_before_reading_and_resample_after_wakes() {
-    let _home = crate::refs_test_support::HomeGuard::new();
+    let _home = crate::refs::refs_test_support::HomeGuard::new();
     for selector in [false, true] {
         let state = Arc::new(Mutex::new(WakeState::default()));
         let adapter = WakeAdapter(state.clone());

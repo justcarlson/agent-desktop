@@ -1,6 +1,6 @@
 use crate::{
     AppError, PlatformAdapter,
-    live_locator::{ObservationRequest, ObservationRoot, ObservedTree},
+    locator::live_locator::{ObservationRequest, ObservationRoot, ObservedTree},
 };
 
 /// A renderer that has not published its accessibility tree yet is discovered

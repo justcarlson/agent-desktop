@@ -6,7 +6,7 @@ use crate::adapter::NoopAdapter;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, adapter::NativeHandle, commands::wait_predicate, refs::RefEntry,
-    refs_test_support::HomeGuard, tree::element_state::ElementState,
+    refs::refs_test_support::HomeGuard, tree::element_state::ElementState,
 };
 use std::sync::{
     Arc,

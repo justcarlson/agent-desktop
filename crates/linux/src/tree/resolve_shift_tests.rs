@@ -69,9 +69,7 @@ fn shifted_anonymous_siblings_need_unchanged_distinguishing_geometry() {
         fake.add(FRAME_PATH, "/second", node(PUSH_BUTTON, "", 80, 20));
         let entry = fake.entry_of("/first", true);
         assert_eq!(entry.scope.path.as_slice(), [1]);
-        assert!(!agent_desktop_core::ref_identity::has_meaningful_identity(
-            &entry
-        ));
+        assert!(!agent_desktop_core::refs::ref_identity::has_meaningful_identity(&entry));
         assert_ne!(
             entry.geometry.bounds_space,
             Some(agent_desktop_core::BoundsSpace::Window)

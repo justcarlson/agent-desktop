@@ -3,7 +3,7 @@ use super::*;
 use crate::AdapterError;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
 use crate::refs::RefMap;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::{
     actions::action::Action, actions::action_result::ActionResult,
     actions::action_step::ActionStep, actions::interaction_policy::InteractionPolicy,

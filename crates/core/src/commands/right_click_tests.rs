@@ -6,9 +6,9 @@ use crate::{
     actions::action_request::ActionRequest,
     actions::action_result::ActionResult,
     adapter::{NativeHandle, WindowFilter},
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 
 struct ProbeFailingAdapter {

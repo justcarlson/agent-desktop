@@ -76,9 +76,9 @@ impl Source for BusSource<'_> {
                 frame
             } else {
                 if !walk.complete || super::nested_dialog::is_incomplete(&walk.root) {
-                    return Err(agent_desktop_core::resolve_errors::identity_unknown_error(
-                        entry,
-                    ));
+                    return Err(
+                        agent_desktop_core::refs::resolve_errors::identity_unknown_error(entry),
+                    );
                 }
                 let dialogs = super::nested_dialog::find(&walk.root);
                 match dialogs.as_slice() {

@@ -46,7 +46,7 @@ pub(crate) fn run() -> Result<(), AppError> {
     let session =
         resolve_active_session(None, std::env::var("AGENT_DESKTOP_SESSION").ok().as_deref())?;
     let owner = agent_desktop_macos::RetainedRefSession::start()?;
-    let store = agent_desktop_core::refs_store::RefStore::for_session(session.as_deref())?;
+    let store = agent_desktop_core::refs::refs_store::RefStore::for_session(session.as_deref())?;
     let mut next_prune = RETAINED_PRUNE_INTERVAL;
     let identity = endpoint::identity(session.as_deref())?;
     let socket_path = std::env::var_os("AGENT_DESKTOP_INTERNAL_HOST_SOCKET");

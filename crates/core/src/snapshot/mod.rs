@@ -2,14 +2,14 @@ use crate::{
     AccessibilityNode, AppError, WindowInfo,
     adapter::{PlatformAdapter, TreeOptions, WindowFilter},
     context::CommandContext,
-    live_locator::{ObservationRequest, ObservationRoot},
-    ref_alloc::{self, RefAllocConfig},
-    ref_alloc_options::RefAllocOptions,
-    ref_alloc_scope::RefAllocScope,
-    ref_alloc_source::RefAllocSource,
+    locator::live_locator::{ObservationRequest, ObservationRoot},
     refs::RefMap,
-    refs_store::RefStore,
-    trace_artifacts,
+    refs::ref_alloc::{self, RefAllocConfig},
+    refs::ref_alloc_options::RefAllocOptions,
+    refs::ref_alloc_scope::RefAllocScope,
+    refs::ref_alloc_source::RefAllocSource,
+    refs::refs_store::RefStore,
+    trace::trace_artifacts,
 };
 use serde_json::json;
 
@@ -25,7 +25,7 @@ pub struct SnapshotResult {
 
 impl SnapshotResult {
     pub(crate) fn bind_snapshot_id(&mut self, snapshot_id: String) {
-        crate::ref_token::qualify_tree_refs(&mut self.tree, &snapshot_id);
+        crate::refs::ref_token::qualify_tree_refs(&mut self.tree, &snapshot_id);
         self.snapshot_id = Some(snapshot_id);
     }
 }

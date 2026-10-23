@@ -351,7 +351,7 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show
 
-      # Core resolves its home directory from HOME, then USERPROFILE (crates/core/src/refs.rs), so the lane points both at a throwaway directory.
+      # Core resolves its home directory from HOME, then USERPROFILE (crates/core/src/refs/mod.rs), so the lane points both at a throwaway directory.
       - name: Isolate HOME for the whole lane
         shell: pwsh
         run: |

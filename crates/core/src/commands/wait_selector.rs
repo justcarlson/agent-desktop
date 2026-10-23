@@ -3,13 +3,13 @@ use crate::{
     adapter::{PlatformAdapter, TreeOptions},
     commands::{query, snapshot as snapshot_cmd, wait_timeout},
     context::CommandContext,
-    live_locator::{
+    locator::live_locator::{
         LocatorMaterialization, LocatorResolveRequest, LocatorSelection, ObservationRoot,
         resolve_query,
     },
-    refs_store::RefStore,
+    refs::refs_store::RefStore,
     snapshot::{self, emit_snapshot_saved},
-    trace_artifacts,
+    trace::trace_artifacts,
 };
 use serde_json::{Value, json};
 use std::time::{Duration, Instant};

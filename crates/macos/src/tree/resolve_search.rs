@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, EvidenceRequirements, IdentityMatch, NativeHandle, RefEntry,
-    ref_identity::{has_stable_text_identity, identity_match},
+    refs::ref_identity::{has_stable_text_identity, identity_match},
 };
 use rustc_hash::FxHashSet;
 
@@ -325,7 +325,7 @@ pub(super) fn native_identifier_reused_by_different_role(
 
 fn provisional_geometry_candidate(entry: &RefEntry) -> bool {
     entry.geometry.bounds_hash.is_some()
-        && !agent_desktop_core::ref_identity::has_meaningful_identity(entry)
+        && !agent_desktop_core::refs::ref_identity::has_meaningful_identity(entry)
 }
 
 #[cfg(target_os = "macos")]

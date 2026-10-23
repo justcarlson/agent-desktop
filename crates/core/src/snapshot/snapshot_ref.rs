@@ -2,12 +2,12 @@ use crate::{
     AppError,
     adapter::{PlatformAdapter, TreeOptions, WindowFilter},
     context::CommandContext,
-    live_locator::{ObservationRequest, ObservationRoot},
-    ref_alloc::{self, RefAllocConfig},
-    ref_alloc_options::RefAllocOptions,
-    ref_alloc_scope::RefAllocScope,
-    ref_alloc_source::RefAllocSource,
-    refs_store::RefStore,
+    locator::live_locator::{ObservationRequest, ObservationRoot},
+    refs::ref_alloc::{self, RefAllocConfig},
+    refs::ref_alloc_options::RefAllocOptions,
+    refs::ref_alloc_scope::RefAllocScope,
+    refs::ref_alloc_source::RefAllocSource,
+    refs::refs_store::RefStore,
     snapshot::SnapshotResult,
 };
 
@@ -21,7 +21,7 @@ pub fn run_from_ref(
     run_from_ref_with_context(
         adapter,
         opts,
-        &crate::ref_token::qualify_for_test(root_ref_id, snapshot_id),
+        &crate::refs::ref_token::qualify_for_test(root_ref_id, snapshot_id),
         &CommandContext::default(),
         crate::snapshot::DEFAULT_SNAPSHOT_TIMEOUT_MS,
     )
@@ -43,7 +43,8 @@ pub fn run_from_ref_with_context(
     timeout_ms: u64,
 ) -> Result<SnapshotResult, AppError> {
     let store = RefStore::for_session(context.session_id())?;
-    let (active_snapshot_id, local_root_ref) = crate::ref_token::resolve_ref_target(root_ref_id)?;
+    let (active_snapshot_id, local_root_ref) =
+        crate::refs::ref_token::resolve_ref_target(root_ref_id)?;
     let refmap = store.load_snapshot(&active_snapshot_id)?;
 
     let entry = refmap
@@ -104,8 +105,13 @@ pub fn run_from_ref_with_context(
             Ok(tree)
         },
     )?;
-    crate::trace_artifacts::copy_refmap_if_full(context, &store, &active_snapshot_id, &refmap)?;
-    crate::ref_token::qualify_tree_refs(&mut tree, &active_snapshot_id);
+    crate::trace::trace_artifacts::copy_refmap_if_full(
+        context,
+        &store,
+        &active_snapshot_id,
+        &refmap,
+    )?;
+    crate::refs::ref_token::qualify_tree_refs(&mut tree, &active_snapshot_id);
     context.trace_lazy("snapshot.root.saved", || {
         serde_json::json!({
             "root_ref": root_ref_id,

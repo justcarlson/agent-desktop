@@ -4,7 +4,7 @@ use crate::commands::helpers::test_support::save_one_ref_snapshot;
 use crate::{
     AdapterError, actions::action_request::ActionRequest, actions::action_result::ActionResult,
     adapter::NativeHandle, commands::stale_retry_test_support::StaleRetryCounter, refs::RefEntry,
-    refs_test_support::HomeGuard,
+    refs::refs_test_support::HomeGuard,
 };
 
 struct StaleThenOkAdapter {

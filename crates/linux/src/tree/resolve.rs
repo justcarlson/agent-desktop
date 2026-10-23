@@ -1,5 +1,5 @@
-use agent_desktop_core::ref_identity::has_meaningful_identity;
-use agent_desktop_core::resolve_errors::identity_unknown_error;
+use agent_desktop_core::refs::ref_identity::has_meaningful_identity;
+use agent_desktop_core::refs::resolve_errors::identity_unknown_error;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rect, RefEntry};
 
 use super::AtspiElement;

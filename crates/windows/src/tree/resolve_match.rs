@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, LocatorEvidence, LocatorField, RefEntry,
-    ref_identity::{has_stable_text_identity, identity_match, stable_text_match},
+    refs::ref_identity::{has_stable_text_identity, identity_match, stable_text_match},
 };
 use serde_json::json;
 

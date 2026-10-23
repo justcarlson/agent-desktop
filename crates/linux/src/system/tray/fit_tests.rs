@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AccessibilityNode, ObservationSource, ObservedTree, ProcessId, RefEntry, SnapshotSurface,
-    WindowInfo, WindowState, ref_alloc::is_ref_able,
+    WindowInfo, WindowState, refs::ref_alloc::is_ref_able,
 };
 
 use super::item::ItemEvidence;

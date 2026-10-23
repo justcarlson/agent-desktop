@@ -131,7 +131,7 @@ pub struct WalkOutcome {
 /// one root source among several, and drill-down from a stored ref must re-enter
 /// this same traversal rather than fork a second one.
 ///
-/// No ref is allocated here. `agent_desktop_core::ref_alloc::allocate_refs` is
+/// No ref is allocated here. `agent_desktop_core::refs::ref_alloc::allocate_refs` is
 /// the only allocator in the product.
 pub fn walk_from_root<S: TreeSource>(
     source: &S,

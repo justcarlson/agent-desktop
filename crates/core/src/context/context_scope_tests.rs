@@ -5,7 +5,7 @@ use serde_json::json;
 
 #[test]
 fn ended_session_refuses_command_scopes_before_dispatch() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let session = start_session(StartSessionOptions::default()).unwrap();
     let existing = CommandContext::new(Some(session.id.clone()), None, false).unwrap();
     existing.mutating_command_scope("click").unwrap();
@@ -107,7 +107,7 @@ fn command_scope_is_noop_without_trace_sink() {
 
 #[test]
 fn artifacts_full_follows_manifest_mode() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let manifest = start_session(StartSessionOptions {
         trace: SessionTraceMode::On,
         artifacts: crate::session::ArtifactsMode::Full,
@@ -120,7 +120,7 @@ fn artifacts_full_follows_manifest_mode() {
 
 #[test]
 fn batch_item_with_failed_parent_trace_writes_to_its_own_session_segment() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let session = start_session(StartSessionOptions {
         trace: SessionTraceMode::On,
         ..Default::default()
@@ -140,7 +140,7 @@ fn batch_item_with_failed_parent_trace_writes_to_its_own_session_segment() {
         .trace("batch.item.event", json!({ "ok": true }))
         .unwrap();
 
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&session.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&session.id))
         .unwrap()
         .trace_dir();
     let wrote = std::fs::read_dir(&trace_dir)

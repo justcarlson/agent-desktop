@@ -53,7 +53,7 @@ fn identity_is_absent(
         && !value.is_unknown()
         && identifiers.is_complete();
     settled
-        && !agent_desktop_core::ref_identity::identity_fields_are_meaningful(
+        && !agent_desktop_core::refs::ref_identity::identity_fields_are_meaningful(
             role.known().map(String::as_str).unwrap_or_default(),
             name.known().map(String::as_str),
             value.known().map(String::as_str),

@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, NativeHandle, RefEntry, ref_identity::has_meaningful_identity,
+    AdapterError, NativeHandle, RefEntry, refs::ref_identity::has_meaningful_identity,
 };
 
 use super::AXElement;

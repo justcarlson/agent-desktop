@@ -1,5 +1,5 @@
 use super::*;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::session::SessionTraceMode;
 use std::fs;
 use std::time::Duration;

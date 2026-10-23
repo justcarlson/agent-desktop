@@ -99,7 +99,7 @@ shipped: an opt-in internal command host (`AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1`
 `src/command_host/mod.rs`) owns a `RetainedRefSession`, traversal captures a
 retained-object token for each observed element, and
 `ref_identity::identity_match` compares that token before any native identifier
-(`crates/core/src/ref_identity.rs`, `crates/macos/src/tree/retained.rs`). Without
+(`crates/core/src/refs/ref_identity.rs`, `crates/macos/src/tree/retained.rs`). Without
 the host no token is recorded and the identifier shortcut still returns Match,
 so the aliasing above remains reachable in the default CLI.
 

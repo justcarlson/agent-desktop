@@ -1,9 +1,9 @@
 use crate::{
     AppError,
     context::CommandContext,
-    refs_store::RefStore,
+    refs::refs_store::RefStore,
     session::resolve_active_session,
-    trace_read::{
+    trace::trace_read::{
         ExportOptions, ReadOptions, empty_trace_dir_error, export_html_for_command,
         read_merged_for_command,
     },
@@ -57,7 +57,7 @@ fn show(context: &CommandContext, limit: usize, event: Option<String>) -> Result
         },
         Some((
             std::process::id(),
-            crate::trace_file::process_start_ms(),
+            crate::trace::trace_file::process_start_ms(),
             "trace",
         )),
     )?;
@@ -92,7 +92,7 @@ fn export(context: &CommandContext, limit: usize, out: Option<PathBuf>) -> Resul
         &ExportOptions { limit, out },
         Some((
             std::process::id(),
-            crate::trace_file::process_start_ms(),
+            crate::trace::trace_file::process_start_ms(),
             "trace",
         )),
     )?;

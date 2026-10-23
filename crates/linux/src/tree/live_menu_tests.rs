@@ -1,4 +1,4 @@
-use agent_desktop_core::ref_identity::identity_match;
+use agent_desktop_core::refs::ref_identity::identity_match;
 use agent_desktop_core::{AdapterError, Deadline, IdentityMatch, LocatorField, NativeHandle};
 
 use super::*;

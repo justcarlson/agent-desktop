@@ -1,6 +1,6 @@
 use crate::AccessibilityNode;
-use crate::ref_alloc::{self, RefAllocConfig};
 use crate::refs::RefMap;
+use crate::refs::ref_alloc::{self, RefAllocConfig};
 
 fn node(role: &str) -> AccessibilityNode {
     AccessibilityNode {
@@ -22,12 +22,12 @@ fn drill_config<'a>(
     compact: bool,
 ) -> RefAllocConfig<'a> {
     RefAllocConfig {
-        options: crate::ref_alloc_options::RefAllocOptions {
+        options: crate::refs::ref_alloc_options::RefAllocOptions {
             include_bounds: false,
             interactive_only,
             compact,
         },
-        source: crate::ref_alloc_source::RefAllocSource {
+        source: crate::refs::ref_alloc_source::RefAllocSource {
             pid: crate::ProcessId::new(pid),
             app: source_app,
             window_id: None,
@@ -36,7 +36,7 @@ fn drill_config<'a>(
             process_instance: Some("test-instance"),
             surface: crate::adapter::SnapshotSurface::Window,
         },
-        scope: crate::ref_alloc_scope::RefAllocScope {
+        scope: crate::refs::ref_alloc_scope::RefAllocScope {
             root_ref_id: Some(root_ref_id),
             path_prefix: &[],
         },

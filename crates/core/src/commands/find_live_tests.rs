@@ -3,12 +3,12 @@ use super::*;
 use crate::{
     AppError,
     adapter::{ObservationOps, WindowFilter},
-    live_locator::{
+    locator::live_locator::{
         LocatorMaterialization, LocatorResolveRequest, LocatorSelection, ObservationRoot,
         require_unique, resolve_query,
     },
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
 };
 
 fn named_find(window_id: &str, name: &str) -> FindArgs {

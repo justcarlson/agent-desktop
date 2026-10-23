@@ -15,12 +15,12 @@ fn node(role: &str) -> AccessibilityNode {
 
 fn run_config(compact: bool, interactive_only: bool) -> RefAllocConfig<'static> {
     RefAllocConfig {
-        options: crate::ref_alloc_options::RefAllocOptions {
+        options: crate::refs::ref_alloc_options::RefAllocOptions {
             include_bounds: false,
             interactive_only,
             compact,
         },
-        source: crate::ref_alloc_source::RefAllocSource {
+        source: crate::refs::ref_alloc_source::RefAllocSource {
             pid: crate::ProcessId::new(1),
             app: Some("Test"),
             window_id: None,
@@ -29,7 +29,7 @@ fn run_config(compact: bool, interactive_only: bool) -> RefAllocConfig<'static> 
             process_instance: Some("test-instance"),
             surface: crate::adapter::SnapshotSurface::Window,
         },
-        scope: crate::ref_alloc_scope::RefAllocScope {
+        scope: crate::refs::ref_alloc_scope::RefAllocScope {
             root_ref_id: None,
             path_prefix: &[],
         },
@@ -212,12 +212,12 @@ fn test_skeleton_anchor_suppressed_in_drilldown() {
 
     let mut refmap = RefMap::new();
     let config = RefAllocConfig {
-        options: crate::ref_alloc_options::RefAllocOptions {
+        options: crate::refs::ref_alloc_options::RefAllocOptions {
             include_bounds: false,
             interactive_only: false,
             compact: false,
         },
-        source: crate::ref_alloc_source::RefAllocSource {
+        source: crate::refs::ref_alloc_source::RefAllocSource {
             pid: crate::ProcessId::new(1),
             app: Some("Test"),
             window_id: None,
@@ -226,7 +226,7 @@ fn test_skeleton_anchor_suppressed_in_drilldown() {
             process_instance: Some("test-instance"),
             surface: crate::adapter::SnapshotSurface::Window,
         },
-        scope: crate::ref_alloc_scope::RefAllocScope {
+        scope: crate::refs::ref_alloc_scope::RefAllocScope {
             root_ref_id: Some("@e3"),
             path_prefix: &[],
         },
@@ -297,12 +297,12 @@ fn test_skeleton_fixture_matches_golden() {
 
     let mut refmap = RefMap::new();
     let config = RefAllocConfig {
-        options: crate::ref_alloc_options::RefAllocOptions {
+        options: crate::refs::ref_alloc_options::RefAllocOptions {
             include_bounds: false,
             interactive_only: false,
             compact: false,
         },
-        source: crate::ref_alloc_source::RefAllocSource {
+        source: crate::refs::ref_alloc_source::RefAllocSource {
             pid: crate::ProcessId::new(42),
             app: Some("Fixture"),
             window_id: None,
@@ -311,7 +311,7 @@ fn test_skeleton_fixture_matches_golden() {
             process_instance: Some("test-instance"),
             surface: crate::adapter::SnapshotSurface::Window,
         },
-        scope: crate::ref_alloc_scope::RefAllocScope {
+        scope: crate::refs::ref_alloc_scope::RefAllocScope {
             root_ref_id: None,
             path_prefix: &[],
         },

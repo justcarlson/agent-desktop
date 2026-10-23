@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use agent_desktop_core::ref_alloc::is_ref_able;
+use agent_desktop_core::refs::ref_alloc::is_ref_able;
 use agent_desktop_core::{
     AccessibilityNode, Deadline, ErrorCode, LocatorField, LocatorStats, ObservationSource,
     ObservedTree, Rect, WindowInfo, WindowState,

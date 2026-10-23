@@ -1,5 +1,5 @@
 use super::*;
-use agent_desktop_core::ref_alloc::is_ref_able_role_actions;
+use agent_desktop_core::refs::ref_alloc::is_ref_able_role_actions;
 
 use crate::tree::property_outcome::PropertyValue;
 

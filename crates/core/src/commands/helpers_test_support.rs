@@ -31,7 +31,7 @@ pub(in crate::commands) fn save_one_ref_snapshot(role: &str, available_action: &
     entry.capabilities.available_actions = vec![available_action.into()];
     let mut refmap = crate::refs::RefMap::new();
     refmap.allocate(entry);
-    crate::refs_store::RefStore::new()
+    crate::refs::refs_store::RefStore::new()
         .unwrap()
         .save_new_snapshot(&refmap)
         .unwrap()

@@ -24,7 +24,7 @@ impl ObservationOps for SurfaceAdapter {
         &self,
         root: ObservationRoot<'_>,
         _request: &ObservationRequest,
-    ) -> Result<crate::live_locator::ObservedTree, crate::AdapterError> {
+    ) -> Result<crate::locator::live_locator::ObservedTree, crate::AdapterError> {
         let ObservationRoot::Window(window) = root else {
             panic!("a snapshot observes a window root");
         };

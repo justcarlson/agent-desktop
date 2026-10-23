@@ -1,4 +1,4 @@
-use crate::live_locator::LocatorField;
+use crate::locator::live_locator::LocatorField;
 use crate::tree::name_evidence::NameEvidence;
 use crate::tree::name_slot_status::{NameSlotStatus, SlotStatus};
 

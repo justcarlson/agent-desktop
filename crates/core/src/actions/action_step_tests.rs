@@ -1,6 +1,6 @@
 use super::ActionStep;
 use crate::actions::step_mechanism::StepMechanism;
-use crate::trace_sanitize::sanitize_trace_value;
+use crate::trace::trace_sanitize::sanitize_trace_value;
 use serde_json::json;
 
 #[test]

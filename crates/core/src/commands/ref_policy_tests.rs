@@ -10,9 +10,9 @@ use crate::{
         scroll, scroll_to, select, set_value, toggle, triple_click, type_text, uncheck,
     },
     context::CommandContext,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::Mutex;
 

@@ -3,7 +3,7 @@ use crate::{
     SurfaceInfo, WindowInfo,
     adapter::live_element::LiveElement,
     adapter::native_handle::NativeHandle,
-    live_locator::{ObservationRequest, ObservationRoot, ObservedTree},
+    locator::live_locator::{ObservationRequest, ObservationRoot, ObservedTree},
     refs::RefEntry,
     system::window_filter::WindowFilter,
     tree::element_state::ElementState,

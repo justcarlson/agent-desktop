@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     BoundsSpace, IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry,
-    ref_identity::{
+    refs::ref_identity::{
         has_meaningful_identity, has_stable_text_identity, identity_match, stable_text_match,
     },
 };

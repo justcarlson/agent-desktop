@@ -161,9 +161,7 @@ fn identity_unknown_then_success_retries_within_the_budget() {
     let result = retry_incomplete_until(deadline, || {
         attempts.set(attempts.get() + 1);
         if attempts.get() == 1 {
-            Err(agent_desktop_core::resolve_errors::identity_unknown_error(
-                &entry,
-            ))
+            Err(agent_desktop_core::refs::resolve_errors::identity_unknown_error(&entry))
         } else {
             Ok(7_u8)
         }
