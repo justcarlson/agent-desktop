@@ -57,7 +57,7 @@ ref_churn_suite() {
     done
     if [ -n "$(pgrep -x "$app" 2>/dev/null || true)" ]; then
         if ref_churn_process_running "$churn_pid"; then
-            skipmsg "$label close-app: known product defect, termination refuses a process with no LaunchServices launch date (crates/macos/src/system/appkit_bridge.m launchDate == nil check, since 3f322728; contradicts crates/macos/src/system/process/process_identity.rs absent-evidence rule)"
+            badmsg "$label fixture still running after close-app (close_err=$(json_field "$close_output" error.code))"
             kill "$churn_pid" 2>/dev/null || true
             for _ in $(seq 1 25); do
                 ref_churn_process_running "$churn_pid" || break

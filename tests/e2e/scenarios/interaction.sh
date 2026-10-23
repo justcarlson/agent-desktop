@@ -45,7 +45,7 @@ interaction_suite() {
     verify "[$mode] clear empties field" text-echo "" "$natural_mechanism" "$text_field" clear
 
     note "[$mode] state and value controls"
-    local toggle picker native_slider native_stepper scroll_area scroll_before scroll_after scroll_output scroll_mechanism scroll_code scroll_message
+    local toggle picker native_slider native_stepper scroll_area scroll_before scroll_after scroll_output scroll_mechanism
     require_target toggle checkbox toggle-box
     act_target "$toggle" uncheck >/dev/null 2>&1
     sleep 0.2
@@ -67,15 +67,9 @@ interaction_suite() {
     sleep 0.4
     require_value scroll_after scroll-offset
     scroll_mechanism="$(printf '%s' "$scroll_output" | python3 "$json_tool" delivered-mechanism 2>/dev/null)"
-    scroll_code="$(json_field "$scroll_output" error.code)"
-    scroll_message="$(json_field "$scroll_output" error.message)"
-    if [ "$scroll_code" = "ACTION_FAILED" ] && [[ "$scroll_message" == *"live offscreen state is true"* ]]; then
-        skipmsg "[$mode] scroll moves content: known product defect, macOS scroll-into-view treats a scroll area as its own viewport (crates/macos/src/actions/scroll_into_view.rs direction_to_viewport + crates/macos/src/actions/scroll.rs find_scroll_area, since 882c4c46)"
-    else
-        assert "[$mode] scroll moves content" \
-            "$([ "$scroll_before" != "$scroll_after" ] && [ "$scroll_mechanism" = "$natural_mechanism" ] && echo 1 || echo 0)" \
-            "before=$scroll_before after=$scroll_after direction=$direction cmd_ok=$(json_field "$scroll_output" ok) cmd_err=$scroll_code mechanism=$scroll_mechanism"
-    fi
+    assert "[$mode] scroll moves content" \
+        "$([ "$scroll_before" != "$scroll_after" ] && [ "$scroll_mechanism" = "$natural_mechanism" ] && echo 1 || echo 0)" \
+        "before=$scroll_before after=$scroll_after direction=$direction cmd_ok=$(json_field "$scroll_output" ok) cmd_err=$(json_field "$scroll_output" error.code) mechanism=$scroll_mechanism"
 }
 
 interaction_suite headless

@@ -351,21 +351,10 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
         self.assertIn('wait_target "$stable" value 3000 --value stable-ok', source)
         self.assertIn("data.found", source)
 
-    def test_interaction_scroll_skip_is_gated_on_the_known_defect_signature(self):
+    def test_interaction_scroll_asserts_without_a_defect_skip(self):
         source = INTERACTION.read_text()
-        gate = re.search(
-            r'if \[ "\$scroll_code" = "ACTION_FAILED" \] && '
-            r'\[\[ "\$scroll_message" == \*"live offscreen state is true"\* \]\]; then'
-            r'\s*skipmsg "([^"]+)"',
-            source,
-        )
-        self.assertIsNotNone(gate)
-        self.assertIn("crates/macos/src/actions/scroll_into_view.rs", gate.group(1))
-        self.assertIn("crates/macos/src/actions/scroll.rs", gate.group(1))
-        self.assertLess(
-            source.index("scroll moves content: known product defect"),
-            source.index('assert "[$mode] scroll moves content"'),
-        )
+        self.assertNotIn("skipmsg", source)
+        self.assertIn('assert "[$mode] scroll moves content"', source)
         self.assertIn('"$scroll_before" != "$scroll_after"', source)
 
     def test_ref_churn_stale_ref_skip_is_gated_on_the_default_cli_signature(self):
@@ -388,26 +377,16 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
             ),
         )
 
-    def test_ref_churn_close_app_skip_is_gated_on_the_own_process_signature(self):
+    def test_ref_churn_close_app_failure_fails_and_still_ends_its_own_process(self):
         source = REF_CHURN.read_text()
-        gate = re.search(
-            r'if ref_churn_process_running "\$churn_pid"; then'
-            r'\s*skipmsg "([^"]+)"',
-            source,
-        )
-        self.assertIsNotNone(gate)
-        self.assertIn("crates/macos/src/system/appkit_bridge.m", gate.group(1))
-        self.assertIn(
-            "crates/macos/src/system/process/process_identity.rs", gate.group(1)
-        )
+        self.assertNotIn('skipmsg "$label close-app', source)
         self.assertIn('close_output="$("$bin" close-app "$app" --force 2>&1)"', source)
+        self.assertIn('badmsg "$label fixture still running after close-app', source)
         self.assertIn('kill -0 "$1"', source)
-        self.assertIn('kill "$churn_pid" 2>/dev/null || true', source)
         self.assertIn('kill -9 "$churn_pid"', source)
         self.assertIn(
             'assert "$label own fixture process is gone after teardown"', source
         )
-        self.assertIn('badmsg "$label fixture still running after close-app"', source)
 
     def test_removed_element_leg_accepts_only_stale_ref_not_delivered(self):
         source = RELIABILITY.read_text()
