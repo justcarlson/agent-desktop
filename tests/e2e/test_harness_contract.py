@@ -228,7 +228,7 @@ class ErrorContractLegTests(unittest.TestCase):
         self.assertIn("data.stopped.reason", source)
         self.assertIn("data.not_started_entries", source)
         self.assertIn("error.details.batch_index", source)
-        self.assertIn("await_value text-echo", source)
+        self.assertIn('json_field "$(get_target "$field" --property value)" data.value', source)
 
     def test_batch_malformed_run_uses_a_value_the_field_does_not_already_hold(self):
         source = ERROR_CONTRACT.read_text()
@@ -340,14 +340,14 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
         source = REF_CHURN.read_text()
         self.assertIn("ref_churn_suite 0\n", source)
         self.assertIn("ref_churn_suite 1", source)
-        self.assertIn("AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1", source)
+        self.assertIn('local -x AGENT_DESKTOP_INTERNAL_HOST_CLIENT="$host_client"', source)
         self.assertIn('"$code" = "STALE_REF"', source)
         self.assertIn('"$delivery" = "not_delivered"', source)
 
     def test_ref_churn_reads_the_fixture_readouts_not_the_command_result(self):
         source = REF_CHURN.read_text()
         self.assertIn('--text "Beta stored: Beta"', source)
-        self.assertIn('--text "Stable stored: stable-ok"', source)
+        self.assertIn('wait_target "$stable" value 3000 --value stable-ok', source)
         self.assertIn("data.found", source)
 
     def test_removed_element_leg_accepts_only_stale_ref_not_delivered(self):

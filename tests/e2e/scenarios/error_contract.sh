@@ -40,7 +40,7 @@ batch_failure_suite() {
     require_target field textfield text-input
     payload="$(batch_payload_for "$(target_ref "$field")" runtime batch-first)"
     run_timed "$bin" batch "$payload"
-    settled="$(await_value text-echo batch-last)"
+    settled="$(json_field "$(get_target "$field" --property value)" data.value)"
     assert "batch continues past a failed entry by default" \
         "$([ "$RUN_EXIT" = "0" ] && [ "$(json_field "$RUN_JSON" ok)" = "True" ] && \
             [ "$(json_field "$RUN_JSON" data.results.1.error.code)" = "APP_NOT_FOUND" ] && \
@@ -51,7 +51,7 @@ batch_failure_suite() {
     require_target field textfield text-input
     payload="$(batch_payload_for "$(target_ref "$field")" runtime batch-first)"
     run_timed "$bin" batch "$payload" --stop-on-error
-    settled="$(await_value text-echo batch-first)"
+    settled="$(json_field "$(get_target "$field" --property value)" data.value)"
     assert "batch --stop-on-error halts and the later write never lands" \
         "$([ "$RUN_EXIT" = "0" ] && [ "$(json_field "$RUN_JSON" data.stopped.reason)" = "stop_on_error" ] && \
             [ "$(json_field "$RUN_JSON" data.stopped.index)" = "1" ] && \
@@ -66,7 +66,7 @@ batch_failure_suite() {
         "$([ "$RUN_EXIT" = "1" ] && [ "$(json_field "$RUN_JSON" ok)" = "False" ] && \
             [ "$(json_field "$RUN_JSON" error.code)" = "INVALID_ARGS" ] && \
             [ "$(json_field "$RUN_JSON" error.details.batch_index)" = "1" ] && \
-            [ "$(find_value text-echo)" = "batch-first" ] && echo 1 || echo 0)" \
+            [ "$(json_field "$(get_target "$field" --property value)" data.value)" = "batch-first" ] && echo 1 || echo 0)" \
         "exit=$RUN_EXIT code=$(json_field "$RUN_JSON" error.code) batch_index=$(json_field "$RUN_JSON" error.details.batch_index)"
 }
 

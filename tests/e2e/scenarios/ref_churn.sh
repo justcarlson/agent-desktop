@@ -1,6 +1,8 @@
 ref_churn_suite() {
     local host_client="$1" label churn_pid churn_exe="$fixture_app/Contents/MacOS/AgentDeskFixture"
     local filter alpha stable output ok code delivery beta_seen stable_write stable_seen
+    local -x AGENT_DESKTOP_INTERNAL_HOST_CLIENT="$host_client"
+    local -x TMPDIR="$host_tmp"
     label="[ref-churn host_client=$host_client]"
     MODE_FLAG=""
     note "$label strict re-identification after the collection changes"
@@ -20,11 +22,7 @@ ref_churn_suite() {
     require_target_by_id stable textfield stable-editor
     act_target "$filter" click >/dev/null 2>&1
     "$bin" wait --text "Restore rows" --app "$app" --timeout 5000 >/dev/null 2>&1
-    if [ "$host_client" = "1" ]; then
-        output="$(AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1 "$bin" set-value "$(target_ref "$alpha")" poisoned 2>&1)"
-    else
-        output="$("$bin" set-value "$(target_ref "$alpha")" poisoned 2>&1)"
-    fi
+    output="$("$bin" set-value "$(target_ref "$alpha")" poisoned 2>&1)"
     ok="$(json_field "$output" ok)"
     code="$(json_field "$output" error.code)"
     delivery="$(json_field "$output" error.disposition.delivery)"
@@ -36,7 +34,7 @@ ref_churn_suite() {
         "$([ "$(json_field "$beta_seen" data.found)" = "True" ] && echo 1 || echo 0)" \
         "found=$(json_field "$beta_seen" data.found)"
     stable_write="$("$bin" set-value "$(target_ref "$stable")" stable-ok 2>&1)"
-    stable_seen="$("$bin" wait --text "Stable stored: stable-ok" --app "$app" --timeout 3000 2>&1)"
+    stable_seen="$(wait_target "$stable" value 3000 --value stable-ok 2>&1)"
     assert "$label an untouched ref still resolves and writes" \
         "$([ "$(json_field "$stable_write" ok)" = "True" ] && [ "$(json_field "$stable_seen" data.found)" = "True" ] && echo 1 || echo 0)" \
         "ok=$(json_field "$stable_write" ok) found=$(json_field "$stable_seen" data.found)"
