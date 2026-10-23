@@ -7,11 +7,9 @@ are not used.
 ## Naming an app
 
 - `--app` takes the process name `list-apps` prints, or a desktop entry's `Name`
-  or id backed by verified executable identity. A desktop alias needs canonical
-  `Exec` executable equality with `/proc/<pid>/exe` and matching full arguments;
-  a desktop name shared by several entries gets no name alias. `TryExec` only
-  checks installation. Registry labels and truncated `comm` names add no
-  aliases. The listed name does not change.
+  or id whose `Exec` resolves to the running executable (`/proc/<pid>/exe`) with
+  matching full arguments. A desktop name shared by several entries gets no
+  alias. Registry labels and truncated `comm` names are never aliases.
 - Scoped matching is exact and case-insensitive, and the process must belong to
   this session. `list-windows --app` uses that exact rule. `list-apps --app`
   combines a substring match on the listed name with those exact adapter aliases.
@@ -42,24 +40,20 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 
 - The identifier is an absolute path, desktop id, bare command or desktop entry
   `Name` (`launch "Text Editor"`), tried in that order. A relative path, or a
-  name with a separator or NUL, is `INVALID_ARGS`; an unknown name is
+  name with a separator or NUL, is `INVALID_ARGS`, `not_delivered`; an unknown name is
   `APP_NOT_FOUND`; an entry with `Terminal=true` or no `Exec` is
   `ACTION_NOT_SUPPORTED`.
-- The `Exec` line is parsed in process and spawned with null stdio in its own
-  process group, so a caller that reads through a pipe sees end of file at exit.
-  Every spawn adds `AGENT_DESKTOP_LAUNCHED=1` to the child's environment;
-  `close-app` reads it to tell an app you started from a session service.
+- The app is spawned with null stdio in its own process group, so a caller that
+  reads through a pipe sees end of file at exit. Every spawn adds
+  `AGENT_DESKTOP_LAUNCHED=1` to the child's environment; `close-app` reads it to
+  tell an app you started from a session service.
 - An absolute `.desktop` path launches that exact file inside the trusted XDG
   data directories. Desktop ids use XDG directory precedence.
-- `launch` attaches by default only when the canonical executable the request
-  resolves to equals the running process's canonical `/proc/<pid>/exe` path.
-  Every request also needs matching full arguments and invocation name, including
-  direct executable paths, shared interpreters and launchers. Missing evidence
-  starts a new process. Names, basenames, registry labels, `comm` and `TryExec`
-  never establish attachment, and a truncated process-name prefix alone never
-  identifies an app for attachment. A launcher that hands off to another
-  executable cannot identify that process by name; if no verified owner appears,
-  launch reports the unresolved handoff.
+- `launch` attaches to a running process only when the resolved executable
+  equals its `/proc/<pid>/exe` and the full arguments and invocation name match.
+  Missing evidence starts a new process; names alone never attach. A launcher
+  that hands off to another executable is not followed by name: if no verified
+  owner appears, `launch` reports the unresolved handoff.
 - One verified match with no arguments returns the owner; arguments spawn the
   command to forward them. `--no-attach` refuses any verified running match with
   `ACTION_FAILED` naming its pids; without it, several verified matches are
@@ -107,9 +101,7 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 ## `close-app`
 
 `close-app` closes the app, including all its windows, and succeeds only when the
-process is gone. There is no `close-window`: click a window's own Close button
-ref to close just one of several windows, and use `close-app` for the last window
-when you intend to exit the app.
+process is gone. The core `commands-system` reference covers closing one window.
 
 A single-instance app such as GNOME Text Editor hands a `launch` with arguments
 to the instance that already runs: `launch` answers `ACTION_FAILED`
@@ -144,8 +136,7 @@ recipe stops if either selection is ambiguous and does not pick the first match.
 The click returns before the window is gone, so a `list-windows` straight after
 it can still list the window. The batch waits for `window-closed` and prints the
 event of the closed window. If a save prompt appears, the wait times out:
-snapshot `--surface sheet`, answer it, then run `list-windows`. Ctrl+W may close
-only a document or tab and leave its window open.
+snapshot `--surface sheet`, answer it, then run `list-windows`.
 
 - Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and
   no signal. A file manager that outlives its windows ends in `TIMEOUT`,
@@ -259,10 +250,8 @@ safe to repeat.
 - While the GNOME Activities Overview is open the cause is `overview_open`; close
   the overview first. A fresh GNOME shell opens it and it blocks activation for
   every window. Send a global `--headed press escape` (no `--app`), then call
-  `focus-window --app <name>`. Measured: `overview_open` from the first call, the
-  Escape closed the overview, and the second call returned a focused window with
-  `is_focused: true`. A headed ref action runs `focus-window` for you and ends
-  the same way.
+  `focus-window --app <name>` again. A headed ref action runs `focus-window` for
+  you and ends the same way.
 - A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - A headless ref `click` on a minimized window refuses with live `offscreen`
   evidence and leaves it minimized. On X11, `--headed click`, `--headed hover`
@@ -330,7 +319,8 @@ diffs a baseline taken at the start against fresh reads. On Linux:
   `surface-appeared`. An unscoped `window-opened` sees it (measured on a Nautilus
   "New Folder" dialog); `surface-appeared` and `surface-dismissed` need `--app`
   (`INVALID_ARGS`, "requires --app" when unscoped); a dialog drawn inside its
-  window is found only when `--app` scopes the wait.
+  window is found only when `--app` scopes the wait, and it appears 0.7 to 1.5 s
+  after the action that opened it.
 - `focus-changed` needs a window that reports `ACTIVE`. On Wayland none does
   until a seat keyboard exists, so it times out with `baseline_counts`.
 - A wait scoped to a stopped app fails at once with top-level
@@ -342,7 +332,10 @@ diffs a baseline taken at the start against fresh reads. On Linux:
 - A `batch` is `ok: true`, exit 0, even when an entry fails: each entry carries
   its own `ok: false` and `error`. Read every entry.
 - `--menu-closed` on a menu you have not opened is true at once: wait for `--menu`
-  first, then close the menu, then wait for `--menu-closed`.
+  first, then close the menu, then wait for `--menu-closed`. After an action of
+  your own, the closed wait holds until the menu was seen open, or for 2 s.
+- A hidden menu bar opens nothing, so `--menu` times out with "No menu opened
+  before the deadline".
 - For an already-focused menu or Save As dialog, `agent-desktop press escape`
   sends Escape to the current keyboard focus. Omit `--app` and `--window-id` for
   this global form: scoped delivery checks the application's active frame, while
@@ -371,32 +364,14 @@ diffs a baseline taken at the start against fresh reads. On Linux:
   agent-desktop snapshot --app gnome-text-editor --surface sheet -i --compact
   ```
 
-## Reading the disposition
-
-Read `data.disposition` or `error.disposition` before you retry. A refusal before
-anything was sent (a protected process, a relative path, a background `press`, an
-unknown app or window in the pre-delivery lookup for `focus-window`, `close-app`
-or the window operations) is `not_delivered`, `retry: safe`. A timeout after
-delivery or a read-back mismatch is `delivered_unverified`, `retry: unsafe`: look
-at the state with `list-windows` or `snapshot` before repeating.
-
 ## Window classification
 
-Window shapes come from AT-SPI roles, interfaces and state. On X11, managed-client
-ownership, native window type and override-redirect evidence tell user windows
-from decoration, dock and popup frames. Associations use process identity, a
-complete native population, and uniform process or geometry groups. Class names,
-titles and process names do not classify windows. A frame in a mixed class or an
-incomplete group stays listed on its accessibility evidence alone.
-
-Two frames are left out when their process has no managed window: one whose
-process owns no visible native window on a complete native read, and one that the
-session itself started, which is the display owner or a child of it, or a user
-service unit, and never a process that a launch of this tool started. The shell's
-own window and the decoration frame a window manager hosts are session frames. A
-frame that is neither is never hidden, and one process whose native surfaces
-cannot be classified never refuses the listing of the others. Minimized frames
-stay listed. An extra override-redirect surface blocks association; matching
-geometry alone never proves that an accessibility frame is a popup. On Wayland,
-the active display-socket owner identifies the compositor
-and its frames are left out; other app frames keep their AT-SPI classification.
+`list-windows` classifies frames from AT-SPI roles, interfaces and state, plus,
+on X11, window-manager ownership, native window type and override-redirect
+evidence. Class names, titles and process names never classify a window. When
+a frame's process has no managed window, it leaves the frame out if that process
+owns no visible native window on a complete read, or if the session itself owns
+it: the shell's own window, decoration frames a window manager hosts, and on
+Wayland the compositor's frames. A process this tool launched is never hidden
+that way. Minimized frames stay listed, and a frame whose class is unclear stays
+listed on its accessibility evidence alone.
