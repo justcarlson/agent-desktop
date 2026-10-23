@@ -49,7 +49,7 @@ when it stops (abridged here; real lines also carry `ref`, `steps`, `post_state`
 | `--root @ref` | Start inside one region instead of the whole window. |
 | `--text "..."` | A value for `TYPE_TEXT`. Repeat once per value; they are consumed in order. |
 | `--cursor` | Start a session and show a cursor that travels to each element before the operation lands. Bring the app in front of your terminal or the cursor is hidden behind it. |
-| `--no-values` | Withhold the value every field holds from the request. |
+| `--no-values` | Withhold the values read from the snapshot's fields. Text you supplied with `--text` is not covered: after a `TYPE_TEXT` that string is kept in the turn history and sent in `recent_actions`. |
 | `--confirm-destructive` | Stop for confirmation on every step rated destructive, whatever the confidence. |
 
 The operations are `CLICK`, `TYPE_TEXT`, `CHECK`, `UNCHECK`, `EXPAND`, `COLLAPSE`,
@@ -69,8 +69,10 @@ only when some element on screen advertises the matching action.
   `--text` value is left, `TYPE_TEXT` is not offered at all.
 - **Text entry.** A direct `set-value` is tried first. Only when it reports that
   nothing was delivered and a retry is safe does the text go through the clipboard
-  and a paste; the clipboard is restored when the run ends. After a paste the field
-  is read back, and a field that does not hold the exact text stops the run with
+  and a paste. The clipboard is read only when a paste is about to need it and put
+  back when the run ends, but only if it held text: if it held an image, files or
+  anything unreadable, it is cleared instead and the original is lost. After a paste
+  the field is read back, and a field that does not hold the exact text stops the run with
   `TEXT_VERIFICATION_FAILED` without typing again. A field that normalizes text
   (trims, changes case or line endings) therefore reports a failure even when the
   text landed.
@@ -88,9 +90,13 @@ only when some element on screen advertises the matching action.
 Each turn posts every offered element's role, accessible name or description, up to
 sixty characters of the value it holds, its state, the window title, and the recent
 actions. That is enough to send the contents of a private document or a filled
-form. `--no-values` removes the held values; targeting gets harder, because a value
-is often the only thing that tells two unnamed rows apart. Names, descriptions and
-titles are still sent.
+form. `--no-values` removes the values read from the snapshot; targeting gets
+harder, because a value is often the only thing that tells two unnamed rows apart.
+Names, descriptions and titles are still sent. It does not cover text you supply:
+after a `TYPE_TEXT` the exact string is stored in the turn history, and every later
+decision request carries it in `recent_actions` while that turn is among the last
+eight, with or without the flag. Do not pass a secret to `--text` unless you accept
+it leaving the machine.
 
 ### Risk sets the bar
 
@@ -173,7 +179,11 @@ endpoint is alpha and may change.
 
 ## Limits
 
-- One snapshot per call, about 3 s on a dense app. `--root` is far cheaper.
+- A full-window snapshot takes about 3 s on a dense app; `--root` is far cheaper.
+  `act.mjs` takes one snapshot, plus a second of the open surface when a sheet,
+  alert, menu or popover is up. `run.mjs` reads the screen before each action and
+  again after it, with the same extra surface read, so a run costs several
+  snapshots per turn.
 - Held input is unavailable, so no sustained key and no drag with hold.
 - `press` is not resolved here. It needs no element, so call it directly.
 
