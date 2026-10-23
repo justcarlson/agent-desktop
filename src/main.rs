@@ -98,8 +98,9 @@ fn run() -> ExitCode {
             }
             let summary = diagnostic::clap_error_summary(&e.to_string());
             let error = AppError::invalid_input(diagnostic::bounded_text(&summary, 512));
+            let command_name = diagnostic::clap_command_name(std::env::args().skip(1));
             return if let Err(write_err) = emit_response(&Response::err(
-                "unknown",
+                &command_name,
                 ErrorPayload::from_app_error(&error),
             )) {
                 report_output_failure(write_err)
