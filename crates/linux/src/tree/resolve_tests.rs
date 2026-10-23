@@ -183,12 +183,18 @@ fn one_match_beside_an_unread_region_is_retried_and_not_resolved() {
 #[test]
 fn a_childless_web_frame_keeps_an_incomplete_retryable_ref() {
     let source = files();
-    let entry = source.entry_of("/back", true);
-    let mut cold = Fake::new();
-    cold.web_process = true;
-    let error = refusal(&mut cold, &entry);
-    assert_eq!(error.code, ErrorCode::StaleRef);
-    assert!(error.is_explicitly_retryable());
+    let with_path = source.entry_of("/back", true);
+    let mut without_path = with_path.clone();
+    without_path.scope.path.clear();
+    for entry in [with_path, without_path] {
+        let mut cold = Fake::new();
+        cold.web_process = true;
+        let error = refusal(&mut cold, &entry);
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        assert!(error.is_explicitly_retryable());
+        assert!(is_incomplete(&error));
+        assert_eq!(error.details.as_ref().expect("details")["complete"], false);
+    }
 }
 
 #[test]
@@ -281,6 +287,8 @@ fn a_twin_whose_extents_cannot_be_read_is_never_replaced_by_the_twin_of_its_size
     let error = refusal(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+    assert!(is_incomplete(&error));
+    assert_eq!(error.details.as_ref().expect("details")["complete"], false);
 }
 
 #[test]

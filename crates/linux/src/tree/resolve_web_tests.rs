@@ -187,16 +187,19 @@ fn a_frame_owner_lost_during_renderer_failure_keeps_the_frame_gate_cause() {
 }
 
 #[test]
-fn a_child_whose_owner_cannot_be_looked_up_is_retried_and_never_stale() {
+fn a_child_whose_owner_cannot_be_looked_up_stays_incomplete() {
     let mut fake = remote_panel();
-    let mut entry = fake.entry_of("/remote", true);
+    let with_path = fake.entry_of("/remote", true);
+    let mut without_path = with_path.clone();
+    without_path.scope.path.clear();
     fake.pids.remove(":1.7");
-    let error = resolve(&mut fake, &entry, deadline()).expect_err("unreadable");
-    assert_eq!(error.code, ErrorCode::StaleRef);
-    assert!(error.is_explicitly_retryable());
-    entry.scope.path.clear();
-    let error = resolve(&mut fake, &entry, deadline()).expect_err("unreadable");
-    assert_eq!(error.code, ErrorCode::StaleRef);
+    for entry in [with_path, without_path] {
+        let error = resolve(&mut fake, &entry, deadline()).expect_err("unreadable");
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        assert!(error.is_explicitly_retryable());
+        assert!(is_incomplete(&error));
+        assert_eq!(error.details.as_ref().expect("details")["complete"], false);
+    }
 }
 
 fn window_with_background_tab() -> Fake {
@@ -225,4 +228,6 @@ fn a_pathless_element_stays_retried_while_a_web_document_lists_no_children() {
     let error = resolve(&mut fake, &entry, deadline()).expect_err("a region is unread");
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+    assert!(is_incomplete(&error));
+    assert_eq!(error.details.as_ref().expect("details")["complete"], false);
 }
