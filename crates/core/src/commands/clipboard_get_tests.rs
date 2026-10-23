@@ -4,6 +4,9 @@ use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::refs_test_support::HomeGuard;
 use std::sync::Mutex;
 
+#[path = "clipboard_get_output_tests.rs"]
+mod output_tests;
+
 struct LocalDouble {
     response: Mutex<Option<Result<Option<ClipboardContent>, AdapterError>>>,
     seen_format: Mutex<Option<ClipboardFormat>>,

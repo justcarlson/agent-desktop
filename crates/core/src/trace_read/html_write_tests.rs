@@ -62,6 +62,31 @@ fn export_refuses_a_directory_destination() {
     fs::remove_dir_all(root).unwrap();
 }
 
+#[test]
+fn export_path_inside_a_file_is_an_argument_error() {
+    let _guard = export_test_guard();
+    let root = export_scratch("blocked-parent");
+    let trace_dir = trace_dir_with_one_event(&root);
+    let blocker = root.join("blocker");
+    fs::write(&blocker, b"file").unwrap();
+    let out = blocker.join("report.html");
+
+    let error = export_to(&trace_dir, &out).unwrap_err();
+
+    assert_eq!(error.code(), "INVALID_ARGS");
+    assert!(error.to_string().contains(&format!(
+        "Cannot write the trace export to '{}'",
+        out.display()
+    )));
+    let crate::AppError::Adapter(error) = error else {
+        panic!("expected structured argument error")
+    };
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition.retry(), crate::RetryDisposition::Safe);
+    assert!(error.suggestion.is_some());
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[cfg(unix)]
 #[test]
 fn export_refuses_a_symlink_destination() {

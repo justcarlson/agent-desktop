@@ -48,7 +48,9 @@ fn write_image(
 ) -> Result<Value, AppError> {
     let path = match out {
         Some(path) => {
-            write_user_file(&path, &image.data)?;
+            write_user_file(&path, &image.data).map_err(|error| {
+                crate::refs::unwritable_output("the clipboard content", &path, error)
+            })?;
             path
         }
         None => {
