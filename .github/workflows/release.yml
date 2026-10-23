@@ -652,15 +652,6 @@ jobs:
           scripts/cargo-test-isolated-home.sh test --locked -p agent-desktop-ffi
           --features stub-adapter --test c_abi_passthrough
 
-      - name: Assert release-ffi profile keeps panic=unwind
-        run: |
-          if ! grep -A5 '\[profile\.release-ffi\]' Cargo.toml | grep -q 'panic.*=.*"unwind"'; then
-            echo "FAIL: [profile.release-ffi] must set panic=\"unwind\" — a flip to"
-            echo "      panic=\"abort\" defeats every trap_panic boundary in the dylib."
-            exit 1
-          fi
-          echo "OK: release-ffi profile retains panic=\"unwind\""
-
   ffi-release-panic-guard:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
