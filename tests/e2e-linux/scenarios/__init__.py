@@ -39,11 +39,15 @@ from scenarios import wayland_input
 from scenarios import zero_bounds
 from scenarios import controlled_targets
 from scenarios import gaps_decisions
+from scenarios import error_contract
+from scenarios import batch_contract
 
 __all__ = [
+    "batch_contract",
     "capture",
     "clipboard",
     "duplicates",
+    "error_contract",
     "events",
     "headed_actions",
     "identity",
