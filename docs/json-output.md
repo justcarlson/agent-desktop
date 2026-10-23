@@ -122,8 +122,8 @@ Each of these commands now returns the adapter's own report inside `data`:
 
 `find` match objects report the element's actual accessibility `name`. Elements
 without an accessible name omit `name` entirely; their content stays in `value`.
-Earlier output synthesized a display name — falling back to `value` or
-`description`, then a `(unnamed <role>)` placeholder — so consumers that treated
+Earlier output synthesized a display name, falling back to `value` or
+`description`, then a `(unnamed <role>)` placeholder, so consumers that treated
 `name` as always present must tolerate its absence and apply their own fallback
 to `role` or `value`.
 

@@ -153,7 +153,7 @@ the owning process handle reported terminal exit 143.
 This fixture demonstrates the defect outside Xcode without a collection-row
 native role, so a patch restricted to AXRow ancestry is insufficient. Its normal
 same-ref editor is the control case that an eventual correction must preserve.
-It is a reproducible failing product scenario in the default CLI, not a passing
+In the default CLI this reproduces the defect. It does not count as a passing
 acceptance result.
 
 After adding this mode, the default background fixture passed its existing seven

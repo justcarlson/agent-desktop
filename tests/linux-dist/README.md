@@ -9,18 +9,18 @@ The binary loader floor does not certify an older desktop stack.
 Ubuntu 22.04's ATK bridge 2.38.0 aborts inside the application's
 `Action.GetActions`: it declares `(sss)` entries but appends four strings.
 The library's tree traversal calls that method; the app abort leaves it with
-`TIMEOUT` and zero nodes. This is the app's in-process bridge, rather than
-`at-spi2-registryd` or the Rust `zbus` library. Ubuntu 24.04's 2.52.0 bridge
-contains the [upstream fix](https://github.com/GNOME/at-spi2-core/commit/dc0dc33).
+`TIMEOUT` and zero nodes. The fault is in the application's in-process bridge,
+rather than in `at-spi2-registryd` or the Rust `zbus` library.
+Ubuntu 24.04's 2.52.0 bridge contains the [upstream fix](https://github.com/GNOME/at-spi2-core/commit/dc0dc33).
 
 On 22.04 the consumer fails at `windows-exact: FAIL code=TIMEOUT rc=-9 nodes=0`
 after dbus logs a signature error for `a(sss)`. An isolated probe compiled the
 unmodified `impl_GetActions` handlers from the official Ubuntu
 [2.38.0](https://archive.ubuntu.com/ubuntu/pool/main/a/at-spi2-atk/at-spi2-atk_2.38.0.orig.tar.xz)
 and [2.52.0](https://archive.ubuntu.com/ubuntu/pool/main/a/at-spi2-core/at-spi2-core_2.52.0.orig.tar.xz) source tarballs against libdbus
-1.12.20, supplying one fake ATK action. The Jammy handler exited by SIGABRT
-with that exact signature error; the Noble handler exited 0 with reply
-signature `a(sss)`. This measures the faulty serializer, not a full 22.04
+1.12.20, supplying one fake ATK action. The Jammy (22.04) handler exited by SIGABRT
+with that exact signature error; the Noble (24.04) handler exited 0 with reply
+signature `a(sss)`. The probe measures the faulty serializer, not a full 22.04
 desktop reproduction.
 
 ## Running the checks
@@ -67,7 +67,8 @@ Clipboard clear accepts only the reader's no-text status; observer errors
 fail the check. The deterministic tests listed above cover these contracts
 with fakes.
 
-To invert discovery, stage only the library, point `AD_DYLIB_PATH` at it, set
+To confirm that discovery fails without a helper, stage only the library,
+point `AD_DYLIB_PATH` at it, set
 `AD_HEADER_PATH=crates/ffi/include/agent_desktop.h`, `AD_EXPECT_LINUX_HELPER=1`
 and `AD_HELPER_EMPTY_PATH` to an empty directory, and run
 `python3 tests/ffi-python/smoke.py` in a private session. It must fail with
@@ -88,8 +89,8 @@ invalidate this check.
   clipboard observation; a fake GI test rejects that mismatch.
 - Private bus cleanup (`private_bus.py`) signals through PID handles and checks
   process generation and exact runtime membership before and after opening the
-  handle, then waits for an observed exit. A PID list with a fixed delay is not
-  used. Fake process tests reject PID reuse and foreign runtime membership.
+  handle, then waits for an observed exit. It does not use a PID list with a
+  fixed delay. Fake process tests reject PID reuse and foreign runtime membership.
 
 ## Evidence
 

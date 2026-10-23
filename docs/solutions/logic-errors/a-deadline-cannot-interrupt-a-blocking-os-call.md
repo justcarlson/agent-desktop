@@ -28,7 +28,7 @@ budget was checked at entry and again between retry attempts. Against a window
 whose owning thread had stopped dispatching messages, both hung — measured as a
 call that had not returned after ten minutes.
 
-The budget was never wrong; it was never consulted. `ShowWindow`,
+The budget itself was sound. The blocking call never consulted it. `ShowWindow`,
 `SetWindowPos` and `SetForegroundWindow` deliver to the owning thread's message
 queue, and when that thread never dispatches, the call blocks *inside the OS*.
 A `Deadline` checked before the call cannot fire during it, and a retry budget
@@ -50,8 +50,8 @@ learned for the observation path and not carried to the write path.
 
 Two assumptions, each reasonable alone.
 
-The first is that a deadline bounds a *region* of code. It does not — it bounds
-the points where it is checked. Every call between two checks is unbounded, and
+The first is that a deadline bounds a *region* of code. It bounds only the
+points where it is checked. Every call between two checks is unbounded, and
 a call that blocks indefinitely makes the surrounding budget decorative.
 
 The second is that a hang is a property of the *caller's* thread. Here it is a

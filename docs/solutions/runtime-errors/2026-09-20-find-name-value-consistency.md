@@ -18,9 +18,10 @@ fallbacks and omits empty names through the existing match data serializer.
 Values remain available under `value` and searchable with `--value`. Matching,
 ref identity, recovery and native mutation paths are unchanged.
 
-The Rust field remains String; JSON consumers must now tolerate an omitted name
-for unnamed or unknown-name matches. This deliberately changes the misleading
-output contract. No extra display-label field or name-matching fallback is added.
+The Rust field remains a String. JSON consumers must now tolerate an omitted
+name for unnamed or unknown-name matches. This changes the misleading output
+contract on purpose. No extra display-label field or name-matching fallback is
+added.
 The test-only snapshot matcher now uses the same match data serializer.
 
 Regression checks cover known, absent, empty and unknown names while preserving

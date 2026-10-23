@@ -27,11 +27,13 @@ The Windows vocabulary work shipped, and two review passes plus the
 implementer's own pass then found tests, in eight shapes, that were green for
 reasons unrelated to what they claimed to prove:
 
-1. **Tautology.** `accname_tests.rs`'s
-   `the_uncertainty_aware_and_plain_entry_points_agree_on_every_input` asserts
-   `resolve_name(&value, &NameSlotStatus::default()).known().cloned() ==
+1. **Tautology.** `accname_tests.rs` carried
+   `the_uncertainty_aware_and_plain_entry_points_agree_on_every_input`, which
+   asserted `resolve_name(&value, &NameSlotStatus::default()).known().cloned() ==
    compute_name(&value)`. `compute_name` (`accname.rs:84-88`) is defined as
-   exactly that call. The assertion is `x == x` wearing an agreement claim.
+   exactly that call, so the assertion was `x == x` wearing an agreement claim.
+   The test was dropped in `e549527c`, which removed tests that restate a
+   stronger test; no `agree` test remains in `accname_tests.rs`.
 2. **Impossible input.** `states_tests.rs` fed the states producer
    `role == "button"` with `ToggleAvailable` true. `roles.rs`'s `button_role`
    reclassifies any toggle-available `Button` to `Role::Switch` before states
@@ -68,9 +70,9 @@ reasons unrelated to what they claimed to prove:
    `#[cfg(test)]` and omitted the policy gate, omitted the payload preflight,
    and passed `|_| Ok(())` where production passed the real verifier.
    Deleting either guard from the shipped path left the whole suite green.
-   This is worse than shape 6: a mirror re-types an *expression*, but a
+   This is worse than shape 6. A mirror re-types an *expression*; a
    test-only entry point re-types the *function*, so it drifts on every
-   dimension at once and reads like real coverage in the test's own name.
+   dimension at once and passes as coverage under its own name.
    The fix is not a better test but a better seam — make the production
    function take the varying part as a parameter (here, the verifier) and
    have the test supply its own, so there is only one gate and the test
@@ -117,10 +119,10 @@ production proved nothing, because the test's own mirror never moved.
 
 None of the fixes were "delete the test":
 
-1. **Label it, don't pretend.** The delegation guard is worth keeping as a
-   structural, advisory guard against re-divergence — but its doc comment
-   should say that, distinct from the genuinely falsifiable precedence tests
-   beside it.
+1. **Remove it.** The delegation guard was not kept. `e549527c` dropped it as a
+   restatement of a stronger test, and `compute_name` (`accname.rs:84-88`)
+   still delegates, so the precedence tests in `accname_tests.rs` carry the
+   coverage on their own.
 2. **Cover the reachable shape, and keep the unreachable one as a named
    regression test.** `button_role_with_toggle_state_but_no_pressed_bit_emits_no_pressed`
    stays, with a doc comment stating its input is unreachable and pointing at

@@ -8,7 +8,7 @@ The reusable command-path helper lives in `tests/conformance/ref_action_contract
 `window_identity_contract.rs` holds the window-identity contract, and
 `macos_notification_contract.rs` the macOS-only notification contract. The
 executable smoke harness in `src/tests/conformance.rs` mounts all three and runs
-the ref/action helper against a mock adapter; a fixture driving a real adapter
+the ref/action helper against a mock adapter. A fixture driving a real adapter
 can call the same helper with adapter-provided refs.
 
 ## Required Gates
@@ -21,7 +21,7 @@ can call the same helper with adapter-provided refs.
 | Actionability | Ref actions check live visibility, stability, enabled state, supported action, policy, and editability before dispatch |
 | Wait recovery | `wait --element` polls the snapshot embedded in its qualified ref, honors the caller timeout while resolving, and reports the last observed predicate state |
 | Snapshot scope | A qualified ref resolves its own snapshot inside the selected session namespace and never searches other sessions |
-| Trace | With a `trace: on` session manifest (from `session start`), commands write per-process JSONL segments under the session directory; `--trace <path>` overrides to one file. Best-effort unless `--trace-strict`. |
+| Trace | With a `trace: on` session manifest (from `session start`), commands write per-process JSONL segments under the session directory. `--trace <path>` overrides to one file. Best-effort unless `--trace-strict`. |
 | Session lifecycle | `session start/end/list/gc` manage manifests, the current-session pointer, and trace directories |
 | FFI parity | FFI ref actions use strict resolve and actionability checks before adapter dispatch |
 
@@ -59,6 +59,6 @@ cross-compilation evidence alone. The Windows CI lanes run these suites natively
 | Atomic replace succeeds over open readers and concurrent writers, and leaves no temporary residue | `replace_tests.rs` |
 | The binary and the FFI adapter install the hardened seam, and `session start` through a junction state root is refused with nothing written under the target | `src/tests/windows_private_file_install.rs`, `crates/ffi/tests/c_abi_windows_private_file_install.rs` |
 
-The module installs no DACL of its own; it relies on the inherited grants the
+The module installs no DACL of its own. It relies on the inherited grants the
 owner test pins, and `no_banned_acl_or_ace_symbol_appears_anywhere_in_this_module`
 keeps it that way.

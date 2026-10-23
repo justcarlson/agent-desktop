@@ -159,7 +159,7 @@ samples, and exact-snapshot re-resolution checks. It deliberately omits RSS:
 `RUSAGE_CHILDREN.ru_maxrss` is a cumulative harness maximum, not a per-command
 measurement.
 
-The report explicitly labels its limits: it describes one machine, app state,
+The report labels its limits: it describes one machine, app state,
 and TCC state; it measures observation and ref re-resolution rather than action
 delivery; and it never invents a baseline when none was explicitly supplied.
 The default output is a timestamped file under `/tmp`; pass `--out` to retain it

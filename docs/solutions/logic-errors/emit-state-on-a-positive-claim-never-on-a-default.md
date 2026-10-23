@@ -21,8 +21,8 @@ tags: [windows, uia, vocabulary, states, default-value, dogfood, gating]
 Two independent measurements on this branch produced the same failure shape:
 a property's *default* value was read as if it were a *claim*.
 
-**Pattern-state properties.** UI Automation exposes pattern state — toggle,
-expand/collapse, selection — as plain automation properties rather than as a
+**Pattern-state properties.** UI Automation exposes pattern state (toggle,
+expand/collapse, selection) as plain automation properties rather than as a
 pattern instance, so `ToggleState`, `ExpandCollapseState`,
 `SelectionItemIsSelected`, `ValueIsReadOnly` and `SelectionCanSelectMultiple`
 all ride the same batch read as everything else. Probe `A15-7`
@@ -67,10 +67,11 @@ default from a real toggle sitting in its default position.
 
 The contrast that makes the rule checkable is the neighbouring property,
 `IsRequiredForForm`, which shares the exact same default (`false`) and is
-safe. `required` is emitted only when the flag reads `true` — a positive
+safe. `required` is emitted only when the flag reads `true`, a positive
 claim the provider had to affirmatively make. `invalid` was emitted on
-`false` — the property's default — so it decorated the whole tree. Same
-property shape, opposite polarity of the emission rule, opposite safety.
+`false`, the property's default, so it decorated the whole tree. The two
+properties have the same shape and opposite safety, because the emission
+rule has opposite polarity.
 
 ## Solution
 
@@ -96,7 +97,7 @@ observed failing against the reintroduced defect with the message `a
 statictext was reported invalid because a form flag defaulted to false`.
 After the fix, nodes carrying any state fell from 100% (every node, on every
 target) to 14/26 (Notepad), 49/113 (Explorer), 1/43 (WinForms) and 26/82
-(WPF) — the vocabulary now discriminates instead of decorating.
+(WPF). The vocabulary now discriminates instead of decorating.
 
 ## Prevention
 

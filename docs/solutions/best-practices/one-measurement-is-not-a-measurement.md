@@ -37,7 +37,7 @@ scheduler jitter and cold-cache effects on the walk that happened to run
 first — and scheduler/cache interference is one-sided: it can only make a
 run slower, never faster, so its noise is asymmetric rather than
 zero-centered. The fix in `probes/windows/15-vocabulary/probe_cost.rs`
-(`measure_batch_cost`) is exactly the standard cure for
+(`measure_batch_cost`) is the standard cure for
 one-sided noise: run a discarded warm-up first (so a lazily-built provider's
 peer-construction cost isn't charged to whichever set runs first), then take
 the **minimum of seven repeats** (`BATCH_REPEATS`) and report it alongside
@@ -72,7 +72,7 @@ header records that every row here was measured on both "this ledger's dev
 box" and the hosted `windows-latest` runner through
 `.github/workflows/windows-capability-probe.yml`, and it was exactly that
 second environment that overturned the narrower dev-box-only range. Both
-figures — the honest 0.80x-1.08x spread and the flat-set decision it
+figures — the 0.80x-1.08x spread and the flat-set decision it
 produced — are what shipped; the split was *"designed, measured and
 rejected"* on the honest range, not on the best case.
 
@@ -97,11 +97,10 @@ rejected"* on the honest range, not on the best case.
   untested assumption: cheap to produce, and capable of pointing the
   decision the wrong way.
 - The discipline also justifies declining a change at an unmeasured site, not
-  only correcting a wrong claim already made: during the Windows actionability
-  and occlusion work a proposed batching
-  optimization for the six-property occluder-evidence read in
-  `hit_test_corroborate.rs` was declined on this rule alone — A6-2 measured
-  unconditional cache batching as a net pessimization against in-process
-  providers (0.5763x), and this new call site had no measurement of its own,
-  so the round-trip count was reported as the fact and the latency delta was
-  explicitly marked unmeasured.
+  only correcting a wrong claim already made. During the Windows actionability
+  and occlusion work, a proposed batching optimization for the six-property
+  occluder-evidence read in `hit_test_corroborate.rs` was declined on this rule
+  alone. A6-2 measured unconditional cache batching as a net pessimization
+  against in-process providers (0.5763x), and this new call site had no
+  measurement of its own. So the round-trip count was reported as the fact, and
+  the latency delta was explicitly marked unmeasured.

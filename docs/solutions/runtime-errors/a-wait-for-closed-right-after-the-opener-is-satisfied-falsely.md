@@ -13,7 +13,7 @@ tags: [linux, at-spi, gtk4, menu, wait, race, persisted-state]
 
 ## Problem
 
-A GTK4 popover menu reads as open only 350 to 1000 ms after its opener action returns (L33-51: 540 ms on Calculator, 688 ms on Files). A `wait --menu-closed` that starts right after the opener polls a menu that is not yet visible, reads "closed", and returns. The wait is satisfied by the state it was meant to outlast.
+A GTK4 popover menu appears in the accessibility tree 157 to 331 ms after its opener action returns (L18-2). The live probe saw it open at 540 ms on Calculator and 688 ms on Files (L33-51). A `wait --menu-closed` that starts right after the opener polls a menu that is not yet visible, reads "closed", and returns. The wait is satisfied by the state it was meant to outlast.
 
 ## Solution
 

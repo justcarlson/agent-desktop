@@ -91,8 +91,7 @@ strengthens the test rather than weakening it.
   only target whose full inventory the test controls.
 - When a suite shares OS state (windows, foreground, cwd, clipboard), treat a
   new test as a potential source of interference, not only a potential victim.
-  The question is not "can this test be disturbed" but "what does this test
-  disturb".
+  Ask what the test disturbs, not whether it can be disturbed.
 - Intermittent failures in *unrelated* tests are a signal to look for a test
   that mutates shared state, not a signal to retry. A test that passes alone
   and fails in the suite is describing its neighbours.

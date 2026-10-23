@@ -64,8 +64,8 @@ two duplicated helpers: `rect_has_area` and `nearest_scroll_viewport_bounds`.
 `rect_has_area`'s copies had already drifted apart by the time anyone was
 fixing them — one checked that a rectangle's dimensions were finite before
 trusting them, its twin did not, so a provider answering `NaN` or an infinity
-satisfied the twin's bare positive-dimension comparison — this doc's thesis
-demonstrated rather than argued, not merely predicted. Enumerating the
+satisfied the twin's bare positive-dimension comparison. This is the drift this doc
+predicts, shown in a real instance. Enumerating the
 predicate behind the second finding — an ancestor-walk primitive
 reimplemented at each call site instead of owned once by the tree source —
 found the class was six, not one: `same_element`, `identity`, `parent_step`,

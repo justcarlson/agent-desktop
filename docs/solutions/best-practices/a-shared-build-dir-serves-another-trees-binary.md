@@ -21,7 +21,7 @@ tags: [linux, remote-development, cargo, rsync, mtime, shared-state]
 
 ## Context
 
-`scripts/remote-linux.sh` syncs each worktree to its own folder on the box, and every worktree builds into one `~/ad-target` so the disk holds one set of dependencies. Cargo names a workspace member's artifacts and fingerprints the same way in every copy of the tree, so all worktrees share one set of outputs. A fingerprint is judged against source modification times, and `rsync -a` keeps the workstation's times. A build that another worktree made later therefore looks fresh to this one, even though it came from other sources. Runs in two lanes saw another worktree's test names in their own output, and `Finished` came back in 0.05 s after an edit. The script now touches the sources before a cargo command (Guidance 2); nothing in it says what that guard prevents.
+`scripts/remote-linux.sh` syncs each worktree to its own folder on the box, and every worktree builds into one `~/ad-target` so the disk holds one set of dependencies. Cargo names a workspace member's artifacts and fingerprints the same way in every copy of the tree, so all worktrees share one set of outputs. A fingerprint is judged against source modification times, and `rsync -a` keeps the workstation's times. A build that another worktree made later therefore looks fresh to this one, even though it came from other sources. Runs in two lanes saw another worktree's test names in their own output, and `Finished` came back in 0.05 s after an edit. The script now touches the sources before a cargo command (Guidance 2), and its comment at `scripts/remote-linux.sh:78-79` gives the reason: every box dir shares one `CARGO_TARGET_DIR`, so cargo can take another worktree's build for fresh.
 
 ## Guidance
 

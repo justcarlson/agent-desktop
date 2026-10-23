@@ -40,7 +40,7 @@ One matching read proves only that the rectangle matched at that instant. Two im
 
 ## Why This Works
 
-The verdict is about a requested state that survives a measured interval, not a successful request or a convenient animation frame. A single coordinate convention makes the write, independent observation and error evidence comparable. The pause is a bounded confirmation after a matching observation, not a blind delay used instead of checking the result.
+The verdict asks whether the requested state survives a measured interval. A successful request, or one matching animation frame, does not answer that. A single coordinate convention makes the write, independent observation and error evidence comparable. The pause bounds a confirmation that follows a matching observation; the result is still judged after it.
 
 ## Prevention
 
