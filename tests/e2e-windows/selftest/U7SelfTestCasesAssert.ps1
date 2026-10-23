@@ -83,7 +83,9 @@ Invoke-SelfTest 'Assert-Effect fails when the status never changes though ok is 
 <#
     3. Assert-Effect fails when the status already equals the expectation
        before the action ran - the pre-read comparison. Invert-verified by
-       swapping in a guard-less body and watching the same call succeed.
+       stripping the real guard block out of Assert-Effect's own text,
+       rebinding it with Set-LibFunctionText, and watching the same call
+       succeed.
 #>
 Invoke-SelfTest 'Assert-Effect fails when the pre-read already equals Expected, and the pre-read guard is what catches it' {
     $done = '{"version":"2.3","ok":true,"command":"get","data":{"ref":"@stub-snap:e1","property":"value","value":"done"}}'
@@ -96,26 +98,27 @@ Invoke-SelfTest 'Assert-Effect fails when the pre-read already equals Expected, 
         Assert-Effect -Target $script:FakeTarget -Property 'value' -Expected 'done' -Action 'click' -TimeoutSeconds 1
     } 'Assert-Effect must throw when Property already equals Expected before the action ran'
 
-    $original = (Get-Command Assert-Effect).ScriptBlock
-    $guardless = {
-        param($Target, [string]$Property, [string]$Expected, [string]$Action, [string[]]$ActionArgs = @(), [switch]$Headed, [string]$ExpectedMechanism, [int]$TimeoutSeconds = 10)
-        $envelope = Invoke-Target -Target $Target -Action $Action -ActionArgs $ActionArgs -Headed:$Headed
-        Get-Target -Target $Target -Property $Property | Out-Null
-        if ($envelope['ok'] -ne $true) { throw 'guardless stub: ok was false' }
-        return $envelope
-    }
+    $original = ((Get-Command Assert-Effect).ScriptBlock.ToString()) -replace "`r`n", "`n"
+    $preReadGuard = @(
+        '    if ((-not $AnyChange) -and (& $reached $pre)) {',
+        '        throw "Assert-Effect: the status on $($readTarget.RefId) already equals expected ''$describeExpected'' before the action ran; this leg is unfalsifiable"',
+        '    }',
+        ''
+    ) -join "`n"
+    Assert-True ($original.Contains($preReadGuard)) 'the invert target block must actually be present in the real Assert-Effect - if this fails, Lib.psm1 drifted from what this test expects'
+    $strippedText = $original.Replace($preReadGuard, '')
     try {
-        Set-Item function:Assert-Effect -Value $guardless
+        Set-LibFunctionText -Name 'Assert-Effect' -Text $strippedText
         Assert-NotThrows {
             Assert-Effect -Target $script:FakeTarget -Property 'value' -Expected 'done' -Action 'click' -TimeoutSeconds 1
-        } 'INVERT: with the pre-read guard removed, an already-satisfied leg must now silently succeed - proving the guard is what normally catches it'
+        } 'INVERT: with the real pre-read guard stripped from Assert-Effect, an already-satisfied leg must now silently succeed - proving the guard is what normally catches it'
     } finally {
-        Set-Item function:Assert-Effect -Value $original
+        Set-LibFunctionText -Name 'Assert-Effect' -Text $original
     }
 
     Assert-Throws {
         Assert-Effect -Target $script:FakeTarget -Property 'value' -Expected 'done' -Action 'click' -TimeoutSeconds 1
-    } 'RESTORE: the real Assert-Effect must throw again once the guardless stub is removed'
+    } 'RESTORE: the real Assert-Effect must throw again once its original text is rebound'
 }
 
 <#
@@ -155,8 +158,9 @@ Invoke-SelfTest 'Assert-NoEffect fails on a change observed after the window has
     6. Initialize-NoEffectWindow refuses to start when the pinned constant
        is below 1.5x the seeded maximum p99, and starts on a bootstrap-only
        baseline recording that the bootstrap was used. Invert-verified by
-       swapping in a threshold-less body and watching the refusal case
-       start (the danger the guard exists to prevent).
+       stripping the real threshold check out of Initialize-NoEffectWindow's
+       own text, rebinding it with Set-LibFunctionText, and watching the
+       refusal case start (the danger the guard exists to prevent).
 #>
 Invoke-SelfTest 'Initialize-NoEffectWindow refuses a window below 1.5x recorded p99, and the check is what refuses it' {
     $tooLow = New-Baseline -BootstrapP99Ms 2500 -Legs @{ 'click-status' = 10000 }
@@ -164,23 +168,26 @@ Invoke-SelfTest 'Initialize-NoEffectWindow refuses a window below 1.5x recorded 
         Initialize-NoEffectWindow -BaselinePath $tooLow
     } 'Initialize-NoEffectWindow must throw when the pinned window is below 1.5x the seeded maximum p99'
 
-    $original = (Get-Command Initialize-NoEffectWindow).ScriptBlock
-    $thresholdless = {
-        param([string]$BaselinePath)
-        $data = Import-PowerShellDataFile -Path $BaselinePath
-        return [pscustomobject]@{ WindowMs = 6000; MaxP99Ms = 999999; BootstrapUsed = $false }
-    }
+    $original = ((Get-Command Initialize-NoEffectWindow).ScriptBlock.ToString()) -replace "`r`n", "`n"
+    $thresholdCheck = @(
+        '    if ($script:NoEffectWindowMs -lt $minRequired) {',
+        '        throw "Initialize-NoEffectWindow: pinned window ($($script:NoEffectWindowMs)ms) is below 1.5x the recorded maximum p99 (${minRequired}ms required); refusing to start"',
+        '    }',
+        ''
+    ) -join "`n"
+    Assert-True ($original.Contains($thresholdCheck)) 'the invert target block must actually be present in the real Initialize-NoEffectWindow - if this fails, Lib.psm1 drifted from what this test expects'
+    $strippedText = $original.Replace($thresholdCheck, '')
     try {
-        Set-Item function:Initialize-NoEffectWindow -Value $thresholdless
+        Set-LibFunctionText -Name 'Initialize-NoEffectWindow' -Text $strippedText
         Assert-NotThrows {
             Initialize-NoEffectWindow -BaselinePath $tooLow
-        } 'INVERT: with the 1.5x threshold check removed, a window that should be refused must now start - proving the check is what normally refuses it'
+        } 'INVERT: with the real 1.5x threshold check stripped from Initialize-NoEffectWindow, a window that should be refused must now start - proving the check is what normally refuses it'
     } finally {
-        Set-Item function:Initialize-NoEffectWindow -Value $original
+        Set-LibFunctionText -Name 'Initialize-NoEffectWindow' -Text $original
     }
     Assert-Throws {
         Initialize-NoEffectWindow -BaselinePath $tooLow
-    } 'RESTORE: the real check must refuse the same baseline again once the stub is removed'
+    } 'RESTORE: the real check must refuse the same baseline again once its original text is rebound'
 }
 
 Invoke-SelfTest 'Initialize-NoEffectWindow starts on a bootstrap-only baseline and records that the bootstrap was used' {

@@ -130,8 +130,8 @@ function Invoke-InheritedHandleSetLeg {
     Enter-Stage -Lock ForegroundStage -Body {
         $result = Start-StagedIntegrityProcess -IntegrityLevel Medium -ReportOwnHandles -InheritLeaseHandle $LeaseHandle -TimeoutSeconds 15
         Assert-StagingConfirmedMedium -Staging $result
-        if ($null -eq $result.ChildReportedInheritableHandles) {
-            throw 'Invoke-InheritedHandleSetLeg: the staged child reported no handle set at all'
+        if ($null -eq $result.ChildReportedInheritableHandles -or @($result.ChildReportedInheritableHandles).Count -eq 0) {
+            throw "Invoke-InheritedHandleSetLeg: the staged child reported no handle set at all - a live child always owns its stdio handles, so an empty report means the report did not happen (ExitCode=$($result.ExitCode), TimedOut=$($result.TimedOut), StdErr='$($result.StdErr)')"
         }
         $leaked = @($result.ChildReportedInheritableHandles | Where-Object {
                 ($result.HarnessInheritableHandlesBeforeSpawn -contains $_) -and (-not ($result.ExpectedInheritableHandles -contains $_))
