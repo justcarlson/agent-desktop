@@ -142,6 +142,20 @@ fn pointer_is_visible(bounds: Option<crate::Rect>, states: &[String]) -> bool {
         })
 }
 
+/// Runs what a pointer gesture does before its first pointer event. Nothing
+/// has reached the target by then, so a refusal or a timeout leaves the gesture
+/// undelivered whatever the steps before it delivered.
+pub(crate) fn before_first_event<T>(
+    phase: impl FnOnce() -> Result<T, AppError>,
+) -> Result<T, AppError> {
+    phase().map_err(|error| match error {
+        AppError::Adapter(error) => {
+            AppError::Adapter(error.with_disposition(crate::DeliverySemantics::not_delivered()))
+        }
+        other => other,
+    })
+}
+
 pub(crate) fn point_deadline(timeout_ms: Option<u64>) -> Result<crate::Deadline, AppError> {
     timeout_ms
         .map_or_else(crate::Deadline::standard, crate::Deadline::after)
