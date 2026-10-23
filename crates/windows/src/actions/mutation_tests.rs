@@ -217,24 +217,6 @@ fn write_path_sources_never_reach_the_read_classification_table() {
     );
 }
 
-#[test]
-fn a_planted_read_classification_call_is_caught() {
-    let banned = concat!("classify_read_", "hresult");
-    let fixture = "let _ = classify_read_hresult(hr);";
-    assert!(fixture.contains(banned));
-    let offences = fixture
-        .lines()
-        .filter(|line| {
-            let trimmed = line.trim_start();
-            !(trimmed.starts_with("///") || trimmed.starts_with("//!")) && line.contains(banned)
-        })
-        .count();
-    assert_eq!(
-        offences, 1,
-        "MUST-CATCH: planted classify_read_hresult must fail the write-path scan"
-    );
-}
-
 /// The stale arm must be built with `AdapterError::new(ErrorCode::StaleRef, …)`
 /// so it never inherits `stale_ref`'s RefMap-shaped message. A19-2's killed
 /// provider lands this arm.

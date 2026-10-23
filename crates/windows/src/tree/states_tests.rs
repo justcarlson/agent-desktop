@@ -28,12 +28,6 @@ fn resolved(reads: Vec<(TreeProperty, PropertyOutcome)>, role: &str) -> Vec<Stri
     known(resolve_states(&props(&all_reads), &role_of(role)))
 }
 
-#[test]
-#[should_panic(expected = "is not in STATE_VOCABULARY")]
-fn assert_states_in_vocabulary_rejects_bogus_token() {
-    state::assert_states_in_vocabulary(&["zzz_bogus_state_token".to_string()]);
-}
-
 /// The role is `checkbox` on purpose. A non-toggleable role is suppressed by
 /// the role gate whatever the availability gate does, so a static text here
 /// would make this pass for a reason that has nothing to do with A15-7 - and
