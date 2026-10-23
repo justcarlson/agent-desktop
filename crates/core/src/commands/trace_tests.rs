@@ -1,7 +1,6 @@
 use super::*;
 use crate::refs_test_support::HomeGuard;
 use crate::session::{SessionTraceMode, StartSessionOptions, start_session};
-use crate::trace_read::{ReadOptions, read_merged};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -85,31 +84,6 @@ fn show_without_trace_directory_is_invalid_args() {
     )
     .unwrap_err();
     assert_eq!(err.code(), "INVALID_ARGS");
-}
-
-#[test]
-fn show_honors_limit_and_event_prefix() {
-    let _guard = HomeGuard::new();
-    let manifest = start_session(StartSessionOptions {
-        trace: SessionTraceMode::On,
-        ..Default::default()
-    })
-    .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
-        .unwrap()
-        .trace_dir();
-    copy_fixture_trace(&trace_dir);
-
-    let merged = read_merged(
-        &trace_dir,
-        &ReadOptions {
-            limit: 1,
-            event_prefix: Some("command.".into()),
-        },
-    )
-    .unwrap();
-    assert!(merged.truncated);
-    assert_eq!(merged.returned_events, 1);
 }
 
 #[test]

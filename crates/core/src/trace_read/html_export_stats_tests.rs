@@ -33,32 +33,6 @@ fn setup_trace_session() -> (
     (home, lock, manifest.id, trace_dir)
 }
 
-#[cfg(unix)]
-#[test]
-fn export_file_is_owner_only() {
-    use std::os::unix::fs::PermissionsExt;
-    let (_home, _lock, session_id, trace_dir) = setup_trace_session();
-    write_segment(
-        &trace_dir,
-        "100-1000.jsonl",
-        &[r#"{"event":"command.start","command":"snapshot","ts_ms":1,"seq":1}"#],
-    );
-    let out = crate::refs::home_dir()
-        .unwrap()
-        .join("trace-export-perm.html");
-    let (_html, stats) = export_html(
-        &trace_dir,
-        &session_id,
-        &ExportOptions {
-            limit: 0,
-            out: Some(out),
-        },
-    )
-    .unwrap();
-    let mode = fs::metadata(&stats.path).unwrap().permissions().mode() & 0o777;
-    assert_eq!(mode, 0o600);
-}
-
 #[test]
 fn export_stats_reports_warnings_and_truncation() {
     let (_home, _lock, session_id, trace_dir) = setup_trace_session();

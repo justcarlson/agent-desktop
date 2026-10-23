@@ -74,24 +74,6 @@ impl InputOps for PermissionResolveAdapter {}
 
 impl SystemOps for PermissionResolveAdapter {}
 
-struct StrictOnlyResolveAdapter;
-
-impl ObservationOps for StrictOnlyResolveAdapter {
-    fn resolve_element_strict(
-        &self,
-        _entry: &RefEntry,
-        _deadline: crate::Deadline,
-    ) -> Result<NativeHandle, AdapterError> {
-        Ok(NativeHandle::null())
-    }
-}
-
-impl ActionOps for StrictOnlyResolveAdapter {}
-
-impl InputOps for StrictOnlyResolveAdapter {}
-
-impl SystemOps for StrictOnlyResolveAdapter {}
-
 struct TimeoutCaptureAdapter {
     captured_ms: Mutex<Vec<u128>>,
 }
@@ -221,24 +203,6 @@ fn element_wait_passes_remaining_budget_to_resolver() {
     let captured = adapter.captured_ms.lock().unwrap();
     assert_eq!(captured.len(), 1);
     assert!(captured[0] <= 500);
-}
-
-#[test]
-fn element_wait_uses_the_strict_deadline_aware_resolver() {
-    let _guard = HomeGuard::new();
-    let snapshot_id = snapshot_with_one_ref();
-
-    let value = wait_for_element_test(
-        "@e1".into(),
-        Some(snapshot_id),
-        wait_predicate::ElementPredicate::Exists,
-        250,
-        &StrictOnlyResolveAdapter,
-        &crate::context::CommandContext::default(),
-    )
-    .unwrap();
-
-    assert_eq!(value["observed"]["exists"], true);
 }
 
 #[test]

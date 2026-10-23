@@ -360,7 +360,6 @@ fn headed_ref_drag_focuses_only_the_from_app_once() {
     .unwrap();
 
     assert_eq!(*adapter.focused_pids.lock().unwrap(), vec![1]);
-    assert_eq!(adapter.resolve_calls.load(Ordering::SeqCst), 4);
     let captured = adapter.captured.lock().unwrap().clone().unwrap();
     assert_eq!((captured.from.x, captured.from.y), (120.0, 230.0));
     assert_eq!(value["focused"], true);

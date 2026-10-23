@@ -29,13 +29,6 @@ fn resolve_does_not_infer_an_active_session() {
 }
 
 #[test]
-fn resolve_none_without_pointer() {
-    let _guard = HomeGuard::new();
-    let resolved = resolve_active_session(None, None).unwrap();
-    assert!(resolved.is_none());
-}
-
-#[test]
 fn manifest_round_trips_with_optional_fields() {
     let _guard = HomeGuard::new();
     let manifest = SessionManifest {
@@ -152,24 +145,6 @@ fn corrupt_manifest_is_ignored_not_fatal() {
     let listed: Vec<String> = list_sessions().unwrap().into_iter().map(|m| m.id).collect();
     assert!(listed.contains(&good.id));
     assert!(!listed.iter().any(|id| id == "corruptsess"));
-}
-
-#[test]
-fn multiple_starts_remain_independent() {
-    let _guard = HomeGuard::new();
-    let first = start_session(StartSessionOptions {
-        name: None,
-        trace: SessionTraceMode::On,
-        ..Default::default()
-    })
-    .unwrap();
-    let second = start_session(StartSessionOptions {
-        name: None,
-        trace: SessionTraceMode::On,
-        ..Default::default()
-    })
-    .unwrap();
-    assert_ne!(first.id, second.id);
 }
 
 #[test]

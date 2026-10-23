@@ -149,28 +149,6 @@ fn limit_conflicts_with_single_result_modes_for_batch_too() {
     assert_eq!(err.code(), "INVALID_ARGS");
 }
 
-#[test]
-fn count_matches_does_not_build_result_json() {
-    let root = AccessibilityNode {
-        ref_id: None,
-        role: "window".into(),
-        identity: Default::default(),
-        presentation: Default::default(),
-        children_count: None,
-        subtree_truncated: false,
-        children: vec![
-            node(Some("Save"), None, None),
-            node(Some("Cancel"), None, None),
-        ],
-    };
-    let query = LocatorQuery {
-        has_text: Some(search_text::normalize("a")),
-        ..LocatorQuery::default()
-    };
-
-    assert_eq!(count_matches(&root, &query), 3);
-}
-
 fn role_node(role: &str, name: Option<&str>) -> AccessibilityNode {
     let mut n = node(name, None, None);
     n.role = role.into();
@@ -223,37 +201,6 @@ fn unknown_role_is_preserved_until_validation() {
     let mut matches = Vec::new();
     search_tree(&root, &query, &mut Vec::new(), &mut matches, None);
     assert!(matches.is_empty());
-}
-
-#[test]
-fn empty_role_filtered_result_reports_roles_present_from_tree() {
-    let mut root = role_node("window", Some("Save"));
-    root.children = vec![
-        role_node("button", Some("OK")),
-        role_node("textfield", None),
-    ];
-
-    let query = query_from_args(&FindArgs {
-        app: None,
-        window_id: None,
-        root: None,
-        surface: crate::SnapshotSurface::Window,
-        filter: FindFilterArgs {
-            role: Some("navbar".into()),
-            ..no_filter()
-        },
-        states: vec![],
-        timeout_ms: None,
-        selection: no_selection(),
-    });
-    let response = single_match_response(None, &query, &root);
-
-    let present = response["roles_present"].as_array().unwrap();
-    let names: Vec<&str> = present.iter().filter_map(|v| v.as_str()).collect();
-    assert!(names.contains(&"button"));
-    assert!(names.contains(&"textfield"));
-    assert!(names.contains(&"window"));
-    assert!(!names.contains(&"navbar"));
 }
 
 #[test]

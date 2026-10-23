@@ -144,18 +144,6 @@ fn attach_roles_present_hint(
 }
 
 #[cfg(test)]
-fn single_match_response(
-    found: Option<Value>,
-    query: &LocatorQuery,
-    tree: &AccessibilityNode,
-) -> Value {
-    let is_empty = found.is_none();
-    let mut response = json!({ "match": found });
-    attach_roles_present_hint(&mut response, is_empty, query, tree);
-    response
-}
-
-#[cfg(test)]
 fn collect_roles(node: &AccessibilityNode, roles: &mut BTreeSet<String>) {
     roles.insert(node.role.clone());
     for child in &node.children {
@@ -230,16 +218,6 @@ fn collect_snapshot_matches(
 
     path.pop();
     false
-}
-
-#[cfg(test)]
-fn count_matches(node: &AccessibilityNode, query: &LocatorQuery) -> usize {
-    usize::from(query::node_matches(node, query))
-        + node
-            .children
-            .iter()
-            .map(|child| count_matches(child, query))
-            .sum::<usize>()
 }
 
 #[path = "find_live.rs"]
