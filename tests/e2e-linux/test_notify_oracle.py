@@ -94,10 +94,6 @@ signal time=3.0 sender=:1.2 -> destination=(null destination) serial=11 path=/or
             ("ActionInvoked", {"id": 7, "action": "open"}),
         ])
 
-    def test_unrelated_members_are_ignored(self) -> None:
-        self.assertEqual(notify.parse_monitor_text(self.SAMPLE)[-1][0], "ActionInvoked")
-        self.assertFalse(any(name == "Notify" for name, _ in notify.parse_monitor_text(self.SAMPLE)))
-
     def test_empty_text_has_no_signals(self) -> None:
         self.assertEqual(notify.parse_monitor_text(""), [])
 

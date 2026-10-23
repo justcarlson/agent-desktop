@@ -11,13 +11,10 @@ from scenarios.headed_actions import (
     assert_ok,
     live_root,
     longest_text,
-    raw_walk,
     ref_for,
     restore_text,
     window_of,
 )
-
-SEARCH_NAMES = ("Find", "Search", "Replace", "Find and Replace")
 
 
 def held_modifiers(text: str) -> list[str]:
@@ -33,29 +30,6 @@ def held_modifiers(text: str) -> list[str]:
     if seen != set(MODIFIERS):
         raise AssertionError("incomplete modifier oracle state")
     return held
-
-
-def _raw_node(root, name: str):
-    for node in raw_walk(root):
-        if node.name == name:
-            return node
-    return None
-
-
-def _search_present(tier, app) -> bool:
-    root = live_root(tier, app)
-    return any(_raw_node(root, name) for name in SEARCH_NAMES)
-
-
-def _enabled(tier, app, name: str) -> bool | None:
-    node = _raw_node(live_root(tier, app), name)
-    if node is None:
-        return None
-    return "SENSITIVE" in node.states
-
-
-def _textfield_ref(ctx: LegContext, window: str) -> str:
-    return ref_for(ctx, window, role="textfield", deadline_s=6.0)
 
 
 def _launch(ctx: LegContext):

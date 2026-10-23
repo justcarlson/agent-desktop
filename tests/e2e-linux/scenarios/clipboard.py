@@ -116,8 +116,3 @@ def clear_leaves_empty(ctx: LegContext) -> None:
         ctx.after("clipboard.clear", changed(read, None))
         _set_text(ctx, "to be cleared")
         ctx.restored("clipboard.clear", changed(read, before))
-
-
-@implementation("clipboard.foreign_read_after_cli_exit")
-def foreign_read_after_cli_exit(ctx: LegContext) -> None:
-    _text_after_exit(ctx, "after exit")

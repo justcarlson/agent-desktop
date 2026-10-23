@@ -7,21 +7,6 @@ from runner import apps, helper as helper_module
 from runner.legs import implementation
 from runner.verdict import LegContext
 
-REFUSAL_CODES = frozenset(
-    {
-        "ACTION_FAILED",
-        "ACTION_NOT_SUPPORTED",
-        "APP_UNRESPONSIVE",
-        "ELEMENT_NOT_FOUND",
-        "POLICY_DENIED",
-        "STALE_REF",
-        "TIMEOUT",
-        "WINDOW_NOT_FOUND",
-    }
-)
-FOCUS_REFUSAL_CODES = frozenset(
-    {"activation_not_granted", "activation_refused", "frame_not_active", "overview_open"}
-)
 REFERENCE_RE = re.compile(r"^@[^:]+:e\d+$")
 
 
@@ -62,14 +47,6 @@ def raw_names(root) -> list[str]:
     return [node.name for node in raw_walk(root)]
 
 
-def checked_map(root) -> dict[str, bool]:
-    states: dict[str, bool] = {}
-    for node in raw_walk(root):
-        if "CHECKABLE" in node.states and node.name:
-            states[node.name] = "CHECKED" in node.states
-    return states
-
-
 def longest_text(root) -> str:
     texts = [node.text() for node in raw_walk(root)]
     return max((text for text in texts if text), key=len, default="")
@@ -82,16 +59,6 @@ def restore_text(ctx, app, before):
         assert_ok(ctx.product(["type", target, before]))
     ctx.restored("atspi.document_text", helper_module.changed(
         lambda: longest_text(live_root(ctx.tier, app)), before))
-
-
-def press_raw(root, name: str) -> bool:
-    for node in raw_walk(root):
-        if node.name != name:
-            continue
-        for action in ("click", "press"):
-            if node.do_action(action):
-                return True
-    return False
 
 
 def assert_ok(envelope) -> dict:
@@ -131,35 +98,8 @@ def live_root(tier, app):
     return atspi_raw.app_root(tier, app.owner_names[0])
 
 
-def count_live(tier, app, name: str) -> int:
-    return raw_names(live_root(tier, app)).count(name)
-
-
-def wait_count(tier, app, name: str, target: int, deadline_s: float = 6.0) -> int | None:
-    def observe():
-        value = count_live(tier, app, name)
-        return value if value >= target else None
-
-    return atspi_raw.poll(observe, deadline_s)
-
-
-def open_main_menu(ctx: LegContext, window: str) -> None:
-    ref = ref_for(ctx, window, role="menubutton")
-    assert_ok(ctx.product(["click", ref]))
-
-
 def stop(app) -> None:
     apps.stop(app)
-
-
-def _changed_checked(tier, app, before):
-    current = checked_map(live_root(tier, app))
-    return current if current != before else None
-
-
-def _restored_checked(tier, app, before):
-    current = checked_map(live_root(tier, app))
-    return current if current == before else None
 
 
 @implementation("headed_actions.focus_reads_active_window")
@@ -183,17 +123,6 @@ def focus_reads_active_window(ctx: LegContext) -> None:
     finally:
         stop(other)
         stop(app)
-
-
-def _minutes_of(value: str) -> str:
-    digits = "".join(character for character in value if character.isdigit())
-    seconds = int(digits or "0")
-    minutes = max(1, seconds // 60)
-    return f"{minutes} minutes"
-
-
-def _expanded_count(root) -> int:
-    return sum(1 for node in raw_walk(root) if "EXPANDED" in node.states)
 
 
 @implementation("headed_actions.type_text")

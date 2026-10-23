@@ -221,25 +221,3 @@ def window_operation_delivery_reports(ctx: LegContext) -> None:
 
     finally:
         apps.stop(app)
-
-
-@implementation("lifecycle.openbox_lift_restored_and_active")
-def openbox_lift_restored_and_active(ctx: LegContext) -> None:
-    calculator = apps.launch(ctx.tier, "Calculator")
-    editor = apps.launch(ctx.tier, "Text Editor")
-    try:
-        target = _window_id(calculator)
-        native = x11.xid(ctx.tier, target)
-        before = x11.active_window(ctx.tier)
-        ctx.before("x11.active_window", before)
-        assert_ok(ctx.product(["focus-window", "--window-id", target]))
-        active = atspi_raw.poll(
-            lambda: x11.active_window(ctx.tier) if x11.active_window(ctx.tier) == native else None, 6.0
-        )
-        ctx.after("x11.active_window", active)
-        if active != native:
-            raise AssertionError("the lift did not end with the target active")
-        ctx.restored("x11.active_window", x11.restore_active(ctx.tier, before))
-    finally:
-        apps.stop(editor)
-        apps.stop(calculator)

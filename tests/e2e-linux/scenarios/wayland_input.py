@@ -43,10 +43,6 @@ def _editor(ctx: LegContext):
     return app, root, ref
 
 
-def _named(root, needle: str) -> list[str]:
-    return [node.name for node in root.find() if needle.lower() in node.name.lower()]
-
-
 def _read(ctx):
     return document_text(app_root(ctx.tier, "gnome-text-editor"))
 

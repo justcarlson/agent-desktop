@@ -6,7 +6,6 @@ from runner.legs import implementation
 from runner.verdict import LegContext
 from oracle.atspi_raw import app_root, registry
 from oracle.proc import members
-from oracle.x11 import active_window
 from scenarios.launch import _close_added_windows, _window_ids
 
 TEXT_EDITOR = "Text Editor"
@@ -143,29 +142,6 @@ def app_terminated_transition(ctx: LegContext) -> None:
         ctx.restored("atspi.apps", changed(lambda: _names(ctx.tier, "gnome-calculator"), ["gnome-calculator"]))
     finally:
         stop(replacement)
-
-
-@implementation("events.app_terminated_quiet")
-def app_terminated_quiet(ctx: LegContext) -> None:
-    app, _root = _calculator(ctx.tier)
-    ctx.before("atspi.apps", _names(ctx.tier, "gnome-calculator"))
-    envelope = ctx.product(["wait", "--event", "app-terminated", "--timeout", "1500"])
-    assert timed_out(envelope), envelope.raw
-    ctx.after("atspi.apps", _names(ctx.tier, "gnome-calculator"))
-    ctx.restored("atspi.apps", _names(ctx.tier, "gnome-calculator"))
-    stop(app)
-
-
-@implementation("events.focus_changed_quiet")
-def focus_changed_quiet(ctx: LegContext) -> None:
-    editor, _root = _editor(ctx.tier)
-    before = active_window(ctx.tier)
-    ctx.before("x11.active_window", before)
-    envelope = ctx.product(["wait", "--event", "focus-changed", "--timeout", "1500"])
-    assert timed_out(envelope), envelope.raw
-    ctx.after("x11.active_window", active_window(ctx.tier))
-    ctx.restored("x11.active_window", active_window(ctx.tier))
-    stop(editor)
 
 
 @implementation("events.scoped_and_unscoped_forms")

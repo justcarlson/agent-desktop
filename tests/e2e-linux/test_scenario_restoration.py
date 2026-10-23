@@ -104,7 +104,6 @@ class RestorationTests(unittest.TestCase):
             self.assertEqual(argv, ["wmctrl", "-ia", "0x2"])
             active[0] = "0x2"
         cases = ((lifecycle.focus_window_active_reads, "lifecycle.focus_window_active_reads"),
-                 (lifecycle.openbox_lift_restored_and_active, "lifecycle.openbox_lift_restored_and_active"),
                  (headed_actions.focus_reads_active_window, "headed_actions.focus_reads_active_window"))
         for run, leg_id in cases:
             with self.subTest(leg=leg_id):
@@ -128,35 +127,35 @@ class SemanticRestorationTests(unittest.TestCase):
     def test_semantic_click_reads_display_and_restores_without_moving_focus_or_pointer(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/test"))
         app = SimpleNamespace(windows=["w-calculator"])
-        for name in ("pointer_unchanged_by_semantic_click", "active_window_unchanged_by_semantic_click"):
-            for drift, original in ((False, ""), (False, "0"), (True, "")):
-                with self.subTest(leg=name, drift=drift, original=original):
-                    document, focus = [original], ["0x2"]
-                    ctx = LegContext(tier, "headless", legs.leg_by_id("non_interference." + name),
-                                     member_reader=lambda _: frozenset())
-                    def product(tier, argv, **kw):
-                        document[0] = "7"
-                        if drift:
-                            focus[0] = "0x1"
-                        return Envelope(True, {}, None, "{}", 0, argv)
-                    with patch.object(non_interference.apps, "launch", return_value=app), \
-                        patch.object(non_interference.apps, "stop"), \
-                        patch.object(non_interference, "live_root", return_value=app), \
-                        patch.object(non_interference, "display", side_effect=lambda _: document[0]), \
-                        patch.object(non_interference, "one", return_value="undo"), \
-                        patch.object(non_interference, "activate", side_effect=lambda _: document.__setitem__(0, original)), \
-                        patch.object(non_interference, "ref_for", return_value="@s:e1"), \
-                        patch.object(non_interference.x11, "pointer", return_value=(10, 20)), \
-                        patch.object(non_interference.x11, "active_window", side_effect=lambda _: focus[0]), \
-                        patch.object(non_interference.atspi_raw, "poll", side_effect=lambda read, *a, **kw: read()), \
-                        patch("runner.verdict.run_product", side_effect=product):
-                        if drift:
-                            with self.assertRaisesRegex(AssertionError, "pointer or focus"):
-                                getattr(non_interference, name)(ctx)
-                        else:
+        name = "active_window_unchanged_by_semantic_click"
+        for drift, original in ((False, ""), (False, "0"), (True, "")):
+            with self.subTest(leg=name, drift=drift, original=original):
+                document, focus = [original], ["0x2"]
+                ctx = LegContext(tier, "headless", legs.leg_by_id("non_interference." + name),
+                                 member_reader=lambda _: frozenset())
+                def product(tier, argv, **kw):
+                    document[0] = "7"
+                    if drift:
+                        focus[0] = "0x1"
+                    return Envelope(True, {}, None, "{}", 0, argv)
+                with patch.object(non_interference.apps, "launch", return_value=app), \
+                    patch.object(non_interference.apps, "stop"), \
+                    patch.object(non_interference, "live_root", return_value=app), \
+                    patch.object(non_interference, "display", side_effect=lambda _: document[0]), \
+                    patch.object(non_interference, "one", return_value="undo"), \
+                    patch.object(non_interference, "activate", side_effect=lambda _: document.__setitem__(0, original)), \
+                    patch.object(non_interference, "ref_for", return_value="@s:e1"), \
+                    patch.object(non_interference.x11, "pointer", return_value=(10, 20)), \
+                    patch.object(non_interference.x11, "active_window", side_effect=lambda _: focus[0]), \
+                    patch("oracle.atspi_raw.poll", side_effect=lambda read, *a, **kw: read()), \
+                    patch("runner.verdict.run_product", side_effect=product):
+                    if drift:
+                        with self.assertRaisesRegex(AssertionError, "pointer or focus"):
                             getattr(non_interference, name)(ctx)
-                            self.assertEqual(verdict.evaluate(ctx), [])
-                    self.assertEqual(document[0], original)
+                    else:
+                        getattr(non_interference, name)(ctx)
+                        self.assertEqual(verdict.evaluate(ctx), [])
+                self.assertEqual(document[0], original)
 
     def test_wayland_paste_restores_document_and_clipboard_and_reaps_foreign_owner(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/test"))

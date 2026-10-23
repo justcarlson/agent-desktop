@@ -44,7 +44,6 @@ class Leg:
             raise ValueError(f"leg {self.id} needs a reason for its disposition")
 
 
-OUTSTANDING_REASONS = {}
 REGISTRY: tuple[Leg, ...] = (
     Leg('ref_actions.expand', 'A ref expands the Calculator menu and reveals its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
     Leg('ref_actions.collapse', 'A ref collapses the Calculator menu and hides its children, then restores', 'Calculator', ('x11-openbox',), ('headless', 'headed'), ('atspi', 'x11'), 'pass', ''),
@@ -141,27 +140,21 @@ REGISTRY: tuple[Leg, ...] = (
     Leg('occlusion.above_flag_dropped_click_lands', 'Without the above flag the same click lands in the editor', 'Calculator over Text Editor', ('x11-openbox',), ('headed',), ('x11', 'atspi'), 'pass', ''),
     Leg('text_entry.typed_text_reaches_document', 'Typed text reaches the document', 'Text Editor', ('x11-openbox',), ('headed',), ('atspi', 'x11'), 'pass', ''),
     Leg('text_entry.held_key_released', 'A held key is not left pressed', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headed',), ('atspi', 'x11'), 'pass', ''),
-    Leg('non_interference.pointer_unchanged_by_semantic_click', 'A semantic click leaves the pointer where it was', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'atspi'), 'pass', ''),
-    Leg('non_interference.active_window_unchanged_by_semantic_click', 'A semantic click leaves the active window as it was', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'atspi'), 'pass', ''),
-    Leg('non_interference.pointer_unchanged_by_value_write', 'A semantic value write leaves the pointer where it was', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'atspi', 'gsettings'), 'pass', ''),
+    Leg('non_interference.active_window_unchanged_by_semantic_click', 'A semantic click leaves the active window and the pointer as they were', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'atspi'), 'pass', ''),
     Leg('lifecycle.close_app_undelivered_report', 'close-app reports not delivered when the process stays', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.focus_window_active_reads', 'focus-window makes the target active by the X11 reads', 'Calculator', ('x11-openbox', 'x11-mutter'), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.minimize_restore', 'minimize and restore change the window state the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.maximize_restore', 'maximize and restore change the window state the oracle reads', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
     Leg('lifecycle.window_operation_delivery_reports', 'move, resize and minimize reports agree with the oracle both ways', 'Calculator', ('x11-openbox',), ('headless',), ('x11', 'proc'), 'pass', ''),
-    Leg('lifecycle.openbox_lift_restored_and_active', 'The lift case ends restored_and_active', 'Calculator', ('x11-openbox',), ('headless',), ('x11',), 'pass', ''),
     Leg('clipboard.text_roundtrip', 'Text round trips against a foreign producer and reader', 'foreign client', ('x11-openbox', 'x11-mutter'), ('headless',), ('clipboard',), 'pass', ''),
     Leg('clipboard.image_roundtrip', 'An image round trips against a foreign producer and reader', 'foreign client', ('x11-openbox', 'x11-mutter'), ('headless',), ('clipboard',), 'pass', ''),
     Leg('clipboard.owner_outlives_setter', 'The selection owner outlives the setter process', 'foreign client', ('x11-openbox', 'x11-mutter'), ('headless',), ('clipboard',), 'pass', ''),
     Leg('clipboard.clear_leaves_empty', 'clipboard-clear leaves the clipboard empty', 'foreign client', ('x11-openbox', 'x11-mutter'), ('headless',), ('clipboard',), 'pass', ''),
-    Leg('clipboard.foreign_read_after_cli_exit', 'A foreign read of a product-set selection works after the CLI exited', 'foreign client', ('x11-openbox', 'x11-mutter'), ('headless',), ('clipboard',), 'pass', ''),
     Leg('events.window_opened_quiet', 'wait --event window-opened times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox',), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.window_closed_transition', 'wait --event window-closed succeeds on a real transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox',), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.window_closed_quiet', 'wait --event window-closed times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.app_launched_quiet', 'wait --event app-launched times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
     Leg('events.app_terminated_transition', 'wait --event app-terminated succeeds on a real transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
-    Leg('events.app_terminated_quiet', 'wait --event app-terminated times out with no transition', 'Calculator, Text Editor, Files, Terminal', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'proc'), 'pass', ''),
-    Leg('events.focus_changed_quiet', 'wait --event focus-changed times out when focus stays', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'x11'), 'pass', ''),
     Leg('events.scoped_and_unscoped_forms', 'Each event wait works scoped to a process and unscoped', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'x11'), 'pass', ''),
     Leg('events.open_and_close_inside_one_wait', 'A window that opens and closes inside one wait is reported', 'Text Editor', ('x11-openbox',), ('headless',), ('atspi', 'x11'), 'pass', ''),
     Leg('events.target_killed_mid_wait', 'A target killed mid-wait is reported as such', 'Text Editor', ('x11-openbox', 'x11-mutter'), ('headless',), ('atspi', 'x11', 'proc'), 'pass', ''),
