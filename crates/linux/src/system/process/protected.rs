@@ -11,6 +11,9 @@ use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::process::process_facts;
 use crate::system::process::process_lookup::Lookup;
 use crate::system::process::session_origin;
+use crate::system::registry::Registry;
+use crate::system::registry::listed_window::ListedWindow;
+use crate::system::window::window_ops::windows_of;
 
 fn unknown() -> AdapterError {
     AdapterError::new(
@@ -173,10 +176,32 @@ fn has_managed_window(pid: u32, deadline: Deadline) -> bool {
         .is_some_and(|windows| !windows.is_empty())
 }
 
-fn answering_app_is_session_service(pid: u32, deadline: Deadline) -> Result<bool, AdapterError> {
+/// Whether a process shows a window: the window manager manages one for it
+/// or, where it manages none, its accessibility tree lists one that is shown
+/// or iconified. A native Wayland window is in the tree only, and a husk that
+/// a toolkit keeps after a window closed is not a window. A tree that cannot
+/// be read shows none.
+fn shows_a_window(
+    managed: impl FnOnce() -> bool,
+    listed: impl FnOnce() -> Result<Vec<ListedWindow>, AdapterError>,
+) -> bool {
+    managed() || listed().is_ok_and(|windows| windows.iter().any(|window| !window.unshown))
+}
+
+fn answering_app_is_session_service(
+    bus: &crate::system::SharedBus,
+    registry: &Registry,
+    pid: u32,
+    deadline: Deadline,
+) -> Result<bool, AdapterError> {
     session_origin::is_session_service(
         || session_origin::launched_by_agent(pid),
-        || has_managed_window(pid, deadline),
+        || {
+            shows_a_window(
+                || has_managed_window(pid, deadline),
+                || windows_of(bus, registry, |app| app.root.pid() == pid, deadline),
+            )
+        },
         || session_origin::runs_as_service(pid),
         || session_origin::child_of_display_owner(pid, |parent| is_display_owner(parent, deadline)),
         || owns_session_bus_name(pid, deadline),
@@ -251,7 +276,7 @@ pub(crate) fn is_protected(
         .iter()
         .any(|app| app.root.pid() == pid && app.answered)
     {
-        let session_started = answering_app_is_session_service(pid, deadline)?;
+        let session_started = answering_app_is_session_service(bus, &registry, pid, deadline)?;
         if !instance_matches() {
             return Err(unknown());
         }
