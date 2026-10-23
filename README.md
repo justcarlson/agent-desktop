@@ -60,7 +60,7 @@ Each release also ships `libagent_desktop_ffi` for macOS, Linux and Windows, so 
 ```python
 import ctypes
 lib = ctypes.CDLL("./lib/libagent_desktop_ffi.dylib")
-lib.ad_init(5)  # checks the header's AD_ABI_VERSION_MAJOR against the library
+lib.ad_init(6)  # checks the header's AD_ABI_VERSION_MAJOR against the library
 adapter = lib.ad_adapter_create()
 lib.ad_adapter_destroy(adapter)
 ```

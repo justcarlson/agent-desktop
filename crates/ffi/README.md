@@ -44,6 +44,9 @@ loaded dylib matches the header the consumer was built against.
 Direct window, surface and ref targeting takes the versioned
 `AdExactRefEntry`, `AdExactWindowInfo`, and `AdExactSurfaceInfo` structs, which
 carry the process generation and surface ID of the observed identity.
+ABI 6 and `AD_EXACT_REF_ENTRY_VERSION` 2 add `bounds_space` to `AdRefGeometry`,
+inside `AdExactRefEntry`: an `AD_BOUNDS_SPACE_*` constant naming the frame of
+`bounds`, screen-relative on macOS and Windows and window-relative on Linux.
 `ad_execute_by_ref` and `ad_wait` accept only snapshot-qualified refs
 (`@<snapshot_id>:eN`).
 

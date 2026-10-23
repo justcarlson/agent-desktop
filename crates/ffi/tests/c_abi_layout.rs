@@ -226,7 +226,7 @@ fn ref_entry_layout_is_guarded_for_c_consumers() {
 
 #[test]
 fn exact_ref_entry_is_additive_versioned_and_layout_pinned() {
-    assert_eq!(agent_desktop_ffi::AD_EXACT_REF_ENTRY_VERSION, 1);
+    assert_eq!(agent_desktop_ffi::AD_EXACT_REF_ENTRY_VERSION, 2);
     assert_eq!(agent_desktop_ffi::AD_EXACT_REF_ENTRY_SIZE, 224);
     assert_eq!(unsafe { common::ad_exact_ref_entry_size() }, 224);
     assert_eq!(size_of::<AdExactRefEntry>(), 224);

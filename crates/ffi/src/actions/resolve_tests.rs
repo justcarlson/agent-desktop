@@ -330,3 +330,30 @@ fn exact_ref_entry_preserves_typed_identifier_atomically() {
         })
     );
 }
+
+const EXACT_REF_ENTRY_VERSION_WITHOUT_GEOMETRY_FRAME: u32 = 1;
+
+fn exact_with_version(version: u32) -> AdExactRefEntry {
+    let mut entry = test_ref_entry();
+    entry.identity.role = c"button".as_ptr();
+    entry.identity.name = c"target".as_ptr();
+    AdExactRefEntry {
+        version,
+        size: crate::types::exact_ref_entry::AD_EXACT_REF_ENTRY_SIZE as u32,
+        entry,
+        process_instance: c"42:100".as_ptr(),
+        identifier_kind: AdIdentifierKind::AxIdentifier as i32,
+    }
+}
+
+#[test]
+fn exact_ref_entry_refuses_the_version_that_predates_the_geometry_frame() {
+    let current = exact_with_version(crate::types::exact_ref_entry::AD_EXACT_REF_ENTRY_VERSION);
+    assert!(unsafe { core_ref_entry_from_exact(&current) }.is_ok());
+
+    let stale = exact_with_version(EXACT_REF_ENTRY_VERSION_WITHOUT_GEOMETRY_FRAME);
+    let error = unsafe { core_ref_entry_from_exact(&stale) }.unwrap_err();
+
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+    assert!(error.message.contains("version or size"));
+}

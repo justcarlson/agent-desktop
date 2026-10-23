@@ -52,7 +52,7 @@
  * mismatch means the header and dylib are incompatible and the consumer should
  * refuse to proceed rather than risk undefined behaviour.
  */
-#define AD_ABI_VERSION_MAJOR 5
+#define AD_ABI_VERSION_MAJOR 6
 
 /**
  * Maximum byte length (excluding the NUL terminator) accepted for any
@@ -81,7 +81,7 @@
 
 #define AD_ELEMENT_STATE_SIZE 32
 
-#define AD_EXACT_REF_ENTRY_VERSION 1
+#define AD_EXACT_REF_ENTRY_VERSION 2
 
 #define AD_EXACT_REF_ENTRY_SIZE 224
 
