@@ -202,6 +202,33 @@ fn empty_live_role_result_reports_observed_roles() {
 }
 
 #[test]
+fn an_unknown_role_is_refused_unsent_and_points_at_the_roles_a_snapshot_prints() {
+    let _guard = HomeGuard::new();
+    let adapter = LiveFindAdapter::complete();
+    let mut args = named_find("w-1", "missing");
+    args.filter.name = None;
+    args.filter.role = Some("nosuchrole".into());
+
+    let error = execute(args, &adapter, &CommandContext::default())
+        .expect_err("a role no snapshot prints is an argument error");
+    let AppError::Adapter(error) = error else {
+        panic!("a refused role is an adapter error");
+    };
+
+    assert_eq!(error.code, crate::ErrorCode::InvalidArgs);
+    assert!(error.message.contains("nosuchrole"), "{}", error.message);
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
+    assert_eq!(error.disposition.retry(), crate::RetryDisposition::Safe);
+    let suggestion = error
+        .suggestion
+        .expect("a refused role carries a suggestion");
+    assert!(
+        suggestion.contains("snapshot") && suggestion.contains("'role'"),
+        "the caller must learn where valid role names come from, got: {suggestion}"
+    );
+}
+
+#[test]
 fn ordinal_modes_preserve_live_document_order() {
     let _guard = HomeGuard::new();
     let adapter = LiveFindAdapter::complete();

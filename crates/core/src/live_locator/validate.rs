@@ -44,7 +44,11 @@ fn validate_clause(
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,
             format!("Unknown role query '{role}'"),
-        ));
+        )
+        .with_suggestion(
+            "Use a role name as a snapshot prints it in a node's 'role' field, not the platform's native role name",
+        )
+        .unsent());
     }
     for value in [
         query.identity.role.as_deref(),
