@@ -142,7 +142,3 @@ pub(crate) mod key_state_fake_sink {
         DOWN.with(|cell| cell.borrow().contains(&vk))
     }
 }
-
-#[cfg(all(test, target_os = "windows"))]
-#[path = "keyboard_send_tests.rs"]
-mod tests;

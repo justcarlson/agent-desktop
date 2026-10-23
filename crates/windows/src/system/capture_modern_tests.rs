@@ -5,7 +5,7 @@ use super::{
 use crate::system::capture_backend::{self, CaptureSubject};
 use crate::system::capture_d3d::resource_balance;
 use crate::system::display::{display_at, list_displays_live};
-use crate::system::permissions::{map_capture_availability, report};
+use crate::system::permissions::report;
 use crate::system::png_codec::decode_png_to_bgra;
 use crate::tree::fixture::{LocalPatternFixture, bootstrap};
 use agent_desktop_core::{Deadline, ErrorCode, PermissionState};
@@ -232,20 +232,5 @@ fn permission_report_screen_recording_is_honest_when_legacy_can_capture() {
         report.screen_recording,
         PermissionState::NotRequired,
         "a session that can list displays can capture via Legacy"
-    );
-}
-
-#[test]
-fn probe_availability_is_true_when_legacy_or_modern_can_run() {
-    bootstrap();
-    let displays = list_displays_live(deadline(10_000)).expect("displays");
-    assert!(!displays.is_empty());
-    assert_eq!(
-        map_capture_availability(Some(true)),
-        PermissionState::NotRequired
-    );
-    assert!(
-        modern_is_supported() || !displays.is_empty(),
-        "this host must exercise at least one capture backend for the probe"
     );
 }

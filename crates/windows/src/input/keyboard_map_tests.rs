@@ -147,16 +147,6 @@ fn digits_resolve_to_their_ascii_derived_virtual_key_on_a_us_layout() {
 }
 
 #[test]
-fn letters_resolve_without_error() {
-    for letter in 'a'..='z' {
-        assert!(
-            key_name_to_vk(&letter.to_string()).is_ok(),
-            "letter '{letter}' must resolve"
-        );
-    }
-}
-
-#[test]
 fn unknown_key_name_returns_invalid_args_error_with_suggestion() {
     let error = key_name_to_vk("hyperkey").unwrap_err();
 

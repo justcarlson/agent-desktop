@@ -62,17 +62,6 @@ fn the_activation_path_acquires_a_windows_lease_and_settles() {
     });
 }
 
-/// The sheet surface specifically, reached through the `SystemOps` trait
-/// object rather than the inherent method. The full advertised vector is
-/// asserted by `supported_surfaces_advertises_window_focused_and_sheet`.
-#[test]
-fn sheet_is_among_the_surfaces_advertised_through_the_trait() {
-    use agent_desktop_core::{SnapshotSurface, SystemOps as _};
-
-    let surfaces = WindowsAdapter::new().supported_surfaces();
-    assert!(surfaces.contains(&SnapshotSurface::Sheet));
-}
-
 /// Pins that `is_blocked_combo` is actually overridden here, reached
 /// through the trait object exactly as core calls it: the default blocks
 /// nothing, so an un-wired override would be indistinguishable from

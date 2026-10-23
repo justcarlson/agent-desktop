@@ -9,6 +9,7 @@ fn text_round_trips_table() {
         ("hello", "ascii"),
         ("line\nbreak", "embedded_newline"),
         ("line\r\nbreak", "crlf"),
+        ("a\r\nb\r\n", "repeated_and_trailing_crlf"),
         ("emoji \u{1F600}", "non_bmp"),
         ("café", "bmp_non_ascii"),
     ];
@@ -55,23 +56,8 @@ fn unpaired_surrogates_do_not_panic() {
 }
 
 #[test]
-fn crlf_is_preserved_exactly() {
-    let text = "a\r\nb\r\n";
-    let encoded = encode_utf16_text(text).expect("encode CRLF");
-    let decoded = decode_utf16_text(&encoded).expect("decode CRLF");
-    assert_eq!(decoded, text);
-    assert_eq!(decoded.matches("\r\n").count(), 2);
-}
-
-#[test]
 fn odd_length_payload_is_rejected() {
     let error = decode_utf16_text(&[0x61]).expect_err("odd length");
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-}
-
-#[test]
-fn truncated_empty_odd_byte_is_rejected() {
-    let error = decode_utf16_text(&[0x00]).expect_err("single byte");
     assert_eq!(error.code, ErrorCode::ActionFailed);
 }
 

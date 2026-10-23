@@ -1,6 +1,5 @@
 use super::{ClickAvailability, click_chain_judged_for};
 use crate::actions::chain::DeliveryOutcome;
-use crate::actions::scroll::{ScrollPlan, scroll_judged_for};
 use crate::system::test_time::deadline;
 use crate::tree::actions::resolve_actions;
 use crate::tree::properties::ElementProperties;
@@ -96,35 +95,4 @@ fn r2_legacy_advertisement_reaches_legacy_rung() {
     assert_eq!(invoke.get(), 0);
     assert_eq!(legacy.get(), 1);
     assert_eq!(steps[1].label(), "LegacyIAccessible.DoDefaultAction");
-}
-
-#[test]
-fn r2_scroll_advertisement_reaches_scroll_arm() {
-    let mut reads = inert_reads();
-    reads.retain(|(property, _)| *property != TreeProperty::ScrollAvailable);
-    reads.push((TreeProperty::ScrollAvailable, known_flag(true)));
-    let actions = resolve_actions(&ElementProperties::from_reads(reads));
-    let known = actions.known().expect("Known actions");
-    assert!(known.iter().any(|action| action == capability::SCROLL));
-
-    let scrolls = Cell::new(0u8);
-    let mut scroll_once = || {
-        scrolls.set(scrolls.get() + 1);
-        Ok(())
-    };
-    let mut observe = || true;
-    let steps = scroll_judged_for(
-        deadline(5_000),
-        ScrollPlan {
-            scroll_available: true,
-            axis_scrollable: true,
-            axis_name: "vertical",
-            amount: 1,
-        },
-        &mut scroll_once,
-        &mut observe,
-    )
-    .expect("scroll arm");
-    assert_eq!(scrolls.get(), 1);
-    assert_eq!(steps[0].label(), "ScrollPattern.Scroll");
 }

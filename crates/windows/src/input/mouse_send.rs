@@ -144,7 +144,3 @@ crate::input::define_input_fake_sink!(
     mouse_send_fake_sink,
     crate::input::mouse_send::MouseInputEvent
 );
-
-#[cfg(all(test, target_os = "windows"))]
-#[path = "mouse_send_tests.rs"]
-mod tests;

@@ -205,24 +205,6 @@ fn headed_policy_allows_physical_rung() {
 }
 
 #[test]
-fn continue_after_unverified_delivery_runs_next_rung() {
-    let mut steps = Vec::new();
-    assert!(!record_step_outcome(
-        &mut steps,
-        "ValuePattern.SetValue",
-        DeliveryOutcome::DeliveredUnverified,
-        true,
-    ));
-    assert!(!record_step_outcome(
-        &mut steps,
-        "RangeValuePattern.SetValue",
-        DeliveryOutcome::NotDelivered,
-        true,
-    ));
-    assert_eq!(steps.len(), 2);
-}
-
-#[test]
 fn non_idempotent_chain_stops_after_unverified_delivery() {
     let mut steps = Vec::new();
     assert!(record_step_outcome(
@@ -248,6 +230,7 @@ fn exhaustion_after_unverified_delivery_reports_delivered_unverified() {
         DeliveryOutcome::NotDelivered,
         true,
     ));
+    assert_eq!(steps.len(), 2);
     assert_eq!(
         exhaustion_disposition(&steps),
         DeliverySemantics::delivered_unverified()
