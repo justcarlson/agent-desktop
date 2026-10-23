@@ -1,6 +1,7 @@
 mod app_window;
 mod clipboard;
 mod cursor_overlay;
+mod disposition;
 mod interaction;
 mod keyboard_mouse;
 mod notifications;
@@ -17,6 +18,9 @@ mod test_support;
 #[cfg(test)]
 mod cursor_overlay_lifecycle_tests;
 
+#[cfg(test)]
+mod disposition_tests;
+
 use agent_desktop_core::{
     AppError, CursorOverlayControl, PermissionReport, PlatformAdapter, commands,
     context::CommandContext,
@@ -26,6 +30,17 @@ use serde_json::Value;
 use crate::cli::Commands;
 
 pub(crate) fn dispatch(
+    cmd: Commands,
+    adapter: &dyn PlatformAdapter,
+    permission_report: &PermissionReport,
+    context: &CommandContext,
+) -> Result<Value, AppError> {
+    let read_only = !cmd.is_mutating();
+    dispatch_command(cmd, adapter, permission_report, context)
+        .map_err(|error| disposition::settle_unknown_delivery(error, read_only))
+}
+
+fn dispatch_command(
     cmd: Commands,
     adapter: &dyn PlatformAdapter,
     permission_report: &PermissionReport,
