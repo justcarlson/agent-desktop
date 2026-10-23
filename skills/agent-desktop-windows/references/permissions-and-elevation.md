@@ -33,12 +33,13 @@ elevated Notepad):
 - **Fix:** run agent-desktop from a terminal elevated to the target's level,
   or act on elements that do not cross the boundary.
 
-### When the Integrity Level Is Unreadable
+### Detection Is a Token Read, Never a SendInput Verdict
 
-A target whose integrity level the process cannot read is not assumed to be
-same-or-lower. The action proceeds best-effort, and only a re-read of the
-effect tells delivered from silently dropped, because `SendInput` reports
-success either way.
+`SendInput`'s return value proves nothing: it reports success whether or not
+the events landed. Only the token comparison above, or a re-read of the effect,
+tells delivered from silently dropped. A target whose integrity level the
+process cannot read is not assumed to be same-or-lower: the action proceeds
+best-effort and is judged by re-reading its effect.
 
 ## Window Activation Crosses the Boundary
 

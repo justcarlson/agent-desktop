@@ -196,10 +196,11 @@ agent-desktop session end "$AGENT_DESKTOP_SESSION"
 
 ## Anti-patterns
 
-The core skill already states the rules on refs, waits, overlays, headed mode and retries. These are the other common mistakes:
+The core skill already states the rules on refs, waits, headed mode and retries. These are the other common mistakes:
 
 1. **Full snapshots of a dense app.** Use `--skeleton` and `--root`, and re-drill only the region that changed. A full tree costs far more tokens.
 2. **Coordinates when a ref exists.** Semantic actions are more reliable than coordinate clicks.
 3. **Skipping `status` and `permissions`.** A missing permission looks like an empty tree.
-4. **Hand-rolled CDP.** Use a real CDP client. Raw WebSocket scripts and app-internal APIs break silently and verify nothing.
-5. **Parallel writers on one editor.** Click-to-edit, type and commit are not atomic. Serialize the sequence, and after an uncertain delivery read the state before you act.
+4. **Window snapshot while an overlay is open.** Snapshot the surface instead.
+5. **Hand-rolled CDP.** Use a real CDP client. Raw WebSocket scripts and app-internal APIs break silently and verify nothing.
+6. **Parallel writers on one editor.** Click-to-edit, type and commit are not atomic. Serialize the sequence, and after an uncertain delivery read the state before you act.
