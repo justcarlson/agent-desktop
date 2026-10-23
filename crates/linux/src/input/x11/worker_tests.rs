@@ -7,7 +7,8 @@ use crate::input::x11::fake_sink::{FakeSink, Recorded, deadline, events, run};
 #[test]
 fn text_chunks_read_fresh_state_without_keyboard_mapping_or_pointer_geometry() {
     let fake = FakeSink::new();
-    let plans = crate::input::text_plan::plan_text(&fake.world().keymap, &"a".repeat(65)).unwrap();
+    let plans = crate::input::keyboard::text_plan::plan_text(&fake.world().keymap, &"a".repeat(65))
+        .unwrap();
     let mut chunks = 0;
     let error = run(
         &fake,
@@ -37,7 +38,7 @@ fn text_chunks_read_fresh_state_without_keyboard_mapping_or_pointer_geometry() {
 #[test]
 fn keyboard_state_changed_after_planning_refuses_before_the_first_key() {
     let fake = FakeSink::new();
-    let plans = crate::input::text_plan::plan_text(&fake.world().keymap, "a").unwrap();
+    let plans = crate::input::keyboard::text_plan::plan_text(&fake.world().keymap, "a").unwrap();
     let error = run(
         &fake,
         plans,
@@ -301,7 +302,7 @@ fn owned_sticky_input_is_reported_without_claiming_bystander_input() {
 
 #[test]
 fn the_worker_runs_the_planned_hold_between_the_keys_and_the_restore() {
-    use crate::input::keymap_edit::KeymapEdit;
+    use crate::input::keyboard::keymap_edit::KeymapEdit;
     use std::time::Instant;
     let fake = FakeSink::new();
     let typed = Plan {

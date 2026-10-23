@@ -6,7 +6,7 @@ use serde_json::json;
 use super::chain::{DeliveryOutcome, Observed};
 use super::click::{POLL_STEP, invoke_verb, names_of, poll_until, refusal, run_single_rung};
 use super::context::Target;
-use super::mutation::WriteReply;
+use super::write::mutation::WriteReply;
 use crate::tree::capabilities::action_names::toggle_verbs;
 use crate::tree::capabilities::action_read::NodeView;
 use crate::tree::capabilities::capability_rules::carries_checked;

@@ -9,7 +9,7 @@ use agent_desktop_core::{
 use super::command_runner::{CommandRunner, RunOutcome, RunSpec};
 use super::delivery::{fresh_deadline, not_delivered, unresponsive};
 use super::formats::{PNG, TEXT_UTF8, URI_LIST};
-use super::owner_spawn_spec::protect_lease_descriptor;
+use super::owner::owner_spawn_spec::protect_lease_descriptor;
 use super::payload::payload_of;
 use super::targets::{choose_target, content_of};
 use super::wayland_errors::{Failure, classify, failure_error};

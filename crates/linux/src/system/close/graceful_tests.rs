@@ -5,7 +5,7 @@ use super::super::fake::{Fake, dialog, window};
 use super::close;
 use crate::system::process::liveness::Liveness;
 use crate::system::x11::control::ControlRead;
-use crate::system::x11::control_error::ControlError;
+use crate::system::x11::control::control_error::ControlError;
 
 fn request() -> Request<'static> {
     Request {

@@ -9,8 +9,8 @@ use agent_desktop_core::{ClipboardContent, Deadline, DeliverySemantics, ErrorCod
 use rustix::process::{Pid, Signal, kill_process};
 
 use super::*;
-use crate::input::clipboard::owner_files;
-use crate::input::clipboard::owner_record::start_ticks_of;
+use crate::input::clipboard::owner::owner_files;
+use crate::input::clipboard::owner::owner_record::start_ticks_of;
 use crate::input::clipboard::test_nonce::test_nonce;
 use crate::input::clipboard::x11_read::Fault;
 

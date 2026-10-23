@@ -63,7 +63,7 @@ fn a_cursor_overlay_does_not_cover_or_contaminate_window_capture() {
     let window = wait_for_listed(&bus, pid);
     let bounds = window.bounds.expect("window bounds");
     let dir = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("private session");
-    let expected = crate::system::x11::xwd_oracle::xwd_pixel(
+    let expected = crate::system::x11::capture::xwd_oracle::xwd_pixel(
         x_window_id(&window.title),
         bounds.width as usize / 2,
         bounds.height as usize / 2,
@@ -135,7 +135,7 @@ fn a_cursor_overlay_does_not_cover_or_contaminate_window_capture() {
         .check()
         .expect("cover mapped");
     assert_eq!(
-        crate::system::x11::xwd_oracle::xwd_pixel(
+        crate::system::x11::capture::xwd_oracle::xwd_pixel(
             id,
             20,
             20,

@@ -9,8 +9,8 @@ use super::key_session::KeySession;
 use super::layout::refuse_unreachable;
 use super::remote_desktop::{RemoteDesktop, semantic_action_refusal};
 use crate::input::delivery::{Delivery, Gate};
-use crate::input::key_names::KEYSYM_SHIFT_L;
-use crate::input::keysym_step::KeysymStep;
+use crate::input::keyboard::key_names::KEYSYM_SHIFT_L;
+use crate::input::keyboard::keysym_step::KeysymStep;
 
 const RECOVERY_BUDGET_MS: u64 = 1_000;
 const DRAIN: Duration = Duration::from_millis(150);

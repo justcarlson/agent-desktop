@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use agent_desktop_core::DeliverySemantics;
 
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, deadline, run, start_keymap};
 
 #[test]
@@ -43,7 +43,7 @@ fn text_planning_recovers_own_pending_remaps_before_reading_the_keymap() {
         } else {
             let map = map.expect("recovered map");
             assert_eq!(map, start_keymap());
-            let plans = crate::input::text_plan::plan_text(&map, "你").unwrap();
+            let plans = crate::input::keyboard::text_plan::plan_text(&map, "你").unwrap();
             run(&fake, plans, &mut || Ok(()), deadline(5_000), None).unwrap();
             assert_eq!(fake.world().keymap, start_keymap());
             assert!(!dir.join(format!("{}.json", std::process::id())).exists());

@@ -15,7 +15,7 @@ use crate::LinuxAdapter;
 use crate::input::x11::live_tests::private_display;
 use crate::system::SharedBus;
 use crate::system::window::window_id;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
 use crate::tree::AtspiElement;
 

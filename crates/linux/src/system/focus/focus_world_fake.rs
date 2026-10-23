@@ -6,12 +6,12 @@ use crate::system::focus::restore_minimized::Lifted;
 
 use super::*;
 use crate::system::process::process_facts::ProcessFacts;
-use crate::system::x11::desktop_placement::DesktopPlacement;
-use crate::system::x11::stacked_window::StackedWindow;
-use crate::system::x11::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::stacking::stacked_window::StackedWindow;
+use crate::system::x11::stacking::stacking_snapshot::StackingSnapshot;
 use crate::system::x11::twin_tie::Twins;
-use crate::system::x11::window_flags::WindowFlags;
-use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::window::desktop_placement::DesktopPlacement;
+use crate::system::x11::window::window_flags::WindowFlags;
+use crate::system::x11::window::window_kind::WindowKind;
 use crate::system::x11::{FrameExtents, X11Client};
 
 pub(super) const CLIENT: u32 = 0x0040_0003;

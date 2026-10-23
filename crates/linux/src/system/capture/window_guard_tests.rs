@@ -1,6 +1,6 @@
 use super::fakes::*;
 use super::*;
-use crate::system::x11::stacking_read::StackingRead;
+use crate::system::x11::stacking::stacking_read::StackingRead;
 
 fn covering() -> StackingRead {
     snapshot(
@@ -54,7 +54,7 @@ fn a_clear_window_is_a_plain_grab_and_never_a_redirect() {
 
 #[test]
 fn redirect_failures_preserve_the_cause_without_false_focus_advice() {
-    use crate::system::x11::grab_error::GrabError;
+    use crate::system::x11::capture::grab_error::GrabError;
     for (failure, code, reason) in [
         (GrabError::Timeout, ErrorCode::Timeout, None),
         (GrabError::Resource, ErrorCode::ActionFailed, None),
@@ -267,7 +267,7 @@ fn an_image_over_the_pixel_cap_is_refused_before_the_grab() {
 
     let at_cap = rig_with_window_of(8_192);
     *at_cap.grabber.grab_with.lock().expect("grab lock") = Box::new(|_, _| {
-        Ok(raw_of(crate::system::x11::grab_rect::GrabRect {
+        Ok(raw_of(crate::system::x11::capture::grab_rect::GrabRect {
             x: 0,
             y: 0,
             width: 16,

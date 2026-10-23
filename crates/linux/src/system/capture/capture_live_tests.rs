@@ -81,7 +81,7 @@ fn grab_live_the_capture_permission_follows_the_session() {
     use crate::system::display::display_server::detect;
     use crate::system::display::route::resolve;
     use crate::system::permissions::{CaptureAvailability, capture_availability};
-    use crate::system::x11::grab::DisplayGrabber;
+    use crate::system::x11::capture::grab::DisplayGrabber;
 
     let _display = assert_private_display();
     let deadline = Deadline::after(10_000).expect("a deadline builds");
@@ -110,7 +110,7 @@ fn grab_live_a_stopped_window_is_app_unresponsive() {
     use crate::system::capture::window::capture;
     use crate::system::capture::window_context::real_decode;
     use crate::system::x11::DisplayReader;
-    use crate::system::x11::grab::DisplayGrabber;
+    use crate::system::x11::capture::grab::DisplayGrabber;
 
     let _display = assert_private_display();
     let bus = SharedBus::default();

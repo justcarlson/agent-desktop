@@ -6,7 +6,7 @@ use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::shell::container::MENU;
 use crate::system::window::window_position::{origin_of_client, rect_of_client};
 use crate::system::x11::map::ClientMatch;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::client_among_twins;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, shell, within};

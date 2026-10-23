@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, NativeHandle, tree::state};
 use zbus::Connection;
 
-use crate::actions::mutation::Corroboration;
+use crate::actions::write::mutation::Corroboration;
 use crate::system::{ACCESSIBLE_INTERFACE, SharedBus, within};
 use crate::tree::live_read::{read_live, with_reader};
 use crate::tree::observe::node_evidence::NodeEvidence;

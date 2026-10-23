@@ -3,7 +3,7 @@ use crate::system::process::process_facts::ProcessFacts;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::registry::registry_app::assemble;
 use crate::system::window::window_listing::collect;
-use crate::system::x11::desktops::Desktops;
+use crate::system::x11::window::desktops::Desktops;
 use crate::tree::live::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field};
 
@@ -317,7 +317,7 @@ fn tied_windows_whose_clients_differ_in_shadow_keep_the_rectangle_they_reported(
 }
 
 fn on_desktop(current: u32, window_on: u32) -> Desktops {
-    use crate::system::x11::desktop_placement::DesktopPlacement;
+    use crate::system::x11::window::desktop_placement::DesktopPlacement;
     Desktops {
         current: Some(current),
         placements: vec![(7, DesktopPlacement::On(window_on))],

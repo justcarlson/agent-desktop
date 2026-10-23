@@ -4,7 +4,7 @@ use x11rb::protocol::shape::{ConnectionExt as _, SK};
 use x11rb::protocol::xproto::*;
 
 use super::*;
-use crate::system::x11::xwd_oracle::xwd_pixel;
+use crate::system::x11::capture::xwd_oracle::xwd_pixel;
 
 fn update(control: &CursorOverlayControl) -> Result<(), AdapterError> {
     crate::LinuxAdapter::new().update_cursor_overlay(control)

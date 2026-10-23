@@ -4,7 +4,7 @@ use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use std::sync::Arc;
 
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
 use crate::input::x11::fake_sink::{

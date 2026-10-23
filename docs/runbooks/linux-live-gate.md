@@ -61,8 +61,8 @@ Changed owners map to these ignored live modules:
 
 | Changed owner | Ignored live modules |
 | --- | --- |
-| Keyboard focus and shared focus proof | `tree::live::physical_live_tests`, `tree::live::physical_live_apps_tests`, `actions::live_widget_tests` |
-| Selection and ref recovery | `actions::live_select_tests`, `actions::live_widget_tests`, `tree::live::navigate_live_tests` |
+| Keyboard focus and shared focus proof | `tree::live::physical_live_tests`, `tree::live::physical_live_apps_tests`, `actions::live::live_widget_tests` |
+| Selection and ref recovery | `actions::live::live_select_tests`, `actions::live::live_widget_tests`, `tree::live::navigate_live_tests` |
 | Menu resolution and modal routing | `system::menu::menu_surface_live_tests`, `system::menu::menu_wait_live_tests` |
 | Notification cleanup lease | `notifications::live_tests` (Mutter only) |
 

@@ -2,7 +2,7 @@
 title: A matching window rectangle can be mid-animation
 date: 2026-10-20
 category: runtime-errors
-module: crates/linux/src/system/window/window_op.rs, crates/linux/src/system/window/window_op_hold.rs, crates/linux/src/system/window/window_op_shadow.rs
+module: crates/linux/src/system/window/window_op/mod.rs, crates/linux/src/system/window/window_op/window_op_hold.rs, crates/linux/src/system/window/window_op/window_op_shadow.rs
 problem_type: runtime_error
 component: tooling
 symptoms:
@@ -44,8 +44,8 @@ The verdict is about a requested state that survives a measured interval, not a 
 
 ## Prevention
 
-- Preserve both controls in `crates/linux/src/system/window/window_op_settle_tests.rs`: a move seen only in passing must fail, and a matching move without time for the full pause must remain unverified. A late confirmation must report its latest rectangle.
-- Keep shadow conversion and clamped-error coverage in `crates/linux/src/system/window/window_op_shadow_world_tests.rs`.
+- Preserve both controls in `crates/linux/src/system/window/window_op/window_op_settle_tests.rs`: a move seen only in passing must fail, and a matching move without time for the full pause must remain unverified. A late confirmation must report its latest rectangle.
+- Keep shadow conversion and clamped-error coverage in `crates/linux/src/system/window/window_op/window_op_shadow_world_tests.rs`.
 - Verify under openbox and private mutter, with GTK3 and GTK4, using independent X11 geometry and the shadow conversion. A manager without client-side shadows cannot exercise the conversion defect.
 
 ## Related Issues

@@ -1,9 +1,9 @@
 use super::hit_guard::admits;
-use crate::system::x11::desktop_placement::DesktopPlacement;
-use crate::system::x11::stacked_window::StackedWindow;
-use crate::system::x11::stacking_decode::frame_rectangle;
-use crate::system::x11::stacking_snapshot::StackingSnapshot;
-use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::stacking::stacked_window::StackedWindow;
+use crate::system::x11::stacking::stacking_decode::frame_rectangle;
+use crate::system::x11::stacking::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::window::desktop_placement::DesktopPlacement;
+use crate::system::x11::window::window_kind::WindowKind;
 use crate::tree::Extents;
 
 /// What the stacking order says about a point of the target's window.

@@ -4,7 +4,7 @@ use agent_desktop_core::DeliverySemantics;
 
 use super::HeldJournal;
 use crate::input::held_input::HeldInput;
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, Recorded};
 
 fn scratch(name: &str) -> PathBuf {

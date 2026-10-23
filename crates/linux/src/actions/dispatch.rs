@@ -10,11 +10,11 @@ use super::disclosure::set_expanded;
 use super::focus::focus;
 use super::physical_target::deliver;
 use super::process_check::verify_process;
-use super::scroll_wrap::scroll_to;
+use super::scroll::scroll_wrap::scroll_to;
 use super::select::select;
-use super::select_pointer::{LivePointer, Pointer};
+use super::select::select_pointer::{LivePointer, Pointer};
 use super::toggle_state::toggle;
-use super::value_write::{clear, set_value, type_text};
+use super::write::value_write::{clear, set_value, type_text};
 use crate::system::SharedBus;
 use crate::tree::{AtspiElement, atspi_element};
 

@@ -155,7 +155,7 @@ fn a_safe_keyboard_refusal_is_reported_before_semantic_fallback() {
     use agent_desktop_core::{ActionStepOutcome, StepMechanism};
     let result = super::physical_first(
         || {
-            Err(crate::input::keymap::Keymap {
+            Err(crate::input::keyboard::keymap::Keymap {
                 modifiers: 2,
                 ..Default::default()
             }

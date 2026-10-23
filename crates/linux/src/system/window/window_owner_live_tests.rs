@@ -1,5 +1,5 @@
 use super::*;
-use crate::system::x11::window_facts::read_facts;
+use crate::system::x11::control::window_facts::read_facts;
 
 #[test]
 #[ignore = "requires an owned GTK window in a private X11 session"]

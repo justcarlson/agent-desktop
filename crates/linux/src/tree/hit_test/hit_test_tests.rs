@@ -1,8 +1,8 @@
 use super::*;
-use crate::system::x11::desktop_placement::DesktopPlacement;
-use crate::system::x11::stacked_window::StackedWindow;
-use crate::system::x11::window_flags::WindowFlags;
-use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::stacking::stacked_window::StackedWindow;
+use crate::system::x11::window::desktop_placement::DesktopPlacement;
+use crate::system::x11::window::window_flags::WindowFlags;
+use crate::system::x11::window::window_kind::WindowKind;
 use crate::system::x11::{FrameExtents, X11Client};
 use crate::tree::hit_test::hit_descent::Described;
 use crate::tree::hit_test::hit_descent::tests::{FakeNodes, el};

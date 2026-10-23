@@ -3,9 +3,9 @@ use serde_json::json;
 
 use super::Request;
 use super::standing::Standing;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::toplevel::Toplevel;
-use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::window::toplevel::Toplevel;
+use crate::system::x11::window::window_kind::WindowKind;
 
 const RESIDENT: &str = "The app has no open window and may stay resident after its last window closes. Use --force to end the process.";
 const PROMPT: &str = "A prompt, such as one asking to save, may be open. Answer it in the app, or use --force, which discards unsaved work.";

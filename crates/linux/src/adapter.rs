@@ -190,7 +190,12 @@ impl ObservationOps for LinuxAdapter {
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
         let handle = self.resolve_element_strict(entry, deadline)?;
-        crate::input::target_pointer::confirm_receiver(self.bus(), &handle, &point, deadline)
+        crate::input::physical::target_pointer::confirm_receiver(
+            self.bus(),
+            &handle,
+            &point,
+            deadline,
+        )
     }
 
     fn list_windows(
@@ -285,7 +290,7 @@ impl ActionOps for LinuxAdapter {
         handle: &NativeHandle,
         lease: &InteractionLease,
     ) -> Result<Option<NativeHandle>, AdapterError> {
-        crate::actions::scroll_ref::scroll(self.bus(), entry, handle, lease)
+        crate::actions::scroll::scroll_ref::scroll(self.bus(), entry, handle, lease)
     }
 
     fn execute_action(

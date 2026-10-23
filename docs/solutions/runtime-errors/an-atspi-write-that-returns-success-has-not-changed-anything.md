@@ -2,7 +2,7 @@
 title: An AT-SPI write that returns success has not changed anything
 date: 2026-10-19
 category: runtime-errors
-module: crates/linux/src/actions/write_call.rs, crates/linux/src/actions/mutation.rs, crates/linux/src/actions/text_write.rs, crates/linux/src/actions/numeric_write.rs, crates/linux/src/actions/secure_write.rs, crates/linux/src/tree/capabilities/action_read.rs
+module: crates/linux/src/actions/write/write_call.rs, crates/linux/src/actions/write/mutation.rs, crates/linux/src/actions/write/text_write.rs, crates/linux/src/actions/write/numeric_write.rs, crates/linux/src/actions/write/secure_write.rs, crates/linux/src/tree/capabilities/action_read.rs
 problem_type: runtime_error
 component: atspi-write-path
 symptoms:

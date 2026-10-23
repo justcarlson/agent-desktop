@@ -7,9 +7,9 @@ use zbus::Connection;
 
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::process::toolkit_id::ToolkitId;
-use crate::system::x11::frame_window::FrameWindow;
 use crate::system::x11::stacking::frame_window_state;
-use crate::system::x11::window_x11_state::WindowX11State;
+use crate::system::x11::window::frame_window::FrameWindow;
+use crate::system::x11::window::window_x11_state::WindowX11State;
 use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, shell, within};
 use crate::tree::placement::Placement;

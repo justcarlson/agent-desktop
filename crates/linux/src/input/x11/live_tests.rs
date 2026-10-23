@@ -5,7 +5,7 @@ use agent_desktop_core::Deadline;
 
 use super::live_remap_tests::observed_keymap;
 use super::session::run;
-use crate::input::keymap::Keymap;
+use crate::input::keyboard::keymap::Keymap;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
 

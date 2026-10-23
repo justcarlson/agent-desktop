@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, NativeHandle, Rect};
 
 use super::*;
-use crate::system::x11::window_x11_state::WindowX11State;
+use crate::system::x11::window::window_x11_state::WindowX11State;
 use crate::tree::element::ancestry;
 use crate::tree::live::test_support::{read_of, words};
 use crate::tree::observe::node_evidence::evidence_for;

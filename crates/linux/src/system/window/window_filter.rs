@@ -140,7 +140,7 @@ pub(in crate::system) fn without_helpers(
 ) -> Result<Vec<listed_window::ListedWindow>, agent_desktop_core::AdapterError> {
     use crate::system::display::display_server::session_server;
     use crate::system::x11::{
-        DisplayReader, X11Source, X11State, control, window_kind::WindowKind,
+        DisplayReader, X11Source, X11State, control, window::window_kind::WindowKind,
     };
     deadline.ensure_remaining()?;
     if windows.iter().all(|window| window.unshown) {

@@ -7,10 +7,10 @@ use serde_json::json;
 
 use super::backend::{Backend, backend};
 use super::delivery::{Delivery, Gate};
-use super::drag_plan::plan_drag;
-use super::keysym_step::KeysymStep;
+use super::keyboard::keysym_step::KeysymStep;
+use super::mouse::drag_plan::plan_drag;
+use super::mouse::pointer_report::with_event_count;
 use super::plan::Plan;
-use super::pointer_report::with_event_count;
 use super::wayland::keysym_send;
 use super::x11::{mouse_send, session};
 

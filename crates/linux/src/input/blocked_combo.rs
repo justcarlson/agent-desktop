@@ -5,7 +5,7 @@ const LAST_VIRTUAL_TERMINAL_KEYSYM: u32 = 0xffc9;
 const LOWERCASE_OFFSET: u32 = 0x20;
 
 pub(crate) fn is_blocked(combo: &KeyCombo) -> bool {
-    let Ok(key) = super::key_names::keysym_for_key(&combo.key).map(fold_case) else {
+    let Ok(key) = super::keyboard::key_names::keysym_for_key(&combo.key).map(fold_case) else {
         return false;
     };
     let held = |needed: &[Modifier]| {

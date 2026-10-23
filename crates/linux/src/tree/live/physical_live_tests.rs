@@ -8,7 +8,7 @@ use super::live_launch::{Launched, nonce};
 use super::physical_live_rig::{Kit, Scene};
 use super::physical_live_scripts::{GTK3_DRAG, GTK3_GRAB, QT_BUTTON, QT_ENTRY};
 use super::physical_live_x11::{activate, active_window, wait_for_viewable_client, wait_until};
-use crate::input::frame_active::frame_active;
+use crate::input::physical::frame_active::frame_active;
 use crate::input::x11::live_tests::{GTK3, device_state, window_center};
 
 const ENTRY_ROLES: &[&str] = &["textfield", "text", "entry"];

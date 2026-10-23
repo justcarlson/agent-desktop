@@ -1,5 +1,5 @@
 use super::ReleaseGuard;
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::input::x11::fake_sink::{FakeSink, Recorded, start_keymap};
 use crate::input::x11::held_journal::HeldJournal;
 use crate::input::x11::sink_error::SinkError;

@@ -8,8 +8,8 @@ use serde_json::json;
 use super::chain::{ChainDef, DeliveryOutcome, Rung, execute_chain};
 use super::click::{POLL_STEP, observed_of, poll_until};
 use super::context::Target;
-use super::mutation::{WriteKind, WriteReply};
-use super::write_call::{Call, invoke};
+use super::write::mutation::{WriteKind, WriteReply};
+use super::write::write_call::{Call, invoke};
 use crate::tree::COMPONENT_INTERFACE;
 use crate::tree::vocabulary::state_bits::FOCUSED;
 

@@ -1,5 +1,5 @@
 use super::{check_alive, run_step};
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::input::release_guard::ReleaseGuard;
 use crate::input::step::Step;
 use crate::input::x11::fake_sink::{FakeSink, deadline, events};

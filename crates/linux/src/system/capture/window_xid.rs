@@ -6,7 +6,7 @@ use crate::system::registry::read_registry;
 use crate::system::window::listed_twins::listed_client;
 use crate::system::window::window_ops::windows_of;
 use crate::system::x11::map::{ClientMatch, match_client};
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 
 /// What mapping a listed window to the X11 clients of its session found.

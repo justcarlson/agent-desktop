@@ -7,8 +7,8 @@ use agent_desktop_core::{
 };
 
 use crate::actions::physical_target::tests::fake::FakeWorld;
-use crate::input::target_pointer::{ClickSpec, click_steps};
-use crate::system::x11::window_x11_state::WindowX11State;
+use crate::input::physical::target_pointer::{ClickSpec, click_steps};
+use crate::system::x11::window::window_x11_state::WindowX11State;
 use crate::tree::element::ancestry::Ancestry;
 use crate::tree::live::test_support::{read_of, ref_entry, words};
 use crate::tree::live_read::live_project::{live_element, pointer_rect};

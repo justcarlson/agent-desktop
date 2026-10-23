@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
-use crate::input::keysym_step::KeysymStep;
+use crate::input::keyboard::keysym_step::KeysymStep;
 
 const PRINTABLE_ASCII: std::ops::RangeInclusive<u32> = 0x20..=0x7e;
 const FUNCTION_KEYS: std::ops::RangeInclusive<u32> = 0xfe00..=0xffff;

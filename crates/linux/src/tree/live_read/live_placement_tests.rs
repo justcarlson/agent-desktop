@@ -2,7 +2,7 @@ use agent_desktop_core::tree::state;
 
 use super::*;
 use crate::system::process::toolkit_id::ToolkitId;
-use crate::system::x11::window_x11_state::WindowX11State;
+use crate::system::x11::window::window_x11_state::WindowX11State;
 use crate::tree::element::ancestry::{self, Ancestry};
 use crate::tree::live::test_support::{read_of, words};
 use crate::tree::observe::node_evidence::evidence_for;

@@ -5,7 +5,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, PermissionReport, Pe
 use crate::system::SharedBus;
 use crate::system::bus::probe_registry;
 use crate::system::display::route::{Route, current};
-use crate::system::x11::grab::{DisplayGrabber, Grabber};
+use crate::system::x11::capture::grab::{DisplayGrabber, Grabber};
 
 const CAPTURE_PROBE_SLICE: Duration = Duration::from_millis(1_000);
 

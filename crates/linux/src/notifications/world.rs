@@ -2,7 +2,7 @@ use agent_desktop_core::{
     AdapterError, Deadline, InteractionLease, InteractionPolicy, MouseButton, Point, WindowInfo,
 };
 
-use crate::input::target_pointer::click_shell;
+use crate::input::physical::target_pointer::click_shell;
 use crate::system::SharedBus;
 use crate::system::shell::anchor::Anchor;
 use crate::system::shell::container::{Landmark, locate_anchor};

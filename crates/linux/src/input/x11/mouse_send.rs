@@ -1,10 +1,10 @@
 use agent_desktop_core::{AdapterError, InteractionLease, MouseEvent, MouseEventKind};
 
 use super::session;
+use crate::input::mouse::pointer_plan::{plan_click, plan_move};
+use crate::input::mouse::wheel_plan::plan_wheel;
 use crate::input::plan::Plan;
-use crate::input::pointer_plan::{plan_click, plan_move};
 use crate::input::standalone::reject_standalone;
-use crate::input::wheel_plan::plan_wheel;
 
 pub(crate) fn plans_for(
     display: &str,

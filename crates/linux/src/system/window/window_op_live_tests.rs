@@ -7,9 +7,9 @@ use agent_desktop_core::{
 
 use super::window_op::window_op;
 use crate::system::interaction::interaction_lease::acquire;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::control::control_send::{WindowWrite, write_window};
 use crate::system::x11::control::manager_name;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::control_send::{WindowWrite, write_window};
 
 #[path = "window_owner_live_tests.rs"]
 mod owner;

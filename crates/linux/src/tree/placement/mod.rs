@@ -9,7 +9,7 @@ pub(super) mod popup_position;
 use super::Extents;
 use super::surfaces::window_tie::WindowTie;
 use crate::system::process::toolkit_id::ToolkitId;
-use crate::system::x11::window_x11_state::WindowX11State;
+use crate::system::x11::window::window_x11_state::WindowX11State;
 
 /// Where a node sits relative to its window, as far as it could be read.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

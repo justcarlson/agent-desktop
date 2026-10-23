@@ -13,7 +13,7 @@ use super::properties::toolkit_trust::{
 };
 use super::{AtspiElement, Extents, atspi_element};
 use crate::system::process::toolkit_id::ToolkitId;
-use crate::system::x11::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::stacking::stacking_snapshot::StackingSnapshot;
 use crate::system::x11::{FrameFacts, X11Client};
 use crate::system::{SharedBus, shell};
 

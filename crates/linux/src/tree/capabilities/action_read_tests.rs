@@ -1,5 +1,5 @@
 use super::{NodeView, corroboration_of};
-use crate::actions::mutation::Corroboration;
+use crate::actions::write::mutation::Corroboration;
 use crate::system::NAME_HAS_NO_OWNER;
 use crate::tree::capabilities::value_read::ValueRead;
 use crate::tree::live::test_support::{client_timeout, method_error, read_of, words};

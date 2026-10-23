@@ -2,8 +2,8 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::Deadline;
 
-use crate::system::x11::activate::active_window_within;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::control::activate::active_window_within;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
 
 const POLL: Duration = Duration::from_millis(100);
@@ -62,6 +62,11 @@ pub(in crate::tree) fn activate(client: u32) {
         .expect("the client owner");
     let facts = crate::system::process::process_facts::read(pid).expect("the process instance");
     let owner = agent_desktop_core::ProcessIdentity::new(pid, facts.instance);
-    crate::system::x11::control_send::activate_window(client, &owner, read_deadline(), true)
-        .expect("the activation request is sent");
+    crate::system::x11::control::control_send::activate_window(
+        client,
+        &owner,
+        read_deadline(),
+        true,
+    )
+    .expect("the activation request is sent");
 }
