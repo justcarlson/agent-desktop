@@ -27,7 +27,7 @@ function Invoke-ReliabilityScenario {
     Register-Legs -Names @(
         'reliability-stale-ref-after-removal', 'reliability-wait-for-gone-observes-removal',
         'reliability-appear-later-wait-text', 'reliability-appear-later-post-action-selector',
-        'reliability-wait-enabled-delayed-button',
+        'reliability-wait-enabled-delayed-button', 'reliability-stale-ref-contract-and-recovery',
         'errors-invalid-args-bare-ref', 'errors-snapshot-not-found-ghost-snapshot',
         'errors-stale-ref-absent-element-number', 'errors-app-not-found',
         'errors-element-not-found-select-missing-value',
@@ -36,6 +36,7 @@ function Invoke-ReliabilityScenario {
     )
 
     Invoke-RemoveRowLegs -App $App
+    Invoke-StaleRefContractLeg -App $App
     Invoke-AppearLaterLegs -App $App
     Invoke-WaitEnabledLeg -App $App
     Invoke-ErrorEnvelopeLegs -App $App
@@ -78,6 +79,34 @@ function Invoke-RemoveRowLegs {
         Add-Fail -Leg 'reliability-wait-for-gone-observes-removal' -Reason $_.Exception.Message
         Add-Fail -Leg 'reliability-stale-ref-after-removal' -Reason $_.Exception.Message
     }
+}
+
+function Invoke-StaleRefContractLeg {
+    <# A ref taken before a real UI change (remove-row hides removable-row) must fail closed with the full agent-facing contract (STALE_REF, not_delivered, safe to retry, refresh-then-retry recovery), must not have acted (removable-status is read across the whole no-effect window), and the documented recovery (reset, fresh find, retry) must work on the same control. --timeout-ms 0 forces one resolve attempt, the same deterministic form Invoke-RemoveRowLegs uses. The first click is a falsifiability guard: it proves removable-row really drives removable-status before the removal. AMBIGUOUS_TARGET carries no recovery object (output.rs recovery_for_code has no arm for it) and the twin buttons drive no readout, so its disposition is asserted in Observation.ps1 and no NoEffect read exists for it. #>
+    param([Parameter(Mandatory = $true)][string]$App)
+    try {
+        Enter-Stage -Lock DesktopLease -Body {
+            $reset = Require-Target -Target (Find-Target -App $App -NativeId 'reset-removable' -TimeoutSeconds 10) -Description 'reset-removable'
+            Invoke-Target -Target $reset -Action 'click' -RequireOk -Description 'reset-removable' | Out-Null
+            $row = Require-Target -Target (Find-Target -App $App -NativeId 'removable-row' -TimeoutSeconds 10) -Description 'removable-row (pre-removal ref)'
+            $status = Require-Target -Target (Find-Target -App $App -NativeId 'removable-status' -TimeoutSeconds 10) -Description 'removable-status'
+            Assert-Effect -Target $row -StatusTarget $status -Property 'value' -Expected 'row-clicked' -ExpectedIsPrefix -AnyChange -Action 'click' | Out-Null
+            $removeRow = Require-Target -Target (Find-Target -App $App -NativeId 'remove-row' -TimeoutSeconds 10) -Description 'remove-row'
+            Invoke-Target -Target $removeRow -Action 'click' -RequireOk -Description 'remove-row' | Out-Null
+            if (Find-Target -App $App -NativeId 'removable-row' -TimeoutSeconds 2) { throw 'removable-row still resolves after remove-row; the UI change did not happen' }
+
+            $stale = Assert-NoEffect -Target $row -StatusTarget $status -Property 'value' -Action 'click' -ActionArgs @('--timeout-ms', '0')
+            Assert-Envelope -Envelope $stale -ErrorCode 'STALE_REF' -Delivery 'not_delivered' -Retry 'safe'
+            Assert-EnvelopeRecovery -Envelope $stale -Strategy 'refresh_snapshot_then_retry_original'
+
+            $resetAgain = Require-Target -Target (Find-Target -App $App -NativeId 'reset-removable' -TimeoutSeconds 10) -Description 'reset-removable'
+            Invoke-Target -Target $resetAgain -Action 'click' -RequireOk -Description 'reset-removable' | Out-Null
+            $fresh = Require-Target -Target (Find-Target -App $App -NativeId 'removable-row' -TimeoutSeconds 10) -Description 'removable-row (fresh ref)'
+            $statusAgain = Require-Target -Target (Find-Target -App $App -NativeId 'removable-status' -TimeoutSeconds 10) -Description 'removable-status'
+            Assert-Effect -Target $fresh -StatusTarget $statusAgain -Property 'value' -Expected 'row-clicked' -ExpectedIsPrefix -AnyChange -Action 'click' | Out-Null
+        }
+        Add-Pass -Leg 'reliability-stale-ref-contract-and-recovery'
+    } catch { Add-Fail -Leg 'reliability-stale-ref-contract-and-recovery' -Reason $_.Exception.Message }
 }
 
 function Invoke-AppearLaterLegs {

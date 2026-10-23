@@ -160,7 +160,7 @@ function Invoke-ObservationScenario {
            exactly this refusal-tier assertion. #>
         $movedEnvelope = Invoke-Target -Target $staleTwin -Action 'click'
         try {
-            Assert-Envelope -Envelope $movedEnvelope -ErrorCode 'AMBIGUOUS_TARGET'
+            Assert-Envelope -Envelope $movedEnvelope -ErrorCode 'AMBIGUOUS_TARGET' -Delivery 'not_delivered' -Retry 'safe'
             Add-Pass -Leg 'twins-ambiguous-after-move'
         } catch {
             Add-Fail -Leg 'twins-ambiguous-after-move' -Reason $_.Exception.Message
