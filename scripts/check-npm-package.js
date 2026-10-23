@@ -11,7 +11,7 @@ const pkg = require(join(npmDir, 'package.json'));
 const releaseWorkflow = readFileSync(join(root, '.github/workflows/release.yml'), 'utf8');
 const { LINUX_HELPER_NAME, PLATFORMS, tarballName } = require(join(npmDir, 'lib', 'platform.js'));
 const expectedFiles = [
-  'bin/agent-desktop.js',
+  'bin/agent-desktop',
   'lib/platform.js',
   'package.json',
   'scripts/postinstall.js',
@@ -415,8 +415,8 @@ function selfTest() {
 
 selfTest();
 
-if (pkg.bin?.['agent-desktop'] !== 'bin/agent-desktop.js') {
-  throw new Error('npm bin path must be bin/agent-desktop.js');
+if (pkg.bin?.['agent-desktop'] !== 'bin/agent-desktop') {
+  throw new Error('npm bin path must be bin/agent-desktop');
 }
 
 if (pkg.repository?.url !== 'git+https://github.com/lahfir/agent-desktop.git') {

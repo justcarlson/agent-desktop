@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 
 pub struct PermissionsArgs {
     pub request: bool,
+    pub guide: bool,
 }
 
 pub fn execute_with_report(
@@ -16,9 +17,13 @@ pub fn execute_with_report(
     } else {
         report.clone()
     };
-    Ok(json!({
+    let mut data = json!({
         "accessibility": report.accessibility,
         "screen_recording": report.screen_recording,
         "automation": report.automation
-    }))
+    });
+    if args.guide {
+        data["guide"] = json!(adapter.start_permission_guide()?);
+    }
+    Ok(data)
 }

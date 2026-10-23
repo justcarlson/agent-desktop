@@ -24,8 +24,10 @@ class SmokeStagingTests(unittest.TestCase):
                 (root / "scripts").mkdir()
                 shutil.copy(ROOT / "scripts/ci-npm-wrapper-smoke.sh", root / "scripts/")
                 shutil.copytree(ROOT / "npm/lib", root / "npm/lib")
+                shutil.copytree(ROOT / "npm/scripts", root / "npm/scripts")
+                shutil.copy(ROOT / "npm/package.json", root / "npm/")
                 (root / "npm/bin").mkdir()
-                shutil.copy(ROOT / "npm/bin/agent-desktop.js", root / "npm/bin/")
+                shutil.copy(ROOT / "npm/bin/agent-desktop", root / "npm/bin/")
                 installed = [root / "npm/bin" / name, root / "npm/bin" / helper]
                 for binary in installed:
                     binary.write_bytes(b"installed executable sentinel")
@@ -40,7 +42,7 @@ class SmokeStagingTests(unittest.TestCase):
                     (root / "target/release" / helper).write_text("helper")
                 env = dict(os.environ, TMPDIR=str(root))
                 runs = [subprocess.Popen(["bash", "scripts/ci-npm-wrapper-smoke.sh"], cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE) for _ in range(2 if scenario == "overlap" else 1)]
-                results = [(run.communicate(timeout=20), run) for run in runs]
+                results = [(run.communicate(timeout=120), run) for run in runs]
                 for binary in installed:
                     self.assertEqual(binary.read_bytes(), b"installed executable sentinel")
                     self.assertEqual(binary.stat().st_mode & 0o777, 0o751)

@@ -30,6 +30,15 @@ npm install -g --allow-scripts=agent-desktop agent-desktop
 npm config set allow-scripts=agent-desktop --location=user
 ```
 
+pnpm and bun block install scripts by default:
+
+```bash
+pnpm add -g --allow-build=agent-desktop agent-desktop
+bun add -g --trust agent-desktop
+```
+
+On macOS the script also links the package's `agent-desktop` command to the native binary, so the command starts without Node. On Windows the command runs through a small Node wrapper.
+
 Release archives are also on the [releases page](https://github.com/lahfir/agent-desktop/releases). The checksums come from the same release as the archives, so they catch corruption but do not prove origin. Check origin with:
 
 ```bash
@@ -47,7 +56,7 @@ On Linux, also build the clipboard helper with `cargo build --release -p agent-d
 
 ### Permissions
 
-macOS needs Accessibility permission. Screenshots also need Screen Recording, and opening Notification Center needs Automation permission for System Events. `agent-desktop permissions` reports the state without prompting; `agent-desktop permissions --request` asks for what is missing.
+macOS needs Accessibility permission. Screenshots also need Screen Recording, and opening Notification Center needs Automation permission for System Events. `agent-desktop permissions` reports the state without prompting; `agent-desktop permissions --request` asks for what is missing; `agent-desktop permissions --guide` opens System Settings at the missing permission with an on-screen guide that shows what to drag.
 
 Windows needs no grant for apps at your terminal's integrity level. An app running as administrator can be read, but only an elevated agent can send it input. The binary is unsigned, so SmartScreen may warn on a browser download, antivirus may quarantine it, and Smart App Control on a clean Windows 11 install blocks it. The npm install path does not trigger SmartScreen.
 

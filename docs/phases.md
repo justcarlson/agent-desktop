@@ -347,6 +347,7 @@ crates/macos/src/
 - Screen Recording: platform screen-capture preflight/request path
 - Automation: probed against System Events without prompting for `permissions` / `status`; `permissions --request` may prompt through the bounded isolated permission helper. The probe is truthful (Phase 1.6 U4) rather than optimistically assumed.
 - `status`, `permissions`, preflight, and `batch` share the same report; `permissions --request` invokes the request path
+- `permissions --guide` starts a detached copy of the binary as an AppKit accessory process (the cursor-overlay pattern; no separate app). It covers Accessibility and Screen Recording, never calls a prompt API, and opens System Settings by deep link (`com.apple.settings.PrivacySecurity.extension` on macOS 13+, `com.apple.preference.security` before; on macOS 26 the older form lands on the Privacy & Security root, not the list). A floating panel beside the Settings window shows the launching app (the nearest `.app` ancestor of the process, else the binary) as a draggable file URL, and an animated hand drags its icon into the list on a loop; the user does the real drag, because the prompt APIs do not add a new app to either list. Each step polls the grant once a second with a fresh `permissions` subprocess, then advances. A drop that adds no grant within 15 seconds (for example, a cancelled password prompt) brings the drag instructions and the animation back. The done screen tells the user to reopen the launching app when Screen Recording was a step, because a running process does not pick up that grant. One guide runs at a time, "Not Now" closes it, and it exits after ten minutes. The full step sequence, the single-instance lock, "Not Now" and the drop retry were driven on macOS 26 only. Other platforms return `PLATFORM_NOT_SUPPORTED`.
 
 **Notification management:**
 - Open Notification Center through the guarded System Events path to Control Center's Clock item; authorization is probed without prompting before the Apple Event is sent
@@ -3203,7 +3204,7 @@ All Phase 2/3 pins above were recorded at 2026-04 research time; re-verify again
 
 | ID | Risk | Likelihood | Impact | Mitigation |
 |----|------|------------|--------|------------|
-| R1 | macOS TCC friction deters adoption | High | High | Clear first-run guidance. Detect before any op. One-command setup: `permissions --request`. |
+| R1 | macOS TCC friction deters adoption | High | High | Clear first-run guidance. Detect before any op. One-command setup: `permissions --request`, or `permissions --guide` for an on-screen walkthrough of System Settings. |
 | R2 | Electron/Chromium a11y tree gaps on legacy builds | Medium | Medium | Chromium 138+ (Aug 2025) auto-enables native UIA for UIA clients. Detect Chromium windows; re-read past a settle before judging a tree thin, since a first read lands on the pre-activation shell; print `--force-renderer-accessibility` guidance for pre-138/pinned builds or trees still thin afterwards. |
 | R3 | Custom-rendered UIs invisible to a11y | Medium | High | Phase 5 stretch: vision fallback. Short-term: document limitation in README and skills. |
 | R4 | Wayland a11y gaps | Medium | Medium | Focus on GNOME (best AT-SPI2 support). Prefer AT-SPI actions over coordinate input. Document gaps. |

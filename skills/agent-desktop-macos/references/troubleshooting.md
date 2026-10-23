@@ -9,8 +9,8 @@ Each entry is a symptom, its cause, and the fix. Read `error.code`, `error.sugge
 **Cause.** The app that launched agent-desktop has no Accessibility permission (or Screen Recording, for `screenshot` and `session start --screenshots`). The grant belongs to the launching app, not to the shell. A new launcher, such as a different terminal or an IDE, needs its own grant.
 
 **Fix.**
-1. Run `agent-desktop permissions --request`.
-2. Open System Settings > Privacy & Security > Accessibility (or Screen Recording).
+1. Run `agent-desktop permissions --guide`. It opens the correct page in System Settings with a panel that shows what to drag. Without it, run `agent-desktop permissions --request` and open the page yourself.
+2. In System Settings > Privacy & Security > Accessibility (or Screen Recording), drag the launching app into the list if it is not there.
 3. Turn on the launching app. If the built `agent-desktop` binary is listed on its own, turn it on too.
 4. Restart the launching app.
 5. Run `agent-desktop permissions` to confirm `granted`.

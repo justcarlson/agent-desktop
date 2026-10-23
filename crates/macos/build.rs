@@ -10,6 +10,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/system/cursor_overlay_chrome.h");
     println!("cargo:rerun-if-changed=src/system/cursor_overlay_display_bridge.m");
     println!("cargo:rerun-if-changed=src/system/cursor_overlay_image_bridge.m");
+    println!("cargo:rerun-if-changed=src/system/permission_guide_bridge.m");
     println!("cargo:rerun-if-env-changed=TARGET");
     println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
@@ -30,6 +31,7 @@ fn main() {
     let cursor_overlay_chrome_object = out_dir.join("cursor_overlay_chrome_bridge.o");
     let cursor_overlay_display_object = out_dir.join("cursor_overlay_display_bridge.o");
     let cursor_overlay_image_object = out_dir.join("cursor_overlay_image_bridge.o");
+    let permission_guide_object = out_dir.join("permission_guide_bridge.o");
     let archive = out_dir.join("libagent_desktop_launch_bridge.a");
     run(
         Command::new("xcrun")
@@ -145,6 +147,22 @@ fn main() {
     );
     run(
         Command::new("xcrun")
+            .args(["--sdk", "macosx", "clang"])
+            .args(["-fobjc-arc", "-fblocks", "-target", &target])
+            .arg(format!("-mmacosx-version-min={deployment}"))
+            .args([
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-c",
+                "src/system/permission_guide_bridge.m",
+                "-o",
+            ])
+            .arg(&permission_guide_object),
+        "compile Objective-C permission guide bridge",
+    );
+    run(
+        Command::new("xcrun")
             .args(["--sdk", "macosx", "ar", "rcs"])
             .arg(&archive)
             .arg(&object)
@@ -153,7 +171,8 @@ fn main() {
             .arg(&cursor_overlay_object)
             .arg(&cursor_overlay_display_object)
             .arg(&cursor_overlay_chrome_object)
-            .arg(&cursor_overlay_image_object),
+            .arg(&cursor_overlay_image_object)
+            .arg(&permission_guide_object),
         "archive Objective-C launch bridge",
     );
     println!("cargo:rustc-link-search=native={}", out_dir.display());

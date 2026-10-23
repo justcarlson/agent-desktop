@@ -78,7 +78,7 @@ function makeArchive(root, members) {
 function packageCopy() {
   const dir = join(temporaryDirectory(), 'npm');
   mkdirSync(join(dir, 'bin'), { recursive: true });
-  cpSync(join(npmRoot, 'bin', 'agent-desktop.js'), join(dir, 'bin', 'agent-desktop.js'));
+  cpSync(join(npmRoot, 'bin', 'agent-desktop'), join(dir, 'bin', 'agent-desktop'));
   cpSync(join(npmRoot, 'lib'), join(dir, 'lib'), { recursive: true });
   cpSync(join(npmRoot, 'scripts'), join(dir, 'scripts'), { recursive: true });
   cpSync(join(npmRoot, 'package.json'), join(dir, 'package.json'));
@@ -168,11 +168,11 @@ test('a Linux install places the CLI and the helper under their own names and re
     assert.equal(readFileSync(join(binDir, `${file}.sha256`), 'utf8').trim(), sha256(join(binDir, file)));
   }
   assert.deepEqual(binContents(binDir), [
+    'agent-desktop',
     'agent-desktop-linux-clipboard-owner',
     'agent-desktop-linux-clipboard-owner.sha256',
     'agent-desktop-linux-x64',
     'agent-desktop-linux-x64.sha256',
-    'agent-desktop.js',
   ]);
   assert.equal(requests.length, 2);
   assert.match(requests[0], /agent-desktop-v.*-x86_64-unknown-linux-gnu\.tar\.gz$/);
@@ -211,7 +211,7 @@ test('GNU tar without gzip fails the install explicitly and cleans up', {
   assert.equal(code, 1, stderr);
   assert.match(stderr, /gzip: Cannot exec|gzip:.*not found/);
   assert.match(stderr, /Download manually from:/);
-  assert.deepEqual(binContents(binDir), ['agent-desktop.js']);
+  assert.deepEqual(binContents(binDir), ['agent-desktop']);
 });
 
 for (const [name, options, expected] of [
@@ -236,14 +236,14 @@ for (const [name, options, expected] of [
     assert.match(stderr, expected);
     assert.match(stderr, /Download manually from:/);
     assert.match(stderr, /agent-desktop-linux-clipboard-owner/, 'the fallback names the helper destination');
-    assert.deepEqual(binContents(binDir), ['agent-desktop.js'], 'a failed install keeps no archive, checksums, staging or executable');
+    assert.deepEqual(binContents(binDir), ['agent-desktop'], 'a failed install keeps no archive, checksums, staging or executable');
   });
 }
 
 test('the wrapper names the missing native binary when install scripts were disabled', { skip: POSIX_ONLY }, async () => {
   const dir = packageCopy();
   const { code, stderr } = await runScriptWithOsStub(
-    join(dir, 'bin', 'agent-desktop.js'),
+    join(dir, 'bin', 'agent-desktop'),
     'linux',
     'x64',
     ['version'],

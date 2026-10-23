@@ -28,12 +28,12 @@ Read the core skill first (`agent-desktop skills get desktop`) for the observe, 
 
 1. Run `agent-desktop status`. It includes the permission report and the state root.
 2. Run `agent-desktop permissions`. It reports `accessibility`, `screen_recording` and `automation`. Each is `granted`, `denied`, `not_required` or `unknown`. A denied entry carries a `suggestion`.
-3. If a permission is denied, run `agent-desktop permissions --request`. It shows the system prompt.
+3. If a permission is denied, run `agent-desktop permissions --guide`. It opens the correct System Settings page and a small panel next to it. The panel shows the launching app's icon and an animation of the drag into the list. The user drags the icon into the list and confirms with Touch ID or a password, which turns the permission on; the panel moves to the next missing permission by itself. The command returns at once with `"guide": "started"`, `"already_running"` or `"not_needed"`. `agent-desktop permissions --request` shows the system prompts instead.
 4. Open System Settings > Privacy & Security > Accessibility. Turn on the launching app.
 5. Restart the launching app. A running process does not pick up a new grant.
 6. Run `agent-desktop snapshot --app Finder -i` to confirm.
 
-`permissions` does not prompt. `permissions --request` can prompt, including for Automation. Automation reports `unknown` when macOS would need to prompt.
+`permissions` does not prompt. `permissions --request` can prompt, including for Automation. `permissions --guide` does not prompt and covers Accessibility and Screen Recording only. Automation reports `unknown` when macOS would need to prompt.
 
 ## What differs on macOS
 

@@ -52,6 +52,10 @@ fn run_command() -> ExitCode {
         return exit_code;
     }
     #[cfg(target_os = "macos")]
+    if let Some(exit_code) = agent_desktop_macos::permission_guide_from_env() {
+        return ExitCode::from(exit_code);
+    }
+    #[cfg(target_os = "macos")]
     if command_host::is_host_process() {
         init_tracing(false);
         return match command_host::run() {
@@ -124,7 +128,9 @@ fn run() -> ExitCode {
 
     let cmd_name = cmd.name();
     #[cfg(target_os = "macos")]
-    if std::env::var("AGENT_DESKTOP_INTERNAL_HOST_CLIENT").as_deref() == Ok("1") {
+    if std::env::var("AGENT_DESKTOP_INTERNAL_HOST_CLIENT").as_deref() == Ok("1")
+        && !cmd.needs_caller_process()
+    {
         return match command_host::forward(&cli, &cmd) {
             Ok(response) => match emit_response(&response) {
                 Err(error) => report_output_failure(error),

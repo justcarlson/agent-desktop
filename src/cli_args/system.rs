@@ -320,6 +320,12 @@ pub(crate) struct PermissionsArgs {
     )]
     #[serde(default)]
     pub request: bool,
+    #[arg(
+        long,
+        help = "Open System Settings with an on-screen guide for granting the missing permissions (macOS)"
+    )]
+    #[serde(default)]
+    pub guide: bool,
 }
 
 #[cfg(test)]

@@ -25,14 +25,16 @@ digest() {
 
 SOURCE=target/release/agent-desktop
 HELPER_SOURCE="target/release/${HELPER_NAME}"
-PACKAGE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-npm.XXXXXX")
-VERSION_JSON="$PACKAGE_DIR/version.json"
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-npm.XXXXXX")
+PACKAGE_DIR="$WORK/package"
+VERSION_JSON="$WORK/version.json"
 cleanup() {
-  rm -rf -- "$PACKAGE_DIR"
+  rm -rf -- "$WORK"
 }
 trap cleanup EXIT
+TARBALL="$WORK/$(npm pack ./npm --pack-destination "$WORK" --silent)"
 mkdir -p "$PACKAGE_DIR/bin"
-cp npm/bin/agent-desktop.js "$PACKAGE_DIR/bin/"
+cp npm/bin/agent-desktop "$PACKAGE_DIR/bin/"
 cp -R npm/lib "$PACKAGE_DIR/lib"
 
 SOURCE_SHA=$(digest "$SOURCE")
@@ -51,7 +53,7 @@ if [ ! -x "$PACKAGE_DIR/bin/${HELPER_NAME}" ]; then
   echo "NPM smoke helper ${HELPER_NAME} is not executable beside ${NAME}" >&2
   exit 1
 fi
-node "$PACKAGE_DIR/bin/agent-desktop.js" version > "$VERSION_JSON"
+node "$PACKAGE_DIR/bin/agent-desktop" version > "$VERSION_JSON"
 EXPECTED_OS="$EXPECTED_OS" VERSION_JSON="$VERSION_JSON" node -e "
   const out = require('fs').readFileSync(process.env.VERSION_JSON, 'utf8');
   const json = JSON.parse(out);
@@ -69,3 +71,21 @@ if [ "$SOURCE_SHA" != "$(digest "$SOURCE")" ] || \
   echo "NPM smoke executable changed while it was executed" >&2
   exit 1
 fi
+
+PREFIX="$WORK/prefix"
+AGENT_DESKTOP_BINARY_PATH="$ROOT/$SOURCE" npm install -g "$TARBALL" --prefix "$PREFIX" --no-audit --no-fund
+INSTALLED_BIN="$PREFIX/lib/node_modules/agent-desktop/bin"
+if ! [ "$INSTALLED_BIN/agent-desktop" -ef "$INSTALLED_BIN/${NAME}" ]; then
+  echo "Installed bin entry is not the native binary ${NAME}" >&2
+  exit 1
+fi
+PATH="$PREFIX/bin:/usr/bin:/bin" agent-desktop version > "$WORK/installed-version.json"
+EXPECTED_OS="$EXPECTED_OS" node -e "
+  const json = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+  if (json.ok !== true || typeof json.data?.version !== 'string') {
+    throw new Error('installed agent-desktop command did not return version JSON');
+  }
+  if (json.data.os !== process.env.EXPECTED_OS) {
+    throw new Error('installed agent-desktop reported os ' + json.data.os + ', expected ' + process.env.EXPECTED_OS);
+  }
+" "$WORK/installed-version.json"
