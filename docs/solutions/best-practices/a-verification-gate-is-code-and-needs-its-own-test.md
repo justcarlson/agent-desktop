@@ -83,9 +83,8 @@ trustworthy.
 
 ## Solution
 
-The fix that actually closes the loop is not the awk rewrite by itself, it's
-the `self_test()` function added alongside it in
-`scripts/check-no-phase-references.sh`. It carries a committed fixture:
+The fix that closes the loop is the `self_test()` function added alongside the
+awk rewrite in `scripts/check-no-phase-references.sh`. It carries a committed fixture:
 `must_catch` lines including `phase-2.4` and `2.2 ships the seam`, `must_pass`
 lines including `pre-1.0 and sub-1.0`, `v0.5.0`, `"2.1"` on the wire, `1.35x
 against 0.80x`, `a 2.5 ms timeout`, and `uiautomation 0.25.0`, and two
@@ -93,8 +92,7 @@ wrapped-record fixtures whose phrase exists only across a doc-comment line
 break. `self_test()` runs before any scan and fails the whole gate if any set
 misbehaves.
 
-The detail that makes this trustworthy rather than decorative: each rule is
-declared exactly once, and the tree scan and the fixture both invoke that one
+What makes the self-test meaningful is that each rule is declared exactly once, and the tree scan and the fixture both invoke that one
 declaration. The gate has grown to four rule families — `token_rules()` for
 ids and numbered slices, `BARE_REFERENCE_AWK` for a bare `2.4`, `BARE_UNIT_AWK`
 for a bare `U4`, and `PLAN_PROSE_AWK` for authority constructions in prose

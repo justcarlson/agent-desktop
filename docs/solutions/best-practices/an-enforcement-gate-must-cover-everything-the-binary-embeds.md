@@ -25,8 +25,8 @@ reader who does not have the plan open. Probe ledger row ids (`A4-1`) are
 exempt and encouraged, because they cite a measurement that stays true.
 
 `scripts/check-no-phase-references.sh` enforced it over `crates/` and `src/`,
-matching `*.rs`. That is a precise definition of "shipped source" — and it
-was the wrong one.
+matching `*.rs`. That is a precise definition of "shipped source", and it
+was wrong.
 
 ## Problem
 

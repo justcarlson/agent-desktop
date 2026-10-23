@@ -46,8 +46,8 @@ writing the marker to the parent attempting its acquisition — and nothing
 measures that. The loop checks the clock *between* sleeps, so a parent thread
 descheduled for six seconds inside a single `sleep(10ms)` wakes up, sees the
 marker present, exits the loop, and proceeds. By then the child's hold has
-expired and the lock genuinely is free. The assertion is not wrong; the
-precondition it was written against no longer holds.
+expired and the lock genuinely is free. The assertion itself is sound; the
+precondition it relies on does not hold under starvation.
 
 Starvation of that size is ordinary here rather than exotic. The suite runs
 ~1,000 tests across as many threads as cores, and this test's child spawns a
