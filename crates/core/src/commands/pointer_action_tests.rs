@@ -68,9 +68,9 @@ fn point_ref_snapshot() -> String {
             available_actions: vec![capability::CLICK.into()],
         },
         source: crate::RefSource {
-            source_app: None,
-            source_window_id: None,
-            source_window_title: None,
+            source_app: Some("Fixture".into()),
+            source_window_id: Some("w-42".into()),
+            source_window_title: Some("Window".into()),
             source_window_bounds_hash: None,
             source_surface: crate::adapter::SnapshotSurface::Window,
         },
@@ -295,3 +295,6 @@ fn an_unchanged_bounds_hash_after_scroll_stops_the_scroll_retries() {
     );
     assert_eq!(adapter.leases.load(Ordering::SeqCst), 1);
 }
+
+#[path = "pointer_action_focus_tests.rs"]
+mod focus_tests;

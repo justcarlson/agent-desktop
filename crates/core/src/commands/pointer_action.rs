@@ -197,7 +197,7 @@ pub(crate) fn wait_for_point_with_deadline<'a>(
                 if point_requires_scroll(&err)
                     && !(observed.is_some() && observed == last_scrolled_bounds_hash)
                 {
-                    scroll_point_target(&entry, deadline, adapter)?;
+                    scroll_point_target(args, &entry, deadline, adapter, context)?;
                     last_scrolled_bounds_hash = observed;
                     std::thread::sleep(POLL_INTERVAL.min(deadline.remaining()));
                     continue;
@@ -288,11 +288,14 @@ pub(crate) fn retry_leased_point_phase<T>(
 }
 
 fn scroll_point_target(
+    args: crate::commands::point_resolve::PointResolveArgs<'_>,
     entry: &RefEntry,
     deadline: crate::Deadline,
     adapter: &dyn PlatformAdapter,
+    context: &CommandContext,
 ) -> Result<(), AppError> {
     let lease = adapter.acquire_interaction_lease(deadline)?;
+    focus_point_under_lease(args, &lease, adapter, context)?;
     let handle = resolve_handle_within_deadline(adapter, entry, deadline)?;
     adapter.scroll_into_view(&handle, &lease)?;
     Ok(())
