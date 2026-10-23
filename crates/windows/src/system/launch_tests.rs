@@ -47,7 +47,7 @@ fn ambiguous_launch_target_suggestion_names_pids_instead_of_a_ref_retry() {
 /// The `Timeout` arm of [`is_unobservable_within_budget`], mirroring the
 /// `WindowNotFound` arm's tolerance: an already-expired deadline makes
 /// `list_windows_live`'s shared retry budget (`retry_transient_window_race`'s
-/// own `ensure_budget` preamble) refuse before any native enumeration runs,
+/// own `ensure_remaining` preamble) refuse before any native enumeration runs,
 /// so `exact_window` returns `Err(Timeout)` deterministically and needs no
 /// fixture. A launch racing its own deadline must still resolve to "no
 /// window observed" here - the deadline itself is what ends `observe_window`'s

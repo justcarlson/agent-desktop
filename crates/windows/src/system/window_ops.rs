@@ -6,7 +6,6 @@ use agent_desktop_core::{
 #[cfg(target_os = "windows")]
 use super::frame_identity;
 use super::listing_retry::retry_transient_window_race;
-use super::permissions::ensure_budget;
 use super::process_identity;
 use super::window_enum::{EnumeratedWindow, enumerate_top_level};
 use super::window_identity::WindowIdentityEvidence;
@@ -150,7 +149,7 @@ fn list_windows_live_once(
 
     enumerate_top_level(|window| {
         if seen > 0 {
-            if let Err(error) = ensure_budget(deadline) {
+            if let Err(error) = deadline.ensure_remaining() {
                 *failure.borrow_mut() = Some(error);
                 return false;
             }
@@ -264,6 +263,16 @@ pub(crate) fn parse_handle(id: &str) -> super::window_enum::WindowHandle {
         .and_then(|number| number.parse::<usize>().ok())
         .map(|value| value as super::window_enum::WindowHandle)
         .unwrap_or(std::ptr::null_mut())
+}
+
+/// The signed handle a `w-<n>` window id names, or `InvalidArgs` when the id
+/// is not that shape or names the null handle. The strict counterpart of
+/// [`parse_handle`], which maps every malformed id to the null handle.
+pub(crate) fn parse_window_id(id: &str) -> Result<isize, AdapterError> {
+    id.strip_prefix("w-")
+        .and_then(|number| number.parse::<isize>().ok())
+        .filter(|handle| *handle > 0)
+        .ok_or_else(|| AdapterError::new(ErrorCode::InvalidArgs, "Malformed window identifier"))
 }
 
 /// The inverse of [`parse_handle`]: the `WindowInfo.id` a live handle

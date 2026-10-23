@@ -114,7 +114,7 @@ fn read_boolean(
 ) -> Result<bool, AdapterError> {
     prepare(element, deadline)?;
     let result = crate::tree::attributes::copy_bool_attr_result(element, attribute, deadline);
-    ensure_remaining(deadline)?;
+    deadline.ensure_remaining()?;
     match result {
         Ok(Some(value)) => Ok(value),
         Ok(None) => Ok(false),
@@ -134,7 +134,7 @@ fn wait_until(
         if read_boolean(element, attribute, deadline)? {
             return Ok(());
         }
-        ensure_remaining(deadline)?;
+        deadline.ensure_remaining()?;
         if Instant::now() >= local_deadline {
             return Err(
                 AdapterError::timeout(timeout_message).with_details(serde_json::json!({
@@ -151,15 +151,6 @@ fn wait_until(
 #[cfg(target_os = "macos")]
 fn prepare(element: &crate::tree::AXElement, deadline: Deadline) -> Result<(), AdapterError> {
     crate::tree::attributes::set_messaging_timeout(element, deadline)
-}
-
-#[cfg(target_os = "macos")]
-fn ensure_remaining(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 #[cfg(target_os = "macos")]

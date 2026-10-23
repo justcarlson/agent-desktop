@@ -1,21 +1,14 @@
-use agent_desktop_core::{ActionResult, ActionStep, AdapterError, Deadline, StepMechanism};
+#[cfg(test)]
+use agent_desktop_core::ActionStep;
+use agent_desktop_core::{ActionResult, AdapterError, Deadline};
 
 use super::click::{POLL_STEP, observed_of, poll_until};
 use super::context::Target;
 use super::select::SELECT_SETTLE;
-use super::select_pointer::{Pointer, by_pointer_result};
+use super::select_pointer::{Pointer, already_satisfied, by_pointer_result};
 use super::select_search::Hit;
 use super::select_verify::read_verification;
 use crate::tree::AtspiElement;
-
-const POINTER_ROUTE: &str = "XTEST.click";
-
-fn already_selected() -> ActionResult {
-    let step = ActionStep::skipped(POINTER_ROUTE)
-        .with_mechanism(StepMechanism::PhysicalSynthetic)
-        .with_verified(true);
-    ActionResult::satisfied_without_delivery("select").with_steps(vec![step])
-}
 
 /// Clicks `row` unless it is selected already, then waits for its `selected`
 /// state: the click is delivered, and verified only by that state.
@@ -26,7 +19,7 @@ fn click_until_selected(
     mut read: impl FnMut() -> Option<bool>,
 ) -> Result<ActionResult, AdapterError> {
     if read() == Some(true) {
-        return Ok(already_selected());
+        return Ok(already_satisfied());
     }
     let steps = pointer.click(row)?;
     let selected = poll_until(deadline, SELECT_SETTLE, POLL_STEP, read, |selected| {

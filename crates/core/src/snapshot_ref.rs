@@ -31,6 +31,10 @@ pub fn run_from_ref(
 /// existing snapshot - `timeout_ms` is the observation deadline (A16-11),
 /// threaded into both the drill-down read and the strict re-resolution that
 /// precedes it.
+///
+/// A drill-down replaces refs inside an existing snapshot, so it must observe
+/// its whole subtree or leave the stored map untouched. Partial projection is
+/// only safe for a full snapshot, which writes a fresh map and destroys nothing.
 pub fn run_from_ref_with_context(
     adapter: &dyn PlatformAdapter,
     opts: &TreeOptions,
@@ -162,9 +166,6 @@ fn resolve_result_window(
     )
 }
 
-/// A drill-down replaces refs inside an existing snapshot, so it must observe
-/// its whole subtree or leave the stored map untouched. Partial projection is
-/// only safe for a full snapshot, which writes a fresh map and destroys nothing.
 fn count_nodes(node: &crate::AccessibilityNode) -> usize {
     1 + node.children.iter().map(count_nodes).sum::<usize>()
 }

@@ -22,7 +22,6 @@ use std::time::{Duration, Instant};
 
 #[cfg(target_os = "windows")]
 use crate::actions::mutation::{classify_success, classify_write};
-use crate::system::permissions::ensure_budget;
 #[cfg(target_os = "windows")]
 use crate::tree::element::UIAElement;
 #[cfg(target_os = "windows")]
@@ -129,7 +128,7 @@ pub(crate) fn execute_chain(
 ) -> Result<Vec<ActionStep>, AdapterError> {
     let mut steps = Vec::new();
     for rung in rungs.iter_mut() {
-        if let Err(expiry) = ensure_budget(deadline) {
+        if let Err(expiry) = deadline.ensure_remaining() {
             return Err(expiry.with_disposition(exhaustion_disposition(&steps)));
         }
         if !rung_allowed(rung, policy) {

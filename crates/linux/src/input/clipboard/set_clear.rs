@@ -6,6 +6,7 @@ use agent_desktop_core::{
     InteractionLease,
 };
 
+use super::delivery::{fresh_deadline, not_delivered, unresponsive};
 use super::owner_locate::locate_helper;
 use super::owner_record::{self, OwnerRecord};
 use super::owner_signal::{PidfdControl, stop_by_identity};
@@ -20,8 +21,6 @@ use super::x11_requestor::{SelectionServer, X11Server};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::display::route::{self, Route};
 
-const VERIFY_GRACE_MS: u64 = 1_000;
-
 pub(crate) struct Env<'a> {
     pub(crate) helper: &'a Path,
     pub(crate) record_dir: &'a Path,
@@ -30,21 +29,8 @@ pub(crate) struct Env<'a> {
     pub(crate) nonce: &'a str,
 }
 
-fn not_delivered(error: AdapterError) -> AdapterError {
-    error.with_disposition(DeliverySemantics::not_delivered())
-}
-
 fn failed(message: impl Into<String>, disposition: DeliverySemantics) -> AdapterError {
     AdapterError::new(ErrorCode::ActionFailed, message).with_disposition(disposition)
-}
-
-fn unresponsive(message: &str) -> AdapterError {
-    AdapterError::new(ErrorCode::AppUnresponsive, message)
-        .with_disposition(DeliverySemantics::delivered_unverified())
-}
-
-fn fresh_deadline(fallback: Deadline) -> Deadline {
-    Deadline::after(VERIFY_GRACE_MS).unwrap_or(fallback)
 }
 
 fn discard(dir: &Path, display: &str, nonce: &str) {

@@ -133,6 +133,15 @@ impl Deadline {
         self.remaining().is_zero()
     }
 
+    /// Fails with [`Self::timeout_error`] once the deadline has expired.
+    pub fn ensure_remaining(self) -> Result<(), AdapterError> {
+        if self.is_expired() {
+            Err(self.timeout_error())
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn remaining_ms(self) -> u64 {
         let remaining = self.remaining();
         let whole_ms = remaining.as_millis();

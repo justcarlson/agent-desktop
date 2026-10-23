@@ -4,7 +4,6 @@ use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, WindowInfo, WindowOp,
 };
 
-use super::permissions::ensure_budget;
 use super::window_identity::WindowIdentityEvidence;
 use super::window_op_verb::{ShowVerb, verb_is_satisfied};
 use super::window_ops::parse_handle;
@@ -55,7 +54,7 @@ pub(crate) fn window_op_impl(
     op: WindowOp,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    ensure_budget(deadline).map_err(before_write)?;
+    deadline.ensure_remaining().map_err(before_write)?;
     let handle = parse_handle(&win.id);
     if handle.is_null() {
         return Err(before_write(AdapterError::new(
@@ -301,12 +300,12 @@ fn placement_show_cmd(handle: super::window_enum::WindowHandle) -> Result<u32, A
 
 #[cfg(target_os = "windows")]
 fn wait_then_reread(deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline).map_err(after_write)?;
+    deadline.ensure_remaining().map_err(after_write)?;
     let pause = deadline
         .remaining_slice(std::time::Duration::from_millis(PLACEMENT_REREAD_MS))
         .map_err(after_write)?;
     std::thread::sleep(pause);
-    ensure_budget(deadline).map_err(after_write)
+    deadline.ensure_remaining().map_err(after_write)
 }
 
 #[cfg(not(target_os = "windows"))]

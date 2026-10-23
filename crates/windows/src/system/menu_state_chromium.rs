@@ -16,7 +16,6 @@
 
 use agent_desktop_core::{AdapterError, Deadline, ProcessId};
 
-use super::ensure_budget;
 use super::enumerate_top_level;
 
 /// The framework token Chromium's UIA provider reports for its elements,
@@ -31,7 +30,7 @@ pub(super) fn chromium_dom_menu_reachable(
     pid: ProcessId,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let candidates = chromium_menu_candidates(pid)?;
     if candidates.is_empty() {
         return Ok(false);
@@ -41,7 +40,7 @@ pub(super) fn chromium_dom_menu_reachable(
     let condition = chromium_menu_condition(&client)?;
     for (index, handle) in candidates.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         if super::probe_candidate(&client, &condition, handle)? {
             return Ok(true);
@@ -60,7 +59,7 @@ pub(super) fn locate_chromium_dom_menu(
     pid: ProcessId,
     deadline: Deadline,
 ) -> Result<Option<(uiautomation::UIElement, isize)>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let candidates = chromium_menu_candidates(pid)?;
     if candidates.is_empty() {
         return Ok(None);
@@ -70,7 +69,7 @@ pub(super) fn locate_chromium_dom_menu(
     let condition = chromium_menu_condition(&client)?;
     for (index, handle) in candidates.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         if let Some(element) = super::probe_candidate_element(&client, &condition, handle)? {
             return Ok(Some((element, handle)));
@@ -84,7 +83,7 @@ pub(super) fn locate_chromium_dom_menu(
     _pid: ProcessId,
     deadline: Deadline,
 ) -> Result<Option<(uiautomation::UIElement, isize)>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(None)
 }
 
@@ -93,7 +92,7 @@ pub(super) fn chromium_dom_menu_reachable(
     _pid: ProcessId,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(false)
 }
 

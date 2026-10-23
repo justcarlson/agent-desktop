@@ -116,7 +116,7 @@ fn target_window(
 ) -> Result<Option<AXElement>, AdapterError> {
     prepare(element, deadline)?;
     let result = crate::tree::attributes::copy_element_attr_result(element, "AXWindow", deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     result.map_err(|error| read_error("AXWindow", error))
 }
 
@@ -130,7 +130,7 @@ fn wait_for_focused_element(
         if focused_element_matches(expected, pid, deadline)? {
             return Ok(());
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if Instant::now() >= local_deadline {
             return Err(AdapterError::timeout(
                 "Target element did not become focused before keyboard delivery",
@@ -167,21 +167,13 @@ fn focused_element_matches(
     prepare(&app, deadline)?;
     let result =
         crate::tree::attributes::copy_element_attr_result(&app, "AXFocusedUIElement", deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let focused = result.map_err(|error| read_error("AXFocusedUIElement", error))?;
     Ok(focused.is_some_and(|focused| crate::tree::same_element(&focused, expected)))
 }
 
 fn prepare(element: &AXElement, deadline: Deadline) -> Result<(), AdapterError> {
     crate::tree::attributes::set_messaging_timeout(element, deadline)
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 fn read_error(attribute: &str, error: i32) -> AdapterError {

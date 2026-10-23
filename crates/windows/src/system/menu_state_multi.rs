@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use agent_desktop_core::{AdapterError, Deadline, ProcessId};
 
-use super::ensure_budget;
-
 /// [`super::menu_is_open`] for every pid in `pids`, sharing one classic-source
 /// `TH32CS_SNAPTHREAD` snapshot across all of them instead of the one
 /// snapshot per pid that calling [`super::menu_is_open`] in a loop would
@@ -21,22 +19,22 @@ pub(crate) fn menus_open_for(
     pids: &[ProcessId],
     deadline: Deadline,
 ) -> Result<HashMap<ProcessId, bool>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     for &pid in pids {
         super::ensure_process_exists(pid)?;
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let mut results = classic_menu_mode_for_many(pids, deadline)?;
     for &pid in pids {
         if results.get(&pid).copied().unwrap_or(false) {
             continue;
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if super::uia_menu_reachable(pid, deadline)? {
             results.insert(pid, true);
             continue;
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let chromium = super::chromium_dom_menu_reachable(pid, deadline)?;
         results.insert(pid, chromium);
     }
@@ -48,7 +46,7 @@ pub(crate) fn menus_open_for(
     pids: &[ProcessId],
     deadline: Deadline,
 ) -> Result<HashMap<ProcessId, bool>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(pids.iter().map(|&pid| (pid, false)).collect())
 }
 

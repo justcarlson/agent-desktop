@@ -77,7 +77,7 @@ mod imp {
 }
 
 pub(crate) fn report(deadline: Deadline) -> Result<PermissionReport, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     report_from_probed_uia(deadline, imp::probe_uia_access())
 }
 
@@ -90,9 +90,9 @@ fn request_report_with(
     probe: impl FnOnce() -> i32,
     report: impl FnOnce(Deadline, i32) -> Result<PermissionReport, AdapterError>,
 ) -> Result<PermissionReport, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let hresult = probe();
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if matches!(map_uia_access(hresult), PermissionState::Denied { .. }) {
         return Err(uia_access_denied_error(hresult));
     }
@@ -108,7 +108,7 @@ fn report_from_probed_uia(
         screen_recording: screen_recording_report_state(),
         automation: automation_report_state(),
     };
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(report)
 }
 
@@ -144,14 +144,6 @@ fn screen_recording_report_state() -> PermissionState {
 
 fn automation_report_state() -> PermissionState {
     PermissionState::NotRequired
-}
-
-pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 #[cfg(test)]

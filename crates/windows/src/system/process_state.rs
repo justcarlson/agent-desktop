@@ -2,8 +2,6 @@
 use super::hresult::win32_last_error;
 use agent_desktop_core::{AdapterError, Deadline, ProcessIdentity, process_state::ProcessState};
 
-use super::permissions::ensure_budget;
-
 /// Result of one hang-probe pass over a process's top-level windows.
 ///
 /// Decoupled from Win32 so the two-signal threshold (one transient hung
@@ -60,7 +58,7 @@ pub(crate) fn process_state_impl(
     process: ProcessIdentity,
     deadline: Deadline,
 ) -> Result<ProcessState, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if !super::process_identity::matches_instance(process.pid, &process.instance)? {
         return Ok(ProcessState::Exited { code: None });
     }
@@ -112,7 +110,7 @@ fn classify_opened(
     use windows_sys::Win32::Foundation::{WAIT_OBJECT_0, WAIT_TIMEOUT};
     use windows_sys::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject};
 
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let wait = unsafe { WaitForSingleObject(handle, 0) };
     if wait == WAIT_OBJECT_0 {
         let mut code: u32 = 0;
@@ -133,7 +131,7 @@ fn classify_opened(
         return Ok(ProcessState::Running);
     }
     classify_hang(|| {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         probe_windows_once(&windows, deadline)
     })
 }
@@ -145,7 +143,7 @@ fn probe_windows_once(
 ) -> Result<HangProbeResult, AdapterError> {
     for (index, hwnd) in windows.iter().copied().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         if window_is_hung(hwnd, deadline) {
             return Ok(HangProbeResult::Hung);

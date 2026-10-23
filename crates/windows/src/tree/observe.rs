@@ -179,7 +179,7 @@ fn still_thin_after_settle() -> AdapterError {
 fn re_verify_root(root: ObservationRoot<'_>) -> Result<(), AdapterError> {
     match root {
         ObservationRoot::Window(window) => {
-            let handle = hwnd_of(&window.id)?;
+            let handle = crate::system::window_ops::parse_window_id(&window.id)?;
             if !crate::tree::automation::window_exists(handle) {
                 return Err(window_gone());
             }
@@ -206,13 +206,6 @@ fn verify_process_identity(pid: ProcessId, instance: Option<&str>) -> Result<(),
         }
         None => Err(window_identity_changed()),
     }
-}
-
-fn hwnd_of(id: &str) -> Result<isize, AdapterError> {
-    id.strip_prefix("w-")
-        .and_then(|number| number.parse::<isize>().ok())
-        .filter(|handle| *handle > 0)
-        .ok_or_else(|| AdapterError::new(ErrorCode::InvalidArgs, "Malformed window identifier"))
 }
 
 fn window_gone() -> AdapterError {

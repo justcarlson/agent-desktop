@@ -24,6 +24,6 @@ impl ReadView {
             )
             .with_suggestion("Retry with a fresh inventory before acting"));
         }
-        crate::system::ensure_budget(deadline)
+        deadline.ensure_remaining()
     }
 }

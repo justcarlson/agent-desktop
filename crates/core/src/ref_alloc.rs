@@ -130,10 +130,11 @@ pub(crate) fn is_collapsible(node: &AccessibilityNode) -> bool {
 /// - `include_bounds = false` strips `bounds` from every node.
 /// - `compact = true` collapses single-child chains whose own node has
 ///   no semantic payload (same criterion `allocate_refs` uses).
-/// - `interactive_only = true` prunes leaves whose role is not in
-///   `INTERACTIVE_ROLES` and that have no children and no
-///   `children_count` marker. Unlike the ref-allocating variant, the
-///   decision is role-based (no ref_id to check), which matches the FFI
+/// - `interactive_only = true` prunes leaves that are not ref-able (see
+///   `is_ref_able`: an interactive role or an advertised primary action) and
+///   that have no children and no `children_count` marker. Unlike the
+///   ref-allocating variant, the decision uses only the node's role and
+///   available actions (no ref_id to check), which matches the FFI
 ///   contract that refs are never set on raw trees.
 pub fn transform_tree(
     mut node: AccessibilityNode,

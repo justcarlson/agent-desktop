@@ -51,6 +51,13 @@ fn is_zero(v: &usize) -> bool {
     *v == 0
 }
 
+pub(crate) fn empty_trace_dir_error(session_id: &str) -> AppError {
+    AppError::invalid_input_with_suggestion(
+        format!("Session '{session_id}' has an empty trace directory"),
+        "Run `session start` with tracing enabled before recording commands.",
+    )
+}
+
 #[derive(Debug, Clone)]
 pub struct MergedTrace {
     pub events: Vec<Value>,

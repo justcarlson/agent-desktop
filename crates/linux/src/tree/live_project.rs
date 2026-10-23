@@ -1,5 +1,6 @@
+use agent_desktop_core::live_element::incomplete_live_evidence;
 use agent_desktop_core::{
-    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect, state,
+    AdapterError, ElementState, LiveElement, LiveIdentity, LocatorEvidence, Rect, state,
 };
 
 use super::display_bounds::off_every_display;
@@ -10,20 +11,6 @@ use super::placement::Placement;
 use super::state_bits::{SHOWING, StateBits, VISIBLE};
 use super::toolkit_trust::reports_global_position;
 use super::{Extents, Field, ObservedRead};
-
-/// The answer for a live read that left a field the projection needs unread.
-/// It is retryable: the node answered, a field did not.
-pub(crate) fn incomplete_live_evidence() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::AppUnresponsive,
-        "Live element evidence was incomplete",
-    )
-    .with_details(serde_json::json!({
-        "kind": "live_element_evidence",
-        "complete": false,
-        "retryable": true,
-    }))
-}
 
 /// Whether a state read succeeded and neither `VISIBLE` nor `SHOWING` is set.
 /// `SHOWING` alone cannot decide it: on-screen Chromium and Gecko nodes report

@@ -4,15 +4,12 @@
 //! never to the virtual-screen span. Monitor origins may be negative on
 //! multi-monitor desktops; the blit source uses those coordinates as-is.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ImageBuffer, ImageFormat, Rect};
 
 use super::display::display_at;
 pub(crate) use super::gdi_surface::gdi_balance;
 use super::gdi_surface::{self, GdiDcPair};
 use super::hresult::win32_last_error;
-use super::permissions::ensure_budget;
 use super::png_codec::encode_bgra_to_png;
 
 /// Captures the display at the public enumeration index into a PNG buffer.
@@ -23,7 +20,7 @@ pub(crate) fn capture_display_at(
     index: usize,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let display = display_at(index, deadline)?;
     capture_display_bounds(display.bounds, display.scale, deadline)
 }
@@ -33,9 +30,9 @@ pub(super) fn capture_display_bounds(
     scale_factor: f64,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let (width, height, origin_x, origin_y) = display_capture_geometry(bounds)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let pixels = bitblt_screen_bgra(origin_x, origin_y, width, height)?;
     let stride = width
         .checked_mul(4)

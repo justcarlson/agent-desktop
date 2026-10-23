@@ -78,10 +78,8 @@ fn a_refusal_from_the_next_source_is_propagated_rather_than_read_as_no_menu() {
 ///
 /// The source set is read from the calls inside `menu_is_open`'s own body
 /// rather than from the file, so a source that is only mentioned in a doc
-/// comment or left behind as dead code - the module carries
-/// `#![allow(dead_code)]`, so both survive compilation - is not counted, and
-/// an unmapped fourth source fails the match arm below instead of passing
-/// unnoticed.
+/// comment is not counted, and an unmapped fourth source fails the match arm
+/// below instead of passing unnoticed.
 ///
 /// The bound on that: what is read is the calls taking exactly
 /// `(pid, deadline)`, which is the shape every source has and no guard in

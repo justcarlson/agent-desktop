@@ -159,7 +159,7 @@ fn walk(
         .with_details(serde_json::json!({ "complete": false })));
     }
     for child in children(element)? {
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         match control_type(&child)? {
             ControlType::ListItem => {
                 if let Some(entry) = entry_of(&child, group)? {

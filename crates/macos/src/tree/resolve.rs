@@ -1,8 +1,6 @@
 #[cfg(target_os = "macos")]
 use agent_desktop_core::ref_identity::has_meaningful_identity;
-use agent_desktop_core::{
-    AdapterError, DeliverySemantics, ErrorCode, NativeHandle, RefEntry, SnapshotSurface,
-};
+use agent_desktop_core::{AdapterError, ErrorCode, NativeHandle, RefEntry, SnapshotSurface};
 use std::time::{Duration, Instant};
 
 #[cfg(target_os = "macos")]
@@ -52,33 +50,21 @@ pub(crate) fn resolve_locator_anchor_with_deadline(
 fn verify_process_instance(entry: &RefEntry) -> Result<(), AdapterError> {
     super::retained::validate(entry.identity.retained_object.as_deref())?;
     let Some(instance) = entry.process.process_instance.as_deref() else {
-        return Err(stale_evidence_error(
+        return Err(AdapterError::stale_ref_because(
             "Saved target has no process instance identity",
         ));
     };
     let pid = crate::system::process_identity::to_pid_t(entry.process.pid)?;
     match crate::system::process_identity::matches_instance(pid, instance) {
         Ok(true) => Ok(()),
-        Ok(false) => Err(stale_evidence_error(
+        Ok(false) => Err(AdapterError::stale_ref_because(
             "Saved target belongs to a process instance that is no longer running",
         )),
-        Err(error) if error.code == ErrorCode::InvalidArgs => Err(stale_evidence_error(
+        Err(error) if error.code == ErrorCode::InvalidArgs => Err(AdapterError::stale_ref_because(
             "Saved target carries a malformed process instance identity",
         )),
         Err(error) => Err(error),
     }
-}
-
-/// Builds a `STALE_REF` directly from what was observed, rather than through
-/// `AdapterError::stale_ref`, whose parameter is a **ref id** it interpolates
-/// into `"{ref_id} not found in current RefMap"`. None of these three
-/// failures is a missing RefMap entry - the ref was found and read, and it
-/// was the live process evidence that refused it.
-#[cfg(target_os = "macos")]
-fn stale_evidence_error(message: &str) -> AdapterError {
-    AdapterError::new(ErrorCode::StaleRef, message)
-        .with_suggestion("Run 'snapshot' to refresh, then retry with the updated ref.")
-        .with_disposition(DeliverySemantics::not_delivered())
 }
 
 #[cfg(target_os = "macos")]

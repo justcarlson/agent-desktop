@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, SnapshotSurface, WindowInfo,
 };
@@ -8,7 +6,6 @@ pub(crate) use super::shell_surface_kinds::{
     SurfaceDismiss, SurfaceFamily, SurfaceKindRow, SurfaceRaise, row_for,
 };
 
-use super::permissions::ensure_budget;
 #[cfg(target_os = "windows")]
 use super::window_enum::WindowHandle;
 
@@ -29,7 +26,7 @@ pub(super) fn resolve_row(
     row: &SurfaceKindRow,
     deadline: Deadline,
 ) -> Result<Option<WindowInfo>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if !row.exists_on_build {
         return Err(refusal_error(row));
     }

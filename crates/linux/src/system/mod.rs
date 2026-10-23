@@ -23,7 +23,6 @@ pub(crate) use app::app_name::app_name as listed_app_name;
 pub(crate) use bus::bus_deadline::within;
 pub(crate) use bus::bus_fault::{NAME_HAS_NO_OWNER, SERVICE_UNKNOWN};
 pub(crate) use bus::bus_process::{owner_process_id, process_id};
-pub(crate) use bus::ensure_budget;
 pub(crate) use bus::{
     ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, classify, is_connection_failure,
 };

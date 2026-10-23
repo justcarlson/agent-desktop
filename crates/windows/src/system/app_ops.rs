@@ -1,6 +1,5 @@
 use agent_desktop_core::{AdapterError, AppInfo, AppPresentation, Deadline, ProcessId};
 
-use super::permissions::ensure_budget;
 use super::process_identity;
 use super::window_enum::{EnumeratedWindow, enumerate_top_level};
 use super::window_ops::passes_filter;
@@ -99,7 +98,7 @@ fn owning_processes(deadline: Deadline) -> Result<Vec<EnumeratedWindow>, Adapter
     let mut seen = 0usize;
     enumerate_top_level(|window| {
         if seen > 0 {
-            if let Err(error) = ensure_budget(deadline) {
+            if let Err(error) = deadline.ensure_remaining() {
                 *failure.borrow_mut() = Some(error);
                 return false;
             }
@@ -138,7 +137,7 @@ fn owning_processes(_deadline: Deadline) -> Result<Vec<EnumeratedWindow>, Adapte
 /// enumeration when the budget is already spent and checking it again
 /// between the per-window process-handle reads the assembly loop performs.
 pub(crate) fn list_apps_live(deadline: Deadline) -> Result<Vec<AppInfo>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let owners = owning_processes(deadline)?;
     let snapshot = process_snapshot()?;
     let snapshot_by_pid: std::collections::HashMap<u32, &ProcessRow> = snapshot
@@ -150,7 +149,7 @@ pub(crate) fn list_apps_live(deadline: Deadline) -> Result<Vec<AppInfo>, Adapter
     let mut apps = Vec::new();
     for (index, window) in owners.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         let Some((pid, token)) = process_token_of(window.handle) else {
             continue;

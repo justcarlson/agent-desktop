@@ -199,7 +199,7 @@ mod windows_only {
     /// The deadline this entry point accepts is a real budget, not an
     /// ignored parameter. An already-expired deadline must refuse before any
     /// native enumeration runs at all - invert-verifiable by dropping the
-    /// `ensure_budget` preamble in `retry_transient_window_race` and watching
+    /// `ensure_remaining` preamble in `retry_transient_window_race` and watching
     /// this assertion fail as enumeration proceeds anyway.
     #[test]
     fn an_already_expired_deadline_returns_timeout_without_enumerating() {

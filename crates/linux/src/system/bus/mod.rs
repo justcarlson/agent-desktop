@@ -23,14 +23,6 @@ const LISTENED_EVENT: &str = "window:activate";
 pub(crate) const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
 pub(crate) const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 
-pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
-}
-
 pub(crate) fn classify(error: &zbus::Error) -> AdapterError {
     classify_at(Stage::AccessibilityBus, error)
 }
@@ -77,9 +69,9 @@ fn discover_address(deadline: Deadline, reconnect: bool) -> Result<String, Adapt
 }
 
 fn connect(deadline: Deadline, reconnect: bool) -> Result<Connection, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let address = discover_address(deadline, reconnect)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let connection: AsyncConnection = within(deadline, async {
         Builder::address(address.as_str())
             .map_err(|error| classify(&error))?
@@ -125,7 +117,7 @@ pub(crate) fn probe_registry(
     connection: &Connection,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     within(deadline, async {
         connection
             .inner()
@@ -145,7 +137,7 @@ pub(crate) fn probe_registry(
                 classify(&error)
             })
     })?;
-    ensure_budget(deadline)
+    deadline.ensure_remaining()
 }
 
 pub(crate) fn is_connection_failure(error: &zbus::Error) -> bool {

@@ -19,8 +19,6 @@ use windows_sys::Win32::System::DataExchange::{
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{CreateWindowExW, HWND_MESSAGE};
 
-use crate::system::permissions::ensure_budget;
-
 /// Chromium-shaped open budget: a handful of attempts a few milliseconds apart.
 pub(crate) const OPEN_CLIPBOARD_RETRY_ATTEMPTS: u32 = 5;
 pub(crate) const OPEN_CLIPBOARD_RETRY_INTERVAL_MS: u64 = 5;
@@ -57,9 +55,9 @@ impl Drop for ClipboardSession {
 }
 
 fn open_with_owner(owner: HWND, deadline: Deadline) -> Result<ClipboardSession, AdapterError> {
-    ensure_budget(deadline).map_err(not_delivered)?;
+    deadline.ensure_remaining().map_err(not_delivered)?;
     for attempt in 0..OPEN_CLIPBOARD_RETRY_ATTEMPTS {
-        ensure_budget(deadline).map_err(not_delivered)?;
+        deadline.ensure_remaining().map_err(not_delivered)?;
         if unsafe { OpenClipboard(owner) } != 0 {
             return Ok(ClipboardSession { closed: false });
         }

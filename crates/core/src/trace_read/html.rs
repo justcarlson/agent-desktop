@@ -1,4 +1,4 @@
-use super::ReadOptions;
+use super::{ReadOptions, empty_trace_dir_error};
 use crate::AppError;
 use crate::trace_artifacts::read_screenshot_for_embed;
 use base64::Engine;
@@ -151,13 +151,6 @@ pub(crate) fn export_html_for_command(
             returned_events: merged.returned_events,
         },
     ))
-}
-
-fn empty_trace_dir_error(session_id: &str) -> AppError {
-    AppError::invalid_input_with_suggestion(
-        format!("Session '{session_id}' has an empty trace directory"),
-        "Run `session start` with tracing enabled before recording commands.",
-    )
 }
 
 fn embed_screenshots(

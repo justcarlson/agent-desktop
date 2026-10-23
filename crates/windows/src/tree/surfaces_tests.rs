@@ -15,7 +15,7 @@ use super::*;
 #[cfg(target_os = "windows")]
 #[test]
 fn a_malformed_window_id_is_rejected_before_the_platform_is_reached() {
-    let error = window_hwnd("not-a-window").expect_err("must reject");
+    let error = parse_window_id("not-a-window").expect_err("must reject");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
 }
 

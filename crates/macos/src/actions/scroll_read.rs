@@ -11,7 +11,7 @@ pub(crate) fn element(
 ) -> Result<Option<AXElement>, AdapterError> {
     prepare(source, deadline)?;
     let result = crate::tree::attributes::copy_element_attr_result(source, attribute, deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     result.map_err(|error| read_error(attribute, error))
 }
 
@@ -26,7 +26,7 @@ pub(crate) fn children(
         MAX_SCROLL_CHILDREN,
         deadline,
     );
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let children = result
         .map(|children| children.unwrap_or_default())
         .map_err(|error| read_error("AXChildren", error))?;
@@ -47,7 +47,7 @@ pub(crate) fn string(
 ) -> Result<Option<String>, AdapterError> {
     prepare(element, deadline)?;
     let result = crate::tree::attributes::copy_string_attr_result(element, attribute, deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     result.map_err(|error| read_error(attribute, error))
 }
 
@@ -66,7 +66,7 @@ pub(crate) fn number(
         attribute.as_concrete_TypeRef(),
         deadline,
     );
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if error != kAXErrorSuccess {
         return if error == accessibility_sys::kAXErrorNoValue
             || error == accessibility_sys::kAXErrorAttributeUnsupported
@@ -87,14 +87,6 @@ pub(crate) fn number(
 
 fn prepare(element: &AXElement, deadline: Deadline) -> Result<(), AdapterError> {
     crate::tree::attributes::set_messaging_timeout(element, deadline)
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 fn read_error(attribute: &str, error: i32) -> AdapterError {

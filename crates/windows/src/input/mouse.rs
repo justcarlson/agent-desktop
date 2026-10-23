@@ -29,7 +29,6 @@ use crate::input::mouse_send::{
     MouseInputEvent, button_input, move_input, post_mouse_inputs,
 };
 use crate::input::release_state::ReleaseState;
-use crate::system::permissions::ensure_budget;
 
 const WHEEL_DELTA: i32 = 120;
 const WHEEL_SUGGESTION: &str =
@@ -41,7 +40,7 @@ const CLICK_HOLD_DELAY: Duration = Duration::from_millis(10);
 const CLICK_GAP_DELAY: Duration = Duration::from_millis(20);
 
 pub(crate) fn synthesize_mouse(event: MouseEvent, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     event.point.validate()?;
     match event.kind {
         MouseEventKind::Down | MouseEventKind::Up => Err(standalone_state_error()),
@@ -78,7 +77,7 @@ fn dispatch_move(event: &MouseEvent) -> Result<(), AdapterError> {
 }
 
 fn dispatch_click(event: &MouseEvent, count: u32, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let normalized = mouse_coord::normalize_point(&event.point);
     let mut modifiers = press_modifiers(&event.modifiers);
     let result = post_click_sequence(&event.button, normalized, count, deadline);
@@ -101,7 +100,7 @@ fn post_click_sequence(
     let (down_flag, up_flag) = button_flags(button);
     let mut sequence = ReleaseState::default();
     for click_index in 0..count {
-        if let Err(error) = ensure_budget(deadline) {
+        if let Err(error) = deadline.ensure_remaining() {
             return Err(sequence.enrich_error(error, CLICK_SUGGESTION));
         }
         let mut guard = ClickReleaseGuard::new(up_flag);
@@ -175,7 +174,7 @@ fn post_wheel_chunks(
         (MOUSEEVENTF_HWHEEL, x_chunks),
     ] {
         for lines in chunks {
-            if let Err(error) = ensure_budget(deadline) {
+            if let Err(error) = deadline.ensure_remaining() {
                 return Err(delivered.enrich_error(error, WHEEL_SUGGESTION));
             }
             post_mouse_inputs(&[wheel_input(flag, lines)]);
@@ -239,7 +238,7 @@ fn signed_chunks(value: i32) -> Result<Vec<i32>, AdapterError> {
 pub(crate) fn sleep_bounded(deadline: Deadline, duration: Duration) -> Result<(), AdapterError> {
     let capped = deadline.remaining_slice(duration)?;
     std::thread::sleep(capped);
-    ensure_budget(deadline)
+    deadline.ensure_remaining()
 }
 
 /// Shared test fixtures for `mouse_tests.rs`, `mouse_wheel_tests.rs`, and

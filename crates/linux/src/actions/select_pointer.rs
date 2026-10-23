@@ -15,6 +15,7 @@ use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
 const SEMANTIC_ROUTE: &str = "Selection.SelectChild";
+const POINTER_ROUTE: &str = "XTEST.click";
 
 /// The pointer and the keys a headed select uses once no semantic route can
 /// carry it. A headless select has none, so it never holds one.
@@ -56,6 +57,15 @@ impl Pointer for LivePointer<'_> {
         };
         press_key_global_steps(&self.world(), &combo, self.lease.deadline())
     }
+}
+
+/// The answer for a select whose wanted choice is already the one in place:
+/// the pointer click is skipped, and the read-back that showed it verifies it.
+pub(crate) fn already_satisfied() -> ActionResult {
+    let step = ActionStep::skipped(POINTER_ROUTE)
+        .with_mechanism(StepMechanism::PhysicalSynthetic)
+        .with_verified(true);
+    ActionResult::satisfied_without_delivery("select").with_steps(vec![step])
 }
 
 pub(super) fn is_unproven_index(error: &AdapterError) -> bool {

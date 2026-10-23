@@ -1,7 +1,5 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
-use crate::system::permissions::ensure_budget;
-
 #[path = "automation_classify.rs"]
 mod classify;
 
@@ -214,7 +212,7 @@ mod imp {
     /// an already-hung target into a clearer error, sooner, than waiting the
     /// connection timeout out.
     pub fn root_from_hwnd(hwnd: isize, deadline: Deadline) -> Result<UIAElement, AdapterError> {
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let client = automation_client()?;
         if !window_exists(hwnd) {
             return Err(root_resolution_error(UiaFailure::Sentinel(
@@ -228,7 +226,7 @@ mod imp {
         let element = client
             .element_from_handle(Handle::from(hwnd))
             .map_err(|error| root_resolution_error(failure_of(&error)))?;
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         Ok(UIAElement::from(element))
     }
 
@@ -279,7 +277,7 @@ mod imp {
     /// Canned arm so the classifier tests, and every module that calls the
     /// resolver, compile and run on a non-Windows lane.
     pub fn root_from_hwnd(hwnd: isize, deadline: Deadline) -> Result<UIAElement, AdapterError> {
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if hwnd == 0 {
             return Err(root_resolution_error(UiaFailure::Sentinel(
                 super::ERR_NOTFOUND,
@@ -306,7 +304,7 @@ pub use imp::window_exists;
 /// Rejects a window handle that cannot address a window before it reaches the
 /// COM layer, so a null handle is an argument error rather than a COM failure.
 pub fn validate_window_handle(hwnd: isize, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if hwnd == 0 {
         return Err(
             AdapterError::new(ErrorCode::InvalidArgs, "Window handle is empty")

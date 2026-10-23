@@ -8,7 +8,6 @@ use super::window_context::{WindowContext, grab_failure};
 use super::window_obstruction::{Cover, cover};
 use super::window_unit::{Unit, choose};
 use super::window_xid::xid_or_error;
-use crate::system::bus::ensure_budget;
 use crate::system::capture::capture_env::CaptureEnv;
 use crate::system::x11::FrameExtents;
 use crate::system::x11::grab_error::GrabError;
@@ -171,7 +170,7 @@ fn recheck(
     before: &Geometry,
     plain_over: Option<Extents>,
 ) -> Result<(), AdapterError> {
-    ensure_budget(ctx.deadline)?;
+    ctx.deadline.ensure_remaining()?;
     ctx.env.lookup.resolve(&ctx.window, ctx.deadline)?;
     let xid = xid_or_error(ctx.env.lookup.xid(&ctx.window, ctx.deadline))?;
     if xid != ctx.xid {
@@ -210,7 +209,7 @@ pub(crate) fn capture(
             "Refresh the target with 'list-windows', then retry",
         ));
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if (env.stopped)(window.pid.get()) {
         return Err(stopped(window));
     }
@@ -219,7 +218,7 @@ pub(crate) fn capture(
         Err(_) if (env.stopped)(window.pid.get()) => return Err(stopped(window)),
         outcome => outcome?,
     };
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let compositing = env
         .grabber
         .compositing(deadline)
@@ -235,14 +234,14 @@ pub(crate) fn capture(
     let unit = unit_of(&before, ctx.window.bounds, strict_unit)?;
     let (drawable, rect, inset) = target_of(&before, unit, xid);
     let area = grab_rect_of(rect, inset)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let plain = clear(&ctx, rect);
     let raw = if plain {
         env.grabber.grab(drawable, area, deadline)
     } else {
         env.grabber.grab_redirected(drawable, area, deadline)
     };
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let raw = match raw {
         Ok(raw) => raw,
         Err(GrabError::UnprovenPaint) if !plain => return Err(covered()),

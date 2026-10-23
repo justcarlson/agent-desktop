@@ -18,7 +18,6 @@ use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemIntero
 
 use super::capture_d3d::{self, CaptureDevice, resource_balance};
 use super::display::display_at;
-use super::permissions::ensure_budget;
 use super::png_codec::encode_bgra_to_png;
 use super::window_enum::WindowHandle;
 
@@ -34,7 +33,7 @@ pub(crate) fn capture_window(
     scale_factor: f64,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     ensure_supported()?;
     let item = item_for_window(handle)?;
     capture_item(item, scale_factor, deadline)
@@ -44,7 +43,7 @@ pub(crate) fn capture_display(
     index: usize,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     ensure_supported()?;
     let display = display_at(index, deadline)?;
     let monitor = monitor_handle_from_id(&display.id)?;
@@ -68,7 +67,7 @@ fn capture_item(
     scale_factor: f64,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let size = item
         .Size()
         .map_err(|error| wgc_error(error.code().0, "read the capture item size"))?;
@@ -80,7 +79,7 @@ fn capture_item(
     }
 
     let device = CaptureDevice::create()?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let pool = PoolGuard::create(&device.winrt, size)?;
     let session = SessionGuard::create(&pool, &item)?;
     let _ = session.0.SetIsCursorCaptureEnabled(false);
@@ -128,7 +127,7 @@ fn capture_item(
 
 fn wait_for_frame(pool: &PoolGuard, deadline: Deadline) -> Result<FrameGuard, AdapterError> {
     loop {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         #[cfg(test)]
         if hold_frames::is_active() {
             let slice = deadline.remaining_slice(FRAME_POLL_SLICE)?;

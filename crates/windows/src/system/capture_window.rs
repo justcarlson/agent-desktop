@@ -8,14 +8,11 @@
 //! windows-sys binding sits behind Win32_Storage_Xps, which this crate does
 //! not enable.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ImageBuffer, ImageFormat};
 
 pub(crate) use super::gdi_surface::gdi_balance;
 use super::gdi_surface::{self, GdiDcPair};
 use super::hresult::win32_last_error;
-use super::permissions::ensure_budget;
 use super::png_codec::encode_bgra_to_png;
 use super::window_enum::{WindowHandle, window_is_responsive};
 
@@ -46,10 +43,10 @@ pub(crate) fn capture_window(
     scale_factor: f64,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     ensure_handle_alive(handle)?;
     ensure_window_is_pumping(handle)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let (width, height) = window_capture_size(handle)?;
     let pixels = print_window_bgra(handle, width, height)?;
     let stride = width

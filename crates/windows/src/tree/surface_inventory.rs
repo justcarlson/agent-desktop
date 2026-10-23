@@ -35,7 +35,7 @@ pub(crate) fn list_surfaces_for_process(
     process: ProcessIdentity,
     deadline: Deadline,
 ) -> Result<Vec<SurfaceInfo>, AdapterError> {
-    crate::system::permissions::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     require_live_process(&process)?;
     let windows = windows_of(process.pid, deadline)?;
     let observed: Vec<ObservedWindow> = windows
@@ -47,7 +47,7 @@ pub(crate) fn list_surfaces_for_process(
             sheet: is_modal_sheet(window.handle, deadline),
         })
         .collect();
-    crate::system::permissions::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let located = locate_menu(process.pid, deadline);
     let (mut surfaces, menu) = inventory_with_menu(observed, process.pid, located)?;
     if let Some(menu) = menu {
@@ -79,7 +79,7 @@ fn windows_of(pid: ProcessId, deadline: Deadline) -> Result<Vec<EnumeratedWindow
     let mut seen = 0usize;
     enumerate_top_level(|window| {
         if seen > 0 {
-            if let Err(error) = crate::system::permissions::ensure_budget(deadline) {
+            if let Err(error) = deadline.ensure_remaining() {
                 *failure.borrow_mut() = Some(error);
                 return false;
             }

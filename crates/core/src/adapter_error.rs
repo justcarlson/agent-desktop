@@ -308,6 +308,25 @@ mod tests {
     }
 
     #[test]
+    fn stale_ref_because_pins_code_message_suggestion_and_disposition() {
+        let error =
+            AdapterError::stale_ref_because("Saved target has no process instance identity");
+
+        assert_eq!(error.code, ErrorCode::StaleRef);
+        assert_eq!(
+            error.message,
+            "Saved target has no process instance identity"
+        );
+        assert_eq!(
+            error.suggestion.as_deref(),
+            Some("Run 'snapshot' to refresh, then retry with the updated ref.")
+        );
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert!(error.details.is_none());
+        assert!(error.permits_retry_by_default());
+    }
+
+    #[test]
     fn retryability_is_typed_once_and_survives_diagnostic_enrichment() {
         let error = AdapterError::new(ErrorCode::StaleRef, "stale")
             .with_details(serde_json::json!({ "retryable": true }))

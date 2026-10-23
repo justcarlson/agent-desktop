@@ -9,7 +9,6 @@ use super::close_dispatch::CloseDispatch;
 use super::close_outcome::CloseOutcome;
 #[cfg(target_os = "windows")]
 use super::hresult::{adapter_error_from_win32, win32_last_error};
-use super::permissions::ensure_budget;
 use super::process_identity;
 
 const EXIT_POLL: Duration = Duration::from_millis(25);
@@ -39,7 +38,7 @@ fn close_verified(
     force: bool,
     deadline: Deadline,
 ) -> Result<CloseOutcome, AdapterError> {
-    ensure_budget(deadline).map_err(before_termination)?;
+    deadline.ensure_remaining().map_err(before_termination)?;
     if process_observed_gone(app.pid, instance).map_err(before_termination)? {
         return Ok(CloseOutcome::AlreadyGone);
     }
@@ -84,7 +83,7 @@ fn graceful_close(
     instance: &str,
     deadline: Deadline,
 ) -> Result<CloseDispatch, AdapterError> {
-    ensure_budget(deadline).map_err(before_termination)?;
+    deadline.ensure_remaining().map_err(before_termination)?;
     let windows = top_level_windows_for_pid(pid).map_err(before_termination)?;
     if windows.is_empty() {
         return windowless_graceful_fallback(pid, instance, deadline);
@@ -130,7 +129,7 @@ fn broadcast_close(
     let mut delivered = false;
     let mut first_failure = None;
     for hwnd in windows {
-        if ensure_budget(deadline).is_err() {
+        if deadline.ensure_remaining().is_err() {
             if delivered {
                 break;
             }
@@ -165,7 +164,7 @@ fn windowless_graceful_fallback(
     instance: &str,
     deadline: Deadline,
 ) -> Result<CloseDispatch, AdapterError> {
-    ensure_budget(deadline).map_err(before_termination)?;
+    deadline.ensure_remaining().map_err(before_termination)?;
     if process_observed_gone(pid, instance).map_err(before_termination)? {
         return Ok(CloseDispatch::AlreadyGone);
     }
@@ -192,7 +191,7 @@ fn force_terminate(
         TerminateProcess,
     };
 
-    ensure_budget(deadline).map_err(before_termination)?;
+    deadline.ensure_remaining().map_err(before_termination)?;
     if process_observed_gone(pid, instance).map_err(before_termination)? {
         return Ok(CloseDispatch::AlreadyGone);
     }
@@ -255,7 +254,7 @@ fn wait_for_exit(
                 }))
                 .with_disposition(DeliverySemantics::delivered_unverified()));
         }
-        ensure_budget(deadline).map_err(after_termination)?;
+        deadline.ensure_remaining().map_err(after_termination)?;
         let pause = deadline
             .remaining_slice(EXIT_POLL)
             .map_err(after_termination)?;

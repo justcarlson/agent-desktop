@@ -7,7 +7,6 @@ use agent_desktop_core::{
 
 use super::capture_backend::{CaptureSubject, capture_with_precedence};
 use super::display::{capture_selection, display_at, scale_for_bounds, verify_display_identity};
-use super::permissions::ensure_budget;
 use super::window_ops::parse_handle;
 use super::window_resolve::resolve_window_strict;
 
@@ -22,7 +21,7 @@ fn dispatch_target(
     target: ScreenshotTarget,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     match target {
         ScreenshotTarget::Screen(index) => capture_screen(index, deadline),
         ScreenshotTarget::Display { index, expected } => {
@@ -45,7 +44,7 @@ pub(crate) fn capture_screen(
     index: usize,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let expected = display_at(index, deadline)?;
     capture_display(index, &expected, deadline)
 }
@@ -55,15 +54,15 @@ pub(crate) fn capture_display(
     expected: &DisplayInfo,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let (raw_index, current) = capture_selection(expected, deadline)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     verify_display_identity(index, expected, &current)?;
     let captured = capture_with_precedence(CaptureSubject::Display { index: raw_index }, deadline)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if !skip_post_identity() {
         let after = display_at(raw_index, deadline)?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         verify_display_identity(index, &current, &after)?;
     }
     Ok(captured)
@@ -81,7 +80,7 @@ pub(crate) fn capture_window(
         .with_suggestion("Refresh the target with 'list-windows', then retry")
         .with_disposition(DeliverySemantics::not_delivered()));
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let verified = resolve_window_strict(window, deadline)?;
     let handle = parse_handle(&verified.id);
     if handle.is_null() {
@@ -92,7 +91,7 @@ pub(crate) fn capture_window(
         .with_disposition(DeliverySemantics::not_delivered()));
     }
     let scale = scale_for_bounds(verified.bounds, deadline)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let captured = capture_with_precedence(
         CaptureSubject::Window {
             handle,
@@ -100,7 +99,7 @@ pub(crate) fn capture_window(
         },
         deadline,
     )?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if !skip_post_identity() {
         if force_post_identity_failure() {
             return Err(AdapterError::new(

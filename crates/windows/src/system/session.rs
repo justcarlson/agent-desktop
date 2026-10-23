@@ -8,7 +8,7 @@
 use agent_desktop_core::{AdapterError, AdapterSession, Deadline, ErrorCode};
 
 use crate::system::com_runtime::classify_mta_usage_hresult;
-use crate::system::permissions::{com_hresult_detail, ensure_budget};
+use crate::system::permissions::com_hresult_detail;
 
 type MtaUsageRelease = Box<dyn FnOnce(usize) -> i32 + Send + Sync>;
 
@@ -48,7 +48,7 @@ fn open_with(
     acquire: impl FnOnce() -> (i32, usize),
     release: MtaUsageRelease,
 ) -> Result<WindowsAdapterSession, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let (hresult, cookie_address) = acquire();
     classify_mta_usage_hresult(hresult).map_err(mta_usage_acquire_failure)?;
     Ok(WindowsAdapterSession {

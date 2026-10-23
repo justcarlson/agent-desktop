@@ -17,7 +17,6 @@ mod imp {
         ErrorCode, InteractionPolicy, StepMechanism,
     };
     use crate::actions::mutation::{classify_mutation, classify_success};
-    use crate::system::permissions::ensure_budget;
     use crate::tree::automation::{automation_client, failure_of};
     use crate::tree::element::UIAElement;
     use crate::tree::properties::read_one;
@@ -35,7 +34,7 @@ mod imp {
         if !request.policy.is_headed() {
             return Err(headless_denied(request.policy));
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let delivered = invoke_focus(element)?;
         focus_from_delivery(
             request.policy,

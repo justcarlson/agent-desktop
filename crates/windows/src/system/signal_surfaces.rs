@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 use agent_desktop_core::{
@@ -8,7 +6,6 @@ use agent_desktop_core::{
 
 use super::listing_retry::narrow_to_permitted_codes;
 use super::menu_state;
-use super::permissions::ensure_budget;
 use super::window_enum::{WindowHandle, enumerate_top_level};
 use super::window_identity;
 use super::window_ops::passes_filter;
@@ -41,7 +38,7 @@ pub(crate) fn app_scoped_surfaces(
     apps: &[AppInfo],
     deadline: Deadline,
 ) -> Result<Vec<SurfaceSignal>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let targets = identified_targets(apps);
     if targets.is_empty() {
         return Ok(Vec::new());
@@ -118,7 +115,7 @@ fn sheet_surfaces(
     targets: &HashMap<ProcessId, SurfaceTarget<'_>>,
     deadline: Deadline,
 ) -> Result<Vec<SurfaceSignal>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let mut candidates = Vec::new();
     enumerate_top_level(|window| {
         if passes_filter(&window) && has_owner(window.handle) {
@@ -131,7 +128,7 @@ fn sheet_surfaces(
     let mut surfaces = Vec::new();
     for (index, handle) in candidates.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         let Some(pid) = window_identity::live_window_owner(handle) else {
             continue;
@@ -156,7 +153,7 @@ fn sheet_surfaces(
     _targets: &HashMap<ProcessId, SurfaceTarget<'_>>,
     deadline: Deadline,
 ) -> Result<Vec<SurfaceSignal>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(Vec::new())
 }
 

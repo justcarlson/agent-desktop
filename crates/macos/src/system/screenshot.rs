@@ -24,7 +24,7 @@ mod imp {
         deadline: Deadline,
         arguments: impl FnOnce(&Path) -> Result<Vec<OsString>, AdapterError>,
     ) -> Result<ImageBuffer, AdapterError> {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let temp = TempPng::new()?;
         let mut command = Command::new(SCREENCAPTURE);
         command.args(arguments(temp.path())?);
@@ -65,9 +65,9 @@ mod imp {
     }
 
     pub fn capture_screen(index: usize, deadline: Deadline) -> Result<ImageBuffer, AdapterError> {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let expected = crate::system::display::display_at(index, deadline)?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         capture_display(index, &expected, deadline)
     }
 
@@ -76,16 +76,16 @@ mod imp {
         expected: &DisplayInfo,
         deadline: Deadline,
     ) -> Result<ImageBuffer, AdapterError> {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let (raw_index, current) = crate::system::display::capture_selection(expected, deadline)?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         verify_display_identity(index, expected, &current)?;
         let captured = capture(current.scale, deadline, |path| {
             display_args(raw_index, path)
         })?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let after = crate::system::display::display_at_capture_index(raw_index, deadline)?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         verify_display_identity(index, &current, &after)?;
         Ok(captured)
     }
@@ -122,7 +122,7 @@ mod imp {
         )?;
         let window_id = parse_window_id(&verified.id)?;
         let scale = crate::system::display::scale_for_bounds(verified.bounds, deadline)?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let captured = capture(scale, deadline, |path| {
             let mut args = window_args(window_id, path);
             if omit_shadow {
@@ -192,7 +192,7 @@ mod imp {
     }
 
     fn read_png(path: &Path, deadline: Deadline) -> Result<ImageBuffer, AdapterError> {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let file = std::fs::OpenOptions::new()
             .read(true)
             .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW)
@@ -218,7 +218,7 @@ mod imp {
             .read_to_end(&mut data)
             .map_err(|error| AdapterError::internal(format!("read screenshot: {error}")))?;
         validate_png_size(data.len() as u64)?;
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let (width, height) = parse_png_dimensions(&data).ok_or_else(|| {
             AdapterError::new(
                 ErrorCode::ActionFailed,
@@ -323,14 +323,6 @@ mod imp {
         Instant::now()
             .checked_add(remaining)
             .ok_or_else(|| AdapterError::new(ErrorCode::InvalidArgs, "deadline is out of range"))
-    }
-
-    fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-        if deadline.is_expired() {
-            Err(deadline.timeout_error())
-        } else {
-            Ok(())
-        }
     }
 }
 

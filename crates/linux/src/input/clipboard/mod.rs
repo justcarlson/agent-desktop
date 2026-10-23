@@ -1,4 +1,5 @@
 pub(crate) mod command_runner;
+pub(crate) mod delivery;
 pub(crate) mod formats;
 pub(crate) mod incr;
 pub(crate) mod owner_entry;

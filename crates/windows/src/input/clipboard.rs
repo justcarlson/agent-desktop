@@ -28,7 +28,6 @@ use super::clipboard_image::{decode_dib_clipboard, decode_png_clipboard};
 use super::clipboard_session::ClipboardSession;
 use super::clipboard_text::decode_utf16_text;
 use super::clipboard_write::{clear_clipboard as clear_clipboard_write, set_clipboard_content};
-use crate::system::permissions::ensure_budget;
 use crate::system::window_enum::window_is_responsive;
 
 pub(crate) const MAX_CLIPBOARD_PAYLOAD_BYTES: usize = MAX_PNG_INPUT_BYTES;
@@ -47,10 +46,10 @@ pub(crate) fn get_clipboard_content(
     format: ClipboardFormat,
     deadline: Deadline,
 ) -> Result<Option<ClipboardContent>, AdapterError> {
-    ensure_budget(deadline).map_err(not_delivered)?;
+    deadline.ensure_remaining().map_err(not_delivered)?;
     crate::input::clipboard_worker_state::ensure_no_outstanding_worker()?;
     for attempt in 0..SEQUENCE_RETRY_ATTEMPTS {
-        ensure_budget(deadline).map_err(not_delivered)?;
+        deadline.ensure_remaining().map_err(not_delivered)?;
         let before = unsafe { GetClipboardSequenceNumber() };
         ensure_owner_responsive()?;
         let content = read_requested(format, deadline)?;
@@ -194,7 +193,7 @@ pub(crate) fn read_format_bytes(
     format: u32,
     deadline: Deadline,
 ) -> Result<Option<Vec<u8>>, AdapterError> {
-    ensure_budget(deadline).map_err(not_delivered)?;
+    deadline.ensure_remaining().map_err(not_delivered)?;
     crate::input::clipboard_worker_state::ensure_no_outstanding_worker()?;
     let owner = unsafe { GetClipboardOwner() };
     if owner.is_null() {

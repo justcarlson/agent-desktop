@@ -1,7 +1,5 @@
 //! BGRA↔PNG codec backed by WIC and an in-memory `CreateStreamOnHGlobal` stream.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, MAX_PNG_INPUT_BYTES};
 use std::ptr::{null, null_mut};
 
@@ -17,8 +15,6 @@ use windows::Win32::System::Com::{
     CLSCTX_INPROC_SERVER, CoCreateInstance, IStream, STATFLAG_NONAME, STREAM_SEEK_SET,
 };
 
-use super::permissions::ensure_budget;
-
 const MAX_PNG_PIXELS: u64 = 64 * 1024 * 1024;
 const BYTES_PER_PIXEL: u32 = 4;
 
@@ -29,7 +25,7 @@ pub(crate) fn encode_bgra_to_png(
     stride: u32,
     deadline: Deadline,
 ) -> Result<Vec<u8>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let needed = validate_encode_input(pixels, width, height, stride)?;
     encode_bgra_to_png_wic(&pixels[..needed], width, height, stride)
 }
@@ -38,7 +34,7 @@ pub(crate) fn decode_png_to_bgra(
     png: &[u8],
     deadline: Deadline,
 ) -> Result<(Vec<u8>, u32, u32), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     validate_decode_input(png)?;
     decode_png_to_bgra_wic(png)
 }

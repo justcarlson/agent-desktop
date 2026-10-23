@@ -31,7 +31,7 @@ pub(crate) fn request(
     operation: PermissionOperation,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let executable = canonical_current_executable()?;
     let executable_text = executable.to_str().ok_or_else(|| {
         AdapterError::internal("Permission helper executable path is not valid UTF-8")
@@ -219,14 +219,6 @@ fn deadline_instant(deadline: Deadline) -> Result<std::time::Instant, AdapterErr
     std::time::Instant::now()
         .checked_add(deadline.remaining())
         .ok_or_else(|| AdapterError::internal("Permission helper deadline is out of range"))
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 fn response_error(reason: &str) -> AdapterError {

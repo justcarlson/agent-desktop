@@ -22,9 +22,11 @@
 //! target that reports `UIA_E_ELEMENTNOTAVAILABLE` settles as stale rather
 //! than surfacing as a retryable, indefinitely-repeated `AppUnresponsive`.
 
+use agent_desktop_core::live_element::{
+    essential_live_evidence_complete, incomplete_live_evidence, known_actions,
+};
 use agent_desktop_core::{
-    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence,
-    LocatorField, Rect, roles,
+    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect, roles,
 };
 
 use super::element_properties::ElementProperties;
@@ -118,7 +120,7 @@ mod imp {
         read: impl Fn(&UIAElement) -> (ElementProperties, Vec<AdapterError>),
         read_label: impl Fn(&UIAElement) -> LabelOutcome,
     ) -> Result<LiveRead, AdapterError> {
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         corroborate(element)?;
         if deadline.is_expired() {
             return Err(deadline.timeout_error());
@@ -289,14 +291,6 @@ pub(crate) fn live_bounds(read: &LiveRead) -> Option<Rect> {
     read.evidence.ref_evidence.bounds.known().copied()
 }
 
-fn known_actions(actions: LocatorField<Vec<String>>) -> Result<Vec<String>, AdapterError> {
-    match actions {
-        LocatorField::Known(actions) => Ok(actions),
-        LocatorField::Absent => Ok(Vec::new()),
-        LocatorField::Unknown => Err(incomplete_live_evidence()),
-    }
-}
-
 /// Reports whether the read's own discarded errors already settled the
 /// resolved target as vanished.
 ///
@@ -329,38 +323,19 @@ fn target_read_reports_vanished(errors: &[AdapterError]) -> bool {
     errors.iter().any(|error| error.code == ErrorCode::StaleRef)
 }
 
-fn essential_live_evidence_complete(evidence: &LocatorEvidence) -> bool {
-    !evidence.role.is_unknown()
-        && !evidence.value.is_unknown()
-        && !evidence.states.is_unknown()
-        && !evidence.ref_evidence.bounds.is_unknown()
-        && !evidence.ref_evidence.available_actions.is_unknown()
-}
-
-fn incomplete_live_evidence() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::AppUnresponsive,
-        "Live element evidence was incomplete",
-    )
-    .with_details(serde_json::json!({
-        "kind": "live_element_evidence",
-        "complete": false,
-        "retryable": true,
-    }))
-}
-
-/// The vanished-target answer, built through the resolver's shared
-/// `STALE_REF` constructor so the two sites cannot drift into two different
-/// payloads for the same class of failure. It carries no `retryable` key on
-/// purpose: `with_details` only overwrites the typed retryability when the
-/// details name it, so this error keeps the code's default rather than
-/// claiming a verdict it has not earned.
+/// The vanished-target answer, built through core's shared
+/// `AdapterError::stale_ref_because` constructor so the two sites cannot
+/// drift into two different payloads for the same class of failure. It
+/// carries no `retryable` key on purpose: `with_details` only overwrites the
+/// typed retryability when the details name it, so this error keeps the
+/// code's default rather than claiming a verdict it has not earned.
 fn stale_reader_error() -> AdapterError {
-    super::resolve_match::stale_evidence_error("Element became invalid while reading live state")
-        .with_details(serde_json::json!({
+    AdapterError::stale_ref_because("Element became invalid while reading live state").with_details(
+        serde_json::json!({
             "kind": "live_element_invalid",
             "complete": true,
-        }))
+        }),
+    )
 }
 
 #[cfg(all(test, target_os = "windows"))]

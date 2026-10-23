@@ -14,7 +14,6 @@ use agent_desktop_core::{AdapterError, Deadline, ImageBuffer};
 use super::capture_display::capture_display_at;
 use super::capture_modern;
 use super::capture_window::capture_window;
-use super::permissions::ensure_budget;
 use super::window_enum::WindowHandle;
 
 /// Floor reserved for Legacy when Modern is attempted (A22-style silent
@@ -51,7 +50,7 @@ pub(crate) fn capture_modern(
     subject: CaptureSubject,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     #[cfg(test)]
     {
         if test_hooks::force_fail_after_available() {
@@ -91,7 +90,7 @@ pub(crate) fn capture_with_precedence(
     subject: CaptureSubject,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let mut modern_failure = None;
     if modern_is_supported() {
         let modern_deadline = modern_deadline_slice(deadline);
@@ -108,7 +107,7 @@ pub(crate) fn capture_with_precedence(
     } else {
         tracing::debug!("modern capture unsupported; using legacy");
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     capture_legacy(subject, deadline)
         .map_err(|legacy_error| attach_modern_failure(legacy_error, modern_failure.as_ref()))
 }

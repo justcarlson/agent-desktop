@@ -6,7 +6,6 @@ use agent_desktop_core::{
 };
 
 use crate::input::elevation::ensure_target_integrity_allows_input;
-use crate::system::permissions::ensure_budget;
 use crate::system::window_ops::is_root_foreground_window;
 use crate::tree::element::UIAElement;
 use crate::tree::live_read::corroborate_verified_process;
@@ -59,7 +58,7 @@ pub(crate) fn ensure_click_delivery_ready(
     element: &UIAElement,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     corroborate_verified_process(element)?;
     ensure_elevation_allows(element)?;
     target_window_is_foreground(element, deadline)
@@ -69,7 +68,7 @@ pub(crate) fn ensure_keyboard_delivery_ready(
     element: &UIAElement,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     corroborate_verified_process(element)?;
     ensure_elevation_allows(element)?;
     crate::actions::focus::keyboard_focus_ready(element)

@@ -10,7 +10,7 @@ pub(crate) fn resolve_window_strict(
     expected: &WindowInfo,
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
-    super::permissions::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let handle = parse_handle(&expected.id);
     if handle.is_null() {
         return Err(AdapterError::new(
