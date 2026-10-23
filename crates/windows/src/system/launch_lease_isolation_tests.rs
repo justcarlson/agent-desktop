@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use windows_sys::Win32::Foundation::CloseHandle;
+use windows_sys::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
 use windows_sys::Win32::System::Threading::{
     CREATE_UNICODE_ENVIRONMENT, CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW,
     WaitForSingleObject,
@@ -74,15 +74,23 @@ fn a_launched_process_never_inherits_the_lease_handoff_key() {
             "cmd.exe should launch with the sanitized environment block: {}",
             std::io::Error::last_os_error()
         );
+        let waited = unsafe { WaitForSingleObject(information.hProcess, 5_000) };
         unsafe {
-            WaitForSingleObject(information.hProcess, 5_000);
             CloseHandle(information.hThread);
             CloseHandle(information.hProcess);
         }
+        assert_eq!(
+            waited, WAIT_OBJECT_0,
+            "cmd.exe must finish writing its environment dump before it is read"
+        );
 
         let contents = std::fs::read_to_string(&output_path)
             .expect("the child process should have written its environment dump");
         let _ = std::fs::remove_file(&output_path);
+        assert!(
+            contents.to_ascii_uppercase().contains("SYSTEMROOT="),
+            "the dump must carry the inherited environment before its absence check means anything: {contents}"
+        );
         let folded_prefix = format!("{}=", INTERACTION_LEASE_HANDLE_ENV.to_ascii_uppercase());
         assert!(
             !contents

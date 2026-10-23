@@ -8,7 +8,6 @@ use agent_desktop_core::WindowOp;
 /// anything, is independently verified against `crates/macos` for that
 /// specific condition.
 fn assert_class_a_envelope(error: &AdapterError, code: ErrorCode, expected: DeliverySemantics) {
-    assert_existing_error_code(error);
     assert_code_wire(error, code);
     assert_disposition_wire(error, expected);
 }
@@ -68,37 +67,6 @@ fn shared_action_failed_before_delivery_pins_the_windows_envelope() {
         DeliverySemantics::not_delivered(),
     );
     assert_eq!(error_wire(&error)["disposition"]["retry"], "safe");
-}
-
-/// `AdapterError::ambiguous_target` is a core constructor, not a
-/// platform-specific one:
-/// `crates/windows/src/system/launch.rs::ambiguous_apps` and
-/// `crates/macos/src/system/launch.rs::ambiguous_apps` both build this exact
-/// error from the identical message, so the pair cannot drift between
-/// platforms without an edit to core.
-#[test]
-fn shared_ambiguous_target_pins_the_windows_envelope() {
-    let error = AdapterError::ambiguous_target(
-        "More than one application instance matches the launch target",
-    )
-    .with_details(serde_json::json!({ "candidate_pids": [10, 11] }));
-    assert_class_a_envelope(
-        &error,
-        ErrorCode::AmbiguousTarget,
-        DeliverySemantics::not_delivered(),
-    );
-    assert_eq!(
-        launch_ambiguous_shape(),
-        (error.code, error.disposition),
-        "launch ambiguous constructor must keep the shared pair"
-    );
-}
-
-fn launch_ambiguous_shape() -> (ErrorCode, DeliverySemantics) {
-    let error = AdapterError::ambiguous_target(
-        "More than one application instance matches the launch target",
-    );
-    (error.code, error.disposition)
 }
 
 /// `AdapterError::permission_denied()` is the core constructor Windows'

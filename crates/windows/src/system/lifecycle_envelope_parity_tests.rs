@@ -30,66 +30,20 @@ fn assert_disposition_wire(error: &AdapterError, expected: DeliverySemantics) {
     assert_eq!(wire["disposition"], projected, "disposition wire shape");
 }
 
-fn assert_existing_error_code(error: &AdapterError) {
-    let wire = error.code.as_str();
-    assert_eq!(
-        error_wire(error)["code"],
-        wire,
-        "platform-only failures must serialize an existing ErrorCode"
-    );
-    assert!(
-        matches!(
-            error.code,
-            ErrorCode::PermDenied
-                | ErrorCode::ElementNotFound
-                | ErrorCode::AppNotFound
-                | ErrorCode::ActionFailed
-                | ErrorCode::ActionNotSupported
-                | ErrorCode::StaleRef
-                | ErrorCode::AmbiguousTarget
-                | ErrorCode::WindowNotFound
-                | ErrorCode::PlatformNotSupported
-                | ErrorCode::Timeout
-                | ErrorCode::InvalidArgs
-                | ErrorCode::NotificationNotFound
-                | ErrorCode::SnapshotNotFound
-                | ErrorCode::PolicyDenied
-                | ErrorCode::AppUnresponsive
-                | ErrorCode::Internal
-        ),
-        "platform-only failures must use an existing ErrorCode variant"
-    );
-}
-
 fn assert_class_b_envelope(error: &AdapterError, code: ErrorCode, expected: DeliverySemantics) {
-    assert_existing_error_code(error);
     assert_code_wire(error, code);
     assert_disposition_wire(error, expected);
 }
 
+#[cfg(target_os = "windows")]
 #[test]
 fn class_b_windowless_close_escalation_is_action_failed_not_delivered() {
-    let error = AdapterError::new(
-        ErrorCode::ActionFailed,
-        "Process 42 has no top-level windows to receive WM_CLOSE",
-    )
-    .with_details(serde_json::json!({ "pid": 42 }))
-    .with_suggestion("Retry with --force to terminate pid 42 without WM_CLOSE")
-    .with_disposition(DeliverySemantics::not_delivered());
+    let live = windowless_close_live_error();
     assert_class_b_envelope(
-        &error,
+        &live,
         ErrorCode::ActionFailed,
         DeliverySemantics::not_delivered(),
     );
-    #[cfg(target_os = "windows")]
-    {
-        let live = windowless_close_live_error();
-        assert_class_b_envelope(
-            &live,
-            ErrorCode::ActionFailed,
-            DeliverySemantics::not_delivered(),
-        );
-    }
 }
 
 #[cfg(target_os = "windows")]

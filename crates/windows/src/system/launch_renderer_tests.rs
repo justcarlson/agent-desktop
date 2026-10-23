@@ -1,10 +1,10 @@
 //! The positive arm of renderer detection, which needs a window whose real
 //! Win32 class is the one the detector looks for.
 //!
-//! The sibling tests in `launch_tests.rs` pin the negative arms: an
-//! unresolvable id, and a live window of some other class. Neither fails if
-//! the class constant is mistyped, because both expect `None` and a constant
-//! that matches nothing still returns `None`. That is precisely the
+//! The negative arms in this file pin an unresolvable id and a live window of
+//! some other class. Neither fails if the class constant is mistyped, because
+//! both expect `None` and a constant that matches nothing still returns
+//! `None`. That is precisely the
 //! regression worth guarding - the CDP guidance stops being offered and no
 //! test notices - so this registers a window class literally named
 //! `Chrome_WidgetWin_1` and drives the same `parse_handle` ->

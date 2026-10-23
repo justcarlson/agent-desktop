@@ -269,7 +269,10 @@ fn an_open_tool_window_menu_is_both_detected_and_locatable() {
     assert!(fixture.wait_for_menu_state(false, STATE_TIMEOUT));
 }
 
-/// against pid reuse from a spawned-and-killed process.
+/// A pid that names no running process surfaces a classified `AppUnresponsive`,
+/// never a panic and never a silent "closed". Pid 1 is not a valid Windows
+/// process id, so the case is deterministic and needs no spawned-and-killed
+/// process, which could be raced by pid reuse.
 #[test]
 fn a_nonexistent_pid_returns_a_classified_error_not_a_panic_or_false_closed() {
     let pid = ProcessId::from(1u32);
