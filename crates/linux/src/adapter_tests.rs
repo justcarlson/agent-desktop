@@ -14,6 +14,10 @@ fn run_without_session_bus(test: &str) -> bool {
         .output()
         .expect("isolated test starts");
     assert!(output.status.success(), "{output:?}");
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+        "{test} must execute exactly one test: {output:?}"
+    );
     true
 }
 

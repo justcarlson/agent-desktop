@@ -50,18 +50,20 @@ fn a_cancelled_reader_does_not_send_sigpipe_to_its_host() {
 
     const CHILD: &str = "AGENT_DESKTOP_X11_CANCEL_SIGPIPE_CHILD";
     if std::env::var_os(CHILD).is_none() {
-        let status = Command::new(std::env::current_exe().expect("test executable"))
-            .args([
-                "--exact",
-                "system::x11::bounded::tests::a_cancelled_reader_does_not_send_sigpipe_to_its_host",
-                "--nocapture",
-            ])
+        const FILTER: &str =
+            "system::x11::bounded::tests::a_cancelled_reader_does_not_send_sigpipe_to_its_host";
+        let output = Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", FILTER, "--nocapture"])
             .env(CHILD, "1")
-            .status()
+            .output()
             .expect("foreign signal policy host");
         assert!(
-            status.success(),
-            "cancelled reader terminated its host: {status}"
+            output.status.success(),
+            "cancelled reader terminated its host: {output:?}"
+        );
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+            "{FILTER} must execute exactly one test: {output:?}"
         );
         return;
     }

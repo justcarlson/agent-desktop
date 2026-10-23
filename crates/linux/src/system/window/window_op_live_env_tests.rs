@@ -24,8 +24,13 @@ fn in_child(test: &str, configure: impl FnOnce(&mut Command)) {
         .env(CHILD_MARKER, "1");
     configure(&mut command);
     let output = command.output().expect("the child test runs");
-    println!("{}", String::from_utf8_lossy(&output.stdout));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    println!("{stdout}");
     assert!(output.status.success(), "the child test failed");
+    assert!(
+        stdout.contains("1 passed; 0 failed"),
+        "{test} must execute exactly one test: {output:?}"
+    );
 }
 
 fn child_window(bus: &SharedBus, launched: &mut Launched) -> WindowInfo {

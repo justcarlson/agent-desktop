@@ -46,10 +46,10 @@ fn exercise_clipboard(pb: Id) -> Result<(), AdapterError> {
         &ClipboardContent::Text(String::from("replacement")),
         deadline,
     )?;
-    assert_eq!(
+    assert!(matches!(
         unsafe { get_content_from(pb, ClipboardFormat::Text, deadline) }?,
-        Some(ClipboardContent::Text(String::from("replacement")))
-    );
+        Some(ClipboardContent::Text(text)) if text == "replacement"
+    ));
 
     let image = ClipboardContent::Image(ImageBuffer {
         data: one_pixel_png().to_vec(),

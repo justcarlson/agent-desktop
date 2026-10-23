@@ -32,16 +32,19 @@ fn a_wayland_cursor_refusal_is_explicit_without_x11_fallback() {
         .unwrap()
         .join(format!(".cursor-wayland-{}.sock", std::process::id()));
     let listener = std::os::unix::net::UnixListener::bind(&path).expect("reachable Wayland socket");
+    const FILTER: &str = "system::overlay::cursor_overlay::tests::a_wayland_cursor_refusal_is_explicit_without_x11_fallback";
     let output = std::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "system::cursor_overlay::tests::a_wayland_cursor_refusal_is_explicit_without_x11_fallback", "--nocapture"])
-        .env(CHILD, "1").env("WAYLAND_DISPLAY", &path).output().unwrap();
+        .args(["--exact", FILTER, "--nocapture"])
+        .env(CHILD, "1")
+        .env("WAYLAND_DISPLAY", &path)
+        .output()
+        .unwrap();
     drop(listener);
     std::fs::remove_file(path).unwrap();
+    assert!(output.status.success(), "{output:?}");
     assert!(
-        output.status.success(),
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+        "{FILTER} must execute exactly one test: {output:?}"
     );
 }
 
