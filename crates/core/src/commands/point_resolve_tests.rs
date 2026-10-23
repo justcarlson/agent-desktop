@@ -12,9 +12,9 @@ fn resolve_test_point(
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     ErrorCode, Rect,
+    actions::capability,
     adapter::NativeHandle,
     adapter::hit_test::HitTestResult,
-    capability,
     refs::{RefEntry, RefMap},
     refs_store::RefStore,
     refs_test_support::HomeGuard,

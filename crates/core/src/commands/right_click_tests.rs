@@ -3,8 +3,8 @@ use crate::adapter::TreeOptions;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, ErrorCode, WindowInfo,
-    action_request::ActionRequest,
-    action_result::ActionResult,
+    actions::action_request::ActionRequest,
+    actions::action_result::ActionResult,
     adapter::{NativeHandle, WindowFilter},
     refs::{RefEntry, RefMap},
     refs_store::RefStore,
@@ -75,7 +75,11 @@ impl ObservationOps for ProbeFailingAdapter {
         })
     }
 
-    crate::adapter::complete_live_observation!("button", "Open", [crate::capability::RIGHT_CLICK]);
+    crate::adapter::complete_live_observation!(
+        "button",
+        "Open",
+        [crate::actions::capability::RIGHT_CLICK]
+    );
 }
 
 impl ActionOps for ProbeFailingAdapter {

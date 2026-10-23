@@ -213,7 +213,7 @@ impl ActionOps for WindowsAdapter {
     fn execute_action(
         &self,
         handle: &NativeHandle,
-        request: agent_desktop_core::action_request::ActionRequest,
+        request: agent_desktop_core::actions::action_request::ActionRequest,
         lease: &InteractionLease,
     ) -> Result<agent_desktop_core::ActionResult, AdapterError> {
         crate::actions::dispatch::execute_action_impl(handle, request, lease)

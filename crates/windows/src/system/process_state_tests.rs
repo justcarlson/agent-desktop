@@ -1,6 +1,6 @@
 use super::*;
 use agent_desktop_core::{
-    Deadline, ErrorCode, ProcessId, ProcessIdentity, process_state::ProcessState,
+    Deadline, ErrorCode, ProcessId, ProcessIdentity, system::process_state::ProcessState,
 };
 use std::cell::Cell;
 use std::time::{Duration, Instant};

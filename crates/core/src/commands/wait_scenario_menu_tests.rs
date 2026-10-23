@@ -95,8 +95,8 @@ impl SystemOps for ExitedMenuAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
-        Ok(crate::process_state::ProcessState::Exited { code: None })
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
+        Ok(crate::system::process_state::ProcessState::Exited { code: None })
     }
 }
 
@@ -152,9 +152,9 @@ impl SystemOps for BudgetProbeAdapter {
         &self,
         _process: crate::ProcessIdentity,
         deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         *self.probe_budget.lock().unwrap() = Some(deadline.remaining());
-        Ok(crate::process_state::ProcessState::Running)
+        Ok(crate::system::process_state::ProcessState::Running)
     }
 }
 

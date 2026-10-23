@@ -1,6 +1,6 @@
 use super::cdp_test_support::{CdpAdapter, adapter_error, empty_cdp_adapter};
 use super::*;
-use crate::launch_options::LaunchOptions;
+use crate::system::launch_options::LaunchOptions;
 use crate::{AppInfo, AppPresentation, ErrorCode, ProcessId};
 use std::net::TcpListener;
 use std::sync::atomic::Ordering;

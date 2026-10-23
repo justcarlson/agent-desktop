@@ -1,14 +1,14 @@
 use super::*;
 use crate::{
     AdapterError, ErrorCode, Rect,
-    action::Action,
-    action_request::ActionRequest,
-    action_result::ActionResult,
+    actions::action::Action,
+    actions::action_request::ActionRequest,
+    actions::action_result::ActionResult,
+    actions::capability,
     adapter::{ActionOps, InputOps, LiveElement, NativeHandle, ObservationOps, SystemOps},
-    capability,
-    element_state::ElementState,
     refs::RefEntry,
-    snapshot_surface::SnapshotSurface,
+    snapshot::snapshot_surface::SnapshotSurface,
+    tree::element_state::ElementState,
 };
 use std::{
     sync::{

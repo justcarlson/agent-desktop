@@ -26,7 +26,8 @@ use agent_desktop_core::adapter::live_element::{
     essential_live_evidence_complete, incomplete_live_evidence, known_actions,
 };
 use agent_desktop_core::{
-    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect, roles,
+    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect,
+    tree::roles,
 };
 
 use super::element_properties::ElementProperties;

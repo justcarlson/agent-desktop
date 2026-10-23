@@ -11,9 +11,9 @@ use crate::{
     },
     context::CommandContext,
     refs_store::RefStore,
-    search_text,
     snapshot::{self, emit_snapshot_saved},
     trace_artifacts,
+    tree::search_text,
 };
 use serde_json::{Value, json};
 use std::time::{Duration, Instant};

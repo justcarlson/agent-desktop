@@ -1,4 +1,4 @@
-use agent_desktop_core::{LocatorField, roles, state};
+use agent_desktop_core::{LocatorField, tree::roles, tree::state};
 
 use super::properties::ElementProperties;
 use super::property_ids::TreeProperty;

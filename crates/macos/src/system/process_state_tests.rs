@@ -1,5 +1,5 @@
 use super::*;
-use agent_desktop_core::process_state::ProcessState;
+use agent_desktop_core::system::process_state::ProcessState;
 use std::cell::Cell;
 
 #[test]

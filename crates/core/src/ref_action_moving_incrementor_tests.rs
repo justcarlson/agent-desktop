@@ -1,6 +1,6 @@
 use crate::adapter::{ActionOps, InputOps, LiveElement, ObservationOps, SystemOps};
 use crate::ref_action::*;
-use crate::{Action, BoundsSpace, ElementState, RefGeometry, capability};
+use crate::{Action, BoundsSpace, ElementState, RefGeometry, actions::capability};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 /// A value control keeps its native identity while its viewport scrolls.

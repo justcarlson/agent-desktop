@@ -24,10 +24,10 @@ pub(crate) use test_support::{
 
 pub(crate) use crate::adapter::live_element::LiveElement;
 pub(crate) use crate::adapter::native_handle::NativeHandle;
-pub(crate) use crate::screenshot_target::ScreenshotTarget;
-pub(crate) use crate::snapshot_surface::SnapshotSurface;
-pub(crate) use crate::tree_options::TreeOptions;
-pub(crate) use crate::window_filter::WindowFilter;
+pub(crate) use crate::snapshot::snapshot_surface::SnapshotSurface;
+pub(crate) use crate::system::screenshot_target::ScreenshotTarget;
+pub(crate) use crate::system::window_filter::WindowFilter;
+pub(crate) use crate::tree::tree_options::TreeOptions;
 
 pub trait PlatformAdapter: ObservationOps + ActionOps + InputOps + SystemOps {}
 

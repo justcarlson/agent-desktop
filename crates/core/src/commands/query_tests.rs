@@ -1,5 +1,5 @@
 use super::*;
-use crate::{AccessibilityNode, IdentityPredicate, LocatorQuery, search_text};
+use crate::{AccessibilityNode, IdentityPredicate, LocatorQuery, tree::search_text};
 
 fn node(role: &str, name: Option<&str>, value: Option<&str>) -> AccessibilityNode {
     AccessibilityNode {

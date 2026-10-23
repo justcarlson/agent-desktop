@@ -31,7 +31,7 @@ pub(crate) fn should_read_child_label(
 }
 
 fn names_from_child_content(role: &str) -> bool {
-    agent_desktop_core::roles::INTERACTIVE_ROLES.contains(&role) || role == "row"
+    agent_desktop_core::tree::roles::INTERACTIVE_ROLES.contains(&role) || role == "row"
 }
 
 fn has_name_without_child_content(evidence: &agent_desktop_core::NameEvidence) -> bool {

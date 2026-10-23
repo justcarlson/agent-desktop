@@ -1,5 +1,5 @@
-use agent_desktop_core::step_mechanism::StepMechanism;
-use agent_desktop_core::{ActionStep, interaction_policy::InteractionPolicy};
+use agent_desktop_core::actions::step_mechanism::StepMechanism;
+use agent_desktop_core::{ActionStep, actions::interaction_policy::InteractionPolicy};
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 use crate::actions::chain_delivery::DeliveryOutcome;

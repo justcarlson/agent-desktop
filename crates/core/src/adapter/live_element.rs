@@ -1,6 +1,6 @@
 use crate::{
     AdapterError, ErrorCode, LiveIdentity, LocatorEvidence, LocatorField, Rect,
-    element_state::ElementState,
+    tree::element_state::ElementState,
 };
 
 #[derive(Debug, Clone)]

@@ -1,8 +1,8 @@
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
 use crate::ref_action::*;
 use crate::{
-    ErrorCode, action::Action, action_result::ActionResult, capability,
-    element_state::ElementState, refs::RefEntry,
+    ErrorCode, actions::action::Action, actions::action_result::ActionResult, actions::capability,
+    refs::RefEntry, tree::element_state::ElementState,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 

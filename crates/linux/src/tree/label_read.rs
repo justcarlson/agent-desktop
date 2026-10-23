@@ -6,7 +6,7 @@ use super::node_read::{NAME, call, get_one, string_value};
 use super::roles::role_of;
 use super::{AtspiElement, Field, LabelOutcome, RawNode};
 use crate::system::ACCESSIBLE_INTERFACE;
-use agent_desktop_core::roles::is_interactive_role;
+use agent_desktop_core::tree::roles::is_interactive_role;
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 const LABELLED_BY: u32 = 2;

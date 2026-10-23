@@ -7,7 +7,7 @@ use crate::tree::property_ids::TreeProperty;
 #[cfg(target_os = "windows")]
 use crate::tree::test_support::flag;
 #[cfg(target_os = "windows")]
-use agent_desktop_core::roles::{INTERACTIVE_ROLES, is_canonical_role};
+use agent_desktop_core::tree::roles::{INTERACTIVE_ROLES, is_canonical_role};
 #[cfg(target_os = "windows")]
 use uiautomation::types::ControlType;
 

@@ -1,6 +1,6 @@
-use agent_desktop_core::launch_options::LaunchOptions;
-use agent_desktop_core::launch_result::LaunchResult;
-use agent_desktop_core::process_state::ProcessState;
+use agent_desktop_core::system::launch_options::LaunchOptions;
+use agent_desktop_core::system::launch_result::LaunchResult;
+use agent_desktop_core::system::process_state::ProcessState;
 use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ErrorCode, ImageBuffer, InteractionLease,

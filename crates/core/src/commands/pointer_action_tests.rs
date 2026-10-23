@@ -4,7 +4,8 @@ use crate::refs::{RefEntry, RefMap};
 use crate::refs_store::RefStore;
 use crate::refs_test_support::HomeGuard;
 use crate::{
-    AdapterError, DeliverySemantics, ErrorCode, Rect, adapter::hit_test::HitTestResult, capability,
+    AdapterError, DeliverySemantics, ErrorCode, Rect, actions::capability,
+    adapter::hit_test::HitTestResult,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 

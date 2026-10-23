@@ -1,8 +1,8 @@
 use super::{PressArgs, execute};
 use crate::AdapterError;
 use crate::KeyCombo;
-use crate::action_request::ActionRequest;
-use crate::action_result::ActionResult;
+use crate::actions::action_request::ActionRequest;
+use crate::actions::action_result::ActionResult;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
 use crate::context::CommandContext;
 use std::sync::Mutex;

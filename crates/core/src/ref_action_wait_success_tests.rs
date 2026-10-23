@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
     AdapterError,
-    action::Action,
+    actions::action::Action,
+    actions::capability,
     adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps},
-    capability,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -42,7 +42,7 @@ fn entry() -> RefEntry {
             source_window_id: None,
             source_window_title: None,
             source_window_bounds_hash: None,
-            source_surface: crate::snapshot_surface::SnapshotSurface::Window,
+            source_surface: crate::snapshot::snapshot_surface::SnapshotSurface::Window,
         },
         scope: crate::RefScope {
             root_ref: None,
@@ -74,10 +74,8 @@ impl ActionOps for SuccessWithUnresponsiveProbeAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 
@@ -90,9 +88,9 @@ impl SystemOps for SuccessWithUnresponsiveProbeAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         self.probe_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(crate::process_state::ProcessState::Unresponsive)
+        Ok(crate::system::process_state::ProcessState::Unresponsive)
     }
 }
 

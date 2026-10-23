@@ -162,7 +162,7 @@ fn matches_evidence(evidence: &LocatorEvidence, value: &str) -> Result<bool, Ada
         .ok_or_else(|| incomplete("actions_unknown"))?;
     if !actions
         .iter()
-        .any(|action| action == agent_desktop_core::capability::CLICK)
+        .any(|action| action == agent_desktop_core::actions::capability::CLICK)
     {
         return Ok(false);
     }

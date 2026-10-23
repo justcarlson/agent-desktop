@@ -2,9 +2,9 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, CursorOverlayControl, DeliverySemantics, DragParams, Rect,
+    actions::capability,
     adapter::NativeHandle,
     adapter::hit_test::HitTestResult,
-    capability,
     commands::stale_retry_test_support::StaleRetryCounter,
     refs::{RefEntry, RefMap},
     refs_store::RefStore,

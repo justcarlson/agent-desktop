@@ -33,7 +33,7 @@ impl ObservationOps for KeyboardAdapter {
             },
             states_complete: true,
             bounds: None,
-            available_actions: vec![crate::capability::TYPE_TEXT.into()],
+            available_actions: vec![crate::actions::capability::TYPE_TEXT.into()],
         })
     }
 

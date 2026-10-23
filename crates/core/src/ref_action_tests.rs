@@ -2,10 +2,10 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     DeliverySemantics, ErrorCode,
-    action::Action,
-    action_result::ActionResult,
+    actions::action::Action,
+    actions::action_result::ActionResult,
+    actions::capability,
     adapter::{NativeHandle, SnapshotSurface},
-    capability,
 };
 use std::sync::{
     Arc, Mutex,

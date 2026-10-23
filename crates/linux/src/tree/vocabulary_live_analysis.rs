@@ -1,4 +1,4 @@
-use agent_desktop_core::{Deadline, LocatorField, state};
+use agent_desktop_core::{Deadline, LocatorField, tree::state};
 use zbus::Connection as AsyncConnection;
 
 use super::live_tree::{count_failed, failure_kinds};

@@ -126,7 +126,7 @@ fn compact_preserves_group_identity_truncation_and_capabilities() {
     assert!(!is_collapsible(&truncated));
 
     let mut actionable = transparent_group();
-    actionable.presentation.available_actions = vec![crate::capability::SET_FOCUS.into()];
+    actionable.presentation.available_actions = vec![crate::actions::capability::SET_FOCUS.into()];
     assert!(!is_collapsible(&actionable));
 
     let mut bounded = transparent_group();

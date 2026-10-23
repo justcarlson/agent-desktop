@@ -8,7 +8,7 @@ use crate::context::WaitSelector;
 use crate::refs_test_support::HomeGuard;
 use crate::{
     AccessibilityNode, AdapterError, CommandContext, DragParams, InteractionLease, ProcessId,
-    WindowInfo, WindowState, window_filter::WindowFilter,
+    WindowInfo, WindowState, system::window_filter::WindowFilter,
 };
 use serde_json::json;
 use std::sync::Mutex;
@@ -119,7 +119,11 @@ impl ObservationOps for CrossAppWaitAdapter {
         Ok(Self::window_node(window))
     }
 
-    crate::adapter::complete_live_observation!("button", "Item", [crate::capability::CLICK]);
+    crate::adapter::complete_live_observation!(
+        "button",
+        "Item",
+        [crate::actions::capability::CLICK]
+    );
 }
 
 impl ActionOps for CrossAppWaitAdapter {}

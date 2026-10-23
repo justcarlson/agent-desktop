@@ -242,7 +242,7 @@ fn single_hydration_tree(
     evidence.identifiers = identifier_evidence(identifier);
     evidence.ref_evidence.bounds = LocatorField::Known(bounds);
     evidence.ref_evidence.available_actions =
-        LocatorField::Known(vec![crate::capability::CLICK.into()]);
+        LocatorField::Known(vec![crate::actions::capability::CLICK.into()]);
     let mut tree = super::test_support::tree(
         vec![super::test_support::node(0, evidence, Vec::new(), &[])],
         vec![0],

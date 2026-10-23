@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 
 use agent_desktop_core::{
-    ActionStep, AdapterError, DeliverySemantics, ErrorCode, action_step_outcome::ActionStepOutcome,
+    ActionStep, AdapterError, DeliverySemantics, ErrorCode,
+    actions::action_step_outcome::ActionStepOutcome,
 };
 
 use super::{CheckTarget, run_check};

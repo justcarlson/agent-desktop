@@ -6,7 +6,7 @@ use crate::context::WaitSelector;
 use crate::refs::RefMap;
 use crate::refs_test_support::HomeGuard;
 use crate::{AccessibilityNode, WindowInfo};
-use crate::{action::Action, action_result::ActionResult};
+use crate::{actions::action::Action, actions::action_result::ActionResult};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicU32, Ordering},
@@ -117,7 +117,7 @@ impl ObservationOps for ScopedWaitAdapter {
         })
     }
 
-    crate::adapter::complete_live_observation!("button", "OK", [crate::capability::CLICK]);
+    crate::adapter::complete_live_observation!("button", "OK", [crate::actions::capability::CLICK]);
 }
 
 impl ActionOps for ScopedWaitAdapter {
@@ -308,7 +308,7 @@ impl ObservationOps for MultiWindowAdapter {
         })
     }
 
-    crate::adapter::complete_live_observation!("button", "OK", [crate::capability::CLICK]);
+    crate::adapter::complete_live_observation!("button", "OK", [crate::actions::capability::CLICK]);
 }
 
 impl ActionOps for MultiWindowAdapter {

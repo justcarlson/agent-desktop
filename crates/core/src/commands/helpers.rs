@@ -1,17 +1,19 @@
 use crate::{
     AppError,
-    action_request::ActionRequest,
+    actions::action_request::ActionRequest,
     adapter::{PlatformAdapter, TreeOptions},
     commands::{wait_selector, wait_selector::WaitSelectorInput},
     context::CommandContext,
     ref_action_wait_context::RefActionWaitContext,
     refs::RefEntry,
     refs_store::RefStore,
-    window_lookup,
+    system::window_lookup,
 };
 use serde_json::{Value, json};
 
-pub(crate) use crate::app_lookup::{process_identity, resolve_app, revalidate_app_for_mutation};
+pub(crate) use crate::system::app_lookup::{
+    process_identity, resolve_app, revalidate_app_for_mutation,
+};
 
 pub use super::window_target::AppArgs;
 pub(crate) use super::window_target::{

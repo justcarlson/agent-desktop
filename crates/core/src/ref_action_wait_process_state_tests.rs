@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
     AdapterError, AppInfo, ErrorCode,
-    action::Action,
+    actions::action::Action,
+    actions::capability,
     adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps},
-    capability,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -41,7 +41,7 @@ fn entry() -> RefEntry {
             source_window_id: None,
             source_window_title: None,
             source_window_bounds_hash: None,
-            source_surface: crate::snapshot_surface::SnapshotSurface::Window,
+            source_surface: crate::snapshot::snapshot_surface::SnapshotSurface::Window,
         },
         scope: crate::RefScope {
             root_ref: None,
@@ -87,10 +87,8 @@ impl ActionOps for UnresponsiveProcessAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 
@@ -103,9 +101,9 @@ impl SystemOps for UnresponsiveProcessAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         self.probe_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(crate::process_state::ProcessState::Unresponsive)
+        Ok(crate::system::process_state::ProcessState::Unresponsive)
     }
 }
 
@@ -177,9 +175,9 @@ impl SystemOps for RecycledPidAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         self.probe_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(crate::process_state::ProcessState::Unresponsive)
+        Ok(crate::system::process_state::ProcessState::Unresponsive)
     }
 }
 
@@ -233,7 +231,7 @@ fn unresponsive_enrichment_preserves_delivery_evidence() {
     }
 }
 
-struct TerminatedProcessAdapter(crate::process_state::ProcessState);
+struct TerminatedProcessAdapter(crate::system::process_state::ProcessState);
 
 impl ObservationOps for TerminatedProcessAdapter {
     fn resolve_element_strict(
@@ -255,7 +253,7 @@ impl SystemOps for TerminatedProcessAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         Ok(self.0)
     }
 }
@@ -264,11 +262,11 @@ impl SystemOps for TerminatedProcessAdapter {
 fn terminal_stale_ref_preserves_exited_and_crashed_process_details() {
     for (state, label) in [
         (
-            crate::process_state::ProcessState::Exited { code: None },
+            crate::system::process_state::ProcessState::Exited { code: None },
             "exited",
         ),
         (
-            crate::process_state::ProcessState::Crashed { signal_or_code: 11 },
+            crate::system::process_state::ProcessState::Crashed { signal_or_code: 11 },
             "crashed",
         ),
     ] {

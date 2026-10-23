@@ -3,11 +3,11 @@ use crate::{
     SurfaceInfo, WindowInfo,
     adapter::live_element::LiveElement,
     adapter::native_handle::NativeHandle,
-    element_state::ElementState,
     live_locator::{ObservationRequest, ObservationRoot, ObservedTree},
     refs::RefEntry,
-    tree_options::TreeOptions,
-    window_filter::WindowFilter,
+    system::window_filter::WindowFilter,
+    tree::element_state::ElementState,
+    tree::tree_options::TreeOptions,
 };
 
 pub(crate) fn optional_live_read<T>(

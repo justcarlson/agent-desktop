@@ -1,8 +1,8 @@
 use super::*;
 use crate::AdapterError;
-use crate::action::Action;
-use crate::action_request::ActionRequest;
-use crate::action_result::ActionResult;
+use crate::actions::action::Action;
+use crate::actions::action_request::ActionRequest;
+use crate::actions::action_result::ActionResult;
 use crate::adapter::{
     ActionOps, InputOps, NativeHandle, ObservationOps, PlatformAdapter, ScreenshotTarget, SystemOps,
 };
@@ -13,7 +13,7 @@ use crate::refs_test_support::HomeGuard;
 use crate::session::{ArtifactsMode, SessionTraceMode, StartSessionOptions, start_session};
 use crate::trace_artifacts::clear_test_budgets;
 use crate::{ImageBuffer, ImageFormat};
-use crate::{capability, refs::RefEntry};
+use crate::{actions::capability, refs::RefEntry};
 use std::sync::Mutex;
 
 pub(super) const MINI_PNG: &[u8] = &[

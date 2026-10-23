@@ -1,10 +1,10 @@
 use super::test_support::entry;
 use super::*;
 use crate::AppInfo;
-use crate::action::Action;
+use crate::actions::action::Action;
+use crate::actions::capability;
 use crate::adapter::NativeHandle;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
-use crate::capability;
 use crate::refs::RefMap;
 use crate::refs_test_support::HomeGuard;
 use crate::{AdapterError, ErrorCode, WindowInfo, WindowOp};

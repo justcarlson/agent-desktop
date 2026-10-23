@@ -1,6 +1,8 @@
 #[cfg(target_os = "windows")]
 use super::hresult::win32_last_error;
-use agent_desktop_core::{AdapterError, Deadline, ProcessIdentity, process_state::ProcessState};
+use agent_desktop_core::{
+    AdapterError, Deadline, ProcessIdentity, system::process_state::ProcessState,
+};
 
 /// Result of one hang-probe pass over a process's top-level windows.
 ///

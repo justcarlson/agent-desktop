@@ -55,7 +55,7 @@ makes old refs appear valid after their evidence has changed.
   (its recorded window ID, matched on the entry's pid) when the entry has one,
   otherwise the process's own window through
   `window_lookup::find_window_for_process`
-  (`crates/core/src/snapshot_ref.rs:108-142`); never synthesize a plausible
+  (`crates/core/src/snapshot/snapshot_ref.rs:108-142`); never synthesize a plausible
   window response.
 
 ## Why This Works

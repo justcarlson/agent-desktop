@@ -8,7 +8,7 @@ use crate::{
 };
 use serde_json::{Value, json};
 
-use crate::pointer_timeout::point_actionability_timeout;
+use crate::actionability::pointer_timeout::point_actionability_timeout;
 
 struct EntryPointResolve<'a> {
     ref_id: &'a str,
@@ -135,8 +135,8 @@ fn resolve_point_from_entry(
 }
 
 fn pointer_is_visible(bounds: Option<crate::Rect>, states: &[String]) -> bool {
-    !crate::state::has_state(states, crate::state::HIDDEN)
-        && !crate::state::has_state(states, crate::state::OFFSCREEN)
+    !crate::tree::state::has_state(states, crate::tree::state::HIDDEN)
+        && !crate::tree::state::has_state(states, crate::tree::state::OFFSCREEN)
         && bounds.is_some_and(|bounds| {
             bounds.validate().is_ok() && bounds.width > 0.0 && bounds.height > 0.0
         })

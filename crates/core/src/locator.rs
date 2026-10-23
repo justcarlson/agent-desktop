@@ -1,6 +1,8 @@
 use crate::{
-    AccessibilityNode, AdapterError, ErrorCode, roles, search_text,
-    state::{self, STATE_VOCABULARY},
+    AccessibilityNode, AdapterError, ErrorCode,
+    tree::roles,
+    tree::search_text,
+    tree::state::{self, STATE_VOCABULARY},
 };
 pub(crate) use crate::{ContainmentPredicate, IdentityPredicate, NodeMatchContext, StatePredicate};
 use serde::{Deserialize, Serialize};

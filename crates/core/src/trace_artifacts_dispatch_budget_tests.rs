@@ -40,7 +40,11 @@ impl ObservationOps for DeadlineConsumingScreenshotAdapter {
         Ok(NativeHandle::null())
     }
 
-    crate::adapter::complete_live_observation!("button", "Run", [crate::capability::CLICK]);
+    crate::adapter::complete_live_observation!(
+        "button",
+        "Run",
+        [crate::actions::capability::CLICK]
+    );
 }
 
 impl ActionOps for DeadlineConsumingScreenshotAdapter {

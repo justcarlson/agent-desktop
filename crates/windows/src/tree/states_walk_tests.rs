@@ -3,7 +3,7 @@
 //! a producer can be correct while the slot it fills is never threaded, which
 //! is exactly the shape the states plumbing had before it was built.
 
-use agent_desktop_core::state;
+use agent_desktop_core::tree::state;
 
 use crate::tree::properties::PropertyOutcome;
 use crate::tree::property_ids::TreeProperty;

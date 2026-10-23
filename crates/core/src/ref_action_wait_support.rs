@@ -26,7 +26,7 @@ pub(crate) fn enrich_with_process_state(
     ) else {
         return err;
     };
-    if state == crate::process_state::ProcessState::Unresponsive {
+    if state == crate::system::process_state::ProcessState::Unresponsive {
         if !process_identity_matches(adapter, entry, deadline) {
             return err;
         }
@@ -85,7 +85,7 @@ fn process_identity_matches(
 
 fn attach_process_state_detail(
     err: AdapterError,
-    state: crate::process_state::ProcessState,
+    state: crate::system::process_state::ProcessState,
 ) -> AdapterError {
     let mut details = err.details.clone().unwrap_or_else(|| json!({}));
     match details.as_object_mut() {
@@ -95,7 +95,10 @@ fn attach_process_state_detail(
         None => details = json!({ "process_state": state.label() }),
     }
     let exited_stale = err.code == ErrorCode::StaleRef
-        && matches!(state, crate::process_state::ProcessState::Exited { .. });
+        && matches!(
+            state,
+            crate::system::process_state::ProcessState::Exited { .. }
+        );
     let err = err.with_details(details);
     if exited_stale {
         return err.with_suggestion(EXITED_PROCESS_SUGGESTION);
@@ -119,7 +122,7 @@ pub(crate) fn with_exited_process_state(
     }
     let probe = deadline.capped(PROCESS_STATE_PROBE_BUDGET);
     match adapter.process_state(process, probe) {
-        Ok(state @ crate::process_state::ProcessState::Exited { .. }) => {
+        Ok(state @ crate::system::process_state::ProcessState::Exited { .. }) => {
             attach_process_state_detail(err, state)
         }
         _ => err,

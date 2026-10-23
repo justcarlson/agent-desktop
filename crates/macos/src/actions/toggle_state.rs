@@ -337,7 +337,7 @@ fn prepare(el: &AXElement, deadline: Deadline) -> Result<(), AdapterError> {
 
 #[cfg(test)]
 mod tests {
-    use agent_desktop_core::action_step::ActionStep;
+    use agent_desktop_core::actions::action_step::ActionStep;
 
     use super::{already_in_state_step, mark_last_verified, parse_checked_value};
 
@@ -377,7 +377,7 @@ mod tests {
         let step = already_in_state_step();
         assert!(matches!(
             step.outcome,
-            agent_desktop_core::action_step_outcome::ActionStepOutcome::Skipped
+            agent_desktop_core::actions::action_step_outcome::ActionStepOutcome::Skipped
         ));
         assert!(step.mechanism().is_none());
         assert_eq!(step.verified(), Some(true));

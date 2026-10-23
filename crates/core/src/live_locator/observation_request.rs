@@ -1,6 +1,6 @@
 use crate::{
     AdapterError, Deadline, ErrorCode, adapter::TreeOptions, locator::LocatorQuery,
-    snapshot_surface::SnapshotSurface,
+    snapshot::snapshot_surface::SnapshotSurface,
 };
 
 use super::{

@@ -55,7 +55,7 @@ impl ObservationOps for FocusAdapter {
             },
             states_complete: true,
             bounds: Some(self.live_bounds()),
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         })
     }
 

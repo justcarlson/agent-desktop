@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
     AdapterError, ErrorCode,
-    action::Action,
+    actions::action::Action,
+    actions::capability,
     adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps},
-    capability,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -64,10 +64,8 @@ impl ActionOps for RetryAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 
@@ -104,10 +102,8 @@ impl ActionOps for AmbiguousThenOkAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 
@@ -151,7 +147,7 @@ fn entry() -> RefEntry {
             source_window_id: Some("w-1".into()),
             source_window_title: Some("Fixture".into()),
             source_window_bounds_hash: None,
-            source_surface: crate::snapshot_surface::SnapshotSurface::Window,
+            source_surface: crate::snapshot::snapshot_surface::SnapshotSurface::Window,
         },
         scope: crate::RefScope {
             root_ref: None,
@@ -319,10 +315,8 @@ impl ActionOps for SettledStaleAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 

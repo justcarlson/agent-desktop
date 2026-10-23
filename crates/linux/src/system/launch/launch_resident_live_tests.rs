@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::launch_options::LaunchOptions;
+use agent_desktop_core::system::launch_options::LaunchOptions;
 
 use super::*;
 

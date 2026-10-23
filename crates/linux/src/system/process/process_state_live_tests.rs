@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::ProcessIdentity;
-use agent_desktop_core::process_state::ProcessState;
+use agent_desktop_core::system::process_state::ProcessState;
 
 use super::process_state::process_state;
 use crate::system::close::close_live_tests::rig::Orphan;

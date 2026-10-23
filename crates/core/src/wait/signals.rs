@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::snapshot_surface::SnapshotSurface;
+use crate::snapshot::snapshot_surface::SnapshotSurface;
 use crate::{AppInfo, EventKind, ProcessId, SignalBaseline, SurfaceSignal, UiEvent, WindowInfo};
 use std::collections::HashSet;
 use std::hash::Hash;

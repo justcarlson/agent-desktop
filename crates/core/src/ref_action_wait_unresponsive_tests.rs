@@ -27,10 +27,8 @@ impl ActionOps for TransientUnresponsiveAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 

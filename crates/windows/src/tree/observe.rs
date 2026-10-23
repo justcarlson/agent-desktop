@@ -128,7 +128,7 @@ const MIN_WALK_ESTIMATE: Duration = Duration::from_millis(5);
 /// Whether the remaining deadline can still absorb another walk of the shape
 /// that was just measured.
 ///
-/// Core's loop (`crates/core/src/renderer_accessibility.rs`) retries
+/// Core's loop (`crates/core/src/tree/renderer_accessibility.rs`) retries
 /// `observe_tree` on every activation-required error with a 25-400ms
 /// backoff, so returning the marker here for as long as there is room turns
 /// the settle from a single guess into a real wait for the async Chromium

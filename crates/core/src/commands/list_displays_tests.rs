@@ -2,7 +2,7 @@ use crate::{
     AdapterError, Rect,
     adapter::{ActionOps, InputOps, ObservationOps, SystemOps},
     commands::list_displays,
-    display_info::DisplayInfo,
+    system::display_info::DisplayInfo,
 };
 
 struct DisplayAdapter {

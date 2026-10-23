@@ -1,4 +1,4 @@
-use agent_desktop_core::{LocatorField, state};
+use agent_desktop_core::{LocatorField, tree::state};
 
 use super::resolve_states;
 use crate::tree::Field;

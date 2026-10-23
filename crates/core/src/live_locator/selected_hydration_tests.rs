@@ -149,7 +149,7 @@ fn role_only_selected_hydration_anchors_before_hydrating_without_rewalking_large
     assert_eq!(entry.geometry.bounds, Some(button_bounds()));
     assert_eq!(
         entry.capabilities.available_actions,
-        [crate::capability::CLICK]
+        [crate::actions::capability::CLICK]
     );
     assert_eq!(entry.scope.path.len(), WRAPPER_COUNT + 1);
 }
@@ -229,7 +229,7 @@ fn hydrated_button_tree(root: ObservationRoot<'_>) -> ObservedTree {
     );
     evidence.ref_evidence.bounds = LocatorField::Known(button_bounds());
     evidence.ref_evidence.available_actions =
-        LocatorField::Known(vec![crate::capability::CLICK.into()]);
+        LocatorField::Known(vec![crate::actions::capability::CLICK.into()]);
     let mut tree = super::test_support::tree(
         vec![super::test_support::node(0, evidence, Vec::new(), &[])],
         vec![0],

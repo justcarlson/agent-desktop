@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
 mod imp {
     use agent_desktop_core::AdapterError;
-    use agent_desktop_core::interaction_policy::InteractionPolicy;
+    use agent_desktop_core::actions::interaction_policy::InteractionPolicy;
 
     use crate::actions::ax_helpers;
     use crate::actions::chain_context::ChainContext;

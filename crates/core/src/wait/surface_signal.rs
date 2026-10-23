@@ -1,4 +1,4 @@
-use crate::{ProcessId, snapshot_surface::SnapshotSurface};
+use crate::{ProcessId, snapshot::snapshot_surface::SnapshotSurface};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

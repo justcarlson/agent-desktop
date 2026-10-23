@@ -52,9 +52,9 @@ fn direct_wrapper_identity_is_empty(
 fn is_structural_action(action: &str) -> bool {
     matches!(
         action,
-        agent_desktop_core::capability::RIGHT_CLICK
-            | agent_desktop_core::capability::SCROLL_TO
-            | agent_desktop_core::capability::SET_FOCUS
+        agent_desktop_core::actions::capability::RIGHT_CLICK
+            | agent_desktop_core::actions::capability::SCROLL_TO
+            | agent_desktop_core::actions::capability::SET_FOCUS
     )
 }
 
@@ -198,7 +198,8 @@ mod tests {
         ));
 
         name.native_title = None;
-        let actions = LocatorField::Known(vec![agent_desktop_core::capability::CLICK.into()]);
+        let actions =
+            LocatorField::Known(vec![agent_desktop_core::actions::capability::CLICK.into()]);
         assert!(!is_transparent_wrapper(
             Some("AXGenericElement"),
             None,
@@ -213,9 +214,9 @@ mod tests {
     fn structural_actions_do_not_make_anonymous_groups_consume_depth() {
         let (name, identifiers, _) = inert_generic_wrapper();
         let actions = LocatorField::Known(vec![
-            agent_desktop_core::capability::RIGHT_CLICK.into(),
-            agent_desktop_core::capability::SCROLL_TO.into(),
-            agent_desktop_core::capability::SET_FOCUS.into(),
+            agent_desktop_core::actions::capability::RIGHT_CLICK.into(),
+            agent_desktop_core::actions::capability::SCROLL_TO.into(),
+            agent_desktop_core::actions::capability::SET_FOCUS.into(),
         ]);
 
         assert!(is_transparent_wrapper(

@@ -1,5 +1,5 @@
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
-use crate::launch_options::LaunchOptions;
+use crate::system::launch_options::LaunchOptions;
 use crate::{AdapterError, AppError, AppInfo, InteractionLease, ProcessId, RendererKind};
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -43,7 +43,7 @@ impl SystemOps for CdpAdapter {
         _id: &str,
         options: &LaunchOptions,
         _lease: &InteractionLease,
-    ) -> Result<crate::launch_result::LaunchResult, AdapterError> {
+    ) -> Result<crate::system::launch_result::LaunchResult, AdapterError> {
         self.launch_app_calls.fetch_add(1, Ordering::SeqCst);
         *self.captured_args.lock().unwrap() = options.args.clone();
         *self.captured_cdp_port.lock().unwrap() = options.cdp_port;
@@ -51,7 +51,7 @@ impl SystemOps for CdpAdapter {
             let port = options.cdp_port.expect("cdp_port resolved before launch");
             serve_fake_cdp_endpoint(port);
         }
-        Ok(crate::launch_result::LaunchResult {
+        Ok(crate::system::launch_result::LaunchResult {
             app: "Fixture".into(),
             pid: ProcessId::new(42),
             process_instance: Some("42:1".into()),

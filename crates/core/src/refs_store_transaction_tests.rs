@@ -22,7 +22,7 @@ fn entry(name: &str, root_ref: Option<&str>) -> crate::RefEntry {
         },
         capabilities: RefCapabilities {
             states: Vec::new(),
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         },
         source: RefSource {
             source_app: Some("Fixture".into()),

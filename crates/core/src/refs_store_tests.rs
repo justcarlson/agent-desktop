@@ -32,7 +32,7 @@ fn entry(name: &str) -> RefEntry {
         },
         capabilities: crate::RefCapabilities {
             states: vec![],
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         },
         source: crate::RefSource {
             source_app: Some("TestApp".into()),

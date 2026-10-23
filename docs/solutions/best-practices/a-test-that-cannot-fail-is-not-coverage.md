@@ -2,7 +2,7 @@
 title: A test that cannot fail is not coverage
 date: 2026-08-01
 category: best-practices
-module: crates/core/src/accname.rs, crates/windows/src/tree, crates/windows/examples/uia_tree_dump
+module: crates/core/src/tree/accname.rs, crates/windows/src/tree, crates/windows/examples/uia_tree_dump
 problem_type: process_gap
 component: tooling
 symptoms:

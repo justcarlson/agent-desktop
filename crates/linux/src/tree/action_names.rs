@@ -1,4 +1,4 @@
-use agent_desktop_core::{Action, LocatorField, capability};
+use agent_desktop_core::{Action, LocatorField, actions::capability};
 
 use super::RawNode;
 use super::capability_rules::{Facts, rule_tokens, scroll_tokens};

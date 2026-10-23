@@ -2,8 +2,9 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::commands::helpers::test_support::save_one_ref_snapshot;
 use crate::{
-    AdapterError, Direction, action_request::ActionRequest, action_result::ActionResult,
-    adapter::NativeHandle, commands::stale_retry_test_support::StaleRetryCounter, refs::RefEntry,
+    AdapterError, Direction, actions::action_request::ActionRequest,
+    actions::action_result::ActionResult, adapter::NativeHandle,
+    commands::stale_retry_test_support::StaleRetryCounter, refs::RefEntry,
     refs_test_support::HomeGuard,
 };
 
@@ -28,7 +29,11 @@ impl ObservationOps for StaleThenOkAdapter {
         self.retry.attempt()
     }
 
-    crate::adapter::complete_live_observation!("scrollarea", "Target", [crate::capability::SCROLL]);
+    crate::adapter::complete_live_observation!(
+        "scrollarea",
+        "Target",
+        [crate::actions::capability::SCROLL]
+    );
 }
 
 impl ActionOps for StaleThenOkAdapter {

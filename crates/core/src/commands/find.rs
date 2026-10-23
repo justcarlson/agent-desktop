@@ -4,7 +4,7 @@ use crate::AccessibilityNode;
 use crate::commands::query;
 use crate::{
     AppError, IdentityPredicate, LocatorQuery, StatePredicate, adapter::PlatformAdapter,
-    context::CommandContext, search_text,
+    context::CommandContext, tree::search_text,
 };
 use serde_json::Value;
 

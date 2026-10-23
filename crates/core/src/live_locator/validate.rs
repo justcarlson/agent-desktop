@@ -39,7 +39,7 @@ fn validate_clause(
         ));
     }
     if let Some(role) = query.identity.role.as_deref()
-        && !crate::roles::is_valid_role_query(role)
+        && !crate::tree::roles::is_valid_role_query(role)
     {
         return Err(AdapterError::new(
             ErrorCode::InvalidArgs,

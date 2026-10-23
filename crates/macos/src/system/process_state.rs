@@ -1,5 +1,5 @@
 use agent_desktop_core::AdapterError;
-use agent_desktop_core::process_state::ProcessState;
+use agent_desktop_core::system::process_state::ProcessState;
 
 /// Result of one AX responsiveness read, decoupled from the raw AXError so
 /// `classify` (below) is testable without a live accessibility tree.

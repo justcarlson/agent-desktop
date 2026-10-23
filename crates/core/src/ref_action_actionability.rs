@@ -2,9 +2,8 @@
 //! keep both files under the 400-line cap.
 
 use crate::{
-    AdapterError, AppError,
-    action_request::ActionRequest,
-    actionability,
+    AdapterError, AppError, actionability,
+    actions::action_request::ActionRequest,
     ref_action::{ActionabilityPreflight, ResolvedRefAction},
 };
 use serde_json::json;

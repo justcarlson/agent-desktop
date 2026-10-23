@@ -1,4 +1,4 @@
-use agent_desktop_core::{ErrorCode, LocatorEvidence, Rect, state};
+use agent_desktop_core::{ErrorCode, LocatorEvidence, Rect, tree::state};
 
 use super::*;
 use crate::tree::node_evidence::evidence_for;
@@ -170,7 +170,7 @@ fn actions_map_by_the_capability_table_and_a_failed_list_is_incomplete() {
     let button = read_of(PUSH_BUTTON, "b", &["click"]);
     assert_eq!(
         live_actions(&evidence_of(&button)).expect("reads"),
-        vec![agent_desktop_core::capability::CLICK.to_owned()]
+        vec![agent_desktop_core::actions::capability::CLICK.to_owned()]
     );
     let none = read_of(PUSH_BUTTON, "b", &[]);
     assert!(live_actions(&evidence_of(&none)).expect("reads").is_empty());

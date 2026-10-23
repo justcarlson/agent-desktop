@@ -49,7 +49,7 @@ impl ObservationOps for DoubleCheckAdapter {
         };
         Ok(crate::adapter::LiveElement {
             identity: crate::adapter::live_identity("Run"),
-            state: crate::element_state::ElementState {
+            state: crate::tree::element_state::ElementState {
                 role: "button".into(),
                 states,
                 value: None,
@@ -88,10 +88,8 @@ impl ActionOps for DoubleCheckAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 
@@ -225,7 +223,7 @@ impl ObservationOps for DisabledAfterLeaseAdapter {
         let call = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
         Ok(crate::adapter::LiveElement {
             identity: crate::adapter::live_identity("Run"),
-            state: crate::element_state::ElementState {
+            state: crate::tree::element_state::ElementState {
                 role: "button".into(),
                 states: vec![],
                 value: None,
@@ -304,7 +302,7 @@ fn run_with_entry(
     request: ActionRequest,
     timeout_ms: u64,
     entry: &RefEntry,
-) -> crate::action_result::ActionResult {
+) -> crate::actions::action_result::ActionResult {
     execute_with_auto_wait(
         RefActionWaitCtx {
             adapter,

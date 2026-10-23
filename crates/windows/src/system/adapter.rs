@@ -4,7 +4,7 @@ use agent_desktop_core::{
     KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, ObservationOps,
     OperationReport, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
     SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowFilter, WindowInfo, WindowOp,
-    launch_options::LaunchOptions, process_state::ProcessState,
+    system::launch_options::LaunchOptions, system::process_state::ProcessState,
 };
 
 use crate::adapter::WindowsAdapter;
@@ -176,7 +176,7 @@ impl SystemOps for WindowsAdapter {
         id: &str,
         options: &LaunchOptions,
         lease: &InteractionLease,
-    ) -> Result<agent_desktop_core::launch_result::LaunchResult, AdapterError> {
+    ) -> Result<agent_desktop_core::system::launch_result::LaunchResult, AdapterError> {
         crate::system::launch::launch_app_impl(id, options, lease.deadline())
     }
 

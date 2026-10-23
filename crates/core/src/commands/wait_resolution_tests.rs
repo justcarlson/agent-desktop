@@ -2,8 +2,8 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, ErrorCode,
+    actions::capability,
     adapter::NativeHandle,
-    capability,
     commands::wait_predicate,
     refs::{RefEntry, RefMap},
     refs_store::RefStore,

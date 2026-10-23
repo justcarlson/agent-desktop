@@ -7,7 +7,7 @@
 
 use agent_desktop_core::{
     Action, ActionResult, ActionStep, AdapterError, Deadline, DeliverySemantics, ErrorCode,
-    InteractionPolicy, StepMechanism, action_request::ActionRequest,
+    InteractionPolicy, StepMechanism, actions::action_request::ActionRequest,
 };
 
 #[cfg(target_os = "windows")]

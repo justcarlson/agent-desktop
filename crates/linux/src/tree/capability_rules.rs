@@ -1,4 +1,4 @@
-use agent_desktop_core::capability;
+use agent_desktop_core::actions::capability;
 
 use super::node_read::COMPONENT_INTERFACE;
 use super::role_numbers::{

@@ -366,8 +366,8 @@ fn verify_stored_failure_error(entry: &RefEntry, deadline: Deadline) -> AdapterE
     let identity = agent_desktop_core::ProcessIdentity::new(entry.process.pid, instance);
     match crate::system::process_state::process_state_impl(identity, deadline) {
         Ok(
-            agent_desktop_core::process_state::ProcessState::Exited { .. }
-            | agent_desktop_core::process_state::ProcessState::Crashed { .. },
+            agent_desktop_core::system::process_state::ProcessState::Exited { .. }
+            | agent_desktop_core::system::process_state::ProcessState::Crashed { .. },
         ) => owning_process_exited_error(entry),
         _ => stale_ref_error(entry),
     }

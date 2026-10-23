@@ -1,4 +1,6 @@
-use agent_desktop_core::{Deadline, ObservationOps, SystemOps, launch_options::LaunchOptions};
+use agent_desktop_core::{
+    Deadline, ObservationOps, SystemOps, system::launch_options::LaunchOptions,
+};
 
 use crate::LinuxAdapter;
 use crate::system::close::close_live_tests::rig::Orphan;

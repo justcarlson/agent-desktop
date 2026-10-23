@@ -2,7 +2,9 @@ use super::match_verdict::MatchVerdict;
 use super::{LocatorEvidence, LocatorField, LocatorIdentifierStats};
 use crate::{
     locator::{ContainmentPredicate, IdentityPredicate, LocatorQuery},
-    roles, search_text, state,
+    tree::roles,
+    tree::search_text,
+    tree::state,
 };
 
 pub(crate) fn normalize_query(query: &LocatorQuery) -> LocatorQuery {

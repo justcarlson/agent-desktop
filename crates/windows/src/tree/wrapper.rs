@@ -76,7 +76,7 @@ fn advertises_action(properties: &ElementProperties) -> bool {
         .is_some_and(|actions| {
             actions
                 .iter()
-                .any(|action| action != agent_desktop_core::capability::SCROLL_TO)
+                .any(|action| action != agent_desktop_core::actions::capability::SCROLL_TO)
         })
 }
 

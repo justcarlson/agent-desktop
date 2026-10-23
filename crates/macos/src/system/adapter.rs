@@ -83,9 +83,9 @@ impl SystemOps for MacOSAdapter {
     fn launch_app(
         &self,
         id: &str,
-        options: &agent_desktop_core::launch_options::LaunchOptions,
+        options: &agent_desktop_core::system::launch_options::LaunchOptions,
         lease: &InteractionLease,
-    ) -> Result<agent_desktop_core::launch_result::LaunchResult, AdapterError> {
+    ) -> Result<agent_desktop_core::system::launch_result::LaunchResult, AdapterError> {
         crate::system::launch::launch_app_impl(id, options, lease.deadline())
     }
 
@@ -93,7 +93,7 @@ impl SystemOps for MacOSAdapter {
         &self,
         process: ProcessIdentity,
         deadline: Deadline,
-    ) -> Result<agent_desktop_core::process_state::ProcessState, AdapterError> {
+    ) -> Result<agent_desktop_core::system::process_state::ProcessState, AdapterError> {
         crate::system::process_state::process_state_impl(process, deadline)
     }
 

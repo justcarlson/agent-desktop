@@ -96,7 +96,7 @@ fn element_state_from_attrs_includes_offscreen_when_window_bounds_supplied() {
     assert!(
         state
             .states
-            .contains(&agent_desktop_core::state::OFFSCREEN.to_string())
+            .contains(&agent_desktop_core::tree::state::OFFSCREEN.to_string())
     );
 }
 
@@ -115,7 +115,7 @@ fn element_state_from_attrs_omits_offscreen_without_window_bounds() {
     assert!(
         !state
             .states
-            .contains(&agent_desktop_core::state::OFFSCREEN.to_string())
+            .contains(&agent_desktop_core::tree::state::OFFSCREEN.to_string())
     );
 }
 
@@ -167,7 +167,7 @@ fn complete_visibility_evidence_does_not_require_an_expanded_attribute() {
         let mut attrs = attrs_with_bounds(bounds);
         attrs.role = Some("AXMenuButton".into());
         let canonical = LocatorField::Known(if hidden {
-            vec![agent_desktop_core::state::HIDDEN.into()]
+            vec![agent_desktop_core::tree::state::HIDDEN.into()]
         } else {
             Vec::new()
         });

@@ -120,7 +120,7 @@ JSON entries into the same `Commands` enum, runs the same `CommandPolicy` prefli
 4. Add its name to `parse_command()` in `src/batch/mod.rs`; `every_cli_subcommand_is_known_to_batch_parser` fails
    otherwise. Add it to the surface lists in `src/cli/contract_command_surface_tests.rs`.
 5. Update the command counts in `README.md` and in this file; `src/cli/doc_literal_drift_tests.rs` checks them.
-6. A new `Action` variant goes in `crates/core/src/action.rs`. A new adapter method goes in the matching
+6. A new `Action` variant goes in `crates/core/src/actions/action.rs`. A new adapter method goes in the matching
    `PlatformAdapter` fragment with a `not_supported` default.
 7. Update the matching skill in the same change: `skills/agent-desktop/` for cross-platform behavior, the platform
    skill for what differs, `skills/agent-desktop-ffi/` for the C ABI. The skills compile into the binary and are what
@@ -196,7 +196,7 @@ Every command prints one envelope. `docs/json-output.md` holds the full contract
 
 - Refs are snapshot-qualified (`@s8f3k2p9:e1`) and allocated depth-first. Only the qualified form is accepted as
   input; a bare `@e1` fails with `INVALID_ARGS`. `@eN` is the internal RefMap key only.
-- An element gets a ref when its role is interactive (`INTERACTIVE_ROLES` in `crates/core/src/roles.rs`) or it
+- An element gets a ref when its role is interactive (`INTERACTIVE_ROLES` in `crates/core/src/tree/roles.rs`) or it
   advertises a primary action. `SetFocus`, `RightClick` and `ScrollTo` alone do not qualify, because web runtimes
   advertise them on nearly every node.
 - Actions re-identify the element strictly from `RefEntry` evidence: pid, role, path and source surface, stable text

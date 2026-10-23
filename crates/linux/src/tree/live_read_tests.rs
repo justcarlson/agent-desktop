@@ -171,7 +171,7 @@ fn a_pointer_observation_uses_one_fresh_node_for_bounds_and_states() {
         observation
             .states
             .iter()
-            .any(|state| state == agent_desktop_core::state::FOCUSED)
+            .any(|state| state == agent_desktop_core::tree::state::FOCUSED)
     );
 }
 
@@ -187,7 +187,7 @@ fn pointer_evidence_does_not_require_a_text_value_but_requires_state() {
         pointer
             .states
             .iter()
-            .any(|state| state == agent_desktop_core::state::FOCUSED)
+            .any(|state| state == agent_desktop_core::tree::state::FOCUSED)
     );
     assert!(state_via(&mut reader, &handle(), deadline).is_err());
     reader.unread_state = true;

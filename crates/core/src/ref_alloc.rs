@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 pub(crate) use crate::ref_alloc_config::RefAllocConfig;
 
-pub(crate) use crate::roles::INTERACTIVE_ROLES;
+pub(crate) use crate::tree::roles::INTERACTIVE_ROLES;
 
 pub(crate) fn ref_entry_from_node(
     node: &AccessibilityNode,
@@ -59,9 +59,9 @@ pub(crate) fn ref_entry_from_node(
 }
 
 const UBIQUITOUS_AFFORDANCES: [&str; 3] = [
-    crate::capability::SET_FOCUS,
-    crate::capability::RIGHT_CLICK,
-    crate::capability::SCROLL_TO,
+    crate::actions::capability::SET_FOCUS,
+    crate::actions::capability::RIGHT_CLICK,
+    crate::actions::capability::SCROLL_TO,
 ];
 
 /// An element receives a ref when it is addressable for an action: either its

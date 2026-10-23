@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use agent_desktop_core::{ObservationOps, RefEntry, state};
+use agent_desktop_core::{ObservationOps, RefEntry, tree::state};
 
 use super::AtspiElement;
 use super::live_fixture::{self, Fixture};

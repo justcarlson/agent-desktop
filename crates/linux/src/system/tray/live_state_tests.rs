@@ -1,4 +1,4 @@
-use agent_desktop_core::state;
+use agent_desktop_core::tree::state;
 
 use super::super::menu_layout::LayoutEntry;
 use super::entry_state;

@@ -1,9 +1,8 @@
 use crate::ref_action_wait_support::{after_scroll, trace_scroll_error};
 use crate::{
-    AdapterError, AppError,
-    action_request::ActionRequest,
-    action_result::ActionResult,
-    actionability,
+    AdapterError, AppError, actionability,
+    actions::action_request::ActionRequest,
+    actions::action_result::ActionResult,
     adapter::{NativeHandle, PlatformAdapter},
     context::CommandContext,
     ref_action_actionability,

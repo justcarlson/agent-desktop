@@ -54,7 +54,7 @@ impl ObservationOps for CountingPipelineAdapter {
         self.record("live read");
         Ok(crate::adapter::LiveElement {
             identity: crate::adapter::live_identity("OK"),
-            state: crate::element_state::ElementState {
+            state: crate::tree::element_state::ElementState {
                 role: "button".into(),
                 states: vec![],
                 value: None,
@@ -102,11 +102,9 @@ impl ActionOps for CountingPipelineAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
         self.record("execute");
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 

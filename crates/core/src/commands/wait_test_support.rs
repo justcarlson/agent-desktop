@@ -6,9 +6,9 @@ use crate::{
     AdapterError, AppError, Rect,
     adapter::NativeHandle,
     context::CommandContext,
-    element_state::ElementState,
     refs::{RefEntry, RefMap},
     refs_store::RefStore,
+    tree::element_state::ElementState,
 };
 use serde_json::Value;
 
@@ -80,7 +80,7 @@ impl ObservationOps for PredicateAdapter {
             }),
             states_complete: true,
             bounds: self.bounds,
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         })
     }
 
@@ -121,7 +121,7 @@ impl ObservationOps for PredicateAdapter {
         _handle: &NativeHandle,
         _deadline: crate::Deadline,
     ) -> Result<Option<Vec<String>>, AdapterError> {
-        Ok(Some(vec![crate::capability::CLICK.into()]))
+        Ok(Some(vec![crate::actions::capability::CLICK.into()]))
     }
 
     fn hit_test(

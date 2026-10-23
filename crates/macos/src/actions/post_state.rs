@@ -194,9 +194,9 @@ fn element_state_from_attrs(
 
 fn hidden_state(reported: Option<bool>, canonical: &LocatorField<Vec<String>>) -> Option<bool> {
     reported.or_else(|| match canonical {
-        LocatorField::Known(states) => Some(agent_desktop_core::state::has_state(
+        LocatorField::Known(states) => Some(agent_desktop_core::tree::state::has_state(
             states,
-            agent_desktop_core::state::HIDDEN,
+            agent_desktop_core::tree::state::HIDDEN,
         )),
         _ => None,
     })

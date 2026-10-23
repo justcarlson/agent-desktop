@@ -187,7 +187,7 @@ fn ref_entry(pid: u32) -> RefEntry {
         },
         capabilities: crate::RefCapabilities {
             states: Vec::new(),
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         },
         source: crate::RefSource {
             source_app: Some(format!("App {pid}")),

@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline, NativeHandle, state};
+use agent_desktop_core::{AdapterError, Deadline, NativeHandle, tree::state};
 use zbus::Connection;
 
 use super::absence::failure;

@@ -10,7 +10,7 @@
 
 use agent_desktop_core::{
     Action, ActionResult, ActionStep, AdapterError, Deadline, ErrorCode, InteractionLease,
-    InteractionPolicy, NativeHandle, action_request::ActionRequest,
+    InteractionPolicy, NativeHandle, actions::action_request::ActionRequest,
 };
 
 /// Availability flags for the Click chain's two rungs, bundled so

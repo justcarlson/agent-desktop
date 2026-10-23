@@ -1,7 +1,7 @@
 use super::{ChainStep, exhaustion_disposition, record_step_outcome, step_allowed, step_mechanism};
 use crate::actions::chain_delivery::DeliveryOutcome;
 use agent_desktop_core::MouseButton;
-use agent_desktop_core::step_mechanism::StepMechanism;
+use agent_desktop_core::actions::step_mechanism::StepMechanism;
 
 #[test]
 fn right_click_prefers_physical_input_before_semantic_fallbacks() {

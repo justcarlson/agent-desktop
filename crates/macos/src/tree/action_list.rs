@@ -1,6 +1,6 @@
 use super::AXElement;
 use super::capabilities::{copy_action_names_with_status, is_attr_settable_with_status};
-use agent_desktop_core::capability;
+use agent_desktop_core::actions::capability;
 
 #[cfg(target_os = "macos")]
 use accessibility_sys::{kAXFocusedAttribute, kAXValueAttribute};
@@ -101,7 +101,7 @@ pub(crate) fn read_platform_available_actions(
     }
     if (role_may_expand(role)
         && read_settable(el, "AXExpanded", deadline, &mut read).unwrap_or(false))
-        || (has("AXPress") && agent_desktop_core::roles::is_expandable_role(role))
+        || (has("AXPress") && agent_desktop_core::tree::roles::is_expandable_role(role))
     {
         push_unique(&mut read.actions, capability::EXPAND);
         push_unique(&mut read.actions, capability::COLLAPSE);
@@ -177,7 +177,7 @@ fn value_settable(
 }
 
 fn role_may_accept_focus(role: &str) -> bool {
-    agent_desktop_core::roles::is_interactive_role(role)
+    agent_desktop_core::tree::roles::is_interactive_role(role)
         || matches!(
             role,
             "table" | "outline" | "list" | "browser" | "webarea" | "scrollarea" | "group" | "row"
@@ -185,7 +185,7 @@ fn role_may_accept_focus(role: &str) -> bool {
 }
 
 fn role_may_expand(role: &str) -> bool {
-    agent_desktop_core::roles::is_expandable_role(role)
+    agent_desktop_core::tree::roles::is_expandable_role(role)
         || matches!(
             role,
             "group" | "outline" | "row" | "browser" | "table" | "list" | "cell"

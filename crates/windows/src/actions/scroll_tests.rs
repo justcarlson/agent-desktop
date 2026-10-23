@@ -6,7 +6,7 @@ use crate::tree::property_ids::TreeProperty;
 use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
 use agent_desktop_core::{
     ActionStepOutcome, AdapterError, DeliveryDisposition, DeliverySemantics, Direction, ErrorCode,
-    Rect, capability,
+    Rect, actions::capability,
 };
 use std::cell::Cell;
 

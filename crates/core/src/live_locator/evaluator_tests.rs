@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     locator::{ContainmentPredicate, IdentityPredicate, LocatorQuery},
-    search_text,
+    tree::search_text,
 };
 
 use super::test_support::{evidence, node, tree};

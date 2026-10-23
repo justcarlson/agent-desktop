@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId, RendererKind, WindowFilter,
-    WindowInfo, launch_options::LaunchOptions, launch_result::LaunchResult,
+    WindowInfo, system::launch_options::LaunchOptions, system::launch_result::LaunchResult,
 };
 #[cfg(test)]
 use std::collections::BTreeMap;

@@ -218,10 +218,10 @@ pub(crate) fn recorded_action_state(requests: &[crate::ActionRequest]) -> crate:
     }
     let mut states = Vec::new();
     if checked {
-        states.push(crate::state::CHECKED.into());
+        states.push(crate::tree::state::CHECKED.into());
     }
     if expanded {
-        states.push(crate::state::EXPANDED.into());
+        states.push(crate::tree::state::EXPANDED.into());
     }
     crate::ElementState {
         role: "textfield".into(),

@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, AppInfo, Deadline, DeliverySemantics, ErrorCode, WindowInfo,
-    launch_options::LaunchOptions, launch_result::LaunchResult,
+    system::launch_options::LaunchOptions, system::launch_result::LaunchResult,
 };
 use std::time::{Duration, Instant};
 

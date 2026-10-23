@@ -3,8 +3,8 @@ use super::{
     LocatorSelection, ObservationSource, evaluate_locator_tree,
 };
 use crate::{
+    actions::capability,
     adapter::SnapshotSurface,
-    capability,
     locator::IdentityPredicate,
     locator::LocatorQuery,
     refs::{RefEntry, RefPath},

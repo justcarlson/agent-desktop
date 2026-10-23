@@ -2,7 +2,7 @@ use crate::adapter::{
     ActionOps, InputOps, NativeHandle, ObservationOps, SnapshotSurface, SystemOps,
 };
 use crate::ref_action::*;
-use crate::{Action, ActionResult, AdapterError, CursorOverlayControl, capability};
+use crate::{Action, ActionResult, AdapterError, CursorOverlayControl, actions::capability};
 use std::sync::Mutex;
 
 struct CursorAdapter {

@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, NativeHandle, state};
+use agent_desktop_core::{AdapterError, Deadline, ErrorCode, NativeHandle, tree::state};
 use futures_util::future::join3;
 use zbus::Connection;
 use zbus::zvariant::{OwnedValue, Value};

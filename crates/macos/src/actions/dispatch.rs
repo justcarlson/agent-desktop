@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     Action, ActionResult, ActionStep, AdapterError, Deadline, ErrorCode, StepMechanism,
-    action_request::ActionRequest,
+    actions::action_request::ActionRequest,
 };
 
 #[cfg(target_os = "macos")]

@@ -1,15 +1,15 @@
 use super::tests::{artifacts_session, entry, setup_artifacts_test};
 use crate::{
     AdapterError, ErrorCode, ImageBuffer, ImageFormat,
-    action::Action,
-    action_request::ActionRequest,
-    action_result::ActionResult,
+    actions::action::Action,
+    actions::action_request::ActionRequest,
+    actions::action_result::ActionResult,
     adapter::{
         ActionOps, InputOps, LiveElement, NativeHandle, ObservationOps, ScreenshotTarget, SystemOps,
     },
     context::CommandContext,
-    element_state::ElementState,
     ref_action::{ResolvedRefAction, execute_resolved},
+    tree::element_state::ElementState,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -68,7 +68,7 @@ impl ObservationOps for ScreenshotMutationAdapter {
                 width: 20.0,
                 height: 20.0,
             }),
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         })
     }
 

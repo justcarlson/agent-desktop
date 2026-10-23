@@ -1,7 +1,7 @@
 use super::{ChainStep, build_step, exhaustion_disposition, record_step_outcome};
 use crate::actions::chain_delivery::DeliveryOutcome;
 use agent_desktop_core::MouseButton;
-use agent_desktop_core::step_mechanism::StepMechanism;
+use agent_desktop_core::actions::step_mechanism::StepMechanism;
 
 #[test]
 fn build_step_tags_mechanism_and_verified_on_success() {

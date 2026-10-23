@@ -56,7 +56,7 @@ pub(super) fn selected_matches(
             entry: &preliminary,
             root_ref: None,
         };
-        let mut hydrated = crate::renderer_accessibility::observe_tree(
+        let mut hydrated = crate::tree::renderer_accessibility::observe_tree(
             adapter,
             hydration_root,
             &ObservationRequest::selected_hydration(query, request, hydration_root, deadline)
@@ -219,7 +219,7 @@ fn preserve_verified_identity(preliminary: &RefEntry, node: &ObservedNode, entry
             .clone_from(&preliminary.identity.description);
     }
     if node.evidence.value.is_unknown()
-        && !crate::roles::is_mutable_value_role(&entry.identity.role)
+        && !crate::tree::roles::is_mutable_value_role(&entry.identity.role)
     {
         entry.identity.value.clone_from(&preliminary.identity.value);
     }

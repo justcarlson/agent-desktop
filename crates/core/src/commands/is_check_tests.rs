@@ -2,7 +2,7 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, Rect, adapter::NativeHandle, refs::RefMap, refs_store::RefStore,
-    refs_test_support::HomeGuard, state,
+    refs_test_support::HomeGuard, tree::state,
 };
 use std::sync::Mutex;
 
