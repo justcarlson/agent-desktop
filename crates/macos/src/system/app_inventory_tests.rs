@@ -116,20 +116,39 @@ fn source_error(source: &str) -> AdapterError {
     )
 }
 
+const UNCONSUMED_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
+
+#[test]
+fn a_retryable_failure_is_retried_until_the_inventory_repeats() {
+    let mut attempts = 0_u64;
+    let apps = stabilize_apps_until(Instant::now() + UNCONSUMED_BUDGET, || {
+        attempts += 1;
+        if attempts == 1 {
+            return Err(inventory_failure_fixture());
+        }
+        Ok(vec![app("A", 10)])
+    })
+    .unwrap();
+    assert_eq!(apps.len(), 1);
+    assert_eq!(attempts, 3);
+}
+
 #[test]
 fn persistent_source_failure_preserves_diagnosis_without_churn() {
     let source = inventory_failure_fixture();
-    let mut attempts = 0;
-    let error = stabilize_apps_until(
-        Instant::now() + std::time::Duration::from_millis(20),
-        || {
-            attempts += 1;
-            complete_apps_from_sources(Err(source.clone()), Ok(Vec::new()))
-        },
-    )
+    let mut attempts = 0_u64;
+    let error = stabilize_apps_until(Instant::now() + UNCONSUMED_BUDGET, || {
+        attempts += 1;
+        if attempts == 3 {
+            return Err(AdapterError::timeout("macOS app inventory timed out"));
+        }
+        complete_apps_from_sources(Err(source.clone()), Ok(Vec::new()))
+    })
     .unwrap_err();
+    assert_eq!(error.code, ErrorCode::Timeout);
     let details = error.details.unwrap();
-    assert_eq!(details["attempts"], attempts);
+    assert_eq!(details["kind"], "application_inventory_unstable");
+    assert_eq!(details["attempts"], 3);
     assert_eq!(details["churn_events"], 0);
     let failure = &details["last_failure_details"]["failures"][0];
     assert_eq!(failure["source"], "ns_workspace");
@@ -158,7 +177,7 @@ fn changing_app_inventory_counts_only_observed_changes() {
     )
     .unwrap_err();
     let details = error.details.unwrap();
-    assert_eq!(details["churn_events"], attempts - 1);
+    assert_eq!(details["churn_events"], attempts.saturating_sub(1));
     assert!(details.get("last_failure").is_none());
     assert!(details.get("last_failure_details").is_none());
 }
