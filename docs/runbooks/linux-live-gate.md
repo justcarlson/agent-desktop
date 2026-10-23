@@ -57,18 +57,17 @@ boundaries; an unmatched module fails before opening a session. Pass the same
 selection on every tier chunk and `--merge`; the manifest pins that selection.
 The receipt counts only selected tests and never certifies the full inventory.
 
-The closing hardening selection maps changed owners to these live modules:
+Changed owners map to these ignored live modules:
 
 | Changed owner | Ignored live modules |
 | --- | --- |
 | Keyboard focus and shared focus proof | `tree::physical_live_tests`, `tree::physical_live_apps_tests`, `actions::live_widget_tests` |
 | Selection and ref recovery | `actions::live_select_tests`, `actions::live_widget_tests`, `tree::navigate_live_tests` |
-| Menu resolution and modal routing | `system::menu_surface_live_tests`, `system::menu_wait_live_tests` |
+| Menu resolution and modal routing | `system::menu::menu_surface_live_tests`, `system::menu::menu_wait_live_tests` |
 | Notification cleanup lease | `notifications::live_tests` (Mutter only) |
 
 The modal-gate and resolver fake tests are non-ignored and run in the library
-gate; menu/modal/surface E2E legs provide their live acceptance coverage. The
-`node_read` change only widens helper visibility for keyboard focus.
+gate; menu/modal/surface E2E legs provide their live acceptance coverage.
 
 Ordinary ignored X11 cases run on both openbox and mutter. GNOME notification
 and shell-outage cases require GNOME Shell and run only on mutter. Non-ignored unit

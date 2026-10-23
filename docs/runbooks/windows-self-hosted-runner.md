@@ -41,14 +41,14 @@ interactive session - not `schtasks /RU SYSTEM`, which has no desktop
 either. The box must stay logged in (auto-logon or a session left unlocked)
 for the scheduled task to have a session to launch into; a locked or
 disconnected session degrades UIA visibility in ways this corpus has not
-measured (see "What §2.15 still owes" below), so the operational
+measured, so the operational
 expectation is an unattended box that stays logged in and unlocked, not one
 that gets RDP'd into and left locked.
 
-## Trigger policy - `workflow_dispatch` and branch-scoped `push` only, never `pull_request`
+## Trigger policy - `workflow_dispatch` only, never `pull_request`
 
-A `windows-e2e.yml` workflow, if one is ever restored, must trigger only on `workflow_dispatch` and on `push` to
-`feat/windows-adapter`, and never on `pull_request`:
+A `windows-e2e.yml` workflow, if one is ever restored, must trigger only on `workflow_dispatch`, and never on
+`pull_request`:
 
 - **`pull_request` on a public repository is exactly the exposure GitHub's
   own self-hosted-runner guidance warns against.** A fork's PR would run
@@ -56,27 +56,14 @@ A `windows-e2e.yml` workflow, if one is ever restored, must trigger only on `wor
   desktop access - this corpus's whole `DesktopLease`/exclusivity design
   exists to keep *trusted* concurrent processes from fighting over that
   desktop, not to sandbox an adversarial one.
-- `workflow_dispatch` alone is not enough to reach this workflow at all
-  during normal development: GitHub only offers a `workflow_dispatch` run
-  for a workflow file present on the **default branch**, and every Windows
-  sub-phase lands on `feat/windows-adapter`, never `main` (see
-  `windows-capability-probe.yml`'s own header comment for the same
-  mechanic). Without a second trigger, this file would sit dispatchable by
-  nobody until the Windows adapter's eventual promotion to `main`.
-- A `push` trigger scoped to `feat/windows-adapter` closes that gap without
-  opening the fork-PR exposure: a `push` event fires at the pushed ref and
-  **cannot be triggered by a fork** - only a contributor with write access
-  to this repository can push to `feat/windows-adapter` in the first place.
+- Windows code lives on `main`, the default branch, so `workflow_dispatch`
+  reaches the workflow without a second trigger. GitHub offers a
+  `workflow_dispatch` run only for a workflow file present on the default
+  branch, and only a contributor with write access can dispatch it.
 
-**With no runner registered, this relaxation grants no live exposure yet.**
-A `push` to `feat/windows-adapter` today queues a job that no runner
-claims, and because `windows-e2e.yml` sets `cancel-in-progress: false`,
-those queued runs accumulate rather than superseding each other. **§2.15
-must re-ratify this trigger policy at registration time** - the exposure
-becomes real the moment a runner starts claiming those jobs - and should
-pair registration with a **queue flush** (cancelling whatever `push`-queued
-runs accumulated while unregistered) so the runner's first live run is not
-racing a backlog.
+**A registration must re-ratify this trigger policy**: the exposure becomes
+real the moment a runner starts claiming jobs. Cancel any queued runs for the
+runner's labels before its first live run, so that run does not race a backlog.
 
 ## Fork-PR approval policy
 
@@ -126,7 +113,7 @@ The consequence for the **workspace itself**: because the runner is
 persistent, the default runner behavior is to reuse the same working
 directory across runs rather than starting from a clean checkout each time
 (the ephemeral/ JIT model's clean-slate guarantee does not apply here).
-§2.15's registration should confirm the runner is configured to clean the
+A registration should confirm the runner is configured to clean the
 workspace between jobs (`clean: true` is `actions/checkout`'s default, and
 Actions' own working-directory cleanup runs before each job) rather than
 relying on `.gitignore` alone to keep one run's build artifacts from
@@ -135,7 +122,7 @@ leaking into the next run's observations.
 ## Labels
 
 `[self-hosted, Windows, agent-desktop-e2e]` - the labels the retired
-`windows-e2e.yml` named. §2.15's registration allocates exactly these
+`windows-e2e.yml` named. A registration allocates exactly these
 labels to the interactive box; no other label is required or expected.
 
 ## Capture upload is gated before it runs
@@ -144,11 +131,11 @@ labels to the interactive box; no other label is required or expected.
 `scripts/check-capture-redaction.ps1` succeeds against the run's own
 capture directory, and only uploads the text captures that gate can
 inspect - never a screenshot or other binary the gate cannot read. This is
-the one path around R21's redaction gate that a committed-capture-only
-scan (U15's scope) cannot reach: a live run against real applications
+the one path around the redaction gate that a scan of committed captures
+cannot reach: a live run against real applications
 (File Explorer, Notepad, Task Manager, an Electron target) produces
 captures that are never committed, only published as a workflow-run
-artifact any reader of a public repository can download. §2.15's
+artifact any reader of a public repository can download. A
 registration must not remove or bypass this step when it wires in whatever
 directory the live run's captures land under - see `windows-e2e.yml`'s own
 comments for the exact ordering requirement (the gate step's outcome, not
@@ -167,8 +154,7 @@ To decommission the runner (temporarily or permanently):
 4. Delete the runner's work directory. Because the runner is persistent
    (not ephemeral), the work directory can carry residue from prior runs -
    staged binaries, a lock file under the box's own
-   `ProgramData\agent-desktop\<SID>\` path (this corpus's `DesktopLease`,
-   R16b/R16c) - none of which should survive decommissioning.
+   `ProgramData\agent-desktop\<SID>\` path (this corpus's `DesktopLease`) - none of which should survive decommissioning.
 5. If the box is being repurposed rather than retired, confirm no
    auto-logon credential or scheduled task referencing the runner account
    remains configured.

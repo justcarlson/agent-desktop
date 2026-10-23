@@ -113,7 +113,8 @@ probes/          raw platform measurements; FINDINGS.md rows are citable evidenc
 JSON entries into the same `Commands` enum, runs the same `CommandPolicy` preflight and calls the same `dispatch()`.
 
 **Adding a command.**
-1. Create `crates/core/src/commands/<name>.rs` with an `execute()` function and register it in `commands/mod.rs`.
+1. Create `crates/core/src/commands/<name>.rs` with an `execute()` function, its tests in `<name>_tests.rs`, and
+   register it in `commands/mod.rs`.
 2. Add the CLI variant in `src/cli/mod.rs` and its arguments under `src/cli_args/`.
 3. Add its arm to `dispatch()` and to `policy_for()` in `src/command_policy/mod.rs`. Both matches are exhaustive.
 4. Add its name to `parse_command()` in `src/batch/mod.rs`; `every_cli_subcommand_is_known_to_batch_parser` fails
@@ -121,6 +122,9 @@ JSON entries into the same `Commands` enum, runs the same `CommandPolicy` prefli
 5. Update the command counts in `README.md` and in this file; `src/cli/doc_literal_drift_tests.rs` checks them.
 6. A new `Action` variant goes in `crates/core/src/action.rs`. A new adapter method goes in the matching
    `PlatformAdapter` fragment with a `not_supported` default.
+7. Update the matching skill in the same change: `skills/agent-desktop/` for cross-platform behavior, the platform
+   skill for what differs, `skills/agent-desktop-ffi/` for the C ABI. The skills compile into the binary and are what
+   agents read.
 
 **Platform crate layout.** `adapter.rs` (the trait impl) sits at the crate root. New files go in the folder that fits:
 `tree/` reads, traverses and resolves the UI; `actions/` acts on elements; `input/` synthesizes raw keyboard, mouse and

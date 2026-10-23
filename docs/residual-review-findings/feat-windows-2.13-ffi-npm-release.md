@@ -1,6 +1,6 @@
 # Residual Review Findings
 
-- **Run:** ce-code-review `20260825-154618-a7f3` (mode:agent, plan: `docs/plans/2026-08-24-001-feat-windows-2-13-ffi-npm-release-plan.md`)
+- **Run:** ce-code-review `20260825-154618-a7f3` (mode:agent)
 - **Scope:** `feat/windows-2.13-ffi-npm-release` vs merge-base `2b402a0`
 - **Reviewers:** correctness, project-standards, testing, maintainability, agent-native, learnings, reliability, adversarial (in-process; cross-model peer skipped - host serving family unattestable)
 - **Validation:** one batch of 6 selected findings -> 5 validated, 1 invalidated and dropped (#5 self-test fixtures: the pwsh `.zip` fixture already exercises the Windows fail-closed branch)
