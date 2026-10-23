@@ -25,8 +25,10 @@ pub(crate) struct Keymap {
 impl Keymap {
     /// Refuses a keyboard state under which the planned keycodes would type
     /// other text: a second layout group, a held modifier, or Caps Lock. Num
-    /// Lock and Scroll Lock change no key the text plan uses, so their
-    /// modifier bits are harmless.
+    /// Lock and Scroll Lock change no key the text plan uses, so the bits of
+    /// the modifier rows whose keys carry only those two keysyms are harmless;
+    /// a row that also holds another keysym keeps its bit, because that bit
+    /// may stand for the other key.
     pub(crate) fn ensure_text_state(&self) -> Result<(), AdapterError> {
         if self.group == 0 && self.modifiers & !self.harmless_lock_bits() == 0 {
             return Ok(());
@@ -40,9 +42,6 @@ impl Keymap {
         .with_disposition(DeliverySemantics::not_delivered()))
     }
 
-    /// The modifier bits of every row whose keys all carry only Num Lock or
-    /// Scroll Lock keysyms. A row that also holds another keysym is not
-    /// harmless, because its bit may stand for that other key.
     fn harmless_lock_bits(&self) -> u16 {
         let width = usize::from(self.modifier_codes_per_modifier);
         (0..MODIFIER_ROWS)
