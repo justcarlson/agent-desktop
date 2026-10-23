@@ -51,8 +51,8 @@ AXShowMenu and AXPress with valid geometry. AXHidden and AXExpanded both returne
 
 The adapter's aggregate state-completeness flag becomes false when the expandable
 role lacks expanded evidence. Core then treats absent typed hidden evidence as
-unknown visibility. Thus expansion evidence affects click eligibility. This is
-a real coupling to investigate; no visibility gate was relaxed in this pass.
+unknown visibility. Thus expansion evidence affects click eligibility. This
+coupling needs investigation; no visibility gate was relaxed in this pass.
 
 A direct raw AXPress trial on the owned window returned -25204 after about
 1505 ms. No menu surface appeared and the screenshot showed the editor. After

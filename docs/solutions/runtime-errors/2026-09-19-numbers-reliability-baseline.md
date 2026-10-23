@@ -225,13 +225,13 @@ formula entry and saved/reopened edited content remain uncompleted. Stable cell
 identity across editing and continuous headless monitoring also remain unproven.
 No release, commit or push was performed.
 
-The essential external blocker is a working semantic text-write/commit path for
+The main external blocker is a working semantic text-write/commit path for
 Numbers under the required background conditions. AXValue and AXSelectedText
 advertise support and report native success without the requested value becoming
 visible or appearing in the document model. Verified full-range selection did
 not repair replacement. A working independent raw AX reproduction or a change
-in Numbers' accessibility behavior is needed before an adapter fix can honestly
-claim to solve this operation. No physical input, focus stealing, application
+in Numbers' accessibility behavior is needed before an adapter fix can claim to
+solve this operation. No physical input, focus stealing, application
 scripting writes or speculative private-API fallback was added to the product.
 
 The first follow-up document query used `Sheet1` and failed. The actual name is
