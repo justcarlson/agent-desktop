@@ -2,10 +2,11 @@
 
 <#
     U7SelfTestCasesAssert.ps1 - dot-sourced by Invoke-U7SelfTests.ps1. Cases
-    1-6b: Find-Target's snapshot_id requirement, Invoke-AgentDesktop's
+    1-6c: Find-Target's snapshot_id requirement, Invoke-AgentDesktop's
     fail-closed empty-stdout extraction, Assert-Effect's three conjuncts
     (status moved, pre-read guard, mechanism match), and
-    Initialize-NoEffectWindow's 1.5x-p99 refusal and bootstrap fallback.
+    Initialize-NoEffectWindow's 1.5x-p99 refusal and bootstrap fallback, and
+    Invoke-AgentDesktopBatch's --stop-on-error default and -ContinueOnError.
     Split out of Invoke-U7SelfTests.ps1 purely to keep every file under the
     400-line cap; $script:FakeTarget/$OkClick/$OkClickPhysical and the
     New-StubConfig/Set-LibFunctionText/New-Baseline helpers are the caller's
@@ -186,4 +187,26 @@ Invoke-SelfTest 'Initialize-NoEffectWindow starts on a bootstrap-only baseline a
     $bootstrapOnly = New-Baseline -BootstrapP99Ms 100 -Legs @{}
     $info = Initialize-NoEffectWindow -BaselinePath $bootstrapOnly
     Assert-True ($info.BootstrapUsed -eq $true) 'a baseline with an empty Legs table must report BootstrapUsed'
+}
+
+<#
+    6c. Invoke-AgentDesktopBatch passes --stop-on-error by default and omits
+       it with -ContinueOnError. The first stub rule matches only an argv
+       carrying the flag (one result entry); the second matches any other
+       batch call (two result entries), so the entry count proves which
+       argv was sent. INVERT: hard-coding the flag again makes the
+       -ContinueOnError call return one entry and this case fail.
+#>
+Invoke-SelfTest 'Invoke-AgentDesktopBatch sends --stop-on-error by default and omits it with -ContinueOnError' {
+    $halted = '{"version":"2.3","ok":true,"command":"batch","data":{"results":[{"ok":true,"data":{"found":true}}]}}'
+    $continued = '{"version":"2.3","ok":true,"command":"batch","data":{"results":[{"ok":true,"data":{"found":true}},{"ok":true,"data":{"found":true}}]}}'
+    New-StubConfig -Rules @(
+        @{ Match = '*batch*--stop-on-error*'; Responses = @($halted) },
+        @{ Match = '*batch*'; Responses = @($continued) }
+    ) | Out-Null
+    $entries = @(@{ Command = 'click'; Args = @{ ref_id = 'x' } })
+    $defaultResults = @(Invoke-AgentDesktopBatch -Entries $entries -TimeoutSeconds 5)
+    Assert-True ($defaultResults.Count -eq 1) "the default batch call must carry --stop-on-error (got $($defaultResults.Count) result entries)"
+    $continueResults = @(Invoke-AgentDesktopBatch -Entries $entries -TimeoutSeconds 5 -ContinueOnError)
+    Assert-True ($continueResults.Count -eq 2) "-ContinueOnError must omit --stop-on-error (got $($continueResults.Count) result entries)"
 }
