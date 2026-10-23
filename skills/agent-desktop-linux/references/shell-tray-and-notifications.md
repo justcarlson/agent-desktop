@@ -49,6 +49,9 @@ agent-desktop wait --menu-closed --app gnome-calculator --timeout 5000
 - A menu button whose popover holds only a label verifies `expand` and
   `collapse`, and a second `expand` on it succeeds without delivery. Both take
   about 0.6 s: the GTK4 popover animates and the check polls it every 50 ms.
+- If opening a popover changes the opener's accessible name (Calculator
+  `Advanced` becomes `Advanced Advanced`), take a fresh snapshot before
+  collapsing; refs are valid for one snapshot.
 
 The toolkit comparison below was measured on private Openbox X11. Calculator's
 GTK4 popover was also read on Mutter X11 and Wayland.

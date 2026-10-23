@@ -104,6 +104,17 @@ fn handle_resolve_failure(
     error: AdapterError,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
+    if error.code == ErrorCode::StaleRef
+        && error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("complete"))
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+    {
+        trace_resolve_error(context.context, context.ref_id, &error);
+        return Err(error);
+    }
     if !error.is_retryable_resolution_failure() {
         trace_resolve_error(context.context, context.ref_id, &error);
         return Err(error);

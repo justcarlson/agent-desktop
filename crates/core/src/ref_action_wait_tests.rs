@@ -354,8 +354,9 @@ impl SystemOps for SettledStaleAdapter {
 /// application may be busy: the resolver already proved the target is gone,
 /// and the polling loop must not discard that diagnosis.
 #[test]
-fn exhausted_budget_returns_the_settled_stale_ref_not_timeout() {
+fn complete_no_candidate_returns_stale_ref_without_exhausting_budget() {
     let adapter = SettledStaleAdapter;
+    let started = std::time::Instant::now();
     let err = execute_with_auto_wait(
         RefActionWaitCtx {
             adapter: &adapter,
@@ -372,7 +373,8 @@ fn exhausted_budget_returns_the_settled_stale_ref_not_timeout() {
     assert_eq!(err.disposition, crate::DeliverySemantics::not_delivered());
     let details = err.details.expect("settled details");
     assert_eq!(details["kind"], "resolve_no_candidate");
-    assert!(details.get("elapsed_ms").is_some());
+    assert_eq!(details["complete"], true);
+    assert!(started.elapsed() < std::time::Duration::from_millis(500));
 }
 
 #[path = "ref_action_wait_lease_tests.rs"]
@@ -380,3 +382,6 @@ mod lease_tests;
 
 #[path = "ref_action_wait_unresponsive_tests.rs"]
 mod unresponsive_tests;
+
+#[path = "ref_action_wait_stale_tests.rs"]
+mod stale_tests;
