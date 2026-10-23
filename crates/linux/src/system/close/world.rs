@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{AdapterError, Deadline};
 
 use crate::system::display::display_server::{DisplayServer, session_server};
+use crate::system::menu::surfaces;
 use crate::system::process::liveness::{self, Liveness};
 use crate::system::process::process_lookup::Lookup;
 use crate::system::signal::Signal;
@@ -18,6 +19,7 @@ use crate::system::{
 };
 
 const LATE_READ_MS: u64 = 300;
+const NESTED_LOOK_MS: u64 = 300;
 
 /// What the close flow touches outside itself. The live implementation reads
 /// `/proc`, talks to the display server and signals through a descriptor; a
@@ -31,6 +33,7 @@ pub(super) trait World {
     fn pause(&self);
     fn toplevels(&self) -> ControlRead<Vec<Toplevel>>;
     fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>>;
+    fn nested_dialogs(&self) -> Vec<String>;
     fn request_close(&self, window: u32) -> Result<(), ControlError>;
     fn signal(&self, signal: Signal) -> Result<Sent, AdapterError>;
     fn timeout_error(&self) -> AdapterError;
@@ -79,6 +82,11 @@ impl World for Live<'_> {
             Ok(deadline) => control::toplevels_of(self.pid, deadline),
             Err(_) => ControlRead::Unavailable,
         }
+    }
+
+    fn nested_dialogs(&self) -> Vec<String> {
+        let look = self.deadline.capped(Duration::from_millis(NESTED_LOOK_MS));
+        surfaces::nested_dialog_titles(self.bus, self.pid, look).unwrap_or_default()
     }
 
     fn request_close(&self, window: u32) -> Result<(), ControlError> {

@@ -49,6 +49,10 @@ Pass launch flags through `launch`:
 agent-desktop launch google-chrome --arg=--force-renderer-accessibility
 ```
 
+In a session with no desktop settings daemon (container, CI, bare Xvfb)
+`org.a11y.Status IsEnabled` is false, so pass `launch --env ACCESSIBILITY_ENABLED=1`
+as well, or the browser never joins the bus and `launch` waits its full timeout.
+
 Chrome lists as `chrome`: use `--app chrome` afterwards. The `launch` result
 carries `renderer: chromium`. Chromium and Electron read thin until they settle:
 pass `--timeout-ms` to `snapshot` rather than concluding the tree is empty. A

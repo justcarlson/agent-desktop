@@ -1,11 +1,11 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics};
 
+use super::standing::Standing;
 use super::world::World;
 use super::{Request, refusal};
 use crate::system::process::liveness::Liveness;
 use crate::system::x11::control::ControlRead;
 use crate::system::x11::control_error::ControlError;
-use crate::system::x11::toplevel::Toplevel;
 
 const DIALOG_LOOK_EVERY: u32 = 4;
 const SETTLE_LOOKS: u32 = 4;
@@ -108,17 +108,18 @@ fn request_close(world: &impl World, request: &Request<'_>) -> Result<bool, Adap
         };
         return unless_gone(world, refused);
     }
-    if windows.iter().any(refusal::is_dialog) {
-        return Err(refusal::dialog_pending(request, &windows, false));
+    let standing = Standing::of(world, windows);
+    if standing.has_dialog() {
+        return Err(refusal::dialog_pending(request, &standing, false));
     }
-    let ids: Vec<u32> = windows.iter().map(|window| window.id).collect();
+    let ids: Vec<u32> = standing.windows.iter().map(|window| window.id).collect();
     fan_out(world, request, &ids)
 }
 
 /// How the wait for an exit ended.
 enum Waited {
     Gone,
-    Dialog(Vec<Toplevel>),
+    Dialog(Standing),
     TimedOut,
 }
 
@@ -132,10 +133,10 @@ fn wait_gone(world: &impl World) -> Waited {
             return Waited::Gone;
         }
         if ticks.is_multiple_of(DIALOG_LOOK_EVERY)
-            && let ControlRead::Ready(windows) = world.toplevels()
-            && windows.iter().any(refusal::is_dialog)
+            && let Some(standing) = Standing::read(world)
+            && standing.has_dialog()
         {
-            return Waited::Dialog(windows);
+            return Waited::Dialog(standing);
         }
         if world.remaining().is_zero() {
             return Waited::TimedOut;
@@ -145,14 +146,14 @@ fn wait_gone(world: &impl World) -> Waited {
     }
 }
 
-/// The windows of the process as they stand when its prompt is reported. One
-/// close request can raise a prompt for each window with unsaved work, one
-/// after the other, and the wait ends on the first it sees. The windows are
-/// read again until two reads agree, and every count of the result comes from
-/// the last read that still shows a prompt, so the result matches what a
-/// reader of the session sees a moment later. `None` is a process that
+/// The windows and dialogs of the process as they stand when its prompt is
+/// reported. One close request can raise a prompt for each window with unsaved
+/// work, one after the other, and the wait ends on the first it sees. The
+/// process is read again until two reads agree, and every count of the result
+/// comes from the last read that still shows a prompt, so the result matches
+/// what a reader of the session sees a moment later. `None` is a process that
 /// exited while it settled.
-fn settled(world: &impl World, first: Vec<Toplevel>) -> Option<Vec<Toplevel>> {
+fn settled(world: &impl World, first: Standing) -> Option<Standing> {
     let mut latest = first;
     for _ in 0..SETTLE_LOOKS {
         if world.liveness() == Liveness::Gone {
@@ -162,10 +163,10 @@ fn settled(world: &impl World, first: Vec<Toplevel>) -> Option<Vec<Toplevel>> {
             break;
         }
         world.pause();
-        let ControlRead::Ready(read) = world.toplevels() else {
+        let Some(read) = Standing::read(world) else {
             break;
         };
-        if !read.iter().any(refusal::is_dialog) {
+        if !read.has_dialog() {
             break;
         }
         let agreed = read == latest;
@@ -195,7 +196,7 @@ pub(super) fn close(world: &impl World, request: &Request<'_>) -> Result<bool, A
         Waited::Gone => return Ok(sent),
         Waited::Dialog(first) => {
             return match settled(world, first) {
-                Some(windows) => Err(refusal::dialog_pending(request, &windows, true)),
+                Some(standing) => Err(refusal::dialog_pending(request, &standing, true)),
                 None => Ok(sent),
             };
         }

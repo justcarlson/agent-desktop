@@ -7,7 +7,7 @@ use agent_desktop_core::{
 
 use super::ancestry;
 use super::decorate::{Decorate, Plain};
-use super::nested_dialog::find as find_nested;
+use super::nested_dialog::{find as find_nested, is_incomplete};
 use super::node_position::place_nodes;
 use super::observe_menu::observe_menu;
 use super::projection::project_with;
@@ -121,7 +121,7 @@ fn settled_walk(
             && matches!(root, ObservationRoot::Window(_))
             && !super::surfaces::is_sheet(&walk.root.payload.node)
         {
-            return nested_sheet(&walk, limits, request, host);
+            return nested_sheet(element, walk, limits, request, host);
         }
         let waits = matches!(root, ObservationRoot::Window(_))
             && (web_process || has_web_document(&walk.root));
@@ -170,14 +170,26 @@ fn settled_walk(
 
 /// The walk of a dialog drawn inside the window that was walked, rooted at
 /// the dialog, or the absence of any sheet. The refs of the walk resolve
-/// against the dialog and not against the window.
+/// against the dialog and not against the window. The request's depth limit
+/// bounds the sheet and not the search for it: a window that limit cut short
+/// is walked again without it, because a dialog may sit below the cut.
 fn nested_sheet(
-    window_walk: &Walk<ObservedRead>,
+    window: &AtspiElement,
+    mut window_walk: Walk<ObservedRead>,
     limits: &WalkLimits,
     request: &ObservationRequest,
     host: &mut SettleHost<'_>,
 ) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
-    if !window_walk.complete || super::nested_dialog::is_incomplete(&window_walk.root) {
+    if window_walk.complete && is_incomplete(&window_walk.root) {
+        let whole = WalkLimits::default();
+        let uncut = WalkLimits {
+            max_raw_depth: whole.max_raw_depth,
+            max_logical_depth: whole.max_logical_depth,
+            ..*limits
+        };
+        window_walk = (host.walker)(window, &uncut, request.deadline, ReadPurpose::Snapshot)?;
+    }
+    if !window_walk.complete || is_incomplete(&window_walk.root) {
         return Err(AdapterError::timeout(
             "Sheet discovery did not read the complete window",
         ));

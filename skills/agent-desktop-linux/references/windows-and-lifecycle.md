@@ -155,7 +155,8 @@ only a document or tab and leave its window open.
 - An unconfirmed send is uncertain and unsafe to retry, even if the remaining
   fan-out runs out of time: observe the app first.
 - A save prompt keeps the app open. The dialog is a new top-level window of the
-  same pid, counted in `details.dialogs`: read it with a plain
+  same pid, or a `dialog` or `alert` node drawn inside the window (libadwaita
+  does this), counted in `details.dialogs`: read it with a plain
   `snapshot --app <name>` or `--surface sheet`, answer it, close again. A dialog
   already standing: `ACTION_FAILED`, cause `dialog_pending`, `not_delivered`,
   `retry: safe`, nothing sent. A dialog that opens in answer to the request ends
