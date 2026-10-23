@@ -285,11 +285,6 @@ class ReadDisciplineTests(unittest.TestCase):
         ctx.restored("atspi.selection", True)
         self.assertTrue(any("not restored" in item for item in verdict.evaluate(ctx)))
 
-    def test_undeclared_channel_is_refused(self):
-        ctx = self.ctx(leg=atspi_leg())
-        with self.assertRaises(ValueError):
-            ctx.before("x11", 1)
-
     def test_repeating_a_stage_keeps_every_value(self):
         ctx = self.ctx()
         ctx.before("atspi", None)

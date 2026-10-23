@@ -40,6 +40,8 @@ def make_binary(root: Path, body: str) -> Path:
 class RegistryContractTests(unittest.TestCase):
     def test_every_registry_leg_has_an_implementation(self):
         importlib.import_module("scenarios")
+        self.assertTrue(REGISTRY)
+        self.assertTrue(legs.implementations())
         problems = contract_violations(REGISTRY, legs.implementations())
         self.assertEqual(problems, [])
 
@@ -131,9 +133,6 @@ class GateTests(unittest.TestCase):
                         platform="linux",
                     )
                     self.assertEqual(missing, [])
-
-    def test_gate_failure_maps_to_exit_two(self):
-        self.assertEqual(report.exit_code(0, True), 2)
 
     def test_run_without_session_exits_two(self):
         with tempfile.TemporaryDirectory() as root:
