@@ -126,17 +126,12 @@ fn capture_item(
 }
 
 fn wait_for_frame(pool: &PoolGuard, deadline: Deadline) -> Result<FrameGuard, AdapterError> {
+    #[cfg(test)]
+    if let Some(budget) = hold_frames::budget() {
+        return hold_frames_until(deadline, budget);
+    }
     loop {
         deadline.ensure_remaining()?;
-        #[cfg(test)]
-        if hold_frames::is_active() {
-            let slice = deadline.remaining_slice(FRAME_POLL_SLICE)?;
-            if slice.is_zero() {
-                return Err(deadline.timeout_error());
-            }
-            std::thread::sleep(slice);
-            continue;
-        }
         match pool.0.TryGetNextFrame() {
             Ok(frame) => return Ok(FrameGuard::new(frame)),
             Err(_) => {
@@ -147,6 +142,15 @@ fn wait_for_frame(pool: &PoolGuard, deadline: Deadline) -> Result<FrameGuard, Ad
                 std::thread::sleep(slice);
             }
         }
+    }
+}
+
+#[cfg(test)]
+fn hold_frames_until(deadline: Deadline, budget: Duration) -> Result<FrameGuard, AdapterError> {
+    let held = Deadline::from_duration(budget)?;
+    loop {
+        deadline.ensure_remaining()?;
+        std::thread::sleep(held.remaining_slice(FRAME_POLL_SLICE)?);
     }
 }
 
@@ -288,17 +292,26 @@ pub(super) mod fail_after_start {
 #[cfg(test)]
 pub(super) mod hold_frames {
     use std::cell::Cell;
+    use std::time::Duration;
 
     thread_local! {
-        static ACTIVE: Cell<bool> = const { Cell::new(false) };
+        static BUDGET_MS: Cell<usize> = const { Cell::new(0) };
     }
 
-    pub(super) fn is_active() -> bool {
-        ACTIVE.with(Cell::get)
+    /// The frame-wait budget armed for this thread, if frames are being held.
+    ///
+    /// The budget is a fresh deadline started inside the frame wait, after the
+    /// capture session exists, so expiry is decided there and never by how long
+    /// the setup before it took.
+    pub(super) fn budget() -> Option<Duration> {
+        match BUDGET_MS.with(Cell::get) {
+            0 => None,
+            millis => Some(Duration::from_millis(millis as u64)),
+        }
     }
 
-    pub(super) fn with<R>(run: impl FnOnce() -> R) -> R {
-        crate::system::test_support::with_flag(&ACTIVE, true, run)
+    pub(super) fn with<R>(budget_ms: usize, run: impl FnOnce() -> R) -> R {
+        crate::system::test_support::with_usize_flag(&BUDGET_MS, budget_ms, run)
     }
 }
 

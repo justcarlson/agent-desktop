@@ -8,11 +8,14 @@ use crate::system::display::{display_at, list_displays_live};
 use crate::system::permissions::report;
 use crate::system::png_codec::decode_png_to_bgra;
 use crate::tree::fixture::{LocalPatternFixture, bootstrap};
-use agent_desktop_core::{Deadline, ErrorCode, PermissionState};
+use agent_desktop_core::{ErrorCode, PermissionState};
 
 use crate::system::test_time::deadline;
 
 use crate::system::capture_test_support::sample_rgb;
+
+const HELD_FRAME_BUDGET_MS: usize = 50;
+const PATTERN_PAINT_WAIT_MS: u64 = 5_000;
 
 /// Pixel and resource-balance legs need the HWND/HMONITOR interop, which is a
 /// stricter gate than [`modern_is_supported`] (A22-1: IsSupported can be true
@@ -63,8 +66,11 @@ fn unsupported_host_reports_unavailable_without_capture_api() {
     );
 }
 
-/// Uniform black alone cannot distinguish session compositing from capture failure.
-/// GDI independently verifies the window painted, making black a failure not a skip.
+/// A first WGC frame can precede the window being composited, so the capture
+/// is repeated until a frame shows the fixture's pattern rather than after a
+/// fixed pause. Uniform black alone cannot distinguish session compositing
+/// from capture failure; GDI independently verifies the window painted, making
+/// black that outlasts the wait a failure and not a skip.
 #[test]
 fn pattern_fixture_window_capture_matches_when_supported() {
     bootstrap();
@@ -72,25 +78,20 @@ fn pattern_fixture_window_capture_matches_when_supported() {
         return;
     }
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");
-    let image = capture_window(fixture.handle() as _, 1.0, deadline(10_000))
-        .expect("WGC window capture of the pattern fixture succeeds");
-    let (bgra, width, height) =
-        decode_png_to_bgra(&image.data, deadline(10_000)).expect("decode captured PNG");
-    assert_eq!((width, height), (image.width, image.height));
-
     let expectation = fixture.expectation();
+    let paint_wait = deadline(PATTERN_PAINT_WAIT_MS);
     let mut samples = [[0u8; 3]; 4];
-    for (index, point) in expectation.sample_points().into_iter().enumerate() {
-        samples[index] = sample_rgb(&bgra, width, point.x, point.y);
-    }
-    if samples.iter().all(|sample| *sample == [0u8; 3]) {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let retried = capture_window(fixture.handle() as _, 1.0, deadline(10_000))
+    loop {
+        let image = capture_window(fixture.handle() as _, 1.0, deadline(10_000))
             .expect("WGC window capture of the pattern fixture succeeds");
-        let (bgra, width, _) =
-            decode_png_to_bgra(&retried.data, deadline(10_000)).expect("decode retried PNG");
+        let (bgra, width, height) =
+            decode_png_to_bgra(&image.data, deadline(10_000)).expect("decode captured PNG");
+        assert_eq!((width, height), (image.width, image.height));
         for (index, point) in expectation.sample_points().into_iter().enumerate() {
             samples[index] = sample_rgb(&bgra, width, point.x, point.y);
+        }
+        if expectation.matches_samples(&samples) || paint_wait.is_expired() {
+            break;
         }
     }
     if samples.iter().all(|sample| *sample == [0u8; 3]) {
@@ -141,18 +142,30 @@ fn frame_wait_deadline_expiry_falls_back_to_legacy() {
         return;
     }
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
-    let tight = Deadline::after(80).expect("short modern slice");
-    let modern_error = hold_frames::with(|| capture_window(fixture.handle() as _, 1.0, tight))
-        .expect_err("holding frames past the deadline must fail the modern backend");
+    let modern_error = hold_frames::with(HELD_FRAME_BUDGET_MS, || {
+        capture_window(fixture.handle() as _, 1.0, deadline(10_000))
+    })
+    .expect_err("holding frames past the frame-wait budget must fail the modern backend");
     assert_eq!(modern_error.code, ErrorCode::Timeout);
+    assert_eq!(
+        modern_error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("timeout_ms"))
+            .and_then(serde_json::Value::as_u64),
+        Some(HELD_FRAME_BUDGET_MS as u64),
+        "the Timeout must come from the frame-wait budget, not from the caller's deadline"
+    );
 
-    let image = capture_backend::capture_with_precedence(
-        CaptureSubject::Window {
-            handle: fixture.handle() as _,
-            scale_factor: 1.0,
-        },
-        deadline(10_000),
-    )
+    let image = hold_frames::with(HELD_FRAME_BUDGET_MS, || {
+        capture_backend::capture_with_precedence(
+            CaptureSubject::Window {
+                handle: fixture.handle() as _,
+                scale_factor: 1.0,
+            },
+            deadline(10_000),
+        )
+    })
     .expect("precedence must still succeed via Legacy after a modern timeout");
     assert!(!image.data.is_empty());
 }
@@ -202,9 +215,10 @@ fn resources_balance_across_success_deadline_and_forced_failure() {
         "success path must release every tracked resource"
     );
 
-    let tight = Deadline::after(80).expect("short deadline");
-    let timeout = hold_frames::with(|| capture_window(handle, 1.0, tight))
-        .expect_err("held frames past deadline");
+    let timeout = hold_frames::with(HELD_FRAME_BUDGET_MS, || {
+        capture_window(handle, 1.0, deadline(10_000))
+    })
+    .expect_err("held frames past the frame-wait budget");
     assert_eq!(timeout.code, ErrorCode::Timeout);
     assert_eq!(
         resource_balance::live(),
