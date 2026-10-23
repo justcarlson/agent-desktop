@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use super::{VirtualClock, now, sleep};
 use crate::{Deadline, ErrorCode};
 
 #[test]
@@ -92,4 +93,73 @@ fn ensure_remaining_fails_with_the_timeout_error_once_expired() {
         details
     };
     assert_eq!(without_elapsed(&error), without_elapsed(&expected));
+}
+
+#[test]
+fn a_frozen_clock_expires_a_deadline_only_when_advanced() {
+    let clock = VirtualClock::freeze();
+    let deadline = Deadline::after(100).unwrap();
+
+    assert!(!deadline.is_expired());
+    assert_eq!(deadline.remaining(), Duration::from_millis(100));
+
+    clock.advance(Duration::from_millis(99));
+    assert!(!deadline.is_expired());
+    assert_eq!(deadline.remaining(), Duration::from_millis(1));
+
+    clock.advance(Duration::from_millis(1));
+    assert!(deadline.is_expired());
+    assert_eq!(deadline.elapsed(), Duration::from_millis(100));
+    assert_eq!(clock.elapsed(), Duration::from_millis(100));
+}
+
+#[test]
+fn virtual_sleep_advances_the_clock_without_blocking() {
+    let clock = VirtualClock::freeze();
+    let deadline = Deadline::after(10_000).unwrap();
+
+    sleep(Duration::from_secs(5));
+
+    assert_eq!(clock.elapsed(), Duration::from_secs(5));
+    assert_eq!(deadline.remaining(), Duration::from_secs(5));
+    assert_eq!(deadline.elapsed(), Duration::from_secs(5));
+}
+
+#[test]
+fn a_cap_expires_exactly_at_its_slice() {
+    let clock = VirtualClock::freeze();
+    let capped = Deadline::after(1_000)
+        .unwrap()
+        .capped(Duration::from_millis(30));
+
+    assert!(capped.was_capped());
+    clock.advance(Duration::from_millis(29));
+    assert!(!capped.is_expired());
+    clock.advance(Duration::from_millis(1));
+    assert!(capped.is_expired());
+}
+
+#[test]
+fn a_cap_longer_than_the_budget_leaves_it_unchanged() {
+    let clock = VirtualClock::freeze();
+    let deadline = Deadline::after(100).unwrap();
+    let capped = deadline.capped(Duration::from_secs(60));
+
+    assert!(!capped.was_capped());
+    clock.advance(Duration::from_millis(100));
+    assert!(capped.is_expired());
+}
+
+#[test]
+fn dropping_the_clock_restores_real_time() {
+    let before = {
+        let _clock = VirtualClock::freeze();
+        sleep(Duration::from_secs(3600));
+        std::time::Instant::now()
+    };
+
+    let resumed = now();
+
+    assert!(resumed >= before);
+    assert!(resumed.saturating_duration_since(before) < Duration::from_secs(1800));
 }

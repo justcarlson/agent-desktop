@@ -33,7 +33,7 @@ impl Deadline {
     /// current command scope. Use only for recovery work that must run after
     /// an operation deadline expires.
     pub fn detached_after(timeout_ms: u64) -> Result<Self, AdapterError> {
-        let started_at = Instant::now();
+        let started_at = now();
         let duration = wait_timeout_duration(timeout_ms)?;
         let expires_at = started_at.checked_add(duration).ok_or_else(|| {
             AdapterError::new(
@@ -89,7 +89,7 @@ impl Deadline {
     }
 
     pub fn remaining(self) -> Duration {
-        self.expires_at.saturating_duration_since(Instant::now())
+        self.expires_at.saturating_duration_since(now())
     }
 
     pub fn remaining_slice(self, maximum: Duration) -> Result<Duration, AdapterError> {
@@ -102,7 +102,7 @@ impl Deadline {
     }
 
     pub fn capped(self, maximum: Duration) -> Self {
-        let expires_at = Instant::now()
+        let expires_at = now()
             .checked_add(maximum)
             .map_or(self.expires_at, |slice| self.expires_at.min(slice));
         Self {
@@ -154,7 +154,7 @@ impl Deadline {
     }
 
     pub fn elapsed(self) -> Duration {
-        self.started_at.elapsed()
+        now().saturating_duration_since(self.started_at)
     }
 
     pub fn timeout_ms(self) -> u64 {
@@ -203,6 +203,69 @@ pub(crate) fn enter_scope(deadline: Option<Deadline>) -> DeadlineScope {
     DeadlineScope {
         previous,
         _not_send: std::marker::PhantomData,
+    }
+}
+
+#[cfg(not(test))]
+#[inline(always)]
+pub(crate) fn now() -> Instant {
+    Instant::now()
+}
+
+#[cfg(not(test))]
+#[inline(always)]
+pub(crate) fn sleep(duration: Duration) {
+    std::thread::sleep(duration)
+}
+
+#[cfg(test)]
+thread_local! {
+    static VIRTUAL_NOW: Cell<Option<Instant>> = const { Cell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn now() -> Instant {
+    VIRTUAL_NOW.get().unwrap_or_else(Instant::now)
+}
+
+#[cfg(test)]
+pub(crate) fn sleep(duration: Duration) {
+    match VIRTUAL_NOW.get() {
+        Some(at) => VIRTUAL_NOW.set(Some(at.checked_add(duration).unwrap_or(at))),
+        None => std::thread::sleep(duration),
+    }
+}
+
+#[cfg(test)]
+pub(crate) struct VirtualClock {
+    anchor: Instant,
+    _not_send: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+
+#[cfg(test)]
+impl VirtualClock {
+    pub(crate) fn freeze() -> Self {
+        let anchor = Instant::now();
+        VIRTUAL_NOW.set(Some(anchor));
+        Self {
+            anchor,
+            _not_send: std::marker::PhantomData,
+        }
+    }
+
+    pub(crate) fn advance(&self, by: Duration) {
+        sleep(by);
+    }
+
+    pub(crate) fn elapsed(&self) -> Duration {
+        now().saturating_duration_since(self.anchor)
+    }
+}
+
+#[cfg(test)]
+impl Drop for VirtualClock {
+    fn drop(&mut self) {
+        VIRTUAL_NOW.set(None);
     }
 }
 

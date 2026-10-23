@@ -138,7 +138,7 @@ fn ensure_before_deadline(
 fn sleep_until_next_poll(deadline: Deadline, interval: Duration) {
     let remaining = deadline.remaining();
     if !remaining.is_zero() {
-        std::thread::sleep(interval.min(remaining));
+        crate::deadline::sleep(interval.min(remaining));
     }
 }
 

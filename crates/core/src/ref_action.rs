@@ -260,13 +260,13 @@ fn stable_preflight(
     if report.actionable {
         return Ok(ref_action_actionability::preflight_from_report(&report));
     }
-    let started = std::time::Instant::now();
+    let started = crate::deadline::now();
     let mut sampler = actionability::stability_sampler::StabilitySampler::new();
     loop {
         let bounds = target
             .adapter
             .get_element_bounds(target.handle, target.deadline)?;
-        let elapsed = started.elapsed();
+        let elapsed = crate::deadline::now().saturating_duration_since(started);
         if sampler.observe(bounds, elapsed) {
             let stability = actionability::StabilityExpectation::strict(
                 sampler.bounds(),
@@ -279,7 +279,7 @@ fn stable_preflight(
             .deadline
             .remaining_slice(actionability::stability_sampler::STABILITY_SAMPLE_INTERVAL)
             .map_err(|error| error.with_disposition(crate::DeliverySemantics::not_delivered()))?;
-        std::thread::sleep(sleep);
+        crate::deadline::sleep(sleep);
     }
 }
 

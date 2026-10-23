@@ -119,7 +119,7 @@ fn lock_file(
                 if remaining.is_zero() {
                     return Err(lock_timeout(deadline, purpose, path, contention_count));
                 }
-                std::thread::sleep(remaining.min(Duration::from_millis(10)));
+                crate::deadline::sleep(remaining.min(Duration::from_millis(10)));
             }
             Err(std::fs::TryLockError::Error(error)) => {
                 return Err(AdapterError::new(
