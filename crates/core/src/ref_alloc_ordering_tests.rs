@@ -215,6 +215,35 @@ fn allocation_config(include_bounds: bool) -> RefAllocConfig<'static> {
 }
 
 #[test]
+fn allocate_refs_keeps_a_runtime_id_identifier_with_its_kind() {
+    let value = r#"tray:{"owner":":1.7","object_path":"/org/ayatana/NotificationItem/x","menu_path":null,"entry_id":null,"label_path":[]}"#;
+    let mut item = node("menubutton", Some("Dropbox"));
+    item.identity.native_id = Some(crate::ElementIdentifier {
+        kind: crate::IdentifierKind::RuntimeId,
+        value: value.into(),
+    });
+    let mut root = node("window", Some("Tray"));
+    root.children = vec![item];
+    let mut refmap = RefMap::new();
+
+    let out = allocate_refs(root, &mut refmap, &allocation_config(true)).unwrap();
+
+    let ref_id = out.children[0]
+        .ref_id
+        .as_deref()
+        .expect("a tray item with a RuntimeId identifier still receives a ref");
+    let stored = refmap
+        .get(ref_id)
+        .unwrap()
+        .identity
+        .native_id
+        .as_ref()
+        .expect("the identifier is recorded");
+    assert_eq!(stored.kind, crate::IdentifierKind::RuntimeId);
+    assert_eq!(stored.value, value);
+}
+
+#[test]
 fn transform_tree_interactive_only_prunes_leaves_with_only_ubiquitous_affordances() {
     let mut noise = node("statictext", Some("row"));
     noise.presentation.available_actions = vec!["RightClick".into(), "ScrollTo".into()];

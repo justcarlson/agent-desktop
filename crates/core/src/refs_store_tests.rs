@@ -101,48 +101,27 @@ fn load_ref_uses_qualified_identity_and_never_crosses_sessions() {
     );
 }
 
-/// Saves under contention, retrying only while the store's write lock reports
-/// its own `lock_timeout`.
-///
-/// The lock's budget is a product decision - a caller waiting on a busy store
-/// is told to try again rather than blocked indefinitely - and `TIMEOUT`
-/// carries `retry: safe` precisely so a caller can. Eight writers racing one
-/// lock legitimately exhaust that budget, so a test requiring every writer to
-/// win on its first attempt asserts something the contract never promised.
-/// Matching on the `kind` keeps that tolerance narrow: a timeout from anywhere
-/// else in the save path is still a failure.
-fn save_snapshot_after_contention(store: &RefStore, name: &str) -> String {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-    loop {
-        match store.save_new_snapshot(&map_with(name)) {
-            Ok(id) => return id,
-            Err(AppError::Adapter(inner))
-                if inner.code == ErrorCode::Timeout
-                    && inner
-                        .details
-                        .as_ref()
-                        .and_then(|details| details.get("kind"))
-                        .and_then(serde_json::Value::as_str)
-                        == Some("lock_timeout")
-                    && std::time::Instant::now() < deadline =>
-            {
-                std::thread::sleep(std::time::Duration::from_millis(20));
-            }
-            Err(error) => panic!("contended snapshot save failed: {error:?}"),
-        }
-    }
-}
-
 #[test]
-fn concurrent_writers_preserve_all_snapshots() {
+fn snapshots_saved_by_eight_threads_in_turn_are_all_preserved() {
     let _guard = HomeGuard::new();
     let store = RefStore::new().unwrap();
+    let turn = std::sync::Arc::new((std::sync::Mutex::new(0_usize), std::sync::Condvar::new()));
     let mut handles = Vec::new();
-
-    for i in 0..8 {
+    for writer in 0..8 {
         let store = store.clone();
+        let turn = std::sync::Arc::clone(&turn);
         handles.push(std::thread::spawn(move || {
-            save_snapshot_after_contention(&store, &format!("Snapshot {i}"))
+            let (counter, changed) = &*turn;
+            let mut current = counter.lock().unwrap();
+            while *current != writer {
+                current = changed.wait(current).unwrap();
+            }
+            let id = store
+                .save_new_snapshot(&map_with(&format!("Snapshot {writer}")))
+                .unwrap();
+            *current = writer + 1;
+            changed.notify_all();
+            id
         }));
     }
 
@@ -151,11 +130,43 @@ fn concurrent_writers_preserve_all_snapshots() {
         .map(|handle| handle.join().unwrap())
         .collect::<Vec<_>>();
 
-    for id in &ids {
-        assert_eq!(store.load_snapshot(id).unwrap().len(), 1);
+    let distinct = ids.iter().collect::<std::collections::HashSet<_>>();
+    assert_eq!(distinct.len(), 8);
+    for (writer, id) in ids.iter().enumerate() {
+        let saved = store.load_snapshot(id).unwrap();
+        assert_eq!(saved.len(), 1);
+        assert_eq!(
+            ref_name(&saved),
+            Some(format!("Snapshot {writer}").as_str())
+        );
     }
-    let latest = store.latest_snapshot_id().unwrap().unwrap();
-    assert!(ids.iter().any(|id| id == &latest));
+    assert_eq!(
+        store.latest_snapshot_id().unwrap().as_deref(),
+        Some(ids[7].as_str())
+    );
+}
+
+#[test]
+fn save_new_snapshot_waits_on_a_held_store_lock() {
+    let _guard = HomeGuard::new();
+    let store = RefStore::new().unwrap();
+    let held = RefStoreLock::acquire(&store.lock_path()).unwrap();
+    let clock = crate::deadline::VirtualClock::freeze();
+
+    let AppError::Adapter(error) = store.save_new_snapshot(&map_with("Blocked")).unwrap_err()
+    else {
+        panic!("a contended save must fail with an adapter error");
+    };
+
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.details.unwrap()["kind"], "lock_timeout");
+    assert_eq!(clock.elapsed(), std::time::Duration::from_millis(2_000));
+    assert!(store.latest_snapshot_id().unwrap().is_none());
+
+    drop(held);
+    let saved = store.save_new_snapshot(&map_with("Unblocked")).unwrap();
+
+    assert_eq!(store.load_snapshot(&saved).unwrap().len(), 1);
 }
 
 #[cfg(unix)]
