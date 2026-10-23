@@ -3,17 +3,39 @@ use x11rb::protocol::xproto::{AtomEnum, ConnectionExt};
 
 use super::control::ControlRead;
 use super::control_display::{atoms, longs, open, property, route};
+use super::snapshot::decode_shadow;
 use crate::tree::Extents;
 
 const STATE_LONGS: u32 = 64;
+const SHADOW_LONGS: u32 = 4;
 
 /// The window state window operations judge by readback.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WindowFacts {
     pub(crate) client: Extents,
+    /// `_GTK_FRAME_EXTENTS` as left, top, right, bottom: the client-side
+    /// shadow inside `client`, zero for a window that draws none.
+    pub(crate) shadow: (i32, i32, i32, i32),
     pub(crate) hidden: bool,
     pub(crate) maximized_vertical: bool,
     pub(crate) maximized_horizontal: bool,
+}
+
+impl WindowFacts {
+    /// The window as drawn: the client rectangle less its client-side shadow.
+    pub(crate) fn visible(&self) -> Extents {
+        let (left, top, right, bottom) = self.shadow;
+        Extents {
+            x: self.client.x.saturating_add(left),
+            y: self.client.y.saturating_add(top),
+            width: self.client.width.saturating_sub(left).saturating_sub(right),
+            height: self
+                .client
+                .height
+                .saturating_sub(top)
+                .saturating_sub(bottom),
+        }
+    }
 }
 
 /// Whether `_NET_WM_STATE` carries the hidden, vertically maximized and
@@ -60,11 +82,12 @@ fn read_display(
             b"_NET_WM_STATE_HIDDEN",
             b"_NET_WM_STATE_MAXIMIZED_VERT",
             b"_NET_WM_STATE_MAXIMIZED_HORZ",
+            b"_GTK_FRAME_EXTENTS",
         ],
     ) else {
         return ControlRead::Unavailable;
     };
-    let [check, pid_atom, state, hidden, vertical, horizontal] = names.as_slice() else {
+    let [check, pid_atom, state, hidden, vertical, horizontal, shadow] = names.as_slice() else {
         return ControlRead::Unavailable;
     };
     let Some(manager) = property(&connection, root, *check, AtomEnum::WINDOW, 1) else {
@@ -83,7 +106,7 @@ fn read_display(
                 &connection,
                 root,
                 window,
-                [*state, *hidden, *vertical, *horizontal],
+                [*state, *hidden, *vertical, *horizontal, *shadow],
             ))
         },
     )
@@ -94,21 +117,23 @@ fn read_current(
     connection: &x11rb::rust_connection::RustConnection,
     root: u32,
     window: u32,
-    names: [u32; 4],
+    names: [u32; 5],
 ) -> ControlRead<WindowFacts> {
-    let [state, hidden, vertical, horizontal] = names;
+    let [state, hidden, vertical, horizontal, shadow] = names;
     let pending = (
         connection.get_property(false, window, state, AtomEnum::ATOM, 0, STATE_LONGS),
         connection.translate_coordinates(window, root, 0, 0),
         connection.get_geometry(window),
+        connection.get_property(false, window, shadow, AtomEnum::CARDINAL, 0, SHADOW_LONGS),
     );
-    let (Ok(state_cookie), Ok(origin_cookie), Ok(size_cookie)) = pending else {
+    let (Ok(state_cookie), Ok(origin_cookie), Ok(size_cookie), Ok(shadow_cookie)) = pending else {
         return ControlRead::Unavailable;
     };
-    let (Ok(state_reply), Ok(origin), Ok(size)) = (
+    let (Ok(state_reply), Ok(origin), Ok(size), Ok(shadow_reply)) = (
         state_cookie.reply(),
         origin_cookie.reply(),
         size_cookie.reply(),
+        shadow_cookie.reply(),
     ) else {
         return ControlRead::Unavailable;
     };
@@ -127,6 +152,7 @@ fn read_current(
             width: i32::from(size.width),
             height: i32::from(size.height),
         },
+        shadow: decode_shadow(shadow_reply.format, &shadow_reply.value),
         hidden: is_hidden,
         maximized_vertical: is_vertical,
         maximized_horizontal: is_horizontal,

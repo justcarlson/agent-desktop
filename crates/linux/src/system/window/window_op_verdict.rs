@@ -77,6 +77,8 @@ fn rectangle(rect: &Rect) -> Value {
     json!({ "x": rect.x, "y": rect.y, "width": rect.width, "height": rect.height })
 }
 
+/// What the caller asked for. A resize names a size and a move a place, and
+/// the side it leaves alone is not part of the request.
 fn requested_of(write: &WindowWrite) -> Value {
     match write {
         WindowWrite::MoveResize {
@@ -84,7 +86,13 @@ fn requested_of(write: &WindowWrite) -> Value {
             y,
             width,
             height,
-        } => json!({ "x": x, "y": y, "width": width, "height": height }),
+        } => {
+            let mut asked = json!({ "x": x, "y": y, "width": width, "height": height });
+            if let Value::Object(fields) = &mut asked {
+                fields.retain(|_, value| !value.is_null());
+            }
+            asked
+        }
         WindowWrite::Iconify => json!({ "hidden": true }),
         WindowWrite::SetMaximized(on) => json!({ "maximized": on }),
     }

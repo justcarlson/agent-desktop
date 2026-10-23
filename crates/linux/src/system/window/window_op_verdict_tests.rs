@@ -9,6 +9,7 @@ fn facts(x: i32, y: i32, width: i32, height: i32) -> WindowFacts {
             width,
             height,
         },
+        shadow: (0, 0, 0, 0),
         hidden: false,
         maximized_vertical: false,
         maximized_horizontal: false,
@@ -82,4 +83,37 @@ fn restore_from_maximized_needs_neither_maximized_atom() {
         judge(&WindowWrite::SetMaximized(false), &window, true),
         Verdict::Satisfied
     );
+}
+
+#[test]
+fn a_resize_is_judged_by_its_size_alone() {
+    let resize = WindowWrite::MoveResize {
+        x: None,
+        y: None,
+        width: Some(804),
+        height: Some(599),
+    };
+    assert_eq!(
+        judge(&resize, &facts(440, 201, 804, 599), true),
+        Verdict::Satisfied
+    );
+    assert_eq!(
+        judge(&resize, &facts(0, 0, 804, 650), true),
+        Verdict::Mismatch
+    );
+}
+
+#[test]
+fn the_request_names_only_the_sides_the_caller_gave() {
+    let resize = WindowWrite::MoveResize {
+        x: None,
+        y: None,
+        width: Some(804),
+        height: Some(599),
+    };
+    assert_eq!(
+        requested_of(&resize),
+        json!({ "width": 804, "height": 599 })
+    );
+    assert_eq!(requested_of(&move_to(3, -4)), json!({ "x": 3, "y": -4 }));
 }

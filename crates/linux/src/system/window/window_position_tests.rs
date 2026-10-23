@@ -7,7 +7,7 @@ use crate::system::x11::desktops::Desktops;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field};
 
-fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
+fn twins_of_toolkit(toolkit: (&str, &str), active: &[bool], extents: Extents) -> Vec<ListedWindow> {
     let app = assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", 321),
         ProcessFacts {
@@ -18,8 +18,8 @@ fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
         },
         Some(Some("App".to_owned())),
         ToolkitId {
-            name: Some("gtk".to_owned()),
-            version: Some("4.14.5".to_owned()),
+            name: Some(toolkit.0.to_owned()),
+            version: Some(toolkit.1.to_owned()),
         },
     );
     let nodes = active
@@ -31,16 +31,21 @@ fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
             node.traits.interfaces =
                 Field::Present(vec![crate::tree::COMPONENT_INTERFACE.to_owned()]);
             node.traits.states = Field::Present(words(if *active { &[25, 1] } else { &[25] }));
-            node.extents = Field::Present(Extents {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 10,
-            });
+            node.extents = Field::Present(extents);
             node
         })
         .collect();
     collect(&[(0, &app)], &[nodes])
+}
+
+fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
+    let extents = Extents {
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+    };
+    twins_of_toolkit(("gtk", "4.14.5"), active, extents)
 }
 
 fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
@@ -173,6 +178,12 @@ fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
 fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
     let mut shadowed = client(7, 37, 64);
     shadowed.shadow = (61, 55, 0, 0);
+    shadowed.bounds = Some(Extents {
+        x: 37,
+        y: 64,
+        width: 422,
+        height: 346,
+    });
     let mut listed = windows(("gtk", "4.14.5"));
 
     place_windows(&mut listed, &ready(vec![shadowed]), None);
@@ -320,3 +331,6 @@ fn same_titled_windows_nothing_separates_have_no_position() {
     place_windows(&mut three, &active_client(8), None);
     assert_eq!(origins(&three), vec![None, None, None]);
 }
+
+#[path = "window_position_shape_tests.rs"]
+mod shape;
