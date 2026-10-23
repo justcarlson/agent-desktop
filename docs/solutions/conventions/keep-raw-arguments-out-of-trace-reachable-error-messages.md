@@ -69,10 +69,7 @@ return Err(AdapterError::new(
 ));
 ```
 
-The regression guard `wait_text_timeout_message_omits_raw_text_from_trace_segment`
-asserts that a unique marker passed as `wait --text` never appears in the
-written trace segment. Keep that test focused on the observable privacy
-contract, not a historical list of implementation sites.
+No test pins this today. The wait timeout message reports a character count, not the text (`crates/core/src/commands/wait_timeout.rs:115`), so a unique marker passed as `wait --text` stays out of the written trace segment. A regression test should assert that observable privacy contract, not a list of implementation sites.
 
 ## Related
 

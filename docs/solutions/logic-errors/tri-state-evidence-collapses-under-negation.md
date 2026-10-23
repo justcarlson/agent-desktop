@@ -59,10 +59,9 @@ unknown) correctly withholds the affordance. It becomes unsafe the instant it
 is negated, because Boolean negation cannot distinguish "the provider said no"
 from "nothing was learned." `!is_true(X)` silently converts "I could not tell"
 into "definitely not," which is the exact inversion `PropertyOutcome::Unknown`
-exists to prevent. The predicate is asymmetric — correct in one position,
-fails-open in the other — which is precisely the shape that survives review
-until someone traces the negated call site back through `gated_flag` to
-`PropertyOutcome`.
+exists to prevent. The predicate is asymmetric: correct in one position and
+fails open in the other. That shape survives review until someone traces the
+negated call site back through `gated_flag` to `PropertyOutcome`.
 
 ## Solution
 
