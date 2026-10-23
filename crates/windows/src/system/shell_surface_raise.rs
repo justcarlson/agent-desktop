@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 
 use super::shell_surface::{SurfaceKindRow, SurfaceRaise, shell_tray_handle};

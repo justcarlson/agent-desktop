@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, InteractionPolicy, SnapshotSurface,
     WindowInfo,

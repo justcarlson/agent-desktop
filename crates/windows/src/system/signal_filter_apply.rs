@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use agent_desktop_core::{ProcessId, SignalFilter};
 
 use super::signal_inventory::SignalWindowInventory;

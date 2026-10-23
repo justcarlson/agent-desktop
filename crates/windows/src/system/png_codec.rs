@@ -1,7 +1,5 @@
 //! BGRA↔PNG codec backed by WIC and an in-memory `CreateStreamOnHGlobal` stream.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, MAX_PNG_INPUT_BYTES};
 use std::ptr::{null, null_mut};
 

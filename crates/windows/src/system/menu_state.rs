@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ProcessId};
 
 use super::window_enum::{enumerate_top_level, window_is_responsive};

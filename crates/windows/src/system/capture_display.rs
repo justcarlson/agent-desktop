@@ -4,8 +4,6 @@
 //! never to the virtual-screen span. Monitor origins may be negative on
 //! multi-monitor desktops; the blit source uses those coordinates as-is.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ImageBuffer, ImageFormat, Rect};
 
 use super::display::display_at;

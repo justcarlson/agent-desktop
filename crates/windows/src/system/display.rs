@@ -1,7 +1,5 @@
 //! Display enumeration and selection helpers for screenshot targeting.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, Rect};
 
 /// Enumerates the active monitors and reports each with bounds, the primary

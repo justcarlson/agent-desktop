@@ -4,7 +4,6 @@
 //! process, landmark and cloak state name the kind's surface; the landmark
 //! search's failure classification lives beside it, because "search failed"
 //! must never read as "surface closed".
-#![allow(dead_code)]
 
 use agent_desktop_core::{AdapterError, ProcessId, WindowInfo};
 

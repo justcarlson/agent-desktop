@@ -8,8 +8,6 @@
 //! windows-sys binding sits behind Win32_Storage_Xps, which this crate does
 //! not enable.
 
-#![allow(dead_code)]
-
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ImageBuffer, ImageFormat};
 
 pub(crate) use super::gdi_surface::gdi_balance;
