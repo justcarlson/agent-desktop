@@ -10,7 +10,7 @@ use super::live_qt;
 use super::live_tree::{frames_where, pid_frame};
 use super::role_numbers::TEXT;
 use super::vocabulary_live_analysis::{
-    Analysis, is_disabled, name_is_blank, root_is_window, time_pass, token, walk,
+    Analysis, is_disabled, name_is_blank, root_is_window, token, walk,
 };
 use super::{AtspiElement, LabelOutcome, read_label, resolve_vocabulary};
 use crate::system::SharedBus;
@@ -282,11 +282,6 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
     if !settled.walk.complete {
         return Err("vscode: walk incomplete".to_owned());
     }
-    let (min, median, max) = time_pass(&analysis.entries);
-    println!(
-        "vocabulary_live vscode pass over {} nodes: us min/median/max={min}/{median}/{max}",
-        analysis.entries.len()
-    );
     blank_labelled_nodes("vscode", &analysis)?;
     vscode_attribute_checks(&analysis)
 }
