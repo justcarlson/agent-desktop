@@ -1,6 +1,8 @@
 use super::click::{POLL_STEP, POPUP_SETTLE, opens_popup, poll_until};
 use super::context::Target;
+use crate::system::focus::focus_cause::Cause;
 use crate::system::menu::menu_surface::roots_below;
+use crate::system::menu::overview::overview_open;
 use crate::tree::AtspiElement;
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::role_numbers::{PUSH_BUTTON, PUSH_BUTTON_MENU, TOGGLE_BUTTON};
@@ -36,11 +38,32 @@ fn matches(wanted: Option<bool>, before: &[AtspiElement], after: &[AtspiElement]
     }
 }
 
+/// Names the Activities Overview as the cause of a popup that did not appear
+/// when GNOME Shell reports it open, with the cause and the advice a
+/// `focus-window` that the Overview refused gives. Any other answer leaves the
+/// error as it is.
+pub(super) fn name_open_overview(mut error: AdapterError, overview: Option<bool>) -> AdapterError {
+    if overview != Some(true) {
+        return error;
+    }
+    let cause = Cause::OverviewOpen;
+    let details = error.details.get_or_insert_with(|| serde_json::json!({}));
+    if let Some(fields) = details.as_object_mut() {
+        fields.insert("cause".to_owned(), serde_json::json!(cause.as_str()));
+    }
+    error.with_suggestion(cause.suggestion())
+}
+
+/// The popup of an opener is verified or the action fails with
+/// `popup_not_observed`. A failure with no popup on screen reads the Overview
+/// once: an open Overview explains a popup that never appeared, not one that
+/// stayed open or one that could not be read.
 fn confirm(
     result: ActionResult,
     wanted: Option<bool>,
     before: &[AtspiElement],
     after: Option<&[AtspiElement]>,
+    overview: impl FnOnce() -> Option<bool>,
 ) -> Result<ActionResult, AdapterError> {
     if after.is_some_and(|after| matches(wanted, before, after)) {
         return Ok(result);
@@ -54,7 +77,7 @@ fn confirm(
     for step in &mut steps {
         step.verified = Some(false);
     }
-    Err(AdapterError::new(
+    let error = AdapterError::new(
         ErrorCode::ActionFailed,
         "The requested popup was not observed after the opener action",
     )
@@ -67,7 +90,11 @@ fn confirm(
         "steps": steps,
         "popup_present": after.map(|roots| !roots.is_empty()),
     }))
-    .with_disposition(disposition))
+    .with_disposition(disposition);
+    if after.is_some_and(<[AtspiElement]>::is_empty) {
+        return Err(name_open_overview(error, overview()));
+    }
+    Err(error)
 }
 
 pub(super) fn run(
@@ -96,6 +123,7 @@ pub(super) fn run(
                 },
             )
         },
+        overview_open,
     )
 }
 
@@ -104,6 +132,7 @@ fn attempt(
     read_before: impl FnOnce() -> Option<Vec<AtspiElement>>,
     invoke: impl FnOnce() -> Result<ActionResult, AdapterError>,
     read_after: impl FnOnce(&[AtspiElement]) -> Option<Vec<AtspiElement>>,
+    overview: impl FnOnce() -> Option<bool>,
 ) -> Result<ActionResult, AdapterError> {
     let before = read_before().ok_or_else(|| {
         AdapterError::new(
@@ -114,7 +143,7 @@ fn attempt(
     })?;
     let result = invoke()?;
     let after = read_after(&before);
-    confirm(result, wanted, &before, after.as_deref())
+    confirm(result, wanted, &before, after.as_deref(), overview)
 }
 
 #[cfg(test)]

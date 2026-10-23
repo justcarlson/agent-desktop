@@ -222,3 +222,93 @@ fn selected_hydration_rejects_incomplete_snapshot_evidence() {
     assert_eq!(error.code(), ErrorCode::Timeout.as_str());
     assert!(adapter.hydration_observations.load(Ordering::SeqCst) >= 1);
 }
+
+fn framed_rect(x: f64, y: f64) -> crate::Rect {
+    crate::Rect {
+        x,
+        y,
+        width: 177.0,
+        height: 18.0,
+    }
+}
+
+fn framed_label_tree(screen: Option<crate::Rect>, lean: bool) -> ObservedTree {
+    let mut evidence = super::test_support::evidence("statictext", Some("Frame label"));
+    evidence.ref_evidence.window_bounds = super::LocatorField::Known(framed_rect(48.0, 70.0));
+    evidence.ref_evidence.bounds = screen.map_or(super::LocatorField::Absent, |rect| {
+        super::LocatorField::Known(rect)
+    });
+    if lean {
+        evidence.description = super::LocatorField::Unknown;
+    }
+    super::test_support::tree(
+        vec![super::test_support::node(0, evidence, Vec::new(), &[])],
+        vec![0],
+        true,
+    )
+}
+
+struct ReadAgainAdapter {
+    first_screen: crate::Rect,
+    again_screen: Option<crate::Rect>,
+}
+
+impl ObservationOps for ReadAgainAdapter {
+    fn observe_tree(
+        &self,
+        root: ObservationRoot<'_>,
+        _request: &ObservationRequest,
+    ) -> Result<ObservedTree, AdapterError> {
+        Ok(match root {
+            ObservationRoot::Window(_) => framed_label_tree(Some(self.first_screen), true),
+            ObservationRoot::Element { .. } => framed_label_tree(self.again_screen, false),
+        })
+    }
+
+    fn resolve_locator_anchor(
+        &self,
+        _entry: &crate::RefEntry,
+        _deadline: crate::Deadline,
+    ) -> Result<crate::NativeHandle, AdapterError> {
+        Ok(crate::NativeHandle::null())
+    }
+}
+
+impl ActionOps for ReadAgainAdapter {}
+impl InputOps for ReadAgainAdapter {}
+impl SystemOps for ReadAgainAdapter {}
+
+#[test]
+fn a_hydrated_match_shows_the_screen_rectangle_the_re_read_found_or_else_the_first_one() {
+    let first = framed_rect(214.0, 202.0);
+    let moved = framed_rect(300.0, 250.0);
+    let request = LocatorResolveRequest {
+        selection: LocatorSelection::Strict,
+        deadline: crate::Deadline::after(5_000).unwrap(),
+        max_raw_depth: 10,
+        surface: None,
+        materialization: LocatorMaterialization::SelectedMatches,
+    };
+    for (again, shown) in [(Some(moved), moved), (None, first)] {
+        let adapter = ReadAgainAdapter {
+            first_screen: first,
+            again_screen: again,
+        };
+
+        let resolution = resolve_query(
+            &adapter,
+            &LocatorQuery::default(),
+            ObservationRoot::Window(&window()),
+            &request,
+        )
+        .unwrap();
+
+        let matched = &resolution.matches[0];
+        assert_eq!(matched.screen_bounds, Some(shown));
+        assert_eq!(matched.entry.geometry.bounds, Some(framed_rect(48.0, 70.0)));
+        assert_eq!(
+            matched.entry.geometry.bounds_space,
+            Some(crate::BoundsSpace::Window)
+        );
+    }
+}

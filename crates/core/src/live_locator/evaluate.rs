@@ -95,6 +95,7 @@ pub fn evaluate_locator_tree(
         selected_matches.push(LocatorMatch {
             data,
             document_order: node.document_order,
+            screen_bounds: super::materialize::screen_bounds(&node.evidence),
             fully_observed: super::materialize::fully_observed(
                 &node.evidence,
                 entry.geometry.bounds_space.unwrap_or_default(),

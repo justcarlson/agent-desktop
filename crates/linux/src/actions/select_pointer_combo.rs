@@ -7,12 +7,14 @@ use serde_json::json;
 
 use super::click::{POLL_STEP, poll_until};
 use super::context::Target;
+use super::popup_verify::name_open_overview;
 use super::select::{
     BusReader, advertises_selection, children_of, handle_of, miss_error, no_route,
 };
 use super::select_pointer::{Pointer, pointer_required};
 use super::select_popup::{Shown, commit, first_label};
 use super::select_search::{Hit, Search, name_matches, search};
+use crate::system::menu::overview;
 use crate::tree::AtspiElement;
 use crate::tree::action_read::{NodeView, read_node_view};
 use crate::tree::capability_rules::pointer_only_combo;
@@ -44,8 +46,9 @@ pub(super) fn is_pointer_combo(view: &NodeView) -> bool {
 
 /// What a combo shows of its choices: the lists below it that hold a
 /// selection, in document order, the value its current list displays, the
-/// search for a choice in the list a popup adds, and the commit of the choice
-/// that was found.
+/// search for a choice in the list a popup adds, the commit of the choice
+/// that was found, and whether GNOME Shell reports its Activities Overview
+/// open, which a popup that never appeared names as its cause.
 trait Choices {
     fn lists(&mut self) -> Result<Vec<AtspiElement>, AdapterError>;
     fn shown(&mut self, current: &AtspiElement) -> Option<String>;
@@ -60,6 +63,7 @@ trait Choices {
         current: &AtspiElement,
         wanted: &str,
     ) -> Result<ActionResult, AdapterError>;
+    fn overview_open(&self) -> Option<bool>;
 }
 
 struct BusChoices<'a> {
@@ -116,6 +120,10 @@ impl Choices for BusChoices<'_> {
             &Shown::ListOf(current),
         )
     }
+
+    fn overview_open(&self) -> Option<bool> {
+        overview::overview_open()
+    }
 }
 
 fn same(left: &AtspiElement, right: &AtspiElement) -> bool {
@@ -143,16 +151,19 @@ fn already_shown() -> ActionResult {
     ActionResult::satisfied_without_delivery("select").with_steps(vec![step])
 }
 
-fn popup_not_observed() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::ActionFailed,
-        "The dropdown did not show its choices after the pointer click",
+fn popup_not_observed(overview: Option<bool>) -> AdapterError {
+    name_open_overview(
+        AdapterError::new(
+            ErrorCode::ActionFailed,
+            "The dropdown did not show its choices after the pointer click",
+        )
+        .with_suggestion(
+            "Inspect a fresh snapshot before taking another action; no automatic retry is safe.",
+        )
+        .with_details(json!({ "kind": "popup_not_observed" }))
+        .with_disposition(DeliverySemantics::delivered_unverified()),
+        overview,
     )
-    .with_suggestion(
-        "Inspect a fresh snapshot before taking another action; no automatic retry is safe.",
-    )
-    .with_details(json!({ "kind": "popup_not_observed" }))
-    .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
 fn wait_closed(choices: &mut dyn Choices, closed: &[AtspiElement], deadline: Deadline) -> bool {
@@ -211,7 +222,7 @@ fn choose_by_pointer(
         || new_list(choices, &closed),
         |popup| popup.is_some(),
     )
-    .ok_or_else(popup_not_observed)?;
+    .ok_or_else(|| popup_not_observed(choices.overview_open()))?;
     let hit = match choices.find(&popup, wanted)? {
         Search::Found(hit) => hit,
         miss => {
