@@ -14,7 +14,7 @@ tags: [windows, path, tar, packaging, install, probe-evidence]
 ## Problem
 
 `npm install -g agent-desktop` failed on Windows for anyone with Git for
-Windows installed — which is most people who install a developer CLI. The
+Windows installed — a common setup for people who install a developer CLI. The
 install downloaded its release archive, then died before unpacking it:
 
 ```

@@ -46,7 +46,7 @@ that sized the budget repeated it. A doc comment on the shipped constant
 repeated it, citing the row id — so the product's own source claimed a
 measurement that its evidence contradicted.
 
-Nothing failed. Every gate was green, because no gate compares a row's prose
+Nothing failed. Every gate was green, because at the time no gate compared a row's prose
 to the JSON it names.
 
 ## Root cause
@@ -54,7 +54,7 @@ to the JSON it names.
 The row was written from the **expectation that motivated the probe**, not
 from the artifact the probe produced. "Does the first attempt always land?" is
 a yes/no question with an obvious hoped-for answer, and the row recorded the
-hope. That is easiest to do precisely when the design does not depend on the
+hope. That is easiest to do when the design does not depend on the
 answer: a retry budget of two is correct whether the first attempt lands 5/5
 or 0/5, so the wrong number changed no behaviour and drew no attention.
 
@@ -100,7 +100,7 @@ Two properties make a row auditable, and both are cheap:
   change. The row is the source, but the copies are what readers hit.
 - A design that is right for a reason the evidence does not support is still
   undefended. Fix the sentence even when the code stays.
-- The ledger gate `probes/windows/13-ledger-check.ps1`, run by
+- The ledger gate `probes/windows/13-ledger-check.ps1` (its row-versus-capture helpers live in `probes/windows/13-ledger-content.ps1`), run by
   `.github/workflows/windows-capability-probe.yml`, now fails a row whose quoted
   `field: value` pair or counting-verb number disagrees with the capture it
   names. A qualitative claim ("the first attempt is reliable") is outside what
