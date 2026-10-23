@@ -71,7 +71,11 @@ fn a_number_that_is_not_open_is_refused() {
 #[test]
 fn a_standard_stream_is_never_adopted() {
     for number in ["0", "1", "2", "-1"] {
-        assert!(read_payload(Some(number)).is_err(), "{number}");
+        let error = read_payload(Some(number)).expect_err("refused");
+        assert!(
+            error.contains("is not an inherited one"),
+            "{number}: {error}"
+        );
     }
 }
 
