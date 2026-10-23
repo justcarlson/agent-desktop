@@ -18,11 +18,13 @@ npm install -g agent-desktop
 agent-desktop status            # platform, permissions, supported surfaces
 ```
 
+The package works on macOS, Windows and Linux, on x64 and ARM64. Then check what your OS needs:
+
 - **macOS** needs Accessibility permission: `agent-desktop permissions --guide`. See [permissions](docs/install.md#permissions).
 - **Windows** needs no grant for apps at your terminal's integrity level. See [permissions](docs/install.md#permissions).
 - **Linux** needs the user's graphical session with `at-spi2-core`. See [permissions](docs/install.md#permissions).
 
-If your package manager blocks install scripts, allow them (npm 11: `allowScripts`); see [docs/install.md](docs/install.md#blocked-install-scripts). To verify a release archive's origin, run `gh attestation verify`; see [docs/install.md](docs/install.md#release-archives).
+If your package manager blocks install scripts, allow them (npm 11: `allowScripts`); see [docs/install.md](docs/install.md#blocked-install-scripts). To verify a release archive's origin, run `gh attestation verify`; see [docs/install.md](docs/install.md#release-archives). Building from source is covered in [docs/install.md](docs/install.md#from-source).
 
 ## Quick start
 
@@ -36,16 +38,36 @@ agent-desktop snapshot --app Finder -i      # observe again to verify
 ```
 
 ```json
-{ "version": "2.5", "ok": true, "command": "snapshot",
-  "data": { "app": "Finder", "window": { "id": "w-204749", "title": "Downloads" },
-            "snapshot_id": "s8f3k2p9", "ref_count": 59, "complete": true,
-            "tree": { "role": "window", "name": "Downloads", "children": [
-              { "role": "treeitem", "name": "Documents", "ref_id": "@s8f3k2p9:e8", "available_actions": ["Click"] } ] } } }
+{
+  "version": "2.5",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "Finder",
+    "window": { "id": "w-204749", "title": "Downloads" },
+    "snapshot_id": "s8f3k2p9",
+    "ref_count": 59,
+    "complete": true,
+    "tree": {
+      "role": "window",
+      "name": "Downloads",
+      "children": [
+        { "role": "treeitem", "name": "Documents", "ref_id": "@s8f3k2p9:e8", "available_actions": ["Click"] }
+      ]
+    }
+  }
+}
 ```
 
-- **Refs belong to their snapshot.** A bare `@e8` is `INVALID_ARGS`; `STALE_REF` or `AMBIGUOUS_TARGET` means snapshot again.
-- **Several windows** give `AMBIGUOUS_TARGET`; pass one of the listed ids with `--window-id`.
-- **Dense apps:** `snapshot --skeleton --app Slack -i --compact`, then `snapshot --root @s8f3k2p9:e3 -i --compact`.
+- **Refs belong to their snapshot.** A bare `@e8` is rejected with `INVALID_ARGS`. When the UI changes, an action
+  returns `STALE_REF` or `AMBIGUOUS_TARGET`: take a new snapshot and use its refs.
+- **Several windows** give `AMBIGUOUS_TARGET`; `snapshot` lists the candidate window ids in `error.details`. Pass one
+  with `--window-id`.
+- **Dense apps:** map first with `snapshot --skeleton --app Slack -i --compact`, then drill into one region with
+  `snapshot --root @s8f3k2p9:e3 -i --compact`.
+- **Headless by default.** Ref actions go through the accessibility API without moving the pointer or taking focus.
+  The global `--headed` flag allows physical input.
+- **PowerShell.** Quote every ref (`'@s8f3k2p9:e8'`), because a bare `@token` is the splatting operator.
 
 ## For AI agents
 
@@ -92,6 +114,7 @@ It ships 60 command names, 56 operational commands. The other four (`key-down`, 
 
 | | macOS | Windows | Linux |
 |---|:---:|:---:|:---:|
+| Accessibility tree | Yes | Yes | Yes (AT-SPI) |
 | Click / type / keyboard | Yes | Yes | AT-SPI; X11 / GNOME keys |
 | Mouse input | Yes | Yes | X11, `--headed` |
 | Screenshot | Yes | Yes | X11 windows; Wayland portal |
@@ -100,7 +123,9 @@ It ships 60 command names, 56 operational commands. The other four (`key-down`, 
 | Notifications | Yes | Yes | GNOME Shell |
 | Shell surfaces (`open-system-surface`) | Planned | Yes | GNOME tray, Action Center |
 
-`agent-desktop skills get platform` prints the full capability table for your OS.
+The Windows surface and `launch` notes and the Linux X11 and Wayland notes are in [docs/install.md](docs/install.md#platform-notes).
+
+`agent-desktop skills get platform` prints the full capability table for the OS you run on.
 
 ## Language bindings
 
@@ -118,12 +143,33 @@ lib.ad_adapter_destroy(adapter)
 
 ## Development
 
+Each platform adapter builds only on its own OS, so scope cargo to the host's packages. On macOS:
+
 ```bash
 HOST_PKGS=(-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi)
 cargo test "${HOST_PKGS[@]}"
+cargo clippy "${HOST_PKGS[@]}" --all-targets -- -D warnings
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md) lists every gate and the package set for Windows and Linux. Build from source: [docs/install.md](docs/install.md#from-source). Questions: [docs/faq.md](docs/faq.md).
+On Windows, replace `agent-desktop-macos` in that list with `agent-desktop-windows`; on Linux, with `agent-desktop-linux`.
+[CONTRIBUTING.md](CONTRIBUTING.md) lists every gate. Build from source: [docs/install.md](docs/install.md#from-source).
+
+## Documentation
+
+| I want to... | Read |
+|---|---|
+| Fix an install problem, grant permissions, verify a download or build from source | [docs/install.md](docs/install.md) |
+| Parse the JSON envelope, error codes and exit codes | [docs/json-output.md](docs/json-output.md) |
+| Drive the tool as an AI agent | `agent-desktop skills get desktop` ([skills/agent-desktop/](skills/agent-desktop/)) |
+| Learn what differs on one OS | [macOS](skills/agent-desktop-macos/), [Windows](skills/agent-desktop-windows/), [Linux](skills/agent-desktop-linux/) |
+| Call the C library | [skills/agent-desktop-ffi/](skills/agent-desktop-ffi/) |
+| Look up the vocabulary: refs, snapshots, sessions | [CONCEPTS.md](CONCEPTS.md) |
+| Contribute and pass the gates | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Read the engineering rules | [CLAUDE.md](CLAUDE.md) |
+| Learn from past bugs and lessons | [docs/solutions/](docs/solutions/) |
+| Find answers to common questions | [docs/faq.md](docs/faq.md) |
+| Report a vulnerability | [SECURITY.md](SECURITY.md) |
+| Get help | [SUPPORT.md](SUPPORT.md) |
 
 ## License
 
