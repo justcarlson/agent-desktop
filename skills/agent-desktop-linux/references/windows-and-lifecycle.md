@@ -172,10 +172,11 @@ only a document or tab and leave its window open.
   `not_delivered`, for:
   - the owner of the active display socket, or of the X root's supporting-WM
     window;
-  - an app that answers on the accessibility bus, has no managed window and was
-    started by the session (it owns a session-bus name, runs as a user service
-    unit, or is a child of the display owner: portal backends, shell helpers,
-    decoration hosts), unless this tool launched it.
+  - an app that answers on the accessibility bus, shows no window (one the
+    window manager manages, or one its accessibility tree lists: a native Wayland
+    window is only there) and was started by the session (it owns a session-bus
+    name, runs as a user service unit, or is a child of the display owner: portal
+    backends, shell helpers, decoration hosts), unless this tool launched it.
 
   A process that does not answer on the accessibility bus (stopped or hung) is
   protected when it owns a session-bus name and the window manager manages no
@@ -293,7 +294,8 @@ probe. A ref used against it, a scoped `snapshot`, `list-windows --app`,
 `focus-window` and the window operations answer `APP_UNRESPONSIVE` in
 milliseconds, not `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`,
 `not_delivered`, `retry: safe`; `--force` ends it, unless it is a session service
-(`INVALID_ARGS`, see `close-app`). An unscoped `list-windows` still lists its
+(`INVALID_ARGS`, see `close-app`). A stopped native-Wayland app that owns a
+session-bus name is one: no window of it can be read. An unscoped `list-windows` still lists its
 windows with `accessible: false`. A scoped listing of a busy app
 that left every frame unanswered is `TIMEOUT`, not an empty list.
 
