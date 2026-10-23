@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, DeliverySemantics, ErrorCode, LocatorEvidence, LocatorField, RefEntry,
+    AdapterError, LocatorEvidence, LocatorField, RefEntry,
     ref_identity::{has_stable_text_identity, identity_match, stable_text_match},
 };
 use serde_json::json;
@@ -122,27 +122,8 @@ pub(crate) fn select_by_bounds_hash(
     }
 }
 
-/// The one `STALE_REF` constructor shared by the resolver and the live
-/// reader.
-///
-/// Built field by field rather than through `AdapterError::stale_ref`, whose
-/// parameter is a **ref id** it interpolates into `"{ref_id} not found in
-/// current RefMap"`. Neither failure this covers is a missing RefMap entry:
-/// the ref was found and read, and it was the live evidence that refused it.
-/// Handing that constructor a whole sentence produced a message an agent acts
-/// on which was both ungrammatical and wrong about the cause. Mirrors macOS's
-/// own resolver error shape - `ErrorCode::StaleRef`, a message naming what was
-/// observed, the snapshot-refresh suggestion, and the not-delivered
-/// disposition every ref-action failure carries - and leaves the
-/// `kind`/`complete`/`retryable` details to the caller that knows them.
-pub(crate) fn stale_evidence_error(message: &str) -> AdapterError {
-    AdapterError::new(ErrorCode::StaleRef, message)
-        .with_suggestion("Run 'snapshot' to refresh, then retry with the updated ref.")
-        .with_disposition(DeliverySemantics::not_delivered())
-}
-
 pub(crate) fn stale_ref_error(_entry: &RefEntry) -> AdapterError {
-    let error = stale_evidence_error("Stored ref does not match any live element");
+    let error = AdapterError::stale_ref_because("Stored ref does not match any live element");
     let default_retryable = error.permits_retry_by_default();
     error.with_details(json!({
         "kind": "resolve_no_candidate",
@@ -162,7 +143,7 @@ pub(crate) fn stale_ref_error(_entry: &RefEntry) -> AdapterError {
 /// `recovery_for_code`), so nothing further needs attaching here.
 #[cfg(target_os = "windows")]
 pub(crate) fn owning_process_exited_error(_entry: &RefEntry) -> AdapterError {
-    stale_evidence_error("Stored ref's owning process has exited").with_details(json!({
+    AdapterError::stale_ref_because("Stored ref's owning process has exited").with_details(json!({
         "kind": "resolve_owning_process_exited",
         "complete": true,
         "retryable": false,

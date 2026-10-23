@@ -1,6 +1,7 @@
 use super::*;
 use agent_desktop_core::{
-    ElementIdentifier, ErrorCode, IdentifierEvidence, IdentifierKind, NodeDescriptor,
+    DeliverySemantics, ElementIdentifier, ErrorCode, IdentifierEvidence, IdentifierKind,
+    NodeDescriptor,
 };
 
 fn field(value: Option<&str>) -> LocatorField<String> {
