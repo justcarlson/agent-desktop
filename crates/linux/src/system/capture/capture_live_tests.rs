@@ -56,11 +56,7 @@ fn grab_live_a_window_partly_off_screen_reports_off_screen() {
         &window_at(1200, 700),
     );
     let window = wait_for_listed(&bus, pid);
-    let bounds = window.bounds.expect("the window reports bounds");
-    if bounds.x + bounds.width <= 1280.0 && bounds.y + bounds.height <= 800.0 {
-        println!("grab_live skipped: the manager kept the window on the screen at {bounds:?}");
-        return;
-    }
+    let window = place_partly_off_screen(&bus, &window, &window_at(1200, 700));
     let outcome = screenshot(
         &bus,
         ScreenshotTarget::ExactWindow(window),

@@ -12,8 +12,8 @@ fn facts(comm: &str, exe: Option<&str>) -> ProcessFacts {
 
 #[test]
 fn the_name_is_the_executable_basename_whatever_the_root_would_say() {
-    let process = facts("nautilus", Some("nautilus"));
-    assert_eq!(app_name(&process), "nautilus");
+    let process = facts("org.gnome.Nauti", Some("org.gnome.Nautilus"));
+    assert_eq!(app_name(&process), "org.gnome.Nautilus");
 }
 
 #[test]

@@ -192,5 +192,9 @@ mod tests;
 mod lease_tests;
 
 #[cfg(test)]
+#[path = "session_planning_tests.rs"]
+mod planning_tests;
+
+#[cfg(test)]
 #[path = "session_cancel_tests.rs"]
 mod cancel_tests;

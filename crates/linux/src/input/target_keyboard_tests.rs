@@ -280,7 +280,7 @@ fn an_unreadable_frame_on_wayland_refuses_an_element_addressed_call_and_an_inact
         assert!(world.sent_nothing());
 
         let press = FakeWorld::wayland().active_script(&[read]);
-        press_key_element_steps(
+        let error = press_key_element_steps(
             &press,
             &element(),
             &combo(),
@@ -288,6 +288,8 @@ fn an_unreadable_frame_on_wayland_refuses_an_element_addressed_call_and_an_inact
             deadline(),
         )
         .unwrap_err();
+        assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+        assert!(not_delivered(&error));
         assert!(press.sent_nothing());
     }
 }
