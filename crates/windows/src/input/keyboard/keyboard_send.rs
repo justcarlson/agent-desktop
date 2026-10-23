@@ -8,7 +8,7 @@
 //! release guard's abort sweep depends on.
 //!
 //! One deliberate exception posts outside this seam: the shell-surface chord
-//! path (`system/shell_surface_raise.rs`) calls `SendInput` and
+//! path (`system/shell/shell_surface_raise.rs`) calls `SendInput` and
 //! `GetAsyncKeyState` directly. This seam's stubs are what keep unit tests
 //! from emitting real input, and the shell-surface live tests ARE the
 //! verification - their assertions read real desktop state (a raised surface,
