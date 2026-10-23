@@ -223,9 +223,12 @@ function promptSkillInstall() {
 
   log('');
   log('Claude Code skills available for agent-desktop!');
-  log('Install with:');
+  log('The binary serves its own skills:');
+  log('  agent-desktop skills get desktop');
+  log('  agent-desktop skills get platform');
+  log('Or install a skill with:');
   for (const skill of skills) {
-    log(`  claude mcp add-skill lahfir/${skill}`);
+    log(`  npx skills add https://github.com/lahfir/agent-desktop --skill ${skill}`);
   }
   log('');
 }
