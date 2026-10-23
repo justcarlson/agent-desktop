@@ -178,12 +178,6 @@ fn a_window_that_maps_to_two_clients_is_not_marked_minimized() {
 fn a_gtk_window_with_a_client_side_shadow_is_placed_inside_the_shadow() {
     let mut shadowed = client(7, 37, 64);
     shadowed.shadow = (61, 55, 0, 0);
-    shadowed.bounds = Some(Extents {
-        x: 37,
-        y: 64,
-        width: 422,
-        height: 346,
-    });
     let mut listed = windows(("gtk", "4.14.5"));
 
     place_windows(&mut listed, &ready(vec![shadowed]), None);
@@ -216,6 +210,32 @@ fn a_gtk_window_with_a_shadow_has_the_size_of_its_client_less_the_shadow() {
     assert_eq!(
         (bounds.x, bounds.y, bounds.width, bounds.height),
         (98.0, 134.0, 420.0, 560.0)
+    );
+}
+
+#[test]
+fn a_window_without_a_shadow_has_the_size_of_its_client_not_the_stale_extents() {
+    let mut maximized = client(7, 66, 32);
+    maximized.bounds = Some(Extents {
+        x: 66,
+        y: 32,
+        width: 1214,
+        height: 768,
+    });
+    let mut listed = windows(("gtk", "4.14.5"));
+    listed[0].frame.extents = Some(Extents {
+        x: 0,
+        y: 0,
+        width: 700,
+        height: 520,
+    });
+
+    place_windows(&mut listed, &ready(vec![maximized]), None);
+
+    let bounds = listed[0].info.bounds.expect("a position");
+    assert_eq!(
+        (bounds.x, bounds.y, bounds.width, bounds.height),
+        (66.0, 32.0, 1214.0, 768.0)
     );
 }
 
