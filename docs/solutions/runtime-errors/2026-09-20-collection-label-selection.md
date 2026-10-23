@@ -77,9 +77,17 @@ interactive 291.4/283.1, skeleton 197.1/195.8, depth-30 288.8/296.2 and first-bu
 find 241.0/224.1. Find tail latency remained high in both (p95 2112.8/2960.3 ms);
 this is not proof of uniformly low latency. Report:
 `/tmp/ad-native-eval/collection-label-performance/report.html`.
-The production changes remain local.
+The intermittent incomplete-evidence failure above was traced by adding phase
+and query-stat diagnostics to selection errors: they reported unknown actions,
+four cannot-complete reads and no deadline exhaustion. The capability readers
+(`AXUIElementCopyActionNames`, `AXUIElementIsAttributeSettable`) had no retry,
+unlike tree reads. They now go through the shared bounded read-recovery helper
+(`crates/macos/src/tree/read_recovery.rs`, wired in
+`crates/macos/src/tree/capabilities.rs`): only `kAXErrorCannotComplete` retries,
+at most three calls, inside the same absolute deadline, with backoff capped at
+1 ms. Mutation APIs never enter that helper and every other native error stays
+terminal. `read_recovery.rs` pins the call counts.
 
-File opening after selection, the intermittent incomplete-evidence failure,
-unnamed-row recovery after geometry changes and repeated qualification remain
-unresolved. No source edits, build/run actions or physical input were used in
-Xcode. The provisional rating remains 8/10 and the goal remains active.
+File opening after selection and unnamed-row recovery after geometry changes
+remain unresolved. No source edits, build/run actions or physical input were
+used in Xcode.

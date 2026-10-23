@@ -146,6 +146,5 @@ one place to check by hand.
 
 ## Related
 
-- [Keep FFI action policy aligned with CLI action policy](keep-ffi-action-policy-aligned-with-cli-2026-05-12.md) — the behavioral-parity companion; this document is the structural-parity half of the same FFI review discipline.
 - [Playwright-grade desktop reliability contract](playwright-grade-desktop-reliability-2026-06-02.md) — ABI pins prevent bindings from silently diverging from the reliability contract.
 - The committed `crates/ffi/include/agent_desktop.h`, its generated header checks, and the Rust layout tests are the current source of truth; this repository intentionally does not use a Cargo build-artifact marker for header generation.

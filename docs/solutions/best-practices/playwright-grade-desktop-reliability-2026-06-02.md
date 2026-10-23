@@ -28,8 +28,8 @@ instead of guessing.
 
 A snapshot is stored in either the global namespace or a selected session.
 Explicit `--session` wins over `AGENT_DESKTOP_SESSION`; no process-global
-“current session” exists. Qualified refs embed their producing snapshot. Bare
-refs are accepted only with an explicit snapshot ID. Never search another
+“current session” exists. Qualified refs embed their producing snapshot. A bare
+`@eN` ref is rejected with `INVALID_ARGS`. Never search another
 session when the selected namespace has no match.
 
 ### 2. Re-resolve strictly at action time
@@ -69,10 +69,22 @@ observability failures; they must not change whether an action was delivered.
 ### 5. Keep every transport on the same core contract
 
 CLI, batch, and high-level FFI ref actions use the same strict resolution,
-policy elevation, actionability, and envelope semantics. Low-level FFI native
-handle calls are intentionally escape hatches and must document that they skip
-those guarantees. ABI structs are versioned and layout-pinned alongside the
-committed C header.
+policy elevation, actionability, and envelope semantics. `ad_execute_by_ref` and
+its timeout variant run the core command path: they load the ref map, resolve
+strictly, apply actionability, and join `Action::base_interaction_policy` with
+the caller's explicit policy. Ref actions, including `type`, have a headless
+base; explicit `press` keeps its focus fallback. A caller-selected headed policy
+makes `click`, `right-click`, `type`, `clear`, and `scroll` physical-first,
+matching the CLI `--headed` contract, while semantic-only commands stay semantic.
+
+`ad_execute_action` and the struct-based direct action entrypoints are
+deliberately lower-level escape hatches. They act on a caller-held native handle
+or entry, may apply the supplied policy verbatim, and do not claim RefStore-backed
+CLI parity; their safety docs must say which boundary they skip (strict
+resolution, preflight, or base-policy elevation). Route a new language-binding
+equivalent of a CLI command through the high-level path, and test both the
+observed effect and the reported mechanism for headed and headless input. ABI
+structs are versioned and layout-pinned alongside the committed C header.
 
 ### 6. Verify at three layers
 

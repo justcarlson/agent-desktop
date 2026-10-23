@@ -65,13 +65,8 @@ todos/
 
 # docs/ holds local working files; only these paths are tracked
 docs/*
-!docs/architecture.excalidraw
-!docs/architecture.html
-!docs/architecture.png
-!docs/example.html
 !docs/faq.md
 !docs/json-output.md
-!docs/slack-example.png
 !docs/residual-review-findings/
 !docs/runbooks/
 !docs/solutions/
