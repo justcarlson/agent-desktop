@@ -21,6 +21,7 @@ pub(crate) const S_OK: i32 = 0;
 pub(crate) const E_NOINTERFACE: i32 = 0x8000_4002_u32 as i32;
 pub(crate) const E_POINTER: i32 = 0x8000_4003_u32 as i32;
 pub(crate) const E_FAIL: i32 = 0x8000_4005_u32 as i32;
+pub(crate) const E_UNEXPECTED: i32 = 0x8000_FFFF_u32 as i32;
 pub(crate) const E_ACCESSDENIED: i32 = 0x8007_0005_u32 as i32;
 pub(crate) const E_INVALIDARG: i32 = 0x8007_0057_u32 as i32;
 pub(crate) const CO_E_NOTINITIALIZED: i32 = 0x8004_01F0_u32 as i32;
@@ -62,7 +63,8 @@ pub(crate) enum ReadDisposition {
     /// pattern does not exist, or the request could not be a valid read.
     /// Settled, never retried.
     SettledAbsence,
-    /// Transport or timeout: retryable within the operation's deadline.
+    /// Transport, timeout, or a provider that changed under the read:
+    /// retryable within the operation's deadline.
     Retryable,
     /// The element is unavailable: stale for the resolved target, incomplete
     /// for a node vanishing mid-descent.
@@ -103,6 +105,13 @@ pub(crate) struct HresultRecord {
 /// An unlisted code is `Terminal`/`ErrorCode::Internal` - the loop retries
 /// only what is marked retryable, so an unknown failure surfaces rather than
 /// being guessed.
+///
+/// `E_UNEXPECTED` is listed, and retryable, on purpose. A provider whose window
+/// or host is tearing down answers a read with it while the target changes
+/// under the read, not because the read is malformed, so the next poll finds
+/// the window gone or reads the settled provider. Every loop that consumes the
+/// retryable stamp is bounded by its caller's deadline, so a provider that
+/// answers it forever costs that budget and then surfaces the error unchanged.
 ///
 /// Three codes are unlisted on purpose, because each reads like an oversight
 /// and is not.
@@ -170,13 +179,15 @@ pub(crate) fn hresult_record(hresult: i32) -> HresultRecord {
             code: ErrorCode::ActionFailed,
             suggestion: None,
         },
-        RPC_E_DISCONNECTED | RPC_E_SERVERFAULT | RPC_S_SERVER_UNAVAILABLE | RPC_S_CALL_FAILED => {
-            HresultRecord {
-                disposition: ReadDisposition::Retryable,
-                code: ErrorCode::AppUnresponsive,
-                suggestion: None,
-            }
-        }
+        RPC_E_DISCONNECTED
+        | RPC_E_SERVERFAULT
+        | RPC_S_SERVER_UNAVAILABLE
+        | RPC_S_CALL_FAILED
+        | E_UNEXPECTED => HresultRecord {
+            disposition: ReadDisposition::Retryable,
+            code: ErrorCode::AppUnresponsive,
+            suggestion: None,
+        },
         WINCODEC_ERR_BADIMAGE | WINCODEC_ERR_UNSUPPORTEDPIXELFORMAT => HresultRecord {
             disposition: ReadDisposition::Terminal,
             code: ErrorCode::InvalidArgs,
@@ -245,6 +256,7 @@ pub(crate) fn com_hresult_symbol(hresult: i32) -> Option<(&'static str, &'static
         E_NOINTERFACE => ("E_NOINTERFACE", "No such interface supported"),
         E_POINTER => ("E_POINTER", "Invalid pointer"),
         E_FAIL => ("E_FAIL", "Unspecified failure"),
+        E_UNEXPECTED => ("E_UNEXPECTED", "Catastrophic failure"),
         E_INVALIDARG => ("E_INVALIDARG", "One or more arguments are invalid"),
         CO_E_NOTINITIALIZED => ("CO_E_NOTINITIALIZED", "COM has not been initialized"),
         RPC_E_SERVERFAULT => ("RPC_E_SERVERFAULT", "The server raised an exception"),

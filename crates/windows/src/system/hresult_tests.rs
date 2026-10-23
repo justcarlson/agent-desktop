@@ -1,8 +1,8 @@
 use super::{
     CO_E_NOTINITIALIZED, E_ACCESSDENIED, E_FAIL, E_INVALIDARG, E_NOINTERFACE, E_POINTER,
-    RPC_E_DISCONNECTED, RPC_E_SERVERFAULT, RPC_S_CALL_FAILED, RPC_S_SERVER_UNAVAILABLE,
-    ReadDisposition, S_OK, UIA_E_ELEMENTNOTAVAILABLE, UIA_E_ELEMENTNOTENABLED,
-    UIA_E_INVALIDOPERATION, UIA_E_NOCLICKABLEPOINT, UIA_E_NOTSUPPORTED,
+    E_UNEXPECTED, RPC_E_DISCONNECTED, RPC_E_SERVERFAULT, RPC_S_CALL_FAILED,
+    RPC_S_SERVER_UNAVAILABLE, ReadDisposition, S_OK, UIA_E_ELEMENTNOTAVAILABLE,
+    UIA_E_ELEMENTNOTENABLED, UIA_E_INVALIDOPERATION, UIA_E_NOCLICKABLEPOINT, UIA_E_NOTSUPPORTED,
     UIA_E_PROXYASSEMBLYNOTLOADED, UIA_E_TIMEOUT, classify_read_hresult, hresult_record,
 };
 use crate::tree::automation::{
@@ -11,7 +11,7 @@ use crate::tree::automation::{
 };
 use agent_desktop_core::{AdapterError, ErrorCode};
 
-const UNNAMED_HRESULT: i32 = 0x8000_FFFF_u32 as i32;
+const UNNAMED_HRESULT: i32 = 0x8000_4004_u32 as i32;
 
 /// One arm's classification as a person decided it, written out here as
 /// literals rather than read back out of the table under test.
@@ -213,6 +213,25 @@ fn an_invalid_operation_is_a_terminal_action_failure() {
             code: ErrorCode::ActionFailed,
             complete: true,
             retryable: false,
+            carries_suggestion: false,
+        },
+    );
+}
+
+/// A provider that answers a read with `E_UNEXPECTED` is mid-transition - a
+/// window or host tearing down under the read - so the failure is incomplete
+/// and retryable as an unresponsive app rather than terminal and internal.
+/// Terminal would end a deadline-bounded poll on the first read that raced a
+/// teardown.
+#[test]
+fn a_catastrophic_provider_failure_is_retryable_as_an_unresponsive_app() {
+    assert_arm(
+        E_UNEXPECTED,
+        ExpectedArm {
+            disposition: ReadDisposition::Retryable,
+            code: ErrorCode::AppUnresponsive,
+            complete: false,
+            retryable: true,
             carries_suggestion: false,
         },
     );
