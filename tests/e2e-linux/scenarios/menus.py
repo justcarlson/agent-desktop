@@ -11,9 +11,8 @@ CALCULATOR = "Calculator"
 TERMINAL = "Terminal"
 
 
-def timeout_message(envelope) -> str:
-    error = envelope.error or {}
-    return str(error.get("message", ""))
+def timeout_details(envelope) -> dict:
+    return (envelope.error or {}).get("details") or {}
 
 
 def is_timeout(envelope) -> bool:
@@ -57,8 +56,10 @@ def _menu_case(ctx, name, operation):
         envelope = ctx.product(args)
         if operation == "hidden":
             assert is_timeout(envelope), envelope.raw
-            message = timeout_message(envelope).lower()
-            assert "menu" in message or "hidden" in message, envelope.raw
+            details = timeout_details(envelope)
+            assert details.get("kind") == "wait_timeout", envelope.raw
+            assert details.get("predicate") == "menu", envelope.raw
+            assert details.get("timeout_ms") == 1500, envelope.raw
         else:
             assert envelope.ok, envelope.raw
             if operation == "already":

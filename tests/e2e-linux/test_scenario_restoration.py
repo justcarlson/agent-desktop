@@ -307,7 +307,9 @@ class MenuRestorationTests(unittest.TestCase):
                     if argv[argv.index("--app") + 1] == "Terminal":
                         return Envelope(False, None, {"code": "APP_NOT_FOUND"}, "ambiguous desktop alias", 0, argv)
                     if name == "hidden_bar_timeout_message":
-                        return Envelope(False, None, {"code": "TIMEOUT", "message": "menu hidden"}, "{}", 1500, argv)
+                        details = {"kind": "wait_timeout", "predicate": "menu", "timeout_ms": 1500}
+                        return Envelope(False, None, {"code": "TIMEOUT", "message": "No menu opened before the deadline",
+                                                      "details": details}, "{}", 1500, argv)
                     return Envelope(True, {"found": True}, None, "{}", 5, argv)
                 with patch.object(menus, "launch", return_value=object()), \
                     patch.object(menus, "stop"), \

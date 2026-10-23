@@ -219,7 +219,8 @@ class VerdictRuleTests(unittest.TestCase):
         ctx = self.ctx()
         ctx.restored("atspi", "off")
         failures = verdict.evaluate(ctx)
-        self.assertNotEqual(failures, [])
+        self.assertTrue(any("before" in f for f in failures), failures)
+        self.assertTrue(any("after" in f for f in failures), failures)
 
     def test_joined_attributed_app_fails_the_leg(self):
         ctx = self.ctx()

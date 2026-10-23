@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import os
 import re
 import subprocess
@@ -134,13 +136,18 @@ class GateTests(unittest.TestCase):
                     )
                     self.assertEqual(missing, [])
 
-    def test_run_without_session_exits_two(self):
-        with tempfile.TemporaryDirectory() as root:
-            with mock.patch.dict(
-                os.environ, {"AGENT_DESKTOP_E2E_LOCK_ROOT": root}
-            ):
-                code = main.main(["--tier", "x11-openbox"])
+    def test_run_without_interaction_lease_exits_two_before_the_gate(self):
+        environment = {name: value for name, value in os.environ.items()
+                       if name not in (main.LOCK_ROOT_ENV, main.LEASE_FD_ENV)}
+        stderr = io.StringIO()
+        with mock.patch.dict(os.environ, environment, clear=True), \
+            mock.patch.object(gate, "check_prerequisites",
+                              side_effect=AssertionError("the gate ran without a lease")), \
+            contextlib.redirect_stderr(stderr):
+            code = main.main(["--tier", "x11-openbox"])
         self.assertEqual(code, 2)
+        self.assertEqual(stderr.getvalue().strip(),
+                         "gate: run through run.sh so the interaction lease is held")
 
     def test_incompatible_leg_and_tier_is_rejected_before_startup(self):
         with mock.patch.object(main, "_acquire_lease", return_value=None), \
