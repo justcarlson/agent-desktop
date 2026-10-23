@@ -36,7 +36,7 @@ use std::sync::mpsc::channel;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
+use crate::system::fixture::test_support::FIXTURE_APP_NAME_LOCK;
 use crate::tree::fixture::bootstrap;
 use crate::tree::fixture::fixture_menu::MenuFixture;
 
@@ -58,7 +58,7 @@ fn deadline(timeout_ms: u64) -> Deadline {
 }
 
 fn identity_for(pid: ProcessId) -> ProcessIdentity {
-    crate::system::live_identity::live_process_identity(pid)
+    crate::system::fixture::live_identity::live_process_identity(pid)
 }
 
 #[test]

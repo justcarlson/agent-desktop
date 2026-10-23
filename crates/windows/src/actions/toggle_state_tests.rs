@@ -2,7 +2,7 @@ use super::{
     CheckUncheckPlan, ToggleAvailability, ToggleKind, check_uncheck_judged_for, toggle_judged_for,
 };
 use crate::actions::chain::DeliveryOutcome;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{ActionStepOutcome, ErrorCode, InteractionPolicy};
 use std::cell::Cell;
 

@@ -5,7 +5,7 @@ use super::{
 use crate::actions::chain::DeliveryOutcome;
 use crate::actions::scroll::scroll_amounts;
 use crate::actions::scroll_into_view::{VisibilitySample, visibility_verified};
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{
     AdapterError, Deadline, DeliveryDisposition, DeliverySemantics, Direction, ErrorCode, Rect,
 };

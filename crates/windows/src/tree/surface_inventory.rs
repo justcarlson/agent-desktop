@@ -6,10 +6,10 @@ use super::automation::root_from_hwnd;
 use super::properties::property_ids::TreeProperty;
 use super::properties::property_outcome::PropertyOutcome;
 use super::properties::read_one;
-use crate::system::menu_state::{MenuLocation, locate_menu};
-use crate::system::window_enum::{EnumeratedWindow, WindowHandle, enumerate_top_level};
-use crate::system::window_identity::{live_window_owner, live_window_title};
-use crate::system::window_ops::{is_foreground_window, passes_filter};
+use crate::system::menu::menu_state::{MenuLocation, locate_menu};
+use crate::system::window::window_enum::{EnumeratedWindow, WindowHandle, enumerate_top_level};
+use crate::system::window::window_identity::{live_window_owner, live_window_title};
+use crate::system::window::window_ops::{is_foreground_window, passes_filter};
 
 /// The surfaces the named process presents right now.
 ///

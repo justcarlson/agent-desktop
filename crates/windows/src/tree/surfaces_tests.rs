@@ -64,13 +64,13 @@ mod shell_surfaces {
     use super::super::super::fixture::{HostedFixture, bootstrap};
     use super::super::super::walk::walker_fake::deadline;
     use crate::adapter::WindowsAdapter;
-    use crate::system::raise_oracle::{responded_since, witness_desktop};
-    use crate::system::shell_surface::resolve_surface;
-    use crate::system::shell_surface_open::{close_surface, open_surface};
-    use crate::system::test_support::{
+    use crate::system::fixture::test_support::{
         SHELL_SURFACE_LOCK, or_skip_shell, shell_declined_the_surface, stage_foreground,
         wait_for_foreground_to_settle,
     };
+    use crate::system::shell::raise_oracle::{responded_since, witness_desktop};
+    use crate::system::shell::shell_surface::resolve_surface;
+    use crate::system::shell::shell_surface_open::{close_surface, open_surface};
     use crate::tree::fixture::fixture_menu::MenuFixture;
     use crate::tree::fixture::fixture_window;
     use crate::tree::test_support::rooted_child_count;
@@ -229,7 +229,7 @@ mod shell_surfaces {
     #[test]
     fn every_advertised_surface_resolves_to_a_rootable_element_when_present() {
         bootstrap();
-        let _fixture_scope = crate::system::test_support::FIXTURE_APP_NAME_LOCK
+        let _fixture_scope = crate::system::fixture::test_support::FIXTURE_APP_NAME_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let _lock = SHELL_SURFACE_LOCK.lock().unwrap_or_else(|e| e.into_inner());

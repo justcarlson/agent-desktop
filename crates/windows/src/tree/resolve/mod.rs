@@ -332,8 +332,8 @@ pub(crate) fn resolve_window_root(
         bounds: None,
         state: Default::default(),
     };
-    crate::system::window_identity::WindowIdentityEvidence::from_info(
-        crate::system::window_ops::parse_handle(&window.id),
+    crate::system::window::window_identity::WindowIdentityEvidence::from_info(
+        crate::system::window::window_ops::parse_handle(&window.id),
         &window,
     )
     .ok_or_else(|| stale_ref_error(entry))?

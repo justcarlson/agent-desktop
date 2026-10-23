@@ -5,7 +5,7 @@ use agent_desktop_core::{
 };
 
 #[cfg(target_os = "windows")]
-pub(super) use crate::system::test_time::deadline;
+pub(super) use crate::system::fixture::test_time::deadline;
 
 #[cfg(target_os = "windows")]
 pub(super) fn combo_a() -> KeyCombo {
@@ -25,7 +25,7 @@ fn identity_for_pid(pid: ProcessId) -> ProcessIdentity {
 
 #[cfg(target_os = "windows")]
 fn raise_handle(handle: isize) {
-    let _ = crate::system::test_support::stage_foreground(handle);
+    let _ = crate::system::fixture::test_support::stage_foreground(handle);
 }
 
 #[cfg(target_os = "windows")]
@@ -59,7 +59,7 @@ fn window_info_for_hosted(fixture: &crate::tree::fixture::HostedFixture) -> Wind
 /// production `press_for_app_impl` never does.
 #[cfg(target_os = "windows")]
 pub(super) fn stage_as_foreground(fixture: &crate::tree::fixture::HostedFixture) -> bool {
-    use crate::system::window_activate::focus_window;
+    use crate::system::window::window_activate::focus_window;
     use agent_desktop_core::InteractionLease;
 
     let info = window_info_for_hosted(fixture);

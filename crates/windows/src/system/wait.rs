@@ -4,7 +4,7 @@ use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId, ProcessIdentity,
 };
 
-use super::menu_state::menu_is_open;
+use super::menu::menu_state::menu_is_open;
 use super::process_identity;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
@@ -198,11 +198,11 @@ pub(super) mod poll_calls {
     }
 
     pub(super) fn record() {
-        crate::system::call_counter::record(&COUNT);
+        crate::system::fixture::call_counter::record(&COUNT);
     }
 
     pub(super) fn take() -> usize {
-        crate::system::call_counter::take(&COUNT)
+        crate::system::fixture::call_counter::take(&COUNT)
     }
 }
 

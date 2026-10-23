@@ -21,7 +21,7 @@ use agent_desktop_core::{AppError, CommandContext};
 use serde_json::Value;
 
 use crate::adapter::WindowsAdapter;
-use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
+use crate::system::fixture::test_support::FIXTURE_APP_NAME_LOCK;
 use crate::tree::fixture::bootstrap;
 use crate::tree::fixture::fixture_menu::MenuFixture;
 
@@ -30,7 +30,7 @@ const RECV_TIMEOUT: Duration = Duration::from_secs(20);
 const STATE_TIMEOUT: Duration = Duration::from_secs(5);
 const WAIT_TIMEOUT_MS: u64 = 10_000;
 
-use crate::system::live_identity::own_image_name;
+use crate::system::fixture::live_identity::own_image_name;
 
 const AMBIGUOUS_APP_NAME_RETRIES: u32 = 10;
 const AMBIGUOUS_APP_NAME_RETRY_DELAY: Duration = Duration::from_millis(300);

@@ -15,7 +15,7 @@ use agent_desktop_core::{
 };
 
 use super::resolve_match::{Candidate, CandidateOutcome, bounds_hash_of};
-use crate::system::hresult::ReadDisposition;
+use crate::system::runtime::hresult::ReadDisposition;
 use crate::tree::automation::{UiaFailure, uia_failure_disposition};
 use crate::tree::element::UIAElement;
 use crate::tree::walk::walker::{DEFAULT_MAX_SIBLINGS, TreeSource, WalkBudget};

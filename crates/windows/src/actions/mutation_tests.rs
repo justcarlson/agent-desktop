@@ -1,5 +1,5 @@
 use super::{action_scan_sources, classify_mutation, classify_success};
-use crate::system::hresult::{
+use crate::system::runtime::hresult::{
     E_ACCESSDENIED, E_INVALIDARG, RPC_E_DISCONNECTED, RPC_E_SERVERFAULT, RPC_S_CALL_FAILED,
     RPC_S_SERVER_UNAVAILABLE, UIA_E_ELEMENTNOTAVAILABLE, UIA_E_ELEMENTNOTENABLED,
     UIA_E_INVALIDOPERATION, UIA_E_NOTSUPPORTED, UIA_E_TIMEOUT,
@@ -247,7 +247,7 @@ fn actions_never_construct_stale_via_adapter_error_stale_ref() {
 #[cfg(target_os = "windows")]
 mod classify_write_tests {
     use crate::actions::mutation::classify_write;
-    use crate::system::hresult::E_ACCESSDENIED;
+    use crate::system::runtime::hresult::E_ACCESSDENIED;
     use crate::tree::automation::{ERR_NONE, ERR_NOTFOUND};
     use agent_desktop_core::{DeliveryDisposition, ErrorCode};
     use uiautomation::Error as UiaError;

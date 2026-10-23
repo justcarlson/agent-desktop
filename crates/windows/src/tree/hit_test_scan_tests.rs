@@ -57,8 +57,8 @@ const GATE_SUPPORT: [(&str, &str); 10] = [
     ),
     ("actions/scroll.rs", include_str!("../actions/scroll.rs")),
     (
-        "system/window_resolve.rs",
-        include_str!("../system/window_resolve.rs"),
+        "system/window/window_resolve.rs",
+        include_str!("../system/window/window_resolve.rs"),
     ),
 ];
 

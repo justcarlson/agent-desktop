@@ -13,7 +13,7 @@
     press takes a combo and an optional --app, never a ref
     (src/cli_args/actions.rs), so every leg observes the effect on the
     control that held keyboard focus, never on the command's own ok. Key
-    names come from crates/windows/src/input/keyboard_map.rs: "delete" is an
+    names come from crates/windows/src/input/keyboard/keyboard_map.rs: "delete" is an
     alias of Backspace there, so the legs say backspace. The blocked-combo
     refusal is POLICY_DENIED from core (crates/core/src/commands/combo.rs),
     raised before any app is resolved, so it needs neither --headed nor

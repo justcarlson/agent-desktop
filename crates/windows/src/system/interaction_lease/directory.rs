@@ -29,7 +29,7 @@ use windows_sys::Win32::System::SystemInformation::GetSystemWindowsDirectoryW;
 
 use super::dacl;
 use super::sid;
-use crate::system::token_sid::read_owner_sid;
+use crate::system::runtime::token_sid::read_owner_sid;
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 const EXTENDED_LENGTH_PREFIX: &str = r"\\?\";

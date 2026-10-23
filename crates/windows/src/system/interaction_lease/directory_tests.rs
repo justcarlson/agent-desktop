@@ -50,7 +50,8 @@ fn set_owner(path: &Path, owner: &SidBuffer) {
 
 fn read_owner(path: &Path) -> SidBuffer {
     let handle = open_backup_semantics(path);
-    crate::system::token_sid::read_owner_sid(&handle).expect("GetSecurityInfo(owner) must succeed")
+    crate::system::runtime::token_sid::read_owner_sid(&handle)
+        .expect("GetSecurityInfo(owner) must succeed")
 }
 
 /// Enables a privilege already present-but-disabled on this process's token,

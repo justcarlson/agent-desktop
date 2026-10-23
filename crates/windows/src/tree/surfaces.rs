@@ -7,8 +7,8 @@ use super::element::UIAElement;
 use super::properties::property_ids::TreeProperty;
 #[cfg(target_os = "windows")]
 use super::properties::read_one;
-use crate::system::window_enum::enumerate_top_level;
-use crate::system::window_ops::{parse_window_id, passes_filter};
+use crate::system::window::window_enum::enumerate_top_level;
+use crate::system::window::window_ops::{parse_window_id, passes_filter};
 
 /// Resolves the element an observation root names, per-surface (`Window`
 /// resolves the named window directly; `Focused` composes the focused-only
@@ -44,7 +44,7 @@ pub(crate) fn surface_root(
             }
         }
         (ObservationRoot::Window(window), SnapshotSurface::Menu) => {
-            let location = crate::system::menu_state::locate_menu(window.pid, deadline)?
+            let location = crate::system::menu::menu_state::locate_menu(window.pid, deadline)?
                 .ok_or_else(|| {
                     AdapterError::new(
                         ErrorCode::WindowNotFound,

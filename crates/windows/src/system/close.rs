@@ -7,9 +7,9 @@ use super::app_ops::is_protected_process;
 #[cfg(target_os = "windows")]
 use super::close_dispatch::CloseDispatch;
 use super::close_outcome::CloseOutcome;
-#[cfg(target_os = "windows")]
-use super::hresult::{adapter_error_from_win32, win32_last_error};
 use super::process_identity;
+#[cfg(target_os = "windows")]
+use super::runtime::hresult::{adapter_error_from_win32, win32_last_error};
 
 const EXIT_POLL: Duration = Duration::from_millis(25);
 
@@ -300,8 +300,8 @@ fn process_observed_gone(pid: ProcessId, instance: &str) -> Result<bool, Adapter
 #[cfg(target_os = "windows")]
 fn top_level_windows_for_pid(pid: ProcessId) -> Result<Vec<isize>, AdapterError> {
     let mut handles = Vec::new();
-    super::window_enum::enumerate_top_level(|window| {
-        if super::window_identity::live_window_owner(window.handle) == Some(pid) {
+    super::window::window_enum::enumerate_top_level(|window| {
+        if super::window::window_identity::live_window_owner(window.handle) == Some(pid) {
             handles.push(window.handle as isize);
         }
         true
@@ -319,8 +319,8 @@ fn post_wm_close_if_still_owned(
 ) -> Result<bool, AdapterError> {
     use windows_sys::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
 
-    let hwnd = hwnd as super::window_enum::WindowHandle;
-    if super::window_identity::live_window_owner(hwnd) != Some(pid) {
+    let hwnd = hwnd as super::window::window_enum::WindowHandle;
+    if super::window::window_identity::live_window_owner(hwnd) != Some(pid) {
         return Ok(false);
     }
     if !process_identity::matches_instance(pid, instance)? {

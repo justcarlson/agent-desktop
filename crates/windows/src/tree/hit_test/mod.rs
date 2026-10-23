@@ -39,7 +39,7 @@ mod imp {
     use super::classify;
     use super::corroborate;
     use super::{AdapterError, Deadline, ErrorCode, HitTestResult, NativeHandle, Point, Rect};
-    use crate::system::hresult::ReadDisposition;
+    use crate::system::runtime::hresult::ReadDisposition;
     use crate::tree::automation::{
         UiaFailure, automation_client, failure_of, uia_failure_disposition, uia_failure_error,
     };

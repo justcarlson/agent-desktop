@@ -231,7 +231,7 @@ fn process_holds_keyboard_focus(pid: ProcessId) -> Result<bool, AdapterError> {
     } else {
         return Ok(false);
     };
-    Ok(super::window_identity::live_window_owner(focus) == Some(pid))
+    Ok(super::window::window_identity::live_window_owner(focus) == Some(pid))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -247,7 +247,7 @@ fn foreground_process_id() -> Option<ProcessId> {
     if foreground.is_null() {
         return None;
     }
-    super::window_identity::live_window_owner(foreground)
+    super::window::window_identity::live_window_owner(foreground)
 }
 
 #[cfg(all(test, target_os = "windows"))]

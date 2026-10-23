@@ -2,7 +2,7 @@
 title: Guard OS-reordered resources with an identity fingerprint
 date: 2026-07-11
 category: best-practices
-module: notification commands and FFI, crates/windows/src/system/window_activate.rs, crates/windows/src/system/display.rs, crates/windows/src/system/screenshot.rs
+module: notification commands and FFI, crates/windows/src/system/window/window_activate.rs, crates/windows/src/system/display.rs, crates/windows/src/system/capture/screenshot.rs
 problem_type: best_practice
 component: tooling
 severity: high
@@ -45,7 +45,7 @@ window is destroyed, the OS is free to hand the same numeric value to an
 unrelated process's next window. Verifying identity once, at entry, is not
 enough when the write that follows is not atomic with that check — a handle
 can be destroyed and recycled in the gap between the check and the native
-write. `focus_window` (`crates/windows/src/system/window_activate.rs`)
+write. `focus_window` (`crates/windows/src/system/window/window_activate.rs`)
 re-verifies handle ownership (`owned_for_write`) immediately before every
 native write that follows entry verification: `restore_if_iconic` re-checks ownership before its
 `ShowWindow` call, and `bring_to_foreground` re-checks before `ShowWindow` /
@@ -103,6 +103,6 @@ regardless of which capture path produces the PNG.
 
 - `crates/core/src/notifications/notification_identity.rs`
 - `crates/macos/src/notifications/actions.rs`
-- `crates/windows/src/system/window_activate.rs`
+- `crates/windows/src/system/window/window_activate.rs`
 - `crates/windows/src/system/display.rs`
-- `crates/windows/src/system/screenshot.rs`
+- `crates/windows/src/system/capture/screenshot.rs`

@@ -1,6 +1,6 @@
 use super::{ClickAvailability, click_chain_judged_for, execute_action_impl};
 use crate::actions::chain::DeliveryOutcome;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use crate::tree::automation::automation_client;
 use crate::tree::element::UIAElement;
 use crate::tree::fixture::fixture_window;

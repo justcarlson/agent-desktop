@@ -11,7 +11,7 @@ use agent_desktop_core::{AdapterError, ErrorCode, ProcessId};
 
 fn window(handle: usize, sheet: Result<bool, AdapterError>) -> ObservedWindow {
     ObservedWindow {
-        handle: handle as crate::system::window_enum::WindowHandle,
+        handle: handle as crate::system::window::window_enum::WindowHandle,
         title: Some(format!("window {handle}")),
         foreground: false,
         sheet,

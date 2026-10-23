@@ -1,6 +1,6 @@
 use crate::system::close::close_app_impl;
 use crate::system::launch::launch_app_impl;
-use crate::system::window_activate::{budget_exhausted, focus_window};
+use crate::system::window::window_activate::{budget_exhausted, focus_window};
 use agent_desktop_core::system::launch_options::LaunchOptions;
 use agent_desktop_core::{
     AdapterError, AppError, AppInfo, Deadline, DeliverySemantics, ErrorCode, ErrorPayload,

@@ -1,6 +1,6 @@
 use super::{ClickAvailability, click_chain_judged_for};
 use crate::actions::chain::DeliveryOutcome;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{ActionStepOutcome, InteractionPolicy};
 use std::cell::Cell;
 

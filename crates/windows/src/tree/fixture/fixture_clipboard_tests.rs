@@ -1,5 +1,5 @@
 use super::*;
-use crate::system::window_enum::window_is_responsive;
+use crate::system::window::window_enum::window_is_responsive;
 
 #[test]
 #[ignore = "runs only in the re-executed clipboard holder host process"]

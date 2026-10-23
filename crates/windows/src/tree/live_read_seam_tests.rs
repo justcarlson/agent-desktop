@@ -12,7 +12,7 @@
 
 use super::imp::{corroborate_verified_process, read_live_element_core};
 use super::tests::{live_label, verified_handle};
-use crate::system::hresult::UIA_E_ELEMENTNOTAVAILABLE;
+use crate::system::runtime::hresult::UIA_E_ELEMENTNOTAVAILABLE;
 use crate::tree::automation::{UiaFailure, uia_failure_error};
 use crate::tree::element::UIAElement;
 use crate::tree::fixture::{HostedFixture, ensure_test_apartment};

@@ -234,7 +234,8 @@ pub(crate) fn pid_of_hwnd(hwnd: isize) -> Option<u32> {
     if hwnd == 0 {
         return None;
     }
-    crate::system::window_identity::live_window_owner(hwnd as *mut std::ffi::c_void).map(u32::from)
+    crate::system::window::window_identity::live_window_owner(hwnd as *mut std::ffi::c_void)
+        .map(u32::from)
 }
 
 fn process_id_of(element: &UIAElement) -> Option<u32> {

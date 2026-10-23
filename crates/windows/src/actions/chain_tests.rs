@@ -2,7 +2,7 @@ use super::{
     ChainDef, ChainRung, DeliveryOutcome, build_step, execute_chain, exhaustion_disposition,
     record_step_outcome, rung_allowed,
 };
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{
     ActionStepOutcome, AdapterError, DeliverySemantics, ErrorCode, InteractionPolicy, StepMechanism,
 };

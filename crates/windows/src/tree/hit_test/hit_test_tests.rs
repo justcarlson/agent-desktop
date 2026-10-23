@@ -6,7 +6,7 @@ use super::hit_test_impl;
 use super::imp::{
     judge_probe, physical_point, pre_read_fate_for_test, resolve_classification, saturate_coord,
 };
-use crate::system::hresult::{E_ACCESSDENIED, E_FAIL, UIA_E_NOTSUPPORTED, UIA_E_TIMEOUT};
+use crate::system::runtime::hresult::{E_ACCESSDENIED, E_FAIL, UIA_E_NOTSUPPORTED, UIA_E_TIMEOUT};
 use crate::tree::automation::{ERR_INVALID_ARG, ERR_TIMEOUT, UiaFailure, root_from_hwnd};
 use crate::tree::fixture::{LocalFixture, ensure_test_apartment};
 use crate::tree::walk::walker::NodeKey;

@@ -83,7 +83,7 @@ fn shared_action_failed_before_delivery_pins_the_windows_envelope() {
 #[test]
 fn shared_perm_denied_before_delivery_pins_the_windows_envelope() {
     use crate::actions::mutation::classify_mutation;
-    use crate::system::hresult::E_ACCESSDENIED;
+    use crate::system::runtime::hresult::E_ACCESSDENIED;
     use crate::tree::automation::UiaFailure;
 
     let error = classify_mutation(

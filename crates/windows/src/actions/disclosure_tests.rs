@@ -1,6 +1,6 @@
 use super::{DisclosureInput, ExpandKind, disclosure_judged_for, disclosure_plan, invoke_allowed};
 use crate::actions::chain::DeliveryOutcome;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{ActionStepOutcome, DeliveryDisposition, ErrorCode, InteractionPolicy};
 use std::cell::Cell;
 

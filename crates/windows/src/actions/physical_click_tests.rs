@@ -1,10 +1,10 @@
 use super::{ClickGate, ClickSpec, click_from_gate};
 use crate::actions::physical_target::delivery_point;
-use crate::input::mouse_send::{
+use crate::input::mouse::mouse_send::{
     MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE,
 };
 use crate::input::mouse_send_fake_sink as mouse_sink;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{
     ActionStepOutcome, DeliveryDisposition, ErrorCode, MouseButton, Point, Rect, StepMechanism,
 };

@@ -122,9 +122,9 @@ fn launch_options_enforce_a_bounded_text_budget() {
 
 #[test]
 fn elevation_required_maps_through_hresult_from_win32() {
-    let hresult = crate::system::hresult::hresult_from_win32(740);
+    let hresult = crate::system::runtime::hresult::hresult_from_win32(740);
     assert_eq!(hresult, 0x8007_02E4_u32 as i32);
-    let error = crate::system::hresult::adapter_error_from_win32(
+    let error = crate::system::runtime::hresult::adapter_error_from_win32(
         740,
         "CreateProcessW failed to start the application",
     );
@@ -178,7 +178,7 @@ fn absolute_cwd_returns_an_absolute_path_unchanged() {
 }
 
 #[cfg(target_os = "windows")]
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 
 #[cfg(target_os = "windows")]
 fn matching_pids(image: &str) -> Vec<ProcessId> {

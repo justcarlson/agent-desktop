@@ -7,7 +7,7 @@
 //! failure is which, each of which could be deleted with the rest of the suite
 //! still green.
 
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use crate::tree::automation::{ERR_INACTIVE, ERR_TIMEOUT, UiaFailure, uia_failure_error};
 use crate::tree::resolve::retry_incomplete_until;
 use crate::tree::test_support::unreachable_handle;

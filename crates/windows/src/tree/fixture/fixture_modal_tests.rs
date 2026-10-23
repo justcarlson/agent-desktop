@@ -15,7 +15,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GET_WINDOW_CMD, GW_OWNER, GWL_EXSTYLE, GetWindow, GetWindowLongPtrW, IsWindow,
 };
 
-use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
+use crate::system::fixture::test_support::FIXTURE_APP_NAME_LOCK;
 
 const STATE_TIMEOUT: Duration = Duration::from_secs(5);
 

@@ -179,7 +179,7 @@ fn still_thin_after_settle() -> AdapterError {
 fn re_verify_root(root: ObservationRoot<'_>) -> Result<(), AdapterError> {
     match root {
         ObservationRoot::Window(window) => {
-            let handle = crate::system::window_ops::parse_window_id(&window.id)?;
+            let handle = crate::system::window::window_ops::parse_window_id(&window.id)?;
             if !crate::tree::automation::window_exists(handle) {
                 return Err(window_gone());
             }

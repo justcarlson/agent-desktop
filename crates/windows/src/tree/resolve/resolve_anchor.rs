@@ -30,7 +30,7 @@ use super::resolve_search::{
     entry_is_locatable, geometry_matches, identity_unknown_error, provisional_geometry_candidate,
     resolve_walk_budget,
 };
-use crate::system::hresult::ReadDisposition;
+use crate::system::runtime::hresult::ReadDisposition;
 use crate::tree::automation::{UiaFailure, uia_failure_disposition};
 #[cfg(target_os = "windows")]
 use crate::tree::walk::walker::TreeSource;

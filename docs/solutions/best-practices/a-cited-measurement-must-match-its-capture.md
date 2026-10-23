@@ -2,7 +2,7 @@
 title: A cited measurement must match its capture
 date: 2026-08-09
 category: best-practices
-module: probes/windows/FINDINGS.md, crates/windows/src/system/window_activate.rs
+module: probes/windows/FINDINGS.md, crates/windows/src/system/window/window_activate.rs
 problem_type: process_gap
 component: tooling
 symptoms:

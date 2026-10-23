@@ -174,7 +174,7 @@ impl ObservationOps for WindowsAdapter {
         filter: &WindowFilter,
         deadline: Deadline,
     ) -> Result<Vec<WindowInfo>, AdapterError> {
-        crate::system::window_ops::list_windows_live(filter, deadline)
+        crate::system::window::window_ops::list_windows_live(filter, deadline)
     }
 
     fn list_apps(&self, deadline: Deadline) -> Result<Vec<AppInfo>, AdapterError> {
@@ -205,8 +205,8 @@ impl ObservationOps for WindowsAdapter {
         surface: SnapshotSurface,
         deadline: Deadline,
     ) -> Result<WindowInfo, AdapterError> {
-        crate::system::shell_surface::resolve_surface(surface, deadline)?
-            .ok_or_else(|| crate::system::shell_surface::not_open_error(surface))
+        crate::system::shell::shell_surface::resolve_surface(surface, deadline)?
+            .ok_or_else(|| crate::system::shell::shell_surface::not_open_error(surface))
     }
 }
 impl ActionOps for WindowsAdapter {

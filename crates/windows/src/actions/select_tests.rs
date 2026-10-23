@@ -2,7 +2,7 @@ use super::{
     SELECT_LABEL, SelectOps, SelectPlan, push_order, resolve_select_verification, select_judged_for,
 };
 use crate::actions::chain::DeliveryOutcome;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{ActionStepOutcome, AdapterError, ErrorCode};
 use std::cell::Cell;
 

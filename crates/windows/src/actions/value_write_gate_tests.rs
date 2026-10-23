@@ -2,7 +2,7 @@ use super::imp::gated_value_compare;
 use super::{SetValuePlan, set_value_judged_for};
 use crate::actions::chain::DeliveryOutcome;
 use crate::actions::dispatch::execute_action_impl;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use crate::tree::automation::automation_client;
 use crate::tree::element::UIAElement;
 use crate::tree::fixture::fixture_window;

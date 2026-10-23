@@ -1,5 +1,5 @@
 #[cfg(target_os = "windows")]
-use super::hresult::win32_last_error;
+use super::runtime::hresult::win32_last_error;
 use agent_desktop_core::{
     AdapterError, Deadline, ProcessIdentity, system::process_state::ProcessState,
 };
@@ -175,11 +175,11 @@ fn probe_timeout_ms(deadline: Deadline) -> u64 {
 #[cfg(target_os = "windows")]
 fn top_level_windows_for(pid: agent_desktop_core::ProcessId) -> Result<Vec<isize>, AdapterError> {
     let mut handles = Vec::new();
-    super::window_enum::enumerate_top_level(|window| {
+    super::window::window_enum::enumerate_top_level(|window| {
         if handles.len() >= MAX_PROBED_WINDOWS {
             return false;
         }
-        if super::window_identity::live_window_owner(window.handle) == Some(pid) {
+        if super::window::window_identity::live_window_owner(window.handle) == Some(pid) {
             handles.push(window.handle as isize);
         }
         true

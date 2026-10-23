@@ -2,7 +2,7 @@
 //! retries within budget, and expiry carries the last diagnosis.
 
 use super::*;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use crate::tree::test_support::unreachable_handle;
 use agent_desktop_core::DeliverySemantics;
 

@@ -1,8 +1,8 @@
 use agent_desktop_core::{AdapterError, AppInfo, AppPresentation, Deadline, ProcessId};
 
 use super::process_identity;
-use super::window_enum::{EnumeratedWindow, enumerate_top_level};
-use super::window_ops::passes_filter;
+use super::window::window_enum::{EnumeratedWindow, enumerate_top_level};
+use super::window::window_ops::passes_filter;
 
 const PROTECTED_PROCESSES: &[&str] = &[
     "csrss.exe",
@@ -184,11 +184,11 @@ pub(crate) fn list_apps_live(deadline: Deadline) -> Result<Vec<AppInfo>, Adapter
 
 /// The owner pid + token for a window, reusing the identity path.
 fn process_token_of(
-    handle: super::window_enum::WindowHandle,
+    handle: super::window::window_enum::WindowHandle,
 ) -> Option<(ProcessId, Option<String>)> {
     #[cfg(target_os = "windows")]
     {
-        let pid = super::window_identity::live_window_owner(handle)?;
+        let pid = super::window::window_identity::live_window_owner(handle)?;
         let token = process_identity::token_for_pid(pid).ok().flatten();
         Some((pid, token))
     }
@@ -208,11 +208,11 @@ pub(super) mod enumeration_calls {
     }
 
     pub(super) fn record() {
-        crate::system::call_counter::record(&COUNT);
+        crate::system::fixture::call_counter::record(&COUNT);
     }
 
     pub(super) fn take() -> usize {
-        crate::system::call_counter::take(&COUNT)
+        crate::system::fixture::call_counter::take(&COUNT)
     }
 }
 

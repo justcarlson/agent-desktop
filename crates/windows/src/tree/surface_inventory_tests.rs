@@ -14,11 +14,11 @@
 use super::list_surfaces_for_process;
 use crate::adapter::WindowsAdapter;
 use crate::system::app_ops::process_snapshot;
+use crate::system::fixture::test_support::{FIXTURE_APP_NAME_LOCK, settles_to, stage_foreground};
 use crate::system::process_identity::token_for_pid;
-use crate::system::test_support::{FIXTURE_APP_NAME_LOCK, settles_to, stage_foreground};
-use crate::system::window_enum::enumerate_top_level;
-use crate::system::window_identity::live_window_owner;
-use crate::system::window_ops::passes_filter;
+use crate::system::window::window_enum::enumerate_top_level;
+use crate::system::window::window_identity::live_window_owner;
+use crate::system::window::window_ops::passes_filter;
 use crate::tree::automation::root_from_hwnd;
 use crate::tree::fixture::fixture_menu::{CONTEXT_MENU_ITEM_COUNT, MenuFixture};
 use crate::tree::fixture::fixture_modal::ModalFixture;

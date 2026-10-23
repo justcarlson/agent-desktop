@@ -3,10 +3,10 @@ use super::{
     unsupported_error, visibility_verified,
 };
 use crate::adapter::WindowsAdapter;
-use crate::system::hresult::{
+use crate::system::fixture::test_time::deadline;
+use crate::system::runtime::hresult::{
     E_ACCESSDENIED, RPC_E_DISCONNECTED, UIA_E_ELEMENTNOTAVAILABLE, com_hresult_detail,
 };
-use crate::system::test_time::deadline;
 use crate::tree::automation::{UiaFailure, automation_client};
 use crate::tree::element::UIAElement;
 use crate::tree::fixture::fixture_window;
