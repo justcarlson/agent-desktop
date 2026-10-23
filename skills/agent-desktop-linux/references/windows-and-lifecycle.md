@@ -157,8 +157,10 @@ close only a document or tab and leave its window open.
     unit, or is a child of the display owner: portal backends, shell helpers,
     decoration hosts), unless this tool launched it.
 
-  A process that does not answer on the accessibility bus is protected when it
-  owns a session-bus name, unless a launch of this tool started it.
+  A process that does not answer on the accessibility bus (stopped or hung) is
+  protected when it owns a session-bus name and the window manager manages no
+  window of it, unless a launch of this tool started it. A stopped app with a
+  window is not protected, whoever started it: `--force` ends it.
   Missing ownership evidence (such as an unreadable `/proc` entry or no session
   bus) is `ACTION_NOT_SUPPORTED` before anything is sent; an unreachable display
   is `PLATFORM_NOT_SUPPORTED`. X11 manager ownership needs XRes process IDs;
@@ -265,8 +267,9 @@ An app stopped with `SIGSTOP` is detected from `/proc` without waiting for a
 probe. A ref used against it, a scoped `snapshot`, `list-windows --app`,
 `focus-window` and the window operations answer `APP_UNRESPONSIVE` in
 milliseconds, not `STALE_REF`. `close-app` answers `APP_UNRESPONSIVE`,
-`not_delivered`, `retry: safe`; `--force` ends it. An unscoped `list-windows`
-still lists its windows with `accessible: false`. A scoped listing of a busy app
+`not_delivered`, `retry: safe`; `--force` ends it, unless it is a session service
+(`INVALID_ARGS`, see `close-app`). An unscoped `list-windows` still lists its
+windows with `accessible: false`. A scoped listing of a busy app
 that left every frame unanswered is `TIMEOUT`, not an empty list.
 
 ## Waiting for lifecycle events

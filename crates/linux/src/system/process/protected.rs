@@ -184,14 +184,18 @@ fn answering_app_is_session_service(pid: u32, deadline: Deadline) -> Result<bool
 }
 
 /// Whether a process that does not answer on the accessibility bus is a
-/// session service: it owns a name on the session bus. One that a launch of
-/// this tool started never is, whatever name it owns. A fact that cannot be
-/// read refuses.
+/// session service: it owns a name on the session bus and the window manager
+/// manages no window of it. One that a launch of this tool started never is,
+/// whatever name it owns. A hung application keeps its windows and every
+/// unique application owns a name, so a managed window shows an application
+/// and not a service. A window read that fails clears nothing, and any other
+/// fact that cannot be read refuses.
 fn silent_app_is_session_service(
     launched: impl FnOnce() -> Result<bool, AdapterError>,
+    windowed: impl FnOnce() -> bool,
     named: impl FnOnce() -> Result<bool, AdapterError>,
 ) -> Result<bool, AdapterError> {
-    session_origin::is_session_service(launched, || false, || Ok(false), || Ok(false), named)
+    session_origin::is_session_service(launched, windowed, || Ok(false), || Ok(false), named)
 }
 
 /// Whether a process whose window frames the listing cannot classify is a
@@ -255,6 +259,7 @@ pub(crate) fn is_protected(
     }
     let owner = silent_app_is_session_service(
         || session_origin::launched_by_agent(pid),
+        || has_managed_window(pid, deadline),
         || owns_session_bus_name(pid, deadline),
     )?;
     if !instance_matches() {
