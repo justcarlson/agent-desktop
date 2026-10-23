@@ -266,9 +266,7 @@ fn a_pinned_namespace_still_allows_ending_its_own_session() {
         &NoopAdapter,
         &context,
     );
-    if let Err(error) = &result {
-        assert!(!error.to_string().contains("foreign session"));
-    }
+    result.expect("a pinned namespace may end its own session");
     let ended = agent_desktop_core::session::read_manifest(&manifest.id)
         .unwrap()
         .expect("manifest remains readable");
