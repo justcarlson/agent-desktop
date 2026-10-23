@@ -5,23 +5,22 @@ use std::cell::Cell;
 #[test]
 fn exact_window_capture_does_not_wait_for_unrelated_inventory_stability() {
     let captures = Cell::new(0_u32);
-    let global_inventory_calls = Cell::new(0_u32);
-    let unrelated_inventory_generation = Cell::new(0_u32);
     let result = exact_window_record_until_with(
         7,
         Instant::now() + std::time::Duration::from_secs(1),
         || {
             captures.set(captures.get() + 1);
-            unrelated_inventory_generation.set(unrelated_inventory_generation.get() + 1);
-            Ok(vec![record(10, 7, "instance-10")])
+            if captures.get() == 1 {
+                Ok(vec![record(10, 7, "instance-10")])
+            } else {
+                Ok(vec![record(10, 7, "instance-11")])
+            }
         },
     )
     .unwrap()
     .unwrap();
 
     assert_eq!(captures.get(), 1);
-    assert_eq!(global_inventory_calls.get(), 0);
-    assert_eq!(unrelated_inventory_generation.get(), 1);
     assert_eq!(result.window_number, 7);
 }
 

@@ -3,20 +3,35 @@ use std::os::unix::net::UnixListener;
 
 #[test]
 fn travel_acknowledgement_obeys_remaining_budget() {
-    check_acknowledgement(agent_desktop_core::CursorPhase::Travel, false);
+    let error = unacknowledged_failure(agent_desktop_core::CursorPhase::Travel);
+
+    assert_eq!(
+        error.message,
+        "macOS cursor overlay did not confirm cursor arrival"
+    );
 }
 
 #[test]
 fn drag_requires_acknowledgement_before_tracking_is_considered_ready() {
-    check_acknowledgement(agent_desktop_core::CursorPhase::Drag, false);
+    let error = unacknowledged_failure(agent_desktop_core::CursorPhase::Drag);
+
+    assert_eq!(
+        error.message,
+        "macOS cursor overlay did not acknowledge the control"
+    );
 }
 
 #[test]
 fn effect_requires_acknowledgement_before_it_is_considered_delivered() {
-    check_acknowledgement(agent_desktop_core::CursorPhase::Effect, false);
+    let error = unacknowledged_failure(agent_desktop_core::CursorPhase::Effect);
+
+    assert_eq!(
+        error.message,
+        "macOS cursor overlay did not confirm cursor effect"
+    );
 }
 
-fn check_acknowledgement(phase: agent_desktop_core::CursorPhase, accepted: bool) {
+fn unacknowledged_failure(phase: agent_desktop_core::CursorPhase) -> AdapterError {
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -39,14 +54,13 @@ fn check_acknowledgement(phase: agent_desktop_core::CursorPhase, accepted: bool)
         .with_phase(phase);
         let control = CursorOverlayControl::present("run-budget".into(), instruction);
         let started = Instant::now();
-        assert_eq!(
-            send_until(&path, &control, started + Duration::from_millis(30)).is_ok(),
-            accepted
-        );
+        let error = send_until(&path, &control, started + Duration::from_millis(30))
+            .expect_err("an unacknowledged control must fail");
         let elapsed = started.elapsed();
         receiver.join().unwrap();
         assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
+        error
     });
     let _ = std::fs::remove_file(path);
-    result.unwrap();
+    result.unwrap()
 }

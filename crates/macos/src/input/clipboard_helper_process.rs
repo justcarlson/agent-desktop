@@ -227,12 +227,33 @@ mod tests {
 
     #[test]
     fn hard_deadline_kills_the_helper_process_group() {
+        let pgid_file = std::env::temp_dir().join(format!("ad-clip-pgid-{}", std::process::id()));
         let mut command = Command::new("/bin/sh");
-        command.args(["-c", "sleep 5"]);
-        let error = run(&mut command, &[], Deadline::after(150).unwrap(), None).unwrap_err();
+        command.args(["-c", "echo $$ > \"$1\"; sleep 5 & wait", "sh"]);
+        command.arg(&pgid_file);
+        let error = run(&mut command, &[], Deadline::after(800).unwrap(), None).unwrap_err();
 
         assert_eq!(error.code, ErrorCode::Timeout);
         assert_eq!(error.details.unwrap()["helper_dispatched"], true);
+        let pgid: i32 = std::fs::read_to_string(&pgid_file)
+            .expect("helper reported its process group")
+            .trim()
+            .parse()
+            .expect("process group id");
+        let _ = std::fs::remove_file(&pgid_file);
+        let group_gone = Instant::now() + Duration::from_secs(2);
+        while unsafe { libc::kill(-pgid, 0) } == 0 && Instant::now() < group_gone {
+            std::thread::sleep(POLL_INTERVAL);
+        }
+        let probe = unsafe { libc::kill(-pgid, 0) };
+        assert_eq!(
+            probe, -1,
+            "helper process group {pgid} survived the deadline"
+        );
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ESRCH)
+        );
     }
 
     #[test]
