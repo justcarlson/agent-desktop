@@ -154,8 +154,13 @@ fn persistent_window_churn_times_out_with_exact_attempt_metrics() {
 #[test]
 fn scoped_capture_never_probes_an_unrelated_inaccessible_owner() {
     let eligible = rustc_hash::FxHashSet::from_iter([10]);
-    let mut records = vec![record("Target", 10, 7, true), record("Other", 418, 8, true)];
-    retain_scope(&mut records, WindowRecordScope::Pids(&eligible));
+    let mut records = scoped_records(
+        vec![
+            window_dictionary("Target", 10, 7, true),
+            window_dictionary("Other", 418, 8, true),
+        ],
+        WindowRecordScope::Pids(&eligible),
+    );
     let mut probed = Vec::new();
 
     capture_process_instances_with(
@@ -192,12 +197,23 @@ fn scoped_capture_propagates_the_selected_owners_denial() {
 #[test]
 fn pid_set_scope_keeps_all_matching_processes_and_ignores_unrelated_churn() {
     let eligible = rustc_hash::FxHashSet::from_iter([10, 11]);
-    let mut first = vec![record("Target", 10, 7, true), record("Other", 20, 8, false)];
-    let mut second = vec![record("Target", 10, 7, true), record("Other", 20, 8, true)];
-    retain_scope(&mut first, WindowRecordScope::Pids(&eligible));
-    retain_scope(&mut second, WindowRecordScope::Pids(&eligible));
-    first.push(record("Target", 11, 9, true));
-    second.push(record("Target", 11, 9, true));
+    let scope = WindowRecordScope::Pids(&eligible);
+    let first = scoped_records(
+        vec![
+            window_dictionary("Target", 10, 7, true),
+            window_dictionary("Other", 20, 8, false),
+            window_dictionary("Target", 11, 9, true),
+        ],
+        scope,
+    );
+    let second = scoped_records(
+        vec![
+            window_dictionary("Target", 10, 7, true),
+            window_dictionary("Other", 20, 8, true),
+            window_dictionary("Target", 11, 9, true),
+        ],
+        scope,
+    );
 
     assert_eq!(first.len(), 2);
     assert_eq!(inventory_signature(&first), inventory_signature(&second));
@@ -206,8 +222,13 @@ fn pid_set_scope_keeps_all_matching_processes_and_ignores_unrelated_churn() {
 #[test]
 fn pid_and_window_scopes_exclude_unrelated_owners_before_identity_reads() {
     for scope in [WindowRecordScope::Pid(10), WindowRecordScope::Window(7)] {
-        let mut records = vec![record("Target", 10, 7, true), record("Other", 20, 8, true)];
-        retain_scope(&mut records, scope);
+        let mut records = scoped_records(
+            vec![
+                window_dictionary("Target", 10, 7, true),
+                window_dictionary("Other", 20, 8, true),
+            ],
+            scope,
+        );
         let mut probed = Vec::new();
         capture_process_instances_with(
             &mut records,
@@ -226,12 +247,14 @@ fn pid_and_window_scopes_exclude_unrelated_owners_before_identity_reads() {
 #[test]
 fn pid_set_scope_excludes_ineligible_owners_before_identity_reads() {
     let eligible = rustc_hash::FxHashSet::from_iter([10, 11]);
-    let mut records = vec![
-        record("Target", 10, 7, true),
-        record("Accessory", 11, 8, true),
-        record("Protected", 418, 9, true),
-    ];
-    retain_scope(&mut records, WindowRecordScope::Pids(&eligible));
+    let mut records = scoped_records(
+        vec![
+            window_dictionary("Target", 10, 7, true),
+            window_dictionary("Accessory", 11, 8, true),
+            window_dictionary("Protected", 418, 9, true),
+        ],
+        WindowRecordScope::Pids(&eligible),
+    );
     let mut probed = Vec::new();
 
     capture_process_instances_with(
@@ -249,17 +272,19 @@ fn pid_set_scope_excludes_ineligible_owners_before_identity_reads() {
     .unwrap();
 
     assert_eq!(probed, [10, 11]);
-    assert!(records.iter().all(|record| record.pid != 418));
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0].process_instance.as_deref(), Some("instance-10"));
+    assert_eq!(records[1].process_instance.as_deref(), Some("instance-11"));
 }
 
 #[test]
 fn target_churn_remains_visible_after_scoping() {
     let eligible = rustc_hash::FxHashSet::from_iter([10]);
-    let mut first = vec![record("Target", 10, 7, false)];
-    let mut second = vec![record("Target", 10, 7, true)];
-    retain_scope(&mut first, WindowRecordScope::Pids(&eligible));
-    retain_scope(&mut second, WindowRecordScope::Pids(&eligible));
+    let scope = WindowRecordScope::Pids(&eligible);
+    let first = scoped_records(vec![window_dictionary("Target", 10, 7, false)], scope);
+    let second = scoped_records(vec![window_dictionary("Target", 10, 7, true)], scope);
 
+    assert_eq!(first.len(), 1);
     assert_ne!(inventory_signature(&first), inventory_signature(&second));
 }
 
@@ -286,8 +311,50 @@ fn records_fixture(visible: bool) -> Vec<WindowRecord> {
     vec![record("Fixture", 1, 7, visible)]
 }
 
-fn retain_scope(records: &mut Vec<WindowRecord>, scope: WindowRecordScope<'_>) {
-    records.retain(|record| scope.matches(record.pid, record.window_number));
+fn scoped_records(
+    dictionaries: Vec<WindowDictionary>,
+    scope: WindowRecordScope<'_>,
+) -> Vec<WindowRecord> {
+    records_from_dictionaries(dictionaries, scope).unwrap()
+}
+
+fn window_dictionary(
+    app_name: &str,
+    pid: i32,
+    window_number: i64,
+    visible: bool,
+) -> WindowDictionary {
+    use core_foundation::{base::TCFType, boolean::CFBoolean, number::CFNumber};
+
+    let bounds = CFDictionary::from_CFType_pairs(&[
+        (CFString::new("X"), CFNumber::from(0).as_CFType()),
+        (CFString::new("Y"), CFNumber::from(0).as_CFType()),
+        (CFString::new("Width"), CFNumber::from(100).as_CFType()),
+        (CFString::new("Height"), CFNumber::from(100).as_CFType()),
+    ]);
+    CFDictionary::from_CFType_pairs(&[
+        (
+            CFString::new("kCGWindowLayer"),
+            CFNumber::from(0).as_CFType(),
+        ),
+        (
+            CFString::new("kCGWindowOwnerPID"),
+            CFNumber::from(pid).as_CFType(),
+        ),
+        (
+            CFString::new("kCGWindowNumber"),
+            CFNumber::from(window_number).as_CFType(),
+        ),
+        (
+            CFString::new("kCGWindowOwnerName"),
+            CFString::new(app_name).as_CFType(),
+        ),
+        (
+            CFString::new("kCGWindowIsOnscreen"),
+            CFBoolean::from(visible).as_CFType(),
+        ),
+        (CFString::new("kCGWindowBounds"), bounds.as_CFType()),
+    ])
 }
 
 fn record(app_name: &str, pid: i32, window_number: i64, visible: bool) -> WindowRecord {
