@@ -32,7 +32,7 @@ fn representative_names_have_fixed_capabilities() {
         ("showContextMenu", &["RightClick"][..]),
         ("ShowMenu", &["RightClick"][..]),
         ("menu.popup", &["RightClick"][..]),
-        ("SetFocus", &["SetFocus"][..]),
+        ("SetFocus", &[][..]),
         ("CLICKANCESTOR", &["Click"][..]),
         ("doDefault", &[][..]),
         ("clipboard.copy", &[][..]),
@@ -127,4 +127,5 @@ fn dispatch_verb_orders_are_fixed() {
     );
     assert!(verbs_for(&Action::Hover).is_empty());
     assert!(verbs_for(&Action::Clear).is_empty());
+    assert!(verbs_for(&Action::SetFocus).is_empty());
 }

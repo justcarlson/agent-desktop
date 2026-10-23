@@ -4,7 +4,7 @@ use super::RawNode;
 use super::capability_rules::{Facts, rule_tokens, scroll_tokens};
 use super::role_numbers::is_menu_item;
 
-const TABLE: [(&str, &[&str]); 16] = [
+const TABLE: [(&str, &[&str]); 15] = [
     ("click", &[capability::CLICK]),
     ("press", &[capability::CLICK]),
     ("activate", &[capability::CLICK]),
@@ -20,7 +20,6 @@ const TABLE: [(&str, &[&str]); 16] = [
     ("menu", &[capability::RIGHT_CLICK]),
     ("showmenu", &[capability::RIGHT_CLICK]),
     ("menu.popup", &[capability::RIGHT_CLICK]),
-    ("setfocus", &[capability::SET_FOCUS]),
 ];
 
 /// The core capabilities an advertised action name stands for. Names match
@@ -28,7 +27,9 @@ const TABLE: [(&str, &[&str]); 16] = [
 /// `window.close`, and `doDefault`, stand for nothing: the first is not an
 /// affordance of the node itself, and Chromium advertises `doDefault` on
 /// every node, static text included, so it says nothing about whether the
-/// node can be acted on. `check` stands for `Click` as well as `Toggle`
+/// node can be acted on. `SetFocus` stands for nothing either: a node takes
+/// the capability from its `focusable` state and its `Component`, not from a
+/// toolkit's name for it. `check` stands for `Click` as well as `Toggle`
 /// because Chromium's checkbox runs its page handler through it, and
 /// `clickAncestor` stands for `Click` because the ancestor that owns the
 /// handler is reached through it.
@@ -97,7 +98,6 @@ pub(crate) fn verbs_for(action: &Action) -> &'static [&'static str] {
         Action::Toggle => toggle_verbs(None),
         Action::Check => toggle_verbs(Some(true)),
         Action::Uncheck => toggle_verbs(Some(false)),
-        Action::SetFocus => &["setfocus"],
         Action::Expand => &[
             "listitem.toggle-expand",
             "listitem.expand",

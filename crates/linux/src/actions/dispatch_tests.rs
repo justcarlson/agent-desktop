@@ -219,3 +219,9 @@ fn typing_with_no_semantic_verb_reaches_the_physical_keys_and_a_press_is_not_in_
         "x".to_owned()
     )));
 }
+
+#[test]
+fn a_focus_has_no_verb_to_fall_back_from_because_it_calls_the_component() {
+    use super::reaches_physical_without_verb;
+    assert!(!reaches_physical_without_verb(&Action::SetFocus));
+}
