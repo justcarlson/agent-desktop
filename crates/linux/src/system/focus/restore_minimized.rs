@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
+use super::focus_cause::Cause;
 use crate::system::window::window_op_verdict::{POLL, SETTLE_BUDGET};
 use crate::system::x11::control::{ControlRead, manager_name};
 use crate::system::x11::control_error::ControlError;
@@ -40,8 +41,21 @@ impl LiftWorld for Live<'_> {
     }
 }
 
-/// The refusal of a window the manager left hidden after the request.
-pub(in crate::system) fn still_hidden(manager: &str) -> AdapterError {
+/// The refusal of a window the manager left hidden after the request. While
+/// the Activities Overview is open the manager shows no window, so the
+/// refusal names the overview as the cause and not the manager.
+pub(in crate::system) fn still_hidden(manager: &str, overview_open: bool) -> AdapterError {
+    if overview_open {
+        return AdapterError::new(
+            ErrorCode::ActionFailed,
+            format!(
+                "The Activities Overview is open, so the window manager {manager} did not show the minimized window"
+            ),
+        )
+        .with_suggestion("Close the Activities Overview (press Escape), then retry")
+        .with_details(json!({ "cause": Cause::OverviewOpen.as_str(), "manager": manager }))
+        .with_disposition(DeliverySemantics::delivered_unverified());
+    }
     AdapterError::new(
         ErrorCode::ActionNotSupported,
         format!("The window manager {manager} did not show the minimized window"),
