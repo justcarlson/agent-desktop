@@ -31,7 +31,7 @@ Tests cover true/false, explicit precedence, missing/mixed values and other role
 (`disclosure_value_is_role_scoped_and_explicit_state_wins` in
 `tree/state_reader_tests.rs`; the rule is `expanded_state` in
 `tree/state_reader.rs`, reused by `disclosed_state` in
-`actions/chain_disclosure_steps.rs`).
+`actions/chain/chain_disclosure_steps.rs`).
 
 Repaired immutable candidate: `/tmp/ad-native-eval/disclosure-candidate`, SHA-256
 `1d68e0d6d5f71e9bcc046f19a3b2c22ee31a3bf7dc49b2f6bad121513783b39c`.
@@ -73,7 +73,7 @@ despite the nested textfield exposing that value. Canonical child labels read
 static text, while this navigator exposes editable textfield values. Do not
 blindly broaden stable identity to all mutable values or click editable labels.
 Collection selection now matches a live non-secure AXTextField value and presses
-only its owning selectable row (`actions/select_name.rs`;
+only its owning selectable row (`actions/select/select_name.rs`;
 2026-09-20-collection-label-selection.md).
 
 Clicking the file row reported verified selection and visibly selected it, but

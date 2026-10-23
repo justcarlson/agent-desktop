@@ -72,7 +72,7 @@ found the class was six, not one: `same_element`, `identity`, `parent_step`,
 `nearest_scroll_viewport`, `viewport_bounds`, and
 `nearest_scroll_viewport_bounds`. The fix (`refactor: give the duplicated geometry and walker helpers one home`) gave the six one home in
 `crates/windows/src/tree/walk/walker_source.rs` and gave `rect_has_area` its own
-single definition in `properties.rs`, touching four files for both fixes
+single definition in `crates/windows/src/tree/properties/mod.rs`, touching four files for both fixes
 together.
 
 ## Root cause
