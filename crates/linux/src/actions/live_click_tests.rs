@@ -183,15 +183,3 @@ fn semantic_click_latency_probe() {
         samples[0], samples[3], samples[6]
     );
 }
-
-#[test]
-#[ignore = "live: needs the AT-SPI session, gnome-calculator and the write engine"]
-fn headed_focus_on_a_gtk_button_without_a_focus_verb_is_not_supported() {
-    let session = open("gnome-calculator", &[]).expect("calculator opens");
-    let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
-    let error = act(&session, &digit, |target| {
-        super::focus::focus(target, agent_desktop_core::InteractionPolicy::headed())
-    })
-    .expect_err("no setfocus verb on GTK");
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
-}

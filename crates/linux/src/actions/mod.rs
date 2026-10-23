@@ -51,6 +51,8 @@ mod live_click_tests;
 #[cfg(test)]
 mod live_disclosure_tests;
 #[cfg(test)]
+mod live_focus_tests;
+#[cfg(test)]
 mod live_select_tests;
 #[cfg(test)]
 mod live_text_scripts;

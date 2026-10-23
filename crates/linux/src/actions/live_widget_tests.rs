@@ -1,8 +1,7 @@
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{
-    Action, ActionRequest, Deadline, DeliverySemantics, ErrorCode, NativeHandle, ObservationOps,
-    WindowFilter,
+    Action, Deadline, DeliverySemantics, ErrorCode, NativeHandle, ObservationOps, WindowFilter,
 };
 
 use super::live_bench::{Bench, Scripts, Toolkit};
@@ -14,14 +13,14 @@ use crate::LinuxAdapter;
 use crate::system::window::window_id;
 use crate::tree::live_launch::{Launched, nonce};
 use crate::tree::role_numbers::{CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, LIST, PUSH_BUTTON};
-use crate::tree::state_bits::{CHECKED, FOCUSED, SELECTED};
+use crate::tree::state_bits::{CHECKED, SELECTED};
 use crate::tree::text_selection::{read_caret_and_selection, read_selection};
 
 const ALL: [Toolkit; 3] = [Toolkit::Gtk3, Toolkit::Gtk4, Toolkit::Qt];
 const BROWSER_SECONDS: u64 = 90;
 const LIST_ITEM: u32 = 32;
 
-fn widgets() -> Scripts<'static> {
+pub(super) fn widgets() -> Scripts<'static> {
     Scripts {
         gtk3: GTK3_WIDGETS,
         gtk4: GTK4_WIDGETS,
@@ -166,25 +165,6 @@ fn select_by_display_value_chooses_the_item_of_a_qt_list() {
         assert!(status_becomes(bench, "list:two"), "{toolkit:?}");
         let item = bench.find(LIST_ITEM, "two").expect("the item");
         assert!(bench.has_state(&item, SELECTED), "{toolkit:?}");
-    });
-}
-
-#[test]
-#[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]
-fn a_headed_set_focus_moves_the_focus_to_a_qt_button() {
-    each_scripts(&widgets(), &[Toolkit::Qt], |toolkit, bench| {
-        let button = bench
-            .find(PUSH_BUTTON, "Press me")
-            .unwrap_or_else(|| panic!("{toolkit:?}: no button"));
-        let headless = bench.act(&button, Action::SetFocus);
-        assert!(headless.is_err(), "{toolkit:?}: headless focus is denied");
-        bench
-            .act_with(&button, ActionRequest::headed(Action::SetFocus))
-            .unwrap_or_else(|error| panic!("{toolkit:?}: {error}"));
-        let focused = bench
-            .wait_for(|| bench.has_state(&button, FOCUSED).then_some(()))
-            .is_some();
-        assert!(focused, "{toolkit:?}");
     });
 }
 

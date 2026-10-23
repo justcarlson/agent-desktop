@@ -15,6 +15,7 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `ACTION_FAILED` `activation_not_granted` | The window manager never activated the window: `references/windows-and-lifecycle.md`, Focus |
 | `ACTION_FAILED` `overview_open` | GNOME Activities Overview is open. `focus-window` refuses with it, and a `click` or `expand` on a menu opener that showed no popup (`details.kind: popup_not_observed`) names it while it is open. Close it and retry |
 | `ACTION_FAILED` `frame_not_active` or `check: window_active` | The window manager made the window active but the app does not report it. Run `snapshot` on the app once and retry (intermittent on Electron) |
+| `ACTION_FAILED` `grab_focus_rejected` on `focus @ref` | The toolkit rejected `Component.GrabFocus` (GTK4 does) and nothing moved. Focus the window with `focus-window`; `type` and `press` need the target focused, see `references/display-servers-and-input.md` |
 | `POLICY_DENIED` on `click` or `type` | A required policy or capability is absent. Read the failed check. Headed policy gives physical input only where the receiver can be proven |
 | Tray item lists no `Activate` or `ContextMenu` | No primary protocol action. Use an advertised virtual menu entry. Headed input does not prove a native receiver from the item's title |
 | `POLICY_DENIED` on `press` | Blocked combo. Do not use `--force` unless you mean it |

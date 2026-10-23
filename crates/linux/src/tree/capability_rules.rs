@@ -1,12 +1,15 @@
 use agent_desktop_core::capability;
 
+use super::node_read::COMPONENT_INTERFACE;
 use super::role_numbers::{
     CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, DIAL, ENTRY, LIST, PASSWORD_TEXT, PUSH_BUTTON,
     RADIO_BUTTON, RADIO_MENU_ITEM, SCROLL_BAR, SLIDER, SPIN_BUTTON, TERMINAL, TEXT, TOGGLE_BUTTON,
     is_menu_item,
 };
 use super::scroll_capability::{eligible, wheel_target};
-use super::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, StateBits};
+use super::state_bits::{
+    EDITABLE, EXPANDABLE, EXPANDED, FOCUSABLE, HAS_POPUP, READ_ONLY, StateBits,
+};
 use super::{Field, RawNode};
 use crate::system::display::display_server::{DisplayServer, session_server};
 
@@ -33,8 +36,11 @@ pub(crate) struct Facts<'a> {
     pub(crate) child_count: Option<i32>,
 }
 
-fn interface_decides(role: u32) -> bool {
-    is_text_entry(role) || is_numeric_control(role) || matches!(role, LIST | COMBO_BOX)
+fn interface_decides(role: u32, bits: &StateBits) -> bool {
+    is_text_entry(role)
+        || is_numeric_control(role)
+        || matches!(role, LIST | COMBO_BOX)
+        || bits.has(FOCUSABLE)
 }
 
 fn confirmed(field: &Field<Vec<String>>) -> Option<&[String]> {
@@ -47,22 +53,24 @@ fn confirmed(field: &Field<Vec<String>>) -> Option<&[String]> {
 
 impl<'a> Facts<'a> {
     /// The facts of a node, or `None` when the role, the states, the action
-    /// names, the interfaces of a role they decide (text, numeric, list and
-    /// combo box) or, on a node that advertises `Selection`, the child count
-    /// could not be read. A layout node whose interface list failed keeps the
-    /// tokens its names give: no interface could add one it would claim.
+    /// names, the interfaces of a role or a focusable node they decide (text,
+    /// numeric, list, combo box, and any node that can take focus, whose
+    /// `Component` interface decides `SetFocus`) or, on a node that advertises
+    /// `Selection`, the child count could not be read. A layout node that
+    /// cannot take focus and whose interface list failed keeps the tokens its
+    /// names give: no interface could add one it would claim.
     pub(crate) fn of(node: &'a RawNode) -> Option<Self> {
         let role = *node.traits.role.present()?;
-        let words = node.traits.states.present()?;
+        let bits = StateBits::new(node.traits.states.present()?);
         let interfaces = match &node.traits.interfaces {
-            Field::Failed(_) if !interface_decides(role) => &[],
+            Field::Failed(_) if !interface_decides(role, &bits) => &[],
             other => confirmed(other)?,
         };
         let names = confirmed(&node.actions)?;
         let child_count = node.properties.child_count.present().copied();
         let facts = Self {
             role,
-            bits: StateBits::new(words),
+            bits,
             interfaces,
             names,
             child_count,
@@ -158,7 +166,9 @@ fn pointer_combo(facts: &Facts) -> bool {
 /// toolkit drops the verb a live button would carry. A scroll bar takes `SetValue`
 /// on every toolkit and the write is judged by its read-back, because the
 /// table has no toolkit input and a Qt bar that does not move content says
-/// so when the write is read back.
+/// so when the write is read back. A node that can take focus and has a
+/// `Component` takes `SetFocus`, whatever names it advertises: the call is
+/// `Component.GrabFocus`, which a toolkit may reject when it is made.
 pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
     let editable_text = is_text_entry(facts.role)
         && facts.bits.has(EDITABLE)
@@ -196,6 +206,10 @@ pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
         (
             is_menu_item(facts.role) && facts.has_name(SHOW_MENU),
             capability::CLICK,
+        ),
+        (
+            facts.bits.has(FOCUSABLE) && facts.advertises(COMPONENT_INTERFACE),
+            capability::SET_FOCUS,
         ),
     ];
     rules

@@ -10,7 +10,9 @@ use crate::tree::role_numbers::{
     PASSWORD_TEXT, PROGRESS_BAR, PUSH_BUTTON, RADIO_MENU_ITEM, SCROLL_BAR, SCROLL_PANE, SLIDER,
     SPIN_BUTTON, TEXT, TOGGLE_BUTTON,
 };
-use crate::tree::state_bits::{EDITABLE, EXPANDABLE, EXPANDED, HAS_POPUP, READ_ONLY, SENSITIVE};
+use crate::tree::state_bits::{
+    EDITABLE, EXPANDABLE, EXPANDED, FOCUSABLE, HAS_POPUP, READ_ONLY, SENSITIVE,
+};
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{Field, RawNode};
 
@@ -205,6 +207,58 @@ fn policy_rows_preserve_rule_tokens() {
     assert_eq!(
         rule_tokens_for(CHECK_MENU_ITEM, &[], &[], &["toggle", "ShowMenu"], 0),
         ["Click", "Click", "Click"]
+    );
+}
+
+#[test]
+fn a_node_that_can_take_focus_and_has_a_component_takes_set_focus_on_any_role() {
+    let focusable = [SENSITIVE, FOCUSABLE];
+    for role in [PUSH_BUTTON, CHECK_BOX, PANEL, SCROLL_PANE, LIST] {
+        assert_eq!(
+            rule_tokens_for(role, &focusable, &[COMPONENT], &[], 0),
+            ["SetFocus"],
+            "role {role}"
+        );
+    }
+    let editable = [SENSITIVE, EDITABLE, FOCUSABLE];
+    assert_eq!(
+        rule_tokens_for(
+            ENTRY,
+            &editable,
+            &[EDITABLE_TEXT, TEXT_INTERFACE, COMPONENT],
+            &[],
+            0
+        ),
+        ["SetValue", "TypeText", "SetFocus"]
+    );
+}
+
+#[test]
+fn set_focus_needs_the_focusable_state() {
+    for role in [PUSH_BUTTON, PANEL] {
+        assert!(rule_tokens_for(role, &[SENSITIVE], &[COMPONENT], &[], 0).is_empty());
+    }
+}
+
+#[test]
+fn set_focus_needs_the_component_and_no_action_name_stands_in_for_it() {
+    for role in [PUSH_BUTTON, PANEL] {
+        let focusable = [SENSITIVE, FOCUSABLE];
+        assert!(rule_tokens_for(role, &focusable, &[], &[], 0).is_empty());
+        assert!(rule_tokens_for(role, &focusable, &[VALUE], &["SetFocus"], 0).is_empty());
+    }
+}
+
+#[test]
+fn a_focusable_node_whose_interfaces_failed_is_unknown_not_missing_set_focus() {
+    let mut focusable = node(PANEL, &[SENSITIVE, FOCUSABLE], &[COMPONENT], &["click"], 0);
+    focusable.traits.interfaces = Field::Failed("x".to_owned());
+    assert_eq!(capabilities(&focusable), LocatorField::Unknown);
+    let mut layout = node(PANEL, &[SENSITIVE], &[COMPONENT], &["click"], 0);
+    layout.traits.interfaces = Field::Failed("x".to_owned());
+    assert_eq!(
+        capabilities(&layout),
+        LocatorField::Known(vec!["Click".to_owned()])
     );
 }
 

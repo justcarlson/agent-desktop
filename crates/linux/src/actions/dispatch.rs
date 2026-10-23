@@ -39,7 +39,7 @@ fn target_element<'a>(
 fn reaches_physical_without_verb(action: &Action) -> bool {
     matches!(
         action,
-        Action::Click | Action::RightClick | Action::SetFocus | Action::TypeText(_)
+        Action::Click | Action::RightClick | Action::TypeText(_)
     )
 }
 
