@@ -26,7 +26,7 @@ restores the prior rectangle before visiting siblings, including error paths.
 Ref-root and live observations read clipping ancestors under the existing
 deadline. Rectangle intersection and clipping-role definitions are shared with
 the pointer hit-test implementation. No per-node ancestry IPC was added to a
-full traversal. Empty intersections remain known empty, while unknown ancestor
+full traversal. Empty intersections remain known empty. Unknown ancestor
 geometry cannot become known again merely because a deeper container has bounds.
 
 The owned fixture now includes a visible sibling outside the scroll area.
