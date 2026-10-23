@@ -59,6 +59,10 @@ pub(crate) fn fully_observed(evidence: &LocatorEvidence, space: crate::BoundsSpa
         && addressability(evidence).1
 }
 
+pub(crate) fn screen_bounds(evidence: &LocatorEvidence) -> Option<crate::Rect> {
+    evidence.ref_evidence.bounds.known().copied()
+}
+
 pub(crate) fn ref_entry(
     node: &super::ObservedNode,
     source: &ObservationSource,

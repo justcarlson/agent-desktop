@@ -170,7 +170,7 @@ fn format_response(
     let matches = resolution
         .matches
         .into_iter()
-        .map(|found| format_match(found.data, found.entry.geometry.bounds))
+        .map(|found| format_match(found.data, found.screen_bounds))
         .collect::<Result<Vec<_>, _>>()?;
     if args.selection.first || args.selection.last || args.selection.nth.is_some() {
         let mut response = single_match_response(matches.into_iter().next(), query, roles_present);

@@ -1,4 +1,4 @@
-use super::test_support::LiveFindAdapter;
+use super::test_support::{FRAMED_LABEL, LiveFindAdapter, framed_label_screen_bounds};
 use super::*;
 use crate::{
     AppError,
@@ -87,6 +87,27 @@ fn execute_uses_live_locator_tree_and_persists_its_full_refmap() {
         1
     );
     assert_eq!(RefStore::new().unwrap().load_latest().unwrap().len(), 1);
+}
+
+#[test]
+fn a_context_match_shows_the_screen_rectangle_not_the_window_rectangle_a_ref_stores() {
+    let _guard = HomeGuard::new();
+    let adapter = LiveFindAdapter::with_framed_label();
+
+    let response = execute(
+        named_find("w-1", FRAMED_LABEL),
+        &adapter,
+        &CommandContext::default(),
+    )
+    .expect("live find should succeed");
+
+    let found = &response["matches"][0];
+    assert_eq!(found["name"], FRAMED_LABEL);
+    assert!(found["ref_id"].is_null());
+    assert_eq!(
+        found["bounds"],
+        serde_json::json!(framed_label_screen_bounds())
+    );
 }
 
 #[test]

@@ -69,7 +69,7 @@ pub(super) fn selected_matches(
             return Err(evidence_incomplete(&hydrated, None, query, bounds_space).into());
         }
         let root_index = hydrated.roots[0] as usize;
-        let (entry, name, value, root_order) = {
+        let (entry, name, value, root_order, screen_bounds) = {
             let node = hydrated
                 .nodes
                 .get(root_index)
@@ -87,7 +87,8 @@ pub(super) fn selected_matches(
             preserve_verified_identity(&preliminary, node, &mut entry);
             let name = node.evidence.name.meaningful_string().unwrap_or_default();
             let value = node.evidence.value.meaningful_string();
-            (entry, name, value, node.document_order)
+            let screen_bounds = super::materialize::screen_bounds(&node.evidence);
+            (entry, name, value, node.document_order, screen_bounds)
         };
         if !crate::ref_identity::has_meaningful_identity(&entry)
             && entry.geometry.bounds_hash.is_none()
@@ -116,6 +117,7 @@ pub(super) fn selected_matches(
             }
             return Err(query_incomplete(&validation).into());
         }
+        matched.screen_bounds = screen_bounds.or(matched.screen_bounds);
         record_match(matched, entry, name, value, &mut refmap)?;
     }
     resolution.refmap = Some(refmap);
