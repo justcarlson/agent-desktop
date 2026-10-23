@@ -63,12 +63,15 @@ class HarnessContractTests(unittest.TestCase):
 
     def test_multi_agent_probe_runs_before_the_interaction_lease_is_released(self):
         source = (E2E_ROOT / "run.sh").read_text()
+        lease_holder = source.index('exec python3 "$here/interaction_lock.py"')
         probe = source.index("cursor-multi-agent-probe.py")
-        finish = source.index("\nfinish", probe)
-        self.assertLess(probe, finish)
+        finishes = [match.start() for match in re.finditer(r"^finish$", source, re.MULTILINE)]
 
-        probe_source = (E2E_ROOT.parent.parent / "scripts/cursor-multi-agent-probe.py").read_text()
-        self.assertIn("pass_fds=cli_pass_fds", probe_source)
+        self.assertEqual(len(finishes), 1)
+        self.assertLess(lease_holder, probe)
+        self.assertLess(probe, finishes[0])
+        for line in source[probe:finishes[0]].splitlines():
+            self.assertNotRegex(line, r"\b(exit|exec)\b|release_exclusive_lock")
 
     def test_native_runner_builds_locked_canonical_artifacts_before_desktop_lock(self):
         source = (E2E_ROOT / "run.sh").read_text()

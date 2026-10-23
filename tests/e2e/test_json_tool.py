@@ -83,22 +83,40 @@ class RunBoundedTests(unittest.TestCase):
         self.assertIsNone(result.termination_error)
 
     def test_descendant_holding_output_pipe_cannot_extend_the_deadline(self):
-        result = run_bounded(
-            [
-                sys.executable,
-                "-c",
-                "import subprocess,sys,time; "
-                "subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
-                "print('ready', flush=True); time.sleep(30)",
-            ],
-            timeout_seconds=0.2,
-            max_capture_bytes=1024,
-        )
+        descendant_pid = None
+        try:
+            result = run_bounded(
+                [
+                    sys.executable,
+                    "-c",
+                    "import subprocess,sys,time; "
+                    "child = subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
+                    "print(f'ready child={child.pid}', flush=True); time.sleep(30)",
+                ],
+                timeout_seconds=0.2,
+                max_capture_bytes=1024,
+            )
 
-        self.assertEqual(result.returncode, 124)
-        self.assertTrue(result.timed_out)
-        self.assertIn("ready", result.stdout)
-        self.assertLess(result.wall_ms, 2000)
+            self.assertEqual(result.returncode, 124)
+            self.assertTrue(result.timed_out)
+            self.assertIn("ready", result.stdout)
+            self.assertLess(result.wall_ms, 2000)
+            descendant_pid = int(result.stdout.split("child=", 1)[1].splitlines()[0])
+            deadline = time.monotonic() + 1
+            while time.monotonic() < deadline:
+                try:
+                    os.kill(descendant_pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.01)
+            else:
+                self.fail(f"output-pipe descendant {descendant_pid} survived the deadline kill")
+        finally:
+            if descendant_pid is not None:
+                try:
+                    os.kill(descendant_pid, 9)
+                except ProcessLookupError:
+                    pass
 
     def test_timeout_kills_term_ignoring_descendant_after_leader_exits(self):
         child_pid = None
