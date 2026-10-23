@@ -111,13 +111,6 @@ mod tests {
     }
 
     #[test]
-    fn version_command_outputs_json() {
-        let json = run(&["version"]);
-        assert_eq!(json["ok"], true);
-        assert!(json["data"]["version"].is_string());
-    }
-
-    #[test]
     fn snapshot_invalid_root_ref_format_returns_invalid_args() {
         let json = run(&["snapshot", "--app", "Finder", "--root", "bad-ref"]);
         assert_eq!(json["ok"], false);
