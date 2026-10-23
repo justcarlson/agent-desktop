@@ -38,7 +38,7 @@ use std::time::{Duration, Instant};
 
 use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
 use crate::tree::fixture::bootstrap;
-use crate::tree::fixture_menu::MenuFixture;
+use crate::tree::fixture::fixture_menu::MenuFixture;
 
 /// A generous budget for the fixture's own child process to dispatch a
 /// posted window message and for the adapter's poll loop to observe the
@@ -67,7 +67,7 @@ fn open_true_returns_ok_once_the_fixtures_menu_opens_shortly_after_the_wait_star
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let identity = identity_for(ProcessId::from(fixture.process_id()));
 
@@ -163,7 +163,7 @@ fn a_menu_that_never_transitions_times_out_with_direction_specific_platform_deta
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let never_opens = MenuFixture::spawn().expect("the menu fixture starts");
     let open_identity = identity_for(ProcessId::from(never_opens.process_id()));
 

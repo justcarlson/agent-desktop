@@ -30,7 +30,7 @@ fn lease() -> InteractionLease {
 #[cfg(target_os = "windows")]
 fn staged_fixture() -> (crate::tree::fixture::LocalFixture, WindowInfo) {
     crate::tree::fixture::ensure_test_apartment();
-    let (left, top) = crate::tree::fixture_window::on_screen_origin();
+    let (left, top) = crate::tree::fixture::fixture_window::on_screen_origin();
     let fixture =
         crate::tree::fixture::LocalFixture::create_at(left, top).expect("on-screen fixture");
     let info = window_info_for(fixture.handle());
@@ -55,7 +55,7 @@ fn current_show_cmd(handle: isize) -> u32 {
 #[cfg(target_os = "windows")]
 #[test]
 fn resize_is_confirmed_by_get_window_rect_within_tolerance() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     let (left, top, width, height) = current_rect(fixture.handle());
     let target_w = width + 24;
@@ -79,7 +79,7 @@ fn resize_is_confirmed_by_get_window_rect_within_tolerance() {
 #[cfg(target_os = "windows")]
 #[test]
 fn move_is_confirmed_by_get_window_rect_within_tolerance() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     let (left, top, width, height) = current_rect(fixture.handle());
     let target_x = left + 32;
@@ -105,7 +105,7 @@ fn move_is_confirmed_by_get_window_rect_within_tolerance() {
 fn minimize_is_confirmed_by_show_cmd_not_uia_geometry() {
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWMINIMIZED;
 
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     window_op_impl(&info, WindowOp::Minimize, lease().deadline()).expect("minimize");
     assert_eq!(current_show_cmd(fixture.handle()), SW_SHOWMINIMIZED as u32);
@@ -116,7 +116,7 @@ fn minimize_is_confirmed_by_show_cmd_not_uia_geometry() {
 fn maximize_is_confirmed_by_show_cmd() {
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWMAXIMIZED;
 
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     window_op_impl(&info, WindowOp::Maximize, lease().deadline()).expect("maximize");
     assert_eq!(current_show_cmd(fixture.handle()), SW_SHOWMAXIMIZED as u32);
@@ -127,7 +127,7 @@ fn maximize_is_confirmed_by_show_cmd() {
 fn restore_is_confirmed_by_show_cmd() {
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     window_op_impl(&info, WindowOp::Minimize, lease().deadline()).expect("minimize");
     window_op_impl(&info, WindowOp::Restore, lease().deadline()).expect("restore");
@@ -137,7 +137,7 @@ fn restore_is_confirmed_by_show_cmd() {
 #[cfg(target_os = "windows")]
 #[test]
 fn non_finite_geometry_is_invalid_args_before_native_write() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     let before = current_rect(fixture.handle());
     let error = window_op_impl(
@@ -161,7 +161,7 @@ fn non_finite_geometry_is_invalid_args_before_native_write() {
 #[cfg(target_os = "windows")]
 #[test]
 fn negative_move_coordinates_are_accepted_when_finite() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     let (_, top, _, _) = current_rect(fixture.handle());
     let (virtual_left, _, _, _) = crate::tree::hit_test::virtual_screen_metrics();
@@ -189,7 +189,7 @@ fn negative_move_coordinates_are_accepted_when_finite() {
 #[cfg(target_os = "windows")]
 #[test]
 fn recycled_hwnd_ownership_mismatch_fails_closed_not_delivered() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, mut info) = staged_fixture();
     let before = current_rect(fixture.handle());
     info.process_instance = Some("windows-proc-v1:0:0".into());
@@ -214,7 +214,7 @@ fn recycled_hwnd_ownership_mismatch_fails_closed_not_delivered() {
 #[cfg(target_os = "windows")]
 #[test]
 fn window_op_refuses_an_expired_deadline_before_any_write() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
     let before = current_rect(fixture.handle());
     let expired = Deadline::after(1).expect("deadline");
@@ -257,7 +257,7 @@ fn a_window_that_never_pumps_is_refused_instead_of_blocking_the_write() {
 #[cfg(target_os = "windows")]
 #[test]
 fn restore_from_a_maximized_minimize_is_confirmed_not_reported_failed() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWMAXIMIZED;
 
     let (fixture, info) = staged_fixture();

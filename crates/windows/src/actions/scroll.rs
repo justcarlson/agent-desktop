@@ -69,8 +69,8 @@ mod imp {
         scroll_amounts, scroll_effect_verified,
     };
     use crate::actions::mutation::{classify_success, classify_write};
+    use crate::tree::properties::property_ids::TreeProperty;
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
     use agent_desktop_core::{DeliverySemantics, LocatorField, Rect};
     use uiautomation::patterns::UIScrollPattern;
 

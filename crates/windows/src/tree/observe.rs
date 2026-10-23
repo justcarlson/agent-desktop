@@ -8,8 +8,8 @@ use serde_json::json;
 
 use super::chromium;
 use super::surfaces::surface_root;
-use super::walker::{DEFAULT_MAX_RAW_DEPTH, WalkBudget, WalkOutcome};
-use super::walker_source::walk_uia_subtree;
+use super::walk::walker::{DEFAULT_MAX_RAW_DEPTH, WalkBudget, WalkOutcome};
+use super::walk::walker_source::walk_uia_subtree;
 
 /// Runs one observation: resolve the root, walk it, detect a Chromium shell,
 /// and report completeness honestly.

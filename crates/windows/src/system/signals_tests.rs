@@ -137,8 +137,8 @@ mod windows_only {
     };
 
     use crate::system::window_activate::focus_window;
+    use crate::tree::fixture::fixture_window;
     use crate::tree::fixture::{HostedFixture, bootstrap};
-    use crate::tree::fixture_window;
 
     const SETTLE: Duration = Duration::from_millis(250);
 

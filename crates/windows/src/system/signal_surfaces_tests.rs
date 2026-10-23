@@ -21,8 +21,8 @@ use agent_desktop_core::{
 use crate::system::process_identity;
 use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
 use crate::tree::fixture::bootstrap;
-use crate::tree::fixture_menu::MenuFixture;
-use crate::tree::fixture_modal::ModalFixture;
+use crate::tree::fixture::fixture_menu::MenuFixture;
+use crate::tree::fixture::fixture_modal::ModalFixture;
 
 const SETTLE: Duration = Duration::from_millis(250);
 const STATE_TIMEOUT: Duration = Duration::from_secs(5);

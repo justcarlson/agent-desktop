@@ -8,9 +8,9 @@
 //! and run on every target.
 
 use super::{LiveRead, live_element};
-use crate::tree::element_properties::ElementProperties;
-use crate::tree::property_ids::TreeProperty;
-use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
+use crate::tree::properties::element_properties::ElementProperties;
+use crate::tree::properties::property_ids::TreeProperty;
+use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
 use agent_desktop_core::{
     IdentifierEvidence, LocatorEvidence, LocatorField, LocatorRefEvidence, NodeDescriptor,
 };

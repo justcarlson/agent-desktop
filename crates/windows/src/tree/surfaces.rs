@@ -4,9 +4,9 @@ use serde_json::json;
 use super::automation::root_from_hwnd;
 use super::element::UIAElement;
 #[cfg(target_os = "windows")]
-use super::properties::read_one;
+use super::properties::property_ids::TreeProperty;
 #[cfg(target_os = "windows")]
-use super::property_ids::TreeProperty;
+use super::properties::read_one;
 use crate::system::window_enum::enumerate_top_level;
 use crate::system::window_ops::{parse_window_id, passes_filter};
 

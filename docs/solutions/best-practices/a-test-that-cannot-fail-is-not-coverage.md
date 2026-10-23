@@ -53,7 +53,7 @@ reasons unrelated to what they claimed to prove:
    which properties actually carry target text elsewhere in the walk — a text
    property added to `WALK_SET` without a matching `VALUE_BEARING` entry would
    leak silently.
-6. **Test-only mirror.** `crates/windows/src/tree/hit_test.rs`'s pre-probe
+6. **Test-only mirror.** `crates/windows/src/tree/hit_test/mod.rs`'s pre-probe
    guard ladder was inlined directly in production, and its `#[cfg(test)]`
    coverage (`guard_zero_area`, `guard_point_outside_bounds`,
    `guard_outside_virtual_screen`) re-typed the same boolean expressions
@@ -144,7 +144,7 @@ None of the fixes were "delete the test":
    silent `false`. `property_ids_tests.rs` asserts it implies
    `is_value_bearing()` across the whole enum, not only `WALK_SET`.
 6. **Extract one pure function and let both sides drive the same copy.**
-   `pre_probe_decision` (`crates/windows/src/tree/hit_test_classify.rs:59-78`)
+   `pre_probe_decision` (`crates/windows/src/tree/hit_test/hit_test_classify.rs:59-78`)
    is now the only place the guard ladder is expressed. Production calls it
    from `pre_probe_guard` (`hit_test.rs:197-209`); `hit_test_guard_tests.rs`
    calls it directly. Production and test read the identical logic instead of

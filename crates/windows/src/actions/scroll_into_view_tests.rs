@@ -9,11 +9,11 @@ use crate::system::hresult::{
 use crate::system::test_time::deadline;
 use crate::tree::automation::{UiaFailure, automation_client};
 use crate::tree::element::UIAElement;
+use crate::tree::fixture::fixture_window;
 use crate::tree::fixture::{LocalFixture, ensure_test_apartment};
-use crate::tree::fixture_window;
+use crate::tree::properties::property_ids::TreeProperty;
+use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
 use crate::tree::properties::{read_one, rect_has_area};
-use crate::tree::property_ids::TreeProperty;
-use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
 use agent_desktop_core::{
     ActionOps, AdapterError, DeliveryDisposition, DeliverySemantics, ErrorCode, InteractionLease,
     Rect,

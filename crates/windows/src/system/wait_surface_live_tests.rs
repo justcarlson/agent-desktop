@@ -38,7 +38,7 @@ use serde_json::Value;
 use crate::adapter::WindowsAdapter;
 use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
 use crate::tree::fixture::bootstrap;
-use crate::tree::fixture_modal::ModalFixture;
+use crate::tree::fixture::fixture_modal::ModalFixture;
 
 const TRANSITION_AFTER: Duration = Duration::from_millis(400);
 const RECV_TIMEOUT: Duration = Duration::from_secs(20);

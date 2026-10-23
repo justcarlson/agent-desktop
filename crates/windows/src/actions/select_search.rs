@@ -59,12 +59,12 @@ mod imp {
     use crate::actions::scroll::SCROLL_LABEL;
     use crate::tree::automation::automation_client;
     use crate::tree::automation::uia_failure_error;
-    use crate::tree::element_properties::ElementProperties;
     use crate::tree::name_evidence::{name_fields, read_label};
+    use crate::tree::properties::element_properties::ElementProperties;
+    use crate::tree::properties::property_ids::TreeProperty;
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
-    use crate::tree::walker::TreeSource;
-    use crate::tree::walker_source::{UiaTreeSource, same_element};
+    use crate::tree::walk::walker::TreeSource;
+    use crate::tree::walk::walker_source::{UiaTreeSource, same_element};
     use agent_desktop_core::LocatorField;
     use uiautomation::patterns::UIScrollPattern;
     use uiautomation::types::ScrollAmount;

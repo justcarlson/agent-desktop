@@ -46,8 +46,8 @@ use serde_json::Value;
 use crate::adapter::WindowsAdapter;
 use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
 use crate::system::window_activate::focus_window;
+use crate::tree::fixture::fixture_modal::ModalFixture;
 use crate::tree::fixture::{HostedFixture, bootstrap};
-use crate::tree::fixture_modal::ModalFixture;
 
 const SETTLE: Duration = Duration::from_millis(250);
 const TRANSITION_AFTER: Duration = Duration::from_millis(400);
@@ -235,7 +235,7 @@ fn app_terminated_fires_when_the_fixture_process_exits_mid_wait() {
 #[test]
 fn focus_changed_fires_when_the_fixtures_window_is_focused_mid_wait() {
     bootstrap();
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = HostedFixture::spawn().expect("a fixture host starts");
     let parking = HostedFixture::spawn().expect("a parking fixture host starts");
     if !crate::system::test_support::stage_foreground(parking.handle()) {
@@ -304,7 +304,7 @@ fn two_captures_with_no_transition_on_a_steady_fixture_produce_no_event_of_any_k
     let _shell = crate::system::test_support::SHELL_SURFACE_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = HostedFixture::spawn().expect("a fixture host starts");
     crate::system::test_support::stage_foreground(fixture.handle());
     if !crate::system::test_support::wait_for_foreground_to_settle() {

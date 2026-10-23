@@ -29,7 +29,7 @@ use crate::system::test_time::deadline;
 #[test]
 fn an_application_frame_window_without_a_hosted_core_window_keeps_its_own_identity() {
     bootstrap();
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let candidates = shell_owned_frames_without_core_window_child();
     if candidates.is_empty() {
         eprintln!(

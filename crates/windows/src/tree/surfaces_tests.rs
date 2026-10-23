@@ -42,7 +42,7 @@ fn an_absent_window_modal_read_is_not_a_sheet() {
 #[test]
 fn a_live_non_modal_window_is_not_classified_as_a_sheet() {
     use super::super::fixture::{HostedFixture, ensure_test_apartment};
-    use super::super::walker_fake::deadline;
+    use super::super::walk::walker_fake::deadline;
 
     ensure_test_apartment();
     let fixture = HostedFixture::spawn().expect("the fixture spawns");
@@ -60,9 +60,9 @@ fn a_live_non_modal_window_is_not_classified_as_a_sheet() {
 mod shell_surfaces {
     use super::*;
 
+    use super::super::super::fixture::fixture_modal::ModalFixture;
     use super::super::super::fixture::{HostedFixture, bootstrap};
-    use super::super::super::fixture_modal::ModalFixture;
-    use super::super::super::walker_fake::deadline;
+    use super::super::super::walk::walker_fake::deadline;
     use crate::adapter::WindowsAdapter;
     use crate::system::raise_oracle::{responded_since, witness_desktop};
     use crate::system::shell_surface::resolve_surface;
@@ -71,8 +71,8 @@ mod shell_surfaces {
         SHELL_SURFACE_LOCK, or_skip_shell, shell_declined_the_surface, stage_foreground,
         wait_for_foreground_to_settle,
     };
-    use crate::tree::fixture_menu::MenuFixture;
-    use crate::tree::fixture_window;
+    use crate::tree::fixture::fixture_menu::MenuFixture;
+    use crate::tree::fixture::fixture_window;
     use crate::tree::test_support::rooted_child_count;
     use agent_desktop_core::{InteractionPolicy, ObservationOps, ProcessId, SystemOps, WindowInfo};
     use std::time::Duration;

@@ -27,8 +27,8 @@ fn staged_pair() -> (
     WindowInfo,
 ) {
     crate::tree::fixture::ensure_test_apartment();
-    let (left_a, top_a) = crate::tree::fixture_window::on_screen_origin();
-    let (left_b, top_b) = crate::tree::fixture_window::on_screen_origin();
+    let (left_a, top_a) = crate::tree::fixture::fixture_window::on_screen_origin();
+    let (left_b, top_b) = crate::tree::fixture::fixture_window::on_screen_origin();
     let target =
         crate::tree::fixture::LocalFixture::create_at(left_a, top_a).expect("target fixture");
     let stealer =
@@ -77,7 +77,7 @@ fn assert_owned_success(info: &WindowInfo) {
 #[cfg(target_os = "windows")]
 #[test]
 fn visible_background_window_is_raised_without_restore() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, stealer, info) = staged_pair();
     raise_handle(stealer.handle());
     assert!(!is_iconic(target.handle()), "target must start visible");
@@ -98,7 +98,7 @@ fn visible_background_window_is_raised_without_restore() {
 #[cfg(target_os = "windows")]
 #[test]
 fn iconic_window_is_restored_then_raised() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, stealer, info) = staged_pair();
     target.minimize();
     assert!(is_iconic(target.handle()), "target must be iconic");
@@ -116,7 +116,7 @@ fn iconic_window_is_restored_then_raised() {
 #[cfg(target_os = "windows")]
 #[test]
 fn restore_branch_fails_closed_on_recycled_ownership() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, _stealer, mut info) = staged_pair();
     target.minimize();
     info.process_instance = Some("windows-proc-v1:0:0".into());
@@ -134,7 +134,7 @@ fn restore_branch_fails_closed_on_recycled_ownership() {
 #[cfg(target_os = "windows")]
 #[test]
 fn raise_branch_fails_closed_on_recycled_ownership() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (_target, _stealer, mut info) = staged_pair();
     info.process_instance = Some("windows-proc-v1:0:0".into());
     let handle = parse_handle(&info.id);
@@ -150,7 +150,7 @@ fn raise_branch_fails_closed_on_recycled_ownership() {
 #[cfg(target_os = "windows")]
 #[test]
 fn budget_retry_fails_closed_on_recycled_ownership() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, stealer, info) = staged_pair();
     raise_handle(stealer.handle());
     attempt_probe::reset();
@@ -172,7 +172,7 @@ fn budget_retry_fails_closed_on_recycled_ownership() {
 #[cfg(target_os = "windows")]
 #[test]
 fn strictly_higher_integrity_budget_exhaustion_is_perm_denied_never_action_failed() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, stealer, info) = staged_pair();
     raise_handle(stealer.handle());
     let error = never_foreground::with(|| {
@@ -194,7 +194,7 @@ fn strictly_higher_integrity_budget_exhaustion_is_perm_denied_never_action_faile
 #[cfg(target_os = "windows")]
 #[test]
 fn focus_steal_budget_is_finite_and_fails_closed_not_delivered() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, stealer, info) = staged_pair();
     raise_handle(stealer.handle());
     attempt_probe::reset();
@@ -222,7 +222,7 @@ fn focus_steal_budget_is_finite_and_fails_closed_not_delivered() {
 #[cfg(target_os = "windows")]
 #[test]
 fn focus_window_reports_ok_only_when_the_expected_process_owns_the_foreground() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, stealer, info) = staged_pair();
     raise_handle(stealer.handle());
     match focus_window(&info, &lease()) {
@@ -244,7 +244,7 @@ fn focus_window_reports_ok_only_when_the_expected_process_owns_the_foreground() 
 #[cfg(target_os = "windows")]
 #[test]
 fn a_recycled_generation_is_refused_even_when_the_owning_pid_matches() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, _stealer, expected) = staged_pair();
     let handle = parse_handle(&expected.id);
     let genuine = WindowIdentityEvidence::from_info(handle, &expected).expect("stored evidence");
@@ -278,7 +278,7 @@ fn focus_window_refuses_a_destroyed_handle_before_any_window_write() {
 #[cfg(target_os = "windows")]
 #[test]
 fn focus_window_refuses_an_expired_lease_before_any_window_write() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (_target, _stealer, expected) = staged_pair();
     let expired = InteractionLease::guarded(Deadline::after(1).unwrap(), ()).expect("lease");
     std::thread::sleep(std::time::Duration::from_millis(5));

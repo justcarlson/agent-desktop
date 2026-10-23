@@ -3,8 +3,8 @@ use crate::actions::chain::DeliveryOutcome;
 use crate::system::test_time::deadline;
 use crate::tree::automation::automation_client;
 use crate::tree::element::UIAElement;
+use crate::tree::fixture::fixture_window;
 use crate::tree::fixture::{LocalFixture, ensure_test_apartment};
-use crate::tree::fixture_window;
 use agent_desktop_core::{
     Action, ActionRequest, ActionStepOutcome, AdapterError, Deadline, DeliveryDisposition,
     Direction, DragParams, ErrorCode, InteractionLease, InteractionPolicy, KeyCombo, NativeHandle,

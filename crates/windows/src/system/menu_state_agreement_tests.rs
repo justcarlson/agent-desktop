@@ -222,7 +222,7 @@ fn at_rest_the_detector_and_the_locator_agree_that_no_menu_is_open() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let pid = ProcessId::from(fixture.process_id());
 
@@ -244,7 +244,7 @@ fn an_open_tool_window_menu_is_both_detected_and_locatable() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let pid = ProcessId::from(fixture.process_id());
 

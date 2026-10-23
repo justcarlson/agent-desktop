@@ -11,7 +11,7 @@
 use super::*;
 
 use crate::adapter::WindowsAdapter;
-use crate::tree::walker_fake::deadline;
+use crate::tree::walk::walker_fake::deadline;
 use agent_desktop_core::{ProcessId, SystemOps, WindowInfo};
 
 /// The kinds the Windows `surface_root` match resolves, enumerated by hand

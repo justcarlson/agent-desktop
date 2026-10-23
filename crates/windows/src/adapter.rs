@@ -95,7 +95,7 @@ impl ObservationOps for WindowsAdapter {
         entry: &RefEntry,
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
-        crate::tree::resolve_anchor::resolve_locator_anchor(entry, deadline)
+        crate::tree::resolve::resolve_anchor::resolve_locator_anchor(entry, deadline)
     }
 
     /// The five live readers are projections over one shared single-element

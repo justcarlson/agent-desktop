@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use crate::system::test_support::{FIXTURE_APP_NAME_LOCK, settles_to};
 use crate::tree::fixture::bootstrap;
-use crate::tree::fixture_menu::MenuFixture;
+use crate::tree::fixture::fixture_menu::MenuFixture;
 
 const STATE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -40,7 +40,7 @@ fn menus_open_for_answers_identically_to_menu_is_open_for_the_fixture_pid() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let pid = ProcessId::from(fixture.process_id());
 

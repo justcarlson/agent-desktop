@@ -2,8 +2,8 @@ use crate::system::capture_backend::test_hooks as backend_hooks;
 use crate::system::capture_modern::{interop_is_available, modern_is_supported};
 use crate::system::capture_window::capture_window;
 use crate::system::png_codec::decode_png_to_bgra;
+use crate::tree::fixture::fixture_pattern::{class_still_registered, window_still_exists};
 use crate::tree::fixture::{LocalPatternFixture, bootstrap};
-use crate::tree::fixture_pattern::{class_still_registered, window_still_exists};
 
 /// On-screen pattern staging follows the same opt-in as the ScratchWpf live
 /// legs so a developer suite does not gain a window unasked; CI sets it.

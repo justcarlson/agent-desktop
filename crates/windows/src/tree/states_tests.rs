@@ -2,7 +2,7 @@ use agent_desktop_core::LocatorField;
 use agent_desktop_core::tree::state;
 
 use crate::tree::properties::PropertyOutcome;
-use crate::tree::property_ids::TreeProperty;
+use crate::tree::properties::property_ids::TreeProperty;
 use crate::tree::test_support::{flag, number, props};
 
 use super::resolve_states;

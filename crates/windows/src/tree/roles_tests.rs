@@ -1,8 +1,8 @@
 use agent_desktop_core::LocatorField;
 
 use super::resolve_role;
+use crate::tree::properties::property_ids::TreeProperty;
 use crate::tree::properties::{ElementProperties, PropertyOutcome, PropertyValue};
-use crate::tree::property_ids::TreeProperty;
 
 #[cfg(target_os = "windows")]
 use crate::tree::test_support::flag;

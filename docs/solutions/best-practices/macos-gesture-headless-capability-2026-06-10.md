@@ -52,7 +52,7 @@ did not resolve.
 
 The core/adapter split has since held under a second, independently written
 implementation: Windows implements `PlatformAdapter::hit_test` in
-`crates/windows/src/tree/hit_test.rs` and `hit_test_classify.rs`, and both the
+`crates/windows/src/tree/hit_test/mod.rs` and `hit_test_classify.rs`, and both the
 battery and the pointer pipeline consume it through the same
 `receives_events_check` core already owned — neither gained a Windows-specific
 branch to accommodate it.

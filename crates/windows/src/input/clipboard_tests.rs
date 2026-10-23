@@ -9,7 +9,7 @@ use crate::input::clipboard_text::encode_utf16_text;
 use crate::system::png_codec::encode_bgra_to_png;
 use crate::system::test_time::deadline;
 use crate::tree::fixture::bootstrap;
-use crate::tree::fixture_clipboard::{
+use crate::tree::fixture::fixture_clipboard::{
     ContendingClipboardHolder, DelayedClipboardOwner, clipboard_test_lock,
 };
 use agent_desktop_core::{

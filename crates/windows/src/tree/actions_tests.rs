@@ -1,7 +1,7 @@
 use super::*;
 use agent_desktop_core::refs::ref_alloc::is_ref_able_role_actions;
 
-use crate::tree::property_outcome::PropertyValue;
+use crate::tree::properties::property_outcome::PropertyValue;
 
 fn known_flag(value: bool) -> PropertyOutcome {
     PropertyOutcome::Known(PropertyValue::Flag(value))

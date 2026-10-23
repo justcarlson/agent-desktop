@@ -234,7 +234,7 @@ fn uncloaked_frame_host_frames() -> Vec<isize> {
 fn focused_window_reports_the_frame_handle_with_the_hosted_application_identity() {
     bootstrap();
     let _shell = SHELL_SURFACE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let staged = stage_hosted_settings();
     let Some(frame) = staged_frame(&staged) else {
         return;
@@ -278,7 +278,7 @@ fn focused_window_reports_the_frame_handle_with_the_hosted_application_identity(
 fn list_windows_app_scoping_agrees_with_focused_window_on_a_hosted_application() {
     bootstrap();
     let _shell = SHELL_SURFACE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let staged = stage_hosted_settings();
     let Some(frame) = staged_frame(&staged) else {
         return;
@@ -340,7 +340,7 @@ fn list_windows_app_scoping_agrees_with_focused_window_on_a_hosted_application()
 fn focus_window_succeeds_against_the_identity_focused_window_reported() {
     bootstrap();
     let _shell = SHELL_SURFACE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let staged = stage_hosted_settings();
     let Some(frame) = staged_frame(&staged) else {
         return;
@@ -383,7 +383,7 @@ fn focus_window_succeeds_against_the_identity_focused_window_reported() {
 fn a_live_hosted_process_yields_a_generation_token() {
     bootstrap();
     let _shell = SHELL_SURFACE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let staged = stage_hosted_settings();
     let Some(frame) = staged.frame.as_ref() else {
         return;

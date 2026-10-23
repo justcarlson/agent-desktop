@@ -170,7 +170,7 @@ fn a_located_menu_is_carried_back_to_the_caller() {
 
 #[test]
 fn a_failed_modal_read_is_unclassified_while_absent_and_known_classify() {
-    use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
+    use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
 
     assert!(modal_classification(PropertyOutcome::Unknown).is_err());
     assert!(!modal_classification(PropertyOutcome::Absent).unwrap());

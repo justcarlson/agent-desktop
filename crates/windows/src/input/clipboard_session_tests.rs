@@ -4,7 +4,7 @@ use super::{
 };
 use crate::input::clipboard_guard::MoveableMemory;
 use crate::system::window_ops::list_windows_live;
-use crate::tree::fixture_clipboard::{ContendingClipboardHolder, clipboard_test_lock};
+use crate::tree::fixture::fixture_clipboard::{ContendingClipboardHolder, clipboard_test_lock};
 use agent_desktop_core::{Deadline, ErrorCode, WindowFilter};
 use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::GlobalFree;

@@ -3,9 +3,9 @@ use agent_desktop_core::{
 };
 
 use super::automation::root_from_hwnd;
+use super::properties::property_ids::TreeProperty;
+use super::properties::property_outcome::PropertyOutcome;
 use super::properties::read_one;
-use super::property_ids::TreeProperty;
-use super::property_outcome::PropertyOutcome;
 use crate::system::menu_state::{MenuLocation, locate_menu};
 use crate::system::window_enum::{EnumeratedWindow, WindowHandle, enumerate_top_level};
 use crate::system::window_identity::{live_window_owner, live_window_title};

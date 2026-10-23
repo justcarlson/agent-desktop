@@ -164,7 +164,7 @@ fn all_three_interaction_policies_are_constructible_and_distinct() {
 #[cfg(target_os = "windows")]
 #[test]
 fn headed_foreground_target_synthesizes_delivered_unverified() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, identity) = staged_hosted_target();
     if !stage_as_foreground(&fixture) {
         assert_press_fails_closed_without_synthesis(identity, InteractionPolicy::headed());
@@ -189,7 +189,7 @@ fn headed_foreground_target_synthesizes_delivered_unverified() {
 #[cfg(target_os = "windows")]
 #[test]
 fn headless_foreground_target_verifies_without_stealing() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, identity) = staged_hosted_target();
     if !stage_as_foreground(&fixture) {
         assert_press_fails_closed_without_synthesis(identity, InteractionPolicy::headless());
@@ -215,7 +215,7 @@ fn headless_foreground_target_verifies_without_stealing() {
 #[cfg(target_os = "windows")]
 #[test]
 fn headless_background_target_fails_closed_without_synthesis() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, identity) = staged_hosted_target();
     let stealer = crate::tree::fixture::LocalFixture::create().expect("stealer");
     raise_handle(stealer.handle());
@@ -241,7 +241,7 @@ fn headless_background_target_fails_closed_without_synthesis() {
 #[cfg(target_os = "windows")]
 #[test]
 fn focus_fallback_background_target_fails_closed_without_activation() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, identity) = staged_hosted_target();
     let stealer = crate::tree::fixture::LocalFixture::create().expect("stealer");
     raise_handle(stealer.handle());
@@ -262,7 +262,7 @@ fn focus_fallback_background_target_fails_closed_without_activation() {
 #[cfg(target_os = "windows")]
 #[test]
 fn higher_integrity_is_perm_denied_not_delivered_before_synthesis() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (_fixture, identity) = staged_hosted_target();
     synthesis_probe::reset();
     let error = force_higher_integrity::with(|| {
@@ -287,7 +287,7 @@ fn higher_integrity_is_perm_denied_not_delivered_before_synthesis() {
 #[cfg(target_os = "windows")]
 #[test]
 fn focus_lost_between_verify_and_inject_fails_closed_without_synthesis() {
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (target, identity) = staged_hosted_target();
     let stealer = crate::tree::fixture::LocalFixture::create().expect("stealer");
     if !stage_as_foreground(&target) {
@@ -323,7 +323,7 @@ fn focus_lost_between_verify_and_inject_fails_closed_without_synthesis() {
 fn adapter_press_key_for_app_is_wired_through_system_ops() {
     use agent_desktop_core::{InteractionLease, SystemOps};
 
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let (fixture, identity) = staged_hosted_target();
     let staged = stage_as_foreground(&fixture);
     let adapter = crate::adapter::WindowsAdapter::new();

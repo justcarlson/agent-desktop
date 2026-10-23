@@ -45,8 +45,8 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
+use crate::tree::fixture::fixture_menu::MenuFixture;
 use crate::tree::fixture::{StalledFixture, bootstrap};
-use crate::tree::fixture_menu::MenuFixture;
 
 const STATE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -117,7 +117,7 @@ fn classic_source_detects_the_fixtures_context_menu_open_and_closed() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let pid = ProcessId::from(fixture.process_id());
 
@@ -149,7 +149,7 @@ fn uia_source_detects_the_fixtures_context_menu_open_and_closed() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let pid = ProcessId::from(fixture.process_id());
 
@@ -182,7 +182,7 @@ fn menu_is_open_reports_the_fixtures_transition_in_both_directions() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let pid = ProcessId::from(fixture.process_id());
 
@@ -221,7 +221,7 @@ fn menu_is_open_is_isolated_to_the_queried_process() {
     let _app_name_scope = FIXTURE_APP_NAME_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture_window::on_screen_stage();
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
     let fixture = MenuFixture::spawn().expect("the menu fixture starts");
     let fixture_pid = ProcessId::from(fixture.process_id());
     let self_pid = ProcessId::from(std::process::id());

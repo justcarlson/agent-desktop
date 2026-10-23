@@ -162,7 +162,7 @@ mod windows_only {
     #[test]
     fn the_focused_filter_answers_with_the_foreground_window_and_nothing_else() {
         crate::tree::fixture::ensure_test_apartment();
-        let _stage = crate::tree::fixture_window::on_screen_stage();
+        let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
         let filter = WindowFilter {
             focused_only: true,
             app: None,

@@ -9,8 +9,8 @@ use crate::input::elevation::ensure_target_integrity_allows_input;
 use crate::system::window_ops::is_root_foreground_window;
 use crate::tree::element::UIAElement;
 use crate::tree::live_read::corroborate_verified_process;
+use crate::tree::properties::property_ids::TreeProperty;
 use crate::tree::properties::read_one;
-use crate::tree::property_ids::TreeProperty;
 
 pub(crate) fn target_process_id(element: &UIAElement) -> Result<ProcessId, AdapterError> {
     if let Some((pid, _)) = element.verified_process() {

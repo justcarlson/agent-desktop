@@ -20,7 +20,7 @@ use crate::system::png_codec::encode_bgra_to_png;
 use crate::system::private_file::WindowsPrivateFile;
 use crate::system::test_time::deadline;
 use crate::tree::fixture::bootstrap;
-use crate::tree::fixture_clipboard::clipboard_test_lock;
+use crate::tree::fixture::fixture_clipboard::clipboard_test_lock;
 
 static HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
 

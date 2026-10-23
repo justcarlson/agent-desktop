@@ -2,7 +2,7 @@
 title: A zero success value is not the answer you asked for
 date: 2026-08-08
 category: logic-errors
-module: crates/windows/src/actions/physical_target.rs, crates/windows/src/tree/hit_test_corroborate.rs
+module: crates/windows/src/actions/physical_target.rs, crates/windows/src/tree/hit_test/hit_test_corroborate.rs
 problem_type: logic_error
 component: platform-adapter
 severity: high
@@ -99,11 +99,11 @@ fn target_window_is_foreground(
 A climb that could not finish (a faulted handle read, a faulted parent step,
 or an exhausted budget) is an `Err` rather than `Ok(None)`, so a failed read is
 never mistaken for "this element has no window"
-(`crates/windows/src/tree/hit_test_corroborate.rs:173-208`).
+(`crates/windows/src/tree/hit_test/hit_test_corroborate.rs:173-208`).
 
 Pin it where the shape actually exists. A unit test with a fabricated
 element cannot express "a real control whose own handle is 0", so the pin is
-a live one (`crates/windows/src/tree/envelope_live_tests.rs:300-320`) that
+a live one (`crates/windows/src/tree/hit_test/envelope_live_tests.rs:300-320`) that
 asserts both halves: the leaf handle *is* zero, and the host
 still resolves. If the first assertion ever fails, the test says so — it has
 stopped covering the climb rather than silently passing.

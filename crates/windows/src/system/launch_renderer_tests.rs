@@ -21,7 +21,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::system::launch::detect_renderer_from_window;
-use crate::tree::fixture_window::{register_class, unregister_class, wide};
+use crate::tree::fixture::fixture_window::{register_class, unregister_class, wide};
 
 const CHROMIUM_CLASS: &str = "Chrome_WidgetWin_1";
 
