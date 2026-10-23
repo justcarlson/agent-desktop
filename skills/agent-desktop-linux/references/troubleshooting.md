@@ -109,7 +109,10 @@ Check that the copied text is `ALPHA FILE`. This replaces the clipboard and
 selects the buffer. Use Ctrl+PageDown to switch right. If the identity is still
 unclear, stop before writing. For separate targets, open each document in its
 own window (`agent-desktop launch gnome-text-editor --arg=--new-window --arg=/tmp/note.txt`)
-and use `--window-id` with fresh snapshots.
+and use `--window-id` with fresh snapshots. If Text Editor already has the file
+open, that launch opens an empty `New Document (Draft)` window and shows the
+file as a tab in its existing window, so run `list-windows` to see which window
+shows it.
 
 ## Toolkit limits
 
