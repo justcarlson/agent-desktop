@@ -3,6 +3,9 @@ use std::process::Command;
 #[path = "cli_process_support.rs"]
 mod support;
 
+#[path = "cli_parse_error_tests.rs"]
+mod parse_error_tests;
+
 fn binary() -> Command {
     Command::new(env!("CARGO_BIN_EXE_agent-desktop"))
 }
