@@ -9,6 +9,7 @@ symptoms:
   - "A native call's failure path is written, reviewed, and unreachable: the guard tests a sentinel the API never returns."
   - "A failed enumeration returns an empty result instead of an error, so a native failure is reported as a confident negative answer."
   - "The wrong guard looks idiomatic because a neighbouring call in the same file genuinely does use that sentinel."
+tags: [win32, ffi, invalid-handle-value, silent-failure, toolhelp, windows]
 ---
 
 ## Problem
@@ -28,7 +29,7 @@ bit patterns are unrelated, so the comparison is never true when the call
 actually fails and `open_failure_error()` is dead code on the only path that
 can reach it.
 
-Nothing crashes, which is what makes it expensive. Execution falls through with
+Nothing crashes, and that silence is what makes it expensive. Execution falls through with
 an invalid handle: `Thread32First` fails, the `while ok != 0` loop body never
 runs, the accumulator stays empty, `CloseHandle(INVALID_HANDLE_VALUE)` is a
 harmless no-op, and the function returns `Ok(empty)` — byte-identical to

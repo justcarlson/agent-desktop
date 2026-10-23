@@ -30,7 +30,7 @@ fn target_window_is_foreground(element: &UIAElement) -> bool {
 }
 ```
 
-That reads correctly. It is also wrong for most of the desktop.
+The check reads correctly, and it is wrong for most of the desktop.
 
 ## Problem
 
@@ -65,8 +65,8 @@ naive version of a question the crate had already answered correctly.
 
 Two failures compounding.
 
-The first is treating a sentinel as data. `Result::ok()` answers *did the
-call succeed*, not *did it give me a usable value*. When an API encodes
+The first is treating a sentinel as data. `Result::ok()` answers whether the
+call succeeded, not whether it gave a usable value. When an API encodes
 absence as a valid-looking zero, the `Ok` arm still needs a domain check,
 and the absence usually means "ask somewhere else" rather than "the answer
 is no."
@@ -103,7 +103,7 @@ never mistaken for "this element has no window"
 
 Pin it where the shape actually exists. A unit test with a fabricated
 element cannot express "a real control whose own handle is 0", so the pin is
-a live one (`crates/windows/src/tree/hit_test/envelope_live_tests.rs:300-320`) that
+a live one (`crates/windows/src/tree/hit_test/envelope_live_tests.rs:300-322`) that
 asserts both halves: the leaf handle *is* zero, and the host
 still resolves. If the first assertion ever fails, the test says so — it has
 stopped covering the climb rather than silently passing.
