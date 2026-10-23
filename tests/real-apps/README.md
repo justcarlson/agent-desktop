@@ -4,7 +4,6 @@ Use the public Agent Desktop CLI directly. The model must read the original JSON
 and select refs itself. Do not insert Python/jq tree extraction, a custom ref
 picker, raw AX mutations, or AppleScript into the evaluated interaction workflow.
 
-Follow [the native reliability plan](../../docs/plans/2026-09-19-native-reliability-evaluation-plan.md).
 The current trajectory and required outcomes are frozen in [acceptance v1](acceptance-v1.md).
 The earlier provisional numeric ratings are withdrawn; no measured overall score
 has been established.
