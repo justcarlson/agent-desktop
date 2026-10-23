@@ -44,9 +44,8 @@ EXPECTED_APP_CALLS=3
 #   - an inline `#[cfg(test)]`-gated item within an otherwise production
 #     file: a whole `mod tests { ... }` block (`crates/ffi/src/commands/mod.rs`,
 #     `crates/ffi/src/commands/envelope_out.rs`) or a single gated function
-#     mixed into production code (`RefStore::for_tests` in
-#     `crates/core/src/refs_store.rs`, ahead of that file's own real
-#     `stale_ref` caller). Brace-depth tracking skips exactly the item the
+#     mixed into production code, ahead of a real `stale_ref` caller in the
+#     same file. Brace-depth tracking skips exactly the item the
 #     attribute gates and resumes counting once it closes, rather than
 #     truncating the rest of the file at the first `#[cfg(test)]` seen -
 #     which would have silently dropped `refs_store.rs`'s real caller from
