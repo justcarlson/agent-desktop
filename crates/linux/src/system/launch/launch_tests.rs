@@ -254,3 +254,16 @@ fn a_launched_process_carries_the_marker_that_proves_the_caller_started_it() {
         &environment
     ));
 }
+
+#[test]
+fn the_window_read_after_an_activation_is_the_one_the_launch_chose() {
+    let mut first = window();
+    first.id = "w-first".to_owned();
+    let mut chosen = window();
+    chosen.id = "w-chosen".to_owned();
+    chosen.state.is_focused = true;
+    let reread = same_window(vec![first.clone(), chosen.clone()], "w-chosen").expect("chosen");
+    assert_eq!(reread.id, "w-chosen");
+    assert!(reread.state.is_focused);
+    assert!(same_window(vec![first], "w-chosen").is_none());
+}

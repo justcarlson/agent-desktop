@@ -45,6 +45,12 @@ fn chromium_renderer(bus: &SharedBus, pid: u32, deadline: Deadline) -> Option<Re
         .then_some(RendererKind::Chromium)
 }
 
+/// The window with `id` among a fresh read of the owner's windows, so a result
+/// keeps the window the launch chose and focused, not the first one listed.
+fn same_window(windows: Vec<WindowInfo>, id: &str) -> Option<WindowInfo> {
+    windows.into_iter().find(|window| window.id == id)
+}
+
 /// The result for an owner and its window. A window is brought forward once,
 /// only when asked, and a refusal is reported in the suggestion because the
 /// launch itself succeeded. A successful `focus` returns the window read after
@@ -244,7 +250,9 @@ impl Launch<'_> {
             renderer: chromium_renderer(self.bus, owner.pid, self.deadline),
             ..conclude(owner, window, self.options, created, |window| {
                 focus_window(self.bus, window, self.lease)?;
-                Ok(self.window_of(owner, false, &HashSet::new()).ok().flatten())
+                Ok(windows_of_process(self.bus, owner.pid, self.deadline)
+                    .ok()
+                    .and_then(|windows| same_window(windows, &window.id)))
             })
         }
     }
