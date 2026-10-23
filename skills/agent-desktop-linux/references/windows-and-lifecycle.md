@@ -74,6 +74,11 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   5 s for a new window when windows were already open. `--timeout` (default
   30000) caps both; `--activate` uses the full remaining timeout for the window
   wait.
+- A refused `--activate` does not fail `launch`: it answers `ok: true` with a
+  `data.suggestion` that starts `The window could not be brought forward:` and
+  gives the reason. Read `data.suggestion` after `--activate`;
+  `window.is_focused` is the state before the request. `focus-window` on the
+  window reports the cause.
 - A window read that cannot prove the native window type of a frame
   (`details.kind: native_window_unproven`, which a window gives for the moment it
   changes during the read) counts as no window yet and is read again until the
@@ -145,7 +150,8 @@ only a document or tab and leave its window open.
 - Graceful close sends `_NET_CLOSE_WINDOW` to each top-level window of the pid and
   no signal. A file manager that outlives its windows ends in `TIMEOUT`,
   `delivered_unverified`; `--force` ends it. A terminal server closes like any
-  other app: `close-app gnome-terminal` ended `gnome-terminal-server`.
+  other app under the name `list-apps` prints: `close-app gnome-terminal-server`
+  ends it, and `close-app gnome-terminal` is `APP_NOT_FOUND`.
 - An unconfirmed send is uncertain and unsafe to retry, even if the remaining
   fan-out runs out of time: observe the app first.
 - A save prompt keeps the app open. The dialog is a new top-level window of the
@@ -203,6 +209,12 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
   minimize sent within about 250 ms of a restore: read the window state before
   retrying. An unconfirmed restore send is uncertain and unsafe to retry; it may
   already have restored the window.
+- A minimized window that the window manager does not show after `restore` is
+  `ACTION_NOT_SUPPORTED` with `details.cause: restore_refused` and
+  `details.manager` naming the manager, `delivered_unverified`, `retry: unsafe`.
+  An open Activities Overview can be the cause: close it (see Focus), read the
+  window with `list-windows`, and run `restore` again only if it is still
+  minimized.
 - `move-window` needs both `--x` and `--y` (a lone one is `INVALID_ARGS` at parse
   time, exit 2). Negative coordinates need the `=` form:
   `move-window --x=-100 --y=20`.

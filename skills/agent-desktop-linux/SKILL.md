@@ -152,6 +152,11 @@ Without a session, `cursor-overlay enable` and `disable` return `INVALID_ARGS`.
 On X11, enable returns `data.rendered: true`; on Wayland it saves the setting
 and returns `data.rendered: false` without drawing an overlay.
 
+`session start --cursor --multi-agent` saves the setting and returns
+`data.rendered: false`, because nothing is drawn until an agent acts. Desktop UI
+actions then need `--agent-id` or `AGENT_DESKTOP_AGENT_ID`, else `INVALID_ARGS`.
+On X11 each id gets its own cursor; on Wayland none is drawn.
+
 ## What differs on Linux
 
 - Firefox/Gecko `select` can change the selected value without firing `change`
