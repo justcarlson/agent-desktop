@@ -99,7 +99,7 @@ are not exposed over the ABI. A bare `@eN` ref returns
   surface `id`. From `AD_EXACT_SURFACE_INFO_VERSION` 2, `AdExactSurfaceInfo.unclassified`
   names the surface kinds its probe could not read (for example `sheet,menu`), or
   is null. A missing `sheet` or `menu` next to a listed kind is unknown, not
-  absent. Only the Windows adapter fills it today; macOS and Linux return null.
+  absent. Only the Windows adapter fills it; macOS and Linux return null.
 
 - **Native handles.** `ad_resolve_element_exact` and `ad_find_exact` return an
   `AdNativeHandle`. `ad_execute_action` (headless, no preflight) and

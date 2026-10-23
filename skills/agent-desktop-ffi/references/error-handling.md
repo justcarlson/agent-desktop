@@ -15,7 +15,7 @@ if (rc != AD_RESULT_OK) {
     const char *sug = ad_last_error_suggestion();   // may be NULL
     fprintf(stderr, "launch_app failed (%d): %s\n", (int)rc, msg ? msg : "(no message)");
     if (sug) fprintf(stderr, "  suggestion: %s\n", sug);
-    // no need to release the struct — out-param was zero-initialized
+    // no need to release the struct: out-param was zero-initialized
     return -1;
 }
 // ...use win...
@@ -34,7 +34,7 @@ copies plain values into caller storage, so no pointer lifetime applies:
 | `ad_last_error_message()`       | Human-readable description, or null                            |
 | `ad_last_error_suggestion()`    | Recovery hint, or null                                         |
 | `ad_last_error_platform_detail()` | OS-specific diagnostic (AX codes, HRESULTs, AT-SPI), or null |
-| `ad_last_error_details()`       | Structured JSON details, or null — **sensitive** (see below)   |
+| `ad_last_error_details()`       | Structured JSON details, or null: **sensitive** (see below)   |
 | `ad_last_error_delivery_semantics(&sem)` | Writes `AdDeliverySemantics {delivery, retry}` for the last failure and returns `AD_RESULT_OK`; both fields are `UNKNOWN` (0) when no error is recorded. A null `sem` returns `AD_RESULT_ERR_INVALID_ARGS`. Reading does not clear or replace the slot. |
 
 `delivery` is an `AdDeliveryDisposition`: `AD_DELIVERY_DISPOSITION_UNKNOWN` (0),
@@ -159,7 +159,7 @@ Always check `*out` for null before deciding whether to free.
 
 ## Panic safety
 
-Every `extern "C"` entrypoint wraps its body in `catch_unwind`. A Rust panic
+Every `extern "C"` entrypoint that can panic wraps its body in `catch_unwind`. A Rust panic
 inside the FFI surfaces as `AD_RESULT_ERR_INTERNAL` with the message
 `"rust panic in FFI boundary"`, not a host crash. This holds only for a cdylib
 built with the `release-ffi` profile, because the workspace `release` profile
