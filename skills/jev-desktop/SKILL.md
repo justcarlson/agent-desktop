@@ -191,7 +191,8 @@ enough to tell a wrong screen from a vague intent.
   `click`, never `set-value`. A `--text` payload with a non-text verb corrects
   the verb, because the caller supplying text is evidence Jev does not have.
 - **An open surface wins.** When a sheet, alert, menu or popover is up, the
-  script reads that surface instead of the window. In the window tree those
+  script reads the window, then that surface, and offers the surface's elements
+  instead of the window's. In the window tree those
   elements carry `offscreen` and would all be dropped.
 - **Disabled, hidden and action-less elements are never offered**, nor a cell
   inside a treeitem (the row beside it acts). Everything else is, including
@@ -237,8 +238,10 @@ change shape.
 
 ## Known limits
 
-- `act.mjs` takes one snapshot per call (two when a surface is open), about 3 s
-  on a dense app. `--root` is far cheaper.
+- `act.mjs` reads the screen once per call. `run.mjs` reads it before and after
+  each action, and skips the read after `DRILL` or `WIDEN`. Without a pinned
+  region, each read takes a second snapshot when a sheet, alert, menu or popover
+  is open. A read takes about 3 s on a dense app; `--root` is far cheaper.
 - `act.mjs` does not retry: a 429 ends the call. `run.mjs` retries 429, 503 and
   529 twice, after 500 ms then 1000 ms, before it fails.
 - Held input is unavailable, so no sustained key and no drag with hold. See
