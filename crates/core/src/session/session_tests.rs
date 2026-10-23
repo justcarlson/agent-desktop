@@ -6,19 +6,15 @@ use std::fs;
 #[test]
 fn resolve_prefers_explicit_over_env() {
     let _guard = HomeGuard::new();
-    unsafe { std::env::set_var("AGENT_DESKTOP_SESSION", "env-session") };
-    let resolved = resolve_active_session(Some("explicit"), None).unwrap();
+    let resolved = resolve_active_session(Some("explicit"), Some("env-session")).unwrap();
     assert_eq!(resolved.as_deref(), Some("explicit"));
-    unsafe { std::env::remove_var("AGENT_DESKTOP_SESSION") };
 }
 
 #[test]
 fn resolve_uses_env_without_explicit_session() {
     let _guard = HomeGuard::new();
-    unsafe { std::env::set_var("AGENT_DESKTOP_SESSION", "env-session") };
     let resolved = resolve_active_session(None, Some("env-session")).unwrap();
     assert_eq!(resolved.as_deref(), Some("env-session"));
-    unsafe { std::env::remove_var("AGENT_DESKTOP_SESSION") };
 }
 
 #[test]
@@ -105,7 +101,11 @@ fn list_reports_manifest_fields_only() {
     })
     .unwrap();
     let listed = list_sessions().unwrap();
-    assert!(listed.iter().any(|entry| entry.id == manifest.id));
+    let entry = listed
+        .iter()
+        .find(|entry| entry.id == manifest.id)
+        .expect("started session is listed");
+    assert_eq!(entry, &manifest);
 }
 
 #[test]

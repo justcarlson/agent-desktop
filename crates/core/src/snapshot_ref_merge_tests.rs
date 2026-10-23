@@ -64,9 +64,11 @@ fn test_drilldown_refmap_matches_golden_fixture() {
         "merged refmap should match golden fixture's expected_total"
     );
 
+    let expected_pid = crate::ProcessId::new(42);
     for anchor in golden_value["skeleton_anchors"].as_array().unwrap() {
         let id = anchor["ref_id"].as_str().unwrap();
         let entry = on_disk.get(id).unwrap_or_else(|| panic!("missing {id}"));
+        assert_eq!(entry.process.pid, expected_pid, "{id}");
         assert_eq!(entry.identity.role, anchor["role"].as_str().unwrap());
         assert_eq!(entry.identity.name.as_deref(), anchor["name"].as_str());
         assert!(
@@ -75,10 +77,19 @@ fn test_drilldown_refmap_matches_golden_fixture() {
         );
     }
 
-    for drill in golden_value["drilled_from_e1"].as_array().unwrap() {
-        let id = drill["ref_id"].as_str().unwrap();
-        if let Some(entry) = on_disk.get(id) {
-            assert_eq!(entry.scope.root_ref.as_deref(), Some("@e1"));
+    for (key, root) in [("drilled_from_e1", "@e1"), ("drilled_from_e2", "@e2")] {
+        for drill in golden_value[key].as_array().unwrap() {
+            let id = drill["ref_id"].as_str().unwrap();
+            let entry = on_disk.get(id).unwrap_or_else(|| panic!("missing {id}"));
+            assert_eq!(entry.process.pid, expected_pid, "{id}");
+            assert_eq!(entry.identity.role, drill["role"].as_str().unwrap(), "{id}");
+            assert_eq!(
+                entry.identity.name.as_deref(),
+                drill["name"].as_str(),
+                "{id}"
+            );
+            assert_eq!(entry.scope.root_ref.as_deref(), Some(root), "{id}");
+            assert_eq!(drill["root_ref"].as_str(), Some(root), "{id}");
         }
     }
 }

@@ -20,6 +20,7 @@ struct HoverCaptureAdapter {
     focused_pids: Mutex<Vec<crate::ProcessId>>,
     focused_bounds: Option<Rect>,
     refuses_receiver: bool,
+    receiver_checks: AtomicU32,
 }
 
 impl HoverCaptureAdapter {
@@ -29,6 +30,7 @@ impl HoverCaptureAdapter {
             focused_pids: Mutex::new(Vec::new()),
             focused_bounds: None,
             refuses_receiver: false,
+            receiver_checks: AtomicU32::new(0),
         }
     }
 
@@ -85,6 +87,7 @@ impl ObservationOps for HoverCaptureAdapter {
         _point: crate::Point,
         _deadline: crate::Deadline,
     ) -> Result<(), AdapterError> {
+        self.receiver_checks.fetch_add(1, Ordering::SeqCst);
         if self.refuses_receiver {
             return Err(AdapterError::new(
                 crate::ErrorCode::ActionFailed,

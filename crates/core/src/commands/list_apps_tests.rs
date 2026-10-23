@@ -1,10 +1,25 @@
 use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{AdapterError, AppInfo};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 struct AppsAdapter;
 
-struct DeadlineAdapter(u64);
+struct DeadlineAdapter {
+    expected_timeout_ms: u64,
+    app_listings: AtomicU32,
+    window_listings: AtomicU32,
+}
+
+impl DeadlineAdapter {
+    fn new(expected_timeout_ms: u64) -> Self {
+        Self {
+            expected_timeout_ms,
+            app_listings: AtomicU32::new(0),
+            window_listings: AtomicU32::new(0),
+        }
+    }
+}
 
 impl ObservationOps for AppsAdapter {
     fn list_apps(&self, _deadline: crate::Deadline) -> Result<Vec<AppInfo>, AdapterError> {
@@ -29,7 +44,8 @@ impl ObservationOps for AppsAdapter {
 
 impl ObservationOps for DeadlineAdapter {
     fn list_apps(&self, deadline: crate::Deadline) -> Result<Vec<AppInfo>, AdapterError> {
-        assert_eq!(deadline.timeout_ms(), self.0);
+        self.app_listings.fetch_add(1, Ordering::SeqCst);
+        assert_eq!(deadline.timeout_ms(), self.expected_timeout_ms);
         Ok(Vec::new())
     }
     fn list_windows(
@@ -37,7 +53,8 @@ impl ObservationOps for DeadlineAdapter {
         _: &crate::WindowFilter,
         deadline: crate::Deadline,
     ) -> Result<Vec<crate::WindowInfo>, AdapterError> {
-        assert_eq!(deadline.timeout_ms(), self.0);
+        self.window_listings.fetch_add(1, Ordering::SeqCst);
+        assert_eq!(deadline.timeout_ms(), self.expected_timeout_ms);
         Ok(Vec::new())
     }
 }
@@ -70,7 +87,8 @@ fn app_filter_matches_by_name_case_insensitively() {
 #[test]
 fn listing_timeout_reaches_both_adapter_deadlines() {
     for timeout_ms in [None, Some(37), Some(8000)] {
-        let adapter = DeadlineAdapter(timeout_ms.unwrap_or(crate::DEFAULT_OPERATION_TIMEOUT_MS));
+        let adapter =
+            DeadlineAdapter::new(timeout_ms.unwrap_or(crate::DEFAULT_OPERATION_TIMEOUT_MS));
         execute(
             ListAppsArgs {
                 app: None,
@@ -79,6 +97,7 @@ fn listing_timeout_reaches_both_adapter_deadlines() {
             &adapter,
         )
         .unwrap();
+        assert!(adapter.app_listings.load(Ordering::SeqCst) >= 1);
         crate::commands::list_windows::execute(
             crate::commands::list_windows::ListWindowsArgs {
                 app: None,
@@ -87,6 +106,7 @@ fn listing_timeout_reaches_both_adapter_deadlines() {
             &adapter,
         )
         .unwrap();
+        assert!(adapter.window_listings.load(Ordering::SeqCst) >= 1);
     }
 }
 
