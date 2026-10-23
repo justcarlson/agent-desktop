@@ -14,6 +14,7 @@ pub(crate) mod launch;
 pub(crate) mod launch_callback_result;
 pub(crate) mod launch_completion;
 pub(crate) mod launch_workspace;
+pub(crate) mod permission_guide;
 pub(crate) mod permission_helper;
 pub(crate) mod permission_operation;
 pub(crate) mod permissions;

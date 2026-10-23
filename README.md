@@ -54,7 +54,7 @@ cargo build --release -p agent-desktop
 
 ### Permissions
 
-macOS needs Accessibility permission. Screenshots also need Screen Recording, and opening Notification Center needs Automation permission for System Events. `agent-desktop permissions` reports the state without prompting; `agent-desktop permissions --request` asks for what is missing.
+macOS needs Accessibility permission. Screenshots also need Screen Recording, and opening Notification Center needs Automation permission for System Events. `agent-desktop permissions` reports the state without prompting; `agent-desktop permissions --request` asks for what is missing; `agent-desktop permissions --guide` opens System Settings at the missing permission with an on-screen guide that shows what to drag.
 
 Windows needs no grant for apps at your terminal's integrity level. An app running as administrator can be read, but only an elevated agent can send it input. The binary is unsigned, so SmartScreen may warn on a browser download, antivirus may quarantine it, and Smart App Control on a clean Windows 11 install blocks it. The npm install path does not trigger SmartScreen.
 

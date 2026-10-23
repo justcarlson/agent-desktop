@@ -259,6 +259,13 @@ impl Commands {
         self.metadata().post_action_wait
     }
 
+    #[cfg(target_os = "macos")]
+    /// The permission guide offers the caller's own app to drag into the
+    /// Privacy list, so it cannot run inside a detached command host.
+    pub(crate) fn needs_caller_process(&self) -> bool {
+        matches!(self, Self::Permissions(args) if args.guide)
+    }
+
     pub(crate) fn is_mutating(&self) -> bool {
         match self {
             Self::Click(_)
