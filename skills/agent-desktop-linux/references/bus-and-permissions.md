@@ -96,12 +96,8 @@ launcher away from the live socket.
 
 ## State root
 
-All persisted state lives under `~/.agent-desktop`, or under
-`AGENT_DESKTOP_HOME` when set (the value is the root itself). The first run on a
-host creates it. Set `AGENT_DESKTOP_HOME` to move it, for example into a private
-session. A root the tool creates has mode 0700.
-
-The root must be private to the user. A root that is group-writable or open to
+The state root (`~/.agent-desktop`, or `AGENT_DESKTOP_HOME`) must be private to
+the user. A root the tool creates has mode 0700. A root that is group-writable or open to
 other users makes the commands that write there (`snapshot` for one) fail with
 `INTERNAL` and the message "private file parent is accessible by group or other
 users". `status` still runs. Fix an existing root:

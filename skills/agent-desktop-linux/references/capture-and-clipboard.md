@@ -18,8 +18,7 @@ agent-desktop screenshot /tmp/everything.png
   display (the first if none is marked primary). With no output path the image
   returns as base64 in `data`.
 - A window is read from its own drawable. Under a compositing window manager
-  (mutter) covered and minimized windows are captured (each measured 360x504
-  with a 900x700 editor over the calculator).
+  (mutter), covered and minimized windows are captured.
 - Under a non-compositing window manager (openbox) that read is not possible. A
   covered window answers `ACTION_FAILED` with `details.reason: "covered"` and
   the suggestion to raise it with `--headed focus-window`; the same capture
@@ -27,7 +26,7 @@ agent-desktop screenshot /tmp/everything.png
   ("The window is not viewable and the window manager does not composite, so it
   has no pixels to capture") with the suggestion to `restore` it. Both are
   `not_delivered` and `retry: safe`. On a non-compositing manager, whole-screen
-  and `--screen` captures are exact (1280x800 on the measured display).
+  and `--screen` captures are exact.
 - Under a compositor such as GNOME on X11 the root window holds only the
   manager's own stage, so whole-screen and `--screen` captures answer
   `PLATFORM_NOT_SUPPORTED` with `details.reason: "compositing"` and the
@@ -42,8 +41,8 @@ agent-desktop screenshot /tmp/everything.png
   neither block the screenshot nor appear in its pixels.
 - A display-server or caller-deadline timeout stays `TIMEOUT`, including when
   capturing a covered window. It does not prove coverage or advise focus.
-- Redirected capture preserves resource, connection and visibility failures;
-  only unproven window paint receives the `covered` advice.
+- Resource, connection and visibility failures keep their own errors. Only a
+  window whose paint cannot be proven gets the `covered` advice.
 
 ## `screenshot` on Wayland
 
@@ -62,8 +61,8 @@ agent-desktop screenshot /tmp/desktop.png
   of the command's own budget and 30 s.
 - Allow returns the selected display as a PNG. Deny, or a dismissed dialog,
   gives `PERM_DENIED`.
-- Nobody answers: the portal gives up after about 25 s (measured 25.0 s twice)
-  and the call returns `TIMEOUT`, with the dialog named in its suggestion. The
+- Nobody answers: the portal gives up after about 25 s and the call returns
+  `TIMEOUT`, with the dialog named in its suggestion. The
   dialog stays open, and later calls return `PERM_DENIED` at once, with no
   second dialog, until a person dismisses it. Do not retry in a loop: ask the
   user to answer it.
@@ -90,11 +89,8 @@ agent-desktop clipboard-get
 agent-desktop clipboard-clear
 ```
 
-`clipboard-get` reads `text` by default; `--format` takes `auto`, `image` or
-`file-urls`. `clipboard-set` takes text, `--image <png>` or `--file-url <path>`.
-Image content is written to a private file (`--out` picks the path) and the
-result carries its `path`, `width` and `height`. An empty clipboard answers
-`found: false`.
+Formats and output follow the core `commands-system` reference. Text, images and
+file lists all work on Linux.
 
 ### X11
 
@@ -117,8 +113,8 @@ result carries its `path`, `width` and `height`. An empty clipboard answers
   owner.
 - A file copy serves `x-special/gnome-copied-files` and `text/uri-list`. A
   plain-text path pastes nothing in a file manager.
-- Transfers above the server's single-request limit (262140 bytes measured) use
-  `INCR`; large content works.
+- Content above the X server's single-request limit transfers with `INCR`, so
+  large content works.
 - "Nothing there" and "target not available" are different answers: an absent
   format is `absent`, not an error.
 
@@ -142,5 +138,5 @@ result carries its `path`, `width` and `height`. An empty clipboard answers
 The C library reaches the same code; its clipboard API is text-only. Set and
 clear take the cross-process interaction lease; reads have a deadline but do not
 take that mutation lease. The matching owner helper can sit beside
-`libagent_desktop_ffi.so`; it need not sit beside the host's executable. There
-is no stable SONAME yet.
+`libagent_desktop_ffi.so`; it need not sit beside the host's executable. The
+library has no stable SONAME.
