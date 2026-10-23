@@ -360,10 +360,11 @@ diffs a baseline taken at the start against fresh reads. On Linux:
   `--event` with them is `INVALID_ARGS`.
 - `wait --text --app` can return `AMBIGUOUS_TARGET` before it checks the text,
   when visibility, focus and accessibility do not select one window (a document
-  and its dialog). For a save prompt, wait on the title, then snapshot the sheet:
+  and its dialog). For a save prompt, wait for the sheet (a separate window or an
+  alert drawn inside the window), then snapshot it:
 
   ```bash
-  agent-desktop wait --window 'Save Changes?' --app gnome-text-editor --timeout 5000
+  agent-desktop wait --event surface-appeared --app gnome-text-editor --timeout 5000
   agent-desktop snapshot --app gnome-text-editor --surface sheet -i --compact
   ```
 
