@@ -1,7 +1,5 @@
 use std::time::Duration;
 
-#[cfg(test)]
-use agent_desktop_core::StepMechanism;
 use agent_desktop_core::{
     ActionResult, ActionStep, AdapterError, Deadline, DeliverySemantics, ErrorCode,
 };

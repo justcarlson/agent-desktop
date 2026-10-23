@@ -1,5 +1,3 @@
-#[cfg(test)]
-use agent_desktop_core::ActionStep;
 use agent_desktop_core::{ActionResult, AdapterError, Deadline};
 
 use super::click::{POLL_STEP, observed_of, poll_until};
