@@ -112,3 +112,7 @@ pub(crate) fn place_windows(
 #[cfg(test)]
 #[path = "window_position_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "window_position_rect_tests.rs"]
+mod rect_tests;
