@@ -158,6 +158,11 @@ and returns `data.rendered: false` without drawing an overlay.
   or `input` events, so dependent page handlers do not run. The result stays
   `delivered_unverified` even when value readback matches. Check the dependent
   application effect before continuing: value readback alone is no commit proof.
+- Two `click` calls on one GTK4 button less than about 250 ms apart act once.
+  Both answer `ok: true` with `delivered_unverified`. To click one button
+  several times, wait for the effect between the clicks: use
+  `wait --element <ref> --predicate value --value <expected>` on the element
+  that shows the result, or `wait 300`.
 - Ref actions are semantic AT-SPI calls that never move the pointer or change
   the active window. `--headed` makes ref `click`, `right-click` and `type` try
   physical input first, with the required focus permission.
