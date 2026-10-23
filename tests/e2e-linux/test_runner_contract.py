@@ -12,24 +12,18 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-REPO = ROOT.parent.parent
 
 from runner import gate, legs, main, report
 from runner.legs import REGISTRY, Leg
 
 
-def contract_violations(registry, implementations, phases_text):
+def contract_violations(registry, implementations):
     problems = []
     ids = {leg.id for leg in registry}
     for leg_id in sorted(ids - set(implementations)):
         problems.append(f"no implementation registered for {leg_id}")
     for leg_id in sorted(set(implementations) - ids):
         problems.append(f"implementation registered for unregistered leg {leg_id}")
-    for leg in registry:
-        if leg.disposition == "owner-decision" and leg.id not in phases_text:
-            problems.append(
-                f"owner-decision leg {leg.id} is not named in the product contract"
-            )
     return problems
 
 
@@ -46,19 +40,17 @@ def make_binary(root: Path, body: str) -> Path:
 class RegistryContractTests(unittest.TestCase):
     def test_every_registry_leg_has_an_implementation(self):
         importlib.import_module("scenarios")
-        problems = contract_violations(
-            REGISTRY, legs.implementations(), (REPO / "docs" / "phases.md").read_text()
-        )
+        problems = contract_violations(REGISTRY, legs.implementations())
         self.assertEqual(problems, [])
 
     def test_unimplemented_record_is_a_violation(self):
-        problems = contract_violations(REGISTRY[:1], {}, "")
+        problems = contract_violations(REGISTRY[:1], {})
         self.assertEqual(len(problems), 1)
         self.assertIn("no implementation", problems[0])
 
     def test_unregistered_implementation_is_a_violation(self):
         problems = contract_violations(
-            REGISTRY[:1], {REGISTRY[0].id: lambda ctx: None, "phantom.id": lambda ctx: None}, ""
+            REGISTRY[:1], {REGISTRY[0].id: lambda ctx: None, "phantom.id": lambda ctx: None}
         )
         self.assertTrue(any("unregistered leg phantom.id" in p for p in problems))
 
@@ -74,8 +66,8 @@ class RegistryContractTests(unittest.TestCase):
                 disposition="pass",
             )
 
-    def test_owner_decision_must_be_named_in_the_product_contract(self):
-        leg = Leg(
+    def test_owner_decision_without_a_reason_fails_construction(self):
+        fields = dict(
             id="owner.case",
             requirement="r",
             target="t",
@@ -83,17 +75,11 @@ class RegistryContractTests(unittest.TestCase):
             modes=("headless",),
             oracles=("atspi",),
             disposition="owner-decision",
-            reason="the owner chose this",
         )
-        impls = {"owner.case": lambda ctx: None}
-        self.assertEqual(contract_violations((), impls, ""), [
-            "implementation registered for unregistered leg owner.case"
-        ])
-        problems = contract_violations((leg,), impls, "")
-        self.assertEqual(len(problems), 1)
-        self.assertIn("owner.case", problems[0])
-        phases_text = f"the ledger records {leg.id} as an owner decision"
-        self.assertEqual(contract_violations((leg,), impls, phases_text), [])
+        with self.assertRaises(ValueError):
+            Leg(reason="", **fields)
+        leg = Leg(reason="the owner chose this", **fields)
+        self.assertEqual(leg.disposition, "owner-decision")
 
 
 class GateTests(unittest.TestCase):

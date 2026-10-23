@@ -7,7 +7,7 @@ use super::clipboard_bytes::{argument_error, payload_error, read_utf16_units};
 const MAX_CLIPBOARD_TEXT_UTF16: usize = 1_000_000;
 
 pub(crate) fn decode_utf16_text(bytes: &[u8]) -> Result<String, AdapterError> {
-    if bytes.len() % 2 != 0 {
+    if !bytes.len().is_multiple_of(2) {
         return Err(payload_error(
             "CF_UNICODETEXT payload length is not a whole number of UTF-16 units",
         ));

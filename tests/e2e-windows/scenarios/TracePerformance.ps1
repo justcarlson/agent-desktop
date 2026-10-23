@@ -7,7 +7,7 @@
     scripted interaction are present, and cost is measured under the probe
     corpus methodology (min-of-seven, warm-up discarded, min/median/max
     reported) - the vehicle this platform can actually run, per
-    docs/phases.md's Definition of Done
+    probes/windows/FINDINGS.md A15-13
     (scripts/perf-baseline-compare.sh is macOS-bound and does not run
     here).
 

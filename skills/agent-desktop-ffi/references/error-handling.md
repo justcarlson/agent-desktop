@@ -43,13 +43,9 @@ routing to shared log surfaces.
 
 ## Lifetime contract
 
-The pointer returned by any `ad_last_error_*` accessor remains valid
-across any number of subsequent **successful** FFI calls. Only the next
-**failing** call rotates the slot.
-
-Consequence: you can cache the pointer right after a failure and keep
-reading it until the next failure — equivalent to POSIX `errno` /
-`strerror`.
+The pointer returned by any `ad_last_error_*` accessor stays valid across
+any number of later **successful** FFI calls. Only the next **failing** call
+rotates the slot, as with POSIX `errno` and `strerror`.
 
 ```c
 AdResult rc = ad_some_call(...);
@@ -60,11 +56,9 @@ ad_check_permissions(adapter);                // success
 printf("%s\n", msg);                          // still valid
 ```
 
-Failure-path calls rotate: if a subsequent call fails, the prior
-pointer may dangle. Read it before the next potentially-failing call.
-
-Last-error is per-thread (thread-local storage) — Thread A's failure
-does not affect Thread B's slot.
+After a later failure the earlier pointer may dangle, so read it before the
+next call that can fail. Last-error is thread-local: a failure on one thread
+does not touch another thread's slot.
 
 `ad_check_permissions` does not treat `Unknown` as success. Stub adapters
 that cannot answer permission probes return
@@ -74,9 +68,9 @@ read `ad_last_error_*` for the diagnostic.
 
 ## Error codes
 
-Numeric values are ABI-stable. New codes are appended; existing values
-are not renumbered. Always handle values outside this list — future
-releases may add codes.
+Numeric values are ABI-stable. New codes are appended, and existing values
+are never renumbered. Handle values outside this list, because a later
+release may add codes.
 
 | Name                                  | i32   | Meaning                                    |
 |---------------------------------------|-------|--------------------------------------------|
@@ -119,20 +113,17 @@ session for a matching snapshot ID.
 
 ## Off-main-thread migration
 
-ABI v3 removed the blanket macOS main-thread rejection. Adapter entrypoints may
-now run on any host thread, so callers must stop treating
-`AD_RESULT_ERR_INTERNAL` as an expected off-main-thread result. Native handles
-remain thread-affine capabilities: cross-thread, cross-adapter, released, or
-revoked handle use returns `AD_RESULT_ERR_INVALID_ARGS`. See
+Since ABI v3, adapter entrypoints run on any host thread, including off the
+macOS main thread, so `AD_RESULT_ERR_INTERNAL` is never an off-main-thread
+result. Native handles stay thread-affine: use from another thread or adapter,
+or after release or revocation, returns `AD_RESULT_ERR_INVALID_ARGS`. See
 [threading.md](threading.md) for the concurrency and ownership contract.
 
 ## Enum validation
 
 Every `#[repr(i32)]` enum field is validated at the C boundary. An
-out-of-range discriminant returns `AD_RESULT_ERR_INVALID_ARGS` with
-diagnostic last-error text. This prevents the consumer from accidentally
-triggering undefined behavior by stuffing an arbitrary `int32_t` into an
-enum slot. Affected fields: `AdAction.kind` (`AdActionKind`),
+out-of-range discriminant returns `AD_RESULT_ERR_INVALID_ARGS` with a
+last-error diagnostic, instead of undefined behavior. Validated fields: `AdAction.kind` (`AdActionKind`),
 `AdMouseEvent.kind` (`AdMouseEventKind`), `AdMouseEvent.button`
 (`AdMouseButton`), `AdScrollParams.direction` (`AdDirection`),
 `AdTreeOptions.surface` (`AdSnapshotSurface`), `AdScreenshotTarget.kind`
@@ -158,10 +149,8 @@ Always check `*out` for null before deciding whether to free.
 
 ## Panic safety
 
-Every `extern "C"` entrypoint wraps its body in `catch_unwind`. A
-Rust panic inside the FFI surfaces as `AD_RESULT_ERR_INTERNAL` with
-message `"rust panic in FFI boundary"`. No `SIGABRT`, no host crash.
-
-The cdylib must be built under the `release-ffi` profile for this
-guarantee to hold in optimized builds — the workspace `release` profile
-uses `panic = "abort"` (for CLI binary-size reasons).
+Every `extern "C"` entrypoint wraps its body in `catch_unwind`. A Rust panic
+inside the FFI surfaces as `AD_RESULT_ERR_INTERNAL` with the message
+`"rust panic in FFI boundary"`, not a host crash. This holds only for a cdylib
+built with the `release-ffi` profile, because the workspace `release` profile
+uses `panic = "abort"`.

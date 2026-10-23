@@ -20,8 +20,7 @@
 //! `NotifyWinEvent` - the cross-process legacy-control value bridge in this
 //! environment did not converge within any bound this test could use, which
 //! is a fact about how production `get --property value` behaves against a
-//! legacy out-of-process control, not only about this test's harness; it is
-//! recorded as a residual in `docs/dogfood-reports/`. The same mutation
+//! legacy out-of-process control, not only about this test's harness. The same mutation
 //! against a `LocalFixture` control is observed on the very next read, which
 //! is the narrower, in-process claim this module's tests actually establish.
 //! `fixture.rs`'s warning on `LocalFixture` - "never use it to validate the
