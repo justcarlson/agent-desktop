@@ -684,7 +684,7 @@ jobs:
   ffi-panic-guard:
     name: FFI Panic Guard (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.target == 'aarch64-apple-darwin' && 30 || 20 }}
     permissions:
       contents: read
     strategy:
