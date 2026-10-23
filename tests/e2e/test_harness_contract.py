@@ -39,6 +39,20 @@ class HarnessContractTests(unittest.TestCase):
         self.assertIsNotNone(finish)
         self.assertNotIn("abort_suite", finish.group("body"))
 
+    def test_json_parsed_captures_read_stdout_only(self):
+        offenders = [
+            f"{path.name}:{number}"
+            for path in SOURCED_SUITE_FILES
+            for number, line in enumerate(path.read_text().splitlines(), 1)
+            if '2>&1)"' in line
+        ]
+        self.assertEqual(
+            offenders,
+            [],
+            "the JSON envelope is on stdout; a capture that merges stderr "
+            "breaks json_tool when the binary logs a warning",
+        )
+
     def test_denied_automation_skips_when_notification_center_cannot_be_closed(self):
         source = (E2E_ROOT / "scenarios" / "acceptance.sh").read_text()
 
@@ -380,7 +394,7 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
     def test_ref_churn_close_app_failure_fails_and_still_ends_its_own_process(self):
         source = REF_CHURN.read_text()
         self.assertNotIn('skipmsg "$label close-app', source)
-        self.assertIn('close_output="$("$bin" close-app "$app" --force 2>&1)"', source)
+        self.assertIn('close_output="$("$bin" close-app "$app" --force 2>/dev/null)"', source)
         self.assertIn('badmsg "$label fixture still running after close-app', source)
         self.assertIn('kill -0 "$1"', source)
         self.assertIn('kill -9 "$churn_pid"', source)

@@ -250,7 +250,7 @@ verify() {
     shift 6
     local before after output command_ok error mechanism
     require_value before "$status"
-    output="$(act_target "$target" "$command" "$@" 2>&1)"
+    output="$(act_target "$target" "$command" "$@" 2>/dev/null)"
     sleep 0.35
     require_value after "$status"
     command_ok="$(json_field "$output" ok)"
