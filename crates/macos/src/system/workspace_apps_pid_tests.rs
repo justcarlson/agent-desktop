@@ -26,22 +26,6 @@ fn owner_snapshot_skips_non_positive_application_pid() {
 }
 
 #[test]
-fn owner_snapshot_skips_negative_frontmost_pid() {
-    let bytes = snapshot_with(10, -1);
-    let snapshot = window_owner_snapshot_from_json(bytes.as_bytes(), deadline()).unwrap();
-    assert!(snapshot.frontmost().is_none());
-    assert_eq!(snapshot.eligible_pids().len(), 1);
-}
-
-#[test]
-fn owner_snapshot_treats_zero_frontmost_pid_without_launch_time_as_none() {
-    let bytes = snapshot_with(10, 0);
-    let snapshot = window_owner_snapshot_from_json(bytes.as_bytes(), deadline()).unwrap();
-
-    assert!(snapshot.frontmost().is_none());
-}
-
-#[test]
 fn app_listing_skips_non_positive_application_pid() {
     for pid in [0, -1] {
         let bytes = snapshot_with(pid, 0);

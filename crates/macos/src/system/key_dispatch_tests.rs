@@ -14,18 +14,6 @@ fn process_preflight_failure_reports_no_key_delivery() {
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
 
-#[test]
-fn key_dispatch_rejects_non_unique_display_names() {
-    let error = match [10, 11].as_slice() {
-        [pid] => Ok(*pid),
-        pids => Err(AdapterError::ambiguous_target("duplicate app name")
-            .with_details(serde_json::json!({ "candidate_pids": pids }))),
-    }
-    .expect_err("duplicate names must be ambiguous");
-
-    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
-}
-
 fn combo(modifiers: Vec<Modifier>) -> KeyCombo {
     KeyCombo {
         key: "a".into(),

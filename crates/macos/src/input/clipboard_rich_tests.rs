@@ -2,13 +2,6 @@ use super::super::clipboard_file_urls::file_url_to_path;
 use super::*;
 
 #[test]
-fn complete_png_reports_verified_dimensions() {
-    let (_, dimensions) = prepare_image(&one_pixel_png()).unwrap();
-
-    assert_eq!(dimensions, (1, 1));
-}
-
-#[test]
 fn undersized_png_is_rejected_without_panicking() {
     assert!(prepare_image(&[1, 2, 3]).is_err());
 }

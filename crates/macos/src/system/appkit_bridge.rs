@@ -201,16 +201,6 @@ pub(crate) fn workspace_snapshot_json() -> Result<Vec<u8>, AdapterError> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn termination_outcomes_are_closed_and_distinct() {
-        assert_ne!(TerminationOutcome::Accepted, TerminationOutcome::Rejected);
-        assert_ne!(TerminationOutcome::Missing, TerminationOutcome::Rejected);
-        assert_ne!(
-            TerminationOutcome::IdentityMismatch,
-            TerminationOutcome::Rejected
-        );
-    }
-
     #[cfg(target_os = "macos")]
     #[test]
     fn workspace_snapshot_bridge_failures_are_structured() {

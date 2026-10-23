@@ -279,11 +279,6 @@ mod tests {
     }
 
     #[test]
-    fn zero_drop_delay_has_no_forced_dwell_ticks() {
-        assert_eq!(0_u64.div_ceil(DWELL_TICK_MS), 0);
-    }
-
-    #[test]
     fn impossible_drag_deadline_fails_before_mouse_down() {
         let params = DragParams {
             from: Point { x: 0.0, y: 0.0 },
@@ -295,15 +290,5 @@ mod tests {
 
         assert_eq!(error.code, ErrorCode::Timeout);
         assert_eq!(error.details.unwrap()["physical_delivery_started"], false);
-    }
-
-    #[test]
-    fn sub_tick_drag_uses_one_nonzero_duration_step() {
-        let duration_ms = 1_u64;
-        let steps = duration_ms.div_ceil(DWELL_TICK_MS).clamp(1, MAX_STEPS);
-        let step_delay = Duration::from_secs_f64(duration_ms as f64 / steps as f64 / 1_000.0);
-
-        assert_eq!(steps, 1);
-        assert_eq!(step_delay, Duration::from_millis(1));
     }
 }
