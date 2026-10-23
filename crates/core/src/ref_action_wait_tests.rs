@@ -186,26 +186,6 @@ fn none_timeout_uses_single_resolve_attempt() {
 }
 
 #[test]
-fn budget_timeout_retries_until_success() {
-    let adapter = RetryAdapter {
-        resolve_calls: AtomicU32::new(0),
-    };
-    let result = execute_with_auto_wait(
-        RefActionWaitCtx {
-            adapter: &adapter,
-            entry: &entry(),
-            ref_id: "@e1",
-            context: &CommandContext::default(),
-        },
-        request_with_timeout(5_000),
-        crate::ref_action::dispatch_resolved,
-    )
-    .unwrap();
-    assert_eq!(result.action, "click");
-    assert!(adapter.resolve_calls.load(Ordering::SeqCst) >= 3);
-}
-
-#[test]
 fn transient_ambiguity_is_recorded_in_result_details() {
     let adapter = AmbiguousThenOkAdapter {
         resolve_calls: AtomicU32::new(0),

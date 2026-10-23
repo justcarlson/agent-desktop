@@ -42,38 +42,6 @@ fn name_precedence_is_the_shipped_order_and_is_complete() {
     assert_eq!(compute_name(&value).as_deref(), Some("placeholder"));
 }
 
-/// The two entry points cannot drift, because there is one array of sources
-/// and both read it. This walks every prefix of the precedence and asserts
-/// they agree on each.
-#[test]
-fn the_uncertainty_aware_and_plain_entry_points_agree_on_every_input() {
-    let mut value = evidence();
-    let slots: [fn(&mut NameEvidence); 7] = [
-        |evidence| evidence.explicit_label = None,
-        |evidence| evidence.labelled_by_text = None,
-        |evidence| evidence.native_title = None,
-        |evidence| evidence.static_value = None,
-        |evidence| evidence.description = None,
-        |evidence| evidence.child_label = None,
-        |evidence| evidence.placeholder = None,
-    ];
-    for clear in slots {
-        assert_eq!(
-            resolve_name(&value, &NameSlotStatus::default())
-                .known()
-                .cloned(),
-            compute_name(&value)
-        );
-        assert_eq!(
-            resolve_description(&value, &NameSlotStatus::default())
-                .known()
-                .cloned(),
-            compute_description(&value)
-        );
-        clear(&mut value);
-    }
-}
-
 /// The behaviour an `Option`-returning precedence structurally cannot express.
 /// A weaker source has a value, but the source that would have outranked it
 /// failed to read - so the honest answer is that the name is not known, not

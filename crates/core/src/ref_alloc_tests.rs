@@ -290,12 +290,6 @@ fn allocate_refs_skips_web_container_noise() {
 }
 
 #[test]
-fn interactive_role_is_ref_able_even_without_actions() {
-    let button = node("button", Some("OK"));
-    assert!(is_ref_able(&button));
-}
-
-#[test]
 fn allocate_refs_records_structural_paths() {
     let mut root = node("window", Some("w"));
     let mut group = node("group", Some("List"));

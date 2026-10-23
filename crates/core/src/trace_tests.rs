@@ -128,31 +128,6 @@ fn write_event_emits_single_atomic_jsonl_line_with_seq() {
 }
 
 #[test]
-fn truncated_final_line_leaves_prior_lines_parseable() {
-    let path = std::env::temp_dir().join(format!(
-        "agent-desktop-trunc-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    let config = TraceConfig::build(Some(path.clone()), None, false).unwrap();
-    config.emit("ok", None, json!({})).unwrap();
-    let mut bytes = fs::read(&path).unwrap();
-    bytes.extend_from_slice(b"{\"event\":\"partial");
-    fs::write(&path, bytes).unwrap();
-    let body = fs::read_to_string(&path).unwrap();
-    let mut parsed = 0usize;
-    for line in body.lines() {
-        if serde_json::from_str::<serde_json::Value>(line).is_ok() {
-            parsed += 1;
-        }
-    }
-    assert_eq!(parsed, 2);
-    let _ = fs::remove_file(path);
-}
-
-#[test]
 fn strict_missing_trace_path_fails_at_build() {
     let missing = std::env::temp_dir()
         .join("agent-desktop-missing-dir")

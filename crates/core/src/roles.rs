@@ -152,28 +152,6 @@ mod tests {
     }
 
     #[test]
-    fn toggleable_roles_are_a_subset_of_interactive() {
-        for role in ["checkbox", "switch", "radiobutton"] {
-            assert!(is_toggleable_role(role));
-            assert!(is_interactive_role(role));
-        }
-        assert!(!is_toggleable_role("button"));
-        assert!(!is_toggleable_role("textfield"));
-    }
-
-    #[test]
-    fn interactive_expandable_roles_are_interactive() {
-        for role in ["combobox", "menubutton", "treeitem"] {
-            assert!(is_expandable_role(role));
-            assert!(is_interactive_role(role));
-        }
-        assert!(is_expandable_role("disclosure"));
-        assert!(!is_interactive_role("disclosure"));
-        assert!(!is_expandable_role("button"));
-        assert!(!is_expandable_role("checkbox"));
-    }
-
-    #[test]
     fn interactive_role_expandables_are_in_interactive_roles() {
         for role in ["combobox", "menubutton", "treeitem"] {
             assert!(
@@ -185,6 +163,10 @@ mod tests {
                 "expandable role {role} missing from INTERACTIVE_ROLES"
             );
         }
+        assert!(is_expandable_role("disclosure"));
+        assert!(!is_interactive_role("disclosure"));
+        assert!(!is_expandable_role("button"));
+        assert!(!is_expandable_role("checkbox"));
     }
 
     #[test]
@@ -197,6 +179,8 @@ mod tests {
                 "toggleable role {role} missing from INTERACTIVE_ROLES"
             );
         }
+        assert!(!is_toggleable_role("button"));
+        assert!(!is_toggleable_role("textfield"));
     }
 
     #[test]

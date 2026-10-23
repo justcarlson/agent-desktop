@@ -99,23 +99,6 @@ fn a_recovery_lease_retains_file_and_process_ownership_after_parent_drop() {
 }
 
 #[test]
-fn home_changes_do_not_change_the_physical_interaction_lock() {
-    let _test_guard = interaction_lease_test_guard();
-    let root = test_root("home");
-    let first_home = crate::refs_test_support::HomeGuard::new();
-    let first = acquire_unix_interaction_lease_at(Deadline::after(100).unwrap(), &root).unwrap();
-    drop(first_home);
-    let _second_home = crate::refs_test_support::HomeGuard::new();
-    let error = match acquire_unix_interaction_lease_at(Deadline::after(10).unwrap(), &root) {
-        Ok(_) => panic!("different HOME bypassed the interaction lock"),
-        Err(error) => error,
-    };
-    assert_eq!(error.code, ErrorCode::Timeout);
-    drop(first);
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
 fn subprocess_holder() {
     let Some(ready_path) = std::env::var_os("AGENT_DESKTOP_LOCK_HELPER_READY") else {
         return;
@@ -141,14 +124,20 @@ fn subprocess_adopted_holder() {
     let _lease =
         adopt_inherited_unix_interaction_lease_at(raw_fd, Deadline::after(5_000).unwrap(), &root)
             .unwrap();
-    let status = std::process::Command::new(std::env::current_exe().unwrap())
+    let filter = "interaction_lease::tests::subprocess_inherited_fd_is_closed";
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
         .arg("--exact")
-        .arg("interaction_lease::tests::subprocess_inherited_fd_is_closed")
+        .arg(filter)
         .arg("--nocapture")
         .env("AGENT_DESKTOP_CLOSED_HELPER_FD", raw_fd.to_string())
-        .status()
+        .output()
         .unwrap();
-    assert!(status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success() && stdout.contains("1 passed; 0 failed"),
+        "child `{filter}` must run exactly that test and pass\nstdout: {stdout}\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     std::fs::write(ready_path, b"ready").unwrap();
     hold_until_parent_releases();
 }

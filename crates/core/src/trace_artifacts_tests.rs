@@ -182,37 +182,6 @@ impl SystemOps for FailingScreenshotAdapter {
     }
 }
 
-struct DefaultScreenshotAdapter;
-
-impl ObservationOps for DefaultScreenshotAdapter {
-    fn resolve_element_strict(
-        &self,
-        _entry: &RefEntry,
-        _deadline: crate::Deadline,
-    ) -> Result<NativeHandle, AdapterError> {
-        Ok(NativeHandle::null())
-    }
-
-    crate::adapter::complete_live_observation!("button", "Run", [capability::CLICK]);
-}
-
-impl ActionOps for DefaultScreenshotAdapter {
-    fn execute_action(
-        &self,
-        _handle: &NativeHandle,
-        _request: ActionRequest,
-        _lease: &crate::InteractionLease,
-    ) -> Result<ActionResult, AdapterError> {
-        Ok(ActionResult::delivered_unverified("ok"))
-    }
-}
-
-impl InputOps for DefaultScreenshotAdapter {}
-
-impl SystemOps for DefaultScreenshotAdapter {
-    crate::adapter::guarded_interaction_lease!();
-}
-
 pub(super) fn run_ref_action(
     context: &CommandContext,
     adapter: &dyn PlatformAdapter,

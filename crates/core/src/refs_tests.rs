@@ -49,55 +49,6 @@ fn test_allocate_sequential() {
 }
 
 #[test]
-fn test_get_existing() {
-    let mut map = RefMap::new();
-    let bounds = crate::Rect {
-        x: 1.0,
-        y: 1.0,
-        width: 20.0,
-        height: 20.0,
-    };
-    let ref_id = map.allocate(RefEntry {
-        process: crate::RefProcess {
-            pid: crate::ProcessId::new(42),
-            process_instance: Some("test-instance".into()),
-        },
-        identity: crate::RefEntryIdentity {
-            retained_object: None,
-            role: "textfield".into(),
-            name: None,
-            value: None,
-            description: None,
-            native_id: None,
-        },
-        geometry: crate::RefGeometry {
-            bounds_space: None,
-            bounds: Some(bounds),
-            bounds_hash: bounds.bounds_hash(),
-        },
-        capabilities: crate::RefCapabilities {
-            states: vec![],
-            available_actions: vec![],
-        },
-        source: crate::RefSource {
-            source_app: Some("Finder".into()),
-            source_window_id: None,
-            source_window_title: Some("Documents".into()),
-            source_window_bounds_hash: None,
-            source_surface: crate::adapter::SnapshotSurface::Window,
-        },
-        scope: crate::RefScope {
-            root_ref: None,
-            path_is_absolute: false,
-            path: smallvec::SmallVec::new(),
-        },
-    });
-    let retrieved = map.get(&ref_id).unwrap();
-    assert_eq!(retrieved.process.pid, 42);
-    assert_eq!(retrieved.identity.role, "textfield");
-}
-
-#[test]
 fn test_get_missing() {
     let map = RefMap::new();
     assert!(map.get("@e99").is_none());
@@ -270,6 +221,7 @@ fn test_save_load_roundtrip_with_home_override() {
     assert_eq!(loaded.len(), 1);
     let entry = loaded.get("@e1").unwrap();
     assert_eq!(entry.process.pid, 7);
+    assert_eq!(entry.identity.role, "button");
     assert_eq!(entry.identity.name.as_deref(), Some("Send"));
 }
 
