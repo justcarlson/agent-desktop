@@ -138,7 +138,7 @@ fn client_of(pid: u32) -> u32 {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirect_cover() {
     let bus = SharedBus::default();
     let mut launched = Launched::new();

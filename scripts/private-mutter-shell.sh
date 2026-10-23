@@ -42,7 +42,7 @@ stop_all() {
 trap stop_all EXIT
 
 display=
-exec 9> "${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}/display.lock"
+exec 9> "${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}/display.lock"
 flock 9
 for candidate in $(seq 200 249); do
   [ -e "/tmp/.X11-unix/X$candidate" ] || [ -e "/tmp/.X$candidate-lock" ] && continue

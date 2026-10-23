@@ -31,7 +31,7 @@ fn count<P>(node: &WalkedNode<P>) -> usize {
 /// was read. The next level can never be answered, so the walk has to hand
 /// back the tree read so far at the deadline, not at the per-call timeout.
 #[test]
-#[ignore = "drives a real desktop application; run through scripts/remote-linux.sh"]
+#[ignore = "drives a real desktop application; run through scripts/linux-live-gate.sh"]
 fn walker_live_stopped_app_returns_a_partial_walk_at_the_deadline() {
     let bus = SharedBus::default();
     let connection = bus

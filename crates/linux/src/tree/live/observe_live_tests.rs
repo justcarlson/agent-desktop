@@ -19,7 +19,7 @@ fn nodes(node: &AccessibilityNode) -> usize {
 }
 
 #[test]
-#[ignore = "drives a real desktop application; run through scripts/remote-linux.sh"]
+#[ignore = "drives a real desktop application; run through scripts/linux-live-gate.sh"]
 fn observe_live_calculator_returns_a_complete_reffed_tree() {
     let bus = SharedBus::default();
     let connection = bus

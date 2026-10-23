@@ -13,7 +13,10 @@ from runner import stage
 
 
 def main(argv: list[str]) -> None:
-    base = Path(os.environ.get("AGENT_DESKTOP_SESSION_BASE") or Path.home() / "ad-wt")
+    base = Path(
+        os.environ.get("AGENT_DESKTOP_SESSION_BASE")
+        or Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+    )
     base.mkdir(parents=True, exist_ok=True)
     suite = Path(os.environ.get("AGENT_DESKTOP_E2E_SUITE")
                  or tempfile.mkdtemp(prefix="e2e-suite-", dir=base)).resolve()

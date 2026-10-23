@@ -306,7 +306,8 @@ def main(argv: list[str]) -> int:
     os.environ["AGENT_DESKTOP_E2E_BIN"] = str(binary)
 
     session_base = Path(
-        env.get("AGENT_DESKTOP_SESSION_BASE") or str(Path.home() / "ad-wt")
+        env.get("AGENT_DESKTOP_SESSION_BASE")
+        or Path(env.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
     )
     session.sweep_strays(session_base)
 

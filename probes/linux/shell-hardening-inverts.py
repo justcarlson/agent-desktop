@@ -62,7 +62,9 @@ source = Path(path)
 original = source.read_bytes()
 text = original.decode()
 assert text.count(old) == 1, f"mutation anchor count: {case}"
-logs = Path.home() / "ad-wt/linux-3.15-shell-proof"
+logs = (Path(os.environ.get("AGENT_DESKTOP_SESSION_BASE")
+             or Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions")
+        / "linux-3.15-shell-proof")
 logs.mkdir(parents=True, exist_ok=True)
 command = ("export CARGO_INCREMENTAL=0 && cargo test -p agent-desktop-linux --lib "
            + test + " -- --ignored --nocapture --test-threads=1")

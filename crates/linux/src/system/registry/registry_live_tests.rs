@@ -41,7 +41,7 @@ fn signal(name: &str, pid: u32) {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn registry_live_lists_apps_and_windows_and_keeps_a_stopped_app() {
     let bus = SharedBus::default();
     let mut launched = Launched::new();
@@ -127,7 +127,7 @@ fn registry_live_lists_apps_and_windows_and_keeps_a_stopped_app() {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn registry_live_names_a_running_process_that_is_not_on_the_bus() {
     let bus = SharedBus::default();
     let mut launched = Launched::new();

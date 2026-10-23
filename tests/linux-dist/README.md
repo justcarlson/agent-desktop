@@ -29,8 +29,8 @@ Build the CLI, FFI library and clipboard owner from the same checkout. Create
 the CLI and FFI archives using the release workflow layout. Run each of the
 first three commands inside its own private session. `scripts/private-session.sh --wm` starts a
 private session bus, Xvfb display and Openbox; it looks for Openbox at
-`$AGENT_DESKTOP_WM_ROOT/usr/bin/openbox` (default `$HOME/ad-wt/wm-pkgs/root`),
-so set `AGENT_DESKTOP_WM_ROOT=/` to use a system Openbox, as CI does. The apt
+`$AGENT_DESKTOP_WM_ROOT/usr/bin/openbox` (`AGENT_DESKTOP_WM_ROOT` defaults to `/`).
+Set it to an alternate installation root when needed. The apt
 packages the checks need are listed in the `linux-consumer` job of
 `.github/workflows/release-dry-run.yml`; the npm check also needs Node and npm.
 

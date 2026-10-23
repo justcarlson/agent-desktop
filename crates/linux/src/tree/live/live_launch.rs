@@ -243,7 +243,7 @@ mod activated_tests {
     #[test]
     fn the_sweep_runs_only_in_the_private_sessions_own_runtime_directory() {
         let live = OsStr::new("/run/user/1000");
-        let private = OsStr::new("/home/user/ad-wt/rt.AbC123");
+        let private = OsStr::new("/tmp/agent-desktop-sessions/rt.AbC123");
         assert!(!is_private_runtime(live, None));
         assert!(!is_private_runtime(live, Some(private)));
         assert!(is_private_runtime(private, Some(private)));

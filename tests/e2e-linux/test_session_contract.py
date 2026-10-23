@@ -170,7 +170,7 @@ class StraySweepTests(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.TemporaryDirectory()
         self.addCleanup(self.root.cleanup)
-        self.base = Path(self.root.name) / "ad-wt"
+        self.base = Path(self.root.name) / "sessions"
         self.proc = Path(self.root.name) / "proc"
         self.base.mkdir()
 
@@ -268,7 +268,7 @@ class StubWrapperTests(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.TemporaryDirectory()
         self.addCleanup(self.root.cleanup)
-        self.base = Path(self.root.name) / "ad-wt"
+        self.base = Path(self.root.name) / "sessions"
         self.suite = Path(self.root.name) / "suite"
 
     def stub_session(self, body: str) -> Path:

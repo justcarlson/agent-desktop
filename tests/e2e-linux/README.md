@@ -12,23 +12,11 @@ bash tests/e2e-linux/run.sh --tier x11-openbox
 
 Each run builds (`cargo build --locked --release`) into its own suite's temporary Cargo target, stages both executables in `<suite>/bin/`, and records their SHA256s in adjacent `.sha256` files and in the startup `image:` lines. It then removes the build intermediates. Every leg uses that pinned pair. A staged hash mismatch fails the run, and other worktrees' builds cannot replace either image. An externally supplied `AGENT_DESKTOP_E2E_BIN` (or `AGENT_DESKTOP_E2E_BIN_SRC`) skips the build and freezes that image and its adjacent helper before the interaction lease is taken.
 
-Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}`. The runner starts its own private sessions and takes the interaction lease.
+Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}`. The runner starts its own private sessions and takes the interaction lease.
 
 Exit codes: `0` every leg passed or asserted its refusal; `1` any other outcome (see Outcomes); `2` the gate refused to start (missing prerequisite, unknown leg, leg not registered for the tier, staging failure, or the interaction lease is already held). Nothing ran on exit 2.
 
-On the shared validation host, enter only through `scripts/remote-linux.sh -c` and bound each call with `AGENT_DESKTOP_REMOTE_TIMEOUT`. The wrapper refuses `sudo`, name-based kills (`pkill`, `killall`) and `dbus-run-session` without a private `XDG_RUNTIME_DIR`. Build and live validation stay in the same bounded call. Timeouts are whole seconds; the first bounds the whole call, the second bounds waiting for the shared box lock. This call is under 15 minutes including lock wait:
-
-```sh
-AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=60 \
-  bash scripts/remote-linux.sh -c '
-    export CARGO_INCREMENTAL=0 &&
-    suite=$(mktemp -d "$HOME/ad-wt/e2e-docs.XXXXXX") &&
-    AGENT_DESKTOP_E2E_SUITE="$suite" \
-      bash tests/e2e-linux/run.sh --tier x11-openbox --leg clipboard.text_roundtrip
-  '
-```
-
-A lock-wait expiry is infrastructure contention before any test runs. Keep failed suites for diagnosis; the runner removes a successful suite. Use another fresh suite for the sole diagnostic rerun. Do not reuse a suite with a different binary image.
+Keep failed suites for diagnosis; the runner removes a successful suite. Use another fresh suite for the sole diagnostic rerun. Do not reuse a suite with a different binary image.
 
 ### Prerequisites
 
@@ -36,7 +24,7 @@ A lock-wait expiry is infrastructure contention before any test runs. Keep faile
 
 - Python 3 with PyGObject (`import gi`).
 - Base tools: `Xvfb`, `dbus-daemon`, `dbus-update-activation-environment`, `gdbus`, `busctl`, `gsettings`, `setsid`, `xprop`, `xwininfo`, `xwd`, `fusermount`, `timeout`.
-- `x11-openbox`: `xdotool`, `wmctrl`, `xclip`, and the openbox binary at `$AGENT_DESKTOP_WM_ROOT/usr/bin/openbox` (`AGENT_DESKTOP_WM_ROOT` defaults to `~/ad-wt/wm-pkgs/root`).
+- `x11-openbox`: `xdotool`, `wmctrl`, `xclip`, and the openbox binary at `$AGENT_DESKTOP_WM_ROOT/usr/bin/openbox` (`AGENT_DESKTOP_WM_ROOT` defaults to `/`).
 - `x11-mutter`: `gnome-shell`, `xdotool`, `wmctrl`, `xclip`.
 - `wayland`: `gnome-shell`, `wl-copy`, `wl-paste`.
 - The legs also drive the GNOME apps Calculator, Text Editor, Files, Terminal and Settings, and a PyQt6 test window. AT-SPI must be available in the private session.
@@ -150,7 +138,7 @@ Rerun a failed leg at most once to distinguish a deterministic product defect fr
 
 ### Negative control
 
-`--lying-actions` replaces the CLI with a fake that always answers `ok:true` without real refs or effects, so any selection must fail. It may fail at ref acquisition before an action; portable lying-effect tests separately exercise the effect and restoration checks. It is an expected failure, run in the same remote form as above with a fresh suite and this payload:
+`--lying-actions` replaces the CLI with a fake that always answers `ok:true` without real refs or effects, so any selection must fail. It may fail at ref acquisition before an action; portable lying-effect tests separately exercise the effect and restoration checks. Run this expected failure locally with a fresh suite:
 
 ```sh
 bash tests/e2e-linux/run.sh --tier x11-openbox --leg state.text_editor_semantic_type --lying-actions
@@ -165,24 +153,23 @@ At startup the runner prints `suite:` and both `image:` hashes. When a private t
 This bounded check waits for the receipt rather than guessing a PID or sleeping before a signal:
 
 ```sh
-AGENT_DESKTOP_REMOTE_TIMEOUT=720 AGENT_DESKTOP_REMOTE_LOCK_TIMEOUT=240 \
-  bash scripts/remote-linux.sh -c '
-    export CARGO_INCREMENTAL=0
-    suite=$(mktemp -d "$HOME/ad-wt/e2e-cancel.XXXXXX")
-    AGENT_DESKTOP_E2E_SUITE="$suite" bash tests/e2e-linux/run.sh \
-      --tier x11-mutter --leg ref_actions.right_click >"$suite/run.log" 2>&1 &
-    job=$!
-    python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" --wait 600
-    signal_rc=$?
-    wait "$job"; rc=$?
-    cat "$suite/run.log"
-    test "$signal_rc" -eq 0 && test "$rc" -eq 143 || exit 1
-    python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" \
-      --check-cleanup --wait 60
-  '
+export CARGO_INCREMENTAL=0
+base=${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}
+mkdir -p "$base"
+suite=$(mktemp -d "$base/e2e-cancel.XXXXXX")
+AGENT_DESKTOP_E2E_SUITE="$suite" bash tests/e2e-linux/run.sh \
+  --tier x11-mutter --leg ref_actions.right_click >"$suite/run.log" 2>&1 &
+job=$!
+python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" --wait 600
+signal_rc=$?
+wait "$job"; rc=$?
+cat "$suite/run.log"
+test "$signal_rc" -eq 0 && test "$rc" -eq 143 || exit 1
+python3 -I tests/e2e-linux/runner/cancel.py "$suite/x11-mutter.ready.json" \
+  --check-cleanup --wait 60
 ```
 
-`cancel.py` checks the marker, exact `runner/main.py` command, user and start token before sending SIGTERM through a Linux PID descriptor. A changed or exited generation is refused. The final check waits until the runtime directory is absent and no process environment references it. Run the entire payload in one wrapper call; never overlap two calls from this worktree. The next run sweeps abandoned sessions whose recorded runner has exited.
+`cancel.py` checks the marker, exact `runner/main.py` command, user and start token before sending SIGTERM through a Linux PID descriptor. A changed or exited generation is refused. The final check waits until the runtime directory is absent and no process environment references it. Run these commands together in one local shell. The next run sweeps abandoned sessions whose recorded runner has exited.
 
 ## Portable self-tests
 

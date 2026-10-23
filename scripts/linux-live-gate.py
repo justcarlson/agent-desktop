@@ -183,7 +183,7 @@ def source_hash():
         files.extend(folder.rglob("Cargo.toml"))
     files.extend(ROOT / "scripts" / name for name in (
         "linux-live-gate.py", "linux-live-gate.sh", "private-session.sh",
-        "private-mutter-shell.sh", "private-wayland-shell.sh", "session-env.sh"))
+        "private-mutter-shell.sh", "private-wayland-shell.sh"))
     digest = hashlib.sha256()
     for path in sorted(files):
         digest.update(str(path.relative_to(ROOT)).encode())
@@ -353,7 +353,10 @@ def main():
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
     os.chdir(ROOT)
-    base = Path(os.environ.get("AGENT_DESKTOP_SESSION_BASE", str(Path.home() / "ad-wt")))
+    base = Path(
+        os.environ.get("AGENT_DESKTOP_SESSION_BASE")
+        or Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+    )
     output = (args.output or base / f"live-gate-{time.time_ns()}").resolve()
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "manifest.json"

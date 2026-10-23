@@ -27,7 +27,8 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 
-base=${AGENT_DESKTOP_SESSION_BASE:-$HOME/ad-wt}
+base=${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}
+export AGENT_DESKTOP_SESSION_BASE=$base
 mkdir -p "$base"
 rt=$(mktemp -d "$base/rt.XXXXXX")
 chmod 700 "$rt"
@@ -148,7 +149,7 @@ dbus-update-activation-environment DISPLAY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_D
   XDG_CACHE_HOME TMPDIR GSETTINGS_BACKEND XDG_CURRENT_DESKTOP AGENT_DESKTOP_PRIVATE_SESSION AGENT_DESKTOP_HOME
 
 if [ "$wm" = 1 ]; then
-  wm_root=${AGENT_DESKTOP_WM_ROOT:-$HOME/ad-wt/wm-pkgs/root}
+  wm_root=${AGENT_DESKTOP_WM_ROOT:-/}
   [ -x "$wm_root/usr/bin/openbox" ] || {
     echo "private-session: --wm needs openbox at $wm_root/usr/bin/openbox" >&2
     exit 1

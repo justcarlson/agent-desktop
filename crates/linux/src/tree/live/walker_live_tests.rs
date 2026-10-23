@@ -289,7 +289,7 @@ fn vscode(bus: &SharedBus, connection: &Connection) -> Result<(), String> {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn walker_live_real_apps() {
     let bus = SharedBus::default();
     let connection = bus

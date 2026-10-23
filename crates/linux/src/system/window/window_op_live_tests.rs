@@ -284,25 +284,25 @@ fn manager() -> String {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_gtk3() {
     exercise("gtk3", &manager());
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_gtk4() {
     exercise("gtk4", &manager());
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_qt() {
     exercise("qt", &manager());
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_a_destroyed_window_is_bad_window_and_not_success() {
     let bus = SharedBus::default();
     let mut launched = Launched::new();
@@ -344,7 +344,7 @@ fn window_op_live_a_destroyed_window_is_bad_window_and_not_success() {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_a_restore_of_a_minimized_window_works_every_time() {
     let manager = manager();
     for kind in ["gtk3", "gtk4", "qt"] {
