@@ -1,5 +1,5 @@
-use super::*;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
+use crate::ref_action::*;
 use crate::{
     ErrorCode, action::Action, action_result::ActionResult, capability,
     element_state::ElementState, refs::RefEntry, snapshot_surface::SnapshotSurface,

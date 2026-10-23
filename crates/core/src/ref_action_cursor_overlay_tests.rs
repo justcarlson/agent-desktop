@@ -1,7 +1,7 @@
-use super::*;
 use crate::adapter::{
     ActionOps, InputOps, NativeHandle, ObservationOps, SnapshotSurface, SystemOps,
 };
+use crate::ref_action::*;
 use crate::{Action, ActionResult, AdapterError, CursorOverlayControl, capability};
 use std::sync::Mutex;
 

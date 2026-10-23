@@ -267,3 +267,15 @@ mod retry;
 
 #[path = "resolve_retry_classification_tests.rs"]
 mod retry_classification;
+
+#[path = "resolve_verdict_tests.rs"]
+mod verdict;
+
+#[path = "resolve_ambiguity_tests.rs"]
+mod ambiguity;
+
+#[path = "resolve_tie_break_tests.rs"]
+mod tie_break;
+
+#[path = "resolve_path_fallback_tests.rs"]
+mod path_fallback;

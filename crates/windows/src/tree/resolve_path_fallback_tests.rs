@@ -1,4 +1,4 @@
-use super::*;
+use crate::tree::resolve::*;
 use agent_desktop_core::{LocatorEvidence, refs::RefPath};
 
 /// The fixture control the stored ref names. Its role is shared with the

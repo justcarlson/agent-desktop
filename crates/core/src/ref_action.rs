@@ -378,23 +378,3 @@ pub(crate) fn into_adapter_error(err: AppError) -> AdapterError {
 #[cfg(test)]
 #[path = "ref_action_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "ref_action_cursor_overlay_tests.rs"]
-mod cursor_overlay_tests;
-
-#[cfg(test)]
-#[path = "ref_action_scroll_recovery_tests.rs"]
-mod scroll_recovery_tests;
-
-#[cfg(test)]
-#[path = "ref_action_moving_incrementor_tests.rs"]
-mod moving_incrementor_tests;
-
-#[cfg(test)]
-#[path = "ref_action_disabled_offscreen_tests.rs"]
-mod disabled_offscreen_tests;
-
-#[cfg(test)]
-#[path = "ref_action_keyboard_tests.rs"]
-mod keyboard_tests;

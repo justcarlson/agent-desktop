@@ -1,5 +1,5 @@
-use super::*;
 use crate::adapter::{ActionOps, InputOps, LiveElement, ObservationOps, SystemOps};
+use crate::ref_action::*;
 use crate::{Action, BoundsSpace, ElementState, RefGeometry, capability};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 

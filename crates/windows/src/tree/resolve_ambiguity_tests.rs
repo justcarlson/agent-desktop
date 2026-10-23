@@ -1,6 +1,6 @@
-use super::*;
+use crate::tree::resolve::*;
 
-use super::pair_window::{
+use crate::tree::resolve::pair_window::{
     APP_MARKER, DuplicatePairWindow, NAME_MARKER, PairGeometry, TITLE_MARKER, automation_id,
     collect_marked,
 };

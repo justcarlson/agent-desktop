@@ -1,7 +1,7 @@
-use super::*;
+use crate::tree::resolve::*;
 use agent_desktop_core::{LocatorEvidence, LocatorField, refs::RefPath};
 
-use super::pair_window::{
+use crate::tree::resolve::pair_window::{
     DuplicatePairWindow, NAME_MARKER, PairGeometry, TITLE_MARKER, automation_id, collect_marked,
 };
 use crate::tree::resolve_search::{

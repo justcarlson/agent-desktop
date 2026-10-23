@@ -364,3 +364,18 @@ fn ref_label_from_entry_uses_role_and_path_indices() {
 
 #[path = "ref_action_trace_failure_tests.rs"]
 mod trace_failure_tests;
+
+#[path = "ref_action_cursor_overlay_tests.rs"]
+mod cursor_overlay_tests;
+
+#[path = "ref_action_scroll_recovery_tests.rs"]
+mod scroll_recovery_tests;
+
+#[path = "ref_action_moving_incrementor_tests.rs"]
+mod moving_incrementor_tests;
+
+#[path = "ref_action_disabled_offscreen_tests.rs"]
+mod disabled_offscreen_tests;
+
+#[path = "ref_action_keyboard_tests.rs"]
+mod keyboard_tests;

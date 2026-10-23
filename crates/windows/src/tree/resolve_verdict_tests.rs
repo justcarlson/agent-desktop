@@ -2,7 +2,7 @@
 //! region alone withholds a negative one, and only a walk that read everything
 //! may settle `STALE_REF`.
 
-use super::*;
+use crate::tree::resolve::*;
 
 fn entry() -> RefEntry {
     let mut entry = crate::tree::walker_fake::ref_entry("button");
