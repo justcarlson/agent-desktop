@@ -263,9 +263,10 @@ mod windows_only {
     }
 
     /// The policy is asserted against a real out-of-process provider, because
-    /// an in-process one is exactly the branch the policy says to skip.
+    /// an in-process one is exactly the branch the policy says to skip: a
+    /// provider nested into the target's own process must engage the cache.
     #[test]
-    fn the_policy_reads_a_real_provider_without_carrying_its_description_anywhere() {
+    fn a_real_out_of_process_provider_engages_the_cache() {
         bootstrap();
         let fixture = HostedFixture::spawn().expect("the fixture host starts");
         let root = crate::tree::automation::root_from_hwnd(
@@ -274,12 +275,6 @@ mod windows_only {
         )
         .expect("the fixture window resolves");
 
-        let policy = policy_for_root(&root);
-
-        assert!(matches!(policy, CachePolicy::Batch | CachePolicy::Skip));
-        assert!(
-            !format!("{policy:?}").contains("uiautomationcore"),
-            "the policy must not carry the provider description"
-        );
+        assert_eq!(policy_for_root(&root), CachePolicy::Batch);
     }
 }

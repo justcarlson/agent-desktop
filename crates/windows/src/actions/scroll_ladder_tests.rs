@@ -96,7 +96,6 @@ fn unclipped_below_fold_does_not_verify_without_intersection() {
         offscreen: Some(false),
         viewport: Some(viewport),
     };
-    assert_eq!(below_fold.offscreen, Some(false));
     assert!(!visibility_verified(&below_fold));
     let seen = Cell::new(false);
     let mut next = || {

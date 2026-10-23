@@ -184,7 +184,6 @@ impl Drop for LocalPatternFixture {
 pub(crate) struct HostedPatternFixture {
     child: Option<Child>,
     handle: isize,
-    expectation: PatternExpectation,
 }
 
 impl HostedPatternFixture {
@@ -207,7 +206,6 @@ impl HostedPatternFixture {
         Ok(Self {
             child: Some(child),
             handle,
-            expectation: PatternExpectation::standard(),
         })
     }
 
@@ -217,10 +215,6 @@ impl HostedPatternFixture {
 
     pub(crate) fn process_id(&self) -> u32 {
         self.child.as_ref().map(Child::id).unwrap_or_default()
-    }
-
-    pub(crate) fn expectation(&self) -> PatternExpectation {
-        self.expectation
     }
 
     pub(crate) fn terminate(&mut self) {

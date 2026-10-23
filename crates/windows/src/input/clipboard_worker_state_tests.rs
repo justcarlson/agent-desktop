@@ -107,20 +107,25 @@ fn every_clipboard_entry_point_consults_the_guard() {
 #[test]
 fn the_ticket_is_armed_before_the_spawn_and_released_before_the_send() {
     let source = include_str!("clipboard.rs");
-    let arm = source
+    let function = source
+        .find("fn read_format_bytes_on_worker(")
+        .expect("read_format_bytes_on_worker still exists in clipboard.rs");
+    let body = &source[function..];
+    let body = &body[..body.find("\n}").unwrap_or(body.len())];
+    let arm = body
         .find("let ticket = crate::input::clipboard_worker_state::WorkerTicket::arm();")
         .expect("the ticket is armed in read_format_bytes_on_worker");
-    let spawn = source[arm..]
+    let spawn = body
         .find("thread::spawn(")
-        .expect("the worker is spawned after the ticket is armed");
-    let release = source[arm..]
+        .expect("read_format_bytes_on_worker spawns the worker");
+    let release = body
         .find("let _ticket = ticket;")
         .expect("the ticket moves into the worker");
-    let send = source[arm..]
+    let send = body
         .find("let _ = sender.send(result);")
         .expect("the worker sends its result");
 
-    assert!(spawn > 0, "the ticket is armed before the spawn");
+    assert!(arm < spawn, "the ticket is armed before the spawn");
     assert!(
         release < send,
         "the ticket is released before the result is sent, or the next operation is \n             refused while its caller already holds the value"
