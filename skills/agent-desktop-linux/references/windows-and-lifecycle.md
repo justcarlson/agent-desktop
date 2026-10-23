@@ -76,9 +76,9 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
   wait.
 - A refused `--activate` does not fail `launch`: it answers `ok: true` with a
   `data.suggestion` that starts `The window could not be brought forward:` and
-  gives the reason. Read `data.suggestion` after `--activate`;
-  `window.is_focused` is the state before the request. `focus-window` on the
-  window reports the cause.
+  gives the reason, and `window.is_focused` is `false`. Read `data.suggestion`:
+  `window.is_focused` is the state before the request, so `false` alone does not
+  show a refusal. `focus-window` on the window reports the cause.
 - A window read that cannot prove the native window type of a frame
   (`details.kind: native_window_unproven`, which a window gives for the moment it
   changes during the read) counts as no window yet and is read again until the
@@ -212,9 +212,9 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
 - A minimized window that the window manager does not show after `restore` is
   `ACTION_NOT_SUPPORTED` with `details.cause: restore_refused` and
   `details.manager` naming the manager, `delivered_unverified`, `retry: unsafe`.
-  An open Activities Overview can be the cause: close it (see Focus), read the
-  window with `list-windows`, and run `restore` again only if it is still
-  minimized.
+  An open Activities Overview is one cause, and the error then names cause
+  `overview_open`: close the overview (see Focus), read the window with
+  `list-windows`, and run `restore` again only if it is still minimized.
 - `move-window` needs both `--x` and `--y` (a lone one is `INVALID_ARGS` at parse
   time, exit 2). Negative coordinates need the `=` form:
   `move-window --x=-100 --y=20`.

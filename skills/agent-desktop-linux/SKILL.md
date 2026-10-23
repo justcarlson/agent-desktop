@@ -154,8 +154,8 @@ and returns `data.rendered: false` without drawing an overlay.
 
 `session start --cursor --multi-agent` saves the setting and returns
 `data.rendered: false`, because nothing is drawn until an agent acts. Desktop UI
-actions then need `--agent-id` or `AGENT_DESKTOP_AGENT_ID`, else `INVALID_ARGS`.
-On X11 each id gets its own cursor; on Wayland none is drawn.
+actions then need `--agent-id` or `AGENT_DESKTOP_AGENT_ID` (else `INVALID_ARGS`);
+on X11 each id gets its own cursor, and on Wayland none is drawn.
 
 ## What differs on Linux
 
