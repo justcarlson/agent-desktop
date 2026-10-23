@@ -102,7 +102,7 @@ agent-desktop clear @s8f3k2p9:e2
 agent-desktop focus @s8f3k2p9:e2
 ```
 
-- `type` inserts text. When value and selection are readable it checks the result. A readable mismatch returns `ACTION_FAILED`; an unreadable result succeeds as `delivered_unverified`. Inspect the current value before you write again. Headed typing can change the selection when it focuses an inactive field. In that case the result stays unverified.
+- `type` inserts text. When value and selection are readable it checks the result. A readable mismatch returns `ACTION_FAILED`; an unreadable result succeeds as `delivered_unverified`. Inspect the current value before you write again. Headed typing can change the selection when it focuses an inactive field. In that case the result stays unverified. Typed keys reach the field through the application's event queue, so the check reads the field again while it keeps changing, inside the `--timeout-ms` budget. A field that settles on other text than the one sent, or that never settles in the budget, returns `delivered_unverified` with `verification_reason: postcondition_mismatch`. Read the field with `get` for the final text.
 - The default `--timeout-ms` of `type` is 5000 plus 30 ms per character of the text. An explicit `--timeout-ms` wins.
 - `set-value` writes the value directly through the semantic value path. It is faster than `type`, but it may not fire every UI callback. Use it for text fields, text areas and sliders.
 - A cell that exposes no value write is not directly editable. Activate it, take a fresh snapshot, and target the editor that appears. Some apps expose no editor and accept only keyboard input.

@@ -55,15 +55,22 @@ pub fn execute_verified_action(
     let mut observed = adapter.get_live_element(handle, deadline);
     let settle = std::time::Duration::from_millis(50);
     let settle_deadline = deadline.capped(std::time::Duration::from_millis(400));
+    let drains = execution
+        .as_ref()
+        .is_ok_and(|result| typed_by_keys(&action, result));
+    let mut changing = true;
     while execution.is_ok()
         && observed.as_ref().is_ok_and(|observed| {
             matches_postcondition(&action, before.as_ref(), expected_text.as_deref(), observed)
                 == Some(false)
         })
-        && settle_deadline.remaining() > settle
+        && (settle_deadline.remaining() > settle
+            || (drains && changing && deadline.remaining() > settle))
     {
         std::thread::sleep(settle);
-        observed = adapter.get_live_element(handle, deadline);
+        let next = adapter.get_live_element(handle, deadline);
+        changing = value_of(&next) != value_of(&observed);
+        observed = next;
     }
     let mut result = match execution {
         Ok(result) => result,
@@ -92,12 +99,7 @@ pub fn execute_verified_action(
         expected_text.as_deref(),
         &observed,
     );
-    let physical_text_mismatch = verified == Some(false)
-        && matches!(action, Action::TypeText(_))
-        && result.steps.iter().any(|step| {
-            matches!(&step.outcome, crate::ActionStepOutcome::Succeeded)
-                && step.mechanism() == Some(crate::StepMechanism::PhysicalSynthetic)
-        });
+    let physical_text_mismatch = verified == Some(false) && typed_by_keys(&action, &result);
     if verified.is_none() || physical_text_mismatch {
         let reason = if physical_text_mismatch {
             "postcondition_mismatch"
@@ -134,6 +136,22 @@ pub fn execute_verified_action(
         }
     }
     Ok(result)
+}
+
+/// Keys sent to a field reach it through the application's event queue, so
+/// the field may still be filling after the last key left.
+fn typed_by_keys(action: &Action, result: &ActionResult) -> bool {
+    matches!(action, Action::TypeText(_))
+        && result.steps.iter().any(|step| {
+            matches!(&step.outcome, crate::ActionStepOutcome::Succeeded)
+                && step.mechanism() == Some(crate::StepMechanism::PhysicalSynthetic)
+        })
+}
+
+fn value_of(read: &Result<LiveElement, AdapterError>) -> Option<&str> {
+    read.as_ref()
+        .ok()
+        .and_then(|observed| observed.state.value.as_deref())
 }
 
 fn mismatch_error(action: &Action) -> AdapterError {
