@@ -632,7 +632,7 @@ crates/ffi/
 ├── build.rs             # 5 lines: bakes install_name = @rpath/libagent_desktop_ffi.dylib on macOS only — no codegen step
 ├── codegen_templates/   # empty, untracked — reserved for the P2-O16 build.rs codegen migration, not wired up today
 ├── include/
-│   └── agent_desktop.h  # committed, drift-checked against the OUT_DIR output; AD_ABI_VERSION_MAJOR = 5
+│   └── agent_desktop.h  # committed, drift-checked against the OUT_DIR output; AD_ABI_VERSION_MAJOR = 6
 ├── src/                 # ad_* extern "C" entrypoints, organized by domain
 │   ├── types/           # one-type-per-file modules (AdAction, AdRect, AdExactWindowList, ...)
 │   ├── convert/         # string / rect / window / app / surface / notification helpers
@@ -713,7 +713,7 @@ There is no `ffi-codegen-drift` job. An earlier draft of this document described
 
 ### Forward Compatibility
 
-- Pre-1.0 the ABI is explicitly unstable; consumers pin the artifact version alongside the cdylib version. `AD_ABI_VERSION_MAJOR` is currently `5` and evolves append-only between majors.
+- Pre-1.0 the ABI is explicitly unstable; consumers pin the artifact version alongside the cdylib version. `AD_ABI_VERSION_MAJOR` is currently `6` and evolves append-only between majors.
 - Any new `PlatformAdapter` method that lands in Phase 2/3 must add a matching `ad_*` FFI wrapper in the same PR that adds the adapter method.
 - MCP server mode (Phase 4) is a parallel transport, not an FFI consumer — it calls `PlatformAdapter` directly.
 
@@ -721,7 +721,7 @@ There is no `ffi-codegen-drift` job. An earlier draft of this document described
 
 **Resolved:**
 
-- `ad_abi_version()` and `ad_init(expected_major)` ship; consumers call `ad_init` after `dlopen` for a runtime compat check. `AD_ABI_VERSION_MAJOR` is currently `5`.
+- `ad_abi_version()` and `ad_init(expected_major)` ship; consumers call `ad_init` after `dlopen` for a runtime compat check. `AD_ABI_VERSION_MAJOR` is currently `6`.
 - `ad_snapshot`, `ad_execute_by_ref`, `ad_wait`, `ad_version`, and `ad_status` are exported, joined since by `ad_execute_by_ref_timeout`, `ad_trace_export`, and `ad_trace_show`.
 - `ad_set_log_callback(fn(level, msg))` ships; in-process consumers can install a tracing layer for debug output.
 
@@ -806,7 +806,7 @@ Every sub-phase below follows the same rendering shape: **Goal** (one or two sen
 2. **Skeleton traversal is platform-agnostic.** The novel progressive skeleton pattern (depth-3 clamp + `children_count` annotation + drill-down via `--root @ref` + scoped invalidation via `RefMap::remove_by_root_ref`) lives entirely in `crates/core/src/snapshot_ref.rs`. Windows adapter contributes ~50 LOC glue: `FindAll(TreeScope_Children, TrueCondition)` for `children_count` + fresh `UICacheRequest` per drill-down. The enumeration walker itself is the **raw view**, which is what sub-phase 2.2 shipped (`crates/windows/src/tree/walker_source.rs:31`); the control view is a filter applied to that node set via `IsControlElement`, carried as evidence from 2.3 onward, not a second walk. Raw is a superset of control, so a role map total over `ControlType` stays valid under either.
 3. **Asymmetric event threading.** The future push-based `watch` command (P2-O11) uses main-thread `AXObserver` on macOS (research-confirmed: Apple DTS says all AX is main-thread-only; AXSwift / Hammerspoon / Phoenix all do this); worker-thread MTA `IUIAutomation` event handler on Windows (Microsoft 2025 threading doc: UIA supports cross-thread event delivery). This is distinct from the already-shipped `wait --event`, which is an in-invocation `SignalBaseline` diff, not a subscription — see the naming note under 2.11 below.
 4. **No `inventory` / `linkme` command registry.** Research confirmed neither survives link-GC reliably across ld64, ld-prime, GNU ld, lld, MSVC for cdylib consumers. Any future registry uses `build.rs` filesystem enumeration of `crates/core/src/commands/*.rs` — deterministic, cdylib-safe, zero linker magic. The repository's "one command per file" rule becomes the codegen contract when that migration (P2-O16) lands.
-5. **FFI compatibility gates: shipped.** The ABI handshake (`ad_abi_version()`, `ad_init(expected_major)`) shipped in Phase 1.6; `AD_ABI_VERSION_MAJOR` is currently `5` and evolves append-only between majors. Any new cross-platform ABI surface Phase 2 adds must preserve that handshake, not re-invent it.
+5. **FFI compatibility gates: shipped.** The ABI handshake (`ad_abi_version()`, `ad_init(expected_major)`) shipped in Phase 1.6; `AD_ABI_VERSION_MAJOR` is currently `6` and evolves append-only between majors. Any new cross-platform ABI surface Phase 2 adds must preserve that handshake, not re-invent it.
 6. **`DeliverFiles` replaces `FileDrop`.** Headless-first forbids `NSDraggingSession` on macOS; the new action uses a 4-tier fallback (URL scheme → `NSWorkspace.open` with `activates: false` → pasteboard + `Cmd-V` → AppleScript). Windows primary delivery is app/shell delivery (`ShellExecuteEx`, app URI handlers, `IFileOperation` for filesystem destinations, and `CF_HDROP` clipboard paste where accepted). `IDataObject + DoDragDrop` is an explicit policy-gated fallback/spike for targets that require drag semantics; it is never the default headless path.
 
 ### Windows Engineering Invariants (from the Phase 2 plan, Unit 3)
@@ -1567,7 +1567,7 @@ branch**, not a series of sub-phase merges, and it closed Phase 2.
       accessible name for every other role, each falling back to the other when empty, where it previously returned the value
       for all of them. It is a core change with no platform branch, so it lands on
       macOS too.
-    - The FFI ABI major is 5. The legacy entrypoints that each have an `*_exact`
+    - The FFI ABI major moves to 5. The legacy entrypoints that each have an `*_exact`
       replacement are removed: `ad_list_surfaces`, `ad_surface_list_count`,
       `ad_surface_list_get`, `ad_surface_list_free`, `ad_list_windows`,
       `ad_window_list_count`, `ad_window_list_get`, `ad_window_list_free`,
@@ -1769,7 +1769,7 @@ screencapturekit = "1.5"
 - Automation permission: `permissions` reports `granted`, `denied`, or `unknown` without prompting; explicit requests run in the bounded isolated helper, while native `close-app` needs no Apple Event authorization
 
 **FFI parity tests (P2-O16):**
-- `ad_abi_version()` returns `AD_ABI_VERSION_MAJOR` (the ABI major, currently 5), which is independent of the Cargo version; `ad_init(expected_major)` returns `ErrInvalidArgs` when the consumer's expected major differs from the dylib's, older or newer
+- `ad_abi_version()` returns `AD_ABI_VERSION_MAJOR` (the ABI major, currently 6), which is independent of the Cargo version; `ad_init(expected_major)` returns `ErrInvalidArgs` when the consumer's expected major differs from the dylib's, older or newer
 - `ad_snapshot` writes a refmap and the same qualified ref resolves via `ad_execute_by_ref` without a prior CLI snapshot on disk
 - `ad_execute_by_ref(adapter, "@s8f3k2p9:e5", &action, policy, &out)` with a click action produces identical `AdActionResult` to `ad_resolve_element_exact` + `ad_execute_action`
 - `ad_set_log_callback` receives at least one `tracing::debug!` event during an `ad_get_tree_exact` call
@@ -2970,7 +2970,7 @@ Phase 5 spans are OpenTelemetry-compliant so `agent-desktop trace export <uuid> 
 | Compatibility | Tested against target app matrix: Finder, TextEdit, Xcode, VS Code, Chrome, Slack (macOS); Explorer, Notepad, Settings, VS Code, Edge (Windows); Nautilus, Terminal, Firefox, VS Code (Linux). |
 | Distribution | Single binary per platform. No runtime dependencies for the CLI. FFI cdylib tarballs signed via Sigstore (already shipping as of Phase 1.5). Formula / manifest verify Sigstore attestation before installing (P5-O10). |
 | Documentation | README, CLI reference, MCP reference, per-platform setup guides, troubleshooting, audit-log format reference, policy-file reference, OpenTelemetry trace schema. |
-| FFI stability | Header drift check green on every PR. ABI version exported via `ad_abi_version()` (major currently 5, append-only between majors). Pre-1.0: minor version bump for any public struct field add; major version bump for any removed or changed signature. |
+| FFI stability | Header drift check green on every PR. ABI version exported via `ad_abi_version()` (major currently 6, append-only between majors). Pre-1.0: minor version bump for any public struct field add; major version bump for any removed or changed signature. |
 
 ### Performance Optimizations
 
