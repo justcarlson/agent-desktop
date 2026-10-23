@@ -173,8 +173,9 @@ fn a_refused_focus_still_reports_the_launch_and_says_why() {
         |_| Err(AdapterError::new(ErrorCode::ActionFailed, "no focus")),
         || panic!("a refused activation must not re-read the window"),
     );
-    assert!(result.window.is_some());
-    assert_eq!(result.window, Some(original));
+    let reported = result.window.expect("window");
+    assert_eq!(reported.id, original.id);
+    assert!(!reported.state.is_focused);
     assert!(result.suggestion.expect("note").contains("no focus"));
 }
 
@@ -194,8 +195,9 @@ fn a_successful_activation_reports_the_window_read_after_the_request() {
         |_| Ok(()),
         || Some(focused.clone()),
     );
-    assert_eq!(result.window, Some(focused));
-    assert!(result.window.expect("window").state.is_focused);
+    let reported = result.window.expect("window");
+    assert_eq!(reported.id, focused.id);
+    assert!(reported.state.is_focused);
 }
 
 #[test]
