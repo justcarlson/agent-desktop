@@ -14,11 +14,11 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, DragParams, ErrorCode, Point};
 
 use crate::input::drag_state::DragReleaseGuard;
-use crate::input::mouse::sleep_bounded;
-use crate::input::mouse_coord::{self, NormalizedPoint};
-use crate::input::mouse_send::{
+use crate::input::mouse::mouse_coord::{self, NormalizedPoint};
+use crate::input::mouse::mouse_send::{
     MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, button_input, move_input, post_mouse_inputs,
 };
+use crate::input::mouse::sleep_bounded;
 
 const DEFAULT_DURATION_MS: u64 = 300;
 const PICKUP_DELAY_MS: u64 = 200;

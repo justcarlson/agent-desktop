@@ -3,11 +3,11 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{WindowFilter, WindowInfo};
 
 use super::focus_window::lift_live_tests::{deadline, focus, xprop};
-use crate::system::x11::stacking_read::StackingRead;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_read::StackingRead;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 

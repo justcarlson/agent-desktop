@@ -5,7 +5,7 @@ use super::live_shell::Shell;
 use super::remote_desktop::RemoteDesktop;
 use crate::system::SharedBus;
 use crate::system::bus::session_bus::SessionBus;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 fn deadline() -> Deadline {
     Deadline::after(20_000).expect("a deadline builds")

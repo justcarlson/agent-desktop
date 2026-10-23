@@ -8,7 +8,7 @@ fn show_and_export_hide_only_their_own_open_trace_command() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     fs::create_dir_all(&trace_dir).unwrap();

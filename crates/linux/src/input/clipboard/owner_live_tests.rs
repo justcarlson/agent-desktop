@@ -11,7 +11,7 @@ use rustix::io::{FdFlags, fcntl_getfd, fcntl_setfd};
 
 use super::support::*;
 use crate::LinuxAdapter;
-use crate::input::clipboard::owner_record;
+use crate::input::clipboard::owner::owner_record;
 
 fn kill_by_pid(pid: u32) {
     let status = Command::new("kill")

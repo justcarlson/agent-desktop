@@ -121,7 +121,7 @@ fn pid_lookup_bus_loss_is_not_a_complete_empty_inventory() {
 fn pid_lookup_live_bus_loss_never_closes_a_running_apps_windows() {
     use crate::system::focus::focus_window::lift_live_tests::{xid_of, xprop};
     use crate::system::signal::signal_capture::capture_signal_baseline;
-    use crate::tree::live_launch::Launched;
+    use crate::tree::live::live_launch::Launched;
     use agent_desktop_core::{ProcessIdentity, SignalFilter};
 
     for _ in 0..2 {

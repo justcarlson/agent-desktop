@@ -8,7 +8,7 @@ use crate::system::shell::fake_tree::MENU;
 use crate::system::shell::fake_tree::{FakeTree, PANEL, WINDOW, at, gnome_shell};
 use crate::system::shell::light::{Light, Nodes};
 use crate::tree::AtspiElement;
-use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
+use crate::tree::vocabulary::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 fn locate(
     tree: &FakeTree,

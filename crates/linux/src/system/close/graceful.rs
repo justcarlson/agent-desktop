@@ -5,7 +5,7 @@ use super::world::World;
 use super::{Request, refusal};
 use crate::system::process::liveness::Liveness;
 use crate::system::x11::control::ControlRead;
-use crate::system::x11::control_error::ControlError;
+use crate::system::x11::control::control_error::ControlError;
 
 const DIALOG_LOOK_EVERY: u32 = 4;
 const SETTLE_LOOKS: u32 = 4;

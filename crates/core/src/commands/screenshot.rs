@@ -1,7 +1,7 @@
 use crate::{
     AdapterError, AppError, Deadline, ErrorCode,
     adapter::{PlatformAdapter, ScreenshotTarget, WindowFilter},
-    process_state::ProcessState,
+    system::process_state::ProcessState,
 };
 use base64::Engine;
 use serde_json::{Value, json};
@@ -128,7 +128,7 @@ fn resolve_target(
 
     if let Some(app_name) = &args.app {
         let app = crate::commands::helpers::resolve_app(Some(app_name), adapter, deadline)?;
-        let win = crate::window_lookup::find_window_for_process(
+        let win = crate::system::window_lookup::find_window_for_process(
             crate::commands::helpers::process_identity(&app)?,
             adapter,
             deadline,

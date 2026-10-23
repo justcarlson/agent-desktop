@@ -1,5 +1,5 @@
 use super::*;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 #[test]
 #[ignore = "runs owned GTK apps; use a private managed X11 or native Wayland session"]

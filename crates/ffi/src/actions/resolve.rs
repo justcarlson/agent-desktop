@@ -292,7 +292,7 @@ unsafe fn decode_core_ref_entry(
             path,
         },
     };
-    if !agent_desktop_core::ref_identity::has_meaningful_identity(&decoded)
+    if !agent_desktop_core::refs::ref_identity::has_meaningful_identity(&decoded)
         && (bounds_space != Some(required_space) || bounds.is_none())
     {
         return Err(AdapterError::new(

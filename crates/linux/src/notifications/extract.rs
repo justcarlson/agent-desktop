@@ -3,7 +3,7 @@ use agent_desktop_core::NotificationInfo;
 use crate::system::shell::light::Light;
 use crate::system::shell::search::Walk;
 use crate::tree::AtspiElement;
-use crate::tree::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
+use crate::tree::vocabulary::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {

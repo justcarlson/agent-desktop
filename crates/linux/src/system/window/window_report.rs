@@ -1,6 +1,6 @@
 use agent_desktop_core::{WindowOp, WindowReadback};
 
-use super::window_op_verdict::POSITION_TOLERANCE;
+use super::window_op::window_op_verdict::POSITION_TOLERANCE;
 
 /// What a successful window operation read back before it answered. A
 /// restore is left unverified because its branches can lift a minimized

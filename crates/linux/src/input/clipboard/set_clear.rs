@@ -7,13 +7,13 @@ use agent_desktop_core::{
 };
 
 use super::delivery::{fresh_deadline, not_delivered, unresponsive};
-use super::owner_locate::locate_helper;
-use super::owner_record::{self, OwnerRecord};
-use super::owner_signal::{PidfdControl, stop_by_identity};
-use super::owner_spawn::{
+use super::owner::owner_locate::locate_helper;
+use super::owner::owner_record::{self, OwnerRecord};
+use super::owner::owner_signal::{PidfdControl, stop_by_identity};
+use super::owner::owner_spawn::{
     ChildProbe, Handshake, await_handshake, kill_and_reap, new_nonce, payload_file, reap_when_done,
 };
-use super::owner_spawn_spec::{build_command, protect_lease_descriptor};
+use super::owner::owner_spawn_spec::{build_command, protect_lease_descriptor};
 use super::payload::{Payload, payload_of};
 use super::route_fallback::ClipboardTools;
 use super::x11_read::{fault_error, read_x11};
@@ -35,7 +35,7 @@ fn failed(message: impl Into<String>, disposition: DeliverySemantics) -> Adapter
 
 fn discard(dir: &Path, display: &str, nonce: &str) {
     if let Some(name) = owner_record::file_name(display, nonce) {
-        let _ = super::owner_files::remove(dir, &name);
+        let _ = super::owner::owner_files::remove(dir, &name);
     }
 }
 

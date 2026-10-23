@@ -2,13 +2,13 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, Rect,
+    actions::capability,
     adapter::NativeHandle,
-    capability,
+    adapter::hit_test::HitTestResult,
     commands::stale_retry_test_support::StaleRetryCounter,
-    hit_test::HitTestResult,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::{
     Mutex,

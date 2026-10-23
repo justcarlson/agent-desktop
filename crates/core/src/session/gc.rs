@@ -2,8 +2,8 @@ use super::{SessionManifest, TRACE_LIVENESS_WINDOW, list_sessions, now_millis, r
 use crate::{
     AppError,
     context::validate_session_id,
-    refs_lock::{RefStoreLock, lock_holder_is_live},
-    refs_store::RefStore,
+    refs::refs_lock::{RefStoreLock, lock_holder_is_live},
+    refs::refs_store::RefStore,
 };
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

@@ -1,5 +1,5 @@
 use super::*;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::session::{SessionTraceMode, StartSessionOptions, start_session};
 use std::fs;
 use std::io::Write;
@@ -27,7 +27,7 @@ fn show_merges_fixture_segments_with_expected_shape() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     copy_fixture_trace(&trace_dir);
@@ -94,7 +94,7 @@ fn show_reports_raw_total_and_matched_count_when_filtered() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     copy_fixture_trace(&trace_dir);
@@ -122,7 +122,7 @@ fn show_matched_events_survives_limit_truncation_from_single_read() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     copy_fixture_trace(&trace_dir);
@@ -193,7 +193,7 @@ fn tail_limit_surfaces_unpaired_command_warning() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     fs::create_dir_all(&trace_dir).unwrap();
@@ -241,7 +241,7 @@ fn export_json_surfaces_warnings_and_truncation_without_html() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     fs::create_dir_all(&trace_dir).unwrap();
@@ -297,7 +297,7 @@ fn export_json_omits_warnings_when_trace_is_clean() {
         ..Default::default()
     })
     .unwrap();
-    let trace_dir = crate::refs_store::RefStore::for_session(Some(&manifest.id))
+    let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
     fs::create_dir_all(&trace_dir).unwrap();

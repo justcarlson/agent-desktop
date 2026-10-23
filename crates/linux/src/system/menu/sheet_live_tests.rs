@@ -7,7 +7,7 @@ use crate::system::{
     ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE, SharedBus,
     app_inventory, list_surfaces, list_windows,
 };
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";

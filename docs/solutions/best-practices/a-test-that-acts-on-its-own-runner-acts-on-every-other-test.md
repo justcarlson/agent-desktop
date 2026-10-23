@@ -2,7 +2,7 @@
 title: A test that acts on its own runner acts on every other test
 date: 2026-08-09
 category: best-practices
-module: crates/windows/src/system/close_tests.rs, crates/windows/src/system/lifecycle_envelope_parity_tests.rs, crates/windows/src/tree/fixture.rs
+module: crates/windows/src/system/close_tests.rs, crates/windows/src/system/lifecycle_envelope_parity_tests.rs, crates/windows/src/tree/fixture/mod.rs
 problem_type: process_gap
 component: tooling
 symptoms:

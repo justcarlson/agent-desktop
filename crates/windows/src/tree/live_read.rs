@@ -22,14 +22,15 @@
 //! target that reports `UIA_E_ELEMENTNOTAVAILABLE` settles as stale rather
 //! than surfacing as a retryable, indefinitely-repeated `AppUnresponsive`.
 
-use agent_desktop_core::live_element::{
+use agent_desktop_core::adapter::live_element::{
     essential_live_evidence_complete, incomplete_live_evidence, known_actions,
 };
 use agent_desktop_core::{
-    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect, roles,
+    AdapterError, ElementState, ErrorCode, LiveElement, LiveIdentity, LocatorEvidence, Rect,
+    tree::roles,
 };
 
-use super::element_properties::ElementProperties;
+use super::properties::element_properties::ElementProperties;
 
 /// One element's live read: the properties set kept alongside the projected
 /// evidence, because `ElementState.enabled`/`offscreen` read `IsEnabled`/
@@ -49,7 +50,7 @@ mod imp {
     use crate::tree::element::{UIAElement, uia_element};
     use crate::tree::name_evidence::{LabelOutcome, read_label};
     use crate::tree::properties::{ElementProperties, read_live_bounded};
-    use crate::tree::walker::walk_vocabulary;
+    use crate::tree::walk::walker::walk_vocabulary;
     use agent_desktop_core::{AdapterError, Deadline, NativeHandle, ProcessId};
 
     /// The shared single-element live read.
@@ -211,11 +212,11 @@ pub(crate) fn live_state(read: &LiveRead) -> Result<ElementState, AdapterError> 
     let value = live_value(read);
     let enabled = read
         .properties
-        .get(super::property_ids::TreeProperty::IsEnabled)
+        .get(super::properties::property_ids::TreeProperty::IsEnabled)
         .flag();
     let offscreen = read
         .properties
-        .get(super::property_ids::TreeProperty::IsOffscreen)
+        .get(super::properties::property_ids::TreeProperty::IsOffscreen)
         .flag();
     Ok(ElementState {
         role,
@@ -265,13 +266,13 @@ pub(crate) fn live_element(read: &LiveRead) -> Result<LiveElement, AdapterError>
 /// ordinary button whenever one optional read fails. A gate that never opened
 /// yields no value, and a defaulted value is not an observation.
 fn states_are_complete(read: &LiveRead, role: &str) -> bool {
-    use super::property_outcome::PropertyOutcome;
+    use super::properties::property_outcome::PropertyOutcome;
     let toggle_observed = !roles::is_toggleable_role(role)
         || read
             .properties
-            .gated_number(super::property_ids::TreeProperty::ToggleState)
+            .gated_number(super::properties::property_ids::TreeProperty::ToggleState)
             .is_some();
-    let available = super::property_ids::TreeProperty::ExpandCollapseAvailable;
+    let available = super::properties::property_ids::TreeProperty::ExpandCollapseAvailable;
     let advertised = read.properties.is_true(available);
     let expand_applies = match read.properties.get(available) {
         PropertyOutcome::Known(_) => advertised,
@@ -280,7 +281,7 @@ fn states_are_complete(read: &LiveRead, role: &str) -> bool {
     let expand_observed = !expand_applies
         || read
             .properties
-            .gated_number(super::property_ids::TreeProperty::ExpandCollapseState)
+            .gated_number(super::properties::property_ids::TreeProperty::ExpandCollapseState)
             .is_some();
     toggle_observed && expand_observed
 }

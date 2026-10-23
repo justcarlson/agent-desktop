@@ -1,5 +1,5 @@
 use super::*;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::session::{ArtifactsMode, SessionTraceMode};
 use std::fs;
 
@@ -268,7 +268,7 @@ fn legacy_pointer_symlink_does_not_activate_a_session() {
 }
 
 fn seed_session_refs(id: &str) -> (std::path::PathBuf, String) {
-    let store = crate::refs_store::RefStore::for_session(Some(id)).unwrap();
+    let store = crate::refs::refs_store::RefStore::for_session(Some(id)).unwrap();
     let snapshot_id = store
         .save_new_snapshot(&crate::RefMap::new())
         .expect("session snapshot");
@@ -314,7 +314,7 @@ fn a_refmap_the_trace_never_copied_survives_ending_a_full_session() {
     })
     .unwrap();
 
-    let store = crate::refs_store::RefStore::for_session(Some(&manifest.id)).unwrap();
+    let store = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id)).unwrap();
     let copied = store.save_new_snapshot(&crate::RefMap::new()).unwrap();
     let skipped = store.save_new_snapshot(&crate::RefMap::new()).unwrap();
     let dir = session_dir(&manifest.id).unwrap();

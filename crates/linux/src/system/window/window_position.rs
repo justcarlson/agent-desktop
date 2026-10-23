@@ -2,9 +2,9 @@ use agent_desktop_core::Rect;
 
 use super::listed_twins::listed_client;
 use crate::system::registry::listed_window::ListedWindow;
-use crate::system::x11::desktops::Desktops;
 use crate::system::x11::map::ClientMatch;
 use crate::system::x11::twin_tie::tied_agree;
+use crate::system::x11::window::desktops::Desktops;
 use crate::system::x11::{X11Client, X11State};
 use crate::tree::Extents;
 

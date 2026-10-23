@@ -95,7 +95,7 @@ impl ObservationOps for WindowsAdapter {
         entry: &RefEntry,
         deadline: Deadline,
     ) -> Result<NativeHandle, AdapterError> {
-        crate::tree::resolve_anchor::resolve_locator_anchor(entry, deadline)
+        crate::tree::resolve::resolve_anchor::resolve_locator_anchor(entry, deadline)
     }
 
     /// The five live readers are projections over one shared single-element
@@ -165,7 +165,7 @@ impl ObservationOps for WindowsAdapter {
         handle: &NativeHandle,
         point: agent_desktop_core::Point,
         deadline: Deadline,
-    ) -> Result<agent_desktop_core::hit_test::HitTestResult, AdapterError> {
+    ) -> Result<agent_desktop_core::adapter::hit_test::HitTestResult, AdapterError> {
         crate::tree::hit_test::hit_test_impl(handle, point, deadline)
     }
 
@@ -174,7 +174,7 @@ impl ObservationOps for WindowsAdapter {
         filter: &WindowFilter,
         deadline: Deadline,
     ) -> Result<Vec<WindowInfo>, AdapterError> {
-        crate::system::window_ops::list_windows_live(filter, deadline)
+        crate::system::window::window_ops::list_windows_live(filter, deadline)
     }
 
     fn list_apps(&self, deadline: Deadline) -> Result<Vec<AppInfo>, AdapterError> {
@@ -205,15 +205,15 @@ impl ObservationOps for WindowsAdapter {
         surface: SnapshotSurface,
         deadline: Deadline,
     ) -> Result<WindowInfo, AdapterError> {
-        crate::system::shell_surface::resolve_surface(surface, deadline)?
-            .ok_or_else(|| crate::system::shell_surface::not_open_error(surface))
+        crate::system::shell::shell_surface::resolve_surface(surface, deadline)?
+            .ok_or_else(|| crate::system::shell::shell_surface::not_open_error(surface))
     }
 }
 impl ActionOps for WindowsAdapter {
     fn execute_action(
         &self,
         handle: &NativeHandle,
-        request: agent_desktop_core::action_request::ActionRequest,
+        request: agent_desktop_core::actions::action_request::ActionRequest,
         lease: &InteractionLease,
     ) -> Result<agent_desktop_core::ActionResult, AdapterError> {
         crate::actions::dispatch::execute_action_impl(handle, request, lease)

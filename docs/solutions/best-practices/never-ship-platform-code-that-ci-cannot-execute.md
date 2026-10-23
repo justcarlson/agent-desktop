@@ -2,7 +2,7 @@
 title: Never ship platform code that CI cannot execute
 date: 2026-07-25
 category: best-practices
-module: crates/core/src/private_file_ops.rs, crates/windows/src/system/private_file
+module: crates/core/src/storage/private_file_ops.rs, crates/windows/src/system/private_file
 problem_type: process_gap
 component: tooling
 symptoms:
@@ -109,7 +109,7 @@ This incident is retold from the coverage side, as shape 3 of six, in
 ## How the Windows private-file hardening returned
 
 The hardening is back, and it is back the only way it was allowed to be: in the platform
-crate, behind a trait seam, on a lane that runs it. `crates/core/src/private_file_ops.rs`
+crate, behind a trait seam, on a lane that runs it. `crates/core/src/storage/private_file_ops.rs`
 defines the `PrivateFileOps` trait and `install_private_file_ops`; core's default stays
 portable `std::fs`. `crates/windows/src/system/private_file/` implements it as
 `WindowsPrivateFile` across `path`, `replace`, `owner` and `locality` with their test

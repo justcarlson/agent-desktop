@@ -4,7 +4,7 @@ use crate::AccessibilityNode;
 use crate::commands::query;
 use crate::{
     AppError, IdentityPredicate, LocatorQuery, StatePredicate, adapter::PlatformAdapter,
-    context::CommandContext, search_text,
+    context::CommandContext, tree::search_text,
 };
 use serde_json::Value;
 
@@ -152,7 +152,7 @@ fn collect_snapshot_matches(
     if query::node_matches(node, query) {
         let interactive = node.ref_id.is_some();
         matches.push(
-            serde_json::to_value(crate::live_locator::LocatorMatchData {
+            serde_json::to_value(crate::locator::live_locator::LocatorMatchData {
                 ref_id: node.ref_id.clone(),
                 role: node.role.clone(),
                 name: node.identity.name.clone().unwrap_or_default(),

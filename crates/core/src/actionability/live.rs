@@ -6,10 +6,10 @@ use super::{
 };
 use crate::{
     AdapterError, DeliverySemantics, ErrorCode, IdentityMatch, LocatorField,
-    action_request::ActionRequest,
+    actions::action_request::ActionRequest,
     adapter::{LiveElement, NativeHandle, PlatformAdapter},
-    ref_identity::{has_meaningful_identity, identity_match},
     refs::RefEntry,
+    refs::ref_identity::{has_meaningful_identity, identity_match},
 };
 
 /// Groups the read-only coordinates of a live element check: which element,

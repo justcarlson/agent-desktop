@@ -2,8 +2,8 @@ use super::native_group::{self, unproven};
 use crate::system::process::protected::{DisplayOwner, is_helper_surface};
 use crate::system::registry::listed_window;
 use crate::system::x11::X11Client;
-use crate::tree::role_numbers::{DIALOG, FILLER, FRAME, PANEL, WINDOW};
-use crate::tree::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits, VISIBLE};
+use crate::tree::vocabulary::role_numbers::{DIALOG, FILLER, FRAME, PANEL, WINDOW};
+use crate::tree::vocabulary::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits, VISIBLE};
 use crate::tree::{COMPONENT_INTERFACE, Field};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
@@ -140,7 +140,7 @@ pub(in crate::system) fn without_helpers(
 ) -> Result<Vec<listed_window::ListedWindow>, agent_desktop_core::AdapterError> {
     use crate::system::display::display_server::session_server;
     use crate::system::x11::{
-        DisplayReader, X11Source, X11State, control, window_kind::WindowKind,
+        DisplayReader, X11Source, X11State, control, window::window_kind::WindowKind,
     };
     deadline.ensure_remaining()?;
     if windows.iter().all(|window| window.unshown) {

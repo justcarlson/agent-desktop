@@ -54,7 +54,7 @@ impl ObservationOps for CountingPipelineAdapter {
         self.record("live read");
         Ok(crate::adapter::LiveElement {
             identity: crate::adapter::live_identity("OK"),
-            state: crate::element_state::ElementState {
+            state: crate::tree::element_state::ElementState {
                 role: "button".into(),
                 states: vec![],
                 value: None,
@@ -91,8 +91,8 @@ impl ObservationOps for CountingPipelineAdapter {
         _handle: &NativeHandle,
         _point: crate::Point,
         _deadline: crate::Deadline,
-    ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
-        Ok(crate::hit_test::HitTestResult::ReachesTarget)
+    ) -> Result<crate::adapter::hit_test::HitTestResult, AdapterError> {
+        Ok(crate::adapter::hit_test::HitTestResult::ReachesTarget)
     }
 }
 
@@ -102,11 +102,9 @@ impl ActionOps for CountingPipelineAdapter {
         _handle: &NativeHandle,
         _request: ActionRequest,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::action_result::ActionResult, AdapterError> {
+    ) -> Result<crate::actions::action_result::ActionResult, AdapterError> {
         self.record("execute");
-        Ok(crate::action_result::ActionResult::delivered_unverified(
-            "click",
-        ))
+        Ok(crate::actions::action_result::ActionResult::delivered_unverified("click"))
     }
 }
 
@@ -127,7 +125,7 @@ impl SystemOps for CountingPipelineAdapter {
 #[test]
 fn ref_action_pipeline_resolves_under_lease_before_dispatch() {
     let _guard = HomeGuard::new();
-    let store = crate::refs_store::RefStore::new().unwrap();
+    let store = crate::refs::refs_store::RefStore::new().unwrap();
     let mut refmap = RefMap::new();
     refmap.allocate(entry());
     let snapshot_id = store.save_new_snapshot(&refmap).unwrap();

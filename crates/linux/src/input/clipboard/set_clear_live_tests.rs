@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use crate::input::clipboard::owner_record;
+use crate::input::clipboard::owner::owner_record;
 
 #[path = "set_clear_live_support.rs"]
 mod support;

@@ -140,10 +140,10 @@ fn the_lifecycle_overrides_are_wired_to_the_adapter() {
         adapter
             .process_state(identity.clone(), deadline)
             .expect("an exited process has a state"),
-        agent_desktop_core::process_state::ProcessState::Exited { code: None }
+        agent_desktop_core::system::process_state::ProcessState::Exited { code: None }
     );
 
-    let mut options = agent_desktop_core::launch_options::LaunchOptions::default();
+    let mut options = agent_desktop_core::system::launch_options::LaunchOptions::default();
     options.args.push("a\0b".to_owned());
     let error = adapter
         .launch_app("anything", &options, &lease())

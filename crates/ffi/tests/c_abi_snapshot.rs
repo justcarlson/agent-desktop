@@ -88,7 +88,7 @@ fn snapshot_out_contains_envelope_fields_on_any_response() {
 
         assert_eq!(
             val["version"].as_str(),
-            Some(agent_desktop_core::output::ENVELOPE_VERSION),
+            Some(agent_desktop_core::response::output::ENVELOPE_VERSION),
             "envelope version must match ENVELOPE_VERSION, got: {s}"
         );
         assert_eq!(

@@ -3,9 +3,9 @@ use agent_desktop_core::Deadline;
 use super::hit_test::corroborate::element_root_hwnd;
 use crate::tree::automation::automation_client;
 use crate::tree::element::UIAElement;
-use crate::tree::element_properties::ElementProperties;
-use crate::tree::property_ids::TreeProperty;
-use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
+use crate::tree::properties::element_properties::ElementProperties;
+use crate::tree::properties::property_ids::TreeProperty;
+use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
 
 /// Whether the element's owning top-level window is minimized right now.
 ///

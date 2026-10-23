@@ -25,9 +25,9 @@ use crate::actions::mutation::{classify_success, classify_write};
 #[cfg(target_os = "windows")]
 use crate::tree::element::UIAElement;
 #[cfg(target_os = "windows")]
-use crate::tree::properties::read_one;
+use crate::tree::properties::property_ids::TreeProperty;
 #[cfg(target_os = "windows")]
-use crate::tree::property_ids::TreeProperty;
+use crate::tree::properties::read_one;
 #[cfg(target_os = "windows")]
 use uiautomation::patterns::UIInvokePattern;
 

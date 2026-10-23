@@ -2,7 +2,7 @@ use crate::commands::wait_event_filter::{signal_filter, validate_signal_scope};
 use crate::{
     AdapterError, AppError, ErrorCode, EventKind, ProcessIdentity, SignalBaseline, UiEvent,
     adapter::PlatformAdapter, commands::wait_event_input::EventWaitInput, diff_signals,
-    process_state::ProcessState, signals::merge_signal_baseline,
+    system::process_state::ProcessState, wait::signals::merge_signal_baseline,
 };
 use serde_json::{Value, json};
 use std::time::Instant;

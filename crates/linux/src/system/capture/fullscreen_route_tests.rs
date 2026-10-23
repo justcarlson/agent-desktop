@@ -21,7 +21,7 @@ fn a_compositing_screen_is_refused_naming_the_cause_and_issues_no_grab() {
 fn a_root_grab_failure_keeps_its_own_code() {
     let rig = Rig::standard();
     *rig.grabber.grab_with.lock().expect("grab lock") =
-        Box::new(|_, _| Err(crate::system::x11::grab_error::GrabError::Timeout));
+        Box::new(|_, _| Err(crate::system::x11::capture::grab_error::GrabError::Timeout));
     let error = display::capture(&rig.env(), &ScreenshotTarget::FullScreen, deadline())
         .expect_err("timeout");
     assert_eq!(error.code, ErrorCode::Timeout);

@@ -2,12 +2,12 @@ use super::imp::gated_value_compare;
 use super::{SetValuePlan, set_value_judged_for};
 use crate::actions::chain::DeliveryOutcome;
 use crate::actions::dispatch::execute_action_impl;
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use crate::tree::automation::automation_client;
 use crate::tree::element::UIAElement;
+use crate::tree::fixture::fixture_window;
 use crate::tree::fixture::{CONTENT_MARKER, LocalFixture, ensure_test_apartment};
-use crate::tree::fixture_window;
-use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
+use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
 use agent_desktop_core::{
     Action, ActionRequest, ActionStepOutcome, AdapterError, DeliveryDisposition, InteractionLease,
     InteractionPolicy, NativeHandle,

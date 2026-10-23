@@ -5,7 +5,7 @@ use agent_desktop_core::{Deadline, ErrorCode, WindowFilter, WindowInfo};
 
 use crate::system::{SharedBus, apps_scoped, list_windows, resolve_window_strict};
 use crate::system::{app_inventory, focused_window, window::window_id};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 const CALCULATOR: &str = "gnome-calculator";

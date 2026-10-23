@@ -8,8 +8,8 @@ use serde_json::json;
 
 use super::chromium;
 use super::surfaces::surface_root;
-use super::walker::{DEFAULT_MAX_RAW_DEPTH, WalkBudget, WalkOutcome};
-use super::walker_source::walk_uia_subtree;
+use super::walk::walker::{DEFAULT_MAX_RAW_DEPTH, WalkBudget, WalkOutcome};
+use super::walk::walker_source::walk_uia_subtree;
 
 /// Runs one observation: resolve the root, walk it, detect a Chromium shell,
 /// and report completeness honestly.
@@ -128,7 +128,7 @@ const MIN_WALK_ESTIMATE: Duration = Duration::from_millis(5);
 /// Whether the remaining deadline can still absorb another walk of the shape
 /// that was just measured.
 ///
-/// Core's loop (`crates/core/src/renderer_accessibility.rs`) retries
+/// Core's loop (`crates/core/src/tree/renderer_accessibility.rs`) retries
 /// `observe_tree` on every activation-required error with a 25-400ms
 /// backoff, so returning the marker here for as long as there is room turns
 /// the settle from a single guess into a real wait for the async Chromium
@@ -179,7 +179,7 @@ fn still_thin_after_settle() -> AdapterError {
 fn re_verify_root(root: ObservationRoot<'_>) -> Result<(), AdapterError> {
     match root {
         ObservationRoot::Window(window) => {
-            let handle = crate::system::window_ops::parse_window_id(&window.id)?;
+            let handle = crate::system::window::window_ops::parse_window_id(&window.id)?;
             if !crate::tree::automation::window_exists(handle) {
                 return Err(window_gone());
             }

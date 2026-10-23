@@ -13,7 +13,7 @@
     under the default budget - it returns generic `TIMEOUT` after ~5s,
     because the resolve loop treats "no live candidate found yet" as
     retryable and keeps polling until the deadline
-    (crates/core/src/ref_action_poll.rs's `execute_poll_loop`/
+    (crates/core/src/ref_action/ref_action_poll.rs's `execute_poll_loop`/
     `handle_resolve_failure`). `--timeout-ms 0` forces exactly one resolve
     attempt and reliably reports `STALE_REF` - the same deterministic-form
     correction Acceptance.ps1's occlusion leg makes for the same reason.

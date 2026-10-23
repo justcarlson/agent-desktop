@@ -2,7 +2,7 @@
 title: An AT-SPI error name is not proof an object is gone
 date: 2026-10-18
 category: runtime-errors
-module: crates/linux/src/tree/absence.rs, crates/linux/src/tree/resolve_errors.rs, crates/linux/src/tree/node_evidence.rs, crates/linux/src/tree/resolve.rs, crates/linux/src/tree/toolkit_trust.rs
+module: crates/linux/src/tree/properties/absence.rs, crates/linux/src/tree/resolve/resolve_errors.rs, crates/linux/src/tree/observe/node_evidence.rs, crates/linux/src/tree/resolve/mod.rs, crates/linux/src/tree/properties/toolkit_trust.rs
 problem_type: runtime_error
 component: atspi-resolver
 symptoms:
@@ -30,7 +30,7 @@ Re-identifying a stored ref on Linux needs a verdict on whether the element stil
 
 ## Solution
 
-Classify in layers, as `crates/linux/src/tree/absence.rs` does.
+Classify in layers, as `crates/linux/src/tree/properties/absence.rs` does.
 
 1. `Failure` sorts one failed call: `AppGone` (`ServiceUnknown`, `NameHasNoOwner`), `Suspect` (the three names above), `TimedOut`, `Other`. `Suspect` is never a verdict on its own.
 2. `Liveness` is read from the node's own `Accessible.GetRole`, which every live node of every toolkit answers (L17-11). A field read that fails as `Suspect` becomes "object gone" only when `GetRole` also fails in the suspect family; otherwise the failure stays on its field (`read_failure`). `GetAll` and `GetChildAtIndex` are not valid corroboration: Qt fails the first and GTK4 childless nodes fail the second.

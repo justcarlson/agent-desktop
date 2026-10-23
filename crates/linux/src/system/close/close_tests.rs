@@ -153,7 +153,7 @@ fn an_error_after_a_close_request_keeps_target_and_unverified_step_evidence() {
 fn failed_close_sends_name_the_target_without_claiming_a_completed_step() {
     let world = Fake::new(Liveness::Alive);
     *world.closes.borrow_mut() = vec![Err(
-        crate::system::x11::control_error::ControlError::SendFailed,
+        crate::system::x11::control::control_error::ControlError::SendFailed,
     )];
 
     let error = super::run_report(&world, &app(), false).expect_err("request failed");

@@ -95,8 +95,8 @@ impl SystemOps for ExitedMenuAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
-        Ok(crate::process_state::ProcessState::Exited { code: None })
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
+        Ok(crate::system::process_state::ProcessState::Exited { code: None })
     }
 }
 
@@ -117,7 +117,7 @@ fn menu_wait_on_an_exited_process_recovers_by_inspecting_not_by_snapshot() {
     )
     .unwrap_err();
 
-    let payload = crate::output::ErrorPayload::from_app_error(&error);
+    let payload = crate::response::output::ErrorPayload::from_app_error(&error);
     assert_eq!(payload.code, "STALE_REF");
     let recovery = payload.recovery.expect("exited process carries recovery");
     assert_eq!(recovery.strategy, "inspect_state_then_retry_original");
@@ -152,9 +152,9 @@ impl SystemOps for BudgetProbeAdapter {
         &self,
         _process: crate::ProcessIdentity,
         deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         *self.probe_budget.lock().unwrap() = Some(deadline.remaining());
-        Ok(crate::process_state::ProcessState::Running)
+        Ok(crate::system::process_state::ProcessState::Running)
     }
 }
 

@@ -9,7 +9,7 @@ use serde_json::json;
 use super::key_session::KeySession;
 use super::remote_desktop::RemoteDesktop;
 use crate::input::delivery::Gate;
-use crate::input::shell_aim::display_under;
+use crate::input::physical::shell_aim::display_under;
 
 pub(crate) fn send(
     event: &MouseEvent,
@@ -164,5 +164,5 @@ pub(crate) fn run_pointer<S: PointerSession>(
 }
 
 #[cfg(test)]
-#[path = "../target_pointer_tests.rs"]
+#[path = "target_pointer_tests.rs"]
 mod tests;

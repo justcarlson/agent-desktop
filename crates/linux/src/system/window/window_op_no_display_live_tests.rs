@@ -2,7 +2,7 @@ use agent_desktop_core::{DeliverySemantics, ErrorCode, WindowInfo, WindowOp};
 
 use super::{CHILD_MARKER, apply, child_window, geometry, in_child, xid_of};
 use crate::system::SharedBus;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const TARGET: &str = "AGENT_DESKTOP_WINDOW_OP_TARGET";
 

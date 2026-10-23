@@ -6,7 +6,7 @@ use agent_desktop_core::{DeliverySemantics, WindowFilter};
 
 use super::*;
 use crate::system::{app_inventory, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 struct PrivateDaemon(Child);
 

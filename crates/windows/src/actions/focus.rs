@@ -7,7 +7,7 @@
 
 use agent_desktop_core::{
     Action, ActionResult, ActionStep, AdapterError, Deadline, DeliverySemantics, ErrorCode,
-    InteractionPolicy, StepMechanism, action_request::ActionRequest,
+    InteractionPolicy, StepMechanism, actions::action_request::ActionRequest,
 };
 
 #[cfg(target_os = "windows")]
@@ -19,9 +19,9 @@ mod imp {
     use crate::actions::mutation::{classify_mutation, classify_success};
     use crate::tree::automation::{automation_client, failure_of};
     use crate::tree::element::UIAElement;
+    use crate::tree::properties::property_ids::TreeProperty;
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
-    use crate::tree::walker_source::same_element;
+    use crate::tree::walk::walker_source::same_element;
 
     const SET_FOCUS_API: &str = "UIElement.SetFocus";
     const SET_FOCUS_OP: &str = "SetFocus";

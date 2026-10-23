@@ -125,7 +125,8 @@ fn read_string(
     attribute: &str,
     deadline: Deadline,
 ) -> Result<Option<String>, AdapterError> {
-    let result = crate::tree::attributes::copy_string_attr_result(element, attribute, deadline);
+    let result =
+        crate::tree::properties::attributes::copy_string_attr_result(element, attribute, deadline);
     deadline.ensure_remaining()?;
     result.map_err(|error| read_error(attribute, error))
 }
@@ -138,7 +139,7 @@ fn read_menu_item_modifiers(
     use core_foundation::{base::TCFType, string::CFString};
 
     let attribute = CFString::new("AXMenuItemCmdModifiers");
-    let (error, value) = crate::tree::ax_ipc::copy_attribute_value(
+    let (error, value) = crate::tree::properties::ax_ipc::copy_attribute_value(
         element,
         attribute.as_concrete_TypeRef(),
         deadline,
@@ -157,14 +158,14 @@ fn read_menu_item_modifiers(
         return Err(malformed_menu_modifiers());
     }
     let value = unsafe { core_foundation::base::CFType::wrap_under_create_rule(value) };
-    let number = crate::cf_type::borrowed_cf_number(value.as_concrete_TypeRef())
+    let number = crate::tree::properties::cf_type::borrowed_cf_number(value.as_concrete_TypeRef())
         .and_then(|number| number.to_i64())
         .ok_or_else(malformed_menu_modifiers)?;
     normalize_menu_modifiers(number).map(Some)
 }
 
 fn single_uppercase_character(key: &str) -> Option<String> {
-    if let Some(symbol) = crate::input::keyboard_map::punctuation(key) {
+    if let Some(symbol) = crate::input::keyboard::keyboard_map::punctuation(key) {
         return Some(symbol.to_string());
     }
     (key.chars().count() == 1).then(|| key.to_uppercase())

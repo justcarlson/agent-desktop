@@ -1,17 +1,19 @@
 use crate::{
     AppError,
-    action_request::ActionRequest,
+    actions::action_request::ActionRequest,
     adapter::{PlatformAdapter, TreeOptions},
     commands::{wait_selector, wait_selector::WaitSelectorInput},
     context::CommandContext,
-    ref_action_wait_context::RefActionWaitContext,
+    ref_action::ref_action_wait_context::RefActionWaitContext,
     refs::RefEntry,
-    refs_store::RefStore,
-    window_lookup,
+    refs::refs_store::RefStore,
+    system::window_lookup,
 };
 use serde_json::{Value, json};
 
-pub(crate) use crate::app_lookup::{process_identity, resolve_app, revalidate_app_for_mutation};
+pub(crate) use crate::system::app_lookup::{
+    process_identity, resolve_app, revalidate_app_for_mutation,
+};
 
 pub use super::window_target::AppArgs;
 pub(crate) use super::window_target::{
@@ -89,7 +91,7 @@ pub(crate) fn execute_ref_action_with_context(
     }
     let entry = load_ref_entry(&args.ref_id, context)?;
     let (result, lease, pre, deadline, lease_started) =
-        crate::ref_action_wait::execute_with_auto_wait_and_lease(
+        crate::ref_action::ref_action_wait::execute_with_auto_wait_and_lease(
             RefActionWaitContext {
                 adapter,
                 entry: &entry,
@@ -108,7 +110,7 @@ pub(crate) fn execute_ref_action_with_context(
     let mut outcome = apply_post_action_wait(value, Some(&entry), adapter, context);
     update_lease_hold_ms(&mut outcome, lease_hold_ms);
     crate::ref_action::finish_artifacts(
-        crate::ref_action_context::RefActionContext::new(
+        crate::ref_action::ref_action_context::RefActionContext::new(
             RefActionWaitContext {
                 adapter,
                 entry: &entry,
@@ -256,9 +258,9 @@ pub(crate) fn execute_ref_action_result_with_context(
     request: ActionRequest,
     context: &CommandContext,
 ) -> Result<(RefEntry, crate::ActionResult), AppError> {
-    let ref_id = &crate::ref_token::qualify_for_test(ref_id, snapshot_id);
+    let ref_id = &crate::refs::ref_token::qualify_for_test(ref_id, snapshot_id);
     let entry = load_ref_entry(ref_id, context)?;
-    let result = crate::ref_action_wait::execute_with_auto_wait(
+    let result = crate::ref_action::ref_action_wait::execute_with_auto_wait(
         RefActionWaitContext {
             adapter,
             entry: &entry,
@@ -280,7 +282,7 @@ pub(crate) fn execute_ref_action_result_with_context(
 /// [`resolve_ref_within_deadline`] builds handle resolution and the
 /// `ref.resolve.ok` event on top of the entry this returns.
 pub(crate) fn load_ref_entry(ref_id: &str, context: &CommandContext) -> Result<RefEntry, AppError> {
-    let (resolved_snapshot_id, local_ref) = crate::ref_token::resolve_ref_target(ref_id)?;
+    let (resolved_snapshot_id, local_ref) = crate::refs::ref_token::resolve_ref_target(ref_id)?;
     let store = RefStore::for_session(context.session_id())?;
     context.trace_lazy(
         "ref.resolve.start",

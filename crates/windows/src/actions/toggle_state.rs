@@ -73,8 +73,8 @@ mod imp {
         after_delivery, delivery_occurred, gated, invoke_available, invoke_pattern_delivered,
     };
     use crate::actions::mutation::{classify_success, classify_write};
+    use crate::tree::properties::property_ids::TreeProperty;
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
     use uiautomation::patterns::UITogglePattern;
 
     pub(crate) fn toggle_steps(

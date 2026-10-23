@@ -26,9 +26,11 @@ fn build_content(args: ClipboardSetArgs) -> Result<ClipboardContent, AppError> {
         )?));
     }
     if let Some(path) = args.image {
-        let data =
-            crate::private_file::read_regular_bounded(&path, crate::MAX_PNG_INPUT_BYTES as u64)
-                .map_err(image_read_error)?;
+        let data = crate::storage::private_file::read_regular_bounded(
+            &path,
+            crate::MAX_PNG_INPUT_BYTES as u64,
+        )
+        .map_err(image_read_error)?;
         let Some((width, height)) = parse_png_dimensions(&data) else {
             return Err(AppError::invalid_input("--image file is not a valid PNG"));
         };

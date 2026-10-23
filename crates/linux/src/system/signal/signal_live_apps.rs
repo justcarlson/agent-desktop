@@ -15,7 +15,7 @@ use zbus::blocking::Connection;
 
 use crate::LinuxAdapter;
 use crate::system::{SharedBus, app_inventory};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 #[path = "signal_live_launch.rs"]
 mod launch;

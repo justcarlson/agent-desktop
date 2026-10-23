@@ -168,8 +168,8 @@ fn visible_without_bounds_agrees_with_the_visibility_gate_for_every_state() {
         for offscreen in [None, Some(true), Some(false)] {
             for token in [
                 None,
-                Some(crate::state::HIDDEN),
-                Some(crate::state::OFFSCREEN),
+                Some(crate::tree::state::HIDDEN),
+                Some(crate::tree::state::OFFSCREEN),
             ] {
                 let mut probe = evidence(offscreen, None);
                 probe.state.hidden = hidden;

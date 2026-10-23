@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     AdapterError, ErrorCode,
-    action_request::ActionRequest,
+    actions::action_request::ActionRequest,
     adapter::{NativeHandle, PlatformAdapter},
 };
 use serde_json::json;
@@ -19,8 +19,8 @@ pub(crate) fn check(
     request: &ActionRequest,
 ) -> Result<ActionabilityReport, AdapterError> {
     use crate::{
+        adapter::hit_test::HitTestResult,
         adapter::{ActionOps, InputOps, ObservationOps, SystemOps},
-        hit_test::HitTestResult,
     };
 
     struct TestHitAdapter;
@@ -46,17 +46,17 @@ pub(crate) fn check(
             role: entry.identity.role.clone(),
             states: entry.capabilities.states.clone(),
             value: entry.identity.value.clone(),
-            enabled: Some(!crate::state::has_state(
+            enabled: Some(!crate::tree::state::has_state(
                 &entry.capabilities.states,
-                crate::state::DISABLED,
+                crate::tree::state::DISABLED,
             )),
-            hidden: Some(crate::state::has_state(
+            hidden: Some(crate::tree::state::has_state(
                 &entry.capabilities.states,
-                crate::state::HIDDEN,
+                crate::tree::state::HIDDEN,
             )),
-            offscreen: Some(crate::state::has_state(
+            offscreen: Some(crate::tree::state::has_state(
                 &entry.capabilities.states,
-                crate::state::OFFSCREEN,
+                crate::tree::state::OFFSCREEN,
             )),
         },
         states_complete: true,

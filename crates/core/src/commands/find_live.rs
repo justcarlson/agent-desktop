@@ -3,13 +3,14 @@ use crate::{
     AdapterError, AppError, LocatorQuery,
     adapter::PlatformAdapter,
     context::CommandContext,
-    live_locator::{
+    locator::live_locator::{
         LocatorMaterialization, LocatorResolution, LocatorResolveRequest, LocatorSelection,
         ObservationRoot, resolve_query,
     },
     refs::RefMap,
-    refs_store::RefStore,
-    snapshot, trace_artifacts,
+    refs::refs_store::RefStore,
+    snapshot,
+    trace::trace_artifacts,
 };
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -37,7 +38,7 @@ pub(super) fn execute(
     let request = resolve_request(args, deadline);
     let mut resolution = match args.root.as_deref() {
         Some(root_ref) => {
-            let (_, local_root_ref) = crate::ref_token::resolve_ref_target(root_ref)?;
+            let (_, local_root_ref) = crate::refs::ref_token::resolve_ref_target(root_ref)?;
             let entry = crate::commands::helpers::load_ref_entry(root_ref, context)?;
             let handle = adapter.resolve_element_strict(&entry, deadline)?;
             resolve_query(
@@ -74,7 +75,10 @@ pub(super) fn execute(
     if let Some(snapshot_id) = snapshot_id.as_deref() {
         for found in &mut resolution.matches {
             if let Some(local_ref) = found.data.ref_id.as_deref() {
-                found.data.ref_id = Some(crate::ref_token::qualify_ref_id(snapshot_id, local_ref));
+                found.data.ref_id = Some(crate::refs::ref_token::qualify_ref_id(
+                    snapshot_id,
+                    local_ref,
+                ));
             }
         }
     }
@@ -189,7 +193,7 @@ fn format_response(
 }
 
 fn format_match(
-    data: crate::live_locator::LocatorMatchData,
+    data: crate::locator::live_locator::LocatorMatchData,
     bounds: Option<crate::Rect>,
 ) -> Result<Value, serde_json::Error> {
     let needs_geometry = data.ref_id.is_none();
@@ -234,7 +238,7 @@ fn attach_roles_present(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::live_locator::{LocatorResolutionMeta, LocatorStats};
+    use crate::locator::live_locator::{LocatorResolutionMeta, LocatorStats};
 
     fn args(limit: Option<usize>) -> FindArgs {
         FindArgs {
@@ -283,7 +287,7 @@ mod tests {
     }
     #[test]
     fn context_matches_expose_geometry_without_inventing_action_refs() {
-        let data = crate::live_locator::LocatorMatchData {
+        let data = crate::locator::live_locator::LocatorMatchData {
             ref_id: None,
             role: "group".into(),
             name: "(unnamed group)".into(),

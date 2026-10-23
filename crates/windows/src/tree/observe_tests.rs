@@ -26,9 +26,9 @@ fn request_with(deadline: Deadline, force_renderer_accessibility: bool) -> Obser
 /// "clean native walk" and a "settled Chromium shell" fixture depending on
 /// what the caller passes for `chromium_root`.
 fn small_complete_outcome() -> WalkOutcome {
-    crate::tree::walker_fake::walk(
-        &crate::tree::walker_fake::FakeTree::default(),
-        crate::tree::walker_fake::budget(10),
+    crate::tree::walk::walker_fake::walk(
+        &crate::tree::walk::walker_fake::FakeTree::default(),
+        crate::tree::walk::walker_fake::budget(10),
     )
 }
 

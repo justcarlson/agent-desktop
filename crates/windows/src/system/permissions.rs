@@ -2,8 +2,8 @@ use agent_desktop_core::{AdapterError, Deadline, PermissionReport, PermissionSta
 
 const ACCESSIBILITY_SUGGESTION: &str = "Run agent-desktop in an interactive desktop session as a user allowed to use the UI Automation COM runtime; restricted tokens and AppContainer processes are denied UIA access.";
 
-pub(crate) use crate::system::hresult::com_hresult_detail;
-use crate::system::hresult::{E_ACCESSDENIED, S_OK};
+pub(crate) use crate::system::runtime::hresult::com_hresult_detail;
+use crate::system::runtime::hresult::{E_ACCESSDENIED, S_OK};
 
 #[cfg(target_os = "windows")]
 mod imp {
@@ -13,7 +13,7 @@ mod imp {
     };
     use windows_sys::core::{GUID, IID_IUnknown, IUnknown_Vtbl};
 
-    use crate::system::com_runtime::classify_co_initialize_hresult;
+    use crate::system::runtime::com_runtime::classify_co_initialize_hresult;
 
     const CLSID_CUIAUTOMATION: GUID = GUID::from_u128(0xff48dba4_60ef_4201_aa87_54103eef594e);
 
@@ -51,7 +51,7 @@ mod imp {
     }
 
     pub(super) fn probe_capture_availability() -> Option<bool> {
-        if crate::system::capture_modern::modern_is_supported() {
+        if crate::system::capture::capture_modern::modern_is_supported() {
             return Some(true);
         }
         Some(legacy_display_capture_possible())

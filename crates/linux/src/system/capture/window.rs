@@ -10,9 +10,9 @@ use super::window_unit::{Unit, choose};
 use super::window_xid::xid_or_error;
 use crate::system::capture::capture_env::CaptureEnv;
 use crate::system::x11::FrameExtents;
-use crate::system::x11::grab_error::GrabError;
-use crate::system::x11::grab_rect::GrabRect;
-use crate::system::x11::map_state::MapState;
+use crate::system::x11::capture::grab_error::GrabError;
+use crate::system::x11::capture::grab_rect::GrabRect;
+use crate::system::x11::capture::map_state::MapState;
 use crate::tree::Extents;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

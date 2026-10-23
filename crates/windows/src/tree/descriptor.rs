@@ -1,7 +1,7 @@
 use agent_desktop_core::NodeDescriptor;
 
 use super::properties::ElementProperties;
-use super::property_ids::TreeProperty;
+use super::properties::property_ids::TreeProperty;
 
 /// Produces the descriptor group from the read set.
 ///
@@ -52,7 +52,7 @@ pub fn placeholder_of(properties: &ElementProperties) -> Option<String> {
     }
 }
 
-fn non_empty_text(outcome: super::property_outcome::PropertyOutcome) -> Option<String> {
+fn non_empty_text(outcome: super::properties::property_outcome::PropertyOutcome) -> Option<String> {
     outcome.non_blank_text()
 }
 

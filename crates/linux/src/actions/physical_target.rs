@@ -5,10 +5,10 @@ use agent_desktop_core::{
 use serde_json::json;
 
 use crate::input::deliver::ensure_budget;
-use crate::input::target_keyboard;
-use crate::input::target_pointer::{self, ClickSpec};
-use crate::input::target_world::LiveWorld;
-use crate::input::target_world::PhysicalWorld;
+use crate::input::physical::target_keyboard;
+use crate::input::physical::target_pointer::{self, ClickSpec};
+use crate::input::physical::target_world::LiveWorld;
+use crate::input::physical::target_world::PhysicalWorld;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 

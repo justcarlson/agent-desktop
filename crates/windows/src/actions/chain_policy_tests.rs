@@ -4,7 +4,7 @@
 //! declares, which is `false`, so a future flip is caught.
 
 use super::{ChainRung, DeliveryOutcome, execute_chain};
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::InteractionPolicy;
 use std::cell::Cell;
 

@@ -4,7 +4,7 @@ use agent_desktop_core::{WindowFilter, WindowInfo};
 
 use super::menu_live_rig::{Rig, deadline, is_closed_ref, poll, press_escape, right_click, tool};
 use crate::system::list_windows;
-use crate::tree::live_launch::{Launched, nonce};
+use crate::tree::live::live_launch::{Launched, nonce};
 
 const GTK3_SCRIPT: &str = r#"
 import gi, os, sys

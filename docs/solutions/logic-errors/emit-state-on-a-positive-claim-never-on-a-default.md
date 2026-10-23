@@ -36,10 +36,10 @@ plausible-looking value, and never the not-supported sentinel that would let
 the tri-state classifier report `Absent`. Read ungated, the classifier reports
 all five `Known`, so every inert node in every tree would have carried
 `indeterminate` and `readonly`. `TreeProperty::gate()`
-(`crates/windows/src/tree/property_ids.rs`) fixes this by naming the
+(`crates/windows/src/tree/properties/property_ids.rs`) fixes this by naming the
 `Is*PatternAvailable` property that must read `true` before the paired state
 property means anything, and `ElementProperties::gated_flag` /
-`gated_number` (`crates/windows/src/tree/element_properties.rs`) are the
+`gated_number` (`crates/windows/src/tree/properties/element_properties.rs`) are the
 *only* accessors for a gated property, so a call site cannot forget to gate.
 
 **`IsDataValidForForm`.** This property defaults to `false`, and the first
@@ -83,7 +83,7 @@ read in `crates/windows/src/tree/states.rs` (`push_toggle_state`,
 reads `true` first.
 
 `IsDataValidForForm` is no longer read at all. It is out of `TreeProperty::WALK_SET`
-in `crates/windows/src/tree/property_ids.rs`, and `invalid` is unproduced on
+in `crates/windows/src/tree/properties/property_ids.rs`, and `invalid` is unproduced on
 Windows — recorded in `resolve_states`'s doc comment in `states.rs` rather than
 worked around. Two regression tests in `crates/windows/src/tree/states_tests.rs`
 pin this: `a_default_false_form_validity_flag_produces_no_invalid_token` feeds

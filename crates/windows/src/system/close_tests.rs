@@ -38,7 +38,7 @@ fn close_requires_a_creation_time_token() {
 }
 
 #[cfg(target_os = "windows")]
-use crate::system::test_time::deadline;
+use crate::system::fixture::test_time::deadline;
 
 #[cfg(target_os = "windows")]
 fn app_for_pid(name: &str, pid: ProcessId) -> AppInfo {

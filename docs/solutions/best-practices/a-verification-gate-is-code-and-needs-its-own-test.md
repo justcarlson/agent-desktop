@@ -206,7 +206,7 @@ instead of discoverable only when a real commit happens to exercise the gap.
   fix set the variable on the CI lanes that own staging the fixture
   (`test-windows` and `test-windows-arm` in `.github/workflows/ci.yml`) and added
   `the_windows_lane_stages_the_live_wpf_host`
-  (`crates/windows/src/tree/envelope_live_tests.rs`), which reads
+  (`crates/windows/src/tree/hit_test/envelope_live_tests.rs`), which reads
   `ci.yml` itself and asserts the assignment sits on the step that runs the
   library tests, so the variable cannot silently vanish from the one place
   that makes it real. Recording that nothing was found is data; recording

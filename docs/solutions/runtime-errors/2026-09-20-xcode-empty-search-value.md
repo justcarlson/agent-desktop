@@ -113,5 +113,5 @@ The exact final binary passed all seven background semantic fixture assertions
 (`/tmp/ad-native-eval/empty-text-final-semantic.log`). This closes the diagnosed
 empty-search-value verification gap; it does not qualify file opening or the
 full repeated application acceptance suite. The reader is
-`crates/macos/src/tree/empty_text.rs`; its unit tests pin the NoValue and
+`crates/macos/src/tree/properties/empty_text.rs`; its unit tests pin the NoValue and
 AttributeUnsupported-only absence rule.

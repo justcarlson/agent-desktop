@@ -109,7 +109,7 @@ fn a_desktop_name_shared_by_different_executables_has_no_alias() {
 fn an_in_place_desktop_edit_invalidates_the_previous_executable_alias() {
     use std::sync::Arc;
     use std::time::{Duration, SystemTime};
-    let dir = std::env::temp_dir().join(crate::tree::live_launch::nonce("alias-cache"));
+    let dir = std::env::temp_dir().join(crate::tree::live::live_launch::nonce("alias-cache"));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("owned.desktop");
     let command = "/bin/sleep 30";

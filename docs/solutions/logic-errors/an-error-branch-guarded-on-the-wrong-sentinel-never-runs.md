@@ -2,7 +2,7 @@
 title: An error branch guarded on the wrong sentinel never runs
 date: 2026-08-16
 category: logic-errors
-module: crates/windows/src/system/thread_walk.rs, crates/windows/src/system/app_ops.rs, crates/windows/src/system/process_identity.rs
+module: crates/windows/src/system/runtime/thread_walk.rs, crates/windows/src/system/app_ops.rs, crates/windows/src/system/process_identity.rs
 problem_type: silent_failure
 component: win32-ffi
 symptoms:
@@ -89,10 +89,10 @@ Pin the guard by driving it, not the constant. An assertion about
 `INVALID_HANDLE_VALUE` alone passes forever whatever the guard compares against,
 which is the shape that let the wrong guard survive three reviews. The shared
 walk therefore carries a test seam, `thread_walk::force_open_failure`
-(`crates/windows/src/system/thread_walk.rs:121-140`), that substitutes the value
+(`crates/windows/src/system/runtime/thread_walk.rs:121-140`), that substitutes the value
 the API returns on failure, and
 `a_failed_snapshot_open_is_an_error_not_an_empty_enumeration`
-(`crates/windows/src/system/menu_state_tests.rs:332-361`) asserts that a refused
+(`crates/windows/src/system/menu/menu_state_tests.rs:332-361`) asserts that a refused
 snapshot surfaces as an error rather than as a completed walk that found no menu.
 Rewrite the guard as `is_null()` and that test fails.
 

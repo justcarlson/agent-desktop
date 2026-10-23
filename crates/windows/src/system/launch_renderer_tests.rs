@@ -21,7 +21,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::system::launch::detect_renderer_from_window;
-use crate::tree::fixture_window::{register_class, unregister_class, wide};
+use crate::tree::fixture::fixture_window::{register_class, unregister_class, wide};
 
 const CHROMIUM_CLASS: &str = "Chrome_WidgetWin_1";
 
@@ -90,7 +90,7 @@ fn a_window_carrying_the_chromium_class_reports_the_chromium_renderer() {
         panic!("the test host must be able to register a class and create a message-only window");
     };
 
-    let observed = crate::system::window_ops::window_class_name(window.handle);
+    let observed = crate::system::window::window_ops::window_class_name(window.handle);
     assert_eq!(
         observed.as_deref(),
         Some(CHROMIUM_CLASS),
@@ -128,8 +128,8 @@ fn a_live_non_chromium_window_reports_no_renderer() {
     crate::tree::fixture::ensure_test_apartment();
     let fixture = crate::tree::fixture::LocalFixture::create().expect("fixture window");
     let id = format!("w-{}", fixture.handle() as usize);
-    let handle = crate::system::window_ops::parse_handle(&id);
-    let class = crate::system::window_ops::window_class_name(handle)
+    let handle = crate::system::window::window_ops::parse_handle(&id);
+    let class = crate::system::window::window_ops::window_class_name(handle)
         .expect("a live fixture window reports its own window class");
     assert_ne!(
         class, "Chrome_WidgetWin_1",

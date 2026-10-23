@@ -229,7 +229,12 @@ fn an_inactive_wayland_press_offers_manual_focus_then_a_supported_retry() {
         "{hint}"
     );
 
-    crate::input::target_keyboard::press_key_global_steps(&physical, &combo(), deadline()).unwrap();
+    crate::input::physical::target_keyboard::press_key_global_steps(
+        &physical,
+        &combo(),
+        deadline(),
+    )
+    .unwrap();
     assert_eq!(physical.count("sent"), 1);
 }
 

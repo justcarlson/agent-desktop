@@ -34,15 +34,15 @@ use crate::adapter::WindowsAdapter;
 use crate::notifications::toast_support::{
     self, CloseCenterOnDrop, StagedToast, TOAST_BODY_SECOND, TOAST_TITLE_SECOND,
 };
-use crate::system::raise_oracle::{responded_since, witness_desktop};
-use crate::system::shell_surface::resolve_surface;
-use crate::system::shell_surface_open::close_surface;
-use crate::system::test_support::{
+use crate::system::fixture::test_support::{
     FIXTURE_APP_NAME_LOCK, SHELL_SURFACE_LOCK, or_skip_shell, wait_for_foreground_to_settle,
     with_interaction_lease_test_lock,
 };
+use crate::system::shell::raise_oracle::{responded_since, witness_desktop};
+use crate::system::shell::shell_surface::resolve_surface;
+use crate::system::shell::shell_surface_open::close_surface;
 
-use crate::system::test_time::{deadline, headed};
+use crate::system::fixture::test_time::{deadline, headed};
 
 fn center_open() -> bool {
     resolve_surface(SnapshotSurface::ActionCenter, deadline(10_000))

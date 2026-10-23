@@ -4,7 +4,8 @@ use crate::{
     commands::{wait_selector, wait_selector::WaitSelectorInput},
     context::CommandContext,
     refs::validate_ref_id,
-    snapshot, snapshot_ref,
+    snapshot,
+    snapshot::snapshot_ref,
 };
 use serde_json::{Value, json};
 

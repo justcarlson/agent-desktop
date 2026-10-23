@@ -3,7 +3,7 @@ use agent_desktop_core::{
     ActionRequest, ActionResult, AdapterError, Deadline, ElementState, ErrorCode,
     IdentifierEvidence, InteractionLease, LiveElement, LiveIdentity, LocatorField, NativeHandle,
     Rect, RefCapabilities, RefEntry, RefEntryIdentity, RefGeometry, RefProcess, RefScope,
-    RefSource, SnapshotSurface, capability,
+    RefSource, SnapshotSurface, actions::capability,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 

@@ -1,7 +1,7 @@
 use super::{descriptors, placeholder_of};
 use crate::tree::properties::ElementProperties;
-use crate::tree::property_ids::TreeProperty;
-use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
+use crate::tree::properties::property_ids::TreeProperty;
+use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
 use crate::tree::test_support::text;
 
 fn from_reads(reads: &[(TreeProperty, PropertyOutcome)]) -> ElementProperties {

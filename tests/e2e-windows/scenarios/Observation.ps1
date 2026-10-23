@@ -100,7 +100,7 @@ function Invoke-ObservationScenario {
         <# outline-tree itself is a bare Panel wearing only a ControlType
            override (tests/fixture-app-windows/FixtureCardsCollections.cs):
            it advertises no action beyond SetFocus, so is_ref_able
-           (crates/core/src/ref_alloc.rs) never gives it a ref, by design -
+           (crates/core/src/refs/ref_alloc.rs) never gives it a ref, by design -
            outline-parent is the outline's own actionable evidence, not its
            container. scroll-area is the tree's genuinely ref-able
            container (advertises Scroll), so it is the drill-down root this

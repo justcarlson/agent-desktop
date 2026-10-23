@@ -179,10 +179,10 @@ mod imp {
     use crate::actions::mutation::{classify_success, classify_write};
     use crate::tree::automation::automation_client;
     use crate::tree::live_read::corroborate_verified_process;
+    use crate::tree::properties::property_ids::TreeProperty;
+    use crate::tree::properties::property_outcome::{PropertyOutcome, PropertyValue};
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
-    use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
-    use crate::tree::walker_source::{nearest_scroll_viewport, viewport_bounds};
+    use crate::tree::walk::walker_source::{nearest_scroll_viewport, viewport_bounds};
     use agent_desktop_core::{ErrorCode, LocatorField, Rect};
     use uiautomation::patterns::UIScrollPattern;
 
@@ -201,7 +201,7 @@ mod imp {
         };
         match nearest_scroll_viewport(element, &walker, deadline) {
             Ok(None) => Ok(None),
-            Err(crate::tree::walker_source::BudgetExpired) => Err(deadline.timeout_error()),
+            Err(crate::tree::walk::walker_source::BudgetExpired) => Err(deadline.timeout_error()),
             Ok(Some(ancestor)) => {
                 scroll_ancestor_until_visible(element, &ancestor, deadline).map(Some)
             }

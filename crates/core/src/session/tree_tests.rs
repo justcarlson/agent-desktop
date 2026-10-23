@@ -1,5 +1,5 @@
 use crate::AppError;
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::session::{ArtifactsMode, SessionTraceMode, StartSessionOptions, start_session};
 use std::os::unix::fs::PermissionsExt;
 

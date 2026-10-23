@@ -1,7 +1,7 @@
-use crate::system::x11::desktop_placement::DesktopPlacement;
-use crate::system::x11::stacked_window::StackedWindow;
-use crate::system::x11::stacking_read::StackingRead;
-use crate::system::x11::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::stacking::stacked_window::StackedWindow;
+use crate::system::x11::stacking::stacking_read::StackingRead;
+use crate::system::x11::stacking::stacking_snapshot::StackingSnapshot;
+use crate::system::x11::window::desktop_placement::DesktopPlacement;
 use crate::tree::Extents;
 
 /// Whether anything paints over a rectangle. `Unknown` is the absence of an

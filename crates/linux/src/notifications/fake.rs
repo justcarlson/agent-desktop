@@ -13,7 +13,7 @@ use crate::system::shell::container::Landmark;
 use crate::system::shell::light::Light;
 use crate::system::shell::open::Opened;
 use crate::system::shell::search::{Visit, Walk};
-use crate::tree::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
+use crate::tree::vocabulary::role_numbers::{LABEL, NOTIFICATION, PUSH_BUTTON};
 use crate::tree::{AtspiElement, Extents};
 
 const PANEL: u32 = 39;

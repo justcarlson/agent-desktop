@@ -3,9 +3,9 @@ use crate::{
     adapter::{PlatformAdapter, optional_live_read},
     commands::helpers::resolve_ref_with_context,
     context::CommandContext,
-    element_state::ElementState,
     refs::RefEntry,
-    state::{self, CHECKED, EXPANDED, FOCUSED, SELECTED, VisibilityEvidence},
+    tree::element_state::ElementState,
+    tree::state::{self, CHECKED, EXPANDED, FOCUSED, SELECTED, VisibilityEvidence},
 };
 use serde_json::{Value, json};
 
@@ -66,20 +66,20 @@ pub fn execute(
         }
         IsProperty::Focused => (true, state::has_state(&state.states, FOCUSED)),
         IsProperty::Checked => (
-            crate::roles::is_toggleable_role(&entry.identity.role)
+            crate::tree::roles::is_toggleable_role(&entry.identity.role)
                 || state::has_state(&state.states, CHECKED)
-                || crate::capability::contains_any(
+                || crate::actions::capability::contains_any(
                     &entry.capabilities.available_actions,
-                    crate::capability::CHECKED_APPLICABILITY,
+                    crate::actions::capability::CHECKED_APPLICABILITY,
                 ),
             state::has_state(&state.states, CHECKED),
         ),
         IsProperty::Expanded => (
-            crate::roles::is_expandable_role(&entry.identity.role)
+            crate::tree::roles::is_expandable_role(&entry.identity.role)
                 || state::has_state(&state.states, EXPANDED)
-                || crate::capability::contains_any(
+                || crate::actions::capability::contains_any(
                     &entry.capabilities.available_actions,
-                    crate::capability::EXPANDED_APPLICABILITY,
+                    crate::actions::capability::EXPANDED_APPLICABILITY,
                 ),
             state::has_state(&state.states, EXPANDED),
         ),

@@ -81,12 +81,14 @@ check. Bypass it only in an emergency: `git commit --no-verify` or `SKIP_PRECOMM
 ## Architecture
 
 ```
-crates/core/     agent-desktop-core: PlatformAdapter trait, shared types, one file per command in commands/
+crates/core/     agent-desktop-core: PlatformAdapter trait in adapter/, shared types in domain folders,
+                 one file per command in commands/
 crates/macos/    agent-desktop-macos: AX API
 crates/windows/  agent-desktop-windows: UI Automation
 crates/linux/    agent-desktop-linux: AT-SPI
 crates/ffi/      agent-desktop-ffi: cdylib and the committed C header include/agent_desktop.h
-src/             agent-desktop binary: cli/, cli_args/, dispatch/, batch/, command_policy/
+src/             agent-desktop binary: cli/, cli_args/, dispatch/, batch/, command_policy/, command_host/,
+                 diagnostic/, visual_debug/
 skills/          agent skills, compiled into the binary
 tests/           golden fixtures, E2E harness per OS, FFI smoke tests
 probes/          raw platform measurements; FINDINGS.md rows are citable evidence
@@ -120,16 +122,33 @@ JSON entries into the same `Commands` enum, runs the same `CommandPolicy` prefli
 4. Add its name to `parse_command()` in `src/batch/mod.rs`; `every_cli_subcommand_is_known_to_batch_parser` fails
    otherwise. Add it to the surface lists in `src/cli/contract_command_surface_tests.rs`.
 5. Update the command counts in `README.md` and in this file; `src/cli/doc_literal_drift_tests.rs` checks them.
-6. A new `Action` variant goes in `crates/core/src/action.rs`. A new adapter method goes in the matching
+6. A new `Action` variant goes in `crates/core/src/actions/action.rs`. A new adapter method goes in the matching
    `PlatformAdapter` fragment with a `not_supported` default.
 7. Update the matching skill in the same change: `skills/agent-desktop/` for cross-platform behavior, the platform
    skill for what differs, `skills/agent-desktop-ffi/` for the C ABI. The skills compile into the binary and are what
    agents read.
 
-**Platform crate layout.** `adapter.rs` (the trait impl) sits at the crate root. New files go in the folder that fits:
-`tree/` reads, traverses and resolves the UI; `actions/` acts on elements; `input/` synthesizes raw keyboard, mouse and
-clipboard input; `system/` handles app lifecycle, windows, permissions and screenshots; `notifications/` handles the
-OS notification surface.
+**Crate layout.** Core's root holds only `lib.rs` and domain folders named after `CONCEPTS.md` words: `actionability`,
+`actions`, `adapter`, `commands`, `context`, `cursor_overlay`, `input`, `locator`, `notifications`, `ref_action`,
+`refs`, `response`, `session`, `snapshot`, `storage`, `system`, `trace`, `tree` and `wait`.
+- A platform crate's root holds `lib.rs`, `adapter.rs` (the trait impl) and five layer folders, plus `bin/` where a
+  helper binary exists. `tree/` reads, traverses and resolves the UI; `actions/` acts on elements; `input/`
+  synthesizes raw keyboard, mouse and clipboard input; `system/` handles app lifecycle, windows, permissions and
+  screenshots; `notifications/` handles the OS notification surface.
+- Inside a layer, a concept with four or more source files gets a subfolder named from the shared vocabulary
+  (`resolve`, `walk`, `properties`, `select`, `scroll`, `clipboard`, `keyboard`, `mouse`, `window`, `capture`, ...).
+  File names keep their prefix (`system/window/window_ops.rs`). A file named like its folder becomes its `mod.rs`.
+- Tests sit beside their code as `foo_tests.rs`, declared from `foo.rs` with
+  `#[cfg(test)] #[path = "foo_tests.rs"] mod tests;`.
+- Capability impls live in `adapter.rs` or in the matching layer's `adapter.rs`.
+
+**Grounding rule.** `scripts/check-architecture.sh` (rules in `scripts/check_architecture.py`) runs in the pre-commit
+hook and in CI next to the source rules. Before it scans, it plants a violation of every rule, so a rule that stops
+detecting fails the gate. It fails when core depends on a platform or OS crate, a platform crate reaches another,
+core gains OS-conditional code outside its allow-list, a crate's top-level layout drifts, a capability is implemented
+in the wrong layer, core domains reach `commands/`, or a test file is not declared beside its code. Its lists (core
+dependencies, core domains, binary folders, OS allow-list) change only in review. The CI `cargo tree` isolation steps
+remain the transitive check.
 
 ## Coding standards
 
@@ -196,14 +215,14 @@ Every command prints one envelope. `docs/json-output.md` holds the full contract
 
 - Refs are snapshot-qualified (`@s8f3k2p9:e1`) and allocated depth-first. Only the qualified form is accepted as
   input; a bare `@e1` fails with `INVALID_ARGS`. `@eN` is the internal RefMap key only.
-- An element gets a ref when its role is interactive (`INTERACTIVE_ROLES` in `crates/core/src/roles.rs`) or it
+- An element gets a ref when its role is interactive (`INTERACTIVE_ROLES` in `crates/core/src/tree/roles.rs`) or it
   advertises a primary action. `SetFocus`, `RightClick` and `ScrollTo` alone do not qualify, because web runtimes
   advertise them on nearly every node.
 - Actions re-identify the element strictly from `RefEntry` evidence: pid, role, path and source surface, stable text
   identity and a bounds hash. Control values are volatile and never identity. A mismatch returns `STALE_REF`; several
   live candidates return `AMBIGUOUS_TARGET`.
 - All state lives under one root, `~/.agent-desktop` by default. `AGENT_DESKTOP_HOME` relocates it
-  (`crates/core/src/state_root.rs`). Refmaps live at `snapshots/<snapshot_id>/refmap.json`, capped at 1 MB each; the
+  (`crates/core/src/storage/state_root.rs`). Refmaps live at `snapshots/<snapshot_id>/refmap.json`, capped at 1 MB each; the
   store keeps the newest 128 snapshots per namespace and prunes to 96. Command code goes through `RefStore`, which
   only reads the legacy `last_refmap.json` to migrate it.
 - A session is selected by `--session`, then `AGENT_DESKTOP_SESSION`, then none. `session start` does not activate a

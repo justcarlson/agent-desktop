@@ -2,7 +2,7 @@
 title: A deadline cannot interrupt a blocking OS call
 date: 2026-08-09
 category: logic-errors
-module: crates/windows/src/system/window_op.rs, crates/windows/src/system/window_activate.rs, crates/windows/src/system/window_identity.rs
+module: crates/windows/src/system/window/window_op.rs, crates/windows/src/system/window/window_activate.rs, crates/windows/src/system/window/window_identity.rs
 problem_type: logic_error
 component: platform-adapter
 symptoms:

@@ -1,6 +1,6 @@
 use super::*;
-use crate::input::mouse_send::mouse_send_fake_sink as sink;
-use crate::input::mouse_send::{MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE};
+use crate::input::mouse::mouse_send::mouse_send_fake_sink as sink;
+use crate::input::mouse::mouse_send::{MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE};
 use agent_desktop_core::{Deadline, Point};
 
 fn drag_params(duration_ms: Option<u64>, drop_delay_ms: Option<u64>) -> DragParams {
@@ -75,7 +75,7 @@ fn impossible_drag_deadline_fails_before_mouse_down() {
 /// Counts the moves posted while the button is down: everything between
 /// the mouse-down and the release. Travel and dwell both post moves, so a
 /// zero dwell is visible as the absence of the extra ones.
-fn moves_while_button_held(events: &[crate::input::mouse_send::MouseInputEvent]) -> usize {
+fn moves_while_button_held(events: &[crate::input::mouse::mouse_send::MouseInputEvent]) -> usize {
     let down = events
         .iter()
         .position(|event| event.flags == MOUSEEVENTF_LEFTDOWN);

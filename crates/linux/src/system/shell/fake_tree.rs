@@ -4,7 +4,7 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 
 use super::identity::ShellRoot;
 use super::light::{Light, Nodes};
-use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
+use crate::tree::vocabulary::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 use crate::tree::{AtspiElement, Extents};
 
 pub(super) const BUS: &str = ":1.7";

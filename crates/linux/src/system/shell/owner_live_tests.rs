@@ -8,7 +8,7 @@ use zbus::zvariant::OwnedObjectPath;
 
 use super::identity::{find_root, is_shell_owner};
 use crate::system::SharedBus;
-use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
+use crate::tree::vocabulary::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 const APP: &str = r#"
 import ctypes,os,sys,gi,signal

@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId, RendererKind, WindowFilter,
-    WindowInfo, launch_options::LaunchOptions, launch_result::LaunchResult,
+    WindowInfo, system::launch_options::LaunchOptions, system::launch_result::LaunchResult,
 };
 #[cfg(test)]
 use std::collections::BTreeMap;
@@ -8,14 +8,14 @@ use std::path::Path;
 use std::time::Duration;
 
 use super::app_ops::{ProcessRow, process_snapshot};
-#[cfg(target_os = "windows")]
-use super::hresult::win32_last_error;
 use super::launch_path::{
     child_environment_block, image_file_name, launch_identifier, resolve_executable,
     validate_launch_options,
 };
 use super::process_identity;
-use super::window_ops::list_windows_live;
+#[cfg(target_os = "windows")]
+use super::runtime::hresult::win32_last_error;
+use super::window::window_ops::list_windows_live;
 
 pub(crate) fn launch_app_impl(
     id: &str,
@@ -107,11 +107,11 @@ fn launch_result(
 #[cfg(target_os = "windows")]
 fn detect_renderer_from_window(window: &WindowInfo) -> Option<RendererKind> {
     const CHROMIUM_WINDOW_CLASS: &str = "Chrome_WidgetWin_1";
-    let handle = super::window_ops::parse_handle(&window.id);
+    let handle = super::window::window_ops::parse_handle(&window.id);
     if handle.is_null() {
         return None;
     }
-    super::window_ops::window_class_name(handle)
+    super::window::window_ops::window_class_name(handle)
         .filter(|class| class == CHROMIUM_WINDOW_CLASS)
         .map(|_| RendererKind::Chromium)
 }

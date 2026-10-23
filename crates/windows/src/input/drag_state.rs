@@ -13,8 +13,10 @@
 
 use agent_desktop_core::AdapterError;
 
-use crate::input::mouse_coord::NormalizedPoint;
-use crate::input::mouse_send::{MOUSEEVENTF_LEFTUP, button_input, move_input, post_mouse_inputs};
+use crate::input::mouse::mouse_coord::NormalizedPoint;
+use crate::input::mouse::mouse_send::{
+    MOUSEEVENTF_LEFTUP, button_input, move_input, post_mouse_inputs,
+};
 use crate::input::release_state::ReleaseState;
 
 const SUGGESTION: &str = "Inspect the source and destination before retrying; the emergency release was posted without an OS acknowledgement";

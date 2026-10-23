@@ -72,8 +72,8 @@ mod imp {
         find_named_selection_item, name_matches, scroll_to_realize, selection_item_available,
     };
     use crate::actions::value_write::gated_pattern_value_equals;
+    use crate::tree::properties::property_ids::TreeProperty;
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
     use agent_desktop_core::DeliverySemantics;
     use uiautomation::patterns::{UIExpandCollapsePattern, UISelectionItemPattern};
 

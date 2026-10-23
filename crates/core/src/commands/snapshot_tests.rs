@@ -2,7 +2,7 @@ use super::*;
 use crate::adapter::NoopAdapter as DefaultSurfaceAdapter;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps, WindowFilter};
 use crate::context::{CommandContext, WaitSelector};
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::{AccessibilityNode, WindowInfo};
 use crate::{AdapterError, ErrorCode};
 
@@ -24,9 +24,9 @@ struct WaitSnapshotAdapter;
 impl ObservationOps for WaitSnapshotAdapter {
     fn observe_tree(
         &self,
-        root: crate::live_locator::ObservationRoot<'_>,
-        _request: &crate::live_locator::ObservationRequest,
-    ) -> Result<crate::live_locator::ObservedTree, AdapterError> {
+        root: crate::locator::live_locator::ObservationRoot<'_>,
+        _request: &crate::locator::live_locator::ObservationRequest,
+    ) -> Result<crate::locator::live_locator::ObservedTree, AdapterError> {
         crate::adapter::observed_tree(
             &root,
             AccessibilityNode {

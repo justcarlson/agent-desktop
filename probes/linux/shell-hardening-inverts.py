@@ -8,7 +8,7 @@ import sys
 
 LOSS = "bus_live_loss_keeps_cold_start_recovery_without_claiming_delivery"
 CASES = {
-    "transport": ("crates/linux/src/tree/node_read.rs",
+    "transport": ("crates/linux/src/tree/properties/node_read.rs",
                   "Err(error) if crate::system::is_connection_failure(&error) => {",
                   "Err(error) if false && crate::system::is_connection_failure(&error) => {", LOSS),
     "mapping": ("crates/linux/src/system/bus_fault.rs",

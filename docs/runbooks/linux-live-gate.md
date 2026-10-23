@@ -51,7 +51,7 @@ are never overwritten. `--jobs 1` runs the same selection serially; `--list`
 builds and records the complete partition without opening a desktop.
 
 For a closing gate after a measured full run, select only changed modules with
-`--ignored-only --module tree::physical_live_tests --module notifications::live_tests`
+`--ignored-only --module tree::live::physical_live_tests --module notifications::live_tests`
 (repeat `--module` for each affected module). Module prefixes match at `::`
 boundaries; an unmatched module fails before opening a session. Pass the same
 selection on every tier chunk and `--merge`; the manifest pins that selection.
@@ -61,8 +61,8 @@ Changed owners map to these ignored live modules:
 
 | Changed owner | Ignored live modules |
 | --- | --- |
-| Keyboard focus and shared focus proof | `tree::physical_live_tests`, `tree::physical_live_apps_tests`, `actions::live_widget_tests` |
-| Selection and ref recovery | `actions::live_select_tests`, `actions::live_widget_tests`, `tree::navigate_live_tests` |
+| Keyboard focus and shared focus proof | `tree::live::physical_live_tests`, `tree::live::physical_live_apps_tests`, `actions::live::live_widget_tests` |
+| Selection and ref recovery | `actions::live::live_select_tests`, `actions::live::live_widget_tests`, `tree::live::navigate_live_tests` |
 | Menu resolution and modal routing | `system::menu::menu_surface_live_tests`, `system::menu::menu_wait_live_tests` |
 | Notification cleanup lease | `notifications::live_tests` (Mutter only) |
 
