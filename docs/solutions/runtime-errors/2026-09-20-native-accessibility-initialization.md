@@ -96,7 +96,7 @@ first skeleton exposed no table. The new candidate's skeleton exposed
 Public find rooted at that exact ref returned the selected seed-target cell in
 54 ms. No raw setter initialized this process. The 30-second monitor recorded
 other app activations but none for Numbers; session input activity is unattributed.
-This is one matched old/new cold-start trial, not the full repeated acceptance suite.
+This is one matched old/new cold-start trial. The full repeated acceptance suite has not been run.
 
 Twenty-seven focused activation tests, full workspace tests, Clippy and formatting
 passed. Logs use the `shallow-init-` prefix under `/tmp/ad-native-eval/`.

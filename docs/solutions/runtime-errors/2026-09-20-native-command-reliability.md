@@ -50,7 +50,7 @@ Both include earlier local repairs; neither is the unmodified main release.
    repair and passed afterward. Matching values alone remain insufficient
    identity; distinct named scroll controls remain distinct.
 
-This is a core identity-classification defect, not an AX delivery defect.
+The defect was in core identity classification; AX delivery was not at fault.
 All users of the shared ref-identity helpers receive the correction, including
 macOS resolution and locator hydration. Changed geometry without stable identity
 still requires safe refusal; the fix does not promise arbitrary thumb recovery.
