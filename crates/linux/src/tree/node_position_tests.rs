@@ -42,13 +42,69 @@ fn extents_of(node: &WalkedNode<ObservedRead>) -> Option<(i32, i32)> {
     }
 }
 
+fn rect_of(node: &WalkedNode<ObservedRead>) -> Option<(i32, i32, i32, i32)> {
+    match &node.payload.node.extents {
+        Field::Present(extents) => Some((extents.x, extents.y, extents.width, extents.height)),
+        _ => None,
+    }
+}
+
+fn moved_to(x: i32, y: i32) -> Option<FramePlace> {
+    Some(FramePlace {
+        origin: (x, y),
+        drawn: None,
+    })
+}
+
+fn drawn_at(x: i32, y: i32, width: i32, height: i32) -> Option<FramePlace> {
+    Some(FramePlace {
+        origin: (x, y),
+        drawn: Some(Extents {
+            x,
+            y,
+            width,
+            height,
+        }),
+    })
+}
+
+fn sized(width: i32, height: i32) -> Option<Extents> {
+    Some(Extents {
+        x: 0,
+        y: 0,
+        width,
+        height,
+    })
+}
+
+fn window_frame() -> AtspiElement {
+    let mut frame = AtspiElement::new(":1.1", "/frame", 1);
+    frame.set_ancestry(crate::tree::ancestry::of_root(&frame.clone()));
+    frame
+}
+
+fn below(frame: &AtspiElement, path: &str) -> AtspiElement {
+    let mut element = AtspiElement::new(":1.1", path, 1);
+    element.set_ancestry(crate::tree::ancestry::child(frame, None));
+    element
+}
+
+fn node_of(
+    element: AtspiElement,
+    children: Vec<WalkedNode<ObservedRead>>,
+) -> WalkedNode<ObservedRead> {
+    let mut walked = node(0, 0, children);
+    walked.payload.node.element = element;
+    walked
+}
+
 #[test]
 fn a_gtk4_node_is_placed_at_its_window_rectangle_moved_to_the_client_origin() {
     let mut root = node(0, 0, vec![node(0, 0, Vec::new())]);
     apply(
         &mut root,
         &gtk4(),
-        Some((460, 165)),
+        moved_to(460, 165),
         &[window(0, 0), window(180, 46)],
     );
     assert_eq!(extents_of(&root), Some((460, 165)));
@@ -61,12 +117,68 @@ fn a_gtk4_menu_uses_the_owning_popup_origin_for_pointer_bounds() {
     apply(
         &mut menu,
         &gtk4(),
-        Some((730, 410)),
+        moved_to(730, 410),
         &[window(0, 0), window(26, 38)],
     );
 
     assert_eq!(extents_of(&menu), Some((730, 410)));
     assert_eq!(extents_of(&menu.children[0]), Some((756, 448)));
+}
+
+#[test]
+fn a_window_root_is_placed_at_the_rectangle_its_client_draws_not_at_the_size_the_toolkit_kept() {
+    let frame = window_frame();
+    let mut root = node_of(
+        frame.clone(),
+        vec![node_of(below(&frame, "/frame/1"), Vec::new())],
+    );
+
+    apply(
+        &mut root,
+        &gtk4(),
+        drawn_at(66, 32, 1214, 768),
+        &[sized(700, 520), window(180, 46)],
+    );
+
+    assert_eq!(rect_of(&root), Some((66, 32, 1214, 768)));
+    assert_eq!(rect_of(&root.children[0]), Some((246, 78, 10, 10)));
+    assert_eq!(
+        root.payload.evidence_bounds,
+        Some((sized(700, 520).expect("rect"), BoundsSpace::Window))
+    );
+}
+
+#[test]
+fn a_window_root_the_toolkit_gave_no_rectangle_takes_the_one_its_client_draws() {
+    let mut root = node_of(window_frame(), Vec::new());
+
+    apply(&mut root, &gtk4(), drawn_at(66, 32, 1214, 768), &[None]);
+
+    assert_eq!(rect_of(&root), Some((66, 32, 1214, 768)));
+}
+
+#[test]
+fn a_window_root_whose_client_draws_no_rectangle_keeps_the_toolkit_size_at_the_client_origin() {
+    let mut root = node_of(window_frame(), Vec::new());
+
+    apply(&mut root, &gtk4(), moved_to(66, 32), &[sized(700, 520)]);
+
+    assert_eq!(rect_of(&root), Some((66, 32, 700, 520)));
+}
+
+#[test]
+fn a_root_below_the_window_keeps_its_own_rectangle_moved_to_the_client_origin() {
+    let frame = window_frame();
+    let mut root = node_of(below(&frame, "/frame/1"), Vec::new());
+
+    apply(
+        &mut root,
+        &gtk4(),
+        drawn_at(66, 32, 1214, 768),
+        &[window(30, 40)],
+    );
+
+    assert_eq!(rect_of(&root), Some((96, 72, 10, 10)));
 }
 
 #[test]
@@ -84,7 +196,7 @@ fn without_a_client_origin_a_node_keeps_its_window_rectangle_as_reference_eviden
 #[test]
 fn a_client_origin_keeps_a_screen_position_and_the_window_rectangle_as_reference_evidence() {
     let mut root = node(0, 0, Vec::new());
-    apply(&mut root, &gtk4(), Some((460, 165)), &[window(1, 2)]);
+    apply(&mut root, &gtk4(), moved_to(460, 165), &[window(1, 2)]);
     assert_eq!(extents_of(&root), Some((461, 167)));
     assert_eq!(
         root.payload.evidence_bounds,
@@ -95,7 +207,12 @@ fn a_client_origin_keeps_a_screen_position_and_the_window_rectangle_as_reference
 #[test]
 fn a_node_whose_window_rectangle_was_not_read_loses_its_position() {
     let mut root = node(0, 0, vec![node(0, 0, Vec::new())]);
-    apply(&mut root, &gtk4(), Some((460, 165)), &[window(0, 0), None]);
+    apply(
+        &mut root,
+        &gtk4(),
+        moved_to(460, 165),
+        &[window(0, 0), None],
+    );
     assert_eq!(extents_of(&root), Some((460, 165)));
     assert_eq!(extents_of(&root.children[0]), None);
 }
@@ -110,7 +227,7 @@ fn a_node_off_every_screen_consumes_no_window_rectangle() {
     apply(
         &mut root,
         &gtk4(),
-        Some((100, 100)),
+        moved_to(100, 100),
         &[window(0, 0), window(5, 6)],
     );
     assert_eq!(extents_of(&root.children[0]), Some((i32::MIN, i32::MIN)));
@@ -182,7 +299,7 @@ fn placement_readers_preserve_transport_loss_and_allow_unavailable_geometry() {
 #[test]
 fn failed_window_geometry_remains_unknown_after_placement() {
     let mut root = node(0, 0, Vec::new());
-    apply(&mut root, &gtk4(), Some((100, 100)), &[None]);
+    apply(&mut root, &gtk4(), moved_to(100, 100), &[None]);
     let evidence =
         super::super::node_evidence::evidence_for(&root.payload, &root.payload.node.element);
     assert!(evidence.ref_evidence.window_bounds.is_unknown());

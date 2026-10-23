@@ -388,3 +388,25 @@ fn same_titled_windows_nothing_separates_have_no_position() {
     place_windows(&mut three, &active_client(8), None);
     assert_eq!(origins(&three), vec![None, None, None]);
 }
+
+#[test]
+fn the_rectangle_of_a_client_is_its_geometry_less_the_shadow() {
+    let mut shadowed = client(7, 66, 32);
+    shadowed.shadow = (26, 26, 23, 29);
+    shadowed.bounds = Some(Extents {
+        x: 40,
+        y: 6,
+        width: 863,
+        height: 575,
+    });
+    assert_eq!(
+        rect_of_client(&[client(8, 1, 2), shadowed], 7),
+        Some(Extents {
+            x: 66,
+            y: 32,
+            width: 814,
+            height: 520,
+        })
+    );
+    assert_eq!(rect_of_client(&[client(8, 1, 2)], 7), None);
+}

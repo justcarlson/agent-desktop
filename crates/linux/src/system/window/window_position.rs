@@ -33,6 +33,20 @@ fn visible_size(client: &X11Client) -> Option<Extents> {
     })
 }
 
+/// The window the X11 client `id` draws, the rectangle `list-windows` reports
+/// for it, or `None` when it is not listed or its geometry is unknown.
+pub(crate) fn rect_of_client(clients: &[X11Client], id: u32) -> Option<Extents> {
+    let client = clients.iter().find(|client| client.id == id)?;
+    let (x, y) = client_origin(client)?;
+    let size = visible_size(client)?;
+    (size.width > 0 && size.height > 0).then_some(Extents {
+        x,
+        y,
+        width: size.width,
+        height: size.height,
+    })
+}
+
 fn at(origin: (i32, i32), size: Extents) -> Rect {
     Rect::from(Extents {
         x: origin.0,
