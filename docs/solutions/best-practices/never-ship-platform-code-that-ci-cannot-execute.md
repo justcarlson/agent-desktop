@@ -59,15 +59,14 @@ It asserted the defect was correct, compared constants to constants, and could n
 
 ## Resolution
 
-Deleted all 1,062 LOC and removed `windows-sys` from core entirely. Windows now uses the
-same portable `std::fs` path as every other non-unix target. This is honest: the hardening
-guarded refmap, trace, and session artifacts on a platform where no command can produce
-them.
+Deleted all 1,062 LOC and removed `windows-sys` from core entirely. Core's default stays
+portable `std::fs`; the Windows hardening returns in the platform crate (see below). Deleting it was honest: until the Windows adapter could
+produce refmap, trace, or session artifacts, the hardening guarded nothing reachable.
 
 Added real `cargo test` lanes for Windows and Linux so every platform-conditional branch
-in core is executed on every PR. That lane, not the deleted code, is the actual fix — it
-is what stops the same mistake reaching the Linux adapter, whose
-`validate_local_filesystem` had been equally unrun.
+in core is executed on every PR. That lane, not the deleted code, is the fix: it stops the
+same mistake reaching the Linux adapter, whose `validate_local_filesystem` had been equally
+unrun.
 
 ## Recurrence
 
