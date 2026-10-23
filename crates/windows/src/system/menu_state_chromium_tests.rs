@@ -9,7 +9,7 @@
 use super::*;
 use std::time::Duration;
 
-use crate::system::test_support::FIXTURE_APP_NAME_LOCK;
+use crate::system::test_support::{FIXTURE_APP_NAME_LOCK, settles_to};
 use crate::tree::fixture::bootstrap;
 use crate::tree::fixture_menu::MenuFixture;
 
@@ -29,6 +29,11 @@ use crate::system::test_time::deadline;
 /// being the same shared function both compositions call; the popup leg
 /// below proves the short-circuit order keeps the identity when an earlier
 /// source fires.
+///
+/// Each leg first waits for both compositions to reach the state the fixture
+/// is in, because the OS views they read move after the fixture's own state
+/// does; the identity is then asserted on the settled pair, so one comparison
+/// cannot straddle a composition that has flipped and one that has not.
 #[test]
 fn menus_open_for_answers_identically_to_menu_is_open_for_the_fixture_pid() {
     bootstrap();
@@ -49,26 +54,35 @@ fn menus_open_for_answers_identically_to_menu_is_open_for_the_fixture_pid() {
     let single =
         || menu_is_open(pid, deadline(10_000)).expect("the single-pid predicate reads the fixture");
 
-    assert_eq!(
-        composed(),
-        single(),
-        "at rest both compositions probe every source and must agree"
+    let agree_on = |expected: bool, context: &str| {
+        assert!(
+            settles_to(STATE_TIMEOUT, expected, composed),
+            "menus_open_for never settled to {expected}: {context}"
+        );
+        assert!(
+            settles_to(STATE_TIMEOUT, expected, single),
+            "menu_is_open never settled to {expected}: {context}"
+        );
+        assert_eq!(composed(), single(), "{context}");
+    };
+
+    agree_on(
+        false,
+        "at rest both compositions probe every source and must agree",
     );
 
     fixture.open_context_menu();
     assert!(fixture.wait_for_menu_state(true, STATE_TIMEOUT));
-    assert_eq!(
-        composed(),
-        single(),
+    agree_on(
+        true,
         "with the popup open the composition must answer what menu_is_open answers - an \
-         earlier source firing keeps the Chromium probe out while the identity holds"
+         earlier source firing keeps the Chromium probe out while the identity holds",
     );
 
     fixture.dismiss_context_menu();
     assert!(fixture.wait_for_menu_state(false, STATE_TIMEOUT));
-    assert_eq!(
-        composed(),
-        single(),
-        "after dismissal the composition must return to the single-pid answer"
+    agree_on(
+        false,
+        "after dismissal the composition must return to the single-pid answer",
     );
 }

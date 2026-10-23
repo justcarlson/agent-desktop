@@ -15,6 +15,12 @@
 //! not menu-navigation input - where `EndMenu` legitimately ends the calling
 //! thread's own active menu.
 //!
+//! The UP state is reported from `WM_ENTERMENULOOP`, which the OS sends only
+//! once `TrackPopupMenu` has entered its modal loop, never from the open
+//! command: reporting at the command lets a waiter observe UP while the menu
+//! is still being created. A `TrackPopupMenu` that fails reports the OS error
+//! instead, so a menu that never opened fails with its real reason.
+//!
 //! Split from the modal fixture (`fixture_modal.rs`) purely on the 400-line
 //! file cap: the two together do not fit one file at this crate's density.
 
@@ -22,8 +28,8 @@ use std::cell::Cell;
 use std::ffi::c_void;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread::{JoinHandle, spawn};
 use std::time::{Duration, Instant};
 
@@ -33,7 +39,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreateMenu, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
     DestroyWindow, DispatchMessageW, EndMenu, GetMessageW, HMENU, MF_STRING, MSG, PostMessageW,
     PostQuitMessage, SW_SHOWNOACTIVATE, SetMenu, ShowWindow, TPM_LEFTBUTTON, TrackPopupMenu,
-    TranslateMessage, WM_CLOSE, WM_DESTROY, WS_OVERLAPPEDWINDOW,
+    TranslateMessage, WM_CLOSE, WM_DESTROY, WM_ENTERMENULOOP, WS_OVERLAPPEDWINDOW,
 };
 
 use super::fixture_window;
@@ -43,6 +49,7 @@ const MENU_HOST_TEST_NAME: &str = "tree::fixture_menu::tests::menu_fixture_host_
 const MENU_HANDLE_PREFIX: &str = "AGENT_DESKTOP_MENU_HWND=";
 const MENU_STATE_UP: &str = "AGENT_DESKTOP_MENU_STATE=UP";
 const MENU_STATE_DOWN: &str = "AGENT_DESKTOP_MENU_STATE=DOWN";
+const MENU_STATE_FAILED_PREFIX: &str = "AGENT_DESKTOP_MENU_STATE=FAILED:";
 
 pub(crate) const HOST_WATCHDOG_LIFETIME: Duration = Duration::from_secs(300);
 pub(crate) const STATE_POLL: Duration = Duration::from_millis(25);
@@ -172,8 +179,13 @@ fn open_context_menu(window: HWND) {
     if popup.is_null() {
         return;
     }
-    signal(MENU_STATE_UP);
-    unsafe { TrackPopupMenu(popup, TPM_LEFTBUTTON, 0, 0, 0, window, std::ptr::null()) };
+    let shown = unsafe { TrackPopupMenu(popup, TPM_LEFTBUTTON, 0, 0, 0, window, std::ptr::null()) };
+    if shown == 0 {
+        signal(format_args!(
+            "{MENU_STATE_FAILED_PREFIX}{}",
+            std::io::Error::last_os_error()
+        ));
+    }
     signal(MENU_STATE_DOWN);
 }
 
@@ -190,6 +202,12 @@ unsafe extern "system" fn menu_window_proc(
         }
         WM_FIXTURE_DISMISS_MENU => {
             unsafe { EndMenu() };
+            0
+        }
+        WM_ENTERMENULOOP => {
+            if wparam != 0 {
+                signal(MENU_STATE_UP);
+            }
             0
         }
         WM_CLOSE => {
@@ -254,6 +272,7 @@ pub(crate) struct MenuFixture {
     child: Option<Child>,
     handle: isize,
     up: Arc<AtomicBool>,
+    open_failure: Arc<Mutex<Option<String>>>,
     reader: Option<JoinHandle<()>>,
 }
 
@@ -266,6 +285,8 @@ impl MenuFixture {
             .env(MENU_HOST_ENV, "1");
         let up = Arc::new(AtomicBool::new(false));
         let up_writer = up.clone();
+        let open_failure = Arc::new(Mutex::new(None));
+        let failure_writer = open_failure.clone();
         let (child, handle, reader) = super::fixture_spawn::spawn_host(
             command,
             move |stdout, sender| {
@@ -283,6 +304,11 @@ impl MenuFixture {
                         up_writer.store(true, Ordering::SeqCst);
                     } else if line == MENU_STATE_DOWN {
                         up_writer.store(false, Ordering::SeqCst);
+                    } else if let Some(reason) = line.strip_prefix(MENU_STATE_FAILED_PREFIX) {
+                        *failure_writer
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                            Some(reason.to_owned());
                     }
                 }
                 if !announced {
@@ -297,6 +323,7 @@ impl MenuFixture {
             child: Some(child),
             handle,
             up,
+            open_failure,
             reader: Some(reader),
         })
     }
@@ -313,8 +340,23 @@ impl MenuFixture {
         self.up.load(Ordering::SeqCst)
     }
 
+    /// Waits for the fixture's reported state. `true` means the OS has put
+    /// the fixture's thread into the popup's modal loop, not merely that the
+    /// open command was received; a context menu the OS refused to show
+    /// panics with that OS error rather than timing out silently.
     pub(crate) fn wait_for_menu_state(&self, want: bool, timeout: Duration) -> bool {
-        wait_for(&self.up, want, timeout)
+        let reached = wait_for(&self.up, want, timeout);
+        if !reached && want {
+            let failure = self
+                .open_failure
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone();
+            if let Some(reason) = failure {
+                panic!("the menu fixture's TrackPopupMenu failed to show the menu: {reason}");
+            }
+        }
+        reached
     }
 
     pub(crate) fn open_context_menu(&self) {
