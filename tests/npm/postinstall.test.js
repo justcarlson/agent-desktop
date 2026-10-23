@@ -398,16 +398,16 @@ test('prompted skills are a subset of the skill packages that exist', () => {
   const skillsDir = join(__dirname, '..', '..', 'skills');
   for (const osPlatform of ['darwin', 'win32', 'linux']) {
     const output = promptSkillOutputFor(osPlatform);
-    const advertised = [...output.matchAll(/add-skill lahfir\/([a-z0-9-]+)/g)].map((m) => m[1]);
+    const advertised = [...output.matchAll(/--skill ([a-z0-9-]+)/g)].map((m) => m[1]);
     assert.ok(advertised.includes('agent-desktop'), `${osPlatform} must advertise the base skill`);
     for (const name of advertised) {
       assert.ok(existsSync(join(skillsDir, name, 'SKILL.md')), `advertised ${name} must exist`);
     }
   }
-  assert.match(promptSkillOutputFor('win32'), /lahfir\/agent-desktop-windows/);
-  assert.match(promptSkillOutputFor('darwin'), /lahfir\/agent-desktop-macos/);
+  assert.match(promptSkillOutputFor('win32'), /--skill agent-desktop-windows/);
+  assert.match(promptSkillOutputFor('darwin'), /--skill agent-desktop-macos/);
   assert.doesNotMatch(promptSkillOutputFor('darwin'), /agent-desktop-windows/);
-  assert.match(promptSkillOutputFor('linux'), /lahfir\/agent-desktop-linux/);
+  assert.match(promptSkillOutputFor('linux'), /--skill agent-desktop-linux/);
   assert.doesNotMatch(promptSkillOutputFor('linux'), /agent-desktop-(macos|windows)/);
 });
 
