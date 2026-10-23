@@ -54,7 +54,7 @@ python3 tests/ffi-python/smoke.py
 Set `AD_EXPECT_STUB=1` when running the harness against a stub-adapter build.
 With this variable set, the harness fails if `ad_snapshot()` returns `ok:true`,
 which would indicate the dylib was **not** built with `--features stub-adapter`.
-The `ffi-python-smoke` CI job sets this variable so a real-adapter dylib cannot
+The stub Python smoke step on the macOS leg of the `ffi-panic-guard` CI job sets this variable so a real-adapter dylib cannot
 accidentally pass the stub-only gate.
 
 ## Dependencies
