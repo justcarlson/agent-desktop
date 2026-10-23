@@ -1,4 +1,6 @@
 use super::*;
+use crate::deadline::VirtualClock;
+use std::time::Duration;
 
 #[test]
 fn normalized_typed_text_is_reported_as_delivered_unverified() {
@@ -41,6 +43,7 @@ fn normalized_typed_text_is_reported_as_delivered_unverified() {
 }
 
 const TYPED: &str = "the quick brown fox jumps over the lazy dog";
+const READS_BEFORE_SETTLING: usize = 2;
 
 fn typed_by_keys_adapter(after: &str) -> Adapter {
     let mut adapter = adapter(element(Some(""), &["focused"]), element(Some(after), &[]));
@@ -70,20 +73,27 @@ fn type_keys(adapter: &Adapter, budget_ms: u64) -> ActionResult {
 
 #[test]
 fn keys_still_filling_the_field_after_the_settle_window_are_read_until_the_text_is_there() {
+    let clock = VirtualClock::freeze();
     let adapter = typed_by_keys_adapter(TYPED);
     *adapter.settling.lock().unwrap() = filling(12);
 
-    let result = type_keys(&adapter, 20_000);
+    let result = type_keys(&adapter, 5_000);
 
     assert_eq!(
         result.disposition(),
         DeliverySemantics::delivered_verified()
     );
     assert_eq!(result.post_state.unwrap().value.as_deref(), Some(TYPED));
+    assert_eq!(
+        adapter.reads.lock().unwrap().len(),
+        READS_BEFORE_SETTLING + 12
+    );
+    assert_eq!(clock.elapsed(), Duration::from_millis(12 * 50));
 }
 
 #[test]
 fn keys_that_keep_changing_the_field_past_the_budget_stay_unverified() {
+    let clock = VirtualClock::freeze();
     let adapter = typed_by_keys_adapter(&TYPED[..1]);
     *adapter.settling.lock().unwrap() = filling(TYPED.len() - 1);
 
@@ -97,10 +107,12 @@ fn keys_that_keep_changing_the_field_past_the_budget_stay_unverified() {
         result.details.unwrap()["verification_reason"],
         "postcondition_mismatch"
     );
+    assert!(clock.elapsed() <= Duration::from_millis(700));
 }
 
 #[test]
 fn keys_that_left_the_field_unchanged_are_not_waited_for_until_the_budget_ends() {
+    let clock = VirtualClock::freeze();
     let adapter = typed_by_keys_adapter(&TYPED[..3]);
 
     let result = type_keys(&adapter, 5_000);
@@ -110,4 +122,5 @@ fn keys_that_left_the_field_unchanged_are_not_waited_for_until_the_budget_ends()
         DeliverySemantics::delivered_unverified()
     );
     assert!(adapter.reads.lock().unwrap().len() <= 12);
+    assert!(clock.elapsed() <= Duration::from_millis(400));
 }

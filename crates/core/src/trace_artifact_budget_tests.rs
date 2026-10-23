@@ -1,4 +1,5 @@
 use super::*;
+use crate::deadline::VirtualClock;
 
 fn temp_dir(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
@@ -23,54 +24,24 @@ fn test_deadline() -> crate::Deadline {
     crate::Deadline::standard().unwrap()
 }
 
-/// Calls a write whose subject is a **budget**, retrying only while the
-/// artifact lock reports its own `lock_failed`.
-///
-/// `ARTIFACT_LOCK_WAIT_MS` is 50 ms, and that budget is a product decision:
-/// an artifact write gives the command back rather than blocking it on a
-/// contended lock. A loaded CI runner can miss 50 ms acquiring even an
-/// uncontended lock file, and when it does the write reports the lock outcome
-/// before it ever evaluates the budget these tests are about. Retrying keeps
-/// the subject reachable; matching on the exact string keeps the tolerance
-/// narrow, so any other failure is still a failure, and the two tests whose
-/// subject *is* the lock call the writers directly rather than through here.
-fn past_lock_contention<F>(mut write: F) -> Result<(), &'static str>
-where
-    F: FnMut() -> Result<(), &'static str>,
-{
-    for _ in 0..16 {
-        match write() {
-            Err("lock_failed") => std::thread::sleep(std::time::Duration::from_millis(20)),
-            result => return result,
-        }
-    }
-    write()
-}
-
 #[test]
 fn artifact_writes_scan_once_then_use_the_private_ledger() {
+    let _clock = VirtualClock::freeze();
     let trace = prepare_trace("scan-once");
     reset_test_scan_count();
     set_test_limits(100, 10, 100);
 
-    past_lock_contention(|| {
-        write_screenshot(
-            &trace,
-            &trace.join("screens/a.png"),
-            &[1, 2],
-            test_deadline(),
-        )
-    })
+    write_screenshot(
+        &trace,
+        &trace.join("screens/a.png"),
+        &[1, 2],
+        test_deadline(),
+    )
     .unwrap();
     assert_eq!(test_scan_count(), 2);
-    past_lock_contention(|| {
-        write_screenshot(&trace, &trace.join("screens/b.png"), &[3], test_deadline())
-    })
-    .unwrap();
-    past_lock_contention(|| write_refmap_if_absent(&trace, &trace.join("refmaps/a.json"), &[4, 5]))
-        .unwrap();
-    past_lock_contention(|| write_refmap_if_absent(&trace, &trace.join("refmaps/b.json"), &[6]))
-        .unwrap();
+    write_screenshot(&trace, &trace.join("screens/b.png"), &[3], test_deadline()).unwrap();
+    write_refmap_if_absent(&trace, &trace.join("refmaps/a.json"), &[4, 5]).unwrap();
+    write_refmap_if_absent(&trace, &trace.join("refmaps/b.json"), &[6]).unwrap();
 
     assert_eq!(test_scan_count(), 2);
     let ledger =
@@ -95,24 +66,18 @@ fn artifact_writes_scan_once_then_use_the_private_ledger() {
 
 #[test]
 fn missing_and_corrupt_ledgers_are_repaired_from_artifacts() {
+    let _clock = VirtualClock::freeze();
     let trace = prepare_trace("repair");
     set_test_limits(100, 10, 100);
-    past_lock_contention(|| {
-        write_screenshot(&trace, &trace.join("screens/a.png"), &[1], test_deadline())
-    })
-    .unwrap();
+    write_screenshot(&trace, &trace.join("screens/a.png"), &[1], test_deadline()).unwrap();
 
     std::fs::remove_file(trace.join(USAGE_LEDGER_FILE)).unwrap();
     reset_test_scan_count();
-    past_lock_contention(|| {
-        write_screenshot(&trace, &trace.join("screens/b.png"), &[2], test_deadline())
-    })
-    .unwrap();
+    write_screenshot(&trace, &trace.join("screens/b.png"), &[2], test_deadline()).unwrap();
     assert_eq!(test_scan_count(), 2);
     write_private_file(&trace.join(USAGE_LEDGER_FILE), b"invalid").unwrap();
     reset_test_scan_count();
-    past_lock_contention(|| write_refmap_if_absent(&trace, &trace.join("refmaps/a.json"), &[3]))
-        .unwrap();
+    write_refmap_if_absent(&trace, &trace.join("refmaps/a.json"), &[3]).unwrap();
 
     assert_eq!(test_scan_count(), 2);
     let ledger =
@@ -124,13 +89,14 @@ fn missing_and_corrupt_ledgers_are_repaired_from_artifacts() {
 
 #[test]
 fn failed_artifact_write_rolls_back_its_reservation() {
+    let _clock = VirtualClock::freeze();
     let trace = prepare_trace("rollback");
     let blocked = trace.join("screens/blocked.png");
     std::fs::create_dir(&blocked).unwrap();
     set_test_limits(1, 1, 100);
 
     assert_eq!(
-        past_lock_contention(|| write_screenshot(&trace, &blocked, &[1], test_deadline())),
+        write_screenshot(&trace, &blocked, &[1], test_deadline()),
         Err("write_failed")
     );
     std::fs::remove_dir(&blocked).unwrap();
@@ -144,17 +110,18 @@ fn failed_artifact_write_rolls_back_its_reservation() {
 
 #[test]
 fn reserved_usage_without_an_artifact_remains_fail_safe() {
+    let _clock = VirtualClock::freeze();
     let trace = prepare_trace("reserved");
     persist_usage(&trace, (1, 1, 0)).unwrap();
     set_test_limits(1, 1, 100);
 
     assert_eq!(
-        past_lock_contention(|| write_screenshot(
+        write_screenshot(
             &trace,
             &trace.join("screens/next.png"),
             &[1],
             test_deadline(),
-        )),
+        ),
         Err("count_budget")
     );
 
@@ -179,6 +146,7 @@ fn ambiguous_write_failure_with_a_file_keeps_the_reservation() {
 
 #[test]
 fn preexisting_files_consume_the_persisted_session_budget() {
+    let _clock = VirtualClock::freeze();
     let trace = temp_dir("persisted");
     let screens = trace.join("screens");
     let _ = std::fs::remove_dir_all(&trace);
@@ -186,9 +154,7 @@ fn preexisting_files_consume_the_persisted_session_budget() {
     std::fs::write(screens.join("existing.png"), [1]).unwrap();
     set_test_limits(100, 1, 100);
 
-    let result = past_lock_contention(|| {
-        write_screenshot(&trace, &screens.join("next.png"), &[2], test_deadline())
-    });
+    let result = write_screenshot(&trace, &screens.join("next.png"), &[2], test_deadline());
 
     assert_eq!(result, Err("count_budget"));
     clear_test_limits();
@@ -197,6 +163,7 @@ fn preexisting_files_consume_the_persisted_session_budget() {
 
 #[test]
 fn separate_session_directories_have_independent_budgets() {
+    let _clock = VirtualClock::freeze();
     let first = temp_dir("first");
     let second = temp_dir("second");
     let _ = std::fs::remove_dir_all(&first);
@@ -205,18 +172,13 @@ fn separate_session_directories_have_independent_budgets() {
     crate::trace::ensure_trace_dir(&second.join("screens")).unwrap();
     set_test_limits(100, 1, 100);
 
-    past_lock_contention(|| {
-        write_screenshot(&first, &first.join("screens/a.png"), &[1], test_deadline())
-    })
-    .unwrap();
-    past_lock_contention(|| {
-        write_screenshot(
-            &second,
-            &second.join("screens/a.png"),
-            &[1],
-            test_deadline(),
-        )
-    })
+    write_screenshot(&first, &first.join("screens/a.png"), &[1], test_deadline()).unwrap();
+    write_screenshot(
+        &second,
+        &second.join("screens/a.png"),
+        &[1],
+        test_deadline(),
+    )
     .unwrap();
 
     clear_test_limits();
@@ -238,37 +200,43 @@ fn the_capture_lock_wait_is_clamped_to_the_callers_remaining_budget() {
 }
 
 #[test]
-fn a_contended_screenshot_lock_gives_up_inside_the_capture_budget() {
+fn a_contended_screenshot_lock_gives_up_after_exactly_the_capture_wait() {
+    let clock = VirtualClock::freeze();
     let trace = prepare_trace("contended-screenshot");
     let held = RefStoreLock::acquire(&trace.join(ARTIFACT_LOCK_FILE)).unwrap();
 
-    let started = std::time::Instant::now();
     let result = write_screenshot(&trace, &trace.join("screens/a.png"), &[1], test_deadline());
-    let elapsed = started.elapsed();
 
     assert_eq!(result, Err("lock_failed"));
-    assert!(
-        elapsed < Duration::from_millis(500),
-        "a contended capture waited {elapsed:?} of the caller's budget"
+    assert_eq!(
+        clock.elapsed(),
+        Duration::from_millis(ARTIFACT_LOCK_WAIT_MS)
     );
     drop(held);
+    assert_eq!(
+        write_screenshot(&trace, &trace.join("screens/a.png"), &[1], test_deadline()),
+        Ok(())
+    );
     std::fs::remove_dir_all(trace).unwrap();
 }
 
 #[test]
-fn a_contended_refmap_lock_gives_up_inside_the_capture_budget() {
+fn a_contended_refmap_lock_gives_up_after_exactly_the_capture_wait() {
+    let clock = VirtualClock::freeze();
     let trace = prepare_trace("contended-refmap");
     let held = RefStoreLock::acquire(&trace.join(ARTIFACT_LOCK_FILE)).unwrap();
 
-    let started = std::time::Instant::now();
     let result = write_refmap_if_absent(&trace, &trace.join("refmaps/a.json"), &[1]);
-    let elapsed = started.elapsed();
 
     assert_eq!(result, Err("lock_failed"));
-    assert!(
-        elapsed < Duration::from_millis(500),
-        "a contended refmap copy waited {elapsed:?} of the caller's budget"
+    assert_eq!(
+        clock.elapsed(),
+        Duration::from_millis(ARTIFACT_LOCK_WAIT_MS)
     );
     drop(held);
+    assert_eq!(
+        write_refmap_if_absent(&trace, &trace.join("refmaps/a.json"), &[1]),
+        Ok(())
+    );
     std::fs::remove_dir_all(trace).unwrap();
 }
