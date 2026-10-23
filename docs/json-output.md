@@ -7,7 +7,10 @@ Every command returns structured JSON:
   "version": "2.5",
   "ok": true,
   "command": "click",
-  "data": { "action": "click" }
+  "data": {
+    "action": "click",
+    "disposition": { "delivery": "delivered_unverified", "retry": "unsafe" }
+  }
 }
 ```
 
@@ -20,8 +23,8 @@ Errors include machine-readable codes and recovery hints:
   "command": "click",
   "error": {
     "code": "STALE_REF",
-    "message": "Element at @s8f3k2p9:e7 no longer matches the last snapshot",
-    "suggestion": "Run 'snapshot' to refresh refs, then retry",
+    "message": "@s8f3k2p9:e7 not found in current RefMap",
+    "suggestion": "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
     "recovery": {
       "strategy": "refresh_snapshot_then_retry_original",
       "retryable": true,
@@ -34,6 +37,8 @@ Errors include machine-readable codes and recovery hints:
   }
 }
 ```
+
+`error.code`, `error.message` and `error.disposition` are always present. `suggestion`, `recovery`, `platform_detail` and `details` are omitted when empty. `recovery` appears only when `disposition.retry` is `safe`, and its `retry_after_ms` is set only for `TIMEOUT` and `APP_UNRESPONSIVE`.
 
 Version 2.2 replaces the 2.1 `TIMEOUT` error for a budget-exhausted snapshot
 with a successful, explicitly partial response, and adds `data.complete`.
@@ -61,11 +66,13 @@ carry it on their result. `delivery` is one of `unknown`, `not_delivered`,
 is one of `unknown`, `safe` or `unsafe`, and it follows from `delivery`:
 `not_delivered` is `safe`, and every other non-`unknown` value is `unsafe`.
 
-`unknown` means the command established nothing about delivery. Observation
-errors and errors raised before a target was found, such as `APP_NOT_FOUND`,
-carry it because no delivery question applies. Treat `unknown` as not safe to
-retry automatically: read `error.code` and the message, and choose a recovery
-strategy only when `disposition.retry` is `safe`.
+`unknown` means the command established nothing about delivery. A failure of a
+mutating command that carries no delivery evidence, such as a `TIMEOUT` on an
+operation that may already have landed, keeps it. A read-only command sends
+nothing and invalid arguments never reach the application, so their errors, and
+a lookup failure such as `APP_NOT_FOUND`, carry `not_delivered`. Treat `unknown`
+as not safe to retry automatically: read `error.code` and the message, and
+choose a recovery strategy only when `disposition.retry` is `safe`.
 
 ## Version 2.4 migration
 
@@ -143,4 +150,4 @@ to `role` or `value`.
 
 ## Exit codes
 
-`0` success, `1` structured error (JSON on stdout), `2` argument parse error.
+`0` success, `1` structured error (JSON on stdout), `2` command-line parse error (the envelope is still printed, with `INVALID_ARGS`).

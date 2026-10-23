@@ -27,9 +27,9 @@ makes old refs appear valid after their evidence has changed.
 ## Solution
 
 - Resolve `--root` with `ref_token::resolve_ref_target` before loading a map.
-  A qualified ref supplies its snapshot; a bare ref requires the explicit
-  snapshot argument. Both are looked up only through
-  `RefStore::for_session(context.session_id())`.
+  A qualified ref supplies its snapshot; a bare `@eN` ref is rejected as
+  `INVALID_ARGS` (`crates/core/src/ref_token.rs:19-31`). The snapshot is looked
+  up only through `RefStore::for_session(context.session_id())`.
 - Re-resolve the saved root entry strictly before observing its subtree. A
   missing, stale, or ambiguous live root fails closed; it is never replaced by
   a positional guess.
@@ -51,8 +51,11 @@ makes old refs appear valid after their evidence has changed.
   discarding the walk. A drill-down never does this: `--root` replaces refs
   inside an existing map, so it still requires a complete observation and
   errors instead of destructively merging a partial one.
-- Derive the response window from the root entry's process identity with
-  `window_lookup::find_window_for_process`; never synthesize a plausible
+- Derive the response window from the root entry: the exact source window
+  (its recorded window ID, matched on the entry's pid) when the entry has one,
+  otherwise the process's own window through
+  `window_lookup::find_window_for_process`
+  (`crates/core/src/snapshot_ref.rs:108-142`); never synthesize a plausible
   window response.
 
 ## Why This Works
@@ -65,7 +68,8 @@ ensuring no stale descendants survive a re-drill.
 ## Prevention
 
 - Test full-snapshot replacement and rooted-subtree replacement separately.
-- Test qualified and bare ref parsing, including mismatched snapshot IDs.
+- Test qualified ref parsing, and that a bare ref or a mismatched snapshot ID
+  is rejected as invalid input rather than classified as stale.
 - Assert every truncation path exposes a boundary marker instead of silently
   dropping descendants. Depth clamping and budget exhaustion are separate
   paths; a test that only covers the clamp will not notice the other losing

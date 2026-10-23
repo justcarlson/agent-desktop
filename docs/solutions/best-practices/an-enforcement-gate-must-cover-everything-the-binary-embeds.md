@@ -35,7 +35,7 @@ beside the code. `crates/core/src/commands/skills.rs` pulls it into the
 binary:
 
 ```rust
-const SKILL_DESKTOP_INTERACTION: &str =
+const SKILL_DESKTOP_REF_INTERACTION: &str =
     include_str!("../../../../skills/agent-desktop/references/commands-interaction.md");
 ```
 

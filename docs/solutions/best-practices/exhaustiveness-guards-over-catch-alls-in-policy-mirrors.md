@@ -43,4 +43,4 @@ converted first.
 ## Related
 
 - [Preserve command policy semantics during refactor](preserve-command-policy-semantics-during-refactor-2026-05-12.md)
-- [Make FFI ref actions share CLI policy semantics](keep-ffi-action-policy-aligned-with-cli-2026-05-12.md)
+- [Build desktop actions as an observe-resolve-preflight-dispatch contract](playwright-grade-desktop-reliability-2026-06-02.md)

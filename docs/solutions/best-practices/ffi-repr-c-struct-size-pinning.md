@@ -106,7 +106,7 @@ The zeroed-read assertion doubles as a sentinel check: every field must read as 
 
 **Layer 4 — consumer-side smoke test: extern getter vs. the shipped header.**
 
-`tests/ffi-python/smoke.py`, run by the `ffi-python-smoke` CI lane, loads the
+`tests/ffi-python/smoke.py`, run by the stub Python smoke step on the macOS leg of the `ffi-panic-guard` CI job, loads the
 built dylib through ctypes, parses the numeric `#define`s out of the committed
 header, and asserts each `ad_*_size()` getter returns what its `AD_*_SIZE` macro
 says. This is the layer that actually exercises the extern getter from Layer 1
@@ -134,7 +134,7 @@ Adding a field to a pinned struct forces this sequence, and every step but one f
 3. Regenerate the committed header (`scripts/update-ffi-header.sh`) so the size macro emitted from the Rust const is updated
 4. Update the integration test size assertion and extend the zeroed-read check to the new field
 5. Extend `tests/ffi-python/smoke.py`'s getter/macro pair list if the struct is newly pinned
-6. The header-compile test, the `c_abi_layout` test, and the `ffi-python-smoke` lane confirm every side agrees
+6. The header-compile test, the `c_abi_layout` test, and the stub Python smoke step in the `ffi-panic-guard` CI job confirm every side agrees
 
 Pinning a **new** struct takes one more step, and it is the step nothing will
 remind you about: add its `_Static_assert` lines to the `trailer` in
@@ -146,6 +146,5 @@ one place to check by hand.
 
 ## Related
 
-- [Keep FFI action policy aligned with CLI action policy](keep-ffi-action-policy-aligned-with-cli-2026-05-12.md) — the behavioral-parity companion; this document is the structural-parity half of the same FFI review discipline.
 - [Playwright-grade desktop reliability contract](playwright-grade-desktop-reliability-2026-06-02.md) — ABI pins prevent bindings from silently diverging from the reliability contract.
 - The committed `crates/ffi/include/agent_desktop.h`, its generated header checks, and the Rust layout tests are the current source of truth; this repository intentionally does not use a Cargo build-artifact marker for header generation.

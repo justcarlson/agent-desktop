@@ -2,7 +2,7 @@
 title: A cited measurement must match its capture
 date: 2026-08-09
 category: best-practices
-module: probes/windows/FINDINGS.md, docs/phases.md, crates/windows/src/system/window_activate.rs
+module: probes/windows/FINDINGS.md, crates/windows/src/system/window_activate.rs
 problem_type: process_gap
 component: tooling
 symptoms:
@@ -11,7 +11,7 @@ symptoms:
   - "The design is defensible, the evidence sentence under it is false, and every reader downstream inherits the false sentence."
 applies_when:
   - "Writing a probe ledger row from a capture"
-  - "Citing a probe row in shipped source or in the phase document"
+  - "Citing a probe row in shipped source or in a design document"
   - "Reviewing a change whose rationale rests on a measurement"
 root_cause: process_gap
 resolution_type: reread_the_artifact_not_the_expectation
@@ -23,9 +23,9 @@ tags: [evidence, probes, ledger, citations, review, windows]
 
 ## Problem
 
-Sub-phase 2.9 measured whether an uncontended `SetForegroundWindow` lands on
-the first attempt, to justify the size of the activation retry budget. The
-ledger row recorded:
+The Windows activation probe (row `A21-6`) measured whether an uncontended
+`SetForegroundWindow` lands on the first attempt, to justify the size of the
+activation retry budget. The ledger row recorded:
 
 > 5/5 trials `owned_after_first: true`, `first_attempt_success_rate: 1`,
 > `first_attempt_always_lands: true`
@@ -41,10 +41,10 @@ environments, records the exact opposite on every trial:
 with top-level `first_attempt_success_rate: 0` and
 `first_attempt_always_lands: false`.
 
-The false sentence then propagated the way cited facts do. `docs/phases.md`
-repeated it. A doc comment on the shipped constant repeated it, citing the row
-id — so the product's own source claimed a measurement that its evidence
-contradicted.
+The false sentence then propagated the way cited facts do. The design document
+that sized the budget repeated it. A doc comment on the shipped constant
+repeated it, citing the row id — so the product's own source claimed a
+measurement that its evidence contradicted.
 
 Nothing failed. Every gate was green, because no gate compares a row's prose
 to the JSON it names.
@@ -93,13 +93,18 @@ Two properties make a row auditable, and both are cheap:
 - When a row's finding is the answer the author was hoping for, re-read the
   capture once more. A confirming result gets less scrutiny than a
   contradicting one, which is exactly backwards.
-- Before citing a row in shipped source or in the phase document, open the
+- Before citing a row in shipped source or in a design document, open the
   capture. A citation is a claim about an artifact, and repeating a row is not
   evidence that the row is true.
 - When correcting a row, correct every downstream repetition in the same
   change. The row is the source, but the copies are what readers hit.
 - A design that is right for a reason the evidence does not support is still
   undefended. Fix the sentence even when the code stays.
+- The ledger gate `probes/windows/13-ledger-check.ps1`, run by
+  `.github/workflows/windows-capability-probe.yml`, now fails a row whose quoted
+  `field: value` pair or counting-verb number disagrees with the capture it
+  names. A qualitative claim ("the first attempt is reliable") is outside what
+  it can check, so the rules above still bind the author.
 
 ## Related
 

@@ -88,14 +88,23 @@ the climb exists so the next reader does not flatten it back:
 /// element that is not itself a window, which is the normal shape for WPF,
 /// WinUI, UWP and Chromium content. Reading the leaf's handle alone would
 /// therefore answer "no window, not foreground" for most modern UI.
-fn target_window_is_foreground(element: &UIAElement, deadline: Deadline) -> bool {
-    host_window_handle(element, deadline).is_some_and(is_root_foreground_window)
+fn target_window_is_foreground(
+    element: &UIAElement,
+    deadline: Deadline,
+) -> Result<bool, AdapterError> {
+    Ok(host_window_handle(element, deadline)?.is_some_and(is_root_foreground_window))
 }
 ```
 
+A climb that could not finish (a faulted handle read, a faulted parent step,
+or an exhausted budget) is an `Err` rather than `Ok(None)`, so a failed read is
+never mistaken for "this element has no window"
+(`crates/windows/src/tree/hit_test_corroborate.rs:173-208`).
+
 Pin it where the shape actually exists. A unit test with a fabricated
 element cannot express "a real control whose own handle is 0", so the pin is
-a live one that asserts both halves: the leaf handle *is* zero, and the host
+a live one (`crates/windows/src/tree/envelope_live_tests.rs:300-320`) that
+asserts both halves: the leaf handle *is* zero, and the host
 still resolves. If the first assertion ever fails, the test says so — it has
 stopped covering the climb rather than silently passing.
 

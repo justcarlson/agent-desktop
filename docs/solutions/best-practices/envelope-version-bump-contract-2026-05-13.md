@@ -69,15 +69,12 @@ is checked and, where it is wrong, corrected in the same change:
 - `.github/ISSUE_TEMPLATE/bug_report.yml` — the JSON output placeholder a
   reporter is asked to imitate
 - `CLAUDE.md` — success and error envelope examples and the error-object prose
-- `docs/phases.md` — the typed-contract objective row, the `output.rs` line in
-  the source-tree map, the envelope examples, and the error-object prose
 - `crates/ffi/src/commands/snapshot.rs` — the rustdoc envelope example, and
   `crates/ffi/include/agent_desktop.h`, which carries the same example and is
   regenerated rather than hand-edited
 
 `src/cli/doc_literal_drift_tests.rs` fails when a literal in `CLAUDE.md`,
-`docs/json-output.md`, `docs/phases.md` or the bug template disagrees with
-`ENVELOPE_VERSION`; the prose around each literal still needs a person.
+`docs/json-output.md` or the bug template disagrees with `ENVELOPE_VERSION`; the prose around each literal still needs a person.
 
 A surface that is bumped to the new number while still explaining only the old
 one is the failure this checklist exists to catch: the literal and the prose

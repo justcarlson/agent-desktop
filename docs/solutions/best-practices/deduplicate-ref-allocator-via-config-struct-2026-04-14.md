@@ -50,8 +50,9 @@ differs, and its rustdoc says so. It applies bounds omission, compact collapse,
 and interactive-only pruning to a raw adapter tree and never allocates a ref,
 because the FFI `ad_get_tree_exact` path (`crates/ffi/src/tree/get.rs`) exposes raw
 trees with no ref pipeline — there is no `ref_id` for it to consult and no map
-for it to write. Its pruning decision is therefore role-based where the
-allocator's is ref-based.
+for it to write. Its pruning decision therefore rests on `is_ref_able` alone,
+where the allocator's also keeps any node that was given a ref, such as a
+skeleton anchor.
 
 That splits maintenance in two, and which half a change falls in is the thing to
 settle first:

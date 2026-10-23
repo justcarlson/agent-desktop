@@ -64,7 +64,6 @@ first-button find 256.1/222.5. Find p50 increased 33.6 ms; this small cumulative
 branch comparison cannot attribute the difference to this mutation-only guard.
 Report: `/tmp/ad-native-eval/selection-delivery-performance/report.html`.
 
-Xcode label matching and row-selection-versus-file-opening remain unresolved.
-This repair is a prerequisite for safely reusing the shared selection path,
-not proof of completing those tasks. Provisional rating remains 8/10; the goal
-is active and repeated acceptance coverage is still required. Nothing pushed.
+Matching Xcode navigator rows by their editable label is a separate repair
+(2026-09-20-collection-label-selection.md). Row selection is not proof that
+Xcode opened the file.

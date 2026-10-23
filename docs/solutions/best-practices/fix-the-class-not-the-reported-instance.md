@@ -19,16 +19,17 @@ tags: [code-review, ci, exhaustiveness, tooling, delegation]
 
 ## Problem
 
-Four times now — three on `feat/windows-2.3-vocabulary`, a fourth two
-sub-phases later — a review named one occurrence of a defect, and fixing only
+Four times now — three in the Windows vocabulary review cycle, a fourth
+later — a review named one occurrence of a defect, and fixing only
 the named occurrence would have left the same defect live elsewhere in the
 same tree.
 
 **Enumeration fault-vs-exhaustion.** UI Automation signals both end-of-list
 and a real cross-process fault as `Err`, distinguished only by
 `is_exhaustion()`. A review of `crates/windows/examples/uia_tree_dump/render.rs`
-reported the bug at two sites in `count_view()`. Commit `b708810`'s own
-message states it plainly: *"Fixed at all FOUR enumeration arms, not the two
+reported the bug at two sites in `count_view()`. The fixing commit
+(`fix: stop the census reporting a fault-truncated walk as complete`) states
+it plainly in its message: *"Fixed at all FOUR enumeration arms, not the two
 that were reported: both first-child and next-sibling in `collect()`, and
 both in `count_view()`. The reviewer reached `count_view()`; `collect()` had
 it too."* All four arms — `collect()`'s `first_child` match and its
@@ -39,7 +40,8 @@ guard.
 **The bare plan-reference gate.** `scripts/check-no-phase-references.sh`
 banned the words `phase`, `sub-phase`, `KTD<n>`, `unit U<n>` in `crates/` and
 `src/`. A review reported that a bare `2.4` — the same reference with the
-word filed off — escaped the gate, and named two instances. Commit `7823f2f`
+word filed off — escaped the gate, and named two instances. The fixing commit
+(`fix: close the code-review findings, including one real fails-open bug`)
 widened the detection to catch bare `N.N` in doc comments (while still
 passing `v0.5.0`, `pre-1.0`, `"2.1"` on the wire, and measured ratios like
 `1.35x`): *"It found 14, not the 2 the review reported."* The review had
@@ -48,7 +50,8 @@ sampled the class; the class itself was seven times larger.
 **The 400-line file cap.** `render.rs` and `states_tests.rs` both grew during
 the same round of fixes — `render.rs` by the redaction-seam extraction work,
 `states_tests.rs` by replacing the unreachable-input test with a properly
-documented pair. Commit `635a537`: *"Two files reached 400 lines exactly -
+documented pair. The round-two fix commit (`fix: close the round-two review, and split two files that hit the size cap`):
+*"Two files reached 400 lines exactly -
 `states_tests.rs` by trimming doc comments to fit, `render.rs` by growing."*
 Both hit the cap in the same commit; one had already been kept under it only
 by cutting documentation, which is the wrong trade the cap exists to prevent.
@@ -56,7 +59,7 @@ Both were split by responsibility instead — `render_node.rs` /
 `render_node_tests.rs` out of `render.rs`, `states_walk_tests.rs` out of
 `states_tests.rs`.
 
-**Duplicated geometry and walker helpers.** A 2.6 code-review finding named
+**Duplicated geometry and walker helpers.** A code-review finding named
 two duplicated helpers: `rect_has_area` and `nearest_scroll_viewport_bounds`.
 `rect_has_area`'s copies had already drifted apart by the time anyone was
 fixing them — one checked that a rectangle's dimensions were finite before
@@ -67,7 +70,7 @@ predicate behind the second finding — an ancestor-walk primitive
 reimplemented at each call site instead of owned once by the tree source —
 found the class was six, not one: `same_element`, `identity`, `parent_step`,
 `nearest_scroll_viewport`, `viewport_bounds`, and
-`nearest_scroll_viewport_bounds`. Commit `4918c25` gave the six one home in
+`nearest_scroll_viewport_bounds`. The fix (`refactor: give the duplicated geometry and walker helpers one home`) gave the six one home in
 `crates/windows/src/tree/walker_source.rs` and gave `rect_has_area` its own
 single definition in `properties.rs`, touching four files for both fixes
 together.

@@ -2,7 +2,7 @@
 title: A wait for "closed" right after the opener is satisfied falsely
 date: 2026-10-19
 category: runtime-errors
-module: crates/linux/src/system/action_clock.rs, crates/linux/src/system/action_clock_store.rs, crates/linux/src/system/menu_wait.rs
+module: crates/linux/src/system/interaction/action_clock.rs, crates/linux/src/system/interaction/action_clock_store.rs, crates/linux/src/system/menu/menu_wait.rs
 problem_type: runtime_error
 component: atspi-menu-wait
 symptoms:
@@ -17,7 +17,7 @@ A GTK4 popover menu reads as open only 350 to 1000 ms after its opener action re
 
 ## Solution
 
-A closed-direction wait holds until it has seen the menu open, or until 2 s pass since the last action, whichever comes first. `menu_wait.rs` asks `action_clock::recent_for(pid)`; the clock marks every delivered action.
+A closed-direction wait holds until it has seen the menu open, or until 2 s pass since the last action, whichever comes first. `menu_wait.rs` asks `action_clock::recent_for(pid)`; the clock marks every action that started, that is, anything but one refused before it sent (`action_clock::mark_outcome`).
 
 The memory has to outlive the process. An agent runs `click` and `wait` as two CLI calls, so an in-process `Instant` is empty in the second one. `action_clock_store.rs` writes a per-process record under `$XDG_RUNTIME_DIR/agent-desktop-actions`, stamped in milliseconds of boot time (suspend included) so two processes agree and a restart cannot make an old record look new, and keyed by a process-instance token so a reused pid does not inherit it. The first live legs used the in-process clock and passed 10 of 10 (L33-17); only the two-process case (L33-56) exercises the persisted store.
 
