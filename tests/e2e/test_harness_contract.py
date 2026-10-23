@@ -228,7 +228,7 @@ class ErrorContractLegTests(unittest.TestCase):
         self.assertIn("data.stopped.reason", source)
         self.assertIn("data.not_started_entries", source)
         self.assertIn("error.details.batch_index", source)
-        self.assertIn("await_value text-echo", source)
+        self.assertIn('json_field "$(get_target "$field" --property value)" data.value', source)
 
     def test_batch_malformed_run_uses_a_value_the_field_does_not_already_hold(self):
         source = ERROR_CONTRACT.read_text()
@@ -297,6 +297,7 @@ SCENARIOS = E2E_ROOT / "scenarios"
 KEYBOARD = SCENARIOS / "keyboard.sh"
 REF_CHURN = SCENARIOS / "ref_churn.sh"
 RELIABILITY = SCENARIOS / "reliability.sh"
+INTERACTION = SCENARIOS / "interaction.sh"
 
 
 def literal_error_codes(source):
@@ -340,15 +341,83 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
         source = REF_CHURN.read_text()
         self.assertIn("ref_churn_suite 0\n", source)
         self.assertIn("ref_churn_suite 1", source)
-        self.assertIn("AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1", source)
+        self.assertIn('local -x AGENT_DESKTOP_INTERNAL_HOST_CLIENT="$host_client"', source)
         self.assertIn('"$code" = "STALE_REF"', source)
         self.assertIn('"$delivery" = "not_delivered"', source)
 
     def test_ref_churn_reads_the_fixture_readouts_not_the_command_result(self):
         source = REF_CHURN.read_text()
         self.assertIn('--text "Beta stored: Beta"', source)
-        self.assertIn('--text "Stable stored: stable-ok"', source)
+        self.assertIn('wait_target "$stable" value 3000 --value stable-ok', source)
         self.assertIn("data.found", source)
+
+    def test_interaction_scroll_asserts_without_a_defect_skip(self):
+        source = INTERACTION.read_text()
+        self.assertNotIn("skipmsg", source)
+        self.assertIn('assert "[$mode] scroll moves content"', source)
+        self.assertIn('"$scroll_before" != "$scroll_after"', source)
+
+    def test_ref_churn_stale_ref_skip_is_gated_on_the_default_cli_signature(self):
+        source = REF_CHURN.read_text()
+        gate = re.search(
+            r'if \[ "\$host_client" = "0" \] && \[ "\$ok" = "True" \]; then'
+            r'\s*skipmsg "([^"]+)"',
+            source,
+        )
+        self.assertIsNotNone(gate)
+        self.assertIn(
+            "docs/solutions/runtime-errors/2026-09-20-xcode-filter-ref-alias.md",
+            gate.group(1),
+        )
+        self.assertIn("crates/core/src/refs/ref_identity.rs", gate.group(1))
+        self.assertLess(
+            source.index("stale ref: known product defect"),
+            source.index(
+                'assert "$label stale ref is refused STALE_REF, not delivered"'
+            ),
+        )
+
+    def test_ref_churn_close_app_failure_fails_and_still_ends_its_own_process(self):
+        source = REF_CHURN.read_text()
+        self.assertNotIn('skipmsg "$label close-app', source)
+        self.assertIn('close_output="$("$bin" close-app "$app" --force 2>&1)"', source)
+        self.assertIn('badmsg "$label fixture still running after close-app', source)
+        self.assertIn('kill -0 "$1"', source)
+        self.assertIn('kill -9 "$churn_pid"', source)
+        self.assertIn(
+            'assert "$label own fixture process is gone after teardown"', source
+        )
+
+    def test_unknown_app_skip_is_gated_on_the_duplicate_pid_inventory_signature(self):
+        source = ERROR_CONTRACT.read_text()
+        self.assertIn('[ "$(json_field "$1" "$2.code")" = "TIMEOUT" ]', source)
+        self.assertIn('= "global_window_inventory_unstable" ]', source)
+        self.assertIn('"$2.details.skipped.0.field")" = "duplicate_pid" ]', source)
+        self.assertIn("crates/macos/src/system/appkit_bridge.m", source)
+        self.assertIn(
+            'assert_error_envelope "unknown app is APP_NOT_FOUND" APP_NOT_FOUND 1 not_delivered',
+            source,
+        )
+        self.assertIn('inventory_duplicate_pid_refusal "$RUN_JSON" data.results.1.error', source)
+
+    def test_ref_churn_sibling_skip_is_gated_on_the_default_cli_alias(self):
+        source = REF_CHURN.read_text()
+        gate = re.search(
+            r'if \[ "\$host_client" = "0" \] && \[ "\$ok" = "True" \]; then'
+            r'\s*skipmsg "\$label sibling kept its value: ([^"]+)"',
+            source,
+        )
+        self.assertIsNotNone(gate)
+        self.assertIn("2026-09-20-xcode-filter-ref-alias.md", gate.group(1))
+        self.assertIn('assert "$label sibling kept its value (independent readout)"', source)
+
+    def test_ref_churn_host_run_stops_the_command_host_it_started(self):
+        source = REF_CHURN.read_text()
+        self.assertIn('for host_pid in $(pgrep -fx "$raw_bin" 2>/dev/null); do', source)
+        self.assertIn(
+            'assert "$label the command host it started is stopped and holds no desktop lease"',
+            source,
+        )
 
     def test_removed_element_leg_accepts_only_stale_ref_not_delivered(self):
         source = RELIABILITY.read_text()
