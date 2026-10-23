@@ -66,6 +66,7 @@ todos/
 # docs/ holds local working files; only these paths are tracked
 docs/*
 !docs/faq.md
+!docs/install.md
 !docs/json-output.md
 !docs/residual-review-findings/
 !docs/runbooks/
