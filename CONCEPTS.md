@@ -251,6 +251,8 @@ An explicit opt-in path that uses screen coordinates or physical input when sema
 
 Ref-targeted physical input lands on the topmost window at the resolved point, so core first ensures the target element's exact window is frontmost — the app being frontmost is not sufficient when the element lives in a background window of that app.
 
+Ref-addressed drag pickup resolves the element's bounds center. On a slider the thumb is rarely at the center, so center pickup can miss it; headed `--from-xy` with a thumb-row offset is the workaround until slider-aware pickup exists (the drag probe in A4-3 picks the thumb up at the left end of the track, 14 px below its top, not at the center).
+
 ### Release Guard
 An arm-before-commit guard on multi-event physical sequences — drag, modifier chord, chunked text — that posts corrective input at the **origin** on abort: drag-back plus mouse-up for a drag, key-up sweep for held keys and modifiers.
 
@@ -330,7 +332,7 @@ A committed fixture an automated verification check runs against itself before e
 
 Two rules make it worth having. The fixture must invoke the same rule declaration the real scan invokes — a shared program text, never a copied pattern — or it proves only that the copy still agrees with itself while the shipped rule drifts away from both. And it must cover the check's ability to run at all, not merely its rule: a gate whose interpreter is absent, whose file never got its executable bit, or whose regex dialect is a silent no-op on the platform that actually runs it exits clean and is indistinguishable from a passing tree. Finding nothing is a failure, never a skip.
 
-The fixture has two halves, the lines the rule is required to flag and the lines it is required to leave alone, and both are load-bearing in opposite directions: a rule loosened until the very case it exists to catch escapes fails the first half, a rule tightened until innocent text trips it fails the second. Every fixture line is run through every rule collectively, so a newly added rule is checked against the old lines it must not start breaking.
+The fixture has two halves, the must-catch lines the rule is required to flag and the must-pass lines it is required to leave alone, and both are load-bearing in opposite directions: a rule loosened until the very case it exists to catch escapes fails the must-catch half, a rule tightened until innocent text trips it fails the must-pass half. Every fixture line is run through every rule collectively, so a newly added rule is checked against the old lines it must not start breaking.
 
 ### Dogfood Run
 Driving the shipped release binary against real software nobody in this repository wrote and judging it by reading its output, because correctness against real providers is not something a runner-hosted assertion can encode.
