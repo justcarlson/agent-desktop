@@ -30,6 +30,15 @@ npm install -g --allow-scripts=agent-desktop agent-desktop
 npm config set allow-scripts=agent-desktop --location=user
 ```
 
+pnpm and bun block install scripts by default:
+
+```bash
+pnpm add -g --allow-build=agent-desktop agent-desktop
+bun add -g --trust agent-desktop
+```
+
+On macOS the script also links the package's `agent-desktop` command to the native binary, so the command starts without Node. On Windows the command runs through a small Node wrapper.
+
 Release archives are also on the [releases page](https://github.com/lahfir/agent-desktop/releases). The checksums come from the same release as the archives, so they catch corruption but do not prove origin. Check origin with:
 
 ```bash

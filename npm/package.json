@@ -9,7 +9,7 @@
   },
   "homepage": "https://github.com/lahfir/agent-desktop",
   "bin": {
-    "agent-desktop": "bin/agent-desktop.js"
+    "agent-desktop": "bin/agent-desktop"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js"
