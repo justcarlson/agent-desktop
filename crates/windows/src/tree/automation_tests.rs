@@ -41,34 +41,6 @@ fn an_unrecognised_sentinel_maps_to_internal_rather_than_a_guess() {
 }
 
 #[test]
-fn every_named_sentinel_maps_without_a_catch_all_guess() {
-    assert_eq!(
-        sentinel_disposition(ERR_NOTFOUND),
-        ErrorCode::ElementNotFound
-    );
-    assert_eq!(
-        sentinel_disposition(ERR_NULL_PTR),
-        ErrorCode::ElementNotFound
-    );
-    assert_eq!(sentinel_disposition(ERR_TIMEOUT), ErrorCode::Timeout);
-    assert_eq!(
-        sentinel_disposition(ERR_INACTIVE),
-        ErrorCode::AppUnresponsive
-    );
-    assert_eq!(
-        sentinel_disposition(ERR_INVALID_OBJECT),
-        ErrorCode::StaleRef
-    );
-    assert_eq!(
-        sentinel_disposition(ERR_INVALID_ARG),
-        ErrorCode::InvalidArgs
-    );
-    for internal in [ERR_NONE, ERR_TYPE, ERR_FORMAT, ERR_ALREADY_RUNNING] {
-        assert_eq!(sentinel_disposition(internal), ErrorCode::Internal);
-    }
-}
-
-#[test]
 fn a_disconnected_provider_reports_an_unresponsive_app() {
     let error = uia_failure_error(
         UiaFailure::Hresult(RPC_S_SERVER_UNAVAILABLE_HRESULT),

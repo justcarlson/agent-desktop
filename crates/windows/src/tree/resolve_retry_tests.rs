@@ -104,10 +104,33 @@ fn deadline_expiry_mid_incompleteness_returns_the_last_diagnosis_stamped() {
     );
 }
 
-/// Expiry with no incomplete diagnosis returns the plain timeout - there
-/// is nothing more informative to surface.
+/// A deadline that has already run out returns the plain timeout without
+/// running the operation at all - there is no diagnosis to surface and no
+/// attempt to attribute one to.
 #[test]
-fn deadline_expiry_with_no_incomplete_returns_the_timeout() {
+fn an_already_expired_deadline_returns_the_plain_timeout_without_running_the_operation() {
+    let mut attempts = 0;
+    let result = retry_incomplete_until(deadline(0), || {
+        attempts += 1;
+        Ok(unreachable_handle())
+    });
+    let error = err_code_owned(result);
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
+    assert_eq!(attempts, 0, "an expired deadline must not start an attempt");
+    assert!(
+        error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("deadline_elapsed"))
+            .is_none(),
+        "with no earlier diagnosis there is nothing to stamp deadline_elapsed onto"
+    );
+}
+
+/// A `Timeout` the operation itself reports, with no earlier incomplete
+/// diagnosis, passes through unstamped.
+#[test]
+fn an_operation_reported_timeout_with_nothing_earlier_passes_through_unstamped() {
     let deadline = deadline(200);
     let result = retry_incomplete_until(deadline, || {
         Err(AdapterError::new(
@@ -115,7 +138,15 @@ fn deadline_expiry_with_no_incomplete_returns_the_timeout() {
             "gone",
         ))
     });
-    assert_eq!(err_code(result), agent_desktop_core::ErrorCode::Timeout);
+    let error = err_code_owned(result);
+    assert_eq!(error.code, agent_desktop_core::ErrorCode::Timeout);
+    assert!(
+        error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("deadline_elapsed"))
+            .is_none()
+    );
 }
 
 /// The deadline stamp and the typed details fields are the only places a

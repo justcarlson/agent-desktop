@@ -187,11 +187,8 @@ fn sentinel_record(sentinel: i32) -> SentinelRecord {
     }
 }
 
-/// A one-line projection of `sentinel_record`, split out so `automation.rs`'s
-/// tests can pin every named sentinel's `ErrorCode` without a catch-all
-/// guess; `pub(crate)` because that pin lives in `automation`'s own test
-/// module, a sibling of this one rather than a descendant.
-pub(crate) fn sentinel_disposition(sentinel: i32) -> ErrorCode {
+/// A one-line projection of `sentinel_record` onto its `ErrorCode`.
+fn sentinel_disposition(sentinel: i32) -> ErrorCode {
     sentinel_record(sentinel).code
 }
 

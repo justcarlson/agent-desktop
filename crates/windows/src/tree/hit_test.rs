@@ -91,19 +91,17 @@ mod imp {
             return Ok(unknown);
         }
         deadline.ensure_remaining()?;
-        let hit = match probe_element_from_point(client, &point) {
-            Some(hit) => hit,
-            None => return result_for_failed_probe(),
-        };
-        let context = corroborate::InterceptionContext {
-            target,
-            target_root,
-            hit: &hit,
-            point,
-            walker: &walker,
-            deadline,
-        };
-        Ok(judge_hit(&context, &bounds, client))
+        judge_probe(probe_element_from_point(client, &point), |hit| {
+            let context = corroborate::InterceptionContext {
+                target,
+                target_root,
+                hit: &hit,
+                point,
+                walker: &walker,
+                deadline,
+            };
+            judge_hit(&context, &bounds, client)
+        })
     }
 
     fn judge_hit(
@@ -208,10 +206,17 @@ mod imp {
         .map(classify::result_for_guard)
     }
 
-    /// Probe miss / failure collapses to `Unknown` so a flaky ElementFromPoint
-    /// cannot abort the battery as `Err` (core propagates non-PlatformNotSupported).
-    pub(super) fn result_for_failed_probe() -> Result<HitTestResult, AdapterError> {
-        Ok(HitTestResult::Unknown)
+    /// Judges a probe hit, or collapses a probe miss to `Unknown` so a flaky
+    /// ElementFromPoint cannot abort the battery as `Err` (core propagates
+    /// non-PlatformNotSupported). A miss never reaches `judge`.
+    pub(super) fn judge_probe<T>(
+        probe: Option<T>,
+        judge: impl FnOnce(T) -> HitTestResult,
+    ) -> Result<HitTestResult, AdapterError> {
+        match probe {
+            Some(hit) => Ok(judge(hit)),
+            None => Ok(HitTestResult::Unknown),
+        }
     }
 
     fn probe_element_from_point(client: &UIAutomation, point: &Point) -> Option<UIAElement> {
