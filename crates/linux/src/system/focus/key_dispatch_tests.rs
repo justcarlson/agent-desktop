@@ -161,12 +161,18 @@ fn a_popup_grab_in_another_app_leaves_the_frame_inactive_and_nothing_is_sent() {
 
 #[test]
 fn another_application_owning_either_active_measure_gets_no_keys() {
-    for (focused, active) in [(Some(OTHER), Some(PID)), (Some(PID), Some(OTHER))] {
+    for (focused, active, cause) in [
+        (Some(OTHER), Some(PID), "other_application"),
+        (Some(PID), Some(OTHER), "display_active_window"),
+    ] {
         let physical = FakeWorld::x11();
         let mut keys = Keys::owning(&physical);
         keys.set_focused(focused);
         keys.active = active;
-        press(&physical, &keys, InteractionPolicy::headed()).unwrap_err();
+        let error = press(&physical, &keys, InteractionPolicy::headed()).unwrap_err();
+        assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+        assert_eq!(error.details.as_ref().unwrap()["cause"], cause);
+        assert!(not_delivered(&error));
         assert!(physical.sent_nothing());
     }
 }
@@ -176,7 +182,13 @@ fn a_window_with_no_known_owner_on_the_display_is_not_the_target() {
     let physical = FakeWorld::x11();
     let mut keys = Keys::owning(&physical);
     keys.active = None;
-    press(&physical, &keys, InteractionPolicy::headed()).unwrap_err();
+    let error = press(&physical, &keys, InteractionPolicy::headed()).unwrap_err();
+    assert_eq!(check_of(&error).as_deref(), Some("window_active"));
+    assert_eq!(
+        error.details.as_ref().unwrap()["cause"],
+        "display_active_window"
+    );
+    assert!(not_delivered(&error));
     assert!(physical.sent_nothing());
 }
 

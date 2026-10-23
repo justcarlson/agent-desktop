@@ -258,12 +258,7 @@ fn an_expanded_menu_button_whose_popover_shows_only_a_label_has_that_popover_as_
 #[test]
 fn a_menu_found_by_a_menu_rule_keeps_its_own_roots() {
     use crate::tree::state_bits::{EXPANDED, PRESSED};
-    let panel = node(
-        PANEL,
-        "",
-        &[SHOWING],
-        vec![node(BUTTON, "Browse", &[SHOWING], vec![])],
-    );
+    let panel = node(PANEL, "", &[SHOWING], vec![gtk4_popover(true)]);
     let inner = node(TOGGLE, "Open", &[SHOWING, PRESSED], vec![]);
     let opener = node(
         BUTTON,
@@ -271,13 +266,21 @@ fn a_menu_found_by_a_menu_rule_keeps_its_own_roots() {
         &[SHOWING, HAS_POPUP, EXPANDED],
         vec![inner, panel],
     );
+    let fallback = super::opened_button_popover(&opener).expect("the button's showing panel");
     let roots = popup_roots(&opener);
     assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0].payload.node.traits.role.present(), Some(&MENU));
     assert_eq!(
-        roots[0].payload.node.traits.role.present(),
-        Some(&PANEL),
-        "the buttons popover keeps its panel as the root"
+        roots[0]
+            .payload
+            .node
+            .properties
+            .name
+            .present()
+            .map(String::as_str),
+        Some("Main Menu")
     );
+    assert!(!std::ptr::eq(roots[0], fallback));
 }
 
 #[test]
