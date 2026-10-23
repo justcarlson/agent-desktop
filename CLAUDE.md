@@ -14,25 +14,26 @@ Each platform adapter compiles only on its own OS and the workspace names all th
 the same set `.githooks/pre-commit` uses:
 
 ```bash
-HOST_PKGS="-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi"
+HOST_PKGS=(-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi)
 # Windows: replace agent-desktop-macos with agent-desktop-windows. Linux: with agent-desktop-linux.
+# An array expands to separate arguments in both bash and zsh; a plain string does not in zsh.
 
-cargo build $HOST_PKGS                                 # debug build
-cargo build --release -p agent-desktop                 # release CLI; CI fails it above 15 MB
-cargo test $HOST_PKGS                                  # every test target
-cargo test $HOST_PKGS --lib                            # library tests only; skips the binary crate
-cargo test -p agent-desktop                            # binary crate: CLI contract, dispatch, batch, policy
-cargo test $HOST_PKGS <test_name>                      # one test by name
-cargo clippy $HOST_PKGS --all-targets -- -D warnings   # zero warnings
+cargo build "${HOST_PKGS[@]}"                                  # debug build
+cargo build --release -p agent-desktop                         # release CLI; CI fails it above 15 MB
+cargo test "${HOST_PKGS[@]}"                                   # every test target
+cargo test "${HOST_PKGS[@]}" --lib                             # library tests only; skips the binary crate
+cargo test -p agent-desktop                                    # binary crate: CLI contract, dispatch, batch, policy
+cargo test "${HOST_PKGS[@]}" <test_name>                       # one test by name
+cargo clippy "${HOST_PKGS[@]}" --all-targets -- -D warnings    # zero warnings
 cargo fmt --all -- --check
 cargo check -p agent-desktop-core --all-targets --target x86_64-pc-windows-msvc   # core cross-compiles
 cargo check -p agent-desktop-core --all-targets --target x86_64-unknown-linux-gnu
-cargo tree -p agent-desktop-core                       # must name no platform crate
-bash tests/e2e/run.sh                                  # macOS E2E, see tests/e2e/README.md
-bash scripts/perf-baseline-compare.sh                  # macOS perf A/B against the merge-base
+cargo tree -p agent-desktop-core                               # must name no platform crate
+AGENT_DESKTOP_E2E_EXCLUSIVE=1 bash tests/e2e/run.sh            # macOS E2E; builds its own artifacts
+bash scripts/perf-baseline-compare.sh                          # macOS perf A/B against the merge-base
 ```
 
-`scripts/cargo-test-isolated-home.sh test $HOST_PKGS --lib` runs tests with a throwaway `HOME`, which keeps them out
+`scripts/cargo-test-isolated-home.sh test "${HOST_PKGS[@]}" --lib` runs tests with a throwaway `HOME`, which keeps them out
 of your real `~/.agent-desktop`. The pre-commit hook uses it.
 
 Enable the hook once per clone with `git config core.hooksPath .githooks`. For staged Rust or TOML changes it runs the
@@ -115,7 +116,10 @@ JSON entries into the same `Commands` enum, runs the same `CommandPolicy` prefli
 1. Create `crates/core/src/commands/<name>.rs` with an `execute()` function and register it in `commands/mod.rs`.
 2. Add the CLI variant in `src/cli/mod.rs` and its arguments under `src/cli_args/`.
 3. Add its arm to `dispatch()` and to `policy_for()` in `src/command_policy/mod.rs`. Both matches are exhaustive.
-4. A new `Action` variant goes in `crates/core/src/action.rs`. A new adapter method goes in the matching
+4. Add its name to `parse_command()` in `src/batch/mod.rs`; `every_cli_subcommand_is_known_to_batch_parser` fails
+   otherwise. Add it to the surface lists in `src/cli/contract_command_surface_tests.rs`.
+5. Update the command counts in `README.md` and in this file; `src/cli/doc_literal_drift_tests.rs` checks them.
+6. A new `Action` variant goes in `crates/core/src/action.rs`. A new adapter method goes in the matching
    `PlatformAdapter` fragment with a `not_supported` default.
 
 **Platform crate layout.** `adapter.rs` (the trait impl) sits at the crate root. New files go in the folder that fits:
