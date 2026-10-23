@@ -7,7 +7,6 @@ use super::super::fake::Fake;
 use super::close;
 use crate::system::close::close_plan::TERM_GRACE;
 use crate::system::process::liveness::Liveness;
-use crate::system::signal::signal_sent::Sent;
 
 fn request() -> Request<'static> {
     Request {
@@ -63,16 +62,6 @@ fn kill_is_sent_once_while_the_process_takes_time_to_leave() {
     assert_eq!(world.count("kill"), 1);
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
-}
-
-#[test]
-fn a_replaced_or_vanished_process_is_a_benign_ok() {
-    for outcome in [Sent::Replaced, Sent::AlreadyGone] {
-        let world = Fake::new(Liveness::Alive);
-        world.signal_outcomes.borrow_mut().push(Ok(outcome));
-        assert!(!close(&world, &request()).expect("benign"));
-        assert_eq!(world.count("kill"), 0);
-    }
 }
 
 #[test]

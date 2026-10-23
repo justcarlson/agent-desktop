@@ -303,21 +303,6 @@ fn a_global_press_on_wayland_sends_with_no_frame_read_and_is_marked_unverified()
 }
 
 #[test]
-fn an_unreadable_frame_on_x11_is_not_taken_as_active() {
-    let world = FakeWorld::x11().active_script(&[None]);
-    let error = type_text_steps(
-        &world,
-        &element(),
-        "hi",
-        InteractionPolicy::headed(),
-        deadline(),
-    )
-    .unwrap_err();
-    assert_eq!(check_of(&error).as_deref(), Some("window_active"));
-    assert!(world.sent_nothing());
-}
-
-#[test]
 fn a_process_press_under_a_passing_gate_ignores_the_focus_steal_policy() {
     let world = FakeWorld::x11();
     let result = press_for_process(

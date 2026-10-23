@@ -323,8 +323,12 @@ fn a_handoff_window_under_a_running_process_is_a_window_opened_alone() {
     let apps = vec![app(1, "editor", true)];
     let before = World::new(apps.clone(), vec![window(0, "w-1")]);
     let after = World::new(apps, vec![window(0, "w-1"), window(0, "w-2")]);
-    let events = delta(&before, &after);
-    assert_eq!(events, ["window-opened"]);
+    let before = take(&before, &SignalFilter::default());
+    let after = take(&after, &SignalFilter::default());
+    assert_eq!(before.apps.len(), 1);
+    assert_eq!(after.apps.len(), 1);
+    assert_eq!(before.apps[0].pid, after.apps[0].pid);
+    assert_eq!(kinds(&before, &after), ["window-opened"]);
 }
 
 #[test]

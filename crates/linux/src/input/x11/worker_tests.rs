@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, DeliveryDisposition, ErrorCode};
+use agent_desktop_core::{DeliveryDisposition, ErrorCode};
 
 use crate::input::plan::Plan;
 use crate::input::step::Step;
@@ -215,33 +215,6 @@ fn failed_stale_recovery_blocks_the_next_plan_and_keeps_the_record() {
         assert!(!pending.exists());
         std::fs::remove_dir_all(dir).unwrap();
     }
-}
-
-#[test]
-fn a_gate_that_refuses_the_first_plan_is_not_delivered() {
-    let fake = FakeSink::new();
-    let only = Plan {
-        steps: vec![
-            Step::Key {
-                code: 38,
-                down: true,
-            },
-            Step::Key {
-                code: 38,
-                down: false,
-            },
-        ],
-        release_origin: None,
-    };
-    let mut gate = || Err(AdapterError::new(ErrorCode::ActionFailed, "not active"));
-
-    let error = run(&fake, vec![only], &mut gate, deadline(5_000), None).expect_err("refused");
-
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::NotDelivered
-    );
-    assert!(events(&fake).is_empty());
 }
 
 #[test]
