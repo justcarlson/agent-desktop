@@ -9,7 +9,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use rustix::fs::{MemfdFlags, memfd_create};
-use rustix::io::{FdFlags, fcntl_setfd};
 
 use super::owner_record::{self, Outcome, OwnerRecord};
 use super::payload::{Payload, frame};
@@ -106,19 +105,17 @@ fn payload_error(message: String) -> AdapterError {
         .with_disposition(DeliverySemantics::not_delivered())
 }
 
-/// The payload as an anonymous in-memory file, close-on-exec cleared on this
-/// descriptor only. Nothing is ever on disk, and the descriptor closes when
-/// the returned value drops, on every path.
+/// The payload as an anonymous in-memory file, close-on-exec for as long as
+/// this process holds it so that no child another thread spawns can inherit
+/// it. Nothing is ever on disk, and the descriptor closes when the returned
+/// value drops, on every path.
 pub(crate) fn payload_file(payload: &Payload, nonce: &str) -> Result<OwnedFd, AdapterError> {
     let descriptor = memfd_create(format!("ad-payload-{nonce}"), MemfdFlags::CLOEXEC)
         .map_err(|error| payload_error(format!("The payload file could not be made: {error}")))?;
     let mut file = File::from(descriptor);
     file.write_all(&frame(payload))
         .map_err(|error| payload_error(format!("The payload could not be written: {error}")))?;
-    let descriptor = OwnedFd::from(file);
-    fcntl_setfd(&descriptor, FdFlags::empty())
-        .map_err(|error| payload_error(format!("The payload file could not be shared: {error}")))?;
-    Ok(descriptor)
+    Ok(OwnedFd::from(file))
 }
 
 fn urandom_nonce() -> Option<String> {

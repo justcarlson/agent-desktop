@@ -47,14 +47,15 @@ fn chromium_renderer(bus: &SharedBus, pid: u32, deadline: Deadline) -> Option<Re
 
 /// The result for an owner and its window. A window is brought forward once,
 /// only when asked, and a refusal is reported in the suggestion because the
-/// launch itself succeeded.
+/// launch itself succeeded. A successful `focus` returns the window read after
+/// the request, or `None` when no such read is available, and that window
+/// replaces the one read before it.
 fn conclude(
     owner: &Running,
     window: Option<WindowInfo>,
     options: &LaunchOptions,
     created: bool,
-    focus: impl FnOnce(&WindowInfo) -> Result<(), AdapterError>,
-    refresh: impl FnOnce() -> Option<WindowInfo>,
+    focus: impl FnOnce(&WindowInfo) -> Result<Option<WindowInfo>, AdapterError>,
 ) -> LaunchResult {
     let mut notes = Vec::new();
     let mut window = window;
@@ -67,7 +68,7 @@ fn conclude(
         && let Some(target) = &window
     {
         match focus(target) {
-            Ok(()) => window = refresh().or(window),
+            Ok(reread) => window = reread.or(window),
             Err(error) => notes.push(format!(
                 "The window could not be brought forward: {}",
                 error.message
@@ -241,14 +242,10 @@ impl Launch<'_> {
     ) -> LaunchResult {
         LaunchResult {
             renderer: chromium_renderer(self.bus, owner.pid, self.deadline),
-            ..conclude(
-                owner,
-                window,
-                self.options,
-                created,
-                |window| focus_window(self.bus, window, self.lease),
-                || self.window_of(owner, false, &HashSet::new()).ok().flatten(),
-            )
+            ..conclude(owner, window, self.options, created, |window| {
+                focus_window(self.bus, window, self.lease)?;
+                Ok(self.window_of(owner, false, &HashSet::new()).ok().flatten())
+            })
         }
     }
 
