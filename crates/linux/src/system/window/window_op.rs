@@ -4,9 +4,10 @@ use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, InteractionLease, OperationReport,
     OperationTarget, Rect, WindowInfo, WindowOp,
 };
+use serde_json::Value;
 
 use self::hold::{
-    confirm_rectangle, fits_a_display, give_back_place, is_resize, move_client, remember_place,
+    confirm_rectangle, give_back_place, gives_back, is_resize, remember_place, try_give_back,
 };
 use self::owner::{ensure_owned_after, ensure_owned_before};
 use self::refuse::{no_client, refused, unreadable, unsupported_session, write_failed};
@@ -16,6 +17,7 @@ use super::window_op_shadow::{Shadow, to_client, to_visible};
 use super::window_op_verdict::{
     POLL, POSITION_TOLERANCE, SETTLE_BUDGET, Verdict, judge, observed_of, requested, unverified,
 };
+use super::window_report::{visible_observation, window_readback, with_observed};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::focus::focus_cause::Cause;
 use crate::system::focus::focus_window::FocusWorld;
@@ -212,7 +214,7 @@ fn apply(
         remember_place(world, win, client);
     }
     let before = if is_resize(write) {
-        world.facts(client).ready().map(|facts| facts.client)
+        world.facts(client).ready()
     } else {
         None
     };
@@ -226,18 +228,12 @@ fn apply(
             Err(unverified(write, observed.as_ref(), &displays))
         }
     };
-    let correction = match (before, observed) {
-        (Some(place), Some(facts))
-            if fits_a_display(&facts.client, &world.displays())
-                && ((facts.client.x - place.x).abs() > POSITION_TOLERANCE
-                    || (facts.client.y - place.y).abs() > POSITION_TOLERANCE) =>
-        {
-            move_client(world, win, client, place, deadline)
-        }
-        _ => Ok(()),
-    };
-    outcome.map_err(|error| reobserve(world, client, error))?;
-    correction
+    if let (Some(place), Some(held)) = (before, observed)
+        && gives_back(&place, &held, &world.displays())
+    {
+        try_give_back(world, win, client, place.client, deadline);
+    }
+    outcome.map_err(|error| reobserve(world, client, error))
 }
 
 fn read_before(world: &impl OpWorld, client: u32) -> Result<WindowFacts, AdapterError> {
@@ -302,7 +298,7 @@ fn dispatch(
     win: &WindowInfo,
     op: &WindowOp,
     deadline: Deadline,
-) -> Result<(), AdapterError> {
+) -> Result<Option<Value>, AdapterError> {
     let write = requested(op)?;
     ensure_owned_before(world, win)?;
     if world.stopped(win.pid.get()) {
@@ -319,7 +315,14 @@ fn dispatch(
         Some(write) => apply(world, win, client, &to_client(write, shadow), deadline),
         None => restore(world, win, client, deadline),
     };
-    done.map_err(|error| to_visible(error, shadow))
+    done.map(|()| match op {
+        WindowOp::Resize { .. } => world
+            .facts(client)
+            .ready()
+            .map(|facts| visible_observation(&facts)),
+        _ => None,
+    })
+    .map_err(|error| to_visible(error, shadow))
 }
 
 fn run(
@@ -329,12 +332,9 @@ fn run(
     deadline: Deadline,
 ) -> Result<OperationReport, AdapterError> {
     let dispatched = dispatch(world, win, op, deadline);
-    OperationReport::from_window_dispatch(
-        win,
-        op,
-        super::window_report::window_readback(op),
-        dispatched,
-    )
+    let observed = dispatched.as_ref().ok().cloned().flatten();
+    OperationReport::from_window_dispatch(win, op, window_readback(op), dispatched.map(drop))
+        .map(|report| with_observed(report, observed))
 }
 
 pub(crate) fn window_op(

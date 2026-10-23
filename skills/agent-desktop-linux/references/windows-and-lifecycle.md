@@ -176,7 +176,10 @@ Reports carry `action`, `target`, `steps` and `disposition`, without a `moved`,
 
 - A clamp or an ignored request is `ACTION_FAILED`, `delivered_unverified`, with
   the requested, observed and display bounds; the window may still have changed
-  in part: read the bounds.
+  in part: read the bounds. `details.requested` names only the sides you gave.
+- A resize is judged by its size alone. A window manager that moves the window
+  to keep it on the display changes the origin, not the verdict, and the report's
+  `details.observed` names the rectangle read back, origin included.
 - Without `--app` or `--window-id` all five act on the focused window, and
   `data.target` names the window id, title and process identity, even when no
   selector was supplied. Pass one unless you mean the focused window.
