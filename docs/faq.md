@@ -2,7 +2,7 @@
 
 ## What is agent-desktop?
 
-agent-desktop gives any agent reliable computer use on the desktop. Agents see and operate desktop apps through OS accessibility trees, using structured JSON with stable refs instead of guessing from screenshots or pixel matching.
+agent-desktop gives any agent computer use on the desktop. Agents see and operate desktop apps through OS accessibility trees, using structured JSON with stable refs instead of guessing from screenshots or pixel matching.
 
 ## Does agent-desktop require screenshots or pixel matching?
 

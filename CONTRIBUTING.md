@@ -108,14 +108,14 @@ Commits, the 400-line cap per Rust file, no inline comments, no delivery-plan re
 type per file, error handling, core isolation, and the steps for adding a command. The pre-commit hook and CI enforce
 most of them.
 
-**Skills stay in sync.** Every new command or changed CLI flag must be reflected in the matching skill. Cross-platform behavior goes in the core skill, `skills/agent-desktop/` (its `references/` hold the per-command detail). Platform behavior goes in `skills/agent-desktop-macos/`, `skills/agent-desktop-windows/` or `skills/agent-desktop-linux/`, and C ABI changes in `skills/agent-desktop-ffi/`. The skills are compiled into the binary and read by AI agents, so they must stay in sync with the implementation.
+**Skills stay in sync.** Every new command or changed CLI flag must be reflected in the matching skill. Cross-platform behavior goes in the core skill, `skills/agent-desktop/` (its `references/` hold the per-command detail). Platform behavior goes in `skills/agent-desktop-macos/`, `skills/agent-desktop-windows/` or `skills/agent-desktop-linux/`, and C ABI changes in `skills/agent-desktop-ffi/`. The binary embeds these skills and AI agents read them, so they must match the implementation.
 
 ## Submitting a pull request
 
 1. **Pick the right base branch.** Branch from `main` and open the PR into `main` for macOS, Windows, core and FFI work. Linux adapter work goes to the `feat/linux-adapter` integration branch instead: cut your branch from it and merge back into it, never into `main`.
 2. **Keep PRs focused.** One logical change per PR; separate refactors from features.
 3. **Make sure all quality gates pass** locally before pushing (see Dev workflow above).
-4. **Use a Conventional Commit title** for the PR title — it becomes the squash-merge commit message.
+4. **Use a Conventional Commit title** for the PR title. It becomes the squash-merge commit message.
 5. **Link related issues** with `Fixes #N` or `Refs #N` in the PR description.
 6. **Check that `cargo tree -p agent-desktop-core` is clean** if you touched any crate dependency.
 7. CI runs automatically on every push. A red CI is a blocker.
