@@ -8,7 +8,7 @@ use super::frame_window::FrameWindow;
 use super::map::ClientMatch;
 use super::stacking_read::StackingRead;
 use super::stacking_source::StackingSource;
-use super::twin_tie::{Twins, client_among_twins, tied_hidden};
+use super::twin_tie::{Twins, client_among_twins, tied_agree};
 use super::window_x11_state::WindowX11State;
 use super::{FrameFacts, X11State, start};
 
@@ -69,7 +69,7 @@ pub(crate) fn frame_window_state(
         ClientMatch::One(id) => id,
         ClientMatch::Several(ids) => {
             return FrameWindow::Tied {
-                hidden: tied_hidden(&clients, &ids),
+                hidden: tied_agree(&clients, &ids, |client| client.hidden),
             };
         }
         ClientMatch::NoClient => return FrameWindow::Unknown,

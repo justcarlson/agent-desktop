@@ -60,15 +60,19 @@ pub(crate) fn client_among_twins(
     }
 }
 
-/// Whether the tied clients agree that the window is hidden (`Some(true)`) or
-/// shown (`Some(false)`); `None` when they differ or none is listed.
-pub(crate) fn tied_hidden(clients: &[X11Client], ids: &[u32]) -> Option<bool> {
-    let mut hidden = clients
+/// What the tied clients agree on, as `read` reads it from each: `None` when
+/// they differ or none is listed.
+pub(crate) fn tied_agree<T: PartialEq>(
+    clients: &[X11Client],
+    ids: &[u32],
+    read: impl Fn(&X11Client) -> T,
+) -> Option<T> {
+    let mut values = clients
         .iter()
         .filter(|client| ids.contains(&client.id))
-        .map(|client| client.hidden);
-    let first = hidden.next()?;
-    hidden.all(|other| other == first).then_some(first)
+        .map(read);
+    let first = values.next()?;
+    values.all(|other| other == first).then_some(first)
 }
 
 #[cfg(test)]

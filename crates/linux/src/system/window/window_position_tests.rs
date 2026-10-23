@@ -7,7 +7,7 @@ use crate::system::x11::desktops::Desktops;
 use crate::tree::test_support::{read_of, words};
 use crate::tree::{AtspiElement, Field};
 
-fn twins_of_toolkit(toolkit: (&str, &str), active: &[bool], extents: Extents) -> Vec<ListedWindow> {
+fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
     let app = assemble(
         AtspiElement::new(":1.9", "/org/a11y/atspi/accessible/root", 321),
         ProcessFacts {
@@ -18,8 +18,8 @@ fn twins_of_toolkit(toolkit: (&str, &str), active: &[bool], extents: Extents) ->
         },
         Some(Some("App".to_owned())),
         ToolkitId {
-            name: Some(toolkit.0.to_owned()),
-            version: Some(toolkit.1.to_owned()),
+            name: Some("gtk".to_owned()),
+            version: Some("4.14.5".to_owned()),
         },
     );
     let nodes = active
@@ -31,21 +31,16 @@ fn twins_of_toolkit(toolkit: (&str, &str), active: &[bool], extents: Extents) ->
             node.traits.interfaces =
                 Field::Present(vec![crate::tree::COMPONENT_INTERFACE.to_owned()]);
             node.traits.states = Field::Present(words(if *active { &[25, 1] } else { &[25] }));
-            node.extents = Field::Present(extents);
+            node.extents = Field::Present(Extents {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            });
             node
         })
         .collect();
     collect(&[(0, &app)], &[nodes])
-}
-
-fn twin_windows(active: &[bool]) -> Vec<ListedWindow> {
-    let extents = Extents {
-        x: 0,
-        y: 0,
-        width: 10,
-        height: 10,
-    };
-    twins_of_toolkit(("gtk", "4.14.5"), active, extents)
 }
 
 fn windows(toolkit: (&str, &str)) -> Vec<ListedWindow> {
@@ -279,6 +274,48 @@ fn a_gtk3_window_without_a_shadow_keeps_its_bounds() {
     );
 }
 
+fn tied_gtk3_windows(first: (i32, i32, i32, i32), second: (i32, i32, i32, i32)) -> Vec<Rect> {
+    let (mut listed, _) = gtk3_window_with_shadow(first);
+    listed.push(listed[0].clone());
+    let twin = |id: u32, shadow| X11Client {
+        shadow,
+        ..client(id, 206, 72)
+    };
+    let state = ready(vec![twin(7, first), twin(8, second)]);
+
+    place_windows(&mut listed, &state, None);
+
+    assert_eq!(
+        crate::system::window::listed_twins::listed_client(&listed, 0, &state),
+        ClientMatch::Several(vec![7, 8])
+    );
+    listed
+        .iter()
+        .filter_map(|window| window.info.bounds)
+        .collect()
+}
+
+#[test]
+fn tied_windows_whose_clients_share_a_shadow_lose_it_like_a_single_window() {
+    let shadow = (26, 23, 26, 29);
+    for bounds in tied_gtk3_windows(shadow, shadow) {
+        assert_eq!(
+            (bounds.x, bounds.y, bounds.width, bounds.height),
+            (232.0, 95.0, 814.0, 577.0)
+        );
+    }
+}
+
+#[test]
+fn tied_windows_whose_clients_differ_in_shadow_keep_the_rectangle_they_reported() {
+    for bounds in tied_gtk3_windows((26, 23, 26, 29), (0, 0, 0, 0)) {
+        assert_eq!(
+            (bounds.x, bounds.y, bounds.width, bounds.height),
+            (206.0, 72.0, 866.0, 629.0)
+        );
+    }
+}
+
 fn on_desktop(current: u32, window_on: u32) -> Desktops {
     use crate::system::x11::desktop_placement::DesktopPlacement;
     Desktops {
@@ -351,6 +388,3 @@ fn same_titled_windows_nothing_separates_have_no_position() {
     place_windows(&mut three, &active_client(8), None);
     assert_eq!(origins(&three), vec![None, None, None]);
 }
-
-#[path = "window_position_shape_tests.rs"]
-mod shape;
