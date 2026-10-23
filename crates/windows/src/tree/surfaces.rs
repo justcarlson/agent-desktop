@@ -8,7 +8,7 @@ use super::properties::read_one;
 #[cfg(target_os = "windows")]
 use super::property_ids::TreeProperty;
 use crate::system::window_enum::enumerate_top_level;
-use crate::system::window_ops::passes_filter;
+use crate::system::window_ops::{parse_window_id, passes_filter};
 
 /// Resolves the element an observation root names, per-surface (`Window`
 /// resolves the named window directly; `Focused` composes the focused-only
@@ -24,7 +24,7 @@ pub(crate) fn surface_root(
 ) -> Result<UIAElement, AdapterError> {
     match (root, surface) {
         (ObservationRoot::Window(window), SnapshotSurface::Window) => {
-            let handle = window_hwnd(&window.id)?;
+            let handle = parse_window_id(&window.id)?;
             root_from_hwnd(handle, deadline)
         }
         (ObservationRoot::Window(window), SnapshotSurface::Focused) => {
@@ -63,7 +63,7 @@ pub(crate) fn surface_root(
         | (ObservationRoot::Window(window), SnapshotSurface::SystemTray)
         | (ObservationRoot::Window(window), SnapshotSurface::SystemTrayOverflow)
         | (ObservationRoot::Window(window), SnapshotSurface::ActionCenter) => {
-            let handle = window_hwnd(&window.id)?;
+            let handle = parse_window_id(&window.id)?;
             root_from_hwnd(handle, deadline)
         }
         (ObservationRoot::Element { handle, .. }, _) => {
@@ -77,13 +77,6 @@ pub(crate) fn surface_root(
         }
         (ObservationRoot::Window(_), _) => Err(AdapterError::not_supported("surface")),
     }
-}
-
-fn window_hwnd(id: &str) -> Result<isize, AdapterError> {
-    id.strip_prefix("w-")
-        .and_then(|number| number.parse::<isize>().ok())
-        .filter(|handle| *handle > 0)
-        .ok_or_else(|| AdapterError::new(ErrorCode::InvalidArgs, "Malformed window identifier"))
 }
 
 /// The focused window's HWND, found through the focused-only window inventory
