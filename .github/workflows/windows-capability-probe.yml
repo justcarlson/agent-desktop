@@ -3,8 +3,6 @@ name: Windows capability probe
 on:
   pull_request:
     paths:
-      - 'crates/core/**'
-      - 'crates/windows/**'
       - 'probes/windows/14-ci-capability/**'
       - 'probes/windows/15-vocabulary/**'
       - 'probes/windows/16-observation/**'

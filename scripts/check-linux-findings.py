@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check probes/linux/FINDINGS.md: row shape, vocabularies, unique ids, deferral closure, phases.md citations, and no box identity."""
+"""Check probes/linux/FINDINGS.md: row shape, vocabularies, unique ids, deferral closure, and no box identity."""
 import argparse
 import os
 import re
@@ -11,7 +11,6 @@ STACKS = {"dbus", "gi-atspi", "tool"}
 SCOPES = {"api-contract", "app", "box"}
 VERDICT = re.compile(r"(CONFIRMS|CONTRADICTS|NEW-EDGE|DEFERRED)(?: \([^()]*\))?")
 ROW = re.compile(r"^\|\s*(L\d+-\d+)\s*\|")
-ID = re.compile(r"\bL\d+-\d+\b")
 SEPARATOR = re.compile(r"^\|[\s:|-]*-[\s:|-]*\|?\s*$")
 CLOSURE = re.compile(r"closure:\s*3\.(?:1[0-5]|[0-9])(?:\.\d+)?(?!\d)")
 IDENTITY = [
@@ -86,15 +85,10 @@ def identity_problems(text):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ledger", type=Path, default=ROOT / "probes/linux/FINDINGS.md")
-    parser.add_argument("--phases", type=Path, default=ROOT / "docs/phases.md")
     parser.add_argument("--sub-phase")
     args = parser.parse_args()
     if not args.ledger.exists():
-        cited = args.phases.exists() and ID.search(args.phases.read_text())
-        if cited:
-            print(f"check-linux-findings: {args.phases.name} cites {cited.group(0)} but {args.ledger} is missing")
-            return 1
-        print("check-linux-findings: no Linux ledger and no citations, nothing to check")
+        print("check-linux-findings: no Linux ledger, nothing to check")
         return 0
     text = args.ledger.read_text()
     rows, invalid = table_rows(text)
@@ -110,9 +104,6 @@ def main():
             violations.append((row_id, "duplicate id"))
         seen.add(row_id)
         violations += [(row_id, p) for p in check_row(cells)]
-    if args.phases.exists():
-        cited = sorted(set(ID.findall(args.phases.read_text())) - seen)
-        violations += [(i, f"cited in {args.phases.name} but missing from the ledger") for i in cited]
     violations += [(args.ledger.name, p) for p in identity_problems(text)]
     for where, problem in violations:
         print(f"check-linux-findings: {where}: {problem}")

@@ -45,7 +45,8 @@ class GateTests(unittest.TestCase):
 
     def test_private_services_get_their_own_session(self):
         cases = (
-            "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+            "input::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+            "input::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
         )
         for name in cases:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
