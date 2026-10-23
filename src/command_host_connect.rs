@@ -58,13 +58,15 @@ pub(super) fn connect(path: &Path, deadline: Instant) -> io::Result<UnixStream> 
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_dir::TestDir;
     use super::*;
     use std::os::unix::net::UnixListener;
     use std::time::Duration;
 
     #[test]
     fn expired_connection_budget_does_not_enqueue_a_client() {
-        let path = std::env::temp_dir().join(format!("ad-connect-{}.sock", std::process::id()));
+        let dir = TestDir::new();
+        let path = dir.path().join("connect.sock");
         let listener = UnixListener::bind(&path).unwrap();
         listener.set_nonblocking(true).unwrap();
         assert_eq!(

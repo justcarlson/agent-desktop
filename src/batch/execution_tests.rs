@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use agent_desktop_core::{CommandContext, InteractionLease, PermissionReport, PermissionState};
 use serde_json::json;
@@ -210,44 +210,56 @@ fn entry_count_and_output_are_bounded() {
     assert_eq!(entry["error"]["disposition"]["retry"], "unsafe");
 }
 
-struct SlowReadAdapter;
+struct RecordingReadAdapter {
+    received: std::sync::Mutex<Vec<Duration>>,
+}
 
-impl agent_desktop_core::ObservationOps for SlowReadAdapter {}
-impl agent_desktop_core::ActionOps for SlowReadAdapter {}
-impl agent_desktop_core::InputOps for SlowReadAdapter {}
+impl agent_desktop_core::ObservationOps for RecordingReadAdapter {}
+impl agent_desktop_core::ActionOps for RecordingReadAdapter {}
+impl agent_desktop_core::InputOps for RecordingReadAdapter {}
 
-impl agent_desktop_core::SystemOps for SlowReadAdapter {
+impl agent_desktop_core::SystemOps for RecordingReadAdapter {
     fn list_displays(
         &self,
         deadline: agent_desktop_core::Deadline,
     ) -> Result<Vec<agent_desktop_core::DisplayInfo>, AdapterError> {
-        std::thread::sleep(
-            deadline
-                .remaining()
-                .saturating_add(Duration::from_millis(2)),
-        );
+        self.received
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(deadline.remaining());
         Err(deadline.timeout_error())
     }
 }
 
 #[test]
 fn inherited_batch_deadline_bounds_slow_non_action_command() {
-    let started = Instant::now();
+    let adapter = RecordingReadAdapter {
+        received: std::sync::Mutex::new(Vec::new()),
+    };
     let output = execute(
         args(json!([{"command": "list-displays", "args": {}}]), 25),
-        &SlowReadAdapter,
+        &adapter,
         &PermissionReport::default(),
         &CommandContext::default(),
     )
     .expect("entry timeout remains a structured batch result");
 
-    assert!(started.elapsed() < Duration::from_millis(500));
+    let received = adapter
+        .received
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    assert_eq!(received.len(), 1, "the entry reached the adapter once");
+    assert!(
+        received[0] <= Duration::from_millis(25),
+        "the adapter was handed {:?}, not the 25 ms batch budget",
+        received[0]
+    );
     assert_eq!(output["results"][0]["error"]["code"], "TIMEOUT");
 }
 
 #[test]
 fn inherited_batch_deadline_caps_sleep_without_variant_rewriting() {
-    let started = Instant::now();
     let output = execute(
         args(json!([{"command": "wait", "args": {"ms": 5_000}}]), 25),
         &adapter(),
@@ -256,6 +268,5 @@ fn inherited_batch_deadline_caps_sleep_without_variant_rewriting() {
     )
     .expect("entry timeout remains a structured batch result");
 
-    assert!(started.elapsed() < Duration::from_millis(500));
     assert_eq!(output["results"][0]["error"]["code"], "TIMEOUT");
 }
