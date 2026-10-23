@@ -7,7 +7,7 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 use crate::input::deliver::ensure_budget;
 use crate::input::target_world::PhysicalWorld;
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
-use crate::tree::state_bits::{EDITABLE, FOCUSED, StateBits};
+use crate::tree::vocabulary::state_bits::{EDITABLE, FOCUSED, StateBits};
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, call};
 
 pub(super) fn refused() -> AdapterError {

@@ -8,7 +8,7 @@ use super::window_xid::{XidOutcome, window_xid};
 
 use crate::system::x11::grab::{DisplayGrabber, Grabber};
 use crate::system::{SharedBus, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 

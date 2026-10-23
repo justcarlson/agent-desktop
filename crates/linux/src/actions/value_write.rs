@@ -11,13 +11,13 @@ use super::secure_write::is_secure;
 use super::text_write::{self, EDITABLE_TEXT, TextPort, read_only_field, writable};
 use super::write_call::{Call, invoke};
 use crate::system::{PROPERTIES_INTERFACE, within};
-use crate::tree::action_read::NodeView;
-use crate::tree::live_offscreen::toolkit_of;
-use crate::tree::role_numbers::{DIAL, SCROLL_BAR, SLIDER, SPIN_BUTTON};
-use crate::tree::state_bits::{EDITABLE, READ_ONLY};
-use crate::tree::text_selection::{CaretAndSelection, read_caret_and_selection};
-use crate::tree::text_units::LengthUnit;
-use crate::tree::toolkit_trust::{insert_length_unit, is_gecko};
+use crate::tree::capabilities::action_read::NodeView;
+use crate::tree::capabilities::text_selection::{CaretAndSelection, read_caret_and_selection};
+use crate::tree::capabilities::text_units::LengthUnit;
+use crate::tree::live_read::live_offscreen::toolkit_of;
+use crate::tree::properties::toolkit_trust::{insert_length_unit, is_gecko};
+use crate::tree::vocabulary::role_numbers::{DIAL, SCROLL_BAR, SLIDER, SPIN_BUTTON};
+use crate::tree::vocabulary::state_bits::{EDITABLE, READ_ONLY};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Route {

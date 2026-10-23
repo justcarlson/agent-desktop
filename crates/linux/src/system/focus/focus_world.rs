@@ -24,9 +24,9 @@ use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::Twins;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window::window_id};
-use crate::tree::role_numbers::DIALOG;
-use crate::tree::state_bits::{ACTIVE, StateBits};
-use crate::tree::twin_frames::read_twins;
+use crate::tree::surfaces::twin_frames::read_twins;
+use crate::tree::vocabulary::role_numbers::DIALOG;
+use crate::tree::vocabulary::state_bits::{ACTIVE, StateBits};
 use crate::tree::{AtspiElement, list_children, read_node};
 
 #[path = "focus_send.rs"]

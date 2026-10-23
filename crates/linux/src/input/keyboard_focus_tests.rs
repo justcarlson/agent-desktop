@@ -3,7 +3,7 @@ use zbus::zvariant::OwnedObjectPath;
 
 use super::focused;
 use crate::tree::AtspiElement;
-use crate::tree::state_bits::{EDITABLE, FOCUSED};
+use crate::tree::vocabulary::state_bits::{EDITABLE, FOCUSED};
 
 const OWNER: &str = "org.agentdesktop.FocusFixture";
 

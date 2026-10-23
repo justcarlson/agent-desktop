@@ -10,14 +10,14 @@ use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::client_among_twins;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, within};
-use crate::tree::hit_descent::{BusNodes, NodeSource};
-use crate::tree::node_read::read_node_for;
-use crate::tree::read_purpose::ReadPurpose;
-use crate::tree::resolve_errors::{stopped_app, stopped_aware};
-use crate::tree::state_bits::{ICONIFIED, StateBits};
-use crate::tree::toolkit_trust::{ToolkitKind, kind, read_toolkit};
-use crate::tree::twin_frames::read_twins;
-use crate::tree::window_extents::read_window_extents_async;
+use crate::tree::hit_test::hit_descent::{BusNodes, NodeSource};
+use crate::tree::properties::node_read::read_node_for;
+use crate::tree::properties::read_purpose::ReadPurpose;
+use crate::tree::properties::toolkit_trust::{ToolkitKind, kind, read_toolkit};
+use crate::tree::resolve::resolve_errors::{stopped_app, stopped_aware};
+use crate::tree::surfaces::twin_frames::read_twins;
+use crate::tree::surfaces::window_extents::read_window_extents_async;
+use crate::tree::vocabulary::state_bits::{ICONIFIED, StateBits};
 use crate::tree::{AtspiElement, Extents};
 
 pub(super) fn stopped_aware_for(error: AdapterError, frame: &AtspiElement) -> AdapterError {
@@ -93,7 +93,8 @@ impl HitWorld for LiveWorld<'_> {
             .unwrap_or_default();
         let toolkit = toolkit?;
         self.frame = Some(frame.clone());
-        let global_position = crate::tree::toolkit_trust::reports_global_position(&toolkit);
+        let global_position =
+            crate::tree::properties::toolkit_trust::reports_global_position(&toolkit);
         self.native_popup = if target.is_menu_target()
             && frame_node.traits.role.present() == Some(&MENU)
             && kind(&toolkit) == ToolkitKind::Gtk3
@@ -141,8 +142,10 @@ impl HitWorld for LiveWorld<'_> {
                 (rect.width, rect.height),
                 self.nodes.deadline,
             )?;
-            let origin =
-                crate::tree::frame_geometry::popup_origin((popup.bounds.x, popup.bounds.y), rect)?;
+            let origin = crate::tree::placement::frame_geometry::popup_origin(
+                (popup.bounds.x, popup.bounds.y),
+                rect,
+            )?;
             (popup.id, Some(origin))
         } else {
             let found = client_among_twins(frame, &clients, active, || {

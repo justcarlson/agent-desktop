@@ -5,11 +5,11 @@ use super::select_identity::verification;
 use super::select_search::name_matches;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::live_offscreen::toolkit_of;
-use crate::tree::role_numbers::COMBO_BOX;
-use crate::tree::state_bits::SELECTED;
-use crate::tree::toolkit_trust::{combo_name_is_value, combo_selection_is_live};
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::live_read::live_offscreen::toolkit_of;
+use crate::tree::properties::toolkit_trust::{combo_name_is_value, combo_selection_is_live};
+use crate::tree::vocabulary::role_numbers::COMBO_BOX;
+use crate::tree::vocabulary::state_bits::SELECTED;
 
 const OBJECT_REPLACEMENT: char = '\u{fffc}';
 

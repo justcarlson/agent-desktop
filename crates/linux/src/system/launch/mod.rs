@@ -40,7 +40,8 @@ fn chromium_renderer(bus: &SharedBus, pid: u32, deadline: Deadline) -> Option<Re
         .apps
         .iter()
         .any(|app| {
-            crate::tree::toolkit_trust::web_family(&app.toolkit) == Some(WebFamily::Chromium)
+            crate::tree::properties::toolkit_trust::web_family(&app.toolkit)
+                == Some(WebFamily::Chromium)
         })
         .then_some(RendererKind::Chromium)
 }

@@ -15,9 +15,9 @@ use crate::system::window::window_filter::frame_state;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
 use crate::system::{PROPERTIES_INTERFACE, SharedBus, within};
-use crate::tree::live_offscreen::toolkit_of;
-use crate::tree::role_numbers::SCROLL_BAR;
-use crate::tree::window_extents::read_window_extents;
+use crate::tree::live_read::live_offscreen::toolkit_of;
+use crate::tree::surfaces::window_extents::read_window_extents;
+use crate::tree::vocabulary::role_numbers::SCROLL_BAR;
 use crate::tree::{
     AtspiElement, COMPONENT_INTERFACE, Extents, get_element_bounds, get_live_state, list_children,
     read_node,

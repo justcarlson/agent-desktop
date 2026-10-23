@@ -4,8 +4,8 @@ use super::hit::display_extents;
 use super::light::extents_of;
 use crate::system::x11::window_x11_state::WindowX11State;
 use crate::system::{SharedBus, within};
-use crate::tree::display_bounds::off_every_display;
 use crate::tree::placement::Placement;
+use crate::tree::placement::display_bounds::off_every_display;
 use crate::tree::{AtspiElement, Extents};
 
 fn union(displays: &[Extents]) -> Option<Extents> {

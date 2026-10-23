@@ -3,8 +3,8 @@ use agent_desktop_core::{Action, ActionRequest, DeliverySemantics, ErrorCode};
 use super::live_bench::Toolkit;
 use super::live_bench_iteration::each_scripts;
 use super::live_widget_tests::widgets;
-use crate::tree::role_numbers::PUSH_BUTTON;
-use crate::tree::state_bits::FOCUSED;
+use crate::tree::vocabulary::role_numbers::PUSH_BUTTON;
+use crate::tree::vocabulary::state_bits::FOCUSED;
 
 #[test]
 #[ignore = "drives real desktop applications; run through scripts/private-session.sh --wm"]

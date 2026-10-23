@@ -223,7 +223,7 @@ fn the_step_is_a_physical_unverified_click() {
 
 #[test]
 fn a_clipped_sidebar_row_never_receives_a_click_outside_its_viewport() {
-    use crate::tree::{Extents, ancestry::Ancestry, placement::Placement};
+    use crate::tree::{Extents, element::ancestry::Ancestry, placement::Placement};
 
     let mut target = element();
     target.set_ancestry(Ancestry::of(Some(element()), Some(element()), false));

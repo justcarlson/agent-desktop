@@ -1,10 +1,10 @@
 use crate::system::shell::fake_tree::{SENTINEL, at};
 use crate::system::shell::live_state::project;
 use crate::tree::Extents;
-use crate::tree::live_project::derived_offscreen;
+use crate::tree::live::test_support::read_of;
+use crate::tree::live_read::live_project::derived_offscreen;
 use crate::tree::placement::Placement;
-use crate::tree::role_numbers::PUSH_BUTTON;
-use crate::tree::test_support::read_of;
+use crate::tree::vocabulary::role_numbers::PUSH_BUTTON;
 
 fn displays() -> Vec<Extents> {
     vec![at(0, 0, 1280, 800)]

@@ -1,8 +1,8 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 use serde_json::{Value, json};
 
-use crate::tree::absence::{UNKNOWN_OBJECT, failure, failure_of_name};
-use crate::tree::failure::Failure;
+use crate::tree::properties::absence::{UNKNOWN_OBJECT, failure, failure_of_name};
+use crate::tree::properties::failure::Failure;
 
 const NOT_SUPPORTED: &str = "org.freedesktop.DBus.Error.NotSupported";
 const PROPERTY_READ_ONLY: &str = "org.freedesktop.DBus.Error.PropertyReadOnly";

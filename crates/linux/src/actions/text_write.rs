@@ -5,8 +5,8 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Interaction
 use super::chain::{DeliveryOutcome, Observed, Rung};
 use super::mutation::{WriteReply, with_value_chars};
 use super::secure_write::{guarded_read, scrub};
-use crate::tree::text_selection::CaretAndSelection;
-use crate::tree::text_units::{LengthUnit, insert_length};
+use crate::tree::capabilities::text_selection::CaretAndSelection;
+use crate::tree::capabilities::text_units::{LengthUnit, insert_length};
 
 pub(crate) const EDITABLE_TEXT: &str = "org.a11y.atspi.EditableText";
 pub(crate) const REPLACE_LABEL: &str = "EditableText.SetTextContents";

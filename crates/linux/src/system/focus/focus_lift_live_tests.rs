@@ -6,7 +6,7 @@ use agent_desktop_core::{AdapterError, Deadline, WindowFilter, WindowInfo};
 use super::*;
 use crate::system::interaction::interaction_lease::acquire;
 use crate::system::list_windows;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 pub(super) const SETTLE: Duration = Duration::from_secs(40);
 

@@ -21,12 +21,12 @@ use super::select_row::click_row;
 use super::select_search::{Container, Hit, Inspected, ItemReader, Search, search};
 use super::select_verify::{commit_unobserved, read_verification};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
-use crate::tree::action_names::{click_verbs, verbs_for};
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::live_offscreen::toolkit_of;
-use crate::tree::role_numbers::COMBO_BOX;
-use crate::tree::toolkit_trust::is_gecko;
-use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
+use crate::tree::capabilities::action_names::{click_verbs, verbs_for};
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::live_read::live_offscreen::toolkit_of;
+use crate::tree::properties::toolkit_trust::is_gecko;
+use crate::tree::vocabulary::role_numbers::COMBO_BOX;
+use crate::tree::{AtspiElement, atspi_element, element::ancestry, list_children};
 
 pub(super) const SELECT_SETTLE: Duration = Duration::from_millis(1000);
 const SELECT_CHILD_LABEL: &str = "Selection.SelectChild";

@@ -1,7 +1,7 @@
 use agent_desktop_core::AdapterError;
 
 use super::text_write::TextPort;
-use crate::tree::role_numbers::PASSWORD_TEXT;
+use crate::tree::vocabulary::role_numbers::PASSWORD_TEXT;
 
 const SECURE_TOKEN: &str = "secure";
 

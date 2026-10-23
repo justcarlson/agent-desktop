@@ -11,10 +11,12 @@ use super::live_widget_scripts::{
 };
 use crate::LinuxAdapter;
 use crate::system::window::window_id;
-use crate::tree::live_launch::{Launched, nonce};
-use crate::tree::role_numbers::{CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, LIST, PUSH_BUTTON};
-use crate::tree::state_bits::{CHECKED, SELECTED};
-use crate::tree::text_selection::{read_caret_and_selection, read_selection};
+use crate::tree::capabilities::text_selection::{read_caret_and_selection, read_selection};
+use crate::tree::live::live_launch::{Launched, nonce};
+use crate::tree::vocabulary::role_numbers::{
+    CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, LIST, PUSH_BUTTON,
+};
+use crate::tree::vocabulary::state_bits::{CHECKED, SELECTED};
 
 const ALL: [Toolkit; 3] = [Toolkit::Gtk3, Toolkit::Gtk4, Toolkit::Qt];
 const BROWSER_SECONDS: u64 = 90;

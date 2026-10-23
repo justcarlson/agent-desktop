@@ -4,7 +4,7 @@ use super::context::Target;
 use super::mutation::{Fault, WriteKind, WriteReply, fault_of};
 use super::write_call::{Call, invoke};
 use crate::system::{ACCESSIBLE_INTERFACE, within};
-use crate::tree::toolkit_trust::{ToolkitKind, is_gecko, kind};
+use crate::tree::properties::toolkit_trust::{ToolkitKind, is_gecko, kind};
 use crate::tree::{AtspiElement, list_children};
 
 pub(super) const UNPROVEN_INDEX_KIND: &str = "selection_index_unproven";
@@ -63,8 +63,11 @@ impl IndexLookup for Target<'_> {
     }
 
     fn accessible_indices(&self) -> bool {
-        let toolkit =
-            crate::tree::live_offscreen::toolkit_of(self.bus, self.element, self.deadline);
+        let toolkit = crate::tree::live_read::live_offscreen::toolkit_of(
+            self.bus,
+            self.element,
+            self.deadline,
+        );
         supports_indices(&toolkit)
     }
 

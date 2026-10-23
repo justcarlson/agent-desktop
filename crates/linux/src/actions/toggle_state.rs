@@ -7,11 +7,11 @@ use super::chain::{DeliveryOutcome, Observed};
 use super::click::{POLL_STEP, invoke_verb, names_of, poll_until, refusal, run_single_rung};
 use super::context::Target;
 use super::mutation::WriteReply;
-use crate::tree::action_names::toggle_verbs;
-use crate::tree::action_read::NodeView;
-use crate::tree::capability_rules::carries_checked;
-use crate::tree::role_numbers::TOGGLE_BUTTON;
-use crate::tree::state_bits::{CHECKED, INDETERMINATE, PRESSED};
+use crate::tree::capabilities::action_names::toggle_verbs;
+use crate::tree::capabilities::action_read::NodeView;
+use crate::tree::capabilities::capability_rules::carries_checked;
+use crate::tree::vocabulary::role_numbers::TOGGLE_BUTTON;
+use crate::tree::vocabulary::state_bits::{CHECKED, INDETERMINATE, PRESSED};
 
 const TOGGLE_SETTLE: Duration = Duration::from_millis(1000);
 

@@ -9,7 +9,7 @@ use super::{DeliverySemantics, ErrorCode, ensure_owned_after};
 use crate::system::window::window_op_live_tests::{
     apply, maximized, spawn, text, wait_for, xid_of,
 };
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 #[test]
 #[ignore = "removes a private WM property; run inside scripts/private-session.sh --wm"]

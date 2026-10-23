@@ -4,8 +4,8 @@ use zbus::Connection;
 
 use super::scroll_find_bar::{Orientation, Site};
 use crate::system::{ACCESSIBLE_INTERFACE, SharedBus, within};
-use crate::tree::role_numbers::SCROLL_BAR;
-use crate::tree::state_bits::{HORIZONTAL, StateBits, VERTICAL};
+use crate::tree::vocabulary::role_numbers::SCROLL_BAR;
+use crate::tree::vocabulary::state_bits::{HORIZONTAL, StateBits, VERTICAL};
 use crate::tree::{AtspiElement, list_children};
 
 const MAX_NODES: usize = 2_000;

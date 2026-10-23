@@ -68,10 +68,10 @@ class GateTests(unittest.TestCase):
 
     def test_global_lease_consumers_share_one_writer_while_reads_run_elsewhere(self):
         writers = ["system::interaction::interaction_lease::tests::unit", "actions::dispatch_tests::unit",
-                   "actions::live_widget_tests::live", "tree::physical_live_tests::live",
+                   "actions::live_widget_tests::live", "tree::live::physical_live_tests::live",
                    "system::focus::focus_window_live_tests::live",
-                   "tree::resolve_source::action_live_tests::live"]
-        readers = ["tree::resolve_live_tests::live", "tree::qt_live_tests::live",
+                   "tree::resolve::resolve_source::action_live_tests::live"]
+        readers = ["tree::live::resolve_live_tests::live", "tree::live::qt_live_tests::live",
                    "system::capture::capture_live_tests::live"]
         names = writers + readers
         ignored = set(names[2:])

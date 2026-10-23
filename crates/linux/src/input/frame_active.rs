@@ -8,10 +8,10 @@ use crate::input::target_world::PhysicalWorld;
 
 use crate::system::ACCESSIBLE_INTERFACE;
 use crate::system::{SharedBus, within};
-use crate::tree::absence::gone_error;
 use crate::tree::call;
-use crate::tree::liveness::Liveness;
-use crate::tree::state_bits::{ACTIVE, StateBits};
+use crate::tree::properties::absence::gone_error;
+use crate::tree::properties::liveness::Liveness;
+use crate::tree::vocabulary::state_bits::{ACTIVE, StateBits};
 use crate::tree::{AtspiElement, Field};
 
 /// Reads the frame's own `ACTIVE` state. `None` means the state set could not

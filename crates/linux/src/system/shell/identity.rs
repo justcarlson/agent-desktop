@@ -9,7 +9,7 @@ use super::light::{LiveNodes, Nodes};
 use crate::system::bus::session_bus::SessionBus;
 use crate::system::{SharedBus, owner_process_id, within};
 use crate::tree::AtspiElement;
-use crate::tree::role_numbers::{FRAME, WINDOW};
+use crate::tree::vocabulary::role_numbers::{FRAME, WINDOW};
 
 pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
 const WINDOW_RETRIES: usize = 10;

@@ -1,9 +1,9 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Point};
 use serde_json::json;
 
-use crate::tree::hit_guard::{admits, pixel};
+use crate::tree::hit_test::hit_guard::{admits, pixel};
 use crate::tree::placement::Placement;
-use crate::tree::toolkit_trust::reports_global_position;
+use crate::tree::properties::toolkit_trust::reports_global_position;
 
 pub(crate) fn validate(
     point: &Point,

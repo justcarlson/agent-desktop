@@ -8,7 +8,7 @@ use zbus::zvariant::OwnedValue;
 
 use crate::LinuxAdapter;
 use crate::system::{PROPERTIES_INTERFACE, window::window_id, within};
-use crate::tree::live_launch::{Launched, nonce};
+use crate::tree::live::live_launch::{Launched, nonce};
 use crate::tree::{AtspiElement, list_children, read_node};
 
 use super::live_bench_env::qt_environment;
@@ -121,7 +121,7 @@ impl Bench {
             return Vec::new();
         };
         let mut root = self.frame.clone();
-        root.set_ancestry(crate::tree::ancestry::of_root(&root));
+        root.set_ancestry(crate::tree::element::ancestry::of_root(&root));
         let mut queue = vec![root];
         let mut found = Vec::new();
         let mut index = 0;
@@ -140,7 +140,7 @@ impl Bench {
             let role = node.traits.role.present().copied();
             queue.extend(children.into_iter().map(|(bus, path)| {
                 let mut child = AtspiElement::new(bus, path, self.frame.pid());
-                child.set_ancestry(crate::tree::ancestry::child(&element, role));
+                child.set_ancestry(crate::tree::element::ancestry::child(&element, role));
                 child
             }));
         }
@@ -240,7 +240,7 @@ impl Bench {
     }
 
     pub(super) fn has_state(&self, handle: &NativeHandle, bit: u32) -> bool {
-        crate::tree::state_bits::StateBits::new(&self.raw_states(handle)).has(bit)
+        crate::tree::vocabulary::state_bits::StateBits::new(&self.raw_states(handle)).has(bit)
     }
 
     pub(super) fn action_names(&self, handle: &NativeHandle) -> Vec<String> {

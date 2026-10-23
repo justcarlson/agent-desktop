@@ -71,7 +71,7 @@ pub(crate) fn validate_pointer_receiver(
     point: &Point,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    let placed = crate::tree::live_offscreen::placement(bus, element, deadline);
+    let placed = crate::tree::live_read::live_offscreen::placement(bus, element, deadline);
     crate::input::physical_aim::validate(point, &placed, element.scroll_container().is_some())?;
     let on_x11 = matches!(crate::input::backend::backend(), Ok(Backend::X11(_)));
     let verdict =

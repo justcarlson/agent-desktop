@@ -3,7 +3,7 @@ use agent_desktop_core::{ErrorCode, ScreenshotTarget};
 use super::capture_live_support::*;
 use crate::system::SharedBus;
 use crate::system::capture::screenshot::{screenshot, screenshot_window_frame};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 fn window_at(x: i32, y: i32) -> Geometry {
     Geometry {

@@ -156,7 +156,11 @@ impl ObservationOps for LinuxAdapter {
         if crate::system::tray::target_of(handle).is_some() {
             return None;
         }
-        crate::tree::pointer_refusal::pointer_position_refusal(self.bus(), handle, deadline)
+        crate::tree::live_read::pointer_refusal::pointer_position_refusal(
+            self.bus(),
+            handle,
+            deadline,
+        )
     }
 
     fn get_text_selection(
@@ -164,7 +168,7 @@ impl ObservationOps for LinuxAdapter {
         handle: &NativeHandle,
         deadline: Deadline,
     ) -> Result<Option<std::ops::Range<usize>>, AdapterError> {
-        crate::tree::text_selection::read_selection(self.bus(), handle, deadline)
+        crate::tree::capabilities::text_selection::read_selection(self.bus(), handle, deadline)
     }
 
     fn hit_test(

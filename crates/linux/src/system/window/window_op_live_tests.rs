@@ -14,7 +14,7 @@ use crate::system::x11::control_send::{WindowWrite, write_window};
 #[path = "window_owner_live_tests.rs"]
 mod owner;
 use crate::system::{SharedBus, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 #[path = "window_op_live_env_tests.rs"]
 mod environment;

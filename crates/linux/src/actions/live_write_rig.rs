@@ -8,7 +8,7 @@ use super::fixture::{deadline, wait_until};
 use crate::actions::context::Target;
 use crate::system::{SharedBus, owner_process_id};
 use crate::tree::AtspiElement;
-use crate::tree::live_process::{is_running, process_report};
+use crate::tree::live::live_process::{is_running, process_report};
 
 pub(super) const ROLE_CHECK_BOX: u32 = 7;
 pub(super) const ROLE_TOGGLE_BUTTON: u32 = 62;
@@ -211,9 +211,9 @@ impl Probe {
             .next()
             .expect("the application is on the bus");
         let mut frame = self.children(&app).into_iter().next().unwrap_or(app);
-        frame.set_ancestry(crate::tree::ancestry::of_root(&frame));
+        frame.set_ancestry(crate::tree::element::ancestry::of_root(&frame));
         let mut framed = element.clone();
-        framed.set_ancestry(crate::tree::ancestry::child(&frame, None));
+        framed.set_ancestry(crate::tree::element::ancestry::child(&frame, None));
         framed
     }
 

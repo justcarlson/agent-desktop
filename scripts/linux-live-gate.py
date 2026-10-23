@@ -47,12 +47,12 @@ HELPER_PARENTS = {
 # Reviewed module groups whose fixtures never acquire the global interaction lease.
 # Unknown modules and all unit tests stay on one writer, preserving that lock's contract.
 PARALLEL_READS = {
-    "tree::absence_live_tests", "tree::capability_live_tests", "tree::chromium_live_tests",
-    "tree::hit_live_tests::cases", "tree::live_read_live_tests",
-    "tree::navigate_live_tests", "tree::observe_live_tests", "tree::qt_live_tests",
-    "tree::registry_toolkit_live_tests", "tree::resolve_live_tests",
-    "tree::live_timeout",
-    "tree::vocabulary_live_tests", "tree::walker_live_tests",
+    "tree::live::absence_live_tests", "tree::live::chromium_live_tests",
+    "tree::live::hit_live_tests::cases", "tree::live::live_read_live_tests",
+    "tree::live::navigate_live_tests", "tree::live::observe_live_tests", "tree::live::qt_live_tests",
+    "tree::live::registry_toolkit_live_tests", "tree::live::resolve_live_tests",
+    "tree::live::live_timeout",
+    "tree::live::vocabulary_live_tests", "tree::live::walker_live_tests",
 }
 RESULT = re.compile(r"^(ok|failed|ignored) (\S+)\s*$", re.MULTILINE)
 ACTIVE = []

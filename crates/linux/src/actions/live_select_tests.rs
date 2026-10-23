@@ -2,7 +2,7 @@ use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use super::live_click_tests::{act, find, open};
 use super::select::select;
-use crate::tree::role_numbers::LIST;
+use crate::tree::vocabulary::role_numbers::LIST;
 
 #[test]
 #[ignore = "live: needs the AT-SPI session, GNOME Settings and the write engine"]

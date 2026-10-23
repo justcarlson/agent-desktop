@@ -7,9 +7,9 @@ use super::click::right_click;
 use super::context::Target;
 use crate::adapter::LinuxAdapter;
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::live_launch::Launched;
-use crate::tree::role_numbers::PUSH_BUTTON;
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::live::live_launch::Launched;
+use crate::tree::vocabulary::role_numbers::PUSH_BUTTON;
 use crate::tree::{AtspiElement, atspi_element};
 
 const FRAME_WAIT: Duration = Duration::from_secs(30);
@@ -101,7 +101,7 @@ pub(super) fn find(
 ) -> Result<AtspiElement, String> {
     let deadline = Deadline::standard().map_err(|error| error.message)?;
     let mut root = session.frame.clone();
-    root.set_ancestry(crate::tree::ancestry::of_root(&root));
+    root.set_ancestry(crate::tree::element::ancestry::of_root(&root));
     let mut stack = vec![root];
     let mut seen = 0;
     while let Some(element) = stack.pop() {
@@ -118,7 +118,7 @@ pub(super) fn find(
         let kids = raw_children(&session.connection, element.bus_name(), element.path());
         for (bus, path) in kids.into_iter().rev() {
             let mut child = AtspiElement::new(bus, path, element.pid());
-            child.set_ancestry(crate::tree::ancestry::child(&element, role));
+            child.set_ancestry(crate::tree::element::ancestry::child(&element, role));
             stack.push(child);
         }
     }

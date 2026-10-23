@@ -12,7 +12,7 @@ use super::mutation::{
     deadline_error, fault_of,
 };
 use crate::system::within;
-use crate::tree::action_read::corroborate;
+use crate::tree::capabilities::action_read::corroborate;
 
 fn read_reply(message: &Message, kind: WriteKind) -> Result<WriteReply, AdapterError> {
     if !kind.returns_flag() {

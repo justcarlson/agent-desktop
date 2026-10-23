@@ -1,9 +1,9 @@
 use super::disclosure::set_expanded;
 use super::live_bench::{Bench, Scripts, Toolkit};
 use super::live_click_tests::{act, find, open, state};
-use crate::tree::live_launch::nonce;
-use crate::tree::role_numbers::PUSH_BUTTON;
-use crate::tree::state_bits::{EXPANDABLE, EXPANDED};
+use crate::tree::live::live_launch::nonce;
+use crate::tree::vocabulary::role_numbers::PUSH_BUTTON;
+use crate::tree::vocabulary::state_bits::{EXPANDABLE, EXPANDED};
 use agent_desktop_core::{Action, DeliveryDisposition};
 use std::path::PathBuf;
 use std::process::Command;

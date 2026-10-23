@@ -3,8 +3,8 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, P
 use crate::system::process::process_lookup::Lookup;
 use crate::system::{SharedBus, owner_process_id, process::process_facts, within};
 use crate::tree::AtspiElement;
-use crate::tree::absence::failure;
-use crate::tree::failure::Failure;
+use crate::tree::properties::absence::failure;
+use crate::tree::properties::failure::Failure;
 
 fn stale(message: &'static str) -> AdapterError {
     AdapterError::stale_ref_because(message)

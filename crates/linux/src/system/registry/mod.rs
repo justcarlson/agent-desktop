@@ -21,7 +21,7 @@ use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::registry::app_read::AppRead;
 use crate::system::registry::registry_app::{RegistryApp, assemble, skipped};
 use crate::tree::AtspiElement;
-use crate::tree::toolkit_trust::read_toolkit;
+use crate::tree::properties::toolkit_trust::read_toolkit;
 
 pub(crate) const ROOT_SLICE: Duration = Duration::from_millis(300);
 const APPS_IN_FLIGHT: usize = 32;

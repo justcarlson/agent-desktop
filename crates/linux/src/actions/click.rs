@@ -11,12 +11,12 @@ use super::context::Target;
 use super::mutation::WriteReply;
 use super::toggle_state::toggle_reporting;
 use crate::system::within;
-use crate::tree::action_names::{click_verbs, toggle_verbs, verbs_for};
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::capability_rules::carries_checked;
-use crate::tree::role_numbers::TOGGLE_BUTTON;
-use crate::tree::state_bits::HAS_POPUP;
-use crate::tree::{AtspiElement, ancestry, atspi_element, list_children};
+use crate::tree::capabilities::action_names::{click_verbs, toggle_verbs, verbs_for};
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::capabilities::capability_rules::carries_checked;
+use crate::tree::vocabulary::role_numbers::TOGGLE_BUTTON;
+use crate::tree::vocabulary::state_bits::HAS_POPUP;
+use crate::tree::{AtspiElement, atspi_element, element::ancestry, list_children};
 
 pub(super) const POLL_STEP: Duration = Duration::from_millis(50);
 pub(super) const POPUP_STEP: Duration = Duration::from_millis(50);

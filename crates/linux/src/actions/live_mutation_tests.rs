@@ -5,8 +5,10 @@ use zbus::zvariant::OwnedObjectPath;
 
 use super::context::Target;
 use crate::system::{SharedBus, within};
-use crate::tree::state_bits::{ENABLED, READ_ONLY, SELECTED, SENSITIVE, SHOWING, VISIBLE};
-use crate::tree::{AtspiElement, ancestry};
+use crate::tree::vocabulary::state_bits::{
+    ENABLED, READ_ONLY, SELECTED, SENSITIVE, SHOWING, VISIBLE,
+};
+use crate::tree::{AtspiElement, element::ancestry};
 
 #[derive(Default)]
 struct State {

@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::fakes::{Fake, Script, drive, span};
 use super::*;
-use crate::tree::text_units::LengthUnit;
+use crate::tree::capabilities::text_units::LengthUnit;
 
 fn invalid() -> AdapterError {
     AdapterError::new(ErrorCode::InvalidArgs, "bad range")

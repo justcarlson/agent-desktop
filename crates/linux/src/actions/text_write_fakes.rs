@@ -4,8 +4,8 @@ use agent_desktop_core::AdapterError;
 
 use super::{TextPort, WriteReply};
 use crate::actions::chain::{DeliveryOutcome, Rung};
-use crate::tree::text_selection::CaretAndSelection;
-use crate::tree::text_units::LengthUnit;
+use crate::tree::capabilities::text_selection::CaretAndSelection;
+use crate::tree::capabilities::text_units::LengthUnit;
 
 #[derive(Clone)]
 pub(crate) enum Script {

@@ -3,10 +3,10 @@ use agent_desktop_core::{AdapterError, ErrorCode, WindowInfo, WindowState};
 use super::{Nested, scan_windows};
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::x11::FrameFacts;
-use crate::tree::nested_dialog::Node;
-use crate::tree::role_numbers::{ALERT, DIALOG, FRAME, NOTIFICATION, PANEL, WINDOW};
-use crate::tree::state_bits::SHOWING;
-use crate::tree::test_support::{read_of, words};
+use crate::tree::live::test_support::{read_of, words};
+use crate::tree::surfaces::nested_dialog::Node;
+use crate::tree::vocabulary::role_numbers::{ALERT, DIALOG, FRAME, NOTIFICATION, PANEL, WINDOW};
+use crate::tree::vocabulary::state_bits::SHOWING;
 use crate::tree::{AtspiElement, Field, WalkedNode};
 
 fn window(id: &str, sheet: bool) -> ListedWindow {

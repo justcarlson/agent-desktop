@@ -16,9 +16,9 @@ use super::select_popup::{Shown, commit, first_label};
 use super::select_search::{Hit, Search, name_matches, search};
 use crate::system::menu::overview;
 use crate::tree::AtspiElement;
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::capability_rules::pointer_only_combo;
-use crate::tree::state_bits::HAS_POPUP;
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::capabilities::capability_rules::pointer_only_combo;
+use crate::tree::vocabulary::state_bits::HAS_POPUP;
 
 const POPUP_WAIT: Duration = Duration::from_millis(1500);
 const CLOSE_WAIT: Duration = Duration::from_millis(1000);

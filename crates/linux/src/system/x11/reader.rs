@@ -167,12 +167,12 @@ fn matching_popup(popups: &[PopupWindow], screen: Extents, window: Extents) -> O
         .iter()
         .copied()
         .filter(|popup| {
-            crate::tree::frame_geometry::origins_agree(
+            crate::tree::placement::frame_geometry::origins_agree(
                 screen,
                 window,
                 (popup.bounds.x, popup.bounds.y),
-            ) && crate::tree::hit_guard::aimable(screen)
-                && crate::tree::hit_guard::aimable(window)
+            ) && crate::tree::hit_test::hit_guard::aimable(screen)
+                && crate::tree::hit_test::hit_guard::aimable(window)
                 && (screen.width, screen.height) == (window.width, window.height)
                 && window.x >= 0
                 && window.y >= 0

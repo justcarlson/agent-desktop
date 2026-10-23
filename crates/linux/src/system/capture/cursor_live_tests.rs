@@ -4,7 +4,7 @@ use agent_desktop_core::{
 
 use super::capture_live_support::*;
 use crate::system::{SharedBus, capture::screenshot, overlay::cursor_overlay};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt, CreateWindowAux, WindowClass};
 

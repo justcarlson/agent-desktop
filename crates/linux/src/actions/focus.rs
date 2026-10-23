@@ -11,7 +11,7 @@ use super::context::Target;
 use super::mutation::{WriteKind, WriteReply};
 use super::write_call::{Call, invoke};
 use crate::tree::COMPONENT_INTERFACE;
-use crate::tree::state_bits::FOCUSED;
+use crate::tree::vocabulary::state_bits::FOCUSED;
 
 const FOCUS_SETTLE: Duration = Duration::from_millis(500);
 const GRAB_FOCUS_LABEL: &str = "Component.GrabFocus";

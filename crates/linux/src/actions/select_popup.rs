@@ -20,10 +20,10 @@ use super::select_exclusive::selected_child;
 use super::select_identity::with_current_row;
 use super::select_search::{Hit, Search, name_matches, search};
 use crate::tree::AtspiElement;
-use crate::tree::action_names::verbs_for;
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::role_numbers::{COMBO_BOX, LABEL};
-use crate::tree::state_bits::EXPANDED;
+use crate::tree::capabilities::action_names::verbs_for;
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::vocabulary::role_numbers::{COMBO_BOX, LABEL};
+use crate::tree::vocabulary::state_bits::EXPANDED;
 
 const COMMIT_VERBS: [&str; 1] = ["default.activate"];
 const POPOVER_CLIMB: usize = 6;
