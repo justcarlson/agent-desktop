@@ -15,17 +15,19 @@ independent re-observation of the fixture, rather than by the command's own
 `csc.exe` is resolved by absolute path
 (`%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe`), never through
 `PATH`, so the build cannot silently pick up a different in-box compiler.
-`-OutputDir` defaults to a `build` directory next to this script; the
-harness passes its own isolated suite root.
+`-OutputDir` defaults to a `build` directory next to this script, which is
+where `tests/e2e-windows/Run-E2E.ps1` looks for `AgentDeskFixture.exe` unless
+it is given `-FixtureBinary`.
 
 The build is idempotent: it compiles to a temporary file and only replaces
 the previous `AgentDeskFixture.exe` once the compile has fully succeeded.
 
 ## Toolchain constraint: C# 5 only
 
-The pinned compiler (`csc.exe`, version `4.8.3761.0`, "NET48REL1") is the
-legacy pre-Roslyn .NET Framework compiler. It accepts `/langversion:5` at
-most; `6` and above fail with `CS1617`. Every `.cs` file in this directory
+The in-box compiler at that path (`csc.exe`, version `4.8.3761.0`,
+"NET48REL1" on the measured box, A24-1) is the legacy pre-Roslyn .NET
+Framework compiler. It accepts `/langversion:5` at most; `6` and above fail
+with `CS1617`. Every `.cs` file in this directory
 must therefore avoid string interpolation, expression-bodied members,
 `nameof`, and null-conditional operators - none of those constructs compile
 under this toolchain regardless of `/langversion`.
@@ -41,10 +43,11 @@ override needed.
 
 `FixtureIdentity.WriteManifest` writes every id assigned so far, deduplicated
 and sorted, to `AgentDeskFixture.ids.txt` beside the running exe on every
-launch. The harness diffs this file against its own declared inventory as a
-set-equality check in both directions, so a control removed from the fixture
-without a matching removal from the harness's inventory (or vice versa)
-fails the build instead of silently shrinking coverage.
+launch. The Preconditions scenario of the harness diffs this file against
+`tests/e2e-windows/fixture-inventory.psd1` as a set-equality check in both
+directions, so a control removed from the fixture without a matching removal
+from the inventory (or vice versa) fails the run instead of silently
+shrinking coverage.
 
 `WriteManifest` runs exactly once, from `Main`, immediately after the main
 form's constructor returns. Every identity-bearing control must therefore be
@@ -95,7 +98,7 @@ writing an equality assertion against one:
 `Control.Name` surfaces as UIA `AutomationId` with no `.exe.config` (A24-2),
 but that is a property of `Control`, not of every WinForms item type.
 Measured live against a running build of this fixture (`agent-desktop find
---native-id <id>`, zero matches in every case below) before it shipped:
+--native-id <id>`, zero matches in every case below):
 
 - **`ToolStripItem.Name` does not surface as `AutomationId`.** A
   `ToolStripSplitButton` carrying a `Name` for `menu-disclosure` and a
@@ -125,7 +128,7 @@ overriding its own `ControlType`.
 A registered custom raw provider also does **not** transparently inherit
 the host's `InvokePattern` availability the way bounds/enabled/offscreen
 merge through `HostRawElementProvider` - measured live against
-`menu-fire-item` before this fixture shipped: with no explicit
+`menu-fire-item`: with no explicit
 `IInvokeProvider`, `InvokePattern.Invoke` came back `skipped` and the click
 chain's `LegacyIAccessible.DoDefaultAction` fallback reported success
 without the Click handler ever running. `ControlTypeOverrideHost` therefore
@@ -136,9 +139,8 @@ whenever a wrapped target must stay clickable through the CLI.
 
 Set `AGENT_DESKTOP_FIXTURE_NO_ACTIVATE=1` in the launching environment to
 have the main window shown via `SW_SHOWNOACTIVATE` instead of stealing the
-foreground - the same non-activating launch every probe in this corpus
-already uses. Unset (or any value other than `1`), the window activates
-normally.
+foreground; `Run-E2E.ps1` sets it. Unset (or any value other than `1`), the
+window activates normally.
 
 ## Process lifetime
 
