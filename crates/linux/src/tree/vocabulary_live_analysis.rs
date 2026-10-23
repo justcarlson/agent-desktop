@@ -1,6 +1,3 @@
-use std::collections::BTreeMap;
-use std::time::Instant;
-
 use agent_desktop_core::{Deadline, LocatorField, state};
 use zbus::Connection as AsyncConnection;
 
@@ -13,8 +10,6 @@ use super::{
 };
 use crate::system::SharedBus;
 
-const TIMED_RUNS: usize = 7;
-
 pub(super) struct Entry {
     pub(super) node: RawNode,
     pub(super) in_web: bool,
@@ -25,8 +20,6 @@ pub(super) struct Entry {
 pub(super) struct Analysis {
     pub(super) label: &'static str,
     pub(super) entries: Vec<Entry>,
-    pub(super) label_reads: usize,
-    pub(super) label_millis: u128,
 }
 
 fn flatten(node: &WalkedNode<ObservedRead>, in_web: bool, out: &mut Vec<(RawNode, bool)>) {
@@ -48,12 +41,9 @@ pub(super) fn name_is_blank(node: &RawNode) -> bool {
 fn analyze(label: &'static str, connection: &AsyncConnection, settled: &Settled) -> Analysis {
     let mut flat = Vec::new();
     flatten(&settled.walk.root, false, &mut flat);
-    let mut label_reads = 0;
-    let started = Instant::now();
     let mut entries = Vec::with_capacity(flat.len());
     for (node, in_web) in flat {
         let outcome = if name_is_blank(&node) {
-            label_reads += 1;
             zbus::block_on(read_label(connection, &node.element)).expect("label read")
         } else {
             LabelOutcome::Unlabelled
@@ -66,12 +56,7 @@ fn analyze(label: &'static str, connection: &AsyncConnection, settled: &Settled)
             label: outcome,
         });
     }
-    Analysis {
-        label,
-        entries,
-        label_reads,
-        label_millis: started.elapsed().as_millis(),
-    }
+    Analysis { label, entries }
 }
 
 pub(super) fn token(field: &LocatorField<String>) -> String {
@@ -84,45 +69,6 @@ pub(super) fn token(field: &LocatorField<String>) -> String {
 
 pub(super) fn is_disabled(entry: &Entry) -> bool {
     matches!(&entry.vocabulary.states, LocatorField::Known(tokens) if tokens.iter().any(|t| t == state::DISABLED))
-}
-
-fn print_report(analysis: &Analysis) {
-    let mut roles: BTreeMap<String, usize> = BTreeMap::new();
-    let mut states: BTreeMap<String, usize> = BTreeMap::new();
-    let (mut unknown_role, mut unknown_states, mut unknown_name, mut incomplete) = (0, 0, 0, 0);
-    let mut label_text = 0;
-    for entry in &analysis.entries {
-        *roles.entry(token(&entry.vocabulary.role)).or_default() += 1;
-        match &entry.vocabulary.states {
-            LocatorField::Known(tokens) => {
-                for t in tokens {
-                    *states.entry(t.clone()).or_default() += 1;
-                }
-            }
-            _ => unknown_states += 1,
-        }
-        unknown_role += usize::from(entry.vocabulary.role.is_unknown());
-        unknown_name += usize::from(entry.vocabulary.name.is_unknown());
-        incomplete += usize::from(!entry.vocabulary.identifiers.is_complete());
-        label_text += usize::from(matches!(entry.label, LabelOutcome::Text(_)));
-    }
-    println!(
-        "vocabulary_live {}: nodes={} unknown role/states/name={unknown_role}/{unknown_states}/{unknown_name} identifiers_incomplete={incomplete} label_reads={} label_text={label_text} label_ms={}",
-        analysis.label,
-        analysis.entries.len(),
-        analysis.label_reads,
-        analysis.label_millis
-    );
-    println!("vocabulary_live {} roles={roles:?}", analysis.label);
-    println!("vocabulary_live {} states={states:?}", analysis.label);
-    for entry in analysis.entries.iter().filter(|entry| is_disabled(entry)) {
-        println!(
-            "vocabulary_live {} disabled: role={} name={}",
-            analysis.label,
-            token(&entry.vocabulary.role),
-            token(&entry.vocabulary.name)
-        );
-    }
 }
 
 fn check_common(analysis: &Analysis) -> Result<(), String> {
@@ -173,7 +119,6 @@ pub(super) fn walk(
     let deadline = Deadline::standard().map_err(|error| error.message)?;
     let connection = bus.get(deadline).map_err(|error| error.message)?;
     let analysis = analyze(label, connection.inner(), &settled);
-    print_report(&analysis);
     if !settled.walk.complete {
         return Err(format!("{label}: walk incomplete"));
     }
@@ -186,26 +131,4 @@ pub(super) fn walk(
     }
     check_common(&analysis).map_err(|problem| format!("{label}: {problem}"))?;
     Ok((settled, analysis))
-}
-
-pub(super) fn time_pass(entries: &[Entry]) -> (u128, u128, u128) {
-    let mut micros = Vec::new();
-    for run in 0..=TIMED_RUNS {
-        let started = Instant::now();
-        let mut checksum = 0usize;
-        for entry in entries {
-            let resolved = resolve_vocabulary(&entry.node, &LabelOutcome::Unlabelled, entry.in_web);
-            checksum += resolved.descriptor.dom_classes.len();
-        }
-        std::hint::black_box(checksum);
-        if run > 0 {
-            micros.push(started.elapsed().as_micros());
-        }
-    }
-    micros.sort_unstable();
-    (
-        micros[0],
-        micros[micros.len() / 2],
-        micros[micros.len() - 1],
-    )
 }

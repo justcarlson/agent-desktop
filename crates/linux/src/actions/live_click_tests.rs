@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{ActionResult, AdapterError, Deadline, ErrorCode};
 use zbus::blocking::Connection;
 
-use super::click::{click, right_click};
+use super::click::right_click;
 use super::context::Target;
 use crate::adapter::LinuxAdapter;
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, REGISTRY_SERVICE};
@@ -161,25 +161,4 @@ fn right_click_without_a_context_menu_verb_is_not_supported() {
     let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
     let error = act(&session, &digit, right_click).expect_err("no context menu verb");
     assert_eq!(error.code, ErrorCode::ActionNotSupported);
-}
-
-#[test]
-#[ignore = "live: needs the AT-SPI session, gnome-calculator and the write engine"]
-fn semantic_click_latency_probe() {
-    let session = open("gnome-calculator", &[]).expect("calculator opens");
-    let digit = find_named(&session, PUSH_BUTTON, "7").expect("digit 7");
-    let mut samples = Vec::with_capacity(7);
-    for index in 0..8 {
-        let start = Instant::now();
-        act(&session, &digit, click).expect("semantic click succeeds");
-        let elapsed = start.elapsed();
-        if index > 0 {
-            samples.push(elapsed);
-        }
-    }
-    samples.sort_unstable();
-    eprintln!(
-        "semantic click warmup + 7 samples: min={:?} median={:?} max={:?}",
-        samples[0], samples[3], samples[6]
-    );
 }
