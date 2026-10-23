@@ -37,7 +37,7 @@ scheduler jitter and cold-cache effects on the walk that happened to run
 first — and scheduler/cache interference is one-sided: it can only make a
 run slower, never faster, so its noise is asymmetric rather than
 zero-centered. The fix in `probes/windows/15-vocabulary/probe_cost.rs`
-(`measure_batch_cost`, lines 49-70) is exactly the standard cure for
+(`measure_batch_cost`) is exactly the standard cure for
 one-sided noise: run a discarded warm-up first (so a lazily-built provider's
 peer-construction cost isn't charged to whichever set runs first), then take
 the **minimum of seven repeats** (`BATCH_REPEATS`) and report it alongside
@@ -97,7 +97,8 @@ rejected"* on the honest range, not on the best case.
   untested assumption: cheap to produce, and capable of pointing the
   decision the wrong way.
 - The discipline also justifies declining a change at an unmeasured site, not
-  only correcting a wrong claim already made: during 2.6 a proposed batching
+  only correcting a wrong claim already made: during the Windows actionability
+  and occlusion work a proposed batching
   optimization for the six-property occluder-evidence read in
   `hit_test_corroborate.rs` was declined on this rule alone — A6-2 measured
   unconditional cache batching as a net pessimization against in-process

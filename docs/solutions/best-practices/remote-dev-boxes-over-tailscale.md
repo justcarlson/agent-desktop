@@ -15,14 +15,14 @@ symptoms:
   - "Key auth to a Windows admin account keeps asking for a password."
   - "Get-LocalGroupMember reports 'Group Administrators was not found'."
 severity: high
-tags: [linux, windows, at-spi, uia, tailscale, remote-development, phase-2, phase-3, x11, wayland, openssh]
+tags: [linux, windows, at-spi, uia, tailscale, remote-development, x11, wayland, openssh]
 ---
 
 # Develop platform adapters against remote boxes over Tailscale
 
 ## Problem
 
-Phase 2 needs a real Windows desktop and Phase 3 needs a real Ubuntu desktop. AT-SPI2 is a D-Bus protocol, so the tree exists only
+The Windows adapter needs a real Windows desktop and the Linux adapter needs a real Ubuntu desktop. AT-SPI2 is a D-Bus protocol, so the tree exists only
 inside a logged-in graphical session. A macOS workstation cannot host one, and a container
 cannot either.
 
@@ -42,16 +42,11 @@ Three constraints break the obvious setups:
 Tailscale for transport, `rsync` + `ssh` for the loop, and a stolen session environment for
 AT-SPI. Two scripts: `scripts/session-env.sh` and `scripts/remote-linux.sh`.
 
-`scripts/session-env.sh` reads the graphical environment from the running session process
-instead of a guess:
-
-```bash
-for proc in gnome-shell xfce4-session plasmashell mate-session cinnamon-session lxqt-session; do
-  pid=$(pgrep -u "$(id -un)" -x "$proc" | head -1)
-  [ -n "$pid" ] && break
-done
-eval "$(tr '\0' '\n' < "/proc/$pid/environ" | grep -E '^(DISPLAY|...)=' | sed 's/.../export .../')"
-```
+`scripts/session-env.sh` reads the graphical environment from a running session process
+instead of a guess. It walks `gnome-shell`, `xfce4-session`, `plasmashell`, `mate-session`,
+`cinnamon-session` and `lxqt-session`, skips any process that carries
+`AGENT_DESKTOP_PRIVATE_SESSION`, and exports `DISPLAY`, `WAYLAND_DISPLAY`, `XAUTHORITY`,
+`DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR` from the first match's `/proc/<pid>/environ`.
 
 `scripts/remote-linux.sh` syncs the tree, then runs a command inside that environment.
 Each worktree syncs to its own `~/ad-wt/<worktree>` folder, so parallel worktrees do not
@@ -64,7 +59,8 @@ The script is the only sanctioned way to run on the box:
 - Arguments pass through quoted one by one; `-c` runs a single string under `bash`; stdin reaches the remote command.
 - A command that contains `sudo` is refused. The box is shared and runs unattended.
 - A command that starts `dbus-run-session` without setting `XDG_RUNTIME_DIR` is refused, and a warning prints after every run if the live AT-SPI bus socket is gone.
-- One `flock` on the box serializes every run, because two runs on one X display corrupt each other's input and focus. `AGENT_DESKTOP_REMOTE_LOCK=0` skips it for read-only commands.
+- A kill by process name (`pkill`, `killall`, or `kill` with a non-numeric target) is refused. Stop a process by the pid you started.
+- `scripts/box-slot.sh` bounds the box to two concurrent runs (a `flock` on each of two slot files). Runs never share an X display, because each drives its own private session, and the product's interaction lease serializes physical input. `AGENT_DESKTOP_REMOTE_LOCK=0` skips the slots for read-only commands that touch no display, input or app state.
 - `AGENT_DESKTOP_REMOTE_TIMEOUT` (default 3600 s) stops a command that hangs and bounds the wait for the lock.
 - Every command is appended to the local `.claude/remote-linux.log`.
 
@@ -154,7 +150,7 @@ nothing on port 22. WinRM answers on 5985, which proves the route works and the 
 the missing piece. Enable the built-in OpenSSH Server rather than a third-party stack. It
 speaks the same protocol as the Linux box, so one key and one `~/.ssh/config` cover both.
 
-Tailscale SSH is not an option here. It serves Linux nodes only.
+Tailscale SSH is not an option here. Its server runs only on Linux and on macOS's open-source `tailscaled` variant, not on Windows.
 
 Run this in an Administrator PowerShell on the box:
 
@@ -220,10 +216,10 @@ env-steal is load-bearing.
   the roundtrip; a type error does not.
 - Leave `target/` on the box and exclude it from `rsync`. A full rebuild per sync makes the
   loop useless.
-- Touch the sources on the box before a test run when the build dir is shared. See
+- Touch the sources on the box before a test run when the build dir is shared (`scripts/remote-linux.sh` does it for commands that name `cargo` or `linux-live-gate`). See
   [a shared build dir serves another tree's binary](a-shared-build-dir-serves-another-trees-binary.md).
 - On Windows, branch on SIDs, never on localized group names.
-- Keep the Windows console session `Active` for the whole of Phase 2. Log out, never
+- Keep the Windows console session `Active` for the whole of a UIA test session. Log out, never
   disconnect.
 
 ## Gotchas that cost time

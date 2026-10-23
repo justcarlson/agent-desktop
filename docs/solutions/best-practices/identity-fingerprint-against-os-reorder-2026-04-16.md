@@ -46,8 +46,8 @@ unrelated process's next window. Verifying identity once, at entry, is not
 enough when the write that follows is not atomic with that check — a handle
 can be destroyed and recycled in the gap between the check and the native
 write. `focus_window` (`crates/windows/src/system/window_activate.rs`)
-re-reads the owning pid immediately before every native write that follows
-entry verification: `restore_if_iconic` re-checks ownership before its
+re-verifies handle ownership (`owned_for_write`) immediately before every
+native write that follows entry verification: `restore_if_iconic` re-checks ownership before its
 `ShowWindow` call, and `bring_to_foreground` re-checks before `ShowWindow` /
 `SetForegroundWindow`. A recycle caught by either of those internal checks
 fails closed as `WINDOW_NOT_FOUND` / not-delivered, never a foreground write
@@ -57,9 +57,10 @@ Re-verifying the precondition before each write is necessary but not
 sufficient on its own: the success check has to be identity-qualified too,
 or a recycle that wins the race between the last write and the result check
 reports success over the wrong window. `is_owned_foreground` requires both
-`is_foreground_window(handle)` **and** `live_window_owner(handle) ==
-Some(expected)` — handle equality alone would accept a recycled HWND that
-happens to be foreground for an unrelated reason. See `focus_window`'s own
+`is_foreground_window(handle)` **and** `evidence.owns_handle_now()` — the
+handle's live owner is still the stored pid and that pid is still the stored
+process instance — because handle equality alone would accept a recycled HWND
+that happens to be foreground for an unrelated reason. See `focus_window`'s own
 doc comment in `window_activate.rs` for the stated rationale.
 
 **Display identity.** A Windows display id is a recyclable

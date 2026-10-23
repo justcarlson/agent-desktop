@@ -43,7 +43,7 @@ Immutable candidate `hydration-budget-candidate`, SHA-256
 returned a first-match ref twice in 4.26 and 3.96 seconds. The first ref,
 `@spfk598h1ofka:e1`, resolved with public get in 29 ms. No click was attempted.
 Find reported the scrollbar button offscreen while get-states returned an empty
-array; record this state-evidence discrepancy separately, not as proven parity.
-
-The original goal remains incomplete: Numbers text writes and commits, repeated
-cross-app acceptance, and fully headless menu/drag completion are not established.
+array. Ref-rooted observation had clipped the zero-size element against its own
+bounds; it now takes its viewport from `ancestor_viewport` in
+`crates/macos/src/tree/element_bounds.rs`, used at
+`crates/macos/src/tree/query/mod.rs:135`.

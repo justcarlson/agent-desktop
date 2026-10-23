@@ -113,20 +113,20 @@ regression in the shipped rule is a regression the fixture can see.
 
 These gates look like they run everywhere, and they do not. Both
 `check-no-phase-references.sh` and `check-rust-file-size.sh` are steps of the
-macOS-only `Test` job in `.github/workflows/ci.yml` (lines 131-134); the Linux
+macOS-only `Test` job in `.github/workflows/ci.yml`; the Linux
 and Windows CI lanes (`test-linux`, `test-windows`) never invoke them.
 `.githooks/pre-commit` used to be the reason neither script ran on the
 Windows dev box at all, back when its documented invocation there was
 `SKIP_PRECOMMIT=1` and the hook exited at its first line before reaching
-either one. Commit `adf2c36` restructured it: today the hook exits early only
-on an explicit `SKIP_PRECOMMIT` or when nothing staged matches a Rust/FFI
-path (lines 13-16, 58-73). Once a Rust change is staged, it computes a
+either one. Commit `adf2c36` restructured it: today the hook exits early
+on an explicit `SKIP_PRECOMMIT`, and when no Rust or FFI path is staged it runs
+only the harness and script checks. Once a Rust change is staged, it computes a
 per-OS `HOST_PACKAGES` scope from `uname -s` — the `HOST_KERNEL` case
-matching `MINGW*|MSYS*|CYGWIN*|Windows_NT` for the Windows dev box (lines
-84-100) — but that scope only ever changes which cargo packages the later
+matching `MINGW*|MSYS*|CYGWIN*|Windows_NT` for the Windows dev box — but
+that scope only ever changes which cargo packages the later
 `clippy` and `test` steps build against; `check-rust-file-size.sh` and
 `check-no-phase-references.sh` both run ahead of it, unconditionally, on
-every host (lines 116-117). The two scripts are therefore no longer
+every host. The two scripts are therefore no longer
 "authored under GNU, executed only under BSD": the Windows dev box's own Git
 Bash now runs them on every Rust commit, in the same GNU userland they are
 authored and edited in, and the macOS CI job is the one place they still
@@ -203,10 +203,10 @@ instead of discoverable only when a real commit happens to exercise the gap.
   `AGENT_DESKTOP_LIVE_WPF`, set nowhere in the repo, its workflows, or its
   docs, so the body skipped on every run and reported green forever —
   indistinguishable, again, from a test that ran and found nothing wrong. The
-  fix set the variable on the CI lane that owns staging the fixture
-  (`.github/workflows/ci.yml:357` and `:504`) and added
+  fix set the variable on the CI lanes that own staging the fixture
+  (`test-windows` and `test-windows-arm` in `.github/workflows/ci.yml`) and added
   `the_windows_lane_stages_the_live_wpf_host`
-  (`crates/windows/src/tree/envelope_live_tests.rs:109-131`), which reads
+  (`crates/windows/src/tree/envelope_live_tests.rs`), which reads
   `ci.yml` itself and asserts the assignment sits on the step that runs the
   library tests, so the variable cannot silently vanish from the one place
   that makes it real. Recording that nothing was found is data; recording

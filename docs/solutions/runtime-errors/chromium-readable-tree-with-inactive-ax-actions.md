@@ -54,9 +54,11 @@ Primary sources:
 - Reuse the existing renderer activation signal, interaction lease, deadline,
   and observation retry. Keep the policy and click implementation unchanged.
 - Preserve manual accessibility preference for renderers that support it.
-- Permit enhanced accessibility fallback only after observing a web surface.
-  Finder also advertises this attribute, so support alone is not evidence of
-  a renderer and must not activate native apps.
+- Without an observed web surface, request enhanced accessibility only when the
+  app advertises the attribute and it reads an explicit `false`; a true or
+  unreadable value never requests activation. Finder also advertises this
+  attribute, so support alone is not evidence of a renderer
+  (`crates/macos/src/tree/renderer_probe.rs:38-51`).
 - Check the enhanced mode even when web content is already readable. Do not
   treat a false `AXManualAccessibility` readback as disabled: Electron's getter
   compares for exactly the complete mode while its setter adds platform and
@@ -80,8 +82,8 @@ ripple also remains a delivery visualization, not proof of page navigation.
 
 ## Verification
 
-Deterministic unit tests cover attribute selection, native-app exclusion,
-already-enabled modes, legacy missing readback, missing renderer retries,
+Deterministic unit tests cover attribute selection, native-app activation only
+on an explicit disabled readback, already-enabled modes, legacy missing readback, missing renderer retries,
 capability/read failures, contradictory setter readback, applied changes despite
 unsupported return codes, and insufficient-budget rejection before native I/O.
 These cases use fake capability/readback results or null handles and do not
@@ -93,27 +95,3 @@ Compare a button, checkbox, and link on an isolated local page, plus a native
 browser control. Observe foreground PID and physical pointer separately from
 the cursor overlay. Do not claim pointer stability when concurrent user input
 changes it during the measurement.
-
-### Results on the final release build
-
-- `cargo test --workspace`: 2,231 passed, zero failed, four ignored.
-- Formatting, Clippy with warnings denied, core dependency isolation, and
-  whitespace checks passed. The release executable is 3,072,144 bytes.
-- Cold Comet activation followed by semantic checkbox press changed `0` to `1`;
-  a subsequent link press changed the URL to `#destination`. Earlier cold button
-  activation changed its output text. Raw AX and Agent Desktop both reproduced
-  the disabled-mode failure; enabling the mode also opened the Hacker News article.
-- The overlay was enabled. Foreground PID and physical pointer were unchanged
-  across the final checkbox/link actions. Finder's enhanced mode remained false.
-- The required performance script ran with the activating native fixture skipped
-  to preserve strict headless operation. Its application-name probes were unusable:
-  Finder had no window, and Comet had multiple windows. A supplemental alternating
-  five-round comparison used the same explicit Comet window and immutable binaries.
-  All 30 snapshots succeeded with matching ref counts. Warm median milliseconds
-  were baseline/fixed: default 627/563, skeleton 582/614, depth-30 588/615.
-  These small samples do not establish a universal performance bound; they show
-  no repeated two-second warm penalty. Cold enhanced activation intentionally pays
-  Chromium's two-second debounce plus the existing observation retry.
-
-Local probe artifacts are under `/tmp/comet-ax-probe`; raw trees may contain
-private browser content and should not be published.

@@ -78,7 +78,9 @@ restoration recovers the original logical row; legitimate edits to an ordinary
 text field remain usable through its original ref. Resolution must agree across
 get, action, scoped snapshot and find roots. Snapshot capture and resolution both
 need the same additional identity evidence; the platform/core boundary must be
-reviewed before adding fields. Product repair remains pending.
+reviewed before adding fields. The repair that shipped is retained native-object
+identity, active only inside the internal command host described below; the
+default one-process-per-command CLI has no repair.
 
 ## Native identity inventory and implementation constraints
 
@@ -89,14 +91,22 @@ value; AXIndex is positional. The enclosing outline has identifier project
 navigator. This rules out a simple switch to an already-exposed document URL.
 Raw helper: `/tmp/ad-native-eval/xcode-row-read.swift`.
 
-Current references serialize process, element identity, geometry, source and
-path, but no containing-item identity. Native objects themselves are not retained
-across CLI processes. The raw retained-object experiment proves a long-lived
-handle can preserve the original object for this scenario, but adding a daemon
-is a separate architectural change and not a minimal adapter patch.
+References serialize process, element identity, geometry, source and path, but
+no containing-item identity, and a one-shot CLI process cannot keep native
+objects alive between commands. The raw retained-object experiment proves a
+long-lived handle preserves the original object for this scenario. That is what
+shipped: an opt-in internal command host (`AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1`,
+`src/command_host.rs`) owns a `RetainedRefSession`, traversal captures a
+retained-object token for each observed element, and
+`ref_identity::identity_match` compares that token before any native identifier
+(`crates/core/src/ref_identity.rs`, `crates/macos/src/tree/retained.rs`). Without
+the host no token is recorded and the identifier shortcut still returns Match,
+so the aliasing above remains reachable in the default CLI.
 
 Do not promote CFHash to a unique runtime identifier: Core Foundation hashes may
 collide and the current identifier shortcut would treat equality as identity.
+The retained store honors this: CFHash only selects a bucket and `same_element`
+decides identity (`a_hash_bucket_collision_cannot_alias_another_native_object`).
 Do not globally require unchanged values: ordinary text inputs must remain
 editable through the same ref. Do not rely on broad-search uniqueness: after
 filtering, only the wrong editable label can remain in the original position.
@@ -106,8 +116,12 @@ time and validate it before resolving a descendant control. The decisive tests
 must include repeated native IDs and identical replacement geometry, plus normal
 text editing on an unchanged item. A row label may itself be editable; any label
 derived from the target's value must explicitly account for that rather than
-silently freezing a mutable value. Until that contract is implemented and tested,
-these navigator label refs are not safe mutation targets after collection changes.
+silently freezing a mutable value. Inside the command host the retained token
+meets this: `crates/macos/tests/retained_fixture.rs` drives the RefChurn fixture
+below and requires the filtered Alpha ref to return STALE_REF, never Beta, while
+the ordinary editor ref stays usable. In the default CLI the contract is not
+implemented, so these navigator label refs are not safe mutation targets after
+collection changes.
 
 ## Isolated reproduction surface
 
@@ -139,7 +153,8 @@ the owning process handle reported terminal exit 143.
 This fixture demonstrates the defect outside Xcode without a collection-row
 native role, so a patch restricted to AXRow ancestry is insufficient. Its normal
 same-ref editor is the control case that an eventual correction must preserve.
-It is a reproducible failing product scenario, not a passing acceptance result.
+It is a reproducible failing product scenario in the default CLI, not a passing
+acceptance result.
 
 After adding this mode, the default background fixture passed its existing seven
 semantic assertions using the same production binary. Log:

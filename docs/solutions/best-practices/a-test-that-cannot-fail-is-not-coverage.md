@@ -24,8 +24,8 @@ tags: [testing, tautology, ci, exhaustiveness, com-free-seam, windows, coverage]
 ## Problem
 
 The Windows vocabulary work shipped, and two review passes plus the
-implementer's own pass then found five tests that were green for reasons
-unrelated to what they claimed to prove:
+implementer's own pass then found tests, in eight shapes, that were green for
+reasons unrelated to what they claimed to prove:
 
 1. **Tautology.** `accname_tests.rs`'s
    `the_uncertainty_aware_and_plain_entry_points_agree_on_every_input` asserts
@@ -78,8 +78,8 @@ unrelated to what they claimed to prove:
 
 8. **A setup guard that returns instead of asserting.** Four live
    `press_key_for_app` tests opened with `if !stage_as_foreground(&fixture) {
-   return; }`, where staging performs a real OS activation that this same
-   sub-phase documents as able not to land. On any run where it did not, each
+   return; }`, where staging performs a real OS activation that the Windows
+   activation capture (`A21-6`) records as able not to land. On any run where it did not, each
    test returned before its first assertion and libtest reported a pass — and
    one of the four was the only test proving the method was wired through the
    trait at all. This is the hardest shape to see in review, because the early
@@ -146,13 +146,13 @@ None of the fixes were "delete the test":
 6. **Extract one pure function and let both sides drive the same copy.**
    `pre_probe_decision` (`crates/windows/src/tree/hit_test_classify.rs:59-78`)
    is now the only place the guard ladder is expressed. Production calls it
-   from `pre_probe_guard` (`hit_test.rs:195-207`); `hit_test_guard_tests.rs`
+   from `pre_probe_guard` (`hit_test.rs:197-209`); `hit_test_guard_tests.rs`
    calls it directly. Production and test read the identical logic instead of
    two independently maintained copies of it.
 
 ## Prevention
 
-The one check that catches all six cheaply is **invert the thing under test
+The one check that catches every one of these cheaply is **invert the thing under test
 and confirm the test goes red**: revert the delegation to two independent
 implementations, feed the producer an input the role mapper would never
 produce, revert a `text_presence` call site to `slot()`, drop an enum variant

@@ -37,7 +37,9 @@ is contaminated for strict headless qualification.
 Final candidate `/tmp/ad-native-eval/nested-final-candidate`, SHA-256
 3714c3f3903d22ea430eb48a9f5645ca41bfc6b0f7d5f93f48ff7856fa882a1c.
 Workspace, clippy and formatting checks passed. The focused geometry regression
-covers a target inside its window but above its scroll viewport. Live fixture
+(`nested_viewport_requires_scrolling_even_inside_window` in
+`actions/scroll_into_view_tests.rs`) covers a target inside its window but
+above its scroll viewport. Live fixture
 before/after evidence covers the actual routing, not just rectangle arithmetic.
 
 The preceding candidate d1b13c390e0a2e8eb78a1e92e562e88e13e082d891a963fcc9331a56501c14e3
@@ -47,11 +49,10 @@ observer recorded no activation, input events or pointer movement; screenshot
 semantic fixture assertions passed. Do not count these as final-candidate
 qualification: the missing-window guard was subsequently restored.
 
-Remaining consistency gap: snapshot/get offscreen inference still uses window
-bounds and does not uniformly represent nested clipping. This repair removes
-the observed scroll-to false success; it does not close that separate shared
-observation contract. Numbers editing and the full acceptance series remain
-uncompleted. All work is local; no commit, push or release.
+This repair removes the observed scroll-to false success. The offscreen state
+that snapshot, get and find report is the separate shared clipping contract
+(2026-09-20-shared-clipping-state.md). Numbers editing and the full acceptance
+series remain uncompleted.
 
 Final gates completed: seven semantic fixture assertions on the exact final
 hash, full workspace tests, clippy, format and diff checks. Core dependency

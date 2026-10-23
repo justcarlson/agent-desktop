@@ -112,7 +112,9 @@ candidate command reproduced TIMEOUT, accessibility deadline exhausted before IP
 The new probe had run after incomplete traversal consumed the deadline. Its gate
 now preserves the existing incomplete-tree return path; only complete native
 observations probe activation. This follow-up requires new live validation.
-The SF Symbols button find failed on both versions and remains unresolved.
+The SF Symbols button find failed on both versions for a separate reason:
+discovery consumed the whole deadline before selected-ref hydration, which
+[the hydration budget report](2026-09-20-locator-hydration-budget.md) covers.
 
 ## Direct cell and editor write outcome on the same process
 

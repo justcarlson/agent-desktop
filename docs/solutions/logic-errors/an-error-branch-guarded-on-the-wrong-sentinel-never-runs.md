@@ -85,18 +85,16 @@ in files the sub-phase under review had never touched. A convention error
 spreads by being copied, so the population is every call site, not the one
 someone happened to read.
 
-Pin the distinction with a test. This defect has no runtime signature to assert
-against — the failure is unreachable by construction — so what is testable is
-that the two sentinels are not the same value:
-
-```rust
-assert!(!INVALID_HANDLE_VALUE.is_null());
-assert_eq!(INVALID_HANDLE_VALUE as isize, -1);
-```
-
-That reads as tautology and is not: it fails the moment someone reintroduces the
-`is_null()` guard on the reasoning that "the handle type is a pointer, so null
-is the failure."
+Pin the guard by driving it, not the constant. An assertion about
+`INVALID_HANDLE_VALUE` alone passes forever whatever the guard compares against,
+which is the shape that let the wrong guard survive three reviews. The shared
+walk therefore carries a test seam, `thread_walk::force_open_failure`
+(`crates/windows/src/system/thread_walk.rs:121-140`), that substitutes the value
+the API returns on failure, and
+`a_failed_snapshot_open_is_an_error_not_an_empty_enumeration`
+(`crates/windows/src/system/menu_state_tests.rs:332-361`) asserts that a refused
+snapshot surfaces as an error rather than as a completed walk that found no menu.
+Rewrite the guard as `is_null()` and that test fails.
 
 ## Prevention
 

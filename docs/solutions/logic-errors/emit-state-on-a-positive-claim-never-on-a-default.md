@@ -45,7 +45,7 @@ property means anything, and `ElementProperties::gated_flag` /
 **`IsDataValidForForm`.** This property defaults to `false`, and the first
 implementation of `states.rs` read it exactly as Microsoft's ARIA state table
 prescribes: `false -> invalid`. The 2026-07-31 dogfood run
-(`docs/dogfood-reports/2026-07-31-feat-windows-2-3-vocabulary-dogfood.md`)
+(recorded in the `resolve_states` doc comment, `crates/windows/src/tree/states.rs:38-55`)
 pointed the shipped binary at real Notepad and Explorer windows and found
 `invalid` on **26 of 26** Notepad nodes and **113 of 113** Explorer nodes —
 static text, title bars, windows, scrollbars and menus, not just form fields.

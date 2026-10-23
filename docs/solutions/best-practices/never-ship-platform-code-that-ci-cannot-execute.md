@@ -120,21 +120,24 @@ The `windows-latest` lane executes all of it on every PR through
 Each of the four measured defects that sank the deleted layer is discharged in that code:
 
 1. **Atomic replace requires `FILE_SHARE_DELETE` on every concurrently-open handle to the
-   target; POSIX rename semantics do not transfer.** `replace.rs` promotes with
-   `ReplaceFileW`, never `MoveFileEx`, on a measured 42/42 matrix with zero successes at
+   target; POSIX rename semantics do not transfer.** `replace.rs` promotes over an
+   existing destination with `ReplaceFileW`, never `MoveFileEx`, on a measured 42/42 matrix with zero successes at
    any share mode lacking share-delete. Artifact opens keep Rust's wide
    `FILE_SHARE_READ|WRITE|DELETE` mask precisely because narrowing it re-creates the
    122-failure sharing cluster. The one handle that does omit `FILE_SHARE_DELETE` is the
    internal lease-directory handle, where the sharing constraint *is* the mechanism — it is
    the live-writer guard that stops a sweep reclaiming a directory another write still
    holds.
-2. **Owner validation compares against `TokenOwner`, not `TokenUser`.** `owner.rs` reads
-   `TokenOwner` only, on evidence measured at both High and Medium integrity: a file
+2. **Owner validation does not compare against `TokenUser` alone.** `owner.rs` accepts the
+   owner-eligible SID set — `TokenUser`, `TokenOwner`, and every `TokenGroups` entry
+   flagged `SE_GROUP_OWNER` — on evidence measured at both High and Medium integrity: a file
    created by an admin-group account is owned by Administrators, so
    `OwnerMatchesTokenUser` is false while `OwnerMatchesTokenOwner` is true — group
    membership is the variable, not integrity, which is why the old code's 69 rejections
-   tracked CI runners rather than elevation. The module reads the owner alone
-   (`OWNER_SECURITY_INFORMATION`, no DACL requested) and never touches an ACE.
+   tracked CI runners rather than elevation. `TokenOwner` alone is not enough either: UAC
+   elevation swaps it between the user SID and `BUILTIN\Administrators`, so a path the same
+   human created at another elevation would read as foreign. The module reads the file's
+   owner alone (`OWNER_SECURITY_INFORMATION`, no DACL requested) and never touches an ACE.
 3. **`FileRemoteProtocolInfo` cannot establish volume locality on its own.** The general
    technique, and the reusable part: *when an API signals a condition by failing, prove the
    plumbing with a control call on a known-good input first.*
