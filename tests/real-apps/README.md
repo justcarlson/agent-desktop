@@ -122,6 +122,14 @@ replacement. It does not retry, commit or prove continuous headless operation.
 Close only the printed fixture PID with `kill -TERM PID` after the test. A
 successful custom receiver proves parameter transport; it does not prove that
 AppKit's default receiver or Numbers can perform the operation in the background.
+The cross-process argument is a dictionary: `AXReplacementRange` (an AXValue
+CFRange in UTF-16 units) and `AXReplacementText` (a CFString), read by AppKit's
+`_NSAccessibilityResultForReplaceRangeWithText`. Native success plus `true` does
+not mean the text changed: plain background NSTextView (`--standard`) and Numbers
+both return them and leave the value unchanged; the custom receiver changes it.
+AppKit's default path goes through the current input context, nil for a non-key
+window even after the text view becomes first responder (`--standard-focused`).
+No production write path uses this operation: no Numbers background write was shown to work.
 
 ## Nested scroll regression
 
