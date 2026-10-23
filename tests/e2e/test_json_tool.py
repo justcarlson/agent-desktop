@@ -82,23 +82,6 @@ class RunBoundedTests(unittest.TestCase):
         self.assertFalse(result.output_limited)
         self.assertIsNone(result.termination_error)
 
-    def test_kills_the_process_group_at_the_absolute_timeout(self):
-        result = run_bounded(
-            [
-                sys.executable,
-                "-c",
-                "import subprocess,sys,time; "
-                "subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
-                "time.sleep(30)",
-            ],
-            timeout_seconds=0.2,
-            max_capture_bytes=1024,
-        )
-
-        self.assertEqual(result.returncode, 124)
-        self.assertTrue(result.timed_out)
-        self.assertLess(result.wall_ms, 2000)
-
     def test_descendant_holding_output_pipe_cannot_extend_the_deadline(self):
         result = run_bounded(
             [
@@ -112,6 +95,7 @@ class RunBoundedTests(unittest.TestCase):
             max_capture_bytes=1024,
         )
 
+        self.assertEqual(result.returncode, 124)
         self.assertTrue(result.timed_out)
         self.assertIn("ready", result.stdout)
         self.assertLess(result.wall_ms, 2000)
