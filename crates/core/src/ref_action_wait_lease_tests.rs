@@ -125,6 +125,7 @@ impl SystemOps for DoubleCheckAdapter {
 /// target that was never unstable.
 #[test]
 fn stability_revalidates_once_under_lease_before_dispatch() {
+    let _clock = crate::deadline::VirtualClock::freeze();
     let adapter = adapter(2, 5_000, None);
     let result = run_with_entry(
         &adapter,
@@ -166,6 +167,7 @@ fn entry_with_mismatched_bounds_hash() -> RefEntry {
 /// by reverting the discriminator and watching this test fail closed.
 #[test]
 fn a_stability_only_mismatch_settles_and_proceeds_to_dispatch() {
+    let _clock = crate::deadline::VirtualClock::freeze();
     let adapter = adapter(2, 5_000, None);
     let result = run_with_entry(
         &adapter,
@@ -182,6 +184,7 @@ fn a_stability_only_mismatch_settles_and_proceeds_to_dispatch() {
 /// the leased read still validates it, exactly as for a semantic click.
 #[test]
 fn a_matching_snapshot_hash_settles_a_headless_pointerless_action_in_one_read() {
+    let _clock = crate::deadline::VirtualClock::freeze();
     let mut adapter = adapter(1, 5_000, None);
     adapter.available_action = capability::SCROLL;
     let result = run_with_entry(
@@ -270,6 +273,7 @@ impl SystemOps for DisabledAfterLeaseAdapter {
 /// discriminator specifically rather than the separate pre-lease poll.
 #[test]
 fn a_disabled_element_fails_closed_without_sampling_even_with_a_stale_hash() {
+    let _clock = crate::deadline::VirtualClock::freeze();
     let adapter = DisabledAfterLeaseAdapter {
         calls: AtomicU32::new(0),
         prelease_calls: 2,

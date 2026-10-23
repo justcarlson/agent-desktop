@@ -152,6 +152,7 @@ fn child_count_churn_retries_until_the_observation_is_stable() {
 
 #[test]
 fn persistent_cannot_complete_exhausts_one_deadline_with_last_evidence() {
+    let clock = crate::deadline::VirtualClock::freeze();
     let adapter = CountingAdapter {
         builds: AtomicUsize::new(0),
         observe: Some(always_cannot_complete),
@@ -173,11 +174,9 @@ fn persistent_cannot_complete_exhausts_one_deadline_with_last_evidence() {
     let details = error.details.unwrap();
     assert_eq!(details["kind"], "locator_transient_incomplete");
     let observation_attempts = details["observation_attempts"].as_u64().unwrap();
-    assert!(observation_attempts >= 1);
-    assert_eq!(
-        observation_attempts,
-        adapter.builds.load(Ordering::SeqCst) as u64
-    );
+    assert_eq!(observation_attempts, 4);
+    assert_eq!(adapter.builds.load(Ordering::SeqCst), 4);
+    assert_eq!(clock.elapsed(), std::time::Duration::from_millis(35));
     assert_eq!(details["last_incomplete"]["cannot_complete"], 1);
     assert_eq!(
         details["query_stats"]["reads"]["cannot_complete"],
