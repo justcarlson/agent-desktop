@@ -7,11 +7,9 @@
 # ungrammatical and wrong about the cause - the ref was found and read, and
 # it was the live evidence that refused it, not a missing RefMap entry.
 #
-# A caller with that shape must build its error directly -
-# `AdapterError::new(ErrorCode::StaleRef, message)` with the snapshot-refresh
-# suggestion and the not-delivered disposition - exactly as
-# `crates/windows/src/tree/resolve_match.rs`'s `stale_evidence_error` already
-# does.
+# A caller with that shape must use `AdapterError::stale_ref_because(message)`,
+# which builds the StaleRef error with the snapshot-refresh suggestion and the
+# not-delivered disposition.
 #
 # This is a call-site count, not a `debug_assert`: a runtime assertion would
 # panic the two test fixtures that legitimately hand these constructors a
@@ -152,11 +150,8 @@ fi
 
 if [ "$failed" -ne 0 ]; then
     printf '\nA changed count almost always means a whole sentence reached a ref-id\n' >&2
-    printf 'constructor. Build the error directly instead:\n' >&2
-    printf '  AdapterError::new(ErrorCode::StaleRef, message)\n' >&2
-    printf '      .with_suggestion("Run '"'"'snapshot'"'"' to refresh, then retry with the updated ref.")\n' >&2
-    printf '      .with_disposition(DeliverySemantics::not_delivered())\n' >&2
-    printf 'as crates/windows/src/tree/resolve_match.rs'"'"'s stale_evidence_error already does.\n' >&2
+    printf 'constructor. Use the helper instead:\n' >&2
+    printf '  AdapterError::stale_ref_because(message)\n' >&2
     printf 'If the new caller genuinely passes a ref id, update EXPECTED_*_CALLS above.\n' >&2
     exit 1
 fi
