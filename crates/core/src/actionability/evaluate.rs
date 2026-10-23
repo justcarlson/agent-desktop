@@ -19,8 +19,8 @@ pub(crate) fn check(
     request: &ActionRequest,
 ) -> Result<ActionabilityReport, AdapterError> {
     use crate::{
+        adapter::hit_test::HitTestResult,
         adapter::{ActionOps, InputOps, ObservationOps, SystemOps},
-        hit_test::HitTestResult,
     };
 
     struct TestHitAdapter;

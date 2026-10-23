@@ -1,4 +1,4 @@
-use crate::{WindowInfo, native_handle::NativeHandle, refs::RefEntry};
+use crate::{WindowInfo, adapter::native_handle::NativeHandle, refs::RefEntry};
 
 #[derive(Clone, Copy)]
 pub enum ObservationRoot<'a> {

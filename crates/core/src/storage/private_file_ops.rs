@@ -58,27 +58,27 @@ pub trait PrivateFileOps: Send + Sync {
     /// Writes `bytes` to `path` as one atomic replacement, owning temporary
     /// creation, handle lifetime, and replace ordering end to end.
     fn write_atomic(&self, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-        crate::private_file::write_atomic_portable(path, bytes)
+        crate::storage::private_file::write_atomic_portable(path, bytes)
     }
 
     /// Opens `path` for private appends; the returned handle must be lockable.
     fn open_private_append(&self, path: &Path) -> std::io::Result<File> {
-        crate::private_file::open_private_append_portable(path)
+        crate::storage::private_file::open_private_append_portable(path)
     }
 
     /// Opens `path` read-write for locking, creating it when `create` is set.
     fn open_private_lock(&self, path: &Path, create: bool) -> std::io::Result<File> {
-        crate::private_file::open_private_lock_portable(path, create)
+        crate::storage::private_file::open_private_lock_portable(path, create)
     }
 
     /// Reads `path` fully, rejecting files larger than `max_bytes`.
     fn read_private_bounded(&self, path: &Path, max_bytes: u64) -> std::io::Result<Vec<u8>> {
-        crate::private_file::read_private_bounded_portable(path, max_bytes)
+        crate::storage::private_file::read_private_bounded_portable(path, max_bytes)
     }
 
     /// Creates the directory chain at `path` and enforces that it is private.
     fn ensure_private(&self, path: &Path) -> std::io::Result<()> {
-        crate::private_file_parent::ensure_private_portable(path)
+        crate::storage::private_file_parent::ensure_private_portable(path)
     }
 }
 

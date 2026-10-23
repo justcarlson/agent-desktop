@@ -19,7 +19,7 @@
 
 use crate::tree::properties::rect_has_area;
 use crate::tree::walker::{DEFAULT_MAX_RAW_DEPTH, NodeKey};
-use agent_desktop_core::{Deadline, Point, Rect, hit_test::HitTestResult};
+use agent_desktop_core::{Deadline, Point, Rect, adapter::hit_test::HitTestResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Ancestry {

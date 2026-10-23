@@ -22,8 +22,8 @@
 //! `Unknown` rather than deciding on partial evidence.
 
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, Point, Rect, hit_test::HitTestResult,
-    native_handle::NativeHandle,
+    AdapterError, Deadline, ErrorCode, Point, Rect, adapter::hit_test::HitTestResult,
+    adapter::native_handle::NativeHandle,
 };
 
 #[cfg(target_os = "windows")]

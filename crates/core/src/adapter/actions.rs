@@ -1,6 +1,6 @@
 use crate::{
     AdapterError, InteractionLease, action_request::ActionRequest, action_result::ActionResult,
-    native_handle::NativeHandle,
+    adapter::native_handle::NativeHandle,
 };
 
 pub trait ActionOps: Send + Sync {

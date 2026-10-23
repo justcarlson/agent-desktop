@@ -1,4 +1,4 @@
-use agent_desktop_core::{AppError, output::Response};
+use agent_desktop_core::{AppError, response::output::Response};
 use std::io::{self, BufReader, BufWriter};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::PermissionsExt;

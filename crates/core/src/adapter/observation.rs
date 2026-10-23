@@ -1,10 +1,10 @@
 use crate::{
     AccessibilityNode, AdapterError, AppInfo, Deadline, ErrorCode, Rect, SnapshotSurface,
     SurfaceInfo, WindowInfo,
+    adapter::live_element::LiveElement,
+    adapter::native_handle::NativeHandle,
     element_state::ElementState,
-    live_element::LiveElement,
     live_locator::{ObservationRequest, ObservationRoot, ObservedTree},
-    native_handle::NativeHandle,
     refs::RefEntry,
     tree_options::TreeOptions,
     window_filter::WindowFilter,
@@ -246,7 +246,7 @@ pub trait ObservationOps: Send + Sync {
         handle: &NativeHandle,
         point: crate::Point,
         _deadline: Deadline,
-    ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
+    ) -> Result<crate::adapter::hit_test::HitTestResult, AdapterError> {
         let _ = (handle, point);
         Err(AdapterError::not_supported("hit_test"))
     }

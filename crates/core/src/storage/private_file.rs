@@ -4,14 +4,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn open_private_lock(path: &Path, create: bool) -> std::io::Result<File> {
-    crate::private_file_ops::with_active_ops(|ops| ops.open_private_lock(path, create))
+    crate::storage::private_file_ops::with_active_ops(|ops| ops.open_private_lock(path, create))
 }
 
 pub(crate) fn open_private_lock_portable(path: &Path, create: bool) -> std::io::Result<File> {
     let parent = path
         .parent()
         .ok_or_else(|| invalid_input("private file path has no parent"))?;
-    crate::private_file_parent::ensure_private_portable(parent)?;
+    crate::storage::private_file_parent::ensure_private_portable(parent)?;
     let mut options = OpenOptions::new();
     options.read(true).write(true).create(create);
     configure_unix(&mut options, 0o600);
@@ -21,7 +21,7 @@ pub(crate) fn open_private_lock_portable(path: &Path, create: bool) -> std::io::
 }
 
 pub(crate) fn open_private_append(path: &Path) -> std::io::Result<File> {
-    crate::private_file_ops::with_active_ops(|ops| ops.open_private_append(path))
+    crate::storage::private_file_ops::with_active_ops(|ops| ops.open_private_append(path))
 }
 
 /// Read access is requested alongside append because callers lock the returned
@@ -37,7 +37,9 @@ pub(crate) fn open_private_append_portable(path: &Path) -> std::io::Result<File>
 }
 
 pub(crate) fn read_private_bounded(path: &Path, max_bytes: u64) -> std::io::Result<Vec<u8>> {
-    crate::private_file_ops::with_active_ops(|ops| ops.read_private_bounded(path, max_bytes))
+    crate::storage::private_file_ops::with_active_ops(|ops| {
+        ops.read_private_bounded(path, max_bytes)
+    })
 }
 
 pub(crate) fn read_private_bounded_portable(
@@ -45,7 +47,7 @@ pub(crate) fn read_private_bounded_portable(
     max_bytes: u64,
 ) -> std::io::Result<Vec<u8>> {
     let file = open_private_read(path)?;
-    crate::private_file_ops::bounded_read(file, max_bytes)
+    crate::storage::private_file_ops::bounded_read(file, max_bytes)
 }
 
 pub(crate) fn read_regular_bounded(path: &Path, max_bytes: u64) -> std::io::Result<Vec<u8>> {
@@ -57,18 +59,18 @@ pub(crate) fn read_regular_bounded(path: &Path, max_bytes: u64) -> std::io::Resu
     };
     validate_regular(&file)?;
     validate_local_filesystem(&file)?;
-    crate::private_file_ops::bounded_read(file, max_bytes)
+    crate::storage::private_file_ops::bounded_read(file, max_bytes)
 }
 
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    crate::private_file_ops::with_active_ops(|ops| ops.write_atomic(path, bytes))
+    crate::storage::private_file_ops::with_active_ops(|ops| ops.write_atomic(path, bytes))
 }
 
 pub(crate) fn write_atomic_portable(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     write_atomic_with(
         path,
         bytes,
-        crate::private_file_parent::ensure_private_portable,
+        crate::storage::private_file_parent::ensure_private_portable,
         sync_directory,
         validate_private_destination,
     )
@@ -93,7 +95,7 @@ pub(crate) fn write_user_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()
     write_atomic_with(
         path,
         bytes,
-        crate::private_file_parent::ensure_user,
+        crate::storage::private_file_parent::ensure_user,
         sync_user_directory,
         validate_user_destination,
     )
@@ -204,7 +206,7 @@ fn create_temporary(path: &Path) -> std::io::Result<(PathBuf, File)> {
         .and_then(|name| name.to_str())
         .ok_or_else(|| invalid_input("private file path has an invalid filename"))?;
     for _ in 0..32 {
-        let temporary = path.with_file_name(crate::private_file_ops::temporary_file_name(
+        let temporary = path.with_file_name(crate::storage::private_file_ops::temporary_file_name(
             std::ffi::OsStr::new(file_name),
         ));
         let mut options = OpenOptions::new();
@@ -312,11 +314,11 @@ fn crash_before_rename_if_requested(path: &Path) {
     }
 }
 
-pub(super) fn invalid_input(message: &'static str) -> std::io::Error {
+pub(crate) fn invalid_input(message: &'static str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidData, message)
 }
 
-pub(super) fn permission_denied(message: &'static str) -> std::io::Error {
+pub(crate) fn permission_denied(message: &'static str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::PermissionDenied, message)
 }
 

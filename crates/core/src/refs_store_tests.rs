@@ -151,7 +151,7 @@ fn save_new_snapshot_waits_on_a_held_store_lock() {
     let _guard = HomeGuard::new();
     let store = RefStore::new().unwrap();
     let held = RefStoreLock::acquire(&store.lock_path()).unwrap();
-    let clock = crate::deadline::VirtualClock::freeze();
+    let clock = crate::wait::deadline::VirtualClock::freeze();
 
     let AppError::Adapter(error) = store.save_new_snapshot(&map_with("Blocked")).unwrap_err()
     else {

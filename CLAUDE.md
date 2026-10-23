@@ -203,7 +203,7 @@ Every command prints one envelope. `docs/json-output.md` holds the full contract
   identity and a bounds hash. Control values are volatile and never identity. A mismatch returns `STALE_REF`; several
   live candidates return `AMBIGUOUS_TARGET`.
 - All state lives under one root, `~/.agent-desktop` by default. `AGENT_DESKTOP_HOME` relocates it
-  (`crates/core/src/state_root.rs`). Refmaps live at `snapshots/<snapshot_id>/refmap.json`, capped at 1 MB each; the
+  (`crates/core/src/storage/state_root.rs`). Refmaps live at `snapshots/<snapshot_id>/refmap.json`, capped at 1 MB each; the
   store keeps the newest 128 snapshots per namespace and prunes to 96. Command code goes through `RefStore`, which
   only reads the legacy `last_refmap.json` to migrate it.
 - A session is selected by `--session`, then `AGENT_DESKTOP_SESSION`, then none. `session start` does not activate a

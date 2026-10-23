@@ -2,7 +2,7 @@
 title: A fixed sleep is not a synchronization primitive
 date: 2026-08-16
 category: best-practices
-module: crates/core/src/interaction_lease_tests.rs
+module: crates/core/src/session/interaction_lease_tests.rs
 problem_type: flaky_test
 component: test-infrastructure
 symptoms:

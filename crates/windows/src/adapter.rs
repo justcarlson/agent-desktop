@@ -165,7 +165,7 @@ impl ObservationOps for WindowsAdapter {
         handle: &NativeHandle,
         point: agent_desktop_core::Point,
         deadline: Deadline,
-    ) -> Result<agent_desktop_core::hit_test::HitTestResult, AdapterError> {
+    ) -> Result<agent_desktop_core::adapter::hit_test::HitTestResult, AdapterError> {
         crate::tree::hit_test::hit_test_impl(handle, point, deadline)
     }
 

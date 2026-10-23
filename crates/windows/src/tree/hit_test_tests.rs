@@ -11,7 +11,7 @@ use crate::tree::automation::{ERR_INVALID_ARG, ERR_TIMEOUT, UiaFailure, root_fro
 use crate::tree::fixture::{LocalFixture, ensure_test_apartment};
 use crate::tree::walker::NodeKey;
 use crate::tree::walker_fake::deadline;
-use agent_desktop_core::{Deadline, ErrorCode, Point, Rect, hit_test::HitTestResult};
+use agent_desktop_core::{Deadline, ErrorCode, Point, Rect, adapter::hit_test::HitTestResult};
 use std::cell::Cell;
 use std::collections::HashMap;
 

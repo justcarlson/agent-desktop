@@ -83,7 +83,7 @@ mod tests {
         let mut calls = 0;
         let error = super::super::serve(io::Cursor::new(b"[]\n[]\n"), writer, |_| {
             calls += 1;
-            agent_desktop_core::output::Response::ok(
+            agent_desktop_core::response::output::Response::ok(
                 "snapshot",
                 serde_json::json!({
                     "tree": "x".repeat(4 * 1024 * 1024),

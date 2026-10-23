@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{AppError, Deadline, file_lock::FileLock};
+use crate::{AppError, Deadline, storage::file_lock::FileLock};
 
 const LOCK_TIMEOUT_MS: u64 = 2_000;
 
@@ -80,7 +80,7 @@ mod tests {
     fn acquire_collapses_to_lock_timeout_under_an_expired_inherited_deadline() {
         let path = lock_path("expired-inherited");
         let inherited = Deadline::after(0).unwrap();
-        let _scope = crate::deadline::enter_scope(Some(inherited));
+        let _scope = crate::wait::deadline::enter_scope(Some(inherited));
         let error = match RefStoreLock::acquire(&path) {
             Ok(_) => panic!("expired inherited deadline must not acquire the lock"),
             Err(error) => error,
@@ -99,7 +99,7 @@ mod tests {
     fn lock_timeout_details_name_the_lock_file_without_its_directory() {
         let path = lock_path("redacted-directory");
         let inherited = Deadline::after(0).unwrap();
-        let _scope = crate::deadline::enter_scope(Some(inherited));
+        let _scope = crate::wait::deadline::enter_scope(Some(inherited));
         let AppError::Adapter(adapter_err) = RefStoreLock::acquire(&path).err().unwrap() else {
             panic!("expected adapter error");
         };
@@ -111,7 +111,7 @@ mod tests {
     fn acquire_detached_survives_an_expired_inherited_deadline() {
         let path = lock_path("detached");
         let inherited = Deadline::after(0).unwrap();
-        let _scope = crate::deadline::enter_scope(Some(inherited));
+        let _scope = crate::wait::deadline::enter_scope(Some(inherited));
         let _lock = RefStoreLock::acquire_detached(&path).unwrap();
         assert!(lock_holder_is_live(&path));
     }

@@ -19,7 +19,7 @@ impl ObservationOps for GeometryAdapter {
         _handle: &NativeHandle,
         _point: crate::Point,
         _deadline: crate::Deadline,
-    ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
+    ) -> Result<crate::adapter::hit_test::HitTestResult, AdapterError> {
         panic!("zero geometry must not reach hit testing")
     }
 }

@@ -67,8 +67,8 @@ impl ObservationOps for LiveAdapter {
         _handle: &NativeHandle,
         _point: crate::Point,
         _deadline: crate::Deadline,
-    ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
-        Ok(crate::hit_test::HitTestResult::ReachesTarget)
+    ) -> Result<crate::adapter::hit_test::HitTestResult, AdapterError> {
+        Ok(crate::adapter::hit_test::HitTestResult::ReachesTarget)
     }
 }
 
@@ -136,8 +136,8 @@ impl ObservationOps for CombinedLiveAdapter {
         _handle: &NativeHandle,
         _point: crate::Point,
         _deadline: crate::Deadline,
-    ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
-        Ok(crate::hit_test::HitTestResult::ReachesTarget)
+    ) -> Result<crate::adapter::hit_test::HitTestResult, AdapterError> {
+        Ok(crate::adapter::hit_test::HitTestResult::ReachesTarget)
     }
 }
 

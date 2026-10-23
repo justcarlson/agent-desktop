@@ -1,5 +1,5 @@
 use crate::{
-    private_file::read_private_bounded, refs::write_private_file, refs_lock::RefStoreLock,
+    refs::write_private_file, refs_lock::RefStoreLock, storage::private_file::read_private_bounded,
 };
 use std::path::Path;
 use std::time::Duration;

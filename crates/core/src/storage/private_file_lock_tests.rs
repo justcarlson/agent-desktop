@@ -6,7 +6,7 @@ fn scratch_dir(name: &str) -> PathBuf {
         std::process::id(),
         crate::refs::new_snapshot_id()
     ));
-    crate::private_file_parent::ensure_private(&dir).expect("private scratch directory");
+    crate::storage::private_file_parent::ensure_private(&dir).expect("private scratch directory");
     dir
 }
 

@@ -230,7 +230,7 @@ pub(crate) fn resolve_screenshot_path(trace_dir: &Path, relative: &str) -> Optio
 
 pub(crate) fn read_screenshot_for_embed(trace_dir: &Path, relative: &str) -> Option<Vec<u8>> {
     let path = resolve_screenshot_path(trace_dir, relative)?;
-    crate::private_file::read_private_bounded(&path, MAX_EMBED_SCREENSHOT_BYTES).ok()
+    crate::storage::private_file::read_private_bounded(&path, MAX_EMBED_SCREENSHOT_BYTES).ok()
 }
 
 #[cfg(test)]

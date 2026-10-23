@@ -1,4 +1,4 @@
-use agent_desktop_core::{AppError, output::Response, session::resolve_active_session};
+use agent_desktop_core::{AppError, response::output::Response, session::resolve_active_session};
 use clap::Parser;
 use std::io::Write;
 #[cfg(test)]

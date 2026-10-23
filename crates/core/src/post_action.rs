@@ -67,7 +67,7 @@ pub fn execute_verified_action(
         && (settle_deadline.remaining() > settle
             || (drains && changing && deadline.remaining() > settle))
     {
-        crate::deadline::sleep(settle);
+        crate::wait::deadline::sleep(settle);
         let next = adapter.get_live_element(handle, deadline);
         changing = value_of(&next) != value_of(&observed);
         observed = next;

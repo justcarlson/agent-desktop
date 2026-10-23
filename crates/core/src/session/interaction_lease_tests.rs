@@ -124,7 +124,7 @@ fn subprocess_adopted_holder() {
     let _lease =
         adopt_inherited_unix_interaction_lease_at(raw_fd, Deadline::after(5_000).unwrap(), &root)
             .unwrap();
-    let filter = "interaction_lease::tests::subprocess_inherited_fd_is_closed";
+    let filter = "session::interaction_lease::tests::subprocess_inherited_fd_is_closed";
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .arg("--exact")
         .arg(filter)
@@ -166,7 +166,7 @@ fn different_home_subprocess_contends_and_crash_releases() {
     std::fs::create_dir_all(&interaction_root).unwrap();
     let mut child = std::process::Command::new(std::env::current_exe().unwrap())
         .arg("--exact")
-        .arg("interaction_lease::tests::subprocess_holder")
+        .arg("session::interaction_lease::tests::subprocess_holder")
         .arg("--nocapture")
         .env("HOME", &other_home)
         .env("AGENT_DESKTOP_LOCK_HELPER_READY", &ready)
@@ -201,7 +201,7 @@ fn inherited_descriptor_survives_parent_drop_and_crash_releases() {
     let inherited = lease.duplicate_inheritable_fd().unwrap();
     let mut child = std::process::Command::new(std::env::current_exe().unwrap())
         .arg("--exact")
-        .arg("interaction_lease::tests::subprocess_adopted_holder")
+        .arg("session::interaction_lease::tests::subprocess_adopted_holder")
         .arg("--nocapture")
         .env("AGENT_DESKTOP_ADOPT_HELPER_READY", &ready)
         .env("AGENT_DESKTOP_ADOPT_HELPER_ROOT", &root)

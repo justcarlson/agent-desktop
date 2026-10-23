@@ -41,7 +41,7 @@ pub struct CommandScope<'a> {
     success_disposition: crate::DeliverySemantics,
     started: Instant,
     finished: Cell<bool>,
-    _deadline_scope: crate::deadline::DeadlineScope,
+    _deadline_scope: crate::wait::deadline::DeadlineScope,
 }
 
 impl CommandScope<'_> {
@@ -208,7 +208,7 @@ impl CommandContext {
         if !allow_ended_session && let Some(session) = &self.session {
             session.ensure_active()?;
         }
-        let deadline_scope = crate::deadline::enter_scope(self.inherited_deadline);
+        let deadline_scope = crate::wait::deadline::enter_scope(self.inherited_deadline);
         self.trace("command.start", json!({ "command": command }))
             .map_err(|error| {
                 trace_error_with_disposition(error, crate::DeliverySemantics::not_delivered())

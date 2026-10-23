@@ -70,7 +70,7 @@ function Assert-EnvelopeRecovery {
         Asserts a failed envelope's error.recovery block (strategy,
         retryable, requires_fresh_snapshot) - a door of its own because
         Assert-Envelope has no recovery parameter and Lib.psm1 is at the
-        400-line cap. recovery_for_code (crates/core/src/output.rs) emits it
+        400-line cap. recovery_for_code (crates/core/src/response/output.rs) emits it
         only for the codes that have a documented recovery.
     #>
     param(

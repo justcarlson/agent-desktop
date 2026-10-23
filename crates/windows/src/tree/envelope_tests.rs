@@ -3,8 +3,8 @@ use agent_desktop_core::{
     ElementState, ErrorCode, IdentifierEvidence, InputOps, InteractionLease, LiveElement,
     LiveIdentity, LocatorField, NativeHandle, ObservationOps, Point, ProcessId, Rect,
     RefCapabilities, RefEntry, RefEntryIdentity, RefGeometry, RefProcess, RefScope, RefSource,
-    RetryDisposition, SnapshotSurface, SystemOps, WindowInfo, capability, hit_test::HitTestResult,
-    ref_action, state::VisibilityEvidence,
+    RetryDisposition, SnapshotSurface, SystemOps, WindowInfo, adapter::hit_test::HitTestResult,
+    capability, ref_action, state::VisibilityEvidence,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 

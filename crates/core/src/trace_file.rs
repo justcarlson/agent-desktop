@@ -53,12 +53,12 @@ pub(crate) fn ensure_trace_dir(dir: &Path) -> Result<(), AppError> {
             .create(dir)?;
     }
     #[cfg(not(unix))]
-    crate::private_file_parent::ensure_private(dir)?;
+    crate::storage::private_file_parent::ensure_private(dir)?;
     Ok(())
 }
 
 pub(crate) fn open_trace_file(path: &Path) -> Result<std::fs::File, AppError> {
-    crate::private_file::open_private_append(path).map_err(|error| {
+    crate::storage::private_file::open_private_append(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::PermissionDenied {
             return AppError::invalid_input_with_suggestion(
                 "Trace path must be a private user-owned regular file with one link",

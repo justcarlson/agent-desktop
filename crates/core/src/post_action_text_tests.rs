@@ -1,5 +1,5 @@
 use super::*;
-use crate::deadline::VirtualClock;
+use crate::wait::deadline::VirtualClock;
 use std::time::Duration;
 
 #[test]

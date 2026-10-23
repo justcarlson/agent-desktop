@@ -15,7 +15,7 @@ fn test_serialize_with_size_check_rejects_oversized() {
     let suggestion = err.suggestion().unwrap_or_default();
     assert!(suggestion.contains("--skeleton") && suggestion.contains("find"));
 
-    let payload = crate::output::ErrorPayload::from_app_error(&err);
+    let payload = crate::response::output::ErrorPayload::from_app_error(&err);
     assert_eq!(payload.code, "INTERNAL");
     assert!(payload.recovery.is_none());
     assert_eq!(payload.disposition, crate::DeliverySemantics::unknown());

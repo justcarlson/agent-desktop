@@ -4,14 +4,14 @@ use std::sync::Arc;
 
 use crate::{AdapterError, Deadline};
 #[cfg(unix)]
-use crate::{ErrorCode, file_lock::FileLock};
+use crate::{ErrorCode, storage::file_lock::FileLock};
 
 pub struct InteractionLease {
     _guard: Option<Arc<dyn Send + Sync>>,
     #[cfg(unix)]
     file_guard: Option<Arc<FileLock>>,
     #[cfg(unix)]
-    _process_guard: Option<Arc<crate::process_lease_guard::ProcessLeaseGuard>>,
+    _process_guard: Option<Arc<crate::session::process_lease_guard::ProcessLeaseGuard>>,
     deadline: Deadline,
     contention_count: u64,
 }
@@ -68,7 +68,7 @@ impl InteractionLease {
     fn from_file_lock(
         deadline: Deadline,
         file_guard: FileLock,
-        process_guard: crate::process_lease_guard::ProcessLeaseGuard,
+        process_guard: crate::session::process_lease_guard::ProcessLeaseGuard,
     ) -> Self {
         let contention_count = file_guard
             .contention_count()
@@ -108,7 +108,7 @@ impl InteractionLease {
 pub fn acquire_unix_interaction_lease(
     deadline: Deadline,
 ) -> Result<InteractionLease, AdapterError> {
-    let process_guard = crate::process_lease_guard::ProcessLeaseGuard::acquire(deadline)?;
+    let process_guard = crate::session::process_lease_guard::ProcessLeaseGuard::acquire(deadline)?;
     let path = interaction_lock_path_at(std::path::Path::new("/tmp"))?;
     let lock = FileLock::acquire(&path, deadline, "desktop interaction lease")?;
     Ok(InteractionLease::from_file_lock(
@@ -139,7 +139,7 @@ fn acquire_unix_interaction_lease_at(
     deadline: Deadline,
     root: &std::path::Path,
 ) -> Result<InteractionLease, AdapterError> {
-    let process_guard = crate::process_lease_guard::ProcessLeaseGuard::acquire(deadline)?;
+    let process_guard = crate::session::process_lease_guard::ProcessLeaseGuard::acquire(deadline)?;
     let path = interaction_lock_path_at(root)?;
     let lock = FileLock::acquire(&path, deadline, "test desktop interaction lease")?;
     Ok(InteractionLease::from_file_lock(
@@ -155,7 +155,7 @@ fn adopt_inherited_unix_interaction_lease_at(
     deadline: Deadline,
     root: &std::path::Path,
 ) -> Result<InteractionLease, AdapterError> {
-    let process_guard = crate::process_lease_guard::ProcessLeaseGuard::acquire(deadline)?;
+    let process_guard = crate::session::process_lease_guard::ProcessLeaseGuard::acquire(deadline)?;
     let uid = unsafe { libc::geteuid() };
     let directory = root.join(format!("agent-desktop-{uid}"));
     validate_unix_runtime_directory(&directory, uid)?;

@@ -1,4 +1,4 @@
-use agent_desktop_core::live_element::incomplete_live_evidence;
+use agent_desktop_core::adapter::live_element::incomplete_live_evidence;
 use agent_desktop_core::{
     AdapterError, ElementState, LiveElement, LiveIdentity, LocatorEvidence, Rect, state,
 };

@@ -33,7 +33,7 @@ impl ObservationOps for RoleOnlyHydrationAdapter {
         match root {
             ObservationRoot::Window(_) => {
                 self.window_observations.fetch_add(1, Ordering::SeqCst);
-                crate::deadline::sleep(Duration::from_millis(10));
+                crate::wait::deadline::sleep(Duration::from_millis(10));
                 let evidence = request.descendant_evidence();
                 assert!(!evidence.name);
                 assert!(!evidence.description);
@@ -85,7 +85,7 @@ impl SystemOps for RoleOnlyHydrationAdapter {}
 
 #[test]
 fn role_only_selected_hydration_anchors_before_hydrating_without_rewalking_large_tree() {
-    let _clock = crate::deadline::VirtualClock::freeze();
+    let _clock = crate::wait::deadline::VirtualClock::freeze();
     let adapter = RoleOnlyHydrationAdapter {
         window_observations: AtomicUsize::new(0),
         strict_resolutions: AtomicUsize::new(0),

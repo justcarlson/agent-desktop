@@ -16,12 +16,12 @@ pub struct FileLock {
 
 impl FileLock {
     pub fn acquire(path: &Path, deadline: Deadline, purpose: &str) -> Result<Self, AdapterError> {
-        let file = crate::private_file::open_private_lock(path, true).map_err(io_error)?;
+        let file = crate::storage::private_file::open_private_lock(path, true).map_err(io_error)?;
         lock_file(file, deadline, purpose, path)
     }
 
     pub(crate) fn is_held(path: &Path) -> bool {
-        let Ok(file) = crate::private_file::open_private_lock(path, false) else {
+        let Ok(file) = crate::storage::private_file::open_private_lock(path, false) else {
             return false;
         };
         match file.try_lock() {
@@ -73,9 +73,9 @@ impl FileLock {
         }
         let inherited = File::from(unsafe { OwnedFd::from_raw_fd(duplicated) });
         let inherited_meta =
-            crate::private_file::validate_private_regular(&inherited).map_err(io_error)?;
-        let canonical =
-            crate::private_file::open_private_lock(canonical_path, false).map_err(io_error)?;
+            crate::storage::private_file::validate_private_regular(&inherited).map_err(io_error)?;
+        let canonical = crate::storage::private_file::open_private_lock(canonical_path, false)
+            .map_err(io_error)?;
         let canonical_meta = canonical.metadata().map_err(io_error)?;
         if inherited_meta.dev() != canonical_meta.dev()
             || inherited_meta.ino() != canonical_meta.ino()
@@ -119,7 +119,7 @@ fn lock_file(
                 if remaining.is_zero() {
                     return Err(lock_timeout(deadline, purpose, path, contention_count));
                 }
-                crate::deadline::sleep(remaining.min(Duration::from_millis(10)));
+                crate::wait::deadline::sleep(remaining.min(Duration::from_millis(10)));
             }
             Err(std::fs::TryLockError::Error(error)) => {
                 return Err(AdapterError::new(

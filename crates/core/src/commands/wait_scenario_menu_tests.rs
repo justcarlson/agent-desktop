@@ -117,7 +117,7 @@ fn menu_wait_on_an_exited_process_recovers_by_inspecting_not_by_snapshot() {
     )
     .unwrap_err();
 
-    let payload = crate::output::ErrorPayload::from_app_error(&error);
+    let payload = crate::response::output::ErrorPayload::from_app_error(&error);
     assert_eq!(payload.code, "STALE_REF");
     let recovery = payload.recovery.expect("exited process carries recovery");
     assert_eq!(recovery.strategy, "inspect_state_then_retry_original");

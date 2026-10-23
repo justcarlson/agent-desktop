@@ -12,7 +12,7 @@ pub struct AdapterError {
     pub platform_detail: Option<String>,
     pub details: Option<Value>,
     pub disposition: DeliverySemantics,
-    retryability: crate::retryability::Retryability,
+    retryability: crate::response::retryability::Retryability,
 }
 
 impl AdapterError {
@@ -24,7 +24,7 @@ impl AdapterError {
             platform_detail: None,
             details: None,
             disposition: DeliverySemantics::unknown(),
-            retryability: crate::retryability::Retryability::Unspecified,
+            retryability: crate::response::retryability::Retryability::Unspecified,
         }
     }
 
@@ -39,8 +39,8 @@ impl AdapterError {
     }
 
     pub fn with_details(mut self, details: Value) -> Self {
-        let retryability = crate::retryability::Retryability::from_details(&details);
-        if retryability != crate::retryability::Retryability::Unspecified {
+        let retryability = crate::response::retryability::Retryability::from_details(&details);
+        if retryability != crate::response::retryability::Retryability::Unspecified {
             self.retryability = retryability;
         }
         self.details = Some(details);
@@ -53,7 +53,7 @@ impl AdapterError {
     }
 
     pub fn is_explicitly_retryable(&self) -> bool {
-        self.retryability == crate::retryability::Retryability::Retryable
+        self.retryability == crate::response::retryability::Retryability::Retryable
     }
 
     /// Whether the error is an incomplete read an adapter's own loop retries
@@ -76,7 +76,7 @@ impl AdapterError {
     }
 
     pub fn permits_retry_by_default(&self) -> bool {
-        self.retryability != crate::retryability::Retryability::NonRetryable
+        self.retryability != crate::response::retryability::Retryability::NonRetryable
     }
 
     /// Marks a lookup refusal raised before anything was sent to the

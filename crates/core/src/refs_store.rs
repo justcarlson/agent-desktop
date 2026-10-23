@@ -29,7 +29,7 @@ impl RefStore {
     }
 
     pub fn for_session(session_id: Option<&str>) -> Result<Self, AppError> {
-        let state_root = crate::state_root::resolve_configured_state_root()?;
+        let state_root = crate::storage::state_root::resolve_configured_state_root()?;
         if let Some(session_id) = session_id {
             validate_session_id(session_id)?;
             return Ok(Self {
@@ -136,12 +136,14 @@ impl RefStore {
         snapshot_id: &str,
     ) -> Result<Option<RefMap>, AppError> {
         let path = Self::snapshot_path_for_base(base_dir, snapshot_id);
-        let json =
-            match crate::private_file::read_private_bounded(&path, crate::refs::MAX_REFMAP_BYTES) {
-                Ok(json) => json,
-                Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
-                Err(err) => return Err(err.into()),
-            };
+        let json = match crate::storage::private_file::read_private_bounded(
+            &path,
+            crate::refs::MAX_REFMAP_BYTES,
+        ) {
+            Ok(json) => json,
+            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(err) => return Err(err.into()),
+        };
         let refmap: RefMap = serde_json::from_slice(&json)?;
         refmap.validate()?;
         Ok(Some(refmap))
@@ -200,11 +202,12 @@ impl RefStore {
     }
 
     fn read_latest_snapshot_id(&self) -> Result<Option<String>, AppError> {
-        let bytes = match crate::private_file::read_private_bounded(&self.latest_path(), 65) {
-            Ok(bytes) => bytes,
-            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
-            Err(err) => return Err(err.into()),
-        };
+        let bytes =
+            match crate::storage::private_file::read_private_bounded(&self.latest_path(), 65) {
+                Ok(bytes) => bytes,
+                Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
+                Err(err) => return Err(err.into()),
+            };
         let id = std::str::from_utf8(&bytes)
             .map_err(|_| AppError::invalid_input("latest_snapshot_id must be UTF-8"))?
             .trim()

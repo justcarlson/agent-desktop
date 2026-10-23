@@ -89,8 +89,8 @@ macro_rules! complete_live_observation {
             _handle: &$crate::adapter::NativeHandle,
             _point: $crate::Point,
             _deadline: $crate::Deadline,
-        ) -> Result<$crate::hit_test::HitTestResult, $crate::AdapterError> {
-            Ok($crate::hit_test::HitTestResult::ReachesTarget)
+        ) -> Result<$crate::adapter::hit_test::HitTestResult, $crate::AdapterError> {
+            Ok($crate::adapter::hit_test::HitTestResult::ReachesTarget)
         }
     };
 }

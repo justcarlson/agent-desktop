@@ -32,7 +32,7 @@ mod imp {
     use crate::tree::properties::{read_one, rect_has_area};
     use crate::tree::property_ids::TreeProperty;
     use crate::tree::walker_source::{nearest_scroll_viewport, viewport_bounds};
-    use agent_desktop_core::native_handle::NativeHandle;
+    use agent_desktop_core::adapter::native_handle::NativeHandle;
     use std::time::{Duration, Instant};
     use uiautomation::core::UITreeWalker;
     use uiautomation::patterns::UIScrollItemPattern;
@@ -293,7 +293,7 @@ mod imp {
 #[cfg(not(target_os = "windows"))]
 mod imp {
     use super::{AdapterError, DeliveryOutcome, InteractionLease};
-    use agent_desktop_core::native_handle::NativeHandle;
+    use agent_desktop_core::adapter::native_handle::NativeHandle;
 
     pub(crate) struct ScrollIntoViewDone {
         pub(crate) label: &'static str,

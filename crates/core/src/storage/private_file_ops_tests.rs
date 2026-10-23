@@ -61,7 +61,7 @@ fn untouched_path(name: &str) -> PathBuf {
 
 fn scratch_directory(name: &str) -> PathBuf {
     let directory = untouched_path(name);
-    crate::private_file_parent::ensure_private(&directory).unwrap();
+    crate::storage::private_file_parent::ensure_private(&directory).unwrap();
     directory
 }
 
@@ -71,16 +71,17 @@ fn every_primitive_routes_through_the_overriding_ops() {
     let recorder = RecordingOps::new();
 
     with_test_ops_override(recorder.clone(), || {
-        crate::private_file::write_atomic(&missing, b"bytes").unwrap();
-        let append_error = crate::private_file::open_private_append(&missing).unwrap_err();
+        crate::storage::private_file::write_atomic(&missing, b"bytes").unwrap();
+        let append_error = crate::storage::private_file::open_private_append(&missing).unwrap_err();
         assert_eq!(append_error.kind(), ErrorKind::Unsupported);
-        let lock_error = crate::private_file::open_private_lock(&missing, true).unwrap_err();
+        let lock_error =
+            crate::storage::private_file::open_private_lock(&missing, true).unwrap_err();
         assert_eq!(lock_error.kind(), ErrorKind::Unsupported);
         assert_eq!(
-            crate::private_file::read_private_bounded(&missing, 8).unwrap(),
+            crate::storage::private_file::read_private_bounded(&missing, 8).unwrap(),
             b"routed"
         );
-        crate::private_file_parent::ensure_private(&missing).unwrap();
+        crate::storage::private_file_parent::ensure_private(&missing).unwrap();
     });
 
     assert_eq!(
@@ -104,8 +105,8 @@ fn user_output_writes_deliberately_bypass_the_platform_seam() {
     let recorder = RecordingOps::new();
 
     with_test_ops_override(recorder.clone(), || {
-        crate::private_file::write_atomic(&private_path, b"private artifact").unwrap();
-        crate::private_file::write_user_atomic(&user_path, b"user output").unwrap();
+        crate::storage::private_file::write_atomic(&private_path, b"private artifact").unwrap();
+        crate::storage::private_file::write_user_atomic(&user_path, b"user output").unwrap();
     });
 
     assert_eq!(
@@ -132,7 +133,8 @@ fn the_override_is_scoped_to_its_thread() {
     with_test_ops_override(recorder.clone(), || {
         let directory = std::thread::spawn(|| {
             let directory = scratch_directory("other-thread");
-            crate::private_file::write_atomic(&directory.join("data"), b"portable").unwrap();
+            crate::storage::private_file::write_atomic(&directory.join("data"), b"portable")
+                .unwrap();
             directory
         })
         .join()
@@ -140,7 +142,8 @@ fn the_override_is_scoped_to_its_thread() {
 
         assert_eq!(std::fs::read(directory.join("data")).unwrap(), b"portable");
         assert_eq!(
-            crate::private_file::read_private_bounded(&directory.join("data"), 16).unwrap(),
+            crate::storage::private_file::read_private_bounded(&directory.join("data"), 16)
+                .unwrap(),
             b"routed"
         );
         std::fs::remove_dir_all(directory).unwrap();
@@ -156,13 +159,13 @@ fn portable_behavior_resumes_after_the_scoped_override() {
     let recorder = RecordingOps::new();
 
     with_test_ops_override(recorder.clone(), || {
-        crate::private_file::write_atomic(&path, b"faked").unwrap();
+        crate::storage::private_file::write_atomic(&path, b"faked").unwrap();
     });
 
     assert!(!path.exists());
-    crate::private_file::write_atomic(&path, b"portable").unwrap();
+    crate::storage::private_file::write_atomic(&path, b"portable").unwrap();
     assert_eq!(
-        crate::private_file::read_private_bounded(&path, 16).unwrap(),
+        crate::storage::private_file::read_private_bounded(&path, 16).unwrap(),
         b"portable"
     );
     std::fs::remove_dir_all(directory).unwrap();
@@ -179,9 +182,9 @@ fn a_panicking_override_scope_still_restores_portable_behavior() {
     }));
 
     assert!(panicked.is_err());
-    crate::private_file::write_atomic(&path, b"portable").unwrap();
+    crate::storage::private_file::write_atomic(&path, b"portable").unwrap();
     assert_eq!(
-        crate::private_file::read_private_bounded(&path, 16).unwrap(),
+        crate::storage::private_file::read_private_bounded(&path, 16).unwrap(),
         b"portable"
     );
     std::fs::remove_dir_all(directory).unwrap();

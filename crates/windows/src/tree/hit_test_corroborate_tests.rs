@@ -6,7 +6,7 @@ use crate::tree::element_properties::ElementProperties;
 use crate::tree::name_evidence::LabelOutcome;
 use crate::tree::property_ids::TreeProperty;
 use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
-use agent_desktop_core::{Rect, hit_test::HitTestResult};
+use agent_desktop_core::{Rect, adapter::hit_test::HitTestResult};
 use std::cell::Cell;
 
 #[test]

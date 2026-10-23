@@ -357,7 +357,7 @@ fn the_credit_for_switch_time_stays_inside_an_inherited_deadline() {
     let request = snapshot_request(crate::Deadline::after(60_000).unwrap());
     let parent = crate::Deadline::detached_after(1_000).unwrap();
     let bound = std::time::Instant::now() + std::time::Duration::from_millis(1_000);
-    let _scope = crate::deadline::enter_scope(Some(parent));
+    let _scope = crate::wait::deadline::enter_scope(Some(parent));
 
     observe_tree(&adapter, ObservationRoot::Window(&window), &request)
         .expect("the walk after the switch still fits the inherited deadline");

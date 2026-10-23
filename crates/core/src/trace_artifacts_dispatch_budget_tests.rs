@@ -1,7 +1,7 @@
 use super::tests::{MINI_PNG, artifacts_session, entry, setup_artifacts_test};
 use crate::context::CommandContext;
-use crate::deadline::VirtualClock;
 use crate::refs_store::RefStore;
+use crate::wait::deadline::VirtualClock;
 use crate::{
     Action, ActionRequest, ActionResult, AdapterError, ImageBuffer,
     adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, ScreenshotTarget, SystemOps},

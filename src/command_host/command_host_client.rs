@@ -78,7 +78,8 @@ fn exchange(
         ));
     }
     let value: serde_json::Value = serde_json::from_slice(&reply)?;
-    if value["version"] != agent_desktop_core::output::ENVELOPE_VERSION || !value["ok"].is_boolean()
+    if value["version"] != agent_desktop_core::response::output::ENVELOPE_VERSION
+        || !value["ok"].is_boolean()
     {
         return Err(AppError::invalid_input(
             "Command host reply has an invalid envelope",

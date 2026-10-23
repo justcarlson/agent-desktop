@@ -8,7 +8,8 @@ mod imp {
         AXUIElementCreateSystemWide, kAXApplicationRole, kAXErrorSuccess, kAXRoleAttribute,
     };
     use agent_desktop_core::{
-        AdapterError, Point, Rect, hit_test::HitTestResult, native_handle::NativeHandle,
+        AdapterError, Point, Rect, adapter::hit_test::HitTestResult,
+        adapter::native_handle::NativeHandle,
     };
 
     /// Hit-tests `point` in the system-wide accessibility hierarchy, then
@@ -335,7 +336,7 @@ mod imp {
 #[cfg(not(target_os = "macos"))]
 mod imp {
     use agent_desktop_core::{
-        AdapterError, Point, hit_test::HitTestResult, native_handle::NativeHandle,
+        AdapterError, Point, adapter::hit_test::HitTestResult, adapter::native_handle::NativeHandle,
     };
 
     pub fn hit_test_impl(

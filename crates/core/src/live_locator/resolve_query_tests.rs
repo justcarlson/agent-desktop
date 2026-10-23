@@ -152,7 +152,7 @@ fn child_count_churn_retries_until_the_observation_is_stable() {
 
 #[test]
 fn persistent_cannot_complete_exhausts_one_deadline_with_last_evidence() {
-    let clock = crate::deadline::VirtualClock::freeze();
+    let clock = crate::wait::deadline::VirtualClock::freeze();
     let adapter = CountingAdapter {
         builds: AtomicUsize::new(0),
         observe: Some(always_cannot_complete),

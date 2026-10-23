@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::recovery_hint::RecoveryHint;
+use crate::response::recovery_hint::RecoveryHint;
 use crate::{AppError, DeliverySemantics, ErrorCode, RetryDisposition};
 
 pub const ENVELOPE_VERSION: &str = "2.5";

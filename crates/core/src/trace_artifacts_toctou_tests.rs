@@ -77,8 +77,8 @@ impl ObservationOps for ScreenshotMutationAdapter {
         _handle: &NativeHandle,
         _point: crate::Point,
         _deadline: crate::Deadline,
-    ) -> Result<crate::hit_test::HitTestResult, AdapterError> {
-        Ok(crate::hit_test::HitTestResult::ReachesTarget)
+    ) -> Result<crate::adapter::hit_test::HitTestResult, AdapterError> {
+        Ok(crate::adapter::hit_test::HitTestResult::ReachesTarget)
     }
 }
 

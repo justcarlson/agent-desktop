@@ -1,6 +1,9 @@
 mod gc;
+pub(crate) mod interaction_lease;
 mod liveness;
 mod manifest;
+pub(crate) mod process_lease_guard;
+pub(crate) mod session_affinity;
 mod tree;
 
 pub use gc::{GcOptions, GcReport, gc, is_live};
@@ -46,7 +49,7 @@ impl Default for StartSessionOptions {
 }
 
 pub fn agent_desktop_dir() -> Result<PathBuf, AppError> {
-    crate::state_root::resolve_configured_state_root()
+    crate::storage::state_root::resolve_configured_state_root()
 }
 
 pub fn session_dir(session_id: &str) -> Result<PathBuf, AppError> {
@@ -81,11 +84,13 @@ pub fn resolve_active_session(
 
 pub fn read_manifest(session_id: &str) -> Result<Option<SessionManifest>, AppError> {
     let path = manifest_path(session_id)?;
-    let json = match crate::private_file::read_private_bounded(&path, MAX_SESSION_MANIFEST_BYTES) {
-        Ok(json) => json,
-        Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Ok(ignore_unreadable_manifest(&path, &err)),
-    };
+    let json =
+        match crate::storage::private_file::read_private_bounded(&path, MAX_SESSION_MANIFEST_BYTES)
+        {
+            Ok(json) => json,
+            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(err) => return Ok(ignore_unreadable_manifest(&path, &err)),
+        };
     match serde_json::from_slice(&json) {
         Ok(manifest) => Ok(Some(manifest)),
         Err(err) => Ok(ignore_unreadable_manifest(&path, &err)),
@@ -164,7 +169,7 @@ pub fn cursor_overlay_for_session_agent(
         return Ok(config);
     };
     let path = agent_profile_path(session_id, agent_id)?;
-    match crate::private_file::read_private_bounded(&path, MAX_SESSION_MANIFEST_BYTES) {
+    match crate::storage::private_file::read_private_bounded(&path, MAX_SESSION_MANIFEST_BYTES) {
         Ok(bytes) => {
             let parsed: Result<CursorOverlayConfig, AppError> = serde_json::from_slice::<
                 CursorOverlayConfig,

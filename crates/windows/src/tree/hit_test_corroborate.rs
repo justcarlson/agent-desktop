@@ -25,7 +25,7 @@
 //! rest on A9-2 / A16-12 observation-across-boundary evidence until an
 //! elevated A18 capture lands — not a product-path blocker.
 
-use agent_desktop_core::{Deadline, LocatorField, Point, hit_test::HitTestResult};
+use agent_desktop_core::{Deadline, LocatorField, Point, adapter::hit_test::HitTestResult};
 use uiautomation::core::UITreeWalker;
 
 use super::classify::ancestry_limit;

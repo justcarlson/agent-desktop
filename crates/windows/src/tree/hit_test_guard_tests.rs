@@ -1,6 +1,6 @@
 use super::classify::{PreProbeGuard, point_in_rect, pre_probe_decision, result_for_guard};
 use crate::tree::properties::rect_has_area;
-use agent_desktop_core::{Point, Rect, hit_test::HitTestResult};
+use agent_desktop_core::{Point, Rect, adapter::hit_test::HitTestResult};
 
 /// A synthetic screen: the guard ladder is driven with the geometry it would
 /// have read, so no assertion here depends on the machine's display layout.

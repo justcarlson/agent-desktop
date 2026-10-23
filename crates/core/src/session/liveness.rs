@@ -1,4 +1,4 @@
-use crate::{AppError, Deadline, file_lock::FileLock, refs_lock::RefStoreLock};
+use crate::{AppError, Deadline, refs_lock::RefStoreLock, storage::file_lock::FileLock};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -45,7 +45,7 @@ pub fn acquire(
         return Ok(None);
     }
     let directory = base.join("liveness");
-    crate::private_file_parent::ensure_private(&directory)?;
+    crate::storage::private_file_parent::ensure_private(&directory)?;
     let path = directory.join(lease_filename());
     let lock = FileLock::acquire(&path, deadline, "session liveness lease")?;
     Ok(Some(SessionLivenessLease {

@@ -63,7 +63,7 @@ fn documented_envelope_versions_match_the_code_constant() {
         for version in found {
             assert_eq!(
                 version,
-                agent_desktop_core::output::ENVELOPE_VERSION,
+                agent_desktop_core::response::output::ENVELOPE_VERSION,
                 "{path} documents envelope version {version}"
             );
         }

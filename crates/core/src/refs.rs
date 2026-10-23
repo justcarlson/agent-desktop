@@ -169,7 +169,7 @@ impl RefMap {
 
     pub fn load() -> Result<Self, AppError> {
         let path = refmap_path()?;
-        let json = crate::private_file::read_private_bounded(&path, MAX_REFMAP_BYTES)?;
+        let json = crate::storage::private_file::read_private_bounded(&path, MAX_REFMAP_BYTES)?;
         let map: Self = serde_json::from_slice(&json)?;
         map.validate()?;
         Ok(map)
@@ -183,7 +183,7 @@ impl Default for RefMap {
 }
 
 fn refmap_path() -> Result<PathBuf, AppError> {
-    Ok(crate::state_root::resolve_configured_state_root()?.join("last_refmap.json"))
+    Ok(crate::storage::state_root::resolve_configured_state_root()?.join("last_refmap.json"))
 }
 
 pub(crate) fn new_snapshot_id() -> String {
@@ -237,7 +237,7 @@ pub fn validate_snapshot_id(snapshot_id: &str) -> Result<(), AppError> {
 }
 
 pub(crate) fn write_private_file(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
-    crate::private_file::write_atomic(path, bytes).map_err(AppError::from)
+    crate::storage::private_file::write_atomic(path, bytes).map_err(AppError::from)
 }
 
 /// Writes user-requested output for `screenshot` and `clipboard get`.
@@ -245,9 +245,9 @@ pub(crate) fn write_private_file(path: &Path, bytes: &[u8]) -> Result<(), AppErr
 /// Unlike `write_private_file`, this does not route through the
 /// `PrivateFileOps` seam: the destination is user-chosen and must tolerate
 /// remote, reparse-traversing, and foreign-owned paths that the private
-/// policy refuses. See `crate::private_file::write_user_atomic`.
+/// policy refuses. See `crate::storage::private_file::write_user_atomic`.
 pub(crate) fn write_user_file(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
-    crate::private_file::write_user_atomic(path, bytes).map_err(|error| {
+    crate::storage::private_file::write_user_atomic(path, bytes).map_err(|error| {
         if error.kind() == std::io::ErrorKind::InvalidData {
             AppError::invalid_input_with_suggestion(
                 format!("Cannot write output file: {error}"),
@@ -310,7 +310,7 @@ fn validate_home_dir(home: &Path) -> bool {
     if !meta.is_dir() {
         return false;
     }
-    crate::state_root::is_owned_by_current_user(&meta)
+    crate::storage::state_root::is_owned_by_current_user(&meta)
 }
 
 #[cfg(test)]

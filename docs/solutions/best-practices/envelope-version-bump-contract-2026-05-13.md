@@ -36,7 +36,7 @@ pinned clients cannot distinguish an old response from a new one.
 
 ## Guidance
 
-Keep `ENVELOPE_VERSION` in `crates/core/src/output.rs` as the single source of
+Keep `ENVELOPE_VERSION` in `crates/core/src/response/output.rs` as the single source of
 truth. Bump it whenever a client that already parses successful JSON needs a
 different parser branch for the same command name.
 

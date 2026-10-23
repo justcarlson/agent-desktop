@@ -13,8 +13,8 @@ use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     ErrorCode, Rect,
     adapter::NativeHandle,
+    adapter::hit_test::HitTestResult,
     capability,
-    hit_test::HitTestResult,
     refs::{RefEntry, RefMap},
     refs_store::RefStore,
     refs_test_support::HomeGuard,

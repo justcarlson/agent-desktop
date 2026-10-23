@@ -21,7 +21,7 @@ mod test_noop_ops;
 use agent_desktop_core::{
     AdapterError, AppError, DeliverySemantics, ErrorCode, SystemOps,
     context::{CommandContext, WaitSelector},
-    output::{ErrorPayload, Response},
+    response::output::{ErrorPayload, Response},
     session::resolve_active_session,
 };
 use clap::{CommandFactory, Parser};

@@ -47,7 +47,7 @@ pub fn resolve_query(
                         .into());
                     }
                     let remaining = deadline.remaining();
-                    crate::deadline::sleep(remaining.min(Duration::from_millis(10)));
+                    crate::wait::deadline::sleep(remaining.min(Duration::from_millis(10)));
                     continue;
                 }
                 if !resolution.meta.selection_complete && requires_authoritative_result(request) {
@@ -72,7 +72,7 @@ pub fn resolve_query(
                     "details": error.details,
                 }));
                 let remaining = deadline.remaining();
-                crate::deadline::sleep(remaining.min(Duration::from_millis(10)));
+                crate::wait::deadline::sleep(remaining.min(Duration::from_millis(10)));
             }
             Err(error) => return Err(error),
         }

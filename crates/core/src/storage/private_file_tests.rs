@@ -287,7 +287,7 @@ fn ensure_private_creates_the_nested_parent_chain() {
     let directory = directory("nested-parents");
     let nested = directory.join("outer").join("inner");
 
-    crate::private_file_parent::ensure_private(&nested).unwrap();
+    crate::storage::private_file_parent::ensure_private(&nested).unwrap();
 
     assert!(nested.is_dir());
     write_atomic(&nested.join("data"), b"nested").unwrap();

@@ -3,9 +3,9 @@ use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, CursorOverlayControl, DeliverySemantics, DragParams, Rect,
     adapter::NativeHandle,
+    adapter::hit_test::HitTestResult,
     capability,
     commands::stale_retry_test_support::StaleRetryCounter,
-    hit_test::HitTestResult,
     refs::{RefEntry, RefMap},
     refs_store::RefStore,
     refs_test_support::HomeGuard,
@@ -253,7 +253,7 @@ fn expired_action_deadline_does_not_suppress_drag_cancellation() {
         .with_cursor_overlay_session("test-session", config);
     let expired = crate::Deadline::detached_after(1).expect("valid deadline");
     std::thread::sleep(std::time::Duration::from_millis(2));
-    let _scope = crate::deadline::enter_scope(Some(expired));
+    let _scope = crate::wait::deadline::enter_scope(Some(expired));
 
     crate::cursor_overlay::cancel_drag(&adapter, &context);
 

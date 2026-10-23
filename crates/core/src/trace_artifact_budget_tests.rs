@@ -1,5 +1,5 @@
 use super::*;
-use crate::deadline::VirtualClock;
+use crate::wait::deadline::VirtualClock;
 
 fn temp_dir(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(

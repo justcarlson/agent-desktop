@@ -22,7 +22,7 @@
 //! target that reports `UIA_E_ELEMENTNOTAVAILABLE` settles as stale rather
 //! than surfacing as a retryable, indefinitely-repeated `AppUnresponsive`.
 
-use agent_desktop_core::live_element::{
+use agent_desktop_core::adapter::live_element::{
     essential_live_evidence_complete, incomplete_live_evidence, known_actions,
 };
 use agent_desktop_core::{

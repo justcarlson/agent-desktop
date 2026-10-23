@@ -1,10 +1,10 @@
 use std::path::Path;
 
-pub(super) fn ensure_private(path: &Path) -> std::io::Result<()> {
-    crate::private_file_ops::with_active_ops(|ops| ops.ensure_private(path))
+pub(crate) fn ensure_private(path: &Path) -> std::io::Result<()> {
+    crate::storage::private_file_ops::with_active_ops(|ops| ops.ensure_private(path))
 }
 
-pub(super) fn ensure_private_portable(path: &Path) -> std::io::Result<()> {
+pub(crate) fn ensure_private_portable(path: &Path) -> std::io::Result<()> {
     ensure_directory_path(path)?;
     let metadata = std::fs::symlink_metadata(path)?;
     if metadata.file_type().is_symlink() || !metadata.is_dir() {
@@ -29,7 +29,7 @@ pub(super) fn ensure_private_portable(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-pub(super) fn ensure_user(path: &Path) -> std::io::Result<()> {
+pub(crate) fn ensure_user(path: &Path) -> std::io::Result<()> {
     ensure_directory_path(path)?;
     let metadata = std::fs::metadata(path)?;
     if !metadata.is_dir() {

@@ -1,4 +1,4 @@
-use agent_desktop_core::{AppError, output::Response};
+use agent_desktop_core::{AppError, response::output::Response};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

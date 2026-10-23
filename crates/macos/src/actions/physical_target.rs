@@ -37,8 +37,12 @@ impl PreparedPhysicalTarget {
         crate::system::focus::verify_app_focused(self.identity.pid(), deadline)?;
         crate::system::focus::verify_window_main(&self.window, deadline)?;
         match crate::tree::hit_test::hit_test_ax_element(element, point.clone(), deadline)? {
-            agent_desktop_core::hit_test::HitTestResult::ReachesTarget => {}
-            agent_desktop_core::hit_test::HitTestResult::InterceptedBy { role, name, .. } => {
+            agent_desktop_core::adapter::hit_test::HitTestResult::ReachesTarget => {}
+            agent_desktop_core::adapter::hit_test::HitTestResult::InterceptedBy {
+                role,
+                name,
+                ..
+            } => {
                 return Err(AdapterError::new(
                     ErrorCode::ActionFailed,
                     "Physical input point is intercepted by another accessibility element",
@@ -49,7 +53,7 @@ impl PreparedPhysicalTarget {
                     "occluder_name": name,
                 })));
             }
-            agent_desktop_core::hit_test::HitTestResult::Unknown => {
+            agent_desktop_core::adapter::hit_test::HitTestResult::Unknown => {
                 return Err(AdapterError::new(
                     ErrorCode::ActionFailed,
                     "Physical input target could not be proven at the final input point",

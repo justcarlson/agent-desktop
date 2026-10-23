@@ -101,7 +101,7 @@ regardless of which capture path produces the PNG.
 
 ## Related
 
-- `crates/core/src/notification_identity.rs`
+- `crates/core/src/notifications/notification_identity.rs`
 - `crates/macos/src/notifications/actions.rs`
 - `crates/windows/src/system/window_activate.rs`
 - `crates/windows/src/system/display.rs`

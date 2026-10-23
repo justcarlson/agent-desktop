@@ -412,7 +412,7 @@ jobs:
             Write-Host 'FAIL: core source declares a raw Win32 surface'
             exit 1
           }
-          $allowed = (Resolve-Path 'crates/core/src/private_file.rs').Path
+          $allowed = (Resolve-Path 'crates/core/src/storage/private_file.rs').Path
           $cfgMatches = @($sources | Select-String -Pattern 'cfg\(windows\)|cfg\(target_os = "windows"\)' -AllMatches)
           $outside = @($cfgMatches | Where-Object { $_.Path -ne $allowed })
           if ($outside.Count -gt 0) {
