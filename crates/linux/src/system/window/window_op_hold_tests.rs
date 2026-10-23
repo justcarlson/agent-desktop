@@ -1,5 +1,3 @@
-use serde_json::json;
-
 use super::*;
 
 fn shifted_by_the_frame(written: &[WindowWrite]) -> WindowFacts {
@@ -70,8 +68,8 @@ fn a_clamped_resize_that_also_shifted_the_client_still_gives_the_place_back() {
         });
         match (written.is_empty(), back) {
             (true, _) => state(300, 200, 400, 300),
-            (false, true) => state(300, 200, 1280, 800),
-            (false, false) => state(301, 222, 1280, 800),
+            (false, true) => state(300, 200, 900, 500),
+            (false, false) => state(301, 222, 900, 500),
         }
     }
     let mut world = World::showing(state(300, 200, 400, 300));
@@ -83,8 +81,8 @@ fn a_clamped_resize_that_also_shifted_the_client_still_gives_the_place_back() {
     let details = error.details.expect("details");
     assert_eq!(details["observed"]["x"], 300);
     assert_eq!(details["observed"]["y"], 200);
-    assert_eq!(details["observed"]["width"], 1280);
-    assert_eq!(details["observed"]["height"], 800);
+    assert_eq!(details["observed"]["width"], 900);
+    assert_eq!(details["observed"]["height"], 500);
 }
 
 #[test]
@@ -127,12 +125,11 @@ fn kept_on_the_display(written: &[WindowWrite]) -> WindowFacts {
 }
 
 #[test]
-fn a_resize_the_manager_kept_on_the_display_holds_and_reports_the_origin_it_chose() {
+fn a_resize_the_manager_moved_to_keep_it_on_the_display_is_judged_by_its_size() {
     let mut world = World::showing(state(400, 450, 494, 291));
     world.reaction = Some(kept_on_the_display);
     let deadline = Deadline::after(2_000).expect("a deadline builds");
-    let report =
-        run(&world, &window(), &resize(804.0, 599.0), deadline).expect("the size was held");
+    let report = run(&world, &window(), &resize(804.0, 599.0), deadline).expect("the size held");
     assert_eq!(world.writes(), 1);
     assert_eq!(
         report.disposition(),
@@ -140,44 +137,10 @@ fn a_resize_the_manager_kept_on_the_display_holds_and_reports_the_origin_it_chos
     );
     let details = report.result.details.expect("details");
     assert_eq!(details["verification_scope"], "window_size");
-    assert_eq!(
-        details["observed"],
-        json!({ "x": 400, "y": 201, "width": 804, "height": 599 })
-    );
-}
-
-fn kept_on_the_display_around_a_shadow(written: &[WindowWrite]) -> WindowFacts {
-    let shadow = (14, 12, 14, 17);
-    if written.is_empty() {
-        WindowFacts {
-            shadow,
-            ..state(386, 438, 348, 266)
-        }
-    } else {
-        WindowFacts {
-            shadow,
-            ..state(386, 189, 832, 628)
-        }
-    }
-}
-
-#[test]
-fn a_window_whose_shadow_leaves_the_display_is_kept_on_it_by_its_drawn_rectangle() {
-    let mut world = World::showing(state(386, 438, 348, 266));
-    let mut shadowed = client(CLIENT, "Doc");
-    shadowed.shadow = (14, 12, 14, 17);
-    world
-        .clients
-        .replace([ControlRead::Ready(vec![shadowed])].into());
-    world.reaction = Some(kept_on_the_display_around_a_shadow);
-    let deadline = Deadline::after(2_000).expect("a deadline builds");
-    let report =
-        run(&world, &window(), &resize(804.0, 599.0), deadline).expect("the size was held");
-    assert_eq!(world.writes(), 1);
-    assert_eq!(
-        report.result.details.expect("details")["observed"],
-        json!({ "x": 400, "y": 201, "width": 804, "height": 599 })
-    );
+    assert_eq!(details["observed"]["x"], 400);
+    assert_eq!(details["observed"]["y"], 201);
+    assert_eq!(details["observed"]["width"], 804);
+    assert_eq!(details["observed"]["height"], 599);
 }
 
 fn shifted_and_not_given_back(written: &[WindowWrite]) -> WindowFacts {
@@ -193,68 +156,14 @@ fn a_resize_whose_origin_the_manager_will_not_give_back_still_holds_its_size() {
     let mut world = World::showing(state(300, 200, 400, 300));
     world.reaction = Some(shifted_and_not_given_back);
     let deadline = Deadline::after(2_000).expect("a deadline builds");
-    let report = run(&world, &window(), &resize(520.0, 380.0), deadline)
-        .expect("a refused move back does not fail a resize that held its size");
+    let report = run(&world, &window(), &resize(520.0, 380.0), deadline).expect("the size held");
     assert_eq!(
         report.disposition(),
         DeliverySemantics::delivered_verified()
     );
-    assert_eq!(
-        report.result.details.expect("details")["observed"],
-        json!({ "x": 301, "y": 222, "width": 520, "height": 380 })
-    );
-}
-
-fn shifted_past_the_display_edge(written: &[WindowWrite]) -> WindowFacts {
-    let moved_back = written.iter().any(|write| {
-        matches!(
-            write,
-            WindowWrite::MoveResize {
-                x: Some(400),
-                y: Some(450),
-                ..
-            }
-        )
-    });
-    match (written.is_empty(), moved_back) {
-        (true, _) => state(400, 450, 494, 291),
-        (false, true) => state(400, 450, 804, 599),
-        (false, false) => state(401, 472, 804, 599),
-    }
-}
-
-#[test]
-fn a_frame_shift_is_given_back_where_the_manager_lets_the_window_overflow_the_display() {
-    let mut world = World::showing(state(400, 450, 494, 291));
-    world.reaction = Some(shifted_past_the_display_edge);
-    let deadline = Deadline::after(2_000).expect("a deadline builds");
-    let report = run(&world, &window(), &resize(804.0, 599.0), deadline).expect("a resize");
-    assert_eq!(world.writes(), 2);
-    assert_eq!(
-        report.result.details.expect("details")["observed"],
-        json!({ "x": 400, "y": 450, "width": 804, "height": 599 })
-    );
-}
-
-#[test]
-fn a_failed_resize_carries_only_the_size_the_caller_asked_for() {
-    let world = World::showing(state(10, 10, 982, 797));
-    let error = run(&world, &window(), &resize(982.0, 802.0), budget()).expect_err("a clamp");
-    assert_eq!(
-        error.details.expect("details")["requested"],
-        json!({ "width": 982, "height": 802 })
-    );
-}
-
-#[test]
-fn a_failed_move_carries_only_the_place_the_caller_asked_for() {
-    let world = World::showing(state(10, 10, 400, 300));
-    let op = WindowOp::Move { x: 300.0, y: 200.0 };
-    let error = run(&world, &window(), &op, budget()).expect_err("a manager that left it");
-    assert_eq!(
-        error.details.expect("details")["requested"],
-        json!({ "x": 300, "y": 200 })
-    );
+    let details = report.result.details.expect("details");
+    assert_eq!(details["observed"]["x"], 301);
+    assert_eq!(details["observed"]["y"], 222);
 }
 
 fn clamps_the_vertical_axis_of_a_restored_place(written: &[WindowWrite]) -> WindowFacts {

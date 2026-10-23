@@ -117,13 +117,22 @@ fn a_tie_is_broken_by_the_twins_and_otherwise_stays_a_tie() {
 #[test]
 fn tied_clients_agree_on_hidden_or_say_nothing() {
     let shown = [client(4, "Doc", false), client(9, "Doc", false)];
-    assert_eq!(tied_hidden(&shown, &[4, 9]), Some(false));
+    assert_eq!(
+        tied_agree(&shown, &[4, 9], |client| client.hidden),
+        Some(false)
+    );
     let hidden = [client(4, "Doc", true), client(9, "Doc", true)];
-    assert_eq!(tied_hidden(&hidden, &[4, 9]), Some(true));
+    assert_eq!(
+        tied_agree(&hidden, &[4, 9], |client| client.hidden),
+        Some(true)
+    );
     let mixed = [client(4, "Doc", false), client(9, "Doc", true)];
-    assert_eq!(tied_hidden(&mixed, &[4, 9]), None);
-    assert_eq!(tied_hidden(&mixed, &[4]), Some(false));
-    assert_eq!(tied_hidden(&mixed, &[]), None);
+    assert_eq!(tied_agree(&mixed, &[4, 9], |client| client.hidden), None);
+    assert_eq!(
+        tied_agree(&mixed, &[4], |client| client.hidden),
+        Some(false)
+    );
+    assert_eq!(tied_agree(&mixed, &[], |client| client.hidden), None);
 }
 
 #[test]

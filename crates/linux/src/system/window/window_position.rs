@@ -1,10 +1,10 @@
 use agent_desktop_core::Rect;
 
 use super::listed_twins::listed_client;
-use super::window_op_shadow::Shadow;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::x11::desktops::Desktops;
 use crate::system::x11::map::ClientMatch;
+use crate::system::x11::twin_tie::tied_agree;
 use crate::system::x11::{X11Client, X11State};
 use crate::tree::Extents;
 
@@ -22,49 +22,24 @@ fn client_origin(client: &X11Client) -> Option<(i32, i32)> {
     ))
 }
 
-/// The window the client draws, its geometry less the client-side shadow. A
-/// toolkit that reports window coordinates does not move its extents with a
-/// resize or a maximize, so the client is the only source of the size.
-fn visible_rect(client: &X11Client) -> Option<Rect> {
+fn visible_size(client: &X11Client) -> Option<Extents> {
     let (left, top, right, bottom) = client.shadow;
     let bounds = client.bounds?;
-    let width = bounds.width.checked_sub(left)?.checked_sub(right)?;
-    let height = bounds.height.checked_sub(top)?.checked_sub(bottom)?;
-    if width <= 0 || height <= 0 {
-        return None;
-    }
-    let (x, y) = client_origin(client)?;
-    Some(Rect::from(Extents {
-        x,
-        y,
-        width,
-        height,
-    }))
+    Some(Extents {
+        x: 0,
+        y: 0,
+        width: bounds.width.checked_sub(left)?.checked_sub(right)?,
+        height: bounds.height.checked_sub(top)?.checked_sub(bottom)?,
+    })
 }
 
-/// The shadow every client `found` names draws, or `None` when they differ or
-/// none is known. Clients a tie leaves open share a shadow when their windows
-/// are alike, and then the shadow of any of them is the shadow of the window.
-fn shared_shadow(found: &ClientMatch, clients: &[X11Client]) -> Option<Shadow> {
-    let ids = match found {
-        ClientMatch::One(id) => std::slice::from_ref(id),
-        ClientMatch::Several(ids) => ids.as_slice(),
-        ClientMatch::NoClient => return None,
-    };
-    let mut shadows = clients
-        .iter()
-        .filter(|client| ids.contains(&client.id))
-        .map(|client| client.shadow);
-    let first = shadows.next()?;
-    shadows.all(|shadow| shadow == first).then_some(first)
-}
-
-fn trim(bounds: &mut Rect, shadow: Shadow) {
-    let (left, top, right, bottom) = shadow;
-    bounds.x += f64::from(left);
-    bounds.y += f64::from(top);
-    bounds.width -= f64::from(left + right);
-    bounds.height -= f64::from(top + bottom);
+fn at(origin: (i32, i32), size: Extents) -> Rect {
+    Rect::from(Extents {
+        x: origin.0,
+        y: origin.1,
+        width: size.width,
+        height: size.height,
+    })
 }
 
 /// Places and annotates windows using one X11 client match per window.
@@ -86,16 +61,27 @@ pub(crate) fn place_windows(
         .map(|index| listed_client(listed, index, state))
         .collect();
     for (window, found) in listed.iter_mut().zip(&matches) {
-        let client = match found {
-            ClientMatch::One(id) => clients.iter().find(|client| client.id == *id),
-            ClientMatch::Several(_) | ClientMatch::NoClient => None,
+        let ids: &[u32] = match found {
+            ClientMatch::One(id) => std::slice::from_ref(id),
+            ClientMatch::Several(ids) => ids,
+            ClientMatch::NoClient => &[],
+        };
+        let client = match ids {
+            [id] => clients.iter().find(|client| client.id == *id),
+            _ => None,
         };
         if !window.frame.global_position {
-            window.info.bounds = client.and_then(visible_rect);
-        } else if let (Some(shadow), Some(bounds)) =
-            (shared_shadow(found, clients), window.info.bounds.as_mut())
-        {
-            trim(bounds, shadow);
+            window.info.bounds = window.frame.extents.zip(client).and_then(|(size, client)| {
+                client_origin(client).map(|origin| at(origin, visible_size(client).unwrap_or(size)))
+            });
+        } else if let (Some((left, top, right, bottom)), Some(bounds)) = (
+            tied_agree(clients, ids, |client| client.shadow),
+            window.info.bounds.as_mut(),
+        ) {
+            bounds.x += f64::from(left);
+            bounds.y += f64::from(top);
+            bounds.width -= f64::from(left + right);
+            bounds.height -= f64::from(top + bottom);
         }
         if client.is_some_and(|client| client.hidden) {
             window.info.state.minimized = Some(true);
