@@ -18,6 +18,7 @@ const { afterEach, test } = require('node:test');
 const postinstall = require('../../npm/scripts/postinstall.js');
 const {
   PLATFORMS,
+  helperNames,
   resolve,
   tarCommand,
   tarballName,
@@ -53,6 +54,11 @@ function archive(entries) {
     ...Object.keys(entries),
   ]);
   return { root, tarball };
+}
+
+function stagingLeftovers() {
+  const packageBin = join(__dirname, '..', '..', 'npm', 'bin');
+  return readdirSync(packageBin).filter((name) => name.startsWith('.extract-')).sort();
 }
 
 function captureWarnings(run) {
@@ -134,9 +140,11 @@ test('archive installation places the windows executable and leaves no staging d
   const unusedHelper = join(destination, 'unused-helper');
 
   const before = readdirSync(destination);
+  const stagingBefore = stagingLeftovers();
   postinstall.installArchive(payload.tarball, binary, unusedHelper, resolve('win32', 'x64'));
 
   assert.equal(readFileSync(binary, 'utf8'), 'cli-win-build');
+  assert.deepEqual(stagingLeftovers(), stagingBefore, 'installArchive stages in the package bin directory and must remove it');
   const newEntries = readdirSync(destination).filter((name) => !before.includes(name));
   assert.deepEqual(
     newEntries.map((name) => join(destination, name)).sort(),
@@ -212,6 +220,7 @@ test('archive installation removes its staging directory on macOS', () => {
   const helper = join(destination, 'agent-desktop-macos-helper');
 
   const darwin = postinstallAs('darwin');
+  const stagingBefore = stagingLeftovers();
   const warnings = captureWarnings(() =>
     darwin.installArchive(
       payload.tarball,
@@ -224,7 +233,7 @@ test('archive installation removes its staging directory on macOS', () => {
   assert.equal(readFileSync(binary, 'utf8'), 'cli-build-v2');
   assert.equal(readFileSync(helper, 'utf8'), 'helper-build-v2');
   assert.equal(warnings, '');
-  assert.deepEqual(readdirSync(destination).filter((name) => name.startsWith('.extract-')), []);
+  assert.deepEqual(stagingLeftovers(), stagingBefore, 'installArchive stages in the package bin directory and must remove it');
 });
 
 test('custom helper override must be absolute', () => {
@@ -314,20 +323,10 @@ test('resolve returns target triple, binary name, entry set and released flag fo
     assert.deepEqual(entry, expected, `unexpected resolution for ${key}`);
   }
   assert.equal(resolve('sunos', 'x64'), undefined);
-});
-
-test('platform table keeps every key carried by the three pre-extraction maps', () => {
-  const preExtractionUnion = [
-    'darwin-arm64',
-    'darwin-x64',
-    'linux-arm64',
-    'linux-x64',
-    'win32-x64',
-  ];
-  const keys = Object.keys(PLATFORMS);
-  for (const key of preExtractionUnion) {
-    assert.ok(keys.includes(key), `platform ${key} was dropped from the table`);
+  for (const key of ['linux-x64', 'linux-arm64']) {
+    assert.deepEqual(helperNames(PLATFORMS[key]), ['agent-desktop-linux-clipboard-owner'], key);
   }
+  assert.deepEqual(helperNames(PLATFORMS['win32-x64']), []);
 });
 
 test('tarball name matches the template postinstall previously constructed inline', () => {
