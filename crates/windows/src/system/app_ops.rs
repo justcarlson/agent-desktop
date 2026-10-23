@@ -31,7 +31,7 @@ pub(crate) fn is_protected_process(identifier: &str) -> bool {
 /// `list_apps` joins the window inventory's owning processes with this
 /// snapshot so the two inventories corroborate each other on
 /// `process_instance` (mirroring
-/// `crates/macos/src/system/app_inventory.rs:133-146` where two sources must
+/// `crates/macos/src/system/app/app_inventory.rs:133-146` where two sources must
 /// agree or the inventory fails).
 #[derive(Debug, Clone)]
 pub(crate) struct ProcessRow {

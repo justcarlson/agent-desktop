@@ -178,7 +178,7 @@ fn attempt_verdict(
 
 /// Composes the searched candidates' tie-break hashes with the unread-region
 /// flag into a verdict, mirroring macOS's ordering
-/// (`crates/macos/src/tree/resolve_search.rs:43-58`) even though nothing on
+/// (`crates/macos/src/tree/resolve/resolve_search.rs:43-58`) even though nothing on
 /// Windows stops the search itself early: `search_under` always walks the
 /// whole depth-bounded subtree, and `should_stop_collecting` is consulted
 /// only here, post-hoc, after collection is done. Two or more matches with
@@ -267,7 +267,7 @@ pub(crate) fn retry_incomplete_until(
 /// `Timeout` and is one of those - it is a per-call transport timeout inside
 /// the operation's budget, not the budget running out. Deadline exhaustion
 /// carries no retryable stamp, so it still falls through to the caller. Mirrors macOS
-/// (`is_retryable_resolution_error` in `crates/macos/src/tree/resolve.rs`); the granularity split between adapter-loop-settled
+/// (`is_retryable_resolution_error` in `crates/macos/src/tree/resolve/mod.rs`); the granularity split between adapter-loop-settled
 /// and incomplete lives in the `complete`/`retryable` details every resolver
 /// error carries.
 #[cfg(target_os = "windows")]

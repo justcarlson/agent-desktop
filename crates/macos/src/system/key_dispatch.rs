@@ -30,7 +30,7 @@ fn press_for_app(
         key = combo.key,
         "system: press key for app"
     );
-    let identity = crate::system::process_identity::require_core(&process)?;
+    let identity = crate::system::process::process_identity::require_core(&process)?;
     let pid = identity.pid();
     let app = crate::tree::element_for_pid(pid);
 
@@ -52,14 +52,14 @@ fn press_for_app(
         return post_delivery_process_result(&process, semantic_step(action));
     }
 
-    crate::input::keyboard_map::key_name_to_code(&combo.key)?;
+    crate::input::keyboard::keyboard_map::key_name_to_code(&combo.key)?;
     if policy.allow_focus_steal {
-        crate::system::process_identity::require_core(&process)?;
+        crate::system::process::process_identity::require_core(&process)?;
         crate::system::focus::verify_app_focused(pid, deadline)?;
     }
-    crate::system::process_identity::require_core(&process)?;
+    crate::system::process::process_identity::require_core(&process)?;
     require_focused_element(&app, policy, deadline)?;
-    crate::system::process_identity::require_core(&process)?;
+    crate::system::process::process_identity::require_core(&process)?;
     crate::input::keyboard::synthesize_key(combo, Some(pid), deadline)?;
     post_delivery_process_result(
         &process,
@@ -79,7 +79,7 @@ fn post_delivery_process_result(
     process: &ProcessIdentity,
     step: ActionStep,
 ) -> Result<ActionResult, AdapterError> {
-    crate::system::process_identity::require_core(process)
+    crate::system::process::process_identity::require_core(process)
         .map_err(|error| error.with_disposition(DeliverySemantics::delivered_unverified()))?;
     Ok(ActionResult::delivered_unverified("press_key").with_steps(vec![step]))
 }
@@ -155,7 +155,8 @@ fn element_attribute(
     attribute: &str,
     deadline: Deadline,
 ) -> Result<Option<AXElement>, AdapterError> {
-    let result = crate::tree::attributes::copy_element_attr_result(element, attribute, deadline);
+    let result =
+        crate::tree::properties::attributes::copy_element_attr_result(element, attribute, deadline);
     deadline.ensure_remaining()?;
     result.map_err(|error| read_error(attribute, error))
 }

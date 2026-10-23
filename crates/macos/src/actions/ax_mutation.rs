@@ -121,9 +121,9 @@ pub(crate) fn settle_uninformative_perform(
     operation: &str,
     error: i32,
     observed_effect: bool,
-) -> Result<crate::actions::chain_delivery::DeliveryOutcome, AdapterError> {
+) -> Result<crate::actions::chain::chain_delivery::DeliveryOutcome, AdapterError> {
     if observed_effect {
-        return Ok(crate::actions::chain_delivery::DeliveryOutcome::DeliveredVerified);
+        return Ok(crate::actions::chain::chain_delivery::DeliveryOutcome::DeliveredVerified);
     }
     Err(AdapterError::new(
         ErrorCode::ActionFailed,
@@ -165,7 +165,7 @@ mod tests {
         assert_eq!(
             super::settle_uninformative_perform("AXOpen", kAXErrorAttributeUnsupported, true)
                 .unwrap(),
-            crate::actions::chain_delivery::DeliveryOutcome::DeliveredVerified,
+            crate::actions::chain::chain_delivery::DeliveryOutcome::DeliveredVerified,
         );
     }
 

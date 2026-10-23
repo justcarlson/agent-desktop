@@ -83,7 +83,7 @@ four cannot-complete reads and no deadline exhaustion. The capability readers
 (`AXUIElementCopyActionNames`, `AXUIElementIsAttributeSettable`) had no retry,
 unlike tree reads. They now go through the shared bounded read-recovery helper
 (`crates/macos/src/tree/read_recovery.rs`, wired in
-`crates/macos/src/tree/capabilities.rs`): only `kAXErrorCannotComplete` retries,
+`crates/macos/src/tree/properties/capabilities.rs`): only `kAXErrorCannotComplete` retries,
 at most three calls, inside the same absolute deadline, with backoff capped at
 1 ms. Mutation APIs never enter that helper and every other native error stays
 terminal. `read_recovery.rs` pins the call counts.

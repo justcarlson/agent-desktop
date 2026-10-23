@@ -23,7 +23,7 @@ pre-dispatch failure: the system may still believe the button is down.
 
 ## Guidance
 
-`crates/macos/src/input/mouse_drag.rs` owns a `DragReleaseGuard` for the whole
+`crates/macos/src/input/mouse/mouse_drag.rs` owns a `DragReleaseGuard` for the whole
 sequence. It arms immediately before mouse-down is posted, so the guard is
 already live when the first committed event goes out, then records delivery
 once that post returns. It retains the destination release until the post

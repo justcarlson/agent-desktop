@@ -21,7 +21,7 @@ fn assert_class_a_envelope(error: &AdapterError, code: ErrorCode, expected: Deli
 ///
 /// macOS pins the identical pair for the identical condition - a deadline
 /// that expires waiting for exit after termination was already requested -
-/// in `crates/macos/src/system/app_ops.rs`'s `wait_for_exit`.
+/// in `crates/macos/src/system/app/app_ops.rs`'s `wait_for_exit`.
 #[test]
 fn shared_timeout_after_close_delivery_pins_the_windows_envelope() {
     #[cfg(target_os = "windows")]
@@ -55,7 +55,7 @@ fn shared_timeout_after_close_delivery_pins_the_windows_envelope() {
 /// exhaustion; macOS's activation path carries no equivalent budget to
 /// exhaust, so no macOS call site pins this exact pair. The pair still
 /// expresses a cross-platform rule rather than a Windows-only one:
-/// `crates/macos/src/actions/chain.rs::exhaustion_disposition` reports the
+/// `crates/macos/src/actions/chain/mod.rs::exhaustion_disposition` reports the
 /// identical `ActionFailed`/not-delivered pair whenever its own chain, too,
 /// has issued no successful step.
 #[test]
@@ -105,9 +105,9 @@ fn shared_perm_denied_before_delivery_pins_the_windows_envelope() {
 /// write is refused before any native call. That code choice is not a
 /// verified macOS match: macOS's own "no identity to verify" cases choose
 /// different codes for the same missing-token shape -
-/// `crates/macos/src/system/app_ops.rs::close_app_impl` reports
+/// `crates/macos/src/system/app/app_ops.rs::close_app_impl` reports
 /// `InvalidArgs`, and
-/// `crates/macos/src/system/window_resolve.rs::verify_window_record`
+/// `crates/macos/src/system/window/window_resolve.rs::verify_window_record`
 /// reports `WindowNotFound`. This test therefore pins only the Windows wire
 /// shape.
 #[test]

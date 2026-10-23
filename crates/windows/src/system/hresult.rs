@@ -49,7 +49,7 @@ const COM_UNINITIALIZED_SUGGESTION: &str =
 /// element, or a terminal error the attempt must surface as-is.
 ///
 /// The three classes are the `kAXErrorIllegalArgument` lesson ported to
-/// Windows (`crates/macos/src/system/window_bridge.rs:54-103`): a
+/// Windows (`crates/macos/src/system/window/window_bridge.rs:54-103`): a
 /// structurally-impossible answer - the element genuinely lacks the attribute,
 /// the window genuinely has no match - is a **settled absence, never
 /// retryable**; conflating it with a transport failure burns the whole budget

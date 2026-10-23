@@ -4,9 +4,9 @@
 //! Split from `resolve.rs` so that neither file crosses the 400-line cap.
 //! Everything here mirrors a shape the macOS adapter already settled: the
 //! search's role gate and its incomplete tracking, the path fast-path behind
-//! `can_use_path_fast_path` (`crates/macos/src/tree/resolve.rs`), and the
+//! `can_use_path_fast_path` (`crates/macos/src/tree/resolve/mod.rs`), and the
 //! geometry promotion predicate `provisional_geometry_candidate`
-//! (`crates/macos/src/tree/resolve_search.rs`) - with one Windows-measured
+//! (`crates/macos/src/tree/resolve/resolve_search.rs`) - with one Windows-measured
 //! addition, that the stored hash must come from a positive-area rectangle
 //! (A17-7).
 
@@ -28,7 +28,7 @@ pub(crate) mod descent;
 /// The resolve-scoped depth cap.
 ///
 /// Independently bounded from the walk's own ceiling, mirroring macOS's
-/// `MAX_RESOLVE_DEPTH` (`crates/macos/src/tree/resolve.rs:17`). Electron
+/// `MAX_RESOLVE_DEPTH` (`crates/macos/src/tree/resolve/mod.rs:17`). Electron
 /// elements commonly sit at depth 25+, so the cap is the search bound rather
 /// than the walk bound.
 pub(crate) const MAX_RESOLVE_DEPTH: u8 = 50;
@@ -228,7 +228,7 @@ pub(crate) fn entry_is_unverifiable(entry: &RefEntry) -> bool {
 /// turn it into anything other than `AMBIGUOUS_TARGET`, so an incomplete
 /// region elsewhere in the tree must not withhold that verdict. Mirrors
 /// macOS's `should_stop_collecting`
-/// (`crates/macos/src/tree/resolve_search.rs:374-376`), which does stop its
+/// (`crates/macos/src/tree/resolve/resolve_search.rs:374-376`), which does stop its
 /// walk early on this signal - Windows only reuses its name and its
 /// classification rule, not its early exit.
 pub(crate) fn should_stop_collecting(match_count: usize, entry: &RefEntry) -> bool {

@@ -96,7 +96,7 @@ fn a_headed_missing_focused_element_does_not_suggest_enabling_headed() {
 #[test]
 fn an_unresolvable_key_fails_before_any_focus_change() {
     let pid = std::process::id();
-    let instance = crate::system::process_identity::token_for_pid(pid as i32)
+    let instance = crate::system::process::process_identity::token_for_pid(pid as i32)
         .unwrap()
         .unwrap();
     let error = press_for_app_impl(

@@ -116,7 +116,7 @@ mod imp {
             )
             .with_suggestion("Refresh the target with 'list-windows', then retry"));
         }
-        let verified = crate::system::window_resolve::resolve_capture_window(
+        let verified = crate::system::window::window_resolve::resolve_capture_window(
             window,
             deadline_instant(deadline)?,
         )?;
@@ -130,7 +130,7 @@ mod imp {
             }
             Ok(args)
         })?;
-        crate::system::window_resolve::resolve_capture_window(
+        crate::system::window::window_resolve::resolve_capture_window(
             &verified,
             deadline_instant(deadline)?,
         )?;
@@ -307,7 +307,7 @@ mod imp {
     }
 
     fn parse_window_id(id: &str) -> Result<u32, AdapterError> {
-        crate::system::window_resolve::parse_window_number(id)
+        crate::system::window::window_resolve::parse_window_number(id)
             .and_then(|value| u32::try_from(value).ok())
             .filter(|value| *value > 0)
             .ok_or_else(|| {

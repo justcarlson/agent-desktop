@@ -1,6 +1,6 @@
 #[cfg(target_os = "macos")]
 mod imp {
-    use crate::actions::chain_delivery::DeliveryOutcome;
+    use crate::actions::chain::chain_delivery::DeliveryOutcome;
     use crate::tree::AXElement;
     use agent_desktop_core::{
         AdapterError, Deadline, DeliverySemantics, Direction, ErrorCode, InteractionPolicy, Rect,
@@ -217,7 +217,7 @@ mod imp {
     }
 
     fn prepare(element: &AXElement, deadline: Deadline) -> Result<(), AdapterError> {
-        crate::tree::attributes::set_messaging_timeout(element, deadline)
+        crate::tree::properties::attributes::set_messaging_timeout(element, deadline)
     }
 
     fn after_delivery(error: AdapterError) -> AdapterError {

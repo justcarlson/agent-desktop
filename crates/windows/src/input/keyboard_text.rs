@@ -1,7 +1,7 @@
 //! UTF-16 `type_text` chunking and Unicode `SendInput` synthesis.
 //!
 //! The chunk boundary (<=32 UTF-16 units, never splitting a surrogate) is
-//! ported from `crates/macos/src/input/keyboard_event.rs` verbatim - nothing
+//! ported from `crates/macos/src/input/keyboard/keyboard_event.rs` verbatim - nothing
 //! about `SendInput` forces this size, but it bounds each chunk against the
 //! deadline and gives per-chunk delivery accounting. Each chunk becomes one
 //! `SendInput` batch of `KEYEVENTF_UNICODE` down/up pairs, one pair per code

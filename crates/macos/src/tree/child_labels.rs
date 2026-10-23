@@ -131,7 +131,7 @@ fn timed_string(
     sinks: &mut NameEvidenceSinks<'_>,
 ) -> Result<(Option<String>, bool), agent_desktop_core::AdapterError> {
     sinks.stats.semantic_reads.child_label_reads += 1;
-    let read = crate::tree::attributes::copy_string_attr_bounded_result(
+    let read = crate::tree::properties::attributes::copy_string_attr_bounded_result(
         element,
         attribute,
         deadline,
@@ -151,8 +151,11 @@ fn push_static_text(
     sinks: &mut NameEvidenceSinks<'_>,
 ) -> Result<bool, agent_desktop_core::AdapterError> {
     sinks.stats.semantic_reads.child_label_reads += 1;
-    let read =
-        crate::tree::attributes::copy_value_typed_bounded_result(element, deadline, sinks.usage);
+    let read = crate::tree::properties::attributes::copy_value_typed_bounded_result(
+        element,
+        deadline,
+        sinks.usage,
+    );
     let value = match read {
         Ok(value) => value,
         Err(error) => {
@@ -191,7 +194,7 @@ fn degrade_transient_read(
 }
 
 fn complete_text(
-    value: Option<crate::tree::bounded_string::BoundedString>,
+    value: Option<crate::tree::properties::bounded_string::BoundedString>,
     stats: &mut agent_desktop_core::LocatorStats,
 ) -> (Option<String>, bool) {
     match value {

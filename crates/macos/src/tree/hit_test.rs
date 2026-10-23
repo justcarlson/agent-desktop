@@ -1,8 +1,8 @@
 #[cfg(target_os = "macos")]
 mod imp {
     use crate::tree::{
-        AXElement, capabilities::same_element, element::ABSOLUTE_MAX_DEPTH,
-        element_bounds::read_bounds_with_deadline,
+        AXElement, element_bounds::read_bounds_with_deadline,
+        properties::capabilities::same_element, properties::element::ABSOLUTE_MAX_DEPTH,
     };
     use accessibility_sys::{
         AXUIElementCreateSystemWide, kAXApplicationRole, kAXErrorSuccess, kAXRoleAttribute,
@@ -79,7 +79,7 @@ mod imp {
         deadline: std::time::Instant,
     ) -> Option<AXElement> {
         let (error, hit) =
-            crate::tree::ax_ipc::element_at_position(root, ax_point(point), deadline);
+            crate::tree::properties::ax_ipc::element_at_position(root, ax_point(point), deadline);
         (error == kAXErrorSuccess && !hit.is_null()).then(|| AXElement(hit))
     }
 
@@ -88,7 +88,7 @@ mod imp {
         point: &Point,
         deadline: std::time::Instant,
     ) -> HitTestResult {
-        let Ok(pid) = crate::tree::ax_ipc::pid(target, deadline) else {
+        let Ok(pid) = crate::tree::properties::ax_ipc::pid(target, deadline) else {
             return HitTestResult::Unknown;
         };
         let application = crate::tree::element_for_pid(pid);
@@ -181,7 +181,7 @@ mod imp {
         phase: &str,
     ) -> Result<Option<String>, AdapterError> {
         crate::tree::locator_deadline::prepare(element, deadline)?;
-        match crate::tree::attributes::copy_string_attr_bounded_result(
+        match crate::tree::properties::attributes::copy_string_attr_bounded_result(
             element, attribute, deadline, usage,
         )
         .map_err(|error| crate::tree::query::read_error::semantic_read(error, phase))?
@@ -212,12 +212,13 @@ mod imp {
             if !remember_ancestor(&mut visited, &current) {
                 return Ancestry::Incomplete;
             }
-            let parent =
-                match crate::tree::resolve_ax_read::read_element(&current, "AXParent", deadline) {
-                    Ok(Some(parent)) => parent,
-                    Ok(None) => return Ancestry::Absent,
-                    Err(_) => return Ancestry::Incomplete,
-                };
+            let parent = match crate::tree::resolve::resolve_ax_read::read_element(
+                &current, "AXParent", deadline,
+            ) {
+                Ok(Some(parent)) => parent,
+                Ok(None) => return Ancestry::Absent,
+                Err(_) => return Ancestry::Incomplete,
+            };
             if same_element(&parent, expected) {
                 return Ancestry::Found;
             }
@@ -277,12 +278,13 @@ mod imp {
                 };
                 visible = intersection;
             }
-            current =
-                match crate::tree::resolve_ax_read::read_element(&current, "AXParent", deadline) {
-                    Ok(Some(parent)) => parent,
-                    Ok(None) => return Ok(Some(visible)),
-                    Err(_) => return Ok(None),
-                };
+            current = match crate::tree::resolve::resolve_ax_read::read_element(
+                &current, "AXParent", deadline,
+            ) {
+                Ok(Some(parent)) => parent,
+                Ok(None) => return Ok(Some(visible)),
+                Err(_) => return Ok(None),
+            };
         }
         Ok(None)
     }

@@ -91,7 +91,7 @@ pub(crate) fn unknown() -> LocatorEvidence {
 }
 
 pub(crate) fn identifiers(
-    identifiers: &crate::tree::node_identifiers::NodeIdentifiers,
+    identifiers: &crate::tree::properties::node_identifiers::NodeIdentifiers,
     requested: bool,
 ) -> IdentifierEvidence {
     if !requested {
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn dom_identifier_is_preferred_without_discarding_ax_identifier() {
-        let identifiers = crate::tree::node_identifiers::NodeIdentifiers::from_fields(
+        let identifiers = crate::tree::properties::node_identifiers::NodeIdentifiers::from_fields(
             LocatorField::Known("native-save".into()),
             LocatorField::Known("dom-save".into()),
         );
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn equal_strings_remain_distinct_across_identifier_kinds() {
-        let identifiers = crate::tree::node_identifiers::NodeIdentifiers::from_fields(
+        let identifiers = crate::tree::properties::node_identifiers::NodeIdentifiers::from_fields(
             LocatorField::Known("shared".into()),
             LocatorField::Known("shared".into()),
         );
