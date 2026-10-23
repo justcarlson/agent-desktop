@@ -3,7 +3,10 @@ use crate::{
     context::CommandContext,
     refs_store::RefStore,
     session::resolve_active_session,
-    trace_read::{ExportOptions, ReadOptions, export_html_for_command, read_merged_for_command},
+    trace_read::{
+        ExportOptions, ReadOptions, empty_trace_dir_error, export_html_for_command,
+        read_merged_for_command,
+    },
 };
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -41,13 +44,6 @@ fn resolve_trace_session(context: &CommandContext) -> Result<(String, RefStore),
         ));
     }
     Ok((session_id, store))
-}
-
-fn empty_trace_dir_error(session_id: &str) -> AppError {
-    AppError::invalid_input_with_suggestion(
-        format!("Session '{session_id}' has an empty trace directory"),
-        "Run `session start` with tracing enabled before recording commands.",
-    )
 }
 
 fn show(context: &CommandContext, limit: usize, event: Option<String>) -> Result<Value, AppError> {
