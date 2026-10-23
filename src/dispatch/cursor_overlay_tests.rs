@@ -130,7 +130,8 @@ fn disable_never_carries_a_rendered_field() {
         let value = dispatch(disable_args(), adapter, &context).expect("disable succeeds");
         assert!(
             value.get("rendered").is_none(),
-            "{name} disable must not report rendered: {value}"
+            "{name} disable must not report rendered: {:?}",
+            value.get("rendered")
         );
     }
 }

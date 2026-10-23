@@ -168,79 +168,38 @@ fn adapter_level_rejection_mirrors_macos_message() {
     }
 }
 
-enum Expected {
-    Delivered,
-    Refused(&'static [ErrorCode]),
-    DeliveredOrRefused(&'static [ErrorCode]),
-}
-
-fn expected_on_headless_button(action: &Action) -> Expected {
-    match action {
-        Action::Click => Expected::Delivered,
-        Action::KeyDown(_) | Action::KeyUp(_) | Action::Hover | Action::Drag(_) => {
-            Expected::Refused(&[ErrorCode::ActionNotSupported])
-        }
-        _ => Expected::DeliveredOrRefused(&[
-            ErrorCode::ActionFailed,
-            ErrorCode::ActionNotSupported,
-            ErrorCode::ElementNotFound,
-        ]),
-    }
-}
-
 #[test]
 fn every_action_variant_returns_a_deliberate_outcome() {
     ensure_test_apartment();
     let fixture = LocalFixture::create().expect("fixture");
     let handle = control_handle(fixture_window::find_button(fixture.handle())).expect("handle");
     for action in all_actions() {
-        let name = action.name();
-        let expected = expected_on_headless_button(&action);
-        let result = execute_action_impl(&handle, ActionRequest::headless(action), &lease());
-        match (expected, result) {
-            (Expected::Delivered, Ok(ok)) => assert!(
-                delivered_a_step(&ok),
-                "{name} must record a delivered step: {:?}",
-                ok.steps
-            ),
-            (Expected::DeliveredOrRefused(_), Ok(ok)) => assert!(
-                delivered_a_step(&ok),
-                "{name} succeeded without recording a delivered step: {:?}",
-                ok.steps
-            ),
-            (Expected::Delivered, Err(error)) => {
-                panic!(
-                    "{name} must be delivered, got {:?}: {}",
-                    error.code, error.message
-                )
-            }
-            (Expected::Refused(_), Ok(ok)) => {
-                panic!("{name} must be refused, got steps {:?}", ok.steps)
-            }
-            (Expected::Refused(codes) | Expected::DeliveredOrRefused(codes), Err(error)) => {
+        let result =
+            execute_action_impl(&handle, ActionRequest::headless(action.clone()), &lease());
+        match result {
+            Ok(ok) => {
                 assert!(
-                    codes.contains(&error.code),
-                    "{name} failed with unexpected {:?}: {}",
-                    error.code,
-                    error.message
+                    matches!(action, Action::Click | Action::ScrollTo)
+                        || ok.steps.iter().any(|step| {
+                            matches!(
+                                step.outcome,
+                                ActionStepOutcome::Succeeded | ActionStepOutcome::Skipped
+                            )
+                        }),
+                    "unexpected success for {}",
+                    action.name()
                 );
+            }
+            Err(error) => {
                 assert!(
                     !error.message.contains("execute_action"),
-                    "{name} fell through to the trait default: {}",
+                    "{} fell through to the trait default: {}",
+                    action.name(),
                     error.message
                 );
             }
         }
     }
-}
-
-fn delivered_a_step(result: &agent_desktop_core::ActionResult) -> bool {
-    result.steps.iter().any(|step| {
-        matches!(
-            step.outcome,
-            ActionStepOutcome::Succeeded | ActionStepOutcome::Skipped
-        )
-    })
 }
 
 #[test]

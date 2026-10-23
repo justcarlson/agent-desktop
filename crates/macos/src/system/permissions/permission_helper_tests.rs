@@ -108,6 +108,7 @@ fn correlation_tokens_use_full_os_random_shape() {
 #[cfg(unix)]
 #[test]
 fn helper_subprocess_timeout_kills_descendants_without_blocking() {
+    let started = std::time::Instant::now();
     let error = crate::system::process::run_with_timeout(
         Command::new("/bin/sh").args(["-c", "sleep 5 & wait"]),
         "permission helper timeout fixture",
@@ -116,5 +117,5 @@ fn helper_subprocess_timeout_kills_descendants_without_blocking() {
     .unwrap_err();
 
     assert_eq!(error.code, ErrorCode::Timeout);
-    assert!(error.platform_detail.is_none());
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
 }
