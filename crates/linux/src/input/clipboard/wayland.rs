@@ -7,6 +7,7 @@ use agent_desktop_core::{
 };
 
 use super::command_runner::{CommandRunner, RunOutcome, RunSpec};
+use super::delivery::{fresh_deadline, not_delivered, unresponsive};
 use super::formats::{PNG, TEXT_UTF8, URI_LIST};
 use super::owner_spawn_spec::protect_lease_descriptor;
 use super::payload::payload_of;
@@ -15,7 +16,6 @@ use super::wayland_errors::{Failure, classify, failure_error};
 
 const COPY: &str = "wl-copy";
 const PASTE: &str = "wl-paste";
-const VERIFY_GRACE_MS: u64 = 1_000;
 
 pub(crate) struct Wayland<'a> {
     pub(crate) runner: &'a dyn CommandRunner,
@@ -47,10 +47,6 @@ pub(crate) fn locate(name: &str, search_path: Option<&OsStr>) -> Option<PathBuf>
         .find(|candidate| executable(candidate))
 }
 
-fn not_delivered(error: AdapterError) -> AdapterError {
-    error.with_disposition(DeliverySemantics::not_delivered())
-}
-
 fn timed_out(delivery: DeliverySemantics) -> AdapterError {
     crate::system::display::display_server::display_cause_error(
         &crate::system::display::display_server::DisplayCause::Silent,
@@ -72,15 +68,6 @@ fn over_cap() -> AdapterError {
         ErrorCode::ActionFailed,
         "The clipboard holds more than the size cap",
     ))
-}
-
-fn unverified(message: &str) -> AdapterError {
-    AdapterError::new(ErrorCode::AppUnresponsive, message)
-        .with_disposition(DeliverySemantics::delivered_unverified())
-}
-
-fn fresh_deadline(fallback: Deadline) -> Deadline {
-    Deadline::after(VERIFY_GRACE_MS).unwrap_or(fallback)
 }
 
 enum Ran {
@@ -222,7 +209,7 @@ impl Wayland<'_> {
         self.write(vec!["--type".into(), mime.into()], Some(bytes), deadline)?;
         match self.list_types(fresh_deadline(deadline)) {
             Ok(Some(offered)) if offered.iter().any(|name| name == mime) => Ok(()),
-            _ => Err(unverified(
+            _ => Err(unresponsive(
                 "The Wayland clipboard was not seen holding the new content",
             )),
         }
@@ -234,7 +221,7 @@ impl Wayland<'_> {
         self.write(vec!["--clear".into()], None, deadline)?;
         match self.list_types(fresh_deadline(deadline)) {
             Ok(None) => Ok(()),
-            _ => Err(unverified(
+            _ => Err(unresponsive(
                 "The Wayland clipboard was not seen empty after the clear",
             )),
         }
