@@ -96,7 +96,7 @@ no containing-item identity, and a one-shot CLI process cannot keep native
 objects alive between commands. The raw retained-object experiment proves a
 long-lived handle preserves the original object for this scenario. That is what
 shipped: an opt-in internal command host (`AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1`,
-`src/command_host.rs`) owns a `RetainedRefSession`, traversal captures a
+`src/command_host/mod.rs`) owns a `RetainedRefSession`, traversal captures a
 retained-object token for each observed element, and
 `ref_identity::identity_match` compares that token before any native identifier
 (`crates/core/src/ref_identity.rs`, `crates/macos/src/tree/retained.rs`). Without
