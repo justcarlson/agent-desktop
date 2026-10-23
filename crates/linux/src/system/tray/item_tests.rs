@@ -67,8 +67,15 @@ fn the_no_menu_sentinel_is_no_menu() {
 }
 
 #[test]
-fn an_absent_tooltip_and_every_other_optional_property_is_not_an_error() {
+fn an_empty_property_map_yields_empty_evidence() {
     let props = from_map(&map(Vec::new()), Vec::new());
-    assert_eq!(props.title, "");
-    assert!(!props.passive);
+    assert_eq!(
+        props,
+        ItemEvidence {
+            title: String::new(),
+            passive: false,
+            menu: None,
+            methods: Vec::new(),
+        }
+    );
 }

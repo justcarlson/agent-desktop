@@ -271,6 +271,7 @@ fn a_parent_whose_child_read_failed_is_incomplete_and_carries_no_count() {
         classify,
     )
     .expect("an unreadable child list does not abort the walk");
+    assert!(!result.complete);
     let unread = &result.root.children[0];
     assert!(unread.truncated);
     assert_eq!(unread.child_count, None);

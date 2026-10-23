@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::walker::walk_levels;
-use super::walker_expand::{child_elements, record_pids};
+use super::walker_expand::{UNKNOWN_PID, child_elements, record_pids};
 use super::{
     AtspiElement, ChildAddress, Expansion, Field, NodeClass, RawNode, Walk, WalkLimits, WalkedNode,
 };
@@ -245,7 +245,7 @@ fn a_child_on_a_bus_with_no_known_process_is_still_listed() {
     let children = child_elements(&node, &pids);
     assert_eq!(children.len(), 2);
     assert_eq!(children[1].bus_name(), ":1.2");
-    assert_ne!(children[1].pid(), 7);
+    assert_eq!(children[1].pid(), UNKNOWN_PID);
 }
 
 #[test]
