@@ -5,7 +5,8 @@ use crate::refs::{RefEntry, RefMap};
 use crate::refs_store::RefStore;
 use crate::refs_test_support::HomeGuard;
 use crate::{
-    AdapterError, CommandContext, DragParams, InteractionLease, MouseEvent, Point, ProcessId, Rect,
+    AdapterError, AppError, CommandContext, DeliverySemantics, DragParams, InteractionLease,
+    MouseEvent, Point, ProcessId, Rect,
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -25,6 +26,8 @@ struct SingleShotScrollAdapter {
     drags: AtomicU32,
     mouse_point: Mutex<Option<Point>>,
     drag_params: Mutex<Option<DragParams>>,
+    scroll_fails: bool,
+    move_fails: bool,
 }
 
 impl SingleShotScrollAdapter {
@@ -37,8 +40,15 @@ impl SingleShotScrollAdapter {
             drags: AtomicU32::new(0),
             mouse_point: Mutex::new(None),
             drag_params: Mutex::new(None),
+            scroll_fails: false,
+            move_fails: false,
         }
     }
+}
+
+fn uncertain_timeout() -> AdapterError {
+    AdapterError::timeout("delivered then ran out of time")
+        .with_disposition(DeliverySemantics::uncertain())
 }
 
 impl ObservationOps for SingleShotScrollAdapter {
@@ -98,6 +108,9 @@ impl ActionOps for SingleShotScrollAdapter {
         assert_eq!(*handle.downcast_ref::<u32>().unwrap(), 1);
         self.reads.scrolls.fetch_add(1, Ordering::SeqCst);
         self.scrolled.store(true, Ordering::SeqCst);
+        if self.scroll_fails {
+            return Err(uncertain_timeout());
+        }
         Ok(())
     }
 }
@@ -110,6 +123,9 @@ impl InputOps for SingleShotScrollAdapter {
     ) -> Result<crate::OperationReport, AdapterError> {
         self.mouse_moves.fetch_add(1, Ordering::SeqCst);
         *self.mouse_point.lock().unwrap() = Some(event.point);
+        if self.move_fails {
+            return Err(uncertain_timeout());
+        }
         Ok(crate::adapter::test_report())
     }
 
@@ -253,4 +269,71 @@ fn drag_none_scrolls_once_then_dispatches_revalidated_endpoints_once() {
     assert_eq!(adapter.reads.observations.load(Ordering::SeqCst), 5);
     assert_eq!(value["from"], serde_json::json!({ "x": 110.0, "y": 205.0 }));
     assert_eq!(value["to"], serde_json::json!({ "x": 210.0, "y": 405.0 }));
+}
+
+fn hover_args(timeout_ms: Option<u64>) -> hover::HoverArgs {
+    hover::HoverArgs {
+        ref_id: Some(format!("@{}:e1", snapshot(1))),
+        xy: None,
+        duration_ms: None,
+        timeout_ms,
+    }
+}
+
+fn drag_args(timeout_ms: Option<u64>) -> drag::DragArgs {
+    let snapshot_id = snapshot(2);
+    drag::DragArgs {
+        from: drag::DragEndpoint {
+            ref_id: Some(format!("@{snapshot_id}:e1")),
+            xy: None,
+        },
+        to: drag::DragEndpoint {
+            ref_id: Some(format!("@{snapshot_id}:e2")),
+            xy: None,
+        },
+        duration_ms: None,
+        drop_delay_ms: None,
+        timeout_ms,
+        wait_for_scope: drag::WaitForScope::default(),
+    }
+}
+
+fn disposition(error: AppError) -> DeliverySemantics {
+    match error {
+        AppError::Adapter(error) => error.disposition,
+        other => panic!("expected an adapter error, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_scroll_that_fails_before_the_first_pointer_event_leaves_the_gesture_undelivered() {
+    let headed = CommandContext::default().with_headed(true);
+    for timeout_ms in [None, Some(5_000)] {
+        let _guard = HomeGuard::new();
+        let mut hovered = SingleShotScrollAdapter::new();
+        hovered.scroll_fails = true;
+        let error = hover::execute(hover_args(timeout_ms), &hovered, &headed).unwrap_err();
+        assert_eq!(disposition(error), DeliverySemantics::not_delivered());
+        assert_eq!(hovered.mouse_moves.load(Ordering::SeqCst), 0);
+        let mut dragged = SingleShotScrollAdapter::new();
+        dragged.scroll_fails = true;
+        let error = drag::execute(drag_args(timeout_ms), &dragged, &headed).unwrap_err();
+        assert_eq!(disposition(error), DeliverySemantics::not_delivered());
+        assert_eq!(dragged.drags.load(Ordering::SeqCst), 0);
+    }
+}
+
+#[test]
+fn a_failure_after_the_pointer_event_started_keeps_its_own_disposition() {
+    let _guard = HomeGuard::new();
+    let mut adapter = SingleShotScrollAdapter::new();
+    adapter.move_fails = true;
+    let error = hover::execute(
+        hover_args(None),
+        &adapter,
+        &CommandContext::default().with_headed(true),
+    )
+    .unwrap_err();
+    assert_eq!(disposition(error), DeliverySemantics::uncertain());
+    assert_eq!(adapter.mouse_moves.load(Ordering::SeqCst), 1);
 }

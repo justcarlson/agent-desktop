@@ -56,6 +56,8 @@ struct Fake {
     arrival: Option<Duration>,
     bar_axis: Option<Axis>,
     observe_error: bool,
+    observe_stale: bool,
+    view_stale: bool,
 }
 
 impl Fake {
@@ -92,6 +94,8 @@ impl Fake {
             arrival: None,
             bar_axis: None,
             observe_error: false,
+            observe_stale: false,
+            view_stale: false,
         }
     }
 
@@ -109,10 +113,16 @@ impl ScrollPort for Fake {
     }
 
     fn view(&mut self) -> Result<View, AdapterError> {
+        if self.view_stale {
+            return Err(stale());
+        }
         Ok(self.view)
     }
 
     fn observe(&mut self) -> Result<Option<bool>, AdapterError> {
+        if self.observe_stale {
+            return Err(stale());
+        }
         if self.observe_error {
             return Err(AdapterError::timeout("observation timed out"));
         }
@@ -152,6 +162,10 @@ impl ScrollPort for Fake {
         }
         Ok(())
     }
+}
+
+fn stale() -> AdapterError {
+    AdapterError::stale_ref_because("Stored ref's element no longer exists")
 }
 
 fn cause(error: &AdapterError) -> String {

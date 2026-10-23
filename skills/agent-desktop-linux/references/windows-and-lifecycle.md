@@ -265,10 +265,11 @@ safe to repeat.
   the same way.
 - A Wayland session is `ACTION_NOT_SUPPORTED`, cause `wayland_session`.
 - A headless ref `click` on a minimized window refuses with live `offscreen`
-  evidence and leaves it minimized. On X11, `--headed click` first focuses the
-  ref's exact source window, restoring it if minimized, then delivers the click;
-  it refuses if the window manager cannot show and activate that window, or if
-  the target stays hidden, offscreen or occluded after focus. An unsupported
+  evidence and leaves it minimized. On X11, `--headed click`, `--headed hover`
+  and `--headed drag` first focus the ref's exact source window, restoring it if
+  minimized, then deliver the gesture; they refuse if the window manager cannot
+  show and activate that window, or if the target stays hidden, offscreen or
+  occluded after focus. An unsupported
   physical route or geometry refusal can fall back to semantic click only when it
   proves nothing was sent. Ordinary-app headed pointer actions on Wayland refuse
   with cause `wayland_session` before delivery. Use `restore` to restore a window

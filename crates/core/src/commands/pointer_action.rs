@@ -142,6 +142,20 @@ fn pointer_is_visible(bounds: Option<crate::Rect>, states: &[String]) -> bool {
         })
 }
 
+/// Runs what a pointer gesture does before its first pointer event. Nothing
+/// has reached the target by then, so a refusal or a timeout leaves the gesture
+/// undelivered whatever the steps before it delivered.
+pub(crate) fn before_first_event<T>(
+    phase: impl FnOnce() -> Result<T, AppError>,
+) -> Result<T, AppError> {
+    phase().map_err(|error| match error {
+        AppError::Adapter(error) => {
+            AppError::Adapter(error.with_disposition(crate::DeliverySemantics::not_delivered()))
+        }
+        other => other,
+    })
+}
+
 pub(crate) fn point_deadline(timeout_ms: Option<u64>) -> Result<crate::Deadline, AppError> {
     timeout_ms
         .map_or_else(crate::Deadline::standard, crate::Deadline::after)
@@ -197,7 +211,7 @@ pub(crate) fn wait_for_point_with_deadline<'a>(
                 if point_requires_scroll(&err)
                     && !(observed.is_some() && observed == last_scrolled_bounds_hash)
                 {
-                    scroll_point_target(&entry, deadline, adapter)?;
+                    scroll_point_target(args, &entry, deadline, adapter, context)?;
                     last_scrolled_bounds_hash = observed;
                     std::thread::sleep(POLL_INTERVAL.min(deadline.remaining()));
                     continue;
@@ -288,11 +302,14 @@ pub(crate) fn retry_leased_point_phase<T>(
 }
 
 fn scroll_point_target(
+    args: crate::commands::point_resolve::PointResolveArgs<'_>,
     entry: &RefEntry,
     deadline: crate::Deadline,
     adapter: &dyn PlatformAdapter,
+    context: &CommandContext,
 ) -> Result<(), AppError> {
     let lease = adapter.acquire_interaction_lease(deadline)?;
+    focus_point_under_lease(args, &lease, adapter, context)?;
     let handle = resolve_handle_within_deadline(adapter, entry, deadline)?;
     adapter.scroll_into_view(&handle, &lease)?;
     Ok(())
