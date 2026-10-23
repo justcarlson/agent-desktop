@@ -231,7 +231,7 @@ fn a_target_that_exits_mid_wait_returns_stale_ref_not_a_satisfied_wait_or_a_time
         .expect("wait_for_menu completed");
     let error = result.expect_err("a terminated target must not report a satisfied wait");
 
-    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(error.code, ErrorCode::StaleRef, "{error:?}");
 }
 
 /// A loose upper bound derived from the interval, not a timing literal
@@ -388,3 +388,6 @@ fn an_evaluation_error_surfaces_as_stale_ref_when_the_target_is_gone_and_unchang
 
 #[path = "wait_expiry_detail_tests.rs"]
 mod expiry_detail_tests;
+
+#[path = "wait_exit_confirmation_tests.rs"]
+mod exit_confirmation_tests;
