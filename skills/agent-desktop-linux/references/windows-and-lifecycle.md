@@ -164,6 +164,13 @@ only a document or tab and leave its window open.
   every window with unsaved work, so `dialogs`, `windows_remaining` and
   `dialog_titles` all come from one read taken once the windows stop changing and
   agree with one another.
+- Several prompts are separate modal windows and answer in any order: a plain
+  `snapshot --app <name>` is then `AMBIGUOUS_TARGET` and lists the window ids,
+  and `snapshot --window-id <id>` roots one. A ref in a window behind a prompt is
+  `ACTION_FAILED`, cause `blocked_by_modal_dialog`, `not_delivered`. Prompts
+  that share a title can look the same on the display; a `--headed` ref action
+  in one is then `AMBIGUOUS_TARGET`, `window_position_ambiguous`,
+  `not_delivered`: answer it without `--headed`.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
 - A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,

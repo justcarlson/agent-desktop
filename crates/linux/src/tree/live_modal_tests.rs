@@ -12,6 +12,7 @@ use crate::tree::{Field, ObservedRead};
 struct Desktop {
     dialog_states: Field<Vec<u32>>,
     nested: bool,
+    twin: bool,
     listed: bool,
     unavailable: Option<&'static str>,
 }
@@ -27,7 +28,7 @@ impl NodeReader for Desktop {
             return Err(AdapterError::timeout("window did not answer"));
         }
         let mut read: ObservedRead = match element.path() {
-            "/dialog" | "/nested" => {
+            "/dialog" | "/dialog2" | "/nested" => {
                 let mut read = read_of(FRAME, "Preferences", &[]);
                 read.node.traits.states = self.dialog_states.clone();
                 read
@@ -62,7 +63,9 @@ impl NodeReader for Desktop {
                                 vec!["/parent/button".to_owned(), "/nested".to_owned()]
                             }
                             "/nested" => vec!["/inside".to_owned()],
-                            "/parent" | "/dialog" => vec![format!("{}/button", element.path())],
+                            "/parent" | "/dialog" | "/dialog2" => {
+                                vec![format!("{}/button", element.path())]
+                            }
                             _ => vec![],
                         };
                         let children = paths
@@ -99,10 +102,10 @@ impl NodeReader for Desktop {
             return Err(AdapterError::timeout("window listing did not answer"));
         }
         Ok(if self.listed {
-            if self.nested {
-                vec!["/parent"]
-            } else {
-                vec!["/parent", "/dialog"]
+            match (self.nested, self.twin) {
+                (true, _) => vec!["/parent"],
+                (false, true) => vec!["/parent", "/dialog", "/dialog2"],
+                (false, false) => vec!["/parent", "/dialog"],
             }
             .into_iter()
             .map(|path| AtspiElement::new(target.bus_name(), path, target.pid()))
@@ -138,6 +141,7 @@ fn a_renderer_target_checks_its_owning_frames_dialogs() {
     let handle = renderer.into_native_handle();
     let mut desktop = Desktop {
         nested: false,
+        twin: false,
         dialog_states: Field::Present(words(&[])),
         listed: true,
         unavailable: None,
@@ -178,6 +182,7 @@ fn a_menu_owner_spoofing_the_shell_comm_is_still_blocked_by_its_modal() {
     let handle = menu.into_native_handle();
     let mut desktop = Desktop {
         nested: false,
+        twin: false,
         dialog_states: Field::Present(words(&[MODAL, SHOWING])),
         listed: true,
         unavailable: None,
@@ -205,6 +210,7 @@ fn a_menu_owner_spoofing_the_shell_comm_is_still_blocked_by_its_modal() {
 fn live_preflight_refuses_enabled_parent_behind_modal_but_admits_the_dialog_and_closed_control() {
     let mut desktop = Desktop {
         nested: false,
+        twin: false,
         dialog_states: Field::Present(words(&[MODAL, SHOWING])),
         listed: true,
         unavailable: None,
@@ -243,6 +249,7 @@ fn live_preflight_refuses_when_modal_state_or_target_window_membership_is_unread
     ] {
         let mut desktop = Desktop {
             nested: false,
+            twin: false,
             dialog_states: states,
             listed: true,
             unavailable: None,
@@ -257,6 +264,7 @@ fn live_preflight_refuses_when_modal_state_or_target_window_membership_is_unread
     }
     let mut desktop = Desktop {
         nested: false,
+        twin: false,
         dialog_states: Field::Present(words(&[])),
         listed: false,
         unavailable: None,
@@ -286,6 +294,7 @@ fn live_preflight_refuses_when_modal_state_or_target_window_membership_is_unread
 fn a_nested_modal_blocks_its_enabled_sibling_and_proves_inside_membership() {
     let mut desktop = Desktop {
         nested: true,
+        twin: false,
         dialog_states: Field::Present(words(&[MODAL, SHOWING])),
         listed: true,
         unavailable: None,
@@ -313,5 +322,39 @@ fn a_nested_modal_blocks_its_enabled_sibling_and_proves_inside_membership() {
     desktop.unavailable = Some("cut");
     desktop.dialog_states = Field::Present(words(&[SHOWING, MODAL]));
     let error = element_via(&mut desktop, &outside, deadline).unwrap_err();
+    assert_eq!(error.details.unwrap()["cause"], "modal_state_unknown");
+}
+
+#[test]
+fn sibling_modal_dialogs_each_admit_their_own_control_and_still_block_the_window_behind_them() {
+    let mut desktop = Desktop {
+        nested: false,
+        twin: true,
+        dialog_states: Field::Present(words(&[MODAL, SHOWING])),
+        listed: true,
+        unavailable: None,
+    };
+    let deadline = Deadline::standard().unwrap();
+    for dialog in ["/dialog", "/dialog2"] {
+        element_via(&mut desktop, &target(dialog), deadline)
+            .expect("a modal dialog admits its own control beside a sibling modal");
+    }
+    let error = element_via(&mut desktop, &target("/parent"), deadline).unwrap_err();
+    assert_eq!(error.details.unwrap()["cause"], "blocked_by_modal_dialog");
+}
+
+#[test]
+fn a_modal_dialog_admits_its_control_without_reading_the_windows_beside_it() {
+    let mut desktop = Desktop {
+        nested: false,
+        twin: true,
+        dialog_states: Field::Present(words(&[MODAL, SHOWING])),
+        listed: true,
+        unavailable: Some("/parent"),
+    };
+    let deadline = Deadline::standard().unwrap();
+    element_via(&mut desktop, &target("/dialog2"), deadline)
+        .expect("the window behind the dialog does not decide the dialog's own control");
+    let error = element_via(&mut desktop, &target("/parent"), deadline).unwrap_err();
     assert_eq!(error.details.unwrap()["cause"], "modal_state_unknown");
 }

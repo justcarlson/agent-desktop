@@ -45,7 +45,10 @@ fn cut_short(deadline: Deadline) -> AdapterError {
 
 /// Semantic actions can bypass toolkit input grabs. A showing modal in the
 /// application blocks targets outside its subtree even when their controls
-/// remain enabled. Unknown modal membership refuses delivery.
+/// remain enabled. A target whose own window is a showing modal is blocked
+/// only by a modal inside that window: the modal windows of an application,
+/// such as one save prompt for each unsaved document, answer in any order.
+/// Unknown modal membership refuses delivery.
 /// Shell surfaces are compositor controls, not application top-level windows.
 pub(crate) fn ensure_unblocked(
     reader: &mut impl NodeReader,
@@ -60,9 +63,10 @@ pub(crate) fn ensure_unblocked(
         .as_ref()
         .or_else(|| target.frame())
         .ok_or_else(unknown)?;
-    let windows = reader
+    let mut windows = reader
         .top_levels(frame, deadline)
         .map_err(|error| unreadable(error, deadline))?;
+    windows.sort_by_key(|window| window != frame);
     let mut found_frame = false;
     for mut window in windows {
         window.set_ancestry(super::ancestry::of_root(&window));
@@ -72,9 +76,13 @@ pub(crate) fn ensure_unblocked(
         if !walk.complete || super::nested_dialog::is_cut_short(&walk.root) {
             return Err(cut_short(deadline));
         }
-        found_frame |= contains(&walk.root, frame);
+        let holds_frame = contains(&walk.root, frame);
+        found_frame |= holds_frame;
         if let Some(dialog) = blocker(&walk.root, owner.as_ref().unwrap_or(target))? {
             return Err(blocked(reader, &dialog));
+        }
+        if holds_frame && shows_modal(&walk.root).is_ok_and(|modal| modal) {
+            return Ok(());
         }
     }
     if !found_frame {
@@ -88,6 +96,19 @@ fn contains(node: &super::WalkedNode<super::ObservedRead>, target: &AtspiElement
         || node.children.iter().any(|child| contains(child, target))
 }
 
+fn shows_modal(node: &super::WalkedNode<super::ObservedRead>) -> Result<bool, AdapterError> {
+    let words = node
+        .payload
+        .node
+        .traits
+        .states
+        .present()
+        .filter(|words| !words.is_empty())
+        .ok_or_else(unknown)?;
+    let bits = StateBits::new(words);
+    Ok(bits.has(SHOWING) && bits.has(MODAL))
+}
+
 /// The showing modal node below `node` that does not hold the target. The
 /// walk reads no names, so the caller names the blocker it finds.
 fn blocker(
@@ -99,14 +120,7 @@ fn blocker(
     if super::role_numbers::is_web_document(Some(role)) {
         return Ok(None);
     }
-    let words = raw
-        .traits
-        .states
-        .present()
-        .filter(|words| !words.is_empty())
-        .ok_or_else(unknown)?;
-    let bits = StateBits::new(words);
-    if bits.has(SHOWING) && bits.has(MODAL) && !contains(node, target) {
+    if shows_modal(node)? && !contains(node, target) {
         return Ok(Some(raw.element.clone()));
     }
     for child in &node.children {
