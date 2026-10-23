@@ -1,5 +1,7 @@
 use std::fs;
+use std::io;
 use std::os::fd::BorrowedFd;
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -20,10 +22,17 @@ const INHERITED_FROM_PARENT: [&str; 5] = [
 ];
 const LOWEST_INHERITED_FD: i32 = 3;
 
+fn share_with_child(payload_fd: i32) -> io::Result<()> {
+    let descriptor = unsafe { BorrowedFd::borrow_raw(payload_fd) };
+    fcntl_setfd(descriptor, FdFlags::empty()).map_err(io::Error::from)
+}
+
 /// What the owner is started with: the located helper, null stdio and an
 /// environment that is an allowlist. The display is the one the setter
 /// resolved, never the owner's own lookup, and the lease variable is not on
-/// the list.
+/// the list. The payload descriptor stays close-on-exec in this process and
+/// loses the flag only in the forked child, right before it executes the
+/// helper, so no other child of the host can inherit it.
 pub(crate) fn build_command(
     helper: &Path,
     display: &str,
@@ -50,6 +59,9 @@ pub(crate) fn build_command(
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    unsafe {
+        command.pre_exec(move || share_with_child(payload_fd));
+    }
     command
 }
 

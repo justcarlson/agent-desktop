@@ -2,11 +2,13 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io::Read;
 use std::os::fd::AsRawFd;
+use std::process::Stdio;
 
 use agent_desktop_core::Deadline;
-use rustix::io::fcntl_getfd;
+use rustix::io::{FdFlags, fcntl_getfd};
 
 use super::*;
+use crate::input::clipboard::owner_spawn_spec::build_command;
 use crate::input::clipboard::payload::unframe;
 use crate::input::clipboard::target::Target;
 use crate::input::clipboard::test_nonce::test_nonce;
@@ -51,8 +53,18 @@ fn sample() -> Payload {
     }
 }
 
+fn close_on_exec(descriptor: &OwnedFd) -> bool {
+    fcntl_getfd(descriptor)
+        .expect("flags")
+        .contains(FdFlags::CLOEXEC)
+}
+
+fn no_environment(_: &str) -> Option<String> {
+    None
+}
+
 #[test]
-fn the_payload_file_is_anonymous_inheritable_and_holds_the_framed_payload() {
+fn the_payload_file_is_anonymous_close_on_exec_and_holds_the_framed_payload() {
     let nonce = test_nonce();
     let descriptor = payload_file(&sample(), &nonce).expect("a payload file");
     let link = fs::read_link(format!("/proc/self/fd/{}", descriptor.as_raw_fd()))
@@ -61,16 +73,35 @@ fn the_payload_file_is_anonymous_inheritable_and_holds_the_framed_payload() {
         link.to_string_lossy().starts_with("/memfd:ad-payload-"),
         "{link:?}"
     );
-    assert!(
-        !fcntl_getfd(&descriptor)
-            .expect("flags")
-            .contains(FdFlags::CLOEXEC)
-    );
+    assert!(close_on_exec(&descriptor));
     let mut reopened =
         File::open(format!("/proc/self/fd/{}", descriptor.as_raw_fd())).expect("reopen");
     let mut bytes = Vec::new();
     reopened.read_to_end(&mut bytes).expect("read");
     assert_eq!(unframe(&bytes).expect("a payload"), sample());
+}
+
+#[test]
+fn the_payload_stays_close_on_exec_here_and_is_open_and_readable_in_the_child() {
+    let nonce = test_nonce();
+    let descriptor = payload_file(&sample(), &nonce).expect("a payload file");
+    let number = descriptor.as_raw_fd();
+    let mut command = build_command(
+        Path::new("/bin/cat"),
+        ":77",
+        &nonce,
+        number,
+        &no_environment,
+    );
+    assert!(close_on_exec(&descriptor), "after the command is built");
+    let output = command
+        .arg(format!("/proc/self/fd/{number}"))
+        .stdout(Stdio::piped())
+        .output()
+        .expect("the child ran");
+    assert!(output.status.success(), "{:?}", output.status);
+    assert_eq!(unframe(&output.stdout).expect("a payload"), sample());
+    assert!(close_on_exec(&descriptor), "after the child ran");
 }
 
 #[test]
