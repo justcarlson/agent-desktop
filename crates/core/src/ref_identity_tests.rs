@@ -1,8 +1,16 @@
 use super::*;
 
 fn identifier(value: &str) -> crate::ElementIdentifier {
+    identifier_of_kind(crate::IdentifierKind::AxIdentifier, value)
+}
+
+fn dom_identifier(value: &str) -> crate::ElementIdentifier {
+    identifier_of_kind(crate::IdentifierKind::AxDomIdentifier, value)
+}
+
+fn identifier_of_kind(kind: crate::IdentifierKind, value: &str) -> crate::ElementIdentifier {
     crate::ElementIdentifier {
-        kind: crate::IdentifierKind::AxIdentifier,
+        kind,
         value: value.into(),
     }
 }
@@ -288,45 +296,6 @@ fn missing_live_native_id_fails_closed_even_with_stable_name() {
 }
 
 #[test]
-fn saved_identifier_matches_either_live_identifier_source() {
-    let mut entry = entry();
-    entry.identity.native_id = Some(identifier("dom-submit"));
-    let identifiers =
-        IdentifierEvidence::typed(["ax-submit", "dom-submit"].map(identifier), Some(0), true);
-
-    assert_eq!(
-        identity_match(
-            &entry,
-            &LocatorField::Absent,
-            &LocatorField::Absent,
-            &LocatorField::Absent,
-            &identifiers,
-        ),
-        IdentityMatch::Match
-    );
-}
-
-#[test]
-fn ax_only_and_dom_only_identifiers_resolve_deterministically() {
-    for identifier in ["ax-only", "dom-only"] {
-        let mut entry = entry();
-        entry.identity.native_id = Some(self::identifier(identifier));
-        let live = IdentifierEvidence::typed([self::identifier(identifier)], Some(0), true);
-
-        assert_eq!(
-            identity_match(
-                &entry,
-                &LocatorField::Absent,
-                &LocatorField::Absent,
-                &LocatorField::Absent,
-                &live,
-            ),
-            IdentityMatch::Match
-        );
-    }
-}
-
-#[test]
 fn incomplete_identifier_slots_cannot_prove_a_non_match() {
     let mut entry = entry();
     entry.identity.native_id = Some(identifier("dom-submit"));
@@ -396,3 +365,6 @@ mod scroll_tests;
 
 #[path = "ref_identity_fields_tests.rs"]
 mod fields_tests;
+
+#[path = "ref_identity_kind_tests.rs"]
+mod kind_tests;

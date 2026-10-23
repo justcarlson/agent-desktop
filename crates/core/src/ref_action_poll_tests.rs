@@ -21,11 +21,18 @@ fn preflight_preserves_explicit_non_retryable_failures() {
 
 #[test]
 fn preflight_identity_failures_are_terminal() {
-    assert!(is_permanent_actionability_error(&ErrorCode::StaleRef));
-    assert!(is_permanent_actionability_error(
-        &ErrorCode::AmbiguousTarget
-    ));
-    assert!(!is_permanent_error(&ErrorCode::StaleRef));
+    for error in [
+        AdapterError::stale_ref("@e1"),
+        AdapterError::ambiguous_target("two live elements match"),
+    ] {
+        let code = error.code.clone();
+        let mut state = RefActionPollState::default();
+        let result =
+            handle_actionability_failure(&mut state, error, Deadline::after(5_000).unwrap());
+        let error = result.expect_err("an identity failure must end the poll");
+        assert_eq!(error.code, code);
+        assert!(state.last_report.is_none());
+    }
 }
 
 #[test]

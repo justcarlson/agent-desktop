@@ -289,7 +289,9 @@ fn policy_denied_disabled_target_fails_fast_without_exhausting_wait_budget() {
     );
 }
 
-struct SettledStaleAdapter;
+struct SettledStaleAdapter {
+    resolve_calls: AtomicU32,
+}
 
 impl ObservationOps for SettledStaleAdapter {
     fn resolve_element_strict(
@@ -297,6 +299,7 @@ impl ObservationOps for SettledStaleAdapter {
         _entry: &RefEntry,
         _deadline: crate::Deadline,
     ) -> Result<NativeHandle, AdapterError> {
+        self.resolve_calls.fetch_add(1, Ordering::SeqCst);
         Err(
             AdapterError::stale_ref_because("Stored ref does not match any live element")
                 .with_details(serde_json::json!({
@@ -335,8 +338,9 @@ impl SystemOps for SettledStaleAdapter {
 /// and the polling loop must not discard that diagnosis.
 #[test]
 fn complete_no_candidate_returns_stale_ref_without_exhausting_budget() {
-    let adapter = SettledStaleAdapter;
-    let started = std::time::Instant::now();
+    let adapter = SettledStaleAdapter {
+        resolve_calls: AtomicU32::new(0),
+    };
     let err = execute_with_auto_wait(
         RefActionWaitCtx {
             adapter: &adapter,
@@ -354,7 +358,7 @@ fn complete_no_candidate_returns_stale_ref_without_exhausting_budget() {
     let details = err.details.expect("settled details");
     assert_eq!(details["kind"], "resolve_no_candidate");
     assert_eq!(details["complete"], true);
-    assert!(started.elapsed() < std::time::Duration::from_millis(500));
+    assert_eq!(adapter.resolve_calls.load(Ordering::SeqCst), 1);
 }
 
 #[path = "ref_action_wait_lease_tests.rs"]

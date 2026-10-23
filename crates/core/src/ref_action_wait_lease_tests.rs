@@ -6,6 +6,7 @@ use std::sync::{
 
 struct DoubleCheckAdapter {
     live_calls: AtomicU32,
+    bounds_reads: AtomicU32,
     lease_held: Arc<AtomicBool>,
     prelease_calls: u32,
     timeout_ms: u64,
@@ -67,6 +68,7 @@ impl ObservationOps for DoubleCheckAdapter {
         _handle: &NativeHandle,
         _deadline: crate::Deadline,
     ) -> Result<Option<crate::Rect>, AdapterError> {
+        self.bounds_reads.fetch_add(1, Ordering::SeqCst);
         Ok(Some(bounds()))
     }
 
@@ -177,6 +179,7 @@ fn a_stability_only_mismatch_settles_and_proceeds_to_dispatch() {
     );
 
     assert_eq!(result.action, "click");
+    assert!(adapter.bounds_reads.load(Ordering::SeqCst) >= 3);
 }
 
 /// A headless pointerless action whose live bounds match the snapshot needs
@@ -346,6 +349,7 @@ fn adapter(
 ) -> DoubleCheckAdapter {
     DoubleCheckAdapter {
         live_calls: AtomicU32::new(0),
+        bounds_reads: AtomicU32::new(0),
         lease_held: Arc::new(AtomicBool::new(false)),
         prelease_calls,
         timeout_ms,

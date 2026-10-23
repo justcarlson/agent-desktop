@@ -33,8 +33,9 @@ fn empty_trace_directory_yields_empty_timeline() {
 #[test]
 fn missing_trace_directory_returns_error() {
     let dir = temp_dir("trace-mod-missing");
-    let result = read_merged(&dir, &ReadOptions::default());
-    assert!(result.is_err());
+    let error = read_merged(&dir, &ReadOptions::default())
+        .expect_err("a missing trace directory must be rejected");
+    assert_eq!(error.code(), "INVALID_ARGS");
 }
 
 #[test]

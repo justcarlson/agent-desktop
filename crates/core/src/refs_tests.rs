@@ -262,20 +262,23 @@ fn test_validate_snapshot_id_rejects_bad_values() {
 #[test]
 fn test_save_oversize_preserves_previous_file() {
     let _guard = HomeGuard::new();
+    let store = crate::RefStore::new().unwrap();
 
     let mut original = RefMap::new();
     original.allocate(entry("button", Some("Original")));
-    original.save().expect("baseline save");
+    let snapshot_id = store.save_new_snapshot(&original).expect("baseline save");
 
     let mut oversize = RefMap::new();
     let big = "x".repeat(2048);
     for _ in 0..600 {
         oversize.allocate(entry("button", Some(&big)));
     }
-    let result = oversize.save();
+    let result = store.save_snapshot(&snapshot_id, &oversize);
     assert!(result.is_err(), "oversize save must reject");
 
-    let reloaded = RefMap::load().expect("previous file must still load");
+    let reloaded = store
+        .load_snapshot(&snapshot_id)
+        .expect("previous file must still load");
     assert_eq!(reloaded.len(), 1);
     let entry = reloaded.get("@e1").unwrap();
     assert_eq!(entry.identity.name.as_deref(), Some("Original"));

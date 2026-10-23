@@ -108,7 +108,10 @@ fn hostile_strings_are_escaped_in_json_island() {
     )
     .unwrap();
     assert!(!html.contains("<script>alert"));
-    assert!(html.contains("\\u003cscript\\u003e") || html.contains("\\u003c"));
+    assert!(!html.contains("<img src=x onerror"));
+    assert!(html.contains(
+        "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u003cimg src=x onerror=alert(2)\\u003e"
+    ));
 }
 
 #[test]

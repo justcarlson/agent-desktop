@@ -18,7 +18,7 @@ use std::sync::Mutex;
 
 /// Every command module stem whose execute function calls `context.request_base(`.
 /// Adding a new ref-action command requires adding its stem here; the
-/// `all_context_request_callers_are_policy_tested` guard enforces this.
+/// `every_ref_action_command_is_registered_in_the_policy_list` guard enforces this.
 const POLICY_TESTED_COMMANDS: &[&str] = &[
     "check",
     "clear",
@@ -290,7 +290,13 @@ fn headed_context_reaches_every_ref_action_without_policy_downgrade() {
     click::execute(ref_args(&snapshot_id), &adapter, &context).unwrap();
     double_click::execute(ref_args(&snapshot_id), &adapter, &context).unwrap();
     triple_click::execute(ref_args(&snapshot_id), &adapter, &context).unwrap();
+    let before_right_click = adapter.requests.lock().unwrap().len();
     let _ = right_click::execute(ref_args(&snapshot_id), &adapter, &context);
+    assert_eq!(
+        adapter.requests.lock().unwrap().len(),
+        before_right_click + 1,
+        "a headed right click must still reach the adapter"
+    );
     clear::execute(ref_args(&snapshot_id), &adapter, &context).unwrap();
     toggle::execute(ref_args(&snapshot_id), &adapter, &context).unwrap();
     check::execute(ref_args(&snapshot_id), &adapter, &context).unwrap();
@@ -352,7 +358,7 @@ fn headed_context_reaches_every_ref_action_without_policy_downgrade() {
 }
 
 #[test]
-fn all_context_request_callers_are_policy_tested() {
+fn every_ref_action_command_is_registered_in_the_policy_list() {
     let commands_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/commands");
     let covered: std::collections::BTreeSet<&str> =
         POLICY_TESTED_COMMANDS.iter().copied().collect();
@@ -384,7 +390,7 @@ fn all_context_request_callers_are_policy_tested() {
     uncovered.sort();
     assert!(
         uncovered.is_empty(),
-        "new ref-action command(s) call context.request( but are not in POLICY_TESTED_COMMANDS: {uncovered:?}\n\
+        "new ref-action command(s) call context.request_base( but are not in POLICY_TESTED_COMMANDS: {uncovered:?}\n\
          Add each stem to POLICY_TESTED_COMMANDS and write a matching policy assertion."
     );
 }

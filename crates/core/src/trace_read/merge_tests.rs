@@ -48,8 +48,8 @@ fn in_process_ts_regression_preserves_seq_order() {
 
 #[test]
 fn discovery_order_independence_via_merge() {
-    let a = vec![event(100, 1, "a")];
-    let b = vec![event(200, 1, "b")];
+    let a = vec![event(500, 1, "a")];
+    let b = vec![event(500, 1, "b")];
     let forward = merge_segments(vec![
         (a.clone(), 10, "10-1".into()),
         (b.clone(), 20, "20-1".into()),
@@ -63,7 +63,8 @@ fn discovery_order_independence_via_merge() {
         .iter()
         .map(|m| m.event.value["event"].as_str())
         .collect();
-    assert_eq!(names_fwd, names_rev);
+    assert_eq!(names_fwd, vec![Some("a"), Some("b")]);
+    assert_eq!(names_rev, names_fwd);
 }
 
 #[test]
