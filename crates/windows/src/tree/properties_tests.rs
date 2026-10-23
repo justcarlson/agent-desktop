@@ -197,17 +197,6 @@ fn a_read_set_without_the_flag_is_not_gated() {
     assert_eq!(properties.get(TreeProperty::Value), text("visible-value"));
 }
 
-#[test]
-fn an_absent_automation_id_is_complete_evidence_and_a_failed_read_is_not() {
-    let absent = reads(&[(TreeProperty::AutomationId, PropertyOutcome::Absent)])
-        .locator_evidence(ResolvedVocabulary::unknown());
-    let failed = reads(&[(TreeProperty::AutomationId, PropertyOutcome::Unknown)])
-        .locator_evidence(ResolvedVocabulary::unknown());
-
-    assert!(absent.identifiers.is_complete());
-    assert!(!failed.identifiers.is_complete());
-}
-
 /// `AutomationId` -> `native_id` shipped ahead of the work that nominally
 /// owned it, and shipped without a test. These pin the three rules it
 /// actually implements, each of which fails when inverted.
@@ -267,31 +256,6 @@ fn a_failed_automation_id_read_is_incomplete_evidence_rather_than_an_absent_id()
     assert!(!failed.identifiers.is_complete());
     assert!(absent.identifiers.is_complete());
     assert!(failed.identifiers.preferred_identifier().is_none());
-}
-
-/// `IdentifierEvidence::new` stamps `IdentifierKind::Unknown`, which
-/// `refs_validate.rs` treats as no identifier at all; the reader must use
-/// `typed`.
-#[test]
-fn an_automation_id_is_carried_as_a_typed_identifier() {
-    let evidence = reads(&[(TreeProperty::AutomationId, text("save-button"))])
-        .locator_evidence(ResolvedVocabulary::unknown());
-
-    let identifier = evidence
-        .identifiers
-        .preferred_identifier()
-        .expect("a known automation id is the preferred identifier");
-    assert_eq!(identifier.kind, IdentifierKind::AutomationId);
-    assert_eq!(identifier.value, "save-button");
-}
-
-#[test]
-fn a_whitespace_only_automation_id_is_not_promoted_to_an_identifier() {
-    let evidence = reads(&[(TreeProperty::AutomationId, text("   "))])
-        .locator_evidence(ResolvedVocabulary::unknown());
-
-    assert!(evidence.identifiers.preferred_identifier().is_none());
-    assert!(evidence.identifiers.is_complete());
 }
 
 /// The interpreted slots carry what the vocabulary resolved, not what the

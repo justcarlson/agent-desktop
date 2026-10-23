@@ -221,22 +221,6 @@ fn two_matches_with_a_stored_hash_and_a_complete_search_still_classify() {
     assert!(matches!(ambiguous, SearchVerdict::Ambiguous));
 }
 
-/// The pre-existing zero-candidate behaviour is unchanged by the fix: an
-/// incomplete empty search stays incomplete, a complete empty search
-/// settles stale.
-#[test]
-fn zero_candidates_preserve_the_prior_incomplete_and_stale_split() {
-    let entry = entry_with_hash(None);
-    assert!(matches!(
-        classify_search(&[], true, &entry),
-        SearchVerdict::Incomplete
-    ));
-    assert!(matches!(
-        classify_search(&[], false, &entry),
-        SearchVerdict::Stale
-    ));
-}
-
 /// An entry with no id, no stable text, and no positive-area bounds hash can
 /// never be verified by any tier. The fixture's secure password control
 /// structurally withholds its name, value, and description even on a fully

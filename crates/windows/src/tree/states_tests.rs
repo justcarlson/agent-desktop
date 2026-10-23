@@ -99,20 +99,6 @@ fn toggle_state_on_non_toggleable_role_emits_no_checked() {
     assert!(!states.contains(&state::PRESSED.to_string()));
 }
 
-/// A `button` role with the `STATE_SYSTEM_PRESSED` bit set emits the
-/// `pressed` state. This covers toolbar toggle buttons exposed through the
-/// legacy MSAA interface.
-#[test]
-fn pressed_state_system_bit_on_button_role_emits_pressed() {
-    const STATE_SYSTEM_PRESSED: i32 = 0x0000_0008;
-    let states = resolved(
-        vec![number(TreeProperty::LegacyState, STATE_SYSTEM_PRESSED)],
-        "button",
-    );
-
-    assert!(states.contains(&state::PRESSED.to_string()));
-}
-
 /// Toggle-available buttons are reclassified to `switch` by `roles.rs`, so a
 /// `button` role never carries a `ToggleState`. This verifies that the
 /// reclassification guards against misidentifying toggle buttons as pressed

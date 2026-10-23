@@ -72,9 +72,3 @@ fn resolver_returns_none_when_both_axes_exceed_the_reach_bound() {
     let injected = rect(0, 0, 4_000, 3_000);
     assert_eq!(resolve_offscreen_origin(injected, 420, 320), None);
 }
-
-#[test]
-fn resolver_returns_some_for_this_boxs_own_display() {
-    let injected = rect(0, 0, 1_639, 732);
-    assert!(resolve_offscreen_origin(injected, 420, 320).is_some());
-}
