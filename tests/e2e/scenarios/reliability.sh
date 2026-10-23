@@ -5,16 +5,21 @@ sleep 0.2
 require_target stale_row button removable-row
 require_target remove_row button remove-row
 act_target "$remove_row" click >/dev/null 2>&1
-sleep 0.4
+row_gone=0
+for _ in $(seq 1 25); do
+    removed_probe="$("$bin" find --app "$app" --role button --name removable-row --first 2>/dev/null | python3 "$json_tool" target 2>/dev/null || true)"
+    if [ -z "$removed_probe" ]; then
+        row_gone=1
+        break
+    fi
+    sleep 0.2
+done
 stale_output="$(act_target "$stale_row" click --timeout-ms 1000 2>&1)"
 stale_code="$(json_field "$stale_output" error.code)"
-case "$stale_code" in
-    STALE_REF|TIMEOUT|ELEMENT_NOT_FOUND|AMBIGUOUS_TARGET) stale_closed=1 ;;
-    *) stale_closed=0 ;;
-esac
-assert "removed target never dispatches through a stale ref" \
-    "$([ "$(json_field "$stale_output" ok)" != "True" ] && [ "$stale_closed" = "1" ] && echo 1 || echo 0)" \
-    "ref=$(target_ref "$stale_row") snapshot=$(target_snapshot "$stale_row") error=$stale_code"
+stale_delivery="$(json_field "$stale_output" error.disposition.delivery)"
+assert "removed target is refused as STALE_REF and never delivered" \
+    "$([ "$row_gone" = "1" ] && [ "$(json_field "$stale_output" ok)" = "False" ] && [ "$stale_code" = "STALE_REF" ] && [ "$stale_delivery" = "not_delivered" ] && echo 1 || echo 0)" \
+    "row_gone=$row_gone ref=$(target_ref "$stale_row") snapshot=$(target_snapshot "$stale_row") error=$stale_code delivery=$stale_delivery"
 
 note "Wait predicates use exact element namespaces"
 require_target reset_delayed button reset-delayed-button

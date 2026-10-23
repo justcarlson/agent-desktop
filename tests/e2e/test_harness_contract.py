@@ -290,5 +290,90 @@ class ErrorContractLegTests(unittest.TestCase):
         self.assertIn("never=no", output)
 
 
+SCENARIOS = E2E_ROOT / "scenarios"
+KEYBOARD = SCENARIOS / "keyboard.sh"
+REF_CHURN = SCENARIOS / "ref_churn.sh"
+RELIABILITY = SCENARIOS / "reliability.sh"
+
+
+def literal_error_codes(source):
+    used = {code for code, _, _ in envelope_calls(source)}
+    return used | set(re.findall(r'code"?\s*\]?\s*=\s*"([A-Z_]+)"', source))
+
+
+class KeyboardAndRefChurnLegTests(unittest.TestCase):
+    def test_keyboard_runs_after_error_contract_behind_the_contention_guard(self):
+        run_source = (E2E_ROOT / "run.sh").read_text()
+        error_contract = run_source.index('source "$here/scenarios/error_contract.sh"')
+        source_line = 'source "$here/scenarios/keyboard.sh"'
+        registered = run_source.index(source_line)
+        guard = run_source.rindex(CONTENTION_GUARD, 0, registered)
+        self.assertLess(error_contract, guard)
+        between = run_source[guard + len(CONTENTION_GUARD) : registered].strip().splitlines()
+        self.assertEqual(between, ["# shellcheck source=tests/e2e/scenarios/keyboard.sh"])
+        self.assertLess(registered, run_source.index('source "$here/scenarios/trace_performance.sh"'))
+        self.assertLess(registered, run_source.index("cursor-multi-agent-probe.py"))
+
+    def test_ref_churn_runs_after_the_probe_on_its_own_fixture_process(self):
+        run_source = (E2E_ROOT / "run.sh").read_text()
+        probe = run_source.index("cursor-multi-agent-probe.py")
+        source_line = 'source "$here/scenarios/ref_churn.sh"'
+        registered = run_source.index(source_line)
+        self.assertLess(probe, registered)
+        self.assertLess(registered, run_source.index("\nfinish", registered))
+        preceding = run_source[:registered].rstrip().splitlines()[-2:]
+        self.assertEqual(preceding[-1], "# shellcheck source=tests/e2e/scenarios/ref_churn.sh")
+        self.assertNotIn(CONTENTION_GUARD, "\n".join(preceding))
+
+    def test_ref_churn_scenario_cleans_up_its_own_fixture(self):
+        source = REF_CHURN.read_text()
+        self.assertIn('close-app "$app" --force', source)
+        self.assertIn('pgrep -x "$app"', source)
+        self.assertIn("fixture_owned=1", source)
+        self.assertIn("fixture_owned=0", source)
+        self.assertLess(source.index("fixture_owned=1"), source.index("fixture_owned=0"))
+
+    def test_ref_churn_pins_both_command_host_variants(self):
+        source = REF_CHURN.read_text()
+        self.assertIn("ref_churn_suite 0\n", source)
+        self.assertIn("ref_churn_suite 1", source)
+        self.assertIn("AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1", source)
+        self.assertIn('"$code" = "STALE_REF"', source)
+        self.assertIn('"$delivery" = "not_delivered"', source)
+
+    def test_ref_churn_reads_the_fixture_readouts_not_the_command_result(self):
+        source = REF_CHURN.read_text()
+        self.assertIn('--text "Beta stored: Beta"', source)
+        self.assertIn('--text "Stable stored: stable-ok"', source)
+        self.assertIn("data.found", source)
+
+    def test_removed_element_leg_accepts_only_stale_ref_not_delivered(self):
+        source = RELIABILITY.read_text()
+        self.assertNotIn("STALE_REF|TIMEOUT", source)
+        self.assertIn('"$stale_code" = "STALE_REF"', source)
+        self.assertIn('"$stale_delivery" = "not_delivered"', source)
+        self.assertIn('"$row_gone" = "1"', source)
+
+    def test_new_legs_use_error_codes_that_exist_in_the_core_enum(self):
+        known = core_error_codes()
+        for path in (KEYBOARD, REF_CHURN, RELIABILITY):
+            used = literal_error_codes(path.read_text())
+            self.assertEqual(used - known, set(), path.name)
+        self.assertIn("STALE_REF", literal_error_codes(REF_CHURN.read_text()))
+        self.assertIn("STALE_REF", literal_error_codes(RELIABILITY.read_text()))
+        self.assertEqual(
+            literal_error_codes(KEYBOARD.read_text()), {"POLICY_DENIED", "INVALID_ARGS"}
+        )
+
+    def test_press_scenario_observes_the_field_not_the_command(self):
+        source = KEYBOARD.read_text()
+        self.assertIn("await_value text-echo", source)
+        self.assertIn('"$observed" = "$expected"', source)
+        self.assertIn("press cmd+a", source)
+        self.assertIn('press_expect "press cmd+a then delete empties the field" delete ""', source)
+        self.assertIn("POLICY_DENIED 1 not_delivered", source)
+        self.assertIn("INVALID_ARGS 1 not_delivered", source)
+
+
 if __name__ == "__main__":
     unittest.main()
