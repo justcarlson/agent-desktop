@@ -144,8 +144,21 @@ fn an_expired_deadline_ends_the_descent_with_the_timeout_before_any_read() {
 #[test]
 fn an_object_that_still_answers_but_is_not_in_its_parents_list_is_never_reached() {
     let tree = Tree::from([(0, vec![1]), (9, vec![])]);
-    let landing = descend(0, &[1], deadline(), reader(&tree, false)).expect("descends");
-    assert_eq!(landing.element, None);
+    let mut consulted = Vec::new();
+    let mut read = reader(&tree, false);
+    let landing = descend(0, &[1], deadline(), |key| {
+        consulted.push(*key);
+        read(key)
+    })
+    .expect("descends");
+    assert_eq!(
+        landing,
+        Landing {
+            element: None,
+            unread: false
+        }
+    );
+    assert_eq!(consulted, vec![0]);
 }
 
 fn element(bus: &str, path: &str, pid: u32) -> AtspiElement {

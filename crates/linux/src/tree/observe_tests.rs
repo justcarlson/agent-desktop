@@ -350,9 +350,10 @@ fn a_handle_a_descent_landed_on_below_a_web_document_seeds_the_walk_in_a_web_con
 #[test]
 fn a_window_of_a_stopped_process_is_unresponsive_and_a_running_one_passes() {
     let id = window_id::encode(":1.7", "/stopped/x4a00003").expect("an id");
-    let listed = window(id);
+    let mut listed = window(id);
+    listed.app = "Calculator".to_owned();
     let error = refuse_stopped(&listed, |pid| pid == 77).expect_err("stopped");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
-    assert!(error.message.contains('a'));
+    assert!(error.message.contains("Calculator"));
     assert!(refuse_stopped(&listed, |_| false).is_ok());
 }

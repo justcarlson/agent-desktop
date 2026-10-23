@@ -236,15 +236,25 @@ fn a_node_off_every_screen_consumes_no_window_rectangle() {
 
 #[test]
 fn placed_elements_follow_the_order_apply_consumes_them_in() {
-    let mut root = node(
-        0,
-        0,
+    let frame = window_frame();
+    let first = below(&frame, "/frame/first");
+    let nested = below(&frame, "/frame/nested");
+    let deepest = below(&frame, "/frame/deepest");
+    let mut off_screen = node_of(below(&frame, "/frame/off"), Vec::new());
+    off_screen.payload.node.extents = Field::Present(Extents {
+        x: i32::MIN,
+        y: i32::MIN,
+        width: 10,
+        height: 10,
+    });
+    let mut root = node_of(
+        first.clone(),
         vec![
-            node(i32::MIN, i32::MIN, Vec::new()),
-            node(0, 0, vec![node(0, 0, Vec::new())]),
+            off_screen,
+            node_of(nested.clone(), vec![node_of(deepest.clone(), Vec::new())]),
         ],
     );
-    assert_eq!(placed_elements(&mut root).len(), 3);
+    assert_eq!(placed_elements(&mut root), vec![first, nested, deepest]);
 }
 
 struct UnavailableGeometry;

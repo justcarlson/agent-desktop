@@ -176,6 +176,8 @@ fn one_match_beside_an_unread_region_is_retried_and_not_resolved() {
     let error = refusal(&mut fake, &back);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+    assert!(is_incomplete(&error));
+    assert_eq!(error.details.as_ref().expect("details")["complete"], false);
 }
 
 #[test]

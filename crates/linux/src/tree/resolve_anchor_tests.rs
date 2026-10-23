@@ -1,7 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 use super::*;
-use crate::tree::resolve_errors::{app_exited, window_replaced};
+use crate::tree::resolve_errors::{app_exited, is_incomplete, window_replaced};
 use crate::tree::resolve_fake::{BUS, FRAME_PATH, Fake, WINDOW_PID, deadline, node};
 use crate::tree::role_numbers::{DOCUMENT_WEB, PANEL, PUSH_BUTTON};
 use crate::tree::test_support::attributes;
@@ -100,6 +100,8 @@ fn a_level_that_cannot_be_read_keeps_an_incomplete_retryable_ref() {
     let error = refused(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+    assert!(is_incomplete(&error));
+    assert_eq!(error.details.as_ref().expect("details")["complete"], false);
 }
 
 #[test]
@@ -135,6 +137,8 @@ fn a_landing_whose_evidence_cannot_be_read_is_retried() {
     let error = refused(&mut fake, &entry);
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+    assert!(is_incomplete(&error));
+    assert_eq!(error.details.as_ref().expect("details")["complete"], false);
 }
 
 #[test]
