@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use agent_desktop_core::{DeliveryDisposition, DeliverySemantics, ErrorCode};
+use agent_desktop_core::{ActionStep, DeliveryDisposition, DeliverySemantics, ErrorCode};
 
 use super::*;
 

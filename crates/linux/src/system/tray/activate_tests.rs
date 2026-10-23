@@ -109,23 +109,20 @@ fn right_click_requires_the_advertised_context_method() {
     .expect("delivered");
     assert_eq!(*wire.sent.borrow(), ["ContextMenu"]);
 
-    let wire = present();
-    run_with(
-        &methods(&[]),
+    for request in [
         ActionRequest::headed(Action::RightClick),
-        &wire,
-    )
-    .expect_err("no proven native receiver");
-
-    let wire = present();
-    assert!(
-        run_with(
-            &methods(&[]),
-            ActionRequest::headless(Action::RightClick),
-            &wire,
-        )
-        .is_err()
-    );
+        ActionRequest::headless(Action::RightClick),
+    ] {
+        let wire = present();
+        let error = run_with(&methods(&[]), request, &wire).expect_err("no context method");
+        assert_eq!(error.code, ErrorCode::ActionNotSupported);
+        assert!(error.message.contains("lists no ContextMenu method"));
+        assert_eq!(
+            error.disposition.delivery(),
+            DeliveryDisposition::NotDelivered
+        );
+        assert!(wire.sent.borrow().is_empty());
+    }
 }
 
 #[test]

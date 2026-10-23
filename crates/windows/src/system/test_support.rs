@@ -285,20 +285,24 @@ pub(crate) fn or_skip_shell<T>(
             None
         }
         Err(error) if shell_declined_the_surface(&error) => {
-            if responded() {
-                eprintln!(
-                    "WARN skip {what}: the shell responded to the raise but the product \
-                     reported a declined precondition - a possible product regression. \
-                     The responding surface was not diagnosable as this kind's shape on \
-                     this desktop, so the suspicion cannot be confirmed here; verify on \
-                     a host that presents the measured surface ({error:?})"
-                );
-            } else {
-                eprintln!("skip {what}: this desktop's shell declined to present the surface");
-            }
+            eprintln!("{}", declined_message(what, responded, &error));
             None
         }
         Err(error) => panic!("{what}: {error:?}"),
+    }
+}
+
+fn declined_message(what: &str, responded: impl FnOnce() -> bool, error: &AdapterError) -> String {
+    if responded() {
+        format!(
+            "WARN skip {what}: the shell responded to the raise but the product \
+             reported a declined precondition - a possible product regression. \
+             The responding surface was not diagnosable as this kind's shape on \
+             this desktop, so the suspicion cannot be confirmed here; verify on \
+             a host that presents the measured surface ({error:?})"
+        )
+    } else {
+        format!("skip {what}: this desktop's shell declined to present the surface")
     }
 }
 
@@ -320,12 +324,14 @@ fn is_foreign_shape_refusal(error: &AdapterError) -> bool {
 mod shell_decline_classification {
     use super::*;
 
+    fn declined_open_error() -> AdapterError {
+        AdapterError::timeout("the 'action-center' shell surface did not open within the deadline")
+            .with_details(serde_json::json!({ "kind": "shell_surface_not_opened" }))
+    }
+
     #[test]
     fn the_declined_shapes_classify_and_unrelated_errors_do_not() {
-        let declined_open = AdapterError::timeout(
-            "the 'action-center' shell surface did not open within the deadline",
-        )
-        .with_details(serde_json::json!({ "kind": "shell_surface_not_opened" }));
+        let declined_open = declined_open_error();
         assert!(shell_declined_the_surface(&declined_open));
 
         let declined_close = AdapterError::timeout(
@@ -360,33 +366,26 @@ mod shell_decline_classification {
 
     #[test]
     fn a_declined_error_with_a_silent_shell_skips_loudly() {
-        let declined_open = AdapterError::timeout(
-            "the 'action-center' shell surface did not open within the deadline",
-        )
-        .with_details(serde_json::json!({ "kind": "shell_surface_not_opened" }));
+        let declined_open = declined_open_error();
 
+        let message = declined_message("witness probe", || false, &declined_open);
         let outcome = or_skip_shell("witness probe", Err::<(), _>(declined_open), || false);
 
-        assert!(
-            outcome.is_none(),
-            "a silent shell keeps the skip convention"
-        );
+        assert!(outcome.is_none(), "a silent shell still skips");
+        assert!(message.starts_with("skip witness probe"), "{message}");
+        assert!(!message.contains("WARN"), "{message}");
     }
 
     #[test]
     fn a_declined_error_on_a_responded_shell_skips_with_a_regression_warning() {
-        let declined_open = AdapterError::timeout(
-            "the 'action-center' shell surface did not open within the deadline",
-        )
-        .with_details(serde_json::json!({ "kind": "shell_surface_not_opened" }));
+        let declined_open = declined_open_error();
 
+        let message = declined_message("witness probe", || true, &declined_open);
         let outcome = or_skip_shell("witness probe", Err::<(), _>(declined_open), || true);
 
-        assert!(
-            outcome.is_none(),
-            "a responded-but-und diagnosable shell degrades to the loud skip; the \
-             WARN line names the regression suspicion for the run log"
-        );
+        assert!(outcome.is_none(), "a responded shell still skips");
+        assert!(message.starts_with("WARN skip witness probe"), "{message}");
+        assert!(message.contains("possible product regression"), "{message}");
     }
 
     #[test]

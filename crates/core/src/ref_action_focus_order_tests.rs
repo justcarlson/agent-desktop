@@ -128,6 +128,7 @@ fn execute_within(
     headed: bool,
     timeout_ms: u64,
 ) -> Result<ActionResult, AdapterError> {
+    let _clock = crate::deadline::VirtualClock::freeze();
     let entry: RefEntry = serde_json::from_value(serde_json::json!({
         "pid": 1, "process_instance": "test-instance", "role": "button", "name": "Run",
         "source_window_id": "w-test", "source_surface": "window", "path": [0],

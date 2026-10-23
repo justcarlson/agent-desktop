@@ -4,8 +4,7 @@ use super::classify::{
 };
 use super::hit_test_impl;
 use super::imp::{
-    physical_point, pre_read_fate_for_test, resolve_classification, result_for_failed_probe,
-    saturate_coord,
+    judge_probe, physical_point, pre_read_fate_for_test, resolve_classification, saturate_coord,
 };
 use crate::system::hresult::{E_ACCESSDENIED, E_FAIL, UIA_E_NOTSUPPORTED, UIA_E_TIMEOUT};
 use crate::tree::automation::{ERR_INVALID_ARG, ERR_TIMEOUT, UiaFailure, root_from_hwnd};
@@ -245,12 +244,22 @@ fn an_expired_budget_truncates_the_walk_mid_chain_to_unknown() {
 }
 
 #[test]
-fn fake_probe_failure_shape_is_unknown_not_err() {
-    let outcome = result_for_failed_probe().expect("probe miss is Ok(Unknown)");
-    assert_eq!(outcome, HitTestResult::Unknown);
-    assert!(
-        result_for_failed_probe().is_ok(),
-        "probe failures must not escape as Err"
+fn a_probe_miss_is_unknown_and_never_reaches_judging() {
+    let outcome = judge_probe(None::<()>, |_| panic!("a probe miss must not be judged"));
+
+    assert_eq!(
+        outcome.expect("a probe miss is Ok(Unknown), never Err"),
+        HitTestResult::Unknown
+    );
+}
+
+#[test]
+fn a_probe_hit_is_judged_not_collapsed_to_unknown() {
+    let outcome = judge_probe(Some(()), |()| HitTestResult::ReachesTarget);
+
+    assert_eq!(
+        outcome.expect("a probe hit is judged"),
+        HitTestResult::ReachesTarget
     );
 }
 

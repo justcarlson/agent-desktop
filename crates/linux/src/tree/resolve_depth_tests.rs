@@ -118,6 +118,8 @@ fn a_region_left_unread_withholds_resolution() {
     let error = resolve(&mut fake, &outer, deadline()).expect_err("incomplete");
     assert_eq!(error.code, ErrorCode::StaleRef);
     assert!(error.is_explicitly_retryable());
+    assert!(is_incomplete(&error));
+    assert_eq!(error.details.as_ref().expect("details")["complete"], false);
 }
 
 #[test]

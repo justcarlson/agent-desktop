@@ -3,8 +3,6 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 #[path = "automation_classify.rs"]
 mod classify;
 
-#[cfg(test)]
-pub(crate) use classify::sentinel_disposition;
 pub(crate) use classify::uia_failure_disposition;
 pub use classify::{
     ERR_ALREADY_RUNNING, ERR_FORMAT, ERR_INACTIVE, ERR_INVALID_ARG, ERR_INVALID_OBJECT, ERR_NONE,

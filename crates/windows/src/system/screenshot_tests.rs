@@ -139,16 +139,6 @@ fn post_capture_window_identity_failure_discards_bytes() {
 }
 
 #[test]
-fn modern_forced_unavailable_still_succeeds_via_legacy() {
-    bootstrap();
-    backend_hooks::with_force_unsupported(|| {
-        let image = screenshot(ScreenshotTarget::FullScreen, deadline(10_000))
-            .expect("forced-unavailable modern must degrade silently");
-        assert_png_metadata(&image);
-    });
-}
-
-#[test]
 fn modern_forced_fail_after_available_falls_back_to_legacy() {
     bootstrap();
     backend_hooks::with_force_fail_after_available(|| {

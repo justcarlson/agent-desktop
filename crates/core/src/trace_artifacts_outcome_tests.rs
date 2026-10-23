@@ -1,14 +1,6 @@
 use super::*;
 
 #[test]
-fn default_adapter_screenshot_skips_cleanly() {
-    let (_home, _lock) = setup_artifacts_test();
-    let manifest = artifacts_session();
-    let context = CommandContext::new(Some(manifest.id.clone()), None, false).unwrap();
-    run_ref_action(&context, &DefaultScreenshotAdapter, 1).unwrap();
-}
-
-#[test]
 fn capture_targets_window_for_pid() {
     let (_home, _lock) = setup_artifacts_test();
     let manifest = artifacts_session();

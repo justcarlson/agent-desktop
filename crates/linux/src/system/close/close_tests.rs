@@ -40,12 +40,18 @@ fn session_ownership_refuses_close_before_any_send_regardless_of_names() {
 
 #[test]
 fn unreadable_ownership_refuses_close_without_delivery() {
-    let mut world = Fake::new(Liveness::Alive);
-    world.protected = Err(agent_desktop_core::AdapterError::not_supported(
-        "session ownership",
-    ));
-    assert!(run(&world, &request(true)).is_err());
-    assert_eq!(world.count("term"), 0);
+    for force in [false, true] {
+        let mut world = Fake::new(Liveness::Alive);
+        world.protected = Err(agent_desktop_core::AdapterError::not_supported(
+            "session ownership",
+        ));
+        let error = run(&world, &request(force)).expect_err("refused");
+        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        for sent in ["toplevels", "close", "term", "kill"] {
+            assert_eq!(world.count(sent), 0, "{sent} force={force}");
+        }
+    }
 }
 
 #[test]

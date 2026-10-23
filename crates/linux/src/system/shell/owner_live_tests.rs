@@ -162,96 +162,96 @@ pub(super) fn shell_identity_follows_both_bus_owners_and_never_the_process_name(
     assert!(std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some());
     let connection = accessibility();
     let (_owner, pid, owned) = spawn("owner");
+    assert!(
+        owned,
+        "the private session must leave org.gnome.Shell unowned for the owner fixture"
+    );
     let (name, path) = window(&connection, pid);
-    if owned {
-        assert_eq!(
-            std::fs::read_to_string(format!("/proc/{pid}/comm"))
-                .unwrap()
-                .trim(),
-            "renamed-shell"
-        );
-        let root = find_root(&SharedBus::default(), Deadline::after(5_000).unwrap())
-            .expect("session service owner works with any process name");
-        assert_eq!(
-            (root.bus_name.as_str(), root.path.as_str(), root.pid),
-            (name.as_str(), path.as_str(), pid)
-        );
-        assert!(is_shell_owner(&name, pid));
-        assert!(!is_shell_owner(&name, u32::MAX));
-        let located = super::container::locate_anchor(
-            &SharedBus::default(),
-            &root,
-            super::anchor::Anchor::Landmark(super::container::Landmark::MessageList),
-            Deadline::after(5_000).unwrap(),
+    assert_eq!(
+        std::fs::read_to_string(format!("/proc/{pid}/comm"))
+            .unwrap()
+            .trim(),
+        "renamed-shell"
+    );
+    let root = find_root(&SharedBus::default(), Deadline::after(5_000).unwrap())
+        .expect("session service owner works with any process name");
+    assert_eq!(
+        (root.bus_name.as_str(), root.path.as_str(), root.pid),
+        (name.as_str(), path.as_str(), pid)
+    );
+    assert!(is_shell_owner(&name, pid));
+    assert!(!is_shell_owner(&name, u32::MAX));
+    let located = super::container::locate_anchor(
+        &SharedBus::default(),
+        &root,
+        super::anchor::Anchor::Landmark(super::container::Landmark::MessageList),
+        Deadline::after(5_000).unwrap(),
+    )
+    .expect("a footer row of real toolkit controls proves the list without text or geometry");
+    let container = &located.container.element;
+    let rows = children(&connection, container.bus_name(), container.path());
+    assert_eq!(rows.len(), 1);
+    let footer: Vec<u32> = children(&connection, &rows[0].0, rows[0].1.as_str())
+        .iter()
+        .map(|(name, path)| role(&connection, name, path.as_str()))
+        .collect();
+    assert_eq!(footer, [LABEL, TOGGLE_BUTTON, PUSH_BUTTON]);
+    super::detect::require_daemon(Deadline::after(5_000).unwrap())
+        .expect("notification capability comes from matching owners, not branding");
+    agent_desktop_core::SystemOps::check_notification_support(
+        &crate::LinuxAdapter::new(),
+        Deadline::after(5_000).unwrap(),
+    )
+    .expect("the adapter's support check follows the same owners");
+    let session = Connection::session().unwrap();
+    let information: (String, String, String, String) = session
+        .call_method(
+            Some("org.freedesktop.Notifications"),
+            "/org/freedesktop/Notifications",
+            Some("org.freedesktop.Notifications"),
+            "GetServerInformation",
+            &(),
         )
-        .expect("a footer row of real toolkit controls proves the list without text or geometry");
-        let container = &located.container.element;
-        let rows = children(&connection, container.bus_name(), container.path());
-        assert_eq!(rows.len(), 1);
-        let footer: Vec<u32> = children(&connection, &rows[0].0, rows[0].1.as_str())
-            .iter()
-            .map(|(name, path)| role(&connection, name, path.as_str()))
-            .collect();
-        assert_eq!(footer, [LABEL, TOGGLE_BUTTON, PUSH_BUTTON]);
-        super::detect::require_daemon(Deadline::after(5_000).unwrap())
-            .expect("notification capability comes from matching owners, not branding");
-        agent_desktop_core::SystemOps::check_notification_support(
-            &crate::LinuxAdapter::new(),
-            Deadline::after(5_000).unwrap(),
-        )
-        .expect("the adapter's support check follows the same owners");
-        let session = Connection::session().unwrap();
-        let information: (String, String, String, String) = session
+        .unwrap()
+        .body()
+        .deserialize()
+        .unwrap();
+    assert_eq!(information.0, "通知実装");
+    assert!(
+        Command::new("kill")
+            .args(["-USR1", &pid.to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
+    let until = Instant::now() + Duration::from_secs(5);
+    loop {
+        let present: bool = session
             .call_method(
-                Some("org.freedesktop.Notifications"),
-                "/org/freedesktop/Notifications",
-                Some("org.freedesktop.Notifications"),
-                "GetServerInformation",
-                &(),
+                Some("org.freedesktop.DBus"),
+                "/org/freedesktop/DBus",
+                Some("org.freedesktop.DBus"),
+                "NameHasOwner",
+                &("org.freedesktop.Notifications",),
             )
             .unwrap()
             .body()
             .deserialize()
             .unwrap();
-        assert_eq!(information.0, "通知実装");
-        assert!(
-            Command::new("kill")
-                .args(["-USR1", &pid.to_string()])
-                .status()
-                .unwrap()
-                .success()
-        );
-        let until = Instant::now() + Duration::from_secs(5);
-        loop {
-            let present: bool = session
-                .call_method(
-                    Some("org.freedesktop.DBus"),
-                    "/org/freedesktop/DBus",
-                    Some("org.freedesktop.DBus"),
-                    "NameHasOwner",
-                    &("org.freedesktop.Notifications",),
-                )
-                .unwrap()
-                .body()
-                .deserialize()
-                .unwrap();
-            if !present {
-                break;
-            }
-            assert!(
-                Instant::now() < until,
-                "owned notification endpoint release"
-            );
-            std::thread::sleep(Duration::from_millis(20));
+        if !present {
+            break;
         }
-        let (_foreign, _, _) = spawn("notification");
-        let error = super::detect::require_daemon(Deadline::after(5_000).unwrap())
-            .expect_err("branding cannot authorize a different notification owner");
-        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
-        assert_eq!(error.details.unwrap()["daemon"], "unsupported");
-    } else {
-        assert!(!is_shell_owner(&name, pid));
+        assert!(
+            Instant::now() < until,
+            "owned notification endpoint release"
+        );
+        std::thread::sleep(Duration::from_millis(20));
     }
+    let (_foreign, _, _) = spawn("notification");
+    let error = super::detect::require_daemon(Deadline::after(5_000).unwrap())
+        .expect_err("branding cannot authorize a different notification owner");
+    assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+    assert_eq!(error.details.unwrap()["daemon"], "unsupported");
     let (_control, pid, _) = spawn("ordinary");
     let (name, _) = window(&connection, pid);
     assert_eq!(

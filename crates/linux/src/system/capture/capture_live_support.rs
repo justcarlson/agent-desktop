@@ -4,13 +4,16 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, WindowFilter, WindowInfo};
 
 use super::window_context::WindowLookup;
-use super::window_xid::XidOutcome;
+use super::window_xid::{XidOutcome, window_xid};
 
 use crate::system::x11::grab::{DisplayGrabber, Grabber};
 use crate::system::{SharedBus, list_windows};
 use crate::tree::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
+
+const SCREEN_WIDTH: f64 = 1280.0;
+const SCREEN_HEIGHT: f64 = 800.0;
 
 const PAINTER: &str = r##"
 import sys, gi
@@ -120,6 +123,42 @@ pub(super) fn wait_for_listed(bus: &SharedBus, pid: u32) -> WindowInfo {
         std::thread::sleep(Duration::from_millis(200));
     }
     panic!("pid {pid} never listed a window");
+}
+
+pub(super) fn place_partly_off_screen(
+    bus: &SharedBus,
+    window: &WindowInfo,
+    at: &Geometry,
+) -> WindowInfo {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::{ConfigureWindowAux, ConnectionExt};
+
+    let XidOutcome::One(xid) = window_xid(bus, window, deadline(10_000)) else {
+        panic!("the window must map to exactly one X11 client to be placed");
+    };
+    let (connection, _) = x11rb::connect(None).expect("an independent X11 client");
+    let placement = ConfigureWindowAux::new().x(at.x).y(at.y);
+    let everything = WindowFilter {
+        focused_only: false,
+        app: None,
+    };
+    let started = Instant::now();
+    while started.elapsed() < SETTLE {
+        connection
+            .configure_window(xid, &placement)
+            .expect("the placement request sends");
+        connection.flush().expect("the placement request flushes");
+        std::thread::sleep(Duration::from_millis(200));
+        let listed = list_windows(bus, &everything, deadline(10_000)).unwrap_or_default();
+        let placed = listed.into_iter().find(|listed| listed.pid == window.pid);
+        if let Some(placed) = placed
+            && let Some(bounds) = placed.bounds
+            && (bounds.x + bounds.width > SCREEN_WIDTH || bounds.y + bounds.height > SCREEN_HEIGHT)
+        {
+            return placed;
+        }
+    }
+    panic!("the window manager never let the window extend past the screen");
 }
 
 pub(super) fn reason(error: &agent_desktop_core::AdapterError) -> String {

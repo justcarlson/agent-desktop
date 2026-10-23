@@ -19,13 +19,6 @@ fn node(role: &str, name: Option<&str>, value: Option<&str>) -> AccessibilityNod
 }
 
 #[test]
-fn parse_selector_role_and_text() {
-    let query = parse_selector("button:Submit");
-    assert_eq!(query.identity.role.as_deref(), Some("button"));
-    assert_eq!(query.has_text.as_deref(), Some("submit"));
-}
-
-#[test]
 fn parse_selector_role_only() {
     let query = parse_selector("button");
     assert_eq!(query.identity.role.as_deref(), Some("button"));

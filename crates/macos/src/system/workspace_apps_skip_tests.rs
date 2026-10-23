@@ -134,11 +134,14 @@ fn skipped_records_preserve_matching_apps_and_retry_missing_names() {
         crate::system::app_inventory::scoped_apps_from_sources(capture("Finder"), Ok(Vec::new()))
             .unwrap();
     assert_eq!(apps[0].name, "Finder");
-    let mut attempts = 0;
+    let mut attempts = 0_u64;
     let error = crate::system::app_inventory::stabilize_apps_until(
-        Instant::now() + std::time::Duration::from_millis(500),
+        Instant::now() + std::time::Duration::from_secs(5),
         || {
             attempts += 1;
+            if attempts == 3 {
+                return Err(AdapterError::timeout("macOS app inventory timed out"));
+            }
             crate::system::app_inventory::scoped_apps_from_sources(
                 capture("Missing"),
                 Ok(Vec::new()),
@@ -146,11 +149,12 @@ fn skipped_records_preserve_matching_apps_and_retry_missing_names() {
         },
     )
     .unwrap_err();
-    assert!(attempts > 1);
     assert_eq!(error.code, ErrorCode::Timeout);
     assert!(error.is_explicitly_retryable());
+    let details = error.details.unwrap();
+    assert_eq!(details["attempts"], 3);
     assert_eq!(
-        error.details.unwrap()["last_failure_details"]["skipped"][0],
+        details["last_failure_details"]["skipped"][0],
         json!({"pid":11,"field":"application_name"})
     );
     let owners = window_owner_snapshot_from_json(&bytes, deadline()).unwrap();

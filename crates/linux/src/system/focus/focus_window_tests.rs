@@ -86,16 +86,11 @@ fn the_active_twin_is_already_focused_and_sends_nothing() {
 
 #[test]
 fn a_tie_the_twins_cannot_break_is_refused_before_any_send() {
-    let mut world = twin_world(
-        CLIENT + 1,
-        Twins {
-            active: vec![false, true],
-            me: 0,
-        },
-    );
-    world.twins = None;
-    assert_refused(&failure(&world), "ambiguous_window");
-    assert_eq!(world.sends(), 0);
+    for active in [vec![false, false], vec![true, true]] {
+        let world = twin_world(CLIENT + 1, Twins { active, me: 0 });
+        assert_refused(&failure(&world), "ambiguous_window");
+        assert_eq!(world.sends(), 0);
+    }
 }
 
 #[test]

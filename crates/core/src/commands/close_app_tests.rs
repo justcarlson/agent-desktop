@@ -97,7 +97,7 @@ fn close_app_blocks_adapter_protected_process() {
 }
 
 #[test]
-fn graceful_close_reports_verified_termination() {
+fn graceful_close_reports_method_graceful_with_unverified_delivery() {
     let value = execute(
         CloseAppArgs {
             app: "TextEdit".into(),
@@ -129,7 +129,7 @@ fn close_app_propagates_adapter_errors() {
 }
 
 #[test]
-fn forced_close_confirms_termination() {
+fn forced_close_reports_method_force_with_unverified_delivery() {
     let value = execute(
         CloseAppArgs {
             app: "TextEdit".into(),

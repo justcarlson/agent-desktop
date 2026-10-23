@@ -8,10 +8,39 @@ use crate::tree::walker_fake::deadline;
 use agent_desktop_core::{
     AdapterError, Point, Rect, hit_test::HitTestResult, native_handle::NativeHandle,
 };
+use std::sync::atomic::{AtomicUsize, Ordering};
 use uiautomation::types::Handle;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetWindowRect, HWND_TOPMOST, SWP_SHOWWINDOW, SetWindowPos,
+    GetWindowRect, HWND_TOPMOST, IsIconic, SWP_SHOWWINDOW, SetWindowPos,
 };
+
+/// Pins whose strong assertion is conditioned on Win32 agreeing with itself:
+/// `on_screen_fixture_center_reaches_target`,
+/// `same_root_overlay_reports_intercepted_by` and
+/// `cross_window_overlap_reports_intercepted_and_uncovered_reaches`.
+const BRACKETED_PINS: usize = 3;
+
+static PINS_FINISHED: AtomicUsize = AtomicUsize::new(0);
+static PINS_ASSERTED: AtomicUsize = AtomicUsize::new(0);
+
+/// Marks that a bracketed pin reached its strong assertion rather than
+/// skipping on a contaminated desktop.
+fn pin_asserted() {
+    PINS_ASSERTED.fetch_add(1, Ordering::SeqCst);
+}
+
+/// Ends a bracketed pin. A skip prints to stderr and passes, so a lane where
+/// every pin skipped is green yet proves nothing; when the last of the pins
+/// in this process finishes with none having asserted, that is a failure.
+/// Running a single pin by name, or each test in its own process, never
+/// reaches the last-finisher count and so still treats a skip as a pass.
+fn finish_pin() {
+    let finished = PINS_FINISHED.fetch_add(1, Ordering::SeqCst) + 1;
+    assert!(
+        finished != BRACKETED_PINS || PINS_ASSERTED.load(Ordering::SeqCst) > 0,
+        "every bracketed hit-test pin skipped on a contaminated desktop, so this run proved nothing"
+    );
+}
 
 /// The window text the fixture gives its overlay child. An interception that
 /// names it is the staged occluder; any other name is a window this repository
@@ -67,15 +96,19 @@ fn on_screen_fixture_center_reaches_target() {
     let probe = probe_between_win32_readings(&handle, &point);
     const PIN: &str = "on-screen ReachesTarget";
     match probe.stable_owner() {
-        Some(owner) if owner == fixture.handle() => assert_eq!(
-            probe.result,
-            HitTestResult::ReachesTarget,
-            "the window manager gives the point to the fixture, so nothing occludes it"
-        ),
+        Some(owner) if owner == fixture.handle() => {
+            pin_asserted();
+            assert_eq!(
+                probe.result,
+                HitTestResult::ReachesTarget,
+                "the window manager gives the point to the fixture, so nothing occludes it"
+            );
+        }
         Some(owner) => eprintln!("{}", foreign_owner_skip(PIN, owner)),
         None => eprintln!("{}", moved_z_order_skip(PIN, &probe)),
     }
     fixture_overlay::clear_topmost(fixture.handle());
+    finish_pin();
 }
 
 #[test]
@@ -88,6 +121,11 @@ fn minimized_on_screen_fixture_yields_unknown() {
     let point = center(window_bounds(fixture_window::find_button(fixture.handle())));
     fixture.minimize();
     std::thread::sleep(std::time::Duration::from_millis(100));
+    assert_ne!(
+        unsafe { IsIconic(fixture.handle() as *mut std::ffi::c_void) },
+        0,
+        "the fixture must be minimized, or Unknown here proves nothing about the iconic guard"
+    );
     let result = hit_test_impl(&handle, point, deadline()).expect("hit_test succeeds");
     assert_eq!(result, HitTestResult::Unknown);
 }
@@ -107,11 +145,15 @@ fn same_root_overlay_reports_intercepted_by() {
     let probe = probe_between_win32_readings(&handle, &point);
     const PIN: &str = "same-root InterceptedBy";
     match probe.stable_owner() {
-        Some(owner) if owner == fixture.handle() => assert_names_the_staged_overlay(probe.result),
+        Some(owner) if owner == fixture.handle() => {
+            pin_asserted();
+            assert_names_the_staged_overlay(probe.result);
+        }
         Some(owner) => eprintln!("{}", foreign_owner_skip(PIN, owner)),
         None => eprintln!("{}", moved_z_order_skip(PIN, &probe)),
     }
     fixture_overlay::clear_topmost(fixture.handle());
+    finish_pin();
 }
 
 fn assert_names_the_staged_overlay(result: HitTestResult) {
@@ -150,11 +192,13 @@ fn cross_window_overlap_reports_intercepted_and_uncovered_reaches() {
     let covered = probe_between_win32_readings(&under_handle, &covered_point);
     match covered.result {
         HitTestResult::InterceptedBy { role, .. } => {
+            pin_asserted();
             assert!(role.is_some(), "occluder role is always present");
         }
         HitTestResult::Unknown => {
             report_uncorroborated_cover(&covered, under.handle(), over.handle());
             fixture_overlay::clear_topmost(over.handle());
+            finish_pin();
             return;
         }
         other => panic!("cross-window cover must InterceptedBy, got {other:?}"),
@@ -168,15 +212,19 @@ fn cross_window_overlap_reports_intercepted_and_uncovered_reaches() {
     let uncovered = probe_between_win32_readings(&over_handle, &uncovered_point);
     const PIN: &str = "uncovered ReachesTarget (covered InterceptedBy already proven)";
     match uncovered.stable_owner() {
-        Some(owner) if owner == over.handle() => assert_eq!(
-            uncovered.result,
-            HitTestResult::ReachesTarget,
-            "the window manager gives the point to the uncovered fixture, so nothing occludes it"
-        ),
+        Some(owner) if owner == over.handle() => {
+            pin_asserted();
+            assert_eq!(
+                uncovered.result,
+                HitTestResult::ReachesTarget,
+                "the window manager gives the point to the uncovered fixture, so nothing occludes it"
+            );
+        }
         Some(owner) => eprintln!("{}", foreign_owner_skip(PIN, owner)),
         None => eprintln!("{}", moved_z_order_skip(PIN, &uncovered)),
     }
     fixture_overlay::clear_topmost(over.handle());
+    finish_pin();
 }
 
 /// Decides whether an uncovered-by-`Unknown` cover is contamination or the

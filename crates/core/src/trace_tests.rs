@@ -6,6 +6,8 @@ use std::fs;
 #[cfg(unix)]
 #[test]
 fn trace_open_rejects_symlink_paths() {
+    use std::os::unix::fs::PermissionsExt;
+
     let base = std::env::temp_dir().join(format!(
         "agent-desktop-trace-symlink-{}",
         std::time::SystemTime::now()
@@ -16,6 +18,7 @@ fn trace_open_rejects_symlink_paths() {
     let target = base.with_extension("target");
     let link = base.with_extension("link");
     fs::write(&target, b"existing").unwrap();
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
     std::os::unix::fs::symlink(&target, &link).unwrap();
 
     let result = open_trace_file(&link);
@@ -124,31 +127,6 @@ fn write_event_emits_single_atomic_jsonl_line_with_seq() {
     assert!(second["seq"].as_u64().is_some());
     assert!(third["seq"].as_u64().is_some());
     assert!(third["seq"].as_u64().unwrap() > second["seq"].as_u64().unwrap());
-    let _ = fs::remove_file(path);
-}
-
-#[test]
-fn truncated_final_line_leaves_prior_lines_parseable() {
-    let path = std::env::temp_dir().join(format!(
-        "agent-desktop-trunc-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    let config = TraceConfig::build(Some(path.clone()), None, false).unwrap();
-    config.emit("ok", None, json!({})).unwrap();
-    let mut bytes = fs::read(&path).unwrap();
-    bytes.extend_from_slice(b"{\"event\":\"partial");
-    fs::write(&path, bytes).unwrap();
-    let body = fs::read_to_string(&path).unwrap();
-    let mut parsed = 0usize;
-    for line in body.lines() {
-        if serde_json::from_str::<serde_json::Value>(line).is_ok() {
-            parsed += 1;
-        }
-    }
-    assert_eq!(parsed, 2);
     let _ = fs::remove_file(path);
 }
 

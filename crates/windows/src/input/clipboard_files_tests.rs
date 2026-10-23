@@ -58,14 +58,11 @@ fn hdrop_round_trips_empty_single_and_multiple() {
         });
         assert_eq!(&decoded, paths, "{label}");
     }
-}
 
-#[test]
-fn empty_list_payload_decodes_to_empty_vector() {
-    let mut payload = vec![0u8; DROPFILES_SIZE + 4];
-    payload[0..4].copy_from_slice(&(DROPFILES_SIZE as u32).to_le_bytes());
-    payload[16..20].copy_from_slice(&1i32.to_le_bytes());
-    let decoded = decode_hdrop(&payload).expect("empty HDROP");
+    let mut independent_empty = vec![0u8; DROPFILES_SIZE + 4];
+    independent_empty[0..4].copy_from_slice(&(DROPFILES_SIZE as u32).to_le_bytes());
+    independent_empty[16..20].copy_from_slice(&1i32.to_le_bytes());
+    let decoded = decode_hdrop(&independent_empty).expect("empty HDROP");
     assert!(decoded.is_empty());
 }
 

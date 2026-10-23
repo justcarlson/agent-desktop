@@ -164,14 +164,3 @@ fn status_returns_ok_envelope_with_required_fields() {
         ad_free_string(out);
     });
 }
-
-#[test]
-fn status_free_string_cleans_up() {
-    with_adapter(|adapter| unsafe {
-        let mut out: *mut std::os::raw::c_char = std::ptr::null_mut();
-        let rc = ad_status(adapter, &mut out);
-        assert_eq!(rc, AdResult::Ok);
-        assert!(!out.is_null());
-        ad_free_string(out);
-    });
-}

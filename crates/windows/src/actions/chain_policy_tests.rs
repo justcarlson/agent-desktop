@@ -9,13 +9,6 @@ use agent_desktop_core::InteractionPolicy;
 use std::cell::Cell;
 
 #[test]
-fn value_write_chain_does_not_continue_after_unverified_delivery() {
-    let continue_after =
-        crate::actions::value_write::VALUE_WRITE_CHAIN.continue_after_unverified_delivery;
-    assert!(!continue_after);
-}
-
-#[test]
 fn value_write_chain_stops_after_unverified_delivery_with_no_second_rung() {
     let first = Cell::new(0u8);
     let second = Cell::new(0u8);

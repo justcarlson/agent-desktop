@@ -19,9 +19,9 @@ class WorkflowTests(unittest.TestCase):
 
     def test_hosted_lane_runs_the_self_tests(self):
         ci = (REPO / ".github" / "workflows" / "ci.yml").read_text()
-        self.assertIn("discover -s tests/e2e-linux", ci)
-        self.assertIn("tests/e2e-linux/run.sh", ci)
-        self.assertIn("AGENT_DESKTOP_E2E_SKIP_LIVE", ci)
+        discover = [line for line in ci.splitlines() if "discover -s tests/e2e-linux" in line]
+        self.assertEqual(len(discover), 1, discover)
+        self.assertIn("AGENT_DESKTOP_E2E_SKIP_LIVE=1", discover[0])
 
 
 

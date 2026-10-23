@@ -50,14 +50,6 @@ fn a_process_that_stops_before_the_requests_is_unresponsive() {
 }
 
 #[test]
-fn a_process_that_exited_before_the_requests_is_ok_and_gets_none() {
-    let mut world = Fake::new(Liveness::Alive);
-    world.state_after_toplevels = Some(Liveness::Gone);
-    close(&world, &request()).expect("benign");
-    assert_eq!(world.count("close"), 0);
-}
-
-#[test]
 fn unconfirmed_close_sends_are_uncertain_even_when_fan_out_expires() {
     for expires in [false, true] {
         let mut world = Fake::new(Liveness::Alive);

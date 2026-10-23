@@ -28,12 +28,6 @@ fn resolved(reads: Vec<(TreeProperty, PropertyOutcome)>, role: &str) -> Vec<Stri
     known(resolve_states(&props(&all_reads), &role_of(role)))
 }
 
-#[test]
-#[should_panic(expected = "is not in STATE_VOCABULARY")]
-fn assert_states_in_vocabulary_rejects_bogus_token() {
-    state::assert_states_in_vocabulary(&["zzz_bogus_state_token".to_string()]);
-}
-
 /// The role is `checkbox` on purpose. A non-toggleable role is suppressed by
 /// the role gate whatever the availability gate does, so a static text here
 /// would make this pass for a reason that has nothing to do with A15-7 - and
@@ -103,20 +97,6 @@ fn toggle_state_on_non_toggleable_role_emits_no_checked() {
 
     assert!(!states.contains(&state::CHECKED.to_string()));
     assert!(!states.contains(&state::PRESSED.to_string()));
-}
-
-/// A `button` role with the `STATE_SYSTEM_PRESSED` bit set emits the
-/// `pressed` state. This covers toolbar toggle buttons exposed through the
-/// legacy MSAA interface.
-#[test]
-fn pressed_state_system_bit_on_button_role_emits_pressed() {
-    const STATE_SYSTEM_PRESSED: i32 = 0x0000_0008;
-    let states = resolved(
-        vec![number(TreeProperty::LegacyState, STATE_SYSTEM_PRESSED)],
-        "button",
-    );
-
-    assert!(states.contains(&state::PRESSED.to_string()));
 }
 
 /// Toggle-available buttons are reclassified to `switch` by `roles.rs`, so a

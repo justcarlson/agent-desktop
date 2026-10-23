@@ -207,7 +207,7 @@ fn count_uses_live_evidence_without_creating_a_snapshot() {
 #[test]
 fn empty_live_role_result_reports_observed_roles() {
     let _guard = HomeGuard::new();
-    let adapter = LiveFindAdapter::complete();
+    let adapter = LiveFindAdapter::with_framed_label();
     let mut args = named_find("w-1", "missing");
     args.filter.name = None;
     args.filter.role = Some("toolbar".into());
@@ -219,7 +219,9 @@ fn empty_live_role_result_reports_observed_roles() {
         .as_array()
         .expect("empty role result should include observed roles");
     assert!(roles.iter().any(|role| role == "button"));
+    assert!(roles.iter().any(|role| role == "statictext"));
     assert!(roles.iter().any(|role| role == "window"));
+    assert!(!roles.iter().any(|role| role == "toolbar"));
 }
 
 #[test]
@@ -286,7 +288,7 @@ fn ordinal_modes_preserve_live_document_order() {
 }
 
 #[test]
-fn strict_live_resolution_reports_bounded_ambiguous_candidates() {
+fn strict_live_resolution_of_two_matches_is_ambiguous_with_an_exact_count() {
     let adapter = LiveFindAdapter::complete();
     let windows = adapter
         .list_windows(

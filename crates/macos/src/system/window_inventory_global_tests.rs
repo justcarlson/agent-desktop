@@ -1,3 +1,4 @@
+use super::timeout_tests::{UNCONSUMED_BUDGET, fail_until_the_third_attempt};
 use super::*;
 use agent_desktop_core::Rect;
 use rustc_hash::FxHashMap;
@@ -247,7 +248,7 @@ fn owner_snapshot_or_process_generation_churn_is_retryable() {
 #[test]
 fn stabilization_retries_churn_and_preserves_strict_failures() {
     let mut attempts = 0;
-    let windows = stabilize_global_with(Instant::now() + std::time::Duration::from_secs(1), || {
+    let windows = stabilize_global_with(Instant::now() + UNCONSUMED_BUDGET, || {
         attempts += 1;
         if attempts == 1 {
             Err(owner_churn_error(None, "test"))
@@ -259,7 +260,7 @@ fn stabilization_retries_churn_and_preserves_strict_failures() {
 
     assert!(windows.is_empty());
     assert_eq!(attempts, 2);
-    let denied = stabilize_global_with(Instant::now() + std::time::Duration::from_secs(1), || {
+    let denied = stabilize_global_with(Instant::now() + UNCONSUMED_BUDGET, || {
         Err(AdapterError::permission_denied())
     })
     .unwrap_err();
@@ -269,19 +270,14 @@ fn stabilization_retries_churn_and_preserves_strict_failures() {
 #[test]
 fn persistent_owner_churn_times_out_with_exact_attempt_metrics() {
     let mut attempts = 0_u64;
-    let error = stabilize_global_with(
-        Instant::now() + std::time::Duration::from_millis(20),
-        || {
-            attempts += 1;
-            Err(owner_churn_error(None, "test"))
-        },
-    )
+    let error = stabilize_global_with(Instant::now() + UNCONSUMED_BUDGET, || {
+        fail_until_the_third_attempt(&mut attempts, || owner_churn_error(None, "test"))
+    })
     .unwrap_err();
 
     assert_eq!(error.code, ErrorCode::Timeout);
     let details = error.details.unwrap();
-    assert!(attempts >= 1);
-    assert_eq!(details["attempts"].as_u64(), Some(attempts));
+    assert_eq!(details["attempts"], 3);
     assert_eq!(details["last_code"], "APP_UNRESPONSIVE");
     assert_eq!(details["last_kind"], "global_window_owner_churn");
 }

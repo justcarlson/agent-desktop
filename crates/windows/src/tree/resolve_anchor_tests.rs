@@ -126,7 +126,32 @@ fn a_role_refuted_landing_settles_stale() {
     ensure_test_apartment();
     let fixture = HostedFixture::spawn().expect("a fixture host starts");
     let entry = blank_entry_with_path(&fixture, vec![0]);
-    let error = match resolve_locator_anchor(&entry, deadline()) {
+    let deadline = deadline();
+    let root = crate::tree::automation::root_from_hwnd(fixture.handle(), deadline)
+        .expect("a fixture root");
+    let source = crate::tree::walker_source::UiaTreeSource::for_root(&root).expect("a source");
+    let prepared = source.prepare_root(&root).expect("a prepared root");
+    let landing = crate::tree::resolve_search::descent::descend_path(
+        &source,
+        &prepared,
+        &entry.scope.path,
+        &crate::tree::walker::WalkBudget::new(10, deadline),
+        &ANCHOR_DESCENT,
+    )
+    .expect("the stored path descends");
+    let landed = landing.element.expect(
+        "the stored path must land on a live element for the role guard to be what refuses it",
+    );
+    let (_, evidence, _) = source.evidence(&landed);
+    assert!(
+        evidence
+            .role
+            .known()
+            .is_some_and(|role| role != &entry.identity.role),
+        "the landing must carry a known role different from the stored ref's"
+    );
+
+    let error = match resolve_locator_anchor(&entry, deadline) {
         Err(error) => error,
         Ok(_) => panic!("a role-refuted landing settles stale, it does not resolve"),
     };

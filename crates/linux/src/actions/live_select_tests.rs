@@ -1,4 +1,4 @@
-use agent_desktop_core::ErrorCode;
+use agent_desktop_core::{DeliverySemantics, ErrorCode};
 
 use super::live_click_tests::{act, find, open};
 use super::select::select;
@@ -13,8 +13,6 @@ fn a_value_with_no_match_in_the_sidebar_is_not_found_and_writes_nothing() {
         select(target, "No Such Panel 7f3a", None)
     })
     .expect_err("no match");
-    assert!(matches!(
-        error.code,
-        ErrorCode::ElementNotFound | ErrorCode::ActionNotSupported
-    ));
+    assert_eq!(error.code, ErrorCode::ElementNotFound);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }

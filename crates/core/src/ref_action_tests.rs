@@ -280,21 +280,6 @@ fn replacement_between_resolution_and_dispatch_fails_before_delivery() {
 }
 
 #[test]
-fn execute_entry_with_context_succeeds_and_matches_execute_entry() {
-    let context = CommandContext::default();
-    let adapter = SuccessfulAdapter::new();
-    let result = execute_entry_with_context(
-        &adapter,
-        &entry(),
-        ActionRequest::headless(Action::Click),
-        &context,
-    )
-    .unwrap();
-
-    assert_eq!(result.action, "click");
-}
-
-#[test]
 fn execute_entry_with_context_emits_trace_events() {
     let trace_path = std::env::temp_dir().join(format!(
         "agent-desktop-ref-action-trace-{}.jsonl",
@@ -353,6 +338,10 @@ fn trace_records_omit_session_id_when_context_has_none() {
     );
 
     let body = std::fs::read_to_string(&trace_path).unwrap();
+    assert!(
+        body.contains("action.dispatch.start"),
+        "expected dispatch trace event"
+    );
     for line in body.lines() {
         let record: serde_json::Value = serde_json::from_str(line).unwrap();
         assert!(

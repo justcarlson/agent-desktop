@@ -91,6 +91,15 @@ fn an_entry_with_no_header_buttons_has_no_provable_fields() {
 
 #[test]
 fn notification_nodes_nested_in_another_are_not_entries_of_their_own() {
-    let walked = reading(&[spec("Mail", "a"), spec("Chat", "b")]);
-    assert_eq!(roots(&walked).len(), 2);
+    let mut walked = reading(&[spec("Mail", "a"), spec("Chat", "b")]);
+    let siblings = roots(&walked);
+    assert_eq!(siblings.len(), 2);
+    let (outer, inner) = (siblings[0], siblings[1]);
+    let old_parent = walked.visits[inner].parent.expect("a parent");
+    walked.visits[old_parent]
+        .children
+        .retain(|child| *child != inner);
+    walked.visits[inner].parent = Some(outer);
+    walked.visits[outer].children.push(inner);
+    assert_eq!(roots(&walked), vec![outer]);
 }

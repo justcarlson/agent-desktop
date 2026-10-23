@@ -177,22 +177,6 @@ fn a_blank_stored_name_does_not_refute_a_matching_id() {
     assert_eq!(candidate_outcome(&stored, &live), CandidateOutcome::Matched);
 }
 
-/// An id `Match` and an unreadable stable-text field is incomplete-
-/// retryable, never a settled refutation.
-#[test]
-fn an_id_match_with_unreadable_text_is_incomplete() {
-    let stored = entry(Some("btn-1"), "button", Some("Old Label"), None, None);
-    let unreadable = LocatorEvidence {
-        name: LocatorField::Unknown,
-        ..evidence(None, None, None, Some("btn-1"))
-    };
-
-    assert_eq!(
-        candidate_outcome(&stored, &unreadable),
-        CandidateOutcome::Incomplete
-    );
-}
-
 /// A candidate whose native identifier cannot be read is incomplete: the
 /// id tier cannot decide it, and an unreadable field is never a `NoMatch`.
 #[test]

@@ -73,25 +73,21 @@ pub(super) fn validate_socket(path: &Path) -> Result<bool, AppError> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_dir::TestDir;
     use super::*;
     use std::os::unix::fs::PermissionsExt;
     use std::os::unix::net::UnixListener;
-    use std::sync::atomic::{AtomicU64, Ordering};
 
-    fn test_dir() -> PathBuf {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!(
-            "ad-endpoint-test-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+    fn subdirectory(root: &TestDir, name: &str) -> PathBuf {
+        let path = root.path().join(name);
         std::fs::create_dir(&path).unwrap();
         path
     }
 
     #[test]
     fn directory_validation_rejects_every_non_private_arm() {
-        let loose = test_dir();
+        let root = TestDir::new();
+        let loose = subdirectory(&root, "loose");
         std::fs::set_permissions(&loose, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert!(validate_directory(&loose).is_err());
 
@@ -99,19 +95,20 @@ mod tests {
         std::fs::write(&file, b"x").unwrap();
         assert!(validate_directory(&file).is_err());
 
-        let target = test_dir();
-        let link = std::env::temp_dir().join(format!("ad-endpoint-link-{}", std::process::id()));
+        let target = subdirectory(&root, "target");
+        let link = root.path().join("link");
         std::os::unix::fs::symlink(&target, &link).unwrap();
         assert!(validate_directory(&link).is_err());
 
-        let private = test_dir();
+        let private = subdirectory(&root, "private");
         std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700)).unwrap();
         assert!(validate_directory(&private).is_ok());
     }
 
     #[test]
     fn socket_validation_rejects_non_sockets_and_loose_modes() {
-        let dir = test_dir();
+        let root = TestDir::new();
+        let dir = root.path();
         let missing = dir.join("missing.sock");
         assert!(!validate_socket(&missing).unwrap());
 

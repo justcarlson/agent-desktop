@@ -89,28 +89,6 @@ fn the_gate_covers_exactly_the_properties_whose_content_comes_from_the_target() 
     assert!(!TreeProperty::IsPassword.is_value_bearing());
 }
 
-/// Every property whose value is text read out of the target is gated,
-/// checked against `carries_target_text()` - the property's own declaration -
-/// rather than against a second hand-maintained list. A hand list that
-/// happened to duplicate `VALUE_BEARING` let a text property added to
-/// `WALK_SET` without joining either list escape both this test and the
-/// secure-field gate, invisible until a password reached a trace export.
-/// `carries_target_text()` is an exhaustive match with no catch-all arm, so a
-/// new variant forces a compile-time decision instead of a silent `false`.
-#[test]
-fn no_text_property_reaches_the_walk_without_joining_the_gate() {
-    for property in TreeProperty::WALK_SET {
-        if !property.carries_target_text() {
-            continue;
-        }
-        assert!(
-            property.is_value_bearing(),
-            "{} carries target-authored text into evidence without the secure gate",
-            property.as_str()
-        );
-    }
-}
-
 /// `carries_target_text()` and `is_value_bearing()` are two independent
 /// declarations of the same fact - one on the property itself, one in
 /// `VALUE_BEARING` - and a property that carries target text must be

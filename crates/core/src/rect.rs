@@ -50,3 +50,7 @@ impl Rect {
         Some(hasher.finish())
     }
 }
+
+#[cfg(test)]
+#[path = "rect_tests.rs"]
+mod tests;

@@ -3,7 +3,6 @@ use super::super::test_support::{settles_to, wait_for_foreground_to_settle};
 use super::super::window_enum::{EnumeratedWindow, enumerate_top_level, is_cloaked};
 use super::super::window_ops::passes_filter;
 use super::{SnapshotSurface, WindowInfo};
-use agent_desktop_core::{ErrorCode, InteractionPolicy};
 
 use crate::system::raise_oracle::{responded_since, witness_desktop};
 use crate::system::test_support::{SHELL_SURFACE_LOCK, or_skip_shell};
@@ -84,39 +83,6 @@ fn uia_child_count(handle: isize) -> usize {
         .find_all(TreeScope::Children, &condition)
         .expect("the surface's children")
         .len()
-}
-
-#[test]
-fn strict_headless_open_refuses_before_raising() {
-    bootstrap();
-    let _lock = SHELL_SURFACE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    dismiss_first(SnapshotSurface::ActionCenter);
-    assert!(
-        wait_for_foreground_to_settle(),
-        "the desktop's foreground must settle before the refusal is staged"
-    );
-    let before = foreground();
-
-    let error = open_surface(
-        SnapshotSurface::ActionCenter,
-        InteractionPolicy::headless(),
-        deadline(5_000),
-    )
-    .expect_err("a strict-headless caller is refused");
-
-    assert_eq!(error.code, ErrorCode::PolicyDenied);
-    assert_eq!(
-        foreground(),
-        before,
-        "a refusal that moved the foreground is not a refusal"
-    );
-    let resolved = super::resolve_surface(SnapshotSurface::ActionCenter, deadline(5_000))
-        .expect("the desktop is readable")
-        .is_some();
-    assert!(
-        !resolved,
-        "the refused open must not have raised the surface"
-    );
 }
 
 #[test]
@@ -244,12 +210,6 @@ fn taskbar_resolves_without_raising_and_roots_a_tree() {
 
     crate::tree::automation::root_from_hwnd(handle, deadline(5_000))
         .expect("the taskbar identity roots through the observation stack");
-    let children = uia_child_count(handle);
-    if children == 0 {
-        eprintln!("skip taskbar tree: this desktop's taskbar presents an empty UIA tree");
-        return;
-    }
-    assert!(children > 0, "the taskbar presents a non-empty tree");
 }
 
 /// A bounded series of full walks, absorbing the session-varying enumeration

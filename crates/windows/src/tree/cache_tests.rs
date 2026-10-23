@@ -262,50 +262,11 @@ mod windows_only {
         assert!(child.0.get_bounding_rectangle().is_ok());
     }
 
-    /// A property absent from the request is a programming error, never a
-    /// silent live fetch and never `Absent`.
-    #[test]
-    fn a_property_outside_the_request_reads_unknown_with_a_structured_error() {
-        bootstrap();
-        let fixture = HostedFixture::spawn().expect("the fixture host starts");
-        let root = crate::tree::automation::root_from_hwnd(
-            fixture.handle(),
-            Deadline::standard().expect("a standard deadline"),
-        )
-        .expect("the fixture window resolves");
-        let client = crate::tree::automation::automation_client().expect("a UIA client");
-        let request = client
-            .create_cache_request()
-            .expect("an empty cache request");
-        request
-            .set_element_mode(uiautomation::types::ElementMode::Full)
-            .expect("the element mode is settable");
-        let sparse = root
-            .0
-            .build_updated_cache(&request)
-            .map(UIAElement::from)
-            .expect("an element with an empty cache");
-
-        let (properties, errors) = read_cached(&sparse);
-
-        assert!(
-            !errors.is_empty(),
-            "an unrequested property must surface a structured error"
-        );
-        assert_eq!(
-            properties.get(TreeProperty::ClassName),
-            PropertyOutcome::Unknown
-        );
-        assert_ne!(
-            properties.get(TreeProperty::ClassName),
-            PropertyOutcome::Absent
-        );
-    }
-
     /// The policy is asserted against a real out-of-process provider, because
-    /// an in-process one is exactly the branch the policy says to skip.
+    /// an in-process one is exactly the branch the policy says to skip: a
+    /// provider nested into the target's own process must engage the cache.
     #[test]
-    fn the_policy_reads_a_real_provider_without_carrying_its_description_anywhere() {
+    fn a_real_out_of_process_provider_engages_the_cache() {
         bootstrap();
         let fixture = HostedFixture::spawn().expect("the fixture host starts");
         let root = crate::tree::automation::root_from_hwnd(
@@ -314,12 +275,6 @@ mod windows_only {
         )
         .expect("the fixture window resolves");
 
-        let policy = policy_for_root(&root);
-
-        assert!(matches!(policy, CachePolicy::Batch | CachePolicy::Skip));
-        assert!(
-            !format!("{policy:?}").contains("uiautomationcore"),
-            "the policy must not carry the provider description"
-        );
+        assert_eq!(policy_for_root(&root), CachePolicy::Batch);
     }
 }

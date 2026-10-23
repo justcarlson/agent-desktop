@@ -114,13 +114,28 @@ mod tests {
 
     #[test]
     fn preferred_duplicate_maps_to_the_deduplicated_value() {
-        let evidence = IdentifierEvidence::new(
+        let later = IdentifierEvidence::new(
             ["shared".into(), "other".into(), "shared".into()],
             Some(2),
             true,
         );
 
-        assert_eq!(evidence.values(), ["shared", "other"]);
-        assert_eq!(evidence.preferred_index(), Some(0));
+        assert_eq!(later.values(), ["shared", "other"]);
+        assert_eq!(later.preferred_index(), Some(0));
+        assert_eq!(later.preferred_value(), Some("shared"));
+
+        let first = IdentifierEvidence::new(
+            [
+                "automation-id".into(),
+                "runtime-id".into(),
+                "automation-id".into(),
+            ],
+            Some(0),
+            true,
+        );
+
+        assert_eq!(first.values(), ["automation-id", "runtime-id"]);
+        assert_eq!(first.preferred_value(), Some("automation-id"));
+        assert!(first.is_complete());
     }
 }

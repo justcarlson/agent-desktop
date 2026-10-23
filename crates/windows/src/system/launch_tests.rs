@@ -1,5 +1,7 @@
 use super::*;
-use agent_desktop_core::{Deadline, DeliveryDisposition, ErrorCode, ProcessId};
+use agent_desktop_core::{
+    AppError, Deadline, DeliverySemantics, ErrorCode, ErrorPayload, ProcessId,
+};
 
 #[cfg(target_os = "windows")]
 use std::path::{Path, PathBuf};
@@ -44,6 +46,38 @@ fn ambiguous_launch_target_suggestion_names_pids_instead_of_a_ref_retry() {
     );
 }
 
+/// The envelope a caller reads when a launch name matches several running
+/// instances: the refusal happens before any process is started, and the
+/// candidate pids travel in `details` so the caller can pick one by pid.
+#[test]
+fn shared_ambiguous_target_pins_the_windows_envelope() {
+    let matches = vec![
+        ProcessRow {
+            pid: ProcessId::from(10),
+            name: "Cursor.exe".into(),
+        },
+        ProcessRow {
+            pid: ProcessId::from(11),
+            name: "Cursor.exe".into(),
+        },
+    ];
+
+    let wire = serde_json::to_value(ErrorPayload::from_app_error(&AppError::from(
+        ambiguous_apps(&matches),
+    )))
+    .expect("ErrorPayload serializes");
+
+    assert_eq!(wire["code"], ErrorCode::AmbiguousTarget.as_str());
+    assert_eq!(
+        wire["disposition"],
+        serde_json::to_value(DeliverySemantics::not_delivered()).expect("disposition serializes")
+    );
+    assert_eq!(
+        wire["details"]["candidate_pids"],
+        serde_json::json!([10, 11])
+    );
+}
+
 /// The `Timeout` arm of [`is_unobservable_within_budget`], mirroring the
 /// `WindowNotFound` arm's tolerance: an already-expired deadline makes
 /// `list_windows_live`'s shared retry budget (`retry_transient_window_race`'s
@@ -84,21 +118,6 @@ fn launch_options_enforce_a_bounded_text_budget() {
     };
     let error = validate_launch_options(&options).expect_err("payload too large");
     assert_eq!(error.code, ErrorCode::InvalidArgs);
-}
-
-#[test]
-fn invalid_identifier_is_not_delivered() {
-    let error = launch_app_impl(
-        r"sub\app.exe",
-        &LaunchOptions::default(),
-        Deadline::after(1_000).expect("deadline"),
-    )
-    .expect_err("relative id");
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::NotDelivered
-    );
 }
 
 #[test]

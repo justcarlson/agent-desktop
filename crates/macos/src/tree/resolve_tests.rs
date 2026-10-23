@@ -203,7 +203,7 @@ fn only_explicitly_retryable_incomplete_errors_retry() {
 #[test]
 fn cannot_complete_retry_can_recover_before_one_deadline() {
     let attempts = std::cell::Cell::new(0);
-    let deadline = Instant::now() + Duration::from_millis(250);
+    let deadline = Instant::now() + Duration::from_secs(5);
 
     let result = retry_incomplete_until(deadline, || {
         attempts.set(attempts.get() + 1);

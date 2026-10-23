@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use agent_desktop_core::{ActionStep, DeliveryDisposition};
+use agent_desktop_core::{ActionStep, DeliveryDisposition, StepMechanism};
 
 use super::*;
 use crate::actions::chain::{DeliveryOutcome, Observed};

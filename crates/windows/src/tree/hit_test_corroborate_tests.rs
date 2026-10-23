@@ -6,7 +6,7 @@ use crate::tree::element_properties::ElementProperties;
 use crate::tree::name_evidence::LabelOutcome;
 use crate::tree::property_ids::TreeProperty;
 use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
-use agent_desktop_core::{LocatorField, Rect, hit_test::HitTestResult};
+use agent_desktop_core::{Rect, hit_test::HitTestResult};
 use std::cell::Cell;
 
 #[test]
@@ -52,18 +52,6 @@ fn arm3_pid_equal_never_widens() {
             opinion(Some(10), Some(1)),
             opinion(None, Some(1)),
             opinion(Some(20), Some(1)),
-        ),
-        Attribution::Contradicted
-    );
-}
-
-#[test]
-fn win32_skip_cell_is_unknown() {
-    assert_eq!(
-        interception_attribution(
-            opinion(Some(10), Some(1)),
-            opinion(Some(20), Some(2)),
-            opinion(Some(10), Some(1)),
         ),
         Attribution::Contradicted
     );
@@ -286,17 +274,6 @@ fn bounds_read_failure_demotes_evidence() {
         (TreeProperty::BoundingRectangle, PropertyOutcome::Unknown),
     ]);
     assert!(occluder_from_properties(&properties, LabelOutcome::Unlabelled).is_none());
-}
-
-#[test]
-fn resolve_role_unknown_maps_to_some_unknown_string() {
-    assert_eq!(
-        crate::tree::roles::resolve_role(&ElementProperties::from_reads(vec![(
-            TreeProperty::ControlType,
-            PropertyOutcome::Unknown
-        )])),
-        LocatorField::Unknown
-    );
 }
 
 #[test]

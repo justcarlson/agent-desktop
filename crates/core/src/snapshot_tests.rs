@@ -321,30 +321,7 @@ fn test_skeleton_fixture_matches_golden() {
     assert_eq!(refmap.len(), 4, "should allocate 4 refs total");
     let result_value = serde_json::to_value(&result).unwrap();
 
-    assert_eq!(result_value["role"], golden_value["role"]);
-    assert_eq!(result_value["name"], golden_value["name"]);
-    assert_eq!(
-        result_value["children"][0]["ref_id"], golden_value["children"][0]["ref_id"],
-        "named skeleton anchor should be @e1"
-    );
-    assert_eq!(
-        result_value["children"][0]["children_count"],
-        golden_value["children"][0]["children_count"]
-    );
-    assert_eq!(
-        result_value["children"][1]["ref_id"], golden_value["children"][1]["ref_id"],
-        "described skeleton anchor should be @e2"
-    );
-    assert_eq!(
-        result_value["children"][2]["children"][0]["ref_id"],
-        golden_value["children"][2]["children"][0]["ref_id"],
-        "interactive button should be @e3"
-    );
-    assert_eq!(
-        result_value["children"][2]["children"][1]["ref_id"],
-        golden_value["children"][2]["children"][1]["ref_id"],
-        "interactive textfield should be @e4"
-    );
+    assert_eq!(result_value, golden_value);
 }
 
 #[path = "skeleton_anchor_tests.rs"]

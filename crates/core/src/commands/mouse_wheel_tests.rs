@@ -138,6 +138,13 @@ fn returns_scrolled_envelope_with_requested_deltas() {
     assert!(value.get("scrolled").is_none());
 }
 
+fn propagated_adapter_error(result: Result<Value, AppError>) -> AdapterError {
+    match result.expect_err("the adapter failure must propagate") {
+        AppError::Adapter(error) => error,
+        other => panic!("expected the adapter error to propagate unchanged, got {other:?}"),
+    }
+}
+
 #[test]
 fn adapter_error_propagates_as_err() {
     let adapter = WheelCaptureAdapter::failing();
@@ -157,7 +164,9 @@ fn adapter_error_propagates_as_err() {
             .with_cursor_overlay_session("test-session", config),
     );
 
-    assert!(result.is_err());
+    let error = propagated_adapter_error(result);
+    assert_eq!(error.code, crate::ErrorCode::PlatformNotSupported);
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
     let presented = adapter.presented.lock().unwrap();
     assert_eq!(presented.len(), 1);
     assert!(presented[0].is_travel());
@@ -182,7 +191,12 @@ fn delivered_error_still_presents_effect_before_propagating() {
             .with_cursor_overlay_session("test-session", config),
     );
 
-    assert!(result.is_err());
+    let error = propagated_adapter_error(result);
+    assert_eq!(error.code, crate::ErrorCode::PlatformNotSupported);
+    assert_eq!(
+        error.disposition,
+        crate::DeliverySemantics::delivered_unverified()
+    );
     let presented = adapter.presented.lock().unwrap();
     assert_eq!(presented.len(), 2);
     assert!(presented[0].is_travel());

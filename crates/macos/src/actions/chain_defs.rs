@@ -197,15 +197,17 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::{COLLAPSE_CHAIN, EXPAND_CHAIN};
-        use crate::actions::chain_step::ChainStep;
+        use crate::actions::chain::step_mechanism;
+        use agent_desktop_core::StepMechanism;
 
         #[test]
-        fn disclosure_chains_use_verified_semantic_delivery() {
+        fn disclosure_chains_hold_only_semantic_steps_and_never_fall_back() {
             for chain in [&EXPAND_CHAIN, &COLLAPSE_CHAIN] {
-                assert!(matches!(
-                    chain.steps.first(),
-                    Some(ChainStep::CustomWithDeadline { .. })
-                ));
+                assert!(!chain.steps.is_empty());
+                assert!(!chain.continue_after_unverified_delivery);
+                for step in chain.steps {
+                    assert_eq!(step_mechanism(step), StepMechanism::SemanticApi);
+                }
             }
         }
     }

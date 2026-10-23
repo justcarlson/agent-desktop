@@ -12,7 +12,6 @@ from scenarios.headed_actions import assert_ok, live_root
 from scenarios.pointer_targets import delivery_target
 
 POINTER_TOLERANCE = 2
-DISPLAY_RE = re.compile(r"^\d+$")
 FRAME_EXTENTS_RE = re.compile(r"-?\d+")
 
 

@@ -248,11 +248,12 @@ fn test_root_with_window_surface_does_not_short_circuit_validation() {
         result.is_err(),
         "NoopAdapter cannot satisfy run_from_ref so this must error"
     );
-    if let AppError::Adapter(adapter_err) = result.unwrap_err() {
-        assert_eq!(adapter_err.code, ErrorCode::InvalidArgs);
-        assert!(adapter_err.message.contains("expected @<snapshot_id>:e<N>"));
-        assert!(!adapter_err.message.contains("--surface"));
-    }
+    let AppError::Adapter(adapter_err) = result.unwrap_err() else {
+        panic!("a window surface with a bare --root must fail as an adapter error");
+    };
+    assert_eq!(adapter_err.code, ErrorCode::InvalidArgs);
+    assert!(adapter_err.message.contains("expected @<snapshot_id>:e<N>"));
+    assert!(!adapter_err.message.contains("--surface"));
 }
 
 #[test]

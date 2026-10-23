@@ -19,6 +19,9 @@ fn exited_serializes_with_optional_code_field() {
 
     let value = serde_json::to_value(ProcessState::Exited { code: Some(9) }).expect("serializable");
     assert_eq!(value, serde_json::json!({ "state": "exited", "code": 9 }));
+
+    let value = serde_json::to_value(ProcessState::Exited { code: Some(0) }).expect("serializable");
+    assert_eq!(value, serde_json::json!({ "state": "exited", "code": 0 }));
 }
 
 #[test]
@@ -32,6 +35,16 @@ fn crashed_round_trips_through_serde() {
 
     let round_tripped: ProcessState = serde_json::from_value(value).expect("deserializable");
     assert_eq!(round_tripped, ProcessState::Crashed { signal_or_code: 11 });
+
+    let access_violation = 0xC000_0005u32 as i32;
+    let value = serde_json::to_value(ProcessState::Crashed {
+        signal_or_code: access_violation,
+    })
+    .expect("serializable");
+    assert_eq!(
+        value,
+        serde_json::json!({ "state": "crashed", "signal_or_code": access_violation })
+    );
 }
 
 #[test]

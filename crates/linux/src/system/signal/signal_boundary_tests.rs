@@ -6,24 +6,34 @@ use serde_json::json;
 
 use super::{Scope, narrow};
 
-const ALL: [ErrorCode; 16] = [
-    ErrorCode::PermDenied,
-    ErrorCode::ElementNotFound,
-    ErrorCode::AppNotFound,
-    ErrorCode::ActionFailed,
-    ErrorCode::ActionNotSupported,
-    ErrorCode::StaleRef,
-    ErrorCode::AmbiguousTarget,
-    ErrorCode::WindowNotFound,
-    ErrorCode::PlatformNotSupported,
-    ErrorCode::Timeout,
-    ErrorCode::InvalidArgs,
-    ErrorCode::NotificationNotFound,
-    ErrorCode::SnapshotNotFound,
-    ErrorCode::PolicyDenied,
-    ErrorCode::AppUnresponsive,
-    ErrorCode::Internal,
-];
+fn successor(code: &ErrorCode) -> Option<ErrorCode> {
+    match code {
+        ErrorCode::PermDenied => Some(ErrorCode::ElementNotFound),
+        ErrorCode::ElementNotFound => Some(ErrorCode::AppNotFound),
+        ErrorCode::AppNotFound => Some(ErrorCode::ActionFailed),
+        ErrorCode::ActionFailed => Some(ErrorCode::ActionNotSupported),
+        ErrorCode::ActionNotSupported => Some(ErrorCode::StaleRef),
+        ErrorCode::StaleRef => Some(ErrorCode::AmbiguousTarget),
+        ErrorCode::AmbiguousTarget => Some(ErrorCode::WindowNotFound),
+        ErrorCode::WindowNotFound => Some(ErrorCode::PlatformNotSupported),
+        ErrorCode::PlatformNotSupported => Some(ErrorCode::Timeout),
+        ErrorCode::Timeout => Some(ErrorCode::InvalidArgs),
+        ErrorCode::InvalidArgs => Some(ErrorCode::NotificationNotFound),
+        ErrorCode::NotificationNotFound => Some(ErrorCode::SnapshotNotFound),
+        ErrorCode::SnapshotNotFound => Some(ErrorCode::PolicyDenied),
+        ErrorCode::PolicyDenied => Some(ErrorCode::AppUnresponsive),
+        ErrorCode::AppUnresponsive => Some(ErrorCode::Internal),
+        ErrorCode::Internal => None,
+    }
+}
+
+fn every_code() -> Vec<ErrorCode> {
+    let mut codes = vec![ErrorCode::PermDenied];
+    while let Some(next) = codes.last().and_then(successor) {
+        codes.push(next);
+    }
+    codes
+}
 
 fn live() -> Deadline {
     Deadline::after(5_000).expect("deadline")
@@ -135,7 +145,7 @@ fn a_plain_not_supported_answer_is_not_the_missing_bus() {
 #[test]
 fn no_output_code_lies_outside_the_three() {
     for scope in [Scope::Scoped, Scope::Unscoped] {
-        for code in ALL {
+        for code in every_code() {
             let (narrowed, _) = run(AdapterError::new(code.clone(), "x"), scope, live());
             let allowed = matches!(
                 narrowed.code,

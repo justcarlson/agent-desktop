@@ -173,13 +173,13 @@ fn degenerate_after_state_is_delivered_unverified_not_not_delivered() {
 }
 
 #[test]
-fn degenerate_before_and_after_is_delivered_unverified() {
+fn degenerate_before_state_is_delivered_unverified() {
     let error = finish_observation(
         Some(rect(0.0, 0.0, 0.0, 0.0)),
-        Some(rect(0.0, 0.0, 0.0, 0.0)),
+        Some(rect(10.0, 10.0, 20.0, 20.0)),
         None,
     )
-    .expect_err("degenerate both");
+    .expect_err("degenerate before");
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     assert_ne!(error.disposition, DeliverySemantics::not_delivered());
 }

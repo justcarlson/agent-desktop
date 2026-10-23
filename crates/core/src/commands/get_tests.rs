@@ -140,7 +140,7 @@ fn bounds_falls_back_to_snapshot_geometry_when_no_live_read_is_available() {
     )
     .unwrap();
 
-    assert_eq!(result["value"]["y"], -322.0);
+    assert_eq!(result["value"], json!(stale_snapshot_bounds()));
     assert_eq!(result["live"], false);
 }
 

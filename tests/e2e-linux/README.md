@@ -99,6 +99,14 @@ The report groups outcomes by tier and mode. Only `pass` and `asserted-refusal` 
 
 The `launch.recovery_strategy_on_error` leg is an `asserted-refusal`. It stops Calculator after a snapshot, then requires a click on the dead owner's ref to answer `STALE_REF` with `details.process_state=exited`, `details.retryable=false` and disposition `not_delivered`/`safe`, with no `recovery` object and no relaunch of the owner.
 
+The `error_contract.recoverable_error_envelopes` leg is an `asserted-refusal` on both X11 tiers. Against a live Calculator it requires a bare `@e1` to answer `INVALID_ARGS` with the snapshot-qualified suggestion, `@sdeadbeef:e1` to answer `SNAPSHOT_NOT_FOUND` with the `refresh_snapshot_then_retry_original` recovery, and an unknown `--app` to answer `APP_NOT_FOUND` with the `list-apps` suggestion. Each must be `not_delivered` and exit 1, and the Calculator display and the owned-process set must be unchanged.
+
+The `observation.stale_ref_after_ui_change` leg is an `asserted-refusal` on both X11 tiers. It mints a ref to the Calculator About menu item, closes the menu through the raw toggle, and requires `click` on that ref to answer `STALE_REF` with the `refresh_snapshot_then_retry_original` recovery, `not_delivered` and exit 1 while the app stays owned and the display is unchanged; a fresh snapshot must then mint a different ref.
+
+The `text_entry.press_combos_edit_document` leg runs headed on both X11 tiers: after a semantic `type`, `press return` must add exactly one newline to the AT-SPI document text, `press ctrl+a` then `press backspace` must empty it, and no X11 modifier may stay down. A headless `press` is refused by the physical-input policy before any key is sent, so only the headed run proves delivery.
+
+The `batch_contract.entry_failure_and_stop_on_error` leg is an `asserted-refusal` on both X11 tiers. A three-entry batch (click 7, click an absent ref, click 8) must report `STALE_REF` on entry 1 inside an `ok` batch envelope and still run entry 2, leaving `78` on the Calculator display. The same batch with `--stop-on-error` must report `stopped` as `stop_on_error` at index 1 with two completed entries and one not started, leaving `7`. The display is read through AT-SPI, not the envelope, and Undo restores it.
+
 ### Ref-action contracts
 
 The `ref_actions.*` legs observe and restore native application state:

@@ -213,24 +213,21 @@ fn a_strict_headless_wait_refuses_at_policy_on_the_first_poll() {
         "the desktop's foreground must settle before the refusal is staged"
     );
 
-    let started = Instant::now();
     let error = wait::execute(
         notification_wait_args(10_000),
         &WindowsAdapter::new(),
         &CommandContext::default(),
     )
     .expect_err("a strict-headless caller is refused at policy");
-    let elapsed = started.elapsed();
 
-    assert!(
-        elapsed < Duration::from_secs(2),
-        "the refusal must fire on the first poll, not burn the deadline: \
-         took {elapsed:?} of a 10s wait"
-    );
     let AppError::Adapter(error) = error else {
         panic!("the refusal is a structured adapter error");
     };
-    assert_eq!(error.code, ErrorCode::PolicyDenied);
+    assert_eq!(
+        error.code,
+        ErrorCode::PolicyDenied,
+        "a refusal that polled on to the deadline would surface as Timeout"
+    );
     assert!(
         !center_open(),
         "the refused wait must not have raised the center"

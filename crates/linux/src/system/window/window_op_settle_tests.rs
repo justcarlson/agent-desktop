@@ -87,36 +87,58 @@ fn a_move_without_time_for_the_confirmation_pause_is_unverified() {
     assert_eq!(world.writes(), 1);
 }
 
-#[test]
-fn a_confirmation_that_returns_after_the_limit_reports_its_latest_rectangle() {
-    fn delayed_confirmation(written: &[WindowWrite]) -> WindowFacts {
-        thread_local! {
-            static READS: Cell<u32> = const { Cell::new(0) };
-        }
-        if written.is_empty() {
-            return state(10, 10, 400, 300);
-        }
-        let first = READS.with(|reads| reads.replace(reads.get() + 1) == 0);
-        if first {
-            state(300, 200, 400, 300)
-        } else {
-            std::thread::sleep(SETTLE_BUDGET);
-            state(60, 90, 400, 300)
-        }
+fn confirmation_returning_after_the_limit(
+    written: &[WindowWrite],
+    late: WindowFacts,
+) -> WindowFacts {
+    thread_local! {
+        static READS: Cell<u32> = const { Cell::new(0) };
     }
+    if written.is_empty() {
+        return state(10, 10, 400, 300);
+    }
+    let first = READS.with(|reads| reads.replace(reads.get() + 1) == 0);
+    if first {
+        state(300, 200, 400, 300)
+    } else {
+        std::thread::sleep(SETTLE_BUDGET);
+        late
+    }
+}
+
+fn late_and_moved_again(written: &[WindowWrite]) -> WindowFacts {
+    confirmation_returning_after_the_limit(written, state(60, 90, 400, 300))
+}
+
+fn late_and_unchanged(written: &[WindowWrite]) -> WindowFacts {
+    confirmation_returning_after_the_limit(written, state(300, 200, 400, 300))
+}
+
+fn move_confirmed_late(reaction: fn(&[WindowWrite]) -> WindowFacts) -> AdapterError {
     let mut world = World::showing(state(10, 10, 400, 300));
-    world.reaction = Some(delayed_confirmation);
-    let error = run(
+    world.reaction = Some(reaction);
+    run(
         &world,
         &window(),
         &WindowOp::Move { x: 300.0, y: 200.0 },
         Deadline::after(2_000).expect("a deadline builds"),
     )
-    .expect_err("the confirmation disproved the earlier rectangle");
+    .expect_err("a confirmation read past the limit cannot prove the place held")
+}
+
+#[test]
+fn a_confirmation_that_returns_after_the_limit_reports_its_latest_rectangle() {
+    let error = move_confirmed_late(late_and_moved_again);
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
     let details = error.details.expect("details");
     assert_eq!(details["observed"]["x"], 60);
     assert_eq!(details["observed"]["y"], 90);
+}
+
+#[test]
+fn a_confirmation_that_agrees_but_returns_after_the_limit_is_not_a_held_place() {
+    let error = move_confirmed_late(late_and_unchanged);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
 }
 
 #[test]

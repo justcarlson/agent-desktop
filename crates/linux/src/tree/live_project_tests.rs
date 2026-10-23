@@ -243,7 +243,7 @@ fn the_mapped_wayland_claim_needs_the_wayland_flag_both_state_bits_and_a_live_fr
     assert_eq!(none(&Placement::default()), (None, None));
     let mut iconified = wayland_placement();
     iconified.frame_iconified = Some(true);
-    assert_ne!(none(&iconified), (Some(false), Some(false)));
+    assert_eq!(none(&iconified), (Some(true), None));
     let mut no_frame = wayland_placement();
     no_frame.frame = None;
     assert_eq!(none(&no_frame), (None, None));

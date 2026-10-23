@@ -103,9 +103,8 @@ mod tests {
         let AppError::Adapter(adapter_err) = RefStoreLock::acquire(&path).err().unwrap() else {
             panic!("expected adapter error");
         };
-        let reported = adapter_err.details.expect("lock timeout details")["path"].to_string();
-        let directory = path.parent().unwrap().to_string_lossy().into_owned();
-        assert!(!reported.contains(&directory), "{reported}");
+        let details = adapter_err.details.expect("lock timeout details");
+        assert_eq!(details["path"], "store.lock");
     }
 
     #[test]

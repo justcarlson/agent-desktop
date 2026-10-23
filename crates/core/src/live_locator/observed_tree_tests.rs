@@ -1,6 +1,6 @@
 use super::{
-    IdentifierEvidence, LocatorMaterialization, LocatorResolveRequest, LocatorSelection,
-    ObservationSource, ObservedSubtree, ObservedTree, evaluate_locator_tree,
+    LocatorMaterialization, LocatorResolveRequest, LocatorSelection, ObservationSource,
+    ObservedSubtree, ObservedTree, evaluate_locator_tree,
 };
 use crate::{
     WindowInfo,
@@ -254,23 +254,6 @@ fn snapshot_projection_and_find_share_the_same_observation() {
             .count(),
         1
     );
-}
-
-#[test]
-fn identifier_evidence_preserves_preference_without_platform_names() {
-    let identifiers = IdentifierEvidence::new(
-        [
-            "automation-id".into(),
-            "runtime-id".into(),
-            "automation-id".into(),
-        ],
-        Some(0),
-        true,
-    );
-
-    assert_eq!(identifiers.values(), ["automation-id", "runtime-id"]);
-    assert_eq!(identifiers.preferred_value(), Some("automation-id"));
-    assert!(identifiers.is_complete());
 }
 
 #[test]

@@ -75,11 +75,15 @@ class SweepTests(unittest.TestCase):
     def member_env(self) -> bytes:
         return f"XDG_RUNTIME_DIR={self.runtime}\x00".encode()
 
+    @unittest.skipIf(os.geteuid() == 0, "root ignores directory permissions")
     def test_failed_removal_preserves_evidence(self):
-        evidence = self.runtime / "evidence.json"
+        locked = self.runtime / "locked"
+        locked.mkdir()
+        evidence = locked / "evidence.json"
         evidence.write_text('{"failure": "retained"}')
-        with mock.patch.object(session.shutil, "rmtree", side_effect=OSError("denied")):
-            self.assertFalse(session._remove_tree(self.runtime))
+        locked.chmod(0o500)
+        self.addCleanup(locked.chmod, 0o700)
+        self.assertFalse(session._remove_tree(self.runtime))
         self.assertEqual(evidence.read_text(), '{"failure": "retained"}')
 
     def test_signal_rejects_reused_pid_and_changed_runtime(self):

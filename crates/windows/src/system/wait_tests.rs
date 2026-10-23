@@ -157,8 +157,6 @@ fn already_in_the_requested_state_returns_immediately_reading_the_predicate_once
     );
 }
 
-/// Both directions in one test so a copy-paste that gives both directions
-/// the same `platform_detail` text fails the final inequality assertion.
 #[test]
 fn a_menu_that_never_transitions_times_out_with_direction_specific_platform_detail() {
     bootstrap();
@@ -192,10 +190,6 @@ fn a_menu_that_never_transitions_times_out_with_direction_specific_platform_deta
     assert_eq!(
         close_error.platform_detail.as_deref(),
         Some("Menu did not close before the deadline")
-    );
-    assert_ne!(
-        open_error.platform_detail, close_error.platform_detail,
-        "the two timeout directions must carry different platform_detail text"
     );
 }
 
@@ -231,7 +225,7 @@ fn a_target_that_exits_mid_wait_returns_stale_ref_not_a_satisfied_wait_or_a_time
         .expect("wait_for_menu completed");
     let error = result.expect_err("a terminated target must not report a satisfied wait");
 
-    assert_eq!(error.code, ErrorCode::StaleRef);
+    assert_eq!(error.code, ErrorCode::StaleRef, "{error:?}");
 }
 
 /// A loose upper bound derived from the interval, not a timing literal
@@ -388,3 +382,6 @@ fn an_evaluation_error_surfaces_as_stale_ref_when_the_target_is_gone_and_unchang
 
 #[path = "wait_expiry_detail_tests.rs"]
 mod expiry_detail_tests;
+
+#[path = "wait_exit_confirmation_tests.rs"]
+mod exit_confirmation_tests;

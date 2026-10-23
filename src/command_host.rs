@@ -31,6 +31,9 @@ mod output;
 mod request;
 #[path = "command_host_socket.rs"]
 mod socket;
+#[cfg(test)]
+#[path = "command_host_test_dir.rs"]
+mod test_dir;
 
 pub(crate) fn forward(
     cli: &crate::Cli,

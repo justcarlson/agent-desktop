@@ -160,6 +160,15 @@ fn bounds_no_drawable_matches_refuse_the_debug_frame_without_a_grab() {
         .set(vec![Some(window_info(unproven_bounds()))]);
     let error = capture(&rig.env(), &target(), true, deadline()).expect_err("unproven");
     assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error.message,
+        "No drawable of the window matches the bounds the window reports"
+    );
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some("Capture the window with 'screenshot --window-id' instead")
+    );
+    assert_eq!(reason_of(&error), None);
     assert_eq!(rig.grabber.grab_count(), 0);
 }
 
@@ -224,27 +233,50 @@ fn bounds_that_fit_only_the_client_pick_the_client() {
     assert_eq!(rig.grabber.last_grab().0, CLIENT);
 }
 
-#[test]
-fn an_image_over_the_pixel_cap_is_refused_before_the_grab() {
+fn rig_with_window_of(side: i32) -> Rig {
     let rig = Rig::standard();
     rig.grabber.describe_as(
         FRAME,
         vec![Drawn {
-            rect: extents(0, 0, 9_000, 9_000),
+            rect: extents(0, 0, side, side),
             parent: None,
             state: 0,
         }],
     );
-    let huge = Some(Rect {
+    let bounds = Some(Rect {
         x: 0.0,
         y: 0.0,
-        width: 9_000.0,
-        height: 9_000.0,
+        width: f64::from(side),
+        height: f64::from(side),
     });
-    rig.lookup.resolved.set(vec![Some(window_info(huge))]);
-    let error = capture(&rig.env(), &target(), false, deadline()).expect_err("too large");
+    rig.lookup.resolved.set(vec![Some(window_info(bounds))]);
+    rig
+}
+
+#[test]
+fn an_image_over_the_pixel_cap_is_refused_before_the_grab() {
+    let over = rig_with_window_of(9_000);
+    let error = capture(&over.env(), &target(), false, deadline()).expect_err("too large");
     assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(rig.grabber.grab_count(), 0);
+    assert_eq!(error.message, "The window is too large to capture");
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some("Make the window smaller, then retry")
+    );
+    assert_eq!(over.grabber.grab_count(), 0);
+
+    let at_cap = rig_with_window_of(8_192);
+    *at_cap.grabber.grab_with.lock().expect("grab lock") = Box::new(|_, _| {
+        Ok(raw_of(crate::system::x11::grab_rect::GrabRect {
+            x: 0,
+            y: 0,
+            width: 16,
+            height: 16,
+        }))
+    });
+    capture(&at_cap.env(), &target(), false, deadline()).expect("captured at the cap");
+    assert_eq!(at_cap.grabber.grab_count(), 1);
+    assert_eq!(at_cap.grabber.last_grab().1, (0, 0, 8_192, 8_192));
 }
 
 fn two_displays() -> Vec<agent_desktop_core::DisplayInfo> {

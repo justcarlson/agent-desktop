@@ -7,10 +7,6 @@ use crate::{
     context::CommandContext, search_text,
 };
 use serde_json::Value;
-#[cfg(test)]
-use serde_json::json;
-#[cfg(test)]
-use std::collections::BTreeSet;
 
 const DEFAULT_LIMIT: usize = 50;
 
@@ -123,46 +119,6 @@ fn locator_query_from_args(args: &FindArgs) -> Result<LocatorQuery, AppError> {
     })
 }
 
-#[cfg(test)]
-fn attach_roles_present_hint(
-    response: &mut Value,
-    is_empty: bool,
-    query: &LocatorQuery,
-    tree: &AccessibilityNode,
-) {
-    if !is_empty || query.identity.role.is_none() {
-        return;
-    }
-    let mut present = BTreeSet::new();
-    collect_roles(tree, &mut present);
-    if let Some(obj) = response.as_object_mut() {
-        obj.insert(
-            "roles_present".into(),
-            json!(present.into_iter().collect::<Vec<_>>()),
-        );
-    }
-}
-
-#[cfg(test)]
-fn single_match_response(
-    found: Option<Value>,
-    query: &LocatorQuery,
-    tree: &AccessibilityNode,
-) -> Value {
-    let is_empty = found.is_none();
-    let mut response = json!({ "match": found });
-    attach_roles_present_hint(&mut response, is_empty, query, tree);
-    response
-}
-
-#[cfg(test)]
-fn collect_roles(node: &AccessibilityNode, roles: &mut BTreeSet<String>) {
-    roles.insert(node.role.clone());
-    for child in &node.children {
-        collect_roles(child, roles);
-    }
-}
-
 fn validate_find_mode(args: &FindArgs) -> Result<(), AppError> {
     let selector_count = [
         args.selection.count,
@@ -230,16 +186,6 @@ fn collect_snapshot_matches(
 
     path.pop();
     false
-}
-
-#[cfg(test)]
-fn count_matches(node: &AccessibilityNode, query: &LocatorQuery) -> usize {
-    usize::from(query::node_matches(node, query))
-        + node
-            .children
-            .iter()
-            .map(|child| count_matches(child, query))
-            .sum::<usize>()
 }
 
 #[path = "find_live.rs"]

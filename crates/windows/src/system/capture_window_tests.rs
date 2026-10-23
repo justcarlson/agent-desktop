@@ -86,7 +86,7 @@ fn printwindow_access_denied_maps_to_perm_denied() {
 }
 
 #[test]
-fn zero_area_and_minimized_windows_are_rejected_before_bitmap_alloc() {
+fn minimized_windows_are_rejected_before_bitmap_alloc() {
     bootstrap();
     gdi_balance::reset();
     let fixture = LocalPatternFixture::create().expect("pattern fixture starts");

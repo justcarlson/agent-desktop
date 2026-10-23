@@ -34,8 +34,12 @@ fn verified_delivery_after_deadline_is_not_retryable() {
 #[test]
 fn cleanup_is_reserved_before_mutation() {
     let deadline = Deadline::after(1_000).expect("deadline is valid");
+    let before = deadline.remaining();
     let mutation = reserve_cleanup_budget(deadline).expect("cleanup budget can be reserved");
 
-    assert!(mutation.remaining() < deadline.remaining());
-    assert!(mutation.remaining() >= std::time::Duration::from_millis(700));
+    let one_ms_of_deadline_rounding = std::time::Duration::from_millis(1);
+    assert!(
+        mutation.remaining()
+            <= before - std::time::Duration::from_millis(250) + one_ms_of_deadline_rounding
+    );
 }

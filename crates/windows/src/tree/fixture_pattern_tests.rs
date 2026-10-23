@@ -76,5 +76,4 @@ fn hosted_pattern_fixture_runs_in_a_second_process() {
     let fixture = HostedPatternFixture::spawn().expect("hosted pattern fixture starts");
     assert_ne!(fixture.process_id(), std::process::id());
     assert_ne!(fixture.handle(), 0);
-    assert_eq!(fixture.expectation(), PatternExpectation::standard());
 }

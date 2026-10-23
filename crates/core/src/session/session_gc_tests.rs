@@ -319,5 +319,13 @@ fn unreadable_manifest_is_skipped_not_fatal_for_list_and_gc() {
     assert!(!listed.iter().any(|id| id == "unreadablesess"));
     assert!(read_manifest("unreadablesess").unwrap().is_none());
 
-    fs::set_permissions(&manifest, fs::Permissions::from_mode(0o600)).unwrap();
+    let report = gc(GcOptions {
+        ended_only: false,
+        older_than: Some(Duration::ZERO),
+    });
+    let _ = fs::set_permissions(&manifest, fs::Permissions::from_mode(0o600));
+    let report = report.unwrap();
+    assert!(!report.removed.iter().any(|id| id == "unreadablesess"));
+    assert!(bad_dir.is_dir());
+    assert!(session_dir(&good.id).unwrap().is_dir());
 }

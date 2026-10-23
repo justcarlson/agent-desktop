@@ -226,12 +226,3 @@ def prime_desktop(tier: Tier) -> None:
         if time.monotonic() - stable_since >= 1.0:
             return
     raise AssertionError("private desktop service membership did not settle")
-
-
-def launch_vscode(tier: Tier) -> OwnedApp:
-    executable = "code"
-    args = ("--no-sandbox", "--password-store=basic", "--user-data-dir",
-            str(tier.runtime_dir / "vscode-profile"), "--extensions-dir",
-            str(tier.runtime_dir / "vscode-extensions"), "--disable-extensions", "--disable-gpu",
-            "--ozone-platform=x11", "--new-window")
-    return launch(tier, executable, args, settle_s=35)

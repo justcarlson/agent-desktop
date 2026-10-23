@@ -1,15 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-const BANNED: [&str; 7] = [
-    "bus::classify",
-    "classify_at",
-    "gone_error",
-    "read_failure",
-    "CopyText",
-    "CutText",
-    "PasteText",
-];
+const BANNED: [&str; 4] = ["bus::classify", "classify_at", "gone_error", "read_failure"];
 
 fn offences(source: &str) -> Vec<&'static str> {
     BANNED

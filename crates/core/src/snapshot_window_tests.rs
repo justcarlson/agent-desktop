@@ -292,7 +292,7 @@ fn the_seams_window_not_found_passes_through_with_its_suggestion() {
 fn a_window_owned_surface_kind_is_not_routed_to_the_seam() {
     let adapter = ShellSurfaceAdapter {
         windows: vec![window("WhatsApp")],
-        resolution: Err(crate::AdapterError::not_supported("resolve_shell_surface")),
+        resolution: Ok(shell_window()),
     };
 
     let resolved = resolve_window_for_surface(

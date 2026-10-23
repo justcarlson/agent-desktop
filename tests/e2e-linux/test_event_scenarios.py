@@ -101,7 +101,7 @@ class EventScenarioTests(unittest.TestCase):
 
     def test_process_events_read_transitions_and_restore_private_registry_state(self):
         for kind in ("app_launched_transition", "app_terminated_transition", "app_launched_quiet",
-                     "app_terminated_quiet", "target_killed_mid_wait"):
+                     "target_killed_mid_wait"):
             with self.subTest(leg=kind):
                 tier = SimpleNamespace(runtime_dir=Path("/private/test"))
                 leg = legs.Leg("events." + kind, "Process event restores private registry state",

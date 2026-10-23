@@ -2,9 +2,25 @@ use super::*;
 use std::cell::Cell;
 
 #[test]
-fn select_traversal_limits_are_bounded() {
-    assert_eq!(MAX_SELECT_NODES, 2_048);
-    assert_eq!(MAX_SELECT_DEPTH, 8);
+fn select_descent_stops_reading_children_at_the_depth_cap() {
+    let reads = Cell::new(0);
+    let read = || {
+        reads.set(reads.get() + 1);
+        Ok(Vec::new())
+    };
+
+    boundary_children(MAX_SELECT_DEPTH - 1, SelectSearch::MenuItem, read).expect("below the cap");
+    assert_eq!(reads.get(), 1);
+
+    let capped = boundary_children(MAX_SELECT_DEPTH, SelectSearch::MenuItem, read)
+        .expect("menu search ends quietly at the cap");
+    assert!(capped.is_empty());
+    assert_eq!(reads.get(), 1);
+
+    let leaf = boundary_children(MAX_SELECT_DEPTH, SelectSearch::Collection, read)
+        .expect("a collection leaf at the cap is not an overflow");
+    assert!(leaf.is_empty());
+    assert_eq!(reads.get(), 2);
 }
 
 #[test]

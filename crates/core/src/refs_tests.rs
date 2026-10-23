@@ -49,55 +49,6 @@ fn test_allocate_sequential() {
 }
 
 #[test]
-fn test_get_existing() {
-    let mut map = RefMap::new();
-    let bounds = crate::Rect {
-        x: 1.0,
-        y: 1.0,
-        width: 20.0,
-        height: 20.0,
-    };
-    let ref_id = map.allocate(RefEntry {
-        process: crate::RefProcess {
-            pid: crate::ProcessId::new(42),
-            process_instance: Some("test-instance".into()),
-        },
-        identity: crate::RefEntryIdentity {
-            retained_object: None,
-            role: "textfield".into(),
-            name: None,
-            value: None,
-            description: None,
-            native_id: None,
-        },
-        geometry: crate::RefGeometry {
-            bounds_space: None,
-            bounds: Some(bounds),
-            bounds_hash: bounds.bounds_hash(),
-        },
-        capabilities: crate::RefCapabilities {
-            states: vec![],
-            available_actions: vec![],
-        },
-        source: crate::RefSource {
-            source_app: Some("Finder".into()),
-            source_window_id: None,
-            source_window_title: Some("Documents".into()),
-            source_window_bounds_hash: None,
-            source_surface: crate::adapter::SnapshotSurface::Window,
-        },
-        scope: crate::RefScope {
-            root_ref: None,
-            path_is_absolute: false,
-            path: smallvec::SmallVec::new(),
-        },
-    });
-    let retrieved = map.get(&ref_id).unwrap();
-    assert_eq!(retrieved.process.pid, 42);
-    assert_eq!(retrieved.identity.role, "textfield");
-}
-
-#[test]
 fn test_get_missing() {
     let map = RefMap::new();
     assert!(map.get("@e99").is_none());
@@ -270,6 +221,7 @@ fn test_save_load_roundtrip_with_home_override() {
     assert_eq!(loaded.len(), 1);
     let entry = loaded.get("@e1").unwrap();
     assert_eq!(entry.process.pid, 7);
+    assert_eq!(entry.identity.role, "button");
     assert_eq!(entry.identity.name.as_deref(), Some("Send"));
 }
 
@@ -310,20 +262,23 @@ fn test_validate_snapshot_id_rejects_bad_values() {
 #[test]
 fn test_save_oversize_preserves_previous_file() {
     let _guard = HomeGuard::new();
+    let store = crate::RefStore::new().unwrap();
 
     let mut original = RefMap::new();
     original.allocate(entry("button", Some("Original")));
-    original.save().expect("baseline save");
+    let snapshot_id = store.save_new_snapshot(&original).expect("baseline save");
 
     let mut oversize = RefMap::new();
     let big = "x".repeat(2048);
     for _ in 0..600 {
         oversize.allocate(entry("button", Some(&big)));
     }
-    let result = oversize.save();
+    let result = store.save_snapshot(&snapshot_id, &oversize);
     assert!(result.is_err(), "oversize save must reject");
 
-    let reloaded = RefMap::load().expect("previous file must still load");
+    let reloaded = store
+        .load_snapshot(&snapshot_id)
+        .expect("previous file must still load");
     assert_eq!(reloaded.len(), 1);
     let entry = reloaded.get("@e1").unwrap();
     assert_eq!(entry.identity.name.as_deref(), Some("Original"));

@@ -119,13 +119,15 @@ fn app_info_roundtrip_preserves_all_fields() {
         pid: crate::ProcessId::new(1234),
         bundle_id: Some("com.apple.TextEdit".into()),
         process_instance: Some("test-instance".into()),
-        presentation: None,
+        presentation: Some(crate::AppPresentation::Background),
     };
     let json = serde_json::to_string(&original).unwrap();
     let back: AppInfo = serde_json::from_str(&json).unwrap();
     assert_eq!(back.name, original.name);
     assert_eq!(back.pid, original.pid);
     assert_eq!(back.bundle_id, original.bundle_id);
+    assert_eq!(back.process_instance, original.process_instance);
+    assert_eq!(back.presentation, original.presentation);
 }
 
 /// Agents may produce AppInfo JSON without a bundle_id key (e.g. non-macOS adapters

@@ -208,11 +208,13 @@ fn any_other_pointer_refusal_is_returned_and_the_semantic_call_stays_unused() {
 }
 
 #[test]
-fn typing_with_no_semantic_verb_reaches_the_physical_keys_and_a_press_is_not_in_that_set() {
+fn typing_with_no_semantic_verb_reaches_the_physical_keys_and_toggle_and_set_value_do_not() {
     use super::{has_no_verb, reaches_physical_without_verb};
     use crate::actions::click::no_semantic_verb;
     let typing = Action::TypeText("x".to_owned());
     assert!(reaches_physical_without_verb(&typing));
+    assert!(reaches_physical_without_verb(&Action::Click));
+    assert!(reaches_physical_without_verb(&Action::RightClick));
     assert!(has_no_verb(&no_semantic_verb(&typing)));
     assert!(!reaches_physical_without_verb(&Action::Toggle));
     assert!(!reaches_physical_without_verb(&Action::SetValue(

@@ -179,6 +179,10 @@ pub(crate) use imp::{
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
+    use crate::tree::node_attribute_status::{
+        AX_DOM_IDENTIFIER, AX_IDENTIFIER, DESCRIPTION, LABEL, PLACEHOLDER, POSITION, ROLE, SIZE,
+        SUBROLE, TITLE, TITLE_ELEMENT, VALUE,
+    };
     use agent_desktop_core::EvidenceRequirements;
 
     #[test]
@@ -204,7 +208,19 @@ mod tests {
         };
         let requested = requested_indices(attribute_mask(requirements)).collect::<Vec<_>>();
 
-        assert_eq!(requested, [0, 1, 2, 3, 15, 16, 17, 22]);
+        assert_eq!(
+            requested,
+            [
+                ROLE,
+                TITLE,
+                DESCRIPTION,
+                VALUE,
+                LABEL,
+                PLACEHOLDER,
+                TITLE_ELEMENT,
+                SUBROLE
+            ]
+        );
     }
 
     #[test]
@@ -217,7 +233,17 @@ mod tests {
         requirements.ref_evidence.bounds = true;
         let requested = requested_indices(attribute_mask(requirements)).collect::<Vec<_>>();
 
-        assert_eq!(requested, [0, 13, 14, 18, 19, 22]);
+        assert_eq!(
+            requested,
+            [
+                ROLE,
+                AX_IDENTIFIER,
+                AX_DOM_IDENTIFIER,
+                POSITION,
+                SIZE,
+                SUBROLE
+            ]
+        );
     }
 
     #[test]
