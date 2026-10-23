@@ -132,11 +132,6 @@ impl ErrorPayload {
         self.suggestion = Some(s.into());
         self
     }
-
-    pub fn with_recovery(mut self, recovery: RecoveryHint) -> Self {
-        self.recovery = Some(recovery);
-        self
-    }
 }
 
 #[cfg(test)]

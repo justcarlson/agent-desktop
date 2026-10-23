@@ -43,11 +43,6 @@ impl RefStore {
         })
     }
 
-    #[cfg(test)]
-    pub fn for_tests() -> Result<Self, AppError> {
-        Self::new()
-    }
-
     pub fn save_new_snapshot(&self, refmap: &RefMap) -> Result<String, AppError> {
         self.with_write_lock(|| self.save_new_snapshot_unlocked_with_id(refmap))
     }
