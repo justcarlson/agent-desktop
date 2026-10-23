@@ -83,6 +83,7 @@ helper that returns a bare `@eN`.
 | `scenarios/acceptance.sh` | Named AE1-AE7 acceptance contract |
 | `scenarios/reliability.sh` | Stale refs, waits, drill-down, sessions |
 | `scenarios/surfaces.sh` | Sheets, menus, drag, disclosure |
+| `scenarios/error_contract.sh` | Exit code and `error.code` envelopes an agent branches on, `batch` continue/stop/reject semantics |
 | `scenarios/trace_performance.sh` | Trace artifacts, redaction, timings, cleanup |
 | `scenarios/notifications.sh` | Real Notification Center lifecycle |
 | `permission-contract.sh` | Deterministic AE5 mapping tests without mutating TCC |

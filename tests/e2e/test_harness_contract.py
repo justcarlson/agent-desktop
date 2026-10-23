@@ -171,5 +171,124 @@ remove_artifact "{artifact}"
         )
 
 
+ERROR_CODE_SOURCE = E2E_ROOT.parent.parent / "crates" / "core" / "src" / "error_code.rs"
+ERROR_CONTRACT = E2E_ROOT / "scenarios" / "error_contract.sh"
+CONTENTION_GUARD = "check_fixture_contention || { finish; exit 1; }"
+
+
+def core_error_codes():
+    return set(re.findall(r'=> "([A-Z_]+)"', ERROR_CODE_SOURCE.read_text()))
+
+
+def envelope_calls(source):
+    return re.findall(
+        r'assert_error_envelope\s+"[^"]*"\s+([A-Z_]+)\s+(\S+)\s+(\S+(?:\s+"")?)',
+        source,
+    )
+
+
+class ErrorContractLegTests(unittest.TestCase):
+    def test_error_contract_runs_after_surfaces_behind_the_contention_guard(self):
+        run_source = (E2E_ROOT / "run.sh").read_text()
+        surfaces = run_source.index("source \"$here/scenarios/surfaces.sh\"")
+        source_line = 'source "$here/scenarios/error_contract.sh"'
+        registered = run_source.index(source_line)
+        guard = run_source.rindex(CONTENTION_GUARD, 0, registered)
+        self.assertLess(surfaces, guard)
+        between = run_source[guard + len(CONTENTION_GUARD) : registered].strip().splitlines()
+        self.assertEqual(
+            between, ["# shellcheck source=tests/e2e/scenarios/error_contract.sh"]
+        )
+        self.assertLess(registered, run_source.index('source "$here/scenarios/trace_performance.sh"'))
+        self.assertLess(registered, run_source.index("cursor-multi-agent-probe.py"))
+
+    def test_error_contract_codes_exist_in_the_core_enum(self):
+        known = core_error_codes()
+        self.assertIn("INVALID_ARGS", known)
+        source = ERROR_CONTRACT.read_text()
+        used = {code for code, _, _ in envelope_calls(source)}
+        used |= set(re.findall(r'error\.code\)?"?\s*\]?\s*=\s*"([A-Z_]+)"', source))
+        self.assertTrue(used)
+        self.assertEqual(used - known, set())
+
+    def test_error_contract_leg_uses_exit_code_and_code_together(self):
+        calls = envelope_calls(ERROR_CONTRACT.read_text())
+        self.assertGreaterEqual(len(calls), 5)
+        for code, exit_code, _ in calls:
+            self.assertRegex(exit_code, r"^[12]$", code)
+        self.assertIn(("INVALID_ARGS", "2"), {(c, e) for c, e, _ in calls})
+
+    def test_batch_leg_pins_continue_and_stop_semantics(self):
+        source = ERROR_CONTRACT.read_text()
+        self.assertIn('run_timed "$bin" batch "$payload"\n', source)
+        self.assertIn('run_timed "$bin" batch "$payload" --stop-on-error', source)
+        self.assertIn("data.stopped.reason", source)
+        self.assertIn("data.not_started_entries", source)
+        self.assertIn("error.details.batch_index", source)
+        self.assertIn("await_value text-echo", source)
+
+    def test_batch_malformed_run_uses_a_value_the_field_does_not_already_hold(self):
+        source = ERROR_CONTRACT.read_text()
+        runtime_first = re.findall(r"runtime (\S+)\)", source)
+        malformed_first = re.findall(r"malformed (\S+)\)", source)
+        self.assertEqual(len(malformed_first), 1)
+        self.assertNotIn(malformed_first[0], runtime_first)
+        self.assertNotEqual(malformed_first[0], "batch-last")
+
+    def test_no_scenario_forces_a_blocked_combo(self):
+        for path in sorted((E2E_ROOT / "scenarios").glob("*.sh")):
+            for number, line in enumerate(path.read_text().splitlines(), start=1):
+                if re.search(r"\bpress\b", line) and "--force" in line:
+                    self.fail(f"{path.name}:{number} presses with --force")
+
+    def run_helpers(self, body: str):
+        with tempfile.TemporaryDirectory() as directory:
+            mock_bin = Path(directory) / "agent-desktop"
+            mock_bin.write_text(
+                "#!/bin/sh\n"
+                'printf \'%s\' \'{"ok":false,"error":{"code":"INVALID_ARGS",'
+                '"disposition":{"delivery":"not_delivered"}}}\'\n'
+                "exit 1\n"
+            )
+            mock_bin.chmod(0o700)
+            script = (
+                'source "$1"\n'
+                'bin="$2"\n'
+                f'json_tool="{E2E_ROOT / "json_tool.py"}"\n'
+                "pass=0; fail=0; failures=(); skip=0; skips=()\n"
+                "okmsg() { pass=$((pass + 1)); }\n"
+                "badmsg() { fail=$((fail + 1)); }\n"
+                "sleep() { :; }\n" + body + '\nprintf "pass=%s fail=%s" "$pass" "$fail"\n'
+            )
+            return subprocess.run(
+                ["bash", "-c", script, "helpers", str(E2E_ROOT / "lib.sh"), str(mock_bin)],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout
+
+    def test_assert_error_envelope_passes_only_when_every_part_matches(self):
+        output = self.run_helpers(
+            'assert_error_envelope match INVALID_ARGS 1 not_delivered click\n'
+            'assert_error_envelope wrong-code ELEMENT_NOT_FOUND 1 not_delivered click\n'
+            'assert_error_envelope wrong-exit INVALID_ARGS 2 not_delivered click\n'
+            'assert_error_envelope wrong-delivery INVALID_ARGS 1 delivered click\n'
+            'assert_error_envelope delivery-unchecked INVALID_ARGS 1 "" click'
+        )
+        self.assertTrue(output.endswith("pass=2 fail=3"), output)
+
+    def test_await_value_waits_for_the_expected_readout_without_a_fixed_sleep(self):
+        output = self.run_helpers(
+            'counter="$(mktemp)"; echo 0 > "$counter"\n'
+            'find_value() { n=$(<"$counter"); echo $((n + 1)) > "$counter"; '
+            '[ "$n" -ge 3 ] && printf done || printf stale; }\n'
+            'await_value readout done >/dev/null && echo reached=yes || echo reached=no\n'
+            'find_value() { printf stale; }\n'
+            'await_value readout done >/dev/null && echo never=yes || echo never=no'
+        )
+        self.assertIn("reached=yes", output)
+        self.assertIn("never=no", output)
+
+
 if __name__ == "__main__":
     unittest.main()

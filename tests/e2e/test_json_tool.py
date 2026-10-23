@@ -6,7 +6,7 @@ import time
 import unittest
 from unittest import mock
 
-from json_tool import command_delivered_mechanism, run_bounded
+from json_tool import command_delivered_mechanism, command_get, run_bounded
 
 
 class RunBoundedTests(unittest.TestCase):
@@ -158,6 +158,24 @@ class RunBoundedTests(unittest.TestCase):
         self.assertEqual(result.returncode, 125)
         self.assertTrue(result.output_limited)
         self.assertLessEqual(len(result.stdout.encode()), 4096)
+
+
+class CommandGetTests(unittest.TestCase):
+    def render_path(self, payload, path):
+        with mock.patch("json_tool.read_json", return_value=payload), mock.patch(
+            "builtins.print"
+        ) as output:
+            command_get(path)
+        return output.call_args.args[0]
+
+    def test_missing_list_index_renders_empty_so_a_stopped_batch_has_no_later_entry(self):
+        payload = {"data": {"results": [{"ok": True}, {"ok": False}]}}
+
+        self.assertEqual(self.render_path(payload, "data.results.1.ok"), "False")
+        self.assertEqual(self.render_path(payload, "data.results.2.ok"), "")
+
+    def test_missing_object_key_renders_empty(self):
+        self.assertEqual(self.render_path({"ok": True}, "data.stopped"), "")
 
 
 if __name__ == "__main__":
