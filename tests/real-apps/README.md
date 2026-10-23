@@ -167,9 +167,6 @@ The raw AX helper can inspect controls by exact title or description and invoke
 It records foreground endpoints, not continuous monitoring. An uncertain native
 return never authorizes a fallback action or automatic replay.
 
-See [the Xcode evidence ledger](../../docs/solutions/runtime-errors/2026-09-19-xcode-headless-evaluation.md)
-for successful persistence, menu failures, and the stale-window classification gap.
-
 ## Observe headless side effects during a trial
 
 Compile it with `swiftc tests/real-apps/headless_probe.swift -o /tmp/ad-headless-probe`,

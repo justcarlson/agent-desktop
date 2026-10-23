@@ -380,7 +380,7 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
         )
         self.assertIsNotNone(gate)
         self.assertIn(
-            "docs/solutions/runtime-errors/2026-09-20-xcode-filter-ref-alias.md",
+            "docs/solutions/best-practices/identity-fingerprint-against-os-reorder-2026-04-16.md",
             gate.group(1),
         )
         self.assertIn("crates/core/src/refs/ref_identity.rs", gate.group(1))
@@ -422,7 +422,7 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
             source,
         )
         self.assertIsNotNone(gate)
-        self.assertIn("2026-09-20-xcode-filter-ref-alias.md", gate.group(1))
+        self.assertIn("identity-fingerprint-against-os-reorder-2026-04-16.md", gate.group(1))
         self.assertIn('assert "$label sibling kept its value (independent readout)"', source)
 
     def test_ref_churn_host_run_stops_the_command_host_it_started(self):

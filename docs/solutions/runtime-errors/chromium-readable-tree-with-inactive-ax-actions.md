@@ -11,37 +11,13 @@ tags: [macos, chromium, accessibility, headless, renderer-activation]
 
 # A readable Chromium AX tree does not prove its actions are active
 
-## Reproduction
+## Mechanism
 
-Comet 152 exposed a complete web accessibility tree and advertised `AXPress`,
-but clicks on links, a plain HTML button, and a checkbox returned native success
-without changing the page. Native browser tabs worked. An independent Swift
-probe reproduced the web failures using `AXUIElementPerformAction` directly.
+Chromium starts in a limited accessibility mode when an AX role is read. Its `AXEnhancedUserInterface` setter requests complete mode after a two-second debounce. Reading the flag back as true does not mean the debounce has finished, so usable state can arrive about two seconds after the write.
 
-The same local HTML controls worked through raw AX in an isolated Chrome 153
-profile. Comet reported `AXEnhancedUserInterface = false`; Chrome reported true.
-Both reported `AXManualAccessibility` unsupported.
+The setter returns `kAXErrorNotImplemented` after it applies the flag. Chromium handles the attribute before it forwards the setter to its superclass. The readback is therefore the only reliable sign that the change applied.
 
-Enabling enhanced accessibility made the same Comet controls work. Agent
-Desktop's unchanged semantic click then opened the original Hacker News article.
-Disabling enhanced accessibility reproduced the no-op button and checkbox.
-This was an activation problem, not a website-specific targeting problem.
-
-## Root cause
-
-The observation path considered an observed `webarea` sufficient readiness.
-It only requested activation when the web tree was absent, and the macOS
-activation implementation supported only `AXManualAccessibility`.
-
-Chromium's application implementation initially enables a limited accessibility
-mode on an AX role read. Its `AXEnhancedUserInterface` setter requests complete
-mode after a two-second debounce. Reading the flag back as true does not mean
-that debounce has finished. The live probe measured usable checkbox state
-appearing approximately 2.02 seconds after the write.
-
-The setter also returned `kAXErrorNotImplemented` after applying the flag.
-Chromium handles the attribute before forwarding the setter to its superclass;
-the observed readback is necessary to recognize the applied change.
+Electron's `AXManualAccessibility` getter compares for exactly the complete mode, while its setter adds platform and screen-reader flags. An applied write can read back false.
 
 Primary sources:
 
@@ -49,49 +25,15 @@ Primary sources:
 - [Chromium activation regression tests](https://chromium.googlesource.com/chromium/src/+/refs/tags/133.0.6917.1/chrome/browser/chrome_browser_application_mac_browsertest.mm)
 - [Chromium asynchronous accessibility action semantics](https://chromium.googlesource.com/chromium/src/+/main/docs/accessibility/browser/how_a11y_works_3.md)
 
-## Repair boundary
+## Fix
 
-- Reuse the existing renderer activation signal, interaction lease, deadline,
-  and observation retry. Keep the policy and click implementation unchanged.
-- Preserve manual accessibility preference for renderers that support it.
-- Without an observed web surface, request enhanced accessibility only when the
-  app advertises the attribute and it reads an explicit `false`; a true or
-  unreadable value never requests activation. Finder also advertises this
-  attribute, so support alone is not evidence of a renderer
-  (`crates/macos/src/tree/renderer_probe.rs:38-51`).
-- Check the enhanced mode even when web content is already readable. Do not
-  treat a false `AXManualAccessibility` readback as disabled: Electron's getter
-  compares for exactly the complete mode while its setter adds platform and
-  screen-reader flags, so an applied write can still read back false. In
-  v0.9.4, a readable manual-accessibility renderer (reproduced with VS Code and
-  ClickUp on macOS 26) was activated because the manual flag read back false,
-  and the activation was then rejected because the post-write readback was
-  still false.
-- Read the flag back after a write. A matching value can establish activation
-  despite the setter's unsupported response; contradictory readback cannot.
-- Wait out Chromium's two-second enhanced-mode debounce within the existing
-  deadline. Reject insufficient budgets before writing. Already-enabled modes
-  do not pay this startup delay.
-- Preserve older manual-mode implementations whose readable web tree exists
-  but whose manual activation flag has no readable value.
+The fix reuses the existing renderer activation signal, deadline, and observation retry. The policy and click implementation stay unchanged.
 
-This does not add browser-name checks, DOM automation, physical click fallbacks,
-or a new command/API. The general click result can still be
-`delivered_unverified`; callers must inspect the requested effect. The overlay
-ripple also remains a delivery visualization, not proof of page navigation.
+- Check enhanced mode even when web content is already readable. A readable tree is not proof that its actions work.
+- Read the flag back after a write. For enhanced mode, a matching readback can establish activation despite the unsupported return code. A contradictory readback cannot.
+- Wait out the two-second debounce within the existing deadline. Reject a budget that is too small before writing. Already-enabled modes do not pay this delay.
+- Keep older manual-mode renderers working when their tree is readable but their manual flag has no readable value.
 
-## Verification
+The fix adds no browser-name checks, DOM automation, or physical click fallback. A click can still return `delivered_unverified`, so callers must check the requested effect.
 
-Deterministic unit tests cover attribute selection, native-app activation only
-on an explicit disabled readback, already-enabled modes, legacy missing readback, missing renderer retries,
-capability/read failures, contradictory setter readback, applied changes despite
-unsupported return codes, and insufficient-budget rejection before native I/O.
-These cases use fake capability/readback results or null handles and do not
-depend on browser startup, global UI state, or exact wall-clock timing.
-
-Live tests are separate: begin with enhanced mode disabled, snapshot with the
-release binary, perform one semantic click, and read the actual page state.
-Compare a button, checkbox, and link on an isolated local page, plus a native
-browser control. Observe foreground PID and physical pointer separately from
-the cursor overlay. Do not claim pointer stability when concurrent user input
-changes it during the measurement.
+Evidence: the test `observed_activation_overrides_a_setters_not_implemented_response` in `crates/macos/src/system/renderer_activation.rs`.

@@ -25,4 +25,4 @@ The memory has to outlive the process. An agent runs `click` and `wait` as two C
 
 - Test a wait that depends on a prior action in two processes, not one. A unit test with an in-process clock cannot fail for this reason.
 - Do not size the hold from one toolkit. The popover delay is measured per toolkit (L18-2, L33-51).
-- Treat "not yet visible" and "closed" as different states; the wait must know which one it read (see `tri-state-evidence-collapses-under-negation.md`).
+- Treat "not yet visible" and "closed" as different states; the wait must know which one it read.

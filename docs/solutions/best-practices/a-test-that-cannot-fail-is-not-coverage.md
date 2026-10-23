@@ -103,11 +103,7 @@ against the states producer in isolation, without checking what the role
 mapper actually hands it, and never noticed the mapper had closed the gap
 first. Shapes 3 and 4 are the same defect at different distances: a test the
 runner never builds, and a test that reaches the runner but not the real call
-site, both fail to intersect the code path they claim to cover — see
-[Never ship platform code that CI cannot execute](never-ship-platform-code-that-ci-cannot-execute.md)
-for the lane-flags half of this and
-[A verification gate is code and needs its own test](a-verification-gate-is-code-and-needs-its-own-test.md)
-for the gate that already names shape 3. Shape 5 is a duplicate-source-of-truth
+site, both fail to intersect the code path they claim to cover. Shape 5 is a duplicate-source-of-truth
 bug: a test that checks one hand-kept list against another proves the copies
 match each other, never that either is complete. Shape 6 is adjacent to shape
 1's delegation trick but sharper: the test did not call the production
@@ -195,9 +191,7 @@ absorbed by a sibling now produces the wrong variant instead of the same
 - Before trusting a "these two agree" test, check whether one side is defined
   in terms of the other.
 - Before trusting a states/role test, check the role mapper can actually
-  produce the combination under test — see
-  [Use explicit arms for string-keyed policy mirrors](exhaustiveness-guards-over-catch-alls-in-policy-mirrors.md)
-  for the same discipline on the mapping side.
+  produce the combination under test.
 - A test that cannot reach the production call site is the same defect as one
   the runner never executes — check both the CI lane's flags and whether the
   test drives the function under review, not a neighbor of it.

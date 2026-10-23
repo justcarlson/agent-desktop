@@ -47,5 +47,5 @@ The lifecycle path in `crates/linux/src/system/process/process_state.rs` asks a 
 
 - Do not branch on a D-Bus error name alone; ask what else the same name means on a live object, and measure it per toolkit.
 - A read that succeeds against a stored path is not positive evidence of presence. Positive evidence is reaching the node by walking from a verified ancestor.
-- Keep "app gone", "object gone", "timed out" and "not found" as separate answers; collapsing them turns a native failure into a confident verdict (see `tri-state-evidence-collapses-under-negation.md`).
+- Keep "app gone", "object gone", "timed out" and "not found" as separate answers; collapsing them turns a native failure into a confident verdict.
 - Probe every toolkit before encoding a rule from one: Qt, GTK3, GTK4 and Chromium disagreed on every name here.

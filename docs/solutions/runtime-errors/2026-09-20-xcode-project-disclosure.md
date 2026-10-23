@@ -73,8 +73,7 @@ despite the nested textfield exposing that value. Canonical child labels read
 static text, while this navigator exposes editable textfield values. Do not
 blindly broaden stable identity to all mutable values or click editable labels.
 Collection selection now matches a live non-secure AXTextField value and presses
-only its owning selectable row (`actions/select/select_name.rs`;
-2026-09-20-collection-label-selection.md).
+only its owning selectable row (`actions/select/select_name.rs`).
 
 Clicking the file row reported verified selection and visibly selected it, but
 the editor remained on CursorCamAppDelegate.swift. Selection is not proof of

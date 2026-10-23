@@ -35,7 +35,7 @@ ref_churn_suite() {
     code="$(json_field "$output" error.code)"
     delivery="$(json_field "$output" error.disposition.delivery)"
     if [ "$host_client" = "0" ] && [ "$ok" = "True" ]; then
-        skipmsg "$label stale ref: known product defect, the default CLI aliases a removed row's ref to a survivor with the same identifier (docs/solutions/runtime-errors/2026-09-20-xcode-filter-ref-alias.md; crates/core/src/refs/ref_identity.rs identity_match, since 3f322728)"
+        skipmsg "$label stale ref: known product defect, the default CLI aliases a removed row's ref to a survivor with the same identifier (docs/solutions/best-practices/identity-fingerprint-against-os-reorder-2026-04-16.md; crates/core/src/refs/ref_identity.rs identity_match, since 3f322728)"
     else
         assert "$label stale ref is refused STALE_REF, not delivered" \
             "$([ "$ok" = "False" ] && [ "$code" = "STALE_REF" ] && [ "$delivery" = "not_delivered" ] && echo 1 || echo 0)" \
@@ -43,7 +43,7 @@ ref_churn_suite() {
     fi
     beta_seen="$("$bin" wait --text "Beta stored: Beta" --app "$app" --timeout 3000 2>/dev/null)"
     if [ "$host_client" = "0" ] && [ "$ok" = "True" ]; then
-        skipmsg "$label sibling kept its value: same known product defect, the aliased stale write landed on the surviving row (docs/solutions/runtime-errors/2026-09-20-xcode-filter-ref-alias.md)"
+        skipmsg "$label sibling kept its value: same known product defect, the aliased stale write landed on the surviving row (docs/solutions/best-practices/identity-fingerprint-against-os-reorder-2026-04-16.md)"
     else
         assert "$label sibling kept its value (independent readout)" \
             "$([ "$(json_field "$beta_seen" data.found)" = "True" ] && echo 1 || echo 0)" \

@@ -2,17 +2,18 @@
 title: Guard OS-reordered resources with an identity fingerprint
 date: 2026-07-11
 category: best-practices
-module: notification commands and FFI, crates/windows/src/system/window/window_activate.rs, crates/windows/src/system/display.rs, crates/windows/src/system/capture/screenshot.rs
+module: notification commands and FFI, crates/windows/src/system/window/window_activate.rs, crates/windows/src/system/display.rs, crates/windows/src/system/capture/screenshot.rs, crates/core/src/refs/ref_identity.rs
 problem_type: best_practice
 component: tooling
 severity: high
 applies_when:
   - "Acting on an item selected by an OS-managed list index"
+  - "Resolving a ref to a row in a collection that filtering or reordering can change"
   - "Designing an action API for notifications or another reorderable surface"
   - "Adding a notification mutation through CLI or FFI"
   - "Restoring, foregrounding, or otherwise mutating a resource addressed by a recyclable OS handle (HWND, PID, or similar) when the check and the write cannot be issued as one atomic operation"
   - "Capturing a display addressed by a recyclable monitor handle when list-displays and screenshot cannot be issued as one atomic operation"
-tags: [notifications, identity, reordering, fail-closed, ffi, windows, check-then-act, screenshot, display]
+tags: [notifications, identity, reordering, fail-closed, ffi, windows, macos, stale-ref, check-then-act, screenshot, display]
 ---
 
 # Guard OS-reordered resources with an identity fingerprint
@@ -78,6 +79,8 @@ discards the bytes rather than attributing them to the wrong surface
 Backend choice (Modern vs Legacy) is orthogonal: the fingerprint applies
 regardless of which capture path produces the PNG.
 
+**Element identity inside repeated collections.** A repeated native identifier does not identify a row. After a filter, a different row can take the original position with the same identifier and bounds, and disabling the path optimization does not help, because a broad search still matches them. Do not freeze mutable values to fix this, since ordinary text inputs must stay editable through the same ref. Without the opt-in internal command host (`AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1`, `src/command_host/mod.rs`), no retained-object token is recorded, so `ref_identity::identity_match` in `crates/core/src/refs/ref_identity.rs` returns `Match` on the shared identifier and the aliasing stays reachable in the default CLI.
+
 ## Prevention
 
 - Never expose a mutating list-index or bare-handle API without an identity
@@ -99,6 +102,9 @@ regardless of which capture path produces the PNG.
 - For display capture, test each fingerprint field independently (id, bounds,
   primary, scale) mutating between list and act, and assert a post-capture
   mismatch discards the buffer.
+- For a repeated native identifier, test an identical replacement at the same
+  bounds, and check that normal text editing on an unchanged item still works
+  through its ref.
 
 ## Related
 

@@ -107,8 +107,7 @@ probes/          raw platform measurements; FINDINGS.md rows are citable evidenc
   supports. Strict resolution (`resolve_element_strict*`) returns `STALE_REF` for zero matches and `AMBIGUOUS_TARGET`
   for two or more.
 - Core must run on every OS. A `#[cfg]` branch in core that no CI lane executes is a hypothesis, not shipped code: add
-  a lane or move it behind `PlatformAdapter`. See
-  `docs/solutions/best-practices/never-ship-platform-code-that-ci-cannot-execute.md`.
+  a lane or move it behind `PlatformAdapter`.
 
 **Dispatch.** `dispatch()` in `src/dispatch/mod.rs` is a direct `match` that calls each command's `execute()` in
 `crates/core/src/commands/`. There is no command trait or registry. Batch is not a second dispatcher: it deserializes
