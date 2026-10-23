@@ -1,7 +1,9 @@
 use std::time::Duration;
 
+#[cfg(test)]
+use agent_desktop_core::StepMechanism;
 use agent_desktop_core::{
-    ActionResult, ActionStep, AdapterError, Deadline, DeliverySemantics, ErrorCode, StepMechanism,
+    ActionResult, ActionStep, AdapterError, Deadline, DeliverySemantics, ErrorCode,
 };
 use serde_json::json;
 
@@ -11,7 +13,7 @@ use super::popup_verify::name_open_overview;
 use super::select::{
     BusReader, advertises_selection, children_of, handle_of, miss_error, no_route,
 };
-use super::select_pointer::{Pointer, pointer_required};
+use super::select_pointer::{Pointer, already_satisfied, pointer_required};
 use super::select_popup::{Shown, commit, first_label};
 use super::select_search::{Hit, Search, name_matches, search};
 use crate::system::menu::overview;
@@ -24,7 +26,6 @@ const POPUP_WAIT: Duration = Duration::from_millis(1500);
 const CLOSE_WAIT: Duration = Duration::from_millis(1000);
 const SCAN_NODE_LIMIT: usize = 300;
 const SCAN_DEPTH_LIMIT: usize = 16;
-const POINTER_ROUTE: &str = "XTEST.click";
 
 pub(super) fn is_pointer_combo(view: &NodeView) -> bool {
     let (Some(role), Some(popup), Some(names), Some(children)) = (
@@ -144,13 +145,6 @@ fn shows(choices: &mut dyn Choices, current: &AtspiElement, wanted: &str) -> Opt
         .map(|shown| name_matches(&shown, wanted))
 }
 
-fn already_shown() -> ActionResult {
-    let step = ActionStep::skipped(POINTER_ROUTE)
-        .with_mechanism(StepMechanism::PhysicalSynthetic)
-        .with_verified(true);
-    ActionResult::satisfied_without_delivery("select").with_steps(vec![step])
-}
-
 fn popup_not_observed(overview: Option<bool>) -> AdapterError {
     name_open_overview(
         AdapterError::new(
@@ -211,7 +205,7 @@ fn choose_by_pointer(
     let closed = choices.lists()?;
     let current = closed.first().ok_or_else(no_route)?.clone();
     if shows(choices, &current, wanted) == Some(true) {
-        return Ok(already_shown());
+        return Ok(already_satisfied());
     }
     let pointer = pointer.ok_or_else(pointer_required)?;
     let opened = pointer.click(combo)?;
