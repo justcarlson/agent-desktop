@@ -2,7 +2,7 @@
 title: Emit a state only on a positive claim, never on a property's own default
 date: 2026-08-01
 category: logic-errors
-module: crates/windows/src/tree (states.rs, property_ids.rs)
+module: crates/windows/src/tree (states.rs, properties/property_ids.rs)
 problem_type: logic_error
 component: tooling
 symptoms:

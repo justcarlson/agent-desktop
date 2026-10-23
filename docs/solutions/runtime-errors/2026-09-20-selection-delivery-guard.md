@@ -9,7 +9,7 @@ date: 2026-09-20
 # Selection delivery guard
 
 Tracing the unresolved Xcode select-by-name failure exposed a prerequisite
-reliability defect in `actions/container_select.rs`. Direct AXSelected writes
+reliability defect in `actions/select/container_select.rs`. Direct AXSelected writes
 returned false when readback was not true, even after accepted delivery. The
 caller could then try container attributes. Container array writes also ignored
 native error classification and tried another attribute after an accepted but

@@ -203,7 +203,7 @@ The distinction that matters is not success versus failure but delivered versus 
 ### Mutation Classifier
 The write-path table that turns a failed native mutation into a delivery verdict before any chain step or error envelope is built.
 
-It answers whether the write was delivered, whether the affordance is genuinely absent (fall through to the next chain rung), or which structured failure and disposition apply. It is the write-side counterpart of Read Outcomes and must never reuse that cluster: the read table's retryable transport codes are exactly the HRESULTs a write may already have delivered, so consulting it would authorize a double-dispatch (A19-2; Windows and Linux `actions/mutation.rs`, macOS `actions/ax_mutation.rs`).
+It answers whether the write was delivered, whether the affordance is genuinely absent (fall through to the next chain rung), or which structured failure and disposition apply. It is the write-side counterpart of Read Outcomes and must never reuse that cluster: the read table's retryable transport codes are exactly the HRESULTs a write may already have delivered, so consulting it would authorize a double-dispatch (A19-2; Windows `actions/mutation.rs`, Linux `actions/write/mutation.rs`, macOS `actions/ax_mutation.rs`).
 
 ### Secure Field
 An element whose content must never appear in observation or action surfaces once the platform marks it secret (`IsPassword` on Windows; the AT-SPI password role on Linux; equivalent password/secure-text roles on macOS).

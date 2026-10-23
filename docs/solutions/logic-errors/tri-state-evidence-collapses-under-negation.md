@@ -2,7 +2,7 @@
 title: A tri-state boolean predicate fails open the moment it is negated
 date: 2026-08-01
 category: logic-errors
-module: crates/windows/src/tree (element_properties.rs, actions.rs, roles.rs)
+module: crates/windows/src/tree (properties/element_properties.rs, actions.rs, roles.rs)
 problem_type: logic_error
 component: tooling
 symptoms:
