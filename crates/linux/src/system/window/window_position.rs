@@ -25,7 +25,7 @@ fn client_origin(client: &X11Client) -> Option<(i32, i32)> {
 /// The window the client draws, its geometry less the client-side shadow. A
 /// toolkit that reports window coordinates does not move its extents with a
 /// resize or a maximize, so the client is the only source of the size.
-fn visible_rect(client: &X11Client) -> Option<Rect> {
+fn visible_rect(client: &X11Client) -> Option<Extents> {
     let (left, top, right, bottom) = client.shadow;
     let bounds = client.bounds?;
     let width = bounds.width.checked_sub(left)?.checked_sub(right)?;
@@ -34,12 +34,18 @@ fn visible_rect(client: &X11Client) -> Option<Rect> {
         return None;
     }
     let (x, y) = client_origin(client)?;
-    Some(Rect::from(Extents {
+    Some(Extents {
         x,
         y,
         width,
         height,
-    }))
+    })
+}
+
+/// The window the X11 client `id` draws, the rectangle `list-windows` reports
+/// for it, or `None` when it is not listed or its geometry is unknown.
+pub(crate) fn rect_of_client(clients: &[X11Client], id: u32) -> Option<Extents> {
+    visible_rect(clients.iter().find(|client| client.id == id)?)
 }
 
 /// The shadow every client `found` names draws, or `None` when they differ or
@@ -91,7 +97,7 @@ pub(crate) fn place_windows(
             ClientMatch::Several(_) | ClientMatch::NoClient => None,
         };
         if !window.frame.global_position {
-            window.info.bounds = client.and_then(visible_rect);
+            window.info.bounds = client.and_then(visible_rect).map(Rect::from);
         } else if let (Some(shadow), Some(bounds)) =
             (shared_shadow(found, clients), window.info.bounds.as_mut())
         {

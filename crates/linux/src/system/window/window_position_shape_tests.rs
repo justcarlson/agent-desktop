@@ -95,6 +95,31 @@ fn a_gtk4_client_whose_shadow_swallows_its_geometry_gives_no_rectangle() {
     assert_eq!(placed(&listed), vec![None]);
 }
 
+#[test]
+fn the_rectangle_of_a_client_is_the_window_it_draws_less_its_shadow() {
+    let mut shadowed = client(8, 5, -23);
+    shadowed.shadow = (61, 55, 61, 67);
+    shadowed.bounds = Some(Extents {
+        x: 5,
+        y: -23,
+        width: 822,
+        height: 642,
+    });
+    let clients = vec![maximized_gtk4_client(), shadowed];
+    let drawn = |x, y, width, height| {
+        Some(Extents {
+            x,
+            y,
+            width,
+            height,
+        })
+    };
+
+    assert_eq!(rect_of_client(&clients, 7), drawn(66, 32, 1214, 768));
+    assert_eq!(rect_of_client(&clients, 8), drawn(66, 32, 700, 520));
+    assert_eq!(rect_of_client(&clients, 9), None);
+}
+
 const TWIN_SHADOW: Sides = (26, 23, 26, 29);
 
 fn gtk3_twin_client(id: u32, shadow: Sides) -> X11Client {

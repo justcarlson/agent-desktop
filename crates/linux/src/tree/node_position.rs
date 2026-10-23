@@ -13,7 +13,7 @@ use super::window_extents::read_window_extents_async;
 use super::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode};
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::shell::container::MENU;
-use crate::system::window::window_position::origin_of_client;
+use crate::system::window::window_position::{origin_of_client, rect_of_client};
 use crate::system::x11::map::ClientMatch;
 use crate::system::x11::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::client_among_twins;
@@ -38,15 +38,34 @@ fn for_each_read(node: &mut WalkedNode<ObservedRead>, visit: &mut impl FnMut(&mu
     }
 }
 
+/// Where the nodes of one frame are placed: the origin of its window
+/// coordinates in the pointer frame and, when an X11 client draws the frame,
+/// the rectangle that client draws it at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FramePlace {
+    origin: (i32, i32),
+    drawn: Option<Extents>,
+}
+
+/// The rectangle the frame's X11 client draws `element` at, when `element` is
+/// that frame. A toolkit that reports window coordinates can give a rectangle
+/// of the frame that lags behind the window, and a pointer lands where the
+/// client is, so the client's rectangle replaces it. Every node below the frame
+/// keeps its own.
+fn drawn_frame(element: &AtspiElement, place: Option<FramePlace>) -> Option<Extents> {
+    place?.drawn.filter(|_| element.frame() == Some(element))
+}
+
 /// Rewrites the extents of every placed node to the rectangle a pointer is
-/// aimed in: the window-coordinate rectangle moved to the client origin.
-/// `windows` holds, in walk order, the window-coordinate rectangle of each
-/// placed node. A node whose position cannot be proved ends without extents,
-/// because the toolkit's own position is `[0, 0]` and is never a position.
+/// aimed in: the window-coordinate rectangle moved to the client origin, and
+/// for the frame itself the rectangle its client draws. `windows` holds, in
+/// walk order, the window-coordinate rectangle of each placed node. A node
+/// whose position cannot be proved ends without extents, because the
+/// toolkit's own position is `[0, 0]` and is never a position.
 fn apply(
     root: &mut WalkedNode<ObservedRead>,
     toolkit: &ToolkitId,
-    origin: Option<(i32, i32)>,
+    place: Option<FramePlace>,
     windows: &[Option<Extents>],
 ) {
     let mut next = windows.iter();
@@ -55,30 +74,34 @@ fn apply(
             return;
         }
         let window = next.next().copied().flatten();
-        place_read_bounds(read, toolkit, origin, window);
+        place_read_bounds(read, toolkit, place, window);
     });
 }
 
-/// Places one read for evidence: the pointer rectangle when the client origin
+/// Places one read for evidence: the pointer rectangle when the frame's place
 /// is known, otherwise the toolkit's own window rectangle. A Wayland session
 /// reports no global position, so the window rectangle is the only stable
 /// evidence and is tagged with its frame; a node with neither keeps none.
 fn place_read_bounds(
     read: &mut ObservedRead,
     toolkit: &ToolkitId,
-    origin: Option<(i32, i32)>,
+    place: Option<FramePlace>,
     window: Option<Extents>,
 ) {
     let Field::Present(screen) = &read.node.extents else {
         read.evidence_bounds = None;
         return;
     };
+    let screen = *screen;
     read.evidence_bounds = window
         .filter(|window| !is_sentinel(*window))
         .map(|window| (window, BoundsSpace::Window));
-    read.node.extents = origin
-        .zip(window)
-        .and_then(|(origin, window)| pointer_bounds(toolkit, *screen, window, Some(origin)))
+    read.node.extents = drawn_frame(&read.node.element, place)
+        .or_else(|| {
+            place.zip(window).and_then(|(place, window)| {
+                pointer_bounds(toolkit, screen, window, Some(place.origin))
+            })
+        })
         .map_or_else(
             || Field::Failed("Screen position could not be established".to_owned()),
             Field::Present,
@@ -136,16 +159,17 @@ async fn frame_facts(
     Ok(Some(node))
 }
 
-/// The origin of the frame's X11 client. The title is read on the bus; the
+/// The place of the frame's nodes: the origin and the drawn rectangle of its
+/// X11 client, or the origin of its popup. The title is read on the bus; the
 /// display-server read then runs here, outside any polled future, under the
 /// caller's deadline.
-fn origin_of(
+fn place_of(
     bus: &SharedBus,
     connection: &zbus::Connection,
     frame: &AtspiElement,
     toolkit: &ToolkitId,
     deadline: Deadline,
-) -> Result<Option<(i32, i32)>, AdapterError> {
+) -> Result<Option<FramePlace>, AdapterError> {
     let Some(node) = geometry_or_unknown(within(deadline, frame_facts(connection, frame)))? else {
         return Ok(None);
     };
@@ -165,7 +189,11 @@ fn origin_of(
             (window.width, window.height),
             deadline,
         )
-        .and_then(|origin| popup_origin(origin, window)));
+        .and_then(|origin| popup_origin(origin, window))
+        .map(|origin| FramePlace {
+            origin,
+            drawn: None,
+        }));
     }
     let facts = FrameFacts {
         size_identity: title.is_empty()
@@ -188,7 +216,10 @@ fn origin_of(
         .flatten()
     });
     Ok(match found {
-        ClientMatch::One(id) => origin_of_client(&clients, id),
+        ClientMatch::One(id) => origin_of_client(&clients, id).map(|origin| FramePlace {
+            origin,
+            drawn: rect_of_client(&clients, id),
+        }),
         ClientMatch::Several(_) | ClientMatch::NoClient => None,
     })
 }
@@ -196,8 +227,9 @@ fn origin_of(
 /// Puts the node rectangles of a finished walk where a pointer can be aimed
 /// when the application's toolkit reports no global position. A toolkit with
 /// global positions is left as read. Anything else gets its window-coordinate
-/// rectangles moved to the window's X11 client origin, and the rectangles it
-/// cannot place are dropped.
+/// rectangles moved to the window's X11 client origin, the window itself gets
+/// the rectangle its client draws, and the rectangles it cannot place are
+/// dropped.
 pub(crate) fn place_nodes(
     bus: &SharedBus,
     walk: &mut Walk<ObservedRead>,
@@ -223,8 +255,8 @@ pub(crate) fn place_nodes(
     if reports_global_position(&toolkit) {
         return Ok(());
     }
-    let origin = match element.frame() {
-        Some(frame) => origin_of(bus, connection.inner(), frame, &toolkit, deadline)?,
+    let place = match element.frame() {
+        Some(frame) => place_of(bus, connection.inner(), frame, &toolkit, deadline)?,
         None => None,
     };
     let elements = placed_elements(&mut walk.root);
@@ -232,7 +264,7 @@ pub(crate) fn place_nodes(
         deadline,
         window_rectangles(connection.inner(), &elements),
     ))?;
-    apply(&mut walk.root, &toolkit, origin, &windows);
+    apply(&mut walk.root, &toolkit, place, &windows);
     Ok(())
 }
 
@@ -273,14 +305,14 @@ pub(crate) fn place_single(
     if reports_global_position(&toolkit) {
         return Ok(());
     }
-    let origin = match element.frame() {
-        Some(frame) => origin_of(bus, connection.inner(), frame, &toolkit, deadline)?,
+    let place = match element.frame() {
+        Some(frame) => place_of(bus, connection.inner(), frame, &toolkit, deadline)?,
         None => None,
     };
     let window = geometry_or_unknown(within(
         deadline,
         read_window_extents_async(connection.inner(), &element),
     ))?;
-    place_read_bounds(read, &toolkit, origin, window);
+    place_read_bounds(read, &toolkit, place, window);
     Ok(())
 }
