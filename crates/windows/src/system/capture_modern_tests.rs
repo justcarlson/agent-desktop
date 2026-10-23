@@ -9,6 +9,7 @@ use crate::system::permissions::report;
 use crate::system::png_codec::decode_png_to_bgra;
 use crate::tree::fixture::{LocalPatternFixture, bootstrap};
 use agent_desktop_core::{ErrorCode, PermissionState};
+use windows::Graphics::Capture::GraphicsCaptureSession;
 
 use crate::system::test_time::deadline;
 
@@ -35,12 +36,17 @@ fn skip_if_interop_unavailable(reason: &str) -> bool {
 }
 
 #[test]
-fn support_predicate_is_not_a_build_number() {
+fn support_predicate_is_the_capture_api_answer_and_stable_within_a_process() {
     bootstrap();
-    let supported = modern_is_supported();
-    let again = modern_is_supported();
+    let direct = GraphicsCaptureSession::IsSupported().unwrap_or(false);
     assert_eq!(
-        supported, again,
+        modern_is_supported(),
+        direct,
+        "the predicate must be the capture API's own answer, not a build-number guess"
+    );
+    assert_eq!(
+        modern_is_supported(),
+        direct,
         "IsSupported must be stable for the process"
     );
 }

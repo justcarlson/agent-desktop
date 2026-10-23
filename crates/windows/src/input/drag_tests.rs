@@ -21,19 +21,34 @@ fn base_params() -> DragParams {
 }
 
 #[test]
-fn drag_limits_reject_unbounded_work() {
+fn drag_limits_reject_unbounded_work_and_accept_the_limits_themselves() {
     let too_long = DragParams {
         duration_ms: Some(MAX_DRAG_MS + 1),
         ..base_params()
     };
-    assert!(validate_drag(&too_long).is_err());
+    let error = validate_drag(&too_long).expect_err("a duration past the limit is refused");
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
 
     let too_slow_to_release = DragParams {
         duration_ms: None,
         drop_delay_ms: Some(MAX_DROP_DELAY_MS + 1),
         ..base_params()
     };
-    assert!(validate_drag(&too_slow_to_release).is_err());
+    let error =
+        validate_drag(&too_slow_to_release).expect_err("a drop delay past the limit is refused");
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+
+    let at_the_duration_limit = DragParams {
+        duration_ms: Some(MAX_DRAG_MS),
+        ..base_params()
+    };
+    assert!(validate_drag(&at_the_duration_limit).is_ok());
+
+    let at_the_drop_delay_limit = DragParams {
+        drop_delay_ms: Some(MAX_DROP_DELAY_MS),
+        ..base_params()
+    };
+    assert!(validate_drag(&at_the_drop_delay_limit).is_ok());
 }
 
 #[test]

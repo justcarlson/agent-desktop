@@ -163,9 +163,15 @@ fn non_finite_geometry_is_invalid_args_before_native_write() {
 fn negative_move_coordinates_are_accepted_when_finite() {
     let _stage = crate::tree::fixture_window::on_screen_stage();
     let (fixture, info) = staged_fixture();
-    let (left, top, _, _) = current_rect(fixture.handle());
-    let target_x = left.saturating_sub(48);
+    let (_, top, _, _) = current_rect(fixture.handle());
+    let (virtual_left, _, _, _) = crate::tree::hit_test::virtual_screen_metrics();
+    let target_x = virtual_left - 48;
     let target_y = top;
+    assert!(
+        target_x < 0,
+        "the target must be a negative screen coordinate or this test proves nothing \
+         about negative moves"
+    );
     window_op_impl(
         &info,
         WindowOp::Move {

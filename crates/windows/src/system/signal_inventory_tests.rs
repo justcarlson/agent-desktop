@@ -250,8 +250,6 @@ mod windows_only {
 
         let error = outcome.expect_err("a held inconsistency must exhaust the re-walk budget");
         assert_eq!(error.code, ErrorCode::AppUnresponsive);
-        assert_ne!(error.code, ErrorCode::WindowNotFound);
-        assert_ne!(error.code, ErrorCode::Internal);
         let kind = error
             .details
             .as_ref()
@@ -312,13 +310,6 @@ mod windows_only {
 
         let (first_windows, second_windows) = (windows_of(&first), windows_of(&second));
         let (first_apps, second_apps) = (apps_of(&first), apps_of(&second));
-
-        for (pid, instance, id) in first_windows.intersection(&second_windows) {
-            assert!(
-                second_windows.contains(&(*pid, instance.clone(), id.clone())),
-                "a window present in both captures must carry one identity in both"
-            );
-        }
 
         let first_ids = first_windows
             .iter()

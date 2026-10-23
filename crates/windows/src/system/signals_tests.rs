@@ -222,6 +222,19 @@ mod windows_only {
         let baseline = capture_signal_baseline_impl(&filter, deadline(10_000))
             .expect("a process-filtered capture on a live desktop must succeed");
 
+        assert!(
+            baseline
+                .windows
+                .iter()
+                .any(|window| window.pid == fixture_pid),
+            "the filtered capture must still contain the fixture's window, or the scope checks \
+             below pass on an empty baseline"
+        );
+        assert!(
+            baseline.apps.iter().any(|app| app.pid == fixture_pid),
+            "the filtered capture must still contain the fixture's app, or the scope checks \
+             below pass on an empty baseline"
+        );
         for window in &baseline.windows {
             assert_eq!(window.pid, fixture_pid);
         }

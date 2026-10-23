@@ -157,8 +157,6 @@ fn already_in_the_requested_state_returns_immediately_reading_the_predicate_once
     );
 }
 
-/// Both directions in one test so a copy-paste that gives both directions
-/// the same `platform_detail` text fails the final inequality assertion.
 #[test]
 fn a_menu_that_never_transitions_times_out_with_direction_specific_platform_detail() {
     bootstrap();
@@ -192,10 +190,6 @@ fn a_menu_that_never_transitions_times_out_with_direction_specific_platform_deta
     assert_eq!(
         close_error.platform_detail.as_deref(),
         Some("Menu did not close before the deadline")
-    );
-    assert_ne!(
-        open_error.platform_detail, close_error.platform_detail,
-        "the two timeout directions must carry different platform_detail text"
     );
 }
 

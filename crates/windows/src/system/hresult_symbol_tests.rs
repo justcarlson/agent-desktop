@@ -16,9 +16,7 @@ const UNNAMED_HRESULT: i32 = 0x8000_4004_u32 as i32;
 /// Without this, an arm could be dropped from `com_hresult_symbol` and every
 /// test would stay green while the code silently degraded to a bare
 /// hexadecimal value in the one field an operator reads to find out what
-/// happened. The named set is asserted to be exhaustive against the classifier
-/// too, so a code that gains a classification without gaining a symbol fails
-/// here rather than at a user.
+/// happened.
 #[test]
 fn every_named_hresult_renders_its_symbol_and_meaning() {
     let named: [(i32, &str, &str); 22] = [
@@ -135,17 +133,6 @@ fn every_named_hresult_renders_its_symbol_and_meaning() {
         com_hresult_detail(0x8004_01F0_u32 as i32),
         "COM HRESULT 0x800401F0 (CO_E_NOTINITIALIZED: COM has not been initialized)"
     );
-
-    for (hresult, symbol, _) in named {
-        assert!(
-            named
-                .iter()
-                .filter(|(_, candidate, _)| *candidate == symbol)
-                .count()
-                == 1,
-            "0x{hresult:08X} shares its symbol with another code"
-        );
-    }
 }
 
 /// A code no one named renders as a bare value rather than being guessed at,
