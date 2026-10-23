@@ -1,7 +1,5 @@
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
-use super::permissions::ensure_budget;
-
 /// How many times a walk over the live window set is re-attempted after it
 /// catches its own transient identity race, before that race is accepted as
 /// a genuine refusal.
@@ -20,7 +18,7 @@ pub(crate) const LISTING_RACE_ATTEMPTS: u32 = 5;
 /// every attempt is spent: what a caller does with an exhausted race - a
 /// synthesized error, `Ok(None)`, the raw refusal unchanged - is its own
 /// decision, not this helper's. Each attempt opens with the same
-/// `ensure_budget` preamble every native call on this path uses, so a
+/// `ensure_remaining` preamble every native call on this path uses, so a
 /// deadline that expires mid-retry surfaces as `TIMEOUT` rather than as one
 /// more race attempt.
 pub(crate) fn retry_transient_window_race<T>(
@@ -30,7 +28,7 @@ pub(crate) fn retry_transient_window_race<T>(
 ) -> Result<T, AdapterError> {
     let mut last_race_error: Option<AdapterError> = None;
     for _ in 0..LISTING_RACE_ATTEMPTS {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         match attempt() {
             Ok(value) => return Ok(value),
             Err(error) if is_race(&error) => last_race_error = Some(error),

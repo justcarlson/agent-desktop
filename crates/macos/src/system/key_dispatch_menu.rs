@@ -2,7 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode, KeyCombo, Modifier};
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use super::{element_attribute, ensure_budget, read_error};
+use super::{element_attribute, read_error};
 use crate::tree::AXElement;
 
 const MAX_MENU_NODES: usize = 2_048;
@@ -29,7 +29,7 @@ pub(super) fn try_menu_bar_shortcut(
     let mut visited = 0_usize;
 
     while let Some((element, depth)) = queue.pop_front() {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         visited += 1;
         if visited > MAX_MENU_NODES {
             return Err(incomplete_menu_error("node_limit"));
@@ -63,7 +63,7 @@ fn children(element: &AXElement, deadline: Deadline) -> Result<Vec<AXElement>, A
         MAX_MENU_CHILDREN,
         instant(deadline)?,
     );
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     validate_menu_children(read)
 }
 
@@ -74,7 +74,7 @@ fn has_children(element: &AXElement, deadline: Deadline) -> Result<bool, Adapter
         0,
         instant(deadline)?,
     );
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     validate_child_status(&read)?;
     Ok(read.total_count > 0)
 }
@@ -126,7 +126,7 @@ fn read_string(
     deadline: Deadline,
 ) -> Result<Option<String>, AdapterError> {
     let result = crate::tree::attributes::copy_string_attr_result(element, attribute, deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     result.map_err(|error| read_error(attribute, error))
 }
 
@@ -143,7 +143,7 @@ fn read_menu_item_modifiers(
         attribute.as_concrete_TypeRef(),
         deadline,
     );
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if error != kAXErrorSuccess {
         return if error == accessibility_sys::kAXErrorNoValue
             || error == accessibility_sys::kAXErrorAttributeUnsupported

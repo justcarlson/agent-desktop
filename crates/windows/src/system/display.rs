@@ -4,8 +4,6 @@
 
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, Rect};
 
-use super::permissions::ensure_budget;
-
 /// Enumerates the active monitors and reports each with bounds, the primary
 /// flag, and `scale` derived from **effective** DPI - the applied value, not
 /// the requested one (A10-3's carried warning: a successful scale *request* is
@@ -16,7 +14,7 @@ use super::permissions::ensure_budget;
 /// multi-monitor path is unverified until it runs on a rig with more than one
 /// monitor.
 pub(crate) fn list_displays_live(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     #[cfg(target_os = "windows")]
     {
         use windows_sys::Win32::Foundation::{LPARAM, RECT};
@@ -157,7 +155,7 @@ fn enumeration_failed() -> AdapterError {
 }
 
 pub(crate) fn display_at(index: usize, deadline: Deadline) -> Result<DisplayInfo, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let displays = list_displays_live(deadline)?;
     displays.into_iter().nth(index).ok_or_else(|| {
         AdapterError::new(ErrorCode::InvalidArgs, "display index out of range")
@@ -169,7 +167,7 @@ pub(crate) fn capture_selection(
     expected: &DisplayInfo,
     deadline: Deadline,
 ) -> Result<(usize, DisplayInfo), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let displays = list_displays_live(deadline)?;
     let (index, live) = displays
         .into_iter()
@@ -191,7 +189,7 @@ pub(crate) fn display_for_bounds(
     bounds: Option<Rect>,
     deadline: Deadline,
 ) -> Result<DisplayInfo, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let displays = list_displays_live(deadline)?;
     select_display(&displays, bounds).cloned()
 }

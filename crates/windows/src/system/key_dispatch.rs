@@ -7,7 +7,6 @@ use agent_desktop_core::{
 
 use crate::input::elevation::ensure_target_integrity_allows_input;
 use crate::input::keyboard::synthesize_key;
-use crate::system::permissions::ensure_budget;
 use crate::system::process_identity;
 
 const KEYBOARD_FOCUS_WAIT: Duration = Duration::from_millis(500);
@@ -28,7 +27,7 @@ pub(crate) fn press_for_app_impl(
         allow_focus_steal = policy.allow_focus_steal,
         "system: press key for app"
     );
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     require_process(&process)?;
     ensure_injection_integrity(process.pid)?;
     ensure_foreground_for_delivery(&process, policy)?;
@@ -123,7 +122,7 @@ fn require_keyboard_focus(
 ) -> Result<(), AdapterError> {
     let local_deadline = bounded_instant(deadline, KEYBOARD_FOCUS_WAIT)?;
     loop {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if process_holds_keyboard_focus(pid)? && process_identity::matches_instance(pid, instance)?
         {
             return Ok(());

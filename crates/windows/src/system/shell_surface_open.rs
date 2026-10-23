@@ -5,7 +5,6 @@ use agent_desktop_core::{
     WindowInfo,
 };
 
-use super::permissions::ensure_budget;
 use super::shell_surface::{
     SurfaceDismiss, SurfaceFamily, SurfaceKindRow, SurfaceRaise, kebab, refusal_error, row_for,
 };
@@ -54,7 +53,7 @@ pub(super) fn open_row(
     row: &SurfaceKindRow,
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if !row.exists_on_build {
         return Err(refusal_error(row));
     }
@@ -98,7 +97,7 @@ fn poll_until_observed(
                 "shell_surface_not_opened",
             ));
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if let Some(observed) = super::shell_surface::resolve_row(row, deadline)?
             && surface_presented(row, deadline)?
         {
@@ -157,7 +156,7 @@ pub(crate) fn close_surface(kind: SnapshotSurface, deadline: Deadline) -> Result
 
 #[cfg(target_os = "windows")]
 pub(super) fn close_row(row: &SurfaceKindRow, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if !surface_presented(row, deadline)? {
         return Ok(());
     }
@@ -243,7 +242,7 @@ fn poll_with_cap(
 ) -> Result<bool, AdapterError> {
     let start = std::time::Instant::now();
     loop {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if condition()? {
             return Ok(true);
         }
@@ -324,7 +323,7 @@ fn foreground_declined_error(row: &SurfaceKindRow) -> AdapterError {
 
 #[cfg(not(target_os = "windows"))]
 pub(super) fn close_row(_row: &SurfaceKindRow, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Err(AdapterError::not_supported("close shell surface"))
 }
 
@@ -336,7 +335,7 @@ pub(super) fn close_row(_row: &SurfaceKindRow, deadline: Deadline) -> Result<(),
 fn surface_presented(row: &SurfaceKindRow, deadline: Deadline) -> Result<bool, AdapterError> {
     use windows_sys::Win32::UI::WindowsAndMessaging::IsWindowVisible;
 
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     match &row.family {
         super::shell_surface::SurfaceFamily::Win32Class(chain) => {
             let Some(top) = super::shell_surface::class_chain_top_handle(chain) else {
@@ -361,7 +360,7 @@ fn poll_until_gone(row: &SurfaceKindRow, deadline: Deadline) -> Result<(), Adapt
                 "shell_surface_not_closed",
             ));
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if !surface_presented(row, deadline)? {
             return Ok(());
         }

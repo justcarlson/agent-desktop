@@ -3,7 +3,6 @@ use serde_json::json;
 
 use super::automation::{UiaFailure, uia_failure_error};
 use super::walker::{NodeKey, TreeSource, WalkBudget};
-use crate::system::permissions::ensure_budget;
 
 /// How long a boundary node's child-count-only read gets, independent of the
 /// walk's own deadline.
@@ -101,7 +100,7 @@ impl<'a, S: TreeSource> TreeWalk<'a, S> {
         logical_depth: u8,
         raw_depth: u8,
     ) -> Option<ObservedSubtree> {
-        if ensure_budget(self.budget.deadline).is_err() {
+        if self.budget.deadline.ensure_remaining().is_err() {
             self.note_deadline_exhausted();
             return None;
         }
@@ -153,7 +152,7 @@ impl<'a, S: TreeSource> TreeWalk<'a, S> {
             self.stats.traversal.web_wrapper_nodes += 1;
         }
         let child_logical_depth = logical_depth.saturating_add(u8::from(!web_wrapper));
-        if ensure_budget(self.budget.deadline).is_err() {
+        if self.budget.deadline.ensure_remaining().is_err() {
             self.note_deadline_exhausted();
             return None;
         }
@@ -223,7 +222,7 @@ impl<'a, S: TreeSource> TreeWalk<'a, S> {
                         complete = false;
                         break;
                     }
-                    if ensure_budget(deadline).is_err() {
+                    if deadline.ensure_remaining().is_err() {
                         self.note_deadline_exhausted();
                         complete = false;
                         break;

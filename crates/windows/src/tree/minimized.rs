@@ -14,7 +14,7 @@ use crate::tree::property_outcome::{PropertyOutcome, PropertyValue};
 /// unknown and change nothing, because a failed window question must never
 /// invent an offscreen state.
 pub(crate) fn owning_window_minimized(element: &UIAElement, deadline: Deadline) -> Option<bool> {
-    crate::system::permissions::ensure_budget(deadline).ok()?;
+    deadline.ensure_remaining().ok()?;
     let client = automation_client().ok()?;
     let walker = client.get_raw_view_walker().ok()?;
     let root = element_root_hwnd(element, &walker, deadline).ok()??;

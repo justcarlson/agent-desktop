@@ -4,7 +4,6 @@ use agent_desktop_core::{
 use serde_json::json;
 
 use super::chain_step::{satisfied_step, semantic_step, skipped_step, verified_of};
-use crate::system::ensure_budget;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Observed {
@@ -58,7 +57,7 @@ pub(crate) fn execute_chain(
 ) -> Result<ActionResult, AdapterError> {
     let mut steps = Vec::new();
     for rung in rungs.iter_mut() {
-        ensure_budget(deadline).map_err(expired)?;
+        deadline.ensure_remaining().map_err(expired)?;
         match (rung.run)()? {
             DeliveryOutcome::NotDelivered => steps.push(skipped_step(rung.label)),
             DeliveryOutcome::Satisfied => {

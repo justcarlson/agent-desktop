@@ -26,7 +26,6 @@ mod imp {
         LADDER_SCROLL_LABEL, VisibilitySample, ancestor_ladder, apply_ladder_seam,
         observe_visibility, visibility_verified,
     };
-    use crate::system::permissions::ensure_budget;
     use crate::tree::automation::{ERR_NONE, UiaFailure, automation_client, failure_of};
     use crate::tree::element::{UIAElement, uia_element};
     use crate::tree::live_read::corroborate_verified_process;
@@ -69,7 +68,7 @@ mod imp {
     ) -> Result<ScrollIntoViewDone, AdapterError> {
         let element = uia_element(handle)?;
         let deadline = lease.deadline();
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         corroborate_verified_process(element)?;
         scroll_into_view_element(element, deadline)
     }

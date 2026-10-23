@@ -25,7 +25,7 @@ mod imp {
             win.app,
             win.title
         );
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let win_el = crate::system::window_resolve::window_element_for_info(win, deadline)?;
         match op {
             WindowOp::Resize { width, height } => set_size(&win_el, width, height, deadline),
@@ -198,14 +198,6 @@ mod imp {
         deadline: Deadline,
     ) -> Result<(), AdapterError> {
         crate::system::focus::finish_mutation(element, error, operation, deadline)
-    }
-
-    fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-        if deadline.is_expired() {
-            Err(deadline.timeout_error())
-        } else {
-            Ok(())
-        }
     }
 
     #[cfg(test)]

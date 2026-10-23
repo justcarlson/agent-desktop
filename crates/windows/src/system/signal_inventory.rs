@@ -8,7 +8,6 @@ use agent_desktop_core::{
 
 use super::app_ops;
 use super::listing_retry::{LISTING_RACE_ATTEMPTS, retry_transient_window_race};
-use super::permissions::ensure_budget;
 use super::process_identity;
 use super::window_enum::{EnumeratedWindow, enumerate_top_level};
 use super::window_identity;
@@ -119,7 +118,7 @@ fn walk_budget_ok(deadline: Deadline) -> bool {
     if force_truncation::is_active() {
         return false;
     }
-    ensure_budget(deadline).is_ok()
+    deadline.ensure_remaining().is_ok()
 }
 
 /// Reads each admitted window's owning pid and process-generation token once
@@ -136,7 +135,7 @@ fn walk_phase(
     let mut entries = Vec::new();
     for (index, window) in candidates.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         let Some(pid) = window_identity::live_window_owner(window.handle) else {
             continue;
@@ -161,7 +160,7 @@ fn assembly_phase(
     entries: Vec<WalkEntry>,
     deadline: Deadline,
 ) -> Result<PassOutcome, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let snapshot = app_ops::process_snapshot().map_err(remap_native_failure)?;
     let name_by_pid: HashMap<ProcessId, String> = snapshot
         .into_iter()
@@ -176,7 +175,7 @@ fn assembly_phase(
 
     for (index, entry) in entries.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         let Some(current_pid) = window_identity::live_window_owner(entry.window.handle) else {
             continue;

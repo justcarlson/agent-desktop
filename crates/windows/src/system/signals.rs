@@ -3,7 +3,6 @@ use agent_desktop_core::{
 };
 
 use super::listing_retry::narrow_to_permitted_codes;
-use super::permissions::ensure_budget;
 use super::signal_filter_apply::apply_signal_filter;
 use super::signal_inventory::{SignalWindowInventory, capture_windows_and_apps};
 use super::signal_surfaces::app_scoped_surfaces;
@@ -22,7 +21,9 @@ pub(crate) fn capture_signal_baseline_impl(
     filter: &SignalFilter,
     deadline: Deadline,
 ) -> Result<SignalBaseline, AdapterError> {
-    ensure_budget(deadline).map_err(narrow_to_permitted_codes)?;
+    deadline
+        .ensure_remaining()
+        .map_err(narrow_to_permitted_codes)?;
     let inventory = capture_windows_and_apps(deadline).map_err(narrow_to_permitted_codes)?;
     assemble(inventory, filter, deadline)
 }

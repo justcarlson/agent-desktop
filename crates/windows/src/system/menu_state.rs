@@ -2,7 +2,6 @@
 
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, ProcessId};
 
-use super::permissions::ensure_budget;
 use super::window_enum::{enumerate_top_level, window_is_responsive};
 
 #[cfg(target_os = "windows")]
@@ -25,17 +24,17 @@ use crate::system::thread_walk::{thread_snapshot_calls, thread_snapshot_closes};
 /// and the framework gate keeps a Win32 menu bar from firing the Chromium arm
 /// at rest.
 pub(crate) fn menu_is_open(pid: ProcessId, deadline: Deadline) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     ensure_process_exists(pid)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if classic_menu_mode_active(pid, deadline)? {
         return Ok(true);
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if uia_menu_reachable(pid, deadline)? {
         return Ok(true);
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     chromium_dom_menu_reachable(pid, deadline)
 }
 
@@ -119,7 +118,7 @@ fn classic_menu_mode_active(pid: ProcessId, deadline: Deadline) -> Result<bool, 
 
 #[cfg(not(target_os = "windows"))]
 fn classic_menu_mode_active(_pid: ProcessId, deadline: Deadline) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(false)
 }
 
@@ -156,7 +155,7 @@ fn thread_reports_menu_mode(thread_id: u32) -> bool {
 /// non-tool window - and is the third source's pool ([`chromium`]).
 #[cfg(target_os = "windows")]
 fn uia_menu_reachable(pid: ProcessId, deadline: Deadline) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let candidates = tool_window_candidates(pid)?;
     if candidates.is_empty() {
         return Ok(false);
@@ -165,7 +164,7 @@ fn uia_menu_reachable(pid: ProcessId, deadline: Deadline) -> Result<bool, Adapte
     let condition = menu_family_condition(&client)?;
     for (index, handle) in candidates.into_iter().enumerate() {
         if index > 0 {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         if probe_candidate(&client, &condition, handle)? {
             return Ok(true);
@@ -176,7 +175,7 @@ fn uia_menu_reachable(pid: ProcessId, deadline: Deadline) -> Result<bool, Adapte
 
 #[cfg(not(target_os = "windows"))]
 fn uia_menu_reachable(_pid: ProcessId, deadline: Deadline) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(false)
 }
 

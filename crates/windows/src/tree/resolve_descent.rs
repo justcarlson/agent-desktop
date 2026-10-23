@@ -15,7 +15,6 @@
 
 use agent_desktop_core::AdapterError;
 
-use crate::system::permissions::ensure_budget;
 use crate::tree::automation::{UiaFailure, uia_failure_error};
 use crate::tree::walker::{TreeSource, WalkBudget};
 
@@ -162,7 +161,7 @@ pub(crate) fn read_children<S: TreeSource>(
         if elements.len() >= limit {
             break;
         }
-        if let Err(expired) = ensure_budget(budget.deadline) {
+        if let Err(expired) = budget.deadline.ensure_remaining() {
             return match policy.on_expiry {
                 ExpiryPolicy::Unfinish => Ok(ChildList {
                     elements,

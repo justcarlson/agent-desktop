@@ -14,7 +14,6 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 
 use crate::input::keyboard_send::{KeyboardInputEvent, post_keyboard_inputs};
-use crate::system::permissions::ensure_budget as ensure_not_expired;
 
 const TEXT_CHUNK_UTF16: usize = 32;
 const MAX_TEXT_UTF16: usize = 1_000_000;
@@ -84,7 +83,7 @@ pub(crate) fn ensure_chunk_budget(
     total: usize,
     delivered_chunks: usize,
 ) -> Result<(), AdapterError> {
-    ensure_not_expired(deadline).map_err(|error| {
+    deadline.ensure_remaining().map_err(|error| {
         let disposition = if delivered_chunks == 0 {
             DeliverySemantics::not_delivered()
         } else {

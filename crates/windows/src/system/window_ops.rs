@@ -6,7 +6,6 @@ use agent_desktop_core::{
 #[cfg(target_os = "windows")]
 use super::frame_identity;
 use super::listing_retry::retry_transient_window_race;
-use super::permissions::ensure_budget;
 use super::process_identity;
 use super::window_enum::{EnumeratedWindow, enumerate_top_level};
 use super::window_identity::WindowIdentityEvidence;
@@ -150,7 +149,7 @@ fn list_windows_live_once(
 
     enumerate_top_level(|window| {
         if seen > 0 {
-            if let Err(error) = ensure_budget(deadline) {
+            if let Err(error) = deadline.ensure_remaining() {
                 *failure.borrow_mut() = Some(error);
                 return false;
             }

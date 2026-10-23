@@ -137,7 +137,7 @@ fn require_focused_element(
         if let Some(focused) = focused_element(app, deadline)? {
             return Ok(focused);
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if Instant::now() >= local_deadline {
             return Err(no_focused_element_error(policy));
         }
@@ -156,16 +156,8 @@ fn element_attribute(
     deadline: Deadline,
 ) -> Result<Option<AXElement>, AdapterError> {
     let result = crate::tree::attributes::copy_element_attr_result(element, attribute, deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     result.map_err(|error| read_error(attribute, error))
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 fn local_deadline(deadline: Deadline, maximum: Duration) -> Result<Instant, AdapterError> {

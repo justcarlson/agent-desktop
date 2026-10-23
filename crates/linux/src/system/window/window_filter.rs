@@ -1,5 +1,4 @@
 use super::native_group::{self, unproven};
-use crate::system::bus::ensure_budget;
 use crate::system::process::protected::{DisplayOwner, is_helper_surface};
 use crate::system::registry::listed_window;
 use crate::system::x11::X11Client;
@@ -78,7 +77,7 @@ fn classified(
     let mut proven = HashMap::new();
     let no_users = HashSet::new();
     for window in windows {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let pid = window.frame.pid;
         if window.unshown {
             listed.push(window.clone());
@@ -100,14 +99,14 @@ fn classified(
             Err(_) => {
                 let helper = !population.windowed.contains(&pid)
                     && *proven.entry(pid).or_insert_with(|| is_helper(pid));
-                ensure_budget(deadline)?;
+                deadline.ensure_remaining()?;
                 if !helper {
                     listed.push(window.clone());
                 }
             }
         }
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(listed)
 }
 
@@ -123,12 +122,12 @@ fn without_owner_frames(
     let pids: HashSet<u32> = windows.iter().map(|window| window.frame.pid).collect();
     let mut owners = HashSet::new();
     for pid in pids {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if is_owner(pid) {
             owners.insert(pid);
         }
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(windows
         .into_iter()
         .filter(|window| !owners.contains(&window.frame.pid))
@@ -143,7 +142,7 @@ pub(in crate::system) fn without_helpers(
     use crate::system::x11::{
         DisplayReader, X11Source, X11State, control, window_kind::WindowKind,
     };
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if windows.iter().all(|window| window.unshown) {
         return Ok(windows);
     }
@@ -157,7 +156,7 @@ pub(in crate::system) fn without_helpers(
     }
     let pending = crate::system::x11::start(|| DisplayReader.read());
     let read = pending.finish(deadline);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let Some(X11State::Ready { mut clients, .. }) = read else {
         return Err(unproven(windows[0].frame.pid));
     };
@@ -168,7 +167,7 @@ pub(in crate::system) fn without_helpers(
     let mut complete = HashSet::new();
     let mut windowed = HashSet::new();
     for pid in pids {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let managed: Vec<_> = clients
             .iter()
             .filter(|client| client.pid == Some(pid))
@@ -179,7 +178,7 @@ pub(in crate::system) fn without_helpers(
         }
         let population =
             crate::system::x11::native_population::read(pid, managed.clone(), deadline);
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if let crate::system::x11::native_population::NativePopulation::Complete { menus } =
             population
         {
@@ -192,7 +191,7 @@ pub(in crate::system) fn without_helpers(
             clients.extend(menus);
         }
         let native = control::toplevels_of(pid, deadline);
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let Some(native) = native.ready() else {
             return Err(unproven(pid));
         };

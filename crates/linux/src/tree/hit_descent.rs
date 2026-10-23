@@ -47,14 +47,6 @@ pub(crate) fn same(a: &AtspiElement, b: &AtspiElement) -> bool {
     a.bus_name() == b.bus_name() && a.path() == b.path()
 }
 
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
-}
-
 /// Follows point queries from the window. `None` means no verified landing;
 /// a later null or a self-hit returns the verified chain.
 pub(crate) fn descend<S: NodeSource>(
@@ -66,7 +58,7 @@ pub(crate) fn descend<S: NodeSource>(
     let mut chain: Vec<AtspiElement> = Vec::new();
     let mut from = frame.clone();
     for _ in 0..DEPTH_CAP {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         match source.at_point(&from, point)? {
             Hit::Failed => return Ok(None),
             Hit::Null => {
@@ -104,7 +96,7 @@ fn climb<S: NodeSource>(
 ) -> Result<Climb, AdapterError> {
     let mut at = start.clone();
     for _ in 0..DEPTH_CAP {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let Some(parent) = source.verified_parent(&at)? else {
             return Ok(Climb::Unproved);
         };
@@ -169,7 +161,7 @@ pub(crate) fn require_unambiguous_branch<S: NodeSource>(
 ) -> Result<(), AdapterError> {
     let mut at = probe.frame.clone();
     for _ in 0..DEPTH_CAP {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         if same(&at, probe.target) {
             return Ok(());
         }
@@ -178,7 +170,7 @@ pub(crate) fn require_unambiguous_branch<S: NodeSource>(
         };
         let mut next = None;
         for child in children {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
             let Some(extents) = source.describe(&child)?.window_extents else {
                 return Err(unproven("child_bounds_unknown"));
             };

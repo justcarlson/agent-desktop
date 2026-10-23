@@ -10,7 +10,7 @@ use super::numeric_write::{self, NumericPort, VALUE_INTERFACE};
 use super::secure_write::is_secure;
 use super::text_write::{self, EDITABLE_TEXT, TextPort, read_only_field, writable};
 use super::write_call::{Call, invoke};
-use crate::system::{PROPERTIES_INTERFACE, ensure_budget, within};
+use crate::system::{PROPERTIES_INTERFACE, within};
 use crate::tree::action_read::NodeView;
 use crate::tree::live_offscreen::toolkit_of;
 use crate::tree::role_numbers::{DIAL, SCROLL_BAR, SLIDER, SPIN_BUTTON};
@@ -59,7 +59,7 @@ impl LiveText<'_> {
         body: &B,
         kind: WriteKind,
     ) -> Result<WriteReply, AdapterError> {
-        ensure_budget(self.target.deadline)?;
+        self.target.deadline.ensure_remaining()?;
         invoke(
             self.target,
             Call {
@@ -112,7 +112,7 @@ struct LiveNumeric<'a> {
 
 impl NumericPort for LiveNumeric<'_> {
     fn set(&self, value: f64) -> Result<WriteReply, AdapterError> {
-        ensure_budget(self.target.deadline)?;
+        self.target.deadline.ensure_remaining()?;
         invoke(
             self.target,
             Call {

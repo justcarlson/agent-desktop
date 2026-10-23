@@ -98,7 +98,6 @@ mod imp {
         after_delivery, gated, invoke_available, invoke_pattern_delivered,
     };
     use crate::actions::mutation::{classify_success, classify_write};
-    use crate::system::permissions::ensure_budget;
     use crate::tree::properties::read_one;
     use crate::tree::property_ids::TreeProperty;
     use uiautomation::patterns::UIExpandCollapsePattern;
@@ -253,7 +252,7 @@ mod imp {
         deadline: Deadline,
         element: &UIAElement,
     ) -> Result<bool, AdapterError> {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let end = capped_verification_end(deadline, DISCLOSURE_TIMEOUT)?;
         let pattern_ok = expand_collapse_available(element);
         loop {

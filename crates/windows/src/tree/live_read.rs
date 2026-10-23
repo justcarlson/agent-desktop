@@ -118,7 +118,7 @@ mod imp {
         read: impl Fn(&UIAElement) -> (ElementProperties, Vec<AdapterError>),
         read_label: impl Fn(&UIAElement) -> LabelOutcome,
     ) -> Result<LiveRead, AdapterError> {
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         corroborate(element)?;
         if deadline.is_expired() {
             return Err(deadline.timeout_error());

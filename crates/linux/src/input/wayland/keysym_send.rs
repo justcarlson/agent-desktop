@@ -16,14 +16,6 @@ const RECOVERY_BUDGET_MS: u64 = 1_000;
 const DRAIN: Duration = Duration::from_millis(150);
 const SHIFT_SETTLE: Duration = Duration::from_millis(100);
 
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
-}
-
 fn with_fields(error: AdapterError, fields: serde_json::Value) -> AdapterError {
     let mut details = error.details.clone().unwrap_or_else(|| json!({}));
     if let (Some(map), Some(extra)) = (details.as_object_mut(), fields.as_object()) {
@@ -84,7 +76,7 @@ fn send_each(
     let mut held: Vec<u32> = Vec::new();
     let mut delivered = 0_u32;
     for key in keys {
-        let outcome = ensure_budget(deadline).and_then(|()| {
+        let outcome = deadline.ensure_remaining().and_then(|()| {
             if key.down {
                 gate()?;
             }
@@ -124,7 +116,9 @@ fn drive(
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<u32, AdapterError> {
-    ensure_budget(deadline).map_err(|error| with_progress(error, 0))?;
+    deadline
+        .ensure_remaining()
+        .map_err(|error| with_progress(error, 0))?;
     let mut lead_delivered = 0;
     if !session.resumed() {
         session

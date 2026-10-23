@@ -130,13 +130,13 @@ mod imp {
 }
 
 pub(crate) fn report(deadline: Deadline) -> Result<PermissionReport, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let report = PermissionReport {
         accessibility: accessibility_report_state(),
         screen_recording: screen_recording_report_state(),
         automation: automation_report_state(),
     };
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(report)
 }
 
@@ -152,22 +152,22 @@ fn request_report_with(
     ) -> Result<bool, AdapterError>,
     report: impl FnOnce(Deadline) -> Result<PermissionReport, AdapterError>,
 ) -> Result<PermissionReport, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let _ = request(
         crate::system::permission_operation::PermissionOperation::Accessibility,
         deadline,
     )?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let _ = request(
         crate::system::permission_operation::PermissionOperation::ScreenRecording,
         deadline,
     )?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let _ = request(
         crate::system::permission_operation::PermissionOperation::Automation,
         deadline,
     )?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     report(deadline)
 }
 
@@ -290,14 +290,6 @@ fn automation_denial_text(value: &str) -> bool {
 fn bounded_platform_text(bytes: &[u8]) -> String {
     const MAX_BYTES: usize = 4 * 1024;
     String::from_utf8_lossy(&bytes[..bytes.len().min(MAX_BYTES)]).into_owned()
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 #[cfg(test)]

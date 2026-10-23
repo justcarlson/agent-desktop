@@ -3,7 +3,7 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode, PermissionReport, PermissionState};
 
 use crate::system::SharedBus;
-use crate::system::bus::{ensure_budget, probe_registry};
+use crate::system::bus::probe_registry;
 use crate::system::display::route::{Route, current};
 use crate::system::x11::grab::{DisplayGrabber, Grabber};
 
@@ -23,7 +23,7 @@ pub(crate) fn report(
         .get(deadline)
         .and_then(|connection| probe_registry(bus, &connection, deadline));
     let report = report_from_probe(probed, capture)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(report)
 }
 

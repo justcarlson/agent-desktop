@@ -74,9 +74,9 @@ pub(crate) fn prepare_file_urls(paths: &[String]) -> Result<PreparedFileUrls, Ad
 }
 
 pub(crate) fn read_file_urls(pb: Id, deadline: Deadline) -> Result<Vec<String>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let result = unsafe { read_file_urls_inner(pb, deadline) }?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(result)
 }
 
@@ -114,7 +114,7 @@ unsafe fn read_file_urls_inner(pb: Id, deadline: Deadline) -> Result<Vec<String>
         let mut urls = Vec::new();
         let mut total_units = 0_usize;
         for index in 0..count {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
             let item = send_at(items, sel_registerName(c"objectAtIndex:".as_ptr()), index);
             if item.is_null() {
                 return Err(data_error("Pasteboard item disappeared during read"));
@@ -176,7 +176,7 @@ pub(crate) fn write_file_urls(
     prepared: &PreparedFileUrls,
     deadline: Deadline,
 ) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     unsafe { write_file_urls_inner(pb, prepared, deadline) }
 }
 
@@ -202,14 +202,14 @@ unsafe fn write_file_urls_inner(
         let send_add: unsafe extern "C" fn(Id, Sel, Id) =
             std::mem::transmute(objc_msgSend as *const c_void);
         for url in &prepared.urls {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
             send_add(
                 array.as_id(),
                 sel_registerName(c"addObject:".as_ptr()),
                 url.as_concrete_TypeRef() as Id,
             );
         }
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let send_write: unsafe extern "C" fn(Id, Sel, Id) -> bool =
             std::mem::transmute(objc_msgSend as *const c_void);
         Ok(send_write(
@@ -217,14 +217,6 @@ unsafe fn write_file_urls_inner(
             sel_registerName(c"writeObjects:".as_ptr()),
             array.as_id(),
         ))
-    }
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
     }
 }
 

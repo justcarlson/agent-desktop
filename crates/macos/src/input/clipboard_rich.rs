@@ -34,10 +34,10 @@ pub(crate) fn prepare_image(bytes: &[u8]) -> Result<PreparedImage<'_>, AdapterEr
 }
 
 pub(crate) fn read_image(pb: Id, deadline: Deadline) -> Result<Option<OwnedImage>, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let png = unsafe { read_data(pb, NSPasteboardTypePNG, deadline) }?;
     let result = normalize_image_data(png)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(result)
 }
 
@@ -57,7 +57,7 @@ fn normalize_image_data(png: Option<Vec<u8>>) -> Result<Option<OwnedImage>, Adap
 }
 
 pub(crate) fn write_image(pb: Id, png: &[u8], deadline: Deadline) -> Result<bool, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     if png.len() > MAX_PNG_INPUT_BYTES {
         return Ok(false);
     }
@@ -86,7 +86,7 @@ unsafe fn read_data(
 
 unsafe fn copy_nsdata(data: Id, deadline: Deadline) -> Result<Option<Vec<u8>>, AdapterError> {
     unsafe {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let send_usize: unsafe extern "C" fn(Id, Sel) -> usize =
             std::mem::transmute(objc_msgSend as *const c_void);
         let len = send_usize(data, sel_registerName(c"length".as_ptr()));
@@ -103,7 +103,7 @@ unsafe fn copy_nsdata(data: Id, deadline: Deadline) -> Result<Option<Vec<u8>>, A
         let bytes = std::slice::from_raw_parts(ptr, len);
         validate_png_header(bytes, false)?;
         let copy = bytes.to_vec();
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         Ok(Some(copy))
     }
 }
@@ -186,14 +186,6 @@ fn validate_dimensions(dimensions: (u32, u32), argument: bool) -> Result<(), Ada
     } else {
         clipboard_data_error("Clipboard image exceeds the decoded-image budget")
     })
-}
-
-fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {
-    if deadline.is_expired() {
-        Err(deadline.timeout_error())
-    } else {
-        Ok(())
-    }
 }
 
 fn invalid_image(message: &str) -> AdapterError {

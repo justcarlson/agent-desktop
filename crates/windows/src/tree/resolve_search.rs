@@ -324,7 +324,7 @@ pub(crate) fn search_under(
     if depth >= MAX_RESOLVE_DEPTH {
         return Ok(());
     }
-    crate::system::permissions::ensure_budget(ctx.budget.deadline)?;
+    ctx.budget.deadline.ensure_remaining()?;
 
     let (_, evidence, _) = ctx.source.evidence(element);
     match admit_node(ctx.entry, &evidence) {

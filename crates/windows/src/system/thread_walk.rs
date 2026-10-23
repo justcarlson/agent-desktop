@@ -1,7 +1,6 @@
 use super::hresult::win32_last_error;
 use agent_desktop_core::{AdapterError, Deadline};
 
-use super::permissions::ensure_budget;
 use windows_sys::Win32::System::Diagnostics::ToolHelp::THREADENTRY32;
 
 /// `CreateToolhelp32Snapshot` reports failure as `INVALID_HANDLE_VALUE`
@@ -48,7 +47,7 @@ pub(crate) fn walk_gui_threads<T>(
     let mut ok = unsafe { Thread32First(snapshot, &mut entry) };
     while ok != 0 {
         if !first {
-            if let Err(error) = ensure_budget(deadline) {
+            if let Err(error) = deadline.ensure_remaining() {
                 unsafe { CloseHandle(snapshot) };
                 #[cfg(test)]
                 thread_snapshot_closes::record();

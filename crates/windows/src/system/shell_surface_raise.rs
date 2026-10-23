@@ -2,12 +2,11 @@
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 
-use super::permissions::ensure_budget;
 use super::shell_surface::{SurfaceKindRow, SurfaceRaise, shell_tray_handle};
 
 #[cfg(target_os = "windows")]
 pub(super) fn raise_row(row: &SurfaceKindRow, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     match row.raise {
         SurfaceRaise::AlreadyRaised => Ok(()),
         SurfaceRaise::Accelerator { modifiers, key } => {
@@ -21,7 +20,7 @@ pub(super) fn raise_row(row: &SurfaceKindRow, deadline: Deadline) -> Result<(), 
 
 #[cfg(not(target_os = "windows"))]
 pub(super) fn raise_row(_row: &SurfaceKindRow, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Err(AdapterError::not_supported("raise shell surface"))
 }
 
@@ -41,18 +40,18 @@ pub(super) fn send_chord(
 
     let mut guard = ShellKeyGuard::default();
     for &vk in modifiers {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         post_shell_keys(&[ShellKeyEdge::down(vk)]);
         guard.held.push(vk);
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     post_shell_keys(&[ShellKeyEdge::down(key)]);
     guard.held.push(key);
     std::thread::sleep(SETTLE.min(deadline.remaining()));
     post_shell_keys(&[ShellKeyEdge::up(key)]);
     guard.held.retain(|&held| held != key);
     for &vk in modifiers.iter().rev() {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         post_shell_keys(&[ShellKeyEdge::up(vk)]);
         guard.held.retain(|&held| held != vk);
     }

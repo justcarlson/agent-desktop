@@ -14,7 +14,6 @@ use super::launch_path::{
     child_environment_block, image_file_name, launch_identifier, resolve_executable,
     validate_launch_options,
 };
-use super::permissions::ensure_budget;
 use super::process_identity;
 use super::window_ops::list_windows_live;
 
@@ -30,7 +29,7 @@ pub(crate) fn launch_app_impl(
     } else {
         parent_deadline.capped(Duration::from_millis(options.timeout_ms))
     };
-    ensure_budget(deadline).map_err(before_launch)?;
+    deadline.ensure_remaining().map_err(before_launch)?;
     let image = image_file_name(id);
     let matches = matching_processes(image).map_err(before_launch)?;
     if options.attach_if_running {
@@ -209,7 +208,7 @@ fn create_process(
         CREATE_UNICODE_ENVIRONMENT, CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW,
     };
 
-    ensure_budget(deadline).map_err(before_launch)?;
+    deadline.ensure_remaining().map_err(before_launch)?;
     let app_wide = to_wide(executable).map_err(before_launch)?;
     let command_line = command_line_for(executable, &options.args).map_err(before_launch)?;
     let mut command_wide = to_wide_str(&command_line).map_err(before_launch)?;
@@ -240,7 +239,7 @@ fn create_process(
         .as_ref()
         .map(|wide| wide.as_ptr())
         .unwrap_or(std::ptr::null());
-    ensure_budget(deadline).map_err(before_launch)?;
+    deadline.ensure_remaining().map_err(before_launch)?;
     let ok = unsafe {
         CreateProcessW(
             app_wide.as_ptr(),

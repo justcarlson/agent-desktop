@@ -8,7 +8,6 @@ use crate::input::elevation::{
     activation_elevation_denied, current_process_integrity_rid, process_integrity_rid,
 };
 
-use super::permissions::ensure_budget;
 use super::window_identity::WindowIdentityEvidence;
 use super::window_ops::{is_foreground_window, parse_handle};
 
@@ -45,7 +44,10 @@ const INTER_ATTEMPT_DELAY: Duration = Duration::from_millis(25);
 /// integrity target is activation-worded `PERM_DENIED`, otherwise
 /// `ACTION_FAILED` with `physical_delivery_started: false`.
 pub(crate) fn focus_window(win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
-    ensure_budget(lease.deadline()).map_err(before_activation)?;
+    lease
+        .deadline()
+        .ensure_remaining()
+        .map_err(before_activation)?;
     let handle = parse_handle(&win.id);
     if handle.is_null() {
         return Err(before_activation(AdapterError::new(
@@ -132,11 +134,20 @@ fn raise_with_budget(
 ) -> Result<(), AdapterError> {
     for attempt in 0..FOCUS_STEAL_BUDGET {
         if attempt == 0 {
-            ensure_budget(lease.deadline()).map_err(before_activation)?;
+            lease
+                .deadline()
+                .ensure_remaining()
+                .map_err(before_activation)?;
         } else {
-            ensure_budget(lease.deadline()).map_err(after_foreground_write_attempted)?;
+            lease
+                .deadline()
+                .ensure_remaining()
+                .map_err(after_foreground_write_attempted)?;
             std::thread::sleep(INTER_ATTEMPT_DELAY);
-            ensure_budget(lease.deadline()).map_err(after_foreground_write_attempted)?;
+            lease
+                .deadline()
+                .ensure_remaining()
+                .map_err(after_foreground_write_attempted)?;
         }
         #[cfg(test)]
         attempt_probe::begin_attempt(attempt);

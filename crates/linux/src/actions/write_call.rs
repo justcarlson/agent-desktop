@@ -11,7 +11,7 @@ use super::mutation::{
     Abort, Corroboration, Fault, Verdict, WriteKind, WriteReply, abort_error, classify_write,
     deadline_error, fault_of,
 };
-use crate::system::{ensure_budget, within};
+use crate::system::within;
 use crate::tree::action_read::corroborate;
 
 fn read_reply(message: &Message, kind: WriteKind) -> Result<WriteReply, AdapterError> {
@@ -63,7 +63,10 @@ pub(crate) fn invoke<B: Serialize + DynamicType>(
         body,
         kind,
     } = call;
-    ensure_budget(target.deadline).map_err(|error| deadline_error(error, false))?;
+    target
+        .deadline
+        .ensure_remaining()
+        .map_err(|error| deadline_error(error, false))?;
     let connection = target
         .bus
         .get(target.deadline)

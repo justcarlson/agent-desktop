@@ -94,9 +94,9 @@ pub(crate) fn locate_menu(
     pid: ProcessId,
     deadline: Deadline,
 ) -> Result<Option<MenuLocation>, AdapterError> {
-    super::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     super::ensure_process_exists(pid)?;
-    super::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     first_located(locate_in_tool_windows(pid, deadline)?, || {
         locate_chromium(pid, deadline)
     })
@@ -121,7 +121,7 @@ fn locate_in_tool_windows(
     let condition = super::menu_family_condition(&client)?;
     for (index, handle) in candidates.into_iter().enumerate() {
         if index > 0 {
-            super::ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
         }
         if let Some(element) = super::probe_candidate_element(&client, &condition, handle)? {
             return Ok(Some(MenuLocation {
@@ -147,6 +147,6 @@ pub(crate) fn locate_menu(
     _pid: ProcessId,
     deadline: Deadline,
 ) -> Result<Option<MenuLocation>, AdapterError> {
-    super::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(None)
 }

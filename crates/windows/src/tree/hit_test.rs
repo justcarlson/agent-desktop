@@ -64,7 +64,7 @@ mod imp {
         deadline: Deadline,
     ) -> Result<HitTestResult, AdapterError> {
         let target = uia_element(handle)?;
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let client = automation_client()?;
         hit_test_element(target, point, deadline, &client)
     }
@@ -90,7 +90,7 @@ mod imp {
         if let Some(unknown) = pre_probe_guard(&bounds, &point, target_root) {
             return Ok(unknown);
         }
-        crate::system::permissions::ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let hit = match probe_element_from_point(client, &point) {
             Some(hit) => hit,
             None => return result_for_failed_probe(),

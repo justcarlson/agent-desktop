@@ -15,7 +15,7 @@ use super::select::select;
 use super::select_pointer::{LivePointer, Pointer};
 use super::toggle_state::toggle;
 use super::value_write::{clear, set_value, type_text};
-use crate::system::{SharedBus, ensure_budget};
+use crate::system::SharedBus;
 use crate::tree::{AtspiElement, atspi_element};
 
 fn handled_by_core(action: &Action) -> AdapterError {
@@ -120,7 +120,7 @@ pub(crate) fn execute_action(
 ) -> Result<ActionResult, AdapterError> {
     let deadline = lease.deadline();
     let element = target_element(handle, &request.action)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let Some(element) = element else {
         return deliver(bus, &request.action, None, &request, lease);
     };

@@ -15,7 +15,6 @@ use crate::input::keyboard_map;
 use crate::input::keyboard_send::{KeyboardInputEvent, key_is_down, post_keyboard_inputs};
 use crate::input::mouse::sleep_bounded;
 use crate::input::release_state::ReleaseState;
-use crate::system::permissions::ensure_budget;
 use std::time::Duration;
 
 const VK_SHIFT: u16 = 0x10;
@@ -37,7 +36,7 @@ const _: () = {
 };
 
 pub(crate) fn synthesize_key(combo: &KeyCombo, deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let resolved = keyboard_map::resolve_key(&combo.key)?;
     let modifier_vks = chord_modifiers(combo, resolved);
     let key_vk = resolved.vk;
@@ -54,11 +53,11 @@ fn press_chord(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     for &vk in modifier_vks {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         post_keyboard_inputs(&[key_input(vk, false)]);
         guard.note_pressed(vk);
     }
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     post_keyboard_inputs(&[key_input(key_vk, false)]);
     guard.note_pressed(key_vk);
 
@@ -67,7 +66,7 @@ fn press_chord(
     post_keyboard_inputs(&[key_input(key_vk, true)]);
     guard.note_released(key_vk);
     for &vk in modifier_vks.iter().rev() {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         post_keyboard_inputs(&[key_input(vk, true)]);
         guard.note_released(vk);
     }

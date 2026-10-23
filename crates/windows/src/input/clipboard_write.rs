@@ -22,7 +22,6 @@ use super::clipboard_guard::MoveableMemory;
 use super::clipboard_image::{encode_dib_from_png, png_bytes_for_clipboard};
 use super::clipboard_session::ClipboardSession;
 use super::clipboard_text::encode_utf16_text;
-use crate::system::permissions::ensure_budget;
 
 #[cfg(test)]
 static FORCE_OWNERSHIP_LOSS: AtomicBool = AtomicBool::new(false);
@@ -31,7 +30,7 @@ pub(crate) fn set_clipboard_content(
     content: &ClipboardContent,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    ensure_budget(deadline).map_err(not_delivered)?;
+    deadline.ensure_remaining().map_err(not_delivered)?;
     let prepared = prepare_formats(content, deadline).map_err(not_delivered)?;
     let session = ClipboardSession::open_for_write(deadline)?;
     let owner = ClipboardSession::owner_hwnd()?;
@@ -45,7 +44,8 @@ pub(crate) fn set_clipboard_content(
     }
     let sequence_after_empty = unsafe { GetClipboardSequenceNumber() };
     for (format, bytes) in prepared {
-        ensure_budget(deadline)
+        deadline
+            .ensure_remaining()
             .map_err(|error| error.with_disposition(DeliverySemantics::delivered_unverified()))?;
         MoveableMemory::from_bytes(&bytes)
             .map_err(|error| error.with_disposition(DeliverySemantics::delivered_unverified()))?
@@ -57,7 +57,7 @@ pub(crate) fn set_clipboard_content(
 }
 
 pub(crate) fn clear_clipboard(deadline: Deadline) -> Result<(), AdapterError> {
-    ensure_budget(deadline).map_err(not_delivered)?;
+    deadline.ensure_remaining().map_err(not_delivered)?;
     let _session = ClipboardSession::open_for_write(deadline)?;
     if unsafe { EmptyClipboard() } == 0 {
         return Err(
