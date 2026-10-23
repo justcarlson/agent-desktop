@@ -1875,6 +1875,8 @@ The 3.9 insider end-to-end verification identifies these cross-platform core beh
 - `close-app` has no `--pid` or `--window-id`, so one of several instances of an application cannot be picked (3.9 stranger dogfood).
 - A negative number needs the `--x=-100` form because clap reads `-100` as a flag (3.9 stranger dogfood).
 
+The live-desktop and container runs after 3.15 add these Electron observations (VS Code in a private Mutter session, one run each unless stated; evidence in the ld-e and cont reports). Phase 3 changes none of them; each is an owner decision: a short-lived command that is the only AT-SPI client can crash Electron's accessibility bridge on disconnect (`press`, 7 of 7, not on a GNOME desktop where the shell stays connected; a persistent client is daemon work); the skeleton's drill target of the Electron workbench answers `STALE_REF` while a default-depth `snapshot` reports `complete: true` without the workbench; headed ref clicks on Electron end `TIMEOUT` with `hit_test_unproven` in `last_report` where the skill says `ACTION_FAILED` at once; Electron native dialogs are not on the AT-SPI tree; `expand` on an `expandable` Explorer item is `ACTION_NOT_SUPPORTED`; Electron menu items cannot be clicked by ref.
+
 Sub-phase 3.14 (shell surfaces, notifications, tray, menus) adds these cross-platform core and owner items. Phase 3 changes none of them; each is an owner decision, with its evidence:
 
 - App-less `snapshot --surface menu` resolves its owner from the frontmost process; on X11 the pid owning the active window owned the open menu in 14 of 14 runs (L32-12), and Wayland is unmeasured, so core's `surface_windows` may need `Menu` in the route that `Sheet`, `Popover` and `Alert` use (`crates/core/src/snapshot.rs`).
