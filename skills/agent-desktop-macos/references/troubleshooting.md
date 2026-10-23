@@ -1,6 +1,6 @@
 # macOS troubleshooting
 
-Each entry is a symptom, its cause, and the fix. Read `error.code`, `error.suggestion` and `error.disposition` in the JSON envelope first. Retry only when `disposition.retry` is `safe`.
+Each entry is a symptom, its cause, and the fix. Read `error.code`, `error.suggestion` and `error.disposition` in the JSON envelope first.
 
 ## PERM_DENIED
 
@@ -8,12 +8,7 @@ Each entry is a symptom, its cause, and the fix. Read `error.code`, `error.sugge
 
 **Cause.** The app that launched agent-desktop has no Accessibility permission (or Screen Recording, for `screenshot` and `session start --screenshots`). The grant belongs to the launching app, not to the shell. A new launcher, such as a different terminal or an IDE, needs its own grant.
 
-**Fix.**
-1. Run `agent-desktop permissions --guide`. It opens the correct page in System Settings with a panel that shows what to drag. Without it, run `agent-desktop permissions --request` and open the page yourself.
-2. In System Settings > Privacy & Security > Accessibility (or Screen Recording), drag the launching app into the list if it is not there.
-3. Turn on the launching app. If the built `agent-desktop` binary is listed on its own, turn it on too.
-4. Restart the launching app.
-5. Run `agent-desktop permissions` to confirm `granted`.
+**Fix.** Follow "First contact" in the macOS skill: `permissions --guide`, turn on the launching app (and the `agent-desktop` binary if it is listed on its own) in System Settings > Privacy & Security > Accessibility or Screen Recording, restart the launching app, then run `agent-desktop permissions` to confirm `granted`.
 
 For Automation, open Privacy & Security > Automation and allow the launching app to control System Events.
 
