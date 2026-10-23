@@ -41,6 +41,8 @@ const SKILL_LINUX_REF_SHELL: &str = include_str!(
 const SKILL_LINUX_REF_TROUBLESHOOTING: &str =
     include_str!("../../../../skills/agent-desktop-linux/references/troubleshooting.md");
 
+const SKILL_JEV_MAIN: &str = include_str!("../../../../skills/jev-desktop/SKILL.md");
+
 const SKILL_FFI_MAIN: &str = include_str!("../../../../skills/agent-desktop-ffi/SKILL.md");
 const SKILL_FFI_REF_BUILD: &str =
     include_str!("../../../../skills/agent-desktop-ffi/references/build-and-link.md");
@@ -206,6 +208,14 @@ const SKILLS: &[Skill] = &[
         platform: None,
         main: SKILL_FFI_MAIN,
         refs: SKILL_FFI_REFS,
+    },
+    Skill {
+        canonical: "jev-desktop",
+        aliases: &["jev", "jev-desktop"],
+        summary: "Driving a desktop app from a plain-language goal without reading the accessibility tree. run.mjs takes a whole goal, act.mjs takes one step.",
+        platform: None,
+        main: SKILL_JEV_MAIN,
+        refs: &[],
     },
 ];
 
