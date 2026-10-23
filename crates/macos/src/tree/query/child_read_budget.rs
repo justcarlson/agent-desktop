@@ -66,9 +66,13 @@ mod tests {
         let far = Instant::now() + Duration::from_secs(3);
 
         let bounded = count_deadline(false, far);
+        let after = Instant::now();
 
         assert!(bounded < far);
-        assert!(far.saturating_duration_since(bounded) >= Duration::from_millis(1400));
+        assert!(
+            far.saturating_duration_since(bounded) >= far.saturating_duration_since(after) / 2,
+            "the count may spend at most half of what was left when it was bounded"
+        );
     }
 
     #[test]
