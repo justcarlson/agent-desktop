@@ -174,7 +174,7 @@ remove_artifact "{artifact}"
         )
 
 
-ERROR_CODE_SOURCE = E2E_ROOT.parent.parent / "crates" / "core" / "src" / "error_code.rs"
+ERROR_CODE_SOURCE = E2E_ROOT.parent.parent / "crates" / "core" / "src" / "response" / "error_code.rs"
 ERROR_CONTRACT = E2E_ROOT / "scenarios" / "error_contract.sh"
 CONTENTION_GUARD = "check_fixture_contention || { finish; exit 1; }"
 
