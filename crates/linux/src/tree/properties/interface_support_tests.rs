@@ -115,6 +115,7 @@ fn unadvertised_optional_interfaces_receive_no_methods_or_properties() {
         let mut nodes = BusNodes {
             connection: &client,
             deadline: agent_desktop_core::Deadline::after(5_000).unwrap(),
+            screen_origin: None,
         };
         assert!(matches!(
             nodes.at_point(&node, (10, 10)).unwrap(),

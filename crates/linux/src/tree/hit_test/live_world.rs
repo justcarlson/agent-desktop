@@ -36,6 +36,7 @@ pub(super) struct LiveWorld<'a> {
     popup_rect: Option<Extents>,
     native_popup: Option<crate::system::x11::PopupWindow>,
     frame: Option<AtspiElement>,
+    popup_root: Option<AtspiElement>,
 }
 
 impl<'a> LiveWorld<'a> {
@@ -44,11 +45,13 @@ impl<'a> LiveWorld<'a> {
             nodes: BusNodes {
                 connection,
                 deadline,
+                screen_origin: None,
             },
             popup: false,
             popup_rect: None,
             native_popup: None,
             frame: None,
+            popup_root: None,
         }
     }
 }
@@ -92,6 +95,14 @@ impl HitWorld for LiveWorld<'_> {
             .cloned()
             .unwrap_or_default();
         let toolkit = toolkit?;
+        self.nodes.screen_origin = if kind(&toolkit) == ToolkitKind::Qt {
+            screen
+                .x
+                .checked_sub(window.x)
+                .zip(screen.y.checked_sub(window.y))
+        } else {
+            None
+        };
         self.frame = Some(frame.clone());
         let global_position =
             crate::tree::properties::toolkit_trust::reports_global_position(&toolkit);
@@ -100,6 +111,12 @@ impl HitWorld for LiveWorld<'_> {
             && kind(&toolkit) == ToolkitKind::Gtk3
         {
             DisplayReader::popup_containing(target.pid(), screen, window, deadline)
+        } else if kind(&toolkit) == ToolkitKind::Qt && target.ancestry().combo_owner().is_some() {
+            screen
+                .x
+                .checked_add(screen.width / 2)
+                .zip(screen.y.checked_add(screen.height / 2))
+                .and_then(|point| DisplayReader::popup_at(target.pid(), point, deadline))
         } else {
             None
         };
@@ -113,6 +130,17 @@ impl HitWorld for LiveWorld<'_> {
         } else {
             None
         };
+        if self.native_popup.is_some()
+            && kind(&toolkit) == ToolkitKind::Qt
+            && let Some(combo) = target.ancestry().combo_owner()
+        {
+            let children = within(deadline, crate::tree::list_children(connection, &combo))?;
+            if let [(bus, path)] = children.as_slice() {
+                self.popup_root = Some(AtspiElement::new(bus, path, target.pid()));
+            } else {
+                return Ok(None);
+            }
+        }
         Ok(Some(Facts {
             screen,
             window,
@@ -133,36 +161,44 @@ impl HitWorld for LiveWorld<'_> {
         let X11State::Ready { active, clients } = state else {
             return None;
         };
-        let (client, coordinate_origin) = if let Some(popup) = self.native_popup {
-            (popup.id, Some((popup.bounds.x, popup.bounds.y)))
-        } else if self.popup {
-            let rect = self.popup_rect?;
-            let popup = DisplayReader::popup_window(
-                frame.pid,
-                (rect.width, rect.height),
-                self.nodes.deadline,
-            )?;
-            let origin = crate::tree::placement::frame_geometry::popup_origin(
-                (popup.bounds.x, popup.bounds.y),
-                rect,
-            )?;
-            (popup.id, Some(origin))
-        } else {
-            let found = client_among_twins(frame, &clients, active, || {
-                let element = self.frame.as_ref()?;
-                within(self.nodes.deadline, async {
-                    Ok(read_twins(self.nodes.connection, element, &frame.title).await)
-                })
-                .ok()
-                .flatten()
-            });
-            let ClientMatch::One(client) = found else {
-                return None;
+        let (client, coordinate_origin) =
+            if let Some(popup) = self.native_popup.filter(|_| self.popup) {
+                (popup.id, Some((popup.bounds.x, popup.bounds.y)))
+            } else if self.popup {
+                let rect = self.popup_rect?;
+                let popup = DisplayReader::popup_window(
+                    frame.pid,
+                    (rect.width, rect.height),
+                    self.nodes.deadline,
+                )?;
+                let origin = crate::tree::placement::frame_geometry::popup_origin(
+                    (popup.bounds.x, popup.bounds.y),
+                    rect,
+                )?;
+                (popup.id, Some(origin))
+            } else {
+                let found = client_among_twins(frame, &clients, active, || {
+                    let element = self.frame.as_ref()?;
+                    within(self.nodes.deadline, async {
+                        Ok(read_twins(self.nodes.connection, element, &frame.title).await)
+                    })
+                    .ok()
+                    .flatten()
+                });
+                let ClientMatch::One(client) = found else {
+                    return None;
+                };
+                if let Some(popup) = self.native_popup {
+                    let origin =
+                        crate::system::window::window_position::origin_of_client(&clients, client)?;
+                    (popup.id, Some(origin))
+                } else {
+                    (client, None)
+                }
             };
-            (client, None)
-        };
         match DisplayReader.read_within(client, self.nodes.deadline) {
             StackingRead::Ready(snapshot) => Some(Windowing {
+                descent_root: self.popup_root.clone(),
                 coordinate_origin,
                 client,
                 snapshot,

@@ -6,6 +6,34 @@ fn families(found: &[super::Found<'_>]) -> Vec<MenuFamily> {
 }
 
 #[test]
+fn a_checked_menu_toggle_exposes_its_direct_showing_items_as_a_popup() {
+    for (states, showing, expected) in [
+        (vec![SHOWING, CHECKED], true, true),
+        (vec![SHOWING], true, false),
+        (vec![CHECKED], true, false),
+        (vec![SHOWING, CHECKED], false, false),
+    ] {
+        let frame = frame_with(vec![node(TOGGLE, "Menu", &states, items(showing))]);
+        let found = in_window(&frame);
+        assert_eq!(!found.is_empty(), expected);
+        if expected {
+            assert_eq!(families(&found), [MenuFamily::Gtk3Popover]);
+            assert_eq!(found[0].items, 2);
+        }
+    }
+    let frame = frame_with(vec![node(
+        TOGGLE,
+        "Other toggle",
+        &[SHOWING, CHECKED],
+        vec![
+            item("Open", true),
+            node(BUTTON, "Ordinary button", &[SHOWING], vec![]),
+        ],
+    )]);
+    assert!(in_window(&frame).is_empty());
+}
+
+#[test]
 fn a_gtk4_popover_inside_the_frame_is_one_popup_rooted_at_its_menu() {
     let frame = frame_with(vec![node(PANEL, "", &[SHOWING], vec![gtk4_popover(true)])]);
     let found = in_window(&frame);

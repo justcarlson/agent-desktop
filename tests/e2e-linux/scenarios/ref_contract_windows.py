@@ -9,8 +9,16 @@ from scenarios.ref_contract import (BLOCKED, OPENERS, act, events, matching_even
 from scenarios.ref_contract_identity import identify, raw_target
 
 def window_state(tree):
-    return tuple(sorted((n.name, n.role, "MODAL" in n.states)
-                        for n in tree.children() if "SHOWING" in n.states))
+    rows = []
+    for node in tree.children():
+        try:
+            states = node.states
+            if "SHOWING" in states:
+                rows.append((node.name, node.role, "MODAL" in states))
+        except Exception:
+            if any((n.bus, n.path) == (node.bus, node.path) for n in tree.children()):
+                raise
+    return tuple(sorted(rows))
 
 
 def raw_window(tree, title):
@@ -54,8 +62,8 @@ def dialog(ctx, app, tree, path, data):
     data = surface_snapshot(ctx, app, "Zoo Dialog", True)
     act(ctx, named(data, ("zoo-dialog-ok", "OK"), "button"), "click")
     require(poll(lambda: matching_event(events(path)[start:], "zoo-dialog-ok", "activate", any_value=True)
-                 and not any(n.name == "Zoo Dialog" and "SHOWING" in n.states
-                             for n in tree.children()), 3), "dialog OK did not activate and close")
+                 and not any(name == "Zoo Dialog" for name, _, _ in window_state(tree)), 3),
+            "dialog OK did not activate and close")
 
 
 def chooser(ctx, app, tree, path, data, saved):
@@ -116,8 +124,7 @@ def windows(ctx):
                         start = len(events(path))
                         act(ctx, named(data, name), "click")
                         if name == "OK":
-                            require(poll(lambda: not any(n.name == title and "SHOWING" in n.states
-                                                         for n in tree.children()), 3))
+                            require(poll(lambda: not any(name == title for name, _, _ in window_state(tree)), 3))
                         else:
                             require(poll(lambda: matching_event(events(path)[start:], name, "activate", any_value=True)
                                          and "SHOWING" in one(tree, name=name).states, 3))

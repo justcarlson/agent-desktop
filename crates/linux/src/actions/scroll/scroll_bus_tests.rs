@@ -177,3 +177,41 @@ fn the_container_fast_path_never_uses_a_bar_to_reveal_another_bar() {
         );
     }
 }
+#[test]
+fn clipped_viewport_refuses_recovery_but_unknown_placement_does_not() {
+    use super::super::scroll_plan::viewport_clipped;
+    use crate::system::x11::window::window_x11_state::WindowX11State;
+    use crate::tree::placement::Placement;
+    let mut placed = Placement {
+        container: Some(crate::tree::Extents {
+            x: 0,
+            y: 748,
+            width: 600,
+            height: 100,
+        }),
+        x11: Some(WindowX11State {
+            client_id: 1,
+            hidden: false,
+            client_origin: (0, 0),
+            shadow: (0, 0, 0, 0),
+        }),
+        displays: Some(vec![crate::tree::Extents {
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 800,
+        }]),
+        ..Placement::default()
+    };
+    assert!(viewport_clipped(&placed));
+    placed.displays.as_mut().unwrap()[0].height = 1200;
+    assert!(!viewport_clipped(&placed));
+    placed.displays.as_mut().unwrap()[0].height = 800;
+    placed.x11.as_mut().unwrap().client_origin.1 = -100;
+    assert!(!viewport_clipped(&placed));
+    placed.x11.as_mut().unwrap().shadow.1 = 100;
+    assert!(viewport_clipped(&placed));
+    placed.x11 = None;
+    assert!(!viewport_clipped(&placed));
+    assert!(!viewport_clipped(&Placement::default()));
+}

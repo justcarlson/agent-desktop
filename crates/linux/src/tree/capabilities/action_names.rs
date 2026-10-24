@@ -113,6 +113,25 @@ pub(crate) fn click_verbs(role: Option<u32>) -> &'static [&'static str] {
     }
 }
 
+/// L41-22: GTK4's entry Activate calls gtk_widget_activate without an activation signal
+/// and ignores its false result. Other advertised click verbs remain usable.
+pub(crate) fn unsupported_entry_activation(
+    role: Option<u32>,
+    names: &[String],
+    toolkit: &crate::system::process::toolkit_id::ToolkitId,
+) -> bool {
+    use crate::tree::properties::toolkit_trust::{ToolkitKind, kind};
+    use crate::tree::vocabulary::role_numbers::{ENTRY, PASSWORD_TEXT, TEXT};
+    matches!(role, Some(ENTRY | PASSWORD_TEXT | TEXT))
+        && kind(toolkit) == ToolkitKind::Gtk4
+        && names
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case("activate"))
+        && !click_verbs(role).iter().any(|verb| {
+            *verb != "activate" && names.iter().any(|name| name.eq_ignore_ascii_case(verb))
+        })
+}
+
 /// The action names a dispatch tries for `action`, in order.
 pub(crate) fn verbs_for(action: &Action) -> &'static [&'static str] {
     match action {

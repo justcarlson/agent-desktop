@@ -43,6 +43,8 @@ pub(crate) struct Windowing {
     /// Popup WINDOW coordinates can start inside the owning frame. Keep that
     /// translation separate from the physical X11 rectangles used for covers.
     pub(crate) coordinate_origin: Option<(i32, i32)>,
+    /// L41-25: a proved popup descends from its own accessible subtree.
+    pub(crate) descent_root: Option<AtspiElement>,
 }
 
 /// Everything a hit test reads. The bus implements it; a test substitutes
@@ -138,6 +140,7 @@ pub(crate) fn hit_test_via<W: HitWorld>(
         return Ok(HitTestResult::Unknown);
     }
     let stacking = occlusion(&windowing.snapshot, windowing.client, point);
+    let frame = windowing.descent_root.as_ref().unwrap_or(frame);
     let standing = Standing {
         descends: trusts_descent(&facts.toolkit),
         same_window: trusts_same_window_landing(&facts.toolkit),

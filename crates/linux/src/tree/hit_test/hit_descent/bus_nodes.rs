@@ -5,15 +5,17 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 use super::{Described, Hit, NodeSource};
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, within};
 use crate::tree::properties::node_read::call;
-use crate::tree::surfaces::window_extents::{WINDOW_COORDINATES, read_window_extents_async};
-use crate::tree::{AtspiElement, COMPONENT_INTERFACE, list_children};
+use crate::tree::surfaces::window_extents::{WINDOW_COORDINATES, read_extents_async};
+use crate::tree::{AtspiElement, COMPONENT_INTERFACE, Extents, list_children};
 
 const NULL_PATH: &str = "/org/a11y/atspi/null";
 
 /// The bus behind a descent. Every call races the deadline.
+/// L41-25: Qt uses screen reads translated by the calibrated window origin.
 pub(crate) struct BusNodes<'a> {
     pub(crate) connection: &'a Connection,
     pub(crate) deadline: Deadline,
+    pub(crate) screen_origin: Option<(i32, i32)>,
 }
 
 fn named(bus: String, path: String, owner: &AtspiElement) -> Hit {
@@ -44,6 +46,18 @@ async fn string_property(
 
 impl NodeSource for BusNodes<'_> {
     fn at_point(&mut self, from: &AtspiElement, point: (i32, i32)) -> Result<Hit, AdapterError> {
+        let (point, coordinates) = if let Some(origin) = self.screen_origin {
+            let Some(point) = point
+                .0
+                .checked_add(origin.0)
+                .zip(point.1.checked_add(origin.1))
+            else {
+                return Ok(Hit::Failed);
+            };
+            (point, 0)
+        } else {
+            (point, WINDOW_COORDINATES)
+        };
         within(self.deadline, async {
             if !crate::tree::properties::interface_support::supports(
                 self.connection,
@@ -60,7 +74,7 @@ impl NodeSource for BusNodes<'_> {
                 from,
                 COMPONENT_INTERFACE,
                 "GetAccessibleAtPoint",
-                &(point.0, point.1, WINDOW_COORDINATES),
+                &(point.0, point.1, coordinates),
             )
             .await;
             let Ok(message) = reply else {
@@ -140,10 +154,25 @@ impl NodeSource for BusNodes<'_> {
             let name = string_property(self.connection, node, "Name")
                 .await
                 .filter(|name| !name.is_empty());
+            let coordinates = if self.screen_origin.is_some() {
+                0
+            } else {
+                WINDOW_COORDINATES
+            };
+            let window_extents = read_extents_async(self.connection, node, coordinates)
+                .await?
+                .and_then(|rect| match self.screen_origin {
+                    Some(origin) => crate::tree::placement::frame_geometry::window_point(
+                        origin,
+                        (rect.x, rect.y),
+                    )
+                    .map(|(x, y)| Extents { x, y, ..rect }),
+                    None => Some(rect),
+                });
             Ok(Described {
                 role,
                 name,
-                window_extents: read_window_extents_async(self.connection, node).await?,
+                window_extents,
             })
         })
     }

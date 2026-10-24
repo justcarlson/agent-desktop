@@ -100,6 +100,16 @@ pub(crate) fn live_element(
     placement: &Placement,
     global: bool,
 ) -> Result<LiveElement, AdapterError> {
+    let mut available_actions = live_actions(evidence)?;
+    if read.node.actions.present().is_some_and(|names| {
+        crate::tree::capabilities::action_names::unsupported_entry_activation(
+            read.node.traits.role.present().copied(),
+            names,
+            &placement.toolkit,
+        )
+    }) {
+        available_actions.retain(|action| action != "Click");
+    }
     let bounds = if global {
         live_bounds(read)
     } else {
@@ -114,7 +124,7 @@ pub(crate) fn live_element(
         state: live_state(read, evidence, placement)?,
         states_complete: true,
         bounds,
-        available_actions: live_actions(evidence)?,
+        available_actions,
     })
 }
 

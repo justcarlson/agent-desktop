@@ -88,7 +88,7 @@ fn collect<'a>(node: &'a Node, in_bar: bool, found: &mut Vec<Found<'a>>) {
         return;
     }
     let kind = role(node);
-    if let Some(popup) = button_popover(node) {
+    if let Some(popup) = button_popover(node).or_else(|| toggle_menu(node)) {
         found.push(popup);
         return;
     }
@@ -108,6 +108,22 @@ fn collect<'a>(node: &'a Node, in_bar: bool, found: &mut Vec<Found<'a>>) {
     for child in &node.children {
         collect(child, in_bar, found);
     }
+}
+
+fn toggle_menu(node: &Node) -> Option<Found<'_>> {
+    if role(node) != Some(TOGGLE_BUTTON)
+        || !has_state(node, CHECKED)
+        || !has_state(node, SHOWING)
+        || !node.children.iter().all(only_menu_content)
+    {
+        return None;
+    }
+    let items = showing_items(node, 0);
+    (items > 0).then_some(Found {
+        root: node,
+        items,
+        family: MenuFamily::Gtk3Popover,
+    })
 }
 
 fn showing_buttons(node: &Node, depth: usize) -> usize {

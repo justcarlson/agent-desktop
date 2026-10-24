@@ -237,6 +237,28 @@ class ProcessOracleTests(unittest.TestCase):
         kill.assert_not_called()
         killpg.assert_not_called()
 
+    def test_stop_accepts_cleared_environ_only_after_its_child_has_exited(self):
+        app = apps.OwnedApp("fixture", 123, 40, [":1.7"], ["w-1.7-frame"], ":1")
+        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        for exited in (True, False):
+            def wait(timeout=None):
+                if not exited:
+                    raise apps.subprocess.TimeoutExpired("fixture", timeout)
+                return -15
+            child = SimpleNamespace(wait=wait, poll=lambda: -15 if exited else None)
+            with self.subTest(exited=exited), \
+                patch.dict(apps._TIERS, {(123, 40): tier}), \
+                patch.dict(apps._SPAWNED, {123: child}, clear=True), \
+                patch.object(Path, "read_text", return_value="123 (fixture) R"), \
+                patch.object(proc, "facts", return_value=(40, 123, "fixture", {})), \
+                patch.object(apps.os, "kill") as kill:
+                if exited:
+                    apps.stop(app)
+                else:
+                    with self.assertRaisesRegex(AssertionError, "left its runtime"):
+                        apps.stop(app)
+                kill.assert_not_called()
+
     def test_stop_handles_unreadable_environ_without_signalling_a_reused_pid(self):
         app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":150")
         tier = SimpleNamespace(runtime_dir=Path("/private/a"))

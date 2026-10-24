@@ -1,4 +1,4 @@
-use agent_desktop_core::{Action, DeliverySemantics};
+use agent_desktop_core::{Action, Deadline, DeliverySemantics, ObservationOps};
 
 use super::live_bench::Bench;
 use crate::tree::live::live_launch::{Launched, nonce};
@@ -39,7 +39,7 @@ Gtk.main()
 #[test]
 #[ignore = "drives GTK in scripts/private-session.sh --wm"]
 fn selection_replacement_reports_a_row_withdrawn_after_clear_and_selects_a_stable_row() {
-    for mode in ["stable", "withdraw"] {
+    for mode in ["stable", "withdraw", "row"] {
         let mut launched = Launched::new();
         let tag = nonce("selection");
         let scratch = std::env::temp_dir().join(&tag);
@@ -50,7 +50,18 @@ fn selection_replacement_reports_a_row_withdrawn_after_clear_and_selects_a_stabl
         let adapter = crate::LinuxAdapter::new();
         let frame = Bench::wait_for_frame(&adapter, &tag, pid, 20).expect("GTK window");
         let bench = Bench::attach(launched, frame);
-        let items = bench.named("Items");
+        let items = bench.named(if mode == "row" { "Beta" } else { "Items" });
+        if mode == "row" {
+            let live = bench
+                .adapter()
+                .get_live_element(&items, Deadline::after(5000).unwrap())
+                .unwrap();
+            assert!(
+                live.available_actions
+                    .iter()
+                    .any(|action| action == "Select")
+            );
+        }
         let read = || {
             serde_json::from_str::<Vec<String>>(&std::fs::read_to_string(&state).unwrap()).unwrap()
         };
@@ -68,6 +79,12 @@ fn selection_replacement_reports_a_row_withdrawn_after_clear_and_selects_a_stabl
                 .act(&items, Action::Select("Missing".to_owned()))
                 .expect_err("missing row");
             assert_eq!(read(), before);
+            if mode == "row" {
+                bench
+                    .act(&bench.named("Alpha"), Action::Select("Alpha".to_owned()))
+                    .expect("select the first row again through its parent");
+                assert_eq!(read(), ["Alpha"]);
+            }
         }
     }
 }

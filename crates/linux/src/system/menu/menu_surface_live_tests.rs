@@ -224,7 +224,19 @@ fn menu_live_gtk3_context_menu_is_a_top_level_popup() {
     let pid = launched.spawn_with_env("python3", &[&script, &tag], &[("AD_LIVE_LOG", log.clone())]);
     let rig = Rig::attach(pid);
     let window = rig.window();
-    let (x, y) = centre_of(&format!("adm3-{tag}"));
+    let entry = poll("the entry", || rig.raw_find(&[61, 79], ""));
+    let reply = rig
+        .connection
+        .call_method(
+            Some(entry.bus_name()),
+            entry.path(),
+            Some("org.a11y.atspi.Component"),
+            "GetExtents",
+            &(0_u32,),
+        )
+        .expect("the entry screen bounds");
+    let (x, y, width, height): (i32, i32, i32, i32) = reply.body().deserialize().unwrap();
+    let (x, y) = (x + width / 2, y + height / 2);
     exercise(
         &rig,
         &Case {

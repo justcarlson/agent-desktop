@@ -129,7 +129,7 @@ pub(in crate::actions) fn by_pointer_result(
 
 pub(in crate::actions) fn pointer_required() -> AdapterError {
     AdapterError::policy_denied_for_policy(
-        "Opening this dropdown takes the pointer, which the interaction policy does not allow",
+        "Selecting this dropdown choice takes the pointer, which the interaction policy does not allow",
         InteractionPolicy::headless(),
     )
     .with_suggestion(

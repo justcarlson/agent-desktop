@@ -23,7 +23,6 @@ def main(argv):
     dialogs = []
     window = Gtk.Window(title="Zoo GTK3")
     window.set_default_size(600, 900)
-    window.connect("destroy", Gtk.main_quit)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
     window.add(box)
 
@@ -37,6 +36,8 @@ def main(argv):
                 stream.write(json.dumps(dict(widget=name, event=event, value=value,
                                              at=time.monotonic())) + "\n")
                 stream.flush()
+
+    window.connect("destroy", lambda *_: record("zoo", "closed") or Gtk.main_quit())
 
     def add(widget, name):
         named(widget, name)
@@ -72,6 +73,9 @@ def main(argv):
     entry = add(Gtk.Entry(), "zoo-entry")
     password = add(Gtk.Entry(), "zoo-password")
     password.set_visibility(False)
+    for widget in (entry, password):
+        widget.connect("activate", lambda w: w.set_text("activated"))
+    spin.connect("activate", lambda w: w.set_value(7))
     entry.connect("changed", lambda w: record("zoo-entry", "changed", w.get_text()))
     password.connect("changed", lambda w: record("zoo-password", "changed", len(w.get_text())))
     for widget, name in ((entry, "zoo-entry"), (password, "zoo-password"),
