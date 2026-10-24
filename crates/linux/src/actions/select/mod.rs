@@ -10,9 +10,7 @@ use super::action_call::resolve_verb;
 use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
 use super::click::{POLL_STEP, invoke_verb, names_of, observed_of, poll_until, refusal};
 use super::context::Target;
-use super::select::select_exclusive::{
-    SELECTION_INTERFACE, exclusive_verdict, needs_replacement, replace_with_only, selected_count,
-};
+use super::select::select_exclusive::{SELECTION_INTERFACE, selected_count};
 use super::select::select_pointer::{Pointer, after_unproven_index};
 use super::select::select_pointer_combo::{is_pointer_combo, select_in_pointer_combo};
 use super::select::select_popup::{is_popup_dropdown, select_in_popup};
@@ -21,11 +19,12 @@ use super::select::select_search::{Container, Hit, Inspected, ItemReader, Search
 use super::select::select_verify::{commit_unobserved, read_verification};
 use super::write::mutation::WriteReply;
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
-use crate::tree::capabilities::action_names::{click_verbs, verbs_for};
+use crate::tree::capabilities::action_names::{click_verbs, selection_verbs};
 use crate::tree::capabilities::action_read::{NodeView, read_node_view};
 use crate::tree::live_read::live_offscreen::toolkit_of;
 use crate::tree::properties::toolkit_trust::is_gecko;
 use crate::tree::vocabulary::role_numbers::COMBO_BOX;
+use crate::tree::vocabulary::state_bits::{CHECKABLE, SELECTABLE, SELECTED};
 use crate::tree::{AtspiElement, atspi_element, element::ancestry, list_children};
 
 pub(super) const SELECT_SETTLE: Duration = Duration::from_millis(1000);
@@ -69,9 +68,12 @@ pub(super) fn advertises_selection(view: &NodeView) -> bool {
 }
 
 fn names_select_verb(view: &NodeView) -> bool {
-    view.action_names().is_some_and(|names| {
-        resolve_verb(names, verbs_for(&Action::Select(String::new()))).is_some()
-    })
+    view.action_names()
+        .is_some_and(|names| resolve_verb(names, select_verbs(view)).is_some())
+}
+
+fn select_verbs(view: &NodeView) -> &'static [&'static str] {
+    selection_verbs(view.role(), view.state(SELECTABLE), view.state(CHECKABLE))
 }
 
 pub(super) fn children_of(
@@ -157,30 +159,6 @@ pub(super) fn container_target<'a>(
     })
 }
 
-fn keep_only_the_item(
-    target: &Target<'_>,
-    holder: &Target<'_>,
-    item: &AtspiElement,
-    display_value: &str,
-) -> Result<Option<bool>, AdapterError> {
-    let count = selected_count(holder);
-    if !needs_replacement(count) {
-        return Ok(exclusive_verdict(count));
-    }
-    replace_with_only(holder, item).map_err(|error| {
-        if error.disposition == DeliverySemantics::not_delivered() {
-            error.with_disposition(DeliverySemantics::delivered_unverified())
-        } else {
-            error
-        }
-    })?;
-    let reread = read_verification(target.bus, target, item, display_value, Some(holder));
-    Ok(match reread {
-        Some(true) => exclusive_verdict(selected_count(holder)),
-        other => other,
-    })
-}
-
 fn select_through(
     target: &Target<'_>,
     hit: &Hit<AtspiElement>,
@@ -193,13 +171,13 @@ fn select_through(
     let item = container_target(target, &item_handle)?;
     let view = item.view()?;
     let names = names_of(&view)?;
-    let verbs = if resolve_verb(names, verbs_for(&action)).is_none()
+    let verbs = if resolve_verb(names, select_verbs(&view)).is_none()
         && hit.row.as_ref().is_some_and(|row| {
             row.bus_name() == hit.item.bus_name() && row.path() == hit.item.path()
         }) {
         click_verbs(view.role())
     } else {
-        verbs_for(&action)
+        select_verbs(&view)
     };
     let own_verb = resolve_verb(names, verbs).is_some();
     let holder_handle = container.map(|container| handle_of(&container.node));
@@ -225,19 +203,30 @@ fn select_through(
             },
             |verified| *verified == Some(true),
         );
-        let decided = match (&holder, container) {
-            (Some(holder), Some(_)) if verified == Some(true) => {
-                keep_only_the_item(target, holder, &verified_node, display_value)?
+        Ok(verified)
+    };
+    let finish = |outcome| {
+        let outcome = match (&holder, outcome) {
+            (Some(holder), DeliveryOutcome::Delivered(Observed::Matched)) => {
+                let verified =
+                    select_verb::keep_only_the_item(target, holder, &verified_node, display_value)?;
+                DeliveryOutcome::Delivered(observed_of(verified))
             }
-            _ => verified,
+            (_, other) => other,
         };
-        Ok(commit_unobserved(application_fires_no_change, decided))
+        Ok(match outcome {
+            DeliveryOutcome::Delivered(Observed::Matched) => DeliveryOutcome::Delivered(
+                observed_of(commit_unobserved(application_fires_no_change, Some(true))),
+            ),
+            other => other,
+        })
     };
     let deliver = |reply: Result<WriteReply, AdapterError>| {
         Ok(match reply? {
             WriteReply::Absent => DeliveryOutcome::NotDelivered,
             WriteReply::Done => DeliveryOutcome::Delivered(observed_of(observe()?)),
         })
+        .and_then(finish)
     };
     let mut rungs = Vec::new();
     if let Some(holder) = &holder {
@@ -257,8 +246,17 @@ fn select_through(
             Rung {
                 label: SELECT_VERB_LABEL,
                 run: Box::new(|| {
-                    let reply = invoke_verb(&item, &action, names, verbs);
-                    deliver(reply).and_then(unchanged_is_ignored)
+                    select_verb::deliver(
+                        resolve_verb(names, verbs).is_some_and(|index| {
+                            names[index as usize].eq_ignore_ascii_case("toggle")
+                        }),
+                        view.state(SELECTED),
+                        || holder.as_ref().map(selected_count),
+                        || invoke_verb(&item, &action, names, verbs),
+                        observe,
+                    )
+                    .and_then(finish)
+                    .and_then(unchanged_is_ignored)
                 }),
             },
         );
@@ -341,11 +339,7 @@ pub(crate) fn select(
     match search(&mut reader, target.element, display_value)? {
         Search::Found(hit) => {
             let container = if hit.own {
-                let own_names_verb = {
-                    let view = target.view()?;
-                    resolve_verb(names_of(&view)?, verbs_for(&Action::Select(String::new())))
-                        .is_some()
-                };
+                let own_names_verb = names_select_verb(&view);
                 if own_names_verb {
                     None
                 } else {
@@ -382,6 +376,7 @@ pub(super) mod select_pointer_combo;
 pub(crate) mod select_popup;
 pub(super) mod select_row;
 pub(crate) mod select_search;
+mod select_verb;
 pub(crate) mod select_verify;
 #[cfg(test)]
 #[path = "select_tests.rs"]

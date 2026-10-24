@@ -5,12 +5,24 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import json
 
-from scenarios.ref_contract import expected_outcomes, row_verdict, fresh
+from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare
 from scenarios.ref_contract_identity import identify, raw_target
 from oracle.atspi_raw import RawNode
 
 
 class RefContractTests(unittest.TestCase):
+    def test_prepare_selects_another_option_using_its_advertised_action(self):
+        node = {"name": "zoo-row-1", "role": "option", "available_actions": ["Select"]}
+        other = dict(node, name="zoo-row-2", ref_id="@s1:e2")
+        with patch("scenarios.ref_contract.selected", return_value=True), \
+                patch("scenarios.ref_contract.snapshot"), \
+                patch("scenarios.ref_contract.named", return_value=other), \
+                patch("scenarios.ref_contract.act") as act, \
+                patch("scenarios.ref_contract.poll", return_value=True), \
+                patch("scenarios.ref_contract.fresh", return_value=node):
+            prepare(None, None, None, node, "select")
+        act.assert_called_once_with(None, other, "select", "zoo-row-2")
+
     def test_raw_text_uses_character_count_for_toolkits_without_negative_end(self):
         node = RawNode(None, ":1.5", "/entry")
         with patch.object(node, "interfaces", return_value=["org.a11y.atspi.Text"]), \

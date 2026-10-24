@@ -12,6 +12,7 @@ pub(crate) const MODAL: u32 = 16;
 pub(crate) const MULTISELECTABLE: u32 = 18;
 pub(crate) const PRESSED: u32 = 20;
 pub(crate) const SELECTED: u32 = 23;
+pub(crate) const SELECTABLE: u32 = 22;
 pub(crate) const SENSITIVE: u32 = 24;
 pub(crate) const SHOWING: u32 = 25;
 pub(crate) const HORIZONTAL: u32 = 14;
@@ -21,6 +22,7 @@ pub(crate) const INDETERMINATE: u32 = 32;
 pub(crate) const REQUIRED: u32 = 33;
 pub(crate) const INVALID_ENTRY: u32 = 36;
 pub(crate) const HAS_POPUP: u32 = 42;
+pub(crate) const CHECKABLE: u32 = 41;
 pub(crate) const READ_ONLY: u32 = 43;
 
 /// The AT-SPI state set as the bus delivers it: bit `n` is bit `n % 32` of

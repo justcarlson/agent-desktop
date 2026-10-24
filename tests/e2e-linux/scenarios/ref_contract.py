@@ -189,7 +189,11 @@ def prepare(ctx, app, tree, node, action):
             other = "zoo-row-2" if name == "zoo-row-1" else "zoo-row-1"
         else:
             other = name[:-1] + ("b" if name.endswith("a") else "a")
-        act(ctx, named(snapshot(ctx, app), other, node.get("role")), "click")
+        other_node = named(snapshot(ctx, app), other, node.get("role"))
+        if "Select" in other_node.get("available_actions", ()):
+            act(ctx, other_node, "select", other)
+        else:
+            act(ctx, other_node, "click")
         require(poll(lambda: selected(tree, other) and not selected(tree, name), 3))
         return fresh(ctx, app, node)
     return node
@@ -236,7 +240,9 @@ def refs(ctx):
                                  "7" if action == "set-value" else
                                  ("Charlie" if node.get("value") == "Bravo" else "Bravo")
                                  if action == "select" else None)
-                        if action == "select" and expected != "refuse" and node.get("role") != "combobox":
+                        if action == "select" and node.get("role") == "option":
+                            value = node.get("name")
+                        elif action == "select" and expected != "refuse" and node.get("role") != "combobox":
                             children = [n for n in raw_target(tree, node).walk()
                                         if (n.name.startswith(("zoo-row-", "zoo-radio-")) or
                                             (n.name.startswith("zoo-tab-") and n.role == 37))

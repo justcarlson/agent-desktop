@@ -4,7 +4,9 @@ use super::{capabilities, capability_of, click_verbs, verbs_for};
 use crate::tree::Field;
 use crate::tree::RawNode;
 use crate::tree::live::test_support::read_of;
+use crate::tree::vocabulary::role_numbers::{CHECK_BOX, LIST_ITEM};
 use crate::tree::vocabulary::role_numbers::{MENU_ITEM, PUSH_BUTTON};
+use crate::tree::vocabulary::state_bits::{CHECKABLE, SELECTABLE};
 
 fn node(actions: &[&str]) -> RawNode {
     read_of(PUSH_BUTTON, "n", actions).node
@@ -14,6 +16,37 @@ fn known(node: &RawNode) -> Vec<String> {
     match capabilities(node) {
         LocatorField::Known(tokens) => tokens,
         other => panic!("expected a known capability list, got {other:?}"),
+    }
+}
+
+#[test]
+fn selectable_uncheckable_options_advertise_selection_without_toggle_or_click() {
+    for (role, selectable, checkable, expected) in [
+        (LIST_ITEM, true, false, "Select"),
+        (LIST_ITEM, true, true, "Toggle"),
+        (LIST_ITEM, false, false, "Toggle"),
+        (CHECK_BOX, true, true, "Toggle"),
+    ] {
+        let mut raw = read_of(role, "option", &["Toggle"]).node;
+        let mut words = vec![0, 0];
+        if selectable {
+            words[0] |= 1 << SELECTABLE;
+        }
+        if checkable {
+            words[1] |= 1 << (CHECKABLE - 32);
+        }
+        raw.traits.states = Field::Present(words);
+        let tokens = known(&raw);
+        assert!(tokens.iter().any(|token| token == expected));
+        if expected == "Select" {
+            assert!(
+                !tokens
+                    .iter()
+                    .any(|token| token == "Toggle" || token == "Click")
+            );
+        } else {
+            assert!(!tokens.iter().any(|token| token == "Select"));
+        }
     }
 }
 

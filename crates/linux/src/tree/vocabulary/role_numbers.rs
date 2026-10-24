@@ -23,6 +23,7 @@ pub(crate) const SECTION: u32 = 85;
 pub(crate) const LEVEL_BAR: u32 = 103;
 pub(crate) const LABEL: u32 = 29;
 pub(crate) const LIST: u32 = 31;
+pub(crate) const LIST_ITEM: u32 = 32;
 pub(crate) const MENU: u32 = 33;
 pub(crate) const MENU_BAR: u32 = 34;
 pub(crate) const POPUP_MENU: u32 = 41;
