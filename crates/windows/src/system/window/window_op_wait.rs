@@ -1,4 +1,4 @@
-//! Rechecks queued placement at the 80 ms DWM animation interval measured in A21-5.
+//! Polls queued placement with the 80 ms reread delay retained from A21-5.
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics};
 use std::time::Duration;

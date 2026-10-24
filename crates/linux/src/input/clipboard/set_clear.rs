@@ -33,6 +33,16 @@ fn failed(message: impl Into<String>, disposition: DeliverySemantics) -> Adapter
     AdapterError::new(ErrorCode::ActionFailed, message).with_disposition(disposition)
 }
 
+fn record_read_error(error: std::io::Error, disposition: DeliverySemantics) -> AdapterError {
+    let message = format!("Clipboard owner records could not be read: {error}");
+    let error = if error.kind() == std::io::ErrorKind::TimedOut {
+        AdapterError::timeout(message)
+    } else {
+        AdapterError::new(ErrorCode::ActionFailed, message)
+    };
+    error.with_disposition(disposition)
+}
+
 fn discard(dir: &Path, display: &str, nonce: &str) {
     if let Some(name) = owner_record::file_name(display, nonce) {
         let _ = super::owner::owner_files::remove(dir, &name);
@@ -118,12 +128,8 @@ pub(crate) fn set_with(
         .server
         .owner(display, deadline)
         .map_err(|fault| fault_error(fault, None))?;
-    let earlier = owner_record::records_in(env.record_dir, display, deadline).map_err(|error| {
-        failed(
-            format!("Clipboard owner records could not be read: {error}"),
-            DeliverySemantics::not_delivered(),
-        )
-    })?;
+    let earlier = owner_record::records_in(env.record_dir, display, deadline)
+        .map_err(|error| record_read_error(error, DeliverySemantics::not_delivered()))?;
     deadline.ensure_remaining().map_err(not_delivered)?;
     let mut child = start_owner(env, display, &payload)?;
     let mut probe = ChildProbe {
@@ -183,12 +189,8 @@ pub(crate) fn clear_with(
     env.server
         .release(display, deadline)
         .map_err(|fault| fault_error(fault, None))?;
-    let records = owner_record::records_in(env.record_dir, display, deadline).map_err(|error| {
-        failed(
-            format!("Clipboard owner records could not be read after clearing: {error}"),
-            DeliverySemantics::delivered_unverified(),
-        )
-    })?;
+    let records = owner_record::records_in(env.record_dir, display, deadline)
+        .map_err(|error| record_read_error(error, DeliverySemantics::delivered_unverified()))?;
     for record in records {
         retire(env, display, &record);
     }
