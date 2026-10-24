@@ -47,6 +47,11 @@ const TEXT_INTERFACE: &str = "org.a11y.atspi.Text";
 /// visible label of a menu item in the `Text` of its label node and leaves
 /// the `Name` empty.
 async fn text_of(connection: &Connection, target: &AtspiElement) -> Result<String, zbus::Error> {
+    if !crate::tree::properties::interface_support::supports(connection, target, TEXT_INTERFACE)
+        .await?
+    {
+        return Ok(String::new());
+    }
     let reply = call(
         connection,
         target,

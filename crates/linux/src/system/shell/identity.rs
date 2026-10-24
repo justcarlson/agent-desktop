@@ -9,7 +9,6 @@ use super::light::{LiveNodes, Nodes};
 use crate::system::bus::session_bus::SessionBus;
 use crate::system::{SharedBus, owner_process_id, within};
 use crate::tree::AtspiElement;
-use crate::tree::vocabulary::role_numbers::{FRAME, WINDOW};
 
 pub(crate) const SHELL_BUS_NAME: &str = "org.gnome.Shell";
 const WINDOW_RETRIES: usize = 10;
@@ -92,7 +91,7 @@ pub(crate) fn content_window<N: Nodes>(
             Err(error) if error.code == ErrorCode::ElementNotFound => continue,
             Err(error) => return Err(error),
         };
-        if matches!(light.role, WINDOW | FRAME) {
+        if light.placed().is_some() {
             if found.is_some() {
                 return Err(AdapterError::ambiguous_target(
                     "The shell application exposes several content windows",

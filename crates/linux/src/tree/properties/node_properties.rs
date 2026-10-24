@@ -1,6 +1,6 @@
 use crate::tree::Field;
 
-/// The values one `Properties.GetAll` call answers for a node.
+/// The individually read accessible properties of a node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NodeProperties {
     pub(crate) name: Field<String>,

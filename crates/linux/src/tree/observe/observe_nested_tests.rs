@@ -310,3 +310,38 @@ fn live_sheet_discovery_refuses_unread_fields_while_the_dialog_remains_present()
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn alert_surface_finds_nested_alerts_and_rejects_ordinary_dialogs() {
+    let window = window(window_id::encode(":1.7", "/a").unwrap());
+    let mut request = request();
+    request.surface = SnapshotSurface::Alert;
+    for (role, showing, expected) in [
+        (2, true, None),
+        (2, false, Some(ErrorCode::ElementNotFound)),
+        (16, true, Some(ErrorCode::ElementNotFound)),
+    ] {
+        let mut roots = Vec::new();
+        let result = observe_plain(
+            ObservationRoot::Window(&window),
+            &request,
+            |element, limits, _| {
+                roots.push(element.path().to_owned());
+                if element.path() == "/a" {
+                    let mut walk = window_holding_a_dialog(showing)(limits)?;
+                    walk.root.children[0].payload.node.traits.role = Field::Present(role);
+                    Ok(walk)
+                } else {
+                    rooted_walk(role, &[25])(limits)
+                }
+            },
+        );
+        if let Some(code) = expected {
+            assert_eq!(result.unwrap_err().code, code);
+            assert_eq!(roots, ["/a"]);
+        } else {
+            assert!(result.unwrap().is_complete());
+            assert_eq!(roots, ["/a", "/d"]);
+        }
+    }
+}

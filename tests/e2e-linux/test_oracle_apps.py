@@ -22,11 +22,14 @@ class ProcessOracleTests(unittest.TestCase):
     def test_launch_discovery_does_not_read_a_stalled_bystander(self):
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as directory:
-            tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={})
+            tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={
+                "AT_SPI_BUS_ADDRESS": "unix:path=/private/a11y",
+                "DBUS_SESSION_BUS_ADDRESS": "unix:path=/private/session"})
             stalled = SimpleNamespace(name="unrelated-app", bus=":1.10",
                                       children=Mock(side_effect=TimeoutError("bystander stalled")))
             helper = SimpleNamespace(name="mutter-x11-frames", bus=":1.11", children=Mock())
-            frame = SimpleNamespace(role=23, bus=":1.12", path="/owned")
+            frame = SimpleNamespace(role=23, bus=":1.12", path="/owned",
+                                    interfaces=lambda: ["org.a11y.atspi.Component"])
             target = SimpleNamespace(name="qt_window.py", bus=":1.12", children=lambda: [frame])
             child = SimpleNamespace(pid=999, poll=lambda: None)
             with patch.object(apps.raw, "registry", side_effect=[[stalled], [stalled, helper, target]]), \
@@ -34,18 +37,22 @@ class ProcessOracleTests(unittest.TestCase):
                  patch.object(apps.proc, "facts", return_value=(99, 99, "app", {
                      "XDG_RUNTIME_DIR": directory, "DISPLAY": ":150"})), \
                  patch.object(apps, "_display_verified", return_value=True), \
-                 patch.object(apps.subprocess, "Popen", return_value=child), \
+                 patch.object(apps.subprocess, "Popen", return_value=child) as spawn, \
                  patch.dict(apps._SPAWNED, clear=True), patch.dict(apps._TIERS, clear=True):
                 found = apps.launch(tier, "/private/qt_window.py")
             self.assertEqual((found.pid, found.owner_names, found.windows),
                              (12, [":1.12"], ["w-1.12-owned"]))
             stalled.children.assert_not_called()
             helper.children.assert_not_called()
+            self.assertNotIn("AT_SPI_BUS_ADDRESS", spawn.call_args.kwargs["env"])
+            self.assertEqual(spawn.call_args.kwargs["env"]["DBUS_SESSION_BUS_ADDRESS"],
+                             "unix:path=/private/session")
 
     def test_launch_discovery_never_substitutes_a_new_decoration_owner(self):
         with tempfile.TemporaryDirectory() as directory:
             tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={})
-            frame = SimpleNamespace(role=23, bus=":1.11", path="/decoration")
+            frame = SimpleNamespace(role=23, bus=":1.11", path="/decoration",
+                                    interfaces=lambda: ["org.a11y.atspi.Component"])
             helper = SimpleNamespace(name="mutter-x11-frames", bus=":1.11", children=lambda: [frame])
             child = SimpleNamespace(pid=999, poll=lambda: None)
             with patch.object(apps.raw, "registry", side_effect=[[], [helper]]), \
@@ -84,7 +91,8 @@ class ProcessOracleTests(unittest.TestCase):
 
     def test_owner_scan_ignores_retired_bus_names_but_preserves_other_errors(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/a"))
-        frame = SimpleNamespace(role=23, bus=":1.2", path="/frame")
+        frame = SimpleNamespace(role=23, bus=":1.2", path="/frame",
+                                interfaces=lambda: ["org.a11y.atspi.Component"])
         node = SimpleNamespace(name="Calculator", bus=":1.2", children=lambda: [frame])
         retired = RuntimeError("GDBus.Error:org.freedesktop.DBus.Error.NameHasNoOwner: gone")
         with patch.object(apps.raw, "registry", return_value=[node, node]), \
@@ -101,7 +109,8 @@ class ProcessOracleTests(unittest.TestCase):
 
     def test_owner_scan_skips_a_process_during_unreadable_exec(self):
         tier = SimpleNamespace(runtime_dir=Path("/private/a"))
-        frame = SimpleNamespace(role=23, bus=":1.2", path="/frame")
+        frame = SimpleNamespace(role=23, bus=":1.2", path="/frame",
+                                interfaces=lambda: ["org.a11y.atspi.Component"])
         node = SimpleNamespace(name="Calculator", bus=":1.2", children=lambda: [frame])
         with patch.object(apps.raw, "registry", return_value=[node, node]), \
             patch.object(apps.raw, "owner_pid", side_effect=[123, 124]), \
@@ -178,9 +187,12 @@ class ProcessOracleTests(unittest.TestCase):
         tier = SimpleNamespace(runtime_dir=Path("/private/a"))
 
         def owner(pid):
-            frame = SimpleNamespace(bus=f":1.{pid}", path="/frame", role=23)
+            frame = SimpleNamespace(bus=f":1.{pid}", path="/frame", role=19,
+                                    interfaces=lambda: ["org.a11y.atspi.Component"])
+            non_component = SimpleNamespace(bus=frame.bus, path="/non_component", role=23,
+                                            interfaces=lambda: [raw.ACCESSIBLE])
             return SimpleNamespace(bus=frame.bus, name="gnome-calculator",
-                                   children=lambda: [frame])
+                                   children=lambda: [frame, non_component])
 
         owners = [owner(pid) for pid in (11, 12, 13)]
 

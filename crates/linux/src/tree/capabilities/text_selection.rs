@@ -209,6 +209,18 @@ pub(crate) fn read_caret_and_selection(
     deadline: Deadline,
 ) -> Result<Option<CaretAndSelection>, AdapterError> {
     let connection = bus.get(deadline)?.inner().clone();
+    let supported = within(deadline, async {
+        Ok(crate::tree::properties::interface_support::supports(
+            &connection,
+            element,
+            TEXT_INTERFACE,
+        )
+        .await)
+    })
+    .and_then(settle)?;
+    if supported != Some(true) {
+        return Ok(None);
+    }
     caret_and_selection(&mut BusText {
         connection: &connection,
         element,

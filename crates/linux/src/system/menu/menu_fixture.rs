@@ -24,6 +24,7 @@ pub(in crate::system) const DOCUMENT_WEB: u32 = 95;
 
 pub(in crate::system) fn node(role: u32, name: &str, states: &[u32], children: Vec<Node>) -> Node {
     let mut read = read_of(role, name, &[]);
+    read.node.traits.interfaces = Field::Present(vec![crate::tree::COMPONENT_INTERFACE.into()]);
     read.node.traits.states = Field::Present(words(states));
     WalkedNode {
         payload: read,

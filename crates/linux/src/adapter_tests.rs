@@ -48,7 +48,7 @@ fn no_surface_is_supported_when_the_session_has_no_bus_and_unsupported_ones_are_
     assert!(adapter.supported_surfaces().is_empty());
 
     let error = agent_desktop_core::commands::snapshot::execute(
-        snapshot_args(SnapshotSurface::Alert),
+        snapshot_args(SnapshotSurface::Spotlight),
         &adapter,
         &CommandContext::default(),
     )

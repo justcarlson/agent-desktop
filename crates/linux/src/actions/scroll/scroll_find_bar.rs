@@ -46,6 +46,7 @@ fn distances(sites: &[Site], target: usize) -> HashMap<usize, usize> {
 /// The scroll bar that scrolls the target along `axis`: the one that hangs
 /// off the nearest ancestor of the target, since a bar scrolls the content
 /// beside it, a bar that says which way it runs ahead of one that does not.
+/// A target scroll bar can only be moved by an outer container's bar.
 /// When the target was found and no bar hangs off its ancestors, none: a
 /// bar of another pane would scroll the wrong content. When the target was
 /// not met, the only bar that runs the right way; several candidates refuse.
@@ -61,7 +62,14 @@ pub(crate) fn choose_bar(
         .map(|(index, _)| index)
         .collect();
     if let Some(target) = target {
-        let above = distances(sites, target);
+        let mut above = distances(sites, target);
+        if let Some(parent) = sites
+            .get(target)
+            .filter(|site| site.bar.is_some())
+            .and_then(|site| site.parent)
+        {
+            above.remove(&parent);
+        }
         let mut ranked: Vec<_> = bars
             .iter()
             .filter_map(|&bar| {

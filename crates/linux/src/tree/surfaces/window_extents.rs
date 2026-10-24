@@ -13,6 +13,19 @@ pub(crate) async fn read_window_extents_async(
     connection: &Connection,
     element: &AtspiElement,
 ) -> Result<Option<Extents>, AdapterError> {
+    match crate::tree::properties::interface_support::supports(
+        connection,
+        element,
+        COMPONENT_INTERFACE,
+    )
+    .await
+    {
+        Ok(true) => {}
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            return Err(crate::system::classify(&error));
+        }
+        _ => return Ok(None),
+    }
     let reply = match call(
         connection,
         element,

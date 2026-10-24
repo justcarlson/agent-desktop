@@ -39,13 +39,24 @@ async fn application_text(
         .and_then(|value| value.downcast_ref::<&str>().ok().map(str::to_owned)))
 }
 
-/// The toolkit an application root names, read one property at a time: GTK 3
-/// and Qt both refuse `GetAll` on the application interface while answering
-/// each property, so a group read would leave the toolkit unknown.
+/// The toolkit an application root advertises, read one property at a time.
+/// Bulk property reads can crash the Qt AT-SPI bridge (L41-7).
 pub(crate) async fn read_toolkit(
     connection: &Connection,
     root: &AtspiElement,
 ) -> Result<ToolkitId, AdapterError> {
+    match super::interface_support::supports(connection, root, APPLICATION_INTERFACE).await {
+        Ok(true) => {}
+        Err(error) if crate::system::is_connection_failure(&error) => {
+            return Err(crate::system::classify(&error));
+        }
+        _ => {
+            return Ok(ToolkitId {
+                name: None,
+                version: None,
+            });
+        }
+    }
     let (name, version) = join(
         application_text(connection, root, "ToolkitName"),
         application_text(connection, root, "Version"),

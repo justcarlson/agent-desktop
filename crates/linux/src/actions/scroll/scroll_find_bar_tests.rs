@@ -59,6 +59,35 @@ fn the_axis_picks_between_two_bars_of_one_pane() {
 }
 
 #[test]
+fn a_scroll_bar_cannot_reveal_itself_or_a_sibling_bar() {
+    let sites = [
+        node(None),
+        bar(0, Orientation::Horizontal),
+        bar(0, Orientation::Vertical),
+    ];
+    for target in [1, 2] {
+        for axis in [Axis::Vertical, Axis::Horizontal] {
+            assert_eq!(choose_bar(&sites, Some(target), axis).unwrap(), None);
+        }
+    }
+}
+
+#[test]
+fn an_outer_scroll_bar_can_reveal_a_nested_scroll_bar() {
+    let sites = [
+        node(None),
+        node(Some(0)),
+        bar(1, Orientation::Horizontal),
+        bar(1, Orientation::Vertical),
+        bar(0, Orientation::Vertical),
+    ];
+    assert_eq!(
+        choose_bar(&sites, Some(2), Axis::Vertical).unwrap(),
+        Some(4)
+    );
+}
+
+#[test]
 fn a_target_the_crawl_never_met_uses_the_only_bar_that_runs_the_right_way() {
     let one = [node(None), bar(0, Orientation::Vertical)];
     assert_eq!(choose_bar(&one, None, Axis::Vertical).unwrap(), Some(1));

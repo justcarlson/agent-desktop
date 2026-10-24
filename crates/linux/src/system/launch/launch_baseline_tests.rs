@@ -9,6 +9,34 @@ use crate::system::x11::X11State;
 use crate::tree::AtspiElement;
 
 #[test]
+fn residents_require_the_same_canonical_executable_but_not_the_same_arguments() {
+    use crate::system::process::executable_identity::ExecutableIdentity;
+    let requested = ExecutableIdentity {
+        executable: "/usr/bin/tool".into(),
+        argv: Some(vec!["tool".into()]),
+    };
+    let mut owner = Running {
+        executable: Some(ExecutableIdentity {
+            argv: Some(vec!["tool".into(), "--daemon".into()]),
+            ..requested.clone()
+        }),
+        pid: 7,
+        instance: "boot:7".to_owned(),
+        name: "tool".to_owned(),
+    };
+    assert!(same_executable(Some(&requested), &owner));
+    assert!(!requested.matches(owner.executable.as_ref().unwrap()));
+    owner.executable.as_mut().unwrap().argv = None;
+    assert!(same_executable(Some(&requested), &owner));
+    owner.executable.as_mut().unwrap().executable = "/other/tool".into();
+    assert!(!same_executable(Some(&requested), &owner));
+    assert!(!same_executable(None, &owner));
+    owner.executable = None;
+    assert!(!same_executable(Some(&requested), &owner));
+    assert!(!same_executable(None, &owner));
+}
+
+#[test]
 fn an_old_frame_omitted_by_an_incomplete_baseline_cannot_be_a_launch_window() {
     let owner = Running {
         executable: None,
@@ -52,7 +80,7 @@ fn an_old_frame_omitted_by_an_incomplete_baseline_cannot_be_a_launch_window() {
         ids_of(&registry, &pass, &owner).map(|known| choose_window(vec![old.clone()], &known));
     assert_eq!(
         selected
-            .expect_err("partial baseline must refuse launch")
+            .expect_err("partial baseline cannot prove a handoff window")
             .code,
         agent_desktop_core::ErrorCode::Timeout
     );

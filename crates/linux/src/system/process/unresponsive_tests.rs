@@ -142,3 +142,56 @@ fn an_unknown_target_is_refused_before_anything_is_sent() {
     assert_eq!(error.code, ErrorCode::AppNotFound);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
+
+struct ScopedRoot {
+    stalled: bool,
+}
+
+#[zbus::interface(name = "org.a11y.atspi.Accessible")]
+impl ScopedRoot {
+    async fn get_children(&self) -> Vec<(String, zbus::zvariant::OwnedObjectPath)> {
+        if self.stalled {
+            std::future::pending::<()>().await;
+        }
+        Vec::new()
+    }
+}
+
+#[test]
+fn scoped_window_discovery_distinguishes_unanswered_children_from_an_observed_empty_root() {
+    use agent_desktop_core::Deadline;
+    use zbus::connection::Builder;
+
+    for stalled in [false, true] {
+        let (client, server) = std::os::unix::net::UnixStream::pair().unwrap();
+        let (client, server) = zbus::block_on(futures_lite::future::zip(
+            Builder::async_io_unix_stream(client).p2p().build(),
+            Builder::async_io_unix_stream(server)
+                .server(zbus::Guid::generate())
+                .unwrap()
+                .p2p()
+                .serve_at("/root", ScopedRoot { stalled })
+                .unwrap()
+                .build(),
+        ));
+        let _server = server.unwrap();
+        let bus = crate::system::bus::tests::connected(client.unwrap());
+        let mut selected = app(std::process::id(), "fixture", true);
+        selected.root = AtspiElement::new(":1.1", "/root", std::process::id());
+        let registry = registry(vec![selected]);
+        let result =
+            super::scoped_windows_of(&bus, &registry, |_| true, Deadline::after(2_000).unwrap());
+        if stalled {
+            let error = result.expect_err("unanswered children cannot prove no surfaces");
+            assert_eq!(error.code, ErrorCode::Timeout);
+            assert_eq!(error.details.unwrap()["kind"], "frames_unanswered");
+            assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        } else {
+            assert!(
+                result
+                    .expect("an observed empty root stays empty")
+                    .is_empty()
+            );
+        }
+    }
+}

@@ -7,6 +7,7 @@ pub(crate) mod disclosure;
 pub(crate) mod dispatch;
 pub(crate) mod focus;
 pub(crate) mod live;
+pub(crate) mod native_menu;
 pub(crate) mod physical_target;
 mod popup_verify;
 mod process_check;

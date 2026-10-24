@@ -15,15 +15,13 @@ use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, shell, 
 use crate::tree::placement::Placement;
 use crate::tree::placement::offscreen::{OffscreenInput, offscreen};
 use crate::tree::properties::liveness::Liveness;
-use crate::tree::properties::node_read::{COMPONENT_INTERFACE, call, get_one, string_value};
+use crate::tree::properties::node_read::{call, get_one, string_value};
 use crate::tree::properties::toolkit_trust::{read_toolkit, reports_global_position};
 use crate::tree::surfaces::twin_frames::read_twins;
 use crate::tree::surfaces::window_extents::read_window_extents;
 use crate::tree::surfaces::window_tie::WindowTie;
 use crate::tree::vocabulary::state_bits::{ICONIFIED, StateBits};
 use crate::tree::{AtspiElement, Extents};
-
-const SCREEN_COORDINATES: u32 = 0;
 
 fn known_toolkits() -> &'static Mutex<HashMap<String, ToolkitId>> {
     static KNOWN: OnceLock<Mutex<HashMap<String, ToolkitId>>> = OnceLock::new();
@@ -80,13 +78,7 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
     let (state, title, extents, role) = join4(
         call(connection, frame, ACCESSIBLE_INTERFACE, "GetState", &()),
         get_one(connection, frame, "Name", string_value, Liveness::Alive),
-        call(
-            connection,
-            frame,
-            COMPONENT_INTERFACE,
-            "GetExtents",
-            &(SCREEN_COORDINATES,),
-        ),
+        shell::light::extents_of(connection, frame),
         call(connection, frame, ACCESSIBLE_INTERFACE, "GetRole", &()),
     )
     .await;
@@ -100,15 +92,7 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
             .and_then(|reply| reply.body().deserialize::<u32>().ok()),
         iconified: words.map(|words| StateBits::new(&words).has(ICONIFIED)),
         title: title.ok().and_then(|field| field.present().cloned()),
-        screen: extents
-            .ok()
-            .and_then(|reply| reply.body().deserialize::<(i32, i32, i32, i32)>().ok())
-            .map(|(x, y, width, height)| Extents {
-                x,
-                y,
-                width,
-                height,
-            }),
+        screen: extents,
     }
 }
 
@@ -209,7 +193,7 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     };
     let window = std::cell::Cell::new(FrameWindow::Unknown);
     let (popup_origin, x11) = select_frame_origin(
-        element.is_menu_target(),
+        read.role,
         &placed.toolkit,
         placed.frame,
         |size| DisplayReader::popup_origin(frame.pid(), size, deadline),
@@ -241,16 +225,13 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
 /// and never falls back to the owning managed window. Other frames keep the
 /// ordinary X11 client state.
 pub(crate) fn select_frame_origin(
-    menu_target: bool,
+    role: Option<u32>,
     toolkit: &ToolkitId,
     frame: Option<Extents>,
     popup: impl FnOnce((i32, i32)) -> Option<(i32, i32)>,
     managed: impl FnOnce() -> Option<WindowX11State>,
 ) -> (Option<(i32, i32)>, Option<WindowX11State>) {
-    if menu_target
-        && crate::tree::properties::toolkit_trust::kind(toolkit)
-            == crate::tree::properties::toolkit_trust::ToolkitKind::Gtk4
-    {
+    if crate::tree::placement::popup_frame::uses_popup_origin(role, toolkit) {
         let origin = frame.and_then(|frame| {
             popup((frame.width, frame.height)).and_then(|origin| {
                 crate::tree::placement::frame_geometry::popup_origin(origin, frame)

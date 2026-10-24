@@ -118,6 +118,16 @@ async fn internal_editor_focused(
     element: &AtspiElement,
 ) -> Result<bool, AdapterError> {
     const PARENT_COORDINATES: u32 = 2;
+    if !crate::tree::properties::interface_support::supports(
+        connection,
+        element,
+        COMPONENT_INTERFACE,
+    )
+    .await
+    .map_err(bus_error)?
+    {
+        return Ok(false);
+    }
     let extents = call(
         connection,
         element,

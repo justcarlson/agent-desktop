@@ -2,7 +2,20 @@ use agent_desktop_core::{Action, LocatorField, actions::capability};
 
 use super::capability_rules::{Facts, rule_tokens, scroll_tokens};
 use crate::tree::RawNode;
-use crate::tree::vocabulary::role_numbers::is_menu_item;
+use crate::tree::vocabulary::role_numbers::{LIST_ITEM, is_menu_item};
+use crate::tree::vocabulary::state_bits::{CHECKABLE, SELECTABLE};
+
+pub(crate) fn selection_verbs(
+    role: Option<u32>,
+    selectable: Option<bool>,
+    checkable: Option<bool>,
+) -> &'static [&'static str] {
+    if role == Some(LIST_ITEM) && selectable == Some(true) && checkable == Some(false) {
+        &["select", "toggle"]
+    } else {
+        &["select"]
+    }
+}
 
 const TABLE: [(&str, &[&str]); 15] = [
     ("click", &[capability::CLICK]),
@@ -55,8 +68,18 @@ pub(crate) fn capabilities(node: &RawNode) -> LocatorField<Vec<String>> {
         return LocatorField::Unknown;
     };
     let mut tokens: Vec<String> = Vec::new();
+    let selection = selection_verbs(
+        Some(facts.role),
+        Some(facts.bits.has(SELECTABLE)),
+        Some(facts.bits.has(CHECKABLE)),
+    );
     for name in facts.names {
-        for token in capability_of(name) {
+        let capabilities = if name.eq_ignore_ascii_case("toggle") && selection.contains(&"toggle") {
+            &[capability::SELECT][..]
+        } else {
+            capability_of(name)
+        };
+        for token in capabilities {
             push_new(&mut tokens, token);
         }
     }

@@ -1,9 +1,9 @@
+use super::visibility::is_sentinel;
 use agent_desktop_core::BoundsSpace;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::frame_geometry::{pointer_bounds, popup_origin};
 use crate::system::process::toolkit_id::ToolkitId;
-use crate::system::shell::container::MENU;
 use crate::system::window::window_position::{origin_of_client, rect_of_client};
 use crate::system::x11::map::ClientMatch;
 use crate::system::x11::stacking::stacking_source::StackingSource;
@@ -13,18 +13,12 @@ use crate::system::{REGISTRY_ROOT_PATH, SharedBus, shell, within};
 use crate::tree::element::bounded::collect_bounded;
 use crate::tree::properties::node_read::read_node_for;
 use crate::tree::properties::read_purpose::ReadPurpose;
-use crate::tree::properties::toolkit_trust::{
-    ToolkitKind, kind as toolkit_kind, read_toolkit, reports_global_position,
-};
+use crate::tree::properties::toolkit_trust::{read_toolkit, reports_global_position};
 use crate::tree::surfaces::twin_frames::read_twins;
 use crate::tree::surfaces::window_extents::read_window_extents_async;
 use crate::tree::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode};
 
 const IN_FLIGHT: usize = 64;
-
-fn is_placed(extents: &Field<Extents>) -> bool {
-    matches!(extents, Field::Present(extents) if extents.x != i32::MIN && extents.y != i32::MIN)
-}
 
 fn invalidate_position(read: &mut ObservedRead) {
     read.node.extents = Field::Failed("Geometry placement was not read".to_owned());
@@ -70,7 +64,7 @@ fn apply(
 ) {
     let mut next = windows.iter();
     for_each_read(root, &mut |read| {
-        if !is_placed(&read.node.extents) {
+        if read.node.extents.present().copied().is_none_or(is_sentinel) {
             return;
         }
         let window = next.next().copied().flatten();
@@ -108,14 +102,16 @@ fn place_read_bounds(
         );
 }
 
-fn is_sentinel(extents: Extents) -> bool {
-    extents.x == i32::MIN || extents.y == i32::MIN
-}
-
 fn placed_elements(root: &mut WalkedNode<ObservedRead>) -> Vec<AtspiElement> {
     let mut elements = Vec::new();
     for_each_read(root, &mut |read| {
-        if is_placed(&read.node.extents) {
+        if read
+            .node
+            .extents
+            .present()
+            .copied()
+            .is_some_and(|extents| !is_sentinel(extents))
+        {
             elements.push(read.node.element.clone());
         }
     });
@@ -176,7 +172,7 @@ fn place_of(
     let title = node.properties.name.present().cloned().unwrap_or_default();
     let role = node.traits.role.present().copied();
     let screen = node.extents.present().copied();
-    if role == Some(MENU) && toolkit_kind(toolkit) == ToolkitKind::Gtk4 {
+    if super::popup_frame::uses_popup_origin(role, toolkit) {
         let Some(window) = geometry_or_unknown(within(
             deadline,
             read_window_extents_async(connection, frame),

@@ -138,6 +138,13 @@ per combo.
 
 ## `type`
 
+For literal newlines in Bash, set `TEXT_REF` to the qualified ref of a
+multiline text field from the latest snapshot, then use headless typing:
+
+```bash
+agent-desktop type "$TEXT_REF" $'First line\nSecond line'
+```
+
 Empty text sends no keys, requests no focus on the target and reports
 `not_delivered`; `--headed` can still activate the source window before the
 empty insertion is dispatched.

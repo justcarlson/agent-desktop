@@ -363,3 +363,30 @@ fn a_window_of_a_stopped_process_is_unresponsive_and_a_running_one_passes() {
     assert!(error.message.contains("Calculator"));
     assert!(refuse_stopped(&listed, |_| false).is_ok());
 }
+
+#[test]
+fn optional_display_completion_runs_after_the_accessibility_walk() {
+    let walked = std::cell::Cell::new(false);
+    let window = window(window_id::encode(":1.7", "/a").unwrap());
+    let tree = super::observe_decorated(
+        ObservationRoot::Window(&window),
+        &request(),
+        SettleHost {
+            walker: &mut |_, limits, _, _| {
+                walked.set(true);
+                one_node_walk(limits)
+            },
+            place: &mut |_| Ok(()),
+            is_web_process: &|_| Ok(false),
+            stopped: &|_| false,
+            pause: &mut |_| {},
+        },
+        &mut super::Plain,
+        || {
+            assert!(walked.get(), "optional display reads cannot block the walk");
+            None
+        },
+    )
+    .unwrap();
+    assert!(tree.is_complete());
+}

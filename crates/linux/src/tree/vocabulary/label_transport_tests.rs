@@ -8,6 +8,10 @@ struct Accessible;
 
 #[zbus::interface(name = "org.a11y.atspi.Accessible")]
 impl Accessible {
+    fn get_interfaces(&self) -> Vec<&str> {
+        vec!["org.a11y.atspi.Text"]
+    }
+
     fn get_relation_set(&self) -> RelationSet {
         vec![(2, vec![(OWNER.to_owned(), "/label".try_into().unwrap())])]
     }

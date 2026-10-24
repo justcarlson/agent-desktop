@@ -259,6 +259,15 @@ fn placed_elements_follow_the_order_apply_consumes_them_in() {
 
 struct UnavailableGeometry;
 
+struct GeometryInterfaces;
+
+#[zbus::interface(name = "org.a11y.atspi.Accessible")]
+impl GeometryInterfaces {
+    fn get_interfaces(&self) -> Vec<&str> {
+        vec!["org.a11y.atspi.Component", "org.a11y.atspi.Application"]
+    }
+}
+
 #[zbus::interface(name = "org.a11y.atspi.Component")]
 impl UnavailableGeometry {
     fn get_extents(&self, _coordinates: u32) -> zbus::fdo::Result<(i32, i32, i32, i32)> {
@@ -276,6 +285,8 @@ fn placement_readers_preserve_transport_loss_and_allow_unavailable_geometry() {
             .server(zbus::Guid::generate())
             .unwrap()
             .p2p()
+            .serve_at("/missing", GeometryInterfaces)
+            .unwrap()
             .serve_at("/missing", UnavailableGeometry)
             .unwrap()
             .build(),
@@ -337,5 +348,26 @@ fn a_placement_timeout_cannot_authorize_or_refute_raw_coordinate_evidence() {
         entry.geometry.bounds = Some(rect(0.0, 0.0, 10.0, 10.0));
         entry.geometry.bounds_space = Some(space);
         assert_eq!(admit_node(&entry, &evidence), Admission::Unread);
+    }
+}
+
+#[test]
+fn only_sentinel_positions_are_not_placed() {
+    for (x, y, width, height, expected) in [
+        (0, 0, 10, 10, true),
+        (-10, -1, 10, 10, true),
+        (0, 0, 0, 10, true),
+        (0, 0, 10, -1, true),
+        (i32::MIN, 0, 10, 10, false),
+        (0, i32::MIN, 10, 10, false),
+    ] {
+        let mut root = node(x, y, vec![]);
+        root.payload.node.extents = Field::Present(Extents {
+            x,
+            y,
+            width,
+            height,
+        });
+        assert_eq!(!placed_elements(&mut root).is_empty(), expected);
     }
 }

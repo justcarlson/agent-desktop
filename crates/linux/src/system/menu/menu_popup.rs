@@ -1,7 +1,9 @@
 use crate::system::menu::menu_found::Found;
+use crate::tree::surfaces::top_level::is_popup_menu_surface;
 use crate::tree::vocabulary::role_numbers::is_web_document;
 use crate::tree::vocabulary::role_numbers::{
-    CHECK_MENU_ITEM, FILLER, FRAME, PANEL, PUSH_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON, WINDOW,
+    CHECK_MENU_ITEM, FILLER, FRAME, MENU, MENU_BAR, PANEL, POPUP_MENU, PUSH_BUTTON,
+    RADIO_MENU_ITEM, TOGGLE_BUTTON, WINDOW,
 };
 use crate::tree::vocabulary::state_bits::{
     CHECKED, EXPANDED, HAS_POPUP, MODAL, PRESSED, SHOWING, StateBits,
@@ -10,10 +12,7 @@ use crate::tree::{ObservedRead, WalkedNode};
 
 pub(in crate::system) type Node = WalkedNode<ObservedRead>;
 
-const MENU: u32 = 33;
-const MENU_BAR: u32 = 34;
 const MENU_ITEM: u32 = 35;
-const POPUP_MENU: u32 = 41;
 const SEPARATOR: u32 = 50;
 const ITEM_SEARCH_DEPTH: usize = 12;
 
@@ -256,15 +255,50 @@ fn first_open_menu(node: &Node) -> Option<(&Node, usize)> {
     node.children.iter().find_map(first_open_menu)
 }
 
+pub(in crate::system) fn is_popup_candidate(window: &Node) -> bool {
+    let children = window
+        .children
+        .iter()
+        .map(|child| {
+            let child_role = role(child)?;
+            let menus = if child_role == MENU_BAR {
+                if child.truncated
+                    || child
+                        .child_count
+                        .is_some_and(|count| count as usize != child.children.len())
+                {
+                    return None;
+                }
+                child
+                    .children
+                    .iter()
+                    .map(role)
+                    .collect::<Option<Vec<_>>>()?
+            } else {
+                Vec::new()
+            };
+            Some((child_role, menus))
+        })
+        .collect::<Option<Vec<_>>>();
+    !window.truncated
+        && window
+            .child_count
+            .is_none_or(|count| count as usize == window.children.len())
+        && is_popup_menu_surface(&window.payload.node, children.as_deref())
+}
+
 /// The popup a top-level child of the application root is, when it is one: a
-/// nameless showing window or frame whose whole subtree is menu content.
+/// nameless showing Component child whose whole subtree is menu content.
 /// GTK 3 context menus are such a window and Chromium menus such a frame; a
 /// real window has a title or holds something besides menus.
 pub(in crate::system) fn top_level(window: &Node) -> Option<Found<'_>> {
+    if !is_popup_candidate(window) {
+        return None;
+    }
     let family = match role(window) {
         Some(WINDOW) => MenuFamily::Gtk3Context,
         Some(FRAME) => MenuFamily::Chromium,
-        _ => return None,
+        _ => MenuFamily::Chromium,
     };
     let nameless = window.payload.node.properties.name.is_blank();
     if !nameless || !has_state(window, SHOWING) {

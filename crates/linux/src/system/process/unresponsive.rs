@@ -5,7 +5,8 @@ use crate::system::SharedBus;
 use crate::system::registry::Registry;
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_app::RegistryApp;
-use crate::system::window::window_ops::windows_of;
+use crate::system::signal::signal_inventory::read_selected;
+use crate::system::window::window_ops::require_answered;
 
 /// The first selected application that is stopped: its own root did not
 /// answer and the process is in a stopped state, while the bus daemon still
@@ -78,11 +79,12 @@ pub(crate) fn scoped_windows_of(
     select: impl Fn(&RegistryApp) -> bool,
     deadline: Deadline,
 ) -> Result<Vec<ListedWindow>, AdapterError> {
-    let windows = windows_of(bus, registry, &select, deadline)?;
-    settle_scoped(
+    let (windows, outcomes) = read_selected(bus, registry, &select, deadline)?;
+    let windows = settle_scoped(
         windows,
         stopped_target(registry, &select, proc_stat::is_stopped),
-    )
+    )?;
+    require_answered(windows, &outcomes, true)
 }
 
 /// A named target that no registry application and no running process

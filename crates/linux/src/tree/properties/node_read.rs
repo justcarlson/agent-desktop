@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use agent_desktop_core::AdapterError;
 use futures_util::future::{join, join3, join4};
@@ -83,21 +83,16 @@ fn count_value(value: &OwnedValue) -> Field<i32> {
     }
 }
 
-fn property<T>(
-    map: &HashMap<String, OwnedValue>,
-    key: &str,
+fn read_property<T>(
+    reply: Reply,
     convert: fn(&OwnedValue) -> Field<T>,
-) -> Field<T> {
-    map.get(key).map_or(Field::Absent, convert)
-}
-
-fn from_map(map: &HashMap<String, OwnedValue>) -> NodeProperties {
-    NodeProperties {
-        name: property(map, NAME, string_value),
-        description: property(map, DESCRIPTION, string_value),
-        child_count: property(map, CHILD_COUNT, count_value),
-        accessible_id: property(map, ACCESSIBLE_ID, string_value),
-    }
+    liveness: Liveness,
+) -> Result<Field<T>, AdapterError> {
+    Ok(match field(deserialize::<OwnedValue>(reply), liveness)? {
+        Field::Present(value) => convert(&value),
+        Field::Absent => Field::Absent,
+        Field::Failed(detail) => Field::Failed(detail),
+    })
 }
 
 pub(in crate::tree) async fn get_one<T>(
@@ -121,43 +116,6 @@ pub(in crate::tree) async fn get_one<T>(
         Field::Absent => Field::Failed(format!("Properties.Get({key}) failed")),
         Field::Failed(detail) => Field::Failed(format!("Properties.Get({key}) failed: {detail}")),
     })
-}
-
-/// Toolkits that do not implement `GetAll` for the accessible interface (Qt
-/// answers `UnknownInterface`) still answer each property individually.
-async fn properties_one_by_one(
-    connection: &Connection,
-    element: &AtspiElement,
-    liveness: Liveness,
-) -> Result<NodeProperties, AdapterError> {
-    let (name, description, child_count, accessible_id) = join4(
-        get_one(connection, element, NAME, string_value, liveness),
-        get_one(connection, element, DESCRIPTION, string_value, liveness),
-        get_one(connection, element, CHILD_COUNT, count_value, liveness),
-        get_one(connection, element, ACCESSIBLE_ID, string_value, liveness),
-    )
-    .await;
-    Ok(NodeProperties {
-        name: name?,
-        description: description?,
-        child_count: child_count?,
-        accessible_id: accessible_id?,
-    })
-}
-
-async fn read_properties(
-    connection: &Connection,
-    element: &AtspiElement,
-    reply: Reply,
-    liveness: Liveness,
-) -> Result<NodeProperties, AdapterError> {
-    let map = field(deserialize::<HashMap<String, OwnedValue>>(reply), liveness)?;
-    match map {
-        Field::Present(map) => Ok(from_map(&map)),
-        Field::Absent | Field::Failed(_) => {
-            properties_one_by_one(connection, element, liveness).await
-        }
-    }
 }
 
 pub(in crate::tree) fn read_children(
@@ -187,6 +145,7 @@ where
     }
 }
 
+/// L41-7: individual property reads avoid toolkit crashes in bulk reads.
 /// Reads one node. All fixed calls are in flight together; extents and
 /// actions follow only when the interface list names them. The node's own
 /// `GetRole` outcome, which every live node answers, decides what a failure
@@ -211,12 +170,35 @@ pub(crate) async fn read_node_for(
             async {
                 if purpose.identity() || purpose == ReadPurpose::Actions {
                     Some(
-                        call(
-                            connection,
-                            element,
-                            PROPERTIES_INTERFACE,
-                            "GetAll",
-                            &(ACCESSIBLE_INTERFACE,),
+                        join4(
+                            call(
+                                connection,
+                                element,
+                                PROPERTIES_INTERFACE,
+                                "Get",
+                                &(ACCESSIBLE_INTERFACE, NAME),
+                            ),
+                            call(
+                                connection,
+                                element,
+                                PROPERTIES_INTERFACE,
+                                "Get",
+                                &(ACCESSIBLE_INTERFACE, DESCRIPTION),
+                            ),
+                            call(
+                                connection,
+                                element,
+                                PROPERTIES_INTERFACE,
+                                "Get",
+                                &(ACCESSIBLE_INTERFACE, CHILD_COUNT),
+                            ),
+                            call(
+                                connection,
+                                element,
+                                PROPERTIES_INTERFACE,
+                                "Get",
+                                &(ACCESSIBLE_INTERFACE, ACCESSIBLE_ID),
+                            ),
                         )
                         .await,
                     )
@@ -241,12 +223,17 @@ pub(crate) async fn read_node_for(
         ),
     )
     .await;
-    let (all, role, role_name, state) = first;
+    let (properties, role, role_name, state) = first;
     let (interfaces, attributes, child_reply) = second;
     let role = role.map(deserialize::<u32>);
     let liveness = Liveness::of(role.as_ref().and_then(|read| read.as_ref().err()));
-    let properties = match all {
-        Some(reply) => read_properties(connection, element, reply, liveness).await?,
+    let properties = match properties {
+        Some((name, description, child_count, accessible_id)) => NodeProperties {
+            name: read_property(name, string_value, liveness)?,
+            description: read_property(description, string_value, liveness)?,
+            child_count: read_property(child_count, count_value, liveness)?,
+            accessible_id: read_property(accessible_id, string_value, liveness)?,
+        },
         None => {
             let mut properties = NodeProperties::failed("field not requested");
             if matches!(purpose, ReadPurpose::Frame | ReadPurpose::Structure) {

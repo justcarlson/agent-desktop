@@ -35,7 +35,7 @@ Observation and semantic actions need no helper tool.
 
 | Group | Commands | Status on Linux |
 |-------|----------|-----------------|
-| Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. Supports `window`, `sheet` and `menu`; GNOME adds shell surfaces. Virtual tray getters have limits; see the shell reference and check `status` |
+| Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. Supports `window`, `sheet`, `alert` and `menu`; GNOME adds shell surfaces. Virtual tray getters have limits; see the shell reference and check `status` |
 | Surfaces | `list-surfaces` | Lists an app's windows, sheets and open menus; shell reads use `snapshot --surface` |
 | Ref interaction | `click`, `right-click`, `type`, `set-value`, `clear`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll-to` | Need a readable live identity and the required AT-SPI capability. See the shell reference for menu-ref resolution limits; X11 headed fallback also needs usable geometry and does not bypass identity checks |
 | Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; X11 and `--headed` only |
@@ -71,6 +71,9 @@ Observation and semantic actions need no helper tool.
 - **GTK4 apps nest deeply.** `--max-depth` and `--skeleton` count semantic
   levels, so empty layout wrappers add output levels. `-i --compact` still
   shows nested nameless `group` nodes: read past them.
+- **An empty file view does not prove an empty folder.** If an icon view
+  exposes no file items, try an available list or detailed view, then take a
+  fresh snapshot and verify which items the application exposes.
 - **A window appears before its content.** Run
   `wait --window "Text Editor" --app gnome-text-editor` first, then
   `wait --text`, which matches a node's own name, value or description. For a

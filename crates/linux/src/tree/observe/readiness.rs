@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::tree::vocabulary::role_numbers::DOCUMENT_WEB;
+use crate::tree::vocabulary::role_numbers::is_web_document;
 use crate::tree::{ObservedRead, WalkedNode};
 
 /// Gap between two corroborating reads of a filling tree.
@@ -74,7 +74,7 @@ pub(crate) fn has_depth_cut(root: &WalkedNode<ObservedRead>) -> bool {
 pub(crate) fn has_web_document(root: &WalkedNode<ObservedRead>) -> bool {
     let mut pending = vec![root];
     while let Some(node) = pending.pop() {
-        if node.payload.node.traits.role.present() == Some(&DOCUMENT_WEB) {
+        if is_web_document(node.payload.node.traits.role.present().copied()) {
             return true;
         }
         pending.extend(&node.children);
@@ -90,7 +90,7 @@ pub(crate) fn ready(root: &WalkedNode<ObservedRead>) -> bool {
         let Some(role) = node.payload.node.traits.role.present() else {
             return false;
         };
-        if *role == DOCUMENT_WEB {
+        if is_web_document(Some(*role)) {
             let Some(states) = node.payload.node.traits.states.present() else {
                 return false;
             };

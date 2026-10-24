@@ -1,10 +1,11 @@
-use crate::tree::vocabulary::role_numbers::{ALERT, DIALOG, is_web_document};
+use super::top_level::is_dialog_role;
+use crate::tree::vocabulary::role_numbers::is_web_document;
 use crate::tree::vocabulary::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, ObservedRead, WalkedNode};
 
 pub(crate) type Node = WalkedNode<ObservedRead>;
 
-/// A dialog drawn inside its window's tree: a `SHOWING` dialog or alert node
+/// A dialog drawn inside its window's tree: a `SHOWING` node with a dialog role
 /// below the window, which no listing of top-level windows sees.
 pub(crate) struct NestedDialog<'a> {
     pub(crate) element: &'a AtspiElement,
@@ -24,18 +25,22 @@ fn has_state(node: &Node, bit: u32) -> bool {
         .is_some_and(|words| StateBits::new(words).has(bit))
 }
 
-/// A showing dialog or alert node. libadwaita draws its save prompt as an
+/// A showing node with a dialog role. libadwaita draws its save prompt as an
 /// alert inside the window and sets no `MODAL` on it, so the state decides
 /// nothing here.
 fn is_prompt(node: &Node) -> bool {
-    has_state(node, SHOWING) && matches!(role(node), Some(DIALOG | ALERT))
+    has_state(node, SHOWING) && is_dialog_role(node.payload.node.traits.role.present())
 }
 
-fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
+fn collect<'a>(
+    node: &'a Node,
+    found: &mut Vec<NestedDialog<'a>>,
+    surface: agent_desktop_core::SnapshotSurface,
+) {
     if node.in_web_document || is_web_document(role(node)) {
         return;
     }
-    if is_prompt(node) {
+    if is_prompt(node) && super::is_surface(&node.payload.node, surface) {
         found.push(NestedDialog {
             element: &node.payload.node.element,
             title: node
@@ -50,7 +55,7 @@ fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
         return;
     }
     for child in &node.children {
-        collect(child, found);
+        collect(child, found, surface);
     }
 }
 
@@ -59,9 +64,16 @@ fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
 /// such. A dialog that does not show is not found, whether its node is gone
 /// or stays in the tree.
 pub(crate) fn find(window: &Node) -> Vec<NestedDialog<'_>> {
+    find_surface(window, agent_desktop_core::SnapshotSurface::Sheet)
+}
+
+pub(crate) fn find_surface(
+    window: &Node,
+    surface: agent_desktop_core::SnapshotSurface,
+) -> Vec<NestedDialog<'_>> {
     let mut found = Vec::new();
     for child in &window.children {
-        collect(child, &mut found);
+        collect(child, &mut found, surface);
     }
     found
 }
@@ -77,28 +89,37 @@ pub(crate) fn is_cut_short(node: &Node) -> bool {
 }
 
 /// A failed role can hide a dialog or a web-document boundary. Only a known
-/// dialog or alert needs state evidence; other nodes' states do not decide
+/// dialog role needs state evidence; other nodes' states do not decide
 /// discovery.
-fn unread_dialog(node: &Node) -> bool {
+fn unread_dialog(node: &Node, surface: agent_desktop_core::SnapshotSurface) -> bool {
     if node.in_web_document || is_web_document(role(node)) {
         return false;
     }
-    let dialog_like = matches!(role(node), Some(DIALOG | ALERT));
+    let dialog_like = is_dialog_role(node.payload.node.traits.role.present());
     if role(node).is_none() || (dialog_like && node.payload.node.traits.states.present().is_none())
     {
         return true;
     }
-    if is_prompt(node) {
+    if is_prompt(node) && super::is_surface(&node.payload.node, surface) {
         return false;
     }
-    node.children.iter().any(unread_dialog)
+    node.children
+        .iter()
+        .any(|child| unread_dialog(child, surface))
 }
 
 /// Root states also decide whether the top-level window itself is a sheet.
 pub(crate) fn is_incomplete(window: &Node) -> bool {
+    is_incomplete_surface(window, agent_desktop_core::SnapshotSurface::Sheet)
+}
+
+pub(crate) fn is_incomplete_surface(
+    window: &Node,
+    surface: agent_desktop_core::SnapshotSurface,
+) -> bool {
     is_cut_short(window)
         || window.payload.node.traits.states.present().is_none()
-        || unread_dialog(window)
+        || unread_dialog(window, surface)
 }
 
 #[cfg(test)]

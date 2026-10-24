@@ -39,13 +39,13 @@ pub(crate) fn offscreen(input: OffscreenInput) -> Option<bool> {
     if input.minimized == Some(true) {
         return Some(true);
     }
-    if input.sentinel && input.visible && !input.showing {
+    if super::visibility::not_drawn(input.visible, input.showing, input.sentinel) {
         return Some(true);
     }
     let node = usable(input.node)?;
     let frame = usable(input.frame)?;
     let container = match input.container {
-        Some(container) if container.x == i32::MIN || container.y == i32::MIN => None,
+        Some(container) if super::visibility::is_sentinel(container) => None,
         Some(container) => Some(usable(Some(container))?),
         None => None,
     };
