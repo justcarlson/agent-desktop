@@ -37,7 +37,8 @@ class RuntimeReadinessTests(unittest.TestCase):
         bystander = Owner(":1.2", TimeoutError("unrelated name stalled"))
         frame_error = Owner(":1.3", "unrelated")
         frame_error.children.side_effect = TimeoutError("unrelated frames stalled")
-        frame = SimpleNamespace(role=23, bus=":1.4", path="/frame")
+        frame = SimpleNamespace(role=23, bus=":1.4", path="/frame",
+                                interfaces=lambda: ["org.a11y.atspi.Component"])
         target = Owner(":1.4", "gnome-calculator", [frame])
         def facts(pid):
             return 99, pid, "gnome-shell" if pid == 11 else "app", {
@@ -63,7 +64,9 @@ class RuntimeReadinessTests(unittest.TestCase):
 
     def test_target_name_timeout_cannot_make_another_owner_the_unique_candidate(self):
         target = Owner(":1.4", TimeoutError("target name stalled"))
-        other = Owner(":1.5", "gnome-calculator", [SimpleNamespace(role=23, bus=":1.5", path="/frame")])
+        frame = SimpleNamespace(role=23, bus=":1.5", path="/frame",
+                                interfaces=lambda: ["org.a11y.atspi.Component"])
+        other = Owner(":1.5", "gnome-calculator", [frame])
         with patch.object(raw, "registry", return_value=[target, other]), \
              patch.object(raw, "owner_pid", side_effect=lambda node: int(node.bus.split(".")[-1])), \
              patch.object(apps.proc, "facts", return_value=(99, 4, "gnome-calculato", {

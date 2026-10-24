@@ -213,6 +213,15 @@ REGISTRY += tuple(Leg(name, "seeded event with independent owner/frame restorati
                       "Calculator and Text Editor", ("x11-mutter",), ("headless",),
                       ("atspi", "x11", "proc"), "pass") for name in RESTORED_MUTTER_EVENTS)
 
+REGISTRY += tuple(
+    Leg(f"ref_contract.zoo_{toolkit}{suffix}",
+        (f"Every snapshot ref of the {label} zoo lands or is marked and refused"
+         if not suffix else f"The {label} zoo exposes and operates its window surfaces"),
+        f"Zoo {label}", ALL_TIERS, HEADLESS, ("atspi", "applog"), "pass")
+    for toolkit, label in (("gtk3", "GTK3"), ("gtk4", "GTK4"), ("qt", "Qt"))
+    for suffix in ("", "_windows")
+)
+
 _BY_ID = {leg.id: leg for leg in REGISTRY}
 if len(_BY_ID) != len(REGISTRY):
     raise ValueError("duplicate leg id in the registry")
@@ -239,3 +248,14 @@ def implementation(leg_id: str):
 
 def implementations() -> dict[str, Callable]:
     return dict(_IMPLEMENTATIONS)
+
+
+# Keep scenario loading lazy: this module is imported by scenarios themselves.
+def _ref_contract(ctx):
+    from scenarios.ref_contract import refs, windows
+    (windows if ctx.leg.id.endswith("_windows") else refs)(ctx)
+
+
+for _leg in REGISTRY:
+    if _leg.id.startswith("ref_contract."):
+        implementation(_leg.id)(_ref_contract)

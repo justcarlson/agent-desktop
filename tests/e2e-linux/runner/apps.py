@@ -31,7 +31,11 @@ ALIASES = {
     "Calculator": ("calculator",), "Files": ("nautilus", "files"),
     "Terminal": ("terminal",), "Text Editor": ("text-editor", "text editor"),
     "Settings": ("control-center", "settings"),
+    "Zoo GTK3": ("zoo gtk3", "zoo_gtk3.py"),
+    "Zoo GTK4": ("zoo gtk4", "zoo_gtk4.py"),
+    "Zoo Qt": ("zoo qt", "zoo_qt.py"),
 }
+ZOOS = {"Zoo GTK3": "zoo_gtk3", "Zoo GTK4": "zoo_gtk4", "Zoo Qt": "zoo_qt"}
 _TIERS = {}
 _SPAWNED = {}
 SHELL_HELPERS = frozenset({"gnome-shell", "mutter-x11-fram", "mutter-x11-frames"})
@@ -76,7 +80,8 @@ def _owners(tier: Tier, *, names: tuple[str, ...] | None = None) -> list[OwnedAp
             raise
         if names is not None and not any(needle in name.casefold() for needle in names):
             continue
-        frames = [child for child in node.children() if child.role in (16, 23, 69)]
+        frames = [child for child in node.children()
+                  if "org.a11y.atspi.Component" in child.interfaces()]
         result.append(OwnedApp(name, pid, start, [node.bus],
                                [window_id(frame) for frame in frames], env.get("DISPLAY", "")))
     return result
@@ -118,9 +123,19 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     with raw.bounded_until(time.monotonic() + settle_s):
         before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
     env = dict(tier.env)
-    if app.endswith("qt_window.py"):
+    if app in ZOOS:
+        slug = ZOOS[app]
+        app = str(Path(__file__).resolve().parents[1] / "apps" / (slug + ".py"))
+        event_log = Path(args[0]) if args else tier.runtime_dir / (slug.replace("_", "-") + ".log")
+        if event_log.exists():
+            event_log.unlink()
+        args = args or (str(event_log),)
+    if app.endswith(("qt_window.py", "zoo_qt.py")):
         command = [os.environ.get("AGENT_DESKTOP_QT_PYTHON", "python3"), app]
         env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1", QT_QPA_PLATFORM="xcb")
+    elif app.endswith(("zoo_gtk3.py", "zoo_gtk4.py")):
+        command = ["python3", app]
+        env["GTK_USE_PORTAL"] = "0"
     else:
         command = [COMMANDS.get(app, app)]
     if "code" in Path(command[0]).name:
