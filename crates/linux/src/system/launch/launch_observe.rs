@@ -3,18 +3,19 @@ use crate::system::launch::launch_step::Step;
 use std::collections::HashSet;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Child, ExitStatus};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId};
 
+use super::baseline::Baseline;
 use super::launch_attach::matches;
+use super::launch_handoff;
 use crate::system::SharedBus;
 use crate::system::process::running_app::Running;
 use crate::system::registry::Registry;
 
 pub(in crate::system) const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const POLL_LIMIT: Duration = Duration::from_millis(250);
-const EXIT_GRACE: Duration = Duration::from_millis(1_000);
 
 fn pick(mut found: Vec<&Running>) -> Option<Step> {
     match found.len() {
@@ -29,7 +30,7 @@ fn pick(mut found: Vec<&Running>) -> Option<Step> {
 /// absent before the spawn, else (when the launcher exited cleanly after
 /// forwarding) the one that was already running. A launcher killed by a signal
 /// or exiting with a failure and no owner is a failed launch, and a clean
-/// exit with no owner is one too once the registry had its grace.
+/// exit with no owner is one too at the launch deadline.
 pub(crate) fn step(sample: &Sample<'_>) -> Step {
     let candidates: Vec<&Running> = sample
         .apps
@@ -136,9 +137,15 @@ impl Drop for Spawned {
 fn failed(status: ExitStatus, identifier: &str) -> AdapterError {
     let (what, detail) = match status.code() {
         Some(code) => (
-            format!(
-                "'{identifier}' exited with status {code} without a verified application owner"
-            ),
+            if code == 0 {
+                format!(
+                    "'{identifier}' exited with status 0 but no running instance of the executable opened a window"
+                )
+            } else {
+                format!(
+                    "'{identifier}' exited with status {code} without a verified application owner"
+                )
+            },
             serde_json::json!({ "kind": "exited", "status": code }),
         ),
         None => {
@@ -176,21 +183,17 @@ fn after_spawn(error: AdapterError) -> AdapterError {
 /// Polls the registry until the launch has an owner, the launcher failed, or
 /// the deadline. A child that is alive with no registry entry at the deadline
 /// is reported as `NotOnBus`: the pid is the spawned process's.
-pub(crate) fn find_owner(
+pub(super) fn find_owner(
     bus: &SharedBus,
     spawned: &mut Spawned,
     identity: &Option<crate::system::process::executable_identity::ExecutableIdentity>,
-    before: &HashSet<agent_desktop_core::ProcessIdentity>,
+    before: &Baseline,
     deadline: Deadline,
 ) -> Result<Option<Running>, AdapterError> {
     let identifier = spawned.identifier.clone();
     let mut interval = POLL_INTERVAL;
-    let mut exited_at: Option<Instant> = None;
     loop {
         let child = spawned.state();
-        if child.is_some() {
-            exited_at.get_or_insert_with(Instant::now);
-        }
         let expired = deadline.is_expired();
         let registry = match crate::system::registry::read_processes(bus, deadline) {
             Ok(registry) => Some(registry),
@@ -203,16 +206,25 @@ pub(crate) fn find_owner(
             .transpose()
             .map_err(after_spawn)?
             .unwrap_or_default();
-        let settled = expired || exited_at.is_some_and(|at| at.elapsed() >= EXIT_GRACE);
         let sample = Sample {
             child_pid: spawned.pid,
             child,
             apps: &apps,
-            before,
+            before: &before.processes,
             identity,
-            settled,
+            settled: expired,
         };
-        match step(&sample) {
+        let mut next = step(&sample);
+        if let Some(status) = child
+            && status.success()
+            && matches!(next, Step::Wait | Step::Failed(_))
+        {
+            next = launch_handoff::observe(bus, before, &apps, deadline);
+            if next == Step::Wait && expired {
+                next = Step::Failed(status);
+            }
+        }
+        match next {
             Step::Owner(owner) => return Ok(Some(owner)),
             Step::Ambiguous(pids) => return Err(ambiguous(&pids, &identifier)),
             Step::Failed(status) => return Err(spawned.failure(status)),

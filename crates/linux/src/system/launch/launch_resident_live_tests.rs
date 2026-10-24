@@ -100,28 +100,31 @@ fn wait_for_no_listed_window(pid: u32) {
 
 #[test]
 #[ignore = "drives real applications; run through scripts/private-session.sh --wm"]
-fn live_a_forwarded_launch_without_matching_argv_does_not_claim_an_owner() {
+fn live_a_forwarded_launch_without_matching_argv_reports_the_residents_new_window() {
     let mut owned = Owned(Vec::new());
     let first = launch("nautilus", &options(&[])).expect("the first launch");
     let pid = owned.keep(first.pid.get());
     wait_until("the initial native window", || x_windows_of(pid).len() == 1);
     let before = x_windows_of(pid);
     assert_eq!(before.len(), 1);
-    let refusal = launch("nautilus", &options(&["--new-window"]))
-        .expect_err("different argv cannot establish the forwarded owner");
-    assert_eq!(refusal.code, ErrorCode::ActionFailed);
-    assert_eq!(
-        refusal.disposition,
-        agent_desktop_core::DeliverySemantics::delivered_unverified()
-    );
+    let known = crate::system::window::window_ops::windows_of_process(
+        &SharedBus::default(),
+        pid,
+        deadline(8_000),
+    )
+    .expect("the resident's original windows");
+    let mut forwarded = options(&["--new-window"]);
+    forwarded.activate = true;
+    let result = launch("nautilus", &forwarded).expect("a window proves the forwarded owner");
+    assert_eq!(result.pid.get(), pid);
+    let window = result.window.expect("the new window is reported");
+    assert!(!known.iter().any(|old| old.id == window.id));
     wait_until("native forwarding effect", || {
         x_windows_of(pid).len() > before.len()
     });
     let after = x_windows_of(pid);
     assert!(before.iter().all(|id| after.contains(id)));
-    println!(
-        "independent xprop: pid {pid} opened another window; the unproven argv handoff remains delivered_unverified"
-    );
+    println!("independent xprop: pid {pid} opened another window after forwarding");
 }
 
 #[test]

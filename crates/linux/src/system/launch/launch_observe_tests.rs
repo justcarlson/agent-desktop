@@ -195,4 +195,9 @@ fn a_launcher_that_exited_is_reported_under_the_name_the_caller_asked_for() {
             .message
             .contains("'gnome-calculator' exited with status 0")
     );
+    assert!(
+        error
+            .message
+            .contains("no running instance of the executable opened a window")
+    );
 }
