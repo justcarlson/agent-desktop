@@ -23,8 +23,13 @@ class GateTests(unittest.TestCase):
             name = "notifications::live_tests::one"
             manifest = directory / "manifest.json"
             shards = gate.plan([name], {name}, 3)
+            binary = directory / "libtest"
+            binary.write_bytes(b"frozen binary")
             gate.save(manifest, dict(tests=[name], ignored=[name], shards=shards,
-                                     binary_sha256="binary", source_sha256="source"))
+                                     binary=str(binary), artifacts={}, timeout=780,
+                                     selection=dict(modules=[], ignored_only=False),
+                                     binary_sha256=gate.hashlib.sha256(binary.read_bytes()).hexdigest(),
+                                     source_sha256=gate.source_hash()))
             for tier in gate.TIERS:
                 (directory / tier).mkdir()
                 gate.save(directory / tier / "summary.json", dict(passed=True))
@@ -33,6 +38,17 @@ class GateTests(unittest.TestCase):
                 gate.save(directory / "mutter/shard-0.json",
                           [dict(passed=True, results=[[name, "ok"]])])
                 self.assertTrue(gate.merge(manifest))
+            blocked = directory / "blocked"
+            blocked.write_text("a file cannot contain the session base")
+            for override in ("", str(blocked / "sessions")):
+                with self.subTest(override=override), \
+                     patch.dict(gate.os.environ, AGENT_DESKTOP_SESSION_BASE=override,
+                                XDG_RUNTIME_DIR=str(blocked)), \
+                     patch.object(gate.sys, "argv", ["linux-live-gate.py", "--merge",
+                                                    "--output", str(directory)]), \
+                     patch.object(gate.signal, "signal"), redirect_stdout(io.StringIO()):
+                    self.assertEqual(gate.main(), 0)
+                    self.assertTrue(json.loads((directory / "summary.json").read_text())["passed"])
 
     def test_targeted_selection_is_ignored_only_and_rejects_mistyped_modules(self):
         names = ["tree::focus::unit", "tree::focus::live", "tree::focus_other::live",
