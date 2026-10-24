@@ -4,6 +4,9 @@ use agent_desktop_core::{
     AdapterError, DeliverySemantics, ErrorCode, InteractionLease, WindowInfo,
 };
 
+#[cfg(target_os = "windows")]
+use crate::system::runtime::hresult;
+
 use crate::input::elevation::{
     activation_elevation_denied, current_process_integrity_rid, process_integrity_rid,
 };
@@ -223,7 +226,7 @@ fn restore_if_iconic(
             return Err(recycled_before_foreground());
         }
         if ShowWindowAsync(handle, SW_RESTORE) == 0 {
-            return Err(before_activation(super::hresult::win32_last_error(
+            return Err(before_activation(hresult::win32_last_error(
                 "ShowWindowAsync failed while restoring target",
             )));
         }
@@ -256,7 +259,7 @@ fn bring_to_foreground(
         }
         if IsWindowVisible(handle) == 0 {
             if ShowWindowAsync(handle, SW_SHOW) == 0 {
-                return Err(before_activation(super::hresult::win32_last_error(
+                return Err(before_activation(hresult::win32_last_error(
                     "ShowWindowAsync failed while showing target",
                 )));
             }

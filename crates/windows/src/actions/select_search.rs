@@ -187,7 +187,7 @@ mod imp {
         visited: usize,
         stack: &mut Vec<(UIAElement, u8)>,
     ) -> Result<(), AdapterError> {
-        ensure_budget(deadline)?;
+        deadline.ensure_remaining()?;
         let mut child = match source.first_child(parent) {
             Ok(child) => Some(child),
             Err(failure) if failure.is_exhaustion() => None,
@@ -200,7 +200,7 @@ mod imp {
             if !select_node_budget_has_room(visited, stack.len(), siblings.len()) {
                 return Err(node_budget_error());
             }
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
             let next = match source.next_sibling(&current) {
                 Ok(next) => Some(next),
                 Err(failure) if failure.is_exhaustion() => None,

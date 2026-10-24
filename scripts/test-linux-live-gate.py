@@ -5,11 +5,14 @@ from contextlib import redirect_stdout
 import importlib.util
 import io
 import json
+import sys
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 spec = importlib.util.spec_from_file_location("gate", Path(__file__).with_name("linux-live-gate.py"))
 gate = importlib.util.module_from_spec(spec)
