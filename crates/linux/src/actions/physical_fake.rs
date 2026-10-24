@@ -9,10 +9,10 @@ use agent_desktop_core::{
 use crate::input::backend::Backend;
 use crate::input::delivery::Delivery;
 use crate::input::delivery::Gate;
-use crate::input::keymap::Keymap;
-use crate::input::keysym_step::KeysymStep;
+use crate::input::keyboard::keymap::Keymap;
+use crate::input::keyboard::keysym_step::KeysymStep;
+use crate::input::physical::target_world::PhysicalWorld;
 use crate::input::plan::Plan;
-use crate::input::target_world::PhysicalWorld;
 use crate::tree::AtspiElement;
 
 pub(crate) struct FakeWorld {
@@ -168,7 +168,7 @@ impl PhysicalWorld for FakeWorld {
             return result;
         }
         match &self.clip {
-            Some(placed) => crate::input::physical_aim::validate(
+            Some(placed) => crate::input::physical::physical_aim::validate(
                 point,
                 placed,
                 element.scroll_container().is_some(),
@@ -185,7 +185,7 @@ impl PhysicalWorld for FakeWorld {
         count: u32,
     ) -> Result<Plan, AdapterError> {
         self.note(format!("plan_click {},{} {button:?} {count}", at.x, at.y));
-        crate::input::pointer_plan::plan_click(map, at, button, count, &[])
+        crate::input::mouse::pointer_plan::plan_click(map, at, button, count, &[])
     }
 
     fn send_plans(

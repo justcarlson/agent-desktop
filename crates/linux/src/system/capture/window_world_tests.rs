@@ -7,8 +7,8 @@ use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ErrorCode, WindowI
 use crate::system::capture::window_context::WindowLookup;
 use crate::system::capture::window_xid::XidOutcome;
 use crate::system::x11::X11State;
-use crate::system::x11::stacking_read::StackingRead;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_read::StackingRead;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 
 pub(crate) struct Seq<T> {
     items: Mutex<(Vec<T>, usize)>,

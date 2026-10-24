@@ -3,8 +3,8 @@ use agent_desktop_core::{DeliverySemantics, ErrorCode};
 use super::*;
 use crate::system::capture::window::fakes::*;
 use crate::system::capture::window_xid::XidOutcome;
-use crate::system::x11::grab_error::GrabError;
-use crate::system::x11::stacking_read::StackingRead;
+use crate::system::x11::capture::grab_error::GrabError;
+use crate::system::x11::stacking::stacking_read::StackingRead;
 
 fn x11() -> Route {
     Route::X11(":0".to_owned())

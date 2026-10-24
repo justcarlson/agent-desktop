@@ -195,7 +195,10 @@ fn nothing_is_written_outside_the_surface() {
         ACCENT,
     );
 
-    assert_eq!(surface.pixels.len(), 24 * 24);
+    assert!(
+        surface.pixels.iter().all(|pixel| *pixel == 0),
+        "both targets lie wholly off the surface, so any lit pixel is a clamp defect"
+    );
 }
 
 /// The glyph as it was drawn before the origin and the scale were bundled:

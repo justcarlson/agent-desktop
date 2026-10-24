@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{
-    AdapterError, Deadline, ErrorCode, ProcessId, launch_options::LaunchOptions,
-    launch_result::LaunchResult,
+    AdapterError, Deadline, ErrorCode, ProcessId, system::launch_options::LaunchOptions,
+    system::launch_result::LaunchResult,
 };
 
 use super::super::app_ops::{ProcessRow, process_snapshot};

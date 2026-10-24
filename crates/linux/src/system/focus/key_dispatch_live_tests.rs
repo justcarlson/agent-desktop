@@ -10,7 +10,7 @@ use super::key_dispatch::press_key_for_app;
 use crate::system::interaction::interaction_lease::acquire;
 use crate::system::process::process_facts;
 use crate::system::{SharedBus, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 

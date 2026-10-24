@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import os
 import re
 import subprocess
@@ -12,24 +14,18 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-REPO = ROOT.parent.parent
 
 from runner import gate, legs, main, report
 from runner.legs import REGISTRY, Leg
 
 
-def contract_violations(registry, implementations, phases_text):
+def contract_violations(registry, implementations):
     problems = []
     ids = {leg.id for leg in registry}
     for leg_id in sorted(ids - set(implementations)):
         problems.append(f"no implementation registered for {leg_id}")
     for leg_id in sorted(set(implementations) - ids):
         problems.append(f"implementation registered for unregistered leg {leg_id}")
-    for leg in registry:
-        if leg.disposition == "owner-decision" and leg.id not in phases_text:
-            problems.append(
-                f"owner-decision leg {leg.id} is not named in the product contract"
-            )
     return problems
 
 
@@ -46,19 +42,19 @@ def make_binary(root: Path, body: str) -> Path:
 class RegistryContractTests(unittest.TestCase):
     def test_every_registry_leg_has_an_implementation(self):
         importlib.import_module("scenarios")
-        problems = contract_violations(
-            REGISTRY, legs.implementations(), (REPO / "docs" / "phases.md").read_text()
-        )
+        self.assertTrue(REGISTRY)
+        self.assertTrue(legs.implementations())
+        problems = contract_violations(REGISTRY, legs.implementations())
         self.assertEqual(problems, [])
 
     def test_unimplemented_record_is_a_violation(self):
-        problems = contract_violations(REGISTRY[:1], {}, "")
+        problems = contract_violations(REGISTRY[:1], {})
         self.assertEqual(len(problems), 1)
         self.assertIn("no implementation", problems[0])
 
     def test_unregistered_implementation_is_a_violation(self):
         problems = contract_violations(
-            REGISTRY[:1], {REGISTRY[0].id: lambda ctx: None, "phantom.id": lambda ctx: None}, ""
+            REGISTRY[:1], {REGISTRY[0].id: lambda ctx: None, "phantom.id": lambda ctx: None}
         )
         self.assertTrue(any("unregistered leg phantom.id" in p for p in problems))
 
@@ -74,8 +70,8 @@ class RegistryContractTests(unittest.TestCase):
                 disposition="pass",
             )
 
-    def test_owner_decision_must_be_named_in_the_product_contract(self):
-        leg = Leg(
+    def test_owner_decision_without_a_reason_fails_construction(self):
+        fields = dict(
             id="owner.case",
             requirement="r",
             target="t",
@@ -83,17 +79,11 @@ class RegistryContractTests(unittest.TestCase):
             modes=("headless",),
             oracles=("atspi",),
             disposition="owner-decision",
-            reason="the owner chose this",
         )
-        impls = {"owner.case": lambda ctx: None}
-        self.assertEqual(contract_violations((), impls, ""), [
-            "implementation registered for unregistered leg owner.case"
-        ])
-        problems = contract_violations((leg,), impls, "")
-        self.assertEqual(len(problems), 1)
-        self.assertIn("owner.case", problems[0])
-        phases_text = f"the ledger records {leg.id} as an owner decision"
-        self.assertEqual(contract_violations((leg,), impls, phases_text), [])
+        with self.assertRaises(ValueError):
+            Leg(reason="", **fields)
+        leg = Leg(reason="the owner chose this", **fields)
+        self.assertEqual(leg.disposition, "owner-decision")
 
 
 class GateTests(unittest.TestCase):
@@ -146,16 +136,39 @@ class GateTests(unittest.TestCase):
                     )
                     self.assertEqual(missing, [])
 
-    def test_gate_failure_maps_to_exit_two(self):
-        self.assertEqual(report.exit_code(0, True), 2)
+    def test_session_base_defaults_and_overrides(self):
+        cases = (
+            ({}, Path("/tmp/agent-desktop-sessions-1234")),
+            ({"XDG_RUNTIME_DIR": ""}, Path("/tmp/agent-desktop-sessions-1234")),
+            ({"AGENT_DESKTOP_SESSION_BASE": ""}, Path("/tmp/agent-desktop-sessions-1234")),
+            ({"XDG_RUNTIME_DIR": "/runtime"}, Path("/runtime/agent-desktop-sessions")),
+            ({"AGENT_DESKTOP_SESSION_BASE": "", "XDG_RUNTIME_DIR": "/runtime"},
+             Path("/runtime/agent-desktop-sessions")),
+            ({"AGENT_DESKTOP_SESSION_BASE": "/custom", "XDG_RUNTIME_DIR": "/runtime"},
+             Path("/custom")),
+            ({"AGENT_DESKTOP_SESSION_BASE": "/custom"}, Path("/custom")),
+        )
+        for env, expected in cases:
+            with self.subTest(env=env), mock.patch.object(Path, "mkdir", autospec=True) as mkdir, \
+                    mock.patch.object(os, "getuid", return_value=1234):
+                gate.check_prerequisites(
+                    ("x11-mutter",), env=env, platform="linux",
+                    which=lambda tool: f"/usr/bin/{tool}", gi_probe=lambda: None,
+                )
+                mkdir.assert_called_once_with(expected, mode=0o700, parents=True, exist_ok=True)
 
-    def test_run_without_session_exits_two(self):
-        with tempfile.TemporaryDirectory() as root:
-            with mock.patch.dict(
-                os.environ, {"AGENT_DESKTOP_E2E_LOCK_ROOT": root}
-            ):
-                code = main.main(["--tier", "x11-openbox"])
+    def test_run_without_interaction_lease_exits_two_before_the_gate(self):
+        environment = {name: value for name, value in os.environ.items()
+                       if name not in (main.LOCK_ROOT_ENV, main.LEASE_FD_ENV)}
+        stderr = io.StringIO()
+        with mock.patch.dict(os.environ, environment, clear=True), \
+            mock.patch.object(gate, "check_prerequisites",
+                              side_effect=AssertionError("the gate ran without a lease")), \
+            contextlib.redirect_stderr(stderr):
+            code = main.main(["--tier", "x11-openbox"])
         self.assertEqual(code, 2)
+        self.assertEqual(stderr.getvalue().strip(),
+                         "gate: run through run.sh so the interaction lease is held")
 
     def test_incompatible_leg_and_tier_is_rejected_before_startup(self):
         with mock.patch.object(main, "_acquire_lease", return_value=None), \

@@ -15,18 +15,18 @@ use crate::system::process::{proc_stat, process_facts};
 use crate::system::registry::toolkit;
 use crate::system::window::window_client::ClientWorld;
 use crate::system::window::window_filter::frame_state;
-use crate::system::x11::activate::active_window_within;
-use crate::system::x11::activate_error::ActivateError;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::control_send::activate_window;
-use crate::system::x11::stacking_read::StackingRead;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::control::activate::active_window_within;
+use crate::system::x11::control::activate_error::ActivateError;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::control::control_send::activate_window;
+use crate::system::x11::stacking::stacking_read::StackingRead;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::Twins;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window::window_id};
-use crate::tree::role_numbers::DIALOG;
-use crate::tree::state_bits::{ACTIVE, StateBits};
-use crate::tree::twin_frames::read_twins;
+use crate::tree::surfaces::twin_frames::read_twins;
+use crate::tree::vocabulary::role_numbers::DIALOG;
+use crate::tree::vocabulary::state_bits::{ACTIVE, StateBits};
 use crate::tree::{AtspiElement, list_children, read_node};
 
 #[path = "focus_send.rs"]

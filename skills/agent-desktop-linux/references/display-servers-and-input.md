@@ -48,8 +48,8 @@ synthetic pointer path moves the user's real cursor.
   partial-delivery refusals never fall back.
 - On Wayland the CLI's pointer gate runs before that fallback: ordinary-app
   headed pointer commands are refused at once with `ACTION_NOT_SUPPORTED`, cause
-  `wayland_session` and `physical_delivery_started: false` (measured for
-  `click`, `hover`, `double-click`, `mouse-wheel`, `mouse-down` and `select`). A
+  `wayland_session` and `physical_delivery_started: false` (`click`, `hover`,
+  `double-click`, `mouse-wheel`, `mouse-down` and `select` included). A
   headed `type` sends keys through `RemoteDesktop.type_text` once the Mutter
   capability probe succeeds.
 - Windows works the other way round (semantic first); do not carry that
@@ -187,9 +187,9 @@ its own. Ending a session releases its held keys.
   session skips the lead tap.
 - **Characters.** Only printable ASCII, function, modifier and vendor keysyms;
   anything else is `ACTION_NOT_SUPPORTED`, cause `character_outside_layout`.
-  Set the value directly with `set-value` instead. The rule was measured on a US
-  layout, so a character your keymap holds can be refused. A refusal is safe:
-  nothing was sent.
+  Set the value directly with `set-value` instead. On a non-US layout, a
+  character your keymap holds can still be refused. A refusal is safe: nothing
+  was sent.
 - **App pointer.** AT-SPI gives no global window origin on Wayland, so ordinary
   app pointer commands cannot be aimed (see Headed and headless above). GNOME
   Shell ref clicks and popup openers refuse too; see
@@ -237,8 +237,7 @@ releases. The dwell is deliberate: a hovered folder or drop target can open
 under the pointer, and any later motion lands inside it and copies instead of
 moving. The default duration is 300 ms; the minimum is 100 ms, and a shorter
 `--duration` is `INVALID_ARGS`, `not_delivered`, because a toolkit such as GTK
-needs several motion events to start a drag (Files and a GTK3 drop target both
-ignored a 0 ms or 30 ms gesture and accepted 60 ms and up). The default drop
+needs several motion events to start a drag. The default drop
 delay on Linux is 150 ms; set `--drop-delay` only to give a slow drop target
 time to arm. The result reports the gesture, not the outcome: check the effect
 (a file moved, a list changed) with a fresh `snapshot`.
@@ -251,11 +250,3 @@ that display releases what a killed process left before it sends its own events.
 If a button seems stuck after you killed a command, run any input command
 with valid arguments, such as `agent-desktop --headed mouse-move --xy 640,400`,
 to release it before the new input.
-
-## Held input
-
-`key-down` and `key-up` fail closed with `ACTION_NOT_SUPPORTED`,
-`delivery: unknown`. `mouse-down` and `mouse-up` without `--headed` fail with
-`POLICY_DENIED` and `not_delivered`; with `--headed` they fail with
-`ACTION_NOT_SUPPORTED`. No event is sent. Use `press` with modifiers
-(`ctrl+shift+a`) and `drag`.

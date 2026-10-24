@@ -2,12 +2,12 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     Action, AdapterError, ErrorCode, KeyCombo,
-    action_request::ActionRequest,
-    action_result::ActionResult,
+    actions::action_request::ActionRequest,
+    actions::action_result::ActionResult,
     adapter::NativeHandle,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -90,9 +90,9 @@ impl ObservationOps for StaleThenOkAdapter {
         "textfield",
         "Target",
         [
-            crate::capability::CLICK,
-            crate::capability::PRESS_KEY,
-            crate::capability::SET_VALUE
+            crate::actions::capability::CLICK,
+            crate::actions::capability::PRESS_KEY,
+            crate::actions::capability::SET_VALUE
         ]
     );
 }
@@ -138,9 +138,9 @@ impl ObservationOps for PolicyCaptureAdapter {
         "textfield",
         "Target",
         [
-            crate::capability::CLICK,
-            crate::capability::PRESS_KEY,
-            crate::capability::SET_VALUE
+            crate::actions::capability::CLICK,
+            crate::actions::capability::PRESS_KEY,
+            crate::actions::capability::SET_VALUE
         ],
         adapter => crate::ElementState {
             role: "textfield".into(),

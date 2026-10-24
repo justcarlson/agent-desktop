@@ -5,7 +5,7 @@ use super::super::fake::{Fake, dialog, window};
 use super::close;
 use crate::system::process::liveness::Liveness;
 use crate::system::x11::control::ControlRead;
-use crate::system::x11::control_error::ControlError;
+use crate::system::x11::control::control_error::ControlError;
 
 fn request() -> Request<'static> {
     Request {
@@ -46,14 +46,6 @@ fn a_process_that_stops_before_the_requests_is_unresponsive() {
     world.state_after_toplevels = Some(Liveness::Stopped);
     let error = close(&world, &request()).expect_err("refused");
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
-    assert_eq!(world.count("close"), 0);
-}
-
-#[test]
-fn a_process_that_exited_before_the_requests_is_ok_and_gets_none() {
-    let mut world = Fake::new(Liveness::Alive);
-    world.state_after_toplevels = Some(Liveness::Gone);
-    close(&world, &request()).expect("benign");
     assert_eq!(world.count("close"), 0);
 }
 

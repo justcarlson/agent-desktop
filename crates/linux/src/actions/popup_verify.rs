@@ -4,8 +4,8 @@ use crate::system::focus::focus_cause::Cause;
 use crate::system::menu::menu_surface::roots_below;
 use crate::system::menu::overview::overview_open;
 use crate::tree::AtspiElement;
-use crate::tree::action_read::{NodeView, read_node_view};
-use crate::tree::role_numbers::{PUSH_BUTTON, PUSH_BUTTON_MENU, TOGGLE_BUTTON};
+use crate::tree::capabilities::action_read::{NodeView, read_node_view};
+use crate::tree::vocabulary::role_numbers::{PUSH_BUTTON, PUSH_BUTTON_MENU, TOGGLE_BUTTON};
 use agent_desktop_core::{ActionResult, AdapterError, DeliverySemantics, ErrorCode};
 
 fn opener(target: &Target<'_>, view: &NodeView) -> Result<Option<AtspiElement>, AdapterError> {
@@ -21,7 +21,10 @@ fn opener(target: &Target<'_>, view: &NodeView) -> Result<Option<AtspiElement>, 
     let handle = parent.clone().into_native_handle();
     let view = read_node_view(target.bus, &handle, target.deadline)
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))?;
-    if view.state(crate::tree::state_bits::HAS_POPUP).is_none() {
+    if view
+        .state(crate::tree::vocabulary::state_bits::HAS_POPUP)
+        .is_none()
+    {
         return Err(AdapterError::new(
             ErrorCode::ActionFailed,
             "The parent button's popup capability could not be read",

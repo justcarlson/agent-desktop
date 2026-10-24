@@ -2,8 +2,8 @@ use crate::system::capture::capture_env::CaptureEnv;
 use agent_desktop_core::{AdapterError, Deadline, DisplayInfo, ImageBuffer, WindowInfo};
 
 use super::window_xid::XidOutcome;
-use crate::system::x11::grab::Raw;
-use crate::system::x11::grab_error::GrabError;
+use crate::system::x11::capture::grab::Raw;
+use crate::system::x11::capture::grab_error::GrabError;
 
 /// The listings a capture re-reads around a grab: the strictly resolved
 /// window, the X11 window it maps to, and the displays.

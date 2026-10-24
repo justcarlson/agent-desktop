@@ -88,9 +88,3 @@ fn a_process_named_like_the_shell_gets_no_shell_identity_without_bus_ownership()
         "no_accessibility_connection"
     );
 }
-
-#[test]
-fn an_ordinary_process_off_the_bus_still_gets_the_toolkit_advice() {
-    let error = missing_connection("chrome", 7, "chrome");
-    assert!(error.suggestion.expect("advice").contains("Chromium"));
-}

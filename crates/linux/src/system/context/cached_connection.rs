@@ -28,7 +28,7 @@ pub(crate) fn get(
     deadline: Deadline,
     open: impl FnOnce(bool) -> Result<Connection, AdapterError>,
 ) -> Result<Connection, AdapterError> {
-    crate::system::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let scope = environment();
     let mut held = slot.lock().unwrap_or_else(PoisonError::into_inner);
     if held
@@ -48,7 +48,7 @@ pub(crate) fn get(
     }
     drop(held);
     let connection = open(reconnect)?;
-    crate::system::ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let mut held = slot.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(cached) = held.as_ref()
         && cached.environment == scope

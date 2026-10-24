@@ -3,7 +3,7 @@ use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use super::display::grab_rect;
 use super::window_context::grab_failure;
 use crate::system::capture::capture_env::CaptureEnv;
-use crate::system::x11::grab::Raw;
+use crate::system::x11::capture::grab::Raw;
 use crate::tree::Extents;
 
 /// The drawable id a grab names to mean the screen's root window.

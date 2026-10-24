@@ -7,7 +7,7 @@ pub(crate) use super::menu_popup::MenuFamily;
 use super::menu_popup::{self, Node};
 use crate::system::{SharedBus, window::window_id};
 use crate::tree::AtspiElement;
-use crate::tree::menu_context::MenuContext;
+use crate::tree::menu::menu_context::MenuContext;
 
 pub(crate) struct MenuPopup {
     pub(crate) root: AtspiElement,
@@ -166,13 +166,13 @@ pub(crate) fn roots_below(
     opener: &AtspiElement,
     deadline: Deadline,
 ) -> Option<Vec<AtspiElement>> {
-    use crate::tree::observe_menu::{rooted, scan_walk_pruned};
+    use crate::tree::menu::observe_menu::{rooted, scan_walk_pruned};
     let tree = scan_walk_pruned(bus, &rooted(opener), 500, deadline).ok()?;
     roots_in_tree(&tree)
 }
 
 fn roots_in_tree(tree: &Node) -> Option<Vec<AtspiElement>> {
-    use crate::tree::observe_menu::is_cut_short_beyond_pruning;
+    use crate::tree::menu::observe_menu::is_cut_short_beyond_pruning;
     if is_cut_short_beyond_pruning(tree) || !popup_read_complete(tree) {
         return None;
     }
@@ -186,7 +186,7 @@ fn roots_in_tree(tree: &Node) -> Option<Vec<AtspiElement>> {
 
 pub(super) fn popup_read_complete(node: &Node) -> bool {
     if node.in_web_document
-        || crate::tree::role_numbers::is_web_document(
+        || crate::tree::vocabulary::role_numbers::is_web_document(
             node.payload.node.traits.role.present().copied(),
         )
     {

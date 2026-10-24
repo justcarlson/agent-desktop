@@ -11,7 +11,7 @@ use crate::system::capture::{display, png_encode::encode_png, window};
 use crate::system::display::route::{Route, current};
 use crate::system::overlay::cursor_overlay;
 use crate::system::x11::DisplayReader;
-use crate::system::x11::grab::DisplayGrabber;
+use crate::system::x11::capture::grab::DisplayGrabber;
 
 fn not_delivered(error: AdapterError) -> AdapterError {
     if error.disposition == DeliverySemantics::Unknown {

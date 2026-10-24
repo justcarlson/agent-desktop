@@ -23,8 +23,13 @@ class GateTests(unittest.TestCase):
             name = "notifications::live_tests::one"
             manifest = directory / "manifest.json"
             shards = gate.plan([name], {name}, 3)
+            binary = directory / "libtest"
+            binary.write_bytes(b"frozen binary")
             gate.save(manifest, dict(tests=[name], ignored=[name], shards=shards,
-                                     binary_sha256="binary", source_sha256="source"))
+                                     binary=str(binary), artifacts={}, timeout=780,
+                                     selection=dict(modules=[], ignored_only=False),
+                                     binary_sha256=gate.hashlib.sha256(binary.read_bytes()).hexdigest(),
+                                     source_sha256=gate.source_hash()))
             for tier in gate.TIERS:
                 (directory / tier).mkdir()
                 gate.save(directory / tier / "summary.json", dict(passed=True))
@@ -33,6 +38,17 @@ class GateTests(unittest.TestCase):
                 gate.save(directory / "mutter/shard-0.json",
                           [dict(passed=True, results=[[name, "ok"]])])
                 self.assertTrue(gate.merge(manifest))
+            blocked = directory / "blocked"
+            blocked.write_text("a file cannot contain the session base")
+            for override in ("", str(blocked / "sessions")):
+                with self.subTest(override=override), \
+                     patch.dict(gate.os.environ, AGENT_DESKTOP_SESSION_BASE=override,
+                                XDG_RUNTIME_DIR=str(blocked)), \
+                     patch.object(gate.sys, "argv", ["linux-live-gate.py", "--merge",
+                                                    "--output", str(directory)]), \
+                     patch.object(gate.signal, "signal"), redirect_stdout(io.StringIO()):
+                    self.assertEqual(gate.main(), 0)
+                    self.assertTrue(json.loads((directory / "summary.json").read_text())["passed"])
 
     def test_targeted_selection_is_ignored_only_and_rejects_mistyped_modules(self):
         names = ["tree::focus::unit", "tree::focus::live", "tree::focus_other::live",
@@ -45,7 +61,8 @@ class GateTests(unittest.TestCase):
 
     def test_private_services_get_their_own_session(self):
         cases = (
-            "input::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+            "input::physical::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+            "input::physical::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
         )
         for name in cases:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
@@ -67,10 +84,10 @@ class GateTests(unittest.TestCase):
 
     def test_global_lease_consumers_share_one_writer_while_reads_run_elsewhere(self):
         writers = ["system::interaction::interaction_lease::tests::unit", "actions::dispatch_tests::unit",
-                   "actions::live_widget_tests::live", "tree::physical_live_tests::live",
+                   "actions::live::live_widget_tests::live", "tree::live::physical_live_tests::live",
                    "system::focus::focus_window_live_tests::live",
-                   "tree::resolve_source::action_live_tests::live"]
-        readers = ["tree::resolve_live_tests::live", "tree::qt_live_tests::live",
+                   "tree::resolve::resolve_source::action_live_tests::live"]
+        readers = ["tree::live::resolve_live_tests::live", "tree::live::qt_live_tests::live",
                    "system::capture::capture_live_tests::live"]
         names = writers + readers
         ignored = set(names[2:])
@@ -86,7 +103,7 @@ class GateTests(unittest.TestCase):
     def test_partition_keeps_every_case_on_each_applicable_tier(self):
         wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
                    "system::process::protected::live_tests::a_native_wayland_application_is_cleared_by_its_tree_and_a_windowless_one_is_not",
-                   "input::wayland::live_tests::reply_loss::case",
+                   "input::physical::wayland::live_tests::reply_loss::case",
                    "system::shell::live_wayland_tests::native_case"]
         mutter = ["notifications::live_tests::case",
                   "system::shell::outage_live_tests::case"]

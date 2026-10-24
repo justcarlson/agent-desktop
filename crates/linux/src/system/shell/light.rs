@@ -4,8 +4,8 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use crate::system::{ACCESSIBLE_INTERFACE, PROPERTIES_INTERFACE, SharedBus, within};
-use crate::tree::absence::UNKNOWN_OBJECT;
-use crate::tree::state_bits::{SHOWING, StateBits, VISIBLE};
+use crate::tree::properties::absence::UNKNOWN_OBJECT;
+use crate::tree::vocabulary::state_bits::{SHOWING, StateBits, VISIBLE};
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, Extents, list_children};
 
 const SCREEN_COORDINATES: u32 = 0;

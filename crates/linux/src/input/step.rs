@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use super::keymap_edit::KeymapEdit;
+use super::keyboard::keymap_edit::KeymapEdit;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Step {

@@ -4,7 +4,7 @@ use super::focus_window::FocusWorld;
 use super::focus_window::lift_live_tests::{deadline, focus, spawn_with, xid_of, xprop};
 use super::focus_world::LiveWorld;
 use crate::system::SharedBus;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 fn active() -> u32 {
     let text = xprop(&["-root", "_NET_ACTIVE_WINDOW"]);

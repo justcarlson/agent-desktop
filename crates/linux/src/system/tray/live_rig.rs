@@ -10,7 +10,7 @@ use super::tray_item::TrayItem;
 use super::view::TrayView;
 use super::{TrayTarget, identity, read};
 use crate::LinuxAdapter;
-use crate::tree::test_support::ref_entry;
+use crate::tree::live::test_support::ref_entry;
 
 pub(super) fn deadline(ms: u64) -> Deadline {
     Deadline::after(ms).expect("a deadline builds")

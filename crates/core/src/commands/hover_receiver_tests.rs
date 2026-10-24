@@ -7,7 +7,6 @@ fn unproven_pointer_receiver_refuses_once_before_any_move() {
         let snapshot_id = ref_snapshot(42);
         let adapter = HoverCaptureAdapter::new().refusing_receiver();
 
-        let started = std::time::Instant::now();
         let error = execute(
             HoverArgs {
                 ref_id: Some(format!("@{}:e1", snapshot_id)),
@@ -25,7 +24,7 @@ fn unproven_pointer_receiver_refuses_once_before_any_move() {
         };
         assert_eq!(error.code, crate::ErrorCode::ActionFailed);
         assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
-        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        assert_eq!(adapter.receiver_checks.load(Ordering::SeqCst), 1);
         assert!(adapter.moved_to.lock().unwrap().is_none());
     }
 }

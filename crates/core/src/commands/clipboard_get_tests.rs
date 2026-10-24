@@ -1,7 +1,7 @@
 use super::*;
 use crate::AdapterError;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
-use crate::refs_test_support::HomeGuard;
+use crate::refs::refs_test_support::HomeGuard;
 use std::sync::Mutex;
 
 #[path = "clipboard_get_output_tests.rs"]

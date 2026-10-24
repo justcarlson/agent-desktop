@@ -5,11 +5,11 @@ use agent_desktop_core::{
 use serde_json::json;
 
 use crate::input::backend::Backend;
-use crate::input::target_keyboard::press_for_process;
-use crate::input::target_world::{LiveWorld, PhysicalWorld};
+use crate::input::physical::target_keyboard::press_for_process;
+use crate::input::physical::target_world::{LiveWorld, PhysicalWorld};
 use crate::system::process::process_lookup::Lookup;
 use crate::system::window::window_ops::windows_of_process;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{
     SharedBus, listed_app_name,

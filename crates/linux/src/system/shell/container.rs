@@ -10,7 +10,7 @@ use super::located::Located;
 use super::search::{Visit, walk};
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
-use crate::tree::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
+use crate::tree::vocabulary::role_numbers::{LABEL, PUSH_BUTTON, TOGGLE_BUTTON};
 
 pub(crate) const MENU: u32 = 33;
 

@@ -7,14 +7,14 @@ use agent_desktop_core::{
 
 use super::window_op::window_op;
 use crate::system::interaction::interaction_lease::acquire;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::control::control_send::{WindowWrite, write_window};
 use crate::system::x11::control::manager_name;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::control_send::{WindowWrite, write_window};
 
 #[path = "window_owner_live_tests.rs"]
 mod owner;
 use crate::system::{SharedBus, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 #[path = "window_op_live_env_tests.rs"]
 mod environment;
@@ -284,25 +284,25 @@ fn manager() -> String {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_gtk3() {
     exercise("gtk3", &manager());
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_gtk4() {
     exercise("gtk4", &manager());
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_qt() {
     exercise("qt", &manager());
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_a_destroyed_window_is_bad_window_and_not_success() {
     let bus = SharedBus::default();
     let mut launched = Launched::new();
@@ -344,7 +344,7 @@ fn window_op_live_a_destroyed_window_is_bad_window_and_not_success() {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_a_restore_of_a_minimized_window_works_every_time() {
     let manager = manager();
     for kind in ["gtk3", "gtk4", "qt"] {

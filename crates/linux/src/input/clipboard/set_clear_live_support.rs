@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{ClipboardContent, ClipboardFormat, Deadline, InputOps, InteractionLease};
 
 use crate::LinuxAdapter;
-use crate::input::clipboard::owner_locate::HELPER_NAME;
-use crate::input::clipboard::owner_record::{self, OwnerRecord};
+use crate::input::clipboard::owner::owner_locate::HELPER_NAME;
+use crate::input::clipboard::owner::owner_record::{self, OwnerRecord};
 
 static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 

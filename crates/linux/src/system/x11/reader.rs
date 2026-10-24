@@ -3,10 +3,10 @@ use x11rb::protocol::xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, M
 use x11rb::rust_connection::RustConnection;
 
 use super::control_display::property;
-use super::popup_window::PopupWindow;
 use super::snapshot::{decode_cardinals, decode_frame_extents, decode_shadow, decode_title};
+use super::stacking::stacking_read::StackingRead;
 use super::stacking::{bounded, capped, route};
-use super::stacking_read::StackingRead;
+use super::window::popup_window::PopupWindow;
 use super::{X11Client, X11Source, X11State};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::tree::Extents;
@@ -41,14 +41,14 @@ impl DisplayReader {
     }
 }
 
-impl super::stacking_source::StackingSource for DisplayReader {
+impl super::stacking::stacking_source::StackingSource for DisplayReader {
     fn read_within(&self, target_client: u32, caller: Deadline) -> StackingRead {
         route(session_server(), |display| {
             let Some(deadline) = capped(caller) else {
                 return StackingRead::Unavailable;
             };
             bounded(deadline, StackingRead::Unavailable, move || {
-                super::stacking_wire::read_stacking(&display, target_client)
+                super::stacking::stacking_wire::read_stacking(&display, target_client)
             })
         })
     }
@@ -167,12 +167,12 @@ fn matching_popup(popups: &[PopupWindow], screen: Extents, window: Extents) -> O
         .iter()
         .copied()
         .filter(|popup| {
-            crate::tree::frame_geometry::origins_agree(
+            crate::tree::placement::frame_geometry::origins_agree(
                 screen,
                 window,
                 (popup.bounds.x, popup.bounds.y),
-            ) && crate::tree::hit_guard::aimable(screen)
-                && crate::tree::hit_guard::aimable(window)
+            ) && crate::tree::hit_test::hit_guard::aimable(screen)
+                && crate::tree::hit_test::hit_guard::aimable(window)
                 && (screen.width, screen.height) == (window.width, window.height)
                 && window.x >= 0
                 && window.y >= 0

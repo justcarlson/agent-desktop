@@ -15,7 +15,7 @@ use super::worker::{self, ABORT_SUGGESTION, Link, Report};
 use super::worker_slot::{self, WorkerSlot};
 use super::xtest_sink::XtestSink;
 use crate::input::delivery::{Delivery, Gate};
-use crate::input::keymap::Keymap;
+use crate::input::keyboard::keymap::Keymap;
 use crate::input::plan::Plan;
 use crate::input::release_state::ReleaseState;
 
@@ -190,6 +190,10 @@ mod tests;
 #[cfg(test)]
 #[path = "session_lease_tests.rs"]
 mod lease_tests;
+
+#[cfg(test)]
+#[path = "session_planning_tests.rs"]
+mod planning_tests;
 
 #[cfg(test)]
 #[path = "session_cancel_tests.rs"]

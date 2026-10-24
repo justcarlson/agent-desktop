@@ -17,9 +17,9 @@
 # skills/. The skill docs are `include_str!`d into the binary
 # (crates/core/src/commands/skills.rs), so a plan id written there is served
 # to an agent by `agent-desktop skills` exactly as if it had been typed into
-# a .rs file. It deliberately does NOT cover docs/ or probes/: docs/phases.md
-# IS the delivery plan, and the probe corpus is evidence organised by the
-# areas that produced it.
+# a .rs file. It deliberately does NOT cover docs/ or probes/: delivery plans
+# live outside the repository, and the probe corpus is evidence organised by
+# the areas that produced it.
 #
 # Ledger row ids such as A15-7 are NOT banned. They are evidence citations - a
 # pointer to the measurement that forced a decision, the way a comment may cite

@@ -3,7 +3,7 @@ use agent_desktop_core::{
     Point, StepMechanism,
 };
 
-use crate::input::target_pointer::click_shell;
+use crate::input::physical::target_pointer::click_shell;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 

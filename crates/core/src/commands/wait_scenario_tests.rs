@@ -8,9 +8,9 @@ struct TextlessTreeAdapter;
 impl ObservationOps for TextlessTreeAdapter {
     fn observe_tree(
         &self,
-        root: crate::live_locator::ObservationRoot<'_>,
-        _request: &crate::live_locator::ObservationRequest,
-    ) -> Result<crate::live_locator::ObservedTree, AdapterError> {
+        root: crate::locator::live_locator::ObservationRoot<'_>,
+        _request: &crate::locator::live_locator::ObservationRequest,
+    ) -> Result<crate::locator::live_locator::ObservedTree, AdapterError> {
         crate::adapter::observed_tree(
             &root,
             crate::AccessibilityNode {
@@ -198,7 +198,7 @@ fn missing_window_diagnostics_bound_count_and_unicode_title_length() {
 
 #[test]
 fn text_wait_with_count_zero_detects_absence() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
 
     let value = execute(
         WaitArgs {
@@ -241,9 +241,9 @@ impl ObservationOps for LoadingPanel {
 
     fn observe_tree(
         &self,
-        root: crate::live_locator::ObservationRoot<'_>,
-        request: &crate::live_locator::ObservationRequest,
-    ) -> Result<crate::live_locator::ObservedTree, AdapterError> {
+        root: crate::locator::live_locator::ObservationRoot<'_>,
+        request: &crate::locator::live_locator::ObservationRequest,
+    ) -> Result<crate::locator::live_locator::ObservedTree, AdapterError> {
         TextlessTreeAdapter.observe_tree(root, request)
     }
 }
@@ -254,7 +254,7 @@ impl SystemOps for LoadingPanel {}
 
 #[test]
 fn text_wait_survives_a_temporarily_missing_panel_window() {
-    let _guard = crate::refs_test_support::HomeGuard::new();
+    let _guard = crate::refs::refs_test_support::HomeGuard::new();
     let adapter = LoadingPanel(std::sync::atomic::AtomicUsize::new(0));
     let result = execute(
         WaitArgs {

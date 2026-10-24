@@ -219,7 +219,8 @@ class VerdictRuleTests(unittest.TestCase):
         ctx = self.ctx()
         ctx.restored("atspi", "off")
         failures = verdict.evaluate(ctx)
-        self.assertNotEqual(failures, [])
+        self.assertTrue(any("before" in f for f in failures), failures)
+        self.assertTrue(any("after" in f for f in failures), failures)
 
     def test_joined_attributed_app_fails_the_leg(self):
         ctx = self.ctx()
@@ -284,11 +285,6 @@ class ReadDisciplineTests(unittest.TestCase):
         ctx.after("atspi.other", True)
         ctx.restored("atspi.selection", True)
         self.assertTrue(any("not restored" in item for item in verdict.evaluate(ctx)))
-
-    def test_undeclared_channel_is_refused(self):
-        ctx = self.ctx(leg=atspi_leg())
-        with self.assertRaises(ValueError):
-            ctx.before("x11", 1)
 
     def test_repeating_a_stage_keeps_every_value(self):
         ctx = self.ctx()

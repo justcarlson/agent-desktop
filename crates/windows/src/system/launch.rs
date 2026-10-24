@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AdapterError, Deadline, DeliverySemantics, ErrorCode, ProcessId, RendererKind, WindowFilter,
-    WindowInfo, launch_options::LaunchOptions, launch_result::LaunchResult,
+    WindowInfo, system::launch_options::LaunchOptions, system::launch_result::LaunchResult,
 };
 #[cfg(test)]
 use std::collections::BTreeMap;
@@ -11,14 +11,13 @@ use std::time::Duration;
 use self::launch_attach::matching_processes;
 use self::launch_attach::prepare;
 use super::app_ops::ProcessRow;
-#[cfg(target_os = "windows")]
-use super::hresult::win32_last_error;
 use super::launch_path::{
     child_environment_block, image_file_name, launch_identifier, validate_launch_options,
 };
-use super::permissions::ensure_budget;
 use super::process_identity;
-use super::window_ops::list_windows_live;
+#[cfg(target_os = "windows")]
+use super::runtime::hresult::win32_last_error;
+use super::window::window_ops::list_windows_live;
 
 pub(crate) fn launch_app_impl(
     id: &str,
@@ -32,7 +31,7 @@ pub(crate) fn launch_app_impl(
     } else {
         parent_deadline.capped(Duration::from_millis(options.timeout_ms))
     };
-    ensure_budget(deadline).map_err(before_launch)?;
+    deadline.ensure_remaining().map_err(before_launch)?;
     let (executable, attached) = prepare(id, options, deadline).map_err(before_launch)?;
     if let Some(attached) = attached {
         return Ok(attached);
@@ -92,11 +91,11 @@ fn launch_result(
 #[cfg(target_os = "windows")]
 fn detect_renderer_from_window(window: &WindowInfo) -> Option<RendererKind> {
     const CHROMIUM_WINDOW_CLASS: &str = "Chrome_WidgetWin_1";
-    let handle = super::window_ops::parse_handle(&window.id);
+    let handle = super::window::window_ops::parse_handle(&window.id);
     if handle.is_null() {
         return None;
     }
-    super::window_ops::window_class_name(handle)
+    super::window::window_ops::window_class_name(handle)
         .filter(|class| class == CHROMIUM_WINDOW_CLASS)
         .map(|_| RendererKind::Chromium)
 }
@@ -186,7 +185,7 @@ fn create_process(
         CREATE_UNICODE_ENVIRONMENT, CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW,
     };
 
-    ensure_budget(deadline).map_err(before_launch)?;
+    deadline.ensure_remaining().map_err(before_launch)?;
     let app_wide = to_wide(executable).map_err(before_launch)?;
     let command_line = command_line_for(executable, &options.args).map_err(before_launch)?;
     let mut command_wide = to_wide_str(&command_line).map_err(before_launch)?;
@@ -217,7 +216,7 @@ fn create_process(
         .as_ref()
         .map(|wide| wide.as_ptr())
         .unwrap_or(std::ptr::null());
-    ensure_budget(deadline).map_err(before_launch)?;
+    deadline.ensure_remaining().map_err(before_launch)?;
     let ok = unsafe {
         CreateProcessW(
             app_wide.as_ptr(),

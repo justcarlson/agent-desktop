@@ -116,6 +116,7 @@ class EnvelopeTests(unittest.TestCase):
         self.assertTrue(envelope.ok)
         self.assertEqual(envelope.data, {"n": 1})
         self.assertIsNone(envelope.error)
+        self.assertEqual(envelope.exit_code, 0)
         self.assertEqual(envelope.argv[-1], "snapshot")
 
     def test_error_envelope_passes_through(self):
@@ -124,6 +125,7 @@ class EnvelopeTests(unittest.TestCase):
         )
         self.assertFalse(envelope.ok)
         self.assertEqual(envelope.error["code"], "STALE_REF")
+        self.assertEqual(envelope.exit_code, 1)
 
     def test_exit_status_must_match_the_envelope(self):
         for body, status in (
@@ -170,3 +172,4 @@ class EnvelopeTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"AGENT_DESKTOP_E2E_BIN": str(binary)}):
                 envelope = product.run_product(tier, ["click", "@e1"])
         self.assertTrue(envelope.ok)
+        self.assertEqual(envelope.data, {"headless": True})

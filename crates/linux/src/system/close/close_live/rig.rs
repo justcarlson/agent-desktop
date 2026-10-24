@@ -207,7 +207,8 @@ pub(in crate::system) fn text_editor_dialogs(pid: u32) -> usize {
     toplevels
         .iter()
         .filter(|window| {
-            window.kind == crate::system::x11::window_kind::WindowKind::Dialog || window.transient
+            window.kind == crate::system::x11::window::window_kind::WindowKind::Dialog
+                || window.transient
         })
         .count()
 }

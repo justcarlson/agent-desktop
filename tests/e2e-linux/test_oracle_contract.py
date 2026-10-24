@@ -25,10 +25,13 @@ class RawOracleTests(unittest.TestCase):
         self.assertEqual(raw.decode_states([]), frozenset())
         self.assertEqual(raw.decode_states([1 << 8]), frozenset({"ENABLED"}))
 
-    def test_showing_disabled_button_is_not_sensitive_or_selected(self):
+    def test_showing_disabled_button_does_not_decode_as_sensitive(self):
         # AT-SPI GetState wire fixture: ENABLED/SENSITIVE absent, SHOWING/VISIBLE present.
-        self.assertEqual(raw.decode_states([(1 << 25) | (1 << 30)]),
-                         frozenset({"SHOWING", "VISIBLE"}))
+        decoded = raw.decode_states([(1 << 25) | (1 << 30)])
+        self.assertEqual(decoded, frozenset({"SHOWING", "VISIBLE"}))
+        self.assertNotIn("SENSITIVE", decoded)
+
+    def test_selectable_selected_sensitive_bits_decode_together(self):
         self.assertEqual(raw.decode_states([(1 << 22) | (1 << 23) | (1 << 24)]),
                          frozenset({"SELECTABLE", "SELECTED", "SENSITIVE"}))
 

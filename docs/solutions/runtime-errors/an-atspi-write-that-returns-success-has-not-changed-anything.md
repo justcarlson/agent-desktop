@@ -2,7 +2,7 @@
 title: An AT-SPI write that returns success has not changed anything
 date: 2026-10-19
 category: runtime-errors
-module: crates/linux/src/actions/write_call.rs, crates/linux/src/actions/mutation.rs, crates/linux/src/actions/text_write.rs, crates/linux/src/actions/numeric_write.rs, crates/linux/src/actions/secure_write.rs, crates/linux/src/tree/action_read.rs
+module: crates/linux/src/actions/write/write_call.rs, crates/linux/src/actions/write/mutation.rs, crates/linux/src/actions/write/text_write.rs, crates/linux/src/actions/write/numeric_write.rs, crates/linux/src/actions/write/secure_write.rs, crates/linux/src/tree/capabilities/action_read.rs
 problem_type: runtime_error
 component: atspi-write-path
 symptoms:
@@ -29,9 +29,9 @@ tags: [linux, at-spi, d-bus, write-path, read-back, delivery, secure-fields, too
 Judge every write by what a read of the node shows afterwards, never by the reply.
 
 1. Refuse before the call when the node is known unwritable: `READ_ONLY` set or `EDITABLE` clear (`text_write::writable`). The toolkit would accept the write and ignore it, so nothing after the call can be trusted to catch it on Qt.
-2. Read the value before the write, send it, then read it again (`text_write::judge`). Equal to the request is `Matched` and the result carries `verified`. Equal to the value before is `write_ignored`: `ACTION_FAILED` with `details.cause = "write_ignored"`, disposition not delivered. Any other value, or no readable value, leaves the result `delivered_unverified`. `numeric_write.rs` and `select.rs` apply the same rule, with a tolerance of one `MinimumIncrement` where the toolkit snaps (L30-12).
+2. Read the value before the write, send it, then read it again (`text_write::judge`). Equal to the request is `Matched` and the result carries `verified`. Equal to the value before is `write_ignored`: `ACTION_FAILED` with `details.cause = "write_ignored"`, disposition not delivered. Any other value, or no readable value, leaves the result `delivered_unverified`. `numeric_write.rs` and `select/mod.rs` apply the same rule. A numeric read-back is compared through core's `value_matches`. It counts as proof only when the value is whole, the control is not a spin button, or its `MinimumIncrement` is known, because the toolkit snaps (`numeric_write.rs:41-44`, L30-12).
 3. Classify a failed call in `mutation::classify_write`. An error name that could mean "gone" or "not implemented" (`ObjectUnknown`, `InterfaceMissing` on an advertised interface) is settled by one `GetRole` read of the node (`action_read::corroborate`): alive means the method is absent, dead means `STALE_REF`, unread means unconfirmed. `NoReply` and a spent deadline are `delivery_uncertain`, never a retryable not-delivered.
-4. Treat a field as secure when its role number is 40, when its state flags it, or when its tokens say `secure` (`secure_write::is_secure`). A secure write is never read back, so it carries no `verified`, and `scrub` replaces the written text with `[withheld]` in every error field. A GTK4 role-61 field cannot be recognised, so its read-back must not be copied into an envelope.
+4. Treat a field as secure when its role number is 40, when its state flags it, or when its tokens say `secure` (`secure_write::is_secure`). A secure write is never read back, so it carries no `verified`, and `scrub` replaces the written text with `[withheld]` in the error's message, suggestion and platform detail and drops `details` that echo it (`secure_write.rs:18-36`). A GTK4 role-61 field cannot be recognised, so its read-back must not be copied into an envelope.
 
 ## Prevention
 

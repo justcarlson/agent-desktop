@@ -1,6 +1,6 @@
 use agent_desktop_core::{
     AccessibilityNode, ObservationSource, ObservedTree, ProcessId, RefEntry, SnapshotSurface,
-    WindowInfo, WindowState, ref_alloc::is_ref_able,
+    WindowInfo, WindowState, refs::ref_alloc::is_ref_able,
 };
 
 use super::item::ItemEvidence;
@@ -9,7 +9,7 @@ use super::node_evidence::SEPARATOR_ROLE;
 use super::tray_item::TrayItem;
 use super::view::TrayView;
 use super::{TrayTarget, owns, resolve};
-use crate::tree::test_support::ref_entry;
+use crate::tree::live::test_support::ref_entry;
 
 fn raw(id: i32, label: &str, extra: &[(&str, Prop)], children: Vec<RawEntry>) -> RawEntry {
     let mut props: std::collections::HashMap<String, Prop> = extra

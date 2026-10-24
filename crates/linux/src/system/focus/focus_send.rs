@@ -5,8 +5,8 @@ use x11rb::protocol::xproto::{
 use x11rb::rust_connection::RustConnection;
 
 use crate::system::display::display_server::{DisplayServer, session_server};
-use crate::system::x11::activate::first_window;
-use crate::system::x11::activate_error::ActivateError;
+use crate::system::x11::control::activate::first_window;
+use crate::system::x11::control::activate_error::ActivateError;
 use crate::system::x11::control_display::open;
 use crate::system::x11::stacking::bounded;
 

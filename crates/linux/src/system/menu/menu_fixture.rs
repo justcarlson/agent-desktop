@@ -1,6 +1,6 @@
 use super::menu_popup::Node;
-use crate::tree::state_bits::{EXPANDED, PRESSED};
-use crate::tree::test_support::{read_of, words};
+use crate::tree::live::test_support::{read_of, words};
+use crate::tree::vocabulary::state_bits::{EXPANDED, PRESSED};
 use crate::tree::{Field, WalkedNode};
 
 pub(in crate::system) const SHOWING: u32 = 25;

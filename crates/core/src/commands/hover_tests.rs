@@ -2,13 +2,13 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, Rect,
+    actions::capability,
     adapter::NativeHandle,
-    capability,
+    adapter::hit_test::HitTestResult,
     commands::stale_retry_test_support::StaleRetryCounter,
-    hit_test::HitTestResult,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::{
     Mutex,
@@ -20,6 +20,7 @@ struct HoverCaptureAdapter {
     focused_pids: Mutex<Vec<crate::ProcessId>>,
     focused_bounds: Option<Rect>,
     refuses_receiver: bool,
+    receiver_checks: AtomicU32,
 }
 
 impl HoverCaptureAdapter {
@@ -29,6 +30,7 @@ impl HoverCaptureAdapter {
             focused_pids: Mutex::new(Vec::new()),
             focused_bounds: None,
             refuses_receiver: false,
+            receiver_checks: AtomicU32::new(0),
         }
     }
 
@@ -85,6 +87,7 @@ impl ObservationOps for HoverCaptureAdapter {
         _point: crate::Point,
         _deadline: crate::Deadline,
     ) -> Result<(), AdapterError> {
+        self.receiver_checks.fetch_add(1, Ordering::SeqCst);
         if self.refuses_receiver {
             return Err(AdapterError::new(
                 crate::ErrorCode::ActionFailed,

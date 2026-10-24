@@ -5,23 +5,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import scenarios
-from runner import legs, verdict
+from runner import verdict
 from runner.product import Envelope
 from runner.verdict import LegContext
 from scenarios import capture, clipboard, headed_actions, lifecycle, text_entry
 from scenarios import pointer
-
-LANE_PREFIXES = (
-    "headed_actions.",
-    "pointer.",
-    "occlusion.",
-    "modal.",
-    "text_entry.",
-    "non_interference.",
-    "lifecycle.",
-    "capture.",
-    "clipboard.",
-)
 
 TREE = {
     "role": "window",
@@ -184,17 +172,6 @@ class ClipboardHelperTests(unittest.TestCase):
 
     def test_text_of_reads_an_empty_clipboard(self):
         self.assertIsNone(clipboard.text_of({"found": False}))
-
-
-class RegistryCoverageTests(unittest.TestCase):
-    def test_every_lane_leg_has_an_implementation(self):
-        registered = legs.implementations()
-        missing = [leg.id for leg in legs.REGISTRY if leg.id.startswith(LANE_PREFIXES) and leg.id not in registered]
-        self.assertEqual(missing, [])
-
-    def test_no_implementation_is_registered_twice(self):
-        registered = legs.implementations()
-        self.assertEqual(len(registered), len(set(registered)))
 
 
 if __name__ == "__main__":

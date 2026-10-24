@@ -5,7 +5,7 @@ use agent_desktop_core::ErrorCode;
 
 use super::lift_live_tests::*;
 use super::*;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 fn wait_active(pid: u32) -> bool {
     let started = Instant::now();

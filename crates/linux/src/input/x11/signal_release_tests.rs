@@ -74,11 +74,17 @@ fn a_process_that_never_enabled_the_signal_handling_installs_no_handler() {
 fn watcher_startup_failure_preserves_handlers_and_allows_retry() {
     const CHILD: &str = "AD_SIGNAL_STARTUP_CHILD";
     if std::env::var_os(CHILD).is_none() {
-        let status = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "input::x11::signal_release::tests::watcher_startup_failure_preserves_handlers_and_allows_retry", "--nocapture"])
+        const FILTER: &str = "input::x11::signal_release::tests::watcher_startup_failure_preserves_handlers_and_allows_retry";
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", FILTER, "--nocapture"])
             .env(CHILD, "1")
-            .status().unwrap();
-        assert!(status.success());
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+            "{FILTER} must execute exactly one test: {output:?}"
+        );
         return;
     }
     extern "C" fn previous(_: libc::c_int) {}

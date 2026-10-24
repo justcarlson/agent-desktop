@@ -3,7 +3,7 @@
 TIERS = ("openbox", "mutter", "wayland")
 WAYLAND_MODULES = (
     "input::clipboard::wayland::live_tests",
-    "input::wayland::live_tests",
+    "input::physical::wayland::live_tests",
     "system::capture::wayland_portal_live_tests",
     "system::shell::live_wayland_tests",
 )
@@ -16,8 +16,8 @@ EXTERNAL_WAYLAND = (
     "system::process::protected::live_tests::a_native_wayland_application_is_cleared_by_its_tree_and_a_windowless_one_is_not",
 )
 BARE_CASES = (
-    "input::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
-    "input::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
+    "input::physical::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+    "input::physical::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
 )
 OPENBOX_CASES = (
     "system::close::close_live_tests::close_live_the_private_sessions_own_processes_are_refused",
@@ -34,10 +34,10 @@ HELPER_PARENTS = {
 # Reviewed module groups whose fixtures never acquire the global interaction lease.
 # Unknown modules and all unit tests stay on one writer, preserving that lock's contract.
 PARALLEL_READS = {
-    "tree::absence_live_tests", "tree::capability_live_tests", "tree::chromium_live_tests",
-    "tree::hit_live_tests::cases", "tree::live_read_live_tests",
-    "tree::navigate_live_tests", "tree::observe_live_tests", "tree::qt_live_tests",
-    "tree::registry_toolkit_live_tests", "tree::resolve_live_tests",
-    "tree::live_timeout",
-    "tree::vocabulary_live_tests", "tree::walker_live_tests",
+    "tree::live::absence_live_tests", "tree::live::chromium_live_tests",
+    "tree::live::hit_live_tests::cases", "tree::live::live_read_live_tests",
+    "tree::live::navigate_live_tests", "tree::live::observe_live_tests", "tree::live::qt_live_tests",
+    "tree::live::registry_toolkit_live_tests", "tree::live::resolve_live_tests",
+    "tree::live::live_timeout",
+    "tree::live::vocabulary_live_tests", "tree::live::walker_live_tests",
 }

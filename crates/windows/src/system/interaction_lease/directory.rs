@@ -4,7 +4,7 @@
 //!
 //! Three independent checks port all three things
 //! `ensure_unix_runtime_directory` / `validate_unix_runtime_directory` do
-//! (`crates/core/src/interaction_lease.rs:163-203`) to a platform where
+//! (`crates/core/src/session/interaction_lease.rs:163-203`) to a platform where
 //! `mkdir` does not yield euid ownership: an owner check that accepts
 //! either `TokenOwner` or `TokenUser` - the two shapes an elevated
 //! administrator's own created directories actually carry on this platform -
@@ -31,7 +31,7 @@ use windows_sys::Win32::System::SystemInformation::GetSystemWindowsDirectoryW;
 
 use super::dacl;
 use super::sid;
-use crate::system::token_sid::read_owner_sid;
+use crate::system::runtime::token_sid::read_owner_sid;
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 const EXTENDED_LENGTH_PREFIX: &str = r"\\?\";

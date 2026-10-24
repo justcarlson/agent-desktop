@@ -1,4 +1,4 @@
-use agent_desktop_core::{LocatorEvidence, ObservedSubtree, state};
+use agent_desktop_core::{LocatorEvidence, ObservedSubtree, tree::state};
 
 use super::TrayTarget;
 use super::capability;

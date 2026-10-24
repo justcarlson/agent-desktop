@@ -5,19 +5,19 @@ use std::time::Duration;
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, InteractionLease, WindowInfo};
 
 use crate::system::process::process_lookup::Lookup;
-use crate::system::window::window_op_verdict::POLL;
+use crate::system::window::window_op::window_op_verdict::POLL;
 use crate::system::x11::X11State;
-use crate::system::x11::activate::ACTIVATION_GRACE;
-use crate::system::x11::activate_error::ActivateError;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::stacking_read::StackingRead;
+use crate::system::x11::control::activate::ACTIVATION_GRACE;
+use crate::system::x11::control::activate_error::ActivateError;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::stacking::stacking_read::StackingRead;
 use crate::system::{SharedBus, shell, window::window_id};
 
 use super::focus_cause::{Cause, lift_refusal, modal_refusal, refusal};
 use super::focus_world;
 use super::restore_minimized::Lifted;
 use crate::system::window::window_client::{ClientWorld, client_of};
-use crate::system::x11::desktop_placement::DesktopPlacement;
+use crate::system::x11::window::desktop_placement::DesktopPlacement;
 
 const FIRST_LOOK: Duration = Duration::from_millis(100);
 

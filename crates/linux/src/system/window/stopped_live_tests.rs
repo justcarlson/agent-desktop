@@ -8,7 +8,7 @@ use agent_desktop_core::{
 use super::window_op::window_op;
 use crate::system::interaction::interaction_lease::acquire;
 use crate::system::{SharedBus, app_inventory, apps_scoped, list_surfaces, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 

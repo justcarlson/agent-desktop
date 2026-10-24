@@ -1,7 +1,7 @@
 use crate::{
     AdapterError, WindowInfo,
     adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps, WindowFilter},
-    live_locator::{
+    locator::live_locator::{
         IdentifierEvidence, LocatorEvidence, LocatorField, LocatorRefEvidence, LocatorStats,
         ObservationRequest, ObservationRoot, ObservationSource, ObservedSubtree, ObservedTree,
     },

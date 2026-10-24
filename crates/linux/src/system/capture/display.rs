@@ -4,9 +4,8 @@ use agent_desktop_core::{
 
 use super::fullscreen_route::paint;
 use super::window_context::grab_failure;
-use crate::system::bus::ensure_budget;
 use crate::system::capture::capture_env::CaptureEnv;
-use crate::system::x11::grab_rect::GrabRect;
+use crate::system::x11::capture::grab_rect::GrabRect;
 use crate::tree::Extents;
 
 fn invalid(message: String, count: usize) -> AdapterError {
@@ -132,11 +131,11 @@ pub(crate) fn capture(
     target: &ScreenshotTarget,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let displays = env.lookup.displays(deadline)?;
     let (index, display) = select(&displays, target)?;
     let area = area_of(display.bounds)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let compositing = env
         .grabber
         .compositing(deadline)
@@ -145,7 +144,7 @@ pub(crate) fn capture(
     let (width, height) = (raw.width, raw.height);
     let rgb = (env.decode)(&raw)?;
     drop(raw);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let after = env.lookup.displays(deadline)?;
     if after.get(index) != Some(&display) {
         return Err(invalid(

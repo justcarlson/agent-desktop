@@ -3,8 +3,8 @@ use crate::{
     DismissAllNotificationsRequest, DismissNotificationRequest, ImageBuffer, InteractionLease,
     InteractionPolicy, KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo,
     OperationReport, PermissionReport, PermissionState, ProcessIdentity, SessionAffinity,
-    SignalBaseline, SignalFilter, WindowInfo, WindowOp, action_result::ActionResult,
-    display_info::DisplayInfo, screenshot_target::ScreenshotTarget,
+    SignalBaseline, SignalFilter, WindowInfo, WindowOp, actions::action_result::ActionResult,
+    system::display_info::DisplayInfo, system::screenshot_target::ScreenshotTarget,
 };
 
 pub trait SystemOps: Send + Sync {
@@ -79,9 +79,9 @@ pub trait SystemOps: Send + Sync {
     fn launch_app(
         &self,
         _id: &str,
-        _options: &crate::launch_options::LaunchOptions,
+        _options: &crate::system::launch_options::LaunchOptions,
         _lease: &InteractionLease,
-    ) -> Result<crate::launch_result::LaunchResult, AdapterError> {
+    ) -> Result<crate::system::launch_result::LaunchResult, AdapterError> {
         Err(AdapterError::not_supported("launch_app"))
     }
 
@@ -98,7 +98,7 @@ pub trait SystemOps: Send + Sync {
         &self,
         _process: ProcessIdentity,
         _deadline: Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         Err(AdapterError::not_supported("process_state"))
     }
 

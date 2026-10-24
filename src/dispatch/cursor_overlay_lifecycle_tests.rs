@@ -268,10 +268,8 @@ fn cursor_overlay_show_fires_even_when_the_mutating_command_errors() {
         &context,
     );
 
-    assert!(
-        result.is_err(),
-        "the blocked combo must still be rejected by the press command"
-    );
+    let error = result.expect_err("the blocked combo must still be rejected by the press command");
+    assert_eq!(error.code(), "POLICY_DENIED");
 
     let recorded = adapter.controls.lock().unwrap();
     assert_eq!(

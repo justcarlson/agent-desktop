@@ -1,7 +1,7 @@
 use super::refusal;
 use super::world::World;
 use crate::system::x11::control::ControlRead;
-use crate::system::x11::toplevel::Toplevel;
+use crate::system::x11::window::toplevel::Toplevel;
 
 /// One read of what a process shows that a close request must not answer: its
 /// top-level windows, and the titles of the dialogs drawn inside them, which no

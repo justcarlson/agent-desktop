@@ -7,7 +7,7 @@ use crate::system::registry::listed_window::ListedWindow;
 use crate::system::registry::registry_app::RegistryApp;
 use crate::system::x11::FrameFacts;
 use crate::tree::RawNode;
-use crate::tree::role_numbers::DIALOG;
+use crate::tree::vocabulary::role_numbers::DIALOG;
 
 fn listed(
     index: usize,

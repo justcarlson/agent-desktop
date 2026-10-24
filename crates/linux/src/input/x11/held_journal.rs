@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use super::sink::X11Sink;
 use super::sink_error::SinkError;
 use crate::input::held_input::HeldInput;
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::system::process::{liveness, proc_stat, process_facts};
 
 const JOURNAL_DIR: &str = "agent-desktop-input";

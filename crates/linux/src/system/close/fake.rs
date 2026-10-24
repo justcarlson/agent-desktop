@@ -1,4 +1,4 @@
-use crate::system::window::window_op_verdict::POLL;
+use crate::system::window::window_op::window_op_verdict::POLL;
 use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
@@ -11,9 +11,9 @@ use crate::system::process::process_lookup::Lookup;
 use crate::system::signal::Signal;
 use crate::system::signal::signal_sent::Sent;
 use crate::system::x11::control::ControlRead;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::toplevel::Toplevel;
-use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::window::toplevel::Toplevel;
+use crate::system::x11::window::window_kind::WindowKind;
 
 pub(super) fn window(id: u32) -> Toplevel {
     Toplevel {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Behaviour checks for scripts/private-session.sh and the shell wrappers. Run on
-# the Linux box:
-#   scripts/remote-linux.sh bash scripts/test-private-session.sh
+# Behaviour checks for scripts/private-session.sh and the shell wrappers.
+# Run on Linux:
+#   bash scripts/test-private-session.sh
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 helper=$here/private-session.sh

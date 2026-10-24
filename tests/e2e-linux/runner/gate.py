@@ -46,9 +46,7 @@ def _default_gi_probe() -> str | None:
 
 
 def _openbox_path(env: dict[str, str]) -> Path:
-    root = env.get("AGENT_DESKTOP_WM_ROOT") or str(
-        Path.home() / "ad-wt" / "wm-pkgs" / "root"
-    )
+    root = env.get("AGENT_DESKTOP_WM_ROOT") or "/"
     return Path(root) / "usr" / "bin" / "openbox"
 
 
@@ -96,10 +94,12 @@ def check_prerequisites(
     if not Path(binary).is_file():
         missing.append(f"missing release binary: {binary}")
     session_base = Path(
-        env.get("AGENT_DESKTOP_SESSION_BASE") or str(Path.home() / "ad-wt")
+        env.get("AGENT_DESKTOP_SESSION_BASE")
+        or (Path(env["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if env.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
     )
     try:
-        session_base.mkdir(parents=True, exist_ok=True)
+        session_base.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as error:
         missing.append(f"the session base is not writable: {error}")
     return missing

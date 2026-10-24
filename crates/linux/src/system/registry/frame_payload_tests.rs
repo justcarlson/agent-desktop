@@ -27,14 +27,14 @@ struct Frame {
 #[zbus::interface(name = "org.a11y.atspi.Accessible")]
 impl Frame {
     fn get_role(&self) -> u32 {
-        crate::tree::role_numbers::FRAME
+        crate::tree::vocabulary::role_numbers::FRAME
     }
 
     fn get_state(&self) -> zbus::fdo::Result<Vec<u32>> {
         if self.failed_state {
             Err(zbus::fdo::Error::AccessDenied("state unavailable".into()))
         } else {
-            Ok(vec![1 << crate::tree::state_bits::ACTIVE])
+            Ok(vec![1 << crate::tree::vocabulary::state_bits::ACTIVE])
         }
     }
 
@@ -116,7 +116,7 @@ fn frame_inventory_ignores_stalled_snapshot_payload_but_preserves_failed_state()
         );
         assert_eq!(
             node.traits.role.present(),
-            Some(&crate::tree::role_numbers::FRAME)
+            Some(&crate::tree::vocabulary::role_numbers::FRAME)
         );
         assert_eq!(
             node.extents.present(),

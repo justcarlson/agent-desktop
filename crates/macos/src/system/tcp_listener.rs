@@ -131,7 +131,7 @@ pub(crate) fn owns_listener(
 ) -> Result<bool, AdapterError> {
     let pid = i32::try_from(process.pid.get())
         .map_err(|_| AdapterError::internal("Process id exceeds the macOS pid range"))?;
-    if !crate::system::process_identity::matches_instance(pid, &process.instance)? {
+    if !crate::system::process::process_identity::matches_instance(pid, &process.instance)? {
         return Ok(false);
     }
     let mut fds = vec![ProcFdInfo { fd: 0, fd_type: 0 }; 8192];

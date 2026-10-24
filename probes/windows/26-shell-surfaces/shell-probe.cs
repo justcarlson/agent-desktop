@@ -238,7 +238,7 @@ namespace AgentDesktop.Probe.Shell26
         public struct RECTFOUR { public int Left; public int Top; public int Right; public int Bottom; }
 
         // Field order and layout mirror the shipped detector's GUITHREADINFO
-        // reads (crates/windows/src/system/menu_state.rs::thread_reports_menu_mode).
+        // reads (crates/windows/src/system/menu/menu_state.rs::thread_reports_menu_mode).
         [StructLayout(LayoutKind.Sequential)]
         public struct GuiThreadInfo { public uint cbSize; public uint flags; public IntPtr hwndActive, hwndFocus, hwndCapture, hwndMenuOwner, hwndMoveSize, hwndCaret; public RECTFOUR rcCaret; }
 

@@ -1,4 +1,4 @@
-use agent_desktop_core::{AccessibilityNode, ObservationSource, ObservedTree, state};
+use agent_desktop_core::{AccessibilityNode, ObservationSource, ObservedTree, tree::state};
 
 use super::super::item::ItemEvidence;
 use super::super::menu_layout::{Prop, RawEntry, parse};
@@ -64,7 +64,7 @@ fn projected() -> Vec<AccessibilityNode> {
             ObservedTree::from_roots(
                 vec![node],
                 ObservationSource::Element {
-                    entry: Box::new(crate::tree::test_support::ref_entry("group")),
+                    entry: Box::new(crate::tree::live::test_support::ref_entry("group")),
                     root_ref: None,
                 },
                 Default::default(),

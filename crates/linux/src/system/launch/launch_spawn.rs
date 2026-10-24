@@ -1,7 +1,7 @@
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 
-use agent_desktop_core::launch_options::LaunchOptions;
+use agent_desktop_core::system::launch_options::LaunchOptions;
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::launch_observe::Spawned;

@@ -132,9 +132,9 @@ fn a_headed_select_is_refused_before_target_resolution() {
 
 #[test]
 fn a_headless_select_is_not_stopped_by_the_missing_pointer() {
-    let _home = crate::refs_test_support::HomeGuard::new();
+    let _home = crate::refs::refs_test_support::HomeGuard::new();
     let adapter = NoPointerAdapter::new();
     let error = select::execute(select_args(), &adapter, &CommandContext::default())
         .expect_err("the unknown ref is the only refusal of a headless select");
-    assert_ne!(error.code(), "ACTION_NOT_SUPPORTED");
+    assert_eq!(error.code(), "SNAPSHOT_NOT_FOUND");
 }

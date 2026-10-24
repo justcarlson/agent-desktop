@@ -1,6 +1,6 @@
 use super::cdp_test_support::{CdpAdapter, adapter_error, empty_cdp_adapter};
 use super::*;
-use crate::launch_options::LaunchOptions;
+use crate::system::launch_options::LaunchOptions;
 use crate::{AppInfo, AppPresentation, ErrorCode, ProcessId, RendererKind};
 use std::sync::atomic::Ordering;
 
@@ -356,8 +356,8 @@ impl crate::adapter::SystemOps for SuggestingAdapter {
         _id: &str,
         _options: &LaunchOptions,
         _lease: &crate::InteractionLease,
-    ) -> Result<crate::launch_result::LaunchResult, crate::AdapterError> {
-        Ok(crate::launch_result::LaunchResult {
+    ) -> Result<crate::system::launch_result::LaunchResult, crate::AdapterError> {
+        Ok(crate::system::launch_result::LaunchResult {
             app: "Fixture".into(),
             pid: crate::ProcessId::new(42),
             process_instance: None,

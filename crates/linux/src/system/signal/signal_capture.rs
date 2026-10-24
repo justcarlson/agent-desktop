@@ -8,7 +8,6 @@ use super::signal_inventory::{Pass, run_pass, skipped_selected};
 use super::signal_surfaces::{nested_surface_signals, sheet_signals};
 use crate::system::SharedBus;
 use crate::system::app::app_ops::{info, one_entry_per_process};
-use crate::system::bus::ensure_budget;
 use crate::system::focus::focus_is_indeterminate;
 use crate::system::menu::inventory::scan_windows;
 use crate::system::menu::inventory_reader::Inventory;
@@ -134,7 +133,7 @@ fn capture(
     filter: &SignalFilter,
     deadline: Deadline,
 ) -> Result<SignalBaseline, AdapterError> {
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let scope = scope_of(filter);
     let registry = world.registry(filter.process.as_ref().map(|p| p.pid.get()), deadline)?;
     let select = selector(filter);
@@ -150,7 +149,7 @@ fn capture(
     };
     let unread = skipped_selected(&registry, &pass, &select);
     let baseline = assemble(&registry, &pass, scope, &nested, unread);
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     Ok(baseline)
 }
 

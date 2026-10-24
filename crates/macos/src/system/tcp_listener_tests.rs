@@ -5,7 +5,7 @@ fn libproc_attributes_a_tcp_listener_to_the_current_process_generation() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
     let port = listener.local_addr().expect("listener address").port();
     let pid = i32::try_from(std::process::id()).expect("pid range");
-    let instance = crate::system::process_identity::token_for_pid(pid)
+    let instance = crate::system::process::process_identity::token_for_pid(pid)
         .expect("read process identity")
         .expect("process identity");
 

@@ -7,8 +7,8 @@ use crate::AppError;
 /// written into it: a root that group or other users can reach is refused
 /// here exactly as it is for a snapshot.
 pub(super) fn create(dir: &Path) -> Result<(), AppError> {
-    let root = crate::state_root::resolve_configured_state_root()?;
-    crate::private_file_parent::ensure_private(&root)
+    let root = crate::storage::state_root::resolve_configured_state_root()?;
+    crate::storage::private_file_parent::ensure_private(&root)
         .map_err(|error| AppError::Internal(error.to_string()))?;
     #[cfg(unix)]
     {
@@ -24,7 +24,7 @@ pub(super) fn create(dir: &Path) -> Result<(), AppError> {
     }
     #[cfg(not(unix))]
     {
-        crate::private_file_parent::ensure_private(&dir.join("trace"))?;
+        crate::storage::private_file_parent::ensure_private(&dir.join("trace"))?;
     }
     Ok(())
 }

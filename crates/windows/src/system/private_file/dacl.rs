@@ -13,7 +13,7 @@ use windows_sys::Win32::Security::{
 use windows_sys::Win32::Storage::FileSystem::FILE_ALL_ACCESS;
 
 use super::owner;
-use crate::system::token_sid::{self, SidBuffer, TokenSource};
+use crate::system::runtime::token_sid::{self, SidBuffer, TokenSource};
 
 const ACL_HEADER_LEN: usize = 8;
 const ACE_FIXED_LEN: usize = 8;

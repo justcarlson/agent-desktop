@@ -2,11 +2,11 @@ use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
 use super::focus_cause::Cause;
-use crate::system::window::window_op_verdict::{POLL, SETTLE_BUDGET};
+use crate::system::window::window_op::window_op_verdict::{POLL, SETTLE_BUDGET};
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::control::control_send::activate_window;
+use crate::system::x11::control::window_facts::{WindowFacts, read_facts};
 use crate::system::x11::control::{ControlRead, manager_name};
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::control_send::activate_window;
-use crate::system::x11::window_facts::{WindowFacts, read_facts};
 
 const UNNAMED_MANAGER: &str = "the window manager";
 

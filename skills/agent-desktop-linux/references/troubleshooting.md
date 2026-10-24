@@ -59,10 +59,9 @@ carries `renderer: chromium`. Chromium and Electron read thin until they settle:
 pass `--timeout-ms` to `snapshot` rather than concluding the tree is empty. A
 Chromium menu frame is a nameless top-level frame, not a window, so it does not
 count as a window event.
-Electron limits measured on VS Code in a private session: a command that is the
-only AT-SPI client can crash the Electron accessibility bridge when it
-disconnects (VS Code exited with SIGSEGV on `press`, 7 of 7); a GNOME desktop keeps
-the shell connected, so this does not occur there. Electron native dialogs
+Electron limit: when the command is the only AT-SPI client, its disconnect can
+crash the Electron accessibility bridge (VS Code exits with SIGSEGV on `press`).
+A GNOME desktop keeps the shell connected, so this does not occur there. Electron native dialogs
 (save prompt, drop confirmation) are not on the AT-SPI tree: `close-app` counts
 them, but no read command sees them. Tree items that report `expandable` have no
 expand action, and menu items cannot be clicked by ref: use `--headed` pointer
@@ -70,14 +69,8 @@ input on their bounds.
 
 ## Observation details
 
-- Check `data.complete` before treating a missing control as absent. A normal
-  snapshot cut short after usable observation can succeed with `complete: false`,
-  `truncated: true` and `nodes_observed`: retry with a larger `--timeout-ms`. An
-  incomplete `--root` drill-down returns `TIMEOUT` rather than replacing existing
-  refs with a partial subtree.
-- `--max-depth` and `--skeleton` count semantic levels, not empty layout
-  wrappers, so nesting can exceed your number. `-i --compact` still shows nested
-  nameless `group` nodes on GTK4: read past them.
+- Check `data.complete` before you treat a missing control as absent (see the
+  core `commands-observation` reference on partial trees).
 - `--root @ref` takes the window and options from the ref's snapshot.
 - `status` shows the snapshot the latest `find` wrote.
 - `find --first` returns `data.match`, not `data.matches`.
@@ -185,8 +178,10 @@ D-Bus or X11 error.
 
 ## Commands that refuse by design
 
-- `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`. `mouse-down` and `mouse-up`
-  are `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed`.
+- `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`, `delivery: unknown`.
+  `mouse-down` and `mouse-up` are `POLICY_DENIED`, `not_delivered`, headless and
+  `ACTION_NOT_SUPPORTED` with `--headed`. No event is sent. Use `press` with
+  modifiers and `drag`.
 - `cursor-overlay` on Wayland: succeeds as a setting only. `enable` returns
   `data.rendered: false` and no overlay is drawn, so do not wait for one.
 - `open-system-surface --surface taskbar`: `PLATFORM_NOT_SUPPORTED`. Use the
@@ -205,7 +200,7 @@ empty result.
 
 ## Shared hosts
 
-The interaction lock (`/tmp/agent-desktop-<uid>/interaction.lock`) serializes
-input per user. `TIMEOUT` with `lock_timeout` and a high `contention_count` means
-another agent of the same user holds it. Do not restart the user's accessibility
-bus; run a second bus only in a private runtime directory.
+`TIMEOUT` with `lock_timeout` and a high `contention_count` means another agent
+of the same user holds the interaction lock. Do not restart the user's
+accessibility bus. Run a second bus only in a private runtime directory (see
+`references/bus-and-permissions.md`).

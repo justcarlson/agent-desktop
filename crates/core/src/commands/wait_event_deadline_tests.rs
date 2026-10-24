@@ -44,10 +44,16 @@ fn zero_timeout_has_one_event_wait_shape_without_starting_observation() {
 
 #[test]
 fn oversized_timeout_cannot_overflow_the_deadline() {
-    let start = Instant::now();
+    let adapter = SequenceAdapter::new(vec![empty_baseline()]);
+    let mut request = input("window-opened", Some("TextEdit"));
+    request.timeout_ms = u64::MAX;
 
-    let error = crate::Deadline::at(start, u64::MAX).unwrap_err();
-    assert_eq!(error.code, ErrorCode::InvalidArgs);
+    let error = wait_for_event(request, &adapter, None)
+        .expect_err("an unrepresentable timeout must be rejected before any observation");
+
+    assert_eq!(error.code(), "INVALID_ARGS");
+    assert_eq!(*adapter.app_calls.lock().unwrap(), 0);
+    assert_eq!(*adapter.calls.lock().unwrap(), 0);
 }
 
 #[test]

@@ -24,8 +24,13 @@ fn in_child(test: &str, configure: impl FnOnce(&mut Command)) {
         .env(CHILD_MARKER, "1");
     configure(&mut command);
     let output = command.output().expect("the child test runs");
-    println!("{}", String::from_utf8_lossy(&output.stdout));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    println!("{stdout}");
     assert!(output.status.success(), "the child test failed");
+    assert!(
+        stdout.contains("1 passed; 0 failed"),
+        "{test} must execute exactly one test: {output:?}"
+    );
 }
 
 fn child_window(bus: &SharedBus, launched: &mut Launched) -> WindowInfo {
@@ -34,7 +39,7 @@ fn child_window(bus: &SharedBus, launched: &mut Launched) -> WindowInfo {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_a_stale_wayland_display_still_proceeds_on_x11() {
     in_child("window_op_live_child_stale_wayland", |command| {
         command.env("WAYLAND_DISPLAY", "/nonexistent/wayland-socket");
@@ -118,12 +123,23 @@ impl InnerSession {
             std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
             "refusing to start a compositor outside a private session"
         );
-        let base = std::env::var("AGENT_DESKTOP_SESSION_BASE")
-            .unwrap_or_else(|_| format!("{}/ad-wt", std::env::var("HOME").expect("HOME")));
+        let base = std::env::var_os("AGENT_DESKTOP_SESSION_BASE")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                std::env::var_os("XDG_RUNTIME_DIR")
+                    .filter(|value| !value.is_empty())
+                    .map(|runtime| PathBuf::from(runtime).join("agent-desktop-sessions"))
+                    .unwrap_or_else(|| {
+                        PathBuf::from(format!("/tmp/agent-desktop-sessions-{}", unsafe {
+                            libc::getuid()
+                        }))
+                    })
+            });
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |elapsed| elapsed.as_nanos());
-        let dir = PathBuf::from(base).join(format!("rt.xw{}-{nanos}", std::process::id()));
+        let dir = base.join(format!("rt.xw{}-{nanos}", std::process::id()));
         std::fs::DirBuilder::new()
             .recursive(true)
             .mode(0o700)
@@ -273,7 +289,7 @@ impl Drop for Compositor {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn window_op_live_an_xwayland_window_is_operated_and_a_native_wayland_window_is_refused() {
     let shell = (0..5)
         .find_map(|_| Compositor::start())

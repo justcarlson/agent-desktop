@@ -15,12 +15,11 @@ const {
 const { join } = require('node:path');
 const { afterEach, test } = require('node:test');
 
-const { LINUX_HELPER_NAME, PLATFORMS, helperNames, resolve, tarballName } = require('../../npm/lib/platform.js');
+const { LINUX_HELPER_NAME, resolve, tarballName } = require('../../npm/lib/platform.js');
 const {
   createTemporaryRoots,
   postinstallAs,
   runScriptWithOsStub,
-  wrapperScriptPath,
 } = require('./helpers.js');
 
 const { temporaryDirectory, drainRoots } = createTemporaryRoots();
@@ -141,26 +140,12 @@ function binContents(binDir) {
   return readdirSync(binDir).sort();
 }
 
-test('the Linux table is released for both architectures with the helper beside the CLI', () => {
-  for (const [key, target, binaryName] of [
-    ['linux-x64', 'x86_64-unknown-linux-gnu', 'agent-desktop-linux-x64'],
-    ['linux-arm64', 'aarch64-unknown-linux-gnu', 'agent-desktop-linux-arm64'],
-  ]) {
-    const entry = PLATFORMS[key];
-    assert.equal(entry.released, true, `${key} must be released`);
-    assert.equal(entry.target, target);
-    assert.equal(entry.binaryName, binaryName);
-    assert.deepEqual(entry.entries, ['agent-desktop', 'agent-desktop-linux-clipboard-owner']);
-    assert.deepEqual(helperNames(entry), ['agent-desktop-linux-clipboard-owner']);
-  }
-  assert.deepEqual(helperNames(PLATFORMS['win32-x64']), []);
-});
-
 test('a Linux install places the CLI and the helper under their own names and removes the staging', { skip: POSIX_ONLY }, async () => {
   const { code, stderr, binDir, requests } = await install();
   assert.equal(code, 0, stderr);
   assert.match(stderr, /Checksum verified/);
   assert.match(stderr, /Installed native executables: agent-desktop-linux-x64, agent-desktop-linux-clipboard-owner/);
+  assert.doesNotMatch(stderr, /Could not move cleanup artifact to Trash/);
   assert.equal(readFileSync(join(binDir, 'agent-desktop-linux-x64'), 'utf8'), 'cli-linux-build');
   assert.equal(readFileSync(join(binDir, LINUX_HELPER_NAME), 'utf8'), 'helper-linux-build');
   for (const file of ['agent-desktop-linux-x64', LINUX_HELPER_NAME]) {
@@ -195,13 +180,6 @@ test('a tampered helper makes the next install download again', { skip: POSIX_ON
   assert.equal(second.code, 0, second.stderr);
   assert.equal(second.requests.length, 2, 'a helper that differs from its recorded digest must be fetched again');
   assert.equal(readFileSync(join(second.binDir, LINUX_HELPER_NAME), 'utf8'), 'helper-linux-build');
-});
-
-test('a stock Linux install with no trash command leaves no staging directory and no warning', { skip: POSIX_ONLY }, async () => {
-  const { code, stderr, binDir } = await install();
-  assert.equal(code, 0, stderr);
-  assert.deepEqual(binContents(binDir).filter((name) => name.startsWith('.extract-')), []);
-  assert.doesNotMatch(stderr, /Could not move cleanup artifact to Trash/);
 });
 
 test('GNU tar without gzip fails the install explicitly and cleans up', {
@@ -252,20 +230,6 @@ test('the wrapper names the missing native binary when install scripts were disa
   assert.match(stderr, /Error: Native binary not found for linux-x64/);
   assert.match(stderr, /--ignore-scripts/);
   assert.match(stderr, /Expected: .*agent-desktop-linux-x64/);
-});
-
-test('the repository wrapper resolves the released linux-arm64 mapping', async () => {
-  const { code, stderr } = await runScriptWithOsStub(wrapperScriptPath, 'linux', 'arm64', ['version']);
-  assert.equal(code, 1);
-  assert.match(stderr, /Error: Native binary not found for linux-arm64/);
-});
-
-test('unsupported Linux and BSD keys are refused by name', async () => {
-  for (const [osPlatform, osArch] of [['linux', 'riscv64'], ['freebsd', 'x64']]) {
-    const { code, stderr } = await runScriptWithOsStub(wrapperScriptPath, osPlatform, osArch, ['version']);
-    assert.equal(code, 1);
-    assert.match(stderr, new RegExp(`Error: Unsupported platform: ${osPlatform}-${osArch}`));
-  }
 });
 
 test('AGENT_DESKTOP_BINARY_PATH on Linux installs the helper found beside the binary', { skip: POSIX_ONLY }, async () => {

@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{Deadline, ErrorCode, WindowFilter};
 
 use crate::system::{SharedBus, list_windows, window::window_id};
-use crate::tree::{AtspiElement, live_launch::Launched};
+use crate::tree::{AtspiElement, live::live_launch::Launched};
 
 #[test]
 #[ignore = "reads a large private GTK window through the real AT-SPI bus"]

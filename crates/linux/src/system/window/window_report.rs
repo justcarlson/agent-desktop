@@ -1,6 +1,6 @@
 use agent_desktop_core::{WindowOp, WindowReadback};
 
-use super::window_op_verdict::POSITION_TOLERANCE;
+use super::window_op::window_op_verdict::POSITION_TOLERANCE;
 
 /// What a successful window operation read back before it answered. A
 /// restore is left unverified because its branches can lift a minimized
@@ -50,10 +50,21 @@ mod tests {
 
     #[test]
     fn geometry_names_its_scope_with_the_real_tolerance_in_pixels() {
-        let moved = report(&WindowOp::Move { x: 1.0, y: 2.0 });
-        let details = moved.result.details.unwrap();
-        assert_eq!(details["verification_scope"], "window_position");
-        assert_eq!(details["units"], "pixels");
+        for (op, scope) in [
+            (WindowOp::Move { x: 1.0, y: 2.0 }, "window_position"),
+            (
+                WindowOp::Resize {
+                    width: 3.0,
+                    height: 4.0,
+                },
+                "window_size",
+            ),
+        ] {
+            let details = report(&op).result.details.unwrap();
+            assert_eq!(details["verification_scope"], scope);
+            assert_eq!(details["units"], "pixels");
+            assert_eq!(details["tolerance"], f64::from(POSITION_TOLERANCE));
+        }
     }
 
     #[test]

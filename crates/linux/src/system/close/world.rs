@@ -8,11 +8,11 @@ use crate::system::process::liveness::{self, Liveness};
 use crate::system::process::process_lookup::Lookup;
 use crate::system::signal::Signal;
 use crate::system::signal::signal_sent::Sent;
-use crate::system::window::window_op_verdict::POLL;
+use crate::system::window::window_op::window_op_verdict::POLL;
 use crate::system::x11::control;
 use crate::system::x11::control::ControlRead;
-use crate::system::x11::control_error::ControlError;
-use crate::system::x11::toplevel::Toplevel;
+use crate::system::x11::control::control_error::ControlError;
+use crate::system::x11::window::toplevel::Toplevel;
 use crate::system::{
     process::{process_facts, protected},
     signal,

@@ -5,7 +5,7 @@ use agent_desktop_core::{Action, Deadline, DeliverySemantics, ErrorCode};
 use super::*;
 use crate::adapter::LinuxAdapter;
 use crate::tree::atspi_element;
-use crate::tree::role_numbers::PUSH_BUTTON;
+use crate::tree::vocabulary::role_numbers::PUSH_BUTTON;
 
 #[test]
 fn a_delivered_write_is_judged_by_the_observed_change() {
@@ -107,7 +107,7 @@ fn a_div_advertising_click_ancestor_is_clicked_through_it() {
 
 #[test]
 fn a_menu_item_with_only_show_menu_is_clicked_through_it() {
-    use crate::tree::role_numbers::MENU_ITEM;
+    use crate::tree::vocabulary::role_numbers::MENU_ITEM;
     let chosen = names(&["ShowMenu"]);
     assert_eq!(
         resolve_verb(&chosen, click_verbs(Some(MENU_ITEM))),
@@ -120,7 +120,7 @@ fn a_menu_item_with_only_show_menu_is_clicked_through_it() {
 
 #[test]
 fn a_switch_with_only_a_toggle_verb_is_clicked_through_the_toggle() {
-    use crate::tree::role_numbers::{CHECK_BOX, TOGGLE_BUTTON};
+    use crate::tree::vocabulary::role_numbers::{CHECK_BOX, TOGGLE_BUTTON};
     let toggle_only = names(&["toggle"]);
     assert!(toggles_in_place(Some(CHECK_BOX), &toggle_only));
     assert!(toggles_in_place(Some(TOGGLE_BUTTON), &toggle_only));
