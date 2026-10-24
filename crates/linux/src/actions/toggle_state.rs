@@ -3,7 +3,8 @@ use std::time::Duration;
 use agent_desktop_core::{Action, ActionResult, AdapterError, ErrorCode};
 use serde_json::json;
 
-use super::chain::{DeliveryOutcome, Observed};
+use super::chain::chain_delivery_outcome::DeliveryOutcome;
+use super::chain::chain_observed::Observed;
 use super::click::{POLL_STEP, invoke_verb, names_of, poll_until, refusal, run_single_rung};
 use super::context::Target;
 use super::write::mutation::WriteReply;

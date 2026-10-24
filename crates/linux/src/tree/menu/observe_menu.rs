@@ -126,7 +126,7 @@ pub(crate) fn observe_menu(
     let context = popup.context.clone();
     place_nodes(bus, &mut walk, request.deadline)?;
     let complete = walk.complete;
-    let displays = match displays.finish(request.deadline) {
+    let displays = match displays.finish(request.deadline.capped(std::time::Duration::ZERO)) {
         Some(Ok(monitors)) => Some(
             monitors
                 .into_iter()

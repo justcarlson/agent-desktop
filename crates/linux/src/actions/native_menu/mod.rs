@@ -8,7 +8,11 @@ use serde_json::json;
 use zbus::proxy::MethodFlags;
 use zbus::zvariant::{OwnedValue, Signature};
 
-use super::chain::{ChainDef, DeliveryOutcome, Observed, Rung, execute_chain};
+use super::chain::chain_def::ChainDef;
+use super::chain::chain_delivery_outcome::DeliveryOutcome;
+use super::chain::chain_observed::Observed;
+use super::chain::chain_rung::Rung;
+use super::chain::execute_chain;
 use super::context::Target;
 use super::process_check::judge_owner;
 use crate::system::x11::map::{ClientMatch, match_client};

@@ -338,7 +338,7 @@ pub(crate) fn observe_tree_with(
             pause: &mut pause,
         },
         decorate,
-        || match displays.finish(request.deadline) {
+        || match displays.finish(request.deadline.capped(std::time::Duration::ZERO)) {
             Some(Ok(monitors)) => {
                 Some(monitors.into_iter().map(|monitor| monitor.bounds).collect())
             }

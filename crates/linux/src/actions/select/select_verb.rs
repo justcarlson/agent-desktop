@@ -6,7 +6,8 @@ use crate::actions::context::Target;
 use crate::tree::AtspiElement;
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
-use crate::actions::chain::{DeliveryOutcome, Observed};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
 use crate::actions::click::{observed_of, refusal};
 use crate::actions::toggle_state::{Flag, drive_to};
 use crate::actions::write::mutation::WriteReply;

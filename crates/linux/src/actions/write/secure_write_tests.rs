@@ -1,7 +1,8 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::*;
-use crate::actions::chain::{DeliveryOutcome, Observed};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
 use crate::actions::write::text_write::fakes::{Fake, Script, drive, span};
 use crate::actions::write::text_write::{insert_rungs, replace_rungs};
 

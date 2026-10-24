@@ -7,8 +7,9 @@ use super::select_exclusive::selected_child;
 use super::select_identity::with_current_row;
 use super::select_search::{Hit, Search, name_matches, search};
 use crate::actions::action_call::resolve_verb;
-use crate::actions::chain::{DeliveryOutcome, Observed};
-use crate::actions::chain_step::satisfied_step;
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
+use crate::actions::chain::chain_step::satisfied_step;
 use crate::actions::click::{
     POLL_STEP, deliver, invoke_verb, names_of, opens_popup, poll_until, popup_inner, refusal,
     run_single_rung,

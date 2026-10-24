@@ -73,6 +73,11 @@ pub(in crate::actions) fn read_verification(
     container: Option<&Target<'_>>,
 ) -> Option<bool> {
     let name_is_value = combo_name_is_value(&toolkit_of(bus, root.element, root.deadline));
+    if let Some(owner) = root.element.ancestry().combo_owner() {
+        return read_node_view(bus, &handle_of(&owner), root.deadline)
+            .ok()
+            .and_then(|view| combo_value_matches(&view, wanted, name_is_value));
+    }
     let combo = read_node_view(bus, root.handle, root.deadline)
         .ok()
         .and_then(|view| combo_value_matches(&view, wanted, name_is_value));

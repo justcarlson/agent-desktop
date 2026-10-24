@@ -4,7 +4,8 @@ use std::rc::Rc;
 use agent_desktop_core::{ActionStep, DeliveryDisposition, StepMechanism};
 
 use super::*;
-use crate::actions::chain::{DeliveryOutcome, Observed};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
 use crate::actions::select::unchanged_is_ignored;
 
 struct World {

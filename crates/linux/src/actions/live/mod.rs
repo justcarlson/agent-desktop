@@ -44,3 +44,6 @@ pub(super) mod physical_scroll_live_tests;
 pub(super) mod physical_x11_oracle;
 #[cfg(test)]
 pub(super) mod scroll_bar_live_tests;
+
+#[cfg(test)]
+pub(super) mod live_combo_selection_tests;

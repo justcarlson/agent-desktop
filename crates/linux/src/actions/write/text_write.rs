@@ -4,7 +4,9 @@ use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Interaction
 
 use super::mutation::{WriteReply, with_value_chars};
 use super::secure_write::{guarded_read, scrub};
-use crate::actions::chain::{DeliveryOutcome, Observed, Rung};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
+use crate::actions::chain::chain_rung::Rung;
 use crate::tree::capabilities::text_selection::CaretAndSelection;
 use crate::tree::capabilities::text_units::{LengthUnit, insert_length};
 

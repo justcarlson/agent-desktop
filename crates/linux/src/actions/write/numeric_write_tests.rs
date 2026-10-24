@@ -3,7 +3,7 @@ use std::cell::{Cell, RefCell};
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::*;
-use crate::actions::chain::DeliveryOutcome;
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
 
 struct Control {
     maximum: f64,

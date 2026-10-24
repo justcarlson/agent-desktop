@@ -87,9 +87,11 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 - A launcher that exits with no owner is `ACTION_FAILED`,
   `details.kind: exited` (`crashed` after a signal), `delivered_unverified`. An
   owner that exits before its window appears is `ACTION_FAILED`,
-  `delivered_unverified`, without that kind. An exited forwarding launcher whose
-  existing owner has different argv is `ACTION_FAILED`, `delivered_unverified`;
-  re-list windows before retrying.
+  `delivered_unverified`, without that kind. A forwarding launcher can attach to
+  one existing instance of the same executable when that instance opens a new
+  window, even if its argv differs. If no owner can be proven, including a
+  handoff that only opens a tab in an existing window, the exited launcher can
+  return `ACTION_FAILED`, `delivered_unverified`; re-list windows before retrying.
 - The result carries `app`, `pid`, `process_instance` and, when one appeared,
   `window`. A no-argument attach returns an existing window of the running app. A
   new launch or argument handoff reports only a new window, so a handoff that
@@ -103,10 +105,12 @@ agent-desktop launch gnome-text-editor --arg=/tmp/note.txt
 `close-app` closes the app, including all its windows, and succeeds only when the
 process is gone. The core `commands-system` reference covers closing one window.
 
-A single-instance app such as GNOME Text Editor hands a `launch` with arguments
-to the instance that already runs: `launch` answers `ACTION_FAILED`
-(`details.kind: exited`, `status: 0`) although the window opened. `close-app`
-then closes every window of that instance, including windows you did not open.
+A single-instance app such as GNOME Text Editor can hand a `launch` with arguments
+to the instance that already runs. When exactly one matching instance opens a
+new window, `launch` reports that instance and its new window. A handoff that
+cannot be attributed can still return `ACTION_FAILED` (`details.kind: exited`,
+`status: 0`) even if the request took effect. `close-app` closes every window of
+the instance it targets, including windows you did not open.
 To start an instance of your own, pass the app's own flag with `--arg` (Text
 Editor: `--arg=--standalone`).
 
