@@ -156,6 +156,9 @@ impl<'a> BusPort<'a> {
             }
             Ok(found)
         })?;
+        if bars.iter().any(|(bar, _)| bar == self.element) {
+            return Ok(None);
+        }
         let mut sites = vec![
             Site {
                 parent: None,

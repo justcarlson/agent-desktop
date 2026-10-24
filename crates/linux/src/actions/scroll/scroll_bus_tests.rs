@@ -104,3 +104,76 @@ fn a_scroll_range_reads_only_advertised_value_properties() {
         assert_eq!(reads.load(Ordering::SeqCst), if advertised { 3 } else { 0 });
     }
 }
+
+struct Pane;
+
+#[zbus::interface(name = "org.a11y.atspi.Accessible")]
+impl Pane {
+    fn get_children(&self) -> Vec<(String, zbus::zvariant::OwnedObjectPath)> {
+        ["/horizontal", "/vertical"]
+            .into_iter()
+            .map(|path| {
+                (
+                    "org.agentdesktop.ScrollFixture".into(),
+                    path.try_into().unwrap(),
+                )
+            })
+            .collect()
+    }
+}
+
+struct Bar(u32);
+
+#[zbus::interface(name = "org.a11y.atspi.Accessible")]
+impl Bar {
+    fn get_role(&self) -> u32 {
+        crate::tree::vocabulary::role_numbers::SCROLL_BAR
+    }
+
+    fn get_state(&self) -> Vec<u32> {
+        vec![1 << self.0, 0]
+    }
+}
+
+#[test]
+fn the_container_fast_path_never_uses_a_bar_to_reveal_another_bar() {
+    use super::{Axis, BusPort};
+    use crate::tree::{AtspiElement, element::ancestry::Ancestry};
+    use zbus::connection::Builder;
+
+    let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+    let (client, server) = zbus::block_on(futures_lite::future::zip(
+        Builder::async_io_unix_stream(near).p2p().build(),
+        Builder::async_io_unix_stream(far)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at("/pane", Pane)
+            .unwrap()
+            .serve_at("/horizontal", Bar(14))
+            .unwrap()
+            .serve_at("/vertical", Bar(29))
+            .unwrap()
+            .build(),
+    ));
+    let _server = server.unwrap();
+    let bus = crate::system::bus::tests::connected(client.unwrap());
+    let container = AtspiElement::new("org.agentdesktop.ScrollFixture", "/pane", 1);
+    for path in ["/horizontal", "/vertical", "/content"] {
+        let mut target = AtspiElement::new("org.agentdesktop.ScrollFixture", path, 1);
+        target.set_ancestry(Ancestry::of(None, Some(container.clone()), false));
+        let handle = target.clone().into_native_handle();
+        let port = BusPort::new(
+            &bus,
+            &handle,
+            &target,
+            agent_desktop_core::Deadline::after(5_000).unwrap(),
+        );
+        assert_eq!(
+            port.bar_in_container(Axis::Vertical)
+                .unwrap()
+                .map(|bar| bar.path().to_owned()),
+            (path == "/content").then(|| "/vertical".to_owned())
+        );
+    }
+}
