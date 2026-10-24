@@ -157,6 +157,7 @@ mod trace_file;
 pub mod trace_read;
 pub mod trace_sanitize;
 mod trace_state;
+mod trace_write_budget;
 pub mod tree_options;
 mod ui_event;
 mod value_matches;

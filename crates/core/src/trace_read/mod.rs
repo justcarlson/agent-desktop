@@ -11,7 +11,8 @@ use merge::{
     annotate_provenance, apply_tail_limit, detect_unpaired_commands, filter_by_event_prefix,
     merge_segments,
 };
-use segment::{SegmentReadStats, parse_segment_filename, read_segment_events};
+pub(crate) use segment::parse_segment_filename;
+use segment::{SegmentReadStats, read_segment_events};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::Path;

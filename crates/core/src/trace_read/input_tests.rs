@@ -4,7 +4,7 @@ use std::io::Write;
 
 fn directory() -> std::path::PathBuf {
     let path = std::env::temp_dir().join(format!("trace-input-{}", crate::refs::new_snapshot_id()));
-    fs::create_dir(&path).unwrap();
+    crate::private_file_parent::ensure_private(&path).unwrap();
     path
 }
 
@@ -78,5 +78,126 @@ fn fifo_segment_is_rejected_instead_of_read_as_a_trace() {
             .warnings
             .iter()
             .any(|warning| warning.kind == super::TraceWarningKind::UnreadableSegment)
+    );
+}
+
+#[test]
+fn session_writer_preserves_readability_at_aggregate_byte_limit() {
+    let dir = directory();
+    let mut file = fs::File::create(dir.join("1-1.jsonl")).unwrap();
+    let line = format!(
+        "{{\"event\":\"padding\",\"ts_ms\":1,\"data\":\"{}\"}}\n",
+        "a".repeat(65500)
+    );
+    let target = 32 * 1024 * 1024 - 128;
+    let mut written = 0;
+    while written + line.len() <= target {
+        file.write_all(line.as_bytes()).unwrap();
+        written += line.len();
+    }
+    file.write_all(&vec![b'\n'; target - written]).unwrap();
+    drop(file);
+    let writer = crate::trace::TraceConfig::build(None, Some(dir.clone()), true).unwrap();
+    let error = writer
+        .emit("last", None, serde_json::json!({}))
+        .unwrap_err();
+    assert!(error.to_string().contains("recording limit"), "{error}");
+    let trace = read_merged(
+        &dir,
+        &ReadOptions {
+            limit: 1,
+            event_prefix: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(trace.returned_events, 1);
+}
+
+#[test]
+fn session_writer_preserves_readability_at_aggregate_event_limit() {
+    let dir = directory();
+    let mut file = std::io::BufWriter::new(fs::File::create(dir.join("1-1.jsonl")).unwrap());
+    for _ in 0..100_000 {
+        writeln!(file, r#"{{"event":"a","ts_ms":1}}"#).unwrap();
+    }
+    drop(file);
+    let writer = crate::trace::TraceConfig::build(None, Some(dir.clone()), true).unwrap();
+    let error = writer
+        .emit("last", None, serde_json::json!({}))
+        .unwrap_err();
+    assert!(error.to_string().contains("recording limit"), "{error}");
+    let trace = read_merged(
+        &dir,
+        &ReadOptions {
+            limit: 1,
+            event_prefix: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(trace.total_events, 100_000);
+}
+
+#[test]
+fn session_writer_stops_before_creating_an_excess_segment() {
+    let dir = directory();
+    for id in 1..=4094 {
+        fs::File::create(dir.join(format!("{id}-1.jsonl"))).unwrap();
+    }
+    let writer = crate::trace::TraceConfig::build(None, Some(dir.clone()), true).unwrap();
+    let error = writer
+        .emit("last", None, serde_json::json!({}))
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("too many directory entries"),
+        "{error}"
+    );
+    assert!(!crate::trace_file::segment_path_for_dir(&dir).exists());
+    assert!(read_merged(&dir, &ReadOptions::default()).is_ok());
+}
+
+#[test]
+fn concurrent_session_writers_share_the_remaining_event_budget() {
+    const CHILD: &str = "AGENT_DESKTOP_TRACE_BUDGET_CHILD";
+    if let Some(dir) = std::env::var_os(CHILD) {
+        let writer = crate::trace::TraceConfig::build(None, Some(dir.into()), true).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            match writer.emit("child", None, serde_json::json!({})) {
+                Ok(()) => return,
+                Err(error) if error.code() == "TIMEOUT" && std::time::Instant::now() < deadline => {
+                }
+                Err(error) => {
+                    assert!(error.to_string().contains("recording limit"), "{error}");
+                    return;
+                }
+            }
+        }
+    }
+    let dir = directory();
+    let mut file = std::io::BufWriter::new(fs::File::create(dir.join("1-1.jsonl")).unwrap());
+    for _ in 0..99_995 {
+        writeln!(file, r#"{{"event":"a","ts_ms":1}}"#).unwrap();
+    }
+    drop(file);
+    let writer = crate::trace::TraceConfig::build(None, Some(dir.clone()), true).unwrap();
+    writer.emit("parent", None, serde_json::json!({})).unwrap();
+    let mut children = Vec::new();
+    for _ in 0..2 {
+        children.push(std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "trace_read::input_tests::concurrent_session_writers_share_the_remaining_event_budget"])
+            .env(CHILD, &dir).spawn().unwrap());
+    }
+    for child in &mut children {
+        assert!(child.wait().unwrap().success());
+    }
+    let trace = read_merged(&dir, &ReadOptions::default()).unwrap();
+    assert_eq!(trace.total_events, 100_000);
+    assert_eq!(
+        trace
+            .events
+            .iter()
+            .filter(|event| event["event"] == "child")
+            .count(),
+        1
     );
 }

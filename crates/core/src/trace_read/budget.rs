@@ -1,4 +1,5 @@
 use crate::AppError;
+use crate::trace_write_budget::{MAX_DIRECTORY_ENTRIES, MAX_SESSION_BYTES, MAX_SESSION_EVENTS};
 
 pub(super) struct ReadBudget {
     bytes: usize,
@@ -10,9 +11,9 @@ pub(super) struct ReadBudget {
 impl Default for ReadBudget {
     fn default() -> Self {
         Self {
-            bytes: 32 * 1024 * 1024,
-            events: 100_000,
-            entries: 4_096,
+            bytes: MAX_SESSION_BYTES,
+            events: MAX_SESSION_EVENTS,
+            entries: MAX_DIRECTORY_ENTRIES,
             exceeded: false,
         }
     }
