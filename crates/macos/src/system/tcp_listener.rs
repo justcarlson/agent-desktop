@@ -3,28 +3,13 @@
 use agent_desktop_core::{AdapterError, Deadline, ProcessIdentity};
 use std::mem::size_of;
 
+#[path = "tcp_listener_metadata.rs"]
+mod metadata;
+use metadata::SocketMetadata;
+
 const PROC_PIDFDSOCKETINFO: libc::c_int = 3;
 const SOCKINFO_TCP: libc::c_int = 2;
 const TSI_S_LISTEN: libc::c_int = 1;
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct VInfoStat {
-    dev: u32,
-    mode: u16,
-    nlink: u16,
-    ino: u64,
-    uid: u32,
-    gid: u32,
-    times: [i64; 8],
-    size: i64,
-    blocks: i64,
-    blksize: i32,
-    flags: u32,
-    generation: u32,
-    rdev: u32,
-    reserved: [i64; 2],
-}
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -96,21 +81,8 @@ union SocketProtocolInfo {
 
 #[repr(C)]
 struct SocketInfo {
-    stat: VInfoStat,
-    socket: u64,
-    protocol_control_block: u64,
-    socket_type: i32,
-    protocol: i32,
-    family: i32,
-    options: i16,
-    linger: i16,
-    state: i16,
-    queue_length: i16,
-    incomplete_queue_length: i16,
-    queue_limit: i16,
-    timeout: i16,
-    error: u16,
-    out_of_band_mark: u32,
+    stat: libc::vinfo_stat,
+    metadata: SocketMetadata,
     receive: SockBufInfo,
     send: SockBufInfo,
     kind: i32,

@@ -56,6 +56,7 @@ impl TraceConfig {
             strict,
             state: Arc::new(TraceState {
                 pending,
+                emission: Mutex::new(()),
                 writer: Arc::new(Mutex::new(writer)),
                 meta_written: AtomicBool::new(false),
             }),
@@ -77,6 +78,11 @@ impl TraceConfig {
         session_id: Option<&str>,
         fields: impl FnOnce() -> Value,
     ) -> Result<(), AppError> {
+        let _emission = self
+            .state
+            .emission
+            .lock()
+            .map_err(|_| AppError::Internal("trace emission lock poisoned".into()))?;
         let mut budget = match &self.state.pending {
             TracePending::SegmentDir(dir) => match TraceWriteBudget::acquire(dir) {
                 Ok(budget) => Some(budget),

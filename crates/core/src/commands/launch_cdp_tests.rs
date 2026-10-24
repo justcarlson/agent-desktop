@@ -184,12 +184,11 @@ fn cdp_launch_appends_the_switch_and_resolves_the_port_before_verification_fails
             .and_then(|details| details.get("kind")),
         Some(&serde_json::json!("cdp_endpoint_unavailable"))
     );
-    let captured_port = adapter
-        .captured_cdp_port
-        .lock()
-        .unwrap()
+    let captured_options = adapter.captured_options.lock().unwrap();
+    let captured_port = captured_options
+        .cdp_port
         .expect("cdp_port was resolved before launch_app ran");
-    let captured_args = adapter.captured_args.lock().unwrap();
+    let captured_args = &captured_options.args;
     assert!(captured_args.contains(&format!("--remote-debugging-port={captured_port}")));
 }
 

@@ -3,7 +3,7 @@
 TIERS = ("openbox", "mutter", "wayland")
 WAYLAND_MODULES = (
     "input::clipboard::wayland::live_tests",
-    "input::physical::wayland::live_tests",
+    "input::wayland::live_tests",
     "system::capture::wayland_portal_live_tests",
     "system::shell::live_wayland_tests",
 )

@@ -106,7 +106,7 @@ class GateTests(unittest.TestCase):
     def test_partition_keeps_every_case_on_each_applicable_tier(self):
         wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
                    "system::process::protected::live_tests::a_native_wayland_application_is_cleared_by_its_tree_and_a_windowless_one_is_not",
-                   "input::physical::wayland::live_tests::reply_loss::case",
+                   "input::wayland::live_tests::reply_loss::case",
                    "system::shell::live_wayland_tests::native_case"]
         mutter = ["notifications::live_tests::case",
                   "system::shell::outage_live_tests::case"]

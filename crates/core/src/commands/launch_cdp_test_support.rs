@@ -18,8 +18,7 @@ pub(super) struct CdpAdapter {
     pub(super) serve_cdp: bool,
     pub(super) attribute_cdp_listener: bool,
     pub(super) renderer: Option<RendererKind>,
-    pub(super) captured_args: Mutex<Vec<String>>,
-    pub(super) captured_cdp_port: Mutex<Option<u16>>,
+    pub(super) captured_options: Mutex<LaunchOptions>,
 }
 
 impl ObservationOps for CdpAdapter {
@@ -46,8 +45,7 @@ impl SystemOps for CdpAdapter {
         _lease: &InteractionLease,
     ) -> Result<crate::system::launch_result::LaunchResult, AdapterError> {
         self.launch_app_calls.fetch_add(1, Ordering::SeqCst);
-        *self.captured_args.lock().unwrap() = options.args.clone();
-        *self.captured_cdp_port.lock().unwrap() = options.cdp_port;
+        *self.captured_options.lock().unwrap() = options.clone();
         if self.serve_cdp {
             let port = options.cdp_port.expect("cdp_port resolved before launch");
             serve_fake_cdp_endpoint(port);
@@ -103,8 +101,7 @@ pub(super) fn empty_cdp_adapter(serve_cdp: bool) -> CdpAdapter {
         serve_cdp,
         attribute_cdp_listener: serve_cdp,
         renderer: None,
-        captured_args: Mutex::new(Vec::new()),
-        captured_cdp_port: Mutex::new(None),
+        captured_options: Mutex::new(LaunchOptions::default()),
     }
 }
 

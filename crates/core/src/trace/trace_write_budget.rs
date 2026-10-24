@@ -87,7 +87,7 @@ fn initial_usage(directory: &Path) -> Result<(usize, usize, usize), AppError> {
         if entry
             .file_name()
             .to_str()
-            .and_then(crate::trace::trace_read::parse_segment_filename)
+            .and_then(crate::trace::trace_read::segment::parse_segment_filename)
             .is_some()
         {
             bytes = bytes

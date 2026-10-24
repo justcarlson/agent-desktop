@@ -1,7 +1,7 @@
 mod budget;
 mod html;
 mod merge;
-mod segment;
+pub(crate) mod segment;
 
 pub(crate) use html::export_html_for_command;
 pub use html::{ExportOptions, ExportStats, TRACE_EXPORT_DEFAULT_LIMIT, export_html};
@@ -11,8 +11,7 @@ use merge::{
     annotate_provenance, apply_tail_limit, detect_unpaired_commands, filter_by_event_prefix,
     merge_segments,
 };
-pub(crate) use segment::parse_segment_filename;
-use segment::{SegmentReadStats, read_segment_events};
+use segment::{SegmentReadStats, parse_segment_filename, read_segment_events};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::Path;

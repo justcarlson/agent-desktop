@@ -348,6 +348,14 @@ all_offences() {
 # numbered cases below were live defects: `phase-2.4` escaped and `2.5 ms`
 # false-fired. The prose cases are the shapes that were sitting in shipped
 # source while this gate exited 0.
+cleanup_fixture_tree() {
+    if command -v trash >/dev/null 2>&1; then
+        trash "$1"
+    else
+        printf 'Cleanup retained %s: trash is unavailable\n' "$1" >&2
+    fi
+}
+
 self_test() {
     local must_catch must_pass caught passed failures apostrophe
     local wrapped_catch wrapped_pass
@@ -456,7 +464,7 @@ wrap.rs:2:/// planned fast-follow to the current read'
     fi
     local tree_root planted_rs planted_py planted_sh
     tree_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-phase-reference-selftest.XXXXXXXX")"
-    trap 'trash "$tree_root"' EXIT
+    trap 'cleanup_fixture_tree "$tree_root"' EXIT
     mkdir -p "$tree_root/crates/x/src" "$tree_root/skills" "$tree_root/tests/e2e-linux/runner"
     planted_rs="$tree_root/crates/x/src/planted.rs"
     planted_py="$tree_root/tests/e2e-linux/runner/planted.py"
@@ -498,7 +506,7 @@ pub fn f() {}
     TOKEN_SCAN_RS_ROOTS="crates src"
     TOKEN_SCAN_MD_ROOTS="skills"
     TOKEN_SCAN_HARNESS_ROOTS="tests/e2e-linux"
-    trash "$tree_root"
+    cleanup_fixture_tree "$tree_root"
     trap - EXIT
 
     if [ "$failures" -ne 0 ]; then

@@ -24,12 +24,11 @@ fn cdp_launch_injects_both_the_port_and_the_loopback_address_switch() {
     )
     .unwrap();
 
-    let port = adapter
-        .captured_cdp_port
-        .lock()
-        .unwrap()
+    let captured_options = adapter.captured_options.lock().unwrap();
+    let port = captured_options
+        .cdp_port
         .expect("cdp_port resolved before launch_app ran");
-    let captured_args = adapter.captured_args.lock().unwrap();
+    let captured_args = &captured_options.args;
     assert!(captured_args.contains(&format!("--remote-debugging-port={port}")));
     assert!(captured_args.contains(&"--remote-debugging-address=127.0.0.1".to_owned()));
 }
