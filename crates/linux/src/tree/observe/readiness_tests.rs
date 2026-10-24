@@ -62,7 +62,7 @@ fn settle_and_tree_predicate_boundaries() {
 
     let tree = node(PANEL, vec![node(PANEL, vec![node(DOCUMENT_WEB, vec![])])]);
     assert!(has_web_document(&tree));
-    assert!(!has_web_document(&node(
+    assert!(has_web_document(&node(
         PANEL,
         vec![node(DOCUMENT_FRAME, vec![])]
     )));
@@ -83,4 +83,20 @@ fn settle_and_tree_predicate_boundaries() {
     let cut_tree = node(PANEL, vec![node(PANEL, vec![cut])]);
     assert!(has_depth_cut(&cut_tree));
     assert!(!has_depth_cut(&node(PANEL, vec![node(PANEL, vec![])])));
+}
+
+#[test]
+fn both_web_document_roles_require_a_read_non_busy_state() {
+    use crate::tree::Field;
+    use crate::tree::live::test_support::words;
+    use crate::tree::vocabulary::state_bits::BUSY;
+    for role in [DOCUMENT_WEB, DOCUMENT_FRAME] {
+        let mut document = node(role, vec![]);
+        assert!(has_web_document(&document));
+        assert!(ready(&document));
+        document.payload.node.traits.states = Field::Present(words(&[BUSY]));
+        assert!(!ready(&document));
+        document.payload.node.traits.states = Field::Failed("unread".to_owned());
+        assert!(!ready(&document));
+    }
 }

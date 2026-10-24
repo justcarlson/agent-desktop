@@ -1,3 +1,4 @@
+use crate::tree::placement::visibility::is_placed;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 use futures_util::future::{join_all, join5};
 use zbus::Connection;
@@ -21,11 +22,6 @@ pub(crate) struct Light {
     pub(crate) showing: bool,
     pub(crate) visible: bool,
     pub(crate) children: Vec<AtspiElement>,
-}
-
-/// Extents that name a place on a screen: positive area and no sentinel.
-pub(crate) fn is_placed(extents: Extents) -> bool {
-    extents.x != i32::MIN && extents.y != i32::MIN && extents.width > 0 && extents.height > 0
 }
 
 impl Light {

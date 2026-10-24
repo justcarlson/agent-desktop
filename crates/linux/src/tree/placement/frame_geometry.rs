@@ -1,12 +1,9 @@
+use super::visibility::is_sentinel;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::tree::Extents;
 use crate::tree::properties::toolkit_trust::reports_global_position;
 
 const ORIGIN_TOLERANCE: i64 = 1;
-
-fn is_sentinel(rect: Extents) -> bool {
-    rect.x == i32::MIN || rect.y == i32::MIN
-}
 
 fn moved(rect: Extents, by: (i32, i32)) -> Option<Extents> {
     Some(Extents {

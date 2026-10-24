@@ -1,3 +1,5 @@
+use crate::tree::placement::Placement;
+use crate::tree::placement::snapshot_visibility::{SnapshotVisibility, append_visibility};
 use agent_desktop_core::{
     IdentifierEvidence, LocatorEvidence, LocatorField, LocatorRefEvidence, LocatorStats,
     ObservedSubtree, Rect,
@@ -122,7 +124,7 @@ impl Projector<'_> {
         } else {
             vocabulary.identifiers
         };
-        LocatorEvidence {
+        let mut evidence = LocatorEvidence {
             role: vocabulary.role,
             name,
             description,
@@ -135,7 +137,9 @@ impl Projector<'_> {
                 available_actions: capabilities(&read.node),
                 descriptors: vocabulary.descriptor,
             },
-        }
+        };
+        append_visibility(read, &mut evidence, &Placement::default());
+        evidence
     }
 
     fn subtree(
@@ -143,8 +147,14 @@ impl Projector<'_> {
         node: WalkedNode<ObservedRead>,
         is_root: bool,
         decorate: &mut dyn Decorate,
+        visibility: &SnapshotVisibility,
     ) -> ObservedSubtree {
         let mut evidence = self.evidence_of(&node.payload, node.in_web_document);
+        append_visibility(
+            &node.payload,
+            &mut evidence,
+            &visibility.placement(&node.payload),
+        );
         let WalkedNode {
             payload,
             children,
@@ -163,7 +173,7 @@ impl Projector<'_> {
         let end = after_own + appended.len();
         let mut children: Vec<ObservedSubtree> = children
             .into_iter()
-            .map(|child| self.subtree(child, false, decorate))
+            .map(|child| self.subtree(child, false, decorate, visibility))
             .collect();
         children.append(&mut appended);
         if is_root {
@@ -221,10 +231,15 @@ pub(crate) fn project_with(
     projector.stats.traversal.limits = counts.limits;
     projector.stats.reads.counts.observation_attempts = 1;
     projector.stats.reads.counts.child_reads = walk.node_count as u64;
-    let subtree = projector.subtree(walk.root, true, decorate);
+    let visibility = SnapshotVisibility::new(&walk.root);
+    let subtree = projector.subtree(walk.root, true, decorate, &visibility);
     (subtree, projector.stats)
 }
 
 #[cfg(test)]
 #[path = "projection_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "projection_visibility_tests.rs"]
+mod visibility_tests;

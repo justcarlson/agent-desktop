@@ -1,3 +1,4 @@
+use crate::tree::placement::visibility::{placed_states, settled_by_read};
 use agent_desktop_core::{
     AdapterError, Deadline, ElementState, ErrorCode, LiveElement, NativeHandle, Rect,
 };
@@ -5,8 +6,7 @@ use zbus::Connection;
 
 use super::live_read::live_offscreen::{global_position, placement};
 use super::live_read::live_project::{
-    live_actions, live_bounds, live_element, live_state, live_value, placed_states, pointer_rect,
-    settled_by_read,
+    live_actions, live_bounds, live_element, live_state, live_value, pointer_rect,
 };
 use super::menu::menu_context::MenuContext;
 use super::observe::node_evidence::{NodeEvidence, read_evidence};

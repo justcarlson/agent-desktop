@@ -28,3 +28,7 @@ pub(crate) struct Placement {
     /// The frame maps to several display windows that nothing tells apart.
     pub(crate) tie: Option<WindowTie>,
 }
+
+pub(crate) mod popup_frame;
+pub(super) mod snapshot_visibility;
+pub(crate) mod visibility;

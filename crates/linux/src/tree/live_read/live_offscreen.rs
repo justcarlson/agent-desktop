@@ -209,7 +209,7 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     };
     let window = std::cell::Cell::new(FrameWindow::Unknown);
     let (popup_origin, x11) = select_frame_origin(
-        element.is_menu_target(),
+        read.role,
         &placed.toolkit,
         placed.frame,
         |size| DisplayReader::popup_origin(frame.pid(), size, deadline),
@@ -241,16 +241,13 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
 /// and never falls back to the owning managed window. Other frames keep the
 /// ordinary X11 client state.
 pub(crate) fn select_frame_origin(
-    menu_target: bool,
+    role: Option<u32>,
     toolkit: &ToolkitId,
     frame: Option<Extents>,
     popup: impl FnOnce((i32, i32)) -> Option<(i32, i32)>,
     managed: impl FnOnce() -> Option<WindowX11State>,
 ) -> (Option<(i32, i32)>, Option<WindowX11State>) {
-    if menu_target
-        && crate::tree::properties::toolkit_trust::kind(toolkit)
-            == crate::tree::properties::toolkit_trust::ToolkitKind::Gtk4
-    {
+    if crate::tree::placement::popup_frame::uses_popup_origin(role, toolkit) {
         let origin = frame.and_then(|frame| {
             popup((frame.width, frame.height)).and_then(|origin| {
                 crate::tree::placement::frame_geometry::popup_origin(origin, frame)

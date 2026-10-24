@@ -87,7 +87,7 @@ fn observed(walk: Walk<ObservedRead>, limits: &WalkLimits) -> ObservedTree {
     .expect("a projected walk builds a tree")
 }
 
-fn tree_of(walk: Walk<ObservedRead>, limits: &WalkLimits) -> AccessibilityNode {
+pub(super) fn tree_of(walk: Walk<ObservedRead>, limits: &WalkLimits) -> AccessibilityNode {
     observed(walk, limits)
         .into_accessibility_tree_partial()
         .expect("one root projects")
