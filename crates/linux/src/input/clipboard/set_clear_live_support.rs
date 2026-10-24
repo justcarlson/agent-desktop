@@ -153,7 +153,14 @@ pub(super) fn foreign_read(display: &str, target: &str) -> Option<Vec<u8>> {
 
 pub(super) fn records(display: &str) -> Vec<OwnerRecord> {
     owner_record::record_dir()
-        .and_then(|dir| owner_record::records_in(&dir, display).ok())
+        .and_then(|dir| {
+            owner_record::records_in(
+                &dir,
+                display,
+                agent_desktop_core::Deadline::standard().unwrap(),
+            )
+            .ok()
+        })
         .unwrap_or_default()
 }
 

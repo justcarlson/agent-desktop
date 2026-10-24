@@ -344,5 +344,40 @@ fn no_payload_descriptor_stays_open_after_a_failed_set() {
 #[path = "set_clear_clear_tests.rs"]
 mod clear_tests;
 
+#[test]
+fn record_scan_timeout_preserves_set_and_clear_delivery_states() {
+    for clear in [false, true] {
+        let world = World::new(if clear { "scan-clear" } else { "scan-set" });
+        write_record(&world, u32::MAX, 1, &test_nonce());
+        let server = FakeServer::new(&[None], &[]);
+        let parent = |name: &str| world.env_var(name);
+        let env = Env {
+            helper: Path::new("/nonexistent/helper"),
+            record_dir: &world.records,
+            server: &server,
+            parent_env: &parent,
+            nonce: &world.nonce,
+        };
+        let lease = lease(100);
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        let result = if clear {
+            clear_with(&env, DISPLAY, &lease)
+        } else {
+            set_with(&env, DISPLAY, &text("unchanged"), &lease)
+        };
+        let error = result.expect_err("expired record scan");
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert_eq!(server.released.get(), u32::from(clear));
+        assert_eq!(
+            error.disposition,
+            if clear {
+                DeliverySemantics::delivered_unverified()
+            } else {
+                DeliverySemantics::not_delivered()
+            }
+        );
+    }
+}
+
 #[path = "set_clear_reaper_tests.rs"]
 mod reaper_tests;

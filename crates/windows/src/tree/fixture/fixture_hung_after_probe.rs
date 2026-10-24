@@ -22,6 +22,7 @@ static PROBE_COUNT: AtomicU32 = AtomicU32::new(0);
 static HANG_ON_PROBE: AtomicU32 = AtomicU32::new(0);
 static HANG_ENTERED: AtomicBool = AtomicBool::new(false);
 static RELEASE_HANG: AtomicBool = AtomicBool::new(false);
+static RESUME_AFTER_MS: AtomicU32 = AtomicU32::new(0);
 
 unsafe extern "system" fn hostile_proc(
     window: HWND,
@@ -34,7 +35,14 @@ unsafe extern "system" fn hostile_proc(
         if probe == HANG_ON_PROBE.load(Ordering::SeqCst) {
             HANG_ENTERED.store(true, Ordering::SeqCst);
             unsafe { ReplyMessage(0) };
+            let started = std::time::Instant::now();
             while !RELEASE_HANG.load(Ordering::SeqCst) {
+                let resume_after = RESUME_AFTER_MS.load(Ordering::SeqCst);
+                if resume_after > 0
+                    && started.elapsed() >= Duration::from_millis(u64::from(resume_after))
+                {
+                    break;
+                }
                 thread::sleep(Duration::from_millis(1));
             }
         }
@@ -58,6 +66,7 @@ impl HungAfterProbeFixture {
         HANG_ON_PROBE.store(0, Ordering::SeqCst);
         HANG_ENTERED.store(false, Ordering::SeqCst);
         RELEASE_HANG.store(false, Ordering::SeqCst);
+        RESUME_AFTER_MS.store(0, Ordering::SeqCst);
         let class_name = fixture_window::unique_class_name();
         let host_name = class_name.clone();
         let (sender, receiver) = channel();
@@ -90,6 +99,10 @@ impl HungAfterProbeFixture {
 
     pub(crate) fn did_hang(&self) -> bool {
         HANG_ENTERED.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn resume_after(&self, milliseconds: u32) {
+        RESUME_AFTER_MS.store(milliseconds, Ordering::SeqCst);
     }
 }
 
