@@ -227,6 +227,21 @@ impl ScrollPort for BusPort<'_> {
                 bounds_provable: false,
             });
         };
+        if read.offscreen == Some(true)
+            && super::scroll_plan::viewport_clipped(
+                &crate::tree::live_read::live_offscreen::placement(
+                    self.bus,
+                    self.element,
+                    self.deadline,
+                ),
+            )
+        {
+            return Err(AdapterError::new(
+                ErrorCode::ActionFailed,
+                "The scroll viewport is not contained on one display",
+            )
+            .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered()));
+        }
         let bounds_provable = read.offscreen == Some(true)
             || get_element_bounds(self.bus, self.handle, self.deadline)?.is_some();
         Ok(View {

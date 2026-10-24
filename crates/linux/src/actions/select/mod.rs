@@ -290,11 +290,6 @@ pub(super) fn unchanged_is_ignored(
     }
 }
 
-fn combo_selection(target: &Target<'_>) -> Result<bool, AdapterError> {
-    let view = target.view()?;
-    Ok(view.role() == Some(COMBO_BOX) && advertises_selection(&view))
-}
-
 pub(super) fn no_route() -> AdapterError {
     refusal(
         ErrorCode::ActionNotSupported,
@@ -350,7 +345,7 @@ pub(crate) fn select(
                     selection_parent(&mut reader, target.element)?
                 }
             } else {
-                let combo = combo_selection(target)?;
+                let combo = view.role() == Some(COMBO_BOX) && advertises_selection(&view);
                 hit.container.clone().map(|container| match combo {
                     true => Container {
                         node: target.element.clone(),
@@ -362,6 +357,20 @@ pub(crate) fn select(
                 own: hit.own && container.is_none(),
                 ..hit
             };
+            if (view.role() == Some(COMBO_BOX) || target.element.ancestry().combo_owner().is_some())
+                && crate::tree::properties::toolkit_trust::kind(&toolkit_of(
+                    target.bus,
+                    target.element,
+                    target.deadline,
+                )) == crate::tree::properties::toolkit_trust::ToolkitKind::Qt
+            {
+                return click_row(
+                    target,
+                    &hit,
+                    display_value,
+                    pointer.ok_or_else(select_pointer::pointer_required)?,
+                );
+            }
             after_unproven_index(
                 pointer,
                 || select_through(target, &hit, container.as_ref(), display_value),

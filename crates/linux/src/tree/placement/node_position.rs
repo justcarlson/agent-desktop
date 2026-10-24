@@ -162,17 +162,20 @@ async fn frame_facts(
 fn place_of(
     bus: &SharedBus,
     connection: &zbus::Connection,
-    frame: &AtspiElement,
+    element: &AtspiElement,
     toolkit: &ToolkitId,
     deadline: Deadline,
 ) -> Result<Option<FramePlace>, AdapterError> {
+    let Some(frame) = element.frame() else {
+        return Ok(None);
+    };
     let Some(node) = geometry_or_unknown(within(deadline, frame_facts(connection, frame)))? else {
         return Ok(None);
     };
     let title = node.properties.name.present().cloned().unwrap_or_default();
     let role = node.traits.role.present().copied();
     let screen = node.extents.present().copied();
-    if super::popup_frame::uses_popup_origin(role, toolkit) {
+    if super::popup_frame::uses_popup_origin(role, toolkit, element.is_menu_target()) {
         let Some(window) = geometry_or_unknown(within(
             deadline,
             read_window_extents_async(connection, frame),
@@ -251,10 +254,7 @@ pub(crate) fn place_nodes(
     if reports_global_position(&toolkit) {
         return Ok(());
     }
-    let place = match element.frame() {
-        Some(frame) => place_of(bus, connection.inner(), frame, &toolkit, deadline)?,
-        None => None,
-    };
+    let place = place_of(bus, connection.inner(), &element, &toolkit, deadline)?;
     let elements = placed_elements(&mut walk.root);
     let windows = geometry_or_unknown(within(
         deadline,
@@ -301,10 +301,7 @@ pub(crate) fn place_single(
     if reports_global_position(&toolkit) {
         return Ok(());
     }
-    let place = match element.frame() {
-        Some(frame) => place_of(bus, connection.inner(), frame, &toolkit, deadline)?,
-        None => None,
-    };
+    let place = place_of(bus, connection.inner(), &element, &toolkit, deadline)?;
     let window = geometry_or_unknown(within(
         deadline,
         read_window_extents_async(connection.inner(), &element),

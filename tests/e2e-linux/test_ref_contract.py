@@ -1,17 +1,117 @@
 import unittest
-from unittest.mock import patch
+from contextlib import nullcontext
+from unittest.mock import Mock, patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import json
 
-from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare, named, selected, effect
-from scenarios.ref_contract_windows import chooser
+from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare, named, selected, effect, closes_fixture, close_fixture, unsupported
+from scenarios.ref_contract_windows import chooser, window_state
 from scenarios.ref_contract_identity import identify, raw_target
 from oracle.atspi_raw import RawNode
 
 
 class RefContractTests(unittest.TestCase):
+    def test_window_observation_requires_fresh_parent_proof_before_ignoring_a_failed_child(self):
+        class Closing:
+            bus, path = ":1.5", "/closing"
+
+            @property
+            def states(self):
+                raise RuntimeError("accessible destroyed")
+
+        node = Closing()
+        for refreshed in ([], [node]):
+            tree = SimpleNamespace(children=Mock(side_effect=[[node], refreshed]))
+            if refreshed:
+                with self.assertRaises(RuntimeError):
+                    window_state(tree)
+            else:
+                self.assertEqual(window_state(tree), ())
+
+    def test_combo_switch_requires_matching_open_event_and_pressed_state(self):
+        target = SimpleNamespace(states={"PRESSED"})
+        node = {"name": "Alpha", "role": "switch"}
+        record = {"widget": "zoo-combo", "event": "opened", "value": True}
+        with patch("scenarios.ref_contract.raw_target", return_value=target):
+            self.assertEqual(effect(None, node, "click", None, [], [record]), (True, True))
+            self.assertEqual(effect(None, node, "click", None, [], []), (False, True))
+            target.states.clear()
+            self.assertEqual(effect(None, node, "click", None, [], [record]), (True, False))
+
+    def test_unsupported_selection_preparation_allows_refusal_but_collapse_is_not_exercised(self):
+        node = {"name": "zoo-tab-a", "role": "tab", "available_actions": ["Select"]}
+        other = dict(node, name="zoo-tab-b")
+        error = {"code": "ACTION_NOT_SUPPORTED", "details": {"kind": "selection_index_unproven"},
+                 "disposition": {"delivery": "not_delivered"}}
+        with patch("scenarios.ref_contract.selected", return_value=True), \
+                patch("scenarios.ref_contract.snapshot"), \
+                patch("scenarios.ref_contract.named", return_value=other), \
+                patch("scenarios.ref_contract.act", return_value=SimpleNamespace(error=error)), \
+                patch("scenarios.ref_contract.poll") as poll:
+            self.assertIs(prepare(None, None, None, node, "select"), node)
+            combo = {"name": "Alpha", "role": "combobox", "available_actions": ["Collapse"]}
+            with self.assertRaisesRegex(NotImplementedError, "collapse not exercised"):
+                prepare(None, None, None, combo, "collapse")
+        poll.assert_not_called()
+
+    def test_unsupported_requires_a_specific_safe_refusal_and_no_effects(self):
+        error = {"code": "ACTION_NOT_SUPPORTED", "details": {"kind": "selection_index_unproven"},
+                 "disposition": {"delivery": "not_delivered"}}
+        self.assertTrue(unsupported(error))
+        for code in ("STALE_REF", "AMBIGUOUS_TARGET", "TIMEOUT", "INTERNAL"):
+            self.assertFalse(unsupported(dict(error, code=code)))
+        self.assertFalse(unsupported(dict(error, details={})))
+        self.assertFalse(unsupported(dict(error, disposition={"delivery": "delivery_uncertain"})))
+        for log, raw in ((False, True), (True, False)):
+            self.assertEqual(row_verdict("refuse", succeeded=False, refused=unsupported(error), log_effect=False,
+                                         raw_effect=False, log_unchanged=log, raw_unchanged=raw), "fail")
+
+    def test_close_runs_last_and_restores_a_new_fixture_after_observed_exit(self):
+        close = {"name": "Close", "role": "button"}
+        entry = {"name": "zoo-entry", "role": "textfield"}
+        self.assertEqual(sorted([close, entry], key=closes_fixture), [entry, close])
+        observed = {}
+        ctx = SimpleNamespace(**{stage: lambda channel, value, s=stage: observed.setdefault((channel, s), value)
+                                for stage in ("before", "after", "restored")})
+        tree = SimpleNamespace(connection=None, bus=":1.5")
+        record = {"widget": "zoo", "event": "closed", "value": None}
+        row = {}
+        with patch("scenarios.ref_contract.fresh", return_value=close), \
+                patch("scenarios.ref_contract.events", side_effect=[[], [record]]), \
+                patch("scenarios.ref_contract.since_reset", side_effect=[[], [record], []]), \
+                patch("scenarios.ref_contract.call", return_value=(False,)), \
+                patch("scenarios.ref_contract.poll", side_effect=lambda read, _: read()), \
+                patch("scenarios.ref_contract.act") as act, \
+                patch("scenarios.ref_contract.zoo", return_value=nullcontext((None, "new-log"))), \
+                patch("scenarios.ref_contract.root"), \
+                patch("scenarios.ref_contract_windows.window_state", return_value=(("Zoo GTK3", 23, False),)):
+            close_fixture(ctx, None, tree, "old-log", close, row)
+        self.assertEqual(row["verdict"], "pass")
+        self.assertEqual(observed["atspi.close", "after"], ())
+        for channel in ("atspi.close", "applog.close"):
+            self.assertEqual(observed[channel, "before"], observed[channel, "restored"])
+        act.assert_called_once_with(ctx, close, "click")
+
+    def test_entry_activation_requires_the_callback_effect_in_both_oracles(self):
+        target = SimpleNamespace(states={"SHOWING"}, text=lambda: "activated", walk=lambda: [])
+        node = {"name": "zoo-entry"}
+        records = [{"widget": "zoo-entry", "event": "changed", "value": "activated"}]
+        with patch("scenarios.ref_contract.raw_target", return_value=target):
+            self.assertEqual(effect(None, node, "click", None, [], records), (True, True))
+            self.assertEqual(effect(None, node, "click", None, [], []), (False, False))
+            target.text = lambda: ""
+            self.assertEqual(effect(None, node, "click", None, [], records), (True, False))
+
+    def test_tab_container_named_after_current_page_needs_no_sibling_preparation(self):
+        node = {"name": "zoo-tab-a", "role": "tablist", "available_actions": ["Select"]}
+        with patch("scenarios.ref_contract.selected") as selected_state, \
+                patch("scenarios.ref_contract.act") as act:
+            self.assertIs(prepare(None, None, None, node, "select"), node)
+        selected_state.assert_not_called()
+        act.assert_not_called()
+
     def test_combo_oracle_does_not_treat_stale_showing_rows_as_an_open_popup(self):
         option = SimpleNamespace(role=32, name="Alpha", states={"SHOWING"})
         popup = SimpleNamespace(role=31, name="", states=set(), walk=lambda: [option])
@@ -142,7 +242,7 @@ class RefContractTests(unittest.TestCase):
         for state in ("hidden", "offscreen", "disabled"):
             with self.subTest(state=state):
                 self.assertEqual(expected_outcomes(dict(node, states=[state])), [("type", "refuse")])
-        self.assertEqual(expected_outcomes({"role": "button"}), [])
+        self.assertEqual(expected_outcomes({"role": "button"}), [("click", "refuse")])
 
     def test_all_observable_advertised_actions_are_preserved(self):
         node = {"available_actions": ["Click", "Toggle", "Check", "Uncheck", "TypeText",
@@ -179,9 +279,13 @@ class RefContractTests(unittest.TestCase):
         ]
         for expected, refused, log, raw, log_same, raw_same, verdict in cases:
             with self.subTest(case=(expected, refused, log, raw, log_same, raw_same)):
-                self.assertEqual(row_verdict(expected, refused=refused, log_effect=log,
+                self.assertEqual(row_verdict(expected, succeeded=not refused, refused=refused, log_effect=log,
                                               raw_effect=raw, log_unchanged=log_same,
                                               raw_unchanged=raw_same), verdict)
+        for expected in ("land", "land-or-refuse"):
+            self.assertEqual(row_verdict(expected, succeeded=False, refused=False,
+                                         log_effect=True, raw_effect=True,
+                                         log_unchanged=False, raw_unchanged=False), "fail")
 
 
 if __name__ == "__main__":

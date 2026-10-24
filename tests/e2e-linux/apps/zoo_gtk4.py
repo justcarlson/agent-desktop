@@ -25,7 +25,6 @@ def main(argv):
     dialogs = []
     window = Gtk.Window(title="Zoo GTK4")
     window.set_default_size(600, 900)
-    window.connect("close-request", lambda *_: loop.quit() or False)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
     window.set_child(box)
 
@@ -39,6 +38,8 @@ def main(argv):
                 stream.write(json.dumps(dict(widget=name, event=event, value=value,
                                              at=time.monotonic())) + "\n")
                 stream.flush()
+
+    window.connect("close-request", lambda *_: record("zoo", "closed") or loop.quit() or False)
 
     def add(widget, name):
         named(widget, name)
@@ -65,6 +66,7 @@ def main(argv):
     switch.connect("notify::active", lambda w, *_: record("zoo-switch", "toggled", w.get_active()))
     combo = add(Gtk.DropDown.new_from_strings(["Alpha", "Bravo", "Charlie"]), "zoo-combo")
     combo.connect("notify::selected", lambda w, *_: record("zoo-combo", "changed", w.get_selected_item().get_string()))
+    combo.get_first_child().connect("toggled", lambda w: record("zoo-combo", "opened", w.get_active()))
     spin = add(Gtk.SpinButton.new_with_range(0, 10, 1), "zoo-spin")
     scale = add(Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1), "zoo-scale")
     for widget, name in ((spin, "zoo-spin"), (scale, "zoo-scale")):
@@ -72,6 +74,8 @@ def main(argv):
     entry = add(Gtk.Entry(), "zoo-entry")
     password = add(Gtk.Entry(), "zoo-password")
     password.set_visibility(False)
+    for widget in (entry, password):
+        widget.connect("activate", lambda w: w.set_text("activated"))
     entry.connect("changed", lambda w: record("zoo-entry", "changed", w.get_text()))
     password.connect("changed", lambda w: record("zoo-password", "changed", len(w.get_text())))
     for widget, name in ((entry, "zoo-entry"), (password, "zoo-password"),

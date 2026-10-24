@@ -174,7 +174,10 @@ cursor; on Wayland none is drawn.
   Mutter RemoteDesktop capability. `references/display-servers-and-input.md`
   has the full rules.
 - `select` tries the semantic route first and the pointer second; the pointer
-  route needs X11. Headed, on a list whose toolkit index cannot be mapped to the
+  route needs an explicit `--headed` request on X11. A Qt combo's semantic
+  selection only highlights its popup row, so headless selection refuses with
+  `POLICY_DENIED`, kind `pointer_required`, before changing that highlight.
+  Headed, on a list whose toolkit index cannot be mapped to the
   row (a GTK4 list) it clicks the row and checks its `selected` state; on a
   combo with no semantic opener (a libadwaita combo row) it clicks the combo
   open, selects the choice through the popup's own list and checks the value the
@@ -183,6 +186,15 @@ cursor; on Wayland none is drawn.
   unless the combo already shows the choice. A GTK4 drop-down that opens through
   its own toggle takes `select` without `--headed` and checks the value it
   shows.
+- A ref can expose no safe semantic mutation route. Headless requests then
+  return an unsupported-action error without inventing `hidden` or `disabled`
+  state and without switching to physical input. GTK4 entry and password
+  `Activate` actions are one such case: use `type` to edit the field, or request
+  `--headed` explicitly when a pointer click is intended.
+- Opening a native Wayland Qt combo returns `ACTION_NOT_SUPPORTED`, kind
+  `native_popup_requires_input`, before invoking its action. Qt needs a user
+  input serial to show that popup. An already open combo may be collapsed;
+  Qt windows proven to use Xwayland retain their semantic opener.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless
   `type` on it is `POLICY_DENIED` with check `supported_action`, and its value is

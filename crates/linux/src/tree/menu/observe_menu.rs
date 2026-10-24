@@ -114,7 +114,9 @@ pub(crate) fn observe_menu(
     let request = (*request).validate()?;
     let popups = popups_of(bus, window, request.deadline)?;
     let popup = outermost(popups)?;
-    let root = rooted(&popup.root);
+    let mut root = rooted(&popup.root);
+    let (owner_bus, owner_path) = crate::system::window::window_id::decode(&window.id)?;
+    root.set_menu_owner(&AtspiElement::new(owner_bus, owner_path, window.pid.get()));
     let limits = WalkLimits {
         root_in_web: false,
         ..WalkLimits::for_request(&request)

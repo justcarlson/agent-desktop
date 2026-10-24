@@ -134,7 +134,8 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
         args = args or (str(event_log),)
     if app.endswith(("qt_window.py", "zoo_qt.py")):
         command = [os.environ.get("AGENT_DESKTOP_QT_PYTHON", "python3"), app]
-        env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1", QT_QPA_PLATFORM="xcb")
+        env.update(QT_ACCESSIBILITY="1", QT_LINUX_ACCESSIBILITY_ALWAYS_ON="1",
+                   QT_QPA_PLATFORM="wayland" if tier.name == "wayland" else "xcb")
     elif app.endswith(("zoo_gtk3.py", "zoo_gtk4.py")):
         command = ["python3", app]
         env["GTK_USE_PORTAL"] = "0"
@@ -198,6 +199,13 @@ def stop(app: OwnedApp) -> None:
         if start != app.start_time:
             return False
         if not attributable(tier, app.pid, start, env):
+            child = _SPAWNED.get(app.pid)
+            if not env and child is not None:
+                try:
+                    child.wait(timeout=2.0)
+                    return False
+                except subprocess.TimeoutExpired:
+                    pass
             raise AssertionError("owned process left its runtime directory")
         return group
 

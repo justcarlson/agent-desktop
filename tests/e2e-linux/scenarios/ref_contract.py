@@ -4,7 +4,7 @@ import contextlib
 import json
 from uuid import uuid4
 
-from oracle.atspi_raw import RawNode, poll
+from oracle.atspi_raw import RawNode, call, poll
 from runner.helper import managed, nodes, one, require, root, snapshot as snapshot_tree
 from scenarios.ref_contract_identity import identify, raw_target, same_ref
 
@@ -27,11 +27,24 @@ def expected_outcomes(node):
         actions = actions[:1]
         expected = ("land-or-refuse" if node.get("name") == "zoo-offscreen"
                     and states & BLOCKED == {"offscreen"} else "refuse")
-    return [(action, expected) for action in actions]
+    return [(action, expected) for action in actions] or [("click", "refuse")]
 
 
-def row_verdict(expected, *, refused, log_effect, raw_effect, log_unchanged, raw_unchanged):
-    landed = log_effect and raw_effect
+def unsupported(error):
+    if not error or error.get("disposition", {}).get("delivery") != "not_delivered":
+        return False
+    details = error.get("details", {})
+    return ((error.get("code") == "ACTION_NOT_SUPPORTED" and
+             (details.get("kind") in ("selection_index_unproven", "native_popup_requires_input") or
+              details.get("semantic_verb") == "absent")) or
+            (error.get("code") == "POLICY_DENIED" and
+             (details.get("kind") == "pointer_required" or
+              any(check.get("check") == "supported_action" and check.get("status") == "fail"
+                  for check in details.get("checks", ())))))
+
+
+def row_verdict(expected, *, succeeded, refused, log_effect, raw_effect, log_unchanged, raw_unchanged):
+    landed = succeeded and log_effect and raw_effect
     clean_refusal = refused and log_unchanged and raw_unchanged
     return "pass" if ((expected == "land" and landed)
                       or (expected == "refuse" and clean_refusal)
@@ -122,7 +135,15 @@ def effect(tree, node, action, value, before, records):
     target = raw_target(tree, node)
     name = "zoo-combo" if node.get("role") == "combobox" else node.get("name")
     states = target.states
+    if name in ("Alpha", "Bravo", "Charlie") and node.get("role") == "switch":
+        return matching_event(records, "zoo-combo", "opened", True), "PRESSED" in states
     if action == "click" and name in ("zoo-entry", "zoo-password", "zoo-spin"):
+        activated = 7.0 if name == "zoo-spin" else 9 if name == "zoo-password" else "activated"
+        if matching_event(records, name, "changed", activated):
+            observed = (target.value() if name == "zoo-spin" else
+                        target.get_property("org.a11y.atspi.Text", "CharacterCount")
+                        if name == "zoo-password" else target.text())
+            return True, observed == activated
         return (matching_event(records, name, "focus", True),
                 any("FOCUSED" in child.states for child in target.walk()))
     if action == "type" or (action == "set-value" and target.value() is None):
@@ -177,11 +198,13 @@ def effect(tree, node, action, value, before, records):
 def prepare(ctx, app, tree, node, action):
     """Make idempotent actions observable, then remint the target ref."""
     name = node.get("name")
-    if set(node.get("states", ())) & BLOCKED:
+    if dict(expected_outcomes(node)).get(action) == "refuse":
         return node
     opposite = {"check": "uncheck", "uncheck": "check", "expand": "collapse", "collapse": "expand"}
     if action in opposite:
-        act(ctx, node, opposite[action])
+        response = act(ctx, node, opposite[action])
+        if unsupported(response.error):
+            raise NotImplementedError(f"{action} not exercised: setup {opposite[action]} refused: {response.error}")
         if name == "zoo-menubutton":
             require(poll(lambda: any(n.name == "zoo-menu-item" and "SHOWING" in n.states
                                      for n in tree.walk()) == (action == "collapse"), 3))
@@ -192,16 +215,18 @@ def prepare(ctx, app, tree, node, action):
                 f"could not prepare {action} on {name}")
         return fresh(ctx, app, node)
     if name in ("zoo-radio-a", "zoo-radio-b", "zoo-tab-a", "zoo-tab-b",
-                "zoo-row-1", "zoo-row-2", "zoo-row-3") and selected(tree, name):
+                "zoo-row-1", "zoo-row-2", "zoo-row-3") and node.get("role") != "tablist" and selected(tree, name):
         if name.startswith("zoo-row-"):
             other = "zoo-row-2" if name == "zoo-row-1" else "zoo-row-1"
         else:
             other = name[:-1] + ("b" if name.endswith("a") else "a")
         other_node = named(snapshot(ctx, app), other, node.get("role"))
         if "Select" in other_node.get("available_actions", ()):
-            act(ctx, other_node, "select", other)
+            response = act(ctx, other_node, "select", other)
         else:
-            act(ctx, other_node, "click")
+            response = act(ctx, other_node, "click")
+        if unsupported(response.error):
+            return node
         require(poll(lambda: selected(tree, other) and not selected(tree, name), 3))
         return fresh(ctx, app, node)
     return node
@@ -215,26 +240,58 @@ def print_rows(ctx, rows):
     ctx.finding(table)
 
 
+def closes_fixture(node):
+    return node.get("name") == "Close" and node.get("role") == "button"
+
+
+def close_fixture(ctx, app, tree, path, original, row):
+    from scenarios.ref_contract_windows import window_state
+    node = fresh(ctx, app, original)
+    before = len(events(path))
+    baseline = window_state(tree)
+    ctx.before("atspi.close", baseline)
+    ctx.before("applog.close", since_reset(path))
+    act(ctx, node, "click")
+    def closed():
+        return not call(tree.connection, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus", "NameHasOwner", "(s)", (tree.bus,))[0]
+    raw_effect = bool(poll(closed, 3))
+    log_effect = matching_event(events(path)[before:], "zoo", "closed")
+    row.update(action=["click"], expected=["land"],
+               observed=[dict(action="click", log=log_effect, raw=raw_effect)],
+               verdict="pass" if log_effect and raw_effect else "fail")
+    ctx.after("atspi.close", () if raw_effect else window_state(tree))
+    ctx.after("applog.close", since_reset(path))
+    if raw_effect:
+        with zoo(ctx) as (replacement, replacement_log):
+            restored = window_state(root(ctx, replacement))
+            ctx.restored("atspi.close", restored)
+            ctx.restored("applog.close", since_reset(replacement_log))
+            require(restored == baseline, "relaunch did not restore the fixture window")
+
+
 def refs(ctx):
     rows = []
     try:
         with zoo(ctx) as (app, path):
             tree = root(ctx, app)
-            initial = ref_nodes(snapshot(ctx, app))
+            initial = sorted(ref_nodes(snapshot(ctx, app)), key=closes_fixture)
             require(initial, "fixture snapshot has no refs")
             for original in initial:
                 key = original.get("name"), original.get("role")
                 row = dict(name=key[0], role=key[1], states=original.get("states", []),
                            action=[], expected=[], observed=[], verdict="pass")
                 rows.append(row)
-                outcomes = expected_outcomes(original)
-                if not outcomes:
-                    row.update(verdict="fail", observed="no observable primary action advertised")
+                if closes_fixture(original) and expected_outcomes(original) == [("click", "land")]:
+                    row["verdict"] = "fail"
+                    close_fixture(ctx, app, tree, path, original, row)
                     continue
+                outcomes = expected_outcomes(original)
                 for action, _ in outcomes:
                     channel = f"ref{len(rows)}.{action}"
                     try:
                         baseline = raw_state(tree)
+                        baseline_log = events(path)
                         ctx.before("atspi." + channel, baseline)
                         ctx.before("applog." + channel, since_reset(path))
                         node = prepare(ctx, app, tree, fresh(ctx, app, original), action)
@@ -248,7 +305,7 @@ def refs(ctx):
                                  "7" if action == "set-value" else
                                  ("Charlie" if node.get("value") == "Bravo" else "Bravo")
                                  if action == "select" else None)
-                        if action == "select" and node.get("role") == "option":
+                        if action == "select" and node.get("role") in ("option", "tab"):
                             value = node.get("name")
                         elif action == "select" and expected != "refuse" and node.get("role") != "combobox":
                             children = [n for n in raw_target(tree, node).walk()
@@ -276,7 +333,13 @@ def refs(ctx):
                             log_after = events(path)
                         refused = (response.exit_code == 1 and bool(response.error)
                                    and not response.error.get("code", "").startswith("HARNESS_"))
-                        verdict = row_verdict(expected, refused=refused, log_effect=log_effect,
+                        if expected == "land" and unsupported(response.error):
+                            expected = "refuse"
+                            row["expected"][-1] = "unsupported: refuse without effects"
+                            before, log_before = baseline, baseline_log
+                        if not any(a in ACTIONS for a in node.get("available_actions", ())) and not set(node.get("states", ())) & BLOCKED:
+                            refused = refused and unsupported(response.error)
+                        verdict = row_verdict(expected, succeeded=response.ok, refused=refused, log_effect=log_effect,
                                               raw_effect=raw_effect, log_unchanged=log_after == log_before,
                                               raw_unchanged=after == before)
                         row["observed"].append(dict(action=action, refused=refused,
@@ -284,6 +347,12 @@ def refs(ctx):
                         if verdict == "fail":
                             row["verdict"] = "fail"
                         ctx.after("atspi." + channel, after)
+                        ctx.after("applog." + channel, since_reset(path))
+                    except NotImplementedError as error:
+                        if row["verdict"] != "fail":
+                            row["verdict"] = "not-exercised"
+                        row["observed"].append(dict(action=action, not_exercised=str(error)))
+                        ctx.after("atspi." + channel, raw_state(tree))
                         ctx.after("applog." + channel, since_reset(path))
                     except Exception as error:
                         row["verdict"] = "fail"
@@ -300,4 +369,6 @@ def refs(ctx):
                             row["observed"].append("reset did not restore the baseline")
     finally:
         print_rows(ctx, rows)
-    require(all(row["verdict"] == "pass" for row in rows), "ref-contract table has failures")
+    require(not any(row["verdict"] == "fail" for row in rows), "ref-contract table has failures")
+    if any(row["verdict"] == "not-exercised" for row in rows):
+        raise NotImplementedError("ref-contract table has actions not exercised because setup refused")

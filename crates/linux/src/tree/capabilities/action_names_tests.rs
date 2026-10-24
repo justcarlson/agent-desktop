@@ -45,7 +45,10 @@ fn selectable_uncheckable_options_advertise_selection_without_toggle_or_click() 
                     .any(|token| token == "Toggle" || token == "Click")
             );
         } else {
-            assert!(!tokens.iter().any(|token| token == "Select"));
+            assert_eq!(
+                tokens.iter().any(|token| token == "Select"),
+                role == LIST_ITEM && selectable
+            );
         }
     }
 }

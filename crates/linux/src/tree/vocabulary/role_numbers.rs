@@ -28,6 +28,7 @@ pub(crate) const MENU: u32 = 33;
 pub(crate) const MENU_BAR: u32 = 34;
 pub(crate) const POPUP_MENU: u32 = 41;
 pub(crate) const MENU_ITEM: u32 = 35;
+pub(crate) const PAGE_TAB: u32 = 37;
 pub(crate) const PASSWORD_TEXT: u32 = 40;
 pub(crate) const PUSH_BUTTON: u32 = 43;
 pub(crate) const RADIO_BUTTON: u32 = 44;

@@ -13,6 +13,14 @@ pub(crate) async fn read_window_extents_async(
     connection: &Connection,
     element: &AtspiElement,
 ) -> Result<Option<Extents>, AdapterError> {
+    read_extents_async(connection, element, WINDOW_COORDINATES).await
+}
+
+pub(crate) async fn read_extents_async(
+    connection: &Connection,
+    element: &AtspiElement,
+    coordinates: u32,
+) -> Result<Option<Extents>, AdapterError> {
     match crate::tree::properties::interface_support::supports(
         connection,
         element,
@@ -31,7 +39,7 @@ pub(crate) async fn read_window_extents_async(
         element,
         COMPONENT_INTERFACE,
         "GetExtents",
-        &(WINDOW_COORDINATES,),
+        &(coordinates,),
     )
     .await
     {

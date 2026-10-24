@@ -80,6 +80,7 @@ pub(crate) fn windowing(origin: (i32, i32), above: Vec<StackedWindow>) -> Window
     let mut stack = vec![stacked(CLIENT, rect(origin.0, origin.1, 800, 600))];
     stack.extend(above);
     Windowing {
+        descent_root: None,
         coordinate_origin: None,
         client: CLIENT,
         snapshot: StackingSnapshot {

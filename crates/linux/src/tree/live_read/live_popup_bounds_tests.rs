@@ -32,8 +32,7 @@ impl NodeReader for PopupPlacementReader {
     fn placement(&mut self, _element: &AtspiElement, _deadline: Deadline) -> Placement {
         let frame = rect(100, 200, 400, 300);
         let (popup_origin, x11) = select_frame_origin(
-            Some(crate::system::shell::container::MENU),
-            &gtk4(),
+            true,
             Some(frame),
             |_| (self.popup_candidates.len() == 1).then(|| self.popup_candidates[0]),
             || {
@@ -142,8 +141,7 @@ fn ordinary_frames_keep_the_managed_window_origin() {
     let managed = managed_decoy();
     let mut popup_asked = false;
     let (popup, x11) = select_frame_origin(
-        Some(crate::tree::vocabulary::role_numbers::FRAME),
-        &gtk4(),
+        false,
         Some(rect(100, 200, 400, 300)),
         |_| {
             popup_asked = true;

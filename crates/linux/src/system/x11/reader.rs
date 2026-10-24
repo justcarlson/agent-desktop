@@ -146,6 +146,21 @@ fn unique_popup(popups: &[PopupWindow]) -> Option<PopupWindow> {
 }
 
 impl DisplayReader {
+    pub(crate) fn popup_at(pid: u32, point: (i32, i32), caller: Deadline) -> Option<PopupWindow> {
+        let deadline = capped(caller)?;
+        let DisplayServer::X11(display) = session_server() else {
+            return None;
+        };
+        bounded(deadline, None, move || {
+            unique_popup(
+                &read_popup_windows(&display, pid)?
+                    .into_iter()
+                    .filter(|popup| crate::tree::hit_test::hit_guard::admits(popup.bounds, point))
+                    .collect::<Vec<_>>(),
+            )
+        })
+    }
+
     pub(crate) fn popup_containing(
         pid: u32,
         screen: Extents,

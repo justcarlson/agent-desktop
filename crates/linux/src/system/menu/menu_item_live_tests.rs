@@ -13,6 +13,73 @@ use crate::tree::{AtspiElement, atspi_element};
 const CHECKED_BIT: u32 = 4;
 const ITEM: &str = "Text Wrapping";
 
+#[test]
+#[ignore = "drives GTK in scripts/private-session.sh --wm"]
+fn menu_live_gtk3_toggle_menu_item_is_visible_and_delivers_headlessly() {
+    let mut launched = Launched::new();
+    let directory = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").expect("private session");
+    let script = format!("{directory}/{}.py", nonce("toggle-menu"));
+    let log = format!("{script}.log");
+    std::fs::write(
+        &script,
+        r#"
+import gi, sys
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk
+window = Gtk.Window(title='Toggle menu fixture')
+button = Gtk.MenuButton(label='Open menu')
+menu = Gtk.Menu()
+item = Gtk.MenuItem(label='Pick item')
+item.connect('activate', lambda *_: open(sys.argv[1], 'w').write('picked'))
+menu.append(item)
+menu.show_all()
+button.set_popup(menu)
+window.add(button)
+window.connect('destroy', Gtk.main_quit)
+window.show_all()
+Gtk.main()
+"#,
+    )
+    .expect("fixture script");
+    let pid = launched.spawn("python3", &[&script, &log]);
+    let rig = Rig::attach(pid);
+    let window = rig.window();
+    let opener = poll("the menu toggle", || rig.raw_find(&[62], "Open menu"));
+    rig.do_action(&opener);
+    poll("the menu surface", || rig.menu_surface());
+    let entries = rig.menu_entries(&window).expect("menu snapshot");
+    let (_, entry) = entries
+        .iter()
+        .find(|(_, entry)| entry.identity.name.as_deref() == Some("Pick item"))
+        .expect("menu item ref");
+    let handle = rig
+        .adapter
+        .resolve_element_strict(entry, deadline())
+        .expect("open item");
+    let live = rig
+        .adapter
+        .get_live_element(&handle, deadline())
+        .expect("live item");
+    assert_eq!(live.state.offscreen, Some(false));
+    let lease = InteractionLease::guarded(deadline(), ()).expect("lease");
+    execute_verified_action(
+        &rig.adapter,
+        &handle,
+        ActionRequest::headless(Action::Click),
+        &lease,
+    )
+    .expect("headless menu click");
+    poll("application callback", || {
+        std::fs::read_to_string(&log)
+            .is_ok_and(|text| text == "picked")
+            .then_some(())
+    });
+    poll("menu dismissed", || {
+        rig.menu_surface().is_none().then_some(())
+    });
+    assert!(is_closed_ref(&rig.resolve(entry).expect_err("closed ref")));
+}
+
 fn checked(rig: &Rig, element: &AtspiElement) -> bool {
     let reply = rig
         .connection

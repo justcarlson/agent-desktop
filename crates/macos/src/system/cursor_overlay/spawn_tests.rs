@@ -36,7 +36,10 @@ fn unacknowledged_failure(phase: agent_desktop_core::CursorPhase) -> AdapterErro
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::path::PathBuf::from(format!("/tmp/ca-{}-{unique:x}.sock", std::process::id()));
+    let path = std::path::PathBuf::from(format!(
+        "/tmp/ca-{}-{unique:x}-{phase:?}.sock",
+        std::process::id()
+    ));
     let result = std::panic::catch_unwind(|| {
         let listener = UnixListener::bind(&path).unwrap();
         let (release, released) = std::sync::mpsc::channel::<()>();

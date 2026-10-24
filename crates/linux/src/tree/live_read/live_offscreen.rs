@@ -150,7 +150,13 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     };
     placed.frame_iconified = read.iconified;
     if element.is_menu_target()
-        && read.role == Some(crate::system::shell::container::MENU)
+        && matches!(
+            read.role,
+            Some(
+                crate::tree::vocabulary::role_numbers::MENU
+                    | crate::tree::vocabulary::role_numbers::TOGGLE_BUTTON
+            )
+        )
         && crate::tree::properties::toolkit_trust::kind(&placed.toolkit)
             == crate::tree::properties::toolkit_trust::ToolkitKind::Gtk3
     {
@@ -193,8 +199,11 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     };
     let window = std::cell::Cell::new(FrameWindow::Unknown);
     let (popup_origin, x11) = select_frame_origin(
-        read.role,
-        &placed.toolkit,
+        crate::tree::placement::popup_frame::uses_popup_origin(
+            read.role,
+            &placed.toolkit,
+            element.is_menu_target(),
+        ),
         placed.frame,
         |size| DisplayReader::popup_origin(frame.pid(), size, deadline),
         || {
@@ -225,13 +234,12 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
 /// and never falls back to the owning managed window. Other frames keep the
 /// ordinary X11 client state.
 pub(crate) fn select_frame_origin(
-    role: Option<u32>,
-    toolkit: &ToolkitId,
+    popup_frame: bool,
     frame: Option<Extents>,
     popup: impl FnOnce((i32, i32)) -> Option<(i32, i32)>,
     managed: impl FnOnce() -> Option<WindowX11State>,
 ) -> (Option<(i32, i32)>, Option<WindowX11State>) {
-    if crate::tree::placement::popup_frame::uses_popup_origin(role, toolkit) {
+    if popup_frame {
         let origin = frame.and_then(|frame| {
             popup((frame.width, frame.height)).and_then(|origin| {
                 crate::tree::placement::frame_geometry::popup_origin(origin, frame)

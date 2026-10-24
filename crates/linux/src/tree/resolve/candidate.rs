@@ -1,4 +1,4 @@
-use agent_desktop_core::{BoundsSpace, Rect};
+use agent_desktop_core::{BoundsSpace, LocatorField, Rect};
 
 use crate::tree::AtspiElement;
 
@@ -8,7 +8,7 @@ use crate::tree::AtspiElement;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Candidate {
     pub(crate) element: AtspiElement,
-    pub(crate) bounds: Option<Rect>,
+    pub(crate) bounds: LocatorField<Rect>,
     pub(crate) bounds_space: BoundsSpace,
     pub(crate) depth: usize,
     pub(crate) path: Vec<usize>,

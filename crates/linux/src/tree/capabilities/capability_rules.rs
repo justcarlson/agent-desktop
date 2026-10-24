@@ -4,12 +4,12 @@ use super::scroll_capability::{eligible, wheel_target};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::tree::properties::node_read::COMPONENT_INTERFACE;
 use crate::tree::vocabulary::role_numbers::{
-    CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, DIAL, ENTRY, LIST, PASSWORD_TEXT, PUSH_BUTTON,
-    RADIO_BUTTON, RADIO_MENU_ITEM, SCROLL_BAR, SLIDER, SPIN_BUTTON, TERMINAL, TEXT, TOGGLE_BUTTON,
-    is_menu_item,
+    CHECK_BOX, CHECK_MENU_ITEM, COMBO_BOX, DIAL, ENTRY, LIST, LIST_ITEM, PAGE_TAB, PASSWORD_TEXT,
+    PUSH_BUTTON, RADIO_BUTTON, RADIO_MENU_ITEM, SCROLL_BAR, SLIDER, SPIN_BUTTON, TERMINAL, TEXT,
+    TOGGLE_BUTTON, is_menu_item,
 };
 use crate::tree::vocabulary::state_bits::{
-    EDITABLE, EXPANDABLE, EXPANDED, FOCUSABLE, HAS_POPUP, READ_ONLY, StateBits,
+    EDITABLE, EXPANDABLE, EXPANDED, FOCUSABLE, HAS_POPUP, READ_ONLY, SELECTABLE, StateBits,
 };
 use crate::tree::{Field, RawNode};
 
@@ -166,7 +166,8 @@ fn pointer_combo(facts: &Facts) -> bool {
 /// toolkit drops the verb a live button would carry. A scroll bar takes `SetValue`
 /// on every toolkit and the write is judged by its read-back, because the
 /// table has no toolkit input and a Qt bar that does not move content says
-/// so when the write is read back. A node that can take focus and has a
+/// so when the write is read back. Selectable rows and tabs use their parent's
+/// revalidated Selection route (L30-18). A node that can take focus and has a
 /// `Component` takes `SetFocus`, whatever names it advertises: the call is
 /// `Component.GrabFocus`, which a toolkit may reject when it is made.
 pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
@@ -194,6 +195,7 @@ pub(crate) fn rule_tokens(facts: &Facts) -> Vec<&'static str> {
         (collapse, capability::COLLAPSE),
         (
             facts.advertises(SELECTION) && facts.child_count.is_some_and(|count| count > 0)
+                || matches!(facts.role, LIST_ITEM | PAGE_TAB) && facts.bits.has(SELECTABLE)
                 || popup_dropdown(facts)
                 || pointer_combo(facts),
             capability::SELECT,

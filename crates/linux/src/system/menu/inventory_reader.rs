@@ -92,6 +92,8 @@ impl<'a> Inventory<'a> {
         self.trees[&key].clone()
     }
 
+    /// Structural walks omit interfaces; retain the root's measured Component
+    /// evidence so an actual context menu stays classifiable (L41-26).
     fn top(&mut self, window: &AtspiElement) -> Result<(Vec<Node>, bool), AdapterError> {
         let key = window.bus_name().to_owned();
         if let Some(cached) = self.top_levels.get(&key) {
@@ -106,7 +108,10 @@ impl<'a> Inventory<'a> {
             let child = AtspiElement::new(bus_name, path, window.pid());
             let key = (child.bus_name().to_owned(), child.path().to_owned());
             if let Some(Ok(tree)) = self.trees.get(&key) {
-                if !is_cut_short_beyond_pruning(tree) {
+                if !is_cut_short_beyond_pruning(tree)
+                    && (!tree.payload.node.properties.name.is_blank()
+                        || tree.payload.node.traits.interfaces.present().is_some())
+                {
                     incomplete |= !popup_read_complete(tree);
                     if is_popup_candidate(tree) {
                         found.push(tree.clone());
@@ -132,7 +137,8 @@ impl<'a> Inventory<'a> {
                 continue;
             }
             match self.walk(&child, TOP_LEVEL_NODES, true) {
-                Ok(tree) => {
+                Ok(mut tree) => {
+                    tree.payload.node.traits.interfaces = node.traits.interfaces;
                     incomplete |= may_hide_a_menu(&tree) || !popup_read_complete(&tree);
                     if is_popup_candidate(&tree) {
                         found.push(tree);

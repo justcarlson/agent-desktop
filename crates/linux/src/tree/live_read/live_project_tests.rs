@@ -48,6 +48,35 @@ fn hidden(read: &ObservedRead) -> bool {
 }
 
 #[test]
+fn gtk4_entry_activation_is_refused_without_removing_real_click_verbs_or_bounds() {
+    use crate::system::process::toolkit_id::ToolkitId;
+    use crate::tree::vocabulary::role_numbers::{ENTRY, TEXT};
+    for (role, version, names, clickable) in [
+        (ENTRY, "4.14.5", vec!["Activate"], false),
+        (TEXT, "4.14.5", vec!["Activate"], false),
+        (PASSWORD_TEXT, "4.14.5", vec!["Activate"], false),
+        (ENTRY, "3.24", vec!["Activate"], true),
+        (ENTRY, "4.14.5", vec!["Activate", "Click"], true),
+        (PUSH_BUTTON, "4.14.5", vec!["Activate"], true),
+    ] {
+        let read = with_extents(read_of(role, "field", &names), 10, 20, 80, 30);
+        let placement = Placement {
+            toolkit: ToolkitId {
+                name: Some("GTK".into()),
+                version: Some(version.into()),
+            },
+            ..Placement::default()
+        };
+        let live = live_element(&read, &evidence_of(&read), &placement, true).unwrap();
+        assert_eq!(
+            live.available_actions.iter().any(|a| a == "Click"),
+            clickable
+        );
+        assert_eq!(live.bounds, live_bounds(&read));
+    }
+}
+
+#[test]
 fn visible_without_showing_and_showing_alone_are_not_hidden() {
     let visible = with_states(read_of(PUSH_BUTTON, "b", &[]), &[ENABLED, VISIBLE]);
     assert!(!hidden(&visible));

@@ -1,6 +1,8 @@
 use agent_desktop_core::refs::ref_identity::has_meaningful_identity;
 use agent_desktop_core::refs::resolve_errors::identity_unknown_error;
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode, LocatorEvidence, Rect, RefEntry};
+use agent_desktop_core::{
+    AdapterError, Deadline, ErrorCode, LocatorEvidence, LocatorField, Rect, RefEntry,
+};
 
 use super::AtspiElement;
 use super::resolve::candidate::{Candidate, without_nested_relatives};
@@ -131,10 +133,10 @@ fn attempt<S: Source>(
     if path_tier_applies(entry) {
         without_nested_relatives(&mut searched.candidates, &entry.scope.path);
     }
-    let rects: Vec<Option<Rect>> = searched
+    let rects: Vec<LocatorField<Rect>> = searched
         .candidates
         .iter()
-        .map(|candidate| candidate.bounds)
+        .map(|candidate| candidate.bounds.clone())
         .collect();
     let spaces: Vec<agent_desktop_core::BoundsSpace> = searched
         .candidates
@@ -148,12 +150,7 @@ fn attempt<S: Source>(
     match classify(
         &rects,
         &spaces,
-        entry
-            .geometry
-            .bounds
-            .as_ref()
-            .filter(|_| has_meaningful_identity(entry)),
-        super::resolve::resolve_identity::stored_space(entry),
+        has_meaningful_identity(entry).then_some(&entry.geometry),
         unread,
     ) {
         Verdict::Resolved(index) => searched

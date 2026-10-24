@@ -35,6 +35,33 @@ impl Rung {
 const SCROLL_TO_THEN_BAR: &[Rung] = &[Rung::ScrollTo, Rung::BarValue];
 const BAR_ONLY: &[Rung] = &[Rung::BarValue];
 
+/// L41-24: do not move content when its viewport is not contained on one display:
+/// reaching the scrollbar limit then cannot establish target visibility.
+pub(crate) fn viewport_clipped(placed: &crate::tree::placement::Placement) -> bool {
+    let (Some(rect), Some(window), Some(displays)) =
+        (placed.container, placed.x11, &placed.displays)
+    else {
+        return false;
+    };
+    if rect.width <= 0
+        || rect.height <= 0
+        || rect.x == i32::MIN
+        || rect.y == i32::MIN
+        || displays.is_empty()
+        || displays.iter().any(|d| d.width <= 0 || d.height <= 0)
+    {
+        return false;
+    }
+    let x = i64::from(rect.x) + i64::from(window.client_origin.0) + i64::from(window.shadow.0);
+    let y = i64::from(rect.y) + i64::from(window.client_origin.1) + i64::from(window.shadow.1);
+    !displays.iter().any(|d| {
+        x >= i64::from(d.x)
+            && y >= i64::from(d.y)
+            && x + i64::from(rect.width) <= i64::from(d.x) + i64::from(d.width)
+            && y + i64::from(rect.height) <= i64::from(d.y) + i64::from(d.height)
+    })
+}
+
 /// The rungs worth trying on a toolkit, in order. `Component.ScrollTo`
 /// answers false for every GTK call measured (L27-5), so GTK goes straight to
 /// the bar; Chromium's `ScrollTo` moved the page (L27-5). Qt answers
