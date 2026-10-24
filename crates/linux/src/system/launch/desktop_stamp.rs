@@ -30,6 +30,16 @@ impl DesktopStamp {
         };
         (seconds as u64, nanoseconds as u32) < (cutoff.as_secs(), cutoff.subsec_nanos())
     }
+
+    pub(crate) fn path(&self) -> &PathBuf {
+        &self.path
+    }
+
+    pub(crate) fn is_desktop_file(&self) -> bool {
+        self.path
+            .extension()
+            .is_some_and(|extension| extension == "desktop")
+    }
 }
 
 #[cfg(test)]
