@@ -35,7 +35,7 @@ def unsupported(error):
         return False
     details = error.get("details", {})
     return ((error.get("code") == "ACTION_NOT_SUPPORTED" and
-             (details.get("kind") == "selection_index_unproven" or
+             (details.get("kind") in ("selection_index_unproven", "native_popup_requires_input") or
               details.get("semantic_verb") == "absent")) or
             (error.get("code") == "POLICY_DENIED" and
              (details.get("kind") == "pointer_required" or
@@ -202,7 +202,9 @@ def prepare(ctx, app, tree, node, action):
         return node
     opposite = {"check": "uncheck", "uncheck": "check", "expand": "collapse", "collapse": "expand"}
     if action in opposite:
-        act(ctx, node, opposite[action])
+        response = act(ctx, node, opposite[action])
+        if unsupported(response.error):
+            return node
         if name == "zoo-menubutton":
             require(poll(lambda: any(n.name == "zoo-menu-item" and "SHOWING" in n.states
                                      for n in tree.walk()) == (action == "collapse"), 3))

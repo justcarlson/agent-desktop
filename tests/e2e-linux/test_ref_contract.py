@@ -51,6 +51,8 @@ class RefContractTests(unittest.TestCase):
                 patch("scenarios.ref_contract.act", return_value=SimpleNamespace(error=error)), \
                 patch("scenarios.ref_contract.poll") as poll:
             self.assertIs(prepare(None, None, None, node, "select"), node)
+            combo = {"name": "Alpha", "role": "combobox", "available_actions": ["Collapse"]}
+            self.assertIs(prepare(None, None, None, combo, "collapse"), combo)
         poll.assert_not_called()
 
     def test_unsupported_requires_a_specific_safe_refusal_and_no_effects(self):

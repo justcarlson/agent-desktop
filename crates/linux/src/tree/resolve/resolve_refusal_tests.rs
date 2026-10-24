@@ -1,6 +1,7 @@
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 use super::*;
+use crate::tree::Field;
 use crate::tree::live::test_support::{rect, ref_entry};
 use crate::tree::resolve::resolve_errors::{app_exited, window_replaced};
 use crate::tree::resolve::resolve_fake::{FRAME_PATH, Fake, deadline, node};
@@ -198,6 +199,39 @@ fn window_field(x: i32, y: i32, width: i32, height: i32) -> crate::tree::Observe
         agent_desktop_core::BoundsSpace::Window,
     ));
     read
+}
+
+#[test]
+fn a_known_absent_rectangle_separates_twins_but_an_unread_rectangle_does_not() {
+    for (unread, keep_rectangle) in [(false, true), (true, true), (false, false), (true, false)] {
+        let mut fake = Fake::new();
+        fake.add(FRAME_PATH, "/visible", node(PUSH_BUTTON, "Name", 378, 46));
+        let mut entry = fake.entry_of("/visible", true);
+        if !keep_rectangle {
+            entry.geometry.bounds = None;
+        }
+        let mut hidden = node(PUSH_BUTTON, "Name", 1, 1);
+        hidden.node.extents = if unread {
+            Field::Failed("unread rectangle".into())
+        } else {
+            Field::Present(crate::tree::Extents {
+                x: i32::MIN,
+                y: i32::MIN,
+                width: 1,
+                height: 1,
+            })
+        };
+        fake.add(FRAME_PATH, "/hidden", hidden);
+        let result = resolve(&mut fake, &entry, deadline());
+        if unread {
+            assert!(result.is_err(), "an unread twin must prevent delivery");
+        } else {
+            assert_eq!(
+                result.expect("known absent twin geometry").path(),
+                "/visible"
+            );
+        }
+    }
 }
 
 #[test]

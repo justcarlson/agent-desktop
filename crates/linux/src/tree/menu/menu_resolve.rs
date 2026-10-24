@@ -1,6 +1,5 @@
 use agent_desktop_core::{
-    AdapterError, Deadline, DeliverySemantics, ErrorCode, LocatorEvidence, NativeHandle, RefEntry,
-    SnapshotSurface,
+    AdapterError, Deadline, LocatorEvidence, NativeHandle, RefEntry, SnapshotSurface,
 };
 use serde_json::json;
 use zbus::Connection;
@@ -26,21 +25,6 @@ use crate::tree::{AtspiElement, WalkLimits};
 
 pub(crate) fn is_menu_entry(entry: &RefEntry) -> bool {
     entry.source.source_surface == SnapshotSurface::Menu
-}
-
-/// The answer when the session has no rule that places the popup, so a
-/// pointer click cannot be aimed at its item. Waiting for the same missing
-/// geometry would only run out the budget.
-fn no_position() -> AdapterError {
-    AdapterError::new(
-        ErrorCode::ActionFailed,
-        "The menu item has no usable screen position, so a pointer click cannot be aimed at it",
-    )
-    .with_suggestion("Keep the menu open and take a fresh menu snapshot before clicking the item")
-    .with_details(
-        json!({ "check": "geometry", "physical_delivery_started": false, "retryable": false }),
-    )
-    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 fn unanswered() -> AdapterError {
@@ -183,9 +167,8 @@ fn open_handle(
     position: impl FnOnce(&AtspiElement) -> Result<PopupPosition, AdapterError>,
 ) -> Result<NativeHandle, AdapterError> {
     match position(&element)? {
-        PopupPosition::Placed => Ok(element.into_native_handle()),
+        PopupPosition::Placed | PopupPosition::Unplaceable => Ok(element.into_native_handle()),
         PopupPosition::Unmapped => Err(menu_closed()),
-        PopupPosition::Unplaceable => Err(no_position()),
     }
 }
 

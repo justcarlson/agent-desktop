@@ -4,6 +4,49 @@ use super::*;
 use agent_desktop_core::DeliveryDisposition;
 
 #[test]
+fn qt_popup_backend_discovery_failure_is_not_a_native_platform_limitation() {
+    use crate::system::x11::window::window_kind::WindowKind;
+
+    require_qt_popup_backend(
+        true,
+        ControlRead::Ready(vec![Toplevel {
+            id: 1,
+            title: String::new(),
+            kind: WindowKind::Normal,
+            transient: false,
+        }]),
+    )
+    .expect("a proven XWayland window permits semantic opening");
+
+    for (configured, windows, native) in [
+        (true, ControlRead::Ready(vec![]), true),
+        (false, ControlRead::NotX11, true),
+        (true, ControlRead::NotX11, false),
+        (true, ControlRead::NoManager, false),
+        (true, ControlRead::Unavailable, false),
+    ] {
+        let error = require_qt_popup_backend(configured, windows).expect_err("refuse opening");
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert_eq!(
+            error.code,
+            if native {
+                ErrorCode::ActionNotSupported
+            } else {
+                ErrorCode::ActionFailed
+            }
+        );
+        assert_eq!(
+            error.details.expect("backend evidence")["kind"],
+            if native {
+                "native_popup_requires_input"
+            } else {
+                "popup_backend_unproven"
+            }
+        );
+    }
+}
+
+#[test]
 fn menu_regression_pressed_opener_without_a_popup_never_verifies_delivery() {
     let popup = AtspiElement::new(":1.1", "/popup", 7);
     for (wanted, before, after, verified, overview_reads) in [

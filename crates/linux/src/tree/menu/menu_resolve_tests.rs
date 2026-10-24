@@ -1,6 +1,6 @@
 use agent_desktop_core::ErrorCode;
 
-use super::{choose, is_menu_entry, menu_closed, no_position, open_handle, resolve_contextual};
+use super::{choose, is_menu_entry, menu_closed, open_handle, resolve_contextual};
 use crate::tree::AtspiElement;
 use crate::tree::menu::menu_context::MenuContext;
 use crate::tree::placement::popup_position::PopupPosition;
@@ -143,20 +143,6 @@ fn a_ref_taken_on_the_menu_surface_is_a_menu_entry_and_a_window_ref_is_not() {
 }
 
 #[test]
-fn an_unplaced_popup_item_is_refused_at_once_before_any_event() {
-    let error = no_position();
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(
-        error.disposition,
-        agent_desktop_core::DeliverySemantics::not_delivered()
-    );
-    let details = error.details.expect("details");
-    assert_eq!(details["physical_delivery_started"], false);
-    assert_eq!(details["check"], "geometry");
-    assert_eq!(details["retryable"], false);
-}
-
-#[test]
 fn an_item_found_in_a_popup_that_has_closed_resolves_to_the_closed_menu_refusal() {
     let error = open_handle(element("/item"), |_| Ok(PopupPosition::Unmapped))
         .err()
@@ -167,19 +153,16 @@ fn an_item_found_in_a_popup_that_has_closed_resolves_to_the_closed_menu_refusal(
 }
 
 #[test]
-fn an_item_in_an_open_placed_popup_resolves_to_its_own_handle() {
-    let handle = open_handle(element("/item"), |_| Ok(PopupPosition::Placed)).expect("a handle");
-    let landed = crate::tree::atspi_element(&handle).expect("an element");
-    assert_eq!(landed.path(), "/item");
+fn an_open_item_resolves_without_requiring_pointer_geometry() {
+    for position in [PopupPosition::Placed, PopupPosition::Unplaceable] {
+        let handle = open_handle(element("/item"), |_| Ok(position)).expect("a handle");
+        let landed = crate::tree::atspi_element(&handle).expect("an element");
+        assert_eq!(landed.path(), "/item");
+    }
 }
 
 #[test]
-fn an_item_nothing_places_keeps_the_no_position_refusal_and_a_failed_read_its_own() {
-    let error = open_handle(element("/item"), |_| Ok(PopupPosition::Unplaceable))
-        .err()
-        .expect("no rule places it");
-    assert_eq!(error.code, ErrorCode::ActionFailed);
-    assert_eq!(error.details.expect("details")["check"], "geometry");
+fn a_failed_position_read_preserves_its_error() {
     let slow = open_handle(element("/item"), |_| {
         Err(agent_desktop_core::AdapterError::timeout("slow"))
     })

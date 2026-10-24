@@ -1,5 +1,5 @@
 use agent_desktop_core::{
-    BoundsSpace, IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry,
+    BoundsSpace, IdentityMatch, LocatorEvidence, LocatorField, Rect, RefEntry, RefGeometry,
     refs::ref_identity::{
         has_meaningful_identity, has_stable_text_identity, identity_match, stable_text_match,
     },
@@ -80,7 +80,7 @@ pub(in crate::tree) fn candidate(
 ) -> super::candidate::Candidate {
     let mut candidate = super::candidate::Candidate {
         element,
-        bounds: bounds_in(evidence, stored_space(entry)).known().copied(),
+        bounds: bounds_in(evidence, stored_space(entry)).clone(),
         bounds_space: stored_space(entry),
         depth: path.len(),
         path: path.to_vec(),
@@ -94,7 +94,7 @@ pub(in crate::tree) fn candidate(
             BoundsSpace::Screen => BoundsSpace::Window,
         };
         if let Some(bounds) = bounds_in(evidence, other).known() {
-            candidate.bounds = Some(*bounds);
+            candidate.bounds = LocatorField::Known(*bounds);
             candidate.bounds_space = other;
         }
     }
@@ -158,27 +158,33 @@ pub(crate) fn admit_node(entry: &RefEntry, evidence: &LocatorEvidence) -> Admiss
     }
 }
 
-/// The one candidate whose whole rectangle matches in its recorded frame.
+/// The one candidate whose rectangle or compact snapshot hash matches in its recorded frame.
 /// It only ever picks among several candidates and never refutes one; a ref
 /// with no stored size cannot be separated this way and stays ambiguous. A
 /// candidate whose extents were not read is not a size that differs: it could
 /// be the element, so while any candidate is unread nothing is picked.
 pub(crate) fn select_by_stored_geometry(
-    candidates: &[Option<Rect>],
+    candidates: &[LocatorField<Rect>],
     spaces: &[BoundsSpace],
-    stored: Option<&Rect>,
-    stored_space: BoundsSpace,
+    stored: &RefGeometry,
 ) -> Option<usize> {
-    if stored.and_then(usable_size).is_none() || candidates.iter().any(Option::is_none) {
+    if candidates.iter().any(LocatorField::is_unknown) {
         return None;
     }
-    if spaces.len() != candidates.len() || spaces.iter().any(|space| *space != stored_space) {
+    if spaces.len() != candidates.len()
+        || candidates.iter().zip(spaces).any(|(bounds, space)| {
+            bounds.known().is_some() && *space != stored.bounds_space.unwrap_or_default()
+        })
+    {
         return None;
     }
-    let stored = stored?;
     let mut matching = candidates.iter().enumerate().filter_map(|(index, rect)| {
-        let rect = rect.as_ref()?;
-        let same = usable_size(rect).is_some() && rect == stored;
+        let rect = rect.known()?;
+        let same = usable_size(rect).is_some()
+            && match stored.bounds {
+                Some(bounds) => usable_size(&bounds).is_some() && rect == &bounds,
+                None => stored.bounds_hash.is_some() && rect.bounds_hash() == stored.bounds_hash,
+            };
         same.then_some(index)
     });
     let first = matching.next()?;
@@ -191,24 +197,27 @@ pub(crate) fn select_by_stored_geometry(
 /// withholds every verdict, so a lone match found while another region could
 /// not be read is retried and not resolved.
 pub(crate) fn classify(
-    candidates: &[Option<Rect>],
+    candidates: &[LocatorField<Rect>],
     spaces: &[BoundsSpace],
-    stored: Option<&Rect>,
-    stored_space: BoundsSpace,
+    stored: Option<&RefGeometry>,
     unread_region: bool,
 ) -> Verdict {
-    let separable = stored.and_then(usable_size).is_some();
+    let separable = stored.is_some_and(|geometry| match geometry.bounds {
+        Some(bounds) => usable_size(&bounds).is_some(),
+        None => geometry.bounds_hash.is_some(),
+    });
     if candidates.len() > 1 && !separable {
         return Verdict::Ambiguous;
     }
-    let extents_unread = candidates.len() > 1 && candidates.iter().any(Option::is_none);
+    let extents_unread = candidates.len() > 1 && candidates.iter().any(LocatorField::is_unknown);
     if unread_region || extents_unread {
         return Verdict::Incomplete;
     }
     match candidates.len() {
         0 => Verdict::Stale,
         1 => Verdict::Resolved(0),
-        _ => select_by_stored_geometry(candidates, spaces, stored, stored_space)
+        _ => stored
+            .and_then(|stored| select_by_stored_geometry(candidates, spaces, stored))
             .map_or(Verdict::Ambiguous, Verdict::Resolved),
     }
 }

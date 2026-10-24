@@ -3,6 +3,8 @@ use super::context::Target;
 use crate::system::focus::focus_cause::Cause;
 use crate::system::menu::menu_surface::roots_below;
 use crate::system::menu::overview::overview_open;
+use crate::system::x11::control::ControlRead;
+use crate::system::x11::window::toplevel::Toplevel;
 use crate::tree::AtspiElement;
 use crate::tree::capabilities::action_read::{NodeView, read_node_view};
 use crate::tree::vocabulary::role_numbers::{PUSH_BUTTON, PUSH_BUTTON_MENU, TOGGLE_BUTTON};
@@ -100,12 +102,61 @@ fn confirm(
     Err(error)
 }
 
+fn require_qt_popup_backend(
+    display_configured: bool,
+    windows: ControlRead<Vec<Toplevel>>,
+) -> Result<(), AdapterError> {
+    let native = match windows {
+        ControlRead::Ready(windows) if !windows.is_empty() => return Ok(()),
+        ControlRead::Ready(_) => true,
+        ControlRead::NotX11 if !display_configured => true,
+        _ => false,
+    };
+    let (code, message, kind) = if native {
+        (
+            ErrorCode::ActionNotSupported,
+            "Native Wayland Qt popup opening needs a user input serial; no input was sent",
+            "native_popup_requires_input",
+        )
+    } else {
+        (
+            ErrorCode::ActionFailed,
+            "The Qt popup backend could not be determined; no input was sent",
+            "popup_backend_unproven",
+        )
+    };
+    Err(AdapterError::new(code, message)
+        .with_details(serde_json::json!({"kind": kind}))
+        .with_disposition(DeliverySemantics::not_delivered()))
+}
+
 pub(super) fn run(
     target: &Target<'_>,
     view: &NodeView,
     wanted: Option<bool>,
     invoke: impl FnOnce() -> Result<ActionResult, AdapterError>,
 ) -> Result<ActionResult, AdapterError> {
+    use crate::system::display::display_server::{DisplayServer, session_server};
+    use crate::tree::properties::toolkit_trust::{ToolkitKind, kind};
+    use crate::tree::vocabulary::{role_numbers::COMBO_BOX, state_bits::EXPANDED};
+
+    if view.role() == Some(COMBO_BOX)
+        && wanted != Some(false)
+        && view.state(EXPANDED) != Some(true)
+        && matches!(session_server(), DisplayServer::Wayland)
+        && kind(&crate::tree::live_read::live_offscreen::toolkit_of(
+            target.bus,
+            target.element,
+            target.deadline,
+        )) == ToolkitKind::Qt
+    {
+        require_qt_popup_backend(
+            crate::system::display::display_env::DisplayEnv::from_process()
+                .display
+                .is_some(),
+            crate::system::x11::control::toplevels_of(target.element.pid(), target.deadline),
+        )?;
+    }
     let Some(opener) = opener(target, view)? else {
         return invoke();
     };

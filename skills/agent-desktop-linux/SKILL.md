@@ -191,6 +191,10 @@ cursor; on Wayland none is drawn.
   state and without switching to physical input. GTK4 entry and password
   `Activate` actions are one such case: use `type` to edit the field, or request
   `--headed` explicitly when a pointer click is intended.
+- Opening a native Wayland Qt combo returns `ACTION_NOT_SUPPORTED`, kind
+  `native_popup_requires_input`, before invoking its action. Qt needs a user
+  input serial to show that popup. An already open combo may be collapsed;
+  Qt windows proven to use Xwayland retain their semantic opener.
 - Headless `type` writes through `EditableText`. A terminal's text node is a
   `textfield` named `Terminal` whose only action is `RightClick`; headless
   `type` on it is `POLICY_DENIED` with check `supported_action`, and its value is
