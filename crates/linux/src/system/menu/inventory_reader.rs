@@ -1,13 +1,12 @@
-use super::menu_popup::{Node, only_menu_content};
+use super::menu_popup::{Node, is_popup_candidate, only_menu_content};
 use super::menu_surface::{PopupReader, popup_read_complete, vanished};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, within};
 use crate::tree::menu::observe_menu::{
     BULK_CHILDREN, is_cut_short_beyond_pruning, rooted, scan_walk, scan_walk_pruned,
     scan_walk_structure,
 };
-use crate::tree::vocabulary::role_numbers::{FRAME, WINDOW};
-use crate::tree::vocabulary::state_bits::{SHOWING, StateBits};
-use crate::tree::{AtspiElement, RawNode, list_children, read_node};
+use crate::tree::surfaces::top_level::is_popup_menu_candidate;
+use crate::tree::{AtspiElement, list_children, read_node};
 use agent_desktop_core::{AdapterError, Deadline};
 use std::collections::HashMap;
 
@@ -109,7 +108,7 @@ impl<'a> Inventory<'a> {
             if let Some(Ok(tree)) = self.trees.get(&key) {
                 if !is_cut_short_beyond_pruning(tree) {
                     incomplete |= !popup_read_complete(tree);
-                    if is_popup_candidate(&tree.payload.node) {
+                    if is_popup_candidate(tree) {
                         found.push(tree.clone());
                     }
                     continue;
@@ -122,20 +121,22 @@ impl<'a> Inventory<'a> {
                     continue;
                 }
             };
-            if node.traits.role.present().is_none()
+            if node.traits.interfaces.present().is_none()
                 || node.traits.states.present().is_none()
                 || node.properties.name.is_failed()
             {
                 incomplete = true;
                 continue;
             }
-            if !is_popup_candidate(&node) {
+            if !is_popup_menu_candidate(&node) {
                 continue;
             }
             match self.walk(&child, TOP_LEVEL_NODES, true) {
                 Ok(tree) => {
                     incomplete |= may_hide_a_menu(&tree) || !popup_read_complete(&tree);
-                    found.push(tree);
+                    if is_popup_candidate(&tree) {
+                        found.push(tree);
+                    }
                 }
                 Err(error) => incomplete |= !vanished(&error),
             }
@@ -144,16 +145,6 @@ impl<'a> Inventory<'a> {
             .insert(window.bus_name().to_owned(), (found.clone(), incomplete));
         Ok((found, incomplete))
     }
-}
-
-fn is_popup_candidate(node: &RawNode) -> bool {
-    let shaped = matches!(node.traits.role.present(), Some(&(WINDOW | FRAME)));
-    let showing = node
-        .traits
-        .states
-        .present()
-        .is_some_and(|words| StateBits::new(words).has(SHOWING));
-    shaped && showing && node.properties.name.is_blank()
 }
 
 /// Whether a top-level candidate was read only in part and what was read is

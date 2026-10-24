@@ -1,6 +1,7 @@
 use super::*;
 use crate::tree::live::test_support::{read_of, words};
-use crate::tree::vocabulary::role_numbers::FRAME;
+use crate::tree::vocabulary::role_numbers::{DIALOG, FRAME, PANEL};
+use crate::tree::vocabulary::state_bits::MODAL;
 use crate::tree::{COMPONENT_INTERFACE, Extents, Field};
 
 fn window(role: u32, name: &str, width: i32) -> RawNode {
@@ -17,7 +18,7 @@ fn window(role: u32, name: &str, width: i32) -> RawNode {
 }
 
 #[test]
-fn an_unnamed_modal_panel_needs_a_complete_unique_accessible_window_size() {
+fn an_unnamed_showing_top_level_needs_a_complete_unique_accessible_window_size() {
     let gtk4 = ToolkitId {
         name: Some("GTK".into()),
         version: Some("4.14.5".into()),
@@ -47,14 +48,14 @@ fn an_unnamed_modal_panel_needs_a_complete_unique_accessible_window_size() {
         expected
     ));
     let mut unread = main;
-    unread.traits.role = Field::Failed("unread role".into());
+    unread.traits.interfaces = Field::Failed("unread interfaces".into());
     assert!(!permits_size_match(
         &panel,
         &[panel.clone(), unread],
         &gtk4,
         expected
     ));
-    let plain = window(FRAME, "", 702);
+    let plain = window(FRAME, "Named", 702);
     assert!(!permits_size_match(
         &plain,
         std::slice::from_ref(&plain),
@@ -72,7 +73,10 @@ fn an_unnamed_modal_panel_needs_a_complete_unique_accessible_window_size() {
     assert!(!permits_size_match(
         &panel,
         std::slice::from_ref(&panel),
-        &ToolkitId::default(),
+        &ToolkitId {
+            name: Some("gtk".into()),
+            version: Some("3.24".into())
+        },
         expected
     ));
     assert!(!permits_size_match(
@@ -92,5 +96,61 @@ fn an_unnamed_modal_panel_needs_a_complete_unique_accessible_window_size() {
         std::slice::from_ref(&panel),
         &gtk4,
         resized
+    ));
+}
+
+#[test]
+fn size_identity_uses_component_and_showing_evidence_without_reading_roles() {
+    let gtk4 = ToolkitId {
+        name: Some("gtk".into()),
+        version: Some("4.14".into()),
+    };
+    for role in [DIALOG, FRAME, 43] {
+        let mut node = window(role, "", 702);
+        node.traits.states = Field::Present(words(&[SHOWING]));
+        let expected = node.extents.present().copied();
+        assert!(permits_size_match(
+            &node,
+            std::slice::from_ref(&node),
+            &gtk4,
+            expected
+        ));
+        node.traits.role = Field::Failed("role".into());
+        assert!(permits_size_match(
+            &node,
+            std::slice::from_ref(&node),
+            &gtk4,
+            expected
+        ));
+        node.traits.interfaces = Field::Present(vec![]);
+        assert!(!permits_size_match(
+            &node,
+            std::slice::from_ref(&node),
+            &gtk4,
+            expected
+        ));
+    }
+    let node = window(DIALOG, "", 702);
+    let expected = node.extents.present().copied();
+    let mut unread = window(43, "Other", 360);
+    unread.traits.states = Field::Failed("states".into());
+    assert!(!permits_size_match(
+        &node,
+        &[node.clone(), unread],
+        &gtk4,
+        expected
+    ));
+    let twin = window(43, "Other", 702);
+    assert!(!permits_size_match(
+        &node,
+        &[node.clone(), twin],
+        &gtk4,
+        expected
+    ));
+    assert!(permits_size_match(
+        &node,
+        std::slice::from_ref(&node),
+        &ToolkitId::default(),
+        expected
     ));
 }

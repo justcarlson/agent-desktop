@@ -2,41 +2,10 @@ use super::native_group::{self, unproven};
 use crate::system::process::protected::{DisplayOwner, is_helper_surface};
 use crate::system::registry::listed_window;
 use crate::system::x11::X11Client;
-use crate::tree::vocabulary::role_numbers::{DIALOG, FILLER, FRAME, PANEL, WINDOW};
-use crate::tree::vocabulary::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits, VISIBLE};
-use crate::tree::{COMPONENT_INTERFACE, Field};
+use crate::tree::Field;
+use crate::tree::vocabulary::state_bits::{ACTIVE, ICONIFIED, MODAL, SHOWING, StateBits};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
-
-/// Whether a child of an application root is a top-level window: a frame,
-/// dialog or window role that implements the component interface, or a panel
-/// that carries `MODAL` (GTK 4 presents its shortcuts window that way, and an
-/// application root has no panel child otherwise), or a filler that is
-/// `SHOWING` and `VISIBLE` (Qt presents a top-level `QWidget` that is not a
-/// `QMainWindow` that way, L30-28). GTK 3 names the frame `frame` and
-/// GTK 4 names the same numeric role `application`, so only the number is
-/// read.
-pub(crate) fn is_window_shape(
-    role: &Field<u32>,
-    interfaces: &Field<Vec<String>>,
-    states: &Field<Vec<u32>>,
-) -> bool {
-    let shaped = match role.present() {
-        Some(&(FRAME | DIALOG | WINDOW)) => true,
-        Some(&PANEL) => states
-            .present()
-            .is_some_and(|words| StateBits::new(words).has(MODAL)),
-        Some(&FILLER) => states.present().is_some_and(|words| {
-            let bits = StateBits::new(words);
-            bits.has(SHOWING) && bits.has(VISIBLE)
-        }),
-        _ => false,
-    };
-    shaped
-        && interfaces
-            .present()
-            .is_some_and(|list| list.iter().any(|name| name == COMPONENT_INTERFACE))
-}
 
 fn reads_x11(
     server: crate::system::display::display_server::DisplayServer,

@@ -1,10 +1,11 @@
-use crate::tree::vocabulary::role_numbers::{ALERT, DIALOG, is_web_document};
+use super::top_level::is_dialog_role;
+use crate::tree::vocabulary::role_numbers::is_web_document;
 use crate::tree::vocabulary::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, ObservedRead, WalkedNode};
 
 pub(crate) type Node = WalkedNode<ObservedRead>;
 
-/// A dialog drawn inside its window's tree: a `SHOWING` dialog or alert node
+/// A dialog drawn inside its window's tree: a `SHOWING` node with a dialog role
 /// below the window, which no listing of top-level windows sees.
 pub(crate) struct NestedDialog<'a> {
     pub(crate) element: &'a AtspiElement,
@@ -24,11 +25,11 @@ fn has_state(node: &Node, bit: u32) -> bool {
         .is_some_and(|words| StateBits::new(words).has(bit))
 }
 
-/// A showing dialog or alert node. libadwaita draws its save prompt as an
+/// A showing node with a dialog role. libadwaita draws its save prompt as an
 /// alert inside the window and sets no `MODAL` on it, so the state decides
 /// nothing here.
 fn is_prompt(node: &Node) -> bool {
-    has_state(node, SHOWING) && matches!(role(node), Some(DIALOG | ALERT))
+    has_state(node, SHOWING) && is_dialog_role(node.payload.node.traits.role.present())
 }
 
 fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
@@ -77,13 +78,13 @@ pub(crate) fn is_cut_short(node: &Node) -> bool {
 }
 
 /// A failed role can hide a dialog or a web-document boundary. Only a known
-/// dialog or alert needs state evidence; other nodes' states do not decide
+/// dialog role needs state evidence; other nodes' states do not decide
 /// discovery.
 fn unread_dialog(node: &Node) -> bool {
     if node.in_web_document || is_web_document(role(node)) {
         return false;
     }
-    let dialog_like = matches!(role(node), Some(DIALOG | ALERT));
+    let dialog_like = is_dialog_role(node.payload.node.traits.role.present());
     if role(node).is_none() || (dialog_like && node.payload.node.traits.states.present().is_none())
     {
         return true;
