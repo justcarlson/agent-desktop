@@ -307,7 +307,8 @@ def main(argv: list[str]) -> int:
 
     session_base = Path(
         env.get("AGENT_DESKTOP_SESSION_BASE")
-        or Path(env.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+        or (Path(env["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if env.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
     )
     session.sweep_strays(session_base)
 

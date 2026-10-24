@@ -12,7 +12,7 @@ bash tests/e2e-linux/run.sh --tier x11-openbox
 
 Each run builds (`cargo build --locked --release`) into its own suite's temporary Cargo target, stages both executables in `<suite>/bin/`, and records their SHA256s in adjacent `.sha256` files and in the startup `image:` lines. It then removes the build intermediates. Every leg uses that pinned pair. A staged hash mismatch fails the run, and other worktrees' builds cannot replace either image. An externally supplied `AGENT_DESKTOP_E2E_BIN` (or `AGENT_DESKTOP_E2E_BIN_SRC`) skips the build and freezes that image and its adjacent helper before the interaction lease is taken.
 
-Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}`. The runner starts its own private sessions and takes the interaction lease.
+Omit `--tier` to run all tiers sequentially. Set `AGENT_DESKTOP_E2E_SUITE` to a fresh directory to choose the evidence location. The default is a fresh directory under `$AGENT_DESKTOP_SESSION_BASE` when nonempty, otherwise `$XDG_RUNTIME_DIR/agent-desktop-sessions` when `XDG_RUNTIME_DIR` is nonempty, otherwise `/tmp/agent-desktop-sessions-<uid>` with the numeric user ID. The base is created with mode 0700. The runner starts its own private sessions and takes the interaction lease.
 
 Exit codes: `0` every leg passed or asserted its refusal; `1` any other outcome (see Outcomes); `2` the gate refused to start (missing prerequisite, unknown leg, leg not registered for the tier, staging failure, or the interaction lease is already held). Nothing ran on exit 2.
 
@@ -154,7 +154,9 @@ This bounded check waits for the receipt rather than guessing a PID or sleeping 
 
 ```sh
 export CARGO_INCREMENTAL=0
-base=${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}
+base=${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/agent-desktop-sessions}}
+base=${base:-/tmp/agent-desktop-sessions-$(id -u)}
+umask 077
 mkdir -p "$base"
 suite=$(mktemp -d "$base/e2e-cancel.XXXXXX")
 AGENT_DESKTOP_E2E_SUITE="$suite" bash tests/e2e-linux/run.sh \

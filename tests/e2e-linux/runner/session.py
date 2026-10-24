@@ -334,7 +334,8 @@ def start_tier(name: str, deadline: float):
         marker.unlink(missing_ok=True)
     base = Path(
         os.environ.get("AGENT_DESKTOP_SESSION_BASE")
-        or Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+        or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if os.environ.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
     )
     existing = set(base.glob("rt.*"))
     child_env = dict(os.environ)

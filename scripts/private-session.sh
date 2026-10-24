@@ -27,7 +27,8 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 
-base=${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:-/tmp}/agent-desktop-sessions}
+base=${AGENT_DESKTOP_SESSION_BASE:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/agent-desktop-sessions}}
+base=${base:-/tmp/agent-desktop-sessions-$(id -u)}
 export AGENT_DESKTOP_SESSION_BASE=$base
 mkdir -p "$base"
 rt=$(mktemp -d "$base/rt.XXXXXX")

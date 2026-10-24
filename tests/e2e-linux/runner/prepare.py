@@ -15,9 +15,10 @@ from runner import stage
 def main(argv: list[str]) -> None:
     base = Path(
         os.environ.get("AGENT_DESKTOP_SESSION_BASE")
-        or Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+        or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if os.environ.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
     )
-    base.mkdir(parents=True, exist_ok=True)
+    base.mkdir(mode=0o700, parents=True, exist_ok=True)
     suite = Path(os.environ.get("AGENT_DESKTOP_E2E_SUITE")
                  or tempfile.mkdtemp(prefix="e2e-suite-", dir=base)).resolve()
     suite.mkdir(parents=True, exist_ok=True)

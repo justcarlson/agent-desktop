@@ -355,8 +355,10 @@ def main():
     os.chdir(ROOT)
     base = Path(
         os.environ.get("AGENT_DESKTOP_SESSION_BASE")
-        or Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+        or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if os.environ.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
     )
+    base.mkdir(mode=0o700, parents=True, exist_ok=True)
     output = (args.output or base / f"live-gate-{time.time_ns()}").resolve()
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "manifest.json"

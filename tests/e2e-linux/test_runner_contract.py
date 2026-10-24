@@ -138,21 +138,24 @@ class GateTests(unittest.TestCase):
 
     def test_session_base_defaults_and_overrides(self):
         cases = (
-            ({}, Path("/tmp/agent-desktop-sessions")),
-            ({"XDG_RUNTIME_DIR": ""}, Path("/tmp/agent-desktop-sessions")),
+            ({}, Path("/tmp/agent-desktop-sessions-1234")),
+            ({"XDG_RUNTIME_DIR": ""}, Path("/tmp/agent-desktop-sessions-1234")),
+            ({"AGENT_DESKTOP_SESSION_BASE": ""}, Path("/tmp/agent-desktop-sessions-1234")),
             ({"XDG_RUNTIME_DIR": "/runtime"}, Path("/runtime/agent-desktop-sessions")),
             ({"AGENT_DESKTOP_SESSION_BASE": "", "XDG_RUNTIME_DIR": "/runtime"},
              Path("/runtime/agent-desktop-sessions")),
             ({"AGENT_DESKTOP_SESSION_BASE": "/custom", "XDG_RUNTIME_DIR": "/runtime"},
              Path("/custom")),
+            ({"AGENT_DESKTOP_SESSION_BASE": "/custom"}, Path("/custom")),
         )
         for env, expected in cases:
-            with self.subTest(env=env), mock.patch.object(Path, "mkdir", autospec=True) as mkdir:
+            with self.subTest(env=env), mock.patch.object(Path, "mkdir", autospec=True) as mkdir, \
+                    mock.patch.object(os, "getuid", return_value=1234):
                 gate.check_prerequisites(
                     ("x11-mutter",), env=env, platform="linux",
                     which=lambda tool: f"/usr/bin/{tool}", gi_probe=lambda: None,
                 )
-                mkdir.assert_called_once_with(expected, parents=True, exist_ok=True)
+                mkdir.assert_called_once_with(expected, mode=0o700, parents=True, exist_ok=True)
 
     def test_run_without_interaction_lease_exits_two_before_the_gate(self):
         environment = {name: value for name, value in os.environ.items()

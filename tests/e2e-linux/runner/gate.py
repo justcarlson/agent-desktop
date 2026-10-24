@@ -95,10 +95,11 @@ def check_prerequisites(
         missing.append(f"missing release binary: {binary}")
     session_base = Path(
         env.get("AGENT_DESKTOP_SESSION_BASE")
-        or Path(env.get("XDG_RUNTIME_DIR") or "/tmp") / "agent-desktop-sessions"
+        or (Path(env["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if env.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
     )
     try:
-        session_base.mkdir(parents=True, exist_ok=True)
+        session_base.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as error:
         missing.append(f"the session base is not writable: {error}")
     return missing

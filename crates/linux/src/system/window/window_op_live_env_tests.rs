@@ -127,12 +127,14 @@ impl InnerSession {
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
             .unwrap_or_else(|| {
-                PathBuf::from(
-                    std::env::var_os("XDG_RUNTIME_DIR")
-                        .filter(|value| !value.is_empty())
-                        .unwrap_or_else(|| "/tmp".into()),
-                )
-                .join("agent-desktop-sessions")
+                std::env::var_os("XDG_RUNTIME_DIR")
+                    .filter(|value| !value.is_empty())
+                    .map(|runtime| PathBuf::from(runtime).join("agent-desktop-sessions"))
+                    .unwrap_or_else(|| {
+                        PathBuf::from(format!("/tmp/agent-desktop-sessions-{}", unsafe {
+                            libc::getuid()
+                        }))
+                    })
             });
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
