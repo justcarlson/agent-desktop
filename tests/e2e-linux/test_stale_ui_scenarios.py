@@ -1,4 +1,5 @@
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -47,24 +48,32 @@ class StaleVerdictTests(unittest.TestCase):
 
 
 class RestorationTests(unittest.TestCase):
-    def run_leg(self, answer, refs=("@s1:e1", "@s2:e1"), members=frozenset()):
+    def run_leg(self, answer, refs=("@s1:e1", "@s2:e1")):
         tier = SimpleNamespace(runtime_dir=Path("/private/test"), display=None)
         app = SimpleNamespace(windows=["w-calculator"], owner_names=[":1.9"])
         ctx = LegContext(tier, "headless", legs.leg_by_id(LEG), member_reader=lambda _: frozenset())
         calls = []
+        members = []
+
+        @contextmanager
+        def managed(*args):
+            members.append((123, 99, "Calculator"))
+            try:
+                yield app
+            finally:
+                members.clear()
 
         def product(tier, argv, **kw):
             calls.append(argv)
             return answer(argv)
 
-        with patch.object(observation, "managed") as managed, \
+        with patch.object(observation, "managed", side_effect=managed), \
             patch.object(observation, "root", return_value=app), \
             patch.object(observation, "display", return_value=""), \
-            patch.object(observation, "members", return_value=members), \
+            patch.object(observation, "members", side_effect=lambda _: list(members)), \
             patch.object(observation, "prepare_about", side_effect=list(refs)), \
             patch.object(observation, "close_main_menu"), \
             patch("runner.verdict.run_product", side_effect=product):
-            managed.return_value.__enter__.return_value = app
             observation.stale_ref_after_ui_change(ctx)
         return ctx, calls
 

@@ -80,8 +80,8 @@ def close_main_menu(ctx, app) -> None:
 
 @implementation("observation.stale_ref_after_ui_change")
 def stale_ref_after_ui_change(ctx: LegContext) -> None:
-    baseline = members(ctx.tier.runtime_dir)
     with managed(ctx, "Calculator") as app:
+        baseline = members(ctx.tier.runtime_dir)
         tree = root(ctx, app)
         shown = display(tree)
         ctx.before("atspi.display", shown)
