@@ -39,6 +39,25 @@ fn plan_of(argv: &[&str]) -> Plan {
     }
 }
 
+#[test]
+fn an_expired_baseline_deadline_prevents_spawning() {
+    let bus = SharedBus::default();
+    let options = options();
+    let lease = InteractionLease::guarded(Deadline::after(1_000).unwrap(), ()).unwrap();
+    let launch = Launch {
+        bus: &bus,
+        id: "true",
+        options: &options,
+        lease: &lease,
+        deadline: Deadline::after(0).unwrap(),
+    };
+    let error = launch
+        .start(&plan_of(&["/bin/true"]), &None, &[])
+        .expect_err("an expired launch must not start the process");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+}
+
 fn kill(spawned: &Spawned) {
     let _ = Command::new("kill").arg(spawned.pid.to_string()).status();
 }

@@ -47,9 +47,6 @@ async fn name(
     let value: OwnedValue = reply.body().deserialize().map_err(read_error)?;
     let text =
         <&str>::try_from(&value).map_err(|_| refuse("A menu ancestor's name could not be read"))?;
-    if text.is_empty() {
-        return Err(refuse("A menu ancestor has no name"));
-    }
     Ok(text.to_owned())
 }
 
@@ -116,23 +113,27 @@ pub(super) fn try_click(
         .collect::<Result<Vec<_>, _>>()
     })?;
     let mut labels = labels;
-    let label = view
-        .name()
-        .filter(|name| !name.is_empty())
-        .ok_or_else(|| refuse("The menu target has no readable name"))?;
+    if labels.iter().any(String::is_empty) {
+        return Ok(None);
+    }
+    let Some(label) = view.name().filter(|name| !name.is_empty()) else {
+        return Ok(None);
+    };
     labels.push(label.to_owned());
-    let resolved = within(target.deadline, async {
+    let Some(resolved) = within(target.deadline, async {
         native_menu_model::resolve(&session, &export.bus_name, &export.menubar_path, &labels)
             .await
             .map_err(read_error)
     })?
-    .ok_or_else(|| refuse("The exported menu does not identify one exact action"))?;
+    else {
+        return Ok(None);
+    };
     let (action, path) = if let Some(action) = resolved.name.strip_prefix("win.") {
         (action, export.window_path.as_str())
     } else if let Some(action) = resolved.name.strip_prefix("app.") {
         (action, export.application_path.as_str())
     } else {
-        return Err(refuse("The exported action has no supported action scope"));
+        return Ok(None);
     };
     let proxy = within(target.deadline, async {
         zbus::Proxy::new(&session, export.bus_name.as_str(), path, "org.gtk.Actions")

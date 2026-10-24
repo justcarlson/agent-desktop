@@ -288,6 +288,7 @@ impl Launch<'_> {
         running: &[Running],
     ) -> Result<LaunchResult, AdapterError> {
         let before = baseline::prepare(self.bus, identity, running, self.deadline);
+        self.deadline.ensure_remaining().map_err(before_spawn)?;
         let mut spawned = spawn(self.id, plan, self.options)?;
         match find_owner(self.bus, &mut spawned, identity, &before, self.deadline)? {
             Some(owner) => {
