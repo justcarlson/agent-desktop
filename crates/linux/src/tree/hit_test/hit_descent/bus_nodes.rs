@@ -45,6 +45,16 @@ async fn string_property(
 impl NodeSource for BusNodes<'_> {
     fn at_point(&mut self, from: &AtspiElement, point: (i32, i32)) -> Result<Hit, AdapterError> {
         within(self.deadline, async {
+            if !crate::tree::properties::interface_support::supports(
+                self.connection,
+                from,
+                COMPONENT_INTERFACE,
+            )
+            .await
+            .unwrap_or(false)
+            {
+                return Ok(Hit::Failed);
+            }
             let reply = call(
                 self.connection,
                 from,

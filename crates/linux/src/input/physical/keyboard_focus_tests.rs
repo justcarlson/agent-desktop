@@ -52,11 +52,13 @@ impl Accessible {
 struct Component {
     hit: &'static str,
     owner: &'static str,
+    reads: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 #[zbus::interface(name = "org.a11y.atspi.Component")]
 impl Component {
     fn get_extents(&self, _coordinates: u32) -> (i32, i32, i32, i32) {
+        self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         (9, 0, 355, 34)
     }
 
@@ -66,6 +68,7 @@ impl Component {
         _y: i32,
         _coordinates: u32,
     ) -> (String, OwnedObjectPath) {
+        self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         (
             self.owner.to_owned(),
             self.hit.try_into().expect("hit path"),
@@ -75,86 +78,102 @@ impl Component {
 
 #[test]
 fn focused_internal_editor_is_proven_only_under_its_entry() {
-    for (entry_focused, editor_focused, editable, parent, hit_owner, hit, expected) in [
-        (false, true, true, "/entry", OWNER, "/placeholder", true),
-        (false, true, true, "/entry", OWNER, "/editor", true),
-        (false, false, true, "/entry", OWNER, "/placeholder", false),
-        (false, true, true, "/other", OWNER, "/placeholder", false),
-        (false, true, false, "/entry", OWNER, "/editor", false),
-        (
-            false,
-            true,
-            true,
-            "/entry",
-            "org.agentdesktop.Other",
-            "/editor",
-            false,
-        ),
-        (false, true, true, "/entry", OWNER, "/missing", false),
-        (true, false, false, "/entry", OWNER, "/missing", true),
-    ] {
-        let (near, far) = std::os::unix::net::UnixStream::pair().expect("socket pair");
-        let (client, server) = zbus::block_on(async {
-            futures_lite::future::zip(
-                Builder::async_io_unix_stream(near).p2p().build(),
-                Builder::async_io_unix_stream(far)
-                    .server(zbus::Guid::generate())
-                    .expect("guid")
-                    .p2p()
-                    .serve_at(
-                        "/entry",
-                        Accessible {
-                            states: Some(
-                                (1 << EDITABLE) | if entry_focused { 1 << FOCUSED } else { 0 },
-                            ),
-                            interfaces: vec![],
-                            parent: "/frame",
-                        },
-                    )
-                    .expect("entry")
-                    .serve_at(
-                        "/entry",
-                        Component {
-                            hit,
-                            owner: hit_owner,
-                        },
-                    )
-                    .expect("component")
-                    .serve_at(
-                        "/placeholder",
-                        Accessible {
-                            states: Some(0),
-                            interfaces: vec!["org.a11y.atspi.Text"],
-                            parent: "/editor",
-                        },
-                    )
-                    .expect("placeholder")
-                    .serve_at(
-                        "/editor",
-                        Accessible {
-                            states: Some(if editor_focused { 1 << FOCUSED } else { 0 }),
-                            interfaces: if editable {
-                                vec!["org.a11y.atspi.Text", "org.a11y.atspi.EditableText"]
-                            } else {
-                                vec!["org.a11y.atspi.Text"]
+    for component in [true, false] {
+        for (entry_focused, editor_focused, editable, parent, hit_owner, hit, expected) in [
+            (false, true, true, "/entry", OWNER, "/placeholder", true),
+            (false, true, true, "/entry", OWNER, "/editor", true),
+            (false, false, true, "/entry", OWNER, "/placeholder", false),
+            (false, true, true, "/other", OWNER, "/placeholder", false),
+            (false, true, false, "/entry", OWNER, "/editor", false),
+            (
+                false,
+                true,
+                true,
+                "/entry",
+                "org.agentdesktop.Other",
+                "/editor",
+                false,
+            ),
+            (false, true, true, "/entry", OWNER, "/missing", false),
+            (true, false, false, "/entry", OWNER, "/missing", true),
+        ] {
+            let reads = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let (near, far) = std::os::unix::net::UnixStream::pair().expect("socket pair");
+            let (client, server) = zbus::block_on(async {
+                futures_lite::future::zip(
+                    Builder::async_io_unix_stream(near).p2p().build(),
+                    Builder::async_io_unix_stream(far)
+                        .server(zbus::Guid::generate())
+                        .expect("guid")
+                        .p2p()
+                        .serve_at(
+                            "/entry",
+                            Accessible {
+                                states: Some(
+                                    (1 << EDITABLE) | if entry_focused { 1 << FOCUSED } else { 0 },
+                                ),
+                                interfaces: if component {
+                                    vec!["org.a11y.atspi.Component"]
+                                } else {
+                                    vec![]
+                                },
+                                parent: "/frame",
                             },
-                            parent,
-                        },
-                    )
-                    .expect("editor")
-                    .build(),
-            )
-            .await
-        });
-        let _server = server.expect("server");
-        let client = client.expect("client");
-        let entry = AtspiElement::new(OWNER, "/entry", 1);
-        let actual = zbus::block_on(focused(&client, &entry))
-            .expect("a readable entry retains the ordinary focus-acquisition path");
-        assert_eq!(
-            actual, expected,
-            "entry_focused={entry_focused}, editor_focused={editor_focused}, editable={editable}, parent={parent}, owner={hit_owner}"
-        );
+                        )
+                        .expect("entry")
+                        .serve_at(
+                            "/entry",
+                            Component {
+                                hit,
+                                owner: hit_owner,
+                                reads: reads.clone(),
+                            },
+                        )
+                        .expect("component")
+                        .serve_at(
+                            "/placeholder",
+                            Accessible {
+                                states: Some(0),
+                                interfaces: vec!["org.a11y.atspi.Text"],
+                                parent: "/editor",
+                            },
+                        )
+                        .expect("placeholder")
+                        .serve_at(
+                            "/editor",
+                            Accessible {
+                                states: Some(if editor_focused { 1 << FOCUSED } else { 0 }),
+                                interfaces: if editable {
+                                    vec!["org.a11y.atspi.Text", "org.a11y.atspi.EditableText"]
+                                } else {
+                                    vec!["org.a11y.atspi.Text"]
+                                },
+                                parent,
+                            },
+                        )
+                        .expect("editor")
+                        .build(),
+                )
+                .await
+            });
+            let _server = server.expect("server");
+            let client = client.expect("client");
+            let entry = AtspiElement::new(OWNER, "/entry", 1);
+            let actual = zbus::block_on(focused(&client, &entry))
+                .expect("a readable entry retains the ordinary focus-acquisition path");
+            assert_eq!(
+                actual,
+                expected && (entry_focused || component),
+                "entry_focused={entry_focused}, editor_focused={editor_focused}, editable={editable}, parent={parent}, owner={hit_owner}"
+            );
+            if !component {
+                assert_eq!(
+                    reads.load(std::sync::atomic::Ordering::SeqCst),
+                    0,
+                    "unadvertised Component must receive no reads"
+                );
+            }
+        }
     }
 }
 

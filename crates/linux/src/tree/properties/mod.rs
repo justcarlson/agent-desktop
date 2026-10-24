@@ -3,6 +3,7 @@ pub(super) mod attributes;
 pub(crate) mod failure;
 pub(super) mod field;
 pub(super) mod interface_reads;
+pub(crate) mod interface_support;
 pub(crate) mod liveness;
 pub(super) mod node_properties;
 pub(super) mod node_read;

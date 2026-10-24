@@ -27,3 +27,80 @@ fn one_visible_window_or_no_window_of_the_app_is_not_hidden() {
     assert!(!every_window_hidden(&[client(8, true)], 7));
     assert!(!every_window_hidden(&[], 7));
 }
+
+struct Accessible(bool);
+
+#[zbus::interface(name = "org.a11y.atspi.Accessible")]
+impl Accessible {
+    fn get_interfaces(&self) -> Vec<&str> {
+        if self.0 {
+            vec!["org.a11y.atspi.Value"]
+        } else {
+            vec![]
+        }
+    }
+}
+
+struct Value(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+#[zbus::interface(name = "org.a11y.atspi.Value")]
+impl Value {
+    #[zbus(property)]
+    fn minimum_value(&self) -> f64 {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        0.0
+    }
+    #[zbus(property)]
+    fn maximum_value(&self) -> f64 {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        100.0
+    }
+    #[zbus(property)]
+    fn current_value(&self) -> f64 {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        50.0
+    }
+}
+
+#[test]
+fn a_scroll_range_reads_only_advertised_value_properties() {
+    use super::BusPort;
+    use crate::actions::scroll::scroll_into_view::ScrollPort;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use zbus::connection::Builder;
+
+    for advertised in [false, true] {
+        let reads = Arc::new(AtomicUsize::new(0));
+        let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();
+        let (client, server) = zbus::block_on(futures_lite::future::zip(
+            Builder::async_io_unix_stream(near).p2p().build(),
+            Builder::async_io_unix_stream(far)
+                .server(zbus::Guid::generate())
+                .unwrap()
+                .p2p()
+                .serve_at("/bar", Accessible(advertised))
+                .unwrap()
+                .serve_at("/bar", Value(reads.clone()))
+                .unwrap()
+                .build(),
+        ));
+        let _server = server.unwrap();
+        let bus = crate::system::bus::tests::connected(client.unwrap());
+        let node = crate::tree::AtspiElement::new("org.agentdesktop.ScrollFixture", "/bar", 1);
+        let handle = node.clone().into_native_handle();
+        let mut port = BusPort::new(
+            &bus,
+            &handle,
+            &node,
+            agent_desktop_core::Deadline::after(5_000).unwrap(),
+        );
+        port.bar = Some(node.clone());
+        let range = port.range().unwrap();
+        assert_eq!(
+            range.map(|range| (range.min, range.max, range.current)),
+            advertised.then_some((0.0, 100.0, 50.0))
+        );
+        assert_eq!(reads.load(Ordering::SeqCst), if advertised { 3 } else { 0 });
+    }
+}

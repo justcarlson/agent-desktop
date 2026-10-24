@@ -259,6 +259,15 @@ fn placed_elements_follow_the_order_apply_consumes_them_in() {
 
 struct UnavailableGeometry;
 
+struct GeometryInterfaces;
+
+#[zbus::interface(name = "org.a11y.atspi.Accessible")]
+impl GeometryInterfaces {
+    fn get_interfaces(&self) -> Vec<&str> {
+        vec!["org.a11y.atspi.Component", "org.a11y.atspi.Application"]
+    }
+}
+
 #[zbus::interface(name = "org.a11y.atspi.Component")]
 impl UnavailableGeometry {
     fn get_extents(&self, _coordinates: u32) -> zbus::fdo::Result<(i32, i32, i32, i32)> {
@@ -276,6 +285,8 @@ fn placement_readers_preserve_transport_loss_and_allow_unavailable_geometry() {
             .server(zbus::Guid::generate())
             .unwrap()
             .p2p()
+            .serve_at("/missing", GeometryInterfaces)
+            .unwrap()
             .serve_at("/missing", UnavailableGeometry)
             .unwrap()
             .build(),

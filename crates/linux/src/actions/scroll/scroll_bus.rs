@@ -306,6 +306,16 @@ impl ScrollPort for BusPort<'_> {
         };
         let connection = self.connection()?;
         let (min, max, current) = within(self.deadline, async {
+            if !crate::tree::properties::interface_support::supports(
+                connection.inner(),
+                bar,
+                VALUE_INTERFACE,
+            )
+            .await
+            .unwrap_or(false)
+            {
+                return Ok((None, None, None));
+            }
             Ok(join3(
                 number(connection.inner(), bar, "MinimumValue"),
                 number(connection.inner(), bar, "MaximumValue"),

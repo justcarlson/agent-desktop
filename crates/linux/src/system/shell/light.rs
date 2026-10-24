@@ -100,6 +100,16 @@ async fn states_of(connection: &Connection, element: &AtspiElement) -> Option<Ve
 }
 
 pub(crate) async fn extents_of(connection: &Connection, element: &AtspiElement) -> Option<Extents> {
+    if !crate::tree::properties::interface_support::supports(
+        connection,
+        element,
+        COMPONENT_INTERFACE,
+    )
+    .await
+    .ok()?
+    {
+        return None;
+    }
     let reply = connection
         .call_method(
             Some(element.bus_name()),

@@ -15,15 +15,13 @@ use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, shell, 
 use crate::tree::placement::Placement;
 use crate::tree::placement::offscreen::{OffscreenInput, offscreen};
 use crate::tree::properties::liveness::Liveness;
-use crate::tree::properties::node_read::{COMPONENT_INTERFACE, call, get_one, string_value};
+use crate::tree::properties::node_read::{call, get_one, string_value};
 use crate::tree::properties::toolkit_trust::{read_toolkit, reports_global_position};
 use crate::tree::surfaces::twin_frames::read_twins;
 use crate::tree::surfaces::window_extents::read_window_extents;
 use crate::tree::surfaces::window_tie::WindowTie;
 use crate::tree::vocabulary::state_bits::{ICONIFIED, StateBits};
 use crate::tree::{AtspiElement, Extents};
-
-const SCREEN_COORDINATES: u32 = 0;
 
 fn known_toolkits() -> &'static Mutex<HashMap<String, ToolkitId>> {
     static KNOWN: OnceLock<Mutex<HashMap<String, ToolkitId>>> = OnceLock::new();
@@ -80,13 +78,7 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
     let (state, title, extents, role) = join4(
         call(connection, frame, ACCESSIBLE_INTERFACE, "GetState", &()),
         get_one(connection, frame, "Name", string_value, Liveness::Alive),
-        call(
-            connection,
-            frame,
-            COMPONENT_INTERFACE,
-            "GetExtents",
-            &(SCREEN_COORDINATES,),
-        ),
+        shell::light::extents_of(connection, frame),
         call(connection, frame, ACCESSIBLE_INTERFACE, "GetRole", &()),
     )
     .await;
@@ -100,15 +92,7 @@ async fn read_frame(connection: &Connection, frame: &AtspiElement) -> FrameRead 
             .and_then(|reply| reply.body().deserialize::<u32>().ok()),
         iconified: words.map(|words| StateBits::new(&words).has(ICONIFIED)),
         title: title.ok().and_then(|field| field.present().cloned()),
-        screen: extents
-            .ok()
-            .and_then(|reply| reply.body().deserialize::<(i32, i32, i32, i32)>().ok())
-            .map(|(x, y, width, height)| Extents {
-                x,
-                y,
-                width,
-                height,
-            }),
+        screen: extents,
     }
 }
 
