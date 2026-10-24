@@ -1,4 +1,5 @@
 use super::SessionKey;
+use crate::tree::live::test_support::{BLOCKING_ARGS, copy_blocking_program};
 
 fn key(bus: Option<&str>, runtime: Option<&str>) -> SessionKey {
     SessionKey {
@@ -55,15 +56,13 @@ fn this_session() -> SessionKey {
 }
 
 fn spawn_uniquely_named(tag: &str) -> Spawned {
-    use std::os::unix::fs::PermissionsExt;
     let name = format!("adsc{tag}-{}", std::process::id());
     let directory = std::env::temp_dir().join(format!("{name}-dir"));
     std::fs::create_dir_all(&directory).expect("a directory");
-    let program = directory.join(&name);
-    std::fs::copy("/bin/sleep", &program).expect("a copy of sleep");
-    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).expect("modes");
+    let program = copy_blocking_program(&directory, &name);
     let child = std::process::Command::new(&program)
-        .arg("60")
+        .args(BLOCKING_ARGS)
+        .stdin(std::process::Stdio::piped())
         .env("XDG_RUNTIME_DIR", RUNTIME)
         .env("DBUS_SESSION_BUS_ADDRESS", BUS)
         .env_remove("DBUS_STARTER_ADDRESS")

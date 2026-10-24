@@ -9,6 +9,17 @@ use crate::tree::{
     AtspiElement, Extents, Field, NodeProperties, NodeTraits, ObservedRead, RawNode,
 };
 
+pub(crate) const BLOCKING_ARGS: [&str; 2] = ["-c", "read -r _"];
+
+/// Unlike multicall coreutils, a standalone shell keeps working under a fixture's name.
+/// Run with BLOCKING_ARGS and retain piped stdin to block until killed.
+pub(crate) fn copy_blocking_program(directory: &std::path::Path, name: &str) -> std::path::PathBuf {
+    let program = directory.join(name);
+    let shell = std::fs::canonicalize("/bin/sh").expect("the system shell");
+    std::fs::copy(shell, &program).expect("a copy of the standalone shell");
+    program
+}
+
 pub(crate) fn closed_connection() -> zbus::Connection {
     use zbus::connection::Builder;
     let (near, far) = std::os::unix::net::UnixStream::pair().unwrap();

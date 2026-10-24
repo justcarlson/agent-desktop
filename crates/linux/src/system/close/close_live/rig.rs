@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{ChildStdin, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AppInfo, Deadline, InteractionLease};
@@ -9,6 +9,7 @@ use crate::system::process::liveness::{Liveness, liveness};
 use crate::system::process::process_facts;
 use crate::system::signal::{Signal, send};
 use crate::system::x11::control::{ControlRead, toplevels_of};
+use crate::tree::live::test_support::BLOCKING_ARGS;
 
 const SETTLE: Duration = Duration::from_secs(40);
 
@@ -19,26 +20,39 @@ pub(in crate::system) struct Orphan {
     pub(in crate::system) pid: u32,
     pub(in crate::system) token: String,
     scratch: Vec<PathBuf>,
+    _stdin: Option<ChildStdin>,
 }
 
 impl Orphan {
     pub(in crate::system) fn spawn(program: &str, args: &[&str], env: &[(&str, String)]) -> Self {
+        Self::spawn_with_input(program, args, env, Stdio::null())
+    }
+
+    pub(in crate::system) fn spawn_blocking(program: &str) -> Self {
+        Self::spawn_with_input(program, &BLOCKING_ARGS, &[], Stdio::piped())
+    }
+
+    fn spawn_with_input(
+        program: &str,
+        args: &[&str],
+        env: &[(&str, String)],
+        stdin: Stdio,
+    ) -> Self {
         assert!(
             std::env::var_os("AGENT_DESKTOP_PRIVATE_SESSION").is_some(),
             "live closes must run inside scripts/private-session.sh"
         );
-        let output = Command::new("sh")
-            .args([
-                "-c",
-                r#""$@" </dev/null >/dev/null 2>&1 & echo $!"#,
-                "sh",
-                program,
-            ])
+        let mut launcher = Command::new("sh")
+            .args(["-c", r#""$@" <&0 >/dev/null 2>&1 & echo $!"#, "sh", program])
             .args(args)
             .envs(env.iter().map(|(key, value)| (*key, value)))
-            .stdin(Stdio::null())
-            .output()
+            .stdin(stdin)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .expect("sh runs");
+        let stdin = launcher.stdin.take();
+        let output = launcher.wait_with_output().expect("sh exits");
         let pid: u32 = String::from_utf8_lossy(&output.stdout)
             .trim()
             .parse()
@@ -50,6 +64,7 @@ impl Orphan {
                     pid,
                     token: facts.instance,
                     scratch: Vec::new(),
+                    _stdin: stdin,
                 };
             }
             assert!(

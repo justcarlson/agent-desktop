@@ -6,6 +6,7 @@ use agent_desktop_core::{Deadline, ErrorCode, WindowFilter, WindowInfo};
 use crate::system::{SharedBus, apps_scoped, list_windows, resolve_window_strict};
 use crate::system::{app_inventory, focused_window, window::window_id};
 use crate::tree::live::live_launch::Launched;
+use crate::tree::live::test_support::copy_blocking_program;
 
 const SETTLE: Duration = Duration::from_secs(40);
 const CALCULATOR: &str = "gnome-calculator";
@@ -135,9 +136,8 @@ fn registry_live_names_a_running_process_that_is_not_on_the_bus() {
     let dir = std::env::temp_dir().join(&name);
     std::fs::create_dir_all(&dir).expect("scratch dir");
     launched.scratch.push(dir.clone());
-    let program = dir.join(&name);
-    std::fs::copy("/bin/sleep", &program).expect("copy sleep");
-    let pid = launched.spawn(&program.to_string_lossy(), &["60"]);
+    let program = copy_blocking_program(&dir, &name);
+    let pid = launched.spawn_blocking(&program.to_string_lossy());
     let error = apps_scoped(&bus, &name, None, deadline(10_000)).expect_err("diagnostic");
     assert_eq!(error.code, ErrorCode::AppNotFound);
     assert!(error.message.contains("accessibility bus"));
