@@ -339,3 +339,24 @@ fn a_placement_timeout_cannot_authorize_or_refute_raw_coordinate_evidence() {
         assert_eq!(admit_node(&entry, &evidence), Admission::Unread);
     }
 }
+
+#[test]
+fn only_sentinel_positions_are_not_placed() {
+    for (x, y, width, height, expected) in [
+        (0, 0, 10, 10, true),
+        (-10, -1, 10, 10, true),
+        (0, 0, 0, 10, true),
+        (0, 0, 10, -1, true),
+        (i32::MIN, 0, 10, 10, false),
+        (0, i32::MIN, 10, 10, false),
+    ] {
+        let mut root = node(x, y, vec![]);
+        root.payload.node.extents = Field::Present(Extents {
+            x,
+            y,
+            width,
+            height,
+        });
+        assert_eq!(!placed_elements(&mut root).is_empty(), expected);
+    }
+}

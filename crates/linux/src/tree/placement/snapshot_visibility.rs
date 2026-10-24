@@ -1,0 +1,76 @@
+use std::collections::HashMap;
+
+use agent_desktop_core::LocatorEvidence;
+
+use super::Placement;
+use super::visibility::placed_states;
+use crate::tree::vocabulary::state_bits::{ICONIFIED, StateBits};
+use crate::tree::{AtspiElement, Extents, ObservedRead, WalkedNode};
+
+/// Geometry has already passed the toolkit trust rule in node_position.
+/// Window evidence is retained even when no global position could be proved.
+fn rectangle(read: &ObservedRead) -> Option<Extents> {
+    read.evidence_bounds
+        .map(|(rect, _)| rect)
+        .or_else(|| read.node.extents.present().copied())
+}
+
+pub(crate) struct SnapshotVisibility {
+    reads: HashMap<(String, String), (Option<Extents>, Option<bool>)>,
+}
+
+impl SnapshotVisibility {
+    pub(crate) fn new(root: &WalkedNode<ObservedRead>) -> Self {
+        let mut reads = HashMap::new();
+        let mut pending = vec![root];
+        while let Some(node) = pending.pop() {
+            let element = &node.payload.node.element;
+            reads.insert(
+                (element.bus_name().to_owned(), element.path().to_owned()),
+                (
+                    rectangle(&node.payload),
+                    node.payload
+                        .node
+                        .traits
+                        .states
+                        .present()
+                        .map(|words| StateBits::new(words).has(ICONIFIED)),
+                ),
+            );
+            pending.extend(&node.children);
+        }
+        Self { reads }
+    }
+
+    fn read(&self, element: &AtspiElement) -> Option<(Option<Extents>, Option<bool>)> {
+        self.reads
+            .get(&(element.bus_name().to_owned(), element.path().to_owned()))
+            .copied()
+    }
+
+    pub(crate) fn placement(&self, read: &ObservedRead) -> Placement {
+        let frame = read.node.element.frame().and_then(|frame| self.read(frame));
+        Placement {
+            node: rectangle(read),
+            frame: frame.and_then(|(rect, _)| rect),
+            container: read
+                .node
+                .element
+                .scroll_container()
+                .and_then(|container| self.read(container))
+                .and_then(|(rect, _)| rect),
+            frame_iconified: frame.and_then(|(_, iconified)| iconified),
+            ..Placement::default()
+        }
+    }
+}
+
+pub(crate) fn append_visibility(
+    read: &ObservedRead,
+    evidence: &mut LocatorEvidence,
+    placement: &Placement,
+) {
+    if let Ok(projected) = placed_states(read, evidence, placement) {
+        evidence.states = agent_desktop_core::LocatorField::Known(projected.states);
+    }
+}
