@@ -20,4 +20,4 @@ pub(crate) mod png_codec;
 pub(crate) mod screenshot;
 
 #[cfg(target_os = "windows")]
-mod native_call;
+pub(crate) mod native_call;

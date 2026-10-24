@@ -3,98 +3,28 @@
 use agent_desktop_core::{AdapterError, Deadline, ProcessIdentity};
 use std::mem::size_of;
 
-#[path = "tcp_listener_metadata.rs"]
-mod metadata;
-use metadata::SocketMetadata;
+pub(crate) mod in_sock_flow;
+pub(crate) mod in_sock_info;
+pub(crate) mod in_sock_ipv6;
+pub(crate) mod in_sock_ports;
+pub(crate) mod proc_fd_info;
+pub(crate) mod proc_file_info;
+pub(crate) mod sock_buf_info;
+pub(crate) mod socket_fd_info;
+pub(crate) mod socket_info;
+pub(crate) mod socket_metadata;
+pub(crate) mod socket_protocol_info;
+pub(crate) mod tcp_sock_info;
+
+use in_sock_info::InSockInfo;
+use proc_fd_info::ProcFdInfo;
+use socket_fd_info::SocketFdInfo;
+use socket_info::SocketInfo;
+use tcp_sock_info::TcpSockInfo;
 
 const PROC_PIDFDSOCKETINFO: libc::c_int = 3;
 const SOCKINFO_TCP: libc::c_int = 2;
 const TSI_S_LISTEN: libc::c_int = 1;
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct ProcFileInfo {
-    open_flags: u32,
-    status: u32,
-    offset: i64,
-    file_type: i32,
-    guard_flags: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct ProcFdInfo {
-    fd: i32,
-    fd_type: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct SockBufInfo {
-    values: [u32; 5],
-    flags: i16,
-    timeout: i16,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct InSockInfo {
-    foreign_port: i32,
-    local_port: i32,
-    generation: u64,
-    flags: u32,
-    flow: u32,
-    address_flags: u8,
-    ttl: u8,
-    reserved: u32,
-    addresses: [[u64; 2]; 2],
-    ipv4_tos: u8,
-    ipv6: InSockIpv6,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct InSockIpv6 {
-    hop_limit: u8,
-    checksum: i32,
-    interface_index: u16,
-    hops: i16,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct TcpSockInfo {
-    network: InSockInfo,
-    state: i32,
-    timers: [i32; 4],
-    mss: i32,
-    flags: u32,
-    reserved: u32,
-    tcp_control_block: u64,
-}
-
-#[repr(C)]
-union SocketProtocolInfo {
-    tcp: TcpSockInfo,
-    reserved: [u64; 66],
-}
-
-#[repr(C)]
-struct SocketInfo {
-    stat: libc::vinfo_stat,
-    metadata: SocketMetadata,
-    receive: SockBufInfo,
-    send: SockBufInfo,
-    kind: i32,
-    reserved: u32,
-    protocol_info: SocketProtocolInfo,
-}
-
-#[repr(C)]
-struct SocketFdInfo {
-    file: ProcFileInfo,
-    socket: SocketInfo,
-}
 
 pub(crate) fn owns_listener(
     process: &ProcessIdentity,
@@ -150,7 +80,7 @@ pub(crate) fn owns_listener(
         }
         let tcp = unsafe { info.socket.protocol_info.tcp };
         if tcp.state == TSI_S_LISTEN
-            && u16::from_be(tcp.network.local_port as u16) == port
+            && u16::from_be(tcp.network.ports.local as u16) == port
             && loopback_ipv4(&tcp.network)
         {
             return Ok(true);
@@ -160,7 +90,7 @@ pub(crate) fn owns_listener(
 }
 
 fn loopback_ipv4(network: &InSockInfo) -> bool {
-    if network.address_flags & 1 == 0 {
+    if network.flow.address_flags & 1 == 0 {
         return false;
     }
     let local = network.addresses[1][1].to_ne_bytes();

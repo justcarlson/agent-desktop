@@ -10,8 +10,8 @@ use crate::adapter::MacOSAdapter;
 use crate::system::app::close_outcome::CloseOutcome;
 
 #[cfg(target_os = "macos")]
-#[path = "tcp_listener.rs"]
-mod tcp_listener;
+#[path = "tcp_listener/mod.rs"]
+pub(crate) mod tcp_listener;
 
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(

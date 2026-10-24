@@ -26,7 +26,7 @@
 //! pre-creation by a genuinely foreign principal and are not, and cannot be,
 //! an isolation boundary between administrators.
 
-mod dacl;
+pub(crate) mod dacl;
 mod locality;
 pub(crate) mod owner;
 mod path;

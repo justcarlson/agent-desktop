@@ -1,5 +1,5 @@
 #[repr(C)]
-pub(super) struct SocketMetadata {
+pub(crate) struct SocketMetadata {
     handles: [u64; 2],
     protocol: [i32; 3],
     options_and_queues: [i16; 7],

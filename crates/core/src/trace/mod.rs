@@ -367,4 +367,4 @@ pub mod trace_read;
 pub mod trace_sanitize;
 pub(crate) mod trace_state;
 
-mod trace_write_budget;
+pub(crate) mod trace_write_budget;

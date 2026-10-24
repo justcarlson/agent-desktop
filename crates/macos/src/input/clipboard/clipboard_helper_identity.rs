@@ -3,6 +3,7 @@ use std::ffi::{CString, c_int, c_void};
 use std::os::unix::{ffi::OsStrExt, fs::MetadataExt};
 
 use super::clipboard_helper_protocol as protocol;
+use super::directory_identity::DirectoryIdentity;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HelperIdentity {
@@ -13,15 +14,6 @@ pub(crate) struct HelperIdentity {
     mode: u32,
     links: u64,
     ancestors: Vec<DirectoryIdentity>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DirectoryIdentity {
-    path: std::path::PathBuf,
-    device: u64,
-    inode: u64,
-    owner: u32,
-    mode: u32,
 }
 
 impl HelperIdentity {

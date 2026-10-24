@@ -12,7 +12,7 @@ use crate::system::close_outcome::CloseOutcome;
 
 #[cfg(target_os = "windows")]
 #[path = "tcp_listener.rs"]
-mod tcp_listener;
+pub(crate) mod tcp_listener;
 
 impl SystemOps for WindowsAdapter {
     fn update_cursor_overlay(

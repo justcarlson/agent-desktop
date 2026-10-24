@@ -1,4 +1,4 @@
-mod budget;
+pub(crate) mod budget;
 mod html;
 mod merge;
 pub(crate) mod segment;

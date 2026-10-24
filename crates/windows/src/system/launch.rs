@@ -376,4 +376,4 @@ mod tests;
 mod launch_lease_isolation_tests;
 
 #[path = "launch_attach.rs"]
-mod launch_attach;
+pub(crate) mod launch_attach;
