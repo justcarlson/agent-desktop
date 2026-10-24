@@ -322,3 +322,29 @@ fn a_label_popover_is_a_popup_only_while_the_whole_topology_shows() {
         "two showing panels name no single popover"
     );
 }
+
+#[test]
+fn popup_admission_uses_menu_children_and_component_evidence_instead_of_the_root_role() {
+    use crate::tree::Field;
+    let mut popup = gtk3_context_window();
+    popup.payload.node.traits.role = Field::Present(BUTTON);
+    assert_eq!(top_level(&popup).unwrap().items, 2);
+    popup.payload.node.traits.interfaces = Field::Present(vec![]);
+    assert!(top_level(&popup).is_none());
+    popup.payload.node.traits.interfaces = Field::Failed("interfaces".into());
+    assert!(top_level(&popup).is_none());
+}
+
+#[test]
+fn unread_or_partial_popup_children_do_not_establish_a_menu_surface() {
+    use crate::tree::Field;
+    let mut unread = gtk3_context_window();
+    unread.children[0].payload.node.traits.role = Field::Failed("role".into());
+    assert!(top_level(&unread).is_none());
+    let mut partial = chromium_frame();
+    partial.children[0].truncated = true;
+    assert!(top_level(&partial).is_none());
+    let mut missing = gtk3_context_window();
+    missing.child_count = Some(2);
+    assert!(top_level(&missing).is_none());
+}

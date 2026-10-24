@@ -56,7 +56,7 @@ fn class_names_and_empty_titles_do_not_establish_window_purpose() {
         assert_eq!(collect(&[(0, &app)], &[vec![node]]).len(), 1);
     }
     let nodes = vec![frame(75, "", "/org/a11y/atspi/accessible/3", &[25])];
-    assert!(collect(&[(0, &app)], &[nodes]).is_empty());
+    assert_eq!(collect(&[(0, &app)], &[nodes]).len(), 1);
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn the_measured_about_and_shortcuts_shapes_are_listed_sheets() {
     ];
     let windows = collect(&[(0, &app)], &[nodes]);
     let sheets: Vec<bool> = windows.iter().map(|window| window.sheet).collect();
-    assert_eq!(sheets, [true, true, true, false]);
+    assert_eq!(sheets, [true, true, true, false, false]);
 }
 
 #[test]
@@ -108,4 +108,74 @@ fn a_frame_that_neither_shows_nor_is_iconified_is_unshown_and_the_others_are_not
     assert!(unshown(&[8, 24]));
     assert!(!unshown(&[8, 24, 25, 30]));
     assert!(!unshown(&[8, 15]));
+}
+
+#[test]
+fn component_children_are_listed_with_their_dialog_and_sheet_evidence() {
+    use crate::tree::vocabulary::state_bits::{ACTIVE, MODAL, SHOWING, VISIBLE};
+    let app = app(Some(("gtk", "3.24")));
+    let nodes = vec![
+        frame(
+            19,
+            "Save As",
+            "/org/a11y/atspi/accessible/1",
+            &[ACTIVE, MODAL, SHOWING, VISIBLE],
+        ),
+        frame(2, "Alert", "/org/a11y/atspi/accessible/2", &[SHOWING]),
+        frame(43, "Button", "/org/a11y/atspi/accessible/3", &[SHOWING]),
+    ];
+    let windows = collect(&[(0, &app)], &[nodes]);
+    assert_eq!(windows.len(), 3);
+    assert!(windows[0].dialog);
+    assert!(windows[0].modal);
+    assert!(windows[0].sheet);
+    assert!(windows[0].active);
+    assert!(windows[1].dialog);
+    assert!(!windows[2].dialog);
+    assert_eq!(windows[2].info.title, "Button");
+    let mut absent = frame(
+        23,
+        "No Component",
+        "/org/a11y/atspi/accessible/4",
+        &[SHOWING],
+    );
+    absent.traits.interfaces = Field::Present(vec![]);
+    assert!(collect(&[(0, &app)], &[vec![absent]]).is_empty());
+}
+
+#[test]
+fn popup_menu_children_are_excluded_but_buttons_and_unread_children_stay_listed() {
+    use crate::tree::vocabulary::state_bits::{ACTIVE, SHOWING, VISIBLE};
+    let app = app(Some(("gtk", "3.24")));
+    let mut nodes = vec![
+        frame(69, "", "/gtk", &[ACTIVE, SHOWING, VISIBLE]),
+        frame(23, "", "/chromium", &[SHOWING]),
+        frame(69, "", "/button", &[SHOWING]),
+        frame(69, "", "/failed", &[SHOWING]),
+        frame(23, "Document", "/named", &[SHOWING]),
+        frame(69, "", "/hidden", &[]),
+    ];
+    let mut reads = Vec::new();
+    exclude_popup_menus(&mut nodes, |node| {
+        reads.push(node.element.path().to_owned());
+        match node.element.path() {
+            "/gtk" => Some(vec![(33, vec![])]),
+            "/chromium" => Some(vec![(34, vec![33])]),
+            "/button" => Some(vec![(43, vec![])]),
+            "/failed" => None,
+            _ => panic!("only blank showing candidates may read children"),
+        }
+    });
+    assert_eq!(reads, ["/gtk", "/chromium", "/button", "/failed"]);
+    assert_eq!(
+        nodes
+            .iter()
+            .map(|node| node.element.path())
+            .collect::<Vec<_>>(),
+        ["/button", "/failed", "/named", "/hidden"]
+    );
+    let windows = collect(&[(0, &app)], &[nodes]);
+    assert_eq!(windows.len(), 4);
+    assert_eq!(windows[0].info.title, "");
+    assert_eq!(windows[1].info.state.visible, Some(true));
 }

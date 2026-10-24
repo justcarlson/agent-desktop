@@ -1,12 +1,11 @@
 use agent_desktop_core::Deadline;
 
-use super::window_filter::is_window_shape;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::registry::registry_frames::{RootRead, read_frames};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus};
-use crate::tree::properties::toolkit_trust::{ToolkitKind, kind};
-use crate::tree::vocabulary::role_numbers::PANEL;
-use crate::tree::vocabulary::state_bits::{MODAL, SHOWING, StateBits};
+use crate::tree::properties::toolkit_trust::reports_global_position;
+use crate::tree::surfaces::top_level::is_top_level;
+use crate::tree::vocabulary::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, Extents, RawNode};
 
 fn size(node: &RawNode) -> Option<(i32, i32)> {
@@ -15,8 +14,8 @@ fn size(node: &RawNode) -> Option<(i32, i32)> {
         .then_some((bounds.width, bounds.height))
 }
 
-/// An unnamed GTK4 modal panel may use its size to identify an X11 client
-/// only when no other accessible window could claim that size. An unread
+/// An unnamed showing top-level without global positions may identify an X11
+/// client by size only when no other top-level could claim that size. An unread
 /// window size leaves the association unknown.
 pub(crate) fn permits_size_match(
     node: &RawNode,
@@ -24,12 +23,12 @@ pub(crate) fn permits_size_match(
     toolkit: &ToolkitId,
     expected: Option<Extents>,
 ) -> bool {
-    let eligible = kind(toolkit) == ToolkitKind::Gtk4
-        && node.traits.role.present() == Some(&PANEL)
+    let eligible = !reports_global_position(toolkit)
+        && is_top_level(&node.traits.interfaces)
         && node.properties.name.present().is_some_and(String::is_empty)
         && node.traits.states.present().is_some_and(|words| {
             let bits = StateBits::new(words);
-            bits.has(MODAL) && bits.has(SHOWING)
+            bits.has(SHOWING)
         });
     let Some(target) = size(node).filter(|_| eligible) else {
         return false;
@@ -39,17 +38,10 @@ pub(crate) fn permits_size_match(
     }
     let mut matching = 0;
     for sibling in siblings {
-        if sibling.traits.role.is_failed()
-            || sibling.traits.interfaces.is_failed()
-            || sibling.traits.states.is_failed()
-        {
+        if sibling.traits.interfaces.is_failed() || sibling.traits.states.is_failed() {
             return false;
         }
-        if is_window_shape(
-            &sibling.traits.role,
-            &sibling.traits.interfaces,
-            &sibling.traits.states,
-        ) {
+        if is_top_level(&sibling.traits.interfaces) {
             let Some(other) = size(sibling) else {
                 return false;
             };
@@ -66,7 +58,7 @@ pub(crate) fn permits_on_bus(
     expected: Option<Extents>,
     deadline: Deadline,
 ) -> bool {
-    if kind(toolkit) != ToolkitKind::Gtk4 {
+    if reports_global_position(toolkit) {
         return false;
     }
     let root = AtspiElement::new(frame.bus_name(), REGISTRY_ROOT_PATH, frame.pid());

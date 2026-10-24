@@ -130,7 +130,10 @@ fn a_window_id_this_adapter_did_not_issue_marks_the_scan_incomplete() {
 fn menu_window_tree() -> Node {
     let item = node(35, "Paste", true, "/org/m_item", Vec::new());
     let menu = node(33, "", true, "/org/m_1", vec![item]);
-    node(WINDOW, "", true, "/org/menu_1", vec![menu])
+    let mut window = node(WINDOW, "", true, "/org/menu_1", vec![menu]);
+    window.payload.node.traits.interfaces =
+        Field::Present(vec![crate::tree::COMPONENT_INTERFACE.to_owned()]);
+    window
 }
 
 #[test]

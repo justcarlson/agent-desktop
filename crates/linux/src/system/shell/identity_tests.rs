@@ -1,5 +1,5 @@
 use super::{Deadline, SessionBus, shell_pid, within};
-use crate::system::shell::fake_tree::{FakeTree, PANEL, WINDOW, at, element};
+use crate::system::shell::fake_tree::{FakeTree, PANEL, SENTINEL, WINDOW, at, element};
 use crate::system::shell::identity::{
     content_window, pick_shell_app, retries_after, retry_until, window_missing,
 };
@@ -19,10 +19,10 @@ fn the_shell_app_is_the_one_owned_by_the_shell_process() {
 }
 
 #[test]
-fn the_content_window_is_the_child_with_the_window_role() {
+fn the_content_window_is_the_child_with_a_placed_rectangle() {
     let mut tree = FakeTree::new();
     tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
-    tree.add(Some("/root"), "/decor", PANEL, "", at(0, 0, 1, 1));
+    tree.add(Some("/root"), "/decor", PANEL, "", SENTINEL);
     tree.add(Some("/root"), "/w", WINDOW, "", at(0, 54, 87, 55));
     let window = content_window(&tree, &element("/root"))
         .expect("a readable app")
@@ -31,10 +31,10 @@ fn the_content_window_is_the_child_with_the_window_role() {
 }
 
 #[test]
-fn an_app_with_no_window_child_has_no_content_window() {
+fn an_app_with_no_placed_child_has_no_content_window() {
     let mut tree = FakeTree::new();
     tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
-    tree.add(Some("/root"), "/decor", PANEL, "", at(0, 0, 1, 1));
+    tree.add(Some("/root"), "/decor", PANEL, "", SENTINEL);
     assert!(
         content_window(&tree, &element("/root"))
             .expect("a readable app")
@@ -43,10 +43,23 @@ fn an_app_with_no_window_child_has_no_content_window() {
 }
 
 #[test]
+fn a_placed_shell_child_is_content_whatever_its_role() {
+    for role in [PANEL, 16, 43] {
+        let mut tree = FakeTree::new();
+        tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
+        tree.add(Some("/root"), "/content", role, "", at(0, 54, 87, 55));
+        assert_eq!(
+            content_window(&tree, &element("/root")).unwrap(),
+            Some(element("/content"))
+        );
+    }
+}
+
+#[test]
 fn a_destroyed_sibling_does_not_hide_the_live_content_window() {
     let mut tree = FakeTree::new();
     tree.add(None, "/root", 75, "gnome-shell", at(0, 0, 0, 0));
-    tree.add(Some("/root"), "/decor", PANEL, "", at(0, 0, 1, 1));
+    tree.add(Some("/root"), "/decor", PANEL, "", SENTINEL);
     tree.add(Some("/root"), "/w", WINDOW, "", at(0, 54, 87, 55));
     tree.vanish("/decor");
     let window = content_window(&tree, &element("/root"))
@@ -60,7 +73,7 @@ fn multiple_shell_windows_are_ambiguous_instead_of_selected_by_child_order() {
     let mut tree = FakeTree::new();
     tree.add(None, "/root", 75, "", at(0, 0, 0, 0));
     tree.add(Some("/root"), "/a", WINDOW, "", at(0, 0, 1, 1));
-    tree.add(Some("/root"), "/b", WINDOW, "", at(0, 0, 1, 1));
+    tree.add(Some("/root"), "/b", PANEL, "", at(0, 0, 1, 1));
     assert_eq!(
         content_window(&tree, &element("/root")).unwrap_err().code,
         agent_desktop_core::ErrorCode::AmbiguousTarget

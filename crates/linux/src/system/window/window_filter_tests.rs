@@ -1,54 +1,11 @@
 use super::*;
 use crate::tree::live::test_support::words;
 
-fn component() -> Field<Vec<String>> {
-    Field::Present(vec![COMPONENT_INTERFACE.to_owned()])
-}
-
-fn no_states() -> Field<Vec<u32>> {
-    Field::Present(words(&[]))
-}
-
-fn modal() -> Field<Vec<u32>> {
-    Field::Present(words(&[16]))
-}
-
 #[test]
-fn a_modal_panel_is_a_window_and_a_plain_panel_is_not() {
-    let panel = Field::Present(39);
-    assert!(is_window_shape(&panel, &component(), &modal()));
-    assert!(!is_window_shape(&panel, &component(), &no_states()));
-    assert!(!is_window_shape(
-        &panel,
-        &component(),
-        &Field::Failed("x".into())
-    ));
-    assert!(!is_window_shape(&panel, &Field::Present(vec![]), &modal()));
-}
-
-#[test]
-fn other_roles_and_frames_without_a_component_are_not() {
-    let none = no_states();
-    assert!(!is_window_shape(
-        &Field::Present(75),
-        &component(),
-        &modal()
-    ));
-    assert!(!is_window_shape(
-        &Field::Present(23),
-        &Field::Present(vec![]),
-        &none
-    ));
-    assert!(!is_window_shape(
-        &Field::Present(23),
-        &Field::Failed("x".into()),
-        &none
-    ));
-    assert!(!is_window_shape(
-        &Field::Failed("x".into()),
-        &component(),
-        &none
-    ));
+fn frames_without_a_component_are_not_top_levels() {
+    use crate::tree::surfaces::top_level::is_top_level;
+    assert!(!is_top_level(&Field::Present(vec![])));
+    assert!(!is_top_level(&Field::Failed("x".into())));
 }
 
 #[test]
@@ -66,20 +23,6 @@ fn state_bits_become_visible_minimized_and_active() {
     let hidden = frame_state(&Field::Present(words(&[15])));
     assert_eq!(hidden.visible, Some(false));
     assert_eq!(hidden.minimized, Some(true));
-}
-
-#[test]
-fn a_showing_visible_filler_is_a_window_and_a_hidden_one_is_not() {
-    let filler = Field::Present(20);
-    let shown = Field::Present(words(&[25, 30]));
-    assert!(is_window_shape(&filler, &component(), &shown));
-    assert!(!is_window_shape(&filler, &component(), &no_states()));
-    assert!(!is_window_shape(
-        &filler,
-        &component(),
-        &Field::Present(words(&[25]))
-    ));
-    assert!(!is_window_shape(&filler, &Field::Present(vec![]), &shown));
 }
 
 #[test]

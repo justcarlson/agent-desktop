@@ -43,3 +43,20 @@ fn a_structural_inventory_reads_every_walk_structurally_and_keeps_the_pruning() 
     assert_eq!(scan_kind(false, true), ScanKind::Pruned);
     assert_eq!(scan_kind(false, false), ScanKind::Ordinary);
 }
+
+#[test]
+fn measured_top_level_menu_shapes_remain_inventory_candidates() {
+    use super::is_popup_candidate;
+    assert!(is_popup_candidate(&gtk3_context_window()));
+    assert!(is_popup_candidate(&chromium_frame()));
+    let button_window = node(
+        WINDOW,
+        "",
+        &[SHOWING],
+        vec![node(BUTTON, "Save", &[SHOWING], vec![])],
+    );
+    assert!(!is_popup_candidate(&button_window));
+    let mut unread = gtk3_context_window();
+    unread.children[0].payload.node.traits.role = crate::tree::Field::Failed("role".into());
+    assert!(!is_popup_candidate(&unread));
+}

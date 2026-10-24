@@ -15,6 +15,8 @@ fn node(role: u32, state_bits: &[u32]) -> RawNode {
 fn a_showing_dialog_is_a_sheet_modal_or_not() {
     assert!(is_sheet(&node(16, &[SHOWING, MODAL])));
     assert!(is_sheet(&node(16, &[SHOWING])));
+    assert!(is_sheet(&node(19, &[SHOWING])));
+    assert!(is_sheet(&node(2, &[SHOWING])));
 }
 
 #[test]

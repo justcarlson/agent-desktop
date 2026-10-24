@@ -10,7 +10,6 @@ use crate::system::focus::restore_minimized::{self, Lifted};
 use crate::system::menu::menu_focus;
 use crate::system::menu::overview::overview_open;
 use crate::system::process::process_lookup::Lookup;
-use crate::system::process::toolkit::reports_global_position;
 use crate::system::process::{proc_stat, process_facts};
 use crate::system::registry::toolkit;
 use crate::system::window::window_client::ClientWorld;
@@ -24,8 +23,9 @@ use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::Twins;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, window::window_id};
+use crate::tree::properties::toolkit_trust::reports_global_position;
+use crate::tree::surfaces::top_level::is_dialog_role;
 use crate::tree::surfaces::twin_frames::read_twins;
-use crate::tree::vocabulary::role_numbers::DIALOG;
 use crate::tree::vocabulary::state_bits::{ACTIVE, StateBits};
 use crate::tree::{AtspiElement, list_children, read_node};
 
@@ -117,7 +117,7 @@ impl FocusWorld for LiveWorld<'_> {
             minimized: state.minimized,
             active: state.active,
             modal: state.modal,
-            dialog: node.traits.role.present() == Some(&DIALOG),
+            dialog: is_dialog_role(node.traits.role.present()),
         })
     }
 
@@ -225,6 +225,6 @@ impl ClientWorld for LiveWorld<'_> {
         let read = within(self.deadline, async {
             Ok(toolkit(shared.inner(), &root).await)
         });
-        read.is_ok_and(|id| reports_global_position(id.name.as_deref(), id.version.as_deref()))
+        read.is_ok_and(|id| reports_global_position(&id))
     }
 }
