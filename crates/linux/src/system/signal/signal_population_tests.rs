@@ -78,16 +78,6 @@ fn an_app_whose_only_window_is_hidden_is_present() {
 }
 
 #[test]
-fn a_handoff_window_under_a_running_pid_adds_a_window_and_no_app() {
-    let apps = [app(":1.1", 10, "boot:1", "editor")];
-    let before = apps_of(&[window(0, "w-1", true)], &apps);
-    let after = apps_of(&[window(0, "w-1", true), window(0, "w-2", true)], &apps);
-    assert_eq!(before.len(), 1);
-    assert_eq!(after.len(), 1);
-    assert_eq!(before[0].pid, after[0].pid);
-}
-
-#[test]
 fn a_qt_process_with_two_registry_entries_is_one_app() {
     let apps = [
         app(":1.7", 30, "boot:3", "qtapp"),

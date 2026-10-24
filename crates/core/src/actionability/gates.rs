@@ -3,7 +3,10 @@ use super::{
     check_result::{fail, fail_terminal, pass, unknown},
     evidence::ActionabilityEvidence,
 };
-use crate::{ErrorCode, Rect, action::Action, action_request::ActionRequest, capability};
+use crate::{
+    ErrorCode, Rect, actions::action::Action, actions::action_request::ActionRequest,
+    actions::capability,
+};
 
 pub(super) fn visibility(
     evidence: &ActionabilityEvidence,
@@ -15,7 +18,11 @@ pub(super) fn visibility(
         None if !evidence.states_complete => {
             return unknown("visible", "live hidden state unavailable");
         }
-        None if crate::state::has_state(&evidence.state.states, crate::state::HIDDEN) => {
+        None if crate::tree::state::has_state(
+            &evidence.state.states,
+            crate::tree::state::HIDDEN,
+        ) =>
+        {
             return fail("visible", "canonical hidden state is present");
         }
         None => {}
@@ -26,7 +33,11 @@ pub(super) fn visibility(
         None if !evidence.states_complete => {
             return unknown("visible", "live offscreen state unavailable");
         }
-        None if crate::state::has_state(&evidence.state.states, crate::state::OFFSCREEN) => {
+        None if crate::tree::state::has_state(
+            &evidence.state.states,
+            crate::tree::state::OFFSCREEN,
+        ) =>
+        {
             return fail("visible", "canonical offscreen state is present");
         }
         None => {}
@@ -232,7 +243,7 @@ fn combo_select_applies(evidence: &ActionabilityEvidence) -> bool {
 
 #[cfg(test)]
 pub(crate) fn states_are_enabled(states: &[String]) -> bool {
-    !crate::state::has_state(states, crate::state::DISABLED)
+    !crate::tree::state::has_state(states, crate::tree::state::DISABLED)
 }
 
 pub(crate) fn bounds_are_visible(bounds: Option<Rect>) -> bool {

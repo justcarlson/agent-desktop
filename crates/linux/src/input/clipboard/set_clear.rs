@@ -6,21 +6,20 @@ use agent_desktop_core::{
     InteractionLease,
 };
 
-use super::owner_locate::locate_helper;
-use super::owner_record::{self, OwnerRecord};
-use super::owner_signal::{PidfdControl, stop_by_identity};
-use super::owner_spawn::{
+use super::delivery::{fresh_deadline, not_delivered, unresponsive};
+use super::owner::owner_locate::locate_helper;
+use super::owner::owner_record::{self, OwnerRecord};
+use super::owner::owner_signal::{PidfdControl, stop_by_identity};
+use super::owner::owner_spawn::{
     ChildProbe, Handshake, await_handshake, kill_and_reap, new_nonce, payload_file, reap_when_done,
 };
-use super::owner_spawn_spec::{build_command, protect_lease_descriptor};
+use super::owner::owner_spawn_spec::{build_command, protect_lease_descriptor};
 use super::payload::{Payload, payload_of};
 use super::route_fallback::ClipboardTools;
 use super::x11_read::{fault_error, read_x11};
 use super::x11_requestor::{SelectionServer, X11Server};
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::display::route::{self, Route};
-
-const VERIFY_GRACE_MS: u64 = 1_000;
 
 pub(crate) struct Env<'a> {
     pub(crate) helper: &'a Path,
@@ -30,26 +29,13 @@ pub(crate) struct Env<'a> {
     pub(crate) nonce: &'a str,
 }
 
-fn not_delivered(error: AdapterError) -> AdapterError {
-    error.with_disposition(DeliverySemantics::not_delivered())
-}
-
 fn failed(message: impl Into<String>, disposition: DeliverySemantics) -> AdapterError {
     AdapterError::new(ErrorCode::ActionFailed, message).with_disposition(disposition)
 }
 
-fn unresponsive(message: &str) -> AdapterError {
-    AdapterError::new(ErrorCode::AppUnresponsive, message)
-        .with_disposition(DeliverySemantics::delivered_unverified())
-}
-
-fn fresh_deadline(fallback: Deadline) -> Deadline {
-    Deadline::after(VERIFY_GRACE_MS).unwrap_or(fallback)
-}
-
 fn discard(dir: &Path, display: &str, nonce: &str) {
     if let Some(name) = owner_record::file_name(display, nonce) {
-        let _ = super::owner_files::remove(dir, &name);
+        let _ = super::owner::owner_files::remove(dir, &name);
     }
 }
 

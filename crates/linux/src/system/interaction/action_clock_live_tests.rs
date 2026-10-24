@@ -1,5 +1,5 @@
 use crate::system::menu::menu_live_rig::Rig;
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 use serde_json::Value;
 use std::process::Command;
 use std::time::Duration;

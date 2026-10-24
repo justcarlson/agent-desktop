@@ -2,11 +2,11 @@ use crate::{
     AppError, ClipboardContent, ClipboardFormat, ImageBuffer,
     adapter::PlatformAdapter,
     context::CommandContext,
-    refs::{write_private_file, write_user_file},
-    refs_store::{
+    refs::refs_store::{
         STALE_TMP_MAX_AGE,
         prune::{is_orphaned_tmp_file, remove_stale_files_in_dir},
     },
+    refs::{write_private_file, write_user_file},
     session,
 };
 use serde_json::{Value, json};

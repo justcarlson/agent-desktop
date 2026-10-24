@@ -7,7 +7,7 @@ use agent_desktop_core::{
 };
 
 use crate::adapter::MacOSAdapter;
-use crate::system::close_outcome::CloseOutcome;
+use crate::system::app::close_outcome::CloseOutcome;
 
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(
@@ -61,7 +61,7 @@ impl SystemOps for MacOSAdapter {
     }
 
     fn start_permission_guide(&self) -> Result<&'static str, AdapterError> {
-        crate::system::permission_guide::start()
+        crate::system::permissions::permission_guide::start()
     }
 
     fn unknown_accessibility_means_unsupported(&self) -> bool {
@@ -83,9 +83,9 @@ impl SystemOps for MacOSAdapter {
     fn launch_app(
         &self,
         id: &str,
-        options: &agent_desktop_core::launch_options::LaunchOptions,
+        options: &agent_desktop_core::system::launch_options::LaunchOptions,
         lease: &InteractionLease,
-    ) -> Result<agent_desktop_core::launch_result::LaunchResult, AdapterError> {
+    ) -> Result<agent_desktop_core::system::launch_result::LaunchResult, AdapterError> {
         crate::system::launch::launch_app_impl(id, options, lease.deadline())
     }
 
@@ -93,8 +93,8 @@ impl SystemOps for MacOSAdapter {
         &self,
         process: ProcessIdentity,
         deadline: Deadline,
-    ) -> Result<agent_desktop_core::process_state::ProcessState, AdapterError> {
-        crate::system::process_state::process_state_impl(process, deadline)
+    ) -> Result<agent_desktop_core::system::process_state::ProcessState, AdapterError> {
+        crate::system::process::process_state::process_state_impl(process, deadline)
     }
 
     fn supported_surfaces(&self) -> Vec<SnapshotSurface> {
@@ -118,13 +118,13 @@ impl SystemOps for MacOSAdapter {
         force: bool,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let dispatched = crate::system::app_ops::close_app_impl(app, force, lease.deadline())
+        let dispatched = crate::system::app::app_ops::close_app_impl(app, force, lease.deadline())
             .map(|outcome| outcome == CloseOutcome::Exited);
         OperationReport::from_close_dispatch(app, dispatched)
     }
 
     fn is_protected_process(&self, identifier: &str) -> bool {
-        crate::system::app_ops::is_protected_process(identifier)
+        crate::system::app::app_ops::is_protected_process(identifier)
     }
 
     fn is_blocked_combo(&self, combo: &agent_desktop_core::KeyCombo) -> bool {
@@ -166,7 +166,7 @@ impl SystemOps for MacOSAdapter {
     }
 
     fn focused_window(&self, deadline: Deadline) -> Result<Option<WindowInfo>, AdapterError> {
-        crate::system::window_inventory::focused_window_until(
+        crate::system::window::window_inventory::focused_window_until(
             crate::tree::locator_deadline::from_operation(deadline)?,
         )
     }
@@ -195,7 +195,7 @@ impl SystemOps for MacOSAdapter {
         win: &WindowInfo,
         deadline: Deadline,
     ) -> Result<WindowInfo, AdapterError> {
-        crate::system::window_resolve::resolve_window_strict(
+        crate::system::window::window_resolve::resolve_window_strict(
             win,
             crate::tree::locator_deadline::from_operation(deadline)?,
         )
@@ -207,8 +207,9 @@ impl SystemOps for MacOSAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        let readback = crate::system::window_report::window_readback(&op);
-        let dispatched = crate::system::window_ops::execute(win, op.clone(), lease.deadline());
+        let readback = crate::system::window::window_report::window_readback(&op);
+        let dispatched =
+            crate::system::window::window_ops::execute(win, op.clone(), lease.deadline());
         OperationReport::from_window_dispatch(win, &op, readback, dispatched)
     }
 

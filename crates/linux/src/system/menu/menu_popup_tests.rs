@@ -138,7 +138,7 @@ fn a_titled_window_or_one_with_other_content_is_not_a_popup() {
 fn a_hidden_top_level_window_or_one_with_closed_items_is_not_a_popup() {
     let mut hidden = gtk3_context_window();
     hidden.payload.node.traits.states =
-        crate::tree::Field::Present(crate::tree::test_support::words(&[]));
+        crate::tree::Field::Present(crate::tree::live::test_support::words(&[]));
     assert!(top_level(&hidden).is_none());
     let closed = node(
         WINDOW,
@@ -205,7 +205,7 @@ fn a_menu_found_by_another_rule_hides_the_popover_rule() {
 
 #[test]
 fn menu_regression_expanded_popup_button_exposes_its_showing_panel() {
-    use crate::tree::state_bits::{EXPANDED, PRESSED};
+    use crate::tree::vocabulary::state_bits::{EXPANDED, PRESSED};
     let panel = node(
         PANEL,
         "",
@@ -257,13 +257,8 @@ fn an_expanded_menu_button_whose_popover_shows_only_a_label_has_that_popover_as_
 
 #[test]
 fn a_menu_found_by_a_menu_rule_keeps_its_own_roots() {
-    use crate::tree::state_bits::{EXPANDED, PRESSED};
-    let panel = node(
-        PANEL,
-        "",
-        &[SHOWING],
-        vec![node(BUTTON, "Browse", &[SHOWING], vec![])],
-    );
+    use crate::tree::vocabulary::state_bits::{EXPANDED, PRESSED};
+    let panel = node(PANEL, "", &[SHOWING], vec![gtk4_popover(true)]);
     let inner = node(TOGGLE, "Open", &[SHOWING, PRESSED], vec![]);
     let opener = node(
         BUTTON,
@@ -271,20 +266,28 @@ fn a_menu_found_by_a_menu_rule_keeps_its_own_roots() {
         &[SHOWING, HAS_POPUP, EXPANDED],
         vec![inner, panel],
     );
+    let fallback = super::opened_button_popover(&opener).expect("the button's showing panel");
     let roots = popup_roots(&opener);
     assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0].payload.node.traits.role.present(), Some(&MENU));
     assert_eq!(
-        roots[0].payload.node.traits.role.present(),
-        Some(&PANEL),
-        "the buttons popover keeps its panel as the root"
+        roots[0]
+            .payload
+            .node
+            .properties
+            .name
+            .present()
+            .map(String::as_str),
+        Some("Main Menu")
     );
+    assert!(!std::ptr::eq(roots[0], fallback));
 }
 
 #[test]
 fn a_label_popover_is_a_popup_only_while_the_whole_topology_shows() {
     use crate::tree::Field;
-    use crate::tree::state_bits::EXPANDED;
-    use crate::tree::test_support::words;
+    use crate::tree::live::test_support::words;
+    use crate::tree::vocabulary::state_bits::EXPANDED;
     assert!(
         popup_roots(&label_popover_opener(false)).is_empty(),
         "a popover that does not show is closed"

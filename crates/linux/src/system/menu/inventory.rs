@@ -5,7 +5,7 @@ use super::{menu_popup, surface_scan::NestedScan};
 use crate::system::registry::listed_window::ListedWindow;
 use crate::system::window::window_id;
 use crate::tree::AtspiElement;
-use crate::tree::nested_dialog::{Node, find, is_incomplete};
+use crate::tree::surfaces::nested_dialog::{Node, find, is_incomplete};
 
 /// The showing dialogs inside the windows, other than windows that are
 /// dialogs themselves. A window that cannot be read, or whose tree was cut

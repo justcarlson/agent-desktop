@@ -10,9 +10,9 @@ use super::click::{
 };
 use super::context::Target;
 use super::toggle_state::{Flag, drive_to};
-use crate::tree::action_names::verbs_for;
-use crate::tree::action_read::NodeView;
-use crate::tree::state_bits::{EXPANDABLE, EXPANDED, HAS_POPUP};
+use crate::tree::capabilities::action_names::verbs_for;
+use crate::tree::capabilities::action_read::NodeView;
+use crate::tree::vocabulary::state_bits::{EXPANDABLE, EXPANDED, HAS_POPUP};
 
 const DISCLOSURE_SETTLE: Duration = Duration::from_millis(1000);
 

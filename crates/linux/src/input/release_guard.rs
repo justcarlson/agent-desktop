@@ -2,7 +2,7 @@ use agent_desktop_core::AdapterError;
 
 use super::held_input::HeldInput;
 
-use super::keymap_edit::KeymapEdit;
+use super::keyboard::keymap_edit::KeymapEdit;
 use super::release_state::ReleaseState;
 use super::x11::held_journal::HeldJournal;
 use super::x11::sink::X11Sink;

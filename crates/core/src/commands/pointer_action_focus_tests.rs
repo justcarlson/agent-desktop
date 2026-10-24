@@ -33,7 +33,7 @@ impl ObservationOps for MinimizedWindowAdapter {
         let states = if self.restored.load(Ordering::SeqCst) {
             Vec::new()
         } else {
-            vec![crate::state::OFFSCREEN.to_string()]
+            vec![crate::tree::state::OFFSCREEN.to_string()]
         };
         Ok(crate::PointerObservation {
             bounds: Some(Rect {

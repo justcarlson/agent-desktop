@@ -42,16 +42,14 @@ fn sweep_lease_contender() {
 }
 
 fn contender(blocked: bool) -> bool {
-    Command::new(std::env::current_exe().unwrap())
-        .args([
-            "--exact",
-            "input::x11::stale_release::tests::sweep_lease_contender",
-            "--nocapture",
-        ])
+    const FILTER: &str = "input::x11::stale_release::tests::sweep_lease_contender";
+    let output = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", FILTER, "--nocapture"])
         .env("AD_SWEEP_CONTENDER", if blocked { "yes" } else { "no" })
-        .status()
-        .unwrap()
-        .success()
+        .output()
+        .unwrap();
+    output.status.success()
+        && String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed")
 }
 
 #[test]

@@ -6,7 +6,6 @@ use agent_desktop_core::{AdapterError, ErrorCode};
 
 /// Why a display server cannot be reached.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(crate) enum DisplayCause {
     NotConfigured,
     Missing { address: String },
@@ -16,7 +15,6 @@ pub(crate) enum DisplayCause {
 }
 
 impl DisplayCause {
-    #[allow(dead_code)]
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
             Self::NotConfigured => "not_configured",
@@ -30,7 +28,6 @@ impl DisplayCause {
 
 /// The one error a display cause maps to. Every cause but `Silent` is
 /// permanent and reports `PLATFORM_NOT_SUPPORTED`; `Silent` is `TIMEOUT`.
-#[allow(dead_code)]
 pub(crate) fn display_cause_error(cause: &DisplayCause) -> AdapterError {
     let mut error = match cause {
         DisplayCause::NotConfigured => AdapterError::new(

@@ -42,7 +42,7 @@ fn on_screen_without_bounds(bounds: Option<Rect>) -> ActionabilityEvidence {
         },
         states_complete: true,
         bounds,
-        available_actions: vec![crate::capability::CLICK.to_owned()],
+        available_actions: vec![crate::actions::capability::CLICK.to_owned()],
     }
 }
 

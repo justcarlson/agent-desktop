@@ -1,10 +1,11 @@
 use super::*;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
+use crate::refs::refs_store::RefStore;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::refs::{RefEntry, RefMap};
-use crate::refs_store::RefStore;
-use crate::refs_test_support::HomeGuard;
 use crate::{
-    AdapterError, DeliverySemantics, ErrorCode, Rect, capability, hit_test::HitTestResult,
+    AdapterError, DeliverySemantics, ErrorCode, Rect, actions::capability,
+    adapter::hit_test::HitTestResult,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -118,7 +119,7 @@ impl ObservationOps for TerminalAfterRetryAdapter {
                 height: 4.0,
             }));
         }
-        std::thread::sleep(std::time::Duration::from_millis(120));
+        crate::wait::deadline::sleep(std::time::Duration::from_secs(6));
         Err(AdapterError::new(ErrorCode::StaleRef, "terminal target")
             .with_suggestion("Run 'snapshot' to refresh, then retry with the updated ref.")
             .with_disposition(DeliverySemantics::not_delivered()))
@@ -132,6 +133,7 @@ impl SystemOps for TerminalAfterRetryAdapter {}
 #[test]
 fn terminal_stale_ref_is_preserved_after_retry_budget_expires() {
     let _guard = HomeGuard::new();
+    let _clock = crate::wait::deadline::VirtualClock::freeze();
     let snapshot_id = point_ref_snapshot();
     let adapter = TerminalAfterRetryAdapter {
         bounds_reads: AtomicU32::new(0),
@@ -148,6 +150,7 @@ fn terminal_stale_ref_is_preserved_after_retry_budget_expires() {
         Err(err) => err,
     };
 
+    assert_eq!(deadline.remaining(), std::time::Duration::ZERO);
     assert_eq!(err.code(), "STALE_REF");
 }
 

@@ -57,15 +57,14 @@ mod imp {
     };
     use crate::actions::mutation::{classify_success, classify_write};
     use crate::actions::scroll::SCROLL_LABEL;
-    use crate::system::permissions::ensure_budget;
     use crate::tree::automation::automation_client;
     use crate::tree::automation::uia_failure_error;
-    use crate::tree::element_properties::ElementProperties;
     use crate::tree::name_evidence::{name_fields, read_label};
+    use crate::tree::properties::element_properties::ElementProperties;
+    use crate::tree::properties::property_ids::TreeProperty;
     use crate::tree::properties::read_one;
-    use crate::tree::property_ids::TreeProperty;
-    use crate::tree::walker::TreeSource;
-    use crate::tree::walker_source::{UiaTreeSource, same_element};
+    use crate::tree::walk::walker::TreeSource;
+    use crate::tree::walk::walker_source::{UiaTreeSource, same_element};
     use agent_desktop_core::LocatorField;
     use uiautomation::patterns::UIScrollPattern;
     use uiautomation::types::ScrollAmount;
@@ -84,7 +83,7 @@ mod imp {
         let mut visited = 0_usize;
         let mut found = prior.cloned();
         while let Some((candidate, depth)) = stack.pop() {
-            ensure_budget(deadline)?;
+            deadline.ensure_remaining()?;
             visited = visited.saturating_add(1);
             if visited > MAX_SELECT_NODES {
                 return Err(node_budget_error());
@@ -122,7 +121,7 @@ mod imp {
         drive_realize_scrolls(
             MAX_REALIZE_SCROLLS,
             || {
-                ensure_budget(deadline)?;
+                deadline.ensure_remaining()?;
                 let before = pattern.get_vertical_scroll_percent().ok();
                 match pattern.scroll(ScrollAmount::NoAmount, ScrollAmount::SmallIncrement) {
                     Ok(()) => {

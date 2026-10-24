@@ -53,9 +53,6 @@ agent-desktop wait --menu-closed --app gnome-calculator --timeout 5000
   `Advanced` becomes `Advanced Advanced`), take a fresh snapshot before
   collapsing; refs are valid for one snapshot.
 
-The toolkit comparison below was measured on private Openbox X11. Calculator's
-GTK4 popover was also read on Mutter X11 and Wayland.
-
 | Toolkit | Exposed menu shape and boundary |
 |---------|--------------------------------|
 | GTK3 | Menu-bar child or separate context-menu window |
@@ -67,20 +64,17 @@ GTK4 popover was also read on Mutter X11 and Wayland.
 - `wait --menu` and `wait --menu-closed` use the same detector as menu
   snapshots. Scope them with `--app`.
 - `press escape` sends a global key without first activating the parent window.
-  Read `wait --menu-closed` before assuming closure: in the headless Wayland
-  session, one run reported `delivered_unverified` but the menu stayed open, and
-  that wait returned `TIMEOUT`, `kind: wait_timeout`, `predicate: menu`, "Menu
-  did not close before the deadline". The isolated recheck closed it. Do not
-  treat the key's success as a closure guarantee.
+  It can report `delivered_unverified` while the menu stays open, so confirm
+  with `wait --menu-closed`: a `TIMEOUT` with `predicate: menu` ("Menu did not
+  close before the deadline") means it is still open.
 
-In the measured headless Wayland setup, global `press` can leave the seat
-without a keyboard after its temporary RemoteDesktop session ends. Calculator's
-GTK4 opener can then become expanded without presenting a native menu, and a
-direct AT-SPI action does the same. The tool reports `ACTION_FAILED`,
-`popup_not_observed`, with unverified delivery and unsafe retry. A keyboard
-present from app launch and retained across the commands avoids this. Adding one
-after the failure did not recover the popup. An expanded opener alone is never
-proof of an open menu: inspect the native menu before continuing.
+In a headless Wayland session, global `press` can leave the seat without a
+keyboard after its temporary RemoteDesktop session ends. A GTK4 opener can then
+become expanded without presenting a native menu, and the tool reports
+`ACTION_FAILED`, `popup_not_observed`, with unverified delivery and unsafe retry.
+A keyboard present from app launch and kept across the commands avoids this;
+adding one after the failure does not recover the popup. An expanded opener
+alone never proves an open menu: inspect the native menu before continuing.
 
 GTK4 raw menu items can be unnamed while the snapshot shows their labels. A
 readable label does not establish a safe physical click position. Ordinary app
@@ -121,7 +115,7 @@ prove it. Advertised surfaces require a resolvable structural container.
 | `system-tray` | Logical watcher items and their virtual menus | Headless snapshot with a StatusNotifierWatcher; no native panel binding |
 | `action-center` | The container above the footer row of a label, a toggle and a push button | Content while the list is showing; `open-system-surface` opens it with a click on the date menu |
 | `quick-settings` | System menu | Refuses: the exposed generic panel chain cannot prove its container |
-| `taskbar` | Dock | Not advertised or openable by this build |
+| `taskbar` | Dock | Not advertised or openable |
 
 - Shell snapshots need no `--app`. `list-surfaces` inventories an app selected
   with `--app`. Shell containers do not appear in `list-windows`.
@@ -148,9 +142,6 @@ prove it. Advertised surfaces require a resolvable structural container.
 - On Wayland a headed shell ref click refuses with `ACTION_NOT_SUPPORTED`, cause
   `wayland_session`, before any input, and a popup opener refuses with
   `pointer_hit_unproven` because the shared hit test cannot prove its receiver.
-- Wayland keyboard input requires the session-bus
-  `org.gnome.Mutter.RemoteDesktop` capability. An unsupported backend returns
-  `PLATFORM_NOT_SUPPORTED` before any event.
 
 ## Service requirements and exact refusals
 
@@ -333,6 +324,5 @@ An app in a sandbox is on the accessibility bus only when the sandbox shares it.
 Flatpak: the sandbox needs `--talk-name=org.a11y.Bus`. snap: there is no
 accessibility interface or plug to grant (`snap interface a11y` does not exist);
 connect `desktop-legacy` or `unity7`. The adapter's own error for a missing or
-hidden bus names both fixes. Neither fix is measured against a sandboxed app
-(the Flatpak override and the snap disconnect tests are open), so an empty
-`list-apps` for a sandboxed app is a reason to check these first.
+hidden bus names both fixes. Neither fix is verified against a sandboxed app, so
+an empty `list-apps` for a sandboxed app is a reason to check these first.

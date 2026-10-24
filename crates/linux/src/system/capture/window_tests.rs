@@ -3,7 +3,7 @@ use agent_desktop_core::ErrorCode;
 use super::fakes::*;
 use super::*;
 use crate::system::capture::window_xid::XidOutcome;
-use crate::system::x11::grab_error::GrabError;
+use crate::system::x11::capture::grab_error::GrabError;
 
 fn reason_of(error: &AdapterError) -> Option<&str> {
     error

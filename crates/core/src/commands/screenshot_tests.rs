@@ -2,7 +2,7 @@ use crate::{
     AdapterError, ImageBuffer, ImageFormat, Rect, WindowInfo,
     adapter::{ActionOps, InputOps, ObservationOps, ScreenshotTarget, SystemOps, WindowFilter},
     commands::screenshot::{self, ScreenshotArgs},
-    display_info::DisplayInfo,
+    system::display_info::DisplayInfo,
 };
 use std::{path::PathBuf, sync::Mutex};
 
@@ -77,11 +77,11 @@ impl SystemOps for ScreenshotAdapter {
         &self,
         _process: crate::ProcessIdentity,
         _deadline: crate::Deadline,
-    ) -> Result<crate::process_state::ProcessState, AdapterError> {
+    ) -> Result<crate::system::process_state::ProcessState, AdapterError> {
         Ok(if self.stopped {
-            crate::process_state::ProcessState::Unresponsive
+            crate::system::process_state::ProcessState::Unresponsive
         } else {
-            crate::process_state::ProcessState::Running
+            crate::system::process_state::ProcessState::Running
         })
     }
 }

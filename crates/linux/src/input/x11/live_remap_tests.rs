@@ -3,14 +3,14 @@ use std::time::{Duration, Instant};
 
 use super::live_tests::{deadline, private_display, spawn_helper};
 use super::session::{live_keymap, run};
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use crate::input::plan::Plan;
 use crate::input::step::Step;
 
 const MARKER: u32 = 0x1234;
 const WRITTEN_LEVELS: usize = 4;
 
-pub(crate) fn observed_keymap(display: &str) -> crate::input::keymap::Keymap {
+pub(crate) fn observed_keymap(display: &str) -> crate::input::keyboard::keymap::Keymap {
     use super::{sink::X11Sink, xtest_sink::XtestSink};
     XtestSink::connect(display, deadline(8_000), Duration::from_secs(10))
         .unwrap()
@@ -34,8 +34,8 @@ fn wait_for_keysyms(display: &str, code: u8, wanted: &[u32]) -> bool {
 #[ignore = "needs scripts/private-session.sh --wm"]
 fn live_text_after_own_pending_remap_reaches_the_editor_and_bad_recovery_refuses() {
     use super::{held_journal::HeldJournal, sink::X11Sink, xtest_sink::XtestSink};
-    use crate::input::{held_input::HeldInput, text_plan::plan_text};
-    use crate::system::x11::stacking_source::StackingSource;
+    use crate::input::{held_input::HeldInput, keyboard::text_plan::plan_text};
+    use crate::system::x11::stacking::stacking_source::StackingSource;
     let display = private_display();
     let runtime = std::env::var("AGENT_DESKTOP_PRIVATE_SESSION").unwrap();
     let log = std::path::Path::new(&runtime).join("typed.txt");
@@ -71,8 +71,13 @@ fn live_text_after_own_pending_remap_reaches_the_editor_and_bad_recovery_refuses
     };
     let facts = crate::system::process::process_facts::read(app.id()).unwrap();
     let owner = agent_desktop_core::ProcessIdentity::new(app.id(), facts.instance);
-    crate::system::x11::control_send::activate_window(client.id, &owner, deadline(8_000), true)
-        .unwrap();
+    crate::system::x11::control::control_send::activate_window(
+        client.id,
+        &owner,
+        deadline(8_000),
+        true,
+    )
+    .unwrap();
     let started = Instant::now();
     loop {
         let active = Command::new("xprop")

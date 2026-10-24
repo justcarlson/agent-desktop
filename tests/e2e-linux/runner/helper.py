@@ -134,8 +134,7 @@ def activate(node):
 
 @contextlib.contextmanager
 def managed(ctx, name, args=()):
-    app = apps.launch_qt(ctx.tier) if name == "Qt" else (
-        apps.launch_vscode(ctx.tier) if name == "VS Code" else apps.launch(ctx.tier, name, args))
+    app = apps.launch_qt(ctx.tier) if name == "Qt" else apps.launch(ctx.tier, name, args)
     try:
         yield app
     finally:

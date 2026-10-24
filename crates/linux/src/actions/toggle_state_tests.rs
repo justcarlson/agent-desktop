@@ -3,7 +3,7 @@ use std::cell::Cell;
 use agent_desktop_core::{Action, DeliverySemantics, ErrorCode};
 
 use super::*;
-use crate::tree::role_numbers::{CHECK_BOX, PUSH_BUTTON, TOGGLE_BUTTON};
+use crate::tree::vocabulary::role_numbers::{CHECK_BOX, PUSH_BUTTON, TOGGLE_BUTTON};
 
 fn counted_drive(
     wanted: bool,

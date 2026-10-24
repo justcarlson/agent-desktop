@@ -89,8 +89,8 @@ macro_rules! complete_live_observation {
             _handle: &$crate::adapter::NativeHandle,
             _point: $crate::Point,
             _deadline: $crate::Deadline,
-        ) -> Result<$crate::hit_test::HitTestResult, $crate::AdapterError> {
-            Ok($crate::hit_test::HitTestResult::ReachesTarget)
+        ) -> Result<$crate::adapter::hit_test::HitTestResult, $crate::AdapterError> {
+            Ok($crate::adapter::hit_test::HitTestResult::ReachesTarget)
         }
     };
 }
@@ -218,10 +218,10 @@ pub(crate) fn recorded_action_state(requests: &[crate::ActionRequest]) -> crate:
     }
     let mut states = Vec::new();
     if checked {
-        states.push(crate::state::CHECKED.into());
+        states.push(crate::tree::state::CHECKED.into());
     }
     if expanded {
-        states.push(crate::state::EXPANDED.into());
+        states.push(crate::tree::state::EXPANDED.into());
     }
     crate::ElementState {
         role: "textfield".into(),
@@ -234,10 +234,10 @@ pub(crate) fn recorded_action_state(requests: &[crate::ActionRequest]) -> crate:
 }
 
 pub(crate) fn observed_tree(
-    root: &crate::live_locator::ObservationRoot<'_>,
+    root: &crate::locator::live_locator::ObservationRoot<'_>,
     node: crate::AccessibilityNode,
-) -> Result<crate::live_locator::ObservedTree, crate::AdapterError> {
-    use crate::live_locator::{
+) -> Result<crate::locator::live_locator::ObservedTree, crate::AdapterError> {
+    use crate::locator::live_locator::{
         IdentifierEvidence, LocatorEvidence, LocatorField, LocatorRefEvidence, LocatorStats,
         ObservationSource, ObservedSubtree, ObservedTree,
     };

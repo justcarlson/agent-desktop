@@ -1,7 +1,7 @@
 use super::pointer_read::PointerRead;
 use super::sink_error::SinkError;
-use crate::input::keymap::Keymap;
-use crate::input::keymap_edit::KeymapEdit;
+use crate::input::keyboard::keymap::Keymap;
+use crate::input::keyboard::keymap_edit::KeymapEdit;
 use agent_desktop_core::AdapterError;
 
 pub(crate) trait X11Sink {

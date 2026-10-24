@@ -1,6 +1,6 @@
 use super::window_context::{Decode, Encode, WindowLookup};
-use crate::system::x11::grab::Grabber;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::capture::grab::Grabber;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 
 /// Everything a capture reads from outside the process, behind seams a test
 /// replaces.

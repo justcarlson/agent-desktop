@@ -1,7 +1,7 @@
 use agent_desktop_core::{
     AppError, ClipboardFormat, Direction, Modifier, MouseButton,
     commands::{get, is_check},
-    launch_options::LaunchOptions,
+    system::launch_options::LaunchOptions,
 };
 use std::collections::BTreeMap;
 

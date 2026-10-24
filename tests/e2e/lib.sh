@@ -186,6 +186,33 @@ require_value() {
     printf -v "$variable" '%s' "$value"
 }
 
+await_value() {
+    local name="$1" expected="$2" value=""
+    for _ in $(seq 1 25); do
+        if value="$(find_value "$name")" && [ "$value" = "$expected" ]; then
+            printf '%s' "$value"
+            return 0
+        fi
+        sleep 0.2
+    done
+    printf '%s' "$value"
+    return 1
+}
+
+assert_error_envelope() {
+    local label="$1" expected_code="$2" expected_exit="$3" expected_delivery="$4"
+    shift 4
+    local ok code delivery delivery_ok=1
+    run_timed "$bin" "$@"
+    ok="$(json_field "$RUN_JSON" ok)"
+    code="$(json_field "$RUN_JSON" error.code)"
+    delivery="$(json_field "$RUN_JSON" error.disposition.delivery)"
+    if [ -n "$expected_delivery" ] && [ "$delivery" != "$expected_delivery" ]; then delivery_ok=0; fi
+    assert "$label" \
+        "$([ "$RUN_EXIT" = "$expected_exit" ] && [ "$ok" = "False" ] && [ "$code" = "$expected_code" ] && [ "$delivery_ok" = "1" ] && echo 1 || echo 0)" \
+        "exit=$RUN_EXIT ok=$ok code=$code delivery=$delivery args=$*"
+}
+
 act() {
     if [ -n "$MODE_FLAG" ]; then
         "$bin" "$MODE_FLAG" "$@"
@@ -223,7 +250,7 @@ verify() {
     shift 6
     local before after output command_ok error mechanism
     require_value before "$status"
-    output="$(act_target "$target" "$command" "$@" 2>&1)"
+    output="$(act_target "$target" "$command" "$@" 2>/dev/null)"
     sleep 0.35
     require_value after "$status"
     command_ok="$(json_field "$output" ok)"

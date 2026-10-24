@@ -1,7 +1,7 @@
 use crate::system::shell::fake_tree::{SENTINEL, at};
 use crate::system::shell::light::is_placed;
 use crate::tree::AtspiElement;
-use crate::tree::absence::UNKNOWN_OBJECT;
+use crate::tree::properties::absence::UNKNOWN_OBJECT;
 use agent_desktop_core::{AdapterError, ErrorCode};
 
 #[test]

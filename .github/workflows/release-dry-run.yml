@@ -1,3 +1,10 @@
+# Rehearsal of the release build. It is its own workflow, not a mode of release.yml,
+# because a workflow that checks out a ref chosen at dispatch time while running on the
+# default branch, and shares caches with other runs, can have those caches poisoned
+# (CodeQL actions/cache-poisoning/poisonable-step). No runtime condition removes that.
+# So this one holds read-only contents permission, uses no caches, and reaches no
+# publishing job.
+
 name: Release Dry Run
 
 on:
@@ -27,6 +34,10 @@ on:
       - 'scripts/ci-ffi-helper-discovery-smoke.sh'
 
 permissions: {}
+
+concurrency:
+  group: release-dry-run-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -415,7 +426,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             at-spi2-core dbus-x11 xvfb x11-utils openbox gnome-calculator \
-            python3-gi gir1.2-atspi-2.0 gir1.2-gtk-3.0 gcc trash-cli
+            python3-gi gir1.2-atspi-2.0 gir1.2-gtk-3.0 gcc
 
       - name: Deterministic packaged owner contracts
         run: |

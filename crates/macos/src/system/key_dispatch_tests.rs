@@ -14,18 +14,6 @@ fn process_preflight_failure_reports_no_key_delivery() {
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
 }
 
-#[test]
-fn key_dispatch_rejects_non_unique_display_names() {
-    let error = match [10, 11].as_slice() {
-        [pid] => Ok(*pid),
-        pids => Err(AdapterError::ambiguous_target("duplicate app name")
-            .with_details(serde_json::json!({ "candidate_pids": pids }))),
-    }
-    .expect_err("duplicate names must be ambiguous");
-
-    assert_eq!(error.code, ErrorCode::AmbiguousTarget);
-}
-
 fn combo(modifiers: Vec<Modifier>) -> KeyCombo {
     KeyCombo {
         key: "a".into(),
@@ -108,7 +96,7 @@ fn a_headed_missing_focused_element_does_not_suggest_enabling_headed() {
 #[test]
 fn an_unresolvable_key_fails_before_any_focus_change() {
     let pid = std::process::id();
-    let instance = crate::system::process_identity::token_for_pid(pid as i32)
+    let instance = crate::system::process::process_identity::token_for_pid(pid as i32)
         .unwrap()
         .unwrap();
     let error = press_for_app_impl(

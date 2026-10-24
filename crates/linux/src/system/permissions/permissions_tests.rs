@@ -2,7 +2,7 @@ use super::*;
 use crate::system::bus::bus_fault::BusFault;
 use crate::system::bus::bus_stage::Stage;
 use crate::system::capture::window::fakes::{FakeGrabber, Rig, deadline};
-use crate::system::x11::grab_error::GrabError;
+use crate::system::x11::capture::grab_error::GrabError;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use zbus::Message;

@@ -1,9 +1,11 @@
 use crate::system::menu::menu_found::Found;
-use crate::tree::role_numbers::is_web_document;
-use crate::tree::role_numbers::{
+use crate::tree::vocabulary::role_numbers::is_web_document;
+use crate::tree::vocabulary::role_numbers::{
     CHECK_MENU_ITEM, FILLER, FRAME, PANEL, PUSH_BUTTON, RADIO_MENU_ITEM, TOGGLE_BUTTON, WINDOW,
 };
-use crate::tree::state_bits::{CHECKED, EXPANDED, HAS_POPUP, MODAL, PRESSED, SHOWING, StateBits};
+use crate::tree::vocabulary::state_bits::{
+    CHECKED, EXPANDED, HAS_POPUP, MODAL, PRESSED, SHOWING, StateBits,
+};
 use crate::tree::{ObservedRead, WalkedNode};
 
 pub(in crate::system) type Node = WalkedNode<ObservedRead>;

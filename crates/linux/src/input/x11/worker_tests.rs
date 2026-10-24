@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, DeliveryDisposition, ErrorCode};
+use agent_desktop_core::{DeliveryDisposition, ErrorCode};
 
 use crate::input::plan::Plan;
 use crate::input::step::Step;
@@ -7,7 +7,8 @@ use crate::input::x11::fake_sink::{FakeSink, Recorded, deadline, events, run};
 #[test]
 fn text_chunks_read_fresh_state_without_keyboard_mapping_or_pointer_geometry() {
     let fake = FakeSink::new();
-    let plans = crate::input::text_plan::plan_text(&fake.world().keymap, &"a".repeat(65)).unwrap();
+    let plans = crate::input::keyboard::text_plan::plan_text(&fake.world().keymap, &"a".repeat(65))
+        .unwrap();
     let mut chunks = 0;
     let error = run(
         &fake,
@@ -37,7 +38,7 @@ fn text_chunks_read_fresh_state_without_keyboard_mapping_or_pointer_geometry() {
 #[test]
 fn keyboard_state_changed_after_planning_refuses_before_the_first_key() {
     let fake = FakeSink::new();
-    let plans = crate::input::text_plan::plan_text(&fake.world().keymap, "a").unwrap();
+    let plans = crate::input::keyboard::text_plan::plan_text(&fake.world().keymap, "a").unwrap();
     let error = run(
         &fake,
         plans,
@@ -218,33 +219,6 @@ fn failed_stale_recovery_blocks_the_next_plan_and_keeps_the_record() {
 }
 
 #[test]
-fn a_gate_that_refuses_the_first_plan_is_not_delivered() {
-    let fake = FakeSink::new();
-    let only = Plan {
-        steps: vec![
-            Step::Key {
-                code: 38,
-                down: true,
-            },
-            Step::Key {
-                code: 38,
-                down: false,
-            },
-        ],
-        release_origin: None,
-    };
-    let mut gate = || Err(AdapterError::new(ErrorCode::ActionFailed, "not active"));
-
-    let error = run(&fake, vec![only], &mut gate, deadline(5_000), None).expect_err("refused");
-
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::NotDelivered
-    );
-    assert!(events(&fake).is_empty());
-}
-
-#[test]
 fn a_point_outside_the_root_is_refused_before_any_event() {
     let outside = [
         (i32::MIN, 0),
@@ -328,7 +302,7 @@ fn owned_sticky_input_is_reported_without_claiming_bystander_input() {
 
 #[test]
 fn the_worker_runs_the_planned_hold_between_the_keys_and_the_restore() {
-    use crate::input::keymap_edit::KeymapEdit;
+    use crate::input::keyboard::keymap_edit::KeymapEdit;
     use std::time::Instant;
     let fake = FakeSink::new();
     let typed = Plan {

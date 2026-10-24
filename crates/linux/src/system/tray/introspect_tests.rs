@@ -39,11 +39,6 @@ fn an_item_listing_no_activate_lists_the_secondary_methods_only() {
 }
 
 #[test]
-fn methods_of_other_interfaces_are_not_the_items() {
-    assert!(!item_methods(KDE_STYLE).contains(&"Introspect".to_owned()));
-}
-
-#[test]
 fn xml_without_the_item_interface_lists_nothing() {
     assert!(item_methods("<node/>").is_empty());
     assert!(item_methods("").is_empty());

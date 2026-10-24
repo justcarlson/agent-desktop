@@ -1,6 +1,6 @@
 use super::*;
-use crate::tree::role_numbers::FRAME;
-use crate::tree::test_support::{read_of, words};
+use crate::tree::live::test_support::{read_of, words};
+use crate::tree::vocabulary::role_numbers::FRAME;
 use crate::tree::{COMPONENT_INTERFACE, Extents, Field};
 
 fn window(role: u32, name: &str, width: i32) -> RawNode {

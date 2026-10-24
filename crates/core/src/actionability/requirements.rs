@@ -1,5 +1,5 @@
 use super::PointerDelivery;
-use crate::action::Action;
+use crate::actions::action::Action;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ActionabilityRequirements {
@@ -45,7 +45,7 @@ impl ActionabilityRequirements {
         }
         if policy.is_headed() && action.headed_requirement().requires_cursor() {
             PointerDelivery::Physical
-        } else if crate::capability::supports_direct_semantic_pointer_delivery(
+        } else if crate::actions::capability::supports_direct_semantic_pointer_delivery(
             action,
             available_actions,
         ) {
@@ -79,14 +79,14 @@ impl ActionabilityRequirements {
         if request.policy != crate::InteractionPolicy::headless() {
             return true;
         }
-        let direct_pointer = crate::capability::supports_direct_semantic_pointer_delivery(
+        let direct_pointer = crate::actions::capability::supports_direct_semantic_pointer_delivery(
             &request.action,
             available_actions,
         );
         let direct_text = self.editable
-            && crate::capability::contains_any(
+            && crate::actions::capability::contains_any(
                 available_actions,
-                crate::capability::for_action(&request.action),
+                crate::actions::capability::for_action(&request.action),
             );
         !(direct_pointer || direct_text)
     }
@@ -108,9 +108,9 @@ impl ActionabilityRequirements {
         match pointer_delivery {
             PointerDelivery::Physical => false,
             PointerDelivery::Semantic => true,
-            PointerDelivery::NotApplicable => crate::capability::contains_any(
+            PointerDelivery::NotApplicable => crate::actions::capability::contains_any(
                 available_actions,
-                crate::capability::for_action(&request.action),
+                crate::actions::capability::for_action(&request.action),
             ),
         }
     }

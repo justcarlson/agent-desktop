@@ -11,13 +11,10 @@ from scenarios.headed_actions import (
     assert_ok,
     live_root,
     longest_text,
-    raw_walk,
     ref_for,
     restore_text,
     window_of,
 )
-
-SEARCH_NAMES = ("Find", "Search", "Replace", "Find and Replace")
 
 
 def held_modifiers(text: str) -> list[str]:
@@ -33,29 +30,6 @@ def held_modifiers(text: str) -> list[str]:
     if seen != set(MODIFIERS):
         raise AssertionError("incomplete modifier oracle state")
     return held
-
-
-def _raw_node(root, name: str):
-    for node in raw_walk(root):
-        if node.name == name:
-            return node
-    return None
-
-
-def _search_present(tier, app) -> bool:
-    root = live_root(tier, app)
-    return any(_raw_node(root, name) for name in SEARCH_NAMES)
-
-
-def _enabled(tier, app, name: str) -> bool | None:
-    node = _raw_node(live_root(tier, app), name)
-    if node is None:
-        return None
-    return "SENSITIVE" in node.states
-
-
-def _textfield_ref(ctx: LegContext, window: str) -> str:
-    return ref_for(ctx, window, role="textfield", deadline_s=6.0)
 
 
 def _launch(ctx: LegContext):
@@ -128,6 +102,51 @@ def held_key_released(ctx: LegContext) -> None:
         ctx.after("x11.modifiers", after)
         if after:
             raise AssertionError("a modifier was left pressed after the key combo")
+        ctx.restored("x11.modifiers", held_modifiers(_modifier_state(ctx.tier)))
+    finally:
+        apps.stop(app)
+
+
+def press_verdict(typed: str, after_return: str, after_clear: str, stuck: list[str]) -> list[str]:
+    problems = []
+    if "ab" not in typed:
+        problems.append("semantic type did not reach the document")
+    if after_return.count("\n") != typed.count("\n") + 1:
+        problems.append("press return did not insert exactly one newline")
+    if after_clear != "":
+        problems.append(f"ctrl+a then backspace left {after_clear!r}")
+    if stuck:
+        problems.append(f"modifiers left down: {stuck}")
+    return problems
+
+
+def _settled_document(read, accepted) -> str:
+    atspi_raw.poll(lambda: accepted(read()), 6.0)
+    return read()
+
+
+@implementation("text_entry.press_combos_edit_document")
+def press_combos_edit_document(ctx: LegContext) -> None:
+    app, window = _launch(ctx)
+    try:
+        read = lambda: longest_text(live_root(ctx.tier, app))
+        before = read()
+        ctx.before("atspi.document_text", before)
+        ctx.before("x11.modifiers", held_modifiers(_modifier_state(ctx.tier)))
+        assert_ok(ctx.product(["type", ref_for(ctx, window, role="textfield"), "ab"]))
+        typed = _settled_document(read, lambda text: "ab" in text)
+        assert_ok(ctx.product(["press", "return", "--window-id", window]))
+        after_return = _settled_document(read, lambda text: text.count("\n") == typed.count("\n") + 1)
+        assert_ok(ctx.product(["press", "ctrl+a", "--window-id", window]))
+        assert_ok(ctx.product(["press", "backspace", "--window-id", window]))
+        after_clear = _settled_document(read, lambda text: text == "")
+        ctx.after("atspi.document_text", after_clear)
+        stuck = held_modifiers(_modifier_state(ctx.tier))
+        ctx.after("x11.modifiers", stuck)
+        problems = press_verdict(typed, after_return, after_clear, stuck)
+        if problems:
+            raise AssertionError("; ".join(problems))
+        restore_text(ctx, app, before)
         ctx.restored("x11.modifiers", held_modifiers(_modifier_state(ctx.tier)))
     finally:
         apps.stop(app)

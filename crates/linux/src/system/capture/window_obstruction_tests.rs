@@ -1,7 +1,7 @@
 use super::*;
 use crate::system::x11::FrameExtents;
-use crate::system::x11::window_flags::WindowFlags;
-use crate::system::x11::window_kind::WindowKind;
+use crate::system::x11::window::window_flags::WindowFlags;
+use crate::system::x11::window::window_kind::WindowKind;
 
 const TARGET: u32 = 10;
 

@@ -5,7 +5,7 @@ use agent_desktop_core::commands::close_app::{CloseAppArgs, execute};
 use crate::LinuxAdapter;
 use crate::system::focus::focus_window::lift_live_tests::{deadline, xid_of};
 use crate::system::{SharedBus, app_inventory};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 #[test]
 #[ignore = "closes owned Zenity windows; run inside scripts/private-session.sh --wm"]

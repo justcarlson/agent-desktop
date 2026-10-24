@@ -1,8 +1,8 @@
 use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
-    AdapterError, Rect, adapter::NativeHandle, refs::RefEntry, refs::RefMap, refs_store::RefStore,
-    refs_test_support::HomeGuard,
+    AdapterError, Rect, adapter::NativeHandle, refs::RefEntry, refs::RefMap,
+    refs::refs_store::RefStore, refs::refs_test_support::HomeGuard,
 };
 use std::sync::Mutex;
 
@@ -140,7 +140,7 @@ fn bounds_falls_back_to_snapshot_geometry_when_no_live_read_is_available() {
     )
     .unwrap();
 
-    assert_eq!(result["value"]["y"], -322.0);
+    assert_eq!(result["value"], json!(stale_snapshot_bounds()));
     assert_eq!(result["live"], false);
 }
 

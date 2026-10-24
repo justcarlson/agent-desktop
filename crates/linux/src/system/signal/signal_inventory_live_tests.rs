@@ -9,7 +9,7 @@ use crate::system::registry::registry_frames::RootRead;
 use crate::system::registry::registry_frames::read_frames;
 use crate::system::signal::signal_live_apps::{poll, x11_windows};
 use crate::system::{SharedBus, list_windows, resolve_window_strict};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 

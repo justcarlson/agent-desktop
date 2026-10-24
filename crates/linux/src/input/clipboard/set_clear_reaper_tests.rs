@@ -5,12 +5,19 @@ fn isolated(test: &str) -> bool {
     if std::env::var(CHILD).as_deref() == Ok(test) {
         return false;
     }
-    let status = Command::new(std::env::current_exe().expect("test image"))
+    let output = Command::new(std::env::current_exe().expect("test image"))
         .args(["--exact", test, "--include-ignored", "--nocapture"])
         .env(CHILD, test)
-        .status()
+        .output()
         .expect("isolated test process");
-    assert!(status.success(), "isolated reaper regression failed");
+    assert!(
+        output.status.success(),
+        "isolated reaper regression failed: {output:?}"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"),
+        "{test} must execute exactly one test: {output:?}"
+    );
     true
 }
 

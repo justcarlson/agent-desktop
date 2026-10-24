@@ -4,9 +4,9 @@ use super::window_filter::is_window_shape;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::registry::registry_frames::{RootRead, read_frames};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus};
-use crate::tree::role_numbers::PANEL;
-use crate::tree::state_bits::{MODAL, SHOWING, StateBits};
-use crate::tree::toolkit_trust::{ToolkitKind, kind};
+use crate::tree::properties::toolkit_trust::{ToolkitKind, kind};
+use crate::tree::vocabulary::role_numbers::PANEL;
+use crate::tree::vocabulary::state_bits::{MODAL, SHOWING, StateBits};
 use crate::tree::{AtspiElement, Extents, RawNode};
 
 fn size(node: &RawNode) -> Option<(i32, i32)> {

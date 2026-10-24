@@ -1,9 +1,9 @@
+use crate::adapter::hit_test::HitTestResult;
 use crate::adapter::{ActionOps, InputOps, NativeHandle, ObservationOps, SystemOps};
 use crate::commands::{drag, hover};
-use crate::hit_test::HitTestResult;
+use crate::refs::refs_store::RefStore;
+use crate::refs::refs_test_support::HomeGuard;
 use crate::refs::{RefEntry, RefMap};
-use crate::refs_store::RefStore;
-use crate::refs_test_support::HomeGuard;
 use crate::{
     AdapterError, AppError, CommandContext, DeliverySemantics, DragParams, InteractionLease,
     MouseEvent, Point, ProcessId, Rect,
@@ -187,7 +187,7 @@ fn ref_entry(pid: u32) -> RefEntry {
         },
         capabilities: crate::RefCapabilities {
             states: Vec::new(),
-            available_actions: vec![crate::capability::CLICK.into()],
+            available_actions: vec![crate::actions::capability::CLICK.into()],
         },
         source: crate::RefSource {
             source_app: Some(format!("App {pid}")),

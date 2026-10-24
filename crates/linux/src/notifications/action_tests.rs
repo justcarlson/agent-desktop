@@ -178,9 +178,9 @@ fn the_result_is_never_verified() {
     let world = FakeWorld::new(&log, vec![entry(true), gone()]);
     let source = signals(&log, vec![Signal::ActionInvoked(1), Signal::Closed(1)]);
     let result = go(&world, &source, "Run A").expect("delivered");
-    assert_ne!(
+    assert_eq!(
         result.disposition(),
-        agent_desktop_core::DeliverySemantics::delivered_verified()
+        agent_desktop_core::DeliverySemantics::delivered_unverified()
     );
 }
 

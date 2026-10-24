@@ -59,11 +59,18 @@ fn a_helper_that_exits_after_the_selection_changed_hands_is_uncertain() {
 #[test]
 fn a_clear_whose_release_may_have_been_sent_is_uncertain_and_keeps_the_records() {
     let world = World::new("clear-unconfirmed");
+    let mut owner = sleeper();
+    let ticks = start_ticks_of(owner.id()).expect("start time");
+    write_record(&world, owner.id(), ticks, &test_nonce());
     let server = FakeServer::new(&[None], &[]);
     *server.release_fault.borrow_mut() = Some(Fault::MutationUnconfirmed);
     let error = run_clear(&world, &server).expect_err("unconfirmed");
     assert_eq!(error.code, ErrorCode::Timeout);
     assert_eq!(error.disposition, DeliverySemantics::uncertain());
+    assert_eq!(world.record_names().len(), 1);
+    assert!(alive(owner.id()), "an unconfirmed release keeps the owner");
+    terminate(Some(owner.id()));
+    let _ = owner.wait();
 }
 
 #[test]

@@ -3,7 +3,7 @@ use agent_desktop_core::{ErrorCode, ScreenshotTarget};
 use super::capture_live_support::*;
 use crate::system::SharedBus;
 use crate::system::capture::screenshot::{screenshot, screenshot_window_frame};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 fn window_at(x: i32, y: i32) -> Geometry {
     Geometry {
@@ -56,11 +56,7 @@ fn grab_live_a_window_partly_off_screen_reports_off_screen() {
         &window_at(1200, 700),
     );
     let window = wait_for_listed(&bus, pid);
-    let bounds = window.bounds.expect("the window reports bounds");
-    if bounds.x + bounds.width <= 1280.0 && bounds.y + bounds.height <= 800.0 {
-        println!("grab_live skipped: the manager kept the window on the screen at {bounds:?}");
-        return;
-    }
+    let window = place_partly_off_screen(&bus, &window, &window_at(1200, 700));
     let outcome = screenshot(
         &bus,
         ScreenshotTarget::ExactWindow(window),
@@ -85,7 +81,7 @@ fn grab_live_the_capture_permission_follows_the_session() {
     use crate::system::display::display_server::detect;
     use crate::system::display::route::resolve;
     use crate::system::permissions::{CaptureAvailability, capture_availability};
-    use crate::system::x11::grab::DisplayGrabber;
+    use crate::system::x11::capture::grab::DisplayGrabber;
 
     let _display = assert_private_display();
     let deadline = Deadline::after(10_000).expect("a deadline builds");
@@ -114,7 +110,7 @@ fn grab_live_a_stopped_window_is_app_unresponsive() {
     use crate::system::capture::window::capture;
     use crate::system::capture::window_context::real_decode;
     use crate::system::x11::DisplayReader;
-    use crate::system::x11::grab::DisplayGrabber;
+    use crate::system::x11::capture::grab::DisplayGrabber;
 
     let _display = assert_private_display();
     let bus = SharedBus::default();

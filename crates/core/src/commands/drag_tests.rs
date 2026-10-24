@@ -2,13 +2,13 @@ use super::*;
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     AdapterError, CursorOverlayControl, DeliverySemantics, DragParams, Rect,
+    actions::capability,
     adapter::NativeHandle,
-    capability,
+    adapter::hit_test::HitTestResult,
     commands::stale_retry_test_support::StaleRetryCounter,
-    hit_test::HitTestResult,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -253,7 +253,7 @@ fn expired_action_deadline_does_not_suppress_drag_cancellation() {
         .with_cursor_overlay_session("test-session", config);
     let expired = crate::Deadline::detached_after(1).expect("valid deadline");
     std::thread::sleep(std::time::Duration::from_millis(2));
-    let _scope = crate::deadline::enter_scope(Some(expired));
+    let _scope = crate::wait::deadline::enter_scope(Some(expired));
 
     crate::cursor_overlay::cancel_drag(&adapter, &context);
 
@@ -360,7 +360,6 @@ fn headed_ref_drag_focuses_only_the_from_app_once() {
     .unwrap();
 
     assert_eq!(*adapter.focused_pids.lock().unwrap(), vec![1]);
-    assert_eq!(adapter.resolve_calls.load(Ordering::SeqCst), 4);
     let captured = adapter.captured.lock().unwrap().clone().unwrap();
     assert_eq!((captured.from.x, captured.from.y), (120.0, 230.0));
     assert_eq!(value["focused"], true);

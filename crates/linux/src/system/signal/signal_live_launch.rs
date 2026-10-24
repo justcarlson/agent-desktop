@@ -4,7 +4,7 @@ use super::{
     MENU_BUTTON, MENU_ITEM, Node, Rig, TOGGLE, app_inventory, deadline, descendants, do_action,
     poll, press, top_level, within,
 };
-use crate::tree::live_launch::nonce;
+use crate::tree::live::live_launch::nonce;
 
 const QT_SCRIPT: &str = r#"
 import os, sys, time

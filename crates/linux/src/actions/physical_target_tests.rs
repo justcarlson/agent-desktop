@@ -113,4 +113,4 @@ fn a_non_finite_verified_point_is_refused_before_it_is_aimed_at() {
     assert_eq!(error.code, ErrorCode::InvalidArgs);
 }
 
-use crate::input::target_pointer::aim_point;
+use crate::input::physical::target_pointer::aim_point;

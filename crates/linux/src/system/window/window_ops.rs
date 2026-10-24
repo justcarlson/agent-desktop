@@ -14,8 +14,8 @@ use crate::system::registry::registry_app::RegistryApp;
 use crate::system::registry::registry_frames::RootRead;
 use crate::system::registry::{Registry, read_registry_for, read_registry_query};
 use crate::system::signal::signal_inventory::{Pass, read_selected, run_pass_with};
-use crate::system::x11::client_stack;
-use crate::system::x11::desktops::{self, Desktops};
+use crate::system::x11::stacking::client_stack;
+use crate::system::x11::window::desktops::{self, Desktops};
 use crate::system::x11::{self, DisplayReader, X11Source, X11State};
 
 /// The windows of the applications `select` accepts, in registry order.

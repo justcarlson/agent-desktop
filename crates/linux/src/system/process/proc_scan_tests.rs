@@ -1,4 +1,5 @@
 use super::SessionKey;
+use crate::tree::live::test_support::{BLOCKING_ARGS, copy_blocking_program};
 
 fn key(bus: Option<&str>, runtime: Option<&str>) -> SessionKey {
     SessionKey {
@@ -55,15 +56,12 @@ fn this_session() -> SessionKey {
 }
 
 fn spawn_uniquely_named(tag: &str) -> Spawned {
-    use std::os::unix::fs::PermissionsExt;
     let name = format!("adsc{tag}-{}", std::process::id());
     let directory = std::env::temp_dir().join(format!("{name}-dir"));
     std::fs::create_dir_all(&directory).expect("a directory");
-    let program = directory.join(&name);
-    std::fs::copy("/bin/sleep", &program).expect("a copy of sleep");
-    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).expect("modes");
+    let program = copy_blocking_program(&directory, &name);
     let child = std::process::Command::new(&program)
-        .arg("60")
+        .args(BLOCKING_ARGS)
         .env("XDG_RUNTIME_DIR", RUNTIME)
         .env("DBUS_SESSION_BUS_ADDRESS", BUS)
         .env_remove("DBUS_STARTER_ADDRESS")
@@ -71,19 +69,25 @@ fn spawn_uniquely_named(tag: &str) -> Spawned {
         .expect("a child");
     let started = std::time::Instant::now();
     let short: String = name.chars().take(15).collect();
-    while started.elapsed() < std::time::Duration::from_secs(5)
-        && (std::fs::read_to_string(format!("/proc/{}/comm", child.id()))
-            .map_or(true, |comm| comm.trim_end() != short)
-            || std::fs::read(format!("/proc/{}/environ", child.id()))
-                .map_or(true, |bytes| bytes.is_empty()))
-    {
+    let pid = child.id();
+    let ready = || {
+        std::fs::read_to_string(format!("/proc/{pid}/comm"))
+            .is_ok_and(|comm| comm.trim_end() == short)
+            && std::fs::read(format!("/proc/{pid}/environ")).is_ok_and(|bytes| !bytes.is_empty())
+    };
+    while started.elapsed() < std::time::Duration::from_secs(5) && !ready() {
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
-    Spawned {
+    let spawned = Spawned {
         child,
         directory,
         name,
-    }
+    };
+    assert!(
+        ready(),
+        "child {pid} never showed its name and environment in /proc"
+    );
+    spawned
 }
 
 #[test]
@@ -93,11 +97,14 @@ fn proc_scan_finds_our_process_and_rejects_it_from_another_session() {
         Some("unix:path=/run/user/test-session-b/bus"),
         Some("/run/user/test-session-b"),
     );
-    assert_eq!(
-        super::find_in_session(&own.name, &this_session())
-            .unwrap()
-            .0,
-        own.child.id()
-    );
+    let pid = own.child.id();
+    let found = super::find_in_session(&own.name, &this_session()).unwrap_or_else(|| {
+        panic!(
+            "the scan missed live child {pid}: lookup={:?} environ_readable={}",
+            crate::system::process::process_facts::lookup(pid),
+            std::fs::read(format!("/proc/{pid}/environ")).is_ok()
+        )
+    });
+    assert_eq!(found.0, pid);
     assert_eq!(super::find_in_session(&own.name, &elsewhere), None);
 }

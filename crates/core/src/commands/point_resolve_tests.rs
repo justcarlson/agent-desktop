@@ -12,12 +12,12 @@ fn resolve_test_point(
 use crate::adapter::{ActionOps, InputOps, ObservationOps, SystemOps};
 use crate::{
     ErrorCode, Rect,
+    actions::capability,
     adapter::NativeHandle,
-    capability,
-    hit_test::HitTestResult,
+    adapter::hit_test::HitTestResult,
+    refs::refs_store::RefStore,
+    refs::refs_test_support::HomeGuard,
     refs::{RefEntry, RefMap},
-    refs_store::RefStore,
-    refs_test_support::HomeGuard,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 

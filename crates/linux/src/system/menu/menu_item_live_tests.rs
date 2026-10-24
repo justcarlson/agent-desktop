@@ -7,7 +7,7 @@ use agent_desktop_core::{
 
 use super::menu_live_rig::{Rig, deadline, is_closed_ref, poll};
 use crate::system::ACCESSIBLE_INTERFACE;
-use crate::tree::live_launch::{Launched, nonce};
+use crate::tree::live::live_launch::{Launched, nonce};
 use crate::tree::{AtspiElement, atspi_element};
 
 const CHECKED_BIT: u32 = 4;

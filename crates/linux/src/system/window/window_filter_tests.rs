@@ -1,5 +1,5 @@
 use super::*;
-use crate::tree::test_support::words;
+use crate::tree::live::test_support::words;
 
 fn component() -> Field<Vec<String>> {
     Field::Present(vec![COMPONENT_INTERFACE.to_owned()])

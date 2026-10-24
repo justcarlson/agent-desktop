@@ -59,9 +59,10 @@ class IdentityTests(unittest.TestCase):
 
 
 class MenuTests(unittest.TestCase):
-    def test_timeout_message_reads_the_error(self) -> None:
-        envelope = SimpleNamespace(error={"message": "the menu never opened"})
-        self.assertIn("menu", menus.timeout_message(envelope))
+    def test_timeout_details_reads_the_error_details(self) -> None:
+        envelope = SimpleNamespace(error={"details": {"predicate": "menu"}})
+        self.assertEqual(menus.timeout_details(envelope), {"predicate": "menu"})
+        self.assertEqual(menus.timeout_details(SimpleNamespace(error=None)), {})
 
     def test_is_timeout_requires_the_code(self) -> None:
         self.assertTrue(menus.is_timeout(SimpleNamespace(ok=False, error={"code": "TIMEOUT"})))

@@ -1,8 +1,8 @@
 use agent_desktop_core::AdapterError;
 
 use super::context::Target;
-use super::mutation::{WriteKind, WriteReply};
-use super::write_call::{Call, invoke};
+use super::write::mutation::{WriteKind, WriteReply};
+use super::write::write_call::{Call, invoke};
 
 const ACTION_INTERFACE: &str = "org.a11y.atspi.Action";
 

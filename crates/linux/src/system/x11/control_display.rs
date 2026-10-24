@@ -3,8 +3,8 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{Atom, ConnectionExt, GetPropertyReply, Window};
 use x11rb::rust_connection::RustConnection;
 
-use super::activate_error::ActivateError;
 use super::control::ControlRead;
+use super::control::activate_error::ActivateError;
 use super::stacking::bounded;
 use crate::system::display::display_server::{DisplayServer, session_server};
 

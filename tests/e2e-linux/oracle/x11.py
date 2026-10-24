@@ -148,12 +148,6 @@ def set_above(tier: Tier, window: str, on: bool) -> None:
     tool(tier, ["wmctrl", "-ir", xid(tier, window), "-b", f"{'add' if on else 'remove'},above"])
 
 
-def current_desktop(tier: Tier) -> int | None:
-    text = tool(tier, ["xprop", "-root", "_NET_CURRENT_DESKTOP"])
-    match = re.search(r"=\s*(\d+)\s*$", text)
-    return int(match[1]) if match else None
-
-
 def overview_active(tier: Tier) -> bool:
     return raw.call(raw.connect(tier.bus_address), "org.gnome.Shell", "/org/gnome/Shell",
                     "org.freedesktop.DBus.Properties", "Get", "(ss)",

@@ -73,26 +73,21 @@ Observation and semantic actions need no helper tool.
   shows nested nameless `group` nodes: read past them.
 - **A window appears before its content.** Run
   `wait --window "Text Editor" --app gnome-text-editor` first, then
-  `wait --text`, which matches a node's own name, value or description.
-  Web-engine detection reads the application's AT-SPI toolkit metadata, not
-  executable names or installed payload files. Window observations wait for
-  three equal full reads and a web-document role (or a requested depth cut), at
-  any tree size. A shell without document evidence stays incomplete when the
-  wait budget ends. A `--timeout` shorter than the first read returns `TIMEOUT`,
+  `wait --text`, which matches a node's own name, value or description. For a
+  web-engine app (detected from its AT-SPI toolkit metadata), a window
+  observation waits for three equal full reads and a web-document role, or a
+  requested depth cut. A shell with no document yet stays incomplete when the
+  budget ends. A `--timeout` shorter than the first read returns `TIMEOUT`,
   never a partial tree.
-- **Geometry-only refs require unchanged geometry.** A changed size, even one
-  pixel, cannot prove identity. Position and size must both match; ref geometry
-  compares them only in its recorded coordinate frame. A window move can make
-  screen-relative geometry unable to distinguish twins, so refresh
-  screen-coordinate refs with a fresh snapshot rather than retrying the old ref.
-  Take a fresh snapshot after layout changes and use stable identity where
-  available. Indistinguishable siblings stay `AMBIGUOUS_TARGET`. The tab pages
-  of one window are such siblings when the toolkit marks every page showing: in
-  a Text Editor window with three tabs the text views share one rectangle and
-  one state, so a ref to any of them answers `AMBIGUOUS_TARGET` with
-  `candidate_count` 3 until the extra tabs are closed. A ref belongs to the
-  window it was taken in: two windows with the same title each resolve their own
-  refs.
+- **Geometry-only refs require unchanged geometry.** Position and size must
+  both match, in the ref's recorded coordinate frame; a one-pixel change breaks
+  identity. After a layout change or a window move, take a fresh snapshot
+  instead of retrying the old ref. Indistinguishable siblings stay
+  `AMBIGUOUS_TARGET`: in a Text Editor window with three tabs, the text views
+  share one rectangle and one state, so a ref to any of them answers
+  `AMBIGUOUS_TARGET` with `candidate_count` 3 until the extra tabs close. A ref
+  belongs to the window it was taken in, so two windows with the same title each
+  resolve their own refs.
 - **Chromium and Qt apps need a launch flag or variable** to appear on the bus;
   Electron apps need none, only `--no-sandbox` where `chrome-sandbox` is not
   setuid. See `references/troubleshooting.md`.
@@ -152,10 +147,9 @@ Without a session, `cursor-overlay enable` and `disable` return `INVALID_ARGS`.
 On X11, enable returns `data.rendered: true`; on Wayland it saves the setting
 and returns `data.rendered: false` without drawing an overlay.
 
-`session start --cursor --multi-agent` saves the setting and returns
-`data.rendered: false`, because nothing is drawn until an agent acts. Desktop UI
-actions then need `--agent-id` or `AGENT_DESKTOP_AGENT_ID` (else `INVALID_ARGS`);
-on X11 each id gets its own cursor, and on Wayland none is drawn.
+`session start --cursor --multi-agent` returns `data.rendered: false`, because
+nothing is drawn until an agent acts. On X11 each agent id then gets its own
+cursor; on Wayland none is drawn.
 
 ## What differs on Linux
 
@@ -169,22 +163,13 @@ on X11 each id gets its own cursor, and on Wayland none is drawn.
   `wait --element <ref> --predicate value --value <expected>` on the element
   that shows the result, or `wait 300`.
 - Ref actions are semantic AT-SPI calls that never move the pointer or change
-  the active window. `--headed` makes ref `click`, `right-click` and `type` try
-  physical input first, with the required focus permission.
-- Under `--headed`, the adapter falls back to the semantic action only after
-  `ACTION_NOT_SUPPORTED` or a geometry refusal (`check: geometry`) with
-  `not_delivered`; it records the skipped physical step and refusal in
-  `details.physical_fallback`. Focus, policy, timeout, uncertain or
-  partial-delivery refusals never fall back. Physical success reports
-  `physical_synthetic` and is unverified. Windows works the other way round. Read
-  the step in `data` to see which ran.
-- On Wayland the CLI refuses ordinary-app headed pointer commands (`click`,
-  `hover`, `double-click`, `mouse-*`, wheel) at once, before the adapter
-  fallback, with `ACTION_NOT_SUPPORTED`, cause `wayland_session`,
-  `physical_delivery_started: false`. A headed `select` is refused the same way,
-  before it resolves its target. A headed `type` sends Wayland keys through
-  `RemoteDesktop.type_text` only after detecting the Mutter RemoteDesktop
-  capability; other compositors return `PLATFORM_NOT_SUPPORTED` before input.
+  the active window. Under `--headed`, ref `click`, `right-click` and `type` try
+  physical input first and fall back to the semantic action only after a
+  `not_delivered` refusal (Windows works the other way round). On Wayland, headed
+  pointer commands and a headed `select` refuse at once with
+  `ACTION_NOT_SUPPORTED`, cause `wayland_session`; a headed `type` needs the
+  Mutter RemoteDesktop capability. `references/display-servers-and-input.md`
+  has the full rules.
 - `select` tries the semantic route first and the pointer second; the pointer
   route needs X11. Headed, on a list whose toolkit index cannot be mapped to the
   row (a GTK4 list) it clicks the row and checks its `selected` state; on a

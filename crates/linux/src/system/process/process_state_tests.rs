@@ -1,7 +1,9 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 
-use agent_desktop_core::process_state::ProcessState::{self, Exited, Running, Unresponsive};
+use agent_desktop_core::system::process_state::ProcessState::{
+    self, Exited, Running, Unresponsive,
+};
 
 use super::{Observer, observe};
 use crate::system::process::liveness::Liveness::{self, Alive, Gone, Stopped};

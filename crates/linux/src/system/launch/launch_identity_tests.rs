@@ -2,6 +2,7 @@ use super::resolve;
 use super::tests::fixture;
 use crate::system::launch::launch_attach::{Decision, decide};
 use crate::system::process::running_app::Running;
+use crate::tree::live::test_support::copy_blocking_program;
 
 fn owner(program: &str, args: &[&str]) -> Running {
     Running {
@@ -28,10 +29,8 @@ fn rejects_wrong_process(class: &str) {
     let b = bin.join("b");
     std::fs::create_dir(&a).unwrap();
     std::fs::create_dir(&b).unwrap();
-    let target = b.join("editor");
-    let other = a.join("editor");
-    std::fs::copy("/bin/sleep", &target).unwrap();
-    std::fs::copy("/bin/sleep", &other).unwrap();
+    let target = copy_blocking_program(&b, "editor");
+    let other = copy_blocking_program(&a, "editor");
     let mut owner = owner(other.to_str().unwrap(), &["30"]);
     let id = match class {
         "comm" => {

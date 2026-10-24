@@ -3,11 +3,11 @@ use std::time::{Duration, Instant};
 use agent_desktop_core::{WindowFilter, WindowInfo};
 
 use super::focus_window::lift_live_tests::{deadline, focus, xprop};
-use crate::system::x11::stacking_read::StackingRead;
-use crate::system::x11::stacking_source::StackingSource;
+use crate::system::x11::stacking::stacking_read::StackingRead;
+use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11State};
 use crate::system::{SharedBus, list_windows};
-use crate::tree::live_launch::Launched;
+use crate::tree::live::live_launch::Launched;
 
 const SETTLE: Duration = Duration::from_secs(40);
 
@@ -138,7 +138,7 @@ fn client_of(pid: u32) -> u32 {
 }
 
 #[test]
-#[ignore = "drives real desktop applications; run through scripts/remote-linux.sh"]
+#[ignore = "drives real desktop applications; run through scripts/linux-live-gate.sh"]
 fn focus_window_live_stacking_matches_the_root_list_and_sees_an_override_redirect_cover() {
     let bus = SharedBus::default();
     let mut launched = Launched::new();

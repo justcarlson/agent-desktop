@@ -10,12 +10,12 @@ use super::disclosure::set_expanded;
 use super::focus::focus;
 use super::physical_target::deliver;
 use super::process_check::verify_process;
-use super::scroll_wrap::scroll_to;
+use super::scroll::scroll_wrap::scroll_to;
 use super::select::select;
-use super::select_pointer::{LivePointer, Pointer};
+use super::select::select_pointer::{LivePointer, Pointer};
 use super::toggle_state::toggle;
-use super::value_write::{clear, set_value, type_text};
-use crate::system::{SharedBus, ensure_budget};
+use super::write::value_write::{clear, set_value, type_text};
+use crate::system::SharedBus;
 use crate::tree::{AtspiElement, atspi_element};
 
 fn handled_by_core(action: &Action) -> AdapterError {
@@ -120,7 +120,7 @@ pub(crate) fn execute_action(
 ) -> Result<ActionResult, AdapterError> {
     let deadline = lease.deadline();
     let element = target_element(handle, &request.action)?;
-    ensure_budget(deadline)?;
+    deadline.ensure_remaining()?;
     let Some(element) = element else {
         return deliver(bus, &request.action, None, &request, lease);
     };

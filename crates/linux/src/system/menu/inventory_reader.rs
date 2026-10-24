@@ -1,12 +1,12 @@
 use super::menu_popup::{Node, only_menu_content};
 use super::menu_surface::{PopupReader, popup_read_complete, vanished};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, within};
-use crate::tree::observe_menu::{
+use crate::tree::menu::observe_menu::{
     BULK_CHILDREN, is_cut_short_beyond_pruning, rooted, scan_walk, scan_walk_pruned,
     scan_walk_structure,
 };
-use crate::tree::role_numbers::{FRAME, WINDOW};
-use crate::tree::state_bits::{SHOWING, StateBits};
+use crate::tree::vocabulary::role_numbers::{FRAME, WINDOW};
+use crate::tree::vocabulary::state_bits::{SHOWING, StateBits};
 use crate::tree::{AtspiElement, RawNode, list_children, read_node};
 use agent_desktop_core::{AdapterError, Deadline};
 use std::collections::HashMap;
@@ -175,14 +175,14 @@ impl PopupReader for Inventory<'_> {
             .ok_or_else(|| AdapterError::internal("No inventory window selected"))?;
         let key = (window.bus_name().to_owned(), window.path().to_owned());
         if let Some(Ok(tree)) = self.trees.get(&key) {
-            if !crate::tree::nested_dialog::is_incomplete(tree) {
+            if !crate::tree::surfaces::nested_dialog::is_incomplete(tree) {
                 self.incomplete |= !popup_read_complete(tree);
                 return Ok(Some(tree.clone()));
             }
         }
         let web = within(
             self.deadline,
-            crate::tree::toolkit_trust::read_web_family(
+            crate::tree::properties::toolkit_trust::read_web_family(
                 self.bus.get(self.deadline)?.inner(),
                 window,
             ),

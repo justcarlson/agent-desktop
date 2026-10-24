@@ -29,8 +29,8 @@ CURSOR_WAYLAND = "system::overlay::cursor_overlay::tests::live_wayland_cursor_re
 CLI_WAYLAND = "system::overlay::cursor_overlay::cli_tests::live_wayland_cursor_cli_reports_unrendered_without_x11_fallback"
 EXTERNAL_WAYLAND = (CURSOR_WAYLAND, CLI_WAYLAND)
 BARE_CASES = (
-    "input::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
-    "input::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
+    "input::physical::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+    "input::physical::target_pointer::shell_live_tests::a_missing_mutter_capability_refuses_before_session_creation",
 )
 OPENBOX_CASES = (
     "system::close::close_live_tests::close_live_the_private_sessions_own_processes_are_refused",
@@ -47,12 +47,12 @@ HELPER_PARENTS = {
 # Reviewed module groups whose fixtures never acquire the global interaction lease.
 # Unknown modules and all unit tests stay on one writer, preserving that lock's contract.
 PARALLEL_READS = {
-    "tree::absence_live_tests", "tree::capability_live_tests", "tree::chromium_live_tests",
-    "tree::hit_live_tests::cases", "tree::live_read_live_tests",
-    "tree::navigate_live_tests", "tree::observe_live_tests", "tree::qt_live_tests",
-    "tree::registry_toolkit_live_tests", "tree::resolve_live_tests",
-    "tree::live_timeout",
-    "tree::vocabulary_live_tests", "tree::walker_live_tests",
+    "tree::live::absence_live_tests", "tree::live::chromium_live_tests",
+    "tree::live::hit_live_tests::cases", "tree::live::live_read_live_tests",
+    "tree::live::navigate_live_tests", "tree::live::observe_live_tests", "tree::live::qt_live_tests",
+    "tree::live::registry_toolkit_live_tests", "tree::live::resolve_live_tests",
+    "tree::live::live_timeout",
+    "tree::live::vocabulary_live_tests", "tree::live::walker_live_tests",
 }
 RESULT = re.compile(r"^(ok|failed|ignored) (\S+)\s*$", re.MULTILINE)
 ACTIVE = []
@@ -183,7 +183,7 @@ def source_hash():
         files.extend(folder.rglob("Cargo.toml"))
     files.extend(ROOT / "scripts" / name for name in (
         "linux-live-gate.py", "linux-live-gate.sh", "private-session.sh",
-        "private-mutter-shell.sh", "private-wayland-shell.sh", "session-env.sh"))
+        "private-mutter-shell.sh", "private-wayland-shell.sh"))
     digest = hashlib.sha256()
     for path in sorted(files):
         digest.update(str(path.relative_to(ROOT)).encode())
@@ -353,7 +353,13 @@ def main():
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
     os.chdir(ROOT)
-    base = Path(os.environ.get("AGENT_DESKTOP_SESSION_BASE", str(Path.home() / "ad-wt")))
+    base = Path(
+        os.environ.get("AGENT_DESKTOP_SESSION_BASE")
+        or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
+            if os.environ.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
+    )
+    if args.output is None or not (args.merge or args.list):
+        base.mkdir(mode=0o700, parents=True, exist_ok=True)
     output = (args.output or base / f"live-gate-{time.time_ns()}").resolve()
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "manifest.json"

@@ -31,17 +31,15 @@ fn session_lease_contender() {
 }
 
 fn contender(expected: &str) -> bool {
-    Command::new(std::env::current_exe().unwrap())
-        .args([
-            "--exact",
-            "input::x11::session::lease_tests::session_lease_contender",
-            "--nocapture",
-        ])
+    const FILTER: &str = "input::x11::session::lease_tests::session_lease_contender";
+    let output = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", FILTER, "--nocapture"])
         .env_remove(agent_desktop_core::INTERACTION_LEASE_FD_ENV)
         .env("AD_X11_SESSION_LEASE", expected)
-        .status()
-        .unwrap()
-        .success()
+        .output()
+        .unwrap();
+    output.status.success()
+        && String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed")
 }
 
 #[test]

@@ -49,7 +49,8 @@ fn a_known_on_screen_node_with_zero_sized_bounds_still_fails() {
         height: 0.0,
     };
     let check = visibility(&evidence(Some(false), Some(zero)), false, false);
-    assert_ne!(check.status, ActionabilityStatus::Pass);
+    assert_eq!(check.status, ActionabilityStatus::Fail);
+    assert_eq!(check.reason.as_deref(), Some("bounds are zero-sized"));
 }
 
 fn status_of(
@@ -167,8 +168,8 @@ fn visible_without_bounds_agrees_with_the_visibility_gate_for_every_state() {
         for offscreen in [None, Some(true), Some(false)] {
             for token in [
                 None,
-                Some(crate::state::HIDDEN),
-                Some(crate::state::OFFSCREEN),
+                Some(crate::tree::state::HIDDEN),
+                Some(crate::tree::state::OFFSCREEN),
             ] {
                 let mut probe = evidence(offscreen, None);
                 probe.state.hidden = hidden;

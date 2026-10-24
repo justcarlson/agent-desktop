@@ -118,18 +118,22 @@ fn disable_never_carries_a_rendered_field() {
     let session_id = start_session();
     let context = CommandContext::new(Some(session_id), None, false).expect("context");
 
-    let confirming = RenderingAdapter {
+    let rendering = RenderingAdapter {
         outcome: RenderOutcome::Succeed,
     };
-    let default_value = dispatch(disable_args(), &confirming, &context).expect("disable succeeds");
-    assert!(default_value.get("rendered").is_none());
+    let adapters: [(&str, &dyn PlatformAdapter); 2] = [
+        ("NoopAdapter", &NoopAdapter),
+        ("RenderingAdapter", &rendering),
+    ];
 
-    let rendering_adapter = RenderingAdapter {
-        outcome: RenderOutcome::Succeed,
-    };
-    let rendering_value =
-        dispatch(disable_args(), &rendering_adapter, &context).expect("disable succeeds");
-    assert!(rendering_value.get("rendered").is_none());
+    for (name, adapter) in adapters {
+        let value = dispatch(disable_args(), adapter, &context).expect("disable succeeds");
+        assert!(
+            value.get("rendered").is_none(),
+            "{name} disable must not report rendered: {:?}",
+            value.get("rendered")
+        );
+    }
 }
 
 /// Records the control the adapter was actually handed, which is the only

@@ -2,7 +2,7 @@ use agent_desktop_core::{Action, DeliverySemantics, ErrorCode};
 
 use super::*;
 use crate::actions::chain::{DeliveryOutcome, Observed};
-use crate::actions::mutation::WriteReply;
+use crate::actions::write::mutation::WriteReply;
 
 fn facts(
     expandable: Option<bool>,
@@ -48,7 +48,9 @@ fn a_collapsed_menu_button_is_not_a_leaf() {
 
 #[test]
 fn an_expanded_node_without_the_expandable_bit_is_not_a_leaf() {
-    assert!(plan_disclosure(facts(Some(false), Some(true), None), &Action::Collapse).is_ok());
+    let flag =
+        plan_disclosure(facts(Some(false), Some(true), None), &Action::Collapse).expect("planned");
+    assert_eq!(flag, Flag::On);
 }
 
 #[test]

@@ -25,7 +25,7 @@ struct World {
     timed_out: Vec<usize>,
     stopped: Vec<u32>,
     evidence: X11Evidence,
-    lag: Duration,
+    outlast_deadline: bool,
     reads: Reads,
 }
 
@@ -37,7 +37,7 @@ impl World {
             timed_out: Vec::new(),
             stopped: Vec::new(),
             evidence: X11Evidence::Unavailable,
-            lag: Duration::ZERO,
+            outlast_deadline: false,
             reads: Reads::default(),
         }
     }
@@ -92,9 +92,11 @@ impl CaptureWorld for World {
         &self,
         registry: &Registry,
         select: &dyn Fn(&RegistryApp) -> bool,
-        _deadline: Deadline,
+        deadline: Deadline,
     ) -> Result<Pass, AdapterError> {
-        sleep(self.lag);
+        while self.outlast_deadline && !deadline.is_expired() {
+            sleep(Duration::from_millis(1));
+        }
         let chosen: Vec<usize> = registry
             .apps
             .iter()
@@ -323,8 +325,12 @@ fn a_handoff_window_under_a_running_process_is_a_window_opened_alone() {
     let apps = vec![app(1, "editor", true)];
     let before = World::new(apps.clone(), vec![window(0, "w-1")]);
     let after = World::new(apps, vec![window(0, "w-1"), window(0, "w-2")]);
-    let events = delta(&before, &after);
-    assert_eq!(events, ["window-opened"]);
+    let before = take(&before, &SignalFilter::default());
+    let after = take(&after, &SignalFilter::default());
+    assert_eq!(before.apps.len(), 1);
+    assert_eq!(after.apps.len(), 1);
+    assert_eq!(before.apps[0].pid, after.apps[0].pid);
+    assert_eq!(kinds(&before, &after), ["window-opened"]);
 }
 
 #[test]
@@ -382,8 +388,12 @@ fn a_spent_deadline_reads_nothing_and_returns_a_timeout() {
 #[test]
 fn a_capture_that_finishes_after_the_deadline_is_not_published() {
     let mut world = World::new(vec![app(1, "calc", true)], vec![window(0, "w-1")]);
-    world.lag = Duration::from_millis(40);
-    let short = Deadline::after(15).expect("deadline");
-    let error = capture(&world, &SignalFilter::default(), short).expect_err("error");
+    world.outlast_deadline = true;
+    let roomy = Deadline::after(2_000).expect("deadline");
+    let error = capture(&world, &SignalFilter::default(), roomy).expect_err("error");
     assert_eq!(error.code, ErrorCode::Timeout);
+    assert!(
+        !world.reads.roots_read.borrow().is_empty(),
+        "read before expiry"
+    );
 }
