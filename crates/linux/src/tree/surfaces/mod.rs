@@ -13,6 +13,22 @@ pub(crate) fn is_sheet(node: &RawNode) -> bool {
     bits.has(MODAL) || (is_dialog_role(Some(&role)) && bits.has(SHOWING))
 }
 
+/// Alert surfaces require a showing ALERT role, including non-modal alerts (L41-11).
+pub(crate) fn is_surface(node: &RawNode, surface: agent_desktop_core::SnapshotSurface) -> bool {
+    match surface {
+        agent_desktop_core::SnapshotSurface::Sheet => is_sheet(node),
+        agent_desktop_core::SnapshotSurface::Alert => {
+            node.traits.role.present() == Some(&super::vocabulary::role_numbers::ALERT)
+                && node
+                    .traits
+                    .states
+                    .present()
+                    .is_some_and(|words| StateBits::new(words).has(SHOWING))
+        }
+        _ => false,
+    }
+}
+
 pub(super) mod modal_gate;
 pub(crate) mod nested_dialog;
 #[cfg(test)]

@@ -117,3 +117,16 @@ fn an_alert_whose_states_never_read_leaves_discovery_incomplete() {
     assert!(read(Field::Failed("unread".into())));
     assert!(!read(Field::Present(words(&[SHOWING]))));
 }
+
+#[test]
+fn alert_discovery_reads_beyond_an_ordinary_dialog() {
+    use agent_desktop_core::SnapshotSurface::Alert;
+    let alert = node(ALERT, "Warning", true, "/a", Vec::new());
+    let outer = node(DIALOG, "Outer", true, "/d", vec![alert]);
+    let mut tree = window(vec![outer]);
+    assert_eq!(super::find_surface(&tree, Alert)[0].element.path(), "/a");
+    assert!(!super::is_incomplete_surface(&tree, Alert));
+    tree.children[0].children[0].payload.node.traits.states = Field::Failed("unread".into());
+    assert!(super::is_incomplete_surface(&tree, Alert));
+    assert!(!is_incomplete(&tree));
+}

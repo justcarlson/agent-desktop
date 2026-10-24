@@ -70,18 +70,31 @@ impl Source for BusSource<'_> {
             let owner = owner_process_id(connection, window.bus()).await;
             window.check_owner(owner, entry)
         })?;
-        let frame = if entry.source.source_surface == SnapshotSurface::Sheet {
+        let frame = if matches!(
+            entry.source.source_surface,
+            SnapshotSurface::Sheet | SnapshotSurface::Alert
+        ) {
             let walk = walk_tree(self.bus, &frame, &WalkLimits::default(), self.deadline)?;
-            if crate::tree::surfaces::is_sheet(&walk.root.payload.node) {
+            if crate::tree::surfaces::is_surface(
+                &walk.root.payload.node,
+                entry.source.source_surface,
+            ) {
                 frame
             } else {
-                if !walk.complete || crate::tree::surfaces::nested_dialog::is_incomplete(&walk.root)
+                if !walk.complete
+                    || crate::tree::surfaces::nested_dialog::is_incomplete_surface(
+                        &walk.root,
+                        entry.source.source_surface,
+                    )
                 {
                     return Err(
                         agent_desktop_core::refs::resolve_errors::identity_unknown_error(entry),
                     );
                 }
-                let dialogs = crate::tree::surfaces::nested_dialog::find(&walk.root);
+                let dialogs = crate::tree::surfaces::nested_dialog::find_surface(
+                    &walk.root,
+                    entry.source.source_surface,
+                );
                 match dialogs.as_slice() {
                     [dialog] => dialog.element.clone(),
                     [] => return Err(super::resolve_errors::no_candidate()),

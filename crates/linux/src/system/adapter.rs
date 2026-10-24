@@ -179,7 +179,11 @@ impl SystemOps for LinuxAdapter {
         if !permissions::accessibility_answers(self.bus(), deadline) {
             return Vec::new();
         }
-        let mut surfaces = vec![SnapshotSurface::Window, SnapshotSurface::Sheet];
+        let mut surfaces = vec![
+            SnapshotSurface::Window,
+            SnapshotSurface::Sheet,
+            SnapshotSurface::Alert,
+        ];
         surfaces.extend(menu_surface::supported());
         surfaces.extend(shell::supported(self.bus()));
         surfaces
@@ -188,7 +192,10 @@ impl SystemOps for LinuxAdapter {
     fn check_surface_support(&self, requested: SnapshotSurface) -> Result<(), AdapterError> {
         if matches!(
             requested,
-            SnapshotSurface::Window | SnapshotSurface::Sheet | SnapshotSurface::Menu
+            SnapshotSurface::Window
+                | SnapshotSurface::Sheet
+                | SnapshotSurface::Alert
+                | SnapshotSurface::Menu
         ) {
             return Ok(());
         }

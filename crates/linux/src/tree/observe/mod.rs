@@ -13,7 +13,9 @@ use super::observe::readiness::{Readiness, has_web_document};
 use super::observe::readiness_step::Step;
 use super::placement::node_position::place_nodes;
 use super::properties::read_purpose::ReadPurpose;
-use super::surfaces::nested_dialog::{find as find_nested, is_incomplete};
+use super::surfaces::nested_dialog::{
+    find_surface as find_nested, is_incomplete_surface as is_incomplete,
+};
 use super::walk::walker::walk_tree_for;
 use super::{AtspiElement, ObservedRead, Walk, WalkLimits, atspi_element};
 use crate::system::{SharedBus, process::proc_stat, shell, window::window_id};
@@ -62,17 +64,17 @@ fn window_gone(root: &ObservationRoot<'_>, error: AdapterError) -> AdapterError 
 
 fn require_surface(surface: SnapshotSurface) -> Result<(), AdapterError> {
     match surface {
-        SnapshotSurface::Window | SnapshotSurface::Sheet => Ok(()),
+        SnapshotSurface::Window | SnapshotSurface::Sheet | SnapshotSurface::Alert => Ok(()),
         _ => Err(AdapterError::not_supported("observe_tree for this surface")),
     }
 }
 
-fn sheet_absent() -> AdapterError {
+fn dialog_absent(surface: SnapshotSurface) -> AdapterError {
     AdapterError::new(
         ErrorCode::ElementNotFound,
-        "The window does not present a sheet surface",
+        format!("The window does not present a {} surface", surface.as_str()),
     )
-    .with_suggestion("Open a modal dialog, or snapshot the window surface")
+    .with_suggestion("Open a dialog of the requested kind, or snapshot the window surface")
 }
 
 type Walker<'a> = dyn FnMut(
@@ -117,11 +119,13 @@ fn settled_walk(
             }
             Err(error) => return Err(window_gone(root, error)),
         };
-        if request.surface == SnapshotSurface::Sheet
-            && matches!(root, ObservationRoot::Window(_))
-            && !super::surfaces::is_sheet(&walk.root.payload.node)
+        if matches!(
+            request.surface,
+            SnapshotSurface::Sheet | SnapshotSurface::Alert
+        ) && matches!(root, ObservationRoot::Window(_))
+            && !super::surfaces::is_surface(&walk.root.payload.node, request.surface)
         {
-            return nested_sheet(element, walk, limits, request, host);
+            return nested_surface(element, walk, limits, request, host);
         }
         let waits = matches!(root, ObservationRoot::Window(_))
             && (web_process || has_web_document(&walk.root));
@@ -169,18 +173,18 @@ fn settled_walk(
 }
 
 /// The walk of a dialog drawn inside the window that was walked, rooted at
-/// the dialog, or the absence of any sheet. The refs of the walk resolve
+/// the dialog, or the absence of the requested surface. The refs resolve
 /// against the dialog and not against the window. The request's depth limit
-/// bounds the sheet and not the search for it: a window that limit cut short
+/// bounds the surface and not the search for it: a window that limit cut short
 /// is walked again without it, because a dialog may sit below the cut.
-fn nested_sheet(
+fn nested_surface(
     window: &AtspiElement,
     mut window_walk: Walk<ObservedRead>,
     limits: &WalkLimits,
     request: &ObservationRequest,
     host: &mut SettleHost<'_>,
 ) -> Result<(Walk<ObservedRead>, bool), AdapterError> {
-    if window_walk.complete && is_incomplete(&window_walk.root) {
+    if window_walk.complete && is_incomplete(&window_walk.root, request.surface) {
         let whole = WalkLimits::default();
         let uncut = WalkLimits {
             max_raw_depth: whole.max_raw_depth,
@@ -189,19 +193,22 @@ fn nested_sheet(
         };
         window_walk = (host.walker)(window, &uncut, request.deadline, ReadPurpose::Snapshot)?;
     }
-    if !window_walk.complete || is_incomplete(&window_walk.root) {
+    if !window_walk.complete || is_incomplete(&window_walk.root, request.surface) {
         return Err(AdapterError::timeout(
-            "Sheet discovery did not read the complete window",
+            "Dialog discovery did not read the complete window",
         ));
     }
-    let dialogs = find_nested(&window_walk.root);
+    let dialogs = find_nested(&window_walk.root, request.surface);
     let dialog = match dialogs.as_slice() {
         [dialog] => dialog.element.clone(),
-        [] => return Err(sheet_absent()),
+        [] => return Err(dialog_absent(request.surface)),
         _ => {
             return Err(AdapterError::new(
                 ErrorCode::AmbiguousTarget,
-                "The window presents multiple sheet surfaces",
+                format!(
+                    "The window presents multiple {} surfaces",
+                    request.surface.as_str()
+                ),
             )
             .with_suggestion("Snapshot the window and select a dialog by ref"));
         }

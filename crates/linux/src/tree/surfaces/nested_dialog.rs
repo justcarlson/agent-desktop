@@ -32,11 +32,15 @@ fn is_prompt(node: &Node) -> bool {
     has_state(node, SHOWING) && is_dialog_role(node.payload.node.traits.role.present())
 }
 
-fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
+fn collect<'a>(
+    node: &'a Node,
+    found: &mut Vec<NestedDialog<'a>>,
+    surface: agent_desktop_core::SnapshotSurface,
+) {
     if node.in_web_document || is_web_document(role(node)) {
         return;
     }
-    if is_prompt(node) {
+    if is_prompt(node) && super::is_surface(&node.payload.node, surface) {
         found.push(NestedDialog {
             element: &node.payload.node.element,
             title: node
@@ -51,7 +55,7 @@ fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
         return;
     }
     for child in &node.children {
-        collect(child, found);
+        collect(child, found, surface);
     }
 }
 
@@ -60,9 +64,16 @@ fn collect<'a>(node: &'a Node, found: &mut Vec<NestedDialog<'a>>) {
 /// such. A dialog that does not show is not found, whether its node is gone
 /// or stays in the tree.
 pub(crate) fn find(window: &Node) -> Vec<NestedDialog<'_>> {
+    find_surface(window, agent_desktop_core::SnapshotSurface::Sheet)
+}
+
+pub(crate) fn find_surface(
+    window: &Node,
+    surface: agent_desktop_core::SnapshotSurface,
+) -> Vec<NestedDialog<'_>> {
     let mut found = Vec::new();
     for child in &window.children {
-        collect(child, &mut found);
+        collect(child, &mut found, surface);
     }
     found
 }
@@ -80,7 +91,7 @@ pub(crate) fn is_cut_short(node: &Node) -> bool {
 /// A failed role can hide a dialog or a web-document boundary. Only a known
 /// dialog role needs state evidence; other nodes' states do not decide
 /// discovery.
-fn unread_dialog(node: &Node) -> bool {
+fn unread_dialog(node: &Node, surface: agent_desktop_core::SnapshotSurface) -> bool {
     if node.in_web_document || is_web_document(role(node)) {
         return false;
     }
@@ -89,17 +100,26 @@ fn unread_dialog(node: &Node) -> bool {
     {
         return true;
     }
-    if is_prompt(node) {
+    if is_prompt(node) && super::is_surface(&node.payload.node, surface) {
         return false;
     }
-    node.children.iter().any(unread_dialog)
+    node.children
+        .iter()
+        .any(|child| unread_dialog(child, surface))
 }
 
 /// Root states also decide whether the top-level window itself is a sheet.
 pub(crate) fn is_incomplete(window: &Node) -> bool {
+    is_incomplete_surface(window, agent_desktop_core::SnapshotSurface::Sheet)
+}
+
+pub(crate) fn is_incomplete_surface(
+    window: &Node,
+    surface: agent_desktop_core::SnapshotSurface,
+) -> bool {
     is_cut_short(window)
         || window.payload.node.traits.states.present().is_none()
-        || unread_dialog(window)
+        || unread_dialog(window, surface)
 }
 
 #[cfg(test)]
