@@ -153,3 +153,89 @@ fn snapshot_uses_retained_window_geometry_and_the_walked_scroll_container() {
         ["offscreen"]
     );
 }
+
+#[test]
+fn snapshot_and_live_agree_when_a_shown_node_is_beyond_every_display() {
+    let display = [rect(0, 0, 1000, 600)];
+    let bounds = rect(1, 664, 600, 63);
+    for (displays, screen, expected) in [
+        (Some(display.as_slice()), Some(bounds), vec!["offscreen"]),
+        (None, Some(bounds), vec![]),
+        (Some([].as_slice()), Some(bounds), vec![]),
+        (Some(display.as_slice()), None, vec![]),
+    ] {
+        let mut frame = read_of(FRAME, "frame", &[]);
+        frame.node.element = AtspiElement::new(":1.1", "/frame", 1);
+        frame
+            .node
+            .element
+            .set_ancestry(ancestry::of_root(&frame.node.element.clone()));
+        frame.node.extents = Field::Present(rect(0, 0, 600, 900));
+        frame.node.traits.states = Field::Present(words(&[VISIBLE, SHOWING]));
+        let mut button = read_of(PUSH_BUTTON, "Open", &["click"]);
+        button.node.element = AtspiElement::new(":1.1", "/button", 1);
+        button
+            .node
+            .element
+            .set_ancestry(ancestry::child(&frame.node.element, Some(FRAME)));
+        button.node.traits.states = Field::Present(words(&[VISIBLE, SHOWING]));
+        button.evidence_bounds = Some((bounds, agent_desktop_core::BoundsSpace::Window));
+        button.node.extents =
+            screen.map_or_else(|| Field::Failed("unplaced".into()), Field::Present);
+        let walk = Walk {
+            root: walked(frame, vec![walked(button.clone(), vec![])]),
+            complete: true,
+            node_count: 2,
+            max_depth: 1,
+            counts: WalkCounts::default(),
+        };
+        let (subtree, stats) = project_with(
+            walk,
+            &WalkLimits::default(),
+            &mut crate::tree::observe::decorate::Plain,
+            displays,
+        );
+        let window = agent_desktop_core::WindowInfo {
+            id: "w-1.1-p".into(),
+            title: "frame".into(),
+            app: "fixture".into(),
+            pid: 1.into(),
+            process_instance: None,
+            bounds: None,
+            state: agent_desktop_core::WindowState::default(),
+        };
+        let snapshot = agent_desktop_core::ObservedTree::from_roots(
+            vec![subtree],
+            agent_desktop_core::ObservationSource::from_root(
+                &agent_desktop_core::ObservationRoot::Window(&window),
+                agent_desktop_core::SnapshotSurface::Window,
+            ),
+            stats,
+            true,
+        )
+        .unwrap()
+        .into_accessibility_tree_partial()
+        .unwrap()
+        .0;
+        let placement = Placement {
+            node: Some(bounds),
+            frame: Some(rect(0, 0, 600, 900)),
+            displays: displays.map(<[Extents]>::to_vec),
+            toolkit: crate::system::process::toolkit_id::ToolkitId {
+                name: Some("GTK".into()),
+                version: Some("3.24".into()),
+            },
+            ..Placement::default()
+        };
+        let evidence = project_node(&button, false, &WalkLimits::default());
+        let live = live_state(&button, &evidence, &placement).unwrap();
+        assert_eq!(
+            visibility(&snapshot.children[0].presentation.states),
+            expected
+        );
+        assert_eq!(
+            visibility(&snapshot.children[0].presentation.states),
+            visibility(&live.states)
+        );
+    }
+}

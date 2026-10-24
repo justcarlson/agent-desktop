@@ -15,12 +15,13 @@ fn rectangle(read: &ObservedRead) -> Option<Extents> {
         .or_else(|| read.node.extents.present().copied())
 }
 
-pub(crate) struct SnapshotVisibility {
+pub(crate) struct SnapshotVisibility<'a> {
+    displays: Option<&'a [Extents]>,
     reads: HashMap<(String, String), (Option<Extents>, Option<bool>)>,
 }
 
-impl SnapshotVisibility {
-    pub(crate) fn new(root: &WalkedNode<ObservedRead>) -> Self {
+impl<'a> SnapshotVisibility<'a> {
+    pub(crate) fn new(root: &WalkedNode<ObservedRead>, displays: Option<&'a [Extents]>) -> Self {
         let mut reads = HashMap::new();
         let mut pending = vec![root];
         while let Some(node) = pending.pop() {
@@ -39,13 +40,31 @@ impl SnapshotVisibility {
             );
             pending.extend(&node.children);
         }
-        Self { reads }
+        Self { reads, displays }
     }
 
     fn read(&self, element: &AtspiElement) -> Option<(Option<Extents>, Option<bool>)> {
         self.reads
             .get(&(element.bus_name().to_owned(), element.path().to_owned()))
             .copied()
+    }
+
+    pub(crate) fn append(&self, read: &ObservedRead, evidence: &mut LocatorEvidence) {
+        append_visibility(read, evidence, &self.placement(read));
+        if super::display_bounds::off_every_display(
+            read.node.extents.present().copied(),
+            self.displays,
+        ) && let Some(states) = evidence.states.known().cloned()
+        {
+            let mut states = states;
+            if !states
+                .iter()
+                .any(|state| state == agent_desktop_core::tree::state::OFFSCREEN)
+            {
+                states.push(agent_desktop_core::tree::state::OFFSCREEN.to_owned());
+            }
+            evidence.states = agent_desktop_core::LocatorField::Known(states);
+        }
     }
 
     pub(crate) fn placement(&self, read: &ObservedRead) -> Placement {

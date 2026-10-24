@@ -150,11 +150,7 @@ impl Projector<'_> {
         visibility: &SnapshotVisibility,
     ) -> ObservedSubtree {
         let mut evidence = self.evidence_of(&node.payload, node.in_web_document);
-        append_visibility(
-            &node.payload,
-            &mut evidence,
-            &visibility.placement(&node.payload),
-        );
+        visibility.append(&node.payload, &mut evidence);
         let WalkedNode {
             payload,
             children,
@@ -207,7 +203,7 @@ pub(crate) fn project(
     walk: Walk<ObservedRead>,
     limits: &WalkLimits,
 ) -> (ObservedSubtree, LocatorStats) {
-    project_with(walk, limits, &mut super::decorate::Plain)
+    project_with(walk, limits, &mut super::decorate::Plain, None)
 }
 
 /// `project`, with a hook that may decorate nodes and append its own.
@@ -215,6 +211,7 @@ pub(crate) fn project_with(
     walk: Walk<ObservedRead>,
     limits: &WalkLimits,
     decorate: &mut dyn Decorate,
+    displays: Option<&[Extents]>,
 ) -> (ObservedSubtree, LocatorStats) {
     decorate.prepare(&walk.root);
     let mut projector = Projector {
@@ -231,7 +228,7 @@ pub(crate) fn project_with(
     projector.stats.traversal.limits = counts.limits;
     projector.stats.reads.counts.observation_attempts = 1;
     projector.stats.reads.counts.child_reads = walk.node_count as u64;
-    let visibility = SnapshotVisibility::new(&walk.root);
+    let visibility = SnapshotVisibility::new(&walk.root, displays);
     let subtree = projector.subtree(walk.root, true, decorate, &visibility);
     (subtree, projector.stats)
 }

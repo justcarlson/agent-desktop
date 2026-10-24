@@ -226,7 +226,7 @@ fn observe_with(
     request: &ObservationRequest,
     host: SettleHost<'_>,
 ) -> Result<ObservedTree, AdapterError> {
-    observe_decorated(root, request, host, &mut Plain)
+    observe_decorated(root, request, host, &mut Plain, || None)
 }
 
 fn observe_decorated(
@@ -234,6 +234,7 @@ fn observe_decorated(
     request: &ObservationRequest,
     mut host: SettleHost<'_>,
     decorate: &mut dyn Decorate,
+    read_displays: impl FnOnce() -> Option<Vec<super::Extents>>,
 ) -> Result<ObservedTree, AdapterError> {
     let request = (*request).validate()?;
     if let ObservationRoot::Window(window) = &root {
@@ -251,7 +252,8 @@ fn observe_decorated(
     let (mut walk, settled) = settled_walk(&root, &element, &limits, &request, &mut host)?;
     (host.place)(&mut walk)?;
     let complete = walk.complete && settled;
-    let (subtree, mut stats) = project_with(walk, &limits, decorate);
+    let displays = read_displays();
+    let (subtree, mut stats) = project_with(walk, &limits, decorate, displays.as_deref());
     stats.reads.health.deadline_exhausted += u64::from(!complete && request.deadline.is_expired());
     stats.elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
     ObservedTree::from_roots(
@@ -306,6 +308,8 @@ pub(crate) fn observe_tree_with(
         walk_tree_for(bus, element, limits, deadline, purpose)
     };
     let mut pause = std::thread::sleep;
+    use crate::system::x11::{self, MonitorReader, MonitorSource};
+    let displays = x11::start(|| MonitorReader.read());
     observe_decorated(
         root,
         request,
@@ -327,6 +331,12 @@ pub(crate) fn observe_tree_with(
             pause: &mut pause,
         },
         decorate,
+        || match displays.finish(request.deadline) {
+            Some(Ok(monitors)) => {
+                Some(monitors.into_iter().map(|monitor| monitor.bounds).collect())
+            }
+            _ => None,
+        },
     )
 }
 
