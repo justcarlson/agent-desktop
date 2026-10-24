@@ -15,7 +15,7 @@ def identify(state_root, data):
             maps[snapshot_id] = json.loads(
                 (state_root / "snapshots" / snapshot_id / "refmap.json").read_text())["inner"]
         entry = maps[snapshot_id]["@" + local]
-        node["_identity"] = entry["source_window_id"], tuple(entry["path"])
+        node["_identity"] = entry["source_window_id"], tuple(entry.get("path", ()))
     return data
 
 

@@ -123,6 +123,8 @@ def launch(tier: Tier, app: str, args: tuple[str, ...] = (), *, settle_s: float 
     with raw.bounded_until(time.monotonic() + settle_s):
         before = {(item.pid, item.start_time): set(item.windows) for item in _owners(tier, names=names)}
     env = dict(tier.env)
+    # Let toolkits discover accessibility through the owned session bus.
+    env.pop("AT_SPI_BUS_ADDRESS", None)
     if app in ZOOS:
         slug = ZOOS[app]
         app = str(Path(__file__).resolve().parents[1] / "apps" / (slug + ".py"))

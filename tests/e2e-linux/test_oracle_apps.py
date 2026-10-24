@@ -22,7 +22,9 @@ class ProcessOracleTests(unittest.TestCase):
     def test_launch_discovery_does_not_read_a_stalled_bystander(self):
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as directory:
-            tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={})
+            tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path(directory), env={
+                "AT_SPI_BUS_ADDRESS": "unix:path=/private/a11y",
+                "DBUS_SESSION_BUS_ADDRESS": "unix:path=/private/session"})
             stalled = SimpleNamespace(name="unrelated-app", bus=":1.10",
                                       children=Mock(side_effect=TimeoutError("bystander stalled")))
             helper = SimpleNamespace(name="mutter-x11-frames", bus=":1.11", children=Mock())
@@ -35,13 +37,16 @@ class ProcessOracleTests(unittest.TestCase):
                  patch.object(apps.proc, "facts", return_value=(99, 99, "app", {
                      "XDG_RUNTIME_DIR": directory, "DISPLAY": ":150"})), \
                  patch.object(apps, "_display_verified", return_value=True), \
-                 patch.object(apps.subprocess, "Popen", return_value=child), \
+                 patch.object(apps.subprocess, "Popen", return_value=child) as spawn, \
                  patch.dict(apps._SPAWNED, clear=True), patch.dict(apps._TIERS, clear=True):
                 found = apps.launch(tier, "/private/qt_window.py")
             self.assertEqual((found.pid, found.owner_names, found.windows),
                              (12, [":1.12"], ["w-1.12-owned"]))
             stalled.children.assert_not_called()
             helper.children.assert_not_called()
+            self.assertNotIn("AT_SPI_BUS_ADDRESS", spawn.call_args.kwargs["env"])
+            self.assertEqual(spawn.call_args.kwargs["env"]["DBUS_SESSION_BUS_ADDRESS"],
+                             "unix:path=/private/session")
 
     def test_launch_discovery_never_substitutes_a_new_decoration_owner(self):
         with tempfile.TemporaryDirectory() as directory:

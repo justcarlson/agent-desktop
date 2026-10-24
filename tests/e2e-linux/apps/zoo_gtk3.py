@@ -161,6 +161,7 @@ def main(argv):
 
         def response(w, code):
             if code == Gtk.ResponseType.ACCEPT:
+                Path(w.get_filename()).write_text("widget-zoo\n")
                 record("zoo-open-chooser", "saved", w.get_filename())
             w.destroy()
             dialogs.remove(w)

@@ -161,6 +161,7 @@ def main(argv):
         scrollbar.valueChanged.connect(lambda value, n=name: record(n, "changed", value))
 
     def show_dialog(dialog):
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialogs.append(dialog)
         dialog.finished.connect(lambda *_: dialogs.remove(dialog))
         dialog.show()
@@ -188,7 +189,12 @@ def main(argv):
         dialog.setWindowTitle("Zoo Save")
         dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         dialog.setModal(True)
-        dialog.fileSelected.connect(lambda path: record("zoo-open-chooser", "saved", path))
+
+        def save(path):
+            Path(path).write_text("widget-zoo\n")
+            record("zoo-open-chooser", "saved", path)
+
+        dialog.fileSelected.connect(save)
         show_dialog(dialog)
 
     def open_message():
@@ -201,6 +207,7 @@ def main(argv):
 
     def open_toplevel():
         top = named(QPushButton("zoo-top-button"), "zoo-top-button")
+        top.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         top.setWindowTitle("Zoo Top Button")
         top.clicked.connect(lambda: record("zoo-top-button", "activate"))
         dialogs.append(top)

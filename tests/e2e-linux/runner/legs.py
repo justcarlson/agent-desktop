@@ -252,7 +252,8 @@ def implementations() -> dict[str, Callable]:
 
 # Keep scenario loading lazy: this module is imported by scenarios themselves.
 def _ref_contract(ctx):
-    from scenarios.ref_contract import refs, windows
+    from scenarios.ref_contract import refs
+    from scenarios.ref_contract_windows import windows
     (windows if ctx.leg.id.endswith("_windows") else refs)(ctx)
 
 

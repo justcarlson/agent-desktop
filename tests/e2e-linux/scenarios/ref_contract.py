@@ -71,7 +71,8 @@ def snapshot(ctx, app, *extra):
 
 
 def named(data, name, role=None):
-    matches = [node for node in ref_nodes(data) if node.get("name") == name
+    names = (name,) if isinstance(name, str) else name
+    matches = [node for node in ref_nodes(data) if node.get("name") in names
                and (role is None or node.get("role") == role)]
     require(len(matches) == 1, f"expected one snapshot ref for {name}: {matches}")
     return matches[0]
@@ -105,9 +106,14 @@ def matching_event(records, widget, event, value=None, *, any_value=False):
 
 
 def selected(tree, name):
-    matches = [node for node in tree.find(name=name)
+    nodes = tree.find(name=name)
+    matches = [node for node in nodes
                if node.states & {"SELECTABLE", "CHECKABLE"} or node.role in (7, 37, 44)]
     require(len(matches) == 1, f"expected one selectable control for {name}")
+    if matches[0].role == 37 and not matches[0].states & {"SELECTABLE", "SELECTED"}:
+        pages = [node for node in nodes if node.role == 20]
+        require(len(pages) == 1, f"expected one raw tab page for {name}")
+        return "SHOWING" in pages[0].states
     return bool(matches[0].states & {"SELECTED", "CHECKED"})
 
 
@@ -136,9 +142,10 @@ def effect(tree, node, action, value, before, records):
         return matching_event(records, name, event, want), (bit in states) == want
     if name == "zoo-combo":
         if action != "select":
+            popups = [n for n in target.walk() if n.role in (31, 33, 41) and "SHOWING" in n.states]
             showing = any(n.name in ("Alpha", "Bravo", "Charlie")
                           and n.role in (32, 35) and "SHOWING" in n.states
-                          for n in target.walk())
+                          for popup in popups for n in popup.walk())
             return not records, showing == (action != "collapse")
         texts = [n.text() for n in target.walk()]
         names = [n.name for n in target.walk() if n.states & {"SELECTED", "CHECKED"}]
@@ -160,6 +167,7 @@ def effect(tree, node, action, value, before, records):
         showing = [n for n in tree.walk() if n.name == "zoo-menu-item" and "SHOWING" in n.states]
         return not records, bool(showing) == (action != "collapse")
     if name in OPENERS:
+        from scenarios.ref_contract_windows import raw_window
         # Openers have no event in the fixture contract; their window is the effect.
         return not records, raw_window(tree, OPENERS[name]) is not None
     return (matching_event(records, name, "activate", any_value=True),
@@ -293,132 +301,3 @@ def refs(ctx):
     finally:
         print_rows(ctx, rows)
     require(all(row["verdict"] == "pass" for row in rows), "ref-contract table has failures")
-
-
-def window_state(tree):
-    return tuple(sorted((n.name, n.role, "MODAL" in n.states)
-                        for n in tree.children() if "SHOWING" in n.states))
-
-
-def raw_window(tree, title):
-    # A top-level widget can expose its accessible name instead of its WM title.
-    names = (title, "zoo-top-button") if title == "Zoo Top Button" else (title,)
-    matches = [n for n in tree.children() if n.name in names and "SHOWING" in n.states]
-    require(len(matches) <= 1, f"multiple raw windows for {title}")
-    return matches[0] if matches else None
-
-
-def surface_snapshot(ctx, app, title, modal):
-    from runner.apps import window_id
-    argv = ["snapshot", "-i", "--window-id", window_id(raw_window(root(ctx, app), title))]
-    if modal:
-        argv += ["--surface", "sheet"]
-    response = ctx.product(argv, headed=False)
-    require(response.data and response.data.get("complete") is True,
-            f"incomplete {title} surface: {response.raw}")
-    data = identify(ctx.tier.state_root, response.data)
-    names = (title, "zoo-top-button") if title == "Zoo Top Button" else (title,)
-    require(any(n.get("name") in names for n in nodes(data.get("tree", data))),
-            f"snapshot did not reach {title}")
-    return data
-
-
-def window_listed(ctx, app, title):
-    response = ctx.product(["list-windows"], headed=False)
-    return any(n.get("title") == title and n.get("pid") == app.pid for n in nodes(response.data))
-
-
-def dialog(ctx, app, tree, path, data):
-    marker = "dialog-" + uuid4().hex
-    start = len(events(path))
-    entry = named(data, "zoo-dialog-entry")
-    target = raw_target(tree, entry)
-    act(ctx, entry, "type", marker)
-    require(poll(lambda: matching_event(events(path)[start:], "zoo-dialog-entry", "changed", marker)
-                 and target.text() == marker, 3),
-            "dialog entry did not receive text in both oracles")
-    data = surface_snapshot(ctx, app, "Zoo Dialog", True)
-    act(ctx, named(data, "zoo-dialog-ok"), "click")
-    require(poll(lambda: matching_event(events(path)[start:], "zoo-dialog-ok", "activate", any_value=True)
-                 and not any(n.name == "Zoo Dialog" and "SHOWING" in n.states
-                             for n in tree.children()), 3), "dialog OK did not activate and close")
-
-
-def chooser(ctx, app, tree, path, data, saved):
-    # Native chooser labels differ; inactive panes can retain another name field.
-    fields = [n for n in ref_nodes(data) if "TypeText" in n.get("available_actions", ())
-              and not BLOCKED.intersection(n.get("states", ()))
-              and n.get("name", "").strip().casefold().rstrip(":") in
-              ("name", "file name", "filename")]
-    require(len(fields) == 1, f"expected one save-name field: {fields}")
-    target = raw_target(tree, fields[0])
-    act(ctx, fields[0], "type", str(saved))
-    require(poll(lambda: target.text() == str(saved), 3),
-            "chooser name field did not receive the runtime path")
-    data = surface_snapshot(ctx, app, "Zoo Save", True)
-    buttons = [n for n in ref_nodes(data) if n.get("name", "").replace("_", "").casefold() == "save"
-               and "Click" in n.get("available_actions", ())]
-    require(len(buttons) == 1, f"expected one Save button: {buttons}")
-    start = len(events(path))
-    act(ctx, buttons[0], "click")
-    require(poll(lambda: matching_event(events(path)[start:], "zoo-open-chooser", "saved", str(saved))
-                 and saved.is_file(), 4), "save produced neither the contracted event nor file")
-
-
-def windows(ctx):
-    rows = []
-    try:
-        with zoo(ctx) as (app, path):
-            tree = root(ctx, app)
-            openers = list(OPENERS) if ctx.leg.id.startswith("ref_contract.zoo_qt") else list(OPENERS)[:2]
-            for index, opener in enumerate(openers):
-                title = OPENERS[opener]
-                row = dict(name=opener, role="button", states=[], action="click/window workflow",
-                           expected="land", observed="", verdict="fail")
-                rows.append(row)
-                channel = f"window{index}"
-                saved = ctx.tier.runtime_dir / f"zoo-save-{uuid4().hex}.txt"
-                ctx.before("atspi." + channel, window_state(tree))
-                ctx.before("applog." + channel, since_reset(path))
-                try:
-                    node = named(snapshot(ctx, app), opener)
-                    row.update(role=node.get("role"), states=node.get("states", []))
-                    require(raw_window(tree, title) is None, f"{title} already open before click")
-                    act(ctx, node, "click")
-                    require(poll(lambda: raw_window(tree, title), 4), f"no raw {title} window")
-                    require(poll(lambda: window_listed(ctx, app, title), 3), f"list-windows missed {title}")
-                    modal = opener != "zoo-open-toplevel-button"
-                    if modal:
-                        require("MODAL" in raw_window(tree, title).states, f"{title} is not raw MODAL")
-                    data = surface_snapshot(ctx, app, title, modal)
-                    if opener == "zoo-open-dialog":
-                        dialog(ctx, app, tree, path, data)
-                    elif opener == "zoo-open-chooser":
-                        chooser(ctx, app, tree, path, data, saved)
-                    else:
-                        name = "OK" if opener == "zoo-open-message" else "zoo-top-button"
-                        start = len(events(path))
-                        act(ctx, named(data, name), "click")
-                        if name == "OK":
-                            require(poll(lambda: not any(n.name == title and "SHOWING" in n.states
-                                                         for n in tree.children()), 3))
-                        else:
-                            require(poll(lambda: matching_event(events(path)[start:], name, "activate", any_value=True)
-                                         and "SHOWING" in one(tree, name=name).states, 3))
-                    row.update(observed=f"raw {title}, listed title, surface and effects verified", verdict="pass")
-                except Exception as error:
-                    row["observed"] = str(error)
-                finally:
-                    ctx.after("atspi." + channel, window_state(tree))
-                    ctx.after("applog." + channel, since_reset(path))
-                    reset(path)
-                    snapshot(ctx, app)
-                    restored = window_state(tree)
-                    ctx.restored("atspi." + channel, restored)
-                    ctx.restored("applog." + channel, since_reset(path))
-                    before = ctx.reads["atspi." + channel]["before"][0]
-                    if restored != before or since_reset(path):
-                        row.update(verdict="fail", observed="reset did not restore the window baseline")
-    finally:
-        print_rows(ctx, rows)
-    require(all(row["verdict"] == "pass" for row in rows), "window-contract table has failures")
