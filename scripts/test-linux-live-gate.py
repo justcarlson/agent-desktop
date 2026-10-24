@@ -5,11 +5,14 @@ from contextlib import redirect_stdout
 import importlib.util
 import io
 import json
+import sys
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 spec = importlib.util.spec_from_file_location("gate", Path(__file__).with_name("linux-live-gate.py"))
 gate = importlib.util.module_from_spec(spec)
@@ -102,6 +105,7 @@ class GateTests(unittest.TestCase):
 
     def test_partition_keeps_every_case_on_each_applicable_tier(self):
         wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
+                   "system::process::protected::live_tests::a_native_wayland_application_is_cleared_by_its_tree_and_a_windowless_one_is_not",
                    "input::wayland::live_tests::reply_loss::case",
                    "system::shell::live_wayland_tests::native_case"]
         mutter = ["notifications::live_tests::case",

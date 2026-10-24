@@ -4,8 +4,6 @@ use std::path::{Path, PathBuf};
 
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
-use super::owner_group;
-
 pub(crate) const HELPER_NAME: &str = "agent-desktop-linux-clipboard-owner";
 
 const WRITABLE_BY_OTHERS: u32 = 0o002;
@@ -16,7 +14,7 @@ const DELETED_SUFFIX: &str = " (deleted)";
 fn refusal(message: String) -> AdapterError {
     AdapterError::new(ErrorCode::PlatformNotSupported, message)
         .with_suggestion(format!(
-            "Install {HELPER_NAME} in the directory of the agent-desktop binary or library, owned by this user and not writable by others or by a shared group"
+            "Install {HELPER_NAME} in the directory of the agent-desktop binary or library, owned by this user and not writable by others or by any group"
         ))
         .with_disposition(DeliverySemantics::not_delivered())
 }
@@ -46,27 +44,20 @@ fn owned_by_caller_or_root(uid: u32) -> bool {
     uid == rustix::process::getuid().as_raw() || uid == 0
 }
 
-fn write_problem(
-    metadata: &fs::Metadata,
-    sticky_allowed: bool,
-    group_is_private: &dyn Fn(u32) -> bool,
-) -> Option<&'static str> {
+fn write_problem(metadata: &fs::Metadata, sticky_allowed: bool) -> Option<&'static str> {
     let mode = metadata.permissions().mode();
     if !owned_by_caller_or_root(metadata.uid()) {
         Some("is owned by another user")
     } else if mode & WRITABLE_BY_OTHERS != 0 && !(sticky_allowed && mode & STICKY != 0) {
         Some("is writable by others")
-    } else if mode & WRITABLE_BY_GROUP != 0 && !group_is_private(metadata.gid()) {
-        Some("is writable by a group that is not private to this user")
+    } else if mode & WRITABLE_BY_GROUP != 0 {
+        Some("is writable by a group")
     } else {
         None
     }
 }
 
-fn check_helper_with(
-    helper: &Path,
-    group_is_private: &dyn Fn(u32) -> bool,
-) -> Result<(), AdapterError> {
+fn check_helper(helper: &Path) -> Result<(), AdapterError> {
     let metadata = fs::symlink_metadata(helper).map_err(|error| {
         refusal(format!(
             "The clipboard owner helper {} is missing: {error}",
@@ -79,7 +70,7 @@ fn check_helper_with(
     } else if mode & ANY_EXECUTE == 0 {
         Some("is not executable")
     } else {
-        write_problem(&metadata, false, group_is_private)
+        write_problem(&metadata, false)
     };
     if let Some(problem) = problem {
         return Err(refusal(format!(
@@ -96,7 +87,7 @@ fn check_helper_with(
             directory.display()
         ))
     })?;
-    match write_problem(&listed, true, group_is_private) {
+    match write_problem(&listed, true) {
         Some(problem) => Err(refusal(format!(
             "The directory {} of the clipboard owner helper {problem}",
             directory.display()
@@ -116,7 +107,7 @@ pub(crate) fn locate_in(maps: &str, address: usize) -> Result<PathBuf, AdapterEr
         .parent()
         .ok_or_else(|| refusal("The image that holds the clipboard code has no directory".into()))?
         .join(HELPER_NAME);
-    check_helper_with(&helper, &owner_group::caller_owns_group)?;
+    check_helper(&helper)?;
     Ok(helper)
 }
 

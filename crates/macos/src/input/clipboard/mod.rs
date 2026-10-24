@@ -371,3 +371,5 @@ pub(crate) use imp::{clear_direct, get_content_direct, set_content_direct};
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) use imp::{clear, get_content, set_content};
+
+pub(crate) mod directory_identity;

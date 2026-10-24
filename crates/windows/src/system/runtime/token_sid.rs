@@ -29,12 +29,20 @@ const _: () = assert!(size_of::<TOKEN_OWNER>() == TOKEN_OWNER_SIZE);
 const TOKEN_USER_SIZE: usize = 16;
 const _: () = assert!(size_of::<TOKEN_USER>() == TOKEN_USER_SIZE);
 
+#[derive(Clone)]
 pub(crate) struct SidBuffer {
     storage: Vec<u64>,
 }
 
 impl SidBuffer {
     pub(crate) fn copied_from_valid(sid: PSID) -> std::io::Result<Self> {
+        Self::copied_from_valid_with_limit(sid, SECURITY_MAX_SID_SIZE as usize)
+    }
+
+    pub(crate) fn copied_from_valid_with_limit(
+        sid: PSID,
+        maximum_length: usize,
+    ) -> std::io::Result<Self> {
         if sid.is_null() || unsafe { IsValidSid(sid) } == 0 {
             return Err(std::io::Error::new(
                 ErrorKind::InvalidData,
@@ -42,7 +50,7 @@ impl SidBuffer {
             ));
         }
         let length = unsafe { GetLengthSid(sid) } as usize;
-        if length == 0 || length > SECURITY_MAX_SID_SIZE as usize {
+        if length == 0 || length > maximum_length || length > SECURITY_MAX_SID_SIZE as usize {
             return Err(std::io::Error::new(
                 ErrorKind::InvalidData,
                 "the reported SID has an impossible length",

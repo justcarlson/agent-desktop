@@ -93,6 +93,15 @@ impl SystemOps for LinuxAdapter {
         launch::launch_app(self.bus(), id, options, lease)
     }
 
+    fn process_owns_tcp_listener(
+        &self,
+        process: ProcessIdentity,
+        port: u16,
+        deadline: Deadline,
+    ) -> Result<bool, AdapterError> {
+        crate::system::process::tcp_listener::owns_listener(&process, port, deadline)
+    }
+
     fn process_state(
         &self,
         process: ProcessIdentity,

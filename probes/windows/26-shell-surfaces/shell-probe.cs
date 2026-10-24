@@ -624,7 +624,7 @@ namespace AgentDesktop.Probe.Shell26
                 if (head.Value[0] >= maxDepth) { continue; }
                 IUIAutomationElement child = null;
                 try { child = walker.GetFirstChildElement(head.Key); } catch (Exception) { child = null; }
-                while (child != null && list.Count + pending.Count < maxNodes + pending.Count)
+                while (child != null && list.Count + pending.Count < maxNodes)
                 {
                     pending.Enqueue(new KeyValuePair<IUIAutomationElement, int[]>(child, new int[] { head.Value[0] + 1, myIndex }));
                     IUIAutomationElement next = null;

@@ -1,5 +1,5 @@
 use super::SessionKey;
-use crate::tree::live::test_support::{BLOCKING_ARGS, copy_blocking_program};
+use std::os::unix::fs::PermissionsExt;
 
 fn key(bus: Option<&str>, runtime: Option<&str>) -> SessionKey {
     SessionKey {
@@ -50,6 +50,7 @@ impl Drop for Spawned {
 
 const RUNTIME: &str = "/run/user/test-session-a";
 const BUS: &str = "unix:path=/run/user/test-session-a/bus";
+const CHILD: &str = "AGENT_DESKTOP_PROC_SCAN_CHILD";
 
 fn this_session() -> SessionKey {
     key(Some(BUS), Some(RUNTIME))
@@ -59,9 +60,16 @@ fn spawn_uniquely_named(tag: &str) -> Spawned {
     let name = format!("adsc{tag}-{}", std::process::id());
     let directory = std::env::temp_dir().join(format!("{name}-dir"));
     std::fs::create_dir_all(&directory).expect("a directory");
-    let program = copy_blocking_program(&directory, &name);
+    let program = directory.join(&name);
+    std::fs::copy(std::env::current_exe().expect("test executable"), &program)
+        .expect("a copy of the test executable");
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).expect("modes");
     let child = std::process::Command::new(&program)
-        .args(BLOCKING_ARGS)
+        .args([
+            "--exact",
+            "system::process::proc_scan::tests::proc_scan_finds_our_process_and_rejects_it_from_another_session",
+        ])
+        .env(CHILD, "1")
         .env("XDG_RUNTIME_DIR", RUNTIME)
         .env("DBUS_SESSION_BUS_ADDRESS", BUS)
         .env_remove("DBUS_STARTER_ADDRESS")
@@ -92,6 +100,10 @@ fn spawn_uniquely_named(tag: &str) -> Spawned {
 
 #[test]
 fn proc_scan_finds_our_process_and_rejects_it_from_another_session() {
+    if std::env::var_os(CHILD).is_some() {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+        return;
+    }
     let own = spawn_uniquely_named("x");
     let elsewhere = key(
         Some("unix:path=/run/user/test-session-b/bus"),

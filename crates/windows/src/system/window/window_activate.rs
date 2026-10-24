@@ -4,6 +4,9 @@ use agent_desktop_core::{
     AdapterError, DeliverySemantics, ErrorCode, InteractionLease, WindowInfo,
 };
 
+#[cfg(target_os = "windows")]
+use crate::system::runtime::hresult;
+
 use crate::input::elevation::{
     activation_elevation_denied, current_process_integrity_rid, process_integrity_rid,
 };
@@ -77,19 +80,10 @@ fn before_activation(error: AdapterError) -> AdapterError {
 
 /// Refuses activation of a target that is not dispatching messages.
 ///
-/// Every native write that follows - `restore_if_iconic`, then
-/// `bring_to_foreground` - reaches the owning thread's message queue, so a
-/// window whose thread never dispatches would block the caller inside one of
-/// them, the same shape A14-11 recorded for `ElementFromHandle`. The retry
-/// budget cannot bound that either, because it is consulted between attempts
-/// while the block would happen inside one. Every headed command needs this
-/// ping run once, and it runs after identity verification and before the
-/// first native write: verification's own live title read already bounds
-/// itself with a pumping probe ahead of `GetWindowTextW`, so placing the
-/// ping after it never risks the hang this check exists to prevent, while
-/// placing it before verification would mislabel a destroyed or recycled
-/// handle `APP_UNRESPONSIVE` instead of surfacing its stale-identity
-/// envelope.
+/// This conservative liveness check runs after identity verification and
+/// before activation. Restore/show use asynchronous window calls, while
+/// `SetForegroundWindow` can still be refused by Windows; checking after
+/// verification keeps a destroyed or recycled handle classified as stale.
 #[cfg(target_os = "windows")]
 fn ensure_window_is_pumping(handle: super::window_enum::WindowHandle) -> Result<(), AdapterError> {
     if super::window_enum::window_is_responsive(handle) {
@@ -223,7 +217,7 @@ fn restore_if_iconic(
     handle: super::window_enum::WindowHandle,
     evidence: &WindowIdentityEvidence<'_>,
 ) -> Result<(), AdapterError> {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{IsIconic, SW_RESTORE, ShowWindow};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{IsIconic, SW_RESTORE, ShowWindowAsync};
     unsafe {
         if IsIconic(handle) == 0 {
             return Ok(());
@@ -231,7 +225,11 @@ fn restore_if_iconic(
         if !owned_for_write(evidence)? {
             return Err(recycled_before_foreground());
         }
-        ShowWindow(handle, SW_RESTORE);
+        if ShowWindowAsync(handle, SW_RESTORE) == 0 {
+            return Err(before_activation(hresult::win32_last_error(
+                "ShowWindowAsync failed while restoring target",
+            )));
+        }
         #[cfg(test)]
         restore_probe::record();
     }
@@ -251,10 +249,8 @@ fn bring_to_foreground(
     handle: super::window_enum::WindowHandle,
     evidence: &WindowIdentityEvidence<'_>,
 ) -> Result<(), AdapterError> {
-    use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowThreadProcessId, IsWindowVisible, SW_SHOW,
-        SetForegroundWindow, ShowWindow,
+        IsWindowVisible, SW_SHOW, SetForegroundWindow, ShowWindowAsync,
     };
 
     unsafe {
@@ -262,40 +258,16 @@ fn bring_to_foreground(
             return Err(recycled_before_foreground());
         }
         if IsWindowVisible(handle) == 0 {
-            ShowWindow(handle, SW_SHOW);
+            if ShowWindowAsync(handle, SW_SHOW) == 0 {
+                return Err(before_activation(hresult::win32_last_error(
+                    "ShowWindowAsync failed while showing target",
+                )));
+            }
         }
-        let mut target_pid = 0u32;
-        let target_tid = GetWindowThreadProcessId(handle, &mut target_pid);
-        if target_tid == 0 || !owned_for_write(evidence)? {
+        if !owned_for_write(evidence)? {
             return Err(recycled_before_foreground());
         }
-        let foreground = GetForegroundWindow();
-        let mut fore_pid = 0u32;
-        let fore_tid = if foreground.is_null() {
-            0
-        } else {
-            GetWindowThreadProcessId(foreground, &mut fore_pid)
-        };
-        let current_tid = GetCurrentThreadId();
-        let attached_fore = fore_tid != 0
-            && fore_tid != current_tid
-            && AttachThreadInput(current_tid, fore_tid, 1) != 0;
-        let attached_target = target_tid != 0
-            && target_tid != current_tid
-            && AttachThreadInput(current_tid, target_tid, 1) != 0;
-        let still_owned = owned_for_write(evidence).unwrap_or(false);
-        if still_owned {
-            let _ = SetForegroundWindow(handle);
-        }
-        if attached_target {
-            AttachThreadInput(current_tid, target_tid, 0);
-        }
-        if attached_fore {
-            AttachThreadInput(current_tid, fore_tid, 0);
-        }
-        if !still_owned {
-            return Err(recycled_before_foreground());
-        }
+        let _ = SetForegroundWindow(handle);
     }
     Ok(())
 }

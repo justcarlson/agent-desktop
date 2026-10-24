@@ -77,6 +77,7 @@ CORE_OS_ALLOWLIST = {
     "trace/trace_read/html_screenshot_tests.rs",
     "trace/trace_read/html_tests.rs",
     "trace/trace_read/html_write_tests.rs",
+    "trace/trace_read/input_tests.rs",
     "trace/trace_read/mod_tests.rs",
     "trace/trace_read/segment_tests.rs",
     "trace/trace_tests.rs",

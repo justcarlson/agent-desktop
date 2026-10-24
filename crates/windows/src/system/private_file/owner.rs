@@ -65,12 +65,33 @@ impl OwnerEligibleSids {
     pub(super) fn contains(&self, candidate: &SidBuffer) -> bool {
         self.entries.iter().any(|sid| sid.matches(candidate))
     }
+
+    pub(super) fn entries(&self) -> Vec<SidBuffer> {
+        self.entries.clone()
+    }
 }
 
 pub(super) fn require_owned_by_eligible_principal(file: &File, what: &str) -> std::io::Result<()> {
     let eligible = process_owner_eligible_sids()?;
     let actual = actual_owner_for_comparison(file)?;
-    if !eligible.contains(&actual) {
+    require_owner_in_set(&actual, eligible, what)
+}
+
+pub(super) fn require_actual_owner_by_eligible_principal(
+    file: &File,
+    what: &str,
+) -> std::io::Result<()> {
+    let eligible = process_owner_eligible_sids()?;
+    let actual = file_owner_sid(file)?;
+    require_owner_in_set(&actual, eligible, what)
+}
+
+fn require_owner_in_set(
+    actual: &SidBuffer,
+    eligible: &OwnerEligibleSids,
+    what: &str,
+) -> std::io::Result<()> {
+    if !eligible.contains(actual) {
         return Err(permission_denied(format!(
             "{what} is owned by a foreign principal, not this process's token user, token \
              owner, or an owner-eligible token group; if a different principal owns this path \

@@ -1,4 +1,13 @@
-use super::{GdiDcPair, gdi_balance, restore_selected_bitmap};
+use super::{GdiDcPair, gdi_balance, reject_oversized_capture, restore_selected_bitmap};
+use agent_desktop_core::ErrorCode;
+
+#[test]
+fn capture_dimensions_stop_at_the_png_pixel_budget() {
+    reject_oversized_capture(8_192, 8_192).expect("the 64M-pixel boundary is accepted");
+    let error = reject_oversized_capture(8_193, 8_192)
+        .expect_err("one pixel over the boundary is rejected before allocation");
+    assert_eq!(error.code, ErrorCode::InvalidArgs);
+}
 
 /// A bitmap still selected into a DC cannot be deleted, so a failed restore
 /// leaks it for the life of the process. Releasing the balance counter anyway

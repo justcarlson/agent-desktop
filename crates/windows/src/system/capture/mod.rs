@@ -18,3 +18,6 @@ pub(crate) mod gdi_surface;
 pub(crate) mod png_codec;
 #[cfg(target_os = "windows")]
 pub(crate) mod screenshot;
+
+#[cfg(target_os = "windows")]
+pub(crate) mod native_call;

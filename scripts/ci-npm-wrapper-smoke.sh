@@ -29,7 +29,11 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-npm.XXXXXX")
 PACKAGE_DIR="$WORK/package"
 VERSION_JSON="$WORK/version.json"
 cleanup() {
-  rm -rf -- "$WORK"
+  if command -v trash >/dev/null 2>&1; then
+    trash "$WORK"
+  else
+    printf 'Cleanup retained %s: trash is unavailable\n' "$WORK" >&2
+  fi
 }
 trap cleanup EXIT
 TARBALL="$WORK/$(npm pack ./npm --pack-destination "$WORK" --silent)"

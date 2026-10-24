@@ -266,8 +266,14 @@ fn trace_on_session_writes_segment_without_explicit_trace_flag() {
     let trace_dir = crate::refs::refs_store::RefStore::for_session(Some(&manifest.id))
         .unwrap()
         .trace_dir();
-    let entries: Vec<_> = std::fs::read_dir(trace_dir).unwrap().flatten().collect();
-    assert_eq!(entries.len(), 1);
+    let trace = crate::trace::trace_read::read_merged(&trace_dir, &Default::default()).unwrap();
+    assert_eq!(trace.segments.len(), 1);
+    assert!(
+        trace
+            .events
+            .iter()
+            .any(|event| event["event"] == "session.event")
+    );
 }
 
 #[test]

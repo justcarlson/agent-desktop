@@ -118,7 +118,12 @@ pub(crate) fn set_with(
         .server
         .owner(display, deadline)
         .map_err(|fault| fault_error(fault, None))?;
-    let earlier = owner_record::records_in(env.record_dir, display);
+    let earlier = owner_record::records_in(env.record_dir, display).map_err(|error| {
+        failed(
+            format!("Clipboard owner records could not be read: {error}"),
+            DeliverySemantics::not_delivered(),
+        )
+    })?;
     let mut child = start_owner(env, display, &payload)?;
     let mut probe = ChildProbe {
         child: &mut child,
@@ -177,7 +182,13 @@ pub(crate) fn clear_with(
     env.server
         .release(display, deadline)
         .map_err(|fault| fault_error(fault, None))?;
-    for record in owner_record::records_in(env.record_dir, display) {
+    let records = owner_record::records_in(env.record_dir, display).map_err(|error| {
+        failed(
+            format!("Clipboard owner records could not be read after clearing: {error}"),
+            DeliverySemantics::delivered_unverified(),
+        )
+    })?;
+    for record in records {
         retire(env, display, &record);
     }
     match env.server.owner(display, fresh_deadline(deadline)) {

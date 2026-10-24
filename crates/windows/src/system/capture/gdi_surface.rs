@@ -15,6 +15,8 @@ use windows_sys::Win32::Graphics::Gdi::{BI_RGB, BITMAPINFO, BITMAPINFOHEADER, HD
 
 use crate::system::runtime::hresult::win32_last_error;
 
+const MAX_CAPTURE_PIXELS: u64 = 64 * 1024 * 1024;
+
 /// Refuses a capture whose pixel byte count would overflow the `i32`
 /// arithmetic a raw GDI write depends on, before either backend creates any
 /// GDI resource for it. `GetWindowRect`/display bounds are not clamped to a
@@ -27,8 +29,11 @@ pub(in crate::system) fn reject_oversized_capture(
     let byte_len = u64::from(width)
         .checked_mul(u64::from(height))
         .and_then(|area| area.checked_mul(4));
-    match byte_len {
-        Some(len) if len <= i32::MAX as u64 => Ok(()),
+    let pixels = u64::from(width).checked_mul(u64::from(height));
+    match (byte_len, pixels) {
+        (Some(len), Some(pixels)) if len <= i32::MAX as u64 && pixels <= MAX_CAPTURE_PIXELS => {
+            Ok(())
+        }
         _ => Err(AdapterError::new(
             ErrorCode::InvalidArgs,
             format!("Cannot capture a {width}x{height} region: pixel buffer size overflows"),

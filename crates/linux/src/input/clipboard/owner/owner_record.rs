@@ -126,7 +126,7 @@ pub(crate) fn remove_own(dir: &Path, record: &OwnerRecord) {
     let Some(name) = file_name(&record.display, &record.nonce) else {
         return;
     };
-    let carries_our_nonce = std::fs::read(dir.join(&name))
+    let carries_our_nonce = owner_files::read_named(dir, &name)
         .ok()
         .and_then(|bytes| OwnerRecord::from_bytes(&bytes))
         .is_some_and(|stored| stored.nonce == record.nonce);
@@ -137,25 +137,16 @@ pub(crate) fn remove_own(dir: &Path, record: &OwnerRecord) {
 
 pub(crate) fn read_outcome(dir: &Path, display: &str, nonce: &str) -> Option<Outcome> {
     let name = file_name(display, nonce)?;
-    outcome_of(&std::fs::read(dir.join(name)).ok()?)
+    outcome_of(&owner_files::read_named(dir, &name).ok()?)
 }
 
-pub(crate) fn records_in(dir: &Path, display: &str) -> Vec<OwnerRecord> {
+pub(crate) fn records_in(dir: &Path, display: &str) -> std::io::Result<Vec<OwnerRecord>> {
     let wanted = normalise_display(display);
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
-    };
-    entries
-        .filter_map(Result::ok)
-        .filter(|entry| {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            name.starts_with(FILE_PREFIX) && name.ends_with(FILE_SUFFIX)
-        })
-        .filter_map(|entry| std::fs::read(entry.path()).ok())
+    Ok(owner_files::read_matching(dir, FILE_PREFIX, FILE_SUFFIX)?
+        .into_iter()
         .filter_map(|bytes| OwnerRecord::from_bytes(&bytes))
         .filter(|record| record.display == wanted)
-        .collect()
+        .collect())
 }
 
 pub(crate) fn start_ticks_of(pid: u32) -> Option<u64> {

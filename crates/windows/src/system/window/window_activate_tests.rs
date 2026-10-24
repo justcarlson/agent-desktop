@@ -321,3 +321,27 @@ fn a_window_that_never_pumps_is_refused_before_activation_blocks() {
         "nothing was delivered, so headed input never started"
     );
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn foreground_call_returns_within_budget_when_target_hangs_after_probe() {
+    let fixture = crate::tree::fixture::fixture_hung_after_probe::HungAfterProbeFixture::create()
+        .expect("hostile fixture");
+    let info = window_info_for(fixture.handle());
+    fixture
+        .hang_after_probe(2)
+        .expect("second probe arms the hang");
+    let started = std::time::Instant::now();
+
+    let result = focus_window(&info, &lease());
+
+    assert!(
+        fixture.did_hang(),
+        "target must hang after answering the probe"
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    assert!(
+        !matches!(result, Err(ref error) if error.code == ErrorCode::AppUnresponsive),
+        "the target answered the final probe, so foreground activation was attempted"
+    );
+}

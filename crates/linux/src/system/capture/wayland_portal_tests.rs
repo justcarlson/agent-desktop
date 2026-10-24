@@ -44,9 +44,14 @@ fn deadline() -> Deadline {
 }
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("adwp-{}-{name}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).expect("a directory");
+    use std::os::unix::fs::DirBuilderExt;
+
+    let name = agent_desktop_core::temporary_file_name(std::ffi::OsStr::new(name));
+    let dir = std::env::temp_dir().join(name);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .expect("exclusive private temporary directory");
     dir
 }
 
@@ -276,4 +281,28 @@ fn a_window_target_is_unsupported_and_makes_no_portal_call() {
         ErrorCode::PlatformNotSupported
     );
     assert!(calls.is_empty());
+}
+
+#[test]
+fn repeated_fixture_names_keep_existing_contents_and_create_private_directories() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let first = scratch("exclusive");
+    std::fs::create_dir_all(&first).expect("first directory");
+    let sentinel = first.join("sentinel");
+    std::fs::write(&sentinel, b"unchanged").expect("sentinel");
+    let second = scratch("exclusive");
+    assert_ne!(first, second);
+    assert_eq!(
+        std::fs::read(sentinel).expect("preserved sentinel"),
+        b"unchanged"
+    );
+    assert_eq!(
+        std::fs::metadata(second)
+            .expect("directory")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
 }
