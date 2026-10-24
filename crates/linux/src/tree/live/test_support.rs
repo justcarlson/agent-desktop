@@ -9,10 +9,11 @@ use crate::tree::{
     AtspiElement, Extents, Field, NodeProperties, NodeTraits, ObservedRead, RawNode,
 };
 
-pub(crate) const BLOCKING_ARGS: [&str; 2] = ["-c", "read -r _"];
+pub(crate) const BLOCKING_ARGS: [&str; 2] = ["-c", "while :; do sleep 1; done"];
 
 /// Unlike multicall coreutils, a standalone shell keeps working under a fixture's name.
-/// Run with BLOCKING_ARGS and retain piped stdin to block until killed.
+/// Run with BLOCKING_ARGS: the copy stays alive under that name until killed, in the
+/// foreground or in the background, and needs no input.
 pub(crate) fn copy_blocking_program(directory: &std::path::Path, name: &str) -> std::path::PathBuf {
     let program = directory.join(name);
     let shell = std::fs::canonicalize("/bin/sh").expect("the system shell");

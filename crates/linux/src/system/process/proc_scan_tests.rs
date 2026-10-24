@@ -62,7 +62,6 @@ fn spawn_uniquely_named(tag: &str) -> Spawned {
     let program = copy_blocking_program(&directory, &name);
     let child = std::process::Command::new(&program)
         .args(BLOCKING_ARGS)
-        .stdin(std::process::Stdio::piped())
         .env("XDG_RUNTIME_DIR", RUNTIME)
         .env("DBUS_SESSION_BUS_ADDRESS", BUS)
         .env_remove("DBUS_STARTER_ADDRESS")

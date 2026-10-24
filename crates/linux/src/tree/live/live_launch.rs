@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
 use super::live_process::stderr_path;
-use super::test_support::BLOCKING_ARGS;
 
 pub(crate) struct Launched {
     children: Vec<Child>,
@@ -40,12 +39,6 @@ impl Launched {
         self.spawn_with_env(program, args, &[])
     }
 
-    /// The retained Child owns its stdin pipe until stop kills and waits for it.
-    pub(crate) fn spawn_blocking(&mut self, program: &str) -> u32 {
-        self.try_spawn_with_input(program, &BLOCKING_ARGS, &[], Stdio::piped())
-            .unwrap_or_else(|error| panic!("{error}"))
-    }
-
     pub(crate) fn spawn_with_env(
         &mut self,
         program: &str,
@@ -66,23 +59,13 @@ impl Launched {
         args: &[&str],
         env: &[(&str, String)],
     ) -> Result<u32, String> {
-        self.try_spawn_with_input(program, args, env, Stdio::null())
-    }
-
-    fn try_spawn_with_input(
-        &mut self,
-        program: &str,
-        args: &[&str],
-        env: &[(&str, String)],
-        stdin: Stdio,
-    ) -> Result<u32, String> {
         use std::os::unix::process::CommandExt;
         let staging = std::env::temp_dir().join(format!("{}.stderr", nonce("launch")));
         let stderr = File::create(&staging).map_or_else(|_| Stdio::null(), Stdio::from);
         let child = Command::new(program)
             .args(args)
             .envs(env.iter().map(|(key, value)| (*key, value)))
-            .stdin(stdin)
+            .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(stderr)
             .process_group(0)

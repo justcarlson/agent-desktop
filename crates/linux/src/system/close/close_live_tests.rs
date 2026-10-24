@@ -6,7 +6,7 @@ use super::close_plan::TERM_GRACE;
 use crate::system::close::close_app;
 use crate::system::process::process_facts;
 use crate::system::{SharedBus, app_inventory, apps_scoped, list_windows};
-use crate::tree::live::test_support::copy_blocking_program;
+use crate::tree::live::test_support::{BLOCKING_ARGS, copy_blocking_program};
 use rig::{Orphan, lease};
 
 #[path = "close_live/rig.rs"]
@@ -183,7 +183,7 @@ fn close_live_service_names_do_not_protect_unrelated_processes() {
     std::fs::create_dir_all(&dir).unwrap();
     for name in ["gnome-shell", "mutter-x11-frames", "xdg-desktop-portal"] {
         let decoy = copy_blocking_program(&dir, name);
-        let orphan = Orphan::spawn_blocking(decoy.to_str().unwrap());
+        let orphan = Orphan::spawn(decoy.to_str().unwrap(), &BLOCKING_ARGS, &[]);
         close_app(
             &SharedBus::default(),
             &orphan.app(name),
