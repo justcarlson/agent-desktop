@@ -283,21 +283,16 @@ fn position_write_stays_bounded_when_target_hangs_after_the_last_probe() {
         .expect("second probe arms the hang");
     let started = std::time::Instant::now();
 
-    let result = window_op_impl(
-        &info,
-        WindowOp::Move { x: 130.0, y: 150.0 },
-        deadline(2_000),
-    );
+    let result = window_op_impl(&info, WindowOp::Move { x: 130.0, y: 150.0 }, deadline(200));
 
     assert!(
         fixture.did_hang(),
         "target must hang after answering the probe"
     );
     assert!(started.elapsed() < std::time::Duration::from_secs(1));
-    assert!(
-        !matches!(result, Err(ref error) if error.code == ErrorCode::AppUnresponsive),
-        "the target answered the final probe, so the async write path must run"
-    );
+    let error = result.expect_err("the queued write remains unconfirmed");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
 }
 
 #[cfg(target_os = "windows")]
@@ -311,17 +306,16 @@ fn show_write_stays_bounded_when_target_hangs_after_the_last_probe() {
         .expect("second probe arms the hang");
     let started = std::time::Instant::now();
 
-    let result = window_op_impl(&info, WindowOp::Minimize, deadline(2_000));
+    let result = window_op_impl(&info, WindowOp::Minimize, deadline(200));
 
     assert!(
         fixture.did_hang(),
         "target must hang after answering the probe"
     );
     assert!(started.elapsed() < std::time::Duration::from_secs(1));
-    assert!(
-        !matches!(result, Err(ref error) if error.code == ErrorCode::AppUnresponsive),
-        "the target answered the final probe, so ShowWindowAsync must run"
-    );
+    let error = result.expect_err("the queued write remains unconfirmed");
+    assert_eq!(error.code, ErrorCode::Timeout);
+    assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
 }
 
 #[cfg(target_os = "windows")]
@@ -341,4 +335,33 @@ fn show_window_async_reports_invalid_handle_but_accepts_a_live_window() {
         0,
         "a live HWND must report that the async show was started"
     );
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn queued_window_changes_survive_a_temporary_message_pump_delay() {
+    for op in [WindowOp::Move { x: 130.0, y: 150.0 }, WindowOp::Minimize] {
+        let fixture =
+            crate::tree::fixture::fixture_hung_after_probe::HungAfterProbeFixture::create()
+                .expect("delayed fixture");
+        let info = window_info_for(fixture.handle());
+        fixture
+            .hang_after_probe(2)
+            .expect("arm pause after admission");
+        fixture.resume_after(300);
+        window_op_impl(&info, op.clone(), deadline(2_000)).expect("queued operation completes");
+        assert!(fixture.did_hang());
+        match op {
+            WindowOp::Move { .. } => {
+                let rect = current_rect(fixture.handle());
+                assert!(within_tolerance(rect.0, 130));
+                assert!(within_tolerance(rect.1, 150));
+            }
+            WindowOp::Minimize => assert!(verb_is_satisfied(
+                ShowVerb::Minimize,
+                current_show_cmd(fixture.handle())
+            )),
+            _ => unreachable!(),
+        }
+    }
 }

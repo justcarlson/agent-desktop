@@ -6,15 +6,13 @@ use agent_desktop_core::{
 
 use super::window_identity::WindowIdentityEvidence;
 use super::window_op_verb::{ShowVerb, verb_is_satisfied};
+use super::window_op_wait::wait_for_placement;
 use super::window_ops::parse_handle;
 
 const MAX_DIMENSION: f64 = 1_000_000.0;
 const MAX_COORDINATE: f64 = 1_000_000.0;
 /// Placement re-read tolerance pinned by A21-5 (DWM animation headroom floor).
 pub(crate) const PLACEMENT_TOLERANCE_PX: i32 = 8;
-/// Wait-then-re-read delay pinned by A21-5 so an in-flight DWM animation is
-/// not misread as a placement mismatch.
-const PLACEMENT_REREAD_MS: u64 = 80;
 
 /// Refuses a window write to a target that is not dispatching messages.
 ///
@@ -111,13 +109,11 @@ fn resize(
     let cy = round_i32(height).map_err(before_write)?;
     ensure_owned_before(evidence)?;
     set_window_pos(handle, None, Some((cx, cy)))?;
-    wait_then_reread(deadline)?;
-    ensure_owned_after(evidence)?;
-    let rect = window_rect(handle)?;
-    if within_tolerance(rect.2, cx) && within_tolerance(rect.3, cy) {
-        return Ok(());
-    }
-    Err(placement_unverified("resize"))
+    wait_for_placement(deadline, || {
+        ensure_owned_after(evidence)?;
+        let rect = window_rect(handle)?;
+        Ok(within_tolerance(rect.2, cx) && within_tolerance(rect.3, cy))
+    })
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -145,13 +141,11 @@ fn move_to(
     let top = round_i32(y).map_err(before_write)?;
     ensure_owned_before(evidence)?;
     set_window_pos(handle, Some((left, top)), None)?;
-    wait_then_reread(deadline)?;
-    ensure_owned_after(evidence)?;
-    let rect = window_rect(handle)?;
-    if within_tolerance(rect.0, left) && within_tolerance(rect.1, top) {
-        return Ok(());
-    }
-    Err(placement_unverified("move"))
+    wait_for_placement(deadline, || {
+        ensure_owned_after(evidence)?;
+        let rect = window_rect(handle)?;
+        Ok(within_tolerance(rect.0, left) && within_tolerance(rect.1, top))
+    })
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -186,17 +180,10 @@ fn show_verb(
     if unsafe { ShowWindowAsync(handle, command) } == 0 {
         return Err(before_write(win32_last_error("ShowWindowAsync failed")));
     }
-    wait_then_reread(deadline)?;
-    ensure_owned_after(evidence)?;
-    let show_cmd = placement_show_cmd(handle)?;
-    if verb_is_satisfied(verb, show_cmd) {
-        return Ok(());
-    }
-    Err(placement_unverified(match verb {
-        ShowVerb::Minimize => "minimize",
-        ShowVerb::Maximize => "maximize",
-        ShowVerb::Restore => "restore",
-    }))
+    wait_for_placement(deadline, || {
+        ensure_owned_after(evidence)?;
+        Ok(verb_is_satisfied(verb, placement_show_cmd(handle)?))
+    })
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -293,21 +280,6 @@ fn placement_show_cmd(handle: super::window_enum::WindowHandle) -> Result<u32, A
     Ok(placement.showCmd)
 }
 
-#[cfg(target_os = "windows")]
-fn wait_then_reread(deadline: Deadline) -> Result<(), AdapterError> {
-    deadline.ensure_remaining().map_err(after_write)?;
-    let pause = deadline
-        .remaining_slice(std::time::Duration::from_millis(PLACEMENT_REREAD_MS))
-        .map_err(after_write)?;
-    std::thread::sleep(pause);
-    deadline.ensure_remaining().map_err(after_write)
-}
-
-#[cfg(not(target_os = "windows"))]
-fn wait_then_reread(_deadline: Deadline) -> Result<(), AdapterError> {
-    Ok(())
-}
-
 fn ensure_owned_before(evidence: &WindowIdentityEvidence<'_>) -> Result<(), AdapterError> {
     if !evidence.owns_handle_now().map_err(before_write)? {
         return Err(recycled_before_write());
@@ -337,13 +309,6 @@ fn round_i32(value: f64) -> Result<i32, AdapterError> {
 
 fn within_tolerance(actual: i32, expected: i32) -> bool {
     actual.abs_diff(expected) <= PLACEMENT_TOLERANCE_PX as u32
-}
-
-fn placement_unverified(operation: &str) -> AdapterError {
-    after_write(AdapterError::new(
-        ErrorCode::ActionFailed,
-        format!("Window {operation} did not reach its requested placement"),
-    ))
 }
 
 /// The handle's owner changed between `ensure_owned_before`'s read and the

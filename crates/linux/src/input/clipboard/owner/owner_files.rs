@@ -72,7 +72,13 @@ pub(crate) fn read_named(dir: &Path, name: &str) -> io::Result<Vec<u8>> {
     read_file_at(&directory, std::ffi::OsStr::new(name))
 }
 
-pub(crate) fn read_matching(dir: &Path, prefix: &str, suffix: &str) -> io::Result<Vec<Vec<u8>>> {
+pub(crate) fn read_matching(
+    dir: &Path,
+    prefix: &str,
+    suffix: &str,
+    deadline: agent_desktop_core::Deadline,
+    mut retain: impl FnMut(&[u8]) -> bool,
+) -> io::Result<Vec<Vec<u8>>> {
     let directory = match open_private_dir(dir) {
         Ok(directory) => directory,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -80,23 +86,27 @@ pub(crate) fn read_matching(dir: &Path, prefix: &str, suffix: &str) -> io::Resul
     };
     let mut entries = Dir::read_from(&directory)?;
     let mut records = Vec::new();
-    let mut matched_count = 0;
     let mut total_bytes: usize = 0;
     while let Some(entry) = entries.read() {
+        deadline.ensure_remaining().map_err(|_| {
+            io::Error::new(io::ErrorKind::TimedOut, "clipboard record scan timed out")
+        })?;
         let entry = entry?;
         let name = entry.file_name();
         let bytes = name.to_bytes();
         if bytes.starts_with(prefix.as_bytes()) && bytes.ends_with(suffix.as_bytes()) {
-            matched_count += 1;
-            if matched_count > MAX_RECORD_COUNT {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "the clipboard owner record count exceeds the limit",
-                ));
-            }
             let name = std::ffi::OsStr::from_bytes(bytes);
             match read_file_at(&directory, name) {
                 Ok(record) => {
+                    if !retain(&record) {
+                        continue;
+                    }
+                    if records.len() >= MAX_RECORD_COUNT {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "the clipboard owner record count exceeds the limit",
+                        ));
+                    }
                     total_bytes = total_bytes.checked_add(record.len()).ok_or_else(|| {
                         io::Error::new(
                             io::ErrorKind::InvalidData,

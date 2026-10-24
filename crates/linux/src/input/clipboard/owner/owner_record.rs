@@ -140,13 +140,40 @@ pub(crate) fn read_outcome(dir: &Path, display: &str, nonce: &str) -> Option<Out
     outcome_of(&owner_files::read_named(dir, &name).ok()?)
 }
 
-pub(crate) fn records_in(dir: &Path, display: &str) -> std::io::Result<Vec<OwnerRecord>> {
+pub(crate) fn records_in(
+    dir: &Path,
+    display: &str,
+    deadline: agent_desktop_core::Deadline,
+) -> std::io::Result<Vec<OwnerRecord>> {
     let wanted = normalise_display(display);
-    Ok(owner_files::read_matching(dir, FILE_PREFIX, FILE_SUFFIX)?
-        .into_iter()
-        .filter_map(|bytes| OwnerRecord::from_bytes(&bytes))
-        .filter(|record| record.display == wanted)
-        .collect())
+    let retain = |bytes: &[u8]| {
+        let Some(record) = OwnerRecord::from_bytes(bytes) else {
+            return false;
+        };
+        if record.display != wanted {
+            return false;
+        }
+        let stale = match start_ticks_of(record.pid) {
+            Some(ticks) => ticks != record.start_ticks,
+            None => std::fs::metadata(format!("/proc/{}", record.pid))
+                .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound),
+        };
+        if stale {
+            remove_own(dir, &record);
+        }
+        !stale
+    };
+    Ok(owner_files::read_matching(
+        dir,
+        &format!("{FILE_PREFIX}{wanted}-"),
+        FILE_SUFFIX,
+        deadline,
+        retain,
+    )?
+    .into_iter()
+    .filter_map(|bytes| OwnerRecord::from_bytes(&bytes))
+    .filter(|record| record.display == wanted)
+    .collect())
 }
 
 pub(crate) fn start_ticks_of(pid: u32) -> Option<u64> {
