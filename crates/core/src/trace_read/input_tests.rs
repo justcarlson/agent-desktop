@@ -1,4 +1,4 @@
-use super::{ReadOptions, TraceWarningKind, read_merged};
+use super::{ReadOptions, read_merged};
 use std::fs;
 use std::io::Write;
 
@@ -77,6 +77,6 @@ fn fifo_segment_is_rejected_instead_of_read_as_a_trace() {
         result
             .warnings
             .iter()
-            .any(|warning| warning.kind == TraceWarningKind::UnreadableSegment)
+            .any(|warning| warning.kind == super::TraceWarningKind::UnreadableSegment)
     );
 }

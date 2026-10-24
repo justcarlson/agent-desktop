@@ -56,6 +56,7 @@ fn this_session() -> SessionKey {
 
 fn spawn_uniquely_named(tag: &str) -> Spawned {
     use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::process::CommandExt;
     let name = format!("adsc{tag}-{}", std::process::id());
     let directory = std::env::temp_dir().join(format!("{name}-dir"));
     std::fs::create_dir_all(&directory).expect("a directory");
@@ -63,6 +64,7 @@ fn spawn_uniquely_named(tag: &str) -> Spawned {
     std::fs::copy("/bin/sleep", &program).expect("a copy of sleep");
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).expect("modes");
     let child = std::process::Command::new(&program)
+        .arg0("sleep")
         .arg("60")
         .env("XDG_RUNTIME_DIR", RUNTIME)
         .env("DBUS_SESSION_BUS_ADDRESS", BUS)
