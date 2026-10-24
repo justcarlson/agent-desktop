@@ -184,12 +184,11 @@ fn cdp_launch_appends_the_switch_and_resolves_the_port_before_verification_fails
             .and_then(|details| details.get("kind")),
         Some(&serde_json::json!("cdp_endpoint_unavailable"))
     );
-    let captured_port = adapter
-        .captured_cdp_port
-        .lock()
-        .unwrap()
+    let captured_options = adapter.captured_options.lock().unwrap();
+    let captured_port = captured_options
+        .cdp_port
         .expect("cdp_port was resolved before launch_app ran");
-    let captured_args = adapter.captured_args.lock().unwrap();
+    let captured_args = &captured_options.args;
     assert!(captured_args.contains(&format!("--remote-debugging-port={captured_port}")));
 }
 
@@ -223,6 +222,43 @@ fn cdp_launch_returns_a_verified_endpoint_when_the_process_answers() {
             .and_then(Value::as_str)
             .unwrap()
             .contains("devtools/browser")
+    );
+}
+
+#[test]
+fn cdp_launch_rejects_a_valid_devtools_response_from_an_unattributed_listener() {
+    let adapter = CdpAdapter {
+        attribute_cdp_listener: false,
+        ..empty_cdp_adapter(true)
+    };
+    let options = LaunchOptions {
+        cdp_port: Some(0),
+        timeout_ms: 3_000,
+        ..Default::default()
+    };
+
+    let error = adapter_error(
+        execute(
+            LaunchArgs {
+                app: "Fixture".into(),
+                options,
+            },
+            &adapter,
+        )
+        .unwrap_err(),
+    );
+
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("kind")),
+        Some(&serde_json::json!("cdp_listener_unattributed"))
+    );
+    assert_eq!(
+        error.disposition,
+        crate::DeliverySemantics::DeliveredUnverified
     );
 }
 

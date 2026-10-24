@@ -153,7 +153,7 @@ pub(super) fn foreign_read(display: &str, target: &str) -> Option<Vec<u8>> {
 
 pub(super) fn records(display: &str) -> Vec<OwnerRecord> {
     owner_record::record_dir()
-        .map(|dir| owner_record::records_in(&dir, display))
+        .and_then(|dir| owner_record::records_in(&dir, display).ok())
         .unwrap_or_default()
 }
 

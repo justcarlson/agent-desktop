@@ -85,6 +85,15 @@ pub trait SystemOps: Send + Sync {
         Err(AdapterError::not_supported("launch_app"))
     }
 
+    fn process_owns_tcp_listener(
+        &self,
+        _process: crate::ProcessIdentity,
+        _port: u16,
+        _deadline: Deadline,
+    ) -> Result<bool, AdapterError> {
+        Err(AdapterError::not_supported("process_owns_tcp_listener"))
+    }
+
     fn process_state(
         &self,
         _process: ProcessIdentity,

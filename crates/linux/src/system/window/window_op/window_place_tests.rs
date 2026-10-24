@@ -14,8 +14,14 @@ fn place() -> Extents {
 }
 
 fn store(name: &str) -> (PlaceStore, PathBuf) {
-    let dir = std::env::temp_dir().join(format!("ad-place-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    use std::os::unix::fs::DirBuilderExt;
+
+    let name = agent_desktop_core::temporary_file_name(std::ffi::OsStr::new(name));
+    let dir = std::env::temp_dir().join(name);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .expect("exclusive private temporary directory");
     (PlaceStore::at(dir.clone()), dir)
 }
 
@@ -141,4 +147,28 @@ fn a_stale_pending_file_is_swept_and_a_fresh_one_is_kept() {
     assert!(!stale.exists());
     assert!(fresh.exists());
     let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn repeated_fixture_names_keep_existing_contents_and_create_private_directories() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let first = store("exclusive").1;
+    std::fs::create_dir_all(&first).expect("first directory");
+    let sentinel = first.join("sentinel");
+    std::fs::write(&sentinel, b"unchanged").expect("sentinel");
+    let second = store("exclusive").1;
+    assert_ne!(first, second);
+    assert_eq!(
+        std::fs::read(sentinel).expect("preserved sentinel"),
+        b"unchanged"
+    );
+    assert_eq!(
+        std::fs::metadata(second)
+            .expect("directory")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
 }

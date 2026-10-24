@@ -6,9 +6,14 @@ use std::time::{Duration, SystemTime};
 use super::*;
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("adwf-{}-{name}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).expect("a directory");
+    use std::os::unix::fs::DirBuilderExt;
+
+    let name = agent_desktop_core::temporary_file_name(std::ffi::OsStr::new(name));
+    let dir = std::env::temp_dir().join(name);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .expect("exclusive private temporary directory");
     dir
 }
 
@@ -147,4 +152,28 @@ fn a_file_over_the_size_cap_is_refused_and_removed() {
     fs::write(&path, vec![0u8; MAX_PNG_INPUT_BYTES + 1]).expect("a file");
     assert!(take_file(&path, std::slice::from_ref(&dir), me(), long_ago()).is_err());
     assert!(!path.exists());
+}
+
+#[test]
+fn repeated_fixture_names_keep_existing_contents_and_create_private_directories() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let first = scratch("exclusive");
+    std::fs::create_dir_all(&first).expect("first directory");
+    let sentinel = first.join("sentinel");
+    std::fs::write(&sentinel, b"unchanged").expect("sentinel");
+    let second = scratch("exclusive");
+    assert_ne!(first, second);
+    assert_eq!(
+        std::fs::read(sentinel).expect("preserved sentinel"),
+        b"unchanged"
+    );
+    assert_eq!(
+        std::fs::metadata(second)
+            .expect("directory")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
 }

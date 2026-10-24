@@ -1,3 +1,4 @@
+use self::trace_write_budget::TraceWriteBudget;
 use crate::AppError;
 use crate::trace::trace_file::{open_segment_trace_file, open_trace_file};
 use crate::trace::trace_sanitize::sanitize_trace_value;
@@ -55,6 +56,7 @@ impl TraceConfig {
             strict,
             state: Arc::new(TraceState {
                 pending,
+                emission: Mutex::new(()),
                 writer: Arc::new(Mutex::new(writer)),
                 meta_written: AtomicBool::new(false),
             }),
@@ -76,6 +78,22 @@ impl TraceConfig {
         session_id: Option<&str>,
         fields: impl FnOnce() -> Value,
     ) -> Result<(), AppError> {
+        let _emission = self
+            .state
+            .emission
+            .lock()
+            .map_err(|_| AppError::Internal("trace emission lock poisoned".into()))?;
+        let mut budget = match &self.state.pending {
+            TracePending::SegmentDir(dir) => match TraceWriteBudget::acquire(dir) {
+                Ok(budget) => Some(budget),
+                Err(error) if self.strict => return Err(error),
+                Err(error) => {
+                    tracing::warn!("trace recording limit unavailable: {error}");
+                    return Ok(());
+                }
+            },
+            _ => None,
+        };
         let writer = match self.ensure_writer()? {
             Some(writer) => writer,
             None => return Ok(()),
@@ -85,8 +103,8 @@ impl TraceConfig {
             .map_err(|_| AppError::Internal("trace writer lock poisoned".into()))
             .and_then(|mut file| {
                 with_exclusive_file(&mut file, |file| {
-                    self.ensure_meta_if_needed(file, session_id)?;
-                    write_event_locked(file, event, session_id, fields())
+                    self.ensure_meta_if_needed(file, session_id, budget.as_mut())?;
+                    write_event_locked(file, event, session_id, fields(), budget.as_mut())
                 })
             }) {
             Ok(()) => Ok(()),
@@ -170,6 +188,7 @@ impl TraceConfig {
         &self,
         file: &mut std::fs::File,
         session_id: Option<&str>,
+        budget: Option<&mut TraceWriteBudget>,
     ) -> Result<(), AppError> {
         if self.state.meta_written.load(Ordering::Relaxed) {
             return Ok(());
@@ -178,7 +197,7 @@ impl TraceConfig {
             self.state.meta_written.store(true, Ordering::Relaxed);
             return Ok(());
         }
-        write_meta_header_locked(file, session_id)?;
+        write_meta_header_locked(file, session_id, budget)?;
         self.state.meta_written.store(true, Ordering::Relaxed);
         Ok(())
     }
@@ -187,6 +206,7 @@ impl TraceConfig {
 fn write_meta_header_locked(
     file: &mut std::fs::File,
     session_id: Option<&str>,
+    budget: Option<&mut TraceWriteBudget>,
 ) -> Result<(), AppError> {
     write_event_locked(
         file,
@@ -199,6 +219,7 @@ fn write_meta_header_locked(
             "pid": std::process::id(),
             "proc_start_ms": process_start_ms(),
         }),
+        budget,
     )
 }
 
@@ -210,7 +231,7 @@ fn write_event(
     fields: Value,
 ) -> Result<(), AppError> {
     with_exclusive_file(file, |file| {
-        write_event_locked(file, event, session_id, fields)
+        write_event_locked(file, event, session_id, fields, None)
     })
 }
 
@@ -219,6 +240,7 @@ fn write_event_locked(
     event: &str,
     session_id: Option<&str>,
     fields: Value,
+    budget: Option<&mut TraceWriteBudget>,
 ) -> Result<(), AppError> {
     let envelope_bytes = event
         .len()
@@ -263,6 +285,9 @@ fn write_event_locked(
     serde_json::to_writer(&mut line, &Value::Object(body))?;
     line.push(b'\n');
     reject_oversized_trace(file, line.len() as u64)?;
+    if let Some(budget) = budget {
+        budget.reserve_line(line.len())?;
+    }
     file.write_all(&line).map_err(AppError::from)
 }
 
@@ -341,3 +366,5 @@ pub(crate) mod trace_file;
 pub mod trace_read;
 pub mod trace_sanitize;
 pub(crate) mod trace_state;
+
+pub(crate) mod trace_write_budget;

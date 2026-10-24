@@ -18,20 +18,13 @@ const PLACEMENT_REREAD_MS: u64 = 80;
 
 /// Refuses a window write to a target that is not dispatching messages.
 ///
-/// Every native write that follows - `SetWindowPos` for resize and move, or
-/// `ShowWindow` for minimize, maximize, and restore - reaches the owning
-/// thread's message queue, so a window whose thread never dispatches blocks
-/// the caller inside one of them, the same shape A14-11 recorded for
-/// `ElementFromHandle`. A `Deadline` cannot rescue that: it is checked before
-/// the call and the block happens inside it.
+/// `SetWindowPos` uses `SWP_ASYNCWINDOWPOS`, and show verbs use
+/// `ShowWindowAsync`, so native writes are queued across input queues and the
+/// existing placement readback determines whether they took effect.
 ///
-/// This ping runs once, after identity verification and before the first
-/// native write: verification's own live title read already bounds itself
-/// with a pumping probe ahead of `GetWindowTextW`, so placing the ping after
-/// verification never risks the hang this check exists to prevent, while
-/// placing it before verification would mislabel a destroyed or re-owned
-/// handle `APP_UNRESPONSIVE` instead of surfacing its stale-identity
-/// envelope.
+/// This conservative check runs after identity verification and before the
+/// first native write so a destroyed or re-owned handle keeps its stale
+/// identity error instead of being classified as unresponsive.
 #[cfg(target_os = "windows")]
 fn ensure_window_is_pumping(handle: super::window_enum::WindowHandle) -> Result<(), AdapterError> {
     if super::window_enum::window_is_responsive(handle) {
@@ -181,7 +174,7 @@ fn show_verb(
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, ShowWindow,
+        SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, ShowWindowAsync,
     };
 
     let command = match verb {
@@ -190,7 +183,9 @@ fn show_verb(
         ShowVerb::Restore => SW_RESTORE,
     };
     ensure_owned_before(evidence)?;
-    unsafe { ShowWindow(handle, command) };
+    if unsafe { ShowWindowAsync(handle, command) } == 0 {
+        return Err(before_write(win32_last_error("ShowWindowAsync failed")));
+    }
     wait_then_reread(deadline)?;
     ensure_owned_after(evidence)?;
     let show_cmd = placement_show_cmd(handle)?;
@@ -221,7 +216,7 @@ fn set_window_pos(
     size: Option<(i32, i32)>,
 ) -> Result<(), AdapterError> {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowPos,
+        SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowPos,
     };
 
     let (x, y, move_flag) = match origin {
@@ -240,7 +235,7 @@ fn set_window_pos(
             y,
             cx,
             cy,
-            SWP_NOZORDER | SWP_NOACTIVATE | move_flag | size_flag,
+            SWP_ASYNCWINDOWPOS | SWP_NOZORDER | SWP_NOACTIVATE | move_flag | size_flag,
         )
     };
     if ok == 0 {

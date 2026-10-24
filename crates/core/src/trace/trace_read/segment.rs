@@ -1,3 +1,4 @@
+use super::budget::ReadBudget;
 use crate::AppError;
 use serde_json::Value;
 use std::io::{BufRead, BufReader};
@@ -56,8 +57,9 @@ pub(crate) fn parse_segment_filename(name: &str) -> Option<ParsedSegmentName> {
     })
 }
 
-pub(crate) fn read_segment_events(
+pub(super) fn read_segment_events(
     path: &Path,
+    budget: &mut ReadBudget,
 ) -> Result<(Vec<ParsedEvent>, SegmentReadStats), AppError> {
     let file = crate::refs::open_nofollow(path).map_err(AppError::from)?;
     let mut reader = BufReader::new(file);
@@ -68,7 +70,7 @@ pub(crate) fn read_segment_events(
 
     loop {
         raw.clear();
-        let bytes_read = reader.read_until(b'\n', &mut raw)?;
+        let bytes_read = read_bounded_line(&mut reader, &mut raw, budget)?;
         if bytes_read == 0 {
             break;
         }
@@ -126,6 +128,7 @@ pub(crate) fn read_segment_events(
 
         let ts_ms = obj.get("ts_ms").and_then(Value::as_u64).unwrap_or(0);
 
+        budget.consume_event()?;
         events.push(ParsedEvent {
             value: parsed,
             ts_ms,
@@ -139,4 +142,28 @@ pub(crate) fn read_segment_events(
     }
 
     Ok((events, stats))
+}
+
+fn read_bounded_line(
+    reader: &mut impl BufRead,
+    raw: &mut Vec<u8>,
+    budget: &mut ReadBudget,
+) -> Result<usize, AppError> {
+    let mut total = 0;
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(total);
+        }
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let consumed = newline.map_or(available.len(), |position| position + 1);
+        budget.consume_bytes(consumed)?;
+        let retained = consumed.min((MAX_LINE_BYTES + 2).saturating_sub(raw.len()));
+        raw.extend_from_slice(&available[..retained]);
+        total += consumed;
+        reader.consume(consumed);
+        if newline.is_some() {
+            return Ok(total);
+        }
+    }
 }

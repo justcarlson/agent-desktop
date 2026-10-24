@@ -60,7 +60,7 @@ impl ChromiumClassWindow {
     }
 
     fn window_id(&self) -> String {
-        format!("w-{}", self.handle as isize)
+        crate::system::window::window_ops::window_id(self.handle)
     }
 }
 

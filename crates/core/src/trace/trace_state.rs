@@ -22,6 +22,7 @@ pub(crate) enum TraceWriterState {
 #[derive(Debug, Default)]
 pub(crate) struct TraceState {
     pub(crate) pending: TracePending,
+    pub(crate) emission: Mutex<()>,
     pub(crate) writer: Arc<Mutex<TraceWriterState>>,
     pub(crate) meta_written: AtomicBool,
 }

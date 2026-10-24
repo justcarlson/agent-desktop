@@ -375,3 +375,5 @@ pub(crate) mod offscreen_origin;
 #[cfg(test)]
 #[path = "fixture_tests.rs"]
 mod tests;
+
+pub(crate) mod fixture_hung_after_probe;

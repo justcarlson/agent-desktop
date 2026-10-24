@@ -271,3 +271,74 @@ fn restore_from_a_maximized_minimize_is_confirmed_not_reported_failed() {
         "the window returns to maximized, which is what restore means here"
     );
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn position_write_stays_bounded_when_target_hangs_after_the_last_probe() {
+    let fixture = crate::tree::fixture::fixture_hung_after_probe::HungAfterProbeFixture::create()
+        .expect("hostile fixture");
+    let info = window_info_for(fixture.handle());
+    fixture
+        .hang_after_probe(2)
+        .expect("second probe arms the hang");
+    let started = std::time::Instant::now();
+
+    let result = window_op_impl(
+        &info,
+        WindowOp::Move { x: 130.0, y: 150.0 },
+        deadline(2_000),
+    );
+
+    assert!(
+        fixture.did_hang(),
+        "target must hang after answering the probe"
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    assert!(
+        !matches!(result, Err(ref error) if error.code == ErrorCode::AppUnresponsive),
+        "the target answered the final probe, so the async write path must run"
+    );
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn show_write_stays_bounded_when_target_hangs_after_the_last_probe() {
+    let fixture = crate::tree::fixture::fixture_hung_after_probe::HungAfterProbeFixture::create()
+        .expect("hostile fixture");
+    let info = window_info_for(fixture.handle());
+    fixture
+        .hang_after_probe(2)
+        .expect("second probe arms the hang");
+    let started = std::time::Instant::now();
+
+    let result = window_op_impl(&info, WindowOp::Minimize, deadline(2_000));
+
+    assert!(
+        fixture.did_hang(),
+        "target must hang after answering the probe"
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    assert!(
+        !matches!(result, Err(ref error) if error.code == ErrorCode::AppUnresponsive),
+        "the target answered the final probe, so ShowWindowAsync must run"
+    );
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn show_window_async_reports_invalid_handle_but_accepts_a_live_window() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{SW_RESTORE, ShowWindowAsync};
+
+    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
+    let (fixture, _) = staged_fixture();
+    assert_eq!(
+        unsafe { ShowWindowAsync(std::ptr::null_mut(), SW_RESTORE) },
+        0,
+        "an invalid HWND must fail to queue a show operation"
+    );
+    assert_ne!(
+        unsafe { ShowWindowAsync(fixture.handle() as _, SW_RESTORE) },
+        0,
+        "a live HWND must report that the async show was started"
+    );
+}

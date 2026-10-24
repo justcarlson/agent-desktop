@@ -69,14 +69,13 @@ emptied if it held anything but text. One key press per character is never used:
 it drops characters and loses capitals.
 
 **What leaves the machine.** Every turn posts a description of the screen to the
-decision endpoint (`https://api.typesafe.ai/v1/systemone` by default, or
-`TYPESAFE_BASE_URL`): the goal, the app name, the window title, each element's
-role, its accessible name or description, up to sixty characters of the value it
-holds, its state, and the last eight actions, including any text you supplied
-with `--text`. That is enough to send the contents of a private document or a
+decision endpoint (TypeSafe's `api.typesafe.ai` by default, or whatever
+`TYPESAFE_BASE_URL` points at): each element's role, its accessible name or description, up
+to sixty characters of the value it holds, its state, the window title, and the
+recent actions, excluding supplied text and detailed execution evidence. That is enough to send the contents of a private document or a
 filled form. Secure text fields are already withheld by agent-desktop and never
 reach the request. Pass `--no-values` to `run.mjs` to withhold what every other
-field holds as well; supplied `--text` still travels in the recent actions, and
+field holds as well; supplied `--text` is withheld from recent actions, and
 targeting gets harder, because a value is often the only thing that tells two
 unnamed rows apart. `act.mjs` has no `--no-values`: it sends up to 120 characters
 of each value and each element's ancestor path. Decide this before pointing a
