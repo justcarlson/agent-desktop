@@ -104,10 +104,11 @@ result carries its `path`, `width` and `height`. An empty clipboard answers
   the content stays available while the owner lives.
 - The helper must sit beside the `agent-desktop` binary and be a regular
   executable file, not a symlink, owned by the user or root. Neither it nor its
-  directory may be writable by a shared group; the file must not be
-  world-writable. A group-writable helper is accepted when its group is the
-  user's own private group. A world-writable directory is accepted only with the
-  sticky bit. A 777 copy is refused with `PLATFORM_NOT_SUPPORTED`, "writable by
+  directory may be group-writable, even when the group appears private; the file
+  must not be world-writable. Remove group-write permission from both the helper
+  and its directory before using a build made with a group-writable umask. A
+  world-writable directory is accepted only with the sticky bit and without
+  group-write permission. A 777 copy is refused with `PLATFORM_NOT_SUPPORTED`, "writable by
   others". npm installs and release archives ship it in place. A binary copied
   alone cannot set the clipboard: `PLATFORM_NOT_SUPPORTED` names the missing
   helper. Both refusals are `not_delivered`, `safe`.

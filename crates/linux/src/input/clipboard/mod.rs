@@ -3,7 +3,6 @@ pub(crate) mod formats;
 pub(crate) mod incr;
 pub(crate) mod owner_entry;
 pub(crate) mod owner_files;
-pub(crate) mod owner_group;
 pub(crate) mod owner_locate;
 pub(crate) mod owner_payload;
 pub(crate) mod owner_record;

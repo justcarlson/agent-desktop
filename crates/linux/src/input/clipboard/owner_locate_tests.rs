@@ -14,9 +14,14 @@ fn maps_line(start: usize, end: usize, path: &Path) -> String {
 }
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("ad-locate-{name}-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).expect("a scratch directory");
+    use std::os::unix::fs::DirBuilderExt;
+
+    let name = agent_desktop_core::temporary_file_name(std::ffi::OsStr::new(name));
+    let dir = std::env::temp_dir().join(name);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .expect("exclusive private temporary directory");
     dir
 }
 
@@ -120,7 +125,7 @@ fn a_helper_writable_by_others_is_refused_whatever_the_group() {
     for mode in [0o757, 0o777, 0o702, 0o1757] {
         let dir = scratch(&format!("others-{mode:o}"));
         let helper = install(&dir, mode);
-        let error = check_helper_with(&helper, &|_| true).expect_err("refused");
+        let error = check_helper(&helper).expect_err("refused");
         assert!(error.message.contains("by others"), "{}", error.message);
     }
 }
@@ -129,25 +134,10 @@ fn a_helper_writable_by_others_is_refused_whatever_the_group() {
 fn a_group_writable_helper_in_a_shared_group_is_refused() {
     let dir = scratch("shared-group");
     let helper = install(&dir, 0o775);
-    let error = check_helper_with(&helper, &|_| false).expect_err("refused");
-    assert!(error.message.contains("not private"), "{}", error.message);
+    let error = check_helper(&helper).expect_err("refused");
+    assert!(error.message.contains("by a group"), "{}", error.message);
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert_eq!(error.disposition, DeliverySemantics::not_delivered());
-}
-
-#[test]
-fn a_group_writable_helper_in_the_private_group_is_accepted() {
-    let dir = scratch("private-group");
-    let helper = install(&dir, 0o775);
-    check_helper_with(&helper, &|_| true).expect("accepted");
-}
-
-#[test]
-fn the_group_asked_about_is_the_group_of_the_file() {
-    let dir = scratch("asked-group");
-    let helper = install(&dir, 0o775);
-    let expected = fs::symlink_metadata(&helper).expect("metadata").gid();
-    check_helper_with(&helper, &|gid| gid == expected).expect("accepted");
 }
 
 fn directory_with(name: &str, mode: u32) -> PathBuf {
@@ -161,7 +151,7 @@ fn a_directory_writable_by_others_is_refused() {
     for mode in [0o777, 0o757, 0o707] {
         let dir = directory_with(&format!("dir-others-{mode:o}"), mode);
         let helper = install(&dir, 0o755);
-        let error = check_helper_with(&helper, &|_| true).expect_err("refused");
+        let error = check_helper(&helper).expect_err("refused");
         assert!(
             error.message.contains("The directory") && error.message.contains("by others"),
             "{}",
@@ -172,28 +162,43 @@ fn a_directory_writable_by_others_is_refused() {
 
 #[test]
 fn a_sticky_directory_writable_by_others_is_accepted() {
-    let dir = directory_with("dir-sticky", 0o1777);
+    let dir = directory_with("dir-sticky", 0o1707);
     let helper = install(&dir, 0o755);
-    check_helper_with(&helper, &|_| true).expect("accepted");
+    check_helper(&helper).expect("accepted");
 }
 
 #[test]
 fn a_sticky_bit_does_not_excuse_a_group_that_is_shared() {
     let dir = directory_with("dir-sticky-group", 0o1770);
     let helper = install(&dir, 0o755);
-    let error = check_helper_with(&helper, &|_| false).expect_err("refused");
+    let error = check_helper(&helper).expect_err("refused");
     assert!(error.message.contains("The directory"), "{}", error.message);
 }
 
 #[test]
-fn a_group_writable_directory_follows_the_private_group_rule() {
+fn a_group_writable_directory_is_refused() {
     let dir = directory_with("dir-group", 0o775);
     let helper = install(&dir, 0o755);
-    let error = check_helper_with(&helper, &|_| false).expect_err("refused");
+    let error = check_helper(&helper).expect_err("refused");
     assert!(
-        error.message.contains("The directory") && error.message.contains("not private"),
+        error.message.contains("The directory") && error.message.contains("by a group"),
         "{}",
         error.message
     );
-    check_helper_with(&helper, &|_| true).expect("accepted");
+}
+
+#[test]
+fn locating_refuses_group_write_on_the_helper_or_its_directory() {
+    for directory in [false, true] {
+        let dir = scratch(&format!("reject-group-{directory}"));
+        let image = image_in(&dir, "agent-desktop");
+        let helper = install(&dir, 0o755);
+        let target = if directory { &dir } else { &helper };
+        fs::set_permissions(target, fs::Permissions::from_mode(0o775)).expect("group write");
+        let error = locate_in(&maps_line(0x1000, 0x2000, &image), 0x1000)
+            .expect_err("group-writable installation is refused");
+        assert_eq!(error.code, ErrorCode::PlatformNotSupported);
+        assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+        assert!(error.message.contains("group"), "{}", error.message);
+    }
 }
