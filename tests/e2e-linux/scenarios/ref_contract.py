@@ -345,8 +345,9 @@ def dialog(ctx, app, tree, path, data):
 
 
 def chooser(ctx, app, tree, path, data, saved):
-    # Native chooser labels differ; the snapshot must expose exactly one name field.
+    # Native chooser labels differ; inactive panes can retain another name field.
     fields = [n for n in ref_nodes(data) if "TypeText" in n.get("available_actions", ())
+              and not BLOCKED.intersection(n.get("states", ()))
               and n.get("name", "").strip().casefold().rstrip(":") in
               ("name", "file name", "filename")]
     require(len(fields) == 1, f"expected one save-name field: {fields}")

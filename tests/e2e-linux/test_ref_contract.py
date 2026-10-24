@@ -5,12 +5,23 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import json
 
-from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare
+from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare, chooser
 from scenarios.ref_contract_identity import identify, raw_target
 from oracle.atspi_raw import RawNode
 
 
 class RefContractTests(unittest.TestCase):
+    def test_chooser_uses_the_visible_name_field_when_a_hidden_pane_has_another(self):
+        field = {"name": "Name:", "available_actions": ["TypeText"], "ref_id": "@s1:e1"}
+        for state in ("hidden", "offscreen", "disabled"):
+            data = {"tree": {"children": [dict(field, name="Name", states=[state]), field]}}
+            with self.subTest(state=state), \
+                    patch("scenarios.ref_contract.raw_target"), \
+                    patch("scenarios.ref_contract.act", side_effect=InterruptedError) as act:
+                with self.assertRaises(InterruptedError):
+                    chooser(None, None, None, None, data, Path("/tmp/note.txt"))
+                act.assert_called_once_with(None, field, "type", "/tmp/note.txt")
+
     def test_prepare_selects_another_option_using_its_advertised_action(self):
         node = {"name": "zoo-row-1", "role": "option", "available_actions": ["Select"]}
         other = dict(node, name="zoo-row-2", ref_id="@s1:e2")
