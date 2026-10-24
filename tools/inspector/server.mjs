@@ -27,8 +27,6 @@ try {
   const server = createBridge(createInspector(createCli(binary, home)), token);
   const actualPort = await listenAvailable(server, port);
   const url = `http://127.0.0.1:${actualPort}/#token=${token}`;
-  console.log(`agent-desktop inspector: ${url}`);
-  console.log('Read-only. Screenshots and labels are sensitive. Press Ctrl+C to stop.');
   let closing = false;
   const stop = () => {
     if (closing) return;
@@ -38,6 +36,8 @@ try {
   };
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
+  console.log(`agent-desktop inspector: ${url}`);
+  console.log('Read-only. Screenshots and labels are sensitive. Press Ctrl+C to stop.');
   if (!values['no-open']) {
     const opener = process.platform === 'darwin' ? '/usr/bin/open' : process.platform === 'linux' ? 'xdg-open' : null;
     if (opener) {
