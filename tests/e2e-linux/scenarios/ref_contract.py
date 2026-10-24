@@ -43,8 +43,8 @@ def unsupported(error):
                   for check in details.get("checks", ())))))
 
 
-def row_verdict(expected, *, refused, log_effect, raw_effect, log_unchanged, raw_unchanged):
-    landed = log_effect and raw_effect
+def row_verdict(expected, *, succeeded, refused, log_effect, raw_effect, log_unchanged, raw_unchanged):
+    landed = succeeded and log_effect and raw_effect
     clean_refusal = refused and log_unchanged and raw_unchanged
     return "pass" if ((expected == "land" and landed)
                       or (expected == "refuse" and clean_refusal)
@@ -204,7 +204,7 @@ def prepare(ctx, app, tree, node, action):
     if action in opposite:
         response = act(ctx, node, opposite[action])
         if unsupported(response.error):
-            return node
+            raise NotImplementedError(f"{action} not exercised: setup {opposite[action]} refused: {response.error}")
         if name == "zoo-menubutton":
             require(poll(lambda: any(n.name == "zoo-menu-item" and "SHOWING" in n.states
                                      for n in tree.walk()) == (action == "collapse"), 3))
@@ -339,7 +339,7 @@ def refs(ctx):
                             before, log_before = baseline, baseline_log
                         if not any(a in ACTIONS for a in node.get("available_actions", ())) and not set(node.get("states", ())) & BLOCKED:
                             refused = refused and unsupported(response.error)
-                        verdict = row_verdict(expected, refused=refused, log_effect=log_effect,
+                        verdict = row_verdict(expected, succeeded=response.ok, refused=refused, log_effect=log_effect,
                                               raw_effect=raw_effect, log_unchanged=log_after == log_before,
                                               raw_unchanged=after == before)
                         row["observed"].append(dict(action=action, refused=refused,
@@ -347,6 +347,12 @@ def refs(ctx):
                         if verdict == "fail":
                             row["verdict"] = "fail"
                         ctx.after("atspi." + channel, after)
+                        ctx.after("applog." + channel, since_reset(path))
+                    except NotImplementedError as error:
+                        if row["verdict"] != "fail":
+                            row["verdict"] = "not-exercised"
+                        row["observed"].append(dict(action=action, not_exercised=str(error)))
+                        ctx.after("atspi." + channel, raw_state(tree))
                         ctx.after("applog." + channel, since_reset(path))
                     except Exception as error:
                         row["verdict"] = "fail"
@@ -363,4 +369,6 @@ def refs(ctx):
                             row["observed"].append("reset did not restore the baseline")
     finally:
         print_rows(ctx, rows)
-    require(all(row["verdict"] == "pass" for row in rows), "ref-contract table has failures")
+    require(not any(row["verdict"] == "fail" for row in rows), "ref-contract table has failures")
+    if any(row["verdict"] == "not-exercised" for row in rows):
+        raise NotImplementedError("ref-contract table has actions not exercised because setup refused")

@@ -40,7 +40,7 @@ class RefContractTests(unittest.TestCase):
             target.states.clear()
             self.assertEqual(effect(None, node, "click", None, [], [record]), (True, False))
 
-    def test_unsupported_preparation_keeps_the_original_target_for_refusal_check(self):
+    def test_unsupported_selection_preparation_allows_refusal_but_collapse_is_not_exercised(self):
         node = {"name": "zoo-tab-a", "role": "tab", "available_actions": ["Select"]}
         other = dict(node, name="zoo-tab-b")
         error = {"code": "ACTION_NOT_SUPPORTED", "details": {"kind": "selection_index_unproven"},
@@ -52,7 +52,8 @@ class RefContractTests(unittest.TestCase):
                 patch("scenarios.ref_contract.poll") as poll:
             self.assertIs(prepare(None, None, None, node, "select"), node)
             combo = {"name": "Alpha", "role": "combobox", "available_actions": ["Collapse"]}
-            self.assertIs(prepare(None, None, None, combo, "collapse"), combo)
+            with self.assertRaisesRegex(NotImplementedError, "collapse not exercised"):
+                prepare(None, None, None, combo, "collapse")
         poll.assert_not_called()
 
     def test_unsupported_requires_a_specific_safe_refusal_and_no_effects(self):
@@ -64,7 +65,7 @@ class RefContractTests(unittest.TestCase):
         self.assertFalse(unsupported(dict(error, details={})))
         self.assertFalse(unsupported(dict(error, disposition={"delivery": "delivery_uncertain"})))
         for log, raw in ((False, True), (True, False)):
-            self.assertEqual(row_verdict("refuse", refused=unsupported(error), log_effect=False,
+            self.assertEqual(row_verdict("refuse", succeeded=False, refused=unsupported(error), log_effect=False,
                                          raw_effect=False, log_unchanged=log, raw_unchanged=raw), "fail")
 
     def test_close_runs_last_and_restores_a_new_fixture_after_observed_exit(self):
@@ -278,9 +279,13 @@ class RefContractTests(unittest.TestCase):
         ]
         for expected, refused, log, raw, log_same, raw_same, verdict in cases:
             with self.subTest(case=(expected, refused, log, raw, log_same, raw_same)):
-                self.assertEqual(row_verdict(expected, refused=refused, log_effect=log,
+                self.assertEqual(row_verdict(expected, succeeded=not refused, refused=refused, log_effect=log,
                                               raw_effect=raw, log_unchanged=log_same,
                                               raw_unchanged=raw_same), verdict)
+        for expected in ("land", "land-or-refuse"):
+            self.assertEqual(row_verdict(expected, succeeded=False, refused=False,
+                                         log_effect=True, raw_effect=True,
+                                         log_unchanged=False, raw_unchanged=False), "fail")
 
 
 if __name__ == "__main__":
