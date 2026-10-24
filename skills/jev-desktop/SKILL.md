@@ -62,7 +62,7 @@ characters and loses capitals.
 decision endpoint (TypeSafe's `api.typesafe.ai` by default, or whatever
 `TYPESAFE_BASE_URL` points at): each element's role, its accessible name or description, up
 to sixty characters of the value it holds, its state, the window title, and the
-recent actions. That is enough to send the contents of a private document or a
+recent actions, excluding supplied text and detailed execution evidence. That is enough to send the contents of a private document or a
 filled form. Secure text fields are already withheld by agent-desktop and never
 reach the request. Pass `--no-values` to withhold what every other field holds
 as well; targeting gets harder, because a value is often the only thing that

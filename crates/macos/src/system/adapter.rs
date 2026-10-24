@@ -9,6 +9,10 @@ use agent_desktop_core::{
 use crate::adapter::MacOSAdapter;
 use crate::system::close_outcome::CloseOutcome;
 
+#[cfg(target_os = "macos")]
+#[path = "tcp_listener.rs"]
+mod tcp_listener;
+
 impl SystemOps for MacOSAdapter {
     fn update_cursor_overlay(
         &self,
@@ -87,6 +91,15 @@ impl SystemOps for MacOSAdapter {
         lease: &InteractionLease,
     ) -> Result<agent_desktop_core::launch_result::LaunchResult, AdapterError> {
         crate::system::launch::launch_app_impl(id, options, lease.deadline())
+    }
+
+    fn process_owns_tcp_listener(
+        &self,
+        process: ProcessIdentity,
+        port: u16,
+        deadline: Deadline,
+    ) -> Result<bool, AdapterError> {
+        tcp_listener::owns_listener(&process, port, deadline)
     }
 
     fn process_state(

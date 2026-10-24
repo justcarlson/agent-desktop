@@ -454,12 +454,9 @@ wrap.rs:2:/// planned fast-follow to the current read'
         printf 'self-test FAIL (false positive): two adjacent doc-comment lines joined into a reference\n' >&2
         failures=1
     fi
-    # A fixed fixture path, reused and overwritten every run rather than a fresh
-    # mktemp per run. The harness contract forbids `rm` in these scripts, so the
-    # fixture cannot clean up after itself; a stable path bounds what it leaves
-    # behind at one directory instead of one per invocation.
     local tree_root planted_rs planted_py planted_sh
-    tree_root="${TMPDIR:-/tmp}/agent-desktop-phase-reference-selftest"
+    tree_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-phase-reference-selftest.XXXXXXXX")"
+    trap 'trash "$tree_root"' EXIT
     mkdir -p "$tree_root/crates/x/src" "$tree_root/skills" "$tree_root/tests/e2e-linux/runner"
     planted_rs="$tree_root/crates/x/src/planted.rs"
     planted_py="$tree_root/tests/e2e-linux/runner/planted.py"
@@ -501,6 +498,8 @@ pub fn f() {}
     TOKEN_SCAN_RS_ROOTS="crates src"
     TOKEN_SCAN_MD_ROOTS="skills"
     TOKEN_SCAN_HARNESS_ROOTS="tests/e2e-linux"
+    trash "$tree_root"
+    trap - EXIT
 
     if [ "$failures" -ne 0 ]; then
         printf 'The delivery-plan reference rules do not behave as documented.\n' >&2

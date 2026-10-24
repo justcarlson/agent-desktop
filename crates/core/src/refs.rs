@@ -272,10 +272,12 @@ pub(crate) fn open_nofollow(path: &Path) -> std::io::Result<std::fs::File> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        std::fs::OpenOptions::new()
+        let file = std::fs::OpenOptions::new()
             .read(true)
-            .custom_flags(libc::O_NOFOLLOW)
-            .open(path)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+            .open(path)?;
+        crate::private_file::validate_regular(&file)?;
+        Ok(file)
     }
     #[cfg(not(unix))]
     {
@@ -285,7 +287,9 @@ pub(crate) fn open_nofollow(path: &Path) -> std::io::Result<std::fs::File> {
                 "path must not be a symlink",
             ));
         }
-        std::fs::File::open(path)
+        let file = std::fs::File::open(path)?;
+        crate::private_file::validate_regular(&file)?;
+        Ok(file)
     }
 }
 

@@ -45,7 +45,7 @@ class GateTests(unittest.TestCase):
 
     def test_private_services_get_their_own_session(self):
         cases = (
-            "input::shell_click::live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
+            "input::target_pointer::shell_live_tests::a_completed_wayland_click_with_refused_stop_is_delivered_once_and_unsafe_to_retry",
         )
         for name in cases:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
@@ -85,6 +85,7 @@ class GateTests(unittest.TestCase):
 
     def test_partition_keeps_every_case_on_each_applicable_tier(self):
         wayland = [gate.CURSOR_WAYLAND, *(module + "::case" for module in gate.WAYLAND_MODULES),
+                   "system::process::protected::live_tests::a_native_wayland_application_is_cleared_by_its_tree_and_a_windowless_one_is_not",
                    "input::wayland::live_tests::reply_loss::case",
                    "system::shell::live_wayland_tests::native_case"]
         mutter = ["notifications::live_tests::case",

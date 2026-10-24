@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn a_format_count_larger_than_the_reply_is_reported_as_truncated() {
+    let mut reply = vec![0; 32];
+    reply[8..12].copy_from_slice(&2u32.to_ne_bytes());
+    let error = visual_in(&reply, 0).expect_err("two records require bytes after the header");
+    assert_eq!(
+        error.platform_detail.as_deref(),
+        Some("Truncated RENDER picture formats")
+    );
+}
+
+#[test]
 fn an_xrgb_visual_is_refused_and_argb_is_scoped_to_its_screen() {
     let mut reply = vec![0; 32];
     reply[8..12].copy_from_slice(&2u32.to_ne_bytes());

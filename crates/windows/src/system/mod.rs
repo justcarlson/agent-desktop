@@ -40,6 +40,8 @@ pub(crate) mod listing_retry;
 #[cfg(test)]
 pub(crate) mod live_identity;
 pub(crate) mod menu_state;
+#[cfg(target_os = "windows")]
+pub(crate) mod native_call;
 pub(crate) mod permissions;
 #[cfg(target_os = "windows")]
 pub(crate) mod png_codec;

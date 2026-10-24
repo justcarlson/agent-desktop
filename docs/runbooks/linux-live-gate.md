@@ -76,7 +76,8 @@ cases run once, with the openbox tier. The native Wayland input, clipboard and
 portal and shell cases (including nested test modules) boot their own compositor
 and must inherit no `WAYLAND_DISPLAY`;
 they run on the Wayland tier inside the common private bus/runtime envelope.
-The Wayland cursor refusals use the external private Wayland shell helper.
+The Wayland cursor refusals and native Wayland process-lifecycle check use the
+external private Wayland shell helper.
 Tests that replace a window manager run
 in a nested session so they cannot damage the remaining shard's environment.
 The fake RemoteDesktop service also gets a nested session bus so it cannot

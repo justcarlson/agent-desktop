@@ -60,7 +60,7 @@ fn corrupt_middle_line_is_skipped() {
         ],
     );
 
-    let (events, stats) = read_segment_events(&path).unwrap();
+    let (events, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.skipped_lines, 1);
     assert_eq!(events.len(), 2);
 }
@@ -78,7 +78,7 @@ fn non_object_json_line_is_skipped() {
         ],
     );
 
-    let (events, stats) = read_segment_events(&path).unwrap();
+    let (events, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.skipped_lines, 2);
     assert_eq!(events.len(), 1);
 }
@@ -93,7 +93,7 @@ fn oversized_line_is_skipped() {
     writeln!(file, "{{\"event\":\"big\",\"data\":\"{big}\"}}").unwrap();
     writeln!(file, r#"{{"event":"ok","ts_ms":1,"seq":1}}"#).unwrap();
 
-    let (events, stats) = read_segment_events(&path).unwrap();
+    let (events, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.skipped_lines, 1);
     assert_eq!(events.len(), 1);
 }
@@ -107,7 +107,7 @@ fn absent_meta_reads_as_schema_zero() {
         &[r#"{"event":"click","ts_ms":1,"seq":1}"#],
     );
 
-    let (_, stats) = read_segment_events(&path).unwrap();
+    let (_, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.schema, 0);
     assert!(stats.schema_warning.is_none());
 }
@@ -124,7 +124,7 @@ fn schema_two_produces_warning() {
         ],
     );
 
-    let (_, stats) = read_segment_events(&path).unwrap();
+    let (_, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.schema, 2);
     assert!(stats.schema_warning.is_some());
 }
@@ -142,7 +142,7 @@ fn multiple_meta_lines_only_first_counts_for_schema() {
         ],
     );
 
-    let (events, stats) = read_segment_events(&path).unwrap();
+    let (events, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.schema, 1);
     assert_eq!(events.len(), 3);
 }
@@ -170,7 +170,7 @@ fn invalid_utf8_line_is_skipped_not_fatal() {
     writeln!(file, r#"{{"event":"b","ts_ms":2,"seq":2}}"#).unwrap();
     drop(file);
 
-    let (events, stats) = read_segment_events(&path).unwrap();
+    let (events, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.skipped_lines, 1);
     assert_eq!(events.len(), 2);
     let names: Vec<_> = events
@@ -195,7 +195,7 @@ fn metadata_and_unfinished_tail_preserve_complete_events() {
     )
     .unwrap();
 
-    let (events, stats) = read_segment_events(&path).unwrap();
+    let (events, stats) = read_segment_events(&path, &mut Default::default()).unwrap();
     assert_eq!(stats.schema, 1);
     assert_eq!(stats.skipped_lines, 1);
     assert_eq!(stats.event_count, 2);

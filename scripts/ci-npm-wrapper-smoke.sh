@@ -29,7 +29,7 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/agent-desktop-npm.XXXXXX")
 PACKAGE_DIR="$WORK/package"
 VERSION_JSON="$WORK/version.json"
 cleanup() {
-  rm -rf -- "$WORK"
+  trash "$WORK"
 }
 trap cleanup EXIT
 TARBALL="$WORK/$(npm pack ./npm --pack-destination "$WORK" --silent)"

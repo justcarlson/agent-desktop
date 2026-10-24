@@ -12,8 +12,15 @@ fn record(nonce: &str) -> OwnerRecord {
 }
 
 fn scratch(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("owner-record-{label}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    use std::os::unix::fs::DirBuilderExt;
+
+    let name = format!("owner-record-{label}");
+    let name = agent_desktop_core::temporary_file_name(std::ffi::OsStr::new(&name));
+    let dir = std::env::temp_dir().join(name);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .expect("exclusive private temporary directory");
     dir
 }
 
@@ -55,8 +62,7 @@ fn a_failure_outcome_carries_its_message_and_is_not_a_record() {
         read_outcome(&dir, ":7", &nonce),
         Some(Outcome::Failed("payload missing".into()))
     );
-    assert!(records_in(&dir, ":7").is_empty());
-    std::fs::remove_dir_all(&dir).expect("cleanup");
+    assert!(records_in(&dir, ":7").expect("list").is_empty());
 }
 
 #[test]
@@ -69,7 +75,7 @@ fn records_are_listed_per_display_only() {
     eight.display = ":8".into();
     publish(&dir, &seven).expect("seven");
     publish(&dir, &eight).expect("eight");
-    let found = records_in(&dir, ":7.0");
+    let found = records_in(&dir, ":7.0").expect("list");
     assert_eq!(
         found,
         [OwnerRecord {
@@ -80,7 +86,6 @@ fn records_are_listed_per_display_only() {
             nonce: seven_nonce,
         }]
     );
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
@@ -89,8 +94,7 @@ fn an_exiting_owner_removes_its_own_record() {
     let own = record(&test_nonce());
     publish(&dir, &own).expect("publish");
     remove_own(&dir, &own);
-    assert!(records_in(&dir, ":7").is_empty());
-    std::fs::remove_dir_all(&dir).expect("cleanup");
+    assert!(records_in(&dir, ":7").expect("list").is_empty());
 }
 
 #[test]
@@ -104,5 +108,78 @@ fn a_file_under_our_name_with_another_nonce_is_not_removed() {
     owner_files::write_new(&dir, &name, &stranger.to_bytes()).expect("plant");
     remove_own(&dir, &own);
     assert!(dir.join(&name).exists());
-    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn records_in_rejects_a_symlink_record() {
+    use std::os::unix::fs::symlink;
+
+    let dir = scratch("symlink");
+    owner_files::ensure_private_dir(&dir).expect("private dir");
+    let name = file_name(":7", &test_nonce()).expect("name");
+    let target = dir.join("target.json");
+    std::fs::write(&target, record(&test_nonce()).to_bytes()).expect("target");
+    symlink(&target, dir.join(name)).expect("symlink");
+    assert!(records_in(&dir, ":7").is_err(), "symlinks are refused");
+}
+
+#[cfg(unix)]
+#[test]
+fn records_in_rejects_a_fifo_without_waiting_for_a_writer() {
+    let dir = scratch("fifo");
+    owner_files::ensure_private_dir(&dir).expect("private dir");
+    let name =
+        std::ffi::CString::new(file_name(":7", &test_nonce()).expect("name")).expect("C string");
+    let descriptor = std::fs::File::open(&dir).expect("dir fd");
+    rustix::fs::mknodat(
+        &descriptor,
+        name.as_c_str(),
+        rustix::fs::FileType::Fifo,
+        rustix::fs::Mode::from_raw_mode(0o600),
+        0,
+    )
+    .expect("fifo");
+    assert_eq!(
+        records_in(&dir, ":7")
+            .expect_err("FIFOs are refused")
+            .kind(),
+        std::io::ErrorKind::InvalidData
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn records_in_rejects_an_oversized_record() {
+    let dir = scratch("oversized");
+    owner_files::ensure_private_dir(&dir).expect("private dir");
+    let name = file_name(":7", &test_nonce()).expect("name");
+    std::fs::write(
+        dir.join(name),
+        vec![b'x'; owner_files::MAX_RECORD_BYTES + 1],
+    )
+    .expect("large record");
+    assert_eq!(
+        records_in(&dir, ":7")
+            .expect_err("oversized records are refused")
+            .kind(),
+        std::io::ErrorKind::InvalidData
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn records_in_rejects_a_permissive_directory() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = scratch("permissive");
+    owner_files::ensure_private_dir(&dir).expect("private dir");
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777))
+        .expect("permissive mode");
+    assert_eq!(
+        records_in(&dir, ":7")
+            .expect_err("permissive directory is refused")
+            .kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
 }

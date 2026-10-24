@@ -81,7 +81,12 @@ pub(crate) fn capture_legacy(
         CaptureSubject::Window {
             handle,
             scale_factor,
-        } => capture_window(handle, scale_factor, deadline),
+        } => {
+            let handle = handle as usize;
+            super::native_call::capture(deadline, "window-capture", move || {
+                capture_window(handle as WindowHandle, scale_factor, deadline)
+            })
+        }
         CaptureSubject::Display { index } => capture_display_at(index, deadline),
     }
 }

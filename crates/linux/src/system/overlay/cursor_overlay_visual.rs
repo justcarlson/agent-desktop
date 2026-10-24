@@ -39,6 +39,9 @@ pub(super) fn argb_visual(connection: &RustConnection, screen: usize) -> Result<
 
 fn visual_in(reply: &[u8], screen: usize) -> Result<u32, AdapterError> {
     let formats = word(reply, 8)? as usize;
+    if formats > reply.len().saturating_sub(32) / 28 {
+        return Err(error("Truncated RENDER picture formats"));
+    }
     let mut argb = Vec::new();
     let mut offset = 32;
     for _ in 0..formats {

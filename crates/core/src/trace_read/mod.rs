@@ -1,3 +1,4 @@
+mod budget;
 mod html;
 mod merge;
 mod segment;
@@ -83,8 +84,10 @@ pub(crate) fn read_merged_for_command(
     let mut warnings = Vec::new();
     let mut segment_infos = Vec::new();
     let mut merge_sources = Vec::new();
+    let mut budget = budget::ReadBudget::default();
 
     for entry in std::fs::read_dir(trace_dir)? {
+        budget.consume_entry()?;
         let entry = entry?;
         let name = entry.file_name();
         let Some(name) = name.to_str() else {
@@ -118,7 +121,7 @@ pub(crate) fn read_merged_for_command(
             continue;
         }
 
-        match read_segment_events(&path) {
+        match read_segment_events(&path, &mut budget) {
             Ok((events, stats)) => {
                 if let Some(ref msg) = stats.schema_warning {
                     warnings.push(TraceWarning {
@@ -129,6 +132,7 @@ pub(crate) fn read_merged_for_command(
                 segment_infos.push(segment_info_from_stats(&parsed_name, &stats));
                 merge_sources.push((events, parsed_name.pid, parsed_name.stem));
             }
+            Err(err) if budget.exceeded => return Err(err),
             Err(err) => {
                 warnings.push(TraceWarning {
                     kind: TraceWarningKind::UnreadableSegment,
@@ -214,3 +218,6 @@ mod merge_tests;
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod mod_tests;
+
+#[cfg(test)]
+mod input_tests;

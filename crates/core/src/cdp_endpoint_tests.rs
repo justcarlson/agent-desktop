@@ -28,7 +28,9 @@ fn probe_parses_websocket_url_and_product_from_a_live_http_response() {
         let mut buf = [0_u8; 1024];
         let received = stream.read(&mut buf).unwrap_or(0);
         let request = String::from_utf8_lossy(&buf[..received]).into_owned();
-        let body = r#"{"Browser":"Chrome/120.0.0.0","webSocketDebuggerUrl":"ws://127.0.0.1/devtools/browser/abc"}"#;
+        let body = format!(
+            r#"{{"Browser":"Chrome/120.0.0.0","webSocketDebuggerUrl":"ws://127.0.0.1:{port}/devtools/browser/abc"}}"#
+        );
         let response = format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
             body.len(),
@@ -51,7 +53,7 @@ fn probe_parses_websocket_url_and_product_from_a_live_http_response() {
     assert_eq!(endpoint.product.as_deref(), Some("Chrome/120.0.0.0"));
     assert_eq!(
         endpoint.websocket_url,
-        "ws://127.0.0.1/devtools/browser/abc"
+        format!("ws://127.0.0.1:{port}/devtools/browser/abc")
     );
 }
 
@@ -68,7 +70,9 @@ fn probe_completes_against_a_server_that_never_closes_the_connection() {
         let (mut stream, _) = listener.accept().unwrap();
         let mut buf = [0_u8; 1024];
         let _ = stream.read(&mut buf);
-        let body = r#"{"Browser":"Chrome/142.0.0.0","webSocketDebuggerUrl":"ws://127.0.0.1/devtools/browser/def"}"#;
+        let body = format!(
+            r#"{{"Browser":"Chrome/142.0.0.0","webSocketDebuggerUrl":"ws://127.0.0.1:{port}/devtools/browser/def"}}"#
+        );
         let response = format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
             body.len(),
@@ -89,7 +93,7 @@ fn probe_completes_against_a_server_that_never_closes_the_connection() {
     assert_eq!(endpoint.product.as_deref(), Some("Chrome/142.0.0.0"));
     assert_eq!(
         endpoint.websocket_url,
-        "ws://127.0.0.1/devtools/browser/def"
+        format!("ws://127.0.0.1:{port}/devtools/browser/def")
     );
 }
 
@@ -180,4 +184,24 @@ fn merge_object_details_favors_extra_on_key_collision_and_passes_through_non_obj
 
     let unchanged = merge_object_details(serde_json::json!(null), serde_json::json!({ "pid": 1 }));
     assert_eq!(unchanged, serde_json::json!(null));
+}
+
+#[test]
+fn websocket_url_must_use_the_exact_loopback_port_and_websocket_scheme() {
+    assert!(valid_websocket_url(
+        "ws://127.0.0.1:9222/devtools/browser/id",
+        9222
+    ));
+    for invalid in [
+        "http://127.0.0.1:9222/devtools/browser/id",
+        "ws://192.0.2.1:9222/devtools/browser/id",
+        "ws://127.0.0.1:9223/devtools/browser/id",
+        "ws://localhost:9222/devtools/browser/id",
+        "ws://[::2]:9222/devtools/browser/id",
+        "ws://[::1]:9222/devtools/browser/id",
+        "ws://127.0.0.1/devtools/browser/id",
+        "ws://user@127.0.0.1:9222/devtools/browser/id",
+    ] {
+        assert!(!valid_websocket_url(invalid, 9222), "accepted {invalid}");
+    }
 }

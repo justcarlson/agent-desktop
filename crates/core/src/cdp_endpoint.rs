@@ -10,15 +10,10 @@ const MAX_ATTEMPT_TIMEOUT: Duration = Duration::from_millis(500);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 
-/// A DevTools protocol endpoint verified on a launched process, not merely
-/// requested of it. `port` and `http_endpoint` come from the launch itself;
-/// `websocket_url` and `product` come from a live `/json/version` read.
-/// `probe` only succeeds once `websocket_url` is present in that read, so an
-/// endpoint that answers HTTP without a parseable DevTools body is treated
-/// as not yet verified rather than as a success missing one field.
-/// The probe's Host header carries the port because Chromium builds the
-/// reported websocket URL from it verbatim; without it the URL cannot be
-/// dialed.
+/// A DevTools endpoint returned only after the caller verifies listener
+/// ownership. `port` comes from launch setup; the remaining fields come from
+/// a live `/json/version` response constrained to that loopback port. A direct
+/// `probe` alone does not establish which process owns the listener.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CdpEndpoint {
     pub port: u16,
@@ -29,9 +24,8 @@ pub struct CdpEndpoint {
 }
 
 /// Binds an ephemeral port to learn one the OS considers free, then releases
-/// it immediately. The gap between release and reuse is inherent to asking
-/// the OS for a free port this way; the launched process claiming it first
-/// is the expected outcome, not a race this function needs to close.
+/// it immediately. The port is advisory until launch orchestration proves the
+/// launched process owns the listener.
 pub(crate) fn pick_free_port() -> Result<u16, AppError> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(bind_failed)?;
     let port = listener.local_addr().map_err(bind_failed)?.port();
@@ -50,12 +44,10 @@ enum Attempt {
 }
 
 /// Polls `/json/version` until it answers with a parseable DevTools body or
-/// the deadline runs out. The port only exists once the launched process
-/// opens it, so an endpoint that is not yet listening is the expected state
-/// right after launch, not a failure — the loop is what turns "port
-/// injected" into "port verified". A responder that answers HTTP but never
-/// yields a `webSocketDebuggerUrl` keeps the loop going instead of returning
-/// early, since the port may still be settling into its final DevTools state.
+/// the deadline runs out. An endpoint that is not yet listening is expected
+/// right after launch. A responder without a parseable DevTools body keeps
+/// the loop going while the app may still be starting. This is only a
+/// protocol check; launch orchestration separately verifies process ownership.
 pub(crate) fn probe(port: u16, deadline: Deadline) -> Result<CdpEndpoint, AppError> {
     let mut saw_responder_without_body = false;
     loop {
@@ -157,6 +149,9 @@ fn parse_response(port: u16, raw: &[u8]) -> Option<CdpEndpoint> {
         .get("webSocketDebuggerUrl")
         .and_then(serde_json::Value::as_str)?
         .to_owned();
+    if !valid_websocket_url(&websocket_url, port) {
+        return None;
+    }
     let product = parsed
         .get("Browser")
         .and_then(serde_json::Value::as_str)
@@ -167,6 +162,42 @@ fn parse_response(port: u16, raw: &[u8]) -> Option<CdpEndpoint> {
         websocket_url,
         product,
     })
+}
+
+fn valid_websocket_url(value: &str, expected_port: u16) -> bool {
+    let Some((scheme, rest)) = value.split_once("://") else {
+        return false;
+    };
+    if !matches!(scheme, "ws" | "wss") {
+        return false;
+    }
+    let Some((authority, path)) = rest.split_once('/') else {
+        return false;
+    };
+    if path.is_empty() || authority.contains(['@', '?', '#']) {
+        return false;
+    }
+    let Some((host, port)) = authority.rsplit_once(':') else {
+        return false;
+    };
+    if host != "127.0.0.1" {
+        return false;
+    }
+    port.parse::<u16>() == Ok(expected_port)
+}
+
+pub(crate) fn unattributed(port: u16) -> AppError {
+    AppError::Adapter(
+        AdapterError::new(
+            ErrorCode::ActionFailed,
+            format!("The DevTools listener on port {port} could not be attributed to the launched process"),
+        )
+        .with_details(serde_json::json!({
+            "kind": "cdp_listener_unattributed",
+            "port": port,
+        }))
+        .with_disposition(crate::DeliverySemantics::delivered_unverified()),
+    )
 }
 
 fn bind_failed(error: std::io::Error) -> AppError {

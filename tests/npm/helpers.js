@@ -1,7 +1,7 @@
 const { spawn } = require('node:child_process');
-const { mkdtempSync, unlinkSync, writeFileSync } = require('node:fs');
+const { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { join } = require('node:path');
+const { dirname, join } = require('node:path');
 
 const postinstallScriptPath = join(__dirname, '..', '..', 'npm', 'scripts', 'postinstall.js');
 const wrapperScriptPath = join(__dirname, '..', '..', 'npm', 'bin', 'agent-desktop');
@@ -24,9 +24,15 @@ function writeOsStub(osPlatform, osArch) {
   if (!known.test(osPlatform) || !known.test(osArch)) {
     throw new Error(`unsupported os stub identity: ${osPlatform}-${osArch}`);
   }
-  const stub = join(tmpdir(), `agent-desktop-os-stub-${process.pid}-${osPlatform}-${osArch}.js`);
-  writeFileSync(stub, OS_STUB_SOURCE);
+  const root = mkdtempSync(join(tmpdir(), 'agent-desktop-os-stub-'));
+  const stub = join(root, 'stub.js');
+  writeFileSync(stub, OS_STUB_SOURCE, { flag: 'wx' });
   return stub;
+}
+
+function removeOsStub(stub) {
+  try { unlinkSync(stub); } catch {}
+  try { rmdirSync(dirname(stub)); } catch {}
 }
 
 // The stub reads its identity from the environment, so any caller that spawns
@@ -53,7 +59,7 @@ function runScriptWithOsStub(scriptPath, osPlatform, osArch, args = [], environm
     const finish = (code) => {
       if (settled) return;
       settled = true;
-      try { unlinkSync(stub); } catch {}
+      removeOsStub(stub);
       settle({ code, stderr });
     };
     child.on('close', finish);
@@ -101,6 +107,7 @@ module.exports = {
   osStubEnv,
   postinstallAs,
   postinstallScriptPath,
+  removeOsStub,
   runScriptWithOsStub,
   wrapperScriptPath,
   writeOsStub,

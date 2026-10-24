@@ -226,6 +226,43 @@ fn cdp_launch_returns_a_verified_endpoint_when_the_process_answers() {
     );
 }
 
+#[test]
+fn cdp_launch_rejects_a_valid_devtools_response_from_an_unattributed_listener() {
+    let adapter = CdpAdapter {
+        attribute_cdp_listener: false,
+        ..empty_cdp_adapter(true)
+    };
+    let options = LaunchOptions {
+        cdp_port: Some(0),
+        timeout_ms: 3_000,
+        ..Default::default()
+    };
+
+    let error = adapter_error(
+        execute(
+            LaunchArgs {
+                app: "Fixture".into(),
+                options,
+            },
+            &adapter,
+        )
+        .unwrap_err(),
+    );
+
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+    assert_eq!(
+        error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("kind")),
+        Some(&serde_json::json!("cdp_listener_unattributed"))
+    );
+    assert_eq!(
+        error.disposition,
+        crate::DeliverySemantics::DeliveredUnverified
+    );
+}
+
 /// A Chromium app launched without `--cdp` gets nudged toward the flag that
 /// actually opens the web-content door, without repeating that door's name.
 #[test]
