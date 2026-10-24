@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import json
 
-from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare, named, selected, effect, closes_fixture, close_fixture, unsupported
+from scenarios.ref_contract import expected_outcomes, row_verdict, fresh, prepare, named, selected, effect, closes_fixture, close_fixture, unsupported, refs
 from scenarios.ref_contract_windows import chooser, window_state
 from scenarios.ref_contract_identity import identify, raw_target
 from oracle.atspi_raw import RawNode
@@ -68,31 +68,56 @@ class RefContractTests(unittest.TestCase):
             self.assertEqual(row_verdict("refuse", succeeded=False, refused=unsupported(error), log_effect=False,
                                          raw_effect=False, log_unchanged=log, raw_unchanged=raw), "fail")
 
+    def test_advertised_action_refusal_cannot_rewrite_the_snapshot_promise(self):
+        node = {"name": "Alpha", "role": "combobox", "available_actions": ["Expand"]}
+        error = {"code": "ACTION_NOT_SUPPORTED", "details": {"kind": "native_popup_requires_input"},
+                 "disposition": {"delivery": "not_delivered"}}
+        ctx = SimpleNamespace(reads={}, before=Mock(), after=Mock())
+        with patch("scenarios.ref_contract.zoo", return_value=nullcontext((None, None))), \
+                patch("scenarios.ref_contract.root"), \
+                patch("scenarios.ref_contract.snapshot", return_value={"ref_id": "e1", **node}), \
+                patch("scenarios.ref_contract.fresh", return_value=node), \
+                patch("scenarios.ref_contract.prepare", return_value=node), \
+                patch("scenarios.ref_contract.raw_state", return_value=()), \
+                patch("scenarios.ref_contract.events", return_value=[]), \
+                patch("scenarios.ref_contract.since_reset", return_value=[]), \
+                patch("scenarios.ref_contract.reset"), \
+                patch("scenarios.ref_contract.effect", return_value=(False, False)), \
+                patch("scenarios.ref_contract.poll", side_effect=lambda read, *a, **kw: read()), \
+                patch("scenarios.ref_contract.act", return_value=SimpleNamespace(ok=False, error=error, exit_code=1)), \
+                patch("scenarios.ref_contract.print_rows") as report:
+            with self.assertRaisesRegex(AssertionError, "ref-contract table has failures"):
+                refs(ctx)
+        row = report.call_args.args[1][0]
+        self.assertEqual(row["expected"], ["land"])
+        self.assertEqual(row["verdict"], "fail")
+
     def test_close_runs_last_and_restores_a_new_fixture_after_observed_exit(self):
         close = {"name": "Close", "role": "button"}
         entry = {"name": "zoo-entry", "role": "textfield"}
         self.assertEqual(sorted([close, entry], key=closes_fixture), [entry, close])
-        observed = {}
-        ctx = SimpleNamespace(**{stage: lambda channel, value, s=stage: observed.setdefault((channel, s), value)
-                                for stage in ("before", "after", "restored")})
-        tree = SimpleNamespace(connection=None, bus=":1.5")
-        record = {"widget": "zoo", "event": "closed", "value": None}
-        row = {}
-        with patch("scenarios.ref_contract.fresh", return_value=close), \
-                patch("scenarios.ref_contract.events", side_effect=[[], [record]]), \
-                patch("scenarios.ref_contract.since_reset", side_effect=[[], [record], []]), \
-                patch("scenarios.ref_contract.call", return_value=(False,)), \
-                patch("scenarios.ref_contract.poll", side_effect=lambda read, _: read()), \
-                patch("scenarios.ref_contract.act") as act, \
-                patch("scenarios.ref_contract.zoo", return_value=nullcontext((None, "new-log"))), \
-                patch("scenarios.ref_contract.root"), \
-                patch("scenarios.ref_contract_windows.window_state", return_value=(("Zoo GTK3", 23, False),)):
-            close_fixture(ctx, None, tree, "old-log", close, row)
-        self.assertEqual(row["verdict"], "pass")
-        self.assertEqual(observed["atspi.close", "after"], ())
-        for channel in ("atspi.close", "applog.close"):
-            self.assertEqual(observed[channel, "before"], observed[channel, "restored"])
-        act.assert_called_once_with(ctx, close, "click")
+        for succeeded in (True, False):
+            observed = {}
+            ctx = SimpleNamespace(**{stage: lambda channel, value, s=stage: observed.setdefault((channel, s), value)
+                                    for stage in ("before", "after", "restored")})
+            tree = SimpleNamespace(connection=None, bus=":1.5")
+            record = {"widget": "zoo", "event": "closed", "value": None}
+            row = {}
+            with patch("scenarios.ref_contract.fresh", return_value=close), \
+                    patch("scenarios.ref_contract.events", side_effect=[[], [record]]), \
+                    patch("scenarios.ref_contract.since_reset", side_effect=[[], [record], []]), \
+                    patch("scenarios.ref_contract.call", return_value=(False,)), \
+                    patch("scenarios.ref_contract.poll", side_effect=lambda read, _: read()), \
+                    patch("scenarios.ref_contract.act", return_value=SimpleNamespace(ok=succeeded)) as act, \
+                    patch("scenarios.ref_contract.zoo", return_value=nullcontext((None, "new-log"))), \
+                    patch("scenarios.ref_contract.root"), \
+                    patch("scenarios.ref_contract_windows.window_state", return_value=(("Zoo GTK3", 23, False),)):
+                close_fixture(ctx, None, tree, "old-log", close, row)
+            self.assertEqual(row["verdict"], "pass" if succeeded else "fail")
+            self.assertEqual(observed["atspi.close", "after"], ())
+            for channel in ("atspi.close", "applog.close"):
+                self.assertEqual(observed[channel, "before"], observed[channel, "restored"])
+            act.assert_called_once_with(ctx, close, "click")
 
     def test_entry_activation_requires_the_callback_effect_in_both_oracles(self):
         target = SimpleNamespace(states={"SHOWING"}, text=lambda: "activated", walk=lambda: [])

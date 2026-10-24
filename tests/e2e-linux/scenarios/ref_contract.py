@@ -251,15 +251,15 @@ def close_fixture(ctx, app, tree, path, original, row):
     baseline = window_state(tree)
     ctx.before("atspi.close", baseline)
     ctx.before("applog.close", since_reset(path))
-    act(ctx, node, "click")
+    response = act(ctx, node, "click")
     def closed():
         return not call(tree.connection, "org.freedesktop.DBus", "/org/freedesktop/DBus",
                         "org.freedesktop.DBus", "NameHasOwner", "(s)", (tree.bus,))[0]
     raw_effect = bool(poll(closed, 3))
     log_effect = matching_event(events(path)[before:], "zoo", "closed")
     row.update(action=["click"], expected=["land"],
-               observed=[dict(action="click", log=log_effect, raw=raw_effect)],
-               verdict="pass" if log_effect and raw_effect else "fail")
+               observed=[dict(action="click", succeeded=response.ok, log=log_effect, raw=raw_effect)],
+               verdict="pass" if response.ok and log_effect and raw_effect else "fail")
     ctx.after("atspi.close", () if raw_effect else window_state(tree))
     ctx.after("applog.close", since_reset(path))
     if raw_effect:
@@ -291,7 +291,6 @@ def refs(ctx):
                     channel = f"ref{len(rows)}.{action}"
                     try:
                         baseline = raw_state(tree)
-                        baseline_log = events(path)
                         ctx.before("atspi." + channel, baseline)
                         ctx.before("applog." + channel, since_reset(path))
                         node = prepare(ctx, app, tree, fresh(ctx, app, original), action)
@@ -333,10 +332,6 @@ def refs(ctx):
                             log_after = events(path)
                         refused = (response.exit_code == 1 and bool(response.error)
                                    and not response.error.get("code", "").startswith("HARNESS_"))
-                        if expected == "land" and unsupported(response.error):
-                            expected = "refuse"
-                            row["expected"][-1] = "unsupported: refuse without effects"
-                            before, log_before = baseline, baseline_log
                         if not any(a in ACTIONS for a in node.get("available_actions", ())) and not set(node.get("states", ())) & BLOCKED:
                             refused = refused and unsupported(response.error)
                         verdict = row_verdict(expected, succeeded=response.ok, refused=refused, log_effect=log_effect,
