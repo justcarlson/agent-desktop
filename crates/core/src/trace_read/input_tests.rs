@@ -201,3 +201,15 @@ fn concurrent_session_writers_share_the_remaining_event_budget() {
         1
     );
 }
+
+#[test]
+fn interrupted_recording_ledger_stops_writes_without_losing_recorded_events() {
+    let dir = directory();
+    let writer = crate::trace::TraceConfig::build(None, Some(dir.clone()), true).unwrap();
+    writer.emit("before", None, serde_json::json!({})).unwrap();
+    fs::write(dir.join(".trace-usage.json"), b"[").unwrap();
+    assert!(writer.emit("after", None, serde_json::json!({})).is_err());
+    let trace = read_merged(&dir, &ReadOptions::default()).unwrap();
+    assert_eq!(trace.total_events, 2);
+    assert_eq!(trace.events.last().unwrap()["event"], "before");
+}
