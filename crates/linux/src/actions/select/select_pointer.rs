@@ -5,8 +5,9 @@ use agent_desktop_core::{
 use serde_json::json;
 
 use super::select_index::UNPROVEN_INDEX_KIND;
-use crate::actions::chain::{DeliveryOutcome, Observed};
-use crate::actions::chain_step::verified_of;
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
+use crate::actions::chain::chain_step::verified_of;
 use crate::actions::select::unchanged_is_ignored;
 use crate::input::physical::target_keyboard::press_key_global_steps;
 use crate::input::physical::target_pointer::{ClickSpec, click_steps};

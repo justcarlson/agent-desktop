@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 use super::*;
-use crate::actions::chain::Observed;
+use crate::actions::chain::chain_observed::Observed;
 
 struct Scene {
     before: Option<bool>,

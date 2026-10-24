@@ -1,7 +1,9 @@
 use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode};
 
 use super::mutation::WriteReply;
-use crate::actions::chain::{DeliveryOutcome, Observed, Rung};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
+use crate::actions::chain::chain_rung::Rung;
 
 pub(crate) const VALUE_INTERFACE: &str = "org.a11y.atspi.Value";
 pub(crate) const VALUE_LABEL: &str = "Value.CurrentValue";

@@ -1,3 +1,4 @@
+use super::chain_observed::Observed;
 use std::cell::Cell;
 use std::time::Duration;
 

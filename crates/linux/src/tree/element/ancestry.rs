@@ -1,6 +1,6 @@
 use crate::tree::AtspiElement;
 use crate::tree::vocabulary::role_numbers::{
-    MENU, MENU_BAR, POPUP_MENU, SCROLL_PANE, VIEWPORT, is_menu_item, is_web_document,
+    COMBO_BOX, MENU, MENU_BAR, POPUP_MENU, SCROLL_PANE, VIEWPORT, is_menu_item, is_web_document,
 };
 
 /// What a node needs after the walk, so later code never climbs the `Parent`
@@ -15,6 +15,7 @@ pub(crate) struct Ancestry {
     in_web_document: bool,
     button_parent: Option<Box<AtspiElement>>,
     menu_ancestors: Vec<AtspiElement>,
+    combo_owner: Option<Box<AtspiElement>>,
 }
 
 impl Ancestry {
@@ -31,6 +32,7 @@ impl Ancestry {
             in_web_document,
             button_parent: None,
             menu_ancestors: Vec::new(),
+            combo_owner: None,
         }
     }
 
@@ -59,6 +61,16 @@ impl Ancestry {
     pub(crate) fn menu_ancestors(&self) -> &[AtspiElement] {
         &self.menu_ancestors
     }
+
+    pub(crate) fn combo_owner(&self) -> Option<AtspiElement> {
+        let mut owner = self.combo_owner.as_deref()?.clone();
+        owner.set_ancestry(Self::of(
+            self.frame.as_deref().cloned(),
+            None,
+            self.in_web_document,
+        ));
+        Some(owner)
+    }
 }
 
 /// The ancestry of the walk's own root: a window root is its own frame and
@@ -80,6 +92,10 @@ pub(crate) fn child(parent: &AtspiElement, role: Option<u32>) -> Ancestry {
         },
         parent.in_web_document() || is_web_document(role),
     );
+    ancestry.combo_owner = match role {
+        Some(COMBO_BOX) => Some(Box::new(parent.address())),
+        _ => parent.ancestry().combo_owner.clone(),
+    };
     if role != Some(MENU_BAR) {
         ancestry.menu_ancestors = parent.ancestry().menu_ancestors.clone();
         if role.is_some_and(|role| matches!(role, MENU | POPUP_MENU) || is_menu_item(role)) {

@@ -3,33 +3,19 @@ use agent_desktop_core::{
 };
 use serde_json::json;
 
-use super::chain_step::{satisfied_step, semantic_step, skipped_step, verified_of};
+use chain_step::{satisfied_step, semantic_step, skipped_step, verified_of};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Observed {
-    Matched,
-    Unchanged,
-    Unread,
-}
+use chain_def::ChainDef;
+use chain_delivery_outcome::DeliveryOutcome;
+use chain_rung::Rung;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum DeliveryOutcome {
-    NotDelivered,
-    Satisfied,
-    Delivered(Observed),
-}
+pub(crate) mod chain_def;
+pub(crate) mod chain_delivery_outcome;
+pub(crate) mod chain_observed;
+pub(crate) mod chain_rung;
+pub(crate) mod chain_step;
 
 const ABSENT_CAUSE: &str = "affordance_absent";
-
-pub(crate) struct ChainDef {
-    pub(crate) action: &'static str,
-    pub(crate) suggestion: &'static str,
-}
-
-pub(crate) struct Rung<'a> {
-    pub(crate) label: &'static str,
-    pub(crate) run: Box<dyn FnMut() -> Result<DeliveryOutcome, AdapterError> + 'a>,
-}
 
 fn exhausted(def: &ChainDef, steps: &[ActionStep]) -> AdapterError {
     let tried: Vec<&str> = steps.iter().map(ActionStep::label).collect();

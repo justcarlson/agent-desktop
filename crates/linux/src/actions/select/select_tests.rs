@@ -13,7 +13,8 @@ fn a_matching_label_with_no_route_is_not_supported_and_not_delivered() {
 
 #[test]
 fn a_select_whose_read_back_is_unchanged_is_a_write_ignored_failure() {
-    use super::super::chain::{DeliveryOutcome, Observed};
+    use super::super::chain::chain_delivery_outcome::DeliveryOutcome;
+    use super::super::chain::chain_observed::Observed;
     use super::unchanged_is_ignored;
     use agent_desktop_core::ErrorCode;
     let error = unchanged_is_ignored(DeliveryOutcome::Delivered(Observed::Unchanged))

@@ -1,7 +1,8 @@
 use agent_desktop_core::{Action, DeliverySemantics, ErrorCode};
 
 use super::*;
-use crate::actions::chain::{DeliveryOutcome, Observed};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_observed::Observed;
 use crate::actions::write::mutation::WriteReply;
 
 fn facts(

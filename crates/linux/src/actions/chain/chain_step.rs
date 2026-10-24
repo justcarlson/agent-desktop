@@ -1,6 +1,6 @@
 use agent_desktop_core::{ActionStep, StepMechanism};
 
-use super::chain::Observed;
+use super::chain_observed::Observed;
 
 pub(crate) fn semantic_step(label: &'static str, verified: Option<bool>) -> ActionStep {
     let step = ActionStep::succeeded(label).with_mechanism(StepMechanism::SemanticApi);

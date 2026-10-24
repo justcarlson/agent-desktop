@@ -3,7 +3,8 @@ use std::cell::{Cell, RefCell};
 use agent_desktop_core::AdapterError;
 
 use super::{TextPort, WriteReply};
-use crate::actions::chain::{DeliveryOutcome, Rung};
+use crate::actions::chain::chain_delivery_outcome::DeliveryOutcome;
+use crate::actions::chain::chain_rung::Rung;
 use crate::tree::capabilities::text_selection::CaretAndSelection;
 use crate::tree::capabilities::text_units::LengthUnit;
 
