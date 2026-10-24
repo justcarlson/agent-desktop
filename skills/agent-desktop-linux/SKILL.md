@@ -71,10 +71,9 @@ Observation and semantic actions need no helper tool.
 - **GTK4 apps nest deeply.** `--max-depth` and `--skeleton` count semantic
   levels, so empty layout wrappers add output levels. `-i --compact` still
   shows nested nameless `group` nodes: read past them.
-- **Thunar icon view can omit file items.** On Thunar 4.18.8, switching to
-  View → View as Detailed List (Ctrl+2) exposes filenames as table cells.
-  Take a fresh snapshot after switching; an empty icon-view tree does not
-  prove the folder is empty.
+- **An empty file view does not prove an empty folder.** If an icon view
+  exposes no file items, try an available list or detailed view, then take a
+  fresh snapshot and verify which items the application exposes.
 - **A window appears before its content.** Run
   `wait --window "Text Editor" --app gnome-text-editor` first, then
   `wait --text`, which matches a node's own name, value or description. For a
