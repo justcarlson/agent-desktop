@@ -64,13 +64,7 @@ fn apply(
 ) {
     let mut next = windows.iter();
     for_each_read(root, &mut |read| {
-        if !read
-            .node
-            .extents
-            .present()
-            .copied()
-            .is_some_and(|extents| !is_sentinel(extents))
-        {
+        if read.node.extents.present().copied().is_none_or(is_sentinel) {
             return;
         }
         let window = next.next().copied().flatten();
