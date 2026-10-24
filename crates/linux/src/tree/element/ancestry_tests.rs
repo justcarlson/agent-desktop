@@ -98,3 +98,20 @@ fn ancestry_is_ignored_for_address_equality_but_address_conversion_drops_it() {
     assert_eq!(address.scroll_container(), None);
     assert!(!address.in_web_document());
 }
+
+#[test]
+fn menu_paths_follow_walked_parents_without_normal_node_ancestors() {
+    use crate::tree::vocabulary::role_numbers::{MENU, MENU_BAR, MENU_ITEM, PANEL};
+
+    let bar = element(":1.1", "/bar", 1);
+    let mut file = element(":1.1", "/file", 1);
+    file.set_ancestry(child(&bar, Some(MENU_BAR)));
+    let mut recent = element(":1.1", "/recent", 1);
+    recent.set_ancestry(child(&file, Some(MENU)));
+    let nested = child(&recent, Some(MENU_ITEM));
+    assert_eq!(nested.menu_ancestors(), &[file.address(), recent.address()]);
+    assert_eq!(child(&file, Some(MENU)).menu_ancestors(), &[file.address()]);
+    assert!(child(&bar, Some(PANEL)).menu_ancestors().is_empty());
+    assert!(child(&recent, Some(MENU_BAR)).menu_ancestors().is_empty());
+    assert!(recent.address().ancestry().menu_ancestors().is_empty());
+}

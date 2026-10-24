@@ -38,6 +38,41 @@ fn visibility(tokens: &[String]) -> Vec<&str> {
 }
 
 #[test]
+fn popup_rows_are_not_clipped_to_their_menu_anchor() {
+    use crate::tree::vocabulary::role_numbers::{MENU, MENU_ITEM};
+
+    for (role, expected) in [(MENU, vec![]), (FRAME, vec!["offscreen"])] {
+        let mut anchor = read_of(role, "File", &[]);
+        anchor.node.element = AtspiElement::new(":1.1", "/anchor", 1);
+        anchor
+            .node
+            .element
+            .set_ancestry(ancestry::of_root(&anchor.node.element.clone()));
+        anchor.node.extents = Field::Present(rect(100, 100, 40, 20));
+        anchor.node.traits.states = Field::Present(words(&[VISIBLE, SHOWING]));
+        let mut row = read_of(MENU_ITEM, "Save", &["click"]);
+        row.node.element = AtspiElement::new(":1.1", "/save", 1);
+        row.node
+            .element
+            .set_ancestry(ancestry::child(&anchor.node.element, Some(role)));
+        row.node.extents = Field::Present(rect(100, 220, 200, 20));
+        row.node.traits.states = Field::Present(words(&[VISIBLE, SHOWING]));
+        let walk = Walk {
+            root: walked(anchor, vec![walked(row, vec![])]),
+            complete: true,
+            node_count: 2,
+            max_depth: 1,
+            counts: WalkCounts::default(),
+        };
+        let snapshot = super::tests::tree_of(walk, &WalkLimits::default());
+        assert_eq!(
+            visibility(&snapshot.children[0].presentation.states),
+            expected
+        );
+    }
+}
+
+#[test]
 fn snapshot_and_live_visibility_agree_on_the_same_walk_facts() {
     let frame_rect = rect(0, 0, 200, 200);
     let inside = rect(40, 40, 20, 20);

@@ -67,11 +67,13 @@ impl<'a> SnapshotVisibility<'a> {
         }
     }
 
+    /// L41-18: popup descendants can lie outside their menu-bar anchor rectangle.
     pub(crate) fn placement(&self, read: &ObservedRead) -> Placement {
         let frame = read.node.element.frame().and_then(|frame| self.read(frame));
+        let in_menu = !read.node.element.ancestry().menu_ancestors().is_empty();
         Placement {
             node: rectangle(read),
-            frame: frame.and_then(|(rect, _)| rect),
+            frame: frame.and_then(|(rect, _)| rect).filter(|_| !in_menu),
             container: read
                 .node
                 .element

@@ -1,17 +1,20 @@
 use crate::tree::AtspiElement;
-use crate::tree::vocabulary::role_numbers::{SCROLL_PANE, VIEWPORT, is_web_document};
+use crate::tree::vocabulary::role_numbers::{
+    MENU, MENU_BAR, POPUP_MENU, SCROLL_PANE, VIEWPORT, is_menu_item, is_web_document,
+};
 
 /// What a node needs after the walk, so later code never climbs the `Parent`
 /// property — which the ledger records disagreeing with the walked parent
 /// (L2-2): the window root, nearest scroll container, direct button parent,
 /// and whether a web document encloses it. Ancestors are bare addresses,
-/// never a chain.
+/// with menu ancestors kept in walk order.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Ancestry {
     frame: Option<Box<AtspiElement>>,
     scroll_container: Option<Box<AtspiElement>>,
     in_web_document: bool,
     button_parent: Option<Box<AtspiElement>>,
+    menu_ancestors: Vec<AtspiElement>,
 }
 
 impl Ancestry {
@@ -27,6 +30,7 @@ impl Ancestry {
             scroll_container: scroll_container.map(|element| Box::new(element.address())),
             in_web_document,
             button_parent: None,
+            menu_ancestors: Vec::new(),
         }
     }
 
@@ -51,6 +55,10 @@ impl Ancestry {
     pub(crate) fn in_web_document(&self) -> bool {
         self.in_web_document
     }
+
+    pub(crate) fn menu_ancestors(&self) -> &[AtspiElement] {
+        &self.menu_ancestors
+    }
 }
 
 /// The ancestry of the walk's own root: a window root is its own frame and
@@ -72,6 +80,12 @@ pub(crate) fn child(parent: &AtspiElement, role: Option<u32>) -> Ancestry {
         },
         parent.in_web_document() || is_web_document(role),
     );
+    if role != Some(MENU_BAR) {
+        ancestry.menu_ancestors = parent.ancestry().menu_ancestors.clone();
+        if role.is_some_and(|role| matches!(role, MENU | POPUP_MENU) || is_menu_item(role)) {
+            ancestry.menu_ancestors.push(parent.address());
+        }
+    }
     if matches!(
         role,
         Some(

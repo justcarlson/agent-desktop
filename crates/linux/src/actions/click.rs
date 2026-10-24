@@ -178,6 +178,11 @@ fn toggles_in_place(role: Option<u32>, names: &[String]) -> bool {
 
 fn activate(target: &Target<'_>, action: &Action) -> Result<ActionResult, AdapterError> {
     let view = target.view()?;
+    if matches!(action, Action::Click)
+        && let Some(result) = super::native_menu::try_click(target, &view)?
+    {
+        return Ok(result);
+    }
     let names = names_of(&view)?;
     let verbs = match action {
         Action::Click => click_verbs(view.role()),
