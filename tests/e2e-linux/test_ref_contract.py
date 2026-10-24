@@ -1,9 +1,60 @@
 import unittest
+from unittest.mock import patch
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+import json
 
-from scenarios.ref_contract import expected_outcomes, row_verdict
+from scenarios.ref_contract import expected_outcomes, row_verdict, fresh
+from scenarios.ref_contract_identity import identify, raw_target
+from oracle.atspi_raw import RawNode
 
 
 class RefContractTests(unittest.TestCase):
+    def test_raw_text_uses_character_count_for_toolkits_without_negative_end(self):
+        node = RawNode(None, ":1.5", "/entry")
+        with patch.object(node, "interfaces", return_value=["org.a11y.atspi.Text"]), \
+                patch.object(node, "get_property", return_value=6), \
+                patch.object(node, "invoke", side_effect=lambda interface, method, signature, args:
+                             ("marker" if args == (0, 6) else "",)):
+            self.assertEqual(node.text(), "marker")
+
+    def test_raw_mapping_distinguishes_unnamed_and_duplicate_named_nodes(self):
+        class Node:
+            bus = ":1.5"
+
+            def __init__(self, path, name, children=()):
+                self.path, self.name, self._children = path, name, children
+
+            def children(self):
+                return self._children
+
+        controls = [Node("/button", "same"), Node("/label", "same"),
+                    Node("/bar_a", ""), Node("/bar_b", "")]
+        tree = Node("/root", "", [Node("/frame", "window", controls)])
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            saved = root / "snapshots" / "s1"
+            saved.mkdir(parents=True)
+            (saved / "refmap.json").write_text(json.dumps({"inner": {
+                "@e1": {"source_window_id": "w-1.5-frame", "path": [0]},
+                "@e2": {"source_window_id": "w-1.5-frame", "path": [3]},
+            }}))
+            data = identify(root, {"tree": {"children": [
+                {"ref_id": "@s1:e1", "name": "same"}, {"ref_id": "@s1:e2"}]}})
+            first, second = data["tree"]["children"]
+            self.assertIs(raw_target(tree, first), controls[0])
+            self.assertIs(raw_target(tree, second), controls[3])
+
+    def test_fresh_ref_uses_address_when_value_name_changes(self):
+        original = {"ref_id": "@s1:e1", "role": "tablist", "name": "tab-a",
+                    "_identity": ("window", (0, 3))}
+        refreshed = dict(original, ref_id="@s2:e2", name="tab-b")
+        other = dict(original, ref_id="@s2:e1", _identity=("window", (0, 2)))
+        with patch("scenarios.ref_contract.snapshot", return_value={"tree": {
+                "children": [other, refreshed]}}):
+            self.assertIs(fresh(SimpleNamespace(), None, original), refreshed)
+
     def test_snapshot_promises_and_blocked_primary_action(self):
         node = {"name": "zoo-entry", "available_actions":
                 ["SetFocus", "TypeText", "SetValue", "RightClick", "ScrollTo"]}

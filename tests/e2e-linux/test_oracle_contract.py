@@ -50,6 +50,8 @@ class RawOracleTests(unittest.TestCase):
                 return (["org.a11y.atspi.Text"],)
             if method == "GetText":
                 return ("café",)
+            if method == "Get":
+                return (4,)
             return ((10, -20, 80, 40),)
 
         with patch.object(raw, "call", side_effect=reply):
@@ -59,7 +61,7 @@ class RawOracleTests(unittest.TestCase):
             self.assertEqual(node.text(), "café")
         self.assertEqual(seen[0], ("GetExtents", "(u)", (1,)))
         self.assertEqual(seen[1], ("GetExtents", "(u)", (0,)))
-        self.assertIn(("GetText", "(ii)", (0, -1)), seen)
+        self.assertIn(("GetText", "(ii)", (0, 4)), seen)
 
     def test_missing_optional_interfaces_are_absent(self):
         node = raw.RawNode(None, ":1.4", "/node")

@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def main(argv):
-    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtCore import QModelIndex, Qt, QTimer
     from PyQt6.QtWidgets import (
         QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QLabel,
         QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox,
@@ -49,7 +49,7 @@ def main(argv):
         widget.clicked.connect(lambda *_: callback())
         return widget
 
-    button("zoo-button", lambda: record("zoo-button", "activate"))
+    initial_focus = button("zoo-button", lambda: record("zoo-button", "activate"))
     toggle = add(QPushButton("zoo-toggle"), "zoo-toggle")
     toggle.setCheckable(True)
     check = add(QCheckBox("zoo-check"), "zoo-check")
@@ -76,6 +76,14 @@ def main(argv):
     password.setEchoMode(QLineEdit.EchoMode.Password)
     entry.textChanged.connect(lambda value: record("zoo-entry", "changed", value))
     password.textChanged.connect(lambda value: record("zoo-password", "changed", len(value)))
+    def focus_changed(previous, current):
+        if current is not None:
+            for widget, name in ((entry, "zoo-entry"), (password, "zoo-password"),
+                                 (spin, "zoo-spin")):
+                if current is widget or widget.isAncestorOf(current):
+                    record(name, "focus", True)
+
+    app.focusChanged.connect(focus_changed)
     text = add(QTextEdit(), "zoo-text")
     text.setFixedHeight(60)
     text.textChanged.connect(lambda: record("zoo-text", "changed", text.toPlainText()))
@@ -122,7 +130,11 @@ def main(argv):
         name = f"zoo-row-{i}"
         row = QListWidgetItem(name, rows)
         row.setData(Qt.ItemDataRole.AccessibleTextRole, name)
-    rows.currentItemChanged.connect(lambda current, previous: current is not None and record(current.text(), "row", current.text()))
+    def row_selected():
+        for item in rows.selectedItems():
+            record(item.text(), "row", item.text())
+
+    rows.itemSelectionChanged.connect(row_selected)
     disabled = add(QPushButton("zoo-disabled"), "zoo-disabled")
     disabled.setEnabled(False)
     hidden = add(QPushButton("zoo-hidden"), "zoo-hidden")
@@ -140,6 +152,13 @@ def main(argv):
     offscreen.clicked.connect(lambda: record("zoo-offscreen", "activate"))
     tall_box.addWidget(offscreen)
     scroll.setWidget(tall)
+
+    for scrollbar, name in ((scroll.verticalScrollBar(), "zoo-scroll-vscroll"),
+                            (scroll.horizontalScrollBar(), "zoo-scroll-hscroll"),
+                            (text.verticalScrollBar(), "zoo-text-vscroll"),
+                            (text.horizontalScrollBar(), "zoo-text-hscroll")):
+        named(scrollbar, name)
+        scrollbar.valueChanged.connect(lambda value, n=name: record(n, "changed", value))
 
     def show_dialog(dialog):
         dialogs.append(dialog)
@@ -187,24 +206,34 @@ def main(argv):
         dialogs.append(top)
         top.show()
 
-    button("zoo-open-dialog", open_dialog)
-    button("zoo-open-chooser", open_chooser)
-    button("zoo-open-message", open_message)
-    button("zoo-open-toplevel-button", open_toplevel)
+    for index, (name, callback) in enumerate(
+            (("zoo-open-dialog", open_dialog), ("zoo-open-chooser", open_chooser),
+             ("zoo-open-message", open_message),
+             ("zoo-open-toplevel-button", open_toplevel)), start=1):
+        box.insertWidget(index, button(name, callback))
+
+    def finish_reset():
+        nonlocal resetting
+        resetting = False
+        Path(str(log) + ".reset").rename(Path(str(log) + ".reset-consumed"))
+        record("zoo", "reset")
 
     def control():
         nonlocal resetting
         reset = Path(str(log) + ".reset")
-        if reset.exists():
+        if reset.exists() and not resetting:
             resetting = True
             for dialog in list(dialogs):
                 dialog.close()
             dialogs.clear()
             menu.close()
+            combo.hidePopup()
             for widget in (toggle, check, switch, expander):
                 widget.setChecked(False)
             radio_a.setChecked(True)
             combo.setCurrentIndex(0)
+            combo.view().setCurrentIndex(QModelIndex())
+            combo.view().clearSelection()
             spin.setValue(0)
             scale.setValue(0)
             entry.clear()
@@ -215,9 +244,8 @@ def main(argv):
             rows.setCurrentRow(-1)
             scroll.verticalScrollBar().setValue(0)
             scroll.horizontalScrollBar().setValue(0)
-            resetting = False
-            reset.rename(Path(str(log) + ".reset-consumed"))
-            record("zoo", "reset")
+            initial_focus.setFocus(Qt.FocusReason.OtherFocusReason)
+            QTimer.singleShot(0, finish_reset)
 
     timer = QTimer(window)
     timer.timeout.connect(control)

@@ -48,7 +48,7 @@ def main(argv):
         widget.connect("clicked", lambda *_: callback())
         return widget
 
-    button("zoo-button", lambda: record("zoo-button", "activate"))
+    initial_focus = button("zoo-button", lambda: record("zoo-button", "activate"))
     toggle = add(Gtk.ToggleButton(label="zoo-toggle"), "zoo-toggle")
     check = add(Gtk.CheckButton(label="zoo-check"), "zoo-check")
     radio_a = add(Gtk.RadioButton.new_with_label_from_widget(None, "zoo-radio-a"), "zoo-radio-a")
@@ -74,6 +74,10 @@ def main(argv):
     password.set_visibility(False)
     entry.connect("changed", lambda w: record("zoo-entry", "changed", w.get_text()))
     password.connect("changed", lambda w: record("zoo-password", "changed", len(w.get_text())))
+    for widget, name in ((entry, "zoo-entry"), (password, "zoo-password"),
+                         (spin, "zoo-spin")):
+        widget.connect("notify::has-focus",
+                       lambda w, _, n=name: w.has_focus() and record(n, "focus", True))
     text = add(Gtk.TextView(), "zoo-text")
     text.set_size_request(-1, 60)
     buffer = text.get_buffer()
@@ -124,6 +128,12 @@ def main(argv):
     tall.pack_end(offscreen, False, False, 0)
     scroll.add(tall)
 
+    named(scroll.get_vscrollbar(), "zoo-scroll-vscroll")
+    named(scroll.get_hscrollbar(), "zoo-scroll-hscroll")
+    for adjustment, name in ((scroll.get_vadjustment(), "zoo-scroll-vscroll"),
+                             (scroll.get_hadjustment(), "zoo-scroll-hscroll")):
+        adjustment.connect("value-changed", lambda a, n=name: record(n, "changed", a.get_value()))
+
     def open_dialog():
         dialog = Gtk.Dialog(title="Zoo Dialog", transient_for=window, modal=True)
         dialogs.append(dialog)
@@ -158,18 +168,30 @@ def main(argv):
         dialog.connect("response", response)
         dialog.show_all()
 
-    button("zoo-open-dialog", open_dialog)
-    button("zoo-open-chooser", open_chooser)
+    for index, (name, callback) in enumerate(
+            (("zoo-open-dialog", open_dialog), ("zoo-open-chooser", open_chooser)), start=1):
+        box.reorder_child(button(name, callback), index)
+
+    def finish_reset():
+        nonlocal resetting
+        window.set_focus(None)
+        window.set_focus(initial_focus)
+        resetting = False
+        Path(str(log) + ".reset").rename(Path(str(log) + ".reset-consumed"))
+        record("zoo", "reset")
+        return False
 
     def control():
         nonlocal resetting
         reset = Path(str(log) + ".reset")
-        if reset.exists():
+        if reset.exists() and not resetting:
             resetting = True
             for dialog in dialogs:
                 dialog.destroy()
             dialogs.clear()
             menu.popdown()
+            menu_button.set_active(False)
+            combo.popdown()
             for widget in (toggle, check, switch):
                 widget.set_active(False)
             radio_a.set_active(True)
@@ -185,9 +207,7 @@ def main(argv):
             rows.unselect_all()
             scroll.get_vadjustment().set_value(0)
             scroll.get_hadjustment().set_value(0)
-            resetting = False
-            reset.rename(Path(str(log) + ".reset-consumed"))
-            record("zoo", "reset")
+            GLib.idle_add(finish_reset)
         return True
 
     GLib.timeout_add(20, control)

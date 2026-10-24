@@ -128,7 +128,8 @@ class RawNode:
     def text(self) -> str | None:
         if "org.a11y.atspi.Text" not in self.interfaces():
             return None
-        return self.invoke("org.a11y.atspi.Text", "GetText", "(ii)", (0, -1))[0]
+        count = self.get_property("org.a11y.atspi.Text", "CharacterCount")
+        return self.invoke("org.a11y.atspi.Text", "GetText", "(ii)", (0, count))[0]
 
     def value(self) -> float | None:
         if "org.a11y.atspi.Value" not in self.interfaces():
