@@ -17,18 +17,32 @@ Snapshots, clipboard reads, screenshots, command output and debug artifacts can 
 
 ## Installation
 
+Use a native package manager for a direct executable with no runtime wrapper or npm postinstall step.
+
+**macOS and Linux** ([Homebrew](https://brew.sh)):
+
 ```bash
-npm install -g agent-desktop
-agent-desktop status            # platform, permissions, supported surfaces
+brew tap lahfir/agent-desktop https://github.com/lahfir/agent-desktop.git
+brew install lahfir/agent-desktop/agent-desktop
 ```
 
-The package works on macOS, Windows and Linux, on x64 and ARM64. Then check what your OS needs:
+**Windows** ([Scoop](https://scoop.sh)):
 
-- **macOS** needs Accessibility permission: `agent-desktop permissions --guide`. See [permissions](docs/install.md#permissions).
-- **Windows** needs no grant for apps at your terminal's integrity level. See [permissions](docs/install.md#permissions).
-- **Linux** needs the user's graphical session with `at-spi2-core`. See [permissions](docs/install.md#permissions).
+```powershell
+scoop bucket add agent-desktop https://github.com/lahfir/agent-desktop.git
+scoop install agent-desktop/agent-desktop
+```
 
-The npm package bundles the native binaries and helpers for all six platform and architecture combinations, so installation also works with scripts blocked. When postinstall runs, POSIX commands link directly to the native binary and owned Windows npm/Yarn commands call the executable directly; blocked scripts and some package managers retain a launcher. To verify a release archive's origin, run `gh attestation verify`; see [docs/install.md](docs/install.md#release-archives). Building from source is covered in [docs/install.md](docs/install.md#from-source).
+Homebrew links the native executable; Scoop adds its native executable directory to PATH without creating a shim.
+Both select the matching x64 or ARM64 release and verify its pinned SHA-256. Run `agent-desktop version` to check
+installation. If an older npm install appears first on PATH, uninstall it with its original package manager.
+
+- **macOS** needs Accessibility permission: `agent-desktop permissions --guide`.
+- **Windows** needs no grant for apps at your terminal's integrity level.
+- **Linux** needs the user's graphical session with `at-spi2-core`.
+
+See [installation and permissions](docs/install.md) for upgrades, release archives, and building from source.
+The npm package remains available as an alternative, but some npm-family paths retain launchers.
 
 ## Quick start
 

@@ -3,9 +3,9 @@ name: Homebrew
 on:
   push:
     branches: [main]
-    paths: ["Formula/**", ".github/workflows/homebrew.yml"]
+    paths: ["Formula/**", "tests/native-install/homebrew.sh", ".github/workflows/homebrew.yml"]
   pull_request:
-    paths: ["Formula/**", ".github/workflows/homebrew.yml"]
+    paths: ["Formula/**", "tests/native-install/homebrew.sh", ".github/workflows/homebrew.yml"]
   workflow_dispatch:
 
 permissions:
@@ -13,8 +13,12 @@ permissions:
 
 jobs:
   install:
-    name: Fresh Homebrew install
-    runs-on: macos-latest
+    name: Fresh Homebrew install (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
       HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -23,13 +27,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04
       - name: Install and test native formula
-        run: |
-          set -euo pipefail
-          brew tap-new lahfir/agent-desktop-ci
-          cp Formula/agent-desktop.rb "$(brew --repo lahfir/agent-desktop-ci)/Formula/agent-desktop.rb"
-          brew install lahfir/agent-desktop-ci/agent-desktop
-          brew test lahfir/agent-desktop-ci/agent-desktop
-          formula_prefix=$(brew --prefix lahfir/agent-desktop-ci/agent-desktop)
-          env -i HOME="$HOME" PATH=/usr/bin:/bin "$formula_prefix/bin/agent-desktop" version
-          test -x "$formula_prefix/bin/agent-desktop-macos-helper"
+        run: bash tests/native-install/homebrew.sh
