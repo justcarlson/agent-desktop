@@ -155,4 +155,7 @@ else
     badmsg "fixture could not be restarted for the multi-agent cursor probe"
 fi
 
+# shellcheck source=tests/e2e/scenarios/ref_churn.sh
+source "$here/scenarios/ref_churn.sh"
+
 finish

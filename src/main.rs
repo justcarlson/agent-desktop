@@ -33,6 +33,10 @@ use std::process::ExitCode;
 const EXIT_INVALID_ARGS: u8 = 2;
 
 fn main() -> ExitCode {
+    #[cfg(target_os = "macos")]
+    if command_host::is_host_process() {
+        unsafe { libc::umask(0o077) };
+    }
     if let Some(result) = build_adapter().run_cursor_overlay_child() {
         return if result.is_ok() {
             ExitCode::SUCCESS
@@ -120,9 +124,7 @@ fn run() -> ExitCode {
 
     let cmd_name = cmd.name();
     #[cfg(target_os = "macos")]
-    if std::env::var("AGENT_DESKTOP_INTERNAL_HOST_CLIENT").as_deref() == Ok("1")
-        && !cmd.needs_caller_process()
-    {
+    if !cmd.needs_caller_process() {
         return match command_host::forward(&cli, &cmd) {
             Ok(response) => match emit_response(&response) {
                 Err(error) => report_output_failure(error),
@@ -136,13 +138,14 @@ fn run() -> ExitCode {
 }
 
 fn execute(cli: Cli, cmd: Commands) -> Result<serde_json::Value, AppError> {
-    execute_with_deadline(cli, cmd, None)
+    execute_with_deadline(cli, cmd, None, None)
 }
 
 fn execute_with_deadline(
     cli: Cli,
     cmd: Commands,
     deadline: Option<agent_desktop_core::Deadline>,
+    baseline: Option<agent_desktop_core::SignalBaseline>,
 ) -> Result<serde_json::Value, AppError> {
     if let Some(deadline) = deadline.filter(|deadline| deadline.is_expired()) {
         return Err(pre_dispatch_error(deadline.timeout_error().into()));
@@ -193,6 +196,7 @@ fn execute_with_deadline(
             if let Some(deadline) = deadline {
                 context = context.with_inherited_deadline(deadline);
             }
+            context = context.with_event_baseline(baseline.map(Ok));
             if let Some(wait) = wait_selector.as_ref() {
                 validate_wait_for_command(&cmd, wait)?;
             }

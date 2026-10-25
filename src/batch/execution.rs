@@ -9,7 +9,7 @@ use crate::{cli::Commands, cli_args::batch::BatchArgs};
 use super::{
     bounded_json::serialized_size,
     preparation::{MAX_BATCH_ENTRIES, MAX_BATCH_JSON_BYTES, PreparedCommand, prepare},
-    result_entry::{MAX_BATCH_OUTPUT_BYTES, bounded_entry, not_started_entry},
+    result_entry::{MAX_BATCH_OUTPUT_BYTES, not_started_entry},
 };
 
 pub(super) fn execute(
@@ -26,7 +26,8 @@ pub(super) fn execute(
     let mut results = Vec::with_capacity(total);
     let mut results_bytes = 0;
     let mut completed = 0;
-    let mut pending_baseline: Option<Result<SignalBaseline, AdapterError>> = None;
+    let mut pending_baseline: Option<Result<SignalBaseline, AdapterError>> =
+        context.event_baseline().cloned();
     let mut stopped = None;
 
     for index in 0..total {
@@ -99,10 +100,48 @@ pub(super) fn execute(
             .with_inherited_deadline(deadline)
             .with_event_baseline(current_baseline);
         let command = std::mem::replace(&mut commands[index].command, Commands::Version);
-        let result = crate::dispatch::dispatch(command, adapter, permission_report, &item_context);
-        let failed = result.is_err();
-        let (entry, oversized) = bounded_entry(index, &commands[index].name, result, results_bytes);
-        completed += 1;
+        #[cfg(target_os = "macos")]
+        let forwarded = if !cfg!(test)
+            && !context.session_namespace_is_pinned()
+            && !command.needs_caller_process()
+        {
+            Some(crate::command_host::forward_batch_item(
+                &commands[index].source,
+                &item_context,
+                deadline,
+            ))
+        } else {
+            None
+        };
+        #[cfg(not(target_os = "macos"))]
+        let forwarded: Option<Result<Value, AppError>> = None;
+        let entry = match forwarded {
+            Some(Ok(mut entry)) => {
+                entry["index"] = json!(index);
+                entry
+            }
+            result => super::result_entry::completed_entry(
+                index,
+                &commands[index].name,
+                match result {
+                    Some(Err(error)) => Err(error),
+                    _ => crate::dispatch::dispatch(
+                        command,
+                        adapter,
+                        permission_report,
+                        &item_context,
+                    ),
+                },
+            ),
+        };
+        let failed = entry["ok"] != true;
+        let (entry, oversized) = super::result_entry::bounded_completed_entry(
+            index,
+            &commands[index].name,
+            entry,
+            results_bytes,
+        );
+        completed += usize::from(entry["execution"] == "completed");
         push_small_entry(&mut results, &mut results_bytes, entry);
 
         if oversized {

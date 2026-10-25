@@ -241,6 +241,10 @@ fn explicit_app_filter_distinguishes_not_running_from_no_windows() {
     let empty = rustc_hash::FxHashSet::default();
     let error = require_running_app(&empty, "WhatsApp").unwrap_err();
     assert_eq!(error.code, agent_desktop_core::ErrorCode::AppNotFound);
+    assert_eq!(
+        error.disposition,
+        agent_desktop_core::DeliverySemantics::not_delivered()
+    );
 
     let running = rustc_hash::FxHashSet::from_iter([42]);
     assert!(require_running_app(&running, "WhatsApp").is_ok());

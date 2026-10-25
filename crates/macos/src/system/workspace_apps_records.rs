@@ -17,20 +17,23 @@ pub(super) fn bridged_snapshot(bytes: &[u8]) -> Result<BridgedWorkspaceSnapshot,
         .get_mut("applications")
         .and_then(Value::as_array_mut)
         .ok_or_else(|| with_skipped(inventory_error("AppKit omitted applications"), &skipped))?;
-    let mut seen = rustc_hash::FxHashSet::default();
+    let mut seen: rustc_hash::FxHashMap<Option<i64>, Value> = rustc_hash::FxHashMap::default();
     applications.retain(|app| {
-        let field = invalid_field(app).or_else(|| {
-            if seen.insert(app["pid"].as_i64()) {
-                None
-            } else {
+        let field = invalid_field(app).or_else(|| match seen.get(&app["pid"].as_i64()) {
+            Some(previous)
+                if ["launch_time", "bundle_id", "activation_policy"]
+                    .iter()
+                    .any(|field| previous[*field] != app[*field]) =>
+            {
                 Some("duplicate_pid")
             }
+            _ => None,
         });
         if let Some(field) = field {
             skipped.push(json!({"pid": app["pid"].as_i64().unwrap_or(0), "field": field}));
             false
         } else {
-            true
+            seen.insert(app["pid"].as_i64(), app.clone()).is_none()
         }
     });
     if let (Some(pid), Some(time)) = (

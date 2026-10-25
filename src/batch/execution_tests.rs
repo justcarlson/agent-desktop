@@ -1,3 +1,4 @@
+use crate::batch::result_entry::bounded_entry;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
@@ -104,6 +105,8 @@ fn dispatches_each_entry_at_most_once() {
     assert_eq!(output["semantics"]["batch_retries"], false);
     assert_eq!(output["semantics"]["atomic"], false);
     assert_eq!(output["results"][0]["execution"], "completed");
+    assert_eq!(output["completed_entries"], 1);
+    assert_eq!(output["not_started_entries"], 0);
 }
 
 #[test]
@@ -119,6 +122,8 @@ fn expired_batch_never_starts_the_entry() {
 
     assert_eq!(adapter.clears.load(Ordering::SeqCst), 0);
     assert_eq!(output["results"][0]["execution"], "not_started");
+    assert_eq!(output["completed_entries"], 0);
+    assert_eq!(output["not_started_entries"], output["total_entries"]);
     assert_eq!(output["results"][0]["not_started_reason"], "deadline");
     assert_eq!(
         output["results"][0]["error"]["disposition"]["delivery"],
@@ -150,6 +155,8 @@ fn baseline_failure_prevents_the_producer_action() {
 
     assert_eq!(adapter.clears.load(Ordering::SeqCst), 0);
     assert_eq!(output["results"][0]["execution"], "not_started");
+    assert_eq!(output["completed_entries"], 0);
+    assert_eq!(output["not_started_entries"], output["total_entries"]);
     assert_eq!(
         output["results"][0]["not_started_reason"],
         "pre_action_baseline_failed"

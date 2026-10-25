@@ -45,7 +45,7 @@ interaction_suite() {
     verify "[$mode] clear empties field" text-echo "" "$natural_mechanism" "$text_field" clear
 
     note "[$mode] state and value controls"
-    local toggle picker native_slider native_stepper scroll_area scroll_before scroll_after scroll_output scroll_mechanism
+    local toggle picker native_slider native_stepper scroll_area scroll_before scroll_after scroll_output scroll_mechanism scroll_ready
     require_target toggle checkbox toggle-box
     act_target "$toggle" uncheck >/dev/null 2>&1
     sleep 0.2
@@ -62,6 +62,10 @@ interaction_suite() {
     verify "[$mode] set stepper value" stepper-status "$stepper" semantic_api "$native_stepper" set-value "$stepper"
 
     require_target scroll_area scrollarea scroll-area
+    scroll_ready="$(act_target "$scroll_area" scroll-to 2>/dev/null)"
+    assert "[$mode] scroll viewport is brought into view" \
+        "$([ "$(json_field "$scroll_ready" ok)" = "True" ] && echo 1 || echo 0)" \
+        "$(json_field "$scroll_ready" error.message)"
     require_value scroll_before scroll-offset
     scroll_output="$(act_target "$scroll_area" scroll --direction "$direction" --amount 10 2>&1)"
     sleep 0.4
@@ -69,7 +73,7 @@ interaction_suite() {
     scroll_mechanism="$(printf '%s' "$scroll_output" | python3 "$json_tool" delivered-mechanism 2>/dev/null)"
     assert "[$mode] scroll moves content" \
         "$([ "$scroll_before" != "$scroll_after" ] && [ "$scroll_mechanism" = "$natural_mechanism" ] && echo 1 || echo 0)" \
-        "before=$scroll_before after=$scroll_after direction=$direction cmd_ok=$(json_field "$scroll_output" ok) cmd_err=$(json_field "$scroll_output" error.code) mechanism=$scroll_mechanism"
+        "before=$scroll_before after=$scroll_after direction=$direction cmd_ok=$(json_field "$scroll_output" ok) cmd_err=$(json_field "$scroll_output" error.code) mechanism=$scroll_mechanism error=$(json_field "$scroll_output" error.message)"
 }
 
 interaction_suite headless

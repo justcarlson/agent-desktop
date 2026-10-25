@@ -69,9 +69,26 @@ fn budget_ms(cli: &crate::Cli, command: &crate::Commands) -> Result<u64, AppErro
                 .ok_or_else(|| AppError::invalid_input("Wait is too long"))?,
             None => a.timeout,
         },
+        Commands::Snapshot(a) => a
+            .timeout_ms
+            .unwrap_or(agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS),
+        Commands::Find(a) => a
+            .timeout_ms
+            .unwrap_or(agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS),
+        Commands::ListApps(a) => a
+            .timeout_ms
+            .unwrap_or(agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS),
+        Commands::ListWindows(a) => a
+            .timeout_ms
+            .unwrap_or(agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS),
         Commands::Launch(a) => a.timeout,
         Commands::Batch(a) => a.timeout_ms,
         _ => agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS,
+    };
+    let primary = if primary == 0 {
+        agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS
+    } else {
+        primary
     };
     let post_wait = crate::build_wait_selector(cli)?.map_or(0, |wait| wait.timeout_ms);
     primary
@@ -100,9 +117,17 @@ mod tests {
         for (args, expected) in [
             (vec!["ad", "click", "@s123:e1", "--timeout-ms", "123"], 123),
             (
+                vec!["ad", "click", "@s123:e1", "--timeout-ms", "0"],
+                agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS,
+            ),
+            (
                 vec!["ad", "wait", "--text", "absent", "--timeout", "250"],
                 250,
             ),
+            (vec!["ad", "snapshot", "--timeout-ms", "30000"], 30000),
+            (vec!["ad", "find", "--timeout-ms", "30000"], 30000),
+            (vec!["ad", "list-apps", "--timeout-ms", "30000"], 30000),
+            (vec!["ad", "list-windows", "--timeout-ms", "30000"], 30000),
             (vec!["ad", "wait", "100"], 5100),
             (vec!["ad", "batch", "[]", "--timeout-ms", "80000"], 80000),
             (

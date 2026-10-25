@@ -10,13 +10,15 @@ pub(super) struct HostRequest {
     pub directory: PathBuf,
     pub agent_id: Option<String>,
     pub expires_ns: u64,
+    #[serde(default)]
+    pub baseline: Option<agent_desktop_core::SignalBaseline>,
 }
 
 pub(super) fn execute(bytes: &[u8], identity: &str, session: Option<&str>) -> Response {
     match prepare(bytes, identity, session) {
-        Ok((cli, command, deadline)) => crate::response(
+        Ok((cli, command, deadline, baseline)) => crate::response(
             command.name(),
-            crate::execute_with_deadline(cli, command, Some(deadline)),
+            crate::execute_with_deadline(cli, command, Some(deadline), baseline),
         ),
         Err(error) => crate::response("unknown", Err(crate::pre_dispatch_error(error))),
     }
@@ -26,7 +28,15 @@ fn prepare(
     bytes: &[u8],
     identity: &str,
     session: Option<&str>,
-) -> Result<(crate::Cli, crate::Commands, agent_desktop_core::Deadline), AppError> {
+) -> Result<
+    (
+        crate::Cli,
+        crate::Commands,
+        agent_desktop_core::Deadline,
+        Option<agent_desktop_core::SignalBaseline>,
+    ),
+    AppError,
+> {
     let request: HostRequest = serde_json::from_slice(bytes)
         .map_err(|_| AppError::invalid_input("Invalid command host request envelope"))?;
     if request.identity != identity {
@@ -46,7 +56,7 @@ fn prepare(
     let deadline =
         agent_desktop_core::Deadline::from_duration(super::budget::remaining(request.expires_ns)?)?;
     std::env::set_current_dir(&request.directory)?;
-    Ok((cli, command, deadline))
+    Ok((cli, command, deadline, request.baseline))
 }
 
 #[cfg(test)]
@@ -66,6 +76,7 @@ mod tests {
                 directory: PathBuf::from("/"),
                 agent_id: None,
                 expires_ns: u64::MAX,
+                baseline: None,
             })
             .unwrap();
             let response = execute(&bytes, "owner", Some("mine"));

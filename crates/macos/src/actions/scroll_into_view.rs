@@ -85,7 +85,13 @@ mod imp {
         let instant = crate::tree::locator_deadline::from_operation(deadline)?;
         let bounds = crate::tree::element_bounds::read_bounds_with_deadline(element, instant)?
             .ok_or_else(|| AdapterError::new(ErrorCode::ActionFailed, "Target has no bounds"))?;
-        let viewport = match crate::actions::scroll::find_scroll_area(element, deadline)? {
+        let parent = crate::actions::scroll_read::element(element, "AXParent", deadline)?;
+        let viewport = match parent
+            .as_ref()
+            .map(|parent| crate::actions::scroll::find_scroll_area(parent, deadline))
+            .transpose()?
+            .flatten()
+        {
             Some(viewport) => viewport,
             None => require_window(crate::tree::surface_read::element(
                 element, "AXWindow", instant,
