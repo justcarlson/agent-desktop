@@ -28,6 +28,7 @@ regexes = [
   '''(?i)^[A-Za-z]:\\Users\\(name|user|username|you|youruser|runner|me|someone)(\\|$)''',
   '''(?i)^/Users/(DevUser|BuildUser)$''',
   '''(?i)^/home/alice(-other)?$''',
+  '''^/home/linuxbrew$''',
 ]
 
 [[rules]]
