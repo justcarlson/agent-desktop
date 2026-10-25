@@ -45,7 +45,7 @@ fn is_sensitive_trace_key(key: &str) -> bool {
         "classes",
         "body",
     ];
-    const SENSITIVE_WHOLE_KEYS: &[&str] = &["actions"];
+    const SENSITIVE_WHOLE_KEYS: &[&str] = &["actions", "key"];
     SENSITIVE_WHOLE_KEYS.contains(&key.to_ascii_lowercase().as_str())
         || trace_key_tokens(key)
             .iter()

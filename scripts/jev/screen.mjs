@@ -61,12 +61,12 @@ export const offerable = (refs) =>
  * field in a PDF carries none of those, and where it sits is the only thing
  * that tells one from the next.
  */
-export const describe = (node, rich) => {
+export const describe = (node, rich, { values = true } = {}) => {
   const d = {
     what: `${node.role}${quoted(node.name ?? node.description)}`,
     where: node.path.length ? node.path.join(" > ") : "top level",
   };
-  if (node.value != null && node.value !== "") d.holds = String(node.value).slice(0, 120);
+  if (values && node.value != null && node.value !== "") d.holds = String(node.value).slice(0, 120);
   if (node.states?.length) d.state = node.states.join(", ");
   if (!d.what.includes('"') && node.bounds) {
     d.at = `x ${Math.round(node.bounds.x)}, y ${Math.round(node.bounds.y)}`;

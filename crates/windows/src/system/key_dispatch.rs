@@ -23,7 +23,6 @@ pub(crate) fn press_for_app_impl(
 ) -> Result<ActionResult, AdapterError> {
     tracing::debug!(
         pid = u32::from(process.pid),
-        key = combo.key.as_str(),
         allow_focus_steal = policy.allow_focus_steal,
         "system: press key for app"
     );

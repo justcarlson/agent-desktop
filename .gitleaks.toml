@@ -19,6 +19,17 @@ description = "Absolute home-directory path exposing an operator account name"
 regex = '''(?i)(/Users/|/home/|[A-Za-z]:\\Users\\)[A-Za-z0-9_-][A-Za-z0-9._-]{1,}'''
 tags = ["privacy", "path", "identity"]
 
+[[rules.allowlists]]
+description = "Documented path examples and CI runner homes"
+regexTarget = "match"
+regexes = [
+  '''(?i)^/Users/(name|user|username|you|youruser|runner|me|someone)(/|$)''',
+  '''(?i)^/home/(name|user|username|you|youruser|runner|me|someone|example-user)(/|$)''',
+  '''(?i)^[A-Za-z]:\\Users\\(name|user|username|you|youruser|runner|me|someone)(\\|$)''',
+  '''(?i)^/Users/(DevUser|BuildUser)$''',
+  '''(?i)^/home/alice(-other)?$''',
+]
+
 [[rules]]
 id = "ad-windows-account-sid"
 description = "Windows account SID with machine-unique sub-authorities"
@@ -31,6 +42,26 @@ description = "Personal email address in tracked content"
 regex = '''[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'''
 tags = ["privacy", "identity"]
 
+[[rules.allowlists]]
+description = "Documented, public, and operating-system email-shaped values"
+regexTarget = "match"
+regexes = [
+  '''(?i)^[A-Za-z0-9._%+-]+@example\.(com|org|net)$''',
+  '''(?i)^[A-Za-z0-9._%+-]+@users\.noreply\.github\.com$''',
+  '''(?i)^noreply@github\.com$''',
+  '''^secret@router\.example$''',
+  '''^org\.gnome\.Shell@(x11|wayland)\.service$''',
+  '''^user@[0-9]+\.service$''',
+  '''^ubuntu-appindicators@ubuntu\.com$''',
+  '''^ubuntu-dock@ubuntu\.com$''',
+]
+
+[[rules.allowlists]]
+description = "Compressed image, audio, and video bytes"
+paths = [
+  '''(?i)\.(avif|bmp|gif|heic|jpe?g|m4v|mkv|mov|mp3|mp4|ogg|png|wav|webm|webp)$''',
+]
+
 [[rules]]
 id = "ad-machine-hostname"
 description = "Developer machine hostname captured from a probe or trace"
@@ -40,51 +71,22 @@ description = "Developer machine hostname captured from a probe or trace"
 regex = '''\b(DESKTOP|LAPTOP)-[A-Z0-9]{7}\b'''
 tags = ["privacy", "identity"]
 
+[[rules.allowlists]]
+description = "Synthetic hostname examples"
+regexTarget = "match"
+regexes = [
+  '''^(DESKTOP|LAPTOP)-AAAAAAA$''',
+  '''^(DESKTOP|LAPTOP)-EXAMPLE$''',
+]
+
 # ---------------------------------------------------------------------------
-# Allowlist: documentation placeholders, generated artifacts, and OS vocabulary.
-# The rules above intentionally match broadly; these entries keep the scan
-# usable on content that only *looks* like a leak.
+# Global allowlist: local generated artifacts only. Benign privacy matches are
+# allowlisted on their own rules so they cannot suppress credential findings.
 # ---------------------------------------------------------------------------
 [allowlist]
-description = "Documentation placeholders and generated artifacts"
-# Match allowlist regexes against the whole line, not just the captured secret,
-# so a placeholder is recognised from its surrounding context.
-regexTarget = "line"
+description = "Local generated artifacts"
 paths = [
-  '''Cargo\.lock''',
-  '''package-lock\.json''',
-  '''(^|/)tests/fixtures/''',
-  # Never-committed local state and build output. Listed so a local
-  # `gitleaks dir .` scan matches what CI sees on tracked content.
   '''(^|/)target/''',
   '''(^|/)node_modules/''',
   '''(^|/)\.claude/''',
-]
-# Probe captures under probes/*/captures/ are deliberately NOT allowlisted:
-# they are UIA tree dumps taken on a developer desktop and are the most likely
-# place for a redaction failure, so gitleaks is the backstop behind the probe
-# corpus's own redaction gate.
-regexes = [
-  # Explicit redaction markers and angle-bracket placeholders.
-  '''<redacted[^>]*>''',
-  '''S-1-5-21-<[^>]*>''',
-  # Generic doc examples that teach path shape rather than expose one.
-  '''(?i)/Users/(name|user|username|you|youruser|me|someone)''',
-  '''(?i)/home/(name|user|username|you|youruser|runner|me|someone|example-user)''',
-  '''(?i)[A-Za-z]:\\Users\\(name|user|username|you|youruser|runner|me|someone)''',
-  # CI runner home paths are not operator identity.
-  '''/Users/runner''',
-  '''/home/runner''',
-  # Well-known localized group principals are OS vocabulary, not identity.
-  '''(?i)BUILTIN\\Admin[a-z]*''',
-  # Linux desktop vocabulary that has the shape of an address: systemd
-  # template unit names, the per-user service manager unit, and the id of
-  # Ubuntu's own GNOME Shell extension.
-  '''\borg\.gnome\.Shell@(x11|wayland)\.service\b''',
-  '''\buser@[0-9]+\.service\b''',
-  '''\bubuntu-appindicators@ubuntu\.com\b''',
-  # Addresses that are meant to be public.
-  '''(?i)[A-Za-z0-9._%+-]+@example\.(com|org|net)''',
-  '''(?i)noreply@''',
-  '''(?i)users\.noreply\.github\.com''',
 ]

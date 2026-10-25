@@ -9,6 +9,7 @@
  * correct afterwards.
  */
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 
 
 export const NO_MATCH = "none";
@@ -23,8 +24,21 @@ const STALLED_TURNS = 3;
  * `https://openrouter.ai/api/alpha/decisions` — to reuse an OpenRouter key.
  * Read lazily so programmatic callers may set the variable after import.
  */
-export const typesafeApi = () =>
-  process.env.TYPESAFE_BASE_URL ?? "https://api.typesafe.ai/v1/systemone";
+export const typesafeApi = () => {
+  const endpoint = process.env.TYPESAFE_BASE_URL ?? "https://api.typesafe.ai/v1/systemone";
+  let parsed;
+  try {
+    parsed = new URL(endpoint);
+  } catch {
+    throw new Error("TYPESAFE_BASE_URL must be a valid HTTPS URL or a loopback HTTP URL");
+  }
+  const host = parsed.hostname.toLowerCase();
+  const loopback = host === "localhost" || host === "[::1]" || (isIP(host) === 4 && host.startsWith("127."));
+  if (parsed.username || parsed.password || (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback))) {
+    throw new Error("TYPESAFE_BASE_URL must use HTTPS, or HTTP on a loopback address, and contain no credentials");
+  }
+  return parsed.href;
+};
 
 /** OpenRouter resolves bare aliases ("jev-latest") and "~typesafe/…" aliases, but
  * "typesafe/jev-latest" (scoped, unregistered) answers 400 — so scope bare names

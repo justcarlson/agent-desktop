@@ -5,7 +5,6 @@ use crate::context::{CommandContext, WaitSelector};
 use crate::refs::refs_test_support::HomeGuard;
 use crate::{AccessibilityNode, WindowInfo};
 use crate::{AdapterError, ErrorCode};
-
 struct NoopAdapter;
 impl ObservationOps for NoopAdapter {}
 
@@ -239,6 +238,9 @@ fn test_root_with_menu_surface_rejected() {
         other => panic!("expected Adapter(InvalidArgs), got {other:?}"),
     }
 }
+
+#[path = "snapshot_log_tests.rs"]
+mod log_tests;
 
 #[test]
 fn test_root_with_window_surface_does_not_short_circuit_validation() {

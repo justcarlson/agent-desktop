@@ -27,7 +27,7 @@ pub(crate) fn synthesize_scroll_at(
     let flags = crate::input::mouse::event_flags(modifiers);
     for (index, (dy, dx)) in chunks.iter().copied().enumerate() {
         crate::input::mouse::ensure_budget(deadline, delivery)?;
-        tracing::debug!(x = point.x, y = point.y, dy, dx, "mouse: scroll chunk");
+        tracing::debug!(dy, dx, "mouse: scroll chunk");
         let event = CGEvent::new_scroll_event(source.clone(), ScrollEventUnit::LINE, 2, dy, dx, 0)
             .map_err(|()| AdapterError::internal("CGEvent::new_scroll_event failed"))
             .map_err(|error| delivery.annotate(error))?;

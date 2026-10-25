@@ -26,6 +26,10 @@ mod select;
 mod render_slots;
 
 #[cfg(target_os = "windows")]
+#[path = "uia_tree_dump/profile_path.rs"]
+mod profile_path;
+
+#[cfg(target_os = "windows")]
 #[path = "uia_tree_dump/render_node.rs"]
 mod render_node;
 

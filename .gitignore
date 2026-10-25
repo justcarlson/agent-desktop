@@ -3,6 +3,8 @@
 /tests/fixture-app/build/
 /tests/fixture-app-windows/build/
 /benchmarks/locator-resolution/results/
+/assets/Videos/tldraw-demo.mp4
+.playwright-mcp/
 rust_out
 __pycache__/
 *.py[cod]

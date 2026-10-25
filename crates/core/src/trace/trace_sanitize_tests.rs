@@ -20,6 +20,19 @@ fn trace_redacts_sensitive_fields_but_preserves_messages() {
 }
 
 #[test]
+fn trace_redacts_key_names_but_preserves_static_key_metadata() {
+    let value = sanitize_trace_value(json!({
+        "key": "Control+Shift+W",
+        "key_code": 13,
+        "operation": "press key for app"
+    }));
+
+    assert_eq!(value["key"]["redacted"], true);
+    assert_eq!(value["key_code"], 13);
+    assert_eq!(value["operation"], "press key for app");
+}
+
+#[test]
 fn trace_redacts_selector_keyed_values_including_in_nested_details() {
     let value = sanitize_trace_value(json!({
         "selector": "button:Submit password",
