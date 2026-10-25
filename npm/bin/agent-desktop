@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 const { spawn } = require('child_process');
-const { existsSync, accessSync, chmodSync, constants } = require('fs');
+const { existsSync, accessSync, chmodSync, lstatSync, constants } = require('fs');
 const { isAbsolute, join } = require('path');
 const { platform, arch } = require('os');
-const { MACOS_HELPER_NAME, releasedKeys, resolve } = require('../lib/platform');
+const { LINUX_HELPER_NAME, MACOS_HELPER_NAME, releasedKeys, resolve } = require('../lib/platform');
 
 const binDir = __dirname;
 const MACOS_HELPER_PATH_ENV = 'AGENT_DESKTOP_MACOS_HELPER_PATH';
@@ -48,6 +48,25 @@ function main() {
         console.error('Try running: chmod +x ' + binaryPath);
         process.exit(1);
       }
+    }
+  }
+
+  if (platform() === 'linux') {
+    try {
+      const directory = lstatSync(binDir);
+      if (!directory.isDirectory()) throw new Error('Package bin path must be a directory');
+      chmodSync(binDir, directory.mode & 0o755);
+      const plainHelper = join(binDir, LINUX_HELPER_NAME);
+      const linuxHelper = existsSync(plainHelper)
+        ? plainHelper : join(binDir, `${LINUX_HELPER_NAME}-linux-${arch()}`);
+      if (existsSync(linuxHelper)) {
+        const helper = lstatSync(linuxHelper);
+        if (!helper.isFile()) throw new Error('Linux helper must be a regular file');
+        chmodSync(linuxHelper, (helper.mode & 0o755) | 0o100);
+      }
+    } catch (err) {
+      console.error(`Error: Cannot secure Linux package permissions: ${err.message}`);
+      process.exit(1);
     }
   }
 

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
-const { cpSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync } = require('node:fs');
+const { cpSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync, chmodSync, statSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { test } = require('node:test');
@@ -66,4 +66,22 @@ test('release packaging rejects a modified archive before installing its executa
   assert.throws(() => execFileSync(process.execPath,
     [join(root, 'scripts/prepare-npm-binaries.js'), archives], { stdio: 'pipe' }),
   (error) => error.stderr.toString().includes('Checksum mismatch'));
+});
+
+test('blocked-script Linux launch removes write access without broadening private helpers', {
+  skip: process.platform === 'win32',
+}, () => {
+  for (const mode of [0o775, 0o700]) {
+    const { root, archives } = fixture();
+    execFileSync(process.execPath, [join(root, 'scripts/prepare-npm-binaries.js'), archives]);
+    const bin = join(root, 'npm/bin');
+    const helper = join(bin, 'agent-desktop-linux-clipboard-owner-linux-x64');
+    chmodSync(bin, mode);
+    chmodSync(helper, mode);
+    const stub = join(root, 'os-stub.js');
+    writeFileSync(stub, "const os = require('os'); os.platform = () => 'linux'; os.arch = () => 'x64';");
+    execFileSync(process.execPath, ['-r', stub, join(bin, 'agent-desktop'), 'version']);
+    assert.equal(statSync(bin).mode & 0o777, mode & 0o755);
+    assert.equal(statSync(helper).mode & 0o777, mode & 0o755);
+  }
 });

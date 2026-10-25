@@ -277,6 +277,8 @@ function main() {
     mkdirSync(binDir, { recursive: true });
   }
 
+  if (platform() === 'linux') chmodSync(binDir, lstatSync(binDir).mode & 0o755);
+
   if (process.env.AGENT_DESKTOP_BINARY_PATH) {
     const customPath = process.env.AGENT_DESKTOP_BINARY_PATH;
     try {

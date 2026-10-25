@@ -1,6 +1,6 @@
 ---
 name: agent-desktop-windows
-version: 0.11.0
+version: 0.11.1
 tags: windows-automation, accessibility, uia, ai-agent, gui-automation, cli
 requirements:
   - agent-desktop
