@@ -21,7 +21,7 @@ mod test_noop_ops;
 use agent_desktop_core::{
     AdapterError, AppError, DeliverySemantics, ErrorCode, SystemOps,
     context::{CommandContext, WaitSelector},
-    output::{ErrorPayload, Response},
+    response::output::{ErrorPayload, Response},
     session::resolve_active_session,
 };
 use clap::{CommandFactory, Parser};
@@ -37,6 +37,13 @@ fn main() -> ExitCode {
     if command_host::is_host_process() {
         unsafe { libc::umask(0o077) };
     }
+    let code = run_command();
+    #[cfg(target_os = "linux")]
+    agent_desktop_linux::end_input_session();
+    code
+}
+
+fn run_command() -> ExitCode {
     if let Some(result) = build_adapter().run_cursor_overlay_child() {
         return if result.is_ok() {
             ExitCode::SUCCESS
@@ -99,8 +106,9 @@ fn run() -> ExitCode {
             }
             let summary = diagnostic::clap_error_summary(&e.to_string());
             let error = AppError::invalid_input(diagnostic::bounded_text(&summary, 512));
+            let command_name = diagnostic::clap_command_name(std::env::args().skip(1));
             return if let Err(write_err) = emit_response(&Response::err(
-                "unknown",
+                &command_name,
                 ErrorPayload::from_app_error(&error),
             )) {
                 report_output_failure(write_err)
@@ -360,6 +368,7 @@ fn build_adapter() -> impl agent_desktop_core::PlatformAdapter {
 
     #[cfg(target_os = "linux")]
     {
+        agent_desktop_linux::release_input_on_signals();
         agent_desktop_linux::LinuxAdapter::new()
     }
 

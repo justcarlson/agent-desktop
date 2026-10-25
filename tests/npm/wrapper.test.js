@@ -6,24 +6,40 @@ const {
   mkdirSync,
   openSync,
   readFileSync,
+  rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } = require('node:fs');
-const { join } = require('node:path');
+const { dirname, join } = require('node:path');
 const { afterEach, test } = require('node:test');
 
-const postinstall = require('../../npm/scripts/postinstall.js');
 const { resolve } = require('../../npm/lib/platform.js');
 const {
   createTemporaryRoots,
   osStubEnv,
   postinstallScriptPath,
+  removeOsStub,
   runScriptWithOsStub,
   wrapperScriptPath,
   writeOsStub,
 } = require('./helpers.js');
+const { tmpdir } = require('node:os');
 
 const { temporaryDirectory, drainRoots } = createTemporaryRoots();
+
+test('OS stubs live in a private temporary directory', () => {
+  const stub = writeOsStub('win32', 'x64');
+  try {
+    assert.notEqual(dirname(stub), tmpdir());
+    if (process.platform !== 'win32') {
+      assert.equal(statSync(dirname(stub)).mode & 0o077, 0);
+    }
+    assert.match(readFileSync(stub, 'utf8'), /const platform = process\.env/);
+  } finally {
+    removeOsStub(stub);
+  }
+});
 
 afterEach(() => {
   delete process.env.AGENT_DESKTOP_MACOS_HELPER_PATH;
@@ -36,7 +52,7 @@ afterEach(() => {
     try { unlinkSync(`${installed}.sha256`); } catch {}
   }
   for (const root of drainRoots()) {
-    postinstall.trashRecoverably(root);
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -115,7 +131,7 @@ test('AGENT_DESKTOP_BINARY_PATH installs on windows without any helper present',
   } finally {
     closeSync(errFd);
     stderr = readFileSync(errFile, 'utf8');
-    try { unlinkSync(stub); } catch {}
+    removeOsStub(stub);
     try { unlinkSync(errFile); } catch {}
   }
   try {

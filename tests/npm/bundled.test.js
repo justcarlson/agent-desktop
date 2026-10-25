@@ -5,7 +5,7 @@ const { cpSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSyn
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { test } = require('node:test');
-const { PLATFORMS, tarballName } = require('../../npm/lib/platform');
+const { PLATFORMS, helperNames, tarballName } = require('../../npm/lib/platform');
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'agent-desktop-bundled-'));
@@ -22,7 +22,10 @@ function fixture() {
     const stage = join(root, key);
     mkdirSync(stage);
     for (const name of entry.entries) {
-      writeFileSync(join(stage, name), '#!/bin/sh\nprintf "%s" "$AGENT_DESKTOP_MACOS_HELPER_PATH"\n', { mode: 0o755 });
+      const contents = name === entry.entries[0]
+        ? '#!/bin/sh\nprintf "%s" "$AGENT_DESKTOP_MACOS_HELPER_PATH"\n'
+        : `#!/bin/sh\nprintf '%s' '${key}/${name}'\n`;
+      writeFileSync(join(stage, name), contents, { mode: 0o755 });
     }
     const name = tarballName(version, entry.target);
     execFileSync('tar', ['-czf', join(archives, name), '-C', stage, ...entry.entries]);
@@ -42,6 +45,13 @@ test('release packaging runs with scripts skipped and selects the matching macOS
   const output = execFileSync(process.execPath,
     ['-r', stub, join(root, 'npm/bin/agent-desktop'), 'version'], { encoding: 'utf8' });
   assert.equal(output, realpathSync(join(root, 'npm/bin/agent-desktop-macos-helper-darwin-arm64')));
+  for (const [key, entry] of Object.entries(PLATFORMS)) {
+    if (!entry.released) continue;
+    for (const name of helperNames(entry)) {
+      assert.equal(readFileSync(join(root, 'npm/bin', `${name}-${key}`), 'utf8'),
+        readFileSync(join(root, key, name), 'utf8'));
+    }
+  }
   const binary = join(root, 'npm/bin/agent-desktop-darwin-arm64');
   assert.equal(readFileSync(`${binary}.sha256`, 'utf8').trim(),
     createHash('sha256').update(readFileSync(binary)).digest('hex'));

@@ -31,6 +31,9 @@ Set-StrictMode -Version 2.0
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionPress.ps1')
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionScroll.ps1')
 
+<# Invoke-PressLegs lives in ../InteractionPress.ps1 for the same reason. #>
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionPress.ps1')
+
 function Get-InteractionHeadlessLegTable {
     @(
         @{ Name = 'click'; TargetId = 'primary-button'; StatusId = 'click-status'; Property = 'value'; Prefix = 'clicked'; AnyChange = $true; Action = 'click'; Mechanism = 'semantic_api' }
@@ -128,6 +131,7 @@ function Invoke-InteractionScenario {
 
                 $assertArgs = @{ Target = $target; StatusTarget = $statusTarget; Action = $leg['Action'] }
                 if ($leg['ActionArgs']) { $assertArgs.ActionArgs = $leg['ActionArgs'] }
+                if ($leg['Mechanism']) { $assertArgs.ExpectedMechanism = $leg['Mechanism'] }
                 if ($leg['IsProperty']) {
                     $assertArgs.IsProperty = $leg['IsProperty']
                     $assertArgs.ExpectedState = $leg['ExpectedState']

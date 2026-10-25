@@ -4,7 +4,7 @@ const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
-const { PLATFORMS, MACOS_HELPER_NAME, tarballName } = require('../npm/lib/platform');
+const { PLATFORMS, tarballName } = require('../npm/lib/platform');
 const { checksumFor } = require('../npm/scripts/postinstall');
 
 const archiveDirectory = process.argv[2];
@@ -29,8 +29,7 @@ for (const [key, entry] of Object.entries(PLATFORMS)) {
     throw new Error(`Unexpected archive entries for ${archiveName}`);
   }
   for (const name of entry.entries) {
-    const destinationName = name === MACOS_HELPER_NAME
-      ? `${MACOS_HELPER_NAME}-${key}` : entry.binaryName;
+    const destinationName = name === entry.entries[0] ? entry.binaryName : `${name}-${key}`;
     const payload = execFileSync('tar', ['-xOzf', archivePath, name], {
       maxBuffer: 32 * 1024 * 1024,
     });

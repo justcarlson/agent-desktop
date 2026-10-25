@@ -159,7 +159,13 @@ mod tests {
         let _guard = LOG_TEST_LOCK.lock().unwrap();
         MESSAGES.lock().unwrap().clear();
         assert_eq!(ad_set_log_callback(Some(record)), AdResult::Ok);
-        with_dispatch(|| tracing::error!(password = "secret", operation = "login"));
+        with_dispatch(|| {
+            tracing::error!(
+                password = "secret",
+                key = "Control+Shift+W",
+                operation = "login"
+            )
+        });
         assert_eq!(ad_set_log_callback(None), AdResult::Ok);
 
         let messages = MESSAGES.lock().unwrap();
@@ -167,6 +173,7 @@ mod tests {
         assert!(messages[0].contains("redacted"));
         assert!(messages[0].contains("login"));
         assert!(!messages[0].contains("secret"));
+        assert!(!messages[0].contains("Control+Shift+W"));
     }
 
     #[test]
