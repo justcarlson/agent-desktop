@@ -75,31 +75,27 @@ cleanup_isolated_environment() {
                 kill "$host_pid" 2>/dev/null || true
             done
         fi
-        trash_recoverably "$suite_root" || true
+        remove_artifact "$suite_root" || true
     else
         echo "refusing to remove unowned E2E directory: $suite_root" >&2
     fi
 }
 
-trash_recoverably() {
-    local path="$1" trash_bin
+remove_artifact() {
+    local path="$1"
     if [ -z "$path" ]; then
-        echo "recoverable cleanup refused an empty path" >&2
+        echo "cleanup refused an empty path" >&2
         return 1
     fi
     if [ ! -e "$path" ] && [ ! -L "$path" ]; then
         return 0
     fi
-    trash_bin="$(type -P trash 2>/dev/null)" || {
-        echo "recoverable cleanup unavailable; retained artifact: $path" >&2
-        return 1
-    }
-    if ! HOME="$host_home" TMPDIR="$host_tmp" "$trash_bin" "$path"; then
-        echo "recoverable cleanup failed; retained artifact: $path" >&2
+    if ! trash "$path"; then
+        echo "cleanup failed; retained artifact: $path" >&2
         return 1
     fi
     if [ -e "$path" ] || [ -L "$path" ]; then
-        echo "recoverable cleanup did not move artifact; retained: $path" >&2
+        echo "cleanup did not remove artifact; retained: $path" >&2
         return 1
     fi
 }

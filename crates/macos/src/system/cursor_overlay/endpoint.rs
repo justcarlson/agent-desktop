@@ -190,7 +190,7 @@ fn collect_session_sockets(
         let entries = match std::fs::read_dir(directory) {
             Ok(entries) => entries,
             Err(error) => {
-                tracing::warn!(path = %directory.display(), %error, "cursor overlay sockets could not be listed");
+                tracing::warn!("cursor overlay sockets could not be listed");
                 if listing_error.is_none() {
                     listing_error = Some(error.to_string());
                 }
@@ -201,7 +201,7 @@ fn collect_session_sockets(
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
-                    tracing::warn!(path = %directory.display(), %error, "cursor overlay socket entry could not be read");
+                    tracing::warn!("cursor overlay socket entry could not be read");
                     if listing_error.is_none() {
                         listing_error = Some(error.to_string());
                     }
@@ -295,7 +295,14 @@ mod tests {
         let first = path_for_root(root, "run-1", Some("agent-a"));
         let second = path_for_root(root, "run-1", Some("agent-b"));
         assert_ne!(first, second);
-        assert!(first.file_name().unwrap().to_string_lossy().contains('-'));
+        let session_prefix = format!(
+            ".cursor-overlay-{:016x}-",
+            endpoint_hash(root, "run-1", Some(PROTOCOL_VERSION))
+        );
+        for endpoint in [&first, &second] {
+            let name = endpoint.file_name().unwrap().to_string_lossy();
+            assert!(name.starts_with(&session_prefix), "{name}");
+        }
     }
 
     #[test]

@@ -15,6 +15,7 @@ import {
   textSupply,
   validateChoice,
   resolveModel,
+  typesafeApi,
 } from "./policy.mjs";
 
 const S = "s8f3k2p9";
@@ -222,6 +223,16 @@ const space = actionSpace(screen());
   const saved = { ...process.env };
   delete process.env.TYPESAFE_MODEL;
   delete process.env.TYPESAFE_BASE_URL;
+  assert.equal(typesafeApi(), "https://api.typesafe.ai/v1/systemone");
+  for (const endpoint of ["https://router.example/decisions", "http://localhost:8080/decisions", "http://127.0.0.1:9/decisions", "http://[::1]:9/decisions"]) {
+    process.env.TYPESAFE_BASE_URL = endpoint;
+    assert.equal(typesafeApi(), endpoint, `${endpoint} is an allowed endpoint`);
+  }
+  for (const endpoint of ["http://router.example/decisions", "http://127.0.0.2.example/decisions", "https://user:secret@router.example/decisions", "http://user:secret@localhost/decisions", "file:///tmp/router"]) {
+    process.env.TYPESAFE_BASE_URL = endpoint;
+    assert.throws(() => typesafeApi(), /TYPESAFE_BASE_URL/);
+  }
+  delete process.env.TYPESAFE_BASE_URL;
   const native = "https://api.typesafe.ai/v1/systemone";
   const router = "https://openrouter.ai/api/alpha/decisions";
   assert.equal(resolveModel(undefined, native), "jev-latest", "the bare alias stays bare on the native API");
@@ -247,7 +258,7 @@ const space = actionSpace(screen());
   delete process.env.TYPESAFE_MODEL;
   const sent = [];
   globalThis.fetch = async (url, init) => {
-    sent.push({ url, auth: init.headers.Authorization, body: init.body === undefined ? undefined : JSON.parse(init.body) });
+    sent.push({ url, auth: init.headers.Authorization, redirect: init.redirect, body: init.body === undefined ? undefined : JSON.parse(init.body) });
     return { ok: true, status: 200, json: async () => ({ answers: {} }) };
   };
   const at = { app: "TextEdit", window: "Untitled" };
@@ -258,12 +269,51 @@ const space = actionSpace(screen());
     await rateRisk("save the file", at, "CLICK", node, true);
     assert.deepEqual(sent.map((call) => call.url), [endpoint, endpoint], "both decisions go to the configured endpoint");
     assert.ok(sent.every((call) => call.auth === "Bearer test-key"), "the key travels with each decision");
+    assert.ok(sent.every((call) => call.redirect === "error"), "decision requests refuse redirects before forwarding credentials");
     assert.deepEqual(sent[0].body, wire(buildRequest("save the file", at, space, [], { values: true })), "a turn posts its full request");
     assert.deepEqual(
       sent[1].body,
       wire(riskRequest("save the file", at, "CLICK", node, { values: true })),
       "the risk check posts its own request, never an empty body",
     );
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+}
+
+{
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  const echo = "provider echoed caller-private-value";
+  process.env.TYPESAFE_BASE_URL = "https://router.example/decisions";
+  globalThis.fetch = async () => ({ ok: false, status: 400, text: async () => echo });
+  try {
+    await assert.rejects(decide("goal", { app: "Fixture" }, space, [], true), (error) => {
+      assert.match(error.message, /HTTP 400/);
+      assert.ok(!error.message.includes(echo));
+      return true;
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+}
+
+{
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  const echo = "provider response echoed private input";
+  process.env.TYPESAFE_BASE_URL = "https://router.example/decisions";
+  globalThis.fetch = async () => ({ ok: true, json: async () => { throw new SyntaxError(echo); } });
+  try {
+    await assert.rejects(decide("goal", { app: "Fixture" }, space, [], true), (error) => {
+      assert.equal(error.message, "the model returned an invalid response; nothing ran");
+      assert.ok(!error.message.includes(echo));
+      return true;
+    });
   } finally {
     globalThis.fetch = realFetch;
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];

@@ -62,7 +62,7 @@ const NEEDS_HEADED = new Set(Object.entries(VERBS).filter(([, v]) => v.headed).m
  * One request carries every question. They are answered in parallel, so the
  * speculative ones cost tokens but no latency.
  */
-export const buildRequest = (intent, surface, candidates, rich = false) => ({
+export const buildRequest = (intent, surface, candidates, rich = false, { values = true } = {}) => ({
   state: {
     intent,
     app: surface.app,
@@ -80,7 +80,7 @@ export const buildRequest = (intent, surface, candidates, rich = false) => ({
         note: "Judge identity only. Do not consider whether the action would succeed.",
       },
       criteria: {
-        ...Object.fromEntries(candidates.map((n) => [n.ref_id, describe(n, rich)])),
+        ...Object.fromEntries(candidates.map((n) => [n.ref_id, describe(n, rich, { values })])),
         [NO_MATCH]: {
           what: "None of the above",
           when: "Nothing on screen is what the intent describes. The screen is in a different state, or the element lives behind a menu or sheet that is not open.",
@@ -181,9 +181,14 @@ export const ask = async (payload) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
-  }).catch((e) => ({ ok: false, status: 0, statusText: String(e) }));
-  if (!res.ok) throw new Error(`decision endpoint ${api} ${res.status} ${res.statusText}`);
-  return readAnswers(await res.json());
+    redirect: "error",
+  }).catch(() => ({ ok: false, status: 0 }));
+  if (!res.ok) throw new Error(`decision endpoint returned HTTP ${res.status}`);
+  try {
+    return readAnswers(await res.json());
+  } catch {
+    throw new Error("decision endpoint returned an invalid response");
+  }
 };
 
 /**
@@ -207,12 +212,13 @@ const main = async (argv) => {
     }
     return value;
   };
-  const bools = new Set(["--execute", "--raw", "--confirm-destructive"]);
+  const bools = new Set(["--execute", "--raw", "--confirm-destructive", "--no-values"]);
   const app = flag("app");
   const text = flag("text");
   const root = flag("root");
   const windowId = flag("window-id");
   const execute = argv.includes("--execute");
+  const values = !argv.includes("--no-values");
   const bin = flag("bin") ?? (existsSync(join(REPO, "target/release/agent-desktop"))
     ? join(REPO, "target/release/agent-desktop")
     : "agent-desktop");
@@ -221,7 +227,7 @@ const main = async (argv) => {
     .join(" ");
 
   if (!app || !intent) {
-    console.error('usage: act.mjs --app <name> [--window-id <id>] [--text "…"] [--root @ref] [--execute] [--confirm-destructive] "<intent>"');
+    console.error('usage: act.mjs --app <name> [--window-id <id>] [--no-values] [--text "…"] [--root @ref] [--execute] [--confirm-destructive] "<intent>"');
     process.exit(2);
   }
   if (!process.env.TYPESAFE_API_KEY) fail("TYPESAFE_API_KEY unset");
@@ -255,7 +261,7 @@ const main = async (argv) => {
   const truncated = candidates.length > MAX_OPTIONS;
   if (truncated) candidates = candidates.slice(0, MAX_OPTIONS);
 
-  let answers = await ask(buildRequest(intent, surface, candidates));
+  let answers = await ask(buildRequest(intent, surface, candidates, false, { values }));
   if (answers.error) fail(answers.error);
 
   /** A close call is re-asked over its own top few, where descriptions have room to be richer. */
@@ -269,7 +275,7 @@ const main = async (argv) => {
       .filter((ref) => ref !== NO_MATCH);
     const shortlist = candidates.filter((n) => top.includes(n.ref_id));
     if (shortlist.length > 1) {
-      const second = await ask(buildRequest(intent, surface, shortlist, true));
+      const second = await ask(buildRequest(intent, surface, shortlist, true, { values }));
       if (!second.error) {
         answers = second;
         reranked = true;

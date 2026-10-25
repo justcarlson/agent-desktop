@@ -4,7 +4,8 @@ use crate::{
     commands::{wait_selector, wait_selector::WaitSelectorInput},
     context::CommandContext,
     refs::validate_ref_id,
-    snapshot, snapshot_ref,
+    snapshot,
+    snapshot::snapshot_ref,
 };
 use serde_json::{Value, json};
 
@@ -55,12 +56,10 @@ pub fn execute(
     context: &CommandContext,
 ) -> Result<Value, AppError> {
     tracing::debug!(
-        "tree: snapshot app={:?} window_id={:?} max_depth={} interactive_only={} compact={}",
-        args.app.as_deref().unwrap_or("(focused)"),
-        args.window_id.as_deref().unwrap_or("(auto)"),
-        args.max_depth,
-        args.interactive_only,
-        args.compact
+        max_depth = args.max_depth,
+        interactive_only = args.interactive_only,
+        compact = args.compact,
+        "tree: snapshot"
     );
 
     if let Some(root) = args.root_ref.as_deref() {
@@ -74,7 +73,7 @@ pub fn execute(
         validate_ref_id(root)?;
     }
 
-    super::surface_scope::require_supported(args.surface, adapter)?;
+    adapter.check_surface_support(args.surface)?;
 
     let opts = tree_options(&args);
 
@@ -132,12 +131,7 @@ pub(crate) fn format_snapshot_fields(
     let tree = serde_json::to_value(&result.tree)?;
     let win = &result.window;
 
-    tracing::debug!(
-        "tree: snapshot complete app={:?} window={:?} refs={}",
-        win.app,
-        win.title,
-        ref_count
-    );
+    tracing::debug!(refs = ref_count, "tree: snapshot complete");
 
     let mut body = json!({
         "app": win.app,
