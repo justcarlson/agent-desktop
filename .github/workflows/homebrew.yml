@@ -31,5 +31,5 @@ jobs:
           brew install lahfir/agent-desktop-ci/agent-desktop
           brew test lahfir/agent-desktop-ci/agent-desktop
           formula_prefix=$(brew --prefix lahfir/agent-desktop-ci/agent-desktop)
-          env -i PATH=/usr/bin:/bin "$formula_prefix/bin/agent-desktop" version
+          env -i HOME="$HOME" PATH=/usr/bin:/bin "$formula_prefix/bin/agent-desktop" version
           test -x "$formula_prefix/bin/agent-desktop-macos-helper"

@@ -1,19 +1,19 @@
 class AgentDesktop < Formula
   desc "Native accessibility-based desktop automation for agents"
   homepage "https://github.com/lahfir/agent-desktop"
-  version "0.10.1"
+  version "0.11.1"
   license "Apache-2.0"
 
   depends_on macos: :ventura
 
   on_arm do
-    url "https://github.com/lahfir/agent-desktop/releases/download/v0.10.1/agent-desktop-v0.10.1-aarch64-apple-darwin.tar.gz"
-    sha256 "3f1c9fbc5d31d96881bed0e741360cac5bbd2ae2c1add08643a05cfb3429244b"
+    url "https://github.com/lahfir/agent-desktop/releases/download/v0.11.1/agent-desktop-v0.11.1-aarch64-apple-darwin.tar.gz"
+    sha256 "666671bd944fb88bf5b5668589f2bd653cd3a01942035260b454736879ff8779"
   end
 
   on_intel do
-    url "https://github.com/lahfir/agent-desktop/releases/download/v0.10.1/agent-desktop-v0.10.1-x86_64-apple-darwin.tar.gz"
-    sha256 "55e82cfc22cc9f1e7313632a3cd1320f23614b4c7df310f989f5c053af5bcca3"
+    url "https://github.com/lahfir/agent-desktop/releases/download/v0.11.1/agent-desktop-v0.11.1-x86_64-apple-darwin.tar.gz"
+    sha256 "32aedc30a787e8ec71ddec758128b30762a31a6ae9833099a5bc1288be302cf9"
   end
 
   def install
