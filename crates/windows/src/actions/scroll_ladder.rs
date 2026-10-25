@@ -4,44 +4,42 @@
 //! Direction comes from the target's fresh bounds against the nearest
 //! ScrollPattern-available ancestor viewport (macOS `direction_for_visibility`
 //! parity). Visibility uses the shipped ScrollIntoView predicate — IsOffscreen
-//! false, positive-area bounds, and viewport intersection — because provider
+//! false, positive-area bounds, and viewport containment when the target fits — because provider
 //! rects are unclipped (A18-2).
 
 use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, Direction, ErrorCode, Rect};
 
 use crate::actions::chain::DeliveryOutcome;
-use crate::actions::scroll::SCROLL_LABEL;
 use crate::system::permissions::ensure_budget;
 use crate::tree::element::UIAElement;
 
 pub(crate) const MAX_ANCESTOR_SCROLLS: usize = 10;
-pub(crate) const LADDER_SCROLL_LABEL: &str = SCROLL_LABEL;
+pub(crate) const LADDER_SCROLL_LABEL: &str = "ScrollPattern";
 
-/// Bring-into-view step size for the ladder, deliberately larger than the
-/// direct `scroll` command's `SmallIncrement`/`SmallDecrement` nudge
-/// (`crate::actions::scroll::scroll_amounts`). Measured live against the
-/// Windows fixture's own AutoScroll form: a `SmallDecrement` rung moved the
-/// target 5px, so the 10-rung budget covered 50px total against a target
-/// that a single native-focus jump had displaced 1361px — an ancestor with
-/// real distance to cover exhausted every rung and still reported
-/// `ACTION_FAILED` on a target that was never occluded, only never reached.
-/// `LargeIncrement`/`LargeDecrement` map to a page-sized native scroll step,
-/// so the same MAX_ANCESTOR_SCROLLS budget covers a page's multiple.
+/// Center the target without page-sized oscillation; view size is percent of content.
 #[cfg(target_os = "windows")]
-pub(crate) fn ladder_scroll_amounts(
-    direction: &Direction,
-) -> (
-    uiautomation::types::ScrollAmount,
-    uiautomation::types::ScrollAmount,
-) {
-    use uiautomation::types::ScrollAmount;
-
-    match direction {
-        Direction::Down => (ScrollAmount::NoAmount, ScrollAmount::LargeIncrement),
-        Direction::Up => (ScrollAmount::NoAmount, ScrollAmount::LargeDecrement),
-        Direction::Right => (ScrollAmount::LargeIncrement, ScrollAmount::NoAmount),
-        Direction::Left => (ScrollAmount::LargeDecrement, ScrollAmount::NoAmount),
+pub(crate) fn centered_scroll_percent(
+    current: f64,
+    view_percent: f64,
+    viewport_extent: f64,
+    offset: f64,
+) -> Result<f64, AdapterError> {
+    if !current.is_finite()
+        || !(0.0..=100.0).contains(&current)
+        || !view_percent.is_finite()
+        || view_percent <= 0.0
+        || view_percent >= 100.0
+        || !viewport_extent.is_finite()
+        || viewport_extent <= 0.0
+        || !offset.is_finite()
+    {
+        return Err(
+            AdapterError::new(ErrorCode::ActionFailed, "Invalid scroll viewport metrics")
+                .with_disposition(DeliverySemantics::not_delivered()),
+        );
     }
+    let scrollable = viewport_extent * (100.0 - view_percent) / view_percent;
+    Ok((current + offset / scrollable * 100.0).clamp(0.0, 100.0))
 }
 
 #[cfg(target_os = "windows")]
@@ -78,6 +76,9 @@ pub(crate) fn visibility_verified(sample: &VisibilitySample) -> bool {
         return false;
     }
     match sample.viewport {
+        Some(viewport) if bounds.width <= viewport.width && bounds.height <= viewport.height => {
+            direction_for_visibility(bounds, viewport).is_none()
+        }
         Some(viewport) => intersects(bounds, viewport),
         None => true,
     }
@@ -132,7 +133,7 @@ pub(crate) fn direction_after_visibility_miss(
 ///
 /// `next_direction` returns `None` when the target is in view (live path folds
 /// the intersection predicate into that signal so an unclipped straddler does
-/// not verify — A18-2). `scroll_once` fires one SmallIncrement write.
+/// not verify — A18-2). `scroll_once` performs one semantic scroll write.
 pub(crate) fn ladder_judged_for(
     deadline: Deadline,
     next_direction: &mut dyn FnMut() -> Result<Option<Direction>, AdapterError>,
@@ -163,8 +164,13 @@ pub(crate) fn ladder_judged_for(
 fn budget_disposition(scrolled: bool, error: AdapterError) -> AdapterError {
     if scrolled {
         error.with_disposition(DeliverySemantics::delivered_unverified())
-    } else {
+    } else if matches!(
+        error.disposition,
+        DeliverySemantics::Unknown | DeliverySemantics::NotDelivered
+    ) {
         error.with_disposition(DeliverySemantics::not_delivered())
+    } else {
+        error
     }
 }
 
@@ -172,12 +178,12 @@ fn budget_disposition(scrolled: bool, error: AdapterError) -> AdapterError {
 mod imp {
     use super::{
         AdapterError, Deadline, DeliveryOutcome, DeliverySemantics, Direction, LADDER_SCROLL_LABEL,
-        UIAElement, VisibilitySample, ladder_judged_for, ladder_scroll_amounts,
+        UIAElement, VisibilitySample, centered_scroll_percent, ladder_judged_for,
         visibility_verified,
     };
     use crate::actions::mutation::{classify_success, classify_write};
     use crate::system::permissions::ensure_budget;
-    use crate::tree::automation::automation_client;
+    use crate::tree::automation::{automation_client, uia_error};
     use crate::tree::live_read::corroborate_verified_process;
     use crate::tree::properties::read_one;
     use crate::tree::property_ids::TreeProperty;
@@ -213,10 +219,10 @@ mod imp {
         ancestor: &UIAElement,
         deadline: Deadline,
     ) -> Result<DeliveryOutcome, AdapterError> {
-        let viewport = viewport_bounds(ancestor);
-        let mut next_direction = || direction_when_not_visible(element, viewport, deadline);
+        let mut next_direction =
+            || direction_when_not_visible(element, viewport_bounds(ancestor)?, deadline);
         let mut scroll_once =
-            |direction: &Direction| scroll_cached_ancestor(ancestor, direction, deadline);
+            |direction: &Direction| scroll_cached_ancestor(element, ancestor, direction, deadline);
         ladder_judged_for(deadline, &mut next_direction, &mut scroll_once)
     }
 
@@ -273,6 +279,7 @@ mod imp {
     }
 
     fn scroll_cached_ancestor(
+        element: &UIAElement,
         ancestor: &UIAElement,
         direction: &Direction,
         deadline: Deadline,
@@ -289,15 +296,47 @@ mod imp {
                 ));
             }
         };
-        let (horizontal, vertical) = ladder_scroll_amounts(direction);
-        match pattern.scroll(horizontal, vertical) {
+        if matches!(direction, Direction::Left | Direction::Right) {
+            let amount = if matches!(direction, Direction::Left) {
+                uiautomation::types::ScrollAmount::LargeDecrement
+            } else {
+                uiautomation::types::ScrollAmount::LargeIncrement
+            };
+            return match pattern.scroll(amount, uiautomation::types::ScrollAmount::NoAmount) {
+                Ok(()) => classify_success().map(|_| ()),
+                Err(error) => {
+                    require_scroll_delivery(classify_write("Scroll", LADDER_SCROLL_LABEL, &error))
+                }
+            };
+        }
+        let bounds = crate::actions::scroll::known_bounds(element).ok_or_else(|| {
+            AdapterError::new(ErrorCode::ActionFailed, "Missing scroll target bounds")
+        })?;
+        let viewport = viewport_bounds(ancestor)?.ok_or_else(|| {
+            AdapterError::new(ErrorCode::ActionFailed, "Missing scroll viewport bounds")
+        })?;
+        let current = pattern.get_vertical_scroll_percent();
+        let size = pattern.get_vertical_view_size();
+        let extent = viewport.height;
+        let offset = bounds.y + bounds.height / 2.0 - viewport.y - viewport.height / 2.0;
+        let percent = centered_scroll_percent(
+            current.map_err(|error| uia_error(&error, "read scroll position"))?,
+            size.map_err(|error| uia_error(&error, "read scroll view size"))?,
+            extent,
+            offset,
+        )?;
+        ensure_budget(deadline)?;
+        corroborate_verified_process(ancestor)?;
+        match pattern.set_scroll_percent(-1.0, percent) {
             Ok(()) => {
                 classify_success()?;
                 Ok(())
             }
-            Err(error) => {
-                require_scroll_delivery(classify_write("Scroll", LADDER_SCROLL_LABEL, &error))
-            }
+            Err(error) => require_scroll_delivery(classify_write(
+                "SetScrollPercent",
+                LADDER_SCROLL_LABEL,
+                &error,
+            )),
         }
     }
 

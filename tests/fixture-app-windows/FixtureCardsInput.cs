@@ -17,6 +17,14 @@ namespace AgentDeskFixtureApp
             FixtureIdentity.Assign(textInput, "text-input");
             textInput.Location = new Point(16, CardLayout.RowY(0));
             textInput.Width = 200;
+            textInput.KeyDown += delegate(object sender, KeyEventArgs e)
+            {
+                if (e.Control && e.KeyCode == Keys.A)
+                {
+                    textInput.SelectAll();
+                    e.SuppressKeyPress = true;
+                }
+            };
             card.Controls.Add(textInput);
             textInput.TextChanged += delegate { FixtureStatus.SetValue("text-status", "changed"); };
             NewStatus(card, "text-status", 226, CardLayout.RowY(0), 200);

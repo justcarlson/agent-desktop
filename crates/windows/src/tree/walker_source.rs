@@ -97,10 +97,42 @@ mod imp {
     ///
     /// Which ancestor clips the target is fixed for the life of one operation;
     /// its rectangle is not. A poller re-reads this and never the climb.
-    pub fn viewport_bounds(viewport: &UIAElement) -> Option<Rect> {
+    pub fn viewport_bounds(viewport: &UIAElement) -> Result<Option<Rect>, AdapterError> {
+        use windows::Win32::Foundation::HWND;
+        use windows_sys::Win32::Foundation::{POINT, RECT};
+        use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetClientRect;
+
+        let handle: HWND = viewport
+            .0
+            .get_native_window_handle()
+            .map_err(|error| uia_error(&error, "read viewport window"))?
+            .into();
+        if !handle.0.is_null() {
+            let mut rect = RECT::default();
+            let mut origin = POINT::default();
+            if unsafe { GetClientRect(handle.0, &mut rect) } == 0
+                || unsafe { ClientToScreen(handle.0, &mut origin) } == 0
+            {
+                return Err(AdapterError::new(
+                    agent_desktop_core::ErrorCode::ActionFailed,
+                    "Could not read the native scroll viewport",
+                ));
+            }
+            return Ok(Some(Rect {
+                x: f64::from(origin.x),
+                y: f64::from(origin.y),
+                width: f64::from(rect.right - rect.left),
+                height: f64::from(rect.bottom - rect.top),
+            }));
+        }
         match read_one(viewport, TreeProperty::BoundingRectangle).bounds() {
-            LocatorField::Known(bounds) if rect_has_area(&bounds) => Some(bounds),
-            _ => None,
+            LocatorField::Known(bounds) if rect_has_area(&bounds) => Ok(Some(bounds)),
+            LocatorField::Absent => Ok(None),
+            _ => Err(AdapterError::new(
+                agent_desktop_core::ErrorCode::ActionFailed,
+                "Could not read the scroll viewport bounds",
+            )),
         }
     }
 
@@ -111,9 +143,12 @@ mod imp {
         walker: &UITreeWalker,
         deadline: Deadline,
     ) -> Result<Option<Rect>, BudgetExpired> {
-        Ok(nearest_scroll_viewport(target, walker, deadline)?
+        nearest_scroll_viewport(target, walker, deadline)?
             .as_ref()
-            .and_then(viewport_bounds))
+            .map(viewport_bounds)
+            .transpose()
+            .map(Option::flatten)
+            .map_err(|_| BudgetExpired)
     }
 
     /// The production enumeration surface: the raw view walker, plus the cache

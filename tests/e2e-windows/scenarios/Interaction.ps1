@@ -28,6 +28,7 @@ Set-StrictMode -Version 2.0
    file under the 400-line cap. It is not under scenarios/ itself: see that
    file's own header for why. #>
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionHeaded.ps1')
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionPress.ps1')
 
 function Get-InteractionHeadlessLegTable {
     @(
@@ -83,6 +84,7 @@ function Assert-RefusalLeg {
         Assert-Envelope -Envelope $envelope -ErrorCode 'POLICY_DENIED' -Delivery 'not_delivered' -Retry 'safe'
         return
     }
+    Invoke-Target -Target $target -Action 'scroll-to' -RequireOk -Description $Leg.TargetId | Out-Null
     $statusTarget = Require-Target -Target (Find-Target -App $App -NativeId $Leg.StatusId -TimeoutSeconds 10) -Description $Leg.StatusId
     $envelope = Assert-NoEffect -Target $target -StatusTarget $statusTarget -Property 'value' -Action $Leg.Action
     Assert-Envelope -Envelope $envelope -ErrorCode 'POLICY_DENIED' -Delivery 'not_delivered' -Retry 'safe'
@@ -98,6 +100,8 @@ function Invoke-InteractionScenario {
             'mouse-move-refused', 'mouse-click-refused', 'mouse-wheel-refused', 'surface-menu-closed-is-window-not-found',
             'headed-double-click', 'headed-triple-click', 'headed-right-click-then-choose', 'headed-hover',
             'headed-drag', 'headed-type', 'headed-press-app',
+            'press-ctrl-a-backspace-clears-text', 'press-shift-tab-moves-focus',
+            'press-return-activates-focused-button', 'press-blocked-combo-refused',
             'interaction-scroll-to-visibility', 'interaction-focus-refused-headless', 'interaction-focus-headed-oracle'
         ))
 
@@ -162,6 +166,7 @@ function Invoke-InteractionScenario {
     Invoke-HeldInputRefusalLegs
     Invoke-SurfaceClosedMenuLeg -App $App
     Invoke-HeadedInteractionLegs -App $App
+    Invoke-PressLegs -App $App
     Invoke-ScrollToVisibilityLeg -App $App
     Invoke-FocusRefusalLeg -App $App
     Invoke-FocusOracleLeg -App $App

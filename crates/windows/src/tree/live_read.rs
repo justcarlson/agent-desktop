@@ -74,12 +74,13 @@ mod imp {
         deadline: Deadline,
     ) -> Result<LiveRead, AdapterError> {
         let element = uia_element(handle)?;
-        let owning_window_minimized =
-            crate::tree::minimized::owning_window_minimized(element, deadline).unwrap_or(false);
+        let outside_visible_area =
+            crate::tree::minimized::owning_window_minimized(element, deadline).unwrap_or(false)
+                || crate::tree::minimized::outside_scroll_viewports(element, deadline)?;
         read_live_element_core(
             element,
             deadline,
-            owning_window_minimized,
+            outside_visible_area,
             corroborate_verified_process,
             |element| read_live_bounded(element, deadline),
             |element| read_label(element, false),
@@ -193,11 +194,8 @@ pub(crate) fn live_value(read: &LiveRead) -> Option<String> {
 
 /// The state projection.
 ///
-/// `enabled` and `offscreen` read the provider's own flags from the property
-/// set - UIA exposes `IsOffscreen` directly, the deliberate divergence from
-/// macOS's window-bounds arithmetic. `hidden` has no Windows producer (UIA's
-/// offscreen signal is the closest, and reading it twice would double-count), so it
-/// stays unset.
+/// Provider flags include the shared read's minimized-window and viewport
+/// clipping corrections. `hidden` stays unset because UIA has no separate flag.
 pub(crate) fn live_state(read: &LiveRead) -> Result<ElementState, AdapterError> {
     let role = read
         .evidence
