@@ -648,6 +648,10 @@ jobs:
 
       - name: Prove the shipped cdylib catches an exported-boundary panic
         shell: bash
+        env:
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: safe.directory
+          GIT_CONFIG_VALUE_0: ${{ github.workspace }}
         run: bash crates/ffi/tests/run_cdylib_panic_probe.sh ${{ matrix.target }}
 
   # One check over the three channels that must carry the Linux clipboard owner helper:
