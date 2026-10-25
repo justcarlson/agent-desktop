@@ -141,8 +141,11 @@ fn typed_metadata_couples_name_and_wait_support_to_each_variant() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn only_the_permission_guide_stays_in_the_caller_process() {
+fn caller_coordinates_batches_sessions_and_permission_guidance() {
     assert!(command(&["permissions", "--guide"]).needs_caller_process());
+    assert!(command(&["session", "end", "other"]).needs_caller_process());
+    assert!(command(&["session", "gc"]).needs_caller_process());
+    assert!(command(&["batch", "[]"]).needs_caller_process());
     assert!(!command(&["permissions"]).needs_caller_process());
     assert!(!command(&["permissions", "--request"]).needs_caller_process());
     assert!(!command(&["click", "@e1"]).needs_caller_process());

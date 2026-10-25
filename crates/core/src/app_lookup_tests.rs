@@ -292,4 +292,8 @@ fn app_not_found_carries_a_suggestion_naming_the_accepted_forms() {
             .suggestion()
             .is_some_and(|suggestion| !suggestion.is_empty())
     );
+    let AppError::Adapter(error) = error else {
+        panic!("expected adapter error")
+    };
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
 }

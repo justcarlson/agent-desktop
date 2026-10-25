@@ -2596,6 +2596,19 @@ Phase 5 transforms agent-desktop from functional to enterprise-grade. Persistent
 
 The daemon is a long-running process that maintains state between CLI/MCP invocations, dramatically reducing startup latency.
 
+macOS already uses a private, automatically started host per snapshot namespace
+for retained native ref identity, with a 15-minute idle lifetime. Session commands
+remain in the caller and batch items route to their selected namespace. Fixture
+coverage includes stale refs after collection changes and host restart, plus batch
+namespace/event-wait compatibility (`tests/e2e/scenarios/ref_churn.sh`,
+`src/batch/execution_tests.rs`, `src/tests/command_host_process.rs`). This does not
+complete Phase 5: immediate object release on session end, cancellation,
+diagnostics/environment parity, primary-phase queue accounting, and the real
+Xcode/SF Symbols qualification in
+`docs/plans/2026-09-20-retained-native-ref-identity.md` remain to be qualified.
+The current host retains objects until idle expiry even after session end.
+
+
 **Auto-start:**
 - CLI detects if daemon is running by checking for socket file (`~/.agent-desktop/daemon.sock` on Unix, named pipe on Windows)
 - If not running, spawns daemon as background process
@@ -2644,7 +2657,7 @@ When daemon is running:
 5. Returns JSON response to CLI
 6. CLI prints response to stdout
 
-When daemon is not running, CLI falls back to direct execution (same as Phases 1-4). Daemon is purely an optimization, never a requirement.
+The future general daemon is optional. macOS retained-ref commands already require their namespace host and fail closed when it is unavailable; they cannot fall back to heuristic ref matching.
 
 ### Safety Trio: `--dry-run` / `--confirm` / Audit Log (P5-O5)
 

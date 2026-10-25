@@ -160,7 +160,7 @@ fn socket_host_survives_a_bad_client_and_serves_separate_invocations() {
 }
 
 #[test]
-fn experimental_cli_starts_and_reuses_its_host() {
+fn default_cli_starts_and_reuses_its_host() {
     use std::hash::{Hash, Hasher};
     let directory = std::env::temp_dir().join(format!("ad-host-client-{}", std::process::id()));
     let mut hash = std::collections::hash_map::DefaultHasher::new();
@@ -173,7 +173,7 @@ fn experimental_cli_starts_and_reuses_its_host() {
     let invoke = || {
         Command::new(env!("CARGO_BIN_EXE_agent-desktop"))
             .arg("version")
-            .env("AGENT_DESKTOP_INTERNAL_HOST_CLIENT", "1")
+            .env_remove("AGENT_DESKTOP_INTERNAL_HOST_CLIENT")
             .env_remove("AGENT_DESKTOP_INTERNAL_COMMAND_HOST")
             .env_remove("AGENT_DESKTOP_SESSION")
             .env("AGENT_DESKTOP_HOME", &directory)

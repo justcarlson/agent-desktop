@@ -73,6 +73,11 @@ fn budget_ms(cli: &crate::Cli, command: &crate::Commands) -> Result<u64, AppErro
         Commands::Batch(a) => a.timeout_ms,
         _ => agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS,
     };
+    let primary = if primary == 0 {
+        agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS
+    } else {
+        primary
+    };
     let post_wait = crate::build_wait_selector(cli)?.map_or(0, |wait| wait.timeout_ms);
     primary
         .checked_add(post_wait)
@@ -99,6 +104,10 @@ mod tests {
     fn budgets_follow_typed_arguments_including_post_action_waits() {
         for (args, expected) in [
             (vec!["ad", "click", "@s123:e1", "--timeout-ms", "123"], 123),
+            (
+                vec!["ad", "click", "@s123:e1", "--timeout-ms", "0"],
+                agent_desktop_core::DEFAULT_OPERATION_TIMEOUT_MS,
+            ),
             (
                 vec!["ad", "wait", "--text", "absent", "--timeout", "250"],
                 250,

@@ -10,6 +10,22 @@ pub(super) fn forward(
     cli: &crate::Cli,
     command: &crate::Commands,
 ) -> Result<serde_json::Value, AppError> {
+    let args = std::env::args_os()
+        .skip(1)
+        .map(|arg| {
+            arg.into_string()
+                .map_err(|_| AppError::invalid_input("Host arguments must be UTF-8"))
+        })
+        .collect::<Result<_, _>>()?;
+    forward_args(cli, command, args, None)
+}
+
+pub(super) fn forward_args(
+    cli: &crate::Cli,
+    command: &crate::Commands,
+    args: Vec<String>,
+    baseline: Option<agent_desktop_core::SignalBaseline>,
+) -> Result<serde_json::Value, AppError> {
     let expires_ns = super::budget::expires_at(cli, command).map_err(crate::pre_dispatch_error)?;
     agent_desktop_core::validate_state_root_env()?;
     let session = agent_desktop_core::session::resolve_active_session(
@@ -21,13 +37,8 @@ pub(super) fn forward(
     let request = super::request::HostRequest {
         expires_ns,
         identity,
-        args: std::env::args_os()
-            .skip(1)
-            .map(|arg| {
-                arg.into_string()
-                    .map_err(|_| AppError::invalid_input("Host arguments must be UTF-8"))
-            })
-            .collect::<Result<_, _>>()?,
+        args,
+        baseline,
         directory: std::env::current_dir()?,
         agent_id: cli
             .identity
@@ -126,7 +137,6 @@ fn connect_or_start(
     command
         .env("AGENT_DESKTOP_INTERNAL_COMMAND_HOST", "1")
         .env("AGENT_DESKTOP_INTERNAL_HOST_SOCKET", path)
-        .env_remove("AGENT_DESKTOP_INTERNAL_HOST_CLIENT")
         .env_remove("AGENT_DESKTOP_AGENT_ID")
         .env_remove("AGENT_DESKTOP_SESSION")
         .process_group(0)

@@ -1,6 +1,6 @@
 # Retain native identity across commands
 
-Status: core and native retention implemented; persistent CLI host pending; unqualified.
+Status: macOS default CLI host implemented and fixture-qualified; broader real-app and lifecycle qualification remains incomplete.
 
 ## Decision
 
@@ -370,12 +370,20 @@ no session artifact. Concurrent startup and same-PID reuse still pass. All-targe
 Clippy, formatting and diff checks pass. Logs: /tmp/ad-native-eval/host-budget-tests.log,
 host-budget-process.log, host-budget-clippy.log and final-workspace.log.
 
-The client is still experimental behind AGENT_DESKTOP_INTERNAL_HOST_CLIENT=1.
-Do not enable default routing based on this checkpoint. Remaining work includes
-restart/stale-ref tests through the client, real Xcode acceptance, batch namespace
-handling, session-end release, cancellation and diagnostics/environment parity.
-Post-action wait shares the total transport budget; independent primary-phase
-queue accounting needs review. The final host integration has not received a new
-performance baseline or full real-app qualification. Prior performance measurements
-do not qualify it. No commit, push or release was made. Provisional rating remains
-8/10; the requested 10/10 objective was not achieved.
+The macOS CLI now starts and reuses the private namespace host by default.
+Session management remains in the caller; batch items route to their selected
+namespace hosts while preserving event baselines and the remaining batch budget.
+The native fixture suite passes 119 checks with one unavailable native TCC-denial
+case skipped; the deterministic denial contract runs. Eight focused checks cover
+removed-row refusal, batch refusal, unchanged-row access, host restart invalidation,
+fresh-snapshot recovery and terminal unknown-app errors. See
+`tests/e2e/scenarios/ref_churn.sh` and `src/tests/command_host_process.rs`.
+
+Alternating fixture performance against 02afee67 measured warm snapshot medians
+of 294ms versus 442ms and get medians of 47ms versus 163ms. Seven cold-start samples
+after warmup measured 359ms versus 358ms. These fixture results do not qualify the
+broader Xcode/SF Symbols acceptance contract. Session-end immediate object release,
+cancellation, diagnostics/environment parity and independent primary-phase queue
+accounting remain unqualified. Retained objects currently expire with their host's
+15-minute idle lifetime. The original 10/10 qualification objective is incomplete;
+Phase 5 owns the remaining lifecycle qualification in `docs/phases.md`.

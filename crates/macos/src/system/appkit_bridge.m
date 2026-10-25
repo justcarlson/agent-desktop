@@ -121,6 +121,8 @@ AgentDesktopBytesResult agent_desktop_copy_workspace_snapshot_json(void) {
     @try {
         @autoreleasepool {
             NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+            // A command host must consume AppKit launch/exit notifications between requests.
+            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, false);
             NSArray<NSRunningApplication *> *running = workspace.runningApplications;
             if (running == nil || running.count > 8192) {
                 result.status = 1;
@@ -154,7 +156,6 @@ AgentDesktopBytesResult agent_desktop_copy_workspace_snapshot_json(void) {
             }
             NSMutableArray<NSDictionary *> *records =
                 [NSMutableArray arrayWithCapacity:running.count];
-            NSMutableSet<NSNumber *> *seen = [NSMutableSet setWithCapacity:running.count];
             for (NSUInteger index = 0; index < running.count; index++) {
                 NSRunningApplication *app = running[index];
                 if (![app isKindOfClass:[NSRunningApplication class]]) {
@@ -191,10 +192,6 @@ AgentDesktopBytesResult agent_desktop_copy_workspace_snapshot_json(void) {
                     continue;
                 }
                 NSNumber *pidNumber = @(pid);
-                if ([seen containsObject:pidNumber]) {
-                    [skipped addObject:@{@"pid": @(pid), @"field": @"duplicate_pid", @"index": @(index)}];
-                    continue;
-                }
                 NSDate *launchDate = app.launchDate;
                 id launchTime = [NSNull null];
                 if (launchDate != nil) {
@@ -219,7 +216,6 @@ AgentDesktopBytesResult agent_desktop_copy_workspace_snapshot_json(void) {
                     }
                     record[@"bundle_id"] = bundle;
                 }
-                [seen addObject:pidNumber];
                 [records addObject:record];
             }
             NSMutableDictionary *snapshot = [@{

@@ -27,6 +27,7 @@ pub(crate) fn resolve_app(
                 ErrorCode::AppNotFound,
                 "No focused application was found when --app was omitted",
             )
+            .with_disposition(crate::DeliverySemantics::not_delivered())
             .into());
         }
         [window] => window,
@@ -78,6 +79,7 @@ fn select_unique_app(mut candidates: Vec<AppInfo>, label: &str) -> Result<AppInf
             ErrorCode::AppNotFound,
             format!("Application '{label}' was not found with exact process identity"),
         )
+        .with_disposition(crate::DeliverySemantics::not_delivered())
         .with_suggestion(
             "Application name as reported by list-apps, with or without .exe suffix on Windows",
         )

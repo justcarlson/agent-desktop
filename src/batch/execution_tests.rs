@@ -1,3 +1,4 @@
+use crate::batch::result_entry::bounded_entry;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
