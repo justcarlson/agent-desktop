@@ -6,6 +6,25 @@
 
 * Preserve macOS applications with missing localized display names in the complete inventory, using their executable name or bundle identifier. Such applications no longer block unrelated app-scoped snapshots, window lists, and screenshots.
 
+## [0.10.2](https://github.com/lahfir/agent-desktop/compare/v0.10.1...v0.10.2) (2026-10-25)
+
+
+### Features
+
+* add an on-screen permission guide for macOS onboarding ([#299](https://github.com/lahfir/agent-desktop/issues/299)) ([02afee6](https://github.com/lahfir/agent-desktop/commit/02afee6700eca91575ed887c9806122cd22e4f0f))
+* integrate Linux support with privacy hardening ([#311](https://github.com/lahfir/agent-desktop/issues/311)) ([4c598cd](https://github.com/lahfir/agent-desktop/commit/4c598cde9157162632e4827b86dbd57452afa0c4))
+
+
+### Bug Fixes
+
+* center horizontal scroll targets without oscillation ([44b573f](https://github.com/lahfir/agent-desktop/commit/44b573fc488c77c528e7559f1ab36d16c14a097d))
+* honor windows scroll viewports and native input effects ([cf70995](https://github.com/lahfir/agent-desktop/commit/cf70995cdc53c01ad0835d39bebf37be389ba276))
+* honor windows scroll viewports and native input effects ([628e953](https://github.com/lahfir/agent-desktop/commit/628e9536a670f8b78acd9fe0a106d41ed94e5051))
+* **npm:** link the bin entry to the native binary so the command starts without Node ([#300](https://github.com/lahfir/agent-desktop/issues/300)) ([5f35032](https://github.com/lahfir/agent-desktop/commit/5f35032403cf283d11ca3f90c71367d092998b7d))
+* preserve host deadlines and private startup ([cdc59b9](https://github.com/lahfir/agent-desktop/commit/cdc59b94744e5ec2bce9a9190286eb87cb2b9dfe))
+* preserve macos ref identity and native action reliability ([bcd6b67](https://github.com/lahfir/agent-desktop/commit/bcd6b67dcf989758f2ea0769efea5fdca577efb9))
+* preserve macos ref identity and native action reliability ([3c46609](https://github.com/lahfir/agent-desktop/commit/3c466098c53ba772a56327591958fbc1146ba84e))
+
 ## [0.10.1](https://github.com/lahfir/agent-desktop/compare/v0.10.0...v0.10.1) (2026-10-18)
 
 
