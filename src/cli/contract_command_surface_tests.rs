@@ -228,9 +228,6 @@ fn coverage_names() -> BTreeSet<&'static str> {
 #[path = "windows_capability_claims_tests.rs"]
 mod windows_capability_claims;
 
-#[path = "install_doc_claims_tests.rs"]
-mod install_doc_claims;
-
 #[path = "doc_literal_drift_tests.rs"]
 mod doc_literal_drift;
 

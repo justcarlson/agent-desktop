@@ -1,0 +1,35 @@
+name: Homebrew
+
+on:
+  push:
+    branches: [main]
+    paths: ["Formula/**", ".github/workflows/homebrew.yml"]
+  pull_request:
+    paths: ["Formula/**", ".github/workflows/homebrew.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Fresh Homebrew install
+    runs-on: macos-latest
+    timeout-minutes: 15
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install and test native formula
+        run: |
+          set -euo pipefail
+          brew tap-new lahfir/agent-desktop-ci
+          cp Formula/agent-desktop.rb "$(brew --repo lahfir/agent-desktop-ci)/Formula/agent-desktop.rb"
+          brew install lahfir/agent-desktop-ci/agent-desktop
+          brew test lahfir/agent-desktop-ci/agent-desktop
+          formula_prefix=$(brew --prefix lahfir/agent-desktop-ci/agent-desktop)
+          env -i PATH=/usr/bin:/bin "$formula_prefix/bin/agent-desktop" version
+          test -x "$formula_prefix/bin/agent-desktop-macos-helper"

@@ -25,21 +25,9 @@ On macOS, CLI calls reuse a private command host for each snapshot namespace and
 npm install -g agent-desktop
 ```
 
-This works on macOS (ARM64, x64) and Windows (x64, ARM64). The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256 against the release's `checksums.txt`. npm 11 runs that script but warns that it is not covered by `allowScripts`. An npm that blocks install scripts leaves no binary, and the first run fails with binary-not-found. To allow the script:
+This works on macOS (ARM64, x64) and Windows (x64, ARM64). The npm package includes all four released CLI binaries and the matching macOS helpers. Installation works with lifecycle scripts disabled, without a separate GitHub download. Release packaging verifies each archive against the release's `checksums.txt` before bundling it.
 
-```bash
-npm install -g --allow-scripts=agent-desktop agent-desktop
-npm config set allow-scripts=agent-desktop --location=user
-```
-
-pnpm and bun block install scripts by default:
-
-```bash
-pnpm add -g --allow-build=agent-desktop agent-desktop
-bun add -g --trust agent-desktop
-```
-
-On macOS the script also links the package's `agent-desktop` command to the native binary, so the command starts without Node. On Windows the command runs through a small Node wrapper.
+When postinstall runs on macOS, it links the command to the native binary to avoid Node startup. When scripts are disabled, the JavaScript launcher selects the bundled binary instead. On Windows, postinstall optimizes owned npm/Yarn command shims to call the native executable directly. Blocked scripts use the JavaScript launcher, and pnpm may retain its own shim. FFI libraries remain separate GitHub release assets; Linux CLI binaries are not released yet.
 
 Release archives are also on the [releases page](https://github.com/lahfir/agent-desktop/releases). The checksums come from the same release as the archives, so they catch corruption but do not prove origin. Check origin with:
 

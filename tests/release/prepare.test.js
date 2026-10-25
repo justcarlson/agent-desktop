@@ -1,0 +1,56 @@
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require('node:fs');
+const { tmpdir } = require('node:os');
+const { join, resolve } = require('node:path');
+const { test } = require('node:test');
+
+function fixture() {
+  const root = mkdtempSync(join(tmpdir(), 'ad-release-gate-'));
+  for (const name of ['scripts', 'npm', 'tools']) mkdirSync(join(root, name));
+  writeFileSync(join(root, 'npm/package.json'), '{"version":"0.10.2"}');
+  writeFileSync(join(root, 'scripts/check-release-consistency.sh'), 'exit 0\n');
+  writeFileSync(join(root, 'tools/npm'), '#!/bin/sh\nprintf "%s\\n" "$TEST_NPM_VERSION"\n', { mode: 0o755 });
+  writeFileSync(join(root, 'tools/gh'), '#!/bin/sh\nif [ "$1" = release ]; then exit "$TEST_GITHUB_STATUS"; fi\nprintf "%s\\n" "$*" >> "$TEST_GH_LOG"\n', { mode: 0o755 });
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  git('init', '-q');
+  git('config', 'user.name', 'Lahfir');
+  git('config', 'user.email', 'fixture@example.invalid');
+  git('add', '.');
+  git('commit', '-qm', 'test: create release fixture');
+  return { root, git };
+}
+
+for (const scenario of [
+  { name: 'unchanged published version skips publication', npm: '0.10.2', github: '0', release: 'false', githubRelease: 'false' },
+  { name: 'new version prepares publication', npm: '0.10.1', github: '1', release: 'true', githubRelease: 'true' },
+  { name: 'missing GitHub release rebuilds the tagged source without republishing npm', npm: '0.10.2', github: '1', release: 'false', githubRelease: 'true', tagged: true },
+]) {
+  test(scenario.name, { skip: process.platform === 'win32' }, () => {
+    const { root, git } = fixture();
+    const source = git('rev-parse', 'HEAD');
+    if (scenario.tagged) {
+      git('tag', '--no-sign', '-m', 'test: release fixture', 'v0.10.2');
+      writeFileSync(join(root, 'later.txt'), 'subsequent main commit');
+      git('add', '.');
+      git('commit', '-qm', 'test: advance main after tag');
+    }
+    const output = join(root, 'output');
+    const log = join(root, 'gh.log');
+    writeFileSync(log, '');
+    execFileSync('bash', [resolve(__dirname, '../../scripts/prepare-release.sh')], {
+      cwd: root,
+      env: { ...process.env, PATH: `${join(root, 'tools')}:${process.env.PATH}`,
+        GH_REPO: 'fixture/agent-desktop', GITHUB_OUTPUT: output,
+        TEST_NPM_VERSION: scenario.npm, TEST_GITHUB_STATUS: scenario.github, TEST_GH_LOG: log },
+    });
+    const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+    assert.equal(values.should_release, scenario.release);
+    assert.equal(values.needs_github_release, scenario.githubRelease);
+    assert.equal(values.source_sha, source);
+    assert.equal(values.tag_name, 'v0.10.2');
+    const calls = readFileSync(log, 'utf8');
+    if (scenario.release === 'true') assert.ok(calls.includes(`sha=${source}`));
+    else assert.equal(calls, '');
+  });
+}

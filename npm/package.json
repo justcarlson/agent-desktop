@@ -32,5 +32,13 @@
     "macos",
     "windows",
     "a11y"
+  ],
+  "os": [
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "arm64",
+    "x64"
   ]
 }

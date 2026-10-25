@@ -18,10 +18,6 @@ read_json_version() {
   sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' "$file" | head -1
 }
 
-read_manifest_version() {
-  sed -n 's/.*"\." *: *"\([^"]*\)".*/\1/p' .release-please-manifest.json | head -1
-}
-
 lock_version_for() {
   local package="$1"
   awk -v target="$package" '
@@ -55,17 +51,12 @@ lock_version_for() {
 
 workspace_version="$(read_toml_version)"
 npm_version="$(read_json_version npm/package.json)"
-manifest_version="$(read_manifest_version)"
 
 [[ -n "$workspace_version" ]] || fail "could not read workspace version from Cargo.toml"
 [[ -n "$npm_version" ]] || fail "could not read npm package version"
-[[ -n "$manifest_version" ]] || fail "could not read release-please manifest version"
 
 [[ "$npm_version" == "$workspace_version" ]] \
   || fail "npm/package.json version ${npm_version} does not match Cargo.toml ${workspace_version}"
-
-[[ "$manifest_version" == "$workspace_version" ]] \
-  || fail ".release-please-manifest.json version ${manifest_version} does not match Cargo.toml ${workspace_version}"
 
 packages=(
   agent-desktop

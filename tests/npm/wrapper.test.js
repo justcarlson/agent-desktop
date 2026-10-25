@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const {
   chmodSync,
   closeSync,
+  cpSync,
+  mkdirSync,
   openSync,
   readFileSync,
   unlinkSync,
@@ -38,17 +40,23 @@ afterEach(() => {
   }
 });
 
+function missingBinaryWrapper() {
+  const root = temporaryDirectory();
+  mkdirSync(join(root, 'bin'));
+  cpSync(wrapperScriptPath, join(root, 'bin/agent-desktop'));
+  cpSync(join(__dirname, '../../npm/lib'), join(root, 'lib'), { recursive: true });
+  return join(root, 'bin/agent-desktop');
+}
+
 test('wrapper resolves the released win32-x64 mapping and names the missing-binary cause', async () => {
-  const { code, stderr } = await runScriptWithOsStub(wrapperScriptPath, 'win32', 'x64', ['version']);
+  const { code, stderr } = await runScriptWithOsStub(missingBinaryWrapper(), 'win32', 'x64', ['version']);
   assert.equal(code, 1);
   assert.match(stderr, /Error: Native binary not found for win32-x64/);
-  assert.match(stderr, /--ignore-scripts/);
-  assert.match(stderr, /pnpm add -g --allow-build=agent-desktop agent-desktop/);
-  assert.match(stderr, /bun add -g --trust agent-desktop/);
+  assert.match(stderr, /installed package is incomplete/);
 });
 
 test('wrapper resolves the released win32-arm64 mapping and exits non-zero when the binary is absent', async () => {
-  const { code, stderr } = await runScriptWithOsStub(wrapperScriptPath, 'win32', 'arm64', ['version']);
+  const { code, stderr } = await runScriptWithOsStub(missingBinaryWrapper(), 'win32', 'arm64', ['version']);
   assert.equal(code, 1);
   assert.match(stderr, /Error: Native binary not found for win32-arm64/);
   assert.match(stderr, /Expected: .*agent-desktop-win32-arm64\.exe/);
