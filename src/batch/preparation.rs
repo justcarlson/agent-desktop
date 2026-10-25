@@ -13,6 +13,8 @@ pub(super) struct PreparedCommand {
     pub name: String,
     pub command: Commands,
     pub context: CommandContext,
+    #[cfg(target_os = "macos")]
+    pub source: Value,
 }
 
 pub(super) fn prepare(
@@ -41,7 +43,7 @@ pub(super) fn prepare(
         .collect::<Result<Vec<_>, _>>()?;
     parsed
         .into_iter()
-        .map(|(index, name, command, session)| {
+        .map(|(index, name, command, session, _source)| {
             let item_context = context
                 .for_batch_item(session)
                 .map_err(|error| located_error(index, &name, error))?;
@@ -51,6 +53,8 @@ pub(super) fn prepare(
                 name,
                 command,
                 context: item_context,
+                #[cfg(target_os = "macos")]
+                source: _source,
             })
         })
         .collect()
@@ -60,7 +64,8 @@ fn parse_one(
     index: usize,
     item: BatchCommand,
     permission_report: &PermissionReport,
-) -> Result<(usize, String, Commands, Option<String>), AppError> {
+) -> Result<(usize, String, Commands, Option<String>, Value), AppError> {
+    let source = json!({"command": item.command, "args": item.args});
     let name = item.command.clone();
     let session = item.session.clone();
     if let Some(session) = session.as_deref() {
@@ -70,7 +75,7 @@ fn parse_one(
     let command = super::parse_command(item).map_err(|error| located_error(index, &name, error))?;
     crate::command_policy::preflight(&command, permission_report)
         .map_err(|error| located_error(index, &name, error))?;
-    Ok((index, name, command, session))
+    Ok((index, name, command, session, source))
 }
 
 fn located_error(index: usize, command: &str, error: AppError) -> AppError {

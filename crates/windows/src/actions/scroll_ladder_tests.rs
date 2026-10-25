@@ -1,16 +1,14 @@
 use super::{
-    MAX_ANCESTOR_SCROLLS, apply_ladder_seam, direction_after_visibility_miss,
-    direction_for_visibility, ladder_judged_for, ladder_scroll_amounts,
+    MAX_ANCESTOR_SCROLLS, apply_ladder_seam, centered_scroll_percent,
+    direction_after_visibility_miss, direction_for_visibility, ladder_judged_for,
 };
 use crate::actions::chain::DeliveryOutcome;
-use crate::actions::scroll::scroll_amounts;
 use crate::actions::scroll_into_view::{VisibilitySample, visibility_verified};
 use crate::system::fixture::test_time::deadline;
 use agent_desktop_core::{
     AdapterError, Deadline, DeliveryDisposition, DeliverySemantics, Direction, ErrorCode, Rect,
 };
 use std::cell::Cell;
-use uiautomation::types::ScrollAmount;
 
 fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
     Rect {
@@ -180,20 +178,26 @@ fn absence_ok_false_does_not_count_as_scroll_delivery() {
 
 #[test]
 fn classified_write_error_aborts_without_further_scrolls() {
-    let calls = Cell::new(0u8);
-    let mut next = || Ok(Some(Direction::Down));
-    let mut scroll = |_: &Direction| {
-        calls.set(calls.get() + 1);
-        Err(AdapterError::new(ErrorCode::PermDenied, "denied write")
-            .with_disposition(DeliverySemantics::not_delivered()))
-    };
-    let error = ladder_judged_for(deadline(5_000), &mut next, &mut scroll).expect_err("denied");
-    assert_eq!(error.code, ErrorCode::PermDenied);
-    assert_eq!(calls.get(), 1);
-    assert_eq!(
-        error.disposition.delivery(),
-        DeliveryDisposition::NotDelivered
-    );
+    for disposition in [
+        DeliverySemantics::not_delivered(),
+        DeliverySemantics::uncertain(),
+        DeliverySemantics::delivered_unverified(),
+    ] {
+        let calls = Cell::new(0u8);
+        let mut next = || Ok(Some(Direction::Down));
+        let mut scroll = |_: &Direction| {
+            calls.set(calls.get() + 1);
+            Err(
+                AdapterError::new(ErrorCode::AppUnresponsive, "write failed")
+                    .with_disposition(disposition),
+            )
+        };
+        let error =
+            ladder_judged_for(deadline(5_000), &mut next, &mut scroll).expect_err("write failed");
+        assert_eq!(error.code, ErrorCode::AppUnresponsive);
+        assert_eq!(calls.get(), 1);
+        assert_eq!(error.disposition, disposition);
+    }
 }
 
 #[test]
@@ -312,35 +316,42 @@ fn contained_but_not_visible_does_not_invent_down() {
     );
 }
 
-/// Measured live (see `ladder_scroll_amounts` doc comment): a `SmallDecrement`
-/// rung moved a real ancestor's viewport 5px, so `MAX_ANCESTOR_SCROLLS` rungs
-/// of the direct `scroll` command's small-nudge amount never covers a target
-/// displaced hundreds of pixels by a native focus jump. The ladder must use
-/// its own page-sized amount, distinct from `scroll::scroll_amounts` — this
-/// guards against the two call sites being collapsed back onto one shared
-/// small-step function.
 #[test]
-fn ladder_uses_large_amounts_distinct_from_the_scroll_commands_small_nudge() {
-    for direction in [
-        Direction::Up,
-        Direction::Down,
-        Direction::Left,
-        Direction::Right,
+fn precise_scroll_centers_targets_and_clamps_at_content_edges() {
+    assert_eq!(
+        centered_scroll_percent(0.0, 20.0, 100.0, 240.0).unwrap(),
+        60.0
+    );
+    assert_eq!(
+        centered_scroll_percent(60.0, 20.0, 100.0, -240.0).unwrap(),
+        0.0
+    );
+    assert_eq!(
+        centered_scroll_percent(90.0, 20.0, 100.0, 240.0).unwrap(),
+        100.0
+    );
+    let next = centered_scroll_percent(0.0, 50.0, 611.0, 365.5).unwrap();
+    let moved_y = 666.0 - next / 100.0 * 611.0;
+    assert!(
+        direction_for_visibility(
+            rect(84.0, moved_y, 400.0, 150.0),
+            rect(48.0, 71.0, 867.0, 611.0)
+        )
+        .is_none()
+    );
+}
+
+#[test]
+fn invalid_scroll_metrics_never_produce_a_write() {
+    for (current, size, extent, offset) in [
+        (-1.0, 20.0, 100.0, 10.0),
+        (0.0, 0.0, 100.0, 10.0),
+        (0.0, 100.0, 100.0, 10.0),
+        (0.0, 20.0, 0.0, 10.0),
+        (f64::NAN, 20.0, 100.0, 10.0),
+        (0.0, 20.0, 100.0, f64::INFINITY),
     ] {
-        let (ladder_h, ladder_v) = ladder_scroll_amounts(&direction);
-        let (small_h, small_v) = scroll_amounts(&direction);
-        assert_ne!(
-            (ladder_h, ladder_v),
-            (small_h, small_v),
-            "ladder amount must not match the direct scroll command's small nudge for {direction:?}"
-        );
-        let large = match direction {
-            Direction::Down => (ScrollAmount::NoAmount, ScrollAmount::LargeIncrement),
-            Direction::Up => (ScrollAmount::NoAmount, ScrollAmount::LargeDecrement),
-            Direction::Right => (ScrollAmount::LargeIncrement, ScrollAmount::NoAmount),
-            Direction::Left => (ScrollAmount::LargeDecrement, ScrollAmount::NoAmount),
-        };
-        assert_eq!((ladder_h, ladder_v), large);
+        assert!(centered_scroll_percent(current, size, extent, offset).is_err());
     }
 }
 
@@ -371,5 +382,18 @@ fn an_unresolvable_viewport_does_not_make_an_on_screen_element_invisible() {
         "a container that publishes no viewport rect has declined to answer, not \
          reported the element hidden - the provider's own on-screen flag and a \
          positive-area rect are what remain, and both say visible"
+    );
+}
+
+#[test]
+fn a_small_target_must_be_wholly_inside_the_scroll_viewport() {
+    let sample = VisibilitySample {
+        bounds: Some(rect(10.0, 95.0, 20.0, 20.0)),
+        offscreen: Some(false),
+        viewport: Some(rect(0.0, 0.0, 100.0, 100.0)),
+    };
+    assert!(
+        !visibility_verified(&sample),
+        "a clipped target midpoint cannot receive input"
     );
 }

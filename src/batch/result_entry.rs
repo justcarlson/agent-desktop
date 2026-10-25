@@ -9,6 +9,7 @@ use super::bounded_json::serialized_fits;
 pub(super) const MAX_BATCH_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
 pub(super) const OUTPUT_METADATA_RESERVE: usize = 8 * 1024;
 
+#[cfg(test)]
 pub(super) fn bounded_entry(
     index: usize,
     command: &str,
@@ -16,6 +17,15 @@ pub(super) fn bounded_entry(
     used: usize,
 ) -> (Value, bool) {
     let entry = completed_entry(index, command, result);
+    bounded_completed_entry(index, command, entry, used)
+}
+
+pub(super) fn bounded_completed_entry(
+    index: usize,
+    command: &str,
+    entry: Value,
+    used: usize,
+) -> (Value, bool) {
     let available = MAX_BATCH_OUTPUT_BYTES
         .saturating_sub(OUTPUT_METADATA_RESERVE)
         .saturating_sub(used);

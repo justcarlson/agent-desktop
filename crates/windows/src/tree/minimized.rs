@@ -23,6 +23,54 @@ pub(crate) fn owning_window_minimized(element: &UIAElement, deadline: Deadline) 
     })
 }
 
+/// WinForms reports unclipped descendants as on-screen; intersect their scroll viewports.
+pub(crate) fn outside_scroll_viewports(
+    element: &UIAElement,
+    deadline: Deadline,
+) -> Result<bool, agent_desktop_core::AdapterError> {
+    use crate::tree::automation::uia_error;
+    use crate::tree::properties::read_one;
+    use crate::tree::walk::walker_source::{parent_step, viewport_bounds};
+    let Some(mut visible) = read_one(element, TreeProperty::BoundingRectangle)
+        .bounds()
+        .known()
+        .copied()
+    else {
+        return Ok(false);
+    };
+    let client = automation_client()?;
+    let walker = client
+        .get_raw_view_walker()
+        .map_err(|error| uia_error(&error, "read scroll ancestors"))?;
+    let mut current = element.clone();
+    for _ in 0..crate::tree::walk::walker::DEFAULT_MAX_RAW_DEPTH {
+        deadline.ensure_remaining()?;
+        current = match parent_step(&walker, &current) {
+            Ok(Some(parent)) => parent,
+            Ok(None) => return Ok(false),
+            Err(()) => {
+                return Err(agent_desktop_core::AdapterError::new(
+                    agent_desktop_core::ErrorCode::AppUnresponsive,
+                    "Could not inspect scroll clipping",
+                ));
+            }
+        };
+        if read_one(&current, TreeProperty::ScrollAvailable).flag() != Some(true) {
+            continue;
+        }
+        if let Some(viewport) = viewport_bounds(&current)? {
+            match crate::tree::hit_test::intersect_rects(visible, viewport) {
+                Some(intersection) => visible = intersection,
+                None => return Ok(true),
+            }
+        }
+    }
+    Err(agent_desktop_core::AdapterError::new(
+        agent_desktop_core::ErrorCode::AppUnresponsive,
+        "Scroll ancestor traversal exceeded its limit",
+    ))
+}
+
 /// Reports a minimized owner's whole subtree offscreen in the read set.
 ///
 /// A minimized top-level window keeps reporting usable rectangles and a

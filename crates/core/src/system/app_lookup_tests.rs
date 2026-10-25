@@ -295,6 +295,10 @@ fn app_not_found_carries_a_suggestion_naming_the_accepted_forms() {
         !suggestion.contains(".exe") && !suggestion.contains("Windows"),
         "core words its suggestion for every platform: {suggestion}"
     );
+    let AppError::Adapter(error) = error else {
+        panic!("expected adapter error")
+    };
+    assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
 }
 
 #[test]

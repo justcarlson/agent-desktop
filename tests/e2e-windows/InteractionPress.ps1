@@ -1,25 +1,5 @@
 #Requires -Version 5.1
 
-<#
-    InteractionPress.ps1 - Invoke-PressLegs, dot-sourced by
-    scenarios/Interaction.ps1. Split out purely to keep both files under
-    the 400-line cap, and placed beside InteractionHeaded.ps1 rather than
-    under scenarios/ for the reason that file's header gives: the contract
-    gate scopes every scenarios/*.ps1 file as a top-level scenario required
-    to call Register-Legs and declare its own locks. The caller registers
-    the four legs below; this function takes both locks itself. $App is
-    always passed explicitly; no caller-scope state is shared implicitly.
-
-    press takes a combo and an optional --app, never a ref
-    (src/cli_args/actions.rs), so every leg observes the effect on the
-    control that held keyboard focus, never on the command's own ok. Key
-    names come from crates/windows/src/input/keyboard/keyboard_map.rs: "delete" is an
-    alias of Backspace there, so the legs say backspace. The blocked-combo
-    refusal is POLICY_DENIED from core (crates/core/src/commands/combo.rs),
-    raised before any app is resolved, so it needs neither --headed nor
-    --app and delivers nothing.
-#>
-
 Set-StrictMode -Version 2.0
 
 function Invoke-PressLegs {
@@ -46,16 +26,20 @@ function Invoke-PressLegs {
 
             try {
                 $textInput = Require-Target -Target (Find-Target -App $App -NativeId 'text-input' -TimeoutSeconds 10) -Description 'text-input'
-                Invoke-Target -Target $textInput -Action 'focus' -Headed -RequireOk -Description 'text-input (keyboard focus)' | Out-Null
-                if (-not (Test-Target -Target $textInput -Property 'focused')) { throw 'text-input was not focused before shift+tab; the leg would prove nothing' }
+                $secureInput = Require-Target -Target (Find-Target -App $App -NativeId 'secure-input' -TimeoutSeconds 10) -Description 'secure-input'
+                Invoke-Target -Target $secureInput -Action 'focus' -Headed -RequireOk -Description 'secure-input (plain Tab control)' | Out-Null
+                Assert-Envelope -Envelope (Invoke-AgentDesktop -Arguments @('--headed', 'press', 'tab', '--app', $App)) -Ok
+                if (Test-Target -Target $textInput -Property 'focused') { throw 'plain Tab moved backward to text-input; the Shift direction check would prove nothing' }
+                Invoke-Target -Target $secureInput -Action 'focus' -Headed -RequireOk -Description 'secure-input (keyboard focus)' | Out-Null
+                if (-not (Test-Target -Target $secureInput -Property 'focused')) { throw 'secure-input was not focused before shift+tab; the leg would prove nothing' }
                 Assert-Envelope -Envelope (Invoke-AgentDesktop -Arguments @('--headed', 'press', 'shift+tab', '--app', $App)) -Ok
                 $clock = [System.Diagnostics.Stopwatch]::StartNew()
-                $stillFocused = Test-Target -Target $textInput -Property 'focused'
-                while ($stillFocused -and $clock.Elapsed.TotalSeconds -lt 5) {
+                $previousFocused = Test-Target -Target $textInput -Property 'focused'
+                while (-not $previousFocused -and $clock.Elapsed.TotalSeconds -lt 5) {
                     Start-Sleep -Milliseconds 150
-                    $stillFocused = Test-Target -Target $textInput -Property 'focused'
+                    $previousFocused = Test-Target -Target $textInput -Property 'focused'
                 }
-                if ($stillFocused) { throw 'text-input still reports focused after shift+tab' }
+                if (-not $previousFocused) { throw 'shift+tab did not focus the previous control text-input' }
                 Add-Pass -Leg 'press-shift-tab-moves-focus'
             } catch { Add-Fail -Leg 'press-shift-tab-moves-focus' -Reason $_.Exception.Message }
 
@@ -78,7 +62,7 @@ function Invoke-PressLegs {
 
             try {
                 $foregroundBefore = Get-NativeForegroundWindowHandle
-                $refused = Invoke-AgentDesktop -Arguments @('press', 'win+x')
+                $refused = Invoke-AgentDesktop -Arguments @('press', 'meta+x', '--app', $App)
                 Assert-Envelope -Envelope $refused -ErrorCode 'POLICY_DENIED' -Delivery 'not_delivered'
                 if (-not ([string]$refused['error']['message']).Contains('blocked for safety')) { throw "win+x was refused with an unexpected message: '$($refused['error']['message'])'" }
                 $clock = [System.Diagnostics.Stopwatch]::StartNew()

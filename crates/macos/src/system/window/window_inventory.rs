@@ -121,6 +121,7 @@ fn require_running_app(
         agent_desktop_core::ErrorCode::AppNotFound,
         format!("No running application matches '{app_filter}'"),
     )
+    .with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())
     .with_suggestion("Run 'list-apps' to see running applications, or launch the app first."))
 }
 

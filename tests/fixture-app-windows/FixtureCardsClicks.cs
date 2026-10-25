@@ -34,29 +34,15 @@ namespace AgentDeskFixtureApp
             BuildTwinControls(card, CardLayout.RowY(5));
         }
 
-        /// <summary>
-        /// A physical N-click delivers N separate WM_LBUTTONDOWN/UP pairs
-        /// (Windows only special-cases the second click as
-        /// WM_LBUTTONDBLCLK; there is no native "triple" message, and a
-        /// stock <see cref="Button"/> does not raise <see
-        /// cref="Control.DoubleClick"/> at all - measured live, probe A20-4
-        /// found a Button sink stuck at its pre-click value across every
-        /// inter-click timing it tried and had to switch its own working
-        /// target to a ListBox; see probes/windows/FINDINGS.md). Counting
-        /// <see cref="Control.Click"/> events instead works for any control
-        /// that raises Click, a Button included, and resets the counter once
-        /// twice the system double-click interval has elapsed since the run's
-        /// first click - a click arriving after that window starts a fresh
-        /// count of one rather than accumulating forever.
-        /// </summary>
         private static void BuildCountedClickTarget(
             GroupBox card, string id, string label, int y, string statusId, string statusValue, int targetCount)
         {
             CountedClickButton target = CountedClickButton.Create(card, id, label, 16, y, 110);
             int clickCount = 0;
             DateTime windowStart = DateTime.MinValue;
-            target.Click += delegate
+            target.MouseUp += delegate(object sender, MouseEventArgs e)
             {
+                if (e.Button != MouseButtons.Left) { return; }
                 DateTime now = DateTime.UtcNow;
                 double windowMs = SystemInformation.DoubleClickTime * 2;
                 if (clickCount == 0 || (now - windowStart).TotalMilliseconds > windowMs)
@@ -184,19 +170,6 @@ namespace AgentDeskFixtureApp
             };
         }
     
-    /// <summary>
-    /// A <see cref="Button"/> that raises <see cref="Control.Click"/> for the
-    /// second press of a physical double-click.
-    ///
-    /// Windows delivers that press as WM_LBUTTONDBLCLK rather than another
-    /// WM_LBUTTONDOWN/UP pair, and a stock Button has StandardDoubleClick
-    /// disabled, so it swallows the message and raises nothing. A counter
-    /// watching Click therefore stops at one and a double-click target never
-    /// reaches two - while a triple-click target still passes, because its
-    /// third press arrives as an ordinary click. Enabling the style makes the
-    /// second press raise Click like every other press, which is what the
-    /// counting approach already assumes.
-    /// </summary>
     internal sealed class CountedClickButton : Button
     {
         internal CountedClickButton()

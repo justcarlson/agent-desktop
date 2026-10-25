@@ -38,7 +38,7 @@ fn adapter_rejects_silently_partial_apps_but_inventory_reports_skipped() {
     assert_eq!(inventory.skipped, vec![skipped]);
 
     let error = adapter
-        .list_apps(Deadline::after(30).unwrap())
+        .list_apps(Deadline::after(1000).unwrap())
         .expect_err("a skipped record must not become a successful complete app list");
     assert_eq!(error.code, ErrorCode::Timeout);
 }

@@ -14,6 +14,10 @@ pub(crate) fn is_host_process() -> bool {
     std::env::var("AGENT_DESKTOP_INTERNAL_COMMAND_HOST").as_deref() == Ok("1")
 }
 
+#[path = "command_host_batch.rs"]
+mod batch;
+pub(crate) use batch::forward_batch_item;
+
 #[path = "command_host_budget.rs"]
 mod budget;
 

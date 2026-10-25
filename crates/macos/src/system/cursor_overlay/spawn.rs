@@ -144,6 +144,9 @@ fn spawn(
     drop(stdin);
     while Instant::now() < deadline {
         if UnixStream::connect(socket).is_ok() {
+            thread::spawn(move || {
+                let _ = child.wait();
+            });
             return Ok(());
         }
         thread::sleep(Duration::from_millis(10));

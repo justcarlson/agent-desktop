@@ -62,6 +62,22 @@ namespace AgentDeskFixtureApp
                 scrollOffset.Text = (-scrollArea.AutoScrollPosition.Y).ToString();
             };
             scrollOffset.Text = "0";
+
+            Panel horizontal = new Panel();
+            FixtureIdentity.Assign(horizontal, "horizontal-scroll-area");
+            horizontal.Location = new Point(432, CardLayout.RowY(2));
+            horizontal.Size = new Size(160, 60);
+            horizontal.AutoScroll = true;
+            horizontal.AutoScrollMinSize = new Size(500, 20);
+            card.Controls.Add(horizontal);
+
+            Label edgeTarget = new Label();
+            FixtureIdentity.Assign(edgeTarget, "horizontal-edge-target");
+            edgeTarget.Text = "Edge";
+            edgeTarget.Location = new Point(150, 0);
+            edgeTarget.Size = new Size(30, 20);
+            horizontal.Controls.Add(edgeTarget);
+            new ControlTypeOverrideHost("horizontal-edge-target", ControlType.Text.Id, delegate { }).Hook(edgeTarget);
         }
 
         /// <summary>

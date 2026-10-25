@@ -260,10 +260,10 @@ impl Commands {
     }
 
     #[cfg(target_os = "macos")]
-    /// The permission guide offers the caller's own app to drag into the
-    /// Privacy list, so it cannot run inside a detached command host.
+    /// Permission guidance needs the caller; session management crosses host namespaces.
     pub(crate) fn needs_caller_process(&self) -> bool {
-        matches!(self, Self::Permissions(args) if args.guide)
+        matches!(self, Self::Session(_) | Self::Batch(_))
+            || matches!(self, Self::Permissions(args) if args.guide)
     }
 
     pub(crate) fn is_mutating(&self) -> bool {

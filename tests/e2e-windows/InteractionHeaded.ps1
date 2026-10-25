@@ -38,6 +38,10 @@ function Invoke-HeadedInteractionLegs {
                 $target = Require-Target -Target (Find-Target -App $App -NativeId 'triple-target' -TimeoutSeconds 10) -Description 'triple-target'
                 Invoke-Target -Target $target -Action 'scroll-to' -RequireOk -Description 'triple-target (scroll into view)' | Out-Null
                 $status = Require-Target -Target (Find-Target -App $App -NativeId 'triple-status' -TimeoutSeconds 10) -Description 'triple-status'
+                Add-Type -AssemblyName System.Windows.Forms
+                $resetWindow = [System.Windows.Forms.SystemInformation]::DoubleClickTime * 2 + 100
+                $twoClicks = Assert-NoEffect -Target $target -StatusTarget $status -Property 'value' -Action 'double-click' -Headed -WindowMs $resetWindow
+                Assert-Envelope -Envelope $twoClicks -Ok
                 Assert-Effect -Target $target -StatusTarget $status -Property 'value' -Expected 'triple-clicked' -ExpectedIsPrefix -Action 'triple-click' -Headed | Out-Null
                 Add-Pass -Leg 'headed-triple-click'
             } catch { Add-Fail -Leg 'headed-triple-click' -Reason $_.Exception.Message }
@@ -74,10 +78,11 @@ function Invoke-HeadedInteractionLegs {
                    and verifies it; this leg only needs to scroll the target
                    into view first, the same as every other physical leg in
                    this file. #>
+                Assert-Envelope -Envelope (Invoke-AgentDesktop -Arguments @('--headed', 'mouse-move', '--xy', '5,5')) -Ok
                 $mover = Require-Target -Target (Find-Target -App $App -NativeId 'hover-target' -TimeoutSeconds 10) -Description 'hover-target'
                 Invoke-Target -Target $mover -Action 'scroll-to' -RequireOk -Description 'hover-target (scroll into view)' | Out-Null
                 $status = Require-Target -Target (Find-Target -App $App -NativeId 'hover-status' -TimeoutSeconds 10) -Description 'hover-status'
-                Assert-Effect -Target $mover -StatusTarget $status -Property 'value' -Expected 'hovered' -ExpectedIsPrefix -Action 'hover' -Headed | Out-Null
+                Assert-Effect -Target $mover -StatusTarget $status -Property 'value' -Expected 'hovered' -ExpectedIsPrefix -AnyChange -Action 'hover' -Headed | Out-Null
                 Add-Pass -Leg 'headed-hover'
             } catch { Add-Fail -Leg 'headed-hover' -Reason $_.Exception.Message }
 

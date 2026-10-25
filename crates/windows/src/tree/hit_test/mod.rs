@@ -29,6 +29,8 @@ use agent_desktop_core::{
 #[cfg(target_os = "windows")]
 #[path = "hit_test_classify.rs"]
 mod classify;
+#[cfg(target_os = "windows")]
+pub(crate) use classify::intersect_rects;
 
 #[cfg(target_os = "windows")]
 #[path = "hit_test_corroborate.rs"]

@@ -87,6 +87,20 @@ mod windows_only {
     use crate::tree::fixture::HostedFixture;
     use crate::tree::walk::walker_fake::deadline;
 
+    #[test]
+    fn native_viewport_excludes_the_window_caption() {
+        crate::tree::fixture::ensure_test_apartment();
+        let fixture = HostedFixture::spawn().expect("fixture");
+        let root = root_from_hwnd(fixture.handle(), deadline()).expect("root");
+        let outer = root.0.get_bounding_rectangle().unwrap();
+        let viewport = viewport_bounds(&root).unwrap().unwrap();
+        assert!(
+            viewport.y > f64::from(outer.get_top()),
+            "caption is not content"
+        );
+        assert!(viewport.height < f64::from(outer.get_bottom() - outer.get_top()));
+    }
+
     /// A live fixture with no scrollable ancestor climbs to the true root and
     /// reports `Ok(None)` - the confident "no viewport" answer a completed
     /// climb gives. This is a regression guard on the healthy path only: it

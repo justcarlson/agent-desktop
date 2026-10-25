@@ -43,9 +43,11 @@ release_exclusive_lock() {
 
 setup_isolated_environment() {
     local label="$1"
-    suite_root="$(mktemp -d "$host_tmp/agent-desktop-${label}.XXXXXX")" || return 1
+    suite_root="$(mktemp -d "/tmp/ad-${label}.XXXXXX")" || return 1
+    suite_root="$(cd "$suite_root" && pwd -P)" || return 1
     printf '%s\n' "$$" > "$suite_root/.agent-desktop-e2e-root"
     mkdir -p "$suite_root/home" "$suite_root/tmp" "$suite_root/bin" "$suite_root/fixture"
+    chmod 700 "$suite_root/tmp"
     export HOME="$suite_root/home"
     export TMPDIR="$suite_root/tmp"
     export XDG_CACHE_HOME="$suite_root/home/.cache"
@@ -66,6 +68,13 @@ cleanup_isolated_environment() {
         owner="$(sed -n '1p' "$suite_root/.agent-desktop-e2e-root" 2>/dev/null)"
     fi
     if [ "$owner" = "$$" ]; then
+        # The staged binary owns any retained AX objects and inherited lease.
+        if [ -n "$prepared_binary" ]; then
+            local host_pid
+            for host_pid in $(pgrep -fx "$prepared_binary" 2>/dev/null); do
+                kill "$host_pid" 2>/dev/null || true
+            done
+        fi
         remove_artifact "$suite_root" || true
     else
         echo "refusing to remove unowned E2E directory: $suite_root" >&2
@@ -81,7 +90,7 @@ remove_artifact() {
     if [ ! -e "$path" ] && [ ! -L "$path" ]; then
         return 0
     fi
-    if ! rm -rf -- "$path"; then
+    if ! trash "$path"; then
         echo "cleanup failed; retained artifact: $path" >&2
         return 1
     fi

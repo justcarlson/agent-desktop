@@ -29,7 +29,7 @@ fn malformed_records_are_reported_without_blocking_either_inventory() {
         .unwrap();
         let bridged = bridged_snapshot(&bytes).unwrap();
         assert_eq!(bridged.skipped[0]["field"], field);
-        assert_eq!(bridged.skipped[1]["field"], "duplicate_pid");
+        assert_eq!(bridged.skipped.len(), 1);
         let owners = window_owner_snapshot_from_json(&bytes, deadline());
         if key == "pid" {
             assert!(owners.is_err());
@@ -164,4 +164,56 @@ fn skipped_records_preserve_matching_apps_and_retry_missing_names() {
     let error = owners.require_match("Missing").unwrap_err();
     assert_eq!(error.code, ErrorCode::AppUnresponsive);
     assert_eq!(error.details.unwrap()["skipped"][0]["pid"], 11);
+}
+
+#[test]
+fn workspace_identity_aliases_do_not_make_missing_apps_retryable() {
+    let app =
+        json!({"name":"Finder", "pid":10, "launch_time":100.0, "activation_policy":"regular"});
+    let mut alias = app.clone();
+    alias["name"] = json!("Finder alias");
+    let bytes = serde_json::to_vec(&json!({
+        "applications":[app, alias], "frontmost_pid":10, "frontmost_launch_time":100.0,
+    }))
+    .unwrap();
+    let inventory = apps_inventory_from_json_with(
+        &bytes,
+        deadline(),
+        |_| true,
+        true,
+        |_| Ok(Some("instance-10".into())),
+    )
+    .unwrap();
+    assert_eq!(inventory.apps.len(), 1);
+    require_complete(&inventory.skipped).unwrap();
+    let owners = window_owner_snapshot_from_json(&bytes, deadline()).unwrap();
+    owners.require_match("Missing").unwrap();
+    assert_eq!(owners.frontmost().unwrap().pid, 10);
+}
+
+#[test]
+fn conflicting_workspace_records_remain_incomplete() {
+    let app =
+        json!({"name":"Finder", "pid":10, "launch_time":100.0, "activation_policy":"regular"});
+    for (field, value) in [
+        ("launch_time", json!(101.0)),
+        ("activation_policy", json!("accessory")),
+        ("bundle_id", json!("other.bundle")),
+    ] {
+        let mut conflicting = app.clone();
+        conflicting[field] = value;
+        let bytes = serde_json::to_vec(&json!({
+            "applications":[app, conflicting], "frontmost_pid":0, "frontmost_launch_time":null,
+        }))
+        .unwrap();
+        let inventory = apps_inventory_from_json_with(
+            &bytes,
+            deadline(),
+            |_| true,
+            true,
+            |_| Ok(Some("instance-10".into())),
+        )
+        .unwrap();
+        assert!(require_complete(&inventory.skipped).is_err(), "{field}");
+    }
 }
