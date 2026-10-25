@@ -32,8 +32,8 @@ The command resolves to `apps\agent-desktop\current\agent-desktop.exe`. Scoop ma
 junction and adds it to PATH. This package creates no `.cmd`, `.ps1`, or executable shim and has no install hooks.
 Upgrade with `scoop update; scoop update agent-desktop`; uninstall with `scoop uninstall agent-desktop`.
 
-Both managers check the archive against a SHA-256 pinned in the repository. Package definitions track published
-releases and are updated after publication. If a prior npm-family installation shadows the native command, uninstall
+Both managers check the archive against a SHA-256 pinned in the repository. The manual release workflow reads
+`Cargo.toml` and opens a package-update PR using the published archives and their verified checksums. If a prior npm-family installation shadows the native command, uninstall
 it through the manager that installed it, then open a new terminal. Check resolution with `command -v agent-desktop`
 on macOS/Linux or `Get-Command agent-desktop` on Windows.
 

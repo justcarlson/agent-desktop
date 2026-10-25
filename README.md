@@ -42,7 +42,14 @@ installation. If an older npm install appears first on PATH, uninstall it with i
 - **Linux** needs the user's graphical session with `at-spi2-core`.
 
 See [installation and permissions](docs/install.md) for upgrades, release archives, and building from source.
-The npm package remains available as an alternative, but some npm-family paths retain launchers.
+**npm** remains supported on all three platforms:
+
+```bash
+npm install -g agent-desktop
+```
+
+Bun, Yarn and pnpm can install the same `agent-desktop` package. Some npm-family paths retain their package
+manager's launcher; the native packages above provide direct execution.
 
 ## Quick start
 
