@@ -34,7 +34,6 @@ namespace AgentDeskFixtureApp
             BuildTwinControls(card, CardLayout.RowY(5));
         }
 
-        // Count physical releases once; WinForms can raise Click twice for one press.
         private static void BuildCountedClickTarget(
             GroupBox card, string id, string label, int y, string statusId, string statusValue, int targetCount)
         {
@@ -171,7 +170,6 @@ namespace AgentDeskFixtureApp
             };
         }
     
-    // Preserve native double-click messages while counting each physical release.
     internal sealed class CountedClickButton : Button
     {
         internal CountedClickButton()

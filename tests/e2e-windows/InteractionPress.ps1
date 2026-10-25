@@ -26,16 +26,20 @@ function Invoke-PressLegs {
 
             try {
                 $textInput = Require-Target -Target (Find-Target -App $App -NativeId 'text-input' -TimeoutSeconds 10) -Description 'text-input'
-                Invoke-Target -Target $textInput -Action 'focus' -Headed -RequireOk -Description 'text-input (keyboard focus)' | Out-Null
-                if (-not (Test-Target -Target $textInput -Property 'focused')) { throw 'text-input was not focused before shift+tab; the leg would prove nothing' }
+                $secureInput = Require-Target -Target (Find-Target -App $App -NativeId 'secure-input' -TimeoutSeconds 10) -Description 'secure-input'
+                Invoke-Target -Target $secureInput -Action 'focus' -Headed -RequireOk -Description 'secure-input (plain Tab control)' | Out-Null
+                Assert-Envelope -Envelope (Invoke-AgentDesktop -Arguments @('--headed', 'press', 'tab', '--app', $App)) -Ok
+                if (Test-Target -Target $textInput -Property 'focused') { throw 'plain Tab moved backward to text-input; the Shift direction check would prove nothing' }
+                Invoke-Target -Target $secureInput -Action 'focus' -Headed -RequireOk -Description 'secure-input (keyboard focus)' | Out-Null
+                if (-not (Test-Target -Target $secureInput -Property 'focused')) { throw 'secure-input was not focused before shift+tab; the leg would prove nothing' }
                 Assert-Envelope -Envelope (Invoke-AgentDesktop -Arguments @('--headed', 'press', 'shift+tab', '--app', $App)) -Ok
                 $clock = [System.Diagnostics.Stopwatch]::StartNew()
-                $stillFocused = Test-Target -Target $textInput -Property 'focused'
-                while ($stillFocused -and $clock.Elapsed.TotalSeconds -lt 5) {
+                $previousFocused = Test-Target -Target $textInput -Property 'focused'
+                while (-not $previousFocused -and $clock.Elapsed.TotalSeconds -lt 5) {
                     Start-Sleep -Milliseconds 150
-                    $stillFocused = Test-Target -Target $textInput -Property 'focused'
+                    $previousFocused = Test-Target -Target $textInput -Property 'focused'
                 }
-                if ($stillFocused) { throw 'text-input still reports focused after shift+tab' }
+                if (-not $previousFocused) { throw 'shift+tab did not focus the previous control text-input' }
                 Add-Pass -Leg 'press-shift-tab-moves-focus'
             } catch { Add-Fail -Leg 'press-shift-tab-moves-focus' -Reason $_.Exception.Message }
 

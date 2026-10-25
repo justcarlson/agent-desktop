@@ -296,29 +296,28 @@ mod imp {
                 ));
             }
         };
-        if matches!(direction, Direction::Left | Direction::Right) {
-            let amount = if matches!(direction, Direction::Left) {
-                uiautomation::types::ScrollAmount::LargeDecrement
-            } else {
-                uiautomation::types::ScrollAmount::LargeIncrement
-            };
-            return match pattern.scroll(amount, uiautomation::types::ScrollAmount::NoAmount) {
-                Ok(()) => classify_success().map(|_| ()),
-                Err(error) => {
-                    require_scroll_delivery(classify_write("Scroll", LADDER_SCROLL_LABEL, &error))
-                }
-            };
-        }
         let bounds = crate::actions::scroll::known_bounds(element).ok_or_else(|| {
             AdapterError::new(ErrorCode::ActionFailed, "Missing scroll target bounds")
         })?;
         let viewport = viewport_bounds(ancestor)?.ok_or_else(|| {
             AdapterError::new(ErrorCode::ActionFailed, "Missing scroll viewport bounds")
         })?;
-        let current = pattern.get_vertical_scroll_percent();
-        let size = pattern.get_vertical_view_size();
-        let extent = viewport.height;
-        let offset = bounds.y + bounds.height / 2.0 - viewport.y - viewport.height / 2.0;
+        let horizontal = matches!(direction, Direction::Left | Direction::Right);
+        let (current, size, extent, offset) = if horizontal {
+            (
+                pattern.get_horizontal_scroll_percent(),
+                pattern.get_horizontal_view_size(),
+                viewport.width,
+                bounds.x + bounds.width / 2.0 - viewport.x - viewport.width / 2.0,
+            )
+        } else {
+            (
+                pattern.get_vertical_scroll_percent(),
+                pattern.get_vertical_view_size(),
+                viewport.height,
+                bounds.y + bounds.height / 2.0 - viewport.y - viewport.height / 2.0,
+            )
+        };
         let percent = centered_scroll_percent(
             current.map_err(|error| uia_error(&error, "read scroll position"))?,
             size.map_err(|error| uia_error(&error, "read scroll view size"))?,
@@ -327,7 +326,12 @@ mod imp {
         )?;
         ensure_budget(deadline)?;
         corroborate_verified_process(ancestor)?;
-        match pattern.set_scroll_percent(-1.0, percent) {
+        let (x, y) = if horizontal {
+            (percent, -1.0)
+        } else {
+            (-1.0, percent)
+        };
+        match pattern.set_scroll_percent(x, y) {
             Ok(()) => {
                 classify_success()?;
                 Ok(())

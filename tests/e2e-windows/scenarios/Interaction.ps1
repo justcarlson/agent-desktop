@@ -29,6 +29,7 @@ Set-StrictMode -Version 2.0
    file's own header for why. #>
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionHeaded.ps1')
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionPress.ps1')
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'InteractionScroll.ps1')
 
 function Get-InteractionHeadlessLegTable {
     @(
@@ -77,17 +78,19 @@ function Get-InteractionRefusalLegTable {
 
 function Assert-RefusalLeg {
     param($Leg, [Parameter(Mandatory = $true)][string]$App)
-    $target = Require-Target -Target (Find-Target -App $App -NativeId $Leg.TargetId -TimeoutSeconds 10) -Description $Leg.TargetId
-    if ($Leg.Action -eq 'drag') {
-        $callArgs = @('drag', '--from', $target.RefId) + $Leg.ActionArgs
-        $envelope = Invoke-AgentDesktop -Arguments $callArgs
+    Enter-Stage -Lock DesktopLease -Body {
+        $target = Require-Target -Target (Find-Target -App $App -NativeId $Leg.TargetId -TimeoutSeconds 10) -Description $Leg.TargetId
+        if ($Leg.Action -eq 'drag') {
+            $callArgs = @('drag', '--from', $target.RefId) + $Leg.ActionArgs
+            $envelope = Invoke-AgentDesktop -Arguments $callArgs
+            Assert-Envelope -Envelope $envelope -ErrorCode 'POLICY_DENIED' -Delivery 'not_delivered' -Retry 'safe'
+            return
+        }
+        Invoke-Target -Target $target -Action 'scroll-to' -RequireOk -Description $Leg.TargetId | Out-Null
+        $statusTarget = Require-Target -Target (Find-Target -App $App -NativeId $Leg.StatusId -TimeoutSeconds 10) -Description $Leg.StatusId
+        $envelope = Assert-NoEffect -Target $target -StatusTarget $statusTarget -Property 'value' -Action $Leg.Action
         Assert-Envelope -Envelope $envelope -ErrorCode 'POLICY_DENIED' -Delivery 'not_delivered' -Retry 'safe'
-        return
     }
-    Invoke-Target -Target $target -Action 'scroll-to' -RequireOk -Description $Leg.TargetId | Out-Null
-    $statusTarget = Require-Target -Target (Find-Target -App $App -NativeId $Leg.StatusId -TimeoutSeconds 10) -Description $Leg.StatusId
-    $envelope = Assert-NoEffect -Target $target -StatusTarget $statusTarget -Property 'value' -Action $Leg.Action
-    Assert-Envelope -Envelope $envelope -ErrorCode 'POLICY_DENIED' -Delivery 'not_delivered' -Retry 'safe'
 }
 
 function Invoke-InteractionScenario {
@@ -102,7 +105,7 @@ function Invoke-InteractionScenario {
             'headed-drag', 'headed-type', 'headed-press-app',
             'press-ctrl-a-backspace-clears-text', 'press-shift-tab-moves-focus',
             'press-return-activates-focused-button', 'press-blocked-combo-refused',
-            'interaction-scroll-to-visibility', 'interaction-focus-refused-headless', 'interaction-focus-headed-oracle'
+            'interaction-scroll-to-visibility', 'interaction-horizontal-scroll-to-containment', 'interaction-focus-refused-headless', 'interaction-focus-headed-oracle'
         ))
 
     foreach ($leg in $headlessLegs) {
@@ -155,7 +158,7 @@ function Invoke-InteractionScenario {
 
     foreach ($leg in $refusalLegs) {
         try {
-            Enter-Stage -Lock DesktopLease -Body { Assert-RefusalLeg -Leg $leg -App $App }
+            Assert-RefusalLeg -Leg $leg -App $App
             Add-Pass -Leg $leg.Name
         } catch {
             Add-Fail -Leg $leg.Name -Reason $_.Exception.Message
@@ -168,6 +171,7 @@ function Invoke-InteractionScenario {
     Invoke-HeadedInteractionLegs -App $App
     Invoke-PressLegs -App $App
     Invoke-ScrollToVisibilityLeg -App $App
+    Invoke-HorizontalScrollToLeg -App $App
     Invoke-FocusRefusalLeg -App $App
     Invoke-FocusOracleLeg -App $App
 }
