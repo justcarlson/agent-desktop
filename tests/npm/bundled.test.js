@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
-const { cpSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync, chmodSync, statSync } = require('node:fs');
+const { cpSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync, chmodSync, statSync, renameSync, symlinkSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { test } = require('node:test');
@@ -84,4 +84,23 @@ test('blocked-script Linux launch removes write access without broadening privat
     assert.equal(statSync(bin).mode & 0o777, mode & 0o755);
     assert.equal(statSync(helper).mode & 0o777, mode & 0o755);
   }
+});
+
+test('Linux permission repair refuses helper symlinks without changing their target', {
+  skip: process.platform === 'win32',
+}, () => {
+  const { root, archives } = fixture();
+  execFileSync(process.execPath, [join(root, 'scripts/prepare-npm-binaries.js'), archives]);
+  const bin = join(root, 'npm/bin');
+  const helper = join(bin, 'agent-desktop-linux-clipboard-owner-linux-x64');
+  const outside = join(root, 'outside-helper');
+  renameSync(helper, outside);
+  chmodSync(outside, 0o775);
+  symlinkSync(outside, helper);
+  const stub = join(root, 'os-stub.js');
+  writeFileSync(stub, "const os = require('os'); os.platform = () => 'linux'; os.arch = () => 'x64';");
+  assert.throws(() => execFileSync(process.execPath,
+    ['-r', stub, join(bin, 'agent-desktop'), 'version'], { stdio: 'pipe' }),
+  (error) => error.stderr.toString().includes('Linux helper must be a regular file'));
+  assert.equal(statSync(outside).mode & 0o777, 0o775);
 });

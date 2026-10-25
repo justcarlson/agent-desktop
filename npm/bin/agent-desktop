@@ -55,14 +55,15 @@ function main() {
     try {
       const directory = lstatSync(binDir);
       if (!directory.isDirectory()) throw new Error('Package bin path must be a directory');
-      chmodSync(binDir, directory.mode & 0o755);
+      if (directory.mode & 0o022) chmodSync(binDir, directory.mode & 0o755);
       const plainHelper = join(binDir, LINUX_HELPER_NAME);
       const linuxHelper = existsSync(plainHelper)
         ? plainHelper : join(binDir, `${LINUX_HELPER_NAME}-linux-${arch()}`);
       if (existsSync(linuxHelper)) {
         const helper = lstatSync(linuxHelper);
         if (!helper.isFile()) throw new Error('Linux helper must be a regular file');
-        chmodSync(linuxHelper, (helper.mode & 0o755) | 0o100);
+        const mode = (helper.mode & 0o755) | 0o100;
+        if ((helper.mode & 0o777) !== mode) chmodSync(linuxHelper, mode);
       }
     } catch (err) {
       console.error(`Error: Cannot secure Linux package permissions: ${err.message}`);
