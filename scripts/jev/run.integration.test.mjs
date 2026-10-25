@@ -29,7 +29,8 @@ else if (command === 'snapshot' && mode === 'closed_top' &&
 else if (command === 'snapshot') {
   const at = args.indexOf('--window-id');
   const actions = require('node:fs').readFileSync(process.env.JEV_TEST_LOG,'utf8').split('\\n').filter(Boolean)
-    .map(JSON.parse).filter(item => ['click','set-value'].includes(item.command)).length;
+    .map(JSON.parse).filter(item => ['click','set-value'].includes(item.command));
+  const written = actions.filter(item => item.command === 'set-value').at(-1)?.args.at(-1) ?? '';
   const suppliedInputs = JSON.parse(process.env.JEV_TEST_INPUTS ?? '[]');
   const pinned = at === -1 ? 'w-default' : args[at + 1];
   const surfaced = args.includes('--surface');
@@ -41,8 +42,8 @@ else if (command === 'snapshot') {
   const sheet = mode.startsWith('surface') && !surfaced ? [{role:'sheet',children:[]}] : [];
   result = {ok:true,data:{window,tree:{
     role:'window',children:[
-      {ref_id:'@s1:e1',role:'button',name:mode==='sequence'&&actions>=1?suppliedInputs[1]:'試験ボタン',available_actions:['Click']},
-      {ref_id:'@s1:e2',role:'textfield',name:'試験欄',value:process.env.JEV_ACT_TEST?'PRIVATE-ACT-SCREEN-VALUE-4583':'',available_actions:['SetValue']},
+      {ref_id:'@s1:e1',role:'button',name:mode==='sequence'&&actions.length>=1?suppliedInputs[1]:'試験ボタン',available_actions:['Click']},
+      {ref_id:'@s1:e2',role:'textfield',name:'試験欄',value:process.env.JEV_ACT_TEST?'PRIVATE-ACT-SCREEN-VALUE-4583':mode==='sequence'?written:'',available_actions:['SetValue']},
       ...sheet
     ]}}};
 }
