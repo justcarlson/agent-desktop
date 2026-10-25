@@ -33,6 +33,10 @@ use std::process::ExitCode;
 const EXIT_INVALID_ARGS: u8 = 2;
 
 fn main() -> ExitCode {
+    #[cfg(target_os = "macos")]
+    if command_host::is_host_process() {
+        unsafe { libc::umask(0o077) };
+    }
     if let Some(result) = build_adapter().run_cursor_overlay_child() {
         return if result.is_ok() {
             ExitCode::SUCCESS

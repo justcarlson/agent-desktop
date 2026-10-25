@@ -121,7 +121,6 @@ AgentDesktopBytesResult agent_desktop_copy_workspace_snapshot_json(void) {
     @try {
         @autoreleasepool {
             NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
-            // A command host must consume AppKit launch/exit notifications between requests.
             CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, false);
             NSArray<NSRunningApplication *> *running = workspace.runningApplications;
             if (running == nil || running.count > 8192) {

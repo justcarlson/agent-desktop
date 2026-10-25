@@ -162,6 +162,7 @@ fn socket_host_survives_a_bad_client_and_serves_separate_invocations() {
 #[test]
 fn default_cli_starts_and_reuses_its_host() {
     use std::hash::{Hash, Hasher};
+    use std::os::unix::{fs::PermissionsExt, process::CommandExt};
     let directory = std::env::temp_dir().join(format!("ad-host-client-{}", std::process::id()));
     let mut hash = std::collections::hash_map::DefaultHasher::new();
     host_identity(&directory).hash(&mut hash);
@@ -171,7 +172,14 @@ fn default_cli_starts_and_reuses_its_host() {
         hash.finish(),
     ));
     let invoke = || {
-        Command::new(env!("CARGO_BIN_EXE_agent-desktop"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_agent-desktop"));
+        unsafe {
+            command.pre_exec(|| {
+                libc::umask(0);
+                Ok(())
+            });
+        }
+        command
             .arg("version")
             .env_remove("AGENT_DESKTOP_INTERNAL_HOST_CLIENT")
             .env_remove("AGENT_DESKTOP_INTERNAL_COMMAND_HOST")
@@ -184,6 +192,20 @@ fn default_cli_starts_and_reuses_its_host() {
     };
     let first = invoke();
     let concurrent = invoke();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match std::fs::metadata(&socket) {
+            Ok(metadata) => {
+                assert_eq!(metadata.permissions().mode() & 0o077, 0);
+                break;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                assert!(Instant::now() < deadline, "host did not bind");
+                std::thread::yield_now();
+            }
+            Err(error) => panic!("socket metadata failed: {error}"),
+        }
+    }
     let first = first.wait_with_output().unwrap();
     let concurrent = concurrent.wait_with_output().unwrap();
     let stream = UnixStream::connect(&socket).unwrap();

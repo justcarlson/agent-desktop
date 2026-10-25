@@ -141,7 +141,7 @@ pub(super) fn execute(
             entry,
             results_bytes,
         );
-        completed += 1;
+        completed += usize::from(entry["execution"] == "completed");
         push_small_entry(&mut results, &mut results_bytes, entry);
 
         if oversized {
