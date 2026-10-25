@@ -1,6 +1,6 @@
 ---
 name: agent-desktop-macos
-version: 0.11.0
+version: 0.11.1
 tags: macos-automation, accessibility, ax, tcc, ai-agent, gui-automation, cli
 requirements:
   - agent-desktop

@@ -1,6 +1,6 @@
 ---
 name: agent-desktop-ffi
-version: 0.11.0
+version: 0.11.1
 tags: ffi, c-bindings, cdylib, python, swift, node, go, rust-ffi
 requirements:
   - agent-desktop-ffi

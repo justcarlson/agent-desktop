@@ -66,10 +66,16 @@ test('release checkout accepts only commits in the triggering history', { skip: 
   git('commit', '-qm', 'test: create unrelated history');
   const unrelated = git('rev-parse', 'HEAD');
   git('checkout', '--detach', workflow);
-  for (const source of [unrelated, 'main; exit 0', ancestor]) {
+  for (const scenario of [
+    { source: unrelated }, { source: 'main; exit 0' }, { source: ancestor },
+    { source: ancestor, differentOwner: '1' },
+  ]) {
+    git('checkout', '--detach', workflow);
+    const { source, differentOwner } = scenario;
     const result = spawnSync('bash', [resolve(__dirname, '../../scripts/checkout-release-source.sh')], {
       cwd: root, encoding: 'utf8',
-      env: { ...process.env, RELEASE_SOURCE_SHA: source, RELEASE_WORKFLOW_SHA: workflow },
+      env: { ...process.env, RELEASE_SOURCE_SHA: source, RELEASE_WORKFLOW_SHA: workflow,
+        GIT_TEST_ASSUME_DIFFERENT_OWNER: differentOwner },
     });
     assert.equal(result.status, source === ancestor ? 0 : 1, result.stderr);
     assert.equal(git('rev-parse', 'HEAD'), source === ancestor ? ancestor : workflow);
