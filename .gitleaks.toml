@@ -50,6 +50,7 @@ regexes = [
   '''(?i)^[A-Za-z0-9._%+-]+@users\.noreply\.github\.com$''',
   '''(?i)^noreply@github\.com$''',
   '''^secret@router\.example$''',
+  '''^fixture@example\.invalid$''',
   '''^org\.gnome\.Shell@(x11|wayland)\.service$''',
   '''^user@[0-9]+\.service$''',
   '''^ubuntu-appindicators@ubuntu\.com$''',

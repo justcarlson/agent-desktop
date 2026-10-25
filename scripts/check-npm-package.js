@@ -1,10 +1,8 @@
 #!/usr/bin/env node
-
 const { execFileSync, execSync } = require('child_process');
 const { readFileSync } = require('fs');
 const { join } = require('path');
 const { tmpdir } = require('os');
-
 const root = join(__dirname, '..');
 const npmDir = join(root, 'npm');
 const pkg = require(join(npmDir, 'package.json'));
@@ -13,15 +11,14 @@ const { LINUX_HELPER_NAME, PLATFORMS, tarballName } = require(join(npmDir, 'lib'
 const expectedFiles = [
   'bin/agent-desktop',
   'lib/platform.js',
+  'lib/windows-bin.js',
   'package.json',
   'scripts/postinstall.js',
 ];
-
 const NPM_PUBLISH_JOB = 'publish-npm';
 const BUILD_JOB = 'build';
 const BUILD_FFI_JOB = 'build-ffi';
 const PUBLISH_GITHUB_JOB = 'publish-github';
-
 // Returns the YAML block for one job, so a requirement can be asserted about
 // the job that needs it rather than about the file that contains it.
 //
@@ -44,7 +41,6 @@ function jobBlock(workflow, jobName) {
   const end = rest.findIndex((line) => /^ {2}\S/.test(line));
   return (end === -1 ? rest : rest.slice(0, end)).join('\n');
 }
-
 function matrixIncludeTargets(jobText) {
   const lines = jobText.split('\n');
   const includeStart = lines.findIndex((line) => line.trim() === 'include:');
@@ -68,7 +64,6 @@ function matrixIncludeTargets(jobText) {
   }
   return [...new Set(targets)];
 }
-
 function normaliseTarballConstruction(line) {
   const match = line.match(/agent-desktop-v[^"']*?\.tar\.gz/);
   if (!match) return null;
@@ -459,7 +454,8 @@ if (!pack || !Array.isArray(pack.files)) {
   );
 }
 const actualFiles = pack.files.map((file) => file.path).sort();
-const expected = [...expectedFiles].sort();
+const expected = [...expectedFiles, ...(process.argv.includes('--bundled')
+  ? require('./npm-bundled-files')() : [])].sort();
 
 if (JSON.stringify(actualFiles) !== JSON.stringify(expected)) {
   throw new Error(`Unexpected npm package contents: ${actualFiles.join(', ')}`);
@@ -469,7 +465,7 @@ if (pack.bundled && pack.bundled.length > 0) {
   throw new Error(`npm package unexpectedly bundles dependencies: ${pack.bundled.join(', ')}`);
 }
 
-if (pack.unpackedSize > 25_000) {
+if (pack.unpackedSize > (process.argv.includes('--bundled') ? 100_000_000 : 25_000)) {
   throw new Error(`npm package is unexpectedly large: ${pack.unpackedSize} bytes`);
 }
 

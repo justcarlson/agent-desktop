@@ -28,7 +28,7 @@ The package works on macOS, Windows and Linux, on x64 and ARM64. Then check what
 - **Windows** needs no grant for apps at your terminal's integrity level. See [permissions](docs/install.md#permissions).
 - **Linux** needs the user's graphical session with `at-spi2-core`. See [permissions](docs/install.md#permissions).
 
-If your package manager blocks install scripts, allow them (npm 11: `allowScripts`); see [docs/install.md](docs/install.md#blocked-install-scripts). To verify a release archive's origin, run `gh attestation verify`; see [docs/install.md](docs/install.md#release-archives). Building from source is covered in [docs/install.md](docs/install.md#from-source).
+The npm package bundles the native binaries and helpers for all six platform and architecture combinations, so installation also works with scripts blocked. When postinstall runs, POSIX commands link directly to the native binary and owned Windows npm/Yarn commands call the executable directly; blocked scripts and some package managers retain a launcher. To verify a release archive's origin, run `gh attestation verify`; see [docs/install.md](docs/install.md#release-archives). Building from source is covered in [docs/install.md](docs/install.md#from-source).
 
 ## Quick start
 

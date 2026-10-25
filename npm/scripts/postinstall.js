@@ -184,7 +184,8 @@ function isNodeWrapper(path) {
 }
 
 function linkBinEntry(directory, binaryName, osPlatform = platform()) {
-  if (osPlatform === 'win32' || !isInstalledPackage(directory)) return false;
+  if (!isInstalledPackage(directory)) return false;
+  if (osPlatform === 'win32') return require('../lib/windows-bin')(directory, binaryName);
   const entryPath = join(directory, BIN_ENTRY_NAME);
   const binaryPath = join(directory, binaryName);
   const temporary = `${entryPath}.link-${process.pid}`;
@@ -298,6 +299,11 @@ function main() {
       process.exitCode = 1;
     }
     return;
+  }
+
+  const bundledHelper = includesHelper ? join(binDir, `${helperName}-${platformKey}`) : undefined;
+  if (includesHelper && existsSync(bundledHelper) && matchesRecordedDigest(bundledHelper)) {
+    installExecutable(bundledHelper, helperPath);
   }
 
   const alreadyInstalled =

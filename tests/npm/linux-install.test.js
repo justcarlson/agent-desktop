@@ -218,7 +218,7 @@ for (const [name, options, expected] of [
   });
 }
 
-test('the wrapper names the missing native binary when install scripts were disabled', { skip: POSIX_ONLY }, async () => {
+test('the wrapper identifies an incomplete package when the bundled native binary is missing', { skip: POSIX_ONLY }, async () => {
   const dir = packageCopy();
   const { code, stderr } = await runScriptWithOsStub(
     join(dir, 'bin', 'agent-desktop'),
@@ -228,7 +228,7 @@ test('the wrapper names the missing native binary when install scripts were disa
   );
   assert.equal(code, 1);
   assert.match(stderr, /Error: Native binary not found for linux-x64/);
-  assert.match(stderr, /--ignore-scripts/);
+  assert.match(stderr, /installed package is incomplete/);
   assert.match(stderr, /Expected: .*agent-desktop-linux-x64/);
 });
 

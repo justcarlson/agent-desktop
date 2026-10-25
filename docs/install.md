@@ -9,17 +9,9 @@ agent-desktop status            # platform, permissions, supported surfaces
 
 ## Blocked install scripts
 
-The package's `postinstall` script downloads the binary from the GitHub release and checks its SHA-256. A package
-manager that blocks install scripts leaves no binary, and the first run fails with binary-not-found. npm 11 runs the
-script but warns that it is not covered by `allowScripts`. On Linux the script also needs `curl`, `tar` and `gzip`. To
-allow it:
-
-```bash
-npm install -g --allow-scripts=agent-desktop agent-desktop
-npm config set allow-scripts=agent-desktop --location=user
-pnpm add -g --allow-build=agent-desktop agent-desktop
-bun add -g --trust agent-desktop
-```
+The npm package includes the native binaries and helpers. With install scripts blocked, its launcher selects the
+bundled binary. When postinstall runs, it links POSIX commands directly to the native binary and optimizes owned
+Windows npm/Yarn commands to invoke the executable. Some package managers retain their own launcher.
 
 ## Release archives
 

@@ -31,16 +31,8 @@ function main() {
     console.error(`Error: Native binary not found for ${platform()}-${arch()}`);
     console.error(`Expected: ${binaryPath}`);
     console.error('');
-    console.error('This usually means the install ran with --ignore-scripts,');
-    console.error('the package manager blocked the postinstall script (npm: allow-scripts=agent-desktop),');
-    console.error('or its postinstall download step failed.');
-    console.error('Try reinstalling:');
-    console.error('  npm:  npm install -g --allow-scripts=agent-desktop agent-desktop');
-    console.error('  pnpm: pnpm add -g --allow-build=agent-desktop agent-desktop');
-    console.error('  bun:  bun add -g --trust agent-desktop');
-    console.error('');
-    console.error('Or download directly from:');
-    console.error('  https://github.com/lahfir/agent-desktop/releases');
+    console.error('The installed package is incomplete. Reinstall agent-desktop.');
+    console.error('Release binaries are also available at https://github.com/lahfir/agent-desktop/releases');
 
     process.exit(1);
   }
@@ -59,13 +51,15 @@ function main() {
     }
   }
 
+  let helperPath;
   if (platform() === 'darwin') {
     const override = process.env[MACOS_HELPER_PATH_ENV];
     if (override && !isAbsolute(override)) {
       console.error(`Error: ${MACOS_HELPER_PATH_ENV} must be an absolute path`);
       process.exit(1);
     }
-    const helperPath = override || join(binDir, MACOS_HELPER_NAME);
+    const bundledHelper = join(binDir, `${MACOS_HELPER_NAME}-${platform()}-${arch()}`);
+    helperPath = override || (existsSync(bundledHelper) ? bundledHelper : join(binDir, MACOS_HELPER_NAME));
     if (!existsSync(helperPath)) {
       console.error(`Error: macOS helper not found: ${helperPath}`);
       console.error('Reinstall agent-desktop so the CLI and helper come from the same release.');
@@ -85,6 +79,7 @@ function main() {
 
   const child = spawn(binaryPath, process.argv.slice(2), {
     stdio: 'inherit',
+    env: helperPath ? { ...process.env, [MACOS_HELPER_PATH_ENV]: helperPath } : process.env,
     windowsHide: false,
   });
 

@@ -198,7 +198,8 @@ jobs:
 
       - name: NPM package contents
         run: |
-          node --test tests/npm/*.test.js
+          node --test tests/npm/*.test.js tests/release/*.test.js
+          node scripts/check-npm-package.js
 
       - name: NPM wrapper smoke
         run: scripts/ci-npm-wrapper-smoke.sh
