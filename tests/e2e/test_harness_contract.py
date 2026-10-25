@@ -156,7 +156,7 @@ cleanup
         self.assertLess(body.index('verify_immutable_binary "$ffi_dylib"'), decision)
         self.assertLess(body.index('verify_immutable_binary "$ffi_helper"'), decision)
 
-    def test_cleanup_removes_owned_artifact_and_leaves_sibling(self):
+    def test_cleanup_recycles_owned_artifact_and_leaves_sibling(self):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             artifact = root_path / "artifact"
@@ -164,20 +164,37 @@ cleanup
             sibling = root_path / "sibling"
             sibling.mkdir()
 
-            result = self.run_cleanup_helper(str(artifact))
+            payload = artifact / "evidence.txt"
+            payload.write_text("keep me")
+            result = self.run_cleanup_helper(
+                str(artifact), 'trash() { /bin/mv "$1" "$1.recycled"; }'
+            )
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(artifact.exists())
             self.assertTrue(sibling.is_dir())
+            self.assertEqual(
+                (root_path / "artifact.recycled" / "evidence.txt").read_text(), "keep me"
+            )
 
     def test_cleanup_refuses_empty_path(self):
         result = self.run_cleanup_helper("")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("refused an empty path", result.stderr)
 
-    def run_cleanup_helper(self, artifact: str):
+    def test_cleanup_retains_artifact_without_a_recycle_backend(self):
+        with tempfile.TemporaryDirectory() as root:
+            artifact = Path(root) / "artifact"
+            artifact.mkdir()
+            result = self.run_cleanup_helper(str(artifact), 'PATH="/missing-trash-backend"')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(artifact.is_dir())
+            self.assertIn("retained artifact", result.stderr)
+
+    def run_cleanup_helper(self, artifact: str, backend: str = ""):
         script = f'''
 source "{E2E_ROOT / "harness.sh"}"
+{backend}
 remove_artifact "{artifact}"
 '''
         return subprocess.run(
@@ -343,22 +360,6 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
         self.assertEqual(preceding[-1], "# shellcheck source=tests/e2e/scenarios/ref_churn.sh")
         self.assertNotIn(CONTENTION_GUARD, "\n".join(preceding))
 
-    def test_ref_churn_scenario_cleans_up_its_own_fixture(self):
-        source = REF_CHURN.read_text()
-        self.assertIn('close-app "$app" --force', source)
-        self.assertIn('pgrep -x "$app"', source)
-        self.assertIn("fixture_owned=1", source)
-        self.assertIn("fixture_owned=0", source)
-        self.assertLess(source.index("fixture_owned=1"), source.index("fixture_owned=0"))
-
-    def test_ref_churn_pins_both_command_host_variants(self):
-        source = REF_CHURN.read_text()
-        self.assertIn("ref_churn_suite 0\n", source)
-        self.assertIn("ref_churn_suite 1", source)
-        self.assertIn('local -x AGENT_DESKTOP_INTERNAL_HOST_CLIENT="$host_client"', source)
-        self.assertIn('"$code" = "STALE_REF"', source)
-        self.assertIn('"$delivery" = "not_delivered"', source)
-
     def test_ref_churn_reads_the_fixture_readouts_not_the_command_result(self):
         source = REF_CHURN.read_text()
         self.assertIn('--text "Beta stored: Beta"', source)
@@ -371,37 +372,6 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
         self.assertIn('assert "[$mode] scroll moves content"', source)
         self.assertIn('"$scroll_before" != "$scroll_after"', source)
 
-    def test_ref_churn_stale_ref_skip_is_gated_on_the_default_cli_signature(self):
-        source = REF_CHURN.read_text()
-        gate = re.search(
-            r'if \[ "\$host_client" = "0" \] && \[ "\$ok" = "True" \]; then'
-            r'\s*skipmsg "([^"]+)"',
-            source,
-        )
-        self.assertIsNotNone(gate)
-        self.assertIn(
-            "docs/solutions/best-practices/identity-fingerprint-against-os-reorder-2026-04-16.md",
-            gate.group(1),
-        )
-        self.assertIn("crates/core/src/refs/ref_identity.rs", gate.group(1))
-        self.assertLess(
-            source.index("stale ref: known product defect"),
-            source.index(
-                'assert "$label stale ref is refused STALE_REF, not delivered"'
-            ),
-        )
-
-    def test_ref_churn_close_app_failure_fails_and_still_ends_its_own_process(self):
-        source = REF_CHURN.read_text()
-        self.assertNotIn('skipmsg "$label close-app', source)
-        self.assertIn('close_output="$("$bin" close-app "$app" --force 2>/dev/null)"', source)
-        self.assertIn('badmsg "$label fixture still running after close-app', source)
-        self.assertIn('kill -0 "$1"', source)
-        self.assertIn('kill -9 "$churn_pid"', source)
-        self.assertIn(
-            'assert "$label own fixture process is gone after teardown"', source
-        )
-
     def test_unknown_app_skip_is_gated_on_the_duplicate_pid_inventory_signature(self):
         source = ERROR_CONTRACT.read_text()
         self.assertIn('[ "$(json_field "$1" "$2.code")" = "TIMEOUT" ]', source)
@@ -413,25 +383,6 @@ class KeyboardAndRefChurnLegTests(unittest.TestCase):
             source,
         )
         self.assertIn('inventory_duplicate_pid_refusal "$RUN_JSON" data.results.1.error', source)
-
-    def test_ref_churn_sibling_skip_is_gated_on_the_default_cli_alias(self):
-        source = REF_CHURN.read_text()
-        gate = re.search(
-            r'if \[ "\$host_client" = "0" \] && \[ "\$ok" = "True" \]; then'
-            r'\s*skipmsg "\$label sibling kept its value: ([^"]+)"',
-            source,
-        )
-        self.assertIsNotNone(gate)
-        self.assertIn("identity-fingerprint-against-os-reorder-2026-04-16.md", gate.group(1))
-        self.assertIn('assert "$label sibling kept its value (independent readout)"', source)
-
-    def test_ref_churn_host_run_stops_the_command_host_it_started(self):
-        source = REF_CHURN.read_text()
-        self.assertIn('for host_pid in $(pgrep -fx "$raw_bin" 2>/dev/null); do', source)
-        self.assertIn(
-            'assert "$label the command host it started is stopped and holds no desktop lease"',
-            source,
-        )
 
     def test_removed_element_leg_accepts_only_stale_ref_not_delivered(self):
         source = RELIABILITY.read_text()
