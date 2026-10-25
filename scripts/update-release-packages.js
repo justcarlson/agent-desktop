@@ -7,6 +7,9 @@ const { releaseVersion } = require('./release-version');
 
 function updateReleasePackages(root, archives) {
   const version = releaseVersion(readFileSync(join(root, 'Cargo.toml'), 'utf8'));
+  const npmPath = join(root, 'npm/package.json');
+  const npm = JSON.parse(readFileSync(npmPath, 'utf8'));
+  const repository = npm.repository.url.replace(/^git\+/, '').replace(/\.git$/, '');
   const checksums = readFileSync(join(archives, 'checksums.txt'), 'utf8');
   const packages = {};
   for (const [key, platform] of Object.entries(PLATFORMS)) {
@@ -14,7 +17,7 @@ function updateReleasePackages(root, archives) {
     const name = tarballName(version, platform.target);
     const hash = createHash('sha256').update(readFileSync(join(archives, name))).digest('hex');
     if (hash !== checksumFor(checksums, name)) throw new Error(`Checksum mismatch for ${name}`);
-    packages[key] = { url: `https://github.com/lahfir/agent-desktop/releases/download/v${version}/${name}`, hash };
+    packages[key] = { url: `${repository}/releases/download/v${version}/${name}`, hash };
   }
 
   const formulaPath = join(root, 'Formula/agent-desktop.rb');
@@ -35,8 +38,6 @@ function updateReleasePackages(root, archives) {
   const scoop = JSON.parse(readFileSync(scoopPath, 'utf8'));
   scoop.version = version;
   scoop.architecture = { '64bit': packages['win32-x64'], arm64: packages['win32-arm64'] };
-  const npmPath = join(root, 'npm/package.json');
-  const npm = JSON.parse(readFileSync(npmPath, 'utf8'));
   npm.version = version;
 
   writeFileSync(formulaPath, formula);

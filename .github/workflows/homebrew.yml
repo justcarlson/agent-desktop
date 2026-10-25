@@ -27,6 +27,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04
+      - name: Enable runner Homebrew
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            echo /home/linuxbrew/.linuxbrew/bin >> "$GITHUB_PATH"
+          fi
       - name: Install and test native formula
         run: bash tests/native-install/homebrew.sh

@@ -30,6 +30,10 @@ const contents = (root) => files.map((file) => readFileSync(join(root, file), 'u
 
 test('one Cargo version updates all six archives and npm; regeneration is a no-op', () => {
   const { root, archives, expected } = fixture();
+  const packagePath = join(root, 'npm/package.json');
+  const metadata = JSON.parse(readFileSync(packagePath, 'utf8'));
+  metadata.repository.url = 'git+https://github.com/release-owner/desktop-tool.git';
+  writeFileSync(packagePath, JSON.stringify(metadata));
   updateReleasePackages(root, archives);
   const [formula, scoopText, npmText] = contents(root);
   const scoop = JSON.parse(scoopText);
@@ -37,7 +41,7 @@ test('one Cargo version updates all six archives and npm; regeneration is a no-o
   assert.equal(scoop.version, '0.12.3');
   assert.match(formula, /version "0\.12\.3"/);
   for (const [key, { name, hash }] of Object.entries(expected)) {
-    const url = `https://github.com/lahfir/agent-desktop/releases/download/v0.12.3/${name}`;
+    const url = `https://github.com/release-owner/desktop-tool/releases/download/v0.12.3/${name}`;
     if (key.startsWith('win32-')) {
       assert.deepEqual(scoop.architecture[key.endsWith('x64') ? '64bit' : 'arm64'], { url, hash });
     } else {
