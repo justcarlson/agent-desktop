@@ -95,7 +95,11 @@ mod imp {
         match scroll_into_view_judged_for(deadline, before, invoke_failure, VERIFY_WINDOW, || {
             observe_visibility(
                 element,
-                viewport.as_ref().and_then(viewport_bounds),
+                viewport
+                    .as_ref()
+                    .map(viewport_bounds)
+                    .transpose()?
+                    .flatten(),
                 deadline,
                 "after ScrollIntoView",
             )
