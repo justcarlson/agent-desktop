@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
@@ -54,3 +54,24 @@ for (const scenario of [
     else assert.equal(calls, '');
   });
 }
+
+test('release checkout accepts only commits in the triggering history', { skip: process.platform === 'win32' }, () => {
+  const { root, git } = fixture();
+  const ancestor = git('rev-parse', 'HEAD');
+  writeFileSync(join(root, 'later.txt'), 'trusted main change');
+  git('add', '.');
+  git('commit', '-qm', 'test: advance trusted main');
+  const workflow = git('rev-parse', 'HEAD');
+  git('checkout', '--orphan', 'unrelated');
+  git('commit', '-qm', 'test: create unrelated history');
+  const unrelated = git('rev-parse', 'HEAD');
+  git('checkout', '--detach', workflow);
+  for (const source of [unrelated, 'main; exit 0', ancestor]) {
+    const result = spawnSync('bash', [resolve(__dirname, '../../scripts/checkout-release-source.sh')], {
+      cwd: root, encoding: 'utf8',
+      env: { ...process.env, RELEASE_SOURCE_SHA: source, RELEASE_WORKFLOW_SHA: workflow },
+    });
+    assert.equal(result.status, source === ancestor ? 0 : 1, result.stderr);
+    assert.equal(git('rev-parse', 'HEAD'), source === ancestor ? ancestor : workflow);
+  }
+});

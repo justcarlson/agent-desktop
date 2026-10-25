@@ -74,7 +74,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.check-release.outputs.source_sha }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install Rust toolchain
         run: |
@@ -226,7 +234,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.check-release.outputs.source_sha }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install Rust toolchain
         run: |
@@ -381,7 +397,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.check-release.outputs.source_sha }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install Rust toolchain
         run: rustup show
@@ -438,7 +462,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.check-release.outputs.source_sha }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install Rust toolchain
         run: |
@@ -542,7 +574,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.check-release.outputs.source_sha }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -594,7 +634,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.check-release.outputs.source_sha }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
