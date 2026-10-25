@@ -94,12 +94,12 @@ int main(void) {
         NSArray *invalid = @[
             application(nil, nil, nil, 14),
             application(oversized, nil, nil, 15),
-            policy, launch, application(@"Bundle", nil, oversized, 22), valid,
+            policy, launch, application(@"Bundle", nil, oversized, 22),
             @"wrong class", application(@"Invalid PID", nil, nil, -1)
         ];
         NSArray *fields = @[@"application_name", @"application_name", @"activation_policy",
-            @"application_launch_time", @"bundle_identifier", @"duplicate_pid", @"application_class", @"pid"];
-        NSArray *pids = @[@14, @15, @20, @21, @22, @10, @0, @(-1)];
+            @"application_launch_time", @"bundle_identifier", @"application_class", @"pid"];
+        NSArray *pids = @[@14, @15, @20, @21, @22, @0, @(-1)];
         for (NSUInteger index = 0; index < invalid.count; index++) {
             testApplications = @[valid, invalid[index], application(@"Later", nil, nil, 30)];
             NSDictionary *value = snapshot();
@@ -112,6 +112,14 @@ int main(void) {
             require([skipped[0][@"field"] isEqualToString:fields[index]], "skip field");
             require([skipped[0][@"pid"] isEqual:pids[index]], "skip pid");
         }
+        testApplications = @[valid, valid, application(@"Conflicting", nil, nil, 10)];
+        NSDictionary *duplicates = snapshot();
+        NSArray *duplicateRecords = duplicates[@"applications"];
+        require(duplicateRecords.count == 3, "duplicate records reach identity validation");
+        require([duplicateRecords[0] isEqual:duplicateRecords[1]], "identical duplicate is preserved");
+        require([duplicateRecords[2][@"pid"] intValue] == 10, "conflicting duplicate pid is preserved");
+        require([duplicateRecords[2][@"name"] isEqualToString:@"Conflicting"], "conflicting identity is preserved");
+        require(duplicates[@"skipped"] == nil, "bridge does not classify duplicate identities");
         testApplications = @[valid];
         testFrontmost = launch;
         NSDictionary *frontmostSnapshot = snapshot();
