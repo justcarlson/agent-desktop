@@ -79,6 +79,7 @@ regexes = [
   '''(?i)BUILTIN\\Admin[a-z]*''',
   # Addresses that are meant to be public.
   '''(?i)[A-Za-z0-9._%+-]+@example\.(com|org|net)''',
+  '''git\('config', 'user\.email', 'fixture@example\.invalid'\)''',
   '''(?i)noreply@''',
   '''(?i)users\.noreply\.github\.com''',
 ]

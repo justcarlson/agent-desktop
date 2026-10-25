@@ -81,16 +81,6 @@ jobs:
           rustup show
           rustup target add ${{ matrix.target }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
-
       - name: Build release binary (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -245,16 +235,6 @@ jobs:
 
       # NEVER add --features stub-adapter to the release FFI build — it ships a no-op dylib
       # where every adapter call returns PLATFORM_NOT_SUPPORTED. The guard step below enforces this.
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-${{ matrix.target }}-ffi-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-ffi-cargo-
-
       - name: Guard — release dylib must not be a stub build
         shell: bash
         run: |
@@ -406,16 +386,6 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show
 
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-ffi-gates-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-ffi-gates-cargo-
-
       - name: Install pinned cbindgen 0.29.4
         run: cargo install cbindgen --version 0.29.4 --locked
 
@@ -474,16 +444,6 @@ jobs:
         run: |
           rustup show
           rustup target add ${{ matrix.target }}
-
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Assert release-ffi profile keeps panic=unwind
         shell: bash
