@@ -144,7 +144,7 @@ test('the dry run grants no write scope and has no publish step', () => {
   assert.doesNotMatch(dryRunWorkflow, /:\s*write\b/, 'no permission scope may be write');
   assert.doesNotMatch(dryRunWorkflow, /\bnpm publish\b/);
   assert.doesNotMatch(dryRunWorkflow, /gh release (create|upload|edit)/);
-  assert.doesNotMatch(dryRunWorkflow, /attest-build-provenance|clawhub|secrets\./);
+  assert.doesNotMatch(dryRunWorkflow, /attest-build-provenance|secrets\./);
   const jobs = dryRunWorkflow.match(/^ {2}[a-z][a-z-]*:$/gm) ?? [];
   assert.deepEqual(
     jobs.map((job) => job.trim().slice(0, -1)).sort(),

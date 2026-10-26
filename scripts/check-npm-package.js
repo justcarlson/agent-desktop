@@ -292,9 +292,6 @@ function selfTest() {
     '        with:',
     '          package-manager-cache: false',
     '      - run: npm publish --access public',
-    '  publish-skills:',
-    '    steps:',
-    '      - run: echo skills',
     '',
   ].join('\n');
 

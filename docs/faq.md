@@ -84,7 +84,6 @@ Public probe captures retain technical environment details such as OS versions a
 | Resource | Link |
 |----------|------|
 | **Repository** | [github.com/lahfir/agent-desktop](https://github.com/lahfir/agent-desktop) |
-| **ClawHub Skill** | [clawhub.ai/lahfir/agent-desktop](https://clawhub.ai/lahfir/agent-desktop) |
 | **skills.sh Listing** | [skills.sh/lahfir/agent-desktop/agent-desktop](https://skills.sh/lahfir/agent-desktop/agent-desktop) |
 | **npm Package** | [npmjs.com/package/agent-desktop](https://www.npmjs.com/package/agent-desktop) |
 | **CI Status** | [GitHub Actions](https://github.com/lahfir/agent-desktop/actions/workflows/ci.yml?query=branch%3Amain) |

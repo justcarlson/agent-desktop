@@ -8,7 +8,8 @@ const { test } = require('node:test');
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'ad-release-gate-'));
   for (const name of ['scripts', 'npm', 'tools']) mkdirSync(join(root, name));
-  writeFileSync(join(root, 'npm/package.json'), '{"version":"0.10.2"}');
+  writeFileSync(join(root, 'npm/package.json'), '{"version":"0.9.0"}');
+  writeFileSync(join(root, 'Cargo.toml'), '[workspace.package]\nversion = "0.10.2"\n');
   writeFileSync(join(root, 'scripts/check-release-consistency.sh'), 'exit 0\n');
   writeFileSync(join(root, 'tools/npm'), '#!/bin/sh\nprintf "%s\\n" "$TEST_NPM_VERSION"\n', { mode: 0o755 });
   writeFileSync(join(root, 'tools/gh'), '#!/bin/sh\nif [ "$1" = release ]; then exit "$TEST_GITHUB_STATUS"; fi\nprintf "%s\\n" "$*" >> "$TEST_GH_LOG"\n', { mode: 0o755 });

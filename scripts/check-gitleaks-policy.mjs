@@ -36,7 +36,7 @@ function git(root, args) {
 }
 
 const benign = scan({
-  "paths.txt": ["/home/example-user/docs\n/Users/runner/work/project\n"].join(""),
+  "paths.txt": ["/home/example-user/docs\n/Users/runner/work/project\n/home/linuxbrew/.linuxbrew/bin\n"].join(""),
   "addresses.txt": [
     "person@example.com",
     "org.gnome.Shell@wayland.service",
@@ -50,9 +50,11 @@ const benign = scan({
 });
 assert.equal(benign.length, 0, `benign privacy examples triggered: ${benign.map((f) => f.RuleID).join(", ")}`);
 
-const boundary = scan({ "paths.txt": ["/home/example-user", "2/docs\n"].join("") });
-assert.ok(boundary.some((finding) => finding.RuleID === "ad-home-directory-path"),
-  "a username extending a documented placeholder was allowlisted");
+for (const prefix of ["/home/example-user", "/home/linuxbrew"]) {
+  const boundary = scan({ "paths.txt": `${prefix}2/docs\n` });
+  assert.ok(boundary.some((finding) => finding.RuleID === "ad-home-directory-path"),
+    "a username extending a documented placeholder was allowlisted");
+}
 
 const findings = scan({
   "Cargo.lock": `token = ${credential}\n`,
