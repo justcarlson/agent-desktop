@@ -6,6 +6,14 @@
 
 * Preserve macOS applications with missing localized display names in the complete inventory, using their executable name or bundle identifier. Such applications no longer block unrelated app-scoped snapshots, window lists, and screenshots.
 
+## [0.11.2](https://github.com/lahfir/agent-desktop/compare/v0.11.1...v0.11.2) (2026-10-26)
+
+### Bug Fixes
+
+* Install the native executable directly through Homebrew on macOS/Linux and Scoop on Windows, including required platform helpers.
+* Generate native package metadata from verified release archives using the Cargo workspace version.
+* Scope the release FFI panic probe to its checkout and remove ClawHub publishing and third-party Action wrappers.
+
 ## [0.10.1](https://github.com/lahfir/agent-desktop/compare/v0.10.0...v0.10.1) (2026-10-18)
 
 
