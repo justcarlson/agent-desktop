@@ -1,36 +1,21 @@
 # Releasing
 
-Merge the Cargo workspace version, lockfile, and changelog update into `main`.
-The Release workflow starts automatically when `Cargo.toml` changes; an unchanged
-published version skips publication. One run publishes npm, native CLI and FFI archives,
-checksums, and provenance. It then verifies the published CLI archives and commits
-the Homebrew formula, Scoop manifest, and npm source version directly to `main`.
-There is no package-update pull request.
+Update the Cargo workspace version, lockfile, npm source version, and changelog in one pull request.
+After it merges to `main`, changes to `Cargo.toml` trigger the existing Release workflow.
+An unchanged published version skips publication. Manual dispatch remains available for retries.
 
-## Publishing permission
+The workflow builds and checks the native CLI and FFI archives, bundles the CLI executables into npm,
+publishes npm through trusted publishing (OIDC), and publishes GitHub archives, checksums, and provenance
+with the built-in `GITHUB_TOKEN`. No extra release token or package-update commit is required.
 
-Configure the repository Actions secret `RELEASE_TOKEN` with a dedicated
-fine-grained GitHub token restricted to this repository and **Contents: read and
-write**. Its owner must be allowed to push directly to `main`. With this
-repository's current protection, that requires an administrator; organization
-rules can impose additional restrictions. Do not use a broadly scoped personal
-CLI token or disable branch protection for ordinary contributors.
-
-The workflow rejects a missing secret before creating a tag or publishing. Git
-rejects a metadata push if `main` has advanced concurrently. Fix the permission
-or race and run Release manually from `main`: an already published version skips rebuilding and
-publishing, while the metadata update runs again. Unchanged metadata produces
-no commit. Renew the credential before it expires.
+Homebrew and Scoop package definitions belong in `Homebrew/homebrew-core` and `ScoopInstaller/Main`.
+Their maintainers and update automation manage those catalogs after the initial submissions are accepted.
+Homebrew builds from source; Scoop downloads the Windows release archives. Catalog availability can lag
+behind npm and GitHub publication. Do not advertise default-catalog installation before acceptance.
 
 ## Moving the repository
 
-After a GitHub organization transfer, update repository URLs in package metadata,
-documentation, and installation instructions. Configure npm's trusted publisher
-for the new organization, repository, and `release.yml`, with direct publishing
-allowed. Keep the npm package name `agent-desktop`.
-
-Fine-grained tokens are scoped to a resource owner: replace `RELEASE_TOKEN` for
-the new organization and confirm its branch rules permit the release identity
-to publish metadata. Test the workflow before announcing the new installation
-URLs. Do not recreate a repository at the previous location, which would remove
-GitHub's redirects.
+After a GitHub organization transfer, update repository URLs in package metadata and documentation,
+and coordinate the Homebrew/Scoop definition changes. Configure npm's trusted publisher for the new
+organization, repository, and `release.yml`, with direct publishing allowed. Keep the npm package name
+`agent-desktop`. Do not recreate the old repository, which would remove GitHub's redirects.

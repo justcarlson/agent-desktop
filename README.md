@@ -17,39 +17,25 @@ Snapshots, clipboard reads, screenshots, command output and debug artifacts can 
 
 ## Installation
 
-Use a native package manager for a direct executable with no runtime wrapper or npm postinstall step.
-
-**macOS and Linux** ([Homebrew](https://brew.sh)):
+Install on macOS, Windows or Linux with npm:
 
 ```bash
-brew tap lahfir/agent-desktop https://github.com/lahfir/agent-desktop.git
-brew install lahfir/agent-desktop/agent-desktop
+npm install -g agent-desktop
+agent-desktop version
 ```
 
-**Windows** ([Scoop](https://scoop.sh)):
+Bun, Yarn and pnpm can install the same package. It includes native binaries and platform helpers for x64 and ARM64.
+For direct execution without a JavaScript launcher, download the matching native archive from
+[GitHub Releases](https://github.com/lahfir/agent-desktop/releases) and keep its helper beside the executable.
 
-```powershell
-scoop bucket add agent-desktop https://github.com/lahfir/agent-desktop.git
-scoop install agent-desktop/agent-desktop
-```
-
-Homebrew links the native executable; Scoop adds its native executable directory to PATH without creating a shim.
-Both select the matching x64 or ARM64 release and verify its pinned SHA-256. Run `agent-desktop version` to check
-installation. If an older npm install appears first on PATH, uninstall it with its original package manager.
+Official Homebrew and Scoop packages are being submitted; they are not yet available in the default catalogs.
+The repository no longer maintains a custom Homebrew tap or Scoop bucket.
 
 - **macOS** needs Accessibility permission: `agent-desktop permissions --guide`.
 - **Windows** needs no grant for apps at your terminal's integrity level.
 - **Linux** needs the user's graphical session with `at-spi2-core`.
 
-See [installation and permissions](docs/install.md) for upgrades, release archives, and building from source.
-**npm** remains supported on all three platforms:
-
-```bash
-npm install -g agent-desktop
-```
-
-Bun, Yarn and pnpm can install the same `agent-desktop` package. Some npm-family paths retain their package
-manager's launcher; the native packages above provide direct execution.
+See [installation and permissions](docs/install.md) for package-manager behavior, release archives, and building from source.
 
 ## Quick start
 

@@ -4,6 +4,7 @@ const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require('node:fs
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { test } = require('node:test');
+const { releaseVersion } = require('../../scripts/release-version');
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'ad-release-gate-'));
@@ -81,4 +82,14 @@ test('release checkout accepts only commits in the triggering history', { skip: 
     assert.equal(result.status, source === ancestor ? 0 : 1, result.stderr);
     assert.equal(git('rev-parse', 'HEAD'), source === ancestor ? ancestor : workflow);
   }
+});
+
+test('version comes only from the workspace package section', () => {
+  const toml = '[package]\nversion = "9.9.9"\n[workspace.package]\nversion = "1.2.3"\n[dependencies]\nversion = "8.8.8"\n';
+  assert.equal(releaseVersion(toml), '1.2.3');
+  assert.equal(releaseVersion(toml.replaceAll('\n', '\r\n')), '1.2.3');
+  for (const version of ['', '1.2', 'v1.2.3', '1.2.3;echo bad', '01.2.3']) {
+    assert.throws(() => releaseVersion(`[workspace.package]\nversion = "${version}"\n`));
+  }
+  assert.throws(() => releaseVersion('[package]\nversion = "1.2.3"\n'));
 });

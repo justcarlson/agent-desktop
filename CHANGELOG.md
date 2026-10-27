@@ -10,8 +10,8 @@
 
 ### Bug Fixes
 
-* Install the native executable directly through Homebrew on macOS/Linux and Scoop on Windows, including required platform helpers.
-* Generate native package metadata from verified release archives using the Cargo workspace version.
+* Publish npm and GitHub release archives automatically when the Cargo workspace version changes on main.
+* Remove custom Homebrew/Scoop catalog publishing and its extra credential requirement.
 * Scope the release FFI panic probe to its checkout and remove ClawHub publishing and third-party Action wrappers.
 
 ## [0.10.1](https://github.com/lahfir/agent-desktop/compare/v0.10.0...v0.10.1) (2026-10-18)

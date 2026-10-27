@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+FORMULA=${1:?Usage: homebrew.sh FORMULA_PATH}
+test -f "$FORMULA"
 TAP=lahfir/agent-desktop-ci
 TAP_PATH="$(brew --repository)/Library/Taps/lahfir/homebrew-agent-desktop-ci"
 test ! -e "$TAP_PATH"
@@ -9,7 +11,7 @@ mkdir -p "$TAP_PATH/Formula"
 git -C "$TAP_PATH" init
 git -C "$TAP_PATH" -c user.name=Lahfir -c user.email=70215676+lahfir@users.noreply.github.com \
   commit --allow-empty -m 'test: initialize native installation tap'
-cp Formula/agent-desktop.rb "$(brew --repo "$TAP")/Formula/agent-desktop.rb"
+cp "$FORMULA" "$(brew --repo "$TAP")/Formula/agent-desktop.rb"
 brew install "$TAP/agent-desktop"
 brew test "$TAP/agent-desktop"
 PREFIX=$(brew --prefix)
