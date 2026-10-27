@@ -1,7 +1,8 @@
 # Releasing
 
-Merge the Cargo workspace version, lockfile, and changelog update, then run the
-Release workflow from `main`. One run publishes npm, native CLI and FFI archives,
+Merge the Cargo workspace version, lockfile, and changelog update into `main`.
+The Release workflow starts automatically when `Cargo.toml` changes; an unchanged
+published version skips publication. One run publishes npm, native CLI and FFI archives,
 checksums, and provenance. It then verifies the published CLI archives and commits
 the Homebrew formula, Scoop manifest, and npm source version directly to `main`.
 There is no package-update pull request.
@@ -17,7 +18,7 @@ CLI token or disable branch protection for ordinary contributors.
 
 The workflow rejects a missing secret before creating a tag or publishing. Git
 rejects a metadata push if `main` has advanced concurrently. Fix the permission
-or race and rerun Release: an already published version skips rebuilding and
+or race and run Release manually from `main`: an already published version skips rebuilding and
 publishing, while the metadata update runs again. Unchanged metadata produces
 no commit. Renew the credential before it expires.
 
