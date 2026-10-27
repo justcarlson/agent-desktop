@@ -35,6 +35,15 @@ jobs:
             exit 1
           fi
 
+      - name: Require package publishing credential
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TOKEN" ]; then
+            echo "Configure RELEASE_TOKEN with permission to push package metadata to main before releasing" >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -840,10 +849,10 @@ jobs:
        (needs.check-release.outputs.should_release == 'false' &&
         needs.check-release.outputs.needs_github_release == 'false'))
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: read
       attestations: read
     uses: ./.github/workflows/release-packages.yml
     with:
       version: ${{ needs.check-release.outputs.version }}
+    secrets:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}

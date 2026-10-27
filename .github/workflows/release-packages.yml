@@ -6,6 +6,9 @@ on:
       version:
         required: true
         type: string
+    secrets:
+      RELEASE_TOKEN:
+        required: true
 
 permissions: {}
 
@@ -15,9 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: read
       attestations: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -41,8 +42,7 @@ jobs:
             --signer-workflow "$GH_REPO/.github/workflows/release.yml" \
             --source-ref refs/heads/main --deny-self-hosted-runners
           node scripts/update-release-packages.js "$archives"
-      - name: Open package update PR and run checks
+      - name: Publish package metadata
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: bash scripts/open-release-package-pr.sh
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: bash scripts/publish-release-packages.sh
