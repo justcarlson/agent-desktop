@@ -15,7 +15,11 @@ behind npm and GitHub publication. Do not advertise default-catalog installation
 
 ## Moving the repository
 
-After a GitHub organization transfer, update repository URLs in package metadata and documentation,
-and coordinate the Homebrew/Scoop definition changes. Configure npm's trusted publisher for the new
-organization, repository, and `release.yml`, with direct publishing allowed. Keep the npm package name
-`agent-desktop`. Do not recreate the old repository, which would remove GitHub's redirects.
+Hold this release pull request until the repository moves to `vercel-labs/agent-desktop`.
+The npm metadata and fallback downloads in this branch already use that destination.
+Before merging, configure npm's trusted publisher for owner `vercel-labs`, repository `agent-desktop`,
+and workflow `release.yml`, with direct publishing allowed. Keep the npm package name `agent-desktop`.
+Confirm the transferred repository permits the existing workflow's OIDC and GitHub release permissions.
+
+Update documentation links after the transfer and submit the official Homebrew/Scoop packages only
+when launch is authorized. Do not recreate the old repository, which would remove GitHub's redirects.
