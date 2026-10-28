@@ -42,7 +42,7 @@ reasons unrelated to what they claimed to prove:
 3. **Gate the runner never executes.** The census redaction guard — proving
    `Name`, `HelpText`, `FullDescription`, `LegacyDefaultAction` never
    serialize into a committed capture — lived in
-   `examples/uia_tree_dump/render_node_tests.rs`. The Windows CI lane ran
+   `crates/windows/examples/uia_tree_dump/render_node_tests.rs`. The Windows CI lane ran
    `cargo test -p agent-desktop-windows --lib`, which never builds `examples/`.
 4. **Guard tested one level from the thing it guards.** Even fixed for #3, the
    redaction *rule* was pinned only against `text_presence`/`field_presence`

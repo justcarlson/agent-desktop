@@ -48,7 +48,7 @@ catches drift for a different consumer.
 
 The trailer is the one layer with no generator behind it. Adding a pinned struct
 without its `_Static_assert` lines in the trailer is silent. `cbindgen --verify`
-regenerates from the same trailer (`.github/workflows/ci.yml:740-743`), so CI
+regenerates from the same trailer (`.github/workflows/ci.yml:739-742`), so CI
 stays green and the C-side pin does not exist. Add the assert lines to
 `crates/ffi/cbindgen.toml` before regenerating the header with
 `scripts/update-ffi-header.sh`.
