@@ -27,9 +27,14 @@ with `command -v agent-desktop` on macOS/Linux or `Get-Command agent-desktop` on
 
 ## Blocked install scripts
 
-The npm package includes the native binaries and helpers. With install scripts blocked, its launcher selects the
-bundled binary. When postinstall runs, it links POSIX commands directly to the native binary and optimizes owned
-Windows npm/Yarn commands to invoke the executable. Some package managers retain their own launcher.
+The npm package includes the native binaries and helpers. Its `postinstall` script replaces the Node launcher with a
+link to the native binary (about 21 ms per call). If the package manager blocks install scripts (npm 12 does by
+default), the Node launcher runs instead and each call costs about 146 ms. Approve the script with
+`npm install-scripts approve agent-desktop`, or install with `--allow-scripts`. Some package managers retain their
+own launcher.
+
+A plain `npm install agent-desktop` without `-g` puts the command in `./node_modules/.bin`, not on PATH; run it with
+`npx agent-desktop` or install globally.
 
 ## Release archives
 

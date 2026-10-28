@@ -5,7 +5,7 @@ agent-desktop is a native Rust CLI and FFI library that gives AI agents structur
 ## Kinds of contributions that fit this project
 
 - **Bug fixes** — wrong JSON output, incorrect ref resolution, `STALE_REF` on a stable target, etc.
-- **New commands** — additions to the 60-command surface (56 operational, four held-input names fail closed); see the steps in [CLAUDE.md](CLAUDE.md#architecture)
+- **New commands** — additions to the 60-command surface (56 operational, four held-input names fail closed); see the steps in [AGENTS.md](AGENTS.md#architecture)
 - **Platform adapters** — fixes and features for the macOS, Windows and Linux adapters, each implementing `PlatformAdapter`
 - **App-specific quirks** — documented edge cases for specific apps (Electron, game engines, etc.) under `skills/`
 - **Docs and skill files** — keeping `skills/agent-desktop*/` accurate when behaviour changes
@@ -103,7 +103,7 @@ SKIP_PRECOMMIT=1 git commit -m "..."
 
 ## Engineering rules
 
-[CLAUDE.md](CLAUDE.md) holds the engineering rules, and they bind people and coding agents alike: Conventional
+[AGENTS.md](AGENTS.md) holds the engineering rules, and they bind people and coding agents alike: Conventional
 Commits, the 400-line cap per Rust file, no inline comments, no delivery-plan references in shipped source, one domain
 type per file, error handling, core isolation, and the steps for adding a command. The pre-commit hook and CI enforce
 most of them.
@@ -112,7 +112,7 @@ most of them.
 
 ## Submitting a pull request
 
-1. **Pick the right base branch.** Branch from `main` and open the PR into `main` for macOS, Windows, core and FFI work. Linux adapter work goes to the `feat/linux-adapter` integration branch instead: cut your branch from it and merge back into it, never into `main`.
+1. **Pick the right base branch.** Branch from `main` and open the PR into `main` for every platform, core and FFI work, Linux included.
 2. **Keep PRs focused.** One logical change per PR; separate refactors from features.
 3. **Make sure all quality gates pass** locally before pushing (see Dev workflow above).
 4. **Use a Conventional Commit title** for the PR title. It becomes the squash-merge commit message.
