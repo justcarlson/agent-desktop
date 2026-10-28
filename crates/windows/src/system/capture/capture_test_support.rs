@@ -23,6 +23,18 @@ use crate::tree::fixture::bootstrap;
 use crate::tree::fixture::fixture_clipboard::clipboard_test_lock;
 
 static HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
+static LIVE_GRAPHICS_CAPTURE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Serializes every test that opens a Windows.Graphics.Capture session.
+///
+/// Concurrent sessions each create their own D3D11 device and frame pool on
+/// one shared compositor; on a CI runner they stalled together for minutes,
+/// so one session at a time keeps each test's deadline about its own work.
+pub(crate) fn live_graphics_capture_lock() -> MutexGuard<'static, ()> {
+    LIVE_GRAPHICS_CAPTURE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 pub(crate) struct HomeIsolation {
     previous_home: Option<std::ffi::OsString>,
