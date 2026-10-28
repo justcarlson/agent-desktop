@@ -46,6 +46,7 @@ afterEach(() => {
   // Installing now also writes a digest sidecar. Leaving one behind puts an
   // unexpected file in npm/bin, which `npm pack` would include and the package
   // contract gate rejects - so the sweep has to match what installing creates.
+  try { unlinkSync(join(__dirname, '..', '..', 'npm', 'bin', '.launcher-notice-' + require('../../npm/package.json').version)); } catch {}
   for (const name of ['agent-desktop-win32-x64.exe', 'agent-desktop-win32-arm64.exe']) {
     const installed = join(__dirname, '..', '..', 'npm', 'bin', name);
     try { unlinkSync(installed); } catch {}
