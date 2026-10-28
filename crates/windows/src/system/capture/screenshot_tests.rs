@@ -31,6 +31,7 @@ fn live_token() -> String {
         .expect("live token")
 }
 
+use crate::system::capture::capture_test_support::live_graphics_capture_lock;
 use crate::system::capture::capture_test_support::sample_rgb;
 
 fn assert_png_metadata(image: &agent_desktop_core::ImageBuffer) {
@@ -42,6 +43,7 @@ fn assert_png_metadata(image: &agent_desktop_core::ImageBuffer) {
 
 #[test]
 fn four_targets_produce_png_buffers_via_legacy_fallback() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     backend_hooks::with_force_unsupported(|| {
         let displays = list_displays_live(deadline(10_000)).expect("enumerate displays");
@@ -93,6 +95,7 @@ fn four_targets_produce_png_buffers_via_legacy_fallback() {
 
 #[test]
 fn exact_window_without_process_instance_is_invalid_args_not_delivered() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
     let info = window_info_for(fixture.handle(), None);
@@ -112,6 +115,7 @@ fn exact_window_without_process_instance_is_invalid_args_not_delivered() {
 
 #[test]
 fn post_capture_window_identity_failure_discards_bytes() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
     let info = window_info_for(fixture.handle(), Some(live_token()));
@@ -140,6 +144,7 @@ fn post_capture_window_identity_failure_discards_bytes() {
 
 #[test]
 fn modern_forced_fail_after_available_falls_back_to_legacy() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     backend_hooks::with_force_fail_after_available(|| {
         let image = screenshot(ScreenshotTarget::Screen(0), deadline(10_000))
@@ -150,6 +155,7 @@ fn modern_forced_fail_after_available_falls_back_to_legacy() {
 
 #[test]
 fn modern_slice_reserves_floor_so_legacy_still_succeeds() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
     let info = window_info_for(fixture.handle(), Some(live_token()));
@@ -182,6 +188,7 @@ fn modern_slice_reserves_floor_so_legacy_still_succeeds() {
 
 #[test]
 fn window_scale_factor_comes_from_owning_display() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
     let info = window_info_for(fixture.handle(), Some(live_token()));
@@ -209,6 +216,7 @@ fn window_scale_factor_comes_from_owning_display() {
 
 #[test]
 fn window_identity_mismatch_is_not_delivered_through_the_entry_point() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
     let mut info = window_info_for(fixture.handle(), Some(live_token()));
@@ -225,6 +233,7 @@ fn window_identity_mismatch_is_not_delivered_through_the_entry_point() {
 
 #[test]
 fn display_identity_mismatch_is_not_delivered_through_the_entry_point() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let primary = display_at(0, deadline(10_000)).expect("primary");
     let mut stale = primary.clone();
@@ -274,6 +283,7 @@ fn screenshot_entry_upgrades_only_unknown_disposition_to_not_delivered() {
 }
 #[test]
 fn invalid_display_index_is_not_delivered_through_the_entry_point() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let error = screenshot(ScreenshotTarget::Screen(9_999), deadline(10_000))
         .expect_err("an out-of-range display index must fail");
@@ -286,6 +296,7 @@ fn invalid_display_index_is_not_delivered_through_the_entry_point() {
 
 #[test]
 fn minimized_window_capture_is_not_delivered_through_the_entry_point() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let fixture = LocalPatternFixture::create().expect("pattern fixture");
     let handle = fixture.handle() as windows_sys::Win32::Foundation::HWND;
@@ -311,6 +322,7 @@ fn minimized_window_capture_is_not_delivered_through_the_entry_point() {
 
 #[test]
 fn stalled_window_capture_is_not_delivered_through_the_entry_point() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     let stalled = StalledFixture::create().expect("stalled fixture");
     let info = window_info_for(stalled.handle(), Some(live_token()));
@@ -328,6 +340,7 @@ fn stalled_window_capture_is_not_delivered_through_the_entry_point() {
 
 #[test]
 fn adapter_screenshot_delegates_to_orchestration() {
+    let _capture = live_graphics_capture_lock();
     use agent_desktop_core::SystemOps;
 
     bootstrap();
