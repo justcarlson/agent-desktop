@@ -142,58 +142,46 @@ mod windows_only {
     }
 
     /// `focused_window` composition: the focused-only filter answers with
-    /// the desktop's foreground window and nothing else.
+    /// the window that owns the foreground and nothing else.
     ///
-    /// Whether a foreground window exists at all is machine state, so
-    /// nothing here assumes one: the answer is checked against the
-    /// same OS fact the filter itself consults, which is a real assertion
-    /// when a window is returned and vacuously true when none is. The
-    /// inventory's own mid-listing refusal - a window whose owning process
-    /// changed while it was being assembled - is asserted as the refusal it
-    /// is rather than failing the test, because that race is a condition
-    /// the listing exists to catch and can fire on any busy desktop.
-    ///
-    /// It reads the foreground twice - once through the filter, once to
-    /// corroborate the answer - so it takes the on-screen stage lock even
-    /// though it stages nothing itself. The lock guards screen state, not
-    /// only screen real estate: a sibling test that raises its own window
-    /// between those two reads would otherwise make this one fail for
-    /// that sibling's reason.
+    /// Which window owns the foreground is machine state a sibling test or the
+    /// runner's shell can change between any two reads, so the foreground is
+    /// pinned for the listing instead of raced for: the fixture's window is
+    /// declared the foreground and must be the one window returned, stamped
+    /// focused. With the foreground pinned to a handle no window carries, the
+    /// filter must answer with nothing rather than falling back to any
+    /// window.
     #[test]
     fn the_focused_filter_answers_with_the_foreground_window_and_nothing_else() {
         crate::tree::fixture::ensure_test_apartment();
-        let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
+        let fixture = crate::tree::fixture::HostedFixture::spawn().expect("a fixture host starts");
         let filter = WindowFilter {
             focused_only: true,
             app: None,
         };
 
-        let focused = match list_windows_live(&filter, deadline(10_000)) {
-            Ok(focused) => focused,
-            Err(error) => {
-                assert_eq!(
-                    error.code,
-                    agent_desktop_core::ErrorCode::WindowNotFound,
-                    "the only refusal this inventory may report is the mid-listing identity race"
-                );
-                return;
-            }
-        };
+        let focused = forced_foreground::with(fixture.handle(), || {
+            list_windows_live(&filter, deadline(10_000))
+        })
+        .expect("the focused listing reads the pinned foreground");
 
-        assert!(
-            focused.len() <= 1,
-            "the focused-only filter returns at most one window"
+        assert_eq!(
+            focused.len(),
+            1,
+            "the focused-only filter returns exactly the foreground window: {focused:?}"
         );
-        for window in &focused {
-            assert!(
-                window.state.is_focused,
-                "the window the focused-only filter returns is stamped focused"
-            );
-            assert!(
-                is_foreground_window(parse_handle(&window.id)),
-                "the window the focused-only filter returns is the foreground window"
-            );
-        }
+        assert_eq!(focused[0].id, window_id(fixture.handle() as _));
+        assert!(
+            focused[0].state.is_focused,
+            "the window the focused-only filter returns is stamped focused"
+        );
+
+        let nobody = forced_foreground::with(1, || list_windows_live(&filter, deadline(10_000)))
+            .expect("the focused listing reads the pinned foreground");
+        assert!(
+            nobody.is_empty(),
+            "no window owns the foreground, so the focused-only filter returns none: {nobody:?}"
+        );
     }
 
     /// The deadline this entry point accepts is a real budget, not an
@@ -221,41 +209,34 @@ mod windows_only {
     /// to `wait_for_window`, whose retryable set does not include
     /// `WINDOW_NOT_FOUND`.
     ///
-    /// This forces exactly `FORCED_RACES` inconsistencies, but the live
-    /// desktop underneath a loaded test binary can inject a genuine
-    /// additional identity race on top of the forced ones - `re_verify`
-    /// racing a real window mutation is exactly the condition this retry
-    /// exists to absorb. An exact attempt count therefore cannot hold: a run
-    /// where the retry mechanism did its job and also happened to meet a real
-    /// race would fail an equality assertion for the right reason working
-    /// correctly, which is not a guard, it is noise. What must hold is the
-    /// property - the walk retried at least past the forced races and then
-    /// succeeded - bounded above by the shared retry budget so a regression
-    /// to unbounded retries still fails this test.
+    /// This forces exactly `FORCED_RACES` inconsistencies. The filter names
+    /// an application no window belongs to, so no listed window reaches
+    /// `re_verify` and the live desktop cannot inject a genuine identity race
+    /// on top of the forced ones: the attempt count is exactly the forced
+    /// races plus the attempt that succeeds, and a regression to unbounded
+    /// or absent retries changes it.
     #[test]
     fn a_forced_transient_inconsistency_is_retried_and_succeeds_once_it_clears() {
         crate::tree::fixture::ensure_test_apartment();
         enumeration_calls::take();
 
         const FORCED_RACES: usize = 2;
+        let filter = WindowFilter {
+            focused_only: false,
+            app: Some("agent-desktop-no-such-application.exe".to_string()),
+        };
         let outcome = force_window_not_found::with(FORCED_RACES, || {
-            list_windows_live(&WindowFilter::default(), deadline(10_000))
+            list_windows_live(&filter, deadline(10_000))
         });
 
         assert!(
             outcome.is_ok(),
             "the listing must succeed once the forced inconsistency clears"
         );
-        let attempts = enumeration_calls::take();
-        assert!(
-            attempts > FORCED_RACES,
-            "at least the {FORCED_RACES} forced-race attempts plus the attempt that \
-             succeeded, got {attempts}"
-        );
-        assert!(
-            attempts <= crate::system::window::listing_retry::LISTING_RACE_ATTEMPTS as usize,
-            "retries must stay within the shared listing-retry budget of {}, got {attempts}",
-            crate::system::window::listing_retry::LISTING_RACE_ATTEMPTS
+        assert_eq!(
+            enumeration_calls::take(),
+            FORCED_RACES + 1,
+            "the {FORCED_RACES} forced-race attempts plus the attempt that succeeded"
         );
     }
 

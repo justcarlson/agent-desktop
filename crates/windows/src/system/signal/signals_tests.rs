@@ -273,7 +273,7 @@ mod windows_only {
     /// Forces OS foreground onto `transition`'s window, so it holds
     /// `fixture_window::on_screen_stage` for the whole span - both captures
     /// plus the forced focus change between them - the same DESKTOP/
-    /// FOREGROUND-state guard `window_ops_tests.rs`'s focused-filter test and
+    /// FOREGROUND-state guard `window_activate_tests.rs`'s focus tests and
     /// `wait_event_live_tests.rs`'s no-transition negative test take. The
     /// fixture and shell lock families are held first, in the crate-wide
     /// order: this test's own deliberate focus change is exactly the kind of
