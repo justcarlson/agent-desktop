@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Guidance for AI coding agents working in this repository.
 
@@ -68,15 +68,14 @@ check. Bypass it only in an emergency: `git commit --no-verify` or `SKIP_PRECOMM
 
 ## Branches and commits
 
-- `main` carries macOS and Windows. Fixes and features for them branch off `main` and merge into `main`.
-- Linux develops on the integration branch `feat/linux-adapter`. Each sub-phase is cut from it as
-  `feat/linux-<n.n>-<slug>` and merges back into it, never into `main`, and never rebases onto `main`. The branch
-  reaches `main` once, as one release-noted `feat!` promotion after full-branch review, live E2E and a perf check.
+- `main` carries macOS, Windows and Linux. Fixes and features branch off `main` and merge back as squash merges;
+  `main` requires linear history.
 - All commits are authored by Lahfir. Never add `Co-Authored-By` lines, AI attribution or "Generated with" footers.
 - Use Conventional Commits: `feat:`, `fix:`, `feat!:` or a `BREAKING CHANGE:` footer, `docs:`, `style:`, `refactor:`,
   `perf:`, `chore:`, `ci:`, `test:`. Write `type: imperative summary` in lowercase after the colon, and say why.
-- Versions are pre-1.0 (`bump-minor-pre-major` and `bump-patch-for-minor-pre-major` in `release-please-config.json`):
-  a breaking change cuts a minor and a `feat:` cuts a patch.
+- Versions follow semver from 1.0.0. A release is one PR that bumps the workspace version in `Cargo.toml`,
+  `Cargo.lock`, `npm/package.json` and `CHANGELOG.md`. Merging it starts `.github/workflows/release.yml`, which
+  publishes npm and the GitHub release; `docs/releasing.md` has the steps.
 
 ## Architecture
 
