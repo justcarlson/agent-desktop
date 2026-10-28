@@ -61,7 +61,6 @@ logs/
 .agents/
 .cursor/
 .context/
-AGENTS.md
 skills-lock.json
 todos/
 

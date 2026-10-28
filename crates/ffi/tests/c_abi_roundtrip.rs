@@ -28,7 +28,7 @@ use common::{
 /// Sets a temp HOME so the refmap store is empty. Calls `ad_execute_by_ref`
 /// with a well-formed qualified ref. The envelope must have
 /// `ok:false` and carry both `error.code` (string) and `error.message`
-/// (string) — the latter guaranteed by the CLAUDE.md error contract — proving
+/// (string) — the latter guaranteed by the AGENTS.md error contract — proving
 /// the unified error-envelope contract holds at the ABI boundary.  The exact
 /// `error.code` value is not pinned: an empty refmap may
 /// surface either `SNAPSHOT_NOT_FOUND` or `STALE_REF` depending on the load

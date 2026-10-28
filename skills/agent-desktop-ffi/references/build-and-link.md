@@ -26,8 +26,10 @@ Every GitHub release ships prebuilt archives for:
 - Linux x64 and arm64 (glibc)
 - Windows x64 and ARM64 MSVC
 
-Each archive contains `lib/` (the dylib, so, or dll), `include/agent_desktop.h`, and
-`LICENSE`. `lib/` also holds a helper that must stay beside the library:
+The archives are named `agent-desktop-ffi-v<version>-<target>.tar.gz` (`.zip` on
+Windows), with `<target>` the Rust target triple. Each archive unpacks to a directory of
+the same name holding `lib/` (the dylib, so, or dll), `include/agent_desktop.h`,
+`LICENSE`, and a `README.md`. `lib/` also holds a helper that must stay beside the library:
 `agent-desktop-macos-helper` on macOS, `agent-desktop-linux-clipboard-owner` on
 Linux. On Windows it holds the `agent_desktop_ffi.dll.lib` import library, which an
 MSVC linking consumer links against. Integrity: compare against `checksums.txt` in

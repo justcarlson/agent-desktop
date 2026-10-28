@@ -96,7 +96,7 @@ Install the skill into an agent harness from [skills.sh](https://skills.sh/lahfi
 npx skills add https://github.com/lahfir/agent-desktop --skill agent-desktop
 ```
 
-Or add this to your `AGENTS.md` or `CLAUDE.md`:
+Or add this to your `AGENTS.md`:
 
 ```markdown
 Use `agent-desktop` to see and operate desktop apps. Before the first use, run
@@ -176,7 +176,7 @@ On Windows, replace `agent-desktop-macos` in that list with `agent-desktop-windo
 | Call the C library | [skills/agent-desktop-ffi/](skills/agent-desktop-ffi/) |
 | Look up the vocabulary: refs, snapshots, sessions | [CONCEPTS.md](CONCEPTS.md) |
 | Contribute and pass the gates | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Read the engineering rules | [CLAUDE.md](CLAUDE.md) |
+| Read the engineering rules | [AGENTS.md](AGENTS.md) |
 | Learn from past bugs and lessons | [docs/solutions/](docs/solutions/) |
 | Find answers to common questions | [docs/faq.md](docs/faq.md) |
 | Report a vulnerability | [SECURITY.md](SECURITY.md) |

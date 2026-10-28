@@ -9,8 +9,8 @@ values, containment predicates, and large trees.
 Run it without network access:
 
 ```bash
-rtk cargo run -p agent-desktop-core --release --example locator_benchmark \
-  > /private/tmp/agent-desktop-locator-synthetic.json
+cargo run -p agent-desktop-core --release --example locator_benchmark \
+  > /tmp/agent-desktop-locator-synthetic.json
 ```
 
 The JSON report includes 31-run p50/p95 wall-clock latency, candidate nodes,

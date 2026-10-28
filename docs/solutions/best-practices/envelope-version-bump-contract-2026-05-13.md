@@ -15,7 +15,6 @@ applies_when:
   - CLI and batch output contracts are unified
 tags:
   - json-contract
-  - release-please
   - cli
   - batch
   - compatibility
@@ -39,13 +38,13 @@ Do not bump it for additive optional fields, new commands, new flags, or more sp
 
 ## Blast Radius
 
-`ENVELOPE_VERSION` owns the value, but the value and its semantics are restated by hand in non-test surfaces, and none of them is generated from the constant. Check each one in the same change and correct it where it is wrong: `docs/json-output.md`, the JSON placeholder in `.github/ISSUE_TEMPLATE/bug_report.yml`, the envelope examples and error prose in `CLAUDE.md`, and the rustdoc example in `crates/ffi/src/commands/snapshot.rs`. The header `crates/ffi/include/agent_desktop.h` is regenerated, not hand-edited.
+`ENVELOPE_VERSION` owns the value, but the value and its semantics are restated by hand in non-test surfaces, and none of them is generated from the constant. Check each one in the same change and correct it where it is wrong: `docs/json-output.md`, the JSON placeholder in `.github/ISSUE_TEMPLATE/bug_report.yml`, the envelope examples and error prose in `AGENTS.md`, and the rustdoc example in `crates/ffi/src/commands/snapshot.rs`. The header `crates/ffi/include/agent_desktop.h` is regenerated, not hand-edited.
 
 `src/cli/doc_literal_drift_tests.rs` fails when a version literal in those files disagrees with `ENVELOPE_VERSION`. It does not check the prose around the literal, so a person still has to. A surface bumped to the new number while it still explains the old one is the failure this checklist exists to catch.
 
 ## Release Notes
 
-Every envelope bump needs a `BREAKING CHANGE:` footer in the commit body. Do not hand-edit `CHANGELOG.md`. Make the footer precise enough for release-please to generate the note.
+Every envelope bump needs a `BREAKING CHANGE:` footer in the commit body. Do not hand-edit `CHANGELOG.md` in the feature commit. The release pull request (`docs/releasing.md`) writes the entry, so make the footer precise enough to write that note from.
 
 ## Tests
 

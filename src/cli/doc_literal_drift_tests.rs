@@ -1,7 +1,7 @@
 use super::*;
 
 const ENVELOPE_DOCS: &[(&str, &str)] = &[
-    ("CLAUDE.md", include_str!("../../CLAUDE.md")),
+    ("AGENTS.md", include_str!("../../AGENTS.md")),
     (
         "docs/json-output.md",
         include_str!("../../docs/json-output.md"),
@@ -22,7 +22,7 @@ const ABI_DOCS: &[(&str, &str)] = &[
 
 const FFI_HEADER: &str = include_str!("../../crates/ffi/include/agent_desktop.h");
 const README: &str = include_str!("../../README.md");
-const CLAUDE_MD: &str = include_str!("../../CLAUDE.md");
+const AGENTS_MD: &str = include_str!("../../AGENTS.md");
 const HELD_INPUT_COMMANDS: &[&str] = &["key-down", "key-up", "mouse-down", "mouse-up"];
 
 fn quoted_values_after<'a>(text: &'a str, marker: &str) -> Vec<&'a str> {
@@ -103,13 +103,13 @@ fn documented_command_counts_match_the_cli() {
         "README.md must state {total} command names and {operational} operational commands"
     );
     assert!(
-        CLAUDE_MD.contains(&format!("{total} commands spanning")),
-        "CLAUDE.md must state {total} commands"
+        AGENTS_MD.contains(&format!("{total} commands spanning")),
+        "AGENTS.md must state {total} commands"
     );
     assert!(
-        CLAUDE_MD.contains(&format!(
+        AGENTS_MD.contains(&format!(
             "{operational} of the {total} command names are operational"
         )),
-        "CLAUDE.md must state {operational} of the {total} command names are operational"
+        "AGENTS.md must state {operational} of the {total} command names are operational"
     );
 }
