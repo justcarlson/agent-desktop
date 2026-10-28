@@ -7,6 +7,7 @@
 * Preserve macOS applications with missing localized display names in the complete inventory, using their executable name or bundle identifier. Such applications no longer block unrelated app-scoped snapshots, window lists, and screenshots.
 * Publish npm and GitHub releases automatically when the Cargo workspace version changes on main.
 * Remove the custom Homebrew tap, the Scoop bucket, and their package-update pull requests.
+* Remove the `version` line from the skills. In 1.0.0 it still said 0.11.1; `agent-desktop version` reports the version.
 
 ## [1.0.0](https://github.com/lahfir/agent-desktop/compare/v0.11.1...v1.0.0) (2026-10-27)
 
