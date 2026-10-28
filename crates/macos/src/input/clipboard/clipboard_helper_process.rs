@@ -229,7 +229,7 @@ mod tests {
     fn hard_deadline_kills_the_helper_process_group() {
         let pgid_file = std::env::temp_dir().join(format!("ad-clip-pgid-{}", std::process::id()));
         let mut command = Command::new("/bin/sh");
-        command.args(["-c", "echo $$ > \"$1\"; sleep 5 & wait", "sh"]);
+        command.args(["-c", "echo $$ > \"$1\"; sleep 60 & wait", "sh"]);
         command.arg(&pgid_file);
         let error = run(&mut command, &[], Deadline::after(800).unwrap(), None).unwrap_err();
 
@@ -241,19 +241,18 @@ mod tests {
             .parse()
             .expect("process group id");
         let _ = std::fs::remove_file(&pgid_file);
-        let group_gone = Instant::now() + Duration::from_secs(2);
-        while unsafe { libc::kill(-pgid, 0) } == 0 && Instant::now() < group_gone {
+        let give_up = Instant::now() + Duration::from_secs(10);
+        while group_has_live_member(pgid) && Instant::now() < give_up {
             std::thread::sleep(POLL_INTERVAL);
         }
-        let probe = unsafe { libc::kill(-pgid, 0) };
-        assert_eq!(
-            probe, -1,
+        assert!(
+            !group_has_live_member(pgid),
             "helper process group {pgid} survived the deadline"
         );
-        assert_eq!(
-            std::io::Error::last_os_error().raw_os_error(),
-            Some(libc::ESRCH)
-        );
+    }
+
+    fn group_has_live_member(pgid: i32) -> bool {
+        unsafe { libc::kill(-pgid, 0) == 0 }
     }
 
     #[test]

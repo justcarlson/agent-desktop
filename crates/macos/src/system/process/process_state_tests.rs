@@ -70,21 +70,17 @@ fn immediately_responsive_pid_classifies_running_with_one_probe() {
 #[cfg(target_os = "macos")]
 #[test]
 fn exited_child_process_is_classified_exited_with_no_code() {
-    let mut child = std::process::Command::new("/bin/echo")
-        .arg("hi")
+    let mut child = std::process::Command::new("/bin/cat")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
         .spawn()
-        .expect("spawn /bin/echo");
+        .expect("spawn /bin/cat");
     let pid = i32::try_from(child.id()).expect("child pid fits macOS pid_t");
     let instance = crate::system::process::process_identity::token_for_pid(pid)
         .expect("capture child process identity")
-        .expect("child remains live before wait");
+        .expect("child blocked on stdin is live");
+    drop(child.stdin.take());
     child.wait().expect("wait for exit");
-    for _ in 0..50 {
-        if !pid_is_alive(pid) {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
 
     let state = process_state_impl(
         agent_desktop_core::ProcessIdentity {
