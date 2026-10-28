@@ -411,7 +411,7 @@ if (pkg.bin?.['agent-desktop'] !== 'bin/agent-desktop') {
   throw new Error('npm bin path must be bin/agent-desktop');
 }
 
-if (pkg.repository?.url !== 'git+https://github.com/vercel-labs/agent-desktop.git') {
+if (pkg.repository?.url !== 'git+https://github.com/lahfir/agent-desktop.git') {
   throw new Error('npm repository URL must be normalized for npm publish');
 }
 
