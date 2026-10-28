@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    branches: [main]
+    paths: [Cargo.toml]
   workflow_dispatch:
 
 concurrency:
@@ -831,19 +834,3 @@ jobs:
       - name: Publish to npm
         run: npm publish --access public
         working-directory: npm
-
-  update-packages:
-    needs: [check-release, publish-github]
-    if: >-
-      !cancelled() && needs.check-release.result == 'success' &&
-      (needs.publish-github.result == 'success' ||
-       (needs.check-release.outputs.should_release == 'false' &&
-        needs.check-release.outputs.needs_github_release == 'false'))
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
-      attestations: read
-    uses: ./.github/workflows/release-packages.yml
-    with:
-      version: ${{ needs.check-release.outputs.version }}

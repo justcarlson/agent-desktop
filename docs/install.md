@@ -1,41 +1,29 @@
 # Installing agent-desktop
 
-Native packages are the default on macOS, Windows and Linux, on x64 and ARM64. They install the released
-executable without a JavaScript launcher or an agent-desktop postinstall script.
-
-## macOS and Linux: Homebrew
-
-With [Homebrew](https://brew.sh) installed:
+Install the `agent-desktop` npm package with npm, pnpm, Yarn or Bun. It bundles native executables and platform
+helpers for macOS, Windows and Linux, on x64 and ARM64:
 
 ```bash
-brew tap lahfir/agent-desktop https://github.com/lahfir/agent-desktop.git
-brew install lahfir/agent-desktop/agent-desktop
+npm install -g agent-desktop
 agent-desktop version
 ```
 
-Homebrew creates a symlink to the native executable and installs its platform helper beside it. Upgrade with
-`brew update && brew upgrade lahfir/agent-desktop/agent-desktop`; uninstall with
-`brew uninstall lahfir/agent-desktop/agent-desktop`.
+For a direct native executable without a JavaScript launcher, download the archive for your OS and architecture
+from [GitHub Releases](https://github.com/lahfir/agent-desktop/releases). Extract the executable and its platform
+helper together into a directory on PATH. Upgrade by replacing both with files from the same release.
 
-## Windows: Scoop
+## Homebrew and Scoop
 
-With [Scoop](https://scoop.sh) installed, run in a non-administrator PowerShell:
+Official packages are being submitted to `Homebrew/homebrew-core` and `ScoopInstaller/Main`. They are not yet
+available through the default catalogs. This repository no longer maintains a custom tap or bucket; existing
+custom installations remain pinned to their installed version.
 
-```powershell
-scoop bucket add agent-desktop https://github.com/lahfir/agent-desktop.git
-scoop install agent-desktop/agent-desktop
-agent-desktop version
-(Get-Command agent-desktop).Source
-```
+Once accepted, Homebrew builds from the tagged source and manages its own bottles. Scoop installs the Windows
+release archive and checks GitHub releases for updates. Catalog updates and approvals are managed by those
+projects, separately from our npm and GitHub release workflow.
 
-The command resolves to `apps\agent-desktop\current\agent-desktop.exe`. Scoop manages the `current` directory
-junction and adds it to PATH. This package creates no `.cmd`, `.ps1`, or executable shim and has no install hooks.
-Upgrade with `scoop update; scoop update agent-desktop`; uninstall with `scoop uninstall agent-desktop`.
-
-Both managers check the archive against a SHA-256 pinned in the repository. The manual release workflow reads
-`Cargo.toml` and opens a package-update PR using the published archives and their verified checksums. If a prior npm-family installation shadows the native command, uninstall
-it through the manager that installed it, then open a new terminal. Check resolution with `command -v agent-desktop`
-on macOS/Linux or `Get-Command agent-desktop` on Windows.
+If an older installation shadows the command, uninstall it through its original package manager. Check resolution
+with `command -v agent-desktop` on macOS/Linux or `Get-Command agent-desktop` on Windows.
 
 ## Blocked install scripts
 
