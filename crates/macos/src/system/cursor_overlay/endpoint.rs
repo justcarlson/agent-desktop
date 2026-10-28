@@ -190,7 +190,7 @@ fn collect_session_sockets(
         let entries = match std::fs::read_dir(directory) {
             Ok(entries) => entries,
             Err(error) => {
-                tracing::warn!(path = %directory.display(), %error, "cursor overlay sockets could not be listed");
+                tracing::warn!("cursor overlay sockets could not be listed");
                 if listing_error.is_none() {
                     listing_error = Some(error.to_string());
                 }
@@ -201,7 +201,7 @@ fn collect_session_sockets(
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
-                    tracing::warn!(path = %directory.display(), %error, "cursor overlay socket entry could not be read");
+                    tracing::warn!("cursor overlay socket entry could not be read");
                     if listing_error.is_none() {
                         listing_error = Some(error.to_string());
                     }

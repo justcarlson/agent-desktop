@@ -170,12 +170,12 @@ mod imp {
             if let Err(error) = std::fs::remove_file(&self.path)
                 && error.kind() != std::io::ErrorKind::NotFound
             {
-                tracing::debug!(%error, path = %self.path.display(), "screenshot file cleanup failed");
+                tracing::debug!("screenshot file cleanup failed");
             }
             if let Err(error) = std::fs::remove_dir(&self.dir)
                 && error.kind() != std::io::ErrorKind::NotFound
             {
-                tracing::debug!(%error, path = %self.dir.display(), "screenshot directory cleanup failed");
+                tracing::debug!("screenshot directory cleanup failed");
             }
         }
     }

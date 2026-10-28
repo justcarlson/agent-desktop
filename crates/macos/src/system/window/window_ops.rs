@@ -19,12 +19,7 @@ mod imp {
     }
 
     pub fn execute(win: &WindowInfo, op: WindowOp, deadline: Deadline) -> Result<(), AdapterError> {
-        tracing::debug!(
-            "system: window_op {:?} app={:?} title={:?}",
-            op,
-            win.app,
-            win.title
-        );
+        tracing::debug!(operation = ?op, "system: window operation");
         deadline.ensure_remaining()?;
         let win_el = crate::system::window::window_resolve::window_element_for_info(win, deadline)?;
         match op {

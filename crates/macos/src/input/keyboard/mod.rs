@@ -11,12 +11,7 @@ pub(crate) fn synthesize_key(
     target_pid: Option<i32>,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    tracing::debug!(
-        key = combo.key,
-        modifiers = ?combo.modifiers,
-        target_pid,
-        "keyboard: synthesize atomic key press"
-    );
+    tracing::debug!(target_pid, "keyboard: synthesize atomic key press");
     let key_code = crate::input::keyboard::keyboard_map::key_name_to_code(&combo.key)?;
     crate::input::keyboard::keyboard_event::post_key(
         key_code,

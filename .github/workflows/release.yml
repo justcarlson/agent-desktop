@@ -1,37 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: Release tag to build and publish, for example v0.2.0
-        required: true
-        type: string
-      version:
-        description: Semver version without the v prefix, for example 0.2.0
-        required: true
-        type: string
-      publish_npm:
-        description: Publish the npm package after GitHub assets are uploaded
-        required: true
-        default: true
-        type: boolean
-      publish_skills:
-        description: Publish skills after the release is built
-        required: true
-        default: true
-        type: boolean
-      allow_republish:
-        description: Replace the assets of a release that already carries them
-        required: false
-        default: false
-        type: boolean
 
-# One release run per commit — never cancel, just queue.
 concurrency:
-  group: release-${{ github.sha }}
+  group: release
 
 # Deny all permissions at workflow level; each job declares only what it needs.
 permissions: {}
@@ -40,99 +13,45 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release-please:
-    name: Release Please
+  check-release:
+    name: Check for new version
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
-      pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs.release_created || steps.manual.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name || steps.manual.outputs.tag_name }}
-      version: ${{ steps.release.outputs.major && format('{0}.{1}.{2}', steps.release.outputs.major, steps.release.outputs.minor, steps.release.outputs.patch) || steps.manual.outputs.version }}
-      publish_npm: ${{ steps.manual.outputs.publish_npm || 'true' }}
-      publish_skills: ${{ steps.manual.outputs.publish_skills || steps.release.outputs.release_created }}
-      allow_republish: ${{ steps.manual.outputs.allow_republish || 'false' }}
+      tag_name: ${{ steps.prepare.outputs.tag_name }}
+      version: ${{ steps.prepare.outputs.version }}
+      source_sha: ${{ steps.prepare.outputs.source_sha }}
+      should_release: ${{ steps.prepare.outputs.should_release }}
+      needs_github_release: ${{ steps.prepare.outputs.needs_github_release }}
     steps:
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
-        if: github.event_name != 'workflow_dispatch'
-        id: release
-        with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-      - name: Use manual release inputs
-        if: github.event_name == 'workflow_dispatch'
-        id: manual
+      - name: Require main
         env:
-          TAG_NAME: ${{ inputs.tag_name }}
-          VERSION: ${{ inputs.version }}
-          PUBLISH_NPM: ${{ inputs.publish_npm }}
-          PUBLISH_SKILLS: ${{ inputs.publish_skills }}
-          ALLOW_REPUBLISH: ${{ inputs.allow_republish }}
+          RELEASE_REF: ${{ github.ref }}
         run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid version: ${VERSION}" >&2
+          if [ "$RELEASE_REF" != "refs/heads/main" ]; then
+            echo "Release must run from main" >&2
             exit 1
           fi
-          if [[ "$TAG_NAME" != "v${VERSION}" ]]; then
-            echo "Tag ${TAG_NAME} must match version ${VERSION}" >&2
-            exit 1
-          fi
-          {
-            echo "release_created=true"
-            echo "tag_name=${TAG_NAME}"
-            echo "version=${VERSION}"
-            echo "publish_npm=${PUBLISH_NPM}"
-            echo "publish_skills=${PUBLISH_SKILLS}"
-            echo "allow_republish=${ALLOW_REPUBLISH}"
-          } >> "$GITHUB_OUTPUT"
 
-      - name: Sync Cargo.lock on release PR
-        if: github.event_name != 'workflow_dispatch' && steps.release.outputs.release_created != 'true'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Validate release metadata and create immutable tag
+        id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          BRANCH="release-please--branches--main--components--agent-desktop"
-          OPEN_RELEASE_PRS=$(gh pr list \
-            --head "$BRANCH" \
-            --state open \
-            --json number \
-            --jq 'length')
-          if [ "$OPEN_RELEASE_PRS" = "0" ]; then
-            echo "No open release PR branch to sync"
-            exit 0
-          fi
-
-          git init -b main release-pr
-          cd release-pr
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
-          git fetch --depth=1 origin "$BRANCH"
-          git checkout -B "$BRANCH" FETCH_HEAD
-
-          rustup show
-          VERSION=$(sed -n 's/.*version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -1)
-          cargo update -p agent-desktop --precise "$VERSION"
-          scripts/check-release-consistency.sh
-
-          if git diff --quiet -- Cargo.lock; then
-            echo "Cargo.lock already matches release version ${VERSION}"
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.lock
-          git commit -m "chore: sync cargo lock for release ${VERSION}"
-          git push origin "HEAD:${BRANCH}"
+        run: bash scripts/prepare-release.sh
 
   build:
     name: Build (${{ matrix.target }})
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
     timeout-minutes: 30
@@ -170,7 +89,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install rustup (container)
         if: runner.os == 'Linux'
@@ -193,16 +120,6 @@ jobs:
         run: |
           rustup show
           rustup target add ${{ matrix.target }}
-
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
 
       - name: Build release binary (macOS)
         if: runner.os == 'macOS'
@@ -294,7 +211,7 @@ jobs:
       - name: Create tarball (macOS)
         if: runner.os == 'macOS'
         env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+          VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"
           BINARY="target/${{ matrix.target }}/release/agent-desktop"
@@ -319,7 +236,7 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+          VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           TARBALL="agent-desktop-v${VERSION}-${{ matrix.target }}.tar.gz"
           DIR="target/${{ matrix.target }}/release"
@@ -338,7 +255,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+          VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           $tarball = "agent-desktop-v${env:VERSION}-${{ matrix.target }}.tar.gz"
           & tar -czf $tarball -C "target/${{ matrix.target }}/release" agent-desktop.exe
@@ -366,8 +283,8 @@ jobs:
   # Ships alongside CLI tarballs on the same release tag; npm stays CLI-only.
   build-ffi:
     name: Build FFI (${{ matrix.target }})
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
     timeout-minutes: 30
@@ -417,7 +334,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install rustup (container)
         if: runner.os == 'Linux'
@@ -443,16 +368,6 @@ jobs:
 
       # NEVER add --features stub-adapter to the release FFI build — it ships a no-op dylib
       # where every adapter call returns PLATFORM_NOT_SUPPORTED. The guard step below enforces this.
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-${{ matrix.target }}-ffi-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-ffi-cargo-
-
       - name: Guard — release dylib must not be a stub build
         shell: bash
         run: |
@@ -505,7 +420,7 @@ jobs:
       - name: Stage tarball contents
         shell: bash
         env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+          VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           STAGE="agent-desktop-ffi-v${VERSION}-${{ matrix.target }}"
           mkdir -p "$STAGE/lib" "$STAGE/include"
@@ -612,8 +527,8 @@ jobs:
   # macOS because cbindgen may omit macOS-gated symbols on Linux.
   ffi-release-gates:
     name: FFI Release Gates
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
     runs-on: macos-latest
     timeout-minutes: 30
     permissions:
@@ -622,20 +537,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install Rust toolchain
         run: rustup show
-
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-ffi-gates-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-ffi-gates-cargo-
 
       - name: Install pinned cbindgen 0.29.4
         run: cargo install cbindgen --version 0.29.4 --locked
@@ -653,8 +566,8 @@ jobs:
           --features stub-adapter --test c_abi_passthrough
 
   ffi-release-panic-guard:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
     name: FFI Panic Guard (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
@@ -691,7 +604,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Install rustup (container)
         if: runner.os == 'Linux'
@@ -715,16 +636,6 @@ jobs:
           rustup show
           rustup target add ${{ matrix.target }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'src/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-cargo-
-
       - name: Assert release-ffi profile keeps panic=unwind
         shell: bash
         run: |
@@ -737,14 +648,18 @@ jobs:
 
       - name: Prove the shipped cdylib catches an exported-boundary panic
         shell: bash
+        env:
+          GIT_CONFIG_COUNT: 1
+          GIT_CONFIG_KEY_0: safe.directory
+          GIT_CONFIG_VALUE_0: ${{ github.workspace }}
         run: bash crates/ffi/tests/run_cdylib_panic_probe.sh ${{ matrix.target }}
 
   # One check over the three channels that must carry the Linux clipboard owner helper:
   # the CLI archive, the FFI archive and the npm package table.
   linux-archive-contents:
     name: Linux archive contents (${{ matrix.target }})
-    needs: [release-please, build, build-ffi]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [check-release, build, build-ffi]
+    if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -761,7 +676,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - name: Download this target's CLI and FFI archives
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -779,8 +702,16 @@ jobs:
 
   publish-github:
     name: Publish to GitHub Release
-    needs: [release-please, build, build-ffi, ffi-release-gates, ffi-release-panic-guard, linux-archive-contents]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [check-release, build, build-ffi, ffi-release-gates, ffi-release-panic-guard, linux-archive-contents, publish-npm]
+    if: >-
+      always() &&
+      needs.check-release.result == 'success' &&
+      needs.build.result == 'success' &&
+      needs.build-ffi.result == 'success' &&
+      needs.ffi-release-gates.result == 'success' &&
+      needs.ffi-release-panic-guard.result == 'success' &&
+      needs.linux-archive-contents.result == 'success' &&
+      (needs.publish-npm.result == 'success' || needs.publish-npm.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -803,21 +734,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
-          ALLOW_REPUBLISH: ${{ needs.release-please.outputs.allow_republish }}
+          TAG_NAME: ${{ needs.check-release.outputs.tag_name }}
         run: |
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            ATTACHED=$(gh release view "$TAG_NAME" --json assets --jq '.assets | length')
-            if [ "${ATTACHED}" -gt 0 ] && [ "${ALLOW_REPUBLISH}" != "true" ]; then
-              echo "FAIL: ${TAG_NAME} already carries ${ATTACHED} asset(s)."
-              echo "Re-uploading would replace shipped downloads. Cut a new version,"
-              echo "or dispatch with allow_republish=true if replacing them is intended."
-              exit 1
-            fi
-          else
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
             gh release create "$TAG_NAME" \
+              --verify-tag \
               --title "$TAG_NAME" \
-              --notes "Release ${TAG_NAME}"
+              --generate-notes
           fi
           gh release upload "$TAG_NAME" \
             ./*.tar.gz ./*.zip checksums.txt \
@@ -827,7 +750,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          TAG_NAME: ${{ needs.check-release.outputs.tag_name }}
           EXPECTED_ASSETS: 13
         run: |
           ASSETS=$(gh release view "$TAG_NAME" --json assets --jq '.assets | length')
@@ -850,8 +773,8 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: [release-please, publish-github]
-    if: needs.release-please.outputs.release_created == 'true' && needs.release-please.outputs.publish_npm == 'true'
+    needs: [check-release, build, build-ffi, ffi-release-gates, ffi-release-panic-guard, linux-archive-contents]
+    if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -861,7 +784,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify and select release source
+        shell: bash
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.check-release.outputs.source_sha }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: bash scripts/checkout-release-source.sh
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -871,7 +802,7 @@ jobs:
 
       - name: Prepare npm package
         env:
-          VERSION: ${{ needs.release-please.outputs.version }}
+          VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           cd npm
           node -e "
@@ -884,50 +815,35 @@ jobs:
           cp ../README.md README.md
           cp ../CHANGELOG.md CHANGELOG.md 2>/dev/null || true
 
+      - name: Download built release archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "{binary,ffi}-*"
+          merge-multiple: true
+          path: ${{ runner.temp }}/npm-release
+
+      - name: Bundle built CLI executables
+        run: |
+          cat "$RUNNER_TEMP/npm-release"/*.sha256 > "$RUNNER_TEMP/npm-release/checksums.txt"
+          node scripts/prepare-npm-binaries.js "$RUNNER_TEMP/npm-release"
+          node scripts/check-npm-package.js --bundled
+
       - name: Publish to npm
         run: npm publish --access public
         working-directory: npm
 
-  publish-skills:
-    name: Publish Skills to ClawHub
-    needs: [release-please]
-    if: needs.release-please.outputs.release_created == 'true' && needs.release-please.outputs.publish_skills == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+  update-packages:
+    needs: [check-release, publish-github]
+    if: >-
+      !cancelled() && needs.check-release.result == 'success' &&
+      (needs.publish-github.result == 'success' ||
+       (needs.check-release.outputs.should_release == 'false' &&
+        needs.check-release.outputs.needs_github_release == 'false'))
     permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release-please.outputs.tag_name }}
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-
-      - name: Install ClawHub CLI
-        run: npm i -g clawhub
-
-      - name: Authenticate with ClawHub
-        run: clawhub login --token "$CLAWHUB_TOKEN" --no-browser
-        env:
-          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-
-      - name: Publish all skills to ClawHub
-        run: |
-          set -euo pipefail
-          SOURCE_COMMIT="$(git rev-parse HEAD)"
-          for skill_dir in skills/*; do
-            [ -d "$skill_dir" ] || continue
-            [ -f "$skill_dir/SKILL.md" ] || continue
-            slug="$(basename "$skill_dir")"
-            clawhub publish "$skill_dir" \
-              --slug "$slug" \
-              --changelog "Release ${{ needs.release-please.outputs.tag_name }}" \
-              --tags latest \
-              --source-repo "${GITHUB_REPOSITORY}" \
-              --source-commit "$SOURCE_COMMIT" \
-              --source-ref "${{ needs.release-please.outputs.tag_name }}" \
-              --source-path "$skill_dir"
-          done
+      contents: write
+      pull-requests: write
+      actions: write
+      attestations: read
+    uses: ./.github/workflows/release-packages.yml
+    with:
+      version: ${{ needs.check-release.outputs.version }}

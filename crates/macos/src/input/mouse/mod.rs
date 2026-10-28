@@ -34,14 +34,7 @@ mod imp {
         deadline: Deadline,
         verify_target: &mut dyn FnMut() -> Result<(), AdapterError>,
     ) -> Result<(), AdapterError> {
-        tracing::debug!(
-            "mouse: {:?} {:?} at ({:.0}, {:.0}) modifiers={:?}",
-            event.kind,
-            event.button,
-            event.point.x,
-            event.point.y,
-            event.modifiers
-        );
+        tracing::debug!(kind = ?event.kind, "mouse: synthesize event");
         validate_point(&event.point)?;
         ensure_budget(deadline, crate::actions::DeliveryTracker::default())?;
         let point = CGPoint::new(event.point.x, event.point.y);

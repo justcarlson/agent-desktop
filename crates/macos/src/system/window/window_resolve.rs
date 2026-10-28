@@ -121,11 +121,7 @@ fn window_record_matches_source(
         !title.is_empty() && record.title.as_deref().unwrap_or(record.app_name.as_str()) != title
     });
     if title_changed {
-        tracing::debug!(
-            expected_title = ?evidence.title,
-            actual_title = ?record.title,
-            "window title changed while immutable source identity remained valid"
-        );
+        tracing::debug!("window title changed while immutable source identity remained valid");
     }
     true
 }

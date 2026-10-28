@@ -62,11 +62,7 @@ pub(crate) fn focus_window_impl(
     window: &WindowInfo,
     deadline: Deadline,
 ) -> Result<(), AdapterError> {
-    tracing::debug!(
-        "system: focus window app={:?} title={:?}",
-        window.app,
-        window.title
-    );
+    tracing::debug!("system: focus window");
     let pid = crate::system::process::process_identity::to_pid_t(window.pid)?;
     let element = crate::system::window::window_resolve::window_element_for_info(window, deadline)?;
     let focused = focus_app(pid, deadline)?;

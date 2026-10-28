@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/lahfir/agent-desktop/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/lahfir/agent-desktop/ci.yml?branch=main&style=for-the-badge" alt="CI status"></a> <a href="https://github.com/lahfir/agent-desktop/releases"><img src="https://img.shields.io/github/v/release/lahfir/agent-desktop?include_prereleases&style=for-the-badge" alt="GitHub release"></a> <a href="https://www.npmjs.com/package/agent-desktop"><img src="https://img.shields.io/npm/v/agent-desktop?label=npm&style=for-the-badge" alt="npm version"></a>
-  <a href="https://clawhub.ai/lahfir/agent-desktop"><img src="https://img.shields.io/badge/ClawHub-skill-f97316?style=for-the-badge" alt="ClawHub skill"></a> <a href="https://skills.sh/lahfir/agent-desktop/agent-desktop"><img src="https://img.shields.io/badge/skills.sh-listed-8b5cf6?style=for-the-badge" alt="skills.sh listing"></a> <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg?style=for-the-badge" alt="Apache-2.0 License"></a>
+  <a href="https://skills.sh/lahfir/agent-desktop/agent-desktop"><img src="https://img.shields.io/badge/skills.sh-listed-8b5cf6?style=for-the-badge" alt="skills.sh listing"></a> <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg?style=for-the-badge" alt="Apache-2.0 License"></a>
 </p>
 
 <p align="center"><video src="https://github.com/user-attachments/assets/9b2c9f8c-a49d-4b69-b6cf-11d9e0d40ceb" controls width="800"></video></p>
@@ -13,20 +13,43 @@ A CLI and C library for macOS, Windows and Linux. A snapshot returns JSON with a
 
 On macOS, CLI calls reuse a private command host for each snapshot namespace and binary build. It retains native accessibility objects so a removed row cannot silently resolve to a surviving row with the same identifier. The host exits after 15 idle minutes. `TMPDIR` must be owned by the current user with mode `0700`; the standard macOS per-user temporary directory satisfies this requirement. Headless calls still prohibit foreground activation and synthesized input.
 
+Snapshots, clipboard reads, screenshots, command output and debug artifacts can contain private desktop content. Keep them out of public logs and uploads. The optional [JEV helper](skills/jev-desktop/SKILL.md) sends screen descriptions to a configured model provider; it is separate from the native CLI. See [privacy and data handling](docs/faq.md#what-data-can-contain-private-information).
+
 ## Installation
+
+Use a native package manager for a direct executable with no runtime wrapper or npm postinstall step.
+
+**macOS and Linux** ([Homebrew](https://brew.sh)):
+
+```bash
+brew tap lahfir/agent-desktop https://github.com/lahfir/agent-desktop.git
+brew install lahfir/agent-desktop/agent-desktop
+```
+
+**Windows** ([Scoop](https://scoop.sh)):
+
+```powershell
+scoop bucket add agent-desktop https://github.com/lahfir/agent-desktop.git
+scoop install agent-desktop/agent-desktop
+```
+
+Homebrew links the native executable; Scoop adds its native executable directory to PATH without creating a shim.
+Both select the matching x64 or ARM64 release and verify its pinned SHA-256. Run `agent-desktop version` to check
+installation. If an older npm install appears first on PATH, uninstall it with its original package manager.
+
+- **macOS** needs Accessibility permission: `agent-desktop permissions --guide`.
+- **Windows** needs no grant for apps at your terminal's integrity level.
+- **Linux** needs the user's graphical session with `at-spi2-core`.
+
+See [installation and permissions](docs/install.md) for upgrades, release archives, and building from source.
+**npm** remains supported on all three platforms:
 
 ```bash
 npm install -g agent-desktop
-agent-desktop status            # platform, permissions, supported surfaces
 ```
 
-The package works on macOS, Windows and Linux, on x64 and ARM64. Then check what your OS needs:
-
-- **macOS** needs Accessibility permission: `agent-desktop permissions --guide`. See [permissions](docs/install.md#permissions).
-- **Windows** needs no grant for apps at your terminal's integrity level. See [permissions](docs/install.md#permissions).
-- **Linux** needs the user's graphical session with `at-spi2-core`. See [permissions](docs/install.md#permissions).
-
-If your package manager blocks install scripts, allow them (npm 11: `allowScripts`); see [docs/install.md](docs/install.md#blocked-install-scripts). To verify a release archive's origin, run `gh attestation verify`; see [docs/install.md](docs/install.md#release-archives). Building from source is covered in [docs/install.md](docs/install.md#from-source).
+Bun, Yarn and pnpm can install the same `agent-desktop` package. Some npm-family paths retain their package
+manager's launcher; the native packages above provide direct execution.
 
 ## Quick start
 

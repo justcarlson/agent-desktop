@@ -71,12 +71,19 @@ Run `agent-desktop skills get desktop` for the core skill, then `agent-desktop s
 
 Yes. agent-desktop is Apache-2.0 licensed for personal and commercial use.
 
+## What data can contain private information?
+
+Snapshot trees, window titles, clipboard reads, notifications, screenshots and command results contain the desktop content you asked to inspect. Debug HTML embeds a screenshot and accessibility data. Session traces can retain evidence artifacts even when structured fields are redacted. Keep these files and caller transcripts private; redaction does not make a screenshot safe to publish.
+
+The native CLI does not require a remote model service. The optional repository-only [JEV helper](../skills/jev-desktop/SKILL.md) sends goals and screen descriptions to the configured provider. Its value-suppression option does not remove private text from labels, titles, ancestor paths or the goal itself. Use it only with data approved for that provider. Its executable command output can also contain supplied text.
+
+Public probe captures retain technical environment details such as OS versions and window geometry. Review captures and media before publishing them, even when identity fields have been redacted.
+
 ## Where can I get help?
 
 | Resource | Link |
 |----------|------|
 | **Repository** | [github.com/lahfir/agent-desktop](https://github.com/lahfir/agent-desktop) |
-| **ClawHub Skill** | [clawhub.ai/lahfir/agent-desktop](https://clawhub.ai/lahfir/agent-desktop) |
 | **skills.sh Listing** | [skills.sh/lahfir/agent-desktop/agent-desktop](https://skills.sh/lahfir/agent-desktop/agent-desktop) |
 | **npm Package** | [npmjs.com/package/agent-desktop](https://www.npmjs.com/package/agent-desktop) |
 | **CI Status** | [GitHub Actions](https://github.com/lahfir/agent-desktop/actions/workflows/ci.yml?query=branch%3Amain) |

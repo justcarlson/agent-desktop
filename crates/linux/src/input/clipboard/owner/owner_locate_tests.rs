@@ -202,3 +202,30 @@ fn locating_refuses_group_write_on_the_helper_or_its_directory() {
         assert!(error.message.contains("group"), "{}", error.message);
     }
 }
+
+#[test]
+fn a_bundled_architecture_helper_is_validated_when_the_plain_helper_is_absent() {
+    for mode in [0o755, 0o775] {
+        let dir = scratch("bundled-helper");
+        let image = image_in(&dir, "agent-desktop-linux");
+        let helper = install(&dir, mode);
+        let arch = if cfg!(target_arch = "aarch64") {
+            "arm64"
+        } else {
+            "x64"
+        };
+        let bundled = dir.join(format!("{HELPER_NAME}-linux-{arch}"));
+        fs::rename(helper, &bundled).expect("bundled helper");
+        let result = locate_in(&maps_line(0x1000, 0x2000, &image), 0x1000);
+        if mode == 0o755 {
+            assert_eq!(result.expect("bundled helper"), bundled);
+        } else {
+            assert!(
+                result
+                    .expect_err("group write is refused")
+                    .message
+                    .contains("group")
+            );
+        }
+    }
+}

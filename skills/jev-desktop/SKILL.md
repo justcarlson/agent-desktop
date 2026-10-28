@@ -73,13 +73,19 @@ decision endpoint (TypeSafe's `api.typesafe.ai` by default, or whatever
 `TYPESAFE_BASE_URL` points at): each element's role, its accessible name or description, up
 to sixty characters of the value it holds, its state, the window title, and the
 recent actions, excluding supplied text and detailed execution evidence. That is enough to send the contents of a private document or a
-filled form. Secure text fields are already withheld by agent-desktop and never
-reach the request. Pass `--no-values` to `run.mjs` to withhold what every other
-field holds as well; supplied `--text` is withheld from recent actions, and
-targeting gets harder, because a value is often the only thing that tells two
-unnamed rows apart. `act.mjs` has no `--no-values`: it sends up to 120 characters
-of each value and each element's ancestor path. Decide this before pointing a
-run at something confidential.
+filled form to the configured remote service. Secure text fields are already
+withheld by agent-desktop and never reach the request. Pass `--no-values` to
+either script to withhold what every other field holds as well; targeting gets
+harder, because a value is often the only thing that tells two unnamed rows
+apart. The default is to include values. `run.mjs` redacts explicit supplied
+strings from action turns and later recent-action history, including when later
+target names or execution evidence repeat them. Live screen descriptions remain
+separate: if the application displays that text, its accessible name or field
+value may still reach the remote service under the settings above. `act.mjs`
+preserves its exact executable `argv` in stdout, so that field can include a
+value supplied with `--text`; stdout may also contain accessible names and
+element paths. Choose the endpoint and output destination with that exposure in
+mind.
 
 **A step that is hard to undo is not taken quietly.** An ordinary step needs 0.70
 confidence in its target, one rated destructive (0.50 or more) needs 0.90, and
@@ -146,6 +152,7 @@ node scripts/jev/act.mjs --app TextEdit --execute \
 | --- | --- |
 | `--app <name>` | Required. |
 | `--window-id <id>` | Read one window of the app, by the id `agent-desktop list-windows --app <name>` reports. Needed only when the app has more than one visible window and none of them is focused, which otherwise fails with `AMBIGUOUS_TARGET`. The run stays on that window: a window the run opens elsewhere is not read. If the window closes after an action, `run.mjs` reports that turn and stops with `window_closed`. A `--root` or an open surface outside the window gives `root_outside_window` or `surface_outside_window` (a stop in `run.mjs`, the `error` in `act.mjs`). Every `run.mjs` stop reports the window it read in `screen.window_id`. `run.mjs` takes it too. |
+| `--no-values` | Withhold accessible field values from the decision request. Supported by both scripts; the default includes values. |
 | `--execute` | `act.mjs` only. Run the command when `decision` is `act`. Without it, nothing runs. |
 | `--text "…"` | Text the intent needs. Jev returns choices, never strings. `run.mjs` takes it repeatedly; `act.mjs` takes one value. |
 | `--root @ref` | Resolve inside one container instead of the whole window. |
@@ -219,7 +226,10 @@ in `notes`; use `--root @ref`.
 ## Deciding through OpenRouter
 
 The decision endpoint is `TYPESAFE_BASE_URL`, defaulting to TypeSafe's native
-`https://api.typesafe.ai/v1/systemone`. Point it at OpenRouter's Decisions
+`https://api.typesafe.ai/v1/systemone`. Configured endpoints must use HTTPS;
+HTTP is allowed only for `localhost` or a literal loopback IP, which keeps local
+test routers usable. URL credentials are rejected, and redirects fail closed so
+the bearer key cannot be forwarded to another endpoint. Point it at OpenRouter's Decisions
 router to use an OpenRouter key as `TYPESAFE_API_KEY`:
 
 ```sh

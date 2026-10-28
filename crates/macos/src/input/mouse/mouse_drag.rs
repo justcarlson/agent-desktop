@@ -20,12 +20,8 @@ pub(crate) fn synthesize_drag(params: DragParams, deadline: Deadline) -> Result<
 
 fn drag_sequence(params: DragParams, deadline: Deadline) -> Result<(), AdapterError> {
     tracing::debug!(
-        "mouse: drag ({:.0},{:.0}) -> ({:.0},{:.0}) duration={}ms",
-        params.from.x,
-        params.from.y,
-        params.to.x,
-        params.to.y,
-        params.duration_ms.unwrap_or(DEFAULT_DURATION_MS)
+        duration_ms = params.duration_ms.unwrap_or(DEFAULT_DURATION_MS),
+        "mouse: drag"
     );
     let from = CGPoint::new(params.from.x, params.from.y);
     let to = CGPoint::new(params.to.x, params.to.y);

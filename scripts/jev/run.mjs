@@ -34,6 +34,7 @@ const post = async (url, key, body) => {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      redirect: "error",
     }).catch(() => null);
     if (!res) throw new Error("the model could not be reached; nothing ran");
     if ([429, 503, 529].includes(res.status) && attempt < 2) {
@@ -41,10 +42,13 @@ const post = async (url, key, body) => {
       continue;
     }
     if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`the model returned HTTP ${res.status}; nothing ran. ${detail.slice(0, 400)}`);
+      throw new Error(`the model returned HTTP ${res.status}; nothing ran`);
     }
-    return res.json();
+    try {
+      return await res.json();
+    } catch {
+      throw new Error("the model returned an invalid response; nothing ran");
+    }
   }
   throw new Error("the model stayed unavailable");
 };
@@ -61,6 +65,15 @@ const WINDOW_STOPS = {
   ROOT_OUTSIDE_WINDOW: "root_outside_window",
 };
 
+const redactInputs = (value, inputs) => {
+  if (value == null || inputs.size === 0) return value;
+  const secrets = [...inputs].sort((a, b) => b.length - a.length);
+  return JSON.parse(JSON.stringify(value, (_key, item) => {
+    if (typeof item !== "string") return item;
+    return secrets.reduce((text, secret) => text.replaceAll(secret, "[redacted]"), item);
+  }));
+};
+
 const windowStop = (error, windowId) => (windowId ? WINDOW_STOPS[error.code] ?? null : null);
 
 export const run = async function* (
@@ -72,7 +85,11 @@ export const run = async function* (
   const supply = textSupply(text);
   const session = cursor ? startCursor(goal) : null;
   const clipboard = clipboardGuard();
-  const state = { steps: 0, calls: 0, history: [], operation: null, root };
+  const knownInputs = typeof text === "function" ? [] : Array.isArray(text) ? text : [text];
+  const state = {
+    steps: 0, calls: 0, history: [], operation: null, root,
+    suppliedInputs: new Set(knownInputs.filter((value) => typeof value === "string" && value.trim())),
+  };
   try {
     let last = null;
     for (;;) {
@@ -147,6 +164,10 @@ export const run = async function* (
       let value = null;
       if (state.operation === "TYPE_TEXT") {
         value = await supply.take(describe(node, true), state.history);
+        if (typeof value === "string" && value.trim()) {
+          state.suppliedInputs.add(value);
+          state.history = state.history.map((turn) => redactInputs(turn, state.suppliedInputs));
+        }
         if (typeof value !== "string" || !value.trim()) {
           yield { stop: `no value was supplied for ${criterion(node, "?")}`, screen, history: state.history };
           return;
@@ -154,12 +175,11 @@ export const run = async function* (
       }
       const outcome = await execute({ app, windowId }, state.operation, node, value, clipboard);
       state.steps += 1;
-      const turn = {
+      let turn = {
         step: state.steps,
         operation: state.operation,
         target: node ? `${node.role}${node.name ? ` "${node.name}"` : ""}` : null,
         ref: node?.ref_id ?? null,
-        text: value,
         confidence,
         ok: outcome.ok,
         delivery: outcome.delivery,
@@ -171,10 +191,11 @@ export const run = async function* (
         truncated: space.truncated,
         changed: null,
       };
+      turn = redactInputs(turn, state.suppliedInputs);
       state.history.push(turn);
       if (!outcome.ok) {
         yield { turn, screen };
-        yield { stop: "action_failed", screen, error: outcome.error, history: state.history };
+        yield { stop: "action_failed", screen, error: redactInputs(outcome.error, state.suppliedInputs), history: state.history };
         return;
       }
       if ("root" in outcome) state.root = outcome.root;

@@ -120,6 +120,16 @@ most of them.
 6. **Check that `cargo tree -p agent-desktop-core` is clean** if you touched any crate dependency.
 7. CI runs automatically on every push. A red CI is a blocker.
 
+## Publishing source and diagnostic evidence
+
+Use a reviewed Git revision or the release workflow to assemble public source and packages. Do not upload the working directory or local internal-document archives: ignored files can contain agent settings, transcripts, screenshots and personal filesystem paths. Browser automation captures and local demo recordings also need review before they are added to Git. Ignore rules prevent accidental staging; they do not sanitize files or prevent force-adds.
+
+Run the repository's secret/privacy scan and its scanner regression check before publishing. Credentials must remain detectable in lockfiles, fixtures and lines that also contain safe example values. Review media visually; a text scanner cannot establish that a video, screenshot or audio track is safe.
+
+The supply-chain scan records two exact historical findings for machine SIDs in an old Windows E2E plan. They are absent from the current tree and are not credentials. The exceptions acknowledge their presence in published history; they do not erase it or exempt new SIDs, other commits or credentials. Do not replace these fingerprints with broad path or rule exclusions.
+
+Git commits retain author and committer names and email addresses. Use your account's verified GitHub noreply address for future commits if you do not want a personal address published. Existing public attribution is not a credential leak; changing local Git configuration does not rewrite history. Do not rewrite shared history merely to remove an audit warning.
+
 ## Reporting bugs and security issues
 
 **Bugs and feature requests:** use the [issue templates](https://github.com/lahfir/agent-desktop/issues/new/choose); [SUPPORT.md](SUPPORT.md) says what to include.

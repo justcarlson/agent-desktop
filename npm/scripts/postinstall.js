@@ -184,7 +184,8 @@ function isNodeWrapper(path) {
 }
 
 function linkBinEntry(directory, binaryName, osPlatform = platform()) {
-  if (osPlatform === 'win32' || !isInstalledPackage(directory)) return false;
+  if (!isInstalledPackage(directory)) return false;
+  if (osPlatform === 'win32') return require('../lib/windows-bin')(directory, binaryName);
   const entryPath = join(directory, BIN_ENTRY_NAME);
   const binaryPath = join(directory, binaryName);
   const temporary = `${entryPath}.link-${process.pid}`;
@@ -276,6 +277,11 @@ function main() {
     mkdirSync(binDir, { recursive: true });
   }
 
+  if (platform() === 'linux') {
+    const mode = lstatSync(binDir).mode;
+    if (mode & 0o022) chmodSync(binDir, mode & 0o755);
+  }
+
   if (process.env.AGENT_DESKTOP_BINARY_PATH) {
     const customPath = process.env.AGENT_DESKTOP_BINARY_PATH;
     try {
@@ -298,6 +304,11 @@ function main() {
       process.exitCode = 1;
     }
     return;
+  }
+
+  const bundledHelper = includesHelper ? join(binDir, `${helperName}-${platformKey}`) : undefined;
+  if (includesHelper && existsSync(bundledHelper) && matchesRecordedDigest(bundledHelper)) {
+    installExecutable(bundledHelper, helperPath);
   }
 
   const alreadyInstalled =

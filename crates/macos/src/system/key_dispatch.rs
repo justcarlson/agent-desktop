@@ -25,11 +25,7 @@ fn press_for_app(
     policy: InteractionPolicy,
     deadline: Deadline,
 ) -> Result<ActionResult, AdapterError> {
-    tracing::debug!(
-        pid = process.pid.get(),
-        key = combo.key,
-        "system: press key for app"
-    );
+    tracing::debug!(pid = process.pid.get(), "system: press key for app");
     let identity = crate::system::process::process_identity::require_core(&process)?;
     let pid = identity.pid();
     let app = crate::tree::element_for_pid(pid);
@@ -41,7 +37,7 @@ fn press_for_app(
             }
             Ok(false) => {}
             Err(error) if menu::is_bounded_menu_incomplete(&error) => {
-                tracing::debug!(details = ?error.details, "bounded menu lookup fell back to exact PID-targeted key delivery");
+                tracing::debug!("bounded menu lookup fell back to exact PID-targeted key delivery");
             }
             Err(error) => return Err(error),
         }

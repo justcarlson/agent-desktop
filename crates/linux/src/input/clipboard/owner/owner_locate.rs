@@ -103,10 +103,18 @@ pub(crate) fn locate_in(maps: &str, address: usize) -> Result<PathBuf, AdapterEr
         .ok_or_else(|| {
             refusal("The image that holds the clipboard code could not be found".to_owned())
         })?;
-    let helper = image
+    let mut helper = image
         .parent()
         .ok_or_else(|| refusal("The image that holds the clipboard code has no directory".into()))?
         .join(HELPER_NAME);
+    if !helper.exists() {
+        let arch = if cfg!(target_arch = "aarch64") {
+            "arm64"
+        } else {
+            "x64"
+        };
+        helper.set_file_name(format!("{HELPER_NAME}-linux-{arch}"));
+    }
     check_helper(&helper)?;
     Ok(helper)
 }

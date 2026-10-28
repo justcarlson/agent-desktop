@@ -91,7 +91,7 @@ assert.deepEqual(toArgv("hover", `@${S}:e3`, null), ["--headed", "hover", `@${S}
   process.env.TYPESAFE_API_KEY = "test-key";
   const sent = [];
   globalThis.fetch = async (url, init) => {
-    sent.push({ url, auth: init.headers.Authorization, body: JSON.parse(init.body) });
+    sent.push({ url, auth: init.headers.Authorization, redirect: init.redirect, body: JSON.parse(init.body) });
     return {
       ok: true,
       status: 200,
@@ -107,8 +107,57 @@ assert.deepEqual(toArgv("hover", `@${S}:e3`, null), ["--headed", "hover", `@${S}
     const answer = await ask(req);
     assert.deepEqual(sent.map((call) => call.url), [endpoint], "act asks the configured endpoint");
     assert.equal(sent[0].auth, "Bearer test-key", "the key travels with the question");
+    assert.equal(sent[0].redirect, "error", "decision requests refuse redirects before forwarding credentials");
     assert.deepEqual(sent[0].body, JSON.parse(JSON.stringify(req)), "act posts the request it built");
     assert.equal(answer.command, "CLICK", "the endpoint's answer is read back");
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+}
+
+{
+  const privateValue = "private-act-value-4583";
+  const node = { role: "textfield", name: "Account", value: privateValue, path: ['window "Account form"'] };
+  for (const rich of [false, true]) {
+    const request = buildRequest("fill account", { app: "Fixture" }, [node], rich, { values: false });
+    assert.ok(!JSON.stringify(request).includes(privateValue), "--no-values omits values from both decision passes");
+  }
+  assert.ok(JSON.stringify(buildRequest("fill account", { app: "Fixture" }, [node])).includes(privateValue), "default requests retain values");
+}
+
+{
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  const privateValue = "private-act-value-4583";
+  process.env.TYPESAFE_BASE_URL = "https://router.example/decisions";
+  globalThis.fetch = async () => ({ ok: false, status: 401, statusText: privateValue });
+  try {
+    await assert.rejects(ask(req), (error) => {
+      assert.equal(error.message, "decision endpoint returned HTTP 401");
+      assert.ok(!error.message.includes(privateValue));
+      return true;
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+}
+
+{
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  const privateValue = "private-act-value-4583";
+  process.env.TYPESAFE_BASE_URL = "https://router.example/decisions";
+  globalThis.fetch = async () => ({ ok: true, json: async () => { throw new SyntaxError(privateValue); } });
+  try {
+    await assert.rejects(ask(req), (error) => {
+      assert.equal(error.message, "decision endpoint returned an invalid response");
+      assert.ok(!error.message.includes(privateValue));
+      return true;
+    });
   } finally {
     globalThis.fetch = realFetch;
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
