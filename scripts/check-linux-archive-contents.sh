@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# A reader that quits at its first match (grep -q, awk exit) can close the pipe
+# before printf has written everything; printf then dies of SIGPIPE and pipefail
+# reports a failure for a check that passed. Every reader below drains its input.
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HELPER=agent-desktop-linux-clipboard-owner
 LIBRARY=libagent_desktop_ffi.so
@@ -58,23 +62,23 @@ check_ffi() {
   local archive=$1 listing root member executable
   [ -r "$archive" ] || { fail "cannot read FFI archive $archive"; return; }
   listing=$(archive_listing "$archive")
-  root=$(printf '%s\n' "$listing" | awk -F/ 'NF > 1 { print $1; exit }')
+  root=$(printf '%s\n' "$listing" | awk -F/ 'NF > 1 && !found { print $1; found = 1 }')
   if [ -z "$root" ]; then
     fail "FFI archive $archive has no top-level directory"
     return
   fi
   for member in "lib/$LIBRARY" "lib/$HELPER" include/agent_desktop.h LICENSE README.md SHA256SUMS; do
-    if ! printf '%s\n' "$listing" | grep -Fxq "$root/$member"; then
+    if ! printf '%s\n' "$listing" | grep -Fx "$root/$member" >/dev/null; then
       fail "FFI archive $archive does not list $root/$member"
     fi
   done
   executable=$(executable_members "$archive")
-  if ! printf '%s\n' "$executable" | grep -Fxq "$root/lib/$HELPER"; then
+  if ! printf '%s\n' "$executable" | grep -Fx "$root/lib/$HELPER" >/dev/null; then
     fail "FFI archive $archive: $root/lib/$HELPER is not executable"
   fi
   readme=$(tar -xzOf "$archive" "$root/README.md" 2>/dev/null || true)
   for phrase in "glibc 2.35" "SONAME" "-rpath" "one at a time" "ad_snapshot" "carry text only" "$HELPER" "wl-clipboard"; do
-    if ! printf '%s\n' "$readme" | grep -Fq -- "$phrase"; then
+    if ! printf '%s\n' "$readme" | grep -F -- "$phrase" >/dev/null; then
       fail "FFI archive README does not state '$phrase'"
     fi
   done

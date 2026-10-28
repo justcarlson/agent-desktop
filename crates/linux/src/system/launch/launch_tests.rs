@@ -99,24 +99,61 @@ fn a_missing_program_is_app_not_found_and_the_error_holds_no_argument_or_environ
     assert!(text.contains("tool"));
 }
 
-fn environ_of(pid: u32, program: &str) -> Vec<u8> {
-    for _ in 0..200 {
-        let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).unwrap_or_default();
-        if comm.trim() == program {
-            let environ = std::fs::read(format!("/proc/{pid}/environ")).unwrap_or_default();
-            if !environ.is_empty() {
-                return environ;
-            }
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    }
-    panic!("the environment of {pid} never became readable");
+const REPORTER: &str = r#"report="$1"
+stdin=$(readlink /proc/$$/fd/0)
+stdout=$(readlink /proc/$$/fd/1)
+stderr=$(readlink /proc/$$/fd/2)
+group=$(cut -d' ' -f5 /proc/$$/stat)
+printf '%s
+' "$stdin" "$stdout" "$stderr" "$group" > "$report/facts"
+env -0 > "$report/environ"
+: > "$report/done""#;
+
+struct Report {
+    directory: PathBuf,
+    spawned: Spawned,
 }
 
-fn fd_target(pid: u32, fd: u32) -> String {
-    std::fs::read_link(format!("/proc/{pid}/fd/{fd}"))
-        .map(|path| path.to_string_lossy().into_owned())
-        .unwrap_or_default()
+impl Report {
+    fn of(launch: &LaunchOptions) -> Self {
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "launch-report-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&directory).expect("report directory");
+        let directory_argument = directory.to_string_lossy().into_owned();
+        let plan = plan_of(&["/bin/sh", "-c", REPORTER, "sh", &directory_argument]);
+        let spawned = spawn("reporter", &plan, launch).expect("spawn");
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !directory.join("done").exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            directory.join("done").exists(),
+            "the reporter never finished"
+        );
+        Self { directory, spawned }
+    }
+
+    fn facts(&self) -> Vec<String> {
+        std::fs::read_to_string(self.directory.join("facts"))
+            .expect("facts")
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    fn environ(&self) -> Vec<u8> {
+        std::fs::read(self.directory.join("environ")).expect("environ")
+    }
+}
+
+impl Drop for Report {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.directory);
+    }
 }
 
 #[test]
@@ -125,17 +162,18 @@ fn the_app_gets_the_null_device_its_own_group_and_the_caller_environment_plus_th
         env: BTreeMap::from([("LAUNCH_TEST_ADDED".to_owned(), "yes".to_owned())]),
         ..options()
     };
-    let spawned = spawn("sleep", &plan_of(&["/bin/sleep", "30"]), &launch).expect("spawn");
-    for fd in 0..3 {
-        assert_eq!(fd_target(spawned.pid, fd), "/dev/null", "fd {fd}");
-    }
-    let stat = std::fs::read_to_string(format!("/proc/{}/stat", spawned.pid)).expect("stat");
-    let group = stat
-        .rsplit(')')
-        .next()
-        .and_then(|rest| rest.split_whitespace().nth(2));
-    assert_eq!(group, Some(spawned.pid.to_string().as_str()));
-    let environ = environ_of(spawned.pid, "sleep");
+    let report = Report::of(&launch);
+    let facts = report.facts();
+    assert_eq!(
+        facts,
+        [
+            "/dev/null",
+            "/dev/null",
+            "/dev/null",
+            &report.spawned.pid.to_string()
+        ]
+    );
+    let environ = report.environ();
     let variables: Vec<&[u8]> = environ.split(|byte| *byte == 0).collect();
     assert!(variables.contains(&b"LAUNCH_TEST_ADDED=yes".as_slice()));
     let inherited = std::env::var("PATH").expect("PATH");
@@ -148,18 +186,17 @@ fn the_app_gets_the_null_device_its_own_group_and_the_caller_environment_plus_th
     ] {
         if let Ok(value) = std::env::var(name) {
             let line = format!("{name}={value}");
-            assert!(
-                environ
-                    .split(|byte| *byte == 0)
-                    .any(|var| var == line.as_bytes()),
-                "{name}"
-            );
+            assert!(variables.contains(&line.as_bytes()), "{name}");
         }
     }
-    let pid = spawned.pid;
-    kill(&spawned);
-    drop(spawned);
-    let deadline = Instant::now() + Duration::from_secs(2);
+}
+
+#[test]
+fn a_spawned_child_is_reaped_once_its_guard_goes() {
+    let report = Report::of(&options());
+    let pid = report.spawned.pid;
+    drop(report);
+    let deadline = Instant::now() + Duration::from_secs(10);
     while std::path::Path::new(&format!("/proc/{pid}")).exists() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -266,11 +303,9 @@ fn the_first_window_of_an_application_the_launch_started_is_its_window() {
 
 #[test]
 fn a_launched_process_carries_the_marker_that_proves_the_caller_started_it() {
-    let spawned = spawn("sleeper", &plan_of(&["/bin/sleep", "30"]), &options()).expect("spawns");
-    let environment = environ_of(spawned.pid, "sleep");
-    kill(&spawned);
+    let report = Report::of(&options());
     assert!(crate::system::process::session_origin::has_launch_marker(
-        &environment
+        &report.environ()
     ));
 }
 

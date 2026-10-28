@@ -27,6 +27,8 @@ const HOST_TEST_NAME: &str =
 const READY_PREFIX: &str = "AGENT_DESKTOP_CLIPBOARD_HOLDER_READY";
 const READY_TIMEOUT: Duration = Duration::from_secs(30);
 const STALL_POLL: Duration = Duration::from_millis(25);
+const OPEN_CLIPBOARD_PATIENCE: Duration = Duration::from_secs(10);
+const OPEN_CLIPBOARD_POLL: Duration = Duration::from_millis(10);
 
 /// Process-wide lock for every test that touches the real clipboard (A22-5).
 pub(crate) fn clipboard_test_lock() -> MutexGuard<'static, ()> {
@@ -233,10 +235,9 @@ fn hold_clipboard_until_release() -> Result<(), String> {
     if window.is_null() {
         return Err(String::from("CreateWindowExW failed for clipboard holder"));
     }
-    if unsafe { OpenClipboard(window) } == 0 {
-        let error = unsafe { GetLastError() };
+    if let Err(error) = open_clipboard_when_free(window) {
         unsafe { DestroyWindow(window) };
-        return Err(format!("OpenClipboard failed in holder: {error}"));
+        return Err(error);
     }
     println!("{READY_PREFIX}");
     let _ = std::io::stdout().flush();
@@ -247,6 +248,26 @@ fn hold_clipboard_until_release() -> Result<(), String> {
         DestroyWindow(window);
     }
     Ok(())
+}
+
+/// Opens the clipboard once whichever process held it last lets go.
+///
+/// Clipboard listeners on the runner (history, remote-session sync) open the
+/// clipboard right after every write for a few milliseconds, so a single
+/// `OpenClipboard` call can lose that race against the write the parent test
+/// just made. The wait is bounded and ends on the first successful open.
+fn open_clipboard_when_free(window: HWND) -> Result<(), String> {
+    let give_up = std::time::Instant::now() + OPEN_CLIPBOARD_PATIENCE;
+    loop {
+        if unsafe { OpenClipboard(window) } != 0 {
+            return Ok(());
+        }
+        let error = unsafe { GetLastError() };
+        if std::time::Instant::now() >= give_up {
+            return Err(format!("OpenClipboard failed in holder: {error}"));
+        }
+        std::thread::sleep(OPEN_CLIPBOARD_POLL);
+    }
 }
 
 fn delayed_owner_thread(

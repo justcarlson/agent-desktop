@@ -24,7 +24,8 @@ use std::path::PathBuf;
 const LIVE_STAGE_VARIABLE: &str = "AGENT_DESKTOP_LIVE_WPF";
 
 use crate::system::capture::capture_test_support::{
-    HomeIsolation, install_windows_private_file, sample_png, with_restored_clipboard,
+    HomeIsolation, install_windows_private_file, live_graphics_capture_lock, sample_png,
+    with_restored_clipboard,
 };
 use crate::system::fixture::test_time::deadline;
 
@@ -74,6 +75,7 @@ fn screenshot_failure_disposition_serializes_not_delivered() {
 
 #[test]
 fn screenshot_path_and_inline_data_shapes_match_core_serialization() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     install_windows_private_file();
     let adapter = WindowsAdapter::new();

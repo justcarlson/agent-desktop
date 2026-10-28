@@ -181,6 +181,7 @@ struct SwitchAdapter {
 struct Walk {
     expires_no_earlier_than: std::time::Instant,
     expires_no_later_than: std::time::Instant,
+    remaining: std::time::Duration,
     timeout_ms: u64,
 }
 
@@ -197,6 +198,7 @@ impl ObservationOps for SwitchAdapter {
         walks.push(Walk {
             expires_no_earlier_than: before + remaining,
             expires_no_later_than: after + remaining,
+            remaining,
             timeout_ms: request.deadline.timeout_ms(),
         });
         if walks.len() == 1 {
@@ -352,19 +354,20 @@ fn a_refused_switch_reports_the_operation_budget_and_is_not_retried() {
 
 #[test]
 fn the_credit_for_switch_time_stays_inside_an_inherited_deadline() {
+    let _clock = crate::wait::deadline::VirtualClock::freeze();
     let adapter = switch(0, 300);
     let window = renderer_window();
     let request = snapshot_request(crate::Deadline::after(60_000).unwrap());
     let parent = crate::Deadline::detached_after(1_000).unwrap();
-    let bound = std::time::Instant::now() + std::time::Duration::from_millis(1_000);
     let _scope = crate::wait::deadline::enter_scope(Some(parent));
 
     observe_tree(&adapter, ObservationRoot::Window(&window), &request)
         .expect("the walk after the switch still fits the inherited deadline");
 
     let walks = adapter.walks.lock().unwrap();
-    assert!(
-        walks[1].expires_no_earlier_than <= bound,
+    assert_eq!(
+        walks[1].remaining,
+        parent.remaining(),
         "the resumed walk outlives the deadline the command inherited"
     );
 }

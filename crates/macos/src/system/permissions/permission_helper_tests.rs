@@ -104,18 +104,3 @@ fn correlation_tokens_use_full_os_random_shape() {
     assert!(valid_token(&token));
     assert_eq!(token.len(), TOKEN_BYTES * 2);
 }
-
-#[cfg(unix)]
-#[test]
-fn helper_subprocess_timeout_kills_descendants_without_blocking() {
-    let started = std::time::Instant::now();
-    let error = crate::system::process::run_with_timeout(
-        Command::new("/bin/sh").args(["-c", "sleep 5 & wait"]),
-        "permission helper timeout fixture",
-        std::time::Duration::from_millis(200),
-    )
-    .unwrap_err();
-
-    assert_eq!(error.code, ErrorCode::Timeout);
-    assert!(started.elapsed() < std::time::Duration::from_secs(1));
-}

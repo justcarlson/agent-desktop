@@ -13,7 +13,7 @@ use windows::Graphics::Capture::GraphicsCaptureSession;
 
 use crate::system::fixture::test_time::deadline;
 
-use crate::system::capture::capture_test_support::sample_rgb;
+use crate::system::capture::capture_test_support::{live_graphics_capture_lock, sample_rgb};
 
 const HELD_FRAME_BUDGET_MS: usize = 50;
 const PATTERN_PAINT_WAIT_MS: u64 = 5_000;
@@ -53,6 +53,7 @@ fn support_predicate_is_the_capture_api_answer_and_stable_within_a_process() {
 
 #[test]
 fn unsupported_host_reports_unavailable_without_capture_api() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if modern_is_supported() {
         eprintln!(
@@ -79,6 +80,7 @@ fn unsupported_host_reports_unavailable_without_capture_api() {
 /// black that outlasts the wait a failure and not a skip.
 #[test]
 fn pattern_fixture_window_capture_matches_when_supported() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if skip_if_interop_unavailable("pattern window capture") {
         return;
@@ -128,6 +130,7 @@ fn pattern_fixture_window_capture_matches_when_supported() {
 
 #[test]
 fn monitor_capture_returns_monitor_dimensions_when_supported() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if skip_if_interop_unavailable("monitor capture") {
         return;
@@ -143,6 +146,7 @@ fn monitor_capture_returns_monitor_dimensions_when_supported() {
 
 #[test]
 fn frame_wait_deadline_expiry_falls_back_to_legacy() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if skip_if_interop_unavailable("frame-wait deadline expiry") {
         return;
@@ -178,6 +182,7 @@ fn frame_wait_deadline_expiry_falls_back_to_legacy() {
 
 #[test]
 fn interop_failure_is_backend_failure_that_precedence_recovers() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if !modern_is_supported() {
         eprintln!("skip: interop-failure fallback needs IsSupported true");
@@ -206,6 +211,7 @@ fn interop_failure_is_backend_failure_that_precedence_recovers() {
 
 #[test]
 fn resources_balance_across_success_deadline_and_forced_failure() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if skip_if_interop_unavailable("resource balance") {
         return;

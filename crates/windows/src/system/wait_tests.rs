@@ -17,13 +17,13 @@
 //! test's fixture dispatching a posted window message within its own budget
 //! is exactly what that stalls. Taking the stage lock here is the same
 //! "guards screen state, not only screen real estate" reasoning
-//! `window_ops_tests.rs`'s focused-filter test documents. Where a test needs
+//! `window_activate_tests.rs`'s focus tests documents. Where a test needs
 //! both locks, `FIXTURE_APP_NAME_LOCK` is always acquired first and
 //! `on_screen_stage` second.
 //!
 //! `a_menu_that_never_transitions_times_out_with_direction_specific_platform_detail`
 //! also takes the stage lock for the same reason `menu_state_tests.rs`'s
-//! `classic_source_detects_the_fixtures_context_menu_open_and_closed` and its
+//! `uia_source_detects_the_fixtures_context_menu_open_and_closed` and its
 //! siblings do: its `never_closes` fixture holds a menu open across an
 //! assertion window, and any other window gaining OS foreground during that
 //! window sends the menu owner `WM_CANCELMODE`, dismissing it and turning
@@ -202,14 +202,21 @@ fn a_menu_that_never_transitions_times_out_with_direction_specific_platform_deta
 /// process-alive re-check the loop runs before every predicate read catches
 /// the death and reports `StaleRef`, never a satisfied wait and never a
 /// generic timeout.
+///
+/// The target is a windowless child ended with `TerminateProcess`, whose exit
+/// is immediate. A GUI fixture closed through `WM_CLOSE` exits on its own
+/// schedule, which on a loaded runner can outlast the exit confirmation slice
+/// and turn the teardown into a legitimate `AppUnresponsive`; that
+/// confirmation is covered with a staged clock in
+/// `wait_exit_confirmation_tests.rs`.
 #[test]
 fn a_target_that_exits_mid_wait_returns_stale_ref_not_a_satisfied_wait_or_a_timeout() {
-    bootstrap();
-    let _app_name_scope = FIXTURE_APP_NAME_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let fixture = MenuFixture::spawn().expect("the menu fixture starts");
-    let identity = identity_for(ProcessId::from(fixture.process_id()));
+    let mut target = std::process::Command::new("ping")
+        .args(["-n", "120", "127.0.0.1"])
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("the windowless target starts");
+    let identity = identity_for(ProcessId::from(target.id()));
 
     let (sender, receiver) = channel();
     thread::spawn(move || {
@@ -218,7 +225,8 @@ fn a_target_that_exits_mid_wait_returns_stale_ref_not_a_satisfied_wait_or_a_time
     });
 
     thread::sleep(OPEN_AFTER);
-    drop(fixture);
+    target.kill().expect("the target is terminated");
+    target.wait().expect("the target is reaped");
 
     let result = receiver
         .recv_timeout(RECV_TIMEOUT)

@@ -128,7 +128,8 @@ test('the npm table check passes for both Linux keys and refuses any other key',
 
 test('the combined check fails when any one channel fails', { skip: POSIX_ONLY }, () => {
   const good = { cli: cliArchive(), ffi: ffiArchive() };
-  assert.equal(run('all', good.cli, good.ffi, 'linux-x64').code, 0);
+  const passing = run('all', good.cli, good.ffi, 'linux-x64');
+  assert.equal(passing.code, 0, passing.out);
   assert.equal(run('all', cliArchive({ omit: [HELPER] }), good.ffi, 'linux-x64').code, 1);
   assert.equal(run('all', good.cli, ffiArchive({ omit: [`lib/${HELPER}`] }), 'linux-x64').code, 1);
 });

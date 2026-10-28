@@ -218,8 +218,21 @@ mod tests {
         assert!(lock_file(&path).unwrap().is_none());
         child.kill().unwrap();
         child.wait().unwrap();
-        assert!(lock_file(&path).unwrap().is_some());
+        assert!(lock_released_within(&path, Duration::from_secs(10)));
         std::fs::remove_file(&path).unwrap();
+    }
+
+    fn lock_released_within(path: &Path, limit: Duration) -> bool {
+        let give_up = Instant::now() + limit;
+        loop {
+            if lock_file(path).unwrap().is_some() {
+                return true;
+            }
+            if Instant::now() >= give_up {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
 
     #[test]

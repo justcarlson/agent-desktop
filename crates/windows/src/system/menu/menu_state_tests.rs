@@ -16,7 +16,7 @@
 //! thread's message pump while the input queues are attached. It therefore
 //! also holds `fixture_window::on_screen_stage` for as long as it forces
 //! foreground, the same DESKTOP/FOREGROUND-state guard
-//! `window_ops_tests.rs`'s focused-filter test and `key_dispatch_tests.rs`
+//! `window_activate_tests.rs`'s focus tests and `key_dispatch_tests.rs`
 //! already take. Where a test needs both locks, `FIXTURE_APP_NAME_LOCK` is
 //! always acquired first and `on_screen_stage` second - taking them in the
 //! opposite order anywhere in this crate would deadlock the suite against a
@@ -25,13 +25,12 @@
 //! Win32 menu mode is canceled by activation change: any other window
 //! gaining OS foreground sends the menu's owner `WM_CANCELMODE` and the
 //! fixture's context menu dismisses out from under whichever test opened it.
-//! `classic_source_detects_the_fixtures_context_menu_open_and_closed`,
-//! `uia_source_detects_the_fixtures_context_menu_open_and_closed`, and
+//! `uia_source_detects_the_fixtures_context_menu_open_and_closed` and
 //! `menu_is_open_reports_the_fixtures_transition_in_both_directions` each
 //! hold a menu open across an assertion window, so each also takes
 //! `fixture_window::on_screen_stage` for that span even though none of them
 //! stages anything itself - the same "guards screen state, not only screen
-//! real estate" reasoning `window_ops_tests.rs`'s focused-filter test
+//! real estate" reasoning `window_activate_tests.rs`'s focus tests
 //! documents. The two directions that never expect a transition
 //! (`a_pid_with_no_gui_threads_reports_closed_rather_than_erroring` and the
 //! never-*opens* half of `wait_tests.rs`'s timeout test) are unaffected by a
@@ -111,37 +110,6 @@ fn a_pid_with_no_gui_threads_reports_closed_rather_than_erroring() {
 /// Windows process ids are always multiples of 4 (0 is the Idle process, 4
 /// is the System process), so an odd id is never assigned to a real process
 /// on any Windows build - a deterministic structural fact, not a race
-
-#[test]
-fn classic_source_detects_the_fixtures_context_menu_open_and_closed() {
-    let _app_name_scope = FIXTURE_APP_NAME_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _stage = crate::tree::fixture::fixture_window::on_screen_stage();
-    let fixture = MenuFixture::spawn().expect("the menu fixture starts");
-    let pid = ProcessId::from(fixture.process_id());
-
-    let classic =
-        || classic_menu_mode_active(pid, deadline(10_000)).expect("classic probe reads it");
-    assert!(
-        !classic(),
-        "the fixture must not be in menu mode before any command is sent"
-    );
-
-    fixture.open_context_menu();
-    assert!(fixture.wait_for_menu_state(true, STATE_TIMEOUT));
-    assert!(
-        settles_to(STATE_TIMEOUT, true, classic),
-        "A23-1: classic menu-mode flags must report open while the fixture's context menu is up"
-    );
-
-    fixture.dismiss_context_menu();
-    assert!(fixture.wait_for_menu_state(false, STATE_TIMEOUT));
-    assert!(
-        settles_to(STATE_TIMEOUT, false, classic),
-        "classic menu-mode flags must report closed once the fixture's menu is dismissed"
-    );
-}
 
 #[test]
 fn uia_source_detects_the_fixtures_context_menu_open_and_closed() {

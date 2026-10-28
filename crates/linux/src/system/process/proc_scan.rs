@@ -53,6 +53,16 @@ pub(crate) fn find_running(query: &str) -> Option<(u32, String)> {
 }
 
 fn find_in_session(query: &str, session: &SessionKey) -> Option<(u32, String)> {
+    find_with_environ(query, session, &|pid| {
+        std::fs::read(format!("/proc/{pid}/environ")).ok()
+    })
+}
+
+fn find_with_environ(
+    query: &str,
+    session: &SessionKey,
+    environ_of: &dyn Fn(u32) -> Option<Vec<u8>>,
+) -> Option<(u32, String)> {
     let index = current_index();
     std::fs::read_dir("/proc")
         .ok()?
@@ -60,11 +70,7 @@ fn find_in_session(query: &str, session: &SessionKey) -> Option<(u32, String)> {
         .filter_map(|entry| entry.file_name().to_string_lossy().parse::<u32>().ok())
         .find_map(|pid| {
             if (session.bus.is_some() || session.runtime.is_some())
-                && !session.owns(
-                    std::fs::read(format!("/proc/{pid}/environ"))
-                        .ok()
-                        .as_deref(),
-                )
+                && !session.owns(environ_of(pid).as_deref())
             {
                 return None;
             }

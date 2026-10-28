@@ -11,7 +11,7 @@ const LIVE_STAGE_VARIABLE: &str = "AGENT_DESKTOP_LIVE_WPF";
 
 use crate::system::fixture::test_time::deadline;
 
-use crate::system::capture::capture_test_support::sample_rgb;
+use crate::system::capture::capture_test_support::{live_graphics_capture_lock, sample_rgb};
 
 fn skip_unless_live_staging(reason: &str) -> bool {
     if std::env::var_os(LIVE_STAGE_VARIABLE).is_none() {
@@ -87,6 +87,7 @@ fn live_legacy_pattern_fixture_matches_and_invert_fails_when_stageable() {
 
 #[test]
 fn live_modern_pattern_fixture_matches_when_supported_and_stageable() {
+    let _capture = live_graphics_capture_lock();
     bootstrap();
     if skip_unless_live_staging("modern pattern capture") {
         return;
